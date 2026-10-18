@@ -1,6 +1,7 @@
 #include "common/catalogue.h"
 #include "common/ini.h"
 #include "common/launch.h"
+#include "common/data_import.h"
 #include "common/settings.h"
 #include "artwork.h"
 #include <Windows.h>
@@ -27,6 +28,7 @@ using Microsoft::WRL::ComPtr;
 using namespace cave;
 namespace {
 constexpr UINT kWorkDone=WM_APP+1;
+constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT_PTR kChildTimer=1;
 constexpr wchar_t kWindowClass[]=L"CavePCCollection.Launcher.v1";
 void Check(HRESULT status,const char* operation) {
@@ -273,10 +275,13 @@ class Renderer {
 };
 struct Work {
   std::atomic<bool> alive{true};
+  std::atomic<bool> cancelled{false};
+  std::atomic<uint64_t> copied{},total{};
   std::vector<Row> rows;
   std::optional<LaunchSpec> launch;
+  std::optional<CopyResult> copy_result;
   std::string error;
-  bool starting{};
+  bool starting{},copying{};
 };
 class App {
  public:
@@ -284,14 +289,17 @@ class App {
     EnsureConfig(options.root);for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
   }
   ~App() {if(work)work->alive=false;if(worker.joinable())worker.detach();}
-  void Refresh(bool launch=false) {
+  void Refresh(bool launch=false,const fs::path& copy_source={}) {
     if (busy || child) return;
     if (worker.joinable()) worker.join();
-    busy=true;work=std::make_shared<Work>();work->starting=launch;
+    busy=true;work=std::make_shared<Work>();work->starting=launch;work->copying=!copy_source.empty();
     const auto task=work;const auto root=options.root;const auto id=std::string(Catalogue()[selected].id);const auto profile=options.profile;
     const auto window=hwnd;const auto data=options.data;
-    worker=std::thread([task,root,id,profile,window,data] {
+    worker=std::thread([task,root,id,profile,window,data,copy_source] {
       try {
+        if(task->copying) task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,
+            [task,window](uint64_t done,uint64_t total){task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);},
+            [task]{return task->cancelled.load();});
         task->rows=InspectRows(root);
         if (task->starting) task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(root/"config.ini"),profile,data);
       } catch(const std::exception& error) {task->error=error.what();}
@@ -302,6 +310,7 @@ class App {
   void Complete() {
     if(worker.joinable())worker.join();busy=false;
     if (!work) return;
+    if(close_requested){work.reset();DestroyWindow(hwnd);return;}
     if (!work->rows.empty()) rows=std::move(work->rows);
     try {
       if(!work->error.empty())throw std::runtime_error(work->error);
@@ -310,30 +319,52 @@ class App {
         active_game=work->launch->game;
         message=L"正在运行："+Wide(FindGame(work->launch->game).name);SetTimer(hwnd,kChildTimer,250,nullptr);
         Log(options.root,"launch game="+work->launch->game+" pid="+std::to_string(child->pid()));
+      } else if(work->copy_result) {
+        message=L"数据已复制并逐文件校验，配置已更新";
+        Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
       } else {message=L"↑ ↓ 选择 · Enter 启动 · F5 刷新";}
-    }catch(const std::exception& error){message=L"无法启动，请检查数据和运行组件";Log(options.root,error.what());Error(hwnd,error.what());}
+    }catch(const std::exception& error){message=work->copying?L"数据复制未完成，请查看详细信息":L"无法启动，请检查数据和运行组件";Log(options.root,error.what());Error(hwnd,error.what());}
     work.reset();InvalidateRect(hwnd,nullptr,FALSE);
   }
   void ChildTick() {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
+      const auto detail=L"游戏异常退出（退出码 "+std::to_wstring(*code)+L"）。\n\n日志目录：logs/"+Wide(active_game)+L"/\n启动器可以继续使用。";
       Log(options.root,"child-exit code="+std::to_string(*code));
       message=*code?L"游戏异常退出，请查看该游戏的日志":L"游戏已退出";
       child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);InvalidateRect(hwnd,nullptr,FALSE);
-      if(*code)MessageBoxW(hwnd,L"游戏已退出。日志保存在 logs/<游戏 ID>/，启动器可以继续使用。",L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
+      if(*code)MessageBoxW(hwnd,detail.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
     }
   }
-  void Choose() {
+  void Choose(bool copy=false) {
     if(busy||child||Catalogue()[selected].coming_soon)return;
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
     Check(dialog->SetOptions(flags|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure directory picker");
-    dialog->SetTitle(L"选择游戏原始数据目录（不会移动或修改文件）");
+    dialog->SetTitle(copy?L"选择要复制到合集的游戏原始数据目录":L"选择游戏原始数据目录（不会移动或修改文件）");
     const auto result=dialog->Show(hwnd);if(result==HRESULT_FROM_WIN32(ERROR_CANCELLED))return;Check(result,"Select game data directory");
     ComPtr<IShellItem> item;Check(dialog->GetResult(&item),"Read selected directory");
     PWSTR value{};Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected directory path");
-    fs::path path(value);CoTaskMemFree(value);SetDataDirectory(options.root,Catalogue()[selected],path);
+    fs::path path(value);CoTaskMemFree(value);
+    if(copy) {
+      const auto target=DataChild(options.root,Catalogue()[selected].data_dir);
+      const auto prompt=L"将完整复制并校验游戏数据。\n\n来源："+path.native()+L"\n目标："+target.native()+
+          L"\n\n不会移动或修改源文件。目标必须为空，不会合并或覆盖已有文件。\n继续吗？";
+      if(MessageBoxW(hwnd,prompt.c_str(),L"复制到合集",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
+      message=L"正在校验源数据…";Refresh(false,path);return;
+    }
+    SetDataDirectory(options.root,Catalogue()[selected],path);
     Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
+  }
+  void DataMenu() {
+    if(busy||child||Catalogue()[selected].coming_soon)return;
+    const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create data menu");
+    AppendMenuW(menu,MF_STRING,1,L"选择数据目录…");
+    AppendMenuW(menu,Catalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,L"复制到合集…");
+    const auto rectangle=layout.data();const auto scale=float(GetDpiForWindow(hwnd))/96;
+    POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.top*scale)};ClientToScreen(hwnd,&anchor);
+    const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_LEFTALIGN|TPM_BOTTOMALIGN,anchor.x,anchor.y,0,hwnd,nullptr);
+    DestroyMenu(menu);if(selection)Choose(selection==2);
   }
   void EnsureVisible() {
     const auto top=float(selected)*(layout.row_height()+12),bottom=top+layout.row_height();
@@ -374,7 +405,7 @@ class App {
     InvalidateRect(hwnd,nullptr,FALSE);
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.logs(),x,y)) {const auto logs=LogDirectory(options.root);if(!fs::exists(logs))fs::create_directories(logs);OpenPath(hwnd,logs);return;}
-    if(Inside(layout.data(),x,y)) {Choose();return;}
+    if(Inside(layout.data(),x,y)) {DataMenu();return;}
     if(Inside(layout.refresh(),x,y)) {Refresh();return;}
     if(y<layout.header() || y>layout.height-62)return;
     for(size_t index=0;index<rows.size();++index) if(Inside(layout.card(index),x,y)) {
@@ -425,8 +456,16 @@ class App {
           else if(first==VK_NEXT)app->Scroll(app->layout.viewport_height());
           return 0;
         case kWorkDone:app->Complete();return 0;
+        case kCopyProgress:
+          if(app->work && app->work->copying && !app->close_requested) {
+            const auto total=app->work->total.load(),copied=app->work->copied.load();
+            app->message=L"正在复制并校验数据… "+std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
+            InvalidateRect(window,nullptr,FALSE);
+          }return 0;
         case WM_TIMER:app->ChildTick();return 0;
-        case WM_CLOSE:if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
+        case WM_CLOSE:
+          if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=L"正在取消复制，请稍候…";InvalidateRect(window,nullptr,FALSE);return 0;}
+          if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
         case WM_DESTROY:if(app->work)app->work->alive=false;PostQuitMessage(0);return 0;
       }
     }catch(const std::exception& error){Log(app->options.root,error.what());Error(window,error.what());return 0;}
@@ -442,6 +481,7 @@ class App {
   int focus{};
   bool busy{};
   bool paint_recorded{};
+  bool close_requested{};
   std::wstring message=L"正在检测游戏数据…";
   ComPtr<ID2D1DCRenderTarget> surface;
   std::shared_ptr<Work> work;

@@ -109,7 +109,8 @@ void SetDataDirectory(const fs::path& root,const Game& game,const fs::path& requ
   const auto config=EnsureConfig(root);
   const auto before=Ini::ReadText(config);
   const auto ini=Ini::Parse(before);
-  const auto value=Utf8(data);
+  const auto base=fs::canonical(root);
+  const auto value=Utf8(Within(data,base)?data.lexically_relative(base):data);
   if (value.find_first_of("\r\n")!=value.npos) throw std::runtime_error("Invalid INI directory value");
   const auto section="game."+std::string(game.id);
   std::string after=before;

@@ -1,4 +1,5 @@
 #include "common/launch.h"
+#include "common/data_import.h"
 #include "common/settings.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -80,6 +81,10 @@ void ConfigChecks(Fixture& fixture) {
   Reject([&]{SetDataDirectory(fixture.root,game,fixture.root);},"Picker accepted read/write overlap");
   Require(Ini::ReadText(config)==before,"Rejected selection modified config.ini");
   Reject([&]{SetDataDirectory(fixture.root,game,fixture.data/"absent");},"Picker accepted nonexistent directory");
+  const auto local=fixture.root/"local data";fs::create_directory(local);
+  SetDataDirectory(fixture.root,game,local);
+  Require(Ini::Load(config).DataDirectory(game)=="local data","Collection-local path was not portable");
+  SetDataDirectory(fixture.root,game,fixture.data);
   for(const auto& item:fs::directory_iterator(fixture.root))
     Require(!item.path().filename().native().starts_with(L"config.ini.pending-"),"Configuration temporary leaked");
 }
@@ -131,11 +136,74 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
     ChildProcess moved(std::move(child));Require(moved.ExitCode()==code,"Moving process handle lost status");
   }
 }
+Game SyntheticCopyGame() {
+  constexpr std::string_view hash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  static const std::array files{DataFile{"main.bin",3,hash,true}};
+  return {"fixture","Synthetic data","xbox360","game-data/fixture","unused.exe",true,false,files,{}};
+}
+void CopyChecks() {
+  constexpr std::string_view hash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  auto game=SyntheticCopyGame();
+  for(int scenario=0;scenario<9;++scenario) {
+    Fixture fixture;Write(fixture.data/"main.bin","abc");Write(fixture.data/"res/extra.dat","extra");
+    Write(fixture.data/"zero.bin","");fs::create_directories(fixture.data/"empty directory");
+    const auto target=fixture.root/"game-data/fixture",config=fixture.root/"config.ini";
+    Write(config,"; preserved\n[future]\nvalue=keep\n");const auto config_hash=Sha256(config);
+    bool cancel=false,changed=false;
+    struct RestoreAttributes {
+      fs::path file;DWORD attributes{};
+      ~RestoreAttributes(){if(!file.empty())SetFileAttributesW(file.c_str(),attributes);}
+    } restore;
+    if(scenario==8) {
+      restore.file=fixture.data/"main.bin";restore.attributes=GetFileAttributesW(restore.file.c_str());
+      Require(SetFileAttributesW(restore.file.c_str(),restore.attributes|FILE_ATTRIBUTE_READONLY),"Cannot create readonly source fixture");
+    }
+    if(scenario==1)fs::create_directories(target);
+    if(scenario==2)Write(target/"existing.txt","preserve this");
+    if(scenario==3)Write(fixture.data/"main.bin","xyz");
+    if(scenario==4)cancel=true;
+    auto progress=[&](uint64_t done,uint64_t total) {
+      if(!done || changed)return;
+      if(scenario==5 || scenario==8){cancel=true;changed=true;}
+      if(scenario==6 && done==total){Write(fixture.data/"res/extra.dat","edits");changed=true;}
+      if(scenario==7 && done==total){fs::rename(fixture.data/"res/extra.dat",fixture.data/"res/renamed.dat");changed=true;}
+    };
+    auto copy=[&]{return CopyDataToCollection(fixture.root,game,fixture.data,progress,[&]{return cancel;});};
+    if(scenario<2) {
+      const auto result=copy();
+      Require(result.directory==target && result.files==3 && result.bytes==8,"Copied inventory/byte count differs");
+      Require(Ini::Load(config).DataDirectory(game)=="game-data/fixture" &&
+              Resolve(fixture.root,Ini::Load(config).DataDirectory(game))==target,"Copied path is not portable/root-relative");
+      Require(Ini::ReadText(config).starts_with("; preserved\n[future]\nvalue=keep\n"),"Copy rewrote existing configuration");
+      Require(Sha256(target/"main.bin")==hash && Ini::ReadText(target/"res/extra.dat")=="extra" &&
+              fs::file_size(target/"zero.bin")==0 && fs::is_directory(target/"empty directory"),"Copy lost data or empty directories");
+      Require(Sha256(fixture.data/"main.bin")==hash && Ini::ReadText(fixture.data/"res/extra.dat")=="extra","Copy modified source bytes");
+    } else {
+      Reject(copy,"Unsafe, corrupt or cancelled copy was published");
+      Require(Sha256(config)==config_hash,"Failed copy changed configuration");
+      if(scenario==2)Require(Ini::ReadText(target/"existing.txt")=="preserve this","Nonempty target was overwritten");
+      else Require(!fs::exists(target),"Failed copy left an installed target");
+    }
+    if(fs::exists(target.parent_path()))for(const auto& item:fs::directory_iterator(target.parent_path()))
+      Require(!item.path().filename().native().starts_with(L".copy-"),"Owned copy staging directory leaked");
+    if(scenario==8)Require(GetFileAttributesW(restore.file.c_str())&FILE_ATTRIBUTE_READONLY,"Source read-only attribute changed");
+    Reject([&]{CopyDataToCollection(fixture.root,game,target);},"Source/target identity accepted");
+  }
+  Fixture overlap;Write(overlap.data/"main.bin","abc");
+  Reject([&]{CopyDataToCollection(overlap.root,game,overlap.root);},"Copy accepted source containing target");
+  game.coming_soon=true;Reject([&]{CopyDataToCollection(overlap.root,game,overlap.data);},"Coming Soon copy was accepted");
+}
 }
 int wmain(int count,wchar_t** arguments) {
   try {
     if(count>1 && std::wstring_view(arguments[1])==L"--fixture-child")return Child(count,arguments);
-    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));
-    std::cout<<checks<<" launch/config/process checks passed; only synthetic helper processes executed.\n";return 0;
+    if(count==4 && std::wstring_view(arguments[1])==L"--copy-fixture") {
+      // Exposes only an authored abc/main.bin fixture for Python junction tests.
+      const auto result=CopyDataToCollection(arguments[2],SyntheticCopyGame(),arguments[3]);
+      std::cout<<result.files<<" synthetic files copied\n";return 0;
+    }
+    if(count!=1)throw std::runtime_error("Unknown synthetic test mode");
+    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();
+    std::cout<<checks<<" launch/config/process/data-copy checks passed; only synthetic helper processes executed.\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }
