@@ -12,6 +12,9 @@
 /cache/
 /user-data*/
 /config.ini
+/config.ini.*
+/CAVE-PC-Collection.exe
+/CAVE-PC-Collection.pdb
 /local.settings.json
 /tools/apps/
 /tools/downloads/

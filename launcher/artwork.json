@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "assets": [
+    {
+      "game": "futari",
+      "path": "launcher/assets/futari.jpg",
+      "sha256": "deb7097c249c2b6f77e5fe3cad309eff858af9f8105f541a90c4c2b955a15aaf",
+      "resource": 101,
+      "focusY": 0,
+      "kicker": "XBOX 360 · 2009",
+      "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/mushihime2/",
+      "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/mushihime2/imgs/topimg_02.jpg",
+      "copyright": "©2006,2009 CAVE CO., LTD.",
+      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
+    },
+    {
+      "game": "espgaluda2",
+      "path": "launcher/assets/espgaluda2.jpg",
+      "sha256": "3ea98164208a37b53b38e3aa8684e5c31f22aa09827518e3664fde6c327d69dd",
+      "resource": 102,
+      "focusY": 0.28,
+      "kicker": "XBOX 360 · 2010",
+      "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/espgaluda2/",
+      "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/espgaluda2/character/img/seseri.jpg",
+      "copyright": "©2005–2010 CAVE CO., LTD.",
+      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
+    },
+    {
+      "game": "ketsui",
+      "path": "launcher/assets/ketsui.png",
+      "sha256": "006737cb4eb290839538386d004bc34a8c2b92a020e00596151f06b96c33b48e",
+      "resource": 103,
+      "focusY": 0.3,
+      "kicker": "PS4 · 2018",
+      "sourcePage": "https://m2stg.com/ketsui/",
+      "sourceUrl": "https://m2stg.com/ketsui/assets/img/mainimage_pc_15.png",
+      "copyright": "©CAVE Interactive CO., LTD. / M2 Co., Ltd.",
+      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
+    },
+    {
+      "game": "daioujou",
+      "path": "launcher/assets/daioujou.jpg",
+      "sha256": "5355e708e0038b9b077fe9d91263acda3d6d19aafdf70ec1cb38f4edfef1c241",
+      "resource": 104,
+      "focusY": 0.5,
+      "kicker": "NEXT IN THE COLLECTION",
+      "sourcePage": "https://m2stg.com/daioujou/",
+      "sourceUrl": "https://m2stg.com/daioujou/assets/img/m2stg_daioujou_social_image.jpg",
+      "copyright": "©2002 CAVE Interactive CO., LTD. / ©2023 M2 Co., Ltd.",
+      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
+    },
+    {
+      "game": "esprade",
+      "path": "launcher/assets/esprade.jpg",
+      "sha256": "b2ae1c30532ea4297abfa1511a7e025bff5b9ed6b8dfc7bda3ddd7736c4177be",
+      "resource": 105,
+      "focusY": 0.43,
+      "kicker": "NEXT IN THE COLLECTION",
+      "sourcePage": "https://m2stg.com/esprade/",
+      "sourceUrl": "https://m2stg.com/esprade/assets/img/m2stg_esp_social_image_1908.jpg",
+      "copyright": "©ATLUS / SEGA / CAVE / M2 Co., Ltd.",
+      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
+    }
+  ]
+}

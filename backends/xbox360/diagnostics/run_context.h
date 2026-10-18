@@ -1,6 +1,7 @@
 #pragma once
 #include "config/settings.h"
 #include "common/paths.h"
+#include "common/launch.h"
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -12,6 +13,7 @@ struct RunContext {
     std::string source_build;
     cave::GamePaths paths;
     std::shared_ptr<void> profile_lock;
+    std::shared_ptr<cave::GameSession> game_session;
 };
 std::string Sha256File(const std::filesystem::path& file);
 std::string Sha256Text(std::string_view text);

@@ -171,6 +171,10 @@ Settings LoadSettings(const fs::path& path, std::string_view game_id) {
 std::string_view DefaultConfig() { return kDefaultConfig; }
 fs::path EnsureConfig(const fs::path& requested_root) {
     const auto root=fs::canonical(requested_root);
+    const auto literal=root/"config.ini";
+    const auto attributes=GetFileAttributesW(literal.c_str());
+    if (attributes!=INVALID_FILE_ATTRIBUTES && (attributes&FILE_ATTRIBUTE_REPARSE_POINT))
+        throw std::runtime_error("config.ini must be a local file, not a file link");
     const auto path=Resolve(root,L"config.ini");
     if (!Within(path,root)) throw std::runtime_error("config.ini must stay inside the collection");
     if (fs::exists(path)) {

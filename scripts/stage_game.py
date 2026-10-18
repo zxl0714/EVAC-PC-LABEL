@@ -15,7 +15,10 @@ def stage():
     game=next(item for item in load(ROOT/'games/catalogue.json') if item['id']=='espgaluda2')
     certified={item['path']:item for item in receipt['outputs']}
     files=[]
+    certificate='runtime/games/espgaluda2/runtime-manifest.ini'
     for name in game['runtimeFiles']:
+        if name==certificate:
+            continue
         target=ROOT/name
         for destination in (target,target.with_suffix('.pdb')):
             source=output_root('host')/destination.name
@@ -39,7 +42,15 @@ def stage():
         outputs.append(dict(path=target.relative_to(ROOT).as_posix(),bytes=expected['bytes'],sha256=expected['sha256']))
     write_json_new(manifest,dict(format=1,game='espgaluda2',sourceCommit=receipt['sourceCommit'],
         sourceSnapshotSha256=receipt['sourceSnapshot']['sha256'],files=outputs,gameDataIncluded=False))
-    print(json.dumps(dict(stagedFiles=len(outputs),gameDataIncluded=False),indent=2))
+    # Player-safe certificate excludes PDB paths and machine-local directories.
+    lines=['[runtime]','contract = 1','game = espgaluda2','source_commit = '+receipt['sourceCommit'],'','[files]']
+    for item in outputs:
+        if not item['path'].endswith('.pdb'):
+            lines.append(item['path']+' = '+item['sha256'])
+    certificate_path=ROOT/certificate
+    reject_link(certificate_path)
+    certificate_path.write_text('\n'.join(lines)+'\n',encoding='utf-8',newline='\n')
+    print(json.dumps(dict(stagedFiles=len(outputs)+1,gameDataIncluded=False),indent=2))
 
 
 if __name__=='__main__':

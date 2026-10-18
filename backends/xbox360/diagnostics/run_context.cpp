@@ -113,6 +113,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
             throw std::runtime_error("[community].nickname requires 1..48 UTF-8 bytes after normalization, without invisible controls");
     }
     run.source_build=std::string(kSourceCommit)+(kSourceDirty=="true"?"+dirty":"");
+    run.game_session=std::make_shared<cave::GameSession>(run.root);
     fs::create_directories(run.profile);
     const auto lock=CreateFileW((run.profile/".profile.lock").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,
         nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN|FILE_FLAG_DELETE_ON_CLOSE,nullptr);

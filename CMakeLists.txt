@@ -16,7 +16,7 @@ add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/catalogue_generated.h"
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/generate_catalogue.py"
     "${CATALOGUE}" "${CMAKE_BINARY_DIR}/include/catalogue_generated.h"
   DEPENDS "${CATALOGUE}" ${DATA_MANIFESTS} scripts/generate_catalogue.py VERBATIM)
-add_library(cave_common STATIC common/catalogue.cpp common/ini.cpp common/paths.cpp common/settings.cpp
+add_library(cave_common STATIC common/catalogue.cpp common/ini.cpp common/paths.cpp common/settings.cpp common/launch.cpp
   "${CMAKE_BINARY_DIR}/include/catalogue_generated.h")
 target_include_directories(cave_common PUBLIC "${CMAKE_SOURCE_DIR}" PRIVATE "${CMAKE_BINARY_DIR}/include")
 target_compile_definitions(cave_common PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -30,10 +30,28 @@ add_executable(cave_inspect common/inspect_main.cpp common/windows.manifest)
 target_link_libraries(cave_inspect PRIVATE cave_common)
 add_executable(cave_common_tests tests/common_test.cpp)
 target_link_libraries(cave_common_tests PRIVATE cave_common)
+add_executable(cave_launch_tests tests/launch_test.cpp)
+target_link_libraries(cave_launch_tests PRIVATE cave_common)
 enable_testing()
 add_test(NAME common COMMAND cave_common_tests)
+add_test(NAME launch COMMAND cave_launch_tests)
+set_tests_properties(launch PROPERTIES TIMEOUT 45)
 add_test(NAME source COMMAND "${Python3_EXECUTABLE}" -m unittest discover -s tests -v)
 set_tests_properties(source PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+option(CAVE_BUILD_LAUNCHER "Build the native collection launcher" ON)
+if(CAVE_BUILD_LAUNCHER)
+  enable_language(RC)
+  file(GLOB LAUNCHER_ART CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/launcher/assets/*")
+  add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/generate_artwork.py"
+      "${CMAKE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/include"
+    DEPENDS launcher/artwork.json scripts/generate_artwork.py scripts/generate_catalogue.py ${CATALOGUE} ${LAUNCHER_ART} VERBATIM)
+  add_executable(cave_launcher WIN32 launcher/main.cpp "${CMAKE_BINARY_DIR}/include/artwork.rc" "${CMAKE_BINARY_DIR}/include/artwork.h")
+  set_target_properties(cave_launcher PROPERTIES OUTPUT_NAME "CAVE-PC-Collection")
+  target_include_directories(cave_launcher PRIVATE "${CMAKE_BINARY_DIR}/include")
+  target_link_libraries(cave_launcher PRIVATE cave_common d2d1 dwrite windowscodecs ole32 shell32)
+  target_link_options(cave_launcher PRIVATE "LINKER:/MANIFEST:EMBED" "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/common/windows.manifest")
+endif()
 set(CAVE_GAMES "" CACHE STRING "Games to build; empty builds only common components")
 foreach(game IN LISTS CAVE_GAMES)
   if(NOT game STREQUAL "espgaluda2")

@@ -4,6 +4,7 @@ param(
     [ValidateRange(1,8)][int]$Jobs=2,
     [ValidateSet('espgaluda2')][string[]]$Games=@(),
     [switch]$NativeOnly,
+    [switch]$LauncherOnly,
     [string]$DataDirectory
 )
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
@@ -14,6 +15,7 @@ try {
     Initialize-CollectionBuildEnvironment
     $cmake = Get-CollectionTool 'cmake'
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
+    if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
     $selected=@($Games | Sort-Object -Unique)
     $buildName=if (-not $selected.Count) { 'common' } elseif ($NativeOnly) { 'espgaluda2-native' } else { 'espgaluda2' }
     $build = Join-Path $CollectionRoot ('out/' + $buildName)
@@ -39,7 +41,16 @@ try {
             ('-DCAVE_BUILD_GAME=' + $(if ($NativeOnly) { 'OFF' } else { 'ON' })))
     }
     Invoke-Checked $cmake $configure
-    Invoke-Checked $cmake @('--build',$build,'--parallel',"$Jobs")
+    $targets=@('--build',$build,'--parallel',"$Jobs")
+    if ($LauncherOnly) { $targets+=@('--target','cave_launcher') }
+    Invoke-Checked $cmake $targets
+    foreach ($extension in @('exe','pdb')) {
+        $launcherSource=Join-Path $build "bin/CAVE-PC-Collection.$extension"
+        $launcherTarget=Join-Path $CollectionRoot "CAVE-PC-Collection.$extension"
+        if ((Test-Path -LiteralPath $launcherTarget) -and
+            (Get-FileHash -LiteralPath $launcherSource).Hash -eq (Get-FileHash -LiteralPath $launcherTarget).Hash) { continue }
+        Copy-Item -LiteralPath $launcherSource -Destination $launcherTarget
+    }
     if ($selected.Count -and -not $NativeOnly) {
         # GPU plugins are loaded at runtime: refresh them even on a no-op host build.
         foreach ($component in @('rexruntime','rexgpu-xenos')) {

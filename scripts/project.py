@@ -11,7 +11,7 @@ LOCAL = {'.local', '.deps', 'game-data', 'prepared', 'generated', 'runtime', 'ou
          'build', 'releases', 'reports', 'logs', 'cache', 'source'}
 TEXT = {'.py', '.ps1', '.md', '.txt', '.json', '.ini', '.cpp', '.h', '.hpp', '.c',
         '.cmake', '.toml', '.in', '.manifest', '.yml', '.yaml', '.bat', '.gitignore',
-        '.s', '.inc', '.inja', '.glsl', '.hlsl', '.psm1', '.psd1'}
+        '.s', '.inc', '.inja', '.glsl', '.hlsl', '.psm1', '.psd1', '.html', '.rc'}
 SECRET = re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|'
                     rb'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}')
 
@@ -51,6 +51,8 @@ def audit_source(root=ROOT):
     expected_links = {item['path']: item['commit'] for item in locked_modules(root)}
     if actual_links != expected_links:
         raise ValueError('SDK dependency index differs from its source lock')
+    from generate_artwork import artwork
+    art={entry['path'] for entry in artwork(root)}
     count, total = 0, 0
     for name in names:
         if name in actual_links:
@@ -61,6 +63,10 @@ def audit_source(root=ROOT):
             raise ValueError(f'Local data in source selection: {name}')
         path = root / name
         reject_link(path)
+        if name in art:
+            count+=1
+            total+=path.stat().st_size
+            continue
         if (not path.is_file() or path.stat().st_size > 5 * 1024 * 1024 or
                 (path.suffix.lower() not in TEXT and path.name not in
                  {'.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
@@ -72,7 +78,7 @@ def audit_source(root=ROOT):
         data.decode('utf-8-sig')
         count += 1
         total += len(data)
-    return dict(files=count, bytes=total, submodules=len(actual_links), gameDataIncluded=False)
+    return dict(files=count, bytes=total, submodules=len(actual_links), artworkFiles=len(art), gameDataIncluded=False)
 
 
 if __name__ == '__main__':
