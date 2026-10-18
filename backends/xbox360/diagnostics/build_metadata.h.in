@@ -1,7 +1,6 @@
 #pragma once
 #include <string_view>
 namespace espgaluda2 {
-inline constexpr std::string_view kDefaultIni = R"g2ini(@G2_DEFAULT_INI@)g2ini";
 inline constexpr std::string_view kXexMetadata = R"g2xex(@G2_XEX_METADATA@)g2xex";
 inline constexpr std::string_view kSourceCommit = "@G2_SOURCE_COMMIT@";
 inline constexpr std::string_view kSourceDirty = "@G2_SOURCE_DIRTY@";

@@ -1,12 +1,12 @@
 # Every overlay is a separate native library with its own guest address map.
 function(espgaluda2_add_overlay name)
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/generated/${name}/sources.cmake")
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/generated/espgaluda2/${name}/sources.cmake")
         message(FATAL_ERROR "Missing generated overlay ${name}")
     endif()
-    include("${CMAKE_SOURCE_DIR}/generated/${name}/sources.cmake")
+    include("${CMAKE_SOURCE_DIR}/generated/espgaluda2/${name}/sources.cmake")
     add_library(espgaluda2_${name} SHARED ${GENERATED_SOURCES})
     target_include_directories(espgaluda2_${name} PRIVATE
-        "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/${name}")
+        "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/espgaluda2/${name}")
     target_compile_options(espgaluda2_${name} PRIVATE -fno-char8_t)
     target_link_libraries(espgaluda2_${name} PRIVATE rex::runtime)
     rexglue_configure_module_target(espgaluda2_${name} HOST espgaluda2)

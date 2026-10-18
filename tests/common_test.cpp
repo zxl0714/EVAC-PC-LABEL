@@ -1,6 +1,7 @@
 #include "common/catalogue.h"
 #include "common/ini.h"
 #include "common/paths.h"
+#include "common/settings.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -50,6 +51,52 @@ struct Fixture {
     }
   }
 };
+void SettingsChecks(Fixture& fixture) {
+    auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
+    const auto defaults=parse("");
+    const auto documented=parse(DefaultConfig());
+    Require(!defaults.fullscreen && defaults.vsync && defaults.gamepad_enabled && !defaults.community_enabled &&
+            defaults.volume==1 && defaults.deadzone==0.20 && defaults.nickname=="Player" &&
+            defaults.endpoint=="https://xiaolu.life/cave/api/v1", "Common built-in defaults");
+    for (size_t n=0; n<kButtons.size(); ++n)
+        Require(defaults.keyboard[n].keys==documented.keyboard[n].keys,"Template/button mapping differs");
+    Require(parse("\xef\xbb\xbf[DISPLAY]\r\nfullscreen=TRUE\r\n").fullscreen,"Settings BOM/case/CRLF");
+    auto multiple=parse("[keyboard]\nsouth=Z,Numpad0\nl3=none\n");
+    Require(multiple.keyboard[4].keys.size()==2 && multiple.keyboard[14].keys.empty(),"Multiple keys/disabled binding");
+    Require(parse("[community]\nnickname=大佐\n").nickname=="大佐","UTF-8 nickname");
+    Require(parse("[audio]\nvolume=0\n[gamepad]\ndeadzone=0\nenabled=false\n").volume==0,"Numeric zero");
+    auto overrides=parse("[display]\nfullscreen=true\nvsync=false\n[audio]\nvolume=.5\n"
+                         "[game.espgaluda2.display]\nfullscreen=false\n"
+                         "[game.espgaluda2.keyboard]\nsouth=Numpad0\n"
+                         "[game.futari.display]\nfullscreen=not-a-boolean\n"
+                         "[game.ketsui]\ndata_dir=\n");
+    Require(!overrides.fullscreen && !overrides.vsync && overrides.volume==.5 && overrides.keyboard[4].keys[0]==96,
+            "Public inheritance and selected-game override");
+    Reject([&] { ParseSettings("[game.futari.display]\nfullscreen=bad\n","futari"); },"Selected-game error ignored");
+    Reject([&] { parse("[display]\nfullscreen=bad\n[game.espgaluda2.display]\nfullscreen=true\n"); },
+           "Override hid malformed public value");
+    Require(KeyCode("Enter")==KeyCode("Return") && KeyCode("z")==90 && !KeyCode("Mouse5"),"Key aliases");
+    for (const auto* text : {
+        "[display]\nfullscreen=1", "[display]\nfullscreen=true ; inline", "[display]\noops=1",
+        "[gamepad]\ndeadzone=nan", "[gamepad]\ndeadzone=inf", "[gamepad]\ndeadzone=1",
+        "[gamepad]\ndeadzone=-.01", "[audio]\nvolume=1.1", "[audio]\nvolume=0garbage",
+        "[keyboard]\nsouth=", "[keyboard]\nsouth=Z,", "[keyboard]\nsouth=Z,z",
+        "[keyboard]\nstart=Enter,Return", "[keyboard]\nsouth=F8", "[keyboard]\nsouth=F11",
+        "[keyboard]\nsouth=Backtick", "[keyboard]\nsouth=none,Z", "[keyboard]\nsouth=Unknown",
+        "[keyboard]\nsouth=X", "[keyboard]\nwest=Z", "[keyboard]\nshot=Z", "[logging]\nlevel=quiet",
+        "[community]\nnickname=", "[community]\nendpoint=ftp://example.org", "[community]\nendpoint=https://bad host"})
+        Reject([&] { parse(text); },"Invalid setting accepted");
+    Reject([&] { parse(std::string("[community]\nnickname=")+char(0xff)); },"Invalid setting UTF-8");
+    Reject([&] { parse(std::string(1024*1024+1,' ')); },"Unbounded config accepted");
+    Require(!ValidUtf8(std::string("x\0y",3)) && !ValidUtf8("\xC0\x80") && !ValidUtf8("\xED\xA0\x80") &&
+            !ValidUtf8("\xF4\x90\x80\x80") && !ValidUtf8("\xE2\x82") && ValidUtf8("\xF0\x9F\x8E\xAE"),"UTF-8 bounds");
+    const auto path=EnsureConfig(fixture.root);
+    Require(path==fixture.root/"config.ini" && LoadSettings(path,"espgaluda2").nickname=="Player","First-launch configuration");
+    Write(path,"; preserve comments and future fields\n[future]\nextra=unchanged\n[community]\nnickname=友人\n");
+    const auto hash=Sha256(path);
+    EnsureConfig(fixture.root);
+    Require(Sha256(path)==hash && LoadSettings(path,"espgaluda2").nickname=="友人","Existing configuration was overwritten");
+}
 }  // namespace
 int main() {
   try {
@@ -104,6 +151,7 @@ int main() {
     Reject([&] { Ini::Parse("[game.fixture]\ndata_dir=\n").DataDirectory(game); }, "Empty selected path accepted");
     Reject([] { Ini::Parse(std::string("[x]\na=") + char(0xff)); }, "Invalid UTF-8 accepted");
     Require(inspect().state == "ready", "Other-game settings affected current title");
+    SettingsChecks(fixture);
     std::cout << checks << " native checks passed; fixture programs were not executed.\n";
     return 0;
   } catch (const std::exception& error) {

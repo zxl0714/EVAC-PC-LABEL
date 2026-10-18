@@ -32,7 +32,7 @@ py -3.12 scripts/project.py audit
 ./out/common/bin/cave_inspect.exe --root . --game espgaluda2 --data-dir 'D:/Games/G2' --full
 ```
 
-工具固定在 tools/packages.lock.json。Prepare-Tools.ps1 可显式使用 `-CacheFrom '<缓存的 apps 目录>'` 加速首次准备，之后编译只读取合集自己的 tools/apps，不依赖旧工程存在。普通构建默认低优先级、两个任务，不启动游戏。当前 Build.ps1 只构建公共组件；计划中的 -Games、-LauncherOnly 和 Release.ps1 在对应阶段接入，不要当作已实现命令。
+工具固定在 tools/packages.lock.json。Prepare-Tools.ps1 可显式使用 `-CacheFrom '<缓存的 apps 目录>'` 加速首次准备，之后编译只读取合集自己的 tools/apps，不依赖旧工程存在。普通构建默认低优先级、两个任务，不启动游戏。Build.ps1 默认只构建公共组件，`-Games espgaluda2 -NativeOnly` 构建无需 ROM 的 G2 平台测试／分析工具。游戏编译入口为 `-Games espgaluda2 -DataDirectory '<受支持的 G2 数据目录>'`；调用本工程的 SDK 重新生成主程序和七个 overlay，再编译并整理 runtime。该游玩入口当前仍在首次编译／验证，不把它写成已通过真实游戏。-LauncherOnly 和 Release.ps1 尚未实现。
 
 ## 检测语义
 
@@ -44,7 +44,7 @@ py -3.12 scripts/project.py audit
 
 G2 以 ESPGaluda2-PC 的 ba85ac0 为迁移起点。维护 SDK 在 third_party/rexglue，平台代码在 backends/xbox360，游戏适配、模块声明和工具在 games/espgaluda2；公共 HTTP 在 common/community。tests/fixtures/g2-default.ini 只是旧解析器的回归样本，不是第二份玩家配置。tools/references.json 记录来源，tools/sdk-source.lock.json 保留 SDK 的上游与虫姬二来源和固定依赖版本。
 
-SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `./scripts/Build-Sdk.ps1 -Jobs 2`。可显式加 `--cache-from '<已有相同布局的源码仓库>'` 加速依赖复制；新 Git 对象不借用旧目录，origin 保持官方地址。共 22 个顶层固定依赖和 3 个嵌套依赖。构建收据校验源文件、工具、依赖以及二进制和 PDB 身份；未成功构建时不会产生成功收据。当前宿主和模块的合集构建入口尚待接入，不要以 SDK 编译成功代替游戏验收。
+SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `./scripts/Build-Sdk.ps1 -Jobs 2`。可显式加 `--cache-from '<已有相同布局的源码仓库>'` 加速依赖复制；新 Git 对象不借用旧目录，origin 保持官方地址。共 22 个顶层固定依赖和 3 个嵌套依赖。SDK 已在合集目录独立编译，三个二进制／PDB 对校验通过。构建收据绑定源文件、工具、依赖、生成正文及二进制和 PDB 身份；未成功构建时不会产生成功收据。宿主与模式模块仍需真实运行验收，不要以 SDK 编译成功代替游戏验收。
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 最终供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。当前模板联网关闭，正式合集 API 部署后再开启发行默认值。
 

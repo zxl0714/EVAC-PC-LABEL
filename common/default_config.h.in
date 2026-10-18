@@ -1,0 +1,5 @@
+#pragma once
+#include <string_view>
+namespace cave {
+inline constexpr std::string_view kDefaultConfig=R"cave_ini(@CAVE_DEFAULT_INI@)cave_ini";
+}

@@ -13,12 +13,19 @@
 #include "diagnostics/crash_reporter.h"
 #include "input/configured_input.h"
 #include "community/g2_service.h"
+#include "common/catalogue.h"
 #include <cstdio>
 #include <optional>
 #include <stdexcept>
 #include <mmsystem.h>
 
 REXCVAR_DEFINE_STRING(project_root,"","ESPGaluda2","Project/package root; autodetected beside runtime when empty")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(collection_root,"","Collection","Collection/package root")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(game_id,"espgaluda2","Collection","Selected game ID")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(launch_contract,"1","Collection","Collection launch contract version")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(host_timer_precision,true,"Host","Request a scoped 1 ms Windows timer period while running")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
@@ -45,12 +52,14 @@ void Flag(const char* key,const std::string& value) {
     if (!rex::cvar::SetFlagByName(key,value)) throw std::runtime_error(std::string("Cannot apply runtime option: ")+key);
 }
 fs::path FindRoot() {
-    auto requested=rex::cvar::GetFlagByName("project_root");
+    auto requested=rex::cvar::GetFlagByName("collection_root");
+    if (requested.empty()) requested=rex::cvar::GetFlagByName("project_root");
     if (!requested.empty()) return fs::canonical(FromUtf8(requested));
     auto candidate=rex::filesystem::GetExecutableFolder();
     for (int level=0;level<5 && !candidate.empty();++level,candidate=candidate.parent_path())
-        if (fs::is_regular_file(candidate/"game-data/default.xex")) return fs::canonical(candidate);
-    throw std::runtime_error("Cannot find game-data/default.xex; use the root launch script");
+        if (fs::is_regular_file(candidate/"config.ini") || fs::is_regular_file(candidate/"games/catalogue.json"))
+            return fs::canonical(candidate);
+    throw std::runtime_error("Cannot find collection root; specify --collection_root");
 }
 class Shortcuts final : public rex::ui::WindowInputListener {
 public:
@@ -82,9 +91,13 @@ public:
 protected:
     bool SetupEnvironment() override {
         try {
+            if (REXCVAR_GET(game_id)!="espgaluda2" || REXCVAR_GET(launch_contract)!="1")
+                throw std::runtime_error("Unsupported game ID or launch contract");
             const auto profile=rex::cvar::GetFlagByName("user_data_root");
+            const auto data=rex::cvar::GetFlagByName("game_data_root");
             root_=FindRoot();
-            run_=espgaluda2::PrepareRun(root_,profile.empty()?fs::path{}:FromUtf8(profile));
+            run_=espgaluda2::PrepareRun(root_,profile.empty()?fs::path{}:FromUtf8(profile),
+                                      data.empty()?fs::path{}:FromUtf8(data));
             Flag("log_file",Utf8(run_->directory/"game.log"));
             Flag("log_level",run_->settings.log_level);
             Flag("log_async_file","true");
@@ -106,9 +119,9 @@ protected:
         }
     }
     void OnConfigurePaths(rex::PathConfig& paths) override {
-        paths.game_data_root=run_->root/"game-data";
+        paths.game_data_root=run_->paths.data;
         paths.user_data_root=run_->profile;
-        paths.cache_root=run_->profile/"cache";
+        paths.cache_root=run_->paths.cache;
         paths.metadata_root=run_->profile/"metadata";
         paths.update_data_root.clear();
         paths.config_path.clear(); // The base class must not read or write a second TOML config.
@@ -133,6 +146,7 @@ protected:
         config.input_factory=[settings](bool toolMode) {return espgaluda2::CreateConfiguredInput(settings,toolMode);};
     }
     void OnCreateDialogs(rex::ui::ImGuiDrawer*) override {
+        window()->SetTitle("CAVE PC Collection — "+std::string(cave::FindGame("espgaluda2").name));
         rex::ui::UnregisterBind("bind_settings"); // No alternate player config / save button.
         shortcuts_=std::make_unique<Shortcuts>(window());
     }

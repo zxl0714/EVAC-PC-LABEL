@@ -14,10 +14,10 @@ public deployment, physical input and extended coverage remain later work.
 Stable G2 frame pacing remains a playable-baseline gate; high host FPS is not
 proof of smooth gameplay. Keep guest cadence separate from host presentation.
 The user asks for proportionate optimization, not indefinite tuning of isolated
-millisecond peaks. The next implementation priority is G2 community/Live support
-before collection migration: native boards and score/replay handling, not just
-INI fields or an online flag. Establish native behavior first and reuse Futari's
-API-boundary approach. G2 writes scores before replays, unlike Futari. Persistent
+millisecond peaks. G2 community/Live's native board and score/replay baseline
+has passed; do not restart it as a prerequisite to migration. Continue P3's
+independent runtime build, shared configuration and launcher. G2 writes scores
+before replays, unlike Futari. Persistent
 offline recovery is a PC enhancement to add after the native basic flow, not a
 confirmed original G2 feature or a prerequisite for basic Live.
 

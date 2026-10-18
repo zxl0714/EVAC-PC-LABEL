@@ -93,7 +93,7 @@ void TestMergedPackets() {
 }
 int main() {
     try {
-        auto settings=ParseSettings("[keyboard]\na=Z,Numpad0\n");
+        auto settings=ParseSettings("[keyboard]\nsouth=Z,Numpad0\n");
         KeyboardState keys(settings);
         keys.SetKey(90,true);
         Require(!keys.Snapshot().buttons,"Input accepted without focus");
@@ -111,13 +111,13 @@ int main() {
         Require(keys.Snapshot()==KeyboardSnapshot{},"Stuck keys after refocus");
         keys.SetKey(999,true);
         Require(keys.Snapshot()==KeyboardSnapshot{},"Out-of-range key accepted");
-        KeyboardState modifiers(ParseSettings("[keyboard]\na=Shift\n"));
+        KeyboardState modifiers(ParseSettings("[keyboard]\nsouth=Shift\n"));
         modifiers.SetFocus(true); modifiers.SetKey(160,true); modifiers.SetKey(161,true); modifiers.SetKey(160,false);
         Require(modifiers.Snapshot().buttons==0x1000,"Left/right modifier alias lost held side");
         Require(modifiers.Snapshot(true,161).buttons==0x1000,"Modifier repeat alias mapping");
         modifiers.SetKey(161,false);
         Require(!modifiers.Snapshot().buttons,"Modifier release remained stuck");
-        KeyboardState taps(ParseSettings("[keyboard]\na=Z,Numpad0\n"));
+        KeyboardState taps(ParseSettings("[keyboard]\nsouth=Z,Numpad0\n"));
         taps.SetFocus(true);
         taps.SetKey(13,true); taps.SetKey(13,false);
         Require(!taps.Snapshot().buttons,"Tap latch altered live keystroke state");

@@ -1,44 +1,44 @@
 [project]
 name = "espgaluda2"
 sdk_version = "0.9.0"
-game_root = "../game-data"
+game_root = "../../../game-data/espgaluda2"
 
 [entrypoint]
-file_path = "../game-data/default.xex"
-out_directory_path = "../generated/default"
+file_path = "../../../game-data/espgaluda2/default.xex"
+out_directory_path = "../../../generated/espgaluda2/default"
 includes = ["default-functions.toml", "community-overrides.toml"]
 
 [[modules]]
 guest_path = "dat00.xex"
-file_path = "../game-data/dat00.xex"
-out_directory_path = "../generated/dat00"
+file_path = "../../../game-data/espgaluda2/dat00.xex"
+out_directory_path = "../../../generated/espgaluda2/dat00"
 
 [[modules]]
 guest_path = "dat11.xex"
-file_path = "../game-data/dat11.xex"
-out_directory_path = "../generated/dat11"
+file_path = "../../../game-data/espgaluda2/dat11.xex"
+out_directory_path = "../../../generated/espgaluda2/dat11"
 
 [[modules]]
 guest_path = "dat12.xex"
-file_path = "../game-data/dat12.xex"
-out_directory_path = "../generated/dat12"
+file_path = "../../../game-data/espgaluda2/dat12.xex"
+out_directory_path = "../../../generated/espgaluda2/dat12"
 
 [[modules]]
 guest_path = "dat15.xex"
-file_path = "../game-data/dat15.xex"
-out_directory_path = "../generated/dat15"
+file_path = "../../../game-data/espgaluda2/dat15.xex"
+out_directory_path = "../../../generated/espgaluda2/dat15"
 
 [[modules]]
 guest_path = "dat162.xex"
-file_path = "../game-data/dat162.xex"
-out_directory_path = "../generated/dat162"
+file_path = "../../../game-data/espgaluda2/dat162.xex"
+out_directory_path = "../../../generated/espgaluda2/dat162"
 
 [[modules]]
 guest_path = "dat163.xex"
-file_path = "../game-data/dat163.xex"
-out_directory_path = "../generated/dat163"
+file_path = "../../../game-data/espgaluda2/dat163.xex"
+out_directory_path = "../../../generated/espgaluda2/dat163"
 
 [[modules]]
 guest_path = "dat164.xex"
-file_path = "../game-data/dat164.xex"
-out_directory_path = "../generated/dat164"
+file_path = "../../../game-data/espgaluda2/dat164.xex"
+out_directory_path = "../../../generated/espgaluda2/dat164"

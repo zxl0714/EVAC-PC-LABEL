@@ -51,15 +51,16 @@ Ini Ini::Parse(std::string_view text) {
   if (version && version->text != "1") throw std::runtime_error("Unsupported [collection] config_version");
   return ini;
 }
-Ini Ini::Load(const fs::path& path) {
+std::string Ini::ReadText(const fs::path& path) {
   if (!fs::exists(path)) return {};
   if (!fs::is_regular_file(path) || fs::file_size(path) > 1024 * 1024) throw std::runtime_error("Invalid config.ini file");
   std::ifstream file(path, std::ios::binary);
   if (!file) throw std::runtime_error("Cannot read config.ini");
   std::string text{std::istreambuf_iterator<char>(file), {}};
   if (file.bad()) throw std::runtime_error("Failed reading config.ini");
-  return Parse(text);
+  return text;
 }
+Ini Ini::Load(const fs::path& path) { return Parse(ReadText(path)); }
 const IniValue* Ini::Get(std::string_view section, std::string_view key) const {
   auto found = values_.find({Lower(section), Lower(key)});
   return found == values_.end() ? nullptr : &found->second;

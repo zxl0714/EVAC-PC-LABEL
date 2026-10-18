@@ -38,12 +38,6 @@ public:
     }
 private:BCRYPT_ALG_HANDLE algorithm_{};BCRYPT_HASH_HANDLE hash_{};
 };
-bool Within(const fs::path& path,const fs::path& parent) {
-    auto part=path.begin();
-    for (auto p=parent.begin(); p!=parent.end();++p,++part)
-        if (part==path.end() || CompareStringOrdinal(part->c_str(),-1,p->c_str(),-1,TRUE)!=CSTR_EQUAL) return false;
-    return true;
-}
 void WriteNew(const fs::path& path,std::string_view text) {
     HANDLE file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
     if (file==INVALID_HANDLE_VALUE) throw std::runtime_error("Cannot create new run file: "+path.filename().string());
@@ -56,10 +50,10 @@ std::string PathUtf8(const fs::path& path) {
     const auto text=path.u8string();
     return {reinterpret_cast<const char*>(text.data()),text.size()};
 }
-fs::path NewReportDirectory(const fs::path& root,const wchar_t* prefix) {
-    const auto logs=fs::weakly_canonical(root/"logs");
-    if (!Within(logs,root) || Within(logs,fs::weakly_canonical(root/"game-data")))
-        throw std::runtime_error("Log directory must stay inside the project and outside game inputs");
+fs::path NewReportDirectory(const fs::path& root,const wchar_t* prefix,const fs::path& data={}) {
+    const auto paths=cave::Paths(root,"espgaluda2",data.empty()?root/"game-data/espgaluda2":data);
+    cave::ValidateOutputs(paths);
+    const auto& logs=paths.logs;
     SYSTEMTIME now{};GetSystemTime(&now);
     wchar_t name[128]{};
     swprintf_s(name,L"%s-%04u%02u%02uT%02u%02u%02u%03uZ-%lu",prefix,now.wYear,now.wMonth,now.wDay,
@@ -80,28 +74,34 @@ std::string Sha256File(const fs::path& file) {
     if (input.bad()) throw std::runtime_error("Cannot read input: "+file.filename().string());
     return hash.Finish();
 }
-RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedProfile) {
+RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedProfile,const fs::path& dataOverride) {
     RunContext run;
     run.root=fs::canonical(requestedRoot);
-    const auto game=fs::canonical(run.root/"game-data");
-    run.profile=fs::weakly_canonical(requestedProfile.empty()?run.root/"user-data":fs::absolute(requestedProfile));
-    if (Within(run.profile,game) || Within(game,run.profile) || run.profile==run.root ||
-        fs::exists(run.profile/"default.xex")) throw std::runtime_error("User data must be separate from game inputs");
+    const auto& identity=cave::FindGame("espgaluda2");
+    const auto configuration=run.root/"config.ini";
+    const auto ini=cave::Ini::Load(configuration);
+    run.settings=cave::ResolveSettings(ini,"espgaluda2");
+    run.paths=cave::Paths(run.root,"espgaluda2",dataOverride.empty()?ini.DataDirectory(identity):dataOverride);
+    if (!requestedProfile.empty()) run.paths.profile=cave::Resolve(run.root,requestedProfile);
+    cave::ValidateOutputs(run.paths);
+    const auto& game=run.paths.data;
+    run.profile=run.paths.profile;
+    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full);
+    if (inspection.data_state!=cave::DataState::Verified)
+        throw std::runtime_error("G2 data check failed: "+inspection.reason);
     const auto metadata=Json::parse(kXexMetadata);
     Json inputs=Json::array();
     for (const auto& item:metadata.at("xex")) {
         const auto name=item.at("path").get<std::string>();
-        const auto path=game/fs::path(name); // Manifest module names are ASCII.
+        const auto path=cave::DataChild(game,name);
         if (fs::file_size(path)!=item.at("bytes").get<std::uint64_t>())
             throw std::runtime_error("Unsupported XEX size: "+name);
         const auto hash=Sha256File(path);
         if (hash!=item.at("sha256").get<std::string>()) throw std::runtime_error("Unsupported or modified XEX: "+name);
         inputs.push_back({{"path",name},{"sha256",hash},{"bytes",fs::file_size(path)}});
     }
-    const auto configuration=run.root/"config.ini";
-    if (!fs::exists(configuration)) WriteNew(configuration,kDefaultIni);
+    cave::EnsureConfig(run.root);
     const auto snapshot=ReadSettingsText(configuration);
-    run.settings=ParseSettings(snapshot);
     if (run.settings.community_enabled) {
         if (!cave::community::ValidEndpoint(run.settings.endpoint))
             throw std::runtime_error("[community].endpoint requires HTTPS or loopback HTTP and an API root without query/fragment");
@@ -110,10 +110,17 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
             throw std::runtime_error("[community].nickname requires 1..48 UTF-8 bytes after normalization, without invisible controls");
     }
     run.source_build=std::string(kSourceCommit)+(kSourceDirty=="true"?"+dirty":"");
-    run.directory=NewReportDirectory(run.root,L"run");
+    fs::create_directories(run.profile);
+    const auto lock=CreateFileW((run.profile/".profile.lock").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,
+        nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN|FILE_FLAG_DELETE_ON_CLOSE,nullptr);
+    if (lock==INVALID_HANDLE_VALUE) throw std::runtime_error("Profile is already in use or cannot be locked");
+    run.profile_lock=std::shared_ptr<void>(lock,[](void* handle) {CloseHandle(handle);});
+    run.directory=NewReportDirectory(run.root,L"run",game);
     LARGE_INTEGER frequency{};QueryPerformanceFrequency(&frequency);
-    Json record{{"format",1},{"sourceCommit",kSourceCommit},{"sourceDirty",kSourceDirty=="true"},
+    Json record{{"format",1},{"game","espgaluda2"},{"launchContract",1},
+        {"displayName",identity.name},{"sourceCommit",kSourceCommit},{"sourceDirty",kSourceDirty=="true"},
         {"root",PathUtf8(run.root)},{"profile",PathUtf8(run.profile)},{"qpcFrequency",frequency.QuadPart},
+        {"dataDirectory",PathUtf8(game)},{"cacheDirectory",PathUtf8(run.paths.cache)},
         {"pid",GetCurrentProcessId()},{"processCodePage",GetACP()},
         {"gameInputs",inputs},{"configSha256",Sha256Text(snapshot)},
         {"communityEnabled",run.settings.community_enabled},{"keyboardMouseCapture",false},{"binaries",Json::array()}};
@@ -121,14 +128,13 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
     auto length=GetModuleFileNameW(nullptr,executable.data(),DWORD(executable.size()));
     if (!length || length>=executable.size()) throw std::runtime_error("Cannot determine executable path");
     const auto binaryRoot=fs::path(executable.data()).parent_path();
-    for (const auto* file:{"espgaluda2.exe","espgaluda2.pdb","espgaluda2_crash_writer.exe","espgaluda2_crash_writer.pdb",
-        "rexruntime.dll","rexruntime.pdb","rexgpu-xenos.dll",
-        "rexgpu-xenos.pdb","espgaluda2_dat00.dll","espgaluda2_dat11.dll","espgaluda2_dat12.dll",
-        "espgaluda2_dat15.dll","espgaluda2_dat162.dll","espgaluda2_dat163.dll","espgaluda2_dat164.dll",
-        "espgaluda2_dat00.pdb","espgaluda2_dat11.pdb","espgaluda2_dat12.pdb","espgaluda2_dat15.pdb",
-        "espgaluda2_dat162.pdb","espgaluda2_dat163.pdb","espgaluda2_dat164.pdb"}) {
-        const auto path=binaryRoot/file;
-        if (fs::is_regular_file(path)) record["binaries"].push_back({{"path",file},{"bytes",fs::file_size(path)},{"sha256",Sha256File(path)}});
+    for (const auto file:identity.runtime_files) {
+        const auto relative=fs::path(file);
+        const auto executablePath=(relative.parent_path()=="runtime/xbox360")?binaryRoot/relative.filename():run.root/relative;
+        for (const auto& path:std::array{executablePath,fs::path(executablePath).replace_extension(".pdb")}) {
+            if (fs::is_regular_file(path)) record["binaries"].push_back({{"path",PathUtf8(path)},
+                {"bytes",fs::file_size(path)},{"sha256",Sha256File(path)}});
+        }
     }
     WriteNew(run.directory/"run.json",record.dump(2)+'\n');
     WriteNew(run.directory/"config.ini",snapshot);

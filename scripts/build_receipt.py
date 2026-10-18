@@ -7,7 +7,8 @@ from pathlib import Path
 import re
 import subprocess
 
-from project import ROOT, digest, write_json_new
+from project import ROOT, digest, reject_link, write_json_new
+from generate_catalogue import relative
 
 
 def git(*args):
@@ -41,6 +42,30 @@ def snapshot(kind):
         'ninja':'ninja/ninja.exe','readobj':'llvm/bin/llvm-readobj.exe','pdbutil':'llvm/bin/llvm-pdbutil.exe'}.items()}
     state=dict(files=files,submodules=modules,tools=tools,
         environment={key:os.environ.get(key,'') for key in ('VCToolsVersion','WindowsSDKVersion','VSCMD_ARG_TGT_ARCH')})
+    if kind=='host':
+        stamp=ROOT/'generated/espgaluda2/generation.json'
+        reject_link(stamp)
+        generation=json.loads(stamp.read_text(encoding='utf-8'))
+        if (generation.get('game')!='espgaluda2' or generation.get('guestExecution') is not False or
+                generation.get('gameDataUnchanged') is not True or len(generation.get('modules',[]))!=8):
+            raise ValueError('Incomplete G2 generation receipt')
+        generated={}
+        for item in generation['outputs']:
+            name=relative(item['path'])
+            if not name.startswith('generated/espgaluda2/') or name in generated:
+                raise ValueError('Invalid generated source path')
+            path=ROOT/name
+            reject_link(path)
+            if digest(path)!=item['sha256']:
+                raise ValueError('Generated sources changed; regenerate before building')
+            generated[name]=item['sha256']
+        if not generated:
+            raise ValueError('No generated sources')
+        for name,expected in generation['inputs'].items():
+            relative(name)
+            if digest(ROOT/name)!=expected:
+                raise ValueError('Generation inputs changed; regenerate before building')
+        state['generated']=dict(receiptSha256=digest(stamp),files=generated)
     # The SDK may be verified from an ordinary shell without vcvars. Keep the
     # compiler/Windows SDK environment as build metadata, not source identity.
     identity={key:value for key,value in state.items() if key!='environment'}
@@ -59,24 +84,31 @@ def output_root(kind):
     return ROOT/('.deps/sdk-install/bin' if kind=='sdk' else 'out/espgaluda2/bin')
 
 
-def verify_sdk():
-    receipt=json.loads((output_root('sdk')/'build-receipt.json').read_text(encoding='utf-8'))
-    if snapshot('sdk')['sha256']!=receipt['sourceSnapshot']['sha256']:
-        raise ValueError('SDK sources/tools changed; run Build-Sdk.ps1 before building the host')
+def verify_receipt(kind):
+    receipt=json.loads((output_root(kind)/'build-receipt.json').read_text(encoding='utf-8'))
+    if snapshot(kind)['sha256']!=receipt['sourceSnapshot']['sha256']:
+        raise ValueError(f'{kind} sources/tools changed; rebuild before using this output')
     for item in receipt['outputs']:
-        if digest(output_root('sdk')/item['path'])!=item['sha256']:
-            raise ValueError('Installed SDK differs from its successful build receipt')
+        name=relative(item['path'])
+        if '/' in name or digest(output_root(kind)/name)!=item['sha256']:
+            raise ValueError('Installed output differs from its successful build receipt')
     return receipt
+
+
+def verify_sdk():
+    return verify_receipt('sdk')
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation',choices=('begin','finish','verify-sdk'))
+    parser.add_argument('operation',choices=('begin','finish','verify-sdk','verify-host'))
     parser.add_argument('kind',choices=('sdk','host'),nargs='?')
     parser.add_argument('--state',type=Path)
     args=parser.parse_args()
     if args.operation=='verify-sdk':
         verify_sdk();print('SDK source/tool/binary receipt verified.');return
+    if args.operation=='verify-host':
+        verify_sdk();verify_receipt('host');print('Host source/generated/tool/binary receipt verified.');return
     if not args.kind or not args.state:
         parser.error('begin/finish require a kind and --state')
     receipt_path=output_root(args.kind)/'build-receipt.json'
