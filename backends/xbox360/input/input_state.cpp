@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace espgaluda2 {
+namespace cave::xbox360 {
 KeyboardSnapshot KeyboardState::Snapshot(bool active,std::uint16_t source_key) const {
     return BuildSnapshot(active,source_key,false);
 }

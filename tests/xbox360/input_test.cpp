@@ -8,8 +8,10 @@
 #include <rex/input/input_system.h>
 #include <rex/input/input_driver.h>
 #include <rex/ui/keybinds.h>
-using namespace espgaluda2;
+using namespace cave::xbox360;
+using cave::KeyCode;
 using rex::X_RESULT;
+auto ParseSettings(std::string_view text) { return cave::ParseSettings(text,"espgaluda2"); }
 void Require(bool condition,const char* reason) {if (!condition) throw std::runtime_error(reason);}
 class KeystrokeDriver final : public rex::input::InputDriver {
 public:
@@ -93,6 +95,18 @@ void TestMergedPackets() {
 }
 int main() {
     try {
+        // Both titles consume the same resolved schema, without a G2 adapter.
+        for (const auto& game : {"futari","espgaluda2"}) {
+            const auto shared=cave::ParseSettings("[keyboard]\nsouth=Z\n"
+                "[game.futari.keyboard]\nsouth=F\n[game.espgaluda2.keyboard]\nsouth=G\n",game);
+            KeyboardState game_keys(shared);
+            game_keys.SetFocus(true);
+            game_keys.SetKey(KeyCode(game==std::string_view("futari")?"F":"G"),true);
+            Require(game_keys.Poll().buttons==0x1000,"Shared input ignored the selected game's INI override");
+            game_keys.SetFocus(false);game_keys.SetFocus(true);
+            game_keys.SetKey(KeyCode("Z"),true);
+            Require(!game_keys.Poll().buttons,"Shared input used the base binding after a game override");
+        }
         auto settings=ParseSettings("[keyboard]\nsouth=Z,Numpad0\n");
         KeyboardState keys(settings);
         keys.SetKey(90,true);

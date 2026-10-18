@@ -143,7 +143,7 @@ protected:
         // Plugin cvars exist only after the DLL is loaded, before presentation.
         Flag("vsync",run_->settings.vsync?"true":"false");
         const auto settings=run_->settings;
-        config.input_factory=[settings](bool toolMode) {return espgaluda2::CreateConfiguredInput(settings,toolMode);};
+        config.input_factory=[settings](bool toolMode) {return cave::xbox360::CreateConfiguredInput(settings,toolMode);};
     }
     void OnCreateDialogs(rex::ui::ImGuiDrawer*) override {
         window()->SetTitle("CAVE PC Collection — "+std::string(cave::FindGame("espgaluda2").name));

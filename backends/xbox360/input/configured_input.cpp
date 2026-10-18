@@ -13,7 +13,7 @@
 
 REXCVAR_DEFINE_BOOL(input_diagnostics,false,"Input","Bounded keyboard event and guest poll diagnostics");
 
-namespace espgaluda2 {
+namespace cave::xbox360 {
 namespace {
 using namespace rex;
 using namespace rex::input;

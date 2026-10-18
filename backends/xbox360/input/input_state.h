@@ -1,9 +1,9 @@
 #pragma once
-#include "config/settings.h"
+#include "common/settings.h"
 #include <array>
 #include <utility>
 
-namespace espgaluda2 {
+namespace cave::xbox360 {
 struct KeyboardSnapshot {
     std::uint16_t buttons{};
     std::uint8_t left_trigger{}, right_trigger{};
