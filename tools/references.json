@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "imports": [
+    {
+      "repository": "https://github.com/zxl0714/ESPGaluda2-PC",
+      "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
+      "sources": ["tools/packages.lock.json", "scripts/prepare_tools.py", "scripts/Prepare-Tools.ps1", "scripts/Build-Common.ps1"],
+      "scope": "Pinned portable build tools and Windows build environment; collection paths and audit are independent."
+    }
+  ]
+}

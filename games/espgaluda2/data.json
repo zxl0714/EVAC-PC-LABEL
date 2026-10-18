@@ -1,0 +1,942 @@
+{
+  "format": 1,
+  "game": "espgaluda2",
+  "titleId": "435A07D8",
+  "source": {
+    "repository": "https://github.com/zxl0714/ESPGaluda2-PC",
+    "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
+    "description": "Verified P1 inventory; path, size and SHA-256 metadata only"
+  },
+  "files": [
+    {
+      "path": "AvatarAssetPack",
+      "bytes": 14450688,
+      "sha256": "beaaae8de08857f33d16b2f98a72b9dc1aa5d7c20fce14f4dac6c6503261ab59",
+      "program": false
+    },
+    {
+      "path": "dat00.xex",
+      "bytes": 3121152,
+      "sha256": "74c9ea3ee59a69d8df9b137a77f5a758e0dcdd9b307ae293fc3cee932f97642a",
+      "program": true
+    },
+    {
+      "path": "dat11.xex",
+      "bytes": 3121152,
+      "sha256": "59d2e77852c1155fd7db39d91b00196ef56c3daffb2574032605e2d0ac4078f5",
+      "program": true
+    },
+    {
+      "path": "dat12.xex",
+      "bytes": 3121152,
+      "sha256": "798dfd7777ab02003adeded6a058e0178fe505abbf56a8253c7dfa27e9d11d50",
+      "program": true
+    },
+    {
+      "path": "dat15.xex",
+      "bytes": 3219456,
+      "sha256": "6d96dee3166dc98cbf6106f94b97ce1488c2d31402ea0e5920b598e87dd25383",
+      "program": true
+    },
+    {
+      "path": "dat162.xex",
+      "bytes": 3121152,
+      "sha256": "9dcb17b50d8b6159d366ea27eec8224b2ff2b2ac2fb7e8651f87d031af8860c7",
+      "program": true
+    },
+    {
+      "path": "dat163.xex",
+      "bytes": 3121152,
+      "sha256": "9fb24fdb91400fe58e433fe6686db08e1a5984cb5570eec154fcab1db1cf015e",
+      "program": true
+    },
+    {
+      "path": "dat164.xex",
+      "bytes": 3219456,
+      "sha256": "9f67a62b4bbb8ffa492462e09c8f00b3457466169011fef79928d3b290607ec7",
+      "program": true
+    },
+    {
+      "path": "default.xex",
+      "bytes": 10334208,
+      "sha256": "7991cb83bf12f151c81d33fe43e3ed1f1e256121972a357707dd752d9c9f3318",
+      "program": true
+    },
+    {
+      "path": "nxeart",
+      "bytes": 913408,
+      "sha256": "74fc633e9cafe99a79f8721e0edaea99722336d794e139f2bbd8447ce1f9f0af",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/boot_P.bin",
+      "bytes": 11946880,
+      "sha256": "ab3deedf9b2f15a4acce84c16b82b5c152b4cdd0e91dcedd0ae5d02d4733acf7",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/endinga_P.bin",
+      "bytes": 1101186,
+      "sha256": "41500cc137f4f9aa2a3d8541cad079cabc3e093830cc2a4ee08f6da566b24296",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/endingb_P.bin",
+      "bytes": 992512,
+      "sha256": "581dfe52063d418c940a507a9d7515ce37418b51a316eda36143bf1abbf012f9",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/endingc_P.bin",
+      "bytes": 925395,
+      "sha256": "d9cd05c5d2e63ac0b9d079d9664fab741299bde7a079fa2e6cc6bad720488eef",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/endingstaff_P.bin",
+      "bytes": 1520448,
+      "sha256": "e336fed0343b21badad9fdb0ce42bc9a0507df79efc015f3e2d1f04781de6ba5",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st1_P.bin",
+      "bytes": 2672378,
+      "sha256": "ff0768f556d793b366715c19b00c467030bb7322d3f6b99de129a27bde6c1a0d",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st1b_P.bin",
+      "bytes": 1823520,
+      "sha256": "36a9bd4bf3649ea0cb3393b3d7f09c509c8e9ffeec6ea0a9619d9470eb5f3f98",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st1bg_P.bin",
+      "bytes": 3965891,
+      "sha256": "87188b4954a487ecd8c905e8047b2b4b58b5c449fce61a1881050f9496e8ead3",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st1mb_P.bin",
+      "bytes": 1381773,
+      "sha256": "534c2783f75b3b202b9e7c6b06fb5fd5b647dd6f5c7bfaf600f1490ebed1eccb",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st2_P.bin",
+      "bytes": 2127484,
+      "sha256": "dc04ff06336d8b315312235b61af7342cf204b02e9c7210478933b3fb4eb1718",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st2b_P.bin",
+      "bytes": 2178493,
+      "sha256": "b90319fc2c7c3c8bbc5706a3ea442fe96054b599e5f689b81c3a3c0f4dc14386",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st2bg_P.bin",
+      "bytes": 2401620,
+      "sha256": "4ee835e6d7b3613f4336d48adfd02514a20e7cb9be748184bfd45a56a6b80318",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st3_P.bin",
+      "bytes": 4247981,
+      "sha256": "c6fa7a9873986dcd2f57f2765816d020f6e294b623766925f3152206f5627883",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st3b_P.bin",
+      "bytes": 1705655,
+      "sha256": "c145f26b771b3247fbfdd25203b594295de38e87b6ff8fafe7bebe7dd69b23f4",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st3bg_P.bin",
+      "bytes": 2444462,
+      "sha256": "25261a2f026cc04506b9bf40ce46743f908a5c7150144fd413c365f4af563881",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st4_P.bin",
+      "bytes": 3837807,
+      "sha256": "ebdc4dc29f07a7a20a35bf290d5ff4016b29c31688e2b049f711b06f33644753",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st4b_P.bin",
+      "bytes": 1605586,
+      "sha256": "763525d8bf814bbc57edb7dc3b3e8cbfe226833a107ff8eb5251f2848398102a",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st4bg_P.bin",
+      "bytes": 2102343,
+      "sha256": "7cea1a0761e6858c0d4772f1373b3be462b79a3941acbedcfe526be378f9e27b",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st4mb_P.bin",
+      "bytes": 1776016,
+      "sha256": "f543c3af7706118d8b804ddf8720c405b6471dfdb52528ec25c9cf79eebe3d44",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st5_P.bin",
+      "bytes": 2054696,
+      "sha256": "f4c0876cfdd0a44044d198a01cf24d898f0ae11c69af263e312e9951c4947587",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st5bg_P.bin",
+      "bytes": 3271346,
+      "sha256": "c5139b187abb74cf6d70d01b99e9f3ce37f444585d536e720574051de8ad310e",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st6_P.bin",
+      "bytes": 779642,
+      "sha256": "975b0eb61f385127d1d9c73f9047cd0b974eb9396d755c90984c7df09aaac7e7",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st6ba_P.bin",
+      "bytes": 1664170,
+      "sha256": "1314c9d9470e1cd0dc088be507732210c7e028a208baab3d609019856609c009",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st6bb_P.bin",
+      "bytes": 3479710,
+      "sha256": "44385941621faf17b71290fa0a297241eecfb8088fcc87834a789a23ef565b9c",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/st6bg_P.bin",
+      "bytes": 5319699,
+      "sha256": "c76035e7e8bf39f3af0f6d2f836b55b433a8d44996c098208dc9252102b63e44",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/ARCADE/startup_P.bin",
+      "bytes": 1932965,
+      "sha256": "b2703c08767e8fa036c78e4ca1831c3c8dd5f104a27b815fd2a4a20a23024ea0",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/boot_PBL.bin",
+      "bytes": 20325065,
+      "sha256": "e42a656171e0d3c243b13abc74d61d08209c403fe2b75599ff7715c586662b67",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/endinga_PBL.bin",
+      "bytes": 2065881,
+      "sha256": "815a216662536f7b468d401baeb8a309485df78d7aba58f315af2f803159b4bb",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/endingb_PBL.bin",
+      "bytes": 1753098,
+      "sha256": "88f846915137d1bbe218ae5a4b9884b91258b008aaba9d3367da849e3c76f04a",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/endingc_PBL.bin",
+      "bytes": 2040695,
+      "sha256": "63203da3ed66ee3e9c0704a86761478238153d30bc426bd632edd129d683e128",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/endingstaff_PBL.bin",
+      "bytes": 4717641,
+      "sha256": "a94b50836d208a9d10a29d52bd6cc2b98bf05298c43d5cb59fb7e5c59267def6",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st1_PBL.bin",
+      "bytes": 8385381,
+      "sha256": "c5a5a7b0db0f4e4625d0776d1761a288df956ebb0310134f1c6f9a008092003e",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st1b_PBL.bin",
+      "bytes": 5435958,
+      "sha256": "14058803cef06249fb88e851e4de3c9d7baecdcd01a067c3109457753bd97251",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st1bg_PBL.bin",
+      "bytes": 12908657,
+      "sha256": "301a30d5255ce6a1362dfdf4f84223a12353fa6d2a9623ce83a731fce3421daf",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st1mb_PBL.bin",
+      "bytes": 4272045,
+      "sha256": "48bfcac52e3209d95029faf4b4d377529bcd8d02f1570333349bafa3df47f58d",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st2_PBL.bin",
+      "bytes": 6856736,
+      "sha256": "93a37136ed4c61a4c6fef52db0d36228bebf2717ce12359e064e1c72f75dbeec",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st2b_PBL.bin",
+      "bytes": 7903153,
+      "sha256": "7c1dea499814e9c659adb1b6f4cadeecd38231f559dd323a19984c96a6fab6aa",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st2bg_PBL.bin",
+      "bytes": 7236582,
+      "sha256": "38d58e5d9d07d97c18fc41d6a6e8136c3b03c9859672c59f5bb49aeb8e87ae32",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st3_PBL.bin",
+      "bytes": 15159549,
+      "sha256": "4457df2197ab1f8664437e7c5a1df4f2963b17882edd3de3e4e9da326ab4e3a9",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st3b_PBL.bin",
+      "bytes": 5720915,
+      "sha256": "5a90b103a62ba1c8d3f515dbbd612ac1799bcbafd24719f7b26f3e6f6630ecff",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st3bg_PBL.bin",
+      "bytes": 7249673,
+      "sha256": "caddfe06e0304fa62f36013c3acbfceb7b7704574ee65f0466be047bd7961e99",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st4_PBL.bin",
+      "bytes": 12312659,
+      "sha256": "2118db6ca1102209c5833c0cd7bc03992f2bfe48b01789e1770a624e4a8c164a",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st4b_PBL.bin",
+      "bytes": 4659327,
+      "sha256": "75dc1cb5b3a8c92280393cd798d48867e24088081b743d49b6d0827b584e20f8",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st4bg_PBL.bin",
+      "bytes": 6105660,
+      "sha256": "e254231a33b98575ac10e11054a34ef22fbc0730e2d6176470a4fd7ce3e5aec7",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st4mb_PBL.bin",
+      "bytes": 5833395,
+      "sha256": "a162c9bf6ef88dd94a43f06823a840c2526d87b3794d27cb5039555076d11f49",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st5_PBL.bin",
+      "bytes": 7642590,
+      "sha256": "e7245c2cdca13bf400f39893f2d22605779c4833f6ddc13b2e316379665ac482",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st5bg_PBL.bin",
+      "bytes": 8626607,
+      "sha256": "942a5ea8876ebbb1eb09c4951ec70f99f6052e96adf5efdc7772932e92a45f49",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st6_PBL.bin",
+      "bytes": 991084,
+      "sha256": "30ae358daac868250835e2a27d70c4609a1ba59eddb440a4b1b3b8fc6fd553a9",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st6ba_PBL.bin",
+      "bytes": 5468962,
+      "sha256": "aa615251ae5872d50fb697e29849179dfa0b706e3939906cd71a728a09b0b1ae",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st6bb_PBL.bin",
+      "bytes": 10183527,
+      "sha256": "948b59e4476d405ecbd3685f1d16368a8bec5ba31b68596c856e50b8fb19553f",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/st6bg_PBL.bin",
+      "bytes": 17223845,
+      "sha256": "2aa5fc1873f4c67b39edaace93bbe40c8c050905b151f6e52c34138c62a510a6",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/BL/startup_PBL.bin",
+      "bytes": 29031108,
+      "sha256": "e4054ac5591a122af0b092150fccee811ca0c795ce9222af5ffd53165f4a74f8",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SOUND/music_black.bin",
+      "bytes": 32569028,
+      "sha256": "e4061bc10970088bba646ee1b18c0840b5d80605e8b8ecda369a85cf8fd78565",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SOUND/music_menu.bin",
+      "bytes": 2139740,
+      "sha256": "644f8165d7f475fe283fb23f90275dae1568acf8a36442e4d037f724db2b4065",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SOUND/music_org.bin",
+      "bytes": 25706712,
+      "sha256": "e1cc68ee47ab6967ab681b2bcbc808929ba87bd99e28983b8c1e4bd69763c278",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SOUND/se.bin",
+      "bytes": 891048,
+      "sha256": "03cddfafbcf17ca9d5b831f473246edc7e98ab9f478419194ba916143478b95b",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SOUND/voice.bin",
+      "bytes": 1942372,
+      "sha256": "ac28ac8bbf8517d6c971b5720f8afea556af2acfbd9f6e19a017012cfbb56d75",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/menu360.bin",
+      "bytes": 2635956,
+      "sha256": "48fc13470ce54690aa3884e05e357f4dd34178e8d60ea7c6277edd51106a77e5",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/sys360.bin",
+      "bytes": 1016397,
+      "sha256": "89b39d2a960bba7cdfacccadbeef9ccdaecfb06c32f5719c9f82c6cb2f37b0f1",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/sys361.bin",
+      "bytes": 89247,
+      "sha256": "86f64bf808efef8be040e63da3c31d543b7eb721e022a40944f76a638f2729df",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox301.bin",
+      "bytes": 1063194,
+      "sha256": "c46698d964a035aae79a06358d6bb87cedd87617b650eca7181392ba05dc47f0",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox302.bin",
+      "bytes": 1013662,
+      "sha256": "51f6a4ef6f7134fcec3eafb7f847f40d30fff8549fdfb253275ced8228e833f0",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox303.bin",
+      "bytes": 1066312,
+      "sha256": "375c9fca213795d3043a1786e180c30d5dfe57cd6a0f5875dc453665e6115ccd",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox304.bin",
+      "bytes": 1010510,
+      "sha256": "0f43d5dcbe6c046020af504c046d6f3958f8950ca38c59993ef5b9615ad7ac95",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox305.bin",
+      "bytes": 1049956,
+      "sha256": "16d2f653f49106a8f5f2f78c9a7019f67739cbb8514dc8ac4d33277340702bce",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox306.bin",
+      "bytes": 1060710,
+      "sha256": "33d86b7915559b1150202c517e4a72712af8a48fd8900f25961596bb651b2033",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox307.bin",
+      "bytes": 1078119,
+      "sha256": "7f7e5a858b4eff9dd254a58d7485c498d5f1e62067badf6a77d5a9c0d608fbe0",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox308.bin",
+      "bytes": 1084461,
+      "sha256": "cfbce7733e60ddd3e44e41317cd12c77fe32039cf5a8bacf45f379785f3b8fe5",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox309.bin",
+      "bytes": 1080625,
+      "sha256": "2a6840a514c69971ec1a00eb8fd43696f8694f92eb26a61bd6913cc7b469654d",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox310.bin",
+      "bytes": 1043975,
+      "sha256": "edfe049b29485190e7b68820623b420b8eb08ea3199637f80a51475d9d160105",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox311.bin",
+      "bytes": 1099849,
+      "sha256": "c5be9397586a04212aa53c335e7aaf6ca0a6297e0fe56bea1f03dc2d7a01b344",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox312.bin",
+      "bytes": 1151944,
+      "sha256": "3ca89095b16433a66851a7ead6a3350e3ec70a11e9e64998b5d656012d510ee5",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox313.bin",
+      "bytes": 966916,
+      "sha256": "595b9f232525e0bc9e8a8b5e5bd0f4417bc594a6de988485ca2e4b9aa77ed282",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox314.bin",
+      "bytes": 1038297,
+      "sha256": "223747b3691df597277a046a6f43ef48be34e4703c4a4597f9cc8b8adfb00e20",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox315.bin",
+      "bytes": 1117410,
+      "sha256": "789734eb09c96975d951ee30c791376922179eac32bf2dd88c1713a1c8cd7398",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox316.bin",
+      "bytes": 1250904,
+      "sha256": "6c310782916c7b91924f820b4ccd2cded5f8d4ec280796204685040342100e8b",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox317.bin",
+      "bytes": 1075354,
+      "sha256": "4449aa922cd7b7f083a5d1282e63a7ee025d00b22946c00803ff96c33ac32f20",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox318.bin",
+      "bytes": 1081192,
+      "sha256": "ca519e565776de17cd3f75939683c5b9043c001a623ddae93990ce3f20b499e4",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox319.bin",
+      "bytes": 897841,
+      "sha256": "bb7e22de36b87698e36baca322a9c6594a396dd214d8a33759f1b87ce5a38562",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox320.bin",
+      "bytes": 864446,
+      "sha256": "23fb23a7614988cb27a985c4c9eb6ccd31122290057db145b59212cacd368754",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox321.bin",
+      "bytes": 779508,
+      "sha256": "b13f0d5fb245bebd129bb85dc7052e99c9d17f718773b4ead34a3a1dddf80fe4",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox322.bin",
+      "bytes": 751877,
+      "sha256": "deef5c2a52edc91ab550a12b869e639e1bfdfd1a6201d09000b5f7f54bd65a83",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3a01.bin",
+      "bytes": 592858,
+      "sha256": "38c235b166acce32a3a7f514bca92aa38b51f886bb3040d1940e6f6cd3992c40",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3a02.bin",
+      "bytes": 416674,
+      "sha256": "20f9071f81e66ec4028bf430697797fbb415bd187dfc30c4d9b532fd8de9a480",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3b01.bin",
+      "bytes": 796174,
+      "sha256": "80f7bc6f82f9c5e29a484ee54292d7f299f3a6daac12c9cb4f92d04e71fe4fac",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3b02.bin",
+      "bytes": 594970,
+      "sha256": "1ffea381d9e3214dea3d7aa0f6ca6f8c6272d03c00bcecc037bd4f0b6a9f4285",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3b03.bin",
+      "bytes": 1116390,
+      "sha256": "e3eda78640c3a1f960315c72a3c6a3ef62c665e851058493fbf95d04ae47c21d",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3b04.bin",
+      "bytes": 1196146,
+      "sha256": "1144132c1952e038c4af702e5635a41a959a11994ac0c2cd9ae4e584df1144e4",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3b05.bin",
+      "bytes": 1471479,
+      "sha256": "03a76c41b9f4790e2f9777bfe5d70e3ad0a920cba088b733bf5ff47d50671e93",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c01.bin",
+      "bytes": 897015,
+      "sha256": "4971465bb8e2457293b1a60681c7d3038f44e1fbfce51679f2a371e4cd1aed85",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c02.bin",
+      "bytes": 596955,
+      "sha256": "75b8bcba5020523d07c0cc30263d66bea58ea4beb8e913a840ecd3d37a289f88",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c03.bin",
+      "bytes": 440693,
+      "sha256": "8df9deec5367bd68065c30caa8155bb8a2f4e884586cb08357c448fdf169192e",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c04.bin",
+      "bytes": 596944,
+      "sha256": "bf031d5ac226672047c62af0fdfbe0cadc53dc433bf22e47b9396fc3c234dfc7",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c05.bin",
+      "bytes": 698149,
+      "sha256": "ac1e9ec333042f9d8568209f830f5a40a11e51c469842c7fd273f9de5456e0d3",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c06.bin",
+      "bytes": 724492,
+      "sha256": "6d413b2ba6ddb106c34affc23034c564127ae3f2455f04d3b7ec567d411336f2",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3c07.bin",
+      "bytes": 484823,
+      "sha256": "952fe18b555952549fa6222778d909a4913d7a250bc34136a2c4229ed39af95a",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d01.bin",
+      "bytes": 1162263,
+      "sha256": "8137ad9c26375a71290d87ef665c77bd2dfe895dc1905dd0335e5569800a0ccb",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d02.bin",
+      "bytes": 1088139,
+      "sha256": "29fd8791605d3550946b4a1967e9fbd9e9874e7bfd94fab2e84ca37bd411a7b3",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d03.bin",
+      "bytes": 1148313,
+      "sha256": "5552076191867bb18947354d6dd7ddad5d84a132cc55cfaff8c05b6713983bd5",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d04.bin",
+      "bytes": 1133909,
+      "sha256": "861e1ab2fc5347a1b55164cb50ea2f4af46ee2612cd7791ee2a7e8b2a0a33f55",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d05.bin",
+      "bytes": 1216298,
+      "sha256": "55f2c19e3b9edec4922fbc1104a76785cd460edb52e38d09fa58636b7989b403",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d06.bin",
+      "bytes": 898794,
+      "sha256": "50180415f02efbf6f9b5fb9dd89c3454a24d611509caf9046472083420f3e600",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d07.bin",
+      "bytes": 919375,
+      "sha256": "78396f4f28473cee6ee5b0df14dbe807c8b323dd510235edf719ab88360d58bd",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d08.bin",
+      "bytes": 932520,
+      "sha256": "1147eb617ba0f647c0efb62fc94bf83f05099ac1827508faa642c771cab92e00",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d09.bin",
+      "bytes": 914355,
+      "sha256": "90d9910a05829b65f9163bd8ae19da0cbb589a00d4e7450145d4c56b6cea0e87",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d10.bin",
+      "bytes": 979559,
+      "sha256": "0f0c2e2b61825f8c8a94f4895bae90eb8144bc0c6b0489d60b0d520a398f7066",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d11.bin",
+      "bytes": 943636,
+      "sha256": "b293ae7a16b1c41b69e588455731771300be6b72323643b1f0d0feea55146512",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d12.bin",
+      "bytes": 985881,
+      "sha256": "55d6a87a8ec28e8d80a0631ccd1e39c7101f7e663d588e9b8a49a2bdb1255aac",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d13.bin",
+      "bytes": 947843,
+      "sha256": "cfa1d803324379f667e9bfd8432f3aa171e8fa0db9b2a500ba1ad046d565b529",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d14.bin",
+      "bytes": 811711,
+      "sha256": "f3726458b7d860246e2339e6c3a7a4d36745475333d27a52c52d729dbf2fbc67",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d15.bin",
+      "bytes": 934439,
+      "sha256": "0dbe76a770dea3925624e957a32b91bd0a8c5a6f2a44ce3f6043bfb4acf516a9",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d16.bin",
+      "bytes": 1027572,
+      "sha256": "10102a43e91b5b2b3196db29f695b9b537a481213dbc754ea8aad5266e0c231b",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d17.bin",
+      "bytes": 921447,
+      "sha256": "9a8bf93f4421244f8dd33ce6abef1e571bdf8f94da7473c4a1ef0fb7f0e989a2",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d18.bin",
+      "bytes": 667110,
+      "sha256": "fbd1a5c798bd0a0894f0fabfc1fbee0bb084bd2ba2736e7bd2454dd5f616beaf",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d19.bin",
+      "bytes": 705864,
+      "sha256": "91ac63804226dfbac03417ab8520dfbdd09f9af510f7d11e69c7bd536b3c8acc",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d20.bin",
+      "bytes": 650013,
+      "sha256": "c7d2a3a8f032a8d913ee3f983a2ebda28b987fefbbe5623ef51c47c46e5ac2ef",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d21.bin",
+      "bytes": 711641,
+      "sha256": "c593aa8f8cc73d4faa6e96f35f7de862cbac52f99c8b44606c3c0d04d1a04e0e",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d22.bin",
+      "bytes": 464033,
+      "sha256": "5a0e8ea2466834ede2aa0d8482fd798adfe542b629e5876bf419f5d369e86d6e",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/SYS/xbox3d23.bin",
+      "bytes": 633379,
+      "sha256": "576f0b14f2f9b9326037d5245df7593a7acb4ccbf427eb2050125c7fdc1ab7c6",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/boot_PHD.bin",
+      "bytes": 20283290,
+      "sha256": "1cf839fa95da725aea10f035d7dcaf4c21a331cafb19269633b75755db680afa",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/endinga_PHD.bin",
+      "bytes": 2065881,
+      "sha256": "815a216662536f7b468d401baeb8a309485df78d7aba58f315af2f803159b4bb",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/endingb_PHD.bin",
+      "bytes": 1753098,
+      "sha256": "88f846915137d1bbe218ae5a4b9884b91258b008aaba9d3367da849e3c76f04a",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/endingc_PHD.bin",
+      "bytes": 1424725,
+      "sha256": "089627b237c4c34f7456b2668ee074c1978a9429630d5da2ad6a348efc936f9c",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/endingstaff_PHD.bin",
+      "bytes": 4717641,
+      "sha256": "a94b50836d208a9d10a29d52bd6cc2b98bf05298c43d5cb59fb7e5c59267def6",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st1_PHD.bin",
+      "bytes": 8385381,
+      "sha256": "c5a5a7b0db0f4e4625d0776d1761a288df956ebb0310134f1c6f9a008092003e",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st1b_PHD.bin",
+      "bytes": 5435958,
+      "sha256": "14058803cef06249fb88e851e4de3c9d7baecdcd01a067c3109457753bd97251",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st1bg_PHD.bin",
+      "bytes": 12426156,
+      "sha256": "b83437fdb07959cab51a602ac77001814ed2239b2b6b9cd279ed74040a0dc823",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st1mb_PHD.bin",
+      "bytes": 4272045,
+      "sha256": "48bfcac52e3209d95029faf4b4d377529bcd8d02f1570333349bafa3df47f58d",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st2_PHD.bin",
+      "bytes": 6856736,
+      "sha256": "93a37136ed4c61a4c6fef52db0d36228bebf2717ce12359e064e1c72f75dbeec",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st2b_PHD.bin",
+      "bytes": 7903153,
+      "sha256": "7c1dea499814e9c659adb1b6f4cadeecd38231f559dd323a19984c96a6fab6aa",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st2bg_PHD.bin",
+      "bytes": 7236582,
+      "sha256": "38d58e5d9d07d97c18fc41d6a6e8136c3b03c9859672c59f5bb49aeb8e87ae32",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st3_PHD.bin",
+      "bytes": 15159549,
+      "sha256": "4457df2197ab1f8664437e7c5a1df4f2963b17882edd3de3e4e9da326ab4e3a9",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st3b_PHD.bin",
+      "bytes": 5720915,
+      "sha256": "5a90b103a62ba1c8d3f515dbbd612ac1799bcbafd24719f7b26f3e6f6630ecff",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st3bg_PHD.bin",
+      "bytes": 7249673,
+      "sha256": "caddfe06e0304fa62f36013c3acbfceb7b7704574ee65f0466be047bd7961e99",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st4_PHD.bin",
+      "bytes": 12312659,
+      "sha256": "2118db6ca1102209c5833c0cd7bc03992f2bfe48b01789e1770a624e4a8c164a",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st4b_PHD.bin",
+      "bytes": 4659327,
+      "sha256": "75dc1cb5b3a8c92280393cd798d48867e24088081b743d49b6d0827b584e20f8",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st4bg_PHD.bin",
+      "bytes": 6105660,
+      "sha256": "e254231a33b98575ac10e11054a34ef22fbc0730e2d6176470a4fd7ce3e5aec7",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st4mb_PHD.bin",
+      "bytes": 5833395,
+      "sha256": "a162c9bf6ef88dd94a43f06823a840c2526d87b3794d27cb5039555076d11f49",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st5_PHD.bin",
+      "bytes": 7642590,
+      "sha256": "e7245c2cdca13bf400f39893f2d22605779c4833f6ddc13b2e316379665ac482",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st5bg_PHD.bin",
+      "bytes": 8626607,
+      "sha256": "942a5ea8876ebbb1eb09c4951ec70f99f6052e96adf5efdc7772932e92a45f49",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st6_PHD.bin",
+      "bytes": 991084,
+      "sha256": "30ae358daac868250835e2a27d70c4609a1ba59eddb440a4b1b3b8fc6fd553a9",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st6ba_PHD.bin",
+      "bytes": 5468962,
+      "sha256": "aa615251ae5872d50fb697e29849179dfa0b706e3939906cd71a728a09b0b1ae",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st6bb_PHD.bin",
+      "bytes": 10069172,
+      "sha256": "b366bf0ed83a29899a4b5431a5446f06a87c4f055a04a40fb5dc5a65027118cb",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/st6bg_PHD.bin",
+      "bytes": 17223845,
+      "sha256": "2aa5fc1873f4c67b39edaace93bbe40c8c050905b151f6e52c34138c62a510a6",
+      "program": false
+    },
+    {
+      "path": "res/DISKDATA/XB360/startup_PHD.bin",
+      "bytes": 29209678,
+      "sha256": "1b86bee9bd60d731bb1bc05edd194bc9ac25840e4ab978d790578ac4df0c52b1",
+      "program": false
+    }
+  ]
+}

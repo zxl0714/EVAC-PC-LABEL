@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "platform": "windows-x64",
+  "packages": [
+    {
+      "id": "llvm",
+      "version": "20.1.8",
+      "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/clang%2Bllvm-20.1.8-x86_64-pc-windows-msvc.tar.xz",
+      "sha256": "f229769f11d6a6edc8ada599c0cda964b7dee6ab1a08c6cf9dd7f513e85b107f",
+      "archiveRoot": "clang+llvm-20.1.8-x86_64-pc-windows-msvc",
+      "entry": "bin/clang++.exe",
+      "entrySha256": "57e32b1ea2456f12f97bf802453171bbff12d56b2c486b4eca0c75343c0cda2c"
+    },
+    {
+      "id": "cmake",
+      "version": "4.2.3",
+      "url": "https://github.com/Kitware/CMake/releases/download/v4.2.3/cmake-4.2.3-windows-x86_64.zip",
+      "sha256": "eb4ebf5155dbb05436d675706b2a08189430df58904257ae5e91bcba4c86933c",
+      "archiveRoot": "cmake-4.2.3-windows-x86_64",
+      "entry": "bin/cmake.exe",
+      "entrySha256": "daae341e73330c9c5bf391f22d10510c0f70e5f01d2b61b0fd256cd9edd28379"
+    },
+    {
+      "id": "ninja",
+      "version": "1.11.0",
+      "url": "https://github.com/ninja-build/ninja/releases/download/v1.11.0/ninja-win.zip",
+      "sha256": "d0ee3da143211aa447e750085876c9b9d7bcdd637ab5b2c5b41349c617f22f3b",
+      "archiveRoot": "",
+      "entry": "ninja.exe",
+      "entrySha256": "c074015e9f7b40c85fb3d7593a77e0eef8485760a6d33b02257b55ec1199810e"
+    }
+  ]
+}

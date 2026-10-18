@@ -6,7 +6,7 @@ CAVE 游戏的 Windows PC 移植合集。目标是使用一个启动器、一份
 
 ## 实施计划
 
-P0 源码快照和 P1 的 G2 可玩基线已收尾，当前进入 P2：建立合集目录、版本化游戏清单和数据检测。随后迁入 G2，接通共享配置与启动器，再合入虫姬二和绊地狱。
+P0 源码快照、P1 的 G2 可玩基线与 P2 公共工程底座已收尾。版本化游戏清单、共用 INI 读取、路径隔离与无窗口数据检测已实现；下一步迁入 G2，接通共享配置与启动器，再合入虫姬二和绊地狱。当前合集尚不能启动游戏。
 
 阅读 [分阶段实施计划](docs/IMPLEMENTATION_PLAN.md)，其中定义了目标目录、可选游戏数据、公共配置、源码迁移、构建发布和每一步的验收条件。
 
@@ -31,3 +31,22 @@ P0 源码快照和 P1 的 G2 可玩基线已收尾，当前进入 P2：建立合
 默认放入 `game-data/<游戏 ID>/`，也可以在根 `config.ini` 指向现有目录。原始游戏数据只读；存档、录像、缓存、准备镜像和日志分别保存在合集自己的目录。
 
 源码仓库保存维护源码、配置模板、生成声明、测试和工具版本锁，不保存 ROM 或由 ROM 生成的游戏程序正文。
+
+## 开发与检测
+
+Windows x64 下准备 PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK，然后执行：
+
+```powershell
+./scripts/Prepare-Tools.ps1
+./scripts/Build.ps1 -Jobs 2
+./scripts/Test.ps1 -Scope All
+./out/common/bin/cave_inspect.exe --root .
+```
+
+公共组件和检测工具不需要 ROM，也不需要先构建游戏 SDK。检测现有数据时可以显式选择目录：
+
+```powershell
+./out/common/bin/cave_inspect.exe --root . --game espgaluda2 --data-dir 'D:/Games/G2' --full
+```
+
+工具只读返回 JSON，分别报告游戏接入状态和数据状态。快速检查不冒充完整校验；`--full` 校验所有必需文件的 SHA-256。某款数据缺失不影响其他游戏；后端尚未迁入时，即使数据完整也不会显示为可启动。更多目录、命令及接入约定见 [FOR_AGENT.md](FOR_AGENT.md)。

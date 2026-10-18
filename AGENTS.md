@@ -6,7 +6,9 @@ integration, Futari, Ketsui and release. Do not substitute launcher work for the
 unfinished G2 baseline. All stages and verification gates remain in scope.
 P1 is now accepted for migration: the human completed the same-process repeated
 entry/return test and accepts mode-setting coverage without additional testing.
-Proceed to P2 here; do not repeat accepted P1 checks or ask for more scores.
+P2's native common library, fixed catalogue, read-only inspection, pinned tools
+and path/configuration tests now pass. Proceed to P3 here; do not repeat accepted
+P1 checks or ask for more scores. Read FOR_AGENT.md for current commands.
 The G2 native community score/replay loop has passed against the local service;
 public deployment, physical input and extended coverage remain later work.
 Stable G2 frame pacing remains a playable-baseline gate; high host FPS is not
