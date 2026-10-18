@@ -1,0 +1,66 @@
+[submodule "rex-FFmpeg"]
+	path = third_party/rexglue/thirdparty/FFmpeg
+	url = https://github.com/wmarti/FFmpeg.git
+[submodule "rex-catch2"]
+	path = third_party/rexglue/thirdparty/catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "rex-cli11"]
+	path = third_party/rexglue/thirdparty/cli11
+	url = https://github.com/CLIUtils/CLI11
+[submodule "rex-fmt"]
+	path = third_party/rexglue/thirdparty/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "rex-glslang"]
+	path = third_party/rexglue/thirdparty/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "rex-imgui"]
+	path = third_party/rexglue/thirdparty/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "rex-inja"]
+	path = third_party/rexglue/thirdparty/inja
+	url = https://github.com/pantor/inja.git
+[submodule "rex-libmspack"]
+	path = third_party/rexglue/thirdparty/libmspack
+	url = https://github.com/kyz/libmspack.git
+[submodule "rex-o1heap"]
+	path = third_party/rexglue/thirdparty/o1heap
+	url = https://github.com/pavel-kirienko/o1heap.git
+[submodule "rex-sdl3"]
+	path = third_party/rexglue/thirdparty/sdl3
+	url = https://github.com/libsdl-org/SDL
+[submodule "rex-simde"]
+	path = third_party/rexglue/thirdparty/simde
+	url = https://github.com/simd-everywhere/simde.git
+[submodule "rex-snappy"]
+	path = third_party/rexglue/thirdparty/snappy
+	url = https://github.com/google/snappy.git
+[submodule "rex-spdlog"]
+	path = third_party/rexglue/thirdparty/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "rex-spirv-headers"]
+	path = third_party/rexglue/thirdparty/spirv-headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "rex-spirv-tools"]
+	path = third_party/rexglue/thirdparty/spirv-tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "rex-tomlplusplus"]
+	path = third_party/rexglue/thirdparty/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git
+[submodule "rex-tracy"]
+	path = third_party/rexglue/thirdparty/tracy
+	url = https://github.com/wolfpld/tracy.git
+[submodule "rex-utfcpp"]
+	path = third_party/rexglue/thirdparty/utfcpp
+	url = https://github.com/nemtrif/utfcpp.git
+[submodule "rex-volk"]
+	path = third_party/rexglue/thirdparty/volk
+	url = https://github.com/zeux/volk.git
+[submodule "rex-vulkan-headers"]
+	path = third_party/rexglue/thirdparty/vulkan-headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "rex-vulkan-memory-allocator"]
+	path = third_party/rexglue/thirdparty/vulkan-memory-allocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "rex-xxHash"]
+	path = third_party/rexglue/thirdparty/xxHash
+	url = https://github.com/Cyan4973/xxHash.git

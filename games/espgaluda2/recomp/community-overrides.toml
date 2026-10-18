@@ -1,0 +1,31 @@
+# Verified default.xex SHA-256 is enforced before guest launch by PrepareRun.
+# Preserve G2's caller, score filtering and replay confirmation state machine.
+[[midasm_hook]]
+address = 0x820D9688
+name = "G2CommunityEstimateRank"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x820D91B8
+name = "G2StorageUpload"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x820D8ED8
+name = "G2StorageDownload"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x820D9FE0
+name = "G2StorageLocalPath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x820DA078
+name = "G2StorageRemotePath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true

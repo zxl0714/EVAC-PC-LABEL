@@ -1,0 +1,79 @@
+# Short leaf functions / tail-call adjustor thunks missed by automatic discovery.
+# Verified against the default.xex SHA-256 in config/game-inputs.json.
+# Direct branch targets and verified address-taken leaves; no instructions are patched.
+[functions]
+0x82094910 = { size = 8 }
+0x82094920 = { size = 8 }
+0x82095718 = { size = 8 }
+0x82095720 = { size = 8 }
+0x82095728 = { size = 8 }
+0x82095E78 = { size = 8 }
+0x820B0B30 = {}
+0x820B1168 = { size = 12 }
+0x8210E3F0 = { size = 8 }
+# Address-taken comparator: complete leaf including the conditional tail at 84BC.
+# Runtime startup calls this entry indirectly; it has no usual stack prologue.
+0x822A8448 = { size = 0x88 }
+# Address-taken forwarding callbacks installed by the main game's startup code.
+# Each is a bounded, disassembled tail thunk, not an arbitrary interior label.
+0x82091690 = { size = 16 }
+0x820916B0 = { size = 16 }
+0x820916D8 = { size = 12 }
+0x820917A8 = { size = 20 }
+0x82092190 = { size = 20 }
+0x820923E0 = { size = 12 }
+0x82093900 = { size = 28 }
+0x8209A930 = { size = 12 }
+0x8209A9E8 = { size = 16 }
+0x8209A9F8 = { size = 12 }
+# Virtual forwarding callbacks: two loads, mtctr, bctr.
+0x821F93D0 = { size = 16 }
+0x821F93E0 = { size = 16 }
+0x821F93F0 = { size = 16 }
+0x821F9400 = { size = 16 }
+0x821F9410 = { size = 16 }
+0x821F9420 = { size = 16 }
+0x821F9430 = { size = 16 }
+0x821F9440 = { size = 16 }
+0x821F9450 = { size = 16 }
+# Address-taken single-branch callback passed at 0x8225EFF0 / 0x8225F05C.
+0x82272908 = { size = 4 }
+# Read-only vtable references to short adjustment / virtual forwarding thunks.
+# Reviewed separately from the exception/unwind code pointers in trailing rdata.
+0x82111A68 = { size = 8 }
+0x82111A78 = { size = 8 }
+0x82116190 = { size = 8 }
+0x82116198 = { size = 8 }
+0x821161A0 = { size = 8 }
+0x821161B0 = { size = 8 }
+0x821161B8 = { size = 8 }
+0x821161C0 = { size = 8 }
+0x82116440 = { size = 8 }
+0x82116448 = { size = 8 }
+0x82116458 = { size = 8 }
+0x82116460 = { size = 8 }
+0x82116468 = { size = 8 }
+0x82116470 = { size = 8 }
+0x82116478 = { size = 8 }
+0x82116480 = { size = 8 }
+0x82116488 = { size = 8 }
+0x82116AC8 = { size = 24 }
+0x82117708 = { size = 8 }
+0x82118450 = { size = 8 }
+0x8211B478 = { size = 8 }
+0x8212A218 = { size = 8 }
+0x821E19A8 = { size = 8 }
+0x821F8DF0 = { size = 16 }
+0x821F9398 = { size = 32 }
+0x821F93B8 = { size = 4 }
+# Remaining vtable leaves, individually bounded by disassembly. Three
+# exception cleanup funclets in the same rdata area are intentionally excluded.
+0x8211B1E8 = { size = 52 }
+0x821F8EF8 = { size = 40 }
+0x821F8F20 = { size = 40 }
+0x821F8F48 = { size = 40 }
+0x821F8F70 = { size = 40 }
+0x82329380 = { size = 80 }
+0x823293D0 = { size = 32 }
+0x82359168 = { size = 16 }
+0x82363528 = { size = 44 }

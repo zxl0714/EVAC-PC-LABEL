@@ -6,6 +6,12 @@
       "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
       "sources": ["tools/packages.lock.json", "scripts/prepare_tools.py", "scripts/Prepare-Tools.ps1", "scripts/Build-Common.ps1"],
       "scope": "Pinned portable build tools and Windows build environment; collection paths and audit are independent."
+    },
+    {
+      "repository": "https://github.com/zxl0714/ESPGaluda2-PC",
+      "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
+      "sources": ["third_party/rexglue", ".gitmodules", "tools/sdk-source.lock.json", "src", "recomp", "cmake/GameTargets.cmake", "config/game-inputs.json", "tests/*.cpp", "server/community.py"],
+      "scope": "Accepted G2 maintenance source, SDK and 22 dependency pins; reorganized by scripts/import_g2_sources.py. Original files were checked against committed Git blobs and SHA-256. No game data, generated game bodies or installed tools are imported. SDK lock retains the earlier Futari/upstream provenance; this commit is the current maintenance baseline."
     }
   ]
 }

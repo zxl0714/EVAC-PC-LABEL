@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCAL = {'.local', '.deps', 'game-data', 'prepared', 'generated', 'runtime', 'out',
          'build', 'releases', 'reports', 'logs', 'cache', 'source'}
 TEXT = {'.py', '.ps1', '.md', '.txt', '.json', '.ini', '.cpp', '.h', '.hpp', '.c',
-        '.cmake', '.toml', '.in', '.manifest', '.yml', '.yaml', '.bat', '.gitignore'}
+        '.cmake', '.toml', '.in', '.manifest', '.yml', '.yaml', '.bat', '.gitignore',
+        '.s', '.inc', '.inja', '.glsl', '.hlsl', '.psm1', '.psd1'}
 SECRET = re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|'
                     rb'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}')
 
@@ -42,8 +43,18 @@ def audit_source(root=ROOT):
     raw = subprocess.check_output(['git', '--no-optional-locks', '-C', str(root),
                                   'ls-files', '-z', '--cached', '--others', '--exclude-standard'])
     names = sorted(set(p.decode('utf-8') for p in raw.split(b'\0') if p))
+    # Only dependency roots pinned in both the lock and Git index may be skipped.
+    # Their own source trees are restored as independent submodules, not vendored
+    # recursively by a source/package scan.
+    from sdk_sources import index_links, locked_modules
+    actual_links = index_links(root)
+    expected_links = {item['path']: item['commit'] for item in locked_modules(root)}
+    if actual_links != expected_links:
+        raise ValueError('SDK dependency index differs from its source lock')
     count, total = 0, 0
     for name in names:
+        if name in actual_links:
+            continue
         first = Path(name).parts[0].casefold()
         if (first in LOCAL or first.startswith('user-data') or name == 'config.ini'
                 or name.startswith(('tools/apps/', 'tools/downloads/', 'tools/state/'))):
@@ -52,7 +63,8 @@ def audit_source(root=ROOT):
         reject_link(path)
         if (not path.is_file() or path.stat().st_size > 5 * 1024 * 1024 or
                 (path.suffix.lower() not in TEXT and path.name not in
-                 {'.gitignore', '.gitattributes', '.gitmodules', 'LICENSE', 'COPYING', 'NOTICE', 'AUTHORS'})):
+                 {'.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+                  '.clang-format', '.clang-tidy', 'LICENSE', 'COPYING', 'NOTICE', 'AUTHORS', 'makefile'})):
             raise ValueError(f'Unexpected source file: {name}')
         data = path.read_bytes()
         if data.startswith((b'MZ', b'XEX2', b'\x7fELF', b'CON ', b'LIVE', b'PIRS')) or SECRET.search(data):
@@ -60,7 +72,7 @@ def audit_source(root=ROOT):
         data.decode('utf-8-sig')
         count += 1
         total += len(data)
-    return dict(files=count, bytes=total, gameDataIncluded=False)
+    return dict(files=count, bytes=total, submodules=len(actual_links), gameDataIncluded=False)
 
 
 if __name__ == '__main__':

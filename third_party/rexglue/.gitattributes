@@ -1,0 +1,17 @@
+# Preserve exact source bytes for tool/source provenance across checkouts.
+* -text
+
+# Explicitly mark binary files
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.a binary
+*.lib binary
+*.obj binary
+*.o binary
+*.pdb binary

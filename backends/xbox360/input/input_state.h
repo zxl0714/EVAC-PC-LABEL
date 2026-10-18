@@ -1,0 +1,36 @@
+#pragma once
+#include "config/settings.h"
+#include <array>
+#include <utility>
+
+namespace espgaluda2 {
+struct KeyboardSnapshot {
+    std::uint16_t buttons{};
+    std::uint8_t left_trigger{}, right_trigger{};
+    bool operator==(const KeyboardSnapshot&) const = default;
+};
+class KeyboardState {
+public:
+    explicit KeyboardState(const Settings& settings) : bindings_(settings.keyboard) {}
+    void SetFocus(bool focused) { focused_=focused; if (!focused) ClearKeys(); }
+    void ClearKeys() { held_.fill(false); sampled_.fill(false); pending_.fill(false); }
+    void SetKey(std::uint16_t key, bool down) {
+        if (key>=held_.size() || (!focused_ && down)) return;
+        if (down && !held_[key]) sampled_[key]=false;
+        if (!down && held_[key] && !sampled_[key]) pending_[key]=true;
+        held_[key]=down;
+    }
+    KeyboardSnapshot Snapshot(bool active=true,std::uint16_t source_key=0) const;
+    // Preserve a complete tap between guest polls for one poll only. A held
+    // key that has already been sampled releases immediately; no timed hold.
+    KeyboardSnapshot Poll(bool active=true);
+private:
+    KeyboardSnapshot BuildSnapshot(bool active,std::uint16_t source_key,bool pending) const;
+    std::array<Binding,16> bindings_;
+    std::array<bool,256> held_{};
+    std::array<bool,256> sampled_{};
+    std::array<bool,256> pending_{};
+    bool focused_{};
+};
+std::pair<std::int16_t,std::int16_t> ApplyDeadzone(std::int16_t x, std::int16_t y, double deadzone);
+}
