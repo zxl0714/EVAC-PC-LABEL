@@ -8,6 +8,9 @@ unfinished G2 baseline. All stages and verification gates remain in scope.
 G2 baseline work belongs in the existing ESPGaluda2-PC checkout. Integrate into
 this new repository only after that baseline; preserve the original Futari and
 Ketsui checkouts, game data and personal profiles. Use separate test profiles.
+The current development profiles are test data. Ending, restarting and resetting
+these test sessions and accepting their in-game warnings are user-authorized;
+do not interrupt the user for each such operation.
 
 Keep ROMs, generated game program bodies, prepared images, installed tools,
 logs, dumps and credentials out of Git. SDK fixes belong in maintained source,
