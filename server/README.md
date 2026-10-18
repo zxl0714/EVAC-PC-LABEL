@@ -28,7 +28,7 @@ python3 -B -m server.games.espgaluda2 --database /path/to/new/community.sqlite3 
 python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 ```
 
-测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；真实联网验收使用游戏本身的成绩与录像流程。
+测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；`--check-endpoint https://xiaolu.life/cave/api/v1` 仅通过 Windows HTTP 和原生适配读取公开榜单及本人状态，不提交成绩。真实联网验收使用游戏本身的成绩与录像流程。
 
 ## 服务器目录与部署
 

@@ -32,6 +32,8 @@ P0 源码快照、P1 的 G2 可玩基线与 P2 公共工程底座已收尾。G2 
 
 源码仓库保存维护源码、配置模板、生成声明、测试和工具版本锁，不保存 ROM 或由 ROM 生成的游戏程序正文。
 
+联网默认开启，无需注册；在同一份 INI 的 `[community]` 中修改昵称 `Player`，或设置 `enabled = false` 关闭。合集 API 为 `https://xiaolu.life/cave/api/v1`，当前已接通 G2 的原生榜单、成绩和网络录像；其他两款客户端随各自迁移接入。
+
 ## 开发与检测
 
 Windows x64 下准备 PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK，然后执行：

@@ -16,7 +16,7 @@ struct Binding {
     std::string section;
 };
 struct Settings {
-    bool fullscreen{}, vsync{true}, gamepad_enabled{true}, community_enabled{};
+    bool fullscreen{}, vsync{true}, gamepad_enabled{true}, community_enabled{true};
     double deadzone{0.20}, volume{1.0};
     std::string log_level{"info"}, endpoint{"https://xiaolu.life/cave/api/v1"}, nickname{"Player"};
     std::array<Binding,16> keyboard;

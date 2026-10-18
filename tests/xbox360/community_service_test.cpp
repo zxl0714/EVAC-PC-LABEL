@@ -133,6 +133,20 @@ void Units() {
           "Explicit unranked stats must contain an actual row pointer, not a public ranked score");
 }
 
+nlohmann::json CheckEndpoint(std::string endpoint) {
+  Require(endpoint.starts_with("https://"), "Public endpoint checks require HTTPS");
+  G2Community service(endpoint,"CollectionCheck","endpoint-read-only");
+  auto public_board=Read(service,Board(71));
+  Require(!public_board.error && public_board.views.size()==1, "HTTPS native leaderboard read failed");
+  auto own=Board(71);own.xuids={kCommunityLocalXuid};
+  auto personal=Read(service,own);
+  Require(!personal.error && personal.views.size()==1 && personal.views[0].rows.size()==1,
+          "HTTPS native personal lookup failed");
+  service.Stop();
+  return {{"passed",true},{"readOnly",true},{"guestExecution",false},
+          {"view",71},{"players",public_board.views[0].total}};
+}
+
 nlohmann::json Probe(std::string endpoint) {
   Require(endpoint.starts_with("http://127.0.0.1:"), "Probe requires isolated loopback service");
   constexpr int64_t score=9007199254740993LL;
@@ -204,6 +218,7 @@ int main(int argc,char** argv) {
     rex::InitLoggingEarly();auto log=rex::BuildLogConfig(nullptr,"error",{});rex::InitLogging(log);
     if(argc==1) { Units();std::cout<<"G2 community schema/worker tests passed; no connections made\n"; }
     else if(argc==3 && std::string_view(argv[1])=="--probe") std::cout<<Probe(argv[2]).dump()<<'\n';
+    else if(argc==3 && std::string_view(argv[1])=="--check-endpoint") std::cout<<CheckEndpoint(argv[2]).dump()<<'\n';
     else if(argc==3 && std::string_view(argv[1])=="--inspect-replay") {
       std::ifstream input(argv[2],std::ios::binary);Require(bool(input),"Replay file unavailable");
       const auto bytes=std::vector<uint8_t>(std::istreambuf_iterator<char>(input),{});
@@ -212,7 +227,7 @@ int main(int argc,char** argv) {
           {"score",std::to_string(info.score)},{"character",info.character},{"mode",info.mode},
           {"sha256",ReplaySha256(bytes)}}).dump()<<'\n';
     }
-    else throw std::runtime_error("Usage: community_service_tests [--probe <loopback API root> | --inspect-replay <file>]");
+    else throw std::runtime_error("Usage: community_service_tests [--probe <loopback API root> | --check-endpoint <HTTPS API root> | --inspect-replay <file>]");
     return 0;
   } catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 2; }
 }

@@ -19,7 +19,7 @@ int wmain(int argc, wchar_t** argv) {
         Require(argc==2,"Usage: settings_test <default.ini>");
         auto defaults = ParseSettings("");
         auto file = LoadSettings(argv[1]);
-        Require(!file.fullscreen && file.vsync && file.gamepad_enabled && !file.community_enabled &&
+        Require(!file.fullscreen && file.vsync && file.gamepad_enabled && file.community_enabled &&
             file.deadzone==0.2 && file.volume==1.0 && file.nickname=="Player" && file.endpoint=="https://xiaolu.life/cave/api/v1","Default template differs");
         for (std::size_t n=0; n<kButtons.size(); ++n)
             Require(file.keyboard[n].keys==defaults.keyboard[n].keys,"Default keyboard template differs");
@@ -27,6 +27,8 @@ int wmain(int argc, wchar_t** argv) {
         auto multi = ParseSettings("[keyboard]\nsouth = Z, Numpad0\nl3 = none\n");
         Require(multi.keyboard[4].keys.size()==2 && multi.keyboard[14].keys.empty(),"Multi-key/none parsing");
         Require(ParseSettings("[community]\nnickname = 大佐\n").nickname=="大佐","UTF-8 nickname");
+        Require(!ParseSettings("[community]\nenabled=false\n").community_enabled,
+                "Explicit offline preference must override the online default");
         Require(ParseSettings("[gamepad]\ndeadzone = 0\nenabled = false\n[audio]\nvolume=0\n").volume==0,"Numeric zero bounds");
         Require(KeyCode("Enter")==KeyCode("Return") && KeyCode("z")==90 && !KeyCode("Mouse5"),"Key aliases");
         for (const auto& text : std::vector<std::string>{

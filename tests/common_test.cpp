@@ -55,7 +55,7 @@ void SettingsChecks(Fixture& fixture) {
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
     const auto documented=parse(DefaultConfig());
-    Require(!defaults.fullscreen && defaults.vsync && defaults.gamepad_enabled && !defaults.community_enabled &&
+    Require(!defaults.fullscreen && defaults.vsync && defaults.gamepad_enabled && defaults.community_enabled &&
             defaults.volume==1 && defaults.deadzone==0.20 && defaults.nickname=="Player" &&
             defaults.endpoint=="https://xiaolu.life/cave/api/v1", "Common built-in defaults");
     for (size_t n=0; n<kButtons.size(); ++n)

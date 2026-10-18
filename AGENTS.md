@@ -9,8 +9,9 @@ entry/return test and accepts mode-setting coverage without additional testing.
 P2's native common library, fixed catalogue, read-only inspection, pinned tools
 and path/configuration tests now pass. Proceed to P3 here; do not repeat accepted
 P1 checks or ask for more scores. Read FOR_AGENT.md for current commands.
-The G2 native community score/replay loop has passed against the local service;
-public deployment, physical input and extended coverage remain later work.
+The G2 native community score/replay loop has passed against both local and
+deployed HTTPS services, including download and cold-restart playback. Physical
+input and extended coverage remain later work; do not repeat the online baseline.
 Stable G2 frame pacing remains a playable-baseline gate; high host FPS is not
 proof of smooth gameplay. Keep guest cadence separate from host presentation.
 The user asks for proportionate optimization, not indefinite tuning of isolated
@@ -46,8 +47,9 @@ The v0.1 playable set is G2, Futari and Ketsui; Coming Soon games do not block i
 Do not publish or upload an internal archive as part of building either flavor.
 
 The collection has one config.ini with shared defaults and optional per-game
-overrides. Default nickname is Player. The planned community API base is
-https://xiaolu.life/cave/api/v1; it is not deployed by merely changing defaults.
+overrides. Default nickname is Player and online is enabled by default. The
+deployed community API base is https://xiaolu.life/cave/api/v1. Futari and Ketsui
+have compatible proxy aliases; their clients still require P4/P5 integration.
 
 Before launcher implementation, research launcher UI and prepare a visual
 mockup. Self-review, iterate and finalize it without waiting for human review
