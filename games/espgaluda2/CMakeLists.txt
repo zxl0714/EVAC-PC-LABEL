@@ -1,15 +1,5 @@
 option(CAVE_BUILD_GAME "Build selected games using locally generated code" ON)
-file(READ "${CMAKE_SOURCE_DIR}/games/espgaluda2/inputs.json" G2_XEX_METADATA)
-execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    OUTPUT_VARIABLE G2_SOURCE_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND git status --porcelain --untracked-files=normal --ignore-submodules=dirty
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" OUTPUT_VARIABLE _esp_dirty OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-if(_esp_dirty)
-    set(G2_SOURCE_DIRTY "true")
-else()
-    set(G2_SOURCE_DIRTY "false")
-endif()
-configure_file("${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/build_metadata.h.in" "${CMAKE_BINARY_DIR}/include/build_metadata.h" @ONLY)
+cave_game_metadata(espgaluda2)
 add_library(espgaluda2_config STATIC ${CMAKE_SOURCE_DIR}/backends/xbox360/config/settings.cpp)
 target_include_directories(espgaluda2_config PUBLIC "${CMAKE_SOURCE_DIR}"
     "${CMAKE_SOURCE_DIR}/backends/xbox360" "${CMAKE_SOURCE_DIR}/games/espgaluda2")
@@ -58,12 +48,10 @@ add_custom_command(TARGET espgaluda2_input_tests POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         $<TARGET_RUNTIME_DLLS:espgaluda2_input_tests> $<TARGET_FILE_DIR:espgaluda2_input_tests>
     COMMAND_EXPAND_LISTS VERBATIM)
-add_library(espgaluda2_diagnostics STATIC ${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/run_context.cpp)
-target_include_directories(espgaluda2_diagnostics PRIVATE "${CMAKE_BINARY_DIR}/include"
-    ${CMAKE_SOURCE_DIR}/third_party/rexglue/thirdparty/inja/third_party/include)
-target_link_libraries(espgaluda2_diagnostics PUBLIC espgaluda2_config cave_community_http bcrypt)
+add_library(espgaluda2_diagnostics ALIAS cave_xbox360_diagnostics)
 add_executable(espgaluda2_preflight ${CMAKE_SOURCE_DIR}/games/espgaluda2/tools/preflight.cpp)
 target_link_libraries(espgaluda2_preflight PRIVATE espgaluda2_diagnostics)
+target_include_directories(espgaluda2_preflight PRIVATE "${CAVE_GAME_METADATA_DIR}")
 target_link_options(espgaluda2_preflight PRIVATE "LINKER:/MANIFEST:EMBED"
     "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
 add_executable(espgaluda2_hash_tests ${CMAKE_SOURCE_DIR}/tests/xbox360/hash_test.cpp)
@@ -74,10 +62,8 @@ target_include_directories(espgaluda2_logging_tests PRIVATE ${CMAKE_SOURCE_DIR}/
 target_link_libraries(espgaluda2_logging_tests PRIVATE rex::runtime)
 add_test(NAME async_logging COMMAND espgaluda2_logging_tests)
 set_tests_properties(async_logging PROPERTIES TIMEOUT 10)
-add_library(espgaluda2_crash STATIC ${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/crash_reporter.cpp)
-target_include_directories(espgaluda2_crash PUBLIC "${CMAKE_SOURCE_DIR}/backends/xbox360" "${CMAKE_SOURCE_DIR}/common" "${CMAKE_SOURCE_DIR}/games/espgaluda2")
+add_library(espgaluda2_crash ALIAS cave_xbox360_crash)
 add_executable(espgaluda2_crash_writer ${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/crash_writer.cpp)
-target_include_directories(espgaluda2_crash_writer PRIVATE "${CMAKE_BINARY_DIR}/include")
 target_link_libraries(espgaluda2_crash_writer PRIVATE dbghelp psapi)
 add_executable(espgaluda2_crash_tests ${CMAKE_SOURCE_DIR}/tests/xbox360/crash_test.cpp)
 target_link_libraries(espgaluda2_crash_tests PRIVATE espgaluda2_crash)
@@ -116,9 +102,9 @@ if(CAVE_BUILD_GAME)
     endif()
     include("${CMAKE_SOURCE_DIR}/generated/espgaluda2/default/sources.cmake")
     add_executable(espgaluda2 WIN32 ${CMAKE_SOURCE_DIR}/games/espgaluda2/host.cpp ${CMAKE_SOURCE_DIR}/games/espgaluda2/community/guest_hooks.cpp ${GENERATED_SOURCES})
-    target_include_directories(espgaluda2 PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/espgaluda2/default")
+    target_include_directories(espgaluda2 PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/espgaluda2/default" "${CAVE_GAME_METADATA_DIR}")
     target_compile_options(espgaluda2 PRIVATE -fno-char8_t)
-    target_link_libraries(espgaluda2 PRIVATE rex::runtime cave_xbox360_input espgaluda2_diagnostics espgaluda2_crash espgaluda2_community winmm)
+    target_link_libraries(espgaluda2 PRIVATE cave_xbox360_host espgaluda2_community)
     target_link_options(espgaluda2 PRIVATE "LINKER:/MANIFEST:EMBED"
         "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
     add_dependencies(espgaluda2 espgaluda2_crash_writer)

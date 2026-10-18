@@ -1,7 +1,7 @@
 #pragma once
-#include <string_view>
-namespace espgaluda2 {
-inline constexpr std::string_view kXexMetadata = R"g2xex(@G2_XEX_METADATA@)g2xex";
-inline constexpr std::string_view kSourceCommit = "@G2_SOURCE_COMMIT@";
-inline constexpr std::string_view kSourceDirty = "@G2_SOURCE_DIRTY@";
+#include "diagnostics/run_context.h"
+namespace @CAVE_GAME_ID@ {
+inline constexpr cave::xbox360::BuildIdentity kBuildIdentity{
+    "@CAVE_GAME_ID@", "@CAVE_SOURCE_COMMIT@", "@CAVE_SOURCE_DIRTY@",
+    R"cavejson(@CAVE_XEX_METADATA@)cavejson"};
 }

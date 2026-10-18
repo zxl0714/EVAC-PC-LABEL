@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <rex/input/input.h>
+#include <rex/input/guest_input_frame.h>
 #include <rex/input/input_system.h>
 #include <rex/input/input_driver.h>
 #include <rex/ui/keybinds.h>
@@ -95,6 +96,7 @@ void TestMergedPackets() {
 }
 int main() {
     try {
+        uint64_t sampleFrame{};
         // Both titles consume the same resolved schema, without a G2 adapter.
         for (const auto& game : {"futari","espgaluda2"}) {
             const auto shared=cave::ParseSettings("[keyboard]\nsouth=Z\n"
@@ -102,10 +104,10 @@ int main() {
             KeyboardState game_keys(shared);
             game_keys.SetFocus(true);
             game_keys.SetKey(KeyCode(game==std::string_view("futari")?"F":"G"),true);
-            Require(game_keys.Poll().buttons==0x1000,"Shared input ignored the selected game's INI override");
+            Require(game_keys.PollFrame(++sampleFrame).buttons==0x1000,"Shared input ignored the selected game's INI override");
             game_keys.SetFocus(false);game_keys.SetFocus(true);
             game_keys.SetKey(KeyCode("Z"),true);
-            Require(!game_keys.Poll().buttons,"Shared input used the base binding after a game override");
+            Require(!game_keys.PollFrame(++sampleFrame).buttons,"Shared input used the base binding after a game override");
         }
         auto settings=ParseSettings("[keyboard]\nsouth=Z,Numpad0\n");
         KeyboardState keys(settings);
@@ -135,20 +137,41 @@ int main() {
         taps.SetFocus(true);
         taps.SetKey(13,true); taps.SetKey(13,false);
         Require(!taps.Snapshot().buttons,"Tap latch altered live keystroke state");
-        Require(taps.Poll().buttons==0x10 && !taps.Poll().buttons,"Quick Start tap lost or persisted beyond one poll");
-        taps.SetKey(90,true); Require(taps.Poll().buttons==0x1000,"Held key not sampled");
-        taps.SetKey(90,false); Require(!taps.Poll().buttons,"Sampled hold release was delayed");
+        Require(taps.PollFrame(++sampleFrame).buttons==0x10 && !taps.PollFrame(++sampleFrame).buttons,"Quick Start tap lost or persisted beyond one frame");
+        taps.SetKey(90,true); Require(taps.PollFrame(++sampleFrame).buttons==0x1000,"Held key not sampled");
+        taps.SetKey(90,false); Require(!taps.PollFrame(++sampleFrame).buttons,"Sampled hold release was delayed");
         taps.SetKey(90,true); taps.SetKey(90,false); taps.SetKey(96,true);
-        Require(taps.Poll().buttons==0x1000,"Alternate key and quick tap mapping");
-        taps.SetKey(96,false); Require(!taps.Poll().buttons,"Alternate key release remained latched");
+        Require(taps.PollFrame(++sampleFrame).buttons==0x1000,"Alternate key and quick tap mapping");
+        taps.SetKey(96,false); Require(!taps.PollFrame(++sampleFrame).buttons,"Alternate key release remained latched");
         taps.SetKey(81,true); taps.SetKey(81,false);
-        Require(taps.Poll().left_trigger==255 && !taps.Poll().left_trigger,"Quick trigger tap");
+        Require(taps.PollFrame(++sampleFrame).left_trigger==255 && !taps.PollFrame(++sampleFrame).left_trigger,"Quick trigger tap");
         taps.SetKey(90,true); taps.SetKey(90,false); taps.SetFocus(false); taps.SetFocus(true);
-        Require(!taps.Poll().buttons,"Quick tap survived focus loss");
+        Require(!taps.PollFrame(++sampleFrame).buttons,"Quick tap survived focus loss");
         taps.SetKey(90,true); taps.SetKey(90,false);
-        Require(!taps.Poll(false).buttons && !taps.Poll().buttons,"Muted overlay replayed a stale tap");
+        Require(!taps.PollFrame(++sampleFrame,false).buttons && !taps.PollFrame(++sampleFrame).buttons,"Muted overlay replayed a stale tap");
         modifiers.SetKey(160,true); modifiers.SetKey(160,false);
-        Require(modifiers.Poll().buttons==0x1000 && !modifiers.Poll().buttons,"Quick modifier alias tap");
+        Require(modifiers.PollFrame(++sampleFrame).buttons==0x1000 && !modifiers.PollFrame(++sampleFrame).buttons,"Quick modifier alias tap");
+        KeyboardState repeated(ParseSettings(""));
+        repeated.SetFocus(true);
+        repeated.SetKey(13,true);repeated.SetKey(13,false);
+        for (int read=0;read<1000;++read)
+            Require(repeated.PollFrame(100).buttons==0x10,"Repeated reads consumed a same-frame tap");
+        Require(!repeated.PollFrame(101).buttons,"Tap persisted into the next guest frame");
+        repeated.SetKey(90,true);
+        Require(repeated.PollFrame(101).buttons==0x1000,"Held key within a sampled frame");
+        repeated.SetKey(90,false);
+        Require(!repeated.PollFrame(101).buttons,"A sampled hold release waited for a frame");
+        repeated.SetKey(81,true);repeated.SetKey(81,false);
+        Require(repeated.PollFrame(101).left_trigger==255 &&
+                repeated.PollFrame(101).left_trigger==255 &&
+                !repeated.PollFrame(102).left_trigger,"Same-frame trigger tap");
+        repeated.SetKey(13,true);repeated.SetKey(13,false);
+        Require(repeated.PollFrame(102).buttons==0x10,"Tap after a frame transition");
+        Require(!repeated.PollFrame(102,false).buttons && !repeated.PollFrame(102).buttons,
+                "Overlay mute replayed a frame-latched tap");
+        const auto epoch=rex::input::GuestInputFrame();
+        rex::input::AdvanceGuestInputFrame();
+        Require(rex::input::GuestInputFrame()==epoch+1,"Guest input epoch did not advance");
         Require(ApplyDeadzone(1000,-1000,.2)==std::pair<int16_t,int16_t>{},"Deadzone center");
         Require(ApplyDeadzone(32767,0,.2)==std::pair<int16_t,int16_t>{32767,0},"Positive full scale");
         Require(ApplyDeadzone(-32768,0,.2)==std::pair<int16_t,int16_t>{-32768,0},"Negative full scale");

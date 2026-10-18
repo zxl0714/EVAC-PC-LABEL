@@ -8,7 +8,7 @@ int wmain(int argc,wchar_t** argv) {
         const auto directory=std::filesystem::absolute(argv[1]);
         if (std::filesystem::exists(directory)) throw std::runtime_error("Test directory must be new");
         std::filesystem::create_directories(directory);
-        if (!espgaluda2::StartCrashReporter(directory) || !espgaluda2::CrashReporterSelfTest())
+        if (!cave::xbox360::StartCrashReporter(directory,"espgaluda2","self-test") || !cave::xbox360::CrashReporterSelfTest())
             throw std::runtime_error("External crash reporter did not complete");
         std::ifstream file(directory/"game-crash.txt",std::ios::binary);
         std::string text(std::istreambuf_iterator<char>{file},{});

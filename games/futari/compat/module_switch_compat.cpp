@@ -2,7 +2,7 @@
 #include "common/catalogue.h"
 #include <rex/filesystem.h>
 #include "futari_diagnostics.h"
-#include "diagnostics_shared.h"
+#include <windows.h>
 
 #include <rex/runtime.h>
 #include <rex/system/function_dispatcher.h>
@@ -13,6 +13,7 @@
 #include <cctype>
 #include <cstring>
 #include <cstdlib>
+#include <cwchar>
 #include <string>
 
 namespace {

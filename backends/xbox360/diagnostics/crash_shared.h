@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <cstdint>
 // Shared with a separate dump writer; no handles or C++ objects.
-struct G2CrashRecord {
+struct CrashRecord {
     volatile LONG claimed;
     DWORD thread_id;
     EXCEPTION_RECORD exception;
@@ -20,4 +20,6 @@ struct G2CrashRecord {
     uint64_t guest_memory_base;
     uint32_t guest_image_base;
     uint32_t guest_image_size;
+    char game[32];
+    char build[64];
 };

@@ -13,6 +13,7 @@
 #include <cstring>
 #include <queue>
 #include <string>
+#include <stdexcept>
 
 #include <fmt/format.h>
 
@@ -40,14 +41,14 @@ static int content_device_id_ = 0;
 
 ContentPackage::ContentPackage(KernelState* kernel_state, const std::string_view root_name,
                                const XCONTENT_AGGREGATE_DATA& data,
-                               const std::filesystem::path& package_path)
+                               const std::filesystem::path& package_path, bool read_only)
     : kernel_state_(kernel_state), root_name_(root_name), package_path_(package_path), license_(0) {
   device_path_ = fmt::format("\\Device\\Content\\{0}\\", ++content_device_id_);
   content_data_ = data;
 
   auto fs = kernel_state_->file_system();
-  auto device = std::make_unique<rex::filesystem::HostPathDevice>(device_path_, package_path, false,
-                                                                  /*allow_share_delete=*/true);
+  auto device = std::make_unique<rex::filesystem::HostPathDevice>(device_path_, package_path, read_only,
+                                                                  /*allow_share_delete=*/!read_only);
   device->Initialize();
   fs->RegisterDevice(std::move(device));
   fs->RegisterSymbolicLink(root_name_ + ":", device_path_);
@@ -85,6 +86,14 @@ ContentManager::ContentManager(KernelState* kernel_state, const std::filesystem:
 
 ContentManager::~ContentManager() = default;
 
+void ContentManager::SetReadOnlyContentRoot(const std::filesystem::path& source) {
+  auto lock = global_critical_region_.Acquire();
+  if (!open_packages_.empty()) throw std::logic_error("Configure content source before opening packages");
+  if (source.empty() || !std::filesystem::is_directory(source))
+    throw std::invalid_argument("Read-only content source must be an existing directory");
+  read_only_content_root_ = std::filesystem::canonical(source);
+}
+
 std::filesystem::path ContentManager::ResolvePackageRoot(uint64_t xuid, XContentType content_type,
                                                          uint32_t title_id) {
   if (title_id == kCurrentlyRunningTitleId) {
@@ -96,7 +105,8 @@ std::filesystem::path ContentManager::ResolvePackageRoot(uint64_t xuid, XContent
 
   // Package root path:
   // content_root/xuid/title_id/content_type/
-  return root_path_ / xuid_str / title_id_str / content_type_str;
+  const auto& storage = UsesReadOnlyRoot(content_type) ? read_only_content_root_ : root_path_;
+  return storage / xuid_str / title_id_str / content_type_str;
 }
 
 std::filesystem::path ContentManager::ResolvePackagePath(uint64_t xuid,
@@ -132,7 +142,8 @@ std::filesystem::path ContentManager::ResolvePackageHeaderPath(const std::string
 
   // Header root path:
   // content_root/xuid/title_id/Headers/content_type/filename.header
-  return root_path_ / xuid_str / title_id_str / kGameContentHeaderDirName / content_type_str /
+  const auto& storage = UsesReadOnlyRoot(content_type) ? read_only_content_root_ : root_path_;
+  return storage / xuid_str / title_id_str / kGameContentHeaderDirName / content_type_str /
          final_name;
 }
 
@@ -179,7 +190,8 @@ std::unique_ptr<ContentPackage> ContentManager::ResolvePackage(
   if (!std::filesystem::exists(package_path)) {
     return nullptr;
   }
-  auto package = std::make_unique<ContentPackage>(kernel_state_, root_name, data, package_path);
+  auto package = std::make_unique<ContentPackage>(kernel_state_, root_name, data, package_path,
+                                                UsesReadOnlyRoot(data.content_type));
   return package;
 }
 
@@ -190,6 +202,7 @@ bool ContentManager::ContentExists(uint64_t xuid, const XCONTENT_AGGREGATE_DATA&
 
 X_RESULT ContentManager::WriteContentHeaderFile(uint64_t xuid, XCONTENT_AGGREGATE_DATA data,
                                                 uint32_t license_mask) {
+  if (UsesReadOnlyRoot(data.content_type)) return X_ERROR_ACCESS_DENIED;
   if (data.title_id == uint32_t(-1)) {
     data.title_id = kernel_state_->title_id();
   }
@@ -257,6 +270,7 @@ X_RESULT ContentManager::ReadContentHeaderFile(const std::string_view file_name,
 
 X_RESULT ContentManager::CreateContent(const std::string_view root_name, uint64_t xuid,
                                        const XCONTENT_AGGREGATE_DATA& data) {
+  if (UsesReadOnlyRoot(data.content_type)) return X_ERROR_ACCESS_DENIED;
   {
     auto global_lock = global_critical_region_.Acquire();
     if (open_packages_.count(string::string_key_case(root_name))) {
@@ -350,6 +364,7 @@ X_RESULT ContentManager::GetContentThumbnail(uint64_t xuid, const XCONTENT_AGGRE
 
 X_RESULT ContentManager::SetContentThumbnail(uint64_t xuid, const XCONTENT_AGGREGATE_DATA& data,
                                              std::vector<uint8_t> buffer) {
+  if (UsesReadOnlyRoot(data.content_type)) return X_ERROR_ACCESS_DENIED;
   auto global_lock = global_critical_region_.Acquire();
   auto package_path = ResolvePackagePath(xuid, data);
   std::filesystem::create_directories(package_path);
@@ -365,6 +380,7 @@ X_RESULT ContentManager::SetContentThumbnail(uint64_t xuid, const XCONTENT_AGGRE
 }
 
 X_RESULT ContentManager::DeleteContent(uint64_t xuid, const XCONTENT_AGGREGATE_DATA& data) {
+  if (UsesReadOnlyRoot(data.content_type)) return X_ERROR_ACCESS_DENIED;
   auto global_lock = global_critical_region_.Acquire();
 
   if (IsContentOpen(data)) {
@@ -407,6 +423,7 @@ X_RESULT ContentManager::UnmountContent(uint64_t xuid, const XCONTENT_AGGREGATE_
 
 X_RESULT ContentManager::UnmountAndDeleteContent(uint64_t xuid,
                                                  const XCONTENT_AGGREGATE_DATA& data) {
+  if (UsesReadOnlyRoot(data.content_type)) return X_ERROR_ACCESS_DENIED;
   // Unmount phase: tolerant of not-mounted state
   ContentPackage* package = nullptr;
   {
@@ -570,6 +587,7 @@ static X_RESULT ExtractEntry(rex::filesystem::Entry* entry,
 }
 
 X_RESULT ContentManager::InstallContent(const std::filesystem::path& package_path) {
+  if (!read_only_content_root_.empty()) return X_ERROR_ACCESS_DENIED;
   if (!std::filesystem::exists(package_path)) {
     return X_ERROR_FILE_NOT_FOUND;
   }

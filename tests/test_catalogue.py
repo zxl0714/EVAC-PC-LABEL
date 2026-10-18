@@ -73,6 +73,7 @@ class CatalogueTests(unittest.TestCase):
             value = copy.deepcopy(raw); value['format'] = version
             self.reject(value)
         value = copy.deepcopy(raw); value['games'][0]['integrated'] = True
+        value['games'][0]['runtimeFiles'] = []
         self.reject(value)
 
     def test_duplicate_json_keys(self):

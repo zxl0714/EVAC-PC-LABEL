@@ -1,8 +1,6 @@
 # Futari shares the maintained SDK, input and HTTP worker with G2.
 option(CAVE_BUILD_GAME "Build selected games using locally generated code" ON)
-if(CAVE_BUILD_GAME)
-    message(FATAL_ERROR "Futari host integration is in progress; use -NativeOnly for platform regression")
-endif()
+cave_game_metadata(futari)
 
 add_library(futari_community STATIC community/community_client.cpp community/community_runtime.cpp community/replay_format.cpp)
 target_include_directories(futari_community PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/community" "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics")
@@ -40,3 +38,26 @@ foreach(target futari_host_tests futari_audio_wait_tests futari_audio_telemetry_
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:${target}> $<TARGET_FILE_DIR:${target}>
         COMMAND_EXPAND_LISTS VERBATIM)
 endforeach()
+
+if(CAVE_BUILD_GAME)
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/generated/futari/generation.json")
+        message(FATAL_ERROR "Run scripts/Generate.ps1 -Game futari first")
+    endif()
+    include("${CMAKE_SOURCE_DIR}/generated/futari/default/sources.cmake")
+    add_executable(futari WIN32 host.cpp compat/module_switch_compat.cpp diagnostics/futari_diagnostics.cpp
+        diagnostics/storage_diagnostics.cpp community/community_guest_hooks.cpp
+        audio/audio_diagnostics.cpp audio/audio_guest_trace.cpp audio/audio_guest_hooks.cpp audio/audio_wait_policy.cpp
+        ${GENERATED_SOURCES})
+    target_include_directories(futari PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/futari/default"
+        "${CAVE_GAME_METADATA_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/audio" "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics")
+    target_compile_options(futari PRIVATE -fno-char8_t)
+    target_compile_definitions(futari PRIVATE FUTARI_SCOPED_AUDIO_WAIT_FIX=1 FUTARI_AUDIO_DIAGNOSTIC_BUILD=1)
+    target_link_libraries(futari PRIVATE cave_xbox360_host futari_community)
+    target_link_options(futari PRIVATE "LINKER:/MANIFEST:EMBED"
+        "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
+    add_executable(futari_crash_writer ${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/crash_writer.cpp)
+    target_link_libraries(futari_crash_writer PRIVATE dbghelp psapi)
+    add_dependencies(futari futari_crash_writer)
+    rexglue_configure_target(futari GPU_PLUGINS xenos)
+    include(overlays.cmake)
+endif()

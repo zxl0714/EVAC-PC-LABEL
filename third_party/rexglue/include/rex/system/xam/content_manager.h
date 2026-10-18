@@ -119,7 +119,8 @@ static_assert_size(XCONTENT_AGGREGATE_DATA, 0x148);
 class ContentPackage {
  public:
   ContentPackage(KernelState* kernel_state, const std::string_view root_name,
-                 const XCONTENT_AGGREGATE_DATA& data, const std::filesystem::path& package_path);
+                 const XCONTENT_AGGREGATE_DATA& data, const std::filesystem::path& package_path,
+                 bool read_only = false);
   ~ContentPackage();
 
   void LoadPackageLicenseMask(const std::filesystem::path header_path);
@@ -143,6 +144,11 @@ class ContentManager {
  public:
   ContentManager(KernelState* kernel_state, const std::filesystem::path& root_path);
   ~ContentManager();
+
+  // Host initialization only, before publishing the title to guest threads.
+  // Marketplace content reads from this source; saves remain under root_path_.
+  // No install, header write, thumbnail write or delete may mutate this source.
+  void SetReadOnlyContentRoot(const std::filesystem::path& source);
 
   std::vector<XCONTENT_AGGREGATE_DATA> ListContent(uint32_t device_id, uint64_t xuid,
                                                    XContentType content_type,
@@ -198,6 +204,10 @@ class ContentManager {
 
   KernelState* kernel_state_;
   std::filesystem::path root_path_;
+  std::filesystem::path read_only_content_root_;
+  bool UsesReadOnlyRoot(XContentType type) const {
+    return type == XContentType::kMarketplaceContent && !read_only_content_root_.empty();
+  }
 
   // TODO(benvanik): remove use of global lock, it's bad here!
   rex::thread::global_critical_region global_critical_region_;

@@ -3,10 +3,20 @@ import sys
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
-from build_receipt import signature,dependency_ids
+from build_receipt import signature,dependency_ids,selected_games,output_root
 
 
 class BuildIdentityTests(unittest.TestCase):
+    def test_selected_build_roots_are_game_scoped(self):
+        self.assertEqual(selected_games('futari,espgaluda2'),('espgaluda2','futari'))
+        self.assertEqual(output_root('host',('futari',)),ROOT/'out/futari/bin')
+        self.assertEqual(output_root('host',('espgaluda2','futari')),ROOT/'out/xbox360/bin')
+        self.assertEqual(output_root('sdk',('futari',)),output_root('sdk'))
+
+    def test_unknown_duplicate_or_empty_game_selection_is_rejected(self):
+        for value in ('','futari,futari','../futari','ketsui','espgaluda2,'):
+            with self.subTest(value=value),self.assertRaises(ValueError):selected_games(value)
+
     def test_pe_and_pdb_ids_match(self):
         expected={'guid':'12345678-1234-5678-9abc-0123456789ab','age':2}
         pe='PDBGUID: {12345678-1234-5678-9ABC-0123456789AB}\nPDBAge: 2\n'

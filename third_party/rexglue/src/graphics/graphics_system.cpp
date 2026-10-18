@@ -27,6 +27,7 @@
 #include <rex/graphics/flags.h>
 #include <rex/graphics/guest_video_timing.h>
 #include <rex/graphics/frame_timing.h>
+#include <rex/input/guest_input_frame.h>
 #include <rex/kernel/xboxkrnl/video.h>
 #include <rex/logging.h>
 #include <rex/stream.h>
@@ -397,6 +398,7 @@ void GraphicsSystem::MarkVblank() {
   // TODO: Enable profiling once ported
   // SCOPE_profile_cpu_f("gpu");
 
+  rex::input::AdvanceGuestInputFrame();
   // Increment vblank counter (so the game sees us making progress).
   if (command_processor_) {
     command_processor_->increment_counter();

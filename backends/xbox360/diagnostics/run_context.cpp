@@ -1,5 +1,4 @@
 #include "run_context.h"
-#include "build_metadata.h"
 #include "community/http_client.h"
 #include <windows.h>
 #include <bcrypt.h>
@@ -9,7 +8,7 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 
-namespace espgaluda2 {
+namespace cave::xbox360 {
 namespace fs=std::filesystem;
 using Json=nlohmann::json;
 namespace {
@@ -50,8 +49,8 @@ std::string PathUtf8(const fs::path& path) {
     const auto text=path.u8string();
     return {reinterpret_cast<const char*>(text.data()),text.size()};
 }
-fs::path NewReportDirectory(const fs::path& root,const wchar_t* prefix,const fs::path& data={}) {
-    const auto paths=cave::Paths(root,"espgaluda2",data.empty()?root/"game-data/espgaluda2":data);
+fs::path NewReportDirectory(const fs::path& root,std::string_view game,const wchar_t* prefix,const fs::path& data={}) {
+    const auto paths=cave::Paths(root,game,data.empty()?root/"game-data"/cave::FromUtf8(game):data);
     cave::ValidateOutputs(paths);
     const auto& logs=paths.logs;
     SYSTEMTIME now{};GetSystemTime(&now);
@@ -74,24 +73,25 @@ std::string Sha256File(const fs::path& file) {
     if (input.bad()) throw std::runtime_error("Cannot read input: "+file.filename().string());
     return hash.Finish();
 }
-RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedProfile,const fs::path& dataOverride) {
+RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,const fs::path& requestedProfile,const fs::path& dataOverride) {
     RunContext run;
+    run.game=build.game;
     run.root=fs::canonical(requestedRoot);
-    const auto& identity=cave::FindGame("espgaluda2");
+    const auto& identity=cave::FindGame(build.game);
     const auto configuration=run.root/"config.ini";
     const auto snapshot=fs::exists(configuration)?cave::Ini::ReadText(configuration):std::string(cave::DefaultConfig());
     const auto ini=cave::Ini::Parse(snapshot);
-    run.settings=cave::ResolveSettings(ini,"espgaluda2");
-    run.paths=cave::Paths(run.root,"espgaluda2",dataOverride.empty()?ini.DataDirectory(identity):dataOverride);
+    run.settings=cave::ResolveSettings(ini,build.game);
+    run.paths=cave::Paths(run.root,build.game,dataOverride.empty()?ini.DataDirectory(identity):dataOverride);
     if (!requestedProfile.empty()) run.paths.profile=cave::Resolve(run.root,requestedProfile);
     cave::ValidateOutputs(run.paths);
     const auto& game=run.paths.data;
     run.profile=run.paths.profile;
     const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full);
     if (inspection.data_state!=cave::DataState::Verified)
-        throw std::runtime_error("G2 data check failed: "+std::string(cave::Name(inspection.data_state))+": "+
+        throw std::runtime_error(run.game+" data check failed: "+std::string(cave::Name(inspection.data_state))+": "+
             (inspection.problems.empty()?inspection.reason:inspection.problems.front()));
-    const auto metadata=Json::parse(kXexMetadata);
+    const auto metadata=Json::parse(build.program_metadata);
     Json inputs=Json::array();
     for (const auto& item:metadata.at("xex")) {
         const auto name=item.at("path").get<std::string>();
@@ -112,19 +112,27 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
         if (!cave::community::ValidNickname(run.settings.nickname))
             throw std::runtime_error("[community].nickname requires 1..48 UTF-8 bytes after normalization, without invisible controls");
     }
-    run.source_build=std::string(kSourceCommit)+(kSourceDirty=="true"?"+dirty":"");
+    if (const auto* dlc=ini.Get("game."+run.game,"dlc_dir");dlc && !dlc->text.empty()) {
+        const auto source=cave::Resolve(run.root,cave::FromUtf8(dlc->text));
+        if (fs::exists(source)) {
+            if (!fs::is_directory(source)) throw std::runtime_error("DLC source must be a directory");
+            auto protected_paths=run.paths;protected_paths.data=source;cave::ValidateOutputs(protected_paths);
+            run.content_source=source;
+        }
+    }
+    run.source_build=std::string(build.commit)+(build.dirty=="true"?"+dirty":"");
     run.game_session=std::make_shared<cave::GameSession>(run.root);
     fs::create_directories(run.profile);
     const auto lock=CreateFileW((run.profile/".profile.lock").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,
         nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN|FILE_FLAG_DELETE_ON_CLOSE,nullptr);
     if (lock==INVALID_HANDLE_VALUE) throw std::runtime_error("Profile is already in use or cannot be locked");
     run.profile_lock=std::shared_ptr<void>(lock,[](void* handle) {CloseHandle(handle);});
-    run.directory=NewReportDirectory(run.root,L"run",game);
+    run.directory=NewReportDirectory(run.root,build.game,L"run",game);
     LARGE_INTEGER frequency{};QueryPerformanceFrequency(&frequency);
-    Json record{{"format",1},{"game","espgaluda2"},{"launchContract",1},
-        {"displayName",identity.name},{"sourceCommit",kSourceCommit},{"sourceDirty",kSourceDirty=="true"},
+    Json record{{"format",1},{"game",build.game},{"launchContract",1},
+        {"displayName",identity.name},{"sourceCommit",build.commit},{"sourceDirty",build.dirty=="true"},
         {"root",PathUtf8(run.root)},{"profile",PathUtf8(run.profile)},{"qpcFrequency",frequency.QuadPart},
-        {"dataDirectory",PathUtf8(game)},{"cacheDirectory",PathUtf8(run.paths.cache)},
+        {"dataDirectory",PathUtf8(game)},{"contentSource",PathUtf8(run.content_source)},{"cacheDirectory",PathUtf8(run.paths.cache)},
         {"pid",GetCurrentProcessId()},{"processCodePage",GetACP()},
         {"gameInputs",inputs},{"configSha256",Sha256Text(snapshot)},
         {"communityEnabled",run.settings.community_enabled},{"keyboardMouseCapture",false},{"binaries",Json::array()}};
@@ -147,8 +155,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
 void RecordStartupError(const RunContext& run,std::string_view error) {
     if (!run.directory.empty()) WriteNew(run.directory/"startup-error.txt",error);
 }
-void RecordEarlyStartupError(const fs::path& root,std::string_view error) {
-    const auto directory=NewReportDirectory(fs::canonical(root),L"startup-error");
+void RecordEarlyStartupError(const fs::path& root,std::string_view game,std::string_view error) {
+    const auto directory=NewReportDirectory(fs::canonical(root),game,L"startup-error");
     WriteNew(directory/"startup-error.txt",std::string(error.substr(0,16384))+'\n');
 }
 }

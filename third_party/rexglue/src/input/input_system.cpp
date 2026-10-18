@@ -10,6 +10,7 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 
@@ -17,6 +18,7 @@
 #include <rex/input/flags.h>
 #include <rex/input/input_driver.h>
 #include <rex/input/input_system.h>
+#include <rex/input/guest_input_frame.h>
 #include <rex/input/gamepad_mapping.h>
 #include <rex/input/mnk/mnk_input_driver.h>
 #include <rex/input/nop/nop_input_driver.h>
@@ -30,6 +32,12 @@ REXCVAR_DEFINE_STRING(input_backend, "sdl", "Input", "Input backend: sdl, xinput
 
 REXCVAR_DEFINE_BOOL(guide_button, false, "Input", "Enable guide button pass-through");
 namespace rex::input {
+
+namespace {
+std::atomic<uint64_t> guest_input_frame{};
+}
+uint64_t GuestInputFrame() { return guest_input_frame.load(std::memory_order_relaxed); }
+void AdvanceGuestInputFrame() { guest_input_frame.fetch_add(1, std::memory_order_relaxed); }
 
 InputSystem::InputSystem(rex::ui::Window* window) : window_(window) {}
 

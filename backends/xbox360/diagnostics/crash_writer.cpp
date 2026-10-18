@@ -1,5 +1,4 @@
 #include "crash_shared.h"
-#include "build_metadata.h"
 #include <dbghelp.h>
 #include <psapi.h>
 #include <cstdio>
@@ -36,16 +35,16 @@ int wmain(int argc, wchar_t** argv) {
   HANDLE ready = OpenEventW(EVENT_MODIFY_STATE, FALSE, (stem + L"-ready").c_str());
   HANDLE game = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
   if (!mapping || !request || !done || !ready || !game) return 3;
-  auto shared = static_cast<const G2CrashRecord*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, sizeof(G2CrashRecord)));
+  auto shared = static_cast<const CrashRecord*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, sizeof(CrashRecord)));
   if (!shared) return 4;
   SetEvent(ready);
   HANDLE waits[]{request, game};
   if (WaitForMultipleObjects(2, waits, FALSE, INFINITE) == WAIT_OBJECT_0) {
-    G2CrashRecord snapshot{};
+    CrashRecord snapshot{};
     std::memcpy(&snapshot, shared, sizeof(snapshot));
     const std::wstring prefix = snapshot.report_prefix;
     std::ostringstream summary;
-    summary << "BUILD=" << espgaluda2::kSourceCommit << "\r\nSCHEMA=1\r\nPID=" << pid
+    summary << "BUILD=" << snapshot.build << "\r\nGAME=" << snapshot.game << "\r\nSCHEMA=2\r\nPID=" << pid
             << "\r\nTHREAD=" << snapshot.thread_id << "\r\nREASON=" << snapshot.reason
             << "\r\nLAST_GUEST_MODULE=" << snapshot.module_path
             << "\r\nMODULE_PHASE=" << snapshot.phase << "\r\n";

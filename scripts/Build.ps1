@@ -5,7 +5,8 @@ param(
     [ValidateSet('espgaluda2','futari')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
-    [string]$DataDirectory
+    [string]$DataDirectory,
+    [hashtable]$DataDirectories=@{}
 )
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $taskProcess = Get-Process -Id $PID
@@ -17,17 +18,21 @@ try {
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
     $selected=@($Games | Sort-Object -Unique)
-    if ($selected -contains 'futari' -and -not $NativeOnly) { throw 'Futari host migration is in progress; use -NativeOnly' }
+    if ($DataDirectory -and $selected.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }
     $nativeName=if ($selected.Count -gt 1) { 'xbox360' } elseif ($selected.Count) { $selected[0] } else { 'common' }
-    $buildName=if (-not $selected.Count) { 'common' } elseif ($NativeOnly) { "$nativeName-native" } else { 'espgaluda2' }
+    $buildName=if (-not $selected.Count) { 'common' } elseif ($NativeOnly) { "$nativeName-native" } else { $nativeName }
     $build = Join-Path $CollectionRoot ('out/' + $buildName)
     if ($selected.Count) {
         Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'verify-sdk')
         if (-not $NativeOnly) {
-            if (-not $DataDirectory) { $DataDirectory=Join-Path $CollectionRoot 'game-data/espgaluda2' }
-            & (Join-Path $PSScriptRoot 'Generate.ps1') -Game espgaluda2 -DataDirectory $DataDirectory
+            foreach ($game in $selected) {
+                $inputDirectory=if ($DataDirectory) { $DataDirectory } elseif ($DataDirectories.ContainsKey($game)) {
+                    $DataDirectories[$game]
+                } else { Join-Path $CollectionRoot "game-data/$game" }
+                & (Join-Path $PSScriptRoot 'Generate.ps1') -Game $game -DataDirectory $inputDirectory
+            }
             $receiptState=Join-Path $CollectionRoot ('.local/build-inputs/host-' + [guid]::NewGuid().ToString('N') + '.json')
-            Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'begin','host','--state',$receiptState)
+            Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'begin','host','--state',$receiptState,'--games',($selected -join ','))
         }
     }
     $configure=@('-S',$CollectionRoot,'-B',$build,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release',
@@ -60,8 +65,8 @@ try {
                 Copy-Item -LiteralPath (Join-Path $CollectionRoot ".deps/sdk-install/bin/$component.$extension") -Destination (Join-Path $build 'bin')
             }
         }
-        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'finish','host','--state',$receiptState)
-        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'stage_game.py'))
+        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'finish','host','--state',$receiptState,'--games',($selected -join ','))
+        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'stage_game.py'),'--games',($selected -join ','))
     }
     Write-Host "Built under $build/bin. This command does not launch a game."
 } finally { $taskProcess.PriorityClass = $previousPriority }

@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <rex/input/input_driver.h>
 #include <rex/input/input_system.h>
+#include <rex/input/guest_input_frame.h>
 #include <rex/input/sdl/sdl_input_driver.h>
 #include <rex/logging.h>
 #include <rex/cvar.h>
@@ -51,7 +52,7 @@ public:
         const auto active=is_active();
         std::lock_guard lock(mutex_);
         if (!active) {state_.ClearKeys();events_.clear();}
-        const auto snapshot=state_.Poll(active);
+        const auto snapshot=state_.PollFrame(rex::input::GuestInputFrame(),active);
         ++polls_;
         if (trace_ && trace_remaining_ && (snapshot!=last_ || (polls_ & (polls_-1))==0)) {
             --trace_remaining_;

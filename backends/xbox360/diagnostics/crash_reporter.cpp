@@ -4,10 +4,11 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <string>
 
-namespace espgaluda2 {
+namespace cave::xbox360 {
 namespace {
-G2CrashRecord* record{};
+CrashRecord* record{};
 HANDLE request_event{},done_event{};
 LPTOP_LEVEL_EXCEPTION_FILTER previous_filter{};
 bool RecordCrash(EXCEPTION_POINTERS* pointers,const char* reason) {
@@ -34,22 +35,24 @@ void AbortHandler(int) {
     RecordCrash(&pointers,"SIGABRT-synthetic-context");
 }
 }
-bool StartCrashReporter(const std::filesystem::path& run_directory) {
+bool StartCrashReporter(const std::filesystem::path& run_directory,std::string_view game,std::string_view build) {
     if (record) return true;
+    if (game.empty() || game.size()>=32 || game.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_")!=game.npos ||
+        build.empty() || build.size()>=64) return false;
     const auto prefix=std::filesystem::absolute(run_directory)/"game";
     if (prefix.wstring().size()>=4096 || !std::filesystem::is_directory(run_directory)) return false;
     std::array<wchar_t,32768> executable{};
     const auto length=GetModuleFileNameW(nullptr,executable.data(),DWORD(executable.size()));
     if (!length || length>=executable.size()) return false;
     const auto directory=std::filesystem::path(executable.data()).parent_path();
-    const auto helper=directory/"espgaluda2_crash_writer.exe";
+    const auto helper=directory/(std::string(game)+"_crash_writer.exe");
     if (!std::filesystem::is_regular_file(helper)) return false;
     wchar_t unique[128]{};
-    swprintf_s(unique,L"Local\\Espgaluda2Diag-%lu-%llu",GetCurrentProcessId(),GetTickCount64());
+    swprintf_s(unique,L"Local\\CaveDiag-%lu-%llu",GetCurrentProcessId(),GetTickCount64());
     const std::wstring stem=unique;
-    HANDLE mapping=CreateFileMappingW(INVALID_HANDLE_VALUE,nullptr,PAGE_READWRITE,0,sizeof(G2CrashRecord),(stem+L"-memory").c_str());
+    HANDLE mapping=CreateFileMappingW(INVALID_HANDLE_VALUE,nullptr,PAGE_READWRITE,0,sizeof(CrashRecord),(stem+L"-memory").c_str());
     if (!mapping) return false;
-    auto* shared=static_cast<G2CrashRecord*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(G2CrashRecord)));
+    auto* shared=static_cast<CrashRecord*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(CrashRecord)));
     request_event=CreateEventW(nullptr,TRUE,FALSE,(stem+L"-request").c_str());
     done_event=CreateEventW(nullptr,TRUE,FALSE,(stem+L"-done").c_str());
     HANDLE ready=CreateEventW(nullptr,TRUE,FALSE,(stem+L"-ready").c_str());
@@ -57,6 +60,8 @@ bool StartCrashReporter(const std::filesystem::path& run_directory) {
     if (shared && request_event && done_event && ready) {
         std::memset(shared,0,sizeof(*shared));
         wcscpy_s(shared->report_prefix,prefix.c_str());strcpy_s(shared->phase,"startup");
+        strncpy_s(shared->game,std::string(game).c_str(),_TRUNCATE);
+        strncpy_s(shared->build,std::string(build).c_str(),_TRUNCATE);
         std::wstring command=L"\""+helper.wstring()+L"\" "+std::to_wstring(GetCurrentProcessId())+L" \""+stem+L"\"";
         STARTUPINFOW startup{sizeof(startup)};PROCESS_INFORMATION process{};
         if (CreateProcessW(helper.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,

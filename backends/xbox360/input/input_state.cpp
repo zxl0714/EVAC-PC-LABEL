@@ -6,11 +6,17 @@ namespace cave::xbox360 {
 KeyboardSnapshot KeyboardState::Snapshot(bool active,std::uint16_t source_key) const {
     return BuildSnapshot(active,source_key,false);
 }
-KeyboardSnapshot KeyboardState::Poll(bool active) {
+KeyboardSnapshot KeyboardState::PollFrame(std::uint64_t frame,bool active) {
     if (!active || !focused_) {ClearKeys();return {};}
+    if (frame!=frame_) {
+        for (std::size_t key=0;key<pending_.size();++key)
+            if (latched_[key]) pending_[key]=false;
+        latched_.fill(false);
+        frame_=frame;
+    }
     const auto result=BuildSnapshot(true,0,true);
     sampled_=held_;
-    pending_.fill(false);
+    latched_=pending_;
     return result;
 }
 KeyboardSnapshot KeyboardState::BuildSnapshot(bool active,std::uint16_t source_key,bool pending) const {
