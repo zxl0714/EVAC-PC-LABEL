@@ -1,0 +1,16 @@
+[Unit]
+Description=Back up CAVE PC Collection ESPGaluda II community database
+After=cave-g2.service
+
+[Service]
+Type=oneshot
+User=cave-community
+Group=cave-community
+ExecStart=/usr/bin/python3 -B /opt/cave-community/current/server/backup.py --database /var/lib/cave-community/espgaluda2/community.sqlite3 --directory /var/lib/cave-community/espgaluda2/backups
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cave-community/espgaluda2
+MemoryMax=128M

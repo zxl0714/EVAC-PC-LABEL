@@ -1,4 +1,4 @@
-"""Nickname-based score service; Python 3.12+, SQLite, loopback behind HTTPS.
+"""Nickname-based score service; Python 3.10+, SQLite, loopback behind HTTPS.
 
 Score storage/ranking and bounded HTTP handling are adapted from
 Mushihimesama-Futari-PC 7dced5979076329db71b1296c81944c83fb72b48,

@@ -18,6 +18,12 @@
       "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
       "sources": ["scripts/project.py", "scripts/analyze_modules.py", "scripts/callback_inventory.py", "scripts/analyze_run.py", "scripts/analyze_community.py", "tests/*.py"],
       "scope": "Read-only XEX inventory, static census, callback/run analysis and G2-specific community analysis adapted to collection inputs and output boundaries. Original 66 Python test cases are mapped in docs/ANALYSIS.md: 64 remain Python checks; two copy checks are covered by the collection native DataImport implementation and tests. No second legacy configuration or game import implementation is retained."
+    },
+    {
+      "repository": "https://github.com/zxl0714/Mushihimesama-Futari-PC",
+      "commit": "7dced5979076329db71b1296c81944c83fb72b48",
+      "sources": ["server/backup.py"],
+      "scope": "Online SQLite snapshot and seven-backup retention adapted into server/backup.py, with exclusive output creation, regular input checks and explicit connection cleanup. Collection deployment templates keep each game database and legacy API separate."
     }
   ]
 }
