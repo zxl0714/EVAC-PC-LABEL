@@ -12,6 +12,12 @@
       "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
       "sources": ["third_party/rexglue", ".gitmodules", "tools/sdk-source.lock.json", "src", "recomp", "cmake/GameTargets.cmake", "config/game-inputs.json", "tests/*.cpp", "server/community.py"],
       "scope": "Accepted G2 maintenance source, SDK and 22 dependency pins; reorganized by scripts/import_g2_sources.py. Original files were checked against committed Git blobs and SHA-256. No game data, generated game bodies or installed tools are imported. SDK lock retains the earlier Futari/upstream provenance; this commit is the current maintenance baseline."
+    },
+    {
+      "repository": "https://github.com/zxl0714/ESPGaluda2-PC",
+      "commit": "ba85ac0c92402e9da9c809ef15ffa2d34bab2f6a",
+      "sources": ["scripts/project.py", "scripts/analyze_modules.py", "scripts/callback_inventory.py", "scripts/analyze_run.py", "scripts/analyze_community.py", "tests/*.py"],
+      "scope": "Read-only XEX inventory, static census, callback/run analysis and G2-specific community analysis adapted to collection inputs and output boundaries. Original 66 Python test cases are mapped in docs/ANALYSIS.md: 64 remain Python checks; two copy checks are covered by the collection native DataImport implementation and tests. No second legacy configuration or game import implementation is retained."
     }
   ]
 }

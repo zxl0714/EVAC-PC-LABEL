@@ -2,7 +2,7 @@
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾；P2 的公共清单、路径、INI 和无窗口检测已建立。下一步是 P3：迁入 G2 的维护 SDK／宿主与游戏适配，接通共享配置，并按视觉方案实现原生启动器。
 
-用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器已实际启动 Black Label／Seseri 第一关并保存新录像，重启后完整回放返回列表；共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。其他模式和原 G2 Python 专项测试迁移仍需完成，不能把单模式进关写成整个 P3 通过。当前不打 v0.1 发布标签。
+用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器已实际启动 Black Label／Seseri 第一关并保存新录像，重启后完整回放返回列表；共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。原 Python 专项检查已适配到合集，分析工具不再依赖旧工程；其他模式及正式联网仍需完成，不能把单模式进关写成整个 P3 通过。当前不打 v0.1 发布标签。
 
 ## 目录与数据边界
 
@@ -43,6 +43,8 @@ py -3.12 scripts/project.py audit
 清单是维护源码，原生头文件是生成产物。修改 games 元数据后正常 build，不手改 out/common/include/catalogue_generated.h，也不把 ROM、派生游戏 C++、安装工具、日志、存档或凭据提交。源码审计同时检查 Git 已跟踪和未忽略的新文件；P3 迁入 SDK 时扩展固定子模块检查并保留来源、许可证及双方修复。
 
 ## 后续接入
+
+静态模块、回调、日志和 G2 社区边界的检查方法见 [分析与诊断工具](docs/ANALYSIS.md)，其中列出原 66 项 Python 回归的迁移对应。工具显式读取数据目录，报告及解压区段只写新的 .local 路径；检查结果不代替实际进关和声音验收。
 
 G2 以 ESPGaluda2-PC 的 ba85ac0 为迁移起点。维护 SDK 在 third_party/rexglue，平台代码在 backends/xbox360，游戏适配、模块声明和工具在 games/espgaluda2；公共 HTTP 在 common/community。tests/fixtures/g2-default.ini 只是旧解析器的回归样本，不是第二份玩家配置。tools/references.json 记录来源，tools/sdk-source.lock.json 保留 SDK 的上游与虫姬二来源和固定依赖版本。
 
