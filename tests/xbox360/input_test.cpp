@@ -157,6 +157,12 @@ int main() {
         for (int read=0;read<1000;++read)
             Require(repeated.PollFrame(100).buttons==0x10,"Repeated reads consumed a same-frame tap");
         Require(!repeated.PollFrame(101).buttons,"Tap persisted into the next guest frame");
+        repeated.SetKey(13,true);repeated.SetKey(13,false);
+        Require(repeated.PollFrame(101).buttons==0x10,"Second tap in a sampled frame");
+        repeated.SetKey(13,true);
+        Require(repeated.PollFrame(101).buttons==0x10,"A new held press replaced a tap");
+        repeated.SetKey(13,false);
+        Require(!repeated.PollFrame(101).buttons,"Old tap delayed a new sampled hold's release");
         repeated.SetKey(90,true);
         Require(repeated.PollFrame(101).buttons==0x1000,"Held key within a sampled frame");
         repeated.SetKey(90,false);

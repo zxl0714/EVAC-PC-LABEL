@@ -16,7 +16,11 @@ public:
     void ClearKeys() { held_.fill(false); sampled_.fill(false); pending_.fill(false); latched_.fill(false); }
     void SetKey(std::uint16_t key, bool down) {
         if (key>=held_.size() || (!focused_ && down)) return;
-        if (down && !held_[key]) sampled_[key]=false;
+        if (down && !held_[key]) {
+            sampled_[key]=false;
+            pending_[key]=false;
+            latched_[key]=false;
+        }
         if (!down && held_[key] && !sampled_[key]) pending_[key]=true;
         held_[key]=down;
     }
