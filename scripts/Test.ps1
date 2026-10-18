@@ -1,6 +1,9 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([ValidateSet('Source','Native','All')][string]$Scope='All')
+param(
+    [ValidateSet('Source','Native','All')][string]$Scope='All',
+    [ValidateSet('espgaluda2')][string[]]$Games=@()
+)
 $ErrorActionPreference = 'Stop'
 $collectionTestRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $collectionTestRoot
@@ -14,7 +17,14 @@ try {
     if ($Scope -in @('Native','All')) {
         $ctest = Join-Path $collectionTestRoot 'tools/apps/cmake/bin/ctest.exe'
         if (-not (Test-Path -LiteralPath $ctest)) { throw 'Run Prepare-Tools.ps1 and Build.ps1 first' }
-        & $ctest --test-dir out/common --output-on-failure
-        if ($LASTEXITCODE -ne 0) { throw 'Native tests failed' }
+        $builds=if (-not $Games.Count) { @('out/common') } else {
+            if (Test-Path -LiteralPath (Join-Path $collectionTestRoot 'out/espgaluda2/CMakeCache.txt')) {
+                @('out/espgaluda2')
+            } else { @('out/espgaluda2-native') }
+        }
+        foreach ($build in $builds) {
+            & $ctest --test-dir $build --output-on-failure
+            if ($LASTEXITCODE -ne 0) { throw "Native tests failed: $build" }
+        }
     }
 } finally { Pop-Location }

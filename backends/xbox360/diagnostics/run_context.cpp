@@ -79,7 +79,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
     run.root=fs::canonical(requestedRoot);
     const auto& identity=cave::FindGame("espgaluda2");
     const auto configuration=run.root/"config.ini";
-    const auto ini=cave::Ini::Load(configuration);
+    const auto snapshot=fs::exists(configuration)?cave::Ini::ReadText(configuration):std::string(cave::DefaultConfig());
+    const auto ini=cave::Ini::Parse(snapshot);
     run.settings=cave::ResolveSettings(ini,"espgaluda2");
     run.paths=cave::Paths(run.root,"espgaluda2",dataOverride.empty()?ini.DataDirectory(identity):dataOverride);
     if (!requestedProfile.empty()) run.paths.profile=cave::Resolve(run.root,requestedProfile);
@@ -88,7 +89,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
     run.profile=run.paths.profile;
     const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full);
     if (inspection.data_state!=cave::DataState::Verified)
-        throw std::runtime_error("G2 data check failed: "+inspection.reason);
+        throw std::runtime_error("G2 data check failed: "+std::string(cave::Name(inspection.data_state))+": "+
+            (inspection.problems.empty()?inspection.reason:inspection.problems.front()));
     const auto metadata=Json::parse(kXexMetadata);
     Json inputs=Json::array();
     for (const auto& item:metadata.at("xex")) {
@@ -101,7 +103,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const fs::path& requestedPro
         inputs.push_back({{"path",name},{"sha256",hash},{"bytes",fs::file_size(path)}});
     }
     cave::EnsureConfig(run.root);
-    const auto snapshot=ReadSettingsText(configuration);
+    if (cave::Ini::ReadText(configuration)!=snapshot)
+        throw std::runtime_error("config.ini changed during startup; restart with the saved configuration");
     if (run.settings.community_enabled) {
         if (!cave::community::ValidEndpoint(run.settings.endpoint))
             throw std::runtime_error("[community].endpoint requires HTTPS or loopback HTTP and an API root without query/fragment");
