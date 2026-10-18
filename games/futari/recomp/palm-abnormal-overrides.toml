@@ -1,0 +1,30 @@
+# Novice (under Arrange): own crash snapshot, host RVA 0x20879D maps to
+# sub_880DD690. Override key is bctr 0x880DD7B4; table data is 0x880DD7B8.
+[[switch_tables]]
+address = 0x880DD7B4
+register = 11
+labels = [
+  0x880DD7EC,
+  0x880DD808,
+  0x880DD838,
+  0x880DD88C,
+  0x880DD8C4,
+  0x880DD8D0,
+  0x880DDAE0,
+  0x880DDBBC,
+  0x880DDBFC,
+  0x880DDC54,
+]
+
+# Six stored callbacks and four data-referenced two-instruction thunks.
+[functions]
+0x880AD710 = { end = 0x880AD718 }
+0x880BC218 = { end = 0x880BC220 }
+0x88147E80 = { end = 0x88147EC8 }
+0x88199C60 = { end = 0x88199CE0 }
+0x8819F800 = { end = 0x8819F850 }
+0x881AD270 = { end = 0x881AD2C8 }
+0x880ABF30 = { end = 0x880ABF38 }
+0x880B1648 = { end = 0x880B1650 }
+0x88154EF0 = { end = 0x88154EF8 }
+0x88161450 = { end = 0x88161458 }

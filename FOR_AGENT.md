@@ -1,6 +1,6 @@
 # 开发入口
 
-先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。当前继续迁移回归和 P4 的 Xbox 360 公共化准备，随后迁入虫姬二宿主及模式模块；绊地狱仍在其后。
+先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。当前 P4 已迁入虫姬二维护适配、生成声明及机制回归，下一步接通宿主与模式 DLL 的构建／运行；绊地狱仍在其后。
 
 用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器的真实进关、本地保存和跨进程完整回放、共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。六种 PLAY 模式均已在合集选人进关并卸载返回。原 Python 专项检查已适配到合集，分析工具不再依赖旧工程。正式 HTTPS 服务已部署；游戏实际成绩上传、榜单读回、网络录像下载落盘及冷启动完整回放通过。实体输入、扩展覆盖及音画回归继续跟踪，不把短测写成整个 P3 通过。当前不打 v0.1 发布标签。
 
@@ -54,7 +54,21 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 118 项 Python／CLI 回归和 12 组 CTest。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 137 项 Python／CLI 回归，G2 有 12 组 CTest，虫姬二 native 构建有 8 组 CTest；双游戏 native 构建为 17 组，公共三组仅运行一次，均已通过。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+
+### 虫姬二接入
+
+来源固定为 7dced597；game-data、旧宿主和图形设置向导没有迁入源码。games/futari 中 audio 保留作用域音频等待与只读追踪，compat 保留模式装卸载适配，community 保留原生协议、录像及待传逻辑，diagnostics 保留存储钩子与诊断，recomp 保存主程序和八个 overlay 的声明。`community_client.h` 仅适配公共 HTTP 类型；不要恢复另一份通信 worker。服务协议源码在 server/games/futari.py，不因源码迁入就重新部署旧服务。
+
+```powershell
+./scripts/Generate.ps1 -Game futari -DataDirectory '<受支持的数据目录>'
+./scripts/Build.ps1 -Games futari -NativeOnly -Jobs 2
+./scripts/Test.ps1 -Games futari
+./scripts/Build.ps1 -Games espgaluda2,futari -NativeOnly -Jobs 2
+./scripts/Test.ps1 -Games espgaluda2,futari
+```
+
+生成器支持嵌套的 media/Module 路径，逐个隔离生成 overlay，保留每个模块自己的 includes 和 31 个主程序回调。只生成到 ignored generated/futari，不读取旧工程的生成正文。native 构建无需 ROM；当前完整虫姬二宿主构建明确拒绝，待下一步接通后解除，不能用 native 测试代替实际游玩。原生联网回归使用 tests/futari/run_native_community.py 创建的临时 loopback 服务和临时数据，包含损坏录像及重试故障注入，不读取旧存档或向正式服务提交。公网接口传入此测试程序会被拒绝。
 
 直接测试运行时可启动 `runtime/xbox360/espgaluda2.exe --collection_root=<合集根> --game_data_root=<数据目录> --user_data_root=<合集内独立 profile> --game_id=espgaluda2 --launch_contract=1`。数据路径参数是临时覆盖，不写回 INI。共享显示／声音／输入及社区值按公共配置、当前游戏覆盖解析；同一 profile 有进程间排他锁，退出自动释放。日志在 logs/espgaluda2。computer-use 的方向键目前被 SDL 收为小键盘键，自动测试可临时在本地 INI 为四方向增加 Numpad8/2/4/6 别名；结束后恢复，不更改发行模板，也不据此声称实体键盘／手柄已全部实测。
 

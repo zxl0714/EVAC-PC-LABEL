@@ -1,0 +1,41 @@
+# Native XStorage API wrappers in the resident default module.
+# No translated game bodies are maintained here.
+[[midasm_hook]]
+address = 0x8218EAB0
+name = "FutariCommunityReplayPrepare"
+registers = ["r3", "r4", "r6"]
+
+[[midasm_hook]]
+address = 0x8218E8C0
+name = "FutariCommunityReplayTask"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82158948
+name = "FutariCommunityEstimateRank"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x82158B28
+name = "FutariCommunityReplayPath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x82158BC0
+name = "FutariCommunityReplayRemotePath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x821586B8
+name = "FutariCommunityReplayUpload"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x821583D8
+name = "FutariCommunityReplayDownload"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true

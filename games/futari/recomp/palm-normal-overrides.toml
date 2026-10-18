@@ -1,0 +1,30 @@
+# Arrange state machine: all ten targets read from the loaded original image.
+[[switch_tables]]
+address = 0x880EBCAC
+register = 11
+labels = [
+  0x880EBCE4,
+  0x880EBD20,
+  0x880EBD50,
+  0x880EBDA4,
+  0x880EBDDC,
+  0x880EBDE8,
+  0x880EC0E0,
+  0x880EC1BC,
+  0x880EC1FC,
+  0x880EC254,
+]
+
+# Stored callback and static dispatch-table entries missed by automatic analysis.
+[functions]
+0x8809E980 = { end = 0x8809E988 }
+0x8809F470 = { end = 0x8809F478 }
+0x880A49B0 = { end = 0x880A49B8 }
+0x880B0B48 = { end = 0x880B0B50 }
+0x880B9770 = { end = 0x880B9778 }
+0x88180500 = { end = 0x88180508 }
+0x881B2978 = { end = 0x881B29F8 }
+0x881B83D0 = { end = 0x881B8420 }
+0x881C5530 = { end = 0x881C5588 }
+0x881E7200 = { end = 0x881E7208 }
+0x881E8F28 = { end = 0x881E8F48 }

@@ -43,7 +43,7 @@ class GenerationMetadataTests(unittest.TestCase):
 
     def test_registry_contains_all_overlays_once(self):
         records = generate.targets(self.manifest, self.lock)
-        source = generate.registry_source(records)
+        source = generate.registry_source(records, self.lock['id'])
         self.assertEqual(source.count('RegisterRecompiledModule('), 7)
         for name in records:
             if name != 'default':

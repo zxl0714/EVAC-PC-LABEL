@@ -1,0 +1,110 @@
+# audio-r2 read-only probes; ordinary builds compile these hooks as no-ops.
+
+[[midasm_hook]]
+address = 0x880E5C68
+name = "FutariAudioEnqueue4Begin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5CF8
+name = "FutariAudioEnqueue4End"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5D18
+name = "FutariAudioEnqueue3Begin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5D94
+name = "FutariAudioEnqueue3End"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5DA0
+name = "FutariAudioEnqueue2Begin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5E20
+name = "FutariAudioEnqueue2End"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5E30
+name = "FutariAudioEnqueue1Begin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5EB0
+name = "FutariAudioEnqueue1End"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5EC0
+name = "FutariAudioEnqueue0Begin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E5F3C
+name = "FutariAudioEnqueue0End"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E79DC
+name = "FutariAudioConsumeBegin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E7B68
+name = "FutariAudioConsumeEnd"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880E7B78
+name = "FutariAudioConsumeHeadWait"
+registers = ["r29", "r28", "r3", "r4"]
+
+[[midasm_hook]]
+address = 0x88090518
+name = "FutariAudioCueRequest"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x880905D0
+name = "FutariAudioCueBankCall"
+registers = ["r3", "r4", "r7", "r11"]
+
+[[midasm_hook]]
+address = 0x880905D4
+name = "FutariAudioCueBankResult"
+registers = ["r3", "r1", "r31", "r11"]
+
+[[midasm_hook]]
+address = 0x88090660
+name = "FutariAudioCueRequestEnd"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x88090374
+name = "FutariAudioCueName"
+registers = ["r31", "r26", "r4", "r3"]
+
+# Observations inside the original action-flags0x40 / kind0 branch. Addresses
+# and field semantics come from the PPC body; cue names alone are not pickup proof.
+[[midasm_hook]]
+address = 0x8814D5B4
+name = "FutariAudioPowerActionBegin"
+registers = ["r30", "r31", "r3", "r4"]
+
+[[midasm_hook]]
+address = 0x8814D5D0
+name = "FutariAudioPowerActionEnd"
+registers = ["r30", "r31", "r3", "r4"]
+
+# Original actor state3 particle/death-phase branch, before its sound request.
+[[midasm_hook]]
+address = 0x8814D6E8
+name = "FutariAudioDeathPhase"
+registers = ["r29", "r9", "r3", "r4"]
+

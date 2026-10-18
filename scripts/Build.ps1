@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,8)][int]$Jobs=2,
-    [ValidateSet('espgaluda2')][string[]]$Games=@(),
+    [ValidateSet('espgaluda2','futari')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
     [string]$DataDirectory
@@ -17,7 +17,9 @@ try {
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
     $selected=@($Games | Sort-Object -Unique)
-    $buildName=if (-not $selected.Count) { 'common' } elseif ($NativeOnly) { 'espgaluda2-native' } else { 'espgaluda2' }
+    if ($selected -contains 'futari' -and -not $NativeOnly) { throw 'Futari host migration is in progress; use -NativeOnly' }
+    $nativeName=if ($selected.Count -gt 1) { 'xbox360' } elseif ($selected.Count) { $selected[0] } else { 'common' }
+    $buildName=if (-not $selected.Count) { 'common' } elseif ($NativeOnly) { "$nativeName-native" } else { 'espgaluda2' }
     $build = Join-Path $CollectionRoot ('out/' + $buildName)
     if ($selected.Count) {
         Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'verify-sdk')

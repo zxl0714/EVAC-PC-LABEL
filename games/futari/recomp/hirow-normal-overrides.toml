@@ -1,0 +1,29 @@
+# 1.01 normal module: full ten-state menu/character state machine from its
+# automatically captured original runtime image, not another module's table.
+[[switch_tables]]
+address = 0x880EBCAC
+register = 11
+labels = [
+  0x880EBCE4,
+  0x880EBD00,
+  0x880EBD30,
+  0x880EBD84,
+  0x880EBDBC,
+  0x880EBDC8,
+  0x880EBFD8,
+  0x880EC0B4,
+  0x880EC0F4,
+  0x880EC14C,
+]
+
+[functions]
+0x8809E718 = { end = 0x8809E720 }
+0x8809F220 = { end = 0x8809F228 }
+0x880B9548 = { end = 0x880B9550 }
+0x881679A8 = { end = 0x881679F0 }
+0x881AC928 = { end = 0x881AC9A8 }
+0x881C0200 = { end = 0x881C0258 }
+0x881E2018 = { end = 0x881E2020 }
+0x880A4740 = { end = 0x880A4748 }
+0x880B08D0 = { end = 0x880B08D8 }
+0x88179D88 = { end = 0x88179D90 }

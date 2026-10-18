@@ -1,0 +1,318 @@
+{
+  "format": 1,
+  "game": "futari",
+  "files": [
+    {
+      "path": "AvatarAssetPack",
+      "bytes": 14450688,
+      "sha256": "beaaae8de08857f33d16b2f98a72b9dc1aa5d7c20fce14f4dac6c6503261ab59",
+      "program": false
+    },
+    {
+      "path": "default.xex",
+      "bytes": 2760704,
+      "sha256": "6e61934468463c8d023588a1e14b2269002dec6987b51538154843ea6869a434",
+      "program": true
+    },
+    {
+      "path": "media/font/font16bm.lzx",
+      "bytes": 181176,
+      "sha256": "351778cafa05b6b43fff948d1c8901519981ae1d42ffe44cbd343e5c9c65f0a4",
+      "program": false
+    },
+    {
+      "path": "media/font/font24tt.lzx",
+      "bytes": 112516,
+      "sha256": "de51db614377093d7c864a3e018f33b79a603e85e17c4af9946f64c76316b233",
+      "program": false
+    },
+    {
+      "path": "media/font/font32tt.lzx",
+      "bytes": 149272,
+      "sha256": "135d924f4fda16cba31b981895a7754ca61bd2ad66637655db24056b56f796e7",
+      "program": false
+    },
+    {
+      "path": "media/font/font8bm.lzx",
+      "bytes": 10894,
+      "sha256": "b2179070f28b23f236bc0fbce72b623b5e6f2b7e128521882ed48d9447435681",
+      "program": false
+    },
+    {
+      "path": "media/Module/hirow_abnormal.xex",
+      "bytes": 3547136,
+      "sha256": "92ee27efd7e6c0ed4e4ea086fe53ac015bb018be658c0689dfd771936ff39050",
+      "program": true
+    },
+    {
+      "path": "media/Module/hirow_normal.xex",
+      "bytes": 3547136,
+      "sha256": "9c3c9d8b56709c0b50a3953fcc8d42ea950f5cb05f9339cc68a197e643cc3bd4",
+      "program": true
+    },
+    {
+      "path": "media/Module/kiniro_abnormal.xex",
+      "bytes": 3481600,
+      "sha256": "da3ab8cb8edb287a10866ad262b7bc5ceeacd431044d59bdf0b85067a5792f20",
+      "program": true
+    },
+    {
+      "path": "media/Module/kiniro_normal.xex",
+      "bytes": 3481600,
+      "sha256": "8d1df7da086e7ce36e804cef43bf5afadaa5e66f7196a54bb2757be535c3681c",
+      "program": true
+    },
+    {
+      "path": "media/Module/palm_abnormal.xex",
+      "bytes": 3678208,
+      "sha256": "e37ec86e0d2c2f176a6c9dc4486e982235008628bd4765e33fc717c95da34222",
+      "program": true
+    },
+    {
+      "path": "media/Module/palm_normal.xex",
+      "bytes": 3579904,
+      "sha256": "b8857eeb0a814a550176746d2dfc05d3d9c5866ab05a2716911dbbdf49ec73d6",
+      "program": true
+    },
+    {
+      "path": "media/Module/reco_abnormal.xex",
+      "bytes": 3547136,
+      "sha256": "c55f633ff8e1cba140279f4ab0d6bb7389a2151ef80d0da3245a8d1dd068e754",
+      "program": true
+    },
+    {
+      "path": "media/Module/reco_normal.xex",
+      "bytes": 3547136,
+      "sha256": "cf13982ed0af96769a432666604322a759e4247a46e40259c575036925e38fcf",
+      "program": true
+    },
+    {
+      "path": "media/motion/loading_replay.lzx",
+      "bytes": 169748,
+      "sha256": "e26828dc2f5f4dd89dfa573272f0aeb5b0b72232f2acb6578189af6408733228",
+      "program": false
+    },
+    {
+      "path": "media/motion/logo.lzx",
+      "bytes": 54082,
+      "sha256": "6c30d14e6438bbbc59d0d87e6dbe7848f07765de11d854b9dd9ec1c388c9e0f7",
+      "program": false
+    },
+    {
+      "path": "media/motion/menu_dialog.lzx",
+      "bytes": 16430,
+      "sha256": "1ddc3d25fb21ae778ec73951d5fbbd1910c67f0192e2952a3dc6095bdc1c3207",
+      "program": false
+    },
+    {
+      "path": "media/motion/menu_panel.lzx",
+      "bytes": 1711902,
+      "sha256": "b8682563bb2a1b3ddbd97e5607ce45c80652279fee3fbc2af60bf9683e6d5503",
+      "program": false
+    },
+    {
+      "path": "media/motion/menu_title.lzx",
+      "bytes": 114046,
+      "sha256": "cba3a467bedb0aec3ba5d7930aee84570b55c53b4f8e9b1e6357c69de1b212eb",
+      "program": false
+    },
+    {
+      "path": "media/motion/title.lzx",
+      "bytes": 1445990,
+      "sha256": "be92b0ca5e4b3ade24aa69eb51c2b3785b6057e4a9e60528cefa9b1bf17d8455",
+      "program": false
+    },
+    {
+      "path": "media/Rom/cg_v102.bin",
+      "bytes": 58356684,
+      "sha256": "d9c0652ffb49a6f9050c8f284ebca1f3fc013eb7e86ad79a35041f1176cafc4a",
+      "program": false
+    },
+    {
+      "path": "media/Rom/cg_v102hi.bin",
+      "bytes": 211933902,
+      "sha256": "b3c48a7757b1f683f65853e1ab1711b2222bae9761b4902016b0f7496eb4861a",
+      "program": false
+    },
+    {
+      "path": "media/Rom/cg_v154.bin",
+      "bytes": 58343840,
+      "sha256": "fe1f5c57bfddc7296eb9279c9a9662c47e17ebbb6a57070d2722b38bcc25f475",
+      "program": false
+    },
+    {
+      "path": "media/Rom/cg_v154hi.bin",
+      "bytes": 211780472,
+      "sha256": "87b4e526215f28460346b6ee9bf40c9c880f0f9ec6a6a0c97ed1a0da8e0ad98d",
+      "program": false
+    },
+    {
+      "path": "media/Sound/BGM.xgs",
+      "bytes": 440,
+      "sha256": "48a1b721358f711eb321e1c2b9a9d13473d1d0ae5ddc8edd7c57a2a18810aaa1",
+      "program": false
+    },
+    {
+      "path": "media/Sound/BGM.xsb",
+      "bytes": 938,
+      "sha256": "6f842f91e6f07492007cc651be7fdc07d9e9247f280b8c5aeda78c579d683e79",
+      "program": false
+    },
+    {
+      "path": "media/Sound/BGM.xwb",
+      "bytes": 182740992,
+      "sha256": "07c987daa5b6a15da7b1daf7c15ba35698b6b708d05eb7d5bcacc7cdf5f916f1",
+      "program": false
+    },
+    {
+      "path": "media/Sound/SE.xsb",
+      "bytes": 2449,
+      "sha256": "f667152c605aefae24fbe02bd171c7bac89340fcb8279c564a9a10b773ba61b0",
+      "program": false
+    },
+    {
+      "path": "media/Sound/SE.xwb",
+      "bytes": 745336,
+      "sha256": "73262732b22643fbfbb19cb9ca76f975c185d95cba769727a2455874f3ddc157",
+      "program": false
+    },
+    {
+      "path": "media/Sound/sound.xgs",
+      "bytes": 548,
+      "sha256": "f34cf2e3867fd58512a48eebcbd376dd49913fc2601bd6b7c141afac7be3ec39",
+      "program": false
+    },
+    {
+      "path": "media/Sound/SYS_BGM.xsb",
+      "bytes": 298,
+      "sha256": "614cf64a2f10a8511d16780a297b286c6fab77a3b723569eb85d2e42aa56274d",
+      "program": false
+    },
+    {
+      "path": "media/Sound/SYS_BGM.xwb",
+      "bytes": 15378432,
+      "sha256": "749db818cbaa4ed142b0bf0a0d488b07be10638b3bd9546d61b3f6b3e1be921d",
+      "program": false
+    },
+    {
+      "path": "media/Sound/SYS_SE.xsb",
+      "bytes": 530,
+      "sha256": "b52764e6cd092cefba89b7af5c950636be7bbd51afdf7414a0bb739364eb89f6",
+      "program": false
+    },
+    {
+      "path": "media/Sound/SYS_SE.xwb",
+      "bytes": 582288,
+      "sha256": "c244a97eddeae8d4b8b5154e128a7d8807495e5286650c902827e6321268ce7c",
+      "program": false
+    },
+    {
+      "path": "media/Sound/system_sound.xgs",
+      "bytes": 501,
+      "sha256": "62de59c03827509f1ef9d14c4208656c1416a4b509ee41e8b3408d0a1f95e818",
+      "program": false
+    },
+    {
+      "path": "media/Sound/VOICE.xsb",
+      "bytes": 4858,
+      "sha256": "1714ff469442adc08c31e99ff0d0c392e7a9efe3c237611f6f13d5929033ffda",
+      "program": false
+    },
+    {
+      "path": "media/Sound/VOICE.xwb",
+      "bytes": 2957952,
+      "sha256": "40816d297cd7863af24b42946331e4a348c9ad2cd4bb3ff4273e0a1aad8dd335",
+      "program": false
+    },
+    {
+      "path": "media/text/StringTable.lzx",
+      "bytes": 23064,
+      "sha256": "5d8713498f3e0be59e1288927d3d89e1b3e747f5a7c3bdd0ec6b11491479be36",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp01.bin",
+      "bytes": 3686528,
+      "sha256": "da0cd985a98fbc1ffc448df53f188df0e7f89fa4b68f13bcb6e4f118ca91e230",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp02.bin",
+      "bytes": 3686528,
+      "sha256": "124deb25c440e52a01ca9d0871ac7221d3ebbeed20e82ad902edb25e738600e3",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp03.bin",
+      "bytes": 3686528,
+      "sha256": "42ed0e7ce90561355106ee699d32fe2d722b3d61741bf70140ae30b1c0e58b13",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp04.bin",
+      "bytes": 3686528,
+      "sha256": "8d7f9270f52152ae0a3c3df405810da6f090feee518a6b623fa3cddc6b7b27d2",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp05.bin",
+      "bytes": 3686528,
+      "sha256": "f57fcbca4b96f803029137b41120736d05b6ddffbc07700a0f23891d557104d7",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp06.bin",
+      "bytes": 3686528,
+      "sha256": "26c177b20079a888b5f5224588e390f0830e5112d3921613269761ad9aa8e52d",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp07.bin",
+      "bytes": 3686528,
+      "sha256": "51e5479d1d794825f5d299bab840f399fd988a86317ffef4ff53160d078f51e0",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp08.bin",
+      "bytes": 3686528,
+      "sha256": "8bdb18ed7fc79436bab3fcede5c61cdfe9e4ffe1c18fd21aba20a48b1ab75a16",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp09.bin",
+      "bytes": 3686528,
+      "sha256": "11f59061012e4aa832eff57461cf210ea1aeeeab3ab4d327c473361f4adbd4a1",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp10.bin",
+      "bytes": 3686528,
+      "sha256": "6ca33715d7d19748e530edb7634c28cb9d474691d0640ca81661a92b8a30dd77",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp11.bin",
+      "bytes": 3686528,
+      "sha256": "2272ee6c445e736e86cf3d13116c966175b6d2916668f47fcaed22937f891e2c",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp12.bin",
+      "bytes": 3686528,
+      "sha256": "a3b289e82414daac3b0d5286dcc75508511f2ea9d0fcf4dde0951e488db5a063",
+      "program": false
+    },
+    {
+      "path": "media/wall/wp13.bin",
+      "bytes": 3686528,
+      "sha256": "f43e93769c82928fe0f9539f293d89bca6af6dfc6d40d8dc3db433bb81f379ac",
+      "program": false
+    },
+    {
+      "path": "nxeart",
+      "bytes": 1028096,
+      "sha256": "28f5b8173b067d0a650679f8807ca3ba20c1c38ed8518dcc39f40503559515ae",
+      "program": false
+    }
+  ]
+}

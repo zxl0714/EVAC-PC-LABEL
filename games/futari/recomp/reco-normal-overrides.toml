@@ -1,0 +1,18 @@
+# The original PPC code branches through a ten-entry state-machine table at
+# 0x880EC87C. Automatic analysis found only the first two entries, so preserve
+# the complete table read from the isolated module image at runtime.
+[[switch_tables]]
+address = 0x880EC87C
+register = 11
+labels = [
+  0x880EC8B4,
+  0x880EC8D0,
+  0x880EC900,
+  0x880EC954,
+  0x880EC98C,
+  0x880EC998,
+  0x880ECBA8,
+  0x880ECC84,
+  0x880ECCC4,
+  0x880ECD1C,
+]

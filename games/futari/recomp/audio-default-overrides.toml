@@ -1,0 +1,23 @@
+# audio-r2 read-only probes; ordinary builds compile these hooks as no-ops.
+
+[[midasm_hook]]
+address = 0x821CAF7C
+name = "FutariAudioEngineWorkBegin"
+registers = ["r3", "r10", "r4", "r5"]
+
+[[midasm_hook]]
+address = 0x821CAF80
+name = "FutariAudioEngineWorkEnd"
+registers = ["r3", "r4", "r5", "r6"]
+
+# audio-r3 sound-worker wait scope. No-op without the explicit fix build option.
+[[midasm_hook]]
+address = 0x821CB174
+name = "FutariAudioWaitBegin"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x821CB178
+name = "FutariAudioWaitEnd"
+registers = ["r3", "r4", "r5", "r6"]
+

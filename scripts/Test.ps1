@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Source','Native','All')][string]$Scope='All',
-    [ValidateSet('espgaluda2')][string[]]$Games=@()
+    [ValidateSet('espgaluda2','futari')][string[]]$Games=@()
 )
 $ErrorActionPreference = 'Stop'
 $collectionTestRoot = Split-Path -Parent $PSScriptRoot
@@ -18,9 +18,11 @@ try {
         $ctest = Join-Path $collectionTestRoot 'tools/apps/cmake/bin/ctest.exe'
         if (-not (Test-Path -LiteralPath $ctest)) { throw 'Run Prepare-Tools.ps1 and Build.ps1 first' }
         $builds=if (-not $Games.Count) { @('out/common') } else {
-            if (Test-Path -LiteralPath (Join-Path $collectionTestRoot 'out/espgaluda2/CMakeCache.txt')) {
-                @('out/espgaluda2')
-            } else { @('out/espgaluda2-native') }
+            $selected=@($Games | Sort-Object -Unique)
+            $name=if ($selected.Count -gt 1) { 'xbox360' } else { $selected[0] }
+            if (Test-Path -LiteralPath (Join-Path $collectionTestRoot "out/$name/CMakeCache.txt")) {
+                @("out/$name")
+            } else { @("out/$name-native") }
         }
         foreach ($build in $builds) {
             & $ctest --test-dir $build --output-on-failure

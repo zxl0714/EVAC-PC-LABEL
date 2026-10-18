@@ -1,0 +1,126 @@
+[[midasm_hook]]
+address = 0x82190A08
+name = "FutariStorageSelectBegin"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8"]
+
+[[midasm_hook]]
+address = 0x82190A0C
+name = "FutariStorageSelectReturn"
+registers = ["r3", "r31"]
+
+[[midasm_hook]]
+address = 0x8219096C
+name = "FutariStorageSelectComplete"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x82088334
+name = "FutariStorageCreateBegin"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r1"]
+
+[[midasm_hook]]
+address = 0x82088338
+name = "FutariStorageCreateReturn"
+registers = ["r3"]
+
+# The device checks surrounding first save creation.
+[[midasm_hook]]
+address = 0x8218C88C
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x8218CA90
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x8218CFF0
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x8218CFA8
+name = "FutariStorageSaveCheck"
+registers = ["r3"]
+
+# Optional test-only input trace; it never changes input or logs each frame.
+[[midasm_hook]]
+address = 0x8218D210
+name = "FutariStorageState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x8218D220
+name = "FutariStorageState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82185698
+name = "FutariSystemStorageState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x821856B0
+name = "FutariStorageState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82191D00
+name = "FutariStorageIOState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82191D98
+name = "FutariStorageIOState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82191E30
+name = "FutariStorageIOState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82191EC8
+name = "FutariStorageIOState"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x8219445C
+name = "FutariStorageEnumResult"
+registers = ["r3", "r31", "r1"]
+
+[[midasm_hook]]
+address = 0x82185A7C
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x82186910
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x82187390
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x82187868
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x8218AF70
+name = "FutariStorageDeviceCheck"
+registers = ["r3", "r1"]
+
+[[midasm_hook]]
+address = 0x821905C8
+name = "FutariInputTraceBegin"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x821905CC
+name = "FutariInputTraceReturn"
+registers = ["r3"]

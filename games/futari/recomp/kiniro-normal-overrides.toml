@@ -1,0 +1,32 @@
+# Black Label Arcade: decoded from its own r2 crash-time guest image.
+# Crash host RVA 0x2B164D maps to sub_880EEFA0; cmplwi state,9 precedes
+# a ten-entry table. Automatic analysis retained only states 0 and 1.
+# SDK override key is the bctr instruction; table data begins at 0x880EF0CC.
+[[switch_tables]]
+address = 0x880EF0C8
+register = 11
+labels = [
+  0x880EF100,
+  0x880EF11C,
+  0x880EF14C,
+  0x880EF1A0,
+  0x880EF1D8,
+  0x880EF1E4,
+  0x880EF440,
+  0x880EF51C,
+  0x880EF55C,
+  0x880EF5B4,
+]
+
+# Stored callbacks and data-referenced thunk entries, verified in this image.
+# Do not copy the abnormal module's shifted entry addresses.
+[functions]
+0x880868F8 = { end = 0x88086900 }
+0x880A7AA0 = { end = 0x880A7AA8 }
+0x880B3CA0 = { end = 0x880B3CA8 }
+0x880BC918 = { end = 0x880BC920 }
+0x8817D360 = { end = 0x8817D368 }
+0x881AFB08 = { end = 0x881AFB88 }
+0x881B5708 = { end = 0x881B5758 }
+0x881C2938 = { end = 0x881C2990 }
+0x881E4CD8 = { end = 0x881E4CE0 }

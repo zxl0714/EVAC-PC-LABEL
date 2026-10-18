@@ -1,0 +1,19 @@
+[[midasm_hook]]
+address = 0x82088DA4
+name = "FutariBeforeUnload"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82088DA8
+name = "FutariAfterUnload"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82088E28
+name = "FutariBeforeLoad"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82088E2C
+name = "FutariAfterLoad"
+registers = ["r3"]

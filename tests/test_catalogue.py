@@ -1,6 +1,7 @@
 import copy
 import json
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 import unittest
@@ -56,6 +57,13 @@ class CatalogueTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'catalogue.json'
             path.write_text(json.dumps(value), encoding='utf-8')
+            # The temporary catalogue needs the same metadata dependencies;
+            # missing fixtures must not mask the identity validation under test.
+            for game in catalogue.read_json(self.path)['games']:
+                if game['dataManifest']:
+                    target = path.parent / game['dataManifest']
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(self.path.parent / game['dataManifest'], target)
             with self.assertRaises((ValueError, KeyError)):
                 catalogue.load(path)
 

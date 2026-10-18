@@ -45,7 +45,7 @@ class GameGenerationTests(unittest.TestCase):
             self.assertEqual(len(result['modules']), 7)
 
     def test_registry_uses_packaged_game_module_directory(self):
-        source = generate_game.registry_source(generate_game.targets(self.manifest, self.game))
+        source = generate_game.registry_source(generate_game.targets(self.manifest, self.game), self.game['id'])
         self.assertEqual(source.count('RegisterRecompiledModule('), 7)
         self.assertIn('parent_path()/"games/espgaluda2"', source)
         self.assertNotIn('PPC_FUNC_IMPL', source)

@@ -4,12 +4,15 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tomllib
 
 from build_receipt import verify_sdk
 from generate_catalogue import load, relative
 from project import ROOT, digest, reject_link, write_json_new
+
+SUPPORTED_GAMES = ('espgaluda2', 'futari')
 
 
 def verify_data(game, data):
@@ -26,21 +29,36 @@ def verify_data(game, data):
 
 
 def targets(manifest, game):
-    if manifest['project']['name'] != game['id']:
+    game_id = game['id']
+    if game_id not in SUPPORTED_GAMES or manifest['project']['name'] != game_id:
         raise ValueError('Unexpected code generation project')
-    records = {'default': manifest['entrypoint']}
+    if manifest['project']['game_root'] != '../../../game-data/' + game_id:
+        raise ValueError('Unexpected declarative game root')
+    programs = {item['path'].casefold(): item['path'] for item in game['files'] if item['program']}
+    if 'default.xex' not in programs:
+        raise ValueError('Missing resident program identity')
+    records = {'default': dict(manifest['entrypoint'], program_path=programs['default.xex'])}
     for item in manifest['modules']:
-        guest = item['guest_path']
+        guest = relative(item['guest_path'])
         name = Path(guest).stem
-        if guest != name + '.xex' or name in records or not name.startswith('dat') or not name[3:].isdigit():
-            raise ValueError('Expected unique root-level overlays')
-        records[name] = item
-    if {name + '.xex' for name in records} != {item['path'] for item in game['files'] if item['program']}:
+        if (guest.casefold() not in programs or name in records or
+                not re.fullmatch('[a-z][a-z0-9_]*', name) or Path(guest).suffix != '.xex'):
+            raise ValueError('Expected unique declared program overlays')
+        records[name] = dict(item, program_path=programs[guest.casefold()])
+    if {item['program_path'] for item in records.values()} != set(programs.values()):
         raise ValueError('Manifest does not cover precisely the supported programs')
     for name, item in records.items():
-        if (item['file_path'] != '../../../game-data/espgaluda2/' + name + '.xex' or
-                item['out_directory_path'] != '../../../generated/espgaluda2/' + name):
+        if set(item) - {'file_path', 'out_directory_path', 'includes', 'guest_path', 'program_path'}:
+            raise ValueError('Put callback/hook declarations in includes; do not silently drop them')
+        if (item['file_path'] != '../../../game-data/' + game_id + '/' + item['program_path'] or
+                item['out_directory_path'] != '../../../generated/' + game_id + '/' + name):
             raise ValueError('Unexpected declarative generation paths')
+        includes = item.get('includes', [])
+        if (not isinstance(includes, list) or not all(isinstance(path, str) for path in includes) or
+                len(set(includes)) != len(includes)):
+            raise ValueError('Expected unique include paths')
+        for include in includes:
+            relative(include)
     return records
 
 
@@ -52,9 +70,9 @@ def execution_manifest(game, records, data, generated, source):
         lines += ['[entrypoint]' if name == 'default' else '[[modules]]']
         if name != 'default':
             lines.append('guest_path = ' + quoted(item['guest_path']))
-        lines += ['file_path = ' + quoted(data / (name + '.xex')),
+        lines += ['file_path = ' + quoted(data / item['program_path']),
                   'out_directory_path = ' + quoted(generated / name)]
-        if name == 'default':
+        if item.get('includes'):
             paths = []
             for include in item['includes']:
                 path = source / relative(include)
@@ -65,23 +83,26 @@ def execution_manifest(game, records, data, generated, source):
     return '\n'.join(lines)
 
 
-def registry_source(names):
+def registry_source(records, game_id):
+    if game_id not in SUPPORTED_GAMES:
+        raise ValueError('Unsupported registry game')
     lines = ['// Generated module registry metadata; no translated program bodies.',
              '#include <rex/system/kernel_state.h>', '#include <rex/filesystem.h>',
              '#include "common/catalogue.h"',
              'void RegisterRecompiledModules(rex::system::KernelState* kernel_state) {',
-             '  const auto root=rex::filesystem::GetExecutableFolder().parent_path()/"games/espgaluda2";']
-    for name in names:
+             f'  const auto root=rex::filesystem::GetExecutableFolder().parent_path()/"games/{game_id}";']
+    for name, item in records.items():
         if name != 'default':
-            lines += ['  {', f'    const auto library=cave::Utf8(root/"espgaluda2_{name}.dll");',
-                      f'    kernel_state->RegisterRecompiledModule("{name}.xex","{name}.xex",library.c_str());', '  }']
+            guest = relative(item['guest_path'])
+            lines += ['  {', f'    const auto library=cave::Utf8(root/"{game_id}_{name}.dll");',
+                      f'    kernel_state->RegisterRecompiledModule("{name}.xex","{guest}",library.c_str());', '  }']
     return '\n'.join(lines + ['}', ''])
 
 
 def generate(game_id, data, regenerate=False):
     game = next(game for game in load(ROOT / 'games/catalogue.json') if game['id'] == game_id)
-    if game_id != 'espgaluda2':
-        raise ValueError('This generator currently supports only ESPGaluda II')
+    if game_id not in SUPPORTED_GAMES:
+        raise ValueError('Unsupported game generator')
     data = Path(data).resolve(strict=True)
     generated = ROOT / 'generated' / game_id
     reject_link(generated)
@@ -139,9 +160,9 @@ def generate(game_id, data, regenerate=False):
                 raise ValueError('Incomplete generated target: ' + name)
         # Only registry metadata is consolidated after the isolated codegen runs.
         # Translated guest function bodies are never patched by this script.
-        (generated / 'default/module_registry.cpp').write_text(registry_source(records), encoding='utf-8', newline='\n')
+        (generated / 'default/module_registry.cpp').write_text(registry_source(records, game_id), encoding='utf-8', newline='\n')
         (generated / 'default/dll_targets.cmake').write_text(
-            '# Targets are maintained in games/espgaluda2/overlays.cmake.\n', encoding='utf-8')
+            f'# Targets are maintained in games/{game_id}/overlays.cmake.\n', encoding='utf-8')
         outputs = []
         for name in records:
             for path in sorted((generated / name).iterdir()):
@@ -166,7 +187,7 @@ def generate(game_id, data, regenerate=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--game', choices=['espgaluda2'], required=True)
+    parser.add_argument('--game', choices=SUPPORTED_GAMES, required=True)
     parser.add_argument('--data-dir', type=Path, required=True)
     parser.add_argument('--regenerate', action='store_true')
     args = parser.parse_args()

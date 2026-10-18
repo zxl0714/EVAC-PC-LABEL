@@ -1,0 +1,31 @@
+# Ver 1.01 Xbox 360, decoded from its own actual crash snapshot.
+# Host RVA 0x2A348D -> sub_880EBB90. bctr PC 0x880EBCB4;
+# table storage 0x880EBCB8. Normal module's labels are shifted, not reusable.
+[[switch_tables]]
+address = 0x880EBCB4
+register = 11
+labels = [
+  0x880EBCEC,
+  0x880EBD08,
+  0x880EBD38,
+  0x880EBD8C,
+  0x880EBDC4,
+  0x880EBDD0,
+  0x880EBFE0,
+  0x880EC0BC,
+  0x880EC0FC,
+  0x880EC154,
+]
+
+# Seven stored callbacks and three verified data-referenced branch thunks.
+[functions]
+0x8809E718 = { end = 0x8809E720 }
+0x8809F220 = { end = 0x8809F228 }
+0x880B9548 = { end = 0x880B9550 }
+0x881679B0 = { end = 0x881679F8 }
+0x881AC930 = { end = 0x881AC9B0 }
+0x881C0208 = { end = 0x881C0260 }
+0x881E2020 = { end = 0x881E2028 }
+0x880A4740 = { end = 0x880A4748 }
+0x880B08D0 = { end = 0x880B08D8 }
+0x88179D90 = { end = 0x88179D98 }

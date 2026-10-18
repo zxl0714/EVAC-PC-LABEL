@@ -1,0 +1,28 @@
+# The original PPC code branches through a ten-entry state-machine table at
+# 0x880EF0D0. Automatic analysis found only the first two entries.
+[functions]
+0x880868F8 = { end = 0x88086900 }
+0x880A7AA0 = { end = 0x880A7AA8 }
+0x880B3CA0 = { end = 0x880B3CA8 }
+0x880BC918 = { end = 0x880BC920 }
+0x8817D368 = { end = 0x8817D370 }
+0x881AFB10 = { end = 0x881AFB90 }
+0x881B5710 = { end = 0x881B5760 }
+0x881C2940 = { end = 0x881C2998 }
+0x881E4CE0 = { end = 0x881E4CE8 }
+
+[[switch_tables]]
+address = 0x880EF0D0
+register = 11
+labels = [
+  0x880EF108,
+  0x880EF124,
+  0x880EF154,
+  0x880EF1A8,
+  0x880EF1E0,
+  0x880EF1EC,
+  0x880EF448,
+  0x880EF524,
+  0x880EF564,
+  0x880EF5BC,
+]

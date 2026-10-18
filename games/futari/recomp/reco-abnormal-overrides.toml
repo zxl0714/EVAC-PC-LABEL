@@ -1,0 +1,32 @@
+# Verified from reco_abnormal's runtime image on 2026-10-14.
+# The Original 1.5 state machine accepts indices 0..9; codegen inferred only 0..1.
+# address refers to the bctr instruction; its table begins at 0x880EC888.
+[functions]
+# Confirmed stored callbacks and direct callback-table tail thunks.
+0x8809ECA0 = { end = 0x8809ECA8 }
+0x8809F7A8 = { end = 0x8809F7B0 }
+0x880A4DB0 = { end = 0x880A4DB8 }
+0x880B1020 = { end = 0x880B1028 }
+0x880B9C98 = { end = 0x880B9CA0 }
+0x8816AD30 = { end = 0x8816AD78 }
+0x8817D198 = { end = 0x8817D1A0 }
+0x881B0040 = { end = 0x881B00C0 }
+0x881B5C30 = { end = 0x881B5C80 }
+0x881C2FD8 = { end = 0x881C3030 }
+0x881E4E88 = { end = 0x881E4E90 }
+
+[[switch_tables]]
+address = 0x880EC884
+register = 11
+labels = [
+  0x880EC8BC,
+  0x880EC8D8,
+  0x880EC908,
+  0x880EC95C,
+  0x880EC994,
+  0x880EC9A0,
+  0x880ECBB0,
+  0x880ECC8C,
+  0x880ECCCC,
+  0x880ECD24,
+]
