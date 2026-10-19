@@ -4,6 +4,7 @@
 #include "common/data_import.h"
 #include "common/settings.h"
 #include "artwork.h"
+#include "launcher/window_size.h"
 #include <Windows.h>
 #include <windowsx.h>
 #include <d2d1.h>
@@ -15,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <fstream>
 #include <memory>
 #include <map>
@@ -154,11 +156,12 @@ struct Layout {
   float width{},height{},scroll{};
   bool narrow() const {return width<800;}
   float margin() const {return std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
-  float header() const {return 150;}
-  float footer() const {return height-120;}
+  float header() const {return cave::launcher::kHeaderHeight;}
+  float footer() const {return height-cave::launcher::kFooterHeight;}
   float row_height() const {
     const auto count=float(Catalogue().size());
-    return std::clamp((viewport_height()-12.f*(count-1))/count,92.f,180.f);
+    return std::clamp((viewport_height()-cave::launcher::kCardGap*(count-1))/count,
+                      float(cave::launcher::kMinimumCardHeight),180.f);
   }
   float viewport_height() const {return std::max(0.f,footer()-header());}
   float content_height() const {return float(Catalogue().size())*(row_height()+12)-12;}
@@ -175,6 +178,21 @@ struct Layout {
   D2D1_RECT_F save() const {return {margin()+421,98,margin()+483,128};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
+void FitInitialWindow(HWND window) {
+  MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+  if(!GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor))
+    throw std::runtime_error("Cannot read launcher monitor work area");
+  const auto dpi=GetDpiForWindow(window);
+  RECT frame{};
+  if(!AdjustWindowRectExForDpi(&frame,WS_OVERLAPPEDWINDOW|WS_VSCROLL,FALSE,0,dpi))
+    throw std::runtime_error("Cannot size launcher window frame");
+  RECT current{};GetWindowRect(window,&current);
+  const auto& work=monitor.rcWork;
+  const auto size=cave::launcher::InitialWindowSize(current.right-current.left,
+      work.right-work.left,work.bottom-work.top,dpi,frame.bottom-frame.top,Catalogue().size());
+  SetWindowPos(window,nullptr,work.left+(work.right-work.left-size.width)/2,
+      work.top+(work.bottom-work.top-size.height)/2,size.width,size.height,SWP_NOZORDER|SWP_NOACTIVATE);
+}
 class Renderer {
  public:
   Renderer() {
@@ -508,7 +526,8 @@ class App {
   }
   void Scroll(float delta) {
     layout.scroll=std::clamp(layout.scroll+delta,0.f,layout.max_scroll());
-    SCROLLINFO info{sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS,0,int(layout.content_height()),UINT(layout.viewport_height()),int(layout.scroll),0};
+    SCROLLINFO info{sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS,0,std::max(0,int(std::ceil(layout.content_height()))-1),
+                    UINT(std::ceil(layout.viewport_height())),int(layout.scroll),0};
     SetScrollInfo(hwnd,SB_VERT,&info,TRUE);InvalidateRect(hwnd,nullptr,FALSE);
   }
   void Paint() {
@@ -677,6 +696,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     const auto window=CreateWindowExW(0,kWindowClass,L"CAVE PC Collection",WS_OVERLAPPEDWINDOW|WS_VSCROLL,CW_USEDEFAULT,CW_USEDEFAULT,
         rectangle.right-rectangle.left,rectangle.bottom-rectangle.top,nullptr,nullptr,instance,&app);
     if(!window)throw std::runtime_error("Cannot create launcher window");
+    FitInitialWindow(window);
     ShowWindow(window,show);UpdateWindow(window);
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}
     return 0;

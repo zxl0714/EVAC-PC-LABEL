@@ -3,6 +3,7 @@
 #include "common/paths.h"
 #include "common/settings.h"
 #include "common/config_update.h"
+#include "launcher/window_size.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -182,9 +183,17 @@ int main() {
     Require(Catalogue().size() == 6 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
             Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
             Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade", "Catalogue order");
-    Require(!FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
+    Require(FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
-            "Community capability must not be inferred from the shared enabled preference");
+            "Integrated titles must advertise their verified community adapters");
+    const auto normal=launcher::InitialWindowSize(1104,1920,1080,96,40,6);
+    Require(normal.width==1104 && normal.height==1018,"Launcher fits all six cards at 100% DPI");
+    const auto scaled=launcher::InitialWindowSize(1104,2560,2160,144,56,6);
+    Require(scaled.width==1104 && scaled.height==1523,"Launcher height follows 150% DPI");
+    const auto small=launcher::InitialWindowSize(1104,1024,728,144,56,6);
+    Require(small.width==1024 && small.height==728,"Launcher stays inside a small monitor work area");
+    Require(launcher::InitialWindowSize(1104,2560,2160,144,56,7).height>scaled.height,
+            "Launcher grows with the game catalogue");
     Reject([] { FindGame("unknown"); }, "Unknown game accepted");
     Require(FindGame("espgaluda2").files.size() == 155, "G2 complete inventory");
     auto inspect = [&](CheckLevel level = CheckLevel::Full) { return Inspect(game, fixture.root, fixture.data, level); };

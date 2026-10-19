@@ -1,6 +1,6 @@
 # 开发入口
 
-开发分支当前已开放 SDOJ 的正常合集启动与共享社区配置，用于统一启动器和正式 HTTPS 验收。此前四主模式进关、保存和本机原生联网／冷回放证据见验收矩阵；这些证据不代表正式联网、商店及 v0.2 出包已经验收。后文的 integrated=false／communitySupported=false 描述保留各接线阶段的历史状态，当前能力以 games/catalogue.json 为准。
+开发分支当前已开放 SDOJ 的正常合集启动与共享社区配置。四主模式进关、保存、本机原生联网／冷回放，以及正常 GUI 启动后的正式 HTTPS 成绩、读榜、录像收发保存已有实际证据；商店、全屏、旧三款定向回归及 v0.2 发行验收继续。后文的 integrated=false／communitySupported=false 和正式联网未验收描述保留各接线阶段的历史状态，当前状态以本段、games/catalogue.json 和验收矩阵前部为准。启动器默认高度现按游戏数量、当前窗口 DPI 和显示器工作区计算，六卡正常显示，小屏保留滚动；窗口尺寸的机制测试与实际布局检查不替代游玩测试。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。
 
