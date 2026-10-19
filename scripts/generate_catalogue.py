@@ -64,6 +64,7 @@ def load(path):
             seen.add(entry.casefold())
         game['files'] = []
         game['content'] = []
+        game['forbiddenFiles'] = []
         if game['dataManifest']:
             source = path.parent / relative(game['dataManifest'])
             if not source.resolve().is_relative_to(path.parent):
@@ -80,6 +81,16 @@ def load(path):
                 if not re.fullmatch('[0-9a-f]{64}', item['sha256']) or type(item['program']) is not bool:
                     raise ValueError('Invalid hash or program flag')
             game['files'] = manifest['files']
+            forbidden = manifest.get('forbiddenFiles', [])
+            if not isinstance(forbidden, list) or len(forbidden) > 128:
+                raise ValueError('Invalid forbidden file list')
+            forbidden_names = set()
+            for name in forbidden:
+                relative(name)
+                if name.casefold() in seen or name.casefold() in forbidden_names:
+                    raise ValueError('Conflicting or duplicate forbidden file')
+                forbidden_names.add(name.casefold())
+            game['forbiddenFiles'] = forbidden
             content_ids, content_paths, content_identifiers = set(), set(), set()
             if not isinstance(manifest.get('optionalContent', []), list) or len(manifest.get('optionalContent', [])) > 32:
                 raise ValueError('Invalid optional content count')
@@ -139,12 +150,15 @@ def generate(games):
         lines.append(f'inline constexpr std::array<std::string_view,{len(game["runtimeFiles"])}> runtime_{key}{{{{')
         lines.extend(quoted(name) + ',' for name in game['runtimeFiles'])
         lines.append('}};')
+        lines.append(f'inline constexpr std::array<std::string_view,{len(game["forbiddenFiles"])}> forbidden_{key}{{{{')
+        lines.extend(quoted(name) + ',' for name in game['forbiddenFiles'])
+        lines.append('}};')
     lines.append(f'inline const std::array<Game,{len(games)}> kCatalogue{{{{')
     for game in games:
         key = game['id'].replace('-', '_')
         fields = [quoted(game[k]) for k in ('id', 'name', 'backend', 'dataDirectory', 'executable')]
         fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}', f'content_{key}',
-                   str(game.get('communitySupported', True)).lower()]
+                   str(game.get('communitySupported', True)).lower(), f'forbidden_{key}']
         lines.append('{' + ','.join(fields) + '},')
     return '\n'.join(lines + ['}};', '}  // namespace cave::detail', ''])
 

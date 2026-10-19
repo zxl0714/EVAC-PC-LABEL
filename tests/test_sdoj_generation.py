@@ -2,6 +2,7 @@ import copy
 import json
 from pathlib import Path
 import sys
+import tempfile
 import tomllib
 import unittest
 
@@ -49,6 +50,33 @@ class SdojGenerationTests(unittest.TestCase):
     def test_build_selection_is_shared_not_another_sdk(self):
         self.assertEqual(selected_games('sdoj'), ('sdoj',))
         self.assertEqual(selected_games('sdoj,futari,espgaluda2'), ('espgaluda2', 'futari', 'sdoj'))
+
+    def test_base_generation_rejects_automatic_patch_companions(self):
+        names = ['default.xexp', 'CA022100.binp', 'CA022110.binp']
+        self.assertEqual(self.game['forbiddenFiles'], names)
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            fixture = dict(files=[], forbiddenFiles=names)
+            self.assertEqual(generate_game.verify_data(fixture, data), [])
+            for name in names:
+                path = data / name
+                path.write_bytes(b'authored, not a game patch')
+                with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'Unsupported companion'):
+                    generate_game.verify_data(fixture, data)
+                self.assertEqual(path.read_bytes(), b'authored, not a game patch')
+                path.unlink()
+
+    def test_texture_compatibility_is_title_local_before_runtime_setup(self):
+        shared = (ROOT / 'backends/xbox360/host.cpp').read_text(encoding='utf-8')
+        adapter = (ROOT / 'games/sdoj/host.cpp').read_text(encoding='utf-8')
+        hook = shared.split('void CollectionApp::OnPreSetup(', 1)[1].split('\n}', 1)[0]
+        self.assertIn('OnGamePreSetup(config);', hook)
+        self.assertNotIn('gpu_allow_invalid_fetch_constants', shared)
+        self.assertIn('OnGamePreSetup(rex::RuntimeConfig&) override', adapter)
+        self.assertIn('SetFlagByName("gpu_allow_invalid_fetch_constants","true")', adapter)
+        for game in ('espgaluda2', 'futari'):
+            self.assertNotIn('gpu_allow_invalid_fetch_constants',
+                             (ROOT / f'games/{game}/host.cpp').read_text(encoding='utf-8'))
 
     def test_reviewed_resident_callbacks_exclude_frame_dependent_tails(self):
         functions = tomllib.loads((ROOT / 'games/sdoj/recomp/default-functions.toml').read_text(encoding='utf-8'))['functions']

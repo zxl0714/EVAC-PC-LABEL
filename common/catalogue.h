@@ -26,6 +26,7 @@ struct Game {
   std::span<const std::string_view> runtime_files;
   std::span<const ContentPackage> content{};
   bool community_supported{true};
+  std::span<const std::string_view> forbidden_files{};
 };
 std::span<const Game> Catalogue();
 const Game& FindGame(std::string_view id);

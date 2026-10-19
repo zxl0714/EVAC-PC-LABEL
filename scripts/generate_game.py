@@ -17,6 +17,10 @@ SUPPORTED_GAMES = ('espgaluda2', 'futari', 'sdoj')
 
 def verify_data(game, data):
     data = Path(data).resolve(strict=True)
+    for name in game.get('forbiddenFiles', []):
+        path = data / relative(name)
+        if path.exists() or path.is_symlink() or path.is_junction():
+            raise ValueError('Unsupported companion: ' + name)
     result = []
     for item in game['files']:
         path = (data / relative(item['path'])).resolve()

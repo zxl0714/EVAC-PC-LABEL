@@ -201,6 +201,18 @@ int main() {
             "Program verification must not claim complete resource hashes");
     auto verified = inspect();
     Require(verified.state == "ready" && verified.hashes_checked == 2, "Full verification");
+    const std::array<std::string_view,1> forbidden{"main.binp"};
+    game.forbidden_files = forbidden;
+    Require(inspect().state == "ready", "Absent companion rejected base data");
+    Write(fixture.data / "main.binp", "authored patch fixture");
+    for (const auto level : {CheckLevel::Quick, CheckLevel::Programs, CheckLevel::Full}) {
+      const auto patched = inspect(level);
+      Require(patched.data_state == DataState::Unsupported && patched.state == "unsupported_version" &&
+              patched.problems[0] == "unsupported companion: main.binp", "Undeclared companion accepted");
+    }
+    // Other titles without this manifest restriction retain their own policy.
+    game.forbidden_files = {};
+    Require(inspect().state == "ready", "Title-local companion restriction leaked");
     Write(fixture.data / "main.bin", "xyz");
     Require(inspect().state == "unsupported_version", "Same-size wrong program accepted");
     Write(fixture.data / "main.bin"); Write(fixture.data / "res/asset.bin", "xyz");

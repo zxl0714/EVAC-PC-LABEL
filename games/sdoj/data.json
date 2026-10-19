@@ -3,6 +3,11 @@
   "game": "sdoj",
   "variant": "disc-base",
   "titleUpdateApplied": false,
+  "forbiddenFiles": [
+    "default.xexp",
+    "CA022100.binp",
+    "CA022110.binp"
+  ],
   "files": [
     {
       "path": "AvatarAssetPack",

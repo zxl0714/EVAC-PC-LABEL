@@ -76,6 +76,18 @@ class CatalogueTests(unittest.TestCase):
         self.assertIn('std::array<DataFile,155>', first)
         self.assertNotIn('PPCContext', first)
 
+    def test_forbidden_companion_paths_are_unique_and_not_required(self):
+        original = catalogue.read_json(self.root / 'games/sdoj/data.json')
+        for names in ('default.xexp', ['../escape'], ['default.xexp', 'DEFAULT.XEXP'], ['default.xex']):
+            with self.subTest(names=names), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory)
+                shutil.copytree(self.root / 'games', target / 'games')
+                manifest = copy.deepcopy(original)
+                manifest['forbiddenFiles'] = names
+                (target / 'games/sdoj/data.json').write_text(json.dumps(manifest), encoding='utf-8')
+                with self.assertRaises(ValueError):
+                    catalogue.load(target / 'games/catalogue.json')
+
     def test_invalid_relative_paths(self):
         for path in ('../escape', '/absolute', 'C:/drive', 'a\\b', 'a//b', 'a/./b', 'bad\0path', 'file.', 'bad?path'):
             with self.subTest(path=path), self.assertRaises(ValueError):

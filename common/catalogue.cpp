@@ -69,6 +69,12 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
     }
     uint32_t present = 0;
     bool incomplete = false, unsupported = false;
+    for (const auto relative : game.forbidden_files) {
+      if (fs::exists(DataChild(paths.data, relative))) {
+        unsupported = true;
+        result.problems.push_back("unsupported companion: " + std::string(relative));
+      }
+    }
     for (const auto& expected : game.files) {
       auto file = DataChild(paths.data, expected.path);
       ++result.files_checked;

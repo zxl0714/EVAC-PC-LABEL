@@ -14,6 +14,7 @@ protected:
     const RunContext& run() const {return *run_;}
     virtual std::shared_ptr<rex::system::xam::CommunityService> CreateCommunity()=0;
     virtual std::string NativeNickname(std::string nickname)=0;
+    virtual void OnGamePreSetup(rex::RuntimeConfig&) {}
     virtual void OnGameSetup() {}
     virtual void OnGameStop() {}
 private:

@@ -117,6 +117,7 @@ void CollectionApp::OnPreSetup(rex::RuntimeConfig& config) {
     Flag("vsync",run_->settings.vsync?"true":"false");
     const auto settings=run_->settings;
     config.input_factory=[settings](bool tools) {return CreateConfiguredInput(settings,tools);};
+    OnGamePreSetup(config);
 }
 void CollectionApp::OnCreateDialogs(rex::ui::ImGuiDrawer*) {
     window()->SetTitle("CAVE PC Collection — "+std::string(cave::FindGame(game_).name));
