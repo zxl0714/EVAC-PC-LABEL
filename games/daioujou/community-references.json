@@ -3,7 +3,7 @@
   "game": "daioujou",
   "titleId": "CUSA32997",
   "version": "01.04",
-  "status": "interface-and-native-record-analysis",
+  "status": "native-loopback-roundtrip-verified",
   "sourceExecutableSha256": "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
   "sources": [
     "patch:1100/config/title_prof.psb.m",
@@ -73,7 +73,19 @@
     "arcadeNativeModes": [0, 3],
     "modeConversionSource": "base:1100/script/title_standalone_replay_ranking.nut rankingModeConv/checkRegistRanking and patch:1100/script/title_standalone_etc.nut setting_game_check_function",
     "observedNativeHeader": {"nativeScore": 40, "displayScore": 400, "board": 0, "kind": 0, "mode": 3, "region": "ARCADE_01000", "recordBytes": 524288, "compressedBytes": 26633},
-    "nativeRoundtripVerified": false,
+    "nativeRoundtripVerified": true,
+    "nativeRoundtripScope": "literal-http-loopback-native-arcade",
+    "productionHttpsVerified": false,
+    "observedRoundtrip": {
+      "board": 0,
+      "nativeScore": 178,
+      "displayScore": 1780,
+      "networkAttachmentBytes": 26345,
+      "networkAttachmentSha256": "3031bd3257c2a79a6f20c0508744d44faa859c7f9634ed18d9e016a3ba486167",
+      "downloadedLocalRecordSha256": "1745f92e85524448ce0ad87fefe826cfe4d9be72640c38556965a5ad2cd8a2e6",
+      "offlineColdPlaybackVerified": true,
+      "scope": "Real native score/replay upload, leaderboard read, replay download and native save against loopback; a separate cold process with community disabled played DOWNLOAD REPLAY to natural return. This does not accept production HTTPS, the normal collection entry or every mode."
+    },
     "description": "The native ranking producer clears the network Struct and copies named fields from the local record; the downloader uses the same network Struct. Eligible ARCADE can temporarily use raw mode 3: rankingModeConv maps it to board family 0 when ALL-MIX is false, while the network header retains 3. Keep native eligibility checks and CUSTOM board exclusion; do not rewrite replay bytes or borrow Ketsui's versions."
   },
   "nativeInterfaces": [
@@ -89,5 +101,5 @@
     "sceNpScoreDeleteRequest",
     "sceNpScoreDeleteNpTitleCtx"
   ],
-  "flow": "Native score submission precedes replay attachment. The profile has seven character filters, with the combined board last, unlike Ketsui. This inventory does not enable the client or claim native replay compatibility or server acceptance."
+  "flow": "Native score submission precedes replay attachment. The profile has seven character filters, with the combined board last, unlike Ketsui. A representative native ARCADE loopback roundtrip and offline cold playback have passed; production HTTPS and the normal collection entry remain separate acceptance gates. Catalogue capabilities are not enabled by this reference."
 }
