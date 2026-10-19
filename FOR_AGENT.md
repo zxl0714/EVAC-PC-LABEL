@@ -63,7 +63,9 @@ Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全
 
 最大往生的源码／输入评估已开始，游戏 ID 预留为 sdoj，不与 daioujou 混用。`scripts/sdoj_inputs.py '<本地解包目录>' --output .local/analysis/sdoj-inputs.json` 只识别本体／TU 组合；games/sdoj/input-references.json 不是完整数据清单，不接入生成、构建或启动器。后续阶段见实施计划 P7。上游应用许可尚未明确，没有导入其 src 或生成游戏正文，也未覆盖公共 SDK。
 
-games/sdoj/data.json 已单独记录经 ISO 内容比对的 114 个光盘本体文件，inputs.json 记录三个 XEX 头；不包含附带工具、系统更新或音乐补丁。Build.ps1／Generate.ps1 支持 sdoj，模块声明在 games/sdoj/recomp/sdoj.toml；CA022100.bin 和 CA022110.bin 各自生成／编译 DLL，不能改成 .xex 名字或合并同基址的映射。共享 CollectionApp 负责宿主，不导入上游配置向导、减速／输入增强或自动更新器。正式构建及实战尚待验收，清单保持 integrated=false、comingSoon=false，用于检查版本而不开放启动器启动。
+games/sdoj/data.json 已单独记录经 ISO 内容比对的 114 个光盘本体文件，inputs.json 记录三个 XEX 头；不包含附带工具、系统更新或音乐补丁。Build.ps1／Generate.ps1 支持 sdoj，模块声明在 games/sdoj/recomp/sdoj.toml；CA022100.bin 和 CA022110.bin 各自生成／编译 DLL，不能改成 .xex 名字或合并同基址的映射。共享 CollectionApp 负责宿主，不导入上游配置向导、减速／输入增强或自动更新器。首次正式构建、11 对 PE／PDB 及 runtime 整理已通过，实战仍待验收；清单保持 integrated=false、comingSoon=false，用于检查版本而不开放启动器启动。
+
+本体主程序补充了 29 个经本地数据引用和逐项反汇编审阅的转发入口，声明在 recomp/default-functions.toml。首次启动曾在 0x825B6F48 缺注册处退出，该地址现已进入生成映射，仍需重新运行验证。callback_inventory.py 支持 sdoj；候选扫描拒绝依赖 r29／r30／r31 帧状态的异常处理片段，不自动把所有数据指针都当成可调用函数。不要修改生成正文来修复回调。
 
 communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled 偏好分开；SDOJ 为 false，其他已接入作品默认 true。未支持时不创建通信 provider，run.json 分别记录请求、支持和实际开启状态，宿主保留离线 profile 和共享昵称。不为此在默认 INI 增加联网覆盖。
 

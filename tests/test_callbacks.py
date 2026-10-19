@@ -29,6 +29,13 @@ class CallbackInventoryTests(unittest.TestCase):
         self.assertIsNone(forwarding_size(code(*([0x38630004] * 8), 0x48000020), 0))
         self.assertIsNone(forwarding_size(b'\x80', 0))
 
+    def test_exception_table_tails_are_not_callable_forwarders(self):
+        for instructions in ((0x3c608007, 0x6063000e, 0x83df0084, 0x48000010),
+                             (0x83df0054, 0x48000020),
+                             (0x38600000, 0x83bf0050, 0x48000008)):
+            with self.subTest(instructions=instructions):
+                self.assertIsNone(forwarding_size(code(*instructions), 0))
+
     def test_aligned_unregistered_executable_pointers_only(self):
         data = code(0x1000, 0x1004, 0x1005, 0x2000, 0x1008)
         self.assertEqual(pointer_references(data, 0x8000, [(0x1000, 0x1010)], {0x1004}),

@@ -1,0 +1,118 @@
+# Callable, data-referenced forwarding entries in the verified disc-base default.xex.
+# Instruction ranges reviewed; frame-dependent exception tails are excluded.
+
+[functions."0x8224A090"]
+name = "sub_8224A090"
+size = 8
+
+[functions."0x8224C4D0"]
+name = "sub_8224C4D0"
+size = 8
+
+[functions."0x8224C4D8"]
+name = "sub_8224C4D8"
+size = 8
+
+[functions."0x8224C4E0"]
+name = "sub_8224C4E0"
+size = 8
+
+[functions."0x8224C4E8"]
+name = "sub_8224C4E8"
+size = 8
+
+[functions."0x8224C4F8"]
+name = "sub_8224C4F8"
+size = 8
+
+[functions."0x8224C558"]
+name = "sub_8224C558"
+size = 8
+
+[functions."0x82251BD0"]
+name = "sub_82251BD0"
+size = 8
+
+[functions."0x82251BE0"]
+name = "sub_82251BE0"
+size = 8
+
+[functions."0x82251BE8"]
+name = "sub_82251BE8"
+size = 8
+
+[functions."0x82251BF0"]
+name = "sub_82251BF0"
+size = 8
+
+[functions."0x82251BF8"]
+name = "sub_82251BF8"
+size = 8
+
+[functions."0x82251C00"]
+name = "sub_82251C00"
+size = 8
+
+[functions."0x82251C08"]
+name = "sub_82251C08"
+size = 8
+
+[functions."0x82253030"]
+name = "sub_82253030"
+size = 8
+
+[functions."0x82253038"]
+name = "sub_82253038"
+size = 8
+
+[functions."0x82253048"]
+name = "sub_82253048"
+size = 8
+
+[functions."0x82253050"]
+name = "sub_82253050"
+size = 8
+
+[functions."0x822537B0"]
+name = "sub_822537B0"
+size = 24
+
+[functions."0x822543E0"]
+name = "sub_822543E0"
+size = 8
+
+[functions."0x82255048"]
+name = "sub_82255048"
+size = 8
+
+[functions."0x82255050"]
+name = "sub_82255050"
+size = 8
+
+[functions."0x82255540"]
+name = "sub_82255540"
+size = 8
+
+[functions."0x82265CD0"]
+name = "sub_82265CD0"
+size = 8
+
+[functions."0x82265CD8"]
+name = "sub_82265CD8"
+size = 8
+
+[functions."0x822674D0"]
+name = "sub_822674D0"
+size = 8
+
+[functions."0x823D62C0"]
+name = "sub_823D62C0"
+size = 16
+
+[functions."0x823D6A40"]
+name = "sub_823D6A40"
+size = 32
+
+[functions."0x825B6F48"]
+name = "sub_825B6F48"
+size = 12

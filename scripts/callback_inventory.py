@@ -14,6 +14,11 @@ def forwarding_size(code, offset):
     if offset < 0 or offset % 4 or offset >= len(code):
         return None
     count = min(8, (len(code) - offset) // 4)
+    # A standalone forwarding entry may use argument/volatile registers, not
+    # a caller's saved frame. Exception tables also contain aligned code
+    # pointers; their r29/r30 <- [r31] tails are not callable entrypoints.
+    volatile = {0, *range(3, 13)}
+    readable = volatile | {2}  # r2 is the ABI's read-only TOC value.
     for index in range(count):
         word = struct.unpack_from('>I', code, offset + index * 4)[0]
         opcode, rt, ra = word >> 26, (word >> 21) & 31, (word >> 16) & 31
@@ -24,19 +29,19 @@ def forwarding_size(code, offset):
         if opcode == 18 and not word & 3:  # relative b, not bl/ba
             return (index + 1) * 4
         if opcode in (14, 15, 32, 40, 42):
-            if rt == 1:  # Not a frame teardown or an exception-handler entry.
+            if rt not in volatile or ra not in readable:
                 return None
         elif opcode == 24:  # ori rA,rS,imm
-            if ra == 1:
+            if ra not in volatile or rt not in readable:
                 return None
         elif opcode == 31:
             xo = (word >> 1) & 1023
             if xo == 444:  # mr is or rA,rS,rS; reject linker/SEH self-nops.
                 rb = (word >> 11) & 31
-                if rt != rb or rt == ra or ra == 1:
+                if rt != rb or rt == ra or ra not in volatile or rt not in readable:
                     return None
             elif xo == 467:
-                if (word & 0xfc1fffff) != 0x7c0903a6:  # mtctr only
+                if (word & 0xfc1fffff) != 0x7c0903a6 or rt not in readable:  # mtctr only
                     return None
             else:
                 return None
@@ -56,7 +61,7 @@ def pointer_references(data, address, ranges, known):
 
 
 def inventory(analysis, data_dir, game='espgaluda2'):
-    if game != 'espgaluda2':
+    if game not in ('espgaluda2', 'sdoj'):
         raise ValueError('Unsupported game adaptation')
     analysis = Path(analysis).resolve()
     data_dir = Path(data_dir).resolve()
@@ -118,7 +123,7 @@ def inventory(analysis, data_dir, game='espgaluda2'):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('analysis', type=Path)
-    parser.add_argument('--game', choices=('espgaluda2',), default='espgaluda2')
+    parser.add_argument('--game', choices=('espgaluda2', 'sdoj'), default='espgaluda2')
     parser.add_argument('--data-dir', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
