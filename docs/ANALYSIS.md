@@ -39,6 +39,16 @@ py -3.12 scripts/analyze_modules.py --game espgaluda2 --data-dir game-data/espga
 
 `analysis.json` 是成功收据。超时或失败会保留现场，但不生成成功收据；查看对应的 stdout／stderr 日志。报告中的“已注册接口”和“静态装卸载通过”不代表接口功能或实际模式运行已经验收。
 
+### 最大往生静态装载
+
+原生检查实现已移到 backends/xbox360/diagnostics/inspect_xex.cpp，保留 espgaluda2_inspect.exe 的兼容文件名。上述 NativeOnly 构建也会更新此工具；不需要 G2 数据。最大往生使用单独的只读入口：
+
+```powershell
+py -3.12 scripts/sdoj_analyze.py --data-dir '<最大往生原始解包目录>' --output .local/analysis/sdoj-census
+```
+
+识别受支持的光盘／GoD 本体后，分别静态装载 default.xex、CA022100.bin 和 CA022110.bin。两个 .bin 实际是 XEX 模块；沿用同一工具模式，检查其三次装卸载、相同基址互斥与主程序分配不被破坏，并记录各模块的系统接口及区段。报告只证明本体程序静态兼容，不要求或应用 TU，不采用音乐补丁，也不标记完整资源或游戏可玩。工具前后复核的是三个选中程序，不宣称盘点了整个资源目录。
+
 ## 回调与社区边界
 
 生成过对应游戏的本地重编译代码后，可以检查数据引用但尚未注册的短跳板候选：

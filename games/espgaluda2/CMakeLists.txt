@@ -70,7 +70,7 @@ target_link_libraries(espgaluda2_crash_tests PRIVATE espgaluda2_crash)
 add_dependencies(espgaluda2_crash_tests espgaluda2_crash_writer)
 
 # Deliberately a console-only analysis target, not a game/player entry point.
-add_executable(espgaluda2_inspect ${CMAKE_SOURCE_DIR}/games/espgaluda2/tools/inspect_xex.cpp)
+add_executable(espgaluda2_inspect ${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/inspect_xex.cpp)
 target_compile_options(espgaluda2_inspect PRIVATE -fno-char8_t -msse4.1)
 target_include_directories(espgaluda2_inspect PRIVATE
     "${CMAKE_SOURCE_DIR}/third_party/rexglue/thirdparty/inja/third_party/include")
