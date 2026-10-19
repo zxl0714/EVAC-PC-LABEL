@@ -97,6 +97,8 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 ### 绊地狱接入
 
+版本范围：编译器统一，以及虫姬二／绊地狱的帧节拍调查和适度优化，均安排在 v0.1 之后，见实施计划对应工作项。当前不更换已验证的两套编译器，不追加帧率专项或将其列为出包阻塞；继续整合、已有机制检查和必要的游戏流程回归。G2 的约 19.1 ms 是特定短测的最大出帧间隔，不是输入响应延迟。
+
 固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。PS4 CMake 已改为合集独立路径，使用本地 clang-cl 23、独立依赖及优化构建；旧 launcher 和发行脚本不迁入，游戏入口仍为 integrated=false。
 
 ```powershell

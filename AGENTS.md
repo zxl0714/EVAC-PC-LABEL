@@ -77,3 +77,11 @@ PS4/GPU builds and shared-INI mechanism checks now pass. Continue with data prep
 keep integrated=false until actual launch/gameplay verification. P4's remaining
 formal-network, audio and physical-input checks remain open, not implicitly
 passed because PS4 build preparation has started.
+
+The user schedules compiler unification and the Futari/Ketsui frame-pacing
+investigation/optimization for the next release after v0.1. Do not implement
+them now or make them v0.1 packaging gates. Keep the verified separate compiler
+configurations and existing diagnostics; continue current integration and
+mechanism regressions. G2's observed ~19.1 ms maximum frame interval is a
+scene-specific comparison baseline, not measured input latency or a universal
+pass threshold. Keep optimization proportionate when that future work starts.
