@@ -9,6 +9,7 @@ std::uint64_t ResolveScoreImport(std::string_view identifier, std::string_view l
 bool ConfigureNativeScore(std::shared_ptr<kt::community::Client> client);
 bool NativeScoreContextsLive();
 bool ScoreSelfTest();
+bool ScoreProfileSelfTest();
 bool ScoreReplaySelfTest();
 bool ScoreSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
 bool ScoreReplaySmoke(const std::filesystem::path& config, const std::filesystem::path& directory,

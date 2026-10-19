@@ -51,8 +51,10 @@ bool Read(const void* source, void* target, std::size_t bytes) {
     return source && ReadProcessMemory(GetCurrentProcess(), source, target, bytes, &copied) && copied == bytes;
 }
 bool Writable(const void* target, std::size_t bytes) { return target && NativeMemoryWritable(target, bytes); }
-bool Board(unsigned id) {
-    return id == 99 || (id <= 52 && id % 10 <= 2); // CUSTOM waits for the real configuration fingerprint.
+bool BoardFor(std::string_view game,unsigned id) {
+    if (game=="ketsui") return id == 99 || (id <= 52 && id % 10 <= 2);
+    if (game=="daioujou") return id<=66 && id%10<=6;
+    return false;
 }
 unsigned U32(const Json& value, bool positive = false) {
     Require(value.is_number_integer());
@@ -152,6 +154,8 @@ class Bridge {
     Send send_;
     Upload upload_;
     Fetch fetch_;
+    std::string game_{"ketsui"};
+    bool Board(unsigned id) const {return BoardFor(game_,id);}
     std::array<Context, 32> contexts_{};
     std::array<Request, 32> requests_{};
     int next_context_ = 0x3a000001, next_request_ = 0x3b000001;
@@ -198,7 +202,7 @@ class Bridge {
             const auto shortened = ShortOnlineId(nickname);
             std::memcpy(rank.online.text, shortened.data(), shortened.size());
             rank.account = Decimal(item.at("account_id").get<std::string>());
-            Require(rank.account == AccountId(nickname) && std::find(accounts.begin(), accounts.end(), rank.account) == accounts.end());
+            Require(rank.account == AccountId(nickname,game_) && std::find(accounts.begin(), accounts.end(), rank.account) == accounts.end());
             accounts.push_back(rank.account);
             rank.serial = U32(item.at("serial_rank"), true); rank.rank = U32(item.at("rank"), true); rank.highest = rank.rank;
             Require(rank.serial <= total && rank.rank <= rank.serial);
@@ -212,7 +216,7 @@ class Bridge {
             if (!replay.is_null()) {
                 const auto digest = replay.at("sha256").get<std::string>();
                 Require(digest.size() == 64 && std::all_of(digest.begin(), digest.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }) &&
-                        U32(replay.at("size"), true) <= kReplayLimit && replay.at("format").get<std::string>() == kReplayFormat);
+                        U32(replay.at("size"), true) <= kReplayLimit && replay.at("format").get<std::string>() == ProtocolFor(game_).replay_format);
                 rank.has_data = 1;
                 selected.digest = digest; selected.size = U32(replay.at("size"), true);
             }
@@ -263,7 +267,7 @@ class Bridge {
         }
         if (request.query.kind == Kind::Upload) {
             Require(reply.body.at("entry_id") == request.upload_entry && U32(reply.body.at("size"), true) == request.upload_size &&
-                    reply.body.at("format").get<std::string>() == kReplayFormat);
+                    reply.body.at("format").get<std::string>() == ProtocolFor(game_).replay_format);
             request.result = 0; return;
         }
         if (request.query.kind != Kind::Score) {
@@ -288,9 +292,10 @@ public:
         std::lock_guard lock(gate_);
         return std::any_of(contexts_.begin(), contexts_.end(), [](const auto& context) { return context.id != 0; });
     }
-    bool Install(State state, Send send, Upload upload, Fetch fetch) {
+    bool Install(State state, Send send, Upload upload, Fetch fetch,std::string_view game="ketsui") {
         std::lock_guard lock(gate_);
         if (state_ || !state || !send || !upload || !fetch) { return false; }
+        (void)ProtocolFor(game);game_=game;
         state_ = std::move(state); send_ = std::move(send);
         upload_ = std::move(upload); fetch_ = std::move(fetch); return true;
     }
@@ -405,6 +410,7 @@ public:
     int Score(int id, unsigned board, std::int64_t score, const Comment* comment, const GameInfo* info,
               unsigned* temporary_rank, const std::uint64_t* compare, void* option) {
         if (!Board(board) || score < 0 || compare || option || (temporary_rank && !Writable(temporary_rank, sizeof(*temporary_rank)))) { return kArgument; }
+        if (game_=="daioujou" && (board/10==1 || score>999999999)) return kArgument;
         Comment copied{}; GameInfo information{};
         if ((comment && !Read(comment, &copied, sizeof(copied))) || copied.bytes[63] ||
             (info && (!Read(info, &information, sizeof(information)) || information.size > 189))) { return kArgument; }
@@ -433,7 +439,8 @@ public:
         const auto submission = NewId();
         Json body{{"submission_id", submission}, {"nickname", identity.nickname}, {"board", board}, {"rules", "standard"},
                   {"score", std::to_string(score)}, {"comment_base64", Base64(std::as_bytes(std::span(&copied, 1)))},
-                  {"game_info_base64", Base64(std::span(information.bytes, static_cast<std::size_t>(information.size)))}, {"build", "ketsui-native-1.02"}};
+                  {"game_info_base64", Base64(std::span(information.bytes, static_cast<std::size_t>(information.size)))},
+                  {"build", game_+"-native-"+std::string(ProtocolFor(game_).version)}};
         Query query; query.kind = Kind::Score; query.board = board; query.temporary_rank = {temporary_rank, sizeof(*temporary_rank)};
         // Finish allocations needed for the submission reference before enqueue.
         request->submission = submission; request->submitted_score = score;
@@ -580,7 +587,7 @@ bool ConfigureNativeScore(std::shared_ptr<kt::community::Client> client) {
         },
         [client](std::string entry, std::size_t size, std::string digest, ReplayExpectation expected) {
             return client->DownloadReplayEnvelope(std::move(entry), size, std::move(digest), expected);
-        });
+        },client->Game());
 }
 bool NativeScoreContextsLive() { return bridge.ContextsLive(); }
 
@@ -616,15 +623,15 @@ struct AuthoredTransport {
         paths.push_back(std::move(path)); bodies.push_back(std::move(body)); durable.push_back(persisted);
         replies.emplace_back(); return replies.back().get_future();
     }
-    bool Install() {
-        return bridge.Install([this] { return Identity{online, "Alice", AccountId("Alice")}; },
+    bool Install(Bridge& target=bridge,std::string_view game="ketsui") {
+        return target.Install([this,game=std::string(game)] { return Identity{online, "Alice", AccountId("Alice",game)}; },
             [this](std::string path, Json body, bool persisted) { return Send(std::move(path), std::move(body), persisted); },
             [this](Json body, std::vector<std::byte> payload, ReplayExpectation) {
                 uploads.push_back(std::move(payload)); return Send("/replays", std::move(body), true);
             },
             [this](std::string entry, std::size_t size, std::string digest, ReplayExpectation) {
                 return Send("/entries/" + entry + "/replay", Json{{"size", size}, {"sha256", std::move(digest)}}, false);
-            });
+            },game);
     }
     void Complete(Reply reply) { replies.at(fulfilled++).set_value(std::move(reply)); }
 };
@@ -646,6 +653,47 @@ void InitializeAuthoredUser() {
     const auto initialize = reinterpret_cast<Initialize>(ResolveUserImport("j3YMu1MVNNo", "libSceUserService", "libSceUserService"));
     Require(initialize && initialize(nullptr) == 0);
 }
+}
+bool ScoreProfileSelfTest() {
+    bool okay=true;unsigned cases{};
+    const auto check=[&](bool passed,const char* name) {
+        std::printf("{\"event\":\"np_score_profile_case\",\"name\":\"%s\",\"passed\":%s}\n",name,passed?"true":"false");
+        ++cases;okay &= passed;
+    };
+    check(BoardFor("daioujou",0) && BoardFor("daioujou",6) && BoardFor("daioujou",66) &&
+        !BoardFor("daioujou",7) && !BoardFor("daioujou",99) && !BoardFor("ketsui",6) && BoardFor("ketsui",99),
+        "title_board_sets_are_distinct");
+    Bridge second;AuthoredTransport transport;
+    check(transport.Install(second,"daioujou"),"second_title_owns_independent_native_bridge");
+    const auto context=second.CreateContext(0,0x1000),request=second.CreateRequest(context);
+    check(context>0 && request>0,"native_context_and_request_created");
+    Guarded<unsigned> rank;rank.value=73;
+    check(second.Score(request,10,123,nullptr,nullptr,&rank.value,nullptr,nullptr)==kArgument &&
+        second.Score(request,6,1000000000,nullptr,nullptr,&rank.value,nullptr,nullptr)==kArgument && transport.paths.empty(),
+        "custom_and_non_native_score_rejected_before_enqueue");
+    check(second.Score(request,6,123456789,nullptr,nullptr,&rank.value,nullptr,nullptr)==0 &&
+        transport.bodies.back().at("board")==6 && transport.bodies.back().at("score")=="123456789" &&
+        transport.bodies.back().at("build")=="daioujou-native-1.04", "native_integer_and_combined_board_are_not_rewritten");
+    transport.Complete(AuthoredReceipt());
+    Guarded<int> result;result.value=73;
+    check(second.Poll(request,&result.value)==0 && result.value==kResponse && rank.value==73 && Tail(rank),
+        "peer_title_account_receipt_cannot_publish_native_rank");
+    Require(second.Score(request,6,123456789,nullptr,nullptr,&rank.value,nullptr,nullptr)==0);
+    auto receipt=AuthoredReceipt();receipt.body["account_id"]=std::to_string(AccountId("Alice","daioujou"));
+    transport.Complete(std::move(receipt));
+    check(second.Poll(request,&result.value)==0 && result.value==0 && rank.value==1 && Tail(rank) && Tail(result),
+        "title_bound_receipt_publishes_exact_rank");
+    Guarded<Rank> entry;std::uint64_t date{};unsigned total{};
+    Require(second.Ranking(request,6,1,&entry.value,sizeof(entry.value),nullptr,0,nullptr,0,1,&date,&total,nullptr)==0);
+    auto source=AuthoredEntry();source["account_id"]=std::to_string(AccountId("Alice","daioujou"));source["score"]="123456789";
+    auto page=AuthoredPage(Json::array({source}));page.body["board"]=6;transport.Complete(std::move(page));
+    check(second.Poll(request,&result.value)==0 && result.value==1 && total==1 &&
+        entry.value.account==AccountId("Alice","daioujou") && entry.value.score==123456789 && Tail(entry),
+        "native_board_readback_preserves_title_identity_and_score_units");
+    check(second.DeleteRequest(request)==0 && second.DeleteContext(context)==0 && !second.ContextsLive(),
+        "title_local_contexts_are_released");
+    std::printf("{\"event\":\"np_score_profile_self_test\",\"passed\":%s,\"cases\":%u,\"authored_data_only\":true,\"native_game_execution\":false}\n",okay?"true":"false",cases);
+    return okay;
 }
 bool ScoreSelfTest() {
     bool okay = true; unsigned cases{};

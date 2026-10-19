@@ -10,6 +10,8 @@ PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更
 
 社区传输 profile 已按标题复用，`server/games/daioujou.py` 的测试成绩／榜单经实际 Windows HTTP loopback 通过，证据在 `.local/ps4-community-checks/v03-title-profile-r1`；原生玩家联网未接，服务未部署，原生 Score bridge 和录像仍拒绝大往生。334 源码、65 原生检查及原绊地狱服务 24 项回归通过。新 `scripts/ps4/run_community_checks.py` 可独立复现双服务测试，不依赖原工程。大往生记录静态大小 0x65600、数据区 0x65000、容器版本 0x10030；core data_version 仍需真实观察。下一步优先实现本作原生 Score／Replay 的标题参数及记录验证，再做游戏内短闭环；不把 HTTP fixture 当作 PSN 已完成。
 
+最新原生 Score bridge 的标题参数及本作边界已有 9 项自造用例，完整 66／66 和双服务 HTTP 2／2 通过（现场后缀 v03-native-score-profile-r1）；生产配置入口仍拒绝大往生，直到录像与真实闭环通过。静态代码找到 eboot+0xe483 的 getEmuVersion 注册及 +0x14960 叶函数返回 0x10000，已记入接口参考；这不是实际录像观察。下一步实现本作独立几何／版本／角色校验，取得真实记录并核对，再接 native provider，保持 capability 关闭直到通过。
+
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。

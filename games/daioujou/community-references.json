@@ -52,6 +52,8 @@
     "legacyContainerVersions": [65568, 65552, 65550],
     "coreRegions": ["ARCADE_01000", "ARCADE_01010", "ARCADE_01020", "ARCADE_01030"],
     "coreDataVersionVerified": false,
+    "coreDataVersionStatic": 65536,
+    "coreVersionCodeReference": "The hash-bound eboot registration at 0xe483 names getEmuVersion, binds 0x14960 via its wrapper, and that leaf returns 0x10000. This is static evidence; confirm against an actual native recording before enabling the adapter.",
     "nativeRecordingVerified": false,
     "description": "Static struct and script facts only. Container version comes from BackupStructVersion; data_version is independently supplied by getEmuVersion and must be observed. Do not accept a Ketsui 0x80000-byte record or infer native playback from matching field offsets."
   },

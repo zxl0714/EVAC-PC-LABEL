@@ -1556,6 +1556,10 @@ int NativeCommand(int argc, wchar_t** argv) {
         try { return ScoreSelfTest() ? 0 : 1; }
         catch (...) { std::fputs("Native score self-test failed.\n", stderr); return 1; }
     }
+    if (argc==2 && std::wstring_view(argv[1])==L"--np-score-profile-self-test") {
+        try { return ScoreProfileSelfTest()?0:1; }
+        catch (const std::exception& error) { std::fprintf(stderr,"Native score profile test: %s\n",error.what());return 1; }
+    }
     if (argc == 2 && std::wstring(argv[1]) == L"--community-round-audit-self-test") {
         try { return CommunityRoundAuditSelfTest() ? 0 : 1; }
         catch (const std::exception& error) { std::fprintf(stderr,"Round audit self-test: %s\n",error.what()); return 2; }
