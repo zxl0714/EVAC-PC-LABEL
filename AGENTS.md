@@ -162,3 +162,17 @@ the frozen f652df0 ZIPs or tag. Do not repack v0.1 merely to include these recor
 For a new version, commit source first and rebuild all three games at that commit.
 Keep real package extraction, recipient source access and gameplay acceptance
 separate from fixture tests. Do not upload an unaccepted candidate.
+
+v0.2 is now accepted and frozen at 562e019 (tag v0.2). Its four-game Internal
+and Public ZIPs were actually extracted and verified (2738/128 files), and the
+Public runtime started with only SDOJ data. The no-ROM source attachment contains
+the matching independent Git and all 25 SDK/19 PS4 dependencies; 37084 ZIP files
+were hash-verified. Normal SDOJ launch, four main-mode entries, formal personal
+score/replay service, offline cold replay, fullscreen and naturally earned shop
+purchase/save/cold readback have evidence. Leave Shop and wait for native save
+before closing. Reuse accepted old-three short replays; the user explicitly
+asked to stop elaborate testing. Team scoring, the music patch, extended coverage,
+Ketsui exit cleanup and occasional A/V stutter remain outside this acceptance.
+No v0.2 group upload or announcement has been performed. A real final launcher
+screenshot is retained locally for later sharing. Preserve frozen ZIP identities;
+follow-up documentation does not require repacking or more gameplay tests.
