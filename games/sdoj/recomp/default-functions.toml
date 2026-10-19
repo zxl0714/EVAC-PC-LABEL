@@ -1,4 +1,4 @@
-# Callable, data-referenced forwarding entries in the verified disc-base default.xex.
+# Reviewed callable forwarding/leaf entries in the verified disc-base default.xex.
 # Instruction ranges reviewed; frame-dependent exception tails are excluded.
 
 [functions."0x8224A090"]
@@ -116,3 +116,27 @@ size = 32
 [functions."0x825B6F48"]
 name = "sub_825B6F48"
 size = 12
+
+# Data-referenced no-op, object-field getters and a conditional getter.
+[functions."0x82179118"]
+size = 4
+
+[functions."0x8229C0A8"]
+size = 8
+
+[functions."0x8229E340"]
+size = 8
+
+[functions."0x8229E360"]
+size = 8
+
+[functions."0x822A5640"]
+size = 8
+
+[functions."0x82519468"]
+size = 32
+
+# Startup comparator passed indirectly by code, not a data-table pointer.
+# Include both return paths; the next function starts at 0x82498348.
+[functions."0x824982C0"]
+size = 136

@@ -52,10 +52,11 @@ class SdojGenerationTests(unittest.TestCase):
 
     def test_reviewed_resident_callbacks_exclude_frame_dependent_tails(self):
         functions = tomllib.loads((ROOT / 'games/sdoj/recomp/default-functions.toml').read_text(encoding='utf-8'))['functions']
-        self.assertEqual(len(functions), 29)
+        self.assertEqual(len(functions), 36)
         self.assertEqual(functions['0x825B6F48']['size'], 12)
         self.assertEqual(functions['0x823D62C0']['size'], 16)
-        self.assertTrue(all(4 <= item['size'] <= 32 and item['size'] % 4 == 0 for item in functions.values()))
+        self.assertEqual(functions['0x824982C0']['size'], 136)
+        self.assertTrue(all(4 <= item['size'] <= 136 and item['size'] % 4 == 0 for item in functions.values()))
         self.assertFalse({'0x822478B0', '0x822643D0', '0x8246932C'} & functions.keys())
         self.assertIn('default-functions.toml', self.manifest['entrypoint']['includes'])
 

@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from callback_inventory import forwarding_size, pointer_references
+from callback_inventory import forwarding_size, pointer_references, readonly_leaf_size
 
 
 def code(*words):
@@ -46,6 +46,33 @@ class CallbackInventoryTests(unittest.TestCase):
         for offset in (-4, -1, 1, len(data), len(data) + 4):
             with self.subTest(offset=offset):
                 self.assertIsNone(forwarding_size(data, offset))
+
+    def test_authored_leaf_cfg_includes_both_conditional_returns(self):
+        # li r3,0; cmpwi r3,0; beq +12; li r3,1; blr; li r3,2; blr
+        fixture = code(0x38600000, 0x2c030000, 0x4182000c, 0x38600001,
+                       0x4e800020, 0x38600002, 0x4e800020)
+        self.assertEqual(readonly_leaf_size(fixture, 0), 28)
+        self.assertIsNone(readonly_leaf_size(fixture, 0, max_bytes=24))
+
+    def test_leaf_cfg_allows_a_bounded_loop_and_rejects_missing_return(self):
+        # li r3,0; addi r3,r3,1; cmpwi r3,3; bne -8; blr
+        fixture = code(0x38600000, 0x38630001, 0x2c030003, 0x4082fff8, 0x4e800020)
+        self.assertEqual(readonly_leaf_size(fixture, 0), 20)
+        self.assertIsNone(readonly_leaf_size(code(0x48000000), 0))
+
+    def test_leaf_candidates_reject_calls_frames_stores_and_nonvolatile_state(self):
+        for word in (0x48000005, 0x90630000, 0x83df0054, 0x3821ff80, 0x3be00001,
+                     0x4e800420, 0x2d030000):
+            fixture = code(word, 0x4e800020)
+            with self.subTest(word=hex(word)):
+                self.assertIsNone(readonly_leaf_size(fixture, 0))
+        self.assertEqual(readonly_leaf_size(code(0x60000000, 0x4e800020), 0), 8)
+
+    def test_leaf_candidates_reject_escaping_absolute_unaligned_and_truncated_paths(self):
+        for fixture, offset in ((code(0x48000008), 0), (code(0x48000002), 0),
+                                (code(0x4bfffffc), 0), (b'abc', 0), (code(0x4e800020), 1)):
+            with self.subTest(fixture=fixture, offset=offset):
+                self.assertIsNone(readonly_leaf_size(fixture, offset))
 
 
 if __name__ == '__main__':

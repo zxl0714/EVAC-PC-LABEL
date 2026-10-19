@@ -60,6 +60,65 @@ def pointer_references(data, address, ranges, known):
     return result
 
 
+def readonly_leaf_size(code, offset, max_bytes=512):
+    """Bounded CFG candidate: no calls, frame, stores or nonvolatile registers.
+
+    This is a review aid, not a proof that a data pointer is a function. In
+    particular it does not classify exception tables or install declarations.
+    """
+    if offset < 0 or offset % 4 or offset >= len(code):
+        return None
+    limit = min(len(code), offset + max_bytes)
+    pending, seen, returns = [offset], set(), 0
+    volatile = {0, *range(3, 13)}
+    readable = volatile | {2}
+    while pending:
+        position = pending.pop()
+        if position in seen:
+            continue
+        if position < offset or position % 4 or position + 4 > limit:
+            return None
+        seen.add(position)
+        word = struct.unpack_from('>I', code, position)[0]
+        op, rt, ra, rb = word >> 26, (word >> 21) & 31, (word >> 16) & 31, (word >> 11) & 31
+        if word == 0x4e800020:  # blr
+            returns += 1
+            continue
+        if op in (16, 18):
+            if word & 3:  # no linked or absolute branches
+                return None
+            bits = 16 if op == 16 else 26
+            displacement = word & ((1 << bits) - 4)
+            if displacement & (1 << (bits - 1)):
+                displacement -= 1 << bits
+            pending.append(position + displacement)
+            if op == 16:
+                pending.append(position + 4)
+            continue
+        if op in (14, 15, 32, 34, 40, 42):
+            valid = rt in volatile and ra in readable
+        elif op in (10, 11):  # unsigned/signed immediate compare
+            valid = ra in readable and ((word >> 23) & 7) in {0, 1, 5, 6, 7}
+        elif op in (20, 21, 24, 25, 26, 27, 28, 29):
+            valid = ra in volatile and rt in readable
+        elif op == 31:
+            xo = (word >> 1) & 1023
+            if xo in (0, 32):  # integer compare, volatile CR fields only
+                valid = ra in readable and rb in readable and ((word >> 23) & 7) in {0, 1, 5, 6, 7}
+            elif xo in (8, 10, 40, 136, 138, 235, 266):
+                valid = rt in volatile and ra in readable and rb in readable
+            elif xo in (28, 60, 124, 316, 444, 476):
+                valid = ra in volatile and rt in readable and rb in readable
+            else:
+                valid = False
+        else:
+            valid = False
+        if not valid:
+            return None
+        pending.append(position + 4)
+    return max(seen) + 4 - offset if returns else None
+
+
 def inventory(analysis, data_dir, game='espgaluda2'):
     if game not in ('espgaluda2', 'sdoj'):
         raise ValueError('Unsupported game adaptation')
@@ -107,7 +166,7 @@ def inventory(analysis, data_dir, game='espgaluda2'):
                 continue
             for target, sources in pointer_references(data, section['address'], ranges, known).items():
                 references.setdefault(target, []).extend(sources)
-        candidates = []
+        candidates, leaves = [], []
         for target, sources in sorted(references.items()):
             section, data = next((section, data) for section, data in code
                 if section['address'] <= target < section['address'] + len(data))
@@ -115,8 +174,13 @@ def inventory(analysis, data_dir, game='espgaluda2'):
             if size:
                 candidates.append(dict(address=f'0x{target:08X}', bytes=size,
                     references=[f'0x{address:08X}' for address in sources]))
+            else:
+                size = readonly_leaf_size(data, target - section['address'])
+                if size:
+                    leaves.append(dict(address=f'0x{target:08X}', bytes=size,
+                        references=[f'0x{address:08X}' for address in sources]))
         modules.append(dict(module=item['module'], missingDataTargets=len(references),
-            forwardingCandidates=candidates))
+            forwardingCandidates=candidates, readonlyLeafCandidates=leaves))
     return dict(format=1, game=game, guestExecution=False, automaticEdits=False, modules=modules)
 
 
