@@ -28,8 +28,15 @@ struct NativeVideoGpuContext {
 // Closing/unregistering the output cannot invalidate the callback's resources.
 // Cancellation is not a completed frame and is not an invalid port/backend.
 enum class NativeVideoResult { Completed, CloseRequested, Unavailable };
+// Completed host wall-time scopes, not GPU timestamps or physical scanout.
+// Returned to the caller so normal (<20 ms) frames need no extra log record.
+struct NativeVideoPresentTiming {
+    bool completed{};
+    std::uint64_t duration_us{}, lock_wait_us{}, prepare_us{}, display_clock_wait_us{}, backend_present_us{}, completion_us{};
+};
 NativeVideoResult WithNativeVideoGpu(int handle, unsigned buffer, const std::function<void(NativeVideoGpuContext&)>& execute);
-NativeVideoResult PresentNativeVideoGpu(int handle, unsigned buffer, unsigned mode, std::int64_t argument);
+NativeVideoResult PresentNativeVideoGpu(int handle, unsigned buffer, unsigned mode, std::int64_t argument,
+    NativeVideoPresentTiming* timing = nullptr);
 // Retire presentation after the GNM submission scope has returned. This is an
 // idempotent process-closing barrier, not guest-thread or GPU-context teardown.
 bool CompleteNativePresentationShutdown(int handle);

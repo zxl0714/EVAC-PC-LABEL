@@ -178,17 +178,20 @@ __declspec(noinline) SubmitResult SubmitAndFlip(std::uint32_t count, const std::
         if (executed == NativeVideoResult::CloseRequested) { cancelled_stage = "execute"; return SubmitResult::CloseRequested; }
         if (executed == NativeVideoResult::Completed) {
             if (!completion.prepared_flip) { UnsupportedApi("native_gnm_submit_missing_prepare_flip", count, caller); }
-            const auto presented = PresentNativeVideoGpu(static_cast<int>(video), buffer, flip_mode, flip_argument);
+            NativeVideoPresentTiming present_timing;
+            const auto presented = PresentNativeVideoGpu(static_cast<int>(video), buffer, flip_mode, flip_argument, &present_timing);
             if (presented == NativeVideoResult::CloseRequested) { cancelled_stage = "present"; return SubmitResult::CloseRequested; }
-            if (presented != NativeVideoResult::Completed) { UnsupportedApi("native_gnm_submit_present_incomplete", buffer, caller); }
+            if (presented != NativeVideoResult::Completed || !present_timing.completed) { UnsupportedApi("native_gnm_submit_present_incomplete", buffer, caller); }
             ++queue.completed;
             const auto completed_at = Clock::now();
             const auto interval = queue.last_present == Clock::time_point{} ? 0 : micros(queue.last_present, completed_at);
             log_started = Clock::now();
-            NativeLogf("{\"event\":\"native_gnm_frame_completed\",\"submission\":%llu,\"draws\":%u,\"snapshot_us\":%lld,\"queue_wait_us\":%lld,\"execute_us\":%lld,\"present_us\":%lld,\"total_us\":%lld,\"completion_interval_us\":%lld,\"completed_clock_us\":%lld,\"diagnostic_log_us\":%lld,\"previous_frame_log_us\":%lld,\"host_thread_id\":%lu,\"present_fence_completed\":true}\n",
+            NativeLogf("{\"event\":\"native_gnm_frame_completed\",\"submission\":%llu,\"draws\":%u,\"snapshot_us\":%lld,\"queue_wait_us\":%lld,\"execute_us\":%lld,\"present_us\":%lld,\"total_us\":%lld,\"completion_interval_us\":%lld,\"completed_clock_us\":%lld,\"diagnostic_log_us\":%lld,\"previous_frame_log_us\":%lld,\"host_thread_id\":%lu,\"present_fence_completed\":true,\"present_stages\":{\"duration_us\":%llu,\"lock_wait_us\":%llu,\"prepare_us\":%llu,\"display_clock_wait_us\":%llu,\"backend_present_us\":%llu,\"completion_us\":%llu}}\n",
                 queue.completed, completion.draws, micros(started, snapshot_ready), micros(snapshot_ready, queue_ready), micros(queue_ready, executed_at),
                 micros(executed_at, completed_at), micros(started, completed_at), interval, micros(Clock::time_point{}, completed_at),
-                diagnostic_log_us, queue.last_record_log_us, GetCurrentThreadId());
+                diagnostic_log_us, queue.last_record_log_us, GetCurrentThreadId(), present_timing.duration_us,
+                present_timing.lock_wait_us, present_timing.prepare_us, present_timing.display_clock_wait_us,
+                present_timing.backend_present_us, present_timing.completion_us);
             RecordNativeHostFrameTiming(queue.completed, micros(Clock::time_point{}, completed_at), interval);
             // Formatting/enqueue time is outside the completed frame's scope.
             // It belongs to the next interval; disk writing is worker-only.

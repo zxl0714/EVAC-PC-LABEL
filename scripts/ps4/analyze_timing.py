@@ -29,6 +29,16 @@ def valid_present_timing(item):
             sum(item[key] for key in PRESENT_STAGES) == item['duration_us'])
 
 
+def valid_frame_present_timing(item):
+    stages = item.get('present_stages')
+    outer = item.get('present_us')
+    return (isinstance(stages, dict) and type(outer) is int and outer >= 0 and
+            all(type(stages.get(key)) is int and stages[key] >= 0 for key in (*PRESENT_STAGES, 'duration_us')) and
+            sum(stages[key] for key in PRESENT_STAGES) == stages['duration_us'] and
+            # Nested QPC microsecond scopes may round one us differently.
+            stages['duration_us'] <= outer + 1)
+
+
 def valid_frame_counters(item):
     fields = ('submission', 'clock_us', 'interval_us', 'counters_began_clock_us', 'thread',
               'active_scopes_at_boundary', 'cross_boundary_completed_scopes', 'outer_calls', 'outer_us')
@@ -144,6 +154,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
     compile_timing = {kind: Distribution() for kind in ('shader', 'graphics_pipeline', 'compute_pipeline', 'tiling_pipeline')}
     lock_timing = Distribution()
     present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
+    frame_present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
     top_compiles, top_locks = [], []
     operation_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
     frame_counter_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
@@ -266,6 +277,13 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 counts['timeline_markers_omitted'] += 1
         elif kind == 'native_gnm_frame_completed':
             counts['completed_frames'] += 1
+            if 'present_stages' in item:
+                if valid_frame_present_timing(item):
+                    counts['frame_present_timing_samples'] += 1
+                    for key, distribution in frame_present_stages.items():
+                        distribution.add(item['present_stages'][key])
+                else:
+                    counts['invalid_frame_present_timing'] += 1
             for field, distribution in distributions.items():
                 if field == 'between_submissions_us':
                     continue
@@ -425,6 +443,8 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 outer_rack_lock_holds=lock_timing.report(),
                 present_substages=dict(timing={key: value.report() for key, value in present_stages.items()},
                     measurement='Thresholded completed slow presents only, not all frames. Backend includes worker handoff, Vulkan presentation and recovery waits; all values are host wall time, not GPU or scanout timing. Missing records do not prove no stall.'),
+                all_frame_present_substages=dict(timing={key: value.report() for key, value in frame_present_stages.items()},
+                    measurement='Validated nested scopes from completed-frame records, including sub-20-ms frames. Missing or rejected records are not zero-duration evidence. Backend includes worker handoff, Vulkan and recovery waits; not pure GPU work or physical scanout. The older thresholded event is reported separately and never double-counted here.'),
                 longest_rack_lock_holds=[dict(line=line, event=event) for _, line, event in sorted(top_locks, reverse=True)],
                 host_operations={kind: distribution.report() for kind, distribution in operation_timing.items()},
                 longest_host_operations=[dict(line=line, event=event) for _, line, event in sorted(top_operations, reverse=True)],

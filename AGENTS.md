@@ -19,6 +19,16 @@ entry, a real 1040-point round, formal HTTPS score/replay upload and in-game boa
 read/download/save, then networking-disabled cold playback to natural return.
 The formal service is 171d8a5; do not repeat this chain as a new prerequisite.
 Other modes/devices and final five-game packages remain separate scope.
+The user now requires DaiOuJou and Ketsui frame-pacing/performance fixes in v0.3,
+not a later release. Investigate the remaining ~19 ms intervals and tens-of-ms
+replay hitches after the accepted DaiOuJou integration. Separate active CPU/GPU
+work from pacing/presentation waits and scheduling; report tail distribution,
+missed display opportunities and performance headroom using fixed replays.
+Do not accept average 60 FPS or a short zero->20-ms sample as resolution, nor
+promise every Windows frame is exactly 16.667 ms. Retain correct game speed,
+native slowdown and synchronization. No v0.3 packaging/upload acceptance until
+the causes, fixes and bounded representative validation are recorded; real
+lower-spec coverage and any controlled load proxy must be distinguished.
 Keep failed attempts as incomplete evidence. Preserve frozen v0.1/v0.2 archives.
 
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has

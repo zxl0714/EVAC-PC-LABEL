@@ -30,6 +30,37 @@ class TimingAnalysisTests(unittest.TestCase):
         self.assertTrue(any(item['event']['event'] == 'native_video_present_timing'
                             for item in report['longest_frames'][0]['nearby_events']))
 
+    def test_sub_20ms_completed_frame_keeps_all_present_stages(self):
+        stages = dict(duration_us=7000, lock_wait_us=1, prepare_us=2,
+                      display_clock_wait_us=5000, backend_present_us=1996, completion_us=1)
+        report = self.report([self.frame(1000000, 19000, present_stages=stages), self.present()])
+        self.assertEqual(report['counts']['frame_present_timing_samples'], 1)
+        self.assertEqual(report['counts']['slow_present_timing_samples'], 1)
+        timing = report['all_frame_present_substages']['timing']
+        self.assertEqual(timing['display_clock_wait_us']['max_us'], 5000)
+        self.assertEqual(timing['backend_present_us']['max_us'], 1996)
+        self.assertEqual(timing['duration_us']['count'], 1)
+
+    def test_invalid_frame_scopes_are_not_zero_or_unbounded_evidence(self):
+        valid = dict(duration_us=7000, lock_wait_us=1, prepare_us=2,
+                     display_clock_wait_us=5000, backend_present_us=1996, completion_us=1)
+        samples = [self.frame(1000000, 19000, present_stages=dict(valid, **change))
+                   for change in (dict(duration_us=6999), dict(lock_wait_us=True),
+                                  dict(backend_present_us=-1), dict(duration_us=7002, completion_us=3))]
+        samples += [self.frame(1000000, 19000, present_stages=None)]
+        report = self.report(samples + [self.frame(1000000, 19000)])
+        self.assertEqual(report['counts']['invalid_frame_present_timing'], 5)
+        self.assertEqual(report['all_frame_present_substages']['timing']['duration_us']['count'], 0)
+        self.assertEqual(report['counts']['completed_frames'], 6)
+
+    def test_frame_present_scope_rounding_and_clock_filter(self):
+        stages = dict(duration_us=7001, lock_wait_us=1, prepare_us=2,
+                      display_clock_wait_us=5000, backend_present_us=1997, completion_us=1)
+        report = self.report([self.frame(1000000, 19000, present_stages=stages),
+                              self.frame(2000000, 19000, present_stages=stages)], to_clock_us=1000000)
+        self.assertEqual(report['counts']['frame_present_timing_samples'], 1)
+        self.assertEqual(report['all_frame_present_substages']['timing']['duration_us']['max_us'], 7001)
+
     def test_invalid_or_out_of_window_present_stages_are_not_evidence(self):
         samples = [self.present(**change) for change in
                    (dict(duration_us=1), dict(display_clock_wait_us=-1), dict(thread=True),

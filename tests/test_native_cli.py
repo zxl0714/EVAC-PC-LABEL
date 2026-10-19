@@ -25,7 +25,8 @@ class NativeCliTests(unittest.TestCase):
             self.assertEqual([r['id'] for r in result['games']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
             self.assertEqual(result['games'][1]['dataState'], 'missing_data')
             self.assertEqual(result['games'][3]['dataState'], 'missing_data')
-            self.assertEqual(result['games'][4]['state'], 'coming_soon')
+            self.assertEqual(result['games'][4]['state'], 'missing_data')
+            self.assertEqual(result['games'][5]['state'], 'coming_soon')
             self.assertEqual(list(root.iterdir()), [])
             self.assertFalse(result['guestExecution'])
 

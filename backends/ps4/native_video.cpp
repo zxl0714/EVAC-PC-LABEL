@@ -675,7 +675,9 @@ NativeVideoResult WithNativeVideoGpu(int handle, unsigned index, const std::func
     }
     return unavailable("unregistered_buffer");
 }
-NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mode, std::int64_t argument) {
+NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mode, std::int64_t argument,
+    NativeVideoPresentTiming* timing) {
+    if (timing) { *timing = {}; }
     if (mode != 1) { throw std::runtime_error("Only VSync flip mode is implemented"); }
     const auto present_began=kt::diagnostics::MonotonicMicroseconds();
     auto& state = State(); std::lock_guard lock(state.mutex);
@@ -730,6 +732,11 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         label.store(0);
         state.active->clock->NotifyFlipCompleted(argument);
         const auto completed_at=kt::diagnostics::MonotonicMicroseconds();
+        if (timing) {
+            *timing = {true, completed_at-present_began, locked_at-present_began,
+                display_wait_began-locked_at, display_ready-display_wait_began,
+                backend_completed-display_ready, completed_at-backend_completed};
+        }
         if(completed_at-present_began>=20000) {
             // Wall times for a completed slow present, not GPU timestamps or
             // physical scanout. The backend interval also includes its worker
