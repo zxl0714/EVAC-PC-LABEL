@@ -1,4 +1,5 @@
 #include "sdl_gamepad.h"
+#include "common/stick_deadzone.h"
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -9,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -75,6 +77,9 @@ void LoadMappings() {
 }
 struct SdlGamepad::Impl {
     bool initialized{}, focused{};
+    bool enabled = true;
+    bool apply_deadzone{};
+    double deadzone{}; // Legacy diagnostic mode preserves unfiltered axes.
     SDL_Gamepad* gamepad{};
     SDL_JoystickID device{}, preferred{};
     Uint64 next_scan{};
@@ -127,7 +132,15 @@ struct SdlGamepad::Impl {
 };
 SdlGamepad::SdlGamepad() : impl_(std::make_unique<Impl>()) {}
 SdlGamepad::~SdlGamepad() = default;
+void SdlGamepad::Configure(bool enabled, double deadzone) {
+    if (!std::isfinite(deadzone) || deadzone < 0 || deadzone >= 1) throw std::runtime_error("Invalid gamepad deadzone");
+    if (impl_->initialized) throw std::runtime_error("Gamepad configuration requires a restart");
+    impl_->enabled = enabled;
+    impl_->deadzone = deadzone;
+    impl_->apply_deadzone = true;
+}
 void SdlGamepad::Initialize() {
+    if (!impl_->enabled) return;
     if (impl_->initialized) return;
     SDL_SetMainReady();
     SDL_SetHintWithPriority(SDL_HINT_JOYSTICK_THREAD,"1",SDL_HINT_OVERRIDE);
@@ -174,10 +187,14 @@ GamepadSnapshot SdlGamepad::Poll() {
     out.buttons=self.pending;
     for (unsigned button=0;button<SDL_GAMEPAD_BUTTON_COUNT;++button)
         if (SDL_GetGamepadButton(self.gamepad,static_cast<SDL_GamepadButton>(button))) out.buttons|=Mask(button);
-    out.left_x=Axis(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_LEFTX));
-    out.left_y=Axis(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_LEFTY));
-    out.right_x=Axis(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_RIGHTX));
-    out.right_y=Axis(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_RIGHTY));
+    const auto stick = [&](SDL_GamepadAxis x, SDL_GamepadAxis y) {
+        const auto raw = std::pair{SDL_GetGamepadAxis(self.gamepad,x), SDL_GetGamepadAxis(self.gamepad,y)};
+        return self.apply_deadzone ? cave::ApplyStickDeadzone(raw.first, raw.second, self.deadzone) : raw;
+    };
+    const auto left = stick(SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY);
+    const auto right = stick(SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY);
+    out.left_x=Axis(left.first); out.left_y=Axis(left.second);
+    out.right_x=Axis(right.first); out.right_y=Axis(right.second);
     out.l2=Trigger(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_LEFT_TRIGGER));
     out.r2=Trigger(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER));
     if (out.l2>30) out.buttons|=0x100;
@@ -218,6 +235,15 @@ int SdlGamepadMonitor(unsigned seconds) {
     return 0;
 }
 bool SdlGamepadSelfTest() {
+    {
+        SdlGamepad disabled; disabled.Configure(false,0.2); disabled.Initialize();
+        if (disabled.impl_->initialized || disabled.Poll().device || disabled.Poll().buttons) return false;
+        for (double invalid : {-0.1,1.0,std::numeric_limits<double>::quiet_NaN()}) {
+            bool rejected{};
+            try { disabled.Configure(true,invalid); } catch (const std::runtime_error&) { rejected=true; }
+            if (!rejected) return false;
+        }
+    }
     SdlGamepad backend; backend.Initialize();
     SDL_VirtualJoystickDesc descriptor; SDL_INIT_INTERFACE(&descriptor);
     descriptor.type=SDL_JOYSTICK_TYPE_GAMEPAD;
@@ -297,6 +323,36 @@ bool SdlGamepadSelfTest() {
     }
     if (hat_id) SDL_DetachVirtualJoystick(hat_id);
     backend.Poll();
+    bool late_rejected{};
+    try { backend.Configure(false,0.2); } catch (const std::runtime_error&) { late_rejected=true; }
+    check(late_rejected,"late_gamepad_configuration_rejected");
+    {
+        SdlGamepad configured; configured.Configure(true,0.25); configured.Initialize(); configured.Focus(true);
+        descriptor.nhats=0;
+        descriptor.name="CAVE configured axis fixture"; // Not the earlier POV-only mapping's GUID.
+        const auto configured_id=SDL_AttachVirtualJoystick(&descriptor);
+        auto* configured_joystick=SDL_OpenJoystick(configured_id);
+        configured.impl_->preferred=configured_id;
+        check(configured_id && configured_joystick,"configured_virtual_device_created");
+        if (configured_joystick) {
+            SDL_SetJoystickVirtualAxis(configured_joystick,SDL_GAMEPAD_AXIS_LEFTX,4000);
+            SDL_SetJoystickVirtualAxis(configured_joystick,SDL_GAMEPAD_AXIS_LEFTY,-4000);
+            auto sample=configured.Poll();
+            check(sample.left_x==128 && sample.left_y==128,"configured_radial_deadzone_centers_small_axes");
+            SDL_SetJoystickVirtualAxis(configured_joystick,SDL_GAMEPAD_AXIS_LEFTX,32767);
+            SDL_SetJoystickVirtualAxis(configured_joystick,SDL_GAMEPAD_AXIS_LEFTY,0);
+            SDL_SetJoystickVirtualButton(configured_joystick,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);
+            sample=configured.Poll();
+            check(sample.left_x==255 && sample.left_y==128 && (sample.buttons&0x80),"deadzone_keeps_full_range_and_digital_hat");
+            SDL_SetJoystickVirtualAxis(configured_joystick,SDL_GAMEPAD_AXIS_LEFTX,16384);
+            sample=configured.Poll();
+            const auto expected=cave::ApplyStickDeadzone(16384,0,0.25);
+            check(sample.left_x==Axis(expected.first) && sample.left_y==Axis(expected.second),"ps4_and_360_use_same_deadzone_curve");
+            SDL_CloseJoystick(configured_joystick);
+        }
+        if (configured_id) SDL_DetachVirtualJoystick(configured_id);
+        configured.Poll();
+    }
     std::printf("{\"event\":\"sdl_gamepad_self_test\",\"passed\":%d,\"success\":%s}\n",passed,okay?"true":"false");
     return okay;
 }

@@ -126,13 +126,14 @@ struct NativeSession {
       mappings.erase(range.mapping_address);
     }
   }
-  NativeSession(const RuntimeApi &api_, bool validation, void *window = nullptr)
+  NativeSession(const RuntimeApi &api_, bool validation, void *window = nullptr, bool vsync = true)
       : api{api_} {
     const HostSettings settings{.validation_core = validation,
                                 .validation_sync = validation,
                                 .log_directory =
                                     std::filesystem::current_path(),
-                                .presentation_support = window != nullptr};
+                                .presentation_support = window != nullptr,
+                                .vsync = vsync};
     worker.Sync([&] {
       RuntimeError error;
       Call(api.create(&settings, &memory, &context, &error), error);
@@ -289,7 +290,7 @@ unsigned CheckPixels(NativeSession &session, bool green) {
 } // namespace
 int main(int argc, char **argv) {
   try {
-    bool validation = false, presentation = false, interactive = false;
+    bool validation = false, presentation = false, interactive = false, vsync = true;
     for (int i = 1; i < argc; ++i) {
       const std::string_view argument{argv[i]};
       if (argument == "--validation") {
@@ -298,6 +299,8 @@ int main(int argc, char **argv) {
         presentation = true;
       } else if (argument == "--interactive") {
         interactive = true;
+      } else if (argument == "--no-vsync") {
+        vsync = false;
       } else {
         throw std::runtime_error("Unknown runtime smoke argument");
       }
@@ -324,7 +327,7 @@ int main(int argc, char **argv) {
     u64 resident_read_bytes = 0, resident_write_bytes = 0;
     {
       NativeSession session{library.api, validation,
-                            window ? window->Handle() : nullptr};
+                            window ? window->Handle() : nullptr, vsync};
       Allocation allocation;
       if (window) {
         auto write_lease =

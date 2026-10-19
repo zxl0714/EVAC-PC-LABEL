@@ -18,6 +18,7 @@ public:
     SdlGamepad(const SdlGamepad&) = delete;
     SdlGamepad& operator=(const SdlGamepad&) = delete;
     void Initialize();
+    void Configure(bool enabled, double deadzone);
     void Focus(bool focused);
     void ClearPending();
     bool HasPending();

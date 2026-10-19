@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "presenter.h"
+#include "graphics/present_mode.h"
 #include "cache_memory.h"
 #include "core/libraries/videoout/buffer.h"
 #include "sdl_window.h"
@@ -59,14 +60,15 @@ struct Presenter::Impl {
   vk::UniqueFence acquired, completed, presented;
   vk::UniqueSemaphore ready;
   bool gpu_pending{}, present_pending{};
+  bool vsync = true;
   u64 presents{};
   Impl(const Vulkan::Instance &instance_, const Frontend::WindowSDL &window_,
        Vulkan::Scheduler &scheduler_, Vulkan::Runtime &runtime_,
-       VideoCore::TextureCache &cache_)
+       VideoCore::TextureCache &cache_, bool vsync_)
       : instance{instance_},
         window{static_cast<HWND>(window_.GetWindowInfo().render_surface)},
         scheduler{scheduler_}, runtime{runtime_}, cache{cache_},
-        surface{instance.GetInstance(), window_} {
+        surface{instance.GetInstance(), window_}, vsync{vsync_} {
     Require(window && IsWindow(window) && instance.HasPresentFences(),
             "Presenter needs a live window and present fences");
     Require(Checked(instance.GetPhysicalDevice().getSurfaceSupportKHR(
@@ -193,6 +195,13 @@ struct Presenter::Impl {
     images.clear();
     initialized.clear();
   }
+  vk::PresentModeKHR SelectMode() const {
+    const auto modes = Checked(instance.GetPhysicalDevice().getSurfacePresentModesKHR(surface.value), "Query present modes");
+    const auto selected = cave::ps4::SelectPresentMode(vsync, std::span<const vk::PresentModeKHR>(modes),
+        vk::PresentModeKHR::eFifo, vk::PresentModeKHR::eImmediate, vk::PresentModeKHR::eMailbox);
+    std::fprintf(stderr, "gpu_runtime_swapchain: vsync_requested=%s mode=%s\n", vsync ? "true" : "false", vk::to_string(selected).c_str());
+    return selected;
+  }
   void CreateChain(vk::Extent2D size, const vk::SurfaceCapabilitiesKHR &caps) {
     RetireChain();
     const auto formats = Checked(
@@ -233,7 +242,7 @@ struct Presenter::Impl {
                          .imageSharingMode = vk::SharingMode::eExclusive,
                          .preTransform = caps.currentTransform,
                          .compositeAlpha = alpha,
-                         .presentMode = vk::PresentModeKHR::eFifo,
+                         .presentMode = SelectMode(),
                          .clipped = true}),
                     "Create tracked swapchain");
     images =
@@ -441,9 +450,9 @@ struct Presenter::Impl {
 Presenter::Presenter(const Vulkan::Instance &instance,
                      const Frontend::WindowSDL &window,
                      Vulkan::Scheduler &scheduler, Vulkan::Runtime &runtime,
-                     VideoCore::TextureCache &cache)
+                     VideoCore::TextureCache &cache, bool vsync)
     : impl{std::make_unique<Impl>(instance, window, scheduler, runtime,
-                                  cache)} {}
+                                  cache, vsync)} {}
 Presenter::~Presenter() = default;
 RuntimePresentResult Presenter::Present(const RuntimeDisplay &display) {
   return impl->Present(display);

@@ -18,8 +18,69 @@ CHECKS = (
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
     'np-score', 'np-replay', 'community-round-audit', 'sfo', 'pm4',
-    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad',
+    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config',
 )
+
+
+def configuration_cases():
+    return (
+        ('defaults', (ROOT / 'config/default.ini').read_text(encoding='utf-8-sig'), 0,
+         {'game':'ketsui', 'title':'CAVE PC Collection — Ketsui Deathtiny',
+          'community':{'enabled':True, 'nickname':'Player', 'endpoint':'https://xiaolu.life/cave/api/v1/games/ketsui'}}),
+        ('utf8-bom', '\ufeff[COLLECTION]\nconfig_version=1\n[COMMUNITY]\nnickname=弹幕 Player\n', 0,
+         {'community':{'nickname':'弹幕 Player'}}),
+        ('overrides', '[display]\nfullscreen=true\n[audio]\nvolume=0.8\n[game.ketsui.display]\nfullscreen=false\nvsync=false\n[game.ketsui.audio]\nvolume=0.25\n[game.ketsui.keyboard]\nsouth=Space,B\n', 0,
+         {'fullscreen':False, 'vsync':False, 'volume':0.25, 'keyboard':{'south':[32,66]}}),
+        ('sibling-isolation', '[game.futari.keyboard]\nunknown=bad\n[game.espgaluda2.gamepad]\ndeadzone=bad\n', 0,
+         {'gamepad':{'enabled':True,'deadzone':0.2}}),
+        ('legacy-endpoint', '[community]\nendpoint=https://xiaolu.life/ketsui/api/v1/\n', 0,
+         {'community':{'endpoint':'https://xiaolu.life/ketsui/api/v1'}}),
+        ('game-endpoint', '[community]\nendpoint=https://xiaolu.life/cave/api/v1/games/ketsui/\n', 0,
+         {'community':{'endpoint':'https://xiaolu.life/cave/api/v1/games/ketsui'}}),
+        ('disabled', '[game.ketsui.gamepad]\nenabled=false\ndeadzone=0.35\n[game.ketsui.community]\nenabled=false\n', 0,
+         {'gamepad':{'enabled':False,'deadzone':0.35},'community':{'enabled':False}}),
+        ('reserved', '[keyboard]\nsouth=F11\n', 2, {}),
+        ('duplicate', '[keyboard]\nsouth=Z\nsouth=B\n', 2, {}),
+        ('conflict', '[keyboard]\nsouth=X\n', 2, {}),
+        ('nonfinite', '[audio]\nvolume=nan\n', 2, {}),
+        ('newer-version', '[collection]\nconfig_version=2\n', 2, {}),
+        ('legacy-button', '[keyboard]\ncross=Z\n', 2, {}),
+        ('wrong-game-endpoint', '[community]\nendpoint=https://xiaolu.life/cave/api/v1/games/futari\n', 2, {}),
+        ('missing-file', None, 2, {}),
+    )
+
+
+def subset(actual, expected):
+    return (isinstance(actual, dict) and all(key in actual and subset(actual[key], value) for key,value in expected.items())) \
+        if isinstance(expected, dict) else actual == expected
+
+
+def check_configuration_files(executable, directory):
+    results=[]
+    fixtures=directory / '配置检查 with spaces'
+    fixtures.mkdir()
+    for name, content, expected_code, expected in configuration_cases():
+        path=fixtures / (name + '.ini')
+        if content is not None:
+            with path.open('xb') as output:
+                output.write(content.encode('utf-8'))
+        before=digest(path) if content is not None else None
+        result=subprocess.run([str(executable),'--collection-config-check',str(path)],
+                              cwd=directory,capture_output=True,timeout=15)
+        valid=result.returncode==expected_code
+        if expected_code==0:
+            try:
+                report=json.loads(result.stdout)
+                valid=valid and report.get('event')=='collection_configuration' and subset(report, expected)
+            except (ValueError, TypeError):
+                valid=False
+        valid=valid and ((digest(path)==before) if content is not None else not path.exists())
+        for suffix, content in (('stdout.jsonl',result.stdout),('stderr.txt',result.stderr)):
+            with (directory / ('config-'+name+'.'+suffix)).open('xb') as output:
+                output.write(content)
+        results.append(dict(check='config-'+name, exitCode=result.returncode, expectedExitCode=expected_code, passed=valid))
+        print(('PASS' if valid else 'FAIL')+': config-'+name, flush=True)
+    return results
 
 
 def main():
@@ -44,6 +105,7 @@ def main():
                 output.write(content)
         results.append(dict(check=name, exitCode=code, passed=code == 0))
         print(('PASS' if code == 0 else 'FAIL') + ': ' + name, flush=True)
+    results.extend(check_configuration_files(executable, directory))
     write_json_new(directory / 'result.json', dict(format=1, backend='ps4', gameExecution=False,
         buildSourceCommit=receipt['sourceCommit'], buildSourceDirty=receipt['sourceDirty'],
         executableSha256=digest(executable), checks=results))

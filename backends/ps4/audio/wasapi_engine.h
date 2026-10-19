@@ -3,7 +3,7 @@
 #include <memory>
 
 namespace kt::audio {
-struct Configuration { unsigned frames, channels; bool floating; bool standard8 = false; };
+struct Configuration { unsigned frames, channels; bool floating; bool standard8 = false; float master_gain = 1.0f; };
 struct Snapshot {
     std::uint64_t stream_id{};
     std::uint64_t submitted_frames{}, written_frames{}, consumed_frames{}, underruns{};

@@ -104,6 +104,7 @@ struct DisplayGroup {
 };
 
 struct WindowJob {
+    NativeDisplaySettings display;
     std::array<std::atomic<std::uint64_t>, 16> buffer_labels{};
     std::shared_ptr<NativeDisplayClock> clock;
     HANDLE ready{}, quit{}, thread{};
@@ -124,6 +125,7 @@ struct WindowJob {
     }
 };
 struct VideoState {
+    NativeDisplaySettings display;
     std::mutex mutex;
     std::shared_ptr<WindowJob> active;
     // Retain only the last port's label metadata, not its HWND, clock or OS
@@ -273,13 +275,20 @@ DWORD WINAPI WindowThread(void* argument) noexcept {
     RECT bounds{0, 0, static_cast<LONG>(kWidth), static_cast<LONG>(kHeight)};
     HWND window = nullptr;
     if (AdjustWindowRectExForDpi(&bounds, kStyle, FALSE, 0, GetDpiForSystem())) {
-        window = CreateWindowExW(0, kClass, L"Ketsui PC - development preview | Alt+Enter / F11: fullscreen", kStyle,
+        window = CreateWindowExW(0, kClass, job->display.title.c_str(), kStyle,
              CW_USEDEFAULT, CW_USEDEFAULT, bounds.right - bounds.left, bounds.bottom - bounds.top,
              nullptr, nullptr, GetModuleHandleW(nullptr), job.get());
     }
     if (!window) { job->failure.store(GetLastError()); SetEvent(job->ready); }
     else {
         job->window.store(window);
+        if (job->visible && job->display.fullscreen && !ToggleFullscreen(window, *job)) {
+            job->failure.store(GetLastError() ? GetLastError() : ERROR_GEN_FAILURE);
+            DestroyWindow(window);
+            SetEvent(job->ready);
+            if (previous_dpi) { SetThreadDpiAwarenessContext(previous_dpi); }
+            return 0;
+        }
         RECT client{};
         if (GetClientRect(window, &client)) {
             job->width.store(static_cast<unsigned>(client.right));
@@ -312,6 +321,7 @@ int Open(int user, int bus, int index, const void* parameter, bool visible, cons
     static INIT_ONCE initialization = INIT_ONCE_STATIC_INIT;
     if (!InitOnceExecuteOnce(&initialization, RegisterWindow, nullptr, nullptr)) { return kFatal; }
     auto job = std::make_shared<WindowJob>();
+    job->display = state.display;
     job->visible = visible;
     job->startup_visible.store(!state.startup_hidden);
     job->ready = CreateEventW(nullptr, TRUE, FALSE, nullptr);
@@ -433,7 +443,7 @@ int RegisterBuffers(int handle, int first, void* const* addresses, int count, co
         if (!buffer.memory.Retain(addresses[index], layout.bytes)) { return static_cast<int>(0x80290013u); }
         pending.buffers.push_back(std::move(buffer));
     }
-    if (!state.graphics && !CurrentNativeResidentGpu()) { state.graphics = std::make_unique<kt::gfx::VulkanDevice>(state.active->window.load()); }
+    if (!state.graphics && !CurrentNativeResidentGpu()) { state.graphics = std::make_unique<kt::gfx::VulkanDevice>(state.active->window.load(), state.display.vsync); }
     int created{};
     for (auto& buffer : pending.buffers) {
         const auto physical = buffer.memory.physical;
@@ -742,6 +752,17 @@ std::uint64_t ResolveVideoImport(std::string_view identifier, std::string_view l
     return 0;
 }
 
+void ConfigureNativeDisplay(NativeDisplaySettings settings) {
+    if (settings.title.empty() || settings.title.size() > 256 || settings.title.find(L'\0') != settings.title.npos)
+        throw std::runtime_error("Invalid game window title");
+    auto& state = State(); std::lock_guard lock(state.mutex);
+    if (state.active || state.graphics || state.stopping_handle) throw std::runtime_error("Display configuration requires a restart");
+    state.display = std::move(settings);
+}
+NativeDisplaySettings GetNativeDisplaySettings() {
+    auto& state = State(); std::lock_guard lock(state.mutex);
+    return state.display;
+}
 bool VideoSelfTest() {
     bool passed = true;
     auto check = [&](const char* name, bool result) {

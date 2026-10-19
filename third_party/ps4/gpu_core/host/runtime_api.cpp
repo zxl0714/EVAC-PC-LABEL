@@ -32,6 +32,7 @@ struct Session {
   AmdGpu::Liverpool command;
   std::unique_ptr<Vulkan::Rasterizer> rasterizer;
   std::unique_ptr<Presenter> presenter;
+  bool vsync = true;
   Session(const HostSettings &settings, CacheMemoryBackend &memory)
       : memory_scope{memory},
         window{Frontend::WindowSystemInfo{
@@ -39,6 +40,7 @@ struct Session {
             .type = (settings.native_window || settings.presentation_support)
                         ? Frontend::WindowSystemType::Windows
                         : Frontend::WindowSystemType::Headless}} {
+    vsync = settings.vsync;
     ConfigureHost(settings);
     instance = std::make_unique<Vulkan::Instance>(window, -1,
                                                   settings.validation_core);
@@ -50,7 +52,7 @@ struct Session {
     if (settings.native_window) {
       presenter =
           std::make_unique<Presenter>(*instance, window, *scheduler, *runtime,
-                                      rasterizer->GetTextureCache());
+                                      rasterizer->GetTextureCache(), vsync);
     }
   }
   void Drain() {
@@ -272,7 +274,7 @@ bool SetWindow(void *context, void *window, RuntimeError *error) noexcept {
     if (window) {
       session.presenter = std::make_unique<Presenter>(
           *session.instance, session.window, *session.scheduler,
-          *session.runtime, session.rasterizer->GetTextureCache());
+          *session.runtime, session.rasterizer->GetTextureCache(), session.vsync);
     }
     std::fprintf(stderr, "gpu_runtime_window: bound=%s\n",
                  window ? "true" : "false");

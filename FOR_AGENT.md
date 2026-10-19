@@ -1,6 +1,6 @@
 # 开发入口
 
-先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 的 PS4 宿主和驻留 GPU 已在新目录独立构建，下一步接通共享 INI、准备数据和合集启动合同。
+先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 的 PS4 宿主、驻留 GPU 和共享 INI 适配已在新目录编译并通过机制检查，下一步接通准备数据和合集启动合同。
 
 干净联合构建 6b47555 的 out/xbox360 有 45 对程序／PDB，153 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。本机隔离服务的真实成绩／录像上传、榜单读回及下载保存已通过；6b47555 的 run-20261019T013724950Z-76988 将下载槽 No.4 冷启动完整播放并自然返回，容器哈希不变、退出码 0。正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
 
@@ -57,7 +57,7 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 222 项 Python／CLI 回归。PS4 的五对程序／PDB、33 项原生机制检查及 4 项真实 GPU 自制场景检查通过；双游戏 360 的 18 组 CTest 另行保持回归，不混计成游戏进关。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 222 项 Python／CLI 回归。PS4 的五对程序／PDB、49 项原生／配置检查及 5 项真实 GPU 自制场景检查通过；双游戏 360 的 18 组 CTest 另行保持回归，不混计成游戏进关。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
 
 ### 虫姬二接入
 
@@ -112,4 +112,8 @@ py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' -
 
 19 个依赖从上游恢复到 .deps/ps4，可选缓存用法见 tools/README.md。输出在 out/ps4-native 和 out/ps4-gpu，out/ps4/build-receipt.json 记录输入、工具及五对 PE／PDB 的 GUID 和 age。修改提取的上游文件时，在对应 upstream-files.json 的 localChanges 明确记录维护哈希；383 项当前文件在构建前后核对。NativeOnly 不要求 ROM，也不启动游戏；省略该选项的 Ketsui 完整准备流程仍待接通。
 
-三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 33 项机制检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的四项 CTest 另用自制资源检查绘制、缓存及窗口呈现。其余导入测试将在保存、联网与媒体接线时逐项适配；二进制自制媒体 fixture 尚未导入，恢复时单独记录来源／哈希。
+三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 34 项机制和 15 项真实配置文件检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试将在保存、联网与媒体接线时逐项适配；二进制自制媒体 fixture 尚未导入，恢复时单独记录来源／哈希。
+
+PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 现为版本 5，宿主与 DLL 必须配套重建。
+
+只读检查当前配置可用 `./out/ps4-native/KetsuiNativeProbe.exe --collection-config-check ./config.ini`，不启动 SDL、音频、GPU 或社区 worker，不写配置。开发执行入口接受 `--collection-config <同一份 config.ini>`，与旧 `--input-config` 互斥；旧参数仅保留给机制诊断，不是第二份玩家配置。公共 `/cave/api/v1` 自动映射到 `/cave/api/v1/games/ketsui`，也兼容既有 Ketsui 专属地址；其他游戏路径被拒绝。此次通过的是配置解析、原生应用和自造场景，不是合集真实进关或联网游玩验收；启动合同、数据准备、常态日志分级与真实流程仍待接入。

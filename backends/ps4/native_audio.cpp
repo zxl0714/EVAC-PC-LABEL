@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <limits>
 #include <map>
@@ -13,6 +14,7 @@
 #include <mutex>
 #include <new>
 #include <thread>
+#include <stdexcept>
 
 #define KT_SYSV __attribute__((sysv_abi))
 
@@ -28,6 +30,7 @@ struct AudioState {
     std::shared_ptr<Engine> engine;
     std::map<int, AudioPort> ports;
     int next = 1;
+    float master_volume = 1.0f;
 };
 // Lifetime precedes main; the Windows worker is stopped before CRT teardown.
 AudioState state;
@@ -72,7 +75,7 @@ int Open(int user, int type, int index, unsigned frames, unsigned rate, unsigned
         const unsigned channels = format == 0 || format == 3 ? 1 : format == 1 || format == 4 ? 2 : 8;
         if (state.ports.size() >= 16 || state.next == (std::numeric_limits<int>::max)()) { return kFull; }
         long result{};
-        auto port = state.engine->Open({frames, channels, floating, format == 6 || format == 7}, result);
+        auto port = state.engine->Open({frames, channels, floating, format == 6 || format == 7, state.master_volume}, result);
         if (!port) { return result == E_ABORT ? kResource : HostResult(result); }
         const auto handle = state.next;
         try { state.ports.emplace(handle, AudioPort{port, frames, channels}); }
@@ -124,6 +127,12 @@ int KT_SYSV AudioVolume(int handle, unsigned flags, const int* volume) { return 
 int KT_SYSV AudioClose(int handle) { return Close(handle, __builtin_return_address(0)); }
 }
 
+void ConfigureNativeAudioVolume(double volume) {
+    if (!std::isfinite(volume) || volume < 0 || volume > 1) throw std::runtime_error("Invalid master audio volume");
+    std::lock_guard lock(state.mutex);
+    if (state.engine) throw std::runtime_error("Audio configuration requires a restart");
+    state.master_volume = static_cast<float>(volume);
+}
 std::uint64_t ResolveAudioImport(std::string_view identifier, std::string_view library, std::string_view module) {
     if (library != "libSceAudioOut" || module != "libSceAudioOut") { return 0; }
     const auto id = identifier.substr(0, identifier.find('#'));

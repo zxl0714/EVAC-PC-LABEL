@@ -1,4 +1,5 @@
 #include "vulkan_device.h"
+#include "present_mode.h"
 
 #include <windows.h>
 #include <vulkan/vulkan.h>
@@ -109,6 +110,7 @@ struct VulkanDevice::Impl {
     VkPhysicalDeviceProperties properties{};
     std::uint32_t queue_family{};
     bool surface_maintenance{}, present_fences{};
+    bool vsync = true;
     bool validation{};
     std::atomic<unsigned> validation_errors{};
     VkDebugUtilsMessengerEXT debug_messenger{};
@@ -424,7 +426,10 @@ struct VulkanDevice::Impl {
     }
 };
 
-VulkanDevice::VulkanDevice(void* native_window) : impl_(std::make_unique<Impl>()) { impl_->Initialize(native_window); }
+VulkanDevice::VulkanDevice(void* native_window, bool vsync) : impl_(std::make_unique<Impl>()) {
+    impl_->vsync = vsync;
+    impl_->Initialize(native_window);
+}
 VulkanDevice::~VulkanDevice() = default;
 std::size_t VulkanDevice::ImageCount() const { return impl_->images.size(); }
 void VulkanDevice::WaitIdle() { Check(impl_->wait_idle(impl_->device), "vkDeviceWaitIdle"); }
@@ -1170,7 +1175,13 @@ PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8
         if (caps.maxImageCount) { info.minImageCount = std::min(info.minImageCount, caps.maxImageCount); }
         info.imageFormat = selected->format; info.imageColorSpace = selected->colorSpace; info.imageExtent = extent;
         info.imageArrayLayers = 1; info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT; info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.preTransform = caps.currentTransform; info.presentMode = VK_PRESENT_MODE_FIFO_KHR; info.clipped = VK_TRUE;
+        const auto enumerate_modes = gpu.Instance<PFN_vkGetPhysicalDeviceSurfacePresentModesKHR>("vkGetPhysicalDeviceSurfacePresentModesKHR");
+        const auto modes = Enumerate<VkPresentModeKHR>("vkGetPhysicalDeviceSurfacePresentModesKHR", 1024,
+            [&](auto* count, auto* data) { return enumerate_modes(gpu.physical, gpu.surface, count, data); });
+        info.preTransform = caps.currentTransform;
+        info.presentMode = cave::ps4::SelectPresentMode(gpu.vsync, std::span<const VkPresentModeKHR>(modes),
+            VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR);
+        info.clipped = VK_TRUE;
         for (const auto alpha : {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR}) {
             if (caps.supportedCompositeAlpha & alpha) { info.compositeAlpha = alpha; break; }
         }
@@ -1179,7 +1190,10 @@ PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8
         gpu.swapchain_images = Enumerate<VkImage>("vkGetSwapchainImagesKHR", 256,
             [&](auto* count, auto* data) { return get_images(gpu.device, gpu.swapchain, count, data); });
         gpu.swapchain_initialized.assign(gpu.swapchain_images.size(), false); gpu.swapchain_extent = extent;
-        std::printf("{\"event\":\"native_graphics_swapchain\",\"width\":%u,\"height\":%u,\"images\":%zu,\"mode\":\"FIFO\",\"completion\":\"maintenance1_fence\"}\n", extent.width, extent.height, gpu.swapchain_images.size());
+        const auto mode_name = info.presentMode == VK_PRESENT_MODE_FIFO_KHR ? "FIFO" :
+            info.presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR ? "IMMEDIATE" : "MAILBOX";
+        std::printf("{\"event\":\"native_graphics_swapchain\",\"width\":%u,\"height\":%u,\"images\":%zu,\"mode\":\"%s\",\"present_mode\":%u,\"vsync_requested\":%s,\"completion\":\"maintenance1_fence\"}\n",
+            extent.width, extent.height, gpu.swapchain_images.size(), mode_name, unsigned(info.presentMode), gpu.vsync ? "true" : "false");
     }
     struct Scope {
         Impl& gpu;

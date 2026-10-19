@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string_view>
+#include "input/keyboard_config.h"
 
 std::uint64_t ResolvePadImport(std::string_view identifier, std::string_view library, std::string_view module);
 // Called only by the runtime-owned window's message loop. No global key polling.
@@ -14,6 +15,7 @@ bool ConfigureNativePadMouseLeft(std::wstring_view button);
 bool NativePadMouseLeftMapped();
 // Read/validate fully before publishing; only before pad/window initialization.
 void ConfigureNativePadKeyboard(const std::filesystem::path& path);
+void ConfigureNativePadSettings(const kt::input::KeyboardBindings& bindings, bool gamepad, double deadzone);
 bool ConfigureNativeDiagnosticTaps(unsigned milliseconds);
 bool ConfigureNativeDiagnosticCircleHold(unsigned milliseconds);
 bool PadSelfTest();

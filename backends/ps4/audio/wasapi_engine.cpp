@@ -72,7 +72,7 @@ void ApplyGain(float* destination, const std::vector<float>& packet, std::size_t
             const auto gain_channel = channels == 8 ? legacy_from_windows[channel] : channel;
             const auto input_channel = channels == 8 && !configuration.standard8 ? gain_channel : channel;
             destination[frame * channels + channel] = packet[(offset + frame) * channels + input_channel] *
-                (static_cast<float>(volume[gain_channel]) / 32768.0f);
+                (static_cast<float>(volume[gain_channel]) / 32768.0f) * configuration.master_gain;
         }
     }
 }
@@ -366,10 +366,15 @@ bool AudioConversionSelfTest() {
     std::array<float, 9> legacy{}, standard{}; legacy.back() = standard.back() = 73;
     ApplyGain(legacy.data(), eight, 0, 1, {1, 8, true, false}, volumes);
     ApplyGain(standard.data(), eight, 0, 1, {1, 8, true, true}, volumes);
+    std::array<float, 4> master{}, muted{};
+    ApplyGain(master.data(), samples, 0, 2, {2, 2, false, false, 0.25f}, gain);
+    ApplyGain(muted.data(), samples, 0, 2, {2, 2, false, false, 0.0f}, gain);
     return samples[0] == -1 && samples[1] == 32767.0f / 32768 && samples[2] == 0 && samples[3] == 0.5f &&
         floats[0] == -1 && floats[1] == 0.25f && floats[2] == 1 && floats[3] == 0 && scaled[0] == -0.5f &&
         scaled[1] == samples[1] * 0.25f && scaled[2] == 0 && scaled[3] == 0.125f && scaled[4] == 3 &&
         legacy[4] == eight[6] * 0.125f && legacy[6] == eight[4] * 0.5f && legacy[8] == 73 &&
-        standard[4] == eight[4] * 0.125f && standard[6] == eight[6] * 0.5f && standard[8] == 73;
+        standard[4] == eight[4] * 0.125f && standard[6] == eight[6] * 0.5f && standard[8] == 73 &&
+        master[0] == -0.125f && master[3] == 0.03125f &&
+        std::all_of(muted.begin(), muted.end(), [](float value) { return value == 0; });
 }
 }

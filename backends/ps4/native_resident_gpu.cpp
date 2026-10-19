@@ -1,4 +1,5 @@
 #include "native_resident_gpu.h"
+#include "native_video.h"
 #include "graphics/vulkan_device.h"
 #include "gpu_core/gpu_worker.h"
 #include "gpu_core/native_memory_backend.h"
@@ -74,7 +75,8 @@ struct NativeResidentGpu::Impl {
         try {
             const auto get = reinterpret_cast<GetRuntimeApi>(GetProcAddress(library, "KetsuiGpuRuntimeGetApi"));
             if (!get || !get(RuntimeApiVersion, sizeof(api), &api)) { throw std::runtime_error("Resident GPU SDK version mismatch"); }
-            const HostSettings settings{.log_directory = path.parent_path(), .presentation_support = true};
+            const HostSettings settings{.log_directory = path.parent_path(), .presentation_support = true,
+                .vsync = GetNativeDisplaySettings().vsync};
             worker.Sync([&] {
                 RuntimeError error;
                 Check(api.create(&settings, &memory, &context, &error), error);

@@ -19,7 +19,7 @@ class Presenter {
 
 public:
   Presenter(const Vulkan::Instance &, const Frontend::WindowSDL &,
-            Vulkan::Scheduler &, Vulkan::Runtime &, VideoCore::TextureCache &);
+            Vulkan::Scheduler &, Vulkan::Runtime &, VideoCore::TextureCache &, bool vsync = true);
   ~Presenter();
   RuntimePresentResult Present(const RuntimeDisplay &);
   void Drain();

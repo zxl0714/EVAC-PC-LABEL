@@ -14,7 +14,7 @@ std::uint32_t SelectMemoryType(std::span<const std::uint32_t> flags, std::uint32
 // this component. The caller owns the HWND and keeps it alive through teardown.
 class VulkanDevice {
 public:
-    explicit VulkanDevice(void* native_window);
+    explicit VulkanDevice(void* native_window, bool vsync = true);
     ~VulkanDevice();
     VulkanDevice(const VulkanDevice&) = delete;
     VulkanDevice& operator=(const VulkanDevice&) = delete;

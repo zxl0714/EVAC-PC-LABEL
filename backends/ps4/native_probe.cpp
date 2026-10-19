@@ -51,6 +51,7 @@
 #include "native_community_round_audit.h"
 #include "native_community_rounds.h"
 #include "graphics/display_layout.h"
+#include "collection_config.h"
 
 #include <array>
 #include <algorithm>
@@ -64,6 +65,7 @@
 #include <memory>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -1322,6 +1324,14 @@ bool EmitNativeHostOperation(const char* name, const char* category, std::uint64
 }
 
 int wmain(int argc, wchar_t** argv) {
+    if (argc==2 && std::wstring(argv[1])==L"--collection-config-self-test") {
+        try { return cave::ps4::CollectionConfigurationSelfTest() ? 0 : 1; }
+        catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 1; }
+    }
+    if (argc==3 && std::wstring(argv[1])==L"--collection-config-check") {
+        try { cave::ps4::ReportCollectionConfiguration(cave::ps4::LoadCollectionConfiguration(argv[2])); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 2; }
+    }
     if (argc==3 && std::wstring(argv[1])==L"--waveform-check") { return Ngs2WaveformCheck(argv[2]); }
     // Set this before creating any window or Vulkan surface. Otherwise Win32
     // client coordinates and the driver's surface extent can use different
@@ -1659,6 +1669,7 @@ int wmain(int argc, wchar_t** argv) {
     const wchar_t* diagnostic_tap = nullptr;
     const wchar_t* diagnostic_circle_hold = nullptr;
     const wchar_t* input_config = nullptr;
+    const wchar_t* collection_config = nullptr;
     const wchar_t* allocation_timing = nullptr;
     const wchar_t* community_provider = nullptr;
     const wchar_t* community_round_audit = nullptr;
@@ -1678,6 +1689,7 @@ int wmain(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--diagnostic-tap-ms" && !diagnostic_tap) { diagnostic_tap = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--diagnostic-circle-hold-ms" && !diagnostic_circle_hold) { diagnostic_circle_hold = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--input-config" && !input_config) { input_config = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--collection-config" && !collection_config) { collection_config = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--allocation-timing" && !allocation_timing) { allocation_timing = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-provider" && !community_provider) { community_provider = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-round-audit" && !community_round_audit) { community_round_audit = argv[i + 1]; }
@@ -1691,9 +1703,10 @@ int wmain(int argc, wchar_t** argv) {
     if (diagnostic_tap && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (diagnostic_circle_hold && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (input_config && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
+    if (collection_config && (input_config || std::wstring(argv[2]) != L"--enter")) { valid_arguments = false; }
     const bool configured_community = community_provider && std::wstring(community_provider) == L"configured";
     if (community_provider && (std::wstring(argv[2]) != L"--enter" ||
-        (!configured_community && std::wstring(community_provider) != L"loopback") || !input_config || !user_directory)) { valid_arguments = false; }
+        (!configured_community && std::wstring(community_provider) != L"loopback") || (!input_config && !collection_config) || !user_directory)) { valid_arguments = false; }
     if (configured_community && !community_rounds) { valid_arguments = false; }
     if (community_round_audit && (!community_provider || configured_community || std::wstring(community_round_audit) != L"on")) { valid_arguments = false; }
     if (community_rounds && (!community_provider || community_round_audit || std::wstring(community_rounds) != L"on")) { valid_arguments = false; }
@@ -1709,7 +1722,7 @@ int wmain(int argc, wchar_t** argv) {
     const bool census = argc >= 3 && std::wstring(argv[2]) == L"--binding-census";
     if (census && (user_directory || app_path || patch_path || addons_path)) { valid_arguments = false; }
     if (!valid_arguments || (std::wstring(argv[2]) != L"--validate" && std::wstring(argv[2]) != L"--enter" && !census)) {
-        std::fputs("Allocation diagnostics: --allocation-timing full|counts is accepted with --enter or --validate.\n", stderr);
+        std::fputs("Allocation diagnostics: --allocation-timing full|counts is accepted with --enter or --validate.\nCollection configuration: --enter accepts --collection-config config.ini instead of the legacy --input-config. Check without execution: --collection-config-check config.ini.\n", stderr);
         std::fputs("Usage: KetsuiNativeProbe input.ktprobe --validate|--enter|--trace-enter [--user-dir absolute-path] [--module-dir absolute-path] [--app-dir absolute-path] [--patch-dir absolute-path] [--addon-dir absolute-path]\n       --enter also accepts --input-config path, --mouse-left-pad-button none|cross|circle|square|triangle|options|touchpad, --texture-validation full|tracked, --attachment-validation upload|reuse\n       KetsuiNativeProbe --input-config-check input.ini\n       KetsuiNativeProbe input.ktprobe --binding-census [--module-dir absolute-path]\n", stderr);
         return 2;
     }
@@ -1717,9 +1730,13 @@ int wmain(int argc, wchar_t** argv) {
         if (allocation_timing && !ConfigureNativeAllocationTiming(std::wstring(allocation_timing) == L"full")) {
             throw std::runtime_error("Allocation timing must be configured before execution");
         }
-        if (std::wstring(argv[2]) == L"--enter") { LoadKeyboardConfiguration(input_config); }
+        std::optional<cave::ps4::CollectionConfiguration> collection;
+        if (collection_config) {
+            collection=cave::ps4::LoadCollectionConfiguration(collection_config);
+            cave::ps4::ApplyCollectionConfiguration(*collection);
+        } else if (std::wstring(argv[2]) == L"--enter") { LoadKeyboardConfiguration(input_config); }
         if (community_provider) {
-            const auto config = kt::community::LoadConfig(input_config);
+            const auto config = collection ? collection->community : kt::community::LoadConfig(input_config);
             const auto endpoint = kt::community::ParseEndpoint(config.endpoint);
             if (!std::filesystem::path(user_directory).is_absolute()) throw std::runtime_error("Community provider requires an absolute user directory");
             if (configured_community) {

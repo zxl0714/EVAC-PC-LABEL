@@ -21,6 +21,7 @@ struct HostSettings {
   std::filesystem::path log_directory;
   void *native_window = nullptr;
   bool presentation_support = false;
+  bool vsync = true;
 };
 
 void ConfigureHost(HostSettings settings);

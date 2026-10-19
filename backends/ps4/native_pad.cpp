@@ -339,6 +339,14 @@ void ConfigureNativePadKeyboard(const std::filesystem::path& path) {
         if (bindings[key]) { std::printf("{\"event\":\"native_pad_keyboard_binding\",\"virtual_key\":%u,\"button\":%u}\n", key, bindings[key]); }
     }
 }
+void ConfigureNativePadSettings(const kt::input::KeyboardBindings& bindings, bool gamepad, double deadzone) {
+    auto& state = State(); std::lock_guard lock(state.mutex);
+    if (state.initialized || state.keyboard.owner) { throw std::runtime_error("Input config must precede pad/window initialization"); }
+    if (state.diagnostic_circle_hold_ms && bindings['H']) { throw std::runtime_error("Input config key H conflicts with diagnostic Circle hold"); }
+    state.gamepad.Configure(gamepad, deadzone);
+    state.keyboard_bindings = bindings;
+    std::printf("{\"event\":\"native_pad_collection_settings\",\"gamepad\":%s,\"deadzone\":%.6f}\n", gamepad ? "true" : "false", deadzone);
+}
 bool ConfigureNativeDiagnosticTaps(unsigned milliseconds) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (milliseconds > 500 || state.initialized || state.keyboard.owner) { return false; }

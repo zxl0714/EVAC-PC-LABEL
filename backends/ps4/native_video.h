@@ -5,6 +5,7 @@
 #include <atomic>
 #include <functional>
 #include <span>
+#include <string>
 #include "graphics/display_layout.h"
 namespace kt::gfx { class VulkanDevice; }
 class NativeResidentGpu;
@@ -40,5 +41,11 @@ NativeVideoLabelReference AcquireNativeVideoBufferLabel(int handle, unsigned ind
 
 std::uint64_t ResolveVideoImport(std::string_view identifier, std::string_view library, std::string_view module);
 bool VideoSelfTest();
+struct NativeDisplaySettings {
+    std::wstring title = L"Ketsui PC - development preview | Alt+Enter / F11: fullscreen";
+    bool fullscreen{}, vsync{true};
+};
+void ConfigureNativeDisplay(NativeDisplaySettings settings);
+NativeDisplaySettings GetNativeDisplaySettings();
 bool GraphicsSelfTest(bool interactive = false);
 int VideoDemo();

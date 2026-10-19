@@ -1,4 +1,5 @@
 #include "input_state.h"
+#include "common/stick_deadzone.h"
 #include <algorithm>
 #include <cmath>
 
@@ -46,13 +47,6 @@ KeyboardSnapshot KeyboardState::BuildSnapshot(bool active,std::uint16_t source_k
     return result;
 }
 std::pair<std::int16_t,std::int16_t> ApplyDeadzone(std::int16_t x, std::int16_t y, double deadzone) {
-    const double nx = x/(x<0 ? 32768.0 : 32767.0), ny = y/(y<0 ? 32768.0 : 32767.0);
-    const auto magnitude = std::hypot(nx,ny);
-    if (magnitude<=deadzone || !magnitude) return {};
-    const auto scale = (std::min(magnitude,1.0)-deadzone)/((1.0-deadzone)*magnitude);
-    auto convert = [](double value) {
-        return static_cast<std::int16_t>(std::lround(std::clamp(value,-1.0,1.0)*(value<0 ? 32768.0 : 32767.0)));
-    };
-    return {convert(nx*scale),convert(ny*scale)};
+    return cave::ApplyStickDeadzone(x, y, deadzone);
 }
 }

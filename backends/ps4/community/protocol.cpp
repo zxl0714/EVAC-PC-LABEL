@@ -72,8 +72,9 @@ Endpoint ParseEndpoint(std::string_view url) {
                     std::wstring(parts.lpszUrlPath, parts.dwUrlPathLength), parts.nPort,
                     parts.nScheme == INTERNET_SCHEME_HTTPS};
     Require(result.secure || (parts.nScheme == INTERNET_SCHEME_HTTP && result.host == L"127.0.0.1"), "Community requires HTTPS except literal loopback");
-    if (result.path == L"/ketsui/api/v1/") { result.path.pop_back(); }
-    Require(result.path == L"/ketsui/api/v1", "Community endpoint must use the Ketsui protocol path");
+    if (result.path == L"/ketsui/api/v1/" || result.path == L"/cave/api/v1/games/ketsui/") result.path.pop_back();
+    Require(result.path == L"/ketsui/api/v1" || result.path == L"/cave/api/v1/games/ketsui",
+        "Community endpoint must use the Ketsui protocol path");
     return result;
 }
 Config ParseConfig(std::string_view text) {

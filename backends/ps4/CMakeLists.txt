@@ -13,6 +13,7 @@ endif()
 get_filename_component(CAVE_PS4_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 set(CAVE_PS4_DEPS "${CAVE_PS4_ROOT}/.deps/ps4")
 set(CAVE_PS4_COMPONENTS "${CAVE_PS4_ROOT}/third_party/ps4")
+add_subdirectory("${CAVE_PS4_ROOT}/common" "${CMAKE_BINARY_DIR}/common")
 
 set(KETSUI_VULKAN_HEADERS "${CAVE_PS4_DEPS}/Vulkan-Headers/include")
 if(NOT EXISTS "${KETSUI_VULKAN_HEADERS}/vulkan/vulkan.h")
@@ -88,6 +89,7 @@ target_include_directories(KetsuiGraphics SYSTEM PRIVATE "${KETSUI_VULKAN_HEADER
 
 add_executable(KetsuiNativeProbe
     native_probe.cpp
+    collection_config.cpp
     guest_heap.cpp
     native_debug.cpp
     native_sync.cpp
@@ -148,7 +150,7 @@ target_link_options(KetsuiNativeProbe PRIVATE /DEBUG:FULL)
 target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiGraphics KetsuiAudio KetsuiContent KetsuiSave bcrypt user32 gdi32 comctl32 ole32 windowscodecs mfplat mfreadwrite mfuuid)
 target_link_libraries(KetsuiNativeProbe PRIVATE xmllite shlwapi)
 target_link_libraries(KetsuiNativeProbe PRIVATE SDL3::SDL3-static)
-target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity)
+target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common)
 execute_process(COMMAND "${CMAKE_CXX_COMPILER}" --print-resource-dir
     OUTPUT_VARIABLE KETSUI_CLANG_RESOURCES OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 set(KETSUI_CLANG_BUILTINS "${KETSUI_CLANG_RESOURCES}/lib/windows/clang_rt.builtins-x86_64.lib")

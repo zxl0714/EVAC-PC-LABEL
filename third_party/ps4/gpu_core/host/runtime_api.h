@@ -7,7 +7,7 @@
 namespace Ketsui::GpuCore {
 // This SDK is built as one clang-cl/MSVC-runtime pair. Shader, Vulkan and
 // register-layout classes never cross the DLL boundary.
-inline constexpr std::uint32_t RuntimeApiVersion = 4;
+inline constexpr std::uint32_t RuntimeApiVersion = 5;
 struct RuntimeError {
   char message[2048]{};
 };
