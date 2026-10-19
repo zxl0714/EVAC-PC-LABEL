@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 REXCVAR_DEFINE_STRING(sdoj_community_test_endpoint,"","Diagnostics","Explicit loopback-only SDOJ integration test provider")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 class SdojApp final : public cave::xbox360::CollectionApp {
 public:

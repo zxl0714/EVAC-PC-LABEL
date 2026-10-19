@@ -43,4 +43,3 @@ std::vector<uint8_t> ReplayUnbase64(const std::string& text) {
   return result;
 }
 }
-
