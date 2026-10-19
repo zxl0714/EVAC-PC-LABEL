@@ -130,6 +130,14 @@ shared fullscreen/nickname controls. Keep the text-config entry, unknown text,
 per-game overrides and on-launch full validation. These newer requirements do
 not change the frozen v0.1 packages. UI-only tests are not new gameplay passes.
 
+The user requires playable SDOJ integration for v0.2 completion. Compiler,
+pacing and launcher work alone do not complete v0.2. Integrate sdoj (not
+daioujou) into the shared build/config/launcher and release flows, verify actual
+player entry, mode transitions and save/replay behavior, and perform a small
+representative regression of the existing games. Input identification, a
+Coming Soon banner or an upstream standalone executable is not integration.
+Do not tag or announce v0.2 complete before this gate passes. Preserve v0.1.
+
 P6 has completed v0.1 package acceptance at f652df0, tagged and pushed as v0.1.
 Both final archives were actually extracted and verified; Internal contains all
 three games and independent source Git, and Public contains no ROM or source.
