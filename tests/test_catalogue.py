@@ -21,12 +21,13 @@ class CatalogueTests(unittest.TestCase):
         games = catalogue.load(self.path)
         self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
         self.assertEqual([g['comingSoon'] for g in games], [False, False, False, False, True, True])
-        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui'])
+        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj'])
 
-    def test_sdoj_has_base_data_but_is_not_yet_accepted_or_online(self):
+    def test_sdoj_uses_verified_disc_data_and_shared_online_launch(self):
         game = next(g for g in catalogue.load(self.path) if g['id'] == 'sdoj')
-        self.assertFalse(game['integrated'])
-        self.assertFalse(game['communitySupported'])
+        self.assertTrue(game['integrated'])
+        self.assertTrue(game['communitySupported'])
+        self.assertEqual(game['executable'], 'runtime/xbox360/sdoj.exe')
         self.assertEqual(len(game['files']), 114)
         self.assertEqual(sum(item['bytes'] for item in game['files']), 3274143397)
         self.assertEqual({item['path'] for item in game['files'] if item['program']},

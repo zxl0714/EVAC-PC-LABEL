@@ -121,7 +121,6 @@ class SdojGenerationTests(unittest.TestCase):
             self.assertTrue(hook['return'])
             self.assertIn('void ' + name + '(', source)
         self.assertNotIn('G2', source)
-        self.assertFalse(self.game['communitySupported'])  # Native hooks alone are not online support.
 
     def test_optional_native_trace_observes_not_replaces_game_functions(self):
         hooks = tomllib.loads((ROOT / 'games/sdoj/recomp/community-overrides.toml').read_text(encoding='utf-8'))['midasm_hook']

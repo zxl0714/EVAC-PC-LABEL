@@ -49,7 +49,7 @@ private:
             throw std::runtime_error("Cannot enable SDOJ texture compatibility");
         REXLOG_INFO("SDOJ graphics compatibility: allow_invalid_fetch_constants=true");
     }
-    // Catalogue capability remains disabled until the native flow is verified.
+    // Normal launches use the shared INI and the game's own service namespace.
     std::shared_ptr<rex::system::xam::CommunityService> CreateCommunity() override {
         return std::make_shared<sdoj::SdojCommunity>(run().settings.endpoint,run().settings.nickname,run().source_build);
     }
