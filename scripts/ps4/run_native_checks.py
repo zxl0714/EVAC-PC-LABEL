@@ -18,7 +18,7 @@ CHECKS = (
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
     'np-score', 'np-replay', 'community-round-audit', 'sfo', 'pm4',
-    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input',
+    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input', 'async-log',
 )
 
 
@@ -83,6 +83,36 @@ def check_configuration_files(executable, directory):
     return results
 
 
+def check_terminal_logs(executable, directory):
+    results = []
+    for name, expected_code, final_event in (('terminal-log', 20, 'unimplemented_api'),
+                                              ('terminal-close-log', 27, 'native_shutdown_incomplete')):
+        try:
+            result = subprocess.run([str(executable), '--' + name + '-self-test'],
+                                    cwd=directory, capture_output=True, timeout=15)
+            code, stdout, stderr = result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired as error:
+            code, stdout, stderr = None, error.stdout or b'', error.stderr or b''
+        valid = code == expected_code
+        try:
+            events = [json.loads(line) for line in stdout.splitlines()]
+            snapshots = [event for event in events if event.get('event') == 'native_async_log']
+            last = snapshots[-1]
+            valid = (valid and events[-1].get('event') == final_event and
+                     not any(event.get('event') == 'late_writer' for event in events) and
+                     last.get('stop_requested') is True and last.get('drain_completed') is True and
+                     last.get('pending') == 0 and last.get('in_flight') == 0 and last.get('sink_failures') == 0 and
+                     last['written'] + last['dropped_oldest'] == last['accepted'])
+        except (ValueError, KeyError, TypeError, IndexError, AttributeError):
+            valid = False
+        for suffix, content in (('stdout.jsonl', stdout), ('stderr.txt', stderr)):
+            with (directory / (name + '.' + suffix)).open('xb') as output:
+                output.write(content)
+        results.append(dict(check=name, exitCode=code, expectedExitCode=expected_code, passed=valid))
+        print(('PASS' if valid else 'FAIL') + ': ' + name, flush=True)
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, help='New directory below collection/.local')
@@ -106,6 +136,7 @@ def main():
         results.append(dict(check=name, exitCode=code, passed=code == 0))
         print(('PASS' if code == 0 else 'FAIL') + ': ' + name, flush=True)
     results.extend(check_configuration_files(executable, directory))
+    results.extend(check_terminal_logs(executable, directory))
     write_json_new(directory / 'result.json', dict(format=1, backend='ps4', gameExecution=False,
         buildSourceCommit=receipt['sourceCommit'], buildSourceDirty=receipt['sourceDirty'],
         executableSha256=digest(executable), checks=results))

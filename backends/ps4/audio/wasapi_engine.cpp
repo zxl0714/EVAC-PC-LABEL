@@ -1,4 +1,5 @@
 #include "wasapi_engine.h"
+#include "../native_async_log.h"
 #include "../native_diagnostics.h"
 #include "../diagnostics/monotonic_clock.h"
 #include <windows.h>
@@ -43,7 +44,7 @@ template<typename T> struct Com {
 struct Failure { HRESULT result; };
 void Check(HRESULT result) { if (FAILED(result)) { throw Failure{result}; } }
 void HostError(const char* operation, HRESULT result) {
-    std::printf("{\"event\":\"native_audio_host_error\",\"operation\":\"%s\",\"hresult\":\"0x%08lx\"}\n", operation, static_cast<DWORD>(result));
+    NativeLogf("{\"event\":\"native_audio_host_error\",\"operation\":\"%s\",\"hresult\":\"0x%08lx\"}\n", operation, static_cast<DWORD>(result));
 }
 float Sample(const unsigned char* input, bool floating) {
     if (floating) {
@@ -141,7 +142,7 @@ struct DeviceStream {
         target = (std::min)(capacity, (std::max)(port->configuration.frames, period_frames * 2));
         Check(client->GetService(__uuidof(IAudioRenderClient), reinterpret_cast<void**>(render.Out())));
         { std::lock_guard lock(port->mutex); port->status.device_capacity = capacity; }
-        std::printf("{\"event\":\"native_audio_stream\",\"rate\":48000,\"channels\":%u,\"device_capacity\":%u,\"target_frames\":%u}\n",
+        NativeLogf("{\"event\":\"native_audio_stream\",\"rate\":48000,\"channels\":%u,\"device_capacity\":%u,\"target_frames\":%u}\n",
             port->configuration.channels, capacity, target);
     }
     ~DeviceStream() {
@@ -222,7 +223,7 @@ struct WasapiEngine::Implementation {
                 Check(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, reinterpret_cast<void**>(probe.Out())));
                 WAVEFORMATEX* mix{}; Check(probe->GetMixFormat(&mix));
                 if (!mix) { throw Failure{E_UNEXPECTED}; }
-                std::printf("{\"event\":\"native_audio_endpoint\",\"backend\":\"wasapi_shared\",\"mix_rate\":%lu,\"mix_channels\":%u,\"mix_bits\":%u}\n",
+                NativeLogf("{\"event\":\"native_audio_endpoint\",\"backend\":\"wasapi_shared\",\"mix_rate\":%lu,\"mix_channels\":%u,\"mix_bits\":%u}\n",
                     mix->nSamplesPerSec, mix->nChannels, mix->wBitsPerSample);
                 CoTaskMemFree(mix);
                 initialization.store(S_OK); SetEvent(ready.value);
@@ -328,7 +329,7 @@ long WasapiEngine::Submit(const std::shared_ptr<Port>& port, const void* data) {
     // Never perform log I/O while holding the mutex needed by the audio worker.
     // One summary per second, or at most ten per second during underruns.
     if (report) {
-        std::printf("{\"event\":\"native_audio_timing\",\"stream\":%llu,\"clock_us\":%llu,\"thread\":%lu,\"rate\":48000,\"frames\":%u,\"channels\":%u,\"submissions\":%llu,\"submitted_frames\":%llu,\"written_frames\":%llu,\"consumed_frames\":%llu,\"padding\":%u,\"pending_frames\":%u,\"device_capacity\":%u,\"submit_gap_us\":%llu,\"submit_wait_us\":%llu,\"max_submit_gap_us\":%llu,\"max_submit_wait_us\":%llu,\"max_pump_gap_us\":%llu,\"underruns\":%llu,\"last_underrun_clock_us\":%llu}\n",
+        NativeLogf("{\"event\":\"native_audio_timing\",\"stream\":%llu,\"clock_us\":%llu,\"thread\":%lu,\"rate\":48000,\"frames\":%u,\"channels\":%u,\"submissions\":%llu,\"submitted_frames\":%llu,\"written_frames\":%llu,\"consumed_frames\":%llu,\"padding\":%u,\"pending_frames\":%u,\"device_capacity\":%u,\"submit_gap_us\":%llu,\"submit_wait_us\":%llu,\"max_submit_gap_us\":%llu,\"max_submit_wait_us\":%llu,\"max_pump_gap_us\":%llu,\"underruns\":%llu,\"last_underrun_clock_us\":%llu}\n",
             snapshot.stream_id, accepted, GetCurrentThreadId(), port->configuration.frames, port->configuration.channels, snapshot.submissions,
             snapshot.submitted_frames, snapshot.written_frames, snapshot.consumed_frames, snapshot.padding, pending_frames,
             snapshot.device_capacity, snapshot.submit_gap_us, snapshot.submit_wait_us, snapshot.max_submit_gap_us,

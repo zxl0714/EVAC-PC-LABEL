@@ -1,5 +1,6 @@
 #include "collection_launch.h"
 #include "collection_config.h"
+#include "native_async_log.h"
 #include "loader/prepared_cache.h"
 #include "common/launch.h"
 #include <Windows.h>
@@ -157,10 +158,15 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         // this setting in the player INI or enable it in the launcher itself.
         if (diagnostic_tap) {arguments.push_back(L"--diagnostic-tap-ms");arguments.push_back(std::to_wstring(diagnostic_tap));}
         std::vector<wchar_t*> pointers;for (auto& argument:arguments) pointers.push_back(argument.data());
+        Require(StartNativeAsyncLog(),"Could not start background diagnostics");
         const auto result=command(static_cast<int>(pointers.size()),pointers.data());
+        (void)StopNativeAsyncLog();
+        PrintNativeAsyncLogDiagnostics();
         WriteNew(report/"result.json",Json{{"event","collection_run_return"},{"exitCode",result}}.dump(2)+'\n');
         active_report.clear();return result;
     } catch (const std::exception& error) {
+        (void)StopNativeAsyncLog();
+        PrintNativeAsyncLogDiagnostics();
         std::fprintf(stderr,"Collection startup: %s\n",error.what());
         if (!active_report.empty()) try {WriteNew(active_report/"startup-error.txt",error.what());} catch (...) {}
         return 2;

@@ -1,4 +1,5 @@
 #include "native_gnm.h"
+#include "native_async_log.h"
 #include "native_diagnostics.h"
 #include "native_host_timing.h"
 #include "native_profile.h"
@@ -110,7 +111,7 @@ __declspec(noinline) SubmitResult SubmitAndFlip(std::uint32_t count, const std::
         auto log_started = Clock::now();
         static std::atomic<unsigned> observed{};
         const bool observe = observed.fetch_add(1, std::memory_order_relaxed) < 2;
-        std::printf("{\"event\":\"native_gnm_submit_inspect\",\"count\":%u,\"video\":%u,\"buffer\":%u,\"flip_mode\":%u,\"flip_argument\":\"0x%llx\",\"ccb_addresses_present\":%s,\"ccb_sizes_present\":%s,\"accepted\":false,\"gpu_executed\":false}\n",
+        NativeLogf("{\"event\":\"native_gnm_submit_inspect\",\"count\":%u,\"video\":%u,\"buffer\":%u,\"flip_mode\":%u,\"flip_argument\":\"0x%llx\",\"ccb_addresses_present\":%s,\"ccb_sizes_present\":%s,\"accepted\":false,\"gpu_executed\":false}\n",
             count, video, buffer, flip_mode, static_cast<unsigned long long>(flip_argument), ccb_addresses ? "true" : "false", ccb_sizes ? "true" : "false");
         diagnostic_log_us += micros(log_started, Clock::now());
         if (!count || count > kMaxSubmitStreams) { UnsupportedApi("native_gnm_submit_inspection_count", count, caller); }
@@ -141,7 +142,7 @@ __declspec(noinline) SubmitResult SubmitAndFlip(std::uint32_t count, const std::
             if (observe) { PrintWords("dcb", index, addresses[index], words); }
             const auto journal = kt::gfx::pm4::Analyze(words);
             log_started = Clock::now();
-            std::printf("{\"event\":\"native_gnm_submit_journal\",\"index\":%u,\"bytes\":%u,\"packets\":%u,\"draws\":%u,\"complete\":%s,\"error\":%u,\"error_offset\":%u,\"error_header\":\"0x%x\",\"gpu_executed\":false}\n",
+            NativeLogf("{\"event\":\"native_gnm_submit_journal\",\"index\":%u,\"bytes\":%u,\"packets\":%u,\"draws\":%u,\"complete\":%s,\"error\":%u,\"error_offset\":%u,\"error_header\":\"0x%x\",\"gpu_executed\":false}\n",
                 index, sizes[index], journal.packets, journal.draws, journal.Complete() ? "true" : "false", static_cast<unsigned>(journal.error), journal.error_offset,
                 journal.Complete() ? 0 : words[journal.error_offset]);
             diagnostic_log_us += micros(log_started, Clock::now());
@@ -170,7 +171,7 @@ __declspec(noinline) SubmitResult SubmitAndFlip(std::uint32_t count, const std::
                 throw;
             }
             log_started = Clock::now();
-            std::printf("{\"event\":\"native_gpu_submit_execution\",\"draws_completed\":%u,\"prepared_flip\":%s,\"presented\":false}\n", completion.draws, completion.prepared_flip ? "true" : "false");
+            NativeLogf("{\"event\":\"native_gpu_submit_execution\",\"draws_completed\":%u,\"prepared_flip\":%s,\"presented\":false}\n", completion.draws, completion.prepared_flip ? "true" : "false");
             diagnostic_log_us += micros(log_started, Clock::now());
         });
         const auto executed_at = Clock::now();
@@ -184,13 +185,13 @@ __declspec(noinline) SubmitResult SubmitAndFlip(std::uint32_t count, const std::
             const auto completed_at = Clock::now();
             const auto interval = queue.last_present == Clock::time_point{} ? 0 : micros(queue.last_present, completed_at);
             log_started = Clock::now();
-            std::printf("{\"event\":\"native_gnm_frame_completed\",\"submission\":%llu,\"draws\":%u,\"snapshot_us\":%lld,\"queue_wait_us\":%lld,\"execute_us\":%lld,\"present_us\":%lld,\"total_us\":%lld,\"completion_interval_us\":%lld,\"completed_clock_us\":%lld,\"diagnostic_log_us\":%lld,\"previous_frame_log_us\":%lld,\"host_thread_id\":%lu,\"present_fence_completed\":true}\n",
+            NativeLogf("{\"event\":\"native_gnm_frame_completed\",\"submission\":%llu,\"draws\":%u,\"snapshot_us\":%lld,\"queue_wait_us\":%lld,\"execute_us\":%lld,\"present_us\":%lld,\"total_us\":%lld,\"completion_interval_us\":%lld,\"completed_clock_us\":%lld,\"diagnostic_log_us\":%lld,\"previous_frame_log_us\":%lld,\"host_thread_id\":%lu,\"present_fence_completed\":true}\n",
                 queue.completed, completion.draws, micros(started, snapshot_ready), micros(snapshot_ready, queue_ready), micros(queue_ready, executed_at),
                 micros(executed_at, completed_at), micros(started, completed_at), interval, micros(Clock::time_point{}, completed_at),
                 diagnostic_log_us, queue.last_record_log_us, GetCurrentThreadId());
             RecordNativeHostFrameTiming(queue.completed, micros(Clock::time_point{}, completed_at), interval);
-            // This write is outside the completed frame's timing scope. Report
-            // it on the next frame, whose interval actually includes the wait.
+            // Formatting/enqueue time is outside the completed frame's scope.
+            // It belongs to the next interval; disk writing is worker-only.
             queue.last_record_log_us = micros(log_started, Clock::now());
             queue.last_present = completed_at;
             return SubmitResult::Completed;

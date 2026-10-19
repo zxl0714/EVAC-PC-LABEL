@@ -1,4 +1,5 @@
 #include "native_host_timing.h"
+#include "native_async_log.h"
 #include <windows.h>
 #include <algorithm>
 #include <array>
@@ -234,9 +235,8 @@ void RecordNativeHostFrameTiming(std::uint64_t submission, std::uint64_t clock_u
         char buffer[4096];
         const auto size = FormatFrame(buffer, sizeof(buffer), values, submission, clock_us, interval_us,
             previous, previous_submission, frame_counters.depth, previous_active, GetCurrentThreadId(), allocation_timing.Full());
-        // Construct the whole line before touching stdout. One fwrite keeps
-        // other threads from interleaving fragments of the JSON object.
-        if (!size || std::fwrite(buffer, 1, size, stdout) != size) { frame_emission_failures.fetch_add(1, std::memory_order_relaxed); }
+        // Publish a whole record; no file I/O on the submitting thread.
+        if (!size || !WriteNativeLog({buffer, size})) { frame_emission_failures.fetch_add(1, std::memory_order_relaxed); }
     }
     errno = host_errno; SetLastError(error);
 }

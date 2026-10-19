@@ -21,6 +21,11 @@ if(NOT EXISTS "${KETSUI_VULKAN_HEADERS}/vulkan/vulkan.h")
 endif()
 add_library(KetsuiGraphics STATIC graphics/display_layout.cpp graphics/vulkan_device.cpp graphics/pm4.cpp graphics/raster_state.cpp graphics/texture.cpp graphics/shader_compiler.cpp graphics/shader_binary.cpp graphics/shader_tests.cpp graphics/attachment_tests.cpp)
 add_library(KetsuiAudio STATIC audio/wasapi_engine.cpp audio/pcm_voice.cpp audio/hevag.cpp audio/atrac9.cpp)
+add_library(KetsuiDiagnostics STATIC native_async_log.cpp)
+target_compile_features(KetsuiDiagnostics PUBLIC cxx_std_20)
+target_compile_definitions(KetsuiDiagnostics PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(KetsuiDiagnostics PRIVATE /W4 /WX /EHsc)
+target_link_libraries(KetsuiAudio PRIVATE KetsuiDiagnostics)
 if(NOT EXISTS "${CAVE_PS4_DEPS}/LibAtrac9/C/src/libatrac9.c")
     message(FATAL_ERROR "Run scripts/ps4_sources.py restore to prepare pinned LibAtrac9")
 endif()
@@ -107,6 +112,7 @@ target_include_directories(KetsuiGraphics SYSTEM PRIVATE "${KETSUI_VULKAN_HEADER
 
 add_executable(KetsuiNativeProbe
     native_probe.cpp
+    native_async_log_tests.cpp
     collection_config.cpp
     collection_launch.cpp
     loader/prepare_cli.cpp
@@ -170,7 +176,7 @@ target_link_options(KetsuiNativeProbe PRIVATE /DEBUG:FULL)
 target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiGraphics KetsuiAudio KetsuiContent KetsuiSave bcrypt user32 gdi32 comctl32 ole32 windowscodecs mfplat mfreadwrite mfuuid)
 target_link_libraries(KetsuiNativeProbe PRIVATE xmllite shlwapi)
 target_link_libraries(KetsuiNativeProbe PRIVATE SDL3::SDL3-static)
-target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common KetsuiResourcePreparation KetsuiPreparedInputs)
+target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common KetsuiResourcePreparation KetsuiPreparedInputs KetsuiDiagnostics)
 execute_process(COMMAND "${CMAKE_CXX_COMPILER}" --print-resource-dir
     OUTPUT_VARIABLE KETSUI_CLANG_RESOURCES OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 set(KETSUI_CLANG_BUILTINS "${KETSUI_CLANG_RESOURCES}/lib/windows/clang_rt.builtins-x86_64.lib")

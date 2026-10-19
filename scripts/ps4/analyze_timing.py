@@ -14,6 +14,8 @@ from project import reject_link, write_json_new
 HOST_CATEGORIES = ('allocation', 'memory', 'io', 'synchronization', 'sleep', 'fixture')
 HOST_ALLOCATIONS = ('unclassified', 'new', 'new_nothrow', 'malloc', 'memalign', 'free_delete',
                     'mspace_create', 'mspace_destroy', 'mspace_memalign', 'mspace_free')
+ASYNC_LOG_COUNTERS = ('accepted', 'written', 'dropped_oldest', 'contended', 'invalid_records',
+                      'format_failures', 'sink_failures', 'after_stop', 'pending', 'in_flight', 'sink_wall_max_us')
 
 
 def valid_frame_counters(item):
@@ -138,6 +140,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
     save_timing = {kind: Distribution() for kind in ('stage', 'commit', 'no_changes')}
     top_operations, top_saves, operation_diagnostics = [], [], []
     markers = []
+    async_log_diagnostics = []
 
     def valid_scope(item, duration):
         began, clock = item.get('began_clock_us'), item.get('clock_us')
@@ -170,7 +173,22 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
             if (from_clock_us is not None and clock < from_clock_us) or (to_clock_us is not None and clock > to_clock_us):
                 counts['outside_clock_window_samples'] += 1
                 continue
-        if kind == 'native_host_frame_timing':
+        if kind == 'native_async_log_begin':
+            counts['async_log_starts'] += 1
+        elif kind == 'native_async_log':
+            # Cumulative process counters, including reports emitted after the
+            # selected scene. Never sum snapshots or reinterpret them as local.
+            if (any(type(item.get(key)) is not int or item[key] < 0 for key in (*ASYNC_LOG_COUNTERS, 'clock_us')) or
+                any(type(item.get(key)) is not int or item[key] <= 0 for key in ('capacity_records', 'record_bytes')) or
+                any(type(item.get(key)) is not bool for key in ('stop_requested', 'drain_completed'))):
+                counts['invalid_async_log_diagnostics'] += 1
+                continue
+            if len(async_log_diagnostics) < 8:
+                async_log_diagnostics.append(dict(line=number, event=item))
+            else:
+                async_log_diagnostics[-1] = dict(line=number, event=item)
+                counts['async_log_diagnostic_snapshots_omitted'] += 1
+        elif kind == 'native_host_frame_timing':
             if not valid_frame_counters(item):
                 counts['invalid_host_frame_counters'] += 1
                 continue
@@ -385,6 +403,10 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 host_operations={kind: distribution.report() for kind, distribution in operation_timing.items()},
                 longest_host_operations=[dict(line=line, event=event) for _, line, event in sorted(top_operations, reverse=True)],
                 host_operation_diagnostics=operation_diagnostics,
+                async_logging=dict(observed=bool(counts['async_log_starts'] or async_log_diagnostics),
+                    latest=async_log_diagnostics[-1]['event'] if async_log_diagnostics else None,
+                    snapshots=async_log_diagnostics,
+                    measurement='Whole-process cumulative counters, not clock-filtered or summed. Missing/invalid snapshots leave coverage unknown; a drained queue does not undo dropped records or prove other logging paths complete.'),
                 host_frame_counters=dict(outer_us=outer_frame_counter_timing.report(),
                     category_inclusive_us={kind: value.report() for kind, value in frame_counter_timing.items()},
                     allocation_operation_inclusive_us={kind: value.report() for kind, value in allocation_frame_counter_timing.items()},
@@ -402,6 +424,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                     'Host-operation and save durations are whole scopes, attributed by completion time; save stage and unmount commit are separate, not an entire mount transaction.',
                     'Host-operation records are thresholded/rate-limited wall times, including scheduling and diagnostics, not pure CPU work; intentional sleep/waits are not automatically defects.',
                     'Host-operation diagnostic snapshots describe the whole process, not the clock window. Suppressed or absent records cannot exclude a slow operation.',
+                    'When native_async_log_begin is present, diagnostic_log_us/previous_frame_log_us measure formatting/enqueue, not worker file I/O. Queue loss/failure and final drain are reported separately in async_logging; sink_wall_max_us is a process-lifetime write maximum, not a scene-local stall.',
                     'Frame counters match completion clock, submission, thread and interval exactly. Unaligned/cross-boundary scopes remain visible but are excluded from bounded statistics; category times are inclusive and are not summed as exclusive CPU costs.',
                     'Explicit rack holds can include intentional guest pauses or resets; a long hold alone does not justify removing synchronization.',
                     'Nearby events establish timing coincidence, not causation or same-thread blocking. Scope intersection uses the full completion interval; at most 24 records are retained with omitted counts and overlap/host/save priority.',

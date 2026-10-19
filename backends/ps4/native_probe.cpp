@@ -9,6 +9,7 @@
 #include "native_diagnostics.h"
 #include "native_time.h"
 #include "native_host_timing.h"
+#include "native_async_log.h"
 #include "native_rtc.h"
 #include "native_libc_time.h"
 #include "native_user.h"
@@ -251,11 +252,15 @@ thread_local int native_errno{};
 std::atomic<bool> terminal_log_test{}, terminal_log_announced{};
 std::atomic_flag requested_close_owner = ATOMIC_FLAG_INIT;
 void HoldTerminalOutput() {
+    // The worker uses stdout too. Drain before owning its CRT lock, never
+    // wait for the worker while holding that lock.
+    (void)StopNativeAsyncLog();
     // Controlled diagnostic exits own the CRT stream through process death.
     // This waits for any current printf to finish and prevents another thread
     // from starting a partial line after the terminal record has been written.
     // Do not use this in the lock-independent unexpected-fault handler.
     _lock_file(stdout);
+    PrintNativeAsyncLogDiagnostics();
 }
 DWORD WINAPI TerminalTestWriter(void*) {
     while (!terminal_log_announced.load(std::memory_order_acquire)) { Sleep(0); }
@@ -414,6 +419,8 @@ void KT_SYSV NativeCxaFinalize(void* dso) {
 
 [[noreturn]] KT_SYSV void NativeExit(int status) {
     DispatchExit(nullptr);
+    (void)StopNativeAsyncLog();
+    PrintNativeAsyncLogDiagnostics();
     PrintNativeFileDiagnostics();
     PrintNativeHostTimingDiagnostics();
     std::fflush(nullptr);
@@ -422,6 +429,8 @@ void KT_SYSV NativeCxaFinalize(void* dso) {
 }
 
 [[noreturn]] KT_SYSV void NativeImmediateExit(int status) {
+    (void)StopNativeAsyncLog();
+    PrintNativeAsyncLogDiagnostics();
     PrintNativeFileDiagnostics();
     PrintNativeHostTimingDiagnostics();
     std::printf("{\"event\":\"native_immediate_exit\",\"status\":%d}\n", status);
@@ -1308,7 +1317,7 @@ void TraceNativeApi(const char* name, std::uint64_t value, const void* caller) {
     const auto address = reinterpret_cast<std::uintptr_t>(caller);
     const auto* image = ImageAt(address);
     const auto base = image ? reinterpret_cast<std::uintptr_t>(image->image) : 0;
-    std::printf("{\"event\":\"native_api_call\",\"name\":%s,\"value\":%llu,"
+    NativeLogf("{\"event\":\"native_api_call\",\"name\":%s,\"value\":%llu,"
                 "\"caller_offset\":\"0x%llx\",\"in_game_image\":%s,\"caller_image\":%s}\n", Quoted(name).c_str(), value,
                 static_cast<unsigned long long>(address - base),
                 image ? "true" : "false", image ? Quoted(image->image_name).c_str() : "null");
@@ -1320,7 +1329,7 @@ bool EmitNativeHostOperation(const char* name, const char* category, std::uint64
         const auto address = reinterpret_cast<std::uintptr_t>(caller);
         const auto* image = ImageAt(address);
         const auto base = image ? reinterpret_cast<std::uintptr_t>(image->image) : 0;
-        return std::printf("{\"event\":\"native_host_operation\",\"name\":%s,\"category\":%s,\"detail\":%llu,\"began_clock_us\":%llu,\"clock_us\":%llu,\"duration_us\":%llu,\"thread\":%lu,\"caller_offset\":\"0x%llx\",\"caller_image\":%s,\"suppressed_since_last_record\":%llu}\n",
+        return NativeLogf("{\"event\":\"native_host_operation\",\"name\":%s,\"category\":%s,\"detail\":%llu,\"began_clock_us\":%llu,\"clock_us\":%llu,\"duration_us\":%llu,\"thread\":%lu,\"caller_offset\":\"0x%llx\",\"caller_image\":%s,\"suppressed_since_last_record\":%llu}\n",
             Quoted(name).c_str(), Quoted(category).c_str(), detail, began, completed, completed - began,
             GetCurrentThreadId(), static_cast<unsigned long long>(address - base),
             image ? Quoted(image->image_name).c_str() : "null", suppressed) >= 0;
@@ -1413,6 +1422,8 @@ int NativeCommand(int argc, wchar_t** argv) {
         return SampleNativeProcess(process);
     }
     if (argc == 2 && (std::wstring(argv[1]) == L"--terminal-log-self-test" || std::wstring(argv[1]) == L"--terminal-close-log-self-test")) {
+        if (!StartNativeAsyncLog()) return 2;
+        for (unsigned index = 0; index < 32; ++index) (void)NativeLogf("{\"event\":\"terminal_queue_fixture\",\"index\":%u}\n", index);
         terminal_log_test = true;
         const auto writer = CreateThread(nullptr, 0, TerminalTestWriter, nullptr, 0, nullptr);
         if (!writer) { return 2; }
@@ -1420,6 +1431,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         if (std::wstring(argv[1]) == L"--terminal-close-log-self-test") { StopForNativeWindowClose("self_test", 0, 0, nullptr); }
         UnsupportedApi("terminal_log_self_test", 0, nullptr);
     }
+    if (argc == 2 && std::wstring(argv[1]) == L"--async-log-self-test") { return NativeAsyncLogSelfTest() ? 0 : 1; }
     if (argc == 2 && std::wstring(argv[1]) == L"--pm4-self-test") { return kt::gfx::pm4::SelfTest() ? 0 : 1; }
     if (argc == 2 && std::wstring(argv[1]) == L"--sfo-self-test") { return kt::content::SfoSelfTest() ? 0 : 1; }
     if (argc == 2 && std::wstring(argv[1]) == L"--condition-self-test") { return ConditionSelfTest() ? 0 : 1; }

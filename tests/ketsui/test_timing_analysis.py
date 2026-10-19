@@ -14,6 +14,47 @@ SPEC.loader.exec_module(TIMING)
 
 
 class TimingAnalysisTests(unittest.TestCase):
+    def log_snapshot(self, **kwargs):
+        sample = dict(event='native_async_log', clock_us=2000000, capacity_records=1024, record_bytes=4096,
+                      accepted=20, written=18, dropped_oldest=1, contended=2, invalid_records=0,
+                      format_failures=0, sink_failures=0, after_stop=0, pending=0, in_flight=1,
+                      sink_wall_max_us=150000, stop_requested=False, drain_completed=False)
+        sample.update(kwargs)
+        return sample
+
+    def test_async_logging_keeps_lifetime_loss_and_drain_outside_clock_filter(self):
+        report = self.report([dict(event='native_async_log_begin'), self.log_snapshot(),
+            self.frame(1000000, 17000), self.log_snapshot(clock_us=3000000, written=19, in_flight=0,
+                                                       stop_requested=True, drain_completed=True)],
+            from_clock_us=990000, to_clock_us=1010000)
+        summary = report['async_logging']
+        self.assertTrue(summary['observed'])
+        self.assertEqual(len(summary['snapshots']), 2)
+        self.assertEqual(summary['latest']['contended'], 2)
+        self.assertEqual(summary['latest']['dropped_oldest'], 1)
+        self.assertEqual(summary['latest']['sink_wall_max_us'], 150000)
+        self.assertTrue(summary['latest']['drain_completed'])
+        self.assertEqual(report['counts']['completed_frames'], 1)
+
+    def test_async_logging_snapshots_are_bounded_and_not_summed(self):
+        report = self.report([self.log_snapshot(accepted=index, written=0) for index in range(100)])
+        self.assertEqual(len(report['async_logging']['snapshots']), 8)
+        self.assertEqual(report['async_logging']['latest']['accepted'], 99)
+        self.assertEqual(report['counts']['async_log_diagnostic_snapshots_omitted'], 92)
+
+    def test_absent_async_logging_does_not_claim_zero_loss_or_a_drain(self):
+        report = self.report([self.frame(1000000, 17000)])
+        self.assertFalse(report['async_logging']['observed'])
+        self.assertIsNone(report['async_logging']['latest'])
+
+    def test_invalid_async_log_counters_do_not_become_evidence(self):
+        samples = [self.log_snapshot(**change) for change in
+                   (dict(written=True), dict(pending=-1), dict(clock_us='clock'),
+                    dict(capacity_records=0), dict(drain_completed=1))]
+        report = self.report(samples)
+        self.assertEqual(report['counts']['invalid_async_log_diagnostics'], 5)
+        self.assertIsNone(report['async_logging']['latest'])
+
     def report(self, events, **kwargs):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / 'stdout.jsonl'

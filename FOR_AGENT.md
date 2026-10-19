@@ -113,7 +113,7 @@ v0.1 的最终 Internal 群文件、版本通知及实际启动器截图交付�
 
 ### 绊地狱接入
 
-版本范围：v0.1 已交付，用户已授权继续编译器统一及虫姬二／绊地狱帧节拍调查。开发工具锁现选择一份版本化 LLVM 23.1.3，通过 toolchain.py 为两边提供各自驱动和相同来源的符号／链接工具；Prepare-Tools.ps1 的 -Ps4 为兼容别名。全量重建与运行验收仍进行中，不更改已冻结 v0.1 ZIP 和标签。之后使用相同场景／录像调查长帧与音频停顿，G2 的约 19.1 ms 只是特定短测的最大出帧间隔，不是输入延迟或统一硬门槛。
+版本范围：v0.1 已交付。开发工具锁已统一为版本化 LLVM 23.1.3，通过 toolchain.py 为两边提供各自驱动和相同来源的符号／链接工具；Prepare-Tools.ps1 的 -Ps4 为兼容别名。SDK／宿主／GPU／模块及启动器完整重建、符号和三款代表性旧录像回放已通过，不更改已冻结 v0.1 ZIP 和标签。虫姬二与绊地狱已有短区间帧时间基线；绊地狱常态诊断热路径改为有界后台写入，已做同份录像对照，具体结果见验收矩阵。G2 的约 19.1 ms 仍是特定短测的最大出帧间隔，不是输入延迟或统一硬门槛。
 
 固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。PS4 CMake 使用合集路径、本地 clang-cl 23、独立依赖及优化构建；旧 launcher 和发行脚本不迁入，游戏已接通公共启动合同并开放启动器入口。
 
@@ -130,7 +130,7 @@ py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' -
 
 19 个依赖从上游恢复到 .deps/ps4，可选缓存用法见 tools/README.md。输出在 out/ps4-native 和 out/ps4-gpu，out/ps4/build-receipt.json 记录输入、工具及六对 PE／PDB 的 GUID 和 age；其中 KetsuiResourcePrepareCheck 仅用于自造数据对照，不进入玩家程序包。修改提取的上游文件时，在对应 upstream-files.json 的 localChanges 明确记录维护哈希；383 项当前文件在构建前后核对。`Build.ps1 -Games ketsui -Jobs 2` 无需 ROM，完成后由 stage_ps4.py 校验收据并整理 runtime/ps4/ketsui.exe、GPU DLL、符号和运行文件证书，不启动游戏。PS4 的 NativeOnly 同样只构建运行时；原始数据在首次启动时原生准备。
 
-三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 35 项机制和 15 项真实配置文件检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试和二进制自制媒体 fixture 的扩展按实际需要单独记录来源／哈希。
+三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 36 项机制、15 项真实配置文件和 2 项终止日志检查，共 53 项，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试和二进制自制媒体 fixture 的扩展按实际需要单独记录来源／哈希。
 
 PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 现为版本 5，宿主与 DLL 必须配套重建。
 
@@ -143,6 +143,8 @@ ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按�
 `loader/prepare_game.cpp` 使用 prepared_cache.* 的不可变代和 active.json 指针。配方绑定全部受支持数据、准备选项及准备 EXE 的 SHA-256；缓存命中时复核文件清单、大小和内容哈希，失败则保留旧现场并新建一代，不回退运行不匹配的旧镜像。整套预检可用 `runtime/ps4/ketsui.exe --prepare-game --root <合集绝对路径> [--data-dir <数据绝对路径>]`，不执行客体，不创建 profile 或日志。
 
 `collection_launch.*` 接受公共五参数合同，使用 GameSession 和 profile 写入锁，自动准备后调用既有原生执行路径。日志在 logs/ketsui/run-UTC-PID，包含 run.json、config.snapshot.ini、preparation.json、stdout.jsonl 与 stderr.txt；两条日志允许运行中读取。正常关窗的现有退出码 27 不改成 0：仅在呈现清理完成后写 exit.ini，启动器用 PID、进程创建时间、原因及状态核对后恢复列表，不误报崩溃；其他非零退出仍警告。未完成的客体终止清理继续作为已知限制。
+
+合集执行客体前启动 `native_async_log.*`。GPU 提交、宿主慢操作及 NGS2／WASAPI 热路径使用完整记录的非阻塞投递；`diagnostics/async_log_queue.h` 固定容量，磁盘慢写不占用游戏线程或音频图锁。`native_async_log` 累计损失／写入失败和最后排空状态不可省略。终止路径必须在 `_lock_file(stdout)` 之前停止并排空队列，再直接输出最终诊断；锁独立异常处理器不等待此 worker。独立机制命令保留同步默认行为。分析范围及固定录像路径见 docs/ANALYSIS.md。
 
 CU 的毫秒短按无法触发街机投币时，可仅为本次启动器进程设置环境变量 `CAVE_DIAGNOSTIC_INPUT_TAP_MS=120`，桥接既有原生按键延长诊断；允许 0–500，未设置或 0 时完全不启用。五参数合同及玩家 INI 不变，`run.json` 的 `diagnosticInputTapMs` 明确记录取值；启动后恢复开发 shell 的环境变量，不用于声称默认物理输入已测。`--collection-input-self-test` 无 ROM／窗口地检查解析边界，实际游戏仍必须由 CU 操作投币、选机与进关。
 

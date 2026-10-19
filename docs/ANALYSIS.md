@@ -50,6 +50,28 @@ py -3.12 scripts/analyze_run.py logs/espgaluda2/<单次运行目录> --output .l
 
 虫姬二日志中的 `guestAudio` 另行统计已匹配的客体队列头年龄、cue 请求 API 完成耗时、超过 20／100／1000 ms 的队列头样本数、有效玩法探针和丢弃事件。它与输出音频队列分开：同一队列头的重试可能重复采样；没有有效样本返回 null，而不是零延迟。`traceScopes` 表明实际覆盖模块，cue 名称不等于已观察到拾取道具；这些计时也不是扬声器实际发声时刻。
 
+## 绊地狱帧节拍与后台日志
+
+```powershell
+py -3.12 scripts/ps4/analyze_timing.py logs/ketsui/<单次运行目录> --output .local/analysis/ketsui-timing.json
+```
+
+F8 的 `native_timeline_marker.clock_us` 与帧记录使用同一个宿主单调时钟。用 `--from-clock-us` 和 `--to-clock-us` 选择关卡区间，避免把菜单、载入与实际游玩混成一份极值。`completion_interval_us` 是宿主完成两次呈现之间的间隔，不是输入延迟或物理屏幕扫描时间。百分位采用报告中的有界直方图上界，不能把多个窗口的百分位平均成全局百分位。
+
+合集启动默认启用后台诊断队列。提交线程只格式化和投递完整记录，GPU 每帧诊断、宿主慢操作和 NGS2／WASAPI 热路径的文件写入交给独立线程；低频启动与终止诊断仍可直接输出。队列固定为 1,024 条、每条最多 4,096 字节，不因磁盘慢写无限积压；队列满保留最新尾部，短暂竞争或超长记录会被拒绝并计数，不输出截断 JSON。
+
+`native_async_log` 每约两秒报告累计状态，分析器保存在 `async_logging` 中：
+
+- `dropped_oldest`、`contended`、`invalid_records`、`format_failures` 分别记录满队列淘汰、竞争拒绝、无效长度与格式错误。
+- `sink_failures` 是后台写入／刷盘失败次数，`sink_wall_max_us` 是本次进程的后台写入最大耗时。
+- `pending` 与 `in_flight` 区分排队和正在写入；受控退出先排空队列，再写终止诊断。最后一条状态的 `stop_requested=true`、`drain_completed=true`、两项待写数量为零，表示这次排空完成，不代表此前没有丢弃。
+
+这些值是进程累计状态，选择时间区间后也不重解释成局部计数。旧日志没有这组状态时，完整性仍为未知。新日志中的 `diagnostic_log_us` 和 `previous_frame_log_us` 只计算提交线程的格式化／投递耗时；分析时与后台写入耗时分开。异常强制终止可能来不及排空，锁独立的最后故障记录继续保留；绊地狱退出码 27 的既有限制未因此改变。
+
+独立诊断命令默认保留同步输出。`KetsuiNativeProbe.exe --async-log-self-test` 使用自造阻塞 sink 验证提交与磁盘分离、容量及整条记录、失败计数、多线程投递和排空；`scripts/ps4/run_native_checks.py` 另外检查终止记录仍为最后一条完整 JSON。这些机制检查不执行游戏。
+
+固定录像复测路径为：进入 ARCADE → Backspace 打开暂停菜单 → Materials Room → Replay Theater → My Replay。现有 380 分／TYPE-A／00:53.45 录像可重复用于对照；播放期间不发射击、暂停或加速输入，等待自然返回，再核对 F8、程序哈希、选定区间、丢失状态及音频观测。共享 INI 的临时离线与 CU 方向别名在测试结束后恢复。
+
 ## 虫姬二本机联网现场
 
 ```powershell

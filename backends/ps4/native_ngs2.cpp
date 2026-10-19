@@ -1,4 +1,5 @@
 #include "native_ngs2.h"
+#include "native_async_log.h"
 #include "native_memory.h"
 #include "memory/direct_fixture.h"
 #include "native_diagnostics.h"
@@ -188,7 +189,7 @@ int QueuePcm(const BlocksParam& request, const VoiceRef& ref) {
         if (hevag) {
             try { block->data = kt::audio::DecodeHevag(block->data, ref.memory->channels); }
             catch (const kt::audio::VagFailure& failure) {
-                std::printf("{\"event\":\"native_ngs2_hevag_decode_failure\",\"reason\":\"%s\"}\n", failure.reason);
+                NativeLogf("{\"event\":\"native_ngs2_hevag_decode_failure\",\"reason\":\"%s\"}\n", failure.reason);
                 return Error(0x408);
             }
         }
@@ -196,13 +197,13 @@ int QueuePcm(const BlocksParam& request, const VoiceRef& ref) {
             const auto began=std::chrono::steady_clock::now();
             try { block->data=kt::audio::DecodeAtrac9(block->data,ref.memory->format.config); }
             catch (const kt::audio::Atrac9Failure& failure) {
-                std::printf("{\"event\":\"native_ngs2_atrac9_decode_failure\",\"reason\":\"%s\"}\n",failure.reason);
+                NativeLogf("{\"event\":\"native_ngs2_atrac9_decode_failure\",\"reason\":\"%s\"}\n",failure.reason);
                 return Error(0x408);
             }
             static std::atomic<unsigned> logged{};
             if (logged.fetch_add(1,std::memory_order_relaxed)<128) {
                 const auto micros=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-began).count();
-                std::printf("{\"event\":\"native_ngs2_atrac9_decoded\",\"voice\":%llu,\"compressed_bytes\":%u,\"pcm_bytes\":%zu,\"skip\":%u,\"samples\":%u,\"repeats\":%u,\"decode_us\":%lld,\"clock_us\":%llu}\n",
+                NativeLogf("{\"event\":\"native_ngs2_atrac9_decoded\",\"voice\":%llu,\"compressed_bytes\":%u,\"pcm_bytes\":%zu,\"skip\":%u,\"samples\":%u,\"repeats\":%u,\"decode_us\":%lld,\"clock_us\":%llu}\n",
                     ref.rack->first_voice+(ref.memory-ref.rack->voices),description.bytes,block->data.size(),block->skip,block->samples,block->repeats,micros,
                     kt::diagnostics::MonotonicMicroseconds());
             }
@@ -297,7 +298,7 @@ int SystemCreate(const SystemOption* supplied, const Allocator* allocator, Handl
             allocation.owned = false;
             *output = handle;
         }
-        std::printf("{\"event\":\"native_ngs2_system\",\"operation\":\"create\",\"handle\":%llu,\"grain\":%u,\"rate\":%u,\"bytes\":%zu}\n",
+        NativeLogf("{\"event\":\"native_ngs2_system\",\"operation\":\"create\",\"handle\":%llu,\"grain\":%u,\"rate\":%u,\"bytes\":%zu}\n",
                     handle, option.grain, option.rate, bytes);
         TraceCommitted("sceNgs2SystemCreateWithAllocator", handle, caller);
         return 0;
@@ -361,10 +362,10 @@ int RackCreate(Handle owner, unsigned id, const RackOption* supplied, const Allo
             registry.racks.emplace(handle, rack); registry.next += option.voices + 1;
             ++pending.parent->children; allocation.owned = false; *output = handle;
         }
-        std::printf("{\"event\":\"native_ngs2_rack\",\"operation\":\"create\",\"handle\":%llu,\"rack_id\":%u,\"voices\":%u,\"bytes\":%zu}\n",
+        NativeLogf("{\"event\":\"native_ngs2_rack\",\"operation\":\"create\",\"handle\":%llu,\"rack_id\":%u,\"voices\":%u,\"bytes\":%zu}\n",
                     handle, id, option.voices, bytes);
         if (id == 0x1000) {
-            std::printf("{\"event\":\"native_ngs2_sampler_limits\",\"channel_works\":%u,\"codec_caches\":%u,\"blocks\":%u,\"envelope_points\":%u,\"filters\":%u,\"at9_decoders\":%u,\"at9_channels\":%u,\"ajm_at9_decoders\":%u,\"peak_blocks\":%u}\n",
+            NativeLogf("{\"event\":\"native_ngs2_sampler_limits\",\"channel_works\":%u,\"codec_caches\":%u,\"blocks\":%u,\"envelope_points\":%u,\"filters\":%u,\"at9_decoders\":%u,\"at9_channels\":%u,\"ajm_at9_decoders\":%u,\"peak_blocks\":%u}\n",
                         limits.channel_works, limits.codec_caches, limits.blocks, limits.envelope_points, limits.filters,
                         limits.at9_decoders, limits.at9_channels, limits.ajm_at9_decoders, limits.peak_blocks);
         }
@@ -427,7 +428,7 @@ int Control(Handle handle, const ParamHeader* params, const void* caller) {
             voice->state = 0; voice->cursor = 0; voice->paused = false; voice->pitch = 1;
             voice->flags = kInUse | kWaveEmpty;
             voice->event = VoiceEvent::None; voice->event_count = 0;
-            std::printf("{\"event\":\"native_ngs2_sampler_setup\",\"voice\":%llu,\"waveform\":%u,\"channels\":%u,\"rate\":%u,\"flags\":%u}\n",
+            NativeLogf("{\"event\":\"native_ngs2_sampler_setup\",\"voice\":%llu,\"waveform\":%u,\"channels\":%u,\"rate\":%u,\"flags\":%u}\n",
                         handle, setup.format.type, setup.format.channels, setup.format.rate, setup.flags);
             return 0;
         }
@@ -470,7 +471,7 @@ int Control(Handle handle, const ParamHeader* params, const void* caller) {
             const auto result = QueuePcm(request, ref);
             const auto submission = ++ref.sampler->submissions;
             if (result || submission <= 4 || submission % 1024 == 0) {
-                std::printf("{\"event\":\"native_ngs2_pcm_queue\",\"voice\":%llu,\"submission\":%llu,\"blocks\":%u,\"result\":%d,\"queued\":%zu,\"resident_bytes\":%zu}\n",
+                NativeLogf("{\"event\":\"native_ngs2_pcm_queue\",\"voice\":%llu,\"submission\":%llu,\"blocks\":%u,\"result\":%d,\"queued\":%zu,\"resident_bytes\":%zu}\n",
                             handle, submission, request.count, result, ref.sampler->queued.size(), resident_pcm_bytes.load());
             }
             return result;
@@ -507,7 +508,7 @@ int Control(Handle handle, const ParamHeader* params, const void* caller) {
         char words[32 * 11 + 3]{}; auto* cursor = words; *cursor++ = '[';
         for (std::size_t index = 0; index < captured / 4; ++index) { cursor += std::sprintf(cursor, "%s%u", index ? "," : "", payload[index]); }
         *cursor++ = ']'; *cursor = 0;
-        std::printf("{\"event\":\"native_ngs2_unknown_control\",\"voice\":%llu,\"rack_id\":%u,\"id\":%u,\"size\":%u,\"next\":%d,\"payload_word0\":%u,\"payload_bytes_captured\":%zu,\"payload_words\":%s}\n",
+        NativeLogf("{\"event\":\"native_ngs2_unknown_control\",\"voice\":%llu,\"rack_id\":%u,\"id\":%u,\"size\":%u,\"next\":%d,\"payload_word0\":%u,\"payload_bytes_captured\":%zu,\"payload_words\":%s}\n",
                     handle, rack_id, header.id, header.size, header.next, payload[0], captured, words);
         UnsupportedApi("sceNgs2VoiceControl_command", header.id, caller);
     });
@@ -546,7 +547,7 @@ int Destroy(Handle handle, Context* output, bool is_system, const void* caller) 
             ++registry.pending; pending.active = true;
         }
         const auto result = buffer.Free();
-        std::printf("{\"event\":\"native_ngs2_destroy\",\"handle\":%llu,\"system\":%s,\"result\":%d}\n", handle, is_system ? "true" : "false", result);
+        NativeLogf("{\"event\":\"native_ngs2_destroy\",\"handle\":%llu,\"system\":%s,\"result\":%d}\n", handle, is_system ? "true" : "false", result);
         return result;
     });
 }
@@ -571,7 +572,7 @@ int GetFlags(Handle handle, unsigned* output, const void* caller) {
         if (!output) { return kOutAddress; }
         *output = ref.memory->flags;
         if (ref.memory->last_reported_flags != ref.memory->flags) {
-            std::printf("{\"event\":\"native_ngs2_state_flags\",\"voice\":%llu,\"flags\":%u}\n", handle, ref.memory->flags);
+            NativeLogf("{\"event\":\"native_ngs2_state_flags\",\"voice\":%llu,\"flags\":%u}\n", handle, ref.memory->flags);
             ref.memory->last_reported_flags = ref.memory->flags;
         }
         return 0;
@@ -599,7 +600,7 @@ int LockRack(Handle handle, const void* caller) {
         }
         // Transfer this recursive acquisition to the matching explicit Unlock.
         (void)graph.release();
-        std::printf("{\"event\":\"native_ngs2_rack_lock\",\"operation\":\"lock\",\"rack\":%llu,\"thread\":%lu,\"depth\":%u,\"lock_id\":%llu,\"clock_us\":%llu,\"began_clock_us\":%llu,\"wait_us\":%llu}\n", handle, GetCurrentThreadId(), depth, lock_id, acquired, lock_began, acquired - began);
+        NativeLogf("{\"event\":\"native_ngs2_rack_lock\",\"operation\":\"lock\",\"rack\":%llu,\"thread\":%lu,\"depth\":%u,\"lock_id\":%llu,\"clock_us\":%llu,\"began_clock_us\":%llu,\"wait_us\":%llu}\n", handle, GetCurrentThreadId(), depth, lock_id, acquired, lock_began, acquired - began);
         TraceCommitted("sceNgs2RackLock", handle, caller);
         return 0;
     });
@@ -621,7 +622,7 @@ int UnlockRack(Handle handle, const void* caller) {
             if (!depth) { held = clock - began; rack.lock_began_clock_us = 0; rack.lock_id = 0; }
             graph_access.unlock();
         }
-        std::printf("{\"event\":\"native_ngs2_rack_lock\",\"operation\":\"unlock\",\"rack\":%llu,\"thread\":%lu,\"depth\":%u,\"lock_id\":%llu,\"clock_us\":%llu,\"began_clock_us\":%llu,\"held_us\":%llu}\n", handle, GetCurrentThreadId(), depth, lock_id, clock, began, held);
+        NativeLogf("{\"event\":\"native_ngs2_rack_lock\",\"operation\":\"unlock\",\"rack\":%llu,\"thread\":%lu,\"depth\":%u,\"lock_id\":%llu,\"clock_us\":%llu,\"began_clock_us\":%llu,\"held_us\":%llu}\n", handle, GetCurrentThreadId(), depth, lock_id, clock, began, held);
         TraceCommitted("sceNgs2RackUnlock", handle, caller);
         return 0;
     });
@@ -777,7 +778,7 @@ int Render(Handle handle, const RenderBuffer* buffers, unsigned count, const voi
         found->second->last_active = active_sources;
         lock.unlock(); graph.unlock();
         if (report) {
-            std::printf("{\"event\":\"native_ngs2_render_completed\",\"system\":%llu,\"grain\":%llu,\"frames\":%u,\"channels\":%u,\"waveform\":%u,\"bytes\":%zu,\"active_sources\":%u,\"starved_sources\":%u,\"starved_frames\":%u,\"starved_grains\":%llu,\"clock_us\":%llu,\"render_us\":%llu,\"graph_wait_us\":%llu,\"registry_wait_us\":%llu,\"completion_interval_us\":%llu}\n",
+            NativeLogf("{\"event\":\"native_ngs2_render_completed\",\"system\":%llu,\"grain\":%llu,\"frames\":%u,\"channels\":%u,\"waveform\":%u,\"bytes\":%zu,\"active_sources\":%u,\"starved_sources\":%u,\"starved_frames\":%u,\"starved_grains\":%llu,\"clock_us\":%llu,\"render_us\":%llu,\"graph_wait_us\":%llu,\"registry_wait_us\":%llu,\"completion_interval_us\":%llu}\n",
                 handle, grain, frames, output.channels, output.waveform, bytes, active_sources, starved_sources, starved_frames,
                 starved_grains, completed, completed - began, graph_ready - began, registry_ready - graph_ready, interval);
         }
@@ -799,7 +800,7 @@ __declspec(noinline) int InspectWaveform(const void* data, std::size_t size, con
     std::array<char, 513> hex{};
     constexpr char digits[] = "0123456789abcdef";
     for (SIZE_T index = 0; index < captured; ++index) { hex[index * 2] = digits[prefix[index] >> 4]; hex[index * 2 + 1] = digits[prefix[index] & 15]; }
-    std::printf("{\"event\":\"native_ngs2_waveform_frontier\",\"input_bytes\":%zu,\"captured_bytes\":%zu,\"prefix_hex\":\"%s\",\"guest_output_written\":false}\n", size, static_cast<std::size_t>(captured), hex.data());
+    NativeLogf("{\"event\":\"native_ngs2_waveform_frontier\",\"input_bytes\":%zu,\"captured_bytes\":%zu,\"prefix_hex\":\"%s\",\"guest_output_written\":false}\n", size, static_cast<std::size_t>(captured), hex.data());
     UnsupportedApi("sceNgs2ParseWaveformData_analysis_pending", size, caller);
 }
 bool WaveInfoWritable(void* output) {
@@ -822,7 +823,7 @@ __declspec(noinline) int ParseWaveform(const void* data, std::size_t size, WaveI
             kt::audio::Atrac9Wave wave;
             try { wave=kt::audio::ParseAtrac9Wave(snapshot); }
             catch (const kt::audio::Atrac9Failure& failure) {
-                std::printf("{\"event\":\"native_ngs2_waveform_parse_failure\",\"reason\":\"%s\",\"unsupported\":%s}\n",failure.reason,failure.unsupported?"true":"false");
+                NativeLogf("{\"event\":\"native_ngs2_waveform_parse_failure\",\"reason\":\"%s\",\"unsupported\":%s}\n",failure.reason,failure.unsupported?"true":"false");
                 if (failure.unsupported) { return InspectWaveform(data,size,caller); }
                 return Error(0x408);
             }
@@ -844,7 +845,7 @@ __declspec(noinline) int ParseWaveform(const void* data, std::size_t size, WaveI
         kt::audio::VagInfo decoded;
         try { decoded = kt::audio::ParseVag(snapshot); }
         catch (const kt::audio::VagFailure& failure) {
-            std::printf("{\"event\":\"native_ngs2_waveform_parse_failure\",\"reason\":\"%s\",\"unsupported\":%s}\n", failure.reason, failure.unsupported ? "true" : "false");
+            NativeLogf("{\"event\":\"native_ngs2_waveform_parse_failure\",\"reason\":\"%s\",\"unsupported\":%s}\n", failure.reason, failure.unsupported ? "true" : "false");
             if (failure.unsupported) { return InspectWaveform(data, size, caller); }
             return Error(0x408);
         }
@@ -857,7 +858,7 @@ __declspec(noinline) int ParseWaveform(const void* data, std::size_t size, WaveI
         if (!CopyToNativeMemory(output, &info, sizeof(info))) { return kOutAddress; }
         static std::atomic<unsigned> logged{};
         if (logged.fetch_add(1, std::memory_order_relaxed) < 64) {
-            std::printf("{\"event\":\"native_ngs2_waveform_parsed\",\"codec\":\"%s\",\"format_tag\":%u,\"channels\":%u,\"rate\":%u,\"samples\":%u,\"data_offset\":%u,\"data_bytes\":%u,\"blocks\":%u,\"delay\":%u,\"loop_begin\":%u,\"loop_end\":%u}\n",
+            NativeLogf("{\"event\":\"native_ngs2_waveform_parsed\",\"codec\":\"%s\",\"format_tag\":%u,\"channels\":%u,\"rate\":%u,\"samples\":%u,\"data_offset\":%u,\"data_bytes\":%u,\"blocks\":%u,\"delay\":%u,\"loop_begin\":%u,\"loop_end\":%u}\n",
                 codec,info.format.type, info.format.channels, info.format.rate, info.samples, info.offset, info.bytes, info.blocks,info.delay,info.loop_begin,info.loop_end);
         }
         return 0;
@@ -898,7 +899,7 @@ int Ngs2Module(Ngs2ModuleAction action) {
             if (registry.references == 1 && (!registry.systems.empty() || !registry.racks.empty() || registry.pending)) { return kBusy; }
             --registry.references;
         }
-        std::printf("{\"event\":\"native_system_module\",\"operation\":\"%s\",\"id\":11,\"name\":\"libSceNgs2\",\"references\":%u}\n",
+        NativeLogf("{\"event\":\"native_system_module\",\"operation\":\"%s\",\"id\":11,\"name\":\"libSceNgs2\",\"references\":%u}\n",
                     action == Ngs2ModuleAction::Load ? "load" : "unload", registry.references);
         return 0;
     });
@@ -930,7 +931,7 @@ int Ngs2WaveformCheck(const wchar_t* path) {
         if (!stream) { throw std::runtime_error("Cannot read waveform"); }
         WaveInfo info{};
         const auto parsed=ParseWaveform(file.data(),file.size(),&info,nullptr);
-        if (parsed) { std::printf("{\"event\":\"native_waveform_check_failed\",\"parse_status\":%d}\n",parsed); return 2; }
+        if (parsed) { NativeLogf("{\"event\":\"native_waveform_check_failed\",\"parse_status\":%d}\n",parsed); return 2; }
         const auto encoded=std::span<const std::byte>(file).subspan(info.offset,info.bytes);
         const auto began=std::chrono::steady_clock::now();
         const auto pcm=info.format.type==kParsedAtrac9?kt::audio::DecodeAtrac9(encoded,info.format.config):kt::audio::DecodeHevag(encoded,info.format.channels);
@@ -944,7 +945,7 @@ int Ngs2WaveformCheck(const wchar_t* path) {
             if (std::uint64_t{info.block[n].skip}+info.block[n].samples>frames) { throw std::runtime_error("Wave block exceeds decoded source"); }
         }
         const auto micros=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-began).count();
-        std::printf("{\"event\":\"native_waveform_check_complete\",\"channels\":%u,\"rate\":%u,\"audible_frames\":%u,\"decoded_frames\":%zu,\"pcm_bytes\":%zu,\"nonzero_samples\":%zu,\"peak\":%u,\"blocks\":%u,\"decode_us\":%lld}\n",
+        NativeLogf("{\"event\":\"native_waveform_check_complete\",\"channels\":%u,\"rate\":%u,\"audible_frames\":%u,\"decoded_frames\":%zu,\"pcm_bytes\":%zu,\"nonzero_samples\":%zu,\"peak\":%u,\"blocks\":%u,\"decode_us\":%lld}\n",
             info.format.channels,info.format.rate,info.samples,frames,pcm.size(),nonzero,peak,info.blocks,micros);
         return 0;
     } catch (const kt::audio::Atrac9Failure& failure) { std::fprintf(stderr,"ATRAC9 check: %s\n",failure.reason); }
@@ -955,7 +956,7 @@ int Ngs2WaveformCheck(const wchar_t* path) {
 bool Ngs2SelfTest() {
     bool passed = true;
     auto check = [&](bool condition, const char* name) {
-        std::printf("{\"event\":\"ngs2_self_test_case\",\"name\":\"%s\",\"passed\":%s}\n", name, condition ? "true" : "false"); passed &= condition;
+        NativeLogf("{\"event\":\"ngs2_self_test_case\",\"name\":\"%s\",\"passed\":%s}\n", name, condition ? "true" : "false"); passed &= condition;
     };
     check(kt::audio::HevagSelfTest(), "bounded_hevag_container_and_decoder");
     check(kt::audio::Atrac9SelfTest(), "bounded_atrac9_container_and_decoder");
@@ -1075,7 +1076,7 @@ bool Ngs2SelfTest() {
     if (voice_acquired) { voice_mutex.unlock(); }
     const auto query_unlock = UnlockRack(rack, nullptr);
     query_thread.join();
-    std::printf("{\"event\":\"ngs2_lock_cycle_diagnostics\",\"query_began\":%s,\"voice_mutex_acquired\":%s,\"query_result\":%d,\"flags\":%u,\"expected_flags\":%u}\n",
+    NativeLogf("{\"event\":\"ngs2_lock_cycle_diagnostics\",\"query_began\":%s,\"voice_mutex_acquired\":%s,\"query_result\":%d,\"flags\":%u,\"expected_flags\":%u}\n",
         query_began ? "true" : "false", voice_acquired ? "true" : "false", query_result, query_flags, expected_query_flags);
     check(initial_query == 0 && query_lock == 0 && query_unlock == 0 && query_began && voice_acquired && query_result == 0 && query_flags == expected_query_flags,
           "state_query_does_not_participate_in_external_rack_lock_cycle");
@@ -1331,5 +1332,5 @@ bool Ngs2SelfTest() {
           ResolveNgs2Import("rEh728kXk3w", "wrong", "libSceNgs2") == 0 &&
           ResolveNgs2Import("rEh728kXk3w", "libSceNgs2", "wrong") == 0 &&
           ResolveNgs2Import("unknown", "libSceNgs2", "libSceNgs2") == 0, "only_implemented_exports_are_bound");
-    std::printf("{\"event\":\"ngs2_self_test\",\"passed\":%s}\n", passed ? "true" : "false"); return passed;
+    NativeLogf("{\"event\":\"ngs2_self_test\",\"passed\":%s}\n", passed ? "true" : "false"); return passed;
 }
