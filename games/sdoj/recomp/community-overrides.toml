@@ -7,6 +7,38 @@ name = "SdojCommunityEstimateRank"
 registers = ["r3", "r4", "r5", "r6", "r7"]
 return = true
 
+# Optional development observations. They run before, never replace, native
+# constructors/setters; no guest registers or memory are changed.
+[[midasm_hook]]
+address = 0x82155AA8
+name = "SdojTraceView"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8"]
+
+[[midasm_hook]]
+address = 0x82155C30
+name = "SdojTraceColumn"
+registers = ["r3", "r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82155C48
+name = "SdojTraceRating"
+registers = ["r3", "r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82155C60
+name = "SdojTraceProperty64"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x82155CA8
+name = "SdojTraceProperty32"
+registers = ["r3", "r4", "r5", "r6"]
+
+[[midasm_hook]]
+address = 0x82155CF0
+name = "SdojTraceRecording"
+registers = ["r3", "r4", "r5"]
+
 [[midasm_hook]]
 address = 0x8221C188
 name = "SdojStorageUpload"

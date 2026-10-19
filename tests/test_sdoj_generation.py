@@ -111,9 +111,10 @@ class SdojGenerationTests(unittest.TestCase):
             0x8221C5F8: ('SdojStorageLocalPath', 7),
             0x8221C690: ('SdojStorageRemotePath', 7),
         }
-        self.assertEqual(len(hooks), len(expected))
+        api_hooks = [hook for hook in hooks if hook.get('return')]
+        self.assertEqual(len(api_hooks), len(expected))
         source = (ROOT / 'games/sdoj/community/guest_hooks.cpp').read_text(encoding='utf-8')
-        for hook in hooks:
+        for hook in api_hooks:
             name, count = expected[hook['address']]
             self.assertEqual(hook['name'], name)
             self.assertEqual(hook['registers'], [f'r{i}' for i in range(3, 3 + count)])
@@ -121,6 +122,16 @@ class SdojGenerationTests(unittest.TestCase):
             self.assertIn('void ' + name + '(', source)
         self.assertNotIn('G2', source)
         self.assertFalse(self.game['communitySupported'])  # Native hooks alone are not online support.
+
+    def test_optional_native_trace_observes_not_replaces_game_functions(self):
+        hooks = tomllib.loads((ROOT / 'games/sdoj/recomp/community-overrides.toml').read_text(encoding='utf-8'))['midasm_hook']
+        traces = [hook for hook in hooks if hook['name'].startswith('SdojTrace')]
+        self.assertEqual({hook['address'] for hook in traces},
+                         {0x82155AA8, 0x82155C30, 0x82155C48, 0x82155C60, 0x82155CA8, 0x82155CF0})
+        self.assertTrue(all(not hook.get('return', False) for hook in traces))
+        source = (ROOT / 'games/sdoj/community/guest_hooks.cpp').read_text(encoding='utf-8')
+        self.assertIn('REXCVAR_DEFINE_BOOL(sdoj_native_trace,false,', source)
+        self.assertIn('QueryRangeAccess', source)
 
 
 if __name__ == '__main__':
