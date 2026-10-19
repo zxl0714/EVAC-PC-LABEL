@@ -96,7 +96,7 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 ### 增量部署大往生（待执行）
 
-三个 `cave-daioujou*.in` 模板已提供独立服务、每日备份与 timer，使用 18088、`daioujou-current` 和 `/var/lib/cave-community/daioujou/`。nginx 模板仅新增 `/cave/api/v1/games/daioujou/`，保留原四款的 upstream 与未知游戏 404。这些文件通过本机静态配置检查，尚未安装到 ECS；实际游戏联网仍待验收。
+三个 `cave-daioujou*.in` 模板已提供独立服务、每日备份与 timer，使用 18088、`daioujou-current` 和 `/var/lib/cave-community/daioujou/`。nginx 模板仅新增 `/cave/api/v1/games/daioujou/`，保留原四款的 upstream 与未知游戏 404。b9a8f4f 的最小源码归档已在 ECS 临时目录通过 Python 3.10.12 的 15 项 profile／备份／部署测试及三个 systemd 单元离线校验；没有安装或启用服务，实际游戏联网仍待验收。
 
 1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。测试还需 `scripts/ps4/replay_fixture.py`，它只生成不可游玩的自造记录，不依赖 Windows 构建工具或 ROM。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
 2. 上传到新的不可变版本目录，核验后用服务器 Python 执行 `test_ps4_community_profiles.py`、`test_community_backup.py`、`test_community_deployment.py`。这一步只使用随机 loopback 和临时 SQLite，不改玩家榜单。先记录原四款服务 PID、各版本指针与 nginx 片段哈希。
