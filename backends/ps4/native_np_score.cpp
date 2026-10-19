@@ -1060,8 +1060,9 @@ bool ScoreReplaySelfTest() {
     return okay;
 }
 bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::path& directory,
-                      const std::filesystem::path& payload_path) {
-    const auto config = LoadConfig(path); const auto endpoint = ParseEndpoint(config.endpoint);
+                      const std::filesystem::path& payload_path,std::string_view game) {
+    const auto config = LoadConfig(path,game); const auto endpoint = ParseEndpoint(config.endpoint,game);
+    const unsigned board=game=="daioujou"?6:0;
     Require(config.enabled && endpoint.host == L"127.0.0.1" && !endpoint.secure && directory.is_absolute() && !std::filesystem::exists(directory));
     std::ifstream file(payload_path, std::ios::binary); Require(bool(file));
     std::vector<std::byte> payload(kReplayLimit + 1);
@@ -1076,22 +1077,27 @@ bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::
     const auto account = client->State().account;
     const auto context = CreateContext(0, 0x1000), scoring = CreateRequest(context), transfer = CreateRequest(context), listing = CreateRequest(context);
     Require(context > 0 && scoring > 0 && transfer > 0 && listing > 0);
-    Require(Score(scoring, 0, 9001, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == 0);
-    Require(RecordData(transfer, 0, 9001, payload.size(), payload.size(), payload.data(), nullptr) == 0 && AwaitScore(transfer) == 0);
+    Require(Score(scoring, board, 9001, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == 0);
+    Require(RecordData(transfer, board, 9001, payload.size(), payload.size(), payload.data(), nullptr) == 0 && AwaitScore(transfer) == 0);
     Guarded<Rank> rank;
-    Require(Range(listing, 0, 1, &rank.value, sizeof(rank.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == 0);
+    Require(Range(listing, board, 1, &rank.value, sizeof(rank.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == 0);
     Require(AwaitScore(listing) == 1 && rank.value.has_data == 1 && rank.value.account == account);
+    Guarded<PlayerRank> personal;
+    Require(Account(listing,board,&account,sizeof(account),&personal.value,sizeof(personal.value),
+        nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr)==0);
+    Require(AwaitScore(listing)==1 && personal.value.present==1 && personal.value.value.score==9001 &&
+        personal.value.value.has_data==1 && personal.value.value.account==account && Tail(personal));
     Guarded<std::array<std::byte, 17>> buffer; Guarded<std::uint64_t> total;
     buffer.value.fill(std::byte{0xa7}); total.value = 73;
-    Require(GetData(transfer, 0, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == 0 && total.value == 73);
+    Require(GetData(transfer, board, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == 0 && total.value == 73);
     // Refresh the same account to a newer entry while the old transfer is
     // pinned. Neither its first delivery nor continuations may change games.
-    Require(Score(scoring, 0, 9002, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == 0);
+    Require(Score(scoring, board, 9002, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == 0);
     const auto unavailable = CreateRequest(context);
     // This receipt belongs to 9002, but the owned replay says 9001. Metadata
     // validation must reject it on the worker before durable staging/HTTP.
-    Require(RecordData(unavailable, 0, 9002, payload.size(), payload.size(), payload.data(), nullptr) == 0 && AwaitScore(unavailable) == kResponse);
-    Require(Range(listing, 0, 1, &rank.value, sizeof(rank.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == 0);
+    Require(RecordData(unavailable, board, 9002, payload.size(), payload.size(), payload.data(), nullptr) == 0 && AwaitScore(unavailable) == kResponse);
+    Require(Range(listing, board, 1, &rank.value, sizeof(rank.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == 0);
     Require(AwaitScore(listing) == 1 && rank.value.has_data == 0 && rank.value.score == 9002);
     std::vector<std::byte> received;
     for (;;) {
@@ -1101,15 +1107,17 @@ bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::
         Require(std::all_of(buffer.value.begin() + bytes, buffer.value.end(), [](auto value) { return value == std::byte{0xa7}; }));
         if (received.size() == payload.size()) { break; }
         buffer.value.fill(std::byte{0xa7});
-        Require(GetData(transfer, 0, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == 0);
+        Require(GetData(transfer, board, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == 0);
     }
     Require(received == payload);
-    Require(GetData(unavailable, 0, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == kNoData);
-    Require(Score(scoring, 0, 9002, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == kNotBest);
-    Require(RecordData(unavailable, 0, 9002, payload.size(), payload.size(), payload.data(), nullptr) == kNotBest);
+    Require(GetData(unavailable, board, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == kNoData);
+    Require(Score(scoring, board, 9002, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == kNotBest);
+    Require(RecordData(unavailable, board, 9002, payload.size(), payload.size(), payload.data(), nullptr) == kNotBest);
     Require(DeleteRequest(unavailable) == 0 && DeleteRequest(scoring) == 0 && DeleteRequest(transfer) == 0 &&
             DeleteRequest(listing) == 0 && DeleteContext(context) == 0);
     client->Stop();
-    std::puts("{\"event\":\"np_replay_smoke\",\"passed\":true,\"authored_data_only\":true,\"native_menu_integration\":false,\"native_playback_validated\":false}");
+    std::puts(Json{{"event","np_replay_smoke"},{"passed",true},{"game",game},{"board",board},
+        {"received_sha256",Sha256(received)},{"native_game_execution",false},
+        {"native_menu_integration",false},{"native_playback_validated",false}}.dump().c_str());
     return true;
 }

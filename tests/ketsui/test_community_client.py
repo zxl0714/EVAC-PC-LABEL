@@ -10,10 +10,10 @@ import threading
 import unittest
 import zlib
 
-ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / 'out/native/KetsuiNativeProbe.exe'
-sys.path.insert(0, str(ROOT / 'server'))
-import ketsui_live as live
+ROOT = Path(__file__).resolve().parents[2]
+EXE = ROOT / 'out/ps4-native/KetsuiNativeProbe.exe'
+sys.path.insert(0, str(ROOT))
+from server.games import ketsui as live
 
 
 @unittest.skipUnless(EXE.exists(), 'Build-Native.ps1 required')

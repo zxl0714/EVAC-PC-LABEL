@@ -10,6 +10,8 @@ PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更
 
 社区传输、原生 Score bridge、typed Replay worker 和服务存储都显式按标题选择协议与身份，DaiOuJou 不启用 Ketsui whole-round。`run_community_checks.py` 为自造成绩的双服务 Windows HTTP 检查，不访问公网。r6 保存中的真实 420 分记录在 `.local/daioujou-native-record-r1`，原生／服务端结构和元数据校验均通过；容器为 0x10030，core data_version 为 0x10000，实际 region 为 ARCADE_01000。显式允许随输入附带的四个 core revision，不接受未知 core；未执行原生回放。只读命令为 `--community-replay-profile-check daioujou <附件> [board score]`，不执行快照。
 
+当前无窗口链路检查包含原生 ABI 到真实 HTTP 的双标题成绩、个人榜、录像上传／分块下载，`.local/ps4-community-checks/v03-native-replay-bridge-r2` 四项通过；旧绊地狱原生录像链路的定向回归也通过。底层 `--np-replay-profile-smoke <INI> <新绝对输出目录> <自造附件> <游戏ID>` 只允许 literal HTTP loopback，不执行游戏或原生回放。脚本为它生成 9001 分结构，随后提交 9002，核对旧附件传输钉住原 entry；服务会保留同分拒收的回执行，不能用“有效最高分次数”推断数据库行数。r1 汇总错误已保留为失败现场；不是游戏崩溃或原生链路失败。replay_fixture.py 已纳入 PS4 构建输入收据。
+
 大往生服务已独立部署在 ECS 的 b9a8f4f，使用 `daioujou-current`、18088 loopback、`/var/lib/cave-community/daioujou/` 和共享地址下本作路由。五款合集与两条旧入口健康、49 个空榜、未知标题 404、首次备份完整性通过，旧四款 PID 未变；本地证据在 `.local/daioujou-deploy-b9a8f4f-r1`。服务就绪不是游戏内成绩／录像验收。正常合集运行参数已为两款 PS4 统一使用 configured provider，run.json 记录请求、能力与实际开关；大往生 catalogue 能力仍为 false，不会因参数存在而启用联网。
 
 当前阻塞：`.local/daioujou-network-r1` 的真实联网游戏启动被执行策略拒绝；不要换工具、包装脚本或其他启动方式绕过。该场景的 loopback server 已停止，0 成绩／0 录像的数据库与配置保留；当前没有运行中的测试游戏。需要可获准的实际启动状态才能继续原生菜单、成绩／录像和正常合集验收；不使用 fixture 或旧单机进关证据替代。

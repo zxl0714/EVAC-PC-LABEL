@@ -66,6 +66,7 @@ def snapshot():
     explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py',
                      'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'tests/ketsui/test_native.py',
                      'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py', 'scripts/ps4/run_replay_checks.py',
+                     'scripts/ps4/replay_fixture.py',
                      'server/games/ketsui.py', 'server/games/daioujou.py', 'tests/test_ps4_community_profiles.py',
                      'tests/ketsui/test_community_replay.py'})
     files = {}
