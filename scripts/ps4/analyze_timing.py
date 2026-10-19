@@ -16,6 +16,17 @@ HOST_ALLOCATIONS = ('unclassified', 'new', 'new_nothrow', 'malloc', 'memalign', 
                     'mspace_create', 'mspace_destroy', 'mspace_memalign', 'mspace_free')
 ASYNC_LOG_COUNTERS = ('accepted', 'written', 'dropped_oldest', 'contended', 'invalid_records',
                       'format_failures', 'sink_failures', 'after_stop', 'pending', 'in_flight', 'sink_wall_max_us')
+PRESENT_STAGES = ('lock_wait_us', 'prepare_us', 'display_clock_wait_us', 'backend_present_us', 'completion_us')
+
+
+def valid_present_timing(item):
+    fields = (*PRESENT_STAGES, 'duration_us', 'began_clock_us', 'clock_us', 'thread',
+              'handle', 'buffer', 'swapchain_retries', 'zero_extent_polls')
+    return (all(type(item.get(key)) is int and item[key] >= 0 for key in fields) and
+            item['thread'] > 0 and item['handle'] > 0 and item['buffer'] < 16 and
+            item['clock_us'] >= item['began_clock_us'] and
+            item['clock_us'] - item['began_clock_us'] == item['duration_us'] and
+            sum(item[key] for key in PRESENT_STAGES) == item['duration_us'])
 
 
 def valid_frame_counters(item):
@@ -132,6 +143,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
     top = []
     compile_timing = {kind: Distribution() for kind in ('shader', 'graphics_pipeline', 'compute_pipeline', 'tiling_pipeline')}
     lock_timing = Distribution()
+    present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
     top_compiles, top_locks = [], []
     operation_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
     frame_counter_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
@@ -165,7 +177,8 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
         if clock_filtered and kind in {'native_gnm_frame_completed', 'native_audio_timing', 'native_ngs2_render_completed',
                                        'native_gpu_compile_begin', 'native_gpu_compile_completed', 'native_ngs2_rack_lock',
                                        'native_timeline_marker', 'native_host_operation',
-                                       'native_save_transaction_staged', 'native_save_transaction_completed', 'native_host_frame_timing'}:
+                                       'native_save_transaction_staged', 'native_save_transaction_completed', 'native_host_frame_timing',
+                                       'native_video_present_timing'}:
             clock = item.get('completed_clock_us' if kind == 'native_gnm_frame_completed' else 'clock_us')
             if type(clock) is not int or clock < 0:
                 counts['unclocked_samples_excluded'] += 1
@@ -173,7 +186,14 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
             if (from_clock_us is not None and clock < from_clock_us) or (to_clock_us is not None and clock > to_clock_us):
                 counts['outside_clock_window_samples'] += 1
                 continue
-        if kind == 'native_async_log_begin':
+        if kind == 'native_video_present_timing':
+            if not valid_present_timing(item):
+                counts['invalid_present_timing'] += 1
+                continue
+            counts['slow_present_timing_samples'] += 1
+            for key, distribution in present_stages.items():
+                distribution.add(item[key])
+        elif kind == 'native_async_log_begin':
             counts['async_log_starts'] += 1
         elif kind == 'native_async_log':
             # Cumulative process counters, including reports emitted after the
@@ -318,12 +338,12 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
     relevant = {'native_audio_timing', 'native_ngs2_render_completed', 'native_ngs2_atrac9_decoded',
                 'native_gpu_compile_begin', 'native_gpu_compile_completed', 'native_ngs2_rack_lock', 'native_timeline_marker',
                 'native_host_operation', 'native_save_transaction_staged', 'native_save_transaction_completed',
-                'native_host_frame_timing'}
+                'native_host_frame_timing', 'native_video_present_timing'}
 
     def keep_context(entry, candidate):
         def priority(value):
             return (value['clock_kind'] == 'scope_overlap',
-                    value['event']['event'] in {'native_host_operation', 'native_save_transaction_staged', 'native_save_transaction_completed'},
+                    value['event']['event'] in {'native_host_operation', 'native_save_transaction_staged', 'native_save_transaction_completed', 'native_video_present_timing'},
                     -abs(value['delta_us']))
         retained = entry['nearby_events']
         if len(retained) < 24:
@@ -354,6 +374,10 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 continue
             scoped = (item['event'] == 'native_gpu_compile_completed' or
                       (item['event'] == 'native_ngs2_rack_lock' and item.get('operation') == 'unlock' and item.get('depth') == 0))
+            if item['event'] == 'native_video_present_timing':
+                if not valid_present_timing(item):
+                    continue
+                scoped = True
             if item['event'] == 'native_host_operation':
                 if not valid_scope(item, item.get('duration_us')):
                     continue
@@ -399,6 +423,8 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 gpu_compilation={kind: distribution.report() for kind, distribution in compile_timing.items()},
                 longest_compiles=[dict(line=line, event=event) for _, line, event in sorted(top_compiles, reverse=True)],
                 outer_rack_lock_holds=lock_timing.report(),
+                present_substages=dict(timing={key: value.report() for key, value in present_stages.items()},
+                    measurement='Thresholded completed slow presents only, not all frames. Backend includes worker handoff, Vulkan presentation and recovery waits; all values are host wall time, not GPU or scanout timing. Missing records do not prove no stall.'),
                 longest_rack_lock_holds=[dict(line=line, event=event) for _, line, event in sorted(top_locks, reverse=True)],
                 host_operations={kind: distribution.report() for kind, distribution in operation_timing.items()},
                 longest_host_operations=[dict(line=line, event=event) for _, line, event in sorted(top_operations, reverse=True)],

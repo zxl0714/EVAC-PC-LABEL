@@ -184,6 +184,8 @@ purchase/save/cold readback have evidence. Leave Shop and wait for native save
 before closing. Reuse accepted old-three short replays; the user explicitly
 asked to stop elaborate testing. Team scoring, the music patch, extended coverage,
 Ketsui exit cleanup and occasional A/V stutter remain outside this acceptance.
-No v0.2 group upload or announcement has been performed. A real final launcher
-screenshot is retained locally for later sharing. Preserve frozen ZIP identities;
+v0.2's verified Internal ZIP and checksum were later uploaded to the existing
+OSS bucket, and links, release notes and the real launcher image were delivered
+to both 人均233.3 and 🦜鹦鹉牌🍓供应@DJS. Delivery receipts are local; do not resend
+v0.2. Preserve frozen ZIP identities;
 follow-up documentation does not require repacking or more gameplay tests.

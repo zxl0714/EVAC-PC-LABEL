@@ -1,4 +1,5 @@
 #include "native_video.h"
+#include "native_async_log.h"
 #include "native_diagnostics.h"
 #include "native_host_timing.h"
 #include "native_user.h"
@@ -676,7 +677,9 @@ NativeVideoResult WithNativeVideoGpu(int handle, unsigned index, const std::func
 }
 NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mode, std::int64_t argument) {
     if (mode != 1) { throw std::runtime_error("Only VSync flip mode is implemented"); }
+    const auto present_began=kt::diagnostics::MonotonicMicroseconds();
     auto& state = State(); std::lock_guard lock(state.mutex);
+    const auto locked_at=kt::diagnostics::MonotonicMicroseconds();
     const auto unavailable = [&](const char* reason, NativeVideoResult result = NativeVideoResult::Unavailable) {
         std::printf("{\"event\":\"native_video_present_unavailable\",\"reason\":\"%s\",\"handle\":%d,\"buffer\":%u}\n", reason, handle, index); return result;
     };
@@ -693,7 +696,9 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         const auto pixels = resident ? std::vector<std::uint8_t>{} : kt::gfx::ReadDisplayPixels(layout, {static_cast<const std::uint8_t*>(buffer.memory.address), static_cast<std::size_t>(layout.bytes)});
         auto& label = state.active->buffer_labels[index];
         label.store(1);
+        const auto display_wait_began=kt::diagnostics::MonotonicMicroseconds();
         if (!state.active->clock->WaitFlipOpportunity()) { return unavailable("display_clock_stopped"); }
+        const auto display_ready=kt::diagnostics::MonotonicMicroseconds();
         state.active->renderer_active.store(true);
         unsigned retries{}, zero_extent_polls{};
         const auto began = GetTickCount64();
@@ -721,8 +726,20 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         if (retries || zero_extent_polls) {
             std::printf("{\"event\":\"native_video_present_recovered\",\"swapchain_retries\":%u,\"zero_extent_polls\":%u,\"elapsed_ms\":%llu,\"fence_completed\":true}\n", retries, zero_extent_polls, GetTickCount64() - began);
         }
+        const auto backend_completed=kt::diagnostics::MonotonicMicroseconds();
         label.store(0);
         state.active->clock->NotifyFlipCompleted(argument);
+        const auto completed_at=kt::diagnostics::MonotonicMicroseconds();
+        if(completed_at-present_began>=20000) {
+            // Wall times for a completed slow present, not GPU timestamps or
+            // physical scanout. The backend interval also includes its worker
+            // handoff and any resize/minimize recovery; never silently remove
+            // synchronization based on this combined interval alone.
+            NativeLogf("{\"event\":\"native_video_present_timing\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"duration_us\":%llu,\"thread\":%lu,\"handle\":%d,\"buffer\":%u,\"lock_wait_us\":%llu,\"prepare_us\":%llu,\"display_clock_wait_us\":%llu,\"backend_present_us\":%llu,\"completion_us\":%llu,\"swapchain_retries\":%u,\"zero_extent_polls\":%u}\n",
+                present_began,completed_at,completed_at-present_began,GetCurrentThreadId(),handle,index,
+                locked_at-present_began,display_wait_began-locked_at,display_ready-display_wait_began,
+                backend_completed-display_ready,completed_at-backend_completed,retries,zero_extent_polls);
+        }
         return NativeVideoResult::Completed;
     }
     return unavailable("unregistered_buffer");

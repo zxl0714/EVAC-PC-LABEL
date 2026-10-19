@@ -14,6 +14,34 @@ SPEC.loader.exec_module(TIMING)
 
 
 class TimingAnalysisTests(unittest.TestCase):
+    def present(self, **kwargs):
+        item = dict(event='native_video_present_timing', began_clock_us=950000, clock_us=999990,
+                    duration_us=49990, thread=11, handle=1, buffer=0,
+                    lock_wait_us=10, prepare_us=20, display_clock_wait_us=17000,
+                    backend_present_us=32950, completion_us=10, swapchain_retries=0, zero_extent_polls=0)
+        item.update(kwargs)
+        return item
+
+    def test_slow_present_stages_are_validated_and_correlated(self):
+        report = self.report([self.present(), self.frame(1000000, 60000)])
+        self.assertEqual(report['counts']['slow_present_timing_samples'], 1)
+        self.assertEqual(report['present_substages']['timing']['display_clock_wait_us']['max_us'], 17000)
+        self.assertEqual(report['present_substages']['timing']['backend_present_us']['max_us'], 32950)
+        self.assertTrue(any(item['event']['event'] == 'native_video_present_timing'
+                            for item in report['longest_frames'][0]['nearby_events']))
+
+    def test_invalid_or_out_of_window_present_stages_are_not_evidence(self):
+        samples = [self.present(**change) for change in
+                   (dict(duration_us=1), dict(display_clock_wait_us=-1), dict(thread=True),
+                    dict(buffer=16), dict(completion_us=11))]
+        report = self.report(samples + [self.frame(1000000, 60000)])
+        self.assertEqual(report['counts']['invalid_present_timing'], 5)
+        self.assertEqual(report['present_substages']['timing']['duration_us']['count'], 0)
+        report = self.report([self.present(), self.frame(1000000, 60000)], from_clock_us=1000000)
+        self.assertEqual(report['present_substages']['timing']['duration_us']['count'], 0)
+        self.assertTrue(any(item['event']['event'] == 'native_video_present_timing'
+                            for item in report['longest_frames'][0]['nearby_events']))
+
     def log_snapshot(self, **kwargs):
         sample = dict(event='native_async_log', clock_us=2000000, capacity_records=1024, record_bytes=4096,
                       accepted=20, written=18, dropped_oldest=1, contended=2, invalid_records=0,
