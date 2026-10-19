@@ -8,26 +8,9 @@ function Invoke-Checked([string]$Command, [string[]]$Arguments) {
 }
 
 function Get-CollectionTool([string]$Name) {
-    $entries = @{clang='llvm/bin/clang.exe'; 'clang++'='llvm/bin/clang++.exe';
-        cmake='cmake/bin/cmake.exe'; ninja='ninja/ninja.exe'}
-    if (-not $entries.ContainsKey($Name)) { throw "Unknown build tool: $Name" }
-    $path = Join-Path $CollectionRoot ('tools/apps/' + $entries[$Name])
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing project-local $Name; run Prepare-Tools.ps1" }
-    if ($Name -in @('clang','clang++','cmake','ninja')) {
-        $packageId = if ($Name -in @('clang','clang++')) { 'llvm' } else { $Name }
-        $lock = Get-Content -LiteralPath (Join-Path $CollectionRoot 'tools/packages.lock.json') -Raw | ConvertFrom-Json
-        $entry = $lock.packages | Where-Object id -EQ $packageId
-        $expected = $entry.entrySha256
-        $receiptPath = Join-Path $CollectionRoot 'tools/state/installed.json'
-        if (Test-Path -LiteralPath $receiptPath) {
-            $receipt = (Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json).packages | Where-Object id -EQ $packageId
-            if ($receipt -and $receipt.archiveSha256 -eq $entry.sha256) { $expected = $receipt.entrySha256 }
-        }
-        if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine $expected) {
-            throw "Project tool hash differs: $Name"
-        }
-    }
-    return $path
+    $path = & py -3.12 (Join-Path $PSScriptRoot 'toolchain.py') path $Name --root $CollectionRoot
+    if ($LASTEXITCODE -ne 0 -or -not $path) { throw "Missing or changed project-local $Name; run Prepare-Tools.ps1" }
+    return [string]$path
 }
 
 function Initialize-CollectionBuildEnvironment {

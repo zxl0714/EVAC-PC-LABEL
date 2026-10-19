@@ -15,7 +15,7 @@ class ToolLayoutTests(unittest.TestCase):
         self.assertEqual(set(lock), {'format', 'submodules'})
         self.assertEqual(lock['format'], 1)
         self.assertEqual(len(sdk_sources.locked_modules(ROOT)), 22)
-        for name in ('sdk-source.lock.json', 'packages.lock.json', 'ps4-source.lock.json', 'ps4-tools.lock.json'):
+        for name in ('sdk-source.lock.json', 'packages.lock.json', 'ps4-source.lock.json'):
             text = (ROOT / 'tools' / name).read_text(encoding='utf-8')
             self.assertNotIn('ESPGaluda2-PC', text)
             self.assertNotIn('Mushihimesama-Futari-PC', text)

@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import tarfile
 import tempfile
@@ -12,6 +11,7 @@ import urllib.request
 import zipfile
 
 from project import ROOT, digest, reject_link, write_json_new
+from toolchain import install_directory, locked_packages, receipt_path
 
 
 def validate_archive_member(name):
@@ -35,7 +35,7 @@ def extract(package, archive, destination):
         try:
             import zstandard
         except ImportError as error:
-            raise RuntimeError('Run Prepare-Tools.ps1 -Ps4 to prepare the locked zstd decoder') from error
+            raise RuntimeError('Run Prepare-Tools.ps1 to prepare the locked zstd decoder') from error
         with archive.open('rb') as packed, tempfile.TemporaryFile() as unpacked:
             with zstandard.ZstdDecompressor(max_window_size=2**31).stream_reader(packed) as reader:
                 shutil.copyfileobj(reader, unpacked, 1024 * 1024)
@@ -66,25 +66,14 @@ def verify_required_files(package, directory):
 
 
 def prepare(cache=None, ps4=False):
-    lock_name = 'ps4-tools.lock.json' if ps4 else 'packages.lock.json'
-    lock = json.loads((ROOT / 'tools' / lock_name).read_text(encoding='utf-8'))
-    state_path = ROOT / ('tools/state/installed-ps4.json' if ps4 else 'tools/state/installed.json')
-    if lock.get('format') != 1 or lock.get('platform') != 'windows-x64':
-        raise ValueError('Unsupported tool lock')
-    names = set()
-    for package in lock['packages']:
-        if (not re.fullmatch('[a-z0-9-]+', package['id']) or package['id'] in names
-                or not re.fullmatch('[a-f0-9]{64}', package['sha256'])
-                or not re.fullmatch('[a-f0-9]{64}', package['entrySha256'])
-                or not package['url'].startswith('https://')):
-            raise ValueError('Invalid pinned tool package')
-        names.add(package['id'])
-        for name in (package['entry'], package['archiveRoot'], package.get('cacheDirectory', package['id'])):
-            validate_archive_member(name)
+    # --ps4 remains an alias for existing agent commands, not a second toolchain.
+    packages = locked_packages(ROOT)
+    state_path = receipt_path(ROOT)
     previous = json.loads(state_path.read_text(encoding='utf-8')) if state_path.exists() else {}
     records = []
-    for package in lock['packages']:
-        target = ROOT / 'tools/apps' / package['id']
+    for package in packages:
+        directory = install_directory(package)
+        target = ROOT / 'tools/apps' / directory
         reject_link(target)
         if target.exists():
             entry = target / package['entry']
@@ -94,7 +83,7 @@ def prepare(cache=None, ps4=False):
                 raise ValueError(f'Existing {package["id"]} differs; preserve and inspect it')
             archive_sha = known_receipt.get('archiveSha256') if known_receipt else None
         else:
-            candidates = [cache / package['id'], cache / package.get('cacheDirectory', package['id'])] if cache else []
+            candidates = [cache / directory, cache / package['id'], cache / package.get('cacheDirectory', package['id'])] if cache else []
             seed = next((path for path in candidates if (path / package['entry']).is_file()
                          and digest(path / package['entry']) == package['entrySha256']), None)
             if seed:
@@ -134,7 +123,7 @@ def prepare(cache=None, ps4=False):
             raise ValueError('Tool executable differs from its fixed entry hash')
         verify_required_files(package, target)
         records.append(dict(id=package['id'], version=package['version'],
-            entry='tools/apps/' + package['id'] + '/' + package['entry'],
+            entry='tools/apps/' + directory + '/' + package['entry'],
             entrySha256=digest(target / package['entry']), archiveSha256=archive_sha))
     state = dict(format=1, packages=records)
     if previous and previous != state:

@@ -114,11 +114,14 @@ P4's formal HTTPS score/replay upload has now passed in an actual Black Label
 round. Audio response and physical-input extension checks remain open; they
 are not implicitly passed by the network result.
 
-The user schedules compiler unification and the Futari/Ketsui frame-pacing
-investigation/optimization for the next release after v0.1. Do not implement
-them now or make them v0.1 packaging gates. Keep the verified separate compiler
-configurations and existing diagnostics; continue current integration and
-mechanism regressions. G2's observed ~19.1 ms maximum frame interval is a
+The user has now asked to continue the post-v0.1 work. Start compiler unification
+and the Futari/Ketsui frame-pacing investigation/optimization, preserving the
+released v0.1 archives and original projects. Use one pinned LLVM distribution
+with the backends' required distinct driver styles and ABI flags. Rebuild the
+SDK, hosts, GPU and game modules, verify symbols and mechanisms, then run a small
+representative gameplay comparison before accepting the new toolchain. Do not
+replace runtime validation with compiler-version equality. Keep diagnostics and
+proportionate tuning. G2's observed ~19.1 ms maximum frame interval is a
 scene-specific comparison baseline, not measured input latency or a universal
 pass threshold. Keep optimization proportionate when that future work starts.
 

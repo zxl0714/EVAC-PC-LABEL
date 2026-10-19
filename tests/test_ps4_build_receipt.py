@@ -55,7 +55,8 @@ class Ps4BuildReceiptTests(unittest.TestCase):
             (folder / 'fixture.pdb').write_bytes(b'authored PDB placeholder')
             pe = f'PDBGUID: {{{guid}}}\nPDBAge: 1'.encode()
             pdb = f'GUID: {{{guid}}}\nAge: 1'.encode()
-            with patch.object(module, 'ROOT', root), patch.object(module, 'OUTPUTS', {'out/fixture':('fixture',)}):
+            with patch.object(module, 'ROOT', root), patch.object(module, 'OUTPUTS', {'out/fixture':('fixture',)}), \
+                 patch.object(module, 'tool_path', side_effect=lambda name, selected: root / 'authored-tools' / name):
                 with patch.object(module.subprocess, 'check_output', side_effect=[pe, pdb]):
                     outputs = module.completed_outputs()
                 self.assertEqual(len(outputs), 2)

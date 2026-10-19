@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import project
 import prepare_tools
 import sdk_sources
+import toolchain
 
 
 class SdkToolTests(unittest.TestCase):
@@ -115,7 +116,7 @@ class SdkToolTests(unittest.TestCase):
                             prepare_tools.extract({'archiveRoot':''}, packed, root / 'new')
                         self.assertFalse((root / 'escape').exists())
 
-    def test_required_tool_files_and_independent_ps4_receipt(self):
+    def test_required_files_and_shared_receipt_preserve_legacy_tools(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'tools').mkdir()
@@ -128,14 +129,20 @@ class SdkToolTests(unittest.TestCase):
                            sha256='a'*64, archiveRoot='', cacheDirectory='compiler-cache', entry='compiler.exe',
                            entrySha256=project.digest(seed / 'compiler.exe'),
                            requiredFiles={'runtime.lib':project.digest(seed / 'runtime.lib')})
-            (root / 'tools/ps4-tools.lock.json').write_text(json.dumps(dict(format=1, platform='windows-x64', packages=[package])))
+            package['installDirectory'] = 'fixture-1.0'
+            (root / 'tools/packages.lock.json').write_text(json.dumps(dict(format=1, platform='windows-x64', packages=[package])))
+            legacy = root / 'tools/state/installed-ps4.json'
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text('legacy receipt, preserve')
             with patch.object(prepare_tools, 'ROOT', root), patch('builtins.print'):
                 prepare_tools.prepare(cache, ps4=True)
-                before = (root / 'tools/state/installed-ps4.json').read_bytes()
+                receipt = toolchain.receipt_path(root)
+                before = receipt.read_bytes()
                 self.assertFalse((root / 'tools/state/installed.json').exists())
-                prepare_tools.prepare(cache, ps4=True)
-                self.assertEqual((root / 'tools/state/installed-ps4.json').read_bytes(), before)
-                runtime = root / 'tools/apps/fixture/runtime.lib'
+                prepare_tools.prepare(cache)
+                self.assertEqual(receipt.read_bytes(), before)
+                self.assertEqual(legacy.read_text(), 'legacy receipt, preserve')
+                runtime = root / 'tools/apps/fixture-1.0/runtime.lib'
                 runtime.write_bytes(b'preserve changed file')
                 with self.assertRaisesRegex(ValueError, 'component differs'):
                     prepare_tools.prepare(cache, ps4=True)

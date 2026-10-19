@@ -12,6 +12,7 @@ from build_receipt import signature
 from generate_catalogue import relative
 from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import locked_dependencies, verify_checkout
+from toolchain import tool_path, tool_snapshot
 
 OUTPUTS = {
     'out/ps4-native': ('KetsuiNativeProbe', 'KetsuiResourcePrepareCheck'),
@@ -58,7 +59,7 @@ def snapshot():
                 'scripts/Build-Common.ps1', 'scripts/ps4_build_receipt.py',
                 'scripts/Prepare-Tools.ps1', 'scripts/prepare_tools.py', 'scripts/ps4/run_native_checks.py',
                 'scripts/ps4_sources.py', 'scripts/build_receipt.py', 'scripts/project.py',
-                'tools/ps4-source.lock.json', 'tools/ps4-tools.lock.json', 'tools/python-ps4.lock.txt',
+                'tools/ps4-source.lock.json', 'scripts/toolchain.py', 'tools/python-tools.lock.txt',
                 'tools/packages.lock.json', 'config/default.ini', 'games/catalogue.json', 'scripts/generate_catalogue.py',
                 'scripts/ps4/run_prepare_checks.py', 'scripts/ps4/native_elf.py', 'scripts/ps4/prepare_native.py',
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
@@ -70,22 +71,7 @@ def snapshot():
             path = ROOT / name
             reject_link(path)
             files[name] = digest(path)
-    lock = json.loads((ROOT / 'tools/ps4-tools.lock.json').read_text())
-    package, = lock['packages']
-    compiler = ROOT / 'tools/apps' / package['id']
-    expected = {package['entry']: package['entrySha256'], **package['requiredFiles']}
-    tools = {}
-    for name, sha in expected.items():
-        path = compiler / relative(name)
-        reject_link(path)
-        actual = digest(path)
-        if actual != sha:
-            raise ValueError('PS4 tool changed: ' + name)
-        tools[path.relative_to(ROOT).as_posix()] = actual
-    for name in ('cmake/bin/cmake.exe', 'ninja/ninja.exe', 'llvm/bin/llvm-readobj.exe', 'llvm/bin/llvm-pdbutil.exe'):
-        path = ROOT / 'tools/apps' / name
-        reject_link(path)
-        tools[path.relative_to(ROOT).as_posix()] = digest(path)
+    tools = tool_snapshot(ROOT)
     state = dict(files=files, dependencies=dependencies, tools=tools,
                  buildType='RelWithDebInfo', gameDataRequired=False)
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
@@ -94,13 +80,14 @@ def snapshot():
 
 def completed_outputs():
     pairs = []
+    readobj, pdbutil = tool_path('readobj', ROOT), tool_path('pdbutil', ROOT)
     for directory, names in OUTPUTS.items():
         for name in names:
             binary = ROOT / directory / (name + ('.dll' if name == 'KetsuiGpuRuntime' else '.exe'))
             symbols = binary.with_suffix('.pdb')
-            pe_text = subprocess.check_output([str(ROOT / 'tools/apps/llvm/bin/llvm-readobj.exe'),
+            pe_text = subprocess.check_output([str(readobj),
                                               '--coff-debug-directory', str(binary)]).decode('utf-8')
-            pdb_text = subprocess.check_output([str(ROOT / 'tools/apps/llvm/bin/llvm-pdbutil.exe'),
+            pdb_text = subprocess.check_output([str(pdbutil),
                                                'dump', '-summary', str(symbols)]).decode('utf-8')
             identity = signature(pe_text)
             if identity != signature(pdb_text, pdb=True):

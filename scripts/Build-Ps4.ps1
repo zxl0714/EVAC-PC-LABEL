@@ -7,8 +7,7 @@ $ps4PreviousPriority = $ps4BuildProcess.PriorityClass
 try {
     $ps4BuildProcess.PriorityClass = 'BelowNormal'
     Initialize-CollectionBuildEnvironment
-    $ps4Compiler = Join-Path $CollectionRoot 'tools/apps/llvm-ps4/bin/clang-cl.exe'
-    if (-not (Test-Path -LiteralPath $ps4Compiler)) { throw 'Run Prepare-Tools.ps1 -Ps4 first' }
+    $ps4Compiler = Get-CollectionTool 'clang-cl'
     $ps4State = Join-Path $CollectionRoot ('.local/build-inputs/ps4-' + [guid]::NewGuid().ToString('N') + '.json')
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps4_build_receipt.py'),'begin','--state',$ps4State)
     $ps4CMake = Get-CollectionTool 'cmake'

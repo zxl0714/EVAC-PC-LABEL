@@ -9,6 +9,7 @@ import subprocess
 
 from project import ROOT, digest, reject_link, write_json_new
 from generate_catalogue import relative, load
+from toolchain import tool_path, tool_snapshot
 
 DEFAULT_GAMES=('espgaluda2',)
 
@@ -37,7 +38,8 @@ def snapshot(kind,games=DEFAULT_GAMES):
     names=set(item.decode('utf-8') for item in git('ls-files','-z','--cached','--others','--exclude-standard').split(b'\0') if item)
     if kind=='sdk':
         explicit={'.gitmodules','scripts/Build-Sdk.ps1','scripts/Build-Common.ps1','scripts/build_receipt.py',
-                  'scripts/sdk_sources.py','scripts/project.py',
+                  'scripts/sdk_sources.py','scripts/project.py','scripts/toolchain.py',
+                  'scripts/Prepare-Tools.ps1','scripts/prepare_tools.py','tools/python-tools.lock.txt',
                   'tools/packages.lock.json','tools/sdk-source.lock.json'}
         names={name for name in names if name.startswith('third_party/rexglue/') or name in explicit}
     files={name:digest(ROOT/name) for name in sorted(names) if (ROOT/name).is_file()}
@@ -46,9 +48,7 @@ def snapshot(kind,games=DEFAULT_GAMES):
     for raw in git('status','--porcelain','-z','--ignore-submodules=none','--untracked-files=normal').split(b'\0'):
         if raw and raw[3:].decode('utf-8') in roots:
             raise ValueError('Commit dependency changes and update its pin before building')
-    tools={name:digest(ROOT/'tools/apps'/relative) for name,relative in {
-        'clang':'llvm/bin/clang.exe','clang++':'llvm/bin/clang++.exe','cmake':'cmake/bin/cmake.exe',
-        'ninja':'ninja/ninja.exe','readobj':'llvm/bin/llvm-readobj.exe','pdbutil':'llvm/bin/llvm-pdbutil.exe'}.items()}
+    tools=tool_snapshot(ROOT)
     state=dict(files=files,submodules=modules,tools=tools,
         environment={key:os.environ.get(key,'') for key in ('VCToolsVersion','WindowsSDKVersion','VSCMD_ARG_TGT_ARCH')})
     if kind=='host':
@@ -150,11 +150,12 @@ def main():
     outputs=[]
     binaries=[*sorted(output_root(args.kind,args.games).glob('*.exe')),*sorted(output_root(args.kind,args.games).glob('*.dll'))]
     if not binaries:raise ValueError('No build outputs found')
+    readobj,pdbutil=tool_path('readobj',ROOT),tool_path('pdbutil',ROOT)
     for binary in binaries:
         pdb=binary.with_suffix('.pdb')
-        pe_text=subprocess.check_output([str(ROOT/'tools/apps/llvm/bin/llvm-readobj.exe'),
+        pe_text=subprocess.check_output([str(readobj),
                                         '--coff-debug-directory',str(binary)],text=True,encoding='utf-8')
-        pdb_text=subprocess.check_output([str(ROOT/'tools/apps/llvm/bin/llvm-pdbutil.exe'),
+        pdb_text=subprocess.check_output([str(pdbutil),
                                          'dump','-summary',str(pdb)],text=True,encoding='utf-8')
         pe_id,pdb_id=signature(pe_text),signature(pdb_text,True)
         if pe_id!=pdb_id:raise ValueError(f'PDB does not match {binary.name}')

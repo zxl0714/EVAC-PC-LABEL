@@ -4,12 +4,22 @@
   "packages": [
     {
       "id": "llvm",
-      "version": "20.1.8",
-      "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/clang%2Bllvm-20.1.8-x86_64-pc-windows-msvc.tar.xz",
-      "sha256": "f229769f11d6a6edc8ada599c0cda964b7dee6ab1a08c6cf9dd7f513e85b107f",
-      "archiveRoot": "clang+llvm-20.1.8-x86_64-pc-windows-msvc",
+      "version": "23.1.3",
+      "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.3/clang%2Bllvm-23.1.3-x86_64-pc-windows-msvc.tar.zst",
+      "sha256": "7e69dc07a4536b79ff24a651a2611990bf8eaab17ea560f1092707c4f31ba01d",
+      "archiveRoot": "clang+llvm-23.1.3-x86_64-pc-windows-msvc",
+      "installDirectory": "llvm-23.1.3",
+      "cacheDirectory": "llvm-ps4",
       "entry": "bin/clang++.exe",
-      "entrySha256": "57e32b1ea2456f12f97bf802453171bbff12d56b2c486b4eca0c75343c0cda2c"
+      "entrySha256": "9584244d83bb095c5a2983f814692cb50e0b8d2916585516cad8f3e8596d8261",
+      "requiredFiles": {
+        "bin/clang.exe": "9584244d83bb095c5a2983f814692cb50e0b8d2916585516cad8f3e8596d8261",
+        "bin/clang-cl.exe": "9584244d83bb095c5a2983f814692cb50e0b8d2916585516cad8f3e8596d8261",
+        "bin/lld-link.exe": "ccfe54db0d5164d3e05350606a464402c3bfedcba05deacbbdbfba82228933ac",
+        "bin/llvm-readobj.exe": "422bf4a863e703c71f7eafcc0f6107475c83bed3eec0b07ef291a20761b90e90",
+        "bin/llvm-pdbutil.exe": "043b272f503aaba4fb2bc480da9efd87425fba11cc46caddf72f076ca6b7a430",
+        "lib/clang/23/lib/windows/clang_rt.builtins-x86_64.lib": "f595e4a0c42dc19198a9ae9cc33785330317943b160a515969684e82bd51b161"
+      }
     },
     {
       "id": "cmake",
