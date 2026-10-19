@@ -27,6 +27,7 @@
 #include <rex/codegen/config.h>
 #include <rex/codegen/progress_reporter.h>
 #include <rex/codegen/template_registry.h>
+#include <rex/filesystem.h>
 #include <rex/kernel/init.h>
 #include <rex/logging.h>
 #include <rex/runtime.h>
@@ -43,8 +44,8 @@ namespace rex::codegen {
 namespace {
 
 std::string DeriveTargetNameFromFilePath(const std::string& file_path) {
-  std::filesystem::path p(file_path);
-  std::string name = p.stem().string();
+  const auto p = rex::to_path(file_path);
+  std::string name = rex::path_to_utf8(p.stem());
   std::replace(name.begin(), name.end(), '.', '_');
   std::replace(name.begin(), name.end(), ' ', '_');
   return name;
@@ -158,10 +159,10 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
 
   const auto& entryConfig = targeted[0].config;
   auto configDir = manifest_.manifestDir;
-  fs::path entryXexPath = configDir / entryConfig.filePath;
+  fs::path entryXexPath = configDir / rex::to_path(entryConfig.filePath);
   if (!fs::exists(entryXexPath)) {
     return Err<void>(ErrorCategory::IO,
-                     fmt::format("Entrypoint XEX not found: {}", entryXexPath.string()));
+                     fmt::format("Entrypoint XEX not found: {}", rex::path_to_utf8(entryXexPath)));
   }
   entryXexPath = fs::canonical(entryXexPath);
 
@@ -169,11 +170,11 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
   // manifest override if set; otherwise default to the entrypoint's parent.
   fs::path gameRoot;
   if (manifest_.gameRoot && !manifest_.gameRoot->empty()) {
-    fs::path resolved = configDir / *manifest_.gameRoot;
+    fs::path resolved = configDir / rex::to_path(*manifest_.gameRoot);
     if (!fs::exists(resolved) || !fs::is_directory(resolved)) {
       return Err<void>(ErrorCategory::Validation,
                        fmt::format("[project].game_root '{}' does not resolve to a directory",
-                                   resolved.string()));
+                                   rex::path_to_utf8(resolved)));
     }
     gameRoot = fs::canonical(resolved);
   } else {
@@ -184,12 +185,12 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
   if (entryRel.empty() || *entryRel.begin() == "..") {
     return Err<void>(ErrorCategory::Validation,
                      fmt::format("Entrypoint XEX '{}' resolves outside game root '{}'",
-                                 entryXexPath.string(), gameRoot.string()));
+                                 rex::path_to_utf8(entryXexPath), rex::path_to_utf8(gameRoot)));
   }
 
   // Tool state belongs with generated output, never beside immutable game
   // inputs (Runtime's legacy default otherwise uses gameRoot for user data).
-  const auto toolStateRoot = fs::absolute(configDir / entryConfig.outDirectoryPath) / ".tool-state";
+  const auto toolStateRoot = fs::absolute(configDir / rex::to_path(entryConfig.outDirectoryPath)) / ".tool-state";
   auto runtime = std::make_unique<Runtime>(gameRoot, toolStateRoot / "user-data", fs::path{},
                                            toolStateRoot / "cache", toolStateRoot / "metadata");
   auto rtStatus = runtime->Setup(rex::RuntimeConfig{
@@ -201,7 +202,7 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
                      fmt::format("Failed to initialize Runtime: {:#x}", rtStatus));
   }
 
-  std::string entryRelStr = entryRel.string();
+  std::string entryRelStr = rex::path_to_utf8(entryRel);
   std::replace(entryRelStr.begin(), entryRelStr.end(), '/', '\\');
   auto entryVfsPath = "game:\\" + entryRelStr;
   rtStatus = runtime->LoadXexImage(entryVfsPath);
@@ -210,17 +211,17 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
                      fmt::format("Failed to load entrypoint XEX: {:#x}", rtStatus));
   }
 
-  auto entry_display_name = std::filesystem::path(targeted[0].config.filePath).filename().string();
+  auto entry_display_name = rex::path_to_utf8(rex::to_path(targeted[0].config.filePath).filename());
   ReportBinaryInfo(opts.reporter, entry_display_name,
                    *runtime->kernel_state()->GetExecutableModule()->xex_module());
 
   std::vector<rex::system::object_ref<rex::system::UserModule>> dllModules;
   for (size_t i = 1; i < targeted.size(); ++i) {
     const auto& dllConfig = targeted[i].config;
-    fs::path dllXexPath = configDir / dllConfig.filePath;
+    fs::path dllXexPath = configDir / rex::to_path(dllConfig.filePath);
     if (!fs::exists(dllXexPath)) {
       return Err<void>(ErrorCategory::IO,
-                       fmt::format("DLL XEX not found: {}", dllXexPath.string()));
+                       fmt::format("DLL XEX not found: {}", rex::path_to_utf8(dllXexPath)));
     }
     dllXexPath = fs::canonical(dllXexPath);
 
@@ -228,9 +229,9 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
     if (relPath.empty() || *relPath.begin() == "..") {
       return Err<void>(ErrorCategory::Validation,
                        fmt::format("DLL '{}' resolves outside game root '{}': {}",
-                                   targeted[i].targetName, gameRoot.string(), dllXexPath.string()));
+                                   targeted[i].targetName, rex::path_to_utf8(gameRoot), rex::path_to_utf8(dllXexPath)));
     }
-    std::string relStr = relPath.string();
+    std::string relStr = rex::path_to_utf8(relPath);
     std::replace(relStr.begin(), relStr.end(), '/', '\\');
     auto dllVfsPath = "game:\\" + relStr;
     auto userMod = runtime->kernel_state()->LoadUserModule(dllVfsPath, false);
@@ -240,7 +241,7 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
     }
     REXCODEGEN_TRACE("Loaded DLL module '{}' at base 0x{:08X}", targeted[i].targetName,
                      userMod->xex_module()->base_address());
-    auto dll_display_name = std::filesystem::path(targeted[i].config.filePath).filename().string();
+    auto dll_display_name = rex::path_to_utf8(rex::to_path(targeted[i].config.filePath).filename());
     ReportBinaryInfo(opts.reporter, dll_display_name, *userMod->xex_module());
     dllModules.push_back(std::move(userMod));
   }
@@ -253,7 +254,7 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
   std::vector<ContextEntry> contexts;
 
   auto make_display_name = [](const std::string& filePath) {
-    return std::filesystem::path(filePath).filename().string();
+    return rex::path_to_utf8(rex::to_path(filePath).filename());
   };
 
   auto* resolver = runtime->export_resolver();
@@ -368,12 +369,12 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
     return Ok();
   }
 
-  auto outputPath = contexts[0].ctx.configDir() / contexts[0].ctx.Config().outDirectoryPath;
+  auto outputPath = contexts[0].ctx.configDir() / rex::to_path(contexts[0].ctx.Config().outDirectoryPath);
   std::error_code mk_ec;
   fs::create_directories(outputPath, mk_ec);
   if (mk_ec) {
     return Err<void>(ErrorCategory::IO, fmt::format("Failed to create output dir {}: {}",
-                                                    outputPath.string(), mk_ec.message()));
+                                                    rex::path_to_utf8(outputPath), mk_ec.message()));
   }
 
   if (opts.reporter)
@@ -389,7 +390,7 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
       auto guestPath = mod.guestPath;
       std::replace(guestPath.begin(), guestPath.end(), '\\', '/');
       nlohmann::json dllEntry;
-      dllEntry["pe_name"] = fs::path(mod.guestPath).filename().string();
+      dllEntry["pe_name"] = rex::path_to_utf8(rex::to_path(mod.guestPath).filename());
       dllEntry["guest_path"] = guestPath;
       dllEntry["shared_lib_name"] = manifest_.projectName + "_" + mod.targetName;
       dllArray.push_back(dllEntry);
@@ -401,15 +402,15 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
     auto registryPath = outputPath / "module_registry.cpp";
     std::ofstream f(registryPath);
     if (!f) {
-      return Err<void>(ErrorCategory::IO, fmt::format("Failed to open {}", registryPath.string()));
+      return Err<void>(ErrorCategory::IO, fmt::format("Failed to open {}", rex::path_to_utf8(registryPath)));
     }
     f << registryContent;
     if (!f.good()) {
       return Err<void>(ErrorCategory::IO,
-                       fmt::format("Failed while writing {}", registryPath.string()));
+                       fmt::format("Failed while writing {}", rex::path_to_utf8(registryPath)));
     }
     writtenFiles_.push_back(registryPath.filename().string());
-    REXCODEGEN_TRACE("Wrote {}", registryPath.string());
+    REXCODEGEN_TRACE("Wrote {}", rex::path_to_utf8(registryPath));
   }
   if (opts.reporter)
     opts.reporter->projectPhaseFinished();
@@ -436,15 +437,15 @@ Result<void> ProjectRecompiler::Run(const ProjectRecompilerOptions& opts) {
     auto dllCmakePath = outputPath / "dll_targets.cmake";
     std::ofstream cf(dllCmakePath);
     if (!cf) {
-      return Err<void>(ErrorCategory::IO, fmt::format("Failed to open {}", dllCmakePath.string()));
+      return Err<void>(ErrorCategory::IO, fmt::format("Failed to open {}", rex::path_to_utf8(dllCmakePath)));
     }
     cf << dllCmakeContent;
     if (!cf.good()) {
       return Err<void>(ErrorCategory::IO,
-                       fmt::format("Failed while writing {}", dllCmakePath.string()));
+                       fmt::format("Failed while writing {}", rex::path_to_utf8(dllCmakePath)));
     }
     writtenFiles_.push_back(dllCmakePath.filename().string());
-    REXCODEGEN_TRACE("Wrote {}", dllCmakePath.string());
+    REXCODEGEN_TRACE("Wrote {}", rex::path_to_utf8(dllCmakePath));
   }
   if (opts.reporter)
     opts.reporter->projectPhaseFinished();

@@ -145,8 +145,8 @@ bool CodegenWriter::write(bool force) {
   }
 
   // --- Output directory setup (from recompile.cpp) ---
-  std::filesystem::path outputPath = ctx_.configDir() / config().outDirectoryPath;
-  REXCODEGEN_TRACE("Output path: {}", outputPath.string());
+  std::filesystem::path outputPath = ctx_.configDir() / rex::to_path(config().outDirectoryPath);
+  REXCODEGEN_TRACE("Output path: {}", rex::path_to_utf8(outputPath));
   std::filesystem::create_directories(outputPath);
 
   // --- Clean old generated files (from recompile.cpp) ---
@@ -191,7 +191,7 @@ bool CodegenWriter::write(bool force) {
 
   TemplateRegistry registry;
   if (!config().templateDir.empty())
-    registry.loadOverrides(config().templateDir);
+    registry.loadOverrides(rex::to_path(config().templateDir));
 
   auto tmplData = buildTemplateData(ctx_, functions, rexcrtByAddr);
 
@@ -285,20 +285,21 @@ void CodegenWriter::SaveCurrentOutData(const std::string_view name) {
 }
 
 void CodegenWriter::FlushPendingWrites() {
-  std::filesystem::path outputPath = ctx_.configDir() / config().outDirectoryPath;
+  std::filesystem::path outputPath = ctx_.configDir() / rex::to_path(config().outDirectoryPath);
 
   for (const auto& [filename, content] : pendingWrites) {
-    std::string filePath = (outputPath / filename).string();
-    REXCODEGEN_TRACE("flush_pending_writes: filePath={}", filePath);
+    const auto filePath = outputPath / rex::to_path(filename);
+    const auto displayPath = rex::path_to_utf8(filePath);
+    REXCODEGEN_TRACE("flush_pending_writes: filePath={}", displayPath);
 
-    FILE* f = rex::filesystem::OpenFile(rex::to_path(filePath), "wb");
+    FILE* f = rex::filesystem::OpenFile(filePath, "wb");
     if (!f) {
-      REXCODEGEN_ERROR("Failed to open file for writing: {}", filePath);
+      REXCODEGEN_ERROR("Failed to open file for writing: {}", displayPath);
       continue;
     }
     fwrite(content.data(), 1, content.size(), f);
     fclose(f);
-    REXCODEGEN_TRACE("Wrote {} bytes to {}", content.size(), filePath);
+    REXCODEGEN_TRACE("Wrote {} bytes to {}", content.size(), displayPath);
 
     writtenFiles_.push_back(filename);
   }

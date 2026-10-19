@@ -82,6 +82,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     const auto snapshot=fs::exists(configuration)?cave::Ini::ReadText(configuration):std::string(cave::DefaultConfig());
     const auto ini=cave::Ini::Parse(snapshot);
     run.settings=cave::ResolveSettings(ini,build.game);
+    const bool community_requested=run.settings.community_enabled;
+    if (!identity.community_supported) run.settings.community_enabled=false;
     run.paths=cave::Paths(run.root,build.game,dataOverride.empty()?ini.DataDirectory(identity):dataOverride);
     if (!requestedProfile.empty()) run.paths.profile=cave::Resolve(run.root,requestedProfile);
     cave::ValidateOutputs(run.paths);
@@ -136,6 +138,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         {"dataDirectory",PathUtf8(game)},{"contentSource",PathUtf8(run.content_source)},{"cacheDirectory",PathUtf8(run.paths.cache)},
         {"pid",GetCurrentProcessId()},{"processCodePage",GetACP()},
         {"gameInputs",inputs},{"configSha256",Sha256Text(snapshot)},
+        {"communityRequested",community_requested},{"communitySupported",identity.community_supported},
         {"communityEnabled",run.settings.community_enabled},{"keyboardMouseCapture",false},{"binaries",Json::array()}};
     record["optionalContent"]=Json::array();
     for (const auto& package:run.content)

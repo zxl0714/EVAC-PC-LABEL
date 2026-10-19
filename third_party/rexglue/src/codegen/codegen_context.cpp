@@ -13,6 +13,7 @@
 #include <fmt/format.h>
 
 #include <rex/codegen/codegen_context.h>
+#include <rex/filesystem.h>
 #include <rex/logging.h>
 
 #include "codegen_logging.h"
@@ -28,13 +29,13 @@ Result<CodegenContext> CodegenContext::Create(const std::filesystem::path& confi
   CodegenContext ctx;
 
   // Load configuration
-  if (!ctx.config_.Load(configPath.string())) {
+  if (!ctx.config_.Load(rex::path_to_utf8(configPath))) {
     return Err<CodegenContext>(ErrorCategory::Config,
                                fmt::format("Failed to load config: {}", configPath.string()));
   }
   ctx.configDir_ = configPath.parent_path();
 
-  std::filesystem::path xexPath = ctx.configDir_ / ctx.config_.filePath;
+  std::filesystem::path xexPath = ctx.configDir_ / rex::to_path(ctx.config_.filePath);
 
   // Resolve path
   if (std::filesystem::exists(xexPath)) {
@@ -46,7 +47,7 @@ Result<CodegenContext> CodegenContext::Create(const std::filesystem::path& confi
 
   // Load XEX via Runtime
   auto xexFilename = xexPath.filename();
-  auto vfsPath = "game:\\" + xexFilename.string();
+  auto vfsPath = "game:\\" + rex::path_to_utf8(xexFilename);
   auto status = runtime.LoadXexImage(vfsPath);
   if (status != X_STATUS_SUCCESS) {
     return Err<CodegenContext>(

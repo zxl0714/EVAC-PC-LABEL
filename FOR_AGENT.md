@@ -14,7 +14,7 @@
 | common/data_import.* | 显式复制数据的版本检查、独立暂存、取消、全量校验与最终启用 |
 | backends/ps4/、third_party/ps4/ | PS4 独立运行时及提取的开源图形组件；不并入 360 SDK |
 | launcher/ | Win32／Direct2D 原生启动器、嵌入式宣传素材与来源清单 |
-| games/catalogue.json | 五款游戏的顺序、显示名、后端、接入状态与运行组件要求 |
+| games/catalogue.json | 六款游戏的顺序、显示名、后端、接入状态与运行组件要求；SDOJ 当前尚未通过可玩验收 |
 | games/espgaluda2/data.json | G2 的 155 项路径／大小／SHA-256 元数据，无游戏正文 |
 | scripts/generate_catalogue.py | 校验元数据并生成构建目录内的原生清单头文件 |
 | config/default.ini | 共用配置模板；不含游戏级显示或输入覆盖 |
@@ -63,7 +63,13 @@ Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全
 
 最大往生的源码／输入评估已开始，游戏 ID 预留为 sdoj，不与 daioujou 混用。`scripts/sdoj_inputs.py '<本地解包目录>' --output .local/analysis/sdoj-inputs.json` 只识别本体／TU 组合；games/sdoj/input-references.json 不是完整数据清单，不接入生成、构建或启动器。后续阶段见实施计划 P7。上游应用许可尚未明确，没有导入其 src 或生成游戏正文，也未覆盖公共 SDK。
 
+games/sdoj/data.json 已单独记录经 ISO 内容比对的 114 个光盘本体文件，inputs.json 记录三个 XEX 头；不包含附带工具、系统更新或音乐补丁。Build.ps1／Generate.ps1 支持 sdoj，模块声明在 games/sdoj/recomp/sdoj.toml；CA022100.bin 和 CA022110.bin 各自生成／编译 DLL，不能改成 .xex 名字或合并同基址的映射。共享 CollectionApp 负责宿主，不导入上游配置向导、减速／输入增强或自动更新器。正式构建及实战尚待验收，清单保持 integrated=false、comingSoon=false，用于检查版本而不开放启动器启动。
+
+communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled 偏好分开；SDOJ 为 false，其他已接入作品默认 true。未支持时不创建通信 provider，run.json 分别记录请求、支持和实际开启状态，宿主保留离线 profile 和共享昵称。不为此在默认 INI 增加联网覆盖。
+
 v0.2 必须完成最大往生可玩接入，不能仅发布工具链和 UI 改进。本体的静态兼容检查使用 `scripts/sdoj_analyze.py --data-dir '<本地解包目录>' --output .local/analysis/sdoj-census`；先 NativeOnly 构建原生检查工具，过程不需要 G2 ROM。实现共用 backends/xbox360/diagnostics/inspect_xex.cpp，保留 espgaluda2_inspect.exe 名称；SDOJ 的两个 .bin 按 XEX 处理，检查重叠基址装卸载。它不应用 TU、不执行客体或证明可玩。音乐补丁按用户要求暂不处理。
+
+代码生成的 TOML 路径现按 UTF-8 转换，包含入口、game_root、模块、includes 和输出；Windows 原生流读取声明，避免系统代码页解释。实际原中文目录、中文／emoji 输出及 include 的生成结果，与英文路径试验的 76 个 C++／头文件逐字节相同。原生 CTest codegen_paths 另用自造无效 XEX 检查中文输入／include 的路径走到静态装载器后按预期拒绝，不执行客体，也不是游戏生成通过。含非 BMP 字符的数据根在额外开发试验仍失败，不将现有结果泛化为所有 Unicode 路径。
 
 静态模块、回调、日志和 G2 社区边界的检查方法见 [分析与诊断工具](docs/ANALYSIS.md)，其中列出原 66 项 Python 回归的迁移对应。工具显式读取数据目录，报告及解压区段只写新的 .local 路径；检查结果不代替实际进关和声音验收。
 

@@ -133,6 +133,10 @@ void CollectionApp::OnPostSetup() {
         if (!community_) throw std::runtime_error("Game community provider is unavailable");
         runtime()->kernel_state()->user_profile()->ConfigureCommunityProfile(run_->settings.nickname,true,NativeNickname(run_->settings.nickname));
         rex::system::xam::SetCommunityService(community_);
+    } else if (!cave::FindGame(game_).community_supported) {
+        runtime()->kernel_state()->user_profile()->ConfigureCommunityProfile(
+            run_->settings.nickname,false,NativeNickname(run_->settings.nickname));
+        REXLOG_INFO("Community unavailable for game={}; local profile only, no network worker",game_);
     }
     game_started_=true;OnGameSetup();
     REXLOG_INFO("Host initialized; game={} full-screen={} vsync={} volume={} keyboard_slot=0 gamepad={}",

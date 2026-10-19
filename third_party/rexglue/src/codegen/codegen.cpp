@@ -14,6 +14,7 @@
 #include <rex/codegen/analyze.h>
 #include <rex/codegen/codegen.h>
 #include <rex/codegen/codegen_writer.h>
+#include <rex/filesystem.h>
 #include <rex/kernel/init.h>
 #include <rex/logging.h>
 #include <rex/runtime.h>
@@ -29,14 +30,14 @@ Result<CodegenPipeline> CodegenPipeline::Create(const std::filesystem::path& con
 
   // Load config to get XEX path
   RecompilerConfig tempConfig;
-  if (!tempConfig.Load(configPath.string())) {
+  if (!tempConfig.Load(rex::path_to_utf8(configPath))) {
     return Err<CodegenPipeline>(ErrorCategory::Config,
                                 fmt::format("Failed to load config: {}", configPath.string()));
   }
 
   auto configDir = configPath.parent_path();
 
-  std::filesystem::path xexPath = configDir / tempConfig.filePath;
+  std::filesystem::path xexPath = configDir / rex::to_path(tempConfig.filePath);
 
   if (!std::filesystem::exists(xexPath)) {
     return Err<CodegenPipeline>(ErrorCategory::IO,
@@ -46,7 +47,7 @@ Result<CodegenPipeline> CodegenPipeline::Create(const std::filesystem::path& con
 
   // Create Runtime
   auto xexDir = xexPath.parent_path();
-  pipeline.runtime_ = std::make_unique<Runtime>(xexDir.string());
+  pipeline.runtime_ = std::make_unique<Runtime>(xexDir);
   auto status = pipeline.runtime_->Setup(rex::RuntimeConfig{
       .kernel_init = rex::kernel::InitializeKernel,
       .tool_mode = true,

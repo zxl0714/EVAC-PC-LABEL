@@ -67,6 +67,26 @@
       ]
     },
     {
+      "id": "sdoj",
+      "name": "DoDonPachi SaiDaiOuJou",
+      "backend": "xbox360",
+      "integrated": false,
+      "comingSoon": false,
+      "communitySupported": false,
+      "dataDirectory": "game-data/sdoj",
+      "dataManifest": "sdoj/data.json",
+      "executable": "runtime/xbox360/sdoj.exe",
+      "runtimeFiles": [
+        "runtime/xbox360/sdoj.exe",
+        "runtime/xbox360/rexruntime.dll",
+        "runtime/xbox360/rexgpu-xenos.dll",
+        "runtime/xbox360/sdoj_crash_writer.exe",
+        "runtime/games/sdoj/sdoj_CA022100.dll",
+        "runtime/games/sdoj/sdoj_CA022110.dll",
+        "runtime/games/sdoj/runtime-manifest.ini"
+      ]
+    },
+    {
       "id": "daioujou",
       "name": "DoDonPachi DaiOuJou",
       "backend": "undetermined",

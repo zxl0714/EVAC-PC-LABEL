@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Source','Native','All')][string]$Scope='All',
-    [ValidateSet('espgaluda2','futari','ketsui')][string[]]$Games=@()
+    [ValidateSet('espgaluda2','futari','ketsui','sdoj')][string[]]$Games=@()
 )
 $ErrorActionPreference = 'Stop'
 $collectionTestRoot = Split-Path -Parent $PSScriptRoot

@@ -179,8 +179,12 @@ int main() {
     const std::array files{DataFile{"main.bin",3,hash,true}, DataFile{"res/asset.bin",3,hash,false}};
     const std::array<std::string_view,1> runtime{"runtime/fake.exe"};
     Game game{"fixture","Fixture","xbox360","game-data/fixture","runtime/fake.exe",true,false,files,runtime};
-    Require(Catalogue().size() == 5 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
-            Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "daioujou" && Catalogue()[4].id == "esprade", "Catalogue order");
+    Require(Catalogue().size() == 6 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
+            Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
+            Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade", "Catalogue order");
+    Require(!FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
+            FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
+            "Community capability must not be inferred from the shared enabled preference");
     Reject([] { FindGame("unknown"); }, "Unknown game accepted");
     Require(FindGame("espgaluda2").files.size() == 155, "G2 complete inventory");
     auto inspect = [&](CheckLevel level = CheckLevel::Full) { return Inspect(game, fixture.root, fixture.data, level); };

@@ -12,7 +12,7 @@ from build_receipt import verify_sdk
 from generate_catalogue import load, relative
 from project import ROOT, digest, reject_link, write_json_new
 
-SUPPORTED_GAMES = ('espgaluda2', 'futari')
+SUPPORTED_GAMES = ('espgaluda2', 'futari', 'sdoj')
 
 
 def verify_data(game, data):
@@ -42,7 +42,8 @@ def targets(manifest, game):
         guest = relative(item['guest_path'])
         name = Path(guest).stem
         if (guest.casefold() not in programs or name in records or
-                not re.fullmatch('[a-z][a-z0-9_]*', name) or Path(guest).suffix != '.xex'):
+                not re.fullmatch('[A-Za-z][A-Za-z0-9_]*', name) or
+                Path(guest).suffix != ('.bin' if game_id == 'sdoj' else '.xex')):
             raise ValueError('Expected unique declared program overlays')
         records[name] = dict(item, program_path=programs[guest.casefold()])
     if {item['program_path'] for item in records.values()} != set(programs.values()):
@@ -95,7 +96,7 @@ def registry_source(records, game_id):
         if name != 'default':
             guest = relative(item['guest_path'])
             lines += ['  {', f'    const auto library=cave::Utf8(root/"{game_id}_{name}.dll");',
-                      f'    kernel_state->RegisterRecompiledModule("{name}.xex","{guest}",library.c_str());', '  }']
+                      f'    kernel_state->RegisterRecompiledModule("{Path(guest).name}","{guest}",library.c_str());', '  }']
     return '\n'.join(lines + ['}', ''])
 
 

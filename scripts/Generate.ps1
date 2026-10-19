@@ -1,7 +1,7 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param(
-    [ValidateSet('espgaluda2','futari')][string]$Game='espgaluda2',
+    [ValidateSet('espgaluda2','futari','sdoj')][string]$Game='espgaluda2',
     [Parameter(Mandatory)][string]$DataDirectory,
     [switch]$Regenerate
 )

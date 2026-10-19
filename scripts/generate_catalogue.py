@@ -48,6 +48,8 @@ def load(path):
             raise ValueError('Invalid display name')
         if type(game['integrated']) is not bool or type(game['comingSoon']) is not bool:
             raise ValueError('Invalid implementation state')
+        if type(game.get('communitySupported', True)) is not bool:
+            raise ValueError('Invalid community capability')
         if game['integrated'] and (game['comingSoon'] or not game['dataManifest'] or not game['runtimeFiles']):
             raise ValueError('Integrated games need data and runtime requirements')
         relative(game['dataDirectory'])
@@ -141,7 +143,8 @@ def generate(games):
     for game in games:
         key = game['id'].replace('-', '_')
         fields = [quoted(game[k]) for k in ('id', 'name', 'backend', 'dataDirectory', 'executable')]
-        fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}', f'content_{key}']
+        fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}', f'content_{key}',
+                   str(game.get('communitySupported', True)).lower()]
         lines.append('{' + ','.join(fields) + '},')
     return '\n'.join(lines + ['}};', '}  // namespace cave::detail', ''])
 

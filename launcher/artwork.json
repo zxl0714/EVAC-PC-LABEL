@@ -38,6 +38,18 @@
       "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
     },
     {
+      "game": "sdoj",
+      "path": "launcher/assets/sdoj.jpg",
+      "sha256": "87701ee3231f60b341aaa54f9339ad1112e52aa9d7231f026d90910e84914ed2",
+      "resource": 106,
+      "focusY": 0.5,
+      "kicker": "XBOX 360 · 2013 · IN DEVELOPMENT",
+      "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/",
+      "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/common/img/social.jpg",
+      "copyright": "©CAVE Interactive CO., LTD.",
+      "usage": "Unchanged official title image for the in-development banner. Native rendering supplies the display title; final v0.2 composition still requires visual review."
+    },
+    {
       "game": "daioujou",
       "path": "launcher/assets/daioujou.jpg",
       "sha256": "5355e708e0038b9b077fe9d91263acda3d6d19aafdf70ec1cb38f4edfef1c241",

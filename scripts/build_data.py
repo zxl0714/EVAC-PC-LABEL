@@ -10,7 +10,7 @@ from project import ROOT
 
 def build_data(game, explicit=None, root=ROOT):
     root = Path(root).resolve()
-    if game not in ('espgaluda2', 'futari', 'ketsui'):
+    if game not in ('espgaluda2', 'futari', 'ketsui', 'sdoj'):
         raise ValueError('Unsupported game build selection')
     if explicit:
         path = Path(explicit).resolve(strict=True)

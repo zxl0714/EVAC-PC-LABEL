@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,8)][int]$Jobs=2,
-    [ValidateSet('espgaluda2','futari','ketsui')][string[]]$Games=@(),
+    [ValidateSet('espgaluda2','futari','ketsui','sdoj')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
     [string]$DataDirectory,

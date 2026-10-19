@@ -24,6 +24,10 @@ add_custom_command(TARGET cave_content_source_tests POST_BUILD
     COMMAND_EXPAND_LISTS VERBATIM)
 add_test(NAME content_source COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/run_content_source_test.py" $<TARGET_FILE:cave_content_source_tests>)
 set_tests_properties(content_source PROPERTIES TIMEOUT 30)
+add_test(NAME codegen_paths COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/xbox360/check_codegen_paths.py"
+    --generator "${CMAKE_SOURCE_DIR}/.deps/sdk-install/bin/rexglue.exe")
+set_tests_properties(codegen_paths PROPERTIES TIMEOUT 30)
 
 # Metadata is title-specific; the platform libraries do not embed a game ID.
 function(cave_game_metadata game)

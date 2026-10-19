@@ -1,0 +1,692 @@
+{
+  "format": 1,
+  "game": "sdoj",
+  "variant": "disc-base",
+  "titleUpdateApplied": false,
+  "files": [
+    {
+      "path": "AvatarAssetPack",
+      "bytes": 13799424,
+      "sha256": "7159bf29cb70879b0b71eeb4e197c6b1e272a46d94d84629f1fddf09b737fe6d",
+      "program": false
+    },
+    {
+      "path": "CA022000.bin",
+      "bytes": 7586366,
+      "sha256": "25b9b172f5ca25842bce8ea598074757a50587815d952adfc222749907192a68",
+      "program": false
+    },
+    {
+      "path": "CA022001.bin",
+      "bytes": 218137753,
+      "sha256": "e757beac6b44e990107c49aca46a5c43ab34dae271cebb4251470fbbf889f809",
+      "program": false
+    },
+    {
+      "path": "CA022002.bin",
+      "bytes": 4715953,
+      "sha256": "4e0c791f50846854ad4d13d5ad1b0d00c6d6df5f32073d69755dd6905d80607c",
+      "program": false
+    },
+    {
+      "path": "CA022005.bin",
+      "bytes": 3311994,
+      "sha256": "d8ad27fe2cfe19ef0df866f4d3c024d1640d35418364f26de37b8b28c0dca6e3",
+      "program": false
+    },
+    {
+      "path": "CA022010.bin",
+      "bytes": 45729495,
+      "sha256": "90a68edd5720e74ddd9c0093eec43334b7513e0bf7ce1538ba765d80f3c30ea5",
+      "program": false
+    },
+    {
+      "path": "CA022011.bin",
+      "bytes": 10017121,
+      "sha256": "ce8726ffaa0841efdc6bb8d422ae155622f6fec9cfceb3792f1305bed7ede3a4",
+      "program": false
+    },
+    {
+      "path": "CA022012.bin",
+      "bytes": 2692356,
+      "sha256": "73564fd14fa86ebdecb7d09046248ecea6e265db5f928b180b6e53131c406038",
+      "program": false
+    },
+    {
+      "path": "CA022013.bin",
+      "bytes": 835694,
+      "sha256": "6a186874c26581943d21d3e9cb5ea7b0e11263801a0b40dd5e169b7a43f1cdd9",
+      "program": false
+    },
+    {
+      "path": "CA022014.bin",
+      "bytes": 1784586,
+      "sha256": "0de7d1cd4869e05e7a0ee7a3819fc588aae635e45c35db0e907f0d293a4f971d",
+      "program": false
+    },
+    {
+      "path": "CA022015.bin",
+      "bytes": 18924887,
+      "sha256": "11a42fa5b60605386aa806a384845cedc9f4acc0b0cfb3046ac334cc4e954a0f",
+      "program": false
+    },
+    {
+      "path": "CA022016.bin",
+      "bytes": 24088695,
+      "sha256": "e8e09632893c1013e9e74a1fd973d27948bef039b54a01e78803428d504628ef",
+      "program": false
+    },
+    {
+      "path": "CA022017.bin",
+      "bytes": 27644583,
+      "sha256": "805142e2c91088b23d2a754148714bc5488843256423aedfb3eca44f4d0590e9",
+      "program": false
+    },
+    {
+      "path": "CA022018.bin",
+      "bytes": 26029070,
+      "sha256": "1cbcf91601a26f34b5a283b9bfcefc5de555408eb6e930f2b4bca72b223ad6c1",
+      "program": false
+    },
+    {
+      "path": "CA022019.bin",
+      "bytes": 3142563,
+      "sha256": "8b898378308d9eb092c94cb488bf1b5c07df00bd59671b662e18ee4bdaa83a7a",
+      "program": false
+    },
+    {
+      "path": "CA022020.bin",
+      "bytes": 26186572,
+      "sha256": "62bcc43d3398a62d1511688d658bf42057e5afda3f4aa443ebd9ab51126729af",
+      "program": false
+    },
+    {
+      "path": "CA022021.bin",
+      "bytes": 8044807,
+      "sha256": "07cb118d270841d6215290f9b91c72a3b705242cb70ad99025aa50d8b2151660",
+      "program": false
+    },
+    {
+      "path": "CA022022.bin",
+      "bytes": 4022770,
+      "sha256": "e14278dd18ecac3ab876d63f8a79e1b9e7c49d4839e44ecce82b1a952ffd8123",
+      "program": false
+    },
+    {
+      "path": "CA022023.bin",
+      "bytes": 1353128,
+      "sha256": "9c6e337c98781cd7cf9dc52f453a49675a12a76f9afa2d8b0402ffd535f1a7bb",
+      "program": false
+    },
+    {
+      "path": "CA022024.bin",
+      "bytes": 2904656,
+      "sha256": "f510a21249df7d143ff8740ba1838fb9c76d2c6d604f39993a269693477e9735",
+      "program": false
+    },
+    {
+      "path": "CA022025.bin",
+      "bytes": 1264939,
+      "sha256": "ccdb39378187e339fa107e6dd76ba685429a5b413e207bf3568c931a00d947b4",
+      "program": false
+    },
+    {
+      "path": "CA022026.bin",
+      "bytes": 333077,
+      "sha256": "dbb66360e8ce2a9a9662249f268dcbb6d2d4e6a83d1c2c5f956342be7343be54",
+      "program": false
+    },
+    {
+      "path": "CA022027.bin",
+      "bytes": 1210834,
+      "sha256": "3872684ae712ae43ff73daf1573ccdb1efb94cf15915e871e65e44c8bd0dce3f",
+      "program": false
+    },
+    {
+      "path": "CA022028.bin",
+      "bytes": 2157329,
+      "sha256": "0d16942ba3b93c4b1ae90a69b4228c43327067300d685d02e4f23f6606793d8d",
+      "program": false
+    },
+    {
+      "path": "CA022029.bin",
+      "bytes": 2617815,
+      "sha256": "62c594e48a5a3f3a96efc2e9edcde0a1bf29ad6eb2976f38cc32d05a06f1d968",
+      "program": false
+    },
+    {
+      "path": "CA022030.bin",
+      "bytes": 2435321,
+      "sha256": "357a1e16db6340e4382b6c71a9b8dad77f394ee47418e1a52109051a85d73e6b",
+      "program": false
+    },
+    {
+      "path": "CA022031.bin",
+      "bytes": 4236964,
+      "sha256": "ad6b593e9ecb556d548d52af501aa8bb7ce94b5f47258a040f60bf7a5258f423",
+      "program": false
+    },
+    {
+      "path": "CA022032.bin",
+      "bytes": 15084653,
+      "sha256": "0f4316d2b6d0a9815f4eb0b57e3fe6c0799eca93352378f1f9544ad82efca80a",
+      "program": false
+    },
+    {
+      "path": "CA022033.bin",
+      "bytes": 2196362,
+      "sha256": "0b076947f2197374f3c137f966ce8924846de0586007c5e107ce29c3077ce717",
+      "program": false
+    },
+    {
+      "path": "CA022034.bin",
+      "bytes": 8012007,
+      "sha256": "009d41c02c091547e7731ba4775b1811940f9de03833042665a315014bd33d2d",
+      "program": false
+    },
+    {
+      "path": "CA022035.bin",
+      "bytes": 10402364,
+      "sha256": "2ac47fadeb54431989cf338674dd6db69c1cbb9d93f7f85f540fe4a62758117c",
+      "program": false
+    },
+    {
+      "path": "CA022036.bin",
+      "bytes": 4284011,
+      "sha256": "829012f479d549ceadc3086fce4f4f00653761a017cd36a669fc6115e05a270f",
+      "program": false
+    },
+    {
+      "path": "CA022037.bin",
+      "bytes": 2231826,
+      "sha256": "5f91c03f5f78e04885d73db9b5998778c39045bb270eb309e84c433166d2b4f7",
+      "program": false
+    },
+    {
+      "path": "CA022038.bin",
+      "bytes": 4991313,
+      "sha256": "6659031a704b1af08fbd81603d3d425d5519b694f6af1dd020bce8f1334eed96",
+      "program": false
+    },
+    {
+      "path": "CA022039.bin",
+      "bytes": 10271034,
+      "sha256": "d478e08060281d9ee9abfad2fa9bcf82beb51a6cce48e8cd87252eeed84eac52",
+      "program": false
+    },
+    {
+      "path": "CA022040.bin",
+      "bytes": 4135491,
+      "sha256": "9eaf209d4f8a9c98298f64e3b1271b9382466bc71284b71963c87d9e8a0b751b",
+      "program": false
+    },
+    {
+      "path": "CA022041.bin",
+      "bytes": 2564344,
+      "sha256": "6d48989e33e1cb6f9aefe7d5b3d8bbeff9ce880c0efdbc2aa2a8a155f6b841d9",
+      "program": false
+    },
+    {
+      "path": "CA022042.bin",
+      "bytes": 2684611,
+      "sha256": "2732b41101e29a7d817e4426ae235c2621dbebbea10da49bbffc5dd33dc9bcaf",
+      "program": false
+    },
+    {
+      "path": "CA022043.bin",
+      "bytes": 406701,
+      "sha256": "5a4833808d40f6248307ef2ac307f402c5b77e8a493738029c576bfcf6e2e7a4",
+      "program": false
+    },
+    {
+      "path": "CA022044.bin",
+      "bytes": 3623982,
+      "sha256": "3d99dda990e83f203ad5003b3d21ba6e224fe86db1e14a534bc0df1d1b01dbfd",
+      "program": false
+    },
+    {
+      "path": "CA022045.bin",
+      "bytes": 3787692,
+      "sha256": "ab73a338360d6d5ee36fa9cb13c0e569145d0c40ca8886e8adbd58f5f4f8b1d1",
+      "program": false
+    },
+    {
+      "path": "CA022046.bin",
+      "bytes": 3454155,
+      "sha256": "890b83b94ee8b2611396c1b8de7d777b24316b1b127e0938c24ff066f05d26c9",
+      "program": false
+    },
+    {
+      "path": "CA022047.bin",
+      "bytes": 15057147,
+      "sha256": "05a3bd9e1fc212634776dfa46eed4bf268099aee28694c2579d6f4677bc8dcbd",
+      "program": false
+    },
+    {
+      "path": "CA022048.bin",
+      "bytes": 12721739,
+      "sha256": "b1b725e9b52b8cac0f4a5c6efe9cade8863128c08378ff641df6abb0c23f5ec4",
+      "program": false
+    },
+    {
+      "path": "CA022049.bin",
+      "bytes": 12498951,
+      "sha256": "5660eea6cbccf118fe42ab670da247d6ea1ebdf857173876702764d255e8ccb2",
+      "program": false
+    },
+    {
+      "path": "CA022050.bin",
+      "bytes": 12551487,
+      "sha256": "01d711cc338f6b6698ffeb6908ff0d40ccaeb8835c9d42400ebad9806fce3dca",
+      "program": false
+    },
+    {
+      "path": "CA022051.bin",
+      "bytes": 299945,
+      "sha256": "fe1d3ba392843cddf5b4148ddbcbc1ce48808cb860c041c77d8d6391a1443d19",
+      "program": false
+    },
+    {
+      "path": "CA022052.bin",
+      "bytes": 1419503,
+      "sha256": "2604e18a66b28746e2659e7840f3f368429267b7e4c8f2b5249b1019aedf5d6a",
+      "program": false
+    },
+    {
+      "path": "CA022053.bin",
+      "bytes": 816089,
+      "sha256": "a48e5dcbe54230bf82d4f0a91a8ae121d2e1ae89d53b3615ecfee7c8c606f90a",
+      "program": false
+    },
+    {
+      "path": "CA022054.bin",
+      "bytes": 654884,
+      "sha256": "619b6a8770e3a238a61375de25765e5d459a5ef41417ee9c8d5b59f47f966d36",
+      "program": false
+    },
+    {
+      "path": "CA022055.bin",
+      "bytes": 1718415,
+      "sha256": "e9a5fc90cde66b633eefc4c6189b2fc573e0b8bd11a4a5284ed55cd2c42f7c46",
+      "program": false
+    },
+    {
+      "path": "CA022056.bin",
+      "bytes": 1621893,
+      "sha256": "cca2d902aa6fa0100d04a32ee4314c940ab868645c538db46b30ac00444d2e8a",
+      "program": false
+    },
+    {
+      "path": "CA022057.bin",
+      "bytes": 1188934,
+      "sha256": "d8361ca720041dbe26cc716235ff18020607c26a147f85e0dedf6f201d62db11",
+      "program": false
+    },
+    {
+      "path": "CA022058.bin",
+      "bytes": 1975386,
+      "sha256": "9f16bb56ba90b6c26dbdb14e3f07ed91647d97f15cb1eab045f6345443a754c4",
+      "program": false
+    },
+    {
+      "path": "CA022059.bin",
+      "bytes": 2267190,
+      "sha256": "b833f3a941ab2e77ccbed23993160a64af13dc8ba3c3dd768c74160791d01de1",
+      "program": false
+    },
+    {
+      "path": "CA022060.bin",
+      "bytes": 1896158,
+      "sha256": "2e7f9cf2b8886017e527b1ece1c7823bf46e971e3b7540400e37a51621016748",
+      "program": false
+    },
+    {
+      "path": "CA022061.bin",
+      "bytes": 1801830,
+      "sha256": "5459c241bd1183af7b2baab58230abd55995ad878d30ab2c40dc356e16e6a89d",
+      "program": false
+    },
+    {
+      "path": "CA022062.bin",
+      "bytes": 3339215,
+      "sha256": "599de94d892452ba3df15c776422956d3c0f1fbf0cfc0a8387937e68f7b743f5",
+      "program": false
+    },
+    {
+      "path": "CA022063.bin",
+      "bytes": 1882416,
+      "sha256": "5392ba303f0be857d57ed209a8996ccaa2f541aa7ef83953843ab559097690bb",
+      "program": false
+    },
+    {
+      "path": "CA022064.bin",
+      "bytes": 2093326,
+      "sha256": "7528251b9ba4f7be3e0adfc6d42bf8509a46bb98fdc6d8b735630abd01b21042",
+      "program": false
+    },
+    {
+      "path": "CA022065.bin",
+      "bytes": 2337732,
+      "sha256": "e42d821de2901a78603d1de386792e4e23cfcd2b47b59fc7d5d316636117ac8e",
+      "program": false
+    },
+    {
+      "path": "CA022066.bin",
+      "bytes": 2920467,
+      "sha256": "32fe5d707abbb33d7d75c087635c74ca6cb60d7cc766d027b908b8ea90f02cbd",
+      "program": false
+    },
+    {
+      "path": "CA022067.bin",
+      "bytes": 2444882,
+      "sha256": "2df928fe79c2ec1bce9222b1f0754ee92093700709641ccae0e148eb7fadc440",
+      "program": false
+    },
+    {
+      "path": "CA022068.bin",
+      "bytes": 2494202,
+      "sha256": "6f08433c72a3c602576e3ad344e2a35ccc3f72f0091b9fdff2146f88ff3e18aa",
+      "program": false
+    },
+    {
+      "path": "CA022069.bin",
+      "bytes": 4029373,
+      "sha256": "3262379f224b6f343927450327633609db0ae94d629a43a98416b83c9343c0ac",
+      "program": false
+    },
+    {
+      "path": "CA022070.bin",
+      "bytes": 2989135,
+      "sha256": "05620aa22dd08a8d79698dc2149d6fbe89a0f86571214976c65e1b6ba395125c",
+      "program": false
+    },
+    {
+      "path": "CA022071.bin",
+      "bytes": 2435008,
+      "sha256": "9a3ec47c6ef88fd96d3c9c81db2813b3dcceb1dcdbfa250453c719e698436e91",
+      "program": false
+    },
+    {
+      "path": "CA022072.bin",
+      "bytes": 15922298,
+      "sha256": "c35741ac99b42d76348613a2c6f26d40fabe6c594b4ff2e565712d33a99a6c9c",
+      "program": false
+    },
+    {
+      "path": "CA022073.bin",
+      "bytes": 23620277,
+      "sha256": "3253be6db7f4055f554a80264bce4e5a11ba7739bbe1d590858aa1a2d8320193",
+      "program": false
+    },
+    {
+      "path": "CA022074.bin",
+      "bytes": 16131445,
+      "sha256": "8b123401d40003e8570e147390b09944c9507c00eafc3d6a684a8388867196c5",
+      "program": false
+    },
+    {
+      "path": "CA022075.bin",
+      "bytes": 11147919,
+      "sha256": "bfc36ed73f1b83f571f8ae4d9a997a972e2f5b204c86e7d2b009aee398b5960f",
+      "program": false
+    },
+    {
+      "path": "CA022076.bin",
+      "bytes": 17025664,
+      "sha256": "6662157af086810070d38b8a8f95283d32eea892b209fa14d2bfc8f0a335b86d",
+      "program": false
+    },
+    {
+      "path": "CA022077.bin",
+      "bytes": 3317724,
+      "sha256": "22e5cc4a884ed75b264fe697c78f8e13c3b37edb3f471ec8f7e77bcaff09a242",
+      "program": false
+    },
+    {
+      "path": "CA022080.bin",
+      "bytes": 607620,
+      "sha256": "f0072ec7b8335affbe58bb8325b7b211d3f0c005ae535bccc92d03be4c1963b1",
+      "program": false
+    },
+    {
+      "path": "CA022081.bin",
+      "bytes": 634244,
+      "sha256": "0007ffacc026063fa0cdda6126ce117896d85f6abf08767c757dd0d30d232381",
+      "program": false
+    },
+    {
+      "path": "CA022082.bin",
+      "bytes": 613764,
+      "sha256": "b1c45da18812be4625e0fc27ccd3cbfbdfd536d9a061dd39c8523288c7fa0a7a",
+      "program": false
+    },
+    {
+      "path": "CA022083.bin",
+      "bytes": 1672852,
+      "sha256": "feacdc7fb278aa21f93459dd3d8b59defa78f8c5cb69cf0ef299a9fc3fae9b7f",
+      "program": false
+    },
+    {
+      "path": "CA022084.bin",
+      "bytes": 1052424,
+      "sha256": "ef9733d8b647114fd1e2a4fd1c7334223d2999d8099c3f02a19b3fd501af7405",
+      "program": false
+    },
+    {
+      "path": "CA022085.bin",
+      "bytes": 11965416,
+      "sha256": "f4c3336bbd3f5cf15219a6eba28c3c63161b2fb2a8310619da91dbb14c7dbc1c",
+      "program": false
+    },
+    {
+      "path": "CA022086.bin",
+      "bytes": 21354956,
+      "sha256": "3cfa3dce012477833043a6e1006b4a1e75ee58c193acf2ff237b6ecb85b69ad1",
+      "program": false
+    },
+    {
+      "path": "CA022087.bin",
+      "bytes": 5331748,
+      "sha256": "cbfc4c0de4aadf731076b0c4e565d2b5e36085b9cd4431c43fe9954ecdbaafd0",
+      "program": false
+    },
+    {
+      "path": "CA022088.bin",
+      "bytes": 37983024,
+      "sha256": "2164e5eb5a6a0df5890d419c4583cd18efb9fc7ca766be25f007010d265b1312",
+      "program": false
+    },
+    {
+      "path": "CA022090.bin",
+      "bytes": 27782951,
+      "sha256": "36034accc68033d7998fb4ab664f5871b401be3002837cec3f2ae599e7a35477",
+      "program": false
+    },
+    {
+      "path": "CA022091.bin",
+      "bytes": 30759695,
+      "sha256": "87896806d0d8ac8a4818c872b81e9196a9dfa8f1c40aab8451e851ae5da10c46",
+      "program": false
+    },
+    {
+      "path": "CA022092.bin",
+      "bytes": 59951519,
+      "sha256": "42041b05bac797ecf159f173907e50ff276414a6e27c520cf0c327dcec27bd37",
+      "program": false
+    },
+    {
+      "path": "CA022093.bin",
+      "bytes": 38785391,
+      "sha256": "c1490285a65426ac2a405c34067020a9cfdcb992642f53c8e1563550f27281c6",
+      "program": false
+    },
+    {
+      "path": "CA022094.bin",
+      "bytes": 31993151,
+      "sha256": "5abec5de109c4be1db340403a96853d69bfdf17de1234ee79a87a12edc27e410",
+      "program": false
+    },
+    {
+      "path": "CA022095.bin",
+      "bytes": 93131516,
+      "sha256": "06e65b0f0037a0ce522a1c6728be76e1baf841de4ca20c668c6271bce1536bf0",
+      "program": false
+    },
+    {
+      "path": "CA022096.bin",
+      "bytes": 116049149,
+      "sha256": "56857d6e9fc978cbd47a030fd0ee053a46495f7f6e0dc7318c0a3c9b84e56035",
+      "program": false
+    },
+    {
+      "path": "CA022097.bin",
+      "bytes": 224330249,
+      "sha256": "55ad21069079cef48f20c4c96845cdaed1b4a7ad73e14377070aaa7fec3638e2",
+      "program": false
+    },
+    {
+      "path": "CA022098.bin",
+      "bytes": 212965991,
+      "sha256": "90799352c401067aa20309cdc344c5c502c8478e6d35c8cb0dc4a76ec3ce24e0",
+      "program": false
+    },
+    {
+      "path": "CA022099.bin",
+      "bytes": 391965305,
+      "sha256": "1aa165db2387b2039ee2d9fbfcba7d9e341b75754bca681c7de27240dc3f990a",
+      "program": false
+    },
+    {
+      "path": "CA022100.bin",
+      "bytes": 6332416,
+      "sha256": "a8454bb24a0c0f0a0e5c89c8885041dee6411e2c688874a5e2a57966174939be",
+      "program": true
+    },
+    {
+      "path": "CA022110.bin",
+      "bytes": 6397952,
+      "sha256": "4c08b646140e4887ac2036208195e99dfdb4ae32fc7d1571d589b6657791bc75",
+      "program": true
+    },
+    {
+      "path": "CA022120.bin",
+      "bytes": 56604740,
+      "sha256": "939f9b4f098f7c20d895aa18f9887c9054687f70c4a4ca9f6b1221797f944870",
+      "program": false
+    },
+    {
+      "path": "CA022121.bin",
+      "bytes": 76307156,
+      "sha256": "d028bda999b8940dbcdd21da9d19898e5a3802abae1df720f871773ba2fec4f0",
+      "program": false
+    },
+    {
+      "path": "CA022122.bin",
+      "bytes": 75279281,
+      "sha256": "2736b26f638796a6e1d753375942bc50a30984f7a7ebc2a0c21a5866b5db6489",
+      "program": false
+    },
+    {
+      "path": "CA022123.bin",
+      "bytes": 108130352,
+      "sha256": "1cb349c414bb9dfb66a67afea6fd02c61d6c5d705131027259b354698ca44d8b",
+      "program": false
+    },
+    {
+      "path": "CA022124.bin",
+      "bytes": 194455952,
+      "sha256": "6d28f1ea5e6323001a06ec135ca5671d87b6c4c782af1e3e3f8fc729e3d9dd9d",
+      "program": false
+    },
+    {
+      "path": "CA022125.bin",
+      "bytes": 75896006,
+      "sha256": "06cf76031e13ac4c597e3a11d93c35d3740894d5dc4c7b5826adb6c9e6ab533e",
+      "program": false
+    },
+    {
+      "path": "CA022126.bin",
+      "bytes": 72532775,
+      "sha256": "51d71e4ba66f1ef6adbc2322d4de80ed7d7b856f6ef2032b587ffbe66b9aa30d",
+      "program": false
+    },
+    {
+      "path": "CA022127.bin",
+      "bytes": 54976568,
+      "sha256": "2f1ed8423f030a2979c9fc337e95f3f18c1483ee2ad0b4a2f3ca7ed86cae8d9b",
+      "program": false
+    },
+    {
+      "path": "CA022128.bin",
+      "bytes": 169120697,
+      "sha256": "62bbb4fdafb2a556422a538ba8905a9f379e1e5563f6ac08d16c2aa774fa6f25",
+      "program": false
+    },
+    {
+      "path": "CA022129.bin",
+      "bytes": 43686323,
+      "sha256": "589ca2cc50afa37f62baa3c25f5b8f8a93358bd5f36fa4fbe33574c10053710c",
+      "program": false
+    },
+    {
+      "path": "CA022130.bin",
+      "bytes": 30932378,
+      "sha256": "061777af1e356e677d29fdb42818abf3f0f962efd15f12126c58d06d4cf2f726",
+      "program": false
+    },
+    {
+      "path": "CA022131.bin",
+      "bytes": 41844365,
+      "sha256": "7d6fbf8e3ceb99dbb10f599c2771855b70d64deffb9daa629905fa147baaba4a",
+      "program": false
+    },
+    {
+      "path": "CA022132.bin",
+      "bytes": 110112107,
+      "sha256": "b27cc625e07925f1b64ba025e10b2e49f6bce7e9682973fef66dd0123fc7a308",
+      "program": false
+    },
+    {
+      "path": "CA022133.bin",
+      "bytes": 32313848,
+      "sha256": "fb95690b61e40148ba219e5f3ec3f2c45a7babaf9298392699becea7b6ae1ce0",
+      "program": false
+    },
+    {
+      "path": "default.xex",
+      "bytes": 8499200,
+      "sha256": "709eb9fd2e4446e5754461616693b3bbb8b78fef5aa613ffcde6d643da0133f5",
+      "program": true
+    },
+    {
+      "path": "nxeart",
+      "bytes": 835584,
+      "sha256": "76dd54f5790c5d789b9289204aa3270b38e2988e308bc8b6100d28a733e8f12f",
+      "program": false
+    },
+    {
+      "path": "PKG000.bin",
+      "bytes": 1891103,
+      "sha256": "370cae6d66cc81391e8d11e4c57aee2a902662863889b36b1b8e6cd0850ac6a9",
+      "program": false
+    },
+    {
+      "path": "SD_OPN.wmv",
+      "bytes": 72022033,
+      "sha256": "d5650224c28312293937bb7b338f867e9f1b7072a338657ba6e8d078c98c0849",
+      "program": false
+    },
+    {
+      "path": "SDSE.xsb",
+      "bytes": 2368,
+      "sha256": "a4e6d60779508008b96285893c7ca7e73d32a5b70d461cfb1ad2bf01bb644139",
+      "program": false
+    },
+    {
+      "path": "SDSE.xwb",
+      "bytes": 1079296,
+      "sha256": "59b76453c54e9abd408e87beaa007c56ead660a4d3c8cfe2a8871a00bf2af2c8",
+      "program": false
+    }
+  ]
+}

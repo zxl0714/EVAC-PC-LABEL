@@ -16,7 +16,7 @@ DEFAULT_GAMES=('espgaluda2',)
 
 def selected_games(value):
     games=tuple(sorted(value.split(',')))
-    if not games or len(set(games))!=len(games) or any(game not in ('espgaluda2','futari') for game in games):
+    if not games or len(set(games))!=len(games) or any(game not in ('espgaluda2','futari','sdoj') for game in games):
         raise ValueError('Select unique supported Xbox 360 games')
     return games
 

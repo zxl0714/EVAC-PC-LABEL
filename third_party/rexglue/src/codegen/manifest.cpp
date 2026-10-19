@@ -21,6 +21,7 @@
 #include <toml++/toml.hpp>
 
 #include <rex/logging.h>
+#include <rex/filesystem.h>
 #include <rex/system/guest_path.h>
 
 namespace rex::codegen {
@@ -73,7 +74,8 @@ bool LoadBinaryConfig(const toml::table& tbl, const std::filesystem::path& base_
 std::optional<ManifestConfig> ManifestConfig::Load(const std::filesystem::path& path) {
   toml::table tbl;
   try {
-    tbl = toml::parse_file(path.string());
+    std::ifstream input(path, std::ios::binary);
+    tbl = toml::parse(input, rex::path_to_utf8(path));
   } catch (const toml::parse_error& err) {
     REXLOG_ERROR("Failed to parse manifest {}: {}", path.string(), err.what());
     return std::nullopt;
@@ -151,7 +153,8 @@ std::optional<ManifestConfig> ManifestConfig::Load(const std::filesystem::path& 
 
 bool ManifestConfig::IsManifest(const std::filesystem::path& path) {
   try {
-    auto tbl = toml::parse_file(path.string());
+    std::ifstream input(path, std::ios::binary);
+    auto tbl = toml::parse(input, rex::path_to_utf8(path));
     return tbl.contains("project");
   } catch (const toml::parse_error&) {
     return false;

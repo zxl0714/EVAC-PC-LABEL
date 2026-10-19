@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "algorithm": "sha256",
+  "xex": [
+    {
+      "path": "default.xex",
+      "bytes": 8499200,
+      "sha256": "709eb9fd2e4446e5754461616693b3bbb8b78fef5aa613ffcde6d643da0133f5",
+      "moduleFlags": "0x00000001",
+      "headerBytes": 12288,
+      "imageBase": "0x82000000",
+      "entryPoint": "0x82215B88",
+      "titleId": "435A07E7",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    },
+    {
+      "path": "CA022100.bin",
+      "bytes": 6332416,
+      "sha256": "a8454bb24a0c0f0a0e5c89c8885041dee6411e2c688874a5e2a57966174939be",
+      "moduleFlags": "0x00000009",
+      "headerBytes": 8192,
+      "imageBase": "0x88000000",
+      "entryPoint": "0x88047FB0",
+      "titleId": "435A07E7",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    },
+    {
+      "path": "CA022110.bin",
+      "bytes": 6397952,
+      "sha256": "4c08b646140e4887ac2036208195e99dfdb4ae32fc7d1571d589b6657791bc75",
+      "moduleFlags": "0x00000009",
+      "headerBytes": 8192,
+      "imageBase": "0x88000000",
+      "entryPoint": "0x88047F68",
+      "titleId": "435A07E7",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    }
+  ]
+}

@@ -19,9 +19,19 @@ class CatalogueTests(unittest.TestCase):
 
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
-        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'daioujou', 'esprade'])
-        self.assertEqual([g['comingSoon'] for g in games], [False, False, False, True, True])
+        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
+        self.assertEqual([g['comingSoon'] for g in games], [False, False, False, False, True, True])
         self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui'])
+
+    def test_sdoj_has_base_data_but_is_not_yet_accepted_or_online(self):
+        game = next(g for g in catalogue.load(self.path) if g['id'] == 'sdoj')
+        self.assertFalse(game['integrated'])
+        self.assertFalse(game['communitySupported'])
+        self.assertEqual(len(game['files']), 114)
+        self.assertEqual(sum(item['bytes'] for item in game['files']), 3274143397)
+        self.assertEqual({item['path'] for item in game['files'] if item['program']},
+                         {'default.xex', 'CA022100.bin', 'CA022110.bin'})
+        self.assertFalse(any(item['path'].startswith('$SystemUpdate') for item in game['files']))
 
     def test_g2_inventory_is_complete_metadata_only(self):
         game = catalogue.load(self.path)[1]

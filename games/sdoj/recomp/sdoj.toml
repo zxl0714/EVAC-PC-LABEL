@@ -1,0 +1,19 @@
+# Known disc-base programs, generated from local data. TU is tracked separately.
+[project]
+name = "sdoj"
+sdk_version = "0.9.0"
+game_root = "../../../game-data/sdoj"
+
+[entrypoint]
+file_path = "../../../game-data/sdoj/default.xex"
+out_directory_path = "../../../generated/sdoj/default"
+
+[[modules]]
+guest_path = "CA022100.bin"
+file_path = "../../../game-data/sdoj/CA022100.bin"
+out_directory_path = "../../../generated/sdoj/CA022100"
+
+[[modules]]
+guest_path = "CA022110.bin"
+file_path = "../../../game-data/sdoj/CA022110.bin"
+out_directory_path = "../../../generated/sdoj/CA022110"
