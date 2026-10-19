@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.backup import backup
@@ -52,6 +53,16 @@ class CommunityBackupTests(unittest.TestCase):
         with patch.object(Path, 'is_symlink', return_value=True):
             with self.assertRaises(ValueError):
                 backup(self.database, self.root / 'backups')
+
+    def test_repeated_clock_keeps_latest_seven_without_overwrite(self):
+        with patch('server.backup.datetime') as clock:
+            clock.now.return_value = datetime(2026, 10, 19, tzinfo=timezone.utc)
+            targets = [backup(self.database, self.root / 'backups') for _ in range(9)]
+        self.assertEqual(len(set(targets)), 9)
+        self.assertFalse(targets[0].exists())
+        self.assertEqual(sorted((self.root / 'backups').glob('community-*.sqlite3')), targets[-7:])
+        with closing(sqlite3.connect(targets[-1])) as db:
+            self.assertEqual(db.execute('SELECT * FROM fixture').fetchall(), [('authored fixture',)])
 
 
 if __name__ == '__main__':

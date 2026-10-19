@@ -14,11 +14,23 @@ def backup(database, directory):
     if not database.is_file() or linked:
         raise ValueError('Use a regular database and backup directory')
     directory.mkdir(mode=0o750, parents=True, exist_ok=True)
-    name = datetime.now(timezone.utc).strftime('community-%Y%m%dT%H%M%S%f.sqlite3')
-    target = directory / name
-    # Exclusive creation protects prior snapshots even if the clock repeats.
-    with target.open('xb'):
-        pass
+    stem = datetime.now(timezone.utc).strftime('community-%Y%m%dT%H%M%S%f')
+    # Windows may return the same wall-clock timestamp for successive calls.
+    # Keep exclusive creation, with an ordered suffix rather than overwriting
+    # an existing snapshot or treating a clock collision as a backup failure.
+    existing = [int(path.stem.rsplit('-', 1)[-1])
+                for path in directory.glob(f'{stem}-????.sqlite3')
+                if path.stem.rsplit('-', 1)[-1].isascii() and path.stem.rsplit('-', 1)[-1].isdigit()]
+    for sequence in range(max(existing, default=-1) + 1, 10000):
+        target = directory / f'{stem}-{sequence:04d}.sqlite3'
+        try:
+            with target.open('xb'):
+                pass
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise RuntimeError('Too many snapshots share one timestamp')
     with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as source, \
             closing(sqlite3.connect(str(target))) as snapshot:
         source.backup(snapshot)
