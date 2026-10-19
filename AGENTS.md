@@ -46,6 +46,16 @@ uses an allowlist and rejects game data/source even when present on the build
 machine. Both archives exclude credentials and existing player/test profiles.
 The v0.1 playable set is G2, Futari and Ketsui; Coming Soon games do not block it.
 Do not publish or upload an internal archive as part of building either flavor.
+After v0.1 packaging and acceptance, the user explicitly requests a separate
+delivery step: upload the verified Internal full ZIP to the QQ group files of
+the exact group 人均233.3, then send a group announcement. The user authorizes
+composing and sending that announcement without message-content review. Verify
+the uploaded archive's identity and completed upload before announcing it;
+record delivery evidence separately from package acceptance. Explain included
+games, extraction/launcher/config use and log feedback, with accurate known
+limitations. Do not substitute an OSS/public upload or a different group.
+Keep delivery pending until both upload and announcement are verified; follow
+the applicable computer-use and tool requirements when executing it.
 
 The collection has one config.ini with shared defaults and optional per-game
 overrides. Default nickname is Player and online is enabled by default. The
