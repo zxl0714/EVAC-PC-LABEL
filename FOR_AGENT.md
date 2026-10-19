@@ -48,7 +48,7 @@ py -3.12 scripts/project.py audit
 
 静态模块、回调、日志和 G2 社区边界的检查方法见 [分析与诊断工具](docs/ANALYSIS.md)，其中列出原 66 项 Python 回归的迁移对应。工具显式读取数据目录，报告及解压区段只写新的 .local 路径；检查结果不代替实际进关和声音验收。
 
-G2 以 ESPGaluda2-PC 的 ba85ac0 为迁移起点。维护 SDK 在 third_party/rexglue，平台代码在 backends/xbox360，游戏适配、模块声明和工具在 games/espgaluda2；公共 HTTP 在 common/community。tests/fixtures/g2-default.ini 只是旧解析器的回归样本，不是第二份玩家配置。tools/references.json 记录来源，tools/sdk-source.lock.json 保留 SDK 的上游与虫姬二来源和固定依赖版本。
+G2 以 ESPGaluda2-PC 的 ba85ac0 为迁移起点。维护 SDK 在 third_party/rexglue，平台代码在 backends/xbox360，游戏适配、模块声明和工具在 games/espgaluda2；公共 HTTP 在 common/community。tests/fixtures/g2-default.ini 只是旧解析器的回归样本，不是第二份玩家配置。docs/SOURCE_ORIGINS.json 记录来源，docs/provenance/sdk-import-baseline.json 保存历史 SDK 导入身份与文件哈希；两者仅供追溯，依赖恢复不读取这些历史记录。tools/sdk-source.lock.json 只固定当前第三方依赖，工具目录用法见 tools/README.md。
 
 Xbox 360 输入库为 `cave_xbox360_input`，在 backends/xbox360/CMakeLists.txt 定义，使用 `cave::xbox360` 命名空间及公共 `cave::Settings`，不依赖 G2 配置适配器。新 360 游戏先按游戏 ID 解析同一 INI，再把解析结果交给该库；不要复制键盘或 SDL 驱动。现有输入回归同时检查 G2 与虫姬二覆盖字段的隔离，实体设备仍需真实验证。
 
@@ -56,7 +56,7 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 141 项 Python／CLI 回归；双游戏 native 构建的 18 组 CTest 全部通过，包含新增的只读内容源隔离和同帧键盘采样回归。历史单游戏计数见验收矩阵，不以之代替新增测试。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 148 项 Python／CLI 回归；此前双游戏构建的 18 组 CTest 全部通过，新增 DLC 校验后的虫姬二 native 构建 9 组通过。历史计数及完整宿主的重建状态见验收矩阵，不以之代替新增测试。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
 
 ### 虫姬二接入
 

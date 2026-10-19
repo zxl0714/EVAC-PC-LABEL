@@ -1,5 +1,6 @@
 {
   "format": 1,
+  "purpose": "Historical source origins, import commits and adaptation scope. Current dependency restoration is specified by the lock files under tools/.",
   "imports": [
     {
       "repository": "https://github.com/zxl0714/ESPGaluda2-PC",
@@ -26,7 +27,7 @@
         "tests/*.cpp",
         "server/community.py"
       ],
-      "scope": "Accepted G2 maintenance source, SDK and 22 dependency pins; reorganized by scripts/import_g2_sources.py. Original files were checked against committed Git blobs and SHA-256. No game data, generated game bodies or installed tools are imported. SDK lock retains the earlier Futari/upstream provenance; this commit is the current maintenance baseline."
+      "scope": "Accepted G2 maintenance source, SDK and 22 dependency pins; reorganized by scripts/import_g2_sources.py. Original files were checked against committed Git blobs and SHA-256. No game data, generated game bodies or installed tools are imported. Earlier SDK provenance and import file hashes are archived in docs/provenance/sdk-import-baseline.json; tools/sdk-source.lock.json contains current dependency pins only."
     },
     {
       "repository": "https://github.com/zxl0714/ESPGaluda2-PC",
