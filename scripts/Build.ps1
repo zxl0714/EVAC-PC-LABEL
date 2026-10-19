@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,8)][int]$Jobs=2,
-    [ValidateSet('espgaluda2','futari')][string[]]$Games=@(),
+    [ValidateSet('espgaluda2','futari','ketsui')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
     [string]$DataDirectory,
@@ -17,6 +17,11 @@ try {
     $cmake = Get-CollectionTool 'cmake'
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
+    if ('ketsui' -in $Games) {
+        if (-not $NativeOnly) { throw 'Ketsui data preparation and launch integration are in progress; use -NativeOnly for the ROM-free PS4 build' }
+        & (Join-Path $PSScriptRoot 'Build-Ps4.ps1') -Jobs $Jobs
+        $Games = @($Games | Where-Object { $_ -ne 'ketsui' })
+    }
     $selected=@($Games | Sort-Object -Unique)
     if ($DataDirectory -and $selected.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }
     $nativeName=if ($selected.Count -gt 1) { 'xbox360' } elseif ($selected.Count) { $selected[0] } else { 'common' }

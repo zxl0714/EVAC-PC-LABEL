@@ -7,8 +7,9 @@ unfinished G2 baseline. All stages and verification gates remain in scope.
 P1 is now accepted for migration: the human completed the same-process repeated
 entry/return test and accepts mode-setting coverage without additional testing.
 P2's native common library, fixed catalogue, read-only inspection, pinned tools
-and path/configuration tests now pass. Proceed to P3 here; do not repeat accepted
-P1 checks or ask for more scores. Read FOR_AGENT.md for current commands.
+and path/configuration tests now pass. P3 has integrated G2 and P4 has established
+the shared 360 platform; do not repeat accepted P1 checks or ask for more scores.
+Read FOR_AGENT.md for current commands.
 The G2 native community score/replay loop has passed against both local and
 deployed HTTPS services, including download and cold-restart playback. Physical
 input and extended coverage remain later work; do not repeat the online baseline.
@@ -22,9 +23,9 @@ before replays, unlike Futari. Persistent
 offline recovery is a PC enhancement to add after the native basic flow, not a
 confirmed original G2 feature or a prerequisite for basic Live.
 
-G2 baseline work belongs in the existing ESPGaluda2-PC checkout. Integrate into
-this new repository only after that baseline; preserve the original Futari and
-Ketsui checkouts, game data and personal profiles. Use separate test profiles.
+G2 baseline work was completed in the original ESPGaluda2-PC checkout. Further
+collection work belongs here; preserve the original G2, Futari and Ketsui
+checkouts, game data and profiles. Use collection test profiles.
 The current development profiles are test data. Ending, restarting and resetting
 these test sessions and accepting their in-game warnings are user-authorized;
 do not interrupt the user for each such operation.
@@ -71,8 +72,8 @@ audio evidence. Never mark a whole stage passed from a narrower smoke test.
 The user has deferred further repeated-entry gameplay tests. Keep the existing
 Black Label result, mark the other repetitions deferred (not passed), and do not
 make them a prerequisite for the current migration work.
-P5 has imported the pinned Ketsui runtime source and isolated dependencies.
-Continue with the collection-local PS4 build, shared INI and launch contract;
+P5's pinned Ketsui source, isolated dependencies and collection-local native
+PS4/GPU builds now pass. Continue with shared INI, data preparation and launch contract;
 keep integrated=false until actual launch/gameplay verification. P4's remaining
 formal-network, audio and physical-input checks remain open, not implicitly
 passed because PS4 build preparation has started.

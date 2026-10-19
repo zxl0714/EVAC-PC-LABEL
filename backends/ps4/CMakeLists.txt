@@ -10,52 +10,56 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A 64-bit compiler is required")
 endif()
 
-set(KETSUI_VULKAN_HEADERS "${CMAKE_SOURCE_DIR}/.deps/Vulkan-Headers/include")
+get_filename_component(CAVE_PS4_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+set(CAVE_PS4_DEPS "${CAVE_PS4_ROOT}/.deps/ps4")
+set(CAVE_PS4_COMPONENTS "${CAVE_PS4_ROOT}/third_party/ps4")
+
+set(KETSUI_VULKAN_HEADERS "${CAVE_PS4_DEPS}/Vulkan-Headers/include")
 if(NOT EXISTS "${KETSUI_VULKAN_HEADERS}/vulkan/vulkan.h")
-    message(FATAL_ERROR "Run scripts/Prepare-NativeDeps.ps1 to prepare Vulkan-Headers")
+    message(FATAL_ERROR "Run scripts/ps4_sources.py restore to prepare Vulkan-Headers")
 endif()
-add_library(KetsuiGraphics STATIC src/graphics/display_layout.cpp src/graphics/vulkan_device.cpp src/graphics/pm4.cpp src/graphics/raster_state.cpp src/graphics/texture.cpp src/graphics/shader_compiler.cpp src/graphics/shader_binary.cpp src/graphics/shader_tests.cpp src/graphics/attachment_tests.cpp)
-add_library(KetsuiAudio STATIC src/audio/wasapi_engine.cpp src/audio/pcm_voice.cpp src/audio/hevag.cpp src/audio/atrac9.cpp)
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/.deps/LibAtrac9/C/src/libatrac9.c")
-    message(FATAL_ERROR "Run scripts/Prepare-NativeDeps.ps1 to prepare pinned LibAtrac9")
+add_library(KetsuiGraphics STATIC graphics/display_layout.cpp graphics/vulkan_device.cpp graphics/pm4.cpp graphics/raster_state.cpp graphics/texture.cpp graphics/shader_compiler.cpp graphics/shader_binary.cpp graphics/shader_tests.cpp graphics/attachment_tests.cpp)
+add_library(KetsuiAudio STATIC audio/wasapi_engine.cpp audio/pcm_voice.cpp audio/hevag.cpp audio/atrac9.cpp)
+if(NOT EXISTS "${CAVE_PS4_DEPS}/LibAtrac9/C/src/libatrac9.c")
+    message(FATAL_ERROR "Run scripts/ps4_sources.py restore to prepare pinned LibAtrac9")
 endif()
-file(GLOB KETSUI_ATRAC9_SOURCES CONFIGURE_DEPENDS ".deps/LibAtrac9/C/src/*.c")
+file(GLOB KETSUI_ATRAC9_SOURCES CONFIGURE_DEPENDS "${CAVE_PS4_DEPS}/LibAtrac9/C/src/*.c")
 add_library(KetsuiAtrac9 STATIC ${KETSUI_ATRAC9_SOURCES})
 target_compile_definitions(KetsuiAtrac9 PRIVATE _USE_MATH_DEFINES)
-target_include_directories(KetsuiAtrac9 PUBLIC .deps/LibAtrac9/C/src)
+target_include_directories(KetsuiAtrac9 PUBLIC "${CAVE_PS4_DEPS}/LibAtrac9/C/src")
 target_link_libraries(KetsuiAudio PRIVATE KetsuiAtrac9)
-add_library(KetsuiContent STATIC src/content/sfo.cpp src/content/content_view.cpp src/content/read_patches.cpp)
+add_library(KetsuiContent STATIC content/sfo.cpp content/content_view.cpp content/read_patches.cpp)
 target_link_libraries(KetsuiContent PRIVATE bcrypt)
-add_library(KetsuiSave STATIC src/storage/save_store.cpp)
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/.deps/nlohmann-json/single_include/nlohmann/json.hpp")
-    message(FATAL_ERROR "Run scripts/Prepare-NativeDeps.ps1 to prepare pinned JSON headers")
+add_library(KetsuiSave STATIC storage/save_store.cpp)
+if(NOT EXISTS "${CAVE_PS4_DEPS}/nlohmann-json/single_include/nlohmann/json.hpp")
+    message(FATAL_ERROR "Run scripts/ps4_sources.py restore to prepare pinned JSON headers")
 endif()
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/.deps/zlib/inflate.c")
-    message(FATAL_ERROR "Run scripts/Prepare-NativeDeps.ps1 to prepare pinned zlib")
+if(NOT EXISTS "${CAVE_PS4_DEPS}/zlib/inflate.c")
+    message(FATAL_ERROR "Run scripts/ps4_sources.py restore to prepare pinned zlib")
 endif()
 # Memory-only codec. Do not build gzip file I/O, tools or a separate DLL.
-add_library(KetsuiZlib STATIC .deps/zlib/adler32.c .deps/zlib/crc32.c .deps/zlib/inflate.c
-    .deps/zlib/inftrees.c .deps/zlib/inffast.c .deps/zlib/zutil.c
-    .deps/zlib/compress.c .deps/zlib/deflate.c .deps/zlib/trees.c)
+add_library(KetsuiZlib STATIC "${CAVE_PS4_DEPS}/zlib/adler32.c" "${CAVE_PS4_DEPS}/zlib/crc32.c" "${CAVE_PS4_DEPS}/zlib/inflate.c"
+    "${CAVE_PS4_DEPS}/zlib/inftrees.c" "${CAVE_PS4_DEPS}/zlib/inffast.c" "${CAVE_PS4_DEPS}/zlib/zutil.c"
+    "${CAVE_PS4_DEPS}/zlib/compress.c" "${CAVE_PS4_DEPS}/zlib/deflate.c" "${CAVE_PS4_DEPS}/zlib/trees.c")
 
-target_include_directories(KetsuiZlib SYSTEM PUBLIC .deps/zlib)
+target_include_directories(KetsuiZlib SYSTEM PUBLIC "${CAVE_PS4_DEPS}/zlib")
 
 target_compile_definitions(KetsuiZlib PUBLIC Z_PREFIX)
-add_library(KetsuiCommunity STATIC src/community/protocol.cpp src/community/client.cpp src/community/client_tests.cpp src/community/replay.cpp src/community/round_journal.cpp src/community/round_journal_tests.cpp src/community/round_delivery.cpp)
+add_library(KetsuiCommunity STATIC community/protocol.cpp community/client.cpp community/client_tests.cpp community/replay.cpp community/round_journal.cpp community/round_journal_tests.cpp community/round_delivery.cpp)
 target_compile_features(KetsuiCommunity PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiCommunity PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiCommunity PRIVATE /W4 /WX /EHsc)
-target_include_directories(KetsuiCommunity SYSTEM PUBLIC .deps/nlohmann-json/single_include)
+target_include_directories(KetsuiCommunity SYSTEM PUBLIC "${CAVE_PS4_DEPS}/nlohmann-json/single_include")
 target_link_libraries(KetsuiCommunity PUBLIC KetsuiSave PRIVATE KetsuiZlib bcrypt crypt32 winhttp)
 target_compile_features(KetsuiSave PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiSave PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiSave PRIVATE /W4 /WX /EHsc)
 target_link_libraries(KetsuiSave PRIVATE KetsuiContent)
-add_subdirectory(third_party/gcn)
+add_subdirectory("${CAVE_PS4_COMPONENTS}/gcn" "${CMAKE_BINARY_DIR}/gcn")
 
 # Input only. Keep our Win32 window, Vulkan presenter and WASAPI audio.
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/.deps/SDL/CMakeLists.txt")
-    message(FATAL_ERROR "Run scripts/Prepare-NativeDeps.ps1 to prepare pinned SDL")
+if(NOT EXISTS "${CAVE_PS4_DEPS}/SDL/CMakeLists.txt")
+    message(FATAL_ERROR "Run scripts/ps4_sources.py restore to prepare pinned SDL")
 endif()
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
@@ -65,7 +69,7 @@ set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 foreach(subsystem AUDIO VIDEO RENDER GPU CAMERA SENSOR HAPTIC DIALOG POWER)
     set(SDL_${subsystem} OFF CACHE BOOL "" FORCE)
 endforeach()
-add_subdirectory(.deps/SDL sdl EXCLUDE_FROM_ALL)
+add_subdirectory("${CAVE_PS4_DEPS}/SDL" sdl EXCLUDE_FROM_ALL)
 target_link_libraries(KetsuiGraphics PRIVATE KetsuiGcn)
 target_link_libraries(KetsuiGraphics PRIVATE SPIRV-Tools-static)
 target_compile_features(KetsuiContent PUBLIC cxx_std_20)
@@ -74,7 +78,7 @@ target_compile_options(KetsuiContent PRIVATE /W4 /WX /EHsc)
 target_compile_features(KetsuiAudio PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiAudio PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiAudio PRIVATE /W4 /WX /EHsc)
-add_library(KetsuiAbi OBJECT src/sysv_format.s src/sysv_jump.s)
+add_library(KetsuiAbi OBJECT sysv_format.s sysv_jump.s)
 set_property(TARGET KetsuiAbi PROPERTY MSVC_DEBUG_INFORMATION_FORMAT "")
 target_compile_options(KetsuiAbi PRIVATE -Qunused-arguments)
 target_compile_features(KetsuiGraphics PUBLIC cxx_std_20)
@@ -83,61 +87,61 @@ target_compile_options(KetsuiGraphics PRIVATE /W4 /WX /EHsc)
 target_include_directories(KetsuiGraphics SYSTEM PRIVATE "${KETSUI_VULKAN_HEADERS}")
 
 add_executable(KetsuiNativeProbe
-    src/native_probe.cpp
-    src/guest_heap.cpp
-    src/native_debug.cpp
-    src/native_sync.cpp
-    src/native_semaphore.cpp
-    src/native_event_flag.cpp
-    src/native_threads.cpp
-    src/native_dialogs.cpp
-    src/native_time.cpp
-    src/native_host_timing.cpp
-    src/native_rtc.cpp
-    src/native_libc_time.cpp
-    src/native_user.cpp
-    src/native_screenshot.cpp
-    src/native_storage.cpp
-    src/native_memory.cpp
-    src/memory/write_tracker.cpp
-    src/memory/write_tracker_tests.cpp
-    src/memory/tracked_texture.cpp
-    src/memory/tracked_texture_tests.cpp
-    src/memory/tracked_texture_gpu_tests.cpp
-    src/native_mspace.cpp
-    src/native_video.cpp
-    src/native_libc.cpp
-    src/native_text.cpp
-    src/native_format.cpp
-    src/native_audio.cpp
-    src/native_content.cpp
-    src/native_files.cpp
-    src/native_fios.cpp
-    src/native_gnm.cpp
-    src/native_gpu.cpp
-    src/native_resident_gpu.cpp
-    src/gpu_core/native_memory_backend.cpp
-    src/native_math.cpp
-    src/native_ngs2.cpp
-    src/native_avplayer.cpp
-    src/media/mf_reader.cpp
-    src/media/playback_session.cpp
+    native_probe.cpp
+    guest_heap.cpp
+    native_debug.cpp
+    native_sync.cpp
+    native_semaphore.cpp
+    native_event_flag.cpp
+    native_threads.cpp
+    native_dialogs.cpp
+    native_time.cpp
+    native_host_timing.cpp
+    native_rtc.cpp
+    native_libc_time.cpp
+    native_user.cpp
+    native_screenshot.cpp
+    native_storage.cpp
+    native_memory.cpp
+    memory/write_tracker.cpp
+    memory/write_tracker_tests.cpp
+    memory/tracked_texture.cpp
+    memory/tracked_texture_tests.cpp
+    memory/tracked_texture_gpu_tests.cpp
+    native_mspace.cpp
+    native_video.cpp
+    native_libc.cpp
+    native_text.cpp
+    native_format.cpp
+    native_audio.cpp
+    native_content.cpp
+    native_files.cpp
+    native_fios.cpp
+    native_gnm.cpp
+    native_gpu.cpp
+    native_resident_gpu.cpp
+    gpu_core/native_memory_backend.cpp
+    native_math.cpp
+    native_ngs2.cpp
+    native_avplayer.cpp
+    media/mf_reader.cpp
+    media/playback_session.cpp
     $<TARGET_OBJECTS:KetsuiAbi>
-    src/native_profile.cpp
-    src/native_cxx.cpp
-    src/native_equeue.cpp
-    src/native_display_clock.cpp
-    src/native_pad.cpp
-    src/input/keyboard_config.cpp
-    src/input/sdl_gamepad.cpp
-    src/native_np.cpp
-    src/native_np_score.cpp
-    src/native_community_round_audit.cpp
-    src/native_community_rounds.cpp
-    src/native_trophy.cpp
+    native_profile.cpp
+    native_cxx.cpp
+    native_equeue.cpp
+    native_display_clock.cpp
+    native_pad.cpp
+    input/keyboard_config.cpp
+    input/sdl_gamepad.cpp
+    native_np.cpp
+    native_np_score.cpp
+    native_community_round_audit.cpp
+    native_community_rounds.cpp
+    native_trophy.cpp
 )
 target_compile_features(KetsuiNativeProbe PRIVATE cxx_std_20)
-target_include_directories(KetsuiNativeProbe PRIVATE third_party/gpu_core/host)
+target_include_directories(KetsuiNativeProbe PRIVATE "${CAVE_PS4_COMPONENTS}/gpu_core/host")
 target_compile_definitions(KetsuiNativeProbe PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiNativeProbe PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/W4;/WX;/EHsc>)
 target_link_options(KetsuiNativeProbe PRIVATE /DEBUG:FULL)

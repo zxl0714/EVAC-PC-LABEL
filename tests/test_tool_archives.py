@@ -6,7 +6,9 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import types
 import unittest
+from unittest.mock import patch
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
@@ -85,6 +87,59 @@ class SdkToolTests(unittest.TestCase):
                             '160000,' + '1' * 40 + ',dependency'], check=True)
             with self.assertRaisesRegex(ValueError, 'source lock'):
                 project.audit_source(root)
+
+    def test_zstd_path_uses_the_same_tar_member_validation(self):
+        class Decoder:
+            payload = b''
+            def __init__(self, **options):
+                self.options = options
+            def stream_reader(self, source):
+                return io.BytesIO(self.payload)
+        for name, safe in (('bundle/tool.txt', True), ('../escape', False)):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                packed = root / 'fixture.tar.zst'
+                packed.write_bytes(b'authored decoder input')
+                buffer = io.BytesIO()
+                with tarfile.open(fileobj=buffer, mode='w') as output:
+                    member = tarfile.TarInfo(name)
+                    member.size = 4
+                    output.addfile(member, io.BytesIO(b'test'))
+                Decoder.payload = buffer.getvalue()
+                with patch.dict(sys.modules, {'zstandard': types.SimpleNamespace(ZstdDecompressor=Decoder)}):
+                    if safe:
+                        expanded = prepare_tools.extract({'archiveRoot':'bundle'}, packed, root / 'new')
+                        self.assertEqual((expanded / 'tool.txt').read_bytes(), b'test')
+                    else:
+                        with self.assertRaises(ValueError):
+                            prepare_tools.extract({'archiveRoot':''}, packed, root / 'new')
+                        self.assertFalse((root / 'escape').exists())
+
+    def test_required_tool_files_and_independent_ps4_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'tools').mkdir()
+            cache = root / 'cache'
+            seed = cache / 'compiler-cache'
+            seed.mkdir(parents=True)
+            (seed / 'compiler.exe').write_bytes(b'authored, not executable')
+            (seed / 'runtime.lib').write_bytes(b'authored runtime')
+            package = dict(id='fixture', version='1.0', url='https://example.invalid/fixture.zip',
+                           sha256='a'*64, archiveRoot='', cacheDirectory='compiler-cache', entry='compiler.exe',
+                           entrySha256=project.digest(seed / 'compiler.exe'),
+                           requiredFiles={'runtime.lib':project.digest(seed / 'runtime.lib')})
+            (root / 'tools/ps4-tools.lock.json').write_text(json.dumps(dict(format=1, platform='windows-x64', packages=[package])))
+            with patch.object(prepare_tools, 'ROOT', root), patch('builtins.print'):
+                prepare_tools.prepare(cache, ps4=True)
+                before = (root / 'tools/state/installed-ps4.json').read_bytes()
+                self.assertFalse((root / 'tools/state/installed.json').exists())
+                prepare_tools.prepare(cache, ps4=True)
+                self.assertEqual((root / 'tools/state/installed-ps4.json').read_bytes(), before)
+                runtime = root / 'tools/apps/fixture/runtime.lib'
+                runtime.write_bytes(b'preserve changed file')
+                with self.assertRaisesRegex(ValueError, 'component differs'):
+                    prepare_tools.prepare(cache, ps4=True)
+                self.assertEqual(runtime.read_bytes(), b'preserve changed file')
 
     def test_source_audit_accepts_locked_gitlink_but_not_changed_revision(self):
         with tempfile.TemporaryDirectory() as directory:

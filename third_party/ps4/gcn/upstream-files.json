@@ -610,5 +610,67 @@
       "sha256": "ff1d42d035b44caab3d28cbff79e3767fcf413e6e3b0aae26f84f88d003982f3",
       "reason": "not required by the isolated shader compiler"
     }
+  ],
+  "localChanges": [
+    {
+      "path": "src/shader_recompiler/info.h",
+      "sha256": "69a886173dbbec3338763f98ffd481b57e8d12e3a4e80c259f7c004cafd780ef",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/resource.h",
+      "sha256": "330517652da6a52013358527af597f9a2b403f2c5ff1be406f52f2d73ea47139",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_context_get_set.cpp",
+      "sha256": "dc4b71520c0ab8a7a8c9cf0c7fb8a525cc369a53a33f04c9761d68984ac65f7a",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv.cpp",
+      "sha256": "57da5940ffb4eafbf3fcb5531a78d0da555baf112515992b2afd844029c70b91",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/frontend/decode.cpp",
+      "sha256": "c2a16b7890c93dd313ae0a2e0ca83d3f84e5a8e92bf5abd5352edb0762eeb420",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/frontend/decode.h",
+      "sha256": "55df53eb915c6b60b33749eaf807b7c419368f90cf7d513e8bf94f5d387777f3",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/frontend/fetch_shader.h",
+      "sha256": "a4a7e02811ced6b9b8ed993089d7d1a8ea11d2ac84597c2621932dbc8507a871",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/translate.cpp",
+      "sha256": "4f98389cb758d8c5dd32596ee559b9ac5eab24248692ba39fdbfe33310d3b140",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/ir/debug_print.h",
+      "sha256": "fcb0338a875630974125e7d987597a52756de4c2cd3fc81a4af096c384326c2a",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_user_clip_planes.cpp",
+      "sha256": "d387f06e3ac79eb6196fc7cb23d8e5cea57e59af2b622ebc7937e0e7ccc4808b",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/shader_info_collection_pass.cpp",
+      "sha256": "b0966c5801f70e6f031ff6b25ca0479e73fed94dc236ae220b81998293f92b9e",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/srt.h",
+      "sha256": "6c792f413be7f9012b17cbcc846b942df4f5bc316f7d34a7812b8bef79fe7f4c",
+      "description": "Maintained host adaptation imported from Ketsui-PC 9501378a."
+    }
   ]
 }

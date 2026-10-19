@@ -1,6 +1,6 @@
 # 开发入口
 
-先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 已开始迁入绊地狱源码和独立 PS4 依赖，下一步接通新目录构建与合集合同。
+先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 的 PS4 宿主和驻留 GPU 已在新目录独立构建，下一步接通共享 INI、准备数据和合集启动合同。
 
 干净联合构建 6b47555 的 out/xbox360 有 45 对程序／PDB，153 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。本机隔离服务的真实成绩／录像上传、榜单读回及下载保存已通过；6b47555 的 run-20261019T013724950Z-76988 将下载槽 No.4 冷启动完整播放并自然返回，容器哈希不变、退出码 0。正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
 
@@ -57,7 +57,7 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 216 项 Python／CLI 回归，前述双游戏完整构建的 18 组 CTest 全部通过，包含独立 DLC 内容源回归。新增 PS4 的 56 项适配检查是源码／分析器回归，不代表宿主已编译或设备测试通过。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 222 项 Python／CLI 回归。PS4 的五对程序／PDB、33 项原生机制检查及 4 项真实 GPU 自制场景检查通过；双游戏 360 的 18 组 CTest 另行保持回归，不混计成游戏进关。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
 
 ### 虫姬二接入
 
@@ -97,13 +97,19 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 ### 绊地狱接入
 
-固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。旧 launcher 和发行脚本不迁入，清单仍为 integrated=false。当前 PS4 CMake 是待适配的维护基线，尚未接通目录与专用 clang-cl 工具，不直接使用旧目录编译来冒充合集独立构建。
+固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。PS4 CMake 已改为合集独立路径，使用本地 clang-cl 23、独立依赖及优化构建；旧 launcher 和发行脚本不迁入，游戏入口仍为 integrated=false。
 
 ```powershell
+./scripts/Prepare-Tools.ps1 -Ps4
 py -3.12 scripts/ps4_sources.py restore
 py -3.12 scripts/ps4_sources.py verify
+./scripts/Build.ps1 -Games ketsui -NativeOnly -Jobs 2
+./scripts/Test.ps1 -Games ketsui
+py -3.12 scripts/ps4_build_receipt.py verify
 py -3.12 -m unittest discover -s tests -p test_ketsui_python.py -v
 py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' --output .local/analysis/ketsui-timing.json
 ```
 
-19 个依赖从上游恢复到 .deps/ps4；可选缓存用法见 tools/README.md，不读取原工程作为默认依赖。三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入公共 Source 检查；其余 tests/ketsui 文件尚待原生目标与设备路径适配，不能直接对该目录运行全套并把缺少 EXE 的跳过当成通过。二进制自制媒体 fixture 尚未导入；迁移媒体回归时单独恢复并给出精确来源／哈希，不放宽全仓库二进制审计。
+19 个依赖从上游恢复到 .deps/ps4，可选缓存用法见 tools/README.md。输出在 out/ps4-native 和 out/ps4-gpu，out/ps4/build-receipt.json 记录输入、工具及五对 PE／PDB 的 GUID 和 age。修改提取的上游文件时，在对应 upstream-files.json 的 localChanges 明确记录维护哈希；383 项当前文件在构建前后核对。NativeOnly 不要求 ROM，也不启动游戏；省略该选项的 Ketsui 完整准备流程仍待接通。
+
+三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 33 项机制检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的四项 CTest 另用自制资源检查绘制、缓存及窗口呈现。其余导入测试将在保存、联网与媒体接线时逐项适配；二进制自制媒体 fixture 尚未导入，恢复时单独记录来源／哈希。
