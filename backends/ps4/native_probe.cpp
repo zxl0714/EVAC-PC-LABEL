@@ -280,7 +280,10 @@ void TraceAllocation(const char* name, std::size_t size, void* pointer) {
     static std::atomic<std::uint64_t> calls{};
     const auto call = ++calls;
     if (call <= 32 || call % 1024 == 0 || !pointer) {
-        std::printf("{\"event\":\"native_allocation\",\"name\":\"%s\",\"size\":%zu,"
+        // This is periodic gameplay traffic, not just a startup message.
+        // stdout is unbuffered for crash diagnostics: direct printf here can
+        // block the guest on many small pipe writes between frame submits.
+        NativeLogf("{\"event\":\"native_allocation\",\"name\":\"%s\",\"size\":%zu,"
                     "\"pointer\":\"%p\",\"call\":%llu}\n", name, size, pointer, call);
     }
 }

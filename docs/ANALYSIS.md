@@ -95,6 +95,10 @@ py -3.12 scripts/analyze_run.py logs/espgaluda2/<单次运行目录> --output .l
 
 ## 绊地狱帧节拍与后台日志
 
+大往生也使用这一 PS4 时序分析器。其首轮联网实战的第一关 F8 后 10 秒区间 `8609862441413–8609872441413` 仅完成 422 帧，123 个间隔超过 20 ms，最大 100.777 ms，P95 直方图上界 50.2 ms。绘制执行平均 4.575 ms，提交外间隔平均 9.587 ms；不是仅凭整进程平均 FPS 得出的结论。
+
+这一区间的 122 个相邻完成记录之间含周期 `native_allocation` 日志，其中 120 个间隔超过 20 ms；没有该日志的 300 个区间仅 3 个长帧。后续演示画面的独立短采样在同一提交线程的 300 个指令指针样本中有 88 个落在 ZwWriteFile，栈内地址候选不视为完整展开。采样会扰动时序，不纳入上述第一关帧时间。定位到 TraceAllocation 仍直接调用无缓冲 stdout 的 printf，现改走已有有界后台日志队列；该修改保留日志内容和频率，真正改善幅度仍须在重建后的相同录像中验证。原始日志、报告和采样只留本地 `.local/daioujou-network-r1` 与 `.local/analysis/daioujou-*-r1*`。
+
 ```powershell
 py -3.12 scripts/ps4/analyze_timing.py logs/ketsui/<单次运行目录> --output .local/analysis/ketsui-timing.json
 ```
