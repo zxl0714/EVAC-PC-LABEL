@@ -58,7 +58,7 @@
       "integrated": false,
       "comingSoon": false,
       "dataDirectory": "game-data/ketsui",
-      "dataManifest": null,
+      "dataManifest": "ketsui/data.json",
       "executable": "runtime/ps4/ketsui.exe",
       "runtimeFiles": []
     },

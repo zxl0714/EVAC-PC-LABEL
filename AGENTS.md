@@ -73,7 +73,8 @@ The user has deferred further repeated-entry gameplay tests. Keep the existing
 Black Label result, mark the other repetitions deferred (not passed), and do not
 make them a prerequisite for the current migration work.
 P5's pinned Ketsui source, isolated dependencies and collection-local native
-PS4/GPU builds and shared-INI mechanism checks now pass. Continue with data preparation and launch contract;
+PS4/GPU builds, shared INI and native ELF preparation checks now pass. Continue
+with native read-overlay preparation, prepared-input receipts/cache and launch contract;
 keep integrated=false until actual launch/gameplay verification. P4's remaining
 formal-network, audio and physical-input checks remain open, not implicitly
 passed because PS4 build preparation has started.

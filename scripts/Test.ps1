@@ -34,6 +34,8 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'PS4 GPU tests failed' }
             & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_native_checks.py')
             if ($LASTEXITCODE -ne 0) { throw 'PS4 native checks failed' }
+            & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_prepare_checks.py')
+            if ($LASTEXITCODE -ne 0) { throw 'PS4 native ELF preparation checks failed' }
         }
     }
 } finally { Pop-Location }

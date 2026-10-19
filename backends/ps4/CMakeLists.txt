@@ -90,6 +90,8 @@ target_include_directories(KetsuiGraphics SYSTEM PRIVATE "${KETSUI_VULKAN_HEADER
 add_executable(KetsuiNativeProbe
     native_probe.cpp
     collection_config.cpp
+    loader/elf_prepare.cpp
+    loader/prepare_cli.cpp
     guest_heap.cpp
     native_debug.cpp
     native_sync.cpp

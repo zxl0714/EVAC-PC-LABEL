@@ -1,0 +1,367 @@
+{
+  "format": 1,
+  "game": "ketsui",
+  "titleId": "CUSA09062",
+  "version": "01.02",
+  "source": {
+    "repository": "https://github.com/zxl0714/Ketsui-PC",
+    "commit": "9501378a609d39f20e1d72d41664986ceb167f99",
+    "description": "Complete supported app and 1.02 patch; paths, sizes and SHA-256 metadata only"
+  },
+  "files": [
+    {
+      "path": "CUSA09062-app/5000/movie/title_opening.mp4",
+      "bytes": 45880425,
+      "sha256": "5f05809aaeb2c20fae0fe825a72210cc29529ce8cae12862dba10a36355cb721",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/eboot.bin",
+      "bytes": 3397924,
+      "sha256": "22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/emu_integration_01400.prx",
+      "bytes": 898277,
+      "sha256": "fec98883735545ee856baf322039cf460f0099c6e97267324fb4ac5b0d10ed93",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/ketsui_01000.prx",
+      "bytes": 71326175,
+      "sha256": "a9d2ca3fe11a5c78e977742334705772ad8cd9ed62aade54ec77f9839ddfc397",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/ps4data_body.bin",
+      "bytes": 1186817773,
+      "sha256": "302946000b0780c47e83a881fabcceddd87a86610d7b93c1371c2d61b0d23ce5",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/ps4data_info.psb.m",
+      "bytes": 32828,
+      "sha256": "b955b6ae3f862f180bee604f8fab4f824d2386a4c2d6aa726dbaf4dbb470dc36",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_discmap.plt",
+      "bytes": 3288792,
+      "sha256": "3e76e428a8614d94613ed4a7160dda22c9e43745519e17985f504b8742ade005",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libc.prx",
+      "bytes": 1671962,
+      "sha256": "fe21829021dc46a19406bd8526c4f103821f42f3c1d93dcec685564821bb711d",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceAudioLatencyEstimation.prx",
+      "bytes": 81920,
+      "sha256": "61d051a7c70a6b54fd2c4b0b9d4846c031c86453ee4b10e4896e03e9fdf05bc2",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceFace.prx",
+      "bytes": 344064,
+      "sha256": "00ec0331b75f2a003e601178fa7d89587a1a4754aa7166015a69e10014698851",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceFaceTracker.prx",
+      "bytes": 2654208,
+      "sha256": "b0ec19a7b3a5a80d15ea5c62d4c6e4776328661c30831a617ff35d8a89d11ee7",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceFios2.prx",
+      "bytes": 500705,
+      "sha256": "707fbc550057e551e146fa9f6ef0724cfa09d2701bbfe93745fa0e2dd71fda47",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceHand.prx",
+      "bytes": 81920,
+      "sha256": "b4a5dfb08474967f1cf323d2189a33b3c2fdab964e47197d51cec17c024d9f75",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceHandTracker.prx",
+      "bytes": 98304,
+      "sha256": "22e9465f6d8371d65165a539e1db8c00cebfdca6af659f97651911404abe56fd",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceHeadTracker.prx",
+      "bytes": 1386359,
+      "sha256": "e85845d1b3958cc86446f8c5bf9da74231b177f793de9a78af244cedd7a72e7d",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceJobManager.prx",
+      "bytes": 114688,
+      "sha256": "bfee1d0f362007632ad26dc5b2812f04103f4aa6e63b2f05cd67bbbf81f289a0",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceNpToolkit2.prx",
+      "bytes": 914214,
+      "sha256": "1c58cba5b22550584d1498bd4c8f40d7dd49ae130db96c49c0aada5fbadcdaa2",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceS3DConversion.prx",
+      "bytes": 409600,
+      "sha256": "5d195b4dd566afa3e541c668b1c5330fa8bd46d827baf8e863886b4215fb7a81",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_module/libSceSmart.prx",
+      "bytes": 1490944,
+      "sha256": "4519d45860c274b27b8f2bacbf32491c72fdd13592ba3c51ed549aa173b8dddd",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/about/right.sprx",
+      "bytes": 49152,
+      "sha256": "48d8a4f00b055c624f1e03ef6479799b598d79e6478895aeb5f9587252946b9b",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/icon0.dds",
+      "bytes": 131200,
+      "sha256": "d058a38f4d96cb264a9fcc3926d9fe3489d2fba32cc25a2d8e59338b5a9d956d",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/icon0.png",
+      "bytes": 473843,
+      "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/keystone",
+      "bytes": 96,
+      "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/license.dat",
+      "bytes": 1024,
+      "sha256": "08197f328e6471d8e4407ed15b38911c42d86464419f36d053e5df45ba6173e5",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/license.info",
+      "bytes": 512,
+      "sha256": "d6bd663d45fc832f4054c9806a3f06d748fbc645edf7f41d1062d18cc33294b8",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/npbind.dat",
+      "bytes": 532,
+      "sha256": "3d03bdb43e543d78f1cbca101b01a1a53af9caef0880b98b4afb87b5b0b0013d",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/nptitle.dat",
+      "bytes": 160,
+      "sha256": "bb427e3047feedbd0cb27268b9a4e56153815620a4359a9add95a0180a3cc386",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/param.sfo",
+      "bytes": 1868,
+      "sha256": "36db4ffb690b499791299a96b02de509d74f4fa741f998a79a683f1a303161d3",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/pic0.dds",
+      "bytes": 1036928,
+      "sha256": "88e6ae2332630ed2b8557b67ae86019c7b9e514e92a13aaf406429344fd840d9",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/pic0.png",
+      "bytes": 1785277,
+      "sha256": "41b5894398a4460cd5a145001ce9099b5520ef2835fb18b3ba15b47a51aead1a",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/pic1.dds",
+      "bytes": 1036928,
+      "sha256": "bf67047ace6737651b2d0b857921b4022142c01e7efcf6ef6c773bb387a61a71",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/pic1.png",
+      "bytes": 3432056,
+      "sha256": "3217e789c61c1c5b171e5307eb0180b70224e85260a2bf75c4ab0d478b408b7c",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/playgo-chunk.dat",
+      "bytes": 416,
+      "sha256": "0f49050097c79f2ac09cb4f0d16c4c20ef8114cacbe57129a78057044e86cb20",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/playgo-chunk.sha",
+      "bytes": 81288,
+      "sha256": "852bc6811c1b6624f4e05e3e34e87de6041fc5ae673dc6f60091b29327c061a3",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/playgo-manifest.xml",
+      "bytes": 397,
+      "sha256": "2b2db5af115d416043a392246112a96e91f01e27d7bdb2ba5f5f6eb2bbccccaf",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/pronunciation.sig",
+      "bytes": 20,
+      "sha256": "1b0e8cbe687d2440eac40d1d5b6df11126dadc9a7f403f5de81466fe80dadeb2",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/pronunciation.xml",
+      "bytes": 274,
+      "sha256": "3de23db215a141305dd1372f7ad72adeede50f924d871ad64c2cc723ec0cbf3a",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/psreserved.dat",
+      "bytes": 8192,
+      "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/shareparam.json",
+      "bytes": 145,
+      "sha256": "f70a8591fdc42d0afa5acfd1d6222a9536bef115328a8d2723bdaa40b0482653",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/snd0.at9",
+      "bytes": 145636,
+      "sha256": "824c3e53afc48c8d3484e2b4e72586cd23e1c94a2322d3549bfeacfb7f783cea",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-app/sce_sys/trophy/trophy00.trp",
+      "bytes": 2233552,
+      "sha256": "92a549e01c0fe28eddf715b1c44a84382660f59a7739866158159ff9f9d9af53",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/eboot.bin",
+      "bytes": 3398148,
+      "sha256": "a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-patch/emu_integration_01400.prx",
+      "bytes": 898277,
+      "sha256": "ce1a1bf63ed9238a2634f6c2d3d1f542f70faef4e41dde05ee196e7466a18f85",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-patch/ketsui_01000.prx",
+      "bytes": 71326223,
+      "sha256": "ebb45b9b82095c9081739f732e1807084dcc501bca12ad74f9bb18f5d5a79842",
+      "program": true
+    },
+    {
+      "path": "CUSA09062-patch/ps4data_patch_body.bin",
+      "bytes": 34606054,
+      "sha256": "0a0997c43661c9348b5cbe18fdf2278e23571bef181ddd28087749390f869f96",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/ps4data_patch_info.psb.m",
+      "bytes": 2917,
+      "sha256": "13385ca3e9dd010020d94125e880ecd2bfebcfbb7e89fb347ac98ec1001c20b9",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_discmap.plt",
+      "bytes": 3288792,
+      "sha256": "3e76e428a8614d94613ed4a7160dda22c9e43745519e17985f504b8742ade005",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_discmap_patch.plt",
+      "bytes": 3288792,
+      "sha256": "6941dac32596b03ec0d5d0eb43e0b30b52f1cdb7890e0e9b8bbfd246e2395e5c",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/about/right.sprx",
+      "bytes": 49152,
+      "sha256": "d339090cec56bcfc4345748ff49477c355039c37af29b07baa683b1e6a871168",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/app/playgo-chunk.dat",
+      "bytes": 416,
+      "sha256": "0f49050097c79f2ac09cb4f0d16c4c20ef8114cacbe57129a78057044e86cb20",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/changeinfo/changeinfo.xml",
+      "bytes": 1336,
+      "sha256": "b4e8be027beddab514e7eabace9aa2b5966f8ff4a0d82a8a77aeff67872f1bab",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/npbind.dat",
+      "bytes": 532,
+      "sha256": "3d03bdb43e543d78f1cbca101b01a1a53af9caef0880b98b4afb87b5b0b0013d",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/nptitle.dat",
+      "bytes": 160,
+      "sha256": "bb427e3047feedbd0cb27268b9a4e56153815620a4359a9add95a0180a3cc386",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/param.sfo",
+      "bytes": 1904,
+      "sha256": "828a0f69b7b312e79a55afa1aec824fcd19255057ebf7d77e1f34c274dc7b951",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/playgo-chunk.dat",
+      "bytes": 416,
+      "sha256": "5bcb8ed21f4ae8f403762b033837870a27b52fb6f9b67d5fc0017211a966c4fc",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/playgo-chunk.sha",
+      "bytes": 7024,
+      "sha256": "595d1a61da3bec156e99eeb7fab3f51758262b0ad016fc18055703cad1984f97",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/playgo-manifest.xml",
+      "bytes": 397,
+      "sha256": "2b2db5af115d416043a392246112a96e91f01e27d7bdb2ba5f5f6eb2bbccccaf",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/psreserved.dat",
+      "bytes": 8192,
+      "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+      "program": false
+    },
+    {
+      "path": "CUSA09062-patch/sce_sys/target-deltainfo.dat",
+      "bytes": 15008,
+      "sha256": "607fe161893812c202da2711e4fa7f51926515b16ea666b8cdeb9b5cfee9fd88",
+      "program": false
+    }
+  ]
+}

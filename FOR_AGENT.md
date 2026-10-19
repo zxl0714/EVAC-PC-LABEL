@@ -57,7 +57,7 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 222 项 Python／CLI 回归。PS4 的五对程序／PDB、49 项原生／配置检查及 5 项真实 GPU 自制场景检查通过；双游戏 360 的 18 组 CTest 另行保持回归，不混计成游戏进关。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 226 项 Python／CLI 回归。PS4 的五对程序／PDB、49 项原生／配置检查、35 项镜像准备检查及 5 项真实 GPU 自制场景检查通过；双游戏 360 的 18 组 CTest 另行保持回归，不混计成游戏进关。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
 
 ### 虫姬二接入
 
@@ -119,3 +119,9 @@ py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' -
 PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 现为版本 5，宿主与 DLL 必须配套重建。
 
 只读检查当前配置可用 `./out/ps4-native/KetsuiNativeProbe.exe --collection-config-check ./config.ini`，不启动 SDL、音频、GPU 或社区 worker，不写配置。开发执行入口接受 `--collection-config <同一份 config.ini>`，与旧 `--input-config` 互斥；旧参数仅保留给机制诊断，不是第二份玩家配置。公共 `/cave/api/v1` 自动映射到 `/cave/api/v1/games/ketsui`，也兼容既有 Ketsui 专属地址；其他游戏路径被拒绝。此次通过的是配置解析、原生应用和自造场景，不是合集真实进关或联网游玩验收；启动合同、数据准备、常态日志分级与真实流程仍待接入。
+
+`games/ketsui/data.json` 保存 CUSA09062 本体及 1.02 补丁的 59 个必需文件、大小和 SHA-256；零字节的 CUSA09062.complete 提取标记不是必需资源。本体与补丁保持原目录结构，数据完整也不将尚未接通的启动器入口显示为可启动。可重新只读盘点：`py -3.12 scripts/ps4_inventory.py --game-data '<数据根>' --output .local/analysis/<新文件>.json`。
+
+ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按既有装载合同处理段、导入／导出、重定位、弱符号及 libc 的 RET 验证，不执行原始程序。诊断入口为 `KetsuiNativeProbe.exe --prepare-elf <输入 ELF 绝对路径> --root <合集根绝对路径> --output <新输出绝对路径> [--module] [--libc <libc 绝对路径>]`。输出仅允许在 .local 或 prepared/ketsui 下的新文件，拒绝链接、数据目录重叠、ADS 和相对组件，不覆盖现有文件。此步骤本身无需 Python；完整自动准备还需接通原生资源修复覆盖与缓存收据，不能将镜像转换通过写成整个 Public 首次启动流程已通过。
+
+`scripts/ps4/run_prepare_checks.py` 通过 27 组自造 ELF 和 8 组真实路径检查，使用 Python 实现逐字节对照；由 Test.ps1 的 Ketsui 分支一并执行。`py -3.12 scripts/ketsui/verify_preparation.py --game-data '<数据根>'` 另在新的 .local 现场对照实际 eboot／两个 PRX，并做无客体入口的装载校验。生成文件含派生游戏正文，只留本地；Python 工具是开发侧对照实现，不是预定 Public 包的玩家启动依赖。实际游戏进入和保存／录像仍待合集启动接线后验证。

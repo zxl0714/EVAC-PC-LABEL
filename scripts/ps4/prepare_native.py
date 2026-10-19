@@ -5,6 +5,10 @@ import hashlib
 import json
 import struct
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from analysis_paths import private_output
 
 from native_elf import Elf, nid, read_names
 
@@ -132,10 +136,9 @@ def main():
     parser.add_argument("--libc", type=Path, help="Verify the local libc _init_env RET contract")
     parser.add_argument('--module', action='store_true', help='Prepare a no-TLS PRX with explicit DT_INIT and exports')
     args = parser.parse_args()
-    project = Path(__file__).resolve().parent.parent
-    source, destination = args.input.resolve(), args.output.resolve()
-    if not destination.is_relative_to(project / ".local"):
-        raise ValueError("Prepared game-code output must stay under the project's .local directory")
+    source = args.input.resolve()
+    destination = private_output(args.output, source)
+    private_output(destination.with_suffix('.json'), source)
     if destination == source or destination.exists() or destination.with_suffix(".json").exists():
         raise ValueError("Output must be a new file, distinct from the source")
     data, inventory = prepare(source, read_names(args.names) if args.names else {},
