@@ -61,7 +61,7 @@ try {
     }
     $launcherState = Join-Path $CollectionRoot ('.local/build-inputs/launcher-' + [guid]::NewGuid().ToString('N') + '.json')
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'begin','--state',$launcherState)
-    Invoke-Checked $cmake $configure
+    Invoke-CollectionConfigure $cmake $configure $build
     $targets=@('--build',$build,'--parallel',"$Jobs")
     if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect') }
     Invoke-Checked $cmake $targets

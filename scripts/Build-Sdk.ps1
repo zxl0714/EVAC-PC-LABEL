@@ -27,7 +27,7 @@ try {
         '-DCMAKE_EXE_LINKER_FLAGS=-Xlinker /DEBUG:FULL -Xlinker /OPT:REF -Xlinker /OPT:ICF',
         '-DREXGLUE_USE_D3D12=ON', '-DREXGLUE_USE_VULKAN=OFF',
         '-DREXGLUE_ENABLE_FIDELITYFX=OFF', '-DREXGLUE_ENABLE_TRACY=OFF', '-DREXGLUE_BUILD_TESTS=OFF')
-    Invoke-Checked $cmake $configure
+    Invoke-CollectionConfigure $cmake $configure $build
     Invoke-Checked $cmake @('--build',$build,'--parallel',"$Jobs")
     Invoke-Checked $cmake @('--install',$build)
     foreach ($symbols in Get-ChildItem -LiteralPath (Join-Path $build 'bin') -Filter '*.pdb' -File) {

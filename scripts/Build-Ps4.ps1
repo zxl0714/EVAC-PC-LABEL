@@ -23,18 +23,7 @@ try {
             '-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=/O2 /Ob1 /DNDEBUG',
             '-DCMAKE_C_FLAGS_RELWITHDEBINFO=/O2 /Ob1 /DNDEBUG',
             '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase')
-        foreach ($ps4Pass in 1..2) { Invoke-Checked $ps4CMake $ps4Configure }
-        $ps4Cache = @{}
-        foreach ($line in Get-Content -LiteralPath (Join-Path $ps4Build 'CMakeCache.txt')) {
-            if ($line -match '^([^/#][^:]*):[^=]+=(.*)$') { $ps4Cache[$Matches[1]]=$Matches[2] }
-        }
-        if ($ps4Cache['CMAKE_BUILD_TYPE'] -ne 'RelWithDebInfo' -or
-            $ps4Cache['CMAKE_CXX_FLAGS_RELWITHDEBINFO'] -ne '/O2 /Ob1 /DNDEBUG' -or
-            $ps4Cache['CMAKE_C_FLAGS_RELWITHDEBINFO'] -ne '/O2 /Ob1 /DNDEBUG' -or
-            [IO.Path]::GetFullPath($ps4Cache['CMAKE_CXX_COMPILER']) -ne $ps4Compiler -or
-            [IO.Path]::GetFullPath($ps4Cache['CMAKE_MAKE_PROGRAM']) -ne $ps4Ninja) {
-            throw 'PS4 CMake retained a different compiler, build type or Ninja; existing outputs preserved'
-        }
+        Invoke-CollectionConfigure $ps4CMake $ps4Configure $ps4Build
         Invoke-Checked $ps4CMake @('--build',$ps4Build,'--parallel',"$Jobs")
     }
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps4_build_receipt.py'),'finish','--state',$ps4State)
