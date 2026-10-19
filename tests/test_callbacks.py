@@ -74,6 +74,12 @@ class CallbackInventoryTests(unittest.TestCase):
             with self.subTest(fixture=fixture, offset=offset):
                 self.assertIsNone(readonly_leaf_size(fixture, offset))
 
+    def test_leaf_tail_dispatch_requires_ctr_on_every_incoming_path(self):
+        self.assertEqual(readonly_leaf_size(code(0x81630000, 0x7d6903a6, 0x4e800420), 0), 12)
+        bypass = code(0x2c030000, 0x41820008, 0x7d6903a6, 0x4e800420)
+        self.assertIsNone(readonly_leaf_size(bypass, 0))
+        self.assertIsNone(readonly_leaf_size(code(0x7d6903a6, 0x4e800421), 0))
+
 
 if __name__ == '__main__':
     unittest.main()

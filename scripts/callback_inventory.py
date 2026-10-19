@@ -61,7 +61,7 @@ def pointer_references(data, address, ranges, known):
 
 
 def readonly_leaf_size(code, offset, max_bytes=512):
-    """Bounded CFG candidate: no calls, frame, stores or nonvolatile registers.
+    """Bounded CFG candidate: no linked calls, frame, stores or saved registers.
 
     This is a review aid, not a proof that a data pointer is a function. In
     particular it does not classify exception tables or install declarations.
@@ -69,19 +69,26 @@ def readonly_leaf_size(code, offset, max_bytes=512):
     if offset < 0 or offset % 4 or offset >= len(code):
         return None
     limit = min(len(code), offset + max_bytes)
-    pending, seen, returns = [offset], set(), 0
+    pending, seen, positions, returns = [(offset, False)], set(), set(), 0
     volatile = {0, *range(3, 13)}
     readable = volatile | {2}
     while pending:
-        position = pending.pop()
-        if position in seen:
+        position, ctr_ready = pending.pop()
+        state = (position, ctr_ready)
+        if state in seen:
             continue
         if position < offset or position % 4 or position + 4 > limit:
             return None
-        seen.add(position)
+        seen.add(state)
+        positions.add(position)
         word = struct.unpack_from('>I', code, position)[0]
         op, rt, ra, rb = word >> 26, (word >> 21) & 31, (word >> 16) & 31, (word >> 11) & 31
         if word == 0x4e800020:  # blr
+            returns += 1
+            continue
+        if word == 0x4e800420:  # Tail dispatch; every incoming path must set CTR.
+            if not ctr_ready:
+                return None
             returns += 1
             continue
         if op in (16, 18):
@@ -91,9 +98,9 @@ def readonly_leaf_size(code, offset, max_bytes=512):
             displacement = word & ((1 << bits) - 4)
             if displacement & (1 << (bits - 1)):
                 displacement -= 1 << bits
-            pending.append(position + displacement)
+            pending.append((position + displacement, ctr_ready))
             if op == 16:
-                pending.append(position + 4)
+                pending.append((position + 4, ctr_ready))
             continue
         if op in (14, 15, 32, 34, 40, 42):
             valid = rt in volatile and ra in readable
@@ -103,7 +110,10 @@ def readonly_leaf_size(code, offset, max_bytes=512):
             valid = ra in volatile and rt in readable
         elif op == 31:
             xo = (word >> 1) & 1023
-            if xo in (0, 32):  # integer compare, volatile CR fields only
+            if xo == 467 and (word & 0xfc1fffff) == 0x7c0903a6:  # mtctr
+                valid = rt in readable
+                ctr_ready = True
+            elif xo in (0, 32):  # integer compare, volatile CR fields only
                 valid = ra in readable and rb in readable and ((word >> 23) & 7) in {0, 1, 5, 6, 7}
             elif xo in (8, 10, 40, 136, 138, 235, 266):
                 valid = rt in volatile and ra in readable and rb in readable
@@ -115,8 +125,8 @@ def readonly_leaf_size(code, offset, max_bytes=512):
             valid = False
         if not valid:
             return None
-        pending.append(position + 4)
-    return max(seen) + 4 - offset if returns else None
+        pending.append((position + 4, ctr_ready))
+    return max(positions) + 4 - offset if returns else None
 
 
 def inventory(analysis, data_dir, game='espgaluda2'):

@@ -65,7 +65,7 @@ Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全
 
 games/sdoj/data.json 已单独记录经 ISO 内容比对的 114 个光盘本体文件，inputs.json 记录三个 XEX 头；不包含附带工具、系统更新或音乐补丁。Build.ps1／Generate.ps1 支持 sdoj，模块声明在 games/sdoj/recomp/sdoj.toml；CA022100.bin 和 CA022110.bin 各自生成／编译 DLL，不能改成 .xex 名字或合并同基址的映射。共享 CollectionApp 负责宿主，不导入上游配置向导、减速／输入增强或自动更新器。首次正式构建、11 对 PE／PDB 及 runtime 整理已通过，实战仍待验收；清单保持 integrated=false、comingSoon=false，用于检查版本而不开放启动器启动。
 
-本体主程序在 recomp/default-functions.toml 补充了 29 个转发入口和 7 个叶函数。0x825B6F48 的初始化遗漏已在实际重启中越过；下一处 0x824982C0 是通过代码间接传入、包含两处返回的比较函数，按 136 字节完整声明。另 6 个数据引用叶函数也已逐项审阅，重新生成通过，待实战。callback_inventory.py 支持 sdoj；转发及有界只读叶函数两类候选都只是审阅工具，不自动改声明。扫描拒绝帧依赖的异常尾部、调用、内存写入和非易失寄存器状态，不把所有数据指针都当成可调用函数。不要修改生成正文来修复回调。
+本体主程序在 recomp/default-functions.toml 声明 42 个已审阅入口：29 个转发、7 个叶函数和 6 个条件尾调用包装。0x825B6F48 的初始化入口及 0x824982C0 的 136 字节比较函数均已在实际重启中越过；后续 0x82251C10 包含多路虚调用，完整大小为 244 字节，已与另外 5 个同类包装一并声明，待重新运行。callback_inventory.py 支持 sdoj；候选只是审阅工具，不自动改声明。扫描拒绝帧依赖、链接调用、直接存储和非易失寄存器；尾调用必须在每条到达路径上显式设置 CTR。不要修改生成正文或跳过原调用来修复回调。
 
 communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled 偏好分开；SDOJ 为 false，其他已接入作品默认 true。未支持时不创建通信 provider，run.json 分别记录请求、支持和实际开启状态，宿主保留离线 profile 和共享昵称。不为此在默认 INI 增加联网覆盖。
 

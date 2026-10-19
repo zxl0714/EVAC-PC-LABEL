@@ -140,3 +140,22 @@ size = 32
 # Include both return paths; the next function starts at 0x82498348.
 [functions."0x824982C0"]
 size = 136
+
+# Conditional virtual tail dispatch: each path writes CTR before bctr.
+[functions."0x8224C500"]
+size = 88
+
+[functions."0x82251C10"]
+size = 244
+
+[functions."0x823D65A8"]
+size = 40
+
+[functions."0x823D65D0"]
+size = 40
+
+[functions."0x823D65F8"]
+size = 40
+
+[functions."0x823D6620"]
+size = 40
