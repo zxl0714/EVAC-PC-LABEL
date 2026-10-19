@@ -139,6 +139,10 @@ d0904f9 启动器单独重建 15 项及两对 PE／PDB 通过；原生预览 .lo
 
 749cd9b 的 run-20261019T095707650Z-13132 实际重新启动并进入 Shop，金币从此前自然游玩存档读回为 3；壁纸、GAME OPTION 与 SOUND 分类可见，GAME OPTION 中有自动 Hyper 等辅助项目、Semi-Auto／Full-Auto Maneuver，以及标价 3000 的隐藏项。未购买、增发金币或改解锁标记，也未据图标推断隐藏项的角色。开发者访谈说明此商店使用游戏内获得的点数，不采用游戏外付费（https://dengekionline.com/elem/000/000/626/626186/）。用户要求保留这种免费游玩解锁；此次只证明商店展示与金币读回，不将其记作购买／隐藏角色／购买后重启验证通过。检查后正常关窗，无新增崩溃。
 
+9a9b68d 的同步兼容已完成构建：SDK 11 项增量／三对 PE-PDB，SDOJ 14 项增量／12 对 PE-PDB 及 13 个运行文件整理通过。296 项源码检查通过；common、launch、content_source、codegen_paths、community_sync 五组原生 CTest 全部通过，共 0.97 秒。community_sync 使用自造数据与假 provider，在真实 SDK 内存／内核中验证同步成绩读写、flush、枚举计数、排名估计、录像上传／下载、错误时不写输出、原有异步完成合同，以及同时取消两个同步请求后的迟到回调不再写 RAM。没有访问 HTTP 或执行游戏，不是 SDOJ 联网验收。
+
+本次宿主 SHA-256 a3200d658dbb17fe24367c7985c9da5bf111e2c81ce95feb0d7e4f24d31a2ca8，公共运行时 a9876fff10180452662c194ffb9216f9c4a812f8a1b819d0dd21cffb0857ff94；尚未用新运行时重测原三款实战。根 config.ini 的临时方向别名已撤回，哈希恢复 0c58f87697cc5126ae91e0a3524e049a9688362144e786f3293ab74d525a1cf7；商店检查没有修改 ROM 或解锁标记。
+
 ## 阶段状态
 
 | 阶段 | 状态 | 证据和剩余条件 |

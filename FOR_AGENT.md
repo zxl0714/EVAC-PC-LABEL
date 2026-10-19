@@ -71,7 +71,7 @@ games/sdoj/data.json 已单独记录经 ISO 内容比对的 114 个光盘本体�
 
 communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled 偏好分开；SDOJ 暂为 false，其他已接入作品默认 true。用户现要求 SDOJ 社区／Live 也纳入 v0.2，需先查明本作原生榜单、成绩与录像协议再接独立服务，不借用 G2 的 view 或数据格式。未支持时不创建通信 provider，run.json 分别记录请求、支持和实际开启状态，宿主保留离线 profile 和共享昵称。不为此在默认 INI 增加联网覆盖。同步检查本体商店和隐藏内容，音乐补丁继续暂缓。
 免费且通过游玩解锁的内容按用户要求保留原生进度，由玩家自行解锁；不要赠送金币、默认全开或改存档标志。重点确认原生解锁与保存路径工作正常。
-本体已审阅五个静态 Xbox API 入口，见 community-overrides.toml／community/guest_hooks.cpp；SDOJ 原调用包含同步 stats write、排名估计和录像 IO，公共桥接正在增加空 OVERLAPPED 支持。新 community_sync 原生用例不执行游戏或访问网络；未完成游戏专属属性／录像格式和服务前，communitySupported 继续为 false。
+本体已审阅五个静态 Xbox API 入口，见 community-overrides.toml／community/guest_hooks.cpp；SDOJ 原调用包含同步 stats write、排名估计和录像 IO，9a9b68d 已为公共桥接增加空 OVERLAPPED 支持，同步调用在客体调用线程有界等待，不占共享 IO 调度队列。新 community_sync 原生用例通过同步读写／枚举／估计／录像、错误传播、旧异步路径及同时取消两项同步请求后的迟到回调检查，不执行游戏或访问网络。296 项源码检查、11 项 SDK 和 14 项宿主增量构建、12 对 PE／PDB 及五组原生 CTest 通过。未完成游戏专属属性／录像格式和服务前，communitySupported 继续为 false。测试用的根 INI 小键盘方向别名已撤回，原哈希 0c58f876 已恢复。
 
 81fd6ce 已实际运行到 Xbox 360／Shot 玩家第一关并创建 SYSTEM.DAT；原默认渲染拒绝 UI 的 kInvalidTexture 描述符，因此通过命令行对照确认 gpu_allow_invalid_fetch_constants=true 恢复标题和菜单。此兼容开关现由 SDOJ 的 OnGamePreSetup 设置，共享宿主只提供钩子，不把游戏条件写进公共平台；后续需验证无额外参数重启、模式切换及存档／录像。音频有非静音输出，不等于声音响应验收。data.json 的 forbiddenFiles 禁止本体目录出现 default.xexp、CA022100.binp、CA022110.binp；代码生成和原生启动检查均拒绝，不删除或改写原文件。
 
