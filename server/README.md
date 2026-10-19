@@ -50,7 +50,7 @@ python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 1808
 
 ## 服务器目录与部署
 
-`/opt/cave-community/releases/<版本>/` 保存一份不可变的服务源码，`current` 指向启用版本。服务程序属于 root，仅 `/var/lib/cave-community/espgaluda2/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。
+`/opt/cave-community/releases/<版本>/` 保存不可变的服务源码，G2 的 `current` 与 SDOJ 的 `sdoj-current` 分别选择自己的版本。服务程序属于 root，各游戏的 `/var/lib/cave-community/<游戏>/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。以下先说明 G2 的已有部署，SDOJ 的增量步骤见后文。
 
 从已提交版本准备一个仅含下列文件的部署归档，记录 commit 与每个文件的 SHA-256，再上传并解压到新的版本目录：
 
@@ -70,6 +70,20 @@ python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 1808
 更新时先创建、测试新版本目录，再切换 `current` 并仅重启 G2 服务。保留旧版本；不重建数据库，不重启虫姬二或绊地狱。失败时切回旧链接并重启 G2；首次部署若 nginx 校验失败，恢复站点备份，不 reload 无效配置。
 
 ## 运维与备份
+
+### 增量部署 SDOJ
+
+SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口和 `/var/lib/cave-community/sdoj/`。不切换 G2 的 `current`，不重启另外三款服务。将 SDOJ 服务启用与客户端游戏内验收分开记录。
+
+1. 确认 SDOJ 三个单元、`sdoj-current`、数据库和 18087 监听均不存在。将已提交的 `server/games/sdoj.py`、共用的 `espgaluda2.py`／包入口／`backup.py`、部署模板及两款服务与备份测试打成仅含源码的归档，记录提交和 SHA-256。
+2. 上传到新的 `/opt/cave-community/releases/<提交>/`，先对归档与文件逐一核验，使用服务器 Python 执行服务、备份和部署模板测试。目录属于 root，不能由 `cave-community` 改写。
+3. 创建 `sdoj-current` 指向该版本，将 SDOJ 三个模板安装为无 `.in` 扩展的 systemd 单元。执行 `systemd-analyze verify`、`daemon-reload`，只启动 SDOJ。检查本机健康响应为 `435A07E7`，监听仅限 127.0.0.1。
+4. 保存当前 nginx 片段的独立备份，确认新模板中原三款 location 与现用配置完全相同，只增加 SDOJ location。安装新片段并执行 `nginx -t`；失败时恢复片段备份，不 reload。成功后只 reload nginx，检查四款合集入口与两条旧入口的健康响应；未知游戏仍返回 404。
+5. 启用 SDOJ 服务／每日备份 timer，手动运行一次备份，核对快照的数据库身份与 SQLite 完整性。原三款服务的 PID 和 G2 的 `current` 应保持不变。
+
+更新仅切换 `sdoj-current` 并重启 SDOJ，保留旧发行目录和数据库。回滚切回旧链接并重启该服务，不覆盖工作数据库。第一次上线失败时可以停止 SDOJ 并恢复 nginx 片段，不删除数据库现场；服务端健康和空榜读回不是游戏内提交／录像播放验收。
+
+### 日常操作
 
 ```sh
 systemctl status cave-g2.service cave-g2-backup.timer
