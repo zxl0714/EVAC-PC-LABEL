@@ -1,5 +1,17 @@
 option(CAVE_BUILD_GAME "Build selected games using locally generated code" ON)
 cave_game_metadata(sdoj)
+add_library(sdoj_community STATIC community/sdoj_service.cpp community/replay_format.cpp)
+target_include_directories(sdoj_community PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(sdoj_community PUBLIC cave_community_native)
+add_executable(sdoj_community_tests "${CMAKE_SOURCE_DIR}/tests/sdoj/community_service_test.cpp")
+target_link_libraries(sdoj_community_tests PRIVATE sdoj_community)
+add_custom_command(TARGET sdoj_community_tests POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:sdoj_community_tests> $<TARGET_FILE_DIR:sdoj_community_tests>
+    COMMAND_EXPAND_LISTS VERBATIM)
+add_test(NAME sdoj_community COMMAND sdoj_community_tests)
+add_test(NAME sdoj_community_loopback COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/run_native_score_replay.py" --game sdoj --program $<TARGET_FILE:sdoj_community_tests>)
+set_tests_properties(sdoj_community sdoj_community_loopback PROPERTIES TIMEOUT 60)
 add_executable(sdoj_crash_writer "${CMAKE_SOURCE_DIR}/backends/xbox360/diagnostics/crash_writer.cpp")
 target_link_libraries(sdoj_crash_writer PRIVATE dbghelp psapi)
 
@@ -11,7 +23,7 @@ if(CAVE_BUILD_GAME)
     add_executable(sdoj WIN32 host.cpp community/guest_hooks.cpp ${GENERATED_SOURCES})
     target_include_directories(sdoj PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/sdoj/default" "${CAVE_GAME_METADATA_DIR}")
     target_compile_options(sdoj PRIVATE -fno-char8_t)
-    target_link_libraries(sdoj PRIVATE cave_xbox360_host)
+    target_link_libraries(sdoj PRIVATE cave_xbox360_host sdoj_community)
     target_link_options(sdoj PRIVATE "LINKER:/MANIFEST:EMBED"
         "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
     add_dependencies(sdoj sdoj_crash_writer)

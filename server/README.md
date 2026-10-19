@@ -30,6 +30,16 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；`--check-endpoint https://xiaolu.life/cave/api/v1` 仅通过 Windows HTTP 和原生适配读取公开榜单及本人状态，不提交成绩。真实联网验收使用游戏本身的成绩与录像流程。
 
+## SDOJ 开发适配
+
+SDOJ 的独立适配位于 `server/games/sdoj.py`，复用有界 HTTP／SQLite 存储而保留本作的 39 个个人榜单、属性和原生录像格式。开发服务默认监听 `127.0.0.1:18087`，路径为 `/cave/api/v1/games/sdoj/`，Title ID 为 `435A07E7`。当前尚未部署或通过实际联网验收，下面的命令只启动本机独立数据库，不代表正式接口已可用。
+
+```sh
+python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 18087
+```
+
+原生录像为 304 字节头，加权半字校验和与元数据核对后保持完整原字节；不转换为 G2 格式，也不重写录像时间。成绩先提交、录像随后关联；服务确认附件后才对榜单公开可下载大小。未完成个人网络流程或未覆盖的团队评分不声明支持。
+
 ## 虫姬二客户端与本机验证
 
 虫姬二保留自身原生录像／成绩时序。`scripts/futari/local_service.py` 可在全新 `.local` 目录启动随机端口的本机服务，使用相同协议而不改正式路由或数据库；命令和配置方法见 [分析工具](../docs/ANALYSIS.md#虫姬二本机联网现场)。无需 ROM 的传输与故障注入检查由 `tests/futari/run_native_community.py` 启动独立临时服务。

@@ -10,6 +10,7 @@ import argparse
 import base64
 import binascii
 from contextlib import contextmanager
+from collections.abc import Collection
 from dataclasses import dataclass
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -31,7 +32,7 @@ import uuid
 class Game:
     name: str
     title: str
-    views: range
+    views: Collection[int]
 
 
 G2 = Game('espgaluda2', '435A07D8', range(1, 85))
@@ -128,6 +129,15 @@ def match_replay(data, props):
 
 
 class Store:
+    # Transport/storage is shared; native schemas remain title-specific.
+    score_property = 0x20000001
+    replay_format = REPLAY_FORMAT
+    inspect_record = staticmethod(replay_info)
+    match_record = staticmethod(match_replay)
+
+    def validate_properties(self, view, props, score):
+        pass
+
     def __init__(self, database, game=G2):
         self.database, self.game = str(database), game
         with self.connect() as db:
@@ -183,9 +193,10 @@ class Store:
         view, rules = self.board(body.get('view'), body.get('rules'))
         score = decimal(body.get('score'))
         props = columns(body.get('columns'))
-        total = next((p for p in props if p['id'] == 0x20000001 and p['type'] == 2), None)
+        total = next((p for p in props if p['id'] == self.score_property and p['type'] == 2), None)
         if total is None or int(total['value']) != score:
             raise ApiError(400, 'native_score_mismatch')
+        self.validate_properties(view, props, score)
         build = text(body.get('build'), 96)
         canonical = json.dumps([name, view, rules, str(score), props, build],
                                ensure_ascii=False, sort_keys=True, separators=(',', ':'))
@@ -247,7 +258,7 @@ class Store:
                              build=row[4], created=row[5], rank=row[6], replay_id=None)
                 if attachment:
                     entry.update(replay_id=attachment[0], replay_sha256=attachment[1],
-                                 replay_size=attachment[2], replay_format=REPLAY_FORMAT)
+                                 replay_size=attachment[2], replay_format=self.replay_format)
                 entries.append(entry)
         return dict(view=view, rules=rules, total=total, start=start, rows=entries)
 
@@ -257,7 +268,7 @@ class Store:
         if body.get('title_id') != self.game.title or type(body.get('protocol')) is not int or body['protocol'] != PROTOCOL:
             raise ApiError(409, 'incompatible_client')
         score_id, name = reference(body.get('score_id')), nickname(body.get('nickname'))
-        if body.get('format') != REPLAY_FORMAT:
+        if body.get('format') != self.replay_format:
             raise ApiError(400, 'unsupported_replay_format')
         encoded = body.get('data')
         if not isinstance(encoded, str) or not 0 < len(encoded) <= (MAX_REPLAY + 2) // 3 * 4:
@@ -268,7 +279,7 @@ class Store:
             raise ApiError(400, 'invalid_replay_encoding') from None
         if base64.b64encode(data).decode('ascii') != encoded:
             raise ApiError(400, 'noncanonical_replay_encoding')
-        replay_info(data)
+        self.inspect_record(data)
         digest = hashlib.sha256(data).hexdigest()
         if body.get('sha256') != digest:
             raise ApiError(400, 'replay_hash_mismatch')
@@ -279,7 +290,7 @@ class Store:
                 raise ApiError(404, 'score_not_found')
             if score[0] != name:
                 raise ApiError(409, 'score_owner_mismatch')
-            match_replay(data, json.loads(score[1]))
+            self.match_record(data, json.loads(score[1]))
             old = db.execute('SELECT r.id,r.sha256 FROM attachments a JOIN replays r '
                              'ON r.id=a.replay_id WHERE a.score_id=?', (score_id,)).fetchone()
             if old and old[1] != digest:
@@ -301,7 +312,7 @@ class Store:
             raise ApiError(404, 'replay_not_found')
         if hashlib.sha256(row[1]).hexdigest() != row[0]:
             raise RuntimeError('Stored replay checksum mismatch')
-        return dict(id=replay_id, format=REPLAY_FORMAT, sha256=row[0], bytes=len(row[1]),
+        return dict(id=replay_id, format=self.replay_format, sha256=row[0], bytes=len(row[1]),
                     data=base64.b64encode(row[1]).decode('ascii'))
 
     def estimate(self, view, rules, score, name):
@@ -436,13 +447,13 @@ class Handler(BaseHTTPRequestHandler):
             LOG.info('request=%s disconnected', request_id)
 
 
-def main():
+def serve(store_type=Store, default_port=18086):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--database', type=Path, required=True)
-    parser.add_argument('--port', type=int, default=18086)
+    parser.add_argument('--port', type=int, default=default_port)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    server = Server(('127.0.0.1', args.port), Store(args.database))
+    server = Server(('127.0.0.1', args.port), store_type(args.database))
 
     def shutdown(_signal, _frame):
         threading.Thread(target=server.shutdown, daemon=True).start()
@@ -454,6 +465,10 @@ def main():
         server.serve_forever(poll_interval=0.25)
     finally:
         server.server_close()
+
+
+def main():
+    serve()
 
 
 if __name__ == '__main__':

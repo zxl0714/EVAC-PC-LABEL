@@ -8,6 +8,13 @@ target_include_directories(cave_community_http PUBLIC "${CMAKE_SOURCE_DIR}" "${C
     "${CMAKE_SOURCE_DIR}/third_party/rexglue/thirdparty/inja/third_party/include")
 target_link_libraries(cave_community_http PUBLIC rex::runtime winhttp normaliz)
 
+add_library(cave_replay_encoding STATIC ${CMAKE_SOURCE_DIR}/common/community/replay_encoding.cpp)
+target_include_directories(cave_replay_encoding PUBLIC "${CMAKE_SOURCE_DIR}/common")
+target_link_libraries(cave_replay_encoding PUBLIC bcrypt crypt32)
+add_library(cave_community_native STATIC community/native_service.cpp)
+target_include_directories(cave_community_native PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(cave_community_native PUBLIC cave_community_http cave_replay_encoding)
+
 add_library(cave_xbox360_diagnostics STATIC diagnostics/run_context.cpp)
 target_include_directories(cave_xbox360_diagnostics PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(cave_xbox360_diagnostics PUBLIC cave_common cave_community_http bcrypt)

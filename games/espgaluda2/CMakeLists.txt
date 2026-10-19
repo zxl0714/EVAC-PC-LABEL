@@ -24,11 +24,14 @@ add_custom_command(TARGET espgaluda2_time_zone_tests POST_BUILD
     COMMAND_EXPAND_LISTS VERBATIM)
 add_library(espgaluda2_community STATIC ${CMAKE_SOURCE_DIR}/games/espgaluda2/community/g2_service.cpp ${CMAKE_SOURCE_DIR}/games/espgaluda2/community/replay_format.cpp)
 target_include_directories(espgaluda2_community PUBLIC "${CMAKE_SOURCE_DIR}/backends/xbox360" "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(espgaluda2_community PUBLIC cave_community_http bcrypt crypt32)
+target_link_libraries(espgaluda2_community PUBLIC cave_community_native)
 add_executable(espgaluda2_community_service_tests ${CMAKE_SOURCE_DIR}/tests/xbox360/community_service_test.cpp)
 target_link_libraries(espgaluda2_community_service_tests PRIVATE espgaluda2_community)
 add_test(NAME community_service COMMAND espgaluda2_community_service_tests)
 set_tests_properties(community_service PROPERTIES TIMEOUT 15)
+add_test(NAME community_loopback COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/run_native_score_replay.py" --game espgaluda2 --program $<TARGET_FILE:espgaluda2_community_service_tests>)
+set_tests_properties(community_loopback PROPERTIES TIMEOUT 60)
 add_custom_command(TARGET espgaluda2_community_service_tests POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         $<TARGET_RUNTIME_DLLS:espgaluda2_community_service_tests> $<TARGET_FILE_DIR:espgaluda2_community_service_tests>
