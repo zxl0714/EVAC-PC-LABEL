@@ -1,0 +1,16 @@
+[Unit]
+Description=Back up CAVE PC Collection DaiOuJou community database
+After=cave-daioujou.service
+
+[Service]
+Type=oneshot
+User=cave-community
+Group=cave-community
+ExecStart=/usr/bin/python3 -B /opt/cave-community/daioujou-current/server/backup.py --database /var/lib/cave-community/daioujou/community.sqlite3 --directory /var/lib/cave-community/daioujou/backups
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cave-community/daioujou
+MemoryMax=128M

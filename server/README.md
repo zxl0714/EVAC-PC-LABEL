@@ -61,7 +61,7 @@ python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 1808
 
 ## 服务器目录与部署
 
-`/opt/cave-community/releases/<版本>/` 保存不可变的服务源码，G2 的 `current` 与 SDOJ 的 `sdoj-current` 分别选择自己的版本。服务程序属于 root，各游戏的 `/var/lib/cave-community/<游戏>/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。以下先说明 G2 的已有部署，SDOJ 的增量步骤见后文。
+`/opt/cave-community/releases/<版本>/` 保存不可变的服务源码，G2 的 `current`、SDOJ 的 `sdoj-current` 及大往生计划使用的 `daioujou-current` 分别选择自己的版本。服务程序属于 root，各游戏的 `/var/lib/cave-community/<游戏>/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。以下先说明 G2 的已有部署，各标题增量步骤见后文。模板列出的服务不代表均已部署；当前线上范围见本文开头。
 
 从已提交版本准备一个仅含下列文件的部署归档，记录 commit 与每个文件的 SHA-256，再上传并解压到新的版本目录：
 
@@ -89,10 +89,22 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 1. 确认 SDOJ 三个单元、`sdoj-current`、数据库和 18087 监听均不存在。将已提交的 `server/games/sdoj.py`、共用的 `espgaluda2.py`／包入口／`backup.py`、部署模板及两款服务与备份测试打成仅含源码的归档，记录提交和 SHA-256。
 2. 上传到新的 `/opt/cave-community/releases/<提交>/`，先对归档与文件逐一核验，使用服务器 Python 执行服务、备份和部署模板测试。目录属于 root，不能由 `cave-community` 改写。
 3. 创建 `sdoj-current` 指向该版本，将 SDOJ 三个模板安装为无 `.in` 扩展的 systemd 单元。执行 `systemd-analyze verify`、`daemon-reload`，只启动 SDOJ。检查本机健康响应为 `435A07E7`，监听仅限 127.0.0.1。
-4. 保存当前 nginx 片段的独立备份，确认新模板中原三款 location 与现用配置完全相同，只增加 SDOJ location。安装新片段并执行 `nginx -t`；失败时恢复片段备份，不 reload。成功后只 reload nginx，检查四款合集入口与两条旧入口的健康响应；未知游戏仍返回 404。
+4. 保存当前 nginx 片段的独立备份，确认原三款 location 与现用配置完全相同，只增加模板中的 SDOJ location，不安装尚未部署作品的路由。安装片段并执行 `nginx -t`；失败时恢复片段备份，不 reload。成功后只 reload nginx，检查四款合集入口与两条旧入口的健康响应；未知游戏仍返回 404。
 5. 启用 SDOJ 服务／每日备份 timer，手动运行一次备份，核对快照的数据库身份与 SQLite 完整性。原三款服务的 PID 和 G2 的 `current` 应保持不变。
 
 更新仅切换 `sdoj-current` 并重启 SDOJ，保留旧发行目录和数据库。回滚切回旧链接并重启该服务，不覆盖工作数据库。第一次上线失败时可以停止 SDOJ 并恢复 nginx 片段，不删除数据库现场；服务端健康和空榜读回不是游戏内提交／录像播放验收。
+
+### 增量部署大往生（待执行）
+
+三个 `cave-daioujou*.in` 模板已提供独立服务、每日备份与 timer，使用 18088、`daioujou-current` 和 `/var/lib/cave-community/daioujou/`。nginx 模板仅新增 `/cave/api/v1/games/daioujou/`，保留原四款的 upstream 与未知游戏 404。这些文件通过本机静态配置检查，尚未安装到 ECS；实际游戏联网仍待验收。
+
+1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
+2. 上传到新的不可变版本目录，核验后用服务器 Python 执行 `test_ps4_community_profiles.py`、`test_community_backup.py`、`test_community_deployment.py`。这一步只使用随机 loopback 和临时 SQLite，不改玩家榜单。先记录原四款服务 PID、各版本指针与 nginx 片段哈希。
+3. 确认 18088、新服务单元、版本指针及大往生数据库均不存在；有已有安装时先检查，不能当作首次部署覆盖。新建 `daioujou-current`，安装本作三个单元，执行 `systemd-analyze verify`、`daemon-reload`，只启动大往生。确认仅监听 127.0.0.1，health 为 CUSA32997／1.04。
+4. 独立备份 nginx 片段，只加入大往生 location。`nginx -t` 成功才 reload，并检查五款合集与两条旧入口的身份，以及未知游戏 404。不要替换或重启绊地狱的旧 Python 服务；本作只在自己的版本目录复用其维护源码。
+5. 启用本作服务和备份 timer，执行一次备份，核对 SQLite 完整性、Title ID CUSA32997 和本作 application_id。确认原四款 PID 与版本指针不变，保留部署、健康和备份记录。游戏内真实提交、榜单、录像收发与播放仍是单独验收条件。
+
+更新只切换 `daioujou-current` 并重启本作；回滚切回旧链接。首次上线失败时停止本作，恢复 nginx 片段并先校验，不删除数据库或旧目录。不要用对本作数据库的测试结果替代其他标题的服务验收，也不要向线上写入 fixture 分数。
 
 ### 日常操作
 
