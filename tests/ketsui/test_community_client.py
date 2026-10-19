@@ -302,6 +302,10 @@ class ClientTests(unittest.TestCase):
             self.assertEqual([event['reason'] for event in validations], [None, None, 'replay_score_mismatch'])
             self.assertTrue(all(event['game'] == 'ketsui' and event['payload_bytes'] == len(payload)
                                 for event in validations))
+            self.assertEqual([event['expected_score'] for event in validations], [9001, 9001, 9002])
+            self.assertTrue(all(event['expected_board'] == 0 and event['header']['bytes'] == 0x80000
+                                and event['header']['score'] == 9001 and event['header']['kind'] == 0
+                                for event in validations))
             page = store.leaderboard(0, 'standard')
             self.assertEqual((page['total'], page['entries'][0]['score'], page['entries'][0]['replay']), (1, '9002', None))
             self.assertEqual(len(list((profile / 'community-outbox/.trash').rglob('request.json'))), 4)

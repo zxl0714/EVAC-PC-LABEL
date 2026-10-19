@@ -324,12 +324,16 @@ struct Client::Impl {
         if (job.replay_check != ReplayCheck::Upload) { return true; }
         bool valid{};
         Json reason = nullptr;
+        Json header = nullptr;
         try {
             Require(job.body.is_object() && job.body.size() == 3 &&
                     Identifier(job.body.at("entry_id").get<std::string>()) &&
                     Identifier(job.body.at("submission_id").get<std::string>()) &&
                     ValidNicknameBytes(job.body.at("nickname").get<std::string>()), "Invalid typed replay receipt metadata");
             const auto replay = InspectReplayEnvelope(job.upload,config.game);
+            header = {{"bytes",replay.record.size()},{"version",replay.version},{"data_version",replay.data_version},
+                {"region",replay.region},{"kind",replay.kind},{"mode",replay.mode},
+                {"score",replay.score},{"character",replay.character},{"stage",replay.stage}};
             if (job.replay_expected) { MatchReplayMetadata(replay, *job.replay_expected); }
             job.body["sha256"] = Sha256(job.upload);
             job.body["format"] = ProtocolFor(config.game).replay_format;
@@ -338,7 +342,9 @@ struct Client::Impl {
           catch (...) { reason = "unknown_validation_error"; }
         const Json diagnostic{{"event","native_community_replay_validation"},{"operation","upload"},
             {"game",config.game},{"passed",valid},{"metadata_required",bool(job.replay_expected)},
-            {"payload_bytes",job.upload.size()},{"reason",reason},
+            {"payload_bytes",job.upload.size()},{"reason",reason},{"header",header},
+            {"expected_board",job.replay_expected ? Json(job.replay_expected->board) : Json(nullptr)},
+            {"expected_score",job.replay_expected ? Json(job.replay_expected->score) : Json(nullptr)},
             {"host_thread_id",GetCurrentThreadId()},{"native_playback_validated",false}};
         std::puts(diagnostic.dump().c_str());
         return valid;
@@ -348,10 +354,14 @@ struct Client::Impl {
         bool valid{};
         const auto payload_bytes = reply.bytes.size();
         Json reason = nullptr;
+        Json header = nullptr;
         try {
             Require(reply.bytes.size() == job.replay_bytes && Sha256(reply.bytes) == job.replay_digest,
                     "Downloaded replay differs from the selected immutable entry");
             const auto replay = InspectReplayEnvelope(reply.bytes,config.game);
+            header = {{"bytes",replay.record.size()},{"version",replay.version},{"data_version",replay.data_version},
+                {"region",replay.region},{"kind",replay.kind},{"mode",replay.mode},
+                {"score",replay.score},{"character",replay.character},{"stage",replay.stage}};
             if (job.replay_expected) { MatchReplayMetadata(replay, *job.replay_expected); }
             valid = true;
         } catch (const std::exception& error) { reason = std::string(error.what()).substr(0,256); }
@@ -359,7 +369,9 @@ struct Client::Impl {
         if (!valid) { reply.error = Error::Protocol; reply.bytes.clear(); reply.body = nullptr; }
         const Json diagnostic{{"event","native_community_replay_validation"},{"operation","download"},
             {"game",config.game},{"passed",valid},{"metadata_required",bool(job.replay_expected)},
-            {"payload_bytes",payload_bytes},{"reason",reason},
+            {"payload_bytes",payload_bytes},{"reason",reason},{"header",header},
+            {"expected_board",job.replay_expected ? Json(job.replay_expected->board) : Json(nullptr)},
+            {"expected_score",job.replay_expected ? Json(job.replay_expected->score) : Json(nullptr)},
             {"host_thread_id",GetCurrentThreadId()},{"native_playback_validated",false}};
         std::puts(diagnostic.dump().c_str());
     }
