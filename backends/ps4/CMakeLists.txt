@@ -169,7 +169,7 @@ add_executable(KetsuiNativeProbe
     native_trophy.cpp
 )
 target_compile_features(KetsuiNativeProbe PRIVATE cxx_std_20)
-target_include_directories(KetsuiNativeProbe PRIVATE "${CAVE_PS4_COMPONENTS}/gpu_core/host")
+target_include_directories(KetsuiNativeProbe PRIVATE "${CAVE_PS4_COMPONENTS}/gpu_core/host" "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(KetsuiNativeProbe PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiNativeProbe PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/W4;/WX;/EHsc>)
 target_link_options(KetsuiNativeProbe PRIVATE /DEBUG:FULL)
