@@ -16,7 +16,7 @@ class ReleaseTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='cave-authored-package-')
         self.root = Path(self.temporary.name)
-        self.games = {key: dict(runtimeFiles=['runtime/fake.dll']) for key in release.GAMES}
+        self.games = {key: dict(runtimeFiles=['runtime/fake.dll']) for key in release.V03_GAMES}
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -46,15 +46,54 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn(directory.name + '/config.ini', zipped.namelist())
         self.assertTrue(archive.with_suffix('.zip.sha256').read_text().startswith(release.digest(archive)))
 
-    def test_release_profiles_preserve_v01_and_require_sdoj_for_v02(self):
+    def test_release_profiles_preserve_v01_v02_and_require_daioujou_for_v03(self):
         self.assertEqual(release.release_games('0.1'), release.LEGACY_GAMES)
         self.assertEqual(release.release_games('0.2-rc1'), release.GAMES)
         self.assertIn('sdoj', release.release_games('0.2'))
-        for version in ('', '0.3', '1.0', '../bad'):
+        self.assertEqual(release.release_games('0.3-rc1'), release.V03_GAMES)
+        self.assertEqual(release.release_games('0.3'), (*release.GAMES, 'daioujou'))
+        for version in ('', '0.4', '1.0', '../bad'):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 release.release_games(version)
         self.assertEqual(release.verify_tree(self.package('0.1-test'), self.games)['games'],
                          list(release.LEGACY_GAMES))
+
+    def test_unaccepted_daioujou_blocks_both_v03_flavors_before_output(self):
+        games = [dict(id=key, integrated=True, comingSoon=False, communitySupported=True,
+                      runtimeFiles=['runtime/' + key + '.exe']) for key in release.V03_GAMES]
+        for field, value in (('integrated', False), ('comingSoon', True),
+                             ('communitySupported', False), ('runtimeFiles', [])):
+            with self.subTest(field=field):
+                incomplete = [dict(item) for item in games]
+                incomplete[-1][field] = value
+                with patch.object(release, 'load', return_value=incomplete), \
+                        patch.object(release, 'certified_runtime', side_effect=AssertionError('must fail before receipts')):
+                    for flavor in ('Internal', 'Public'):
+                        output = self.root / flavor
+                        with self.assertRaisesRegex(ValueError, 'daioujou'):
+                            release.build(flavor, '0.3', output)
+                        self.assertFalse(output.exists())
+
+    def test_v03_public_requires_five_games_and_never_allows_daioujou_bodies(self):
+        directory = self.package('0.3-test')
+        self.assertEqual(release.verify_tree(directory, self.games)['games'], list(release.V03_GAMES))
+        for name in ('game-data/daioujou/eboot.bin', 'prepared/daioujou/eboot.ktprobe',
+                     'source/games/daioujou/data.json', 'runtime/ps4/daioujou.pdb'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                release.validate_public_name(name, self.games, release.V03_GAMES)
+        path = directory / 'release.json'
+        record = json.loads(path.read_text(encoding='utf-8'))
+        record['games'] = list(release.GAMES)
+        path.write_text(json.dumps(record), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'release identity'):
+            release.verify_tree(directory, self.games)
+
+    def test_ps4_aliases_share_host_certificate_without_guessing_other_paths(self):
+        for game in ('ketsui', 'daioujou'):
+            for suffix in ('.exe', '.pdb'):
+                self.assertEqual(release.certified_name('runtime/ps4/' + game + suffix), 'KetsuiNativeProbe' + suffix)
+        self.assertEqual(release.certified_name('runtime/ps4/other.exe'), 'other.exe')
+        self.assertEqual(release.certified_name('runtime/xbox360/daioujou.exe'), 'daioujou.exe')
 
     def test_v02_does_not_allow_a_three_game_identity(self):
         directory = self.package()
@@ -135,11 +174,18 @@ class ReleaseTests(unittest.TestCase):
             release.version_name('../bad', 'Internal')
 
     def test_both_build_flavors_from_one_authored_fixture(self):
+        self.check_build_flavors('0.2-test')
+
+    def test_five_game_build_flavors_and_real_extraction_from_authored_fixture(self):
+        self.check_build_flavors('0.3-test')
+
+    def check_build_flavors(self, version):
         # Exercise the actual assembler/ZIP/verifier, not just a hand-written
         # manifest. Certificates and media are authored bytes, never executable.
         root = self.root / 'fixture-project'; root.mkdir()
         text = {'README.txt':'authored source', '.gitignore':'out/\nruntime/\ngame-data/\ndlc/\nreleases/\ncrt/\n*.exe\n*.pdb\n',
-                'config/default.ini':'[collection]\nconfig_version=1\n', 'config/README.player.txt':'authored instructions',
+                'config/default.ini':'[collection]\nconfig_version=1\n', 'config/README.player.txt':'authored v02 instructions',
+                'config/README.player-v03.txt':'authored v03 instructions',
                 '启动游戏.bat':'@echo off\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for name, value in text.items():
@@ -153,25 +199,26 @@ class ReleaseTests(unittest.TestCase):
         release.git(root,'commit','-m','Authored uninitialized submodule')
         commit=release.git(root,'rev-parse','HEAD').decode().strip()
         identity=dict(path='main.bin',bytes=3,sha256=hashlib.sha256(b'abc').hexdigest())
+        selection = release.release_games(version)
         games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
-            'runtime/'+('ps4' if key=='ketsui' else 'xbox360')+'/'+key+'.exe',
-            'runtime/games/'+key+'/runtime-manifest.ini']) for key in release.GAMES}
+            'runtime/'+('ps4' if key in ('ketsui', 'daioujou') else 'xbox360')+'/'+key+'.exe',
+            'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
-        for name in release.runtime_names(games,True):
+        for name in release.runtime_names(games,True,selection):
             if name.endswith('.ini'):continue
-            base=Path(name).name
-            if name.startswith('runtime/ps4/ketsui.'):base='KetsuiNativeProbe'+Path(name).suffix
+            base=release.certified_name(name)
             binary=root/'out/bin'/base;binary.parent.mkdir(parents=True,exist_ok=True);binary.write_bytes(('authored '+base).encode())
             certified[base]=dict(source=binary,bytes=binary.stat().st_size,sha256=release.digest(binary))
             staged=root/name;staged.parent.mkdir(parents=True,exist_ok=True);staged.write_bytes(binary.read_bytes())
         for key,game in games.items():
-            name=game['runtimeFiles'][0];base=Path(name).name
-            if key=='ketsui':base='KetsuiNativeProbe.exe'
+            name=game['runtimeFiles'][0];base=release.certified_name(name)
             (root/game['runtimeFiles'][1]).parent.mkdir(parents=True,exist_ok=True)
             (root/game['runtimeFiles'][1]).write_text('[runtime]\ncontract=1\ngame='+key+'\nsource_commit='+commit+
                 '\n[files]\n'+name+'='+certified[base]['sha256']+'\n',encoding='utf-8')
             data=root/'game-data'/key;data.mkdir(parents=True);(data/'main.bin').write_bytes(b'abc')
+            if key == 'daioujou':
+                (data/'Project.gp4').write_bytes(b'authored packaging-only file')
         (root/'dlc').mkdir();(root/'dlc/fixture-dlc.bin').write_bytes(b'abc')
         crt=root/'crt';crt.mkdir()
         for name in ('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','msvcp140_atomic_wait.dll'):
@@ -183,17 +230,24 @@ class ReleaseTests(unittest.TestCase):
                 patch.object(release,'certified_runtime',return_value=(commit,receipts,certified)), \
                 patch.object(release,'redist_directory',return_value=crt),patch.object(release,'license_files',return_value=[]), \
                 patch.object(release,'inspect_game',side_effect=inspected),patch.object(release,'audit_source'):
-            outputs={flavor:release.build(flavor,'0.2-test',root/'releases'/flavor) for flavor in ('Internal','Public')}
+            outputs={flavor:release.build(flavor,version,root/'releases'/flavor) for flavor in ('Internal','Public')}
         internal=Path(outputs['Internal']['archive']).with_suffix('')
         public=Path(outputs['Public']['archive']).with_suffix('')
-        self.assertEqual(Path(outputs['Internal']['archive']).name, 'CAVE-PC-Collection-v0.2-test-internal.zip')
-        self.assertEqual(Path(outputs['Public']['archive']).name, 'CAVE-PC-Collection-v0.2-test-public.zip')
+        self.assertEqual(Path(outputs['Internal']['archive']).name, 'CAVE-PC-Collection-v'+version+'-internal.zip')
+        self.assertEqual(Path(outputs['Public']['archive']).name, 'CAVE-PC-Collection-v'+version+'-public.zip')
         self.assertTrue((internal/'source/.git/HEAD').is_file())
         self.assertTrue((internal/'game-data/futari/dlc/fixture-dlc.bin').is_file())
         self.assertTrue((internal/'game-data/sdoj/main.bin').is_file())
+        self.assertEqual((public/'README.txt').read_text(encoding='utf-8'),
+                         'authored v03 instructions' if 'daioujou' in selection else 'authored v02 instructions')
+        if 'daioujou' in selection:
+            self.assertTrue((internal/'game-data/daioujou/main.bin').is_file())
+            self.assertFalse((internal/'game-data/daioujou/Project.gp4').exists())
+            self.assertEqual(release.digest(internal/'runtime/ps4/daioujou.exe'),
+                             release.digest(internal/'runtime/ps4/ketsui.exe'))
         self.assertFalse((public/'source').exists());self.assertFalse((public/'game-data').exists())
         self.assertFalse(list(public.rglob('*.pdb')))
-        for name in release.runtime_names(games):
+        for name in release.runtime_names(games, selection=selection):
             self.assertEqual(release.digest(internal/name),release.digest(public/name))
         extracted=self.root/'解压验证 with spaces';extracted.mkdir()
         with zipfile.ZipFile(outputs['Internal']['archive']) as zipped:

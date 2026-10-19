@@ -19,6 +19,9 @@ from ps4_build_receipt import verify as verify_ps4
 
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
+V03_GAMES = (*GAMES, 'daioujou')
+DEFAULT_VERSION = '0.3'
+MANIFEST_ONLY_DATA = {'sdoj', 'daioujou'}
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
 
@@ -40,13 +43,16 @@ def release_games(version):
         return LEGACY_GAMES
     if (major, minor) == (0, 2):
         return GAMES
+    if (major, minor) == (0, 3):
+        return V03_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
 def catalogue(selection=GAMES):
     games = {game['id']: game for game in load(ROOT / 'games/catalogue.json')}
-    if any(not games[key]['integrated'] or not games[key]['runtimeFiles'] for key in selection):
-        raise ValueError('All selected release games must be integrated: ' + ', '.join(selection))
+    if any(not games[key]['integrated'] or games[key]['comingSoon'] or not games[key]['runtimeFiles']
+           or not games[key].get('communitySupported', True) for key in selection):
+        raise ValueError('All selected release games must be integrated with community support: ' + ', '.join(selection))
     return games
 
 
@@ -240,10 +246,11 @@ def verify_tree(directory, games=None):
         required = []
         for key in selection:
             required += [('game-data/' + key + '/' + item['path'], item) for item in games[key]['files']]
-        if 'sdoj' in selection:
-            supported = {'game-data/sdoj/' + item['path'] for item in games['sdoj']['files']}
-            if {name for name in expected if name.startswith('game-data/sdoj/')} != supported:
-                raise ValueError('SDOJ package must contain only the supported resource manifest')
+        for key in set(selection) & MANIFEST_ONLY_DATA:
+            prefix = 'game-data/' + key + '/'
+            supported = {prefix + item['path'] for item in games[key]['files']}
+            if {name for name in expected if name.startswith(prefix)} != supported:
+                raise ValueError(key + ' package must contain only the supported resource manifest')
         for package in games['futari']['content']:
             required += [('game-data/futari/dlc/' + item['path'], item) for item in package['files']]
         for name, identity in required:
@@ -278,6 +285,15 @@ def archive(directory, destination):
         stream.write(digest(destination) + '  ' + destination.name + '\n')
 
 
+def certified_name(name):
+    # These aliases are staged from the same certified PS4 host. Do not infer
+    # aliases for other paths or arbitrary executable names.
+    if name in {'runtime/ps4/' + game + suffix
+                for game in ('ketsui', 'daioujou') for suffix in ('.exe', '.pdb')}:
+        return 'KetsuiNativeProbe' + Path(name).suffix
+    return Path(name).name
+
+
 def verify_certificate(game, certified, commit):
     path = ROOT / ('runtime/games/' + game['id'] + '/runtime-manifest.ini'); reject_link(path)
     ini = configparser.RawConfigParser(interpolation=None, delimiters=('='), strict=True)
@@ -288,9 +304,7 @@ def verify_certificate(game, certified, commit):
     for name in game['runtimeFiles']:
         if name == path.relative_to(ROOT).as_posix():
             continue
-        source_name = Path(name).name
-        if name == 'runtime/ps4/ketsui.exe':
-            source_name = 'KetsuiNativeProbe.exe'
+        source_name = certified_name(name)
         expected[name.lower()] = certified[source_name]['sha256']
     if dict(ini['files']) != expected:
         raise ValueError('Runtime certificate file set differs from the certified build')
@@ -336,9 +350,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
             # The manifest's exact runtime set/hash is checked again by the player.
             copy_checked(source, target, 'runtime', entries)
             continue
-        source_name = Path(path).name
-        if path.startswith('runtime/ps4/ketsui.'):
-            source_name = 'KetsuiNativeProbe' + Path(path).suffix
+        source_name = certified_name(path)
         item = certified[source_name]
         if path != 'runtime/launcher/cave_inspect.exe' and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
             raise ValueError('Staged player component differs from certified build: ' + path)
@@ -347,7 +359,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
         for subdir in ('', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher'):
             copy_checked(file, directory / subdir / file.name, 'redist', entries)
     copy_checked(ROOT / 'config/default.ini', directory / 'config.ini', 'config', entries)
-    copy_checked(ROOT / 'config/README.player.txt', directory / 'README.txt', 'documentation', entries)
+    readme = 'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt'
+    copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
     copy_checked(ROOT / '启动游戏.bat', directory / '启动游戏.bat', 'documentation', entries)
     for file in license_files():
         copy_checked(file, directory / 'licenses' / file.relative_to(ROOT), 'license', entries)
@@ -365,7 +378,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
         for key, report in reports.items():
             print('Copying complete data: ' + key, flush=True)
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, games[key]['files'],
-                      {'dlc'} if key == 'futari' else (), manifest_only=key == 'sdoj')
+                      {'dlc'} if key == 'futari' else (), manifest_only=key in MANIFEST_ONLY_DATA)
         target_dlc = directory / 'game-data/futari/dlc'
         copy_data(dlc, target_dlc, entries, [file for package in games['futari']['content'] for file in package['files']])
         source_clone(directory / 'source', commit)
@@ -394,7 +407,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['build', 'verify'])
     parser.add_argument('--flavor', choices=['Internal', 'Public'])
-    parser.add_argument('--version', default='0.2')
+    parser.add_argument('--version', default=DEFAULT_VERSION)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])

@@ -63,13 +63,15 @@ py -3.12 scripts/project.py audit
 
 ### 本地出包入口
 
-Release.ps1 默认 v0.2，固定包含 futari、espgaluda2、ketsui、sdoj；联合 360 收据要求 espgaluda2／futari／sdoj。最终提交后执行 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui -Jobs 2`，再分别执行 `Release.ps1 -Flavor Internal -Version 0.2` 和 `Release.ps1 -Flavor Public -Version 0.2`。SDOJ 只复制受支持清单中的 114 个资源，不递归带入 ISO、音乐补丁或工具。包生成后须实际解压并执行下面的 verify；只含 SDOJ 数据时也应能启动。旧 v0.1 仍按三款版本档校验，冻结文件不重打。
+Release.ps1 默认 v0.3，固定包含 futari、espgaluda2、ketsui、sdoj、daioujou；联合 360 收据仍要求 espgaluda2／futari／sdoj，两款 PS4 别名来自同一认证宿主和 GPU。当前大往生尚未开放正常入口和联网，打包预检会停止且不创建输出目录，不要修改能力开关以绕过验收。实际验收完成、最终提交后，使用 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui,daioujou -Jobs 2` 配套构建，再分别执行 `Release.ps1 -Flavor Internal -Version 0.3` 和 `Release.ps1 -Flavor Public -Version 0.3`。SDOJ／大往生只复制清单中的 114／60 个资源，不递归带入 ISO、工具、音乐补丁或 Project.gp4。包生成后须实际解压并执行下面的 verify。旧 v0.1／v0.2 仍按三款／四款版本档校验，冻结文件不重打。
 
-Internal／Public 使用同一 release_package.py，要求工作树干净，SDK、联合 360、PS4、启动器收据配套，四款玩家组件属于当前提交且 runtime 证书与产物哈希相符。后续修改源码／文档会使宿主收据失效，应在最终提交后再构建；打包、上传和实际游玩验收分别记录。
+Internal／Public 使用同一 release_package.py，要求工作树干净，SDK、联合 360、PS4、启动器收据配套，所选版本的全部玩家组件属于当前提交且 runtime 证书与产物哈希相符。后续修改源码／文档会使宿主收据失效，应在最终提交后再构建；打包、上传和实际游玩验收分别记录。
 
 `Release.ps1 -Flavor Internal -Version 0.1` 完整复制三款数据和虫姬二两份 DLC、程序、符号及独立 source/.git；可显式用 DataDirectories 与 FutariDlcDirectory 指定输入。源码 Git 不借用作者 objects，origin 为合集 SSH 地址。`-Flavor Public` 不接受数据包含参数，按运行文件白名单单独组装，不复制数据树、源代码、PDB 或用户现场。两者使用默认 INI、玩家说明、许可证及原生 app-local CRT；仅创建 releases/ 下的新目录，不覆盖旧包。
 
 出包生成 release.json、SHA256SUMS.txt、ZIP 与 ZIP.sha256。`py -3.12 scripts/release_package.py verify --directory '<解压目录>'` 只读复核内容、白名单和内部包的必需数据／源码 Git；不刷新索引、不运行游戏或联网。打包脚本不自动上传或发消息。v0.1 最终 ZIP 的实际解压和轻量验收已完成；后续版本须重新验证，不沿用旧 ZIP 的结果冒充新包通过。
+
+源码附件入口为 `Release-Source.ps1 -BinaryDirectory '<同版本程序包目录>' -OutputDirectory '<releases 下的新目录>'`，底层为 scripts/source_package.py。它先验证已有程序包、干净 HEAD 与 sourceCommit，再复用 source_clone、sdk_sources、ps4_sources 建立独立源码和全部固定依赖，不包含 ROM、生成正文、工具安装或本机现场。`py -3.12 scripts/source_package.py verify --archive '<源码 ZIP>'` 流式复核成员、大小与哈希；正式交付仍需实际解压，核对 Git 和依赖。source-release.json 保存二进制 release.json 的 SHA-256，用于配套追溯。自造 ZIP 测试不代表真正的 v0.3 附件已经生成。
 
 对外程序包不内嵌源码，另备同版本 `CAVE-PC-Collection-v0.1-source.zip`，由包提供者按需提供；不要求接收者先获得私有仓库权限。该附件含独立主仓库、25 个 SDK 与 19 个 PS4 固定依赖源码、清单及构建说明，不含 ROM、生成游戏正文、已安装工具或玩家数据。开发工具通过 Prepare-Tools.ps1 恢复。实际全新英文目录 clone、独立工具／PS4 依赖恢复、单独绊地狱和启动器构建、运行文件整理、配套符号及两组 CTest 已通过。
 
