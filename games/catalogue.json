@@ -6,7 +6,7 @@
       "id": "futari",
       "name": "Mushihimesama Futari",
       "backend": "xbox360",
-      "integrated": false,
+      "integrated": true,
       "comingSoon": false,
       "dataDirectory": "game-data/futari",
       "dataManifest": "futari/data.json",

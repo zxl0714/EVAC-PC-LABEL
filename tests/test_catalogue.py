@@ -21,8 +21,8 @@ class CatalogueTests(unittest.TestCase):
         games = catalogue.load(self.path)
         self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'daioujou', 'esprade'])
         self.assertEqual([g['comingSoon'] for g in games], [False, False, False, True, True])
-        # G2 has a migrated native runtime; other backends remain pending.
-        self.assertEqual([g['id'] for g in games if g['integrated']], ['espgaluda2'])
+        # Both Xbox 360 titles use the collection runtime; PS4 remains pending.
+        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2'])
 
     def test_g2_inventory_is_complete_metadata_only(self):
         game = catalogue.load(self.path)[1]
