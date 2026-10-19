@@ -30,6 +30,7 @@ namespace {
 constexpr UINT kWorkDone=WM_APP+1;
 constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT_PTR kChildTimer=1;
+constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr wchar_t kWindowClass[]=L"CavePCCollection.Launcher.v1";
 void Check(HRESULT status,const char* operation) {
   if (FAILED(status)) throw std::runtime_error(std::string(operation)+" (HRESULT "+std::to_string(static_cast<unsigned>(status))+")");
@@ -102,11 +103,16 @@ Options Arguments() {
   return options;
 }
 struct Row {Inspection inspection;};
-std::vector<Row> InspectRows(const fs::path& root) {
+std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
   std::vector<Row> rows(Catalogue().size());
+  for(size_t index=0;index<rows.size();++index) {
+    rows[index].inspection.game=Catalogue()[index].id;
+    rows[index].inspection.state=Catalogue()[index].coming_soon?"coming_soon":"checking";
+  }
   try {
     const auto ini=Ini::Load(root/"config.ini");
-    for (size_t index=0;index<rows.size();++index) {
+    {
+      const auto index=selected;
       const auto& game=Catalogue()[index];
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
@@ -138,9 +144,6 @@ std::wstring Status(const Inspection& inspection) {
   return L"正在检测…";
 }
 bool CanPlay(const Inspection& inspection) {return inspection.state=="ready" || inspection.state=="needs_verification";}
-bool CanChoose(const Game& game,const Inspection& inspection) {
-  return game.integrated && !game.coming_soon && !CanPlay(inspection) && inspection.state!="missing_runtime";
-}
 std::string Details(const Inspection& inspection) {
   auto result=inspection.reason.empty()?inspection.state:inspection.reason;
   if (!inspection.problems.empty()) result+="\n"+inspection.problems.front();
@@ -150,18 +153,23 @@ std::string Details(const Inspection& inspection) {
 struct Layout {
   float width{},height{},scroll{};
   bool narrow() const {return width<800;}
-  float margin() const {return narrow()?21.f:32.f;}
-  float header() const {return 110;}
-  float row_height() const {return narrow()?130.f:132.f;}
-  float viewport_height() const {return std::max(0.f,height-header()-62.f);}
+  float margin() const {return std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
+  float header() const {return 150;}
+  float footer() const {return height-120;}
+  float row_height() const {return std::clamp((viewport_height()-48.f)/5.f,112.f,180.f);}
+  float viewport_height() const {return std::max(0.f,footer()-header());}
   float content_height() const {return float(Catalogue().size())*(row_height()+12)-12;}
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
   D2D1_RECT_F card(size_t index) const {const auto top=header()+float(index)*(row_height()+12)-scroll;return {margin(),top,width-margin(),top+row_height()};}
-  D2D1_RECT_F action(size_t index) const {const auto r=card(index);return {r.right-133,r.bottom-56,r.right-23,r.bottom-20};}
+  D2D1_RECT_F play() const {return {width-margin()-176,height-99,width-margin(),height-49};}
   D2D1_RECT_F config() const {return {width-margin()-177,28,width-margin()-79,64};}
   D2D1_RECT_F logs() const {return {width-margin()-68,28,width-margin(),64};}
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
+  D2D1_RECT_F detail() const {return {margin()+185,height-45,margin()+250,height-14};}
+  D2D1_RECT_F fullscreen() const {return {margin(),99,margin()+132,127};}
+  D2D1_RECT_F nickname() const {return {margin()+220,98,margin()+410,128};}
+  D2D1_RECT_F save() const {return {margin()+421,98,margin()+483,128};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
 class Renderer {
@@ -185,12 +193,13 @@ class Renderer {
     target->DrawText(value.data(),UINT32(value.size()),format.Get(),rectangle,brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
   void Button(ID2D1RenderTarget* target,D2D1_RECT_F rectangle,std::wstring_view text,bool play=false,bool disabled=false) {
-    const auto background=play?0x2f5b42:(disabled?0xf3f5f1:0xffffff);
+    play=play&&!disabled;
+    const auto background=play?0x2f5b42:(disabled?0xe7ebe5:0xffffff);
     ComPtr<ID2D1SolidColorBrush> fill,border;
     Check(target->CreateSolidColorBrush(D2D1::ColorF(background),&fill),"Create button fill");
     Check(target->CreateSolidColorBrush(D2D1::ColorF(play?0x2f5b42:0xd9dfd6),&border),"Create button border");
     const auto rounded=D2D1::RoundedRect(rectangle,8,8);target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
-    Text(target,text,{rectangle.left+6,rectangle.top+10,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
+    Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
   ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index) {
     if (last_target!=target) {for(auto& bitmap:bitmaps)bitmap.Reset();last_target=target;}
@@ -210,17 +219,25 @@ class Renderer {
     Check(target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&bitmaps[index]),"Upload banner");return bitmaps[index].Get();
   }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
-            std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0) {
+            std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
+            bool preferences_dirty=false,std::wstring_view override_hint={}) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     Text(target,L"C A V E",{margin,25,margin+130,65},27,0x23312d);
     Text(target,L"PC COLLECTION",{margin+(layout.narrow()?0:140),layout.narrow()?61.f:40.f,margin+320,80},10,0x6f7c76);
     if (!layout.narrow()) Text(target,L"熟悉的弹幕，新的入口。",{margin,70,margin+360,92},12,0x78827c);
     Button(target,layout.config(),L"配置文件");Button(target,layout.logs(),L"日志");
-    target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.height-62},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    if(preview) {
+      Button(target,layout.fullscreen(),L"□ 启动时全屏");
+      Button(target,layout.nickname(),L"Player");Button(target,layout.save(),L"保存",false,true);
+    }
+    Text(target,L"排行榜昵称",{margin+145,105,margin+215,128},12,0x627368);
+    if(!layout.narrow()) Text(target,preferences_dirty?L"未保存 · 启动前会自动保存":L"共用设置 · 下次启动生效",
+        {margin+498,106,layout.width-margin,128},11,preferences_dirty?0x90754f:0x7d8881);
+    target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     for (size_t index=0;index<rows.size();++index) {
-      const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.height-62)continue;
-      const auto& game=Catalogue()[index];const auto& inspection=rows[index].inspection;const bool soon=game.coming_soon;
+      const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
+      const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
       const auto color=soon?0xf6f7f4:0xffffff;
       ComPtr<ID2D1SolidColorBrush> background,border;
       Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&background),"Create card fill");
@@ -243,26 +260,27 @@ class Renderer {
       if (selected==index) {ComPtr<ID2D1SolidColorBrush> accent;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&accent),"Create selection accent");target->FillRectangle({rectangle.left,rectangle.top,rectangle.left+4,rectangle.bottom},accent.Get());}
       target->PopLayer();target->DrawRoundedRectangle(round,border.Get(),selected==index?2.f:1.f);
       const float left=rectangle.left+(layout.narrow()?20:25);
-      Text(target,Wide(cave::launcher::kArtwork[index].kicker),{left,rectangle.top+20,rectangle.right-16,rectangle.top+36},10,soon?0x9ca59e:0x829087);
-      Text(target,Wide(game.name),{left,rectangle.top+42,rectangle.right-16,rectangle.top+75},layout.narrow()?20.f:24.f,soon?0x737e76:0x23312d);
-      const auto status=busy?L"正在检测…":Status(inspection);
-      Text(target,status,{left,rectangle.top+83,rectangle.right-20,rectangle.bottom-14},11,CanPlay(inspection)?0x356c4b:(inspection.state=="missing_data"?0x90754f:0x7d8881));
-      if (soon) Button(target,layout.action(index),L"COMING SOON",false,true);
-      else {
-        const bool playable=CanPlay(inspection),choose=CanChoose(game,inspection);
-        const auto label=running && game.id==running_game?L"游戏运行中":(busy?L"请稍候…":(playable?(running?L"请先退出游戏":L"开始游戏"):(choose?L"选择数据目录":L"暂未开放")));
-        Button(target,layout.action(index),label,playable&&!busy&&!running,busy||running||(!playable&&!choose));
-      }
+      const float text_top=rectangle.top+(layout.row_height()-112.f)/2;
+      Text(target,Wide(cave::launcher::kArtwork[index].kicker),{left,text_top+20,rectangle.right-16,text_top+36},10,soon?0x9ca59e:0x829087);
+      Text(target,Wide(game.name),{left,text_top+42,rectangle.right-16,text_top+75},layout.narrow()?20.f:24.f,soon?0x737e76:0x23312d);
+      if(soon) Text(target,L"COMING SOON",{left,text_top+88,rectangle.right-20,rectangle.bottom-12},10,0x8c978f);
+      else if(selected==index) Text(target,L"已选择",{left,text_top+88,rectangle.right-20,rectangle.bottom-12},11,0x37644c);
     }
     target->PopAxisAlignedClip();
+    const auto& inspection=rows[selected].inspection;
+    Text(target,Wide(Catalogue()[selected].name),{margin,layout.height-105,layout.play().left-18,layout.height-76},20,0x23312d);
+    const auto status=running?L"请先退出正在运行的游戏":(busy?L"正在读取／校验所选游戏…":Status(inspection));
+    Text(target,status,{margin,layout.height-77,layout.play().left-18,layout.height-56},11,CanPlay(inspection)?0x356c4b:0x90754f);
+    Button(target,layout.play(),running?L"游戏运行中":L"启动游戏",true,busy||running||!CanPlay(inspection));
     Button(target,layout.data(),L"游戏数据…",false,busy||running||Catalogue()[selected].coming_soon);
-    Button(target,layout.refresh(),L"刷新",false,busy);
-    if (focus) {
-      const auto rectangle=focus==1?layout.config():(focus==2?layout.logs():(focus==3?layout.data():layout.refresh()));
+    Button(target,layout.refresh(),L"刷新",false,busy||running);
+    Button(target,layout.detail(),L"详情",false,busy||running||CanPlay(inspection)||Catalogue()[selected].coming_soon);
+    if (focus>=4) {
+      const auto rectangle=focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail()))));
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
     }
-    Text(target,message,{margin+191,layout.height-36,layout.width-margin,layout.height-14},11,0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
+    Text(target,override_hint.empty()?message:override_hint,{margin+266,layout.height-36,layout.width-margin,layout.height-14},11,0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
     if (preview) Text(target,L"视觉预览 · 安装状态为示例",{margin+200,layout.height-17,layout.width-margin,layout.height},10,0x939d94,DWRITE_TEXT_ALIGNMENT_TRAILING);
   }
   ComPtr<ID2D1Factory> factory;
@@ -282,6 +300,7 @@ struct Work {
   std::optional<CopyResult> copy_result;
   std::string error;
   bool starting{},copying{};
+  size_t selected{};
 };
 class App {
  public:
@@ -289,10 +308,111 @@ class App {
     EnsureConfig(options.root);for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
   }
   ~App() {if(work)work->alive=false;if(worker.joinable())worker.detach();}
+  void CreatePreferences() {
+    const auto instance=GetModuleHandleW(nullptr);
+    fullscreen_control=CreateWindowExW(0,L"BUTTON",L"启动时全屏",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX|BS_NOTIFY,
+        0,0,0,0,hwnd,reinterpret_cast<HMENU>(kFullscreenControl),instance,nullptr);
+    nickname_control=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+        0,0,0,0,hwnd,reinterpret_cast<HMENU>(kNicknameControl),instance,nullptr);
+    save_control=CreateWindowExW(0,L"BUTTON",L"保存",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON|BS_NOTIFY,
+        0,0,0,0,hwnd,reinterpret_cast<HMENU>(kSaveControl),instance,nullptr);
+    if(!fullscreen_control||!nickname_control||!save_control)throw std::runtime_error("Cannot create quick settings");
+    SendMessageW(nickname_control,EM_SETLIMITTEXT,64,0);
+    form_background=CreateSolidBrush(RGB(243,244,240));
+    PositionPreferences();ReloadPreferences();
+  }
+  void PositionPreferences() {
+    if(!nickname_control)return;
+    const auto dpi=GetDpiForWindow(hwnd);const auto scale=float(dpi)/96;
+    const auto font=CreateFontW(-MulDiv(13,int(dpi),96),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
+    for(const auto pair:std::array{std::pair{fullscreen_control,layout.fullscreen()},
+                                  std::pair{nickname_control,layout.nickname()},std::pair{save_control,layout.save()}}) {
+      const auto r=pair.second;
+      SetWindowPos(pair.first,nullptr,int(r.left*scale),int(r.top*scale),int((r.right-r.left)*scale),int((r.bottom-r.top)*scale),SWP_NOZORDER|SWP_NOACTIVATE);
+      if(font)SendMessageW(pair.first,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
+    }
+    if(font){if(form_font)DeleteObject(form_font);form_font=font;}
+  }
+  void EnablePreferences() {
+    const bool enabled=preferences_available&&!busy&&!child;
+    EnableWindow(fullscreen_control,enabled);EnableWindow(nickname_control,enabled);
+    EnableWindow(save_control,enabled&&preferences_dirty);
+  }
+  void ReloadPreferences() {
+    loading_preferences=true;
+    try {
+      preferences_text=Ini::ReadText(EnsureConfig(options.root));
+      const auto ini=Ini::Parse(preferences_text);const auto settings=ResolveSharedSettings(ini);
+      SendMessageW(fullscreen_control,BM_SETCHECK,settings.fullscreen?BST_CHECKED:BST_UNCHECKED,0);
+      SetWindowTextW(nickname_control,Wide(settings.nickname).c_str());
+      preferences_available=true;preferences_dirty=false;UpdateOverrideHint(ini);
+    } catch(const std::exception& error) {
+      preferences_available=false;preferences_dirty=false;
+      message=L"快捷设置读取失败，请打开配置文件修正后刷新";Log(options.root,error.what());
+    }
+    loading_preferences=false;EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
+  }
+  void UpdateOverrideHint(const Ini& ini) {
+    override_hint.clear();const auto section="game."+std::string(Catalogue()[selected].id);
+    if(ini.Get(section+".display","fullscreen") || ini.Get(section+".community","nickname"))
+      override_hint=L"此游戏有独立的全屏／昵称设置，请在配置文件中调整";
+  }
+  void SavePreferences() {
+    if(!preferences_dirty)return;
+    if(!preferences_available)throw std::runtime_error("Fix config.ini and refresh before saving quick settings.");
+    const auto count=GetWindowTextLengthW(nickname_control);
+    std::wstring name(size_t(count)+1,L'\0');GetWindowTextW(nickname_control,name.data(),int(name.size()));name.resize(count);
+    SaveSharedPreferences(options.root,preferences_text,SendMessageW(fullscreen_control,BM_GETCHECK,0,0)==BST_CHECKED,Utf8(name));
+    ReloadPreferences();message=L"快捷设置已保存，下次启动生效";
+    Log(options.root,"shared-preferences-updated");
+  }
+  void ManualRefresh() {
+    if(busy||child)return;
+    if(preferences_dirty && MessageBoxW(hwnd,L"刷新将放弃尚未保存的快捷设置，重新读取 config.ini。继续吗？",
+        L"刷新配置",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
+    ReloadPreferences();Refresh();
+  }
+  void Select(size_t index) {
+    if(work && (work->starting||work->copying))return;
+    selected=index;focus=0;SetFocus(hwnd);EnsureVisible();
+    try {UpdateOverrideHint(Ini::Load(options.root/"config.ini"));}catch(...){override_hint.clear();}
+    if(!busy&&!child)Refresh();
+  }
+  void LaunchSelected() {
+    if(busy||child||!CanPlay(rows[selected].inspection))return;
+    SavePreferences();Refresh(true);
+  }
+  bool Input(MSG& input) {
+    if(input.message!=WM_KEYDOWN || (input.hwnd!=hwnd && !IsChild(hwnd,input.hwnd)))return false;
+    try {
+      if(input.wParam==VK_TAB) {
+        const auto current=GetFocus();
+        int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
+        for(int step=0;step<10;++step) {
+          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?9:1))%10;
+          const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
+          if(!IsWindowEnabled(control))continue;
+          if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
+          if(slot==7 && (busy||child))continue;
+          if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
+          if(slot==9 && (busy||child||CanPlay(rows[selected].inspection)||Catalogue()[selected].coming_soon))continue;
+          focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
+        }
+        return true;
+      }
+      if(input.hwnd==nickname_control && input.wParam==VK_RETURN) {
+        SavePreferences();SetFocus(hwnd);focus=0;Refresh();return true;
+      }
+      if(input.hwnd==save_control && input.wParam==VK_RETURN) {SavePreferences();Refresh();return true;}
+      if(input.hwnd!=hwnd && input.wParam==VK_F5) {ManualRefresh();return true;}
+    }catch(const std::exception& error){Log(options.root,error.what());Error(hwnd,error.what());return true;}
+    return false;
+  }
   void Refresh(bool launch=false,const fs::path& copy_source={}) {
     if (busy || child) return;
     if (worker.joinable()) worker.join();
-    busy=true;work=std::make_shared<Work>();work->starting=launch;work->copying=!copy_source.empty();
+    busy=true;EnablePreferences();work=std::make_shared<Work>();work->starting=launch;work->copying=!copy_source.empty();work->selected=selected;
     const auto task=work;const auto root=options.root;const auto id=std::string(Catalogue()[selected].id);const auto profile=options.profile;
     const auto window=hwnd;const auto data=options.data;
     worker=std::thread([task,root,id,profile,window,data,copy_source] {
@@ -300,7 +420,7 @@ class App {
         if(task->copying) task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,
             [task,window](uint64_t done,uint64_t total){task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);},
             [task]{return task->cancelled.load();});
-        task->rows=InspectRows(root);
+        task->rows=InspectRows(root,task->selected);
         if (task->starting) task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(root/"config.ini"),profile,data);
       } catch(const std::exception& error) {task->error=error.what();}
       if(task->alive) PostMessageW(window,kWorkDone,0,0);
@@ -308,10 +428,11 @@ class App {
     InvalidateRect(hwnd,nullptr,FALSE);
   }
   void Complete() {
-    if(worker.joinable())worker.join();busy=false;
+    if(worker.joinable())worker.join();busy=false;EnablePreferences();
     if (!work) return;
     if(close_requested){work.reset();DestroyWindow(hwnd);return;}
-    if (!work->rows.empty()) rows=std::move(work->rows);
+    if (!work->rows.empty()) rows[work->selected]=std::move(work->rows[work->selected]);
+    const bool selection_changed=selected!=work->selected;
     try {
       if(!work->error.empty())throw std::runtime_error(work->error);
       if(work->launch) {
@@ -322,9 +443,12 @@ class App {
       } else if(work->copy_result) {
         message=L"数据已复制并逐文件校验，配置已更新";
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
-      } else {message=L"↑ ↓ 选择 · Enter 启动 · F5 刷新";}
+      } else {message=L"↑ ↓ 选择 · Enter 启动";}
     }catch(const std::exception& error){message=work->copying?L"数据复制未完成，请查看详细信息":L"无法启动，请检查数据和运行组件";Log(options.root,error.what());Error(hwnd,error.what());}
-    work.reset();InvalidateRect(hwnd,nullptr,FALSE);
+    const bool copied=work->copying;work.reset();
+    if(copied)ReloadPreferences();EnablePreferences();
+    if(selection_changed&&!child)Refresh();
+    InvalidateRect(hwnd,nullptr,FALSE);
   }
   void ChildTick() {
     if(!child)return;
@@ -333,7 +457,7 @@ class App {
       const auto detail=L"游戏异常退出（退出码 "+std::to_wstring(*code)+L"）。\n\n日志目录：logs/"+Wide(active_game)+L"/\n启动器可以继续使用。";
       Log(options.root,"child-exit code="+std::to_string(*code));
       message=requested_close?L"游戏已关闭（退出清理限制已记入日志）":(*code?L"游戏异常退出，请查看该游戏的日志":L"游戏已退出");
-      child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);InvalidateRect(hwnd,nullptr,FALSE);
+      child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
       if(*code && !requested_close)MessageBoxW(hwnd,detail.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
     }
   }
@@ -352,10 +476,11 @@ class App {
       const auto prompt=L"将完整复制并校验游戏数据。\n\n来源："+path.native()+L"\n目标："+target.native()+
           L"\n\n不会移动或修改源文件。目标必须为空，不会合并或覆盖已有文件。\n继续吗？";
       if(MessageBoxW(hwnd,prompt.c_str(),L"复制到合集",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
-      message=L"正在校验源数据…";Refresh(false,path);return;
+      SavePreferences();message=L"正在校验源数据…";Refresh(false,path);return;
     }
+    SavePreferences();
     SetDataDirectory(options.root,Catalogue()[selected],path);
-    Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
+    ReloadPreferences();Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
   }
   void DataMenu() {
     if(busy||child||Catalogue()[selected].coming_soon)return;
@@ -391,7 +516,7 @@ class App {
       }
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus);
+      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,preferences_dirty,override_hint);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -402,20 +527,20 @@ class App {
     EndPaint(hwnd,&paint);
   }
   void Click(float x,float y) {
-    focus=0;
+    focus=0;SetFocus(hwnd);
     InvalidateRect(hwnd,nullptr,FALSE);
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.logs(),x,y)) {const auto logs=LogDirectory(options.root);if(!fs::exists(logs))fs::create_directories(logs);OpenPath(hwnd,logs);return;}
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
-    if(Inside(layout.refresh(),x,y)) {Refresh();return;}
-    if(y<layout.header() || y>layout.height-62)return;
+    if(Inside(layout.refresh(),x,y)) {ManualRefresh();return;}
+    if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
+    if(Inside(layout.detail(),x,y)) {
+      if(!busy&&!child&&!CanPlay(rows[selected].inspection)&&!Catalogue()[selected].coming_soon)Error(hwnd,Details(rows[selected].inspection));
+      return;
+    }
+    if(y<layout.header() || y>layout.footer())return;
     for(size_t index=0;index<rows.size();++index) if(Inside(layout.card(index),x,y)) {
-      selected=index;InvalidateRect(hwnd,nullptr,FALSE);
-      if(Inside(layout.action(index),x,y) && !busy && !child) {
-        if(CanPlay(rows[index].inspection))Refresh(true);
-        else if(CanChoose(Catalogue()[index],rows[index].inspection))Choose();
-        else if(!Catalogue()[index].coming_soon)Error(hwnd,Details(rows[index].inspection));
-      }return;
+      Select(index);return;
     }
   }
   static LRESULT CALLBACK Window(HWND window,UINT message,WPARAM first,LPARAM second) {
@@ -424,38 +549,45 @@ class App {
     if(!app)return DefWindowProcW(window,message,first,second);
     try {
       switch(message) {
-        case WM_CREATE:app->Refresh();return 0;
+        case WM_CREATE:app->CreatePreferences();app->Refresh();return 0;
         case WM_GETMINMAXINFO:{auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};return 0;}
         case WM_SIZE:{const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
-          app->Scroll(0);return 0;}
+          app->PositionPreferences();app->Scroll(0);return 0;}
         case WM_DPICHANGED:{const auto rectangle=reinterpret_cast<RECT*>(second);SetWindowPos(window,nullptr,rectangle->left,rectangle->top,rectangle->right-rectangle->left,rectangle->bottom-rectangle->top,SWP_NOACTIVATE|SWP_NOZORDER);return 0;}
         case WM_ERASEBKGND:return 1;
         case WM_PAINT:app->Paint();return 0;
         case WM_LBUTTONUP:{const auto scale=float(GetDpiForWindow(window))/96;app->Click(GET_X_LPARAM(second)/scale,GET_Y_LPARAM(second)/scale);return 0;}
         case WM_MOUSEMOVE:{const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
-          int hover=-1;if(y>=app->layout.header() && y<app->layout.height-62)for(size_t index=0;index<app->rows.size();++index)if(Inside(app->layout.card(index),x,y))hover=int(index);
+          int hover=-1;if(y>=app->layout.header() && y<app->layout.footer())for(size_t index=0;index<app->rows.size();++index)if(Inside(app->layout.card(index),x,y))hover=int(index);
           if(hover!=app->hover){app->hover=hover;InvalidateRect(window,nullptr,FALSE);}return 0;}
         case WM_MOUSEWHEEL:app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
         case WM_KEYDOWN:
-          if(first==VK_TAB){app->focus=(app->focus+((GetKeyState(VK_SHIFT)&0x8000)?4:1))%5;InvalidateRect(window,nullptr,FALSE);}
-          else if((first==VK_UP || first==VK_NUMPAD8) && app->selected){app->focus=0;--app->selected;app->EnsureVisible();}
-          else if((first==VK_DOWN || first==VK_NUMPAD2) && app->selected+1<app->rows.size()){app->focus=0;++app->selected;app->EnsureVisible();}
+          if((first==VK_UP || first==VK_NUMPAD8) && app->selected){app->Select(app->selected-1);}
+          else if((first==VK_DOWN || first==VK_NUMPAD2) && app->selected+1<app->rows.size()){app->Select(app->selected+1);}
           else if(first==VK_RETURN || first==VK_SPACE) {
-            if(app->focus) {
-              const auto rectangle=app->focus==1?app->layout.config():(app->focus==2?app->layout.logs():(app->focus==3?app->layout.data():app->layout.refresh()));
+            if(app->focus>=4) {
+              const auto rectangle=app->focus==4?app->layout.config():(app->focus==5?app->layout.logs():(app->focus==6?app->layout.data():(app->focus==7?app->layout.refresh():(app->focus==8?app->layout.play():app->layout.detail()))));
               app->Click((rectangle.left+rectangle.right)/2,(rectangle.top+rectangle.bottom)/2);
-            } else if(!app->busy && !app->child) {
-              if(CanPlay(app->rows[app->selected].inspection))app->Refresh(true);
-              else if(CanChoose(Catalogue()[app->selected],app->rows[app->selected].inspection))app->Choose();
-              else Error(window,Details(app->rows[app->selected].inspection));
-            }
+            } else app->LaunchSelected();
           }
-          else if(first==VK_F5)app->Refresh();
+          else if(first==VK_F5)app->ManualRefresh();
           else if(first==VK_PRIOR)app->Scroll(-app->layout.viewport_height());
           else if(first==VK_NEXT)app->Scroll(app->layout.viewport_height());
           return 0;
+        case WM_COMMAND:
+          if(LOWORD(first)==kSaveControl && HIWORD(first)==BN_CLICKED) {app->SavePreferences();app->Refresh();return 0;}
+          if((LOWORD(first)==kNicknameControl && HIWORD(first)==EN_CHANGE) ||
+             (LOWORD(first)==kFullscreenControl && HIWORD(first)==BN_CLICKED)) {
+            if(!app->loading_preferences){app->preferences_dirty=true;app->EnablePreferences();InvalidateRect(window,nullptr,FALSE);}return 0;
+          }
+          if((LOWORD(first)==kNicknameControl && HIWORD(first)==EN_SETFOCUS) || HIWORD(first)==BN_SETFOCUS) {
+            app->focus=LOWORD(first)==kFullscreenControl?1:(LOWORD(first)==kNicknameControl?2:3);InvalidateRect(window,nullptr,FALSE);
+          }break;
+        case WM_CTLCOLORBTN:case WM_CTLCOLORSTATIC:
+          SetBkColor(reinterpret_cast<HDC>(first),RGB(243,244,240));SetTextColor(reinterpret_cast<HDC>(first),RGB(73,90,80));
+          return reinterpret_cast<LRESULT>(app->form_background);
         case kWorkDone:app->Complete();return 0;
         case kCopyProgress:
           if(app->work && app->work->copying && !app->close_requested) {
@@ -467,13 +599,21 @@ class App {
         case WM_CLOSE:
           if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=L"正在取消复制，请稍候…";InvalidateRect(window,nullptr,FALSE);return 0;}
           if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
-        case WM_DESTROY:if(app->work)app->work->alive=false;PostQuitMessage(0);return 0;
+        case WM_DESTROY:if(app->work)app->work->alive=false;
+          if(app->form_font)DeleteObject(app->form_font);if(app->form_background)DeleteObject(app->form_background);
+          PostQuitMessage(0);return 0;
       }
     }catch(const std::exception& error){Log(app->options.root,error.what());Error(window,error.what());return 0;}
     return DefWindowProcW(window,message,first,second);
   }
   Options options;
   HWND hwnd{};
+  HWND fullscreen_control{},nickname_control{},save_control{};
+  HFONT form_font{};
+  HBRUSH form_background{};
+  bool preferences_available{},preferences_dirty{},loading_preferences{};
+  std::string preferences_text;
+  std::wstring override_hint;
   Renderer renderer;
   Layout layout;
   std::vector<Row> rows;
@@ -495,7 +635,7 @@ void Preview(const Options& options) {
   Renderer renderer;
   ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
-  auto rows=InspectRows(options.root);
+  auto rows=InspectRows(options.root,1);
   rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
   target->BeginDraw();renderer.Draw(target.Get(),Layout{1080,900,0},rows,1,-1,false,L"5 部作品 · 按需安装游戏数据",{},true);Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
@@ -529,7 +669,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
         rectangle.right-rectangle.left,rectangle.bottom-rectangle.top,nullptr,nullptr,instance,&app);
     if(!window)throw std::runtime_error("Cannot create launcher window");
     ShowWindow(window,show);UpdateWindow(window);
-    MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){TranslateMessage(&message);DispatchMessageW(&message);}
+    MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}
     return 0;
   }catch(const std::exception& error){Error(nullptr,error.what());return 2;}
 }

@@ -1,4 +1,5 @@
 #include "common/settings.h"
+#include "common/config_update.h"
 #include "common/paths.h"
 #include "default_config.h"
 #include <Windows.h>
@@ -93,8 +94,7 @@ std::uint16_t KeyCode(std::string_view name) {
     return it == KeyNames().end() ? 0 : it->second;
 }
 
-Settings ResolveSettings(const Ini& ini, std::string_view game_id) {
-    (void)FindGame(game_id);
+static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
     Settings result;
     constexpr std::array<std::string_view,16> defaults{
         "Up","Down","Left","Right","Z","X","C","V","Enter","Backspace","A","S","Q","W","none","none"};
@@ -146,6 +146,7 @@ Settings ResolveSettings(const Ini& ini, std::string_view game_id) {
     // Validate public values first; an override does not hide malformed public
     // configuration. Other games' values are not interpreted by this launch.
     for (bool override : {false,true}) for (auto category : categories) {
+        if (override && game_id.empty()) continue;
         const auto section=override ? "game."+std::string(game_id)+"."+std::string(category) : std::string(category);
         for (const auto& [address,entry] : ini.Values())
             if (address.first==section) apply(section,category,address.second,entry);
@@ -161,6 +162,19 @@ Settings ResolveSettings(const Ini& ini, std::string_view game_id) {
         }
     }
     return result;
+}
+Settings ResolveSettings(const Ini& ini, std::string_view game_id) {
+    (void)FindGame(game_id);
+    return ResolveSettingsImpl(ini,game_id);
+}
+Settings ResolveSharedSettings(const Ini& ini) { return ResolveSettingsImpl(ini,{}); }
+void SaveSharedPreferences(const fs::path& root, std::string_view before, bool fullscreen, std::string_view nickname) {
+    const std::array edits{IniEdit{"display","fullscreen",fullscreen?"true":"false"},
+                           IniEdit{"community","nickname",std::string(nickname)}};
+    const auto candidate=ResolveSharedSettings(Ini::Parse(EditIni(before,edits)));
+    if(candidate.nickname!=nickname)
+        throw std::runtime_error("Nickname must not start or end with whitespace.");
+    UpdateConfig(root,before,edits);
 }
 Settings ParseSettings(std::string_view text, std::string_view game_id) {
     return ResolveSettings(Ini::Parse(text),game_id);

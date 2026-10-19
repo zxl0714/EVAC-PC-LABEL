@@ -1,5 +1,6 @@
 #include "common/launch.h"
 #include "common/settings.h"
+#include "common/config_update.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <algorithm>
@@ -39,14 +40,6 @@ std::wstring SessionName(const fs::path& requested) {
   std::wstring name=L"Local\\CavePCCollection.Game.v1.";
   for (auto byte:hash) {name+=digits[byte>>4];name+=digits[byte&15];}
   return name;
-}
-std::string Lower(std::string text) {
-  for (auto& c:text) if (c>='A' && c<='Z') c+=32;
-  return text;
-}
-std::string_view Trim(std::string_view text) {
-  const auto first=text.find_first_not_of(" \t\r");
-  return first==text.npos?std::string_view{}:text.substr(first,text.find_last_not_of(" \t\r")-first+1);
 }
 void VerifyRuntime(const Game& game,const fs::path& root) {
   const auto certificate="runtime/games/"+std::string(game.id)+"/runtime-manifest.ini";
@@ -108,57 +101,12 @@ void SetDataDirectory(const fs::path& root,const Game& game,const fs::path& requ
   ValidateOutputs(Paths(root,game.id,data));
   const auto config=EnsureConfig(root);
   const auto before=Ini::ReadText(config);
-  const auto ini=Ini::Parse(before);
   const auto base=fs::canonical(root);
   const auto value=Utf8(Within(data,base)?data.lexically_relative(base):data);
   if (value.find_first_of("\r\n")!=value.npos) throw std::runtime_error("Invalid INI directory value");
   const auto section="game."+std::string(game.id);
-  std::string after=before;
-  const auto old=ini.Get(section,"data_dir");
-  const auto newline=before.find("\r\n")!=before.npos?"\r\n":"\n";
-  if (old) {
-    size_t start=0;
-    for (size_t number=1;number<old->line;++number) start=before.find('\n',start)+1;
-    auto end=before.find('\n',start);
-    if (end==before.npos) end=before.size();
-    if (end>start && before[end-1]=='\r') --end;
-    const auto equal=before.find('=',start);
-    start=equal+1;
-    while (start<end && (before[start]==' ' || before[start]=='\t')) ++start;
-    after.replace(start,end-start,value);
-  } else {
-    size_t start=0,insert=std::string::npos;
-    while (start<before.size()) {
-      auto end=before.find('\n',start);if (end==before.npos) end=before.size();
-      auto line=Trim(std::string_view(before).substr(start,end-start));
-      if (start==0 && line.starts_with("\xef\xbb\xbf")) line.remove_prefix(3);
-      if (line.size()>=2 && line.front()=='[' && line.back()==']' && Lower(std::string(Trim(line.substr(1,line.size()-2))))==section)
-        {insert=end<before.size()?end+1:end;break;}
-      start=end<before.size()?end+1:end;
-    }
-    const auto row="data_dir = "+value+newline;
-    if (insert!=before.npos) after.insert(insert,(insert && before[insert-1]!='\n'?std::string(newline):"")+row);
-    else {if (!after.empty() && !after.ends_with('\n')) after+=newline;after+=std::string(newline)+"["+section+"]"+newline+row;}
-  }
-  (void)Ini::Parse(after);
-  std::array<unsigned char,16> nonce{};
-  if (BCryptGenRandom(nullptr,nonce.data(),ULONG(nonce.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0)
-    throw std::runtime_error("Cannot create configuration transaction");
-  std::wstring suffix;
-  for (auto byte:nonce) suffix+=std::to_wstring(byte)+L"-";
-  const auto temporary=fs::path(config.native()+L".pending-"+suffix);
-  HANDLE file=CreateFileW(temporary.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
-  if (file==INVALID_HANDLE_VALUE) WinError("Create configuration transaction");
-  DWORD written{};
-  const bool okay=WriteFile(file,after.data(),DWORD(after.size()),&written,nullptr) && written==after.size() && FlushFileBuffers(file);
-  CloseHandle(file);
-  if (!okay || Ini::ReadText(config)!=before) {
-    DeleteFileW(temporary.c_str());
-    throw std::runtime_error("Configuration changed while saving; retry after closing the editor");
-  }
-  if (!MoveFileExW(temporary.c_str(),config.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)) {
-    const auto error=GetLastError();DeleteFileW(temporary.c_str());SetLastError(error);WinError("Replace config.ini");
-  }
+  const std::array edits{IniEdit{section,"data_dir",value}};
+  UpdateConfig(root,before,edits);
 }
 
 GameSession::GameSession(const fs::path& root) {

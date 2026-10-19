@@ -5,11 +5,11 @@
 <title>CAVE PC Collection — Launcher design</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f3f4f0;color:#23312d;font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif}
-body{padding:28px 32px 18px}.shell{max-width:1056px;margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:25px}
+body{padding:28px 32px 18px}.shell{max-width:1120px;margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:20px}
 .wordmark{font-size:27px;letter-spacing:3.5px;font-weight:650;line-height:1}.wordmark span{font-size:12px;letter-spacing:2px;font-weight:500;margin-left:13px;vertical-align:middle;color:#6f7c76}
 .intro{margin:12px 0 0;font-size:12px;color:#78827c;letter-spacing:.2px}.tools{display:flex;gap:9px}button{font:inherit;cursor:pointer;border:1px solid #d9ded7;background:#fff;border-radius:8px;padding:10px 15px;font-size:12px;color:#495a50;white-space:nowrap}
 button:hover{background:#f8fbf7;border-color:#8ea392}button:focus-visible{outline:3px solid #4b8265;outline-offset:3px}.library{display:grid;gap:12px}
-.game{height:132px;background:#fff;border:1px solid #dee3db;border-radius:13px;position:relative;overflow:hidden;box-shadow:0 3px 10px #25382b04;isolation:isolate;transition:border-color .15s,box-shadow .15s;cursor:pointer}
+.game{height:116px;background:#fff;border:1px solid #dee3db;border-radius:13px;position:relative;overflow:hidden;box-shadow:0 3px 10px #25382b04;isolation:isolate;transition:border-color .15s,box-shadow .15s;cursor:pointer}
 .game:hover{border-color:#a0b1a3;box-shadow:0 4px 15px #25382b0b}.game.selected{border-color:#37644c;box-shadow:0 0 0 1px #37644c,0 5px 16px #25382b0b}
 .game.selected:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:#37644c;z-index:3}.art{position:absolute;right:0;top:0;width:66%;height:100%;z-index:-1}
 .art img{height:100%;width:100%;object-fit:cover}.art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#fff 0%,#fffffff5 14%,#ffffff77 35%,#ffffff00 63%)}
@@ -18,17 +18,20 @@ button:hover{background:#f8fbf7;border-color:#8ea392}button:focus-visible{outlin
 .action{position:absolute;right:23px;bottom:20px;font-size:12px;font-weight:600;min-width:110px;background:#fffffff0}.play{border-color:#2f5b42;background:#2f5b42;color:white}.play:hover{border-color:#234832;background:#234832}.disabled{background:#f3f5f1;color:#78857b;border-color:#d9dfd6;cursor:default}
 .soon{background:#f6f7f4;border-color:#e1e5dd}.soon .art{opacity:.26;filter:grayscale(.8)}.soon .art:after{background:linear-gradient(90deg,#f6f7f4 0%,#f6f7f4aa 25%,transparent 70%)}.soon h2{color:#737e76}.soon .eyebrow{color:#9ca59e}.soon-tag{position:absolute;right:24px;bottom:23px;padding:7px 11px;border:1px solid #dfe4dc;border-radius:6px;background:#f5f7f2e8;font-size:10px;letter-spacing:1.7px;font-weight:600;color:#84907f}
 footer{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:17px 1px 0;font-size:10px;color:#939d94}.hint{color:#a0a89f}.kbd{display:inline-block;border:1px solid #d8dfd5;border-radius:3px;padding:2px 5px;background:#f9faf7;color:#7d8a7e;margin-right:4px}
+.preferences{display:flex;align-items:center;gap:12px;margin:0 0 22px;font-size:12px;color:#627368}.preferences input[type=text]{font:inherit;width:190px;padding:7px 10px;border:1px solid #d9ded7;background:white;border-radius:6px}.preferences .note{font-size:11px;color:#7d8881}.launchbar{display:flex;align-items:center;justify-content:space-between;padding-top:20px;gap:20px}.launchbar h2{margin:0 0 5px;font-size:20px;font-weight:600}.launchbar .play{min-width:176px;padding:16px}.selected .status{color:#37644c}.soon-tag{left:25px;right:auto;bottom:14px;border:0;padding:0;background:none}
 @media(max-width:800px){body{padding:23px 21px}.wordmark{font-size:24px}.wordmark span{display:block;margin:7px 0 0;font-size:10px}.intro{display:none}.game h2{font-size:20px;max-width:330px}.copy{left:20px;max-width:65%}.art{width:61%}.game{height:130px}.action{right:16px;bottom:16px;min-width:99px;padding:9px 12px}.soon-tag{right:17px}.hint{display:none}header{margin-bottom:23px}}
 </style>
 <main class="shell">
  <header><div><div class="wordmark">CAVE<span>PC COLLECTION</span></div><p class="intro">熟悉的弹幕，新的入口。</p></div><nav class="tools"><button>⚙ &nbsp;配置文件</button><button>↗ &nbsp;日志</button></nav></header>
+ <section class="preferences" aria-label="共享快捷设置"><label><input type="checkbox"> 启动时全屏</label><label for="nickname">排行榜昵称</label><input id="nickname" type="text" value="Player"><button>保存</button><span class="note">共用设置 · 下次启动生效</span></section>
  <section class="library" aria-label="游戏库">
-  <article class="game futari"><div class="art"><img src="../launcher/assets/futari.jpg"></div><div class="copy"><div class="eyebrow">XBOX 360 · 2009</div><h2>Mushihimesama Futari</h2><div class="status missing"><i class="dot"></i>未找到游戏数据</div></div><button class="action">选择数据目录</button></article>
-  <article class="game g2 selected"><div class="art"><img src="../launcher/assets/espgaluda2.jpg"></div><div class="copy"><div class="eyebrow">XBOX 360 · 2010</div><h2>ESPGaluda II</h2><div class="status ready"><i class="dot"></i>已就绪</div></div><button class="action play">▶ &nbsp;开始游戏</button></article>
-  <article class="game ketsui"><div class="art"><img src="../launcher/assets/ketsui.png"></div><div class="copy"><div class="eyebrow">PS4 · 2018</div><h2>Ketsui Deathtiny</h2><div class="status"><i class="dot"></i>正在接入</div></div><button class="action disabled">暂未开放</button></article>
-  <article class="game daioujou soon"><div class="art"><img src="../launcher/assets/daioujou.jpg"></div><div class="copy"><div class="eyebrow">NEXT IN THE COLLECTION</div><h2>DoDonPachi DaiOuJou</h2><div class="status">怒首领蜂大往生</div></div><span class="soon-tag">COMING SOON</span></article>
-  <article class="game esprade soon"><div class="art"><img src="../launcher/assets/esprade.jpg"></div><div class="copy"><div class="eyebrow">NEXT IN THE COLLECTION</div><h2>ESP Ra.De.</h2><div class="status">エスプレイド</div></div><span class="soon-tag">COMING SOON</span></article>
+  <article class="game futari"><div class="art"><img src="../launcher/assets/futari.jpg"></div><div class="copy"><div class="eyebrow">XBOX 360 · 2009</div><h2>Mushihimesama Futari</h2></div></article>
+  <article class="game g2 selected"><div class="art"><img src="../launcher/assets/espgaluda2.jpg"></div><div class="copy"><div class="eyebrow">XBOX 360 · 2010</div><h2>ESPGaluda II</h2><div class="status">已选择</div></div></article>
+  <article class="game ketsui"><div class="art"><img src="../launcher/assets/ketsui.png"></div><div class="copy"><div class="eyebrow">PS4 · 2018</div><h2>Ketsui Deathtiny</h2></div></article>
+  <article class="game daioujou soon"><div class="art"><img src="../launcher/assets/daioujou.jpg"></div><div class="copy"><div class="eyebrow">NEXT IN THE COLLECTION</div><h2>DoDonPachi DaiOuJou</h2></div><span class="soon-tag">COMING SOON</span></article>
+  <article class="game esprade soon"><div class="art"><img src="../launcher/assets/esprade.jpg"></div><div class="copy"><div class="eyebrow">NEXT IN THE COLLECTION</div><h2>ESP Ra.De.</h2></div><span class="soon-tag">COMING SOON</span></article>
  </section>
- <footer><span>5 部作品 · 按需安装游戏数据</span><span class="hint"><span class="kbd">↑ ↓</span>选择 <span class="kbd">Enter</span>启动</span><span>视觉原型 · 安装状态为示例</span></footer>
+ <section class="launchbar"><div><h2>ESPGaluda II</h2><div class="status">数据已找到 · 启动时校验</div></div><button class="play">启动游戏</button></section>
+ <footer><span><button>游戏数据…</button> <button>刷新</button></span><span class="hint"><span class="kbd">↑ ↓</span>选择 <span class="kbd">Enter</span>启动</span><span>视觉原型 · 安装状态为示例</span></footer>
 </main>
 </html>

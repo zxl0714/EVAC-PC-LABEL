@@ -125,6 +125,11 @@ proportionate tuning. G2's observed ~19.1 ms maximum frame interval is a
 scene-specific comparison baseline, not measured input latency or a universal
 pass threshold. Keep optimization proportionate when that future work starts.
 
+Post-v0.1 launcher changes now provide a single selected-game launch action and
+shared fullscreen/nickname controls. Keep the text-config entry, unknown text,
+per-game overrides and on-launch full validation. These newer requirements do
+not change the frozen v0.1 packages. UI-only tests are not new gameplay passes.
+
 P6 has completed v0.1 package acceptance at f652df0, tagged and pushed as v0.1.
 Both final archives were actually extracted and verified; Internal contains all
 three games and independent source Git, and Public contains no ROM or source.

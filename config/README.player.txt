@@ -5,7 +5,7 @@ Windows 64 位。虫姬二和 ESPGaluda II 使用 D3D12，绊地狱使用 Vulkan
 请安装显卡厂商提供的正式驱动。所需的 C++ 运行库已随程序附带。
 
 使用方法
-完整解压后，双击根目录 CAVE-PC-Collection.exe，选择游戏即可。
+完整解压后，双击根目录 CAVE-PC-Collection.exe，选中游戏，再点底部“启动游戏”。
 启动游戏.bat 是备用入口。不要在压缩包内直接运行，也不要只复制一个 EXE。
 
 游戏数据
@@ -22,7 +22,10 @@ Windows 64 位。虫姬二和 ESPGaluda II 使用 D3D12，绊地狱使用 Vulkan
 怒首领蜂大往生和 ESP Ra.De. 暂为 Coming Soon。
 
 配置与操作
+页头可设置“启动时全屏”和“排行榜昵称”，点击“保存”，下次启动游戏生效。
+启动游戏前也会自动保存快捷设置。三款共用同一份 INI，游戏级覆盖仍优先。
 启动器右上角“配置文件”打开根目录 config.ini，修改并保存后重启游戏生效。
+外部编辑后点“刷新”读回；缺少数据或组件时，底部只显示所选游戏的问题。
 各游戏共用显示、音量、键盘和手柄设置；游戏内设置仍由各游戏保存。
 默认键盘：方向键移动；Z/X/C/V 对应手柄下/右/左/上方按钮；Enter 开始；
 Backspace 对应 Select/Touchpad；A/S 为 L1/R1，Q/W 为 L2/R2。
@@ -31,7 +34,7 @@ F11 或 Alt+Enter 切换全屏，Alt+F4 关闭游戏；F8 在日志中加入时�
 手柄自动检测，常用 PS/Xbox/街机摇杆可通过 SDL 接入；可在游戏内调整动作。
 
 联网
-默认开启，无需注册。昵称默认为 Player，可在 [community] 修改 nickname；
+默认开启，无需注册。昵称默认为 Player，可在启动页或 [community] 修改 nickname；
 enabled = false 可关闭联网。默认服务为 https://xiaolu.life/cave/api/v1。
 联网会发送昵称、成绩和适用的录像，三款游戏的榜单分别管理。
 
@@ -49,7 +52,7 @@ enabled = false 可关闭联网。默认服务为 https://xiaolu.life/cave/api/v
 
 已知范围
 绊地狱主动关窗后会返回启动器，但完整的客体退出清理仍未完成，日志会记录。
-虫姬二与绊地狱的帧节拍专项优化安排在后续版本；有偶发卡顿请附日志反馈。
+更多场景的偶发音画卡顿继续跟踪；遇到时请附游戏模式、步骤和日志。
 
 开发
 内部完整版的 source 是独立 Git 仓库，从 source/FOR_AGENT.md 开始即可。

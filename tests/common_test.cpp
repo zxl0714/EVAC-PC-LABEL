@@ -2,6 +2,7 @@
 #include "common/ini.h"
 #include "common/paths.h"
 #include "common/settings.h"
+#include "common/config_update.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -97,6 +98,46 @@ void SettingsChecks(Fixture& fixture) {
     EnsureConfig(fixture.root);
     Require(Sha256(path)==hash && LoadSettings(path,"espgaluda2").nickname=="友人","Existing configuration was overwritten");
 }
+void PreferenceChecks(Fixture& fixture) {
+    const auto config=fixture.root/"config.ini";
+    const std::string before="\xef\xbb\xbf; keep this comment\r\n[Collection]\r\nconfig_version = 1\r\n"
+        "[DISPLAY]\r\n  FullScreen = false\r\nvsync = false\r\n"
+        "[Community]\r\n nickname = Player   \r\nendpoint = https://example.org/api\r\n"
+        "[game.futari.display]\r\nfullscreen=false\r\n[game.futari.community]\r\nnickname=Separate\r\n"
+        "[game.daioujou.display]\r\nfullscreen=bad\r\n[future]\r\nkey=preserve\r\n";
+    Write(config,before);
+    SaveSharedPreferences(fixture.root,before,true,"友人-42");
+    auto expected=before;
+    expected.replace(expected.find("FullScreen = false"),18,"FullScreen = true");
+    expected.replace(expected.find("Player"),6,"友人-42");
+    Require(Ini::ReadText(config)==expected,"Quick settings changed other text/overrides");
+    const auto ini=Ini::Load(config);
+    const auto shared=ResolveSharedSettings(ini);
+    Require(shared.fullscreen && shared.nickname=="友人-42" && !shared.vsync &&
+            shared.endpoint=="https://example.org/api","Shared settings read a game's override");
+    for(const auto id:{"espgaluda2","ketsui"}) {
+        const auto settings=ResolveSettings(ini,id);
+        Require(settings.fullscreen && settings.nickname=="友人-42","Shared preference not inherited");
+    }
+    Require(!ResolveSettings(ini,"futari").fullscreen && ResolveSettings(ini,"futari").nickname=="Separate",
+            "Quick settings removed an explicit game override");
+    Reject([&]{SaveSharedPreferences(fixture.root,before,false,"Stale");},"Stale form overwrote editor changes");
+    Require(Ini::ReadText(config)==expected,"Stale save changed configuration");
+    for(const auto& name:std::array<std::string,7>{"",std::string(65,'a')," leading","trailing ","a\tb","a\nb",std::string("x\0y",3)}) {
+        Reject([&]{SaveSharedPreferences(fixture.root,expected,false,name);},"Invalid nickname saved");
+        Require(Ini::ReadText(config)==expected,"Invalid nickname partially changed fullscreen");
+    }
+    for(const auto* source:{"","[display]","[community]\nnickname=Old\n; comment\n[future]\nx=1",
+                            "[Community]\r\n; comment\r\n[Display]\r\nvsync=true\r\n"}) {
+        Write(config,source);SaveSharedPreferences(fixture.root,source,true,"Player");
+        const auto result=ResolveSharedSettings(Ini::Load(config));
+        Require(result.fullscreen && result.nickname=="Player","Missing settings section/key insertion");
+    }
+    const std::array injection{IniEdit{"display","fullscreen","true\n[community]\nnickname=Injected"}};
+    Reject([&]{EditIni("",injection);},"Multiline INI edit accepted");
+    for(const auto& entry:fs::directory_iterator(fixture.root))
+        Require(!entry.path().filename().native().starts_with(L"config.ini.pending-"),"Quick-settings transaction leaked");
+}
 void ContentChecks(Fixture& fixture) {
     constexpr auto hash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
     const std::array first{DataFile{"packages/first/asset.bin",3,hash,false},DataFile{"headers/first.header",3,hash,false}};
@@ -185,6 +226,7 @@ int main() {
     Reject([] { Ini::Parse(std::string("[x]\na=") + char(0xff)); }, "Invalid UTF-8 accepted");
     Require(inspect().state == "ready", "Other-game settings affected current title");
     SettingsChecks(fixture);
+    PreferenceChecks(fixture);
     ContentChecks(fixture);
     std::cout << checks << " native checks passed; fixture programs were not executed.\n";
     return 0;
