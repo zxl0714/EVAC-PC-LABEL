@@ -1,5 +1,6 @@
 """Stage only the certified PS4 player runtime and matching symbols; no data."""
 import json
+from pathlib import Path
 import shutil
 import uuid
 
@@ -11,6 +12,7 @@ def stage():
     receipt = verify()
     certified = {item['path']: item for item in receipt['outputs']}
     pairs = [('out/ps4-native/KetsuiNativeProbe.exe', 'runtime/ps4/ketsui.exe'),
+             ('out/ps4-native/KetsuiNativeProbe.exe', 'runtime/ps4/daioujou.exe'),
              ('out/ps4-gpu/KetsuiGpuRuntime.dll', 'runtime/ps4/KetsuiGpuRuntime.dll')]
     outputs = []
     for source_name, target_name in pairs:
@@ -28,19 +30,25 @@ def stage():
             if digest(source) != expected['sha256'] or digest(target) != expected['sha256']:
                 raise ValueError('PS4 runtime copy failed verification')
             outputs.append(dict(path=target.relative_to(ROOT).as_posix(), bytes=expected['bytes'], sha256=expected['sha256']))
-    directory = ROOT / 'runtime/games/ketsui'
+    for game in ('ketsui', 'daioujou'):
+        game_outputs = [item for item in outputs if Path(item['path']).stem in (game, 'KetsuiGpuRuntime')]
+        write_manifest(game, receipt, game_outputs)
+    return dict(games=['ketsui', 'daioujou'], stagedFiles=len(outputs) + 2, gameDataIncluded=False)
+
+
+def write_manifest(game, receipt, outputs):
+    directory = ROOT / 'runtime/games' / game
     manifest = directory / 'runtime-manifest.json'
     reject_link(manifest); directory.mkdir(parents=True, exist_ok=True)
     if manifest.exists():
-        backup = ROOT / '.local/staging' / ('ketsui-' + uuid.uuid4().hex + '-previous.json')
+        backup = ROOT / '.local/staging' / (game + '-' + uuid.uuid4().hex + '-previous.json')
         backup.parent.mkdir(parents=True, exist_ok=True); manifest.rename(backup)
-    write_json_new(manifest, dict(format=1, game='ketsui', sourceCommit=receipt['sourceCommit'],
+    write_json_new(manifest, dict(format=1, game=game, sourceCommit=receipt['sourceCommit'],
         sourceSnapshotSha256=receipt['sourceSnapshot']['sha256'], files=outputs, gameDataIncluded=False))
-    lines = ['[runtime]', 'contract = 1', 'game = ketsui', 'source_commit = ' + receipt['sourceCommit'], '', '[files]']
+    lines = ['[runtime]', 'contract = 1', 'game = ' + game, 'source_commit = ' + receipt['sourceCommit'], '', '[files]']
     lines += [item['path'] + ' = ' + item['sha256'] for item in outputs if not item['path'].endswith('.pdb')]
     certificate = directory / 'runtime-manifest.ini'; reject_link(certificate)
     certificate.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
-    return dict(game='ketsui', stagedFiles=len(outputs) + 1, gameDataIncluded=False)
 
 
 if __name__ == '__main__':

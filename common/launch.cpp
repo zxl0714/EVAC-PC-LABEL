@@ -143,12 +143,12 @@ std::optional<unsigned long> ChildProcess::ExitCode() const {
 bool ChildProcess::RequestedWindowClose(const fs::path& root,std::string_view game,unsigned long code) const {
   // 27 is not generally a successful exit. Only accept this backend's explicit
   // presentation-cleanup receipt, bound to this process's PID AND birth time.
-  if (!handle_ || game!="ketsui" || code!=27) return false;
+  if (!handle_ || (game!="ketsui" && game!="daioujou") || code!=27) return false;
   try {
     FILETIME created{},exited{},kernel{},user{};
     if (!GetProcessTimes(handle_,&created,&exited,&kernel,&user)) return false;
     const auto birth=std::to_string((std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime);
-    const auto logs=DataChild(root,"logs/ketsui");
+    const auto logs=DataChild(root,"logs/"+std::string(game));
     if (!fs::is_directory(logs)) return false;
     for (const auto& item:fs::directory_iterator(logs)) {
       const auto name=Utf8(item.path().filename());

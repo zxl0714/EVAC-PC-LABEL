@@ -22,5 +22,6 @@ struct PreparedGame {
     fs::path executable,modules,read_fixes;
 };
 PreparedGame PrepareKetsuiGame(const fs::path& root,const fs::path& data);
+PreparedGame PreparePs4Game(const fs::path& root,const fs::path& data,std::string_view game);
 int PrepareGameCommand(int argc,wchar_t** argv);
 }

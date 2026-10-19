@@ -10,8 +10,10 @@ goal. Do not equate launcher work or input inspection with v0.3 completion.
 The DaiOuJou ZIP has now completed; all 61 members passed CRC/SHA-256 inspection.
 The complete local input is .local/inputs/daioujou-20261020-r2; r1 remains a
 failed/incomplete extraction. games/daioujou/data.json inventories 60 runtime
-files, excluding the packaging Project.gp4. Six ELF programs were prepared and
-statically inventoried without game entry. This is not playable/online acceptance.
+files, excluding the packaging Project.gp4. Six ELF programs are prepared by the
+shared runtime. The direct native entry has actual ARCADE/Type-A/Shotia first-stage,
+shooting, death/respawn and pause evidence, plus settings save/cold readback.
+Normal collection launch and this title's community adaptation remain unaccepted.
 Keep failed attempts as incomplete evidence. Preserve frozen v0.1/v0.2 archives.
 
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has

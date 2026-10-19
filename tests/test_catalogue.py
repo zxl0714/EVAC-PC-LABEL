@@ -61,6 +61,17 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(sum(f['bytes'] for p in game['content'] for f in p['files']), 275443888)
         self.assertFalse(any(p['content'] for p in catalogue.load(self.path)[1:]))
 
+    def test_daioujou_native_boards_do_not_reuse_ketsui_filter_rules(self):
+        reference=catalogue.read_json(self.root/'games/daioujou/community-references.json')
+        self.assertEqual(reference['status'],'static-analysis-only')
+        self.assertEqual(reference['score']['nativeUnitInDisplayPoints'],10)
+        self.assertEqual([item['base'] for item in reference['boardGroups']],[0,10,20,30,40,50,60])
+        self.assertEqual([item['offset'] for item in reference['boardFilters']],list(range(7)))
+        self.assertEqual(reference['boardFilters'][-1]['ship'],'all')
+        self.assertFalse(reference['boardGroups'][1]['submissionEnabled'])
+        self.assertTrue(reference['eligibility']['noContinues'])
+        self.assertIn('sceNpScoreRecordGameDataAsync',reference['nativeInterfaces'])
+
     def test_invalid_optional_content_metadata(self):
         original = catalogue.read_json(self.root / 'games/futari/data.json')
         cases = []

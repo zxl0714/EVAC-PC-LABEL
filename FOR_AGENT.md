@@ -1,8 +1,12 @@
 # 开发入口
 
-v0.3 已开始分步实现，当前不是已完成发行。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口验证了语言切换、昵称草稿保留、保存及日文冷启动读回；绊地狱窗口已核对日文名，360 还需重建。大往生 CUSA32997／01.04 的 ZIP 下载及全部 61 项 CRC／哈希已通过，完整数据在 `.local/inputs/daioujou-20261020-r2`；r1 是失败现场，不能使用。`games/daioujou/data.json` 记录 60 项运行资源，不含 Project.gp4。六个 ELF 已静态准备及盘点，仍保持 Coming Soon、integrated=false、communitySupported=false，未完成游玩和联网。继续实施计划的 v0.3 全部目标，不把界面或输入阶段当作版本完成。
+v0.3 正在开发，发行版本仍为 v0.2。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口已验证语言切换、昵称草稿保留、保存及日文冷启动读回；PS4 窗口已核对日文名，360 还需重建。大往生当前为独立原生入口可玩基线，合集正常入口和社区适配仍待验收，catalogue 保持 Coming Soon、integrated=false、communitySupported=false。
 
-PS4 共享准备缓存现按 `recipe.game` 分目录；原生保存使用内容 Title ID，不能再写死绊地狱。合并更新数据须显式 `--app-dir <完整目录> --merged-app on`，不能再给 `--patch-dir`；默认本体＋补丁合同不变。随包 libc 是未压缩明文 SELF，`plain_self` 读取只用于验证真实 RET 初始化合同，不解密、不需要密钥，也不直接执行 Sony 模块。43 项 C++／Python 自造准备对照、64 项原生／配置／合并布局检查及 327 项源码测试已通过。独立入口已适配实际调用的 bcmp、calloc、sincosf、sprintf_s 等 CRT 接口；`.local/daioujou-entry-r6` 已实际进入标题、Direct Menu、ARCADE、Type-A／Shotia 选择并自然 Game Over（420 分）。尚需直接观察玩家第一关、正常合集入口、保存重启和本作联网；不能将演示画面或结算等同于全部可玩通过。常规直接诊断入口使用 `--background-log on`，配置明确指定 `--collection-game daioujou`，未实现的社区能力仍关闭。
+大往生输入为 CUSA32997／01.04，完整目录 `.local/inputs/daioujou-20261020-r2`，原 ZIP 与全部 61 项 CRC／哈希已核验；r1 为失败提取，不可使用。`games/daioujou/data.json` 记录 60 项运行资源，不含 Project.gp4。共享准备入口 `--prepare-game --game daioujou --root <合集> --data-dir <完整目录>` 校验全部资源并准备六程序，首次生成及缓存命中已通过；不套用绊地狱资源补丁。Build／Test 可选 daioujou，运行整理为两款生成各自的宿主别名和证书，共用 GPU。
+
+PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更新目录使用 `--app-dir <目录> --merged-app on`，不叠加 `--patch-dir`。随包未压缩明文 SELF 只作 RET 初始化合同验证，不执行 Sony libc；bcmp、calloc、sincosf、sprintf_s 等由维护运行时实现。独立入口使用 `--background-log on --collection-config <INI> --collection-game daioujou`。最近完整检查为 328 项源码、公共三项 CTest、64 项原生检查及 43 项 ELF 准备对照；新增榜单元数据用例另有定向通过记录。
+
+实机证据为 `.local/daioujou-entry-r7` 的 ARCADE／Type-A／Shotia 第一关、自机射击得分 90、死亡复活和暂停，以及 r8 冷启动读回 BGM 69%。CU 短按测试显式使用诊断 120 ms，不代替实体输入验收；测试进程均已关闭。`games/daioujou/community-references.json` 记录本作榜单与资格：每组 0–5 为三人偶×两机体、6 为综合；传输整数为显示分数除十。CUSTOM 原生提交排除，黑版／all-mix 限制也须保留。静态分析资源仅在 `.local/daioujou-resource-inspect-r1`，不进入源码或对外包。下一步实现本作社区协议、录像版本与模式核对，再验收正常合集入口和发行；不要借用绊地狱的榜单、角色或录像规则。
 
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 

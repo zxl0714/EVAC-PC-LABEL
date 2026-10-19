@@ -115,7 +115,7 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   const auto helper=fixture.root/FromUtf8("工具 空格/child helper.exe");
   fs::create_directories(helper.parent_path());fs::copy_file(executable,helper);
   const std::vector<std::wstring> payload{L"",L"simple",L"two words",L"中文 路径",L"\"quoted\"",L"trailing\\",L"before\\\"quote",L"& | ; < > %PATH%",L"a\tb"};
-  for(const auto code:{0UL,37UL,259UL}) {
+  for(const auto code:{0UL,27UL,37UL,259UL}) {
     const auto name=L"Local\\CaveCollection.Test."+fixture.nonce+std::to_wstring(code);
     const auto ready_name=name+L".ready",release_name=name+L".release";
     Event ready(ready_name),release(release_name);
@@ -134,6 +134,26 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
     Require(Ini::ReadText(output)==expected,"Command quoting, Unicode or working directory changed");
     SetEvent(release.value);child.Wait();Require(child.ExitCode()==code,"Child exit code changed");
     Require(!child.RequestedWindowClose(fixture.root,"ketsui",code),"Non-close exit accepted as requested close");
+    Require(!child.RequestedWindowClose(fixture.root,"daioujou",code),"Non-close DaiOuJou exit accepted as requested close");
+    if(code==27) {
+      const auto process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,child.pid());
+      FILETIME created{},ended{},kernel{},user{};
+      Require(process && GetProcessTimes(process,&created,&ended,&kernel,&user),"Cannot identify fixture child birth");
+      CloseHandle(process);
+      const auto birth=std::to_string((std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime);
+      for(const auto title:{"ketsui","daioujou"}) {
+        const auto receipt=fixture.root/"logs"/title/("run-authoredZ-"+std::to_string(child.pid()))/"exit.ini";
+        const auto text="[exit]\ngame="+std::string(title)+"\npid="+std::to_string(child.pid())+
+            "\nprocess_created="+birth+"\ncode=27\nreason=window_close_requested\n"
+            "presentation_cleanup_complete=true\nguest_finalizers_run=false\nhost_cleanup_complete=false\n";
+        Write(receipt,text);
+        Require(child.RequestedWindowClose(fixture.root,title,code),"Exact title close receipt not recognized");
+        Write(receipt,text+"unrecognized=retained\n");
+        Require(!child.RequestedWindowClose(fixture.root,"sdoj",code),"PS4 close receipt accepted for 360 title");
+        auto wrong=text;wrong.replace(wrong.find(birth),birth.size(),"0");Write(receipt,wrong);
+        Require(!child.RequestedWindowClose(fixture.root,title,code),"Close receipt from another process birth accepted");
+      }
+    }
     Require(!GameIsRunning(fixture.root),"Exited child kept game lock");
     ChildProcess moved(std::move(child));Require(moved.ExitCode()==code,"Moving process handle lost status");
   }

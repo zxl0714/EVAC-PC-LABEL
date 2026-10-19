@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "game": "daioujou",
+  "titleId": "CUSA32997",
+  "version": "01.04",
+  "status": "static-analysis-only",
+  "sourceExecutableSha256": "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
+  "sources": [
+    "patch:1100/config/title_prof.psb.m",
+    "patch:1100/script/title_standalone.nut.m",
+    "patch:1100/script/title_standalone_getter.nut.m",
+    "base:1100/script/title_standalone_replay_ranking.nut.m",
+    "base:system/script/ranking_ctrl.nut.m",
+    "base:system/script/ranking_manager.nut.m"
+  ],
+  "score": {
+    "nativeUnitInDisplayPoints": 10,
+    "description": "The native leaderboard integer is display score divided by ten. The last displayed decimal digit counts continues and is zero for eligible rounds. Preserve the native integer in the protocol; do not divide again or convert through floating point."
+  },
+  "boardGroups": [
+    {"base": 0, "mode": "arcade"},
+    {"base": 10, "mode": "custom", "submissionEnabled": false},
+    {"base": 20, "mode": "super_easy"},
+    {"base": 30, "mode": "premium"},
+    {"base": 40, "mode": "black_label"},
+    {"base": 50, "mode": "dodonpachi_iii"},
+    {"base": 60, "mode": "black_label_one_loop"}
+  ],
+  "boardFilters": [
+    {"offset": 0, "ship": "type_a", "doll": "shotia"},
+    {"offset": 1, "ship": "type_b", "doll": "shotia"},
+    {"offset": 2, "ship": "type_a", "doll": "leinyan"},
+    {"offset": 3, "ship": "type_b", "doll": "leinyan"},
+    {"offset": 4, "ship": "type_a", "doll": "exy"},
+    {"offset": 5, "ship": "type_b", "doll": "exy"},
+    {"offset": 6, "ship": "all", "doll": "all"}
+  ],
+  "eligibility": {
+    "nativeReplayRecordingRequired": true,
+    "noContinues": true,
+    "customExcluded": true,
+    "additionalNativeModeRestrictions": true,
+    "description": "Keep the game's existing checkRegistRanking conditions, including Black Label round and all-mix restrictions; the presence of a board in the profile is not permission to submit to it."
+  },
+  "nativeInterfaces": [
+    "sceNpScoreCreateNpTitleCtxA",
+    "sceNpScoreCreateRequest",
+    "sceNpScoreRecordScoreAsync",
+    "sceNpScoreGetRankingByRangeAAsync",
+    "sceNpScoreGetRankingByAccountIdAsync",
+    "sceNpScoreRecordGameDataAsync",
+    "sceNpScoreGetGameDataByAccountIdAsync",
+    "sceNpScorePollAsync",
+    "sceNpScoreAbortRequest",
+    "sceNpScoreDeleteRequest",
+    "sceNpScoreDeleteNpTitleCtx"
+  ],
+  "flow": "Native score submission precedes replay attachment. The profile has seven character filters, with the combined board last, unlike Ketsui. This inventory does not enable the client or claim native replay compatibility or server acceptance."
+}

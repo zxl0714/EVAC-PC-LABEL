@@ -18,6 +18,7 @@ namespace cave::ps4 {
 namespace {
 using Json=nlohmann::json;
 fs::path active_report;
+std::string active_game;
 std::atomic_flag close_recorded{};
 constexpr std::array<std::wstring_view,5> options{L"--collection_root",L"--game_id",L"--launch_contract",
     L"--game_data_root",L"--user_data_root"};
@@ -90,7 +91,7 @@ bool CollectionInputDiagnosticSelfTest() {
 void RecordCollectionWindowClose() noexcept {
     if (active_report.empty() || close_recorded.test_and_set()) return;
     try {
-        WriteNew(active_report/"exit.ini","[exit]\ngame = ketsui\npid = "+std::to_string(GetCurrentProcessId())+
+        WriteNew(active_report/"exit.ini","[exit]\ngame = "+active_game+"\npid = "+std::to_string(GetCurrentProcessId())+
             "\nprocess_created = "+std::to_string(CreationTime())+
             "\ncode = 27\nreason = window_close_requested\npresentation_cleanup_complete = true\n"
             "guest_finalizers_run = false\nhost_cleanup_complete = false\n");
@@ -108,19 +109,21 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             Require(std::find(options.begin(),options.end(),key)!=options.end() && !value.empty() && values.emplace(key,value).second,
                 "Unknown, empty or repeated collection launch argument");
         }
-        Require(values.at(L"--game_id")==L"ketsui" && values.at(L"--launch_contract")==L"1","Unsupported game or launch contract");
+        const auto game=Utf8(fs::path(values.at(L"--game_id")));
+        Require((game=="ketsui" || game=="daioujou") && values.at(L"--launch_contract")==L"1","Unsupported game or launch contract");
+        const bool ketsui=game=="ketsui";
         const fs::path requested_root(values.at(L"--collection_root")),requested_data(values.at(L"--game_data_root")),
             requested_profile(values.at(L"--user_data_root"));
         Require(requested_root.is_absolute() && requested_data.is_absolute() && requested_profile.is_absolute(),"Collection paths must be absolute");
         const auto root=fs::canonical(requested_root);
-        const auto profile_parent=Resolve(root,root/"user-data"/"ketsui");
-        Require(Resolve(root,requested_profile.parent_path())==profile_parent,"Profile must be under user-data/ketsui");
+        const auto profile_parent=Resolve(root,root/"user-data"/game);
+        Require(Resolve(root,requested_profile.parent_path())==profile_parent,"Profile must be under the selected game's user-data directory");
         const auto profile=Utf8(requested_profile.filename());
         const auto config=EnsureConfig(root);
         const auto snapshot=Ini::ReadText(config);
         const auto ini=Ini::Parse(snapshot);
-        (void)ResolveCollectionConfiguration(ini);
-        const auto spec=PrepareLaunch(FindGame("ketsui"),root,ini,profile,requested_data);
+        (void)ResolveCollectionConfiguration(ini,game);
+        const auto spec=PrepareLaunch(FindGame(game),root,ini,profile,requested_data);
         Require(spec.paths.profile==Resolve(root,requested_profile),"Collection profile differs from the launch contract");
         GameSession session(root);ProfileLock lock(spec.paths.profile);
         fs::create_directories(spec.paths.logs);
@@ -128,13 +131,13 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         swprintf_s(name,L"run-%04u%02u%02uT%02u%02u%02u%03uZ-%lu",now.wYear,now.wMonth,now.wDay,now.wHour,
             now.wMinute,now.wSecond,now.wMilliseconds,GetCurrentProcessId());
         const auto report=spec.paths.logs/name;Require(fs::create_directory(report),"Run log directory already exists");
-        active_report=report;
+        active_game=game;active_report=report;
         WriteNew(report/"config.snapshot.ini",snapshot);
         Redirect(stdout,report/"stdout.jsonl");Redirect(stderr,report/"stderr.txt");
         SYSTEM_INFO machine{};GetNativeSystemInfo(&machine);
-        const auto manifest=Ini::Load(root/"runtime/games/ketsui/runtime-manifest.ini");
+        const auto manifest=Ini::Load(root/"runtime/games"/game/"runtime-manifest.ini");
         const auto commit=manifest.Get("runtime","source_commit");
-        const Json metadata{{"schema",1},{"game","ketsui"},{"launchContract",1},{"pid",GetCurrentProcessId()},
+        const Json metadata{{"schema",1},{"game",game},{"launchContract",1},{"pid",GetCurrentProcessId()},
             {"processCreated",CreationTime()},{"sourceCommit",commit?commit->text:"unknown"},
             {"root",Utf8(root)},{"data",Utf8(spec.paths.data)},{"profile",Utf8(spec.paths.profile)},
             {"executable",Utf8(spec.executable)},{"executableSha256",Sha256(spec.executable)},
@@ -142,18 +145,24 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             {"logicalProcessors",machine.dwNumberOfProcessors},{"configSnapshot","config.snapshot.ini"},
             {"diagnosticInputTapMs",diagnostic_tap}};
         WriteNew(report/"run.json",metadata.dump(2)+'\n');
-        std::puts("{\"event\":\"collection_run_begin\",\"game\":\"ketsui\",\"launch_contract\":1}");
-        const auto prepared=PrepareKetsuiGame(root,spec.paths.data);
+        std::puts(Json{{"event","collection_run_begin"},{"game",game},{"launch_contract",1}}.dump().c_str());
+        const auto prepared=PreparePs4Game(root,spec.paths.data,game);
         WriteNew(report/"preparation.json",prepared.cache.receipt.dump(2)+'\n');
         const Json prepared_event{{"event","collection_prepared"},{"cacheHit",prepared.cache.reused},
             {"recipeSha256",prepared.cache.key},{"directory",Utf8(prepared.cache.directory)}};
         std::puts(prepared_event.dump().c_str());
         Require(Ini::ReadText(config)==snapshot,"config.ini changed during startup; restart with the saved configuration");
         std::vector<std::wstring> arguments{argv[0],prepared.executable.native(),L"--enter",
-            L"--module-dir",prepared.modules.native(),L"--app-dir",(spec.paths.data/"CUSA09062-app").native(),
-            L"--patch-dir",(spec.paths.data/"CUSA09062-patch").native(),L"--user-dir",spec.paths.profile.native(),
-            L"--allocation-timing",L"counts",L"--read-patches",prepared.read_fixes.native(),L"--collection-config",config.native(),
-            L"--community-provider",L"configured",L"--community-rounds",L"on",L"--gpu-runtime",(root/"runtime/ps4/KetsuiGpuRuntime.dll").native()};
+            L"--module-dir",prepared.modules.native(),L"--app-dir",(ketsui?spec.paths.data/"CUSA09062-app":spec.paths.data).native(),
+            L"--user-dir",spec.paths.profile.native(),L"--allocation-timing",L"counts",
+            L"--collection-config",config.native(),L"--collection-game",FromUtf8(game).wstring(),
+            L"--gpu-runtime",(root/"runtime/ps4/KetsuiGpuRuntime.dll").native()};
+        if (ketsui) {
+            arguments.insert(arguments.end(),{L"--patch-dir",(spec.paths.data/"CUSA09062-patch").native(),
+                L"--read-patches",prepared.read_fixes.native(),L"--community-provider",L"configured",L"--community-rounds",L"on"});
+        } else {
+            arguments.insert(arguments.end(),{L"--merged-app",L"on"});
+        }
         // Development-only bridge to the existing pad diagnostic. Never save
         // this setting in the player INI or enable it in the launcher itself.
         if (diagnostic_tap) {arguments.push_back(L"--diagnostic-tap-ms");arguments.push_back(std::to_wstring(diagnostic_tap));}
