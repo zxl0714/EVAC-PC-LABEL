@@ -22,9 +22,10 @@ class NativeCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / '合集 空格'; root.mkdir()
             result = self.run_cli(root, cwd=Path(temporary))
-            self.assertEqual([r['id'] for r in result['games']], ['futari', 'espgaluda2', 'ketsui', 'daioujou', 'esprade'])
+            self.assertEqual([r['id'] for r in result['games']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
             self.assertEqual(result['games'][1]['dataState'], 'missing_data')
-            self.assertEqual(result['games'][3]['state'], 'coming_soon')
+            self.assertEqual(result['games'][3]['dataState'], 'missing_data')
+            self.assertEqual(result['games'][4]['state'], 'coming_soon')
             self.assertEqual(list(root.iterdir()), [])
             self.assertFalse(result['guestExecution'])
 

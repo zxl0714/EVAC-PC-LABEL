@@ -55,8 +55,11 @@ struct XMSGSTARTIOREQUEST_UNKNOWNARG {
 X_HRESULT xeXMsgStartIORequestEx(uint32_t app, uint32_t message, uint32_t overlapped_ptr,
                                  uint32_t buffer_ptr, uint32_t buffer_length,
                                  XMSGSTARTIOREQUEST_UNKNOWNARG* unknown) {
-  if(auto handled=DispatchCommunityMessage(REX_KERNEL_STATE(),app,message,buffer_ptr,buffer_length,overlapped_ptr))
+  if(auto handled=DispatchCommunityMessage(REX_KERNEL_STATE(),app,message,buffer_ptr,buffer_length,overlapped_ptr)) {
+    if (!overlapped_ptr)
+      XThread::SetLastError(*handled==X_ERROR_SUCCESS?0:(*handled&0xffff));
     return *handled;
+  }
   auto result = REX_KERNEL_STATE()->app_manager()->DispatchMessageAsync(app, message, buffer_ptr,
                                                                         buffer_length);
   if (result == X_E_NOTFOUND) {

@@ -69,11 +69,15 @@ games/sdoj/data.json 已单独记录经 ISO 内容比对的 114 个光盘本体�
 
 本体主程序在 recomp/default-functions.toml 声明 63 个已审阅入口。初始化转发、比较函数和条件尾调用均已在真实重启中越过，随后在音频设备初始化后的浮点函数 0x8217F850 缺注册处退出。已结合接口指针表集中审阅另外 21 个含浮点、存储或虚调用的入口，再由正常生成器翻译，待实际验证；不改原指令或跳过调用。callback_inventory.py 的 codePointerRuns 用于定位带已注册入口的连续指针组，但异常表也会有相似结构，不能自动视为 vtable。只读 CFG 类别仍拒绝直接存储等指令；它只是保守审阅工具，不是函数全集。
 
-communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled 偏好分开；SDOJ 为 false，其他已接入作品默认 true。未支持时不创建通信 provider，run.json 分别记录请求、支持和实际开启状态，宿主保留离线 profile 和共享昵称。不为此在默认 INI 增加联网覆盖。
+communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled 偏好分开；SDOJ 暂为 false，其他已接入作品默认 true。用户现要求 SDOJ 社区／Live 也纳入 v0.2，需先查明本作原生榜单、成绩与录像协议再接独立服务，不借用 G2 的 view 或数据格式。未支持时不创建通信 provider，run.json 分别记录请求、支持和实际开启状态，宿主保留离线 profile 和共享昵称。不为此在默认 INI 增加联网覆盖。同步检查本体商店和隐藏内容，音乐补丁继续暂缓。
+免费且通过游玩解锁的内容按用户要求保留原生进度，由玩家自行解锁；不要赠送金币、默认全开或改存档标志。重点确认原生解锁与保存路径工作正常。
+本体已审阅五个静态 Xbox API 入口，见 community-overrides.toml／community/guest_hooks.cpp；SDOJ 原调用包含同步 stats write、排名估计和录像 IO，公共桥接正在增加空 OVERLAPPED 支持。新 community_sync 原生用例不执行游戏或访问网络；未完成游戏专属属性／录像格式和服务前，communitySupported 继续为 false。
 
 81fd6ce 已实际运行到 Xbox 360／Shot 玩家第一关并创建 SYSTEM.DAT；原默认渲染拒绝 UI 的 kInvalidTexture 描述符，因此通过命令行对照确认 gpu_allow_invalid_fetch_constants=true 恢复标题和菜单。此兼容开关现由 SDOJ 的 OnGamePreSetup 设置，共享宿主只提供钩子，不把游戏条件写进公共平台；后续需验证无额外参数重启、模式切换及存档／录像。音频有非静音输出，不等于声音响应验收。data.json 的 forbiddenFiles 禁止本体目录出现 default.xexp、CA022100.binp、CA022110.binp；代码生成和原生启动检查均拒绝，不删除或改写原文件。
 
 d7c4058 已无额外 GPU 参数重启读入 SYSTEM.DAT，并经 Arcade HD／Type-C／Shot／Auto Bomb OFF 进入第一关；随后局末附近缺注册入口 0x880943E8 退出。两个 overlay 现各有独立 *-functions.toml：CA022100 的 0x880943E8 和 CA022110 的 0x880952F0 都是 4 字节跳转，转向已有正常实现；源码修复待实际回归。callback_inventory.py 也报告代码构造的地址，但其中可能是异常继续点而非独立函数，不能把候选批量作为已审阅入口。
+
+后续 749cd9b 实际回归已越过该崩溃点：Arcade HD 自然结算、保存槽位 1、返回模式待机及主菜单通过，REPLAY_XB01.DAT 为 79,328 字节。随后 Ver.1.5 自然结束／返回、Novice 玩家第一关通过；冷启动完整回放和设置读回尚未验收。输入操作的截图在按键后可能仍是过渡帧，先重新观察，不盲目重复确认以免启动下一局。当前 UI 预览已按六张卡片自适应，SDOJ 方形标题采用 contain，其他作品保持 cover。
 
 v0.2 必须完成最大往生可玩接入，不能仅发布工具链和 UI 改进。本体的静态兼容检查使用 `scripts/sdoj_analyze.py --data-dir '<本地解包目录>' --output .local/analysis/sdoj-census`；先 NativeOnly 构建原生检查工具，过程不需要 G2 ROM。实现共用 backends/xbox360/diagnostics/inspect_xex.cpp，保留 espgaluda2_inspect.exe 名称；SDOJ 的两个 .bin 按 XEX 处理，检查重叠基址装卸载。它不应用 TU、不执行客体或证明可玩。音乐补丁按用户要求暂不处理。
 

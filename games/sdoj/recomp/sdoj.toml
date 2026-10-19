@@ -7,7 +7,7 @@ game_root = "../../../game-data/sdoj"
 [entrypoint]
 file_path = "../../../game-data/sdoj/default.xex"
 out_directory_path = "../../../generated/sdoj/default"
-includes = ["default-functions.toml"]
+includes = ["default-functions.toml", "community-overrides.toml"]
 
 [[modules]]
 guest_path = "CA022100.bin"

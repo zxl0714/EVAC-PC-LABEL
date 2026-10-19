@@ -96,7 +96,7 @@ uint32_t CreateCommunityStatsEnumerator(KernelState* kernel, uint32_t title,
     uint32_t type, uint64_t pivot, uint32_t count, uint32_t spec_count,
     uint32_t specs, uint32_t buffer_size, uint32_t handle);
 std::optional<uint32_t> EnumerateCommunityStats(KernelState* kernel, XEnumerator* enumerator,
-    uint32_t buffer, uint32_t buffer_size, uint32_t overlapped);
+    uint32_t buffer, uint32_t buffer_size, uint32_t overlapped, uint32_t* items_returned = nullptr);
 std::optional<uint32_t> DispatchCommunityMessage(KernelState* kernel, uint32_t app,
     uint32_t message, uint32_t buffer, uint32_t length, uint32_t overlapped);
 

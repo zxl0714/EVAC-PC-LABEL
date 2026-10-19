@@ -29,6 +29,14 @@ add_test(NAME codegen_paths COMMAND "${Python3_EXECUTABLE}"
     --generator "${CMAKE_SOURCE_DIR}/.deps/sdk-install/bin/rexglue.exe")
 set_tests_properties(codegen_paths PROPERTIES TIMEOUT 30)
 
+add_executable(cave_community_sync_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/community_sync_test.cpp")
+target_link_libraries(cave_community_sync_tests PRIVATE rex::runtime)
+add_custom_command(TARGET cave_community_sync_tests POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:cave_community_sync_tests> $<TARGET_FILE_DIR:cave_community_sync_tests>
+    COMMAND_EXPAND_LISTS VERBATIM)
+add_test(NAME community_sync COMMAND cave_community_sync_tests "${CMAKE_BINARY_DIR}/community-sync-fixture")
+set_tests_properties(community_sync PROPERTIES TIMEOUT 30)
+
 # Metadata is title-specific; the platform libraries do not embed a game ID.
 function(cave_game_metadata game)
     set(CAVE_GAME_ID "${game}")

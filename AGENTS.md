@@ -137,6 +137,14 @@ player entry, mode transitions and save/replay behavior, and perform a small
 representative regression of the existing games. Input identification, a
 Coming Soon banner or an upstream standalone executable is not integration.
 Do not tag or announce v0.2 complete before this gate passes. Preserve v0.1.
+SDOJ community/Live is also required for v0.2: adapt the title's native score,
+leaderboard and replay flow to its own service namespace at the shared endpoint.
+Keep its capability disabled until implemented and verified, rather than borrowing
+another game's view IDs. Investigate disc-resident shop/unlockable content and
+distinguish it from external DLC; the music patch remains explicitly deferred.
+For content unlocked for free through gameplay, preserve the native progression:
+do not enable everything by default, grant currency or edit unlock flags. Verify
+that the native shop/unlock/save path works instead.
 
 P6 has completed v0.1 package acceptance at f652df0, tagged and pushed as v0.1.
 Both final archives were actually extracted and verified; Internal contains all

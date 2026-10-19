@@ -1,0 +1,32 @@
+# Independently reviewed static XDK API wrappers in the supported disc base.
+# The title's qualification, score construction and confirmations stay intact.
+# Community capability remains disabled until the SDOJ provider is accepted.
+[[midasm_hook]]
+address = 0x8221C418
+name = "SdojCommunityEstimateRank"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x8221C188
+name = "SdojStorageUpload"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x8221BEA8
+name = "SdojStorageDownload"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x8221C5F8
+name = "SdojStorageLocalPath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x8221C690
+name = "SdojStorageRemotePath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true

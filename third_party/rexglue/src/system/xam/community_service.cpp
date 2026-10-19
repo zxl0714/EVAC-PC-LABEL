@@ -9,7 +9,10 @@
 #include <rex/system/xthread.h>
 
 #include <algorithm>
+#include <atomic>
 #include <bit>
+#include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <map>
 #include <iomanip>
@@ -64,13 +67,19 @@ bool ReadSpecs(KernelState* kernel, uint32_t address, uint32_t count, std::vecto
 
 struct Pending;
 std::mutex pending_mutex;
-using Key = std::pair<KernelState*,uint32_t>;
+// Synchronous calls have no guest OVERLAPPED. Give each one a separate host
+// token so concurrent calls can still be cancelled when the runtime closes.
+using Key = std::pair<KernelState*,uint64_t>;
 std::map<Key,std::shared_ptr<Pending>> pending;
+std::atomic<uint64_t> next_sync_token{0x100000000ull};
 struct Pending {
   KernelState* kernel;
   uint32_t overlapped;
+  uint64_t token;
   std::mutex mutex;
+  std::condition_variable wake;
   bool done = false;
+  uint32_t result = 0, length = 0;
 
   void Complete(uint32_t error, std::function<uint32_t()> writer = {}, uint32_t items = 0) {
     {
@@ -78,21 +87,42 @@ struct Pending {
       if (done) return;
       if (!error && writer) error = writer();
       done = true;
+      result = error; length = items;
       // Request context was captured on the guest thread. This completion runs
       // on a bounded host worker, with no wait on the kernel dispatch thread.
-      kernel->CompleteOverlappedEx(overlapped, error ? X_ERROR_FUNCTION_FAILED : X_ERROR_SUCCESS,
-          X_HRESULT_FROM_WIN32(error), error ? 0 : items);
+      if (overlapped)
+        kernel->CompleteOverlappedEx(overlapped, error ? X_ERROR_FUNCTION_FAILED : X_ERROR_SUCCESS,
+            X_HRESULT_FROM_WIN32(error), error ? 0 : items);
     }
+    wake.notify_all();
     std::lock_guard lock(pending_mutex);
-    auto it=pending.find({kernel,overlapped});
+    auto it=pending.find({kernel,token});
     if (it!=pending.end() && it->second.get()==this) pending.erase(it);
+  }
+
+  uint32_t Wait(uint32_t* items = nullptr) {
+    // Only the calling guest thread waits, never the kernel's shared IO
+    // dispatcher. Provider work remains on its bounded HTTP worker. Timeout
+    // and shutdown close this operation before a late callback can write RAM.
+    std::unique_lock lock(mutex);
+    if (!wake.wait_for(lock,std::chrono::seconds(12),[this]{return done;})) {
+      lock.unlock(); Complete(1460); lock.lock();
+    }
+    if (items) *items=result?0:length;
+    return result;
   }
 };
 
 std::shared_ptr<Pending> Begin(KernelState* kernel,uint32_t overlapped) {
-  if (!Valid(kernel,overlapped,sizeof(XAM_OVERLAPPED),true)) return {};
+  if (overlapped && !Valid(kernel,overlapped,sizeof(XAM_OVERLAPPED),true)) return {};
   auto operation=std::make_shared<Pending>();
   operation->kernel=kernel; operation->overlapped=overlapped;
+  operation->token=overlapped?overlapped:next_sync_token.fetch_add(1);
+  if (!overlapped) {
+    std::lock_guard lock(pending_mutex);
+    pending.emplace(Key{kernel,operation->token},operation);
+    return operation;
+  }
   std::shared_ptr<Pending> previous;
   { std::lock_guard lock(pending_mutex); auto it=pending.find({kernel,overlapped}); if(it!=pending.end()) previous=it->second; }
   std::unique_lock<std::mutex> previous_lock;
@@ -123,12 +153,13 @@ class StatsEnumerator final : public XEnumerator {
                   std::shared_ptr<CommunityService> provider)
       : XEnumerator(kernel,1,capacity), request_(std::move(request)), provider_(std::move(provider)) {}
   uint32_t WriteItems(uint32_t, uint8_t*, uint32_t*) override {
-    // Futari uses overlapped enumeration. Never wait for HTTP in a synchronous
-    // call or on the kernel's shared completion dispatcher.
+    // Both sync and async calls are intercepted before the generic dispatcher;
+    // it must never turn a provider request into shared-dispatcher work.
     return X_ERROR_BUSY;
   }
-  uint32_t BeginWrite(uint32_t buffer,uint32_t capacity,uint32_t overlapped) {
-    if (!overlapped || capacity<item_size() || !Valid(kernel_state(),buffer,uint32_t(item_size()),true))
+  uint32_t BeginWrite(uint32_t buffer,uint32_t capacity,uint32_t overlapped,uint32_t* items) {
+    if (items) *items=0;
+    if ((!overlapped && !items) || capacity<item_size() || !Valid(kernel_state(),buffer,uint32_t(item_size()),true))
       return X_ERROR_INVALID_PARAMETER;
     capacity=uint32_t(item_size());
     {
@@ -153,7 +184,7 @@ class StatsEnumerator final : public XEnumerator {
         return 0;
       },1);
     });
-    return X_ERROR_IO_PENDING;
+    return overlapped?X_ERROR_IO_PENDING:operation->Wait(items);
   }
  private:
   CommunityRead request_;
@@ -166,6 +197,7 @@ class StatsEnumerator final : public XEnumerator {
 void SetCommunityService(std::shared_ptr<CommunityService> value) { std::lock_guard lock(service_mutex); service=std::move(value); }
 std::shared_ptr<CommunityService> GetCommunityService() { std::lock_guard lock(service_mutex); return service; }
 bool CancelCommunityIo(KernelState* kernel,uint32_t overlapped) {
+  if (!overlapped) return false;
   std::shared_ptr<Pending> operation;
   { std::lock_guard lock(pending_mutex); auto it=pending.find({kernel,overlapped}); if(it!=pending.end()) operation=it->second; }
   if (!operation) return false;
@@ -243,7 +275,7 @@ uint32_t StartCommunityReplayIo(KernelState* kernel,bool upload,uint32_t user,
       upload,user,capacity,path,buffer,result_size,overlapped);
   CommunityReplay request;
   std::u16string name;
-  if(user || !overlapped || !capacity || capacity>8*1024*1024 || !ReadPath(kernel,path,name)
+  if(user || !capacity || capacity>8*1024*1024 || !ReadPath(kernel,path,name)
       || !ParseCommunityReplayPath(name,request.view,request.xuid)
       || !Valid(kernel,buffer,capacity,!upload)
       || (!upload && (result_size!=20 || !Valid(kernel,result,20,true)))
@@ -272,7 +304,7 @@ uint32_t StartCommunityReplayIo(KernelState* kernel,bool upload,uint32_t user,
       return 0;
     },upload?0:bytes);
   });
-  return X_ERROR_IO_PENDING;
+  return overlapped?X_ERROR_IO_PENDING:operation->Wait();
 }
 
 uint32_t CommunityStatsBufferSize(std::span<const CommunitySpec> specs,uint32_t rows) {
@@ -288,7 +320,7 @@ uint32_t CommunityStatsBufferSize(std::span<const CommunitySpec> specs,uint32_t 
 uint32_t StartCommunityRankIo(KernelState* kernel,uint32_t count,uint32_t requests,
     uint32_t capacity,uint32_t result,uint32_t overlapped) {
   auto provider=GetCommunityService();if(!provider)return X_ERROR_NOT_LOGGED_ON;
-  if(!count || count>16 || !overlapped || capacity<8+count*4 || !Valid(kernel,requests,count*12)
+  if(!count || count>16 || capacity<8+count*4 || !Valid(kernel,requests,count*12)
       || !Valid(kernel,result,8+count*4,true))return X_ERROR_INVALID_PARAMETER;
   std::vector<CommunityRank> ranks;
   auto* bytes=kernel->memory()->TranslateVirtual(requests);
@@ -306,7 +338,7 @@ uint32_t StartCommunityRankIo(KernelState* kernel,uint32_t count,uint32_t reques
       return 0;
     });
   });
-  return X_ERROR_IO_PENDING;
+  return overlapped?X_ERROR_IO_PENDING:operation->Wait();
 }
 
 bool SerializeCommunityStats(const CommunityResult& result,std::span<const CommunitySpec> specs,
@@ -384,10 +416,10 @@ uint32_t CreateCommunityStatsEnumerator(KernelState* kernel,uint32_t title,uint3
 }
 
 std::optional<uint32_t> EnumerateCommunityStats(KernelState* kernel,XEnumerator* enumerator,
-    uint32_t buffer,uint32_t capacity,uint32_t overlapped) {
+    uint32_t buffer,uint32_t capacity,uint32_t overlapped,uint32_t* items_returned) {
   auto* stats=dynamic_cast<StatsEnumerator*>(enumerator);
   if(!stats) return {};
-  return stats->BeginWrite(buffer,capacity,overlapped);
+  return stats->BeginWrite(buffer,capacity,overlapped,items_returned);
 }
 
 std::optional<uint32_t> DispatchCommunityMessage(KernelState* kernel,uint32_t app,uint32_t message,
@@ -400,7 +432,6 @@ std::optional<uint32_t> DispatchCommunityMessage(KernelState* kernel,uint32_t ap
     if(overlapped) {kernel->CompleteOverlappedImmediate(overlapped,0);return X_ERROR_IO_PENDING;}
     return X_E_SUCCESS;
   }
-  if(!overlapped) return X_HRESULT_FROM_WIN32(X_ERROR_BUSY);
   if(!Valid(kernel,buffer,message==0xb0021?28:24) || (length && length!=(message==0xb0021?28:24))) return X_E_INVALIDARG;
   auto* bytes=kernel->memory()->TranslateVirtual(buffer);
   if(message==0xb0025) {
@@ -429,7 +460,9 @@ std::optional<uint32_t> DispatchCommunityMessage(KernelState* kernel,uint32_t ap
     }
     auto operation=Begin(kernel,overlapped); if(!operation) return X_E_INVALIDARG;
     provider->Write(std::move(views),[operation](uint32_t error){operation->Complete(error);});
-    return X_ERROR_IO_PENDING;
+    if (overlapped) return X_ERROR_IO_PENDING;
+    const auto error=operation->Wait();
+    return X_HRESULT_FROM_WIN32(error);
   }
   CommunityRead request;
   request.count=Read32(bytes+4);
@@ -446,6 +479,8 @@ std::optional<uint32_t> DispatchCommunityMessage(KernelState* kernel,uint32_t ap
       return SerializeCommunityStats(result,request.specs,destination,{out,capacity})?0:X_ERROR_INSUFFICIENT_BUFFER;
     });
   });
-  return X_ERROR_IO_PENDING;
+  if (overlapped) return X_ERROR_IO_PENDING;
+  const auto error=operation->Wait();
+  return X_HRESULT_FROM_WIN32(error);
 }
 }  // namespace rex::system::xam

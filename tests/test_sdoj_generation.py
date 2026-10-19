@@ -100,6 +100,28 @@ class SdojGenerationTests(unittest.TestCase):
         self.assertFalse({'0x822478B0', '0x822643D0', '0x8246932C'} & functions.keys())
         self.assertIn('default-functions.toml', self.manifest['entrypoint']['includes'])
 
+    def test_native_network_wrappers_have_title_local_abi_hooks(self):
+        filename = 'community-overrides.toml'
+        self.assertIn(filename, self.manifest['entrypoint']['includes'])
+        hooks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['midasm_hook']
+        expected = {
+            0x8221C418: ('SdojCommunityEstimateRank', 5),
+            0x8221C188: ('SdojStorageUpload', 5),
+            0x8221BEA8: ('SdojStorageDownload', 7),
+            0x8221C5F8: ('SdojStorageLocalPath', 7),
+            0x8221C690: ('SdojStorageRemotePath', 7),
+        }
+        self.assertEqual(len(hooks), len(expected))
+        source = (ROOT / 'games/sdoj/community/guest_hooks.cpp').read_text(encoding='utf-8')
+        for hook in hooks:
+            name, count = expected[hook['address']]
+            self.assertEqual(hook['name'], name)
+            self.assertEqual(hook['registers'], [f'r{i}' for i in range(3, 3 + count)])
+            self.assertTrue(hook['return'])
+            self.assertIn('void ' + name + '(', source)
+        self.assertNotIn('G2', source)
+        self.assertFalse(self.game['communitySupported'])  # Native hooks alone are not online support.
+
 
 if __name__ == '__main__':
     unittest.main()

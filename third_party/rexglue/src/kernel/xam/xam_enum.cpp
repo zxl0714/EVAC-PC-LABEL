@@ -41,7 +41,7 @@ uint32_t xeXamEnumerate(uint32_t handle, uint32_t flags, mapped_void buffer_ptr,
   if (!e) {
     return X_ERROR_INVALID_HANDLE;
   }
-  if(auto result=EnumerateCommunityStats(REX_KERNEL_STATE(),e.get(),buffer_ptr.guest_address(),buffer_size,overlapped_ptr))
+  if(auto result=EnumerateCommunityStats(REX_KERNEL_STATE(),e.get(),buffer_ptr.guest_address(),buffer_size,overlapped_ptr,items_returned))
     return *result;
 
   auto run = [e, buffer_ptr](uint32_t& extended_error, uint32_t& length) -> X_RESULT {
