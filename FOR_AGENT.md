@@ -20,6 +20,8 @@ PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更
 
 `.local/daioujou-perf-r2` 从上述测试 profile 的副本冷启动，Materials Room → Replay Theater → MY REPLAY 的 1780 分／ARCADE／Type-A／Shotia 录像完整播放至自然返回列表。记录 SHA-256 为 e2b10aa8cf3c573c4744b623543ac4506630fc6479971e10a72c64d7650f24e3。第一关 F8 前／后两个连续 10 秒区间各完成 600 帧，没有超过 20 ms 的间隔，最大分别为 19.943／19.388 ms，报告后缀 early-gameplay-timing／gameplay-timing。这里是同一局的实战与冷回放对照，不是逐帧对齐的双版本微基准；确认这条周期同步写入已移出热路径，不宣称所有卡顿消失。真实本地录像播放已通过，在线附件校验失败仍需单独定位。
 
+公共 TraceAllocation 修复也已整理到 runtime/ps4/ketsui.exe，不代表绊地狱小卡顿已验收。其旧 380 分录像的 1901 帧区间中，598 个相邻完成记录区间有分配日志，仅 1 个长帧；其余 1303 个区间有 4 个长帧，包括 1.633 s 间隙。未出现大往生同样的强关联，不能把这些长帧全部判作日志导致；新宿主同录像短回归仍待执行，相关分析见 docs/ANALYSIS.md。
+
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。
