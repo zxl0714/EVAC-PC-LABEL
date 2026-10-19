@@ -45,6 +45,7 @@ def main():
     djo=record('daioujou');kt=record('ketsui')
     check('daioujou-combined','daioujou',zlib.compress(djo),True)
     check('daioujou-character','daioujou',zlib.compress(djo),True,board=0)
+    check('daioujou-local-save-is-not-network','daioujou',zlib.compress(djo[:0x65600]),False)
     for suffix in ('01000','01010','01020'):
         selected=bytearray(djo)
         selected[80:96]=b'ARCADE_'+suffix.encode()+bytes(4)

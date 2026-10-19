@@ -16,7 +16,11 @@ void Require(bool value, const char* message) {
 struct RecordContract {std::size_t bytes,data_bytes;std::uint32_t version,data_version;std::string_view region;};
 RecordContract ContractFor(std::string_view game) {
     (void)ProtocolFor(game);
-    if (game=="daioujou") return {0x65600,0x65000,0x10030,0x10000,"ARCADE_01030"};
+    // The title's local save has 0x65600-byte records. RankingEntry instead
+    // uses system/config/struct_replay.psb: a 0x80000-byte network structure
+    // with a 0x78000-byte data field. Keep its own version/core contract;
+    // equal network sizes do not make a Ketsui record valid for DaiOuJou.
+    if (game=="daioujou") return {0x80000,0x78000,0x10030,0x10000,"ARCADE_01030"};
     return {kReplayRecordSize,kReplayDataSize,0x10001,0x10001,"ARCADE_01000"};
 }
 bool DaioujouRegion(std::string_view region) {

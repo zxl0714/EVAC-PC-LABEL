@@ -133,6 +133,24 @@ class Ps4CommunityProfiles(unittest.TestCase):
                 store.upload(upload)
             self.assertEqual(error.exception.code,'native_replay_mismatch')
 
+    def test_network_record_is_not_local_save_or_peer_title(self):
+        import struct
+        import zlib
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts/ps4'))
+        from replay_fixture import record
+        network=record('daioujou')
+        self.assertEqual(len(network),0x80000)
+        invalid=[network[:0x65600],record('ketsui')]
+        for offset,value in ((0,0x1000e),(4,0x10001),(8,0x78001)):
+            changed=bytearray(network)
+            struct.pack_into('<I',changed,offset,value)
+            invalid.append(changed)
+        for index,raw in enumerate(invalid):
+            with self.subTest(case=index),self.assertRaises(ketsui.ApiError):
+                daioujou.replay_info(zlib.compress(raw))
+        with self.assertRaises(ketsui.ApiError):
+            daioujou.replay_info(zlib.compress(network)+b'trailing')
+
 
 if __name__ == '__main__':
     unittest.main()

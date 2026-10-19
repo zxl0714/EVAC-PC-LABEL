@@ -77,9 +77,16 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(layout['containerVersion'],0x10030)
         self.assertTrue(layout['nativeRecordingVerified'])
         self.assertTrue(layout['coreDataVersionVerified'])
-        self.assertFalse(layout['nativePlaybackVerified'])
+        self.assertTrue(layout['nativePlaybackVerified'])
         self.assertEqual(layout['observedRecording']['region'],'ARCADE_01000')
         self.assertEqual(layout['observedRecording']['nativeScore']*10,layout['observedRecording']['displayScore'])
+        network=reference['networkReplayLayout']
+        self.assertEqual(network['recordBytes'],0x80000)
+        self.assertEqual(network['dataBytes'],0x78000)
+        self.assertEqual(network['recordBytes'],network['dataOffset']+network['dataBytes']+network['trailingBytes'])
+        self.assertEqual(network['containerVersion'],layout['containerVersion'])
+        self.assertEqual(network['coreDataVersion'],0x10000)
+        self.assertFalse(network['nativeRoundtripVerified'])
 
     def test_invalid_optional_content_metadata(self):
         original = catalogue.read_json(self.root / 'games/futari/data.json')

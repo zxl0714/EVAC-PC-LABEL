@@ -57,8 +57,21 @@
     "nativeRecordingVerified": true,
     "observedRecordSha256": "b449a812c64df8b32459670279ce648719307e2dae97f5a759b8178afce479d1",
     "observedRecording": {"containerVersion": 65584, "coreDataVersion": 65536, "region": "ARCADE_01000", "nativeScore": 42, "displayScore": 420, "character": 0, "stage": 5, "consumedFrames": 4079},
-    "nativePlaybackVerified": false,
-    "description": "Container version is independent of the selected shipped core revision. Actual record structure and core data_version have been checked, but online roundtrip and native playback remain unverified. Do not accept a Ketsui 0x80000-byte record or infer native playback from matching fields."
+    "nativePlaybackVerified": true,
+    "observedPlayback": {"recordSha256": "e2b10aa8cf3c573c4744b623543ac4506630fc6479971e10a72c64d7650f24e3", "nativeScore": 178, "displayScore": 1780, "consumedFrames": 3289, "scope": "Cold local MY REPLAY playback to natural return; not a network roundtrip."},
+    "description": "This is the local save record, not the network attachment. Container version is independent of the selected shipped core revision. Cold local playback has passed; online roundtrip remains separate."
+  },
+  "networkReplayLayout": {
+    "source": "base:system/config/struct_replay.psb.m; base:system/script/ranking_ctrl.nut.m upload and download Struct",
+    "definitionSha256": "3495298d7cf3f1362aff9cbab9058867116819c2ac5264ff7572189eb6f57e9d",
+    "recordBytes": 524288,
+    "dataOffset": 1280,
+    "dataBytes": 491520,
+    "trailingBytes": 31488,
+    "containerVersion": 65584,
+    "coreDataVersion": 65536,
+    "nativeRoundtripVerified": false,
+    "description": "The native ranking producer clears the network Struct and copies named fields from the local record; the ranking downloader uses the same network Struct. Validate the exact network extent with DaiOuJou's versions and metadata, not Ketsui's contract or the smaller local-save extent."
   },
   "nativeInterfaces": [
     "sceNpScoreCreateNpTitleCtxA",

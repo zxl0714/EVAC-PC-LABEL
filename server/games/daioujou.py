@@ -38,16 +38,18 @@ def _inflate(payload, limit):
 
 
 def replay_info(payload):
-    raw=_inflate(payload,0x65600)
-    require(len(raw)==0x65600,'invalid_replay_size')
+    # RankingEntry copies named fields into system/config/struct_replay.psb,
+    # not the smaller 0x65600-byte record used by the title's local save.
+    raw=_inflate(payload,0x80000)
+    require(len(raw)==0x80000,'invalid_replay_size')
     version,core,extent,screen,total,consumed,snapshot,players,mask,pages=struct.unpack_from('<10I',raw)
-    require(version==0x10030 and core==0x10000 and extent<=0x65000 and screen==0,'invalid_replay_version')
-    require(total and not total%512 and 0<consumed<=total and 0<snapshot<=0x65000 and
+    require(version==0x10030 and core==0x10000 and extent<=0x78000 and screen==0,'invalid_replay_version')
+    require(total and not total%512 and 0<consumed<=total and 0<snapshot<=0x78000 and
             1<=players<=8 and mask,'invalid_replay_header')
     stride=total//512
     lines=players*mask.bit_count()
     directory_bytes=stride*lines
-    remaining=0x65000-snapshot
+    remaining=0x78000-snapshot
     require(directory_bytes<remaining and pages<(remaining-directory_bytes)//8,'invalid_replay_keys')
     directory=raw[0x500+snapshot:0x500+snapshot+directory_bytes]
     require(sum(value.bit_count() for value in directory)==pages,'invalid_replay_keys')

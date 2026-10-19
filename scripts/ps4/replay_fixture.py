@@ -5,7 +5,7 @@ import zlib
 
 def record(game):
     if game == 'daioujou':
-        size, version, data_version, region = 0x65600, 0x10030, 0x10000, b'ARCADE_01030'
+        size, version, data_version, region = 0x80000, 0x10030, 0x10000, b'ARCADE_01030'
     elif game == 'ketsui':
         size, version, data_version, region = 0x80000, 0x10001, 0x10001, b'ARCADE_01000'
     else:
