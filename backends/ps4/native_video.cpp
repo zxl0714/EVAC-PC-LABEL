@@ -135,6 +135,7 @@ struct VideoState {
     int closed_handle{}, stopping_handle{};
     int handle{}, next = 1;
     bool startup_hidden{};
+    bool diagnostic_unpaced{};
     // Groups (and their memory pins) are destroyed before their Vulkan owner.
     std::unique_ptr<kt::gfx::VulkanDevice> graphics;
     std::map<std::uint64_t, std::weak_ptr<DisplaySurface>> surface_cache;
@@ -699,7 +700,7 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         auto& label = state.active->buffer_labels[index];
         label.store(1);
         const auto display_wait_began=kt::diagnostics::MonotonicMicroseconds();
-        if (!state.active->clock->WaitFlipOpportunity()) { return unavailable("display_clock_stopped"); }
+        if (!state.diagnostic_unpaced && !state.active->clock->WaitFlipOpportunity()) { return unavailable("display_clock_stopped"); }
         const auto display_ready=kt::diagnostics::MonotonicMicroseconds();
         state.active->renderer_active.store(true);
         unsigned retries{}, zero_extent_polls{};
@@ -786,6 +787,14 @@ void ConfigureNativeDisplay(NativeDisplaySettings settings) {
 NativeDisplaySettings GetNativeDisplaySettings() {
     auto& state = State(); std::lock_guard lock(state.mutex);
     return state.display;
+}
+void ConfigureNativeUnpacedPresentation(bool enabled) {
+    auto& state = State(); std::lock_guard lock(state.mutex);
+    if (state.active || state.graphics || state.stopping_handle) throw std::runtime_error("Pacing diagnostics require a restart");
+    if (enabled && state.display.vsync) throw std::runtime_error("Unpaced presentation requires host vsync=false");
+    state.diagnostic_unpaced = enabled;
+    std::printf("{\"event\":\"native_presentation_pacing\",\"diagnostic_unpaced\":%s,\"software_flip_wait\":%s,\"guest_vblank_clock_preserved\":true,\"gpu_fences_preserved\":true}\n",
+        enabled ? "true" : "false", enabled ? "false" : "true");
 }
 bool VideoSelfTest() {
     bool passed = true;

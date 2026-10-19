@@ -1727,6 +1727,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* attachment_validation = nullptr;
     const wchar_t* gpu_runtime = nullptr;
     const wchar_t* diagnostic_tap = nullptr;
+    const wchar_t* diagnostic_unpaced = nullptr;
     const wchar_t* diagnostic_circle_hold = nullptr;
     const wchar_t* input_config = nullptr;
     const wchar_t* collection_config = nullptr;
@@ -1736,7 +1737,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* community_provider = nullptr;
     const wchar_t* community_round_audit = nullptr;
     const wchar_t* community_rounds = nullptr;
-    bool valid_arguments = argc >= 3 && argc <= 41 && (argc % 2 == 1);
+    bool valid_arguments = argc >= 3 && argc <= 43 && (argc % 2 == 1);
     for (int i = 3; valid_arguments && i + 1 < argc; i += 2) {
         if (std::wstring(argv[i]) == L"--user-dir" && !user_directory) { user_directory = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--module-dir" && !modules_path) { modules_path = argv[i + 1]; }
@@ -1750,6 +1751,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--attachment-validation" && !attachment_validation) { attachment_validation = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--gpu-runtime" && !gpu_runtime) { gpu_runtime = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--diagnostic-tap-ms" && !diagnostic_tap) { diagnostic_tap = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--diagnostic-unpaced" && !diagnostic_unpaced) { diagnostic_unpaced = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--diagnostic-circle-hold-ms" && !diagnostic_circle_hold) { diagnostic_circle_hold = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--input-config" && !input_config) { input_config = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--collection-config" && !collection_config) { collection_config = argv[i + 1]; }
@@ -1768,6 +1770,8 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (mouse_left_button && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (gpu_runtime && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (diagnostic_tap && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
+    if (diagnostic_unpaced && (std::wstring_view(argv[2]) != L"--enter" ||
+        std::wstring_view(diagnostic_unpaced) != L"on" || !collection_config || !user_directory)) valid_arguments=false;
     if (diagnostic_circle_hold && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (input_config && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (collection_config && (input_config || std::wstring(argv[2]) != L"--enter")) { valid_arguments = false; }
@@ -1815,6 +1819,15 @@ int NativeCommand(int argc, wchar_t** argv) {
                 collection_game ? cave::Utf8(std::filesystem::path(collection_game)) : "ketsui");
             cave::ps4::ApplyCollectionConfiguration(*collection);
         } else if (std::wstring(argv[2]) == L"--enter") { LoadKeyboardConfiguration(input_config); }
+        if (diagnostic_unpaced) {
+            // Never mix a speed experiment with normal progress or scores.
+            // The explicit name is a separate test profile, not a player INI key.
+            const std::filesystem::path benchmark_profile(user_directory);
+            if (!collection || collection->shared.community_enabled || collection->shared.vsync ||
+                !benchmark_profile.is_absolute() || !benchmark_profile.filename().wstring().starts_with(L"benchmark-"))
+                throw std::runtime_error("Unpaced diagnostic requires offline collection config, vsync=false and an absolute benchmark-* user directory");
+        }
+        ConfigureNativeUnpacedPresentation(diagnostic_unpaced != nullptr);
         if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",merged_app!=nullptr); }
         if (community_provider) {
             auto config = collection ? collection->community : kt::community::LoadConfig(input_config);

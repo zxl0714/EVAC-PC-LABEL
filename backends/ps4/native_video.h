@@ -54,5 +54,8 @@ struct NativeDisplaySettings {
 };
 void ConfigureNativeDisplay(NativeDisplaySettings settings);
 NativeDisplaySettings GetNativeDisplaySettings();
+// Offline benchmark only: skip the software flip opportunity, never GPU fences
+// or the guest's vblank clock/events. Host vsync must already be disabled.
+void ConfigureNativeUnpacedPresentation(bool enabled);
 bool GraphicsSelfTest(bool interactive = false);
 int VideoDemo();

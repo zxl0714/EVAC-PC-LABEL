@@ -117,6 +117,8 @@ v0.3 开发构建另外对至少 20 ms 的已完成呈现输出 `native_video_pr
 
 为调查约 19 ms 的间隔，新的 `native_gnm_frame_completed.present_stages` 在已有每帧记录内附带上述五段和总时长，不额外增加日志行或时钟读取。仅真实完成后返回分段；取消或失败不产生完成记录。分析器以 `all_frame_present_substages` 独立汇总这组数据，校验非负整数、分段和及外围呈现时长（允许 1 µs 舍入差），不与旧的阈值事件重复计数。旧日志缺失分段或无效记录不当成零耗时，也不能凭后台呈现段宣称 GPU 运算过载。v0.3 须完成大往生、绊地狱性能定位与修复验收后才发行；短片段约 60 Hz 的旧结果不关闭这个门槛。
 
+离线呈现不限速对照通过临时进程环境 `CAVE_DIAGNOSTIC_UNPACED=1` 启用，仅允许 `--profile benchmark-<名称>`、共享联网关闭且 `vsync=false`。`run.json.diagnosticUnpacedPresentation` 和 `native_presentation_pacing` 明确标注；启动器／默认 INI 不保存此选项。直接后端使用 `--diagnostic-unpaced on`，同样要求离线合集 INI 与绝对的 benchmark-* 用户目录。它只跳过软件 `WaitFlipOpportunity`，保留真实 GPU／WSI fences、内存写回、客体 vblank 时钟和其他游戏等待，不伪造成功。因此若仍被音频、客体时钟或逻辑等待限制，观测 FPS 不是整机性能上限，需要继续定位；测试值不作为正常游玩节拍验收，也不得用加速局上传成绩。使用独立 profile 副本，正常节拍与对照分别留存日志。
+
 合集启动默认启用后台诊断队列。提交线程只格式化和投递完整记录，GPU 每帧诊断、宿主慢操作和 NGS2／WASAPI 热路径的文件写入交给独立线程；低频启动与终止诊断仍可直接输出。队列固定为 1,024 条、每条最多 4,096 字节，不因磁盘慢写无限积压；队列满保留最新尾部，短暂竞争或超长记录会被拒绝并计数，不输出截断 JSON。
 
 `native_async_log` 每约两秒报告累计状态，分析器保存在 `async_logging` 中：

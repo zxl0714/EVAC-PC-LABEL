@@ -39,6 +39,18 @@ unsigned DiagnosticTap() {
         "Cannot read CAVE_DIAGNOSTIC_INPUT_TAP_MS");
     return ParseDiagnosticTap(std::wstring_view(value,length));
 }
+bool ParseDiagnosticUnpaced(std::wstring_view value) {
+    Require(value.empty() || value==L"0" || value==L"1", "CAVE_DIAGNOSTIC_UNPACED requires 0 or 1");
+    return value==L"1";
+}
+bool DiagnosticUnpaced() {
+    wchar_t value[4]{};SetLastError(ERROR_SUCCESS);
+    const auto length=GetEnvironmentVariableW(L"CAVE_DIAGNOSTIC_UNPACED",value,static_cast<DWORD>(std::size(value)));
+    Require(length<std::size(value),"CAVE_DIAGNOSTIC_UNPACED is too long");
+    Require(length || GetLastError()==ERROR_ENVVAR_NOT_FOUND || GetLastError()==ERROR_SUCCESS,
+        "Cannot read CAVE_DIAGNOSTIC_UNPACED");
+    return ParseDiagnosticUnpaced(std::wstring_view(value,length));
+}
 std::uint64_t CreationTime() {
     FILETIME created{},exited{},kernel{},user{};
     Require(GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user)!=0,"Cannot identify game process");
@@ -86,6 +98,10 @@ bool CollectionInputDiagnosticSelfTest() {
     for (const auto value:{L"501",L"-1",L" 1",L"1.5",L"0000",L"１２"}) {
         try { (void)ParseDiagnosticTap(value);return false; } catch (const std::runtime_error&) {}
     }
+    if (ParseDiagnosticUnpaced(L"") || ParseDiagnosticUnpaced(L"0") || !ParseDiagnosticUnpaced(L"1")) return false;
+    for (const auto value:{L"true",L"2",L"-1",L"01",L" 1",L"１"}) {
+        try { (void)ParseDiagnosticUnpaced(value);return false; } catch (const std::runtime_error&) {}
+    }
     std::puts("{\"event\":\"collection_input_diagnostic_self_test\",\"passed\":true}");return true;
 }
 void RecordCollectionWindowClose() noexcept {
@@ -100,6 +116,7 @@ void RecordCollectionWindowClose() noexcept {
 int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
     try {
         const auto diagnostic_tap=DiagnosticTap();
+        const auto diagnostic_unpaced=DiagnosticUnpaced();
         std::map<std::wstring,std::wstring> values;
         Require(argc==6,"Collection launch requires exactly five contract arguments");
         for (int i=1;i<argc;++i) {
@@ -123,6 +140,8 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         const auto snapshot=Ini::ReadText(config);
         const auto ini=Ini::Parse(snapshot);
         const auto configuration=ResolveCollectionConfiguration(ini,game);
+        Require(!diagnostic_unpaced || (!configuration.shared.community_enabled && !configuration.shared.vsync && profile.starts_with("benchmark-")),
+            "Unpaced diagnostic requires community.enabled=false, display.vsync=false and a benchmark-* profile");
         const auto spec=PrepareLaunch(FindGame(game),root,ini,profile,requested_data);
         Require(spec.paths.profile==Resolve(root,requested_profile),"Collection profile differs from the launch contract");
         GameSession session(root);ProfileLock lock(spec.paths.profile);
@@ -144,6 +163,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             {"gpuSha256",Sha256(root/"runtime/ps4/KetsuiGpuRuntime.dll")},
             {"logicalProcessors",machine.dwNumberOfProcessors},{"configSnapshot","config.snapshot.ini"},
             {"diagnosticInputTapMs",diagnostic_tap},
+            {"diagnosticUnpacedPresentation",diagnostic_unpaced},
             {"community",{{"provider","configured"},{"requested",configuration.shared.community_enabled},
                 {"supported",configuration.community_supported},{"enabled",configuration.community.enabled},
                 {"endpoint",configuration.community.endpoint},{"nickname",configuration.community.nickname}}}};
@@ -172,6 +192,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         // Development-only bridge to the existing pad diagnostic. Never save
         // this setting in the player INI or enable it in the launcher itself.
         if (diagnostic_tap) {arguments.push_back(L"--diagnostic-tap-ms");arguments.push_back(std::to_wstring(diagnostic_tap));}
+        if (diagnostic_unpaced) {arguments.insert(arguments.end(),{L"--diagnostic-unpaced",L"on"});}
         std::vector<wchar_t*> pointers;for (auto& argument:arguments) pointers.push_back(argument.data());
         Require(StartNativeAsyncLog(),"Could not start background diagnostics");
         const auto result=command(static_cast<int>(pointers.size()),pointers.data());

@@ -125,12 +125,30 @@ def check_content_layout(executable, directory):
     app,patch,addons=fixtures.content_tree(scene)
     probe=scene / 'authored.ktprobe'
     probe.write_bytes(fixtures.exit_fixture())
+    pacing_configs={}
+    for name, community, vsync in (('offline',False,False),('online',True,False),('vsync',False,True)):
+        path=scene / (name+'.ini')
+        path.write_text('[community]\nenabled='+str(community).lower()+'\n[display]\nvsync='+str(vsync).lower()+'\n',encoding='utf-8')
+        pacing_configs[name]=str(path)
     before={str(path):digest(path) for path in scene.rglob('*') if path.is_file()}
     cases=[('content-layout-self-test',['--content-self-test',str(app),str(patch),str(addons)],0)]
     cases.extend((
         ('background-log-fixture',[str(probe),'--enter','--background-log','on'],7),
         ('background-log-validation-rejected',[str(probe),'--validate','--background-log','on'],2),
         ('background-log-bad-value',[str(probe),'--enter','--background-log','off'],2)))
+    diagnostic=[str(probe),'--enter','--diagnostic-unpaced','on']
+    user=['--user-dir',str(directory / 'benchmark-authored')]
+    cases.extend((
+        ('unpaced-offline-fixture',diagnostic+user+['--collection-config',pacing_configs['offline']],7),
+        ('unpaced-online-rejected',diagnostic+user+['--collection-config',pacing_configs['online']],2),
+        ('unpaced-vsync-rejected',diagnostic+user+['--collection-config',pacing_configs['vsync']],2),
+        ('unpaced-normal-profile-rejected',diagnostic+['--user-dir',str(directory / 'default'),
+                                                    '--collection-config',pacing_configs['offline']],2),
+        ('unpaced-missing-config-rejected',diagnostic+user,2),
+        ('unpaced-validation-rejected',[str(probe),'--validate','--diagnostic-unpaced','on',
+                                        '--collection-config',pacing_configs['offline'],*user],2),
+        ('unpaced-bad-value',[str(probe),'--enter','--diagnostic-unpaced','off',
+                              '--collection-config',pacing_configs['offline'],*user],2)))
     prefix=[str(probe),'--validate']
     for name,options,expected in (
         ('merged-explicit',['--app-dir',str(patch),'--merged-app','on'],0),
@@ -152,6 +170,13 @@ def check_content_layout(executable, directory):
             events=[json.loads(line) for line in result.stdout.splitlines()]
             stats=next(event for event in reversed(events) if event['event']=='native_async_log')
             passed=events[-1]['event']=='native_exit' and stats['drain_completed'] and stats['pending']==stats['in_flight']==0
+            pacing=next(event for event in events if event['event']=='native_presentation_pacing')
+            passed &= not pacing['diagnostic_unpaced'] and pacing['software_flip_wait']
+        if name=='unpaced-offline-fixture' and passed:
+            events=[json.loads(line) for line in result.stdout.splitlines()]
+            pacing=next(event for event in events if event['event']=='native_presentation_pacing')
+            passed=(pacing['diagnostic_unpaced'] and not pacing['software_flip_wait'] and
+                    pacing['guest_vblank_clock_preserved'] and pacing['gpu_fences_preserved'])
         for suffix,content in (('stdout.jsonl',result.stdout),('stderr.txt',result.stderr)):
             with (directory / (name+'.'+suffix)).open('xb') as output:output.write(content)
         results.append(dict(check=name,exitCode=result.returncode,expectedExitCode=expected,passed=passed))
