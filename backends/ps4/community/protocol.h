@@ -21,21 +21,27 @@ struct Config {
     bool enabled = true;
     std::string nickname = std::string(kDefaultNickname);
     std::string endpoint = std::string(kDefaultEndpoint);
+    std::string game = "ketsui";
 };
+struct TitleProtocol {
+    std::string_view game, title_id, version, replay_format;
+};
+// Transport identity only. Native board/record compatibility is a separate gate.
+const TitleProtocol& ProtocolFor(std::string_view game);
 struct Endpoint {
     std::wstring host, path;
     std::uint16_t port{};
     bool secure{};
 };
-Config ParseConfig(std::string_view text);
-Config LoadConfig(const std::filesystem::path& path);
+Config ParseConfig(std::string_view text,std::string_view game="ketsui");
+Config LoadConfig(const std::filesystem::path& path,std::string_view game="ketsui");
 Endpoint ParseEndpoint(std::string_view url,std::string_view game="ketsui");
 Json ParseJson(std::string_view text, std::size_t limit = kJsonReplyLimit);
 std::string Base64(std::span<const std::byte> data);
 std::vector<std::byte> Unbase64(std::string_view text, std::size_t limit);
 std::string Sha256(std::span<const std::byte> data);
 std::string Sha256(std::string_view data);
-std::uint64_t AccountId(std::string_view canonical_name);
+std::uint64_t AccountId(std::string_view canonical_name,std::string_view game="ketsui");
 std::string NewId();
 bool Identifier(std::string_view value);
 bool ValidNicknameBytes(std::string_view value);

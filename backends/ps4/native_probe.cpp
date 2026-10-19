@@ -1610,6 +1610,10 @@ int NativeCommand(int argc, wchar_t** argv) {
         try { return kt::community::ClientSmoke(argv[2], argv[3]) ? 0 : 1; }
         catch (const std::exception& error) { std::fprintf(stderr, "Community smoke: %s\n", error.what()); return 1; }
     }
+    if (argc==5 && std::wstring_view(argv[1])==L"--community-profile-smoke") {
+        try { return kt::community::ClientSmoke(argv[2],argv[3],cave::Utf8(std::filesystem::path(argv[4])))?0:1; }
+        catch (const std::exception& error) { std::fprintf(stderr,"Community profile smoke: %s\n",error.what());return 1; }
+    }
     if (argc == 4 && std::wstring(argv[1]) == L"--community-client-drain-smoke") {
         try { return kt::community::ClientDrainSmoke(argv[2], argv[3]) ? 0 : 1; }
         catch (const std::exception& error) { std::fprintf(stderr, "Community drain: %s\n", error.what()); return 1; }

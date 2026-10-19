@@ -59,17 +59,17 @@ std::uint32_t Unsigned(const Json& value, bool nonzero = false) {
     Require(number >= (nonzero ? 1 : 0) && number <= 0xffffffffll, "Community integer outside bounds");
     return static_cast<std::uint32_t>(number);
 }
-void Receipt(std::string_view path, const Json& request, const Reply& reply) {
+void Receipt(std::string_view path, const Json& request, const Reply& reply,std::string_view game) {
     Require(reply.body.is_object(), "Invalid community reply");
     if (path == "/scores") {
         const auto& body = reply.body;
         Require(Identifier(body.at("entry_id").get<std::string>()) && body.at("accepted").is_boolean() &&
                 body.at("upload_eligible").is_boolean() && Unsigned(body.at("serial_rank"), true), "Invalid score receipt");
         Require(body.at("accepted").get<bool>() || !body.at("upload_eligible").get<bool>(), "Inconsistent score receipt");
-        Require(Decimal(body.at("account_id").get<std::string>()) == AccountId(request.at("nickname").get<std::string>()), "Score receipt identity mismatch");
+        Require(Decimal(body.at("account_id").get<std::string>()) == AccountId(request.at("nickname").get<std::string>(),game), "Score receipt identity mismatch");
     } else if (path == "/replays") {
         Require(reply.body.at("entry_id") == request.at("entry_id") && reply.body.at("sha256") == request.at("sha256") &&
-                reply.body.at("format").get<std::string>() == kReplayFormat && Unsigned(reply.body.at("size"), true) == Unbase64(request.at("payload_base64").get<std::string>(), kReplayLimit).size(), "Replay receipt mismatch");
+                reply.body.at("format").get<std::string>() == ProtocolFor(game).replay_format && Unsigned(reply.body.at("size"), true) == Unbase64(request.at("payload_base64").get<std::string>(), kReplayLimit).size(), "Replay receipt mismatch");
     }
 }
 struct Internet {
@@ -78,11 +78,12 @@ struct Internet {
 };
 class Http {
     const Endpoint endpoint_;
+    const TitleProtocol& title_;
     std::atomic<bool>& stopping_;
     std::mutex active_gate_;
     HINTERNET active_{};
 public:
-    Http(const Config& config, std::atomic<bool>& stopping) : endpoint_(ParseEndpoint(config.endpoint)), stopping_(stopping) {}
+    Http(const Config& config, std::atomic<bool>& stopping) : endpoint_(ParseEndpoint(config.endpoint,config.game)), title_(ProtocolFor(config.game)), stopping_(stopping) {}
     void Cancel() {
         std::lock_guard lock(active_gate_);
         if (active_) { WinHttpCloseHandle(active_); active_ = nullptr; }
@@ -93,7 +94,7 @@ public:
             Require(Path(path), "Invalid community request path");
             const auto encoded = body.is_null() ? std::string{} : body.dump();
             Require(encoded.size() <= kBodyLimit, "Community request body too large");
-            Internet session{WinHttpOpen(L"KetsuiCommunity/1", endpoint_.secure ? WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY : WINHTTP_ACCESS_TYPE_NO_PROXY,
+            Internet session{WinHttpOpen(L"CavePs4Community/1", endpoint_.secure ? WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY : WINHTTP_ACCESS_TYPE_NO_PROXY,
                                          WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0)};
             if (!session.value) { return Failed(Error::Network, GetLastError()); }
             if (!WinHttpSetTimeouts(session.value, 2000, 2000, 3000, 3000)) { return Failed(Error::Network, GetLastError()); }
@@ -152,7 +153,7 @@ public:
                 const auto format = Header(request, WINHTTP_QUERY_CUSTOM, L"X-Replay-Format");
                 const auto actual_digest = Sha256(reply.bytes);
                 Require(!reply.bytes.empty() && digest == std::wstring(actual_digest.begin(), actual_digest.end()), "Community replay digest mismatch");
-                Require(format == L"ketsui-npscore-1.02", "Community replay format mismatch");
+                Require(format == std::wstring(title_.replay_format.begin(),title_.replay_format.end()), "Community replay format mismatch");
             }
             if (!raw) {
                 reply.body = ParseJson(std::string_view(reinterpret_cast<const char*>(reply.bytes.data()), reply.bytes.size()));
@@ -280,6 +281,7 @@ struct Client::Impl {
     Http http;
     std::thread worker;
     Impl(Config value, std::filesystem::path root, bool rounds) : config(std::move(value)), directory(std::move(root)), enable_rounds(rounds), http(config, stopping) {
+        Require(!enable_rounds || config.game=="ketsui","Whole-round recovery is not implemented for this title");
         Require(!config.enabled || (ValidNicknameBytes(config.nickname) && directory.is_absolute()), "Enabled community requires a nickname and absolute user directory");
         if (config.enabled) { worker = std::thread([this] { Run(); }); }
     }
@@ -288,12 +290,13 @@ struct Client::Impl {
         try {
             const auto health = http.Perform("/health", nullptr);
             Require(bool(health) && health.body.at("protocol").is_number_integer() && health.body.at("protocol") == 1 &&
-                    health.body.at("title_id") == "CUSA09062" && health.body.at("game_version") == "1.02", "Community protocol unavailable");
+                    health.body.at("title_id").get<std::string>() == ProtocolFor(config.game).title_id &&
+                    health.body.at("game_version").get<std::string>() == ProtocolFor(config.game).version, "Community protocol unavailable");
             const auto response = http.Perform("/identity", Json{{"nickname", config.nickname}});
             Require(bool(response), "Community nickname unavailable");
             const auto name = response.body.at("nickname").get<std::string>();
             const auto account = Decimal(response.body.at("account_id").get<std::string>());
-            Require(ValidNicknameBytes(name) && name.size() <= 48 && account == AccountId(name), "Invalid community identity mapping");
+            Require(ValidNicknameBytes(name) && name.size() <= 48 && account == AccountId(name,config.game), "Invalid community identity mapping");
             std::lock_guard lock(gate);
             identity = {true, name, account};
             return true;
@@ -311,7 +314,7 @@ struct Client::Impl {
         const auto began = Clock::now();
         auto reply = http.Perform(path, body, raw);
         if (reply && (path == "/scores" || path == "/replays")) {
-            try { Receipt(path, body, reply); } catch (...) { reply.error = Error::Protocol; }
+            try { Receipt(path, body, reply,config.game); } catch (...) { reply.error = Error::Protocol; }
         }
         if (reply.error == Error::Network && (!reply.status || reply.status >= 500)) { MarkOffline(); }
         Log(path, reply, began);
@@ -321,6 +324,7 @@ struct Client::Impl {
         if (job.replay_check != ReplayCheck::Upload) { return true; }
         bool valid{};
         try {
+            Require(config.game=="ketsui","This title's native replay validator is not yet implemented");
             Require(job.body.is_object() && job.body.size() == 3 &&
                     Identifier(job.body.at("entry_id").get<std::string>()) &&
                     Identifier(job.body.at("submission_id").get<std::string>()) &&
@@ -328,7 +332,7 @@ struct Client::Impl {
             const auto replay = InspectReplayEnvelope(job.upload);
             if (job.replay_expected) { MatchReplayMetadata(replay, *job.replay_expected); }
             job.body["sha256"] = Sha256(job.upload);
-            job.body["format"] = kReplayFormat;
+            job.body["format"] = ProtocolFor(config.game).replay_format;
             valid = true;
         } catch (...) {}
         std::printf("{\"event\":\"native_community_replay_validation\",\"operation\":\"upload\",\"passed\":%s,\"metadata_required\":%s,\"host_thread_id\":%lu,\"native_playback_validated\":false}\n", valid ? "true" : "false", job.replay_expected ? "true" : "false", static_cast<unsigned long>(GetCurrentThreadId()));
@@ -338,6 +342,7 @@ struct Client::Impl {
         if (job.replay_check != ReplayCheck::Download || !reply) { return; }
         bool valid{};
         try {
+            Require(config.game=="ketsui","This title's native replay validator is not yet implemented");
             Require(reply.bytes.size() == job.replay_bytes && Sha256(reply.bytes) == job.replay_digest,
                     "Downloaded replay differs from the selected immutable entry");
             const auto replay = InspectReplayEnvelope(reply.bytes);
@@ -523,6 +528,7 @@ struct Client::Impl {
 Client::Client(Config config, std::filesystem::path directory, bool rounds) : impl_(std::make_unique<Impl>(std::move(config), std::move(directory), rounds)) {}
 Client::~Client() { Stop(); }
 Identity Client::State() const { return impl_->Snapshot(); }
+std::string_view Client::Game() const { return impl_->config.game; }
 std::size_t Client::PendingCount() const { return impl_->pending_count.load(); }
 std::size_t Client::PendingRoundCount() const { return impl_->round_count.load(); }
 RoundSubmission Client::SubmitRound(RoundInput input) { return impl_->SubmitRound(std::move(input)); }

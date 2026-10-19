@@ -60,6 +60,7 @@ public:
     Client(const Client&) = delete;
     Client& operator=(const Client&) = delete;
     Identity State() const;
+    std::string_view Game() const;
     std::size_t PendingCount() const;
     std::size_t PendingRoundCount() const;
     // Explicit producer opt-in. Acceptance only confirms the local commit;
@@ -83,7 +84,7 @@ public:
     void Stop();
 };
 bool ClientSelfTest(const std::filesystem::path& directory);
-bool ClientSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
+bool ClientSmoke(const std::filesystem::path& config, const std::filesystem::path& directory,std::string_view game="ketsui");
 bool ClientDrainSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
 bool ClientCancelSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
 bool ClientReplayEnvelopeSmoke(const std::filesystem::path& config, const std::filesystem::path& directory,

@@ -18,7 +18,7 @@ CHECKS = (
     'thread-affinity', 'libc-memory', 'text', 'rtc', 'libc-calendar', 'time',
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
-    'np-score', 'np-replay', 'community-round-audit', 'sfo', 'pm4',
+    'np-score', 'np-replay', 'community-round-audit', 'community-client', 'sfo', 'pm4',
     'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input', 'async-log',
 )
 
@@ -171,7 +171,10 @@ def main():
     results = []
     for name in CHECKS:
         try:
-            result = subprocess.run([str(executable), '--' + name + '-self-test'],
+            command=[str(executable), '--' + name + '-self-test']
+            if name=='community-client':
+                command.append(str(directory/'community-client-fixture'))
+            result = subprocess.run(command,
                                     cwd=directory, capture_output=True, timeout=45)
             code, stdout, stderr = result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired as error:

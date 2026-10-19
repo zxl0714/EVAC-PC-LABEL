@@ -71,6 +71,11 @@ class CatalogueTests(unittest.TestCase):
         self.assertFalse(reference['boardGroups'][1]['submissionEnabled'])
         self.assertTrue(reference['eligibility']['noContinues'])
         self.assertIn('sceNpScoreRecordGameDataAsync',reference['nativeInterfaces'])
+        layout=reference['replayLayout']
+        self.assertEqual(layout['recordBytes'],layout['dataOffset']+layout['dataBytes']+layout['trailingBytes'])
+        self.assertEqual(layout['recordBytes'],0x65600)
+        self.assertEqual(layout['containerVersion'],0x10030)
+        self.assertFalse(layout['nativeRecordingVerified'])
 
     def test_invalid_optional_content_metadata(self):
         original = catalogue.read_json(self.root / 'games/futari/data.json')

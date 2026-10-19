@@ -30,7 +30,7 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::strin
     while (!endpoint.empty() && endpoint.back() == '/') endpoint.pop_back();
     if (endpoint.ends_with("/cave/api/v1")) endpoint += "/games/"+std::string(game);
     (void)kt::community::ParseEndpoint(endpoint,game);
-    result.community = {result.shared.community_enabled && result.community_supported, result.shared.nickname, std::move(endpoint)};
+    result.community = {result.shared.community_enabled && result.community_supported, result.shared.nickname, std::move(endpoint),std::string(game)};
     if (!kt::community::ValidNicknameBytes(result.community.nickname)) throw std::runtime_error("Invalid community nickname");
     result.display = {FromUtf8("CAVE PC Collection — " + std::string(title.DisplayName())).wstring(),
         result.shared.fullscreen, result.shared.vsync};

@@ -31,9 +31,17 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；`--check-endpoint https://xiaolu.life/cave/api/v1` 仅通过 Windows HTTP 和原生适配读取公开榜单及本人状态，不提交成绩。真实联网验收使用游戏本身的成绩与录像流程。
 
+## 大往生开发适配
+
+`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。服务尚未部署，客户端能力仍关闭。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。
+
+构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场和两个随机 loopback 服务，使用真实 Windows HTTP 客户端分别核对两款协议的测试成绩与读榜；不访问正式服务、不执行游戏。`scripts/ps4/run_native_checks.py` 包含协议、配置及关闭联网的原生自测。
+
+目前的大往生服务不宣告或接收录像；需完成本作记录结构、版本及元数据校验，再接原生菜单闭环。静态接口与录像布局参考在 `games/daioujou/community-references.json`，实际验收见测试矩阵。静态分析结果不等同于游戏内 PSN 功能已接通。
+
 ## SDOJ 服务与验收范围
 
-SDOJ 的独立适配位于 `server/games/sdoj.py`，复用有界 HTTP／SQLite 存储而保留本作的 39 个个人榜单、属性和原生录像格式。服务监听 `127.0.0.1:18087`，路径为 `/cave/api/v1/games/sdoj/`，Title ID 为 `435A07E7`。已部署独立服务和每日备份，HTTPS 健康检查与空榜读取正常；游戏内真实提交、录像下载和播放仍待验收，客户端能力暂不开放。开发时可用下面的命令另启本机数据库。
+SDOJ 的独立适配位于 `server/games/sdoj.py`，复用有界 HTTP／SQLite 存储而保留本作的 39 个个人榜单、属性和原生录像格式。服务监听 `127.0.0.1:18087`，路径为 `/cave/api/v1/games/sdoj/`，Title ID 为 `435A07E7`。独立服务及每日备份已部署，v0.2 的游戏内真实提交、读榜、录像收发和播放已验收，个人榜单能力开放；团队评分未接入。开发时可用下面的命令另启本机数据库。
 
 ```sh
 python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 18087

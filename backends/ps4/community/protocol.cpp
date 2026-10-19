@@ -59,8 +59,15 @@ bool ValidNicknameBytes(std::string_view value) {
 bool Identifier(std::string_view value) {
     return value.size() == 32 && std::all_of(value.begin(), value.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
 }
+const TitleProtocol& ProtocolFor(std::string_view game) {
+    static constexpr TitleProtocol ketsui{"ketsui","CUSA09062","1.02","ketsui-npscore-1.02"};
+    static constexpr TitleProtocol daioujou{"daioujou","CUSA32997","1.04","daioujou-npscore-1.04"};
+    if (game==ketsui.game) return ketsui;
+    if (game==daioujou.game) return daioujou;
+    throw std::runtime_error("Unknown PS4 community game");
+}
 Endpoint ParseEndpoint(std::string_view url,std::string_view game) {
-    Require(game=="ketsui" || game=="daioujou","Unknown PS4 community game");
+    (void)ProtocolFor(game);
     Require(url.size() <= 1024 && url.find_first_of("\r\n\t\\") == url.npos && url.find('\0') == url.npos, "Invalid community endpoint");
     const auto wide = Wide(url);
     URL_COMPONENTS parts{};
@@ -79,11 +86,17 @@ Endpoint ParseEndpoint(std::string_view url,std::string_view game) {
     Require(legacy || result.path==expected,"Community endpoint must use this game's protocol path");
     return result;
 }
-Config ParseConfig(std::string_view text) {
+Config ParseConfig(std::string_view text,std::string_view game) {
+    (void)ProtocolFor(game);
     const auto sections = config::SplitSections(text);
     Require(sections.has_community, "Community config requires a community section");
     text = sections.community;
     Config result;
+    result.game=game;
+    if (game!="ketsui") {
+        result.endpoint="https://xiaolu.life/cave/api/v1/games/"+std::string(game);
+        result.nickname="Player";
+    }
     bool section{};
     std::set<std::string> keys;
     while (!text.empty()) {
@@ -107,18 +120,18 @@ Config ParseConfig(std::string_view text) {
         else { throw std::runtime_error("Unknown community config key"); }
     }
     Require(section && keys.contains("enabled"), "Community config requires an explicit enabled field");
-    (void)ParseEndpoint(result.endpoint);
+    (void)ParseEndpoint(result.endpoint,game);
     Require(!result.enabled || ValidNicknameBytes(result.nickname), "Enabled community config requires a UTF-8 nickname");
     return result;
 }
-Config LoadConfig(const std::filesystem::path& path) {
+Config LoadConfig(const std::filesystem::path& path,std::string_view game) {
     Require(std::filesystem::is_regular_file(path) && std::filesystem::file_size(path) <= config::kMaximumConfigBytes, "Community config is missing or too large");
     std::ifstream input(path, std::ios::binary);
     Require(bool(input), "Cannot read community config");
     std::array<char, config::kMaximumConfigBytes + 1> text{};
     input.read(text.data(), static_cast<std::streamsize>(text.size()));
     Require(!input.bad() && input.gcount() <= static_cast<std::streamsize>(config::kMaximumConfigBytes), "Community config changed or failed during read");
-    return ParseConfig(std::string_view(text.data(), static_cast<std::size_t>(input.gcount())));
+    return ParseConfig(std::string_view(text.data(), static_cast<std::size_t>(input.gcount())),game);
 }
 Json ParseJson(std::string_view text, std::size_t limit) {
     Require(text.size() <= limit, "Community JSON exceeds limit");
@@ -163,8 +176,9 @@ std::vector<std::byte> Unbase64(std::string_view text, std::size_t limit) {
 }
 std::string Sha256(std::span<const std::byte> data) { return Sha256(std::string_view(reinterpret_cast<const char*>(data.data()), data.size())); }
 std::string Sha256(std::string_view data) { const auto digest = Digest(data); return Hex(digest); }
-std::uint64_t AccountId(std::string_view name) {
-    std::string input("ketsui-community-v1\0", 20);
+std::uint64_t AccountId(std::string_view name,std::string_view game) {
+    std::string input(ProtocolFor(game).game);
+    input += "-community-v1";input.push_back('\0');
     input += name;
     const auto hash = Digest(input);
     std::uint64_t result{};

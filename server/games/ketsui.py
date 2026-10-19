@@ -156,19 +156,51 @@ RANKED = '''WITH best AS (
     FROM ranked r LEFT JOIN replays p ON p.entry_id=r.id'''
 
 
-def check_database_identity(db):
+def check_database_identity(db, title=TITLE, application_id=APPLICATION_ID):
     tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
     app_id = db.execute('PRAGMA application_id').fetchone()[0]
     if tables:
-        if 'ketsui_meta' not in tables or app_id != APPLICATION_ID:
+        if 'ketsui_meta' not in tables or app_id != application_id:
             raise RuntimeError('Database belongs to another application')
-        if db.execute('SELECT title,version FROM ketsui_meta').fetchall() != [(TITLE, SCHEMA)]:
-            raise RuntimeError('Unsupported Ketsui database schema')
-    elif app_id not in (0, APPLICATION_ID):
+        if db.execute('SELECT title,version FROM ketsui_meta').fetchall() != [(title, SCHEMA)]:
+            raise RuntimeError('Unsupported PS4 community database schema')
+    elif app_id not in (0, application_id):
         raise RuntimeError('Database belongs to another application')
 
 
 class Store:
+    # Legacy names and database schema remain stable for existing Ketsui users.
+    # A second title supplies only its protocol/validation profile, never a
+    # process-global replacement of another running service's constants.
+    title, version, api = TITLE, VERSION, API
+    boards, replay_format = BOARDS, REPLAY_FORMAT
+    application_id = APPLICATION_ID
+    ruleset = staticmethod(ruleset)
+    max_score = (1 << 63) - 1
+    features = ('scores', 'leaderboards', 'replays')
+
+    @staticmethod
+    def account_id(name):
+        return account_id(name)
+
+    @classmethod
+    def identity(cls, value):
+        fields(value, ('nickname',))
+        name = nickname(value['nickname'])
+        return dict(nickname=name, account_id=cls.account_id(name))
+
+    @classmethod
+    def board_id(cls, value):
+        value = integer(value, 0, 0xffffffff)
+        require(value in cls.boards, 'unknown_board')
+        return value
+
+    def validate_submission(self, board, score):
+        pass
+
+    def validate_replay(self, payload, row):
+        pass
+
     def __init__(self, database, *, max_scores=MAX_SCORES, max_replay_storage=MAX_REPLAY_STORAGE):
         self.database = str(Path(database).resolve())
         self.max_scores = integer(max_scores, 1, MAX_SCORES)
@@ -179,16 +211,16 @@ class Store:
         if Path(self.database).exists():
             with closing(sqlite3.connect(Path(self.database).as_uri() + '?mode=ro', uri=True,
                                          timeout=5, isolation_level=None)) as inspection:
-                check_database_identity(inspection)
+                check_database_identity(inspection, self.title, self.application_id)
         db = sqlite3.connect(self.database, timeout=5, isolation_level=None)
         try:
-            check_database_identity(db)
+            check_database_identity(db, self.title, self.application_id)
             db.execute('PRAGMA journal_mode=WAL')
             db.execute('PRAGMA synchronous=FULL')
             db.executescript(f'''BEGIN IMMEDIATE;
-              PRAGMA application_id={APPLICATION_ID};
+              PRAGMA application_id={self.application_id};
               CREATE TABLE IF NOT EXISTS ketsui_meta(title TEXT NOT NULL,version INTEGER NOT NULL);
-              INSERT INTO ketsui_meta SELECT '{TITLE}',{SCHEMA} WHERE NOT EXISTS(SELECT 1 FROM ketsui_meta);
+              INSERT INTO ketsui_meta SELECT '{self.title}',{SCHEMA} WHERE NOT EXISTS(SELECT 1 FROM ketsui_meta);
               CREATE TABLE IF NOT EXISTS players(nickname TEXT PRIMARY KEY,account_id TEXT NOT NULL UNIQUE);
               CREATE TABLE IF NOT EXISTS scores(
                 sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,
@@ -221,20 +253,21 @@ class Store:
         finally:
             db.close()
 
-    @staticmethod
-    def receipt(row):
+    @classmethod
+    def receipt(cls, row):
         return dict(entry_id=row['id'], accepted=bool(row['accepted']),
                     serial_rank=row['receipt_rank'], upload_eligible=bool(row['upload_eligible']),
-                    account_id=account_id(row['nickname']))
+                    account_id=cls.account_id(row['nickname']))
 
     def submit(self, value):
         fields(value, ('submission_id', 'nickname', 'board', 'rules', 'score',
                        'comment_base64', 'game_info_base64', 'build'))
         submission = identifier(value['submission_id'])
         name = nickname(value['nickname'])
-        board = board_id(value['board'])
-        rules = ruleset(value['rules'], board)
-        score = decimal(value['score'])
+        board = self.board_id(value['board'])
+        rules = self.ruleset(value['rules'], board)
+        score = decimal(value['score'], high=self.max_score)
+        self.validate_submission(board, score)
         comment = binary(value['comment_base64'], 64, exact=64)
         info = binary(value['game_info_base64'], 189)
         require(isinstance(value['build'], str) and re.fullmatch(r'[A-Za-z0-9._+-]{1,80}', value['build']), 'invalid_build')
@@ -246,7 +279,7 @@ class Store:
                 require(previous['digest'] == digest, 'submission_conflict', 409)
                 return self.receipt(previous)
             require(db.execute('SELECT COUNT(*) FROM scores').fetchone()[0] < self.max_scores, 'score_capacity', 507)
-            account = account_id(name)
+            account = self.account_id(name)
             collision = db.execute('SELECT nickname FROM players WHERE account_id=?', (account,)).fetchone()
             require(collision is None or collision[0] == name, 'account_mapping_collision', 409)
             db.execute('INSERT OR IGNORE INTO players VALUES(?,?)', (name, account))
@@ -258,14 +291,14 @@ class Store:
                        (entry, submission, digest, name, board, rules, score, comment, info,
                         value['build'], time.time_ns() // 1000, int(accepted)))
             ranked = db.execute(RANKED + ' WHERE r.nickname=?', (board, rules, name)).fetchone()
-            eligible = accepted and ranked['serial_rank'] <= BOARDS[board]['upload_limit']
+            eligible = accepted and ranked['serial_rank'] <= self.boards[board]['upload_limit']
             db.execute('UPDATE scores SET receipt_rank=?,upload_eligible=? WHERE id=?',
                        (ranked['serial_rank'], int(eligible), entry))
             return self.receipt(db.execute('SELECT * FROM scores WHERE id=?', (entry,)).fetchone())
 
-    @staticmethod
-    def entry(row):
-        return dict(entry_id=row['id'], nickname=row['nickname'], account_id=account_id(row['nickname']),
+    @classmethod
+    def entry(cls, row):
+        return dict(entry_id=row['id'], nickname=row['nickname'], account_id=cls.account_id(row['nickname']),
                     score=str(row['score']), serial_rank=row['serial_rank'], rank=row['rank'],
                     created_us=str(row['created_us']), comment_base64=base64.b64encode(row['comment']).decode('ascii'),
                     game_info_base64=base64.b64encode(row['game_info']).decode('ascii'),
@@ -273,8 +306,8 @@ class Store:
                         sha256=row['replay_sha256'], size=row['replay_size'], format=row['replay_format'])))
 
     def leaderboard(self, board, rules, start=1, count=20, account=None):
-        board = board_id(board)
-        rules = ruleset(rules, board)
+        board = self.board_id(board)
+        rules = self.ruleset(rules, board)
         start, count = integer(start, 1, 0xffffffff), integer(count, 1, 100)
         if account is not None:
             decimal(account, 1)
@@ -295,7 +328,7 @@ class Store:
         fields(value, ('entry_id', 'submission_id', 'nickname', 'format', 'sha256', 'payload_base64'))
         entry, submission = identifier(value['entry_id']), identifier(value['submission_id'])
         name = nickname(value['nickname'])
-        require(value['format'] == REPLAY_FORMAT, 'incompatible_replay', 409)
+        require(value['format'] == self.replay_format, 'incompatible_replay', 409)
         require(isinstance(value['sha256'], str) and re.fullmatch('[0-9a-f]{64}', value['sha256']), 'invalid_sha256')
         payload = binary(value['payload_base64'], MAX_REPLAY)
         require(bool(payload) and hashlib.sha256(payload).hexdigest() == value['sha256'], 'replay_digest_mismatch')
@@ -304,6 +337,7 @@ class Store:
             require(row is not None, 'unknown_entry', 404)
             require(row['submission'] == submission and row['nickname'] == name, 'submission_mismatch', 409)
             require(row['accepted'] and row['upload_eligible'], 'replay_not_eligible', 409)
+            self.validate_replay(payload, row)
             old = db.execute('SELECT sha256,size,format FROM replays WHERE entry_id=?', (entry,)).fetchone()
             if old:
                 require((old['sha256'], old['size'], old['format']) == (value['sha256'], len(payload), value['format']), 'replay_conflict', 409)
@@ -368,19 +402,20 @@ class Handler(BaseHTTPRequestHandler):
             require(len(self.path) <= 2048, 'uri_too_long', 414)
             parts = urlsplit(self.path)
             require(not parts.scheme and not parts.netloc and not parts.fragment, 'invalid_target')
-            require(parts.path.startswith(API + '/'), 'not_found', 404)
-            route = parts.path[len(API):]
+            profile = self.server.store
+            require(parts.path.startswith(profile.api + '/'), 'not_found', 404)
+            route = parts.path[len(profile.api):]
             # Python 3.10 strict parsing rejects even the empty query string.
             # No query is a normal request; nonempty queries stay strict.
             query = parse_qs(parts.query, keep_blank_values=True, strict_parsing=True, max_num_fields=5) if parts.query else {}
             require(all(len(values) == 1 for values in query.values()), 'duplicate_query')
             if self.command == 'GET' and route == '/health':
                 require(not query)
-                self.reply(200, dict(status='ok', protocol=PROTOCOL, title_id=TITLE, game_version=VERSION,
-                                    features=['scores', 'leaderboards', 'replays'], max_replay_bytes=MAX_REPLAY))
+                self.reply(200, dict(status='ok', protocol=PROTOCOL, title_id=profile.title, game_version=profile.version,
+                                    features=list(profile.features), max_replay_bytes=MAX_REPLAY))
             elif self.command == 'GET' and route == '/boards':
                 require(not query)
-                self.reply(200, dict(boards=list(BOARDS.values())))
+                self.reply(200, dict(boards=list(profile.boards.values())))
             elif self.command == 'GET' and route == '/leaderboards':
                 require(set(query) in ({'board', 'rules'}, {'board', 'rules', 'start', 'count'}, {'board', 'rules', 'account_id'}), 'invalid_query')
                 def number(key, default, low, high):
@@ -394,7 +429,7 @@ class Handler(BaseHTTPRequestHandler):
             elif self.command == 'POST' and route in ('/identity', '/scores', '/replays'):
                 require(not query)
                 value = self.read_json()
-                operation = identity if route == '/identity' else self.server.store.submit if route == '/scores' else self.server.store.upload
+                operation = profile.identity if route == '/identity' else profile.submit if route == '/scores' else profile.upload
                 self.reply(200, operation(value))
             elif self.command == 'GET' and re.fullmatch(r'/entries/[0-9a-f]{32}/replay', route):
                 require(not query)
