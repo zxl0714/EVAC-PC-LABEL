@@ -36,7 +36,11 @@ try {
             foreach ($game in $selected) {
                 $inputDirectory=if ($DataDirectory) { $DataDirectory } elseif ($DataDirectories.ContainsKey($game)) {
                     $DataDirectories[$game]
-                } else { Join-Path $CollectionRoot "game-data/$game" }
+                } else {
+                    $resolvedData = & py -3.12 (Join-Path $PSScriptRoot 'build_data.py') --game $game
+                    if ($LASTEXITCODE -ne 0) { throw "Could not resolve $game build data" }
+                    $resolvedData
+                }
                 & (Join-Path $PSScriptRoot 'Generate.ps1') -Game $game -DataDirectory $inputDirectory
             }
             $receiptState=Join-Path $CollectionRoot ('.local/build-inputs/host-' + [guid]::NewGuid().ToString('N') + '.json')
@@ -55,9 +59,11 @@ try {
             ('-DCMAKE_C_COMPILER=' + (Get-CollectionTool 'clang')),
             ('-DCAVE_BUILD_GAME=' + $(if ($NativeOnly) { 'OFF' } else { 'ON' })))
     }
+    $launcherState = Join-Path $CollectionRoot ('.local/build-inputs/launcher-' + [guid]::NewGuid().ToString('N') + '.json')
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'begin','--state',$launcherState)
     Invoke-Checked $cmake $configure
     $targets=@('--build',$build,'--parallel',"$Jobs")
-    if ($LauncherOnly) { $targets+=@('--target','cave_launcher') }
+    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect') }
     Invoke-Checked $cmake $targets
     foreach ($extension in @('exe','pdb')) {
         $launcherSource=Join-Path $build "bin/CAVE-PC-Collection.$extension"
@@ -66,6 +72,7 @@ try {
             (Get-FileHash -LiteralPath $launcherSource).Hash -eq (Get-FileHash -LiteralPath $launcherTarget).Hash) { continue }
         Copy-Item -LiteralPath $launcherSource -Destination $launcherTarget
     }
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'finish','--state',$launcherState,'--build',$build)
     if ($selected.Count -and -not $NativeOnly) {
         # GPU plugins are loaded at runtime: refresh them even on a no-op host build.
         foreach ($component in @('rexruntime','rexgpu-xenos')) {

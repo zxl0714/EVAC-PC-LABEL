@@ -34,6 +34,6 @@ py -3.12 scripts/ps4_sources.py verify
 
 工具准备的 `-Ps4` 在原有公共工具之外准备 `tools/apps/llvm-ps4` 和独立的解压 Python 环境，不修改系统 Python 或现有 360 编译器。可用 `-CacheFrom '<工具缓存的 apps 目录>'` 复制匹配安装；无缓存时从固定归档恢复。只有准备阶段需要网络，已经准备好的原生构建不联网、不需要 ROM，也不启动游戏。
 
-PS4 输出分别在 out/ps4-native 和 out/ps4-gpu，收据在 out/ps4/build-receipt.json。它绑定维护源码、383 个上游及已声明本地适配文件、19 个依赖、工具以及五对程序／PDB；已有产物在输入变化后不能继续冒充当前构建。`Build.ps1 -Games ketsui` 的完整数据准备和游戏启动流程仍在接线，当前需显式使用 `-NativeOnly`；清单不因此开放启动入口。
+PS4 输出分别在 out/ps4-native 和 out/ps4-gpu，收据在 out/ps4/build-receipt.json。它绑定维护源码、383 个上游及已声明本地适配文件、19 个依赖、工具以及六对程序／PDB；已有产物在输入变化后不能继续冒充当前构建。`Build.ps1 -Games ketsui` 无需 ROM，校验后整理配套宿主／GPU／符号到 runtime；首次运行时原生准备本地数据。已接通合集启动器，不再要求用旧开发入口启动。
 
 迁入来源和提交见 [源码来源](../docs/SOURCE_ORIGINS.json)。最初导入 SDK 时的文件快照保存在 [迁入基线](../docs/provenance/sdk-import-baseline.json)，用于追溯，不用于选择工具或恢复依赖。

@@ -116,3 +116,11 @@ configurations and existing diagnostics; continue current integration and
 mechanism regressions. G2's observed ~19.1 ms maximum frame interval is a
 scene-specific comparison baseline, not measured input latency or a universal
 pass threshold. Keep optimization proportionate when that future work starts.
+
+P6 now has Release.ps1/release_package.py for separate Internal/Public assembly,
+launcher_receipt.py for the launcher/inspector, and build_data.py for native INI
+resolution from an Internal source checkout. Eight authored-package tests and
+three data-resolution tests pass; no real v0.1 ZIP has been produced yet.
+Commit source first, then rebuild all three games at that commit before packing.
+Keep real package extraction, recipient source-access/license checks and gameplay
+acceptance separate from fixture tests. Do not upload an unaccepted candidate.

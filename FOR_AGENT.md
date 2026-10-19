@@ -37,7 +37,17 @@ py -3.12 scripts/project.py audit
 ./out/common/bin/cave_inspect.exe --root . --game espgaluda2 --data-dir 'D:/Games/G2' --full
 ```
 
-工具固定在 tools/packages.lock.json。Prepare-Tools.ps1 可显式使用 `-CacheFrom '<缓存的 apps 目录>'` 加速首次准备，之后编译只读取合集自己的 tools/apps，不依赖旧工程存在。普通构建默认低优先级、两个任务，不启动游戏。Build.ps1 默认构建公共组件、测试和原生启动器，`-LauncherOnly` 只编译启动器及必要公共库；成功后复制 EXE 与 PDB 到根目录。若启动器文件未改变，不重复覆盖运行中的同一文件；需要更新时先退出测试窗口。`-Games espgaluda2 -NativeOnly` 构建无需 ROM 的 G2 平台测试／分析工具。游戏编译入口为 `-Games espgaluda2 -DataDirectory '<受支持的 G2 数据目录>'`；调用本工程的 SDK 重新生成主程序和七个 overlay，再编译、校验配套 PDB 并按白名单整理 runtime。使用 `Test.ps1 -Games espgaluda2` 运行合集公共及 G2 平台回归。Release.ps1 尚未实现。
+工具固定在 tools/packages.lock.json。Prepare-Tools.ps1 可显式使用 `-CacheFrom '<缓存的 apps 目录>'` 加速首次准备，之后编译只读取合集自己的 tools/apps，不依赖旧工程存在。普通构建默认低优先级、两个任务，不启动游戏。Build.ps1 默认构建公共组件、测试和原生启动器，`-LauncherOnly` 构建启动器、只读检测工具及必要公共库；成功后复制启动器 EXE 与 PDB 到根目录，并生成 out/launcher/build-receipt.json。若启动器文件未改变，不重复覆盖运行中的同一文件；需要更新时先退出测试窗口。`-Games espgaluda2 -NativeOnly` 构建无需 ROM 的 G2 平台测试／分析工具。游戏编译入口为 `-Games espgaluda2 -DataDirectory '<受支持的 G2 数据目录>'`；调用本工程的 SDK 重新生成主程序和七个 overlay，再编译、校验配套 PDB 并按白名单整理 runtime。使用 `Test.ps1 -Games espgaluda2` 运行合集公共及 G2 平台回归。
+
+未传数据参数时，build_data.py 使用原生 cave_inspect 解析配置，不另写一套 INI 规则。内部包 source/ 优先使用包根唯一配置与 game-data；普通工程使用自身 config.ini，没有配置时才用 game-data/<id>。显式路径始终优先，坏配置不静默回退；必要时仅自动构建无 ROM 的检测工具。Generate.ps1 保留显式数据参数。
+
+### 本地出包入口
+
+Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全部源码，再在该提交执行 `Build.ps1 -Games espgaluda2,futari,ketsui -Jobs 2`，保留并校验 SDK、联合 360、PS4 和启动器的收据。出包要求工作树干净，三个玩家组件收据属于当前提交，且实际 runtime 证书与产物哈希匹配；过时构建会拒绝出包。后续修改源码／文档会使联合宿主收据失效，应在最终提交后再构建。
+
+`Release.ps1 -Flavor Internal -Version 0.1` 完整复制三款数据和虫姬二两份 DLC、程序、符号及独立 source/.git；可显式用 DataDirectories 与 FutariDlcDirectory 指定输入。源码 Git 不借用作者 objects，origin 为合集 SSH 地址。`-Flavor Public` 不接受数据包含参数，按运行文件白名单单独组装，不复制数据树、源代码、PDB 或用户现场。两者使用默认 INI、玩家说明、许可证及原生 app-local CRT；仅创建 releases/ 下的新目录，不覆盖旧包。
+
+出包生成 release.json、SHA256SUMS.txt、ZIP 与 ZIP.sha256。`py -3.12 scripts/release_package.py verify --directory '<解压目录>'` 只读复核内容、白名单和内部包的必需数据／源码 Git；不刷新索引、不运行游戏或联网。打包脚本不自动上传或发消息。当前仅完成脚本和自造数据验证；实际三款发行构建、真实 ZIP、许可证／对应源码获取、解压游玩及 QQ 交付仍需验收。
 
 ## 检测语义
 

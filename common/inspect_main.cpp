@@ -94,7 +94,7 @@ int wmain(int argc, wchar_t** argv) {
                   << ",\"problems\":";
         Strings(package.problems); std::cout << '}';
       }
-      std::cout << ']';
+      std::cout << "],\"contentDirectory\":" << Json(cave::Utf8(content_source));
       std::cout << '}';
     }
     std::cout << "]}\n";
