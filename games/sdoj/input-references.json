@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "game": "sdoj",
+  "titleId": "435A07E7",
+  "purpose": "Research input identities only; not a complete game-data manifest or launch authorization",
+  "source": {
+    "repository": "https://github.com/eandis/SDOJ-Recomp",
+    "commit": "cc35e038d4126bc1c359597dcb94e6815477818d",
+    "identityFile": "src/game_setup.cpp",
+    "manifestFile": "saidaioujou_recomp_tu1_manifest.toml",
+    "applicationLicense": "unconfirmed",
+    "sdkLicenseFile": "thirdparty/rexglue-sdk/LICENSE"
+  },
+  "modules": ["default.xex", "CA022100.bin", "CA022110.bin"],
+  "variants": {
+    "disc": {
+      "programs": {
+        "default.xex": "709eb9fd2e4446e5754461616693b3bbb8b78fef5aa613ffcde6d643da0133f5",
+        "CA022100.bin": "a8454bb24a0c0f0a0e5c89c8885041dee6411e2c688874a5e2a57966174939be",
+        "CA022110.bin": "4c08b646140e4887ac2036208195e99dfdb4ae32fc7d1571d589b6657791bc75"
+      },
+      "patches": {
+        "CA022100.binp": "830ee751922483115f735f442a23b0ab203468de17e509da6ed08b25be25dc4f",
+        "CA022110.binp": "b0fd71b07a0dfae8e834a08a2ef7bd064b44492a7b50854b2c9245ab48266c00",
+        "default.xexp": "79c6958470749931040ba2b68aed268a64cdaeed03f788eeaffdabd45ba7ebbb"
+      },
+      "updateContainers": [
+        {
+          "bytes": 598016,
+          "sha256": "0a893048c761ba6cf8ed14637f326726bc616b5183ca1ee52de02fc12b46b215"
+        }
+      ]
+    },
+    "god": {
+      "programs": {
+        "default.xex": "41ab091576813248712a387b273398e5d700454505e83f6f1feb7de2c1027707",
+        "CA022100.bin": "ec610171ae966d7b37d3e44ff40dd89ef1086dc88633c01eb390824154659769",
+        "CA022110.bin": "d0340c943ec0fceeb65892b7f3451ca6b687d2282984feaac3d8d043beeb2569"
+      },
+      "patches": {
+        "CA022100.binp": "09c8a87064a2096438418df80725c089ccc09a610cdb4805ed6993b822cb604e",
+        "CA022110.binp": "0a722663afb4ac7f391a6a81dd1d4708d52b0c3749b614697c766a7084dcb747",
+        "default.xexp": "bc61b8ad072e8f62a56c6d32712eee5b44f34b72aa4225c3c6569dd7f25db374"
+      },
+      "updateContainers": []
+    }
+  }
+}

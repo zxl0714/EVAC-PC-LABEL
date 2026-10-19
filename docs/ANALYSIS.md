@@ -12,6 +12,18 @@ py -3.12 scripts/xex_inventory.py game-data/espgaluda2 --output .local/analysis/
 
 逐文件计算大小与 SHA-256，并有界读取 XEX2 头中的基址、入口、Title ID 和压缩信息。输出只有元数据，不含资源或程序正文。不指定 `--output` 时只输出到终端；`--xex-lock` 可另外写一份程序元数据用于比较，不会自动更改维护中的版本清单。
 
+### 最大往生本体与更新识别
+
+```powershell
+py -3.12 scripts/sdoj_inputs.py '<已解出的最大往生目录>' --output .local/analysis/sdoj-inputs.json
+```
+
+这是后续接入的预检，不是启动器的数据清单。它只按固定来源哈希识别光盘／GoD 两组主程序、CA022100／CA022110 模块和对应 TU 1.01；原始光盘 TU 可以任意命名，GoD 使用三个已提取的补丁文件。输入参考位于 games/sdoj/input-references.json，并记录上游提交。
+
+结果区分已知程序与更新、缺更新、更新版本混用、未知／不完整程序及尚待解包的容器。RAR／ISO 等只列为候选，不自动解压或计算整包哈希；其他资源不递归读取。工具不下载、安装更新、执行游戏或改动源文件，报告仍使用统一的 .local 输出边界。
+
+即使得到 `known_programs_and_update`，`readyToRun` 和 `fullDataVerification` 仍为 false：完整资源、准备结果和运行时尚未验收，最大往生也未因此进入可玩清单。
+
 ## 静态模块检查
 
 先准备本工程的 SDK 和原生分析工具：

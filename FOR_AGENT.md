@@ -61,6 +61,8 @@ Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全
 
 ## 后续接入
 
+最大往生的源码／输入评估已开始，游戏 ID 预留为 sdoj，不与 daioujou 混用。`scripts/sdoj_inputs.py '<本地解包目录>' --output .local/analysis/sdoj-inputs.json` 只识别本体／TU 组合；games/sdoj/input-references.json 不是完整数据清单，不接入生成、构建或启动器。后续阶段见实施计划 P7。上游应用许可尚未明确，没有导入其 src 或生成游戏正文，也未覆盖公共 SDK。
+
 静态模块、回调、日志和 G2 社区边界的检查方法见 [分析与诊断工具](docs/ANALYSIS.md)，其中列出原 66 项 Python 回归的迁移对应。工具显式读取数据目录，报告及解压区段只写新的 .local 路径；检查结果不代替实际进关和声音验收。
 
 G2 以 ESPGaluda2-PC 的 ba85ac0 为迁移起点。维护 SDK 在 third_party/rexglue，平台代码在 backends/xbox360，游戏适配、模块声明和工具在 games/espgaluda2；公共 HTTP 在 common/community。tests/fixtures/g2-default.ini 只是旧解析器的回归样本，不是第二份玩家配置。docs/SOURCE_ORIGINS.json 记录来源，docs/provenance/sdk-import-baseline.json 保存历史 SDK 导入身份与文件哈希；两者仅供追溯，依赖恢复不读取这些历史记录。tools/sdk-source.lock.json 只固定当前第三方依赖，工具目录用法见 tools/README.md。
