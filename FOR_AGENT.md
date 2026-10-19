@@ -28,6 +28,8 @@
 
 需要 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。当前公共库不依赖 ReXGlue 或游戏数据。
 
+源码编译使用较短的英文路径，例如 `E:/CaveDev/CAVE-PC-Collection/source`。固定 CMake 4.2.3 在中文源码路径的编译器隐式链接信息解析中会异常退出，实际 ABI 编译链接此前已成功；不要通过强制 ABI 通过、关闭安全设置或修改已安装工具来绕过。内部开发包可先整体解压到英文路径再构建；玩家运行和外部游戏数据仍支持中文路径。编译器统一及工具链升级另在后续版本处理。
+
 ```powershell
 ./scripts/Prepare-Tools.ps1
 ./scripts/Build.ps1 -Jobs 2

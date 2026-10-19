@@ -53,4 +53,6 @@ enabled = false 可关闭联网。默认服务为 https://xiaolu.life/cave/api/v
 
 开发
 内部完整版的 source 是独立 Git 仓库，从 source/FOR_AGENT.md 开始即可。
+要编译源码，请将开发包放在较短的英文目录，例如 E:/CaveDev/Collection；
+当前构建工具存在中文源码路径兼容问题，不影响玩家在中文目录运行游戏。
 对外包不带源码。组件许可和对应源码信息见 licenses 与 SOURCE.txt。

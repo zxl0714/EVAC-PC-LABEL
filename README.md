@@ -42,6 +42,8 @@ P0 源码快照、P1 的 G2 可玩基线与 P2 公共工程底座已收尾。G2 
 
 Windows x64 下准备 PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK，然后执行：
 
+源码开发请使用较短的英文目录，例如 `E:/CaveDev/CAVE-PC-Collection`。当前固定 CMake 在中文源码路径下可能异常退出；玩家包的中文解压目录与游戏数据路径不受这项开发限制影响。
+
 ```powershell
 ./scripts/Prepare-Tools.ps1
 ./scripts/Build.ps1 -Jobs 2
