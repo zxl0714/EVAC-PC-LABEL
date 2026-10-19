@@ -1,10 +1,10 @@
 # 开发入口
 
-先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 的 PS4 宿主、驻留 GPU、共享 INI、原生准备缓存及公共启动合同已接通，继续小规模实际流程与出包接线。不要重复全模式或新增极限测试。
+先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。
 
-干净联合构建 6b47555 的 out/xbox360 有 45 对程序／PDB，153 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。本机隔离服务的真实成绩／录像上传、榜单读回及下载保存已通过；6b47555 的 run-20261019T013724950Z-76988 将下载槽 No.4 冷启动完整播放并自然返回，容器哈希不变、退出码 0。正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
+合集已接通三款游戏、共享 INI、独立存储和正式 HTTPS 社区服务。v0.1 验证保留 45／6／2 对 360／PS4／启动器程序与 PDB 配对，240 项源码回归、50 项 PS4 原生／配置检查，以及实际选人进关、保存重启读回和成绩／录像流程。虫姬二正式服务上传补测及绊地狱启动器实战、新录像冷启动完整播放已补齐；具体新测与沿用范围见验收矩阵，不重跑全模式、重复进入或极限测试。
 
-用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器的真实进关、本地保存和跨进程完整回放、共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。六种 PLAY 模式均已在合集选人进关并卸载返回。原 Python 专项检查已适配到合集，分析工具不再依赖旧工程。正式 HTTPS 服务已部署；游戏实际成绩上传、榜单读回、网络录像下载落盘及冷启动完整回放通过。实体输入、扩展覆盖及音画回归继续跟踪，不把短测写成整个 P3 通过。当前不打 v0.1 发布标签。
+用户已完成 G2 同进程重复进退，并接受模式设置现有覆盖，不为这些项目再要求测试或刷分。实体设备、更多角色及长期稳定性仍是扩展覆盖；绊地狱退出清理限制、声音响应和偶发卡顿继续保留。编译器统一与虫姬二／绊地狱帧节拍专项属于下一版本，不回填成 v0.1 已修复。
 
 ## 目录与数据边界
 
@@ -12,7 +12,7 @@
 | --- | --- |
 | common/ | 可由启动器与后端共用的 C++ 清单、UTF-8 INI、路径与只读数据检查 |
 | common/data_import.* | 显式复制数据的版本检查、独立暂存、取消、全量校验与最终启用 |
-| backends/ps4/、third_party/ps4/ | 正在接入的 PS4 独立运行时及提取的开源图形组件；不并入 360 SDK |
+| backends/ps4/、third_party/ps4/ | PS4 独立运行时及提取的开源图形组件；不并入 360 SDK |
 | launcher/ | Win32／Direct2D 原生启动器、嵌入式宣传素材与来源清单 |
 | games/catalogue.json | 五款游戏的顺序、显示名、后端、接入状态与运行组件要求 |
 | games/espgaluda2/data.json | G2 的 155 项路径／大小／SHA-256 元数据，无游戏正文 |
@@ -49,7 +49,9 @@ Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全
 
 `Release.ps1 -Flavor Internal -Version 0.1` 完整复制三款数据和虫姬二两份 DLC、程序、符号及独立 source/.git；可显式用 DataDirectories 与 FutariDlcDirectory 指定输入。源码 Git 不借用作者 objects，origin 为合集 SSH 地址。`-Flavor Public` 不接受数据包含参数，按运行文件白名单单独组装，不复制数据树、源代码、PDB 或用户现场。两者使用默认 INI、玩家说明、许可证及原生 app-local CRT；仅创建 releases/ 下的新目录，不覆盖旧包。
 
-出包生成 release.json、SHA256SUMS.txt、ZIP 与 ZIP.sha256。`py -3.12 scripts/release_package.py verify --directory '<解压目录>'` 只读复核内容、白名单和内部包的必需数据／源码 Git；不刷新索引、不运行游戏或联网。打包脚本不自动上传或发消息。当前仅完成脚本和自造数据验证；实际三款发行构建、真实 ZIP、许可证／对应源码获取、解压游玩及 QQ 交付仍需验收。
+出包生成 release.json、SHA256SUMS.txt、ZIP 与 ZIP.sha256。`py -3.12 scripts/release_package.py verify --directory '<解压目录>'` 只读复核内容、白名单和内部包的必需数据／源码 Git；不刷新索引、不运行游戏或联网。打包脚本不自动上传或发消息。v0.1 最终 ZIP 的实际解压和轻量验收已完成；后续版本须重新验证，不沿用旧 ZIP 的结果冒充新包通过。
+
+对外程序包不内嵌源码，另备同版本 `CAVE-PC-Collection-v0.1-source.zip`，由包提供者按需提供；不要求接收者先获得私有仓库权限。该附件含独立主仓库、25 个 SDK 与 19 个 PS4 固定依赖源码、清单及构建说明，不含 ROM、生成游戏正文、已安装工具或玩家数据。开发工具通过 Prepare-Tools.ps1 恢复。实际全新英文目录 clone、独立工具／PS4 依赖恢复、单独绊地狱和启动器构建、运行文件整理、配套符号及两组 CTest 已通过。
 
 ## 检测语义
 
@@ -105,9 +107,9 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 “游戏数据…”中的复制操作只写默认 game-data/<id>，拒绝非空目标和输出目录联接。源目录根可以是可解析的别名，内部文件／子目录不能包含链接；复制完整目录（包括额外文件、零字节文件和空目录），逐文件核对内容并复核支持的版本。只有新暂存目录通过全部校验后才启用并更新 config.ini。取消或失败只清理本次随机命名暂存目录；已经验证但配置更新失败的数据保留，并明确报告。窗口关闭会等待复制取消清理，不杀掉后台线程。合集内选择写成相对路径，外部选择保持绝对路径。tests/test_data_import.py 用真实 Windows junction 和自造 main.bin 数据检验边界，不要求 ROM。
 
-启动器先完成五款横幅的视觉方案与自审，不等待用户评审。合集运行与双游戏 SDK、PS4 后端的接入顺序仍按计划推进；首版为三款可玩作品与两款 Coming Soon。最后按同一次已验证构建输出 Internal／Public 两种包，范围与发布门槛见实施计划；出包不自动上传。
+启动器五款横幅的视觉方案与自审已完成；首版为三款可玩作品与两款 Coming Soon。Internal／Public 从同一次已验证构建输出，范围与发布门槛见实施计划；出包不自动上传。
 
-v0.1 出包并验收后另行完成用户指定的交付：把最终 Internal 完整 ZIP 上传到 QQ 群“人均233.3”的群文件，核对上传完成后发版本通知。用户已授权自行撰写和发送消息，无需文案确认。说明三款游戏、解压与启动、config.ini 和日志反馈方式；不上传中间包，不改投其他群或 OSS。将文件身份、上传与发送结果保存在本地交付记录，完成前保持待办；具体步骤见实施计划的“v0.1 验收后的群内交付”，实际操作遵循工具要求。
+v0.1 的最终 Internal 群文件、版本通知及实际启动器截图交付已完成，证据单独保存在本地；不要再次上传或发送。后续交付仍需用户明确指定范围和目标，构建／出包不自动发布，实际操作遵循工具要求。
 
 ### 绊地狱接入
 
@@ -128,7 +130,7 @@ py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' -
 
 19 个依赖从上游恢复到 .deps/ps4，可选缓存用法见 tools/README.md。输出在 out/ps4-native 和 out/ps4-gpu，out/ps4/build-receipt.json 记录输入、工具及六对 PE／PDB 的 GUID 和 age；其中 KetsuiResourcePrepareCheck 仅用于自造数据对照，不进入玩家程序包。修改提取的上游文件时，在对应 upstream-files.json 的 localChanges 明确记录维护哈希；383 项当前文件在构建前后核对。`Build.ps1 -Games ketsui -Jobs 2` 无需 ROM，完成后由 stage_ps4.py 校验收据并整理 runtime/ps4/ketsui.exe、GPU DLL、符号和运行文件证书，不启动游戏。PS4 的 NativeOnly 同样只构建运行时；原始数据在首次启动时原生准备。
 
-三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 34 项机制和 15 项真实配置文件检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试将在保存、联网与媒体接线时逐项适配；二进制自制媒体 fixture 尚未导入，恢复时单独记录来源／哈希。
+三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 35 项机制和 15 项真实配置文件检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试和二进制自制媒体 fixture 的扩展按实际需要单独记录来源／哈希。
 
 PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 现为版本 5，宿主与 DLL 必须配套重建。
 
@@ -144,7 +146,7 @@ ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按�
 
 CU 的毫秒短按无法触发街机投币时，可仅为本次启动器进程设置环境变量 `CAVE_DIAGNOSTIC_INPUT_TAP_MS=120`，桥接既有原生按键延长诊断；允许 0–500，未设置或 0 时完全不启用。五参数合同及玩家 INI 不变，`run.json` 的 `diagnosticInputTapMs` 明确记录取值；启动后恢复开发 shell 的环境变量，不用于声称默认物理输入已测。`--collection-input-self-test` 无 ROM／窗口地检查解析边界，实际游戏仍必须由 CU 操作投币、选机与进关。
 
-`scripts/ps4/run_prepare_checks.py` 通过 27 组自造 ELF 和 8 组真实路径检查，使用 Python 实现逐字节对照；由 Test.ps1 的 Ketsui 分支一并执行。`py -3.12 scripts/ketsui/verify_preparation.py --game-data '<数据根>'` 另在新的 .local 现场对照实际 eboot／两个 PRX，并做无客体入口的装载校验。生成文件含派生游戏正文，只留本地；Python 工具是开发侧对照实现，不是预定 Public 包的玩家启动依赖。实际游戏进入和保存／录像仍待合集启动接线后验证。
+`scripts/ps4/run_prepare_checks.py` 通过 27 组自造 ELF 和 8 组真实路径检查，使用 Python 实现逐字节对照；由 Test.ps1 的 Ketsui 分支一并执行。`py -3.12 scripts/ketsui/verify_preparation.py --game-data '<数据根>'` 另在新的 .local 现场对照实际 eboot／两个 PRX，并做无客体入口的装载校验。生成文件含派生游戏正文，只留本地；Python 工具是开发侧对照实现，不是 Public 包的玩家启动依赖。实际玩家进关、保存与录像结果另见验收矩阵。
 
 原生资源准备位于 `backends/ps4/content/resource_prepare.*`，入口为 `KetsuiNativeProbe.exe --prepare-fixes <数据根> --root <合集根绝对路径> --output <新 .ktfix 绝对路径> [--community-replay] [--community-offline]`；offline 自动包含 replay。它从已验证的本地 eboot 读取种子，解析 MDF／PSB 并生成只读覆盖，保留 BGM 自动保存、录像批量提交和局末本地采集修复，不改写归档或发送成绩。合集运行时还需配套启用原生 rounds producer，不能只打开资源脚本开关。
 

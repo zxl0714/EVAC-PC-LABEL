@@ -62,8 +62,8 @@ the applicable computer-use and tool requirements when executing it.
 
 The collection has one config.ini with shared defaults and optional per-game
 overrides. Default nickname is Player and online is enabled by default. The
-deployed community API base is https://xiaolu.life/cave/api/v1. Futari and Ketsui
-have compatible proxy aliases; their clients still require P4/P5 integration.
+deployed community API base is https://xiaolu.life/cave/api/v1. All three clients
+are integrated; formal score/replay flows have actual gameplay evidence.
 
 Before launcher implementation, research launcher UI and prepare a visual
 mockup. Self-review, iterate and finalize it without waiting for human review
@@ -107,12 +107,12 @@ actual GUI-launcher ARCADE/Tiger player entry, a 380-point round and formal
 two-board score/replay upload. A new normal-input process records diagnostic 0,
 reads BGM 69% back, displays Player/380 online, downloads its replay and fully
 plays the previous process's new local replay to natural return. This does not
-claim physical-device or all-mode revalidation. Complete the remaining package checks,
-without extending extreme-case suites. Exit 27 remains incomplete guest cleanup;
+claim physical-device or all-mode revalidation. Package acceptance is now complete
+at the frozen release commit below. Exit 27 remains incomplete guest cleanup;
 the launcher recognizes only the matching process's explicit close receipt.
-P4's remaining
-formal-network, audio and physical-input checks remain open, not implicitly
-passed because PS4 build preparation has started.
+P4's formal HTTPS score/replay upload has now passed in an actual Black Label
+round. Audio response and physical-input extension checks remain open; they
+are not implicitly passed by the network result.
 
 The user schedules compiler unification and the Futari/Ketsui frame-pacing
 investigation/optimization for the next release after v0.1. Do not implement
@@ -122,14 +122,19 @@ mechanism regressions. G2's observed ~19.1 ms maximum frame interval is a
 scene-specific comparison baseline, not measured input latency or a universal
 pass threshold. Keep optimization proportionate when that future work starts.
 
-P6 now has Release.ps1/release_package.py for separate Internal/Public assembly,
-launcher_receipt.py for the launcher/inspector, and build_data.py for native INI
-resolution from an Internal source checkout. Actual b5ca101 RC1 archives exist;
-Public extraction, empty-data UI, G2-only player entry/save/replay and clean exit
-passed. Internal extraction exposed omitted empty gitlink directories; the ZIP
-writer and authored round-trip regression are fixed. Preserve RC1 as evidence,
-rebuild/repackage at the fix commit, and verify actual extraction again. Do not
-claim RC1 Internal passed by manually repairing its extracted source tree.
-Commit source first, then rebuild all three games at that commit before packing.
-Keep real package extraction, recipient source-access/license checks and gameplay
-acceptance separate from fixture tests. Do not upload an unaccepted candidate.
+P6 has completed v0.1 package acceptance at f652df0, tagged and pushed as v0.1.
+Both final archives were actually extracted and verified; Internal contains all
+three games and independent source Git, and Public contains no ROM or source.
+The empty-gitlink-directory RC1 defect is fixed and verified in the later ZIPs;
+preserve RC1 as failed historical evidence, not a repaired pass. A fresh clone
+restored its own pinned tools and 19 PS4 dependencies, built Ketsui and the
+launcher from source, staged the runtime and passed common/launch CTests.
+There is also a separate no-ROM v0.1 source attachment with all 25 SDK and 19 PS4
+dependencies for recipients without private-repository access, supplied on request.
+The verified Internal ZIP was uploaded to the requested group files and its
+version notice and actual launcher screenshot were sent and observed there.
+Delivery evidence remains local. Follow-up documentation commits do not alter
+the frozen f652df0 ZIPs or tag. Do not repack v0.1 merely to include these records.
+For a new version, commit source first and rebuild all three games at that commit.
+Keep real package extraction, recipient source access and gameplay acceptance
+separate from fixture tests. Do not upload an unaccepted candidate.
