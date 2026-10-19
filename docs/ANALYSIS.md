@@ -97,7 +97,9 @@ py -3.12 scripts/analyze_run.py logs/espgaluda2/<单次运行目录> --output .l
 
 大往生也使用这一 PS4 时序分析器。其首轮联网实战的第一关 F8 后 10 秒区间 `8609862441413–8609872441413` 仅完成 422 帧，123 个间隔超过 20 ms，最大 100.777 ms，P95 直方图上界 50.2 ms。绘制执行平均 4.575 ms，提交外间隔平均 9.587 ms；不是仅凭整进程平均 FPS 得出的结论。
 
-这一区间的 122 个相邻完成记录之间含周期 `native_allocation` 日志，其中 120 个间隔超过 20 ms；没有该日志的 300 个区间仅 3 个长帧。后续演示画面的独立短采样在同一提交线程的 300 个指令指针样本中有 88 个落在 ZwWriteFile，栈内地址候选不视为完整展开。采样会扰动时序，不纳入上述第一关帧时间。定位到 TraceAllocation 仍直接调用无缓冲 stdout 的 printf，现改走已有有界后台日志队列；该修改保留日志内容和频率，真正改善幅度仍须在重建后的相同录像中验证。原始日志、报告和采样只留本地 `.local/daioujou-network-r1` 与 `.local/analysis/daioujou-*-r1*`。
+这一区间的 122 个相邻完成记录之间含周期 `native_allocation` 日志，其中 120 个间隔超过 20 ms；没有该日志的 300 个区间仅 3 个长帧。后续演示画面的独立短采样在同一提交线程的 300 个指令指针样本中有 88 个落在 ZwWriteFile，栈内地址候选不视为完整展开。采样会扰动时序，不纳入上述第一关帧时间。定位到 TraceAllocation 仍直接调用无缓冲 stdout 的 printf，832717c 改走已有有界后台日志队列，保留日志内容和频率。
+
+修复版从 profile 副本冷启动，完整播放这局 1780 分录像并自然返回列表。第一关 F8 前／后两个连续 10 秒区间各有 600 个完成间隔，平均分别 16.666／16.666 ms，最大 19.943／19.388 ms，均无超过 20 ms 的记录；后一区间提交外间隔平均降至 1.599 ms。原实战与新进程回放不是逐帧对齐的微基准，不泛化为全场景无卡顿；这验证周期同步分配日志移出游戏线程后，同局第一关短回放已恢复原作约 60 Hz 节拍。原始日志、两份报告、录像身份与采样分别留在本地 `.local/daioujou-network-r1`、`.local/daioujou-perf-r2` 和 `.local/analysis`，不进入发行包或源码 Git。
 
 ```powershell
 py -3.12 scripts/ps4/analyze_timing.py logs/ketsui/<单次运行目录> --output .local/analysis/ketsui-timing.json
