@@ -16,8 +16,9 @@ nickname = Player
 | `/cave/api/v1/games/espgaluda2/` | `127.0.0.1:18086` | `/var/lib/cave-community/espgaluda2/community.sqlite3` |
 | `/cave/api/v1/games/futari/` | `127.0.0.1:18084/futari/api/v1/` | 沿用虫姬二服务的数据目录 |
 | `/cave/api/v1/games/ketsui/` | `127.0.0.1:18085/ketsui/api/v1/` | 沿用绊地狱服务的数据目录 |
+| `/cave/api/v1/games/sdoj/` | `127.0.0.1:18087` | `/var/lib/cave-community/sdoj/community.sqlite3` |
 
-后两条是反向代理别名，旧 `/futari/api/v1/`、`/ketsui/api/v1/` 入口继续保留，不需要搬迁数据库。未知游戏路径返回 404，不能落入另一款游戏的榜单。
+虫姬二和绊地狱两条是反向代理别名，旧 `/futari/api/v1/`、`/ketsui/api/v1/` 入口继续保留，不需要搬迁数据库。未知游戏路径返回 404，不能落入另一款游戏的榜单。
 
 ## G2 服务与开发测试
 
@@ -30,15 +31,17 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；`--check-endpoint https://xiaolu.life/cave/api/v1` 仅通过 Windows HTTP 和原生适配读取公开榜单及本人状态，不提交成绩。真实联网验收使用游戏本身的成绩与录像流程。
 
-## SDOJ 开发适配
+## SDOJ 服务与验收范围
 
-SDOJ 的独立适配位于 `server/games/sdoj.py`，复用有界 HTTP／SQLite 存储而保留本作的 39 个个人榜单、属性和原生录像格式。开发服务默认监听 `127.0.0.1:18087`，路径为 `/cave/api/v1/games/sdoj/`，Title ID 为 `435A07E7`。当前尚未部署或通过实际联网验收，下面的命令只启动本机独立数据库，不代表正式接口已可用。
+SDOJ 的独立适配位于 `server/games/sdoj.py`，复用有界 HTTP／SQLite 存储而保留本作的 39 个个人榜单、属性和原生录像格式。服务监听 `127.0.0.1:18087`，路径为 `/cave/api/v1/games/sdoj/`，Title ID 为 `435A07E7`。已部署独立服务和每日备份，HTTPS 健康检查与空榜读取正常；游戏内真实提交、录像下载和播放仍待验收，客户端能力暂不开放。开发时可用下面的命令另启本机数据库。
 
 ```sh
 python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 18087
 ```
 
 原生录像为 304 字节头，加权半字校验和与元数据核对后保持完整原字节；不转换为 G2 格式，也不重写录像时间。成绩先提交、录像随后关联；服务确认附件后才对榜单公开可下载大小。未完成个人网络流程或未覆盖的团队评分不声明支持。
+
+`sdoj_community_tests --check-endpoint https://xiaolu.life/cave/api/v1` 仅通过实际 Windows HTTP 客户端读取 Shot 榜单和本人状态，不提交成绩、不执行游戏，也不代替游戏内验收。包含写入的 `--probe` 仍只接受独立 loopback 服务。
 
 ## 虫姬二客户端与本机验证
 

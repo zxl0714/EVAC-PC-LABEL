@@ -136,11 +136,25 @@ nlohmann::json Probe(std::string endpoint) {
   player.Stop();rival.Stop();
   return {{"passed",true},{"guestExecution",false},{"game","sdoj"},{"replayBytes",336},{"nativeSizeAcknowledgment",true}};
 }
+nlohmann::json CheckEndpoint(std::string endpoint) {
+  Require(endpoint.starts_with("https://"),"Public endpoint checks require HTTPS");
+  SdojCommunity service(endpoint,"CollectionCheck","endpoint-read-only");
+  auto board=Read(service,Board());
+  Require(!board.error && board.views.size()==1,"HTTPS SDOJ leaderboard read failed");
+  auto own=Board();own.xuids={kNativeCommunityLocalXuid};
+  auto personal=Read(service,own);
+  Require(!personal.error && personal.views.size()==1 && personal.views[0].rows.size()==1,
+      "HTTPS SDOJ personal lookup failed");
+  service.Stop();
+  return {{"passed",true},{"readOnly",true},{"guestExecution",false},
+      {"game","sdoj"},{"view",23},{"players",board.views[0].total}};
+}
 int main(int argc,char** argv) {
   try {
     rex::InitLoggingEarly();auto config=rex::BuildLogConfig(nullptr,"error",{});rex::InitLogging(config);
     if(argc==1){Units();std::cout<<"SDOJ schema/worker checks passed; no connections made\n";}
     else if(argc==3 && std::string_view(argv[1])=="--probe")std::cout<<Probe(argv[2]).dump()<<'\n';
+    else if(argc==3 && std::string_view(argv[1])=="--check-endpoint")std::cout<<CheckEndpoint(argv[2]).dump()<<'\n';
     else if(argc==3 && std::string_view(argv[1])=="--inspect-replay") {
       std::ifstream input(argv[2],std::ios::binary);Require(bool(input),"Cannot open recording");
       std::vector<uint8_t> bytes(std::istreambuf_iterator<char>(input),{});auto info=InspectReplay(bytes);
@@ -148,7 +162,7 @@ int main(int argc,char** argv) {
           {"timestamp",std::to_string(info.timestamp)},{"filetime",std::to_string(NativeFiletime(info.timestamp))},
           {"characterType",info.character_type},{"stage",info.stage},{"continues",info.continues},
           {"sha256",cave::community::ReplaySha256(bytes)}}).dump()<<'\n';
-    }else throw std::runtime_error("Usage: sdoj_community_tests [--probe <loopback API root> | --inspect-replay <file>]");
+    }else throw std::runtime_error("Usage: sdoj_community_tests [--probe <loopback API root> | --check-endpoint <HTTPS API root> | --inspect-replay <file>]");
     return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 2;}
 }
