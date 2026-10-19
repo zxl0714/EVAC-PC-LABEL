@@ -95,13 +95,17 @@
       "name": "DoDonPachi DaiOuJou",
       "nameJapanese": "怒首領蜂大往生 臨廻転生",
       "backend": "ps4",
-      "integrated": false,
-      "comingSoon": true,
-      "communitySupported": false,
+      "integrated": true,
+      "comingSoon": false,
+      "communitySupported": true,
       "dataDirectory": "game-data/daioujou",
       "dataManifest": "daioujou/data.json",
-      "executable": "runtime/unavailable/daioujou.exe",
-      "runtimeFiles": []
+      "executable": "runtime/ps4/daioujou.exe",
+      "runtimeFiles": [
+        "runtime/ps4/daioujou.exe",
+        "runtime/ps4/KetsuiGpuRuntime.dll",
+        "runtime/games/daioujou/runtime-manifest.ini"
+      ]
     },
     {
       "id": "esprade",

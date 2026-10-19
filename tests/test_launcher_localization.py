@@ -34,7 +34,7 @@ class LauncherLocalizationTests(unittest.TestCase):
         self.assertIn('怒首領蜂大往生 臨廻転生', generated)
         self.assertIn('DoDonPachi DaiOuJou', generated)
         self.assertEqual(games[4]['id'], 'daioujou')
-        self.assertFalse(games[4]['integrated'])
+        self.assertTrue(games[4]['integrated'])
 
     def test_japanese_name_validation(self):
         import copy

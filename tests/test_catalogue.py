@@ -20,8 +20,8 @@ class CatalogueTests(unittest.TestCase):
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
         self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
-        self.assertEqual([g['comingSoon'] for g in games], [False, False, False, False, True, True])
-        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj'])
+        self.assertEqual([g['comingSoon'] for g in games], [False, False, False, False, False, True])
+        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou'])
 
     def test_sdoj_uses_verified_disc_data_and_shared_online_launch(self):
         game = next(g for g in catalogue.load(self.path) if g['id'] == 'sdoj')
@@ -41,7 +41,7 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(sum(f['program'] for f in game['files']), 8)
         self.assertTrue(all(set(f) == {'path', 'bytes', 'sha256', 'program'} for f in game['files']))
 
-    def test_daioujou_input_identity_does_not_imply_playable_or_online(self):
+    def test_daioujou_candidate_uses_own_data_and_shared_ps4_runtime(self):
         game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')
         manifest=catalogue.read_json(self.root/'games/daioujou/data.json')
         self.assertEqual((game['backend'],manifest['titleId'],manifest['version']),('ps4','CUSA32997','01.04'))
@@ -49,9 +49,12 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(len(game['files']),60)
         self.assertEqual(sum(f['bytes'] for f in game['files']),1116174744)
         self.assertNotIn('Project.gp4',{f['path'] for f in game['files']})
-        self.assertTrue(game['comingSoon'])
-        self.assertFalse(game['integrated'])
-        self.assertFalse(game['communitySupported'])
+        self.assertFalse(game['comingSoon'])
+        self.assertTrue(game['integrated'])
+        self.assertTrue(game['communitySupported'])
+        self.assertEqual(game['executable'],'runtime/ps4/daioujou.exe')
+        self.assertEqual(game['runtimeFiles'],['runtime/ps4/daioujou.exe',
+            'runtime/ps4/KetsuiGpuRuntime.dll','runtime/games/daioujou/runtime-manifest.ini'])
 
     def test_futari_optional_packages_are_independent_metadata(self):
         game = catalogue.load(self.path)[0]

@@ -1,6 +1,6 @@
 # 开发入口
 
-v0.3 正在开发，发行版本仍为 v0.2。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口已验证语言切换、昵称草稿保留、保存及日文冷启动读回；PS4 窗口已核对日文名，360 还需重建。大往生当前为独立原生入口可玩基线，合集正常入口和社区适配仍待验收，catalogue 保持 Coming Soon、integrated=false、communitySupported=false。
+v0.3 正在开发，发行版本仍为 v0.2。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口已验证语言切换、昵称草稿保留、保存及日文冷启动读回；PS4 窗口已核对日文名，360 还需实机核对。大往生已有独立玩家进关、保存及真实原生 loopback 成绩／录像闭环。正式服务更新至 171d8a5 后，catalogue 已接入开发候选的正常启动和联网入口，使用 runtime/ps4/daioujou.exe 与独立证书；待配套重建后验收正常入口及正式 HTTPS，不将开关或自造测试当作验收通过。下文保留较早分步定位记录，当前范围以本段和验收矩阵前部为准。
 
 大往生输入为 CUSA32997／01.04，完整目录 `.local/inputs/daioujou-20261020-r2`，原 ZIP 与全部 61 项 CRC／哈希已核验；r1 为失败提取，不可使用。`games/daioujou/data.json` 记录 60 项运行资源，不含 Project.gp4。共享准备入口 `--prepare-game --game daioujou --root <合集> --data-dir <完整目录>` 校验全部资源并准备六程序，首次生成及缓存命中已通过；不套用绊地狱资源补丁。Build／Test 可选 daioujou，运行整理为两款生成各自的宿主别名和证书，共用 GPU。
 
@@ -58,7 +58,7 @@ e85f288 的头部诊断已重建，旧绊地狱原生 ABI／真实 HTTP 定向�
 | common/data_import.* | 显式复制数据的版本检查、独立暂存、取消、全量校验与最终启用 |
 | backends/ps4/、third_party/ps4/ | PS4 独立运行时及提取的开源图形组件；不并入 360 SDK |
 | launcher/ | Win32／Direct2D 原生启动器、嵌入式宣传素材与来源清单 |
-| games/catalogue.json | 六款游戏的顺序、显示名、后端、接入状态与运行组件要求；SDOJ 已接入，大往生和 ESP Ra.De. 为 Coming Soon |
+| games/catalogue.json | 六款游戏的顺序、显示名、后端、接入状态与运行组件要求；大往生已接入开发候选，ESP Ra.De. 保持 Coming Soon |
 | games/espgaluda2/data.json | G2 的 155 项路径／大小／SHA-256 元数据，无游戏正文 |
 | scripts/generate_catalogue.py | 校验元数据并生成构建目录内的原生清单头文件 |
 | config/default.ini | 共用配置模板；不含游戏级显示或输入覆盖 |
@@ -89,7 +89,7 @@ py -3.12 scripts/project.py audit
 
 ### 本地出包入口
 
-Release.ps1 默认 v0.3，固定包含 futari、espgaluda2、ketsui、sdoj、daioujou；联合 360 收据仍要求 espgaluda2／futari／sdoj，两款 PS4 别名来自同一认证宿主和 GPU。当前大往生尚未开放正常入口和联网，打包预检会停止且不创建输出目录，不要修改能力开关以绕过验收。实际验收完成、最终提交后，使用 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui,daioujou -Jobs 2` 配套构建，再分别执行 `Release.ps1 -Flavor Internal -Version 0.3` 和 `Release.ps1 -Flavor Public -Version 0.3`。SDOJ／大往生只复制清单中的 114／60 个资源，不递归带入 ISO、工具、音乐补丁或 Project.gp4。包生成后须实际解压并执行下面的 verify。旧 v0.1／v0.2 仍按三款／四款版本档校验，冻结文件不重打。
+Release.ps1 默认 v0.3，固定包含 futari、espgaluda2、ketsui、sdoj、daioujou；联合 360 收据仍要求 espgaluda2／futari／sdoj，两款 PS4 别名来自同一认证宿主和 GPU。当前大往生候选入口等待正式 HTTPS 与正常合集回归；不能以 catalogue 或打包预检通过代替实际验收，尚不生成或上传正式包。实际验收完成、最终提交后，使用 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui,daioujou -Jobs 2` 配套构建，再分别执行 `Release.ps1 -Flavor Internal -Version 0.3` 和 `Release.ps1 -Flavor Public -Version 0.3`。SDOJ／大往生只复制清单中的 114／60 个资源，不递归带入 ISO、工具、音乐补丁或 Project.gp4。包生成后须实际解压并执行下面的 verify。旧 v0.1／v0.2 仍按三款／四款版本档校验，冻结文件不重打。
 
 Internal／Public 使用同一 release_package.py，要求工作树干净，SDK、联合 360、PS4、启动器收据配套，所选版本的全部玩家组件属于当前提交且 runtime 证书与产物哈希相符。后续修改源码／文档会使宿主收据失效，应在最终提交后再构建；打包、上传和实际游玩验收分别记录。
 

@@ -71,8 +71,11 @@ bool CollectionConfigurationSelfTest() {
         "[game.ketsui.keyboard]\nunknown=invalid\n"),"daioujou");
     check(daioujou.game=="daioujou" && !daioujou.shared.fullscreen &&
         daioujou.display.title==L"CAVE PC Collection — 怒首領蜂大往生 臨廻転生", "ps4_title_configuration_isolated");
-    check(daioujou.shared.community_enabled && !daioujou.community_supported && !daioujou.community.enabled &&
-        daioujou.community.endpoint=="https://xiaolu.life/cave/api/v1/games/daioujou","unimplemented_title_online_capability_stays_disabled");
+    check(daioujou.shared.community_enabled && daioujou.community_supported && daioujou.community.enabled &&
+        daioujou.community.endpoint=="https://xiaolu.life/cave/api/v1/games/daioujou","daioujou_uses_own_configured_community_service");
+    const auto daioujou_offline=ResolveCollectionConfiguration(Ini::Parse("[community]\nenabled=false\n"),"daioujou");
+    check(daioujou_offline.community_supported && !daioujou_offline.community.enabled,
+        "daioujou_offline_preference_does_not_create_provider");
     check(defaults.keyboard['Z']==0x4000 && defaults.keyboard['X']==0x2000 && defaults.keyboard['C']==0x8000 &&
         defaults.keyboard['V']==0x1000 && defaults.keyboard[13]==8 && defaults.keyboard[8]==0x100000,
         "common_positions_map_to_ps4_face_options_touchpad");

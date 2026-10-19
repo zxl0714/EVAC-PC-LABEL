@@ -34,7 +34,7 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 ## 大往生开发适配
 
-`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。服务已独立部署，客户端能力仍关闭，游戏内流程尚待验收。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。
+`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。代表性的真实原生 loopback 成绩／录像上传、读榜、下载保存及离线冷回放已通过，开发候选接入正常合集入口；正式 HTTPS 游戏内流程仍待验收。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。
 
 构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，分两款协议运行共四项检查：直接 Windows HTTP 客户端的成绩／读榜，以及原生 NpScore ABI → 客户端 → HTTP → 服务的成绩、个人榜和录像收发。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
 
@@ -97,7 +97,7 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 ### 增量部署大往生
 
-当前服务版本为 b9a8f4f，`daioujou-current` 指向 `/opt/cave-community/releases/b9a8f4f`，18088 仅监听 loopback。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer；数据库及备份均在 `/var/lib/cave-community/daioujou/`，只由低权限服务用户写入。nginx 只新增本作路由，旧四款 upstream、PID、G2／SDOJ 版本指针保持不变。
+当前服务版本为 171d8a5，`daioujou-current` 指向 `/opt/cave-community/releases/171d8a5`，18088 仅监听 loopback。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer；数据库及备份均在 `/var/lib/cave-community/daioujou/`，只由低权限服务用户写入。更新前已另存一致性快照，旧 b9a8f4f 目录保留；本次未修改 nginx，旧四款 upstream、PID、G2／SDOJ 版本指针保持不变。
 
 部署前通过目标 Python 3.10.12 的 15 项 profile／备份／部署测试及三个 systemd 单元校验；部署后五款合集与两条旧入口的 HTTPS 健康检查通过，未知游戏返回 404。本作 49 个榜单已可读，初始为空，没有提交 fixture 分数。服务和每日备份 timer 已启用，首次快照的 Title ID、application_id 与完整性已核对；实际游戏联网仍待验收。以下为首次部署步骤与更新边界。
 
