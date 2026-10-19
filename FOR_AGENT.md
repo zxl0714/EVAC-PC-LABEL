@@ -1,6 +1,6 @@
 # 开发入口
 
-开发分支当前已开放 SDOJ 的正常合集启动与共享社区配置。四主模式进关、保存、本机原生联网／冷回放，以及正常 GUI 启动后的正式 HTTPS 成绩、读榜、录像收发保存已有实际证据；商店、全屏、旧三款定向回归及 v0.2 发行验收继续。后文的 integrated=false／communitySupported=false 和正式联网未验收描述保留各接线阶段的历史状态，当前状态以本段、games/catalogue.json 和验收矩阵前部为准。启动器默认高度现按游戏数量、当前窗口 DPI 和显示器工作区计算，六卡正常显示，小屏保留滚动；窗口尺寸的机制测试与实际布局检查不替代游玩测试。
+当前四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。当前收尾工作为同提交四游戏发行包与对应源码附件验收。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。
 
@@ -16,7 +16,7 @@
 | common/data_import.* | 显式复制数据的版本检查、独立暂存、取消、全量校验与最终启用 |
 | backends/ps4/、third_party/ps4/ | PS4 独立运行时及提取的开源图形组件；不并入 360 SDK |
 | launcher/ | Win32／Direct2D 原生启动器、嵌入式宣传素材与来源清单 |
-| games/catalogue.json | 六款游戏的顺序、显示名、后端、接入状态与运行组件要求；SDOJ 当前尚未通过可玩验收 |
+| games/catalogue.json | 六款游戏的顺序、显示名、后端、接入状态与运行组件要求；SDOJ 已接入，大往生和 ESP Ra.De. 为 Coming Soon |
 | games/espgaluda2/data.json | G2 的 155 项路径／大小／SHA-256 元数据，无游戏正文 |
 | scripts/generate_catalogue.py | 校验元数据并生成构建目录内的原生清单头文件 |
 | config/default.ini | 共用配置模板；不含游戏级显示或输入覆盖 |
@@ -30,7 +30,7 @@
 
 需要 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。当前公共库不依赖 ReXGlue 或游戏数据。
 
-源码编译使用较短的英文路径，例如 `E:/CaveDev/CAVE-PC-Collection/source`。固定 CMake 4.2.3 在中文源码路径的编译器隐式链接信息解析中会异常退出；内部开发包先整体解压到英文路径即可构建。玩家运行和外部游戏数据仍支持中文路径。v0.1 后正在验证共用 LLVM 23.1.3，CMake 中文源码路径限制尚未因此宣称修复。
+源码编译使用较短的英文路径，例如 `E:/CaveDev/CAVE-PC-Collection/source`。固定 CMake 4.2.3 在中文源码路径的编译器隐式链接信息解析中会异常退出；内部开发包先整体解压到英文路径即可构建。玩家运行和外部游戏数据仍支持中文路径。当前已统一 LLVM 23.1.3，CMake 中文源码路径限制仍保留。
 
 ```powershell
 ./scripts/Prepare-Tools.ps1
@@ -47,9 +47,9 @@ py -3.12 scripts/project.py audit
 
 ### 本地出包入口
 
-开发分支当前默认 v0.2：Release.ps1 的四款集合为 futari、espgaluda2、ketsui、sdoj，联合 360 收据要求 espgaluda2／futari／sdoj。SDOJ 仍未完成可玩验收，因此当前不允许正式出包；不要临时移除它绕过门槛。最终提交后执行 Build.ps1 -Games espgaluda2,futari,sdoj,ketsui -Jobs 2，再分别 Release.ps1 -Flavor Internal／Public -Version 0.2。旧 v0.1 仍以三款版本档校验，下文保留已交付版本的具体过程。SDOJ 从受支持的清单只复制 114 个资源，不递归带入旧下载目录里的 ISO、音乐补丁或工具。
+Release.ps1 默认 v0.2，固定包含 futari、espgaluda2、ketsui、sdoj；联合 360 收据要求 espgaluda2／futari／sdoj。最终提交后执行 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui -Jobs 2`，再分别执行 `Release.ps1 -Flavor Internal -Version 0.2` 和 `Release.ps1 -Flavor Public -Version 0.2`。SDOJ 只复制受支持清单中的 114 个资源，不递归带入 ISO、音乐补丁或工具。包生成后须实际解压并执行下面的 verify；只含 SDOJ 数据时也应能启动。旧 v0.1 仍按三款版本档校验，冻结文件不重打。
 
-Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全部源码，再在该提交执行 `Build.ps1 -Games espgaluda2,futari,ketsui -Jobs 2`，保留并校验 SDK、联合 360、PS4 和启动器的收据。出包要求工作树干净，三个玩家组件收据属于当前提交，且实际 runtime 证书与产物哈希匹配；过时构建会拒绝出包。后续修改源码／文档会使联合宿主收据失效，应在最终提交后再构建。
+Internal／Public 使用同一 release_package.py，要求工作树干净，SDK、联合 360、PS4、启动器收据配套，四款玩家组件属于当前提交且 runtime 证书与产物哈希相符。后续修改源码／文档会使宿主收据失效，应在最终提交后再构建；打包、上传和实际游玩验收分别记录。
 
 `Release.ps1 -Flavor Internal -Version 0.1` 完整复制三款数据和虫姬二两份 DLC、程序、符号及独立 source/.git；可显式用 DataDirectories 与 FutariDlcDirectory 指定输入。源码 Git 不借用作者 objects，origin 为合集 SSH 地址。`-Flavor Public` 不接受数据包含参数，按运行文件白名单单独组装，不复制数据树、源代码、PDB 或用户现场。两者使用默认 INI、玩家说明、许可证及原生 app-local CRT；仅创建 releases/ 下的新目录，不覆盖旧包。
 
