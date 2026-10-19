@@ -1,0 +1,203 @@
+CAVE PC Collection PS4 component layout
+======================================
+
+This notice retains the component origins, revisions and licenses from the
+maintained Ketsui source baseline. Local source paths below use that baseline's
+names: src/ now lives in backends/ps4/, and third_party/gcn, third_party/gpu_core
+and LICENSES live below third_party/ps4/. Build dependencies are pinned in
+tools/ps4-source.lock.json and restored by scripts/ps4_sources.py to .deps/ps4/.
+The standalone launcher and its packaging scripts are not part of this import.
+
+Vulkan-Headers
+==============
+
+Source: https://github.com/KhronosGroup/Vulkan-Headers
+Revision: ee3b5caaa7e372715873c7b9c390ee1c3ca5db25
+Used for Vulkan API declarations, under the MIT license option.
+The dependency checkout retains its original notices and license files.
+No Vulkan loader binary is bundled. The program loads the Windows system
+vulkan-1.dll and the installed graphics driver at runtime.
+
+MIT License
+
+Copyright (c) 2015-2023 The Khronos Group Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+LLVM compiler-rt builtins
+=========================
+
+Source: https://github.com/llvm/llvm-project/tree/main/compiler-rt
+License: Apache-2.0 WITH LLVM-exception
+License text: https://github.com/llvm/llvm-project/blob/main/compiler-rt/LICENSE.TXT
+The clang-cl toolchain supplies the statically linked x64 builtins used for
+128-bit integer division in rational clock arithmetic. The exact runtime
+library path and SHA-256 are recorded in build.json alongside the compiler.
+
+shadPS4 base-machine hardware initialization data
+===============================================
+
+Source: https://github.com/shadps4-emu/shadPS4
+Revision: 529ceb32f5546b820588f194b903cc39d08015fe
+Original: src/core/libraries/gnmdriver/gnmdriver_init.h, InitSequence350
+Local: src/graphics/ps4_init_350.h
+Copyright 2025 shadPS4 Emulator Project
+License: GPL-2.0-or-later; full text in LICENSES/GPL-2.0-or-later.txt.
+The local file retains only the base-machine 350 initialization data, without
+the reference's synthetic clear-state preamble. No emulator core, loader,
+kernel, application framework, or complete renderer is compiled from that project.
+
+Isolated GCN shader compiler
+===========================
+
+Source: https://github.com/shadps4-emu/shadPS4
+Revision: 529ceb32f5546b820588f194b903cc39d08015fe
+Local: third_party/gcn
+License: GPL-2.0-or-later; full text in LICENSES/GPL-2.0-or-later.txt.
+Original file notices and the source-file SHA-256 inventory are retained.
+This includes work attributed in the source to the shadPS4, yuzu, Dolphin,
+and Citra projects. Local host adapters replace emulator configuration,
+filesystem dumps, signal handlers and generated SRT traversal code. Only the
+shader compiler and selected AMD register/format definitions are built.
+
+Shader compiler dependencies
+============================
+
+Exact commits and repository URLs: third_party/gcn/dependencies.json.
+The following full licenses are retained for source and binary packaging:
+
+fmt: MIT, LICENSES/fmt-LICENSE.txt
+magic_enum: MIT, LICENSES/magic_enum-LICENSE.txt
+Boost: Boost Software License 1.0, LICENSES/Boost-LICENSE.txt
+Sirit: BSD-3-Clause, LICENSES/Sirit-LICENSE.txt
+SPIRV-Headers: original license collection, LICENSES/SPIRV-Headers-LICENSE.txt
+SPIRV-Tools-Headers: original license collection, LICENSES/SPIRV-Tools-Headers-LICENSE.txt
+SPIRV-Tools: Apache-2.0, LICENSES/SPIRV-Tools-LICENSE.txt
+
+Dependency checkouts preserve their original file-level notices. These
+libraries are statically linked or used as headers; no emulator binary or
+commercial shader program is shipped in the source tree.
+
+Independent GPU-core integration target
+======================================
+
+Source: https://github.com/shadps4-emu/shadPS4
+Revision: 529ceb32f5546b820588f194b903cc39d08015fe
+Local: third_party/gpu_core/upstream
+License: GPL-2.0-or-later; full text in LICENSES/GPL-2.0-or-later.txt.
+Original file notices and SHA-256 inventory: third_party/gpu_core/upstream-files.json.
+The separate experimental build extracts Vulkan device setup, command pools,
+timeline semaphores, scheduling, buffers, staging pools, image resources,
+transfer synchronization, blit helpers, full buffer/texture caches, page watch
+accounting and AMD format conversion. A configured host-memory interface supplies
+backing reads/writes, protection, protected accesses and GPU-thread dispatch;
+the upstream emulator memory manager, signal dispatcher and CPU core are not built.
+The passive GPU-memory statistics header is retained; no UI implementation is built.
+Host adapters supply
+logging, thread names, explicit GPU settings, paths and a non-owning window
+descriptor. No upstream SDL, GUI, kernel, loader or emulator application target
+is compiled. The upstream Vulkan application name remains unchanged in this
+first integration target. This is not yet the game's active renderer.
+
+The separate KetsuiGpuRecompiler target also builds the complete upstream GCN
+frontend, IR passes and SPIR-V backend with Sirit. Descriptor dependency analysis
+is retained, while generated x86 SRT walkers and emulator signal-time repair are
+replaced by a bounded portable traversal plan and coherent host metadata reads.
+Optional shader diagnostics use the selected upstream IOFile implementation with
+Windows SDK APIs. KetsuiGpuRenderer builds the graphics/compute pipelines and
+rasterizer. KetsuiGpuRuntime.dll keeps their Shader/Vulkan types private behind
+a versioned SDK, using the host's existing memory allocator through callbacks.
+The adapted register-state facade is not the upstream command processor.
+Unconfigured disk-cache/debug-patching entry points and title-specific shader
+HLE are omitted; normal shader compilation and resource binding are retained.
+The host presenter uses the resident texture cache, the existing GPL fullscreen
+triangle shader and a project-maintained sampling shader. Win32 surfaces use
+maintenance1 present fences; no upstream GUI or application presenter is linked.
+The renderer test uses authored GCN, native shared backing, actual pixel readback,
+linear/tiled presentation, and late window binding. This does not switch the
+game's default backend or claim player-scene performance.
+
+Additional exact dependency commits: third_party/gpu_core/dependencies.json.
+VulkanMemoryAllocator: MIT, LICENSES/VMA-LICENSE.txt.
+robin-map: MIT, LICENSES/robin-map-LICENSE.txt.
+Tracy headers (profiling disabled): BSD-3-Clause, LICENSES/Tracy-LICENSE.txt.
+half: MIT, LICENSES/half-LICENSE.txt.
+glslang (build-time compiler for the open-source host shaders): bundled license
+collection in LICENSES/glslang-LICENSE.txt. Host GLSL sources are included in
+upstream-files.json; generated SPIR-V headers stay in out/gpu-core.
+Abseil: Apache-2.0, LICENSES/Abseil-LICENSE.txt.
+xxHash: BSD-2-Clause, LICENSES/xxHash-LICENSE.txt.
+The fixed Vulkan-Headers, fmt, Boost and magic_enum dependencies above are
+shared. Dependency checkouts retain their original notices and licenses.
+
+HEVAG predictor coefficients
+===========================
+
+Source: https://github.com/vgmstream/vgmstream
+Commit: db77f98f405a45ad08df98aa444cae3848f95e6c
+File: src/coding/psv_decoder.c (128-entry coefficient table)
+Local location: src/audio/hevag_coefficients.h
+License: ISC-style permission notice, LICENSES/LicenseRef-vgmstream.txt.
+The bounded decoder, file profile and tests are maintained in this project;
+vgmstream's file framework, player and stream objects are not linked.
+
+SDL input
+=========
+
+Source: https://github.com/libsdl-org/SDL
+Version: 3.4.18
+Commit: 829a65d769d935c4852f8159e964312c0957260a
+License: zlib, LICENSES/SDL-LICENSE.txt.
+Restored as a pinned source dependency by Prepare-NativeDeps.ps1 and linked
+statically into the native host. Only gamepad/joystick/event support is used;
+SDL video, audio, renderer and GPU subsystems are disabled. Our Win32 window,
+keyboard messages, Vulkan backend and WASAPI implementation remain separate.
+
+ATRAC9 decoder
+==============
+
+Source: https://github.com/shadps4-emu/ext-LibAtrac9
+Upstream: https://github.com/Thealexbarney/LibAtrac9
+Commit: 946e05a9212976626a9f5e52f29c0a7202871f29
+License: MIT, LICENSES/LibAtrac9-MIT.txt.
+Pinned C decoder sources are linked statically; this revision includes bounded
+bitstream reads. Our RIFF parser, NGS2 adapter, budgets and tests are separate.
+No commercial waveform files are part of the source repository.
+
+Community JSON
+==============
+
+Source: https://github.com/nlohmann/json
+Version: 3.12.0
+Commit: 55f93686c01528224f448c19128836e7df245f72
+License: MIT, LICENSES/nlohmann-json-MIT.txt.
+The pinned single header is used for bounded community protocol parsing and
+serialization. It is restored as source; no separate JSON DLL is required.
+
+Community replay envelope codec
+===============================
+
+Source: https://github.com/madler/zlib
+Version: 1.3.2
+Commit: da607da739fa6047df13e66a2af6b8bec7c2a498
+License: zlib, LICENSES/zlib-LICENSE.txt.
+The pinned memory-only inflate and deflate sources are linked statically,
+with prefixed symbols. No gzip file API, tool, or extra DLL is included.
+Envelope bounds, record inspection, round-journal integration, file entry
+points and authored fixtures are project code.

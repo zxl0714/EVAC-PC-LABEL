@@ -1,0 +1,9 @@
+[
+  {"name":"fmt","revision":"ec73fb72477d80926c758894a3ab2cb3994fd051","url":"https://github.com/shadps4-emu/ext-fmt.git"},
+  {"name":"magic_enum","revision":"a413fcc9c46a020a746907136a384c227f3cd095","url":"https://github.com/Neargye/magic_enum.git"},
+  {"name":"ext-boost","revision":"ca6f230e67be7cc45fc919057f07b2aee64dadc1","url":"https://github.com/shadps4-emu/ext-boost.git"},
+  {"name":"sirit","revision":"fc2b42d5e57ee2f638676c0c02f7fd71934b596a","url":"https://github.com/shadps4-emu/sirit.git"},
+  {"name":"SPIRV-Headers","revision":"2acb319af38d43be3ea76bfabf3998e5281d8d12","url":"https://github.com/KhronosGroup/SPIRV-Headers.git"},
+  {"name":"SPIRV-Tools","revision":"71f287f18ed78d496e724fbfb1c3feae3a2af75a","url":"https://github.com/KhronosGroup/SPIRV-Tools.git"},
+  {"name":"SPIRV-Tools-Headers","revision":"86f980c731e62ae4eaf383d320449d71687936bf","url":"https://github.com/KhronosGroup/SPIRV-Headers.git"}
+]

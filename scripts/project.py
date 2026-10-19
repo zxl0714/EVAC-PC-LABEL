@@ -11,7 +11,8 @@ LOCAL = {'.local', '.deps', 'game-data', 'prepared', 'generated', 'runtime', 'ou
          'build', 'releases', 'reports', 'logs', 'cache', 'source'}
 TEXT = {'.py', '.ps1', '.md', '.txt', '.json', '.ini', '.cpp', '.h', '.hpp', '.c',
         '.cmake', '.toml', '.in', '.manifest', '.yml', '.yaml', '.bat', '.gitignore',
-        '.s', '.inc', '.inja', '.glsl', '.hlsl', '.psm1', '.psd1', '.html', '.rc'}
+        '.s', '.inc', '.inja', '.glsl', '.hlsl', '.vert', '.frag', '.comp',
+        '.psm1', '.psd1', '.html', '.rc'}
 SECRET = re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|'
                     rb'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}')
 

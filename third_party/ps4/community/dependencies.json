@@ -1,0 +1,4 @@
+[
+  {"name":"nlohmann-json","revision":"55f93686c01528224f448c19128836e7df245f72","url":"https://github.com/nlohmann/json.git"},
+  {"name":"zlib","revision":"da607da739fa6047df13e66a2af6b8bec7c2a498","url":"https://github.com/madler/zlib.git"}
+]

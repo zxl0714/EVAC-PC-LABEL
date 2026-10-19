@@ -1,0 +1,9 @@
+[
+  {"name":"robin-map","revision":"4ec1bf19c6a96125ea22062f38c2cf5b958e448e","url":"https://github.com/Tessil/robin-map.git"},
+  {"name":"tracy","revision":"143a53d1985b8e52a7590a0daca30a0a7c653b42","url":"https://github.com/shadps4-emu/tracy.git"},
+  {"name":"vma","revision":"f378e7b3f18f6e2b06b957f6ba7b1c7207d2a536","url":"https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"},
+  {"name":"half","revision":"1ddada225144cac0de8f6b5c0dd9acffd99a2e68","url":"https://github.com/ROCm/half.git"},
+  {"name":"glslang","revision":"ba1640446f3826a518721d1f083f3a8cca1120c3","url":"https://github.com/KhronosGroup/glslang.git"},
+  {"name":"abseil-cpp","revision":"76bb24329e8bf5f39704eb10d21b9a80befa7c81","url":"https://github.com/abseil/abseil-cpp.git"},
+  {"name":"xxhash","revision":"953a09abc39096da9e216b6eb0002c681cdc1199","url":"https://github.com/Cyan4973/xxHash.git"}
+]

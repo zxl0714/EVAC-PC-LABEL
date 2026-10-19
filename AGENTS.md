@@ -71,3 +71,8 @@ audio evidence. Never mark a whole stage passed from a narrower smoke test.
 The user has deferred further repeated-entry gameplay tests. Keep the existing
 Black Label result, mark the other repetitions deferred (not passed), and do not
 make them a prerequisite for the current migration work.
+P5 has imported the pinned Ketsui runtime source and isolated dependencies.
+Continue with the collection-local PS4 build, shared INI and launch contract;
+keep integrated=false until actual launch/gameplay verification. P4's remaining
+formal-network, audio and physical-input checks remain open, not implicitly
+passed because PS4 build preparation has started.

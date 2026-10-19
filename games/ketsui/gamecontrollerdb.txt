@@ -1,0 +1,4 @@
+# Optional SDL 3 gamepad mappings, one GUID,name,mapping line per device.
+# Most controllers, including Victrix Pro FS, use SDL's built-in mapping.
+# Add only mappings you need; save UTF-8 and restart the game.
+# Format: https://wiki.libsdl.org/SDL3/SDL_AddGamepadMapping

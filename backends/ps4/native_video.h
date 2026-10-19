@@ -1,0 +1,44 @@
+#pragma once
+#include <cstdint>
+#include <string_view>
+#include <memory>
+#include <atomic>
+#include <functional>
+#include <span>
+#include "graphics/display_layout.h"
+namespace kt::gfx { class VulkanDevice; }
+class NativeResidentGpu;
+
+struct NativeVideoGpuContext {
+    kt::gfx::VulkanDevice* device;
+    const kt::gfx::DisplayLayout& layout;
+    std::span<std::uint8_t> backing;
+    std::uint64_t address;
+    std::span<std::atomic<std::uint64_t>> labels;
+    NativeResidentGpu* resident{};
+    NativeVideoGpuContext(kt::gfx::VulkanDevice& gpu, const kt::gfx::DisplayLayout& display,
+        std::span<std::uint8_t> bytes, std::uint64_t base, std::span<std::atomic<std::uint64_t>> live_labels)
+        : device(&gpu), layout(display), backing(bytes), address(base), labels(live_labels) {}
+    NativeVideoGpuContext(kt::gfx::VulkanDevice* gpu, const kt::gfx::DisplayLayout& display,
+        std::span<std::uint8_t> bytes, std::uint64_t base, std::span<std::atomic<std::uint64_t>> live_labels, NativeResidentGpu* runtime)
+        : device(gpu), layout(display), backing(bytes), address(base), labels(live_labels), resident(runtime) {}
+};
+// Holds the port lock and registered-memory pins across synchronous GPU work.
+// Closing/unregistering the output cannot invalidate the callback's resources.
+// Cancellation is not a completed frame and is not an invalid port/backend.
+enum class NativeVideoResult { Completed, CloseRequested, Unavailable };
+NativeVideoResult WithNativeVideoGpu(int handle, unsigned buffer, const std::function<void(NativeVideoGpuContext&)>& execute);
+NativeVideoResult PresentNativeVideoGpu(int handle, unsigned buffer, unsigned mode, std::int64_t argument);
+// Retire presentation after the GNM submission scope has returned. This is an
+// idempotent process-closing barrier, not guest-thread or GPU-context teardown.
+bool CompleteNativePresentationShutdown(int handle);
+
+struct NativeVideoLabelReference { std::uint64_t address{}; std::shared_ptr<void> owner; };
+// The lease only pins memory during command construction. Submission must
+// validate the live port again before executing any label wait/write.
+NativeVideoLabelReference AcquireNativeVideoBufferLabel(int handle, unsigned index);
+
+std::uint64_t ResolveVideoImport(std::string_view identifier, std::string_view library, std::string_view module);
+bool VideoSelfTest();
+bool GraphicsSelfTest(bool interactive = false);
+int VideoDemo();

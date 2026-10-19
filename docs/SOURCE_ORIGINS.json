@@ -63,6 +63,22 @@
         "tests/test_live_native.py"
       ],
       "scope": "Pinned Futari compatibility, audio scheduling and tracing, native community/outbox/replay source, generator declarations and regressions, reorganized under games/futari and tests/futari. 39 initial files were verified against committed Git blobs before copying; GUI settings, old host, SDK duplicates and game bodies are excluded. Resident callback declarations are split into default-functions.toml without changing addresses. HTTP transport and nickname validation now use common/community; native transfer faults run only against a disposable loopback server. Server source is preserved under server/games/futari.py; deployment is not changed by this import."
+    },
+    {
+      "repository": "https://github.com/zxl0714/Ketsui-PC",
+      "commit": "9501378a609d39f20e1d72d41664986ceb167f99",
+      "sources": [
+        "src (excluding launcher)",
+        "CMakeLists.txt",
+        "third_party/{gcn,gpu_core,audio,community,input}",
+        "LICENSES",
+        "THIRD_PARTY_NOTICES.txt",
+        "config/gamecontrollerdb.txt",
+        "scripts/{native_elf.py,prepare-native.py,inspect-native-bindings.py,analyze-native-timing.py,game_fixes.py,prepare-game-fixes.py}",
+        "tests/test_*.py (selected runtime and analysis regressions)",
+        "server/ketsui_live.py"
+      ],
+      "scope": "635 ordinary text maintenance files (7,105,443 bytes) checked against committed Git blobs before import. Runtime source is under backends/ps4, open-source GPU components and licenses under third_party/ps4, reusable analysis under scripts/ps4, and title read overlays under scripts/ketsui. The old launcher, build/release scripts, installed tools, binary test media, game data and prepared images are excluded. Native build and launch integration are not yet complete. Three adapted Python suites provide 56 ROM-free checks; other imported native/device suites remain pending adaptation. tools/ps4-source.lock.json pins 19 upstream dependencies; restoration uses independent .deps/ps4 checkouts. No service deployment occurs during source import."
     }
   ]
 }

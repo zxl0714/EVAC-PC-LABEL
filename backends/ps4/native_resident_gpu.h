@@ -1,0 +1,27 @@
+#pragma once
+#include "graphics/display_layout.h"
+#include <cstdint>
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <span>
+namespace kt::gfx { enum class PresentStatus; }
+
+class NativeResidentGpu {
+    struct Impl;
+    std::unique_ptr<Impl> impl;
+public:
+    explicit NativeResidentGpu(const std::filesystem::path& library);
+    ~NativeResidentGpu();
+    NativeResidentGpu(const NativeResidentGpu&) = delete;
+    void Run(std::function<void()> operation);
+    void SetWindow(void* window);
+    void Drain();
+    void Clear();
+    void Registers(std::uint32_t offset, std::span<const std::uint32_t> words);
+    void Extent(unsigned target, unsigned width, unsigned height);
+    void Draw(unsigned vertices, unsigned instances);
+    kt::gfx::PresentStatus Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout);
+    bool Read(std::uint64_t address, void* output, std::uint64_t bytes);
+};
+NativeResidentGpu* CurrentNativeResidentGpu();

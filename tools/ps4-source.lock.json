@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "dependencies": [
+    {"name":"Vulkan-Headers","revision":"ee3b5caaa7e372715873c7b9c390ee1c3ca5db25","url":"https://github.com/KhronosGroup/Vulkan-Headers.git"},
+    {"name":"fmt","revision":"ec73fb72477d80926c758894a3ab2cb3994fd051","url":"https://github.com/shadps4-emu/ext-fmt.git"},
+    {"name":"magic_enum","revision":"a413fcc9c46a020a746907136a384c227f3cd095","url":"https://github.com/Neargye/magic_enum.git"},
+    {"name":"ext-boost","revision":"ca6f230e67be7cc45fc919057f07b2aee64dadc1","url":"https://github.com/shadps4-emu/ext-boost.git"},
+    {"name":"sirit","revision":"fc2b42d5e57ee2f638676c0c02f7fd71934b596a","url":"https://github.com/shadps4-emu/sirit.git"},
+    {"name":"SPIRV-Headers","revision":"2acb319af38d43be3ea76bfabf3998e5281d8d12","url":"https://github.com/KhronosGroup/SPIRV-Headers.git"},
+    {"name":"SPIRV-Tools","revision":"71f287f18ed78d496e724fbfb1c3feae3a2af75a","url":"https://github.com/KhronosGroup/SPIRV-Tools.git"},
+    {"name":"SPIRV-Tools-Headers","revision":"86f980c731e62ae4eaf383d320449d71687936bf","url":"https://github.com/KhronosGroup/SPIRV-Headers.git"},
+    {"name":"SDL","revision":"829a65d769d935c4852f8159e964312c0957260a","url":"https://github.com/libsdl-org/SDL.git"},
+    {"name":"LibAtrac9","revision":"946e05a9212976626a9f5e52f29c0a7202871f29","url":"https://github.com/shadps4-emu/ext-LibAtrac9.git"},
+    {"name":"nlohmann-json","revision":"55f93686c01528224f448c19128836e7df245f72","url":"https://github.com/nlohmann/json.git"},
+    {"name":"zlib","revision":"da607da739fa6047df13e66a2af6b8bec7c2a498","url":"https://github.com/madler/zlib.git"},
+    {"name":"robin-map","revision":"4ec1bf19c6a96125ea22062f38c2cf5b958e448e","url":"https://github.com/Tessil/robin-map.git"},
+    {"name":"tracy","revision":"143a53d1985b8e52a7590a0daca30a0a7c653b42","url":"https://github.com/shadps4-emu/tracy.git"},
+    {"name":"vma","revision":"f378e7b3f18f6e2b06b957f6ba7b1c7207d2a536","url":"https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"},
+    {"name":"half","revision":"1ddada225144cac0de8f6b5c0dd9acffd99a2e68","url":"https://github.com/ROCm/half.git"},
+    {"name":"glslang","revision":"ba1640446f3826a518721d1f083f3a8cca1120c3","url":"https://github.com/KhronosGroup/glslang.git"},
+    {"name":"abseil-cpp","revision":"76bb24329e8bf5f39704eb10d21b9a80befa7c81","url":"https://github.com/abseil/abseil-cpp.git"},
+    {"name":"xxhash","revision":"953a09abc39096da9e216b6eb0002c681cdc1199","url":"https://github.com/Cyan4973/xxHash.git"}
+  ]
+}

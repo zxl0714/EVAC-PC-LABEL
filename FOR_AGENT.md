@@ -1,8 +1,8 @@
 # 开发入口
 
-先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。当前 P4 已迁入虫姬二维护适配、生成声明及机制回归，完整宿主和八个模式 DLL 已编译，继续实际本体／DLC 游玩回归；绊地狱仍在其后。
+先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 已开始迁入绊地狱源码和独立 PS4 依赖，下一步接通新目录构建与合集合同。
 
-干净联合构建 756de6f 的 out/xbox360 有 45 对程序／PDB，148 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。该构建另在本机隔离服务完成游戏内成绩与录像上传、榜单读回和下载保存；网络录像冷启动播放、正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
+干净联合构建 6b47555 的 out/xbox360 有 45 对程序／PDB，153 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。本机隔离服务的真实成绩／录像上传、榜单读回及下载保存已通过；6b47555 的 run-20261019T013724950Z-76988 将下载槽 No.4 冷启动完整播放并自然返回，容器哈希不变、退出码 0。正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
 
 用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器的真实进关、本地保存和跨进程完整回放、共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。六种 PLAY 模式均已在合集选人进关并卸载返回。原 Python 专项检查已适配到合集，分析工具不再依赖旧工程。正式 HTTPS 服务已部署；游戏实际成绩上传、榜单读回、网络录像下载落盘及冷启动完整回放通过。实体输入、扩展覆盖及音画回归继续跟踪，不把短测写成整个 P3 通过。当前不打 v0.1 发布标签。
 
@@ -12,6 +12,7 @@
 | --- | --- |
 | common/ | 可由启动器与后端共用的 C++ 清单、UTF-8 INI、路径与只读数据检查 |
 | common/data_import.* | 显式复制数据的版本检查、独立暂存、取消、全量校验与最终启用 |
+| backends/ps4/、third_party/ps4/ | 正在接入的 PS4 独立运行时及提取的开源图形组件；不并入 360 SDK |
 | launcher/ | Win32／Direct2D 原生启动器、嵌入式宣传素材与来源清单 |
 | games/catalogue.json | 五款游戏的顺序、显示名、后端、接入状态与运行组件要求 |
 | games/espgaluda2/data.json | G2 的 155 项路径／大小／SHA-256 元数据，无游戏正文 |
@@ -56,13 +57,13 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 153 项 Python／CLI 回归，前述双游戏完整构建的 18 组 CTest 全部通过，包含独立 DLC 内容源回归。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 216 项 Python／CLI 回归，前述双游戏完整构建的 18 组 CTest 全部通过，包含独立 DLC 内容源回归。新增 PS4 的 56 项适配检查是源码／分析器回归，不代表宿主已编译或设备测试通过。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
 
 ### 虫姬二接入
 
 来源固定为 7dced597；game-data、旧宿主和图形设置向导没有迁入源码。games/futari 中 audio 保留作用域音频等待与只读追踪，compat 保留模式装卸载适配，community 保留原生协议、录像及待传逻辑，diagnostics 保留存储钩子与诊断，recomp 保存主程序和八个 overlay 的声明。`community_client.h` 仅适配公共 HTTP 类型；不要恢复另一份通信 worker。服务协议源码在 server/games/futari.py，不因源码迁入就重新部署旧服务。
 
-`scripts/futari/local_service.py` 为真实游戏提供独立 loopback 现场，方法见 docs/ANALYSIS.md。新社区 journal 绑定游戏和原端点，改昵称／build 后仍使用原请求正文；端点变更、其他游戏及没有 origin 的旧 journal 保留而不自动发送，不能通过补填当前 endpoint 猜测迁移。该保护不改变线上协议。日志分析的 guestAudio 与输出队列分开，保留追踪作用域、有效玩法探针及丢弃计数；本次只有 Black Label 死亡片段，没有道具拾取或扬声器发声时刻证据。
+`scripts/futari/local_service.py` 为真实游戏提供独立 loopback 现场，方法见 docs/ANALYSIS.md。新社区 journal 绑定游戏和原端点，改昵称／build 后仍使用原请求正文；端点变更、其他游戏及没有 origin 的旧 journal 保留而不自动发送，不能通过补填当前 endpoint 猜测迁移。该保护不改变线上协议。日志分析的 guestAudio 与输出队列分开，保留追踪作用域、有效玩法探针及丢弃计数；已有证据只有 Black Label 死亡片段，没有道具拾取或扬声器发声时刻证据。
 
 ```powershell
 ./scripts/Generate.ps1 -Game futari -DataDirectory '<受支持的数据目录>'
@@ -93,3 +94,16 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 “游戏数据…”中的复制操作只写默认 game-data/<id>，拒绝非空目标和输出目录联接。源目录根可以是可解析的别名，内部文件／子目录不能包含链接；复制完整目录（包括额外文件、零字节文件和空目录），逐文件核对内容并复核支持的版本。只有新暂存目录通过全部校验后才启用并更新 config.ini。取消或失败只清理本次随机命名暂存目录；已经验证但配置更新失败的数据保留，并明确报告。窗口关闭会等待复制取消清理，不杀掉后台线程。合集内选择写成相对路径，外部选择保持绝对路径。tests/test_data_import.py 用真实 Windows junction 和自造 main.bin 数据检验边界，不要求 ROM。
 
 启动器先完成五款横幅的视觉方案与自审，不等待用户评审。合集运行与双游戏 SDK、PS4 后端的接入顺序仍按计划推进；首版为三款可玩作品与两款 Coming Soon。最后按同一次已验证构建输出 Internal／Public 两种包，范围与发布门槛见实施计划；出包不自动上传。
+
+### 绊地狱接入
+
+固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。旧 launcher 和发行脚本不迁入，清单仍为 integrated=false。当前 PS4 CMake 是待适配的维护基线，尚未接通目录与专用 clang-cl 工具，不直接使用旧目录编译来冒充合集独立构建。
+
+```powershell
+py -3.12 scripts/ps4_sources.py restore
+py -3.12 scripts/ps4_sources.py verify
+py -3.12 -m unittest discover -s tests -p test_ketsui_python.py -v
+py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' --output .local/analysis/ketsui-timing.json
+```
+
+19 个依赖从上游恢复到 .deps/ps4；可选缓存用法见 tools/README.md，不读取原工程作为默认依赖。三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入公共 Source 检查；其余 tests/ketsui 文件尚待原生目标与设备路径适配，不能直接对该目录运行全套并把缺少 EXE 的跳过当成通过。二进制自制媒体 fixture 尚未导入；迁移媒体回归时单独恢复并给出精确来源／哈希，不放宽全仓库二进制审计。

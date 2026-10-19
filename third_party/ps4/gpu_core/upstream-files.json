@@ -1,0 +1,1096 @@
+{
+  "format": 1,
+  "url": "https://github.com/shadps4-emu/shadPS4",
+  "revision": "529ceb32f5546b820588f194b903cc39d08015fe",
+  "files": [
+    {
+      "path": "src/common/adaptive_mutex.h",
+      "sha256": "7be574a8250af109f9066c51e0ed834ac54167188ce09c77434d55e3ed82226c"
+    },
+    {
+      "path": "src/common/alignment.h",
+      "sha256": "22db9eb1bd224f9e2d86e5622e7b24b5bbae3336824700898de0c86ba0d91b41"
+    },
+    {
+      "path": "src/common/assert.h",
+      "sha256": "666bf323bea2f70aac7f81dbb3fe92d55775df4b5f7b795fd73cc869aa506ce1"
+    },
+    {
+      "path": "src/common/bit_field.h",
+      "sha256": "133164b935fcbc0698b8607a0bc9e493cd46b0372c6ece630b2add450c62a503"
+    },
+    {
+      "path": "src/common/debug.h",
+      "sha256": "c61261a1df5831068b16cc284156c861e46558df6b133b703af573c27a2f9d83"
+    },
+    {
+      "path": "src/common/div_ceil.h",
+      "sha256": "0eca366a6137cb1192a37afee10c409ab3e75af103bb8c5c301482da21ee130b"
+    },
+    {
+      "path": "src/common/enum.h",
+      "sha256": "e89e3938e08c784a750797d36b4f53a81810a353fc9b4d04f92720a5ed248168"
+    },
+    {
+      "path": "src/common/error.h",
+      "sha256": "df69dd7376debee634361ca7fbec6a8af89abe946bc4b48848b3b3ea3e89485c"
+    },
+    {
+      "path": "src/common/hash.h",
+      "sha256": "2224707221bb00fc510c8a3559e6a3d3de0c6b4544a1699cda3f678039418f37"
+    },
+    {
+      "path": "src/common/incremental_id.h",
+      "sha256": "9e6f4eb82700ed0292825c43ab021ac9de580e48d69039d3f86ced1e053ec1e3"
+    },
+    {
+      "path": "src/common/interval_set.h",
+      "sha256": "e708911fe25cb72cd0d359840bf3ca196ca095301b50050c484b5326f93ac4a8"
+    },
+    {
+      "path": "src/common/logging/classes.h",
+      "sha256": "954b0d3a4c4e3df64f6e8dd1a865b839326c2d37d8bd0b29262acaeb4ddf65a1"
+    },
+    {
+      "path": "src/common/logging/log.h",
+      "sha256": "7172537a3cde039cb326daf949ae6bd752a5d1be0af04ae8aa8a767af892cf5e"
+    },
+    {
+      "path": "src/common/lru_cache.h",
+      "sha256": "3c0db4e058d740a7a03879945ae5aa35158e03dc457585cd85e36a14351c02bb"
+    },
+    {
+      "path": "src/common/multi_level_page_table.h",
+      "sha256": "a84853e58560a297fe7e35dec84a43a129e1df70f7b33fc673a0e633ba9ce4fb"
+    },
+    {
+      "path": "src/common/number_utils.cpp",
+      "sha256": "f2d1d8055d15d78cd205dc96a464c48958ec6f1f497bfb96f05db2221a9248a5"
+    },
+    {
+      "path": "src/common/number_utils.h",
+      "sha256": "81b37cb6441c53cbe733c580624877b1310360a9949cea759699a7de71d40bdb"
+    },
+    {
+      "path": "src/common/object_pool.h",
+      "sha256": "cba008836320d8738b9bdd79630efdaf54efab557c65d9a457440f677033d557"
+    },
+    {
+      "path": "src/common/path_util.h",
+      "sha256": "ee6cc98c0187a87bf8a722524d8159c8405bba5bd5cd6702f08f93d39d9eb5bc"
+    },
+    {
+      "path": "src/common/signal_context.h",
+      "sha256": "c2c8069921cb12584152273acd3237e9ed4fbd1ffd85863949a42accbeeda9c5"
+    },
+    {
+      "path": "src/common/slot_vector.cpp",
+      "sha256": "df9f0d1604db603fbde2a8285419427b43d922c2dca97798a5803ac2ffdcd36a"
+    },
+    {
+      "path": "src/common/slot_vector.h",
+      "sha256": "d23d7f578b4bda10db8a1d691047847419fb68dfb08cfec282f5f7bc4314ba77"
+    },
+    {
+      "path": "src/common/small_vector.h",
+      "sha256": "87220df47179f241ccd5859a551fa49146f261a26e6d1decec1dc59035422cd2"
+    },
+    {
+      "path": "src/common/spin_lock.h",
+      "sha256": "18065a656b6193130495fa42fc1314d2d2d1caa5ff6467878ecdbfee679c1e83"
+    },
+    {
+      "path": "src/common/string_literal.h",
+      "sha256": "1152fe3d9eacf9c4aeacb5c6a432437147b0d4b00acd697debe2cbca87ffc469"
+    },
+    {
+      "path": "src/common/thread.h",
+      "sha256": "3941743ea2a37353f60f585b1dbd597242c0b79893493a469b0a7ddb23f2fa2e"
+    },
+    {
+      "path": "src/common/types.h",
+      "sha256": "e22a770377555894e03a9cb59e7fd2d6fc50e1ca500c3d0de2ceba171b53703d"
+    },
+    {
+      "path": "src/common/unique_function.h",
+      "sha256": "0f9f95367fced953f813d60c32a399e9d23f6c022c5d2b282299783d481189b9"
+    },
+    {
+      "path": "src/core/devtools/widget/gpu_memory.h",
+      "sha256": "f6714572073a6dc4dad55e2b165cd21640a4c488be4d49dfbe81e61b6487b97c"
+    },
+    {
+      "path": "src/core/libraries/videoout/buffer.h",
+      "sha256": "b82dc3c67f2927ce317af9732ade6ca9c701b68cc72becc550acdb02810d6b4d"
+    },
+    {
+      "path": "src/shader_recompiler/ir/type.h",
+      "sha256": "e97a6d7e7c6225f8489f2cc51bb1eee0f792330950a4c5df96d08c7bcd5c7bdf"
+    },
+    {
+      "path": "src/shader_recompiler/resource.h",
+      "sha256": "592093b80cc91bb01427f0a96cc30702d1d53a4fe71eae2f31f8860773b96d54"
+    },
+    {
+      "path": "src/video_core/amdgpu/cb_db_extent.h",
+      "sha256": "f673bb3e3a753fcf9993e510aa01ada9191c56ed9633607c4126964418f3695f"
+    },
+    {
+      "path": "src/video_core/amdgpu/pixel_format.cpp",
+      "sha256": "fee6f81a4d2004dac797f44f3d6f306566ade722db3893c4e205ad3e991d08df"
+    },
+    {
+      "path": "src/video_core/amdgpu/pixel_format.h",
+      "sha256": "1a8b0ceb735ec99dddf509ff558b75ee7bd4710087e4e2fc552012c18c42ed68"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_color.h",
+      "sha256": "ff09258524fded337e1e475de10ae378af4a2690de63aaa773678d75dc54191d"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_depth.h",
+      "sha256": "957c79c816e5a2bd8267a3902190fcb6c3aa507fe3b7ab0b8139ac9f6bd8f62c"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_primitive.h",
+      "sha256": "f47c952ac2e6b03456296c4e019c7c0279c14d326e52029de397a185391ccf96"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_texture.h",
+      "sha256": "02ff8d29919b7f56195fe7ed1e8dc16faac8aead4dbf221d170f1bb0041fbbab"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_vertex.h",
+      "sha256": "9066593988015eda60ff219247c0c9f00a77ddb8de524fea5f952ab0702d742e"
+    },
+    {
+      "path": "src/video_core/amdgpu/resource.h",
+      "sha256": "fcbed9d758a3cf7ee8a3de5d380a4e7eecb8871eb1a5c7b001b4aa226e3472d4"
+    },
+    {
+      "path": "src/video_core/amdgpu/tiling.cpp",
+      "sha256": "ff1d42d035b44caab3d28cbff79e3767fcf413e6e3b0aae26f84f88d003982f3"
+    },
+    {
+      "path": "src/video_core/amdgpu/tiling.h",
+      "sha256": "a7416321125b573c96204c55da25dec310294b29c264cc6103feb63a81ce1a4f"
+    },
+    {
+      "path": "src/video_core/buffer_cache/buffer_cache.cpp",
+      "sha256": "2a938a26502eddcdee112e8613ec11dbd1e305c79fc8b56b5b51a9e9f904baba"
+    },
+    {
+      "path": "src/video_core/buffer_cache/buffer_cache.h",
+      "sha256": "02a17dfb84279ff414ac7e718132c449ea3e37683ed452c1d4a4cd978f4ca814"
+    },
+    {
+      "path": "src/video_core/buffer_cache/buffer.cpp",
+      "sha256": "947d3f1452173a0d703be316be59f407223fd699dfc2dd0b6e15d245aca16991"
+    },
+    {
+      "path": "src/video_core/buffer_cache/buffer.h",
+      "sha256": "770c180b46c4ba53b831edbb719cf9c8c5a98af7a36b480b07c8d9e5214a171b"
+    },
+    {
+      "path": "src/video_core/buffer_cache/fault_manager.cpp",
+      "sha256": "2fabd7eba2bffc89d651174539e46869411b38a5c45123a570131e6d49fba3a4"
+    },
+    {
+      "path": "src/video_core/buffer_cache/fault_manager.h",
+      "sha256": "53d2b195ba54b34fcca42c3166e773fe781a1730904a0e3003575c57e8670ad5"
+    },
+    {
+      "path": "src/video_core/buffer_cache/memory_tracker.h",
+      "sha256": "746364638abbd2816a9ead5f894add8e4bc0b73997f20a56db0c10fc5d55a10f"
+    },
+    {
+      "path": "src/video_core/buffer_cache/range_set.h",
+      "sha256": "6c114e821dd93a50e281641aa530a0beae3376af0a9e3c35ec89996048001ed0"
+    },
+    {
+      "path": "src/video_core/buffer_cache/region_definitions.h",
+      "sha256": "8c07778c2bb1f5df61f4996735b5069c8d460b60061a29f7f56b89e681f22ed4"
+    },
+    {
+      "path": "src/video_core/buffer_cache/region_manager.h",
+      "sha256": "296fceebe5c70020b0be7e21f6e7cab711747181f8efd41ec8cecaf48a7b7e5a"
+    },
+    {
+      "path": "src/video_core/host_shaders/AddShaderHeaderInclude.cmake",
+      "sha256": "7fc5f3af1dcab304e4804317e2232edf614de353c0125889c0308daddef37025"
+    },
+    {
+      "path": "src/video_core/host_shaders/color_to_ms_depth.frag",
+      "sha256": "0ebbc2a3c81dfe9cbf9ee97d70e3e480e6479b34b2798bb526c8b65cd0a1591b"
+    },
+    {
+      "path": "src/video_core/host_shaders/fault_buffer_process.comp",
+      "sha256": "965d4adf187676a814baf1bbf565c0fec6fbf0cb673f4e98dff3b6175d13fc08"
+    },
+    {
+      "path": "src/video_core/host_shaders/fs_tri.vert",
+      "sha256": "24d6107536db2f3948a723d4731f652e7a8ab149341266cccb6d79c69d583f10"
+    },
+    {
+      "path": "src/video_core/host_shaders/ms_image_blit.frag",
+      "sha256": "89988ee29802c89d2c451f1a991b4c2a8aa817956b8ad27960228c30380f1f7b"
+    },
+    {
+      "path": "src/video_core/host_shaders/tiling.comp",
+      "sha256": "f08314bb606f754eb29f43a86ac4d962755f8837ecd32537d38a5c724fd19a07"
+    },
+    {
+      "path": "src/video_core/page_manager.cpp",
+      "sha256": "0714d496ac88bb5f5c007be302b6db6abfd80c1fd1919db6af228fe8a9bdd472"
+    },
+    {
+      "path": "src/video_core/page_manager.h",
+      "sha256": "00a564506181a3af28d31df47767a04d20879fde90d9356c8d8c82314db1806d"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/liverpool_to_vk.cpp",
+      "sha256": "3c03b92678d0f3496839af8337b8ffb200279a0acb2679123d4d77bb81e8d5f4"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/liverpool_to_vk.h",
+      "sha256": "ffb19f9162c386b93f73b1475a8de4092b69d910a0cc6b8ddc6ce22638161fe6"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_common.cpp",
+      "sha256": "0156835ff5c7dcc5242f7ef4197d77723a3bc935061e8290ab283b6bd022dba2"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_common.h",
+      "sha256": "341b63c99ec6ee75d4d46036a897c041e0bffdf1f0ea18f70cee14f12b08471d"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
+      "sha256": "2c9a3a2e6dc42f51a67654724f146da393ea256939deffdf931d4c615f20bead"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_instance.h",
+      "sha256": "564a8633207944405916957cffb0f9d430f239350e4268996fab3a6061565c47"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_platform.cpp",
+      "sha256": "f1c48dcccb04edb370a6343c45b82743fac8d644448ba1158877bb852ecbfbb7"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_platform.h",
+      "sha256": "a1dcef1110ac8e9c9949cecca6a31f6dbd8eb7ad43b9704eb009fbe644806178"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_resource_pool.cpp",
+      "sha256": "85df4830818c1885a45291bf3e9124f854d7c7da15cf93a3efc6143cc79716c9"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_resource_pool.h",
+      "sha256": "2d3e8ab9f6560a2e79a70a24d9b06f4b8e025ee7012a3ff5daa2a35b53416ce2"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_runtime.cpp",
+      "sha256": "25c9b5a5dec15e1dea65c39a727ee388e8c3ef9aa0f67b594628f5b2344aad1d"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_runtime.h",
+      "sha256": "3a702966654acc9c21552f964cc339b98af14c30f384a0c167f82d0d4454e49b"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.cpp",
+      "sha256": "3b41c1d904032c445dd39666374cf4ab60b34f9ebeb7b90a36005f3b72024f83"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.h",
+      "sha256": "c84d7f155f1e86329b91ee11367e0dde2efa95b241c9dfaab2216b4176632484"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_semaphore.cpp",
+      "sha256": "fd3fafc6f0faff26275c45aefa5fc05f6967ad8ba3d5a92a882c5fb88214a71e"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_semaphore.h",
+      "sha256": "790f5f1607368fb6e47ed9eb9dc44bb2cc6f5eca19b596dda282c35fecdb9ec3"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_shader_util.cpp",
+      "sha256": "6351d460021c3a69cbe6da6ab4e1735975d978c61eccfffd4f4fa9ac796a8e8f"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_shader_util.h",
+      "sha256": "25302047dada6e29eee6efa26f0609f7dc4bd4412a152cf6f2e9671d7392dd60"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp",
+      "sha256": "c280d64efcad03a4b8eae0906c9c24ba97be54828379b13e3922bfc3b2926f9d"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_staging_buffer_pool.h",
+      "sha256": "17e8fbff34d9f1b651dfd4f71c9c5c2d7f39353854138c62ff9b34c1b1e31fdb"
+    },
+    {
+      "path": "src/video_core/texture_cache/blit_helper.cpp",
+      "sha256": "7759bfcf2f0a78944b0039704568f92aa079eff6578ee57d9a425c07fba676ab"
+    },
+    {
+      "path": "src/video_core/texture_cache/blit_helper.h",
+      "sha256": "b18de309ab88f3292dbaf523cb77503f0a3188d7657c2c668d7c925499e9a9db"
+    },
+    {
+      "path": "src/video_core/texture_cache/host_compatibility.cpp",
+      "sha256": "2dce23bed3bac0b3a2d5e188c448aedff1b71bd57e11aafe394c0c06a1675d91"
+    },
+    {
+      "path": "src/video_core/texture_cache/host_compatibility.h",
+      "sha256": "d74bdeccf821bbde28aabfc63001b298ba24f3ad92e19bc036a11afacc89cf5d"
+    },
+    {
+      "path": "src/video_core/texture_cache/image_info.cpp",
+      "sha256": "7ac05386c851e8697466c077ea64a9f739d9c8b0db8ef3c759b0a2c508a2f126"
+    },
+    {
+      "path": "src/video_core/texture_cache/image_info.h",
+      "sha256": "eacdef180d7529705f134c5149ca2d033c58b8f1d276cbb9f5a03de64bf6d6c1"
+    },
+    {
+      "path": "src/video_core/texture_cache/image_view.cpp",
+      "sha256": "7b0bbb01f4cfbbec4737e0245ea57e073d5ff1daa11bab1a032e9241e33af5fb"
+    },
+    {
+      "path": "src/video_core/texture_cache/image_view.h",
+      "sha256": "cf61f8f54fff216d1849dd568e498ee152bbbfeca6af68ed87a8791527e183a0"
+    },
+    {
+      "path": "src/video_core/texture_cache/image.cpp",
+      "sha256": "4c87bdd4ac739f3fc8ceadfcfdd6f3903c06d514825f4de5820aa4b26b3a58c7"
+    },
+    {
+      "path": "src/video_core/texture_cache/image.h",
+      "sha256": "ca2002102151d38ce418cb3c117ea4bcd4dc90d1d7d0e89391af93a51271cb33"
+    },
+    {
+      "path": "src/video_core/texture_cache/sampler.cpp",
+      "sha256": "c467d3b4b7f8f4794b54f5da7d9163b56bf729cd8cd7c902541c1e5479ff5d40"
+    },
+    {
+      "path": "src/video_core/texture_cache/sampler.h",
+      "sha256": "8c08d58f44f0268b95194326a22d7fceb7999f88bc48c6843f0ca3208c53cb21"
+    },
+    {
+      "path": "src/video_core/texture_cache/texture_cache.cpp",
+      "sha256": "f189470271142fcb53451172a5f902d3197388aea9bdcbc2b64bd808d2bdbb1e"
+    },
+    {
+      "path": "src/video_core/texture_cache/texture_cache.h",
+      "sha256": "3592a7cef4ae9ccb4cac28a803bc7033693ca87a75f9ae343bfb07c2dada3516"
+    },
+    {
+      "path": "src/video_core/texture_cache/tile_manager.cpp",
+      "sha256": "cd329fa7e26fab3acf91ed6291dc9b0146f7151809653b34be378e80a91cb577"
+    },
+    {
+      "path": "src/video_core/texture_cache/tile_manager.h",
+      "sha256": "dab4f945f836ec9c71e333599fb34d6ff881ebb50d94996a90d2e84b62a823be"
+    },
+    {
+      "path": "src/video_core/texture_cache/tile.h",
+      "sha256": "5ead8e8ca0b9ba4907e285d9f291ba82fb6efc6e46873bf3cf8b4b1c9627c29b"
+    },
+    {
+      "path": "src/video_core/texture_cache/types.h",
+      "sha256": "ce6b34af117857aca11318d8d2d5fad5e7d5ddd64df4401661253aef8774a51a"
+    },
+    {
+      "path": "src/common/spin_lock.cpp",
+      "sha256": "43f6705450721de742cb0dff3fced2af2f2fda3197b356d6995ddef876ed9bbf"
+    },
+    {
+      "path": "src/shader_recompiler/backend/bindings.h",
+      "sha256": "14f805e1854ffbeeb0c1cbd5c87c81f257a9c1ba07d3388758597cc9bbaa3550"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_atomic.cpp",
+      "sha256": "84556c4f16b655d2989c33cb42877e1c59746d0ba3e0a823c292e7046b2564bd"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_barriers.cpp",
+      "sha256": "9976fb7ce8c8dab2b993375bd6021b70316378ca13e7c8ecd7d2797e8891680f"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_bitwise_conversion.cpp",
+      "sha256": "4a5b0320ed5dd2313c587ef4c58b892dccf9b7e723f0b7c81ed15cca6802b5cc"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_composite.cpp",
+      "sha256": "1f677a72fdd4c8a60672e9e2d2d74f105254ee798df2c4c15d55907028371bd5"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_context_get_set.cpp",
+      "sha256": "34f2c0183ec00c8018688bb6a7edb62c34e5cbf62e406cca2f2baf6ff2957c51"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_convert.cpp",
+      "sha256": "74d8b3cf263a6e0d7c67077691ae5b412555bf31778835ce235aad45c74654bd"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_discard_frag.cpp",
+      "sha256": "339a40ab05be417c8cb342ba67242733dc1cb288a6357727905031e74d78a5d6"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_discard_frag.h",
+      "sha256": "996e42f267b4806872a316068aa2dedb0d96d16713e7544c3fc5cc22b63a3996"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp",
+      "sha256": "2e34df0e0512dcccb01f2d88e3b264a55404881be160fb4d6b59c30de68e2320"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_image.cpp",
+      "sha256": "29613de0b24162a4c1466d0e7cba64735a5985fbac3b0bef9094d0c05cc9e678"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_instructions.h",
+      "sha256": "c625b788e24823c7b243a88f1ca8fb1df9e41debf075c948d2cee3b5be4bc159"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_integer.cpp",
+      "sha256": "18b14a64a356cda1de538be9e425e00cc5c54dd7e4e1f74101f1a534b9756b5f"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_logical.cpp",
+      "sha256": "53039b38828dc2565169919ad4b25feac68bc6ee9783f9208a041b41461ccbc6"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_quad_rect.cpp",
+      "sha256": "e9c34864cb062e3074248e8c0e66aceb70f6e9f4a662b13eb78169db8bf9d8bd"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_quad_rect.h",
+      "sha256": "e20772c42a057d0608b523618851278fba925d9da192672bbbb685f793233c98"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_select.cpp",
+      "sha256": "73063c3be7115254851b12a4064d007f35d134669263b1f308bd5d75eb95a632"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_shared_memory.cpp",
+      "sha256": "bddb59f91c9b410012b32189ae14203261f37469369077b1267a993d0b1e21f6"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_special.cpp",
+      "sha256": "a5196ccd8b3dc5d72c0e4de73284547c55a4e07761da7ee68f8811deaa81fc51"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_undefined.cpp",
+      "sha256": "bcaccbbb436ed42afce06b612e7a066b5be5fdfc0274d9501284a87cf6059b61"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv_warp.cpp",
+      "sha256": "bef08f88e13a27797c809496b3d7ab5d73ed3243fcce4f053c487157fa0470a1"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv.cpp",
+      "sha256": "cd123924105d85e3eeb5919643062810125e2ac5781b8158063de69c5d1fa0d9"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/emit_spirv.h",
+      "sha256": "8174754462b5b2791b070428b46d7e4292f17d3602cd90187bbd869a4f31c632"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/spirv_emit_context.cpp",
+      "sha256": "97ad70e1e616b057b711c786064af0aae9f33c6a01b138cf26055d74b068c67e"
+    },
+    {
+      "path": "src/shader_recompiler/backend/spirv/spirv_emit_context.h",
+      "sha256": "86d56df998b5cd94c9e2bcb4b6a9ba1f332258a0a14bbb4c93c138ef28b05334"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/control_flow_graph.cpp",
+      "sha256": "76d2fbef4401bbb2e4d8f4ccb9b5d483645179dd634ff8adf9333cc34b3592aa"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/control_flow_graph.h",
+      "sha256": "b5654f80a406de75c579b916251bddef66d5d0c69ea6561bff8bbedf37a5a032"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/copy_shader.cpp",
+      "sha256": "cf4a57c6bb9c71909fbf893ea34cca1fc103c2887173d90ec4a03a83ebea9ff7"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/copy_shader.h",
+      "sha256": "41be93e08169cc14a6a32be57e27c4efef5cc6be0bcf4b7341f7374f9b9dbe3a"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/decode.cpp",
+      "sha256": "90adf469f5efa882f51cbe5e222b386c26fbda56d82e90d7468343cce3e87043"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/decode.h",
+      "sha256": "7893815f1f1d525deb436ddde9b414944477a48a5dfa9a8bcb48660b0b99e137"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/fetch_shader.cpp",
+      "sha256": "2ed371cda67cd95f133fed256bfa51903a668be7357f42bc985bba2b635fcad1"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/fetch_shader.h",
+      "sha256": "a35d0547fb57cee52ad116e0e55328dfeb8a6499c86b9386cfb99aa6fe4264ac"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/format.cpp",
+      "sha256": "4f98cc2ec5505006fb6cb97662b5d8edbeb1a237866df0590ed75935061e06d0"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/instruction.cpp",
+      "sha256": "e06d4085b83d754ef4ed5be8ee13fdd0029fea814762c7132ba811edc4ed9ecd"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/instruction.h",
+      "sha256": "e1573dae87e513977f9e07df3e3d8022741918ca5d27f726fa8db6bfe7db18d1"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/opcodes.h",
+      "sha256": "a3fc5fd776f9cbf241b916f09f0ff8498ea9c10db6d3b10e00dacaf20e086eaf"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/structured_control_flow.cpp",
+      "sha256": "b38bb3e006720b60af34f87e4883e65df0be2f2883505bef378057486a02dc0a"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/structured_control_flow.h",
+      "sha256": "477f38a9d30c1a5f2fdff77c62c32c79adade8bc2ff79f9a43883a0d439e3a93"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/tessellation.h",
+      "sha256": "851e2081f90a2da6e635ded7b9c16c7a65696a4cd997486b63134ea11fa2495c"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/data_share.cpp",
+      "sha256": "a6b88b059ba9e1de972c51eeeccbb0e21465f5e0b12cfbc44944de16cf216b37"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/export.cpp",
+      "sha256": "13d3e5ea5f470b7cc7a9e3f267e2f70a416745a469a77d814842c8c3c96564c1"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/scalar_alu.cpp",
+      "sha256": "ded00a80b187f02229357a9da65621de5e644f334e9c6a62032094f431d34729"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/scalar_flow.cpp",
+      "sha256": "d5d3e7f9a38b16748da62052b93fe9902ad8505d9604b07b5f87086b21e59fb0"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/scalar_memory.cpp",
+      "sha256": "533f87e4b32f7fd9a2ff99402cd67c3a907ccdb3d2fc7284fed9b7b9d7c9fd42"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/translate.cpp",
+      "sha256": "537f176e571fa37f35628ba8f5b7ea21924a2005930377dc6ddb94fcde9c7aff"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/translate.h",
+      "sha256": "9e5d1274eb7240719828270ebfc6f7ee57aef11960a91719cb6c1286b9a03edc"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/vector_alu.cpp",
+      "sha256": "11c7b2b0d881f44d5e518245bbe4235292a2933a026e47ff4d1c737d4e065fae"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/vector_interpolation.cpp",
+      "sha256": "dfbaed14fffbe8cb2914679422e94d2b4b77721f6f8898e7177816aa4e75342f"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/vector_memory.cpp",
+      "sha256": "a9a76d9945f89c170e14c6d12e1fbf365d012b35089b3866f43ca922ac9e78ac"
+    },
+    {
+      "path": "src/shader_recompiler/info.h",
+      "sha256": "4142a2ab70c896f0c3b50dbf0c144122797b8c5089abb35783ea219a60688776"
+    },
+    {
+      "path": "src/shader_recompiler/ir/abstract_syntax_list.cpp",
+      "sha256": "b0a92b103aec4ac41af8eada3e8a6733db79d22b86e2958de94fe759060b7e6a"
+    },
+    {
+      "path": "src/shader_recompiler/ir/abstract_syntax_list.h",
+      "sha256": "3ed99adbf3a5fadfd88f6740886a3cf428944e5c70f4ca84554e3c73703e9e65"
+    },
+    {
+      "path": "src/shader_recompiler/ir/attribute.cpp",
+      "sha256": "8ea63d89af462243d6f36c86ead3d4c6150d7f3b804fbf5fbb062c4d35a39a1c"
+    },
+    {
+      "path": "src/shader_recompiler/ir/attribute.h",
+      "sha256": "10cefa85ab396cd42a184b8f84dc69e5a49010b350636fbbcb9190b64ecd9e6a"
+    },
+    {
+      "path": "src/shader_recompiler/ir/basic_block.cpp",
+      "sha256": "994e817536585486112d06b81b742c76550d2d18be38dab49adf5fceb7751cca"
+    },
+    {
+      "path": "src/shader_recompiler/ir/basic_block.h",
+      "sha256": "19d2e1a0c9280a955996967ed116b7f0760ce1c6167a9f4661338d1c57f06100"
+    },
+    {
+      "path": "src/shader_recompiler/ir/breadth_first_search.h",
+      "sha256": "60ce1f0e86d4fe2bfd45e838254ff1ba53f16b027f4dd95f6bf789001e8f0bd2"
+    },
+    {
+      "path": "src/shader_recompiler/ir/condition.h",
+      "sha256": "be1af3973bb1d216f4121a0b930edf4586aaf808dfe1f50192d3d203be7bca73"
+    },
+    {
+      "path": "src/shader_recompiler/ir/debug_print.h",
+      "sha256": "4dfd74581645e17606ded7c19134504c3bf285d1e7bb780366a44a3ea6bb2938"
+    },
+    {
+      "path": "src/shader_recompiler/ir/dominance.cpp",
+      "sha256": "7864d01533c75d65fadab3942a4ca19d2a2bbc4ee75dd286ed1266fb7f94f1bb"
+    },
+    {
+      "path": "src/shader_recompiler/ir/dominance.h",
+      "sha256": "307990c8f2e6277cca8c760c229be955045f799940973ec5b38ad88a0f3c5ff2"
+    },
+    {
+      "path": "src/shader_recompiler/ir/ir_emitter.cpp",
+      "sha256": "a2e26c4c0f33fc5ac933a1561f58f47e9bf8053ba8fe07239e5e45b06121d257"
+    },
+    {
+      "path": "src/shader_recompiler/ir/ir_emitter.h",
+      "sha256": "c1e9cee111f0adf04ab2ee650c6e4e9db1ec15d012feb37e88018afc654e91be"
+    },
+    {
+      "path": "src/shader_recompiler/ir/microinstruction.cpp",
+      "sha256": "2ed091c629f8543ffe3ca7efa35a5140c3d94bbf7984fdb613cdab9a562cfaf9"
+    },
+    {
+      "path": "src/shader_recompiler/ir/microinstruction.h",
+      "sha256": "e728624bfd3887f98fe2f9d0ae3b2492e9605ca38720f571323327ee25d2de09"
+    },
+    {
+      "path": "src/shader_recompiler/ir/opcodes.cpp",
+      "sha256": "877d0c13f4225730d4bd28ab1b7449c62fb8bbe11c67118ec13cc918a6ef4832"
+    },
+    {
+      "path": "src/shader_recompiler/ir/opcodes.h",
+      "sha256": "150351e0f11602a5772a99a2bfd677641085856a8df960358e3c73a7e5a18643"
+    },
+    {
+      "path": "src/shader_recompiler/ir/opcodes.inc",
+      "sha256": "c4728455ba311bde0cec7180660da86fe223fdd84c761f4626c3cd347aed2fd2"
+    },
+    {
+      "path": "src/shader_recompiler/ir/operand_helper.h",
+      "sha256": "5ea3413c5e20bee338b6cec4015cdc9fec647ce318ffab3bd0b056c1e64266ab"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/constant_propagation_pass.cpp",
+      "sha256": "b74b28c593764370a85008bd6ef1de665ab71bc588bfd92abad41bae7d912574"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/constant_propogation.h",
+      "sha256": "c80553d868f71698b4f78ed69f8c81587e1b1ff724dca04922de16397fbf3227"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/dead_code_elimination_pass.cpp",
+      "sha256": "be72e0eb0d2995310aed6c420370df0cc210eb386e29164812686a81d0bd725f"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/expression_elimination.h",
+      "sha256": "e267c7a3185af87d67ddd8320912478a934a869889b00f4864e894e0afb87db0"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/flatten_extended_userdata_pass.cpp",
+      "sha256": "2327bc8590933e2e5bfae846a6a50edfdc9e4116f5115a367640bdd6c1a16fc9"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/hull_shader_transform.cpp",
+      "sha256": "0b2660a61f39d436cc3b2231d39df4e68a5355da431fceaad4bfaf22f1e9d1f9"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/inject_clip_distance_attributes.cpp",
+      "sha256": "61859335d6b6d212810264ecb5370a1b262617a0ad474344b70378ee1da3cb14"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/inverse_ballot_elimination_pass.cpp",
+      "sha256": "f3d9e54e362f2ed9be72a1f09604b9431c3600a63247b39740d85cd47816cfa5"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/ir_passes.h",
+      "sha256": "26ae71aea4a2a7bd9a0c641a5e5de2d8855d5d8eca1e4f6609a60bfb127500a0"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_buffer_format_to_raw.cpp",
+      "sha256": "f2b964a67054a74b871b5c1bb023d866d4773319ae96b2233ebe45b090d7a9a6"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_fp64_to_fp32.cpp",
+      "sha256": "c229b9a98bd81bb74a15533989053d1ad01b8921f5b6a989116d0acd76894748"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_hardware_intrinsics.cpp",
+      "sha256": "5848b122fc99bd8bfb60e3786f56152f09a25b56b6918eec9adeb6e66a083f30"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_phis_to_regs_pass.cpp",
+      "sha256": "b093d5b1ce26a5b9ab5c18a7adade0b745b48e42b8053b4372b0825e2e616a17"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_user_clip_planes.cpp",
+      "sha256": "fd65a7e297f338ca89332e5fba7f3d0c4dc167900a62f4f881d055e8ff1b5f86"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/lower_wave64_pass.cpp",
+      "sha256": "9c375db221ef2d06006fed788eb0be2e69776faa2e92ab413a4aee2fa7024367"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/phi_simplification_pass.cpp",
+      "sha256": "8087568392859cd2d5dbcc2d50fe36f6453f71f872bcceb073ee8069e839b4d3"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/readlane_elimination_pass.cpp",
+      "sha256": "19ae660d91bbc03953815cec1330ab65e72ca14a120735d499f331d68a0a904f"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/resource_discover_pass.cpp",
+      "sha256": "34b9983bd48086f978414e4262cba7da4a62676b43cfcac848a3529fc20e551a"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/resource_pass.h",
+      "sha256": "b6dd64471107f7dd7ffb2c337a2240d5d7c28abc52127c659e76f825784a6e16"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/resource_patching_pass.cpp",
+      "sha256": "bc6c1c75d0efbd660ebcfb45b6bb8f742c7b942ad0721d324093e9854aeef4dd"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/ring_access_elimination.cpp",
+      "sha256": "e70ce07671afb3e0d1d632a13e4fddf34e780264ff4fec6633e8df0283586baa"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/shader_info_collection_pass.cpp",
+      "sha256": "91a3cd2c0d495673e186dfd26b2892fede2536ccde7ed8f387e9b6a4ef341616"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/shared_memory_barrier_pass.cpp",
+      "sha256": "70e8025e237845084ac5d2dfc52cb3533520e054cb23b7399e838d2745c28c79"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/shared_memory_simplify_pass.cpp",
+      "sha256": "d4c1d815af40632e38eb9f25dc3dd0fe4ff8a24993f8b6a8b99c2e100bad1239"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/shared_memory_to_storage_pass.cpp",
+      "sha256": "5c41da25ec74d794d527c4f6dc2ed5f5d6df01555064ae59f94f91e7c0375aff"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/srt.h",
+      "sha256": "e8f1a3c0a76ea8b54e59888b0cbc532aa79c7ce6378d958ec8a666601800099e"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/ssa_repair_pass.cpp",
+      "sha256": "61c9e4a9a407711c9dbde06fc683f5bf9754bf003d0168210d2f20ba2a040a2f"
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/ssa_rewrite_pass.cpp",
+      "sha256": "2fc3c0a55053947f3f7442e489ceded025a16086b92c92e5221a50e9eb370821"
+    },
+    {
+      "path": "src/shader_recompiler/ir/patch.cpp",
+      "sha256": "fdc23b0edb97f011a149674fc898deb99effe710ce512f9a6cc038412a94c359"
+    },
+    {
+      "path": "src/shader_recompiler/ir/patch.h",
+      "sha256": "22458f4540f6ad514112d8ce98ce4527b4d32ac77235bca7f41596b5d94b07cb"
+    },
+    {
+      "path": "src/shader_recompiler/ir/pattern_matching.h",
+      "sha256": "ac308e21dfad00e88b877bbcb54e65083c43e780dc383954fa7f663495fcdfb3"
+    },
+    {
+      "path": "src/shader_recompiler/ir/position.h",
+      "sha256": "9db99f3f172ca81f57c9adfb385b68c33a84ac4fe4bfb2f42f064f41d5666e7f"
+    },
+    {
+      "path": "src/shader_recompiler/ir/post_order.cpp",
+      "sha256": "d95c538eadf5f16965b3abbb9f33addc51b5b7c21563df595b77f80a63dcf70c"
+    },
+    {
+      "path": "src/shader_recompiler/ir/post_order.h",
+      "sha256": "ae654e2825029d3135e0869c051c3ee28f9bef692d8a4e808424836356f34b32"
+    },
+    {
+      "path": "src/shader_recompiler/ir/program.cpp",
+      "sha256": "4b69cc1e352a55bfa1954c35f62c36ec6a174481252663ac80478758a53716a2"
+    },
+    {
+      "path": "src/shader_recompiler/ir/program.h",
+      "sha256": "06095aa7ced7f5857d8ac8800ef21e4a82b78efacbbcc579600836257f60f67d"
+    },
+    {
+      "path": "src/shader_recompiler/ir/reg.h",
+      "sha256": "8a368c9db04a2440bc88029a01ad2de2c157d01970d9e3ba3047359cb3f76aa1"
+    },
+    {
+      "path": "src/shader_recompiler/ir/reinterpret.h",
+      "sha256": "2168fb191023e27a513939b87e737b86e7191d424a15577c62213d8e1a3ae003"
+    },
+    {
+      "path": "src/shader_recompiler/ir/srt_gvn_table.h",
+      "sha256": "0c92f65784fc3e922a81d20360a7bd0d4d568477f2b99d88f11ccb6417eee42d"
+    },
+    {
+      "path": "src/shader_recompiler/ir/ssa.h",
+      "sha256": "d0700eea4651f1db49c1448fefeb860371b301b31b746ac3a7b227760301e1ba"
+    },
+    {
+      "path": "src/shader_recompiler/ir/type.cpp",
+      "sha256": "5d503239e1a38439e32c0032ba0c1708bda63cf8b1c6bcabf27303b2295aef36"
+    },
+    {
+      "path": "src/shader_recompiler/ir/value.cpp",
+      "sha256": "1e5b562969abe40600565d4f272c9bce282ab0b16eec378120d82f6224cb5543"
+    },
+    {
+      "path": "src/shader_recompiler/ir/value.h",
+      "sha256": "c1708e3f46dbe7b3c91d88df151577bf32772e479e50c84ff345468f9891c43c"
+    },
+    {
+      "path": "src/shader_recompiler/params.h",
+      "sha256": "dbdae6e5155ab86b8732f63dba7bb29216c3f4bac24b3ade4a2cdbf17ef90f6f"
+    },
+    {
+      "path": "src/shader_recompiler/profile.h",
+      "sha256": "be5f14ae80080a71779abb55158c26f7b563cc5950664cc6f9a608ebf6db1e25"
+    },
+    {
+      "path": "src/shader_recompiler/recompiler.cpp",
+      "sha256": "0b6c81dcdd47b2e46d4a59ca9d4a9664fd6c81676cc51d94611cd3ef7191f37b"
+    },
+    {
+      "path": "src/shader_recompiler/recompiler.h",
+      "sha256": "bcbdf19703f84949afc1862ab4f81f926ebdad9f547b6556ea485b80fdc1d197"
+    },
+    {
+      "path": "src/shader_recompiler/runtime_info.h",
+      "sha256": "0489b87ca384805be5c268ecc43f0def5c73be1e5d35c15f933a6816c44c5e0c"
+    },
+    {
+      "path": "src/shader_recompiler/specialization.h",
+      "sha256": "f8d83b6ce79cc18c9116bbed59c6f8da4d20e3513e4feafe42ae6110b644266a"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_compute_pipeline.cpp",
+      "sha256": "6d536fcc78b49c6d790d6595a21a34ddc123be89a94afcd0643bb907e6fecd83"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_compute_pipeline.h",
+      "sha256": "1e549b4eeae3fef96e247680d947076cae76c4bc1c2fc277ee1c79ca6a32367f"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp",
+      "sha256": "feadb7542f18aea0285630e4cf56abe3846854fff5fe47ad4de70d71db395f68"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_graphics_pipeline.h",
+      "sha256": "923217a2433e46afc9c0e7235605b5e56719219c8808c272afafc9fff23449d3"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.cpp",
+      "sha256": "abb92ceb19d3992133ca8e2093a686a6acab756f6bc1579681b77df96c777b21"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.h",
+      "sha256": "18234dca3e1b87acb4fc89e050c86c841807c09473b74c6e58b2ba03f54e4eed"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+      "sha256": "e5dcb32e3898797d626928cf6d27f1f51d19f8d3003f64824d17a34457efd6e8"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_rasterizer.h",
+      "sha256": "3eddb7af5411d858c3f78ea3bb78f3471404610f9c3dc67539338a96e5959b9b"
+    },
+    {
+      "path": "src/common/io_file.cpp",
+      "sha256": "25e367dd6f8b8139ebfb97c8a841d095085804d8d61cab8d6e58dc3c76e0eee0"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_common.cpp",
+      "sha256": "34901ae1a8e6ba8995c2aa62d533a544eaefc02074edbaaca1baa574c676f546"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_common.h",
+      "sha256": "5d1df297f5d594a06d6b8e746362ed1f5fbbe6c732190a5d9bb13d975f7c9834"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_shader.h",
+      "sha256": "d79f93a6a0d682cea77aa6313a1f17e4ee768648245653094e188224f7bba10f"
+    },
+    {
+      "path": "src/common/func_traits.h",
+      "sha256": "b173cf9998f7bbf7c0283366cd0240b236d9f40626652e9292f6ef264042c96c"
+    },
+    {
+      "path": "src/common/io_file.h",
+      "sha256": "b6e90d823e350cccdabece198af487bc6b11b107b82ee01970e1bd73ea423b80"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_serialization.h",
+      "sha256": "9868c10247fb3d971985f5d342f91abd4366f32042b862b823ee123ef168a455"
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_shader_hle.h",
+      "sha256": "b1f8b6d090193702790f1029729ec18da8ad1e64ae1709fda2feb23d547eb7e1"
+    },
+    {
+      "path": "src/common/recursive_lock.h",
+      "sha256": "ab7b8a736e0d0a6d7751aada3d91408de6c4beb94b8910cab0e7dce73daa2f2b"
+    },
+    {
+      "path": "src/common/shared_first_mutex.h",
+      "sha256": "067815b9a7c5e2cad71a5527335aab78d87ef8246f0d32a98a3c591dd64ed3b5"
+    },
+    {
+      "path": "src/common/ntapi.h",
+      "sha256": "f0a84ffd429d638a036c60ee4076378ec589989c4f09673f27ee819161cadc1e"
+    },
+    {
+      "path": "src/common/concepts.h",
+      "sha256": "ab4b7f9feef67ef50b1b7fabf5132dad2018d39316aeb74e2ef66ae59a62c989"
+    },
+    {
+      "path": "src/common/error.cpp",
+      "sha256": "9171c7e9d2b090f9e704c1c4d5537b63ba08dd3810d08e431adb24250f58e6d3"
+    },
+    {
+      "path": "src/common/recursive_lock.cpp",
+      "sha256": "166f247cb8b0dc6b23cf606d28b47da372a96bc2040e00fbd11286e1cc49c731"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs.h",
+      "sha256": "7d3699b40980bfdb73c031bdc64653d39b99b35a6b5993635a910388083c43c6"
+    },
+    {
+      "path": "src/video_core/amdgpu/regs.cpp",
+      "sha256": "60e5e13bc9f242264e8419db0d4a919b5a9c48a53d81dd23d1d8351bf1a0a0b3"
+    }
+  ],
+  "localChanges": [
+    {
+      "path": "src/video_core/renderer_vulkan/vk_platform.cpp",
+      "sha256": "42f198c79ba21859ba270937f7f0ee4eda3dc21831560f2ca4bb1e7dd48ebef6",
+      "description": "Enable VK_KHR_surface in headless integration and syncval_full_validation with the pinned layer. Windows presentation requires the surface-maintenance instance extensions used by tracked present fences."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_runtime.h",
+      "sha256": "7456391faba3e798d948905154281906b7b5500afd65a839d51dd480b87ff551",
+      "description": "Independent compilation: out-of-line Runtime destructor sees complete BlitHelper; forward declarations match Image/ImageView struct tags for the Microsoft ABI."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_runtime.cpp",
+      "sha256": "a3105724af41cdb474f4a1ac7a8a88910c04c4818baface3081dcccfdb2c48f8",
+      "description": "Independent compilation: out-of-line Runtime destructor sees complete BlitHelper; forward declarations match Image/ImageView struct tags for the Microsoft ABI."
+    },
+    {
+      "path": "src/video_core/texture_cache/blit_helper.h",
+      "sha256": "01e4e363270e39b524de13d9c7436b2233b0fa4b264c0388e9ebf6ba49451fe2",
+      "description": "Independent compilation: out-of-line Runtime destructor sees complete BlitHelper; forward declarations match Image/ImageView struct tags for the Microsoft ABI."
+    },
+    {
+      "path": "src/video_core/buffer_cache/buffer_cache.cpp",
+      "sha256": "05ba6282e9e35507079f2812e46aae3e2091a2318b70838a76eda06e9f59af4a",
+      "description": "Delegate backing memory, protected access and synchronous GPU-thread dispatch to the configured host memory backend, without the emulator application or kernel. Retain sparse device allocations with RAII until all bound arena buffers are destroyed."
+    },
+    {
+      "path": "src/video_core/page_manager.cpp",
+      "sha256": "8167bce3c480a7c63f12e057f1afaad4cf855504880d5be12d8d934ff9157b26",
+      "description": "Delegate backing memory, protected access and synchronous GPU-thread dispatch to the configured host memory backend, without the emulator application or kernel."
+    },
+    {
+      "path": "src/video_core/texture_cache/tile_manager.h",
+      "sha256": "f4d5d2f48ff6c55e6bc9ea15b95d11df126ea96f63491b0412e0a82e3f688f1a",
+      "description": "Match Runtime class forward declaration to its definition for the Microsoft ABI."
+    },
+    {
+      "path": "src/video_core/buffer_cache/buffer_cache.h",
+      "sha256": "ee7e55b1ee016763854928e5d195526674c384e51d06c9ed8d63f6c341fcacf2",
+      "description": "Own sparse allocations through arena-buffer destruction; explicitly destroy the Vulkan device before the validation messenger so cleanup errors remain observable."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
+      "sha256": "d9da99adf2eaf0ce19475f6743867aa5358397f0e0401f3d565c3349fbc7cc04",
+      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; query and enable swapchain-maintenance present fences only for configured presentation support, including late window binding."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_instance.h",
+      "sha256": "f9ca2fdd6d05581dd659aa31db32b1a3b280aeb39868dc2b2101ed6f3c9e8f5c",
+      "description": "Expose whether tracked presentation fences were enabled on this device."
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/srt.h",
+      "sha256": "e5daa4ac2bc4339ac57154bedb0638fd61d3e516f5b7500641b7cabfd079af96",
+      "description": "Portable descriptor traversal plan retains nested pointers and computed offsets; execution uses the host coherent GPU metadata reader, without x86 JIT or emulator signal repair."
+    },
+    {
+      "path": "src/shader_recompiler/info.h",
+      "sha256": "19cf5ee3468e4a660d4a9e8515d554d9d58f0f886f1cfa662eb5c023f26a3a72",
+      "description": "Execute the portable descriptor plan; route direct and tessellation descriptor reads through coherent GPU metadata access, validating flattened and direct user-data bounds."
+    },
+    {
+      "path": "src/shader_recompiler/ir/passes/flatten_extended_userdata_pass.cpp",
+      "sha256": "f7559291a53579f8a552548dd91f4ddd2bf0d8c60d6f525a4d5e60ff564b9fcb",
+      "description": "Keep upstream descriptor dependency analysis and deduplication; emit bounded portable traversal/offset plans instead of x86 walkers and fault-time zero patching. Preserve strict pointer-list ordering for identical instruction keys."
+    },
+    {
+      "path": "src/common/io_file.cpp",
+      "sha256": "574900766f01383f16813401b775fd40149b490fc9da79843a86f5d043580305",
+      "description": "Use Windows SDK file-disposition and file-mapping APIs for shader diagnostics, without a private NT API initializer or newer CreateFileMapping2 import."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.cpp",
+      "sha256": "db97f8f1c5060115760fd126dcfb7954a5c77dc599530339df04dcf59633828e",
+      "description": "Retain pipeline/shader specialization and compilation; omit unconfigured emulator persistence/debug patching, and explicitly release owned shader modules at cache teardown. Include the cache declaration directly and preserve hardware/software stages in program and pipeline-permutation identity. Time cache-miss compilation scopes on the shared host steady clock without changing cache or submission semantics."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+      "sha256": "fb9c777a64478a569579e43a4a0f02b6378a9e0942f4f953ebd5b6b5e3ce063e",
+      "description": "Use host-owned register state and memory integration, record real draw/dispatch counters, and compile compute shaders normally rather than using title-specific HLE or emulator debug/allocator singletons."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.h",
+      "sha256": "92e08e9facaaed8f0cc0c8ef4b7957b481b56a4485ab38429560b095887c284f",
+      "description": "Keep in-memory graphics/compute specialization caches; omit the emulator disk-cache/debug-patching interface and match the Liverpool register-state struct ABI."
+    },
+    {
+      "path": "src/shader_recompiler/params.h",
+      "sha256": "312eed531088315b2b440f603e9fee6471198e2336335df6191cb7e3ab2f3572",
+      "description": "Preserve the original GPU program address when the compiler consumes an owned bounded code snapshot."
+    },
+    {
+      "path": "src/video_core/amdgpu/regs_shader.h",
+      "sha256": "7d8daaa97d4fdfb0180b44418e4cf7148bcca2614b18f0fc4f1be8aabf06b9cc",
+      "description": "Obtain program snapshots and content identity through the host bounded reader instead of dereferencing or scanning arbitrary guest code."
+    },
+    {
+      "path": "src/shader_recompiler/frontend/fetch_shader.h",
+      "sha256": "50cfedb2b98d85fca0af7a68c129ad3a256c74ef2c52093a02576e224367004d",
+      "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/fetch_shader.cpp",
+      "sha256": "6679d76f45ba91ca0a37aa407bb29b34cd65394c17096e7e768ef5e8d49f235e",
+      "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge"
+    },
+    {
+      "path": "src/shader_recompiler/frontend/translate/translate.cpp",
+      "sha256": "830937244d8d68a6fe0f942155599a23075f6cfa112d914a41263283c3a3743a",
+      "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge"
+    },
+    {
+      "path": "src/video_core/texture_cache/tile_manager.cpp",
+      "sha256": "77bd96879fda42e9ee0d8a00310242b9d773157910f61bb1bb817930f20b7ec0",
+      "description": "Time tiler/detiler cache-miss pipeline creation on the shared host steady clock; preserve shader selection, specialization and cache behavior."
+    }
+  ]
+}
