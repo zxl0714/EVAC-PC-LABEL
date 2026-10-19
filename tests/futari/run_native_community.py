@@ -18,6 +18,13 @@ class TransferStore(live.Store):
     # view IDs never reach the deployed service or any game profile.
     retry_failure_used = False
     staged_retry_failure_used = False
+    score_retry_failure_used = False
+
+    def submit(self, body):
+        if body.get('view') == 7030 and not self.score_retry_failure_used:
+            self.score_retry_failure_used = True
+            raise live.ApiError(503, 'temporary_score_failure')
+        return super().submit(body)
 
     def upload_replay(self, body):
         if body.get('mode') == 'view-7014' and not self.retry_failure_used:

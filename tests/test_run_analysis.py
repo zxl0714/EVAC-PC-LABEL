@@ -46,6 +46,46 @@ class RunAnalysisTests(unittest.TestCase):
         self.assertEqual(len(result['fatalLines']), 1)
         self.assertIn('Unknown', result['logCompleteness'])
 
+    def test_guest_queue_and_cue_are_separate_from_output_audio(self):
+        result = analyze([
+            'AUDIO_GUEST ready scope=kiniro_abnormal_and_default_engine_and_wait',
+            'AUDIO_GUEST event code=30 matched=true queue_age_ms=1.5',
+            'AUDIO_GUEST event code=30 matched=true queue_age_ms=1200',
+            'AUDIO_GUEST event code=43 elapsed_ms=0.3',
+            'AUDIO_GUEST summary dropped_total=0',
+            'AUDIO_DIAG stream driver=1 queue_ms=42.7'])
+        guest = result['guestAudio']
+        self.assertEqual(guest['matchedQueueHeadAgeMs']['maximum'], 1200)
+        self.assertEqual(guest['cueRequestMs']['maximum'], 0.3)
+        self.assertEqual(guest['queueHeadsOverMs']['1000'], 1)
+        self.assertEqual(guest['droppedEventsMaximum'], 0)
+        self.assertEqual(result['audio']['1']['queue_ms']['maximum'], 42.7)
+        self.assertIn('not audible onset', guest['measurementScope'])
+
+    def test_unmatched_invalid_and_shutdown_events_are_not_measurements(self):
+        result = analyze([
+            'AUDIO_GUEST event code=30 matched=false queue_age_ms=5000',
+            'AUDIO_GUEST event code=30 matched=true queue_age_ms=-1',
+            'AUDIO_GUEST event code=30 matched=true queue_age_ms=nan',
+            'AUDIO_GUEST event code=43 elapsed_ms=inf',
+            'User requested close',
+            'AUDIO_GUEST event code=30 matched=true queue_age_ms=9000',
+            'AUDIO_GUEST summary dropped_total=999'])
+        self.assertIsNone(result['guestAudio']['matchedQueueHeadAgeMs'])
+        self.assertIsNone(result['guestAudio']['cueRequestMs'])
+        self.assertIsNone(result['guestAudio']['droppedEventsMaximum'])
+
+    def test_gameplay_probe_coverage_and_drops_remain_explicit(self):
+        guest = analyze([
+            'AUDIO_GAMEPLAY event phase=actor_state3_death_phase capture_valid=true',
+            'AUDIO_GAMEPLAY event phase=power_action_begin capture_valid=false',
+            'AUDIO_GUEST event code=30 matched=true queue_age_ms=1 name=power_up',
+            'AUDIO_GUEST summary dropped_total=7',
+            'AUDIO_GUEST summary dropped_total=2'])['guestAudio']
+        self.assertEqual(guest['gameplayPhaseObservations'], {'actor_state3_death_phase': 1})
+        self.assertEqual(guest['droppedEventsMaximum'], 7)
+        self.assertEqual(analyze([])['guestAudio']['gameplayPhaseObservations'], {})
+
 
 if __name__ == '__main__':
     unittest.main()

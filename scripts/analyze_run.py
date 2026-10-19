@@ -21,11 +21,22 @@ def distribution(values):
                 p95=ordered[max(0, math.ceil(len(ordered)*.95)-1)])
 
 
+def finite_sample(fields, key):
+    try:
+        value = float(fields[key])
+    except (KeyError, ValueError):
+        return None
+    return value if math.isfinite(value) and value >= 0 else None
+
+
 def analyze(lines):
     loads, unloads = Counter(), Counter()
     active, unmatched = set(), []
     audio = defaultdict(lambda: defaultdict(list))
     fatal, errors, markers, closed, count = [], 0, 0, False, 0
+    queue_heads, cue_requests, trace_scopes = [], [], set()
+    gameplay = Counter()
+    dropped_max = None
     for line in lines:
         count += 1
         event = re.search(r"MODULE_(LOAD|UNLOAD) path='([^']+)'", line)
@@ -50,6 +61,27 @@ def analyze(lines):
             markers += 1
         if 'User requested close' in line:
             closed = True
+        if not closed and ('AUDIO_GUEST ' in line or 'AUDIO_GAMEPLAY ' in line):
+            fields = dict(re.findall(r'\b(\w+)=([^\s]+)', line))
+            if 'AUDIO_GUEST ready ' in line and fields.get('scope'):
+                trace_scopes.add(fields['scope'])
+            if 'AUDIO_GUEST summary ' in line:
+                dropped = finite_sample(fields, 'dropped_total')
+                if dropped is not None and dropped.is_integer():
+                    dropped_max = max(dropped_max or 0, int(dropped))
+            if 'AUDIO_GUEST event ' in line:
+                if fields.get('code') == '30' and fields.get('matched') == 'true':
+                    age = finite_sample(fields, 'queue_age_ms')
+                    if age is not None:
+                        queue_heads.append(age)
+                if fields.get('code') == '43':
+                    elapsed = finite_sample(fields, 'elapsed_ms')
+                    if elapsed is not None:
+                        cue_requests.append(elapsed)
+            if 'AUDIO_GAMEPLAY event ' in line and fields.get('capture_valid') == 'true':
+                phase = fields.get('phase')
+                if phase in ('power_action_begin', 'power_action_end', 'actor_state3_death_phase'):
+                    gameplay[phase] += 1
         if closed or 'AUDIO_DIAG stream ' not in line:
             continue
         fields = dict(re.findall(r'\b(\w+)=([^\s]+)', line))
@@ -70,6 +102,14 @@ def analyze(lines):
                 closeRequested=closed,
                 audio={driver: {key: distribution(values) for key, values in fields.items()}
                        for driver, fields in audio.items()},
+                guestAudio=dict(traceScopes=sorted(trace_scopes),
+                    matchedQueueHeadAgeMs=distribution(queue_heads),
+                    cueRequestMs=distribution(cue_requests),
+                    queueHeadsOverMs={str(limit): sum(age > limit for age in queue_heads)
+                                      for limit in (20, 100, 1000)},
+                    gameplayPhaseObservations=dict(gameplay),
+                    droppedEventsMaximum=dropped_max,
+                    measurementScope='Observed matched guest queue heads and cue-request API completion; not audible onset. Head retries may be sampled repeatedly. Missing probes and dropped events limit coverage; cue names are not pickup proof.'),
                 measurementScope='Output backend samples before user close; not guest sound-command latency or audible A/V synchronization',
                 logCompleteness='Unknown; not inferred from the absence of fatal messages')
 

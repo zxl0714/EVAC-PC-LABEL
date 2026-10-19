@@ -40,8 +40,11 @@ class FutariCommunity final : public rex::system::xam::CommunityService {
   uint32_t SendReplay(const nlohmann::json& body,const std::filesystem::path& path,Clock::time_point deadline);
   void RetryOne();
   void ArchiveUnboundReplays();
+  nlohmann::json JournalOrigin() const;
+  bool JournalMatches(const nlohmann::json& journal) const;
   std::string NativeName(uint64_t xuid);
   uint64_t NativeToken(const std::string& name);
+  const std::string endpoint_;
   FutariLiveClient client_;
   const std::string nickname_;
   const std::string build_;

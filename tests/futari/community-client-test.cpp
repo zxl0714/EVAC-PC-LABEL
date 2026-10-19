@@ -368,15 +368,22 @@ void ProviderTest(const std::string& endpoint,const std::filesystem::path& direc
   Check(transfer(provider,{7014,0xB13EBABEBABEBABEull,true,uint32_t(record.size()),record}).error!=0,
       "temporary replay failure incorrectly reported success");
   Check(!std::filesystem::is_empty(profile/"community/replay-outbox"),"failed replay journal missing");
+  const auto queued_replay_path=std::filesystem::directory_iterator(profile/"community/replay-outbox")->path();
+  const auto queued_replay=nlohmann::json::parse(Read(queued_replay_path));
+  Check(queued_replay.at("origin").at("game")=="futari"
+      && queued_replay.at("origin").at("endpoint")==endpoint,"replay journal lost its origin");
   provider.Stop();
   {
-    FutariCommunity retry(endpoint,"NativeTest","test-build",profile);
+    FutariCommunity retry(endpoint,"RenamedNative","later-build",profile);
     const auto deadline=std::chrono::steady_clock::now()+5s;
     while(std::chrono::steady_clock::now()<deadline && !std::filesystem::is_empty(profile/"community/replay-outbox"))
       std::this_thread::sleep_for(20ms);
     retry.Stop();
   }
   Check(std::filesystem::is_empty(profile/"community/replay-outbox"),"queued replay did not retry after restart");
+  const auto replay_receipt=nlohmann::json::parse(Read(profile/"community/replay-history"/queued_replay_path.filename()));
+  Check(replay_receipt.at("nickname")=="NativeTest" && replay_receipt.at("build")=="test-build"
+      && replay_receipt.at("score_id")==queued_replay.at("score_id"),"replay retry rebound its original owner/build/score");
   const auto staged_profile=directory/"staged-retry";
   {
     FutariCommunity staged(endpoint,"StagedRetry","test-build",staged_profile);
@@ -445,15 +452,57 @@ void ProviderTest(const std::string& endpoint,const std::filesystem::path& direc
 
   const auto retry_profile=directory/"retry-profile";
   {
-    FutariCommunity offline("http://127.0.0.1:1/futari/api/v1","RetryTest","test-build",retry_profile);
+    FutariCommunity offline(endpoint,"RetryTest","test-build",retry_profile);
+    auto queued_write=write;queued_write.view=7030;
     std::promise<uint32_t> failed;auto failed_result=failed.get_future();
-    offline.Write({write},[&](auto error){failed.set_value(error);});
+    offline.Write({queued_write},[&](auto error){failed.set_value(error);});
     Check(failed_result.wait_for(5s)==std::future_status::ready && failed_result.get()!=0,"offline submit incorrectly reported success");
     offline.Stop();
   }
   Check(std::filesystem::is_directory(retry_profile/"community/outbox") && !std::filesystem::is_empty(retry_profile/"community/outbox"),"offline score journal missing");
+  const auto queued_path=std::filesystem::directory_iterator(retry_profile/"community/outbox")->path();
+  auto queued=nlohmann::json::parse(Read(queued_path));
+  Check(queued.at("version")==2 && queued.at("origin").at("game")=="futari"
+      && queued.at("origin").at("endpoint")==endpoint,"score journal lost its origin");
+  const auto guarded_profile=directory/"origin-guard";
+  const auto guarded_dir=guarded_profile/"community/outbox";
+  std::filesystem::create_directories(guarded_dir);
+  std::map<std::filesystem::path,std::string> originals;
+  for(unsigned variant=0;variant<3;++variant) {
+    auto guarded=queued;
+    if(variant==0)guarded["origin"]["endpoint"]="http://127.0.0.1:1/futari/api/v1";
+    if(variant==1)guarded["origin"]["game"]="espgaluda2";
+    if(variant==2){guarded["version"]=1;guarded.erase("origin");}
+    auto path=guarded_dir/(std::string(31,'0')+char('1'+variant)+".json");
+    originals[path]=guarded.dump();{std::ofstream file(path);file<<originals[path];}
+  }
+  for(const auto& queue:{"replay-outbox","pending-replays"}) {
+    const auto replay_dir=guarded_profile/"community"/queue;
+    std::filesystem::create_directories(replay_dir);
+    for(unsigned variant=0;variant<3;++variant) {
+      auto guarded=queued_replay;
+      if(variant==0)guarded["origin"]["endpoint"]="http://127.0.0.1:1/futari/api/v1";
+      if(variant==1)guarded["origin"]["game"]="espgaluda2";
+      if(variant==2)guarded.erase("origin");
+      if(std::string_view(queue)=="pending-replays")guarded.erase("score_id");
+      auto path=replay_dir/(std::string(31,'0')+char('1'+variant)+".json");
+      originals[path]=guarded.dump();{std::ofstream file(path);file<<originals[path];}
+    }
+  }
   {
-    FutariCommunity retry(endpoint,"RetryTest","test-build",retry_profile);
+    FutariCommunity guarded(endpoint,"ChangedName","different-build",guarded_profile);
+    std::this_thread::sleep_for(500ms);
+    std::promise<CommunityResult> done;auto future=done.get_future();
+    guarded.Read({1,1,10,{},{{7030,{1}}}},[&](auto reply){done.set_value(std::move(reply));});
+    Check(future.wait_for(5s)==std::future_status::ready,"origin guard worker did not answer");
+    auto reply=future.get();
+    Check(!reply.error && reply.views.size()==1 && reply.views[0].rows.empty(),
+        "changed endpoint/game or legacy journal reached the current server");
+    guarded.Stop();
+  }
+  for(const auto& [path,bytes]:originals)Check(Read(path)==bytes,"unrecognized journal was altered");
+  {
+    FutariCommunity retry(endpoint,"ChangedName","newer-build",retry_profile);
     const auto deadline=std::chrono::steady_clock::now()+5s;
     while(std::chrono::steady_clock::now()<deadline) {
       auto history=retry_profile/"community/history";
@@ -463,6 +512,10 @@ void ProviderTest(const std::string& endpoint,const std::filesystem::path& direc
     retry.Stop();
   }
   Check(std::filesystem::is_empty(retry_profile/"community/outbox") && !std::filesystem::is_empty(retry_profile/"community/history"),"queued score did not retry after restart");
+  auto retried=nlohmann::json::parse(Read(retry_profile/"community/history"/queued_path.filename()));
+  Check(retried.at("nickname")=="RetryTest" && retried.at("scores")[0].at("nickname")=="RetryTest"
+      && retried.at("scores")[0].at("build")=="test-build",
+      "retry rebound a queued score to the current nickname/build");
   Check(FutariNativeNickname("琥珀水母-ABCD").starts_with("Player-"),
       "Unicode nickname was passed to the native Latin-only gamer-tag font");
   Check(FutariNativeNickname("abcdefghijklmnop")=="abcdefghijklmno","native ASCII nickname limit changed");

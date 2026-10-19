@@ -30,6 +30,14 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；`--check-endpoint https://xiaolu.life/cave/api/v1` 仅通过 Windows HTTP 和原生适配读取公开榜单及本人状态，不提交成绩。真实联网验收使用游戏本身的成绩与录像流程。
 
+## 虫姬二客户端与本机验证
+
+虫姬二保留自身原生录像／成绩时序。`scripts/futari/local_service.py` 可在全新 `.local` 目录启动随机端口的本机服务，使用相同协议而不改正式路由或数据库；命令和配置方法见 [分析工具](../docs/ANALYSIS.md#虫姬二本机联网现场)。无需 ROM 的传输与故障注入检查由 `tests/futari/run_native_community.py` 启动独立临时服务。
+
+客户端新成绩 journal 使用 version=2，成绩、待关联录像及录像重试文件均保存 `origin.game` 和原始游戏 API 端点。只有当前游戏与端点完全匹配时才自动重试，重试继续使用原昵称、构建及提交／成绩引用；端点末尾斜杠统一去除，其他别名不自动视为同一服务。`origin` 只用于本地 journal，不增加网络协议字段。
+
+修改 endpoint 后，其他服务的任务仍保留在原目录但不会发送。缺少来源的旧版 journal 同样保留，不按新配置猜测归属；旧记录的显式迁移尚未实现。已完成的 history 不受影响。改昵称不会改写已排队成绩或使本地存档改目录。
+
 ## 服务器目录与部署
 
 `/opt/cave-community/releases/<版本>/` 保存一份不可变的服务源码，`current` 指向启用版本。服务程序属于 root，仅 `/var/lib/cave-community/espgaluda2/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。

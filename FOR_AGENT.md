@@ -2,7 +2,7 @@
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。当前 P4 已迁入虫姬二维护适配、生成声明及机制回归，完整宿主和八个模式 DLL 已编译，继续实际本体／DLC 游玩回归；绊地狱仍在其后。
 
-最新干净联合构建为 e6c832e，out/xbox360 的 45 对程序／PDB、148 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块同进程重复进入、声音响应、虫姬二联网及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
+干净联合构建 756de6f 的 out/xbox360 有 45 对程序／PDB，148 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。该构建另在本机隔离服务完成游戏内成绩与录像上传、榜单读回和下载保存；网络录像冷启动播放、正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
 
 用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器的真实进关、本地保存和跨进程完整回放、共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。六种 PLAY 模式均已在合集选人进关并卸载返回。原 Python 专项检查已适配到合集，分析工具不再依赖旧工程。正式 HTTPS 服务已部署；游戏实际成绩上传、榜单读回、网络录像下载落盘及冷启动完整回放通过。实体输入、扩展覆盖及音画回归继续跟踪，不把短测写成整个 P3 通过。当前不打 v0.1 发布标签。
 
@@ -56,11 +56,13 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 
 完整工作在新合集目录进行，旧 G2、虫姬二和绊地狱原目录保持不动。一份 INI 供启动器和游戏共用，公共偏好由适配层应用；不要另写一份 G2 配置，也不要迁入虫姬二的图形设置向导。联网默认开启，昵称 Player；已有文件显式设置的 enabled=false 仍有效，不覆盖旧配置。正式 API 的服务、兼容路由和备份见 server/README.md。
 
-当前有 148 项 Python／CLI 回归，最新双游戏完整构建的 18 组 CTest 全部通过，包含独立 DLC 内容源回归。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
+当前有 153 项 Python／CLI 回归，前述双游戏完整构建的 18 组 CTest 全部通过，包含独立 DLC 内容源回归。`espgaluda2_community_service_tests --check-endpoint https://xiaolu.life/cave/api/v1` 只读检查正式 HTTPS 榜单，不提交成绩；`--probe` 仍只接受隔离的 loopback 服务。需要联网游玩回归时使用测试昵称与原游戏流程，不用 probe 向正式服务造分。
 
 ### 虫姬二接入
 
 来源固定为 7dced597；game-data、旧宿主和图形设置向导没有迁入源码。games/futari 中 audio 保留作用域音频等待与只读追踪，compat 保留模式装卸载适配，community 保留原生协议、录像及待传逻辑，diagnostics 保留存储钩子与诊断，recomp 保存主程序和八个 overlay 的声明。`community_client.h` 仅适配公共 HTTP 类型；不要恢复另一份通信 worker。服务协议源码在 server/games/futari.py，不因源码迁入就重新部署旧服务。
+
+`scripts/futari/local_service.py` 为真实游戏提供独立 loopback 现场，方法见 docs/ANALYSIS.md。新社区 journal 绑定游戏和原端点，改昵称／build 后仍使用原请求正文；端点变更、其他游戏及没有 origin 的旧 journal 保留而不自动发送，不能通过补填当前 endpoint 猜测迁移。该保护不改变线上协议。日志分析的 guestAudio 与输出队列分开，保留追踪作用域、有效玩法探针及丢弃计数；本次只有 Black Label 死亡片段，没有道具拾取或扬声器发声时刻证据。
 
 ```powershell
 ./scripts/Generate.ps1 -Game futari -DataDirectory '<受支持的数据目录>'

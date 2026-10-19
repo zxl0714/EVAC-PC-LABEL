@@ -68,3 +68,6 @@ build details in diagnostics rather than the normal player-facing title.
 Use source tests and real gameplay for their respective claims. Update the
 verification matrix with actual supported modes, save readback, input and
 audio evidence. Never mark a whole stage passed from a narrower smoke test.
+The user has deferred further repeated-entry gameplay tests. Keep the existing
+Black Label result, mark the other repetitions deferred (not passed), and do not
+make them a prerequisite for the current migration work.

@@ -20,6 +20,10 @@ using namespace rex::system::xam;
 namespace {
 constexpr uint64_t kLocalNativeXuid=0xB13EBABEBABEBABEull;
 constexpr uint32_t kCancelled=995,kTimeout=1460,kInvalidData=13,kOffline=1231;
+std::string EndpointIdentity(std::string endpoint) {
+  while(!endpoint.empty() && endpoint.back()=='/')endpoint.pop_back();
+  return endpoint;
+}
 std::string RandomReference() {
   unsigned char bytes[16];
   if(BCryptGenRandom(nullptr,bytes,sizeof(bytes),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0) throw std::runtime_error("Random source unavailable");
@@ -104,12 +108,19 @@ std::string FutariCommunityBuildIdentity() {
 }
 
 FutariCommunity::FutariCommunity(std::string endpoint,std::string nickname,std::string build,std::filesystem::path user_data)
-    :client_(std::move(endpoint)),nickname_(FutariNormalizeNickname(nickname)),build_(std::move(build)),user_data_(std::filesystem::absolute(user_data)) {
+    :endpoint_(EndpointIdentity(std::move(endpoint))),client_(endpoint_),nickname_(FutariNormalizeNickname(nickname)),build_(std::move(build)),user_data_(std::filesystem::absolute(user_data)) {
   if(!FutariValidNickname(nickname_))throw std::runtime_error("Invalid community nickname");
   native_names_[kLocalNativeXuid]=nickname_;
   worker_=std::thread([this]{Run();});
 }
 FutariCommunity::~FutariCommunity(){Stop();}
+nlohmann::json FutariCommunity::JournalOrigin() const {
+  return {{"game","futari"},{"endpoint",endpoint_}};
+}
+bool FutariCommunity::JournalMatches(const nlohmann::json& journal) const {
+  auto origin=journal.find("origin");
+  return origin!=journal.end() && origin->is_object() && *origin==JournalOrigin();
+}
 void FutariCommunity::Stop() {
   std::lock_guard stop_lock(stop_mutex_);
   stopping_=true;
@@ -264,7 +275,7 @@ uint32_t FutariCommunity::WriteNow(const std::vector<CommunityWrite>& views,Cloc
   if(views.empty()||views.size()>16)return kInvalidData;
   // A failed new run must never attach its replay to a previous run's score.
   for(const auto& view:views)accepted_scores_.erase(view.view);
-  nlohmann::json batch={{"version",1},{"nickname",nickname_},{"scores",nlohmann::json::array()}};
+  nlohmann::json batch={{"version",2},{"origin",JournalOrigin()},{"nickname",nickname_},{"scores",nlohmann::json::array()}};
   for(const auto& view:views) {
     // Futari's native stats writer (8218D230) stores the run's 64-bit score
     // in title property 0x20000001. 0x8000 is not a title score column.
@@ -304,6 +315,7 @@ uint32_t FutariCommunity::WriteNow(const std::vector<CommunityWrite>& views,Cloc
   return error;
 }
 uint32_t FutariCommunity::SendBatch(nlohmann::json& batch,const std::filesystem::path& path,Clock::time_point deadline) {
+  if(!JournalMatches(batch))return kInvalidData;
   for(auto& score:batch.at("scores")) {
     if(!score.contains("server_id")) {
       auto body=score;body.erase("pending_replay");
@@ -317,7 +329,7 @@ uint32_t FutariCommunity::SendBatch(nlohmann::json& batch,const std::filesystem:
       auto staged=user_data_/"community"/"pending-replays"/(reference+".json");
       if(std::filesystem::file_size(staged)>12*1024*1024)return kInvalidData;
       std::ifstream file(staged);auto body=nlohmann::json::parse(file);file.close();
-      if(body.at("nickname")!=score.at("nickname") || body.at("build")!=score.at("build")
+      if(!JournalMatches(body) || body.at("nickname")!=score.at("nickname") || body.at("build")!=score.at("build")
           || body.at("mode")!="view-"+std::to_string(score.at("view").get<uint32_t>()))return kInvalidData;
       body["score_id"]=score.at("server_id");
       auto replay_path=user_data_/"community"/"replay-outbox"/(reference+".json");
@@ -370,7 +382,7 @@ CommunityReplayResult FutariCommunity::ReplayNow(const CommunityReplay& request,
     const auto& payload=request.record;
     nlohmann::json body={{"protocol",1},{"title_id","435A07D7"},
       {"nickname",nickname_},{"format","futari-xstorage-v1"},{"build",build_},
-      {"mode",mode},{"sha256",Hash(payload)},{"payload",Base64(payload)}};
+      {"mode",mode},{"sha256",Hash(payload)},{"payload",Base64(payload)},{"origin",JournalOrigin()}};
     if(found==accepted_scores_.end()) {
       // Futari uploads its replay BEFORE XSessionWriteStats. Durably stage it,
       // then bind this exact reference into the following native score journal.
@@ -409,7 +421,9 @@ CommunityReplayResult FutariCommunity::ReplayNow(const CommunityReplay& request,
   return {0,std::move(record)};
 }
 uint32_t FutariCommunity::SendReplay(const nlohmann::json& body,const std::filesystem::path& path,Clock::time_point deadline) {
-  auto reply=Http("/replays",body,deadline);if(auto error=ResultError(reply))return error;
+  if(!JournalMatches(body))return kInvalidData;
+  auto request=body;request.erase("origin");
+  auto reply=Http("/replays",std::move(request),deadline);if(auto error=ResultError(reply))return error;
   auto id=reply.body.at("id").get<std::string>();if(!IsReference(id))return kInvalidData;
   auto history=user_data_/"community"/"replay-history";std::filesystem::create_directories(history);
   // Keep the receipt, not another base64 copy of the recording, after success.
@@ -438,7 +452,7 @@ void FutariCommunity::ArchiveUnboundReplays() {
     if(entry.is_symlink() || !entry.is_regular_file() || entry.file_size()>1024*1024)
       throw std::runtime_error("Unreadable score journal");
     std::ifstream file(entry.path());auto batch=nlohmann::json::parse(file);file.close();
-    if(!batch.is_object() || batch.value("version",0)!=1 || !batch.contains("scores")
+    if(!batch.is_object() || batch.value("version",0)!=2 || !JournalMatches(batch) || !batch.contains("scores")
         || !batch["scores"].is_array() || batch["scores"].size()>16)
       throw std::runtime_error("Invalid score journal");
     for(const auto& score:batch["scores"]) {
@@ -456,7 +470,7 @@ void FutariCommunity::ArchiveUnboundReplays() {
         || !IsReference(entry.path().stem().string()) || entry.file_size()>12*1024*1024
         || referenced.contains(entry.path().stem().string()))continue;
     std::ifstream file(entry.path());auto body=nlohmann::json::parse(file,nullptr,false);file.close();
-    if(!body.is_object() || body.value("protocol",0)!=1 || body.value("title_id","")!="435A07D7"
+    if(!body.is_object() || !JournalMatches(body) || body.value("protocol",0)!=1 || body.value("title_id","")!="435A07D7"
         || body.value("format","")!="futari-xstorage-v1" || body.contains("score_id"))continue;
     std::filesystem::create_directories(archive);
     auto target=archive/entry.path().filename();
@@ -472,7 +486,7 @@ void FutariCommunity::RetryOne() {
     if(!entry.is_regular_file()||entry.is_symlink()||entry.path().extension()!=".json"||!IsReference(entry.path().stem().string()))continue;
     if(entry.file_size()>1024*1024)continue;
     std::ifstream file(entry.path());auto batch=nlohmann::json::parse(file,nullptr,false);file.close();
-    if(!batch.is_object()||batch.value("version",0)!=1||!batch.contains("scores")||!batch["scores"].is_array()||batch["scores"].size()>16)continue;
+    if(!batch.is_object()||batch.value("version",0)!=2||!JournalMatches(batch)||!batch.contains("scores")||!batch["scores"].is_array()||batch["scores"].size()>16)continue;
     SendBatch(batch,entry.path(),Clock::now()+std::chrono::seconds(8));return;
   }
   directory=user_data_/"community"/"replay-outbox";
@@ -480,7 +494,7 @@ void FutariCommunity::RetryOne() {
     if(!entry.is_regular_file()||entry.is_symlink()||entry.path().extension()!=".json"||!IsReference(entry.path().stem().string())
         || entry.file_size()>12*1024*1024)continue;
     std::ifstream file(entry.path());auto body=nlohmann::json::parse(file,nullptr,false);file.close();
-    if(!body.is_object()||body.value("protocol",0)!=1||body.value("title_id","")!="435A07D7"
+    if(!body.is_object()||!JournalMatches(body)||body.value("protocol",0)!=1||body.value("title_id","")!="435A07D7"
         || !IsReference(body.value("score_id","")))continue;
     SendReplay(body,entry.path(),Clock::now()+std::chrono::seconds(8));return;
   }
