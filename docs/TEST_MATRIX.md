@@ -161,6 +161,10 @@ nginx 旧三款 location 和未知路径 fallback 与上线前原文完全相同
 
 cave-sdoj.service 与每日备份 timer 均 active／enabled。首次快照 `community-20261019T110000628246-0000.sqlite3` 与运行数据库均为 sdoj／435A07E7／schema 1，完整性为 ok，scores 与 replays 均为 0。部署及检查日志在 `.local/deploy-sdoj-af116e0-*.log`；旧服务和数据库未迁移。本节只验收服务器部署，不改变客户端 capability，也不宣称游戏内联网闭环完成。
 
+0619bd6 的无需 ROM 构建完成 7 项增量。SDOJ 和 G2 的原生 C++ `--check-endpoint` 均通过实际 Windows HTTP 读取正式 HTTPS 榜单／本人状态，分别检查 view 23 和 71；没有执行客体、提交成绩或录像。6 组 community CTest 再次通过；完整源码检查现为 309 项，审计无游戏数据。SDOJ 空榜保持为空，未用 fixture 冒充真实游玩联网结果。
+
+额外评分表 826273F8 另有 40 项，按 8×5 索引选择，ID 为 44–48 和 50–84；26988 状态为 10 的分支使用 score／10000＋10 和 kind 3，而普通个人分支使用原分数和 kind 0。仅做了本地只读反汇编／表核对，尚未取得团队菜单及评分累加的实战证据，因此这些 ID 不进入当前普通个人服务，不把未知类别误称 Challenge 或普通最高分榜。
+
 ## 阶段状态
 
 | 阶段 | 状态 | 证据和剩余条件 |
