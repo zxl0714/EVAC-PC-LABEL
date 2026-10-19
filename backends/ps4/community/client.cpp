@@ -324,12 +324,11 @@ struct Client::Impl {
         if (job.replay_check != ReplayCheck::Upload) { return true; }
         bool valid{};
         try {
-            Require(config.game=="ketsui","This title's native replay validator is not yet implemented");
             Require(job.body.is_object() && job.body.size() == 3 &&
                     Identifier(job.body.at("entry_id").get<std::string>()) &&
                     Identifier(job.body.at("submission_id").get<std::string>()) &&
                     ValidNicknameBytes(job.body.at("nickname").get<std::string>()), "Invalid typed replay receipt metadata");
-            const auto replay = InspectReplayEnvelope(job.upload);
+            const auto replay = InspectReplayEnvelope(job.upload,config.game);
             if (job.replay_expected) { MatchReplayMetadata(replay, *job.replay_expected); }
             job.body["sha256"] = Sha256(job.upload);
             job.body["format"] = ProtocolFor(config.game).replay_format;
@@ -342,10 +341,9 @@ struct Client::Impl {
         if (job.replay_check != ReplayCheck::Download || !reply) { return; }
         bool valid{};
         try {
-            Require(config.game=="ketsui","This title's native replay validator is not yet implemented");
             Require(reply.bytes.size() == job.replay_bytes && Sha256(reply.bytes) == job.replay_digest,
                     "Downloaded replay differs from the selected immutable entry");
-            const auto replay = InspectReplayEnvelope(reply.bytes);
+            const auto replay = InspectReplayEnvelope(reply.bytes,config.game);
             if (job.replay_expected) { MatchReplayMetadata(replay, *job.replay_expected); }
             valid = true;
         } catch (...) { reply.error = Error::Protocol; reply.bytes.clear(); reply.body = nullptr; }

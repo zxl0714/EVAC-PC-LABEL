@@ -12,6 +12,8 @@ PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更
 
 最新原生 Score bridge 的标题参数及本作边界已有 9 项自造用例，完整 66／66 和双服务 HTTP 2／2 通过（现场后缀 v03-native-score-profile-r1）；生产配置入口仍拒绝大往生，直到录像与真实闭环通过。静态代码找到 eboot+0xe483 的 getEmuVersion 注册及 +0x14960 叶函数返回 0x10000，已记入接口参考；这不是实际录像观察。下一步实现本作独立几何／版本／角色校验，取得真实记录并核对，再接 native provider，保持 capability 关闭直到通过。
 
+本作独立结构校验现已实现：`scripts/ps4/run_replay_checks.py` 的 11 项自造检查、66 项原生检查、绊地狱既有 23 项录像回归和 35 项 whole-round 自测通过。`--community-replay-profile-check daioujou <附件> [board score]` 只读检查压缩附件，typed worker 按 config.game 校验，不写存档或执行快照。静态合同目前限定 0x10030／0x10000／ARCADE_01030；更旧容器不能当作当前在线兼容。下一步取得真实游戏录像核对并完成本作服务端验证及原生菜单闭环；当前仍不能宣布大往生联网或录像验收完成。
+
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。

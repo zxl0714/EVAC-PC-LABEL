@@ -1533,6 +1533,16 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (argc == 3 && std::wstring(argv[1]) == L"--community-replay-check") {
         return kt::community::ReplayEnvelopeCheck(argv[2]) ? 0 : 2;
     }
+    if ((argc==4 || argc==6) && std::wstring_view(argv[1])==L"--community-replay-profile-check") {
+        try {
+            const auto game=cave::Utf8(std::filesystem::path(argv[2]));
+            std::optional<kt::community::ReplayExpectation> expected;
+            if (argc==6) expected=kt::community::ReplayExpectation{
+                static_cast<std::uint32_t>(kt::community::Decimal(cave::Utf8(std::filesystem::path(argv[4])),0xffffffff)),
+                kt::community::Decimal(cave::Utf8(std::filesystem::path(argv[5])))};
+            return kt::community::ReplayEnvelopeCheck(argv[3],expected,game)?0:2;
+        } catch (...) {std::fputs("Invalid replay title or metadata expectation\n",stderr);return 2;}
+    }
     if (argc == 5 && std::wstring(argv[1]) == L"--community-replay-check") {
         try {
             const std::wstring board(argv[3]), score(argv[4]);

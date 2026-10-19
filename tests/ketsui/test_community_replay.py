@@ -9,8 +9,8 @@ import tempfile
 import unittest
 import zlib
 
-ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / 'out/native/KetsuiNativeProbe.exe'
+ROOT = Path(__file__).resolve().parents[2]
+EXE = ROOT / 'out/ps4-native/KetsuiNativeProbe.exe'
 RECORD_SIZE, DATA_OFFSET, DATA_SIZE = 0x80000, 0x500, 0x78000
 SNAPSHOT_LIMIT = 2 * 1024 * 1024
 
@@ -45,7 +45,7 @@ def key_record(edges, *, total=1024, consumed=600, players=1, mask=1):
     return result
 
 
-@unittest.skipUnless(EXE.exists(), 'Build-Native.ps1 required')
+@unittest.skipUnless(EXE.exists(), 'Build.ps1 -Games ketsui required')
 class ReplayEnvelopeTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory(prefix='kt-replay-envelope-')
@@ -261,18 +261,19 @@ class ReplayEnvelopeTests(unittest.TestCase):
         self.assertEqual(event['key_directory_bytes'], 256000)
 
     def test_zlib_dependency_is_pinned_licensed_hashed_and_static_memory_only(self):
-        dependencies = json.loads((ROOT / 'third_party/community/dependencies.json').read_text())
+        dependencies = json.loads((ROOT / 'third_party/ps4/community/dependencies.json').read_text())
         lock, = [item for item in dependencies if item['name'] == 'zlib']
         self.assertEqual(lock['revision'], 'da607da739fa6047df13e66a2af6b8bec7c2a498')
         self.assertEqual(lock['url'], 'https://github.com/madler/zlib.git')
-        license = ROOT / '.deps/zlib/LICENSE'
+        license = ROOT / '.deps/ps4/zlib/LICENSE'
         if license.exists():
-            self.assertEqual((ROOT / 'LICENSES/zlib-LICENSE.txt').read_text().strip(), license.read_text().strip())
-        cmake = (ROOT / 'CMakeLists.txt').read_text()
+            self.assertEqual((ROOT / 'third_party/ps4/LICENSES/zlib-LICENSE.txt').read_text().strip(), license.read_text().strip())
+        cmake = (ROOT / 'backends/ps4/CMakeLists.txt').read_text()
         self.assertIn('add_library(KetsuiZlib STATIC', cmake)
         self.assertIn('target_compile_definitions(KetsuiZlib PUBLIC Z_PREFIX)', cmake)
-        self.assertNotIn('.deps/zlib/gz', cmake)
-        self.assertIn("'.deps/zlib/' + $_", (ROOT / 'scripts/Build-Native.ps1').read_text())
+        self.assertNotIn('/zlib/gz', cmake)
+        locked=json.loads((ROOT/'tools/ps4-source.lock.json').read_text())
+        self.assertEqual(next(item['revision'] for item in locked['dependencies'] if item['name']=='zlib'),lock['revision'])
 
 
 if __name__ == '__main__':

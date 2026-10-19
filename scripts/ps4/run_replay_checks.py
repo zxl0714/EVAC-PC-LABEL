@@ -1,0 +1,77 @@
+"""Check title-specific native envelopes with authored, non-playable records."""
+import argparse
+import datetime
+import json
+from pathlib import Path
+import struct
+import subprocess
+import sys
+import uuid
+import zlib
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from analysis_paths import private_output
+from project import ROOT, digest, write_json_new
+from ps4_build_receipt import verify
+
+
+def record(game):
+    size,version,data_version,region=(0x65600,0x10030,0x10000,b'ARCADE_01030') if game=='daioujou' else (0x80000,0x10001,0x10001,b'ARCADE_01000')
+    data=bytearray(size)
+    snapshot=zlib.compress(bytes([8])+b'AUTHORED'+struct.pack('<I',7)+b'fixture')
+    struct.pack_into('<10I',data,0,version,data_version,0,0,1024,600,len(snapshot),1,1,0)
+    data[48:55]=b'fixture'
+    data[80:80+len(region)]=region
+    struct.pack_into('<IHH',data,108,12345,0,1)
+    data[0x500:0x500+len(snapshot)]=snapshot
+    return data
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path)
+    args=parser.parse_args()
+    receipt=verify()
+    directory=private_output(args.output or ROOT/'.local/ps4-replay-checks'/
+        (datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ-')+uuid.uuid4().hex[:8]))
+    directory.mkdir(parents=True,exist_ok=False)
+    executable=ROOT/'out/ps4-native/KetsuiNativeProbe.exe'
+    results=[]
+    def check(name,game,data,valid,board=6,score=12345):
+        source=directory/(name+'.attachment')
+        with source.open('xb') as stream:
+            stream.write(data)
+        before=digest(source)
+        result=subprocess.run([str(executable),'--community-replay-profile-check',game,str(source),str(board),str(score)],
+            cwd=directory,capture_output=True,timeout=10,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        for suffix,content in [('stdout.jsonl',result.stdout),('stderr.txt',result.stderr)]:
+            with (directory/(name+'.'+suffix)).open('xb') as stream:
+                stream.write(content)
+        events=[json.loads(line) for line in result.stdout.splitlines() if line.startswith(b'{')]
+        passed=result.returncode==(0 if valid else 2) and len(events)==1 and events[0].get('valid_envelope') is valid and digest(source)==before
+        if valid:
+            passed=passed and events[0].get('game')==game and events[0].get('native_playback_validated') is False
+        results.append(dict(check=name,passed=passed,exitCode=result.returncode))
+        print(('PASS' if passed else 'FAIL')+': '+name,flush=True)
+    djo=record('daioujou');kt=record('ketsui')
+    check('daioujou-combined','daioujou',zlib.compress(djo),True)
+    check('daioujou-character','daioujou',zlib.compress(djo),True,board=0)
+    check('daioujou-wrong-character','daioujou',zlib.compress(djo),False,board=1)
+    check('daioujou-score-units','daioujou',zlib.compress(djo),False,score=123450)
+    check('daioujou-custom','daioujou',zlib.compress(djo),False,board=16)
+    check('ketsui-legacy','ketsui',zlib.compress(kt),True,board=0)
+    check('ketsui-is-not-daioujou','daioujou',zlib.compress(kt),False)
+    check('daioujou-is-not-ketsui','ketsui',zlib.compress(djo),False,board=0)
+    wrong=bytearray(djo);struct.pack_into('<I',wrong,4,0x10001)
+    check('daioujou-wrong-core','daioujou',zlib.compress(wrong),False)
+    wrong=bytearray(djo);struct.pack_into('<I',wrong,0,0x1000e)
+    check('daioujou-legacy-not-assumed','daioujou',zlib.compress(wrong),False)
+    check('daioujou-trailing-data','daioujou',zlib.compress(djo)+b'extra',False)
+    write_json_new(directory/'result.json',dict(format=1,buildSourceCommit=receipt['sourceCommit'],
+        buildSourceDirty=receipt['sourceDirty'],executableSha256=digest(executable),
+        authoredDataOnly=True,nativeGameExecution=False,nativePlaybackValidated=False,checks=results))
+    return 0 if all(item['passed'] for item in results) else 1
+
+
+if __name__=='__main__':
+    sys.exit(main())

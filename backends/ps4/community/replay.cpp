@@ -13,6 +13,12 @@ namespace {
 void Require(bool value, const char* message) {
     if (!value) { throw std::runtime_error(message); }
 }
+struct RecordContract {std::size_t bytes,data_bytes;std::uint32_t version,data_version;std::string_view region;};
+RecordContract ContractFor(std::string_view game) {
+    (void)ProtocolFor(game);
+    if (game=="daioujou") return {0x65600,0x65000,0x10030,0x10000,"ARCADE_01030"};
+    return {kReplayRecordSize,kReplayDataSize,0x10001,0x10001,"ARCADE_01000"};
+}
 std::uint32_t U32(std::span<const std::byte> data, std::size_t offset) {
     Require(offset <= data.size() && data.size() - offset >= 4, "field_bounds");
     std::uint32_t value{};
@@ -69,12 +75,12 @@ unsigned Chunks(std::span<const std::byte> state) {
     Require(!names.empty(), "empty_snapshot");
     return static_cast<unsigned>(names.size());
 }
-void KeyDirectory(ReplayEnvelope& replay, unsigned players, unsigned mask) {
+void KeyDirectory(ReplayEnvelope& replay, unsigned players, unsigned mask,std::size_t data_bytes) {
     Require(replay.total_frames % 512 == 0, "key_frame_alignment");
     const std::uint64_t stride = replay.total_frames / 512;
     const std::uint64_t lines = static_cast<std::uint64_t>(players) * std::popcount(mask);
     const auto directory_bytes = stride * lines;
-    const auto remaining = kReplayDataSize - replay.snapshot_compressed_bytes;
+    const auto remaining = data_bytes - replay.snapshot_compressed_bytes;
     Require(directory_bytes < remaining, "key_directory_extent");
     const auto capacity = (remaining - directory_bytes) / 8;
     // The native reader stops before copying a word when its cursor reaches
@@ -108,22 +114,24 @@ void KeyDirectory(ReplayEnvelope& replay, unsigned players, unsigned mask) {
     Require(cursor == replay.key_pages, "key_page_cursor");
 }
 }
-ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed) {
+ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::string_view game) {
+    const auto contract=ContractFor(game);
     ReplayEnvelope result;
-    result.record = Inflate(compressed, kReplayRecordSize);
-    Require(result.record.size() == kReplayRecordSize, "record_size");
+    result.game=game;
+    result.record = Inflate(compressed, contract.bytes);
+    Require(result.record.size() == contract.bytes, "record_size");
     const std::span<const std::byte> record(result.record);
     result.version = U32(record, 0); result.data_version = U32(record, 4);
-    Require(result.version == 0x10001 && result.data_version == 0x10001, "unsupported_record_version");
-    Require(U32(record, 8) <= kReplayDataSize && U32(record, 12) == 0, "unsupported_record_extents");
+    Require(result.version == contract.version && result.data_version == contract.data_version, "unsupported_record_version");
+    Require(U32(record, 8) <= contract.data_bytes && U32(record, 12) == 0, "unsupported_record_extents");
     result.total_frames = U32(record, 16); result.consumed_frames = U32(record, 20);
     Require(result.total_frames && result.consumed_frames && result.consumed_frames <= result.total_frames, "frame_bounds");
     result.snapshot_compressed_bytes = U32(record, 24);
     const auto players = U32(record, 28), mask = U32(record, 32);
     result.key_pages = U32(record, 36);
-    Require(result.snapshot_compressed_bytes && result.snapshot_compressed_bytes <= kReplayDataSize &&
+    Require(result.snapshot_compressed_bytes && result.snapshot_compressed_bytes <= contract.data_bytes &&
             players && players <= 8 && mask, "replay_header_bounds");
-    KeyDirectory(result, players, mask);
+    KeyDirectory(result, players, mask,contract.data_bytes);
     Require(!Text(record, 48, 16).empty(), "missing_record_title");
     result.region = Text(record, 80, 16);
     Require(!result.region.empty() && std::all_of(result.region.begin(), result.region.end(), [](unsigned char c) {
@@ -139,16 +147,26 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed) {
 }
 void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& expected) {
     const auto group = expected.board / 10, ship = expected.board % 10;
+    if (replay.game=="daioujou") {
+        Require((group==0 || (group>=2 && group<=6)) && ship<=6,"unsupported_replay_board");
+        const auto mode=group==0 ? 0u : group==2 ? 1u : group==3 ? 2u : group==5 ? 5u : 4u;
+        Require(replay.region==ContractFor(replay.game).region && replay.kind==0 && replay.mode==mode,"replay_mode_mismatch");
+        Require(expected.score==replay.score,"replay_score_mismatch");
+        Require(replay.character<6 && (ship==6 || ship==replay.character),"replay_ship_mismatch");
+        return;
+    }
+    Require(replay.game=="ketsui","unsupported_replay_title");
     Require(group <= 5 && ship <= 2, "unsupported_replay_board"); // CUSTOM/99 stay unavailable.
     const auto mode = group <= 2 ? 0u : group == 3 ? 1u : group == 4 ? 2u : 4u;
     Require(replay.region == "ARCADE_01000" && replay.kind == 0 && replay.mode == mode, "replay_mode_mismatch");
     Require(expected.score == replay.score, "replay_score_mismatch");
     Require(replay.character < 8 && (!ship || ship == replay.character / 4 + 1), "replay_ship_mismatch");
 }
-std::vector<std::byte> EncodeReplayEnvelope(std::span<const std::byte> record) {
-    Require(record.size() == kReplayRecordSize, "record_size");
+std::vector<std::byte> EncodeReplayEnvelope(std::span<const std::byte> record,std::string_view game) {
+    const auto contract=ContractFor(game);
+    Require(record.size() == contract.bytes, "record_size");
     auto capacity = compressBound(static_cast<uLong>(record.size()));
-    Require(capacity <= kReplayRecordSize + 1024, "encoded_record_limit");
+    Require(capacity <= contract.bytes + 1024, "encoded_record_limit");
     std::vector<std::byte> encoded(capacity);
     Require(compress2(reinterpret_cast<Bytef*>(encoded.data()), &capacity,
                       reinterpret_cast<const Bytef*>(record.data()), static_cast<uLong>(record.size()), 6) == Z_OK,
@@ -156,10 +174,10 @@ std::vector<std::byte> EncodeReplayEnvelope(std::span<const std::byte> record) {
     encoded.resize(capacity);
     // Use exactly the existing upload validator, including the inner snapshot
     // and key extents. This does not claim native state compatibility.
-    Require(InspectReplayEnvelope(encoded).record == std::vector<std::byte>(record.begin(), record.end()), "record_encode_roundtrip");
+    Require(InspectReplayEnvelope(encoded,game).record == std::vector<std::byte>(record.begin(), record.end()), "record_encode_roundtrip");
     return encoded;
 }
-bool ReplayEnvelopeCheck(const std::filesystem::path& path, std::optional<ReplayExpectation> expected) {
+bool ReplayEnvelopeCheck(const std::filesystem::path& path, std::optional<ReplayExpectation> expected,std::string_view game) {
     try {
         // Read at most the protocol limit plus one byte. File replacement or
         // growth during the read cannot allocate according to an untrusted size.
@@ -169,9 +187,9 @@ bool ReplayEnvelopeCheck(const std::filesystem::path& path, std::optional<Replay
         file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
         Require(!file.bad(), "input_read");
         bytes.resize(static_cast<std::size_t>(file.gcount()));
-        const auto replay = InspectReplayEnvelope(bytes);
+        const auto replay = InspectReplayEnvelope(bytes,game);
         if (expected) { MatchReplayMetadata(replay, *expected); }
-        const Json result{{"event", "community_replay_envelope_check"}, {"valid_envelope", true},
+        const Json result{{"event", "community_replay_envelope_check"}, {"game",game}, {"valid_envelope", true},
             {"compressed_bytes", bytes.size()}, {"record_bytes", replay.record.size()}, {"record_sha256", Sha256(replay.record)},
             {"version", replay.version}, {"data_version", replay.data_version}, {"total_frames", replay.total_frames},
             {"consumed_frames", replay.consumed_frames}, {"snapshot_compressed_bytes", replay.snapshot_compressed_bytes},

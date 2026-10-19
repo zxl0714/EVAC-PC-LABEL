@@ -26,6 +26,19 @@ py -3.12 scripts/sdoj_inputs.py '<已解出的最大往生目录>' --output .loc
 
 ## 静态模块检查
 
+### PS4 录像结构检查
+
+在已构建的 PS4 运行时上，可只读检查本地压缩附件：
+
+```powershell
+./out/ps4-native/KetsuiNativeProbe.exe --community-replay-profile-check daioujou '<本地压缩附件>'
+py -3.12 scripts/ps4/run_replay_checks.py
+```
+
+第一个命令显式指定标题；可追加原生榜单编号和原生分值整数核对元数据，不猜测另一游戏或版本。第二个命令用自造的不可游玩数据检查两款结构，并将逐项日志及构建身份保存在新的 `.local/ps4-replay-checks/`。结构校验不写入玩家存档、不执行快照，也不代表游戏内回放已通过。
+
+绊地狱沿用 0x80000 字节／1.02 合同；大往生开发合同为 0x65600 字节、容器 0x10030、core 0x10000 和 ARCADE_01030。两者的综合榜编号、角色范围和分值含义不同。大往生真实记录和游戏内联网仍待验收，当前能力开关保持关闭。
+
 先准备本工程的 SDK 和原生分析工具：
 
 ```powershell

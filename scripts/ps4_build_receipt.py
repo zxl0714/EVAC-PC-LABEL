@@ -65,8 +65,9 @@ def snapshot():
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
     explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py',
                      'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'tests/ketsui/test_native.py',
-                     'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py',
-                     'server/games/ketsui.py', 'server/games/daioujou.py', 'tests/test_ps4_community_profiles.py'})
+                     'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py', 'scripts/ps4/run_replay_checks.py',
+                     'server/games/ketsui.py', 'server/games/daioujou.py', 'tests/test_ps4_community_profiles.py',
+                     'tests/ketsui/test_community_replay.py'})
     files = {}
     for name in sorted({value.decode('utf-8') for value in raw.split(b'\0') if value}):
         if name in explicit or name.startswith(('backends/ps4/', 'third_party/ps4/', 'common/')) or (name.startswith('games/') and name.endswith('/data.json')):
