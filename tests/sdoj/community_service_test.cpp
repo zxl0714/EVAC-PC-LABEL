@@ -67,6 +67,9 @@ void Units() {
     if(ViewCharacterType(view)==UINT32_MAX)continue;
     ++boards;const auto body=EncodeCommunityScore(Score(view));
     Require(body.at("view")==view && body.at("columns")[2].at("value")==ViewCharacterType(view),"View/character association");
+    CommunityRow native;native.columns=DecodeCommunityColumns(body.at("columns"));
+    Require(Column(native,1,2)==kTime && Column(native,2,1)==ViewCharacterType(view),"Native time/character reader columns");
+    Require(native.columns.size()==6,"Write-only properties leaked into reader columns");
   }
   Require(boards==39 && ViewCharacterType(23)==48 && ViewCharacterType(24)==49 && ViewCharacterType(93)==50,"Native board table");
   for(auto view:{0u,1u,26u,44u,49u,84u,94u})Reject([&]{EncodeCommunityScore(Score(view));});
@@ -74,7 +77,10 @@ void Units() {
   Require(encoded.at("score")=="9007199254740993" && encoded.at("columns")[0].at("id")==0x20000004,"SDOJ score ID/precision");
   Require(encoded.at("columns")[1].at("value")==std::to_string(kTime),"Signed native FILETIME changed");
   CommunityRow row;row.columns=DecodeCommunityColumns(encoded.at("columns"));
-  Require(Column(row,2,2)==kTime && Column(row,4,2)==9007199254740993LL && Column(row,7,1)==48,"Read property namespace");
+  Require(Column(row,1,2)==kTime && Column(row,2,1)==48 && Column(row,4,1)==0,"Read property namespace");
+  auto metadata=Score();metadata.columns[3].integer=4;metadata.columns[4].integer=1;metadata.columns[5].integer=9;
+  row.columns=DecodeCommunityColumns(EncodeCommunityScore(metadata).at("columns"));
+  Require(Column(row,4,1)==4 && Column(row,5,1)==1 && Column(row,6,1)==9,"Stage/continue/option reader columns");
   Require(Column(row,0xfffa,1)==0,"Unconfirmed replay advertised");
   row.columns=DecodeCommunityColumns(encoded.at("columns"),336);
   Require(Column(row,0xfffa,1)==336 && NativeFiletime(kTime)==0x01dd5fb4b546a200ull,"Attachment/time interpretation");
@@ -106,7 +112,7 @@ nlohmann::json Probe(std::string endpoint) {
   SdojCommunity player(endpoint,"SdojTransportTest","authored-test"),rival(endpoint,"SdojRival","authored-test");
   auto own=Board();own.xuids={kNativeCommunityLocalXuid};
   auto unranked=Read(player,own);
-  Require(!unranked.error && unranked.views[0].total==0 && unranked.views[0].rows.size()==1 && unranked.views[0].rows[0].rank==0 && Column(unranked.views[0].rows[0],2,2)==0,"Unranked native local row");
+  Require(!unranked.error && unranked.views[0].total==0 && unranked.views[0].rows.size()==1 && unranked.views[0].rows[0].rank==0 && Column(unranked.views[0].rows[0],1,2)==0 && Column(unranked.views[0].rows[0],2,1)==0,"Unranked native local row");
   Require(Read(player,Board()).views[0].rows.empty(),"Unranked row leaked to public board");
   Require(Write(player,{Storage()})==13,"Unaccepted storage acknowledgment");
   const auto record=Recording();
@@ -119,7 +125,7 @@ nlohmann::json Probe(std::string endpoint) {
   Require(!Replay(player,{23,kNativeCommunityLocalXuid,true,336,record}).error,"Native SDOJ replay upload");
   Require(Write(player,{Storage()})==0 && Write(player,{Storage()})==0,"Native storage-size-only acknowledgment");
   auto board=Read(player,Board());const auto& row=board.views[0].rows[0];
-  Require(!board.error && row.rating==12345 && row.xuid==kNativeCommunityLocalXuid && Column(row,2,2)==kTime && Column(row,4,2)==12345 && Column(row,0xfffa,1)==336,"Native SDOJ readback");
+  Require(!board.error && row.rating==12345 && row.xuid==kNativeCommunityLocalXuid && Column(row,1,2)==kTime && Column(row,2,1)==48 && Column(row,4,1)==0 && Column(row,0xfffa,1)==336,"Native SDOJ readback");
   auto downloaded=Replay(player,{23,kNativeCommunityLocalXuid,false,336,{}});
   Require(!downloaded.error && downloaded.record==record,"Native SDOJ replay byte equality");
   Require(Replay(player,{23,kNativeCommunityLocalXuid,false,334,{}}).error==122,"SDOJ download capacity");
@@ -131,7 +137,7 @@ nlohmann::json Probe(std::string endpoint) {
   auto estimate=Estimate(player,{{24,score+2},{24,score+1}});
   Require(!estimate.error && estimate.ranks==std::vector<uint32_t>{1,2},"SDOJ rank estimate");
   auto laser=Read(player,Board(24));
-  Require(!laser.error && laser.views[0].total==2 && laser.views[0].rows[1].rating==score && Column(laser.views[0].rows[1],7,1)==49,"SDOJ Laser association/precision");
+  Require(!laser.error && laser.views[0].total==2 && laser.views[0].rows[1].rating==score && Column(laser.views[0].rows[1],2,1)==49,"SDOJ Laser association/precision");
   Require(Write(player,{Storage()})==13,"Previous-run replay receipt reused by new run");
   player.Stop();rival.Stop();
   return {{"passed",true},{"guestExecution",false},{"game","sdoj"},{"replayBytes",336},{"nativeSizeAcknowledgment",true}};

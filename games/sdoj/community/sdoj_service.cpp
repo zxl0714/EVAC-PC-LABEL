@@ -48,7 +48,7 @@ std::map<uint32_t,int64_t> Properties(const Json& properties) {
   return result;
 }
 bool View(uint32_t view){return ViewCharacterType(view)!=UINT32_MAX;}
-uint32_t ColumnType(uint16_t id){return id==2 || id==4?2:1;}
+uint32_t ColumnType(uint16_t id){return id==1?2:1;}
 std::string RunKey(const Json& properties) {
   const auto p=Properties(properties);
   return std::to_string(p.at(0x20000004))+"/"+std::to_string(p.at(0x20000002))+"/"+std::to_string(p.at(0x10000007));
@@ -82,7 +82,16 @@ Json EncodeCommunityScore(const CommunityWrite& view) {
 std::vector<CommunityColumn> DecodeCommunityColumns(const Json& properties,uint32_t replay_bytes) {
   const auto props=Properties(properties);std::vector<CommunityColumn> result;
   Check(!replay_bytes || (replay_bytes>kReplayHeaderBytes && replay_bytes<=kReplayMaxBytes));
-  for(const auto& [id,value]:props)result.push_back({id&0xffff,Type(id),value,0});
+  // Writer properties and reader column IDs are different namespaces.
+  // The native reader at 8212CB40..8212CBCC restores replay-header offsets
+  // +52/+56/+60/+76 from columns 2/4/5/6, and +32 from column 1.
+  // Score is row.rating. Returning the packed FILETIME as column 2 makes
+  // its high word a character index and crashes the replay-preview renderer.
+  result.push_back({1,2,props.at(0x20000002),0});
+  result.push_back({2,1,props.at(0x10000007),0});
+  result.push_back({4,1,props.at(0x10000006),0});
+  result.push_back({5,1,props.at(0x10000005),0});
+  result.push_back({6,1,props.at(0x10000001),0});
   result.push_back({0xfffa,1,replay_bytes,0});return result;
 }
 SdojCommunity::SdojCommunity(std::string endpoint,std::string nickname,std::string build)
