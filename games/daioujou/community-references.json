@@ -3,7 +3,7 @@
   "game": "daioujou",
   "titleId": "CUSA32997",
   "version": "01.04",
-  "status": "native-loopback-roundtrip-verified",
+  "status": "native-https-roundtrip-verified",
   "sourceExecutableSha256": "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
   "sources": [
     "patch:1100/config/title_prof.psb.m",
@@ -74,8 +74,18 @@
     "modeConversionSource": "base:1100/script/title_standalone_replay_ranking.nut rankingModeConv/checkRegistRanking and patch:1100/script/title_standalone_etc.nut setting_game_check_function",
     "observedNativeHeader": {"nativeScore": 40, "displayScore": 400, "board": 0, "kind": 0, "mode": 3, "region": "ARCADE_01000", "recordBytes": 524288, "compressedBytes": 26633},
     "nativeRoundtripVerified": true,
-    "nativeRoundtripScope": "literal-http-loopback-native-arcade",
-    "productionHttpsVerified": false,
+    "nativeRoundtripScope": "normal-collection-https-native-arcade",
+    "productionHttpsVerified": true,
+    "observedHttpsRoundtrip": {
+      "board": 0,
+      "nativeScore": 104,
+      "displayScore": 1040,
+      "networkAttachmentBytes": 26625,
+      "networkAttachmentSha256": "0388e187bc5e4c6b94445f28f3b8421a885725e535fb3d080db29f0e20d3a628",
+      "downloadedLocalRecordSha256": "52fadac7761dc41d3f5f6aa0988dc39cc87591c56da9c982489708911c9222e6",
+      "offlineColdPlaybackVerified": true,
+      "scope": "Normal collection GUI selection and launch, real ARCADE / Type-A / Shotia round, native score/replay upload, in-game leaderboard and download/save against the deployed HTTPS service. A new normal-contract process with networking disabled and diagnostic tap 0 played this DOWNLOAD REPLAY to natural return. Representative coverage, not every mode or physical-device validation."
+    },
     "observedRoundtrip": {
       "board": 0,
       "nativeScore": 178,
@@ -101,5 +111,5 @@
     "sceNpScoreDeleteRequest",
     "sceNpScoreDeleteNpTitleCtx"
   ],
-  "flow": "Native score submission precedes replay attachment. The profile has seven character filters, with the combined board last, unlike Ketsui. A representative native ARCADE loopback roundtrip and offline cold playback have passed; production HTTPS and the normal collection entry remain separate acceptance gates. Catalogue capabilities are not enabled by this reference."
+  "flow": "Native score submission precedes replay attachment. The profile has seven character filters, with the combined board last, unlike Ketsui. Representative native ARCADE loopback and normal-collection production HTTPS roundtrips have passed, including downloaded replay save and offline cold playback. Other modes, physical input and release-package acceptance are not implied."
 }

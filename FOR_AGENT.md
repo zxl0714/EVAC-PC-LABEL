@@ -1,6 +1,6 @@
 # 开发入口
 
-v0.3 正在开发，发行版本仍为 v0.2。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口已验证语言切换、昵称草稿保留、保存及日文冷启动读回；PS4 窗口已核对日文名，360 还需实机核对。大往生已有独立玩家进关、保存及真实原生 loopback 成绩／录像闭环。正式服务更新至 171d8a5 后，catalogue 已接入开发候选的正常启动和联网入口，使用 runtime/ps4/daioujou.exe 与独立证书；待配套重建后验收正常入口及正式 HTTPS，不将开关或自造测试当作验收通过。下文保留较早分步定位记录，当前范围以本段和验收矩阵前部为准。
+v0.3 正在开发，发行版本仍为 v0.2。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口已验证语言切换、昵称草稿保留、保存及日文冷启动读回；PS4 窗口已核对日文名，360 还需实机核对。大往生的正常 GUI 入口、ARCADE／Type-A／Shotia 第一关及正式 HTTPS 成绩／榜单／录像上传下载保存、离线冷回放已通过代表性验收，构建 ce006b1，服务171d8a5；catalogue 已接入 runtime/ps4/daioujou.exe 和独立证书。下一步收敛 SDOJ 声音／输入延迟调查，核对 360 窗口标题，再做最终同提交五游戏构建、双包／源码附件和指定 OSS／QQ 交付。下文保留较早分步定位记录，当前范围以本段和验收矩阵前部为准。
 
 大往生输入为 CUSA32997／01.04，完整目录 `.local/inputs/daioujou-20261020-r2`，原 ZIP 与全部 61 项 CRC／哈希已核验；r1 为失败提取，不可使用。`games/daioujou/data.json` 记录 60 项运行资源，不含 Project.gp4。共享准备入口 `--prepare-game --game daioujou --root <合集> --data-dir <完整目录>` 校验全部资源并准备六程序，首次生成及缓存命中已通过；不套用绊地狱资源补丁。Build／Test 可选 daioujou，运行整理为两款生成各自的宿主别名和证书，共用 GPU。
 
@@ -89,7 +89,9 @@ py -3.12 scripts/project.py audit
 
 ### 本地出包入口
 
-Release.ps1 默认 v0.3，固定包含 futari、espgaluda2、ketsui、sdoj、daioujou；联合 360 收据仍要求 espgaluda2／futari／sdoj，两款 PS4 别名来自同一认证宿主和 GPU。当前大往生候选入口等待正式 HTTPS 与正常合集回归；不能以 catalogue 或打包预检通过代替实际验收，尚不生成或上传正式包。实际验收完成、最终提交后，使用 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui,daioujou -Jobs 2` 配套构建，再分别执行 `Release.ps1 -Flavor Internal -Version 0.3` 和 `Release.ps1 -Flavor Public -Version 0.3`。SDOJ／大往生只复制清单中的 114／60 个资源，不递归带入 ISO、工具、音乐补丁或 Project.gp4。包生成后须实际解压并执行下面的 verify。旧 v0.1／v0.2 仍按三款／四款版本档校验，冻结文件不重打。
+Release.ps1 默认 v0.3，固定包含 futari、espgaluda2、ketsui、sdoj、daioujou；联合 360 收据仍要求 espgaluda2／futari／sdoj，两款 PS4 别名来自同一认证宿主和 GPU。大往生正常入口和正式社区代表性闭环已验收，但剩余调查与最终配套发行仍须完成，不能以 catalogue 或打包预检通过代替实际验收。最终提交后，使用 `Build.ps1 -Games espgaluda2,futari,sdoj,ketsui,daioujou -Jobs 2` 配套构建，再分别执行 `Release.ps1 -Flavor Internal -Version 0.3` 和 `Release.ps1 -Flavor Public -Version 0.3`。SDOJ／大往生只复制清单中的 114／60 个资源，不递归带入 ISO、工具、音乐补丁或 Project.gp4。包生成后须实际解压并执行下面的 verify。旧 v0.1／v0.2 仍按三款／四款版本档校验，冻结文件不重打。
+
+大往生该入口的最新结果在 `.local/daioujou-collection-https-r1`：ce006b1 的正常 GUI 实战取得 1040 分，正式上传／读榜／下载均 200；附件 26625 字节，SHA-256 为 0388e187bc5e4c6b94445f28f3b8421a885725e535fb3d080db29f0e20d3a628，保存槽位 9 为新下载记录。关闭联网后的正常合同新进程（diagnosticInputTapMs=0）完整播放该 DOWNLOAD REPLAY 并自然返回，整份录像存档哈希未变，provider／通信请求均 0。两个进程已受控关闭。原生闭环的详细哈希和运行身份在验收矩阵及本地 analysis/result.json，不重打一份分数或重复所有模式。
 
 Internal／Public 使用同一 release_package.py，要求工作树干净，SDK、联合 360、PS4、启动器收据配套，所选版本的全部玩家组件属于当前提交且 runtime 证书与产物哈希相符。后续修改源码／文档会使宿主收据失效，应在最终提交后再构建；打包、上传和实际游玩验收分别记录。
 

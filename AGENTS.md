@@ -13,7 +13,12 @@ failed/incomplete extraction. games/daioujou/data.json inventories 60 runtime
 files, excluding the packaging Project.gp4. Six ELF programs are prepared by the
 shared runtime. The direct native entry has actual ARCADE/Type-A/Shotia first-stage,
 shooting, death/respawn and pause evidence, plus settings save/cold readback.
-Normal collection launch and this title's community adaptation remain unaccepted.
+Normal collection launch and this title's community adaptation now have a
+representative ce006b1 acceptance: GUI selection, ARCADE/Type-A/Shotia player
+entry, a real 1040-point round, formal HTTPS score/replay upload and in-game board
+read/download/save, then networking-disabled cold playback to natural return.
+The formal service is 171d8a5; do not repeat this chain as a new prerequisite.
+Other modes/devices and final five-game packages remain separate scope.
 Keep failed attempts as incomplete evidence. Preserve frozen v0.1/v0.2 archives.
 
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has

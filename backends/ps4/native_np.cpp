@@ -391,7 +391,7 @@ bool ConfigureNativeCommunity(std::shared_ptr<kt::community::Client> client) {
     std::lock_guard lock(community_gate);
     if (!client || community.load() || !ConfigureNativeScore(client)) { return false; }
     community.store(std::move(client));
-    std::puts("{\"event\":\"native_community_provider\",\"scope\":\"development_loopback\",\"psn_authenticated\":false}");
+    std::puts("{\"event\":\"native_community_provider\",\"scope\":\"community_transport\",\"psn_authenticated\":false}");
     return true;
 }
 int CommunityScoreModule(CommunityScoreModuleAction action) {

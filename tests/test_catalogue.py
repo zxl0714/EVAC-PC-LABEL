@@ -66,7 +66,7 @@ class CatalogueTests(unittest.TestCase):
 
     def test_daioujou_native_boards_do_not_reuse_ketsui_filter_rules(self):
         reference=catalogue.read_json(self.root/'games/daioujou/community-references.json')
-        self.assertEqual(reference['status'],'native-loopback-roundtrip-verified')
+        self.assertEqual(reference['status'],'native-https-roundtrip-verified')
         self.assertEqual(reference['score']['nativeUnitInDisplayPoints'],10)
         self.assertEqual([item['base'] for item in reference['boardGroups']],[0,10,20,30,40,50,60])
         self.assertEqual([item['offset'] for item in reference['boardFilters']],list(range(7)))
@@ -91,8 +91,14 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(network['coreDataVersion'],0x10000)
         self.assertEqual(network['arcadeNativeModes'],[0,3])
         self.assertTrue(network['nativeRoundtripVerified'])
-        self.assertEqual(network['nativeRoundtripScope'],'literal-http-loopback-native-arcade')
-        self.assertFalse(network['productionHttpsVerified'])
+        self.assertEqual(network['nativeRoundtripScope'],'normal-collection-https-native-arcade')
+        self.assertTrue(network['productionHttpsVerified'])
+        https=network['observedHttpsRoundtrip']
+        self.assertEqual((https['board'],https['nativeScore'],https['displayScore']),(0,104,1040))
+        self.assertEqual(https['networkAttachmentBytes'],26625)
+        self.assertTrue(https['offlineColdPlaybackVerified'])
+        self.assertEqual(len(https['networkAttachmentSha256']),64)
+        self.assertEqual(len(https['downloadedLocalRecordSha256']),64)
         roundtrip=network['observedRoundtrip']
         self.assertEqual(roundtrip['nativeScore']*10,roundtrip['displayScore'])
         self.assertEqual(roundtrip['board'],0)

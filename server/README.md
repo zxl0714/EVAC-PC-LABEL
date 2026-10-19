@@ -34,11 +34,11 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 ## 大往生开发适配
 
-`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。代表性的真实原生 loopback 成绩／录像上传、读榜、下载保存及离线冷回放已通过，开发候选接入正常合集入口；正式 HTTPS 游戏内流程仍待验收。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。
+`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。代表性的真实原生 loopback 与正常合集正式 HTTPS 成绩／录像上传、读榜、下载保存及离线冷回放已通过，正式实战记录为 ARCADE／Type-A／Shotia 的 1040 分。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。未逐一实测所有榜单／模式。
 
 构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，分两款协议运行共四项检查：直接 Windows HTTP 客户端的成绩／读榜，以及原生 NpScore ABI → 客户端 → HTTP → 服务的成绩、个人榜和录像收发。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
 
-大往生开发服务已实现本作录像结构、双版本、快照／输入边界和成绩／角色／模式匹配，先前独立测试的真实 420 分记录已通过原生与服务端结构检查。可用 `python -B -m server.games.daioujou --database <独立数据库> --port 18088` 在 loopback 启动，不自动部署。游戏内提交、下载和回放仍需闭环验收；结构通过不等同于 PSN 功能已接通。接口与记录布局参考在 `games/daioujou/community-references.json`。
+大往生服务校验本作网络结构、双版本、快照／输入边界和成绩／角色／模式匹配。本地存档记录与网络附件的尺寸不同；原生临时 CUSTOM=3 归入合资格 ARCADE 榜的行为单独验证，未开放 CUSTOM 榜或重写录像字节。可用 `python -B -m server.games.daioujou --database <独立数据库> --port 18088` 在 loopback 启动，不自动部署。接口、记录布局和代表性真实收发／回放身份在 `games/daioujou/community-references.json`，完整范围见验收矩阵。
 
 ## SDOJ 服务与验收范围
 
