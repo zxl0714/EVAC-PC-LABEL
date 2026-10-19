@@ -159,3 +159,68 @@ size = 40
 
 [functions."0x823D6620"]
 size = 40
+
+# Reviewed interface-table entries; store/FPU bodies are kept intact.
+# Extents stop at returns or already-registered tail targets, not exception labels.
+[functions."0x8217F850"]
+size = 208
+
+[functions."0x8218A7E0"]
+size = 24
+
+[functions."0x8219FE28"]
+size = 24
+
+[functions."0x821A8DD8"]
+size = 24
+
+[functions."0x821AF7A0"]
+size = 20
+
+[functions."0x821B7EF0"]
+size = 16
+
+[functions."0x82253058"]
+size = 252
+
+[functions."0x82257F30"]
+size = 44
+
+[functions."0x82296AD0"]
+size = 12
+
+[functions."0x8229E4E0"]
+size = 32
+
+[functions."0x8229E500"]
+size = 32
+
+[functions."0x8229E520"]
+size = 32
+
+[functions."0x8229E540"]
+size = 32
+
+[functions."0x8229E560"]
+size = 32
+
+[functions."0x8229E580"]
+size = 32
+
+[functions."0x8229E5A0"]
+size = 32
+
+[functions."0x8229E5C0"]
+size = 32
+
+[functions."0x8229E5E0"]
+size = 32
+
+[functions."0x8229E600"]
+size = 32
+
+[functions."0x82519418"]
+size = 80
+
+[functions."0x82553558"]
+size = 44

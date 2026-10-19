@@ -60,6 +60,8 @@ py -3.12 scripts/espgaluda2/analyze_community.py .local/analysis/g2-census --dat
 
 回调检查读取 `generated/espgaluda2/<模块>/*_register.cpp`，结合经过大小和哈希校验的区段筛选候选。候选需要逐项审阅，不自动修改函数声明，也不能据此判断必然存在崩溃。
 
+同一入口支持 `--game sdoj`，读取 generated/sdoj 及相应的三模块输入表。报告分为短转发入口、有界只读叶函数／条件尾调用候选，以及 codePointerRuns 连续代码指针组；后者保留组位置、长度和缺注册目标，帮助集中审阅接口表。异常／展开元数据也会形成指针组，因此它不是 vtable 或可调用函数的证明。浮点、直接存储、栈暂存等不在保守 CFG 类别内，不代表它们不是合法函数，需结合引用来源和完整反汇编判断。声明修改后重新生成，不手改派生正文。
+
 社区检查保留在 G2 专属目录，因为地址、84 个 view 和成绩先于录像的规则属于本游戏。它核对已审阅表格与函数边界的身份；语义说明见 [G2 原生社区流程](../games/espgaluda2/docs/PROGRAM_LAYOUT.md#原生社区流程)。扫描成功不等同于联网收发通过。
 
 ## 已有运行日志

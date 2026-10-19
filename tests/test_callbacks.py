@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from callback_inventory import forwarding_size, pointer_references, readonly_leaf_size
+from callback_inventory import forwarding_size, pointer_references, readonly_leaf_size, code_pointer_runs
 
 
 def code(*words):
@@ -79,6 +79,19 @@ class CallbackInventoryTests(unittest.TestCase):
         bypass = code(0x2c030000, 0x41820008, 0x7d6903a6, 0x4e800420)
         self.assertIsNone(readonly_leaf_size(bypass, 0))
         self.assertIsNone(readonly_leaf_size(code(0x7d6903a6, 0x4e800421), 0))
+
+    def test_pointer_runs_report_unknown_targets_in_context_not_code_bytes(self):
+        result = code_pointer_runs(code(0, 0x1000, 0x1004, 0x1008, 0), 0x8000, [(0x1000, 0x1010)], {0x1000})
+        self.assertEqual(result, [dict(address='0x00008004', entries=3,
+            unregisteredTargets=['0x00001004', '0x00001008'])])
+
+    def test_pointer_runs_reject_short_unknown_only_or_unaligned_groups(self):
+        for values in ((0x1000, 0x1004), (0x1004, 0x1008, 0x100c), (0x1000, 0x1005, 0x1008)):
+            self.assertEqual(code_pointer_runs(code(*values), 0x8000, [(0x1000, 0x1010)], {0x1000}), [])
+
+    def test_pointer_run_at_end_ignores_trailing_partial_word(self):
+        self.assertEqual(code_pointer_runs(code(0x1000, 0x1004, 0x1008) + b'xy', 0x8000,
+            [(0x1000, 0x1010)], {0x1000})[0]['entries'], 3)
 
 
 if __name__ == '__main__':

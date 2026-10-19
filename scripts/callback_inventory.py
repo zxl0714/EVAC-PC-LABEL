@@ -60,6 +60,23 @@ def pointer_references(data, address, ranges, known):
     return result
 
 
+def code_pointer_runs(data, address, ranges, known):
+    """Metadata for review, not a proof of a vtable (EH tables can look alike)."""
+    result, run = [], []
+    count = len(data) // 4
+    for index in range(count + 1):
+        target = struct.unpack_from('>I', data, index * 4)[0] if index < count else None
+        if target is not None and target % 4 == 0 and any(start <= target < end for start, end in ranges):
+            run.append(target)
+            continue
+        unknown = sorted(set(run) - known)
+        if len(run) >= 3 and unknown and any(item in known for item in run):
+            result.append(dict(address=f'0x{address + (index - len(run)) * 4:08X}', entries=len(run),
+                unregisteredTargets=[f'0x{item:08X}' for item in unknown]))
+        run = []
+    return result
+
+
 def readonly_leaf_size(code, offset, max_bytes=512):
     """Bounded CFG candidate: no linked calls, frame, stores or saved registers.
 
@@ -170,10 +187,11 @@ def inventory(analysis, data_dir, game='espgaluda2'):
             r'SetFunction\(0x([0-9A-F]+)', registers[0].read_text(encoding='utf-8'))}
         code = [(section, data) for section, data in sections if section['executable']]
         ranges = [(section['address'], section['address'] + len(data)) for section, data in code]
-        references = {}
+        references, pointer_runs = {}, []
         for section, data in sections:
             if section['name'] not in ('.rdata', '.data'):
                 continue
+            pointer_runs.extend(code_pointer_runs(data, section['address'], ranges, known))
             for target, sources in pointer_references(data, section['address'], ranges, known).items():
                 references.setdefault(target, []).extend(sources)
         candidates, leaves = [], []
@@ -190,7 +208,7 @@ def inventory(analysis, data_dir, game='espgaluda2'):
                     leaves.append(dict(address=f'0x{target:08X}', bytes=size,
                         references=[f'0x{address:08X}' for address in sources]))
         modules.append(dict(module=item['module'], missingDataTargets=len(references),
-            forwardingCandidates=candidates, readonlyLeafCandidates=leaves))
+            forwardingCandidates=candidates, readonlyLeafCandidates=leaves, codePointerRuns=pointer_runs))
     return dict(format=1, game=game, guestExecution=False, automaticEdits=False, modules=modules)
 
 
