@@ -13,8 +13,10 @@ includes = ["default-functions.toml"]
 guest_path = "CA022100.bin"
 file_path = "../../../game-data/sdoj/CA022100.bin"
 out_directory_path = "../../../generated/sdoj/CA022100"
+includes = ["CA022100-functions.toml"]
 
 [[modules]]
 guest_path = "CA022110.bin"
 file_path = "../../../game-data/sdoj/CA022110.bin"
 out_directory_path = "../../../generated/sdoj/CA022110"
+includes = ["CA022110-functions.toml"]

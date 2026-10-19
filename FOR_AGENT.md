@@ -71,6 +71,8 @@ communitySupported 是每游戏的运行时能力，与共享 INI 的 enabled �
 
 81fd6ce 已实际运行到 Xbox 360／Shot 玩家第一关并创建 SYSTEM.DAT；原默认渲染拒绝 UI 的 kInvalidTexture 描述符，因此通过命令行对照确认 gpu_allow_invalid_fetch_constants=true 恢复标题和菜单。此兼容开关现由 SDOJ 的 OnGamePreSetup 设置，共享宿主只提供钩子，不把游戏条件写进公共平台；后续需验证无额外参数重启、模式切换及存档／录像。音频有非静音输出，不等于声音响应验收。data.json 的 forbiddenFiles 禁止本体目录出现 default.xexp、CA022100.binp、CA022110.binp；代码生成和原生启动检查均拒绝，不删除或改写原文件。
 
+d7c4058 已无额外 GPU 参数重启读入 SYSTEM.DAT，并经 Arcade HD／Type-C／Shot／Auto Bomb OFF 进入第一关；随后局末附近缺注册入口 0x880943E8 退出。两个 overlay 现各有独立 *-functions.toml：CA022100 的 0x880943E8 和 CA022110 的 0x880952F0 都是 4 字节跳转，转向已有正常实现；源码修复待实际回归。callback_inventory.py 也报告代码构造的地址，但其中可能是异常继续点而非独立函数，不能把候选批量作为已审阅入口。
+
 v0.2 必须完成最大往生可玩接入，不能仅发布工具链和 UI 改进。本体的静态兼容检查使用 `scripts/sdoj_analyze.py --data-dir '<本地解包目录>' --output .local/analysis/sdoj-census`；先 NativeOnly 构建原生检查工具，过程不需要 G2 ROM。实现共用 backends/xbox360/diagnostics/inspect_xex.cpp，保留 espgaluda2_inspect.exe 名称；SDOJ 的两个 .bin 按 XEX 处理，检查重叠基址装卸载。它不应用 TU、不执行客体或证明可玩。音乐补丁按用户要求暂不处理。
 
 代码生成的 TOML 路径现按 UTF-8 转换，包含入口、game_root、模块、includes 和输出；Windows 原生流读取声明，避免系统代码页解释。实际原中文目录、中文／emoji 输出及 include 的生成结果，与英文路径试验的 76 个 C++／头文件逐字节相同。原生 CTest codegen_paths 另用自造无效 XEX 检查中文输入／include 的路径走到静态装载器后按预期拒绝，不执行客体，也不是游戏生成通过。含非 BMP 字符的数据根在额外开发试验仍失败，不将现有结果泛化为所有 Unicode 路径。

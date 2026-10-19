@@ -4,7 +4,8 @@ from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from callback_inventory import forwarding_size, pointer_references, readonly_leaf_size, code_pointer_runs
+from callback_inventory import (forwarding_size, pointer_references, readonly_leaf_size,
+                                code_pointer_runs, materialized_code_references)
 
 
 def code(*words):
@@ -46,6 +47,23 @@ class CallbackInventoryTests(unittest.TestCase):
         for offset in (-4, -1, 1, len(data), len(data) + 4):
             with self.subTest(offset=offset):
                 self.assertIsNone(forwarding_size(data, offset))
+
+    def test_code_constructed_callback_with_independent_instruction(self):
+        # lis r9,0x1234; li r8,0; addi r9,r9,0x40; stw r9,16(r10)
+        fixture = code(0x3d201234, 0x39000000, 0x39290040, 0x912a0010)
+        self.assertEqual(materialized_code_references(fixture, 0x8000,
+            [(0x12340000, 0x12340100)], set()), {0x12340040: [0x8008]})
+
+    def test_code_constants_are_cleared_at_calls_branches_and_unknown_writes(self):
+        for middle in (0x48000005, 0x41820004, 0x81230000, 0x7d292a14, 0x952a0004):
+            fixture = code(0x3d201234, middle, 0x39290040)
+            self.assertEqual(materialized_code_references(fixture, 0x8000,
+                [(0x12340000, 0x12340100)], set()), {})
+
+    def test_code_constants_handle_signed_low_half_and_ori(self):
+        fixture = code(0x3d201235, 0x39298040, 0x3d601234, 0x616b0044)
+        self.assertEqual(materialized_code_references(fixture + b'xy', 0x8000,
+            [(0x12340000, 0x12350000)], {0x12340044}), {0x12348040: [0x8004]})
 
     def test_authored_leaf_cfg_includes_both_conditional_returns(self):
         # li r3,0; cmpwi r3,0; beq +12; li r3,1; blr; li r3,2; blr

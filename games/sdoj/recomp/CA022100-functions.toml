@@ -1,0 +1,5 @@
+# Reviewed disc-base callback installed by code at 0x88094C94.
+# Single-instruction tail transfer to the existing 0x88098520 implementation.
+[functions."0x880943E8"]
+name = "sub_880943E8"
+size = 4

@@ -60,6 +60,43 @@ def pointer_references(data, address, ranges, known):
     return result
 
 
+def materialized_code_references(data, address, ranges, known):
+    """Conservative lis/addi/ori constants within straight-line code.
+
+    These are review candidates, not proof of callable pointers. Unknown
+    instructions and all control transfers discard the tracked constants.
+    """
+    result, registers = {}, {}
+    for offset in range(0, len(data) - 3, 4):
+        word = struct.unpack_from('>I', data, offset)[0]
+        op, rt, ra = word >> 26, (word >> 21) & 31, (word >> 16) & 31
+        immediate = word & 0xffff
+        signed = immediate - 0x10000 if immediate & 0x8000 else immediate
+        destination, value = None, None
+        if op == 15 and ra == 0:  # lis
+            destination, value = rt, (signed << 16) & 0xffffffff
+        elif op == 14:  # addi (including li)
+            destination = rt
+            if ra == 0 or ra in registers:
+                value = ((registers[ra] if ra else 0) + signed) & 0xffffffff
+        elif op == 24:  # ori rA,rS,imm
+            destination = ra
+            if rt in registers:
+                value = registers[rt] | immediate
+        elif op in (32, 34, 40, 42):  # Loads overwrite their destination.
+            registers.pop(rt, None)
+        elif op not in (10, 11, 36, 38, 44):  # Only non-updating stores/compares.
+            registers.clear()
+        if destination is not None:
+            registers.pop(destination, None)
+            if value is not None:
+                registers[destination] = value
+                if op != 15 and value % 4 == 0 and value not in known and any(
+                        start <= value < end for start, end in ranges):
+                    result.setdefault(value, []).append(address + offset)
+    return result
+
+
 def code_pointer_runs(data, address, ranges, known):
     """Metadata for review, not a proof of a vtable (EH tables can look alike)."""
     result, run = [], []
@@ -187,7 +224,10 @@ def inventory(analysis, data_dir, game='espgaluda2'):
             r'SetFunction\(0x([0-9A-F]+)', registers[0].read_text(encoding='utf-8'))}
         code = [(section, data) for section, data in sections if section['executable']]
         ranges = [(section['address'], section['address'] + len(data)) for section, data in code]
-        references, pointer_runs = {}, []
+        references, code_references, pointer_runs = {}, {}, []
+        for section, data in code:
+            for target, sources in materialized_code_references(data, section['address'], ranges, known).items():
+                code_references.setdefault(target, []).extend(sources)
         for section, data in sections:
             if section['name'] not in ('.rdata', '.data'):
                 continue
@@ -195,7 +235,10 @@ def inventory(analysis, data_dir, game='espgaluda2'):
             for target, sources in pointer_references(data, section['address'], ranges, known).items():
                 references.setdefault(target, []).extend(sources)
         candidates, leaves = [], []
-        for target, sources in sorted(references.items()):
+        combined = {target: list(sources) for target, sources in references.items()}
+        for target, sources in code_references.items():
+            combined.setdefault(target, []).extend(sources)
+        for target, sources in sorted(combined.items()):
             section, data = next((section, data) for section, data in code
                 if section['address'] <= target < section['address'] + len(data))
             size = forwarding_size(data, target - section['address'])
@@ -208,6 +251,10 @@ def inventory(analysis, data_dir, game='espgaluda2'):
                     leaves.append(dict(address=f'0x{target:08X}', bytes=size,
                         references=[f'0x{address:08X}' for address in sources]))
         modules.append(dict(module=item['module'], missingDataTargets=len(references),
+            missingCodeTargets=len(code_references),
+            materializedCodeReferences=[dict(address=f'0x{target:08X}',
+                references=[f'0x{address:08X}' for address in sources])
+                for target, sources in sorted(code_references.items())],
             forwardingCandidates=candidates, readonlyLeafCandidates=leaves, codePointerRuns=pointer_runs))
     return dict(format=1, game=game, guestExecution=False, automaticEdits=False, modules=modules)
 

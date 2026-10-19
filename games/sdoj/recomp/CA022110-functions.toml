@@ -1,0 +1,5 @@
+# Reviewed disc-base counterpart installed by code at 0x88095B04.
+# Single-instruction tail transfer to the existing 0x88099390 implementation.
+[functions."0x880952F0"]
+name = "sub_880952F0"
+size = 4

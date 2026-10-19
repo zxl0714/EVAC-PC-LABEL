@@ -78,6 +78,15 @@ class SdojGenerationTests(unittest.TestCase):
             self.assertNotIn('gpu_allow_invalid_fetch_constants',
                              (ROOT / f'games/{game}/host.cpp').read_text(encoding='utf-8'))
 
+    def test_both_module_end_callbacks_have_independent_declarations(self):
+        for module, address in (('CA022100', '0x880943E8'), ('CA022110', '0x880952F0')):
+            filename = module + '-functions.toml'
+            manifest = next(item for item in self.manifest['modules'] if item['guest_path'] == module + '.bin')
+            self.assertEqual(manifest['includes'], [filename])
+            callbacks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['functions']
+            self.assertEqual(set(callbacks), {address})
+            self.assertEqual(callbacks[address]['size'], 4)
+
     def test_reviewed_resident_callbacks_exclude_frame_dependent_tails(self):
         functions = tomllib.loads((ROOT / 'games/sdoj/recomp/default-functions.toml').read_text(encoding='utf-8'))['functions']
         self.assertEqual(len(functions), 63)
