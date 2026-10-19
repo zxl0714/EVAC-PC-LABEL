@@ -1,4 +1,4 @@
-"""DaiOuJou CUSA32997/1.04 native leaderboard profile; not deployed yet."""
+"""Independent DaiOuJou CUSA32997/1.04 native leaderboard profile."""
 import hashlib
 import struct
 import zlib

@@ -17,6 +17,7 @@ nickname = Player
 | `/cave/api/v1/games/futari/` | `127.0.0.1:18084/futari/api/v1/` | 沿用虫姬二服务的数据目录 |
 | `/cave/api/v1/games/ketsui/` | `127.0.0.1:18085/ketsui/api/v1/` | 沿用绊地狱服务的数据目录 |
 | `/cave/api/v1/games/sdoj/` | `127.0.0.1:18087` | `/var/lib/cave-community/sdoj/community.sqlite3` |
+| `/cave/api/v1/games/daioujou/` | `127.0.0.1:18088` | `/var/lib/cave-community/daioujou/community.sqlite3` |
 
 虫姬二和绊地狱两条是反向代理别名，旧 `/futari/api/v1/`、`/ketsui/api/v1/` 入口继续保留，不需要搬迁数据库。未知游戏路径返回 404，不能落入另一款游戏的榜单。
 
@@ -33,7 +34,7 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 ## 大往生开发适配
 
-`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。服务尚未部署，客户端能力仍关闭。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。
+`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。服务已独立部署，客户端能力仍关闭，游戏内流程尚待验收。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。
 
 构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场和两个随机 loopback 服务，使用真实 Windows HTTP 客户端分别核对两款协议的测试成绩与读榜；不访问正式服务、不执行游戏。`scripts/ps4/run_native_checks.py` 包含协议、配置及关闭联网的原生自测。
 
@@ -94,9 +95,11 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 更新仅切换 `sdoj-current` 并重启 SDOJ，保留旧发行目录和数据库。回滚切回旧链接并重启该服务，不覆盖工作数据库。第一次上线失败时可以停止 SDOJ 并恢复 nginx 片段，不删除数据库现场；服务端健康和空榜读回不是游戏内提交／录像播放验收。
 
-### 增量部署大往生（待执行）
+### 增量部署大往生
 
-三个 `cave-daioujou*.in` 模板已提供独立服务、每日备份与 timer，使用 18088、`daioujou-current` 和 `/var/lib/cave-community/daioujou/`。nginx 模板仅新增 `/cave/api/v1/games/daioujou/`，保留原四款的 upstream 与未知游戏 404。b9a8f4f 的最小源码归档已在 ECS 临时目录通过 Python 3.10.12 的 15 项 profile／备份／部署测试及三个 systemd 单元离线校验；没有安装或启用服务，实际游戏联网仍待验收。
+当前服务版本为 b9a8f4f，`daioujou-current` 指向 `/opt/cave-community/releases/b9a8f4f`，18088 仅监听 loopback。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer；数据库及备份均在 `/var/lib/cave-community/daioujou/`，只由低权限服务用户写入。nginx 只新增本作路由，旧四款 upstream、PID、G2／SDOJ 版本指针保持不变。
+
+部署前通过目标 Python 3.10.12 的 15 项 profile／备份／部署测试及三个 systemd 单元校验；部署后五款合集与两条旧入口的 HTTPS 健康检查通过，未知游戏返回 404。本作 49 个榜单已可读，初始为空，没有提交 fixture 分数。服务和每日备份 timer 已启用，首次快照的 Title ID、application_id 与完整性已核对；实际游戏联网仍待验收。以下为首次部署步骤与更新边界。
 
 1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。测试还需 `scripts/ps4/replay_fixture.py`，它只生成不可游玩的自造记录，不依赖 Windows 构建工具或 ROM。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
 2. 上传到新的不可变版本目录，核验后用服务器 Python 执行 `test_ps4_community_profiles.py`、`test_community_backup.py`、`test_community_deployment.py`。这一步只使用随机 loopback 和临时 SQLite，不改玩家榜单。先记录原四款服务 PID、各版本指针与 nginx 片段哈希。

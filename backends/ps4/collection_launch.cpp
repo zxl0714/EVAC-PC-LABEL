@@ -122,7 +122,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         const auto config=EnsureConfig(root);
         const auto snapshot=Ini::ReadText(config);
         const auto ini=Ini::Parse(snapshot);
-        (void)ResolveCollectionConfiguration(ini,game);
+        const auto configuration=ResolveCollectionConfiguration(ini,game);
         const auto spec=PrepareLaunch(FindGame(game),root,ini,profile,requested_data);
         Require(spec.paths.profile==Resolve(root,requested_profile),"Collection profile differs from the launch contract");
         GameSession session(root);ProfileLock lock(spec.paths.profile);
@@ -143,7 +143,10 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             {"executable",Utf8(spec.executable)},{"executableSha256",Sha256(spec.executable)},
             {"gpuSha256",Sha256(root/"runtime/ps4/KetsuiGpuRuntime.dll")},
             {"logicalProcessors",machine.dwNumberOfProcessors},{"configSnapshot","config.snapshot.ini"},
-            {"diagnosticInputTapMs",diagnostic_tap}};
+            {"diagnosticInputTapMs",diagnostic_tap},
+            {"community",{{"provider","configured"},{"requested",configuration.shared.community_enabled},
+                {"supported",configuration.community_supported},{"enabled",configuration.community.enabled},
+                {"endpoint",configuration.community.endpoint},{"nickname",configuration.community.nickname}}}};
         WriteNew(report/"run.json",metadata.dump(2)+'\n');
         std::puts(Json{{"event","collection_run_begin"},{"game",game},{"launch_contract",1}}.dump().c_str());
         const auto prepared=PreparePs4Game(root,spec.paths.data,game);
@@ -156,10 +159,11 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             L"--module-dir",prepared.modules.native(),L"--app-dir",(ketsui?spec.paths.data/"CUSA09062-app":spec.paths.data).native(),
             L"--user-dir",spec.paths.profile.native(),L"--allocation-timing",L"counts",
             L"--collection-config",config.native(),L"--collection-game",FromUtf8(game).wstring(),
+            L"--community-provider",L"configured",
             L"--gpu-runtime",(root/"runtime/ps4/KetsuiGpuRuntime.dll").native()};
         if (ketsui) {
             arguments.insert(arguments.end(),{L"--patch-dir",(spec.paths.data/"CUSA09062-patch").native(),
-                L"--read-patches",prepared.read_fixes.native(),L"--community-provider",L"configured",L"--community-rounds",L"on"});
+                L"--read-patches",prepared.read_fixes.native(),L"--community-rounds",L"on"});
         } else {
             arguments.insert(arguments.end(),{L"--merged-app",L"on"});
         }

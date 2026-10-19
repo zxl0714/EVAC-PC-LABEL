@@ -4,17 +4,15 @@ v0.3 正在开发，发行版本仍为 v0.2。启动器三语言及双语标题�
 
 大往生输入为 CUSA32997／01.04，完整目录 `.local/inputs/daioujou-20261020-r2`，原 ZIP 与全部 61 项 CRC／哈希已核验；r1 为失败提取，不可使用。`games/daioujou/data.json` 记录 60 项运行资源，不含 Project.gp4。共享准备入口 `--prepare-game --game daioujou --root <合集> --data-dir <完整目录>` 校验全部资源并准备六程序，首次生成及缓存命中已通过；不套用绊地狱资源补丁。Build／Test 可选 daioujou，运行整理为两款生成各自的宿主别名和证书，共用 GPU。
 
-PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更新目录使用 `--app-dir <目录> --merged-app on`，不叠加 `--patch-dir`。随包未压缩明文 SELF 只作 RET 初始化合同验证，不执行 Sony libc；bcmp、calloc、sincosf、sprintf_s 等由维护运行时实现。独立入口使用 `--background-log on --collection-config <INI> --collection-game daioujou`。最近完整检查为 328 项源码、公共三项 CTest、64 项原生检查及 43 项 ELF 准备对照；新增榜单元数据用例另有定向通过记录。
+PS4 缓存按 `recipe.game` 隔离，保存按内容 Title ID 隔离。合并更新目录使用 `--app-dir <目录> --merged-app on`，不叠加 `--patch-dir`。随包未压缩明文 SELF 只作 RET 初始化合同验证，不执行 Sony libc；bcmp、calloc、sincosf、sprintf_s 等由维护运行时实现。独立入口使用 `--background-log on --collection-config <INI> --collection-game daioujou`。最近检查为 344 项源码、66 项原生、15 项自造录像及双标题 HTTP loopback 2 项通过；此前公共三项 CTest 与 43 项 ELF 准备对照另有证据。
 
-实机证据为 `.local/daioujou-entry-r7` 的 ARCADE／Type-A／Shotia 第一关、自机射击得分 90、死亡复活和暂停，以及 r8 冷启动读回 BGM 69%。CU 短按测试显式使用诊断 120 ms，不代替实体输入验收；测试进程均已关闭。`games/daioujou/community-references.json` 记录本作榜单与资格：每组 0–5 为三人偶×两机体、6 为综合；传输整数为显示分数除十。CUSTOM 原生提交排除，黑版／all-mix 限制也须保留。静态分析资源仅在 `.local/daioujou-resource-inspect-r1`，不进入源码或对外包。下一步实现本作社区协议、录像版本与模式核对，再验收正常合集入口和发行；不要借用绊地狱的榜单、角色或录像规则。
+实机证据为 `.local/daioujou-entry-r7` 的 ARCADE／Type-A／Shotia 第一关、自机射击得分 90、死亡复活和暂停，以及 r8 冷启动读回 BGM 69%。CU 短按测试显式使用诊断 120 ms，不代替实体输入验收；测试进程均已关闭。`games/daioujou/community-references.json` 记录本作榜单与资格：每组 0–5 为三人偶×两机体、6 为综合；传输整数为显示分数除十。CUSTOM 原生提交排除，黑版／all-mix 限制也须保留。静态分析资源仅在 `.local/daioujou-resource-inspect-r1`，不进入源码或对外包。下一步是原生游戏联网／录像闭环、正常合集入口和发行，不要借用绊地狱的榜单、角色或录像规则。
 
-社区传输 profile 已按标题复用，`server/games/daioujou.py` 的测试成绩／榜单经实际 Windows HTTP loopback 通过，证据在 `.local/ps4-community-checks/v03-title-profile-r1`；原生玩家联网未接，服务未部署，原生 Score bridge 和录像仍拒绝大往生。334 源码、65 原生检查及原绊地狱服务 24 项回归通过。新 `scripts/ps4/run_community_checks.py` 可独立复现双服务测试，不依赖原工程。大往生记录静态大小 0x65600、数据区 0x65000、容器版本 0x10030；core data_version 仍需真实观察。下一步优先实现本作原生 Score／Replay 的标题参数及记录验证，再做游戏内短闭环；不把 HTTP fixture 当作 PSN 已完成。
+社区传输、原生 Score bridge、typed Replay worker 和服务存储都显式按标题选择协议与身份，DaiOuJou 不启用 Ketsui whole-round。`run_community_checks.py` 为自造成绩的双服务 Windows HTTP 检查，不访问公网。r6 保存中的真实 420 分记录在 `.local/daioujou-native-record-r1`，原生／服务端结构和元数据校验均通过；容器为 0x10030，core data_version 为 0x10000，实际 region 为 ARCADE_01000。显式允许随输入附带的四个 core revision，不接受未知 core；未执行原生回放。只读命令为 `--community-replay-profile-check daioujou <附件> [board score]`，不执行快照。
 
-最新原生 Score bridge 的标题参数及本作边界已有 9 项自造用例，完整 66／66 和双服务 HTTP 2／2 通过（现场后缀 v03-native-score-profile-r1）；生产配置入口仍拒绝大往生，直到录像与真实闭环通过。静态代码找到 eboot+0xe483 的 getEmuVersion 注册及 +0x14960 叶函数返回 0x10000，已记入接口参考；这不是实际录像观察。下一步实现本作独立几何／版本／角色校验，取得真实记录并核对，再接 native provider，保持 capability 关闭直到通过。
+大往生服务已独立部署在 ECS 的 b9a8f4f，使用 `daioujou-current`、18088 loopback、`/var/lib/cave-community/daioujou/` 和共享地址下本作路由。五款合集与两条旧入口健康、49 个空榜、未知标题 404、首次备份完整性通过，旧四款 PID 未变；本地证据在 `.local/daioujou-deploy-b9a8f4f-r1`。服务就绪不是游戏内成绩／录像验收。正常合集运行参数已为两款 PS4 统一使用 configured provider，run.json 记录请求、能力与实际开关；大往生 catalogue 能力仍为 false，不会因参数存在而启用联网。
 
-本作独立结构校验现已实现：`scripts/ps4/run_replay_checks.py` 的 11 项自造检查、66 项原生检查、绊地狱既有 23 项录像回归和 35 项 whole-round 自测通过。`--community-replay-profile-check daioujou <附件> [board score]` 只读检查压缩附件，typed worker 按 config.game 校验，不写存档或执行快照。静态合同目前限定 0x10030／0x10000／ARCADE_01030；更旧容器不能当作当前在线兼容。下一步取得真实游戏录像核对并完成本作服务端验证及原生菜单闭环；当前仍不能宣布大往生联网或录像验收完成。
-
-当前最新进度：r6 原生保存中已找到真实 420 分记录；原生／服务端结构及元数据检查均通过，core 实际为 ARCADE_01000（不是 01030），已修正为只允许随输入附带的四个 core revision。真实记录在 `.local/daioujou-native-record-r1`，SHA 和字段在 community-references；未执行回放。最新为 15 项录像、66 项原生和 335 项源码检查通过。服务端校验和本作 provider 路径已实现，但能力仍关闭，服务未部署。`.local/daioujou-network-r1` 启动真实联网游戏的命令被执行策略拒绝；不要换工具、包装脚本或其他启动方式绕过。该场景的 loopback server PID 28980 已停止，0 成绩／0 录像的数据库和配置保留，没有运行中的测试游戏。继续可做无窗口协议检查；游戏内闭环仍需可获准的实际启动途径，不能用自造流程冒充。
+当前阻塞：`.local/daioujou-network-r1` 的真实联网游戏启动被执行策略拒绝；不要换工具、包装脚本或其他启动方式绕过。该场景的 loopback server 已停止，0 成绩／0 录像的数据库与配置保留；当前没有运行中的测试游戏。需要可获准的实际启动状态才能继续原生菜单、成绩／录像和正常合集验收；不使用 fixture 或旧单机进关证据替代。
 
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
