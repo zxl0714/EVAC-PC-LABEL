@@ -98,7 +98,7 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 三个 `cave-daioujou*.in` 模板已提供独立服务、每日备份与 timer，使用 18088、`daioujou-current` 和 `/var/lib/cave-community/daioujou/`。nginx 模板仅新增 `/cave/api/v1/games/daioujou/`，保留原四款的 upstream 与未知游戏 404。这些文件通过本机静态配置检查，尚未安装到 ECS；实际游戏联网仍待验收。
 
-1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
+1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。测试还需 `scripts/ps4/replay_fixture.py`，它只生成不可游玩的自造记录，不依赖 Windows 构建工具或 ROM。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
 2. 上传到新的不可变版本目录，核验后用服务器 Python 执行 `test_ps4_community_profiles.py`、`test_community_backup.py`、`test_community_deployment.py`。这一步只使用随机 loopback 和临时 SQLite，不改玩家榜单。先记录原四款服务 PID、各版本指针与 nginx 片段哈希。
 3. 确认 18088、新服务单元、版本指针及大往生数据库均不存在；有已有安装时先检查，不能当作首次部署覆盖。新建 `daioujou-current`，安装本作三个单元，执行 `systemd-analyze verify`、`daemon-reload`，只启动大往生。确认仅监听 127.0.0.1，health 为 CUSA32997／1.04。
 4. 独立备份 nginx 片段，只加入大往生 location。`nginx -t` 成功才 reload，并检查五款合集与两条旧入口的身份，以及未知游戏 404。不要替换或重启绊地狱的旧 Python 服务；本作只在自己的版本目录复用其维护源码。

@@ -114,7 +114,7 @@ class Ps4CommunityProfiles(unittest.TestCase):
     def test_authored_native_envelope_matches_score_and_selected_board(self):
         import zlib
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts/ps4'))
-        from run_replay_checks import record
+        from replay_fixture import record
         payload=zlib.compress(record('daioujou'))
         info=daioujou.replay_info(payload)
         self.assertEqual((info['score'],info['character'],info['data_version']),(12345,0,0x10000))

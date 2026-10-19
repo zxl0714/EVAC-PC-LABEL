@@ -13,18 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from analysis_paths import private_output
 from project import ROOT, digest, write_json_new
 from ps4_build_receipt import verify
-
-
-def record(game):
-    size,version,data_version,region=(0x65600,0x10030,0x10000,b'ARCADE_01030') if game=='daioujou' else (0x80000,0x10001,0x10001,b'ARCADE_01000')
-    data=bytearray(size)
-    snapshot=zlib.compress(bytes([8])+b'AUTHORED'+struct.pack('<I',7)+b'fixture')
-    struct.pack_into('<10I',data,0,version,data_version,0,0,1024,600,len(snapshot),1,1,0)
-    data[48:55]=b'fixture'
-    data[80:80+len(region)]=region
-    struct.pack_into('<IHH',data,108,12345,0,1)
-    data[0x500:0x500+len(snapshot)]=snapshot
-    return data
+from replay_fixture import record
 
 
 def main():
