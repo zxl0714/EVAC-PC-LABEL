@@ -18,6 +18,45 @@ sys.path.insert(0,str(ROOT/'scripts/ketsui'))
 from game_fixes import prepare_music_fix
 
 
+def verify_cache(exe,data,directory):
+    collection=directory/'缓存 portable collection'
+    collection.mkdir()
+    (collection/'config.ini').write_bytes((ROOT/'config/default.ini').read_bytes())
+    command=[str(exe),'--prepare-game','--root',str(collection),'--data-dir',str(data)]
+    responses=[]
+    for phase in ('first','warm'):
+        result=subprocess.run(command,cwd=directory,capture_output=True,timeout=120)
+        for suffix,content in [('stdout.jsonl',result.stdout),('stderr.txt',result.stderr)]:
+            with (directory/('cache-'+phase+'.'+suffix)).open('xb') as target:target.write(content)
+        if result.returncode:raise RuntimeError('Native complete preparation failed: '+str(directory))
+        response=json.loads(result.stdout)
+        responses.append(response)
+        folder=Path(response['directory'])
+        snapshot={path.relative_to(folder).as_posix():digest(path) for path in folder.rglob('*') if path.is_file()}
+        pointer=digest(collection/'prepared/ketsui/active.json')
+        if phase=='first':before_snapshot,before_pointer=snapshot,pointer
+        else:unchanged=snapshot==before_snapshot and pointer==before_pointer
+    first,warm=responses
+    outputs_match=all(digest(Path(first['directory'])/cache_file)==digest(directory/oracle_file) for cache_file,oracle_file in (
+        ('eboot.ktprobe','eboot.bin.ktprobe'),('modules/emu_integration_01400.prx.ktmodule','emu_integration_01400.prx.ktmodule'),
+        ('modules/ketsui_01000.prx.ktmodule','ketsui_01000.prx.ktmodule'),('game-fixes.ktfix','offline.ktfix')))
+    _,metadata=prepare_music_fix(data,community_offline=True)
+    outputs_match=outputs_match and json.loads((Path(first['directory'])/'game-fixes.json').read_text())==metadata
+    validation=subprocess.run([str(exe),first['executable'],'--validate','--module-dir',first['modules'],
+        '--app-dir',str(data/'CUSA09062-app'),'--patch-dir',str(data/'CUSA09062-patch'),
+        '--read-patches',first['readFixes']],cwd=directory,capture_output=True,timeout=30)
+    for suffix,content in [('stdout.jsonl',validation.stdout),('stderr.txt',validation.stderr)]:
+        with (directory/('cache-validation.'+suffix)).open('xb') as target:target.write(content)
+    events=[json.loads(line) for line in validation.stdout.splitlines() if line.startswith(b'{')]
+    validated=validation.returncode==0 and any(item.get('event')=='validation_complete' and item.get('game_entry_reached') is False for item in events)
+    passed=(first['cacheHit'] is False and warm['cacheHit'] is True and first['directory']==warm['directory'] and unchanged and outputs_match and validated
+        and all(item['sourceValidated'] and item['preparedOutputsVerified'] and item['guestExecution'] is False for item in responses)
+        and not (collection/'user-data').exists() and not (collection/'logs').exists())
+    print(('PASS' if passed else 'FAIL')+': native complete preparation and warm cache without Python dependency',flush=True)
+    return dict(passed=passed,firstCacheHit=first['cacheHit'],warmCacheHit=warm['cacheHit'],warmFilesUnchanged=unchanged,
+        outputsMatchOracle=outputs_match,contentValidated=validated,directory=first['directory'],guestExecution=False)
+
+
 def verify_read_fixes(exe,data,directory,probe):
     checks=[]
     for name,replay,offline in [('music',False,False),('replay',True,False),('offline',False,True)]:
@@ -91,14 +130,16 @@ def main():
     validated=validation.returncode==0 and any(event.get('event')=='validation_complete' and event.get('game_entry_reached') is False for event in events)
     print(('PASS' if validated else 'FAIL')+': native image validation without game entry',flush=True)
     read_fixes=verify_read_fixes(exe,data,directory,directory/'eboot.bin.ktprobe')
+    cache=verify_cache(exe,data,directory)
     inputs_unchanged=inventory(data)==original_inventory
     print(('PASS' if inputs_unchanged else 'FAIL')+': complete read-only source inventory unchanged',flush=True)
     write_json_new(directory/'result.json',dict(format=1,game='ketsui',gameExecution=False,nativeImageValidation=validated,readFixes=read_fixes,
         inputsUnchanged=inputs_unchanged,dataFileCount=len(original_inventory['files']),
+        preparedCache=cache,
         sourceCommit=receipt['sourceCommit'],sourceDirty=receipt['sourceDirty'],libcSha256=before_libc,
         executableSha256=digest(exe),checks=results))
     print('Prepared images contain local derived game data; report: '+str(directory))
-    return 0 if inputs_unchanged and validated and all(item['byteIdentical'] for item in results) and all(
+    return 0 if cache['passed'] and inputs_unchanged and validated and all(item['byteIdentical'] for item in results) and all(
         item['byteIdentical'] and item['contentValidated'] and item['existingOutputPreserved'] for item in read_fixes) else 1
 
 

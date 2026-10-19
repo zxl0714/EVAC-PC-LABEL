@@ -20,6 +20,7 @@ def path_checks(executable, directory):
     for name, expected_error in [('existing', 'already exists'), ('wrong-place', 'must be under'),
         ('source-overlap', 'overlaps an ELF source'), ('junction', 'cannot traverse'),
         ('alternate-stream', 'alternate data stream'), ('other-game-overlap', 'configured game data'),
+        ('other-dlc-overlap', 'configured DLC data'),
         ('relative-component', 'relative components'), ('wrong-extension', '.ktfix'),
         ('duplicate-option', 'repeated resource preparation'), ('empty-option', 'Missing resource'),
         ('invalid-sibling', 'verified CUSA09062'), ('unsupported-executable', 'verified CUSA09062')]:
@@ -50,6 +51,9 @@ def path_checks(executable, directory):
         elif name == 'alternate-stream': output = root / '.local/output.ktfix:stream'
         elif name == 'other-game-overlap':
             (root / 'config.ini').write_text('[game.futari]\ndata_dir=.local/blocked\n', encoding='utf-8')
+            output = root / '.local/blocked/output.ktfix'
+        elif name == 'other-dlc-overlap':
+            (root / 'config.ini').write_text('[game.futari]\ndlc_dir=.local/blocked\n', encoding='utf-8')
             output = root / '.local/blocked/output.ktfix'
         elif name == 'relative-component': output = root / '.local/../.local/output.ktfix'
         elif name == 'wrong-extension': output = output.with_suffix('.bin')

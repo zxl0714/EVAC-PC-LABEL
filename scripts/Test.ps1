@@ -38,6 +38,8 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'PS4 native ELF preparation checks failed' }
             & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_resource_checks.py')
             if ($LASTEXITCODE -ne 0) { throw 'PS4 native resource preparation checks failed' }
+            & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_cache_checks.py')
+            if ($LASTEXITCODE -ne 0) { throw 'PS4 native prepared-cache checks failed' }
         }
     }
 } finally { Pop-Location }

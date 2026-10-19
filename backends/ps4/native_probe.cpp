@@ -52,7 +52,9 @@
 #include "native_community_rounds.h"
 #include "graphics/display_layout.h"
 #include "collection_config.h"
+#include "collection_launch.h"
 #include "loader/elf_prepare.h"
+#include "loader/prepared_cache.h"
 #include "content/resource_prepare.h"
 
 #include <array>
@@ -1295,6 +1297,7 @@ bool NativeExecutableAddress(std::uintptr_t address) { return AcceptCallback(add
                 Quoted(stage).c_str(), video, buffer, static_cast<unsigned long long>(address-base),
                 image ? Quoted(image->image_name).c_str() : "null");
     std::fflush(stdout);
+    cave::ps4::RecordCollectionWindowClose();
     if (terminal_log_test.load()) { terminal_log_announced.store(true, std::memory_order_release); Sleep(50); }
     TerminateProcess(GetCurrentProcess(), 27);
     ExitProcess(27);
@@ -1325,9 +1328,10 @@ bool EmitNativeHostOperation(const char* name, const char* category, std::uint64
     return false;
 }
 
-int wmain(int argc, wchar_t** argv) {
+int NativeCommand(int argc, wchar_t** argv) {
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-elf") return cave::ps4::PrepareElfCommand(argc,argv);
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-fixes") return cave::ps4::PrepareReadFixesCommand(argc,argv);
+    if (argc>=2 && std::wstring(argv[1])==L"--prepare-game") return cave::ps4::PrepareGameCommand(argc,argv);
     if (argc==2 && std::wstring(argv[1])==L"--collection-config-self-test") {
         try { return cave::ps4::CollectionConfigurationSelfTest() ? 0 : 1; }
         catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 1; }
@@ -1807,4 +1811,8 @@ int wmain(int argc, wchar_t** argv) {
         std::fprintf(stderr, "Native probe error: %s\n", error.what());
         return 2;
     }
+}
+
+int wmain(int argc,wchar_t** argv) {
+    return cave::ps4::IsCollectionLaunch(argc,argv) ? cave::ps4::RunCollection(argc,argv,NativeCommand) : NativeCommand(argc,argv);
 }

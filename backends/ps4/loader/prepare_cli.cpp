@@ -1,58 +1,21 @@
 #include "elf_prepare.h"
+#include "preparation_io.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "common/ini.h"
 #include "common/paths.h"
 #include "backends/ps4/community/protocol.h"
 #include <Windows.h>
 #include <cstdio>
-#include <fstream>
 #include <stdexcept>
 
 namespace cave::ps4 {
 namespace {
-std::vector<std::uint8_t> Read(const fs::path& path) {
-    if (!fs::is_regular_file(path) || fs::file_size(path)>512ull*1024*1024) throw std::runtime_error("Missing or oversized ELF input");
-    std::ifstream file(path,std::ios::binary);
-    if (!file) throw std::runtime_error("Cannot read ELF input");
-    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(fs::file_size(path)));
-    file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()));
-    if (!file || file.peek()!=std::char_traits<char>::eof()) throw std::runtime_error("ELF input changed during reading");
-    return bytes;
-}
 std::string Hash(std::span<const std::uint8_t> bytes) {
-    return kt::community::Sha256({reinterpret_cast<const std::byte*>(bytes.data()),bytes.size()});
+    return PreparationHash(bytes);
 }
 void CheckOutput(const fs::path& root,const fs::path& literal,const fs::path& source,const fs::path& libc) {
-    auto current=literal;
-    while (Within(current,root) && current!=root) {
-        const auto attributes=GetFileAttributesW(current.c_str());
-        if (attributes!=INVALID_FILE_ATTRIBUTES && (attributes&FILE_ATTRIBUTE_REPARSE_POINT))
-            throw std::runtime_error("Prepared output cannot traverse a file/directory link");
-        current=current.parent_path();
-    }
-    const auto output=Resolve(root,literal);
-    if (!(Within(output,root/".local") || Within(output,root/"prepared"/"ketsui")) ||
-        output==root/".local" || output==root/"prepared"/"ketsui")
-        throw std::runtime_error("Prepared output must be under collection .local or prepared/ketsui");
-    if (Within(output,source.parent_path()) || (!libc.empty() && Within(output,libc.parent_path())))
-        throw std::runtime_error("Prepared output overlaps an ELF source directory");
-    const auto ini=Ini::Load(root/"config.ini");
-    for (const auto& game:Catalogue()) {
-        fs::path data;
-        try { data=Resolve(root,ini.DataDirectory(game)); }
-        catch (const std::exception&) { if (game.id=="ketsui") throw; else continue; }
-        if (Within(output,data) || Within(data,output)) throw std::runtime_error("Prepared output overlaps configured game data");
-    }
-    if (fs::exists(output)) throw std::runtime_error("Prepared output already exists");
-}
-void WriteNew(const fs::path& path,std::span<const std::uint8_t> bytes) {
-    const auto file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
-    if (file==INVALID_HANDLE_VALUE) throw std::runtime_error("Cannot create new prepared output");
-    DWORD written{};
-    const bool okay=WriteFile(file,bytes.data(),static_cast<DWORD>(bytes.size()),&written,nullptr) &&
-        written==bytes.size() && FlushFileBuffers(file);
-    CloseHandle(file);
-    if (!okay) { DeleteFileW(path.c_str()); throw std::runtime_error("Cannot write prepared output"); }
+    const std::array sources{source.parent_path(),libc.empty()?fs::path{}:libc.parent_path()};
+    CheckPreparationPath(root,literal,sources,true);
 }
 }
 int PrepareElfCommand(int argc,wchar_t** argv) {
@@ -77,14 +40,14 @@ int PrepareElfCommand(int argc,wchar_t** argv) {
         const auto source=fs::canonical(argv[2]);
         if (!libc.empty()) libc=fs::canonical(libc);
         CheckOutput(root,output,source,libc);
-        const auto input=Read(source),contract=libc.empty()?std::vector<std::uint8_t>{}:Read(libc);
+        const auto input=ReadPreparationInput(source),contract=libc.empty()?std::vector<std::uint8_t>{}:ReadPreparationInput(libc);
         if (!libc.empty() && contract.empty()) throw std::runtime_error("Empty libc contract input");
         const auto prepared=PrepareElf(input,module,contract);
         if (Sha256(source)!=Hash(input) || (!libc.empty() && Sha256(libc)!=Hash(contract)))
             throw std::runtime_error("ELF source changed during preparation");
         fs::create_directories(output.parent_path());
         CheckOutput(root,output,source,libc);
-        WriteNew(output,prepared.bytes);
+        WritePreparationFile(output,prepared.bytes);
         const kt::community::Json report{{"event","elf_prepared"},{"module",module},{"source",Utf8(source)},
             {"output",Utf8(output)},{"sourceSha256",Hash(input)},{"preparedSha256",Hash(prepared.bytes)},
             {"bytes",prepared.bytes.size()},{"imageBytes",prepared.image_size},{"segments",prepared.segments},
@@ -121,7 +84,7 @@ int PrepareReadFixesCommand(int argc,wchar_t** argv) {
         CheckOutput(root,output,source_sentinel,{});
         auto result=PrepareReadFixes(data,replay,offline);
         fs::create_directories(output.parent_path());
-        CheckOutput(root,output,source_sentinel,{}); WriteNew(output,result.bytes);
+        CheckOutput(root,output,source_sentinel,{}); WritePreparationFile(output,result.bytes);
         result.report.update(kt::community::Json{{"event","read_fixes_prepared"},{"output",Utf8(output)},
             {"overlay_bytes",result.bytes.size()},{"guestExecution",false}});
         std::puts(result.report.dump().c_str()); return 0;

@@ -17,10 +17,13 @@ try {
     $cmake = Get-CollectionTool 'cmake'
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
+    if ($DataDirectory -and $Games.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }
     if ('ketsui' -in $Games) {
-        if (-not $NativeOnly) { throw 'Ketsui data preparation and launch integration are in progress; use -NativeOnly for the ROM-free PS4 build' }
         & (Join-Path $PSScriptRoot 'Build-Ps4.ps1') -Jobs $Jobs
+        # PS4 preparation happens natively on first launch. Building the runtime
+        # needs no ROM, and does not modify config.ini or any supplied data path.
         $Games = @($Games | Where-Object { $_ -ne 'ketsui' })
+        if (-not $Games.Count) { $DataDirectory = $null }
     }
     $selected=@($Games | Sort-Object -Unique)
     if ($DataDirectory -and $selected.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }

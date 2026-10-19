@@ -329,11 +329,12 @@ class App {
   void ChildTick() {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
+      const bool requested_close=child->RequestedWindowClose(options.root,active_game,*code);
       const auto detail=L"游戏异常退出（退出码 "+std::to_wstring(*code)+L"）。\n\n日志目录：logs/"+Wide(active_game)+L"/\n启动器可以继续使用。";
       Log(options.root,"child-exit code="+std::to_string(*code));
-      message=*code?L"游戏异常退出，请查看该游戏的日志":L"游戏已退出";
+      message=requested_close?L"游戏已关闭（退出清理限制已记入日志）":(*code?L"游戏异常退出，请查看该游戏的日志":L"游戏已退出");
       child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);InvalidateRect(hwnd,nullptr,FALSE);
-      if(*code)MessageBoxW(hwnd,detail.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
+      if(*code && !requested_close)MessageBoxW(hwnd,detail.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
     }
   }
   void Choose(bool copy=false) {

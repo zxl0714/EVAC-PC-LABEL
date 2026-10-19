@@ -1,6 +1,6 @@
 # 开发入口
 
-先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 的 PS4 宿主、驻留 GPU、共享 INI 和原生数据准备已在新目录编译并通过机制检查，下一步接通准备缓存和合集启动合同。
+先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。P4 双游戏完整构建及虫姬二主要本地闭环已有验证，专项回归继续跟踪；P5 的 PS4 宿主、驻留 GPU、共享 INI、原生准备缓存及公共启动合同已接通，继续小规模实际流程与出包接线。不要重复全模式或新增极限测试。
 
 干净联合构建 6b47555 的 out/xbox360 有 45 对程序／PDB，153 项源码回归和 18 组 CTest 通过，虫姬二 integrated=true。启动器实际启动 Black Label／Xbox 360 两次进关并分别卸载返回，F11 全屏及 Alt+Enter 切回窗口、正常退出后恢复启动器均通过。显式关闭 DLC 的另一进程读回既有系统存档，本体 Ver1.5／Arcade／Original／Palm Normal 选人、存活玩家第一关、暂停及卸载返回通过。八模块已有入口记录，本体／DLC 冷启动录像回放和 G2 新宿主回归见验收矩阵；其余模块重复进入按用户要求暂缓，不阻塞当前迁移推进，也不标成通过。本机隔离服务的真实成绩／录像上传、榜单读回及下载保存已通过；6b47555 的 run-20261019T013724950Z-76988 将下载槽 No.4 冷启动完整播放并自然返回，容器哈希不变、退出码 0。正式 HTTPS、声音响应及实体输入继续验证。Ver1.01 Xbox 360 尚缺存活玩家截图证据，不以 PLAYER1 开场及续关画面替代。
 
@@ -101,7 +101,7 @@ v0.1 出包并验收后另行完成用户指定的交付：把最终 Internal �
 
 版本范围：编译器统一，以及虫姬二／绊地狱的帧节拍调查和适度优化，均安排在 v0.1 之后，见实施计划对应工作项。当前不更换已验证的两套编译器，不追加帧率专项或将其列为出包阻塞；继续整合、已有机制检查和必要的游戏流程回归。G2 的约 19.1 ms 是特定短测的最大出帧间隔，不是输入响应延迟。
 
-固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。PS4 CMake 已改为合集独立路径，使用本地 clang-cl 23、独立依赖及优化构建；旧 launcher 和发行脚本不迁入，游戏入口仍为 integrated=false。
+固定来源 9501378a 已按 `scripts/import_ketsui_sources.py` 迁入：运行时在 backends/ps4，提取的 GCN／驻留 GPU 组件和许可证在 third_party/ps4；原生 ELF／时序／接口工具在 scripts/ps4，游戏资源读取覆盖在 scripts/ketsui。PS4 CMake 使用合集路径、本地 clang-cl 23、独立依赖及优化构建；旧 launcher 和发行脚本不迁入，游戏已接通公共启动合同并开放启动器入口。
 
 ```powershell
 ./scripts/Prepare-Tools.ps1 -Ps4
@@ -114,17 +114,21 @@ py -3.12 -m unittest discover -s tests -p test_ketsui_python.py -v
 py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' --output .local/analysis/ketsui-timing.json
 ```
 
-19 个依赖从上游恢复到 .deps/ps4，可选缓存用法见 tools/README.md。输出在 out/ps4-native 和 out/ps4-gpu，out/ps4/build-receipt.json 记录输入、工具及六对 PE／PDB 的 GUID 和 age；其中 KetsuiResourcePrepareCheck 仅用于自造数据对照，不进入玩家程序包。修改提取的上游文件时，在对应 upstream-files.json 的 localChanges 明确记录维护哈希；383 项当前文件在构建前后核对。NativeOnly 不要求 ROM，也不启动游戏；省略该选项的 Ketsui 完整准备流程仍待接通。
+19 个依赖从上游恢复到 .deps/ps4，可选缓存用法见 tools/README.md。输出在 out/ps4-native 和 out/ps4-gpu，out/ps4/build-receipt.json 记录输入、工具及六对 PE／PDB 的 GUID 和 age；其中 KetsuiResourcePrepareCheck 仅用于自造数据对照，不进入玩家程序包。修改提取的上游文件时，在对应 upstream-files.json 的 localChanges 明确记录维护哈希；383 项当前文件在构建前后核对。`Build.ps1 -Games ketsui -Jobs 2` 无需 ROM，完成后由 stage_ps4.py 校验收据并整理 runtime/ps4/ketsui.exe、GPU DLL、符号和运行文件证书，不启动游戏。PS4 的 NativeOnly 同样只构建运行时；原始数据在首次启动时原生准备。
 
 三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 34 项机制和 15 项真实配置文件检查，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试将在保存、联网与媒体接线时逐项适配；二进制自制媒体 fixture 尚未导入，恢复时单独记录来源／哈希。
 
 PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 现为版本 5，宿主与 DLL 必须配套重建。
 
-只读检查当前配置可用 `./out/ps4-native/KetsuiNativeProbe.exe --collection-config-check ./config.ini`，不启动 SDL、音频、GPU 或社区 worker，不写配置。开发执行入口接受 `--collection-config <同一份 config.ini>`，与旧 `--input-config` 互斥；旧参数仅保留给机制诊断，不是第二份玩家配置。公共 `/cave/api/v1` 自动映射到 `/cave/api/v1/games/ketsui`，也兼容既有 Ketsui 专属地址；其他游戏路径被拒绝。此次通过的是配置解析、原生应用和自造场景，不是合集真实进关或联网游玩验收；启动合同、数据准备、常态日志分级与真实流程仍待接入。
+只读检查当前配置可用 `./out/ps4-native/KetsuiNativeProbe.exe --collection-config-check ./config.ini`，不启动 SDL、音频、GPU 或社区 worker，不写配置。开发执行入口接受 `--collection-config <同一份 config.ini>`，与旧 `--input-config` 互斥；旧参数仅保留给机制诊断，不是第二份玩家配置。公共 `/cave/api/v1` 自动映射到 `/cave/api/v1/games/ketsui`，也兼容既有 Ketsui 专属地址；其他游戏路径被拒绝。真实 ARCADE 进关与正式成绩／录像上传、启动器和重启检查的范围分别记录在验收矩阵中，不把自造检查或演示画面当作玩家进关。
 
-`games/ketsui/data.json` 保存 CUSA09062 本体及 1.02 补丁的 59 个必需文件、大小和 SHA-256；零字节的 CUSA09062.complete 提取标记不是必需资源。本体与补丁保持原目录结构，数据完整也不将尚未接通的启动器入口显示为可启动。可重新只读盘点：`py -3.12 scripts/ps4_inventory.py --game-data '<数据根>' --output .local/analysis/<新文件>.json`。
+`games/ketsui/data.json` 保存 CUSA09062 本体及 1.02 补丁的 59 个必需文件、大小和 SHA-256；零字节的 CUSA09062.complete 提取标记不是必需资源。本体与补丁保持原目录结构，启动前检查数据及 runtime 文件证书。可重新只读盘点：`py -3.12 scripts/ps4_inventory.py --game-data '<数据根>' --output .local/analysis/<新文件>.json`。
 
-ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按既有装载合同处理段、导入／导出、重定位、弱符号及 libc 的 RET 验证，不执行原始程序。诊断入口为 `KetsuiNativeProbe.exe --prepare-elf <输入 ELF 绝对路径> --root <合集根绝对路径> --output <新输出绝对路径> [--module] [--libc <libc 绝对路径>]`。输出仅允许在 .local 或 prepared/ketsui 下的新文件，拒绝链接、数据目录重叠、ADS 和相对组件，不覆盖现有文件。此步骤本身无需 Python；完整自动准备还需接通缓存收据与启动器，不能将单项准备通过写成整个 Public 首次启动流程已通过。
+ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按既有装载合同处理段、导入／导出、重定位、弱符号及 libc 的 RET 验证，不执行原始程序。诊断入口为 `KetsuiNativeProbe.exe --prepare-elf <输入 ELF 绝对路径> --root <合集根绝对路径> --output <新输出绝对路径> [--module] [--libc <libc 绝对路径>]`。输出仅允许在 .local 或 prepared/ketsui 下的新文件，拒绝链接、数据目录重叠、ADS 和相对组件，不覆盖现有文件。无需 Python；Public 包实际解压／首次使用仍属于发布验收，不能只凭单项准备结果关闭。
+
+`loader/prepare_game.cpp` 使用 prepared_cache.* 的不可变代和 active.json 指针。配方绑定全部受支持数据、准备选项及准备 EXE 的 SHA-256；缓存命中时复核文件清单、大小和内容哈希，失败则保留旧现场并新建一代，不回退运行不匹配的旧镜像。整套预检可用 `runtime/ps4/ketsui.exe --prepare-game --root <合集绝对路径> [--data-dir <数据绝对路径>]`，不执行客体，不创建 profile 或日志。
+
+`collection_launch.*` 接受公共五参数合同，使用 GameSession 和 profile 写入锁，自动准备后调用既有原生执行路径。日志在 logs/ketsui/run-UTC-PID，包含 run.json、config.snapshot.ini、preparation.json、stdout.jsonl 与 stderr.txt；两条日志允许运行中读取。正常关窗的现有退出码 27 不改成 0：仅在呈现清理完成后写 exit.ini，启动器用 PID、进程创建时间、原因及状态核对后恢复列表，不误报崩溃；其他非零退出仍警告。未完成的客体终止清理继续作为已知限制。
 
 `scripts/ps4/run_prepare_checks.py` 通过 27 组自造 ELF 和 8 组真实路径检查，使用 Python 实现逐字节对照；由 Test.ps1 的 Ketsui 分支一并执行。`py -3.12 scripts/ketsui/verify_preparation.py --game-data '<数据根>'` 另在新的 .local 现场对照实际 eboot／两个 PRX，并做无客体入口的装载校验。生成文件含派生游戏正文，只留本地；Python 工具是开发侧对照实现，不是预定 Public 包的玩家启动依赖。实际游戏进入和保存／录像仍待合集启动接线后验证。
 

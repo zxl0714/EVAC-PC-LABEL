@@ -110,7 +110,8 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   Write(fixture.root/runtime[0],"synthetic; never executed");
   game.coming_soon=true;Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Coming Soon launched");game.coming_soon=false;
   game.integrated=false;Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Unintegrated game launched");game.integrated=true;
-  game.backend="ps4";Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Unimplemented backend launched");game.backend="xbox360";
+  game.backend="ps4";Require(PrepareLaunch(game,fixture.root,ini).arguments==PrepareLaunch(Game{"espgaluda2","Synthetic fixture","xbox360","game-data/espgaluda2","runtime/fake.exe",true,false,files,runtime},fixture.root,ini).arguments,"PS4 launch contract differs");
+  game.backend="undetermined";Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Unimplemented backend launched");game.backend="xbox360";
   const auto helper=fixture.root/FromUtf8("工具 空格/child helper.exe");
   fs::create_directories(helper.parent_path());fs::copy_file(executable,helper);
   const std::vector<std::wstring> payload{L"",L"simple",L"two words",L"中文 路径",L"\"quoted\"",L"trailing\\",L"before\\\"quote",L"& | ; < > %PATH%",L"a\tb"};
@@ -132,6 +133,7 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
     for(const auto& text:payload){const auto utf8=Utf8(text);expected+=std::to_string(utf8.size())+":"+utf8+"\n";}
     Require(Ini::ReadText(output)==expected,"Command quoting, Unicode or working directory changed");
     SetEvent(release.value);child.Wait();Require(child.ExitCode()==code,"Child exit code changed");
+    Require(!child.RequestedWindowClose(fixture.root,"ketsui",code),"Non-close exit accepted as requested close");
     Require(!GameIsRunning(fixture.root),"Exited child kept game lock");
     ChildProcess moved(std::move(child));Require(moved.ExitCode()==code,"Moving process handle lost status");
   }

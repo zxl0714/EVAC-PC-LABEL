@@ -37,6 +37,7 @@ class ChildProcess final {
   ChildProcess(const ChildProcess&)=delete;
   ChildProcess& operator=(const ChildProcess&)=delete;
   std::optional<unsigned long> ExitCode() const;
+  bool RequestedWindowClose(const fs::path& root,std::string_view game,unsigned long code) const;
   unsigned long pid() const {return pid_;}
   void Wait() const;
  private:

@@ -1,5 +1,7 @@
-// ROM-free, memory-only differential-test driver. No guest execution or writes.
+// ROM-free development driver. Resource cases are memory-only; cache cases may
+// write only to explicitly marked, authored test collections. Never executes a guest.
 #include "resource_prepare.h"
+#include "../loader/prepared_cache.h"
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
@@ -54,9 +56,33 @@ Json Run(const Json& item) {
     if (op=="wrap") return Hex(WrapResource(source,seed,name,item.at("extent")));
     throw std::runtime_error("Unknown resource check operation");
 }
+Json RunCache(const Json& request) {
+    const auto root=cave::fs::canonical(cave::FromUtf8(request.at("root").get<std::string>()));
+    const auto marker=ReadPreparationInput(root/".authored-cache-fixture",128);
+    if (std::string(marker.begin(),marker.end())!="CAVE PC authored cache fixture\n")
+        throw std::runtime_error("Cache driver requires an explicitly marked authored fixture");
+    const auto data=cave::fs::canonical(cave::FromUtf8(request.at("data").get<std::string>()));
+    const std::array<std::string,3> files{"eboot.ktprobe","modules/own.ktmodule","game-fixes.ktfix"};
+    unsigned calls{};
+    const auto cache=EnsurePreparedCache(root,data,request.at("recipe"),files,[&](const auto& stage) {
+        ++calls;
+        for (std::size_t i=0;i<files.size();++i) {
+            const auto body="authored:"+files[i]+":"+request.value("payload",std::string("one"));
+            WritePreparedRelative(stage,files[i],{reinterpret_cast<const std::uint8_t*>(body.data()),body.size()});
+            if (!i && request.value("failBuild",false)) throw std::runtime_error("Injected authored preparation failure");
+        }
+    });
+    return Json{{"directory",cave::Utf8(cache.directory)},{"cacheHit",cache.reused},{"recipeSha256",cache.key},
+        {"cacheMissReason",cache.miss_reason},{"receipt",cache.receipt},{"buildCalls",calls},{"guestExecution",false}};
+}
 }
 int wmain(int argc,wchar_t** argv) {
     try {
+        if (argc==3 && std::wstring_view(argv[1])==L"--cache-request") {
+            const auto bytes=ReadPreparationInput(argv[2],256*1024);
+            const auto result=RunCache(Json::parse(bytes.begin(),bytes.end()));
+            std::puts(result.dump().c_str());return 0;
+        }
         if (argc!=2 || std::filesystem::file_size(argv[1])>16*1024*1024) throw std::runtime_error("Expected bounded test request JSON");
         std::ifstream source(std::filesystem::path(argv[1]),std::ios::binary); const auto request=Json::parse(source);
         if (!request.is_array() || request.size()>200) throw std::runtime_error("Invalid test request count");

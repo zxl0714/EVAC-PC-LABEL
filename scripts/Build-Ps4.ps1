@@ -39,5 +39,6 @@ try {
         Invoke-Checked $ps4CMake @('--build',$ps4Build,'--parallel',"$Jobs")
     }
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps4_build_receipt.py'),'finish','--state',$ps4State)
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'stage_ps4.py'))
     Write-Host 'PS4 native targets built. No ROM was required and no game was launched.'
 } finally { $ps4BuildProcess.PriorityClass = $ps4PreviousPriority }

@@ -55,12 +55,16 @@
       "id": "ketsui",
       "name": "Ketsui Deathtiny",
       "backend": "ps4",
-      "integrated": false,
+      "integrated": true,
       "comingSoon": false,
       "dataDirectory": "game-data/ketsui",
       "dataManifest": "ketsui/data.json",
       "executable": "runtime/ps4/ketsui.exe",
-      "runtimeFiles": []
+      "runtimeFiles": [
+        "runtime/ps4/ketsui.exe",
+        "runtime/ps4/KetsuiGpuRuntime.dll",
+        "runtime/games/ketsui/runtime-manifest.ini"
+      ]
     },
     {
       "id": "daioujou",

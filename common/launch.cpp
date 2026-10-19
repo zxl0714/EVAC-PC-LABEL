@@ -82,7 +82,7 @@ std::wstring QuoteArgument(std::wstring_view argument) {
 }
 LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,std::string_view profile,const fs::path& override_data) {
   if (game.coming_soon || !game.integrated) throw std::runtime_error("This game is not integrated yet");
-  if (game.backend!="xbox360") throw std::runtime_error("The selected runtime backend is not integrated yet");
+  if (game.backend!="xbox360" && game.backend!="ps4") throw std::runtime_error("The selected runtime backend is not integrated yet");
   (void)ResolveSettings(ini,game.id);
   LaunchSpec result;
   result.game=game.id;
@@ -191,6 +191,30 @@ std::optional<unsigned long> ChildProcess::ExitCode() const {
   if (!handle_) return 0;
   if (WaitForSingleObject(handle_,0)==WAIT_TIMEOUT) return {};
   DWORD code{};if (!GetExitCodeProcess(handle_,&code)) WinError("Read game exit code");return code;
+}
+bool ChildProcess::RequestedWindowClose(const fs::path& root,std::string_view game,unsigned long code) const {
+  // 27 is not generally a successful exit. Only accept this backend's explicit
+  // presentation-cleanup receipt, bound to this process's PID AND birth time.
+  if (!handle_ || game!="ketsui" || code!=27) return false;
+  try {
+    FILETIME created{},exited{},kernel{},user{};
+    if (!GetProcessTimes(handle_,&created,&exited,&kernel,&user)) return false;
+    const auto birth=std::to_string((std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime);
+    const auto logs=DataChild(root,"logs/ketsui");
+    if (!fs::is_directory(logs)) return false;
+    for (const auto& item:fs::directory_iterator(logs)) {
+      const auto name=Utf8(item.path().filename());
+      if (!name.starts_with("run-") || !name.ends_with("Z-"+std::to_string(pid_))) continue;
+      const auto receipt=DataChild(logs,name+"/exit.ini");
+      if (!fs::is_regular_file(receipt)) continue;
+      const auto ini=Ini::Load(receipt);
+      auto matches=[&](std::string_view key,std::string_view value) {const auto entry=ini.Get("exit",key);return entry && entry->text==value;};
+      if (matches("game",game) && matches("pid",std::to_string(pid_)) && matches("process_created",birth) &&
+          matches("code","27") && matches("reason","window_close_requested") && matches("presentation_cleanup_complete","true") &&
+          matches("guest_finalizers_run","false") && matches("host_cleanup_complete","false")) return true;
+    }
+  } catch (...) { /* Missing/invalid evidence remains an abnormal exit. */ }
+  return false;
 }
 void ChildProcess::Wait() const {if (handle_ && WaitForSingleObject(handle_,INFINITE)==WAIT_FAILED) WinError("Wait for game process");}
 ChildProcess StartGame(const LaunchSpec& spec) {

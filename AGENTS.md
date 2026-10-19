@@ -54,6 +54,9 @@ the uploaded archive's identity and completed upload before announcing it;
 record delivery evidence separately from package acceptance. Explain included
 games, extraction/launcher/config use and log feedback, with accurate known
 limitations. Do not substitute an OSS/public upload or a different group.
+The announcement may include a small set of screenshots selected by the agent:
+prefer the final launcher and one or two representative gameplay views. Capture
+the actual release, not mockups, and exclude unrelated windows or account data.
 Keep delivery pending until both upload and announcement are verified; follow
 the applicable computer-use and tool requirements when executing it.
 
@@ -79,13 +82,30 @@ build details in diagnostics rather than the normal player-facing title.
 Use source tests and real gameplay for their respective claims. Update the
 verification matrix with actual supported modes, save readback, input and
 audio evidence. Never mark a whole stage passed from a narrower smoke test.
+The user now requests a small, representative v0.1 regression set, not a fresh
+full acceptance campaign. Reuse reliable existing results. Prioritize real
+collection launch, one first-stage entry per game (including a DLC selection),
+save/restart readback, the shortest online score/board/replay flow, and package
+extraction/use. Do not expand cache/path extremes, fault injection, all-mode
+combinations or long endurance tests; run targeted checks only for a real issue.
+The prior 60-minute mixed-game campaign is deferred, not a v0.1 gate. Keep
+unrepeated coverage explicitly reused or deferred, never relabel it as retested.
 The user has deferred further repeated-entry gameplay tests. Keep the existing
 Black Label result, mark the other repetitions deferred (not passed), and do not
 make them a prerequisite for the current migration work.
-P5's pinned Ketsui source, isolated dependencies and collection-local native
-PS4/GPU builds, shared INI, native ELF and read-overlay preparation now pass.
-Continue with prepared-input receipts/cache and the collection launch contract;
-keep integrated=false until actual launch/gameplay verification. P4's remaining
+P5's native PS4/GPU builds, shared INI, native preparation/cache, runtime staging
+and shared launch contract now work; Ketsui is integrated=true. Actual launcher
+selection, two child starts, mode menus, fullscreen shortcuts and return to the
+launcher passed. Logs include a readable live stdout/stderr, config snapshot,
+binary hashes and preparation receipt. Normal cache reuse passed; shorter cache
+generation names address the diagnostic-root path-length issue. Direct-backend
+ARCADE player entry and formal score/replay upload are existing evidence, not
+a new launcher first-stage result. The latest CU millisecond coin taps reached
+scePadRead but did not start the arcade core; do not claim player entry from
+the demonstration. Complete the small remaining real-flow/package checks,
+without extending extreme-case suites. Exit 27 remains incomplete guest cleanup;
+the launcher recognizes only the matching process's explicit close receipt.
+P4's remaining
 formal-network, audio and physical-input checks remain open, not implicitly
 passed because PS4 build preparation has started.
 

@@ -20,7 +20,7 @@ import ps4_elf_fixtures as fixtures
 def path_checks(executable,directory,inputs):
     results=[]
     for name in ('existing','wrong-place','source-overlap','junction','alternate-stream',
-                 'other-game-overlap','invalid-sibling','relative-component'):
+                 'other-game-overlap','other-dlc-overlap','invalid-sibling','relative-component'):
         root=directory/('collection-'+name);root.mkdir();(root/'.local').mkdir()
         source=inputs/'executable.elf';output=root/'.local/output.ktprobe'
         expected=2
@@ -38,6 +38,9 @@ def path_checks(executable,directory,inputs):
         elif name=='alternate-stream':output=root/'.local/output.ktprobe:stream'
         elif name=='other-game-overlap':
             (root/'config.ini').write_text('[game.futari]\ndata_dir=.local/blocked\n',encoding='utf-8')
+            output=root/'.local/blocked/output.ktprobe'
+        elif name=='other-dlc-overlap':
+            (root/'config.ini').write_text('[game.futari]\ndlc_dir=.local/blocked\n',encoding='utf-8')
             output=root/'.local/blocked/output.ktprobe'
         elif name=='invalid-sibling':
             (root/'config.ini').write_text('[game.futari]\ndata_dir=Q:relative\n',encoding='utf-8')

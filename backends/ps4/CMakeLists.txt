@@ -52,13 +52,18 @@ target_compile_definitions(KetsuiResourcePreparation PRIVATE WIN32_LEAN_AND_MEAN
 target_compile_options(KetsuiResourcePreparation PRIVATE /W4 /WX /EHsc)
 target_include_directories(KetsuiResourcePreparation SYSTEM PUBLIC "${CAVE_PS4_DEPS}/nlohmann-json/single_include")
 target_link_libraries(KetsuiResourcePreparation PRIVATE KetsuiContent KetsuiZlib cave_common bcrypt)
+add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp)
+target_compile_features(KetsuiPreparedInputs PUBLIC cxx_std_20)
+target_compile_definitions(KetsuiPreparedInputs PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(KetsuiPreparedInputs PRIVATE /W4 /WX /EHsc)
+target_link_libraries(KetsuiPreparedInputs PUBLIC cave_common KetsuiResourcePreparation PRIVATE KetsuiContent bcrypt)
 # Differential-test driver, not part of the player launch or Public package.
 add_executable(KetsuiResourcePrepareCheck content/resource_prepare_check.cpp)
 target_compile_features(KetsuiResourcePrepareCheck PRIVATE cxx_std_20)
 target_compile_definitions(KetsuiResourcePrepareCheck PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiResourcePrepareCheck PRIVATE /W4 /WX /EHsc)
 target_link_options(KetsuiResourcePrepareCheck PRIVATE /DEBUG:FULL)
-target_link_libraries(KetsuiResourcePrepareCheck PRIVATE KetsuiResourcePreparation)
+target_link_libraries(KetsuiResourcePrepareCheck PRIVATE KetsuiResourcePreparation KetsuiPreparedInputs)
 add_library(KetsuiCommunity STATIC community/protocol.cpp community/client.cpp community/client_tests.cpp community/replay.cpp community/round_journal.cpp community/round_journal_tests.cpp community/round_delivery.cpp)
 target_compile_features(KetsuiCommunity PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiCommunity PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
@@ -103,7 +108,7 @@ target_include_directories(KetsuiGraphics SYSTEM PRIVATE "${KETSUI_VULKAN_HEADER
 add_executable(KetsuiNativeProbe
     native_probe.cpp
     collection_config.cpp
-    loader/elf_prepare.cpp
+    collection_launch.cpp
     loader/prepare_cli.cpp
     guest_heap.cpp
     native_debug.cpp
@@ -165,7 +170,7 @@ target_link_options(KetsuiNativeProbe PRIVATE /DEBUG:FULL)
 target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiGraphics KetsuiAudio KetsuiContent KetsuiSave bcrypt user32 gdi32 comctl32 ole32 windowscodecs mfplat mfreadwrite mfuuid)
 target_link_libraries(KetsuiNativeProbe PRIVATE xmllite shlwapi)
 target_link_libraries(KetsuiNativeProbe PRIVATE SDL3::SDL3-static)
-target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common KetsuiResourcePreparation)
+target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common KetsuiResourcePreparation KetsuiPreparedInputs)
 execute_process(COMMAND "${CMAKE_CXX_COMPILER}" --print-resource-dir
     OUTPUT_VARIABLE KETSUI_CLANG_RESOURCES OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 set(KETSUI_CLANG_BUILTINS "${KETSUI_CLANG_RESOURCES}/lib/windows/clang_rt.builtins-x86_64.lib")

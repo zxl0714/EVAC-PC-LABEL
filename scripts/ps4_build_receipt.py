@@ -54,7 +54,7 @@ def snapshot():
         verify_checkout(ROOT / '.deps/ps4' / item['name'], item)
     raw = subprocess.check_output(['git', '--no-optional-locks', '-C', str(ROOT),
                                    'ls-files', '-z', '--cached', '--others', '--exclude-standard'])
-    explicit = {'scripts/Build-Ps4.ps1', 'scripts/Build.ps1', 'scripts/Test.ps1',
+    explicit = {'scripts/Build-Ps4.ps1', 'scripts/Build.ps1', 'scripts/Test.ps1', 'scripts/stage_ps4.py',
                 'scripts/Build-Common.ps1', 'scripts/ps4_build_receipt.py',
                 'scripts/Prepare-Tools.ps1', 'scripts/prepare_tools.py', 'scripts/ps4/run_native_checks.py',
                 'scripts/ps4_sources.py', 'scripts/build_receipt.py', 'scripts/project.py',
@@ -63,7 +63,7 @@ def snapshot():
                 'scripts/ps4/run_prepare_checks.py', 'scripts/ps4/native_elf.py', 'scripts/ps4/prepare_native.py',
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
     explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py',
-                     'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py'})
+                     'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'scripts/ps4/run_cache_checks.py'})
     files = {}
     for name in sorted({value.decode('utf-8') for value in raw.split(b'\0') if value}):
         if name in explicit or name.startswith(('backends/ps4/', 'third_party/ps4/', 'common/')) or (name.startswith('games/') and name.endswith('/data.json')):
