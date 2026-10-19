@@ -1336,6 +1336,10 @@ int NativeCommand(int argc, wchar_t** argv) {
         try { return cave::ps4::CollectionConfigurationSelfTest() ? 0 : 1; }
         catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 1; }
     }
+    if (argc==2 && std::wstring(argv[1])==L"--collection-input-self-test") {
+        try {return cave::ps4::CollectionInputDiagnosticSelfTest()?0:1;}
+        catch (const std::exception& error) {std::fprintf(stderr,"Collection input diagnostic: %s\n",error.what());return 2;}
+    }
     if (argc==3 && std::wstring(argv[1])==L"--collection-config-check") {
         try { cave::ps4::ReportCollectionConfiguration(cave::ps4::LoadCollectionConfiguration(argv[2])); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 2; }

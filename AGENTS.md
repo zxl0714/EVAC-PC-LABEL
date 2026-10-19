@@ -102,7 +102,12 @@ generation names address the diagnostic-root path-length issue. Direct-backend
 ARCADE player entry and formal score/replay upload are existing evidence, not
 a new launcher first-stage result. The latest CU millisecond coin taps reached
 scePadRead but did not start the arcade core; do not claim player entry from
-the demonstration. Complete the small remaining real-flow/package checks,
+the demonstration. The later explicit 120 ms diagnostic bridge has now allowed
+actual GUI-launcher ARCADE/Tiger player entry, a 380-point round and formal
+two-board score/replay upload. A new normal-input process records diagnostic 0,
+reads BGM 69% back, displays Player/380 online, downloads its replay and fully
+plays the previous process's new local replay to natural return. This does not
+claim physical-device or all-mode revalidation. Complete the remaining package checks,
 without extending extreme-case suites. Exit 27 remains incomplete guest cleanup;
 the launcher recognizes only the matching process's explicit close receipt.
 P4's remaining

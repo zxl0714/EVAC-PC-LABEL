@@ -28,7 +28,7 @@
 
 需要 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。当前公共库不依赖 ReXGlue 或游戏数据。
 
-源码编译使用较短的英文路径，例如 `E:/CaveDev/CAVE-PC-Collection/source`。固定 CMake 4.2.3 在中文源码路径的编译器隐式链接信息解析中会异常退出，实际 ABI 编译链接此前已成功；不要通过强制 ABI 通过、关闭安全设置或修改已安装工具来绕过。内部开发包可先整体解压到英文路径再构建；玩家运行和外部游戏数据仍支持中文路径。编译器统一及工具链升级另在后续版本处理。
+源码编译使用较短的英文路径，例如 `E:/CaveDev/CAVE-PC-Collection/source`。固定 CMake 4.2.3 在中文源码路径的编译器隐式链接信息解析中会异常退出；内部开发包先整体解压到英文路径即可构建。玩家运行和外部游戏数据仍支持中文路径。编译器统一及工具链升级另在后续版本处理。
 
 ```powershell
 ./scripts/Prepare-Tools.ps1
@@ -141,6 +141,8 @@ ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按�
 `loader/prepare_game.cpp` 使用 prepared_cache.* 的不可变代和 active.json 指针。配方绑定全部受支持数据、准备选项及准备 EXE 的 SHA-256；缓存命中时复核文件清单、大小和内容哈希，失败则保留旧现场并新建一代，不回退运行不匹配的旧镜像。整套预检可用 `runtime/ps4/ketsui.exe --prepare-game --root <合集绝对路径> [--data-dir <数据绝对路径>]`，不执行客体，不创建 profile 或日志。
 
 `collection_launch.*` 接受公共五参数合同，使用 GameSession 和 profile 写入锁，自动准备后调用既有原生执行路径。日志在 logs/ketsui/run-UTC-PID，包含 run.json、config.snapshot.ini、preparation.json、stdout.jsonl 与 stderr.txt；两条日志允许运行中读取。正常关窗的现有退出码 27 不改成 0：仅在呈现清理完成后写 exit.ini，启动器用 PID、进程创建时间、原因及状态核对后恢复列表，不误报崩溃；其他非零退出仍警告。未完成的客体终止清理继续作为已知限制。
+
+CU 的毫秒短按无法触发街机投币时，可仅为本次启动器进程设置环境变量 `CAVE_DIAGNOSTIC_INPUT_TAP_MS=120`，桥接既有原生按键延长诊断；允许 0–500，未设置或 0 时完全不启用。五参数合同及玩家 INI 不变，`run.json` 的 `diagnosticInputTapMs` 明确记录取值；启动后恢复开发 shell 的环境变量，不用于声称默认物理输入已测。`--collection-input-self-test` 无 ROM／窗口地检查解析边界，实际游戏仍必须由 CU 操作投币、选机与进关。
 
 `scripts/ps4/run_prepare_checks.py` 通过 27 组自造 ELF 和 8 组真实路径检查，使用 Python 实现逐字节对照；由 Test.ps1 的 Ketsui 分支一并执行。`py -3.12 scripts/ketsui/verify_preparation.py --game-data '<数据根>'` 另在新的 .local 现场对照实际 eboot／两个 PRX，并做无客体入口的装载校验。生成文件含派生游戏正文，只留本地；Python 工具是开发侧对照实现，不是预定 Public 包的玩家启动依赖。实际游戏进入和保存／录像仍待合集启动接线后验证。
 

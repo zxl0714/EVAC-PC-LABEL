@@ -18,7 +18,7 @@ CHECKS = (
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
     'np-score', 'np-replay', 'community-round-audit', 'sfo', 'pm4',
-    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config',
+    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input',
 )
 
 

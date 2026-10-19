@@ -21,6 +21,22 @@ std::atomic_flag close_recorded{};
 constexpr std::array<std::wstring_view,5> options{L"--collection_root",L"--game_id",L"--launch_contract",
     L"--game_data_root",L"--user_data_root"};
 void Require(bool okay,const char* message) {if (!okay) throw std::runtime_error(message);}
+unsigned ParseDiagnosticTap(std::wstring_view value) {
+    if (value.empty()) return 0;
+    Require(value.size()<=3 && value.find_first_not_of(L"0123456789")==value.npos,
+        "CAVE_DIAGNOSTIC_INPUT_TAP_MS requires an integer from 0 to 500");
+    unsigned result{};for (const auto digit:value) result=result*10+(digit-L'0');
+    Require(result<=500,"CAVE_DIAGNOSTIC_INPUT_TAP_MS requires an integer from 0 to 500");
+    return result;
+}
+unsigned DiagnosticTap() {
+    wchar_t value[8]{};SetLastError(ERROR_SUCCESS);
+    const auto length=GetEnvironmentVariableW(L"CAVE_DIAGNOSTIC_INPUT_TAP_MS",value,static_cast<DWORD>(std::size(value)));
+    Require(length<std::size(value),"CAVE_DIAGNOSTIC_INPUT_TAP_MS is too long");
+    Require(length || GetLastError()==ERROR_ENVVAR_NOT_FOUND || GetLastError()==ERROR_SUCCESS,
+        "Cannot read CAVE_DIAGNOSTIC_INPUT_TAP_MS");
+    return ParseDiagnosticTap(std::wstring_view(value,length));
+}
 std::uint64_t CreationTime() {
     FILETIME created{},exited{},kernel{},user{};
     Require(GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user)!=0,"Cannot identify game process");
@@ -62,6 +78,14 @@ bool IsCollectionLaunch(int argc,wchar_t** argv) {
     }
     return false;
 }
+bool CollectionInputDiagnosticSelfTest() {
+    if (ParseDiagnosticTap(L"")!=0 || ParseDiagnosticTap(L"0")!=0 || ParseDiagnosticTap(L"120")!=120 ||
+        ParseDiagnosticTap(L"500")!=500) return false;
+    for (const auto value:{L"501",L"-1",L" 1",L"1.5",L"0000",L"１２"}) {
+        try { (void)ParseDiagnosticTap(value);return false; } catch (const std::runtime_error&) {}
+    }
+    std::puts("{\"event\":\"collection_input_diagnostic_self_test\",\"passed\":true}");return true;
+}
 void RecordCollectionWindowClose() noexcept {
     if (active_report.empty() || close_recorded.test_and_set()) return;
     try {
@@ -73,6 +97,7 @@ void RecordCollectionWindowClose() noexcept {
 }
 int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
     try {
+        const auto diagnostic_tap=DiagnosticTap();
         std::map<std::wstring,std::wstring> values;
         Require(argc==6,"Collection launch requires exactly five contract arguments");
         for (int i=1;i<argc;++i) {
@@ -113,7 +138,8 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             {"root",Utf8(root)},{"data",Utf8(spec.paths.data)},{"profile",Utf8(spec.paths.profile)},
             {"executable",Utf8(spec.executable)},{"executableSha256",Sha256(spec.executable)},
             {"gpuSha256",Sha256(root/"runtime/ps4/KetsuiGpuRuntime.dll")},
-            {"logicalProcessors",machine.dwNumberOfProcessors},{"configSnapshot","config.snapshot.ini"}};
+            {"logicalProcessors",machine.dwNumberOfProcessors},{"configSnapshot","config.snapshot.ini"},
+            {"diagnosticInputTapMs",diagnostic_tap}};
         WriteNew(report/"run.json",metadata.dump(2)+'\n');
         std::puts("{\"event\":\"collection_run_begin\",\"game\":\"ketsui\",\"launch_contract\":1}");
         const auto prepared=PrepareKetsuiGame(root,spec.paths.data);
@@ -127,6 +153,9 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             L"--patch-dir",(spec.paths.data/"CUSA09062-patch").native(),L"--user-dir",spec.paths.profile.native(),
             L"--allocation-timing",L"counts",L"--read-patches",prepared.read_fixes.native(),L"--collection-config",config.native(),
             L"--community-provider",L"configured",L"--community-rounds",L"on",L"--gpu-runtime",(root/"runtime/ps4/KetsuiGpuRuntime.dll").native()};
+        // Development-only bridge to the existing pad diagnostic. Never save
+        // this setting in the player INI or enable it in the launcher itself.
+        if (diagnostic_tap) {arguments.push_back(L"--diagnostic-tap-ms");arguments.push_back(std::to_wstring(diagnostic_tap));}
         std::vector<wchar_t*> pointers;for (auto& argument:arguments) pointers.push_back(argument.data());
         const auto result=command(static_cast<int>(pointers.size()),pointers.data());
         WriteNew(report/"result.json",Json{{"event","collection_run_return"},{"exitCode",result}}.dump(2)+'\n');
