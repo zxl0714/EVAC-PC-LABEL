@@ -10,7 +10,11 @@ from xex_inventory import files
 
 def sfo(path):
     if Path(path).stat().st_size>1024*1024:raise ValueError('Invalid SFO size')
-    raw=Path(path).read_bytes()
+    return parse_sfo(Path(path).read_bytes())
+
+
+def parse_sfo(raw):
+    """Parse bounded SFO bytes, including metadata read directly from an archive."""
     if len(raw)<20 or len(raw)>1024*1024:raise ValueError('Invalid SFO size')
     magic,version,keys,data,count=struct.unpack_from('<5I',raw)
     if magic!=0x46535000 or version!=0x101 or count>4096 or 20+count*16>keys or not keys<=data<=len(raw):

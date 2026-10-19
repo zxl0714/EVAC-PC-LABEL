@@ -1,5 +1,16 @@
 # Development entry
 
+The user has authorized stepwise v0.3 implementation with minimal interaction.
+Follow the v0.3 section in docs/IMPLEMENTATION_PLAN.md: playable DaiOuJou plus
+its native online feature adaptation, localization/bilingual titles, the open
+SDOJ audio/input-latency and Ketsui replay-hitch investigations, then verified
+release packages, OSS upload and the two named QQ notifications. The earlier
+request to only record the SDOJ latency issue is superseded by this implementation
+goal. Do not equate launcher work or input inspection with v0.3 completion.
+The DaiOuJou ZIP is still downloading; a valid central directory is not a
+complete download. Verify every member before using it. Keep failed local
+extraction attempts as incomplete evidence. Preserve frozen v0.1/v0.2 archives.
+
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has
 approved implementation: P0 snapshots, P1 G2 playable baseline, then collection
 integration, Futari, Ketsui and release. Do not substitute launcher work for the

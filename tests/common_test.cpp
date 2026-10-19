@@ -4,6 +4,7 @@
 #include "common/settings.h"
 #include "common/config_update.h"
 #include "launcher/window_size.h"
+#include "launcher/strings.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -176,6 +177,26 @@ void ContentChecks(Fixture& fixture) {
 int main() {
   try {
     Fixture fixture;
+    using launcher::Language;
+    Fixture language_fixture;
+    Require(launcher::ReadLanguage(Ini::Parse(""))==Language::Chinese,"Existing INI language default changed");
+    for(const auto lang:{Language::Chinese,Language::Japanese,Language::English}) {
+      Require(launcher::ParseLanguage(launcher::LanguageCode(lang))==lang,"Language code round trip");
+      const std::array changes{IniEdit{"collection","language",launcher::LanguageCode(lang)}};
+      const auto before=std::string("; retain comment\n[future]\nvalue=keep\n[community]\nnickname=Player\n");
+      Write(language_fixture.root/"config.ini",before);
+      UpdateConfig(language_fixture.root,before,changes);
+      const auto after=Ini::ReadText(language_fixture.root/"config.ini");
+      Require(launcher::ReadLanguage(Ini::Parse(after))==lang && after.starts_with(before),"Language save/restart or text preservation");
+      SaveSharedPreferences(language_fixture.root,after,true,"Friend");
+      Require(launcher::ReadLanguage(Ini::Load(language_fixture.root/"config.ini"))==lang,"Quick settings overwrote language");
+      for(const auto& row:launcher::kTranslations)
+        Require(std::wstring_view(launcher::Translate(lang,row.key)).size()>0,"Empty localized UI string");
+    }
+    for(const auto value:{"","fr","ZH","zh-CN","ja\nen"})
+      Reject([&]{launcher::ParseLanguage(value);},"Invalid UI language accepted");
+    Reject([]{launcher::Translate(Language::English,L"missing-key");},"Missing translation silently accepted");
+    for(const auto& game:Catalogue())Require(!game.name_japanese.empty() && game.DisplayName()==game.name_japanese,"Missing Japanese display name");
     constexpr std::string_view hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
     const std::array files{DataFile{"main.bin",3,hash,true}, DataFile{"res/asset.bin",3,hash,false}};
     const std::array<std::string_view,1> runtime{"runtime/fake.exe"};

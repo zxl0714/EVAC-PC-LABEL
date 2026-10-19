@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "description": "Official Japanese edition names used for player-facing titles; IDs and English subtitles remain separate.",
+  "sources": [
+    {"game": "futari", "page": "https://www.cave.co.jp/gameonline/Xbox360/mushihime2/"},
+    {"game": "espgaluda2", "page": "https://www.cave.co.jp/gameonline/Xbox360/espgaluda2/"},
+    {"game": "ketsui", "page": "https://m2stg.com/ketsui/"},
+    {"game": "sdoj", "page": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/"},
+    {"game": "daioujou", "page": "https://m2stg.com/daioujou/"},
+    {"game": "esprade", "page": "https://m2stg.com/esprade/"}
+  ]
+}

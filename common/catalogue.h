@@ -27,6 +27,8 @@ struct Game {
   std::span<const ContentPackage> content{};
   bool community_supported{true};
   std::span<const std::string_view> forbidden_files{};
+  std::string_view name_japanese{};
+  std::string_view DisplayName() const { return name_japanese.empty() ? name : name_japanese; }
 };
 std::span<const Game> Catalogue();
 const Game& FindGame(std::string_view id);

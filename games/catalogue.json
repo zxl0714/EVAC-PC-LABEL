@@ -5,6 +5,7 @@
     {
       "id": "futari",
       "name": "Mushihimesama Futari",
+      "nameJapanese": "虫姫さまふたり Ver.1.5",
       "backend": "xbox360",
       "integrated": true,
       "comingSoon": false,
@@ -30,6 +31,7 @@
     {
       "id": "espgaluda2",
       "name": "ESPGaluda II",
+      "nameJapanese": "エスプガルーダII ブラックレーベル",
       "backend": "xbox360",
       "integrated": true,
       "comingSoon": false,
@@ -54,6 +56,7 @@
     {
       "id": "ketsui",
       "name": "Ketsui Deathtiny",
+      "nameJapanese": "ケツイ Deathtiny ～絆地獄たち～",
       "backend": "ps4",
       "integrated": true,
       "comingSoon": false,
@@ -69,6 +72,7 @@
     {
       "id": "sdoj",
       "name": "DoDonPachi SaiDaiOuJou",
+      "nameJapanese": "怒首領蜂最大往生",
       "backend": "xbox360",
       "integrated": true,
       "comingSoon": false,
@@ -89,6 +93,7 @@
     {
       "id": "daioujou",
       "name": "DoDonPachi DaiOuJou",
+      "nameJapanese": "怒首領蜂大往生 臨廻転生",
       "backend": "undetermined",
       "integrated": false,
       "comingSoon": true,
@@ -100,6 +105,7 @@
     {
       "id": "esprade",
       "name": "ESP Ra.De.",
+      "nameJapanese": "エスプレイドΨ",
       "backend": "undetermined",
       "integrated": false,
       "comingSoon": true,

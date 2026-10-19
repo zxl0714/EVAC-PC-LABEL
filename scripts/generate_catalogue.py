@@ -46,6 +46,9 @@ def load(path):
             raise ValueError('Invalid backend')
         if not isinstance(game['name'], str) or not game['name'] or any(ord(c) < 32 for c in game['name']):
             raise ValueError('Invalid display name')
+        if 'nameJapanese' in game and (not isinstance(game['nameJapanese'], str) or not game['nameJapanese']
+                or len(game['nameJapanese']) > 128 or any(ord(c) < 32 for c in game['nameJapanese'])):
+            raise ValueError('Invalid Japanese display name')
         if type(game['integrated']) is not bool or type(game['comingSoon']) is not bool:
             raise ValueError('Invalid implementation state')
         if type(game.get('communitySupported', True)) is not bool:
@@ -158,7 +161,7 @@ def generate(games):
         key = game['id'].replace('-', '_')
         fields = [quoted(game[k]) for k in ('id', 'name', 'backend', 'dataDirectory', 'executable')]
         fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}', f'content_{key}',
-                   str(game.get('communitySupported', True)).lower(), f'forbidden_{key}']
+                   str(game.get('communitySupported', True)).lower(), f'forbidden_{key}', quoted(game.get('nameJapanese', ''))]
         lines.append('{' + ','.join(fields) + '},')
     return '\n'.join(lines + ['}};', '}  // namespace cave::detail', ''])
 

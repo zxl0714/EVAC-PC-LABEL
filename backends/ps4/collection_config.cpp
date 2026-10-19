@@ -28,7 +28,7 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini) {
     (void)kt::community::ParseEndpoint(endpoint);
     result.community = {result.shared.community_enabled, result.shared.nickname, std::move(endpoint)};
     if (!kt::community::ValidNicknameBytes(result.community.nickname)) throw std::runtime_error("Invalid community nickname");
-    result.display = {FromUtf8("CAVE PC Collection — " + std::string(FindGame("ketsui").name)).wstring(),
+    result.display = {FromUtf8("CAVE PC Collection — " + std::string(FindGame("ketsui").DisplayName())).wstring(),
         result.shared.fullscreen, result.shared.vsync};
     return result;
 }
@@ -102,7 +102,7 @@ bool CollectionConfigurationSelfTest() {
     ApplyCollectionConfiguration(custom);
     const auto applied=GetNativeDisplaySettings();
     check(applied.title==defaults.display.title && !applied.fullscreen && !applied.vsync &&
-        applied.title==L"CAVE PC Collection — Ketsui Deathtiny", "native_display_uses_catalogue_title_and_preferences");
+        applied.title==L"CAVE PC Collection — ケツイ Deathtiny ～絆地獄たち～", "native_display_uses_catalogue_title_and_preferences");
     std::printf("{\"event\":\"collection_config_self_test\",\"passed\":%u,\"success\":%s}\n",passed,okay?"true":"false");
     return okay;
 }

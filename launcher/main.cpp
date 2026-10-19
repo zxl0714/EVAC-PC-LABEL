@@ -5,6 +5,8 @@
 #include "common/settings.h"
 #include "artwork.h"
 #include "launcher/window_size.h"
+#include "launcher/strings.h"
+#include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
 #include <d2d1.h>
@@ -34,6 +36,9 @@ constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT_PTR kChildTimer=1;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr wchar_t kWindowClass[]=L"CavePCCollection.Launcher.v1";
+using cave::launcher::Language;
+Language language=Language::Chinese;
+const wchar_t* T(std::wstring_view key) {return cave::launcher::Translate(language,key);}
 void Check(HRESULT status,const char* operation) {
   if (FAILED(status)) throw std::runtime_error(std::string(operation)+" (HRESULT "+std::to_string(static_cast<unsigned>(status))+")");
 }
@@ -41,7 +46,8 @@ std::wstring Wide(std::string_view text) {return FromUtf8(text).native();}
 void Error(HWND window,std::string_view message) {
   std::wstring value;
   try {value=Wide(message.size()<16000?message:std::string_view("Error message is too long; check the log."));}
-  catch (...) {value=L"无法显示详细信息，请检查日志。";}
+  catch (...) {value=T(L"无法显示详细信息，请检查日志。");}
+  value=std::wstring(T(L"操作失败。详细信息：\n\n"))+value;
   MessageBoxW(window,value.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONERROR);
 }
 fs::path ExecutableDirectory() {
@@ -80,6 +86,7 @@ void Log(const fs::path& root,std::string_view message) {
 struct Options {
   fs::path root,data,preview;
   std::string game,profile="default";
+  std::optional<Language> language;
 };
 Options Arguments() {
   Options options;options.root=DefaultRoot();
@@ -95,6 +102,7 @@ Options Arguments() {
       else if (key==L"--profile") options.profile=Utf8(value);
       else if (key==L"--data-dir") options.data=value;
       else if (key==L"--render-preview") options.preview=value;
+      else if (key==L"--language") options.language=cave::launcher::ParseLanguage(Utf8(value));
       else throw std::runtime_error("Unknown launcher option");
     }
   } catch (...) {LocalFree(arguments);throw;}
@@ -133,17 +141,17 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
 }
 std::wstring Status(const Inspection& inspection) {
   const auto& state=inspection.state;
-  if (state=="ready") return L"已就绪";
-  if (state=="needs_verification") return L"数据已找到 · 启动时校验";
-  if (state=="missing_data") return L"未找到游戏数据";
-  if (state=="incomplete_data") return L"游戏数据不完整";
-  if (state=="unsupported_version") return L"数据版本不支持";
-  if (state=="missing_runtime") return L"缺少运行组件";
-  if (state=="invalid_config") return L"配置有误 · 请检查 config.ini";
-  if (state=="invalid_path") return L"数据路径不可用";
-  if (state=="not_integrated") return L"正在接入";
-  if (state=="coming_soon") return L"敬请期待";
-  return L"正在检测…";
+  if (state=="ready") return T(L"已就绪");
+  if (state=="needs_verification") return T(L"数据已找到 · 启动时校验");
+  if (state=="missing_data") return T(L"未找到游戏数据");
+  if (state=="incomplete_data") return T(L"游戏数据不完整");
+  if (state=="unsupported_version") return T(L"数据版本不支持");
+  if (state=="missing_runtime") return T(L"缺少运行组件");
+  if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
+  if (state=="invalid_path") return T(L"数据路径不可用");
+  if (state=="not_integrated") return T(L"正在接入");
+  if (state=="coming_soon") return T(L"敬请期待");
+  return T(L"正在检测…");
 }
 bool CanPlay(const Inspection& inspection) {return inspection.state=="ready" || inspection.state=="needs_verification";}
 std::string Details(const Inspection& inspection) {
@@ -170,6 +178,7 @@ struct Layout {
   D2D1_RECT_F play() const {return {width-margin()-176,height-99,width-margin(),height-49};}
   D2D1_RECT_F config() const {return {width-margin()-177,28,width-margin()-79,64};}
   D2D1_RECT_F logs() const {return {width-margin()-68,28,width-margin(),64};}
+  D2D1_RECT_F language_button() const {return {width-margin()-177,71,width-margin(),93};}
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
   D2D1_RECT_F detail() const {return {margin()+185,height-45,margin()+250,height-14};}
@@ -199,7 +208,7 @@ class Renderer {
     Check(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,factory.GetAddressOf()),"Create Direct2D factory");
     Check(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),reinterpret_cast<IUnknown**>(write.GetAddressOf())),"Create text factory");
     Check(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&wic)),"Create image factory");
-    for (const auto size:{10.f,11.f,12.f,14.f,20.f,24.f,27.f}) {
+    for (const auto size:{10.f,11.f,12.f,14.f,16.f,18.f,20.f,24.f,27.f}) {
       ComPtr<IDWriteTextFormat> format;
       Check(write->CreateTextFormat(L"Segoe UI",nullptr,size>=20?DWRITE_FONT_WEIGHT_SEMI_BOLD:DWRITE_FONT_WEIGHT_NORMAL,
           DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,size,L"zh-CN",&format),"Create launcher font");
@@ -246,14 +255,15 @@ class Renderer {
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     Text(target,L"C A V E",{margin,25,margin+130,65},27,0x23312d);
     Text(target,L"PC COLLECTION",{margin+(layout.narrow()?0:140),layout.narrow()?61.f:40.f,margin+320,80},10,0x6f7c76);
-    if (!layout.narrow()) Text(target,L"熟悉的弹幕，新的入口。",{margin,70,margin+360,92},12,0x78827c);
-    Button(target,layout.config(),L"配置文件");Button(target,layout.logs(),L"日志");
+    if (!layout.narrow()) Text(target,T(L"熟悉的弹幕，新的入口。"),{margin,70,margin+360,92},12,0x78827c);
+    Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"日志"));
+    Button(target,layout.language_button(),cave::launcher::LanguageLabel(language),false,busy||running);
     if(preview) {
-      Button(target,layout.fullscreen(),L"□ 启动时全屏");
-      Button(target,layout.nickname(),L"Player");Button(target,layout.save(),L"保存",false,true);
+      Button(target,layout.fullscreen(),T(L"□ 启动时全屏"));
+      Button(target,layout.nickname(),L"Player");Button(target,layout.save(),T(L"保存"),false,true);
     }
-    Text(target,L"排行榜昵称",{margin+145,105,margin+215,128},12,0x627368);
-    if(!layout.narrow()) Text(target,preferences_dirty?L"未保存 · 启动前会自动保存":L"共用设置 · 下次启动生效",
+    Text(target,T(L"排行榜昵称"),{margin+153,105,margin+225,128},11,0x627368);
+    if(!layout.narrow()) Text(target,preferences_dirty?T(L"未保存 · 启动前会自动保存"):T(L"共用设置 · 下次启动生效"),
         {margin+498,106,layout.width-margin,128},11,preferences_dirty?0x90754f:0x7d8881);
     target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     for (size_t index=0;index<rows.size();++index) {
@@ -285,29 +295,35 @@ class Renderer {
       if (selected==index) {ComPtr<ID2D1SolidColorBrush> accent;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&accent),"Create selection accent");target->FillRectangle({rectangle.left,rectangle.top,rectangle.left+4,rectangle.bottom},accent.Get());}
       target->PopLayer();target->DrawRoundedRectangle(round,border.Get(),selected==index?2.f:1.f);
       const float left=rectangle.left+(layout.narrow()?20:25);
-      const float text_top=rectangle.top+(layout.row_height()-112.f)/2;
-      Text(target,Wide(cave::launcher::kArtwork[index].kicker),{left,text_top+20,rectangle.right-16,text_top+36},10,soon?0x9ca59e:0x829087);
-      Text(target,Wide(game.name),{left,text_top+42,rectangle.right-16,text_top+75},layout.narrow()?20.f:24.f,soon?0x737e76:0x23312d);
-      const float label_top=text_top+(layout.row_height()<112.f?80.f:88.f);
-      if(soon) Text(target,L"COMING SOON",{left,label_top,rectangle.right-20,rectangle.bottom-12},10,0x8c978f);
-      else if(selected==index) Text(target,L"已选择",{left,label_top,rectangle.right-20,rectangle.bottom-12},11,0x37644c);
+      const float block_height=layout.row_height()<100.f?65.f:83.f;
+      const float text_top=rectangle.top+(layout.row_height()-block_height)/2;
+      Text(target,soon?T(layout.row_height()<100.f?L"敬请期待":L"后续作品"):Wide(cave::launcher::kArtwork[index].kicker),{left,text_top,rectangle.right-16,text_top+14},10,soon?0x9ca59e:0x829087);
+      const auto title=Wide(game.DisplayName());
+      const auto title_size=layout.narrow()?(title.size()>19?16.f:18.f):(title.size()>24?18.f:20.f);
+      Text(target,title,{left,text_top+16,rectangle.right-16,text_top+43},title_size,soon?0x737e76:0x23312d);
+      Text(target,Wide(game.name),{left,text_top+43,rectangle.right-16,text_top+60},11,soon?0x8c978f:0x748179);
+      if(layout.row_height()>=100.f) {
+        const float label_top=text_top+65;
+        if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
+        else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
+      }
     }
     target->PopAxisAlignedClip();
     const auto& inspection=rows[selected].inspection;
-    Text(target,Wide(Catalogue()[selected].name),{margin,layout.height-105,layout.play().left-18,layout.height-76},20,0x23312d);
-    const auto status=running?L"请先退出正在运行的游戏":(busy?L"正在读取／校验所选游戏…":Status(inspection));
+    Text(target,Wide(Catalogue()[selected].DisplayName()),{margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
+    const auto status=running?T(L"请先退出正在运行的游戏"):(busy?T(L"正在读取／校验所选游戏…"):Status(inspection));
     Text(target,status,{margin,layout.height-77,layout.play().left-18,layout.height-56},11,CanPlay(inspection)?0x356c4b:0x90754f);
-    Button(target,layout.play(),running?L"游戏运行中":L"启动游戏",true,busy||running||!CanPlay(inspection));
-    Button(target,layout.data(),L"游戏数据…",false,busy||running||Catalogue()[selected].coming_soon);
-    Button(target,layout.refresh(),L"刷新",false,busy||running);
-    Button(target,layout.detail(),L"详情",false,busy||running||CanPlay(inspection)||Catalogue()[selected].coming_soon);
+    Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!CanPlay(inspection));
+    Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
+    Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
+    Button(target,layout.detail(),T(L"详情"),false,busy||running||CanPlay(inspection)||Catalogue()[selected].coming_soon);
     if (focus>=4) {
-      const auto rectangle=focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail()))));
+      const auto rectangle=focus==10?layout.language_button():(focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail())))));
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
     }
     Text(target,override_hint.empty()?message:override_hint,{margin+266,layout.height-36,layout.width-margin,layout.height-14},11,0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
-    if (preview) Text(target,L"视觉预览 · 安装状态为示例",{margin+200,layout.height-17,layout.width-margin,layout.height},10,0x939d94,DWRITE_TEXT_ALIGNMENT_TRAILING);
+    if (preview) Text(target,T(L"视觉预览 · 安装状态为示例"),{margin+200,layout.height-17,layout.width-margin,layout.height},10,0x939d94,DWRITE_TEXT_ALIGNMENT_TRAILING);
   }
   ComPtr<ID2D1Factory> factory;
   ComPtr<IWICImagingFactory> wic;
@@ -332,15 +348,17 @@ class App {
  public:
   explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
     EnsureConfig(options.root);for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
+    language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(options.root/"config.ini")));
+    message=T(L"正在检测游戏数据…");
   }
   ~App() {if(work)work->alive=false;if(worker.joinable())worker.detach();}
   void CreatePreferences() {
     const auto instance=GetModuleHandleW(nullptr);
-    fullscreen_control=CreateWindowExW(0,L"BUTTON",L"启动时全屏",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX|BS_NOTIFY,
+    fullscreen_control=CreateWindowExW(0,L"BUTTON",T(L"启动时全屏"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX|BS_NOTIFY,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kFullscreenControl),instance,nullptr);
     nickname_control=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kNicknameControl),instance,nullptr);
-    save_control=CreateWindowExW(0,L"BUTTON",L"保存",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON|BS_NOTIFY,
+    save_control=CreateWindowExW(0,L"BUTTON",T(L"保存"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON|BS_NOTIFY,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kSaveControl),instance,nullptr);
     if(!fullscreen_control||!nickname_control||!save_control)throw std::runtime_error("Cannot create quick settings");
     SendMessageW(nickname_control,EM_SETLIMITTEXT,64,0);
@@ -370,19 +388,21 @@ class App {
     try {
       preferences_text=Ini::ReadText(EnsureConfig(options.root));
       const auto ini=Ini::Parse(preferences_text);const auto settings=ResolveSharedSettings(ini);
+      language=options.language.value_or(cave::launcher::ReadLanguage(ini));
+      SetWindowTextW(fullscreen_control,T(L"启动时全屏"));SetWindowTextW(save_control,T(L"保存"));
       SendMessageW(fullscreen_control,BM_SETCHECK,settings.fullscreen?BST_CHECKED:BST_UNCHECKED,0);
       SetWindowTextW(nickname_control,Wide(settings.nickname).c_str());
       preferences_available=true;preferences_dirty=false;UpdateOverrideHint(ini);
     } catch(const std::exception& error) {
       preferences_available=false;preferences_dirty=false;
-      message=L"快捷设置读取失败，请打开配置文件修正后刷新";Log(options.root,error.what());
+      message=T(L"快捷设置读取失败，请打开配置文件修正后刷新");Log(options.root,error.what());
     }
     loading_preferences=false;EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
   }
   void UpdateOverrideHint(const Ini& ini) {
     override_hint.clear();const auto section="game."+std::string(Catalogue()[selected].id);
     if(ini.Get(section+".display","fullscreen") || ini.Get(section+".community","nickname"))
-      override_hint=L"此游戏有独立的全屏／昵称设置，请在配置文件中调整";
+      override_hint=T(L"此游戏有独立的全屏／昵称设置，请在配置文件中调整");
   }
   void SavePreferences() {
     if(!preferences_dirty)return;
@@ -390,13 +410,13 @@ class App {
     const auto count=GetWindowTextLengthW(nickname_control);
     std::wstring name(size_t(count)+1,L'\0');GetWindowTextW(nickname_control,name.data(),int(name.size()));name.resize(count);
     SaveSharedPreferences(options.root,preferences_text,SendMessageW(fullscreen_control,BM_GETCHECK,0,0)==BST_CHECKED,Utf8(name));
-    ReloadPreferences();message=L"快捷设置已保存，下次启动生效";
+    ReloadPreferences();message=T(L"快捷设置已保存，下次启动生效");
     Log(options.root,"shared-preferences-updated");
   }
   void ManualRefresh() {
     if(busy||child)return;
-    if(preferences_dirty && MessageBoxW(hwnd,L"刷新将放弃尚未保存的快捷设置，重新读取 config.ini。继续吗？",
-        L"刷新配置",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
+    if(preferences_dirty && MessageBoxW(hwnd,T(L"刷新将放弃尚未保存的快捷设置，重新读取 config.ini。继续吗？"),
+        T(L"刷新配置"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
     ReloadPreferences();Refresh();
   }
   void Select(size_t index) {
@@ -409,20 +429,40 @@ class App {
     if(busy||child||!CanPlay(rows[selected].inspection))return;
     SavePreferences();Refresh(true);
   }
+  void LanguageMenu() {
+    if(busy||child||!preferences_available)return;
+    const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create language menu");
+    const std::array names{L"中文",L"日本語",L"English"};
+    for(size_t index=0;index<names.size();++index)
+      AppendMenuW(menu,MF_STRING|(size_t(language)==index?MF_CHECKED:0),index+1,names[index]);
+    const auto rectangle=layout.language_button();const auto scale=float(GetDpiForWindow(hwnd))/96;
+    POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.bottom*scale)};ClientToScreen(hwnd,&anchor);
+    const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY,anchor.x,anchor.y,0,hwnd,nullptr);
+    DestroyMenu(menu);if(!selection)return;
+    const auto next=Language(selection-1);
+    const std::array changes{IniEdit{"collection","language",cave::launcher::LanguageCode(next)}};
+    UpdateConfig(options.root,preferences_text,changes);
+    preferences_text=Ini::ReadText(options.root/"config.ini");
+    language=next;options.language.reset();
+    SetWindowTextW(fullscreen_control,T(L"启动时全屏"));SetWindowTextW(save_control,T(L"保存"));
+    UpdateOverrideHint(Ini::Parse(preferences_text));message=T(L"↑ ↓ 选择 · Enter 启动");
+    InvalidateRect(hwnd,nullptr,FALSE);
+  }
   bool Input(MSG& input) {
     if(input.message!=WM_KEYDOWN || (input.hwnd!=hwnd && !IsChild(hwnd,input.hwnd)))return false;
     try {
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
-        for(int step=0;step<10;++step) {
-          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?9:1))%10;
+        for(int step=0;step<11;++step) {
+          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?10:1))%11;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
           if(slot==9 && (busy||child||CanPlay(rows[selected].inspection)||Catalogue()[selected].coming_soon))continue;
+          if(slot==10 && (busy||child||!preferences_available))continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
         }
         return true;
@@ -464,13 +504,13 @@ class App {
       if(work->launch) {
         child.emplace(StartGame(*work->launch));
         active_game=work->launch->game;
-        message=L"正在运行："+Wide(FindGame(work->launch->game).name);SetTimer(hwnd,kChildTimer,250,nullptr);
+        message=T(L"正在运行：")+Wide(FindGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
         Log(options.root,"launch game="+work->launch->game+" pid="+std::to_string(child->pid()));
       } else if(work->copy_result) {
-        message=L"数据已复制并逐文件校验，配置已更新";
+        message=T(L"数据已复制并逐文件校验，配置已更新");
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
-      } else {message=L"↑ ↓ 选择 · Enter 启动";}
-    }catch(const std::exception& error){message=work->copying?L"数据复制未完成，请查看详细信息":L"无法启动，请检查数据和运行组件";Log(options.root,error.what());Error(hwnd,error.what());}
+      } else {message=T(L"↑ ↓ 选择 · Enter 启动");}
+    }catch(const std::exception& error){message=work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");Log(options.root,error.what());Error(hwnd,error.what());}
     const bool copied=work->copying;work.reset();
     if(copied)ReloadPreferences();EnablePreferences();
     if(selection_changed&&!child)Refresh();
@@ -480,9 +520,9 @@ class App {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
       const bool requested_close=child->RequestedWindowClose(options.root,active_game,*code);
-      const auto detail=L"游戏异常退出（退出码 "+std::to_wstring(*code)+L"）。\n\n日志目录：logs/"+Wide(active_game)+L"/\n启动器可以继续使用。";
+      const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
-      message=requested_close?L"游戏已关闭（退出清理限制已记入日志）":(*code?L"游戏异常退出，请查看该游戏的日志":L"游戏已退出");
+      message=requested_close?T(L"游戏已关闭（退出清理限制已记入日志）"):(*code?T(L"游戏异常退出，请查看该游戏的日志"):T(L"游戏已退出"));
       child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
       if(*code && !requested_close)MessageBoxW(hwnd,detail.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
     }
@@ -492,17 +532,17 @@ class App {
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
     Check(dialog->SetOptions(flags|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure directory picker");
-    dialog->SetTitle(copy?L"选择要复制到合集的游戏原始数据目录":L"选择游戏原始数据目录（不会移动或修改文件）");
+    dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏原始数据目录（不会移动或修改文件）"));
     const auto result=dialog->Show(hwnd);if(result==HRESULT_FROM_WIN32(ERROR_CANCELLED))return;Check(result,"Select game data directory");
     ComPtr<IShellItem> item;Check(dialog->GetResult(&item),"Read selected directory");
     PWSTR value{};Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected directory path");
     fs::path path(value);CoTaskMemFree(value);
     if(copy) {
       const auto target=DataChild(options.root,Catalogue()[selected].data_dir);
-      const auto prompt=L"将完整复制并校验游戏数据。\n\n来源："+path.native()+L"\n目标："+target.native()+
-          L"\n\n不会移动或修改源文件。目标必须为空，不会合并或覆盖已有文件。\n继续吗？";
-      if(MessageBoxW(hwnd,prompt.c_str(),L"复制到合集",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
-      SavePreferences();message=L"正在校验源数据…";Refresh(false,path);return;
+      const auto prompt=T(L"将完整复制并校验游戏数据。\n\n来源：")+path.native()+T(L"\n目标：")+target.native()+
+          T(L"\n\n不会移动或修改源文件。目标必须为空，不会合并或覆盖已有文件。\n继续吗？");
+      if(MessageBoxW(hwnd,prompt.c_str(),T(L"复制到合集"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
+      SavePreferences();message=T(L"正在校验源数据…");Refresh(false,path);return;
     }
     SavePreferences();
     SetDataDirectory(options.root,Catalogue()[selected],path);
@@ -511,8 +551,8 @@ class App {
   void DataMenu() {
     if(busy||child||Catalogue()[selected].coming_soon)return;
     const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create data menu");
-    AppendMenuW(menu,MF_STRING,1,L"选择数据目录…");
-    AppendMenuW(menu,Catalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,L"复制到合集…");
+    AppendMenuW(menu,MF_STRING,1,T(L"选择数据目录…"));
+    AppendMenuW(menu,Catalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,T(L"复制到合集…"));
     const auto rectangle=layout.data();const auto scale=float(GetDpiForWindow(hwnd))/96;
     POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.top*scale)};ClientToScreen(hwnd,&anchor);
     const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_LEFTALIGN|TPM_BOTTOMALIGN,anchor.x,anchor.y,0,hwnd,nullptr);
@@ -558,6 +598,7 @@ class App {
     InvalidateRect(hwnd,nullptr,FALSE);
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.logs(),x,y)) {const auto logs=LogDirectory(options.root);if(!fs::exists(logs))fs::create_directories(logs);OpenPath(hwnd,logs);return;}
+    if(Inside(layout.language_button(),x,y)) {LanguageMenu();return;}
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
     if(Inside(layout.refresh(),x,y)) {ManualRefresh();return;}
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
@@ -595,7 +636,7 @@ class App {
           else if((first==VK_DOWN || first==VK_NUMPAD2) && app->selected+1<app->rows.size()){app->Select(app->selected+1);}
           else if(first==VK_RETURN || first==VK_SPACE) {
             if(app->focus>=4) {
-              const auto rectangle=app->focus==4?app->layout.config():(app->focus==5?app->layout.logs():(app->focus==6?app->layout.data():(app->focus==7?app->layout.refresh():(app->focus==8?app->layout.play():app->layout.detail()))));
+              const auto rectangle=app->focus==10?app->layout.language_button():(app->focus==4?app->layout.config():(app->focus==5?app->layout.logs():(app->focus==6?app->layout.data():(app->focus==7?app->layout.refresh():(app->focus==8?app->layout.play():app->layout.detail())))));
               app->Click((rectangle.left+rectangle.right)/2,(rectangle.top+rectangle.bottom)/2);
             } else app->LaunchSelected();
           }
@@ -619,12 +660,12 @@ class App {
         case kCopyProgress:
           if(app->work && app->work->copying && !app->close_requested) {
             const auto total=app->work->total.load(),copied=app->work->copied.load();
-            app->message=L"正在复制并校验数据… "+std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
+            app->message=T(L"正在复制并校验数据… ")+std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
             InvalidateRect(window,nullptr,FALSE);
           }return 0;
         case WM_TIMER:app->ChildTick();return 0;
         case WM_CLOSE:
-          if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=L"正在取消复制，请稍候…";InvalidateRect(window,nullptr,FALSE);return 0;}
+          if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=T(L"正在取消复制，请稍候…");InvalidateRect(window,nullptr,FALSE);return 0;}
           if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
         case WM_DESTROY:if(app->work)app->work->alive=false;
           if(app->form_font)DeleteObject(app->form_font);if(app->form_background)DeleteObject(app->form_background);
@@ -650,7 +691,7 @@ class App {
   bool busy{};
   bool paint_recorded{};
   bool close_requested{};
-  std::wstring message=L"正在检测游戏数据…";
+  std::wstring message=T(L"正在检测游戏数据…");
   ComPtr<ID2D1DCRenderTarget> surface;
   std::shared_ptr<Work> work;
   std::thread worker;
@@ -659,12 +700,13 @@ class App {
 };
 void Preview(const Options& options) {
   if(fs::exists(options.preview))throw std::runtime_error("Preserve the existing launcher preview");
+  language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(options.root/"config.ini")));
   Renderer renderer;
   ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
   auto rows=InspectRows(options.root,1);
   rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
-  const auto caption=std::to_wstring(Catalogue().size())+L" 部作品 · 按需安装游戏数据";
+  const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
   target->BeginDraw();renderer.Draw(target.Get(),Layout{1080,900,0},rows,1,-1,false,caption,{},true);Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
   if(!options.preview.parent_path().empty())fs::create_directories(options.preview.parent_path());
