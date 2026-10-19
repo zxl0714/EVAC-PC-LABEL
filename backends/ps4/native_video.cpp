@@ -704,12 +704,13 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         const auto display_ready=kt::diagnostics::MonotonicMicroseconds();
         state.active->renderer_active.store(true);
         unsigned retries{}, zero_extent_polls{};
+        kt::diagnostics::BackendPresentTiming backend_timing;
         const auto began = GetTickCount64();
         for (;;) {
             if (state.active->quit_requested.load()) { return unavailable("window_close_requested_during_present", NativeVideoResult::CloseRequested); }
             const auto result = !state.active->width.load() || !state.active->height.load()
                 ? kt::gfx::PresentStatus::ZeroExtent
-                : resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout)
+                : resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout, &backend_timing)
                            : state.graphics->Present(buffer.surface->id, pixels);
             if (result == kt::gfx::PresentStatus::Completed) { break; }
             if (result == kt::gfx::PresentStatus::OutOfDate) {
@@ -737,6 +738,8 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
             *timing = {true, completed_at-present_began, locked_at-present_began,
                 display_wait_began-locked_at, display_ready-display_wait_began,
                 backend_completed-display_ready, completed_at-backend_completed};
+            // A successful final retry does not describe the earlier waits.
+            if (!retries && !zero_extent_polls) { timing->backend = backend_timing; }
         }
         if(completed_at-present_began>=20000) {
             // Wall times for a completed slow present, not GPU timestamps or

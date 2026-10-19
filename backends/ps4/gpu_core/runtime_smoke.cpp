@@ -393,6 +393,14 @@ int main(int argc, char **argv) {
               session.Call(library.api.present(session.context, &display,
                                                &result, &error),
                            error);
+              const auto& t = result.timing;
+              if (result.status == RuntimePresentStatus::Completed) {
+                Require(t.completed && t.duration_us == t.prepare_us+t.retire_us+t.acquire_us+t.record_us+
+                    t.submit_us+t.queue_present_us+t.gpu_wait_us+t.present_wait_us+t.finalize_us,
+                    "Resident presentation wall-time scopes do not reconcile");
+              } else {
+                Require(!t.completed, "Incomplete presentation fabricated completed timing");
+              }
             });
             if (result.status != RuntimePresentStatus::OutOfDate) {
               return result;

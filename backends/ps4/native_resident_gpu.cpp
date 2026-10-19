@@ -137,11 +137,14 @@ void NativeResidentGpu::Draw(unsigned vertices, unsigned instances) {
         Check(impl->api.draw(impl->context, false, 0, &error), error);
     });
 }
-kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout) {
+kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
+    kt::diagnostics::BackendPresentTiming* timing) {
+    if (timing) { *timing = {}; }
     RuntimePresentResult result;
     const RuntimeDisplay display{address, layout.width, layout.height, layout.pitch,
         layout.format == kt::gfx::ColorFormat::Bgra8Srgb ? 0x80000000u : 0x80002200u, layout.tiled ? 0u : 1u};
     Run([&] { RuntimeError error; Check(impl->api.present(impl->context, &display, &result, &error), error); });
+    if (timing && result.status == RuntimePresentStatus::Completed) { *timing = result.timing; }
     switch (result.status) {
     case RuntimePresentStatus::Completed: return kt::gfx::PresentStatus::Completed;
     case RuntimePresentStatus::ZeroExtent: return kt::gfx::PresentStatus::ZeroExtent;

@@ -119,6 +119,10 @@ v0.3 开发构建另外对至少 20 ms 的已完成呈现输出 `native_video_pr
 
 离线呈现不限速对照通过临时进程环境 `CAVE_DIAGNOSTIC_UNPACED=1` 启用，仅允许 `--profile benchmark-<名称>`、共享联网关闭且 `vsync=false`。`run.json.diagnosticUnpacedPresentation` 和 `native_presentation_pacing` 明确标注；启动器／默认 INI 不保存此选项。直接后端使用 `--diagnostic-unpaced on`，同样要求离线合集 INI 与绝对的 benchmark-* 用户目录。它只跳过软件 `WaitFlipOpportunity`，保留真实 GPU／WSI fences、内存写回、客体 vblank 时钟和其他游戏等待，不伪造成功。因此若仍被音频、客体时钟或逻辑等待限制，观测 FPS 不是整机性能上限，需要继续定位；测试值不作为正常游玩节拍验收，也不得用加速局上传成绩。使用独立 profile 副本，正常节拍与对照分别留存日志。
 
+`eb9235a` 的正常模式已完整回放同一 380 分录像至自然返回。约 15–47 秒（8616883466111–8616915474968）的 1,921 帧平均间隔 16.666 ms、p99 上界 19.0 ms、最大 19.636 ms。软件节拍等待平均 10.071 ms，后端呈现平均 1.310 ms；最慢 submission 9680 的这两段为 10.522／3.893 ms，指令处理 3.639 ms，未随尖峰增加。约 2.97 ms 的额外间隔主要出现在后端，但该作用域尚不能区分驱动、GPU 与调度。报告在 `.local/analysis/ketsui-pacing-r3-normal-gameplay.json`，不算性能问题收尾。独立 `82528` 不限速试验及 `71468` 仅关闭宿主 vsync 的试验均被 CU 观察为黑屏，仍有约 60 Hz 提交；前者日志明确有客体 `sceKernelWaitEqueue` 等待。两次未进入有效回放、没有取得性能上限，均已正常关窗并保留现场，不把这些记录冒充游玩／图形正确性验收。
+
+新的 `native_gnm_frame_completed.backend_stages` 在同一记录内细分 resident worker 的准备、旧资源排空、交换链获取、合成命令准备、提交、`vkQueuePresentKHR` 调用、GPU fence 等待、present fence 等待及收尾。分段连续且总和必须等于 `duration_us`，还要嵌套在同帧 `present_stages.backend_present_us` 内（允许 1 µs 舍入差）；失败、最小化或重试不生成有效分段，不将缺失值算零。`backend_present_substages` 汇总这组数据，外层减内层另记线程交接／API 收尾等开销。GPU／present fence 的等待函数耗时仍包含驱动和调度，不是 GPU timestamp 或物理扫描时间。共享 GPU 运行接口提升为版本 6，旧宿主会拒绝混用；后端和两款宿主必须同次重建。
+
 合集启动默认启用后台诊断队列。提交线程只格式化和投递完整记录，GPU 每帧诊断、宿主慢操作和 NGS2／WASAPI 热路径的文件写入交给独立线程；低频启动与终止诊断仍可直接输出。队列固定为 1,024 条、每条最多 4,096 字节，不因磁盘慢写无限积压；队列满保留最新尾部，短暂竞争或超长记录会被拒绝并计数，不输出截断 JSON。
 
 `native_async_log` 每约两秒报告累计状态，分析器保存在 `async_logging` 中：

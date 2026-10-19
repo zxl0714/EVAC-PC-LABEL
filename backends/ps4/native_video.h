@@ -7,6 +7,7 @@
 #include <span>
 #include <string>
 #include "graphics/display_layout.h"
+#include "diagnostics/present_timing.h"
 namespace kt::gfx { class VulkanDevice; }
 class NativeResidentGpu;
 
@@ -33,6 +34,7 @@ enum class NativeVideoResult { Completed, CloseRequested, Unavailable };
 struct NativeVideoPresentTiming {
     bool completed{};
     std::uint64_t duration_us{}, lock_wait_us{}, prepare_us{}, display_clock_wait_us{}, backend_present_us{}, completion_us{};
+    kt::diagnostics::BackendPresentTiming backend;
 };
 NativeVideoResult WithNativeVideoGpu(int handle, unsigned buffer, const std::function<void(NativeVideoGpuContext&)>& execute);
 NativeVideoResult PresentNativeVideoGpu(int handle, unsigned buffer, unsigned mode, std::int64_t argument,

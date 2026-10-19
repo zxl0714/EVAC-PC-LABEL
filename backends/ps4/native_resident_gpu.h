@@ -1,5 +1,6 @@
 #pragma once
 #include "graphics/display_layout.h"
+#include "diagnostics/present_timing.h"
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -21,7 +22,8 @@ public:
     void Registers(std::uint32_t offset, std::span<const std::uint32_t> words);
     void Extent(unsigned target, unsigned width, unsigned height);
     void Draw(unsigned vertices, unsigned instances);
-    kt::gfx::PresentStatus Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout);
+    kt::gfx::PresentStatus Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
+        kt::diagnostics::BackendPresentTiming* timing = nullptr);
     bool Read(std::uint64_t address, void* output, std::uint64_t bytes);
 };
 NativeResidentGpu* CurrentNativeResidentGpu();

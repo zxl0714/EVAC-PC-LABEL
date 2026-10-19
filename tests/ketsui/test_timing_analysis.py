@@ -14,6 +14,35 @@ SPEC.loader.exec_module(TIMING)
 
 
 class TimingAnalysisTests(unittest.TestCase):
+    def backend_frame(self, **changes):
+        stages = dict(completed=True, duration_us=3000, prepare_us=10, retire_us=10,
+                      acquire_us=20, record_us=100, submit_us=50, queue_present_us=10,
+                      gpu_wait_us=200, present_wait_us=2500, finalize_us=100)
+        stages.update(changes)
+        return self.frame(1000000, 19000, present_stages=dict(duration_us=7000, lock_wait_us=1,
+            prepare_us=2, display_clock_wait_us=3900, backend_present_us=3096, completion_us=1),
+            backend_stages=stages)
+
+    def test_backend_fence_and_worker_scopes_are_validated_without_double_count(self):
+        report = self.report([self.backend_frame()])
+        self.assertEqual(report['counts']['backend_present_timing_samples'], 1)
+        timing = report['backend_present_substages']['timing']
+        self.assertEqual(timing['present_wait_us']['max_us'], 2500)
+        self.assertEqual(timing['gpu_wait_us']['max_us'], 200)
+        self.assertEqual(timing['outer_overhead_us']['max_us'], 96)
+        self.assertEqual(timing['duration_us']['count'], 1)
+
+    def test_invalid_or_absent_backend_scopes_are_not_evidence(self):
+        samples = [self.backend_frame(**change) for change in
+                   (dict(duration_us=3001), dict(gpu_wait_us=True), dict(acquire_us=-1),
+                    dict(duration_us=3098, present_wait_us=2598))]
+        report = self.report(samples + [self.backend_frame(completed=False), self.frame(1000000, 19000)])
+        self.assertEqual(report['counts']['invalid_backend_present_timing'], 4)
+        self.assertEqual(report['counts']['unmeasured_backend_frames'], 1)
+        self.assertEqual(report['backend_present_substages']['timing']['duration_us']['count'], 0)
+        report = self.report([self.backend_frame()], from_clock_us=1000001)
+        self.assertEqual(report['backend_present_substages']['timing']['duration_us']['count'], 0)
+
     def present(self, **kwargs):
         item = dict(event='native_video_present_timing', began_clock_us=950000, clock_us=999990,
                     duration_us=49990, thread=11, handle=1, buffer=0,

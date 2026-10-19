@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "presenter.h"
 #include "graphics/present_mode.h"
+#include "diagnostics/monotonic_clock.h"
 #include "cache_memory.h"
 #include "core/libraries/videoout/buffer.h"
 #include "sdl_window.h"
@@ -265,6 +266,7 @@ struct Presenter::Impl {
     }
   }
   RuntimePresentResult Present(const RuntimeDisplay &display) {
+    const auto began = kt::diagnostics::MonotonicMicroseconds();
     Require(display.width && display.height && display.width <= 16384 &&
                 display.height <= 16384 && display.tiling_mode <= 1 &&
                 (display.pixel_format == 0x80000000 ||
@@ -314,9 +316,11 @@ struct Presenter::Impl {
       CreateChain(size, caps);
     }
     const auto device = instance.GetDevice();
+    const auto prepared_at = kt::diagnostics::MonotonicMicroseconds();
     Drain();
     Check(device.resetFences({*acquired, *completed, *presented}),
           "Reset presentation fences");
+    const auto retired_at = kt::diagnostics::MonotonicMicroseconds();
     u32 index{};
     const auto acquire = device.acquireNextImageKHR(*chain, 1'000'000'000ull,
                                                     {}, *acquired, &index);
@@ -330,6 +334,7 @@ struct Presenter::Impl {
           "Acquire swapchain image");
     Check(device.waitForFences(*acquired, true, 5'000'000'000ull),
           "Wait swapchain acquire");
+    const auto acquired_at = kt::diagnostics::MonotonicMicroseconds();
     Require(index < images.size(), "Acquired swapchain index is invalid");
     const auto image_id = cache.FindImage(desc);
     cache.UpdateImage(image_id);
@@ -406,8 +411,10 @@ struct Presenter::Impl {
     submit.AddSignal(*ready, 0);
     submit.AddSignal(*completed);
     result.tick = scheduler.CurrentTick();
+    const auto recorded_at = kt::diagnostics::MonotonicMicroseconds();
     scheduler.Flush(submit);
     gpu_pending = true;
+    const auto submitted_at = kt::diagnostics::MonotonicMicroseconds();
     const auto handle = *chain;
     const vk::Fence fence = *presented;
     const vk::SwapchainPresentFenceInfoEXT completion{.swapchainCount = 1,
@@ -428,12 +435,15 @@ struct Presenter::Impl {
     } else {
       Check(status, "Queue tracked presentation");
     }
+    const auto queued_at = kt::diagnostics::MonotonicMicroseconds();
     Check(device.waitForFences(*completed, true, 5'000'000'000ull),
           "Wait presentation submit");
     gpu_pending = false;
+    const auto gpu_completed_at = kt::diagnostics::MonotonicMicroseconds();
     Check(device.waitForFences(*presented, true, 5'000'000'000ull),
           "Wait presentation engine");
     present_pending = false;
+    const auto presentation_completed_at = kt::diagnostics::MonotonicMicroseconds();
     initialized[index] = true;
     if (status == vk::Result::eErrorOutOfDateKHR) {
       RetireChain();
@@ -444,6 +454,11 @@ struct Presenter::Impl {
           "Complete tracked presentation");
     result.status = RuntimePresentStatus::Completed;
     result.completed_presents = ++presents;
+    const auto completed_at = kt::diagnostics::MonotonicMicroseconds();
+    result.timing = {true, completed_at-began, prepared_at-began, retired_at-prepared_at,
+        acquired_at-retired_at, recorded_at-acquired_at, submitted_at-recorded_at,
+        queued_at-submitted_at, gpu_completed_at-queued_at,
+        presentation_completed_at-gpu_completed_at, completed_at-presentation_completed_at};
     return result;
   }
 };

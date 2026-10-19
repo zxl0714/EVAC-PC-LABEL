@@ -1,13 +1,14 @@
 #pragma once
 #include "cache_memory.h"
 #include "host_services.h"
+#include "diagnostics/present_timing.h"
 #include <cstddef>
 #include <cstdint>
 
 namespace Ketsui::GpuCore {
 // This SDK is built as one clang-cl/MSVC-runtime pair. Shader, Vulkan and
 // register-layout classes never cross the DLL boundary.
-inline constexpr std::uint32_t RuntimeApiVersion = 5;
+inline constexpr std::uint32_t RuntimeApiVersion = 6;
 struct RuntimeError {
   char message[2048]{};
 };
@@ -38,6 +39,7 @@ struct RuntimePresentResult {
   RuntimePresentStatus status{};
   std::uint32_t width{}, height{};
   std::uint64_t tick{}, completed_presents{};
+  kt::diagnostics::BackendPresentTiming timing;
 };
 struct RuntimeApi {
   std::uint32_t version{}, bytes{};
