@@ -14,7 +14,7 @@ from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import locked_dependencies, verify_checkout
 
 OUTPUTS = {
-    'out/ps4-native': ('KetsuiNativeProbe',),
+    'out/ps4-native': ('KetsuiNativeProbe', 'KetsuiResourcePrepareCheck'),
     'out/ps4-gpu': ('KetsuiGpuCoreSmoke', 'KetsuiGpuRuntimeSmoke', 'KetsuiGpuCompileMetricsSmoke', 'KetsuiGpuRuntime'),
 }
 RECEIPT = ROOT / 'out/ps4/build-receipt.json'
@@ -62,6 +62,8 @@ def snapshot():
                 'tools/packages.lock.json', 'config/default.ini', 'games/catalogue.json', 'scripts/generate_catalogue.py',
                 'scripts/ps4/run_prepare_checks.py', 'scripts/ps4/native_elf.py', 'scripts/ps4/prepare_native.py',
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
+    explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py',
+                     'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py'})
     files = {}
     for name in sorted({value.decode('utf-8') for value in raw.split(b'\0') if value}):
         if name in explicit or name.startswith(('backends/ps4/', 'third_party/ps4/', 'common/')) or (name.startswith('games/') and name.endswith('/data.json')):

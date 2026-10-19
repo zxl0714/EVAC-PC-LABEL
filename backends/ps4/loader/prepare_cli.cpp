@@ -1,4 +1,5 @@
 #include "elf_prepare.h"
+#include "backends/ps4/content/resource_prepare.h"
 #include "common/ini.h"
 #include "common/paths.h"
 #include "backends/ps4/community/protocol.h"
@@ -93,6 +94,39 @@ int PrepareElfCommand(int argc,wchar_t** argv) {
         return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr,"ELF preparation: %s\n",error.what()); return 2;
+    }
+}
+int PrepareReadFixesCommand(int argc,wchar_t** argv) {
+    try {
+        if (argc<7) throw std::runtime_error("Usage: --prepare-fixes game-data --root collection --output new.ktfix [--community-replay] [--community-offline]");
+        fs::path root,output; bool replay{},offline{};
+        for (int i=3;i<argc;++i) {
+            const std::wstring_view option(argv[i]);
+            if (option==L"--community-replay" || option==L"--community-offline") {
+                auto& flag=option==L"--community-replay" ? replay : offline;
+                if (flag) throw std::runtime_error("Unknown or repeated resource preparation option");
+                flag=true;continue;
+            }
+            if (i+1>=argc || !*argv[i+1]) throw std::runtime_error("Missing resource preparation option value");
+            if (option==L"--root" && root.empty()) root=argv[++i];
+            else if (option==L"--output" && output.empty()) output=argv[++i];
+            else throw std::runtime_error("Unknown or repeated resource preparation option");
+        }
+        if (root.empty() || output.empty() || !root.is_absolute() || !output.is_absolute() || output.extension()!=L".ktfix")
+            throw std::runtime_error("Resource preparation requires absolute root and new .ktfix output paths");
+        if (output.relative_path().native().find(L':')!=std::wstring::npos) throw std::runtime_error("Prepared output cannot name an alternate data stream");
+        for (const auto& part:output) if (part==".." || part==".") throw std::runtime_error("Prepared output cannot contain relative components");
+        root=fs::canonical(root); const auto data=fs::canonical(argv[2]);
+        const auto source_sentinel=data/L"resource-preparation-source";
+        CheckOutput(root,output,source_sentinel,{});
+        auto result=PrepareReadFixes(data,replay,offline);
+        fs::create_directories(output.parent_path());
+        CheckOutput(root,output,source_sentinel,{}); WriteNew(output,result.bytes);
+        result.report.update(kt::community::Json{{"event","read_fixes_prepared"},{"output",Utf8(output)},
+            {"overlay_bytes",result.bytes.size()},{"guestExecution",false}});
+        std::puts(result.report.dump().c_str()); return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr,"Resource preparation: %s\n",error.what()); return 2;
     }
 }
 }
