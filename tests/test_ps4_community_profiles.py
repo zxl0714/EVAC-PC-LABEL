@@ -151,6 +151,29 @@ class Ps4CommunityProfiles(unittest.TestCase):
         with self.assertRaises(ketsui.ApiError):
             daioujou.replay_info(zlib.compress(network)+b'trailing')
 
+    def test_native_temporary_custom_alias_keeps_arcade_board_and_raw_bytes(self):
+        import struct
+        import zlib
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts/ps4'))
+        from replay_fixture import record
+        raw=record('daioujou')
+        struct.pack_into('<H',raw,106,3)
+        payload=zlib.compress(raw)
+        with tempfile.TemporaryDirectory() as temporary:
+            store=daioujou.Store(Path(temporary)/'native-alias.sqlite3')
+            for board in (0,6,26,36,46,56,66):
+                request=score(board,'12345')
+                receipt=store.submit(request)
+                upload=dict(entry_id=receipt['entry_id'],submission_id=request['submission_id'],nickname='Alice',
+                    format=store.replay_format,sha256=hashlib.sha256(payload).hexdigest(),payload_base64=base64.b64encode(payload).decode())
+                if board in (0,6):
+                    store.upload(upload)
+                    self.assertEqual(store.download(receipt['entry_id'])[0],payload)
+                else:
+                    with self.assertRaises(ketsui.ApiError) as error:store.upload(upload)
+                    self.assertEqual(error.exception.code,'native_replay_mismatch')
+            with self.assertRaises(ketsui.ApiError):store.submit(score(16,'12345'))
+
 
 if __name__ == '__main__':
     unittest.main()

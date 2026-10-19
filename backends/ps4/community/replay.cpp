@@ -160,7 +160,12 @@ void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& 
     if (replay.game=="daioujou") {
         Require((group==0 || (group>=2 && group<=6)) && ship<=6,"unsupported_replay_board");
         const auto mode=group==0 ? 0u : group==2 ? 1u : group==3 ? 2u : group==5 ? 5u : 4u;
-        Require(DaioujouRegion(replay.region) && replay.kind==0 && replay.mode==mode,"replay_mode_mismatch");
+        // rankingModeConv maps eligible temporary CUSTOM (3) to ARCADE (0),
+        // while ranking_ctrl writes the unconverted GameMode to the network
+        // attachment. Native checkRegistRanking still excludes ALL-MIX/custom
+        // submissions; board group 1 is not enabled here. Preserve raw bytes.
+        const bool native_arcade_alias=group==0 && replay.mode==3;
+        Require(DaioujouRegion(replay.region) && replay.kind==0 && (replay.mode==mode || native_arcade_alias),"replay_mode_mismatch");
         Require(expected.score==replay.score,"replay_score_mismatch");
         Require(replay.character<6 && (ship==6 || ship==replay.character),"replay_ship_mismatch");
         return;

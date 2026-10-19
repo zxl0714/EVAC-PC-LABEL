@@ -46,6 +46,11 @@ def main():
     check('daioujou-combined','daioujou',zlib.compress(djo),True)
     check('daioujou-character','daioujou',zlib.compress(djo),True,board=0)
     check('daioujou-local-save-is-not-network','daioujou',zlib.compress(djo[:0x65600]),False)
+    native_alias=bytearray(djo);struct.pack_into('<H',native_alias,106,3)
+    check('daioujou-native-arcade-alias','daioujou',zlib.compress(native_alias),True,board=0)
+    check('daioujou-native-arcade-alias-combined','daioujou',zlib.compress(native_alias),True)
+    check('daioujou-alias-not-custom-board','daioujou',zlib.compress(native_alias),False,board=16)
+    check('daioujou-alias-not-premium','daioujou',zlib.compress(native_alias),False,board=36)
     for suffix in ('01000','01010','01020'):
         selected=bytearray(djo)
         selected[80:96]=b'ARCADE_'+suffix.encode()+bytes(4)

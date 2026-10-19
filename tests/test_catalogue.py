@@ -86,6 +86,7 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(network['recordBytes'],network['dataOffset']+network['dataBytes']+network['trailingBytes'])
         self.assertEqual(network['containerVersion'],layout['containerVersion'])
         self.assertEqual(network['coreDataVersion'],0x10000)
+        self.assertEqual(network['arcadeNativeModes'],[0,3])
         self.assertFalse(network['nativeRoundtripVerified'])
 
     def test_invalid_optional_content_metadata(self):

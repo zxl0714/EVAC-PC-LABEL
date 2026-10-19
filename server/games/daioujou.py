@@ -108,8 +108,12 @@ class Store(Ps4Store):
     def validate_replay(self, payload, row):
         info=replay_info(payload)
         group,character=divmod(row['board'],10)
-        modes={0:0,2:1,3:2,4:4,5:5,6:4}
-        require(group in modes and character<=6 and info['mode']==modes[group] and
+        # The native producer can temporarily use CUSTOM=3 for eligible
+        # ARCADE settings, then rank it as ARCADE via rankingModeConv. Its
+        # network header retains the raw 3; the local save later stores 0.
+        # CUSTOM board group 1 remains excluded; this is not an anti-cheat test.
+        modes={0:(0,3),2:(1,),3:(2,),4:(4,),5:(5,),6:(4,)}
+        require(group in modes and character<=6 and info['mode'] in modes[group] and
                 info['score']==row['score'] and (character==6 or character==info['character']),
                 'native_replay_mismatch',409)
 
