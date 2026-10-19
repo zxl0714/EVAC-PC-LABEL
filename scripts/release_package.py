@@ -243,6 +243,14 @@ def archive(directory, destination):
     with zipfile.ZipFile(destination, 'x', compression=zipfile.ZIP_DEFLATED, compresslevel=6, allowZip64=True) as output:
         for file in tree_files(directory):
             output.write(file, directory.name + '/' + file.relative_to(directory).as_posix())
+        # An uninitialized Git submodule is an empty directory. Omitting it
+        # makes an otherwise complete source checkout appear deleted after
+        # extraction, even though every file and Git object matches its hash.
+        for current, folders, files in os.walk(directory):
+            folder = Path(current)
+            if folder != directory and not folders and not files:
+                reject_link(folder)
+                output.write(folder, directory.name + '/' + folder.relative_to(directory).as_posix() + '/')
     with zipfile.ZipFile(destination) as check:
         bad = check.testzip()
         if bad:

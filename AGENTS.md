@@ -119,8 +119,12 @@ pass threshold. Keep optimization proportionate when that future work starts.
 
 P6 now has Release.ps1/release_package.py for separate Internal/Public assembly,
 launcher_receipt.py for the launcher/inspector, and build_data.py for native INI
-resolution from an Internal source checkout. Eight authored-package tests and
-three data-resolution tests pass; no real v0.1 ZIP has been produced yet.
+resolution from an Internal source checkout. Actual b5ca101 RC1 archives exist;
+Public extraction, empty-data UI, G2-only player entry/save/replay and clean exit
+passed. Internal extraction exposed omitted empty gitlink directories; the ZIP
+writer and authored round-trip regression are fixed. Preserve RC1 as evidence,
+rebuild/repackage at the fix commit, and verify actual extraction again. Do not
+claim RC1 Internal passed by manually repairing its extracted source tree.
 Commit source first, then rebuild all three games at that commit before packing.
 Keep real package extraction, recipient source-access/license checks and gameplay
 acceptance separate from fixture tests. Do not upload an unaccepted candidate.

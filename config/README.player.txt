@@ -1,5 +1,9 @@
 CAVE PC Collection
 
+运行环境
+Windows 64 位。虫姬二和 ESPGaluda II 使用 D3D12，绊地狱使用 Vulkan；
+请安装显卡厂商提供的正式驱动。所需的 C++ 运行库已随程序附带。
+
 使用方法
 完整解压后，双击根目录 CAVE-PC-Collection.exe，选择游戏即可。
 启动游戏.bat 是备用入口。不要在压缩包内直接运行，也不要只复制一个 EXE。

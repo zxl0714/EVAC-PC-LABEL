@@ -118,6 +118,10 @@ class ReleaseTests(unittest.TestCase):
                      ('add','.'),('commit','-m','Authored source')):
             subprocess.run(['git','-C',str(root),*args],check=True,capture_output=True)
         commit=release.git(root,'rev-parse','HEAD').decode().strip()
+        (root/'third_party/dependency').mkdir(parents=True)
+        release.git(root,'update-index','--add','--cacheinfo','160000,'+commit+',third_party/dependency')
+        release.git(root,'commit','-m','Authored uninitialized submodule')
+        commit=release.git(root,'rev-parse','HEAD').decode().strip()
         identity=dict(path='main.bin',bytes=3,sha256=hashlib.sha256(b'abc').hexdigest())
         games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
             'runtime/'+('ps4' if key=='ketsui' else 'xbox360')+'/'+key+'.exe',
@@ -160,6 +164,13 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(list(public.rglob('*.pdb')))
         for name in release.runtime_names(games):
             self.assertEqual(release.digest(internal/name),release.digest(public/name))
+        extracted=self.root/'解压验证 with spaces';extracted.mkdir()
+        with zipfile.ZipFile(outputs['Internal']['archive']) as zipped:
+            zipped.extractall(extracted)
+        restored=extracted/internal.name
+        self.assertTrue((restored/'source/third_party/dependency').is_dir())
+        self.assertEqual(release.git(restored/'source','status','--porcelain'),b'')
+        self.assertEqual(release.verify_tree(restored,games)['flavor'],'Internal')
 
 
 if __name__ == '__main__':
