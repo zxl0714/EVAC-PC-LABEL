@@ -8,9 +8,13 @@
 #include <stdexcept>
 
 namespace cave::ps4 {
-CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini) {
+CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::string_view game) {
     CollectionConfiguration result;
-    result.shared = ResolveSettings(ini, "ketsui");
+    const auto& title=FindGame(game);
+    if (title.backend!="ps4") throw std::runtime_error("Collection game does not use the PS4 backend");
+    result.game=game;
+    result.community_supported=title.community_supported;
+    result.shared = ResolveSettings(ini, game);
     // Same positions as cave::kButtons. Select is PS4 Touchpad, also used by
     // SDL Back/Touchpad in this title; Options is the Start position.
     constexpr std::array<std::uint32_t,16> masks{
@@ -24,17 +28,17 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini) {
     }
     auto endpoint = result.shared.endpoint;
     while (!endpoint.empty() && endpoint.back() == '/') endpoint.pop_back();
-    if (endpoint.ends_with("/cave/api/v1")) endpoint += "/games/ketsui";
-    (void)kt::community::ParseEndpoint(endpoint);
-    result.community = {result.shared.community_enabled, result.shared.nickname, std::move(endpoint)};
+    if (endpoint.ends_with("/cave/api/v1")) endpoint += "/games/"+std::string(game);
+    (void)kt::community::ParseEndpoint(endpoint,game);
+    result.community = {result.shared.community_enabled && result.community_supported, result.shared.nickname, std::move(endpoint)};
     if (!kt::community::ValidNicknameBytes(result.community.nickname)) throw std::runtime_error("Invalid community nickname");
-    result.display = {FromUtf8("CAVE PC Collection — " + std::string(FindGame("ketsui").DisplayName())).wstring(),
+    result.display = {FromUtf8("CAVE PC Collection — " + std::string(title.DisplayName())).wstring(),
         result.shared.fullscreen, result.shared.vsync};
     return result;
 }
-CollectionConfiguration LoadCollectionConfiguration(const fs::path& path) {
+CollectionConfiguration LoadCollectionConfiguration(const fs::path& path,std::string_view game) {
     if (!fs::is_regular_file(path)) throw std::runtime_error("Collection config.ini is missing");
-    return ResolveCollectionConfiguration(Ini::Load(path));
+    return ResolveCollectionConfiguration(Ini::Load(path),game);
 }
 void ApplyCollectionConfiguration(const CollectionConfiguration& config) {
     ConfigureNativePadSettings(config.keyboard, config.shared.gamepad_enabled, config.shared.deadzone);
@@ -47,10 +51,11 @@ void ReportCollectionConfiguration(const CollectionConfiguration& config) {
     Json keyboard=Json::object();
     for (std::size_t n=0; n<kButtons.size(); ++n) keyboard[std::string(kButtons[n])] = config.shared.keyboard[n].keys;
     const auto title=fs::path(config.display.title).u8string();
-    const auto report=Json{{"event","collection_configuration"},{"game","ketsui"},
+    const auto report=Json{{"event","collection_configuration"},{"game",config.game},
         {"fullscreen",config.display.fullscreen},{"vsync",config.display.vsync},{"volume",config.shared.volume},
         {"gamepad",{{"enabled",config.shared.gamepad_enabled},{"deadzone",config.shared.deadzone}}},
-        {"community",{{"enabled",config.community.enabled},{"endpoint",config.community.endpoint},{"nickname",config.community.nickname}}},
+        {"community",{{"requested",config.shared.community_enabled},{"supported",config.community_supported},
+            {"enabled",config.community.enabled},{"endpoint",config.community.endpoint},{"nickname",config.community.nickname}}},
         {"title",std::string(title.begin(),title.end())},{"keyboard",std::move(keyboard)}};
     std::puts(report.dump().c_str());
 }
@@ -61,6 +66,13 @@ bool CollectionConfigurationSelfTest() {
         okay &= result; passed += result;
     };
     const auto defaults=ResolveCollectionConfiguration(Ini::Parse(DefaultConfig()));
+    const auto daioujou=ResolveCollectionConfiguration(Ini::Parse(
+        "[display]\nfullscreen=true\n[game.daioujou.display]\nfullscreen=false\n"
+        "[game.ketsui.keyboard]\nunknown=invalid\n"),"daioujou");
+    check(daioujou.game=="daioujou" && !daioujou.shared.fullscreen &&
+        daioujou.display.title==L"CAVE PC Collection — 怒首領蜂大往生 臨廻転生", "ps4_title_configuration_isolated");
+    check(daioujou.shared.community_enabled && !daioujou.community_supported && !daioujou.community.enabled &&
+        daioujou.community.endpoint=="https://xiaolu.life/cave/api/v1/games/daioujou","unimplemented_title_online_capability_stays_disabled");
     check(defaults.keyboard['Z']==0x4000 && defaults.keyboard['X']==0x2000 && defaults.keyboard['C']==0x8000 &&
         defaults.keyboard['V']==0x1000 && defaults.keyboard[13]==8 && defaults.keyboard[8]==0x100000,
         "common_positions_map_to_ps4_face_options_touchpad");

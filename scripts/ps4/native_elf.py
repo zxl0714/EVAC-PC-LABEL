@@ -11,6 +11,69 @@ STRTAB, STRSZ, SYMTAB, SYMSZ = 0x61000035, 0x61000037, 0x61000039, 0x6100003F
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-"
 
 
+def plain_self_elf(raw):
+    """Read only plain, uncompressed SELF segments. No keys or decryption.
+
+    Layout reference: shadPS4 core/loader/elf.{h,cpp}. The reconstructed view
+    contains ELF headers and file-backed program segments, not a signed SELF.
+    """
+    if raw[:4] != bytes.fromhex('4f153d1d'):
+        return raw
+    def require(okay):
+        if not okay:
+            raise ValueError('Unsupported or malformed plaintext SELF')
+    require(32 <= len(raw) <= 512 * 1024**2 and raw[4:10] == bytes((0,1,1,0x12,1,1)))
+    declared, = struct.unpack_from('<Q',raw,16)
+    count, = struct.unpack_from('<H',raw,24)
+    header_bytes, meta_bytes = struct.unpack_from('<HH',raw,12)
+    embedded=32+count*32
+    require(1<=count<=64 and embedded+64<=header_bytes and header_bytes+meta_bytes<=declared<=len(raw))
+    header=struct.unpack_from('<16sHHIQQQIHHHHHH',raw,embedded)
+    require(header[0][:7]==b'\x7fELF\x02\x01\x01' and header[9]==56 and 1<=header[10]<=64 and 64<=header[5]<=65536)
+    table_end=header[5]+56*header[10]
+    require(embedded+table_end<=header_bytes)
+    programs=[struct.unpack_from('<II6Q',raw,embedded+header[5]+56*i) for i in range(header[10])]
+    extent=max(table_end,*(p[2]+p[5] for p in programs))
+    require(extent<=512*1024**2)
+    result=bytearray(extent)
+    result[:table_end]=raw[embedded:embedded+table_end]
+    ranges=[(0,table_end)]
+    selected=set()
+    for index in range(count):
+        flags,offset,size,memory=struct.unpack_from('<4Q',raw,32+index*32)
+        require(not flags & 10 and offset>=header_bytes+meta_bytes and offset<=declared and size<=declared-offset)
+        if not flags & 0x800:
+            continue
+        program=(flags>>20)&0xfff
+        require(program<len(programs) and program not in selected)
+        selected.add(program)
+        _,_,target,_,_,length,_,_=programs[program]
+        require(size==memory==length and target<=extent and length<=extent-target)
+        body=raw[offset:offset+size]
+        for began,ended in ranges:
+            start,stop=max(began,target),min(ended,target+length)
+            require(stop<=start or result[start:stop]==body[start-target:stop-target])
+        result[target:target+length]=body
+        ranges.append((target,target+length))
+    # Some plain module dumps append the SCE version-note bytes after the
+    # declared SELF extent. Accept only one exact, bounded note, not arbitrary
+    # missing load/dynamic data or a guessed offset into the original ELF.
+    notes=[p for p in programs if p[0]==0x6fffff01 and p[5]]
+    if len(raw)>declared:
+        require(len(notes)==1 and 0<len(raw)-declared<=4096 and notes[0][5]==len(raw)-declared)
+        target,length=notes[0][2],notes[0][5]
+        require(all(target+length<=start or target>=stop for start,stop in ranges))
+        result[target:target+length]=raw[declared:]
+        ranges.append((target,target+length))
+    for program in programs:
+        cursor,stop=program[2],program[2]+program[5]
+        for start,end in sorted(ranges):
+            if start<=cursor:
+                cursor=max(cursor,end)
+        require(cursor>=stop)
+    return bytes(result)
+
+
 def nid(name):
     salt = bytes.fromhex("518d64a635ded8c1e6b039b1c3e55230")
     digest = hashlib.sha1(name.encode("utf-8") + salt).digest()[:8][::-1]

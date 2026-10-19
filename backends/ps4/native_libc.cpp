@@ -205,7 +205,7 @@ std::uint64_t ResolveLibcMemoryImport(std::string_view identifier) {
     if (hash == "8zTFvBIAIN8") { return reinterpret_cast<std::uint64_t>(&Fill); }
     if (hash == "Q3VBxCXhUHs") { return reinterpret_cast<std::uint64_t>(&Copy); }
     if (hash == "+P6FRGH4LfA") { return reinterpret_cast<std::uint64_t>(&Move); }
-    if (hash == "DfivPArhucg") { return reinterpret_cast<std::uint64_t>(&Compare); }
+    if (hash == "DfivPArhucg" || hash == "5TjaJwkLWxE") { return reinterpret_cast<std::uint64_t>(&Compare); }
     if (hash == "8u8lPzUEq+U") { return reinterpret_cast<std::uint64_t>(&FindByte); }
     if (hash == "1uJgoVq3bQU") { return reinterpret_cast<std::uint64_t>(&LowerTable); }
     if (hash == "rcQCUr0EaRU") { return reinterpret_cast<std::uint64_t>(&UpperTable); }
@@ -214,7 +214,7 @@ std::uint64_t ResolveLibcMemoryImport(std::string_view identifier) {
     if (hash == "SRI6S9B+-a4") { return reinterpret_cast<std::uint64_t>(&AsciiDouble); }
     if (hash == "xENtRue8dpI") { return reinterpret_cast<std::uint64_t>(&StringFloat); }
     if (hash == "AEJdIVZTEmo") { return reinterpret_cast<std::uint64_t>(&Sort); }
-    if (hash == "mXlxhmLNMPg") { return reinterpret_cast<std::uint64_t>(&StringLong); }
+    if (hash == "mXlxhmLNMPg" || hash == "VOBg+iNwB-4") { return reinterpret_cast<std::uint64_t>(&StringLong); }
     if (hash == "zlfEH8FmyUA") { return reinterpret_cast<std::uint64_t>(&StringUnsignedLong); }
     if (hash == "kiZSXIWd9vg") { return reinterpret_cast<std::uint64_t>(&StringCopy); }
     if (hash == "viiwFMaNamA") { return reinterpret_cast<std::uint64_t>(&StringSubstring); }
@@ -239,6 +239,12 @@ bool LibcMemorySelfTest() {
         passed &= value; std::printf("{\"event\":\"libc_memory_self_test_case\",\"name\":\"%s\",\"passed\":%s}\n", name, value ? "true" : "false");
     };
     const std::array<unsigned char, 5> bytes{1, 128, 255, 0, 128};
+    using CompareFunction=int(KT_SYSV*)(const void*,const void*,std::size_t);
+    const auto bcmp=reinterpret_cast<CompareFunction>(ResolveLibcMemoryImport("5TjaJwkLWxE#A#A"));
+    check("bcmp_zero_nonzero_and_empty_sysv_contract",bcmp(bytes.data(),bytes.data(),bytes.size())==0 &&
+        bcmp(bytes.data(),bytes.data()+1,1)!=0 && bcmp(nullptr,nullptr,0)==0);
+    check("strtoll_uses_existing_64_bit_parser",ResolveLibcMemoryImport("VOBg+iNwB-4#A#A")==
+        ResolveLibcMemoryImport("mXlxhmLNMPg#A#A"));
     check("memchr_returns_first_byte_pointer", FindByte(bytes.data(), 128, bytes.size()) == bytes.data() + 1);
     check("memchr_search_value_is_unsigned_byte", FindByte(bytes.data(), 0x180, bytes.size()) == bytes.data() + 1 && FindByte(bytes.data(), -1, bytes.size()) == bytes.data() + 2);
     check("memchr_honors_extent_and_embedded_zero", !FindByte(bytes.data(), 128, 1) && FindByte(bytes.data(), 0, bytes.size()) == bytes.data() + 3);

@@ -59,7 +59,8 @@ bool ValidNicknameBytes(std::string_view value) {
 bool Identifier(std::string_view value) {
     return value.size() == 32 && std::all_of(value.begin(), value.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
 }
-Endpoint ParseEndpoint(std::string_view url) {
+Endpoint ParseEndpoint(std::string_view url,std::string_view game) {
+    Require(game=="ketsui" || game=="daioujou","Unknown PS4 community game");
     Require(url.size() <= 1024 && url.find_first_of("\r\n\t\\") == url.npos && url.find('\0') == url.npos, "Invalid community endpoint");
     const auto wide = Wide(url);
     URL_COMPONENTS parts{};
@@ -72,9 +73,10 @@ Endpoint ParseEndpoint(std::string_view url) {
                     std::wstring(parts.lpszUrlPath, parts.dwUrlPathLength), parts.nPort,
                     parts.nScheme == INTERNET_SCHEME_HTTPS};
     Require(result.secure || (parts.nScheme == INTERNET_SCHEME_HTTP && result.host == L"127.0.0.1"), "Community requires HTTPS except literal loopback");
-    if (result.path == L"/ketsui/api/v1/" || result.path == L"/cave/api/v1/games/ketsui/") result.path.pop_back();
-    Require(result.path == L"/ketsui/api/v1" || result.path == L"/cave/api/v1/games/ketsui",
-        "Community endpoint must use the Ketsui protocol path");
+    const auto expected=std::wstring(L"/cave/api/v1/games/")+Wide(game);
+    const bool legacy=game=="ketsui" && (result.path==L"/ketsui/api/v1" || result.path==L"/ketsui/api/v1/");
+    if (result.path==expected+L"/" || (legacy && result.path.ends_with(L"/"))) result.path.pop_back();
+    Require(legacy || result.path==expected,"Community endpoint must use this game's protocol path");
     return result;
 }
 Config ParseConfig(std::string_view text) {

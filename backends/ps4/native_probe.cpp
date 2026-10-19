@@ -315,6 +315,12 @@ void* KT_SYSV NativeMalloc(std::size_t size) {
     if (!pointer) { native_errno = 12; } // Orbis ENOMEM, not a Windows errno
     return pointer;
 }
+void* KT_SYSV NativeCalloc(std::size_t count,std::size_t size) {
+    auto* pointer=active_runtime->heap.AllocateZeroed(count,size);
+    TraceAllocation("calloc",size && count>(std::numeric_limits<std::size_t>::max)()/size?SIZE_MAX:count*size,pointer);
+    if (!pointer) native_errno=12;
+    return pointer;
+}
 
 void* KT_SYSV NativeMemalign(std::size_t alignment, std::size_t size) {
     NativeHostOperationScope timing("memalign", "allocation", size, __builtin_return_address(0), true, NativeHostAllocationKind::Memalign);
@@ -924,6 +930,9 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
                 import.address = reinterpret_cast<std::uint64_t>(&NativeMalloc);
                 continue;
             }
+            if (import.nid.starts_with("2X5agFjKxMc#")) {
+                import.address=reinterpret_cast<std::uint64_t>(&NativeCalloc);continue;
+            }
             if (import.nid.starts_with("Ujf3KzMvRmI#")) {
                 import.address = reinterpret_cast<std::uint64_t>(&NativeMemalign);
                 continue;
@@ -1338,6 +1347,7 @@ bool EmitNativeHostOperation(const char* name, const char* category, std::uint64
 }
 
 int NativeCommand(int argc, wchar_t** argv) {
+    if (argc==2 && std::wstring_view(argv[1])==L"--math-self-test") return MathSelfTest()?0:1;
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-elf") return cave::ps4::PrepareElfCommand(argc,argv);
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-fixes") return cave::ps4::PrepareReadFixesCommand(argc,argv);
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-game") return cave::ps4::PrepareGameCommand(argc,argv);
@@ -1684,6 +1694,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* modules_path = nullptr;
     const wchar_t* app_path = nullptr;
     const wchar_t* patch_path = nullptr;
+    const wchar_t* merged_app = nullptr;
     const wchar_t* addons_path = nullptr;
     const wchar_t* read_patches_path = nullptr;
     const wchar_t* mouse_left_button = nullptr;
@@ -1694,16 +1705,19 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* diagnostic_circle_hold = nullptr;
     const wchar_t* input_config = nullptr;
     const wchar_t* collection_config = nullptr;
+    const wchar_t* collection_game = nullptr;
     const wchar_t* allocation_timing = nullptr;
+    const wchar_t* background_log = nullptr;
     const wchar_t* community_provider = nullptr;
     const wchar_t* community_round_audit = nullptr;
     const wchar_t* community_rounds = nullptr;
-    bool valid_arguments = argc >= 3 && argc <= 35 && (argc % 2 == 1);
+    bool valid_arguments = argc >= 3 && argc <= 41 && (argc % 2 == 1);
     for (int i = 3; valid_arguments && i + 1 < argc; i += 2) {
         if (std::wstring(argv[i]) == L"--user-dir" && !user_directory) { user_directory = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--module-dir" && !modules_path) { modules_path = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--app-dir" && !app_path) { app_path = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--patch-dir" && !patch_path) { patch_path = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--merged-app" && !merged_app) { merged_app = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--addon-dir" && !addons_path) { addons_path = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--read-patches" && !read_patches_path) { read_patches_path = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--mouse-left-pad-button" && !mouse_left_button) { mouse_left_button = argv[i + 1]; }
@@ -1714,13 +1728,17 @@ int NativeCommand(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--diagnostic-circle-hold-ms" && !diagnostic_circle_hold) { diagnostic_circle_hold = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--input-config" && !input_config) { input_config = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--collection-config" && !collection_config) { collection_config = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--collection-game" && !collection_game) { collection_game = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--allocation-timing" && !allocation_timing) { allocation_timing = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--background-log" && !background_log) { background_log = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-provider" && !community_provider) { community_provider = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-round-audit" && !community_round_audit) { community_round_audit = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-rounds" && !community_rounds) { community_rounds = argv[i + 1]; }
         else { valid_arguments = false; }
     }
     if ((patch_path || addons_path) && !app_path) { valid_arguments = false; }
+    if (merged_app && (!app_path || patch_path || std::wstring_view(merged_app)!=L"on" ||
+        (std::wstring_view(argv[2])!=L"--enter" && std::wstring_view(argv[2])!=L"--validate"))) {valid_arguments=false;}
     if (read_patches_path && (!app_path || (std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate"))) { valid_arguments = false; }
     if (mouse_left_button && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (gpu_runtime && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
@@ -1728,6 +1746,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (diagnostic_circle_hold && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (input_config && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (collection_config && (input_config || std::wstring(argv[2]) != L"--enter")) { valid_arguments = false; }
+    if (collection_game && !collection_config) valid_arguments=false;
     const bool configured_community = community_provider && std::wstring(community_provider) == L"configured";
     if (community_provider && (std::wstring(argv[2]) != L"--enter" ||
         (!configured_community && std::wstring(community_provider) != L"loopback") || (!input_config && !collection_config) || !user_directory)) { valid_arguments = false; }
@@ -1736,6 +1755,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (community_rounds && (!community_provider || community_round_audit || std::wstring(community_rounds) != L"on")) { valid_arguments = false; }
     if (allocation_timing && ((std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate") ||
         (std::wstring(allocation_timing) != L"full" && std::wstring(allocation_timing) != L"counts"))) { valid_arguments = false; }
+    if (background_log && (std::wstring_view(argv[2])!=L"--enter" || std::wstring_view(background_log)!=L"on")) valid_arguments=false;
     if (texture_validation && (std::wstring(argv[2]) != L"--enter" ||
         (std::wstring(texture_validation) != L"full" && std::wstring(texture_validation) != L"tracked"))) { valid_arguments = false; }
     if (attachment_validation && (std::wstring(argv[2]) != L"--enter" ||
@@ -1746,20 +1766,30 @@ int NativeCommand(int argc, wchar_t** argv) {
     const bool census = argc >= 3 && std::wstring(argv[2]) == L"--binding-census";
     if (census && (user_directory || app_path || patch_path || addons_path)) { valid_arguments = false; }
     if (!valid_arguments || (std::wstring(argv[2]) != L"--validate" && std::wstring(argv[2]) != L"--enter" && !census)) {
-        std::fputs("Allocation diagnostics: --allocation-timing full|counts is accepted with --enter or --validate.\nCollection configuration: --enter accepts --collection-config config.ini instead of the legacy --input-config. Check without execution: --collection-config-check config.ini.\n", stderr);
+        std::fputs("Allocation diagnostics: --allocation-timing full|counts is accepted with --enter or --validate.\nCollection configuration: --enter accepts --collection-config config.ini instead of the legacy --input-config. Check without execution: --collection-config-check config.ini.\nMerged data: --app-dir path --merged-app on explicitly selects a complete merged patch layout, without --patch-dir.\n", stderr);
         std::fputs("Usage: KetsuiNativeProbe input.ktprobe --validate|--enter|--trace-enter [--user-dir absolute-path] [--module-dir absolute-path] [--app-dir absolute-path] [--patch-dir absolute-path] [--addon-dir absolute-path]\n       --enter also accepts --input-config path, --mouse-left-pad-button none|cross|circle|square|triangle|options|touchpad, --texture-validation full|tracked, --attachment-validation upload|reuse\n       KetsuiNativeProbe --input-config-check input.ini\n       KetsuiNativeProbe input.ktprobe --binding-census [--module-dir absolute-path]\n", stderr);
         return 2;
     }
     try {
+        struct BackgroundLogScope {
+            bool owns{};
+            ~BackgroundLogScope() {if (owns) {(void)StopNativeAsyncLog();PrintNativeAsyncLogDiagnostics();}}
+        } background;
+        if (background_log) {
+            background.owns=StartNativeAsyncLog();
+            if (!background.owns) throw std::runtime_error("Background diagnostic log already started");
+        }
         if (allocation_timing && !ConfigureNativeAllocationTiming(std::wstring(allocation_timing) == L"full")) {
             throw std::runtime_error("Allocation timing must be configured before execution");
         }
         std::optional<cave::ps4::CollectionConfiguration> collection;
         if (collection_config) {
-            collection=cave::ps4::LoadCollectionConfiguration(collection_config);
+            collection=cave::ps4::LoadCollectionConfiguration(collection_config,
+                collection_game ? cave::Utf8(std::filesystem::path(collection_game)) : "ketsui");
             cave::ps4::ApplyCollectionConfiguration(*collection);
         } else if (std::wstring(argv[2]) == L"--enter") { LoadKeyboardConfiguration(input_config); }
         if (community_provider) {
+            if (collection && collection->game!="ketsui") throw std::runtime_error("This title's community adapter is not yet implemented");
             const auto config = collection ? collection->community : kt::community::LoadConfig(input_config);
             const auto endpoint = kt::community::ParseEndpoint(config.endpoint);
             if (!std::filesystem::path(user_directory).is_absolute()) throw std::runtime_error("Community provider requires an absolute user directory");
@@ -1790,7 +1820,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         if (mouse_left_button && !ConfigureNativePadMouseLeft(mouse_left_button)) { throw std::runtime_error("Invalid mouse pad button"); }
         if (texture_validation) { ConfigureNativeTextureTracking(std::wstring(texture_validation) == L"tracked"); }
         if (attachment_validation) { ConfigureNativeAttachmentReuse(std::wstring(attachment_validation) == L"reuse"); }
-        if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L""); }
+        if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",merged_app!=nullptr); }
         if (user_directory) { ConfigureNativeStorage(user_directory,app_path ? NativeContentTitleId() : "CUSA09062"); }
         if (modules_path) {
             module_directory = modules_path;

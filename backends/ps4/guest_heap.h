@@ -16,6 +16,7 @@ public:
     GuestHeap& operator=(const GuestHeap&) = delete;
 
     void* Allocate(std::size_t size) noexcept;
+    void* AllocateZeroed(std::size_t count,std::size_t size) noexcept;
     void* AllocateAligned(std::size_t size, std::size_t alignment) noexcept;
     bool Release(void* pointer) noexcept;
 

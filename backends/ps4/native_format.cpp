@@ -1,6 +1,7 @@
 #include "native_format.h"
 #include "native_diagnostics.h"
 #include "native_memory.h"
+#include "native_async_log.h"
 #include <windows.h>
 #include <array>
 #include <atomic>
@@ -25,6 +26,7 @@ extern "C" int KT_SYSV NativeSysvPrintf(const char*, ...);
 extern "C" int KT_SYSV NativeSysvSprintf(char*, const char*, ...);
 extern "C" int KT_SYSV NativeSysvSwprintf(wchar_t*, std::size_t, const wchar_t*, ...);
 extern "C" int KT_SYSV NativeSysvSscanf(const char*, const char*, ...);
+extern "C" int KT_SYSV NativeSysvSprintfS(char*,std::size_t,const char*,...);
 static_assert(sizeof(wchar_t) == 2, "The guest wide ABI has 16-bit units");
 
 namespace {
@@ -283,6 +285,23 @@ __declspec(noinline) int Format(char* destination, std::size_t size, const char*
 int KT_SYSV Vsnprintf(char* destination, std::size_t size, const char* format, const SysvArguments* arguments) {
     return Format(destination, size, format, arguments, __builtin_return_address(0));
 }
+int SecureFormat(char* destination,std::size_t size,const char* format,const SysvArguments* arguments,const void* caller) {
+    struct SavedErrno {int value=errno;~SavedErrno(){errno=value;}} saved;
+    const auto constraint=[&](unsigned code) {
+        static std::atomic<unsigned> count{};
+        if (count.fetch_add(1)<16) NativeLogf("{\"event\":\"native_runtime_constraint\",\"api\":\"sprintf_s\",\"code\":%u}\n",code);
+        // This supplied libc's default handler reports, then returns. The
+        // wrapper returns zero, not the Windows CRT's negative error result.
+        return 0;
+    };
+    if (!destination || !size || size>static_cast<std::size_t>((std::numeric_limits<std::ptrdiff_t>::max)())) return constraint(22);
+    auto lease=BeginNativeHostWrite(destination,size);
+    if (!lease) return constraint(22);
+    if (!format) {destination[0]=0;return constraint(22);}
+    const auto required=Format(nullptr,0,format,arguments,caller,"sprintf_s");
+    if (required<0 || static_cast<std::size_t>(required)>=size) {destination[0]=0;return constraint(34);}
+    return Format(destination,size,format,arguments,caller,"sprintf_s");
+}
 int UnboundedFormat(char* destination, const char* format, const SysvArguments* arguments, const void* caller, const char* api) {
     if (!destination) { SetNativeErrno(22); return -1; }
     const auto size = Format(nullptr, 0, format, arguments, caller, api);
@@ -362,6 +381,11 @@ extern "C" int NativeFormatCapture(const unsigned char* registers, const unsigne
         const SysvArguments arguments{16, 48, stack, registers};
         return Scan(reinterpret_cast<const char*>(named[0]), reinterpret_cast<const char*>(named[1]), &arguments, caller);
     }
+    if (kind == 5) {
+        const SysvArguments arguments{24,48,stack,registers};
+        return SecureFormat(reinterpret_cast<char*>(named[0]),static_cast<std::size_t>(named[1]),
+            reinterpret_cast<const char*>(named[2]),&arguments,caller);
+    }
     UnsupportedApi("native_format_capture_kind", kind, caller);
 }
 
@@ -376,6 +400,7 @@ std::uint64_t ResolveFormatImport(std::string_view identifier) {
     if (id == "u0XOsuOmOzc") { return reinterpret_cast<std::uint64_t>(&Vswprintf); }
     if (id == "YQ0navp+YIc") { return reinterpret_cast<std::uint64_t>(&Puts); }
     if (id == "1Pk0qZQGeWo") { return reinterpret_cast<std::uint64_t>(&NativeSysvSscanf); }
+    if (id == "xEszJVGpybs") { return reinterpret_cast<std::uint64_t>(&NativeSysvSprintfS); }
     return 0;
 }
 bool FormatSelfTest() {
@@ -386,6 +411,15 @@ bool FormatSelfTest() {
         okay &= result; if (result) { ++passed; }
     };
     std::array<char, 256> buffer{};
+    check(ResolveFormatImport("xEszJVGpybs#A#A")==reinterpret_cast<std::uint64_t>(&NativeSysvSprintfS) &&
+        NativeSysvSprintfS(buffer.data(),buffer.size(),"%s:%ld:%.1f:%d%d%d%d","ok",-4294967297ll,1.25,1,2,3,4)==23 &&
+        !std::strcmp(buffer.data(),"ok:-4294967297:1.2:1234"),"secure_format_gp_fp_and_stack_capture");
+    buffer.fill('q');
+    check(NativeSysvSprintfS(buffer.data(),3,"%s","abc")==0 && buffer[0]==0 && buffer[3]=='q',
+        "secure_overflow_clears_first_byte_and_returns_target_zero");
+    buffer.fill('q');
+    check(NativeSysvSprintfS(buffer.data(),0,"x")==0 && buffer[0]=='q' &&
+        NativeSysvSprintfS(buffer.data(),4,nullptr)==0 && buffer[0]==0 && buffer[4]=='q',"secure_invalid_capacity_and_format");
     check(TestFormat(nullptr, 0, "name=%s", "Player") == 11, "zero_size_counts_required_bytes");
     buffer[0] = 'x'; buffer[1] = 'q';
     check(TestFormat(buffer.data(), 1, "%s", "abc") == 3 && buffer[0] == 0 && buffer[1] == 'q', "one_byte_buffer_and_external_sentinel");

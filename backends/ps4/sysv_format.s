@@ -37,3 +37,4 @@ NativeCapture NativeSysvPrintf, 1
 NativeCapture NativeSysvSprintf, 2
 NativeCapture NativeSysvSwprintf, 3
 NativeCapture NativeSysvSscanf, 4
+NativeCapture NativeSysvSprintfS, 5

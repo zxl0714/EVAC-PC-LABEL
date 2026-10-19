@@ -1,6 +1,8 @@
 #include "native_math.h"
 #include <cmath>
 #include <cerrno>
+#include <cstdio>
+#include <limits>
 
 #define KT_SYSV __attribute__((sysv_abi))
 namespace {
@@ -17,6 +19,14 @@ template <typename T> __declspec(noinline) T Trig(T value, int cosine) {
 }
 float KT_SYSV SinFloat(float value, int cosine) { return Trig(value, cosine); }
 double KT_SYSV SinDouble(double value, int cosine) { return Trig(value, cosine); }
+float KT_SYSV StandardSinFloat(float value) {return Trig(value,0);}
+float KT_SYSV StandardCosFloat(float value) {return Trig(value,1);}
+double KT_SYSV StandardSinDouble(double value) {return Trig(value,0);}
+double KT_SYSV StandardCosDouble(double value) {return Trig(value,1);}
+void KT_SYSV SinCosFloat(float value,float* sine,float* cosine) {
+    const auto s=Trig(value,0),c=Trig(value,1);
+    *sine=s;*cosine=c;
+}
 template <typename T> __declspec(noinline) T Power(T base, T exponent) {
     const auto host_error = errno;
     // The local libc's powf handles y=0 before NaNs, then propagates NaNs
@@ -42,6 +52,10 @@ template <typename T> __declspec(noinline) T Logarithm(T value, int selector) {
 }
 double KT_SYSV LogDouble(double value, int selector) { return Logarithm(value, selector); }
 float KT_SYSV LogFloat(float value, int selector) { return Logarithm(value, selector); }
+float KT_SYSV StandardLogFloat(float value) {return Logarithm(value,0);}
+float KT_SYSV StandardLogTenFloat(float value) {return Logarithm(value,1);}
+double KT_SYSV StandardLogDouble(double value) {return Logarithm(value,0);}
+double KT_SYSV StandardLogTenDouble(double value) {return Logarithm(value,1);}
 __declspec(noinline) double ExpTwo(double value) {
     const auto host_error = errno;
     const auto result = std::exp2(value);
@@ -79,6 +93,15 @@ double KT_SYSV RemainderDouble(double left, double right) { return Remainder(lef
 }
 std::uint64_t ResolveMathImport(std::string_view identifier) {
     const auto hash = identifier.substr(0, identifier.find('#'));
+    if (hash == "Q4rRL34CEeE") return reinterpret_cast<std::uint64_t>(&StandardSinFloat);
+    if (hash == "-P6FNMzk2Kc") return reinterpret_cast<std::uint64_t>(&StandardCosFloat);
+    if (hash == "H8ya2H00jbI") return reinterpret_cast<std::uint64_t>(&StandardSinDouble);
+    if (hash == "2WE3BTYVwKM") return reinterpret_cast<std::uint64_t>(&StandardCosDouble);
+    if (hash == "RQXLbdT2lc4") return reinterpret_cast<std::uint64_t>(&StandardLogFloat);
+    if (hash == "lhpd6Wk6ccs") return reinterpret_cast<std::uint64_t>(&StandardLogTenFloat);
+    if (hash == "rtV7-jWC6Yg") return reinterpret_cast<std::uint64_t>(&StandardLogDouble);
+    if (hash == "WuMbPBKN1TU") return reinterpret_cast<std::uint64_t>(&StandardLogTenDouble);
+    if (hash == "pztV4AF18iI") return reinterpret_cast<std::uint64_t>(&SinCosFloat);
     if (hash == "DDHG1a6+3q0") { return reinterpret_cast<std::uint64_t>(&RoundFloat); }
     if (hash == "ZtjspkJQ+vw") { return reinterpret_cast<std::uint64_t>(&SinFloat); }
     if (hash == "cCXjU72Z0Ow") { return reinterpret_cast<std::uint64_t>(&SinDouble); }
@@ -97,4 +120,35 @@ std::uint64_t ResolveMathImport(std::string_view identifier) {
     if (hash == "88Vv-AzHVj8") { return reinterpret_cast<std::uint64_t>(&RemainderFloat); }
     if (hash == "9LCjpWyQ5Zc") { return reinterpret_cast<std::uint64_t>(&PowDouble); }
     return 0;
+}
+bool MathSelfTest() {
+    bool passed=true;
+    const auto check=[&](bool okay,const char* name) {
+        passed &= okay;
+        std::printf("{\"event\":\"math_self_test_case\",\"name\":\"%s\",\"passed\":%s}\n",name,okay?"true":"false");
+    };
+    using Single=float(KT_SYSV*)(float);
+    using Double=double(KT_SYSV*)(double);
+    const auto sine=reinterpret_cast<Single>(ResolveMathImport("Q4rRL34CEeE#A#A"));
+    const auto cosine=reinterpret_cast<Single>(ResolveMathImport("-P6FNMzk2Kc#A#A"));
+    const auto log=reinterpret_cast<Single>(ResolveMathImport("RQXLbdT2lc4#A#A"));
+    const auto log10=reinterpret_cast<Single>(ResolveMathImport("lhpd6Wk6ccs#A#A"));
+    const auto dsine=reinterpret_cast<Double>(ResolveMathImport("H8ya2H00jbI#A#A"));
+    const auto dcosine=reinterpret_cast<Double>(ResolveMathImport("2WE3BTYVwKM#A#A"));
+    const auto dlog=reinterpret_cast<Double>(ResolveMathImport("rtV7-jWC6Yg#A#A"));
+    const auto dlog10=reinterpret_cast<Double>(ResolveMathImport("WuMbPBKN1TU#A#A"));
+    check(sine(0.5f)==std::sin(0.5f) && cosine(0.5f)==std::cos(0.5f),"single_sysv_sse_lane");
+    check(dsine(0.5)==std::sin(0.5) && dcosine(0.5)==std::cos(0.5),"double_sysv_sse_lane");
+    check(log(1)==0 && log10(100)==2 && dlog(1)==0 && dlog10(100)==2,"natural_and_decimal_log_are_distinct");
+    check(std::signbit(sine(-0.0f)) && std::signbit(dsine(-0.0)) && cosine(0)==1 && dcosine(0)==1,"signed_zero");
+    const auto saved=errno;errno=73;
+    const bool special=std::isnan(cosine((std::numeric_limits<float>::infinity)())) &&
+        std::isinf(log(0)) && std::signbit(log(0)) && std::isnan(dlog(-1));
+    check(special && errno==73,"special_values_do_not_overwrite_host_errno");errno=saved;
+    using Combined=void(KT_SYSV*)(float,float*,float*);
+    const auto combined=reinterpret_cast<Combined>(ResolveMathImport("pztV4AF18iI#A#A"));
+    float results[]{73,0,0,73};combined(0.5f,&results[1],&results[2]);
+    check(results[0]==73 && results[3]==73 && results[1]==std::sin(0.5f) && results[2]==std::cos(0.5f),
+        "sincosf_separate_sse_input_and_integer_pointer_lanes");
+    std::printf("{\"event\":\"math_self_test\",\"passed\":%s}\n",passed?"true":"false");return passed;
 }

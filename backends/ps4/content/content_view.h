@@ -45,7 +45,7 @@ struct Addon {
 class ContentView {
 public:
     ContentView(const std::filesystem::path& app, const std::filesystem::path& patch = {}, const std::filesystem::path& addons = {},
-                const std::filesystem::path& read_patches = {});
+                const std::filesystem::path& read_patches = {}, bool merged_patch = false);
     const Sfo& Metadata() const { return metadata_; }
     const std::string& TitleId() const { return title_; }
     const std::string& ContentId() const { return content_; }

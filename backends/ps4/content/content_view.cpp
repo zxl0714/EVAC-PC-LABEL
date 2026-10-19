@@ -154,10 +154,15 @@ void ReadOnlyFile::InstallReadPatches(std::shared_ptr<const ReadPatchSet> patche
     }
     read_patches_ = std::move(selected);
 }
-ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::path& addons, const fs::path& read_patches)
+ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::path& addons, const fs::path& read_patches,bool merged_patch)
     : app_(Root(app)), metadata_(ReadSfo(app_)) {
     title_ = Required(metadata_, "TITLE_ID"); content_ = Required(metadata_, "CONTENT_ID"); Identity(title_, content_);
-    if (Required(metadata_, "CATEGORY") != "gd") { Invalid("The app root must contain a base application"); }
+    if (merged_patch) {
+        // Explicit layout contract, not automatic acceptance of a patch-only
+        // directory as a complete application. The launcher verifies all data.
+        if (!patch.empty() || Required(metadata_,"CATEGORY")!="gp")
+            Invalid("Merged content requires a single patch-category application root");
+    } else if (Required(metadata_, "CATEGORY") != "gd") { Invalid("The app root must contain a base application"); }
     if (!patch.empty()) {
         patch_ = Root(patch); const auto metadata = ReadSfo(patch_);
         if (Required(metadata, "CATEGORY") != "gp" || Required(metadata, "TITLE_ID") != title_ || Required(metadata, "CONTENT_ID") != content_) { Invalid("Patch does not belong to this application"); }

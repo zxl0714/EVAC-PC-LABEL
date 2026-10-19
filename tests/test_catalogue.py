@@ -41,6 +41,18 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(sum(f['program'] for f in game['files']), 8)
         self.assertTrue(all(set(f) == {'path', 'bytes', 'sha256', 'program'} for f in game['files']))
 
+    def test_daioujou_input_identity_does_not_imply_playable_or_online(self):
+        game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')
+        manifest=catalogue.read_json(self.root/'games/daioujou/data.json')
+        self.assertEqual((game['backend'],manifest['titleId'],manifest['version']),('ps4','CUSA32997','01.04'))
+        self.assertEqual(manifest['layout'],'merged-patch')
+        self.assertEqual(len(game['files']),60)
+        self.assertEqual(sum(f['bytes'] for f in game['files']),1116174744)
+        self.assertNotIn('Project.gp4',{f['path'] for f in game['files']})
+        self.assertTrue(game['comingSoon'])
+        self.assertFalse(game['integrated'])
+        self.assertFalse(game['communitySupported'])
+
     def test_futari_optional_packages_are_independent_metadata(self):
         game = catalogue.load(self.path)[0]
         self.assertEqual(len(game['files']), 52)

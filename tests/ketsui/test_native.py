@@ -4912,7 +4912,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             events = [json.loads(line) for line in result.stdout.splitlines()]
             cases = [event for event in events if event['event'] == 'content_self_test_case']
-            self.assertEqual(len(cases), 19)
+            self.assertEqual(len(cases), 23)
             self.assertTrue(all(event['passed'] for event in cases))
             self.assertEqual(before, {str(path): hashlib.sha256(path.read_bytes()).digest() for path in Path(directory).rglob('*') if path.is_file()})
 
@@ -5027,7 +5027,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         events = [json.loads(line) for line in result.stdout.splitlines()]
         checks = [event for event in events if event['event'] == 'text_self_test_case']
-        self.assertEqual(len(checks), 28)
+        self.assertEqual(len(checks), 29)
         self.assertTrue(all(event['passed'] for event in checks))
 
     def test_text_sysv_wide_units_queries_pointer_updates_tails_and_guest_eilseq(self):
@@ -5846,7 +5846,7 @@ class RuntimeTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         cases = [event for line in result.stdout.splitlines() if (event := json.loads(line))['event'] == 'format_self_test_case']
-        self.assertEqual(len(cases), 30)
+        self.assertEqual(len(cases), 33)
         self.assertTrue(all(event['passed'] for event in cases))
 
     def test_wide_format_sysv_unicode_lp64_fp_stack_truncation_and_va_list(self):
@@ -5892,7 +5892,7 @@ class RuntimeTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         cases = [event for line in result.stdout.splitlines() if (event := json.loads(line))['event'] == 'heap_self_test_case']
-        self.assertEqual(len(cases), 7)
+        self.assertEqual(len(cases), 10)
         self.assertTrue(all(event['passed'] for event in cases))
 
     def test_memalign_global_normalization_free_and_errno(self):

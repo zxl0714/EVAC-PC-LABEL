@@ -45,6 +45,32 @@ def libc():
     return raw
 
 
+def plain_self(elf,version_note=False):
+    """Authored plain SELF segment wrapper, not a signed or encrypted file."""
+    elf=bytearray(elf)
+    header=struct.unpack_from('<16sHHIQQQIHHHHHH',elf)
+    if version_note:
+        struct.pack_into('<II6Q',elf,header[5]+56*header[10],0x6fffff01,4,0x700,0,0,3,3,1)
+        struct.pack_into('<H',elf,56,header[10]+1)
+        header=struct.unpack_from('<16sHHIQQQIHHHHHH',elf)
+    all_programs=[struct.unpack_from('<II6Q',elf,header[5]+56*i) for i in range(header[10])]
+    programs=[p for p in all_programs if p[0]!=0x6fffff01]
+    embedded=32+32*len(programs)
+    table_end=header[5]+56*header[10]
+    header_bytes=(embedded+table_end+15)&~15
+    raw=bytearray(header_bytes)
+    raw[:10]=bytes.fromhex('4f153d1d000101120101')
+    struct.pack_into('<HH',raw,12,header_bytes,0)
+    struct.pack_into('<HH',raw,24,len(programs),0x22)
+    raw[embedded:embedded+table_end]=elf[:table_end]
+    for index,p in enumerate(programs):
+        struct.pack_into('<4Q',raw,32+index*32,(index<<20)|0x800,len(raw),p[5],p[5])
+        raw+=elf[p[2]:p[2]+p[5]]
+    struct.pack_into('<Q',raw,16,len(raw))
+    if version_note:raw+=b'\x02v1'
+    return raw
+
+
 def cases():
     result=[('executable',executable(),False,None,True),('module',module(),True,None,True),
             ('verified-libc',executable(),False,libc(),True),
@@ -78,6 +104,14 @@ def cases():
         raw=executable(); struct.pack_into(layout,raw,offset,value)
         result.append((name,raw,False,None,False))
     bad_contract=libc();bad_contract[0x220]=0x90
+    result.append(('plain-self-libc',executable(),False,plain_self(libc()),True))
+    result.append(('plain-self-note-libc',executable(),False,plain_self(libc(),True),True))
+    for name,offset,value in [('encrypted',32,0x802),('compressed',32,0x808),
+                              ('duplicate',64,0x800),('bad-program',32,0xfff00800)]:
+        bad=plain_self(libc());struct.pack_into('<Q',bad,offset,value)
+        result.append(('self-'+name,executable(),False,bad,False))
+    bad=plain_self(libc());bad.pop()
+    result.append(('self-truncated',executable(),False,bad,False))
     result.extend((('bad-libc-ret',executable(),False,bad_contract,False),
                    ('empty-libc',executable(),False,b'',False),
                    ('truncated',executable()[:20],False,None,False)))

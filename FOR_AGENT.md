@@ -1,6 +1,8 @@
 # 开发入口
 
-v0.3 已开始分步实现，当前不是已完成发行。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口验证了语言切换、昵称草稿保留、保存及日文冷启动读回；游戏窗口日文名还需后端重建。大往生下载输入的 SFO 为 CUSA32997／01.04，完整 ZIP 校验仍待下载结束，暂不开放启动。`scripts/ps4/inspect_archive.py <ZIP> --output .local/<新报告>.json --extract-to .local/<新目录>` 逐成员校验 CRC／哈希，只保留本地数据，不执行程序；失败目录不算完整数据。继续实施计划的 v0.3 全部目标，不把界面阶段当作版本完成。
+v0.3 已开始分步实现，当前不是已完成发行。启动器三语言及双语标题已接入；`[collection].language` 为 zh／ja／en，旧配置默认 zh。`--language en --render-preview <新 PNG>` 可不改配置渲染对应语言。实际独立窗口验证了语言切换、昵称草稿保留、保存及日文冷启动读回；绊地狱窗口已核对日文名，360 还需重建。大往生 CUSA32997／01.04 的 ZIP 下载及全部 61 项 CRC／哈希已通过，完整数据在 `.local/inputs/daioujou-20261020-r2`；r1 是失败现场，不能使用。`games/daioujou/data.json` 记录 60 项运行资源，不含 Project.gp4。六个 ELF 已静态准备及盘点，仍保持 Coming Soon、integrated=false、communitySupported=false，未完成游玩和联网。继续实施计划的 v0.3 全部目标，不把界面或输入阶段当作版本完成。
+
+PS4 共享准备缓存现按 `recipe.game` 分目录；原生保存使用内容 Title ID，不能再写死绊地狱。合并更新数据须显式 `--app-dir <完整目录> --merged-app on`，不能再给 `--patch-dir`；默认本体＋补丁合同不变。随包 libc 是未压缩明文 SELF，`plain_self` 读取只用于验证真实 RET 初始化合同，不解密、不需要密钥，也不直接执行 Sony 模块。43 项 C++／Python 自造准备对照、64 项原生／配置／合并布局检查及 327 项源码测试已通过。独立入口已适配实际调用的 bcmp、calloc、sincosf、sprintf_s 等 CRT 接口；`.local/daioujou-entry-r6` 已实际进入标题、Direct Menu、ARCADE、Type-A／Shotia 选择并自然 Game Over（420 分）。尚需直接观察玩家第一关、正常合集入口、保存重启和本作联网；不能将演示画面或结算等同于全部可玩通过。常规直接诊断入口使用 `--background-log on`，配置明确指定 `--collection-game daioujou`，未实现的社区能力仍关闭。
 
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 

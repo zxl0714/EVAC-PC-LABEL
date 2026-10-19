@@ -1,5 +1,6 @@
 #include "native_text.h"
 #include "native_diagnostics.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cerrno>
@@ -120,6 +121,11 @@ std::uint16_t* KT_SYSV WideMove(std::uint16_t* output, const std::uint16_t* inpu
     if (count > SIZE_MAX / 2) { UnsupportedApi("wmemmove_extent", count, __builtin_return_address(0)); }
     return count ? static_cast<std::uint16_t*>(std::memmove(output, input, count * 2)) : output;
 }
+std::uint16_t* KT_SYSV WideFill(std::uint16_t* output,std::uint16_t value,std::size_t count) {
+    if (count>SIZE_MAX/2) UnsupportedApi("wmemset_extent",count,__builtin_return_address(0));
+    if (count) std::fill_n(output,count,value);
+    return output;
+}
 int KT_SYSV WideCompare(const std::uint16_t* first, const std::uint16_t* second, std::size_t count) {
     for (std::size_t index = 0; index < count; ++index) {
         if (first[index] != second[index]) { return first[index] < second[index] ? -1 : 1; }
@@ -136,6 +142,7 @@ std::uint64_t ResolveTextImport(std::string_view identifier) {
     if (hash == "fL3O02ypZFE") { return reinterpret_cast<std::uint64_t>(&WideCopy); }
     if (hash == "Noj9PsJrsa8") { return reinterpret_cast<std::uint64_t>(&WideMove); }
     if (hash == "QJ5xVfKkni0") { return reinterpret_cast<std::uint64_t>(&WideCompare); }
+    if (hash == "Al8MZJh-4hM") { return reinterpret_cast<std::uint64_t>(&WideFill); }
     return 0;
 }
 
@@ -194,6 +201,10 @@ bool TextSelfTest() {
     check("wide_compare_uses_unsigned_units_and_continues_past_nul", WideCompare(less.data(), greater.data(), 3) == -1 && WideCompare(greater.data(), less.data(), 3) == 1 && WideCompare(less.data(), greater.data(), 2) == 0);
     const std::array<std::uint16_t, 1> low{0xff}, high{0x100};
     check("wide_compare_is_not_little_endian_byte_comparison", WideCompare(low.data(), high.data(), 1) == -1 && WideCompare(high.data(), low.data(), 1) == 1);
-    check("zero_wide_extent_does_not_dereference_null", !WideCopy(nullptr, nullptr, 0) && !WideMove(nullptr, nullptr, 0) && WideCompare(nullptr, nullptr, 0) == 0);
+    check("zero_wide_extent_does_not_dereference_null", !WideCopy(nullptr, nullptr, 0) && !WideMove(nullptr, nullptr, 0) &&
+        !WideFill(nullptr,0,0) && WideCompare(nullptr, nullptr, 0) == 0);
+    wide.fill(73);
+    check("wide_fill_writes_16_bit_units_and_preserves_neighbors",WideFill(wide.data()+1,0x1234,2)==wide.data()+1 &&
+        wide[0]==73 && wide[1]==0x1234 && wide[2]==0x1234 && wide[3]==73);
     std::printf("{\"event\":\"text_self_test\",\"cases\":%u,\"passed\":%s}\n", cases, passed ? "true" : "false"); return passed;
 }

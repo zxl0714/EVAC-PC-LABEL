@@ -1,5 +1,6 @@
 // Native equivalent of scripts/ps4/{native_elf,prepare_native}.py.
 #include "elf_prepare.h"
+#include "plain_self.h"
 #include "common/settings.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -191,7 +192,8 @@ public:
     }
 };
 void VerifyLibc(std::span<const std::uint8_t> source) {
-    const Elf elf(source); const Symbol* selected{};
+    const auto plain=PlainSelfElf(source);
+    const Elf elf(plain); const Symbol* selected{};
     for (const auto& symbol:elf.symbols) if (symbol.section && symbol.type==2 && symbol.name.substr(0,symbol.name.find('#'))=="bzQExy189ZI") {
         Require(!selected,"libc _init_env is not unique"); selected=&symbol;
     }

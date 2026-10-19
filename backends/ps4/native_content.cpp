@@ -145,7 +145,7 @@ int KT_SYSV ContentUnmount(const MountPoint* point) { return Unmount(point, __bu
 int KT_SYSV ContentKey(unsigned service, const Label* label, void* output) { return Key(service, label, output, __builtin_return_address(0)); }
 }
 
-void ConfigureNativeContent(const std::filesystem::path& app, const std::filesystem::path& patch, const std::filesystem::path& addons, const std::filesystem::path& user_directory, const std::filesystem::path& read_patches) {
+void ConfigureNativeContent(const std::filesystem::path& app, const std::filesystem::path& patch, const std::filesystem::path& addons, const std::filesystem::path& user_directory, const std::filesystem::path& read_patches,bool merged_patch) {
     if (!user_directory.empty()) {
         const auto user = std::filesystem::weakly_canonical(user_directory);
         const auto under = [](const auto& child, const auto& parent) {
@@ -161,7 +161,7 @@ void ConfigureNativeContent(const std::filesystem::path& app, const std::filesys
             if (under(user, root) || under(root, user)) { throw std::runtime_error("User data and original content directories must be separate"); }
         }
     }
-    auto candidate = std::make_shared<kt::content::ContentView>(app, patch, addons, read_patches);
+    auto candidate = std::make_shared<kt::content::ContentView>(app, patch, addons, read_patches,merged_patch);
     std::lock_guard lock(state.mutex);
     if (state.view || state.references) { throw std::runtime_error("Content configuration is immutable after setup"); }
     state.view = std::move(candidate);
@@ -229,6 +229,20 @@ bool ContentSelfTest(const std::filesystem::path& app, const std::filesystem::pa
     auto check = [&](bool condition, const char* name) {
         std::printf("{\"event\":\"content_self_test_case\",\"name\":\"%s\",\"passed\":%s}\n", name, condition ? "true" : "false"); passed &= condition;
     };
+    {
+        const kt::content::ContentView merged(patch,{}, {},{},true);
+        const auto file=merged.OpenApp0("overlay.txt");
+        check(merged.TitleId()==NativeContentTitleId() && file && file->Size()==5,"explicit_merged_patch_reads_existing_files");
+        bool rejected{};
+        try {(void)kt::content::ContentView(patch);} catch (const std::runtime_error&) {rejected=true;}
+        check(rejected,"patch_is_not_implicitly_a_merged_application");
+        rejected=false;
+        try {(void)kt::content::ContentView(app,{}, {},{},true);} catch (const std::runtime_error&) {rejected=true;}
+        check(rejected,"merged_mode_requires_patch_category");
+        rejected=false;
+        try {(void)kt::content::ContentView(patch,patch,{}, {},true);} catch (const std::runtime_error&) {rejected=true;}
+        check(rejected,"merged_mode_rejects_a_second_patch_root");
+    }
     check(ContentModule(ContentModuleAction::IsLoaded) == kNotLoaded && ContentModule(ContentModuleAction::Unload) == kNotLoaded,
           "module_not_loaded_before_request");
     check(ContentModule(ContentModuleAction::Load) == 0 && ContentModule(ContentModuleAction::Load) == 0 &&

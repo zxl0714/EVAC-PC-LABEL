@@ -29,7 +29,7 @@ struct Endpoint {
 };
 Config ParseConfig(std::string_view text);
 Config LoadConfig(const std::filesystem::path& path);
-Endpoint ParseEndpoint(std::string_view url);
+Endpoint ParseEndpoint(std::string_view url,std::string_view game="ketsui");
 Json ParseJson(std::string_view text, std::size_t limit = kJsonReplyLimit);
 std::string Base64(std::span<const std::byte> data);
 std::vector<std::byte> Unbase64(std::string_view text, std::size_t limit);

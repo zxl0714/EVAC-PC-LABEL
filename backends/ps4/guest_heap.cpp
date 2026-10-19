@@ -24,6 +24,13 @@ GuestHeap::~GuestHeap() {
 void* GuestHeap::Allocate(std::size_t size) noexcept {
     return AllocateAligned(size, 16);
 }
+void* GuestHeap::AllocateZeroed(std::size_t count,std::size_t size) noexcept {
+    if (size && count>(std::numeric_limits<std::size_t>::max)()/size) return nullptr;
+    const auto bytes=count*size;
+    auto* pointer=Allocate(bytes);
+    if (pointer && bytes) std::memset(pointer,0,bytes);
+    return pointer;
+}
 void* GuestHeap::AllocateAligned(std::size_t size, std::size_t alignment) noexcept {
     // No Windows user allocation can span more than the signed address range.
     // Reject this before asking the OS, without an overflowing size calculation.
@@ -80,6 +87,12 @@ bool GuestHeapSelfTest() {
         std::printf("{\"event\":\"heap_self_test_case\",\"name\":\"%s\",\"passed\":%s}\n", name, value ? "true" : "false");
         okay &= value; if (value) { ++passed; }
     };
+    auto* cleared=heap.AllocateZeroed(13,17);
+    check(cleared && std::all_of(static_cast<unsigned char*>(cleared),static_cast<unsigned char*>(cleared)+13*17,
+        [](auto value) {return value==0;}) && heap.Release(cleared),"calloc_exact_zeroed_extent_and_compatible_free");
+    check(!heap.AllocateZeroed((std::numeric_limits<std::size_t>::max)(),2),"calloc_product_overflow_rejected");
+    auto* empty=heap.AllocateZeroed(0,(std::numeric_limits<std::size_t>::max)());
+    check(empty && heap.Release(empty),"calloc_zero_count_is_a_freeable_empty_allocation");
     auto* first = heap.AllocateAligned(35, 128);
     auto* second = heap.AllocateAligned(35, 65536);
     check(first && second && reinterpret_cast<std::uintptr_t>(first) % 128 == 0 &&

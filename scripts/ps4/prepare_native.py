@@ -10,12 +10,12 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from analysis_paths import private_output
 
-from native_elf import Elf, nid, read_names
+from native_elf import Elf, nid, read_names, plain_self_elf
 
 
 def verified_init_env(libc):
     raw = libc.read_bytes()
-    elf = Elf(raw)
+    elf = Elf(plain_self_elf(raw))
     matches = [s for s in elf.symbols if s["section"] and s["type"] == 2
                and s["name"].split("#")[0] == nid("_init_env")]
     if len(matches) != 1 or matches[0]["size"] != 1:

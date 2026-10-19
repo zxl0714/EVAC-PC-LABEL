@@ -1,6 +1,7 @@
 """Run the verified PS4 runtime's non-interactive, ROM-free mechanism checks."""
 import argparse
 import datetime
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -13,7 +14,7 @@ from project import ROOT, digest, write_json_new
 from ps4_build_receipt import verify
 
 CHECKS = (
-    'abi', 'format', 'heap', 'condition', 'semaphore', 'event-flag', 'thread',
+    'abi', 'format', 'heap', 'condition', 'semaphore', 'event-flag', 'thread', 'math',
     'thread-affinity', 'libc-memory', 'text', 'rtc', 'libc-calendar', 'time',
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
@@ -113,6 +114,51 @@ def check_terminal_logs(executable, directory):
     return results
 
 
+def check_content_layout(executable, directory):
+    # Reuse the project's authored SFO/content and probe fixtures; no ROM input.
+    sys.path.insert(0,str(ROOT / 'scripts/ps4'))
+    spec=importlib.util.spec_from_file_location('ps4_authored_content',ROOT / 'tests/ketsui/test_native.py')
+    fixtures=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixtures)
+    scene=directory / 'authored-content'
+    scene.mkdir()
+    app,patch,addons=fixtures.content_tree(scene)
+    probe=scene / 'authored.ktprobe'
+    probe.write_bytes(fixtures.exit_fixture())
+    before={str(path):digest(path) for path in scene.rglob('*') if path.is_file()}
+    cases=[('content-layout-self-test',['--content-self-test',str(app),str(patch),str(addons)],0)]
+    cases.extend((
+        ('background-log-fixture',[str(probe),'--enter','--background-log','on'],7),
+        ('background-log-validation-rejected',[str(probe),'--validate','--background-log','on'],2),
+        ('background-log-bad-value',[str(probe),'--enter','--background-log','off'],2)))
+    prefix=[str(probe),'--validate']
+    for name,options,expected in (
+        ('merged-explicit',['--app-dir',str(patch),'--merged-app','on'],0),
+        ('merged-not-implicit',['--app-dir',str(patch)],2),
+        ('merged-not-base',['--app-dir',str(app),'--merged-app','on'],2),
+        ('merged-no-second-patch',['--app-dir',str(patch),'--patch-dir',str(patch),'--merged-app','on'],2),
+        ('merged-bad-value',['--app-dir',str(patch),'--merged-app','off'],2),
+        ('merged-needs-content',['--merged-app','on'],2)):
+        cases.append((name,prefix+options,expected))
+    results=[]
+    for name,arguments,expected in cases:
+        result=subprocess.run([str(executable),*arguments],cwd=directory,capture_output=True,timeout=15)
+        passed=result.returncode==expected and before=={str(path):digest(path) for path in scene.rglob('*') if path.is_file()}
+        if name=='content-layout-self-test' and passed:
+            events=[json.loads(line) for line in result.stdout.splitlines()]
+            checks=[event for event in events if event['event']=='content_self_test_case']
+            passed=len(checks)==23 and all(event['passed'] for event in checks)
+        if name=='background-log-fixture' and passed:
+            events=[json.loads(line) for line in result.stdout.splitlines()]
+            stats=next(event for event in reversed(events) if event['event']=='native_async_log')
+            passed=events[-1]['event']=='native_exit' and stats['drain_completed'] and stats['pending']==stats['in_flight']==0
+        for suffix,content in (('stdout.jsonl',result.stdout),('stderr.txt',result.stderr)):
+            with (directory / (name+'.'+suffix)).open('xb') as output:output.write(content)
+        results.append(dict(check=name,exitCode=result.returncode,expectedExitCode=expected,passed=passed))
+        print(('PASS' if passed else 'FAIL')+': '+name,flush=True)
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, help='New directory below collection/.local')
@@ -137,6 +183,7 @@ def main():
         print(('PASS' if code == 0 else 'FAIL') + ': ' + name, flush=True)
     results.extend(check_configuration_files(executable, directory))
     results.extend(check_terminal_logs(executable, directory))
+    results.extend(check_content_layout(executable, directory))
     write_json_new(directory / 'result.json', dict(format=1, backend='ps4', gameExecution=False,
         buildSourceCommit=receipt['sourceCommit'], buildSourceDirty=receipt['sourceDirty'],
         executableSha256=digest(executable), checks=results))
