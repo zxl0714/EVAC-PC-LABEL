@@ -298,6 +298,10 @@ class ClientTests(unittest.TestCase):
             self.assertEqual([(event['operation'], event['passed']) for event in events
                               if event['event'] == 'native_community_replay_validation'], [('upload', True), ('download', True), ('upload', False)])
             self.assertTrue(all(event['metadata_required'] for event in events if event['event'] == 'native_community_replay_validation'))
+            validations = [event for event in events if event['event'] == 'native_community_replay_validation']
+            self.assertEqual([event['reason'] for event in validations], [None, None, 'replay_score_mismatch'])
+            self.assertTrue(all(event['game'] == 'ketsui' and event['payload_bytes'] == len(payload)
+                                for event in validations))
             page = store.leaderboard(0, 'standard')
             self.assertEqual((page['total'], page['entries'][0]['score'], page['entries'][0]['replay']), (1, '9002', None))
             self.assertEqual(len(list((profile / 'community-outbox/.trash').rglob('request.json'))), 4)

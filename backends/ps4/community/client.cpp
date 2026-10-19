@@ -323,6 +323,7 @@ struct Client::Impl {
     bool CheckUpload(Job& job) {
         if (job.replay_check != ReplayCheck::Upload) { return true; }
         bool valid{};
+        Json reason = nullptr;
         try {
             Require(job.body.is_object() && job.body.size() == 3 &&
                     Identifier(job.body.at("entry_id").get<std::string>()) &&
@@ -333,21 +334,34 @@ struct Client::Impl {
             job.body["sha256"] = Sha256(job.upload);
             job.body["format"] = ProtocolFor(config.game).replay_format;
             valid = true;
-        } catch (...) {}
-        std::printf("{\"event\":\"native_community_replay_validation\",\"operation\":\"upload\",\"passed\":%s,\"metadata_required\":%s,\"host_thread_id\":%lu,\"native_playback_validated\":false}\n", valid ? "true" : "false", job.replay_expected ? "true" : "false", static_cast<unsigned long>(GetCurrentThreadId()));
+        } catch (const std::exception& error) { reason = std::string(error.what()).substr(0,256); }
+          catch (...) { reason = "unknown_validation_error"; }
+        const Json diagnostic{{"event","native_community_replay_validation"},{"operation","upload"},
+            {"game",config.game},{"passed",valid},{"metadata_required",bool(job.replay_expected)},
+            {"payload_bytes",job.upload.size()},{"reason",reason},
+            {"host_thread_id",GetCurrentThreadId()},{"native_playback_validated",false}};
+        std::puts(diagnostic.dump().c_str());
         return valid;
     }
     void CheckDownload(const Job& job, Reply& reply) {
         if (job.replay_check != ReplayCheck::Download || !reply) { return; }
         bool valid{};
+        const auto payload_bytes = reply.bytes.size();
+        Json reason = nullptr;
         try {
             Require(reply.bytes.size() == job.replay_bytes && Sha256(reply.bytes) == job.replay_digest,
                     "Downloaded replay differs from the selected immutable entry");
             const auto replay = InspectReplayEnvelope(reply.bytes,config.game);
             if (job.replay_expected) { MatchReplayMetadata(replay, *job.replay_expected); }
             valid = true;
-        } catch (...) { reply.error = Error::Protocol; reply.bytes.clear(); reply.body = nullptr; }
-        std::printf("{\"event\":\"native_community_replay_validation\",\"operation\":\"download\",\"passed\":%s,\"metadata_required\":%s,\"host_thread_id\":%lu,\"native_playback_validated\":false}\n", valid ? "true" : "false", job.replay_expected ? "true" : "false", static_cast<unsigned long>(GetCurrentThreadId()));
+        } catch (const std::exception& error) { reason = std::string(error.what()).substr(0,256); }
+          catch (...) { reason = "unknown_validation_error"; }
+        if (!valid) { reply.error = Error::Protocol; reply.bytes.clear(); reply.body = nullptr; }
+        const Json diagnostic{{"event","native_community_replay_validation"},{"operation","download"},
+            {"game",config.game},{"passed",valid},{"metadata_required",bool(job.replay_expected)},
+            {"payload_bytes",payload_bytes},{"reason",reason},
+            {"host_thread_id",GetCurrentThreadId()},{"native_playback_validated",false}};
+        std::puts(diagnostic.dump().c_str());
     }
     void Run() noexcept {
         std::unique_ptr<RoundDelivery> rounds;
