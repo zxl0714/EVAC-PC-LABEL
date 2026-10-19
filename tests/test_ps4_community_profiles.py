@@ -96,7 +96,7 @@ class Ps4CommunityProfiles(unittest.TestCase):
                     thread.join(5)
                     self.assertFalse(thread.is_alive())
 
-    def test_unverified_replay_is_neither_advertised_nor_accepted(self):
+    def test_invalid_replay_is_not_accepted(self):
         with tempfile.TemporaryDirectory() as temporary:
             store = daioujou.Store(Path(temporary) / 'daioujou.sqlite3')
             request = score(6)
@@ -105,11 +105,33 @@ class Ps4CommunityProfiles(unittest.TestCase):
             upload = dict(entry_id=receipt['entry_id'], submission_id=request['submission_id'], nickname='Alice',
                           format=store.replay_format, sha256=hashlib.sha256(payload).hexdigest(),
                           payload_base64=base64.b64encode(payload).decode())
-            self.assertNotIn('replays', store.features)
+            self.assertIn('replays', store.features)
             with self.assertRaises(ketsui.ApiError) as error:
                 store.upload(upload)
-            self.assertEqual(error.exception.status, 501)
+            self.assertEqual(error.exception.status, 400)
             self.assertIsNone(store.leaderboard(6, 'standard')['entries'][0]['replay'])
+
+    def test_authored_native_envelope_matches_score_and_selected_board(self):
+        import zlib
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts/ps4'))
+        from run_replay_checks import record
+        payload=zlib.compress(record('daioujou'))
+        info=daioujou.replay_info(payload)
+        self.assertEqual((info['score'],info['character'],info['data_version']),(12345,0,0x10000))
+        with tempfile.TemporaryDirectory() as temporary:
+            store=daioujou.Store(Path(temporary)/'fixture.sqlite3')
+            request=score(6,'12345')
+            receipt=store.submit(request)
+            upload=dict(entry_id=receipt['entry_id'],submission_id=request['submission_id'],nickname='Alice',
+                format=store.replay_format,sha256=hashlib.sha256(payload).hexdigest(),payload_base64=base64.b64encode(payload).decode())
+            self.assertEqual(store.upload(upload)['size'],len(payload))
+            self.assertEqual(store.download(receipt['entry_id'])[0],payload)
+            wrong=score(1,'12345')
+            receipt=store.submit(wrong)
+            upload.update(entry_id=receipt['entry_id'],submission_id=wrong['submission_id'])
+            with self.assertRaises(ketsui.ApiError) as error:
+                store.upload(upload)
+            self.assertEqual(error.exception.code,'native_replay_mismatch')
 
 
 if __name__ == '__main__':

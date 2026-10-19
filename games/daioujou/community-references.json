@@ -3,7 +3,7 @@
   "game": "daioujou",
   "titleId": "CUSA32997",
   "version": "01.04",
-  "status": "static-analysis-only",
+  "status": "interface-and-native-record-analysis",
   "sourceExecutableSha256": "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
   "sources": [
     "patch:1100/config/title_prof.psb.m",
@@ -51,11 +51,14 @@
     "containerVersion": 65584,
     "legacyContainerVersions": [65568, 65552, 65550],
     "coreRegions": ["ARCADE_01000", "ARCADE_01010", "ARCADE_01020", "ARCADE_01030"],
-    "coreDataVersionVerified": false,
+    "coreDataVersionVerified": true,
     "coreDataVersionStatic": 65536,
-    "coreVersionCodeReference": "The hash-bound eboot registration at 0xe483 names getEmuVersion, binds 0x14960 via its wrapper, and that leaf returns 0x10000. This is static evidence; confirm against an actual native recording before enabling the adapter.",
-    "nativeRecordingVerified": false,
-    "description": "Static struct and script facts only. Container version comes from BackupStructVersion; data_version is independently supplied by getEmuVersion and must be observed. Do not accept a Ketsui 0x80000-byte record or infer native playback from matching field offsets."
+    "coreVersionCodeReference": "The hash-bound eboot registration at 0xe483 names getEmuVersion, binds 0x14960 via its wrapper, and that leaf returns 0x10000. A real independent ARCADE recording also has data_version 0x10000.",
+    "nativeRecordingVerified": true,
+    "observedRecordSha256": "b449a812c64df8b32459670279ce648719307e2dae97f5a759b8178afce479d1",
+    "observedRecording": {"containerVersion": 65584, "coreDataVersion": 65536, "region": "ARCADE_01000", "nativeScore": 42, "displayScore": 420, "character": 0, "stage": 5, "consumedFrames": 4079},
+    "nativePlaybackVerified": false,
+    "description": "Container version is independent of the selected shipped core revision. Actual record structure and core data_version have been checked, but online roundtrip and native playback remain unverified. Do not accept a Ketsui 0x80000-byte record or infer native playback from matching fields."
   },
   "nativeInterfaces": [
     "sceNpScoreCreateNpTitleCtxA",

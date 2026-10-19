@@ -37,7 +37,7 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场和两个随机 loopback 服务，使用真实 Windows HTTP 客户端分别核对两款协议的测试成绩与读榜；不访问正式服务、不执行游戏。`scripts/ps4/run_native_checks.py` 包含协议、配置及关闭联网的原生自测。
 
-目前的大往生服务不宣告或接收录像；需完成本作记录结构、版本及元数据校验，再接原生菜单闭环。静态接口与录像布局参考在 `games/daioujou/community-references.json`，实际验收见测试矩阵。静态分析结果不等同于游戏内 PSN 功能已接通。
+大往生开发服务已实现本作录像结构、双版本、快照／输入边界和成绩／角色／模式匹配，先前独立测试的真实 420 分记录已通过原生与服务端结构检查。可用 `python -B -m server.games.daioujou --database <独立数据库> --port 18088` 在 loopback 启动，不自动部署。游戏内提交、下载和回放仍需闭环验收；结构通过不等同于 PSN 功能已接通。接口与记录布局参考在 `games/daioujou/community-references.json`。
 
 ## SDOJ 服务与验收范围
 

@@ -500,13 +500,13 @@ class Server(ThreadingHTTPServer):
         LOG.error('connection_handler_failed')
 
 
-def main():
+def serve(store_class=Store, default_port=8732):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--database', type=Path, required=True)
-    parser.add_argument('--port', type=int, default=8732)
+    parser.add_argument('--port', type=int, default=default_port)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    server = Server(args.port, Store(args.database))
+    server = Server(args.port, store_class(args.database))
     stopping = threading.Event()
     def stop(*_):
         if not stopping.is_set():
@@ -514,11 +514,15 @@ def main():
             threading.Thread(target=server.shutdown, daemon=True).start()
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
-    LOG.info('listening=127.0.0.1:%d protocol=%d title=%s', server.server_port, PROTOCOL, TITLE)
+    LOG.info('listening=127.0.0.1:%d protocol=%d title=%s', server.server_port, PROTOCOL, server.store.title)
     try:
         server.serve_forever(poll_interval=0.1)
     finally:
         server.server_close()
+
+
+def main():
+    serve()
 
 
 if __name__ == '__main__':

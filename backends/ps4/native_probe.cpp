@@ -1768,7 +1768,9 @@ int NativeCommand(int argc, wchar_t** argv) {
     const bool configured_community = community_provider && std::wstring(community_provider) == L"configured";
     if (community_provider && (std::wstring(argv[2]) != L"--enter" ||
         (!configured_community && std::wstring(community_provider) != L"loopback") || (!input_config && !collection_config) || !user_directory)) { valid_arguments = false; }
-    if (configured_community && !community_rounds) { valid_arguments = false; }
+    const bool daioujou_provider=collection_game && std::wstring_view(collection_game)==L"daioujou";
+    if (configured_community && !community_rounds && !daioujou_provider) { valid_arguments = false; }
+    if (daioujou_provider && (community_rounds || community_round_audit)) valid_arguments=false;
     if (community_round_audit && (!community_provider || configured_community || std::wstring(community_round_audit) != L"on")) { valid_arguments = false; }
     if (community_rounds && (!community_provider || community_round_audit || std::wstring(community_rounds) != L"on")) { valid_arguments = false; }
     if (allocation_timing && ((std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate") ||
@@ -1806,16 +1808,25 @@ int NativeCommand(int argc, wchar_t** argv) {
                 collection_game ? cave::Utf8(std::filesystem::path(collection_game)) : "ketsui");
             cave::ps4::ApplyCollectionConfiguration(*collection);
         } else if (std::wstring(argv[2]) == L"--enter") { LoadKeyboardConfiguration(input_config); }
+        if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",merged_app!=nullptr); }
         if (community_provider) {
-            if (collection && collection->game!="ketsui") throw std::runtime_error("This title's community adapter is not yet implemented");
-            const auto config = collection ? collection->community : kt::community::LoadConfig(input_config);
-            const auto endpoint = kt::community::ParseEndpoint(config.endpoint);
+            auto config = collection ? collection->community : kt::community::LoadConfig(input_config);
+            // Explicit development loopback can exercise a title before the
+            // catalogue's player-facing capability gate is accepted. It still
+            // requires the user's enabled preference and literal loopback;
+            // normal configured collection launches never take this branch.
+            const bool development_opt_in=!configured_community && collection && collection->game=="daioujou" && !collection->community_supported;
+            if (development_opt_in) config.enabled=collection->shared.community_enabled;
+            const auto endpoint = kt::community::ParseEndpoint(config.endpoint,config.game);
+            if (app_path && NativeContentTitleId()!=kt::community::ProtocolFor(config.game).title_id)
+                throw std::runtime_error("Community title does not match the configured game content");
             if (!std::filesystem::path(user_directory).is_absolute()) throw std::runtime_error("Community provider requires an absolute user directory");
             if (configured_community) {
                 if (config.enabled && !endpoint.secure) throw std::runtime_error("Configured community service requires HTTPS");
             } else if (!config.enabled || endpoint.secure || endpoint.host != L"127.0.0.1") {
                 throw std::runtime_error("Community development entry requires enabled literal HTTP loopback");
             }
+            if (development_opt_in) std::puts("{\"event\":\"native_community_development_opt_in\",\"game\":\"daioujou\",\"loopback_only\":true,\"catalogue_capability_changed\":false}");
             if (config.enabled) {
                 auto instance=std::make_shared<kt::community::Client>(config,std::filesystem::path(user_directory),community_rounds!=nullptr);
                 if (community_rounds && !ConfigureNativeCommunityRounds(instance)) throw std::runtime_error("Community round producer already configured");
@@ -1838,7 +1849,6 @@ int NativeCommand(int argc, wchar_t** argv) {
         if (mouse_left_button && !ConfigureNativePadMouseLeft(mouse_left_button)) { throw std::runtime_error("Invalid mouse pad button"); }
         if (texture_validation) { ConfigureNativeTextureTracking(std::wstring(texture_validation) == L"tracked"); }
         if (attachment_validation) { ConfigureNativeAttachmentReuse(std::wstring(attachment_validation) == L"reuse"); }
-        if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",merged_app!=nullptr); }
         if (user_directory) { ConfigureNativeStorage(user_directory,app_path ? NativeContentTitleId() : "CUSA09062"); }
         if (modules_path) {
             module_directory = modules_path;

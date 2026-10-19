@@ -579,7 +579,7 @@ std::uint64_t ResolveScoreImport(std::string_view identifier, std::string_view l
     return 0;
 }
 bool ConfigureNativeScore(std::shared_ptr<kt::community::Client> client) {
-    if (!client || client->Game()!="ketsui") { return false; }
+    if (!client) { return false; }
     return bridge.Install([client] { return client->State(); },
         [client](std::string path, Json body, bool durable) { return client->Request(std::move(path), std::move(body), durable); },
         [client](Json body, std::vector<std::byte> payload, ReplayExpectation expected) {

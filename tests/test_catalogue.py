@@ -63,7 +63,7 @@ class CatalogueTests(unittest.TestCase):
 
     def test_daioujou_native_boards_do_not_reuse_ketsui_filter_rules(self):
         reference=catalogue.read_json(self.root/'games/daioujou/community-references.json')
-        self.assertEqual(reference['status'],'static-analysis-only')
+        self.assertEqual(reference['status'],'interface-and-native-record-analysis')
         self.assertEqual(reference['score']['nativeUnitInDisplayPoints'],10)
         self.assertEqual([item['base'] for item in reference['boardGroups']],[0,10,20,30,40,50,60])
         self.assertEqual([item['offset'] for item in reference['boardFilters']],list(range(7)))
@@ -75,7 +75,11 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(layout['recordBytes'],layout['dataOffset']+layout['dataBytes']+layout['trailingBytes'])
         self.assertEqual(layout['recordBytes'],0x65600)
         self.assertEqual(layout['containerVersion'],0x10030)
-        self.assertFalse(layout['nativeRecordingVerified'])
+        self.assertTrue(layout['nativeRecordingVerified'])
+        self.assertTrue(layout['coreDataVersionVerified'])
+        self.assertFalse(layout['nativePlaybackVerified'])
+        self.assertEqual(layout['observedRecording']['region'],'ARCADE_01000')
+        self.assertEqual(layout['observedRecording']['nativeScore']*10,layout['observedRecording']['displayScore'])
 
     def test_invalid_optional_content_metadata(self):
         original = catalogue.read_json(self.root / 'games/futari/data.json')

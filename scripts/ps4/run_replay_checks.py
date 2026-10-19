@@ -56,6 +56,12 @@ def main():
     djo=record('daioujou');kt=record('ketsui')
     check('daioujou-combined','daioujou',zlib.compress(djo),True)
     check('daioujou-character','daioujou',zlib.compress(djo),True,board=0)
+    for suffix in ('01000','01010','01020'):
+        selected=bytearray(djo)
+        selected[80:96]=b'ARCADE_'+suffix.encode()+bytes(4)
+        check('daioujou-core-'+suffix,'daioujou',zlib.compress(selected),True)
+    unknown=bytearray(djo);unknown[80:96]=b'ARCADE_99999'+bytes(4)
+    check('daioujou-unknown-core','daioujou',zlib.compress(unknown),False)
     check('daioujou-wrong-character','daioujou',zlib.compress(djo),False,board=1)
     check('daioujou-score-units','daioujou',zlib.compress(djo),False,score=123450)
     check('daioujou-custom','daioujou',zlib.compress(djo),False,board=16)

@@ -19,6 +19,12 @@ RecordContract ContractFor(std::string_view game) {
     if (game=="daioujou") return {0x65600,0x65000,0x10030,0x10000,"ARCADE_01030"};
     return {kReplayRecordSize,kReplayDataSize,0x10001,0x10001,"ARCADE_01000"};
 }
+bool DaioujouRegion(std::string_view region) {
+    // The 1.04 title can select any of its four shipped core revisions. The
+    // container version is independent of that selection; an actual ARCADE
+    // recording uses container 0x10030 with region ARCADE_01000.
+    return region=="ARCADE_01000" || region=="ARCADE_01010" || region=="ARCADE_01020" || region=="ARCADE_01030";
+}
 std::uint32_t U32(std::span<const std::byte> data, std::size_t offset) {
     Require(offset <= data.size() && data.size() - offset >= 4, "field_bounds");
     std::uint32_t value{};
@@ -150,7 +156,7 @@ void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& 
     if (replay.game=="daioujou") {
         Require((group==0 || (group>=2 && group<=6)) && ship<=6,"unsupported_replay_board");
         const auto mode=group==0 ? 0u : group==2 ? 1u : group==3 ? 2u : group==5 ? 5u : 4u;
-        Require(replay.region==ContractFor(replay.game).region && replay.kind==0 && replay.mode==mode,"replay_mode_mismatch");
+        Require(DaioujouRegion(replay.region) && replay.kind==0 && replay.mode==mode,"replay_mode_mismatch");
         Require(expected.score==replay.score,"replay_score_mismatch");
         Require(replay.character<6 && (ship==6 || ship==replay.character),"replay_ship_mismatch");
         return;
