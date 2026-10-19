@@ -1791,7 +1791,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         if (texture_validation) { ConfigureNativeTextureTracking(std::wstring(texture_validation) == L"tracked"); }
         if (attachment_validation) { ConfigureNativeAttachmentReuse(std::wstring(attachment_validation) == L"reuse"); }
         if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L""); }
-        if (user_directory) { ConfigureNativeStorage(user_directory); }
+        if (user_directory) { ConfigureNativeStorage(user_directory,app_path ? NativeContentTitleId() : "CUSA09062"); }
         if (modules_path) {
             module_directory = modules_path;
             if (!module_directory.is_absolute() || !std::filesystem::is_directory(module_directory)) { throw std::runtime_error("Module directory must be an existing absolute path"); }

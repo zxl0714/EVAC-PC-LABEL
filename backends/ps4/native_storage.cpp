@@ -29,6 +29,7 @@ constexpr int kBusy = static_cast<int>(0x809f0003u), kNotMounted = static_cast<i
 constexpr int kExists = static_cast<int>(0x809f0007u), kNoSpace = static_cast<int>(0x809f000au), kBroken = static_cast<int>(0x809f000fu);
 std::mutex gate;
 std::filesystem::path profile_root;
+std::string storage_title="CUSA09062";
 bool initialized{};
 std::unique_ptr<kt::save::Store> save_store;
 std::array<std::shared_ptr<kt::save::Mount>, 16> mounts;
@@ -96,7 +97,7 @@ template<std::size_t Size> bool Text(const char (&input)[Size], std::string& res
 }
 bool CurrentTitle(const TitleId* title) {
     if (!title) { return true; } TitleId value{}; std::string name;
-    return ReadGuest(title, &value, sizeof(value)) && Text(value.value, name) && name == "CUSA09062";
+    return ReadGuest(title, &value, sizeof(value)) && Text(value.value, name) && name == storage_title;
 }
 bool PointSlot(std::string_view point, unsigned& slot, std::string_view& relative) {
     constexpr std::string_view prefix = "/savedata";
@@ -202,7 +203,7 @@ __declspec(noinline) int InitializeHost(void* reserved, const void* caller) {
     if (profile_root.empty()) { UnsupportedApi("sceSaveDataInitialize3_without_user_directory", 0, caller); }
     try {
         const auto checked = CheckedRoot(profile_root);
-        const auto saves = checked / "profiles" / "1000" / "CUSA09062" / "savedata";
+        const auto saves = checked / "profiles" / "1000" / storage_title / "savedata";
         (void)CheckedRoot(saves);
         std::filesystem::create_directories(saves);
         // Recheck after creation, including any newly materialized components.
@@ -211,7 +212,7 @@ __declspec(noinline) int InitializeHost(void* reserved, const void* caller) {
         auto candidate = std::make_unique<kt::save::Store>(saves);
         save_store = std::move(candidate);
         initialized = true;
-        std::puts("{\"event\":\"native_storage_initialized\",\"profile\":\"1000\",\"title\":\"CUSA09062\",\"mounts\":0}");
+        std::printf("{\"event\":\"native_storage_initialized\",\"profile\":\"1000\",\"title\":\"%s\",\"mounts\":0}\n",storage_title.c_str());
         return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Native storage initialization failed: %s\n", error.what());
@@ -357,10 +358,15 @@ std::unique_ptr<kt::save::File> OpenNativeSaveFile(std::string_view path, kt::sa
     return save_store->Open(mounts[slot], relative, options);
 }
 
-void ConfigureNativeStorage(const std::filesystem::path& directory) {
+void ConfigureNativeStorage(const std::filesystem::path& directory,std::string_view title) {
     std::lock_guard lock(gate);
     if (initialized) { throw std::runtime_error("Cannot change the user directory while storage is initialized"); }
-    profile_root = CheckedRoot(directory);
+    if (title.size()!=9 || !title.starts_with("CUSA") ||
+        !std::all_of(title.begin()+4,title.end(),[](char c) {return c>='0' && c<='9';}))
+        throw std::runtime_error("Native storage requires a CUSA title ID");
+    const auto root=CheckedRoot(directory);
+    profile_root = root;
+    storage_title = title;
 }
 std::filesystem::path NativeStorageRoot() { std::lock_guard lock(gate); return profile_root; }
 
@@ -418,6 +424,22 @@ bool StorageSelfTest(const std::filesystem::path& directory) {
     try { ConfigureNativeStorage(std::filesystem::current_path() / "game-data" / "forbidden-test"); }
     catch (const std::exception&) { rejected = true; }
     check("original_data_protected", rejected);
+    ConfigureNativeStorage(directory,"CUSA32997");
+    const TitleId current{"CUSA32997",{}}, previous{"CUSA09062",{}};
+    check("current_title_only", CurrentTitle(nullptr) && CurrentTitle(&current) && !CurrentTitle(&previous));
+    check("title_isolated_directory", Initialize(nullptr)==0 &&
+        std::filesystem::is_directory(directory/"profiles"/"1000"/"CUSA32997"/"savedata") &&
+        std::filesystem::is_directory(saves));
+    rejected=false;
+    try {ConfigureNativeStorage(directory,"CUSA09062");} catch (const std::exception&) {rejected=true;}
+    check("title_immutable_while_initialized", rejected && CurrentTitle(&current));
+    check("other_title_terminates", Terminate()==0);
+    for (const auto title:{"CUSA3299", "CUSA32997/../CUSA09062", "cusa32997", "CUSA3299X"}) {
+        rejected=false;
+        try {ConfigureNativeStorage(directory,title);} catch (const std::exception&) {rejected=true;}
+        check("invalid_title_rejected_without_changing_current",rejected && CurrentTitle(&current));
+    }
+    ConfigureNativeStorage(directory);
     std::printf("{\"event\":\"storage_self_test\",\"passed\":%s}\n", passed ? "true" : "false");
     return passed;
 }

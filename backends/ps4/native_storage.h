@@ -5,7 +5,8 @@
 #include <string_view>
 #include "storage/save_store.h"
 
-void ConfigureNativeStorage(const std::filesystem::path& user_directory);
+void ConfigureNativeStorage(const std::filesystem::path& user_directory,
+                            std::string_view title_id = "CUSA09062");
 std::filesystem::path NativeStorageRoot();
 std::uint64_t ResolveStorageImport(std::string_view identifier, std::string_view library,
                                    std::string_view module);

@@ -56,7 +56,7 @@ Json Validate(const fs::path& root,const fs::path& directory,const Json& recipe,
               std::span<const std::string> files,std::span<const fs::path> sources) {
     CheckTree(root,directory,files,sources);
     const auto receipt=ReadJson(directory/"receipt.json");
-    Require(receipt.at("format")==1 && receipt.at("game")=="ketsui" && receipt.at("recipe")==recipe &&
+    Require(receipt.at("format")==1 && receipt.at("game")==recipe.at("game") && receipt.at("recipe")==recipe &&
         receipt.at("recipeSha256").get<std::string>()==key,"Prepared cache recipe differs");
     const auto& outputs=receipt.at("outputs");
     Require(outputs.is_array() && outputs.size()==files.size(),"Prepared cache output inventory differs");
@@ -91,10 +91,16 @@ void WritePreparedRelative(const fs::path& stage,std::string_view name,std::span
 }
 PreparedCache EnsurePreparedCache(const fs::path& requested_root,const fs::path& requested_data,
     const Json& recipe,std::span<const std::string> files,const std::function<void(const fs::path&)>& build) {
-    const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data),container=root/"prepared"/"ketsui";
-    const std::array sources{data};
     Require(recipe.is_object() && recipe.dump().size()<=128*1024 && !files.empty() && files.size()<=16,"Invalid prepared cache recipe");
+    // The title is part of both the recipe hash and the writable namespace.
+    // Never reuse another game's active pointer, even for identical outputs.
+    const auto game=recipe.at("game").get<std::string>();
+    (void)FindGame(game);
+    const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
+    const auto container=root/"prepared"/FromUtf8(game);
+    const std::array sources{data};
     CheckPreparationPath(root,container,sources,false,true);
+    ValidateOutputs(Paths(root,game,data));
     std::set<std::string> unique;
     for (const auto& name:files) {
         (void)Relative(container,name);
@@ -129,7 +135,7 @@ PreparedCache EnsurePreparedCache(const fs::path& requested_root,const fs::path&
         Require(fs::is_regular_file(file) && fs::file_size(file)<=512ull*1024*1024,"Missing or oversized newly prepared output");
         outputs.push_back({{"path",name},{"bytes",fs::file_size(file)},{"sha256",Sha256(file)}});
     }
-    const Json receipt{{"format",1},{"game","ketsui"},{"recipe",recipe},{"recipeSha256",key},{"outputs",std::move(outputs)}};
+    const Json receipt{{"format",1},{"game",game},{"recipe",recipe},{"recipeSha256",key},{"outputs",std::move(outputs)}};
     WritePreparedRelative(stage,"receipt.json",TextBytes(receipt.dump(2)+'\n'));
     (void)Validate(root,stage,recipe,key,files,sources);
     CheckPreparationPath(root,directory,sources,true,true);

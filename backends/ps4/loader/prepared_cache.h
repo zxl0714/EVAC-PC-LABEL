@@ -12,6 +12,7 @@ struct PreparedCache {
 };
 // A generation is immutable once published. Invalid generations and failed
 // staging directories are preserved, never selected as a fallback or deleted.
+// recipe.game must name a catalogue entry; generations are isolated per game.
 PreparedCache EnsurePreparedCache(const fs::path& root,const fs::path& data,
     const nlohmann::json& recipe,std::span<const std::string> files,
     const std::function<void(const fs::path&)>& build);

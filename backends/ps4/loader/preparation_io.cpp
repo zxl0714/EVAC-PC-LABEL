@@ -32,20 +32,23 @@ void CheckPreparationPath(const fs::path& root,const fs::path& literal,std::span
             throw std::runtime_error("Prepared output cannot traverse a file/directory link");
     }
     const auto output=Resolve(root,literal);
-    if (!(Within(output,root/".local") || Within(output,root/"prepared"/"ketsui")) ||
-        (!allow_container && (output==root/".local" || output==root/"prepared"/"ketsui")))
-        throw std::runtime_error("Prepared output must be under collection .local or prepared/ketsui");
+    bool allowed=Within(output,root/".local") && (allow_container || output!=root/".local");
+    for (const auto& game:Catalogue()) {
+        const auto container=root/"prepared"/FromUtf8(game.id);
+        allowed |= Within(output,container) && (allow_container || output!=container);
+    }
+    if (!allowed) throw std::runtime_error("Prepared output must be under collection .local or a known prepared/<game> directory");
     for (const auto& source:sources) if (!source.empty() && (Within(output,source) || Within(source,output)))
         throw std::runtime_error("Prepared output overlaps an ELF source directory");
     const auto ini=Ini::Load(root/"config.ini");
     for (const auto& game:Catalogue()) {
         fs::path data,content;
         try {data=Resolve(root,ini.DataDirectory(game));}
-        catch (const std::exception&) {if (game.id=="ketsui") throw;}
+        catch (const std::exception&) {if (game.id=="ketsui" || Within(output,root/"prepared"/FromUtf8(game.id))) throw;}
         if (!data.empty() && (Within(output,data) || Within(data,output)))
             throw std::runtime_error("Prepared output overlaps configured game data");
         try {const auto path=ini.ContentDirectory(game,data);if (!path.empty()) content=Resolve(root,path);}
-        catch (const std::exception&) {if (game.id=="ketsui") throw;}
+        catch (const std::exception&) {if (game.id=="ketsui" || Within(output,root/"prepared"/FromUtf8(game.id))) throw;}
         if (!content.empty() && (Within(output,content) || Within(content,output)))
             throw std::runtime_error("Prepared output overlaps configured DLC data");
     }

@@ -31,7 +31,7 @@ class Checks:
         data.mkdir()
         (data / 'source.txt').write_bytes(b'authored source, not a game program')
         (root / 'config.ini').write_text(config, encoding='utf-8')
-        recipe = dict(format=1, version=1, sourceSha256=digest(data / 'source.txt'), producerSha256='authored-one')
+        recipe = dict(format=1, game='ketsui', version=1, sourceSha256=digest(data / 'source.txt'), producerSha256='authored-one')
         return root, dict(root=str(root), data=str(data), recipe=recipe)
 
     def run(self, request, expected=0):
@@ -52,17 +52,19 @@ class Checks:
         response = json.loads(result.stdout)
         assert response['guestExecution'] is False
         directory = Path(response['directory'])
-        directory.resolve().relative_to(Path(request['root']).resolve() / 'prepared/ketsui')
+        container = Path(request['root']).resolve() / 'prepared' / request['recipe']['game']
+        directory.resolve().relative_to(container)
         assert response['buildCalls'] == (0 if response['cacheHit'] else 1)
         for file in FILES:
             assert (directory / file).read_bytes() == ('authored:' + file + ':' + request.get('payload', 'one')).encode()
         receipt = response['receipt']
+        assert receipt['game'] == request['recipe']['game']
         assert receipt['recipe'] == request['recipe'] and receipt['recipeSha256'] == response['recipeSha256']
         assert [item['path'] for item in receipt['outputs']] == list(FILES)
         for item in receipt['outputs']:
             output = directory / item['path']
             assert output.stat().st_size == item['bytes'] and digest(output) == item['sha256']
-        assert not (Path(request['root']) / 'prepared/ketsui/.prepare.lock').exists()
+        assert not (container / '.prepare.lock').exists()
         return response
 
     def check(self, name, action):
@@ -211,6 +213,25 @@ class Checks:
         assert second['cacheHit'] and second['recipeSha256'] == first['recipeSha256']
         assert Path(second['directory']).parent == destination / 'prepared/ketsui'
 
+    def game_isolation(self):
+        root, request = self.fixture('game-isolation')
+        first = self.run(request)
+        active = root / 'prepared/ketsui/active.json'
+        before = active.read_bytes()
+        other = {**request, 'recipe': {**request['recipe'], 'game': 'daioujou'}}
+        second = self.run(other)
+        assert not second['cacheHit'] and second['recipeSha256'] != first['recipeSha256']
+        assert Path(second['directory']).parent == root / 'prepared/daioujou'
+        assert active.read_bytes() == before and self.run(request)['cacheHit']
+        assert self.run(other)['cacheHit']
+
+    def invalid_game(self):
+        for index, game in enumerate((None, '../ketsui', 'not-a-title', 1)):
+            root, request = self.fixture('invalid-game-' + str(index))
+            request['recipe']['game'] = game
+            self.run(request, 2)
+            assert not (root / 'prepared').exists()
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -236,6 +257,8 @@ def main():
     for kind in ('data', 'dlc'): suite.check('overlap-' + kind, lambda kind=kind: suite.overlap(kind))
     suite.check('invalid-sibling', suite.invalid_sibling)
     suite.check('relocation', suite.relocation)
+    suite.check('game-isolation', suite.game_isolation)
+    suite.check('invalid-game', suite.invalid_game)
     write_json_new(directory / 'result.json', dict(format=1, gameExecution=False, authoredInputs=True,
         sourceCommit=receipt['sourceCommit'], sourceDirty=receipt['sourceDirty'], executableSha256=digest(executable), checks=suite.results))
     print(f'{sum(item["passed"] for item in suite.results)}/{len(suite.results)} native cache checks passed; report: {directory}')
