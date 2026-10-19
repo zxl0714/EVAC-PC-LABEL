@@ -737,7 +737,7 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         if (timing) {
             *timing = {true, completed_at-present_began, locked_at-present_began,
                 display_wait_began-locked_at, display_ready-display_wait_began,
-                backend_completed-display_ready, completed_at-backend_completed};
+                backend_completed-display_ready, completed_at-backend_completed, {}};
             // A successful final retry does not describe the earlier waits.
             if (!retries && !zero_extent_polls) { timing->backend = backend_timing; }
         }

@@ -29,6 +29,14 @@ promise every Windows frame is exactly 16.667 ms. Retain correct game speed,
 native slowdown and synchronization. No v0.3 packaging/upload acceptance until
 the causes, fixes and bounded representative validation are recorded; real
 lower-spec coverage and any controlled load proxy must be distinguished.
+The user has stopped the uncapped-FPS experiment: do not resume it. All three
+measured stages need optimization investigation in v0.3: ~3.6 ms command
+processing (including conservative GPU drains), the slow frame's ~3.89 ms final
+output, and ~1.58 ms between submissions (guest logic, host services, scheduling
+and previous diagnostics). Do not dismiss the last interval as miscellaneous.
+Measure costs, implement safe high-value reductions and replay-check each path;
+do not claim these wall-time stages are pure CPU/GPU work. Normal ~10 ms pacing
+wait is intentional, not evidence that the three paths need no improvement.
 Keep failed attempts as incomplete evidence. Preserve frozen v0.1/v0.2 archives.
 
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has
