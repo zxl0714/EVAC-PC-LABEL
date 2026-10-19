@@ -28,6 +28,10 @@ bfc5808 已重建，16 项原生结构检查和 4 项双标题 HTTP 链路通过
 
 e85f288 的头部诊断已重建，旧绊地狱原生 ABI／真实 HTTP 定向用例通过。`.local/daioujou-network-r4` 自然结束取得 400 显示分／原生 40，实际网络头 kind=0、mode=3、region=ARCADE_01000、版本 0x10030／0x10000，预期 board=0。原生 rankingModeConv 在 ALL-MIX=false 时将临时 CUSTOM=3 归入 ARCADE，而网络头使用未转换的 GameMode，本地保存稍后才转换为 0。客户端及服务端现允许 ARCADE 的原生 0／3 两种头，不改变原生资格判断、不开放 CUSTOM 榜或将 3 接受为其他模式、不改附件字节；8 项服务用例已通过，修正后实机闭环仍待执行。
 
+48a28d0 已重建并通过 20 项原生录像检查。`.local/daioujou-network-r5` 实际 ARCADE／Type-A／Shotia 自然局末为 1650 分，board 0 的整数 165 和原生附件 26,547 字节都获 HTTP 200 并落库，附件 SHA-256 为 17ffdd7b502a345f49a83f7b104e9e0422a91bd0b635a49171ca9f464ed8c822；服务和原生检查都确认网络头 mode=3。附件及元数据证据在 `.local/analysis/daioujou-network-r5-upload.*`。进入原生 Ranking Viewer 后，游戏自行补传旧存档已有的 1780 分，榜单显示 Djo-Network5／1780／录像标志；不将此原生补传称为新建的 PC outbox。
+
+同一进程点击下载尚无 fetch：原生 is_blocked_id 调用 initializeIDMapper，日志在按键后记录 eboot +0x125d8f 的 sceNetInit_not_supported，脚本在初始化失败时直接返回 true。大往生专属只读资源适配现保留 Sony 正常列表路径，仅在其初始化失败且社区排行榜已初始化时使用无 PSN 屏蔽名单的社区路径；不伪造通用 socket/SSL 成功。覆盖按本作 eboot／脚本 SHA-256 和 01.04 标识绑定，正常合集仅在本作社区 enabled 时加载，不复用绊地狱资源修复。重建、实际下载／保存和冷启动回放仍待验收；catalogue 能力保持关闭。
+
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。

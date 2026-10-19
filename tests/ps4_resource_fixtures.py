@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts/ketsui'))
 import game_fixes as fixes
 from ketsui.test_game_fixes import GameFixTests
+from daioujou.resource_fixes import fix_replay_peer
 
 
 def array(values):
@@ -85,7 +86,7 @@ def oracle(item):
     if op == 'psb': return fixes.Psb(source).root
     if op == 'fix':
         transform = dict(music=fixes.fix_direct_menu, batch=fixes.fix_ranking_replay_batch,
-                         offline=fixes.fix_community_local_round_gate)[item['kind']]
+                         offline=fixes.fix_community_local_round_gate, peer=fix_replay_peer)[item['kind']]
         return transform(source).hex()
     seed, name = bytes.fromhex(item['seed']), item['resource']
     if op == 'mask': return fixes.mask_for(seed, name).hex()
@@ -131,6 +132,13 @@ def cases():
             add('fix-' + kind + '-duplicate-' + label, 'fix', body + body, kind=kind)
         add('fix-offline-comments-' + label, 'fix', b'// outside' + newline + scripts['offline'].replace(
             b'    if (checkRegistRanking()) {', b'    // remove' + newline + b'    if (checkRegistRanking()) { // inline'), kind='offline')
+        peer = newline.join((b'// outside', b'function is_blocked_id(_id_h,_id_l) {',
+            b'  // authored initializer', b'  if (_net.initializeIDMapper() < 0) return true;',
+            b'  return authored_block_list(); // preserved', b'}',
+            b'function getLocalEntryMax() { return authored_entry_max; }', b''))
+        add('fix-peer-' + label, 'fix', peer, kind='peer')
+        add('fix-peer-duplicate-' + label, 'fix', peer + peer, kind='peer')
+        add('fix-peer-changed-' + label, 'fix', peer.replace(b'< 0', b'<= 0'), kind='peer')
     for count in (0, 1, 3):
         add('fix-music-count-' + str(count), 'fix', b'm_bgm_mode[_gamemode] = _bgmMode;\n' * count, kind='music')
     add('fix-batch-changed', 'fix', helper.authored_ranking_batch().replace(b'            break;', b'            return 0;'), kind='batch')

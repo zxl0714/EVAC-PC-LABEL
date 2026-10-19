@@ -166,6 +166,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
                 L"--read-patches",prepared.read_fixes.native(),L"--community-rounds",L"on"});
         } else {
             arguments.insert(arguments.end(),{L"--merged-app",L"on"});
+            if (configuration.community.enabled) arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native()});
         }
         // Development-only bridge to the existing pad diagnostic. Never save
         // this setting in the player INI or enable it in the launcher itself.

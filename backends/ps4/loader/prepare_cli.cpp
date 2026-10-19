@@ -61,8 +61,8 @@ int PrepareElfCommand(int argc,wchar_t** argv) {
 }
 int PrepareReadFixesCommand(int argc,wchar_t** argv) {
     try {
-        if (argc<7) throw std::runtime_error("Usage: --prepare-fixes game-data --root collection --output new.ktfix [--community-replay] [--community-offline]");
-        fs::path root,output; bool replay{},offline{};
+        if (argc<7) throw std::runtime_error("Usage: --prepare-fixes game-data --root collection --output new.ktfix [--game ketsui|daioujou] [--community-replay] [--community-offline]");
+        fs::path root,output; bool replay{},offline{},game_given{};std::string game="ketsui";
         for (int i=3;i<argc;++i) {
             const std::wstring_view option(argv[i]);
             if (option==L"--community-replay" || option==L"--community-offline") {
@@ -73,6 +73,7 @@ int PrepareReadFixesCommand(int argc,wchar_t** argv) {
             if (i+1>=argc || !*argv[i+1]) throw std::runtime_error("Missing resource preparation option value");
             if (option==L"--root" && root.empty()) root=argv[++i];
             else if (option==L"--output" && output.empty()) output=argv[++i];
+            else if (option==L"--game" && !game_given) {game=Utf8(fs::path(argv[++i]));game_given=true;}
             else throw std::runtime_error("Unknown or repeated resource preparation option");
         }
         if (root.empty() || output.empty() || !root.is_absolute() || !output.is_absolute() || output.extension()!=L".ktfix")
@@ -82,7 +83,9 @@ int PrepareReadFixesCommand(int argc,wchar_t** argv) {
         root=fs::canonical(root); const auto data=fs::canonical(argv[2]);
         const auto source_sentinel=data/L"resource-preparation-source";
         CheckOutput(root,output,source_sentinel,{});
-        auto result=PrepareReadFixes(data,replay,offline);
+        if ((game!="ketsui" && game!="daioujou") || (game=="daioujou" && (replay || offline)))
+            throw std::runtime_error("Unsupported game or incompatible resource preparation options");
+        auto result=game=="ketsui"?PrepareReadFixes(data,replay,offline):PrepareDaioujouReadFixes(data);
         fs::create_directories(output.parent_path());
         CheckOutput(root,output,source_sentinel,{}); WritePreparationFile(output,result.bytes);
         result.report.update(kt::community::Json{{"event","read_fixes_prepared"},{"output",Utf8(output)},

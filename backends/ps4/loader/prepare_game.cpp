@@ -37,29 +37,29 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     for (const auto& file:FindGame(game).files) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
     const Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
         {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui},
-        {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui}};
+        {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
+        {"communityReplayPeerFallback",!ketsui}};
     const std::vector<std::string> programs=ketsui ?
         std::vector<std::string>{"eboot.bin","emu_integration_01400.prx","ketsui_01000.prx"} :
         std::vector<std::string>{"eboot.bin","emu_integration_01700.prx","daioujou_01000.prx","daioujou_01010.prx",
             "daioujou_01020.prx","daioujou_01030.prx"};
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
-    if (ketsui) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
+    files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
         const auto libc=ReadPreparationInput(DataChild(data,ketsui?"CUSA09062-app/sce_module/libc.prx":"sce_module/libc.prx"));
         for (std::size_t i=0;i<programs.size();++i) {
             const auto source=ReadPreparationInput(DataChild(data,(ketsui?"CUSA09062-patch/":"")+programs[i]));
             const auto prepared=PrepareElf(source,i!=0,libc);WritePreparedRelative(stage,files[i],prepared.bytes);
         }
-        if (ketsui) {
-            const auto fixes=PrepareReadFixes(data,true,true);WritePreparedRelative(stage,files[3],fixes.bytes);
-            const auto metadata=fixes.report.dump(2)+'\n';
-            WritePreparedRelative(stage,files[4],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
-        }
+        const auto fixes=ketsui?PrepareReadFixes(data,true,true):PrepareDaioujouReadFixes(data);
+        WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
+        const auto metadata=fixes.report.dump(2)+'\n';
+        WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
         CheckData(root,data,game);
         if (Sha256(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
-    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",ketsui?cache.directory/"game-fixes.ktfix":fs::path{}};
+    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",cache.directory/"game-fixes.ktfix"};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {

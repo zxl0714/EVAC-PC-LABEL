@@ -21,6 +21,7 @@ using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t kPatchLimit = 262144;
 constexpr std::string_view kExecutableHash = "a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073";
+constexpr std::string_view kDaioujouExecutableHash = "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f";
 void Require(bool okay, const char* message) { if (!okay) throw std::runtime_error(message); }
 std::string Hex(std::span<const std::byte> bytes) {
     constexpr char digits[] = "0123456789abcdef";
@@ -229,8 +230,9 @@ ResourceBytes ReadRange(const fs::path& path,std::uint64_t file_size,std::uint64
     ResourceBytes bytes(static_cast<std::size_t>(size));
     Require(bool(source.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(size))),"Truncated resource archive read"); return bytes;
 }
-ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable) {
-    Require(Hash(executable)==kExecutableHash,"Game fixes require the verified CUSA09062 1.02 executable");
+ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,bool daioujou=false) {
+    Require(Hash(executable)==(daioujou?kDaioujouExecutableHash:kExecutableHash),
+        daioujou?"Game fixes require the verified CUSA32997 1.04 executable":"Game fixes require the verified CUSA09062 1.02 executable");
     const auto count=Number(executable,56,2),table=Number(executable,32,8);
     Require(count<=64 && table<=executable.size() && count<=(executable.size()-table)/56,"Invalid archive executable headers");
     auto virtual_read=[&](std::uint64_t address,unsigned size) {
@@ -247,6 +249,14 @@ ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable) {
         }
         Require(matches==1,"Archive initialization data is not in one file-backed segment"); return bytes;
     };
+    if (daioujou) {
+        Require(virtual_read(0xdd,3)==ResourceBytes{0x48,0x8d,0x35} &&
+            virtual_read(0xe4,5)==ResourceBytes{0xba,0x0d,0,0,0},"Archive initialization instruction layout changed");
+        const auto relative=virtual_read(0xe0,4);
+        const auto address=std::int64_t{0xe4}+static_cast<std::int32_t>(Number(relative,0,4));
+        Require(address>=0,"Invalid archive initialization address");
+        return virtual_read(static_cast<std::uint64_t>(address),13);
+    }
     Require(virtual_read(0xd3,2)==ResourceBytes{0x48,0xb8} && virtual_read(0xdd,2)==ResourceBytes{0x48,0xb9},
         "Archive initialization instruction layout changed");
     auto key=virtual_read(0xdf,8); const auto tail=virtual_read(0xd8,5); key.insert(key.end(),tail.begin(),tail.end()); return key;
@@ -299,6 +309,17 @@ Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(sourc
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {
     Require(source.size()<=kResourceLimit,"Oversized resource script");
     auto raw=Text(source); const std::string newline=raw.find("\r\n")!=raw.npos ? "\r\n" : "\n";
+    if (fix==ResourceFix::CommunityReplayPeer) {
+        auto [start,stop,body]=Method(raw,"function is_blocked_id(_id_h,_id_l) {","function getLocalEntryMax() {");
+        // Only the community-loaded title adapter uses this fallback. Keep the
+        // working Sony ID-mapper/list path intact; do not enable socket APIs or
+        // alter privacy settings. A disabled/uninitialized provider fails closed.
+        Replace(body,"  if (_net.initializeIDMapper() < 0) return true;",
+            "  if (_net.initializeIDMapper() < 0) {"+newline+
+            "    if (::g_ranking_manager && ::g_ranking_manager.isInitialized()) return false;"+newline+
+            "    return true;"+newline+"  }",1);
+        raw.replace(start,stop-start,Compact(body));return Bytes(raw);
+    }
     if (fix==ResourceFix::MusicAutosave) {
         constexpr std::string_view anchor="m_bgm_mode[_gamemode] = _bgmMode;";
         Replace(raw,anchor,std::string(anchor)+newline+
@@ -413,5 +434,38 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
             "Original resource changed during fix preparation");
     }
     report["read_overlay_sha256"]=Hash(output); return {std::move(output),std::move(report)};
+}
+PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) {
+    const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
+    const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,true);
+    const auto index_path=DataChild(root,"ps4data_info.psb.m"),patch_index_path=DataChild(root,"ps4data_patch_info.psb.m");
+    const auto index_raw=ReadFile(index_path,kResourceLimit),patch_index_raw=ReadFile(patch_index_path,kResourceLimit);
+    const auto index=ParseResourceIndex(UnwrapResource(index_raw,key,"ps4data_info.psb.m"));
+    const auto patch_index=ParseResourceIndex(UnwrapResource(patch_index_raw,key,"ps4data_patch_info.psb.m"));
+    constexpr std::string_view resource="1100/script/title_ranking_view.nut.m",name="title_ranking_view.nut.m";
+    Require(!patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched DaiOuJou ranking script");
+    const auto& extent=index.at("file_info").at(std::string(resource));
+    Require(extent.is_array() && extent.size()==2,"Invalid DaiOuJou ranking resource entry");
+    for (const auto& n:extent) Require(n.is_number_integer() && !n.is_boolean() &&
+        (n.is_number_unsigned()?n.get<std::uint64_t>()<=INT64_MAX:n.get<std::int64_t>()>=0),"Invalid resource index integer");
+    const auto offset=extent[0].get<std::uint64_t>(),size=extent[1].get<std::uint64_t>();
+    const auto body=DataChild(root,"ps4data_body.bin");const auto file_size=fs::file_size(body);
+    const auto packed=ReadRange(body,file_size,offset,size),script=UnwrapResource(packed,key,name);
+    constexpr std::string_view expected="5275193bc6590e3d826bcdd495bc074a2f3b4adc6157c5de32d0631457e96a19";
+    Require(Hash(script)==expected,"DaiOuJou ranking script differs from the verified input");
+    const auto fixed=FixResourceScript(script,ResourceFix::CommunityReplayPeer);
+    const auto replacement=WrapResource(fixed,key,name,static_cast<std::size_t>(size));
+    kt::content::ReadPatch patch{"ps4data_body.bin",file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),{}};
+    const auto bytes=ByteSpan(replacement);patch.replacement.assign(bytes.begin(),bytes.end());
+    auto output=EncodeReadFixes({"CUSA32997","01.04",{patch}});
+    Require(Hash(ReadFile(executable,512*1024*1024))==kDaioujouExecutableHash &&
+        Hash(ReadFile(index_path,kResourceLimit))==Hash(index_raw) &&
+        Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw) &&
+        Hash(ReadRange(body,file_size,offset,size))==Hash(packed),"DaiOuJou resources changed during preparation");
+    Json report{{"format",1},{"fix","community-replay-peer-fallback"},{"title_id","CUSA32997"},{"app_version","01.04"},
+        {"executable_sha256",kDaioujouExecutableHash},{"resource",resource},{"offset",offset},{"bytes",size},
+        {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)},
+        {"original_files_modified",false},{"requires_community_provider",true},{"read_overlay_sha256",Hash(output)}};
+    return {std::move(output),std::move(report)};
 }
 }

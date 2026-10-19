@@ -4,6 +4,18 @@ import ps4_resource_fixtures as fixtures
 
 
 class ResourcePreparationFixtures(unittest.TestCase):
+    def test_peer_fallback_is_scoped_and_preserves_existing_list_path(self):
+        source=(b'// outside\nfunction is_blocked_id(_id_h,_id_l) {\n'
+                b'  if (_net.initializeIDMapper() < 0) return true;\n'
+                b'  return authored_existing_list_result;\n}\n'
+                b'function getLocalEntryMax() { return 10; }\n')
+        fixed=fixtures.fix_replay_peer(source)
+        self.assertTrue(fixed.startswith(b'// outside\n'))
+        self.assertTrue(fixed.endswith(b'function getLocalEntryMax() { return 10; }\n'))
+        self.assertIn(b'if (::g_ranking_manager && ::g_ranking_manager.isInitialized()) return false;',fixed)
+        self.assertIn(b'    return true;\n  }\n  return authored_existing_list_result;',fixed)
+        with self.assertRaises(ValueError):fixtures.fix_replay_peer(fixed)
+
     def test_authored_psb_covers_names_values_and_unicode(self):
         root = {'file_info': {'own.nut.m': [30, 40]}, '资源': ['hello', -2**48, True, False, None, 1.5]}
         self.assertEqual(fixtures.fixes.Psb(fixtures.psb(root)).root, root)

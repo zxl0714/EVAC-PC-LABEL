@@ -63,7 +63,7 @@ def snapshot():
                 'tools/packages.lock.json', 'config/default.ini', 'games/catalogue.json', 'scripts/generate_catalogue.py',
                 'scripts/ps4/run_prepare_checks.py', 'scripts/ps4/native_elf.py', 'scripts/ps4/prepare_native.py',
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
-    explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py',
+    explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py', 'scripts/daioujou/resource_fixes.py',
                      'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'tests/ketsui/test_native.py',
                      'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py', 'scripts/ps4/run_replay_checks.py',
                      'scripts/ps4/replay_fixture.py',

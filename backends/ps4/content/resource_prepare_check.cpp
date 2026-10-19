@@ -46,8 +46,9 @@ Json Run(const Json& item) {
     if (op=="psb") return ParseResourceIndex(source);
     if (op=="fix") {
         const auto kind=item.at("kind").get<std::string>();
-        const auto fix=kind=="music" ? ResourceFix::MusicAutosave : kind=="batch" ? ResourceFix::ReplayBatch : ResourceFix::LocalRoundGate;
-        if (kind!="music" && kind!="batch" && kind!="offline") throw std::runtime_error("Unknown script test kind");
+        const auto fix=kind=="music" ? ResourceFix::MusicAutosave : kind=="batch" ? ResourceFix::ReplayBatch :
+            kind=="peer" ? ResourceFix::CommunityReplayPeer : ResourceFix::LocalRoundGate;
+        if (kind!="music" && kind!="batch" && kind!="offline" && kind!="peer") throw std::runtime_error("Unknown script test kind");
         return Hex(FixResourceScript(source,fix));
     }
     const auto seed=Unhex(item.at("seed")); const auto name=item.at("resource").get<std::string>();
