@@ -61,6 +61,7 @@ def load(path):
                 raise ValueError('Duplicate runtime path')
             seen.add(entry.casefold())
         game['files'] = []
+        game['content'] = []
         if game['dataManifest']:
             source = path.parent / relative(game['dataManifest'])
             if not source.resolve().is_relative_to(path.parent):
@@ -77,6 +78,37 @@ def load(path):
                 if not re.fullmatch('[0-9a-f]{64}', item['sha256']) or type(item['program']) is not bool:
                     raise ValueError('Invalid hash or program flag')
             game['files'] = manifest['files']
+            content_ids, content_paths, content_identifiers = set(), set(), set()
+            if not isinstance(manifest.get('optionalContent', []), list) or len(manifest.get('optionalContent', [])) > 32:
+                raise ValueError('Invalid optional content count')
+            for package in manifest.get('optionalContent', []):
+                if (not re.fullmatch('[a-z][a-z0-9_-]{0,31}', package['id']) or package['id'] in content_ids
+                        or not isinstance(package['name'], str) or not package['name']
+                        or any(ord(c) < 32 for c in package['name'])
+                        or not re.fullmatch('[0-9A-F]{8}', package['titleId'])
+                        or not re.fullmatch('[0-9A-F]{40,64}', package['packageName'])):
+                    raise ValueError('Invalid optional content identity')
+                content_ids.add(package['id'])
+                identifier = package['id'].replace('-', '_')
+                if identifier in content_identifiers:
+                    raise ValueError('Optional content identifiers collide after compilation')
+                content_identifiers.add(identifier)
+                directory = f"0000000000000000/{package['titleId']}/00000002/{package['packageName']}"
+                header = f"0000000000000000/{package['titleId']}/Headers/00000002/{package['packageName']}.header"
+                if (package['directory'] != directory or directory in content_paths or not package['files']):
+                    raise ValueError('Invalid or duplicate optional content directory')
+                content_paths.add(directory)
+                names = set()
+                for item in package['files']:
+                    name = relative(item['path'])
+                    if (name.casefold() in names or not (name.startswith(directory + '/') or name == header)
+                            or type(item['bytes']) is not int or not 0 <= item['bytes'] <= 2**63-1
+                            or not re.fullmatch('[0-9a-f]{64}', item['sha256']) or item['program'] is not False):
+                        raise ValueError('Invalid optional content file')
+                    names.add(name.casefold())
+                if header.casefold() not in names or len(names) < 2:
+                    raise ValueError('Optional content requires its header and payload')
+                game['content'].append(package)
     return games
 
 
@@ -90,6 +122,18 @@ def generate(games):
         for file in game['files']:
             lines.append('{' + ','.join([quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), str(file['program']).lower()]) + '},')
         lines.append('}};')
+        for package in game['content']:
+            part = key + '_' + package['id'].replace('-', '_')
+            lines.append(f'inline constexpr std::array<DataFile,{len(package["files"])}> content_files_{part}{{{{')
+            for file in package['files']:
+                lines.append('{' + ','.join([quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), 'false']) + '},')
+            lines.append('}};')
+        lines.append(f'inline constexpr std::array<ContentPackage,{len(game["content"])}> content_{key}{{{{')
+        for package in game['content']:
+            part = key + '_' + package['id'].replace('-', '_')
+            lines.append('{' + ','.join([quoted(package[k]) for k in ('id', 'name', 'directory', 'packageName')]
+                                        + ['0x' + package['titleId'] + 'u', f'content_files_{part}']) + '},')
+        lines.append('}};')
         lines.append(f'inline constexpr std::array<std::string_view,{len(game["runtimeFiles"])}> runtime_{key}{{{{')
         lines.extend(quoted(name) + ',' for name in game['runtimeFiles'])
         lines.append('}};')
@@ -97,7 +141,7 @@ def generate(games):
     for game in games:
         key = game['id'].replace('-', '_')
         fields = [quoted(game[k]) for k in ('id', 'name', 'backend', 'dataDirectory', 'executable')]
-        fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}']
+        fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}', f'content_{key}']
         lines.append('{' + ','.join(fields) + '},')
     return '\n'.join(lines + ['}};', '}  // namespace cave::detail', ''])
 

@@ -86,12 +86,34 @@ ContentManager::ContentManager(KernelState* kernel_state, const std::filesystem:
 
 ContentManager::~ContentManager() = default;
 
-void ContentManager::SetReadOnlyContentRoot(const std::filesystem::path& source) {
+void ContentManager::SetReadOnlyContentRoot(const std::filesystem::path& source,
+    std::optional<std::vector<ReadOnlyPackage>> allowed) {
   auto lock = global_critical_region_.Acquire();
   if (!open_packages_.empty()) throw std::logic_error("Configure content source before opening packages");
   if (source.empty() || !std::filesystem::is_directory(source))
     throw std::invalid_argument("Read-only content source must be an existing directory");
+  if (allowed) for (const auto& package : *allowed) {
+    if (package.name.empty() || package.name.size() > 128 || package.name == "." || package.name == ".." ||
+        package.name.find_first_of("\\/:<>\"|?*") != std::string::npos || package.name.find('\0') != std::string::npos)
+      throw std::invalid_argument("Invalid read-only content package name");
+  }
   read_only_content_root_ = std::filesystem::canonical(source);
+  read_only_packages_ = std::move(allowed);
+}
+
+bool ContentManager::AllowsRead(uint32_t title_id, XContentType type, std::string_view name) const {
+  if (!UsesReadOnlyRoot(type) || !read_only_packages_) return true;
+  if (title_id == kCurrentlyRunningTitleId) title_id = kernel_state_->title_id();
+  for (const auto& package : *read_only_packages_) {
+    if (package.title_id != title_id || package.name.size() != name.size()) continue;
+    bool equal = true;
+    for (size_t i = 0; i < name.size(); ++i) {
+      auto upper = [](char c) { return c >= 'a' && c <= 'z' ? char(c - 32) : c; };
+      if (upper(package.name[i]) != upper(name[i])) { equal = false; break; }
+    }
+    if (equal) return true;
+  }
+  return false;
 }
 
 std::filesystem::path ContentManager::ResolvePackageRoot(uint64_t xuid, XContentType content_type,
@@ -161,6 +183,7 @@ std::vector<XCONTENT_AGGREGATE_DATA> ContentManager::ListContent(uint32_t device
   auto package_root = ResolvePackageRoot(xuid, content_type, title_id);
   auto file_infos = rex::filesystem::ListFiles(package_root);
   for (const auto& file_info : file_infos) {
+    if (!AllowsRead(title_id, content_type, rex::path_to_utf8(file_info.name))) continue;
     if (file_info.type != rex::filesystem::FileInfo::Type::kDirectory) {
       // Directories only.
       continue;
@@ -186,6 +209,7 @@ std::vector<XCONTENT_AGGREGATE_DATA> ContentManager::ListContent(uint32_t device
 
 std::unique_ptr<ContentPackage> ContentManager::ResolvePackage(
     const std::string_view root_name, uint64_t xuid, const XCONTENT_AGGREGATE_DATA& data) {
+  if (!AllowsRead(data.title_id, data.content_type, data.file_name())) return nullptr;
   auto package_path = ResolvePackagePath(xuid, data);
   if (!std::filesystem::exists(package_path)) {
     return nullptr;
@@ -196,6 +220,7 @@ std::unique_ptr<ContentPackage> ContentManager::ResolvePackage(
 }
 
 bool ContentManager::ContentExists(uint64_t xuid, const XCONTENT_AGGREGATE_DATA& data) {
+  if (!AllowsRead(data.title_id, data.content_type, data.file_name())) return false;
   auto path = ResolvePackagePath(xuid, data);
   return std::filesystem::exists(path);
 }
@@ -238,6 +263,7 @@ X_RESULT ContentManager::WriteContentHeaderFile(uint64_t xuid, XCONTENT_AGGREGAT
 X_RESULT ContentManager::ReadContentHeaderFile(const std::string_view file_name, uint64_t xuid,
                                                uint32_t title_id, XContentType content_type,
                                                XCONTENT_AGGREGATE_DATA& data) const {
+  if (!AllowsRead(title_id, content_type, file_name)) return X_ERROR_FILE_NOT_FOUND;
   auto header_file_path = ResolvePackageHeaderPath(file_name, xuid, title_id, content_type);
   constexpr uint32_t header_size = sizeof(XCONTENT_AGGREGATE_DATA);
 
@@ -301,6 +327,7 @@ X_RESULT ContentManager::CreateContent(const std::string_view root_name, uint64_
 X_RESULT ContentManager::OpenContent(const std::string_view root_name, uint64_t xuid,
                                      const XCONTENT_AGGREGATE_DATA& data,
                                      uint32_t& content_license) {
+  if (!AllowsRead(data.title_id, data.content_type, data.file_name())) return X_ERROR_FILE_NOT_FOUND;
   {
     auto global_lock = global_critical_region_.Acquire();
     if (open_packages_.count(string::string_key_case(root_name))) {
@@ -345,6 +372,7 @@ X_RESULT ContentManager::CloseContent(const std::string_view root_name) {
 
 X_RESULT ContentManager::GetContentThumbnail(uint64_t xuid, const XCONTENT_AGGREGATE_DATA& data,
                                              std::vector<uint8_t>* buffer) {
+  if (!AllowsRead(data.title_id, data.content_type, data.file_name())) return X_ERROR_FILE_NOT_FOUND;
   auto global_lock = global_critical_region_.Acquire();
   auto package_path = ResolvePackagePath(xuid, data);
   auto thumb_path = package_path / kThumbnailFileName;

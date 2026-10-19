@@ -97,6 +97,39 @@ void SettingsChecks(Fixture& fixture) {
     EnsureConfig(fixture.root);
     Require(Sha256(path)==hash && LoadSettings(path,"espgaluda2").nickname=="友人","Existing configuration was overwritten");
 }
+void ContentChecks(Fixture& fixture) {
+    constexpr auto hash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    const std::array first{DataFile{"packages/first/asset.bin",3,hash,false},DataFile{"headers/first.header",3,hash,false}};
+    const std::array second{DataFile{"packages/second/asset.bin",3,hash,false},DataFile{"headers/second.header",3,hash,false}};
+    const std::array packages{ContentPackage{"first","First","packages/first","FIRST",1,first},
+                              ContentPackage{"second","Second","packages/second","SECOND",1,second}};
+    Game game{"fixture","Fixture","xbox360","game-data/fixture","runtime/fake.exe",true,false,{}, {},packages};
+    const auto source=fixture.data/"dlc";
+    auto inspect=[&](CheckLevel level=CheckLevel::Full) {return InspectContent(game,source,level);};
+    Require(inspect()[0].state==DataState::Missing && inspect()[1].state==DataState::Missing,"Missing DLC blocked base policy");
+    Write(source/first[0].path);Write(source/first[1].path);
+    Require(inspect()[0].state==DataState::Verified && inspect()[1].state==DataState::Missing,"Single package independence");
+    Require(inspect(CheckLevel::Quick)[0].state==DataState::Unverified && !inspect(CheckLevel::Quick)[0].hashes_checked,
+            "Quick DLC check claimed verified");
+    Write(source/second[0].path,"xyz");Write(source/second[1].path);
+    Require(inspect()[0].state==DataState::Verified && inspect()[1].state==DataState::Incomplete,"Corrupt DLC affected valid sibling");
+    Write(source/second[0].path);
+    Require(inspect()[1].state==DataState::Verified && inspect()[1].hashes_checked==2,"Full DLC hashes");
+    fs::remove(source/second[1].path);
+    Require(inspect()[1].state==DataState::Incomplete,"Missing DLC header accepted");
+    Write(source/second[1].path);
+    Write(source/"packages/second/unexpected.bin");
+    Require(inspect()[1].state==DataState::Incomplete && inspect()[0].state==DataState::Verified,"Additional payload exposed");
+    fs::remove(source/"packages/second/unexpected.bin");
+    Write(source/"packages/second/asset.bin","short-or-truncated");
+    Require(inspect()[1].state==DataState::Incomplete,"Wrong DLC size accepted");
+    Write(source/second[0].path);
+    Require(Ini::Parse("").ContentDirectory(game)=="game-data/fixture/dlc","Default DLC location");
+    Require(Ini::Parse("").ContentDirectory(game,fixture.data)==source,"External data DLC default");
+    Require(Ini::Parse("[game.fixture]\ndlc_dir=\n").ContentDirectory(game).empty(),"Explicit DLC disable ignored");
+    Require(Ini::Parse("[game.fixture]\ndlc_dir=extra\n").ContentDirectory(game)=="extra","Explicit DLC location ignored");
+    Require(FindGame("futari").content.size()==2 && FindGame("espgaluda2").content.empty(),"Content metadata crossed games");
+}
 }  // namespace
 int main() {
   try {
@@ -152,6 +185,7 @@ int main() {
     Reject([] { Ini::Parse(std::string("[x]\na=") + char(0xff)); }, "Invalid UTF-8 accepted");
     Require(inspect().state == "ready", "Other-game settings affected current title");
     SettingsChecks(fixture);
+    ContentChecks(fixture);
     std::cout << checks << " native checks passed; fixture programs were not executed.\n";
     return 0;
   } catch (const std::exception& error) {

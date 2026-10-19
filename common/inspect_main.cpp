@@ -73,6 +73,28 @@ int wmain(int argc, wchar_t** argv) {
       Strings(info.problems);
       std::cout << ",\"missingRuntime\":";
       Strings(info.missing_runtime);
+      std::cout << ",\"optionalContent\":[";
+      cave::fs::path content_source;
+      std::vector<cave::ContentInspection> content;
+      try {
+        content_source = ini.ContentDirectory(game, info.data_dir);
+        if (!content_source.empty()) content_source = cave::Resolve(root, content_source);
+        content = cave::InspectContent(game, content_source, level);
+      } catch (const std::exception& error) {
+        for (const auto& package : game.content)
+          content.push_back({std::string(package.id),std::string(package.name),cave::DataState::Invalid,0,0,{error.what()}});
+      }
+      bool first_content = true;
+      for (const auto& package : content) {
+        if (!first_content) std::cout << ',';
+        first_content = false;
+        std::cout << "{\"id\":" << Json(package.id) << ",\"name\":" << Json(package.name)
+                  << ",\"state\":" << Json(cave::Name(package.state))
+                  << ",\"filesChecked\":" << package.files_checked << ",\"hashesChecked\":" << package.hashes_checked
+                  << ",\"problems\":";
+        Strings(package.problems); std::cout << '}';
+      }
+      std::cout << ']';
       std::cout << '}';
     }
     std::cout << "]}\n";

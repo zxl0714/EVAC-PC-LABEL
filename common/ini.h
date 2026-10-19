@@ -13,6 +13,7 @@ class Ini {
   const IniValue* Get(std::string_view section, std::string_view key) const;
   const auto& Values() const { return values_; }
   fs::path DataDirectory(const Game& game) const;
+  fs::path ContentDirectory(const Game& game, const fs::path& data = {}) const;
  private:
   std::map<std::pair<std::string, std::string>, IniValue> values_;
 };

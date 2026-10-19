@@ -5,6 +5,7 @@
 #include <bcrypt.h>
 #include <array>
 #include <fstream>
+#include <set>
 #include <stdexcept>
 
 namespace cave {
@@ -110,5 +111,68 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
     result.reason = error.what();
   }
   return result;
+}
+std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& requested, CheckLevel level) {
+  std::vector<ContentInspection> results;
+  for (const auto& package : game.content) {
+    ContentInspection result;
+    result.id = package.id; result.name = package.name;
+    try {
+      if (requested.empty() || !fs::exists(requested)) { results.push_back(std::move(result)); continue; }
+      const auto source = fs::canonical(requested);
+      if (!fs::is_directory(source)) throw std::runtime_error("DLC source must be a directory");
+      const auto directory = DataChild(source, package.directory);
+      uint32_t present = 0;
+      auto less = [](const fs::path& a, const fs::path& b) {
+        return CompareStringOrdinal(a.c_str(), -1, b.c_str(), -1, TRUE) == CSTR_LESS_THAN;
+      };
+      std::set<fs::path, decltype(less)> expected_paths(less);
+      for (const auto& expected : package.files) {
+        ++result.files_checked;
+        const auto file = DataChild(source, expected.path);
+        expected_paths.insert(FromUtf8(expected.path).make_preferred());
+        if (!fs::is_regular_file(file)) { result.problems.push_back("missing: " + std::string(expected.path)); continue; }
+        ++present;
+        const auto bytes = fs::file_size(file);
+        if (bytes != expected.bytes) { result.problems.push_back("size: " + std::string(expected.path)); continue; }
+        if (level == CheckLevel::Full) {
+          ++result.hashes_checked;
+          if (Sha256(file) != expected.sha256 || fs::file_size(file) != bytes)
+            result.problems.push_back("sha256: " + std::string(expected.path));
+        }
+      }
+      // A verified directory must not expose additional or linked payloads.
+      // The root itself may be an external path alias; links below it are not
+      // part of the supported extracted package layout.
+      for (auto part = FromUtf8(package.directory); !part.empty(); part = part.parent_path()) {
+        const auto path = source / part;
+        const auto attributes = GetFileAttributesW(path.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+          throw std::runtime_error("Linked DLC package directory");
+      }
+      if (fs::is_directory(directory)) for (const auto& entry : fs::recursive_directory_iterator(directory)) {
+        const auto attributes = GetFileAttributesW(entry.path().c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+          throw std::runtime_error("Linked or unreadable DLC payload");
+        if (!entry.is_directory() && !expected_paths.contains(entry.path().lexically_relative(source).make_preferred()))
+          result.problems.push_back("unexpected: " + Utf8(entry.path().lexically_relative(source)));
+      }
+      // Header files also live outside the payload directory.
+      for (const auto& expected : package.files) {
+        for (auto part = FromUtf8(expected.path); !part.empty(); part = part.parent_path()) {
+          const auto attributes = GetFileAttributesW((source / part).c_str());
+          if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+            throw std::runtime_error("Linked DLC file or parent directory");
+        }
+      }
+      if (!present && !fs::exists(directory)) result.state = DataState::Missing;
+      else if (!result.problems.empty()) result.state = DataState::Incomplete;
+      else result.state = level == CheckLevel::Full ? DataState::Verified : DataState::Unverified;
+    } catch (const std::exception& error) {
+      result.state = DataState::Invalid; result.problems.push_back(error.what());
+    }
+    results.push_back(std::move(result));
+  }
+  return results;
 }
 }  // namespace cave

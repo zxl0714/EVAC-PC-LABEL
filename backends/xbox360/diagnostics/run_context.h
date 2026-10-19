@@ -12,6 +12,7 @@ struct BuildIdentity {
 };
 struct RunContext {
     std::filesystem::path root, profile, directory, content_source;
+    std::vector<cave::ContentInspection> content;
     std::string game;
     Settings settings;
     std::string source_build;

@@ -112,14 +112,15 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         if (!cave::community::ValidNickname(run.settings.nickname))
             throw std::runtime_error("[community].nickname requires 1..48 UTF-8 bytes after normalization, without invisible controls");
     }
-    if (const auto* dlc=ini.Get("game."+run.game,"dlc_dir");dlc && !dlc->text.empty()) {
-        const auto source=cave::Resolve(run.root,cave::FromUtf8(dlc->text));
+    if (const auto dlc=ini.ContentDirectory(identity,run.paths.data);!dlc.empty()) {
+        const auto source=cave::Resolve(run.root,dlc);
         if (fs::exists(source)) {
             if (!fs::is_directory(source)) throw std::runtime_error("DLC source must be a directory");
             auto protected_paths=run.paths;protected_paths.data=source;cave::ValidateOutputs(protected_paths);
             run.content_source=source;
         }
     }
+    run.content=cave::InspectContent(identity,run.content_source,cave::CheckLevel::Full);
     run.source_build=std::string(build.commit)+(build.dirty=="true"?"+dirty":"");
     run.game_session=std::make_shared<cave::GameSession>(run.root);
     fs::create_directories(run.profile);
@@ -136,6 +137,11 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         {"pid",GetCurrentProcessId()},{"processCodePage",GetACP()},
         {"gameInputs",inputs},{"configSha256",Sha256Text(snapshot)},
         {"communityEnabled",run.settings.community_enabled},{"keyboardMouseCapture",false},{"binaries",Json::array()}};
+    record["optionalContent"]=Json::array();
+    for (const auto& package:run.content)
+        record["optionalContent"].push_back({{"id",package.id},{"name",package.name},
+            {"state",cave::Name(package.state)},{"filesChecked",package.files_checked},
+            {"hashesChecked",package.hashes_checked},{"problems",package.problems}});
     std::array<wchar_t,32768> executable{};
     auto length=GetModuleFileNameW(nullptr,executable.data(),DWORD(executable.size()));
     if (!length || length>=executable.size()) throw std::runtime_error("Cannot determine executable path");

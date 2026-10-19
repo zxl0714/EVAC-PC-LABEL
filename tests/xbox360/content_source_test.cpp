@@ -26,6 +26,23 @@ int wmain(int argc,wchar_t** argv) {
         dlc.content_type=XContentType::kMarketplaceContent;dlc.title_id=0x435A07D7;dlc.xuid=0;dlc.set_file_name("package");
         Require(manager.ContentExists(0,dlc),"DLC was not resolved from its source");
         Require(manager.ListContent(1,0,XContentType::kMarketplaceContent,0x435A07D7).size()==1,"DLC enumeration failed");
+        fs::create_directories(package.parent_path()/"unverified");
+        manager.SetReadOnlyContentRoot(source,std::vector<ContentManager::ReadOnlyPackage>{{0x435A07D7,"PACKAGE"}});
+        Require(manager.ListContent(1,0,XContentType::kMarketplaceContent,0x435A07D7).size()==1,"Unverified DLC appeared in filtered enumeration");
+        auto unknown=dlc;unknown.set_file_name("unverified");
+        uint32_t license=0;
+        Require(!manager.ContentExists(0,unknown),"Unverified DLC exists through direct lookup");
+        Require(manager.ResolvePackage("unknown",0,unknown)==nullptr,"Unverified DLC resolved directly");
+        Require(manager.OpenContent("unknown",0,unknown,license)==X_ERROR_FILE_NOT_FOUND,"Unverified DLC opened directly");
+        XCONTENT_AGGREGATE_DATA header{};
+        Require(manager.ReadContentHeaderFile("unverified",0,0x435A07D7,XContentType::kMarketplaceContent,header)==X_ERROR_FILE_NOT_FOUND,
+                "Unverified DLC header exposed");
+        manager.SetReadOnlyContentRoot(source,std::vector<ContentManager::ReadOnlyPackage>{});
+        Require(manager.ListContent(1,0,XContentType::kMarketplaceContent,0x435A07D7).empty() && !manager.ContentExists(0,dlc),
+                "Empty allowlist fell back to unverified content");
+        manager.SetReadOnlyContentRoot(source,std::vector<ContentManager::ReadOnlyPackage>{{0x435A07D8,"package"}});
+        Require(!manager.ContentExists(0,dlc),"Package allowlist crossed title IDs");
+        manager.SetReadOnlyContentRoot(source,std::vector<ContentManager::ReadOnlyPackage>{{0x435A07D7,"package"}});
         Require(manager.CreateContent("DLC",0,dlc)==X_ERROR_ACCESS_DENIED,"DLC creation allowed");
         Require(manager.WriteContentHeaderFile(0,dlc)==X_ERROR_ACCESS_DENIED,"DLC header write allowed");
         Require(manager.SetContentThumbnail(0,dlc,{1,2,3})==X_ERROR_ACCESS_DENIED,"DLC thumbnail write allowed");

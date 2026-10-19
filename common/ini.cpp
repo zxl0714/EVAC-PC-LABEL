@@ -71,4 +71,10 @@ fs::path Ini::DataDirectory(const Game& game) const {
   if (value && value->text.empty()) throw std::runtime_error("config.ini line " + std::to_string(value->line) + ": [" + section + "] data_dir is empty");
   return FromUtf8(value ? value->text : game.data_dir);
 }
+fs::path Ini::ContentDirectory(const Game& game, const fs::path& data) const {
+  if (game.content.empty()) return {};
+  const auto value = Get("game." + std::string(game.id), "dlc_dir");
+  if (value) return value->text.empty() ? fs::path{} : FromUtf8(value->text);
+  return (data.empty() ? DataDirectory(game) : data) / "dlc";
+}
 }  // namespace cave

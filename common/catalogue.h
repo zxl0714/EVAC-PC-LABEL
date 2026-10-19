@@ -14,11 +14,17 @@ struct DataFile {
   std::string_view sha256;
   bool program;
 };
+struct ContentPackage {
+  std::string_view id, name, directory, package_name;
+  uint32_t title_id;
+  std::span<const DataFile> files;
+};
 struct Game {
   std::string_view id, name, backend, data_dir, executable;
   bool integrated, coming_soon;
   std::span<const DataFile> files;
   std::span<const std::string_view> runtime_files;
+  std::span<const ContentPackage> content{};
 };
 std::span<const Game> Catalogue();
 const Game& FindGame(std::string_view id);
@@ -38,4 +44,14 @@ struct Inspection {
 };
 Inspection Inspect(const Game& game, const fs::path& collection_root,
                    const fs::path& data_dir, CheckLevel level);
+struct ContentInspection {
+  std::string id, name;
+  DataState state{DataState::Missing};
+  uint32_t files_checked{}, hashes_checked{};
+  std::vector<std::string> problems;
+};
+// Optional packages are independent of base-game readiness. Only a Full result
+// with state Verified may be exposed to the guest content manager.
+std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& source,
+                                              CheckLevel level);
 }  // namespace cave

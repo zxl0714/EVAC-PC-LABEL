@@ -12,6 +12,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -142,13 +143,16 @@ class ContentPackage {
 
 class ContentManager {
  public:
+  struct ReadOnlyPackage { uint32_t title_id; std::string name; };
   ContentManager(KernelState* kernel_state, const std::filesystem::path& root_path);
   ~ContentManager();
 
   // Host initialization only, before publishing the title to guest threads.
   // Marketplace content reads from this source; saves remain under root_path_.
   // No install, header write, thumbnail write or delete may mutate this source.
-  void SetReadOnlyContentRoot(const std::filesystem::path& source);
+  // An explicit list (including an empty list) exposes only validated packages.
+  void SetReadOnlyContentRoot(const std::filesystem::path& source,
+      std::optional<std::vector<ReadOnlyPackage>> allowed = std::nullopt);
 
   std::vector<XCONTENT_AGGREGATE_DATA> ListContent(uint32_t device_id, uint64_t xuid,
                                                    XContentType content_type,
@@ -205,6 +209,8 @@ class ContentManager {
   KernelState* kernel_state_;
   std::filesystem::path root_path_;
   std::filesystem::path read_only_content_root_;
+  std::optional<std::vector<ReadOnlyPackage>> read_only_packages_;
+  bool AllowsRead(uint32_t title_id, XContentType type, std::string_view name) const;
   bool UsesReadOnlyRoot(XContentType type) const {
     return type == XContentType::kMarketplaceContent && !read_only_content_root_.empty();
   }

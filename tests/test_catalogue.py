@@ -31,6 +31,35 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(sum(f['program'] for f in game['files']), 8)
         self.assertTrue(all(set(f) == {'path', 'bytes', 'sha256', 'program'} for f in game['files']))
 
+    def test_futari_optional_packages_are_independent_metadata(self):
+        game = catalogue.load(self.path)[0]
+        self.assertEqual(len(game['files']), 52)
+        self.assertEqual([p['id'] for p in game['content']], ['black-label', 'ver101'])
+        self.assertEqual([len(p['files']) for p in game['content']], [5, 2])
+        self.assertEqual(sum(f['bytes'] for p in game['content'] for f in p['files']), 275443888)
+        self.assertFalse(any(p['content'] for p in catalogue.load(self.path)[1:]))
+
+    def test_invalid_optional_content_metadata(self):
+        original = catalogue.read_json(self.root / 'games/futari/data.json')
+        cases = []
+        value = copy.deepcopy(original); value['optionalContent'][0]['files'][0]['path'] = '../escape'; cases.append(value)
+        value = copy.deepcopy(original); value['optionalContent'][0]['files'].pop(); cases.append(value)
+        value = copy.deepcopy(original); value['optionalContent'][0]['files'][0]['program'] = True; cases.append(value)
+        value = copy.deepcopy(original); value['optionalContent'][1]['id'] = 'black_label'; cases.append(value)
+        value = copy.deepcopy(original); value['optionalContent'][1]['directory'] = value['optionalContent'][0]['directory']; cases.append(value)
+        for manifest in cases:
+            with self.subTest(manifest=manifest['optionalContent'][0]['id']), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory)
+                raw = catalogue.read_json(self.path)
+                (target / 'catalogue.json').write_text(json.dumps(raw), encoding='utf-8')
+                for game in raw['games']:
+                    if game['dataManifest']:
+                        output = target / game['dataManifest']; output.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(self.path.parent / game['dataManifest'], output)
+                (target / 'futari/data.json').write_text(json.dumps(manifest), encoding='utf-8')
+                with self.assertRaises(ValueError):
+                    catalogue.load(target / 'catalogue.json')
+
     def test_generator_is_deterministic_and_contains_only_metadata(self):
         games = catalogue.load(self.path)
         first = catalogue.generate(games)

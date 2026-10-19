@@ -25,8 +25,22 @@ private:
     }
     std::string NativeNickname(std::string name) override {return FutariNativeNickname(std::move(name));}
     void OnGameSetup() override {
-        if (!run().content_source.empty())
-            runtime()->kernel_state()->content_manager()->SetReadOnlyContentRoot(run().content_source);
+        using Package=rex::system::xam::ContentManager::ReadOnlyPackage;
+        std::vector<Package> allowed;
+        for (const auto& checked:run().content) {
+            REXLOG_INFO("Optional content: id={} state={}",checked.id,cave::Name(checked.state));
+            if (checked.state!=cave::DataState::Verified) continue;
+            for (const auto& package:cave::FindGame("futari").content)
+                if (package.id==checked.id) allowed.push_back({package.title_id,std::string(package.package_name)});
+        }
+        // Missing/disabled external content must not fall back to unvalidated
+        // Marketplace files in a profile imported from an older installation.
+        auto source=run().content_source;
+        if (source.empty()) {
+            source=run().paths.prepared/"no-content";
+            std::filesystem::create_directories(source);
+        }
+        runtime()->kernel_state()->content_manager()->SetReadOnlyContentRoot(source,std::move(allowed));
         FutariStartAudioWaitPolicy();FutariRegisterModuleAliases();
         audio_marker_=FutariCreateAudioMarker(window());FutariStartAudioGuestTrace();
     }

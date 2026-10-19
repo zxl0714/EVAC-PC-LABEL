@@ -39,6 +39,30 @@ class NativeCliTests(unittest.TestCase):
             self.assertEqual(all_rows[0]['state'], 'invalid_config')
             self.assertEqual(all_rows[1]['dataState'], 'missing_data')
 
+    def test_optional_content_does_not_change_base_data_state(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            row = self.run_cli(root, '--game', 'futari', '--full')['games'][0]
+            self.assertEqual(row['dataState'], 'missing_data')
+            self.assertEqual([p['id'] for p in row['optionalContent']], ['black-label', 'ver101'])
+            self.assertEqual([p['state'] for p in row['optionalContent']], ['missing_data', 'missing_data'])
+            self.assertEqual(list(root.iterdir()), [])
+            other = self.run_cli(root, '--game', 'espgaluda2')['games'][0]
+            self.assertEqual(other['optionalContent'], [])
+
+    def test_linked_optional_package_is_not_exposed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'collection'; root.mkdir()
+            dlc = base / 'dlc'; parent = dlc / '0000000000000000/435A07D7/00000002'; parent.mkdir(parents=True)
+            outside = base / 'outside'; outside.mkdir()
+            (outside / 'ver101_key.bin').write_bytes(b'unchanged')
+            self.junction(parent / '9893A78CA6062B935BD1F53EA43CFD546B7246DF43', outside)
+            (root / 'config.ini').write_text('[game.futari]\ndlc_dir=' + str(dlc) + '\n', encoding='utf-8')
+            row = self.run_cli(root, '--game', 'futari', '--full')['games'][0]
+            self.assertEqual(row['dataState'], 'missing_data')
+            self.assertEqual(row['optionalContent'][1]['state'], 'invalid_path')
+            self.assertEqual((outside / 'ver101_key.bin').read_bytes(), b'unchanged')
+
     def test_invalid_arguments_and_newer_config_are_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

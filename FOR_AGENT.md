@@ -2,7 +2,7 @@
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。P0 与 G2 的 P1 基线已收尾，P2 公共底座已通过；P3 的独立 G2 构建、共享配置、原生启动器与正式联网已接通。当前 P4 已迁入虫姬二维护适配、生成声明及机制回归，完整宿主和八个模式 DLL 已编译，继续实际本体／DLC 游玩回归；绊地狱仍在其后。
 
-最新联合完整构建为干净源码 640ea91，out/xbox360 的 45 对程序／PDB、141 项源码回归和 18 组 CTest 通过。两款运行文件均已整理；G2 在新公共宿主下实际进关、返回及完整回放 No.2 通过。虫姬二已验证 Ver1.5 Arcade、Black Label Xbox 360、Arrange、Novice 四个模块入口和本体／DLC 冷启动完整回放。reco_abnormal、kiniro_normal、hirow_normal、hirow_abnormal 仍需真实入口覆盖，勿根据文件名猜测菜单；启动器的虫姬二 integrated 仍为 false。极短 Start 在 G2 Xbox 360 局内未稳定暂停的既有问题继续跟踪。具体现场与范围见验收矩阵。
+八模块入口回归使用干净联合构建 2dfd87a，out/xbox360 的 45 对程序／PDB、141 项源码回归和 18 组 CTest 通过。G2 在新公共宿主下实际进关、返回及完整回放 No.2 通过。虫姬二八个模块已有选人后的第一关流程和正常卸载记录，本体／DLC 冷启动完整回放通过；Ver1.01 Xbox 360 此轮捕获到 PLAYER1 开场及第一关续关画面，未捕获存活玩家片段。不要把入口覆盖写成所有角色／难度、重复进入或专项全部通过；启动器的虫姬二 integrated 仍为 false。极短 Start 的局内暂停与输入时机继续跟踪，不以自动操作期间误触续关判定采样根因。具体现场与范围见验收矩阵。
 
 用户已经完成同进程重复进退，并接受模式设置现有覆盖，不为这两项重新要求测试或刷分。G2 的维护源码、SDK 和七个模式模块已在合集独立构建并整理到 runtime。原生启动器的真实进关、本地保存和跨进程完整回放、共享 INI 覆盖、完整数据复制和异常退出提示／再启动通过。六种 PLAY 模式均已在合集选人进关并卸载返回。原 Python 专项检查已适配到合集，分析工具不再依赖旧工程。正式 HTTPS 服务已部署；游戏实际成绩上传、榜单读回、网络录像下载落盘及冷启动完整回放通过。实体输入、扩展覆盖及音画回归继续跟踪，不把短测写成整个 P3 通过。当前不打 v0.1 发布标签。
 
@@ -75,6 +75,10 @@ SDK 依赖通过 `py -3.12 scripts/sdk_sources.py restore` 恢复，再执行 `.
 两款宿主继承 backends/xbox360/host.* 的 CollectionApp，共用启动合同、INI、路径与 profile 锁、输入、全屏、计时和诊断；各自 host.cpp 只接入社区与游戏特有生命周期。元数据头按游戏独立生成。崩溃 writer 为同一份平台源码，但保留 espgaluda2_crash_writer.exe／futari_crash_writer.exe 两个文件名，避免单独构建另一款时破坏已配套的文件哈希。schema=2 的报告记录真实 game 和 build，不能把 G2 身份写入虫姬二报告。
 
 虫姬二的 `[game.futari].dlc_dir` 指向保留原内容结构的独立 DLC 根，缺失时允许启动本体。ContentManager 在启动客体线程前注册只读 Marketplace 内容源，DLC 不复制到 profile；SaveGame 仍写合集 profile 下的 `<XUID>/435A07D7/00000001/`。创建、头部／缩略图改写、安装及删除 DLC 均拒绝，正常关闭挂载不受影响。content_source 原生回归只使用自造临时数据；实际 DLC 识别、保存及重启读回分别见验收矩阵。
+
+`games/futari/data.json` 的 optionalContent 单独记录 Black Label 和 Ver1.01 的完整包及头部元数据，不并入本体必需文件。InspectContent 按包返回状态；只有 Full 的 verified 结果才加入 SDK 的明确包白名单，空白名单不能退回全目录枚举，直接 Open／Resolve／Exists 也受同一限制。缺少或损坏一个包不阻塞可用的另一个包及本体。源根允许外部目录别名，包内附加文件及链接被拒绝。未配置 dlc_dir 时使用所选数据目录下的 dlc；显式空值关闭附加内容。cave_inspect 的 optionalContent 与 run.json 记录状态、检查数量及原因，快速检查不声称已校验哈希。
+
+独立校验新增后的 146 项源码回归、common 的 96 个原生检查和 out/futari-native 的 9 组 CTest 通过。真实本体 52 项及 DLC 两包 7 项全量校验通过。缺少或显式关闭 DLC 时，宿主使用 prepared/futari/no-content 的空白名单只读视图，不回退读取旧 profile 中的 Marketplace 包；该宿主分支的实际游戏回归仍随完整重建验证。不要把 native 测试写成新白名单下所有模式已重新游玩。
 
 公共键盘对完整未采样短按按实际客体 VBlank 保留一个采样帧，同帧重复 GetState 不提前消耗；已采样的长按仍立即松开。SDK 的 guest_input_frame.h 只提供实际 VBlank 推进的原子 epoch，不使用 CPU 频率或固定毫秒延长。输入测试包含同帧千次读取、次帧清除、触发器、立即松开和失焦／面板清理。input_diagnostics=true 仅用于有界事件诊断，不改变采样策略。
 
