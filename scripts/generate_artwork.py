@@ -28,6 +28,8 @@ def artwork(root):
                 name in paths or entry['resource'] in resources or type(entry['resource']) is not int or
                 not 100<=entry['resource']<1000 or type(entry['focusY']) not in (int,float) or not 0<=entry['focusY']<=1):
             raise ValueError('Invalid artwork identity or crop')
+        if entry.get('fit', 'cover') not in ('cover', 'contain'):
+            raise ValueError('Invalid artwork fit')
         paths.add(name);resources.add(entry['resource'])
         for part in (path,*path.parents):
             if part.is_symlink() or part.is_junction():
@@ -58,12 +60,12 @@ def generate(root, destination):
     destination.mkdir(parents=True,exist_ok=True)
     quoted=lambda text:json.dumps(text,ensure_ascii=False)
     header=['#pragma once','#include <array>','#include <string_view>','namespace cave::launcher {',
-            'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y;};',
+            'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y; bool contain;};',
             'inline constexpr std::array<Artwork,'+str(len(entries))+'> kArtwork{{']
     resources=['#pragma code_page(65001)','#include <windows.h>']
     for entry in entries:
         header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
-                      ',float('+str(entry['focusY'])+')},')
+                      ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')
         resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
     header+=['}};','}']
     for name,lines in [('artwork.h',header),('artwork.rc',resources)]:

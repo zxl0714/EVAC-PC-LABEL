@@ -17,8 +17,8 @@ from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from ps4_build_receipt import verify as verify_ps4
 
-GAMES = ('futari', 'espgaluda2', 'ketsui')
-XBOX = ('espgaluda2', 'futari')
+LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
+GAMES = (*LEGACY_GAMES, 'sdoj')
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
 
@@ -33,16 +33,26 @@ def version_name(version, flavor):
     return 'CAVE-PC-Collection-v' + version + '-' + flavor.lower()
 
 
-def catalogue():
+def release_games(version):
+    version_name(version, 'Public')
+    major, minor = map(int, version.split('-', 1)[0].split('.')[:2])
+    if (major, minor) == (0, 1):
+        return LEGACY_GAMES
+    if (major, minor) == (0, 2):
+        return GAMES
+    raise ValueError('No game-set profile for this release version')
+
+
+def catalogue(selection=GAMES):
     games = {game['id']: game for game in load(ROOT / 'games/catalogue.json')}
-    if any(not games[key]['integrated'] or not games[key]['runtimeFiles'] for key in GAMES):
-        raise ValueError('All three release games must be integrated')
+    if any(not games[key]['integrated'] or not games[key]['runtimeFiles'] for key in selection):
+        raise ValueError('All selected release games must be integrated: ' + ', '.join(selection))
     return games
 
 
-def runtime_names(games, symbols=False):
+def runtime_names(games, symbols=False, selection=GAMES):
     names = {'CAVE-PC-Collection.exe', 'runtime/launcher/cave_inspect.exe'}
-    for key in GAMES:
+    for key in selection:
         names.update(games[key]['runtimeFiles'])
     if symbols:
         names.update(str(Path(name).with_suffix('.pdb')).replace('\\', '/') for name in list(names)
@@ -86,17 +96,18 @@ def text_new(target, value, role, entries):
     entries.append(dict(path=target, bytes=target.stat().st_size, sha256=digest(target), role=role))
 
 
-def certified_runtime():
+def certified_runtime(selection=GAMES):
     if git(ROOT, 'status', '--porcelain', '--untracked-files=normal'):
         raise ValueError('Commit source changes before release packaging')
     verify_sdk()
-    records = dict(xbox360=verify_receipt('host', XBOX), ps4=verify_ps4(), launcher=verify_launcher())
+    games = catalogue(selection)
+    xbox = tuple(sorted(key for key in selection if games[key]['backend'] == 'xbox360'))
+    records = dict(xbox360=verify_receipt('host', xbox), ps4=verify_ps4(), launcher=verify_launcher())
     commit = git(ROOT, 'rev-parse', 'HEAD').decode().strip()
     if any(record['sourceCommit'] != commit for record in records.values()):
         raise ValueError('Rebuild all player components at the release commit')
     audit_source()
-    games = catalogue()
-    xbox_names = {Path(name).name for key in XBOX for name in games[key]['runtimeFiles'] if name.endswith(('.exe', '.dll'))}
+    xbox_names = {Path(name).name for key in xbox for name in games[key]['runtimeFiles'] if name.endswith(('.exe', '.dll'))}
     xbox_names |= {str(Path(name).with_suffix('.pdb')) for name in list(xbox_names)}
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
@@ -127,11 +138,14 @@ def inspect_game(inspector, key, data=None):
     return report
 
 
-def copy_data(source, target, entries, required=(), exclude_top=()):
+def copy_data(source, target, entries, required=(), exclude_top=(), manifest_only=False):
     source = source.resolve(strict=True)
     expected = {item['path']: item for item in required}
     copied = set()
-    for file in tree_files(source):
+    files = [source / safe_name(name) for name in sorted(expected)] if manifest_only else tree_files(source)
+    if manifest_only and not expected:
+        raise ValueError('Manifest-only data copy requires an explicit resource list')
+    for file in files:
         name = file.relative_to(source).as_posix(); safe_name(name)
         parts = Path(name).parts
         if parts[0].casefold() in exclude_top:
@@ -178,8 +192,8 @@ def redist_directory():
     return max(candidates, key=lambda path: tuple(int(value) for value in path.parents[1].name.split('.')))
 
 
-def validate_public_name(name, games):
-    allowed = runtime_names(games) | {'config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
+def validate_public_name(name, games, selection=GAMES):
+    allowed = runtime_names(games, selection=selection) | {'config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
     if name in allowed or name.startswith('licenses/'):
         return
     # App-local CRT copies only, not arbitrary DLLs supplied by an input tree.
@@ -191,9 +205,10 @@ def validate_public_name(name, games):
 
 
 def verify_tree(directory, games=None):
-    games = games or catalogue()
     release = json.loads((directory / 'release.json').read_text(encoding='utf-8'))
-    if release.get('format') != 1 or release.get('flavor') not in ('Internal', 'Public') or release.get('games') != list(GAMES):
+    selection = release_games(release.get('version', ''))
+    games = games or catalogue(selection)
+    if release.get('format') != 1 or release.get('flavor') not in ('Internal', 'Public') or release.get('games') != list(selection):
         raise ValueError('Invalid release identity')
     expected = {}
     for item in release['files']:
@@ -201,7 +216,7 @@ def verify_tree(directory, games=None):
         if name in expected or name in META:
             raise ValueError('Duplicate or recursive package inventory entry')
         if release['flavor'] == 'Public':
-            validate_public_name(name, games)
+            validate_public_name(name, games, selection)
             if item['role'] not in ('runtime', 'config', 'documentation', 'license', 'redist'):
                 raise ValueError('Forbidden Public package role')
             if Path(name).suffix.lower() in ('.pdb', '.cpp', '.h', '.xex', '.ktprobe', '.ktmodule', '.ktfix', '.py', '.ps1'):
@@ -219,12 +234,16 @@ def verify_tree(directory, games=None):
     sums += digest(directory / 'release.json') + '  release.json\n'
     if (directory / 'SHA256SUMS.txt').read_text(encoding='utf-8') != sums:
         raise ValueError('Package SHA256SUMS does not match')
-    if not runtime_names(games, release['flavor'] == 'Internal').issubset(expected):
+    if not runtime_names(games, release['flavor'] == 'Internal', selection).issubset(expected):
         raise ValueError('Package is missing a required player component')
     if release['flavor'] == 'Internal':
         required = []
-        for key in GAMES:
+        for key in selection:
             required += [('game-data/' + key + '/' + item['path'], item) for item in games[key]['files']]
+        if 'sdoj' in selection:
+            supported = {'game-data/sdoj/' + item['path'] for item in games['sdoj']['files']}
+            if {name for name in expected if name.startswith('game-data/sdoj/')} != supported:
+                raise ValueError('SDOJ package must contain only the supported resource manifest')
         for package in games['futari']['content']:
             required += [('game-data/futari/dlc/' + item['path'], item) for item in package['files']]
         for name, identity in required:
@@ -279,16 +298,17 @@ def verify_certificate(game, certified, commit):
 
 def build(flavor, version, output=None, data=None, futari_dlc=None):
     package_name = version_name(version, flavor)
+    selection = release_games(version)
     if flavor == 'Public' and (data or futari_dlc):
         raise ValueError('Public does not accept ROM or source inclusion options')
-    games = catalogue(); commit, receipts, certified = certified_runtime()
-    for key in GAMES:
+    games = catalogue(selection); commit, receipts, certified = certified_runtime(selection)
+    for key in selection:
         verify_certificate(games[key], certified, commit)
-    if data and set(data) - set(GAMES):
+    if data and set(data) - set(selection):
         raise ValueError('Unknown Internal data selection')
     # Resolve all mandatory inputs before creating any package output.
     inspector = certified['cave_inspect.exe']['source']
-    reports = {key: inspect_game(inspector, key, (data or {}).get(key)) for key in GAMES} if flavor == 'Internal' else {}
+    reports = {key: inspect_game(inspector, key, (data or {}).get(key)) for key in selection} if flavor == 'Internal' else {}
     if reports:
         dlc = Path(futari_dlc) if futari_dlc else Path(reports['futari']['contentDirectory'])
         for package in games['futari']['content']:
@@ -309,7 +329,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     reject_link(parent)
     parent.mkdir(parents=True, exist_ok=False); directory = parent / package_name; directory.mkdir()
     entries = []
-    for path in sorted(runtime_names(games, flavor == 'Internal')):
+    for path in sorted(runtime_names(games, flavor == 'Internal', selection)):
         target = directory / path
         if path.endswith('/runtime-manifest.ini'):
             source = ROOT / path
@@ -345,7 +365,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
         for key, report in reports.items():
             print('Copying complete data: ' + key, flush=True)
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, games[key]['files'],
-                      {'dlc'} if key == 'futari' else ())
+                      {'dlc'} if key == 'futari' else (), manifest_only=key == 'sdoj')
         target_dlc = directory / 'game-data/futari/dlc'
         copy_data(dlc, target_dlc, entries, [file for package in games['futari']['content'] for file in package['files']])
         source_clone(directory / 'source', commit)
@@ -354,7 +374,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     payload = [dict(item, path=item['path'].relative_to(directory).as_posix()) for item in entries]
     if len({item['path'] for item in payload}) != len(payload):
         raise ValueError('Duplicate package destination')
-    release = dict(format=1, version=version, flavor=flavor, games=list(GAMES), sourceCommit=commit,
+    release = dict(format=1, version=version, flavor=flavor, games=list(selection), sourceCommit=commit,
         buildSnapshots={key: record['sourceSnapshot']['sha256'] for key, record in receipts.items()},
         files=sorted(payload, key=lambda item: item['path']),
         gameplayAcceptance='Recorded separately; packaging does not perform gameplay acceptance',
@@ -374,7 +394,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['build', 'verify'])
     parser.add_argument('--flavor', choices=['Internal', 'Public'])
-    parser.add_argument('--version', default='0.1')
+    parser.add_argument('--version', default='0.2')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])

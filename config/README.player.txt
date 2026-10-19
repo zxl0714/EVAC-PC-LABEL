@@ -1,7 +1,7 @@
 CAVE PC Collection
 
 运行环境
-Windows 64 位。虫姬二和 ESPGaluda II 使用 D3D12，绊地狱使用 Vulkan；
+Windows 64 位。虫姬二、ESPGaluda II 和最大往生使用 D3D12，绊地狱使用 Vulkan；
 请安装显卡厂商提供的正式驱动。所需的 C++ 运行库已随程序附带。
 
 使用方法
@@ -9,7 +9,7 @@ Windows 64 位。虫姬二和 ESPGaluda II 使用 D3D12，绊地狱使用 Vulkan
 启动游戏.bat 是备用入口。不要在压缩包内直接运行，也不要只复制一个 EXE。
 
 游戏数据
-内部完整版已经附带虫姬二、ESPGaluda II 和绊地狱的数据与支持的附加内容。
+v0.2 内部完整版附带虫姬二、ESPGaluda II、绊地狱和最大往生的数据与支持的附加内容。
 对外程序包不带数据：可从启动器选择已有数据目录，或放到以下位置。
 只安装一款游戏即可使用，缺少其他游戏不影响游玩。
 
@@ -17,13 +17,18 @@ Windows 64 位。虫姬二和 ESPGaluda II 使用 D3D12，绊地狱使用 Vulkan
   game-data/futari/dlc/   Black Label 与 Ver1.01，保留原来的内容目录结构
   game-data/espgaluda2/   default.xex、各模式 XEX 和 res/DISKDATA 等完整数据
   game-data/ketsui/       CUSA09062-app 与 CUSA09062-patch（1.02）两个目录
+  game-data/sdoj/         原版光盘解包数据，default.xex 和 CA022100.bin／CA022110.bin 位于根目录
+
+最大往生当前支持原版光盘本体，需完整游戏资源，不是只复制三个程序文件。
+不要混入 default.xexp 或两个 .binp 更新文件；不匹配的更新会提示版本不支持。
+音乐补丁暂不纳入此版本。原 ISO、解包工具和系统更新不是运行必需文件。
 
 绊地狱首次启动会在 prepared/ketsui 自动准备运行镜像；原始数据不会被改写。
 怒首领蜂大往生和 ESP Ra.De. 暂为 Coming Soon。
 
 配置与操作
 页头可设置“启动时全屏”和“排行榜昵称”，点击“保存”，下次启动游戏生效。
-启动游戏前也会自动保存快捷设置。三款共用同一份 INI，游戏级覆盖仍优先。
+启动游戏前也会自动保存快捷设置。各游戏共用同一份 INI，游戏级覆盖仍优先。
 启动器右上角“配置文件”打开根目录 config.ini，修改并保存后重启游戏生效。
 外部编辑后点“刷新”读回；缺少数据或组件时，底部只显示所选游戏的问题。
 各游戏共用显示、音量、键盘和手柄设置；游戏内设置仍由各游戏保存。
@@ -37,6 +42,7 @@ F11 或 Alt+Enter 切换全屏，Alt+F4 关闭游戏；F8 在日志中加入时�
 默认开启，无需注册。昵称默认为 Player，可在启动页或 [community] 修改 nickname；
 enabled = false 可关闭联网。默认服务为 https://xiaolu.life/cave/api/v1。
 联网会发送昵称、成绩和适用的录像，三款游戏的榜单分别管理。
+最大往生目前使用本地存档，暂未接入社区排行榜；共享联网开关不影响其本地游玩。
 
 存档与更新
 存档、录像和待传记录在 user-data/<游戏>/，不要随意删除。

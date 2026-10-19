@@ -21,14 +21,15 @@ class ReleaseTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def package(self):
+    def package(self, version='0.2-test'):
         directory = self.root / '发行 中文 space'
         directory.mkdir()
         entries = []
-        for name in release.runtime_names(self.games) | {'config.ini', 'README.txt'}:
+        selection = release.release_games(version)
+        for name in release.runtime_names(self.games, selection=selection) | {'config.ini', 'README.txt'}:
             release.text_new(directory / name, 'authored fixture\n', 'config' if name == 'config.ini' else 'runtime', entries)
         payload = [dict(item, path=item['path'].relative_to(directory).as_posix()) for item in entries]
-        record = dict(format=1, version='0.1-test', flavor='Public', games=list(release.GAMES), files=payload)
+        record = dict(format=1, version=version, flavor='Public', games=list(selection), files=payload)
         (directory / 'release.json').write_text(json.dumps(record), encoding='utf-8')
         sums = ''.join(item['sha256'] + '  ' + item['path'] + '\n' for item in sorted(payload, key=lambda item:item['path']))
         sums += release.digest(directory / 'release.json') + '  release.json\n'
@@ -44,6 +45,25 @@ class ReleaseTests(unittest.TestCase):
             self.assertIsNone(zipped.testzip())
             self.assertIn(directory.name + '/config.ini', zipped.namelist())
         self.assertTrue(archive.with_suffix('.zip.sha256').read_text().startswith(release.digest(archive)))
+
+    def test_release_profiles_preserve_v01_and_require_sdoj_for_v02(self):
+        self.assertEqual(release.release_games('0.1'), release.LEGACY_GAMES)
+        self.assertEqual(release.release_games('0.2-rc1'), release.GAMES)
+        self.assertIn('sdoj', release.release_games('0.2'))
+        for version in ('', '0.3', '1.0', '../bad'):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                release.release_games(version)
+        self.assertEqual(release.verify_tree(self.package('0.1-test'), self.games)['games'],
+                         list(release.LEGACY_GAMES))
+
+    def test_v02_does_not_allow_a_three_game_identity(self):
+        directory = self.package()
+        path = directory / 'release.json'
+        record = json.loads(path.read_text(encoding='utf-8'))
+        record['games'] = list(release.LEGACY_GAMES)
+        path.write_text(json.dumps(record), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'release identity'):
+            release.verify_tree(directory, self.games)
 
     def test_public_rejects_rom_source_symbols_and_undeclared_files(self):
         for name in ('game-data/futari/default.xex', 'source/.git/HEAD', 'runtime/fake.pdb',
@@ -81,6 +101,16 @@ class ReleaseTests(unittest.TestCase):
         release.copy_data(source, self.root / 'output', [], required, {'dlc'})
         self.assertEqual((self.root / 'output/main.bin').read_bytes(), b'abc')
         self.assertFalse((self.root / 'output/dlc').exists())
+
+    def test_sdoj_manifest_copy_leaves_iso_tools_and_music_patch_out(self):
+        source = self.root / 'data'; source.mkdir()
+        for name in ('main.bin', 'original.iso', 'music-patch.zip', 'tool.exe'):
+            (source / name).write_bytes(b'abc')
+        required = [dict(path='main.bin', bytes=3, sha256=hashlib.sha256(b'abc').hexdigest())]
+        entries = []
+        release.copy_data(source, self.root / 'output', entries, required, manifest_only=True)
+        self.assertEqual({path.name for path in (self.root / 'output').iterdir()}, {'main.bin'})
+        self.assertEqual({path.name for path in source.iterdir()}, {'main.bin', 'original.iso', 'music-patch.zip', 'tool.exe'})
 
     def test_source_git_is_independent_with_correct_remote(self):
         source = self.root / 'authored-source'; source.mkdir()
@@ -153,13 +183,14 @@ class ReleaseTests(unittest.TestCase):
                 patch.object(release,'certified_runtime',return_value=(commit,receipts,certified)), \
                 patch.object(release,'redist_directory',return_value=crt),patch.object(release,'license_files',return_value=[]), \
                 patch.object(release,'inspect_game',side_effect=inspected),patch.object(release,'audit_source'):
-            outputs={flavor:release.build(flavor,'0.1-test',root/'releases'/flavor) for flavor in ('Internal','Public')}
+            outputs={flavor:release.build(flavor,'0.2-test',root/'releases'/flavor) for flavor in ('Internal','Public')}
         internal=Path(outputs['Internal']['archive']).with_suffix('')
         public=Path(outputs['Public']['archive']).with_suffix('')
-        self.assertEqual(Path(outputs['Internal']['archive']).name, 'CAVE-PC-Collection-v0.1-test-internal.zip')
-        self.assertEqual(Path(outputs['Public']['archive']).name, 'CAVE-PC-Collection-v0.1-test-public.zip')
+        self.assertEqual(Path(outputs['Internal']['archive']).name, 'CAVE-PC-Collection-v0.2-test-internal.zip')
+        self.assertEqual(Path(outputs['Public']['archive']).name, 'CAVE-PC-Collection-v0.2-test-public.zip')
         self.assertTrue((internal/'source/.git/HEAD').is_file())
         self.assertTrue((internal/'game-data/futari/dlc/fixture-dlc.bin').is_file())
+        self.assertTrue((internal/'game-data/sdoj/main.bin').is_file())
         self.assertFalse((public/'source').exists());self.assertFalse((public/'game-data').exists())
         self.assertFalse(list(public.rglob('*.pdb')))
         for name in release.runtime_names(games):

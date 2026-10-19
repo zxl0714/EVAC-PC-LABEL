@@ -156,7 +156,10 @@ struct Layout {
   float margin() const {return std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
   float header() const {return 150;}
   float footer() const {return height-120;}
-  float row_height() const {return std::clamp((viewport_height()-48.f)/5.f,112.f,180.f);}
+  float row_height() const {
+    const auto count=float(Catalogue().size());
+    return std::clamp((viewport_height()-12.f*(count-1))/count,92.f,180.f);
+  }
   float viewport_height() const {return std::max(0.f,footer()-header());}
   float content_height() const {return float(Catalogue().size())*(row_height()+12)-12;}
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
@@ -247,10 +250,14 @@ class Renderer {
       target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
       const float art_width=(rectangle.right-rectangle.left)*(layout.narrow()?.61f:.66f);
       const D2D1_RECT_F art{rectangle.right-art_width,rectangle.top,rectangle.right,rectangle.bottom};
-      auto bitmap=Image(target,index);const auto size=bitmap->GetSize();const auto scale=std::max(art_width/size.width,layout.row_height()/size.height);
+      auto bitmap=Image(target,index);const auto size=bitmap->GetSize();
+      const bool contain=cave::launcher::kArtwork[index].contain;
+      const auto scale=contain?std::min(art_width/size.width,layout.row_height()/size.height):
+                               std::max(art_width/size.width,layout.row_height()/size.height);
       const float y=rectangle.top-(size.height*scale-layout.row_height())*cave::launcher::kArtwork[index].focus_y;
+      const float art_left=contain?art.right-size.width*scale:art.left;
       target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-      target->DrawBitmap(bitmap,{art.left,y,art.left+size.width*scale,y+size.height*scale},soon?.26f:1.f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+      target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:1.f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
       target->PopAxisAlignedClip();
       const std::array stops{D2D1_GRADIENT_STOP{0,D2D1::ColorF(color,1)},D2D1_GRADIENT_STOP{.14f,D2D1::ColorF(color,.96f)},
           D2D1_GRADIENT_STOP{.35f,D2D1::ColorF(color,.47f)},D2D1_GRADIENT_STOP{.63f,D2D1::ColorF(color,0)},D2D1_GRADIENT_STOP{1,D2D1::ColorF(color,0)}};
@@ -263,8 +270,9 @@ class Renderer {
       const float text_top=rectangle.top+(layout.row_height()-112.f)/2;
       Text(target,Wide(cave::launcher::kArtwork[index].kicker),{left,text_top+20,rectangle.right-16,text_top+36},10,soon?0x9ca59e:0x829087);
       Text(target,Wide(game.name),{left,text_top+42,rectangle.right-16,text_top+75},layout.narrow()?20.f:24.f,soon?0x737e76:0x23312d);
-      if(soon) Text(target,L"COMING SOON",{left,text_top+88,rectangle.right-20,rectangle.bottom-12},10,0x8c978f);
-      else if(selected==index) Text(target,L"已选择",{left,text_top+88,rectangle.right-20,rectangle.bottom-12},11,0x37644c);
+      const float label_top=text_top+(layout.row_height()<112.f?80.f:88.f);
+      if(soon) Text(target,L"COMING SOON",{left,label_top,rectangle.right-20,rectangle.bottom-12},10,0x8c978f);
+      else if(selected==index) Text(target,L"已选择",{left,label_top,rectangle.right-20,rectangle.bottom-12},11,0x37644c);
     }
     target->PopAxisAlignedClip();
     const auto& inspection=rows[selected].inspection;
@@ -637,7 +645,8 @@ void Preview(const Options& options) {
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
   auto rows=InspectRows(options.root,1);
   rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
-  target->BeginDraw();renderer.Draw(target.Get(),Layout{1080,900,0},rows,1,-1,false,L"5 部作品 · 按需安装游戏数据",{},true);Check(target->EndDraw(),"Render preview");
+  const auto caption=std::to_wstring(Catalogue().size())+L" 部作品 · 按需安装游戏数据";
+  target->BeginDraw();renderer.Draw(target.Get(),Layout{1080,900,0},rows,1,-1,false,caption,{},true);Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
   if(!options.preview.parent_path().empty())fs::create_directories(options.preview.parent_path());
   Check(stream->InitializeFromFilename(options.preview.c_str(),GENERIC_WRITE),"Open preview file");

@@ -45,6 +45,8 @@ py -3.12 scripts/project.py audit
 
 ### 本地出包入口
 
+开发分支当前默认 v0.2：Release.ps1 的四款集合为 futari、espgaluda2、ketsui、sdoj，联合 360 收据要求 espgaluda2／futari／sdoj。SDOJ 仍未完成可玩验收，因此当前不允许正式出包；不要临时移除它绕过门槛。最终提交后执行 Build.ps1 -Games espgaluda2,futari,sdoj,ketsui -Jobs 2，再分别 Release.ps1 -Flavor Internal／Public -Version 0.2。旧 v0.1 仍以三款版本档校验，下文保留已交付版本的具体过程。SDOJ 从受支持的清单只复制 114 个资源，不递归带入旧下载目录里的 ISO、音乐补丁或工具。
+
 Release.ps1 的 Internal／Public 使用同一 release_package.py。先提交全部源码，再在该提交执行 `Build.ps1 -Games espgaluda2,futari,ketsui -Jobs 2`，保留并校验 SDK、联合 360、PS4 和启动器的收据。出包要求工作树干净，三个玩家组件收据属于当前提交，且实际 runtime 证书与产物哈希匹配；过时构建会拒绝出包。后续修改源码／文档会使联合宿主收据失效，应在最终提交后再构建。
 
 `Release.ps1 -Flavor Internal -Version 0.1` 完整复制三款数据和虫姬二两份 DLC、程序、符号及独立 source/.git；可显式用 DataDirectories 与 FutariDlcDirectory 指定输入。源码 Git 不借用作者 objects，origin 为合集 SSH 地址。`-Flavor Public` 不接受数据包含参数，按运行文件白名单单独组装，不复制数据树、源代码、PDB 或用户现场。两者使用默认 INI、玩家说明、许可证及原生 app-local CRT；仅创建 releases/ 下的新目录，不覆盖旧包。

@@ -42,12 +42,13 @@
       "path": "launcher/assets/sdoj.jpg",
       "sha256": "87701ee3231f60b341aaa54f9339ad1112e52aa9d7231f026d90910e84914ed2",
       "resource": 106,
+      "fit": "contain",
       "focusY": 0.5,
       "kicker": "XBOX 360 · 2013 · IN DEVELOPMENT",
       "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/",
       "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/common/img/social.jpg",
       "copyright": "©CAVE Interactive CO., LTD.",
-      "usage": "Unchanged official title image for the in-development banner. Native rendering supplies the display title; final v0.2 composition still requires visual review."
+      "usage": "Unchanged official square title image, contained at the right without enlargement or cropping. Native rendering supplies the display title and shared banner treatment."
     },
     {
       "game": "daioujou",

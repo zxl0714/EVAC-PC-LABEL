@@ -43,7 +43,7 @@ class ArtworkTests(unittest.TestCase):
     def test_invalid_manifest(self):
         for key, value in [('resource', True), ('resource', 99), ('focusY', -1), ('focusY', 1.1),
                            ('sha256', '0' * 64), ('path', '../outside.jpg'), ('sourceUrl', 'http://example.org/a'),
-                           ('copyright', ''), ('usage', 'bad\ntext')]:
+                           ('copyright', ''), ('usage', 'bad\ntext'), ('fit', 'stretch')]:
             with self.subTest(key=key, value=value):
                 self.reject(lambda manifest: manifest['assets'][0].update({key: value}))
 
