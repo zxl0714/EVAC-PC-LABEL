@@ -4,6 +4,21 @@ import ps4_resource_fixtures as fixtures
 
 
 class ResourcePreparationFixtures(unittest.TestCase):
+    def test_cached_replay_uses_stored_data_without_changing_global_np_or_validation(self):
+        source=fixtures.authored_local_replay()
+        fixed=fixtures.fix_local_replay(source)
+        self.assertTrue(fixed.startswith(b'// authored outside prefix\n'))
+        self.assertTrue(fixed.endswith(b'// authored outside suffix\n'))
+        self.assertIn(b'function is_blocked_id(_id_h,_id_l) { return authored_existing_list; }',fixed)
+        self.assertIn(b'if (_ok && load_replaydata(m_title_ctrl, _n))',fixed)
+        self.assertIn(b'local _psnid = authored_stored_name;',fixed)
+        self.assertIn(b'local accountID = false;',fixed)
+        self.assertNotIn(b'ugc_error_dialog()',fixed)
+        self.assertNotIn(b'NetworkModule(null)',fixed)
+        self.assertNotIn(b'initializeIDMapper()',fixed)
+        self.assertEqual(fixed.count(b'{'),fixed.count(b'}'))
+        with self.assertRaises(ValueError):fixtures.fix_local_replay(fixed)
+
     def test_peer_fallback_is_scoped_and_preserves_existing_list_path(self):
         source=(b'// outside\nfunction is_blocked_id(_id_h,_id_l) {\n'
                 b'  if (_net.initializeIDMapper() < 0) return true;\n'

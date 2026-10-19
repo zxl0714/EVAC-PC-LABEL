@@ -165,8 +165,9 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             arguments.insert(arguments.end(),{L"--patch-dir",(spec.paths.data/"CUSA09062-patch").native(),
                 L"--read-patches",prepared.read_fixes.native(),L"--community-rounds",L"on"});
         } else {
-            arguments.insert(arguments.end(),{L"--merged-app",L"on"});
-            if (configuration.community.enabled) arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native()});
+            // The local community replay cache must also work with networking
+            // disabled. The ranking peer fallback separately checks readiness.
+            arguments.insert(arguments.end(),{L"--merged-app",L"on",L"--read-patches",prepared.read_fixes.native()});
         }
         // Development-only bridge to the existing pad diagnostic. Never save
         // this setting in the player INI or enable it in the launcher itself.

@@ -36,6 +36,8 @@ e85f288 的头部诊断已重建，旧绊地狱原生 ABI／真实 HTTP 定向�
 
 `.local/daioujou-network-r7` 是 r6 关闭后的副本，community=false、不创建 provider、不加载读覆盖；实际冷启动选择 Materials Room → Replay Theater → DOWNLOAD REPLAY 时，被游戏的 PSN 已退出提示拦住，尚未播放下载记录，不记作冷回放通过。下一步应适配本地缓存录像浏览，不伪造全局 NP 登录。已只读定位 `base:1100/script/title_replay_view.nut.m`，SHA-256 31fb632273f6521ac2eb483e5e1040466a3630f2c4b4e685a0ed29d23334ec88，本地解码在 `.local/daioujou-profile-inspect-r1/ps4data/1100/script/title_replay_view.nut`：pollCorrectFilter（约354）和 pollSelectTab（约456）调用 ugc_error_dialog，成员 is_blocked_id（约490）在 ID-mapper 初始化失败时拒绝，setReplayPage（约886）尝试 PSN AccountID→OnlineID。需要保留快照／版本校验、已存昵称和原始数据边界，仅处理社区缓存的非网络路径，再重新断网冷回放。r7 的提示已关闭，不需要人类协助。独立 loopback 服务仍在 18088，DB 保留 r1 路径，生产服务尚未更新网络结构合同。
 
+本地缓存录像适配已增加到本作专属覆盖：四个 viewer 方法不再要求 Sony 会话或远程账号映射，显示保存的昵称，保留 load_replaydata 及原生版本／快照检查；全局 NP 状态、在线排名与原 Sony 列表实现未修改。覆盖现在包含 ranking/viewer 两项，并在关闭联网时也加载；在线 peer 回退仍单独检查排行榜初始化。两份原始脚本分别核对 SHA-256，生成物仍只在 prepared/.local。独立 Python 对照得到 viewer 修正 SHA-256 f71b686fb8e4f1992a56ae834d0e1bae563d23afc0186264d3334843ec3433b6，5 项源码资源用例及源码审计通过；原生重建／生成覆盖和真实离线冷回放待执行。
+
 当前发行版本为 `v0.2`／`562e019`，四款可启动作品为 futari、espgaluda2、ketsui 和 sdoj，均沿用共享 INI 和各自的正式社区服务。SDOJ 四主模式进关、正式成绩／榜单／录像、离线冷回放、全屏和原生商店购买／保存读回已验证；购买后须退出商店等自动保存再关窗。旧三款沿用已验收的工具链回放，仅补必要集成检查，不展开重复实战。四游戏双包实际解压和对应源码附件验收完成；后续文档不改变冻结包。后文阶段性记录不代表当前能力开关，准确信息见 games/catalogue.json 和验收矩阵前部。
 
 先读 README.md、AGENTS.md、docs/IMPLEMENTATION_PLAN.md 和 docs/TEST_MATRIX.md。v0.1 的发行源码为标签 `v0.1`、提交 `f652df0`；Internal／Public 从这一提交的同一套配套构建产生，代表性流程与实际解压已验收。其后的文档提交补充最终记录，不改变已交付 ZIP 或版本标签。调试朋友的 v0.1 日志时，使用对应提交和符号；制作新版本仍需在新提交重建并重新出包。

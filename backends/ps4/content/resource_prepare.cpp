@@ -309,6 +309,28 @@ Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(sourc
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {
     Require(source.size()<=kResourceLimit,"Oversized resource script");
     auto raw=Text(source); const std::string newline=raw.find("\r\n")!=raw.npos ? "\r\n" : "\n";
+    if (fix==ResourceFix::CommunityLocalReplay) {
+        // This title's community cache has no Sony session or Sony account
+        // mapping. Adapt only its local viewer: retain stored names, native
+        // header/state validation and all network-ranking/NP policy elsewhere.
+        const auto method=[&](std::string_view begin,std::string_view end,std::string_view from,std::string_view to) {
+            auto [start,stop,body]=Method(raw,begin,end);
+            Replace(body,from,to,1);raw.replace(start,stop-start,Compact(body));
+        };
+        method("  function pollCorrectFilter(_key) {","  function pollSelectFilter() {",
+            "        if (System.getSpec() != \"nx\" && ::ugc_error_dialog())"+newline+"          return _key;","");
+        method("  function pollSelectTab() {","  function is_blocked_id(_id_h,_id_l) {",
+            "if (!::ugc_error_dialog()) {","{");
+        method("  function pollCorrectList(_key) {","  function pollCancel() {",
+            "          if (System.getSpec() == \"ps4\" && m_tab_select == REPLAY_TAB_DOWN &&"+newline+
+            "            is_blocked_id(m_replay_array[_n]._01_added_value._18_account_h, m_replay_array[_n]._01_added_value._19_account_l)) _ok = false;","");
+        method("  function setReplayPage(_start, _cnt, _array, _list) {","  function getReplaySlot(_array) {",
+            "    if (System.getSpec() == \"ps4\" && m_tab_select == REPLAY_TAB_DOWN) {"+newline+
+            "      ::g_menu_nowloading.open(NowLoadingTypes.NOW_ACCESSING);"+newline+
+            "      _net = NetworkModule(null);"+newline+
+            "      if (_net != null && _net.initializeIDMapper() >= 0) accountID = true;"+newline+"    }","");
+        return Bytes(raw);
+    }
     if (fix==ResourceFix::CommunityReplayPeer) {
         auto [start,stop,body]=Method(raw,"function is_blocked_id(_id_h,_id_l) {","function getLocalEntryMax() {");
         // Only the community-loaded title adapter uses this fallback. Keep the
@@ -442,30 +464,40 @@ PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) {
     const auto index_raw=ReadFile(index_path,kResourceLimit),patch_index_raw=ReadFile(patch_index_path,kResourceLimit);
     const auto index=ParseResourceIndex(UnwrapResource(index_raw,key,"ps4data_info.psb.m"));
     const auto patch_index=ParseResourceIndex(UnwrapResource(patch_index_raw,key,"ps4data_patch_info.psb.m"));
-    constexpr std::string_view resource="1100/script/title_ranking_view.nut.m",name="title_ranking_view.nut.m";
-    Require(!patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched DaiOuJou ranking script");
-    const auto& extent=index.at("file_info").at(std::string(resource));
-    Require(extent.is_array() && extent.size()==2,"Invalid DaiOuJou ranking resource entry");
-    for (const auto& n:extent) Require(n.is_number_integer() && !n.is_boolean() &&
-        (n.is_number_unsigned()?n.get<std::uint64_t>()<=INT64_MAX:n.get<std::int64_t>()>=0),"Invalid resource index integer");
-    const auto offset=extent[0].get<std::uint64_t>(),size=extent[1].get<std::uint64_t>();
     const auto body=DataChild(root,"ps4data_body.bin");const auto file_size=fs::file_size(body);
-    const auto packed=ReadRange(body,file_size,offset,size),script=UnwrapResource(packed,key,name);
-    constexpr std::string_view expected="5275193bc6590e3d826bcdd495bc074a2f3b4adc6157c5de32d0631457e96a19";
-    Require(Hash(script)==expected,"DaiOuJou ranking script differs from the verified input");
-    const auto fixed=FixResourceScript(script,ResourceFix::CommunityReplayPeer);
-    const auto replacement=WrapResource(fixed,key,name,static_cast<std::size_t>(size));
-    kt::content::ReadPatch patch{"ps4data_body.bin",file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),{}};
-    const auto bytes=ByteSpan(replacement);patch.replacement.assign(bytes.begin(),bytes.end());
-    auto output=EncodeReadFixes({"CUSA32997","01.04",{patch}});
+    kt::content::ReadPatchSet patches{"CUSA32997","01.04",{}};
+    auto resources=Json::array();
+    const auto fix=[&](std::string_view resource,std::string_view expected,ResourceFix transform,std::string_view scope) {
+        Require(!patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched DaiOuJou replay script");
+        const auto& extent=index.at("file_info").at(std::string(resource));
+        Require(extent.is_array() && extent.size()==2,"Invalid DaiOuJou replay resource entry");
+        for (const auto& n:extent) Require(n.is_number_integer() && !n.is_boolean() &&
+            (n.is_number_unsigned()?n.get<std::uint64_t>()<=INT64_MAX:n.get<std::int64_t>()>=0),"Invalid resource index integer");
+        const auto offset=extent[0].get<std::uint64_t>(),size=extent[1].get<std::uint64_t>();
+        const auto name=resource.substr(resource.rfind('/')+1);
+        const auto packed=ReadRange(body,file_size,offset,size),script=UnwrapResource(packed,key,name);
+        Require(Hash(script)==expected,"DaiOuJou replay script differs from the verified input");
+        const auto fixed=FixResourceScript(script,transform),replacement=WrapResource(fixed,key,name,static_cast<std::size_t>(size));
+        kt::content::ReadPatch patch{"ps4data_body.bin",file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),{}};
+        const auto bytes=ByteSpan(replacement);patch.replacement.assign(bytes.begin(),bytes.end());
+        patches.entries.push_back(std::move(patch));
+        resources.push_back({{"resource",resource},{"scope",scope},{"offset",offset},{"bytes",size},
+            {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}});
+    };
+    fix("1100/script/title_ranking_view.nut.m","5275193bc6590e3d826bcdd495bc074a2f3b4adc6157c5de32d0631457e96a19",
+        ResourceFix::CommunityReplayPeer,"initialized-community-provider");
+    fix("1100/script/title_replay_view.nut.m","31fb632273f6521ac2eb483e5e1040466a3630f2c4b4e685a0ed29d23334ec88",
+        ResourceFix::CommunityLocalReplay,"local-community-replay-cache");
+    auto output=EncodeReadFixes(patches);
     Require(Hash(ReadFile(executable,512*1024*1024))==kDaioujouExecutableHash &&
         Hash(ReadFile(index_path,kResourceLimit))==Hash(index_raw) &&
-        Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw) &&
-        Hash(ReadRange(body,file_size,offset,size))==Hash(packed),"DaiOuJou resources changed during preparation");
-    Json report{{"format",1},{"fix","community-replay-peer-fallback"},{"title_id","CUSA32997"},{"app_version","01.04"},
-        {"executable_sha256",kDaioujouExecutableHash},{"resource",resource},{"offset",offset},{"bytes",size},
-        {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)},
-        {"original_files_modified",false},{"requires_community_provider",true},{"read_overlay_sha256",Hash(output)}};
+        Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw),"DaiOuJou resources changed during preparation");
+    for (const auto& patch:patches.entries) Require(kt::content::ReadPatchHash(ByteSpan(
+        ReadRange(body,file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
+        "DaiOuJou original replay resource changed during preparation");
+    Json report{{"format",1},{"fix","daioujou-community-replays"},{"title_id","CUSA32997"},{"app_version","01.04"},
+        {"executable_sha256",kDaioujouExecutableHash},{"resources",std::move(resources)},
+        {"original_files_modified",false},{"local_cache_requires_network",false},{"read_overlay_sha256",Hash(output)}};
     return {std::move(output),std::move(report)};
 }
 }

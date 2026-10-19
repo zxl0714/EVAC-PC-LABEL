@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts/ketsui'))
 import game_fixes as fixes
 from ketsui.test_game_fixes import GameFixTests
-from daioujou.resource_fixes import fix_replay_peer
+from daioujou.resource_fixes import fix_replay_peer, fix_local_replay
 
 
 def array(values):
@@ -86,7 +86,8 @@ def oracle(item):
     if op == 'psb': return fixes.Psb(source).root
     if op == 'fix':
         transform = dict(music=fixes.fix_direct_menu, batch=fixes.fix_ranking_replay_batch,
-                         offline=fixes.fix_community_local_round_gate, peer=fix_replay_peer)[item['kind']]
+                         offline=fixes.fix_community_local_round_gate, peer=fix_replay_peer,
+                         **{'local-replay': fix_local_replay})[item['kind']]
         return transform(source).hex()
     seed, name = bytes.fromhex(item['seed']), item['resource']
     if op == 'mask': return fixes.mask_for(seed, name).hex()
@@ -101,6 +102,33 @@ def change_array(raw, at, index, value):
     item_width = raw[payload] - 12
     position = payload + 1 + index * item_width
     return raw[:position] + value.to_bytes(item_width, 'little') + raw[position + item_width:]
+
+
+def authored_local_replay(newline=b'\n'):
+    return newline.join((
+        b'// authored outside prefix',
+        b'  function pollCorrectFilter(_key) {',
+        b'        if (System.getSpec() != "nx" && ::ugc_error_dialog())',
+        b'          return _key;', b'    return authored_filter(_key);', b'  }',
+        b'  function pollSelectFilter() { return authored_select_filter; }',
+        b'  function pollSelectTab() {', b'    if (!::ugc_error_dialog()) {',
+        b'      authored_cached_tab();', b'    }', b'  }',
+        b'  function is_blocked_id(_id_h,_id_l) { return authored_existing_list; }',
+        b'  function pollCorrectList(_key) {',
+        b'          if (System.getSpec() == "ps4" && m_tab_select == REPLAY_TAB_DOWN &&',
+        b'            is_blocked_id(m_replay_array[_n]._01_added_value._18_account_h, m_replay_array[_n]._01_added_value._19_account_l)) _ok = false;',
+        b'    if (_ok && load_replaydata(m_title_ctrl, _n)) { authored_play(); }', b'  }',
+        b'  function pollCancel() { return authored_cancel; }',
+        b'  function setReplayPage(_start, _cnt, _array, _list) {',
+        b'    local _net = null;', b'    local accountID = false;',
+        b'    if (System.getSpec() == "ps4" && m_tab_select == REPLAY_TAB_DOWN) {',
+        b'      ::g_menu_nowloading.open(NowLoadingTypes.NOW_ACCESSING);',
+        b'      _net = NetworkModule(null);',
+        b'      if (_net != null && _net.initializeIDMapper() >= 0) accountID = true;', b'    }',
+        b'    local _psnid = authored_stored_name;',
+        b'    if (accountID) { authored_remote_name(_net); }', b'  }',
+        b'  function getReplaySlot(_array) { return authored_slot; }',
+        b'// authored outside suffix', b''))
 
 
 def cases():
@@ -139,6 +167,10 @@ def cases():
         add('fix-peer-' + label, 'fix', peer, kind='peer')
         add('fix-peer-duplicate-' + label, 'fix', peer + peer, kind='peer')
         add('fix-peer-changed-' + label, 'fix', peer.replace(b'< 0', b'<= 0'), kind='peer')
+        local_replay = authored_local_replay(newline)
+        add('fix-local-replay-' + label, 'fix', local_replay, kind='local-replay')
+        add('fix-local-replay-duplicate-' + label, 'fix', local_replay + local_replay, kind='local-replay')
+        add('fix-local-replay-changed-' + label, 'fix', local_replay.replace(b'accountID = true', b'accountID = false'), kind='local-replay')
     for count in (0, 1, 3):
         add('fix-music-count-' + str(count), 'fix', b'm_bgm_mode[_gamemode] = _bgmMode;\n' * count, kind='music')
     add('fix-batch-changed', 'fix', helper.authored_ranking_batch().replace(b'            break;', b'            return 0;'), kind='batch')

@@ -38,7 +38,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     const Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
         {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui},
         {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
-        {"communityReplayPeerFallback",!ketsui}};
+        {"communityReplayPeerFallback",!ketsui},{"communityLocalReplay",!ketsui}};
     const std::vector<std::string> programs=ketsui ?
         std::vector<std::string>{"eboot.bin","emu_integration_01400.prx","ketsui_01000.prx"} :
         std::vector<std::string>{"eboot.bin","emu_integration_01700.prx","daioujou_01000.prx","daioujou_01010.prx",
