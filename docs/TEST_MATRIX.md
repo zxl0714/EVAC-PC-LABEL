@@ -16,13 +16,20 @@ PS4 任务交接的硬宿主 CPU 绑定已修正，保留六线程、原任务�
 
 | 入口 | 已观察到的实际流程 | 尚未独立覆盖 |
 | --- | --- | --- |
-| CUSTOM 参数路径 | ARCADE 暂停 → GAME SETTING，NORMAL 改 EASY，原生排名 ON → OFF；原生长按重置后 Type-A／Shotia 进入 Stage 1A，2010 分自然 GAME OVER，返回 DIRECT MENU | 独立死亡到复活过程、参数冷重启读回；不将 CUSTOM 可玩等同于可上榜 |
+| CUSTOM 参数路径 | ARCADE 暂停 → GAME SETTING，NORMAL 改 EASY，原生排名 ON → OFF；原生长按重置后 Type-A／Shotia 进入 Stage 1A，2010 分自然 GAME OVER，返回 DIRECT MENU；后续新进程读回 EASY／3 自机／排名 OFF | 独立死亡到复活过程；不将 CUSTOM 可玩等同于可上榜 |
 | ARRANGE S | Type-A／原作固定 Shotia，Stage 1A 玩家自机、射击／爆炸，164330 分；推进到中型敌机，547280 分 GAME OVER，暂停及返回 DIRECT MENU | 独立死亡到复活过程 |
 | ARRANGE L | Type-A／原作固定 Leinyan，Stage 1A 射击／爆炸，余机 2 → 1 后仍见自机；推进到 Stage 1B／1125660 分，暂停及返回 DIRECT MENU | 单独持续激光操作，不从发键推断视觉通过 |
+| ARRANGE EX | Type-A／原作固定 Exy，Stage 1A 射击／爆炸；余机 2 → 1 后自机继续运行，推进至中型敌机／1385010 分，暂停及返回 DIRECT MENU | 更多机体、后续关卡不属本轮轻量范围 |
+| BLACK LABEL | 默认 Version-B（NEW），Type-A／Shotia 玩家第一关射击／爆炸，52360 分自然续关倒计时，暂停及返回 DIRECT MENU | 独立死亡到复活过程，不从局末倒推 |
+| 怒首領蜂III | 原生额外版本，Type-A／Shotia 玩家第一关射击／爆炸，余机 2 → 0 后仍有自机；248580 分中型敌机／自然续关倒计时，暂停及返回 DIRECT MENU | 更多机体及后续关卡不属本轮轻量范围 |
+| ARCADE CHALLENGE | ROUND 1／Shotia／Stage 1 AREA A，默认 level 10／NORMAL／推荐资源；玩家射击、原生失误回卷与重试次数 20 → 17、返回挑战列表及 DIRECT MENU | 不扩展全部挑战、奖牌或榜单验收 |
+| ARCADE OSARAI | 原生失误槽 01／Type-A／Shotia／Round 1 Stage 1A，实际载入、玩家射击、MISS!! TRY AGAIN 回卷、返回片段列表及 DIRECT MENU | 不扩展全部记录或榜单验收 |
 
 CUSTOM 对应 `native-hold-r1/stdout.jsonl`，宿主 SHA-256 `7f705237250b3eca8a40e4c7ff64648a91381a1396f88b8d13a6946aa9dd294b`，日志 SHA-256 `912e0a99ed60d7697305fb61e348454359191e3295104d30b8e8d4a7f268fb76`。S／L 对应 `native-hold-r2/stdout.jsonl`，宿主 `f1683bc58c3023d0981348a33a264d0a284246dae42c27f258e160ad4a14bb31`，日志 `ac93ef58dede926e18f3c0809b58847c99605d95812ca12a29650c1f2676ea88`。两次 GPU 均为 `ede6e68396b88553e63b06964552f3b04eb13a246ba75884a669b88a4ea7a192`，关闭后日志均排空，保留既有退出码 27；细粒度诊断存在竞争拒收，不声称所有事件无损。后者 38 项 pad 子例、375 项源码和 73 项原生检查通过。
 
-ARCADE／SUPER EASY 的既有玩家结果和 LUNA TOUR 首区域结果分别沿用。ARRANGE EX、ARCADE CHALLENGE、ARCADE OSARAI、BLACK LABEL 与额外海外版入口仍待轻量覆盖；主要模式总项继续保持未完成，不重测全部角色或扩大为长期耐久。
+新增五入口及 CUSTOM 冷读回对应 `native-hold-r3/stdout.jsonl`，干净提交 `eb0bcbe` 的配套重建，宿主／GPU 与 r2 相同，日志 SHA-256 `e0f3ad1837d9d38704b16602475d4a35c806d5e2dcc2b0cfac33a1931ef6f5e1`。F8 标记 1（黑标暂停）为 8642329877999，标记 2（冷读回设置）为 8642968479917。已核对进程终止、窗口销毁、后台日志排空及既有退出码 27；accepted=written=266118、dropped／format／sink／frame-emission-failure=0，但竞争拒收 570、host-operation-emission-failure=537，仍不声称全部诊断无损。关窗后即时 CU 刷新没有前台 PID，重新列窗及查进程均确认已结束，没有重启或重复发送关闭操作。
+
+ARCADE／SUPER EASY 的既有玩家结果和 LUNA TOUR 首区域结果分别沿用。所有可见主要游戏入口已有代表性玩家片段，本轮未观察到新崩溃；CUSTOM／ARRANGE S／BLACK LABEL 独立死亡复活及 LUNA TOUR 适用失误行为仍为较小缺口，主要模式总项继续保持未完成。不重测全部角色或扩大为长期耐久，不据此关闭 SDOJ 调查与最终发行门槛。
 
 ### 较早候选与历史定位
 

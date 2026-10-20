@@ -1,10 +1,11 @@
 # Development entry
 
-Mode coverage now additionally includes CUSTOM parameter apply/Stage 1A and
-ARRANGE S/L player shooting and Direct Menu return. See the current mode table
-in docs/TEST_MATRIX.md for exact partial coverage and remaining entries. The
-opt-in native --enter diagnostic supports Shift+H bounded Circle hold; ordinary
-player input stays unchanged. Do not repeat S/L or accepted online baselines.
+All visible DaiOuJou principal game entries now have representative player
+segments. New EX, Black Label, extra III, Challenge and Osarai entries/returns
+and CUSTOM cold settings readback are recorded in docs/TEST_MATRIX.md. Smaller
+death/respawn or applicable miss gaps remain; do not mark the whole gate done.
+The opt-in native --enter diagnostic supports Shift+H bounded Circle hold;
+ordinary player input stays unchanged. Do not redo accepted online baselines.
 
 Current performance batch has fixed the hard host-affinity restriction rather
 than reducing the game's six task workers. Read the current-result section in
