@@ -14,6 +14,35 @@ SPEC.loader.exec_module(TIMING)
 
 
 class TimingAnalysisTests(unittest.TestCase):
+    def command_frame(self, **changes):
+        stages = dict(duration_us=1000, draw_us=300, acquire_us=500, prefetch_us=50,
+                      flush_us=100, other_us=50, acquires=2, prefetches=1)
+        stages.update(changes)
+        frame = self.frame(1000000, 19000, command_stages=stages)
+        frame['execute_us'] = 1100
+        return frame
+
+    def test_command_scopes_include_drains_and_handoff_without_double_count(self):
+        report = self.report([self.command_frame()])
+        self.assertEqual(report['counts']['command_timing_samples'], 1)
+        timing = report['command_substages']['timing']
+        self.assertEqual(timing['acquire_us']['max_us'], 500)
+        self.assertEqual(timing['outer_overhead_us']['max_us'], 100)
+
+    def test_command_scopes_reject_invalid_sum_types_or_parent(self):
+        frames = [self.command_frame(**change) for change in
+                  (dict(duration_us=999), dict(draw_us=True), dict(acquire_us=-1),
+                   dict(acquires='2'), dict(duration_us=1102, other_us=152))]
+        report = self.report(frames + [self.frame(1000000, 19000)])
+        self.assertEqual(report['counts']['invalid_command_timing'], 5)
+        self.assertEqual(report['command_substages']['timing']['duration_us']['count'], 0)
+
+    def test_command_scopes_obey_scene_window_and_rounding(self):
+        report = self.report([self.command_frame(duration_us=1101, other_us=151)], to_clock_us=1000000)
+        self.assertEqual(report['command_substages']['timing']['outer_overhead_us']['max_us'], 0)
+        report = self.report([self.command_frame()], from_clock_us=1000001)
+        self.assertEqual(report['command_substages']['timing']['duration_us']['count'], 0)
+
     def backend_frame(self, **changes):
         stages = dict(completed=True, duration_us=3000, prepare_us=10, retire_us=10,
                       acquire_us=20, record_us=100, submit_us=50, queue_present_us=10,

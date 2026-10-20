@@ -1335,6 +1335,24 @@ void TraceNativeApi(const char* name, std::uint64_t value, const void* caller) {
                 image ? "true" : "false", image ? Quoted(image->image_name).c_str() : "null");
 }
 
+bool EmitNativeSemaphoreWait(std::uint64_t handle, int requested, int result, const void* caller,
+        const NativeSemaphoreWaitTiming& timing) noexcept {
+    try {
+        const auto address = reinterpret_cast<std::uintptr_t>(caller);
+        const auto* image = ImageAt(address);
+        const auto base = image ? reinterpret_cast<std::uintptr_t>(image->image) : 0;
+        const auto signal = reinterpret_cast<std::uintptr_t>(timing.grant_caller);
+        const auto* source = ImageAt(signal);
+        const auto signal_base = source ? reinterpret_cast<std::uintptr_t>(source->image) : 0;
+        return NativeLogf("{\"event\":\"native_semaphore_wait_timing\",\"handle\":%llu,\"requested\":%d,\"result\":%d,\"queued_clock_us\":%llu,\"granted_clock_us\":%llu,\"clock_us\":%llu,\"thread\":%lu,\"grant_thread\":%u,\"caller_offset\":\"0x%llx\",\"caller_image\":%s,\"grant_caller_offset\":\"0x%llx\",\"grant_caller_image\":%s}\n",
+            handle, requested, result, timing.queued_clock_us, timing.granted_clock_us, timing.resumed_clock_us,
+            GetCurrentThreadId(), timing.grant_thread, static_cast<unsigned long long>(address-base),
+            image ? Quoted(image->image_name).c_str() : "null", static_cast<unsigned long long>(signal-signal_base),
+            source ? Quoted(source->image_name).c_str() : "null") >= 0;
+    } catch (...) { /* Diagnostics must not change semaphore results. */ }
+    return false;
+}
+
 bool EmitNativeHostOperation(const char* name, const char* category, std::uint64_t detail,
         const void* caller, std::uint64_t began, std::uint64_t completed, std::uint64_t suppressed) noexcept {
     try {

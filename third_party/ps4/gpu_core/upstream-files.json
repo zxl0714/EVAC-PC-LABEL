@@ -1088,6 +1088,16 @@
       "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge"
     },
     {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.cpp",
+      "sha256": "b6d6c1a61d8746fb0fe2802b15e4ce62263ac07c87096d7ac98619f0a30a2497",
+      "description": "Add a FIFO callback barrier tied to the last submitted timeline tick, preserving prior callback/GPU completion without an empty next-tick GPU submit during synchronous host drains. Normal current-command deferred callbacks are unchanged."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.h",
+      "sha256": "8572b17102475a34d01571d520f9e03ae1b77689c7c135e390f3f047cbe18808",
+      "description": "Declare the owner-thread submitted-work callback barrier used after Flush/Finish, separate from callbacks covering the currently recorded command buffer."
+    },
+    {
       "path": "src/video_core/texture_cache/tile_manager.cpp",
       "sha256": "77bd96879fda42e9ee0d8a00310242b9d773157910f61bb1bb817930f20b7ec0",
       "description": "Time tiler/detiler cache-miss pipeline creation on the shared host steady clock; preserve shader selection, specialization and cache behavior."

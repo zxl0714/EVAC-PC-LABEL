@@ -18,6 +18,9 @@ public:
     void Run(std::function<void()> operation);
     void SetWindow(void* window);
     void Drain();
+    // Submit recorded draws without waiting; the later present fence still
+    // covers them on the same queue. No flip/event/guest-memory completion.
+    void Flush();
     void Clear();
     void Registers(std::uint32_t offset, std::span<const std::uint32_t> words);
     void Extent(unsigned target, unsigned width, unsigned height);

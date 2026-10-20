@@ -247,6 +247,14 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
     PopPendingOperations();
 }
 
+void Scheduler::DeferSubmittedPriorityOperation(Common::UniqueFunction<void>&& func) {
+    {
+        std::unique_lock lk(priority_pending_ops_mutex);
+        priority_pending_ops.emplace(std::move(func), CurrentTick() - 1);
+    }
+    priority_pending_ops_cv.notify_one();
+}
+
 void Scheduler::PriorityPendingOpsThread(std::stop_token stoken) {
     Common::SetCurrentThreadName("shadPS4:GpuSchedPriorityPendingOpsRunner");
 

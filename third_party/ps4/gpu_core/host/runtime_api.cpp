@@ -64,8 +64,12 @@ struct Session {
     scheduler->PopPendingOperations();
     auto complete = std::make_shared<std::promise<void>>();
     auto done = complete->get_future();
-    scheduler->DeferPriorityOperation([complete] { complete->set_value(); });
-    rasterizer->Finish();
+    // The first Finish has submitted and waited for all recorded GPU work.
+    // Retire prior CPU download callbacks on that submitted timeline tick;
+    // assigning this FIFO barrier to the next tick forced an empty submit and
+    // a second device wait on every ACQUIRE_MEM. Both completion obligations
+    // remain, without creating new GPU work solely to wake the callback queue.
+    scheduler->DeferSubmittedPriorityOperation([complete] { complete->set_value(); });
     Require(done.wait_for(std::chrono::seconds(5)) == std::future_status::ready,
             "GPU completion callbacks did not drain");
     done.get();

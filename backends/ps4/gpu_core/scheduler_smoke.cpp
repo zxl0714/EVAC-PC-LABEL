@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <future>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -178,12 +179,15 @@ int main(int argc, char **argv) {
           }
           vmaUnmapMemory(instance.GetAllocator(), readback.allocation);
           Require(equal, "GPU buffer content mismatch");
-          const auto deadline =
-              std::chrono::steady_clock::now() + std::chrono::seconds(2);
-          while (priority_callbacks != (pass + 1) * batches &&
-                 std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::yield();
-          }
+          const auto submitted_count = submissions;
+          const auto next_tick = scheduler.CurrentTick();
+          auto done = std::make_shared<std::promise<void>>();
+          auto retired = done->get_future();
+          scheduler.DeferSubmittedPriorityOperation([done] { done->set_value(); });
+          Require(retired.wait_for(std::chrono::seconds(2)) == std::future_status::ready &&
+                      submissions == submitted_count && scheduler.CurrentTick() == next_tick,
+                  "Submitted callback barrier required an extra GPU submission");
+          retired.get();
           Require(priority_callbacks == (pass + 1) * batches &&
                       ordinary_callbacks == (pass + 1) * batches,
                   "Completion callbacks did not retire");

@@ -2,6 +2,7 @@
 #include "native_diagnostics.h"
 #include "native_host_timing.h"
 #include "native_threads.h"
+#include "diagnostics/monotonic_clock.h"
 #include <windows.h>
 #include <algorithm>
 #include <atomic>
@@ -31,6 +32,7 @@ constexpr int kPending = 1;
 struct Waiter {
     std::condition_variable ready;
     int requested, priority, result = kPending;
+    NativeSemaphoreWaitTiming timing{};
 };
 struct Semaphore {
     std::mutex gate;
@@ -91,15 +93,21 @@ int Create(Handle* output, const char* name, unsigned attributes, int initial, i
 // Grant complete requests, in queue order among satisfiable waiters. Credits
 // are reserved under the gate before a thread is woken; a newcomer cannot
 // steal a completed wait's credit before that waiter gets scheduled again.
-void Grant(Semaphore& semaphore) {
+void Grant(Semaphore& semaphore, const void* caller = nullptr) {
+    std::uint64_t granted_at{};
     for (auto entry = semaphore.waiters.begin(); entry != semaphore.waiters.end();) {
         auto* waiter = *entry;
         if (waiter->requested > semaphore.count) { ++entry; continue; }
         semaphore.count -= waiter->requested; entry = semaphore.waiters.erase(entry);
+        if (!granted_at) { granted_at = kt::diagnostics::MonotonicMicroseconds(); }
+        waiter->timing.granted_clock_us = granted_at;
+        waiter->timing.grant_thread = GetCurrentThreadId();
+        waiter->timing.grant_caller = caller;
         waiter->result = 0; waiter->ready.notify_one();
     }
 }
-int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void* caller, int fixture_priority = -1) {
+int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void* caller, int fixture_priority = -1,
+    NativeSemaphoreWaitTiming* fixture_timing = nullptr) {
     NativeHostOperationScope timing("sceKernelWaitSema", "synchronization", static_cast<std::uint64_t>(requested), caller, blocking);
     return Api(caller, [&] {
         const auto semaphore = Find(id); if (!semaphore) { return kSearch; }
@@ -122,6 +130,7 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
         if (sequence < 16) { TraceNativeApi("sceKernelWaitSema", id, caller); }
         const auto queued = semaphore->waiters.insert(insertion, &waiter);
         const auto start = std::chrono::steady_clock::now();
+        waiter.timing.queued_clock_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
         if (sequence < 16) {
             std::printf("{\"event\":\"native_semaphore_wait_begin\",\"handle\":%llu,\"requested\":%d,\"timed\":%s,\"timeout_us\":%u,\"sequence\":%llu}\n",
                 id, requested, timeout ? "true" : "false", budget, sequence);
@@ -137,12 +146,30 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
             // Do not unwind a queued stack waiter out from under a notifier.
             UnsupportedApi("native_semaphore_wait_host_failure", id, caller);
         }
+        waiter.timing.resumed_clock_us = kt::diagnostics::MonotonicMicroseconds();
         if (timeout) {
             const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
             *timeout = waiter.result || elapsed >= budget ? 0 : budget - static_cast<unsigned>(elapsed);
         }
         if (sequence < 16) {
             std::printf("{\"event\":\"native_semaphore_wait_end\",\"handle\":%llu,\"result\":%d,\"sequence\":%llu}\n", id, waiter.result, sequence);
+        }
+        if (fixture_timing) { *fixture_timing = waiter.timing; }
+        // Never format/log while holding the gate being diagnosed. Keep slow
+        // waits bounded, while preserving the existing generic scope counters.
+        lock.unlock();
+        // A worker parked until the next frame is expected, not a slow work
+        // item. Keep batched completion waits and late wakeups, rather than
+        // logging every idle worker in a large guest pool eight times/second.
+        const auto waited_us = waiter.timing.resumed_clock_us - waiter.timing.queued_clock_us;
+        const auto late_resume = waiter.timing.granted_clock_us &&
+            waiter.timing.resumed_clock_us - waiter.timing.granted_clock_us >= 2000;
+        if ((requested > 1 && waited_us >= 1000) || late_resume || (waiter.result && waited_us >= 4000)) {
+            thread_local std::uint64_t report_second = UINT64_MAX;
+            thread_local unsigned reports{};
+            const auto second = waiter.timing.resumed_clock_us / 1000000;
+            if (second != report_second) { report_second = second; reports = 0; }
+            if (reports++ < 8) { EmitNativeSemaphoreWait(id, requested, waiter.result, caller, waiter.timing); }
         }
         return waiter.result;
     });
@@ -153,7 +180,7 @@ int Signal(Handle id, int count, const void* caller) {
         std::lock_guard lock(semaphore->gate);
         if (semaphore->deleted) { return kSearch; }
         if (count <= 0 || count > semaphore->maximum - semaphore->count) { return kInvalid; }
-        semaphore->count += count; Grant(*semaphore);
+        semaphore->count += count; Grant(*semaphore, caller);
         if (signal_sequence.fetch_add(1, std::memory_order_relaxed) < 16) {
             std::printf("{\"event\":\"native_semaphore_signal\",\"handle\":%llu,\"added\":%d,\"remaining\":%d,\"waiters\":%zu}\n", id, count, semaphore->count, semaphore->waiters.size());
         }
@@ -268,7 +295,8 @@ bool SemaphoreSelfTest() {
     }
     {
         Handle delayed{}; create(delayed, 0, 2); unsigned remaining = 200000; std::atomic<int> value{kPending};
-        std::thread worker([&] { value = Wait(delayed, 1, &remaining, true, nullptr); });
+        NativeSemaphoreWaitTiming timing;
+        std::thread worker([&] { value = Wait(delayed, 1, &remaining, true, nullptr, -1, &timing); });
         const auto waiting = queued(delayed, 1);
         {
             const auto state = Find(delayed); std::lock_guard lock(state->gate);
@@ -276,6 +304,8 @@ bool SemaphoreSelfTest() {
         }
         worker.join();
         check("reserved_signal_wins_race_and_remaining_timeout_saturates_not_underflows", waiting && value == 0 && remaining == 0 && Delete(delayed, nullptr) == 0);
+        check("grant_to_resume_delay_is_distinct_from_waiting_for_a_signal", timing.grant_thread == GetCurrentThreadId() &&
+            timing.queued_clock_us <= timing.granted_clock_us && timing.resumed_clock_us - timing.granted_clock_us >= 150000);
     }
     {
         bool ordered = true;

@@ -116,6 +116,13 @@ void NativeResidentGpu::SetWindow(void* window) {
 void NativeResidentGpu::Drain() {
     Run([&] { RuntimeError error; Check(impl->api.drain(impl->context, &error), error); });
 }
+void NativeResidentGpu::Flush() {
+    Run([&] {
+        RuntimeError error;
+        std::uint64_t tick{};
+        Check(impl->api.flush(impl->context, &tick, &error), error);
+    });
+}
 void NativeResidentGpu::Clear() {
     Run([&] { RuntimeError error; Check(impl->api.clear(impl->context, &error), error); });
 }

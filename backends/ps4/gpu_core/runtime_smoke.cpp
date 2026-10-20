@@ -390,6 +390,11 @@ int main(int argc, char **argv) {
           RuntimePresentResult result;
           for (unsigned retry = 0; retry < 9; ++retry) {
             session.worker.Sync([&] {
+              // Exercise the native submit-before-pacing path. This does not
+              // report a flip; the following final present must still wait for
+              // its own completion and advance past the earlier queue tick.
+              u64 paced_draw_tick{};
+              session.Call(library.api.flush(session.context, &paced_draw_tick, &error), error);
               session.Call(library.api.present(session.context, &display,
                                                &result, &error),
                            error);
@@ -398,6 +403,7 @@ int main(int argc, char **argv) {
                 Require(t.completed && t.duration_us == t.prepare_us+t.retire_us+t.acquire_us+t.record_us+
                     t.submit_us+t.queue_present_us+t.gpu_wait_us+t.present_wait_us+t.finalize_us,
                     "Resident presentation wall-time scopes do not reconcile");
+                Require(result.tick > paced_draw_tick, "Early draw flush fabricated final presentation completion");
               } else {
                 Require(!t.completed, "Incomplete presentation fabricated completed timing");
               }

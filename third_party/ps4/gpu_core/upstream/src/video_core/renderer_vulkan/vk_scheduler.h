@@ -445,6 +445,11 @@ public:
         priority_pending_ops_cv.notify_one();
     }
 
+    // CAVE: a CPU FIFO barrier after already-submitted work. Unlike the normal
+    // current-command callback, it must not require an extra empty GPU submit.
+    // Call only on the scheduler owner, after Flush/Finish of the work covered.
+    void DeferSubmittedPriorityOperation(Common::UniqueFunction<void>&& func);
+
     static std::mutex submit_mutex;
 
 private:

@@ -1,6 +1,7 @@
 #include "native_gpu.h"
 #include "native_memory.h"
 #include "native_resident_gpu.h"
+#include "diagnostics/monotonic_clock.h"
 #include "graphics/vulkan_device.h"
 #include "graphics/shader_binary.h"
 #include "graphics/texture.h"
@@ -327,6 +328,8 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
     std::span<const std::vector<std::uint32_t>> streams, kt::gfx::pm4::Analysis& state, kt::gfx::ShaderMemoryReader reader) {
     using namespace kt::gfx::pm4;
     NativeGpuExecution result;
+    using kt::diagnostics::MonotonicMicroseconds;
+    const auto began = MonotonicMicroseconds();
     for (const auto& words : streams) {
         for (unsigned offset = 0; offset < words.size();) {
             const auto decoded = Decode(words, offset);
@@ -351,6 +354,7 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
                 if (packet.opcode == 0x12) { target.resident->Clear(); }
             }
             if (!packet.padding && packet.opcode == 0x58) {
+                const auto acquired_at = MonotonicMicroseconds();
                 // Strong synchronous profile: all earlier draws completed
                 // their GPU fences and wrote guest memory back. Drain the
                 // device explicitly before subsequent CPU snapshots/uploads.
@@ -365,6 +369,8 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
                     std::printf("{\"event\":\"native_gpu_acquire_completed\",\"control\":\"0x%x\",\"base\":\"0x%llx\",\"bytes\":%llu,\"poll_interval\":%u,\"device_idle_completed\":true,\"profile\":\"synchronous_writeback\"}\n",
                         acquire.control, acquire.base, acquire.bytes, acquire.interval);
                 }
+                result.acquire_us += MonotonicMicroseconds() - acquired_at;
+                ++result.acquires;
             }
             if (!packet.padding && packet.opcode == 0x12) {
                 // GCN CLEAR_STATE restores context defaults. Keep the journal's
@@ -387,6 +393,7 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
                 if (!matched) { throw std::runtime_error("WAIT_REG_MEM is not a live video label"); }
             }
             if (!packet.padding && packet.opcode == 0x50) {
+                const auto prefetch_at = MonotonicMicroseconds();
                 const auto& dma = *state.last_dma;
                 if (dma.control != 0x60000000 || dma.destination != 0x3022c || (dma.command & ~0x1fffffu) != 0x28200000 || !dma.bytes) {
                     throw std::runtime_error("Unimplemented non-prefetch DMA operation");
@@ -395,13 +402,17 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
                 const bool readable = target.resident ? target.resident->Read(dma.source, source.data(), source.size())
                     : reader(nullptr, dma.source, source.data(), source.size());
                 if (!readable) { throw std::runtime_error("Shader cache prefetch source is not readable"); }
+                result.prefetch_us += MonotonicMicroseconds() - prefetch_at;
+                ++result.prefetches;
             }
             if (!packet.padding && packet.opcode == 0x2d) {
+                const auto draw_at = MonotonicMicroseconds();
                 if (target.resident) {
                     if (!state.instances) { throw std::runtime_error("Missing resident draw instance count"); }
                     target.resident->Draw(packet.body[0], *state.instances);
                 } else { ExecuteDraw(target, state, reader); }
                 ++result.draws;
+                result.draw_us += MonotonicMicroseconds() - draw_at;
             }
             if (!packet.padding && packet.opcode == 0x10 && !packet.body.empty() && packet.body[0] == 0x68750777) {
                 if (!PlainFlipReservation(packet, result.prepared_flip, &words == &streams.back(), decoded.next == words.size())) {
@@ -412,6 +423,17 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
             offset = decoded.next;
         }
     }
+    if (target.resident && result.prepared_flip && result.draws) {
+        // Let already-recorded draws run during the normal ~10 ms software
+        // pacing wait, instead of first submitting them after that deadline.
+        // The final composite/present is still paced. ACQUIRE_MEM drains,
+        // resource hazards, completion fences and buffer-label release remain.
+        const auto flush_at = MonotonicMicroseconds();
+        target.resident->Flush();
+        result.flush_us = MonotonicMicroseconds() - flush_at;
+    }
+    result.duration_us = MonotonicMicroseconds() - began;
+    result.other_us = result.duration_us - result.draw_us - result.acquire_us - result.prefetch_us - result.flush_us;
     return result;
 }
 
@@ -461,6 +483,8 @@ bool GpuAdapterSelfTest(kt::gfx::VulkanDevice& device) {
     const auto completed = ExecuteNativeGpuCommands(target, acquires, acquire_state, nullptr);
     check("regional_acquire_drains_real_device_without_dereferencing_cache_range_or_completing_a_flip",
         completed.draws == 0 && !completed.prepared_flip && acquire_state.acquires == 2 &&
+        completed.acquires == 2 && completed.prefetches == 0 && !completed.draw_us && !completed.flush_us &&
+        completed.duration_us == completed.acquire_us + completed.other_us &&
         acquire_state.last_acquire->bytes == 256 && labels[0].load() == 91 &&
         std::all_of(backing.begin(), backing.end(), [](auto byte) { return byte == 73; }));
     const auto display_layout = kt::gfx::DescribeDisplay({0x80000000u, 0, 0, 1280, 720, 1280, 0, 0, 0}, false).layout;

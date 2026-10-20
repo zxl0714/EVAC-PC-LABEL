@@ -19,6 +19,16 @@ ASYNC_LOG_COUNTERS = ('accepted', 'written', 'dropped_oldest', 'contended', 'inv
 PRESENT_STAGES = ('lock_wait_us', 'prepare_us', 'display_clock_wait_us', 'backend_present_us', 'completion_us')
 BACKEND_STAGES = ('prepare_us', 'retire_us', 'acquire_us', 'record_us', 'submit_us',
                   'queue_present_us', 'gpu_wait_us', 'present_wait_us', 'finalize_us')
+COMMAND_STAGES = ('draw_us', 'acquire_us', 'prefetch_us', 'flush_us', 'other_us')
+
+
+def valid_command_timing(item):
+    stages, outer = item.get('command_stages'), item.get('execute_us')
+    return (isinstance(stages, dict) and type(outer) is int and outer >= 0 and
+            all(type(stages.get(key)) is int and stages[key] >= 0
+                for key in (*COMMAND_STAGES, 'duration_us', 'acquires', 'prefetches')) and
+            sum(stages[key] for key in COMMAND_STAGES) == stages['duration_us'] and
+            stages['duration_us'] <= outer + 1)
 
 
 def valid_present_timing(item):
@@ -166,6 +176,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
     present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
     frame_present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
     backend_stages = {key: Distribution() for key in (*BACKEND_STAGES, 'duration_us', 'outer_overhead_us')}
+    command_stages = {key: Distribution() for key in (*COMMAND_STAGES, 'duration_us', 'outer_overhead_us')}
     top_compiles, top_locks = [], []
     operation_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
     frame_counter_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
@@ -288,6 +299,14 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 counts['timeline_markers_omitted'] += 1
         elif kind == 'native_gnm_frame_completed':
             counts['completed_frames'] += 1
+            if 'command_stages' in item:
+                if valid_command_timing(item):
+                    counts['command_timing_samples'] += 1
+                    for key in (*COMMAND_STAGES, 'duration_us'):
+                        command_stages[key].add(item['command_stages'][key])
+                    command_stages['outer_overhead_us'].add(max(0, item['execute_us'] - item['command_stages']['duration_us']))
+                else:
+                    counts['invalid_command_timing'] += 1
             if 'backend_stages' in item:
                 if isinstance(item['backend_stages'], dict) and item['backend_stages'].get('completed') is False:
                     counts['unmeasured_backend_frames'] += 1
@@ -468,6 +487,8 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                     measurement='Validated nested scopes from completed-frame records, including sub-20-ms frames. Missing or rejected records are not zero-duration evidence. Backend includes worker handoff, Vulkan and recovery waits; not pure GPU work or physical scanout. The older thresholded event is reported separately and never double-counted here.'),
                 backend_present_substages=dict(timing={key: value.report() for key, value in backend_stages.items()},
                     measurement='Completed resident presents without swapchain/zero-extent recovery. Contiguous worker wall-time scopes, not GPU timestamp queries or physical scanout. queue_present_us includes the vkQueuePresentKHR call; gpu_wait_us and present_wait_us measure the respective fence waits including scheduling/driver time. outer_overhead_us includes worker handoff and API epilogue, not pure CPU work.'),
+                command_substages=dict(timing={key: value.report() for key, value in command_stages.items()},
+                    measurement='Aggregated worker host wall time. draw_us includes resource/cache work, acquire_us includes conservative GPU drains and callback completion, flush_us submits pending draws without waiting. other_us is remaining packet processing. outer_overhead_us includes worker handoff, locks and adapter diagnostics. Neither the parts nor execute_us are pure CPU or GPU execution time.'),
                 longest_rack_lock_holds=[dict(line=line, event=event) for _, line, event in sorted(top_locks, reverse=True)],
                 host_operations={kind: distribution.report() for kind, distribution in operation_timing.items()},
                 longest_host_operations=[dict(line=line, event=event) for _, line, event in sorted(top_operations, reverse=True)],
