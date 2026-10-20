@@ -7,8 +7,9 @@ passed normal SDOJ GUI startup, fresh native save creation and return to the
 launcher with only that game's data. The actual Internal launcher screenshot
 is .local/v03-delivery/launcher-v0.3.jpg. Reuse these records; do not rebuild or
 re-extract the archives for the following documentation/tooling commit.
-OSS upload is running in the recorded local session; poll it instead of starting
-another upload. QQ delivery remains pending: the client is at an authentication
+OSS upload and public verification are complete (7,129,056,312 bytes, c66a5f53;
+public checksum and a bounded ZIP download verified). Do not upload it again.
+QQ delivery remains pending: the client was at an authentication
 screen and the user has been asked to log in manually. No game is running.
 
 Release communication should describe player-visible additions, improvements
