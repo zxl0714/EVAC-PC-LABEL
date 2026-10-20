@@ -1,0 +1,10 @@
+# Reviewed disc-base callback return and logic-copy boundary. No replacement.
+[[midasm_hook]]
+address = 0x88051364
+name = "SdojCoreNormalBuilt"
+registers = []
+
+[[midasm_hook]]
+address = 0x88051D74
+name = "SdojCoreNormalCopy"
+registers = ["r27"]

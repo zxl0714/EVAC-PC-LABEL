@@ -1,0 +1,10 @@
+# This module shares the address space, not the other module's data layout.
+[[midasm_hook]]
+address = 0x880512DC
+name = "SdojCoreArrangeBuilt"
+registers = []
+
+[[midasm_hook]]
+address = 0x88051CFC
+name = "SdojCoreArrangeCopy"
+registers = ["r25"]

@@ -82,7 +82,7 @@ class SdojGenerationTests(unittest.TestCase):
         for module, address in (('CA022100', '0x880943E8'), ('CA022110', '0x880952F0')):
             filename = module + '-functions.toml'
             manifest = next(item for item in self.manifest['modules'] if item['guest_path'] == module + '.bin')
-            self.assertEqual(manifest['includes'], [filename])
+            self.assertEqual(manifest['includes'], [filename, module + '-input-diagnostics.toml'])
             callbacks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['functions']
             self.assertEqual(set(callbacks), {address})
             self.assertEqual(callbacks[address]['size'], 4)
@@ -160,6 +160,24 @@ class SdojGenerationTests(unittest.TestCase):
             self.assertNotIn(forbidden, source)
         cmake = (ROOT / 'games/sdoj/CMakeLists.txt').read_text(encoding='utf-8')
         self.assertLess(cmake.index('add_test(NAME sdoj_input_trace'), cmake.index('if(CAVE_BUILD_GAME)'))
+
+    def test_core_input_observers_are_separate_and_non_replacing(self):
+        for module, expected in {
+            'CA022100': {0x88051364: ('SdojCoreNormalBuilt', []), 0x88051D74: ('SdojCoreNormalCopy', ['r27'])},
+            'CA022110': {0x880512DC: ('SdojCoreArrangeBuilt', []), 0x88051CFC: ('SdojCoreArrangeCopy', ['r25'])},
+        }.items():
+            hooks = tomllib.loads((ROOT / f'games/sdoj/recomp/{module}-input-diagnostics.toml').read_text(encoding='utf-8'))['midasm_hook']
+            self.assertEqual(len(hooks), 2)
+            for hook in hooks:
+                self.assertEqual((hook['name'], hook['registers']), expected[hook['address']])
+                self.assertFalse(hook.get('return', False))
+        host = (ROOT / 'games/sdoj/diagnostics/input_trace.cpp').read_text(encoding='utf-8')
+        bridge = (ROOT / 'games/sdoj/diagnostics/input_module_trace.cpp').read_text(encoding='utf-8')
+        self.assertIn('std::try_to_lock', host)
+        self.assertIn('gate.unlock();', host)
+        self.assertIn('GetProcAddress', bridge)
+        self.assertIn('extern "C" __declspec(dllexport) void SdojCoreInputEvent', host)
+        self.assertNotIn('REX_STORE_', bridge)
 
 
 if __name__ == '__main__':

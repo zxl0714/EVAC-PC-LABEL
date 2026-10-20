@@ -46,4 +46,25 @@ struct InputPass {
         return active && object && std::uint64_t(object) + 20100 == manager && us >= began_us;
     }
 };
+
+constexpr std::uint32_t CoreInputBlock(unsigned module) {
+    return module == 1 ? 0x888752F0u : module == 2 ? 0x8887D818u : 0;
+}
+struct CoreInputSample {
+    std::array<std::uint32_t, 2> previous{}, current{};
+};
+inline std::optional<CoreInputSample> DecodeCoreInput(std::span<const std::uint8_t> bytes) {
+    if (bytes.size() != 176) return {};
+    auto u32 = [&](std::size_t i) {
+        return (std::uint32_t(bytes[i]) << 24) | (std::uint32_t(bytes[i + 1]) << 16) |
+            (std::uint32_t(bytes[i + 2]) << 8) | bytes[i + 3];
+    };
+    return CoreInputSample{{u32(0), u32(160)}, {u32(12), u32(172)}};
+}
+struct CoreInputAge { std::uint64_t us{}, frames{}; };
+inline std::optional<CoreInputAge> SinceCoreBuild(std::uint64_t built_us, std::uint64_t built_frame,
+                                                std::uint64_t now_us, std::uint64_t now_frame) {
+    if (!built_us || now_us < built_us || now_frame < built_frame) return {};
+    return CoreInputAge{now_us - built_us, now_frame - built_frame};
+}
 }

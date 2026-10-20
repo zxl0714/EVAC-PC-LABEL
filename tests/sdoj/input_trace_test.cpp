@@ -39,5 +39,17 @@ int main() {
           "manager arithmetic cannot wrap");
     check(!pass.changed && !pass.polls && pass.began_frame == 8,
           "a new pass cannot retain earlier events");
+    check(CoreInputBlock(1) == 0x888752F0 && CoreInputBlock(2) == 0x8887D818 && !CoreInputBlock(3),
+          "overlapping modules retain separate reviewed input blocks");
+    std::array<std::uint8_t, 176> core{};
+    core[3] = 0x04; core[15] = 0x18; core[163] = 0x02; core[175] = 0x40;
+    const auto decoded = DecodeCoreInput(core);
+    check(decoded && decoded->previous == std::array<std::uint32_t,2>{4,2} &&
+          decoded->current == std::array<std::uint32_t,2>{0x18,0x40}, "exact per-player current and prior masks");
+    check(!DecodeCoreInput(std::span(core).first(175)), "truncated second player is rejected");
+    const auto age = SinceCoreBuild(100, 7, 16766, 8);
+    check(age && age->us == 16666 && age->frames == 1, "build-to-copy age retains guest epoch");
+    check(!SinceCoreBuild(0,7,200,8) && !SinceCoreBuild(100,7,99,8) &&
+          !SinceCoreBuild(100,7,200,6), "missing or regressing build cannot yield an age");
     std::cout << passed << " SDOJ input observation checks passed\n";
 }

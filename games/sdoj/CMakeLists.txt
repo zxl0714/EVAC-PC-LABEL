@@ -34,7 +34,7 @@ if(CAVE_BUILD_GAME)
     # Both XEX-bearing .bin modules occupy 0x88000000; never combine their maps.
     foreach(module CA022100 CA022110)
         include("${CMAKE_SOURCE_DIR}/generated/sdoj/${module}/sources.cmake")
-        add_library(sdoj_${module} SHARED ${GENERATED_SOURCES})
+        add_library(sdoj_${module} SHARED diagnostics/input_module_trace.cpp ${GENERATED_SOURCES})
         target_include_directories(sdoj_${module} PRIVATE "${CMAKE_SOURCE_DIR}/generated/sdoj/${module}")
         target_compile_options(sdoj_${module} PRIVATE -fno-char8_t)
         target_link_libraries(sdoj_${module} PRIVATE rex::runtime)
