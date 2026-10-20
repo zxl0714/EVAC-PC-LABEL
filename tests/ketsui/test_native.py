@@ -6006,7 +6006,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         events = [json.loads(line) for line in result.stdout.splitlines()]
         cases = [event for event in events if event['event'] == 'thread_self_test_case']
-        self.assertEqual(len(cases), 16)
+        self.assertEqual(len(cases), 18)
         self.assertTrue(all(event['passed'] for event in cases))
         starts = [event for event in events if event['event'] == 'native_thread_start']
         self.assertEqual(len(starts), 22)
@@ -6174,7 +6174,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             events = [json.loads(line) for line in result.stdout.splitlines()]
             cases = [event for event in events if event['event'] == 'semaphore_self_test_case']
-            self.assertEqual(len(cases), 20)
+            self.assertEqual(len(cases), 24)
             self.assertTrue(all(event['passed'] for event in cases))
             self.assertEqual(events[-1], {'event': 'semaphore_self_test', 'passed': True})
 

@@ -5,6 +5,7 @@
 #include "diagnostics/monotonic_clock.h"
 #include <windows.h>
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -33,10 +34,48 @@ struct Waiter {
     std::condition_variable ready;
     int requested, priority, result = kPending;
     NativeSemaphoreWaitTiming timing{};
+    std::shared_ptr<Waiter> notify_next;
+    std::atomic<bool> notification_finished{true};
+    Waiter(int count, int rank) : requested(count), priority(rank) {}
 };
+// The lease survives unlocking the semaphore and even the waiting thread's
+// return. A raw pointer to its stack condition_variable would not be safe here.
+// Linking already-owned nodes cannot allocate after credits are committed.
+struct Notifications {
+    std::shared_ptr<Waiter> first, last;
+    void Add(const std::shared_ptr<Waiter>& waiter) noexcept {
+        waiter->notification_finished.store(false, std::memory_order_relaxed);
+        if (last) { last->notify_next = waiter; } else { first = waiter; }
+        last = waiter;
+    }
+    void NotifyAll() noexcept {
+        last.reset();
+        while (first) {
+            auto waiter = std::move(first); first = std::move(waiter->notify_next);
+            waiter->ready.notify_one();
+            waiter->notification_finished.store(true, std::memory_order_release);
+        }
+    }
+    ~Notifications() { NotifyAll(); }
+};
+std::shared_ptr<Waiter> AcquireWaiter(int count, int priority) {
+    thread_local std::shared_ptr<Waiter> reusable;
+    // A previous notifier may still own this CV after its waiter has resumed.
+    // Never reuse it until that lease has also gone away.
+    // use_count protects exclusive lifetime, not publication of node writes.
+    // Pair with the notifier's release before reusing its linked-list node.
+    if (!reusable || reusable.use_count() != 1 || !reusable->notification_finished.load(std::memory_order_acquire)) {
+        reusable = std::make_shared<Waiter>(count, priority);
+    }
+    else {
+        reusable->requested = count; reusable->priority = priority;
+        reusable->result = kPending; reusable->timing = {};
+    }
+    return reusable;
+}
 struct Semaphore {
     std::mutex gate;
-    std::list<Waiter*> waiters;
+    std::list<std::shared_ptr<Waiter>> waiters;
     int count, maximum, initial;
     bool fifo, deleted = false;
     Semaphore(int value, int limit, bool ordered) : count(value), maximum(limit), initial(value), fifo(ordered) {}
@@ -66,8 +105,19 @@ std::string QuoteBytes(std::string_view text) {
     output += '"'; return output;
 }
 std::shared_ptr<Semaphore> Find(Handle id) {
+    struct Cached { Handle id{}; std::weak_ptr<Semaphore> value; };
+    // Work/done pairs dominate the hot path. Weak ownership does not keep a
+    // deleted semaphore alive; every operation still checks deleted under gate.
+    thread_local std::array<Cached, 2> recent;
+    thread_local unsigned replacement{};
+    for (const auto& cached : recent) {
+        if (cached.id == id) { if (auto value = cached.value.lock()) { return value; } }
+    }
     std::lock_guard lock(registry.gate);
-    const auto found = registry.semaphores.find(id); return found == registry.semaphores.end() ? nullptr : found->second;
+    const auto found = registry.semaphores.find(id);
+    if (found == registry.semaphores.end()) { return nullptr; }
+    recent[replacement++ % recent.size()] = {id, found->second};
+    return found->second;
 }
 int Create(Handle* output, const char* name, unsigned attributes, int initial, int maximum, const void* options, const void* caller) {
     return Api(caller, [&] {
@@ -93,17 +143,17 @@ int Create(Handle* output, const char* name, unsigned attributes, int initial, i
 // Grant complete requests, in queue order among satisfiable waiters. Credits
 // are reserved under the gate before a thread is woken; a newcomer cannot
 // steal a completed wait's credit before that waiter gets scheduled again.
-void Grant(Semaphore& semaphore, const void* caller = nullptr) {
+void Grant(Semaphore& semaphore, Notifications& notifications, const void* caller = nullptr) {
     std::uint64_t granted_at{};
     for (auto entry = semaphore.waiters.begin(); entry != semaphore.waiters.end();) {
-        auto* waiter = *entry;
+        auto waiter = *entry;
         if (waiter->requested > semaphore.count) { ++entry; continue; }
         semaphore.count -= waiter->requested; entry = semaphore.waiters.erase(entry);
         if (!granted_at) { granted_at = kt::diagnostics::MonotonicMicroseconds(); }
         waiter->timing.granted_clock_us = granted_at;
         waiter->timing.grant_thread = GetCurrentThreadId();
         waiter->timing.grant_caller = caller;
-        waiter->result = 0; waiter->ready.notify_one();
+        waiter->result = 0; notifications.Add(waiter);
     }
 }
 int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void* caller, int fixture_priority = -1,
@@ -119,7 +169,7 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
         if (!blocking) { return kBusy; }
         const unsigned budget = timeout ? *timeout : 0;
         if (timeout && !budget) { return kTimeout; }
-        Waiter waiter{{}, requested, priority};
+        const auto waiter = AcquireWaiter(requested, priority);
         auto insertion = semaphore->waiters.end();
         if (!semaphore->fifo) {
             insertion = semaphore->waiters.begin();
@@ -128,9 +178,9 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
         if (fail_queue.exchange(false)) { throw std::bad_alloc(); }
         const auto sequence = wait_sequence.fetch_add(1, std::memory_order_relaxed);
         if (sequence < 16) { TraceNativeApi("sceKernelWaitSema", id, caller); }
-        const auto queued = semaphore->waiters.insert(insertion, &waiter);
+        const auto queued = semaphore->waiters.insert(insertion, waiter);
         const auto start = std::chrono::steady_clock::now();
-        waiter.timing.queued_clock_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
+        waiter->timing.queued_clock_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
         if (sequence < 16) {
             std::printf("{\"event\":\"native_semaphore_wait_begin\",\"handle\":%llu,\"requested\":%d,\"timed\":%s,\"timeout_us\":%u,\"sequence\":%llu}\n",
                 id, requested, timeout ? "true" : "false", budget, sequence);
@@ -138,76 +188,82 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
         try {
             if (timeout) {
                 const auto deadline = start + std::chrono::microseconds(budget);
-                if (!waiter.ready.wait_until(lock, deadline, [&] { return waiter.result != kPending; })) {
-                    semaphore->waiters.erase(queued); waiter.result = kTimeout;
+                if (!waiter->ready.wait_until(lock, deadline, [&] { return waiter->result != kPending; })) {
+                    semaphore->waiters.erase(queued); waiter->result = kTimeout;
                 }
-            } else { waiter.ready.wait(lock, [&] { return waiter.result != kPending; }); }
+            } else { waiter->ready.wait(lock, [&] { return waiter->result != kPending; }); }
         } catch (...) {
-            // Do not unwind a queued stack waiter out from under a notifier.
+            // Do not unwind an incomplete queue transaction on host failure.
             UnsupportedApi("native_semaphore_wait_host_failure", id, caller);
         }
-        waiter.timing.resumed_clock_us = kt::diagnostics::MonotonicMicroseconds();
+        waiter->timing.resumed_clock_us = kt::diagnostics::MonotonicMicroseconds();
         if (timeout) {
             const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-            *timeout = waiter.result || elapsed >= budget ? 0 : budget - static_cast<unsigned>(elapsed);
+            *timeout = waiter->result || elapsed >= budget ? 0 : budget - static_cast<unsigned>(elapsed);
         }
         if (sequence < 16) {
-            std::printf("{\"event\":\"native_semaphore_wait_end\",\"handle\":%llu,\"result\":%d,\"sequence\":%llu}\n", id, waiter.result, sequence);
+            std::printf("{\"event\":\"native_semaphore_wait_end\",\"handle\":%llu,\"result\":%d,\"sequence\":%llu}\n", id, waiter->result, sequence);
         }
-        if (fixture_timing) { *fixture_timing = waiter.timing; }
+        if (fixture_timing) { *fixture_timing = waiter->timing; }
         // Never format/log while holding the gate being diagnosed. Keep slow
         // waits bounded, while preserving the existing generic scope counters.
         lock.unlock();
         // A worker parked until the next frame is expected, not a slow work
         // item. Keep batched completion waits and late wakeups, rather than
         // logging every idle worker in a large guest pool eight times/second.
-        const auto waited_us = waiter.timing.resumed_clock_us - waiter.timing.queued_clock_us;
-        const auto late_resume = waiter.timing.granted_clock_us &&
-            waiter.timing.resumed_clock_us - waiter.timing.granted_clock_us >= 2000;
-        if ((requested > 1 && waited_us >= 1000) || late_resume || (waiter.result && waited_us >= 4000)) {
+        const auto waited_us = waiter->timing.resumed_clock_us - waiter->timing.queued_clock_us;
+        const auto late_resume = waiter->timing.granted_clock_us &&
+            waiter->timing.resumed_clock_us - waiter->timing.granted_clock_us >= 2000;
+        if ((requested > 1 && waited_us >= 1000) || late_resume || (waiter->result && waited_us >= 4000)) {
             thread_local std::uint64_t report_second = UINT64_MAX;
             thread_local unsigned reports{};
-            const auto second = waiter.timing.resumed_clock_us / 1000000;
+            const auto second = waiter->timing.resumed_clock_us / 1000000;
             if (second != report_second) { report_second = second; reports = 0; }
-            if (reports++ < 8) { EmitNativeSemaphoreWait(id, requested, waiter.result, caller, waiter.timing); }
+            if (reports++ < 8) { EmitNativeSemaphoreWait(id, requested, waiter->result, caller, waiter->timing); }
         }
-        return waiter.result;
+        return waiter->result;
     });
 }
 int Signal(Handle id, int count, const void* caller) {
     return Api(caller, [&] {
         const auto semaphore = Find(id); if (!semaphore) { return kSearch; }
-        std::lock_guard lock(semaphore->gate);
+        Notifications notifications;
+        std::unique_lock lock(semaphore->gate);
         if (semaphore->deleted) { return kSearch; }
         if (count <= 0 || count > semaphore->maximum - semaphore->count) { return kInvalid; }
-        semaphore->count += count; Grant(*semaphore, caller);
+        semaphore->count += count; Grant(*semaphore, notifications, caller);
         if (signal_sequence.fetch_add(1, std::memory_order_relaxed) < 16) {
             std::printf("{\"event\":\"native_semaphore_signal\",\"handle\":%llu,\"added\":%d,\"remaining\":%d,\"waiters\":%zu}\n", id, count, semaphore->count, semaphore->waiters.size());
         }
+        lock.unlock(); notifications.NotifyAll();
         return 0;
     });
 }
-void RetireWaiters(Semaphore& semaphore, int result) {
-    for (auto* waiter : semaphore.waiters) { waiter->result = result; waiter->ready.notify_one(); }
+void RetireWaiters(Semaphore& semaphore, int result, Notifications& notifications) {
+    for (const auto& waiter : semaphore.waiters) { waiter->result = result; notifications.Add(waiter); }
     semaphore.waiters.clear();
 }
 int Cancel(Handle id, int reset, int* waiters, const void* caller) {
     return Api(caller, [&] {
         const auto semaphore = Find(id); if (!semaphore) { return kSearch; }
-        std::lock_guard lock(semaphore->gate);
+        Notifications notifications;
+        std::unique_lock lock(semaphore->gate);
         if (semaphore->deleted) { return kSearch; }
         if (reset < -1 || reset > semaphore->maximum) { return kInvalid; }
         if (waiters) { *waiters = static_cast<int>(semaphore->waiters.size()); }
-        RetireWaiters(*semaphore, kCancelled); semaphore->count = reset < 0 ? semaphore->initial : reset; return 0;
+        RetireWaiters(*semaphore, kCancelled, notifications); semaphore->count = reset < 0 ? semaphore->initial : reset;
+        lock.unlock(); notifications.NotifyAll(); return 0;
     });
 }
 int Delete(Handle id, const void* caller) {
     return Api(caller, [&] {
-        std::lock_guard registry_lock(registry.gate);
+        Notifications notifications;
+        std::unique_lock registry_lock(registry.gate);
         const auto found = registry.semaphores.find(id); if (found == registry.semaphores.end()) { return kSearch; }
         const auto semaphore = found->second;
-        std::lock_guard state_lock(semaphore->gate);
-        semaphore->deleted = true; RetireWaiters(*semaphore, kDeleted); registry.semaphores.erase(found); return 0;
+        std::unique_lock state_lock(semaphore->gate);
+        semaphore->deleted = true; RetireWaiters(*semaphore, kDeleted, notifications); registry.semaphores.erase(found);
+        state_lock.unlock(); registry_lock.unlock(); notifications.NotifyAll(); return 0;
     });
 }
 int KT_SYSV KernelCreate(Handle* output, const char* name, unsigned attributes, int initial, int maximum, const void* options) {
@@ -298,10 +354,12 @@ bool SemaphoreSelfTest() {
         NativeSemaphoreWaitTiming timing;
         std::thread worker([&] { value = Wait(delayed, 1, &remaining, true, nullptr, -1, &timing); });
         const auto waiting = queued(delayed, 1);
+        Notifications notifications;
         {
             const auto state = Find(delayed); std::lock_guard lock(state->gate);
-            ++state->count; Grant(*state); Sleep(250); // force scheduling after the timeout budget
+            ++state->count; Grant(*state, notifications); Sleep(250); // force scheduling after the timeout budget
         }
+        notifications.NotifyAll();
         worker.join();
         check("reserved_signal_wins_race_and_remaining_timeout_saturates_not_underflows", waiting && value == 0 && remaining == 0 && Delete(delayed, nullptr) == 0);
         check("grant_to_resume_delay_is_distinct_from_waiting_for_a_signal", timing.grant_thread == GetCurrentThreadId() &&
@@ -322,6 +380,46 @@ bool SemaphoreSelfTest() {
             ordered &= cancelled == 1 && (attributes == 1 ? higher == kCancelled : older == kCancelled) && Delete(selected, nullptr) == 0;
         }
         check("fifo_and_priority_queue_orders_are_distinct", ordered);
+    }
+    {
+        Handle selected{}; create(selected, 0, 2);
+        std::atomic<int> value{kPending};
+        std::thread worker([&] { value = timed(selected); });
+        const auto waiting = queued(selected, 1);
+        Notifications notifications; std::weak_ptr<Waiter> lifetime;
+        {
+            const auto state = Find(selected); std::lock_guard lock(state->gate);
+            if (waiting) { lifetime = state->waiters.front(); ++state->count; Grant(*state, notifications); }
+        }
+        // Force return before the production notifier finishes. The lease, not
+        // the waiting thread or its TLS cache, must still own this CV.
+        if (notifications.first) { notifications.first->ready.notify_one(); }
+        worker.join();
+        const bool retained = !lifetime.expired(); notifications.NotifyAll();
+        check("notification_lease_keeps_cv_alive_after_waiting_thread_exits", waiting && value == 0 && retained && lifetime.expired() && Delete(selected, nullptr) == 0);
+    }
+    {
+        Handle selected{}; create(selected, 0, 2);
+        std::atomic<int> first{kPending}, second{kPending};
+        std::thread worker([&] { first = timed(selected); second = timed(selected); });
+        const auto waiting = queued(selected, 1);
+        Notifications notifications; std::weak_ptr<Waiter> first_waiter;
+        {
+            const auto state = Find(selected); std::lock_guard lock(state->gate);
+            if (waiting) { first_waiter = state->waiters.front(); ++state->count; Grant(*state, notifications); }
+        }
+        if (notifications.first) { notifications.first->ready.notify_one(); }
+        const bool requeued = await([&] {
+            const auto state = Find(selected); std::lock_guard lock(state->gate);
+            return first == 0 && state->waiters.size() == 1;
+        });
+        bool distinct{};
+        {
+            const auto state = Find(selected); std::lock_guard lock(state->gate);
+            if (requeued) { distinct = state->waiters.front() != first_waiter.lock(); }
+        }
+        Signal(selected, 1, nullptr); worker.join(); notifications.NotifyAll();
+        check("next_wait_never_reuses_a_cv_still_owned_by_previous_notifier", waiting && requeued && distinct && second == 0 && first_waiter.expired() && Delete(selected, nullptr) == 0);
     }
     {
         Handle selected{}; create(selected, 0, 2, 2);
@@ -371,6 +469,18 @@ bool SemaphoreSelfTest() {
         Handle maximum{}; create(maximum, INT32_MAX, INT32_MAX);
         check("signed_maximum_count_does_not_overflow_on_signal_or_batch_acquire", Signal(maximum, 1, nullptr) == kInvalid && Wait(maximum, INT32_MAX, nullptr, false, nullptr) == 0 &&
               Signal(maximum, INT32_MAX, nullptr) == 0 && Wait(maximum, INT32_MAX, nullptr, false, nullptr) == 0 && Delete(maximum, nullptr) == 0);
+    }
+    {
+        Handle removed{}; create(removed, 1, 2);
+        auto retained = Find(removed); std::weak_ptr<Semaphore> lifetime = retained;
+        const bool cached = Wait(removed, 1, nullptr, false, nullptr) == 0;
+        std::atomic<int> erased{kPending};
+        std::thread deleter([&] { erased = Delete(removed, nullptr); }); deleter.join();
+        int count = 73;
+        const bool rejected = Wait(removed, 1, nullptr, false, nullptr) == kSearch && Signal(removed, 1, nullptr) == kSearch &&
+            Cancel(removed, 0, &count, nullptr) == kSearch && count == 73;
+        retained.reset();
+        check("cached_handle_observes_cross_thread_delete_without_retaining_object", cached && erased == 0 && rejected && lifetime.expired());
     }
     {
         Handle ready{}, done{}; create(ready, 0, 1); create(done, 0, 1);

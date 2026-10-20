@@ -50,6 +50,9 @@ struct Registry {
 };
 Registry registry;
 thread_local Token current_thread{};
+// Scheduling priority is immutable after Create's attribute snapshot. A future
+// live-priority setter must update this contract as well as the registry.
+thread_local int current_guest_priority = 700;
 
 template<typename Function> __declspec(noinline) int Api(const void* caller, Function&& function) {
     try { return function(); }
@@ -153,6 +156,7 @@ unsigned __stdcall Run(void* raw) noexcept {
     }
     if (thread->cancelled.load(std::memory_order_acquire)) { return 0; }
     current_thread = thread->token;
+    current_guest_priority = thread->guest_priority;
     ULONG_PTR low{}, high{}; MEMORY_BASIC_INFORMATION stack{};
     GetCurrentThreadStackLimits(&low, &high);
     if (VirtualQuery(&payload, &stack, sizeof(stack)) != sizeof(stack)) { UnsupportedApi("native_thread_stack_query", GetLastError(), nullptr); }
@@ -165,6 +169,7 @@ unsigned __stdcall Run(void* raw) noexcept {
     thread->result.store(thread->entry(thread->argument), std::memory_order_release);
     std::printf("{\"event\":\"native_thread_return\",\"token\":%llu}\n", thread->token);
     current_thread = 0;
+    current_guest_priority = 700;
     return 0;
 }
 struct Pending {
@@ -287,16 +292,21 @@ struct Fixture {
     std::atomic<unsigned> calls{}, native_id{};
     std::atomic<int> self_join{};
     std::atomic<int> priority{THREAD_PRIORITY_ERROR_RETURN}, inherited_priority{THREAD_PRIORITY_ERROR_RETURN};
+    std::atomic<int> guest_priority{}, inherited_guest_priority{};
 };
-void* KT_SYSV ReturnPriority(void*) { return reinterpret_cast<void*>(static_cast<std::uintptr_t>(GetThreadPriority(GetCurrentThread()) + 16)); }
+void* KT_SYSV ReturnPriority(void* argument) {
+    if (argument) { *static_cast<std::atomic<int>*>(argument) = NativeGuestThreadPriority(); }
+    return reinterpret_cast<void*>(static_cast<std::uintptr_t>(GetThreadPriority(GetCurrentThread()) + 16));
+}
 void* KT_SYSV CountEntry(void* argument) { ++*static_cast<std::atomic<unsigned>*>(argument); return argument; }
 void* KT_SYSV FixtureEntry(void* argument) {
     auto& state = *static_cast<Fixture*>(argument);
     ++state.calls; state.native_id.store(GetCurrentThreadId());
     state.self_join.store(Join(current_thread, nullptr, nullptr));
     state.priority = GetThreadPriority(GetCurrentThread());
+    state.guest_priority = NativeGuestThreadPriority();
     Token child{}; void* priority_result{};
-    if (Create(&child, nullptr, ReturnPriority, nullptr, nullptr, nullptr, true) == 0 && Join(child, &priority_result, nullptr) == 0) {
+    if (Create(&child, nullptr, ReturnPriority, &state.inherited_guest_priority, nullptr, nullptr, true) == 0 && Join(child, &priority_result, nullptr) == 0) {
         state.inherited_priority = static_cast<int>(reinterpret_cast<std::uintptr_t>(priority_result)) - 16;
     }
     SetEvent(state.entered);
@@ -324,8 +334,7 @@ std::uint64_t ResolveThreadImport(std::string_view identifier) {
     return 0;
 }
 int NativeGuestThreadPriority() {
-    std::lock_guard lock(registry.gate);
-    const auto found = registry.threads.find(current_thread); return found == registry.threads.end() ? 700 : found->second->guest_priority;
+    return current_guest_priority;
 }
 std::uint64_t NativeHostAffinityForDiagnostics(std::uint64_t guest) {
     DWORD_PTR available{}, system{};
@@ -389,6 +398,9 @@ bool ThreadSelfTest() {
     Token attribute = 0, token = 73;
     const auto process_class = GetPriorityClass(GetCurrentProcess());
     const auto creator_priority = GetThreadPriority(GetCurrentThread());
+    std::atomic<int> unmanaged_priority{};
+    std::thread unmanaged([&] { unmanaged_priority = NativeGuestThreadPriority(); }); unmanaged.join();
+    check(NativeGuestThreadPriority() == 700 && unmanaged_priority == 700, "unmanaged_threads_keep_default_guest_priority");
     check(Init(nullptr) == kInvalid && Stack(nullptr, kDefaultStack) == kInvalid && DestroyAttribute(nullptr) == kInvalid, "null_attribute_validation");
     check(Init(&attribute) == 0 && registry.attributes.at(attribute).stack == kDefaultStack, "default_one_mib_stack_attribute");
     check(Stack(&attribute, kMinimumStack - 1) == kInvalid && registry.attributes.at(attribute).stack == kDefaultStack &&
@@ -414,6 +426,8 @@ bool ThreadSelfTest() {
     check(fixture.self_join == kDeadlock, "self_join_rejected_without_blocking");
     check(fixture.priority == THREAD_PRIORITY_ABOVE_NORMAL && fixture.inherited_priority == THREAD_PRIORITY_ABOVE_NORMAL,
           "explicit_699_and_nested_inheritance_apply_real_windows_thread_priority");
+    check(fixture.guest_priority == 699 && fixture.inherited_guest_priority == 699,
+          "thread_local_guest_priority_matches_explicit_and_inherited_snapshots");
     check(DestroyAttribute(&attribute) == 0 && attribute == 0 && DestroyAttribute(&attribute) == kInvalid,
           "attribute_destruction_does_not_change_live_thread");
     void* result = nullptr;
@@ -438,10 +452,11 @@ bool ThreadSelfTest() {
     bool levels = Init(&attribute) == 0 && Inherit(&attribute, 0) == 0;
     for (const auto priority : {256, 699, 700, 767}) {
         Scheduling selected{priority}; void* actual{};
+        std::atomic<int> guest_priority{};
         levels &= Priority(&attribute, &selected, nullptr) == 0;
-        const auto created = Create(&token, &attribute, ReturnPriority, nullptr, nullptr, nullptr, true);
+        const auto created = Create(&token, &attribute, ReturnPriority, &guest_priority, nullptr, nullptr, true);
         levels &= created == 0;
-        if (!created) { levels &= Join(token, &actual, nullptr) == 0 && static_cast<int>(reinterpret_cast<std::uintptr_t>(actual)) - 16 == WindowsPriority(priority); }
+        if (!created) { levels &= Join(token, &actual, nullptr) == 0 && static_cast<int>(reinterpret_cast<std::uintptr_t>(actual)) - 16 == WindowsPriority(priority) && guest_priority == priority; }
     }
     check(levels && DestroyAttribute(&attribute) == 0 && GetPriorityClass(GetCurrentProcess()) == process_class &&
           GetThreadPriority(GetCurrentThread()) == creator_priority, "all_four_native_priority_tiers_without_process_or_creator_priority_change");

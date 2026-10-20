@@ -53,6 +53,27 @@ Investigate software paths first, batch analysis/changes per costly game test,
 and do not sacrifice synchronization, FIFO/timeout/delete semantics or
 notification lifetime merely to lower benchmark numbers.
 
+The latest semaphore software batch caches immutable thread priority in TLS,
+uses a two-entry weak handle cache and notifies outside the semaphore gate with
+an owning notification lease. Unique-owner waiter reuse avoids reusing a CV
+still owned by an earlier notifier. All 24 semaphore and 18 thread subcases,
+73 native checks and 372 source tests pass. Two offline repetitions improve
+common handoff costs but still contain 3–7.5 ms tails. Actual DaiOuJou r4 plays
+the same replay to natural return: 1,800 continuous frames in 30 seconds,
+maximum 17.311 ms, p99 histogram upper bound 17.2 ms, outside submissions mean
+1.570 ms/max 2.828 ms. This is bounded improvement evidence, not proof that the
+old r3 13–15 ms waits cannot recur. Full performance gates remain open; next
+cover the remaining main modes (including CUSTOM) and SDOJ investigations.
+
+The final batch additionally pairs a notifier release with acquire before TLS
+node reuse; use_count alone is not a publication barrier. Source 372/native 73
+and all six offline cases pass again. Offline semaphore-software-r3 has 17 us
+burst medians but cadenced p95 168/305 us, maxima 8.837/9.191 ms: tail gains did
+not persist. Do not call this a long-frame fix. The actual r4 replay below is
+the pre-publication-hardening candidate, not fresh gameplay of the final binary;
+combine its pending gameplay check with main-mode coverage instead of opening
+the game for every tiny change. Final host/GPU identities are in ANALYSIS.md.
+
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has
 approved implementation: P0 snapshots, P1 G2 playable baseline, then collection
 integration, Futari, Ketsui and release. Do not substitute launcher work for the
