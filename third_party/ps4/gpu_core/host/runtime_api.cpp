@@ -12,7 +12,6 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <future>
 #include <memory>
 #include <stdexcept>
 
@@ -66,17 +65,11 @@ struct Session {
     rasterizer->OnFence();
     rasterizer->Finish();
     scheduler->PopPendingOperations();
-    auto complete = std::make_shared<std::promise<void>>();
-    auto done = complete->get_future();
-    // The first Finish has submitted and waited for all recorded GPU work.
-    // Retire prior CPU download callbacks on that submitted timeline tick;
-    // assigning this FIFO barrier to the next tick forced an empty submit and
-    // a second device wait on every ACQUIRE_MEM. Both completion obligations
-    // remain, without creating new GPU work solely to wake the callback queue.
-    scheduler->DeferSubmittedPriorityOperation([complete] { complete->set_value(); });
-    Require(done.wait_for(std::chrono::seconds(5)) == std::future_status::ready,
+    // Finish still retires all recorded device work. Wait for the existing CPU
+    // callback prefix, including an in-flight callback already popped from the
+    // queue; completed prefixes need neither allocation nor an empty wake job.
+    Require(scheduler->WaitForSubmittedPriorityOperations(std::chrono::seconds(5)),
             "GPU completion callbacks did not drain");
-    done.get();
     scheduler->PopPendingOperations();
   }
   ~Session() {

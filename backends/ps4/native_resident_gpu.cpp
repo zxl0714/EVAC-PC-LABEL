@@ -20,6 +20,7 @@ void Check(bool ok, const RuntimeError& error) {
 struct NativeResidentGpu::Impl {
     HMODULE library{};
     RuntimeApi api{};
+    RuntimeRegisterLayout register_layout{};
     GpuWorker worker;
     void* context{};
     std::map<std::uint64_t, NativeMemoryRangeInfo> mappings;
@@ -75,6 +76,10 @@ struct NativeResidentGpu::Impl {
         try {
             const auto get = reinterpret_cast<GetRuntimeApi>(GetProcAddress(library, "KetsuiGpuRuntimeGetApi"));
             if (!get || !get(RuntimeApiVersion, sizeof(api), &api)) { throw std::runtime_error("Resident GPU SDK version mismatch"); }
+            register_layout = api.layout();
+            if (register_layout.num_indices >= register_layout.bank_words || register_layout.num_instances >= register_layout.bank_words) {
+                throw std::runtime_error("Resident GPU draw register layout is invalid");
+            }
             const HostSettings settings{.validation_core = validation, .validation_sync = validation,
                 .log_directory = path.parent_path(), .presentation_support = true,
                 .vsync = GetNativeDisplaySettings().vsync};
@@ -138,10 +143,11 @@ void NativeResidentGpu::Extent(unsigned target, unsigned width, unsigned height)
 }
 void NativeResidentGpu::Draw(unsigned vertices, unsigned instances) {
     Run([&] {
-        const auto layout = impl->api.layout();
-        Registers(layout.num_indices, {&vertices, 1});
-        Registers(layout.num_instances, {&instances, 1});
         RuntimeError error;
+        // Already on the owning worker. Keep both guarded register writes, but
+        // avoid recursively wrapping each one in another Sync/std::function.
+        Check(impl->api.registers(impl->context, impl->register_layout.num_indices, &vertices, 1, &error), error);
+        Check(impl->api.registers(impl->context, impl->register_layout.num_instances, &instances, 1, &error), error);
         Check(impl->api.draw(impl->context, false, 0, &error), error);
     });
 }

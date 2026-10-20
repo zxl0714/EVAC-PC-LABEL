@@ -132,10 +132,11 @@ add_executable(KetsuiGpuCoreSmoke "${BACKEND}/gpu_core/scheduler_smoke.cpp"
     "${BACKEND}/gpu_core/cache_tests.cpp"
     "${BACKEND}/gpu_core/native_memory_tests.cpp" "${BACKEND}/gpu_core/test_diagnostics.cpp"
     "${BACKEND}/gpu_core/recompiler_tests.cpp"
+    "${BACKEND}/gpu_core/program_reader_tests.cpp"
     "${BACKEND}/native_memory.cpp" "${BACKEND}/memory/write_tracker.cpp"
     "${BACKEND}/memory/write_tracker_tests.cpp"
     "${BACKEND}/graphics/texture.cpp" "${BACKEND}/graphics/display_layout.cpp")
-target_link_libraries(KetsuiGpuCoreSmoke PRIVATE KetsuiGpuNativeMemory KetsuiGpuRecompiler)
+target_link_libraries(KetsuiGpuCoreSmoke PRIVATE KetsuiGpuNativeMemory KetsuiGpuRenderer)
 
 target_include_directories(KetsuiGpuCoreSmoke PRIVATE "${BACKEND}")
 target_compile_options(KetsuiGpuCoreSmoke PRIVATE /EHsc /W4)

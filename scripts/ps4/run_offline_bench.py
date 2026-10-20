@@ -62,7 +62,7 @@ def parse_run(text, samples, warmup):
         if event == 'offline_bench_begin':
             if begin is not None:
                 raise ValueError('Duplicate benchmark identity')
-            if item.get('semaphore_wait') not in ('cv', 'address'):
+            if item.get('semaphore_wait') not in ('cv', 'address', 'event'):
                 raise ValueError('Missing or invalid semaphore wait primitive')
             begin = item
         elif event == 'offline_bench_case':
@@ -161,7 +161,7 @@ def compare(current, previous):
 
 
 def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='address'):
-    if semaphore_wait not in ('cv', 'address'):
+    if semaphore_wait not in ('cv', 'address', 'event'):
         raise ValueError('Unknown semaphore wait primitive')
     receipt = verify()
     directory = private_output(output)
@@ -236,7 +236,7 @@ def main():
     parser.add_argument('--warmup', type=int, default=16)
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--compare', type=Path, help='Previous report.json from identical benchmark parameters/host')
-    parser.add_argument('--semaphore-wait', choices=('cv', 'address'), default='address', help='Same semaphore rules, different host wait primitive')
+    parser.add_argument('--semaphore-wait', choices=('cv', 'address', 'event'), default='address', help='Same semaphore rules, different host wait primitive')
     args = parser.parse_args()
     if not 1 <= args.samples <= 10000 or not 0 <= args.warmup <= 1000 or not 1 <= args.repeats <= 10:
         parser.error('samples=1..10000, warmup=0..1000, repeats=1..10')

@@ -50,8 +50,9 @@ class OfflineBenchTests(unittest.TestCase):
         for mode in (None, '', 'unknown', True):
             items=fixture();items[2]['semaphore_wait']=mode
             with self.subTest(mode=mode),self.assertRaises(ValueError):bench.parse_run(encoded(items),2,1)
-        items=fixture();items[2]['semaphore_wait']='address'
-        self.assertEqual(bench.parse_run(encoded(items),2,1)['identity']['semaphore_wait'],'address')
+        for mode in ('cv', 'address', 'event'):
+            items=fixture();items[2]['semaphore_wait']=mode
+            self.assertEqual(bench.parse_run(encoded(items),2,1)['identity']['semaphore_wait'],mode)
 
     def test_six_complete_cases_with_verified_tasks_and_pixels(self):
         result=bench.parse_run(encoded(fixture()),2,1)

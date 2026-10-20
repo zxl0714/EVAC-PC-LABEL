@@ -4,6 +4,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <chrono>
 #include <mutex>
 #include <thread>
 #include <queue>
@@ -440,7 +441,8 @@ public:
     void DeferPriorityOperation(Common::UniqueFunction<void>&& func) {
         {
             std::unique_lock lk(priority_pending_ops_mutex);
-            priority_pending_ops.emplace(std::move(func), CurrentTick());
+            priority_pending_ops.emplace(std::move(func), CurrentTick(), priority_ops_issued + 1);
+            ++priority_ops_issued;
         }
         priority_pending_ops_cv.notify_one();
     }
@@ -449,6 +451,10 @@ public:
     // current-command callback, it must not require an extra empty GPU submit.
     // Call only on the scheduler owner, after Flush/Finish of the work covered.
     void DeferSubmittedPriorityOperation(Common::UniqueFunction<void>&& func);
+
+    // CAVE: wait only for the callback prefix already issued at this call.
+    // Does not enqueue a new callback, submit GPU commands, or wake an idle runner.
+    bool WaitForSubmittedPriorityOperations(std::chrono::milliseconds timeout);
 
     [[nodiscard]] u64 HostTimelineQueryCount() const noexcept { return work_semaphore.HostQueryCount(); }
 
@@ -477,12 +483,15 @@ private:
     struct PendingOp {
         Common::UniqueFunction<void> callback;
         u64 gpu_tick;
+        u64 serial{};
     };
     std::queue<PendingOp> pending_ops;
     std::recursive_mutex pending_ops_mutex;
     std::queue<PendingOp> priority_pending_ops;
     std::mutex priority_pending_ops_mutex;
     std::condition_variable_any priority_pending_ops_cv;
+    u64 priority_ops_issued{}, priority_ops_completed{}; // protected by priority_pending_ops_mutex
+    std::condition_variable priority_ops_completed_cv;
     std::jthread priority_pending_ops_thread;
     RenderState render_state;
     bool is_rendering = false;

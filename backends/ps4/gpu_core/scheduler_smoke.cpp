@@ -17,6 +17,7 @@
 #include "host_services.h"
 #include "image_runtime_tests.h"
 #include "native_memory_tests.h"
+#include "program_reader_tests.h"
 #include "sdl_window.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -89,6 +90,7 @@ int main(int argc, char **argv) {
             "Usage: KetsuiGpuCoreSmoke [--validation]");
     Ketsui::GpuCore::ConfigureHost(
         {.log_directory = std::filesystem::current_path()});
+    const auto program_reader_checks = Ketsui::GpuCore::TestProgramReader();
     std::atomic<unsigned> priority_callbacks{0};
     unsigned ordinary_callbacks = 0;
     unsigned submissions = 0;
@@ -112,6 +114,8 @@ int main(int argc, char **argv) {
           instance.GetDevice().createSemaphoreUnique({.pNext = &gate_type}));
       {
         Vulkan::Scheduler scheduler{instance};
+        Require(scheduler.WaitForSubmittedPriorityOperations(std::chrono::milliseconds(0)),
+                "Empty callback prefix did not complete without queueing a barrier");
         scheduler.SetSubmitCallback(
             [&](Vulkan::SubmitInfo &) { ++submissions; });
         constexpr unsigned passes = 2;
@@ -158,6 +162,8 @@ int main(int argc, char **argv) {
                         priority_callbacks == pass * batches,
                     "Completion callback ran before GPU gate opened");
           }
+          Require(!scheduler.WaitForSubmittedPriorityOperations(std::chrono::milliseconds(0)),
+                  "Callback prefix completed before the GPU gate opened");
           Vulkan::Check(instance.GetDevice().signalSemaphore(
               {.semaphore = *gate, .value = pass + 1}));
           scheduler.Wait(last_tick);
@@ -188,6 +194,12 @@ int main(int argc, char **argv) {
                       submissions == submitted_count && scheduler.CurrentTick() == next_tick,
                   "Submitted callback barrier required an extra GPU submission");
           retired.get();
+          Require(scheduler.WaitForSubmittedPriorityOperations(std::chrono::seconds(2)),
+                  "Issued callback prefix did not complete");
+          for (unsigned idle = 0; idle < 1000; ++idle) {
+            Require(scheduler.WaitForSubmittedPriorityOperations(std::chrono::milliseconds(0)),
+                    "Already-completed callback prefix enqueued work or waited");
+          }
           const auto queries_before_idle = scheduler.HostTimelineQueryCount();
           for (unsigned idle = 0; idle < 1000; ++idle) { scheduler.PopPendingOperations(); }
           Require(scheduler.HostTimelineQueryCount() == queries_before_idle,
@@ -199,6 +211,29 @@ int main(int argc, char **argv) {
         Require(submissions == passes * batches &&
                     Ketsui::GpuCore::OverlaySubmissions() == passes * batches,
                 "Unexpected queue submission count");
+        // A queue can be empty while its popped callback is still executing.
+        // The new fast path must wait for that callback, not just queue.empty().
+        std::promise<void> entered, release;
+        auto started = entered.get_future();
+        auto resume = release.get_future().share();
+        std::atomic<bool> callback_finished{}, capture_released{};
+        std::shared_ptr<void> capture{nullptr, [&](void*) { capture_released = true; }};
+        scheduler.DeferSubmittedPriorityOperation([&, capture = std::move(capture)] {
+          (void)capture; entered.set_value(); resume.wait(); callback_finished = true;
+        });
+        const bool running = started.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+        const bool timeout_kept = !scheduler.WaitForSubmittedPriorityOperations(std::chrono::milliseconds(1));
+        auto join = std::async(std::launch::async, [&] {
+          return scheduler.WaitForSubmittedPriorityOperations(std::chrono::seconds(2));
+        });
+        const bool blocked = join.wait_for(std::chrono::milliseconds(5)) == std::future_status::timeout;
+        const auto no_submit_count = submissions;
+        const auto no_submit_tick = scheduler.CurrentTick();
+        release.set_value();
+        const bool completed = join.get();
+        Require(running && timeout_kept && blocked && completed && callback_finished && capture_released &&
+                    submissions == no_submit_count && scheduler.CurrentTick() == no_submit_tick,
+                "In-flight callback prefix was skipped, timed out incorrectly or submitted GPU work");
         scheduler.Finish();
       }
       Vulkan::Check(instance.GetDevice().waitIdle());
@@ -224,7 +259,7 @@ int main(int argc, char **argv) {
         "\"nativeMemoryWriteFaults\":%u,\"nativeMemoryVerifiedBytes\":%llu,"
         "\"recompilerChecks\":%u,\"recompilerModules\":%u,"
         "\"recompilerSpirvWords\":%llu,"
-        "\"validationErrors\":%u}\n",
+        "\"programReaderChecks\":%u,\"validationErrors\":%u}\n",
         validation ? "true" : "false", gpu_name.c_str(),
         static_cast<unsigned long long>(last_tick), blocked_flush_max_ms,
         priority_callbacks.load(), ordinary_callbacks, buffer_results.checks,
@@ -239,7 +274,7 @@ int main(int argc, char **argv) {
         static_cast<unsigned long long>(native_results.verified_bytes),
         native_results.recompiler_checks, native_results.recompiler_modules,
         static_cast<unsigned long long>(native_results.recompiler_spirv_words),
-        Ketsui::GpuCore::ValidationErrors());
+        program_reader_checks, Ketsui::GpuCore::ValidationErrors());
     return 0;
   } catch (const std::exception &error) {
     std::fprintf(stderr, "gpu_core_smoke: %s\n", error.what());

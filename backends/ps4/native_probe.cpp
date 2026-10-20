@@ -1345,9 +1345,11 @@ bool EmitNativeSemaphoreWait(std::uint64_t handle, int requested, int result, co
         const auto signal = reinterpret_cast<std::uintptr_t>(timing.grant_caller);
         const auto* source = ImageAt(signal);
         const auto signal_base = source ? reinterpret_cast<std::uintptr_t>(source->image) : 0;
-        return NativeLogf("{\"event\":\"native_semaphore_wait_timing\",\"handle\":%llu,\"requested\":%d,\"result\":%d,\"queued_clock_us\":%llu,\"granted_clock_us\":%llu,\"clock_us\":%llu,\"wake_began_clock_us\":%llu,\"wake_finished_clock_us\":%llu,\"address_wait\":%s,\"thread\":%lu,\"grant_thread\":%u,\"caller_offset\":\"0x%llx\",\"caller_image\":%s,\"grant_caller_offset\":\"0x%llx\",\"grant_caller_image\":%s}\n",
+        return NativeLogf("{\"event\":\"native_semaphore_wait_timing\",\"handle\":%llu,\"requested\":%d,\"result\":%d,\"queued_clock_us\":%llu,\"granted_clock_us\":%llu,\"clock_us\":%llu,\"wake_began_clock_us\":%llu,\"wake_finished_clock_us\":%llu,\"address_wait\":%s,\"event_wait\":%s,\"wait_sequence\":%llu,\"lookup_us\":%llu,\"gate_wait_us\":%llu,\"queued_under_gate_us\":%llu,\"queued_waiters\":%u,\"available_credits\":%u,\"park_began_clock_us\":%llu,\"park_returned_clock_us\":%llu,\"park_calls\":%llu,\"thread\":%lu,\"grant_thread\":%u,\"caller_offset\":\"0x%llx\",\"caller_image\":%s,\"grant_caller_offset\":\"0x%llx\",\"grant_caller_image\":%s}\n",
             handle, requested, result, timing.queued_clock_us, timing.granted_clock_us, timing.resumed_clock_us,
-            timing.wake_began_clock_us, timing.wake_finished_clock_us, timing.address_wait ? "true" : "false",
+            timing.wake_began_clock_us, timing.wake_finished_clock_us, timing.address_wait ? "true" : "false", timing.event_wait ? "true" : "false",
+            timing.wait_sequence, timing.lookup_us, timing.gate_wait_us, timing.queued_under_gate_us,
+            timing.queued_waiters, timing.available_credits, timing.park_began_clock_us, timing.park_returned_clock_us, timing.park_calls,
             GetCurrentThreadId(), timing.grant_thread, static_cast<unsigned long long>(address-base),
             image ? Quoted(image->image_name).c_str() : "null", static_cast<unsigned long long>(signal-signal_base),
             source ? Quoted(source->image_name).c_str() : "null") >= 0;
@@ -1389,10 +1391,12 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (argc==3 && std::wstring(argv[1])==L"--waveform-check") { return Ngs2WaveformCheck(argv[2]); }
     if (argc >= 2 && std::wstring(argv[1]) == L"--offline-bench") {
         try {
-            if (argc != 5 && argc != 6) { throw std::runtime_error("Usage: --offline-bench <GPU DLL> <samples 1..10000> <warmup 0..1000> [cv|address]"); }
+            if (argc != 5 && argc != 6) { throw std::runtime_error("Usage: --offline-bench <GPU DLL> <samples 1..10000> <warmup 0..1000> [cv|address|event]"); }
             if (argc == 6) {
                 const std::wstring_view primitive(argv[5]);
-                if ((primitive != L"cv" && primitive != L"address") || !ConfigureNativeSemaphoreAddressWait(primitive == L"address")) {
+                if ((primitive != L"cv" && primitive != L"address" && primitive != L"event") ||
+                    !ConfigureNativeSemaphoreWait(primitive == L"event" ? NativeSemaphoreWaitPrimitive::Event :
+                        primitive == L"address" ? NativeSemaphoreWaitPrimitive::Address : NativeSemaphoreWaitPrimitive::ConditionVariable)) {
                     throw std::runtime_error("Invalid offline semaphore wait primitive");
                 }
             }

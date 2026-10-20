@@ -1,5 +1,17 @@
 # Development entry
 
+Current human instruction additionally requires a full review of wakeup,
+synchronization, waiting and locking, not repeated primitive substitutions.
+Read docs/PS4_SYNCHRONIZATION.md for the audited lock/lifetime chain and exact
+waiter/notifier timestamp meanings. Ketsui r9 still has a 33.508 ms frame with
+a 15.987 ms batched completion wait. The event transport did not reliably cure
+tails and is diagnostic-only; normal default remains address. New offline
+waiter-side timestamps put a 6.115 ms tail before WaitOnAddress returns, with
+3 us gate acquisition and less than 1 us return-to-resume. Do not call this
+pure OS Ready time without scheduler evidence. Source changes to GPU resource
+reads/callback prefix have bounded gains but do not close the performance gate.
+No mode or release work until this priority is handled; retain all v0.3 scope.
+
 Current human priority: resolve the performance issue before resuming mode
 coverage or packaging. Do not treat a short smooth replay as closure or switch
 back to modes while the known tail remains unexplained. df79594's mode run is

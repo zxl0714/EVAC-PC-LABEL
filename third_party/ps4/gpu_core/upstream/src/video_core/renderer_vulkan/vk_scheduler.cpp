@@ -250,9 +250,16 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
 void Scheduler::DeferSubmittedPriorityOperation(Common::UniqueFunction<void>&& func) {
     {
         std::unique_lock lk(priority_pending_ops_mutex);
-        priority_pending_ops.emplace(std::move(func), CurrentTick() - 1);
+        priority_pending_ops.emplace(std::move(func), CurrentTick() - 1, priority_ops_issued + 1);
+        ++priority_ops_issued;
     }
     priority_pending_ops_cv.notify_one();
+}
+
+bool Scheduler::WaitForSubmittedPriorityOperations(std::chrono::milliseconds timeout) {
+    std::unique_lock lock(priority_pending_ops_mutex);
+    const auto through = priority_ops_issued;
+    return priority_ops_completed_cv.wait_for(lock, timeout, [&] { return priority_ops_completed >= through; });
 }
 
 void Scheduler::PriorityPendingOpsThread(std::stop_token stoken) {
@@ -278,6 +285,14 @@ void Scheduler::PriorityPendingOpsThread(std::stop_token stoken) {
         }
 
         op.callback();
+        // Match an enqueued barrier: prior callbacks' owned captures have also
+        // been destroyed before publishing completion of this prefix.
+        op.callback = Common::UniqueFunction<void>{};
+        {
+            std::lock_guard lock(priority_pending_ops_mutex);
+            priority_ops_completed = op.serial;
+        }
+        priority_ops_completed_cv.notify_all();
     }
 }
 

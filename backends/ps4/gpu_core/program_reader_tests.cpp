@@ -1,0 +1,110 @@
+#include "program_reader_tests.h"
+#include "cache_memory.h"
+#include "gpu_program.h"
+#include "video_core/amdgpu/regs_shader.h"
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <limits>
+#include <stdexcept>
+#include <vector>
+
+namespace Ketsui::GpuCore {
+namespace {
+constexpr u64 base = 0x400000;
+constexpr auto info_bytes = offsetof(AmdGpu::BinaryInfo, crc32) + sizeof(AmdGpu::BinaryInfo::crc32);
+struct Memory final : CacheMemoryBackend {
+    std::array<u8, 4096> bytes{};
+    std::vector<std::pair<u64, u64>> readable;
+    unsigned reads{}, failures{};
+    std::function<void()> before_read;
+    bool IsMapped(u64 address, u64 size) const noexcept override {
+        if (!size || address < base || size > bytes.size() || address - base > bytes.size() - size) { return false; }
+        return std::ranges::any_of(readable, [&](auto range) { return address >= range.first && address - range.first <= range.second && size <= range.second - (address - range.first); });
+    }
+    u64 MappedBytes(u64, u64) const noexcept override { return 0; }
+    void ReadProgram(u64 address, void* output, u64 size) override {
+        ++reads;
+        if (before_read) { auto operation = std::move(before_read); operation(); }
+        if (!IsMapped(address, size)) { ++failures; throw std::runtime_error("Authored unreadable shader extent"); }
+        std::memcpy(output, bytes.data() + (address - base), static_cast<std::size_t>(size));
+    }
+    void ReadSparse(u64, void*, u64) override { throw std::logic_error("Unexpected sparse read"); }
+    void ReadMetadata(u64, void*, u64) override { throw std::logic_error("Unexpected metadata bridge"); }
+    bool WriteBacking(u64, const void*, u64) override { return false; }
+    void Protect(u64, u64, unsigned) override { throw std::logic_error("Unexpected protection"); }
+    bool HandleAccess(u64, u64, bool, bool) override { return false; }
+    bool IsGpuThread() const noexcept override { return true; }
+    void RunGpuSync(std::function<void()>) override { throw std::logic_error("Unexpected worker dispatch"); }
+    void Program(u32 length, u32 metadata = 512) {
+        bytes.fill(0);
+        for (u32 index = 0; index < length / 4; ++index) { const u32 word = 0x11000000 + index; std::memcpy(bytes.data() + index * 4, &word, 4); }
+        const std::array<u32, 2> header{0xbeeb03ffu, metadata / 8 - 1};
+        std::memcpy(bytes.data(), header.data(), sizeof(header));
+        AmdGpu::BinaryInfo info{}; info.signature = AmdGpu::BinaryInfo::signature_ref; info.version = 7; info.length = length; info.shader_hash = 73; info.type = 1;
+        std::memcpy(bytes.data() + metadata, &info, info_bytes);
+        readable = {{base, length}, {base + metadata, info_bytes}};
+    }
+    AmdGpu::BinaryInfo Info(u32 metadata = 512) const { AmdGpu::BinaryInfo info{}; std::memcpy(&info, bytes.data() + metadata, info_bytes); return info; }
+    void Info(const AmdGpu::BinaryInfo& info, u32 metadata = 512) { std::memcpy(bytes.data() + metadata, &info, info_bytes); }
+};
+}
+unsigned TestProgramReader() {
+    unsigned checks{};
+    const auto check = [&](bool okay, const char* message) { if (!okay) { throw std::runtime_error(message); } ++checks; };
+    const auto rejects = [](auto operation) { try { operation(); } catch (const std::exception&) { return true; } return false; };
+    Memory memory; memory.Program(64); CacheMemoryScope memory_scope(memory);
+    std::array<u32, 16> user{};
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Program read without a store was accepted");
+    ProgramStore store; ProgramScope program_scope(store);
+    const auto first = ReadProgram(base, user);
+    check(memory.reads == 3 && first.code.size() == 16 && first.guest_base == base, "Cold program did not retain bounded three-read semantics");
+    const auto first_word = first.code[2];
+    const auto scratch = store.read_scratch.data(); const auto capacity = store.read_scratch.capacity();
+    bool hot_stable = true;
+    for (unsigned i = 0; i < 100; ++i) { const auto next = ReadProgram(base, user); hot_stable &= next.hash == first.hash && next.code.data() == first.code.data(); }
+    check(hot_stable, "Identical live shader was not deduplicated");
+    check(memory.reads == 203 && store.read_scratch.data() == scratch && store.read_scratch.capacity() == capacity, "Hot program did not use two fresh reads and reusable scratch");
+    const u32 changed = first_word ^ 0x01000000; std::memcpy(memory.bytes.data() + 8, &changed, 4);
+    const auto second = ReadProgram(base, user);
+    check(second.hash != first.hash && second.code[2] == changed && first.code[2] == first_word, "Same-address code write was stale or damaged owned prior code");
+    auto info = memory.Info(); info.shader_hash = 74; memory.Info(info);
+    const auto new_metadata = ReadProgram(base, user);
+    check(new_metadata.hash != second.hash, "Current shader metadata was not reread");
+    memory.Program(96); const auto before_growth = memory.reads; const auto grown = ReadProgram(base, user);
+    check(grown.code.size() == 24 && memory.reads == before_growth + 3, "Growing live code did not trigger a bounded full reread");
+    memory.Program(16); const auto before_shrink = memory.reads; const auto failures = memory.failures;
+    const auto shrunk = ReadProgram(base, user);
+    check(shrunk.code.size() == 4 && memory.reads == before_shrink + 4 && memory.failures == failures + 1 && !store.scratch_leased, "Shortened/remapped code did not fall back safely");
+    const auto before_hot = memory.reads; (void)ReadProgram(base, user);
+    check(memory.reads == before_hot + 2, "Read extent was not updated after remapping");
+    memory.Program(16, 1024); const auto moved = ReadProgram(base, user);
+    check(moved.code.size() == 4 && store.read_extents.at(base) == 16, "Moving metadata was not followed through the current header");
+    memory.Program(64); (void)ReadProgram(base, user);
+    info = memory.Info(); info.signature[0] ^= 1; memory.Info(info);
+    check(rejects([&] { (void)ReadProgram(base, user); }) && !store.scratch_leased, "Bad live metadata was accepted or leaked the scratch lease");
+    memory.Program(64); info = memory.Info(); info.version = 6; memory.Info(info);
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Unsupported live metadata version was accepted");
+    memory.Program(64); info = memory.Info(); info.length = 5; memory.Info(info);
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Misaligned/short code extent was accepted");
+    memory.Program(64); const u32 invalid = 0; std::memcpy(memory.bytes.data(), &invalid, 4);
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Changed invalid header was hidden by read-extent reuse");
+    memory.Program(64); const auto reads = memory.reads;
+    check(rejects([&] { (void)ReadProgram(base + 1, user); }) && rejects([&] { (void)ReadProgram((std::numeric_limits<u64>::max)() - 255, user); }) && memory.reads == reads, "Invalid shader addresses reached the memory reader");
+    info = memory.Info(); info.length = 516; memory.Info(info);
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Code extending past declared metadata was accepted");
+    memory.Program(64); const u32 distant = (std::numeric_limits<u32>::max)(); std::memcpy(memory.bytes.data() + 4, &distant, 4);
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Unbounded metadata offset was accepted");
+    memory.Program(64); memory.readable.pop_back();
+    check(rejects([&] { (void)ReadProgram(base, user); }) && !store.scratch_leased, "Unreadable metadata was replaced with a stale snapshot");
+    memory.Program(64); const auto unchanged = ReadProgram(base, user); user[3] = 97;
+    check(ReadProgram(base, user).user_data[3] == 97 && ReadProgram(base, user).hash == unchanged.hash, "Current draw user data was hidden by code reuse");
+    auto nested = unchanged; bool nested_called{};
+    memory.before_read = [&] { nested_called = true; nested = ReadProgram(base, user); };
+    const auto outer = ReadProgram(base, user);
+    check(nested_called && nested.hash == outer.hash && nested.code.data() == outer.code.data() && !store.scratch_leased, "Reentrant read damaged the outer reusable scratch");
+    const auto owned = ReadProgram(base, user); store.programs.at(owned.hash)[2] ^= 1;
+    check(rejects([&] { (void)ReadProgram(base, user); }), "Content collision checking was skipped");
+    return checks;
+}
+}

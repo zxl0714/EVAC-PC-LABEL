@@ -533,7 +533,7 @@ int RunNativeOfflineBench(const std::filesystem::path &library,
               "\"semaphore_wait\":\"%s\",\"process_priority_"
               "class\":%lu}\n",
               RuntimeApiVersion, samples, warmup,
-              NativeSemaphoreAddressWaitEnabled() ? "address" : "cv",
+              NativeSemaphoreWaitName(),
               GetPriorityClass(GetCurrentProcess()));
   Print(handoff14, warmup);
   Print(handoff16, warmup);

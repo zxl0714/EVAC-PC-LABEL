@@ -30,19 +30,30 @@ constexpr int Error(unsigned code) { return static_cast<int>(0x80020000u | code)
 constexpr int kSearch = Error(3), kMemory = Error(12), kDeleted = Error(13), kAddress = Error(14), kBusy = Error(16);
 constexpr int kInvalid = Error(22), kAgain = Error(35), kTimeout = Error(60), kName = Error(63), kCancelled = Error(85);
 constexpr int kPending = 1;
-std::atomic<bool> address_waits{true}; // CV is retained for explicit diagnostic A/B.
+using WaitPrimitive = NativeSemaphoreWaitPrimitive;
+std::atomic<WaitPrimitive> wait_primitive{WaitPrimitive::Address}; // Other transports remain diagnostic controls.
 struct Waiter {
     std::condition_variable ready;
     int requested, priority;
     std::atomic<int> result{kPending};
     NativeSemaphoreWaitTiming timing{};
     std::atomic<std::uint64_t> wake_began{}, wake_finished{};
-    bool address_wait{};
+    WaitPrimitive primitive{};
+    HANDLE event{};
     std::shared_ptr<Waiter> notify_next;
     std::atomic<bool> notification_finished{true};
-    Waiter(int count, int rank) : requested(count), priority(rank), address_wait(address_waits.load()) {}
+    Waiter(int count, int rank) : requested(count), priority(rank), primitive(wait_primitive.load()) {
+        if (primitive == WaitPrimitive::Event) {
+            event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+            if (!event) { throw std::bad_alloc(); }
+        }
+    }
+    ~Waiter() { if (event) { CloseHandle(event); } }
     void Wake() noexcept {
-        if (address_wait) { WakeByAddressSingle(&result); } else { ready.notify_one(); }
+        if (primitive == WaitPrimitive::Event) {
+            if (!SetEvent(event)) { UnsupportedApi("native_semaphore_event_signal_failure", GetLastError(), nullptr); }
+        } else if (primitive == WaitPrimitive::Address) { WakeByAddressSingle(&result); }
+        else { ready.notify_one(); }
     }
 };
 static_assert(sizeof(std::atomic<int>) == 4 && std::atomic<int>::is_always_lock_free);
@@ -74,14 +85,20 @@ std::shared_ptr<Waiter> AcquireWaiter(int count, int priority) {
     // Never reuse it until that lease has also gone away.
     // use_count protects exclusive lifetime, not publication of node writes.
     // Pair with the notifier's release before reusing its linked-list node.
-    if (!reusable || reusable.use_count() != 1 || !reusable->notification_finished.load(std::memory_order_acquire)) {
+    if (!reusable || reusable.use_count() != 1 || !reusable->notification_finished.load(std::memory_order_acquire) ||
+        reusable->primitive != wait_primitive.load()) {
         reusable = std::make_shared<Waiter>(count, priority);
     }
     else {
         reusable->requested = count; reusable->priority = priority;
         reusable->result = kPending; reusable->timing = {};
         reusable->wake_began = 0; reusable->wake_finished = 0;
-        reusable->address_wait = address_waits.load();
+        // Success may have been observed before parking, leaving the previous
+        // auto-reset event signaled. Only exclusive, finished-notifier reuse
+        // permits resetting it; never reset a live notification.
+        if (reusable->event && !ResetEvent(reusable->event)) {
+            UnsupportedApi("native_semaphore_event_reset_failure", GetLastError(), nullptr);
+        }
     }
     return reusable;
 }
@@ -172,9 +189,12 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
     NativeSemaphoreWaitTiming* fixture_timing = nullptr) {
     NativeHostOperationScope timing("sceKernelWaitSema", "synchronization", static_cast<std::uint64_t>(requested), caller, blocking);
     return Api(caller, [&] {
+        const auto lookup_began = kt::diagnostics::MonotonicMicroseconds();
         const auto semaphore = Find(id); if (!semaphore) { return kSearch; }
         const auto priority = fixture_priority >= 0 ? fixture_priority : NativeGuestThreadPriority();
+        const auto gate_began = kt::diagnostics::MonotonicMicroseconds();
         std::unique_lock lock(semaphore->gate);
+        const auto gate_acquired = kt::diagnostics::MonotonicMicroseconds();
         if (semaphore->deleted) { return kSearch; }
         if (requested <= 0 || requested > semaphore->maximum) { return kInvalid; }
         if (semaphore->count >= requested) { semaphore->count -= requested; return 0; }
@@ -193,12 +213,18 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
         const auto queued = semaphore->waiters.insert(insertion, waiter);
         const auto start = std::chrono::steady_clock::now();
         waiter->timing.queued_clock_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
+        waiter->timing.wait_sequence = sequence;
+        waiter->timing.lookup_us = gate_began - lookup_began;
+        waiter->timing.gate_wait_us = gate_acquired - gate_began;
+        waiter->timing.queued_under_gate_us = waiter->timing.queued_clock_us - gate_acquired;
+        waiter->timing.queued_waiters = static_cast<unsigned>(semaphore->waiters.size());
+        waiter->timing.available_credits = static_cast<unsigned>(semaphore->count);
         if (sequence < 16) {
             std::printf("{\"event\":\"native_semaphore_wait_begin\",\"handle\":%llu,\"requested\":%d,\"timed\":%s,\"timeout_us\":%u,\"sequence\":%llu}\n",
                 id, requested, timeout ? "true" : "false", budget, sequence);
         }
         try {
-            if (waiter->address_wait) {
+            if (waiter->primitive != WaitPrimitive::ConditionVariable) {
                 // Credits/result are published under gate, but success no longer
                 // reacquires that shared gate. Only timeout retirement needs it.
                 const auto deadline = start + std::chrono::microseconds(budget);
@@ -218,19 +244,43 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
                         const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
                         milliseconds = static_cast<DWORD>(remaining);
                     }
-                    int pending = kPending;
-                    if (!WaitOnAddress(&waiter->result, &pending, sizeof(pending), milliseconds) && GetLastError() != ERROR_TIMEOUT) {
-                        UnsupportedApi("native_semaphore_address_wait_failure", GetLastError(), caller);
+                    if (waiter->primitive == WaitPrimitive::Event) {
+                        waiter->timing.park_began_clock_us = kt::diagnostics::MonotonicMicroseconds();
+                        ++waiter->timing.park_calls;
+                        const auto status = WaitForSingleObject(waiter->event, milliseconds);
+                        const auto error = status == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+                        waiter->timing.park_returned_clock_us = kt::diagnostics::MonotonicMicroseconds();
+                        if (status != WAIT_OBJECT_0 && status != WAIT_TIMEOUT) {
+                            UnsupportedApi("native_semaphore_event_wait_failure", error, caller);
+                        }
+                    } else {
+                        int pending = kPending;
+                        waiter->timing.park_began_clock_us = kt::diagnostics::MonotonicMicroseconds();
+                        ++waiter->timing.park_calls;
+                        const auto status = WaitOnAddress(&waiter->result, &pending, sizeof(pending), milliseconds);
+                        const auto error = status ? ERROR_SUCCESS : GetLastError();
+                        waiter->timing.park_returned_clock_us = kt::diagnostics::MonotonicMicroseconds();
+                        if (!status && error != ERROR_TIMEOUT) {
+                            UnsupportedApi("native_semaphore_address_wait_failure", error, caller);
+                        }
                     }
                     // Spurious/early wakes recheck the predicate and original
                     // deadline; a wake that precedes parking is not lost.
                 }
             } else if (timeout) {
                 const auto deadline = start + std::chrono::microseconds(budget);
+                waiter->timing.park_began_clock_us = kt::diagnostics::MonotonicMicroseconds();
+                ++waiter->timing.park_calls;
                 if (!waiter->ready.wait_until(lock, deadline, [&] { return waiter->result != kPending; })) {
                     semaphore->waiters.erase(queued); waiter->result = kTimeout;
                 }
-            } else { waiter->ready.wait(lock, [&] { return waiter->result != kPending; }); }
+                waiter->timing.park_returned_clock_us = kt::diagnostics::MonotonicMicroseconds();
+            } else {
+                waiter->timing.park_began_clock_us = kt::diagnostics::MonotonicMicroseconds();
+                ++waiter->timing.park_calls;
+                waiter->ready.wait(lock, [&] { return waiter->result != kPending; });
+                waiter->timing.park_returned_clock_us = kt::diagnostics::MonotonicMicroseconds();
+            }
         } catch (...) {
             // Do not unwind an incomplete queue transaction on host failure.
             UnsupportedApi("native_semaphore_wait_host_failure", id, caller);
@@ -238,7 +288,8 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
         waiter->timing.resumed_clock_us = kt::diagnostics::MonotonicMicroseconds();
         waiter->timing.wake_finished_clock_us = waiter->wake_finished.load(std::memory_order_acquire);
         waiter->timing.wake_began_clock_us = waiter->wake_began.load(std::memory_order_acquire);
-        waiter->timing.address_wait = waiter->address_wait;
+        waiter->timing.address_wait = waiter->primitive == WaitPrimitive::Address;
+        waiter->timing.event_wait = waiter->primitive == WaitPrimitive::Event;
         const auto result = waiter->result.load(std::memory_order_acquire);
         if (timeout) {
             const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
@@ -330,15 +381,23 @@ std::uint64_t ResolveSemaphoreImport(std::string_view identifier) {
     return 0;
 }
 
-bool ConfigureNativeSemaphoreAddressWait(bool enabled) {
+bool ConfigureNativeSemaphoreWait(WaitPrimitive primitive) {
     std::lock_guard lock(registry.gate);
     if (registry.next != 0x534d000000000001ull) { return false; }
-    address_waits.store(enabled); return true;
+    if (primitive != WaitPrimitive::ConditionVariable && primitive != WaitPrimitive::Address && primitive != WaitPrimitive::Event) { return false; }
+    wait_primitive.store(primitive); return true;
 }
-bool NativeSemaphoreAddressWaitEnabled() { return address_waits.load(); }
+NativeSemaphoreWaitPrimitive NativeSemaphoreWaitMode() { return wait_primitive.load(); }
+const char* NativeSemaphoreWaitName() {
+    switch (wait_primitive.load()) {
+    case WaitPrimitive::Event: return "event";
+    case WaitPrimitive::Address: return "address";
+    default: return "cv";
+    }
+}
 
-static bool SemaphoreSelfTestForPrimitive(bool address) {
-    address_waits = address;
+static bool SemaphoreSelfTestForPrimitive(WaitPrimitive primitive) {
+    wait_primitive = primitive;
     using namespace std::chrono_literals;
     bool passed = true;
     const auto check = [&](const char* name, bool value) {
@@ -365,7 +424,16 @@ static bool SemaphoreSelfTestForPrimitive(bool address) {
           create(result.value, 2, 1) == kInvalid && create(result.value, 0, 0) == kInvalid && create(result.value, 0, 1, 3) == kInvalid && result.value == 73);
     check("pointer_sized_handle_writes_eight_bytes_and_preserves_tail", create(result.value, 2, 5) == 0 && result.value > UINT32_MAX && result.sentinel == 73);
     const auto id = result.value;
-    check("wait_primitive_cannot_change_after_semaphore_publication", !ConfigureNativeSemaphoreAddressWait(!address) && NativeSemaphoreAddressWaitEnabled() == address);
+    check("wait_primitive_cannot_change_after_semaphore_publication", !ConfigureNativeSemaphoreWait(WaitPrimitive::ConditionVariable) && NativeSemaphoreWaitMode() == primitive);
+    {
+        auto previous = AcquireWaiter(1, 700);
+        const auto identity = previous.get();
+        previous->Wake(); // A result may be observed before the old wait parks.
+        previous.reset();
+        auto reused = AcquireWaiter(1, 700);
+        check("exclusive_waiter_reuse_clears_an_unconsumed_event_signal", reused.get() == identity &&
+            reused->result == kPending && (!reused->event || WaitForSingleObject(reused->event, 0) == WAIT_TIMEOUT));
+    }
     Handle absent = 73;
     check("bounded_opaque_name_and_safe_json_escaping", Create(&absent, std::string(32, 'a').c_str(), 1, 0, 1, nullptr, nullptr) == kName && absent == 73 &&
           QuoteBytes(std::string_view("\xff\n\"", 3)) == "\"\\u00ff\\u000a\\\"\"");
@@ -416,6 +484,10 @@ static bool SemaphoreSelfTestForPrimitive(bool address) {
         check("reserved_signal_wins_race_and_remaining_timeout_saturates_not_underflows", waiting && value == 0 && remaining == 0 && Delete(delayed, nullptr) == 0);
         check("grant_to_resume_delay_is_distinct_from_waiting_for_a_signal", timing.grant_thread == GetCurrentThreadId() &&
             timing.queued_clock_us <= timing.granted_clock_us && timing.resumed_clock_us - timing.granted_clock_us >= 150000);
+        check("waiter_park_return_is_separate_from_notifier_wake_return", timing.park_calls >= 1 &&
+            timing.queued_clock_us <= timing.park_began_clock_us && timing.park_began_clock_us <= timing.park_returned_clock_us &&
+            timing.park_returned_clock_us <= timing.resumed_clock_us && timing.queued_waiters == 1 && timing.available_credits == 0 &&
+            timing.address_wait == (primitive == WaitPrimitive::Address) && timing.event_wait == (primitive == WaitPrimitive::Event));
     }
     {
         bool ordered = true;
@@ -443,11 +515,11 @@ static bool SemaphoreSelfTestForPrimitive(bool address) {
             const auto state = Find(selected); std::lock_guard lock(state->gate);
             Notifications notifications;
             ++state->count; Grant(*state, notifications); notifications.NotifyAll();
-            if (address) { expected_resume = await([&] { return value == 0; }); }
+            if (primitive != WaitPrimitive::ConditionVariable) { expected_resume = await([&] { return value == 0; }); }
             else { Sleep(5); expected_resume = value == kPending; }
         }
         worker.join();
-        check("address_success_resumes_without_reacquiring_gate_while_cv_requires_it", waiting && expected_resume && value == 0 && Delete(selected, nullptr) == 0);
+        check("published_success_resumes_without_reacquiring_gate_while_cv_requires_it", waiting && expected_resume && value == 0 && Delete(selected, nullptr) == 0);
     }
     {
         Handle selected{}; create(selected, 0, 2);
@@ -571,13 +643,14 @@ static bool SemaphoreSelfTestForPrimitive(bool address) {
     check("repeated_create_delete_does_not_reuse_stale_identity", cycles && registry.semaphores.empty());
     check("unknown_handles_rejected_by_every_operation", Wait(73, 1, nullptr, false, nullptr) == kSearch && Signal(73, 1, nullptr) == kSearch &&
           Cancel(73, 0, nullptr, nullptr) == kSearch && Delete(73, nullptr) == kSearch);
-    std::printf("{\"event\":\"semaphore_primitive_self_test\",\"address_wait\":%s,\"passed\":%s}\n", address ? "true" : "false", passed ? "true" : "false"); return passed;
+    std::printf("{\"event\":\"semaphore_primitive_self_test\",\"primitive\":\"%s\",\"passed\":%s}\n", NativeSemaphoreWaitName(), passed ? "true" : "false"); return passed;
 }
 bool SemaphoreSelfTest() {
-    const auto original = address_waits.load();
-    const bool cv = SemaphoreSelfTestForPrimitive(false);
-    const bool address = SemaphoreSelfTestForPrimitive(true);
-    address_waits = original;
-    const bool passed = cv && address;
+    const auto original = wait_primitive.load();
+    const bool cv = SemaphoreSelfTestForPrimitive(WaitPrimitive::ConditionVariable);
+    const bool address = SemaphoreSelfTestForPrimitive(WaitPrimitive::Address);
+    const bool event = SemaphoreSelfTestForPrimitive(WaitPrimitive::Event);
+    wait_primitive = original;
+    const bool passed = cv && address && event;
     std::printf("{\"event\":\"semaphore_self_test\",\"passed\":%s}\n", passed ? "true" : "false"); return passed;
 }

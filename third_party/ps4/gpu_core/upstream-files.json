@@ -1089,13 +1089,13 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_scheduler.cpp",
-      "sha256": "b6d6c1a61d8746fb0fe2802b15e4ce62263ac07c87096d7ac98619f0a30a2497",
-      "description": "Add a FIFO callback barrier tied to the last submitted timeline tick, preserving prior callback/GPU completion without an empty next-tick GPU submit during synchronous host drains. Normal current-command deferred callbacks are unchanged."
+      "sha256": "affb072b951737673c015372a59c00bd1d052474d6566dc4e18ab0ce2d26fc21",
+      "description": "Track issued/completed FIFO priority callback serials, including in-flight work and capture destruction. Allow bounded waiting for the existing prefix without allocating/enqueueing an empty barrier or waking an idle worker. Retain the submitted-tick callback API and normal current-command GPU completion semantics."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_scheduler.h",
-      "sha256": "7974a9a81317388535d48cf5b13b1053111de8d8175775388e48b12e1fddc944",
-      "description": "Declare the owner-thread submitted-work callback barrier used after Flush/Finish, separate from callbacks covering the currently recorded command buffer; expose a read-only driver timeline query count for mechanism tests."
+      "sha256": "a1dfc653c2db9ae3da100ae3a37234a7c1ec881de3170d045163dd7fc58d8efa",
+      "description": "Declare the completed-prefix wait and mutex-protected issued/completed serials with a completion CV that outlives its runner. Keep the submitted-work callback barrier, current-command callbacks and read-only driver query count for mechanism tests."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_semaphore.cpp",
