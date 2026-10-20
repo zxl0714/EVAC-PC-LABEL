@@ -75,7 +75,13 @@ struct Keyboard {
         if (window == owner && focused && key < keys.size()) {
             if (down && !keys[key]) {
                 pending |= Binding(key);
-                const auto duration=key=='H' && diagnostic_circle_hold_ms ? diagnostic_circle_hold_ms : diagnostic_tap_ms;
+                // The existing explicit Circle diagnostic also supports one
+                // bounded firing hold. Normal H retains its short confirmation
+                // duration; Shift+H is useful when CU can only send tap edges.
+                // This never exists in ordinary input (diagnostic default 0).
+                const bool circle = key=='H' && diagnostic_circle_hold_ms;
+                const bool shift = keys[VK_SHIFT] || keys[VK_LSHIFT] || keys[VK_RSHIFT];
+                const auto duration=circle ? (shift ? 30000u : diagnostic_circle_hold_ms) : diagnostic_tap_ms;
                 if (duration) { pulse_until[key] = now + duration; }
             }
             keys[key] = down;
@@ -358,7 +364,7 @@ bool ConfigureNativeDiagnosticCircleHold(unsigned milliseconds) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (milliseconds > 2000 || state.initialized || state.keyboard.owner || (milliseconds && state.keyboard_bindings['H'])) { return false; }
     state.diagnostic_circle_hold_ms = milliseconds;
-    std::printf("{\"event\":\"native_pad_diagnostic_circle_hold\",\"trigger\":\"H\",\"milliseconds\":%u,\"changes_game_state_directly\":false}\n", milliseconds);
+    std::printf("{\"event\":\"native_pad_diagnostic_circle_hold\",\"trigger\":\"H\",\"milliseconds\":%u,\"shift_hold_ms\":%u,\"changes_game_state_directly\":false}\n", milliseconds, milliseconds ? 30000u : 0u);
     return true;
 }
 std::uint64_t ResolvePadImport(std::string_view identifier, std::string_view library, std::string_view module) {
@@ -410,6 +416,25 @@ bool PadSelfTest() {
     diagnostic.Key(&owner, VK_RIGHT, true, 1200); diagnostic.Key(&owner, VK_RIGHT, false, 1202); diagnostic.Acknowledge();
     check(hold_disabled && diagnostic.Buttons(1319)==0x2020 && diagnostic.Buttons(1320)==0x2000 &&
         diagnostic.Buttons(2699)==0x2000 && diagnostic.Buttons(2700)==0, "diagnostic_circle_hold_is_opt_in_and_does_not_lengthen_navigation");
+    diagnostic.Key(&owner, VK_LSHIFT, true, 3000); diagnostic.Key(&owner, 'H', true, 3010);
+    diagnostic.Key(&owner, 'H', false, 3012); diagnostic.Key(&owner, VK_LSHIFT, false, 3013); diagnostic.Acknowledge();
+    check(diagnostic.Buttons(33009)==0x2000 && diagnostic.Buttons(33010)==0,
+        "diagnostic_shift_circle_hold_has_a_bounded_wall_clock_deadline");
+    diagnostic.Key(&owner, 'H', true, 34000); diagnostic.Key(&owner, 'H', false, 34002); diagnostic.Acknowledge();
+    check(diagnostic.Buttons(35499)==0x2000 && diagnostic.Buttons(35500)==0,
+        "ordinary_diagnostic_confirmation_keeps_its_short_duration");
+    diagnostic.Key(&owner, VK_SHIFT, true, 36000); diagnostic.Key(&owner, 'H', true, 36010);
+    diagnostic.Key(&owner, 'H', false, 36012); diagnostic.Key(&owner, VK_SHIFT, false, 36013); diagnostic.Acknowledge();
+    diagnostic.Key(&owner, 'H', true, 36100); diagnostic.Key(&owner, 'H', false, 36102); diagnostic.Acknowledge();
+    check(diagnostic.Buttons(37599)==0x2000 && diagnostic.Buttons(37600)==0,
+        "ordinary_h_can_shorten_an_existing_diagnostic_long_hold");
+    diagnostic.Key(&owner, VK_RSHIFT, true, 38000); diagnostic.Key(&owner, 'H', true, 38010);
+    diagnostic.Focus(&owner, false); diagnostic.Focus(&owner, true);
+    check(diagnostic.Buttons(38011)==0, "focus_loss_clears_the_diagnostic_long_hold_and_modifiers");
+    Keyboard ordinary; ordinary.owner=&owner; ordinary.Focus(&owner,true);
+    ordinary.Key(&owner,VK_SHIFT,true,40000); ordinary.Key(&owner,'H',true,40001);
+    ordinary.Key(&owner,'H',false,40002); ordinary.Key(&owner,VK_SHIFT,false,40003); ordinary.Acknowledge();
+    check(ordinary.Buttons(40004)==0, "shift_h_remains_unbound_when_circle_diagnostic_is_disabled");
     diagnostic.Key(&owner, 'V', true, 1200); diagnostic.Focus(&owner, false); diagnostic.Focus(&owner, true);
     check(diagnostic.Buttons(1201) == 0, "diagnostic_taps_cannot_survive_focus_loss");
     keyboard.Key(&owner, VK_RETURN, true); keyboard.Key(&owner, VK_RETURN, false);

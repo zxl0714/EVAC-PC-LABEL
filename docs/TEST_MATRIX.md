@@ -10,6 +10,22 @@ PS4 任务交接的硬宿主 CPU 绑定已修正，保留六线程、原任务�
 
 本批已取得根因对照、修复及本机代表性性能回归，继续其余主要模式／CUSTOM、SDOJ 问题和 360 标题；最终五游戏配套构建及发行／上传仍未完成。以下 r3–r9 的“性能未收尾／暂停模式”描述对应早期候选，不覆盖当前结果，亦不将其重标为通过。
 
+### 大往生主要模式的增量覆盖
+
+独立现场 `.local/daioujou-modes-r2` 使用离线、窗口、VSync 和正常游戏节拍，未改原始数据。正常五参数合集入口已到达原生参数界面，但该次取消了长按确认，不记为 CUSTOM 游玩通过。下表的新游玩证据来自显式 `--enter` 原生开发入口：短按诊断 120 ms、`--diagnostic-circle-hold-ms 1500`；H 满足原生确认，后续 opt-in Shift+H 最多持续 Circle 30 秒以观察射击。默认输入、玩家 INI 和正常合集入口不变，不用于物理设备、输入延迟或新性能验收。
+
+| 入口 | 已观察到的实际流程 | 尚未独立覆盖 |
+| --- | --- | --- |
+| CUSTOM 参数路径 | ARCADE 暂停 → GAME SETTING，NORMAL 改 EASY，原生排名 ON → OFF；原生长按重置后 Type-A／Shotia 进入 Stage 1A，2010 分自然 GAME OVER，返回 DIRECT MENU | 独立死亡到复活过程、参数冷重启读回；不将 CUSTOM 可玩等同于可上榜 |
+| ARRANGE S | Type-A／原作固定 Shotia，Stage 1A 玩家自机、射击／爆炸，164330 分；推进到中型敌机，547280 分 GAME OVER，暂停及返回 DIRECT MENU | 独立死亡到复活过程 |
+| ARRANGE L | Type-A／原作固定 Leinyan，Stage 1A 射击／爆炸，余机 2 → 1 后仍见自机；推进到 Stage 1B／1125660 分，暂停及返回 DIRECT MENU | 单独持续激光操作，不从发键推断视觉通过 |
+
+CUSTOM 对应 `native-hold-r1/stdout.jsonl`，宿主 SHA-256 `7f705237250b3eca8a40e4c7ff64648a91381a1396f88b8d13a6946aa9dd294b`，日志 SHA-256 `912e0a99ed60d7697305fb61e348454359191e3295104d30b8e8d4a7f268fb76`。S／L 对应 `native-hold-r2/stdout.jsonl`，宿主 `f1683bc58c3023d0981348a33a264d0a284246dae42c27f258e160ad4a14bb31`，日志 `ac93ef58dede926e18f3c0809b58847c99605d95812ca12a29650c1f2676ea88`。两次 GPU 均为 `ede6e68396b88553e63b06964552f3b04eb13a246ba75884a669b88a4ea7a192`，关闭后日志均排空，保留既有退出码 27；细粒度诊断存在竞争拒收，不声称所有事件无损。后者 38 项 pad 子例、375 项源码和 73 项原生检查通过。
+
+ARCADE／SUPER EASY 的既有玩家结果和 LUNA TOUR 首区域结果分别沿用。ARRANGE EX、ARCADE CHALLENGE、ARCADE OSARAI、BLACK LABEL 与额外海外版入口仍待轻量覆盖；主要模式总项继续保持未完成，不重测全部角色或扩大为长期耐久。
+
+### 较早候选与历史定位
+
 地址等待候选通过 373 项源码、73 项原生检查，semaphore 两条传输路径共 52 子例。正常大往生 `.local/daioujou-pacing-r5` 固定录像完整自然返回，30 秒／1,800 连续帧（10171–11970），p95／p99 上界 17.1／17.2 ms，最大 17.325 ms。提交外均值 1.576 ms、最大 5.672 ms；有 worker 在 Wake 返回后仍延迟 3.805 ms，成功路径已不重取共享 gate，性能未收尾。离线同程序 A/B/B/A 的身份、峰值和通知分段见分析文档；不把旧候选／新候选或组件结果混成同一次验收。当前按用户要求优先继续性能，暂停模式和发行工作。
 
 模式部分结果保留：`.local/daioujou-modes-r1/run-20261020T042318188Z-84944`（日志实际位于 logs/daioujou 下）使用 df79594、输入诊断 120 ms、离线／正常节拍。SUPER EASY／Type-A／Shotia 实际选机、选人、第一关射击得分、死亡复活、返回 DIRECT MENU 通过；LUNA TOUR／Casual／Shotia／Type-A 从路线板进入，射击得分、首区域 AREA CLEARED、取得首个章并返回巡回板通过，未覆盖其死亡。其他入口及 CUSTOM 仍未测，不以这两个结果代替全模式通过；这轮在性能优先指令后受控关闭为既有清理限制 27，不再追加模式操作。

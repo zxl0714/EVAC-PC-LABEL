@@ -1,5 +1,7 @@
 # 开发入口
 
+大往生模式增量结果见 [主要模式覆盖](docs/TEST_MATRIX.md#大往生主要模式的增量覆盖)：CUSTOM 参数已应用并进关，ARRANGE S／L 已射击及返回；不据此宣称全模式通过。无人长按仅使用下述显式原生开发诊断，38 项 pad 子例及完整 375 源码／73 原生检查通过；普通玩家输入保持原样。继续未覆盖的 EX／CHALLENGE／OSARAI／BLACK LABEL 等入口，不重走已接受的联网基线。
+
 当前 PS4 性能修复已保留六个任务线程并撤去硬宿主 CPU 绑定：guest mask 继续校验与保存，native 线程沿用宿主原有可运行范围。离线 pinned／inherited／inherited／pinned 交错对照全部正确，硬绑定仍有 26–37 ms 尾峰，继承范围的两轮最大 67–86 µs。375 源码／73 原生通过；正常绊地狱 r10／大往生 r7 固定录像完整自然返回，关卡连续 1860／1800 帧最大 17.185／17.188 ms。身份、全回放范围及诊断遗漏见 [当前同步结论](docs/PS4_SYNCHRONIZATION.md)。这是有控制证据的根因修复与本机代表回归，不是全硬件／模式保证；下一步继续大往生主要模式／CUSTOM、SDOJ 声音／输入和 360 标题，再做最终五游戏发行门槛。下方早期“暂停模式”的段落保留为历史，不能覆盖本段。
 
 离线 bench 默认 `--worker-affinity inherited`，与当前宿主策略一致；显式 `--worker-affinity pinned` 只在 fixture 中复现旧硬绑定。六种负载、三进程重复、像素／任务校验和 address 等待默认不变。不要把旧硬绑定或物理核心优先策略恢复为游戏默认，也不改线程数或取消同步。
@@ -259,6 +261,8 @@ ELF 镜像准备的原生实现位于 `backends/ps4/loader/elf_prepare.*`，按�
 合集执行客体前启动 `native_async_log.*`。GPU 提交、宿主慢操作及 NGS2／WASAPI 热路径使用完整记录的非阻塞投递；`diagnostics/async_log_queue.h` 固定容量，磁盘慢写不占用游戏线程或音频图锁。`native_async_log` 累计损失／写入失败和最后排空状态不可省略。终止路径必须在 `_lock_file(stdout)` 之前停止并排空队列，再直接输出最终诊断；锁独立异常处理器不等待此 worker。独立机制命令保留同步默认行为。分析范围及固定录像路径见 docs/ANALYSIS.md。
 
 CU 的毫秒短按无法触发街机投币时，可仅为本次启动器进程设置环境变量 `CAVE_DIAGNOSTIC_INPUT_TAP_MS=120`，桥接既有原生按键延长诊断；允许 0–500，未设置或 0 时完全不启用。五参数合同及玩家 INI 不变，`run.json` 的 `diagnosticInputTapMs` 明确记录取值；启动后恢复开发 shell 的环境变量，不用于声称默认物理输入已测。`--collection-input-self-test` 无 ROM／窗口地检查解析边界，实际游戏仍必须由 CU 操作投币、选机与进关。
+
+需要无人确认游戏的长按提示或持续射击时，原生开发入口可显式加 `--diagnostic-circle-hold-ms 1500`：H 把本次真实键沿延长为 Circle 1.5 秒，Shift+H 为最多 30 秒；再次普通 H 会缩短已有长按，失焦清空全部延长与修饰键。此参数仅限 `--enter`，默认关闭、拒绝覆盖已有 H 绑定，不进入玩家 INI；合集五参数入口目前没有该桥接。必须记录使用直接原生入口及诊断值，不冒充正常合集启动、物理输入或输入延迟验收。操作仍通过 computer-use 对当前游戏窗口发键，不直接修改游戏状态、分数或存档。
 
 `scripts/ps4/run_prepare_checks.py` 通过 27 组自造 ELF 和 8 组真实路径检查，使用 Python 实现逐字节对照；由 Test.ps1 的 Ketsui 分支一并执行。`py -3.12 scripts/ketsui/verify_preparation.py --game-data '<数据根>'` 另在新的 .local 现场对照实际 eboot／两个 PRX，并做无客体入口的装载校验。生成文件含派生游戏正文，只留本地；Python 工具是开发侧对照实现，不是 Public 包的玩家启动依赖。实际玩家进关、保存与录像结果另见验收矩阵。
 

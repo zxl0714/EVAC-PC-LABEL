@@ -17,6 +17,8 @@ bool NativePadMouseLeftMapped();
 void ConfigureNativePadKeyboard(const std::filesystem::path& path);
 void ConfigureNativePadSettings(const kt::input::KeyboardBindings& bindings, bool gamepad, double deadzone);
 bool ConfigureNativeDiagnosticTaps(unsigned milliseconds);
+// Opt-in developer entry only: H holds Circle for this duration (0..2000 ms);
+// Shift+H holds it for at most 30 s, normal H shortens it, focus loss clears it.
 bool ConfigureNativeDiagnosticCircleHold(unsigned milliseconds);
 bool PadSelfTest();
 int PadDemo();

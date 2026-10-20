@@ -7128,7 +7128,7 @@ class RuntimeTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         cases = [event for line in result.stdout.splitlines() if (event := json.loads(line))["event"] == "pad_self_test_case"]
-        self.assertEqual(len(cases), 33)
+        self.assertEqual(len(cases), 38)
         self.assertTrue(all(event["passed"] for event in cases))
 
     def test_mouse_pad_binding_explicit_entry_only_and_default_off(self):

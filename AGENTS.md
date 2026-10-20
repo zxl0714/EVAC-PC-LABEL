@@ -1,5 +1,11 @@
 # Development entry
 
+Mode coverage now additionally includes CUSTOM parameter apply/Stage 1A and
+ARRANGE S/L player shooting and Direct Menu return. See the current mode table
+in docs/TEST_MATRIX.md for exact partial coverage and remaining entries. The
+opt-in native --enter diagnostic supports Shift+H bounded Circle hold; ordinary
+player input stays unchanged. Do not repeat S/L or accepted online baselines.
+
 Current performance batch has fixed the hard host-affinity restriction rather
 than reducing the game's six task workers. Read the current-result section in
 docs/PS4_SYNCHRONIZATION.md first. Same-binary pinned/inherited/inherited/pinned
