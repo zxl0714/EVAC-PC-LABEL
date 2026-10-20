@@ -17,7 +17,7 @@ def fixture(samples=2, warmup=1):
                    dropped_oldest=0, invalid_records=0, format_failures=0, sink_failures=0,
                    pending=0, in_flight=0),
               dict(event='offline_bench_begin', schema=1, gpu_api=7, samples=samples, warmup=warmup,
-                   game_execution=False, window_created=False, authored_only=True, validation=False, process_priority_class=32)]
+                   game_execution=False, window_created=False, authored_only=True, validation=False, semaphore_wait='cv', process_priority_class=32)]
     for name, (draws, prefetches) in bench.GPU_CASES.items():
         result.append(dict(event='offline_bench_case', name=name, kind='pm4_gpu', samples=samples,
                            warmup=warmup, draws=draws, prefetches=prefetches, acquires=1,
@@ -46,6 +46,13 @@ def encoded(items):
 
 
 class OfflineBenchTests(unittest.TestCase):
+    def test_wait_primitive_is_explicit_and_cannot_be_inferred(self):
+        for mode in (None, '', 'unknown', True):
+            items=fixture();items[2]['semaphore_wait']=mode
+            with self.subTest(mode=mode),self.assertRaises(ValueError):bench.parse_run(encoded(items),2,1)
+        items=fixture();items[2]['semaphore_wait']='address'
+        self.assertEqual(bench.parse_run(encoded(items),2,1)['identity']['semaphore_wait'],'address')
+
     def test_six_complete_cases_with_verified_tasks_and_pixels(self):
         result=bench.parse_run(encoded(fixture()),2,1)
         self.assertEqual(len(result['cases']),6)

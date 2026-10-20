@@ -132,6 +132,33 @@ r8 的指令处理仍主要是绘制／资源 2.627 ms、ACQUIRE 同步排空 0.
 
 CPU 硬映射试验没有合入：r7 将六个虚拟 CPU 映射到不同物理性能核，实际固定录像的选定 31 秒仅 702 帧，最大间隔 450.061 ms。新进程冷启动仍退化，10 秒 474 帧、最大 200.193 ms；同进程仅把六个 worker 恢复成旧逻辑映射后，后续 10 秒为 600 帧、最大 17.434 ms，软件路径不变。两段场景不完全相同，不据此宣称物理核优先在所有机器上必然更差，但足以拒绝当前策略。现场／报告为 `.local/ketsui-pacing-r7` 和 `ketsui-pacing-r7-cold-topology.json`／`cold-legacy-map.json`。原线程映射已恢复；没有改变系统电源、其他进程或游戏任务数。
 
+### 地址等待与通知后的长尾
+
+成功等待的恢复路径改为独立 waiter 的原子结果与 Windows `WaitOnAddress`／`WakeByAddressSingle`，不再重新争用共享 semaphore gate。队列次序、完整 credit 预留仍在原 gate 内完成；先建立通知对象的拥有链，再 release 发布结果。等待以 acquire 读取结果，早于停车的通知不会丢失，虚假唤醒继续检查原截止时间。只有超时退休才重新取得 gate，并再次检查是否已获授予；已预留的成功不会被超时覆盖。取消、删除及通知对象生命周期沿用原语义，复用仍有独占所有权和显式发布屏障。依据为 [Microsoft WaitOnAddress 合同](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress)；不依赖其唤醒顺序实现 guest FIFO。原 CV 路径保留作诊断对照，不改 CPU 映射、电源或优先级。
+
+日志的 `native_semaphore_wait_timing` 现在包含 `wake_began_clock_us`、`wake_finished_clock_us` 和 `address_wait`，可区分发通知之前与之后的延迟。成功可能早于通知调用／结束被观察到，此时相应字段为 0 或通知结束晚于恢复，不作负耗时相加。CV 恢复仍包含重新取 gate；address 的成功路径不包含此步骤。WPR 的 CPU 调度采集因当前非管理员权限未能启动，已核对未在 recording，故没有用内核调度 trace 证明剩余时间全属 Ready 排队。
+
+两种传输各完整执行 26 个 semaphore 子例，共 52 项；包含成功是否需要重取仍被夹持的 gate、不得在首个 semaphore 发布后切换传输，以及全部原 FIFO／优先级、credit、超时、取消／删除和生命周期场景。完整 73 项原生和 373 项源码（含 13 项 bench 协议）通过，日志 `.local/v03-address-wait-r2-{build,source,native}.log`。GPU DLL 未改，原 API7 配对及既有图形机制证据沿用，不写成新测。
+
+离线对照使用同一程序、相同默认参数和六组负载，每轮每组 384 个正式样本，按 CV→address→address→CV 顺序，各三次独立进程重复；所有像素、任务 checksum、绘图计数和完整性检查通过。现场 `.local/offline-bench/wake-cv-a1`／`wake-address-b1`／`wake-address-b2`／`wake-cv-a2`，宿主 `6d54daded6f6ec507a8e67a1d044e5458c70681049daf4bc96bc6346fa18902f`，GPU `bcfc29dcc2b603722604882767d6a215479a10ade9d8eca4db5f1b2533aacdc3`，快照 `363a7dc0f09bc8fd99c3bd8c7d8e93d58bbf3297b6ece617f4b045747e1b3a06`。显式 `--semaphore-wait cv|address` 只改变宿主等待原语，不改变任务、GPU 负载、节拍或核映射，报告身份记录实际选择。
+
+| 间隔派发交接（µs） | CV A1 | address B1 | address B2 | CV A2 |
+| --- | --- | --- | --- | --- |
+| 14 任务中位数 | 38 | 29 | 31 | 34 |
+| 14 任务 p95 / p99 | 1273 / 9215 | 105 / 1236 | 108 / 669 | 90 / 422 |
+| 14 任务最大 | 22435 | 1952 | 2108 | 7664 |
+| 16 任务中位数 | 35 | 31 | 29 | 39 |
+| 16 任务 p95 / p99 | 216 / 2194 | 90 / 1426 | 90 / 1152 | 144 / 3010 |
+| 16 任务最大 | 3514 | 2589 | 4433 | 18226 |
+
+CV A1 的 22.435 ms batch 对应 worker 69912：授予到通知开始 8 µs、通知调用 1 µs、通知结束到恢复 **22392 µs**；A2 的另一 worker 为 5／5／18177 µs。长尾不在发通知之前。address 常见路径及这些尾部有所减少，但 A2 的 14 任务 p95 本来就低于两个 B，不能宣称每个分位数均改善，或将有限样本的极值差异保证为普遍收益。后续仍以实际回放和剩余恢复尾峰为准。
+
+正常运行的默认切为 address 后重新配套构建；373 源码／73 原生复验通过。宿主 `d2ff8b9094dc7e19352c79b54550ae00b7e0636b981814d4b2cfed8cb421e337`，GPU 不变，快照 `c667c307a28a4286366ae83cabfa05980ae4459c14dee111e073c6c9d9f13aef`，基于 df79594 的未提交开发构建。实际 `.local/daioujou-pacing-r5/logs/daioujou/run-20261020T043810503Z-81076` 为正常五参数合同、输入延长 0、离线、vsync=true、窗口；同一 MY REPLAY 1780 分／Type-A／Shotia 完整自然返回，随后受控关闭为清理限制 27。F8 UI 约 17 秒，取其前 2 至后 28 秒 `8634727323344–8634757323344`，与旧窗口仅近似场景对齐，不宣称逐游戏帧 A/B。
+
+该 30 秒包含 4 项完成编译、1,800 个连续 submission（10171–11970），无缺号：平均间隔 16.666 ms、p95／p99 上界 17.1／17.2 ms、最大 **17.325 ms**；指令处理均值 4.006 ms、最大 7.954 ms，提交外均值 1.576 ms、最大 5.672 ms，最终输出均值 0.100 ms。正常节拍等待约 10.932 ms，未删除 GPU／呈现完成条件。worker 21820 仍在 `8634753148504` 通知结束后到 `8634753152309` 才恢复，**3805 µs**；它发完成信号后主线程约 4 µs 恢复。此 address 成功路径不再取共享 gate，但没有内核调度证据将全部剩余恢复时间归因于 OS Ready 排队。没有新 33 ms 不等于问题关闭。
+
+报告 `.local/analysis/daioujou-pacing-r5-address-wait.json`，日志 SHA-256 `3aa85bf3d6e21a60ec09bc62824b61374c3988cadc5dbc7463ca268c48c779f0`。最终 accepted=written=62278、dropped=0、format/sink failure=0、frame emission failure=0；全进程仍有 697 次日志竞争拒绝及 682 次 host operation 发送失败，不能称全部诊断无损。当前按用户明确优先级继续性能：同路径绊地狱回放、绘图／资源处理及同步排空的细分与软件优化，以及剩余宿主恢复尾峰。未处理完不切回模式或出包，也不据此删去 v0.3 其他范围。
+
 ### 信号量交接的软件批次
 
 信号量热路径现在使用每线程两个弱引用句柄缓存，减少 work/done 交替操作的全局表锁；删除仍在状态锁内判定，句柄不复用，缓存不延长已删除对象的生命周期。客体线程优先级由创建时不可变的快照直接保存在 TLS，不再每次等待都锁线程注册表；以后实现运行中修改优先级时须同步修改此合同。FIFO／优先级顺序、完整批量 credit 预留、超时、取消及删除返回值均不改变。

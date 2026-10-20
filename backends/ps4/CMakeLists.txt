@@ -175,7 +175,7 @@ target_compile_definitions(KetsuiNativeProbe PRIVATE WIN32_LEAN_AND_MEAN NOMINMA
 target_compile_options(KetsuiNativeProbe PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/W4;/WX;/EHsc>)
 target_link_options(KetsuiNativeProbe PRIVATE /DEBUG:FULL)
 target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiGraphics KetsuiAudio KetsuiContent KetsuiSave bcrypt user32 gdi32 comctl32 ole32 windowscodecs mfplat mfreadwrite mfuuid)
-target_link_libraries(KetsuiNativeProbe PRIVATE xmllite shlwapi)
+target_link_libraries(KetsuiNativeProbe PRIVATE xmllite shlwapi synchronization)
 target_link_libraries(KetsuiNativeProbe PRIVATE SDL3::SDL3-static)
 target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common KetsuiResourcePreparation KetsuiPreparedInputs KetsuiDiagnostics)
 execute_process(COMMAND "${CMAKE_CXX_COMPILER}" --print-resource-dir

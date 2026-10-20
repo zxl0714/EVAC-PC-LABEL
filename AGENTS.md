@@ -1,5 +1,26 @@
 # Development entry
 
+Current human priority: resolve the performance issue before resuming mode
+coverage or packaging. Do not treat a short smooth replay as closure or switch
+back to modes while the known tail remains unexplained. df79594's mode run is
+stopped: SUPER EASY player entry/shooting/death/respawn/return passed; LUNA TOUR
+Casual/Shotia/Type-A cleared its first area and returned to the tour board,
+without death coverage. Other main modes/CUSTOM remain pending, not cancelled.
+
+The next software candidate uses per-waiter WaitOnAddress with atomic result
+publication: success no longer reacquires the shared semaphore gate. Original
+CV remains available only for diagnostic A/B. Both transports preserve queue,
+credits, timeout/cancel/delete and notifier lifetime; 52 semaphore subcases,
+73 native checks and 373 source tests pass. Same-binary A/B/B/A offline tests
+show CV wake-return-to-resume tails of 22.392/18.177 ms; notifications themselves
+finished in microseconds. Address runs' maximum batch times are 2.589/4.433 ms.
+Normal DaiOuJou r5 fixed replay returns naturally: 1,800 continuous frames,
+max 17.325 ms, p99 histogram upper bound 17.2 ms. It still has a worker taking
+3.805 ms after wake returns, now without shared-gate reacquisition. Therefore
+remaining host wake/scheduling and ~4 ms draw/sync processing need investigation;
+performance gates remain open. Identity/data are in ANALYSIS.md. Do not lose
+the full v0.3 scope, but do not resume modes or release steps before this work.
+
 The user has authorized stepwise v0.3 implementation with minimal interaction.
 Follow the v0.3 section in docs/IMPLEMENTATION_PLAN.md: playable DaiOuJou plus
 its native online feature adaptation, localization/bilingual titles, the open

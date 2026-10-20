@@ -530,9 +530,10 @@ int RunNativeOfflineBench(const std::filesystem::path &library,
   std::printf("{\"event\":\"offline_bench_begin\",\"schema\":1,\"gpu_api\":%u,"
               "\"samples\":%u,\"warmup\":%u,\"game_execution\":false,\"window_"
               "created\":false,\"authored_only\":true,\"validation\":false,"
-              "\"process_priority_"
+              "\"semaphore_wait\":\"%s\",\"process_priority_"
               "class\":%lu}\n",
               RuntimeApiVersion, samples, warmup,
+              NativeSemaphoreAddressWaitEnabled() ? "address" : "cv",
               GetPriorityClass(GetCurrentProcess()));
   Print(handoff14, warmup);
   Print(handoff16, warmup);

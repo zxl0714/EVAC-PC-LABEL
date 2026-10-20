@@ -30,14 +30,22 @@ constexpr int Error(unsigned code) { return static_cast<int>(0x80020000u | code)
 constexpr int kSearch = Error(3), kMemory = Error(12), kDeleted = Error(13), kAddress = Error(14), kBusy = Error(16);
 constexpr int kInvalid = Error(22), kAgain = Error(35), kTimeout = Error(60), kName = Error(63), kCancelled = Error(85);
 constexpr int kPending = 1;
+std::atomic<bool> address_waits{true}; // CV is retained for explicit diagnostic A/B.
 struct Waiter {
     std::condition_variable ready;
-    int requested, priority, result = kPending;
+    int requested, priority;
+    std::atomic<int> result{kPending};
     NativeSemaphoreWaitTiming timing{};
+    std::atomic<std::uint64_t> wake_began{}, wake_finished{};
+    bool address_wait{};
     std::shared_ptr<Waiter> notify_next;
     std::atomic<bool> notification_finished{true};
-    Waiter(int count, int rank) : requested(count), priority(rank) {}
+    Waiter(int count, int rank) : requested(count), priority(rank), address_wait(address_waits.load()) {}
+    void Wake() noexcept {
+        if (address_wait) { WakeByAddressSingle(&result); } else { ready.notify_one(); }
+    }
 };
+static_assert(sizeof(std::atomic<int>) == 4 && std::atomic<int>::is_always_lock_free);
 // The lease survives unlocking the semaphore and even the waiting thread's
 // return. A raw pointer to its stack condition_variable would not be safe here.
 // Linking already-owned nodes cannot allocate after credits are committed.
@@ -52,7 +60,9 @@ struct Notifications {
         last.reset();
         while (first) {
             auto waiter = std::move(first); first = std::move(waiter->notify_next);
-            waiter->ready.notify_one();
+            waiter->wake_began.store(kt::diagnostics::MonotonicMicroseconds(), std::memory_order_release);
+            waiter->Wake();
+            waiter->wake_finished.store(kt::diagnostics::MonotonicMicroseconds(), std::memory_order_release);
             waiter->notification_finished.store(true, std::memory_order_release);
         }
     }
@@ -70,6 +80,8 @@ std::shared_ptr<Waiter> AcquireWaiter(int count, int priority) {
     else {
         reusable->requested = count; reusable->priority = priority;
         reusable->result = kPending; reusable->timing = {};
+        reusable->wake_began = 0; reusable->wake_finished = 0;
+        reusable->address_wait = address_waits.load();
     }
     return reusable;
 }
@@ -153,7 +165,7 @@ void Grant(Semaphore& semaphore, Notifications& notifications, const void* calle
         waiter->timing.granted_clock_us = granted_at;
         waiter->timing.grant_thread = GetCurrentThreadId();
         waiter->timing.grant_caller = caller;
-        waiter->result = 0; notifications.Add(waiter);
+        notifications.Add(waiter); waiter->result.store(0, std::memory_order_release);
     }
 }
 int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void* caller, int fixture_priority = -1,
@@ -186,7 +198,34 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
                 id, requested, timeout ? "true" : "false", budget, sequence);
         }
         try {
-            if (timeout) {
+            if (waiter->address_wait) {
+                // Credits/result are published under gate, but success no longer
+                // reacquires that shared gate. Only timeout retirement needs it.
+                const auto deadline = start + std::chrono::microseconds(budget);
+                lock.unlock();
+                while (waiter->result.load(std::memory_order_acquire) == kPending) {
+                    DWORD milliseconds = INFINITE;
+                    if (timeout) {
+                        const auto now = std::chrono::steady_clock::now();
+                        if (now >= deadline) {
+                            lock.lock();
+                            if (waiter->result.load(std::memory_order_acquire) == kPending) {
+                                semaphore->waiters.erase(queued);
+                                waiter->result.store(kTimeout, std::memory_order_release);
+                            }
+                            lock.unlock(); break;
+                        }
+                        const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+                        milliseconds = static_cast<DWORD>(remaining);
+                    }
+                    int pending = kPending;
+                    if (!WaitOnAddress(&waiter->result, &pending, sizeof(pending), milliseconds) && GetLastError() != ERROR_TIMEOUT) {
+                        UnsupportedApi("native_semaphore_address_wait_failure", GetLastError(), caller);
+                    }
+                    // Spurious/early wakes recheck the predicate and original
+                    // deadline; a wake that precedes parking is not lost.
+                }
+            } else if (timeout) {
                 const auto deadline = start + std::chrono::microseconds(budget);
                 if (!waiter->ready.wait_until(lock, deadline, [&] { return waiter->result != kPending; })) {
                     semaphore->waiters.erase(queued); waiter->result = kTimeout;
@@ -197,31 +236,35 @@ int Wait(Handle id, int requested, unsigned* timeout, bool blocking, const void*
             UnsupportedApi("native_semaphore_wait_host_failure", id, caller);
         }
         waiter->timing.resumed_clock_us = kt::diagnostics::MonotonicMicroseconds();
+        waiter->timing.wake_finished_clock_us = waiter->wake_finished.load(std::memory_order_acquire);
+        waiter->timing.wake_began_clock_us = waiter->wake_began.load(std::memory_order_acquire);
+        waiter->timing.address_wait = waiter->address_wait;
+        const auto result = waiter->result.load(std::memory_order_acquire);
         if (timeout) {
             const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-            *timeout = waiter->result || elapsed >= budget ? 0 : budget - static_cast<unsigned>(elapsed);
+            *timeout = result || elapsed >= budget ? 0 : budget - static_cast<unsigned>(elapsed);
         }
         if (sequence < 16) {
-            std::printf("{\"event\":\"native_semaphore_wait_end\",\"handle\":%llu,\"result\":%d,\"sequence\":%llu}\n", id, waiter->result, sequence);
+            std::printf("{\"event\":\"native_semaphore_wait_end\",\"handle\":%llu,\"result\":%d,\"sequence\":%llu}\n", id, result, sequence);
         }
         if (fixture_timing) { *fixture_timing = waiter->timing; }
         // Never format/log while holding the gate being diagnosed. Keep slow
         // waits bounded, while preserving the existing generic scope counters.
-        lock.unlock();
+        if (lock.owns_lock()) { lock.unlock(); }
         // A worker parked until the next frame is expected, not a slow work
         // item. Keep batched completion waits and late wakeups, rather than
         // logging every idle worker in a large guest pool eight times/second.
         const auto waited_us = waiter->timing.resumed_clock_us - waiter->timing.queued_clock_us;
         const auto late_resume = waiter->timing.granted_clock_us &&
             waiter->timing.resumed_clock_us - waiter->timing.granted_clock_us >= 2000;
-        if ((requested > 1 && waited_us >= 1000) || late_resume || (waiter->result && waited_us >= 4000)) {
+        if ((requested > 1 && waited_us >= 1000) || late_resume || (result && waited_us >= 4000)) {
             thread_local std::uint64_t report_second = UINT64_MAX;
             thread_local unsigned reports{};
             const auto second = waiter->timing.resumed_clock_us / 1000000;
             if (second != report_second) { report_second = second; reports = 0; }
-            if (reports++ < 8) { EmitNativeSemaphoreWait(id, requested, waiter->result, caller, waiter->timing); }
+            if (reports++ < 8) { EmitNativeSemaphoreWait(id, requested, result, caller, waiter->timing); }
         }
-        return waiter->result;
+        return result;
     });
 }
 int Signal(Handle id, int count, const void* caller) {
@@ -240,7 +283,7 @@ int Signal(Handle id, int count, const void* caller) {
     });
 }
 void RetireWaiters(Semaphore& semaphore, int result, Notifications& notifications) {
-    for (const auto& waiter : semaphore.waiters) { waiter->result = result; notifications.Add(waiter); }
+    for (const auto& waiter : semaphore.waiters) { notifications.Add(waiter); waiter->result.store(result, std::memory_order_release); }
     semaphore.waiters.clear();
 }
 int Cancel(Handle id, int reset, int* waiters, const void* caller) {
@@ -287,7 +330,15 @@ std::uint64_t ResolveSemaphoreImport(std::string_view identifier) {
     return 0;
 }
 
-bool SemaphoreSelfTest() {
+bool ConfigureNativeSemaphoreAddressWait(bool enabled) {
+    std::lock_guard lock(registry.gate);
+    if (registry.next != 0x534d000000000001ull) { return false; }
+    address_waits.store(enabled); return true;
+}
+bool NativeSemaphoreAddressWaitEnabled() { return address_waits.load(); }
+
+static bool SemaphoreSelfTestForPrimitive(bool address) {
+    address_waits = address;
     using namespace std::chrono_literals;
     bool passed = true;
     const auto check = [&](const char* name, bool value) {
@@ -314,6 +365,7 @@ bool SemaphoreSelfTest() {
           create(result.value, 2, 1) == kInvalid && create(result.value, 0, 0) == kInvalid && create(result.value, 0, 1, 3) == kInvalid && result.value == 73);
     check("pointer_sized_handle_writes_eight_bytes_and_preserves_tail", create(result.value, 2, 5) == 0 && result.value > UINT32_MAX && result.sentinel == 73);
     const auto id = result.value;
+    check("wait_primitive_cannot_change_after_semaphore_publication", !ConfigureNativeSemaphoreAddressWait(!address) && NativeSemaphoreAddressWaitEnabled() == address);
     Handle absent = 73;
     check("bounded_opaque_name_and_safe_json_escaping", Create(&absent, std::string(32, 'a').c_str(), 1, 0, 1, nullptr, nullptr) == kName && absent == 73 &&
           QuoteBytes(std::string_view("\xff\n\"", 3)) == "\"\\u00ff\\u000a\\\"\"");
@@ -386,6 +438,22 @@ bool SemaphoreSelfTest() {
         std::atomic<int> value{kPending};
         std::thread worker([&] { value = timed(selected); });
         const auto waiting = queued(selected, 1);
+        bool expected_resume{};
+        {
+            const auto state = Find(selected); std::lock_guard lock(state->gate);
+            Notifications notifications;
+            ++state->count; Grant(*state, notifications); notifications.NotifyAll();
+            if (address) { expected_resume = await([&] { return value == 0; }); }
+            else { Sleep(5); expected_resume = value == kPending; }
+        }
+        worker.join();
+        check("address_success_resumes_without_reacquiring_gate_while_cv_requires_it", waiting && expected_resume && value == 0 && Delete(selected, nullptr) == 0);
+    }
+    {
+        Handle selected{}; create(selected, 0, 2);
+        std::atomic<int> value{kPending};
+        std::thread worker([&] { value = timed(selected); });
+        const auto waiting = queued(selected, 1);
         Notifications notifications; std::weak_ptr<Waiter> lifetime;
         {
             const auto state = Find(selected); std::lock_guard lock(state->gate);
@@ -393,7 +461,7 @@ bool SemaphoreSelfTest() {
         }
         // Force return before the production notifier finishes. The lease, not
         // the waiting thread or its TLS cache, must still own this CV.
-        if (notifications.first) { notifications.first->ready.notify_one(); }
+        if (notifications.first) { notifications.first->Wake(); }
         worker.join();
         const bool retained = !lifetime.expired(); notifications.NotifyAll();
         check("notification_lease_keeps_cv_alive_after_waiting_thread_exits", waiting && value == 0 && retained && lifetime.expired() && Delete(selected, nullptr) == 0);
@@ -408,7 +476,7 @@ bool SemaphoreSelfTest() {
             const auto state = Find(selected); std::lock_guard lock(state->gate);
             if (waiting) { first_waiter = state->waiters.front(); ++state->count; Grant(*state, notifications); }
         }
-        if (notifications.first) { notifications.first->ready.notify_one(); }
+        if (notifications.first) { notifications.first->Wake(); }
         const bool requeued = await([&] {
             const auto state = Find(selected); std::lock_guard lock(state->gate);
             return first == 0 && state->waiters.size() == 1;
@@ -503,5 +571,13 @@ bool SemaphoreSelfTest() {
     check("repeated_create_delete_does_not_reuse_stale_identity", cycles && registry.semaphores.empty());
     check("unknown_handles_rejected_by_every_operation", Wait(73, 1, nullptr, false, nullptr) == kSearch && Signal(73, 1, nullptr) == kSearch &&
           Cancel(73, 0, nullptr, nullptr) == kSearch && Delete(73, nullptr) == kSearch);
+    std::printf("{\"event\":\"semaphore_primitive_self_test\",\"address_wait\":%s,\"passed\":%s}\n", address ? "true" : "false", passed ? "true" : "false"); return passed;
+}
+bool SemaphoreSelfTest() {
+    const auto original = address_waits.load();
+    const bool cv = SemaphoreSelfTestForPrimitive(false);
+    const bool address = SemaphoreSelfTestForPrimitive(true);
+    address_waits = original;
+    const bool passed = cv && address;
     std::printf("{\"event\":\"semaphore_self_test\",\"passed\":%s}\n", passed ? "true" : "false"); return passed;
 }

@@ -62,6 +62,8 @@ def parse_run(text, samples, warmup):
         if event == 'offline_bench_begin':
             if begin is not None:
                 raise ValueError('Duplicate benchmark identity')
+            if item.get('semaphore_wait') not in ('cv', 'address'):
+                raise ValueError('Missing or invalid semaphore wait primitive')
             begin = item
         elif event == 'offline_bench_case':
             name = item.get('name')
@@ -158,7 +160,9 @@ def compare(current, previous):
     return result
 
 
-def execute(output, samples, warmup, repeats, baseline=None):
+def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='address'):
+    if semaphore_wait not in ('cv', 'address'):
+        raise ValueError('Unknown semaphore wait primitive')
     receipt = verify()
     directory = private_output(output)
     directory.mkdir(parents=True)
@@ -174,11 +178,13 @@ def execute(output, samples, warmup, repeats, baseline=None):
         stdout, stderr = directory / f'run-{index + 1}.jsonl', directory / f'run-{index + 1}.stderr.txt'
         run_began = time.monotonic()
         with stdout.open('xb') as out, stderr.open('xb') as err:
-            process = subprocess.run([str(executable), '--offline-bench', str(library), str(samples), str(warmup)],
+            process = subprocess.run([str(executable), '--offline-bench', str(library), str(samples), str(warmup), semaphore_wait],
                                      cwd=directory, stdout=out, stderr=err, timeout=660)
         if process.returncode:
             raise RuntimeError(f'Offline benchmark failed with exit {process.returncode}; preserve {directory.name}')
         runs.append(parse_run(stdout.read_text(encoding='utf-8'), samples, warmup))
+        if runs[-1]['identity']['semaphore_wait'] != semaphore_wait:
+            raise ValueError('Executed semaphore wait primitive differs from request')
         artifacts.append(dict(stdout=stdout.name, stdoutSha256=digest(stdout), stderr=stderr.name,
                               stderrSha256=digest(stderr), elapsed_seconds=time.monotonic() - run_began))
     if any(run['identity'] != runs[0]['identity'] or run['device'] != runs[0]['device'] or
@@ -194,7 +200,7 @@ def execute(output, samples, warmup, repeats, baseline=None):
     report = dict(schema=1, suite=SUITE, parameters=dict(samples=samples, warmup=warmup, repeats=repeats),
                   host=dict(system=platform.system(), release=platform.release(), version=platform.version(),
                             machine=platform.machine(), processor=platform.processor(), logical_processors=os.cpu_count()),
-                  sourceCommit=receipt['sourceCommit'], sourceDirty=receipt['sourceDirty'],
+                  sourceCommit=receipt['sourceCommit'], sourceDirty=receipt['sourceDirty'], semaphoreWait=semaphore_wait,
                   sourceSnapshotSha256=receipt['sourceSnapshot']['sha256'], binaries=binaries,
                   gpuApi=runs[0]['identity']['gpu_api'], device=runs[0]['device'], runIdentity=[run['identity'] for run in runs],
                   workload={name: runs[0]['cases'][name] for name in sorted(runs[0]['cases'])},
@@ -230,10 +236,11 @@ def main():
     parser.add_argument('--warmup', type=int, default=16)
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--compare', type=Path, help='Previous report.json from identical benchmark parameters/host')
+    parser.add_argument('--semaphore-wait', choices=('cv', 'address'), default='address', help='Same semaphore rules, different host wait primitive')
     args = parser.parse_args()
     if not 1 <= args.samples <= 10000 or not 0 <= args.warmup <= 1000 or not 1 <= args.repeats <= 10:
         parser.error('samples=1..10000, warmup=0..1000, repeats=1..10')
-    report = execute(args.output, args.samples, args.warmup, args.repeats, args.compare)
+    report = execute(args.output, args.samples, args.warmup, args.repeats, args.compare, args.semaphore_wait)
     print(json.dumps(dict(report=str(args.output / 'report.json'), elapsed_seconds=report['elapsed_seconds'],
                           summary={name: values['execute_us' if name in GPU_CASES else 'handoff_us']
                                    for name, values in report['summary'].items()}), indent=2))
