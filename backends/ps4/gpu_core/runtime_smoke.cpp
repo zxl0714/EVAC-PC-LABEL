@@ -386,28 +386,35 @@ int main(int argc, char **argv) {
         }
         std::memcpy(allocation.data, pattern.data(), sizeof(pattern));
         RuntimeDisplay display{base, 64, 64, 64, 0x80002200, 1};
-        const auto present = [&] {
+        const auto present = [&](const kt::diagnostics::PresentationPacing* pacing = nullptr) {
           RuntimePresentResult result;
           for (unsigned retry = 0; retry < 9; ++retry) {
+            u64 paced_draw_tick{};
             session.worker.Sync([&] {
               // Exercise the native submit-before-pacing path. This does not
               // report a flip; the following final present must still wait for
               // its own completion and advance past the earlier queue tick.
-              u64 paced_draw_tick{};
               session.Call(library.api.flush(session.context, &paced_draw_tick, &error), error);
-              session.Call(library.api.present(session.context, &display,
-                                               &result, &error),
+              session.Call(library.api.prepare_present(session.context, &display, &result, &error),
                            error);
-              const auto& t = result.timing;
-              if (result.status == RuntimePresentStatus::Completed) {
-                Require(t.completed && t.duration_us == t.prepare_us+t.retire_us+t.acquire_us+t.record_us+
-                    t.submit_us+t.queue_present_us+t.gpu_wait_us+t.present_wait_us+t.finalize_us,
-                    "Resident presentation wall-time scopes do not reconcile");
-                Require(result.tick > paced_draw_tick, "Early draw flush fabricated final presentation completion");
-              } else {
-                Require(!t.completed, "Incomplete presentation fabricated completed timing");
+              if (result.status == RuntimePresentStatus::Prepared) {
+                Require(!result.timing.completed && result.tick > paced_draw_tick,
+                        "Prepare fabricated a completed present or lost queue order");
               }
             });
+            if (result.status == RuntimePresentStatus::Prepared) {
+              const bool accepted = !pacing || pacing->wait(pacing->context);
+              session.worker.Sync([&] { session.Call(library.api.complete_present(session.context, accepted, &result, &error), error); });
+            }
+            const auto& t = result.timing;
+            if (result.status == RuntimePresentStatus::Completed) {
+              Require(t.completed && t.duration_us == t.prepare_us+t.retire_us+t.acquire_us+t.record_us+
+                  t.submit_us+t.queue_present_us+t.gpu_wait_us+t.present_wait_us+t.finalize_us,
+                  "Resident presentation wall-time scopes do not reconcile");
+              Require(result.tick > paced_draw_tick, "Early draw flush fabricated final presentation completion");
+            } else {
+              Require(!t.completed, "Incomplete presentation fabricated completed timing");
+            }
             if (result.status != RuntimePresentStatus::OutOfDate) {
               return result;
             }
@@ -419,6 +426,35 @@ int main(int argc, char **argv) {
         Require(result.status == RuntimePresentStatus::Completed &&
                     result.tick > last_tick && result.completed_presents == 1,
                 "First resident presentation did not complete");
+        struct PacingFixture { NativeSession* session; unsigned calls{}; bool accept = true; bool caller_thread = true; bool memory_serviced{}; } paced{&session};
+        const kt::diagnostics::PresentationPacing pacing{&paced, [](void* opaque) {
+          auto& state = *static_cast<PacingFixture*>(opaque);
+          ++state.calls; state.caller_thread &= !state.session->worker.IsCurrent();
+          // Coherent memory service must remain available while the caller
+          // owns a prepared frame and waits for the normal pacing deadline.
+          state.session->worker.Sync([&] {
+            RuntimeError error;
+            state.session->Call(state.session->api.access(state.session->context, base, 4, false, &error), error);
+            state.memory_serviced = true;
+          });
+          Sleep(5);
+          return state.accept;
+        }};
+        const auto paced_before = result.completed_presents;
+        result = present(&pacing);
+        Require(result.status == RuntimePresentStatus::Completed && result.completed_presents == paced_before+1 &&
+                    paced.calls && paced.caller_thread && paced.memory_serviced && result.timing.between_phases_us >= 4000,
+                "Submitted composite did not retain its host pacing callback and completed fence");
+        const auto before_cancel = result.completed_presents;
+        paced.accept = false;
+        result = present(&pacing);
+        Require(result.status == RuntimePresentStatus::Cancelled && !result.timing.completed && !result.tick &&
+                    result.completed_presents == before_cancel,
+                "Cancelled pacing published a guest completion or leaked the acquired frame");
+        result = present();
+        Require(result.status == RuntimePresentStatus::Completed && result.completed_presents == before_cancel+1 &&
+                    result.timing.completed,
+                "Presentation did not recover after retiring a cancelled paced frame");
         const auto old_width = result.width, old_height = result.height;
         window->Resize(480, 320);
         result = present();

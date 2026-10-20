@@ -150,8 +150,11 @@ bool NativeDisplayClock::SetFlipRate(int rate) {
     return true;
 }
 std::uint64_t NativeDisplayClock::NextFlipCounter() const {
+    return ReserveFlipOpportunity().counter;
+}
+NativeDisplayClock::FlipOpportunity NativeDisplayClock::ReserveFlipOpportunity() const {
     std::lock_guard lock(impl_->mutex);
-    return (impl_->status.count / impl_->divider + 1) * impl_->divider;
+    return {(impl_->status.count / impl_->divider + 1) * impl_->divider, impl_->rate_revision};
 }
 bool NativeDisplayClock::WaitVblank() {
     std::unique_lock lock(impl_->mutex);
@@ -162,13 +165,17 @@ bool NativeDisplayClock::WaitVblank() {
     return !impl_->closed;
 }
 bool NativeDisplayClock::WaitFlipOpportunity() {
+    return WaitFlipOpportunity(ReserveFlipOpportunity());
+}
+bool NativeDisplayClock::WaitFlipOpportunity(FlipOpportunity opportunity) {
     std::unique_lock lock(impl_->mutex);
     while (!impl_->closed) {
-        const auto target = (impl_->status.count / impl_->divider + 1) * impl_->divider;
-        const auto revision = impl_->rate_revision;
-        impl_->changed.wait(lock, [&] { return impl_->closed || impl_->status.count >= target || impl_->rate_revision != revision; });
+        if (!opportunity.counter || opportunity.revision != impl_->rate_revision) {
+            opportunity = {(impl_->status.count / impl_->divider + 1) * impl_->divider, impl_->rate_revision};
+        }
+        impl_->changed.wait(lock, [&] { return impl_->closed || impl_->status.count >= opportunity.counter || impl_->rate_revision != opportunity.revision; });
         if (impl_->closed) { return false; }
-        if (impl_->rate_revision == revision && impl_->status.count >= target) { return true; }
+        if (impl_->rate_revision == opportunity.revision && impl_->status.count >= opportunity.counter) { return true; }
     }
     return false;
 }
@@ -224,6 +231,11 @@ bool DisplayClockSelfTest() {
     check("real_clock_wait_and_timestamp_domains", waited && status.count >= 2 && status.process_microseconds >= before && status.tsc && status.tsc != status.process_microseconds);
     const bool rate = clock.SetFlipRate(2) && clock.NextFlipCounter() % 3 == 0 && clock.WaitFlipOpportunity();
     check("flip_rate_changes_eligible_boundaries", rate && !clock.SetFlipRate(-1) && clock.SetFlipRate(0));
+    const auto reserved = clock.ReserveFlipOpportunity();
+    const bool reached = clock.WaitFlipOpportunity(reserved) && clock.Snapshot().count >= reserved.counter;
+    check("reserved_boundary_can_complete_after_preparation_without_requesting_another", reached && clock.WaitFlipOpportunity(reserved));
+    const auto old_rate = clock.ReserveFlipOpportunity();
+    check("reserved_boundary_rechecks_a_changed_flip_rate", clock.SetFlipRate(2) && clock.WaitFlipOpportunity(old_rate) && clock.Snapshot().count >= old_rate.counter && clock.SetFlipRate(0));
     clock.Stop();
     check("stop_cancels_waits_and_is_idempotent", !clock.WaitVblank() && !clock.WaitFlipOpportunity() && !clock.SetFlipRate(0));
     clock.Stop();

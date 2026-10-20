@@ -10,6 +10,7 @@
 #include "video_core/texture_cache/image.h"
 #include <Windows.h>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <future>
 #include <memory>
@@ -44,6 +45,9 @@ struct Session {
     ConfigureHost(settings);
     instance = std::make_unique<Vulkan::Instance>(window, -1,
                                                   settings.validation_core);
+    const auto device = instance->GetPhysicalDevice().getProperties();
+    std::printf("{\"event\":\"gpu_runtime_device\",\"vendor\":%u,\"device_id\":%u,\"api_version\":%u,\"driver_version\":%u}\n",
+                device.vendorID, device.deviceID, device.apiVersion, device.driverVersion);
     scheduler = std::make_unique<Vulkan::Scheduler>(*instance);
     runtime = std::make_unique<Vulkan::Runtime>(*instance, *scheduler);
     ProgramScope program_scope{programs};
@@ -237,8 +241,7 @@ bool ReadColor(void *context, std::uint64_t address, std::uint32_t width,
 RuntimeStats Stats() noexcept {
   return {DrawCount(), DispatchCount(), ValidationErrors()};
 }
-bool Present(void *context, const RuntimeDisplay *display,
-             RuntimePresentResult *result, RuntimeError *error) noexcept {
+bool Present(void *context, const RuntimeDisplay *display, RuntimePresentResult *result, RuntimeError *error) noexcept {
   return Guard(error, [&] {
     auto &session = Get(context);
     Require(display && result && session.presenter,
@@ -247,6 +250,21 @@ bool Present(void *context, const RuntimeDisplay *display,
     if (result->status == RuntimePresentStatus::Completed) {
       session.rasterizer->OnSubmit();
     }
+  });
+}
+bool PreparePresent(void *context, const RuntimeDisplay *display, RuntimePresentResult *result, RuntimeError *error) noexcept {
+  return Guard(error, [&] {
+    auto& session = Get(context);
+    Require(display && result && session.presenter, "Runtime has no presentation window or request");
+    *result = session.presenter->Prepare(*display);
+  });
+}
+bool CompletePresent(void *context, bool accepted, RuntimePresentResult *result, RuntimeError *error) noexcept {
+  return Guard(error, [&] {
+    auto& session = Get(context);
+    Require(result && session.presenter, "Runtime has no presentation window or result");
+    *result = session.presenter->Complete(accepted);
+    if (result->status == RuntimePresentStatus::Completed) { session.rasterizer->OnSubmit(); }
   });
 }
 RuntimeRegisterLayout Layout() noexcept {
@@ -320,6 +338,8 @@ KetsuiGpuRuntimeGetApi(std::uint32_t version, std::uint32_t bytes,
              Layout,
              Present,
              SetWindow,
-             Clear};
+             Clear,
+             PreparePresent,
+             CompletePresent};
   return true;
 }

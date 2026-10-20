@@ -12,7 +12,7 @@ class NativeResidentGpu {
     struct Impl;
     std::unique_ptr<Impl> impl;
 public:
-    explicit NativeResidentGpu(const std::filesystem::path& library);
+    explicit NativeResidentGpu(const std::filesystem::path& library, bool validation = true);
     ~NativeResidentGpu();
     NativeResidentGpu(const NativeResidentGpu&) = delete;
     void Run(std::function<void()> operation);
@@ -26,7 +26,11 @@ public:
     void Extent(unsigned target, unsigned width, unsigned height);
     void Draw(unsigned vertices, unsigned instances);
     kt::gfx::PresentStatus Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
-        kt::diagnostics::BackendPresentTiming* timing = nullptr);
+        kt::diagnostics::BackendPresentTiming* timing = nullptr,
+        const kt::diagnostics::PresentationPacing* pacing = nullptr);
     bool Read(std::uint64_t address, void* output, std::uint64_t bytes);
+    // Authored offline fixtures only; never part of the normal frame path.
+    void ReadColorForDiagnostics(std::uint64_t address, unsigned width, unsigned height,
+        std::span<std::uint32_t> output);
 };
 NativeResidentGpu* CurrentNativeResidentGpu();

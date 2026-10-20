@@ -61,6 +61,19 @@ class TimingAnalysisTests(unittest.TestCase):
         self.assertEqual(timing['outer_overhead_us']['max_us'], 96)
         self.assertEqual(timing['duration_us']['count'], 1)
 
+    def test_gpu_pacing_callback_is_not_double_counted_as_backend_work(self):
+        report = self.report([self.backend_frame(between_phases_us=3900)])
+        timing = report['backend_present_substages']['timing']
+        self.assertEqual(timing['duration_us']['mean_us'], 3000)
+        self.assertEqual(timing['between_phases_us']['mean_us'], 3900)
+        self.assertEqual(report['all_frame_present_substages']['timing']['display_clock_wait_us']['mean_us'], 3900)
+        old = self.report([self.backend_frame()])
+        self.assertEqual(old['backend_present_substages']['timing']['between_phases_us']['count'], 0)
+
+    def test_gpu_pacing_callback_must_fit_parent_and_have_valid_type(self):
+        report = self.report([self.backend_frame(between_phases_us=value) for value in (-1, True, 7002)])
+        self.assertEqual(report['counts']['invalid_backend_present_timing'], 3)
+
     def test_invalid_or_absent_backend_scopes_are_not_evidence(self):
         samples = [self.backend_frame(**change) for change in
                    (dict(duration_us=3001), dict(gpu_wait_us=True), dict(acquire_us=-1),

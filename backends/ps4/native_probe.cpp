@@ -17,6 +17,7 @@
 #include "native_storage.h"
 #include "native_memory.h"
 #include "native_gpu.h"
+#include "native_offline_bench.h"
 #include "native_resident_gpu.h"
 #include "native_trophy.h"
 #include "memory/write_tracker.h"
@@ -1385,6 +1386,21 @@ int NativeCommand(int argc, wchar_t** argv) {
         catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 2; }
     }
     if (argc==3 && std::wstring(argv[1])==L"--waveform-check") { return Ngs2WaveformCheck(argv[2]); }
+    if (argc >= 2 && std::wstring(argv[1]) == L"--offline-bench") {
+        try {
+            if (argc != 5) { throw std::runtime_error("Usage: --offline-bench <GPU DLL> <samples 1..10000> <warmup 0..1000>"); }
+            const auto number = [](const wchar_t* value, unsigned minimum, unsigned maximum) {
+                const std::wstring text(value);
+                if (text.empty() || text.size() > 5 || text.find_first_not_of(L"0123456789") != std::wstring::npos) {
+                    throw std::runtime_error("Invalid offline benchmark count");
+                }
+                const auto result = std::stoul(text);
+                if (result < minimum || result > maximum) { throw std::runtime_error("Offline benchmark count is outside its bounded range"); }
+                return static_cast<unsigned>(result);
+            };
+            return RunNativeOfflineBench(argv[2], number(argv[3], 1, 10000), number(argv[4], 0, 1000));
+        } catch (const std::exception& error) { std::fprintf(stderr, "Offline bench: %s\n", error.what()); return 2; }
+    }
     // Set this before creating any window or Vulkan surface. Otherwise Win32
     // client coordinates and the driver's surface extent can use different
     // DPI spaces, shrinking the image into the top-left of the real window.

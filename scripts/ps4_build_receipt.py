@@ -58,6 +58,7 @@ def snapshot():
     explicit = {'scripts/Build-Ps4.ps1', 'scripts/Build.ps1', 'scripts/Test.ps1', 'scripts/stage_ps4.py',
                 'scripts/Build-Common.ps1', 'scripts/ps4_build_receipt.py',
                 'scripts/Prepare-Tools.ps1', 'scripts/prepare_tools.py', 'scripts/ps4/run_native_checks.py',
+                'scripts/ps4/run_offline_bench.py', 'tests/test_ps4_offline_bench.py',
                 'scripts/ps4_sources.py', 'scripts/build_receipt.py', 'scripts/project.py',
                 'tools/ps4-source.lock.json', 'scripts/toolchain.py', 'tools/python-tools.lock.txt',
                 'tools/packages.lock.json', 'config/default.ini', 'games/catalogue.json', 'scripts/generate_catalogue.py',

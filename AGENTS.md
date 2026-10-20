@@ -39,6 +39,20 @@ do not claim these wall-time stages are pure CPU/GPU work. Normal ~10 ms pacing
 wait is intentional, not evidence that the three paths need no improvement.
 Keep failed attempts as incomplete evidence. Preserve frozen v0.1/v0.2 archives.
 
+The user now requests a small offline benchmark before further iterative
+optimization. Use scripts/ps4/run_offline_bench.py to screen changes without
+game entry or windows, then group promising software changes into short actual
+replay regressions. Keep the six authored cases, warmup, repeated exact
+percentiles, pixel/task checks and paired build/source identities. Continuous
+and 60 Hz-cadenced handoff results are separate; neither is game FPS or scanout.
+The physical-cores-first hard affinity experiment regressed actual Ketsui
+playback and was withdrawn; the production mapping remains unchanged. The
+software-only replay improved output pacing, but DaiOuJou still has two ~33 ms
+frames dominated by 13–15 ms task completion waits. This is not a closed gate.
+Investigate software paths first, batch analysis/changes per costly game test,
+and do not sacrifice synchronization, FIFO/timeout/delete semantics or
+notification lifetime merely to lower benchmark numbers.
+
 Read README.md and docs/IMPLEMENTATION_PLAN.md before changes. The user has
 approved implementation: P0 snapshots, P1 G2 playable baseline, then collection
 integration, Futari, Ketsui and release. Do not substitute launcher work for the

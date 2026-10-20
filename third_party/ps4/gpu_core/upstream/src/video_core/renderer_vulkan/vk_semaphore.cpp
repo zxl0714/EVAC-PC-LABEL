@@ -29,19 +29,19 @@ Semaphore::Semaphore(const Instance& instance_) : instance{instance_} {
 Semaphore::~Semaphore() = default;
 
 void Semaphore::Refresh() {
-    u64 this_tick{};
-    u64 counter{};
-    do {
-        this_tick = gpu_tick.load(std::memory_order_acquire);
-        auto [counter_result, cntr] = instance.GetDevice().getSemaphoreCounterValue(*semaphore);
-        ASSERT_MSG(counter_result == vk::Result::eSuccess,
-                   "Failed to get master semaphore value: {}", vk::to_string(counter_result));
-        counter = cntr;
-        if (counter < this_tick) {
-            return;
-        }
-    } while (!gpu_tick.compare_exchange_weak(this_tick, counter, std::memory_order_release,
-                                             std::memory_order_relaxed));
+    auto known = gpu_tick.load(std::memory_order_acquire);
+    // CAVE: an idle timeline cannot advance beyond the last reserved submit.
+    // Draw calls still retire callbacks normally; skip only a driver query
+    // that cannot reveal a newer completed tick. Pending submissions still poll.
+    if (known >= current_tick.load(std::memory_order_acquire) - 1) { return; }
+    host_queries.fetch_add(1, std::memory_order_relaxed);
+    const auto [counter_result, counter] = instance.GetDevice().getSemaphoreCounterValue(*semaphore);
+    ASSERT_MSG(counter_result == vk::Result::eSuccess,
+               "Failed to get master semaphore value: {}", vk::to_string(counter_result));
+    // Concurrent completion publication only needs max(), not another driver
+    // query for every failed CAS. Never move a known completion backward.
+    while (counter > known && !gpu_tick.compare_exchange_weak(known, counter, std::memory_order_release,
+                                                              std::memory_order_relaxed)) {}
 }
 
 void Semaphore::Wait(u64 tick) {

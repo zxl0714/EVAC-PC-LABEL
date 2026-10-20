@@ -56,7 +56,9 @@ def valid_backend_present_timing(item):
     return (valid_frame_present_timing(item) and isinstance(stages, dict) and stages.get('completed') is True and
             all(type(stages.get(key)) is int and stages[key] >= 0 for key in (*BACKEND_STAGES, 'duration_us')) and
             sum(stages[key] for key in BACKEND_STAGES) == stages['duration_us'] and
-            stages['duration_us'] <= item['present_stages']['backend_present_us'] + 1)
+            stages['duration_us'] <= item['present_stages']['backend_present_us'] + 1 and
+            ('between_phases_us' not in stages or
+             type(stages['between_phases_us']) is int and 0 <= stages['between_phases_us'] <= item['present_us'] + 1))
 
 
 def valid_frame_counters(item):
@@ -175,7 +177,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
     lock_timing = Distribution()
     present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
     frame_present_stages = {key: Distribution() for key in (*PRESENT_STAGES, 'duration_us')}
-    backend_stages = {key: Distribution() for key in (*BACKEND_STAGES, 'duration_us', 'outer_overhead_us')}
+    backend_stages = {key: Distribution() for key in (*BACKEND_STAGES, 'duration_us', 'outer_overhead_us', 'between_phases_us')}
     command_stages = {key: Distribution() for key in (*COMMAND_STAGES, 'duration_us', 'outer_overhead_us')}
     top_compiles, top_locks = [], []
     operation_timing = {kind: Distribution() for kind in HOST_CATEGORIES}
@@ -315,6 +317,8 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                     for key in (*BACKEND_STAGES, 'duration_us'):
                         backend_stages[key].add(item['backend_stages'][key])
                     backend_stages['outer_overhead_us'].add(max(0, item['present_stages']['backend_present_us'] - item['backend_stages']['duration_us']))
+                    if 'between_phases_us' in item['backend_stages']:
+                        backend_stages['between_phases_us'].add(item['backend_stages']['between_phases_us'])
                 else:
                     counts['invalid_backend_present_timing'] += 1
             if 'present_stages' in item:
@@ -486,7 +490,7 @@ def analyze(path, threshold_us=25000, top_count=32, correlation_us=100000, *, fr
                 all_frame_present_substages=dict(timing={key: value.report() for key, value in frame_present_stages.items()},
                     measurement='Validated nested scopes from completed-frame records, including sub-20-ms frames. Missing or rejected records are not zero-duration evidence. Backend includes worker handoff, Vulkan and recovery waits; not pure GPU work or physical scanout. The older thresholded event is reported separately and never double-counted here.'),
                 backend_present_substages=dict(timing={key: value.report() for key, value in backend_stages.items()},
-                    measurement='Completed resident presents without swapchain/zero-extent recovery. Contiguous worker wall-time scopes, not GPU timestamp queries or physical scanout. queue_present_us includes the vkQueuePresentKHR call; gpu_wait_us and present_wait_us measure the respective fence waits including scheduling/driver time. outer_overhead_us includes worker handoff and API epilogue, not pure CPU work.'),
+                    measurement='Completed resident presents without swapchain/zero-extent recovery. Worker host work scopes, not GPU timestamp queries or physical scanout. duration_us sums work excluding between_phases_us: the gap includes caller pacing and worker handoff while submitted GPU work overlaps it. The parent reports intentional display_clock_wait_us separately; the two must not be added. Older logs without the gap field remain unmeasured, not zero. queue_present_us includes vkQueuePresentKHR; fence waits include scheduling/driver time. outer_overhead_us includes handoff/API epilogue and non-pacing work between phases, not pure CPU work.'),
                 command_substages=dict(timing={key: value.report() for key, value in command_stages.items()},
                     measurement='Aggregated worker host wall time. draw_us includes resource/cache work, acquire_us includes conservative GPU drains and callback completion, flush_us submits pending draws without waiting. other_us is remaining packet processing. outer_overhead_us includes worker handoff, locks and adapter diagnostics. Neither the parts nor execute_us are pure CPU or GPU execution time.'),
                 longest_rack_lock_holds=[dict(line=line, event=event) for _, line, event in sorted(top_locks, reverse=True)],

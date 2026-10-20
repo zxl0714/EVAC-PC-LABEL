@@ -327,6 +327,12 @@ int NativeGuestThreadPriority() {
     std::lock_guard lock(registry.gate);
     const auto found = registry.threads.find(current_thread); return found == registry.threads.end() ? 700 : found->second->guest_priority;
 }
+std::uint64_t NativeHostAffinityForDiagnostics(std::uint64_t guest) {
+    DWORD_PTR available{}, system{};
+    if (GetActiveProcessorGroupCount() != 1 ||
+        !GetProcessAffinityMask(GetCurrentProcess(), &available, &system)) { return 0; }
+    return MapAffinity(guest, available);
+}
 bool ThreadAffinitySelfTest() {
     bool passed = true;
     const auto check = [&](bool value, const char* name) {

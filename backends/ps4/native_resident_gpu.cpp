@@ -66,7 +66,7 @@ struct NativeResidentGpu::Impl {
             mappings.erase(range.mapping_address);
         }
     }
-    explicit Impl(const std::filesystem::path& path) {
+    explicit Impl(const std::filesystem::path& path, bool validation) {
         if (!path.is_absolute() || !std::filesystem::is_regular_file(path)) {
             throw std::runtime_error("Resident GPU DLL must be an existing absolute file path");
         }
@@ -75,7 +75,8 @@ struct NativeResidentGpu::Impl {
         try {
             const auto get = reinterpret_cast<GetRuntimeApi>(GetProcAddress(library, "KetsuiGpuRuntimeGetApi"));
             if (!get || !get(RuntimeApiVersion, sizeof(api), &api)) { throw std::runtime_error("Resident GPU SDK version mismatch"); }
-            const HostSettings settings{.log_directory = path.parent_path(), .presentation_support = true,
+            const HostSettings settings{.validation_core = validation, .validation_sync = validation,
+                .log_directory = path.parent_path(), .presentation_support = true,
                 .vsync = GetNativeDisplaySettings().vsync};
             worker.Sync([&] {
                 RuntimeError error;
@@ -101,9 +102,9 @@ struct NativeResidentGpu::Impl {
         FreeLibrary(library);
     }
 };
-NativeResidentGpu::NativeResidentGpu(const std::filesystem::path& path) {
+NativeResidentGpu::NativeResidentGpu(const std::filesystem::path& path, bool validation) {
     if (active) { throw std::runtime_error("Resident GPU already exists"); }
-    impl = std::make_unique<Impl>(path);
+    impl = std::make_unique<Impl>(path, validation);
     active = this;
     std::printf("{\"event\":\"native_gpu_backend\",\"backend\":\"resident\",\"sdk\":%u,\"attached_before_guest_entry\":true}\n", RuntimeApiVersion);
 }
@@ -145,17 +146,28 @@ void NativeResidentGpu::Draw(unsigned vertices, unsigned instances) {
     });
 }
 kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
-    kt::diagnostics::BackendPresentTiming* timing) {
+    kt::diagnostics::BackendPresentTiming* timing, const kt::diagnostics::PresentationPacing* pacing) {
     if (timing) { *timing = {}; }
     RuntimePresentResult result;
     const RuntimeDisplay display{address, layout.width, layout.height, layout.pitch,
         layout.format == kt::gfx::ColorFormat::Bgra8Srgb ? 0x80000000u : 0x80002200u, layout.tiled ? 0u : 1u};
-    Run([&] { RuntimeError error; Check(impl->api.present(impl->context, &display, &result, &error), error); });
+    Run([&] { RuntimeError error; Check(impl->api.prepare_present(impl->context, &display, &result, &error), error); });
+    if (result.status == RuntimePresentStatus::Prepared) {
+        bool accepted{};
+        try { accepted = !pacing || pacing->wait(pacing->context); }
+        catch (...) {
+            Run([&] { RuntimeError error; Check(impl->api.complete_present(impl->context, false, &result, &error), error); });
+            throw;
+        }
+        Run([&] { RuntimeError error; Check(impl->api.complete_present(impl->context, accepted, &result, &error), error); });
+    }
     if (timing && result.status == RuntimePresentStatus::Completed) { *timing = result.timing; }
     switch (result.status) {
     case RuntimePresentStatus::Completed: return kt::gfx::PresentStatus::Completed;
     case RuntimePresentStatus::ZeroExtent: return kt::gfx::PresentStatus::ZeroExtent;
     case RuntimePresentStatus::OutOfDate: return kt::gfx::PresentStatus::OutOfDate;
+    case RuntimePresentStatus::Cancelled: return kt::gfx::PresentStatus::Cancelled;
+    case RuntimePresentStatus::Prepared: break; // never a completed host flip
     }
     throw std::runtime_error("Invalid resident GPU presentation result");
 }
@@ -163,4 +175,14 @@ bool NativeResidentGpu::Read(std::uint64_t address, void* output, std::uint64_t 
     if (!impl->memory.IsMapped(address, bytes)) { return false; }
     Run([&] { impl->memory.ReadMetadata(address, output, bytes); });
     return true;
+}
+void NativeResidentGpu::ReadColorForDiagnostics(std::uint64_t address, unsigned width, unsigned height,
+    std::span<std::uint32_t> output) {
+    if (!width || !height || std::uint64_t{width} * height != output.size()) {
+        throw std::runtime_error("Diagnostic color readback extent mismatch");
+    }
+    Run([&] {
+        RuntimeError error;
+        Check(impl->api.read_color(impl->context, address, width, height, output.data(), output.size_bytes(), &error), error);
+    });
 }

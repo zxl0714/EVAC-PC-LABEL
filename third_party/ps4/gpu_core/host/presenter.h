@@ -22,6 +22,8 @@ public:
             Vulkan::Scheduler &, Vulkan::Runtime &, VideoCore::TextureCache &, bool vsync = true);
   ~Presenter();
   RuntimePresentResult Present(const RuntimeDisplay &);
+  RuntimePresentResult Prepare(const RuntimeDisplay &);
+  RuntimePresentResult Complete(bool accepted);
   void Drain();
 };
 } // namespace Ketsui::GpuCore

@@ -450,6 +450,8 @@ public:
     // Call only on the scheduler owner, after Flush/Finish of the work covered.
     void DeferSubmittedPriorityOperation(Common::UniqueFunction<void>&& func);
 
+    [[nodiscard]] u64 HostTimelineQueryCount() const noexcept { return work_semaphore.HostQueryCount(); }
+
     static std::mutex submit_mutex;
 
 private:

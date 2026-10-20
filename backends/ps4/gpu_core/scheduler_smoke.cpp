@@ -188,6 +188,10 @@ int main(int argc, char **argv) {
                       submissions == submitted_count && scheduler.CurrentTick() == next_tick,
                   "Submitted callback barrier required an extra GPU submission");
           retired.get();
+          const auto queries_before_idle = scheduler.HostTimelineQueryCount();
+          for (unsigned idle = 0; idle < 1000; ++idle) { scheduler.PopPendingOperations(); }
+          Require(scheduler.HostTimelineQueryCount() == queries_before_idle,
+                  "Idle callback retirement made redundant driver timeline queries");
           Require(priority_callbacks == (pass + 1) * batches &&
                       ordinary_callbacks == (pass + 1) * batches,
                   "Completion callbacks did not retire");

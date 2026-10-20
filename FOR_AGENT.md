@@ -1,8 +1,14 @@
 # 开发入口
 
-最新性能证据为基于 `5ebc29b` 的 `.local/ketsui-pacing-r6` 工作树构建：提前提交绘图以利用正常节拍等待，Drain 回调屏障改用已提交 tick，保留同步和原速度。固定 380 分录像完整自然返回，31 秒／1,860 帧连续，p99 上界 18.9 ms、最大 19.803 ms；指令处理均值 3.567 ms（绘制资源 2.648、Drain 0.749），最终输出 0.838 ms（原 r4 约 1.340），提交外均值仍 1.584 ms。输出／执行尾峰未消除，全部性能门槛仍开放。报告 `.local/analysis/ketsui-pacing-r6-callback-drain-gameplay.json`；具体身份与前后对照在 docs/ANALYSIS.md。
+性能迭代先使用无窗口组件 bench：`py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目录>`。需要当前配套 PS4 构建，不需要 ROM；默认 128 个样本、16 次预热、三次重复，六组负载一轮约 20 秒。用 `--compare <旧 report.json>` 比较相同参数／主机／GPU 驱动；保留原始行、逐轮和汇总分位数。实际绘图像素、绘图次数及任务 checksum 都是通过条件，刻意节拍等待单列。不要并行编译／测试干扰测量，也不要把它当作游戏 FPS、显示输出或全部卡顿验收。具体负载与边界见 [离线性能 bench](docs/ANALYSIS.md#无窗口离线性能-bench)。
 
-下一处已定位为工作线程授予后恢复：r6 的 8.245 ms 提交外尾峰中，线程 69048 在收到任务后 6.613 ms 才恢复，约 16 µs 后完成；主线程收到完成信号仅 6 µs 恢复。对应 eboot+0x1a8a7f／0x1a944a 已只读确认为批量任务／完成循环。native_threads::MapAffinity 将六个客体 CPU 映射到最前的逻辑处理器，没有识别 SMT/性能类；优先做宿主拓扑感知映射和同录像对照，不提高优先级、改系统电源或篡改任务数。r4 的 19.821 ms 尚不能直接判作同一个精确根因。
+最新正常录像为软件-only 的 `.local/ketsui-pacing-r8`：31 秒／1,859 帧连续，p99 上界 17.2 ms、最大 17.256 ms，最终输出 0.102 ms；指令处理／提交外仍约 3.604／1.637 ms。最终合成提前提交并与正常等待重叠，原节拍、GPU 栅栏和 label 完成条件未删。大往生 `.local/daioujou-pacing-r3` 同路径完整回放，30 秒／1,798 连续帧 p99 上界 17.2 ms，但两次 33.740／33.618 ms 中仍有 13.239／14.876 ms 的任务完成等待；性能门槛保持开放。GPU API 为未发行的版本 7，严格核对版本和结构大小，宿主／DLL 必须配套。
+
+r7 的物理核心优先硬映射发生明显退化，冷启动也复现；同进程仅恢复旧映射后，后续 10 秒恢复 600 帧、最大 17.434 ms。因此已撤掉此映射改动，当前仍用原逻辑处理器映射，只增加 bench 只读查询接口。不要继续把它当作待合入的已验证优化。后续主要做软件路径，先在 bench 集中筛选，再用固定录像确认；不要为每个小改动重走菜单。下面 r4–r6 段落为较早定位记录，不覆盖这里的当前状态。
+
+前一轮性能证据为基于 `5ebc29b` 的 `.local/ketsui-pacing-r6` 工作树构建：提前提交绘图以利用正常节拍等待，Drain 回调屏障改用已提交 tick，保留同步和原速度。固定 380 分录像完整自然返回，31 秒／1,860 帧连续，p99 上界 18.9 ms、最大 19.803 ms；指令处理均值 3.567 ms（绘制资源 2.648、Drain 0.749），最终输出 0.838 ms（原 r4 约 1.340），提交外均值仍 1.584 ms。输出／执行尾峰未消除，全部性能门槛仍开放。报告 `.local/analysis/ketsui-pacing-r6-callback-drain-gameplay.json`；具体身份与前后对照在 docs/ANALYSIS.md。
+
+r6 当时已定位到工作线程授予后恢复：8.245 ms 提交外尾峰中，线程 69048 在收到任务后 6.613 ms 才恢复，约 16 µs 后完成；主线程收到完成信号仅 6 µs 恢复。对应 eboot+0x1a8a7f／0x1a944a 已只读确认为批量任务／完成循环。native_threads::MapAffinity 按逻辑处理器顺序映射六个客体 CPU，后续物理核心优先试验已撤回；当前使用此旧映射及无窗口 bench 继续查软件交接，不提高优先级、改系统电源或篡改任务数。r4 的 19.821 ms 尚不能直接判作同一个精确根因。
 
 用户已停止不限速／极限 FPS 试验，不再继续该路线。v0.3 的性能调查须覆盖约 3.6 ms 绘图指令处理、慢帧约 3.89 ms 最终输出和约 1.58 ms 两次提交之间的间隔，逐段找主要开销、做安全优化及同录像复验；不把第三段笼统归作“其他”而忽略。GpuWorker::Sync 在所属线程内直接执行，不是每次 draw 都跨线程；目前只去掉 Drain 为回调增加的空提交，仍完整等待先前 GPU 工作和回写回调。保留正常节拍和必要同步。
 
@@ -226,7 +232,7 @@ py -3.12 scripts/ps4/analyze_timing.py '<已有 stdout.jsonl 或现场目录>' -
 
 三份已适配的 Python 套件通过 `tests/test_ketsui_python.py` 纳入 Source 检查；`scripts/ps4/run_native_checks.py` 在校验配套构建后运行 36 项机制、15 项真实配置文件和 2 项终止日志检查，共 53 项，结果及逐项输出保存到新的 .local/ps4-native-checks 目录。GPU 的五项 CTest 另用自制资源检查绘制、缓存及窗口呈现，含垂直同步开启／关闭。其余导入测试和二进制自制媒体 fixture 的扩展按实际需要单独记录来源／哈希。
 
-PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 现为版本 5，宿主与 DLL 必须配套重建。
+PS4 与启动器、360 后端编译同一份 common 配置库，不重新实现 INI 规则。`backends/ps4/collection_config.*` 将共用按钮位置映射为 PS4 按钮：Select 为 Touchpad，Start 为 Options，肩键、扳机与摇杆按下均保留。SDL 开关与径向死区、PC 总音量、启动全屏、显示同步和清单中的游戏标题在客体运行前应用；PC 音量与游戏内逐通道音量叠乘。两条 Vulkan 呈现路径都按请求选择 FIFO／Immediate／Mailbox，客体显示时钟不变；GPU API 当前为版本 7，宿主与 DLL 必须配套重建。
 
 只读检查当前配置可用 `./out/ps4-native/KetsuiNativeProbe.exe --collection-config-check ./config.ini`，不启动 SDL、音频、GPU 或社区 worker，不写配置。开发执行入口接受 `--collection-config <同一份 config.ini>`，与旧 `--input-config` 互斥；旧参数仅保留给机制诊断，不是第二份玩家配置。公共 `/cave/api/v1` 自动映射到 `/cave/api/v1/games/ketsui`，也兼容既有 Ketsui 专属地址；其他游戏路径被拒绝。真实 ARCADE 进关与正式成绩／录像上传、启动器和重启检查的范围分别记录在验收矩阵中，不把自造检查或演示画面当作玩家进关。
 

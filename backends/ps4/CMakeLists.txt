@@ -112,6 +112,7 @@ target_include_directories(KetsuiGraphics SYSTEM PRIVATE "${KETSUI_VULKAN_HEADER
 
 add_executable(KetsuiNativeProbe
     native_probe.cpp
+    native_offline_bench.cpp
     native_async_log_tests.cpp
     collection_config.cpp
     collection_launch.cpp

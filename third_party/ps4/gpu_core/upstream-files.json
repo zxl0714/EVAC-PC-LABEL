@@ -1094,8 +1094,18 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_scheduler.h",
-      "sha256": "8572b17102475a34d01571d520f9e03ae1b77689c7c135e390f3f047cbe18808",
-      "description": "Declare the owner-thread submitted-work callback barrier used after Flush/Finish, separate from callbacks covering the currently recorded command buffer."
+      "sha256": "7974a9a81317388535d48cf5b13b1053111de8d8175775388e48b12e1fddc944",
+      "description": "Declare the owner-thread submitted-work callback barrier used after Flush/Finish, separate from callbacks covering the currently recorded command buffer; expose a read-only driver timeline query count for mechanism tests."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_semaphore.cpp",
+      "sha256": "9c2c2516399ea74bff5cea5869aaf9493cae20fed5abeff1da017e9c6583e9a4",
+      "description": "Avoid driver counter queries when every submitted timeline tick is already known complete. Continue polling pending GPU work; publish a sampled completion monotonically without repeating the driver query after a concurrent CAS failure."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_semaphore.h",
+      "sha256": "7dae0d18248b30d6da21ae88bc9b6e00028de1ff789c11addae773ff5e346642",
+      "description": "Count actual driver timeline queries for read-only mechanism verification, separate from Refresh calls."
     },
     {
       "path": "src/video_core/texture_cache/tile_manager.cpp",

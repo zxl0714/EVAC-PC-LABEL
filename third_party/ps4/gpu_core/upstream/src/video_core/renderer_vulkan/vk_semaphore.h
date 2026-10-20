@@ -28,6 +28,10 @@ public:
         return gpu_tick.load(std::memory_order_acquire);
     }
 
+    [[nodiscard]] u64 HostQueryCount() const noexcept {
+        return host_queries.load(std::memory_order_relaxed);
+    }
+
     [[nodiscard]] bool IsFree(u64 tick) const noexcept {
         return KnownGpuTick() >= tick;
     }
@@ -51,6 +55,7 @@ protected:
     vk::UniqueSemaphore semaphore;    ///< Timeline semaphore.
     std::atomic<u64> gpu_tick{0};     ///< Current known GPU tick.
     std::atomic<u64> current_tick{1}; ///< Current logical tick.
+    std::atomic<u64> host_queries{0}; // CAVE: actual driver counter queries, not Refresh calls.
 };
 
 } // namespace Vulkan

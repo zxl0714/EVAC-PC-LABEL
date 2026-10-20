@@ -8,7 +8,7 @@
 namespace Ketsui::GpuCore {
 // This SDK is built as one clang-cl/MSVC-runtime pair. Shader, Vulkan and
 // register-layout classes never cross the DLL boundary.
-inline constexpr std::uint32_t RuntimeApiVersion = 6;
+inline constexpr std::uint32_t RuntimeApiVersion = 7;
 struct RuntimeError {
   char message[2048]{};
 };
@@ -33,7 +33,9 @@ struct RuntimeDisplay {
 enum class RuntimePresentStatus : std::uint32_t {
   Completed,
   ZeroExtent,
-  OutOfDate
+  OutOfDate,
+  Prepared,
+  Cancelled
 };
 struct RuntimePresentResult {
   RuntimePresentStatus status{};
@@ -65,6 +67,8 @@ struct RuntimeApi {
                   RuntimeError *) noexcept;
   bool (*set_window)(void *, void *, RuntimeError *) noexcept;
   bool (*clear)(void *, RuntimeError *) noexcept;
+  bool (*prepare_present)(void *, const RuntimeDisplay *, RuntimePresentResult *, RuntimeError *) noexcept;
+  bool (*complete_present)(void *, bool, RuntimePresentResult *, RuntimeError *) noexcept;
 };
 using GetRuntimeApi = bool (*)(std::uint32_t, std::uint32_t,
                                RuntimeApi *) noexcept;

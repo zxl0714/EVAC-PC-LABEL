@@ -700,8 +700,21 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         auto& label = state.active->buffer_labels[index];
         label.store(1);
         const auto display_wait_began=kt::diagnostics::MonotonicMicroseconds();
-        if (!state.diagnostic_unpaced && !state.active->clock->WaitFlipOpportunity()) { return unavailable("display_clock_stopped"); }
-        const auto display_ready=kt::diagnostics::MonotonicMicroseconds();
+        // Reserve before GPU preparation, at the old wait call's position. If
+        // preparation crosses this boundary, do not accidentally wait an extra
+        // whole refresh period by requesting a new boundary afterwards.
+        struct PacingContext {
+            WindowJob* job; bool unpaced; NativeDisplayClock::FlipOpportunity opportunity; std::uint64_t wait_us{};
+        } pacing_context{state.active.get(),state.diagnostic_unpaced,state.active->clock->ReserveFlipOpportunity()};
+        const kt::diagnostics::PresentationPacing pacing{&pacing_context, [](void* opaque) {
+            auto& context = *static_cast<PacingContext*>(opaque);
+            const auto began = kt::diagnostics::MonotonicMicroseconds();
+            const bool ready = !context.job->quit_requested.load() &&
+                (context.unpaced || context.job->clock->WaitFlipOpportunity(context.opportunity));
+            context.wait_us += kt::diagnostics::MonotonicMicroseconds()-began;
+            return ready && !context.job->quit_requested.load();
+        }};
+        if (!resident && !pacing.wait(pacing.context)) { return unavailable("display_clock_stopped"); }
         state.active->renderer_active.store(true);
         unsigned retries{}, zero_extent_polls{};
         kt::diagnostics::BackendPresentTiming backend_timing;
@@ -710,9 +723,12 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
             if (state.active->quit_requested.load()) { return unavailable("window_close_requested_during_present", NativeVideoResult::CloseRequested); }
             const auto result = !state.active->width.load() || !state.active->height.load()
                 ? kt::gfx::PresentStatus::ZeroExtent
-                : resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout, &backend_timing)
+                : resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout, &backend_timing, &pacing)
                            : state.graphics->Present(buffer.surface->id, pixels);
             if (result == kt::gfx::PresentStatus::Completed) { break; }
+            if (result == kt::gfx::PresentStatus::Cancelled) {
+                return unavailable("pacing_cancelled", state.active->quit_requested.load() ? NativeVideoResult::CloseRequested : NativeVideoResult::Unavailable);
+            }
             if (result == kt::gfx::PresentStatus::OutOfDate) {
                 if (++retries > 8) { throw std::runtime_error("Swapchain remained out of date after eight recreations"); }
                 Sleep(1);
@@ -731,13 +747,17 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
             std::printf("{\"event\":\"native_video_present_recovered\",\"swapchain_retries\":%u,\"zero_extent_polls\":%u,\"elapsed_ms\":%llu,\"fence_completed\":true}\n", retries, zero_extent_polls, GetTickCount64() - began);
         }
         const auto backend_completed=kt::diagnostics::MonotonicMicroseconds();
+        // The resident callback overlaps GPU work. Report that intentional wait
+        // once, outside backend work, rather than double-counting it as GPU cost.
+        const auto display_clock_wait_us = pacing_context.wait_us;
+        const auto backend_work_us = backend_completed-display_wait_began-display_clock_wait_us;
         label.store(0);
         state.active->clock->NotifyFlipCompleted(argument);
         const auto completed_at=kt::diagnostics::MonotonicMicroseconds();
         if (timing) {
             *timing = {true, completed_at-present_began, locked_at-present_began,
-                display_wait_began-locked_at, display_ready-display_wait_began,
-                backend_completed-display_ready, completed_at-backend_completed, {}};
+                display_wait_began-locked_at, display_clock_wait_us,
+                backend_work_us, completed_at-backend_completed, {}};
             // A successful final retry does not describe the earlier waits.
             if (!retries && !zero_extent_polls) { timing->backend = backend_timing; }
         }
@@ -748,8 +768,8 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
             // synchronization based on this combined interval alone.
             NativeLogf("{\"event\":\"native_video_present_timing\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"duration_us\":%llu,\"thread\":%lu,\"handle\":%d,\"buffer\":%u,\"lock_wait_us\":%llu,\"prepare_us\":%llu,\"display_clock_wait_us\":%llu,\"backend_present_us\":%llu,\"completion_us\":%llu,\"swapchain_retries\":%u,\"zero_extent_polls\":%u}\n",
                 present_began,completed_at,completed_at-present_began,GetCurrentThreadId(),handle,index,
-                locked_at-present_began,display_wait_began-locked_at,display_ready-display_wait_began,
-                backend_completed-display_ready,completed_at-backend_completed,retries,zero_extent_polls);
+                locked_at-present_began,display_wait_began-locked_at,display_clock_wait_us,
+                backend_work_us,completed_at-backend_completed,retries,zero_extent_polls);
         }
         return NativeVideoResult::Completed;
     }

@@ -5,7 +5,7 @@
 #include <memory>
 
 namespace kt::gfx {
-enum class PresentStatus { Completed, ZeroExtent, OutOfDate };
+enum class PresentStatus { Completed, ZeroExtent, OutOfDate, Cancelled };
 // Return UINT32_MAX when no compatible type exists. Preference never weakens
 // required flags or the resource's memoryTypeBits mask (at most 32 types).
 std::uint32_t SelectMemoryType(std::span<const std::uint32_t> flags, std::uint32_t bits,

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <optional>
 #include <stdexcept>
 
 namespace Ketsui::GpuCore {
@@ -63,6 +64,12 @@ struct Presenter::Impl {
   bool gpu_pending{}, present_pending{};
   bool vsync = true;
   u64 presents{};
+  struct PendingFrame {
+    RuntimePresentResult result;
+    u32 index;
+    std::uint64_t began, prepared_at, retired_at, acquired_at, recorded_at, submitted_at;
+  };
+  std::optional<PendingFrame> pending;
   Impl(const Vulkan::Instance &instance_, const Frontend::WindowSDL &window_,
        Vulkan::Scheduler &scheduler_, Vulkan::Runtime &runtime_,
        VideoCore::TextureCache &cache_, bool vsync_)
@@ -265,7 +272,8 @@ struct Presenter::Impl {
       CreatePipeline();
     }
   }
-  RuntimePresentResult Present(const RuntimeDisplay &display) {
+  RuntimePresentResult Prepare(const RuntimeDisplay &display) {
+    Require(!pending, "A prepared frame must complete before another prepare");
     const auto began = kt::diagnostics::MonotonicMicroseconds();
     Require(display.width && display.height && display.width <= 16384 &&
                 display.height <= 16384 && display.tiling_mode <= 1 &&
@@ -415,6 +423,18 @@ struct Presenter::Impl {
     scheduler.Flush(submit);
     gpu_pending = true;
     const auto submitted_at = kt::diagnostics::MonotonicMicroseconds();
+    result.status = RuntimePresentStatus::Prepared;
+    pending = PendingFrame{result,index,began,prepared_at,retired_at,acquired_at,recorded_at,submitted_at};
+    return result;
+  }
+  RuntimePresentResult Complete(bool pacing_accepted) {
+    Require(pending.has_value(), "No prepared frame to complete");
+    const auto [previous,index,began,prepared_at,retired_at,acquired_at,recorded_at,submitted_at] = *pending;
+    auto result = previous;
+    pending.reset();
+    const auto paced_at = kt::diagnostics::MonotonicMicroseconds();
+    const auto between_phases_us = paced_at-submitted_at;
+    const auto device = instance.GetDevice();
     const auto handle = *chain;
     const vk::Fence fence = *presented;
     const vk::SwapchainPresentFenceInfoEXT completion{.swapchainCount = 1,
@@ -452,13 +472,21 @@ struct Presenter::Impl {
     }
     Check(status == vk::Result::eSuboptimalKHR ? vk::Result::eSuccess : status,
           "Complete tracked presentation");
+    if (!pacing_accepted) {
+      // Retire the acquired image/binary semaphore through the tracked present
+      // above even on close. Do not publish a guest flip, increment completed
+      // presents, or fabricate timing for this abandoned frame.
+      result.status = RuntimePresentStatus::Cancelled;
+      result.tick = 0;
+      return result;
+    }
     result.status = RuntimePresentStatus::Completed;
     result.completed_presents = ++presents;
     const auto completed_at = kt::diagnostics::MonotonicMicroseconds();
-    result.timing = {true, completed_at-began, prepared_at-began, retired_at-prepared_at,
+    result.timing = {true, completed_at-began-between_phases_us, prepared_at-began, retired_at-prepared_at,
         acquired_at-retired_at, recorded_at-acquired_at, submitted_at-recorded_at,
-        queued_at-submitted_at, gpu_completed_at-queued_at,
-        presentation_completed_at-gpu_completed_at, completed_at-presentation_completed_at};
+        queued_at-paced_at, gpu_completed_at-queued_at,
+        presentation_completed_at-gpu_completed_at, completed_at-presentation_completed_at, between_phases_us};
     return result;
   }
 };
@@ -470,7 +498,10 @@ Presenter::Presenter(const Vulkan::Instance &instance,
                                   cache, vsync)} {}
 Presenter::~Presenter() = default;
 RuntimePresentResult Presenter::Present(const RuntimeDisplay &display) {
-  return impl->Present(display);
+  const auto result = impl->Prepare(display);
+  return result.status == RuntimePresentStatus::Prepared ? impl->Complete(true) : result;
 }
+RuntimePresentResult Presenter::Prepare(const RuntimeDisplay &display) { return impl->Prepare(display); }
+RuntimePresentResult Presenter::Complete(bool accepted) { return impl->Complete(accepted); }
 void Presenter::Drain() { impl->Drain(); }
 } // namespace Ketsui::GpuCore
