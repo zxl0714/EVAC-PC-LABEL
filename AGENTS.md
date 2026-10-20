@@ -1,5 +1,17 @@
 # Development entry
 
+The v0.3 SDOJ latency research now has a bounded result, not a claimed fix:
+poll/copy, original render/wait observations, upstream code comparison and version
+mapping are documented. Both upstream latency patches remain unimplemented;
+same-epoch masks do not prove a deliberate collection fix. Further behavioral
+early-render/resampling work is follow-up optimization, not to be silently
+invented as an already-done v0.3 feature. The player README states this limit.
+PS4's current root-cause fix and representative replay acceptance are now also
+reconciled with the plan checkboxes; older candidate paragraphs are history.
+Continue final same-commit five-game recertification, actual Internal/Public and
+no-ROM source ZIPs, extraction acceptance, tag/OSS and both exact QQ notices.
+Do not add another DaiOuJou mode or SDOJ audio campaign before delivery.
+
 SDOJ now also has default-off --sdoj_render_trace=true read-only module probes.
 The closed .local/sdoj-render-trace-r1 run reached Xbox360/Shot training Stage1;
 Right was observed with a live craft before/after, Left's post-action was Continue.
