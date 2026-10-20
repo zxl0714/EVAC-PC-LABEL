@@ -22,8 +22,9 @@ constexpr int kSearch = Error(3), kDeadlock = Error(11), kMemory = Error(12), kI
 constexpr int kUnsupported = Error(45);
 constexpr std::size_t kDefaultStack = 1024 * 1024, kMinimumStack = 16 * 1024;
 // Zero is our internal unrestricted default, not a valid guest Setaffinity
-// argument. Explicit masks address six virtual application CPUs, never raw
-// Windows CPU numbers. This development profile is independent of priority.
+// argument. Explicit masks describe six virtual application CPUs, never raw
+// Windows CPU numbers. Retain/validate guest metadata, but let the host
+// scheduler place native threads within their inherited eligible set.
 struct Attribute { std::size_t stack = kDefaultStack; int inherit = 4, priority = 700; Token affinity{}; };
 struct Scheduling { int priority; };
 static_assert(sizeof(Scheduling) == 4);
@@ -126,10 +127,16 @@ bool ApplyAffinity(Thread& thread) {
     if (GetActiveProcessorGroupCount() != 1) { return false; }
     DWORD_PTR available{}, system{};
     if (!GetProcessAffinityMask(GetCurrentProcess(), &available, &system) || !available) { return false; }
-    thread.native_affinity = MapAffinity(thread.guest_affinity, available);
-    if (!thread.native_affinity || !SetThreadAffinityMask(thread.native, thread.native_affinity)) { return false; }
+    // A console virtual CPU index is not a Windows logical processor index.
+    // Hard-pinning six task workers to six host LPs amplified late wakeups and
+    // held the entire guest batch behind its last reserved credit. Do not
+    // rebind or broaden the thread: keep the host's existing eligible set.
+    // The retired hard map remains available only to the offline A/B fixture.
     GROUP_AFFINITY actual{};
-    return GetThreadGroupAffinity(thread.native, &actual) && actual.Group == 0 && actual.Mask == thread.native_affinity;
+    if (!GetThreadGroupAffinity(thread.native, &actual) || actual.Group != 0 ||
+        !actual.Mask || (actual.Mask & ~available)) { return false; }
+    thread.native_affinity = actual.Mask;
+    return true;
 }
 int WindowsPriority(int priority) {
     // Portable development profile, not PS4 FIFO/RR emulation. Collapse the
@@ -160,7 +167,7 @@ unsigned __stdcall Run(void* raw) noexcept {
     ULONG_PTR low{}, high{}; MEMORY_BASIC_INFORMATION stack{};
     GetCurrentThreadStackLimits(&low, &high);
     if (VirtualQuery(&payload, &stack, sizeof(stack)) != sizeof(stack)) { UnsupportedApi("native_thread_stack_query", GetLastError(), nullptr); }
-    std::printf("{\"event\":\"native_thread_start\",\"token\":%llu,\"native_id\":%u,\"requested_stack_bytes\":%zu,\"reserved_stack_bytes\":%llu,\"inheritance\":%d,\"guest_priority\":%d,\"native_priority\":%d,\"guest_affinity\":%llu,\"native_affinity\":%llu}\n",
+    std::printf("{\"event\":\"native_thread_start\",\"token\":%llu,\"native_id\":%u,\"requested_stack_bytes\":%zu,\"reserved_stack_bytes\":%llu,\"inheritance\":%d,\"guest_priority\":%d,\"native_priority\":%d,\"guest_affinity\":%llu,\"native_affinity\":%llu,\"affinity_policy\":\"host_inherited\"}\n",
                 thread->token, static_cast<unsigned>(GetCurrentThreadId()), thread->stack_bytes,
                 static_cast<unsigned long long>(high - reinterpret_cast<std::uintptr_t>(stack.AllocationBase)), thread->inheritance, thread->guest_priority, GetThreadPriority(GetCurrentThread()), thread->guest_affinity, thread->native_affinity);
     // Clang knows this pointer uses SysV, and preserves the Windows nonvolatile
@@ -368,9 +375,9 @@ bool ThreadAffinitySelfTest() {
         void* result{}; levels &= Affinity(&attribute, mask, nullptr) == 0;
         const auto created = Create(&token, &attribute, ReturnAffinity, nullptr, nullptr, nullptr, true);
         levels &= created == 0;
-        if (!created) { levels &= Join(token, &result, nullptr) == 0 && reinterpret_cast<Token>(result) == MapAffinity(mask, process_before); }
+        if (!created) { levels &= Join(token, &result, nullptr) == 0 && reinterpret_cast<Token>(result) == process_before; }
     }
-    check(levels, "explicit_virtual_masks_are_applied_and_observed_in_running_windows_thread");
+    check(levels, "virtual_masks_preserve_the_observed_host_eligible_set_without_pinning");
     Fixture fixture{CreateEventW(nullptr, TRUE, FALSE, nullptr), CreateEventW(nullptr, TRUE, FALSE, nullptr)};
     bool snapshot = fixture.entered && fixture.release && Affinity(&attribute, 1, nullptr) == 0;
     const auto created = snapshot ? Create(&token, &attribute, FixtureEntry, &fixture, nullptr, nullptr, true) : kAgain;
@@ -379,7 +386,8 @@ bool ThreadAffinitySelfTest() {
         snapshot &= WaitForSingleObject(fixture.entered, 3000) == WAIT_OBJECT_0 && Affinity(&attribute, 2, nullptr) == 0 && DestroyAttribute(&attribute) == 0;
         GROUP_AFFINITY actual{};
         { std::lock_guard lock(registry.gate); const auto& live = registry.threads.at(token);
-          snapshot &= live->guest_affinity == 1 && GetThreadGroupAffinity(live->native, &actual) && actual.Mask == MapAffinity(1, process_before); }
+          snapshot &= live->guest_affinity == 1 && GetThreadGroupAffinity(live->native, &actual) &&
+                      actual.Mask == process_before && live->native_affinity == actual.Mask; }
         SetEvent(fixture.release); snapshot &= Join(token, nullptr, nullptr) == 0;
     }
     check(snapshot && attribute == 0, "attribute_changes_and_destruction_do_not_rebind_live_threads");

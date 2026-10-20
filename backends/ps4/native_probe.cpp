@@ -1391,14 +1391,20 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (argc==3 && std::wstring(argv[1])==L"--waveform-check") { return Ngs2WaveformCheck(argv[2]); }
     if (argc >= 2 && std::wstring(argv[1]) == L"--offline-bench") {
         try {
-            if (argc != 5 && argc != 6) { throw std::runtime_error("Usage: --offline-bench <GPU DLL> <samples 1..10000> <warmup 0..1000> [cv|address|event]"); }
-            if (argc == 6) {
+            if (argc < 5 || argc > 7) { throw std::runtime_error("Usage: --offline-bench <GPU DLL> <samples 1..10000> <warmup 0..1000> [cv|address|event] [pinned|inherited]"); }
+            if (argc >= 6) {
                 const std::wstring_view primitive(argv[5]);
                 if ((primitive != L"cv" && primitive != L"address" && primitive != L"event") ||
                     !ConfigureNativeSemaphoreWait(primitive == L"event" ? NativeSemaphoreWaitPrimitive::Event :
                         primitive == L"address" ? NativeSemaphoreWaitPrimitive::Address : NativeSemaphoreWaitPrimitive::ConditionVariable)) {
                     throw std::runtime_error("Invalid offline semaphore wait primitive");
                 }
+            }
+            bool pin_workers = false;
+            if (argc == 7) {
+                const std::wstring_view affinity(argv[6]);
+                if (affinity != L"pinned" && affinity != L"inherited") { throw std::runtime_error("Invalid offline worker affinity control"); }
+                pin_workers = affinity == L"pinned";
             }
             const auto number = [](const wchar_t* value, unsigned minimum, unsigned maximum) {
                 const std::wstring text(value);
@@ -1409,7 +1415,7 @@ int NativeCommand(int argc, wchar_t** argv) {
                 if (result < minimum || result > maximum) { throw std::runtime_error("Offline benchmark count is outside its bounded range"); }
                 return static_cast<unsigned>(result);
             };
-            return RunNativeOfflineBench(argv[2], number(argv[3], 1, 10000), number(argv[4], 0, 1000));
+            return RunNativeOfflineBench(argv[2], number(argv[3], 1, 10000), number(argv[4], 0, 1000), pin_workers);
         } catch (const std::exception& error) { std::fprintf(stderr, "Offline bench: %s\n", error.what()); return 2; }
     }
     // Set this before creating any window or Vulkan surface. Otherwise Win32

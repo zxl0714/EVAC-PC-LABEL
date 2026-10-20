@@ -1,6 +1,6 @@
 # 分析与诊断工具
 
-当前性能优先项的线程派发、信号量、mutex／condition、GPU worker 和日志队列审查集中在 [PS4 任务派发与同步](PS4_SYNCHRONIZATION.md)。其中区分通知线程 Wake 返回与等待线程阻塞函数返回，保留最新 33.508 ms 实际长帧及未通过的 event 对照。下文历史短测不覆盖该未完成状态。
+线程派发、信号量、mutex／condition、GPU worker 和日志队列审查及当前根因修复集中在 [PS4 任务派发与同步](PS4_SYNCHRONIZATION.md)。已通过交错对照确认旧硬宿主 CPU 绑定放大批量任务长尾；默认改为继承宿主可运行范围，保留六线程和完整同步。375 源码／73 原生通过，两款实际固定录像的关卡最大 17.185／17.188 ms。该文同时保留旧 33.508 ms 实际长帧、未通过的 event 候选、时间点语义、配套身份与覆盖边界；下文较早记录不覆盖其当前结论。
 
 这些工具用于检查数据版本、模块声明、日志，以及 G2 和虫姬二的社区接口。它们不启动游戏窗口；静态模块检查不会执行客体指令，也不初始化 GPU、音频或输入。实际进关、声音响应和流畅性仍由游玩回归验证。
 
@@ -199,7 +199,7 @@ py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/candidat
 六组固定负载包括：
 
 - 两组自造 GCN 点／颜色着色器与 PM4：170 draw／60 prefetch 和 250 draw／86 prefetch，分别复用实际 `ExecuteNativeGpuCommands`、原生内存跟踪、驻留 GPU、提交及完整 Drain／回写回调。在第 8 个 draw 后执行一次 ACQUIRE，最后提交；交替两种颜色，逐次实际读回核对像素，最后核对整体绘图次数。复制、指令细分、worker 交接、完成等待及验证读回分别计时。
-- 14 和 16 个任务的批量信号量交接，各有连续派发与生产 `NativeDisplayClock` 的 60 Hz 间隔派发。六个 host worker 使用实际 affinity 映射和生产 semaphore 函数，每个任务执行确定性计算；逐项核对完成数量及 checksum。间隔等待单列，不加入任务交接耗时。
+- 14 和 16 个任务的批量信号量交接，各有连续派发与生产 `NativeDisplayClock` 的 60 Hz 间隔派发。六个 host worker 使用生产 semaphore 函数，每个任务执行确定性计算；逐项核对完成数量及 checksum。默认继承宿主可运行范围；`--worker-affinity pinned` 显式复现退役的硬逻辑 CPU 映射，仅作组件对照。间隔等待单列，不加入任务交接耗时。
 
 可选 Vulkan validation instrumentation 在 bench 中关闭，像素、任务、绘图计数及错误检查仍强制执行；游戏默认行为没有改变。第一份 smoke 因沿用游戏默认请求的验证层在本机不可用而失败，保留在 `smoke-r1`，不当作通过。显式设置后的 `smoke-r2` 和完整运行通过。
 

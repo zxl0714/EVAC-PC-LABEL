@@ -46,6 +46,25 @@ def encoded(items):
 
 
 class OfflineBenchTests(unittest.TestCase):
+    def test_worker_affinity_control_and_actual_inherited_masks(self):
+        for mode in (None, '', 'unknown', True):
+            items=fixture();items[2]['worker_affinity']=mode
+            with self.subTest(mode=mode),self.assertRaises(ValueError):bench.parse_run(encoded(items),2,1)
+        items=fixture();items[2]['worker_affinity']='inherited'
+        for case in items:
+            if case.get('kind')=='semaphore':
+                case.update(creator_mask=0xff, native_masks=[0xff]*6)
+        self.assertEqual(bench.parse_run(encoded(items),2,1)['identity']['worker_affinity'],'inherited')
+        for field,value in [('creator_mask',None),('creator_mask',True),('creator_mask',0),('native_masks',[0xff]*5+[1])]:
+            bad=copy.deepcopy(items);next(case for case in bad if case.get('kind')=='semaphore')[field]=value
+            with self.subTest(field=field,value=value),self.assertRaises(ValueError):bench.parse_run(encoded(bad),2,1)
+
+    def test_production_does_not_bind_virtual_cpu_bits_to_host_logical_processors(self):
+        source=(ROOT/'backends/ps4/native_threads.cpp').read_text(encoding='utf-8')
+        self.assertNotIn('SetThreadAffinityMask(',source)
+        self.assertIn('"host_inherited"',source.replace('\\"','"'))
+        self.assertIn('thread.native_affinity = actual.Mask;',source)
+
     def test_wait_primitive_is_explicit_and_cannot_be_inferred(self):
         for mode in (None, '', 'unknown', True):
             items=fixture();items[2]['semaphore_wait']=mode

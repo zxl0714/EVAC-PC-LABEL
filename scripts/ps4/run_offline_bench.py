@@ -64,6 +64,8 @@ def parse_run(text, samples, warmup):
                 raise ValueError('Duplicate benchmark identity')
             if item.get('semaphore_wait') not in ('cv', 'address', 'event'):
                 raise ValueError('Missing or invalid semaphore wait primitive')
+            if item.get('worker_affinity', 'pinned') not in ('pinned', 'inherited'):
+                raise ValueError('Invalid worker affinity control')
             begin = item
         elif event == 'offline_bench_case':
             name = item.get('name')
@@ -121,6 +123,10 @@ def parse_run(text, samples, warmup):
             masks = case.get('native_masks')
             if not isinstance(masks, list) or len(masks) != 6 or any(not natural(value) or not value for value in masks):
                 raise ValueError('Semaphore worker mapping is missing')
+            if begin.get('worker_affinity', 'pinned') == 'inherited' and \
+                    (not natural(case.get('creator_mask')) or not case['creator_mask'] or
+                     any(mask != case['creator_mask'] for mask in masks)):
+                raise ValueError('Inherited workers must retain the observed creator mask')
             if any(not natural(row.get(field)) for row in rows[name] for field in ('handoff_us', 'cadence_wait_us')):
                 raise ValueError('Invalid semaphore timing sample')
     return dict(identity=begin, device=device, cases=cases, rows=rows, diagnostics=diagnostics)
@@ -160,9 +166,11 @@ def compare(current, previous):
     return result
 
 
-def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='address'):
+def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='address', worker_affinity='inherited'):
     if semaphore_wait not in ('cv', 'address', 'event'):
         raise ValueError('Unknown semaphore wait primitive')
+    if worker_affinity not in ('pinned', 'inherited'):
+        raise ValueError('Unknown worker affinity control')
     receipt = verify()
     directory = private_output(output)
     directory.mkdir(parents=True)
@@ -178,13 +186,15 @@ def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='add
         stdout, stderr = directory / f'run-{index + 1}.jsonl', directory / f'run-{index + 1}.stderr.txt'
         run_began = time.monotonic()
         with stdout.open('xb') as out, stderr.open('xb') as err:
-            process = subprocess.run([str(executable), '--offline-bench', str(library), str(samples), str(warmup), semaphore_wait],
+            process = subprocess.run([str(executable), '--offline-bench', str(library), str(samples), str(warmup), semaphore_wait, worker_affinity],
                                      cwd=directory, stdout=out, stderr=err, timeout=660)
         if process.returncode:
             raise RuntimeError(f'Offline benchmark failed with exit {process.returncode}; preserve {directory.name}')
         runs.append(parse_run(stdout.read_text(encoding='utf-8'), samples, warmup))
         if runs[-1]['identity']['semaphore_wait'] != semaphore_wait:
             raise ValueError('Executed semaphore wait primitive differs from request')
+        if runs[-1]['identity'].get('worker_affinity', 'pinned') != worker_affinity:
+            raise ValueError('Executed worker affinity differs from request')
         artifacts.append(dict(stdout=stdout.name, stdoutSha256=digest(stdout), stderr=stderr.name,
                               stderrSha256=digest(stderr), elapsed_seconds=time.monotonic() - run_began))
     if any(run['identity'] != runs[0]['identity'] or run['device'] != runs[0]['device'] or
@@ -201,6 +211,7 @@ def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='add
                   host=dict(system=platform.system(), release=platform.release(), version=platform.version(),
                             machine=platform.machine(), processor=platform.processor(), logical_processors=os.cpu_count()),
                   sourceCommit=receipt['sourceCommit'], sourceDirty=receipt['sourceDirty'], semaphoreWait=semaphore_wait,
+                  workerAffinity=worker_affinity,
                   sourceSnapshotSha256=receipt['sourceSnapshot']['sha256'], binaries=binaries,
                   gpuApi=runs[0]['identity']['gpu_api'], device=runs[0]['device'], runIdentity=[run['identity'] for run in runs],
                   workload={name: runs[0]['cases'][name] for name in sorted(runs[0]['cases'])},
@@ -209,7 +220,8 @@ def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='add
                   measurement=[
                       'Authored PM4/GCN uses the production ExecuteNativeGpuCommands, resident Vulkan renderer, fences, drain callbacks and native memory tracking.',
                       'Every GPU iteration verifies one exact alternating red/green pixel; verification/readback is separate from execute and completion.',
-                      'Semaphores use six host workers, production semaphore functions/affinity mapping, 14/16-credit batches and a deterministic checked task checksum.',
+                      'Semaphores use six host workers, production semaphore functions, 14/16-credit batches and a deterministic checked task checksum.',
+                      'Default inherited workers retain the host eligible set, matching normal guest thread placement; explicit pinned control reproduces the retired hard map only in this fixture.',
                       'Cadenced handoffs use the production 60 Hz clock to park workers; cadence_wait_us is intentional and excluded from handoff_us.',
                       'Warmup is excluded. Percentiles are exact nearest-rank samples, not timing-log histogram upper bounds.',
                       'Optional Vulkan validation instrumentation is disabled for benchmark timings, with exact RGB and completion/counter checks retained; game defaults are unchanged.',
@@ -237,10 +249,11 @@ def main():
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--compare', type=Path, help='Previous report.json from identical benchmark parameters/host')
     parser.add_argument('--semaphore-wait', choices=('cv', 'address', 'event'), default='address', help='Same semaphore rules, different host wait primitive')
+    parser.add_argument('--worker-affinity', choices=('pinned', 'inherited'), default='inherited', help='Bench-only placement control; pinned reproduces the retired hard map')
     args = parser.parse_args()
     if not 1 <= args.samples <= 10000 or not 0 <= args.warmup <= 1000 or not 1 <= args.repeats <= 10:
         parser.error('samples=1..10000, warmup=0..1000, repeats=1..10')
-    report = execute(args.output, args.samples, args.warmup, args.repeats, args.compare, args.semaphore_wait)
+    report = execute(args.output, args.samples, args.warmup, args.repeats, args.compare, args.semaphore_wait, args.worker_affinity)
     print(json.dumps(dict(report=str(args.output / 'report.json'), elapsed_seconds=report['elapsed_seconds'],
                           summary={name: values['execute_us' if name in GPU_CASES else 'handoff_us']
                                    for name, values in report['summary'].items()}), indent=2))

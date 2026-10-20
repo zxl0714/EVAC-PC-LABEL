@@ -6246,6 +6246,7 @@ class RuntimeTests(unittest.TestCase):
             started = next(event for event in events if event['event'] == 'native_thread_start')
             self.assertEqual(started['guest_affinity'], mask)
             self.assertNotEqual(started['native_affinity'], 0)
+            self.assertEqual(started['affinity_policy'], 'host_inherited')
 
     def test_affinity_requires_exact_kernel_library_and_module(self):
         for library, module in (('libScePosix', 'libkernel'), ('libkernel', 'libc')):

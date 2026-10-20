@@ -326,6 +326,7 @@ struct SemaphorePool {
   std::vector<std::jthread> threads;
   std::latch started{6};
   std::array<u64, 6> masks{};
+  u64 creator_mask{};
   static u64 Task(u64 ticket) {
     u64 value = ticket + 1;
     for (unsigned round = 0; round < 32; ++round) {
@@ -333,20 +334,30 @@ struct SemaphorePool {
     }
     return value;
   }
-  SemaphorePool() {
+  explicit SemaphorePool(bool pin_workers) {
     try {
+      GROUP_AFFINITY creator{};
+      Require(GetThreadGroupAffinity(GetCurrentThread(), &creator) &&
+                  creator.Group == 0 && creator.Mask != 0,
+              "Cannot read authored worker creator affinity");
+      creator_mask = creator.Mask;
       Require(create(&work, "bench-work", 1, 0, 64, nullptr) == 0 &&
                   create(&done, "bench-done", 1, 0, 64, nullptr) == 0,
               "Cannot create authored semaphores");
       for (unsigned worker = 0; worker < 6; ++worker) {
-        masks[worker] = NativeHostAffinityForDiagnostics(u64{1} << worker);
+        masks[worker] = pin_workers
+                            ? NativeHostAffinityForDiagnostics(u64{1} << worker)
+                            : creator_mask;
         Require(masks[worker] != 0,
                 "Current host cannot map six virtual application CPUs");
-        threads.emplace_back([this, worker] {
+        threads.emplace_back([this, worker, pin_workers] {
           GROUP_AFFINITY actual{};
-          if (!SetThreadAffinityMask(GetCurrentThread(), masks[worker]) ||
+          // Explicit bench-only control: retain the creator's inherited mask.
+          // Never broaden it, touch production threads, or change priority.
+          if ((pin_workers &&
+               !SetThreadAffinityMask(GetCurrentThread(), masks[worker])) ||
               !GetThreadGroupAffinity(GetCurrentThread(), &actual) ||
-              actual.Mask != masks[worker]) {
+              actual.Group != 0 || actual.Mask != masks[worker]) {
             failed = true;
             started.count_down();
             return;
@@ -402,13 +413,14 @@ struct HandoffCase {
   unsigned tasks_per_batch{};
   bool paced{};
   std::array<u64, 6> masks;
+  u64 creator_mask{};
   std::vector<u64> samples, idle;
   u64 verified_tasks{}, verified_checksum{};
 };
 HandoffCase HandoffBenchmark(unsigned samples, unsigned warmup, unsigned tasks,
-                             bool paced) {
-  SemaphorePool pool;
-  HandoffCase result{tasks, paced, pool.masks, {}, {}, 0, 0};
+                             bool paced, bool pin_workers) {
+  SemaphorePool pool(pin_workers);
+  HandoffCase result{tasks, paced, pool.masks, pool.creator_mask, {}, {}, 0, 0};
   result.samples.reserve(samples);
   result.idle.reserve(samples);
   std::unique_ptr<NativeDisplayClock> cadence;
@@ -475,12 +487,13 @@ void Print(const HandoffCase &result, unsigned warmup) {
       "{\"event\":\"offline_bench_case\",\"name\":\"handoff-%u-%s\",\"kind\":"
       "\"semaphore\",\"samples\":%zu,\"warmup\":%u,\"workers\":6,\"tasks_per_"
       "batch\":%u,\"cadenced\":%s,\"verified_tasks\":%llu,\"verified_"
-      "checksum\":%llu,\"native_masks\":[%llu,%llu,%llu,%llu,%llu,%llu]}\n",
+      "checksum\":%llu,\"native_masks\":[%llu,%llu,%llu,%llu,%llu,%llu],"
+      "\"creator_mask\":%llu}\n",
       result.tasks_per_batch, cadence, result.samples.size(), warmup,
       result.tasks_per_batch, result.paced ? "true" : "false",
       result.verified_tasks, result.verified_checksum, result.masks[0],
       result.masks[1], result.masks[2], result.masks[3], result.masks[4],
-      result.masks[5]);
+      result.masks[5], result.creator_mask);
   for (std::size_t index = 0; index < result.samples.size(); ++index) {
     std::printf(
         "{\"event\":\"offline_bench_sample\",\"name\":\"handoff-%u-%s\","
@@ -492,17 +505,18 @@ void Print(const HandoffCase &result, unsigned warmup) {
 } // namespace
 
 int RunNativeOfflineBench(const std::filesystem::path &library,
-                          unsigned samples, unsigned warmup) {
+                          unsigned samples, unsigned warmup, bool pin_workers) {
   Require(samples >= 1 && samples <= 10000 && warmup <= 1000,
           "Offline benchmark count out of range");
   Watchdog watchdog;
   LogScope log;
   // The two synchronization batches match observed 14/16-credit patterns;
-  // they run the production semaphore implementation and affinity mapper.
-  const auto handoff14 = HandoffBenchmark(samples, warmup, 14, false);
-  const auto handoff16 = HandoffBenchmark(samples, warmup, 16, false);
-  const auto paced14 = HandoffBenchmark(samples, warmup, 14, true);
-  const auto paced16 = HandoffBenchmark(samples, warmup, 16, true);
+  // They run production semaphores. Default retains the host eligible set;
+  // the explicit pinned control reproduces the retired hard map here only.
+  const auto handoff14 = HandoffBenchmark(samples, warmup, 14, false, pin_workers);
+  const auto handoff16 = HandoffBenchmark(samples, warmup, 16, false, pin_workers);
+  const auto paced14 = HandoffBenchmark(samples, warmup, 14, true, pin_workers);
+  const auto paced16 = HandoffBenchmark(samples, warmup, 16, true, pin_workers);
   std::vector<GpuCase> cases;
   {
     Library api(library);
@@ -530,10 +544,10 @@ int RunNativeOfflineBench(const std::filesystem::path &library,
   std::printf("{\"event\":\"offline_bench_begin\",\"schema\":1,\"gpu_api\":%u,"
               "\"samples\":%u,\"warmup\":%u,\"game_execution\":false,\"window_"
               "created\":false,\"authored_only\":true,\"validation\":false,"
-              "\"semaphore_wait\":\"%s\",\"process_priority_"
+              "\"semaphore_wait\":\"%s\",\"worker_affinity\":\"%s\",\"process_priority_"
               "class\":%lu}\n",
               RuntimeApiVersion, samples, warmup,
-              NativeSemaphoreWaitName(),
+              NativeSemaphoreWaitName(), pin_workers ? "pinned" : "inherited",
               GetPriorityClass(GetCurrentProcess()));
   Print(handoff14, warmup);
   Print(handoff16, warmup);

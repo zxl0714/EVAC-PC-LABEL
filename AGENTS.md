@@ -1,5 +1,25 @@
 # Development entry
 
+Current performance batch has fixed the hard host-affinity restriction rather
+than reducing the game's six task workers. Read the current-result section in
+docs/PS4_SYNCHRONIZATION.md first. Same-binary pinned/inherited/inherited/pinned
+offline controls all pass correctness; pinned cadenced maxima are 26–37 ms,
+inherited maxima 67–86 us. Normal guest threads now retain their inherited host
+eligible set; guest CPU masks remain validated/snapshotted metadata. No priority,
+power, task-count, credit, FIFO or completion-barrier changes. Pinned mapping is
+only an explicit offline diagnostic, not a production default to restore.
+
+375 source and 73 native checks pass. Actual Ketsui r10 and DaiOuJou r7 fixed
+replays return naturally: 1860/1800 continuous gameplay frames, maxima
+17.185/17.188 ms, outside-submission maxima 2.400/2.842 ms. Full-replay windows
+estimated from screenshots have no >20 ms interval, but are not exact guest-frame
+traces. This is a bounded, controlled root-cause fix and representative regression,
+not an all-hardware/mode guarantee or v0.3 completion. Proceed with remaining
+DaiOuJou main modes/CUSTOM, SDOJ audio/input investigations and 360 titles, then
+the same-commit five-game/package/delivery gates. Reuse accepted network results.
+The older unresolved-performance paragraphs below describe prior candidates;
+do not let them restart blind primitive swaps or discard the remaining scope.
+
 Current human instruction additionally requires a full review of wakeup,
 synchronization, waiting and locking, not repeated primitive substitutions.
 Read docs/PS4_SYNCHRONIZATION.md for the audited lock/lifetime chain and exact
