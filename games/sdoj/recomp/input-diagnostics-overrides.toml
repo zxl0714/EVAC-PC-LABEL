@@ -1,0 +1,29 @@
+# Supported disc-base only. Optional read-only observation, not TU lag patches.
+[[midasm_hook]]
+address = 0x82178B78
+name = "SdojInputPassBegin"
+registers = ["r3"]
+
+# Immediately after each XamInputGetState wrapper returns. r27/r30 are the
+# preserved per-user slot base; returned X_INPUT_STATE lives at slot + 516.
+[[midasm_hook]]
+address = 0x821A3D90
+name = "SdojInputPollExisting"
+registers = ["r3", "r30", "r27"]
+
+[[midasm_hook]]
+address = 0x821A3EA8
+name = "SdojInputPollDiscovery"
+registers = ["r3", "r28", "r30"]
+
+# After lhz r11,520(r29); before the engine copies raw wButtons onward.
+[[midasm_hook]]
+address = 0x821A3C38
+name = "SdojInputButtonCopy"
+registers = ["r11", "r31"]
+
+# Polling and input-object conversion have returned, before update dispatch.
+[[midasm_hook]]
+address = 0x82178BFC
+name = "SdojInputPassEnd"
+registers = ["r31"]

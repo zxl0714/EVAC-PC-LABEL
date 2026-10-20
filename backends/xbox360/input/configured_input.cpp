@@ -1,6 +1,7 @@
 #include "configured_input.h"
 #include "input_state.h"
 #include <array>
+#include <chrono>
 #include <deque>
 #include <mutex>
 #include <stdexcept>
@@ -18,6 +19,11 @@ namespace cave::xbox360 {
 namespace {
 using namespace rex;
 using namespace rex::input;
+
+uint64_t InputTraceClock() {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 
 class KeyboardDriver final : public InputDriver, public ui::WindowInputListener, public ui::WindowListener {
 public:
@@ -56,7 +62,8 @@ public:
         ++polls_;
         if (trace_ && trace_remaining_ && (snapshot!=last_ || (polls_ & (polls_-1))==0)) {
             --trace_remaining_;
-            REXLOG_INFO("INPUT_DIAG poll count={} active={} buttons={:04X}",polls_,active,snapshot.buttons);
+            REXLOG_INFO("INPUT_DIAG poll count={} active={} buttons={:04X} t_us={} frame={}",
+                polls_,active,snapshot.buttons,InputTraceClock(),rex::input::GuestInputFrame());
         }
         if (snapshot!=last_) {last_=snapshot; ++packet_;}
         *output={}; output->packet_number=packet_; output->gamepad.buttons=snapshot.buttons;
@@ -102,7 +109,8 @@ private:
         const auto after=state_.Snapshot();
         if (trace_ && trace_remaining_) {
             --trace_remaining_;
-            REXLOG_INFO("INPUT_DIAG key={} down={} repeat={} before={:04X} after={:04X} polls={}",key,down,repeat,before.buttons,after.buttons,polls_);
+            REXLOG_INFO("INPUT_DIAG key={} down={} repeat={} before={:04X} after={:04X} polls={} t_us={} frame={}",
+                key,down,repeat,before.buttons,after.buttons,polls_,InputTraceClock(),rex::input::GuestInputFrame());
         }
         const auto oldBits=uint32_t(before.buttons)|(before.left_trigger?0x10000:0)|(before.right_trigger?0x20000:0);
         const auto newBits=uint32_t(after.buttons)|(after.left_trigger?0x10000:0)|(after.right_trigger?0x20000:0);

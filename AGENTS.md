@@ -1,5 +1,13 @@
 # Development entry
 
+SDOJ now has an opt-in read-only disc-base input observer, not a latency patch.
+See docs/ANALYSIS.md: seven keyboard press edges reach the next guest VBlank
+poll and button copy follows in 5–6 us. This covers menu/transitions, not core
+gameplay consumption or scanout. Continue mapping gameplay-mask consumption and
+render batches, and the missing small-enemy sound cue; do not close either issue.
+377 source / eight deduplicated native CTests (15 input subcases) pass. The
+normal window's Japanese SDOJ title was observed; Futari/G2 checks remain.
+
 All visible DaiOuJou principal game entries now have representative player
 segments. New EX, Black Label, extra III, Challenge and Osarai entries/returns
 and CUSTOM cold settings readback are recorded in docs/TEST_MATRIX.md. Smaller

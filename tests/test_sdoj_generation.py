@@ -132,6 +132,35 @@ class SdojGenerationTests(unittest.TestCase):
         self.assertIn('REXCVAR_DEFINE_BOOL(sdoj_native_trace,false,', source)
         self.assertIn('QueryRangeAccess', source)
 
+    def test_disc_input_observers_use_reviewed_sites_without_replacing_calls(self):
+        filename = 'input-diagnostics-overrides.toml'
+        self.assertIn(filename, self.manifest['entrypoint']['includes'])
+        hooks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['midasm_hook']
+        expected = {
+            0x82178B78: ('SdojInputPassBegin', ['r3']),
+            0x821A3D90: ('SdojInputPollExisting', ['r3', 'r30', 'r27']),
+            0x821A3EA8: ('SdojInputPollDiscovery', ['r3', 'r28', 'r30']),
+            0x821A3C38: ('SdojInputButtonCopy', ['r11', 'r31']),
+            0x82178BFC: ('SdojInputPassEnd', ['r31']),
+        }
+        self.assertEqual(len(hooks), len(expected))
+        for hook in hooks:
+            self.assertEqual((hook['name'], hook['registers']), expected[hook['address']])
+            self.assertFalse(hook.get('return', False))
+        self.assertNotIn(0x822169E0, expected)  # Different TU input wrapper.
+
+    def test_disc_input_trace_is_opt_in_bounded_and_read_only(self):
+        source = (ROOT / 'games/sdoj/diagnostics/input_trace.cpp').read_text(encoding='utf-8')
+        self.assertIn('REXCVAR_DEFINE_BOOL(sdoj_input_trace, false,', source)
+        self.assertIn('constexpr unsigned MaxRecords = 2048;', source)
+        self.assertIn('compare_exchange_weak', source)
+        self.assertIn('QueryRangeAccess', source)
+        self.assertIn('not_gameplay_or_scanout_latency', source)
+        for forbidden in ('REX_STORE_', 'StartCommunity', 'XamInputGetState(', 'sub_821', 'SetFlagByName'):
+            self.assertNotIn(forbidden, source)
+        cmake = (ROOT / 'games/sdoj/CMakeLists.txt').read_text(encoding='utf-8')
+        self.assertLess(cmake.index('add_test(NAME sdoj_input_trace'), cmake.index('if(CAVE_BUILD_GAME)'))
+
 
 if __name__ == '__main__':
     unittest.main()
