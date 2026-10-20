@@ -8,3 +8,25 @@ registers = []
 address = 0x88051CFC
 name = "SdojCoreArrangeCopy"
 registers = ["r25"]
+
+# Same code sites, independently reviewed arrange globals and helper tails.
+[[midasm_hook]]
+address = 0x880330B4
+name = "SdojRenderArrangeSwap"
+registers = []
+[[midasm_hook]]
+address = 0x880331B4
+name = "SdojRenderArrangeSwap"
+registers = []
+[[midasm_hook]]
+address = 0x880331EC
+name = "SdojRenderArrangeSwap"
+registers = []
+[[midasm_hook]]
+address = 0x880331F0
+name = "SdojRenderArrangeWaitBegin"
+registers = ["r3"]
+[[midasm_hook]]
+address = 0x88033304
+name = "SdojRenderArrangeWaitEnd"
+registers = []

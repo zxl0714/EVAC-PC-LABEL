@@ -8,3 +8,25 @@ registers = []
 address = 0x88051D74
 name = "SdojCoreNormalCopy"
 registers = ["r27"]
+
+# All original swap returns, including the no-swap early branch. No replacement.
+[[midasm_hook]]
+address = 0x880330B4
+name = "SdojRenderNormalSwap"
+registers = []
+[[midasm_hook]]
+address = 0x880331B4
+name = "SdojRenderNormalSwap"
+registers = []
+[[midasm_hook]]
+address = 0x880331EC
+name = "SdojRenderNormalSwap"
+registers = []
+[[midasm_hook]]
+address = 0x880331F0
+name = "SdojRenderNormalWaitBegin"
+registers = ["r3"]
+[[midasm_hook]]
+address = 0x88033304
+name = "SdojRenderNormalWaitEnd"
+registers = []

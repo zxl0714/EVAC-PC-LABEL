@@ -150,6 +150,18 @@ py -3.12 scripts/analyze_run.py logs/espgaluda2/<单次运行目录> --output .l
 
 本批为 `24dae7d` 后未提交构建。宿主 SHA-256 `0e7259c08778c48ef1c0066cec6a39af1095ff255e218a24af0d54b98d96f28f`，CA022100 DLL `8b97c570c2cecb47540ed0263ade465716dead8de4d30fed720bea5ff5ad1d7e`，CA022110 DLL `91489a1f18e70a517208168a3e514db47b1ce238781ce2e028839858be935d03`；SDK runtime／Xenos 与上段相同，14 对 PE／PDB 已核对。已关闭进程，保留原生执行结束与 hard-exit 记录；完整日志 SHA-256 `b17a2e8234ec22f20b1948a7f12101efd31aec63310f24a1b9d5068f2547099e`，配对报告 `.local/analysis/sdoj-core-input-r1.json`。378 源码、8 项去重原生 CTest（20 个自造输入子例）通过；不是最终五游戏发行构建或无探针性能验收。
 
+### 渲染交换与原生帧等待的观测
+
+`sdoj_render_trace` 是独立、默认关闭的 InitOnly 观测开关。两套本体模块分别沿用原掩码复制点，并在 `880330B4／880331B4／880331EC` 的三个原生缓冲交换返回路径、`880331F0` 的游戏等待入口和 `88033304` 的共同返回处采样；没有替换原调用、写客体状态或移动渲染。普通模式和等待未启用诊断时保持原行为。全进程最多 2048 条，掩码变化后约八个 epoch 保留细节，其余每阶段每约 60 epoch 摘要；使用 try-lock，锁外格式化。等待通过线程本地起点、模块代和单调时钟配对。全局变量已从两套光盘 PPC 分别核对，不能使用 TU 的统一偏移。
+
+独立 `.local/sdoj-render-trace-r1`、`run-20261020T091901896Z-81456` 为离线／窗口／VSync／关闭实体手柄，原生菜单进入 Xbox360／Shot 训练 Stage 1。右键动作前后均见存活自机（376 → 5130 分），其后左键动作刷新为 Continue，不把左键称为存活移动。右键键沿 `8651548352839` 至原始按钮复制 4900 µs，至逻辑掩码复制再 360 µs；下一次观察到 swap serial 3596 → 3597、published 指针切换是在复制后 16515 µs／下一个客体 epoch。相应原生 depth=1 等待为 16394 µs／一个 epoch。这里是“下一次缓冲发布”，**不是已证明包含该按键画面的缓冲来源，也不是输入到屏幕延迟**。
+
+全进程 460 条渲染观察有 114 个可配对等待，深度均为 1、epoch 差均为 1，等待中位／p95／最大为 16.447／16.986／18.610 ms。其间包含菜单、参数与转场，不能都称为关卡帧；序号复读稳定、observer_contended=0，没有耗尽预算。原始日志 SHA-256 为 `e9c3109b5ddc54ee9a79a948631f46c93544a8c243c9045f827a577a2037bb34`；进程已受控关闭并记录 Execution complete／hard-exit。381 源码、9 项去重 CTest 和 27 个输入／渲染自造子例通过。运行来自 `7f8e306` 后未提交源码，snapshot `6dae5f17c14c6092679aa81eb7605fdcbb1d7dcfde5bbec3a770edddab618197`，宿主 `34604c1cf9a0b48e24cad02e7804bf3fad3e477ccb3cf7cf1581da34d14f7e9f`，15 对 PE／PDB；各 DLL 身份在本地报告，不是正式发行构建。
+
+有效报告为 `.local/analysis/sdoj-render-trace-r1-valid-display-r2.json`。88 份 DISPLAY_DIAG 中 87 次 API 返回 S_OK，但 displayed_present_id／refresh／sync_qpc 全为零，实际可用显示反馈为 **零**。不能用累计 last_present_id 减零得出数千帧积压；初版 r1 报告的 display_id_gap 属于这个无效计算，不可使用。静态核对当前 SDK 的 presenter：guest 输出 mailbox 用新 ready 替换旧 ready、consumer 取最新 ready；DXGI Present 使用 interval=0／RESTART，而不是代码中固定按 FIFO 再压三帧。三个交换链资源不等于三帧延迟；当前没有物理显示时间线可量化剩余呈现延迟。
+
+对照 [SDOJ-Recomp 的说明](https://github.com/eandis/SDOJ-Recomp#input-lag) 和本地审阅的 `cc35e038` 源码：其输入补丁在 TU 正常模块 `88051DB4` 消费点额外调用 XInput 并重建玩法掩码，渲染补丁则跨入口移动回调／交换与等待并跳过旧路径。合集目前两项都没有实现。既有样本没有发现整帧旧掩码，但同 epoch 不能证明“永远最新”或证明收益来自某个合集修复；本体／TU、输入驱动和执行时序仍可能不同。原生等待和后段交换仍存在，不可直接删除 16 ms 等待来称作等价补丁。输入问题保持调查状态，当前不宣称无延迟或已修复。
+
 ## 绊地狱帧节拍与后台日志
 
 ### 最终合成提前提交与映射回退

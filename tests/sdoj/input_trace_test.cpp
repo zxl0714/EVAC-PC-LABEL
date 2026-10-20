@@ -1,4 +1,5 @@
 #include "diagnostics/input_trace_policy.h"
+#include "diagnostics/render_trace_policy.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -51,5 +52,20 @@ int main() {
     check(age && age->us == 16666 && age->frames == 1, "build-to-copy age retains guest epoch");
     check(!SinceCoreBuild(0,7,200,8) && !SinceCoreBuild(100,7,99,8) &&
           !SinceCoreBuild(100,7,200,6), "missing or regressing build cannot yield an age");
-    std::cout << passed << " SDOJ input observation checks passed\n";
+    check(RenderAddresses(1)[1] == 0x886F4CD0 && RenderAddresses(2)[1] == 0x886FD1F8 &&
+          RenderAddresses(3) == std::array<std::uint32_t,5>{}, "disc render layouts do not borrow TU globals");
+    const std::array<std::uint8_t, 4> word{0x88,0x67,0x12,0x34};
+    check(RenderWord(word) == 0x88671234 && !RenderWord(std::span(word).first(3)),
+          "render words require complete big-endian input");
+    RenderWait wait{true, 2, 7, 100, 5};
+    check(wait.Matches(7, 33432, 7), "guest frame wait retains generation and epochs");
+    check(!wait.Matches(8, 33432, 7) && !wait.Matches(7, 99, 7) && !wait.Matches(7, 33432, 4),
+          "reload and backwards clocks do not pair an old wait");
+    wait.depth = 0;
+    check(!wait.Matches(7, 33432, 7), "invalid wait depth rejected");
+    wait.depth = 17;
+    check(!wait.Matches(7, 33432, 7), "unbounded wait depth rejected");
+    wait.depth = 1; wait.active = false;
+    check(!wait.Matches(7, 33432, 7), "missing begin cannot pair a wait end");
+    std::cout << passed << " SDOJ input/render observation checks passed\n";
 }

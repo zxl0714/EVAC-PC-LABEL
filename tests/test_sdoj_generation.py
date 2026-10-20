@@ -166,8 +166,13 @@ class SdojGenerationTests(unittest.TestCase):
             'CA022100': {0x88051364: ('SdojCoreNormalBuilt', []), 0x88051D74: ('SdojCoreNormalCopy', ['r27'])},
             'CA022110': {0x880512DC: ('SdojCoreArrangeBuilt', []), 0x88051CFC: ('SdojCoreArrangeCopy', ['r25'])},
         }.items():
+            prefix = 'SdojRenderNormal' if module == 'CA022100' else 'SdojRenderArrange'
+            expected.update({address: (prefix + 'Swap', []) for address in
+                             (0x880330B4, 0x880331B4, 0x880331EC)})
+            expected.update({0x880331F0: (prefix + 'WaitBegin', ['r3']),
+                             0x88033304: (prefix + 'WaitEnd', [])})
             hooks = tomllib.loads((ROOT / f'games/sdoj/recomp/{module}-input-diagnostics.toml').read_text(encoding='utf-8'))['midasm_hook']
-            self.assertEqual(len(hooks), 2)
+            self.assertEqual(len(hooks), 7)
             for hook in hooks:
                 self.assertEqual((hook['name'], hook['registers']), expected[hook['address']])
                 self.assertFalse(hook.get('return', False))
@@ -178,6 +183,16 @@ class SdojGenerationTests(unittest.TestCase):
         self.assertIn('GetProcAddress', bridge)
         self.assertIn('extern "C" __declspec(dllexport) void SdojCoreInputEvent', host)
         self.assertNotIn('REX_STORE_', bridge)
+
+    def test_render_trace_is_bounded_read_only_and_not_scanout_measurement(self):
+        source = (ROOT / 'games/sdoj/diagnostics/render_trace.cpp').read_text(encoding='utf-8')
+        self.assertIn('REXCVAR_DEFINE_BOOL(sdoj_render_trace, false,', source)
+        self.assertIn('constexpr unsigned MaxRecords = 2048;', source)
+        self.assertIn('std::try_to_lock', source)
+        self.assertIn('gate.unlock();', source)
+        self.assertIn('last_copy_not_buffer_lineage not_scanout_latency', source)
+        for forbidden in ('REX_STORE_', 'XamInputGetState(', 'SetFlagByName', 'sub_880'):
+            self.assertNotIn(forbidden, source)
 
     def test_audio_observers_keep_distinct_queues_and_original_calls(self):
         for module, prefix, sites in (

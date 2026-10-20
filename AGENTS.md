@@ -1,5 +1,18 @@
 # Development entry
 
+SDOJ now also has default-off --sdoj_render_trace=true read-only module probes.
+The closed .local/sdoj-render-trace-r1 run reached Xbox360/Shot training Stage1;
+Right was observed with a live craft before/after, Left's post-action was Continue.
+381 source / nine deduplicated CTests and 27 input/render subchecks pass.
+460 render observations include 114 paired depth-1 waits, all one guest epoch.
+The live Right edge took 4900 us to raw copy, 360 us to core copy, then 16515 us
+to the next observed buffer publication. That is NOT buffer lineage or scanout.
+Do not claim either upstream lag patch is implemented or that fresh same-epoch
+masks prove no input lag / a deliberate collection fix. Original late rendering
+is unchanged. DXGI returns S_OK with all-zero display feedback here: usable
+samples are zero, not a 10,000-frame queue. Use the valid-display-r2 report only.
+See the render-order section in docs/ANALYSIS.md before acting on this data.
+
 The unified five-game candidate built successfully at 0dcefea: 53 Xbox 360,
 six PS4 and two launcher PE/PDB pairs; all three receipts verified. The 24
 deduplicated Xbox 360/common CTests pass. Actual normal-contract offline windows
