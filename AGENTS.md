@@ -1,5 +1,14 @@
 # Development entry
 
+The unified five-game candidate built successfully at 0dcefea: 53 Xbox 360,
+six PS4 and two launcher PE/PDB pairs; all three receipts verified. The 24
+deduplicated Xbox 360/common CTests pass. Actual normal-contract offline windows
+in .local/v03-five-game-check-r1 reached Futari and G2 title screens with the
+official Japanese captions; both processes and launch wrappers are closed.
+This closes the outstanding window-title observation, not gameplay retesting
+or package acceptance. This documentation commit still needs final same-commit
+recertification before packaging. Do not restart DaiOuJou's accepted mode tests.
+
 The user has accepted DaiOuJou as sufficient for this release ("大往生可以了").
 Stop adding mode/death/respawn tests. Preserve the actual coverage below;
 unobserved details are deferred, not newly passed. The just-started native-hold-r4
@@ -32,7 +41,8 @@ See docs/ANALYSIS.md for sites, identities, aggregate/menu limits and pairing.
 Do not blindly transplant TU re-sampling patches. Later logic/render/scanout and
 the missing small-enemy sound cue remain open; this is not a latency fix.
 378 source / eight deduplicated native CTests (20 input subcases) pass. The
-diagnostic process is closed. SDOJ's Japanese title was observed; Futari/G2 remain.
+diagnostic process is closed. All five Japanese game window titles now have
+actual observations, including the normal-contract Futari/G2 candidate check.
 
 All visible DaiOuJou principal game entries now have representative player
 segments. New EX, Black Label, extra III, Challenge and Osarai entries/returns
