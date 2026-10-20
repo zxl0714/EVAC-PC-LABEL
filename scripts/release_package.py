@@ -77,7 +77,12 @@ def tree_files(root):
     result = []
     for directory, folders, files in os.walk(root, followlinks=False):
         for name in [*folders, *files]:
-            reject_link(Path(directory) / name)
+            # The root's entire ancestor chain was checked above. Each child
+            # is checked before os.walk can descend into it, so rechecking all
+            # those same ancestors for every file adds no traversal protection.
+            child = Path(directory) / name
+            if child.is_symlink() or child.is_junction():
+                raise ValueError(f'Linked source/output: {child.name}')
         result.extend(Path(directory) / name for name in files)
     return sorted(result)
 

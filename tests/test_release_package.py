@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -20,6 +21,67 @@ class ReleaseTests(unittest.TestCase):
 
     def tearDown(self):
         self.temporary.cleanup()
+
+    def test_tree_checks_root_ancestors_once_and_returns_all_nested_files(self):
+        directory = self.root / '普通目录 with spaces'
+        expected = []
+        for name in ('a.txt', 'nested/b.txt', 'nested/deeper/c.txt'):
+            file = directory / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(b'authored tree fixture')
+            expected.append(file)
+        with patch.object(release, 'reject_link', wraps=release.reject_link) as checked:
+            self.assertEqual(release.tree_files(directory), sorted(expected))
+        checked.assert_called_once_with(directory)
+
+    def tree_link(self, path, target):
+        if os.name == 'nt':
+            quote = lambda value: "'" + str(value).replace("'", "''") + "'"
+            command = "$ErrorActionPreference='Stop'; New-Item -ItemType Junction -Path " + quote(path) + ' -Target ' + quote(target) + ' | Out-Null'
+            subprocess.run(['powershell', '-NoProfile', '-Command', command], check=True, capture_output=True)
+        else:
+            path.symlink_to(target, target_is_directory=True)
+
+    def test_tree_rejects_linked_root_parent_and_nested_directory(self):
+        target = self.root / 'outside'
+        (target / 'nested').mkdir(parents=True)
+        sentinel = target / 'nested/unchanged.txt'
+        sentinel.write_bytes(b'authored sentinel')
+        for location in ('root', 'parent', 'nested'):
+            with self.subTest(location=location):
+                alias = self.root / ('alias-' + location)
+                if location == 'nested':
+                    directory = self.root / 'source'
+                    directory.mkdir()
+                    alias = directory / 'linked-child'
+                else:
+                    directory = alias / 'nested' if location == 'parent' else alias
+                self.tree_link(alias, target)
+                try:
+                    with self.assertRaisesRegex(ValueError, 'Linked source/output'):
+                        release.tree_files(directory)
+                    self.assertEqual(sentinel.read_bytes(), b'authored sentinel')
+                finally:
+                    alias.rmdir() if os.name == 'nt' else alias.unlink()
+
+    def test_tree_rejects_file_symlink_without_following_it(self):
+        directory = self.root / 'file-links'
+        directory.mkdir()
+        target = self.root / 'sentinel.txt'
+        target.write_bytes(b'authored sentinel')
+        link = directory / 'linked-file'
+        try:
+            link.symlink_to(target)
+        except OSError as error:
+            if os.name == 'nt' and getattr(error, 'winerror', None) == 1314:
+                self.skipTest('Windows file symlink privilege is unavailable; real junction cases remain covered')
+            raise
+        try:
+            with self.assertRaisesRegex(ValueError, 'Linked source/output'):
+                release.tree_files(directory)
+            self.assertEqual(target.read_bytes(), b'authored sentinel')
+        finally:
+            link.unlink()
 
     def package(self, version='0.2-test'):
         directory = self.root / '发行 中文 space'

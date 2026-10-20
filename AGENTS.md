@@ -1,5 +1,30 @@
 # Development entry
 
+v0.3 is now frozen at tag v0.3 / b8807ca623f0d72bb0f7707e62a7e700c0d09ec8.
+Its actual Internal/Public/source ZIPs passed their one extraction acceptance,
+including 25 SDK and 19 PS4 source dependencies. The final Public package also
+passed normal SDOJ GUI startup, fresh native save creation and return to the
+launcher with only that game's data. The actual Internal launcher screenshot
+is .local/v03-delivery/launcher-v0.3.jpg. Reuse these records; do not rebuild or
+re-extract the archives for the following documentation/tooling commit.
+OSS upload is running in the recorded local session; poll it instead of starting
+another upload. QQ delivery remains pending: the client is at an authentication
+screen and the user has been asked to log in manually. No game is running.
+
+Release communication should describe player-visible additions, improvements
+and usage. Include only concrete known issues that affect use and their remedy;
+keep coverage caveats and detailed evidence in development documents instead
+of repeating defensive language in announcements.
+
+The user requires a lean release workflow. Certify shared components once,
+assemble each final flavor once, and perform one fresh extraction acceptance
+per final ZIP. Keep successful acceptance by archive SHA-256 and reuse it while
+that archive is unchanged. Compare shared runtime hashes across flavors instead
+of rerunning the same games in each. Revalidate only changed/failed artifacts.
+Uploading a frozen accepted ZIP does not require downloading or extracting it
+again; verify local identity, remote size/metadata and the public checksum.
+Post-release documentation or delivery records do not trigger package rebuilds.
+
 The v0.3 SDOJ latency research now has a bounded result, not a claimed fix:
 poll/copy, original render/wait observations, upstream code comparison and version
 mapping are documented. Both upstream latency patches remain unimplemented;
