@@ -117,7 +117,7 @@ py -3.12 scripts/analyze_run.py logs/espgaluda2/<单次运行目录> --output .l
 
 随后用 Capstone 5.0.7 的 PPC32 大端反汇编核对该函数：本体 `8218E160–8218E264` 对应补丁 `8218EDC8–8218EEE0`，原 vtable 的 +28 槽和函数范围记录交叉支持对应关系。补丁在 loop 标志开启且已有循环起点的分支中，增加从音频元数据读取循环长度、填入提交 buffer 的逻辑，并随结构变化将一个格式字段读取由 +164 改为 +168。32 位参数布局与 [Microsoft XAUDIO2_BUFFER](https://learn.microsoft.com/en-us/windows/win32/api/xaudio2/ns-xaudio2-xaudio2_buffer) 的 LoopBegin／LoopLength／LoopCount 对应；新增填入的是循环区间长度，不是补入一段缺失音效。原生 raw-file Play 在 `8218E268` 保存 loop 标志，随后通过 `8218E3A0` 调用上述 vtable 槽。由此推断它对循环音乐的起点／长度处理有直接关系；是否属于官方更新或额外定制，仍缺一份干净 TU1 主程序用于区分。
 
-当前已追到的 SDSE 音效则经 `8217B8B0 → 82176868 → 8218FF10 → 8218CD50` 的音效库 cue 路径，而非上述 raw-file loop 分支。补丁不带两套玩法模块或替换音效库，尚无证据表明它专门补回小飞机击毁声；也不排除其他尚未审阅的版本差异。下一步保留本体，先核对具体敌机的 cue 及通道 4 等待；只有确认独立可移植的必要逻辑后才评估适配，不直接换 XEX、照抄偏移或把补丁放入受支持数据清单。静态报告包含 `headers.json`、`audio-family.json`、`loop-difference.json`，派生正文和补丁文件均不进入 Git／Public 包。
+当前已追到的 SDSE 音效则经 `8217B8B0 → 82176868 → 8218FF10 → 8218CD50` 的音效库 cue 路径，而非上述 raw-file loop 分支。补丁不带两套玩法模块或替换音效库，尚无证据表明它专门补回小飞机击毁声；也不排除其他尚未审阅的版本差异。用户在得知分析结果后认为可能本来正常：本版保留该反馈为未确认，不继续扩大具体 cue／通道等待调查，不作推测性修改。原本体继续使用，不直接换 XEX、照抄偏移或把补丁放入受支持数据清单；这不是音效正常或修复的证明。静态报告包含 `headers.json`、`audio-family.json`、`loop-difference.json`，派生正文和补丁文件均不进入 Git／Public 包。
 
 ### 本体输入轮询与复制的只读探针
 

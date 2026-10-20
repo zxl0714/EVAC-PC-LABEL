@@ -1,12 +1,23 @@
 # Development entry
 
+The user has accepted DaiOuJou as sufficient for this release ("大往生可以了").
+Stop adding mode/death/respawn tests. Preserve the actual coverage below;
+unobserved details are deferred, not newly passed. The just-started native-hold-r4
+was closed without adding gameplay coverage. Continue the remaining collection
+checks and release gates, not another DaiOuJou mode campaign.
+
+After the music-patch analysis the user considers that the SDOJ sound may already
+be normal. Keep the small-enemy sound as unconfirmed feedback, make no speculative
+audio changes and do not expand that investigation for v0.3. This is not proof of
+normal sound or a claimed fix. The music patch remains uninstalled/deferred.
+
 SDOJ now has init-only, default-off --sdoj_audio_trace=true probes for module
 sound requests and the actual 44-byte engine push/pop/native-play path. The
 offline 9786-point Xbox360 replay returned naturally; both diagnostic processes
 are closed. 380 source / nine deduplicated CTests pass (12 audio subchecks).
 Slot-aware analysis invalidates pending observations at a proven-empty queue:
 use sdoj-audio-engine-r2-slot-r3.json, not the earlier false seconds-long pairing.
-Channel 4 cues have 103–122 ms queue ages; exact small-enemy death remains open.
+Channel 4 cues have 103–122 ms queue ages; exact small-enemy death is unconfirmed.
 The user's music-patch analysis request is now scoped in: read-only inspection
 found a newer main XEX and raw-file loop-length changes, not replacement SDSE
 resources. No patch was installed, no normal audio/queue/input behavior changed.
@@ -26,7 +37,7 @@ diagnostic process is closed. SDOJ's Japanese title was observed; Futari/G2 rema
 All visible DaiOuJou principal game entries now have representative player
 segments. New EX, Black Label, extra III, Challenge and Osarai entries/returns
 and CUSTOM cold settings readback are recorded in docs/TEST_MATRIX.md. Smaller
-death/respawn or applicable miss gaps remain; do not mark the whole gate done.
+death/respawn or applicable miss gaps remain as deferred coverage after acceptance.
 The opt-in native --enter diagnostic supports Shift+H bounded Circle hold;
 ordinary player input stays unchanged. Do not redo accepted online baselines.
 
