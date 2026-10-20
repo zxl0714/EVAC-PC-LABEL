@@ -1,5 +1,18 @@
 # Development entry
 
+SDOJ now has init-only, default-off --sdoj_audio_trace=true probes for module
+sound requests and the actual 44-byte engine push/pop/native-play path. The
+offline 9786-point Xbox360 replay returned naturally; both diagnostic processes
+are closed. 380 source / nine deduplicated CTests pass (12 audio subchecks).
+Slot-aware analysis invalidates pending observations at a proven-empty queue:
+use sdoj-audio-engine-r2-slot-r3.json, not the earlier false seconds-long pairing.
+Channel 4 cues have 103–122 ms queue ages; exact small-enemy death remains open.
+The user's music-patch analysis request is now scoped in: read-only inspection
+found a newer main XEX and raw-file loop-length changes, not replacement SDSE
+resources. No patch was installed, no normal audio/queue/input behavior changed.
+See docs/ANALYSIS.md before continuing. Do not call structural matches semantic
+equivalence or attribute TU/custom differences without a clean TU reference.
+
 SDOJ's opt-in read-only input observer now includes both disc-base gameplay
 modules. Actual Xbox360/Shot training and Arcade HD training launches show
 fresh direction masks built and copied in the same guest VBlank epoch (10–23 us

@@ -82,7 +82,7 @@ class SdojGenerationTests(unittest.TestCase):
         for module, address in (('CA022100', '0x880943E8'), ('CA022110', '0x880952F0')):
             filename = module + '-functions.toml'
             manifest = next(item for item in self.manifest['modules'] if item['guest_path'] == module + '.bin')
-            self.assertEqual(manifest['includes'], [filename, module + '-input-diagnostics.toml'])
+            self.assertEqual(manifest['includes'], [filename, module + '-input-diagnostics.toml', module + '-audio-diagnostics.toml'])
             callbacks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['functions']
             self.assertEqual(set(callbacks), {address})
             self.assertEqual(callbacks[address]['size'], 4)
@@ -178,6 +178,43 @@ class SdojGenerationTests(unittest.TestCase):
         self.assertIn('GetProcAddress', bridge)
         self.assertIn('extern "C" __declspec(dllexport) void SdojCoreInputEvent', host)
         self.assertNotIn('REX_STORE_', bridge)
+
+    def test_audio_observers_keep_distinct_queues_and_original_calls(self):
+        for module, prefix, sites in (
+            ('CA022100','SdojAudioNormal',{0x8806E960,0x8806E9F4,0x8806EA84,0x8806EB24,0x88070CD8,0x88070DB0}),
+            ('CA022110','SdojAudioArrange',{0x8806F348,0x8806F3DC,0x8806F46C,0x8806F50C,0x88071588,0x88071660}),
+        ):
+            hooks=tomllib.loads((ROOT / f'games/sdoj/recomp/{module}-audio-diagnostics.toml').read_text(encoding='utf-8'))['midasm_hook']
+            self.assertEqual(len(hooks),14)
+            self.assertEqual({h['address'] for h in hooks if h['address']>=0x88060000},sites)
+            self.assertTrue(all(h['name'].startswith(prefix) and not h.get('return',False) for h in hooks))
+            dispatch=[h for h in hooks if h['name'].endswith('Dispatch')]
+            self.assertEqual(len(dispatch),4)
+            self.assertTrue(all(h['registers'][:5]==['r29','r4','r28','r5','f1'] for h in dispatch))
+            self.assertEqual({h['address'] for h in hooks if h['name'].endswith('Returned')},
+                             {0x8803377C, 0x88033910})
+        host=(ROOT/'games/sdoj/diagnostics/audio_trace.cpp').read_text(encoding='utf-8')
+        bridge=(ROOT/'games/sdoj/diagnostics/audio_module_trace.cpp').read_text(encoding='utf-8')
+        self.assertIn('REXCVAR_DEFINE_BOOL(sdoj_audio_trace, false,',host)
+        self.assertIn('std::try_to_lock',host)
+        self.assertIn('constexpr unsigned MaxRecords = 4096;',host)
+        self.assertIn('return_is_untyped',host)
+        for source in (host,bridge):
+            self.assertNotIn('REX_STORE_',source)
+            self.assertNotIn('SetThreadPriority',source)
+
+    def test_audio_engine_observers_bracket_original_push_and_play_joins(self):
+        filename='audio-diagnostics-overrides.toml'
+        self.assertIn(filename,self.manifest['entrypoint']['includes'])
+        hooks=tomllib.loads((ROOT/'games/sdoj/recomp'/filename).read_text(encoding='utf-8'))['midasm_hook']
+        self.assertEqual({h['address'] for h in hooks}, {
+            0x8217D4A8,0x8217D514,0x821900B8,0x82190160,
+            0x821906FC,0x82190774,0x821908C4,0x8219093C,0x82190778,0x82190940})
+        self.assertEqual({h['address'] for h in hooks if h['name'].endswith('PlayReturned')},
+                         {0x82190778,0x82190940})
+        self.assertTrue(all(not h.get('return',False) for h in hooks))
+        self.assertTrue(all(h['registers']==['r31','f1','f27','f30','f31','r11']
+                            for h in hooks if h['name'].endswith('Play')))
 
 
 if __name__ == '__main__':

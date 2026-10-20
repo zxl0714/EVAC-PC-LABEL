@@ -1,0 +1,59 @@
+# Independently reviewed Arrange queue; playback wrapper code matches the disc Normal module.
+[[midasm_hook]]
+address = 0x8806F348
+name = "SdojAudioArrangeEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8806F3DC
+name = "SdojAudioArrangeEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8806F46C
+name = "SdojAudioArrangeEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8806F50C
+name = "SdojAudioArrangeEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x88071588
+name = "SdojAudioArrangeConsumer"
+registers = []
+[[midasm_hook]]
+address = 0x88071660
+name = "SdojAudioArrangeHead"
+registers = ["r30"]
+[[midasm_hook]]
+address = 0x88033680
+name = "SdojAudioArrangeRequest"
+registers = ["r3", "r4", "r5", "r6"]
+[[midasm_hook]]
+address = 0x88033810
+name = "SdojAudioArrangeRequest"
+registers = ["r3", "r4", "r5", "r6"]
+[[midasm_hook]]
+address = 0x88033744
+name = "SdojAudioArrangeDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r11"]
+[[midasm_hook]]
+address = 0x88033778
+name = "SdojAudioArrangeDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r10"]
+[[midasm_hook]]
+address = 0x880338D4
+name = "SdojAudioArrangeDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r11"]
+[[midasm_hook]]
+address = 0x8803390C
+name = "SdojAudioArrangeDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r10"]
+# Common joins: both bank and raw-file branches retain r3 here. Instrumenting
+# the bank branch's earlier return as well would count that dispatch twice.
+[[midasm_hook]]
+address = 0x8803377C
+name = "SdojAudioArrangeReturned"
+registers = ["r3"]
+[[midasm_hook]]
+address = 0x88033910
+name = "SdojAudioArrangeReturned"
+registers = ["r3"]

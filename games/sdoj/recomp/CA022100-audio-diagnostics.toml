@@ -1,0 +1,59 @@
+# Disc-only read-only sound observations. Original calls and returns remain.
+[[midasm_hook]]
+address = 0x8806E960
+name = "SdojAudioNormalEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8806E9F4
+name = "SdojAudioNormalEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8806EA84
+name = "SdojAudioNormalEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8806EB24
+name = "SdojAudioNormalEnqueued"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x88070CD8
+name = "SdojAudioNormalConsumer"
+registers = []
+[[midasm_hook]]
+address = 0x88070DB0
+name = "SdojAudioNormalHead"
+registers = ["r30"]
+[[midasm_hook]]
+address = 0x88033680
+name = "SdojAudioNormalRequest"
+registers = ["r3", "r4", "r5", "r6"]
+[[midasm_hook]]
+address = 0x88033810
+name = "SdojAudioNormalRequest"
+registers = ["r3", "r4", "r5", "r6"]
+[[midasm_hook]]
+address = 0x88033744
+name = "SdojAudioNormalDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r11"]
+[[midasm_hook]]
+address = 0x88033778
+name = "SdojAudioNormalDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r10"]
+[[midasm_hook]]
+address = 0x880338D4
+name = "SdojAudioNormalDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r11"]
+[[midasm_hook]]
+address = 0x8803390C
+name = "SdojAudioNormalDispatch"
+registers = ["r29", "r4", "r28", "r5", "f1", "r10"]
+# Common joins: both bank and raw-file branches retain r3 here. Instrumenting
+# the bank branch's earlier return as well would count that dispatch twice.
+[[midasm_hook]]
+address = 0x8803377C
+name = "SdojAudioNormalReturned"
+registers = ["r3"]
+[[midasm_hook]]
+address = 0x88033910
+name = "SdojAudioNormalReturned"
+registers = ["r3"]
