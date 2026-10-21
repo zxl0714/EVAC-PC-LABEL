@@ -1,5 +1,15 @@
 # Development entry
 
+Latest user request: make SDOJ default to 1V and replace the local v0.3.1
+Update with a matching new-build ZIP. This overrides older default-3 and
+input-check-before-default restrictions. Change the built-in missing-key
+default and new-config template, preserve explicit 1/2/3 preferences, update
+tests/player docs and perform a bounded cold configuration/overlay check.
+Ordinary desktop input/focus remains deferred, not newly passed. Do not resume
+the replay campaign or retry Taskmgr. Preserve the earlier v0.3.1 archive and
+tag; put the corrected build in a new release directory and use a new tag.
+No OSS upload or QQ post is requested.
+
 Current user request supersedes the older no-package restriction: produce a
 v0.3.1 Update ZIP that extracts directly over an installed v0.3 directory.
 Ship certified runnable components and player documentation, with no ROM,

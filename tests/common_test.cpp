@@ -55,14 +55,16 @@ struct Fixture {
   }
 };
 void SettingsChecks(Fixture& fixture) {
-    Require(ParseSettings("", "sdoj").sdoj_frame_delay == 3, "Frame Delay keeps original until balanced acceptance");
+    Require(ParseSettings("", "sdoj").sdoj_frame_delay == 1, "Missing Frame Delay defaults to low latency");
+    Require(ParseSettings(DefaultConfig(), "sdoj").sdoj_frame_delay == 1,
+            "Frame Delay template differs from the built-in default");
     for (unsigned mode : {1u, 2u, 3u})
         Require(ParseSettings("[game.sdoj]\nframe_delay="+std::to_string(mode), "sdoj").sdoj_frame_delay == mode,
                 "SDOJ frame delay integer selection");
     for (const auto* value : {"0", "4", "-1", "2V", "balanced", "2.0", "2junk", ""})
         Reject([&] { ParseSettings(std::string("[game.sdoj]\nframe_delay=")+value, "sdoj"); },
                "Invalid SDOJ frame delay accepted");
-    Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 3,
+    Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 1,
             "Another game interpreted SDOJ frame delay");
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
@@ -104,6 +106,7 @@ void SettingsChecks(Fixture& fixture) {
             !ValidUtf8("\xF4\x90\x80\x80") && !ValidUtf8("\xE2\x82") && ValidUtf8("\xF0\x9F\x8E\xAE"),"UTF-8 bounds");
     const auto path=EnsureConfig(fixture.root);
     Require(path==fixture.root/"user-data/config.ini" && LoadSettings(path,"espgaluda2").nickname=="Player","First-launch configuration");
+    Require(LoadSettings(path,"sdoj").sdoj_frame_delay==1,"New configuration did not select 1V");
     Write(path,"; preserve comments and future fields\n[future]\nextra=unchanged\n[community]\nnickname=友人\n");
     const auto hash=Sha256(path);
     EnsureConfig(fixture.root);
@@ -120,6 +123,7 @@ void MigrationChecks() {
     Require(EnsureConfig(fixture.root)==current && !fs::exists(legacy),"Legacy config was not moved");
     Require(Ini::ReadText(current)==before,"Migration changed original config bytes");
     const auto ini=Ini::Load(current);
+    Require(ResolveSettings(ini,"sdoj").sdoj_frame_delay==1,"Legacy config without Frame Delay did not select 1V");
     Require(ResolveSettings(ini,"futari").nickname=="友人" && ResolveSettings(ini,"futari").fullscreen &&
             ResolveSettings(ini,"futari").keyboard[4].keys[0]==96 &&
             Paths(fixture.root,"futari",ini.DataDirectory(FindGame("futari"))).data==fixture.root/"game-data/futari",
@@ -129,6 +133,15 @@ void MigrationChecks() {
             "Legacy config overwrote new configuration");
     Write(current,"[collection]\nconfig_version=99\n");
     Reject([&]{Ini::Load(ConfigPath(fixture.root));},"Invalid current configuration fell back to legacy");
+    for (unsigned mode : {1u,2u,3u}) {
+        Fixture explicit_mode;
+        const auto old=explicit_mode.root/"config.ini";
+        const std::string text="; preserve explicit preference\r\n[game.sdoj]\r\nframe_delay = "+std::to_string(mode)+"\r\n";
+        Write(old,text);
+        const auto migrated=EnsureConfig(explicit_mode.root);
+        Require(Ini::ReadText(migrated)==text && LoadSettings(migrated,"sdoj").sdoj_frame_delay==mode,
+                "Migration replaced an explicit Frame Delay preference");
+    }
 }
 void PreferenceChecks(Fixture& fixture) {
     const auto config=EnsureConfig(fixture.root);

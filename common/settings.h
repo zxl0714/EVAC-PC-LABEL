@@ -18,7 +18,7 @@ struct Binding {
 struct Settings {
     bool fullscreen{}, vsync{true}, gamepad_enabled{true}, community_enabled{true};
     double deadzone{0.20}, volume{1.0};
-    unsigned sdoj_frame_delay{3};
+    unsigned sdoj_frame_delay{1};
     std::string log_level{"info"}, endpoint{"https://xiaolu.life/cave/api/v1"}, nickname{"Player"};
     std::array<Binding,16> keyboard;
 };
