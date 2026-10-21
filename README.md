@@ -1,139 +1,127 @@
 # EVAC PC LABEL
 
-CAVE 游戏的 Windows PC 移植合集，原名 CAVE PC Collection。一个启动器、一份 config.ini，按需安装自己拥有的游戏数据，各作品分别保存存档、录像和日志。
+将 CAVE 的经典弹幕射击游戏带到 Windows PC。
 
-项目正式名称统一为 EVAC PC LABEL。启动器、程序入口和发行包的整体更名，
-以及新的单目录游戏数据布局，纳入 v0.4 实施计划；当前已发布的 v0.3.2
-仍使用下文所述的原程序名称和数据结构。旧版下载链接保持不变。
+EVAC PC LABEL 是一个非官方的 PC 移植合集，原名 CAVE PC Collection。通过同一个启动器选择游戏，用一份配置管理显示、声音、键盘、手柄和社区昵称。只需准备想玩的作品，无须安装整个合集的游戏数据。
 
-## v0.3.2 覆盖更新
+目前已接入五款作品，并提供存档、录像和社区排行榜。各游戏使用专门适配的 PC 运行时，无须另外安装 Xbox 360 或 PS4 模拟器。
 
-修复《怒首領蜂 大往生 臨廻転生》AC-CHALLENGE RANKING 的网络错误，
-支持挑战累计积分提交、榜单翻页和查看本人排名。挑战榜按原游戏规则只传积分，
-不附带录像，普通模式成绩与录像流程不变。
+[开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
-补接绊地狱 CUSTOM 的综合、Type-A 和 Type-B 榜，支持原生成绩提交、
-读榜和录像上传下载。CUSTOM 按原作使用独立榜，录像保留原始设置；
-续关、双人和练习等上榜资格继续由游戏判断。
+## 支持的游戏
 
-将更新 ZIP 直接覆盖到 v0.3 或 v0.3.1 目录，继续沿用游戏数据、配置和存档。
-本版包含下述 v0.3.1 更新，开发出包命令为
-`./scripts/Release.ps1 -Flavor Update -Version 0.3.2`。
+| 游戏 | 常用简称 | 支持的数据版本 |
+| --- | --- | --- |
+| 虫姫さまふたり Ver.1.5 | 虫姬二／Futari | Xbox 360；可选 Black Label、Ver.1.01 DLC |
+| エスプガルーダII ブラックレーベル | G2／Espgaluda II | Xbox 360 |
+| ケツイ Deathtiny ～絆地獄たち～ | 绊地狱／Ketsui | PS4，CUSA09062，本体与 1.02 更新的双目录数据 |
+| 怒首領蜂最大往生 | 最大往生／SDOJ | Xbox 360，原版光盘数据 |
+| 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.04 完整合并数据 |
 
-## v0.3.1 覆盖更新
+エスプレイドΨ（ESP Ra.De.）计划后续加入，启动器中标为 Coming Soon。
 
-v0.3.1 以程序更新包交付：关闭游戏和启动器，将 ZIP 内容直接解压到原 v0.3
-目录，替换同名文件即可。继续使用原游戏数据、DLC、存档和录像；更新包不携带
-配置文件，首次启动会将旧根目录 config.ini 原样迁入 user-data/config.ini。
-
-本次包含 CN / EN / JP 文字语言栏、底部工具入口、新的最大往生横幅与配置目录
-迁移。启动器左上角显示 EVAC PC LABEL 标识，EXE、标题栏和任务栏使用相同字标。
-最大往生可在 `[game.sdoj]` 中设置 `frame_delay = 1 / 2 / 3`（填写一个整数），
-默认采用 1V 低延迟档，也可选择 2V 兼容档或 3V 原始路径；已有显式配置不变。
-覆盖步骤见配套 README.txt。
-
-开发出包命令为 `./scripts/Release.ps1 -Flavor Update -Version 0.3.1`。
-压缩包根目录直接包含启动器和 runtime，不需要再移动外层文件夹。对应维护源码
-按包内 SOURCE.txt 单独提供，旧 v0.3 发行文件保留原样。
-当前字标图标修订版的源码标签为 `v0.3.1-logo`，最大往生默认仍为 1V。
-
-## v0.3
-
-本版加入《怒首領蜂 大往生 臨廻転生》，目前支持五款游戏：
-
-| 游戏 | 游戏 ID |
-| --- | --- |
-| 虫姫さまふたり Ver.1.5 | futari |
-| エスプガルーダII ブラックレーベル | espgaluda2 |
-| ケツイ Deathtiny ～絆地獄たち～ | ketsui |
-| 怒首領蜂最大往生 | sdoj |
-| 怒首領蜂 大往生 臨廻転生 | daioujou |
-
-エスプレイドΨ（ESP Ra.De.）继续列在后续支持名单中。
-
-本次主要更新：
-
-- 大往生接入统一启动器、配置、存档和日志，支持主要游玩模式与 CUSTOM 设置保存。
-- 大往生成绩、排行榜和录像接入社区服务，使用合集昵称，无需注册。
-- 优化绊地狱、大往生的任务交接、线程调度和画面输出，改善游玩与回放中的卡顿。
-- 启动器支持中文、日文和英文；游戏统一采用日文主标题、英文副标题。
-
-发行源码固定为标签 **v0.3**、提交 **b8807ca**。Internal、Public 和对应源码附件均来自这次配套构建。详细开发与验收记录见 [验收矩阵](docs/TEST_MATRIX.md)；v0.1、v0.2 的标签和压缩包保留原样。
+同名游戏在不同平台、地区和更新版本上的数据可能不同，请按[游戏数据指南](docs/GAME_DATA.md)准备。大往生与最大往生是两款不同的作品。
 
 ## 开始游玩
 
-从 v0.3.1 起，配置集中到 `user-data/config.ini`，右上角直接点击
-`CN / EN / JP` 切换语言。配置、日志、数据和刷新入口统一位于底部。
+### 运行环境
 
-完整解压后，运行根目录 CAVE-PC-Collection.exe，选择横幅，再点击底部的“启动游戏”。启动游戏.bat 是备用入口。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生需要 Direct3D 12；绊地狱、大往生需要 Vulkan。程序运行库随玩家包附带。
 
-启动器页头可以修改全屏和排行榜昵称，右上角可切换语言。“配置文件”打开唯一的 config.ini，其他显示、音量、键盘和手柄选项在这里编辑；外部编辑保存后点“刷新”。
+### 首次使用
 
-F11／Alt+Enter 切换全屏，Alt+F4 关窗，F8 给当前日志加入时间标记。手柄由 SDL 识别，默认键盘与具体配置项见程序包的 README.txt 和 [配置模板](config/default.ini)。
+1. 将完整的 **Public 程序包**解压到一个可写文件夹，保留包内全部文件。游戏数据需自行准备；GitHub 的源码 ZIP 用于开发，不是玩家程序包。
+2. 运行根目录的 `CAVE-PC-Collection.exe`，备用入口为 `启动游戏.bat`。
+3. 选中想玩的游戏，点击底部“游戏数据…”→“选择数据目录…”，选择已经解包的游戏文件夹。也可以按下表直接放入合集。
+4. 点击“启动游戏”。首次启动会校验数据；PS4 作品还会自动准备运行文件，请等待完成。
 
-需要 Windows x64 和显卡厂商的正式驱动。虫姬二、G2、最大往生使用 D3D12；绊地狱和大往生使用 Vulkan。运行库随程序包附带。
+当前发布的程序仍使用 `CAVE-PC-Collection.exe` 这一名称。EVAC PC LABEL 的程序与发行包更名安排在 v0.4，旧版本可继续使用。
 
-## 游戏数据
+### 游戏数据放在哪里
 
-只安装一款游戏也可以使用，缺少其他作品的数据不影响启动器。默认目录如下，也可通过启动器的“游戏数据…”选择现有目录：
+最省空间的方式是通过“选择数据目录…”使用现有文件夹，原文件不会被移动或修改。希望集中存放时，可选择“复制到合集…”复制到默认位置；该位置须为空。
 
-| 游戏 ID | 默认位置与布局 |
+| 游戏 | 默认目录 | 在所选目录中应直接看到 |
+| --- | --- | --- |
+| 虫姬二 | `game-data/futari/` | `default.xex`、`media/` 等完整资源 |
+| G2 | `game-data/espgaluda2/` | `default.xex`、`dat*.xex` 等完整资源 |
+| 绊地狱 | `game-data/ketsui/` | `CUSA09062-app/` 与 `CUSA09062-patch/` |
+| 最大往生 | `game-data/sdoj/` | `default.xex`、`CA022100.bin`、`CA022110.bin` 等完整资源 |
+| 大往生 | `game-data/daioujou/` | `eboot.bin`、各 `.prx` 及完整资源 |
+
+默认目录可自行创建，只放需要的游戏即可。这里的文件名用于判断应选哪一层，其他资源也须完整保留；启动器会检查文件内容，而非仅凭文件夹名识别。
+
+ISO／PKG 需先提取为游戏文件；启动器接收的是解包目录。普通 ZIP 若包含已经提取的游戏文件，解压后选择实际数据根目录，避免多套一层文件夹。
+
+绊地狱在 **v0.3.2 仍需要上述双目录与 1.02 更新**，暂不能只放本体或把补丁覆盖合并。后续单目录方案见[实施计划](docs/IMPLEMENTATION_PLAN.md)。各作品的完整目录示例、DLC 放法和识别失败处理见[游戏数据指南](docs/GAME_DATA.md)。
+
+## 配置与操作
+
+启动器页头可以修改全屏和排行榜昵称；右上角 `CN / EN / JP` 切换启动器语言。游戏本身的语言按原作提供。
+
+底部“配置文件”打开 `user-data/config.ini`，可编辑音量、键盘、手柄和联网选项。保存后在启动器点“刷新”，再启动游戏生效。完整选项见[默认配置模板](config/default.ini)。
+
+| 默认键盘操作 | 功能 |
 | --- | --- |
-| futari | game-data/futari/，default.xex 位于根目录 |
-| espgaluda2 | game-data/espgaluda2/，保留完整解包结构 |
-| ketsui | game-data/ketsui/，含 CUSA09062-app、CUSA09062-patch（1.02） |
-| sdoj | game-data/sdoj/，光盘本体的 default.xex、CA022100.bin、CA022110.bin 等资源 |
-| daioujou | game-data/daioujou/，CUSA32997／01.04 完整合并数据，eboot.bin 位于根目录 |
+| 方向键 | 方向输入 |
+| Z / X / C / V | 手柄下／右／左／上方按钮 |
+| Enter / Backspace | Start / Select（PS4 为 Touchpad） |
+| A / S、Q / W | L1 / R1、L2 / R2 |
+| F11 或 Alt+Enter | 切换全屏 |
+| Alt+F4 | 关闭游戏 |
+| F8 | 在日志中标记当前时间，方便反馈问题 |
 
-虫姬二的 Black Label／Ver1.01 放在 game-data/futari/dlc/，保留内容目录结构，也可在 [game.futari] 中指定 dlc_dir。大往生需要完整合并数据；最大往生使用受支持的原版光盘数据，音乐补丁暂未接入。
+射击、炸弹、换人等具体动作由各游戏内的按键设置决定。手柄和摇杆通过 SDL 接入，可使用其支持的 XInput、PlayStation 等设备。
 
-两款 PS4 作品首次启动会在 prepared/ 下自动准备运行镜像。原始游戏数据只读，准备文件和各作品的写入目录分别管理。
+## 社区排行榜
 
-## 联网、存档与反馈
+联网默认开启，无须注册。先在启动器将 `Player` 改成便于辨认的昵称，再通过游戏内的排行榜和录像界面使用；昵称会显示在社区榜单中。
 
-联网默认开启，昵称默认为 Player，可在启动器修改。在 config.ini 的 [community] 中关闭 enabled 即可离线游玩；默认 endpoint 为 https://xiaolu.life/cave/api/v1。
+这是合集的社区服务，不需要登录 Xbox Live 或 PlayStation Network。各作品使用独立榜单，上榜资格和适用录像流程沿用游戏规则。
 
-五款游戏各自使用独立榜单，通过原生界面提交成绩、看榜及上传／下载适用录像。最大往生保留游玩赚金币、商店购买的原生解锁方式。团队评分及各模式的排名资格按 [玩家说明](config/README.player-v03.txt) 列出的支持范围使用。
-
-存档、录像等保存在 user-data/<游戏>/。从 v0.3.1 起，更新时只需保留 user-data，配置也在其中；首次启动会将旧版根目录 config.ini 原样迁入，已有新位置配置时优先使用新配置。配置里的相对数据路径仍相对合集根目录。修改游戏内设置或在最大往生商店购买后，退出相应页面并等自动保存完成再关窗。
-
-首次从 v0.3 换目录升级时，先把旧根目录的 config.ini 放进旧 user-data，再整体转移到新版本；在原目录更新则由首次启动自动迁移。
-
-反馈问题时请附游戏、模式、角色和操作步骤，并将 logs/<游戏>/ 最新的 run-* 文件夹压缩发送。F8 可标记问题发生时间，release.json 可帮助对应程序版本。
-
-## 开发
-
-工程共享启动器、配置和公共组件；Xbox 360 与 PS4 后端分别维护，各游戏保留自己的适配与数据清单。仓库不保存 ROM、生成的游戏程序正文、安装工具、玩家数据或凭据。
-
-从 [FOR_AGENT.md](FOR_AGENT.md) 开始，目录职责与步骤见 [实施计划](docs/IMPLEMENTATION_PLAN.md)，源码来源见 [迁移基线](docs/BASELINE.md)。
-
-开发环境为 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。工具脚本恢复固定 LLVM 23.1.3 等依赖。源码建议使用较短的英文目录；玩家包和游戏数据可放中文路径。
-
-~~~powershell
-./scripts/Prepare-Tools.ps1
-./scripts/Build.ps1 -Jobs 2
-./scripts/Test.ps1 -Scope All
-./out/common/bin/cave_inspect.exe --root .
+~~~ini
+[community]
+enabled = true
+endpoint = https://xiaolu.life/cave/api/v1
+nickname = Player
 ~~~
 
-以上构建公共组件和启动器，不需要 ROM。Xbox 360 作品先执行 scripts/Build-Sdk.ps1，再按 FOR_AGENT.md 提供数据、生成并编译指定游戏。检测已有数据可使用：
+将 `enabled` 改为 `false` 可离线游玩。最大往生本体中的金币与商店解锁按原作游玩进度进行。
 
-~~~powershell
-./out/common/bin/cave_inspect.exe --root . --game espgaluda2 --data-dir 'D:/Games/G2' --full
-~~~
+## 更新与备份
 
-## 打包与协作
+当前维护版本为 **v0.3.2**，修复大往生 AC-CHALLENGE 排行榜，并补齐绊地狱 CUSTOM 综合／Type-A／Type-B 榜与对应录像功能。
 
-提供三种文件：
+[下载 v0.3.2 覆盖更新包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip) · [SHA-256 校验文件](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip.sha256)
 
-- Internal：启动器、五款完整受支持数据及虫姬二 DLC、程序、符号和独立 source/.git。
-- Public：启动器、运行程序、默认配置、玩家说明和许可证；用户自行提供游戏数据。
-- Source：与程序包配套的独立源码 Git、固定 SDK／PS4 依赖和构建说明，不含 ROM，可按需提供。
+这个链接是供**已有 v0.3／v0.3.1／较早 v0.3.2 安装**使用的更新包，不是首次安装的完整程序包。关闭游戏和启动器，将 ZIP 内容直接解压到原合集目录，替换同名文件即可。更新包含此前 v0.3.1 的改动，详情见[更新记录](docs/CHANGELOG.md)。
 
-~~~powershell
-./scripts/Release.ps1 -Flavor Internal -Version 0.3
-./scripts/Release.ps1 -Flavor Public -Version 0.3
-./scripts/Release-Source.ps1 -BinaryDirectory '<已生成的程序包目录>' -OutputDirectory '<releases 下的新目录>'
-~~~
+- `user-data/`：配置、各游戏的存档、录像等。备份或换目录时，保留整个文件夹。
+- `game-data/`：自行准备的游戏数据。覆盖更新时保留；换目录安装时可一并转移，也可重新选择原数据目录。
+- `logs/`：运行日志。保留遇到问题的那次记录即可。
 
-程序包的 release.json 记录版本、源码提交和文件哈希；源码附件另外绑定对应程序包。构建与打包只生成本地产物，上传和消息通知是单独步骤。发行流程采用一次公共认证、每个最终 ZIP 一次实际解压验收；冻结后的相同文件复用验收记录，具体规则见 FOR_AGENT.md。
+旧版根目录的 `config.ini` 会在首次启动时自动迁入 `user-data/config.ini`；新位置已有配置时直接使用它。配置中的相对数据路径始终以合集根目录为起点。
+
+## 遇到问题
+
+如果提示数据缺失或版本不支持，先检查[数据指南](docs/GAME_DATA.md#无法识别时怎么检查)中的目录层级和版本要求。不要通过改文件名或删校验清单来解决版本不匹配。
+
+反馈崩溃、卡顿、音效或联网问题时，请提供：
+
+- 合集版本、游戏名称、模式与角色。
+- 从哪里进入、做了什么、实际发生什么；如方便可附截图或短视频。
+- `logs/<游戏 ID>/` 下对应的完整 `run-*` 文件夹，压缩后随反馈附上。
+
+问题发生时可按 F8 标记时间，再关闭游戏收集日志。`release.json` 记录程序版本，定位构建有疑问时可一并附上。公开分享日志前检查其中的本机路径等个人信息；原始游戏数据不需要随反馈上传。
+
+## 参与开发
+
+工程共享启动器、配置和公共组件，分别维护 Xbox 360 与 PS4 后端以及各游戏适配。源码仓库不包含游戏数据、生成的游戏程序正文或玩家存档。
+
+从 [FOR_AGENT.md](FOR_AGENT.md) 开始，可查阅环境准备、编译、运行和打包命令。提交改动前阅读 [AGENTS.md](AGENTS.md)；工作安排见[实施计划](docs/IMPLEMENTATION_PLAN.md)，已验证范围见[验收矩阵](docs/TEST_MATRIX.md)。问题反馈与代码贡献都请注明具体游戏和程序版本。
+
+## 来源与许可
+
+项目使用 ReXGlue／Xenia 相关组件、shadPS4 派生图形组件、SDL 等开源工作。维护源码的来源见[来源清单](docs/SOURCE_ORIGINS.json)，组件声明见 [ReXGlue 许可证](third_party/rexglue/LICENSE)与 [PS4 第三方说明](third_party/ps4/THIRD_PARTY_NOTICES.txt)，横幅素材来源见[素材清单](launcher/artwork.json)。各组件保留各自的许可证。
+
+发行包附带 `licenses/` 和 `SOURCE.txt`，后者说明如何取得该程序版本对应的维护源码与构建说明。公开程序包与源码附件均不附带游戏数据。

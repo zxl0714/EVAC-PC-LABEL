@@ -1,5 +1,14 @@
 # Development entry
 
+README is now a public-facing player entry rather than a development diary.
+docs/GAME_DATA.md describes the CURRENT v0.3.2 paths/versions and data import;
+docs/CHANGELOG.md holds concise player-visible release notes. Keep future v0.4
+branding and single-directory/base-only Ketsui separate from shipped behavior.
+The README's verified public download is Update only; an actual no-ROM full
+Public download and matching source entry must be provided at public release.
+Do not link internal ROM-containing packages on the public front page or invent
+a renamed repository/release URL. Documentation edits do not rebuild frozen ZIPs.
+
 Project brand is now EVAC PC LABEL (formerly CAVE PC Collection). README and
 FOR_AGENT use the new name; whole-code/build/release branding is planned for
 v0.4, including EVAC PC LABEL.exe and EVAC-PC-LABEL archive/repository naming.
