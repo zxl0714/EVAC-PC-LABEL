@@ -12,6 +12,8 @@
 
 记录在 `.local/v031-1v-{source-tests,sdk-build,build,native-tests,launcher-tests,package,overlay}.txt` 与 `.local/v031-1v-overlay-38717a1/accepted.json`。沿用既有 1V 游玩／完整录像／节奏结果，普通键盘和失焦恢复仍留在 v0.4。对应源码由 SOURCE.txt 指向本次维护提交，不将首批源码附件当成本次修订的对应附件。
 
+该默认 1V 更新包已按用户要求上传 OSS：[程序覆盖包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/CAVE-PC-Collection-v0.3.1-update.zip)、[SHA-256 校验文件](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/CAVE-PC-Collection-v0.3.1-update.zip.sha256)。上传前核对本地验收身份；公网 HEAD 为 200，大小及 SHA-256／源码／档位元数据匹配，公开校验文件一致，32 字节范围下载为 206 且 ZIP 文件头正确。未重新下载完整包或解压；交付凭据在 `.local/v031-1v-oss/receipt.json`，此次未发 QQ 通知。
+
 ## 首批 v0.3.1 覆盖更新验收
 
 更新包固定为提交 `d1b32cdb9d5f74ba7fcdf7d45505401ea83fcef6`，五款运行组件、公共 SDK、启动器和 PS4 后端完成配套构建及收据核对。开发根启动器仍在运行，因此通过 `Build.ps1 -SkipLauncherStage` 保留旧窗口，Update 包取认证的 out/ 新程序，不从运行中的旧根 EXE 取件。

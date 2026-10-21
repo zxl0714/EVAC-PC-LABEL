@@ -1,5 +1,13 @@
 # Development entry
 
+The user subsequently requested OSS upload of the accepted default-1V Update.
+Upload and public verification are complete at
+https://xiaoluoss.oss-cn-beijing.aliyuncs.com/CAVE-PC-Collection-v0.3.1-update.zip
+with its .zip.sha256 companion. Public HEAD=200, bytes/hash/source metadata and
+checksum match; a 32-byte range GET=206 confirms the ZIP header. Receipt:
+.local/v031-1v-oss/receipt.json. Do not reupload or re-extract the unchanged
+package. No QQ announcement was requested for v0.3.1.
+
 Latest user request: make SDOJ default to 1V and replace the local v0.3.1
 Update with a matching new-build ZIP. This overrides older default-3 and
 input-check-before-default restrictions. Change the built-in missing-key
