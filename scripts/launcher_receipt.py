@@ -33,7 +33,7 @@ def commit():
     return subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).decode().strip()
 
 
-def finish(state_path, build):
+def finish(state_path, build, stage_root=True):
     before = json.loads(state_path.read_text())
     if before['sourceCommit'] != commit() or before['sourceSnapshot'] != snapshot():
         raise ValueError('Launcher inputs changed during build')
@@ -55,10 +55,10 @@ def finish(state_path, build):
             reject_link(path)
             outputs.append(dict(path=path.relative_to(ROOT).as_posix(), bytes=path.stat().st_size,
                                 sha256=digest(path), codeView=identity))
-    for extension in ('exe', 'pdb'):
+    for extension in ('exe', 'pdb') if stage_root else ():
         if digest(ROOT / ('CAVE-PC-Collection.' + extension)) != digest(build / 'bin' / ('CAVE-PC-Collection.' + extension)):
             raise ValueError('Root launcher does not match this build')
-    record = dict(format=1, backend='launcher', **before, outputs=outputs)
+    record = dict(format=1, backend='launcher', **before, outputs=outputs, rootStaged=stage_root)
     pending = RECEIPT.with_name('receipt-' + uuid.uuid4().hex + '.json')
     write_json_new(pending, record); os.replace(pending, RECEIPT)
     return record
@@ -75,7 +75,7 @@ def verify():
         path = ROOT / item['path']; reject_link(path)
         if not path.resolve().is_relative_to(ROOT / 'out') or digest(path) != item['sha256']:
             raise ValueError('Launcher output differs from build receipt')
-        if path.name.startswith('CAVE-PC-Collection.') and digest(ROOT / path.name) != item['sha256']:
+        if record.get('rootStaged', True) and path.name.startswith('CAVE-PC-Collection.') and digest(ROOT / path.name) != item['sha256']:
             raise ValueError('Root launcher differs from build receipt')
     return record
 
@@ -85,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('action', choices=['begin', 'finish', 'verify'])
     parser.add_argument('--state', type=Path)
     parser.add_argument('--build', type=Path)
+    parser.add_argument('--skip-root-stage', action='store_true')
     args = parser.parse_args()
     if args.action == 'begin':
         if not args.state or not args.state.resolve().is_relative_to(ROOT / '.local'):
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     elif args.action == 'finish':
         if not args.state or not args.build:
             parser.error('finish requires --state and --build')
-        finish(args.state, args.build)
+        finish(args.state, args.build, stage_root=not args.skip_root_stage)
         print('Launcher/inspector receipt verified; 2 binary/PDB pairs.')
     else:
         verify(); print('Launcher/inspector receipt verified; 2 binary/PDB pairs.')

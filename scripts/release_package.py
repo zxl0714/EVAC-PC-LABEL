@@ -238,7 +238,8 @@ def verify_tree(directory, games=None):
     games = games or catalogue(selection)
     if release.get('format') != 1 or release.get('flavor') not in ('Internal', 'Public', 'Update') or release.get('games') != list(selection):
         raise ValueError('Invalid release identity')
-    if release['flavor'] == 'Update' and (release.get('baseVersion') != UPDATE_BASES.get(release['version'])
+    if release['flavor'] == 'Update' and (release['version'] not in UPDATE_BASES
+            or release.get('baseVersion') != UPDATE_BASES.get(release['version'])
             or release.get('preservedPaths') != list(UPDATE_PRESERVED)):
         raise ValueError('Invalid update baseline or preservation contract')
     expected = {}
@@ -381,7 +382,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
             continue
         source_name = certified_name(path)
         item = certified[source_name]
-        if path != 'runtime/launcher/cave_inspect.exe' and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
+        certified_launcher = flavor == 'Update' and path == 'CAVE-PC-Collection.exe'
+        if not certified_launcher and path != 'runtime/launcher/cave_inspect.exe' and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
             raise ValueError('Staged player component differs from certified build: ' + path)
         copy_checked(item['source'], target, 'runtime', entries, item)
     for file in crt:
@@ -400,9 +402,12 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     for source, license_name in (('tools/sdk-source.lock.json', 'sdk-sources.json'),
                          ('tools/ps4-source.lock.json', 'ps4-sources.json')):
         copy_checked(ROOT / source, directory / 'licenses' / license_name, 'license', entries)
+    source_location = ('覆盖更新保留旧 source/ 目录，其中源码不会自动更新。继续开发前请拉取\n'
+                       '上述提交，或使用本版对应源码附件。\n' if flavor == 'Update' else
+                       '内部包的 source/ 对应同一提交。\n')
     source_text = ('CAVE PC Collection\n\n对应维护源码与构建说明：\n' +
         'https://github.com/zxl0714/CAVE-PC-Collection/tree/' + commit + '\n\n' +
-        '内部包的 source/ 对应同一提交。若没有仓库访问权限，请联系提供本包的人获取\n' +
+        source_location + '若没有仓库访问权限，请联系提供本包的人获取\n' +
         '对应版本的维护源码、依赖版本与构建说明。原始游戏数据不在源码 Git 中。\n' +
         '各组件保留原许可证，完整声明见 licenses/。\n')
     text_new(directory / 'SOURCE.txt', source_text, 'documentation', entries)
