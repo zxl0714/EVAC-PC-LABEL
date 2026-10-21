@@ -40,7 +40,16 @@ public:
         if(!logic)return true; // Native initialization or a no-parse wrapper.
         auto* entry=Find(logic);
         if(!entry || (entry->sampled && entry->values!=values))return false;
-        entry->values=values;entry->sampled=true;return true;
+        entry->values=values;entry->sampled=true;
+        // Tick fixes the ORIGINAL source identity, not the time by which the
+        // optimized parser must have finished. If parsing happens later in
+        // this same video frame, settle that exact source before the native
+        // late wake. Never substitute a different/younger parsed batch.
+        if(missing_==logic) {
+            consumed_=logic;missing_=0;
+            selected_=Selection{values,logic,false};
+        }
+        return true;
     }
     // Model the ORIGINAL renderer once per video frame, before its late wake.
     // A completed result is published at baseline+depth-1, AFTER that frame's

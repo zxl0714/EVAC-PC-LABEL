@@ -51,7 +51,7 @@ std::uint64_t requests{}, timeouts{}, slow_frames{}, prefix_receipts{}, driver_r
 std::uint64_t low_boundaries{}, low_completed{}, low_publications{}, low_draining{}, low_budget_skips{},
               low_state_skips{}, low_control_skips{}, low_policy_skips{}, low_ownership_skips{};
 std::uint64_t low_intermediate_yields{};
-std::uint64_t metrics_selected{},metrics_changed{},metrics_held{};
+std::uint64_t metrics_selected{},metrics_changed{},metrics_held{},low_metrics_skips{};
 DWORD logic_thread{};
 thread_local bool input_only{}, early_driver{};
 NativePrefixResult prefix_result;
@@ -104,7 +104,7 @@ bool HasStack(const PPCContext& ctx, std::uint32_t reserve=0x400) {
         (std::uint32_t(heap->QueryRangeAccess(sp - reserve, sp)) & 3) == 3;
 }
 void Summary(const char* phase) {
-    REXLOG_INFO("SDOJ_FRAME_DELAY module={} generation={} phase={} requested={} effective_policy={} publications={} late_receipts={} parks={} no_completion={} countdown={} metadata={} pending={} scene={} writer={} serial={} already_woken={} reader_active={} early_requests={} prefix_receipts={} driver_receipts={} timeouts={} slowdown_frames={} wait_max_us={} low_boundaries={} low_completed={} low_publications={} low_draining={} low_budget_skips={} low_state_skips={} low_control_skips={} low_policy_skips={} low_ownership_skips={} metrics_selected={} metrics_changed={} metrics_held={}",
+    REXLOG_INFO("SDOJ_FRAME_DELAY module={} generation={} phase={} requested={} effective_policy={} publications={} late_receipts={} parks={} no_completion={} countdown={} metadata={} pending={} scene={} writer={} serial={} already_woken={} reader_active={} early_requests={} prefix_receipts={} driver_receipts={} timeouts={} slowdown_frames={} wait_max_us={} low_boundaries={} low_completed={} low_publications={} low_draining={} low_budget_skips={} low_state_skips={} low_control_skips={} low_policy_skips={} low_ownership_skips={} metrics_selected={} metrics_changed={} metrics_held={} low_metrics_skips={}",
         Module, handoff.generation(), phase, requested, effective, publications, receipts, parks,
         skipped[unsigned(Gate::NoCompletion)], skipped[unsigned(Gate::Countdown)],
         skipped[unsigned(Gate::Metadata)], skipped[unsigned(Gate::Pending)],
@@ -113,7 +113,7 @@ void Summary(const char* phase) {
         requests, prefix_receipts, driver_receipts, timeouts, slow_frames, wait_max_us,
         low_boundaries, low_completed, low_publications, low_draining, low_budget_skips,
         low_state_skips, low_control_skips, low_policy_skips, low_ownership_skips,
-        metrics_selected,metrics_changed,metrics_held);
+        metrics_selected,metrics_changed,metrics_held,low_metrics_skips);
 }
 }
 extern "C" __declspec(dllexport) void ReXModule_OnLoad() {
@@ -129,7 +129,7 @@ extern "C" __declspec(dllexport) void ReXModule_OnLoad() {
     low_boundaries=low_completed=low_publications=low_draining=low_budget_skips=0;
     low_state_skips=low_control_skips=low_policy_skips=low_ownership_skips=0;
     low_intermediate_yields=0; logic_thread=0;
-    render_metrics.Reset();metrics_selected=metrics_changed=metrics_held=0;
+    render_metrics.Reset();metrics_selected=metrics_changed=metrics_held=low_metrics_skips=0;
     low.Load(handoff.generation()); prefix_result={};
     Summary("load");
     // The SDK may retain the PE mapping. Reset the optional observers for this
@@ -390,6 +390,20 @@ extern "C" __declspec(dllexport) void SdojFrameDelayAdvance(PPCContext& ctx, std
             return; // Finish this boundary with the balanced path before retry.
         }
         if (effective!=1) { ++low_policy_skips; return; }
+        if constexpr(Module==1) {
+            // The original late wake follows rendering. An unknown source
+            // cannot be used for early logic yet: let the normal draw parse
+            // it and resolve the frozen selection, then keep the late wake.
+            // No early prefix/driver receipt has been created at this point.
+            if (!render_metrics.OriginalInputs()) {
+                if (++low_metrics_skips<=8) {
+                    const auto state=render_metrics.Inspect();
+                    REXLOG_INFO("SDOJ_FRAME_DELAY module={} phase=metrics_pending frame={} calls={} source={} action=render_before_native_late_wake",
+                        Module,state.frame,state.calls,state.missing);
+                }
+                return;
+            }
+        }
         if (!low.CanRequest() || (!handoff.parked() && !handoff.intermediate()) || handoff.reading()) { ++low_state_skips; return; }
         const auto control=Word(base,0x888791DC+Offset);
         if (!control || Word(base,control+472) || !HasStack(ctx,0x1800)) { ++low_control_skips; return; }

@@ -68,6 +68,16 @@ class FrameDelayContractTests(unittest.TestCase):
         self.assertIn('GetProcAddress(module, "SdojFrameDelayStop")', host)
         self.assertIn('void SdojFrameDelayStop()', adapter)
 
+    def test_unknown_original_metrics_defer_early_logic_without_skipping_native_draw(self):
+        adapter = (SOURCE/'latency/module.cpp').read_text(encoding='utf-8')
+        early = adapter[adapter.index('void SdojFrameDelayAdvance('):]
+        guard = early.index('if (!render_metrics.OriginalInputs())')
+        self.assertLess(guard, early.index('SdojDelayPublish(ctx,base)'))
+        self.assertLess(guard, early.index('low.Begin('))
+        self.assertLess(guard, early.index('ResolveIndirectFunction(0x88044960)'))
+        self.assertIn('low_metrics_skips', early[:early.index('SdojDelayPublish(ctx,base)')])
+        self.assertIn('missing original slowdown metrics', adapter)
+
 
 if __name__ == '__main__':
     unittest.main()

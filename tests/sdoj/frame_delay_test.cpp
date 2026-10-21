@@ -35,6 +35,28 @@ struct Fixture {
 void RunChecks() {
     {
         RenderMetrics metrics;
+        metrics.Complete(1,0x100,9,1);metrics.BeginRead(0x100);metrics.Capture({7,8});
+        metrics.Complete(2,0x200,10,1);
+        metrics.Tick(100,11);
+        Check(!metrics.OriginalInputs(),"late parser regression starts with an exact pending source");
+        metrics.BeginRead(0x100);Check(metrics.Capture({7,8}),"older real parse remains consistent");
+        Check(!metrics.OriginalInputs() && metrics.Inspect().missing==2,
+              "a different batch must not satisfy the pending original source");
+        metrics.BeginRead(0x200);Check(metrics.Capture({123,456}),"actual pending source is parsed later this frame");
+        auto selected=metrics.OriginalInputs();
+        Check(selected && selected->source==2 && selected->values==RenderMetrics::Pair{123,456},
+              "late real parse resolves the frozen source before the original late wake");
+        Check(!metrics.Inspect().missing,"resolved diagnostics no longer report a missing batch");
+        metrics.Complete(3,0x100,11,1);metrics.BeginRead(0x100);metrics.Capture({789,321});
+        metrics.Tick(100,12);
+        Check(metrics.OriginalInputs()->source==2,"later parsing cannot retarget this video frame");
+        metrics.Tick(101,12);
+        Check(metrics.OriginalInputs()->source==3,"next video frame uses its own eligible batch");
+        metrics.Tick(102,12);
+        Check(metrics.OriginalInputs()->held,"resolved pending source is not consumed twice");
+    }
+    {
+        RenderMetrics metrics;
         Check(!metrics.OriginalInputs(),"missing metrics never become guessed zeros");
         metrics.Complete(1,0x100,10,1);metrics.BeginRead(0x100);
         Check(metrics.Capture({123,456}),"parsed metrics captured for a complete batch");
@@ -54,10 +76,13 @@ void RunChecks() {
               missing.entries[2].buffer==0x200 && missing.entries[2].due==11,
               "fault diagnostics retain the actual unknown source and scheduling counters");
         metrics.BeginRead(0x200);Check(metrics.Capture({111,222}),"second parsed batch");
+        selected=metrics.OriginalInputs();
+        Check(selected && selected->source==2 && selected->values==RenderMetrics::Pair{111,222},
+              "a late parse resolves this video's original pending source");
         metrics.Complete(3,0x100,13,2);
         metrics.Tick(102,13);
         selected=metrics.OriginalInputs();
-        Check(selected && selected->source==2,"resource wait may change the logical age without changing native publication time");
+        Check(selected && selected->held,"the late-parsed source was already offered to the previous native late wake");
         metrics.BeginRead(0x100);Check(metrics.Capture({789,321}),"buffer reuse binds newest completed logic");
         metrics.Tick(103,14);
         selected=metrics.OriginalInputs();

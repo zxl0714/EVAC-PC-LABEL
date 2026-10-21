@@ -15,13 +15,18 @@ run 94912 reached the title, but CU input failed to activate the game while the
 same Taskmgr remained foreground. That new game was stopped; do not repeat the
 unchanged Taskmgr/focus recovery. Old launchers were left alone. The dat163
 DLL SHA is 1156b4264d04779d43d9abffadecccf92a8b7821632b8919cab5f9fe47125a29.
-SDOJ now logs the eight metrics entries and exact counters before the existing
-missing-metrics exception. Both modules compile, 1112 mechanism checks pass;
-this is diagnostic progress, NOT a slowdown fix. Default remains 3V.
-Final source suite: 469 tests, one symlink-privilege skip, source audit passed;
-27 current common/360 CTests pass. Logs: .local/v04-crash-source-r1.log and
-out/xbox360/.local-v04-crash-native-r1.xml. No game process remains. Continue
-SDOJ's missing-statistics mechanism next, then the remaining full v0.4 scope.
+SDOJ has a proven late-parse defect fixed in RenderMetrics: a Tick-frozen
+unknown source can now resolve only from that same batch's actual Capture in
+the same video frame. Other/newer parses cannot retarget it. Low's early path
+defers before input/wake when this source is unknown, leaving native rendering
+and the late driver intact. The new authored sequence failed on the old model
+and passes on the fix; 1122 mechanism checks, 470 source tests (one privilege
+skip), 27 common/360 CTests and both module builds pass. Logs are
+.local/v04-sdoj-late-metrics-{build,source}-r1.log and
+out/xbox360/.local-v04-late-metrics-native-r1.xml. This fixes a demonstrated
+mechanism, NOT yet a replay reproduction of friend's 3187 failure. Keep its
+actual regression open, retain detailed fault logs/check and default 3V. No
+game process remains; continue the full v0.4 work without blind CU retries.
 
 One bounded SDOJ diagnostic attempt is now closed: .local/v04-sdoj-metrics-r1
 runs 97224 and 48620 both received the offline test-pad quit and terminated.
