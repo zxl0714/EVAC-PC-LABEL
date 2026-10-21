@@ -11,6 +11,18 @@ Commit the release source and build the matching components before packaging.
 The old release ZIPs and acceptance directories remain unchanged. The current
 request is local package delivery; do not infer an OSS upload or QQ post.
 
+v0.3.1 Update is now built from d1b32cdb9d5f74ba7fcdf7d45505401ea83fcef6:
+releases/v0.3.1-update-d1b32cd/CAVE-PC-Collection-v0.3.1-update.zip,
+72,159,515 bytes, SHA-256 1fa5e982021435445559ec061d37965a8d195e6059138806e818051be2593fc1.
+Its one actual overlay acceptance passed; 129 payload hashes, 11 preservation
+sentinels and 8 hidden production App cold-start/config migration checks pass.
+The no-ROM fixture is not a new gameplay check. Reuse this result rather than
+re-extracting or replaying accepted campaigns. Record delivery separately;
+do not rebuild the frozen package for documentation-only follow-ups. Keep the
+v0.3.1 tag on the binary source commit, not a later acceptance-record commit.
+The development root launcher was deliberately not restaged while open;
+the package uses certified out/ outputs with matching receipts and symbols.
+
 Current goal: implement SDOJ Frame Delay per docs/SDOJ_LATENCY_PLAN.md, including
 3/original, 2/balanced and 1/low; preserve cadence, slowdown, input/replay semantics
 and resource ownership. Earlier documentation-only restrictions are superseded.
