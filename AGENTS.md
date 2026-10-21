@@ -1,5 +1,10 @@
 # Development entry
 
+Maintain README.md (Simplified Chinese) and README.en.md (English) together,
+with reciprocal language links at the top. Keep release versions, requirements,
+download URLs, data layouts and feature status consistent in both. English UI
+labels must match launcher/strings.h; label Chinese-only linked guides clearly.
+
 README is now a public-facing player entry rather than a development diary.
 docs/GAME_DATA.md describes the CURRENT v0.3.2 paths/versions and data import;
 docs/CHANGELOG.md holds concise player-visible release notes. Keep future v0.4

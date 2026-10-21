@@ -1,5 +1,7 @@
 # EVAC PC LABEL
 
+[简体中文](README.md) | [English](README.en.md)
+
 将 CAVE 的经典弹幕射击游戏带到 Windows PC。
 
 EVAC PC LABEL 是一个非官方的 PC 移植合集，原名 CAVE PC Collection。通过同一个启动器选择游戏，用一份配置管理显示、声音、键盘、手柄和社区昵称。只需准备想玩的作品，无须安装整个合集的游戏数据。
