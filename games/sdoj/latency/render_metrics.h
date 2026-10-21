@@ -11,7 +11,22 @@ class RenderMetrics {
 public:
     using Pair=std::array<std::uint32_t,2>;
     struct Selection { Pair values; std::uint64_t source; bool held; };
-    void Reset() { entries_={};reading_=consumed_=0;frame_.reset();selected_.reset(); }
+    struct Entry {
+        std::uint64_t logic{};
+        std::uint32_t buffer{},due{};
+        Pair values{};
+        bool sampled{};
+    };
+    struct Diagnostic {
+        std::array<Entry,8> entries;
+        std::uint64_t reading,consumed,missing;
+        std::uint32_t frame,calls;
+        bool ticked;
+    };
+    Diagnostic Inspect() const {
+        return {entries_,reading_,consumed_,missing_,frame_.value_or(0),calls_,frame_.has_value()};
+    }
+    void Reset() { entries_={};reading_=consumed_=missing_=0;calls_=0;frame_.reset();selected_.reset(); }
     void Complete(std::uint64_t logic,std::uint32_t buffer,std::uint32_t baseline,std::uint32_t depth) {
         entries_[logic%entries_.size()]={logic,buffer,std::uint32_t(baseline+depth-1),{},false};
     }
@@ -33,7 +48,7 @@ public:
     // resource waits and pauses without equating video ticks to logic frames.
     void Tick(std::uint32_t frame,std::uint32_t calls) {
         if(frame_ && *frame_==frame)return;
-        frame_=frame;
+        frame_=frame;calls_=calls;missing_=0;
         const Entry* source=nullptr;
         for(const auto& entry:entries_) {
             const auto age=std::uint32_t(calls-entry.due);
@@ -44,18 +59,12 @@ public:
             selected_=Selection{{0,0},0,true};return;
         }
         // A skipped/missing real parse is not evidence of zero work.
-        if(!source->sampled) { selected_.reset();return; }
+        if(!source->sampled) { missing_=source->logic;selected_.reset();return; }
         consumed_=source->logic;
         selected_=Selection{source->values,source->logic,false};
     }
     std::optional<Selection> OriginalInputs() const { return selected_; }
 private:
-    struct Entry {
-        std::uint64_t logic{};
-        std::uint32_t buffer{},due{};
-        Pair values{};
-        bool sampled{};
-    };
     Entry* Find(std::uint64_t logic) {
         auto& entry=entries_[logic%entries_.size()];
         return entry.logic==logic?&entry:nullptr;
@@ -65,7 +74,8 @@ private:
         return entry.logic==logic?&entry:nullptr;
     }
     std::array<Entry,8> entries_{};
-    std::uint64_t reading_{},consumed_{};
+    std::uint64_t reading_{},consumed_{},missing_{};
+    std::uint32_t calls_{};
     std::optional<std::uint32_t> frame_;
     std::optional<Selection> selected_;
 };

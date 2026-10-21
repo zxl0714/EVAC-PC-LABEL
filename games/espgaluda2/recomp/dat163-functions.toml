@@ -1,0 +1,6 @@
+# Xbox 360 Novice address-taken callback reported in run 84416.
+# Verified in the supported dat163.xex: forward (r3, r5, 0) to 0x880EE9E8.
+# The 12-byte entry has no stack frame; its following word is padding.
+# Neighboring 0x880EE9E8, 0x880EEB10 and 0x880EEB20 are already discovered.
+[functions]
+0x880EEB00 = { size = 12 }

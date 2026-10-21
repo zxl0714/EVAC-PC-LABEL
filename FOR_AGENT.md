@@ -115,6 +115,8 @@ py -3.12 scripts/launcher_receipt.py verify
 
 修改启动器交互后运行 `./scripts/Test-Launcher.ps1 -Jobs 2`。它无需 ROM，在隐藏的临时窗口中走生产鼠标／键盘消息处理、控件与 INI 保存，并启动独立进程检查三语言冷读回。配置／日志的 shell-open 请求在边界截获，不打开外部应用或向桌面注入输入；排版另用 `--render-preview` 与真实窗口截图检查。
 
+G2 的 Novice 遗漏回调在 `recomp/dat163-functions.toml` 声明。重新生成后可运行 `./scripts/Test-G2Callback.ps1`，隔离编译真实生成的转发入口、检查注册和调用 ABI；测试只在 `.local/analysis/g2-callback-fixture/` 产生派生代码，不运行模式或替代模式内短测。
+
 最大往生的只读探针默认关闭，可在独立测试根的宿主命令行显式开启：
 
 - --input_diagnostics=true --sdoj_input_trace=true：宿主键沿、原始按钮、两套玩法掩码生成及复制。

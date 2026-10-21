@@ -50,6 +50,19 @@ class GameGenerationTests(unittest.TestCase):
         self.assertIn('parent_path()/"games/espgaluda2"', source)
         self.assertNotIn('PPC_FUNC_IMPL', source)
 
+    def test_novice_indirect_callback_is_declared_only_for_its_overlay(self):
+        records = generate_game.targets(self.manifest, self.game)
+        self.assertEqual(records['dat163']['includes'], ['dat163-functions.toml'])
+        declarations = tomllib.loads((self.source / 'dat163-functions.toml').read_text(encoding='utf-8'))
+        self.assertEqual(declarations['functions']['0x880EEB00'], {'size': 12})
+        for name, record in records.items():
+            if name != 'dat163':
+                self.assertNotIn('dat163-functions.toml', record.get('includes', []))
+        result = tomllib.loads(generate_game.execution_manifest(
+            self.game, records, ROOT / 'game-data/espgaluda2', ROOT / 'generated/espgaluda2', self.source))
+        novice = next(item for item in result['modules'] if item['guest_path'] == 'dat163.xex')
+        self.assertEqual(novice['includes'], [str(self.source / 'dat163-functions.toml').replace('\\', '/')])
+
     def test_synthetic_data_version_check_is_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             data = Path(directory)

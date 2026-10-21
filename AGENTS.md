@@ -1,5 +1,28 @@
 # Development entry
 
+The active user goal now authorizes implementing the complete v0.4 plan step
+by step, including the reported crashes, single-directory game data, launcher
+UX/single-instance behavior, project/repository rename and verified release
+artifacts. Earlier question-only/documentation-only restrictions below are
+historical. Keep default SDOJ 3V, explicit preferences and frozen releases.
+Prioritize the two real crashes and use targeted evidence, not another full
+mode campaign. Do not publish internal ROM-containing packages on the README.
+
+G2's dat163 0x880EEB00 declaration is now implemented/generated/registered and
+the real generated forwarder passes 12 isolated native ABI checks. The 360
+build verified 56 binary/PDB pairs. Target-mode regression is still pending:
+run 94912 reached the title, but CU input failed to activate the game while the
+same Taskmgr remained foreground. That new game was stopped; do not repeat the
+unchanged Taskmgr/focus recovery. Old launchers were left alone. The dat163
+DLL SHA is 1156b4264d04779d43d9abffadecccf92a8b7821632b8919cab5f9fe47125a29.
+SDOJ now logs the eight metrics entries and exact counters before the existing
+missing-metrics exception. Both modules compile, 1112 mechanism checks pass;
+this is diagnostic progress, NOT a slowdown fix. Default remains 3V.
+Final source suite: 469 tests, one symlink-privilege skip, source audit passed;
+27 current common/360 CTests pass. Logs: .local/v04-crash-source-r1.log and
+out/xbox360/.local-v04-crash-native-r1.xml. No game process remains. Continue
+SDOJ's missing-statistics mechanism next, then the remaining full v0.4 scope.
+
 Latest user decision: restore SDOJ's default Frame Delay to 3V after the friend
 crash. Update Settings, the fresh INI template, configuration/cold-start tests
 and current developer/v0.4 player docs. Preserve explicit 1/2/3 preferences;

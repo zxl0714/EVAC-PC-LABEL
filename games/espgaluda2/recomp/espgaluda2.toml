@@ -37,6 +37,7 @@ out_directory_path = "../../../generated/espgaluda2/dat162"
 guest_path = "dat163.xex"
 file_path = "../../../game-data/espgaluda2/dat163.xex"
 out_directory_path = "../../../generated/espgaluda2/dat163"
+includes = ["dat163-functions.toml"]
 
 [[modules]]
 guest_path = "dat164.xex"

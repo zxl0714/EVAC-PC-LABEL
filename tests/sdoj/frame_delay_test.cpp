@@ -48,6 +48,11 @@ void RunChecks() {
         Check(metrics.OriginalInputs()->source==1,"early and late hooks cannot model one video tick twice");
         metrics.Tick(101,12);
         Check(!metrics.OriginalInputs(),"due but unparsed result remains unknown, not zero");
+        const auto missing=metrics.Inspect();
+        Check(missing.missing==2 && missing.consumed==1 && missing.ticked &&
+              missing.frame==101 && missing.calls==12 && !missing.entries[2].sampled &&
+              missing.entries[2].buffer==0x200 && missing.entries[2].due==11,
+              "fault diagnostics retain the actual unknown source and scheduling counters");
         metrics.BeginRead(0x200);Check(metrics.Capture({111,222}),"second parsed batch");
         metrics.Complete(3,0x100,13,2);
         metrics.Tick(102,13);
@@ -67,6 +72,8 @@ void RunChecks() {
         metrics.BeginRead(0x100);
         Check(!metrics.Capture({790,321}),"conflicting parsed samples cannot silently replace history");
         metrics.Reset();Check(!metrics.OriginalInputs(),"module reload discards old metrics identities");
+        Check(!metrics.Inspect().ticked && !metrics.Inspect().missing && !metrics.Inspect().consumed,
+              "module reload cannot report stale fault counters");
         metrics.Complete(1,0x100,0xfffffffe,2);metrics.BeginRead(0x100);metrics.Capture({9,8});
         metrics.Tick(1,0xffffffff);Check(metrics.OriginalInputs()->held,"same-counter publication remains after the draw at counter wrap");
         metrics.Tick(2,0);Check(metrics.OriginalInputs()->source==1,"wrapped native publication becomes visible exactly once");

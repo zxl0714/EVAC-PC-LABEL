@@ -244,12 +244,25 @@ void SdojDelayRenderMetrics(PPCContext& ctx, std::uint8_t*) {
     static const auto metrics=HostFunction<Metrics>("SdojLogicMetricsEvent");
     if(metrics)metrics(Module,1,ctx.r11.u32,ctx.r10.u32);
 }
-void SdojDelaySlowdownInputs(PPCContext& ctx, std::uint8_t*) {
+void SdojDelaySlowdownInputs(PPCContext& ctx, std::uint8_t* base) {
     if(policy!=3) {
         std::lock_guard lock(gate);
         if(handoff.active()) {
             const auto selected=render_metrics.OriginalInputs();
-            if(!selected)throw std::runtime_error("SDOJ Frame Delay: missing original slowdown metrics at logic "+std::to_string(handoff.logic()));
+            if(!selected) {
+                const auto state=render_metrics.Inspect();
+                const auto native=Snapshot(base);
+                REXLOG_ERROR("SDOJ_METRICS_MISSING module={} logic={} missing={} consumed={} reading={} ticked={} tick_frame={} tick_calls={} frame={} calls={} countdown={} serial={} writer={:08X} finished={:08X} published={:08X} renderer={:08X} status={:08X} busy={}",
+                    Module,handoff.logic(),state.missing,state.consumed,state.reading,state.ticked,state.frame,state.calls,
+                    native.frame,native.calls,native.countdown,native.serial,native.writer,native.finished,native.published,
+                    native.renderer,native.status,native.busy);
+                for(const auto& entry:state.entries)
+                    REXLOG_ERROR("SDOJ_METRICS_ENTRY logic={} buffer={:08X} due={} sampled={} values={},{}",
+                        entry.logic,entry.buffer,entry.due,entry.sampled,entry.values[0],entry.values[1]);
+                Summary("metrics_missing");
+                rex::FlushLogging();
+                throw std::runtime_error("SDOJ Frame Delay: missing original slowdown metrics at logic "+std::to_string(handoff.logic()));
+            }
             ++metrics_selected;
             if(selected->values!=RenderMetrics::Pair{ctx.r9.u32,ctx.r10.u32})++metrics_changed;
             if(selected->held)++metrics_held;
