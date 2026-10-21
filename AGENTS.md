@@ -10,6 +10,20 @@ the replay campaign or retry Taskmgr. Preserve the earlier v0.3.1 archive and
 tag; put the corrected build in a new release directory and use a new tag.
 No OSS upload or QQ post is requested.
 
+The default-1V corrected Update is complete and accepted at source commit
+38717a1f2d7e3479415ff13f1d753a047cd0aaed (tag v0.3.1-1v):
+releases/20261021T091643Z-a185ee75/CAVE-PC-Collection-v0.3.1-update.zip,
+72,159,381 bytes, SHA-256 2330d6078cc0327b9a480367e8e89c41cf21ac3acd2f68a0d7c7a38f30930ff9.
+433 source tests (one privilege skip), five targeted CTests and 95 launcher
+checks pass. Its single actual v0.3 overlay passes 129 payload hashes, 11
+preservation sentinels and nine hidden cold App checks, including resolved
+SDOJ default 1 from the byte-identical migrated legacy config. Explicit modes
+1/2/3 survive migration in native tests. Ordinary desktop input/focus is still
+deferred, not passed. Frozen first-batch archives/tags remain unchanged; the
+older source ZIP is not corresponding source for this new commit. SOURCE.txt
+points to the new maintenance commit; create its matching source ZIP on demand.
+Do not rebuild or re-extract this accepted ZIP for documentation follow-ups.
+
 Current user request supersedes the older no-package restriction: produce a
 v0.3.1 Update ZIP that extracts directly over an installed v0.3 directory.
 Ship certified runnable components and player documentation, with no ROM,
