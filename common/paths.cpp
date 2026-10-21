@@ -1,9 +1,37 @@
 #include "common/paths.h"
 #include <Windows.h>
+#include <bcrypt.h>
 #include <array>
 #include <stdexcept>
 
 namespace cave {
+std::wstring CollectionIdentity(const fs::path& requested) {
+  const auto root=fs::canonical(requested);
+  HANDLE directory=CreateFileW(root.c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+                              nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+  if(directory==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot open collection identity");
+  std::wstring path(32768,L'\0');
+  const auto count=GetFinalPathNameByHandleW(directory,path.data(),DWORD(path.size()),FILE_NAME_NORMALIZED);
+  CloseHandle(directory);
+  if(!count || count>=path.size())throw std::runtime_error("Cannot resolve collection identity");
+  path.resize(count);
+  const auto upper_count=LCMapStringEx(LOCALE_NAME_INVARIANT,LCMAP_UPPERCASE,path.data(),int(path.size()),nullptr,0,nullptr,nullptr,0);
+  if(!upper_count)throw std::runtime_error("Cannot normalize collection identity");
+  std::wstring upper(upper_count,L'\0');
+  if(!LCMapStringEx(LOCALE_NAME_INVARIANT,LCMAP_UPPERCASE,path.data(),int(path.size()),upper.data(),upper_count,nullptr,nullptr,0))
+    throw std::runtime_error("Cannot normalize collection identity");
+  std::array<unsigned char,32> hash{};
+  BCRYPT_ALG_HANDLE algorithm{};
+  if(BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0)<0)
+    throw std::runtime_error("Cannot hash collection identity");
+  const auto status=BCryptHash(algorithm,nullptr,0,reinterpret_cast<PUCHAR>(upper.data()),ULONG(upper.size()*sizeof(wchar_t)),hash.data(),ULONG(hash.size()));
+  BCryptCloseAlgorithmProvider(algorithm,0);
+  if(status<0)throw std::runtime_error("Cannot hash collection identity");
+  constexpr wchar_t digits[]=L"0123456789abcdef";
+  std::wstring result;
+  for(auto byte:hash) {result+=digits[byte>>4];result+=digits[byte&15];}
+  return result;
+}
 fs::path FromUtf8(std::string_view text) {
   if (text.empty()) return {};
   if (text.size() > 32767 || text.find('\0') != text.npos) throw std::runtime_error("Invalid UTF-8 path");

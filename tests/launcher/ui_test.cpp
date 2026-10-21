@@ -8,6 +8,10 @@
 #include <vector>
 static std::vector<std::filesystem::path> opened_paths;
 static unsigned unexpected_dialogs{};
+static unsigned show_requests{},foreground_requests{};
+static int last_show_request{};
+static BOOL WINAPI FixtureShowWindow(HWND,int command) {++show_requests;last_show_request=command;return TRUE;}
+static BOOL WINAPI FixtureForeground(HWND) {++foreground_requests;return TRUE;}
 static HINSTANCE WINAPI FixtureOpen(HWND,LPCWSTR verb,LPCWSTR file,LPCWSTR parameters,LPCWSTR directory,int show) {
   if(!verb || std::wstring_view(verb)!=L"open" || parameters || directory || show!=SW_SHOWNORMAL)
     return nullptr;
@@ -18,7 +22,11 @@ static int WINAPI FixtureDialog(HWND,LPCWSTR,LPCWSTR,UINT) {
 }
 #define ShellExecuteW FixtureOpen
 #define MessageBoxW FixtureDialog
+#define ShowWindow FixtureShowWindow
+#define SetForegroundWindow FixtureForeground
 #include "../../launcher/main.cpp"
+#undef SetForegroundWindow
+#undef ShowWindow
 #undef MessageBoxW
 #undef ShellExecuteW
 #include <iostream>
@@ -56,12 +64,12 @@ struct Fixture {
 };
 struct Frame {
   App app;
-  explicit Frame(const fs::path& root):app(Options{.root=root}) {
-    Require(CreateWindowExW(0,kWindowClass,L"Launcher fixture",WS_OVERLAPPEDWINDOW,
+  explicit Frame(const fs::path& root,std::string_view selection={},bool minimized=false):app(Options{.root=root,.selection=std::string(selection)}) {
+    Require(CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|(minimized?WS_MINIMIZE:0),
         0,0,1080,900,nullptr,nullptr,GetModuleHandleW(nullptr),&app)!=nullptr,"Create hidden production launcher window");
     Settle();Require(app.preferences_available,"Load quick settings");
   }
-  void Settle() {if(app.worker.joinable())app.worker.join();if(app.work)app.Complete();}
+  void Settle() {for(unsigned n=0;n<8 && (app.worker.joinable() || app.work);++n) {if(app.worker.joinable())app.worker.join();if(app.work)app.Complete();}}
   ~Frame() {Settle();if(app.hwnd && IsWindow(app.hwnd))DestroyWindow(app.hwnd);}
   void Click(D2D1_RECT_F rectangle) {
     const auto scale=float(GetDpiForWindow(app.hwnd))/96;
@@ -70,22 +78,63 @@ struct Frame {
     Require(unexpected_dialogs==0,"Click raised an unexpected dialog");
   }
 };
-void ColdReadback(const fs::path& root,std::wstring_view expected_language,std::wstring_view nickname) {
+void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname,std::wstring_view game=L"futari");
+void SelectionChecks() {
+  Fixture fixture;
+  const auto ini="\xef\xbb\xbf; keep selected-game fixture\r\n[collection]\r\nconfig_version=1\r\nlanguage=en\r\nselected_game=daioujou\r\n[community]\r\nnickname=Baseline\r\n[future]\r\nvalue=untouched\r\n";
+  Write(fixture.root/"user-data/config.ini",ini);
+  {
+    Frame frame(fixture.root);auto& app=frame.app;
+    Require(Catalogue()[app.selected].id=="daioujou","Cold GUI did not restore selected ID");
+    Require(ControlText(app.hwnd)==L"EVAC PC LABEL","Production launcher caption differs from product name");
+    const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+    App::Window(app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(int(720*scale),int(520*scale)));
+    const auto selected=app.layout.card(app.selected);
+    Require(selected.top>=app.layout.header()-1 && selected.bottom<=app.layout.footer()+1,"Restored selection was not scrolled visible");
+    Require(app.rows[app.selected].inspection.state=="missing_data","Missing data erased a valid saved selection");
+    SetWindowTextW(app.nickname_control,L"Unsaved draft");
+    App::Window(app.hwnd,WM_KEYDOWN,VK_UP,0);frame.Settle();
+    Require(Catalogue()[app.selected].id=="sdoj","Up no longer selects the preceding game");
+    App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);frame.Settle();
+    Require(Catalogue()[app.selected].id=="daioujou","Down no longer selects the next game");
+    app.Select(2);frame.Settle();
+    Require(Ini::Load(ConfigPath(fixture.root)).Get("collection","selected_game")->text=="daioujou","Selecting saved too early instead of at normal close");
+    Write(ConfigPath(fixture.root),Ini::ReadText(ConfigPath(fixture.root))+"[editor]\r\nconcurrent=preserved\r\n");
+    App::Window(app.hwnd,WM_CLOSE,0,0);
+    Require(!IsWindow(app.hwnd),"Normal close did not destroy the GUI");
+  }
+  const auto saved=Ini::ReadText(ConfigPath(fixture.root));
+  const auto settings=Ini::Parse(saved);
+  Require(settings.Get("collection","selected_game")->text=="ketsui","Normal close did not remember the selected, unlaunched game");
+  Require(settings.Get("community","nickname")->text=="Baseline" && settings.Get("editor","concurrent")->text=="preserved" && saved.starts_with("\xef\xbb\xbf; keep"),
+          "Remembering selection overwrote an unsaved form or an editor's latest text");
+  Restart(fixture.root,L"en",L"Baseline",L"ketsui");
+  {Frame frame(fixture.root);Require(Catalogue()[frame.app.selected].id=="ketsui","Next GUI did not restore the last closed choice");}
+  {Frame frame(fixture.root,"esprade");Require(Catalogue()[frame.app.selected].id=="esprade","Explicit GUI choice did not take priority over saved choice");}
+  for(const auto choice:{"removed-game",""}) {
+    Write(ConfigPath(fixture.root),std::string("[collection]\nselected_game=")+choice+"\n");
+    Frame frame(fixture.root);Require(Catalogue()[frame.app.selected].id=="futari","Unknown or empty saved ID did not use the first supported game");
+  }
+}
+#include "instance_checks.h"
+#include "visual_checks.h"
+void ColdReadback(const fs::path& root,std::wstring_view expected_language,std::wstring_view nickname,std::wstring_view game) {
   const auto before=Ini::ReadText(ConfigPath(root));
   Frame frame(root);
   Require(cave::launcher::LanguageCode(language)==Utf8(expected_language),"Cold language readback");
   Require(ControlText(frame.app.nickname_control)==nickname,"Cold nickname readback");
+  Require(Catalogue()[frame.app.selected].id==Utf8(game),"Independent cold process did not restore the selected game");
   Require(SendMessageW(frame.app.fullscreen_control,BM_GETCHECK,0,0)==BST_UNCHECKED,"Cold fullscreen readback");
   Require(ControlText(frame.app.save_control)==T(L"保存"),"Cold localized controls");
   Require(Ini::ReadText(ConfigPath(root))==before,"Readback changed configuration");
   Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==3,
           "Cold startup did not resolve SDOJ's default 3V");
 }
-void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname) {
+void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname,std::wstring_view game) {
   std::wstring executable(32768,L'\0');
   const auto size=GetModuleFileNameW(nullptr,executable.data(),DWORD(executable.size()));
   Require(size && size<executable.size(),"Locate cold-start test program");executable.resize(size);
-  auto command=QuoteArgument(executable)+L" --readback "+QuoteArgument(root.native())+L" "+QuoteArgument(code)+L" "+QuoteArgument(nickname);
+  auto command=QuoteArgument(executable)+L" --readback "+QuoteArgument(root.native())+L" "+QuoteArgument(code)+L" "+QuoteArgument(nickname)+L" "+QuoteArgument(game);
   STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION process{};
   Require(CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&process),"Start independent readback process");
   CloseHandle(process.hThread);
@@ -136,13 +185,16 @@ void MainChecks() {
       const auto brand=app.layout.brand();
       Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
               brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
-      const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.config(),app.layout.logs(),app.layout.detail()};
+      const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};
       for(size_t index=0;index<controls.size();++index) {
         const auto r=controls[index];
         Require(r.top>=app.layout.footer() && r.bottom<=app.layout.height && r.left>=0 && r.right<=app.layout.width,"Utility control is outside bottom row");
+        Require(r.bottom==app.layout.play().bottom,"Launch and utility buttons do not bottom-align");
         for(size_t other=index+1;other<controls.size();++other)
           Require(r.right<=controls[other].left || controls[other].right<=r.left,"Utility controls overlap");
       }
+      Require(app.layout.language_choice(0).top==brand.top && app.layout.language_choice(1).left-app.layout.language_choice(0).left==40,
+              "Language choices are not compact and top-aligned");
       for(const auto index:{1u,2u,0u}) {
         frame.Click(app.layout.language_choice(index));
         const std::array expected{Language::Chinese,Language::English,Language::Japanese};
@@ -185,6 +237,8 @@ void MainChecks() {
     Restart(fixture.root,index==1?L"en":L"zh",L"Draft-友人");
   }
   Require(unexpected_dialogs==0 && opened_paths.size()==2,"Unexpected shell or dialog side effects");
+  SelectionChecks();
+  InstanceChecks();
 }
 }
 int wmain(int count,wchar_t** arguments) {
@@ -194,7 +248,10 @@ int wmain(int count,wchar_t** arguments) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     WNDCLASSW definition{};definition.lpfnWndProc=App::Window;definition.hInstance=GetModuleHandleW(nullptr);definition.lpszClassName=kWindowClass;
     Require(RegisterClassW(&definition)!=0,"Register production window handler");
-    if(count==5 && std::wstring_view(arguments[1])==L"--readback")ColdReadback(arguments[2],arguments[3],arguments[4]);
+    if(count==6 && std::wstring_view(arguments[1])==L"--readback")ColdReadback(arguments[2],arguments[3],arguments[4],arguments[5]);
+    else if(count==5 && std::wstring_view(arguments[1])==L"--instance-host")InstanceHost(arguments[2],arguments[3],arguments[4]);
+    else if(count==4 && std::wstring_view(arguments[1])==L"--instance-probe")InstanceProbe(arguments[2],arguments[3]);
+    else if(count==3 && std::wstring_view(arguments[1])==L"--visual-checks")VisualChecks(arguments[2]);
     else if(count==1)MainChecks();
     else throw std::runtime_error("Unexpected launcher test arguments");
     std::cout<<checks<<" launcher integration checks passed; hidden fixture windows only.\n";

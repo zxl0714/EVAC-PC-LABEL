@@ -93,7 +93,10 @@ Xbox 360 的 -NativeOnly 构建无 ROM 的机制／分析工具，不代替游�
 
 ~~~powershell
 ./CAVE-PC-Collection.exe --game espgaluda2 --profile test
+./CAVE-PC-Collection.exe --select ketsui
 ~~~
+
+`--game` 直接启动游戏；`--select` 只指定首次打开 GUI 时选中的作品。GUI 正常关闭时在 `[collection].selected_game` 保存选中 ID，下次打开恢复；昵称草稿不会因此自动保存。同一安装目录再次打开只唤起原窗口，不用新参数改变原选择或重复启动游戏，不同目录各自运行。
 
 GUI 和命令行共用 PrepareLaunch 的完整检查。两款 PS4 运行程序为 runtime/ps4/ketsui.exe、daioujou.exe，共用配套 GPU；GPU API 当前为 7，宿主和 DLL 必须来自同次认证构建。
 

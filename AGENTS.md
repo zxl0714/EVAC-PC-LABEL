@@ -106,12 +106,21 @@ Full-package placement templates and template-aware import are still pending.
 
 ## Remaining launcher and branding work
 
-- Per-installation single instance: restore/focus existing window, preserve
-  selection/unsaved fields/running game; isolate different installation roots.
-- Persist selected stable game ID on normal close; restore and scroll visible.
-  Explicit CLI choice wins; missing data does not erase a valid saved choice.
-- Bottom-align Launch with tools, remove permanent arrows/Enter hint while
-  retaining keyboard behavior; tighten CN/EN/JP and align to visible logo top.
+Single-instance GUI, selected-game memory, bottom alignment and compact language
+layout are implemented. 226 hidden production UI checks pass, with actual
+cross-process mutex/message coverage of concurrent startup, minimized restore
+requests, abandoned-owner recovery and root isolation. Reactivation preserves
+selection, dirty form and fixture child handle; desktop restore/foreground calls
+are intercepted in tests, not actual desktop focus evidence. Normal close saves
+only [collection].selected_game into latest disk text, preserving editor changes
+and unsaved nickname; a fresh process restores selection. --select chooses the
+initial GUI item, --game still launches directly. Unknown ID defaults to Futari;
+known missing/Coming Soon IDs remain valid selections. Six native renderer
+previews at 96/144 DPI and two sizes pass pixel alignment and self-review, with
+explicit example-state labels. See .local/v04-launcher-ux-r4.log and
+.local/v04-launcher-visual-r1. Common/launch CTests and launcher symbol receipt
+pass. Existing root launchers were not replaced. Remaining:
+
 - Uniform EVAC PC LABEL captions/Windows properties, EVAC PC LABEL.exe, BAT,
   build/release/docs and EVAC-PC-LABEL archive/repository/local-directory names.
   GitHub/local rename has not happened. Inspect processes, submodules, absolute

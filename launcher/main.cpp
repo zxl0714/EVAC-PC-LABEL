@@ -6,6 +6,8 @@
 #include "artwork.h"
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
+#include "launcher/preferences.h"
+#include "launcher/single_instance.h"
 #include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
@@ -35,7 +37,8 @@ constexpr UINT kWorkDone=WM_APP+1;
 constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT_PTR kChildTimer=1;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
-constexpr wchar_t kWindowClass[]=L"CavePCCollection.Launcher.v1";
+constexpr wchar_t kWindowClass[]=L"EVACPCLabel.Launcher.v1";
+constexpr wchar_t kWindowTitle[]=L"EVAC PC LABEL";
 HICON BrandIcon(HINSTANCE instance,int size) {
   const auto icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(cave::launcher::kAppIconResource),
       IMAGE_ICON,size,size,LR_SHARED));
@@ -54,7 +57,7 @@ void Error(HWND window,std::string_view message) {
   try {value=Wide(message.size()<16000?message:std::string_view("Error message is too long; check the log."));}
   catch (...) {value=T(L"无法显示详细信息，请检查日志。");}
   value=std::wstring(T(L"操作失败。详细信息：\n\n"))+value;
-  MessageBoxW(window,value.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONERROR);
+  MessageBoxW(window,value.c_str(),kWindowTitle,MB_OK|MB_ICONERROR);
 }
 fs::path ExecutableDirectory() {
   std::wstring value(32768,L'\0');
@@ -91,7 +94,7 @@ void Log(const fs::path& root,std::string_view message) {
 }
 struct Options {
   fs::path root,data,preview;
-  std::string game,profile="default";
+  std::string game,profile="default",selection;
   std::optional<Language> language;
 };
 Options Arguments() {
@@ -105,6 +108,7 @@ Options Arguments() {
       const auto value=arguments[index];
       if (key==L"--root") options.root=value;
       else if (key==L"--game") options.game=Utf8(value);
+      else if (key==L"--select") options.selection=Utf8(value);
       else if (key==L"--profile") options.profile=Utf8(value);
       else if (key==L"--data-dir") options.data=value;
       else if (key==L"--render-preview") options.preview=value;
@@ -116,6 +120,8 @@ Options Arguments() {
   options.root=fs::canonical(options.root);
   if (!options.data.empty() && options.game.empty()) throw std::runtime_error("--data-dir requires --game");
   if (!options.game.empty()) (void)FindGame(options.game);
+  if (!options.selection.empty()) (void)FindGame(options.selection);
+  if (!options.game.empty() && !options.selection.empty())throw std::runtime_error("Use --game to launch directly, or --select to open the launcher");
   return options;
 }
 struct Row {Inspection inspection;};
@@ -183,13 +189,13 @@ struct Layout {
   float content_height() const {return float(Catalogue().size())*(row_height()+12)-12;}
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
   D2D1_RECT_F card(size_t index) const {const auto top=header()+float(index)*(row_height()+12)-scroll;return {margin(),top,width-margin(),top+row_height()};}
-  D2D1_RECT_F play() const {return {width-margin()-176,height-99,width-margin(),height-49};}
+  D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
   D2D1_RECT_F config() const {return {margin()+185,height-45,margin()+283,height-14};}
   D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+361,height-14};}
   D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
-    const auto left=width-margin()-146+float(index)*52;
-    return {left,32,left+42,60};
+    const auto left=width-margin()-112+float(index)*40;
+    return {left,16,left+32,44};
   }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
@@ -355,7 +361,7 @@ class Renderer {
     const auto& inspection=rows[selected].inspection;
     Text(target,Wide(Catalogue()[selected].DisplayName()),{margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
     const auto status=running?T(L"请先退出正在运行的游戏"):(busy?T(L"正在读取／校验所选游戏…"):Status(inspection));
-    Text(target,status,{margin,layout.height-77,layout.play().left-18,layout.height-56},11,CanPlay(inspection)?0x356c4b:0x90754f);
+    Text(target,status,{margin,layout.height-80,layout.play().left-18,layout.height-64},11,CanPlay(inspection)?0x356c4b:0x90754f);
     Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!CanPlay(inspection));
     Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
     Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
@@ -366,8 +372,9 @@ class Renderer {
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
     }
-    Text(target,override_hint.empty()?message:override_hint,{margin+450,layout.height-36,layout.width-margin,layout.height-14},11,0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
-    if (preview) Text(target,T(L"视觉预览 · 安装状态为示例"),{margin+200,layout.height-17,layout.width-margin,layout.height},10,0x939d94,DWRITE_TEXT_ALIGNMENT_TRAILING);
+    Text(target,busy||running||override_hint.empty()?message:override_hint,
+        {margin,layout.height-62,layout.play().left-18,layout.height-46},11,0x7d8881);
+    if (preview) Text(target,T(L"视觉预览 · 安装状态为示例"),{margin+200,layout.height-12,layout.width-margin,layout.height},10,0x939d94,DWRITE_TEXT_ALIGNMENT_TRAILING);
   }
   ComPtr<ID2D1Factory> factory;
   ComPtr<IWICImagingFactory> wic;
@@ -392,11 +399,23 @@ struct Work {
 class App {
  public:
   explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
-    EnsureConfig(options.root);for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
-    language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(ConfigPath(options.root))));
+    const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
+    selected=cave::launcher::InitialSelection(ini,options.selection);
+    language=options.language.value_or(cave::launcher::ReadLanguage(ini));
     message=T(L"正在检测游戏数据…");
   }
   ~App() {if(work)work->alive=false;if(worker.joinable())worker.detach();}
+  void PersistSelection() noexcept {
+    try {cave::launcher::SaveSelection(options.root,selected);}
+    catch(const std::exception& error) {Log(options.root,error.what());}
+    catch(...) {Log(options.root,"selected-game-save-failed");}
+  }
+  void Activate() {
+    ShowWindow(hwnd,IsIconic(hwnd)?SW_RESTORE:SW_SHOW);
+    if(!SetForegroundWindow(hwnd)) {
+      FLASHWINFO flash{sizeof(flash),hwnd,FLASHW_TRAY,2,0};FlashWindowEx(&flash);
+    }
+  }
   void CreatePreferences() {
     const auto instance=GetModuleHandleW(nullptr);
     fullscreen_control=CreateWindowExW(0,L"BUTTON",T(L"启动时全屏"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX|BS_NOTIFY,
@@ -483,7 +502,7 @@ class App {
     preferences_text=Ini::ReadText(ConfigPath(options.root));
     language=next;options.language.reset();
     SetWindowTextW(fullscreen_control,T(L"启动时全屏"));SetWindowTextW(save_control,T(L"保存"));
-    UpdateOverrideHint(Ini::Parse(preferences_text));message=T(L"↑ ↓ 选择 · Enter 启动");
+    UpdateOverrideHint(Ini::Parse(preferences_text));message.clear();
     InvalidateRect(hwnd,nullptr,FALSE);
   }
   bool Input(MSG& input) {
@@ -547,7 +566,7 @@ class App {
       } else if(work->copy_result) {
         message=T(L"数据已复制并逐文件校验，配置已更新");
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
-      } else {message=T(L"↑ ↓ 选择 · Enter 启动");}
+      } else {message.clear();}
     }catch(const std::exception& error){message=work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");Log(options.root,error.what());Error(hwnd,error.what());}
     const bool copied=work->copying;work.reset();
     if(copied)ReloadPreferences();EnablePreferences();
@@ -562,7 +581,7 @@ class App {
       Log(options.root,"child-exit code="+std::to_string(*code));
       message=requested_close?T(L"游戏已关闭（退出清理限制已记入日志）"):(*code?T(L"游戏异常退出，请查看该游戏的日志"):T(L"游戏已退出"));
       child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
-      if(*code && !requested_close)MessageBoxW(hwnd,detail.c_str(),L"CAVE PC Collection",MB_OK|MB_ICONWARNING);
+      if(*code && !requested_close)MessageBoxW(hwnd,detail.c_str(),kWindowTitle,MB_OK|MB_ICONWARNING);
     }
   }
   void Choose(bool copy=false) {
@@ -655,11 +674,13 @@ class App {
     if(message==WM_NCCREATE) {app=static_cast<App*>(reinterpret_cast<CREATESTRUCTW*>(second)->lpCreateParams);app->hwnd=window;SetWindowLongPtrW(window,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(app));}
     if(!app)return DefWindowProcW(window,message,first,second);
     try {
+      if(message==cave::launcher::ActivationMessage()) {app->Activate();return 1;}
       switch(message) {
         case WM_CREATE:app->CreatePreferences();app->Refresh();return 0;
         case WM_GETMINMAXINFO:{auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};return 0;}
-        case WM_SIZE:{const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
-          app->PositionPreferences();app->Scroll(0);return 0;}
+        case WM_SIZE:{if(first==SIZE_MINIMIZED)return 0;
+          const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
+          app->PositionPreferences();app->EnsureVisible();return 0;}
         case WM_DPICHANGED:{const auto rectangle=reinterpret_cast<RECT*>(second);SetWindowPos(window,nullptr,rectangle->left,rectangle->top,rectangle->right-rectangle->left,rectangle->bottom-rectangle->top,SWP_NOACTIVATE|SWP_NOZORDER);return 0;}
         case WM_ERASEBKGND:return 1;
         case WM_PAINT:app->Paint();return 0;
@@ -707,7 +728,7 @@ class App {
         case WM_CLOSE:
           if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=T(L"正在取消复制，请稍候…");InvalidateRect(window,nullptr,FALSE);return 0;}
           if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
-        case WM_DESTROY:if(app->work)app->work->alive=false;
+        case WM_DESTROY:if(app->work)app->work->alive=false;app->PersistSelection();
           if(app->form_font)DeleteObject(app->form_font);if(app->form_background)DeleteObject(app->form_background);
           PostQuitMessage(0);return 0;
       }
@@ -725,7 +746,7 @@ class App {
   Renderer renderer;
   Layout layout;
   std::vector<Row> rows;
-  size_t selected{1};
+  size_t selected{};
   int hover{-1};
   int focus{};
   bool busy{};
@@ -765,11 +786,13 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto options=Arguments();
     if(!options.preview.empty()){Preview(options);return 0;}
-    EnsureConfig(options.root);
     if(!options.game.empty()) {
+      EnsureConfig(options.root);
       auto spec=PrepareLaunch(FindGame(options.game),options.root,Ini::Load(ConfigPath(options.root)),options.profile,options.data);
       auto child=StartGame(spec);child.Wait();const auto code=child.ExitCode().value_or(1);return int(code);
     }
+    cave::launcher::LauncherInstance instance_guard(options.root);
+    if(!instance_guard.ActivateOrAcquire())return 0;
     App app(std::move(options));
     WNDCLASSEXW definition{};definition.cbSize=sizeof(definition);definition.style=CS_HREDRAW|CS_VREDRAW;definition.lpfnWndProc=App::Window;definition.hInstance=instance;
     definition.hCursor=LoadCursorW(nullptr,IDC_ARROW);
@@ -777,9 +800,10 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     definition.hIconSm=BrandIcon(instance,GetSystemMetrics(SM_CXSMICON));definition.lpszClassName=kWindowClass;
     if(!RegisterClassExW(&definition))throw std::runtime_error("Cannot register launcher window");
     RECT rectangle{0,0,1080,900};AdjustWindowRectEx(&rectangle,WS_OVERLAPPEDWINDOW|WS_VSCROLL,FALSE,0);
-    const auto window=CreateWindowExW(0,kWindowClass,L"CAVE PC Collection",WS_OVERLAPPEDWINDOW|WS_VSCROLL,CW_USEDEFAULT,CW_USEDEFAULT,
+    const auto window=CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|WS_VSCROLL,CW_USEDEFAULT,CW_USEDEFAULT,
         rectangle.right-rectangle.left,rectangle.bottom-rectangle.top,nullptr,nullptr,instance,&app);
     if(!window)throw std::runtime_error("Cannot create launcher window");
+    instance_guard.Publish(window);
     FitInitialWindow(window);
     ShowWindow(window,show);UpdateWindow(window);
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}

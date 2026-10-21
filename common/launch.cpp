@@ -15,31 +15,8 @@ namespace {
   throw std::runtime_error(std::string(operation)+" (Windows error "+std::to_string(GetLastError())+")");
 }
 std::wstring SessionName(const fs::path& requested) {
-  const auto root=fs::canonical(requested);
-  HANDLE directory=CreateFileW(root.c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-                              nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
-  if (directory==INVALID_HANDLE_VALUE) WinError("Open collection directory");
-  std::wstring path(32768,L'\0');
-  const auto count=GetFinalPathNameByHandleW(directory,path.data(),DWORD(path.size()),FILE_NAME_NORMALIZED);
-  CloseHandle(directory);
-  if (!count || count>=path.size()) throw std::runtime_error("Cannot resolve collection identity");
-  path.resize(count);
-  const auto upper_count=LCMapStringEx(LOCALE_NAME_INVARIANT,LCMAP_UPPERCASE,path.data(),int(path.size()),nullptr,0,nullptr,nullptr,0);
-  if (!upper_count) WinError("Normalize collection identity");
-  std::wstring upper(upper_count,L'\0');
-  if (!LCMapStringEx(LOCALE_NAME_INVARIANT,LCMAP_UPPERCASE,path.data(),int(path.size()),upper.data(),upper_count,nullptr,nullptr,0))
-    WinError("Normalize collection identity");
-  std::array<unsigned char,32> hash{};
-  BCRYPT_ALG_HANDLE algorithm{};
-  if (BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0)<0)
-    throw std::runtime_error("Cannot hash collection identity");
-  const auto status=BCryptHash(algorithm,nullptr,0,reinterpret_cast<PUCHAR>(upper.data()),ULONG(upper.size()*sizeof(wchar_t)),hash.data(),ULONG(hash.size()));
-  BCryptCloseAlgorithmProvider(algorithm,0);
-  if (status<0) throw std::runtime_error("Cannot hash collection identity");
-  constexpr wchar_t digits[]=L"0123456789abcdef";
-  std::wstring name=L"Local\\CavePCCollection.Game.v1.";
-  for (auto byte:hash) {name+=digits[byte>>4];name+=digits[byte&15];}
-  return name;
+  // Preserve this existing game-session namespace across the product rename.
+  return L"Local\\CavePCCollection.Game.v1."+CollectionIdentity(requested);
 }
 void VerifyRuntime(const Game& game,const fs::path& root) {
   const auto certificate="runtime/games/"+std::string(game.id)+"/runtime-manifest.ini";

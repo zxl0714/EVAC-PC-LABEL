@@ -64,7 +64,6 @@ inline constexpr std::array kTranslations{
   Translation{L"刷新配置",L"設定を再読込",L"Refresh configuration"},
   Translation{L"正在运行：",L"実行中：",L"Running: "},
   Translation{L"数据已复制并逐文件校验，配置已更新",L"コピー・検証が完了し、設定を更新しました",L"Data copied and verified; configuration updated"},
-  Translation{L"↑ ↓ 选择 · Enter 启动",L"↑ ↓ 選択 · Enter 起動",L"↑ ↓ Select · Enter Launch"},
   Translation{L"数据复制未完成，请查看详细信息",L"データをコピーできませんでした。詳細を確認してください",L"Data copy did not complete. See details."},
   Translation{L"无法启动，请检查数据和运行组件",L"起動できません。データと実行ファイルを確認してください",L"Cannot launch. Check game data and runtime files."},
   Translation{L"游戏异常退出（退出码 ",L"ゲームが異常終了しました（終了コード ",L"Game exited unexpectedly (exit code "},
