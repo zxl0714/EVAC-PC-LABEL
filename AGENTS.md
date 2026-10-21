@@ -1,5 +1,20 @@
 # Development entry
 
+v0.3.2 is built from a865369bfdfd880789d7ca1de00f4f0a121fe77d. The no-ROM
+Update ZIP is releases/v0.3.2-update-a865369/CAVE-PC-Collection-v0.3.2-update.zip,
+72,773,377 bytes; SHA-256 e7349d8c50fa1072f1fe940bc85953a8aa03b141b0c095ba12885554e0f38e7f.
+440 source tests (one privilege skip), 73 PS4 checks, five independent HTTP
+cases including native challenge scoring, and one actual v0.3 overlay pass.
+The overlay verified 129 payloads, 12 preservation sentinels and the installed
+native profile self-test. Reuse these reports; do not repeatedly extract or
+rebuild an unchanged accepted ZIP. .local/v032-overlay-a865369/accepted.json
+records the archive identity. DaiOuJou service now points to releases/a865369;
+its previous release and pre-v032 database snapshot are retained, existing
+score/replay rows preserved, peer PIDs/nginx unchanged, public board99 GET=200.
+No synthetic production scores were submitted. Desktop launcher activation
+failed on both refreshed selections; the in-game challenge menu was NOT newly
+verified. Do not loop Taskmgr/focus recovery. No OSS upload or QQ post occurred.
+
 Current task: fix DaiOuJou AC-CHALLENGE RANKING in v0.3.2. Its native board is
 99, cumulative medal points (maximum 3,960,000), with uploadable=0 in the
 verified native definition. Add it independently to the client/server profile;

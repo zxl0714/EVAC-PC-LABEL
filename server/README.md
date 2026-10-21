@@ -99,9 +99,9 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 ### 增量部署大往生
 
-当前服务版本为 171d8a5，`daioujou-current` 指向 `/opt/cave-community/releases/171d8a5`，18088 仅监听 loopback。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer；数据库及备份均在 `/var/lib/cave-community/daioujou/`，只由低权限服务用户写入。更新前已另存一致性快照，旧 b9a8f4f 目录保留；本次未修改 nginx，旧四款 upstream、PID、G2／SDOJ 版本指针保持不变。
+当前大往生服务版本为 a865369，`daioujou-current` 指向 `/opt/cave-community/releases/a865369`，18088 仅监听 loopback。v0.3.2 增加 AC-CHALLENGE 99 号榜，沿用原数据库和普通录像。更新前的一致性快照位于 `/var/lib/cave-community/daioujou/pre-v032-a865369/community.sqlite3`，旧 171d8a5 发行目录保留，可切回链接回滚。既有成绩及录像保持原字节，其他四款服务 PID 和 nginx 片段哈希未变；公开挑战榜读取为 200，未写入测试积分。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer，常规数据库及备份目录不变。
 
-部署前通过目标 Python 3.10.12 的 15 项 profile／备份／部署测试及三个 systemd 单元校验；部署后五款合集与两条旧入口的 HTTPS 健康检查通过，未知游戏返回 404。本作 49 个榜单已可读，初始为空，没有提交 fixture 分数。服务和每日备份 timer 已启用，首次快照的 Title ID、application_id 与完整性已核对；实际游戏联网仍待验收。以下为首次部署步骤与更新边界。
+服务和每日备份 timer 已启用，快照的 Title ID、application_id 与完整性已核对。v0.3.2 在目标 Python 3.10.12 通过 profile／备份／部署测试，代表性普通游戏内收发沿用前述验收；挑战榜另通过本机 ABI／HTTP 检查，游戏内目视复验尚未补做。以下为首次部署步骤与更新边界。
 
 1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。测试还需 `scripts/ps4/replay_fixture.py`，它只生成不可游玩的自造记录，不依赖 Windows 构建工具或 ROM。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
 2. 上传到新的不可变版本目录，核验后用服务器 Python 执行 `test_ps4_community_profiles.py`、`test_community_backup.py`、`test_community_deployment.py`。这一步只使用随机 loopback 和临时 SQLite，不改玩家榜单。先记录原四款服务 PID、各版本指针与 nginx 片段哈希。

@@ -2,6 +2,16 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.3.2 AC-CHALLENGE 排行榜修复
+
+运行组件固定为 `a865369bfdfd880789d7ca1de00f4f0a121fe77d`。补接大往生 99 号榜，按原生奖牌累计积分登记；原生定义已设 `uploadable=0`，无需改资源脚本或生成录像。普通榜单、CUSTOM 限制、录像协议和最大往生默认 1V 不变。
+
+- 440 项源码测试通过（Windows 文件链接权限跳过 1 项），源码边界审计通过。73 项 PS4 无 ROM 检查通过，其中原生 profile 14 个断言覆盖挑战榜、精确积分、上限与无录像状态。五项独立 Windows HTTP 检查通过：两作的普通成绩／录像回归，以及挑战榜空榜、零积分、最高分更新、等分／低分、个人榜和翻页。SQLite 单测另覆盖 12 人分页与原有普通成绩保留。记录为 `.local/v032-{source-tests,ps4-checks,community-checks}.txt` 和对应检查目录。
+- Ubuntu Python 3.10.12 上 profile、备份和部署测试通过。大往生服务单独更新至 `/opt/cave-community/releases/a865369`，先保存一致性数据库快照；已有一条成绩及其录像保持原字节，其他四款 PID 和 nginx 片段哈希未变。公开 99 号榜由 400 恢复为 200／空榜，普通榜仍有原有记录；未向正式榜单写入测试积分。部署凭据在 `.local/v032-{deploy-prepared,deployed}.json`。
+- `releases/v0.3.2-update-a865369/CAVE-PC-Collection-v0.3.2-update.zip` 为 72,773,377 字节，SHA-256 `e7349d8c50fa1072f1fe940bc85953a8aa03b141b0c095ba12885554e0f38e7f`。一次真实覆盖 v0.3 程序副本后，129 个载荷哈希、12 个配置／用户／数据哨兵及实际安装的原生 profile 自测通过；不含 ROM、源码、配置、用户目录或符号。记录为 `.local/v032-overlay-a865369/accepted.json`，不重复解压同一包。
+
+computer-use 初始化和窗口发现正常，但启动器激活及刷新后重试均返回 `failed to activate captured window`。本轮未新增游戏内 AC-CHALLENGE 菜单目视验收，也未恢复旧的 Taskmgr／输入测试；上述通过范围为源码、原生 ABI／HTTP 和发行覆盖。更新包尚未上传 OSS 或发送群消息。
+
 ## v0.3.1 字标图标修订验收
 
 启动器 EXE、标题栏与任务栏使用完整 EVAC＋PC LABEL 主字标，不单独采用星形；左上角显示含说明字的完整透明 Logo。图像由内置图像工具按用户附件去白底，图标去掉微小说明字，保留原文字和配色。资源、处理要求及 SHA-256 在 `launcher/branding/` 和 `launcher/branding.json` 中维护。
