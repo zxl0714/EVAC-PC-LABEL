@@ -1,5 +1,16 @@
 # Development entry
 
+Current user request supersedes the frozen-no-rebuild note for this new content:
+use the supplied EVAC PC LABEL logo for the launcher EXE icon and top-left UI,
+then create a fresh v0.3.1 Update ZIP. The user rejected the standalone star;
+use the complete EVAC + PC LABEL wordmark for the icon, and the full logo with
+tagline in the launcher. The JPEG attachment had no alpha; transparent PNGs
+were prepared with the built-in image tool and copied into launcher/branding/.
+Keep default 1V and preserve explicit modes, data, config and profiles. Validate
+resources/alpha/icon sizes and layout, do one final overlay acceptance, and keep
+all earlier ZIPs/tags intact. No new gameplay campaign, OSS upload or QQ post is
+requested. Root launchers may remain open; use -SkipLauncherStage as before.
+
 The user subsequently requested OSS upload of the accepted default-1V Update.
 Upload and public verification are complete at
 https://xiaoluoss.oss-cn-beijing.aliyuncs.com/CAVE-PC-Collection-v0.3.1-update.zip

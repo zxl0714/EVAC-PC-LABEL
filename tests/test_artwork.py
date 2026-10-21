@@ -60,6 +60,45 @@ class ArtworkTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             generate_artwork.artwork(self.root)
 
+    def test_branding_and_icon_resources_are_embedded(self):
+        entries=generate_artwork.branding(self.root)
+        self.assertEqual([item['name'] for item in entries],['logo','iconImage','icon'])
+        destination=self.root/'brand-out'
+        generate_artwork.generate(self.root,destination)
+        self.assertIn('kBrandLogoResource=201',(destination/'artwork.h').read_text())
+        self.assertIn('1 ICON ',(destination/'artwork.rc').read_text())
+        self.assertIn('201 RCDATA ',(destination/'artwork.rc').read_text())
+
+    def test_branding_rejects_non_alpha_png(self):
+        path=self.root/'launcher/branding.json'
+        record=json.loads(path.read_text(encoding='utf-8'))
+        entry=record['assets'][0];image=self.root/entry['path']
+        data=bytearray(image.read_bytes());data[25]=2;image.write_bytes(data)
+        entry['sha256']=hashlib.sha256(data).hexdigest();path.write_text(json.dumps(record),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'RGBA'):
+            generate_artwork.branding(self.root)
+
+    def test_branding_rejects_corrupt_icon_even_with_updated_hash(self):
+        path=self.root/'launcher/branding.json'
+        original=json.loads(path.read_text(encoding='utf-8'))
+        icon=self.root/original['assets'][2]['path'];before=icon.read_bytes()
+        for contents in (b'MZnot-icon',before[:6],before+b'extra',before[:150]+b'bad frame'):
+            with self.subTest(size=len(contents)):
+                record=copy.deepcopy(original);icon.write_bytes(contents)
+                record['assets'][2]['sha256']=hashlib.sha256(contents).hexdigest()
+                path.write_text(json.dumps(record),encoding='utf-8')
+                with self.assertRaises(ValueError):
+                    generate_artwork.branding(self.root)
+
+    def test_branding_rejects_path_and_identity_changes(self):
+        path=self.root/'launcher/branding.json'
+        original=json.loads(path.read_text(encoding='utf-8'))
+        for update in ({'path':'launcher/assets/sdoj.jpg'},{'sha256':'0'*64},{'name':'unknown'}):
+            record=copy.deepcopy(original);record['assets'][0].update(update)
+            path.write_text(json.dumps(record),encoding='utf-8')
+            with self.assertRaises(ValueError):
+                generate_artwork.branding(self.root)
+
 
 if __name__ == '__main__':
     unittest.main()

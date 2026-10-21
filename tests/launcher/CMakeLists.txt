@@ -6,10 +6,12 @@ get_filename_component(CAVE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
 add_subdirectory("${CAVE_ROOT}/common" "${CMAKE_BINARY_DIR}/common")
 file(GLOB ART CONFIGURE_DEPENDS "${CAVE_ROOT}/launcher/assets/*")
+file(GLOB BRAND CONFIGURE_DEPENDS "${CAVE_ROOT}/launcher/branding/*")
+list(APPEND ART ${BRAND})
 add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc"
   COMMAND "${Python3_EXECUTABLE}" "${CAVE_ROOT}/scripts/generate_artwork.py"
     "${CAVE_ROOT}" "${CMAKE_BINARY_DIR}/include"
-  DEPENDS ${ART} "${CAVE_ROOT}/launcher/artwork.json" "${CAVE_ROOT}/scripts/generate_artwork.py" VERBATIM)
+  DEPENDS ${ART} "${CAVE_ROOT}/launcher/artwork.json" "${CAVE_ROOT}/launcher/branding.json" "${CAVE_ROOT}/scripts/generate_artwork.py" VERBATIM)
 set_source_files_properties("${CMAKE_BINARY_DIR}/include/artwork.rc" PROPERTIES OBJECT_DEPENDS "${ART}")
 add_executable(cave_launcher_checks ui_test.cpp "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc")
 target_include_directories(cave_launcher_checks PRIVATE "${CMAKE_BINARY_DIR}/include")

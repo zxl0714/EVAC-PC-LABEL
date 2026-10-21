@@ -155,6 +155,11 @@ py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目�
 
 ## 出包与交付
 
+启动器的 Logo／ICO 在 `launcher/branding/`，来源与哈希由 `launcher/branding.json`
+维护，准备说明见该目录的 README。`generate_artwork.py` 将完整透明 Logo 和多尺寸
+ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片。源码审计仅放行清单内
+通过结构／哈希核对的三个品牌资源，不扩大为任意二进制例外。
+
 v0.3.1 的覆盖更新使用 `./scripts/Release.ps1 -Flavor Update -Version 0.3.1`。
 ZIP 直接包含根目录程序与 runtime，无外层目录，不携带 config.ini、user-data、
 游戏数据、准备镜像、缓存、日志、源码或符号。先关闭程序，直接解压到 v0.3

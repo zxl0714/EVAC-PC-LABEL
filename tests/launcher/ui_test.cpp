@@ -94,6 +94,35 @@ void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickn
   Require(waited==WAIT_OBJECT_0 && exit_code==0,"Independent process did not read back saved settings");
 }
 void MainChecks() {
+  const auto module=GetModuleHandleW(nullptr);
+  for(const auto size:{16,20,24,32,40,48,64,128,256}) {
+    const auto icon=BrandIcon(module,size);ICONINFO info{};
+    Require(GetIconInfo(icon,&info)!=FALSE,"Decode embedded icon size");
+    BITMAP bitmap{};const auto okay=GetObjectW(info.hbmColor,sizeof(bitmap),&bitmap);
+    if(info.hbmColor)DeleteObject(info.hbmColor);if(info.hbmMask)DeleteObject(info.hbmMask);
+    Require(okay && bitmap.bmWidth==size && bitmap.bmHeight==size,"Embedded icon has the wrong size");
+  }
+  const auto logo_resource=FindResourceW(nullptr,MAKEINTRESOURCEW(cave::launcher::kBrandLogoResource),RT_RCDATA);
+  Require(logo_resource!=nullptr,"Missing embedded logo");
+  const auto logo_bytes=SizeofResource(nullptr,logo_resource);
+  const auto logo_data=static_cast<BYTE*>(LockResource(LoadResource(nullptr,logo_resource)));
+  std::ifstream logo_file(fs::path(CAVE_TEST_SOURCE_ROOT)/"launcher/branding/evac-logo.png",std::ios::binary);
+  const std::string logo_source{std::istreambuf_iterator<char>(logo_file),{}};
+  Require(logo_data && logo_bytes==logo_source.size() && std::memcmp(logo_data,logo_source.data(),logo_bytes)==0,
+          "Embedded logo differs from the authored asset");
+  {
+    Renderer renderer;ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create logo test stream");
+    Check(stream->InitializeFromMemory(logo_data,logo_bytes),"Open logo resource");
+    ComPtr<IWICBitmapDecoder> decoder;Check(renderer.wic->CreateDecoderFromStream(stream.Get(),nullptr,WICDecodeMetadataCacheOnLoad,&decoder),"Decode logo resource");
+    ComPtr<IWICBitmapFrameDecode> frame;Check(decoder->GetFrame(0,&frame),"Get logo test frame");
+    UINT width{},height{};Check(frame->GetSize(&width,&height),"Logo test dimensions");
+    ComPtr<IWICFormatConverter> converter;Check(renderer.wic->CreateFormatConverter(&converter),"Create logo test converter");
+    Check(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppBGRA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom),"Convert logo test frame");
+    std::vector<BYTE> pixels(size_t(width)*height*4);Check(converter->CopyPixels(nullptr,width*4,UINT(pixels.size()),pixels.data()),"Read logo alpha");
+    size_t transparent{},foreground{};for(size_t index=3;index<pixels.size();index+=4) {transparent+=pixels[index]==0;foreground+=pixels[index]>=240;}
+    Require(pixels[3]==0 && transparent>size_t(width)*height/10 && foreground>size_t(width)*height/10,
+            "Logo is not a transparent foreground cutout");
+  }
   Fixture fixture;
   const std::string before="\xef\xbb\xbf; preserve comment\r\n[collection]\r\nconfig_version=1\r\nlanguage=zh\r\n"
       "[display]\r\nfullscreen=true\r\n[community]\r\nnickname=Baseline\r\n"
@@ -104,6 +133,9 @@ void MainChecks() {
     Require(!fs::exists(fixture.root/"config.ini") && Ini::ReadText(ConfigPath(fixture.root))==before,"Real app startup did not preserve migration bytes");
     for(const auto dimensions:std::array{std::pair{720.f,520.f},std::pair{1080.f,900.f}}) {
       app.layout.width=dimensions.first;app.layout.height=dimensions.second;
+      const auto brand=app.layout.brand();
+      Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
+              brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
       const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.config(),app.layout.logs(),app.layout.detail()};
       for(size_t index=0;index<controls.size();++index) {
         const auto r=controls[index];

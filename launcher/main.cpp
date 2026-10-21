@@ -36,6 +36,12 @@ constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT_PTR kChildTimer=1;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr wchar_t kWindowClass[]=L"CavePCCollection.Launcher.v1";
+HICON BrandIcon(HINSTANCE instance,int size) {
+  const auto icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(cave::launcher::kAppIconResource),
+      IMAGE_ICON,size,size,LR_SHARED));
+  if(!icon)throw std::runtime_error("Cannot load the embedded launcher icon");
+  return icon;
+}
 using cave::launcher::Language;
 Language language=Language::Chinese;
 const wchar_t* T(std::wstring_view key) {return cave::launcher::Translate(language,key);}
@@ -178,6 +184,7 @@ struct Layout {
   D2D1_RECT_F play() const {return {width-margin()-176,height-99,width-margin(),height-49};}
   D2D1_RECT_F config() const {return {margin()+185,height-45,margin()+283,height-14};}
   D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+361,height-14};}
+  D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
     const auto left=width-margin()-146+float(index)*52;
     return {left,32,left+42,60};
@@ -235,9 +242,23 @@ class Renderer {
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
   ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index) {
-    if (last_target!=target) {for(auto& bitmap:bitmaps)bitmap.Reset();last_target=target;}
+    SelectTarget(target);
     if (bitmaps[index]) return bitmaps[index].Get();
-    const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(cave::launcher::kArtwork[index].resource),RT_RCDATA);
+    bitmaps[index]=DecodeImage(target,cave::launcher::kArtwork[index].resource);return bitmaps[index].Get();
+  }
+  ID2D1Bitmap* Logo(ID2D1RenderTarget* target) {
+    SelectTarget(target);
+    if(!logo)logo=DecodeImage(target,cave::launcher::kBrandLogoResource);
+    return logo.Get();
+  }
+  void SelectTarget(ID2D1RenderTarget* target) {
+    if(last_target!=target) {
+      for(auto& bitmap:bitmaps)bitmap.Reset();
+      logo.Reset();last_target=target;
+    }
+  }
+  ComPtr<ID2D1Bitmap> DecodeImage(ID2D1RenderTarget* target,unsigned identity) {
+    const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(identity),RT_RCDATA);
     if (!resource) throw std::runtime_error("Missing embedded banner resource");
     const auto bytes=SizeofResource(nullptr,resource);auto data=LockResource(LoadResource(nullptr,resource));
     if (!bytes || bytes>5*1024*1024 || !data) throw std::runtime_error("Invalid embedded banner");
@@ -249,16 +270,19 @@ class Renderer {
     if (!width || !height || width>8192 || height>8192) throw std::runtime_error("Banner dimensions exceed bounds");
     ComPtr<IWICFormatConverter> converter;Check(wic->CreateFormatConverter(&converter),"Create artwork converter");
     Check(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom),"Convert banner");
-    Check(target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&bitmaps[index]),"Upload banner");return bitmaps[index].Get();
+    ComPtr<ID2D1Bitmap> bitmap;
+    Check(target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&bitmap),"Upload artwork");return bitmap;
   }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
             bool preferences_dirty=false,std::wstring_view override_hint={}) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
-    Text(target,L"C A V E",{margin,25,margin+130,65},27,0x23312d);
-    Text(target,L"PC COLLECTION",{margin+(layout.narrow()?0:140),layout.narrow()?61.f:40.f,margin+320,80},10,0x6f7c76);
-    if (!layout.narrow()) Text(target,T(L"熟悉的弹幕，新的入口。"),{margin,70,margin+360,92},12,0x78827c);
+    const auto brand=Logo(target);const auto brand_size=brand->GetSize();
+    const auto brand_box=layout.brand();
+    const auto brand_scale=std::min((brand_box.right-brand_box.left)/brand_size.width,(brand_box.bottom-brand_box.top)/brand_size.height);
+    target->DrawBitmap(brand,{brand_box.left,brand_box.top,brand_box.left+brand_size.width*brand_scale,brand_box.top+brand_size.height*brand_scale},
+        1.f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
     const std::array language_codes{L"CN",L"EN",L"JP"};
     const std::array language_choices{Language::Chinese,Language::English,Language::Japanese};
     for(size_t index=0;index<language_choices.size();++index) {
@@ -349,6 +373,7 @@ class Renderer {
   ComPtr<IDWriteFactory> write;
   std::map<float,ComPtr<IDWriteTextFormat>> formats;
   std::array<ComPtr<ID2D1Bitmap>,cave::launcher::kArtwork.size()> bitmaps;
+  ComPtr<ID2D1Bitmap> logo;
   ID2D1RenderTarget* last_target{};
 };
 struct Work {
@@ -745,7 +770,9 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     }
     App app(std::move(options));
     WNDCLASSEXW definition{};definition.cbSize=sizeof(definition);definition.style=CS_HREDRAW|CS_VREDRAW;definition.lpfnWndProc=App::Window;definition.hInstance=instance;
-    definition.hCursor=LoadCursorW(nullptr,IDC_ARROW);definition.hIcon=LoadIconW(nullptr,IDI_APPLICATION);definition.lpszClassName=kWindowClass;
+    definition.hCursor=LoadCursorW(nullptr,IDC_ARROW);
+    definition.hIcon=BrandIcon(instance,GetSystemMetrics(SM_CXICON));
+    definition.hIconSm=BrandIcon(instance,GetSystemMetrics(SM_CXSMICON));definition.lpszClassName=kWindowClass;
     if(!RegisterClassExW(&definition))throw std::runtime_error("Cannot register launcher window");
     RECT rectangle{0,0,1080,900};AdjustWindowRectEx(&rectangle,WS_OVERLAPPEDWINDOW|WS_VSCROLL,FALSE,0);
     const auto window=CreateWindowExW(0,kWindowClass,L"CAVE PC Collection",WS_OVERLAPPEDWINDOW|WS_VSCROLL,CW_USEDEFAULT,CW_USEDEFAULT,

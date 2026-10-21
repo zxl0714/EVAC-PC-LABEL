@@ -64,8 +64,9 @@ def audit_source(root=ROOT):
     expected_links = {item['path']: item['commit'] for item in locked_modules(root)}
     if actual_links != expected_links:
         raise ValueError('SDK dependency index differs from its source lock')
-    from generate_artwork import artwork
+    from generate_artwork import artwork, branding
     art={entry['path'] for entry in artwork(root)}
+    brand={entry['path'] for entry in branding(root)}
     count, total = 0, 0
     for name in names:
         if name in actual_links:
@@ -76,7 +77,7 @@ def audit_source(root=ROOT):
             raise ValueError(f'Local data in source selection: {name}')
         path = root / name
         reject_link(path)
-        if name in art:
+        if name in art or name in brand:
             count+=1
             total+=path.stat().st_size
             continue
@@ -91,7 +92,8 @@ def audit_source(root=ROOT):
         data.decode('utf-8-sig')
         count += 1
         total += len(data)
-    return dict(files=count, bytes=total, submodules=len(actual_links), artworkFiles=len(art), gameDataIncluded=False)
+    return dict(files=count, bytes=total, submodules=len(actual_links), artworkFiles=len(art),
+                brandingFiles=len(brand), gameDataIncluded=False)
 
 
 if __name__ == '__main__':

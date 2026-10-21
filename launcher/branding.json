@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "origin": "User-supplied EVAC PC LABEL logo; transparent cutouts prepared with the built-in image tool.",
+  "assets": [
+    {"name": "logo", "path": "launcher/branding/evac-logo.png", "sha256": "189222b0ac15ed06705d69d7e4a5f2a073794769ebd0b45691b1c4435b9d11d7"},
+    {"name": "iconImage", "path": "launcher/branding/evac-icon.png", "sha256": "30257f5d6c84cb278949a1abf1b6accd3a085ee2cc305dd63f1556978d3a6be2"},
+    {"name": "icon", "path": "launcher/branding/evac.ico", "sha256": "28cc2e6ce71e116543568349bd56489cc0a79a32f92d0c0d595245624cd50b81"}
+  ]
+}

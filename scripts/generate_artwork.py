@@ -4,8 +4,69 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import struct
 
 from generate_catalogue import load, read_json, relative
+
+
+def png_bounds(data):
+    if (len(data)<33 or not data.startswith(b'\x89PNG\r\n\x1a\n') or
+            data[8:16]!=b'\x00\x00\x00\rIHDR' or data[24:26]!=b'\x08\x06'):
+        raise ValueError('Brand PNG must have an 8-bit RGBA channel')
+    width,height=struct.unpack_from('>II',data,16)
+    if not 1<=width<=4096 or not 1<=height<=4096:
+        raise ValueError('Invalid brand PNG bounds')
+    return width,height
+
+
+def branding(root):
+    root=Path(root).resolve()
+    manifest=root/'launcher/branding.json'
+    if not manifest.exists():
+        return []
+    value=read_json(manifest)
+    if type(value.get('format')) is not int or value['format']!=1 or not value.get('origin'):
+        raise ValueError('Invalid branding manifest')
+    entries=value['assets']
+    expected={'logo':'launcher/branding/evac-logo.png','iconImage':'launcher/branding/evac-icon.png',
+              'icon':'launcher/branding/evac.ico'}
+    if [entry['name'] for entry in entries]!=list(expected):
+        raise ValueError('Branding assets must contain the logo, icon image and icon')
+    for entry in entries:
+        name=relative(entry['path']);path=root/name
+        if name!=expected[entry['name']]:
+            raise ValueError('Unexpected branding asset')
+        for part in (path,*path.parents):
+            if part.is_symlink() or part.is_junction():
+                raise ValueError('Linked branding source')
+            if part==root:
+                break
+        if not path.is_file() or not 1<=path.stat().st_size<=5*1024*1024:
+            raise ValueError('Invalid branding file bounds')
+        data=path.read_bytes()
+        if not re.fullmatch('[0-9a-f]{64}',entry['sha256']) or hashlib.sha256(data).hexdigest()!=entry['sha256']:
+            raise ValueError('Branding differs from recorded source')
+        if entry['name']!='icon':
+            width,height=png_bounds(data)
+            if entry['name']=='iconImage' and width!=height:
+                raise ValueError('Icon image must be square')
+            continue
+        sizes=(16,20,24,32,40,48,64,128,256)
+        if data[:6]!=struct.pack('<HHH',0,1,len(sizes)):
+            raise ValueError('Invalid ICO directory')
+        offset=6+16*len(sizes)
+        if len(data)<offset:
+            raise ValueError('Truncated ICO directory')
+        for index,size in enumerate(sizes):
+            width,height,colors,reserved,planes,bits,length,start=struct.unpack_from('<BBBBHHII',data,6+16*index)
+            if ((width or 256,height or 256,colors,reserved,planes,bits)!=(size,size,0,0,1,32) or
+                    start!=offset or not 33<=length<=len(data)-offset or
+                    png_bounds(data[offset:offset+length])!=(size,size)):
+                raise ValueError('Invalid ICO frame')
+            offset+=length
+        if offset!=len(data):
+            raise ValueError('Unexpected ICO trailing content')
+    return entries
 
 
 def artwork(root):
@@ -67,7 +128,15 @@ def generate(root, destination):
         header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
                       ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')
         resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
-    header+=['}};','}']
+    header+=['}};']
+    brand=branding(root)
+    if brand:
+        header+=['inline constexpr unsigned kBrandLogoResource=201;',
+                 'inline constexpr unsigned kAppIconResource=1;']
+        sources={entry['name']:Path(root)/entry['path'] for entry in brand}
+        resources+=['201 RCDATA '+quoted(sources['logo'].resolve().as_posix()),
+                    '1 ICON '+quoted(sources['icon'].resolve().as_posix())]
+    header+=['}']
     for name,lines in [('artwork.h',header),('artwork.rc',resources)]:
         path=destination/name
         text='\n'.join(lines)+'\n'
