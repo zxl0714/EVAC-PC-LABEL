@@ -1,5 +1,13 @@
 # Development entry
 
+The latest v0.3.2 CUSTOM revision is now uploaded and publicly verified:
+https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip
+Its .zip.sha256 companion matches; public HEAD=200, byte count/source/revision
+and SHA-256 metadata agree, bounded 32-byte ZIP-header GET=206. Receipt is
+.local/v032-custom-oss/receipt.json. No rebuild/re-extraction or QQ post.
+Use this URL for the revision containing BOTH ranking fixes, not the older
+local-only AC-CHALLENGE archive. Existing OSS objects were not overwritten.
+
 Latest v0.3.2 revision includes BOTH DaiOuJou AC-CHALLENGE and Ketsui CUSTOM.
 Binary source a8a75fb9d86a11003c8fa9f3e1fb38521bcb2a07, tag v0.3.2-custom.
 Accepted ZIP: releases/v0.3.2-custom-a8a75fb/CAVE-PC-Collection-v0.3.2-update.zip,

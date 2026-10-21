@@ -4,6 +4,8 @@
 
 ## v0.3.2 绊地狱 CUSTOM 增补
 
+已上传并公开核验：[v0.3.2 覆盖包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip)、[校验文件](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip.sha256)。公网 HEAD=200，大小、SHA-256／源码／修订元数据与本地验收身份一致，公开校验文件匹配；32 字节 ZIP 文件头范围请求为 206。复用既有 ZIP，未重建、重解压或覆盖旧 OSS 对象，凭据在 `.local/v032-custom-oss/receipt.json`，群消息由用户自行发送。
+
 当前更新包的运行组件固定为 `a8a75fb9d86a11003c8fa9f3e1fb38521bcb2a07`（标签 `v0.3.2-custom`），包含下述大往生 AC-CHALLENGE 修复。绊地狱按原生定义开放 CUSTOM 综合／Type-A／Type-B 的 60／61／62 号榜，上传限制为 100／10／10，录像保留原 mode=3 和完整快照／按键数据。不按参数摘要拆原生榜，也不改变续关、双人和练习等资格判断；旧显式摘要分区保留，不合并成绩。
 
 - 465 项源码测试通过（Windows 文件链接权限跳过 1 项）。29 项原生录像校验、36 项原生整局采集、37 项 journal 测试通过，覆盖三榜与模式／机体匹配、原字节保持、存盘重开及提交引用。九项本机 HTTP 检查通过，包括三榜各自的原生 ABI 成绩／个人榜／录像上传下载，CUSTOM 整局 worker 的两榜成绩、原附件证明与完成归档，以及原有两作普通收发和大往生挑战榜回归。均为自造不可游玩记录，不执行游戏。
