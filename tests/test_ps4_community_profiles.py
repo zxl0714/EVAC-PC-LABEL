@@ -25,12 +25,14 @@ class Ps4CommunityProfiles(unittest.TestCase):
     def test_native_mapping_units_and_identity_are_not_shared(self):
         self.assertEqual(ketsui.account_id('Alice'), '392319542754098719')
         self.assertEqual(daioujou.account_id('Alice'), '4491676318865695736')
-        self.assertEqual(len(daioujou.BOARDS), 49)
+        self.assertEqual(len(daioujou.BOARDS), 50)
         self.assertEqual(daioujou.BOARDS[6]['ship'], 'all')
         self.assertEqual(daioujou.BOARDS[0]['doll'], 'shotia')
         self.assertEqual(daioujou.BOARDS[1]['ship'], 'type_b')
         self.assertEqual(daioujou.BOARDS[4]['doll'], 'exy')
         self.assertEqual(daioujou.BOARDS[66]['mode'], 'black_label_one_loop')
+        self.assertEqual(daioujou.BOARDS[99]['mode'], 'ac_challenge')
+        self.assertEqual(daioujou.BOARDS[99]['upload_limit'], 0)
 
     def test_scores_personal_readback_limits_and_custom_exclusion(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -42,11 +44,58 @@ class Ps4CommunityProfiles(unittest.TestCase):
             self.assertEqual(store.submit(request), receipt)
             page = store.leaderboard(6, 'standard', account=receipt['account_id'])
             self.assertEqual(page['entries'][0]['score'], '123456789')
-            for request in (score(10), score(16), score(99), score(6, '1000000000')):
+            for request in (score(10), score(16), score(98), score(6, '1000000000')):
                 with self.assertRaises(ketsui.ApiError):
                     store.submit(request)
             self.assertEqual(store.leaderboard(6, 'standard')['total'], 1)
             self.assertEqual(store.leaderboard(66, 'standard')['total'], 0)
+
+    def test_challenge_points_empty_page_personal_best_and_no_replay(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store=daioujou.Store(Path(temporary)/'challenge.sqlite3')
+            self.assertEqual(store.leaderboard(99,'standard')['entries'],[])
+            self.assertEqual(store.leaderboard(99,'standard',account=daioujou.account_id('Alice'))['entries'],[])
+            initial=store.submit(score(99,'0'))
+            self.assertTrue(initial['accepted'])
+            self.assertFalse(initial['upload_eligible'])
+            request=score(99,'10003')
+            receipt=store.submit(request)
+            self.assertEqual(store.submit(request),receipt)
+            self.assertTrue(receipt['accepted'])
+            self.assertFalse(receipt['upload_eligible'])
+            self.assertFalse(store.submit(score(99,'10003'))['accepted'])
+            self.assertFalse(store.submit(score(99,'3'))['accepted'])
+            page=store.leaderboard(99,'standard',account=receipt['account_id'])
+            self.assertEqual((page['total'],page['entries'][0]['score']),(1,'10003'))
+            self.assertIsNone(page['entries'][0]['replay'])
+            self.assertEqual(store.leaderboard(0,'standard')['total'],0)
+            with self.assertRaises(ketsui.ApiError) as error:
+                store.submit(score(99,str(daioujou.MAX_CHALLENGE_POINTS+1)))
+            self.assertEqual(error.exception.code,'challenge_points_out_of_range')
+            self.assertTrue(store.submit(score(99,str(daioujou.MAX_CHALLENGE_POINTS)))['accepted'])
+            payload=b'not-a-replay'
+            with self.assertRaises(ketsui.ApiError) as error:
+                store.upload(dict(entry_id=receipt['entry_id'],submission_id=request['submission_id'],nickname='Alice',
+                    format=store.replay_format,sha256=hashlib.sha256(payload).hexdigest(),
+                    payload_base64=base64.b64encode(payload).decode()))
+            self.assertEqual(error.exception.code,'replay_not_eligible')
+
+    def test_challenge_pagination_and_existing_database_upgrade(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary)/'existing.sqlite3'
+            original=daioujou.Store(path)
+            receipt=original.submit(score(0,'12345'))
+            store=daioujou.Store(path)
+            for index in range(12):
+                store.submit(score(99,str(10003+index),name='Pilot'+str(index)))
+            first=store.leaderboard(99,'standard',start=1,count=10)
+            second=store.leaderboard(99,'standard',start=11,count=10)
+            self.assertEqual((first['total'],len(first['entries']),len(second['entries'])),(12,10,2))
+            self.assertEqual([row['rank'] for row in first['entries']+second['entries']],list(range(1,13)))
+            self.assertEqual(first['entries'][0]['score'],'10014')
+            self.assertEqual(second['entries'][-1]['score'],'10003')
+            retained=store.leaderboard(0,'standard')['entries'][0]
+            self.assertEqual((retained['entry_id'],retained['score']),(receipt['entry_id'],'12345'))
 
     def test_peer_database_is_refused_before_mutation(self):
         with tempfile.TemporaryDirectory() as temporary:

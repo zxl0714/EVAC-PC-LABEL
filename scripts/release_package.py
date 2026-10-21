@@ -24,7 +24,7 @@ DEFAULT_VERSION = '0.3'
 MANIFEST_ONLY_DATA = {'sdoj', 'daioujou'}
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
-UPDATE_BASES = {'0.3.1': '0.3'}
+UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
 
 
@@ -391,7 +391,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
             copy_checked(file, directory / subdir / file.name, 'redist', entries)
     if flavor != 'Update':
         copy_checked(ROOT / 'config/default.ini', directory / config_name(version), 'config', entries)
-    readme = ('README.player-v031.txt' if version == '0.3.1' else
+    readme = ('README.player-v032.txt' if version == '0.3.2' else
+              'README.player-v031.txt' if version == '0.3.1' else
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
               'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)

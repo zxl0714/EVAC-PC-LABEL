@@ -53,7 +53,7 @@ bool Read(const void* source, void* target, std::size_t bytes) {
 bool Writable(const void* target, std::size_t bytes) { return target && NativeMemoryWritable(target, bytes); }
 bool BoardFor(std::string_view game,unsigned id) {
     if (game=="ketsui") return id == 99 || (id <= 52 && id % 10 <= 2);
-    if (game=="daioujou") return id<=66 && id%10<=6;
+    if (game=="daioujou") return id==99 || (id<=66 && id%10<=6);
     return false;
 }
 unsigned U32(const Json& value, bool positive = false) {
@@ -410,7 +410,7 @@ public:
     int Score(int id, unsigned board, std::int64_t score, const Comment* comment, const GameInfo* info,
               unsigned* temporary_rank, const std::uint64_t* compare, void* option) {
         if (!Board(board) || score < 0 || compare || option || (temporary_rank && !Writable(temporary_rank, sizeof(*temporary_rank)))) { return kArgument; }
-        if (game_=="daioujou" && (board/10==1 || score>999999999)) return kArgument;
+        if (game_=="daioujou" && (board/10==1 || score>(board==99 ? 3960000 : 999999999))) return kArgument;
         Comment copied{}; GameInfo information{};
         if ((comment && !Read(comment, &copied, sizeof(copied))) || copied.bytes[63] ||
             (info && (!Read(info, &information, sizeof(information)) || information.size > 189))) { return kArgument; }
@@ -661,7 +661,8 @@ bool ScoreProfileSelfTest() {
         ++cases;okay &= passed;
     };
     check(BoardFor("daioujou",0) && BoardFor("daioujou",6) && BoardFor("daioujou",66) &&
-        !BoardFor("daioujou",7) && !BoardFor("daioujou",99) && !BoardFor("ketsui",6) && BoardFor("ketsui",99),
+        BoardFor("daioujou",99) && !BoardFor("daioujou",7) && !BoardFor("daioujou",98) &&
+        !BoardFor("ketsui",6) && BoardFor("ketsui",99),
         "title_board_sets_are_distinct");
     Bridge second;AuthoredTransport transport;
     check(transport.Install(second,"daioujou"),"second_title_owns_independent_native_bridge");
@@ -690,6 +691,24 @@ bool ScoreProfileSelfTest() {
     check(second.Poll(request,&result.value)==0 && result.value==1 && total==1 &&
         entry.value.account==AccountId("Alice","daioujou") && entry.value.score==123456789 && Tail(entry),
         "native_board_readback_preserves_title_identity_and_score_units");
+    const auto queued=transport.paths.size();
+    check(second.Score(request,99,3960001,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument && transport.paths.size()==queued,
+        "challenge_points_cannot_exceed_66_scenes_six_teams_gold_bound");
+    Require(second.Score(request,99,10003,nullptr,nullptr,&rank.value,nullptr,nullptr)==0);
+    check(transport.bodies.back().at("board")==99 && transport.bodies.back().at("score")=="10003",
+        "challenge_points_use_their_own_board_without_score_scaling");
+    receipt=AuthoredReceipt();receipt.body["account_id"]=std::to_string(AccountId("Alice","daioujou"));
+    receipt.body["upload_eligible"]=false;transport.Complete(std::move(receipt));
+    check(second.Poll(request,&result.value)==0 && result.value==0 && rank.value==1,
+        "challenge_score_without_replay_is_successful");
+    std::array<std::byte,1> empty_attachment{};
+    check(second.UploadReplay(request,99,10003,1,1,empty_attachment.data(),nullptr)==kNotBest,
+        "challenge_score_does_not_publish_a_playable_replay");
+    Require(second.Ranking(request,99,1,&entry.value,sizeof(entry.value),nullptr,0,nullptr,0,1,&date,&total,nullptr)==0);
+    source=AuthoredEntry();source["account_id"]=std::to_string(AccountId("Alice","daioujou"));source["score"]="10003";
+    page=AuthoredPage(Json::array({source}));page.body["board"]=99;transport.Complete(std::move(page));
+    check(second.Poll(request,&result.value)==0 && result.value==1 && entry.value.score==10003 && !entry.value.has_data && Tail(entry),
+        "challenge_readback_keeps_exact_points_and_no_replay_badge");
     check(second.DeleteRequest(request)==0 && second.DeleteContext(context)==0 && !second.ContextsLive(),
         "title_local_contexts_are_released");
     std::printf("{\"event\":\"np_score_profile_self_test\",\"passed\":%s,\"cases\":%u,\"authored_data_only\":true,\"native_game_execution\":false}\n",okay?"true":"false",cases);
@@ -1058,6 +1077,43 @@ bool ScoreReplaySelfTest() {
             DeleteRequest(refreshed) == 0 && DeleteContext(context) == 0 && VirtualFree(buffer, 0, MEM_RELEASE));
     std::printf("{\"event\":\"np_replay_self_test\",\"passed\":%s,\"cases\":%u,\"authored_data_only\":true,\"native_playback_validated\":false}\n", okay ? "true" : "false", cases);
     return okay;
+}
+bool ChallengeScoreSmoke(const std::filesystem::path& path,const std::filesystem::path& directory) {
+    const auto config=LoadConfig(path,"daioujou");const auto endpoint=ParseEndpoint(config.endpoint,"daioujou");
+    Require(config.enabled && endpoint.host==L"127.0.0.1" && !endpoint.secure &&
+        directory.is_absolute() && !std::filesystem::exists(directory));
+    InitializeAuthoredUser();
+    const auto client=std::make_shared<Client>(config,directory);Require(ConfigureNativeScore(client));
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+    while (!client->State().ready && std::chrono::steady_clock::now()<deadline) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    Require(client->State().ready);
+    const auto account=client->State().account;
+    const auto context=CreateContext(0,0x1000),scoring=CreateRequest(context),listing=CreateRequest(context);
+    Require(context>0 && scoring>0 && listing>0);
+    Guarded<std::array<Rank,10>> rows;Guarded<unsigned> total,position;
+    const auto range=[&](unsigned board,unsigned start) {
+        return Range(listing,board,start,rows.value.data(),sizeof(rows.value),nullptr,0,nullptr,0,10,nullptr,&total.value,nullptr);
+    };
+    Require(range(99,1)==0 && AwaitScore(listing)==0 && total.value==0 && Tail(rows) && Tail(total));
+    Guarded<PlayerRank> personal;
+    const auto mine=[&] { return Account(listing,99,&account,sizeof(account),&personal.value,sizeof(personal.value),
+        nullptr,0,nullptr,0,1,nullptr,&total.value,nullptr); };
+    Require(mine()==0 && AwaitScore(listing)==kRankingNotFound && !personal.value.present && Tail(personal));
+    Require(Score(scoring,99,0,nullptr,nullptr,&position.value,nullptr,nullptr)==0 && AwaitScore(scoring)==0 && position.value==1);
+    Require(Score(scoring,99,10003,nullptr,nullptr,&position.value,nullptr,nullptr)==0 && AwaitScore(scoring)==0 && position.value==1);
+    Require(Score(scoring,99,10003,nullptr,nullptr,nullptr,nullptr,nullptr)==0 && AwaitScore(scoring)==kNotBest);
+    Require(Score(scoring,99,3,nullptr,nullptr,nullptr,nullptr,nullptr)==0 && AwaitScore(scoring)==kNotBest);
+    Require(range(99,1)==0 && AwaitScore(listing)==1 && total.value==1 && rows.value[0].score==10003 &&
+        rows.value[0].account==account && !rows.value[0].has_data && Tail(rows) && Tail(total));
+    Require(mine()==0 && AwaitScore(listing)==1 && personal.value.present==1 && personal.value.value.score==10003 &&
+        !personal.value.value.has_data && personal.value.value.account==account && Tail(personal));
+    Require(range(99,11)==0 && AwaitScore(listing)==0 && total.value==1);
+    Require(range(0,1)==0 && AwaitScore(listing)==0 && total.value==0);
+    Require(DeleteRequest(scoring)==0 && DeleteRequest(listing)==0 && DeleteContext(context)==0);
+    client->Stop();
+    std::puts(Json{{"event","np_challenge_smoke"},{"passed",true},{"game","daioujou"},{"board",99},
+        {"native_game_execution",false},{"native_menu_integration",false},{"authored_data_only",true}}.dump().c_str());
+    return true;
 }
 bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::path& directory,
                       const std::filesystem::path& payload_path,std::string_view game) {

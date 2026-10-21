@@ -1,5 +1,15 @@
 # Development entry
 
+Current task: fix DaiOuJou AC-CHALLENGE RANKING in v0.3.2. Its native board is
+99, cumulative medal points (maximum 3,960,000), with uploadable=0 in the
+verified native definition. Add it independently to the client/server profile;
+do not rescale points, fabricate a replay, or change ordinary score/replay
+semantics. Verify through isolated ABI/HTTP tests and a bounded menu check.
+The v0.3.2 Update is cumulative over v0.3/v0.3.1, no ROM/source/config/user-data.
+Retain default SDOJ 1V, branding and accepted old archives/tags. Only deploy the
+DaiOuJou service with a consistent backup; no synthetic production scores or
+other-title restarts. No v0.3.2 OSS upload or QQ post is requested.
+
 For the user's requested QQ announcement draft, the accepted logo build has
 now been uploaded under a NEW prefix, preserving the earlier public object:
 https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.1-logo/CAVE-PC-Collection-v0.3.1-update.zip

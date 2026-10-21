@@ -12,6 +12,7 @@ bool ScoreSelfTest();
 bool ScoreProfileSelfTest();
 bool ScoreReplaySelfTest();
 bool ScoreSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
+bool ChallengeScoreSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
 // ABI/HTTP diagnostic only: literal loopback, fresh output, no guest execution.
 bool ScoreReplaySmoke(const std::filesystem::path& config, const std::filesystem::path& directory,
                       const std::filesystem::path& payload,std::string_view game="ketsui");

@@ -35,6 +35,23 @@
     {"offset": 5, "ship": "type_b", "doll": "exy"},
     {"offset": 6, "ship": "all", "doll": "all"}
   ],
+  "challengeBoard": {
+    "id": 99,
+    "mode": "ac_challenge",
+    "scoreUnit": "cumulative_medal_points",
+    "maximumPoints": 3960000,
+    "medals": {"gold": 10000, "silver": 3, "bronze": 1},
+    "scenes": 66,
+    "teams": 6,
+    "replayUploadLimit": 0,
+    "sources": [
+      "patch:1100/script/title_standalone_challenge.nut.m:ChallengeRegistRanking/ChallengeReadRanking",
+      "patch:1100/script/title_standalone_tuning.nut.m:getChallengePoint",
+      "base:1100/config/title_leaderboards.psb.m"
+    ],
+    "leaderboardDefinitionSha256": "7f2069d84c13848bd29ad7973193895a3449cef9b416b26267544a2e83a1b387",
+    "description": "Keep exact medal points; the ordinary display-score multiplier does not apply. The native board definition already sets uploadable=0, so its ranking manager skips the cleared placeholder attachment. No replay or gameplay-script patch is required."
+  },
   "eligibility": {
     "nativeReplayRecordingRequired": true,
     "noContinues": true,

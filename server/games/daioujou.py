@@ -13,6 +13,10 @@ BOARDS = {base + offset: dict(id=base + offset, mode=mode,
                             doll='all' if offset == 6 else ('shotia', 'leinyan', 'exy')[offset // 2],
                             upload_limit=0 if mode == 'custom' else 100 if offset == 6 else 10)
           for base, mode in MODE_BASES.items() for offset in range(7)}
+# AC-CHALLENGE ranks cumulative medals, not a round/replay. Native 1.04 uses
+# 66 scenes x two ships x three dolls, with at most 10,000 points per scene.
+CHALLENGE_BOARD, MAX_CHALLENGE_POINTS = 99, 66 * 2 * 3 * 10000
+BOARDS[CHALLENGE_BOARD] = dict(id=CHALLENGE_BOARD, mode='ac_challenge', ship='all', doll='all', upload_limit=0)
 
 
 def account_id(name):
@@ -104,6 +108,7 @@ class Store(Ps4Store):
 
     def validate_submission(self, board, score):
         require(board // 10 != 1, 'custom_submission_not_supported')
+        require(board != CHALLENGE_BOARD or score <= MAX_CHALLENGE_POINTS, 'challenge_points_out_of_range')
 
     def validate_replay(self, payload, row):
         info=replay_info(payload)

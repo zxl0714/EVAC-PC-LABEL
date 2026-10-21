@@ -156,6 +156,15 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'does not accept'):
             release.build('Update', '0.3.1', data={'sdoj': self.root})
 
+    def test_v032_is_a_cumulative_five_game_v03_update(self):
+        self.assertEqual(release.version_name('0.3.2','Update'),'CAVE-PC-Collection-v0.3.2-update')
+        self.assertEqual(release.release_games('0.3.2'),release.V03_GAMES)
+        self.assertEqual(release.config_name('0.3.2'),'user-data/config.ini')
+        directory=self.package('0.3.2','Update')
+        record=release.verify_tree(directory,self.games)
+        self.assertEqual(record['baseVersion'],'0.3')
+        self.assertEqual(record['preservedPaths'],list(release.UPDATE_PRESERVED))
+
     def test_v04_default_config_is_the_only_shipped_user_data(self):
         directory = self.package('0.4-dev')
         self.assertEqual(release.verify_tree(directory, self.games)['flavor'], 'Public')

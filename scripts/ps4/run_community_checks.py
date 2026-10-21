@@ -34,6 +34,7 @@ def main():
     results=[]
     profiles=[(game,profile,kind) for game,profile in [('ketsui',ketsui.Store),('daioujou',daioujou.Store)]
               for kind in ('client','native-score-replay')]
+    profiles.append(('daioujou',daioujou.Store,'native-challenge'))
     for game,profile,kind in profiles:
         scene=directory/(game if kind=='client' else game+'-'+kind)
         scene.mkdir()
@@ -47,6 +48,8 @@ def main():
                 stream.write('[community]\nenabled=true\nnickname=Ａlice\nendpoint=http://127.0.0.1:'+str(server.server_port)+store.api+'\n')
             if kind=='client':
                 command=['--community-profile-smoke',str(configuration),str(scene/'client'),game]
+            elif kind=='native-challenge':
+                command=['--np-challenge-smoke',str(configuration),str(scene/'client')]
             else:
                 authored=record(game)
                 struct.pack_into('<I',authored,108,9001)
@@ -63,10 +66,16 @@ def main():
             events=[json.loads(line) for line in result.stdout.splitlines() if line.startswith(b'{')]
             final=events[-1] if events else {}
             passed=result.returncode==0 and final.get('passed') is True and final.get('game')==game
-            board=0 if game=='ketsui' else 6
+            board=99 if kind=='native-challenge' else 0 if game=='ketsui' else 6
             page=store.leaderboard(board,'standard')
-            expected=('9007199254740993' if game=='ketsui' else '123456789') if kind=='client' else '9002'
+            expected='10003' if kind=='native-challenge' else ('9007199254740993' if game=='ketsui' else '123456789') if kind=='client' else '9002'
             passed=passed and page['total']==1 and page['entries'][0]['score']==expected
+            if kind=='native-challenge':
+                with closing(sqlite3.connect(store.database)) as database:
+                    scored=database.execute('SELECT score,accepted FROM scores ORDER BY sequence').fetchall()
+                    attachments=database.execute('SELECT count(*) FROM replays').fetchone()[0]
+                passed=passed and scored==[(0,1),(10003,1),(10003,0),(3,0)] and attachments==0
+                passed=passed and page['entries'][0]['replay'] is None and store.leaderboard(0,'standard')['total']==0
             if kind=='native-score-replay':
                 # A newer score intentionally replaces the top row after the
                 # old replay transfer starts. Its mismatched upload is refused;
