@@ -1,6 +1,10 @@
-# CAVE PC Collection
+# EVAC PC LABEL
 
-CAVE 游戏的 Windows PC 移植合集。一个启动器、一份 config.ini，按需安装自己拥有的游戏数据，各作品分别保存存档、录像和日志。
+CAVE 游戏的 Windows PC 移植合集，原名 CAVE PC Collection。一个启动器、一份 config.ini，按需安装自己拥有的游戏数据，各作品分别保存存档、录像和日志。
+
+项目正式名称统一为 EVAC PC LABEL。启动器、程序入口和发行包的整体更名，
+以及新的单目录游戏数据布局，纳入 v0.4 实施计划；当前已发布的 v0.3.2
+仍使用下文所述的原程序名称和数据结构。旧版下载链接保持不变。
 
 ## v0.3.2 覆盖更新
 

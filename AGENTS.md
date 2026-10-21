@@ -1,5 +1,34 @@
 # Development entry
 
+Project brand is now EVAC PC LABEL (formerly CAVE PC Collection). README and
+FOR_AGENT use the new name; whole-code/build/release branding is planned for
+v0.4, including EVAC PC LABEL.exe and EVAC-PC-LABEL archive/repository naming.
+Actual GitHub/local checkout renaming is pending; do not claim it occurred.
+Preserve game IDs, user-data, save/replay formats, existing API URLs, old tags,
+ZIPs and OSS objects. This turn is planning/documentation, not a new build.
+
+User-approved data UX: precreate game-data/<id> folders with per-game placement
+instructions in new full packages, use one directory per game, and let Ketsui
+run from supported unpatched base data or supported base+1.02 merged data.
+Updates are extracted over the actual base root. User explicitly rejects
+legacy CUSA09062-app/CUSA09062-patch compatibility; do not implement a legacy
+fallback. This requires real base-version and merged-layout runtime support,
+not removing validation. No runtime or manifests changed yet; released v0.3.2
+still needs its old layout. Do not physically merge/delete/move current data.
+Full packages include empty templates/docs, Update preserves existing data.
+Detailed tasks are in docs/IMPLEMENTATION_PLAN.md under v0.4.
+
+New launcher requests are recorded in docs/IMPLEMENTATION_PLAN.md under v0.4:
+persist the selected game at normal launcher close and restore it; bottom-align
+the launch button with the left tools and remove its permanent arrow/Enter
+caption (retain keyboard behavior); use EVAC PC LABEL for the launcher Windows
+title and EVAC PC LABEL.exe for the default entry; tighten CN/EN/JP spacing and
+align the language group to the visible logo top. This turn records these
+requirements only: no launcher code/build/package change has been made. Keep
+the accepted v0.3.2 ZIP, tag and OSS object unchanged. Game/data identities must
+not change; the new project-wide naming request above supersedes the earlier
+launcher-only scope and includes planning the repository rename.
+
 The latest v0.3.2 CUSTOM revision is now uploaded and publicly verified:
 https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip
 Its .zip.sha256 companion matches; public HEAD=200, byte count/source/revision
