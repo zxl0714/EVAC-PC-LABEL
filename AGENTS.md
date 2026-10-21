@@ -60,7 +60,7 @@ comparisons and output-chain results are preserved in TEST_MATRIX, not restarted
 G2 dat163's real 12-byte forwarding entry 0x880EEB00 is declared, generated and
 registered at 30fe902. Test-G2Callback.ps1 passes 12 ABI checks on the real
 locally generated forwarder; neighboring entries were already registered.
-The built dat163 SHA is
+The earlier 3fc6625 dat163 SHA was
 1156b4264d04779d43d9abffadecccf92a8b7821632b8919cab5f9fe47125a29.
 Target Xbox360 Novice player-entry regression remains open: the new run reached
 only the title before desktop activation failed. Do not call that a mode pass.
@@ -170,8 +170,8 @@ pass. Existing root launchers were not replaced. Remaining:
   copied, not called through the old root; three pkg-config prefix metadata files
   were relocated and SDK source/tool/binary receipt verification passes. This is
   installed SDK reuse, NOT a clean SDK compilation. Fresh common/launcher build
-  and all three common/launch/source CTest groups pass. Five runtime builds after
-  migration remain pending. Source: 80edd1c; evidence in NEW root
+  and all three common/launch/source CTest groups pass. Initial source: 80edd1c;
+  evidence in NEW root
   .local/v04-new-root-{tools-r1.log,sdk-deps-r1.log,ps4-deps-r1.log,
   common-build-r1.log,common-native-r1.log,data-r1.json,inspect-r2.json}.
   All five supported data sets plus Futari DLC were copied by exact manifests;
@@ -189,7 +189,7 @@ See .local/v04-brand-ps4-native-r{1,2}, properties-r1.json and TEST_MATRIX.
 Xbox 360 common host library compiles with the new title, but final same-commit
 player builds/certificates remain pending. Do not confuse these with a release.
 
-Current five-game component baseline is now built/certified at 3fc6625: host,
+Earlier five-game component baseline was built/certified at 3fc6625: host,
 PS4 and launcher receipts all name that same commit; all five runtime INIs match
 their certified file hashes. 56 Xbox PE/PDB pairs, 6 PS4 and 2 launcher; 27
 common/360 CTests pass. This is not final release/gameplay acceptance. Evidence:
@@ -198,6 +198,23 @@ xbox-finalize-r1.log,ps4-build-r1.log,xbox-native-r1.log}. Four superseded out/
 launcher EXE/PDB files were recoverably moved to
 .local/v04-retired-launcher-build-outputs-21f5e359094e4e26b1ee26faf08a4a6a;
 root/pre-existing launchers and frozen packages stayed unchanged. No ROM copy.
+
+Latest NEW-root baseline is built/certified at
+8fab1ce9f2aeea899a7001fc6221ba56774e03fe: PS4, all three Xbox games and launcher
+receipts share that commit; 56/6/2 PE/PDB pairs and all five runtime INIs verify.
+PS4 completed 375 GPU and 555 native build tasks, Xbox/common 508. Five PS4 GPU
+CTests, 73 PS4 native checks and 27 common/360 CTests pass; the latter includes
+1122 SDOJ frame-delay ownership checks. New-root Test-G2Callback passes all 12
+ABI checks using the newly generated entry. Program-level inspection finds no
+missing runtime files, but correctly still requests full resource verification;
+full data inspection was already recorded before staging. No game was run.
+All build/test sessions have exited successfully. Evidence in NEW root:
+.local/v04-new-root-{ps4-build-r1.log,xbox-build-r1.log,ps4-gpu-tests-r1.log,
+ps4-native-r1/result.json,xbox-native-r1.log,g2-callback-r1.log,
+certified-set-r1.json,inspect-r3-programs.json,user-data-r1.json}.
+Current follow-up documentation is newer than that baseline, not a new player
+release. Do not recertify/rebuild just for this status record. Final release
+certification still waits for actual gameplay gates and the final source commit.
 
 GitHub integration was discovered and suggested, not installed/connected at
 inspection. Do not resuggest within seven days or claim it supplies repository
@@ -209,6 +226,11 @@ opened the new launcher but Taskmgr still occluded it and activation returned
 path afterwards; manual Taskmgr closure has been requested. Do not repeat the
 unchanged activation/kill loop or blind menu input. Do not create substitute
 test infrastructure or premature ZIPs instead of closing the actual gates.
+Latest read-only CU recheck still returns the same visible Taskmgr window. No
+new recovery action was attempted. The remaining G2 Novice, SDOJ module-1/normal
+input and Ketsui base/update gameplay gates need an accessible desktop; packaging
+and publication wait for them. Await the requested manual Taskmgr closure rather
+than rerunning accepted builds, adding another test-pad path or producing ZIPs.
 
 ## Documentation and release
 
