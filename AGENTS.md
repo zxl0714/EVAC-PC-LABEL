@@ -1,5 +1,10 @@
 # Development entry
 
+v0.4 also includes a single-instance GUI launcher per installation: subsequent
+opens restore/focus the existing window without starting another launcher or
+game. Preserve selection, unsaved settings and the running game; keep distinct
+installation roots isolated. Recorded in IMPLEMENTATION_PLAN; not implemented.
+
 Maintain README.md (Simplified Chinese) and README.en.md (English) together,
 with reciprocal language links at the top. Keep release versions, requirements,
 download URLs, data layouts and feature status consistent in both. English UI
