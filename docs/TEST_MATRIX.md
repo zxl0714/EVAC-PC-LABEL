@@ -2,7 +2,18 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
-## v0.3.2 AC-CHALLENGE 排行榜修复
+## v0.3.2 绊地狱 CUSTOM 增补
+
+当前更新包的运行组件固定为 `a8a75fb9d86a11003c8fa9f3e1fb38521bcb2a07`（标签 `v0.3.2-custom`），包含下述大往生 AC-CHALLENGE 修复。绊地狱按原生定义开放 CUSTOM 综合／Type-A／Type-B 的 60／61／62 号榜，上传限制为 100／10／10，录像保留原 mode=3 和完整快照／按键数据。不按参数摘要拆原生榜，也不改变续关、双人和练习等资格判断；旧显式摘要分区保留，不合并成绩。
+
+- 465 项源码测试通过（Windows 文件链接权限跳过 1 项）。29 项原生录像校验、36 项原生整局采集、37 项 journal 测试通过，覆盖三榜与模式／机体匹配、原字节保持、存盘重开及提交引用。九项本机 HTTP 检查通过，包括三榜各自的原生 ABI 成绩／个人榜／录像上传下载，CUSTOM 整局 worker 的两榜成绩、原附件证明与完成归档，以及原有两作普通收发和大往生挑战榜回归。均为自造不可游玩记录，不执行游戏。
+- 通用 PS4 原生套件首次为 72／73，event 信号量的 `repeated_create_delete_does_not_reuse_stale_identity` 清理断言失败；同一未改二进制的独立信号量复查通过。首份失败和复查都保留，不写成首轮全通过，不在本任务改动同步实现。记录分别在 `.local/v032-custom-native-checks/` 和 `.local/v032-custom-semaphore-recheck.txt`。
+- 绊地狱服务单独更新到 `/opt/ketsui-live/releases/a8a75fb`。目标 Python 3.10.12 上 44 项服务／profile／备份／部署测试通过，已有数据库副本兼容性检查不改变原有行。切换前另存一致性快照；5 位玩家、20 条成绩和 18 份录像保留原字节。旧版和合集入口的三个 CUSTOM 榜均读取为 200／空榜，普通榜仍有原记录；大往生服务版本和四款同伴 PID、nginx、systemd 单元均未变。未向正式服务提交自造分数。
+- 新 ZIP 为 `releases/v0.3.2-custom-a8a75fb/CAVE-PC-Collection-v0.3.2-update.zip`，72,777,904 字节，SHA-256 `9bb302546e3f42c9050a4180e1cbee0d3b7784a272979fa71825835173b7ca99`。只实际覆盖解压一次，129 个载荷、12 个配置／用户／数据哨兵和安装后 CUSTOM 录像／原生 profile 检查通过。继续覆盖 v0.3／v0.3.1，也可覆盖前一份 v0.3.2，不含游戏数据、配置、用户目录、源码或符号。旧包和 `v0.3.2` 标签不改。
+
+证据为 `.local/v032-custom-{source-tests,native-round,journal,replay-checks,community-checks,deploy-result,overlay}.txt`、对应检查目录及 `.local/v032-custom-overlay-a8a75fb/accepted.json`。沿用已知桌面激活阻挡，本轮未重复 Taskmgr／焦点恢复，也没有新游戏内菜单或实际录像回放目视验收；未上传 OSS 或发送 QQ。
+
+## v0.3.2 首批 AC-CHALLENGE 排行榜修复
 
 运行组件固定为 `a865369bfdfd880789d7ca1de00f4f0a121fe77d`。补接大往生 99 号榜，按原生奖牌累计积分登记；原生定义已设 `uploadable=0`，无需改资源脚本或生成录像。普通榜单、CUSTOM 限制、录像协议和最大往生默认 1V 不变。
 

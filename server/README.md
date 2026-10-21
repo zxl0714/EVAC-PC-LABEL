@@ -46,6 +46,13 @@ CUSTOM 录像的原生 mode 为 3，不能发到 ARCADE 等其他模式榜。是
 归档检查；均使用临时 SQLite 与随机 loopback，不向正式榜单写入自造记录。
 原生定义的来源和哈希见 `games/ketsui/community-references.json`。
 
+当前绊地狱 `current` 指向 `/opt/ketsui-live/releases/a8a75fb`，继续使用原
+`ketsui-live.service`、18085 端口和 `/var/lib/ketsui-live/community.sqlite3`。
+旧 adb46f8 发行目录和 `pre-v032-a8a75fb/community.sqlite3` 一致性快照保留。
+更新经过 44 项目标 Python 测试及已有数据库副本兼容检查，原有成绩录像不变；
+旧入口和合集入口的 CUSTOM 榜均可读，其他四款服务未重启。回滚只切回旧
+`current` 并重启绊地狱服务，不覆盖工作数据库。
+
 ## 大往生开发适配
 
 `server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。代表性的真实原生 loopback 与正常合集正式 HTTPS 成绩／录像上传、读榜、下载保存及离线冷回放已通过，正式实战记录为 ARCADE／Type-A／Shotia 的 1040 分。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。未逐一实测所有榜单／模式。

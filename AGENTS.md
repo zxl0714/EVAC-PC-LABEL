@@ -1,5 +1,25 @@
 # Development entry
 
+Latest v0.3.2 revision includes BOTH DaiOuJou AC-CHALLENGE and Ketsui CUSTOM.
+Binary source a8a75fb9d86a11003c8fa9f3e1fb38521bcb2a07, tag v0.3.2-custom.
+Accepted ZIP: releases/v0.3.2-custom-a8a75fb/CAVE-PC-Collection-v0.3.2-update.zip,
+72,777,904 bytes; SHA-256 9bb302546e3f42c9050a4180e1cbee0d3b7784a272979fa71825835173b7ca99.
+465 source tests (one privilege skip), 29 replay checks, nine HTTP cases,
+36 native round and 37 journal cases pass. General native suite first run was
+72/73: event semaphore stale-identity cleanup assertion failed; unchanged
+isolated semaphore rerun passed. Retain both logs; no synchronization code
+changed and do not rewrite the first run as 73/73. One real v0.3 overlay
+verified 129 payloads, 12 preservation sentinels and installed native CUSTOM
+replay/profile checks. Reuse .local/v032-custom-overlay-a8a75fb/accepted.json;
+do not rebuild/re-extract for documentation follow-ups. Ketsui service alone
+now points to /opt/ketsui-live/releases/a8a75fb after 44 Ubuntu tests and a
+database-copy compatibility check. Old adb46f8 release and pre-v032 database
+snapshot retained; five players/20 scores/18 replays preserved, peer PIDs,
+nginx and unit unchanged. Public CUSTOM 60/61/62 reads work through old and
+collection endpoints; DaiOuJou a865369/board99 remains working and untouched.
+No synthetic production submissions, new desktop/menu acceptance, OSS or QQ.
+Old v0.3.2/a865369 ZIP and tag remain intact; use the custom revision above.
+
 Current user extension: also fix Ketsui CUSTOM in v0.3.2. Native CUSA09062
 1.02 defines boards 60/61/62 with upload limits 100/10/10; CUSTOM mode=3
 keeps its settings in the original replay snapshot. The native game does NOT
