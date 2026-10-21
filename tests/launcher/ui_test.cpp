@@ -78,8 +78,8 @@ void ColdReadback(const fs::path& root,std::wstring_view expected_language,std::
   Require(SendMessageW(frame.app.fullscreen_control,BM_GETCHECK,0,0)==BST_UNCHECKED,"Cold fullscreen readback");
   Require(ControlText(frame.app.save_control)==T(L"保存"),"Cold localized controls");
   Require(Ini::ReadText(ConfigPath(root))==before,"Readback changed configuration");
-  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==1,
-          "Cold startup did not resolve SDOJ's default 1V");
+  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==3,
+          "Cold startup did not resolve SDOJ's default 3V");
 }
 void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname) {
   std::wstring executable(32768,L'\0');

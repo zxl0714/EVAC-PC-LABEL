@@ -57,6 +57,8 @@ Use the launcher header to change fullscreen mode and your leaderboard nickname.
 
 The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](config/default.ini) for available options.
 
+For SDOJ, set `frame_delay = 3` under `[game.sdoj]` to use the original three-frame path. This will be the default in the next release. Change an existing 1V or 2V setting to 3 manually.
+
 | Default keyboard input | Function |
 | --- | --- |
 | Arrow keys | Directional input |

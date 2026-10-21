@@ -1,5 +1,18 @@
 # Development entry
 
+Latest user decision: restore SDOJ's default Frame Delay to 3V after the friend
+crash. Update Settings, the fresh INI template, configuration/cold-start tests
+and current developer/v0.4 player docs. Preserve explicit 1/2/3 preferences;
+1V/2V remain manual test options, not stability claims. Keep old v0.3.1/v0.3.2
+release records and frozen packages intact. No crash fix or new release is
+implied by changing the default. GitHub rename is discussed only, not authorized
+for execution by the current question; origin/local directory stay unchanged.
+The default change is verified: 465 source tests (one privilege skip), common
+and launch CTests, and 118 hidden launcher checks including three cold locales
+pass. Only common/launcher were built, root launcher and game runtimes retained.
+Local config now explicitly sets 3 with all prior text preserved; backup is
+.local/config-before-default-3v-8e1d663393e140e6920fcb61bd0fd0e4.ini. No new package.
+
 v0.4 prioritizes the two friend crashes recorded in IMPLEMENTATION_PLAN before
 UI/release work. SDOJ run 71556 throws missing slowdown metrics at logic 3187
 in 1V / SdojDelaySlowdownInputs; the exact render-metrics state was not captured.

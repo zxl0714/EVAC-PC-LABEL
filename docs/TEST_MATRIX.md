@@ -2,6 +2,17 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.4 默认恢复 3V
+
+根据新增 1V 减速统计缺失崩溃反馈，`Settings` 缺省与新配置模板恢复为 3V；显式 1／2／3 继续保留。配置迁移不改旧文件正文，缺少该键时解析为 3；中英文 README、v0.4 玩家说明和开发文档同步更新，旧发行记录不改。
+
+- `Build.ps1 -SkipLauncherStage -Jobs 2` 成功构建公共组件、检查器与启动器，核对两对 PE／PDB。没有替换仍在使用的根启动器，也没有重新构建游戏运行组件或生成发行包。
+- `Test.ps1 -Scope Source`：465 项通过，1 项 Windows 文件链接权限跳过，源码边界审计通过。`ctest --test-dir out/common -R '^(common|launch)$'`：2／2 通过，包含缺省、新配置、旧配置缺键和显式三档保留。
+- `Test-Launcher.ps1 -Jobs 2`：118 项隐藏窗口集成检查通过，含三语言独立进程配置读回为 3V。未打开或操作实际游戏窗口。
+- 本机原配置备份为 `.local/config-before-default-3v-8e1d663393e140e6920fcb61bd0fd0e4.ini`；只新增一行 `frame_delay = 3`，去掉该行后与原文本完全相等，供旧运行组件下次启动明确使用 3V。
+
+默认值修改不修复 1V／2V 的统计跟踪缺口，也不关闭 G2 遗漏回调的问题。两项仍在 v0.4 优先修复清单，已有 v0.3.1／v0.3.2 ZIP、标签和 OSS 对象保持原样。
+
 ## v0.3.2 绊地狱 CUSTOM 增补
 
 已上传并公开核验：[v0.3.2 覆盖包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip)、[校验文件](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip.sha256)。公网 HEAD=200，大小、SHA-256／源码／修订元数据与本地验收身份一致，公开校验文件匹配；32 字节 ZIP 文件头范围请求为 206。复用既有 ZIP，未重建、重解压或覆盖旧 OSS 对象，凭据在 `.local/v032-custom-oss/receipt.json`，群消息由用户自行发送。
