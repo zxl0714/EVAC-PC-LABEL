@@ -30,6 +30,9 @@ if(CAVE_BUILD_LAUNCHER)
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/generate_artwork.py"
       "${CMAKE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/include"
     DEPENDS launcher/artwork.json scripts/generate_artwork.py scripts/generate_catalogue.py ${CATALOGUE} ${LAUNCHER_ART} VERBATIM)
+  # RC does not report RCDATA dependencies to Ninja. Recompile the embedded
+  # resource when source image bytes change, even if the RC text is identical.
+  set_source_files_properties("${CMAKE_BINARY_DIR}/include/artwork.rc" PROPERTIES OBJECT_DEPENDS "${LAUNCHER_ART}")
   add_executable(cave_launcher WIN32 launcher/main.cpp "${CMAKE_BINARY_DIR}/include/artwork.rc" "${CMAKE_BINARY_DIR}/include/artwork.h")
   set_target_properties(cave_launcher PROPERTIES OUTPUT_NAME "CAVE-PC-Collection")
   target_include_directories(cave_launcher PRIVATE "${CMAKE_BINARY_DIR}/include")

@@ -1,0 +1,40 @@
+includes = ["frame-delay-module.toml"]
+
+[[midasm_hook]]
+address = 0x880451D4
+name = "SdojDelayInputDone"
+registers = ["context", "memory"]
+jump_address_on_true = 0x88045DC0
+
+[[midasm_hook]]
+address = 0x88051D74
+name = "SdojDelayLogic"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x88051394
+name = "SdojDelayLateSwap"
+registers = ["context", "memory"]
+jump_address_on_true = 0x88051398
+
+# Preserve the native slowdown operands across earlier command publication.
+# Optional provenance output is controlled by default-off sdoj_logic_trace.
+# The first two stores have completed; r11/r10 hold renderer +544/+548.
+[[midasm_hook]]
+address = 0x880315C8
+name = "SdojDelayRenderMetrics"
+registers = ["context", "memory"]
+
+# Both native loads have completed, immediately before add r10,r10,r9.
+[[midasm_hook]]
+address = 0x88123E44
+name = "SdojDelaySlowdownInputs"
+registers = ["context", "memory"]
+
+# After the parser has accepted non-null commands with the native ready bit,
+# and loaded the actual command pointer. The wrapper's pointer setter alone
+# also runs on held frames and must not be treated as a parsed batch.
+[[midasm_hook]]
+address = 0x880387B0
+name = "SdojDelayMetricsParse"
+registers = ["context", "memory"]

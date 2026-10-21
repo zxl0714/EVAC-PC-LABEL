@@ -271,6 +271,9 @@ class CommandProcessor {
   std::vector<uint32_t> me_bin_;
 
   uint32_t counter_ = 0;
+  uint32_t swap_diagnostic_packet_ = 0;
+  // GPU-worker-owned identity, unlike counter_ which also tracks VBlank.
+  uint64_t swap_diagnostic_frame_ = 0;
   FrameTiming frame_timing_;
   double swap_busy_max_ms_ = 0;
 

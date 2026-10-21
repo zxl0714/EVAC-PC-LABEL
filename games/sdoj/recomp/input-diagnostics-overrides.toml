@@ -27,3 +27,46 @@ registers = ["r11", "r31"]
 address = 0x82178BFC
 name = "SdojInputPassEnd"
 registers = ["r31"]
+
+# Main engine iteration: polling returned; the render/update entry follows.
+[[midasm_hook]]
+address = 0x8217E9C8
+name = "SdojLatencyHostBegin"
+registers = []
+[[midasm_hook]]
+address = 0x8217E9D0
+name = "SdojLatencyHostEnd"
+registers = []
+
+# Original disc call immediately before VdSwap. Observe its existing ring-buffer
+# argument, retaining the original import and all of its writes unchanged.
+[[midasm_hook]]
+address = 0x821DFECC
+name = "SdojLatencySubmit"
+registers = ["r3"]
+
+# Original native graphics queue. Observe the completed slot store while its
+# original lock is held, and the successful pop before its original return.
+[[midasm_hook]]
+address = 0x8219DCFC
+name = "SdojLatencyNativeEnqueue"
+registers = ["r31", "r11", "r9"]
+[[midasm_hook]]
+address = 0x8219DDE8
+name = "SdojLatencyNativeEnqueue"
+registers = ["r31", "r11", "r9"]
+[[midasm_hook]]
+address = 0x8219DED4
+name = "SdojLatencyNativeDequeue"
+registers = ["r11", "r4"]
+
+# Frame-end message processing sets the original callback-cleared flag here,
+# then loops at D9B4 until zero. Neither observation is inside that loop.
+[[midasm_hook]]
+address = 0x8219D9B0
+name = "SdojLatencyNativeWaitBegin"
+registers = []
+[[midasm_hook]]
+address = 0x8219D9C8
+name = "SdojLatencyNativeWaitEnd"
+registers = []

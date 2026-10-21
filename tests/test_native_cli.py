@@ -12,6 +12,19 @@ EXE = ROOT / 'out/common/bin/cave_inspect.exe'
 
 @unittest.skipUnless(EXE.is_file(), 'Build common native targets first')
 class NativeCliTests(unittest.TestCase):
+    def test_user_data_config_wins_and_relative_paths_stay_root_relative(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / '合集 空格'; root.mkdir()
+            (root / 'user-data').mkdir()
+            current = root / 'user-data/config.ini'
+            current.write_text('[game.espgaluda2]\ndata_dir=外部 数据\n', encoding='utf-8')
+            (root / 'config.ini').write_text('[collection]\nconfig_version=99\n', encoding='utf-8')
+            before = current.read_bytes()
+            row = self.run_cli(root, '--game', 'espgaluda2', cwd=Path(temporary))['games'][0]
+            self.assertEqual(Path(row['dataDirectory']), root / '外部 数据')
+            self.assertEqual(current.read_bytes(), before)
+            self.assertTrue((root / 'config.ini').is_file())
+
     def run_cli(self, root, *args, cwd=None, code=0):
         result = subprocess.run([str(EXE), '--root', str(root), *args], cwd=cwd,
                                 capture_output=True, encoding='utf-8', check=False)

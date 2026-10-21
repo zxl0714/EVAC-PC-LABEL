@@ -800,6 +800,11 @@ object_ref<UserModule> KernelState::LoadUserModule(const std::string_view raw_na
           REXSYS_ERROR("InitializeFunctionTable failed for module '{}'", recomp->pe_name);
         } else {
           function_dispatcher_->RegisterModule(lib_key, image_info->code_base, register_func);
+          // Optional per-load native state, including when Windows reuses a
+          // deferred-unload DLL. Never invoke module code under the loader gate.
+          using LifecycleFn = void (*)();
+          if (auto on_load = reinterpret_cast<LifecycleFn>(library_local.GetRawSymbol("ReXModule_OnLoad")))
+            on_load();
           auto global_lock = global_critical_region_.Acquire();
           auto lib_it = module_libraries_.find(lib_key);
           assert_true(lib_it != module_libraries_.end());
@@ -849,6 +854,14 @@ object_ref<UserModule> KernelState::LoadUserModule(const std::string_view raw_na
 
 void KernelState::UnloadUserModule(const object_ref<UserModule>& module, bool call_entry) {
   REXSYS_INFO("MODULE_UNLOAD path='{}' detach_requested={}", module->path(), call_entry);
+  using LifecycleFn = void (*)();
+  LifecycleFn on_unload = nullptr;
+  if (auto recomp = FindRecompiledModule(module->path())) {
+    auto lock = global_critical_region_.Acquire();
+    if (auto library = module_libraries_.find(recomp->guest_path); library != module_libraries_.end())
+      on_unload = reinterpret_cast<LifecycleFn>(library->second.GetRawSymbol("ReXModule_OnUnload"));
+  }
+  if (on_unload) on_unload();
   // Run guest DllMain DETACH outside the global lock to avoid deadlock with
   // subsystem mutexes acquired from inside the guest callback.
   if (module->is_dll_module() && module->entry_point() && call_entry) {

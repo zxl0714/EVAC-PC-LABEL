@@ -581,6 +581,7 @@ Presenter::PaintResult D3D12Presenter::PaintAndPresentImpl(bool execute_ui_drawe
   bool back_buffer_acquired = false;
   bool back_buffer_bound = false;
   bool back_buffer_clear_needed = true;
+  bool diagnostic_guest_drawn = false;
   const float kBackBufferClearColor[] = {0.0f, 0.0f, 0.0f, 1.0f};
 
   // Draw the guest output.
@@ -996,6 +997,7 @@ Presenter::PaintResult D3D12Presenter::PaintAndPresentImpl(bool execute_ui_drawe
 
         if (is_final_effect) {
           if (drew_graphics_effect) {
+            diagnostic_guest_drawn = true;
             // Clear the letterbox around the guest output if the guest output
             // doesn't cover the entire back buffer.
             if (guest_output_flow.letterbox_clear_rectangle_count) {
@@ -1160,6 +1162,13 @@ Presenter::PaintResult D3D12Presenter::PaintAndPresentImpl(bool execute_ui_drawe
       0, DXGI_PRESENT_RESTART |
              (paint_context_.swap_chain_allows_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0));
   const auto present_end_us = graphics::FrameTiming::NowMicros();
+  if (guest_output_properties.diagnostic_frame && current_paint_submission <= 131072 &&
+      REXCVAR_GET(output_latency_trace)) {
+    REXLOG_INFO("OUTPUT_LATENCY phase=present frame={} packet={:08X} paint={} begin_us={} t_us={} hr={:08X} guest_drawn={} not_scanout",
+        guest_output_properties.diagnostic_frame, guest_output_properties.diagnostic_packet,
+        current_paint_submission, present_start_us, present_end_us,
+        uint32_t(present_result), diagnostic_guest_drawn);
+  }
   present_busy_max_ms_ = std::max(present_busy_max_ms_, double(present_end_us - present_start_us) / 1000);
   if (const auto stats = frame_timing_.Observe(present_end_us)) {
     REXLOG_INFO("FRAME_DIAG stream=host_present intervals={} window_ms={:.1f} fps={:.2f} "

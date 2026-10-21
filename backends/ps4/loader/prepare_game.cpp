@@ -2,6 +2,7 @@
 #include "elf_prepare.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "common/ini.h"
+#include "common/settings.h"
 #include <Windows.h>
 #include <array>
 #include <cstdio>
@@ -74,7 +75,7 @@ int PrepareGameCommand(int argc,wchar_t** argv) {
         }
         if (root.empty() || !root.is_absolute()) throw std::runtime_error("Game preparation requires an absolute collection root");
         root=fs::canonical(root);
-        if (data.empty()) data=Resolve(root,Ini::Load(root/"config.ini").DataDirectory(FindGame(game)));
+        if (data.empty()) data=Resolve(root,Ini::Load(ConfigPath(root)).DataDirectory(FindGame(game)));
         const auto prepared=PreparePs4Game(root,data,game);
         const Json result{{"event","game_data_prepared"},{"game",game},{"cacheHit",prepared.cache.reused},
             {"cacheMissReason",prepared.cache.miss_reason},{"recipeSha256",prepared.cache.key},

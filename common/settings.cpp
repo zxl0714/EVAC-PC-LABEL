@@ -151,6 +151,13 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
         for (const auto& [address,entry] : ini.Values())
             if (address.first==section) apply(section,category,address.second,entry);
     }
+    if (game_id == "sdoj") if (const auto* entry = ini.Get("game.sdoj", "frame_delay")) {
+        const auto& value = entry->text;
+        const auto parsed = std::from_chars(value.data(), value.data()+value.size(), result.sdoj_frame_delay);
+        if (parsed.ec != std::errc{} || parsed.ptr != value.data()+value.size() ||
+            result.sdoj_frame_delay < 1 || result.sdoj_frame_delay > 3)
+            Error(entry->line, "game.sdoj", "frame_delay", "expected 3 (original), 2 (balanced) or 1 (low latency)");
+    }
     std::map<std::uint16_t,std::size_t> occupied;
     for (std::size_t n=0; n<kButtons.size(); ++n) for (auto code : result.keyboard[n].keys) {
         auto [previous,inserted]=occupied.emplace(code,n);
@@ -183,17 +190,38 @@ Settings LoadSettings(const fs::path& path, std::string_view game_id) {
     return ResolveSettings(Ini::Load(path),game_id);
 }
 std::string_view DefaultConfig() { return kDefaultConfig; }
-fs::path EnsureConfig(const fs::path& requested_root) {
-    const auto root=fs::canonical(requested_root);
-    const auto literal=root/"config.ini";
+namespace {
+fs::path CheckedConfigPath(const fs::path& root,const fs::path& relative) {
+    const auto literal=root/relative;
     const auto attributes=GetFileAttributesW(literal.c_str());
     if (attributes!=INVALID_FILE_ATTRIBUTES && (attributes&FILE_ATTRIBUTE_REPARSE_POINT))
         throw std::runtime_error("config.ini must be a local file, not a file link");
-    const auto path=Resolve(root,L"config.ini");
+    const auto path=Resolve(root,relative);
     if (!Within(path,root)) throw std::runtime_error("config.ini must stay inside the collection");
-    if (fs::exists(path)) {
-        if (!fs::is_regular_file(path)) throw std::runtime_error("config.ini is not a regular file");
-        return path;
+    if (fs::exists(path) && !fs::is_regular_file(path))
+        throw std::runtime_error("config.ini is not a regular file");
+    return path;
+}
+}
+fs::path ConfigPath(const fs::path& requested_root) {
+    const auto root=fs::canonical(requested_root);
+    const auto path=CheckedConfigPath(root,L"user-data/config.ini");
+    if (fs::exists(path)) return path;
+    const auto legacy=CheckedConfigPath(root,L"config.ini");
+    return fs::exists(legacy)?legacy:path;
+}
+fs::path EnsureConfig(const fs::path& requested_root) {
+    const auto root=fs::canonical(requested_root);
+    const auto path=CheckedConfigPath(root,L"user-data/config.ini");
+    if (fs::exists(path)) return path;
+    const auto legacy=CheckedConfigPath(root,L"config.ini");
+    fs::create_directories(path.parent_path());
+    if (fs::exists(legacy)) {
+        // Same-volume move publishes the exact original bytes without replacing
+        // an existing new-format config. Relative data paths still use root.
+        if (MoveFileExW(legacy.c_str(),path.c_str(),MOVEFILE_WRITE_THROUGH)) return path;
+        if (fs::is_regular_file(path)) return path;
+        throw std::runtime_error("Cannot migrate config.ini to user-data/config.ini");
     }
     const auto file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
     if (file==INVALID_HANDLE_VALUE) {

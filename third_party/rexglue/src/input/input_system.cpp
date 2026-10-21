@@ -35,9 +35,14 @@ namespace rex::input {
 
 namespace {
 std::atomic<uint64_t> guest_input_frame{};
+std::atomic<uint64_t> guest_vblank_deadline{};
 }
 uint64_t GuestInputFrame() { return guest_input_frame.load(std::memory_order_relaxed); }
 void AdvanceGuestInputFrame() { guest_input_frame.fetch_add(1, std::memory_order_relaxed); }
+uint64_t GuestVblankDeadlineMicros() { return guest_vblank_deadline.load(std::memory_order_acquire); }
+void PublishGuestVblankDeadlineMicros(uint64_t deadline) {
+  guest_vblank_deadline.store(deadline, std::memory_order_release);
+}
 
 InputSystem::InputSystem(rex::ui::Window* window) : window_(window) {}
 

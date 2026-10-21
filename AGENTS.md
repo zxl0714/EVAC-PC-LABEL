@@ -1,5 +1,331 @@
 # Development entry
 
+Current user request supersedes the older no-package restriction: produce a
+v0.3.1 Update ZIP that extracts directly over an installed v0.3 directory.
+Ship certified runnable components and player documentation, with no ROM,
+source, symbols, config.ini or user-data payload. Preserve old data/settings/
+saves/replays, and verify the actual overlay plus legacy config migration.
+Frame Delay's ordinary-input/focus check remains deferred to v0.4; keep default
+3 and preserve explicit 1/2/3 selection. Do not resume that desktop test now.
+Commit the release source and build the matching components before packaging.
+The old release ZIPs and acceptance directories remain unchanged. The current
+request is local package delivery; do not infer an OSS upload or QQ post.
+
+Current goal: implement SDOJ Frame Delay per docs/SDOJ_LATENCY_PLAN.md, including
+3/original, 2/balanced and 1/low; preserve cadence, slowdown, input/replay semantics
+and resource ownership. Earlier documentation-only restrictions are superseded.
+Do not package or publish. Existing v0.4 launcher/configuration work is accepted;
+keep it and unrelated dirty changes intact. Implement and verify 2V first, then
+1V, using bounded mechanism tests and the planned representative game checks.
+
+Latest acceptance (2026-10-21) takes priority over historical notes:
+All five map-init-r1 replay runs are CLOSED; no SDOJ process remains. Do not
+restart the accepted replay campaign. The frozen runtime is
+.local/sdoj-frame-delay-map-init-r1; all five run.json manifests agree on 13
+runtime/symbol files, and current files plus six replay copies were rehashed.
+Normal module SHA is 5b2cf417bd85cf2f4dc2fa8f97c1e315842075e692f7781cc2c1c6661b2f2903.
+Module-1 first-stage normal-speed output chains are complete for 2125/2125
+results per policy: 3V/2V/1V medians 49.957/33.266/16.847 ms and maxima
+51.585/34.002/17.690 ms. These are copy-to-Present CPU returns, not scanout.
+Fine balanced 26132 and normal low 98776 match all 5504 native-end updates;
+normal balanced 98276 and fine low 97596 match all 5505, including slowdown
+operands, commands, state and depth (131 depth-2 in each). Two native readiness
+timings occur within BOTH policies. Preserve failed cross-class comparisons;
+do not shift/drop updates or alter native readiness polling to force equality.
+Original 94360 vs low 97596 also match all 5505 commands/state/depth; four
+slow_stat0 differences are adjacent publication timing, without depth changes.
+Normal balanced/low retained logic_trace but disabled fine latency/output/audio
+and content tracing. Stage intervals 2290/2170 average 16.667 ms, max
+17.430/17.530 ms, no >20ms intervals; audio silence 0, queue peaks both 8 blocks.
+Low has no timeouts/draining/ownership skips, max wait 999 us. Its one budget
+skip occurred before Stage 1 and did not increase during gameplay; not zero.
+Reports: .local/analysis/sdoj-map-init-r1-normal-pacing-audio.json,
+sdoj-map-init-r1-normal-balanced-low-exact.json and
+sdoj-map-init-r1-balanced-normal-low-exact.json. TEST_MATRIX has full scope.
+
+User update: ordinary keyboard short taps, live-craft movement and focus loss/
+restore are explicitly deferred to the v0.4 TODO list. Do not keep launching
+games, retrying Taskmgr or asking for the same manual intervention now. Include
+a brief A/V observation in that later check. The recommended release default
+is now 1V after that acceptance, retaining 2V as the compatibility fallback and
+3V as original. Then update/verify settings, template, tests, player docs and
+actual cold startup. Current default remains 3; this documentation-only request
+does not authorize changing it or marking deferred tests passed.
+Taskmgr PID 63148 is still elevated/foreground. Authorized close, kill and
+minimize attempts did not work. Do not repeat unchanged or bypass OS permissions.
+The offline test pad proves logical InputSystem behavior, not desktop input.
+No full-mode, network, other-game or packaging campaign is required here.
+Do not manufacture further offline tests as substitutes for the remaining
+normal input gate. Once independent work is exhausted, report the real blocker
+and apply the goal's repeated-blocker audit rather than looping indefinitely.
+
+Historical implementation notes (superseded where the current results differ):
+content-r1 balanced PID 86068 and low PID 54144 naturally returned and closed;
+all 5504 logical updates through native replay end match in command bytes/hash,
+state, slowdown operands and depth (131 depth-2 waits). Low has zero timeouts
+or ownership skips, maximum wait 1082 us. Its exact report is
+.local/analysis/sdoj-content-r1-balanced-low-exact.json. Original PID 82044
+matches their first 5014 commands/state/depth; three operand differences are
+original worker reads just before the new renderer metrics publication, with
+no depth change. Original A/A PID 87968 also naturally returned/closed, but has
+212 depth-2 waits: the original itself can produce the former 131/212 mismatch.
+Same frozen binary/profile inputs, no audio trace; no logical-frame alignment.
+At logic 2845 the A/A difference is exactly 36 extra 64x64 background commands,
+otherwise identical packets. Do not normalize this into a pass or blame the
+Frame Delay policy/audio tracing alone. Native tilemap emitter 88032CA8 now
+has a default-off, one-selected-frame map/index observer at 88032D68.
+tilemap-r1 original-a 96968 and original-b 93144 both naturally returned/closed,
+with 131 depth-2 waits and zero first columns in all four maps at logic 2845.
+The native allocator leaves these 32KB maps uninitialized; the rectangle writer
+fills 12 columns x10 rows, while the emitter also reads the preceding column.
+.local/analysis/sdoj-background-border-r1.json reconstructs the older A/A's
+entire 36 extra commands using ONLY those four border columns, with all other
+551 commands identical. These are inferred used bits, not a memory dump of
+the terminated old process. Normal-core compat/tilemap.cpp now clears each
+new map at 88051C34, before the original pointer store; all three policies
+share this one-time fix. It does not clear existing scrolling maps or filter
+commands/metrics. 83 source tests and the three targeted CTests pass.
+Build sessions 68584/78946 verify 18 PE/PDB pairs and 13 staged files.
+Frozen .local/sdoj-frame-delay-map-init-r1 completed the fixed replay comparison
+and normal pacing checks described above. Tilemap/content-r1 binaries/logs are
+preserved. No new default is accepted (still 3); ordinary keyboard/focus remains.
+Candidate RenderMetrics models ORIGINAL render publication using the native
+completion baseline+depth-1, once per video frame. It does NOT assume logic N-2:
+resource waits add video ticks without another logic update. Actual samples
+are captured only after parser 880387B0 accepts ready commands, not at the
+wrapper pointer setter (which also runs on held frames). Low now resumes a
+known intermediate resource wait early on the SAME logic identity, rather
+than skipping its completed result during the next bootstrap. Depth>1 low
+results publish immediately but retain their original due-counter late receipt.
+Two failed candidates are preserved: slowdown-r1 PID 98008 throws inconsistent
+metrics at logic 23 (false parse attribution); slowdown-r2 PID 97028 throws
+missing metrics at logic 2844 (resource-resume/bootstrap skipped logic 2842).
+The older r1 binary's original PID 89092 fully returned/closed, matching all
+5504 native-end iterations and 131 depth-2 waits; original AA report is
+.local/analysis/sdoj-slowdown-r1-original-aa.json. Next compare the current
+candidate's exact slowdown operands/depth/command hashes with that original
+using .local/analysis/sdoj-slowdown-compare.py (explicit --frames). Current
+candidate correctness is NOT established just by the mechanism tests.
+
+The earlier replay-r2 evidence remains:
+both replay processes are CLOSED. Original run 045659555Z-89024 and low run
+050359219Z-91880 use the same replay-r2 runtime. Old Xbox360 replay matches all
+4533 iterations through the native end request. New Arcade HD replay cold-loads
+and naturally returns, with matching commands/state/audio through iteration 5504,
+BUT 141 slowdown-depth differences (131 versus 102 depth-2 iterations). Do NOT
+accept low, change defaults or ignore depth to make the comparison pass. Exact
+reports: .local/analysis/sdoj-replay-r2-{pair-audit,3v-1v-module1-through-end}.json.
+The normal core's 88123B98 slowdown formula reads render-derived globals
+888791E0/E4 at 88123E3C/40; renderer +544/+548 are copied there at 880315C0/C4.
+Earlier publication changes their logical age, so balanced module 1 also
+needs checking. Default-off SDOJ_METRICS records real parsed batches and the
+formula operands; production preservation now lives separately in RenderMetrics.
+Keep the original slowdown formula. Do not revive the rejected fixed N-2
+selection or turn a missing parsed batch into guessed zero statistics.
+Old/new native audio request and dispatch sequences match (141/31 each).
+Post-end housekeeping iteration counts differ by one; native terminal state and
+request appear on exactly the same logical iteration in both paths.
+Taskmgr PID 63148 is still open/elevated. User-authorized caption close, Alt+F4
+and minimize also had no effect. Do not repeat these unchanged or bypass OS
+permissions. Normal keyboard/focus acceptance remains separate and pending.
+.local/sdoj-frame-delay-smoke-r1 was prepared from replay-r2, NOT launched;
+defer no-trace pacing until the slowdown discrepancy is addressed. Its test pad
+is "0 idle". No game process should remain; revalidate before any new launch.
+
+Earlier implementation evidence follows; pending replay statements below are
+superseded by the explicit results and new slowdown issue above.
+
+Frame Delay WIP lives in games/sdoj/latency. The development host accepts 3/2/1
+and defaults to 3. Low's native prefix/early driver/deadline wait/drain/latch are
+implemented. The latest resource-yield fix passes targeted 1V gameplay in both
+modules; full input/replay/pacing acceptance remains pending.
+
+Latest targeted regression supersedes the older CU-blocked-only status below:
+the r3 same-binary 1V/2V comparison isolates a real 1V resource-load deadlock.
+The worker can yield in the middle of an update (normal return 8806F384,
+arrange 8806FDBC); suppressing native ticks until a completed frame deadlocks
+that retry loop. IntermediateWait now releases the wait/drain without marking
+partial commands complete, preserves late receipts and resumes native ticks.
+R4 run-20261021T034707421Z-96188 in .local/sdoj-frame-delay-debug-r4 passes
+Xbox360 and Arcade HD selection, Stage 1, logical-pad movement/shooting, pause
+and return, plus module 2->1 switching. Both remain effective_policy=1 with
+zero timeouts/ownership skips; module 1 also records native slowdown. Its
+accepted module-2 output prefix has 5526 first results, median/p95/max
+16.845/17.302/18.249 ms; the fine trace cap excludes later full-chain coverage.
+The handoff model now passes 821 checks; three source-contract tests pass.
+Physical keyboard/gamepad input is NOT covered: CU window activation fails,
+with a high-integrity Taskmgr foreground and medium-integrity game/helper.
+User-authorized Taskmgr close returned access denied; do not retry unchanged
+or bypass permissions. Explicit offline-only sdoj_test_pad_file uses the real
+game InputSystem without desktop injection; see FOR_AGENT. R3/r4 diagnostic
+quit used UI-loop exit and crashed during teardown even at 2V; it now requests
+the normal game/window close path. The r5 startup/quit-only check
+run-20261021T040015665Z-79596 exits with code 0 and no crash artifacts; do not
+call the older r3/r4 runs clean-exit evidence.
+Old launcher windows and r3/r4 evidence must remain intact. No default change,
+packaging, commit or push. Continue with the small outstanding acceptance set,
+not another full-mode campaign.
+
+Two module-specific final TOML includes explicitly compose the existing probes.
+SDK midasm context/memory arguments carry the actual PPCContext/base; optional
+ReXModule_OnLoad/OnUnload callbacks distinguish guest reload from retained PE
+mappings. Full native 88033070 runs outside the state mutex with saved context,
+stack linkage space and host FPSCR; a receipt skips only its matching late BL.
+Pause matching uses native wake count/serial, NOT host engine-frame equality.
+R1 crashed on that old equality; r2 fixes it and passes actual replay pause/
+resume, natural return, Arcade HD player entry/new replay save and 2->1->2 module
+reload (module 2 generation=2). Those r2 games are closed. Current root launcher
+cannot activate via CU and remains open; do not kill it or the old v0.3 launcher.
+The latest batch passed 423 source tests (one skip), nine CTests; the expanded
+handoff model now passes 784 checks. R2 first
+result median/p95 is 33.134/33.584 ms (4536 results); four >40 ms outliers still
+need original-path comparison. Trace hit its 131072 cap, so later module 1 only
+has normal summaries/visual evidence, not a full output chain. First-result
+stats separate held-picture repeats. Do not mark balanced accepted/default yet.
+New native REPLAY_XB02.DAT is in .local/sdoj-frame-delay-r2's independent profile;
+old 9786 replay and that new replay still need logical-frame comparison and new
+cold playback. The r2 run.json binds runtime hashes; scope is in TEST_MATRIX.
+After r2, host Stop additionally calls SdojFrameDelayStop on retained modules,
+retiring new publications without discarding successful late receipts. This
+stop bridge has mechanism/compile evidence, not a new gameplay run yet.
+
+Continue low's actual checks, not another large 2V mode campaign. Native
+88044960's input prefix ends at
+880451D4, before 880386F0 parsing; its normal epilogue is 88045DC0, arrange
+88045D70. The implementation reuses the original prefix once early and skips it
+once late, avoiding a second production action mapper. Live-through constants
+differ (normal zero register r29, arrange r28); prove liveness/stack/FPSCR and
+input equivalence, don't blindly jump across the prologue. Main early site
+8211F0DC is in 8211EEB0, controller ctx.r31+152 selects arrange when 2. The
+native callback/wake driver 88030D90 increments at 88030DEC and calls peripheral
+88033E88 at 88030DF0; preserve that peripheral work at its original late point.
+Low retains a parked token after publication and per-step late receipts. A due
+wake requires a successfully published old result and valid next writer; middle
+slowdown ticks retain the native countdown. Low summaries separate effective
+policy, completed requests, current-result publications and fallback reasons.
+Test-SdojPrefix.ps1 passes 1292 synthetic native-prefix cases per module, including
+all action IDs, mappings, thresholds, two players, join effects and the actual
+production prefix restore. Derived code stays local; the test has no devices,
+gameplay/GPU/audio loop or real replay source. Do not call this 1V acceptance.
+The local liveness audit confirms the five nonvolatile live-ins and no prefix
+stack locals used by the parser tail. Actual input/replay/FPSCR/output/pacing
+checks remain. The low-r1 test game (run-20261021T030408351Z-75816) was launched
+but CU activation failed twice; no inputs were sent. Revalidate its process and
+window, do not launch another instance just because activation failed. This
+test copy predates the latest due-wake gate and counters. Old launchers stay open.
+The next continuation confirmed PID 75816 alive/responding; even a click in the
+visible game region failed activation. Do not repeatedly retry unchanged CU.
+Default-off sdoj_logic_trace now records true parked-frame inputs/command SHA-256/
+depth independently of the fine trace cap. sdoj_logic_compare.py requires explicit
+contiguous windows and rejects missing/duplicate/invalid rows, without alignment
+or normalization. The native observer and Python comparator have authored tests;
+no actual replay comparison exists yet. Test-SdojPrefix now uses production
+GuestCall; both modules pass 1292 cases / 338282 field/getter/ABI checks including
+complete context and host FPSCR restoration on return and exception. Preserve
+these results; actual 1V output, replay equivalence and no-trace pacing are still
+the completion gates. Do not turn this into an endless offline-only campaign.
+
+The current task implements the four v0.4 launcher/configuration requirements:
+text-only CN / EN / JP switching, user-data/config.ini with byte-preserving
+legacy migration, a new SDOJ banner and bottom-row utility actions. Validate
+the actual launcher and both backend configuration consumers, then stop before
+release packaging. Frame Delay remains design-only. Older documentation-only
+or v0.3 release instructions below do not expand this task.
+
+The SDOJ work remains documentation only: name it "SDOJ Frame Delay
+improvement". docs/SDOJ_LATENCY_PLAN.md defines 3V original, 2V balanced first,
+and 1V low using Futari-style complete-result handoff; 0V is out of scope.
+These are software input-to-Present targets, not physical input-to-photon or
+DXGI sync intervals. Both improvements retain the final native wait.
+Proposed player config is [game.sdoj] frame_delay = 3 / 2 / 1 (one integer);
+it replaces the unimplemented latency_mode proposal, not an existing setting.
+No Frame Delay runtime/config-template implementation is requested yet. Accept 2V/1V only
+with preserved logic counts, slowdown, replay/save compatibility, complete
+graphics ownership, audio/visual continuity and frame pacing. Use the small
+mechanism-based regression set, with actual fallback policy visible in logs.
+
+Futari/SDOJ input-latency comparison is now documented in docs/ANALYSIS.md.
+Static checks of Ver1.5 Xbox360 (reco_abnormal) and Black Label Xbox360
+(kiniro_abnormal) show native clear-ready / wake-core / wait-ready / draw order.
+After waking, the core calls 821C5618 -> 821915C0 -> 821905A0 -> XInput to
+refresh input before logic; completed draw data is prepared before signaling
+ready. This differs from SDOJ's proven late publication/read pipeline. Native
+FrameDelay really maps 0V/1V/2V/3V choices to frame-tail policy; mode 1 waits
+before swap, mode 0 after. Native new/reset configuration writes mode 1 via
+82185E80 (config+12); current player's setting and own Futari causal
+input->Present latency have NOT been measured. Do not turn static one-period
+eligibility or old 17.477 ms pacing maximum into a one-frame latency result.
+54 static sites, raw export/dispatch pointers and original input hashes pass
+in .local/analysis/futari-latency-static-r1.json. No gameplay/config/behavior
+changes, game rebuild, commit or push were made for this comparison. Other
+six cores and physical device-to-photon latency are not covered. Preserve
+native slowdown; prioritize setting-aware tracing/late sampling over blindly
+transplanting SDOJ's early-publication patch.
+
+The Frame Delay design evaluates two SDOJ latency options, not implementation
+yet. Read docs/SDOJ_LATENCY_PLAN.md: first an
+independently shippable balanced two-frame publication-only path, then a low
+one-frame path with current-input conversion and early worker handoff. The
+design retains the original final native VBlank wait and authored slowdown.
+The new read-only audit finds all 2216 accepted depth-1 baseline chains have
+completed commands before the proposed earlier publication/read, with at least
+13.524 ms of observed slack. This is eligibility, not a measured patch gain.
+Crucial static findings: active_writer == 0xFFFFFFFF is set BEFORE writing and
+is not a completion fence; BuildInputMasks reads cached renderer input ports,
+so simply moving that call earlier can reintroduce stale input. Add a genuine
+completion/park acknowledgement after the native wait baseline is captured.
+Full swap metadata, one-time late-call receipts, drain-on-timeout and module
+lifetimes are required. No behavioral hooks/config/build/gameplay were changed
+for this design. Local evidence is sdoj-latency-design-audit-r2.json. The four
+recorded v0.4 UI/config requirements are implemented and accepted in the current
+worktree; production message-handler and cold-readback checks pass as described
+in TEST_MATRIX. Frame Delay remains unimplemented.
+
+The SDOJ input-to-display investigation now has a causal software result. Read
+"原生渲染队列与最终输出：软件链路结论" in docs/ANALYSIS.md before further work.
+Actual r7 Xbox360/Shot Stage1 training has live Right AND Left, changed first
+command batches, exact native kind-0 draw-list and kind-1 frame-end FIFO messages,
+physical XE_SWAP packet provenance and same-mailbox successful Present return.
+2216 complete local chains cross three guest epochs: copy->renderer source about
+32.982 ms, source->Present return about 16.886 ms, copy->Present median 49.918 ms.
+The original native callback wait accounts for median 15.618 ms of the last
+stage; submit->Present CPU return is median 0.325 ms, not GPU completion/scanout.
+Live keys->Present are 54.964/58.383 ms; candidate 0221 changes 82->85/85->82
+already in those first input-consuming batches. This is software latency, not
+physical device-to-photon measurement or an implemented lag fix.
+The collection still has the original late publication/read ordering; fresh
+same-epoch masks did not eliminate it. Prioritize a coherent early wake/build/
+publish/read design, preserving cadence, slowdown, replay and module lifetimes.
+Do not claim re-sampling alone saves a frame or simply remove the native wait.
+User requested analysis, not behavioral patch implementation. All new probes
+remain init-only/default-off and read-only. No mode/network/release campaign,
+uncapped FPS, clock/power/priority changes, source commit or push is needed.
+R6 PID 92744 and r7 PID 88476 closed normally via Alt+F4; no game process remains.
+R4's exhausted diagnostic frame tag and r5/r6 incomplete dispatch associations
+are rejected history, not full-chain results. SDK output tags now use a dedicated
+GPU-worker serial, never the shared VBlank counter. Preserve the accepted data.
+68 SDOJ source tests and native input/render CTest pass; 15 host binary/PDB pairs
+and 12 staged runtime/symbol file hashes were verified for r7.
+Evidence: .local/analysis/sdoj-latency-conclusion-r1.json, r7-output-r1.json,
+r7-content-r1.json and sdoj-latency-status.json. Physical scanout/device latency
+and measured patch gains are separate follow-up work, not part of these numbers.
+
+The user has recorded four v0.4 requirements in docs/IMPLEMENTATION_PLAN.md:
+text-only CN / EN / JP selection with active highlighting (no button styling,
+no new languages), shared user-data/config.ini with legacy-root migration,
+replacement SDOJ banner art matching the other games, and low-frequency config/
+log actions in the bottom utility row with game-data/refresh. This implementation
+is now built and accepted. Source/native, real migration and visual checks pass.
+Desktop computer-use could not activate the window; scripts/Test-Launcher.ps1
+instead passes 95 in-process checks through the production window handlers,
+including three independent cold-start readbacks, unsaved form preservation,
+bottom-row bounds, correct shell-open targets and embedded artwork bytes.
+Only external shell/dialog effects are intercepted in that test. It uses hidden
+fixture windows, not desktop input or game execution. Do not ask the human for
+more manual testing of this completed batch. The new root launcher is open;
+an older v0.3 acceptance-copy launcher was already open and must be left alone.
+Do not produce release archives or implement Frame Delay in this task.
+
 v0.3 is now frozen at tag v0.3 / b8807ca623f0d72bb0f7707e62a7e700c0d09ec8.
 Its actual Internal/Public/source ZIPs passed their one extraction acceptance,
 including 25 SDK and 19 PS4 source dependencies. The final Public package also
@@ -9,8 +335,9 @@ is .local/v03-delivery/launcher-v0.3.jpg. Reuse these records; do not rebuild or
 re-extract the archives for the following documentation/tooling commit.
 OSS upload and public verification are complete (7,129,056,312 bytes, c66a5f53;
 public checksum and a bounded ZIP download verified). Do not upload it again.
-QQ delivery remains pending: the client was at an authentication
-screen and the user has been asked to log in manually. No game is running.
+The user took over QQ posting; verified links, release text and the actual
+launcher image were handed off. Do not retry QQ delivery or claim group sends
+were observed. No game is running.
 
 Release communication should describe player-visible additions, improvements
 and usage. Include only concrete known issues that affect use and their remedy;

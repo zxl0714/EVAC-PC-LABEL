@@ -34,6 +34,7 @@
 #include <rex/stream.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/user_module.h>
+#include <rex/ui/flags.h>
 
 REXCVAR_DEFINE_BOOL(vsync, true, "GPU", "Enable vertical sync");
 
@@ -1087,6 +1088,13 @@ bool CommandProcessor::ExecutePacketType3_XE_SWAP(memory::RingBuffer* reader, ui
   // VdSwap will post this to tell us we need to swap the screen/fire an
   // interrupt.
   // 63 words here, but only the first has any data.
+  // The reader points just after the XE_SWAP header. Keep its physical address
+  // as a host-only tag, including actual ring-buffer reuse rather than an
+  // assumed frame offset. No guest packet data is added or changed.
+  const bool trace_output = REXCVAR_GET(output_latency_trace) && swap_diagnostic_frame_ < 65536;
+  swap_diagnostic_packet_ = trace_output
+      ? uint32_t(reader->read_ptr() - uintptr_t(memory_->TranslatePhysical(0)) - 4) : 0;
+  if (trace_output) ++swap_diagnostic_frame_;
   uint32_t magic = reader->ReadAndSwap<memory::fourcc_t>();
   assert_true(magic == kSwapSignature);
 
@@ -1097,6 +1105,10 @@ bool CommandProcessor::ExecutePacketType3_XE_SWAP(memory::RingBuffer* reader, ui
   reader->AdvanceRead((count - 4) * sizeof(uint32_t));
 
   const auto swap_start_us = FrameTiming::NowMicros();
+  if (swap_diagnostic_packet_) {
+    REXGPU_INFO("OUTPUT_LATENCY phase=swap frame={} packet={:08X} frontbuffer={:08X} t_us={} not_scanout",
+        swap_diagnostic_frame_, swap_diagnostic_packet_, frontbuffer_ptr, swap_start_us);
+  }
   IssueSwap(frontbuffer_ptr, frontbuffer_width, frontbuffer_height);
   const auto swap_end_us = FrameTiming::NowMicros();
   swap_busy_max_ms_ = std::max(swap_busy_max_ms_, double(swap_end_us - swap_start_us) / 1000);

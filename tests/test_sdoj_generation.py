@@ -72,8 +72,9 @@ class SdojGenerationTests(unittest.TestCase):
         hook = shared.split('void CollectionApp::OnPreSetup(', 1)[1].split('\n}', 1)[0]
         self.assertIn('OnGamePreSetup(config);', hook)
         self.assertNotIn('gpu_allow_invalid_fetch_constants', shared)
-        self.assertIn('OnGamePreSetup(rex::RuntimeConfig&) override', adapter)
-        self.assertIn('SetFlagByName("gpu_allow_invalid_fetch_constants","true")', adapter)
+        self.assertRegex(adapter,r'void OnGamePreSetup\(rex::RuntimeConfig&(?:\s+\w+)?\) override')
+        pre_setup = adapter.split('void OnGamePreSetup(', 1)[1].split('\n    }', 1)[0]
+        self.assertIn('SetFlagByName("gpu_allow_invalid_fetch_constants","true")', pre_setup)
         for game in ('espgaluda2', 'futari'):
             self.assertNotIn('gpu_allow_invalid_fetch_constants',
                              (ROOT / f'games/{game}/host.cpp').read_text(encoding='utf-8'))
@@ -82,7 +83,11 @@ class SdojGenerationTests(unittest.TestCase):
         for module, address in (('CA022100', '0x880943E8'), ('CA022110', '0x880952F0')):
             filename = module + '-functions.toml'
             manifest = next(item for item in self.manifest['modules'] if item['guest_path'] == module + '.bin')
-            self.assertEqual(manifest['includes'], [filename, module + '-input-diagnostics.toml', module + '-audio-diagnostics.toml'])
+            expected = [filename, module + '-input-diagnostics.toml', module + '-audio-diagnostics.toml']
+            if module == 'CA022100':
+                expected.append(module + '-compat.toml')
+            expected.append(module + '-frame-delay.toml')
+            self.assertEqual(manifest['includes'], expected)
             callbacks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['functions']
             self.assertEqual(set(callbacks), {address})
             self.assertEqual(callbacks[address]['size'], 4)
@@ -142,6 +147,14 @@ class SdojGenerationTests(unittest.TestCase):
             0x821A3EA8: ('SdojInputPollDiscovery', ['r3', 'r28', 'r30']),
             0x821A3C38: ('SdojInputButtonCopy', ['r11', 'r31']),
             0x82178BFC: ('SdojInputPassEnd', ['r31']),
+            0x8217E9C8: ('SdojLatencyHostBegin', []),
+            0x8217E9D0: ('SdojLatencyHostEnd', []),
+            0x821DFECC: ('SdojLatencySubmit', ['r3']),
+            0x8219DDE8: ('SdojLatencyNativeEnqueue', ['r31', 'r11', 'r9']),
+            0x8219DCFC: ('SdojLatencyNativeEnqueue', ['r31', 'r11', 'r9']),
+            0x8219DED4: ('SdojLatencyNativeDequeue', ['r11', 'r4']),
+            0x8219D9B0: ('SdojLatencyNativeWaitBegin', []),
+            0x8219D9C8: ('SdojLatencyNativeWaitEnd', []),
         }
         self.assertEqual(len(hooks), len(expected))
         for hook in hooks:
@@ -171,8 +184,19 @@ class SdojGenerationTests(unittest.TestCase):
                              (0x880330B4, 0x880331B4, 0x880331EC)})
             expected.update({0x880331F0: (prefix + 'WaitBegin', ['r3']),
                              0x88033304: (prefix + 'WaitEnd', [])})
+            latency = 'SdojLatencyNormal' if module == 'CA022100' else 'SdojLatencyArrange'
+            expected.update({
+                0x880340D8: (latency + 'CommandsBegin', ['r11']),
+                0x8803417C: (latency + 'CommandsEnd', []),
+                0x88031288: (latency + 'Source', ['r4']),
+                0x880313C0: (latency + 'RenderEnd', []),
+                (0x88051350 if module == 'CA022100' else 0x880512C8): (latency + 'CallbackBegin', []),
+                (0x880513D0 if module == 'CA022100' else 0x88051348): (latency + 'CallbackEnd', []),
+            })
+            if module == 'CA022100':
+                expected[0x88032D68] = ('SdojLogicNormalTilemap', ['context', 'memory'])
             hooks = tomllib.loads((ROOT / f'games/sdoj/recomp/{module}-input-diagnostics.toml').read_text(encoding='utf-8'))['midasm_hook']
-            self.assertEqual(len(hooks), 7)
+            self.assertEqual(len(hooks), len(expected))
             for hook in hooks:
                 self.assertEqual((hook['name'], hook['registers']), expected[hook['address']])
                 self.assertFalse(hook.get('return', False))
@@ -183,6 +207,18 @@ class SdojGenerationTests(unittest.TestCase):
         self.assertIn('GetProcAddress', bridge)
         self.assertIn('extern "C" __declspec(dllexport) void SdojCoreInputEvent', host)
         self.assertNotIn('REX_STORE_', bridge)
+
+    def test_tilemap_initialization_is_normal_core_only_and_after_allocation(self):
+        normal, arrange = self.manifest['modules']
+        self.assertIn('CA022100-compat.toml', normal['includes'])
+        self.assertNotIn('CA022100-compat.toml', arrange['includes'])
+        hooks = tomllib.loads((ROOT / 'games/sdoj/recomp/CA022100-compat.toml').read_text(encoding='utf-8'))['midasm_hook']
+        self.assertEqual(hooks, [dict(address=0x88051C34, name='SdojInitializeTilemap', registers=['context', 'memory'])])
+        source = (ROOT / 'games/sdoj/compat/tilemap.cpp').read_text(encoding='utf-8')
+        self.assertIn('const auto address=ctx.r3.u32;', source)
+        self.assertIn('QueryRangeAccess(address,address+bytes-1)', source)
+        self.assertNotIn('policy', source.split('void SdojInitializeTilemap', 1)[1])
+        self.assertNotIn('REX_STORE_', source)
 
     def test_render_trace_is_bounded_read_only_and_not_scanout_measurement(self):
         source = (ROOT / 'games/sdoj/diagnostics/render_trace.cpp').read_text(encoding='utf-8')

@@ -334,6 +334,9 @@ void BuilderContext::emit_mid_asm_hook() {
     if (out.back() != '(')
       out += ", ";
 
+    if (reg == "context") { out += "ctx"; continue; }
+    if (reg == "memory") { out += "base"; continue; }
+
     switch (reg[0]) {
       case 'c':
         if (reg == "ctr")

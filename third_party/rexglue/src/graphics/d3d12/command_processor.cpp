@@ -2273,7 +2273,7 @@ void D3D12CommandProcessor::IssueSwap(uint32_t frontbuffer_ptr, uint32_t frontbu
         SubmitBarriers();
         EndSubmission(true);
         return true;
-      });
+      }, swap_diagnostic_packet_ ? swap_diagnostic_frame_ : 0, swap_diagnostic_packet_);
 
   // End the frame even if did not present for any reason (the image refresher
   // was not called), to prevent leaking per-frame resources.

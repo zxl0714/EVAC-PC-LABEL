@@ -55,6 +55,15 @@ struct Fixture {
   }
 };
 void SettingsChecks(Fixture& fixture) {
+    Require(ParseSettings("", "sdoj").sdoj_frame_delay == 3, "Frame Delay keeps original until balanced acceptance");
+    for (unsigned mode : {1u, 2u, 3u})
+        Require(ParseSettings("[game.sdoj]\nframe_delay="+std::to_string(mode), "sdoj").sdoj_frame_delay == mode,
+                "SDOJ frame delay integer selection");
+    for (const auto* value : {"0", "4", "-1", "2V", "balanced", "2.0", "2junk", ""})
+        Reject([&] { ParseSettings(std::string("[game.sdoj]\nframe_delay=")+value, "sdoj"); },
+               "Invalid SDOJ frame delay accepted");
+    Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 3,
+            "Another game interpreted SDOJ frame delay");
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
     const auto documented=parse(DefaultConfig());
@@ -94,14 +103,35 @@ void SettingsChecks(Fixture& fixture) {
     Require(!ValidUtf8(std::string("x\0y",3)) && !ValidUtf8("\xC0\x80") && !ValidUtf8("\xED\xA0\x80") &&
             !ValidUtf8("\xF4\x90\x80\x80") && !ValidUtf8("\xE2\x82") && ValidUtf8("\xF0\x9F\x8E\xAE"),"UTF-8 bounds");
     const auto path=EnsureConfig(fixture.root);
-    Require(path==fixture.root/"config.ini" && LoadSettings(path,"espgaluda2").nickname=="Player","First-launch configuration");
+    Require(path==fixture.root/"user-data/config.ini" && LoadSettings(path,"espgaluda2").nickname=="Player","First-launch configuration");
     Write(path,"; preserve comments and future fields\n[future]\nextra=unchanged\n[community]\nnickname=友人\n");
     const auto hash=Sha256(path);
     EnsureConfig(fixture.root);
     Require(Sha256(path)==hash && LoadSettings(path,"espgaluda2").nickname=="友人","Existing configuration was overwritten");
 }
+void MigrationChecks() {
+    Fixture fixture;
+    const auto legacy=fixture.root/"config.ini",current=fixture.root/"user-data/config.ini";
+    const std::string before="\xef\xbb\xbf; preserved bytes\r\n[collection]\r\nlanguage=ja\r\n"
+        "[community]\r\nnickname=友人\r\n[game.futari]\r\ndata_dir=game-data/futari\r\n"
+        "[game.futari.display]\r\nfullscreen=true\r\n[keyboard]\r\nsouth=Numpad0\r\n[future]\r\ncustom=keep\r\n";
+    Write(legacy,before);
+    Require(ConfigPath(fixture.root)==legacy && !fs::exists(current),"Read-only lookup migrated config");
+    Require(EnsureConfig(fixture.root)==current && !fs::exists(legacy),"Legacy config was not moved");
+    Require(Ini::ReadText(current)==before,"Migration changed original config bytes");
+    const auto ini=Ini::Load(current);
+    Require(ResolveSettings(ini,"futari").nickname=="友人" && ResolveSettings(ini,"futari").fullscreen &&
+            ResolveSettings(ini,"futari").keyboard[4].keys[0]==96 &&
+            Paths(fixture.root,"futari",ini.DataDirectory(FindGame("futari"))).data==fixture.root/"game-data/futari",
+            "Migration changed settings or relative data root");
+    Write(legacy,"[community]\nnickname=Obsolete\n");
+    Require(ConfigPath(fixture.root)==current && EnsureConfig(fixture.root)==current && Ini::ReadText(current)==before,
+            "Legacy config overwrote new configuration");
+    Write(current,"[collection]\nconfig_version=99\n");
+    Reject([&]{Ini::Load(ConfigPath(fixture.root));},"Invalid current configuration fell back to legacy");
+}
 void PreferenceChecks(Fixture& fixture) {
-    const auto config=fixture.root/"config.ini";
+    const auto config=EnsureConfig(fixture.root);
     const std::string before="\xef\xbb\xbf; keep this comment\r\n[Collection]\r\nconfig_version = 1\r\n"
         "[DISPLAY]\r\n  FullScreen = false\r\nvsync = false\r\n"
         "[Community]\r\n nickname = Player   \r\nendpoint = https://example.org/api\r\n"
@@ -137,7 +167,7 @@ void PreferenceChecks(Fixture& fixture) {
     }
     const std::array injection{IniEdit{"display","fullscreen","true\n[community]\nnickname=Injected"}};
     Reject([&]{EditIni("",injection);},"Multiline INI edit accepted");
-    for(const auto& entry:fs::directory_iterator(fixture.root))
+    for(const auto& entry:fs::directory_iterator(config.parent_path()))
         Require(!entry.path().filename().native().starts_with(L"config.ini.pending-"),"Quick-settings transaction leaked");
 }
 void ContentChecks(Fixture& fixture) {
@@ -177,6 +207,7 @@ void ContentChecks(Fixture& fixture) {
 int main() {
   try {
     Fixture fixture;
+    MigrationChecks();
     using launcher::Language;
     Fixture language_fixture;
     Require(launcher::ReadLanguage(Ini::Parse(""))==Language::Chinese,"Existing INI language default changed");
@@ -184,12 +215,13 @@ int main() {
       Require(launcher::ParseLanguage(launcher::LanguageCode(lang))==lang,"Language code round trip");
       const std::array changes{IniEdit{"collection","language",launcher::LanguageCode(lang)}};
       const auto before=std::string("; retain comment\n[future]\nvalue=keep\n[community]\nnickname=Player\n");
-      Write(language_fixture.root/"config.ini",before);
+      const auto language_config=EnsureConfig(language_fixture.root);
+      Write(language_config,before);
       UpdateConfig(language_fixture.root,before,changes);
-      const auto after=Ini::ReadText(language_fixture.root/"config.ini");
+      const auto after=Ini::ReadText(language_config);
       Require(launcher::ReadLanguage(Ini::Parse(after))==lang && after.starts_with(before),"Language save/restart or text preservation");
       SaveSharedPreferences(language_fixture.root,after,true,"Friend");
-      Require(launcher::ReadLanguage(Ini::Load(language_fixture.root/"config.ini"))==lang,"Quick settings overwrote language");
+      Require(launcher::ReadLanguage(Ini::Load(language_config))==lang,"Quick settings overwrote language");
       for(const auto& row:launcher::kTranslations)
         Require(std::wstring_view(launcher::Translate(lang,row.key)).size()>0,"Empty localized UI string");
     }

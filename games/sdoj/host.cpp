@@ -2,12 +2,17 @@
 #include "build_metadata.h"
 #include "host.h"
 #include "community/sdoj_service.h"
+#include "latency/frame_delay.h"
+#include "diagnostics/test_pad.h"
 #include <rex/cvar.h>
+#include <rex/ui/window.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xam/user_profile.h>
 #include <stdexcept>
 
 REXCVAR_DEFINE_STRING(sdoj_community_test_endpoint,"","Diagnostics","Explicit loopback-only SDOJ integration test provider")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(sdoj_test_pad_file,"","Diagnostics","Explicit offline test pad command file; empty disables")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 class SdojApp final : public cave::xbox360::CollectionApp {
@@ -37,12 +42,31 @@ private:
         }
     }
     void OnGameStop() override {
+        sdoj::latency::Stop();
         if(test_community_) {
             if(runtime() && runtime()->kernel_state())rex::system::xam::CancelCommunityIo(runtime()->kernel_state());
             rex::system::xam::SetCommunityService({});test_community_->Stop();test_community_.reset();
         }
     }
-    void OnGamePreSetup(rex::RuntimeConfig&) override {
+    void OnGamePreSetup(rex::RuntimeConfig& config) override {
+        sdoj::latency::Configure(run().settings.sdoj_frame_delay);
+        const auto pad_file=rex::cvar::GetFlagByName("sdoj_test_pad_file");
+        if(!pad_file.empty()) {
+            if(run().settings.community_enabled)
+                throw std::runtime_error("SDOJ test pad requires community.enabled=false");
+            sdoj::diagnostics::AddTestPad(config,std::filesystem::u8path(pad_file),
+                [this] {
+                    // Use the normal close path, which stops the guest before
+                    // teardown. Quitting the UI loop alone leaves it running.
+                    app_context().CallInUIThreadDeferred([this] {
+                        if (auto* target=window()) {
+                            rex::ui::UIEvent event(target);
+                            if (static_cast<rex::ui::WindowListener*>(this)->OnCloseRequested(event))
+                                target->RequestClose();
+                        }
+                    });
+                });
+        }
         // This game's UI uses texture descriptors tagged kInvalidTexture.
         // Keep the existing GPU compatibility path local to this title.
         if (!rex::cvar::SetFlagByName("gpu_allow_invalid_fetch_constants","true"))

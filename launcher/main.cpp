@@ -65,7 +65,7 @@ void OpenPath(HWND window,const fs::path& path) {
 }
 fs::path LogDirectory(const fs::path& root) {
   const auto directory=DataChild(root,"logs");
-  const auto ini=Ini::Load(root/"config.ini");
+  const auto ini=Ini::Load(ConfigPath(root));
   for (const auto& game:Catalogue()) {
     const auto data=Resolve(root,ini.DataDirectory(game));
     if (Within(directory,data) || Within(data,directory))
@@ -120,7 +120,7 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
     rows[index].inspection.state=Catalogue()[index].coming_soon?"coming_soon":"checking";
   }
   try {
-    const auto ini=Ini::Load(root/"config.ini");
+    const auto ini=Ini::Load(ConfigPath(root));
     {
       const auto index=selected;
       const auto& game=Catalogue()[index];
@@ -176,15 +176,18 @@ struct Layout {
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
   D2D1_RECT_F card(size_t index) const {const auto top=header()+float(index)*(row_height()+12)-scroll;return {margin(),top,width-margin(),top+row_height()};}
   D2D1_RECT_F play() const {return {width-margin()-176,height-99,width-margin(),height-49};}
-  D2D1_RECT_F config() const {return {width-margin()-177,28,width-margin()-79,64};}
-  D2D1_RECT_F logs() const {return {width-margin()-68,28,width-margin(),64};}
-  D2D1_RECT_F language_button() const {return {width-margin()-177,71,width-margin(),93};}
+  D2D1_RECT_F config() const {return {margin()+185,height-45,margin()+283,height-14};}
+  D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+361,height-14};}
+  D2D1_RECT_F language_choice(size_t index) const {
+    const auto left=width-margin()-146+float(index)*52;
+    return {left,32,left+42,60};
+  }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
-  D2D1_RECT_F detail() const {return {margin()+185,height-45,margin()+250,height-14};}
+  D2D1_RECT_F detail() const {return {margin()+371,height-45,margin()+436,height-14};}
   D2D1_RECT_F fullscreen() const {return {margin(),99,margin()+132,127};}
-  D2D1_RECT_F nickname() const {return {margin()+220,98,margin()+410,128};}
-  D2D1_RECT_F save() const {return {margin()+421,98,margin()+483,128};}
+  D2D1_RECT_F nickname() const {return {margin()+230,98,margin()+420,128};}
+  D2D1_RECT_F save() const {return {margin()+431,98,margin()+493,128};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
 void FitInitialWindow(HWND window) {
@@ -256,15 +259,29 @@ class Renderer {
     Text(target,L"C A V E",{margin,25,margin+130,65},27,0x23312d);
     Text(target,L"PC COLLECTION",{margin+(layout.narrow()?0:140),layout.narrow()?61.f:40.f,margin+320,80},10,0x6f7c76);
     if (!layout.narrow()) Text(target,T(L"熟悉的弹幕，新的入口。"),{margin,70,margin+360,92},12,0x78827c);
-    Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"日志"));
-    Button(target,layout.language_button(),cave::launcher::LanguageLabel(language),false,busy||running);
+    const std::array language_codes{L"CN",L"EN",L"JP"};
+    const std::array language_choices{Language::Chinese,Language::English,Language::Japanese};
+    for(size_t index=0;index<language_choices.size();++index) {
+      const auto rectangle=layout.language_choice(index);
+      const bool active=language==language_choices[index];
+      const bool focused=focus==10+int(index);
+      Text(target,language_codes[index],{rectangle.left,rectangle.top+4,rectangle.right,rectangle.bottom},12,
+          active?0x2f5b42:(busy||running?0xadb5ad:0x7d8881),DWRITE_TEXT_ALIGNMENT_CENTER);
+      if(active||focused) {
+        ComPtr<ID2D1SolidColorBrush> brush;
+        Check(target->CreateSolidColorBrush(D2D1::ColorF(active?0x2f5b42:0x7d8881),&brush),"Create language accent");
+        target->DrawLine({rectangle.left+11,rectangle.bottom-3},{rectangle.right-11,rectangle.bottom-3},brush.Get(),active?2.f:1.f);
+      }
+      if(index+1<language_choices.size())
+        Text(target,L"/",{rectangle.right,rectangle.top+4,rectangle.right+10,rectangle.bottom},12,0xb7bfb5,DWRITE_TEXT_ALIGNMENT_CENTER);
+    }
     if(preview) {
       Button(target,layout.fullscreen(),T(L"□ 启动时全屏"));
       Button(target,layout.nickname(),L"Player");Button(target,layout.save(),T(L"保存"),false,true);
     }
-    Text(target,T(L"排行榜昵称"),{margin+153,105,margin+225,128},11,0x627368);
+    Text(target,T(L"排行榜昵称"),{margin+153,105,margin+225,128},10,0x627368);
     if(!layout.narrow()) Text(target,preferences_dirty?T(L"未保存 · 启动前会自动保存"):T(L"共用设置 · 下次启动生效"),
-        {margin+498,106,layout.width-margin,128},11,preferences_dirty?0x90754f:0x7d8881);
+        {margin+508,106,layout.width-margin,128},11,preferences_dirty?0x90754f:0x7d8881);
     target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     for (size_t index=0;index<rows.size();++index) {
       const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
@@ -316,13 +333,14 @@ class Renderer {
     Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!CanPlay(inspection));
     Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
     Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
+    Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"日志"));
     Button(target,layout.detail(),T(L"详情"),false,busy||running||CanPlay(inspection)||Catalogue()[selected].coming_soon);
-    if (focus>=4) {
-      const auto rectangle=focus==10?layout.language_button():(focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail())))));
+    if (focus>=4 && focus<10) {
+      const auto rectangle=focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail()))));
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
     }
-    Text(target,override_hint.empty()?message:override_hint,{margin+266,layout.height-36,layout.width-margin,layout.height-14},11,0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
+    Text(target,override_hint.empty()?message:override_hint,{margin+450,layout.height-36,layout.width-margin,layout.height-14},11,0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
     if (preview) Text(target,T(L"视觉预览 · 安装状态为示例"),{margin+200,layout.height-17,layout.width-margin,layout.height},10,0x939d94,DWRITE_TEXT_ALIGNMENT_TRAILING);
   }
   ComPtr<ID2D1Factory> factory;
@@ -348,7 +366,7 @@ class App {
  public:
   explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
     EnsureConfig(options.root);for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
-    language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(options.root/"config.ini")));
+    language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(ConfigPath(options.root))));
     message=T(L"正在检测游戏数据…");
   }
   ~App() {if(work)work->alive=false;if(worker.joinable())worker.detach();}
@@ -422,27 +440,20 @@ class App {
   void Select(size_t index) {
     if(work && (work->starting||work->copying))return;
     selected=index;focus=0;SetFocus(hwnd);EnsureVisible();
-    try {UpdateOverrideHint(Ini::Load(options.root/"config.ini"));}catch(...){override_hint.clear();}
+    try {UpdateOverrideHint(Ini::Load(ConfigPath(options.root)));}catch(...){override_hint.clear();}
     if(!busy&&!child)Refresh();
   }
   void LaunchSelected() {
     if(busy||child||!CanPlay(rows[selected].inspection))return;
     SavePreferences();Refresh(true);
   }
-  void LanguageMenu() {
+  void SelectLanguage(size_t index) {
     if(busy||child||!preferences_available)return;
-    const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create language menu");
-    const std::array names{L"中文",L"日本語",L"English"};
-    for(size_t index=0;index<names.size();++index)
-      AppendMenuW(menu,MF_STRING|(size_t(language)==index?MF_CHECKED:0),index+1,names[index]);
-    const auto rectangle=layout.language_button();const auto scale=float(GetDpiForWindow(hwnd))/96;
-    POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.bottom*scale)};ClientToScreen(hwnd,&anchor);
-    const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY,anchor.x,anchor.y,0,hwnd,nullptr);
-    DestroyMenu(menu);if(!selection)return;
-    const auto next=Language(selection-1);
+    const std::array choices{Language::Chinese,Language::English,Language::Japanese};
+    const auto next=choices.at(index);if(next==language)return;
     const std::array changes{IniEdit{"collection","language",cave::launcher::LanguageCode(next)}};
     UpdateConfig(options.root,preferences_text,changes);
-    preferences_text=Ini::ReadText(options.root/"config.ini");
+    preferences_text=Ini::ReadText(ConfigPath(options.root));
     language=next;options.language.reset();
     SetWindowTextW(fullscreen_control,T(L"启动时全屏"));SetWindowTextW(save_control,T(L"保存"));
     UpdateOverrideHint(Ini::Parse(preferences_text));message=T(L"↑ ↓ 选择 · Enter 启动");
@@ -454,15 +465,15 @@ class App {
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
-        for(int step=0;step<11;++step) {
-          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?10:1))%11;
+        for(int step=0;step<13;++step) {
+          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?12:1))%13;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
           if(slot==9 && (busy||child||CanPlay(rows[selected].inspection)||Catalogue()[selected].coming_soon))continue;
-          if(slot==10 && (busy||child||!preferences_available))continue;
+          if(slot>=10 && (busy||child||!preferences_available))continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
         }
         return true;
@@ -487,7 +498,7 @@ class App {
             [task,window](uint64_t done,uint64_t total){task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);},
             [task]{return task->cancelled.load();});
         task->rows=InspectRows(root,task->selected);
-        if (task->starting) task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(root/"config.ini"),profile,data);
+        if (task->starting) task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
       } catch(const std::exception& error) {task->error=error.what();}
       if(task->alive) PostMessageW(window,kWorkDone,0,0);
     });
@@ -598,7 +609,8 @@ class App {
     InvalidateRect(hwnd,nullptr,FALSE);
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.logs(),x,y)) {const auto logs=LogDirectory(options.root);if(!fs::exists(logs))fs::create_directories(logs);OpenPath(hwnd,logs);return;}
-    if(Inside(layout.language_button(),x,y)) {LanguageMenu();return;}
+    for(size_t index=0;index<3;++index)
+      if(Inside(layout.language_choice(index),x,y)) {SelectLanguage(index);return;}
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
     if(Inside(layout.refresh(),x,y)) {ManualRefresh();return;}
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
@@ -636,7 +648,8 @@ class App {
           else if((first==VK_DOWN || first==VK_NUMPAD2) && app->selected+1<app->rows.size()){app->Select(app->selected+1);}
           else if(first==VK_RETURN || first==VK_SPACE) {
             if(app->focus>=4) {
-              const auto rectangle=app->focus==10?app->layout.language_button():(app->focus==4?app->layout.config():(app->focus==5?app->layout.logs():(app->focus==6?app->layout.data():(app->focus==7?app->layout.refresh():(app->focus==8?app->layout.play():app->layout.detail())))));
+              if(app->focus>=10) {app->SelectLanguage(size_t(app->focus-10));return 0;}
+              const auto rectangle=app->focus==4?app->layout.config():(app->focus==5?app->layout.logs():(app->focus==6?app->layout.data():(app->focus==7?app->layout.refresh():(app->focus==8?app->layout.play():app->layout.detail()))));
               app->Click((rectangle.left+rectangle.right)/2,(rectangle.top+rectangle.bottom)/2);
             } else app->LaunchSelected();
           }
@@ -700,7 +713,7 @@ class App {
 };
 void Preview(const Options& options) {
   if(fs::exists(options.preview))throw std::runtime_error("Preserve the existing launcher preview");
-  language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(options.root/"config.ini")));
+  language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(ConfigPath(options.root))));
   Renderer renderer;
   ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
@@ -727,7 +740,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     if(!options.preview.empty()){Preview(options);return 0;}
     EnsureConfig(options.root);
     if(!options.game.empty()) {
-      auto spec=PrepareLaunch(FindGame(options.game),options.root,Ini::Load(options.root/"config.ini"),options.profile,options.data);
+      auto spec=PrepareLaunch(FindGame(options.game),options.root,Ini::Load(ConfigPath(options.root)),options.profile,options.data);
       auto child=StartGame(spec);child.Wait();const auto code=child.ExitCode().value_or(1);return int(code);
     }
     App app(std::move(options));

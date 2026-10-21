@@ -10,6 +10,18 @@ from build_data import build_data
 
 
 class BuildDataTests(unittest.TestCase):
+    def test_internal_user_data_config_without_legacy_file(self):
+        with tempfile.TemporaryDirectory(prefix='cave-build-data-') as temporary:
+            package = Path(temporary); source = package / 'source'; source.mkdir()
+            (package / 'release.json').write_text('{}')
+            (package / 'user-data').mkdir()
+            (package / 'user-data/config.ini').write_text('[collection]\nconfig_version=1\n')
+            data = package / 'game-data/futari'; data.mkdir(parents=True)
+            response = json.dumps(dict(games=[dict(dataState='verified', problems=[], dataDirectory=str(data))])).encode()
+            with patch('build_data.subprocess.check_output', return_value=response) as called:
+                self.assertEqual(build_data('futari', root=source), data)
+                self.assertIn(str(package), called.call_args.args[0])
+
     def test_empty_checkout_and_explicit_priority(self):
         with tempfile.TemporaryDirectory(prefix='cave-build-data-') as temporary:
             root = Path(temporary)

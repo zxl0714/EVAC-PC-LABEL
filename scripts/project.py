@@ -31,6 +31,18 @@ def reject_link(path):
             break
 
 
+def config_path(root=ROOT):
+    """Read-only config lookup; relative game paths remain collection-relative."""
+    root = Path(root)
+    current = root / 'user-data/config.ini'
+    reject_link(current)
+    if current.exists():
+        return current
+    legacy = root / 'config.ini'
+    reject_link(legacy)
+    return legacy if legacy.exists() else current
+
+
 def write_json_new(path, value):
     reject_link(path)
     path.parent.mkdir(parents=True, exist_ok=True)

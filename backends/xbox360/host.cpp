@@ -38,7 +38,8 @@ fs::path FindRoot() {
     if (!requested.empty()) return fs::canonical(cave::FromUtf8(requested));
     auto candidate=rex::filesystem::GetExecutableFolder();
     for (int level=0;level<5 && !candidate.empty();++level,candidate=candidate.parent_path())
-        if (fs::is_regular_file(candidate/"config.ini") || fs::is_regular_file(candidate/"games/catalogue.json"))
+        if (fs::is_regular_file(candidate/"user-data/config.ini") || fs::is_regular_file(candidate/"config.ini") ||
+            fs::is_regular_file(candidate/"games/catalogue.json"))
             return fs::canonical(candidate);
     throw std::runtime_error("Cannot find collection root; specify --collection_root");
 }

@@ -1,6 +1,7 @@
 #include "common/catalogue.h"
 #include "common/ini.h"
 #include "common/paths.h"
+#include "common/settings.h"
 #include <Windows.h>
 #include <iostream>
 #include <stdexcept>
@@ -51,7 +52,7 @@ int wmain(int argc, wchar_t** argv) {
     if (!selected.empty()) (void)cave::FindGame(selected);
     if (!override_data.empty() && selected.empty()) throw std::runtime_error("--data-dir requires --game");
     root = cave::fs::weakly_canonical(cave::fs::absolute(root));
-    const auto ini = cave::Ini::Load(root / "config.ini");
+    const auto ini = cave::Ini::Load(cave::ConfigPath(root));
     std::cout << "{\"format\":1,\"guestExecution\":false,\"games\":[";
     bool first = true;
     for (const auto& game : cave::Catalogue()) {

@@ -18,6 +18,7 @@ struct Binding {
 struct Settings {
     bool fullscreen{}, vsync{true}, gamepad_enabled{true}, community_enabled{true};
     double deadzone{0.20}, volume{1.0};
+    unsigned sdoj_frame_delay{3};
     std::string log_level{"info"}, endpoint{"https://xiaolu.life/cave/api/v1"}, nickname{"Player"};
     std::array<Binding,16> keyboard;
 };
@@ -30,6 +31,8 @@ Settings LoadSettings(const fs::path& path, std::string_view game_id);
 std::uint16_t KeyCode(std::string_view name);
 bool ValidUtf8(std::string_view value);
 std::string_view DefaultConfig();
+// Read-only lookup: user-data/config.ini wins; accept the legacy root file.
+fs::path ConfigPath(const fs::path& root);
 // Explicit first-launch operation. Read-only inspection never calls this.
 fs::path EnsureConfig(const fs::path& root);
 }  // namespace cave

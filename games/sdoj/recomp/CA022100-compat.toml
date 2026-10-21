@@ -1,0 +1,6 @@
+# Disc-base normal core: initialize only the four newly allocated 64x64 maps.
+# Keep the allocator call, descriptor writes and all subsequent native code.
+[[midasm_hook]]
+address = 0x88051C34
+name = "SdojInitializeTilemap"
+registers = ["context", "memory"]

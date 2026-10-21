@@ -66,7 +66,7 @@ int Child(int count,wchar_t** arguments) {
 }
 void ConfigChecks(Fixture& fixture) {
   const auto& game=FindGame("espgaluda2");
-  const auto config=fixture.root/"config.ini";
+  const auto config=EnsureConfig(fixture.root);
   const std::string original="\xef\xbb\xbf; comments stay\r\n[Collection]\r\nconfig_version = 1\r\n"
       "[game.ESPGALUDA2]\r\n  DATA_DIR = old\r\n; section comment\r\n[future]\r\nkey = untouched\r\n";
   Write(config,original);SetDataDirectory(fixture.root,game,fixture.data);
@@ -85,7 +85,7 @@ void ConfigChecks(Fixture& fixture) {
   SetDataDirectory(fixture.root,game,local);
   Require(Ini::Load(config).DataDirectory(game)=="local data","Collection-local path was not portable");
   SetDataDirectory(fixture.root,game,fixture.data);
-  for(const auto& item:fs::directory_iterator(fixture.root))
+  for(const auto& item:fs::directory_iterator(config.parent_path()))
     Require(!item.path().filename().native().starts_with(L"config.ini.pending-"),"Configuration temporary leaked");
 }
 void LaunchChecks(Fixture& fixture,const fs::path& executable) {
@@ -97,9 +97,9 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   const auto certificate=fixture.root/runtime[1];
   const auto manifest="[runtime]\ncontract=1\ngame=espgaluda2\n[files]\nruntime/fake.exe="+Sha256(fixture.root/runtime[0])+"\n";
   Write(certificate,manifest);
-  auto ini=Ini::Load(fixture.root/"config.ini");
+  auto ini=Ini::Load(ConfigPath(fixture.root));
   auto spec=PrepareLaunch(game,fixture.root,ini,"launch-test");
-  Require(spec.arguments.size()==5 && spec.configuration==fixture.root/"config.ini","Launch contract/config identity");
+  Require(spec.arguments.size()==5 && spec.configuration==fixture.root/"user-data/config.ini","Launch contract/config identity");
   Require(spec.paths.data==fixture.data && spec.paths.profile==fixture.root/"user-data/espgaluda2/launch-test","Resolved launch paths");
   Require(spec.arguments[0]==L"--collection_root="+fixture.root.native() && spec.arguments[2]==L"--launch_contract=1","Launch contract arguments");
   Reject([&]{PrepareLaunch(game,fixture.root,ini,"../bad");},"Profile traversal accepted");
@@ -169,7 +169,7 @@ void CopyChecks() {
   for(int scenario=0;scenario<9;++scenario) {
     Fixture fixture;Write(fixture.data/"main.bin","abc");Write(fixture.data/"res/extra.dat","extra");
     Write(fixture.data/"zero.bin","");fs::create_directories(fixture.data/"empty directory");
-    const auto target=fixture.root/"game-data/fixture",config=fixture.root/"config.ini";
+    const auto target=fixture.root/"game-data/fixture",config=EnsureConfig(fixture.root);
     Write(config,"; preserved\n[future]\nvalue=keep\n");const auto config_hash=Sha256(config);
     bool cancel=false,changed=false;
     struct RestoreAttributes {

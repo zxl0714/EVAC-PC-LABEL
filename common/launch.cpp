@@ -89,7 +89,7 @@ LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,st
     throw std::runtime_error(reason);
   }
   VerifyRuntime(game,result.paths.root);
-  result.configuration=result.paths.root/"config.ini";
+  result.configuration=ConfigPath(result.paths.root);
   result.executable=DataChild(result.paths.root,game.executable);
   result.arguments={L"--collection_root="+result.paths.root.native(),L"--game_id="+FromUtf8(game.id).native(),L"--launch_contract=1",
                     L"--game_data_root="+result.paths.data.native(),L"--user_data_root="+result.paths.profile.native()};

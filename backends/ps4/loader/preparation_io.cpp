@@ -1,6 +1,7 @@
 #include "preparation_io.h"
 #include "backends/ps4/content/read_patches.h"
 #include "common/ini.h"
+#include "common/settings.h"
 #include <Windows.h>
 #include <fstream>
 #include <stdexcept>
@@ -40,7 +41,7 @@ void CheckPreparationPath(const fs::path& root,const fs::path& literal,std::span
     if (!allowed) throw std::runtime_error("Prepared output must be under collection .local or a known prepared/<game> directory");
     for (const auto& source:sources) if (!source.empty() && (Within(output,source) || Within(source,output)))
         throw std::runtime_error("Prepared output overlaps an ELF source directory");
-    const auto ini=Ini::Load(root/"config.ini");
+    const auto ini=Ini::Load(ConfigPath(root));
     for (const auto& game:Catalogue()) {
         fs::path data,content;
         try {data=Resolve(root,ini.DataDirectory(game));}

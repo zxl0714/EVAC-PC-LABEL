@@ -21,7 +21,7 @@ def check_record(record):
     if (record.get('format') != 1 or record.get('gameDataIncluded') is not False
             or not re.fullmatch('[0-9a-f]{40}', record.get('sourceCommit', ''))
             or not re.fullmatch('[0-9a-f]{64}', record.get('binaryReleaseSha256', ''))
-            or record.get('binaryFlavor') not in ('Internal', 'Public')
+            or record.get('binaryFlavor') not in ('Internal', 'Public', 'Update')
             or not isinstance(record.get('files'), list)):
         raise ValueError('Invalid source release identity')
     prefix = source_name(record.get('version', '')) + '/'

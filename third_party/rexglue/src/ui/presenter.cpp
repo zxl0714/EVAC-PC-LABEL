@@ -16,6 +16,7 @@
 
 #include <rex/assert.h>
 #include <rex/cvar.h>
+#include <rex/graphics/frame_timing.h>
 #include <rex/logging.h>
 #include <rex/platform.h>
 #include <rex/ui/presenter.h>
@@ -28,6 +29,9 @@
 
 REXCVAR_DEFINE_BOOL(host_present_from_non_ui_thread, true, "UI/Presenter",
                     "Allow presentation from non-UI thread");
+REXCVAR_DEFINE_BOOL(output_latency_trace, false, "Diagnostics",
+                    "Bounded D3D12 swap-packet/mailbox/Present provenance, not scanout latency")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_BOOL(present_letterbox, true, "UI/Presenter",
                     "Enable letterboxing for non-native aspect ratios");
@@ -549,7 +553,8 @@ void Presenter::PaintFromUIThread(bool force_paint) {
 bool Presenter::RefreshGuestOutput(
     uint32_t frontbuffer_width, uint32_t frontbuffer_height, uint32_t display_aspect_ratio_x,
     uint32_t display_aspect_ratio_y,
-    std::function<bool(GuestOutputRefreshContext& context)> refresher) {
+    std::function<bool(GuestOutputRefreshContext& context)> refresher,
+    uint64_t diagnostic_frame, uint32_t diagnostic_packet) {
   GuestOutputProperties& writable_properties =
       guest_output_properties_[guest_output_mailbox_writable_];
   writable_properties.frontbuffer_width = frontbuffer_width;
@@ -557,6 +562,8 @@ bool Presenter::RefreshGuestOutput(
   writable_properties.display_aspect_ratio_x = display_aspect_ratio_x;
   writable_properties.display_aspect_ratio_y = display_aspect_ratio_y;
   writable_properties.is_8bpc = false;
+  writable_properties.diagnostic_frame = diagnostic_frame;
+  writable_properties.diagnostic_packet = diagnostic_packet;
   bool is_active = writable_properties.IsActive();
   if (is_active) {
     if (!RefreshGuestOutputImpl(guest_output_mailbox_writable_, frontbuffer_width,
@@ -574,6 +581,12 @@ bool Presenter::RefreshGuestOutput(
       return false;
     }
     guest_output_active_last_refresh_ = false;
+  }
+
+  if (diagnostic_frame && diagnostic_frame <= 65536 && REXCVAR_GET(output_latency_trace)) {
+    REXLOG_INFO("OUTPUT_LATENCY phase=ready frame={} packet={:08X} mailbox={} t_us={} active={} not_scanout",
+        diagnostic_frame, diagnostic_packet, guest_output_mailbox_writable_,
+        graphics::FrameTiming::NowMicros(), is_active);
   }
 
   // Make the new image the next to present on the host (the "ready" one),

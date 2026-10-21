@@ -60,7 +60,7 @@ class SourcePackageTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 source.check_record(record)
         for key, value in (('gameDataIncluded', True), ('sourceCommit', 'wrong'),
-                           ('binaryFlavor', 'Source'), ('version', '0.4')):
+                           ('binaryFlavor', 'Source'), ('version', '0.5')):
             record, _ = self.fixture()
             record[key] = value
             with self.subTest(key=key), self.assertRaises(ValueError):

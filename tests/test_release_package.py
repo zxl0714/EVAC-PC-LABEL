@@ -83,15 +83,19 @@ class ReleaseTests(unittest.TestCase):
         finally:
             link.unlink()
 
-    def package(self, version='0.2-test'):
+    def package(self, version='0.2-test', flavor='Public'):
         directory = self.root / '发行 中文 space'
         directory.mkdir()
         entries = []
         selection = release.release_games(version)
-        for name in release.runtime_names(self.games, selection=selection) | {'config.ini', 'README.txt'}:
-            release.text_new(directory / name, 'authored fixture\n', 'config' if name == 'config.ini' else 'runtime', entries)
+        config = release.config_name(version)
+        optional_config = set() if flavor == 'Update' else {config}
+        for name in release.runtime_names(self.games, selection=selection) | optional_config | {'README.txt'}:
+            release.text_new(directory / name, 'authored fixture\n', 'config' if name == config else 'runtime', entries)
         payload = [dict(item, path=item['path'].relative_to(directory).as_posix()) for item in entries]
-        record = dict(format=1, version=version, flavor='Public', games=list(selection), files=payload)
+        record = dict(format=1, version=version, flavor=flavor, games=list(selection), files=payload)
+        if flavor == 'Update':
+            record.update(baseVersion='0.3', preservedPaths=list(release.UPDATE_PRESERVED))
         (directory / 'release.json').write_text(json.dumps(record), encoding='utf-8')
         sums = ''.join(item['sha256'] + '  ' + item['path'] + '\n' for item in sorted(payload, key=lambda item:item['path']))
         sums += release.digest(directory / 'release.json') + '  release.json\n'
@@ -108,13 +112,69 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn(directory.name + '/config.ini', zipped.namelist())
         self.assertTrue(archive.with_suffix('.zip.sha256').read_text().startswith(release.digest(archive)))
 
+    def test_update_extracts_directly_over_v03_and_preserves_player_files(self):
+        directory = self.package('0.3.1', 'Update')
+        self.assertEqual(release.verify_tree(directory, self.games)['baseVersion'], '0.3')
+        archive = self.root / 'update.zip'
+        release.archive(directory, archive, include_root=False)
+        installed = self.root / 'v0.3 已安装'
+        sentinels = {name: ('existing ' + name).encode() for name in (
+            'config.ini', 'user-data/config.ini', 'user-data/sdoj/save.bin',
+            'user-data/futari/REPLAY.DAT', 'game-data/sdoj/default.xex',
+            'prepared/ketsui/eboot.ktprobe', 'cache/sdoj/cache.bin',
+            'logs/old/game.log', 'source/README.md')}
+        for name, data in sentinels.items():
+            file = installed / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(data)
+        (installed / 'CAVE-PC-Collection.exe').write_bytes(b'old launcher')
+        with zipfile.ZipFile(archive) as zipped:
+            self.assertIn('CAVE-PC-Collection.exe', zipped.namelist())
+            self.assertIn('release.json', zipped.namelist())
+            self.assertNotIn('config.ini', zipped.namelist())
+            self.assertNotIn('user-data/config.ini', zipped.namelist())
+            zipped.extractall(installed)
+        for name, data in sentinels.items():
+            self.assertEqual((installed / name).read_bytes(), data, name)
+        self.assertEqual((installed / 'CAVE-PC-Collection.exe').read_bytes(), b'authored fixture\n')
+
+    def test_update_rejects_player_files_and_invalid_baseline(self):
+        for name in ('config.ini', 'user-data/config.ini', 'game-data/sdoj/default.xex',
+                     'prepared/sdoj/image.bin', 'cache/test.bin', 'logs/test.txt',
+                     'source/README.md', 'runtime/fake.pdb'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                release.validate_update_name(name, self.games)
+        directory = self.package('0.3.1', 'Update')
+        path = directory / 'release.json'
+        record = json.loads(path.read_text(encoding='utf-8'))
+        record['baseVersion'] = '0.2'
+        path.write_text(json.dumps(record), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'baseline'):
+            release.verify_tree(directory, self.games)
+        with self.assertRaisesRegex(ValueError, 'baseline'):
+            release.version_name('0.2', 'Update')
+        with self.assertRaisesRegex(ValueError, 'does not accept'):
+            release.build('Update', '0.3.1', data={'sdoj': self.root})
+
+    def test_v04_default_config_is_the_only_shipped_user_data(self):
+        directory = self.package('0.4-dev')
+        self.assertEqual(release.verify_tree(directory, self.games)['flavor'], 'Public')
+        self.assertTrue((directory / 'user-data/config.ini').is_file())
+        self.assertFalse((directory / 'config.ini').exists())
+        for name in ('user-data/futari/savegame.bin', 'user-data/config.ini.pending', 'user-data/other.ini'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                release.validate_public_name(name, self.games, release.V03_GAMES)
+
     def test_release_profiles_preserve_v01_v02_and_require_daioujou_for_v03(self):
         self.assertEqual(release.release_games('0.1'), release.LEGACY_GAMES)
         self.assertEqual(release.release_games('0.2-rc1'), release.GAMES)
         self.assertIn('sdoj', release.release_games('0.2'))
         self.assertEqual(release.release_games('0.3-rc1'), release.V03_GAMES)
         self.assertEqual(release.release_games('0.3'), (*release.GAMES, 'daioujou'))
-        for version in ('', '0.4', '1.0', '../bad'):
+        self.assertEqual(release.release_games('0.4'), release.V03_GAMES)
+        self.assertEqual(release.config_name('0.3'), 'config.ini')
+        self.assertEqual(release.config_name('0.4-dev'), 'user-data/config.ini')
+        for version in ('', '0.5', '1.0', '../bad'):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 release.release_games(version)
         self.assertEqual(release.verify_tree(self.package('0.1-test'), self.games)['games'],

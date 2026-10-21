@@ -26,6 +26,7 @@ REXCVAR_DECLARE(std::string, present_fsr_quality_mode);
 REXCVAR_DECLARE(bool, present_dither);
 REXCVAR_DECLARE(bool, present_allow_overscan_cutoff);
 REXCVAR_DECLARE(bool, host_present_from_non_ui_thread);
+REXCVAR_DECLARE(bool, output_latency_trace);
 REXCVAR_DECLARE(int32_t, window_width);
 REXCVAR_DECLARE(int32_t, window_height);
 REXCVAR_DECLARE(bool, fullscreen);

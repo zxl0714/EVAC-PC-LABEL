@@ -1,0 +1,5 @@
+# State 13, after frozen native action update and before graphics acquisition.
+[[midasm_hook]]
+address = 0x8211F0DC
+name = "SdojDelayAdvance"
+registers = ["context", "memory"]

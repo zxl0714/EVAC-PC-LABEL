@@ -217,6 +217,7 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
         while (vsync_worker_running_) {
           uint64_t current_time = chrono::Clock::QueryGuestTickCount();
           while (current_time - last_frame_time >= interval_ticks) {
+            rex::input::PublishGuestVblankDeadlineMicros(0);
             MarkVblank();
             if (const auto stats = vblank_timing.Observe(FrameTiming::NowMicros())) {
               REXGPU_INFO("FRAME_DIAG stream=guest_vblank intervals={} window_ms={:.1f} fps={:.2f} "
@@ -228,6 +229,12 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
             }
             last_frame_time += interval_ticks;
           }
+          const auto deadline_sample = chrono::Clock::QueryGuestTickCount();
+          const auto deadline_remaining = deadline_sample - last_frame_time < interval_ticks
+              ? GuestVblankHostWaitMicros(interval_ticks - (deadline_sample - last_frame_time),
+                                         guest_tick_frequency, chrono::Clock::guest_time_scalar()) : 0;
+          rex::input::PublishGuestVblankDeadlineMicros(deadline_remaining
+              ? FrameTiming::NowMicros() + deadline_remaining : 0);
           if (video_wait.precise()) {
             const auto after = chrono::Clock::QueryGuestTickCount();
             if (after - last_frame_time < interval_ticks) {
@@ -241,6 +248,7 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
             rex::thread::Sleep(std::chrono::milliseconds(1));
           }
         }
+        rex::input::PublishGuestVblankDeadlineMicros(0);
         return 0;
       }));
   // TODO: set_can_debugger_suspend not yet ported

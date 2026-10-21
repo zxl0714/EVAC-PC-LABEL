@@ -1,0 +1,18 @@
+includes = ["frame-delay-module.toml"]
+
+[[midasm_hook]]
+address = 0x880451D4
+name = "SdojDelayInputDone"
+registers = ["context", "memory"]
+jump_address_on_true = 0x88045D70
+
+[[midasm_hook]]
+address = 0x88051CFC
+name = "SdojDelayLogic"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x8805130C
+name = "SdojDelayLateSwap"
+registers = ["context", "memory"]
+jump_address_on_true = 0x88051310

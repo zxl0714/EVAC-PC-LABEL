@@ -78,7 +78,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     run.game=build.game;
     run.root=fs::canonical(requestedRoot);
     const auto& identity=cave::FindGame(build.game);
-    const auto configuration=run.root/"config.ini";
+    auto configuration=cave::ConfigPath(run.root);
     const auto snapshot=fs::exists(configuration)?cave::Ini::ReadText(configuration):std::string(cave::DefaultConfig());
     const auto ini=cave::Ini::Parse(snapshot);
     run.settings=cave::ResolveSettings(ini,build.game);
@@ -104,7 +104,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         if (hash!=item.at("sha256").get<std::string>()) throw std::runtime_error("Unsupported or modified XEX: "+name);
         inputs.push_back({{"path",name},{"sha256",hash},{"bytes",fs::file_size(path)}});
     }
-    cave::EnsureConfig(run.root);
+    configuration=cave::EnsureConfig(run.root);
     if (cave::Ini::ReadText(configuration)!=snapshot)
         throw std::runtime_error("config.ini changed during startup; restart with the saved configuration");
     if (run.settings.community_enabled) {

@@ -30,3 +30,29 @@ registers = ["r3"]
 address = 0x88033304
 name = "SdojRenderArrangeWaitEnd"
 registers = []
+
+# Same code boundaries; arrange data addresses remain independently decoded.
+[[midasm_hook]]
+address = 0x880340D8
+name = "SdojLatencyArrangeCommandsBegin"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8803417C
+name = "SdojLatencyArrangeCommandsEnd"
+registers = []
+[[midasm_hook]]
+address = 0x88031288
+name = "SdojLatencyArrangeSource"
+registers = ["r4"]
+[[midasm_hook]]
+address = 0x880313C0
+name = "SdojLatencyArrangeRenderEnd"
+registers = []
+[[midasm_hook]]
+address = 0x880512C8
+name = "SdojLatencyArrangeCallbackBegin"
+registers = []
+[[midasm_hook]]
+address = 0x88051348
+name = "SdojLatencyArrangeCallbackEnd"
+registers = []

@@ -2,7 +2,7 @@
 from pathlib import Path
 import re
 
-from project import ROOT, reject_link
+from project import ROOT, reject_link, config_path
 
 
 def private_output(path, *inputs):
@@ -13,7 +13,7 @@ def private_output(path, *inputs):
     if output == local or not output.is_relative_to(local):
         raise ValueError('Keep analysis outputs in a new path under collection/.local')
     protected = [(ROOT / 'game-data').resolve(), *(Path(item).resolve() for item in inputs)]
-    config = ROOT / 'config.ini'
+    config = config_path(ROOT)
     if config.exists():
         reject_link(config)
         if not config.is_file() or config.stat().st_size > 1024 * 1024:

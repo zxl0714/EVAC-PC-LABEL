@@ -40,15 +40,14 @@
     {
       "game": "sdoj",
       "path": "launcher/assets/sdoj.jpg",
-      "sha256": "87701ee3231f60b341aaa54f9339ad1112e52aa9d7231f026d90910e84914ed2",
+      "sha256": "aa991b87cd5cb21ff891a051439597b88bcece67f69cf6d9ac3baee68372a61e",
       "resource": 106,
-      "fit": "contain",
-      "focusY": 0.5,
+      "focusY": 0.10,
       "kicker": "XBOX 360 · 2013",
-      "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/",
-      "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/saidaioujou/common/img/social.jpg",
+      "sourcePage": "https://www.cave.co.jp/gameonline/saidaioujou/",
+      "sourceUrl": "https://www.cave.co.jp/gameonline/saidaioujou/common/img/toponsaleb.jpg",
       "copyright": "©CAVE Interactive CO., LTD.",
-      "usage": "Unchanged official square title image, contained at the right without enlargement or cropping. Native rendering supplies the display title and shared banner treatment."
+      "usage": "Official launch artwork featuring the Element Doll and her craft. Source bytes unchanged; runtime cover crop and shared gradient treatment match the other banners. Native text supplies the Japanese title and English subtitle."
     },
     {
       "game": "daioujou",

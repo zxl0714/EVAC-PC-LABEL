@@ -16,7 +16,7 @@
 | third_party/rexglue/ | 维护的 Xbox 360 SDK 源码及固定子模块 |
 | third_party/ps4/ | 提取的图形组件、来源及许可证 |
 | scripts/、tools/ | 构建、整理、检查、打包、固定工具与依赖锁 |
-| config/default.ini | 唯一玩家 INI 的默认模板 |
+| config/default.ini | user-data/config.ini 的默认模板 |
 | game-data/<id>/ | 玩家提供的数据，不进 Git |
 | generated/、out/、runtime/ | 生成正文、构建产物、配套运行文件，不进 Git |
 | prepared/、user-data/、logs/、cache/ | 独立的准备镜像、存档录像、日志和缓存 |
@@ -56,7 +56,7 @@ py -3.12 scripts/ps4_sources.py verify
 
 ## 配置与数据
 
-配置路径始终相对合集根目录，不依赖工作目录。共用 fullscreen、vsync、音量、键盘、SDL 手柄、昵称和联网选项；游戏覆盖优先，但默认模板不为每个游戏重复一套通用设置。
+开发版配置位于 `user-data/config.ini`；`EnsureConfig` 首次启动原样迁移旧根目录文件，新位置已存在时优先使用它。只读工具通过 `ConfigPath`／`project.config_path` 查找，不执行迁移。配置内的相对路径始终相对合集根目录，不依赖工作目录或 INI 所在目录。共用 fullscreen、vsync、音量、键盘、SDL 手柄、昵称和联网选项；游戏覆盖优先，但默认模板不为每个游戏重复一套通用设置。
 
 运行时只读同一份 config.ini；source/ 位于内部包内时，构建的数据解析优先使用包根的同一配置和 game-data。显式数据参数优先，坏配置不静默回退。
 
@@ -108,13 +108,34 @@ py -3.12 scripts/launcher_receipt.py verify
 
 源码测试、机制 fixture、实际游戏和端到端表现各回答不同问题。优先复用未受影响的可靠结果，新增检查针对改动；实际启动和输入操作使用 computer-use。独立测试局的重启和原生确认已获授权。
 
+修改启动器交互后运行 `./scripts/Test-Launcher.ps1 -Jobs 2`。它无需 ROM，在隐藏的临时窗口中走生产鼠标／键盘消息处理、控件与 INI 保存，并启动独立进程检查三语言冷读回。配置／日志的 shell-open 请求在边界截获，不打开外部应用或向桌面注入输入；排版另用 `--render-preview` 与真实窗口截图检查。
+
 最大往生的只读探针默认关闭，可在独立测试根的宿主命令行显式开启：
 
 - --input_diagnostics=true --sdoj_input_trace=true：宿主键沿、原始按钮、两套玩法掩码生成及复制。
 - --sdoj_render_trace=true：逻辑复制、原生缓冲交换与帧等待。
 - --sdoj_audio_trace=true：模块命令、引擎队列及播放调用。
+- --sdoj_latency_trace=true --output_latency_trace=true：复制、完成缓冲、发布、原生绘图／帧结束 FIFO、原生回调等待、物理 swap 包及同图像的 Present CPU 返回。需要查看方向附近的命令内容时另加 --sdoj_latency_content=true；快照只留独立测试日志，不进入发行包。
 
 这些记录不修改游戏行为。输入复制／缓冲交换的时间不是对应画面的 scanout，音频队列时间不是扬声器时刻。DISPLAY_DIAG 的成功返回若统计全零仍不可用。两项上游降延迟补丁尚未接入；地址版本映射和已有观测见 ANALYSIS.md，不照搬 TU 偏移。
+
+最大往生软件延迟的当前结论见 ANALYSIS.md 的“原生渲染队列与最终输出”：约三帧主要在原作发布／读取顺序和原生帧等待，而不是短暂的最终提交。离线复查使用 `py -3.12 scripts/sdoj_output.py '<run 目录>' --output '<新的报告路径>'`；内容候选使用同参数形式的 scripts/sdoj_content.py。报告记录全部输入日志 SHA-256，拒绝缺失来源和含歧义的关联；需要自机存活的实际画面来限定方向沿语义。不要为重算报告重复启动游戏或把 Present 返回称为物理出光。
+
+正在实现 [最大往生 Frame Delay 改进](docs/SDOJ_LATENCY_PLAN.md)：3V 原路径 → 2V 稳定路径 → 1V 低延迟路径，不包含 0V。1V 参考虫姬二“玩法完成后再交给渲染器”的交接原则，保留最终节拍、原作减速和录像语义。玩家配置为 `[game.sdoj].frame_delay = 3 / 2 / 1`（实际填写一个整数），内部策略称 original／balanced／low；开发宿主接受三档、缺省仍为 3。两模块进关／返回、旧录像、新录像冷读回、逐逻辑帧和输出来源链均已有实际结果；关闭细粒度延迟／音频追踪后的节奏与队列对照也已完成，保留逻辑观察器以界定关卡。普通键盘短按、存活自机移动、失焦恢复及同段音画观察已按用户要求暂缓至 v0.4 待办，当前不启动游戏或重复请求手动操作。短测通过后确认发布默认 1V，保留 2V／3V，再核对配置和冷启动读回；本次只更新计划，不改默认。不要重跑已接受的完整录像或扩展全模式。完整身份、初始化类别与比较边界见 TEST_MATRIX。
+
+生产实现分为原生输入前段、提前请求、完整结果交接、有界等待／排空、资源重试中途等待，以及保留原减速公式所读统计年龄的 RenderMetrics；新增地图只在分配时初始化。源码机制测试为 sdoj_frame_delay、sdoj_logic_trace 和 sdoj_tilemap；运行 `./scripts/Test-SdojPrefix.ps1` 可用本地生成物隔离验证两套原生输入前段（需要已安装 SDK，不打开窗口或读取实体设备）。来源分析另列 first_result_* 排除暂停重复画面的年龄。不改全局 SDL、VSync 或音频等待，本任务不出包。
+
+无法投递桌面输入时，可在独立离线测试根显式加 `--sdoj_test_pad_file="<已存在的绝对路径>"`。此选项默认空且只在启动时读取，要求 `[community] enabled=false`；它给真实 InputSystem 增加玩家 1 的逻辑 Xbox 按钮源，不注入桌面事件或改写客体内存，不能作为实体键盘／摇杆验收。文件只放一条命令，替换内容时递增正整数序号：`1 press 1000 8` 表示 A 按 8 个 guest frame，按钮是十六进制、时长是十进制 1–600；Start=`10`、B=`2000`、X=`4000`、上／下／左／右=`1/2/4/8`，可按位合并。旧序号忽略，按钮按时自动释放，已确认的脉冲不会被后续命令截断。`2 quit` 通过 UI 线程调用正常的游戏停机与关窗流程；不能直接结束 UI 循环而留下玩法线程。`SDOJ_TEST_PAD` 日志记录命令确认与按下／释放，实际操作仍应结合画面和游戏状态检查。
+
+固定录像的行为对照使用默认关闭的 `--sdoj_logic_trace=true`，与细粒度 latency trace 的预算独立。每个完成点记录复制前 live 输入端口、完整命令缓冲 SHA-256、原生等待深度、核心状态及结束请求，最多每模块加载代 32768 条；录像输入在此复制点之后解码，不能将端口全零解释为录像没有操作。正常模块另记录绘图统计所属的已完成批次，以及减速公式实际读取的操作数，用于定位当前 Arcade HD 的等待深度差异。所有记录只读客体，不改减速公式。`sdoj_logic_trace` CTest 使用自造内存验证观察器；`Test-SdojPrefix.ps1` 使用生产 GuestCall 验证完整上下文和浮点状态恢复。
+
+选择两次相同录像中的明确起始逻辑帧后运行：
+
+```powershell
+py -3.12 scripts/sdoj_logic_compare.py <reference-run> <candidate-run> --module 2 --reference-generation <N> --candidate-generation <N> --reference-first <N> --candidate-first <N> --frames <N> --output <new-report.json>
+```
+
+窗口必须连续、无缺帧／重复／无效记录；工具不自动对齐或隐藏命令差异，报告绑定原日志哈希。输入和原始命令摘要相同不单独证明像素、音频、完整内存或物理出光一致；实际相同录像的选择、局末状态和延迟另行观察。正确性 trace 与无细粒度诊断的节奏／音画短测分开。
 
 PS4 性能先用无窗口 bench 筛选，再合并有价值的改动做短固定录像回归：
 
@@ -133,6 +154,12 @@ py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目�
 大往生、绊地狱使用各自 PS4 规则，G2／最大往生由公共有界 worker 传输。最大往生保留原生商店进度；大往生 CUSTOM 可游玩与能否上榜分开处理。服务测试的自造成绩只发 loopback，不向正式服务写 fixture。
 
 ## 出包与交付
+
+v0.3.1 的覆盖更新使用 `./scripts/Release.ps1 -Flavor Update -Version 0.3.1`。
+ZIP 直接包含根目录程序与 runtime，无外层目录，不携带 config.ini、user-data、
+游戏数据、准备镜像、缓存、日志、源码或符号。先关闭程序，直接解压到 v0.3
+目录替换同名文件；首次启动自动迁移旧配置。发布前只做一次实际覆盖验收，
+核对配置、存档／录像哨兵保持不变及配套程序身份。对应源码仍可单独出包。
 
 先提交发行源码并配套构建，再执行：
 

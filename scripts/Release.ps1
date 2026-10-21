@@ -1,7 +1,7 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Internal','Public')][string]$Flavor,
+    [Parameter(Mandatory)][ValidateSet('Internal','Public','Update')][string]$Flavor,
     [string]$Version='0.3',
     [string]$OutputDirectory,
     [hashtable]$DataDirectories=@{},

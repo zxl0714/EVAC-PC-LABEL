@@ -30,3 +30,37 @@ registers = ["r3"]
 address = 0x88033304
 name = "SdojRenderNormalWaitEnd"
 registers = []
+
+# Read the writer already loaded by the original instruction, before it is
+# marked unavailable; then observe the completed command-list cursor.
+[[midasm_hook]]
+address = 0x880340D8
+name = "SdojLatencyNormalCommandsBegin"
+registers = ["r11"]
+[[midasm_hook]]
+address = 0x8803417C
+name = "SdojLatencyNormalCommandsEnd"
+registers = []
+[[midasm_hook]]
+address = 0x88031288
+name = "SdojLatencyNormalSource"
+registers = ["r4"]
+[[midasm_hook]]
+address = 0x880313C0
+name = "SdojLatencyNormalRenderEnd"
+registers = []
+[[midasm_hook]]
+address = 0x88051350
+name = "SdojLatencyNormalCallbackBegin"
+registers = []
+[[midasm_hook]]
+address = 0x880513D0
+name = "SdojLatencyNormalCallbackEnd"
+registers = []
+
+# Native tilemap source and index provenance, only for selected exact-content
+# frames. All original calculations, reads, command writes and branches remain.
+[[midasm_hook]]
+address = 0x88032D68
+name = "SdojLogicNormalTilemap"
+registers = ["context", "memory"]

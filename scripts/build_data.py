@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from project import ROOT
+from project import ROOT, config_path
 
 
 def build_data(game, explicit=None, root=ROOT):
@@ -19,10 +19,10 @@ def build_data(game, explicit=None, root=ROOT):
         return path
     # The Internal package keeps one config and one copy of each game's data.
     parent = root.parent
-    if root.name.lower() == 'source' and (parent / 'release.json').is_file() and (parent / 'config.ini').is_file():
+    if root.name.lower() == 'source' and (parent / 'release.json').is_file() and config_path(parent).is_file():
         collection = parent
         inspector = parent / 'runtime/launcher/cave_inspect.exe'
-    elif (root / 'config.ini').is_file():
+    elif config_path(root).is_file():
         collection = root
         inspector = root / 'out/common/bin/cave_inspect.exe'
         if not inspector.is_file():

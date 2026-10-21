@@ -424,6 +424,9 @@ std::string FunctionNode::emitCpp(const EmitContext& ctx) const {
           if (out.back() != '(')
             out += ", ";
 
+          if (reg == "context") { emit_print(out, "PPCContext& context"); continue; }
+          if (reg == "memory") { emit_print(out, "uint8_t* memory"); continue; }
+
           switch (reg[0]) {
             case 'c':
               if (reg == "ctr")

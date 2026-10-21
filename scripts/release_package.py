@@ -1,4 +1,4 @@
-"""Build and verify local Internal/Public archives from the same certified build."""
+"""Build and verify full releases and configuration-preserving update archives."""
 import argparse
 import configparser
 import datetime as dt
@@ -24,6 +24,8 @@ DEFAULT_VERSION = '0.3'
 MANIFEST_ONLY_DATA = {'sdoj', 'daioujou'}
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
+UPDATE_BASES = {'0.3.1': '0.3'}
+UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
 
 
 def git(root, *args):
@@ -31,8 +33,10 @@ def git(root, *args):
 
 
 def version_name(version, flavor):
-    if not re.fullmatch(r'[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[a-z0-9.-]+)?', version) or flavor not in ('Internal', 'Public'):
-        raise ValueError('Expected a numeric version and Internal/Public flavor')
+    if not re.fullmatch(r'[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[a-z0-9.-]+)?', version) or flavor not in ('Internal', 'Public', 'Update'):
+        raise ValueError('Expected a numeric version and Internal/Public/Update flavor')
+    if flavor == 'Update' and version not in UPDATE_BASES:
+        raise ValueError('No update baseline for this release version')
     return 'CAVE-PC-Collection-v' + version + '-' + flavor.lower()
 
 
@@ -43,7 +47,7 @@ def release_games(version):
         return LEGACY_GAMES
     if (major, minor) == (0, 2):
         return GAMES
-    if (major, minor) == (0, 3):
+    if (major, minor) in ((0, 3), (0, 4)):
         return V03_GAMES
     raise ValueError('No game-set profile for this release version')
 
@@ -54,6 +58,11 @@ def catalogue(selection=GAMES):
            or not games[key].get('communitySupported', True) for key in selection):
         raise ValueError('All selected release games must be integrated with community support: ' + ', '.join(selection))
     return games
+
+
+def config_name(version):
+    release_games(version)
+    return 'user-data/config.ini' if version in UPDATE_BASES or version.split('-', 1)[0].split('.')[:2] == ['0', '4'] else 'config.ini'
 
 
 def runtime_names(games, symbols=False, selection=GAMES):
@@ -204,7 +213,7 @@ def redist_directory():
 
 
 def validate_public_name(name, games, selection=GAMES):
-    allowed = runtime_names(games, selection=selection) | {'config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
+    allowed = runtime_names(games, selection=selection) | {'config.ini', 'user-data/config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
     if name in allowed or name.startswith('licenses/'):
         return
     # App-local CRT copies only, not arbitrary DLLs supplied by an input tree.
@@ -215,20 +224,34 @@ def validate_public_name(name, games, selection=GAMES):
     raise ValueError('File is not in the Public allowlist: ' + name)
 
 
+def validate_update_name(name, games, selection=V03_GAMES):
+    normalized = safe_name(name).casefold()
+    if any(normalized == item.rstrip('/') or normalized.startswith(item)
+           for item in UPDATE_PRESERVED):
+        raise ValueError('Update must preserve existing player files: ' + name)
+    validate_public_name(name, games, selection)
+
+
 def verify_tree(directory, games=None):
     release = json.loads((directory / 'release.json').read_text(encoding='utf-8'))
     selection = release_games(release.get('version', ''))
     games = games or catalogue(selection)
-    if release.get('format') != 1 or release.get('flavor') not in ('Internal', 'Public') or release.get('games') != list(selection):
+    if release.get('format') != 1 or release.get('flavor') not in ('Internal', 'Public', 'Update') or release.get('games') != list(selection):
         raise ValueError('Invalid release identity')
+    if release['flavor'] == 'Update' and (release.get('baseVersion') != UPDATE_BASES.get(release['version'])
+            or release.get('preservedPaths') != list(UPDATE_PRESERVED)):
+        raise ValueError('Invalid update baseline or preservation contract')
     expected = {}
     for item in release['files']:
         name = safe_name(item['path'])
         if name in expected or name in META:
             raise ValueError('Duplicate or recursive package inventory entry')
-        if release['flavor'] == 'Public':
-            validate_public_name(name, games, selection)
-            if item['role'] not in ('runtime', 'config', 'documentation', 'license', 'redist'):
+        if release['flavor'] in ('Public', 'Update'):
+            validator = validate_update_name if release['flavor'] == 'Update' else validate_public_name
+            validator(name, games, selection)
+            allowed_roles = ('runtime', 'documentation', 'license', 'redist') if release['flavor'] == 'Update' else (
+                'runtime', 'config', 'documentation', 'license', 'redist')
+            if item['role'] not in allowed_roles:
                 raise ValueError('Forbidden Public package role')
             if Path(name).suffix.lower() in ('.pdb', '.cpp', '.h', '.xex', '.ktprobe', '.ktmodule', '.ktfix', '.py', '.ps1'):
                 raise ValueError('Source, symbols or game body in Public package')
@@ -270,10 +293,11 @@ def verify_tree(directory, games=None):
     return release
 
 
-def archive(directory, destination):
+def archive(directory, destination, *, include_root=True):
+    prefix = directory.name + '/' if include_root else ''
     with zipfile.ZipFile(destination, 'x', compression=zipfile.ZIP_DEFLATED, compresslevel=6, allowZip64=True) as output:
         for file in tree_files(directory):
-            output.write(file, directory.name + '/' + file.relative_to(directory).as_posix())
+            output.write(file, prefix + file.relative_to(directory).as_posix())
         # An uninitialized Git submodule is an empty directory. Omitting it
         # makes an otherwise complete source checkout appear deleted after
         # extraction, even though every file and Git object matches its hash.
@@ -281,7 +305,7 @@ def archive(directory, destination):
             folder = Path(current)
             if folder != directory and not folders and not files:
                 reject_link(folder)
-                output.write(folder, directory.name + '/' + folder.relative_to(directory).as_posix() + '/')
+                output.write(folder, prefix + folder.relative_to(directory).as_posix() + '/')
     with zipfile.ZipFile(destination) as check:
         bad = check.testzip()
         if bad:
@@ -318,8 +342,8 @@ def verify_certificate(game, certified, commit):
 def build(flavor, version, output=None, data=None, futari_dlc=None):
     package_name = version_name(version, flavor)
     selection = release_games(version)
-    if flavor == 'Public' and (data or futari_dlc):
-        raise ValueError('Public does not accept ROM or source inclusion options')
+    if flavor in ('Public', 'Update') and (data or futari_dlc):
+        raise ValueError(flavor + ' does not accept ROM or source inclusion options')
     games = catalogue(selection); commit, receipts, certified = certified_runtime(selection)
     for key in selection:
         verify_certificate(games[key], certified, commit)
@@ -363,8 +387,11 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     for file in crt:
         for subdir in ('', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher'):
             copy_checked(file, directory / subdir / file.name, 'redist', entries)
-    copy_checked(ROOT / 'config/default.ini', directory / 'config.ini', 'config', entries)
-    readme = 'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt'
+    if flavor != 'Update':
+        copy_checked(ROOT / 'config/default.ini', directory / config_name(version), 'config', entries)
+    readme = ('README.player-v031.txt' if version == '0.3.1' else
+              'README.player-v04.txt' if config_name(version).startswith('user-data/') else
+              'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
     copy_checked(ROOT / '启动游戏.bat', directory / '启动游戏.bat', 'documentation', entries)
     for file in license_files():
@@ -397,13 +424,15 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
         files=sorted(payload, key=lambda item: item['path']),
         gameplayAcceptance='Recorded separately; packaging does not perform gameplay acceptance',
         uploadsPerformed=False)
+    if flavor == 'Update':
+        release.update(baseVersion=UPDATE_BASES[version], preservedPaths=list(UPDATE_PRESERVED))
     write_json_new(directory / 'release.json', release)
     sums = ''.join(item['sha256'] + '  ' + item['path'] + '\n' for item in release['files'])
     sums += digest(directory / 'release.json') + '  release.json\n'
     with (directory / 'SHA256SUMS.txt').open('x', encoding='utf-8', newline='\n') as stream:
         stream.write(sums)
     verify_tree(directory, games)
-    destination = parent / (package_name + '.zip'); archive(directory, destination)
+    destination = parent / (package_name + '.zip'); archive(directory, destination, include_root=flavor != 'Update')
     return dict(archive=str(destination), directory=str(directory), sha256=digest(destination), bytes=destination.stat().st_size,
                 flavor=flavor, sourceCommit=commit, uploaded=False)
 
@@ -411,7 +440,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['build', 'verify'])
-    parser.add_argument('--flavor', choices=['Internal', 'Public'])
+    parser.add_argument('--flavor', choices=['Internal', 'Public', 'Update'])
     parser.add_argument('--version', default=DEFAULT_VERSION)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--directory', type=Path)

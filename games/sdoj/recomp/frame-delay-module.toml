@@ -1,0 +1,50 @@
+# Full-context hooks preserve the interrupted PPC ABI and combine the original
+# observers explicitly. The guest program hashes are checked before generation.
+[[midasm_hook]]
+address = 0x8803125C
+name = "SdojDelayPublish"
+registers = ["context", "memory"]
+
+# Skip moved callback/input/countdown/wake steps only, retaining peripherals.
+[[midasm_hook]]
+address = 0x88030DA0
+name = "SdojDelayDriverBegin"
+registers = ["context", "memory"]
+jump_address_on_true = 0x88030DF0
+
+[[midasm_hook]]
+address = 0x88030DF0
+name = "SdojDelayDriverPeripheral"
+registers = ["context", "memory"]
+jump_address_on_true = 0x88030DF4
+
+[[midasm_hook]]
+address = 0x88044978
+name = "SdojDelayInputStart"
+registers = ["context", "memory"]
+jump_address_on_true = 0x880451D4
+
+[[midasm_hook]]
+address = 0x88033210
+name = "SdojDelayPark"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x880340D8
+name = "SdojDelayCommands"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x88033304
+name = "SdojDelayUnpark"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x88031288
+name = "SdojDelayRead"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x880313C0
+name = "SdojDelayReadEnd"
+registers = ["context", "memory"]
