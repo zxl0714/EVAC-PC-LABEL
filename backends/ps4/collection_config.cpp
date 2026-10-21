@@ -32,7 +32,7 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::strin
     (void)kt::community::ParseEndpoint(endpoint,game);
     result.community = {result.shared.community_enabled && result.community_supported, result.shared.nickname, std::move(endpoint),std::string(game)};
     if (!kt::community::ValidNicknameBytes(result.community.nickname)) throw std::runtime_error("Invalid community nickname");
-    result.display = {FromUtf8("CAVE PC Collection — " + std::string(title.DisplayName())).wstring(),
+    result.display = {FromUtf8("EVAC PC LABEL — " + std::string(title.DisplayName())).wstring(),
         result.shared.fullscreen, result.shared.vsync};
     return result;
 }
@@ -70,7 +70,7 @@ bool CollectionConfigurationSelfTest() {
         "[display]\nfullscreen=true\n[game.daioujou.display]\nfullscreen=false\n"
         "[game.ketsui.keyboard]\nunknown=invalid\n"),"daioujou");
     check(daioujou.game=="daioujou" && !daioujou.shared.fullscreen &&
-        daioujou.display.title==L"CAVE PC Collection — 怒首領蜂大往生 臨廻転生", "ps4_title_configuration_isolated");
+        daioujou.display.title==L"EVAC PC LABEL — 怒首領蜂大往生 臨廻転生", "ps4_title_configuration_isolated");
     check(daioujou.shared.community_enabled && daioujou.community_supported && daioujou.community.enabled &&
         daioujou.community.endpoint=="https://xiaolu.life/cave/api/v1/games/daioujou","daioujou_uses_own_configured_community_service");
     const auto daioujou_offline=ResolveCollectionConfiguration(Ini::Parse("[community]\nenabled=false\n"),"daioujou");
@@ -117,7 +117,7 @@ bool CollectionConfigurationSelfTest() {
     ApplyCollectionConfiguration(custom);
     const auto applied=GetNativeDisplaySettings();
     check(applied.title==defaults.display.title && !applied.fullscreen && !applied.vsync &&
-        applied.title==L"CAVE PC Collection — ケツイ Deathtiny ～絆地獄たち～", "native_display_uses_catalogue_title_and_preferences");
+        applied.title==L"EVAC PC LABEL — ケツイ Deathtiny ～絆地獄たち～", "native_display_uses_catalogue_title_and_preferences");
     std::printf("{\"event\":\"collection_config_self_test\",\"passed\":%u,\"success\":%s}\n",passed,okay?"true":"false");
     return okay;
 }

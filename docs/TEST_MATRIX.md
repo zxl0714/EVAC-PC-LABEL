@@ -2,6 +2,25 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.4 程序品牌、入口与覆盖更新
+
+当前构建输出 `EVAC PC LABEL.exe`／配套 PDB，标题栏及两类游戏窗口前缀统一。
+实际 Windows 版本信息读回 FileDescription／ProductName 为 EVAC PC LABEL，
+OriginalFilename 为 EVAC PC LABEL.exe，FileVersion 为 0.4.0.0，ProductVersion 为 0.4。
+BAT 正确引用带空格的文件名，构建收据验证新命名的两组 PE／PDB。
+
+- 27 项打包测试通过（1 项 Windows 文件链接权限跳过），使用自造数据实际组装、ZIP 和解压 v0.4 Internal／Public／Update。新文件名、源码 ZIP 前缀、六份数据说明和 Public 无 ROM／源码边界正确。Update 平铺并含新旧两个文件名入口，两者均取同一认证原生 EXE；校验拒绝另一个二进制冒充旧入口。覆盖后配置、数据、存档、录像和旧源码哨兵不变。旧版归档命名继续验证，不重打冻结包。
+- 226 项隐藏生产窗口检查、386 项公共原生检查和 139 项启动／配置／复制检查通过。PS4 六组 PE／PDB 编译及配置读回通过；Xbox 360 公共宿主库完成编译，仅修改标题，不将库编译当成五款最终运行组件认证。
+- 486 项源码测试通过（1 项文件链接权限跳过），源码边界审计通过，未包含游戏数据；记录为 `.local/v04-brand-source-r2.log`。
+- PS4 第一轮为 72／73，失败为信号量自测。原记录显示 Address 等待在约 199069 微秒已看到成功结果，剩余少量时间是合法结果；断言却要求恒为零，且短路跳过 Delete，导致后续注册表检查连带失败。同一未改程序的定向复查通过，但不据此抹掉首轮。仅修改自测，按真实经过时间核对剩余预算并无条件清理；未改生产 Wait／Signal／Grant。修正后第二轮 73／73，通过记录中的真实时间及剩余预算继续保留。
+
+证据：`.local/v04-brand-{package-r1,build-r1,launcher-r1,common-r1}.log`、
+`.local/v04-brand-properties-r1.json`、`.local/v04-brand-ps4-build-r{1,2}.log`、
+`.local/v04-brand-ps4-native-r{1,2}/result.json` 和
+`.local/v04-brand-semaphore-recheck-r1.jsonl`。中英文首页、玩家数据指南、v0.4 包内说明和开发命令同步到开发版行为；已发布下载仍明确指向 v0.3.2。
+
+GitHub 远端与物理工作目录仍未更名；两份预先运行的旧启动器保持原样。正式同提交包、实际桌面复开／输入、报告模式和绊地狱两版游玩仍待相应验收，不由上述自造数据或隐藏窗口检查替代。
+
 ## v0.4 预建游戏数据目录与放置说明
 
 `config/game-data/` 的六份中英双语说明进入 v0.4 完整包的 `game-data/<id>/放置说明.txt`。每款说明标明数据版本、顶层入口、内部目录和适用更新／DLC 放法，ESPRaDe 保持 Coming Soon。Public 仅允许六个固定说明路径，且内容需匹配维护源码；即使重写 ZIP 清单和校验也不能用任意文件冒充说明。Update 仍拒绝 `game-data` 下的任何内容，旧版本包的结构不回改。

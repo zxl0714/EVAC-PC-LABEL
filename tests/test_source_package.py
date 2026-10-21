@@ -50,6 +50,13 @@ class SourcePackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'differs'):
             source.verify(self.zipped(record, files, 'changed.zip'))
 
+    def test_v04_source_archive_uses_the_same_product_name_as_binary_packages(self):
+        record, files = self.fixture(); record['version'] = '0.4'
+        self.assertEqual(source.source_name('0.4'), 'EVAC-PC-LABEL-v0.4-source')
+        result = source.verify(self.zipped(record, files))
+        self.assertTrue(result['sourceZipVerified'])
+        self.assertEqual(result['version'], '0.4')
+
     def test_local_bodies_tools_and_invalid_identities_are_rejected(self):
         for name in ('source/game-data/daioujou/eboot.bin', 'source/generated/body.cpp',
                      'source/prepared/daioujou/eboot.ktprobe', 'source/config.ini',

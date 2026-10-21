@@ -26,7 +26,7 @@ CHECKS = (
 def configuration_cases():
     return (
         ('defaults', (ROOT / 'config/default.ini').read_text(encoding='utf-8-sig'), 0,
-         {'game':'ketsui', 'title':'CAVE PC Collection — ケツイ Deathtiny ～絆地獄たち～',
+         {'game':'ketsui', 'title':'EVAC PC LABEL — ケツイ Deathtiny ～絆地獄たち～',
           'community':{'enabled':True, 'nickname':'Player', 'endpoint':'https://xiaolu.life/cave/api/v1/games/ketsui'}}),
         ('utf8-bom', '\ufeff[COLLECTION]\nconfig_version=1\n[COMMUNITY]\nnickname=弹幕 Player\n', 0,
          {'community':{'nickname':'弹幕 Player'}}),

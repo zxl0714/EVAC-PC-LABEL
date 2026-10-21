@@ -1,4 +1,4 @@
 @echo off
 pushd "%~dp0"
-start "" "%~dp0CAVE-PC-Collection.exe" %*
+start "" "%~dp0EVAC PC LABEL.exe" %*
 popd

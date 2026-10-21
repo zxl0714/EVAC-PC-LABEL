@@ -7,6 +7,7 @@ import re
 import struct
 
 from generate_catalogue import load, read_json, relative
+from product import NAME, LAUNCHER, VERSION
 
 
 def png_bounds(data):
@@ -123,7 +124,19 @@ def generate(root, destination):
     header=['#pragma once','#include <array>','#include <string_view>','namespace cave::launcher {',
             'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y; bool contain;};',
             'inline constexpr std::array<Artwork,'+str(len(entries))+'> kArtwork{{']
-    resources=['#pragma code_page(65001)','#include <windows.h>']
+    resources=['#pragma code_page(65001)','#include <windows.h>',
+        '1 VERSIONINFO', 'FILEVERSION 0,4,0,0', 'PRODUCTVERSION 0,4,0,0',
+        'FILEFLAGSMASK VS_FFI_FILEFLAGSMASK', 'FILEFLAGS 0', 'FILEOS VOS_NT_WINDOWS32',
+        'FILETYPE VFT_APP', 'FILESUBTYPE 0', 'BEGIN', '  BLOCK "StringFileInfo"',
+        '  BEGIN', '    BLOCK "040904b0"', '    BEGIN',
+        '      VALUE "FileDescription", "'+NAME+'\\0"',
+        '      VALUE "ProductName", "'+NAME+'\\0"',
+        '      VALUE "FileVersion", "'+VERSION+'.0.0\\0"',
+        '      VALUE "ProductVersion", "'+VERSION+'\\0"',
+        '      VALUE "InternalName", "EVACPCLabel\\0"',
+        '      VALUE "OriginalFilename", "'+LAUNCHER+'\\0"',
+        '    END', '  END', '  BLOCK "VarFileInfo"', '  BEGIN',
+        '    VALUE "Translation", 0x0409, 1200', '  END', 'END']
     for entry in entries:
         header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
                       ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')

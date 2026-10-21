@@ -481,7 +481,18 @@ static bool SemaphoreSelfTestForPrimitive(WaitPrimitive primitive) {
         }
         notifications.NotifyAll();
         worker.join();
-        check("reserved_signal_wins_race_and_remaining_timeout_saturates_not_underflows", waiting && value == 0 && remaining == 0 && Delete(delayed, nullptr) == 0);
+        // Address waits may return early without a notifier: the already
+        // published success is valid, with a small positive budget left. The
+        // notifier's Sleep does not force the waiting thread past its deadline.
+        const auto elapsed = timing.resumed_clock_us - timing.queued_clock_us;
+        const bool budget_valid = remaining <= 200000 &&
+            (elapsed >= 200000 ? remaining == 0 : remaining <= 200000 - elapsed);
+        // Cleanup must not depend on an earlier assertion succeeding, otherwise
+        // one timing failure poisons the registry check of later primitives.
+        const auto deleted = Delete(delayed, nullptr);
+        std::printf("{\"event\":\"semaphore_timeout_fixture\",\"primitive\":\"%s\",\"elapsed_us\":%llu,\"remaining_us\":%u,\"deleted\":%d}\n",
+            NativeSemaphoreWaitName(),static_cast<unsigned long long>(elapsed),remaining,deleted);
+        check("reserved_signal_wins_race_and_remaining_timeout_matches_actual_elapsed_time", waiting && value == 0 && budget_valid && deleted == 0);
         check("grant_to_resume_delay_is_distinct_from_waiting_for_a_signal", timing.grant_thread == GetCurrentThreadId() &&
             timing.queued_clock_us <= timing.granted_clock_us && timing.resumed_clock_us - timing.granted_clock_us >= 150000);
         check("waiter_park_return_is_separate_from_notifier_wake_return", timing.park_calls >= 1 &&

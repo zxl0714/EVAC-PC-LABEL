@@ -102,7 +102,7 @@ class ReleaseTests(unittest.TestCase):
         selection = release.release_games(version)
         config = release.config_name(version)
         optional_config = set() if flavor == 'Update' else {config}
-        for name in release.runtime_names(self.games, selection=selection) | optional_config | {'README.txt'}:
+        for name in release.runtime_names(self.games, selection=selection, version=version, flavor=flavor) | optional_config | {'README.txt'}:
             release.text_new(directory / name, 'authored fixture\n', 'config' if name == config else 'runtime', entries)
         if flavor != 'Update':
             for name, source in release.placement_sources(version).items():
@@ -188,6 +188,40 @@ class ReleaseTests(unittest.TestCase):
         for name in ('user-data/futari/savegame.bin', 'user-data/config.ini.pending', 'user-data/other.ini'):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 release.validate_public_name(name, self.games, release.V03_GAMES)
+
+    def test_v04_renamed_update_keeps_old_shortcuts_without_a_second_implementation(self):
+        self.assertEqual(release.version_name('0.4', 'Update'), 'EVAC-PC-LABEL-v0.4-update')
+        directory = self.package('0.4', 'Update')
+        record = release.verify_tree(directory, self.games)
+        self.assertEqual(record['baseVersion'], '0.3')
+        archive = self.root / 'renamed-update.zip'
+        release.archive(directory, archive, include_root=False)
+        installed = self.root / '已有安装 空格'
+        saved = {'user-data/config.ini': b'explicit settings', 'game-data/ketsui/eboot.bin': b'authored data',
+                 'user-data/ketsui/replay.bin': b'authored replay', 'source/README.md': b'old source'}
+        for name, data in {**saved, release.LEGACY_LAUNCHER: b'old launcher'}.items():
+            path = installed / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
+        with zipfile.ZipFile(archive) as zipped:
+            self.assertIn(release.LAUNCHER, zipped.namelist())
+            self.assertIn(release.LEGACY_LAUNCHER, zipped.namelist())
+            zipped.extractall(installed)
+        self.assertEqual((installed / release.LAUNCHER).read_bytes(), (installed / release.LEGACY_LAUNCHER).read_bytes())
+        self.assertEqual((installed / release.LEGACY_LAUNCHER).read_bytes(), b'authored fixture\n')
+        for name, data in saved.items():self.assertEqual((installed / name).read_bytes(), data)
+        with self.assertRaises(ValueError):
+            release.validate_public_name(release.LEGACY_LAUNCHER, self.games, release.V03_GAMES, '0.4')
+
+    def test_v04_update_rejects_a_different_old_shortcut_binary_even_with_rewritten_inventory(self):
+        directory = self.package('0.4', 'Update')
+        alias = directory / release.LEGACY_LAUNCHER; alias.write_bytes(b'not the new native launcher')
+        path = directory / 'release.json'; record = json.loads(path.read_text(encoding='utf-8'))
+        for item in record['files']:
+            if item['path'] == release.LEGACY_LAUNCHER:
+                item.update(bytes=alias.stat().st_size, sha256=release.digest(alias))
+        path.write_text(json.dumps(record), encoding='utf-8')
+        sums = ''.join(item['sha256']+'  '+item['path']+'\n' for item in sorted(record['files'], key=lambda item:item['path']))
+        (directory/'SHA256SUMS.txt').write_text(sums+release.digest(path)+'  release.json\n', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'identical'):release.verify_tree(directory, self.games)
 
     def test_v04_public_templates_are_exact_guides_not_a_game_data_allowlist(self):
         directory=self.package('0.4-dev')
@@ -349,7 +383,7 @@ class ReleaseTests(unittest.TestCase):
         self.check_build_flavors('0.3-test')
 
     def test_v04_build_flavors_keep_six_templates_and_no_public_rom(self):
-        self.check_build_flavors('0.4-test')
+        self.check_build_flavors('0.4')
 
     def check_build_flavors(self, version):
         # Exercise the actual assembler/ZIP/verifier, not just a hand-written
@@ -359,7 +393,7 @@ class ReleaseTests(unittest.TestCase):
                 'config/default.ini':'[collection]\nconfig_version=1\n', 'config/README.player.txt':'authored v02 instructions',
                 'config/README.player-v03.txt':'authored v03 instructions',
                 'config/README.player-v04.txt':'authored v04 instructions',
-                '启动游戏.bat':'@echo off\n', 'launcher/artwork.json':'{}',
+                '启动游戏.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for key in release.PLACEMENT_GAMES:
             text['config/game-data/'+key+'.txt']=(release.ROOT/'config/game-data'/ (key+'.txt')).read_text(encoding='utf-8')
@@ -380,7 +414,7 @@ class ReleaseTests(unittest.TestCase):
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
-        for name in release.runtime_names(games,True,selection):
+        for name in release.runtime_names(games,True,selection,version):
             if name.endswith('.ini'):continue
             base=release.certified_name(name)
             binary=root/'out/bin'/base;binary.parent.mkdir(parents=True,exist_ok=True);binary.write_bytes(('authored '+base).encode())
@@ -405,11 +439,12 @@ class ReleaseTests(unittest.TestCase):
                 patch.object(release,'certified_runtime',return_value=(commit,receipts,certified)), \
                 patch.object(release,'redist_directory',return_value=crt),patch.object(release,'license_files',return_value=[]), \
                 patch.object(release,'inspect_game',side_effect=inspected),patch.object(release,'audit_source'):
-            outputs={flavor:release.build(flavor,version,root/'releases'/flavor) for flavor in ('Internal','Public')}
+            flavors=('Internal','Public','Update') if version == '0.4' else ('Internal','Public')
+            outputs={flavor:release.build(flavor,version,root/'releases'/flavor) for flavor in flavors}
         internal=Path(outputs['Internal']['archive']).with_suffix('')
         public=Path(outputs['Public']['archive']).with_suffix('')
-        self.assertEqual(Path(outputs['Internal']['archive']).name, 'CAVE-PC-Collection-v'+version+'-internal.zip')
-        self.assertEqual(Path(outputs['Public']['archive']).name, 'CAVE-PC-Collection-v'+version+'-public.zip')
+        self.assertEqual(Path(outputs['Internal']['archive']).name, release.slug(version)+'-v'+version+'-internal.zip')
+        self.assertEqual(Path(outputs['Public']['archive']).name, release.slug(version)+'-v'+version+'-public.zip')
         self.assertTrue((internal/'source/.git/HEAD').is_file())
         self.assertTrue((internal/'game-data/futari/dlc/fixture-dlc.bin').is_file())
         self.assertTrue((internal/'game-data/sdoj/main.bin').is_file())
@@ -427,7 +462,7 @@ class ReleaseTests(unittest.TestCase):
                 self.assertTrue((internal/'game-data'/key/release.PLACEMENT_NAME).is_file())
         else:self.assertFalse((public/'game-data').exists())
         self.assertFalse(list(public.rglob('*.pdb')))
-        for name in release.runtime_names(games, selection=selection):
+        for name in release.runtime_names(games, selection=selection, version=version):
             self.assertEqual(release.digest(internal/name),release.digest(public/name))
         extracted=self.root/'解压验证 with spaces';extracted.mkdir()
         with zipfile.ZipFile(outputs['Internal']['archive']) as zipped:
@@ -443,6 +478,12 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(release.verify_tree(installed,games)['flavor'],'Public')
             self.assertEqual({file.relative_to(installed).as_posix() for file in (installed/'game-data').rglob('*') if file.is_file()},
                              set(release.placement_sources(version)))
+            self.assertTrue((installed/release.LAUNCHER).is_file())
+            self.assertFalse((installed/release.LEGACY_LAUNCHER).exists())
+            with zipfile.ZipFile(outputs['Update']['archive']) as zipped:zipped.extractall(installed)
+            self.assertEqual(release.digest(installed/release.LAUNCHER),release.digest(installed/release.LEGACY_LAUNCHER))
+            self.assertIn('EVAC PC LABEL.exe',(installed/'启动游戏.bat').read_text(encoding='utf-8'))
+            self.assertEqual((installed/'user-data/config.ini').read_text(encoding='utf-8'),text['config/default.ini'])
 
 
 if __name__ == '__main__':

@@ -67,8 +67,8 @@ try {
     if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect') }
     Invoke-Checked $cmake $targets
     if (-not $SkipLauncherStage) { foreach ($extension in @('exe','pdb')) {
-        $launcherSource=Join-Path $build "bin/CAVE-PC-Collection.$extension"
-        $launcherTarget=Join-Path $CollectionRoot "CAVE-PC-Collection.$extension"
+        $launcherSource=Join-Path $build "bin/EVAC PC LABEL.$extension"
+        $launcherTarget=Join-Path $CollectionRoot "EVAC PC LABEL.$extension"
         if ((Test-Path -LiteralPath $launcherTarget) -and
             (Get-FileHash -LiteralPath $launcherSource).Hash -eq (Get-FileHash -LiteralPath $launcherTarget).Hash) { continue }
         Copy-Item -LiteralPath $launcherSource -Destination $launcherTarget

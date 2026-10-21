@@ -14,7 +14,7 @@ from project import ROOT, audit_source, digest, reject_link, write_json_new
 
 def source_name(version):
     release.release_games(version)
-    return 'CAVE-PC-Collection-v' + version + '-source'
+    return release.slug(version) + '-v' + version + '-source'
 
 
 def check_record(record):
@@ -110,7 +110,7 @@ def build(binary_directory, output):
     if release.git(source, 'status', '--porcelain', '--untracked-files=normal').strip():
         raise ValueError('Restored source is dirty')
     audit_source(source)
-    instructions = ('CAVE PC Collection v' + binary['version'] + ' — 对应源码\n\n'
+    instructions = (release.NAME + ' v' + binary['version'] + ' — 对应源码\n\n'
         '源码提交：' + commit + '\n'
         'source/ 是独立 Git 仓库，包含固定 SDK 和 PS4 依赖源码。\n'
         '不包含 ROM、生成的游戏程序正文、已安装工具、配置或存档。\n'

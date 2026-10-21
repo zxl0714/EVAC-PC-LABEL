@@ -121,7 +121,7 @@ void CollectionApp::OnPreSetup(rex::RuntimeConfig& config) {
     OnGamePreSetup(config);
 }
 void CollectionApp::OnCreateDialogs(rex::ui::ImGuiDrawer*) {
-    window()->SetTitle("CAVE PC Collection — "+std::string(cave::FindGame(game_).DisplayName()));
+    window()->SetTitle("EVAC PC LABEL — "+std::string(cave::FindGame(game_).DisplayName()));
     rex::ui::UnregisterBind("bind_settings");shortcuts_=std::make_unique<Shortcuts>(window());
 }
 void CollectionApp::OnPostLoadXexImage() {

@@ -1,7 +1,7 @@
-CAVE PC Collection v0.4 开发版
+EVAC PC LABEL v0.4
 
 开始游玩
-运行根目录 CAVE-PC-Collection.exe，选中游戏，点击“启动游戏”。
+运行根目录 EVAC PC LABEL.exe，选中游戏，点击“启动游戏”。
 启动游戏.bat 是备用入口。需要 Windows 64 位及显卡厂商提供的正式驱动。
 虫姬二、ESPGaluda II、最大往生使用 D3D12，绊地狱和大往生使用 Vulkan。
 
@@ -12,6 +12,8 @@ CAVE PC Collection v0.4 开发版
 首次从 v0.3 换目录升级时，先把旧根目录 config.ini 放入旧 user-data，再将
 整个 user-data 转移到新版本；在原目录更新则由首次启动自动完成迁移。
 配置中的相对路径仍以合集根目录为起点，例如 game-data/futari/。
+v0.4 覆盖包平铺解压到原合集目录，同时更新新、旧文件名的启动器；已有快捷方式
+仍能打开同一个新版启动器。完整包只提供 EVAC PC LABEL.exe。
 
 右上角点击 CN / EN / JP 切换语言，带下划线的文字表示当前语言。
 页头可改全屏和排行榜昵称，点击“保存”；启动游戏前也会保存快捷设置。
@@ -24,11 +26,16 @@ CAVE PC Collection v0.4 开发版
   game-data/futari/       虫姬二本体，default.xex 位于根目录
   game-data/futari/dlc/   Black Label 和 Ver1.01，保留内容目录结构
   game-data/espgaluda2/   完整解包数据，含模式 XEX 和 res/DISKDATA
-  game-data/ketsui/       CUSA09062-app、CUSA09062-patch（1.02）两个目录
+  game-data/ketsui/       CUSA09062／01.00 本体或覆盖 01.02 的完整数据，根含 eboot.bin
   game-data/sdoj/         光盘本体，含 default.xex、CA022100.bin、CA022110.bin
   game-data/daioujou/     CUSA32997／01.04 合并数据，eboot.bin 位于根目录
 
 只安装一款游戏也能使用；ESP Ra.De. 暂未接入。虫姬二支持上述两份 DLC。
+完整包已建好六个数据目录，每个目录里的“放置说明.txt”介绍具体放法。
+绊地狱先将本体目录里的内容放入 game-data/ketsui/；可选的 01.02 更新也把
+目录里的内容覆盖到同一位置。不要再套 CUSA09062-app／CUSA09062-patch 两层。
+保留原始本体和更新文件；想退回 01.00 时重新提取本体到一个新目录。
+“复制到合集…”接受空目录或仅含放置说明的目录，不覆盖已有游戏数据。
 大往生需要完整合并更新数据；最大往生使用原版光盘数据，音乐补丁暂未接入。
 两款 PS4 作品首次启动会自动准备运行镜像，游戏数据仍保留在原位置。
 

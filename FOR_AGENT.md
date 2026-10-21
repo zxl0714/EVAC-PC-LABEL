@@ -1,9 +1,7 @@
 # EVAC PC LABEL 开发入口
 
-项目由 CAVE PC Collection 更名为 EVAC PC LABEL。v0.4 计划统一启动器、
-程序和发行命名，采用每游戏一个预建数据目录；绊地狱支持本体独立启动及补丁
-直接覆盖，不再兼容旧双目录。相关运行适配、仓库／本地目录迁移仍待实施，
-本轮只更新名称与实施要求，不将新布局视为当前已发布能力。旧版本引用保留。
+EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
+当前开发目标为 v0.4；发行状态与实际验收范围见实施计划和验收矩阵。
 
 这是同一启动器下的多游戏工程。完整发行基线为 **v0.3**（标签 v0.3／b8807ca），维护更新 **v0.3.2** 修复大往生 AC-CHALLENGE，并补接绊地狱 CUSTOM 榜和录像，当前运行组件来自 a8a75fb／v0.3.2-custom；五款游戏已经接入。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。
 
@@ -33,7 +31,7 @@
 
 ## 准备环境
 
-使用 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。源码放较短的英文目录，例如 E:/CaveDev/CAVE-PC-Collection；固定 CMake 的中文源码路径问题尚在，玩家包和游戏数据可使用中文路径。
+使用 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。源码放较短的英文目录，例如 E:/CaveDev/EVAC-PC-LABEL；固定 CMake 的中文源码路径问题尚在，玩家包和游戏数据可使用中文路径。
 
 ~~~powershell
 ./scripts/Prepare-Tools.ps1
@@ -71,7 +69,7 @@ py -3.12 scripts/ps4_sources.py verify
 ./out/common/bin/cave_inspect.exe --root . --game espgaluda2 --data-dir 'D:/Games/G2' --full
 ~~~
 
-快速检查只查存在性和大小；--full 校验资源 SHA-256，--programs 校验运行程序。检测工具只读、不运行游戏或联网。Coming Soon 与数据是否齐全是不同状态。
+快速检查查存在性和大小；有多个数据版本时也会核对根程序 SHA-256，以选定精确清单。--full 校验全部资源 SHA-256，--programs 校验运行程序。检测工具只读、不运行游戏或联网。Coming Soon 与数据是否齐全是不同状态。
 
 最大往生使用受支持的光盘本体，不混入 default.xexp、.binp 或音乐补丁。两款 PS4 作品首次运行由原生准备链生成自己的 prepared/<id>/ 缓存，不修改原数据；大往生为 CUSA32997／01.04 合并目录。当前开发代码的绊地狱使用 CUSA09062／01.00 本体或本体覆盖 01.02 后的单目录，直接包含 eboot.bin；不再接受旧双目录。检测 JSON 的 dataVariant／dataVersion／dataLayout 标明实际识别结果，缓存和 Internal 组包绑定同一版本清单。两版准备链已验证，实际游玩增量验收见 TEST_MATRIX。
 
@@ -92,8 +90,8 @@ Xbox 360 的 -NativeOnly 构建无 ROM 的机制／分析工具，不代替游�
 正式游戏使用启动器，开发可选择独立 profile：
 
 ~~~powershell
-./CAVE-PC-Collection.exe --game espgaluda2 --profile test
-./CAVE-PC-Collection.exe --select ketsui
+& './EVAC PC LABEL.exe' --game espgaluda2 --profile test
+& './EVAC PC LABEL.exe' --select ketsui
 ~~~
 
 `--game` 直接启动游戏；`--select` 只指定首次打开 GUI 时选中的作品。GUI 正常关闭时在 `[collection].selected_game` 保存选中 ID，下次打开恢复；昵称草稿不会因此自动保存。同一安装目录再次打开只唤起原窗口，不用新参数改变原选择或重复启动游戏，不同目录各自运行。
@@ -170,10 +168,10 @@ py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目�
 ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片。源码审计仅放行清单内
 通过结构／哈希核对的三个品牌资源，不扩大为任意二进制例外。
 
-v0.3.1 的覆盖更新使用 `./scripts/Release.ps1 -Flavor Update -Version 0.3.1`。
+v0.4 的覆盖更新使用 `./scripts/Release.ps1 -Flavor Update -Version 0.4`。
 ZIP 直接包含根目录程序与 runtime，无外层目录，不携带 config.ini、user-data、
 游戏数据、准备镜像、缓存、日志、源码或符号。先关闭程序，直接解压到 v0.3
-目录替换同名文件；首次启动自动迁移旧配置。发布前只做一次实际覆盖验收，
+／v0.3.1／v0.3.2 目录替换同名文件；首次启动自动迁移旧配置。发布前只做一次实际覆盖验收，
 核对配置、存档／录像哨兵保持不变及配套程序身份。对应源码仍可单独出包。
 开发根的启动器正在运行时，使用 `Build.ps1 -SkipLauncherStage` 保留窗口，
 Update 包直接取收据绑定的 out/ 程序，仍检查源文件、工具及配套 PDB 身份。
@@ -181,12 +179,17 @@ Update 包直接取收据绑定的 out/ 程序，仍检查源文件、工具及�
 先提交发行源码并配套构建，再执行：
 
 ~~~powershell
-./scripts/Release.ps1 -Flavor Internal -Version 0.3
-./scripts/Release.ps1 -Flavor Public -Version 0.3
+./scripts/Release.ps1 -Flavor Internal -Version 0.4
+./scripts/Release.ps1 -Flavor Public -Version 0.4
 ./scripts/Release-Source.ps1 -BinaryDirectory '<已生成的程序包目录>' -OutputDirectory '<releases 下的新目录>'
 ~~~
 
 Internal 需要全部支持数据和虫姬二两份 DLC，可用 -DataDirectories 与 -FutariDlcDirectory 指定目录。最大往生／大往生按 114／60 项资源清单复制，绊地狱按实际识别的本体 41 项或合并更新 47 项清单复制；排除清单之外的 ISO、工具、音乐补丁和 Project.gp4。Public 按运行白名单组装，源码附件不含 ROM，并绑定程序包的 release.json。
+
+默认启动器为 `EVAC PC LABEL.exe`，完整包只有这个入口；v0.4 Update 还提供
+旧文件名 `CAVE-PC-Collection.exe`，与新入口逐字节相同，用于已有快捷方式。
+两者使用同一安装目录的单实例逻辑，不采用第二套宿主或封装程序。
+新包名为 `EVAC-PC-LABEL-v<版本>-<类型>.zip`；冻结的旧版文件身份不变。
 
 v0.4 完整包从 `config/game-data/*.txt` 创建六个默认游戏目录及中英放置说明。Public 对这些说明使用固定路径和源码内容校验，不因提供空目录而开放 ROM 白名单；Update 不包含说明或任何游戏数据。“复制到合集”允许目标只有放置说明，保留其内容并在对应游戏缓存的 import-guides 中备份；实际游戏文件仍不合并覆盖。
 

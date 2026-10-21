@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
-project(CAVEPCCollection VERSION 0.1.0 LANGUAGES CXX)
+project(EVACPCLabel VERSION 0.4.0 LANGUAGES CXX)
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-  message(FATAL_ERROR "CAVE PC Collection requires Windows x64")
+  message(FATAL_ERROR "EVAC PC LABEL requires Windows x64")
 endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,12 +31,12 @@ if(CAVE_BUILD_LAUNCHER)
   add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/generate_artwork.py"
       "${CMAKE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/include"
-    DEPENDS launcher/artwork.json launcher/branding.json scripts/generate_artwork.py scripts/generate_catalogue.py ${CATALOGUE} ${LAUNCHER_ART} VERBATIM)
+    DEPENDS launcher/artwork.json launcher/branding.json scripts/generate_artwork.py scripts/product.py scripts/generate_catalogue.py ${CATALOGUE} ${LAUNCHER_ART} VERBATIM)
   # RC does not report RCDATA dependencies to Ninja. Recompile the embedded
   # resource when source image bytes change, even if the RC text is identical.
   set_source_files_properties("${CMAKE_BINARY_DIR}/include/artwork.rc" PROPERTIES OBJECT_DEPENDS "${LAUNCHER_ART}")
   add_executable(cave_launcher WIN32 launcher/main.cpp "${CMAKE_BINARY_DIR}/include/artwork.rc" "${CMAKE_BINARY_DIR}/include/artwork.h")
-  set_target_properties(cave_launcher PROPERTIES OUTPUT_NAME "CAVE-PC-Collection")
+  set_target_properties(cave_launcher PROPERTIES OUTPUT_NAME "EVAC PC LABEL")
   target_include_directories(cave_launcher PRIVATE "${CMAKE_BINARY_DIR}/include")
   target_link_libraries(cave_launcher PRIVATE cave_common d2d1 dwrite windowscodecs ole32 shell32)
   target_link_options(cave_launcher PRIVATE "LINKER:/MANIFEST:EMBED" "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/common/windows.manifest")

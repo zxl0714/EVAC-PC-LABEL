@@ -68,6 +68,10 @@ class ArtworkTests(unittest.TestCase):
         self.assertIn('kBrandLogoResource=201',(destination/'artwork.h').read_text())
         self.assertIn('1 ICON ',(destination/'artwork.rc').read_text())
         self.assertIn('201 RCDATA ',(destination/'artwork.rc').read_text())
+        resource=(destination/'artwork.rc').read_text(encoding='utf-8')
+        for text in ('1 VERSIONINFO','FILEVERSION 0,4,0,0','"ProductName", "EVAC PC LABEL\\0"',
+                     '"OriginalFilename", "EVAC PC LABEL.exe\\0"','"ProductVersion", "0.4\\0"'):
+            self.assertIn(text,resource)
 
     def test_branding_rejects_non_alpha_png(self):
         path=self.root/'launcher/branding.json'

@@ -16,17 +16,18 @@ from generate_catalogue import load, relative
 from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from ps4_build_receipt import verify as verify_ps4
+from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, launcher, renamed, slug
 
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
 V03_GAMES = (*GAMES, 'daioujou')
 PLACEMENT_GAMES = (*V03_GAMES, 'esprade')
 PLACEMENT_NAME = '放置说明.txt'
-DEFAULT_VERSION = '0.3'
+DEFAULT_VERSION = VERSION
 MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui'}
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
-UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3'}
+UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3', '0.4': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
 
 
@@ -39,7 +40,7 @@ def version_name(version, flavor):
         raise ValueError('Expected a numeric version and Internal/Public/Update flavor')
     if flavor == 'Update' and version not in UPDATE_BASES:
         raise ValueError('No update baseline for this release version')
-    return 'CAVE-PC-Collection-v' + version + '-' + flavor.lower()
+    return slug(version) + '-v' + version + '-' + flavor.lower()
 
 
 def release_games(version):
@@ -85,8 +86,12 @@ def placement_sources(version):
             for key in PLACEMENT_GAMES}
 
 
-def runtime_names(games, symbols=False, selection=GAMES):
-    names = {'CAVE-PC-Collection.exe', 'runtime/launcher/cave_inspect.exe'}
+def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=None):
+    names = {launcher(version), 'runtime/launcher/cave_inspect.exe'}
+    # An in-place upgrade also refreshes the old shortcut target with the exact
+    # same native launcher. Fresh installations have only the new filename.
+    if renamed(version) and flavor == 'Update':
+        names.add(LEGACY_LAUNCHER)
     for key in selection:
         names.update(games[key]['runtimeFiles'])
     if symbols:
@@ -151,7 +156,7 @@ def certified_runtime(selection=GAMES):
     xbox_names |= {str(Path(name).with_suffix('.pdb')) for name in list(xbox_names)}
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
-        launcher={'CAVE-PC-Collection.exe', 'CAVE-PC-Collection.pdb', 'cave_inspect.exe', 'cave_inspect.pdb'})
+        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb'})
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:
@@ -233,7 +238,7 @@ def redist_directory():
 
 
 def validate_public_name(name, games, selection=GAMES, version=None):
-    allowed = runtime_names(games, selection=selection) | {'config.ini', 'user-data/config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
+    allowed = runtime_names(games, selection=selection, version=version) | {'config.ini', 'user-data/config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
     allowed.update(placement_sources(version))
     if name in allowed or name.startswith('licenses/'):
         return
@@ -250,6 +255,8 @@ def validate_update_name(name, games, selection=V03_GAMES, version=None):
     if any(normalized == item.rstrip('/') or normalized.startswith(item)
            for item in UPDATE_PRESERVED):
         raise ValueError('Update must preserve existing player files: ' + name)
+    if renamed(version) and normalized == LEGACY_LAUNCHER.casefold():
+        return
     validate_public_name(name, games, selection, version)
 
 
@@ -290,8 +297,18 @@ def verify_tree(directory, games=None):
     sums += digest(directory / 'release.json') + '  release.json\n'
     if (directory / 'SHA256SUMS.txt').read_text(encoding='utf-8') != sums:
         raise ValueError('Package SHA256SUMS does not match')
-    if not runtime_names(games, release['flavor'] == 'Internal', selection).issubset(expected):
+    if not runtime_names(games, release['flavor'] == 'Internal', selection, release['version'], release['flavor']).issubset(expected):
         raise ValueError('Package is missing a required player component')
+    if renamed(release['version']):
+        primary = expected[LAUNCHER]
+        if primary['role'] != 'runtime':
+            raise ValueError('Launcher must be a runtime component')
+        if release['flavor'] == 'Update':
+            alias = expected[LEGACY_LAUNCHER]
+            if alias['role'] != 'runtime' or any(alias[key] != primary[key] for key in ('bytes', 'sha256')):
+                raise ValueError('Old shortcut entry must be identical to the native launcher')
+        elif LEGACY_LAUNCHER in expected:
+            raise ValueError('Fresh packages must use only the new launcher name')
     guides = placement_sources(release['version']) if release['flavor'] != 'Update' else {}
     for name, source in guides.items():
         reject_link(source)
@@ -350,6 +367,8 @@ def certified_name(name):
     if name in {'runtime/ps4/' + game + suffix
                 for game in ('ketsui', 'daioujou') for suffix in ('.exe', '.pdb')}:
         return 'KetsuiNativeProbe' + Path(name).suffix
+    if name in {LEGACY_LAUNCHER, str(Path(LEGACY_LAUNCHER).with_suffix('.pdb'))}:
+        return NAME + Path(name).suffix
     return Path(name).name
 
 
@@ -402,7 +421,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     reject_link(parent)
     parent.mkdir(parents=True, exist_ok=False); directory = parent / package_name; directory.mkdir()
     entries = []
-    for path in sorted(runtime_names(games, flavor == 'Internal', selection)):
+    for path in sorted(runtime_names(games, flavor == 'Internal', selection, version, flavor)):
         target = directory / path
         if path.endswith('/runtime-manifest.ini'):
             source = ROOT / path
@@ -411,7 +430,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
             continue
         source_name = certified_name(path)
         item = certified[source_name]
-        certified_launcher = flavor == 'Update' and path == 'CAVE-PC-Collection.exe'
+        certified_launcher = path in {launcher(version), LEGACY_LAUNCHER}
         if not certified_launcher and path != 'runtime/launcher/cave_inspect.exe' and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
             raise ValueError('Staged player component differs from certified build: ' + path)
         copy_checked(item['source'], target, 'runtime', entries, item)
@@ -427,7 +446,10 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
               'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
-    copy_checked(ROOT / '启动游戏.bat', directory / '启动游戏.bat', 'documentation', entries)
+    # Frozen pre-v0.4 package profiles retain their original executable name.
+    bat_source = ROOT / '启动游戏.bat'; reject_link(bat_source)
+    bat = bat_source.read_text(encoding='utf-8')
+    text_new(directory / '启动游戏.bat', bat.replace(LAUNCHER, launcher(version)), 'documentation', entries)
     for file in license_files():
         copy_checked(file, directory / 'licenses' / file.relative_to(ROOT), 'license', entries)
     copy_checked(ROOT / 'launcher/artwork.json', directory / 'licenses/artwork-sources.json', 'license', entries)
@@ -436,8 +458,9 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
         copy_checked(ROOT / source, directory / 'licenses' / license_name, 'license', entries)
     source_location = ('覆盖更新保留旧 source/ 目录，其中源码不会自动更新。继续开发前请拉取\n'
                        '上述提交，或使用本版对应源码附件。\n' if flavor == 'Update' else
-                       '内部包的 source/ 对应同一提交。\n')
-    source_text = ('CAVE PC Collection\n\n对应维护源码与构建说明：\n' +
+                       '包内 source/ 对应同一提交。\n' if flavor == 'Internal' else
+                       '本包的对应源码由同版本的独立源码附件提供。\n')
+    source_text = (NAME + '\n\n对应维护源码与构建说明：\n' +
         'https://github.com/zxl0714/CAVE-PC-Collection/tree/' + commit + '\n\n' +
         source_location + '若没有仓库访问权限，请联系提供本包的人获取\n' +
         '对应版本的维护源码、依赖版本与构建说明。原始游戏数据不在源码 Git 中。\n' +

@@ -8,13 +8,15 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
+This branch targets v0.4; the instructions below describe the development code. See “Updates and backups” for the published v0.3.2 download.
+
 ## Supported games
 
 | Game | English name / shorthand | Supported game data |
 | --- | --- | --- |
 | 虫姫さまふたり Ver.1.5 | Mushihimesama Futari Ver.1.5 / Futari | Xbox 360; optional Black Label and Ver.1.01 DLC |
 | エスプガルーダII ブラックレーベル | Espgaluda II Black Label / G2 | Xbox 360 |
-| ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; base game and 1.02 update in separate folders |
+| ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
 | 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
 | 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; complete merged 01.04 data |
 
@@ -29,23 +31,23 @@ Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, and SDOJ re
 ### First launch
 
 1. Extract the complete program package into a writable folder. Supply your own game data.
-2. Run `CAVE-PC-Collection.exe` in the collection's root folder. `启动游戏.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
+2. Run `EVAC PC LABEL.exe` in the collection's root folder. `启动游戏.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
 3. Select a game, then choose **Game data… → Choose data folder…** at the bottom. Select the folder containing the extracted game files. Alternatively, place the data in the default location shown below.
 4. Click **Launch game**. The launcher verifies the data before starting; PS4 games also prepare their runtime files on first launch. Allow this process to finish.
 
 ### Where to put game data
 
-Use **Choose data folder…** to use an existing folder without modifying its files, or **Copy into collection…** to copy it to a default location below. The copy destination must be empty.
+The complete program package creates the folders below, each with a bilingual `放置说明.txt` placement guide. Use **Choose data folder…** to use an existing folder without modifying its files, or **Copy into collection…** to copy it to a default location. The destination must be empty or contain only its placement guide.
 
 | Game | Default folder | Files or folders directly inside it |
 | --- | --- | --- |
 | Futari | `game-data/futari/` | `default.xex`, `media/`, and the remaining resources |
 | G2 | `game-data/espgaluda2/` | `default.xex`, `dat*.xex`, and the remaining resources |
-| Ketsui | `game-data/ketsui/` | `CUSA09062-app/` and `CUSA09062-patch/` |
+| Ketsui | `game-data/ketsui/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | SDOJ | `game-data/sdoj/` | `default.xex`, `CA022100.bin`, `CA022110.bin`, and the remaining resources |
 | DaiOuJou | `game-data/daioujou/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 
-Create folders as needed and preserve all game files and their internal folder structure.
+Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.md).
 
 Extract ISO or PKG images into game files first. For ZIP archives, unpack them and select the actual game root.
 
@@ -57,7 +59,7 @@ Use the launcher header to change fullscreen mode and your leaderboard nickname.
 
 The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](config/default.ini) for available options.
 
-For SDOJ, set `frame_delay = 3` under `[game.sdoj]` to use the original three-frame path. This will be the default in the next release. Change an existing 1V or 2V setting to 3 manually.
+SDOJ defaults to `frame_delay = 3`, the original three-frame path. Existing explicit 1V or 2V settings are preserved; change the value under `[game.sdoj]` to 3 manually if needed. 1V and 2V are manual test options.
 
 | Default keyboard input | Function |
 | --- | --- |
@@ -86,11 +88,13 @@ Set `enabled` to `false` to play offline.
 
 ## Updates and backups
 
-Current version: **v0.3.2**. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
+Published version: **v0.3.2**. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
 [Download the v0.3.2 update package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip) · [SHA-256 checksum file](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip.sha256)
 
 The update package is for an existing v0.3, v0.3.1, or earlier v0.3.2 installation. Close the games and launcher, then extract the ZIP into your existing collection folder, replacing files with the same names. First-time installations need the complete program package.
+
+v0.3.2 still uses `CAVE-PC-Collection.exe` and Ketsui's original two-folder layout. When moving to v0.4, follow this page's new data layout. The v0.4 update also refreshes the old executable filename so existing shortcuts open the new launcher. v0.4 has not been released yet.
 
 - `user-data/`: configuration, per-game saves, replays, and other player data. Keep the whole folder when backing up or moving an installation.
 - `game-data/`: the game files you provide. Keep them during an in-place update. When moving the installation, either move them too or select their existing location again.

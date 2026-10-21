@@ -1,8 +1,8 @@
 # 启动器标识
 
 用户提供的 EVAC PC LABEL 完整标识用于启动器左上角；EXE、标题栏和任务栏图标
-使用保留 EVAC＋PC LABEL 两行字标的版本，不单独使用星形。窗口标题和启动文件名
-仍为 CAVE PC Collection。
+使用保留 EVAC＋PC LABEL 两行字标的版本，不单独使用星形。窗口标题为
+`EVAC PC LABEL`，启动文件为 `EVAC PC LABEL.exe`。
 
 原附件是 1280 × 1280 的不透明 JPEG。`evac-logo.png` 和 `evac-icon.png`
 由内置图像工具生成透明底切图，保留原有字样、配色和标记；来源和资源哈希见

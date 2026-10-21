@@ -131,11 +131,32 @@ explicit example-state labels. See .local/v04-launcher-ux-r4.log and
 .local/v04-launcher-visual-r1. Common/launch CTests and launcher symbol receipt
 pass. Existing root launchers were not replaced. Remaining:
 
-- Uniform EVAC PC LABEL captions/Windows properties, EVAC PC LABEL.exe, BAT,
-  build/release/docs and EVAC-PC-LABEL archive/repository/local-directory names.
-  GitHub/local rename has not happened. Inspect processes, submodules, absolute
-  paths and build caches before moving; validate SSH remote and clean rebuild.
+- Captions, Windows properties, EVAC PC LABEL.exe, BAT, build receipts, v0.4
+  binary/source archive names and current bilingual docs are implemented.
+  Actual EXE version properties and two launcher PE/PDB pairs pass; 226 hidden
+  UI, 386 common, 139 launch/copy and 27 package tests pass (one link-privilege
+  skip). Full source suite has 486 tests (one privilege skip), source audit passes.
+  Authored Internal/Public/Update assembly/extraction verifies new names;
+  Update's old shortcut filename is byte-identical to the certified new native
+  EXE, never a wrapper. Fresh full packages have only the new launcher name.
+  Old archive profiles, game IDs, saves, config and API namespaces stay stable.
+- GitHub/local rename has not happened. No cached noninteractive GitHub
+  management credential was available. Chrome CU stopped because it could not
+  verify the current URL; do not retry that action or switch channels to bypass
+  the safety stop. The actual SSH remote remains the old working repository.
+  Two pre-existing old launchers (PIDs 90668/91688 at inspection) remain in use;
+  re-inspect processes, submodules, absolute paths and build caches before any
+  move, then validate SSH remote and a clean build. Do not kill old launchers.
 - The complete wordmark is the EXE icon, not the rejected standalone star.
+
+PS4 branding regression r1 was 72/73: a timing assertion expected zero budget
+even when Address wait legitimately returned success at ~199069 us of 200000.
+Short-circuited Delete then poisoned registry checks. Keep r1 failure evidence.
+Only the self-test was corrected to check budget against actual elapsed time
+and always delete; production Wait/Signal/Grant are unchanged. r2 is 73/73.
+See .local/v04-brand-ps4-native-r{1,2}, properties-r1.json and TEST_MATRIX.
+Xbox 360 common host library compiles with the new title, but final same-commit
+player builds/certificates remain pending. Do not confuse these with a release.
 
 ## Documentation and release
 
