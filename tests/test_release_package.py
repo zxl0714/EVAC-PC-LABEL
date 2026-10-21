@@ -104,6 +104,9 @@ class ReleaseTests(unittest.TestCase):
         optional_config = set() if flavor == 'Update' else {config}
         for name in release.runtime_names(self.games, selection=selection) | optional_config | {'README.txt'}:
             release.text_new(directory / name, 'authored fixture\n', 'config' if name == config else 'runtime', entries)
+        if flavor != 'Update':
+            for name, source in release.placement_sources(version).items():
+                release.copy_checked(source, directory / name, 'documentation', entries)
         payload = [dict(item, path=item['path'].relative_to(directory).as_posix()) for item in entries]
         record = dict(format=1, version=version, flavor=flavor, games=list(selection), files=payload)
         if flavor == 'Update':
@@ -185,6 +188,29 @@ class ReleaseTests(unittest.TestCase):
         for name in ('user-data/futari/savegame.bin', 'user-data/config.ini.pending', 'user-data/other.ini'):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 release.validate_public_name(name, self.games, release.V03_GAMES)
+
+    def test_v04_public_templates_are_exact_guides_not_a_game_data_allowlist(self):
+        directory=self.package('0.4-dev')
+        guides=release.placement_sources('0.4-dev')
+        self.assertEqual(len(guides),6)
+        self.assertEqual({file.relative_to(directory).as_posix() for file in (directory/'game-data').rglob('*') if file.is_file()},set(guides))
+        for name in ('game-data/ketsui/eboot.bin','game-data/futari/notes.txt','game-data/unknown/放置说明.txt'):
+            with self.subTest(name=name),self.assertRaises(ValueError):
+                release.validate_public_name(name,self.games,release.V03_GAMES,'0.4-dev')
+        for name in guides:
+            with self.assertRaises(ValueError):release.validate_update_name(name,self.games,release.V03_GAMES,'0.4')
+        guide=directory/next(iter(guides))
+        guide.write_bytes(b'authored not-the-shipped-guide')
+        # Even a self-consistent repacked inventory cannot replace the guide
+        # allowlist with arbitrary bytes disguised as documentation.
+        path=directory/'release.json';record=json.loads(path.read_text(encoding='utf-8'))
+        for item in record['files']:
+            if item['path']==guide.relative_to(directory).as_posix():
+                item.update(bytes=guide.stat().st_size,sha256=release.digest(guide))
+        path.write_text(json.dumps(record),encoding='utf-8')
+        sums=''.join(item['sha256']+'  '+item['path']+'\n' for item in sorted(record['files'],key=lambda item:item['path']))
+        (directory/'SHA256SUMS.txt').write_text(sums+release.digest(path)+'  release.json\n',encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'placement guide'):release.verify_tree(directory,self.games)
 
     def test_release_profiles_preserve_v01_v02_and_require_daioujou_for_v03(self):
         self.assertEqual(release.release_games('0.1'), release.LEGACY_GAMES)
@@ -322,6 +348,9 @@ class ReleaseTests(unittest.TestCase):
     def test_five_game_build_flavors_and_real_extraction_from_authored_fixture(self):
         self.check_build_flavors('0.3-test')
 
+    def test_v04_build_flavors_keep_six_templates_and_no_public_rom(self):
+        self.check_build_flavors('0.4-test')
+
     def check_build_flavors(self, version):
         # Exercise the actual assembler/ZIP/verifier, not just a hand-written
         # manifest. Certificates and media are authored bytes, never executable.
@@ -329,10 +358,13 @@ class ReleaseTests(unittest.TestCase):
         text = {'README.txt':'authored source', '.gitignore':'out/\nruntime/\ngame-data/\ndlc/\nreleases/\ncrt/\n*.exe\n*.pdb\n',
                 'config/default.ini':'[collection]\nconfig_version=1\n', 'config/README.player.txt':'authored v02 instructions',
                 'config/README.player-v03.txt':'authored v03 instructions',
+                'config/README.player-v04.txt':'authored v04 instructions',
                 '启动游戏.bat':'@echo off\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
+        for key in release.PLACEMENT_GAMES:
+            text['config/game-data/'+key+'.txt']=(release.ROOT/'config/game-data'/ (key+'.txt')).read_text(encoding='utf-8')
         for name, value in text.items():
-            target=root/name; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(value,encoding='utf-8')
+            target=root/name; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(value,encoding='utf-8',newline='\n')
         for args in (('init','-b','main'),('config','user.name','Fixture'),('config','user.email','fixture@example.invalid'),
                      ('add','.'),('commit','-m','Authored source')):
             subprocess.run(['git','-C',str(root),*args],check=True,capture_output=True)
@@ -382,13 +414,18 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue((internal/'game-data/futari/dlc/fixture-dlc.bin').is_file())
         self.assertTrue((internal/'game-data/sdoj/main.bin').is_file())
         self.assertEqual((public/'README.txt').read_text(encoding='utf-8'),
-                         'authored v03 instructions' if 'daioujou' in selection else 'authored v02 instructions')
+                         'authored v04 instructions' if version.startswith('0.4') else 'authored v03 instructions' if 'daioujou' in selection else 'authored v02 instructions')
         if 'daioujou' in selection:
             self.assertTrue((internal/'game-data/daioujou/main.bin').is_file())
             self.assertFalse((internal/'game-data/daioujou/Project.gp4').exists())
             self.assertEqual(release.digest(internal/'runtime/ps4/daioujou.exe'),
                              release.digest(internal/'runtime/ps4/ketsui.exe'))
-        self.assertFalse((public/'source').exists());self.assertFalse((public/'game-data').exists())
+        self.assertFalse((public/'source').exists())
+        if version.startswith('0.4'):
+            for key in release.PLACEMENT_GAMES:
+                self.assertEqual({file.name for file in (public/'game-data'/key).iterdir()},{release.PLACEMENT_NAME})
+                self.assertTrue((internal/'game-data'/key/release.PLACEMENT_NAME).is_file())
+        else:self.assertFalse((public/'game-data').exists())
         self.assertFalse(list(public.rglob('*.pdb')))
         for name in release.runtime_names(games, selection=selection):
             self.assertEqual(release.digest(internal/name),release.digest(public/name))
@@ -399,6 +436,13 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue((restored/'source/third_party/dependency').is_dir())
         self.assertEqual(release.git(restored/'source','status','--porcelain'),b'')
         self.assertEqual(release.verify_tree(restored,games)['flavor'],'Internal')
+        if version.startswith('0.4'):
+            public_extracted=self.root/'Public 解压';public_extracted.mkdir()
+            with zipfile.ZipFile(outputs['Public']['archive']) as zipped:zipped.extractall(public_extracted)
+            installed=public_extracted/public.name
+            self.assertEqual(release.verify_tree(installed,games)['flavor'],'Public')
+            self.assertEqual({file.relative_to(installed).as_posix() for file in (installed/'game-data').rglob('*') if file.is_file()},
+                             set(release.placement_sources(version)))
 
 
 if __name__ == '__main__':

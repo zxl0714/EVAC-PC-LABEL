@@ -566,6 +566,7 @@ class App {
       } else if(work->copy_result) {
         message=T(L"数据已复制并逐文件校验，配置已更新");
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
+        if(!work->copy_result->guide_backup.empty())Log(options.root,"placement-guide-backup="+Utf8(work->copy_result->guide_backup));
       } else {message.clear();}
     }catch(const std::exception& error){message=work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");Log(options.root,error.what());Error(hwnd,error.what());}
     const bool copied=work->copying;work.reset();
@@ -597,7 +598,7 @@ class App {
     if(copy) {
       const auto target=DataChild(options.root,Catalogue()[selected].data_dir);
       const auto prompt=T(L"将完整复制并校验游戏数据。\n\n来源：")+path.native()+T(L"\n目标：")+target.native()+
-          T(L"\n\n不会移动或修改源文件。目标必须为空，不会合并或覆盖已有文件。\n继续吗？");
+          T(L"\n\n源文件保持不变。目标须为空或只含放置说明；已有游戏数据不会被覆盖。\n继续吗？");
       if(MessageBoxW(hwnd,prompt.c_str(),T(L"复制到合集"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
       SavePreferences();message=T(L"正在校验源数据…");Refresh(false,path);return;
     }

@@ -76,7 +76,7 @@ inline constexpr std::array kTranslations{
   Translation{L"选择游戏原始数据目录（不会移动或修改文件）",L"ゲームデータのフォルダーを選択（元のファイルは変更しません）",L"Select game data (original files will not be changed)"},
   Translation{L"将完整复制并校验游戏数据。\n\n来源：",L"ゲームデータをコピーして検証します。\n\nコピー元：",L"Copy and verify the complete game data.\n\nSource: "},
   Translation{L"\n目标：",L"\nコピー先：",L"\nDestination: "},
-  Translation{L"\n\n不会移动或修改源文件。目标必须为空，不会合并或覆盖已有文件。\n继续吗？",L"\n\n元のファイルは変更しません。コピー先は空である必要があります。既存ファイルは上書きしません。\n続行しますか？",L"\n\nOriginal files will not be changed. The destination must be empty; existing files will not be merged or overwritten.\nContinue?"},
+  Translation{L"\n\n源文件保持不变。目标须为空或只含放置说明；已有游戏数据不会被覆盖。\n继续吗？",L"\n\n元のファイルは変更しません。コピー先は空、または配置説明のみのフォルダーを選んでください。既存のゲームデータは上書きしません。\n続行しますか？",L"\n\nOriginal files stay unchanged. The destination must be empty or contain only its placement guide; existing game data will not be overwritten.\nContinue?"},
   Translation{L"复制到合集",L"コレクションにコピー",L"Copy to collection"},
   Translation{L"正在校验源数据…",L"元のデータを検証中…",L"Verifying source data…"},
   Translation{L"选择数据目录…",L"データフォルダーを選択…",L"Choose data folder…"},

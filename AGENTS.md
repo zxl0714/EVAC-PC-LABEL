@@ -102,7 +102,17 @@ This is NOT actual base/update gameplay, save or community replay acceptance.
 Bounded read-only nested-root hints also work for root default.xex/eboot.bin:
 two wrapper levels, bounded enumeration, no reparse-point traversal, no auto
 selection or hash-validation claim. Placement-only folders remain uninstalled.
-Full-package placement templates and template-aware import are still pending.
+v0.4 full-package placement templates and template-aware import are implemented:
+six bilingual config/game-data/*.txt guides go to the fixed per-game paths.
+Public permits only those exact documentation identities under game-data;
+Update still forbids all game-data payloads. Tiny authored Internal/Public ZIPs
+were really assembled/extracted, not actual release archives. Import preserves
+a placement-only destination, retaining its original directory under
+cache/<id>/contract-1/import-guides before non-overwriting publication; it rejects
+other files and conflicting source guides. 481 source tests (one privilege skip),
+139 launch/config/copy checks and 226 hidden UI checks pass. Evidence:
+.local/v04-placement-{build-r2,source-r1,native-r1,launcher-r1}.log. Real release
+artifacts and game regression remain pending; originals and frozen ZIPs unchanged.
 
 ## Remaining launcher and branding work
 

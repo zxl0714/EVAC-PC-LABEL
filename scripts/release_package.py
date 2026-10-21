@@ -20,6 +20,8 @@ from ps4_build_receipt import verify as verify_ps4
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
 V03_GAMES = (*GAMES, 'daioujou')
+PLACEMENT_GAMES = (*V03_GAMES, 'esprade')
+PLACEMENT_NAME = '放置说明.txt'
 DEFAULT_VERSION = '0.3'
 MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui'}
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
@@ -74,6 +76,13 @@ def selected_data_files(game, variant=None):
 def config_name(version):
     release_games(version)
     return 'user-data/config.ini' if version in UPDATE_BASES or version.split('-', 1)[0].split('.')[:2] == ['0', '4'] else 'config.ini'
+
+
+def placement_sources(version):
+    if not version or version.split('-', 1)[0].split('.')[:2] != ['0', '4']:
+        return {}
+    return {'game-data/' + key + '/' + PLACEMENT_NAME: ROOT / 'config/game-data' / (key + '.txt')
+            for key in PLACEMENT_GAMES}
 
 
 def runtime_names(games, symbols=False, selection=GAMES):
@@ -223,8 +232,9 @@ def redist_directory():
     return max(candidates, key=lambda path: tuple(int(value) for value in path.parents[1].name.split('.')))
 
 
-def validate_public_name(name, games, selection=GAMES):
+def validate_public_name(name, games, selection=GAMES, version=None):
     allowed = runtime_names(games, selection=selection) | {'config.ini', 'user-data/config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
+    allowed.update(placement_sources(version))
     if name in allowed or name.startswith('licenses/'):
         return
     # App-local CRT copies only, not arbitrary DLLs supplied by an input tree.
@@ -235,12 +245,12 @@ def validate_public_name(name, games, selection=GAMES):
     raise ValueError('File is not in the Public allowlist: ' + name)
 
 
-def validate_update_name(name, games, selection=V03_GAMES):
+def validate_update_name(name, games, selection=V03_GAMES, version=None):
     normalized = safe_name(name).casefold()
     if any(normalized == item.rstrip('/') or normalized.startswith(item)
            for item in UPDATE_PRESERVED):
         raise ValueError('Update must preserve existing player files: ' + name)
-    validate_public_name(name, games, selection)
+    validate_public_name(name, games, selection, version)
 
 
 def verify_tree(directory, games=None):
@@ -260,7 +270,7 @@ def verify_tree(directory, games=None):
             raise ValueError('Duplicate or recursive package inventory entry')
         if release['flavor'] in ('Public', 'Update'):
             validator = validate_update_name if release['flavor'] == 'Update' else validate_public_name
-            validator(name, games, selection)
+            validator(name, games, selection, release['version'])
             allowed_roles = ('runtime', 'documentation', 'license', 'redist') if release['flavor'] == 'Update' else (
                 'runtime', 'config', 'documentation', 'license', 'redist')
             if item['role'] not in allowed_roles:
@@ -282,6 +292,13 @@ def verify_tree(directory, games=None):
         raise ValueError('Package SHA256SUMS does not match')
     if not runtime_names(games, release['flavor'] == 'Internal', selection).issubset(expected):
         raise ValueError('Package is missing a required player component')
+    guides = placement_sources(release['version']) if release['flavor'] != 'Update' else {}
+    for name, source in guides.items():
+        reject_link(source)
+        item = expected.get(name)
+        if (not source.is_file() or not item or item['role'] != 'documentation'
+                or item['bytes'] != source.stat().st_size or item['sha256'] != digest(source)):
+            raise ValueError('Missing or modified placement guide: ' + name)
     if release['flavor'] == 'Internal':
         required = []
         for key in selection:
@@ -289,6 +306,7 @@ def verify_tree(directory, games=None):
         for key in set(selection) & MANIFEST_ONLY_DATA:
             prefix = 'game-data/' + key + '/'
             supported = {prefix + item['path'] for item in selected_data_files(games[key], release.get('dataVariants', {}).get(key))}
+            supported.update(name for name in guides if name.startswith(prefix))
             if {name for name in expected if name.startswith(prefix)} != supported:
                 raise ValueError(key + ' package must contain only the supported resource manifest')
         for package in games['futari']['content']:
@@ -402,6 +420,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
             copy_checked(file, directory / subdir / file.name, 'redist', entries)
     if flavor != 'Update':
         copy_checked(ROOT / 'config/default.ini', directory / config_name(version), 'config', entries)
+        for name, source in placement_sources(version).items():
+            copy_checked(source, directory / name, 'documentation', entries)
     readme = ('README.player-v032.txt' if version == '0.3.2' else
               'README.player-v031.txt' if version == '0.3.1' else
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
@@ -426,8 +446,10 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     if flavor == 'Internal':
         for key, report in reports.items():
             print('Copying complete data: ' + key, flush=True)
+            excluded = {'dlc'} if key == 'futari' else set()
+            if placement_sources(version):excluded.add(PLACEMENT_NAME.casefold())
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
-                      {'dlc'} if key == 'futari' else (), manifest_only=key in MANIFEST_ONLY_DATA)
+                      excluded, manifest_only=key in MANIFEST_ONLY_DATA)
         target_dlc = directory / 'game-data/futari/dlc'
         copy_data(dlc, target_dlc, entries, [file for package in games['futari']['content'] for file in package['files']])
         source_clone(directory / 'source', commit)

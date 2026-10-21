@@ -188,6 +188,8 @@ Update 包直接取收据绑定的 out/ 程序，仍检查源文件、工具及�
 
 Internal 需要全部支持数据和虫姬二两份 DLC，可用 -DataDirectories 与 -FutariDlcDirectory 指定目录。最大往生／大往生按 114／60 项资源清单复制，绊地狱按实际识别的本体 41 项或合并更新 47 项清单复制；排除清单之外的 ISO、工具、音乐补丁和 Project.gp4。Public 按运行白名单组装，源码附件不含 ROM，并绑定程序包的 release.json。
 
+v0.4 完整包从 `config/game-data/*.txt` 创建六个默认游戏目录及中英放置说明。Public 对这些说明使用固定路径和源码内容校验，不因提供空目录而开放 ROM 白名单；Update 不包含说明或任何游戏数据。“复制到合集”允许目标只有放置说明，保留其内容并在对应游戏缓存的 import-guides 中备份；实际游戏文件仍不合并覆盖。
+
 每次创建 releases/ 下的新输出目录，保留旧发行。一次公共构建认证之后，每个最终 ZIP 只在新目录解压验收一次：
 
 ~~~powershell

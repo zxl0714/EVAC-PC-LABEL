@@ -215,6 +215,41 @@ void CopyChecks() {
   Reject([&]{CopyDataToCollection(overlap.root,game,overlap.root);},"Copy accepted source containing target");
   game.coming_soon=true;Reject([&]{CopyDataToCollection(overlap.root,game,overlap.data);},"Coming Soon copy was accepted");
 }
+void PlacementGuideCopyChecks() {
+  const auto game=SyntheticCopyGame();
+  const fs::path guide=L"放置说明.txt";
+  const std::string text="Placement instructions\nKeep this note unchanged.\n";
+  for(bool same_source_guide:{false,true}) {
+    Fixture fixture;Write(fixture.data/"main.bin","abc");
+    if(same_source_guide)Write(fixture.data/guide,text);
+    const auto target=fixture.root/"game-data/fixture";Write(target/guide,text);
+    const auto original_attributes=GetFileAttributesW((target/guide).c_str());
+    Require(SetFileAttributesW((target/guide).c_str(),original_attributes|FILE_ATTRIBUTE_READONLY),"Mark placement-only target guide read-only");
+    const auto result=CopyDataToCollection(fixture.root,game,fixture.data);
+    Require(result.directory==target && result.files==(same_source_guide?2u:1u),"Guide-aware import changed the source inventory count");
+    Require(Ini::ReadText(target/guide)==text && Ini::ReadText(target/"main.bin")=="abc","Import did not preserve the existing placement guide");
+    Require(Within(result.guide_backup,fixture.root/"cache") && Ini::ReadText(result.guide_backup/guide)==text,
+            "Original placement directory was not retained as a recoverable backup");
+    Require(GetFileAttributesW((result.guide_backup/guide).c_str())&FILE_ATTRIBUTE_READONLY,"Import changed original guide attributes");
+    Require(Inspect(game,fixture.root,target,CheckLevel::Full).data_state==DataState::Verified &&
+            Ini::ReadText(fixture.data/"main.bin")=="abc","Guide-aware import did not validate or modified source data");
+    // Reset only the test-owned backup attribute for fixture cleanup.
+    Require(SetFileAttributesW((result.guide_backup/guide).c_str(),original_attributes),"Reset fixture backup attributes");
+  }
+  for(bool conflicting_source_guide:{false,true}) {
+    Fixture fixture;Write(fixture.data/"main.bin","abc");
+    const auto target=fixture.root/"game-data/fixture";Write(target/guide,text);
+    if(conflicting_source_guide)Write(fixture.data/guide,"Different source guide\n");
+    else Write(target/"personal-notes.txt","Preserve unrelated files");
+    const auto config=EnsureConfig(fixture.root);const auto before=Sha256(config);
+    Reject([&]{CopyDataToCollection(fixture.root,game,fixture.data);},"Guide exception accepted unrelated or conflicting content");
+    Require(Ini::ReadText(target/guide)==text && !fs::exists(target/"main.bin") && Sha256(config)==before,
+            "Rejected guide import changed the target or configuration");
+    if(!conflicting_source_guide)Require(Ini::ReadText(target/"personal-notes.txt")=="Preserve unrelated files","Unrelated file was overwritten");
+    for(const auto& item:fs::directory_iterator(target.parent_path()))
+      Require(!item.path().filename().native().starts_with(L".copy-"),"Rejected guide import leaked owned staging data");
+  }
+}
 }
 int wmain(int count,wchar_t** arguments) {
   try {
@@ -225,7 +260,7 @@ int wmain(int count,wchar_t** arguments) {
       std::cout<<result.files<<" synthetic files copied\n";return 0;
     }
     if(count!=1)throw std::runtime_error("Unknown synthetic test mode");
-    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();
+    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();PlacementGuideCopyChecks();
     std::cout<<checks<<" launch/config/process/data-copy checks passed; only synthetic helper processes executed.\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

@@ -49,7 +49,7 @@ class NativeCliTests(unittest.TestCase):
             for game in ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'):
                 folder = root / 'game-data' / game
                 folder.mkdir(parents=True)
-                (folder / '放置说明.txt').write_text('Authored instructions only', encoding='utf-8')
+                (folder / '放置说明.txt').write_bytes((ROOT/'config/game-data'/(game+'.txt')).read_bytes())
             before = sorted(path.relative_to(root) for path in root.rglob('*'))
             rows = self.run_cli(root)['games']
             self.assertEqual([row['state'] for row in rows], ['missing_data'] * 5 + ['coming_soon'])

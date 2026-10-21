@@ -7,6 +7,7 @@
 #include <array>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 
@@ -28,9 +29,22 @@ void NoLinks(const fs::path& path,const fs::path& root) {
     item=parent;
   }
 }
-void EmptyTarget(const fs::path& target) {
-  if (fs::exists(target) && (!fs::is_directory(target) || !fs::is_empty(target)))
-    throw std::runtime_error("The collection data directory is not empty; existing files were preserved");
+constexpr auto kGuide=L"放置说明.txt";
+struct Guide {
+  uint64_t bytes{};std::string hash;
+  bool operator==(const Guide&) const=default;
+};
+std::optional<Guide> AvailableTarget(const fs::path& target,const fs::path& root) {
+  if(!fs::exists(target))return {};
+  const auto fail=[] {throw std::runtime_error("The collection data directory is not empty; only a placement guide may be preserved");};
+  if(!fs::is_directory(target))fail();
+  std::optional<Guide> guide;
+  for(const auto& item:fs::directory_iterator(target)) {
+    NoLinks(item.path(),root);
+    if(guide || item.path().filename()!=kGuide || !item.is_regular_file() || item.file_size()>1024*1024)fail();
+    guide=Guide{item.file_size(),Sha256(item.path())};
+  }
+  return guide;
 }
 struct Stage {
   fs::path directory,container,root;
@@ -63,7 +77,7 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
     throw std::runtime_error("Source and collection copy must not overlap");
   ValidateOutputs(Paths(root,game.id,source));
   ValidateOutputs(Paths(root,game.id,target));
-  EmptyTarget(target);
+  (void)AvailableTarget(target,root);
   GameSession session(root);
   auto check=[&] {if(cancelled && cancelled())throw std::runtime_error("Game-data copy cancelled");};
   check();
@@ -138,16 +152,43 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
     if(current_files!=entries.size() || current_directories!=expected_directories)
       throw std::runtime_error("Game-data layout changed during copy verification");
   }
-  check();NoLinks(target,root);EmptyTarget(target);
-  if (fs::exists(target) && !fs::remove(target))throw std::runtime_error("Cannot use empty data directory");
+  check();NoLinks(target,root);const auto guide=AvailableTarget(target,root);
+  fs::path guide_backup;
+  if(guide) {
+    const auto original=target/kGuide,preserved=stage.directory/kGuide;
+    if(fs::exists(preserved)) {
+      if(!fs::is_regular_file(preserved) || fs::file_size(preserved)!=guide->bytes || Sha256(preserved)!=guide->hash)
+        throw std::runtime_error("Source and destination placement guides differ; existing files were preserved");
+    } else if(!fs::copy_file(original,preserved,fs::copy_options::none))throw std::runtime_error("Cannot preserve the placement guide");
+    fs::permissions(preserved,fs::perms::owner_write,fs::perm_options::add);
+    if(fs::file_size(preserved)!=guide->bytes || Sha256(preserved)!=guide->hash || AvailableTarget(target,root)!=guide)
+      throw std::runtime_error("Placement guide changed during copy; existing files were preserved");
+    // Retain the original guide directory as a recoverable cache backup. The
+    // game-data target is still published with one non-overwriting rename.
+    const auto parent=root/"cache"/FromUtf8(game.id)/"contract-1"/"import-guides";
+    NoLinks(parent,root);
+    if(Within(parent,source) || Within(source,parent))throw std::runtime_error("Guide backup overlaps read-only source data");
+    fs::create_directories(parent);NoLinks(parent,root);guide_backup=parent/name;NoLinks(guide_backup,root);
+    if(!MoveFileExW(target.c_str(),guide_backup.c_str(),MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot preserve the original placement guide directory");
+    try {
+      if(AvailableTarget(guide_backup,root)!=guide)throw std::runtime_error("Placement directory changed during copy");
+      if(!MoveFileExW(stage.directory.c_str(),target.c_str(),MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot publish copied game data");
+    } catch(const std::exception& error) {
+      if(!MoveFileExW(guide_backup.c_str(),target.c_str(),MOVEFILE_WRITE_THROUGH))
+        throw std::runtime_error(std::string(error.what())+"; original placement directory retained at "+Utf8(guide_backup));
+      throw;
+    }
+  } else {
+    if (fs::exists(target) && !fs::remove(target))throw std::runtime_error("Cannot use empty data directory");
   // Windows rename refuses an existing target. Never merge or replace files.
-  if (!MoveFileExW(stage.directory.c_str(),target.c_str(),MOVEFILE_WRITE_THROUGH))
-    throw std::runtime_error("Cannot publish copied game data; existing target was preserved");
+    if (!MoveFileExW(stage.directory.c_str(),target.c_str(),MOVEFILE_WRITE_THROUGH))
+      throw std::runtime_error("Cannot publish copied game data; existing target was preserved");
+  }
   stage.owned=false;
   try {SetDataDirectory(root,game,target);}
   catch(const std::exception& error) {
     throw std::runtime_error("Data copied and verified, but config.ini was not updated: "+std::string(error.what()));
   }
-  return {target,uint64_t(entries.size()),total};
+  return {target,uint64_t(entries.size()),total,guide_backup};
 }
 }

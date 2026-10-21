@@ -1,0 +1,17 @@
+ケツイ Deathtiny ～絆地獄たち～ / Ketsui Deathtiny
+PS4 / CUSA09062 / 01.00 本体，或本体覆盖 01.02 更新
+
+将已解包本体的内容直接放在此目录，应看到 eboot.bin、ketsui_01000.prx、
+sce_module/、sce_sys/、ps4data_body.bin 等完整资源。
+更新可选：将已解包的 01.02 更新内容覆盖到同一目录，保留其余本体文件。
+不用另外建立 app 或 patch 文件夹。退回本体版时，重新提取一份干净本体。
+完成后在启动器点击“刷新”。存档和录像由程序保存在 user-data/。
+PKG 需先解包；ZIP 需解压，不要将镜像或压缩包本身放在这里。
+
+Put the complete extracted CUSA09062 base game (01.00) directly in this folder,
+with eboot.bin at the top level and all original resources underneath.
+The 01.02 update is optional: overlay its extracted contents into this SAME
+folder, replacing matching files while retaining the rest of the base game.
+Do not create separate app/patch folders. To return to base, extract it anew.
+Click Refresh. Saves/replays live in user-data/, separately from game data.
+Extract PKG/ZIP contents first, not the package itself.

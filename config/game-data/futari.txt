@@ -1,0 +1,14 @@
+虫姫さまふたり Ver.1.5 / Mushihimesama Futari
+Xbox 360
+
+将完整解包数据的内容放在此目录，直接看到 default.xex、media/ 等文件。
+保留其余文件和内部目录。可选 Black Label／Ver.1.01 DLC 放入此处的 dlc/，
+保留 DLC 原有的 0000000000000000/... 层级。
+完成后在启动器点击“刷新”。不必安装其他游戏，也不必修改配置路径。
+ISO 需先提取为游戏文件；ZIP 需解压，不要将镜像或压缩包本身放在这里。
+
+Place the complete extracted Xbox 360 game here, with default.xex directly
+inside this folder. Keep media/ and all remaining files and subfolders.
+Optional Black Label / Ver.1.01 content goes in dlc/, retaining its original
+0000000000000000/... directory structure. Click Refresh in the launcher.
+Other games are optional. Extract ISO/ZIP contents first, not the archive itself.
