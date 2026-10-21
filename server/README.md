@@ -32,13 +32,27 @@ python3 -B -m unittest discover -s tests -p 'test_*community*.py' -v
 
 测试使用临时数据库和本机随机端口，不访问线上榜单。C++ `espgaluda2_community_service_tests --probe` 只接受隔离的 loopback 服务，避免把自造高分写到公开榜单；`--check-endpoint https://xiaolu.life/cave/api/v1` 仅通过 Windows HTTP 和原生适配读取公开榜单及本人状态，不提交成绩。真实联网验收使用游戏本身的成绩与录像流程。
 
+## 绊地狱 CUSTOM
+
+原作 CUSA09062／1.02 为 CUSTOM 定义综合／Type-A／Type-B 三个榜，编号
+60／61／62，录像上传名次限制分别为 100／10／10。客户端与服务统一使用
+`rules=standard`，不额外按难度或自机数拆榜；这些参数随原始录像快照保留。
+CUSTOM 录像的原生 mode 为 3，不能发到 ARCADE 等其他模式榜。是否可以登记
+仍由游戏原有资格判断决定，包括续关和双人限制。
+
+历史 API 显式传入的 `custom-<64位十六进制摘要>` 分区保持可读写，数据不会
+并入原生榜。`scripts/ps4/run_community_checks.py` 包含三个 CUSTOM 榜的
+原生 ABI／HTTP 成绩与录像收发，以及整局 worker 的持久化、附件原字节证明和
+归档检查；均使用临时 SQLite 与随机 loopback，不向正式榜单写入自造记录。
+原生定义的来源和哈希见 `games/ketsui/community-references.json`。
+
 ## 大往生开发适配
 
 `server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。代表性的真实原生 loopback 与正常合集正式 HTTPS 成绩／录像上传、读榜、下载保存及离线冷回放已通过，正式实战记录为 ARCADE／Type-A／Shotia 的 1040 分。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。未逐一实测所有榜单／模式。
 
 AC-CHALLENGE 使用独立的 99 号榜，累计 66 场景、两种机体和三个人偶的奖牌积分，上限 3,960,000。金／银／铜牌分别为 10,000／3／1 分，按原生整数传输，不乘普通分数的十倍单位。原游戏榜单定义的 `uploadable=0`，只登记积分而不上传占位录像。本作共 50 个可读榜单；普通 CUSTOM 提交限制保持不变。
 
-构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，分两款协议运行共五项检查：直接 Windows HTTP 客户端的成绩／读榜、原生 NpScore ABI → 客户端 → HTTP → 服务的成绩与录像收发，以及 AC-CHALLENGE 的空榜、积分更新、个人榜和翻页。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
+构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，共九项检查：两作普通成绩／录像、大往生 AC-CHALLENGE、绊地狱三个 CUSTOM 榜的原生 ABI／HTTP 收发及 CUSTOM 整局 worker。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
 
 大往生服务校验本作网络结构、双版本、快照／输入边界和成绩／角色／模式匹配。本地存档记录与网络附件的尺寸不同；原生临时 CUSTOM=3 归入合资格 ARCADE 榜的行为单独验证，未开放 CUSTOM 榜或重写录像字节。可用 `python -B -m server.games.daioujou --database <独立数据库> --port 18088` 在 loopback 启动，不自动部署。接口、记录布局和代表性真实收发／回放身份在 `games/daioujou/community-references.json`，完整范围见验收矩阵。
 

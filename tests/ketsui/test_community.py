@@ -15,8 +15,8 @@ import unittest
 from unittest import mock
 import uuid
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server'))
-import ketsui_live as live
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from server.games import ketsui as live
 
 
 def score(name='Player A', value='100', board=0, rules='standard', **changes):
@@ -60,7 +60,7 @@ class StoreTests(unittest.TestCase):
         self.assertGreater(int(first['account_id']), 0)
         self.assertLess(int(first['account_id']), 1 << 63)
 
-    def test_known_boards_and_custom_partition_are_not_guessed(self):
+    def test_known_boards_and_native_custom_preserve_legacy_partition(self):
         self.assertEqual(len(live.BOARDS), 22)
         self.assertEqual(live.BOARDS[51]['mode'], 'ikd_2007')
         self.assertEqual(live.BOARDS[51]['ship'], 'type_a')
@@ -68,7 +68,9 @@ class StoreTests(unittest.TestCase):
         for value in (3, -1, 100, True, '0'):
             with self.assertRaises(live.ApiError):
                 self.store.submit(score(board=value))
-        self.failure('custom_rules_required', self.store.submit, score(board=60))
+        self.store.submit(score(board=60))
+        self.assertEqual(self.store.leaderboard(60,'standard')['total'],1)
+        self.failure('custom_rules_required', self.store.submit, score(board=60,rules='custom-invalid'))
         self.store.submit(score(board=60, rules='custom-' + 'a' * 64))
         self.assertEqual(self.store.leaderboard(60, 'custom-' + 'a' * 64)['total'], 1)
         self.assertEqual(self.store.leaderboard(60, 'custom-' + 'b' * 64)['total'], 0)

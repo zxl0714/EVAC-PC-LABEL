@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "game": "ketsui",
+  "titleId": "CUSA09062",
+  "version": "01.02",
+  "sourceExecutableSha256": "a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073",
+  "custom": {
+    "boards": [
+      {"id": 60, "ship": "all", "uploadLimit": 100},
+      {"id": 61, "ship": "type_a", "uploadLimit": 10},
+      {"id": 62, "ship": "type_b", "uploadLimit": 10}
+    ],
+    "rules": "standard",
+    "nativeMode": 3,
+    "replayKind": 0,
+    "recordVersion": 65537,
+    "coreDataVersion": 65537,
+    "recordBytes": 524288,
+    "region": "ARCADE_01000",
+    "settingsFingerprintRequired": false,
+    "sources": [
+      "base:5000/config/title_leaderboards.psb.m",
+      "base:5000/config/title_prof.psb.m:rankingattack.kind.scoreattack_custom",
+      "patch:5000/script/title_standalone.nut.m:checkRegistRanking/checkRankingAndRegistRanking",
+      "base:5000/script/title_const.nut.m:REPLAY_RECORD_CUSTOM"
+    ],
+    "leaderboardsDefinitionSha256": "f53869bb97532a209f5d53827286a8296739da4c498066ff40d531c81ffa1374",
+    "profileDefinitionSha256": "1639d7d98e29b99490a584b7e275de925d68a2a92a195097a0f2067c5cae2a12",
+    "submissionScriptSha256": "889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d",
+    "description": "Native CUSTOM shares three title-defined boards across its configurations. Keep original snapshot and input bytes for replay; do not rescale scores or place mode 3 in an ARCADE board. The native title still decides eligibility, including rejecting continues and co-op. Legacy explicit custom-<hash> API partitions remain separate and are not merged into native standard boards."
+  }
+}

@@ -10,7 +10,7 @@ import unittest
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for name in ('test_game_fixes', 'test_import_analysis', 'test_timing_analysis'):
+    for name in ('test_game_fixes', 'test_import_analysis', 'test_timing_analysis', 'test_community'):
         path = Path(__file__).parent / 'ketsui' / (name + '.py')
         spec = importlib.util.spec_from_file_location('collection_ketsui_' + name, path)
         module = importlib.util.module_from_spec(spec)

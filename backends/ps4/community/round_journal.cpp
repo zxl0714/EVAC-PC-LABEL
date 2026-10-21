@@ -91,7 +91,7 @@ void Validate(const JournalRound& round) {
     Require(references.insert(m.at("id").get<std::string>()).second);
     for (const auto& b : boards) {
         Fields(b, {"board", "submission_id", "score_receipt", "replay_receipt"});
-        const auto number = static_cast<std::uint32_t>(Number(b.at("board"), 52));
+        const auto number = static_cast<std::uint32_t>(Number(b.at("board"), 62));
         const auto reference = b.at("submission_id").get<std::string>();
         Require(number % 10 <= 2 && seen.insert(number).second && Identifier(reference) && references.insert(reference).second);
         MatchReplayMetadata(replay, {number, score});
@@ -109,7 +109,7 @@ void Archived(const Json& metadata) {
     std::string account;
     for (const auto& b : boards) {
         Fields(b, {"board", "submission_id", "score_receipt", "replay_receipt"});
-        const auto board = Number(b.at("board"), 52);
+        const auto board = Number(b.at("board"), 62);
         Require(board % 10 <= 2 && seen.insert(static_cast<std::uint32_t>(board)).second &&
                 Identifier(b.at("submission_id").get<std::string>()) && references.insert(b.at("submission_id").get<std::string>()).second);
         const auto& score = b.at("score_receipt");

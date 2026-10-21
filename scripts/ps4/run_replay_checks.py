@@ -43,6 +43,12 @@ def main():
         results.append(dict(check=name,passed=passed,exitCode=result.returncode))
         print(('PASS' if passed else 'FAIL')+': '+name,flush=True)
     djo=record('daioujou');kt=record('ketsui')
+    for board in (60,61,62):
+        custom=bytearray(kt);struct.pack_into('<H',custom,106,3)
+        struct.pack_into('<H',custom,112,4 if board==62 else 0)
+        check('ketsui-custom-'+str(board),'ketsui',zlib.compress(custom),True,board=board)
+        check('ketsui-custom-not-arcade-'+str(board),'ketsui',zlib.compress(custom),False,board=0)
+        check('ketsui-arcade-not-custom-'+str(board),'ketsui',zlib.compress(kt),False,board=board)
     check('daioujou-combined','daioujou',zlib.compress(djo),True)
     check('daioujou-character','daioujou',zlib.compress(djo),True,board=0)
     check('daioujou-local-save-is-not-network','daioujou',zlib.compress(djo[:0x65600]),False)

@@ -171,8 +171,11 @@ void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& 
         return;
     }
     Require(replay.game=="ketsui","unsupported_replay_title");
-    Require(group <= 5 && ship <= 2, "unsupported_replay_board"); // CUSTOM/99 stay unavailable.
-    const auto mode = group <= 2 ? 0u : group == 3 ? 1u : group == 4 ? 2u : 4u;
+    // Native CUSTOM has its own combined/Type-A/Type-B boards (60/61/62).
+    // It keeps mode 3 and its original settings inside the unchanged snapshot;
+    // the native title does not partition these boards by a settings hash.
+    Require(group <= 6 && ship <= 2, "unsupported_replay_board"); // Board 99 has no replay.
+    const auto mode = group <= 2 ? 0u : group == 3 ? 1u : group == 4 ? 2u : group == 5 ? 4u : 3u;
     Require(replay.region == "ARCADE_01000" && replay.kind == 0 && replay.mode == mode, "replay_mode_mismatch");
     Require(expected.score == replay.score, "replay_score_mismatch");
     Require(replay.character < 8 && (!ship || ship == replay.character / 4 + 1), "replay_ship_mismatch");

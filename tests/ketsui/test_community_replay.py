@@ -90,7 +90,7 @@ class ReplayEnvelopeTests(unittest.TestCase):
         self.assertEqual(event['key_directory_bytes'], 2 * 6 * 13)
 
     def test_selected_score_mode_family_and_ship_category_match_for_all_supported_boards(self):
-        for group, mode in ((0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (5, 4)):
+        for group, mode in ((0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (5, 4), (6, 3)):
             for ship in range(3):
                 with self.subTest(group=group, ship=ship):
                     raw = record()
@@ -125,7 +125,7 @@ class ReplayEnvelopeTests(unittest.TestCase):
             struct.pack_into('<H', raw, 112, character)
             self.inspect(zlib.compress(raw), board=0)
 
-    def test_foreign_core_custom_and_unmapped_boards_do_not_get_compatibility_guesses(self):
+    def test_foreign_core_wrong_mode_custom_and_unmapped_boards_do_not_get_compatibility_guesses(self):
         for board in (3, 9, 13, 60, 61, 62, 99, 2 ** 32 - 1):
             with self.subTest(board=board):
                 self.inspect(zlib.compress(record()), board=board)

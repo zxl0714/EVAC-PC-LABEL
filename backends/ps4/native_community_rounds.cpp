@@ -73,7 +73,7 @@ NativeCommunityRoundHandle Capture(std::uint64_t boards,std::uint64_t metadata,s
     const auto begin=Value<std::uint64_t>(boards,8),end=Value<std::uint64_t>(boards,16);
     Require(begin && end>=begin && (end-begin)%40==0 && (end-begin)/40>=1 && (end-begin)/40<=18);
     for (auto item=begin;item<end;item=Add(item,40)) {
-        const auto text=Text(item); const auto board=static_cast<std::uint32_t>(Decimal(text,52));
+        const auto text=Text(item); const auto board=static_cast<std::uint32_t>(Decimal(text,62));
         Require(board%10<=2 && std::find(round->input.boards.begin(),round->input.boards.end(),board)==round->input.boards.end());
         round->input.boards.push_back(board);
     }
@@ -341,6 +341,19 @@ bool NativeCommunityRoundsSelfTest(const std::filesystem::path& directory) {
     check(returned==test_group && test_arguments==args && errno==ERANGE && GetLastError()==103,"factory_forwards_all_five_sysv_arguments_return_and_error_state");
     const auto a=For(one); check(a && !a->failed && For(two)==a && a->input.boards==std::vector<std::uint32_t>({0,1}),"each_created_job_is_bound_to_its_shared_round_object");
     raw[300]=std::byte{7}; check(a->input.record[300]==std::byte{} && a->input.record.size()==kReplayRecordSize,"capture_is_owned_not_a_borrowed_guest_record");
+    {
+        for (unsigned i=0;i<2;++i) {
+            names[i*40+8]=std::byte{'6'};names[i*40+9]=static_cast<std::byte>('0'+2*i);
+            names[i*40+10]=std::byte{};Put(names.data(),i*40+24,std::uint64_t{2});
+        }
+        const auto custom=Capture(args[1],args[2],args[3]);
+        check(custom && custom->input.boards==std::vector<std::uint32_t>({60,62}) && custom->input.record==raw,
+            "custom_native_board_names_and_original_owned_record_are_captured");
+        for (unsigned i=0;i<2;++i) {
+            names[i*40+8]=static_cast<std::byte>('0'+i);names[i*40+9]=std::byte{};
+            Put(names.data(),i*40+24,std::uint64_t{1});
+        }
+    }
     Tick(one); check(test_seen==a && !CurrentNativeCommunityRound() && errno==EDOM && GetLastError()==117,"job_scope_is_exact_and_restored_after_the_original_tick");
     Tick(19); check(test_seen==invalid && !CurrentNativeCommunityRound(),"unregistered_jobs_cannot_inherit_a_previous_round_scope");
     std::array<std::byte,64> comment{}; const std::array<std::byte,2> info{std::byte{1},std::byte{2}};

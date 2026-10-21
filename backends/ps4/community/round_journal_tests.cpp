@@ -15,7 +15,7 @@ namespace kt::community {
 namespace {
 void Require(bool value) { if (!value) { throw std::runtime_error("Community round fixture failed"); } }
 void Word(std::vector<std::byte>& bytes, std::size_t offset, std::uint32_t value) { std::memcpy(bytes.data()+offset,&value,4); }
-RoundInput Authored() {
+RoundInput Authored(bool custom=false) {
     RoundInput result; result.boards = {0,1}; result.score = 9001; result.build = "authored-round-fixture";
     const char comment[] = "U1=4,U0=0,U3=4,U2=0,";
     std::memcpy(result.comment.data(),comment,sizeof(comment));
@@ -28,7 +28,9 @@ RoundInput Authored() {
     Word(result.record,0,0x10001); Word(result.record,4,0x10001); Word(result.record,16,1024); Word(result.record,20,600);
     Word(result.record,24,static_cast<std::uint32_t>(packed.size())); Word(result.record,28,1); Word(result.record,32,1);
     std::memcpy(result.record.data()+48,"fixture",8); std::memcpy(result.record.data()+80,"ARCADE_01000",13);
-    Word(result.record,108,9001); std::copy(packed.begin(),packed.end(),result.record.begin()+kReplayDataOffset); return result;
+    Word(result.record,108,9001); std::copy(packed.begin(),packed.end(),result.record.begin()+kReplayDataOffset);
+    if (custom) { result.boards={60,61};const std::uint16_t mode=3;std::memcpy(result.record.data()+106,&mode,sizeof(mode)); }
+    return result;
 }
 Config Configuration() { return {true,"Round-Fixture","http://127.0.0.1:32123/ketsui/api/v1"}; }
 Json ScoreResponse(unsigned board, bool eligible=true) {
@@ -109,13 +111,27 @@ bool RoundJournalSelfTest(const std::filesystem::path& directory) {
     {
         RoundJournal journal(directory/"invalid");
         auto bad=input; bad.boards={0,0}; check(rejects([&] { journal.Stage(config,bad); }),"duplicate_board_rejected_before_any_commit");
-        bad=input; bad.boards={60}; check(rejects([&] { journal.Stage(config,bad); }),"custom_without_rule_fingerprint_stays_unavailable");
+        bad=input; bad.boards={60}; check(rejects([&] { journal.Stage(config,bad); }),"arcade_record_cannot_enter_custom_board");
         bad=input; bad.score=9002; check(rejects([&] { journal.Stage(config,bad); }),"record_score_and_submission_score_must_match");
         bad=input; bad.score+=(1ull<<32); check(rejects([&] { journal.Stage(config,bad); }),"full_64bit_score_is_not_truncated_to_the_record_field");
         bad=input; bad.record.resize(kReplayRecordSize-1); check(rejects([&] { journal.Stage(config,bad); }),"incomplete_raw_record_rejected");
         bad=input; bad.record[0]=std::byte{}; check(rejects([&] { journal.Stage(config,bad); }),"unsupported_core_version_rejected");
         bad=input; bad.game_info.resize(190); check(rejects([&] { journal.Stage(config,bad); }),"oversized_native_game_info_rejected");
         check(journal.Pending().empty(),"invalid_input_does_not_create_a_pending_round");
+    }
+    {
+        auto custom=input;custom.boards={60,61};
+        const std::uint16_t mode=3;std::memcpy(custom.record.data()+106,&mode,sizeof(mode));
+        std::string id;
+        {
+            RoundJournal journal(directory/"custom");id=journal.Stage(config,custom);Bind(journal,id);
+            check(journal.Get(id).record==custom.record && journal.ScoreRequest(id,60).at("rules")=="standard",
+                "native_custom_uses_own_boards_and_preserves_exact_settings_snapshot");
+        }
+        RoundJournal reopened(directory/"custom");const auto restored=reopened.Get(id);
+        check(reopened.Pending().size()==1 && restored.record==custom.record &&
+            restored.metadata.at("boards")[1].at("board")==61 && reopened.ScoreRequest(id,61).at("rules")=="standard",
+            "custom_round_and_original_submission_references_survive_reopen");
     }
     {
         RoundJournal journal(directory/"same-score"); const auto first=journal.Stage(config,input), second=journal.Stage(config,input);
@@ -230,7 +246,7 @@ bool RoundJournalSmoke(const std::filesystem::path& config_path, const std::file
 bool ClientRoundSmoke(const std::filesystem::path& config_path,const std::filesystem::path& directory,std::string_view phase) {
     const auto config=LoadConfig(config_path); const auto endpoint=ParseEndpoint(config.endpoint);
     Require(config.enabled && endpoint.host==L"127.0.0.1" && !endpoint.secure && directory.is_absolute());
-    Require(phase=="create" || phase=="drain" || phase=="offline" || phase=="failure" || phase=="cancel" || phase=="queue-cancel" || phase=="invalid" || phase=="retained" || phase=="disabled" || phase=="mode-off" || phase=="not-best" || phase=="recover" || phase=="capacity" || phase=="storage" || phase=="proof");
+    Require(phase=="custom" || phase=="create" || phase=="drain" || phase=="offline" || phase=="failure" || phase=="cancel" || phase=="queue-cancel" || phase=="invalid" || phase=="retained" || phase=="disabled" || phase=="mode-off" || phase=="not-best" || phase=="recover" || phase=="capacity" || phase=="storage" || phase=="proof");
     const bool existing=phase=="drain" || phase=="retained" || phase=="storage";
     constexpr char mark[]="Ketsui authored worker round fixture v1\n"; const auto marker=directory/"fixture.marker";
     if (!existing) {
@@ -294,7 +310,7 @@ bool ClientRoundSmoke(const std::filesystem::path& config_path,const std::filesy
         auto bad=Authored(); bad.score++;
         const auto rejected=client.SubmitRound(std::move(bad)); Require(rejected.accepted.get().error==Error::Protocol && rejected.first_attempt.get().error==Error::Protocol);
     }
-    const auto submitted=client.SubmitRound(Authored());
+    const auto submitted=client.SubmitRound(Authored(phase=="custom"));
     Require(submitted.accepted.wait_for(std::chrono::seconds(10))==std::future_status::ready);
     const auto accepted=submitted.accepted.get(); Require(accepted.error==Error::None && accepted.durable && Identifier(accepted.reference));
     std::puts("{\"event\":\"community_round_client_accepted\",\"durable\":true}"); std::fflush(stdout);
@@ -303,15 +319,16 @@ bool ClientRoundSmoke(const std::filesystem::path& config_path,const std::filesy
     const auto attempted=submitted.first_attempt.get(); Require(attempted.reference==accepted.reference && attempted.boards.size()==2);
     if (attempted.identity) Require(attempted.identity->ready && ValidNicknameBytes(attempted.identity->nickname) &&
                                    attempted.identity->account==AccountId(attempted.identity->nickname));
-    if (phase=="proof") {
-        const auto raw=Authored().record; auto size=compressBound(static_cast<uLong>(raw.size())); std::vector<std::byte> original(size);
+    if (phase=="proof" || phase=="custom") {
+        const unsigned board=phase=="custom"?60:0;
+        const auto raw=Authored(phase=="custom").record; auto size=compressBound(static_cast<uLong>(raw.size())); std::vector<std::byte> original(size);
         Require(compress2(reinterpret_cast<Bytef*>(original.data()),&size,reinterpret_cast<const Bytef*>(raw.data()),static_cast<uLong>(raw.size()),0)==Z_OK); original.resize(size);
-        auto proved=client.ProveRoundReplay(submitted,0,9001,original).get();
+        auto proved=client.ProveRoundReplay(submitted,board,9001,original).get();
         Require(bool(proved) && proved.body==attempted.boards[0].replay->body && original.size()!=accepted.attachment_bytes);
-        Require(client.ProveRoundReplay(submitted,0,9002,original).get().error==Error::Protocol);
+        Require(client.ProveRoundReplay(submitted,board,9002,original).get().error==Error::Protocol);
         auto other=raw; other[300]=std::byte{1}; auto capacity=compressBound(static_cast<uLong>(other.size())); std::vector<std::byte> wrong(capacity);
         Require(compress2(reinterpret_cast<Bytef*>(wrong.data()),&capacity,reinterpret_cast<const Bytef*>(other.data()),static_cast<uLong>(other.size()),6)==Z_OK); wrong.resize(capacity);
-        Require(client.ProveRoundReplay(submitted,0,9001,std::move(wrong)).get().error==Error::Protocol);
+        Require(client.ProveRoundReplay(submitted,board,9001,std::move(wrong)).get().error==Error::Protocol);
     }
     Json statuses=Json::array(); for (const auto& b:attempted.boards) statuses.push_back(Json{{"board",b.board},
         {"score_status",b.score ? Json(b.score->status) : Json(nullptr)},{"replay_status",b.replay ? Json(b.replay->status) : Json(nullptr)}});

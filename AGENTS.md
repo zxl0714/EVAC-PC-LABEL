@@ -1,5 +1,17 @@
 # Development entry
 
+Current user extension: also fix Ketsui CUSTOM in v0.3.2. Native CUSA09062
+1.02 defines boards 60/61/62 with upload limits 100/10/10; CUSTOM mode=3
+keeps its settings in the original replay snapshot. The native game does NOT
+partition CUSTOM by a configuration fingerprint. Remove that extra restriction
+for standard native requests, retaining old explicit hashed partitions without
+merging rows. Extend native score, round capture/journal and replay matching;
+keep native continue/co-op/practice eligibility and ordinary boards unchanged.
+Deploy ONLY Ketsui's existing service after backup, preserve DaiOuJou a865369
+and all peer PIDs/config. Build a new v0.3.2 revision, retain the old ZIP/tag;
+no OSS or QQ is requested. Existing Taskmgr/focus failure remains deferred,
+not grounds to loop desktop recovery or claim a new menu test passed.
+
 v0.3.2 is built from a865369bfdfd880789d7ca1de00f4f0a121fe77d. The no-ROM
 Update ZIP is releases/v0.3.2-update-a865369/CAVE-PC-Collection-v0.3.2-update.zip,
 72,773,377 bytes; SHA-256 e7349d8c50fa1072f1fe940bc85953a8aa03b141b0c095ba12885554e0f38e7f.

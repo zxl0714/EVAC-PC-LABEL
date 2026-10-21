@@ -1,6 +1,7 @@
 #pragma once
 #include "community/client.h"
 #include <memory>
+#include <optional>
 #include <string_view>
 
 std::uint64_t ResolveScoreImport(std::string_view identifier, std::string_view library, std::string_view module);
@@ -15,4 +16,5 @@ bool ScoreSmoke(const std::filesystem::path& config, const std::filesystem::path
 bool ChallengeScoreSmoke(const std::filesystem::path& config, const std::filesystem::path& directory);
 // ABI/HTTP diagnostic only: literal loopback, fresh output, no guest execution.
 bool ScoreReplaySmoke(const std::filesystem::path& config, const std::filesystem::path& directory,
-                      const std::filesystem::path& payload,std::string_view game="ketsui");
+                      const std::filesystem::path& payload,std::string_view game="ketsui",
+                      std::optional<unsigned> custom_board={});

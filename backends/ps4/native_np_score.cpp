@@ -52,7 +52,7 @@ bool Read(const void* source, void* target, std::size_t bytes) {
 }
 bool Writable(const void* target, std::size_t bytes) { return target && NativeMemoryWritable(target, bytes); }
 bool BoardFor(std::string_view game,unsigned id) {
-    if (game=="ketsui") return id == 99 || (id <= 52 && id % 10 <= 2);
+    if (game=="ketsui") return id == 99 || (id <= 62 && id % 10 <= 2);
     if (game=="daioujou") return id==99 || (id<=66 && id%10<=6);
     return false;
 }
@@ -662,7 +662,8 @@ bool ScoreProfileSelfTest() {
     };
     check(BoardFor("daioujou",0) && BoardFor("daioujou",6) && BoardFor("daioujou",66) &&
         BoardFor("daioujou",99) && !BoardFor("daioujou",7) && !BoardFor("daioujou",98) &&
-        !BoardFor("ketsui",6) && BoardFor("ketsui",99),
+        !BoardFor("ketsui",6) && BoardFor("ketsui",60) && BoardFor("ketsui",62) &&
+        !BoardFor("ketsui",63) && BoardFor("ketsui",99),
         "title_board_sets_are_distinct");
     Bridge second;AuthoredTransport transport;
     check(transport.Install(second,"daioujou"),"second_title_owns_independent_native_bridge");
@@ -771,8 +772,8 @@ bool ScoreSelfTest() {
           transport->paths.back().find("&count=") == std::string::npos, "personal_152byte_layout_and_stack_outputs");
     check(personal(request, 0, &account, 7, &player.value, sizeof(player.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == kArgument &&
           range(request, 0, 1, ranks.value.data(), 1, nullptr, 0, nullptr, 0, 2, nullptr, nullptr, nullptr) == kArgument &&
-          range(request, 60, 1, ranks.value.data(), sizeof(ranks.value), nullptr, 0, nullptr, 0, 2, nullptr, nullptr, nullptr) == kArgument,
-          "invalid_capacity_and_unfingerprinted_custom_rejected");
+          range(request, 63, 1, ranks.value.data(), sizeof(ranks.value), nullptr, 0, nullptr, 0, 2, nullptr, nullptr, nullptr) == kArgument,
+          "invalid_capacity_and_unknown_board_rejected");
     Comment comment{}; std::memcpy(comment.bytes, "U0=7,", 5);
     GameInfo information{}; information.size = 3; information.bytes[0] = std::byte{0xa5};
     Guarded<unsigned> temporary; temporary.value = 73;
@@ -1116,9 +1117,10 @@ bool ChallengeScoreSmoke(const std::filesystem::path& path,const std::filesystem
     return true;
 }
 bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::path& directory,
-                      const std::filesystem::path& payload_path,std::string_view game) {
+                      const std::filesystem::path& payload_path,std::string_view game,std::optional<unsigned> custom_board) {
     const auto config = LoadConfig(path,game); const auto endpoint = ParseEndpoint(config.endpoint,game);
-    const unsigned board=game=="daioujou"?6:0;
+    Require(!custom_board || (game=="ketsui" && *custom_board>=60 && *custom_board<=62));
+    const unsigned board=custom_board.value_or(game=="daioujou"?6:0);
     Require(config.enabled && endpoint.host == L"127.0.0.1" && !endpoint.secure && directory.is_absolute() && !std::filesystem::exists(directory));
     std::ifstream file(payload_path, std::ios::binary); Require(bool(file));
     std::vector<std::byte> payload(kReplayLimit + 1);

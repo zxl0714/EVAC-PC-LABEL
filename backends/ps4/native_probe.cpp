@@ -1666,6 +1666,12 @@ int NativeCommand(int argc, wchar_t** argv) {
         try { return ScoreReplaySmoke(argv[2], argv[3], argv[4]) ? 0 : 1; }
         catch (...) { std::fputs("Native replay smoke failed.\n", stderr); return 1; }
     }
+    if (argc==6 && std::wstring_view(argv[1])==L"--np-custom-replay-smoke") {
+        const std::wstring_view board(argv[5]);
+        if (board!=L"60" && board!=L"61" && board!=L"62") return 2;
+        try { return ScoreReplaySmoke(argv[2],argv[3],argv[4],"ketsui",60u+static_cast<unsigned>(board[1]-L'0'))?0:1; }
+        catch (const std::exception& error) { std::fprintf(stderr,"Native custom replay smoke: %s\n",error.what());return 1; }
+    }
     if (argc==6 && std::wstring_view(argv[1])==L"--np-replay-profile-smoke") {
         try { return ScoreReplaySmoke(argv[2],argv[3],argv[4],cave::Utf8(std::filesystem::path(argv[5])))?0:1; }
         catch (const std::exception& error) { std::fprintf(stderr,"Native replay profile smoke: %s\n",error.what());return 1; }

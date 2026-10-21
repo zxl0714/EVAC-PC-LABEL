@@ -100,9 +100,10 @@ def board_id(value):
 
 def ruleset(value, board):
     require(isinstance(value, str) and re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,79}', value), 'invalid_ruleset')
-    # A CUSTOM configuration cannot silently share the unmodified-mode board.
+    # Native CUSTOM has dedicated 60/61/62 boards, not per-setting boards.
+    # Retain explicit legacy fingerprint partitions without merging their rows.
     if board in (60, 61, 62):
-        require(re.fullmatch(r'custom-[0-9a-f]{64}', value), 'custom_rules_required')
+        require(value == 'standard' or re.fullmatch(r'custom-[0-9a-f]{64}', value), 'custom_rules_required')
     return value
 
 

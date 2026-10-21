@@ -22,6 +22,25 @@ def score(board, value='123', name='Alice'):
 
 
 class Ps4CommunityProfiles(unittest.TestCase):
+    def test_ketsui_native_custom_boards_are_separate_from_arcade_and_legacy_partitions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store=ketsui.Store(Path(temporary)/'ketsui-custom.sqlite3')
+            for board in (60,61,62):
+                self.assertEqual(store.leaderboard(board,'standard')['entries'],[])
+                request=score(board,'9001');receipt=store.submit(request)
+                self.assertTrue(receipt['accepted'])
+                self.assertTrue(receipt['upload_eligible'])
+                page=store.leaderboard(board,'standard',account=receipt['account_id'])
+                self.assertEqual(page['entries'][0]['score'],'9001')
+                self.assertFalse(store.submit(score(board,'9001'))['accepted'])
+                self.assertFalse(store.submit(score(board,'9000'))['accepted'])
+                legacy=score(board,'123');legacy['rules']='custom-'+'a'*64
+                store.submit(legacy)
+                self.assertEqual(store.leaderboard(board,legacy['rules'])['entries'][0]['score'],'123')
+                self.assertEqual(store.leaderboard(board,'standard')['entries'][0]['score'],'9001')
+                with self.assertRaises(ketsui.ApiError):store.submit(dict(score(board),rules='custom-missing'))
+            self.assertEqual(store.leaderboard(0,'standard')['total'],0)
+
     def test_native_mapping_units_and_identity_are_not_shared(self):
         self.assertEqual(ketsui.account_id('Alice'), '392319542754098719')
         self.assertEqual(daioujou.account_id('Alice'), '4491676318865695736')
