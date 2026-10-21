@@ -1,5 +1,14 @@
 # Development entry
 
+v0.4 prioritizes the two friend crashes recorded in IMPLEMENTATION_PLAN before
+UI/release work. SDOJ run 71556 throws missing slowdown metrics at logic 3187
+in 1V / SdojDelaySlowdownInputs; the exact render-metrics state was not captured.
+Do not guess zero metrics or remove the check; 2V shares this tracker, 3V skips
+it. G2 run 84416 / dat163 Xbox360 Novice calls unregistered 0x880EEB00, a valid
+12-byte forwarding entry to 0x880EE9E8. Add declarations, not generated edits.
+Both matching game DLLs persist in the current release. Diagnostics and raw
+inputs stay ignored under .local; analysis is complete, fixes are NOT done.
+
 v0.4 also includes a single-instance GUI launcher per installation: subsequent
 opens restore/focus the existing window without starting another launcher or
 game. Preserve selection, unsaved settings and the running game; keep distinct
