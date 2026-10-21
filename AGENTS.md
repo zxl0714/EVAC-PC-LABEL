@@ -11,6 +11,21 @@ resources/alpha/icon sizes and layout, do one final overlay acceptance, and keep
 all earlier ZIPs/tags intact. No new gameplay campaign, OSS upload or QQ post is
 requested. Root launchers may remain open; use -SkipLauncherStage as before.
 
+The wordmark correction is built and accepted from source
+f26c9e73a2f89cb6bca8060a3cf458100b12f942, tag v0.3.1-logo:
+releases/v0.3.1-logo-f26c9e7/CAVE-PC-Collection-v0.3.1-update.zip,
+72,764,656 bytes, SHA-256 ae987c08b26e3b3e2ed082b5e199edf58b183c63477e61a45aa5f633f9137ac4.
+437 source tests (one privilege skip), 118 hidden launcher checks, one actual
+overlay with 129 payload hashes/11 sentinels/nine cold config checks, and a
+read-only check of the actual overlaid PE's logo plus nine icon frames pass.
+All icon frames are the full wordmark, not the star draft. The final native
+visual preview is .local/v031-branding-preview/final-zh.png; its installation
+states are examples. Old star drafts and failed alpha-test logs remain local.
+No game/input campaign was restarted. This new ZIP is local only; the existing
+public v0.3.1 OSS URL still serves the earlier default-1V build without the new
+branding. Do not claim that URL contains the logo build. Keep older ZIPs/tags
+and do not rebuild this accepted package for documentation follow-ups.
+
 The user subsequently requested OSS upload of the accepted default-1V Update.
 Upload and public verification are complete at
 https://xiaoluoss.oss-cn-beijing.aliyuncs.com/CAVE-PC-Collection-v0.3.1-update.zip
