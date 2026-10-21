@@ -8,6 +8,14 @@ historical. Keep default SDOJ 3V, explicit preferences and frozen releases.
 Prioritize the two real crashes and use targeted evidence, not another full
 mode campaign. Do not publish internal ROM-containing packages on the README.
 
+Nested-root diagnostics are implemented for declared root-level default.xex /
+eboot.bin entries. Inspection reports bounded, read-only candidateRoots, never
+auto-selects or accepts their contents, and skips reparse points. Placement-only
+folders remain missing. 380 common checks, 11 actual CLI tests, 118 hidden UI
+checks and 473 source tests (one privilege skip) pass; logs are
+.local/v04-data-root-{build-r2,source-r1,launcher-r1}.log. Ketsui still has its
+legacy manifest and needs real base/merged-version adaptation; no ROM moved.
+
 G2's dat163 0x880EEB00 declaration is now implemented/generated/registered and
 the real generated forwarder passes 12 isolated native ABI checks. The 360
 build verified 56 binary/PDB pairs. Target-mode regression is still pending:

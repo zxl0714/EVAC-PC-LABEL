@@ -74,6 +74,8 @@ int wmain(int argc, wchar_t** argv) {
       Strings(info.problems);
       std::cout << ",\"missingRuntime\":";
       Strings(info.missing_runtime);
+      std::cout << ",\"candidateRoots\":";
+      Strings(info.candidate_roots);
       std::cout << ",\"optionalContent\":[";
       cave::fs::path content_source;
       std::vector<cave::ContentInspection> content;

@@ -54,6 +54,37 @@ struct Fixture {
     }
   }
 };
+void NestedRootChecks(Fixture& fixture) {
+  constexpr std::string_view hash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  for(const auto entry:{"default.xex","eboot.bin"}) {
+    const auto source=fixture.temporary/FromUtf8(std::string("层级检查 ")+entry);
+    const auto inner=source/FromUtf8("压缩包外层")/FromUtf8("实际游戏根目录");
+    const std::array files{DataFile{entry,3,hash,true},DataFile{"res/asset.bin",3,hash,false}};
+    Game game{"fixture","Fixture",entry==std::string_view("default.xex")?"xbox360":"ps4",
+              "game-data/fixture","runtime/fake.exe",true,false,files,{}};
+    Write(source/FromUtf8("放置说明.txt"),"authored placement instructions");
+    auto inspect=[&](const auto& data){return Inspect(game,fixture.root,data,CheckLevel::Full);};
+    Require(inspect(source).state=="missing_data","placement-only directory is not an installed game");
+    Write(inner/entry);Write(inner/"res/asset.bin");
+    const auto nested=inspect(source);
+    Require(nested.state=="nested_data" && nested.data_state==DataState::Nested &&
+            nested.candidate_roots==std::vector<std::string>{Utf8(inner)} && nested.hashes_checked==0,
+            "nested directory hint identifies a root but never claims data validation");
+    Require(nested.data_dir==source && nested.reason.find(entry)!=std::string::npos &&
+            nested.problems.front().find(Utf8(inner))!=std::string::npos,
+            "nested hint retains original selection and names the actual directory");
+    Require(inspect(inner).state=="ready","explicitly selected inner directory still undergoes complete validation");
+    const auto alternative=source/FromUtf8("另一个候选");Write(alternative/entry);
+    Require(inspect(source).candidate_roots.size()==2,"multiple candidates are reported, not chosen automatically");
+    Write(source/entry,"xyz");
+    Require(inspect(source).state=="unsupported_version" && inspect(source).candidate_roots.empty(),
+            "a present but wrong root program cannot be hidden by a nested candidate");
+    const auto too_deep=fixture.temporary/FromUtf8(std::string("更深 ")+entry);
+    Write(too_deep/"a/b/c"/entry);
+    Require(inspect(too_deep).state=="missing_data" && inspect(too_deep).candidate_roots.empty(),
+            "hint search is restricted to two wrapper levels");
+  }
+}
 void SettingsChecks(Fixture& fixture) {
     Require(ParseSettings("", "sdoj").sdoj_frame_delay == 3, "Missing Frame Delay defaults to the original path");
     Require(ParseSettings(DefaultConfig(), "sdoj").sdoj_frame_delay == 3,
@@ -319,6 +350,7 @@ int main() {
     SettingsChecks(fixture);
     PreferenceChecks(fixture);
     ContentChecks(fixture);
+    NestedRootChecks(fixture);
     std::cout << checks << " native checks passed; fixture programs were not executed.\n";
     return 0;
   } catch (const std::exception& error) {

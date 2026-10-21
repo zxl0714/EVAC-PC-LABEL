@@ -43,6 +43,57 @@ class NativeCliTests(unittest.TestCase):
             self.assertEqual(list(root.iterdir()), [])
             self.assertFalse(result['guestExecution'])
 
+    def test_placement_only_directories_are_missing_and_coming_soon_stays_separate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for game in ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'):
+                folder = root / 'game-data' / game
+                folder.mkdir(parents=True)
+                (folder / '放置说明.txt').write_text('Authored instructions only', encoding='utf-8')
+            before = sorted(path.relative_to(root) for path in root.rglob('*'))
+            rows = self.run_cli(root)['games']
+            self.assertEqual([row['state'] for row in rows], ['missing_data'] * 5 + ['coming_soon'])
+            self.assertTrue(all(not row['candidateRoots'] for row in rows))
+            self.assertEqual(before, sorted(path.relative_to(root) for path in root.rglob('*')))
+
+    def test_nested_entry_hint_is_read_only_and_never_accepts_an_unverified_program(self):
+        for game, entry in (('espgaluda2', 'default.xex'), ('daioujou', 'eboot.bin')):
+            with self.subTest(game=game), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                data = root / 'game-data' / game
+                candidate = data / '压缩包外层' / '实际游戏目录'
+                candidate.mkdir(parents=True)
+                program = candidate / entry
+                program.write_bytes(b'Authored invalid program')
+                row = self.run_cli(root, '--game', game, '--full')['games'][0]
+                self.assertEqual(row['state'], 'nested_data')
+                self.assertEqual(row['dataState'], 'nested_data')
+                self.assertEqual(Path(row['dataDirectory']), data)
+                self.assertEqual([Path(item) for item in row['candidateRoots']], [candidate])
+                self.assertIn(entry, row['reason'])
+                self.assertEqual(row['hashesChecked'], 0)
+                selected = self.run_cli(root, '--game', game, '--data-dir', str(candidate), '--full')['games'][0]
+                self.assertEqual(selected['state'], 'unsupported_version')
+                self.assertEqual(program.read_bytes(), b'Authored invalid program')
+                (data / entry).write_bytes(b'Another invalid root program')
+                wrong = self.run_cli(root, '--game', game)['games'][0]
+                self.assertEqual(wrong['state'], 'unsupported_version')
+                self.assertEqual(wrong['candidateRoots'], [])
+
+    def test_nested_hints_do_not_follow_directory_junctions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'collection'
+            data = root / 'game-data/espgaluda2'
+            data.mkdir(parents=True)
+            outside = Path(temporary) / 'outside'
+            outside.mkdir()
+            (outside / 'default.xex').write_bytes(b'Authored external fixture')
+            self.junction(data / 'not-a-wrapper', outside)
+            row = self.run_cli(root, '--game', 'espgaluda2')['games'][0]
+            self.assertEqual(row['state'], 'missing_data')
+            self.assertEqual(row['candidateRoots'], [])
+            self.assertEqual((outside / 'default.xex').read_bytes(), b'Authored external fixture')
+
     def test_selected_game_does_not_parse_other_game_path(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

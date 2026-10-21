@@ -151,6 +151,7 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="needs_verification") return T(L"数据已找到 · 启动时校验");
   if (state=="missing_data") return T(L"未找到游戏数据");
   if (state=="incomplete_data") return T(L"游戏数据不完整");
+  if (state=="nested_data") return T(L"解压目录层级不正确");
   if (state=="unsupported_version") return T(L"数据版本不支持");
   if (state=="missing_runtime") return T(L"缺少运行组件");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");

@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
+#include <algorithm>
 #include <fstream>
 #include <set>
 #include <stdexcept>
@@ -51,8 +52,48 @@ std::string_view Name(DataState state) {
     case DataState::Verified: return "verified";
     case DataState::Unknown: return "unknown_layout";
     case DataState::Invalid: return "invalid_path";
+    case DataState::Nested: return "nested_data";
   }
   return "unknown";
+}
+namespace {
+std::string_view RootEntry(const Game& game) {
+  for(const auto& file:game.files)
+    if(file.program && (file.path=="default.xex" || file.path=="eboot.bin"))return file.path;
+  return {};
+}
+std::vector<std::string> NestedRoots(const fs::path& root,std::string_view entry) {
+  std::vector<std::string> result;
+  if(entry.empty() || !fs::is_directory(root))return result;
+  const auto finish=[&] {std::sort(result.begin(),result.end());return result;};
+  struct Folder {fs::path path;unsigned depth;};
+  std::vector<Folder> folders{{root,0}};
+  unsigned examined=0;
+  // A hint must not become an unbounded disk scan or traverse downloaded links.
+  // Look at two wrapper levels, at most 64 folders and 512 directory entries.
+  for(size_t next=0;next<folders.size() && next<64;++next) {
+    const auto folder=folders[next];
+    std::error_code error;
+    fs::directory_iterator iterator(folder.path,fs::directory_options::skip_permission_denied,error),end;
+    for(;!error && iterator!=end;iterator.increment(error)) {
+      if(++examined>512)return finish();
+      const auto& item=*iterator;
+      const auto attributes=GetFileAttributesW(item.path().c_str());
+      if(attributes==INVALID_FILE_ATTRIBUTES || (attributes&FILE_ATTRIBUTE_REPARSE_POINT) ||
+         !(attributes&FILE_ATTRIBUTE_DIRECTORY))continue;
+      const auto raw_candidate=item.path()/FromUtf8(entry);
+      const auto candidate_attributes=GetFileAttributesW(raw_candidate.c_str());
+      if(candidate_attributes!=INVALID_FILE_ATTRIBUTES &&
+         !(candidate_attributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))) {
+        const auto candidate=DataChild(root,Utf8(raw_candidate.lexically_relative(root)));
+        result.push_back(Utf8(candidate.parent_path()));
+      }
+      if(result.size()>=4)return finish();
+      if(folder.depth+1<2 && folders.size()<64)folders.push_back({item.path(),folder.depth+1});
+    }
+  }
+  return finish();
+}
 }
 Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level) {
   Inspection result;
@@ -98,7 +139,16 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
         }
       }
     }
-    if (!present) result.data_state = DataState::Missing;
+    const auto entry=RootEntry(game);
+    if(!unsupported && !entry.empty() && !fs::is_regular_file(DataChild(paths.data,entry))) {
+      result.candidate_roots=NestedRoots(paths.data,entry);
+      if(!result.candidate_roots.empty()) {
+        result.reason="Select the extracted game root containing "+std::string(entry)+"; nested entries are not yet verified.";
+        result.problems.insert(result.problems.begin(),"select directory: "+result.candidate_roots.front());
+      }
+    }
+    if (!result.candidate_roots.empty()) result.data_state = DataState::Nested;
+    else if (!present) result.data_state = DataState::Missing;
     else if (unsupported) result.data_state = DataState::Unsupported;
     else if (incomplete) result.data_state = DataState::Incomplete;
     else if (level == CheckLevel::Full) result.data_state = DataState::Verified;

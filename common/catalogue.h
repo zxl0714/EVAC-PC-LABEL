@@ -37,7 +37,7 @@ std::string Utf8(const fs::path& path);
 fs::path FromUtf8(std::string_view text);
 
 enum class CheckLevel { Quick, Programs, Full };
-enum class DataState { Missing, Incomplete, Unsupported, Unverified, Verified, Unknown, Invalid };
+enum class DataState { Missing, Incomplete, Unsupported, Unverified, Verified, Unknown, Invalid, Nested };
 std::string_view Name(DataState state);
 struct Inspection {
   std::string game, state, reason;
@@ -45,6 +45,8 @@ struct Inspection {
   fs::path data_dir;
   uint32_t files_checked{}, hashes_checked{};
   std::vector<std::string> problems, missing_runtime;
+  // Structural hints only: none of these candidates has passed validation.
+  std::vector<std::string> candidate_roots;
 };
 Inspection Inspect(const Game& game, const fs::path& collection_root,
                    const fs::path& data_dir, CheckLevel level);
