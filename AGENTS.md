@@ -1,5 +1,9 @@
 # Development entry
 
+Active workspace: E:/Projects/EVAC-PC-LABEL. Develop/build here. The former
+E:/Projects/CAVE-PC-Collection is retained as a recovery/evidence copy, not the
+active build root. Older .local evidence referenced below remains there.
+
 ## Current objective
 
 Implement the complete v0.4 plan in docs/IMPLEMENTATION_PLAN.md step by step.
@@ -155,14 +159,25 @@ pass. Existing root launchers were not replaced. Remaining:
   Old launchers 90668/91688 were closed after exact path validation and explicit
   user authorization; files remain. An idle authored local DaiOuJou fixture
   server was stopped after checking no active clients; production was untouched.
-  Physical root is STILL E:/Projects/CAVE-PC-Collection. Move-Item failed after
-  moving some files; all were restored, expected Git changes, four file hashes
-  and 19 PS4 source dependencies verified. Target EVAC-PC-LABEL does not exist.
-  Atomic Directory.Move still returned access denied. Do not repeat Move-Item,
-  change ACLs, add an old-path junction, or kill unrelated processes. Diagnose
-  the remaining lock before an atomic move; rebuild affected absolute caches.
-  Evidence: .local/v04-workspace-rename-before-r1.json and
-  .local/v04-rename-recovery-r1.json. Browser URL safety stop remains in force.
+  Direct physical rename failed; split files were restored and verified. Do
+  not retry Move-Item, change ACLs, create old-path junctions, or kill unrelated
+  processes. Migration instead uses a fresh independent SSH clone at the NEW
+  active root E:/Projects/EVAC-PC-LABEL, same history, no Git alternates. Original
+  root and all historical artifacts remain intact. 25 SDK dependency checkouts
+  (22 top-level) and 19 PS4 dependencies were restored independently from verified
+  local seeds, with official upstream remotes. Pinned tools were copied/verified;
+  tool Python was newly created, not moved. Existing installed SDK binaries were
+  copied, not called through the old root; three pkg-config prefix metadata files
+  were relocated and SDK source/tool/binary receipt verification passes. This is
+  installed SDK reuse, NOT a clean SDK compilation. Fresh common/launcher build
+  and all three common/launch/source CTest groups pass. Five runtime builds after
+  migration remain pending. Source: 80edd1c; evidence in NEW root
+  .local/v04-new-root-{tools-r1.log,sdk-deps-r1.log,ps4-deps-r1.log,
+  common-build-r1.log,common-native-r1.log,data-r1.json,inspect-r2.json}.
+  All five supported data sets plus Futari DLC were copied by exact manifests;
+  user-data copied with identity checks, then only four config data/DLC paths
+  changed to the new root's relative directories. Saves/replays untouched. Old
+  root config still unchanged. Browser URL safety stop remains in force.
 - The complete wordmark is the EXE icon, not the rejected standalone star.
 
 PS4 branding regression r1 was 72/73: a timing assertion expected zero budget
@@ -188,9 +203,12 @@ GitHub integration was discovered and suggested, not installed/connected at
 inspection. Do not resuggest within seven days or claim it supplies repository
 administration until connection/capabilities are confirmed. GitHub management
 is no longer a blocker: the human renamed it and the new SSH address works.
-Remaining desktop tests still need an accessible game window; physical root
-migration still needs its lock resolved. Do not create substitute test
-infrastructure or premature final ZIPs instead of closing the actual gates.
+Remaining desktop tests still need an accessible game window. Latest native CU
+opened the new launcher but Taskmgr still occluded it and activation returned
+"failed to activate captured window". The owned launcher was closed by exact
+path afterwards; manual Taskmgr closure has been requested. Do not repeat the
+unchanged activation/kill loop or blind menu input. Do not create substitute
+test infrastructure or premature ZIPs instead of closing the actual gates.
 
 ## Documentation and release
 
