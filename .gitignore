@@ -15,6 +15,8 @@
 /config.ini.*
 /CAVE-PC-Collection.exe
 /CAVE-PC-Collection.pdb
+/EVAC PC LABEL.exe
+/EVAC PC LABEL.pdb
 /local.settings.json
 /tools/apps/
 /tools/downloads/

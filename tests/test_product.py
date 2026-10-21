@@ -16,6 +16,9 @@ class ProductTests(unittest.TestCase):
         self.assertIn('OUTPUT_NAME "'+product.NAME+'"', cmake)
         self.assertIn('project(EVACPCLabel VERSION 0.4.0', cmake)
         self.assertIn('"%~dp0'+product.LAUNCHER+'" %*', (ROOT/'启动游戏.bat').read_text(encoding='utf-8'))
+        ignored = (ROOT/'.gitignore').read_text(encoding='utf-8').splitlines()
+        self.assertIn('/'+product.LAUNCHER, ignored)
+        self.assertIn('/'+product.NAME+'.pdb', ignored)
         for file in ('backends/ps4/collection_config.cpp', 'backends/xbox360/host.cpp'):
             text = (ROOT/file).read_text(encoding='utf-8')
             self.assertIn('"'+product.NAME+' — ', text)
