@@ -63,8 +63,9 @@ only the title before desktop activation failed. Do not call that a mode pass.
 
 Last CU attempts were blocked by an elevated foreground Taskmgr. Authorized
 close/kill/minimize attempts failed. Do not repeat unchanged recovery, blind
-occluded-menu guesses, or bypass OS permissions. Leave pre-existing launchers
-alone. The bounded SDOJ runs 97224/48620 closed by diagnostic quit; they exercised
+occluded-menu guesses, or bypass OS permissions. The user has since authorized
+closing the two old launchers; both are now closed and their files preserved.
+The bounded SDOJ runs 97224/48620 closed by diagnostic quit; they exercised
 module 2, not the failing module 1. .local/v04-sdoj-metrics-r1/test-pad.txt is
 still '1 quit'; reset it before reusing that independent diagnostic root.
 An offline test pad proves InputSystem behavior, not physical desktop input.
@@ -148,13 +149,20 @@ pass. Existing root launchers were not replaced. Remaining:
   Update's old shortcut filename is byte-identical to the certified new native
   EXE, never a wrapper. Fresh full packages have only the new launcher name.
   Old archive profiles, game IDs, saves, config and API namespaces stay stable.
-- GitHub/local rename has not happened. No cached noninteractive GitHub
-  management credential was available. Chrome CU stopped because it could not
-  verify the current URL; do not retry that action or switch channels to bypass
-  the safety stop. The actual SSH remote remains the old working repository.
-  Two pre-existing old launchers (PIDs 90668/91688 at inspection) remain in use;
-  re-inspect processes, submodules, absolute paths and build caches before any
-  move, then validate SSH remote and a clean build. Do not kill old launchers.
+- GitHub was renamed by the user; origin is now
+  git@github.com:zxl0714/EVAC-PC-LABEL.git. SSH main matches the previous history.
+  Package source remotes/notices and the development clone command use it.
+  Old launchers 90668/91688 were closed after exact path validation and explicit
+  user authorization; files remain. An idle authored local DaiOuJou fixture
+  server was stopped after checking no active clients; production was untouched.
+  Physical root is STILL E:/Projects/CAVE-PC-Collection. Move-Item failed after
+  moving some files; all were restored, expected Git changes, four file hashes
+  and 19 PS4 source dependencies verified. Target EVAC-PC-LABEL does not exist.
+  Atomic Directory.Move still returned access denied. Do not repeat Move-Item,
+  change ACLs, add an old-path junction, or kill unrelated processes. Diagnose
+  the remaining lock before an atomic move; rebuild affected absolute caches.
+  Evidence: .local/v04-workspace-rename-before-r1.json and
+  .local/v04-rename-recovery-r1.json. Browser URL safety stop remains in force.
 - The complete wordmark is the EXE icon, not the rejected standalone star.
 
 PS4 branding regression r1 was 72/73: a timing assertion expected zero budget
@@ -178,11 +186,11 @@ root/pre-existing launchers and frozen packages stayed unchanged. No ROM copy.
 
 GitHub integration was discovered and suggested, not installed/connected at
 inspection. Do not resuggest within seven days or claim it supplies repository
-administration until connection/capabilities are confirmed. Remaining actual
-desktop tests and directory/repository migration need the user to clear the
-Taskmgr/old launcher obstruction and provide a valid GitHub management path.
-Do not create substitute test infrastructure or premature final ZIPs to avoid
-reporting that dependency; resume the open gates after that external change.
+administration until connection/capabilities are confirmed. GitHub management
+is no longer a blocker: the human renamed it and the new SSH address works.
+Remaining desktop tests still need an accessible game window; physical root
+migration still needs its lock resolved. Do not create substitute test
+infrastructure or premature final ZIPs instead of closing the actual gates.
 
 ## Documentation and release
 

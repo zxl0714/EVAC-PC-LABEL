@@ -16,7 +16,7 @@ from generate_catalogue import load, relative
 from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from ps4_build_receipt import verify as verify_ps4
-from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, launcher, renamed, slug
+from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
 
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
@@ -25,7 +25,6 @@ PLACEMENT_GAMES = (*V03_GAMES, 'esprade')
 PLACEMENT_NAME = '放置说明.txt'
 DEFAULT_VERSION = VERSION
 MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui'}
-REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
 UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3', '0.4': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
@@ -461,7 +460,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
                        '包内 source/ 对应同一提交。\n' if flavor == 'Internal' else
                        '本包的对应源码由同版本的独立源码附件提供。\n')
     source_text = (NAME + '\n\n对应维护源码与构建说明：\n' +
-        'https://github.com/zxl0714/CAVE-PC-Collection/tree/' + commit + '\n\n' +
+        REPOSITORY_URL + '/tree/' + commit + '\n\n' +
         source_location + '若没有仓库访问权限，请联系提供本包的人获取\n' +
         '对应版本的维护源码、依赖版本与构建说明。原始游戏数据不在源码 Git 中。\n' +
         '各组件保留原许可证，完整声明见 licenses/。\n')

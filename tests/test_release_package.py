@@ -446,6 +446,11 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(Path(outputs['Internal']['archive']).name, release.slug(version)+'-v'+version+'-internal.zip')
         self.assertEqual(Path(outputs['Public']['archive']).name, release.slug(version)+'-v'+version+'-public.zip')
         self.assertTrue((internal/'source/.git/HEAD').is_file())
+        for flavor in outputs:
+            package_root = Path(outputs[flavor]['archive']).with_suffix('')
+            source_notice = (package_root/'SOURCE.txt').read_text(encoding='utf-8')
+            self.assertIn(release.REPOSITORY_URL + '/tree/' + commit, source_notice)
+            self.assertNotIn('github.com/zxl0714/CAVE-PC-Collection', source_notice)
         self.assertTrue((internal/'game-data/futari/dlc/fixture-dlc.bin').is_file())
         self.assertTrue((internal/'game-data/sdoj/main.bin').is_file())
         self.assertEqual((public/'README.txt').read_text(encoding='utf-8'),

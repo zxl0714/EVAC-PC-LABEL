@@ -34,6 +34,8 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 使用 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。源码放较短的英文目录，例如 E:/CaveDev/EVAC-PC-LABEL；固定 CMake 的中文源码路径问题尚在，玩家包和游戏数据可使用中文路径。
 
 ~~~powershell
+git clone git@github.com:zxl0714/EVAC-PC-LABEL.git
+cd EVAC-PC-LABEL
 ./scripts/Prepare-Tools.ps1
 ./scripts/Build.ps1 -Jobs 2
 ./scripts/Test.ps1 -Scope All

@@ -5,6 +5,9 @@ SLUG = 'EVAC-PC-LABEL'
 LAUNCHER = NAME + '.exe'
 LEGACY_LAUNCHER = 'CAVE-PC-Collection.exe'
 VERSION = '0.4'
+REPOSITORY = 'zxl0714/EVAC-PC-LABEL'
+REMOTE = 'git@github.com:' + REPOSITORY + '.git'
+REPOSITORY_URL = 'https://github.com/' + REPOSITORY
 
 
 def renamed(version):

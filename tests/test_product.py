@@ -12,6 +12,8 @@ class ProductTests(unittest.TestCase):
     def test_current_build_executable_bat_and_windows_captions_agree(self):
         self.assertEqual(product.NAME, 'EVAC PC LABEL')
         self.assertEqual(product.LAUNCHER, 'EVAC PC LABEL.exe')
+        self.assertEqual(product.REMOTE, 'git@github.com:zxl0714/EVAC-PC-LABEL.git')
+        self.assertEqual(product.REPOSITORY_URL, 'https://github.com/zxl0714/EVAC-PC-LABEL')
         cmake = (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')
         self.assertIn('OUTPUT_NAME "'+product.NAME+'"', cmake)
         self.assertIn('project(EVACPCLabel VERSION 0.4.0', cmake)
