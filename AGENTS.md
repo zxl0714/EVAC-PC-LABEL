@@ -23,6 +23,16 @@ Final source suite: 469 tests, one symlink-privilege skip, source audit passed;
 out/xbox360/.local-v04-crash-native-r1.xml. No game process remains. Continue
 SDOJ's missing-statistics mechanism next, then the remaining full v0.4 scope.
 
+One bounded SDOJ diagnostic attempt is now closed: .local/v04-sdoj-metrics-r1
+runs 97224 and 48620 both received the offline test-pad quit and terminated.
+The first accidentally exercised module 2 / Xbox360, not the failing module 1;
+do not treat its lack of a metrics error as a regression pass. Its title-menu
+EXIT returns to the outer mode list; Back toggles 1P/2P and B only leaves the
+submenu. Taskmgr covers the outer menu's left list, including in windowed
+capture. Fresh windowed activation still failed. Do not repeat blind menu
+guessing or unchanged desktop recovery. The independent test configuration and
+copied profile remain local; shared config stays 3V and original data untouched.
+
 Latest user decision: restore SDOJ's default Frame Delay to 3V after the friend
 crash. Update Settings, the fresh INI template, configuration/cold-start tests
 and current developer/v0.4 player docs. Preserve explicit 1/2/3 preferences;
