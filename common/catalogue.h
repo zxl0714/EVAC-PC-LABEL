@@ -19,6 +19,11 @@ struct ContentPackage {
   uint32_t title_id;
   std::span<const DataFile> files;
 };
+struct DataVariant {
+  std::string_view id, version, layout, entry;
+  std::span<const DataFile> files;
+  std::span<const std::string_view> forbidden_files;
+};
 struct Game {
   std::string_view id, name, backend, data_dir, executable;
   bool integrated, coming_soon;
@@ -28,10 +33,15 @@ struct Game {
   bool community_supported{true};
   std::span<const std::string_view> forbidden_files{};
   std::string_view name_japanese{};
+  std::span<const DataVariant> variants{};
   std::string_view DisplayName() const { return name_japanese.empty() ? name : name_japanese; }
 };
 std::span<const Game> Catalogue();
 const Game& FindGame(std::string_view id);
+// Select only by the actual root program's size and SHA-256. Full inspection
+// must still validate the remaining programs, resources and forbidden files.
+const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr);
+std::span<const DataFile> DataFiles(const Game& game,std::string_view variant);
 std::string Sha256(const fs::path& file);
 std::string Utf8(const fs::path& path);
 fs::path FromUtf8(std::string_view text);
@@ -47,6 +57,7 @@ struct Inspection {
   std::vector<std::string> problems, missing_runtime;
   // Structural hints only: none of these candidates has passed validation.
   std::vector<std::string> candidate_roots;
+  std::string variant, version, layout;
 };
 Inspection Inspect(const Game& game, const fs::path& collection_root,
                    const fs::path& data_dir, CheckLevel level);

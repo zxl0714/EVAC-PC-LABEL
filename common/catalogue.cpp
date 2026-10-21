@@ -95,6 +95,25 @@ std::vector<std::string> NestedRoots(const fs::path& root,std::string_view entry
   return finish();
 }
 }
+const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes) {
+  if(game.variants.empty())return nullptr;
+  const auto path=DataChild(data,game.variants.front().entry);
+  if(!fs::is_regular_file(path))return nullptr;
+  const auto bytes=fs::file_size(path);
+  std::string digest;
+  for(const auto& variant:game.variants) {
+    const auto entry=std::find_if(variant.files.begin(),variant.files.end(),[&](const auto& file) {return file.path==variant.entry;});
+    if(entry==variant.files.end() || entry->bytes!=bytes)continue;
+    if(digest.empty()) {digest=Sha256(path);if(hashes)++*hashes;}
+    if(digest==entry->sha256 && fs::file_size(path)==bytes)return &variant;
+  }
+  return nullptr;
+}
+std::span<const DataFile> DataFiles(const Game& game,std::string_view variant) {
+  if(game.variants.empty() && variant.empty())return game.files;
+  for(const auto& item:game.variants)if(item.id==variant)return item.files;
+  throw std::runtime_error("Unknown game-data variant");
+}
 Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level) {
   Inspection result;
   result.game = game.id;
@@ -108,15 +127,21 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       result.reason = "Backend and data manifest not integrated";
       return result;
     }
+    const auto* variant=IdentifyDataVariant(game,paths.data,&result.hashes_checked);
+    const auto files=variant?variant->files:game.files;
+    const auto forbidden=variant?variant->forbidden_files:game.forbidden_files;
+    if(variant) {result.variant=variant->id;result.version=variant->version;result.layout=variant->layout;}
     uint32_t present = 0;
-    bool incomplete = false, unsupported = false;
-    for (const auto relative : game.forbidden_files) {
+    bool incomplete = false, unsupported = !game.variants.empty() && !variant &&
+        fs::is_regular_file(DataChild(paths.data,game.variants.front().entry));
+    if(unsupported)result.problems.push_back("unrecognized root program version: "+std::string(game.variants.front().entry));
+    for (const auto relative : forbidden) {
       if (fs::exists(DataChild(paths.data, relative))) {
         unsupported = true;
         result.problems.push_back("unsupported companion: " + std::string(relative));
       }
     }
-    for (const auto& expected : game.files) {
+    for (const auto& expected : files) {
       auto file = DataChild(paths.data, expected.path);
       ++result.files_checked;
       if (!fs::is_regular_file(file)) {
@@ -148,8 +173,8 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       }
     }
     if (!result.candidate_roots.empty()) result.data_state = DataState::Nested;
-    else if (!present) result.data_state = DataState::Missing;
     else if (unsupported) result.data_state = DataState::Unsupported;
+    else if (!present) result.data_state = DataState::Missing;
     else if (incomplete) result.data_state = DataState::Incomplete;
     else if (level == CheckLevel::Full) result.data_state = DataState::Verified;
     else result.data_state = DataState::Unverified;

@@ -57,7 +57,7 @@ class NativeCliTests(unittest.TestCase):
             self.assertEqual(before, sorted(path.relative_to(root) for path in root.rglob('*')))
 
     def test_nested_entry_hint_is_read_only_and_never_accepts_an_unverified_program(self):
-        for game, entry in (('espgaluda2', 'default.xex'), ('daioujou', 'eboot.bin')):
+        for game, entry in (('espgaluda2', 'default.xex'), ('daioujou', 'eboot.bin'), ('ketsui', 'eboot.bin')):
             with self.subTest(game=game), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 data = root / 'game-data' / game
@@ -79,6 +79,21 @@ class NativeCliTests(unittest.TestCase):
                 wrong = self.run_cli(root, '--game', game)['games'][0]
                 self.assertEqual(wrong['state'], 'unsupported_version')
                 self.assertEqual(wrong['candidateRoots'], [])
+
+    def test_ketsui_legacy_pair_is_rejected_without_import_or_guessing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            data=root/'game-data/ketsui'
+            for folder in ('CUSA09062-app','CUSA09062-patch'):
+                (data/folder).mkdir(parents=True)
+                (data/folder/'eboot.bin').write_bytes(b'Authored legacy fixture')
+            before=sorted(path.relative_to(root) for path in root.rglob('*'))
+            row=self.run_cli(root,'--game','ketsui','--full')['games'][0]
+            self.assertEqual(row['state'],'unsupported_version')
+            self.assertEqual(row['candidateRoots'],[])
+            self.assertEqual(row['dataVariant'],'')
+            self.assertIn('unsupported companion:',row['problems'][0])
+            self.assertEqual(before,sorted(path.relative_to(root) for path in root.rglob('*')))
 
     def test_nested_hints_do_not_follow_directory_junctions(self):
         with tempfile.TemporaryDirectory() as temporary:

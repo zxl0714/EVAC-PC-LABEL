@@ -163,6 +163,7 @@ std::wstring Status(const Inspection& inspection) {
 bool CanPlay(const Inspection& inspection) {return inspection.state=="ready" || inspection.state=="needs_verification";}
 std::string Details(const Inspection& inspection) {
   auto result=inspection.reason.empty()?inspection.state:inspection.reason;
+  if(!inspection.version.empty())result+="\n"+inspection.game+" "+inspection.version+" ("+inspection.layout+")";
   if (!inspection.problems.empty()) result+="\n"+inspection.problems.front();
   if (!inspection.missing_runtime.empty()) result+="\n"+inspection.missing_runtime.front();
   return result;

@@ -176,19 +176,19 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         std::puts(prepared_event.dump().c_str());
         Require(Ini::ReadText(config)==snapshot,"config.ini changed during startup; restart with the saved configuration");
         std::vector<std::wstring> arguments{argv[0],prepared.executable.native(),L"--enter",
-            L"--module-dir",prepared.modules.native(),L"--app-dir",(ketsui?spec.paths.data/"CUSA09062-app":spec.paths.data).native(),
+            L"--module-dir",prepared.modules.native(),L"--app-dir",spec.paths.data.native(),
             L"--user-dir",spec.paths.profile.native(),L"--allocation-timing",L"counts",
             L"--collection-config",config.native(),L"--collection-game",FromUtf8(game).wstring(),
             L"--community-provider",L"configured",
             L"--gpu-runtime",(root/"runtime/ps4/KetsuiGpuRuntime.dll").native()};
         if (ketsui) {
-            arguments.insert(arguments.end(),{L"--patch-dir",(spec.paths.data/"CUSA09062-patch").native(),
-                L"--read-patches",prepared.read_fixes.native(),L"--community-rounds",L"on"});
+            arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native(),L"--community-rounds",L"on"});
         } else {
             // The local community replay cache must also work with networking
             // disabled. The ranking peer fallback separately checks readiness.
-            arguments.insert(arguments.end(),{L"--merged-app",L"on",L"--read-patches",prepared.read_fixes.native()});
+            arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native()});
         }
+        if(prepared.cache.receipt.at("recipe").at("mergedApp").get<bool>())arguments.insert(arguments.end(),{L"--merged-app",L"on"});
         // Development-only bridge to the existing pad diagnostic. Never save
         // this setting in the player INI or enable it in the launcher itself.
         if (diagnostic_tap) {arguments.push_back(L"--diagnostic-tap-ms");arguments.push_back(std::to_wstring(diagnostic_tap));}

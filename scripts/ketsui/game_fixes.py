@@ -16,12 +16,14 @@ from ps4.native_elf import Elf
 MAGIC = b'KTFIX01\0'
 MAX_FILE = 4 * 1024 * 1024
 EBOOT_SHA256 = 'a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073'
+BASE_EBOOT_SHA256 = '22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f'
 DIRECT_MENU_SHA256 = '83ba95c0ff110a17f9e641addc59e61b89c05431e57a91235eb15c872045f672'
 DIRECT_MENU = '5000/script/title_mode_direct_menu.nut.m'
 RANKING_MANAGER = 'system/script/ranking_manager.nut.m'
 RANKING_MANAGER_SHA256 = '8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43'
 TITLE_STANDALONE = '5000/script/title_standalone.nut.m'
 TITLE_STANDALONE_SHA256 = '889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d'
+BASE_TITLE_STANDALONE_SHA256 = '63b6a45d85e49936665e82e24f188e64fca4e60bc9bc850e71979ca2b9ef6bc8'
 
 
 def digest(data):
@@ -37,13 +39,15 @@ def read_virtual(elf, address, size):
 
 
 def archive_key(executable):
-    if digest(executable) != EBOOT_SHA256:
-        raise ValueError('Game fixes require the verified CUSA09062 1.02 executable')
+    source = digest(executable)
+    if source not in (EBOOT_SHA256, BASE_EBOOT_SHA256):
+        raise ValueError('Game fixes require a verified CUSA09062 executable')
+    load = 0xd2 if source == BASE_EBOOT_SHA256 else 0xd3
     elf = Elf(executable)
-    if read_virtual(elf, 0xd3, 2) != b'\x48\xb8' or read_virtual(elf, 0xdd, 2) != b'\x48\xb9':
+    if read_virtual(elf, load, 2) != b'\x48\xb8' or read_virtual(elf, load+10, 2) != b'\x48\xb9':
         raise ValueError('Archive initialization instruction layout changed')
     # Two overlapping eight-byte immediate stores construct a 13-byte seed.
-    return read_virtual(elf, 0xdf, 8) + read_virtual(elf, 0xd8, 5)
+    return read_virtual(elf, load+12, 8) + read_virtual(elf, load+5, 5)
 
 
 def mask_for(key, name):
@@ -273,12 +277,15 @@ def encode_read_patches(title, version, patches):
 def prepare_music_fix(game_data, *, community_replay=False, community_offline=False):
     community_replay = community_replay or community_offline
     root = Path(game_data)
-    executable = (root / 'CUSA09062-patch/eboot.bin').read_bytes()
+    executable = (root / 'eboot.bin').read_bytes()
     key = archive_key(executable)
+    source_hash = digest(executable)
+    updated = source_hash == EBOOT_SHA256
+    version = '01.02' if updated else '01.00'
     index_name = 'ps4data_info.psb.m'
-    index = Psb(unwrap((root / 'CUSA09062-app' / index_name).read_bytes(), key, index_name)).root
+    index = Psb(unwrap((root / index_name).read_bytes(), key, index_name)).root
     offset, size = index['file_info'][DIRECT_MENU]
-    body = root / 'CUSA09062-app/ps4data_body.bin'
+    body = root / 'ps4data_body.bin'
     original_size = body.stat().st_size
     if type(offset) is not int or type(size) is not int or not 0 <= offset <= original_size or not 1 <= size <= 262144 or size > original_size - offset:
         raise ValueError('Music script exceeds original archive')
@@ -314,9 +321,10 @@ def prepare_music_fix(game_data, *, community_replay=False, community_offline=Fa
                                 fixed_script_sha256=digest(replay_fixed))
     if community_offline:
         patch_index_name = 'ps4data_patch_info.psb.m'
-        patch_index = Psb(unwrap((root / 'CUSA09062-patch' / patch_index_name).read_bytes(), key, patch_index_name)).root['file_info']
+        patch_index = (Psb(unwrap((root / patch_index_name).read_bytes(), key, patch_index_name)).root if updated else index)['file_info']
         title_offset, title_size = patch_index[TITLE_STANDALONE]
-        patch_body = root / 'CUSA09062-patch/ps4data_patch_body.bin'
+        archive = 'ps4data_patch_body.bin' if updated else 'ps4data_body.bin'
+        patch_body = root / archive
         patch_size = patch_body.stat().st_size
         if type(title_offset) is not int or type(title_size) is not int or not 0 <= title_offset <= patch_size or not 1 <= title_size <= 262144 or title_size > patch_size - title_offset:
             raise ValueError('Patched title script exceeds original archive')
@@ -324,28 +332,29 @@ def prepare_music_fix(game_data, *, community_replay=False, community_offline=Fa
             source.seek(title_offset)
             title_packed = source.read(title_size)
         title_script = unwrap(title_packed, key, Path(TITLE_STANDALONE).name)
-        if digest(title_script) != TITLE_STANDALONE_SHA256:
-            raise ValueError('Title submission script differs from the verified 1.02 patch')
+        title_hash = TITLE_STANDALONE_SHA256 if updated else BASE_TITLE_STANDALONE_SHA256
+        if digest(title_script) != title_hash:
+            raise ValueError('Title submission script differs from the verified version')
         title_fixed = fix_community_local_round_gate(title_script)
         title_replacement = wrap_fixed(title_fixed, key, Path(TITLE_STANDALONE).name, title_size)
-        patches.append(dict(path='ps4data_patch_body.bin', file_size=patch_size, offset=title_offset,
+        patches.append(dict(path=archive, file_size=patch_size, offset=title_offset,
                             expected_sha256=digest(title_packed), replacement=title_replacement))
-        offline_report = dict(resource=TITLE_STANDALONE, layer='patch', offset=title_offset, bytes=title_size,
-                              original_script_sha256=TITLE_STANDALONE_SHA256, fixed_script_sha256=digest(title_fixed),
+        offline_report = dict(resource=TITLE_STANDALONE, layer='patch' if updated else 'base', offset=title_offset, bytes=title_size,
+                              original_script_sha256=title_hash, fixed_script_sha256=digest(title_fixed),
                               scope='eligible-post-game-submission', requires_native_rounds=True)
-    output = encode_read_patches('CUSA09062', '01.02', patches)
-    if digest((root / 'CUSA09062-patch/eboot.bin').read_bytes()) != EBOOT_SHA256 or body.stat().st_size != original_size:
+    output = encode_read_patches('CUSA09062', version, patches)
+    if digest((root / 'eboot.bin').read_bytes()) != source_hash or body.stat().st_size != original_size:
         raise ValueError('Game input changed during fix preparation')
     for item in patches:
-        original_body = body if item['path'] == 'ps4data_body.bin' else root / 'CUSA09062-patch/ps4data_patch_body.bin'
+        original_body = root / item['path']
         if original_body.stat().st_size != item['file_size']:
             raise ValueError('Original resource archive changed during fix preparation')
         with original_body.open('rb') as source:
             source.seek(item['offset'])
             if digest(source.read(len(item['replacement']))) != item['expected_sha256']:
                 raise ValueError('Original resource changed during fix preparation')
-    report = dict(format=1, fix='direct-menu-music-autosave', title_id='CUSA09062', app_version='01.02',
-        executable_sha256=EBOOT_SHA256, resource=DIRECT_MENU, offset=offset, bytes=size,
+    report = dict(format=1, fix='direct-menu-music-autosave', title_id='CUSA09062', app_version=version,
+        executable_sha256=source_hash, resource=DIRECT_MENU, offset=offset, bytes=size,
         original_file_bytes=original_size, original_packed_sha256=patch['expected_sha256'],
         original_script_sha256=DIRECT_MENU_SHA256, fixed_script_sha256=digest(fixed),
         read_overlay_sha256=digest(output), original_files_modified=False)

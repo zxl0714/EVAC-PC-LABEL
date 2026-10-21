@@ -1,5 +1,6 @@
 #include "native_community_round_audit.h"
 #include "community/protocol.h"
+#include "ketsui_version.h"
 #include <windows.h>
 #include <algorithm>
 #include <array>
@@ -103,16 +104,15 @@ bool ConfigureNativeCommunityRoundAudit() {
 void InstallNativeCommunityRoundAudit(unsigned char* image, std::size_t bytes,
                                      std::span<const std::uint8_t,32> source) {
     if (!enabled) return;
-    Require(!original && image && bytes >= kSlot + 8 && bytes >= kMethod + sizeof(kPrefix));
-    std::string digest;
-    for (auto b: source) { digest += "0123456789abcdef"[b >> 4]; digest += "0123456789abcdef"[b & 15]; }
-    Require(digest == kSource && std::memcmp(image+kMethod,kPrefix,sizeof(kPrefix)) == 0);
-    std::uint64_t target{}; std::memcpy(&target,image+kSlot,8);
-    Require(target == reinterpret_cast<std::uint64_t>(image+kMethod));
+    const auto* version=FindKetsuiVersion(source);
+    Require(!original && image && version && bytes>=version->factory_slot+8 && bytes>=version->factory+sizeof(kPrefix));
+    Require(std::memcmp(image+version->factory,kPrefix,sizeof(kPrefix))==0);
+    std::uint64_t target{}; std::memcpy(&target,image+version->factory_slot,8);
+    Require(target==reinterpret_cast<std::uint64_t>(image+version->factory));
     original = reinterpret_cast<Method>(target);
     target = reinterpret_cast<std::uint64_t>(&Observe);
     // The loader calls this once, after relocation and before segment protection.
-    std::memcpy(image+kSlot,&target,8);
+    std::memcpy(image+version->factory_slot,&target,8);
     std::puts("{\"event\":\"native_community_round_audit_installed\",\"observational_only\":true}");
 }
 

@@ -3,6 +3,7 @@
 #include "resource_prepare.h"
 #include "common/paths.h"
 #include "common/settings.h"
+#include "backends/ps4/ketsui_version.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <zlib.h>
@@ -20,7 +21,6 @@ namespace {
 using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t kPatchLimit = 262144;
-constexpr std::string_view kExecutableHash = "a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073";
 constexpr std::string_view kDaioujouExecutableHash = "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f";
 void Require(bool okay, const char* message) { if (!okay) throw std::runtime_error(message); }
 std::string Hex(std::span<const std::byte> bytes) {
@@ -231,8 +231,10 @@ ResourceBytes ReadRange(const fs::path& path,std::uint64_t file_size,std::uint64
     Require(bool(source.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(size))),"Truncated resource archive read"); return bytes;
 }
 ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,bool daioujou=false) {
-    Require(Hash(executable)==(daioujou?kDaioujouExecutableHash:kExecutableHash),
-        daioujou?"Game fixes require the verified CUSA32997 1.04 executable":"Game fixes require the verified CUSA09062 1.02 executable");
+    const auto source=Hash(executable);
+    const auto* version=daioujou?nullptr:FindKetsuiVersion(source);
+    Require(daioujou?source==kDaioujouExecutableHash:version!=nullptr,
+        daioujou?"Game fixes require the verified CUSA32997 1.04 executable":"Game fixes require a verified CUSA09062 executable");
     const auto count=Number(executable,56,2),table=Number(executable,32,8);
     Require(count<=64 && table<=executable.size() && count<=(executable.size()-table)/56,"Invalid archive executable headers");
     auto virtual_read=[&](std::uint64_t address,unsigned size) {
@@ -257,9 +259,10 @@ ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,bool daioujou=
         Require(address>=0,"Invalid archive initialization address");
         return virtual_read(static_cast<std::uint64_t>(address),13);
     }
-    Require(virtual_read(0xd3,2)==ResourceBytes{0x48,0xb8} && virtual_read(0xdd,2)==ResourceBytes{0x48,0xb9},
+    const auto load=version->archive_seed_load;
+    Require(virtual_read(load,2)==ResourceBytes{0x48,0xb8} && virtual_read(load+10,2)==ResourceBytes{0x48,0xb9},
         "Archive initialization instruction layout changed");
-    auto key=virtual_read(0xdf,8); const auto tail=virtual_read(0xd8,5); key.insert(key.end(),tail.begin(),tail.end()); return key;
+    auto key=virtual_read(load+12,8); const auto tail=virtual_read(load+5,5); key.insert(key.end(),tail.begin(),tail.end()); return key;
 }
 }
 
@@ -406,17 +409,19 @@ ResourceBytes EncodeReadFixes(const kt::content::ReadPatchSet& patches) {
 PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bool community_offline) {
     community_replay|=community_offline;
     const auto root=fs::canonical(data);
-    const auto executable=DataChild(root,"CUSA09062-patch/eboot.bin");
+    const auto executable=DataChild(root,"eboot.bin");
     const auto raw_executable=ReadFile(executable,512*1024*1024),key=ArchiveKey(raw_executable);
+    const auto* version=FindKetsuiVersion(Hash(raw_executable));Require(version,"Unsupported Ketsui resource version");
+    const bool updated=version->version=="01.02";
     std::vector<std::pair<fs::path,std::string>> indices;
     auto index=[&](std::string_view path,std::string_view name) {
         const auto file=DataChild(root,path); const auto bytes=ReadFile(file,kResourceLimit);
         indices.emplace_back(file,Hash(bytes)); return ParseResourceIndex(UnwrapResource(bytes,key,name));
     };
-    const auto base=index("CUSA09062-app/ps4data_info.psb.m","ps4data_info.psb.m");
-    kt::content::ReadPatchSet patches{"CUSA09062","01.02",{}};
-    Json report{{"format",1},{"fix","direct-menu-music-autosave"},{"title_id","CUSA09062"},{"app_version","01.02"},
-        {"executable_sha256",kExecutableHash},{"original_files_modified",false}};
+    const auto base=index("ps4data_info.psb.m","ps4data_info.psb.m");
+    kt::content::ReadPatchSet patches{"CUSA09062",std::string(version->version),{}};
+    Json report{{"format",1},{"fix","direct-menu-music-autosave"},{"title_id","CUSA09062"},{"app_version",version->version},
+        {"executable_sha256",version->source},{"original_files_modified",false}};
     auto fix=[&](const Json& file_index,std::string_view resource,std::string_view archive,std::string_view path,
                  std::string_view expected,ResourceFix transform) {
         const auto& extent=file_index.at("file_info").at(std::string(resource));
@@ -434,24 +439,26 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
         patches.entries.push_back(std::move(patch));
         return Json{{"resource",resource},{"offset",offset},{"bytes",size},{"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}};
     };
-    const auto music=fix(base,"5000/script/title_mode_direct_menu.nut.m","CUSA09062-app/ps4data_body.bin","ps4data_body.bin",
+    const auto music=fix(base,"5000/script/title_mode_direct_menu.nut.m","ps4data_body.bin","ps4data_body.bin",
         "83ba95c0ff110a17f9e641addc59e61b89c05431e57a91235eb15c872045f672",ResourceFix::MusicAutosave);
     report.update(music); report["original_file_bytes"]=patches.entries.front().file_size;
     report["original_packed_sha256"]=Hex(patches.entries.front().original_sha256);
     if (community_replay) report["community_replay_batch"]=fix(base,"system/script/ranking_manager.nut.m",
-        "CUSA09062-app/ps4data_body.bin","ps4data_body.bin","8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43",ResourceFix::ReplayBatch);
+        "ps4data_body.bin","ps4data_body.bin","8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43",ResourceFix::ReplayBatch);
     if (community_offline) {
-        const auto patch=index("CUSA09062-patch/ps4data_patch_info.psb.m","ps4data_patch_info.psb.m");
-        auto offline=fix(patch,"5000/script/title_standalone.nut.m","CUSA09062-patch/ps4data_patch_body.bin","ps4data_patch_body.bin",
-            "889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d",ResourceFix::LocalRoundGate);
-        offline.update(Json{{"layer","patch"},{"scope","eligible-post-game-submission"},{"requires_native_rounds",true}});
+        const auto patch=updated?index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m"):base;
+        const auto archive=updated?"ps4data_patch_body.bin":"ps4data_body.bin";
+        auto offline=fix(patch,"5000/script/title_standalone.nut.m",archive,archive,
+            updated?"889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d":
+                    "63b6a45d85e49936665e82e24f188e64fca4e60bc9bc850e71979ca2b9ef6bc8",ResourceFix::LocalRoundGate);
+        offline.update(Json{{"layer",updated?"patch":"base"},{"scope","eligible-post-game-submission"},{"requires_native_rounds",true}});
         report["community_local_rounds"]=std::move(offline);
     }
     auto output=EncodeReadFixes(patches);
-    Require(Hash(ReadFile(executable,512*1024*1024))==kExecutableHash,"Game executable changed during fix preparation");
+    Require(Hash(ReadFile(executable,512*1024*1024))==version->source,"Game executable changed during fix preparation");
     for (const auto& [file,hash]:indices) Require(Hash(ReadFile(file,kResourceLimit))==hash,"Resource index changed during preparation");
     for (const auto& patch:patches.entries) {
-        const auto file=DataChild(root,patch.path=="ps4data_body.bin" ? "CUSA09062-app/ps4data_body.bin" : "CUSA09062-patch/ps4data_patch_body.bin");
+        const auto file=DataChild(root,patch.path);
         Require(kt::content::ReadPatchHash(ByteSpan(ReadRange(file,patch.file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
             "Original resource changed during fix preparation");
     }

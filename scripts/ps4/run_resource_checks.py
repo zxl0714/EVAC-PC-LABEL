@@ -27,7 +27,7 @@ def path_checks(executable, directory):
         root = directory / ('collection-' + name)
         root.mkdir()
         data = root / 'data'
-        source = data / 'CUSA09062-patch/eboot.bin'
+        source = data / 'eboot.bin'
         source.parent.mkdir(parents=True)
         source.write_bytes(b'authored unsupported executable')
         output = root / '.local/output.ktfix'
@@ -38,7 +38,7 @@ def path_checks(executable, directory):
         elif name == 'wrong-place': output = root / 'user-data/output.ktfix'
         elif name == 'source-overlap':
             data = root / '.local/data'
-            source = data / 'CUSA09062-patch/eboot.bin'
+            source = data / 'eboot.bin'
             source.parent.mkdir(parents=True); source.write_bytes(b'authored unsupported executable')
             output = data / 'output.ktfix'
         elif name == 'junction':

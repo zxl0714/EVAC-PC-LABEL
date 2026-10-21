@@ -69,6 +69,8 @@ int wmain(int argc, wchar_t** argv) {
                 << ",\"backend\":" << Json(game.backend) << ",\"state\":" << Json(info.state)
                 << ",\"dataState\":" << Json(cave::Name(info.data_state)) << ",\"reason\":" << Json(info.reason)
                 << ",\"dataDirectory\":" << Json(cave::Utf8(info.data_dir))
+                << ",\"dataVariant\":" << Json(info.variant) << ",\"dataVersion\":" << Json(info.version)
+                << ",\"dataLayout\":" << Json(info.layout)
                 << ",\"filesChecked\":" << info.files_checked << ",\"hashesChecked\":" << info.hashes_checked
                 << ",\"problems\":";
       Strings(info.problems);

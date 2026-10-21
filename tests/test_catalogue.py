@@ -41,6 +41,38 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(sum(f['program'] for f in game['files']), 8)
         self.assertTrue(all(set(f) == {'path', 'bytes', 'sha256', 'program'} for f in game['files']))
 
+    def test_ketsui_base_and_merged_update_have_separate_complete_manifests(self):
+        game = next(game for game in catalogue.load(self.path) if game['id'] == 'ketsui')
+        self.assertEqual([(v['id'], v['version'], v['layout'], len(v['files'])) for v in game['variants']],
+                         [('update-102', '01.02', 'merged-patch', 47), ('base', '01.00', 'base', 41)])
+        self.assertEqual(game['files'], game['variants'][0]['files'])
+        for variant in game['variants']:
+            files = {item['path']: item for item in variant['files']}
+            self.assertIn('eboot.bin', files)
+            self.assertIn('sce_module/libc.prx', files)
+            self.assertFalse(any(name.startswith('CUSA09062-') for name in files))
+            self.assertTrue({'CUSA09062-app', 'CUSA09062-patch'}.issubset(variant['forbiddenFiles']))
+        base = game['variants'][1]
+        self.assertIn('ps4data_patch_body.bin', base['forbiddenFiles'])
+        self.assertIn('ps4data_patch_info.psb.m', base['forbiddenFiles'])
+        self.assertIn('std::array<DataVariant,2>', catalogue.generate(catalogue.load(self.path)))
+
+    def test_invalid_or_ambiguous_data_variants_are_rejected(self):
+        original = catalogue.read_json(self.root / 'games/ketsui/data.json')
+        cases = []
+        for field, value in [('id', original['variantId']), ('entry', 'wrapped/eboot.bin'),
+                             ('version', '1.00'), ('layout', 'legacy-pair'), ('forbiddenFiles', ['eboot.bin'])]:
+            raw = copy.deepcopy(original); raw['alternatives'][0][field] = value; cases.append(raw)
+        raw = copy.deepcopy(original)
+        raw['alternatives'][0]['files'][0]['sha256'] = original['files'][0]['sha256']
+        # Match the actual entry, not whichever file sorts first.
+        next(f for f in raw['alternatives'][0]['files'] if f['path'] == 'eboot.bin')['sha256'] = next(f for f in original['files'] if f['path'] == 'eboot.bin')['sha256']
+        cases.append(raw)
+        raw = copy.deepcopy(original); raw.pop('variantId'); cases.append(raw)
+        for raw in cases:
+            with self.subTest(raw=raw.get('variantId')), self.assertRaises(ValueError):
+                catalogue.data_variants(raw)
+
     def test_daioujou_candidate_uses_own_data_and_shared_ps4_runtime(self):
         game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')
         manifest=catalogue.read_json(self.root/'games/daioujou/data.json')

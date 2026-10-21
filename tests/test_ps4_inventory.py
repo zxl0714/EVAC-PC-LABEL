@@ -19,11 +19,10 @@ def sfo(values):
     return struct.pack('<5I',0x46535000,0x101,start,start+len(keys),len(values))+entries+keys+data
 
 
-def fixture(root):
-    for folder,version,category in [('CUSA09062-app','01.00','gd'),('CUSA09062-patch','01.02','gp')]:
-        directory=root/folder; (directory/'sce_sys').mkdir(parents=True)
-        (directory/'sce_sys/param.sfo').write_bytes(sfo(dict(TITLE_ID='CUSA09062',APP_VER=version,CATEGORY=category)))
-        (directory/'eboot.bin').write_bytes(b'authored executable placeholder')
+def fixture(root,version='01.02',category='gp'):
+    (root/'sce_sys').mkdir(parents=True)
+    (root/'sce_sys/param.sfo').write_bytes(sfo(dict(TITLE_ID='CUSA09062',APP_VER=version,CATEGORY=category)))
+    (root/'eboot.bin').write_bytes(b'authored executable placeholder')
     (root/'CUSA09062.complete').touch()
 
 
@@ -34,24 +33,41 @@ class Ps4InventoryTests(unittest.TestCase):
             before={path:path.read_bytes() for path in root.rglob('*') if path.is_file()}
             record=module.inventory(root)
             self.assertEqual(record['game'],'ketsui')
-            self.assertEqual(len(record['files']),4)
-            self.assertEqual(sum(item['program'] for item in record['files']),2)
+            self.assertEqual(len(record['files']),2)
+            self.assertEqual(sum(item['program'] for item in record['files']),1)
+            self.assertEqual((record['variantId'],record['layout']),('update-102','merged-patch'))
             self.assertNotIn('authored executable',json.dumps(record))
             self.assertEqual(before,{path:path.read_bytes() for path in root.rglob('*') if path.is_file()})
             (root/'CUSA09062.complete').unlink()
             self.assertEqual(module.inventory(root),record)
 
-    def test_wrong_title_patch_version_and_extra_root_data_are_rejected(self):
+    def test_wrong_title_version_category_and_legacy_roots_are_rejected(self):
         for values in [dict(TITLE_ID='CUSA00001',APP_VER='01.02',CATEGORY='gp'),
                        dict(TITLE_ID='CUSA09062',APP_VER='01.01',CATEGORY='gp'),
                        dict(TITLE_ID='CUSA09062',APP_VER='01.02',CATEGORY='gd')]:
             with self.subTest(values=values), tempfile.TemporaryDirectory() as temporary:
                 root=Path(temporary);fixture(root)
-                (root/'CUSA09062-patch/sce_sys/param.sfo').write_bytes(sfo(values))
+                (root/'sce_sys/param.sfo').write_bytes(sfo(values))
                 with self.assertRaisesRegex(ValueError,'Unsupported'):module.inventory(root)
         with tempfile.TemporaryDirectory() as temporary:
-            root=Path(temporary);fixture(root);(root/'unexpected.dat').write_bytes(b'authored')
-            with self.assertRaisesRegex(ValueError,'Expected only'):module.inventory(root)
+            root=Path(temporary);fixture(root);(root/'CUSA09062-app').mkdir();(root/'CUSA09062-app/eboot.bin').write_bytes(b'authored')
+            with self.assertRaisesRegex(ValueError,'Legacy dual'):module.inventory(root)
+
+    def test_base_metadata_is_independent_of_an_update(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);fixture(root,'01.00','gd')
+            record=module.inventory(root)
+            self.assertEqual((record['version'],record['variantId'],record['layout']),('01.00','base','base'))
+            self.assertEqual(len(record['files']),2)
+
+    def test_metadata_order_is_case_sensitive_and_platform_independent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);fixture(root)
+            (root/'sce_module').mkdir()
+            for name in ('libc.prx','libSceAuthored.prx'):
+                (root/'sce_module'/name).write_bytes(b'authored module placeholder')
+            names=[item['path'] for item in module.inventory(root)['files']]
+            self.assertEqual(names,sorted(names))
 
     def test_bounded_sfo_rejects_truncation_bad_extents_and_duplicate_fields(self):
         valid=sfo(dict(TITLE_ID='CUSA09062',APP_VER='01.02'))

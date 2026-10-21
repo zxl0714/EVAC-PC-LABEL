@@ -21,7 +21,7 @@ LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
 V03_GAMES = (*GAMES, 'daioujou')
 DEFAULT_VERSION = '0.3'
-MANIFEST_ONLY_DATA = {'sdoj', 'daioujou'}
+MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui'}
 REMOTE = 'git@github.com:zxl0714/CAVE-PC-Collection.git'
 META = {'release.json', 'SHA256SUMS.txt'}
 UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3'}
@@ -58,6 +58,17 @@ def catalogue(selection=GAMES):
            or not games[key].get('communitySupported', True) for key in selection):
         raise ValueError('All selected release games must be integrated with community support: ' + ', '.join(selection))
     return games
+
+
+def selected_data_files(game, variant=None):
+    if not game.get('variants'):
+        if variant:
+            raise ValueError('Unexpected data variant')
+        return game['files']
+    matches = [item['files'] for item in game['variants'] if item['id'] == variant]
+    if len(matches) != 1:
+        raise ValueError('A supported data variant must be explicitly identified')
+    return matches[0]
 
 
 def config_name(version):
@@ -274,10 +285,10 @@ def verify_tree(directory, games=None):
     if release['flavor'] == 'Internal':
         required = []
         for key in selection:
-            required += [('game-data/' + key + '/' + item['path'], item) for item in games[key]['files']]
+            required += [('game-data/' + key + '/' + item['path'], item) for item in selected_data_files(games[key], release.get('dataVariants', {}).get(key))]
         for key in set(selection) & MANIFEST_ONLY_DATA:
             prefix = 'game-data/' + key + '/'
-            supported = {prefix + item['path'] for item in games[key]['files']}
+            supported = {prefix + item['path'] for item in selected_data_files(games[key], release.get('dataVariants', {}).get(key))}
             if {name for name in expected if name.startswith(prefix)} != supported:
                 raise ValueError(key + ' package must contain only the supported resource manifest')
         for package in games['futari']['content']:
@@ -415,7 +426,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
     if flavor == 'Internal':
         for key, report in reports.items():
             print('Copying complete data: ' + key, flush=True)
-            copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, games[key]['files'],
+            copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
                       {'dlc'} if key == 'futari' else (), manifest_only=key in MANIFEST_ONLY_DATA)
         target_dlc = directory / 'game-data/futari/dlc'
         copy_data(dlc, target_dlc, entries, [file for package in games['futari']['content'] for file in package['files']])
@@ -430,6 +441,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None):
         files=sorted(payload, key=lambda item: item['path']),
         gameplayAcceptance='Recorded separately; packaging does not perform gameplay acceptance',
         uploadsPerformed=False)
+    if flavor == 'Internal':
+        release['dataVariants'] = {key: report['dataVariant'] for key, report in reports.items() if games[key].get('variants')}
     if flavor == 'Update':
         release.update(baseVersion=UPDATE_BASES[version], preservedPaths=list(UPDATE_PRESERVED))
     write_json_new(directory / 'release.json', release)

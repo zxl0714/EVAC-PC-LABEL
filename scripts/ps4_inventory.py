@@ -1,4 +1,4 @@
-"""Read a complete CUSA09062 app/1.02 patch inventory; output metadata only."""
+"""Inventory one extracted CUSA09062 base or merged-1.02 root; metadata only."""
 import argparse
 from pathlib import Path
 import struct
@@ -50,16 +50,19 @@ def inventory(root):
         records.append(item)
     names={item['path'].casefold() for item in records}
     if len(names)!=len(records):raise ValueError('Case-colliding game paths')
-    if any(not name.startswith(('cusa09062-app/','cusa09062-patch/')) for name in names):
-        raise ValueError('Expected only CUSA09062-app and CUSA09062-patch under the data root')
-    for prefix,version,category in [('CUSA09062-app','01.00','gd'),('CUSA09062-patch','01.02','gp')]:
-        metadata=sfo(root/prefix/'sce_sys/param.sfo')
-        if metadata.get('TITLE_ID')!='CUSA09062' or metadata.get('APP_VER')!=version or metadata.get('CATEGORY')!=category:
-            raise ValueError('Unsupported Ketsui title, app version or patch version')
-        if (prefix+'/eboot.bin').casefold() not in names:raise ValueError('Missing app/patch executable')
-    return dict(format=1,game='ketsui',titleId='CUSA09062',version='01.02',source=dict(
+    if any(name.startswith(('cusa09062-app/','cusa09062-patch/')) for name in names):
+        raise ValueError('Legacy dual directories are unsupported; select one actual game root')
+    metadata=sfo(root/'sce_sys/param.sfo')
+    version=metadata.get('APP_VER')
+    if metadata.get('TITLE_ID')!='CUSA09062' or (version,metadata.get('CATEGORY')) not in (('01.00','gd'),('01.02','gp')):
+        raise ValueError('Unsupported Ketsui title, app version or content category')
+    if 'eboot.bin' not in names:raise ValueError('Missing root executable')
+    records.sort(key=lambda item:item['path'])
+    return dict(format=1,game='ketsui',titleId='CUSA09062',version=version,
+        layout='base' if version=='01.00' else 'merged-patch',entry='eboot.bin',
+        variantId='base' if version=='01.00' else 'update-102',source=dict(
         repository='https://github.com/zxl0714/Ketsui-PC',commit='9501378a609d39f20e1d72d41664986ceb167f99',
-        description='Complete supported app and 1.02 patch; paths, sizes and SHA-256 metadata only'),files=records)
+        description='Extracted single game root; paths, sizes and SHA-256 metadata only'),files=records)
 
 
 def main():

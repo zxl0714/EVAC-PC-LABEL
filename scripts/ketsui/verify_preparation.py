@@ -11,11 +11,18 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from analysis_paths import private_output
 from project import ROOT,digest,write_json_new
 from ps4_build_receipt import verify
-from ps4_inventory import inventory
+from ps4_inventory import inventory,sfo
+from generate_catalogue import load
 sys.path.insert(0,str(ROOT/'scripts/ps4'))
 from prepare_native import prepare
 sys.path.insert(0,str(ROOT/'scripts/ketsui'))
 from game_fixes import prepare_music_fix
+
+
+def mount_arguments(data):
+    arguments=['--app-dir',str(data)]
+    if sfo(data/'sce_sys/param.sfo')['APP_VER']=='01.02':arguments+=['--merged-app','on']
+    return arguments
 
 
 def verify_cache(exe,data,directory):
@@ -43,7 +50,7 @@ def verify_cache(exe,data,directory):
     _,metadata=prepare_music_fix(data,community_offline=True)
     outputs_match=outputs_match and json.loads((Path(first['directory'])/'game-fixes.json').read_text())==metadata
     validation=subprocess.run([str(exe),first['executable'],'--validate','--module-dir',first['modules'],
-        '--app-dir',str(data/'CUSA09062-app'),'--patch-dir',str(data/'CUSA09062-patch'),
+        *mount_arguments(data),
         '--read-patches',first['readFixes']],cwd=directory,capture_output=True,timeout=30)
     for suffix,content in [('stdout.jsonl',validation.stdout),('stderr.txt',validation.stderr)]:
         with (directory/('cache-validation.'+suffix)).open('xb') as target:target.write(content)
@@ -74,7 +81,7 @@ def verify_read_fixes(exe,data,directory,probe):
         # identical scripts. Do not weaken this check silently if it changes.
         matched=output.read_bytes()==expected and all(native.get(key)==value for key,value in metadata.items())
         validation=subprocess.run([str(exe),str(probe),'--validate','--module-dir',str(directory),
-            '--app-dir',str(data/'CUSA09062-app'),'--patch-dir',str(data/'CUSA09062-patch'),
+            *mount_arguments(data),
             '--read-patches',str(output)],cwd=directory,capture_output=True,timeout=30)
         for suffix,content in [('stdout.jsonl',validation.stdout),('stderr.txt',validation.stderr)]:
             with (directory/('content-validation-'+name+'.'+suffix)).open('xb') as target:target.write(content)
@@ -97,17 +104,19 @@ def main():
     receipt=verify()
     data=args.game_data.resolve()
     original_inventory=inventory(data)
-    if original_inventory['files']!=json.loads((ROOT/'games/ketsui/data.json').read_text())['files']:
+    game=next(game for game in load(ROOT/'games/catalogue.json') if game['id']=='ketsui')
+    variant=next((variant for variant in game['variants'] if variant['id']==original_inventory['variantId']),None)
+    if not variant or original_inventory['files']!=variant['files']:
         raise ValueError('Game data differs from the supported complete inventory')
     directory=private_output(args.output or ROOT/'.local/ketsui-preparation'/
         (datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ-')+uuid.uuid4().hex[:8]),data)
     directory.mkdir(parents=True,exist_ok=False)
     exe=ROOT/'out/ps4-native/KetsuiNativeProbe.exe'
-    libc=data/'CUSA09062-app/sce_module/libc.prx'
+    libc=data/'sce_module/libc.prx'
     before_libc=digest(libc)
     results=[]
     for name,module in [('eboot.bin',False),('emu_integration_01400.prx',True),('ketsui_01000.prx',True)]:
-        source=data/'CUSA09062-patch'/name
+        source=data/name
         output=directory/(name+('.ktmodule' if module else '.ktprobe'))
         before=digest(source)
         command=[str(exe),'--prepare-elf',str(source),'--root',str(ROOT),'--output',str(output),'--libc',str(libc)]

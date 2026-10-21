@@ -22,6 +22,18 @@ class ReleaseTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
+    def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
+        primary, base = [{'path': 'updated-fixture'}], [{'path': 'base-fixture'}]
+        game = dict(files=primary, variants=[dict(id='update-102', files=primary), dict(id='base', files=base)])
+        self.assertIs(release.selected_data_files(game, 'base'), base)
+        self.assertIs(release.selected_data_files(game, 'update-102'), primary)
+        for invalid in (None, '', 'unknown'):
+            with self.subTest(variant=invalid), self.assertRaises(ValueError):
+                release.selected_data_files(game, invalid)
+        self.assertIs(release.selected_data_files(dict(files=base)), base)
+        with self.assertRaises(ValueError):
+            release.selected_data_files(dict(files=base), 'base')
+
     def test_tree_checks_root_ancestors_once_and_returns_all_nested_files(self):
         directory = self.root / '普通目录 with spaces'
         expected = []

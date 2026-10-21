@@ -2,6 +2,7 @@
 #include "native_np_score.h"
 #include "native_user.h"
 #include "native_memory.h"
+#include "ketsui_version.h"
 #include <windows.h>
 #include <algorithm>
 #include <array>
@@ -21,14 +22,16 @@ struct NativeCommunityRound {
     RoundSubmission submission;
 };
 namespace {
-constexpr std::size_t kFactory=0x1e4ca0,kFactorySlot=0x2d8ed8,kScoreTable=0x2d8fb8;
-constexpr std::array<std::size_t,3> kSlots{kScoreTable+0x40,kScoreTable,kScoreTable+8};
-constexpr std::array<std::size_t,3> kTargets{0x1e75b0,0x1e8fb0,0x1e8fc0};
-constexpr std::array<std::size_t,2> kBackendSlots{0x2d8eb8,0x2d8ec0};
-constexpr std::array<std::size_t,2> kBackendTargets{0x1e4320,0x1e4690};
-constexpr std::size_t kModuleLoaded=0x791ac8,kContext=0x791acc,kServiceLabel=0x2e0f38;
+constexpr auto& kUpdated=kKetsuiVersions[1];
+constexpr std::size_t kFactory=kUpdated.factory,kFactorySlot=kUpdated.factory_slot,kScoreTable=kUpdated.score_table;
+constexpr auto kSlots=std::array{kScoreTable+0x40,kScoreTable,kScoreTable+8};
+constexpr auto kTargets=kUpdated.job_targets;
+constexpr auto kBackendSlots=kUpdated.backend_slots;
+constexpr auto kBackendTargets=kUpdated.backend_targets;
+constexpr std::size_t kModuleLoaded=kUpdated.module_loaded,kContext=kUpdated.context,kServiceLabel=kUpdated.service_label;
 constexpr unsigned char kFactoryPrefix[]{0x55,0x48,0x89,0xe5,0x41,0x57,0x41,0x56,0x41,0x55,0x41,0x54,0x53,0x48,0x83,0xec};
-constexpr char kSource[]="a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073";
+constexpr auto kSource=kUpdated.source;
+const KetsuiVersion* active_version{};
 using Factory=std::uint64_t(KT_SYSV*)(std::uint64_t,std::uint64_t,std::uint64_t,std::uint64_t,std::uint64_t);
 using JobMethod=void(KT_SYSV*)(std::uint64_t);
 using BackendInit=std::uint64_t(KT_SYSV*)(std::uint64_t,std::uint64_t);
@@ -83,7 +86,8 @@ NativeCommunityRoundHandle Capture(std::uint64_t boards,std::uint64_t metadata,s
     std::uint32_t version{},data_version{},record_score{};
     std::memcpy(&version,round->input.record.data(),4); std::memcpy(&data_version,round->input.record.data()+4,4); std::memcpy(&record_score,round->input.record.data()+108,4);
     Require(version==0x10001 && data_version==0x10001 && round->input.score==record_score);
-    round->input.build="ketsui-native-round-1.02"; return round;
+    Require(active_version);
+    round->input.build="ketsui-native-round-"+std::string(active_version->version.substr(1)); return round;
 }
 NativeCommunityRoundHandle For(std::uint64_t job) {
     std::lock_guard lock(binding_gate);
@@ -143,7 +147,7 @@ __declspec(noinline) std::uint64_t InitializeBackendHost(std::uint64_t backend,s
         // The normal initializer remains authoritative online. Its module
         // loading also precedes the account query, so a missing module is not
         // turned into successful local initialization.
-        if (!client->State().ready && NativeUserInitialized() && Value<unsigned char>(image_base,kModuleLoaded)==1) {
+        if (!client->State().ready && NativeUserInitialized() && Value<unsigned char>(image_base,active_version->module_loaded)==1) {
             stage="profile_label";
             const auto root=psb_root(config);
             // The verified original call tests AL. Upper RAX bits are not a
@@ -151,14 +155,14 @@ __declspec(noinline) std::uint64_t InitializeBackendHost(std::uint64_t backend,s
             Require(static_cast<unsigned char>(psb_has(&root,"service_label",0))!=0);
             const auto label=psb_item(&root,"service_label");
             Require(psb_integer(&label)==0);
-            const auto previous_label=Value<std::int32_t>(image_base,kServiceLabel);
+            const auto previous_label=Value<std::int32_t>(image_base,active_version->service_label);
             Require(previous_label==-1 || previous_label==0);
-            auto context=Value<int>(image_base,kContext);
+            auto context=Value<int>(image_base,active_version->context);
             stage="write_leases";
             auto config_write=BeginNativeHostWrite(reinterpret_cast<void*>(Add(backend,0xa8)),8);
             auto account_write=BeginNativeHostWrite(reinterpret_cast<void*>(Add(backend,0xb8)),8);
-            auto label_write=BeginNativeHostWrite(reinterpret_cast<void*>(Add(image_base,kServiceLabel)),4);
-            auto context_write=BeginNativeHostWrite(reinterpret_cast<void*>(Add(image_base,kContext)),4);
+            auto label_write=BeginNativeHostWrite(reinterpret_cast<void*>(Add(image_base,active_version->service_label)),4);
+            auto context_write=BeginNativeHostWrite(reinterpret_cast<void*>(Add(image_base,active_version->context)),4);
             Require(config_write && account_write && label_write && context_write);
             if (context<=0) {
                 stage="local_context";
@@ -172,8 +176,8 @@ __declspec(noinline) std::uint64_t InitializeBackendHost(std::uint64_t backend,s
             Require(Value<std::uint64_t>(backend,0xa8)!=0);
             const std::uint64_t unbound{}; const int zero{};
             std::memcpy(reinterpret_cast<void*>(Add(backend,0xb8)),&unbound,8);
-            std::memcpy(reinterpret_cast<void*>(Add(image_base,kServiceLabel)),&zero,4);
-            std::memcpy(reinterpret_cast<void*>(Add(image_base,kContext)),&context,4);
+            std::memcpy(reinterpret_cast<void*>(Add(image_base,active_version->service_label)),&zero,4);
+            std::memcpy(reinterpret_cast<void*>(Add(image_base,active_version->context)),&context,4);
             initialized=true; created=0; stage="ready";
         }
     } catch (...) {}
@@ -213,23 +217,35 @@ bool NativeCommunityRoundsEnabled() { return bool(client); }
 NativeCommunityRoundHandle CurrentNativeCommunityRound() { return current; }
 void InstallNativeCommunityRounds(unsigned char* image,std::size_t bytes,std::span<const std::uint8_t,32> source) {
     if (!client) return;
-    Require(!factory && image && bytes>=kContext+4 && bytes>=kFactory+sizeof(kFactoryPrefix));
-    std::string digest; for (auto b:source) { digest+="0123456789abcdef"[b>>4]; digest+="0123456789abcdef"[b&15]; }
-    Require(digest==kSource && !std::memcmp(image+kFactory,kFactoryPrefix,sizeof(kFactoryPrefix)) &&
-            Value<std::uint64_t>(reinterpret_cast<std::uint64_t>(image),kFactorySlot)==reinterpret_cast<std::uint64_t>(image+kFactory));
-    for (std::size_t i=0;i<kSlots.size();++i) Require(Value<std::uint64_t>(reinterpret_cast<std::uint64_t>(image),kSlots[i])==reinterpret_cast<std::uint64_t>(image+kTargets[i]));
-    for (std::size_t i=0;i<kBackendSlots.size();++i) Require(Value<std::uint64_t>(reinterpret_cast<std::uint64_t>(image),kBackendSlots[i])==reinterpret_cast<std::uint64_t>(image+kBackendTargets[i]));
-    factory=reinterpret_cast<Factory>(image+kFactory); score_table=reinterpret_cast<std::uint64_t>(image+kScoreTable);
+    const auto* version=FindKetsuiVersion(source);
+    Require(!factory && image && version);
+    const auto& v=*version;const auto slots=v.JobSlots();
+    const auto inside=[&](std::size_t offset,std::size_t extent) {return offset<=bytes && extent<=bytes-offset;};
+    for(auto offset:{v.module_loaded,v.context,v.service_label,v.factory_slot,v.score_table,
+                    v.psb_root,v.psb_has,v.psb_item,v.psb_integer,v.copy_profile})Require(inside(offset,8));
+    Require(inside(v.factory,sizeof(kFactoryPrefix)) && !std::memcmp(image+v.factory,kFactoryPrefix,sizeof(kFactoryPrefix)) &&
+            Value<std::uint64_t>(reinterpret_cast<std::uint64_t>(image),v.factory_slot)==reinterpret_cast<std::uint64_t>(image+v.factory));
+    for (std::size_t i=0;i<slots.size();++i) {
+        Require(inside(slots[i],8) && inside(v.job_targets[i],1));
+        Require(Value<std::uint64_t>(reinterpret_cast<std::uint64_t>(image),slots[i])==reinterpret_cast<std::uint64_t>(image+v.job_targets[i]));
+    }
+    for (std::size_t i=0;i<v.backend_slots.size();++i) {
+        Require(inside(v.backend_slots[i],8) && inside(v.backend_targets[i],1));
+        Require(Value<std::uint64_t>(reinterpret_cast<std::uint64_t>(image),v.backend_slots[i])==reinterpret_cast<std::uint64_t>(image+v.backend_targets[i]));
+    }
+    active_version=version;
+    factory=reinterpret_cast<Factory>(image+v.factory); score_table=reinterpret_cast<std::uint64_t>(image+v.score_table);
     image_base=reinterpret_cast<std::uint64_t>(image);
-    backend_init=reinterpret_cast<BackendInit>(image+kBackendTargets[0]); backend_getter=reinterpret_cast<BackendGetter>(image+kBackendTargets[1]);
-    psb_root=reinterpret_cast<PsbRoot>(image+0x1b0f90); psb_has=reinterpret_cast<PsbHas>(image+0x1b30b0);
-    psb_item=reinterpret_cast<PsbItem>(image+0x1b4280); psb_integer=reinterpret_cast<PsbInteger>(image+0x1b11c0);
-    copy_profile=reinterpret_cast<CopyProfile>(image+0x1fdd50);
-    for (std::size_t i=0;i<methods.size();++i) methods[i]=reinterpret_cast<JobMethod>(image+kTargets[i]);
+    backend_init=reinterpret_cast<BackendInit>(image+v.backend_targets[0]); backend_getter=reinterpret_cast<BackendGetter>(image+v.backend_targets[1]);
+    psb_root=reinterpret_cast<PsbRoot>(image+v.psb_root); psb_has=reinterpret_cast<PsbHas>(image+v.psb_has);
+    psb_item=reinterpret_cast<PsbItem>(image+v.psb_item); psb_integer=reinterpret_cast<PsbInteger>(image+v.psb_integer);
+    copy_profile=reinterpret_cast<CopyProfile>(image+v.copy_profile);
+    for (std::size_t i=0;i<methods.size();++i) methods[i]=reinterpret_cast<JobMethod>(image+v.job_targets[i]);
     const auto write=[&](std::size_t slot,auto function) { const auto target=reinterpret_cast<std::uint64_t>(function); std::memcpy(image+slot,&target,8); };
-    write(kFactorySlot,&Create); write(kSlots[0],&Tick); write(kSlots[1],&Destroy); write(kSlots[2],&Delete);
-    write(kBackendSlots[0],&InitializeBackend); write(kBackendSlots[1],&BackendInitialized);
-    std::puts("{\"event\":\"native_community_round_producer_installed\",\"source_bound\":true}");
+    write(v.factory_slot,&Create); write(slots[0],&Tick); write(slots[1],&Destroy); write(slots[2],&Delete);
+    write(v.backend_slots[0],&InitializeBackend); write(v.backend_slots[1],&BackendInitialized);
+    std::printf("{\"event\":\"native_community_round_producer_installed\",\"source_bound\":true,\"data_version\":\"%.*s\"}\n",
+                static_cast<int>(v.version.size()),v.version.data());
 }
 bool BeginNativeCommunityRoundScore(const NativeCommunityRoundHandle& round,std::uint32_t board,std::uint64_t score,
                                    std::span<const std::byte,64> comment,std::span<const std::byte> info) {
@@ -313,7 +329,36 @@ bool NativeCommunityRoundsSelfTest(const std::filesystem::path& directory) {
     Config config; config.enabled=false;
     auto disabled=std::make_shared<Client>(config,directory,true);
     check(ConfigureNativeCommunityRounds(disabled) && !ConfigureNativeCommunityRounds(disabled),"producer_is_startup_only_and_configured_once");
-    std::vector<unsigned char> image(kContext+4);
+    check(!FindKetsuiVersion(std::string_view{}) && !FindKetsuiVersion(std::string(64,'0')),"unknown_or_empty_version_identity_is_not_inferred_from_offsets");
+    for(const auto& version:kKetsuiVersions) {
+        std::vector<unsigned char> fixture(version.context+8);
+        const auto address=reinterpret_cast<std::uint64_t>(fixture.data());
+        const auto slots=version.JobSlots();
+        std::array<std::uint8_t,32> identity{};
+        for(std::size_t i=0;i<identity.size();++i)identity[i]=static_cast<std::uint8_t>(16*nibble(version.source[2*i])+nibble(version.source[2*i+1]));
+        std::memcpy(fixture.data()+version.factory,kFactoryPrefix,sizeof(kFactoryPrefix));
+        Put(fixture.data(),version.factory_slot,address+version.factory);
+        for(std::size_t i=0;i<slots.size();++i)Put(fixture.data(),slots[i],address+version.job_targets[i]);
+        for(std::size_t i=0;i<version.backend_slots.size();++i)Put(fixture.data(),version.backend_slots[i],address+version.backend_targets[i]);
+        auto other=identity;other[0]^=1;
+        check(rejects([&] {InstallNativeCommunityRounds(fixture.data(),fixture.size(),other);}) && !factory &&
+              Value<std::uint64_t>(address,version.factory_slot)==address+version.factory,"each_version_rejects_unknown_hash_without_writes");
+        const auto& peer=kKetsuiVersions[version.version=="01.00"?1:0];
+        for(std::size_t i=0;i<other.size();++i)other[i]=static_cast<std::uint8_t>(16*nibble(peer.source[2*i])+nibble(peer.source[2*i+1]));
+        check(rejects([&] {InstallNativeCommunityRounds(fixture.data(),fixture.size(),other);}) && !factory &&
+              Value<std::uint64_t>(address,version.factory_slot)==address+version.factory,"a_known_peer_hash_cannot_select_the_other_versions_slots");
+        check(rejects([&] {InstallNativeCommunityRounds(fixture.data(),version.factory_slot+7,identity);}) && !factory,
+              "each_version_checks_image_extent_before_slot_reads");
+        InstallNativeCommunityRounds(fixture.data(),fixture.size(),identity);
+        check(active_version==&version && factory==reinterpret_cast<Factory>(fixture.data()+version.factory) &&
+              score_table==address+version.score_table && psb_item==reinterpret_cast<PsbItem>(fixture.data()+version.psb_item) &&
+              Value<std::uint64_t>(address,version.factory_slot)==reinterpret_cast<std::uint64_t>(&Create) &&
+              Value<std::uint64_t>(address,slots[0])==reinterpret_cast<std::uint64_t>(&Tick),
+              "each_known_version_installs_only_its_verified_code_and_dispatch_sites");
+        factory=nullptr;methods={};score_table=0;backend_init=nullptr;backend_getter=nullptr;
+        psb_root=nullptr;psb_has=nullptr;psb_item=nullptr;psb_integer=nullptr;copy_profile=nullptr;image_base=0;active_version=nullptr;
+    }
+    std::vector<unsigned char> image(kContext+8);
     std::memcpy(image.data()+kFactory,kFactoryPrefix,sizeof(kFactoryPrefix));
     const auto base=reinterpret_cast<std::uint64_t>(image.data()); Put(image.data(),kFactorySlot,base+kFactory);
     for (std::size_t i=0;i<kSlots.size();++i) Put(image.data(),kSlots[i],base+kTargets[i]);
@@ -434,6 +479,6 @@ bool NativeCommunityRoundsSelfTest(const std::filesystem::path& directory) {
     Destroy(one); Delete(two);
     check(!std::filesystem::exists(directory),"authored_disabled_fixture_creates_no_profile_or_network_storage");
     for (auto& entry:bindings) entry={}; current.reset(); test_seen.reset(); client.reset(); invalid.reset(); factory=nullptr; methods={}; score_table=0;
-    backend_init=nullptr; backend_getter=nullptr; psb_root=nullptr; psb_has=nullptr; psb_item=nullptr; psb_integer=nullptr; copy_profile=nullptr; image_base=0;
+    backend_init=nullptr; backend_getter=nullptr; psb_root=nullptr; psb_has=nullptr; psb_item=nullptr; psb_integer=nullptr; copy_profile=nullptr; image_base=0;active_version=nullptr;
     std::printf("{\"event\":\"native_round_self_test\",\"passed\":%s,\"cases\":%u}\n",okay?"true":"false",cases); return okay;
 }

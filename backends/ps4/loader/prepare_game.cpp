@@ -12,7 +12,7 @@
 namespace cave::ps4 {
 namespace {
 using Json=nlohmann::json;
-void CheckData(const fs::path& root,const fs::path& data,std::string_view id) {
+Inspection CheckData(const fs::path& root,const fs::path& data,std::string_view id) {
     auto game=FindGame(id);
     // Preparation verifies inputs independently of the player-facing capability
     // gate. A prepared image is not proof that an unfinished title is playable.
@@ -20,6 +20,7 @@ void CheckData(const fs::path& root,const fs::path& data,std::string_view id) {
     const auto inspected=Inspect(game,root,data,CheckLevel::Full);
     if (inspected.data_state!=DataState::Verified) throw std::runtime_error(std::string(id)+" data is not the complete supported version: "+
         (inspected.problems.empty()?inspected.reason:inspected.problems.front()));
+    return inspected;
 }
 }
 PreparedGame PrepareKetsuiGame(const fs::path& requested_root,const fs::path& requested_data) {
@@ -29,15 +30,16 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     if (game!="ketsui" && game!="daioujou") throw std::runtime_error("Unsupported PS4 preparation game");
     const bool ketsui=game=="ketsui";
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
-    ValidateOutputs(Paths(root,game,data));CheckData(root,data,game);
+    ValidateOutputs(Paths(root,game,data));const auto inspected=CheckData(root,data,game);
     std::array<wchar_t,32768> executable{};
     const auto length=GetModuleFileNameW(nullptr,executable.data(),static_cast<DWORD>(executable.size()));
     if (!length || length>=executable.size()) throw std::runtime_error("Cannot determine preparation program identity");
     const fs::path producer(executable.data());const auto producer_hash=Sha256(producer);
     auto inputs=Json::array();
-    for (const auto& file:FindGame(game).files) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
+    for (const auto& file:DataFiles(FindGame(game),inspected.variant)) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
     const Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
-        {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui},
+        {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui || inspected.layout=="merged-patch"},
+        {"dataVariant",inspected.variant},{"dataVersion",inspected.version},
         {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
         {"communityReplayPeerFallback",!ketsui},{"communityLocalReplay",!ketsui}};
     const std::vector<std::string> programs=ketsui ?
@@ -48,16 +50,16 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
     files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
-        const auto libc=ReadPreparationInput(DataChild(data,ketsui?"CUSA09062-app/sce_module/libc.prx":"sce_module/libc.prx"));
+        const auto libc=ReadPreparationInput(DataChild(data,"sce_module/libc.prx"));
         for (std::size_t i=0;i<programs.size();++i) {
-            const auto source=ReadPreparationInput(DataChild(data,(ketsui?"CUSA09062-patch/":"")+programs[i]));
+            const auto source=ReadPreparationInput(DataChild(data,programs[i]));
             const auto prepared=PrepareElf(source,i!=0,libc);WritePreparedRelative(stage,files[i],prepared.bytes);
         }
         const auto fixes=ketsui?PrepareReadFixes(data,true,true):PrepareDaioujouReadFixes(data);
         WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
         const auto metadata=fixes.report.dump(2)+'\n';
         WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
-        CheckData(root,data,game);
+        if(CheckData(root,data,game).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
         if (Sha256(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
     return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",cache.directory/"game-fixes.ktfix"};

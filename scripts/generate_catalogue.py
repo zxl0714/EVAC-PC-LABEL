@@ -26,6 +26,56 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8-sig'), object_pairs_hook=unique)
 
 
+def data_files(items):
+    if not isinstance(items, list) or not items or len(items) > 100000:
+        raise ValueError('Invalid variant file list')
+    seen = set()
+    for item in items:
+        name = relative(item['path'])
+        if (name.casefold() in seen or type(item['bytes']) is not int or not 0 <= item['bytes'] <= 2**63-1
+                or not re.fullmatch('[0-9a-f]{64}', item['sha256']) or type(item['program']) is not bool):
+            raise ValueError('Invalid variant file identity')
+        seen.add(name.casefold())
+    return seen
+
+
+def data_variants(manifest):
+    alternatives = manifest.get('alternatives', [])
+    if not isinstance(alternatives, list) or len(alternatives) > 8:
+        raise ValueError('Invalid alternate data variants')
+    if 'variantId' not in manifest:
+        if alternatives:
+            raise ValueError('Alternate data requires a primary variant')
+        return []
+    variants = [dict(id=manifest['variantId'], version=manifest['version'], layout=manifest['layout'],
+                     entry=manifest['entry'], files=manifest['files'], forbiddenFiles=manifest.get('forbiddenFiles', [])),
+                *alternatives]
+    ids, identities = set(), set()
+    for variant in variants:
+        if (not isinstance(variant, dict) or not isinstance(variant.get('id'), str) or not re.fullmatch('[a-z][a-z0-9-]{0,31}', variant['id'])
+                or variant['id'] in ids or not isinstance(variant.get('version'), str) or not re.fullmatch('[0-9]{2}\\.[0-9]{2}', variant['version'])
+                or variant['layout'] not in ('base', 'merged-patch') or variant['entry'] != variants[0]['entry']
+                or variant['entry'] not in ('default.xex', 'eboot.bin')):
+            raise ValueError('Invalid or duplicate data variant identity')
+        ids.add(variant['id'])
+        seen = data_files(variant['files'])
+        entries = [item for item in variant['files'] if item['path'] == variant['entry'] and item['program']]
+        if len(entries) != 1 or entries[0]['sha256'] in identities:
+            raise ValueError('Data variants require distinct root programs')
+        identities.add(entries[0]['sha256'])
+        forbidden = variant.get('forbiddenFiles', [])
+        if not isinstance(forbidden, list) or len(forbidden) > 128:
+            raise ValueError('Invalid variant forbidden files')
+        names = set()
+        for name in forbidden:
+            relative(name)
+            if name.casefold() in seen or name.casefold() in names:
+                raise ValueError('Conflicting variant forbidden file')
+            names.add(name.casefold())
+        variant['forbiddenFiles'] = forbidden
+    return variants
+
+
 def load(path):
     path = Path(path).resolve()
     catalogue = read_json(path)
@@ -68,6 +118,7 @@ def load(path):
         game['files'] = []
         game['content'] = []
         game['forbiddenFiles'] = []
+        game['variants'] = []
         if game['dataManifest']:
             source = path.parent / relative(game['dataManifest'])
             if not source.resolve().is_relative_to(path.parent):
@@ -94,6 +145,7 @@ def load(path):
                     raise ValueError('Conflicting or duplicate forbidden file')
                 forbidden_names.add(name.casefold())
             game['forbiddenFiles'] = forbidden
+            game['variants'] = data_variants(manifest)
             content_ids, content_paths, content_identifiers = set(), set(), set()
             if not isinstance(manifest.get('optionalContent', []), list) or len(manifest.get('optionalContent', [])) > 32:
                 raise ValueError('Invalid optional content count')
@@ -138,6 +190,19 @@ def generate(games):
         for file in game['files']:
             lines.append('{' + ','.join([quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), str(file['program']).lower()]) + '},')
         lines.append('}};')
+        for index, variant in enumerate(game['variants']):
+            lines.append(f'inline constexpr std::array<DataFile,{len(variant["files"])}> variant_files_{key}_{index}{{{{')
+            for file in variant['files']:
+                lines.append('{' + ','.join([quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), str(file['program']).lower()]) + '},')
+            lines.append('}};')
+            lines.append(f'inline constexpr std::array<std::string_view,{len(variant["forbiddenFiles"])}> variant_forbidden_{key}_{index}{{{{')
+            lines.extend(quoted(name) + ',' for name in variant['forbiddenFiles'])
+            lines.append('}};')
+        lines.append(f'inline constexpr std::array<DataVariant,{len(game["variants"])}> variants_{key}{{{{')
+        for index, variant in enumerate(game['variants']):
+            lines.append('{' + ','.join([quoted(variant[name]) for name in ('id', 'version', 'layout', 'entry')]
+                         + [f'variant_files_{key}_{index}', f'variant_forbidden_{key}_{index}']) + '},')
+        lines.append('}};')
         for package in game['content']:
             part = key + '_' + package['id'].replace('-', '_')
             lines.append(f'inline constexpr std::array<DataFile,{len(package["files"])}> content_files_{part}{{{{')
@@ -161,7 +226,7 @@ def generate(games):
         key = game['id'].replace('-', '_')
         fields = [quoted(game[k]) for k in ('id', 'name', 'backend', 'dataDirectory', 'executable')]
         fields += [str(game['integrated']).lower(), str(game['comingSoon']).lower(), f'files_{key}', f'runtime_{key}', f'content_{key}',
-                   str(game.get('communitySupported', True)).lower(), f'forbidden_{key}', quoted(game.get('nameJapanese', ''))]
+                   str(game.get('communitySupported', True)).lower(), f'forbidden_{key}', quoted(game.get('nameJapanese', '')), f'variants_{key}']
         lines.append('{' + ','.join(fields) + '},')
     return '\n'.join(lines + ['}};', '}  // namespace cave::detail', ''])
 
