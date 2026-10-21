@@ -1,5 +1,14 @@
 # Development entry
 
+For the user's requested QQ announcement draft, the accepted logo build has
+now been uploaded under a NEW prefix, preserving the earlier public object:
+https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.1-logo/CAVE-PC-Collection-v0.3.1-update.zip
+Its .zip.sha256 companion, public HEAD=200, identity metadata and checksum
+match; the bounded ZIP header request is 206. Receipt is
+.local/v031-logo-oss/receipt.json. Use this new URL when describing the logo
+revision, not the older root-level URL. The user will post the text; no QQ
+message was sent by the agent. Do not reupload or re-extract this same archive.
+
 Current user request supersedes the frozen-no-rebuild note for this new content:
 use the supplied EVAC PC LABEL logo for the launcher EXE icon and top-left UI,
 then create a fresh v0.3.1 Update ZIP. The user rejected the standalone star;

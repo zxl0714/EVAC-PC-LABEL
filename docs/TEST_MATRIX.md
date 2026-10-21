@@ -11,7 +11,9 @@
 - 437 项源码回归通过（文件链接权限跳过 1 项），源码边界审计核对 6 张横幅及 3 项品牌资源；118 项隐藏生产窗口检查通过，包括 16／20／24／32／40／48／64／128／256 尺寸图标、嵌入 Logo 字节和透明通道、720／1080 宽度布局及既有语言／配置功能。切图前景主要为 alpha 253／254，检查接受正常近不透明像素；早期要求大量恰为 255 的过严断言失败记录保留。
 - 最终 ZIP 只真实覆盖解压一次，129 个载荷哈希及 11 个用户／数据哨兵通过；9 项冷启动配置检查确认迁移字节不变、SDOJ 缺省为 1。只读映射覆盖后实际 EXE 的 PE 资源：Logo 与源码 PNG 完全相同，全部 9 个图标帧与字标 ICO 一致，没有执行游戏。
 
-记录为 `.local/v031-branding-{source-tests,sdk-build,build,launcher-r2,package,overlay,overlay-pe}.txt`、`.local/v031-branding-overlay-f26c9e7/accepted.json`；正式程序的原生视觉预览为 `.local/v031-branding-preview/final-zh.png`，预览安装状态为示例。旧 ZIP、标签及 OSS 对象保留；本次为本地修订包，未另行上传或发 QQ。
+记录为 `.local/v031-branding-{source-tests,sdk-build,build,launcher-r2,package,overlay,overlay-pe}.txt`、`.local/v031-branding-overlay-f26c9e7/accepted.json`；正式程序的原生视觉预览为 `.local/v031-branding-preview/final-zh.png`，预览安装状态为示例。旧 ZIP、标签及 OSS 对象保留。
+
+为用户准备群公告时，字标修订包已上传至新前缀：[最新版 v0.3.1 覆盖包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.1-logo/CAVE-PC-Collection-v0.3.1-update.zip)、[校验文件](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.1-logo/CAVE-PC-Collection-v0.3.1-update.zip.sha256)。公网 HEAD=200，大小、SHA-256／源码／档位元数据和公开校验文件一致，32 字节 ZIP 范围请求为 206；未全量重下载或重新解压。交付凭据在 `.local/v031-logo-oss/receipt.json`，群消息由用户自行发送。
 
 ## v0.3.1 默认 1V 修订验收
 
