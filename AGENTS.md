@@ -69,6 +69,14 @@ module 2, not the failing module 1. .local/v04-sdoj-metrics-r1/test-pad.txt is
 still '1 quit'; reset it before reusing that independent diagnostic root.
 An offline test pad proves InputSystem behavior, not physical desktop input.
 
+Latest bounded SDOJ attempt: .local/v04-sdoj-metrics-r2, own PID 78892, runtime
+source 3fc6625, offline fresh profile and 1V. Logical A/Start were acknowledged;
+it reached title/first save-file creation prompts, still partly covered by the
+same Taskmgr. No target mode or module-1 gameplay was entered. Do not repeat this
+occluded-menu loop. Ticket 5 quit used normal guest stop/window-close; process
+is confirmed gone. summary.json and logs/sdoj/run-20261021T162641799Z-78892 retain
+the result. test-pad.txt is now '5 quit'; reset it before any authorized reuse.
+
 ## Current game-data implementation
 
 The code now supports Ketsui CUSA09062 01.00 base (41 files) and complete merged
@@ -157,6 +165,24 @@ and always delete; production Wait/Signal/Grant are unchanged. r2 is 73/73.
 See .local/v04-brand-ps4-native-r{1,2}, properties-r1.json and TEST_MATRIX.
 Xbox 360 common host library compiles with the new title, but final same-commit
 player builds/certificates remain pending. Do not confuse these with a release.
+
+Current five-game component baseline is now built/certified at 3fc6625: host,
+PS4 and launcher receipts all name that same commit; all five runtime INIs match
+their certified file hashes. 56 Xbox PE/PDB pairs, 6 PS4 and 2 launcher; 27
+common/360 CTests pass. This is not final release/gameplay acceptance. Evidence:
+.local/v04-five-game-{certified-set-r1.json,xbox-build-r1.log,
+xbox-finalize-r1.log,ps4-build-r1.log,xbox-native-r1.log}. Four superseded out/
+launcher EXE/PDB files were recoverably moved to
+.local/v04-retired-launcher-build-outputs-21f5e359094e4e26b1ee26faf08a4a6a;
+root/pre-existing launchers and frozen packages stayed unchanged. No ROM copy.
+
+GitHub integration was discovered and suggested, not installed/connected at
+inspection. Do not resuggest within seven days or claim it supplies repository
+administration until connection/capabilities are confirmed. Remaining actual
+desktop tests and directory/repository migration need the user to clear the
+Taskmgr/old launcher obstruction and provide a valid GitHub management path.
+Do not create substitute test infrastructure or premature final ZIPs to avoid
+reporting that dependency; resume the open gates after that external change.
 
 ## Documentation and release
 
