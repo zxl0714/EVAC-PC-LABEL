@@ -62,10 +62,12 @@ registered at 30fe902. Test-G2Callback.ps1 passes 12 ABI checks on the real
 locally generated forwarder; neighboring entries were already registered.
 The earlier 3fc6625 dat163 SHA was
 1156b4264d04779d43d9abffadecccf92a8b7821632b8919cab5f9fe47125a29.
-Target Xbox360 Novice player-entry regression remains open: the new run reached
-only the title before desktop activation failed. Do not call that a mode pass.
+Xbox360 Novice player-entry regression now passes at baseline 8fab1ce: run
+logs/espgaluda2/run-20261022T115223367Z-81172 entered dat163, selected Ageha,
+showed PLAYER-1 stage 1 and score growth, paused, returned via Previous Menu,
+unloaded dat163, then closed normally. Do not repeat that accepted short test.
 
-Last CU attempts were blocked by an elevated foreground Taskmgr. Authorized
+Earlier CU attempts were blocked by an elevated foreground Taskmgr. Authorized
 close/kill/minimize attempts failed. Do not repeat unchanged recovery, blind
 occluded-menu guesses, or bypass OS permissions. The user has since authorized
 closing the two old launchers; both are now closed and their files preserved.
@@ -220,17 +222,37 @@ GitHub integration was discovered and suggested, not installed/connected at
 inspection. Do not resuggest within seven days or claim it supplies repository
 administration until connection/capabilities are confirmed. GitHub management
 is no longer a blocker: the human renamed it and the new SSH address works.
-Remaining desktop tests still need an accessible game window. Latest native CU
-opened the new launcher but Taskmgr still occluded it and activation returned
-"failed to activate captured window". The owned launcher was closed by exact
-path afterwards; manual Taskmgr closure has been requested. Do not repeat the
-unchanged activation/kill loop or blind menu input. Do not create substitute
-test infrastructure or premature ZIPs instead of closing the actual gates.
-Latest read-only CU recheck still returns the same visible Taskmgr window. No
-new recovery action was attempted. The remaining G2 Novice, SDOJ module-1/normal
-input and Ketsui base/update gameplay gates need an accessible desktop; packaging
-and publication wait for them. Await the requested manual Taskmgr closure rather
-than rerunning accepted builds, adding another test-pad path or producing ZIPs.
+The user closed Taskmgr on October 22; native CU now activates the launcher and
+game windows successfully. Never reopen Taskmgr or repeat prior recovery detours.
+G2 Novice's accepted desktop run is above. The actual launcher desktop smoke
+also passes: choose Ketsui, minimize, launch again (same PID 99140, second PID
+71660 exits), normal close, cold reopen (PID 100576) restores Ketsui. A Hidden
+shell launch initially hid the new window; a normal GUI launch restored that
+same process via the mutex message. Config now contains selected_game=ketsui.
+SDOJ and Ketsui actual gates remain. Temporary input aliases are restored to
+plain arrows and the local frame_delay is back to 3; no game remains running.
+
+SDOJ baseline run logs/sdoj/run-20261022T115752086Z-101808 reproduced the metrics
+exception in Arcade HD / Type-C / Shot, at logic 19627. The full diagnostic ring
+shows 19624 sampled, 19625 unsampled (due 19957), then 19626 sampled; the frozen
+source is 19625 at calls 19958. There was one budget skip, no timeout. The earlier
+25f3be9 fix alone is insufficient. Preserve this dump and module snapshot locally.
+
+Current uncommitted candidate adds a per-completion Sampled guard before the
+bootstrap/early wake. 1134 ownership checks and five source-contract tests pass;
+both module DLLs compile. Actual candidate run
+logs/sdoj/run-20261022T121639607Z-10556 entered Arcade HD / Type-C / Shot, fired,
+scored 12620, and reached natural result/replay selection without the exception.
+However after its first timeout early_requests stopped at 3303: ordinary late
+wakes keep producing another unparsed batch, so this candidate can remain on
+balanced timing. It is NOT accepted as the completed 1V fix. Retain the gate;
+resolve recovery or explicitly revisit the manual-policy contract, not fake
+metrics, suppress assertions, or call the requested policy an actual latency.
+The prior out-tree run 91536 never loaded its module because the expected module
+directory was missing. Actual candidate DLLs are now copied from out/xbox360/bin
+to out/xbox360/games/sdoj; process-module inspection confirmed that path. run.json
+still inventories the staged baseline, so do not use it as candidate DLL identity.
+The certified runtime/ tree is unchanged. No v0.4 release has been produced.
 
 ## Documentation and release
 
