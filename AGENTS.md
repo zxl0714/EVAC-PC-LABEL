@@ -29,11 +29,29 @@ alias refreshes existing shortcuts. Tiny authored package/extraction tests
 pass (34 packaging, one file-link privilege skip; 6 source-package tests).
 Full source regression now passes 497 tests (same single privilege skip), and
 source audit passes; log: .local/v04-package-format2-source-r1.log.
-Actual new-format release files are NOT built yet. The frozen format-1 Public
-still ships user-data/config.ini and must not be described as overlay-safe.
+Actual format-2 packages are built/accepted at ddf71cfb5f1e015fdd634c8f561ddd85065521ef.
+Each was extracted exactly once; 136 Public files, 602 Internal files, nine
+preservation sentinels per package, 36 shared runtime identities match. Internal
+contains all five games, both Futari DLC and symbols, no source. The new five-game
+incremental build verified 56/6/2 PE/PDB pairs and 27 native CTests. No game logic
+changed from 091c15c; reuse accepted gameplay and identical-launcher screenshot.
+Public (78205835 bytes, SHA 6aa98f48759d291787d11f9e7619ca9429e6f0278f7d708f07cc52d128d945aa)
+is uploaded/verified. Internal (7085755632 bytes, SHA
+44c94ad6bd3643ab83ab4291858206d9138085b1024bea92fd4383031ecbdefe) is also uploaded/
+verified. Both have matching remote length, SHA metadata, public checksum and
+bounded 32-byte ZIP header. Upload session 87002 exited 0; no job remains live.
+Evidence is .local/v04-package-format2-*; current source ddf71cf is pushed.
+The frozen format-1 Public still ships user-data/config.ini and must not be
+described as overlay-safe.
 Do not add first-install/update classification to player-facing copy.
-The pending README win-x64 URLs must be verified after assembly/upload before
-pushing those download changes or announcing the package.
+README win-x64 program/checksum URLs are now verified. Group text uses the new
+names at .local/v04-win-x64-group-message.txt; no new group announcement yet.
+Native CU was freshly checked: list_windows returned [], and list_apps returned
+QQ with isRunning=false/windows=[]. No QQ or Taskmgr was opened, no message sent.
+1V held-input/focus testing remains a separate follow-up; the supported CU API
+has short press_key chords but no key-down/hold/release duration control. Do not
+call a diagnostic pulse physical-input acceptance. All package work is finished;
+do not repeat it while resolving these remaining desktop/manual items.
 Existing v0.4 archives, source attachment, URLs and acceptance records remain
 unchanged. Do not rebuild them merely for the policy or documentation changes.
 
@@ -71,7 +89,8 @@ movement plus shooting, release, focus loss/recovery while held, and a short
 training re-entry with audio/frame-pacing observation. Reuse accepted replay
 and mechanism evidence instead of restarting full campaigns. Keep the shared
 configuration at 3V and use a separate profile for 1V tests.
-No v0.4 release tag or QQ announcement has been made yet.
+The current v0.4 release tag belongs to the new win-x64 source ddf71cf, not the
+older frozen 091c15c archives. QQ announcement remains pending.
 Native CU found no targetable QQ window; do not open Taskmgr or
 start repeated QQ instances. Draft group text is .local/v04-group-message.txt.
 The updated public README links and artifact evidence are documentation only;
