@@ -169,7 +169,7 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'baseline'):
             release.version_name('0.2', 'Update')
         with self.assertRaisesRegex(ValueError, 'does not accept'):
-            release.build('Update', '0.3.1', data={'sdoj': self.root})
+            release.build('Update', '0.3.1', data={'sdoj': self.root}, package_format=1)
 
     def test_v032_is_a_cumulative_five_game_v03_update(self):
         self.assertEqual(release.version_name('0.3.2','Update'),'CAVE-PC-Collection-v0.3.2-update')
@@ -274,7 +274,7 @@ class ReleaseTests(unittest.TestCase):
                     for flavor in ('Internal', 'Public'):
                         output = self.root / flavor
                         with self.assertRaisesRegex(ValueError, 'daioujou'):
-                            release.build(flavor, '0.3', output)
+                            release.build(flavor, '0.3', output, package_format=1)
                         self.assertFalse(output.exists())
 
     def test_v03_public_requires_five_games_and_never_allows_daioujou_bodies(self):
@@ -385,7 +385,176 @@ class ReleaseTests(unittest.TestCase):
     def test_v04_build_flavors_keep_six_templates_and_no_public_rom(self):
         self.check_build_flavors('0.4')
 
-    def check_build_flavors(self, version):
+    def test_windows_public_flat_zip_preserves_existing_player_files(self):
+        def check(root, games, commit, inspect):
+            with patch.object(release, 'source_clone', side_effect=AssertionError('No source in new packages')):
+                result = release.build('Public', '0.4', root/'releases/windows')
+            inspect.assert_not_called()
+            self.assertEqual(Path(result['archive']).name, 'EVAC-PC-LABEL-v0.4-win-x64.zip')
+            installed = self.root/'玩家目录 with spaces'
+            with zipfile.ZipFile(result['archive']) as zipped:
+                self.assertIn(release.LAUNCHER, zipped.namelist())
+                zipped.extractall(installed)
+            record = release.verify_tree(installed, games)
+            self.assertEqual(record['format'], 2)
+            self.assertEqual(record['sourceUrl'], release.REPOSITORY_URL+'/tree/'+commit)
+            self.assertEqual(record['dataGames'], [])
+            self.assertFalse(record['symbolsIncluded'])
+            self.assertFalse(record['sourceIncluded'])
+            names = {item['path'] for item in record['files']}
+            self.assertTrue(release.runtime_names(games, selection=release.V03_GAMES, version='0.4',
+                                                 package_format=2).issubset(names))
+            self.assertEqual({name for name in names if name.startswith('game-data/')},
+                             set(release.placement_sources('0.4')))
+            self.assertFalse((installed/'user-data').exists())
+            self.assertFalse((installed/'config.ini').exists())
+            self.assertFalse((installed/'source').exists())
+            self.assertFalse(list(installed.rglob('*.pdb')))
+            notice = (installed/'SOURCE.txt').read_text(encoding='utf-8')
+            self.assertIn(commit, notice)
+            self.assertIn('FOR_AGENT.md', notice)
+            self.assertNotIn('附件', notice)
+            sentinels = {'config.ini': b'old root config', 'user-data/config.ini': b'player settings',
+                         'user-data/futari/save.bin': b'save', 'user-data/sdoj/replay.dat': b'replay',
+                         'game-data/ketsui/eboot.bin': b'authored game sentinel',
+                         'prepared/ketsui/image': b'prepared', 'cache/marker': b'cache',
+                         'logs/run/marker': b'logs', 'source/local-edit.cpp': b'local source'}
+            for name, value in sentinels.items():
+                file = installed/name; file.parent.mkdir(parents=True, exist_ok=True); file.write_bytes(value)
+            (installed/release.LEGACY_LAUNCHER).write_bytes(b'authored old launcher')
+            with zipfile.ZipFile(result['archive']) as zipped:
+                zipped.extractall(installed)
+            for name, value in sentinels.items():
+                self.assertEqual((installed/name).read_bytes(), value, name)
+            for item in record['files']:
+                self.assertEqual(release.digest(installed/item['path']), item['sha256'])
+            self.assertEqual(release.digest(installed/release.LAUNCHER),
+                             release.digest(installed/release.LEGACY_LAUNCHER))
+        self.check_build_flavors('0.4', check)
+
+    def test_windows_internal_selects_base_game_without_dlc_or_other_data(self):
+        def check(root, games, commit, inspect):
+            (root/'game-data/ketsui/main.bin').unlink()  # Unselected authored input is unavailable.
+            (root/'dlc/fixture-dlc.bin').unlink()
+            (root/'game-data/futari/extra.iso').write_bytes(b'not selected')
+            with patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
+                result = release.build('Internal', '0.4', root/'releases/futari-only', data_games=['futari'])
+            self.assertEqual([call.args[1] for call in inspect.call_args_list], ['futari'])
+            self.assertEqual(Path(result['archive']).name, 'EVAC-PC-LABEL-v0.4-win-x64-internal.zip')
+            installed = self.root/'内部 解压'
+            with zipfile.ZipFile(result['archive']) as zipped:
+                zipped.extractall(installed)
+            record = release.verify_tree(installed, games)
+            self.assertEqual(record['dataGames'], ['futari'])
+            self.assertEqual(record['futariContent'], [])
+            self.assertEqual({item['path'] for item in record['files'] if item['role'] == 'game-data'},
+                             {'game-data/futari/main.bin'})
+            self.assertFalse((installed/'source').exists())
+            self.assertFalse((installed/'user-data').exists())
+            self.assertFalse(list(installed.rglob('*.pdb')))
+            self.assertEqual((root/'game-data/futari/extra.iso').read_bytes(), b'not selected')
+        self.check_build_flavors('0.4', check)
+
+    def test_windows_internal_selected_dlc_symbols_and_all_selection(self):
+        def check(root, games, commit, inspect):
+            identity = games['futari']['files'][0]
+            games['futari']['content'] = [dict(id='black-label', files=[dict(identity, path='fixture-dlc.bin')]),
+                                          dict(id='ver101', files=[dict(identity, path='second-dlc.bin')])]
+            (root/'dlc/second-dlc.bin').write_bytes(b'abc')
+            (root/'dlc/unselected.bin').write_bytes(b'not selected')
+            for all_data in (False, True):
+                result = release.build('Internal', '0.4', root/'releases'/str(all_data),
+                    data_games=['all'] if all_data else ['futari'],
+                    futari_content=['all'] if all_data else ['black-label'], symbols=True)
+                record = release.verify_tree(Path(result['directory']), games)
+                self.assertTrue(record['symbolsIncluded'])
+                self.assertEqual(record['dataGames'], list(release.V03_GAMES) if all_data else ['futari'])
+                self.assertEqual(record['futariContent'], ['black-label', 'ver101'] if all_data else ['black-label'])
+                names = {item['path'] for item in record['files']}
+                self.assertNotIn('game-data/futari/dlc/unselected.bin', names)
+                self.assertEqual('game-data/futari/dlc/second-dlc.bin' in names, all_data)
+                self.assertIn('EVAC PC LABEL.pdb', names)
+                self.assertNotIn('game-data/daioujou/Project.gp4', names)
+                self.assertFalse((Path(result['directory'])/'source').exists())
+        self.check_build_flavors('0.4', check)
+
+    def test_windows_internal_binds_selected_ketsui_variant(self):
+        def check(root, games, commit, inspect):
+            base = games['ketsui']['files']
+            games['ketsui']['variants'] = [dict(id='base', files=base),
+                dict(id='update-102', files=[dict(base[0], path='updated.bin')])]
+            original_inspect = inspect.side_effect
+            inspect.side_effect = lambda *args: dict(original_inspect(*args), dataVariant='base')
+            result = release.build('Internal', '0.4', root/'releases/ketsui',
+                                   data={'ketsui': root/'game-data/ketsui'})
+            directory = Path(result['directory'])
+            record = release.verify_tree(directory, games)
+            self.assertEqual(record['dataVariants'], {'ketsui': 'base'})
+            self.assertEqual(record['dataGames'], ['ketsui'])
+            self.assertFalse((directory/'game-data/ketsui/updated.bin').exists())
+            record['dataVariants']['ketsui'] = 'update-102'
+            self.rewrite_inventory(directory, record)
+            with self.assertRaisesRegex(ValueError, 'Unselected game data'):
+                release.verify_tree(directory, games)
+        self.check_build_flavors('0.4', check)
+
+    def test_windows_invalid_selections_fail_before_build_reads(self):
+        with patch.object(release, 'certified_runtime', side_effect=AssertionError('No build reads')):
+            for options in (dict(data_games=['all']), dict(symbols=True), dict(futari_content=['black-label']),
+                            dict(data={'futari': self.root}), dict(futari_dlc=self.root)):
+                with self.subTest(options=options), self.assertRaises(ValueError):
+                    release.build('Public', '0.4', **options)
+            for options in (dict(data_games=['all', 'futari']), dict(data_games=['futari', 'futari']),
+                            dict(data_games=['unknown']), dict(data_games='futari'), dict(data_games=[[]]),
+                            dict(futari_content=['black-label']), dict(futari_dlc=self.root),
+                            dict(data_games=['ketsui'], data={'futari': self.root}), dict(symbols='yes')):
+                with self.subTest(options=options), self.assertRaises(ValueError):
+                    release.build('Internal', '0.4', **options)
+            with self.assertRaises(ValueError):
+                release.build('Update', '0.4')
+
+    def test_windows_selected_dlc_missing_or_corrupt_never_creates_output(self):
+        def check(root, games, commit, inspect):
+            output = root/'releases/invalid'
+            for value in (b'bad', None):
+                file = root/'dlc/fixture-dlc.bin'
+                if value is None: file.unlink()
+                else: file.write_bytes(value)
+                with self.assertRaisesRegex(ValueError, 'complete selected Futari DLC'):
+                    release.build('Internal', '0.4', output, data_games=['futari'], futari_content=['fixture-dlc'])
+                self.assertFalse(output.exists())
+        self.check_build_flavors('0.4', check)
+
+    def rewrite_inventory(self, directory, record):
+        path = directory/'release.json'
+        path.write_text(json.dumps(record), encoding='utf-8')
+        sums = ''.join(item['sha256']+'  '+item['path']+'\n'
+                       for item in sorted(record['files'], key=lambda item: item['path']))
+        (directory/'SHA256SUMS.txt').write_text(sums+release.digest(path)+'  release.json\n', encoding='utf-8')
+
+    def test_windows_repacked_inventory_cannot_admit_config_source_or_unselected_data(self):
+        def check(root, games, commit, inspect):
+            result = release.build('Public', '0.4', root/'releases/public')
+            directory = Path(result['directory']); record = release.verify_tree(directory, games)
+            for name, role in (('config.ini', 'documentation'), ('user-data/config.ini', 'documentation'),
+                               ('source/README.md', 'documentation'), ('runtime/unknown.pdb', 'runtime'),
+                               ('game-data/futari/main.bin', 'game-data')):
+                file = directory/name; file.parent.mkdir(parents=True, exist_ok=True); file.write_bytes(b'authored')
+                changed = dict(record, files=[*record['files'], dict(path=name, role=role, bytes=8, sha256=release.digest(file))])
+                self.rewrite_inventory(directory, changed)
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    release.verify_tree(directory, games)
+                file.unlink()
+            for key, value in (('dataGames', ['all']), ('dataGames', [[]]), ('sourceIncluded', True),
+                               ('sourceCommit', None), ('archiveLayout', 'nested'), ('symbolsIncluded', True)):
+                self.rewrite_inventory(directory, dict(record, **{key: value}))
+                with self.subTest(field=key), self.assertRaises(ValueError):
+                    release.verify_tree(directory, games)
+            self.rewrite_inventory(directory, record)
+            self.assertEqual(release.verify_tree(directory, games)['format'], 2)
+        self.check_build_flavors('0.4', check)
+
+    def check_build_flavors(self, version, windows_checks=None):
         # Exercise the actual assembler/ZIP/verifier, not just a hand-written
         # manifest. Certificates and media are authored bytes, never executable.
         root = self.root / 'fixture-project'; root.mkdir()
@@ -438,9 +607,11 @@ class ReleaseTests(unittest.TestCase):
         with patch.object(release,'ROOT',root),patch.object(release,'catalogue',return_value=games), \
                 patch.object(release,'certified_runtime',return_value=(commit,receipts,certified)), \
                 patch.object(release,'redist_directory',return_value=crt),patch.object(release,'license_files',return_value=[]), \
-                patch.object(release,'inspect_game',side_effect=inspected),patch.object(release,'audit_source'):
+                patch.object(release,'inspect_game',side_effect=inspected) as inspect,patch.object(release,'audit_source'):
+            if windows_checks:
+                return windows_checks(root, games, commit, inspect)
             flavors=('Internal','Public','Update') if version == '0.4' else ('Internal','Public')
-            outputs={flavor:release.build(flavor,version,root/'releases'/flavor) for flavor in flavors}
+            outputs={flavor:release.build(flavor,version,root/'releases'/flavor,package_format=1) for flavor in flavors}
         internal=Path(outputs['Internal']['archive']).with_suffix('')
         public=Path(outputs['Public']['archive']).with_suffix('')
         self.assertEqual(Path(outputs['Internal']['archive']).name, release.slug(version)+'-v'+version+'-internal.zip')

@@ -5,15 +5,11 @@ EVAC PC LABEL v0.4
 启动游戏.bat 是备用入口。需要 Windows 64 位及显卡厂商提供的正式驱动。
 虫姬二、ESPGaluda II、最大往生使用 D3D12，绊地狱和大往生使用 Vulkan。
 
-配置与更新
-共用配置位于 user-data/config.ini。更新时保留 user-data 文件夹，即可保留
-配置、各游戏存档和录像。首次启动会将旧版根目录的 config.ini 原样迁入；
-已有 user-data/config.ini 时优先使用它，不会用旧文件覆盖。
-首次从 v0.3 换目录升级时，先把旧根目录 config.ini 放入旧 user-data，再将
-整个 user-data 转移到新版本；在原目录更新则由首次启动自动完成迁移。
+配置与存档
+共用配置位于 user-data/config.ini，由启动器自动创建。
+配置、各游戏存档和录像都在 user-data，备份时保留整个文件夹。
+旧版根目录的 config.ini 会自动迁入；新位置已有配置时优先使用它。
 配置中的相对路径仍以合集根目录为起点，例如 game-data/futari/。
-v0.4 覆盖包平铺解压到原合集目录，同时更新新、旧文件名的启动器；已有快捷方式
-仍能打开同一个新版启动器。完整包只提供 EVAC PC LABEL.exe。
 
 右上角点击 CN / EN / JP 切换语言，带下划线的文字表示当前语言。
 页头可改全屏和排行榜昵称，点击“保存”；启动游戏前也会保存快捷设置。
@@ -24,14 +20,25 @@ v0.4 覆盖包平铺解压到原合集目录，同时更新新、旧文件名的
 通过底部“游戏数据…”选择自己的数据目录，或使用默认目录：
 
   game-data/futari/       虫姬二本体，default.xex 位于根目录
-  game-data/futari/dlc/   Black Label 和 Ver1.01，保留内容目录结构
-  game-data/espgaluda2/   完整解包数据，含模式 XEX 和 res/DISKDATA
+  game-data/futari/dlc/   可选 Black Label 和 Ver1.01，保留内容目录结构
+  game-data/espgaluda2/   default.xex、dat*.xex 位于根目录，保留 res/ 等资源
   game-data/ketsui/       CUSA09062／01.00 本体或覆盖 01.02 的完整数据，根含 eboot.bin
   game-data/sdoj/         光盘本体，含 default.xex、CA022100.bin、CA022110.bin
   game-data/daioujou/     CUSA32997／01.04 合并数据，eboot.bin 位于根目录
 
-只安装一款游戏也能使用；ESP Ra.De. 暂未接入。虫姬二支持上述两份 DLC。
-完整包已建好六个数据目录，每个目录里的“放置说明.txt”介绍具体放法。
+先完整解包：ISO／PKG 要提取为游戏文件；ZIP 解压后若仍是 ISO／PKG，
+还需继续提取。压缩包名称不影响识别，改扩展名不能代替解包。
+将解包目录里面的全部内容放进对应目录，不要多套一层，也不要只复制上面
+列出的入口文件。保留其余资源、原文件名和内部层级。例如：
+  正确：game-data/futari/default.xex，以及同层的 media/ 等完整资源
+  多套一层：game-data/futari/解压目录/default.xex
+也可通过“选择数据目录…”直接选中实际含 default.xex／eboot.bin 的那层。
+放好后点击“刷新”；此前选过外部路径时，需重新选择新的数据位置。
+
+只安装一款游戏也能使用；ESP Ra.De. 暂未接入。
+虫姬二不装 DLC 也能玩 Ver.1.5 本体；dlc/ 留空或不存在均可，无须改配置。
+Black Label 和 Ver1.01 才需要对应 DLC，内容包目录和配套头文件需完整保留。
+game-data 下各目录的“放置说明.txt”介绍具体放法。
 绊地狱先将本体目录里的内容放入 game-data/ketsui/；可选的 01.02 更新也把
 目录里的内容覆盖到同一位置。不要再套 CUSA09062-app／CUSA09062-patch 两层。
 保留原始本体和更新文件；想退回 01.00 时重新提取本体到一个新目录。
@@ -56,18 +63,15 @@ enabled = false 可关闭联网；endpoint 默认 https://xiaolu.life/cave/api/v
 
 问题发生时按 F8，记下游戏、模式、角色和操作步骤。底部“日志”打开日志目录，
 关闭游戏后将 logs/<游戏>/ 最新的完整 run-* 文件夹压缩发给提供程序的人。
-PS4 退出清理的既有限制仍会记入日志，受控关窗可返回启动器。
 
 最大往生 Frame Delay
 默认采用原始三帧路径，可在 user-data/config.ini 的 [game.sdoj] 段中
-设置 frame_delay = 3。1V／2V 保留为手动测试选项；本版修复减速统计交接及
-训练重入相关崩溃，普通实体长按输入仍待补测。
+设置 frame_delay = 3。1V／2V 为实验性低延迟选项。
 已有配置明确指定 1 或 2 时，需要手动改为 3 才会使用原始路径。
 保存后重新启动最大往生。不支持 0。
 这是游戏消费输入至画面提交的软件档位，显示器和设备延迟另计。
-缺少此键时采用 3；已有配置明确指定的档位继续保留。
 
 开发
-从 source/FOR_AGENT.md 或仓库根目录 FOR_AGENT.md 开始。编译使用较短英文目录。
-Frame Delay 的实现、测试与待完成项见 docs/SDOJ_LATENCY_PLAN.md。
-源码、构建和验证记录在仓库中维护；许可证与素材来源随项目保存。
+根据 SOURCE.txt 中的 GitHub 地址取得对应版本源码，从仓库根目录 FOR_AGENT.md
+开始准备依赖和编译。编译使用较短英文目录。
+组件许可证见 licenses/。

@@ -8,7 +8,7 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
-The current version is v0.4. Downloads are listed under “Updates and backups”.
+The current version is v0.4. Downloads are listed under “Downloads and backups”.
 
 ## Supported games
 
@@ -49,7 +49,11 @@ The complete program package creates the folders below, each with a bilingual `�
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.md).
 
-Extract ISO or PKG images into game files first. For ZIP archives, unpack them and select the actual game root.
+Extract ISO or PKG images into game files first. For ZIP archives, unpack them and select the actual game root. Archive filenames do not affect detection; changing a file extension does not extract an image or package.
+
+Copy **all contents inside** the extracted game folder, not the outer folder itself. For example, Futari's entry should be `game-data/futari/default.xex`, not `game-data/futari/extracted-folder/default.xex`. The filenames in the table identify the correct folder level, not a complete list of required files. Keep every resource, its original name, and the internal folder structure.
+
+Futari's Ver.1.5 base game works without DLC. Leave `game-data/futari/dlc/` empty or absent; no configuration change is needed. Only Black Label and Ver.1.01 require their respective DLC. Use the default folder names shown above, or choose an external data folder with any outer folder name.
 
 See the [game data guide (Chinese)](docs/GAME_DATA.md) for complete folder examples, DLC placement, and data detection help.
 
@@ -86,20 +90,15 @@ nickname = Player
 
 Set `enabled` to `false` to play offline.
 
-## Updates and backups
+## Downloads and backups
 
 Current version: **v0.4**. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
-- First installation: [complete program package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip.sha256). Supply your own game data.
-- Existing installation: [update package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip.sha256). Supports v0.3, v0.3.1, and v0.3.2.
-- Development: [corresponding source and pinned dependencies](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip.sha256). No game data included.
-
-Close the games and launcher, then extract the update ZIP into your existing collection folder, replacing files with the same names. Configuration, saves, replays, and game data are retained. Existing shortcuts continue to open the updated launcher.
-
-For Ketsui, follow the [game data guide (Chinese)](docs/GAME_DATA.md) to use a single game root: place the base game first, then overlay the optional update in the same folder. Save and replay locations stay unchanged.
+- [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256). Game data is not included.
+- Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.
 
 - `user-data/`: configuration, per-game saves, replays, and other player data. Keep the whole folder when backing up or moving an installation.
-- `game-data/`: the game files you provide. Keep them during an in-place update. When moving the installation, either move them too or select their existing location again.
+- `game-data/`: the game files you provide. When moving the installation, either move them too or select their existing location again.
 - `logs/`: run logs. Keep the logs from any session in which you encounter a problem.
 
 An older root-level `config.ini` is automatically migrated to `user-data/config.ini`; an existing configuration at the new location takes precedence. Relative data paths are resolved from the collection's root folder.

@@ -3,12 +3,19 @@ Xbox 360
 
 将完整解包数据的内容放在此目录，直接看到 default.xex、media/ 等文件。
 保留其余文件和内部目录。可选 Black Label／Ver.1.01 DLC 放入此处的 dlc/，
-保留 DLC 原有的 0000000000000000/... 层级。
+保留 DLC 原有的 0000000000000000/... 层级、包目录名及 Headers/ 下的头文件。
+不安装 DLC 也可游玩 Ver.1.5 本体；dlc/ 可以留空或不存在，无须改配置。
+不要多套一层目录，也不要将原文件重命名；例如正确位置为
+game-data/futari/default.xex，而不是 game-data/futari/解压目录/default.xex。
 完成后在启动器点击“刷新”。不必安装其他游戏，也不必修改配置路径。
 ISO 需先提取为游戏文件；ZIP 需解压，不要将镜像或压缩包本身放在这里。
 
 Place the complete extracted Xbox 360 game here, with default.xex directly
 inside this folder. Keep media/ and all remaining files and subfolders.
 Optional Black Label / Ver.1.01 content goes in dlc/, retaining its original
-0000000000000000/... directory structure. Click Refresh in the launcher.
+0000000000000000/... directory structure, package names and Headers/ files.
+Ver.1.5 works without DLC. Leave dlc/ empty or absent; no config change is needed.
+Do not rename game files or add a wrapper folder: the entry belongs at
+game-data/futari/default.xex, not game-data/futari/extracted-folder/default.xex.
+Click Refresh in the launcher.
 Other games are optional. Extract ISO/ZIP contents first, not the archive itself.

@@ -6,6 +6,37 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### Next-package policy — unified Public and flexible Internal
+
+The October 23 user decision supersedes older four-flavor delivery plans for
+NEW packages. Keep two routine deliverables: Public, a full program ZIP usable
+both for first installation and overlay updates; and Internal, with explicitly
+selected complete game data, optional DLC and optional matching symbols.
+Neither includes source/. Do not routinely create a separate source attachment
+or Update ZIP. Source delivery moves to the matching GitHub commit/tag, with
+fixed dependencies and build instructions available to recipients. Repository
+publication is a later user action, not permission to change visibility now.
+
+Unified Public must be flat, include the complete supported runtime and six
+placement guides, and exclude config.ini and all user-data/, game payloads,
+prepared/, cache/, logs/, source/ and symbols. The launcher already generates
+missing configuration from its embedded template and preserves existing text.
+The format-2 scripts now implement this policy; filenames are
+EVAC-PC-LABEL-v<version>-win-x64.zip and ...-win-x64-internal.zip. Release.ps1
+defaults to Public. Internal accepts DataGames, FutariContent and Symbols;
+all data is manifest-only, no source clone. The byte-identical old launcher
+alias refreshes existing shortcuts. Tiny authored package/extraction tests
+pass (34 packaging, one file-link privilege skip; 6 source-package tests).
+Full source regression now passes 497 tests (same single privilege skip), and
+source audit passes; log: .local/v04-package-format2-source-r1.log.
+Actual new-format release files are NOT built yet. The frozen format-1 Public
+still ships user-data/config.ini and must not be described as overlay-safe.
+Do not add first-install/update classification to player-facing copy.
+The pending README win-x64 URLs must be verified after assembly/upload before
+pushing those download changes or announcing the package.
+Existing v0.4 archives, source attachment, URLs and acceptance records remain
+unchanged. Do not rebuild them merely for the policy or documentation changes.
+
 ### Latest handoff — v0.4 artifacts are frozen and uploaded
 
 Player/source artifacts are fixed at 091c15c76b9fb51919332310fc802280026cd613.
@@ -33,10 +64,15 @@ ZIP range requests pass; .local/v04-oss-*-verified-r1.json has the evidence.
 Do not overwrite/re-upload/re-extract frozen files. No production service was
 modified. No games or owned loopback services remain running.
 
-Still unresolved: 1V physical held-direction/shoot-release acceptance was not
-done. An asynchronous question asks whether to defer it and ship with default
-3V; do not mark that test passed. No v0.4 release tag or QQ announcement has
-been made yet. Native CU found no targetable QQ window; do not open Taskmgr or
+On October 23 the user approved proceeding with default 3V and requested more
+1V testing. Physical held-direction/shoot-release acceptance remains open as
+a focused follow-up, not a release blocker; do not mark it passed. Cover held
+movement plus shooting, release, focus loss/recovery while held, and a short
+training re-entry with audio/frame-pacing observation. Reuse accepted replay
+and mechanism evidence instead of restarting full campaigns. Keep the shared
+configuration at 3V and use a separate profile for 1V tests.
+No v0.4 release tag or QQ announcement has been made yet.
+Native CU found no targetable QQ window; do not open Taskmgr or
 start repeated QQ instances. Draft group text is .local/v04-group-message.txt.
 The updated public README links and artifact evidence are documentation only;
 the corresponding source of these packages remains 091c15c.

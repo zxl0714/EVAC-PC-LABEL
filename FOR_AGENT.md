@@ -3,7 +3,7 @@
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
 当前开发目标为 v0.4；发行状态与实际验收范围见实施计划和验收矩阵。
 
-这是同一启动器下的多游戏工程。完整发行基线为 **v0.3**（标签 v0.3／b8807ca），维护更新 **v0.3.2** 修复大往生 AC-CHALLENGE，并补接绊地狱 CUSTOM 榜和录像，当前运行组件来自 a8a75fb／v0.3.2-custom；五款游戏已经接入。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。
+当前已接入五款游戏。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
 先读 [README](README.md) 和 [AGENTS.md](AGENTS.md)。实现计划、实际覆盖和技术分析分别在 [实施计划](docs/IMPLEMENTATION_PLAN.md)、[验收矩阵](docs/TEST_MATRIX.md) 与 [分析入口](docs/ANALYSIS.md)。调查过程留在这些文档中，本文件介绍如何接手开发。
 
@@ -57,13 +57,13 @@ py -3.12 scripts/ps4_sources.py restore
 py -3.12 scripts/ps4_sources.py verify
 ~~~
 
-对应源码附件已经包含固定 SDK／PS4 依赖。可用 Prepare-Tools.ps1 的 -CacheFrom 和 ps4_sources.py 的 --cache-from 显式复用本机缓存；缓存只加速恢复，最终源码和 Git 对象仍自包含。
+从 GitHub 取得与程序包 SOURCE.txt 对应的提交，再按上述命令恢复固定 SDK／PS4 依赖。可用 Prepare-Tools.ps1 的 -CacheFrom 和 ps4_sources.py 的 --cache-from 显式复用本机缓存；缓存只加速恢复，最终源码和 Git 对象仍自包含。
 
 ## 配置与数据
 
 开发版配置位于 `user-data/config.ini`；`EnsureConfig` 首次启动原样迁移旧根目录文件，新位置已存在时优先使用它。只读工具通过 `ConfigPath`／`project.config_path` 查找，不执行迁移。配置内的相对路径始终相对合集根目录，不依赖工作目录或 INI 所在目录。共用 fullscreen、vsync、音量、键盘、SDL 手柄、昵称和联网选项；游戏覆盖优先，但默认模板不为每个游戏重复一套通用设置。
 
-运行时只读同一份 config.ini；source/ 位于内部包内时，构建的数据解析优先使用包根的同一配置和 game-data。显式数据参数优先，坏配置不静默回退。
+运行时只读同一份 config.ini。开发时可通过配置或显式参数指定现有游戏数据目录，无须另复制一份 ROM；显式参数优先，坏配置不静默回退。
 
 数据布局和版本见 README 与各 games/<id>/data.json。检查现有目录：
 
@@ -165,44 +165,59 @@ py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目�
 
 ## 出包与交付
 
+两种包共用完整运行组件和六份数据放置说明，ZIP 根目录直接包含启动器：
+
+| 文件名 | 附加内容 |
+| --- | --- |
+| `EVAC-PC-LABEL-v<版本>-win-x64.zip` | 无游戏数据、源码或符号 |
+| `EVAC-PC-LABEL-v<版本>-win-x64-internal.zip` | 按参数选择游戏数据、DLC 和符号，不含源码 |
+
+两种包均不携带 config.ini、user-data、准备镜像、缓存或日志。启动器使用内嵌
+默认配置，已有用户文件保留。SOURCE.txt 指向配套源码提交和构建入口；对外发布前
+确认接收者能取得该提交及固定依赖，仓库开源操作单独执行。
+
 启动器的 Logo／ICO 在 `launcher/branding/`，来源与哈希由 `launcher/branding.json`
 维护，准备说明见该目录的 README。`generate_artwork.py` 将完整透明 Logo 和多尺寸
 ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片。源码审计仅放行清单内
 通过结构／哈希核对的三个品牌资源，不扩大为任意二进制例外。
 
-v0.4 的覆盖更新使用 `./scripts/Release.ps1 -Flavor Update -Version 0.4`。
-ZIP 直接包含根目录程序与 runtime，无外层目录，不携带 config.ini、user-data、
-游戏数据、准备镜像、缓存、日志、源码或符号。先关闭程序，直接解压到 v0.3
-／v0.3.1／v0.3.2 目录替换同名文件；首次启动自动迁移旧配置。发布前只做一次实际覆盖验收，
-核对配置、存档／录像哨兵保持不变及配套程序身份。对应源码仍可单独出包。
 开发根的启动器正在运行时，使用 `Build.ps1 -SkipLauncherStage` 保留窗口，
-Update 包直接取收据绑定的 out/ 程序，仍检查源文件、工具及配套 PDB 身份。
+打包直接取收据绑定的 out/ 程序，检查源文件、工具及配套 PDB 身份。
 
 先提交发行源码并配套构建，再执行：
 
 ~~~powershell
-./scripts/Release.ps1 -Flavor Internal -Version 0.4
-./scripts/Release.ps1 -Flavor Public -Version 0.4
-./scripts/Release-Source.ps1 -BinaryDirectory '<已生成的程序包目录>' -OutputDirectory '<releases 下的新目录>'
+./scripts/Release.ps1 -Version 0.4
+./scripts/Release.ps1 -Flavor Internal -Version 0.4 -DataGames futari
+./scripts/Release.ps1 -Flavor Internal -Version 0.4 -DataGames all -FutariContent all -Symbols
 ~~~
 
-Internal 需要全部支持数据和虫姬二两份 DLC，可用 -DataDirectories 与 -FutariDlcDirectory 指定目录。最大往生／大往生按 114／60 项资源清单复制，绊地狱按实际识别的本体 41 项或合并更新 47 项清单复制；排除清单之外的 ISO、工具、音乐补丁和 Project.gp4。Public 按运行白名单组装，源码附件不含 ROM，并绑定程序包的 release.json。
+默认 Flavor 为 Public。Internal 的 -DataGames 接受游戏 ID 数组或 all；
+-FutariContent 接受 black-label、ver101 或 all，须同时选择 futari；
+-Symbols 带入匹配 PDB。未指定的内容不包含，选择的内容必须完整。
+可用 -DataDirectories 指定数据路径，只有路径而未指定 -DataGames 时选择这些游戏；
+-FutariDlcDirectory 指定所选 DLC 的源目录。所有数据按精确清单复制，绊地狱绑定
+检测到的 base／update-102 版本，不收录目录中多余的 ISO、工具和补丁包。
 
-默认启动器为 `EVAC PC LABEL.exe`，完整包只有这个入口；v0.4 Update 还提供
-旧文件名 `CAVE-PC-Collection.exe`，与新入口逐字节相同，用于已有快捷方式。
+主入口为 `EVAC PC LABEL.exe`。旧文件名 `CAVE-PC-Collection.exe` 是其逐字节
+相同的副本，用于刷新已有快捷方式的目标。
 两者使用同一安装目录的单实例逻辑，不采用第二套宿主或封装程序。
-新包名为 `EVAC-PC-LABEL-v<版本>-<类型>.zip`；冻结的旧版文件身份不变。
 
-v0.4 完整包从 `config/game-data/*.txt` 创建六个默认游戏目录及中英放置说明。Public 对这些说明使用固定路径和源码内容校验，不因提供空目录而开放 ROM 白名单；Update 不包含说明或任何游戏数据。“复制到合集”允许目标只有放置说明，保留其内容并在对应游戏缓存的 import-guides 中备份；实际游戏文件仍不合并覆盖。
+清单 format=2 明确记录 dataGames、futariContent、symbolsIncluded、sourceCommit
+和平台。Public 的 game-data 仅允许 `config/game-data/*.txt` 对应的六份说明；
+Internal 另允许所选数据清单。历史 format=1 验证保留，新入口不再生成 Update 或
+源码附件。冻结文件不改名、不覆盖。
 
 每次创建 releases/ 下的新输出目录，保留旧发行。一次公共构建认证之后，每个最终 ZIP 只在新目录解压验收一次：
 
 ~~~powershell
 py -3.12 scripts/release_package.py verify --directory '<实际解压后的程序包根>'
-py -3.12 scripts/source_package.py verify --archive '<对应源码 ZIP>'
 ~~~
 
-源码附件还检查实际解压的独立 Git 与固定依赖。记录 ZIP SHA-256、源码提交、步骤和结果；相同冻结文件复用成功记录。两个程序包的公共运行文件比较哈希，选一份做小而完整的启动回归；Internal 另外检查数据、DLC、源码和实际启动器，不重复五款实战或整套环境恢复。
+记录 ZIP SHA-256、源码提交、步骤和结果，相同冻结文件复用成功记录。在同一
+临时目录补充配置、存档和录像哨兵，验证覆盖后保留。verify 命令针对干净解压的
+发行载荷，不用于带玩家新增文件的安装目录。两种包的公共程序比较哈希，Internal
+另查所选数据、DLC 和符号，不重复五款实战或整套环境恢复。
 
 上传前核对本地产物身份，上传后检查远端大小、状态和公网校验文件，不重新下载整包或解压。仅内容变化／失败的部分重验；后续文档和交付记录单独提交，不因它们重打冻结包。
 

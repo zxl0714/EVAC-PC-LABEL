@@ -8,7 +8,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
-当前版本为 v0.4，下载入口见“更新与备份”。
+当前版本为 v0.4，下载入口见“下载与备份”。
 
 ## 支持的游戏
 
@@ -28,16 +28,16 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生需要 Direct3D 12；绊地狱、大往生需要 Vulkan。程序运行库随玩家包附带。
 
-### 首次使用
+### 运行
 
-1. 将完整程序包解压到一个可写文件夹，游戏数据需自行准备。
+1. 将程序包解压到一个可写文件夹，游戏数据需自行准备。
 2. 运行根目录的 `EVAC PC LABEL.exe`，备用入口为 `启动游戏.bat`。
 3. 选中想玩的游戏，点击底部“游戏数据…”→“选择数据目录…”，选择已经解包的游戏文件夹。也可以按下表直接放入合集。
 4. 点击“启动游戏”。首次启动会校验数据；PS4 作品还会自动准备运行文件，请等待完成。
 
 ### 游戏数据放在哪里
 
-完整程序包已创建下列目录，各附一份 `放置说明.txt`。“选择数据目录…”可直接使用现有文件夹，不改动原文件；“复制到合集…”会复制到默认位置，目标须为空或仅含放置说明。
+`game-data/` 下有以下目录，各附一份 `放置说明.txt`。“选择数据目录…”可直接使用现有文件夹，不改动原文件；“复制到合集…”会复制到默认位置，目标须为空或仅含放置说明。
 
 | 游戏 | 默认目录 | 在所选目录中应直接看到 |
 | --- | --- | --- |
@@ -49,7 +49,11 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
 
-ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录。
+ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录。压缩包叫什么名字不影响识别，也不能靠改扩展名把 ISO／PKG 变成可用数据。
+
+复制的是解包目录**里面的全部内容**，不是把外层文件夹再套进去。例如虫姬二应为 `game-data/futari/default.xex`，而不是 `game-data/futari/解压目录/default.xex`。表中的文件名只是帮助确认层级，不是只需复制这几个文件；保留其余资源、原文件名和内部目录结构。
+
+虫姬二不安装 DLC 也可游玩 Ver.1.5 本体。`game-data/futari/dlc/` 可以留空或不存在，无须改配置；只有 Black Label／Ver.1.01 需要对应 DLC。默认数据目录名按表使用；选择外部数据目录时，外层文件夹可自行命名。
 
 完整目录示例、DLC 放法和识别问题见[游戏数据指南](docs/GAME_DATA.md)。
 
@@ -86,20 +90,15 @@ nickname = Player
 
 将 `enabled` 改为 `false` 可离线游玩。
 
-## 更新与备份
+## 下载与备份
 
 当前版本：**v0.4**。更新内容见[更新记录](docs/CHANGELOG.md)。
 
-- 首次安装：[完整程序包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip.sha256)。游戏数据需自行准备。
-- 已有合集：[覆盖更新包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip.sha256)。适用于 v0.3／v0.3.1／v0.3.2。
-- 参与开发：[对应源码与固定依赖](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip.sha256)。不含游戏数据。
-
-覆盖更新前关闭游戏和启动器，将 ZIP 解压到原合集目录并替换同名文件即可。配置、存档、录像和游戏数据保留，已有快捷方式继续打开新版启动器。
-
-绊地狱需按[数据指南](docs/GAME_DATA.md)整理为一个游戏根目录：先放本体，再将可选更新覆盖到同一目录。存档与录像位置不变。
+- [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256)。不含游戏数据。
+- 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。
 
 - `user-data/`：配置、各游戏的存档、录像等。备份或换目录时，保留整个文件夹。
-- `game-data/`：自行准备的游戏数据。覆盖更新时保留；换目录安装时可一并转移，也可重新选择原数据目录。
+- `game-data/`：自行准备的游戏数据。换目录时可一并转移，也可重新选择原数据目录。
 - `logs/`：运行日志。保留遇到问题的那次记录即可。
 
 旧版根目录的 `config.ini` 会自动迁入 `user-data/config.ini`；新位置已有配置时优先使用它。相对数据路径以合集根目录为起点。
