@@ -26,7 +26,7 @@ public:
     Diagnostic Inspect() const {
         return {entries_,reading_,consumed_,missing_,frame_.value_or(0),calls_,frame_.has_value()};
     }
-    void Reset() { entries_={};reading_=consumed_=missing_=0;calls_=0;frame_.reset();selected_.reset(); }
+    void Reset() { entries_={};reading_=consumed_=missing_=0;calls_=0;frame_.reset();selected_.reset();deferred_.reset(); }
     void Complete(std::uint64_t logic,std::uint32_t buffer,std::uint32_t baseline,std::uint32_t depth) {
         entries_[logic%entries_.size()]={logic,buffer,std::uint32_t(baseline+depth-1),{},false};
     }
@@ -35,8 +35,15 @@ public:
         for(const auto& entry:entries_)
             if(entry.buffer==buffer && entry.logic>reading_)reading_=entry.logic;
     }
-    bool Capture(Pair values) {
-        const auto logic=reading_;reading_=0;
+    // Pin the parsed batch BEFORE native callbacks can wake another producer.
+    // Its metrics are not final until the wrapper's original stores: the
+    // native training/presentation path may legitimately reset them meanwhile.
+    std::uint64_t EndRead() { const auto logic=reading_;reading_=0;return logic; }
+    bool CanResolve(std::uint64_t logic) const {
+        return selected_.has_value() || (logic && missing_==logic && Find(logic));
+    }
+    bool Capture(Pair values) { return Capture(EndRead(),values); }
+    bool Capture(std::uint64_t logic,Pair values) {
         if(!logic)return true; // Native initialization or a no-parse wrapper.
         auto* entry=Find(logic);
         if(!entry || (entry->sampled && entry->values!=values))return false;
@@ -58,6 +65,15 @@ public:
     void Tick(std::uint32_t frame,std::uint32_t calls) {
         if(frame_ && *frame_==frame)return;
         frame_=frame;calls_=calls;missing_=0;
+        // A resynchronization moves one not-yet-executed native wake to a
+        // later video boundary. Its ORIGINAL metrics selection moves with it;
+        // a repeated host frame is not a second native tick. Keep it across a
+        // pause too, until the real counter advances. The early driver's
+        // same-frame draw must not replace the worker's frozen inputs.
+        if(deferred_) {
+            if(deferred_->calls==calls) { selected_=deferred_->selection;return; }
+            deferred_.reset();
+        }
         const Entry* source=nullptr;
         for(const auto& entry:entries_) {
             const auto age=std::uint32_t(calls-entry.due);
@@ -73,6 +89,14 @@ public:
         selected_=Selection{source->values,source->logic,false};
     }
     std::optional<Selection> OriginalInputs() const { return selected_; }
+    bool DeferWake(std::uint32_t frame,std::uint32_t calls) {
+        if(!frame_ || *frame_!=frame || calls_!=calls || !selected_ || deferred_)return false;
+        deferred_=Deferred{calls,*selected_};return true;
+    }
+    bool Sampled(std::uint64_t logic) const {
+        const auto* entry=Find(logic);
+        return logic && entry && entry->sampled;
+    }
 private:
     Entry* Find(std::uint64_t logic) {
         auto& entry=entries_[logic%entries_.size()];
@@ -87,5 +111,7 @@ private:
     std::uint32_t calls_{};
     std::optional<std::uint32_t> frame_;
     std::optional<Selection> selected_;
+    struct Deferred { std::uint32_t calls; Selection selection; };
+    std::optional<Deferred> deferred_;
 };
 }

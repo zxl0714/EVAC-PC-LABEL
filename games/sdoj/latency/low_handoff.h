@@ -16,6 +16,36 @@ struct Request {
     bool wakes_writer{},resumes_intermediate{};
     bool operator==(const Request&) const = default;
 };
+// Re-enter early scheduling after a native-late completion. Draw that result
+// first, then move its still-pending late wake to the NEXT video's early slot.
+// No extra parser invocation, dropped batch, fabricated metrics or extra wake.
+// This receipt authorizes only that same frame's late-driver cut, and only
+// after the exact completed batch was published and really parsed.
+class DrawRecovery {
+public:
+    void Reset() { pending_.reset(); }
+    bool armed() const { return pending_.has_value(); }
+    bool Arm(const Completion& ready,const NativeState& native) {
+        pending_.reset();
+        if(!ready.depth || native.countdown!=1 || native.renderer!=ready.renderer ||
+           native.callback!=ready.callback ||
+           std::uint32_t(native.calls-ready.baseline)!=ready.depth-1)return false;
+        pending_=Pending{ready,native.frame,native.calls};return true;
+    }
+    bool Defer(const std::optional<Completion>& ready,const NativeState& native,
+               bool parsed,bool swap_receipt) {
+        const auto pending=pending_;pending_.reset();
+        return pending && ready && *ready==pending->ready && parsed && swap_receipt &&
+            native.frame==pending->frame && native.calls==pending->calls && native.countdown==1 &&
+            native.renderer==ready->renderer && native.callback==ready->callback &&
+            native.serial==std::uint32_t(ready->serial+1) && native.published==ready->buffer &&
+            native.writer && native.writer!=0xffffffff && native.writer!=ready->buffer &&
+            (native.status&0x10) && !native.busy;
+    }
+private:
+    struct Pending { Completion ready; std::uint32_t frame,calls; };
+    std::optional<Pending> pending_;
+};
 // Per-step receipts are deliberately independent. The native prefix runs once;
 // callback/masks/helper/countdown and the wake counter run once; peripherals
 // remain in the late driver and must NEVER be skipped with the moved steps.

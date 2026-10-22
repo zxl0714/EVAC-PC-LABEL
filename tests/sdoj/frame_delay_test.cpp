@@ -33,6 +33,147 @@ struct Fixture {
 };
 }
 void RunChecks() {
+    for(const RenderMetrics::Pair final : {RenderMetrics::Pair{0,0},RenderMetrics::Pair{1688688,0}}) {
+        // Real training transition 101048: parser produced 1688688,0;
+        // native 88046514/18 reset them before the wrapper stored 0,0.
+        // Neither parser-time values nor a newer batch may become the sample.
+        RenderMetrics metrics;
+        metrics.Complete(4843,0x100,5045,1);metrics.Tick(13441,5046);
+        metrics.BeginRead(0x100);const auto token=metrics.EndRead();
+        Check(token==4843 && metrics.EndRead()==0,"parser identity is taken exactly once");
+        Check(!metrics.Sampled(token) && !metrics.OriginalInputs(),"intermediate parser values are not final operands");
+        Check(metrics.CanResolve(token) && !metrics.CanResolve(4842) && !metrics.CanResolve(0),
+              "only the exact pending parsed source can resolve before the deferred wake");
+        Check(!metrics.DeferWake(13441,5046),"cannot freeze unfinalized operands");
+        metrics.Complete(4844,0x200,5046,1);
+        Check(metrics.Capture(token,final),"final original stores bind to the pinned batch despite producer progress");
+        Check(metrics.Sampled(token) && !metrics.Sampled(4844),"finalization never retargets the newer completion");
+        Check(metrics.OriginalInputs()->source==token && metrics.OriginalInputs()->values==final,
+              "native training reset and unchanged normal operands both retain actual final values");
+        Check(metrics.DeferWake(13441,5046),"freeze only after native finalization");
+        metrics.Tick(13442,5046);
+        Check(metrics.OriginalInputs()->values==final && metrics.OriginalInputs()->source==token,
+              "next early slot receives the final operands, not parser-time values");
+        Check(metrics.Capture(0,{999,888}) && metrics.OriginalInputs()->values==final,
+              "no-parse wrapper cannot overwrite a parsed batch");
+        metrics.Complete(token+8,0x100,5054,1);
+        Check(!metrics.Capture(token,final),"ring reuse rejects stale finalization rather than binding by buffer");
+    }
+    for(unsigned depth : {1u,2u,3u,16u}) {
+        Fixture f(1);LowHandoff low;low.Load(f.model.generation());
+        DrawRecovery recovery;RenderMetrics metrics;
+        f.native.countdown=depth;f.Ready(depth);
+        const auto ready=*f.model.parked();
+        metrics.Complete(ready.logic,ready.buffer,ready.baseline,ready.depth);
+        // No early request or premature wake during native slowdown ticks.
+        for(unsigned tick=1;tick<depth;++tick) {
+            Check(!recovery.Arm(ready,f.native),"recovery cannot shorten a native slowdown wait");
+            ++f.native.frame;++f.native.calls;--f.native.countdown;
+        }
+        metrics.Tick(f.native.frame,f.native.calls);
+        Check(recovery.Arm(ready,f.native),"arm only the completed batch due for normal drawing");
+        f.Publish();
+        metrics.BeginRead(ready.buffer);const auto parsed=metrics.EndRead();
+        Check(parsed==ready.logic && !metrics.Sampled(parsed),"parser pins identity without finalizing presentation operands");
+        const auto frozen=*metrics.OriginalInputs();
+        Check(recovery.Defer(f.model.parked(),f.native,parsed==ready.logic,f.model.HasReceipt()),
+              "parsed immutable result permits moving its one pending wake");
+        Check(!recovery.Defer(f.model.parked(),f.native,true,true),"late wake deferral is single-use");
+        Check(metrics.Capture(parsed,{123,456}),"native stores finalize the exact parsed batch after late wake is deferred");
+        Check(metrics.DeferWake(f.native.frame,f.native.calls),"deferred wake retains its exact slowdown input");
+        Check(!metrics.DeferWake(f.native.frame,f.native.calls),"cannot defer an already deferred wake twice");
+        // Even if the following early slot is paused, no invented counter or
+        // zero metrics may replace the original pending wake's selection.
+        for(unsigned pause=0;pause<3;++pause) {
+            ++f.native.frame;metrics.Tick(f.native.frame,f.native.calls);
+            const auto selected=metrics.OriginalInputs();
+            Check(selected && selected->values==frozen.values && selected->source==frozen.source &&
+                  selected->held==frozen.held,"same pending native wake survives host pause frames");
+        }
+        const auto request=low.Begin(ready,f.native);
+        Check(request && request->wakes_writer && low.PrefixDone(*request),"recovery actually re-enters early scheduling");
+        Check(f.model.Consume(f.native,f.native.callback),"early callback settles the deferred full swap exactly once");
+        ++f.native.calls;Check(low.DriveDone(*request,f.native,1),"one native counter tick, not two");
+        // The callback really runs once, then logic produces a distinct batch.
+        f.model.Unpark();f.native.finished=f.native.writer;f.native.writer=0xffffffff;
+        f.native.cursor=f.native.finished+0x100;f.native.countdown=1;f.Ready();
+        Check(low.IsComplete(*request,f.model.parked()),"new completion belongs to the resumed early request");
+        metrics.Complete(f.model.logic(),f.native.finished,f.native.calls,1);
+        f.Publish();metrics.BeginRead(f.native.published);Check(metrics.Capture({789,321}),"resumed result is also parsed, not discarded");
+        metrics.Tick(f.native.frame,f.native.calls);
+        Check(metrics.OriginalInputs()->values==frozen.values,"same-frame parsing cannot retarget resumed worker metrics");
+        Check(low.ConsumePrefix(f.native.frame,f.native.renderer) && low.ConsumeDriver(f.native.frame,f.native.calls),
+              "normal late hooks skip only the already executed prefix and driver");
+        Check(f.model.logic()==2 && low.CanRequest(),"exactly one new update and next early request remains available");
+        ++f.native.frame;metrics.Tick(f.native.frame,f.native.calls);
+        Check(metrics.OriginalInputs()->source==ready.logic && metrics.OriginalInputs()->values==RenderMetrics::Pair{123,456},
+              "next original native tick receives the formerly unseen real sample");
+        Check(metrics.Sampled(f.model.logic()),"next parked batch was drawn so recovery does not loop at 2V");
+    }
+    for(unsigned mismatch=0;mismatch<12;++mismatch) {
+        Fixture f(1);f.Ready();DrawRecovery recovery;
+        Check(recovery.Arm(*f.model.parked(),f.native),"arm recovery identity test");f.Publish();
+        auto ready=f.model.parked();auto native=f.native;bool sampled=true,receipt=true;
+        switch(mismatch) {
+        case 0: ++ready->generation;break;
+        case 1: ++ready->logic;break;
+        case 2: ++native.frame;break;
+        case 3: ++native.calls;break;
+        case 4: ++native.serial;break;
+        case 5: native.published=0;break;
+        case 6: native.writer=ready->buffer;break;
+        case 7: native.countdown=0;break;
+        case 8: native.renderer=0;break;
+        case 9: sampled=false;break;
+        case 10: receipt=false;break;
+        case 11: native.busy=1;break;
+        }
+        Check(!recovery.Defer(ready,native,sampled,receipt),"changed identity or unparsed/unpublished result cannot suppress a wake");
+        Check(!recovery.Defer(f.model.parked(),f.native,true,true),"failed recovery attempt cannot suppress a later call");
+    }
+    {
+        RenderMetrics metrics;
+        metrics.Complete(1,0x100,0xfffffffe,1);metrics.BeginRead(0x100);metrics.Capture({77,88});
+        metrics.Tick(10,0xffffffff);
+        Check(!metrics.DeferWake(11,0xffffffff) && !metrics.DeferWake(10,0),"wrong frame or counter cannot retain metrics");
+        Check(metrics.DeferWake(10,0xffffffff),"nonzero original selection retained before counter wrap");
+        metrics.Tick(11,0xffffffff);
+        Check(metrics.OriginalInputs()->source==1 && metrics.OriginalInputs()->values==RenderMetrics::Pair{77,88},
+              "deferred real metrics never become a synthetic held zero");
+        // If the next early slot has insufficient budget, the ordinary late
+        // driver still uses this selection and advances once; no special wake.
+        metrics.Tick(12,0);Check(metrics.OriginalInputs()->held,"native counter wrap settles deferred selection once");
+        metrics.Reset();Check(!metrics.DeferWake(0,0),"reload cannot defer stale metrics");
+    }
+    {
+        // Runtime 101808: 19625 was completed but never parsed; 19626 was
+        // already sampled. A valid older selection alone cannot authorize
+        // bootstrap + early wake, which could overwrite the unseen batch.
+        RenderMetrics metrics;
+        metrics.Complete(19624,0x200,19956,1);
+        metrics.BeginRead(0x200);Check(metrics.Capture({497584,0}),"older batch parsed");
+        metrics.Complete(19625,0x100,19957,1);
+        metrics.Tick(26480,19957);
+        Check(metrics.OriginalInputs() && metrics.OriginalInputs()->source==19624,
+              "old slowdown selection remains valid while a newer completed batch is unparsed");
+        Check(!metrics.Sampled(19625),"unparsed parked batch forbids early wake despite valid old selection");
+        Check(metrics.Sampled(19624),"sample identity is per completion, not per current selection");
+        // Normal drawing must get its turn before the late driver wakes the
+        // producer. Only then may the following boundary use the low path.
+        metrics.BeginRead(0x100);Check(metrics.Capture({496000,0}),"deferred completed batch gets its real parse");
+        Check(metrics.Sampled(19625),"real parse permits later early advancement");
+        metrics.Complete(19626,0x200,19958,1);
+        Check(!metrics.Sampled(19626),"reused buffer cannot inherit the old batch's sample");
+        metrics.Tick(26481,19958);
+        auto selected=metrics.OriginalInputs();
+        Check(selected && selected->source==19625 && selected->values==RenderMetrics::Pair{496000,0},
+              "native slowdown now consumes the previously skipped identity, not the newer batch");
+        metrics.BeginRead(0x200);Check(metrics.Capture({498608,32768}),"next completion parsed separately");
+        metrics.Tick(26482,19959);
+        Check(metrics.OriginalInputs()->source==19626,"following frame consumes its own real sample");
+        Check(!metrics.Sampled(0) && !metrics.Sampled(19618),"absent and ring-alias identities stay unknown");
+        metrics.Reset();Check(!metrics.Sampled(19626),"reload drops parse permission");
+    }
     {
         RenderMetrics metrics;
         metrics.Complete(1,0x100,9,1);metrics.BeginRead(0x100);metrics.Capture({7,8});

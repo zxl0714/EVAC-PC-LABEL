@@ -254,6 +254,48 @@ to out/xbox360/games/sdoj; process-module inspection confirmed that path. run.js
 still inventories the staged baseline, so do not use it as candidate DLL identity.
 The certified runtime/ tree is unchanged. No v0.4 release has been produced.
 
+Recovery r5 drew the unseen batch first and deferred exactly one pending
+late wake to the following early slot, carrying its frozen native metrics.
+Actual r4 established that the late driver runs after ReadEnd but before the
+original metric stores: Capture now runs at parser return, with equality
+verification at those original stores, never a second Capture there.
+1345 C++ checks and seven source-contract tests pass. r5 player run
+logs/sdoj/run-20261022T125057047Z-96616 reached Arcade HD / Type-C / Shot stage 1
+and natural result, normal close; one recovery, then 10553 early requests,
+10416 low publications and 10615 matching store verifications, no timeout.
+Do not claim shooting/focus/held-key acceptance from that run. DLL identities
+and failed predecessors are in TEST_MATRIX. Short replay runs are complete under
+.local/v04-sdoj-recovery-replay-{balanced,low}, PID 48960/34332; both closed.
+They fall in the known 5504/5505 initialization classes. Direct cross-class
+comparison fails and is preserved; each complete window matches its historical
+same-class opposite-policy reference exactly, including raw command SHA, native
+states, depth and both slowdown operands. Both have 131 depth=2 updates. Do not
+repeat runs merely to obtain the same initialization class. Low has one recovery,
+5638 matched early/prefix/driver receipts, 5506 low publications, 7307 metric
+verifications, zero timeouts, one pre-wake budget skip. Staged runtime and main
+config (3V, ordinary arrows) remain untouched. r5 later failed training re-entry;
+it is superseded by r7 below. Do not repeat accepted G2/launcher tests.
+
+Training re-entry r5/100092 and diagnostic r6/101048 exposed a legitimate
+native post-parse reset: sub_88046330 clears renderer+544/+548 when control+720
+is set. Parser values 1688688,0 become final stored 0,0. Current r7 pins only
+the parsed identity at ReadEnd; Capture uses the original final-store operands.
+Recovery defers the exact late wake, then freezes its selection after final
+Capture. Do not restore the r5 parser-time value assumption or remove guards.
+1371 mechanism checks, seven source contracts and 27 native CTests pass; both
+DLLs built. Training run 43740 under .local/v04-sdoj-recovery-replay-low passes
+the previously crashing re-entry and closes normally. Both native resets were
+observed. 23166 paired early/prefix/driver receipts, five recoveries, four budget
+skips, no timeouts. Confirm/back and focus-out/in pass; held directions/shoot
+release remain unverified. Final fixed replay PID 86580 has naturally finished
+and closed: Arcade HD SECOND slot (REPLAY_XB02.DAT despite the filename),
+module 1/generation 2/logic 1..5505, matches historical balanced/98276 exactly,
+including both slowdown operands and 131 depth=2 updates. Reports are
+.local/v04-sdoj-native-final-r7-{closed-exact,slowdown}.json. One recovery,
+5639 paired receipts, no timeout or budget skip. The earlier Xbox 360 menu
+selection in the same run was module 2 and is not the target comparison.
+Main config remains 3V. Preserve r5/r6 crashes. Final release still pending.
+
 ## Documentation and release
 
 Maintain README.md (Chinese) and README.en.md (English) together, reciprocal

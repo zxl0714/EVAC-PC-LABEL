@@ -40,7 +40,16 @@ constexpr std::uint32_t SwapReturn = Module == 1 ? 0x88051398 : 0x88051310;
 std::mutex gate;
 Handoff handoff;
 LowHandoff low;
+DrawRecovery draw_recovery;
 RenderMetrics render_metrics;
+struct WrapperMetrics {
+    std::uint64_t logic;
+    std::uint32_t renderer;
+    RenderMetrics::Pair parser;
+    struct Deferred { std::uint32_t frame,calls; };
+    std::optional<Deferred> deferred;
+};
+std::optional<WrapperMetrics> wrapper_metrics;
 std::condition_variable completion_changed;
 unsigned policy = 3;
 unsigned requested = 3;
@@ -52,6 +61,7 @@ std::uint64_t low_boundaries{}, low_completed{}, low_publications{}, low_drainin
               low_state_skips{}, low_control_skips{}, low_policy_skips{}, low_ownership_skips{};
 std::uint64_t low_intermediate_yields{};
 std::uint64_t metrics_selected{},metrics_changed{},metrics_held{},low_metrics_skips{};
+std::uint64_t low_unparsed_skips{},low_resyncs{},metrics_finalized{},metrics_native_changes{};
 DWORD logic_thread{};
 thread_local bool input_only{}, early_driver{};
 NativePrefixResult prefix_result;
@@ -114,6 +124,9 @@ void Summary(const char* phase) {
         low_boundaries, low_completed, low_publications, low_draining, low_budget_skips,
         low_state_skips, low_control_skips, low_policy_skips, low_ownership_skips,
         metrics_selected,metrics_changed,metrics_held,low_metrics_skips);
+    if constexpr(Module==1)
+        REXLOG_INFO("SDOJ_FRAME_DELAY_RECOVERY generation={} unparsed_skips={} deferred_wakes={} metrics_finalized={} metrics_native_changes={}",
+            handoff.generation(),low_unparsed_skips,low_resyncs,metrics_finalized,metrics_native_changes);
 }
 }
 extern "C" __declspec(dllexport) void ReXModule_OnLoad() {
@@ -130,6 +143,7 @@ extern "C" __declspec(dllexport) void ReXModule_OnLoad() {
     low_state_skips=low_control_skips=low_policy_skips=low_ownership_skips=0;
     low_intermediate_yields=0; logic_thread=0;
     render_metrics.Reset();metrics_selected=metrics_changed=metrics_held=low_metrics_skips=0;
+    low_unparsed_skips=low_resyncs=metrics_finalized=metrics_native_changes=0;draw_recovery.Reset();wrapper_metrics.reset();
     low.Load(handoff.generation()); prefix_result={};
     Summary("load");
     // The SDK may retain the PE mapping. Reset the optional observers for this
@@ -234,11 +248,37 @@ void SdojDelayMetricsParse(PPCContext& ctx, std::uint8_t*) {
     static const auto metrics=HostFunction<Metrics>("SdojLogicMetricsEvent");
     if(metrics)metrics(Module,0,ctx.r30.u32,0);
 }
-void SdojDelayRenderMetrics(PPCContext& ctx, std::uint8_t*) {
+void SdojDelayRenderMetrics(PPCContext& ctx, std::uint8_t* base) {
     if(policy!=3) {
         std::lock_guard lock(gate);
-        if(handoff.active() && !render_metrics.Capture({ctx.r11.u32,ctx.r10.u32}))
-            throw std::runtime_error("SDOJ Frame Delay: inconsistent completed render metrics");
+        // ReadEnd pins identity, NOT values. Native presentation may clear
+        // +544/+548 (88046514..88046520) after parsing, including on entry to
+        // training. Only these original stores provide the final operands.
+        if(handoff.active()) {
+            const auto native=Snapshot(base);
+            if(!wrapper_metrics || wrapper_metrics->renderer!=native.renderer)
+                throw std::runtime_error("SDOJ Frame Delay: unmatched final render metrics wrapper");
+            const RenderMetrics::Pair values{ctx.r11.u32,ctx.r10.u32};
+            if(!render_metrics.Capture(wrapper_metrics->logic,values))
+                throw std::runtime_error("SDOJ Frame Delay: inconsistent completed render metrics");
+            if(wrapper_metrics->parser!=values && ++metrics_native_changes<=8) {
+                const auto control=Word(base,0x888791DC);
+                REXLOG_INFO("SDOJ_METRICS_FINALIZED logic={} frame={} calls={} parser={},{} stored={},{} control720={}",
+                    wrapper_metrics->logic,native.frame,native.calls,wrapper_metrics->parser[0],wrapper_metrics->parser[1],
+                    values[0],values[1],control ? Word(base,control+720) : 0);
+            }
+            if(wrapper_metrics->deferred) {
+                const auto pending=*wrapper_metrics->deferred;
+                if(native.frame!=pending.frame || native.calls!=pending.calls ||
+                   !render_metrics.DeferWake(pending.frame,pending.calls))
+                    throw std::runtime_error("SDOJ Frame Delay: recovery wake metrics mismatch");
+                if(++low_resyncs<=8)
+                    REXLOG_INFO("SDOJ_FRAME_DELAY module={} phase=resync_after_draw logic={} frame={} calls={} action=move_one_late_wake_to_next_early_slot count={}",
+                        Module,wrapper_metrics->logic,native.frame,native.calls,low_resyncs);
+            }
+            ++metrics_finalized;
+        }
+        wrapper_metrics.reset();
     }
     using Metrics=void (*)(std::uint32_t,std::uint32_t,std::uint32_t,std::uint32_t);
     static const auto metrics=HostFunction<Metrics>("SdojLogicMetricsEvent");
@@ -273,13 +313,27 @@ void SdojDelaySlowdownInputs(PPCContext& ctx, std::uint8_t* base) {
     static const auto metrics=HostFunction<Metrics>("SdojLogicMetricsEvent");
     if(metrics)metrics(Module,2,ctx.r9.u32,ctx.r10.u32);
 }
-void SdojDelayReadEnd(PPCContext&, std::uint8_t*) {
+void SdojDelayReadEnd(PPCContext&, std::uint8_t* base) {
 #if SDOJ_MODULE_ID == 1
     SdojLatencyNormalRenderEnd();
 #else
     SdojLatencyArrangeRenderEnd();
 #endif
-    if (policy != 3) { std::lock_guard lock(gate); handoff.ReadEnd(); }
+    if (policy != 3) {
+        std::lock_guard lock(gate);
+        if constexpr(Module==1) {
+            if(handoff.active()) {
+                // Remember the accepted batch before later callbacks wake
+                // the worker. Values remain provisional until native stores.
+                const auto renderer=Word(base,0x888791D8);
+                if(!renderer || wrapper_metrics)
+                    throw std::runtime_error("SDOJ Frame Delay: unmatched render metrics wrapper");
+                wrapper_metrics=WrapperMetrics{render_metrics.EndRead(),renderer,
+                    {Word(base,renderer+544),Word(base,renderer+548)},std::nullopt};
+            }
+        }
+        handoff.ReadEnd();
+    }
 }
 static void Publish(PPCContext& ctx, std::uint8_t* base,bool current_complete) {
     if (policy == 3) return;
@@ -362,6 +416,21 @@ bool SdojDelayDriverBegin(PPCContext& ctx, std::uint8_t* base) {
     // A timed-out writer still owns its buffer. Do not run its callback or
     // issue another wake while draining; the unrelated peripheral call runs.
     if (low.SuppressWriter()) { ctx.r31.u64=0; return true; }
+    if constexpr(Module==1) {
+        const auto native=Snapshot(base);
+        const auto control=Word(base,0x888791DC+Offset);
+        if (effective==1 && handoff.active() && !handoff.reading() && low.CanRequest() &&
+            control && !Word(base,control+472) && wrapper_metrics &&
+            render_metrics.CanResolve(wrapper_metrics->logic) &&
+            draw_recovery.Defer(handoff.parked(),native,
+                handoff.parked() && handoff.parked()->logic==wrapper_metrics->logic,handoff.HasReceipt())) {
+            // No producer wake occurs here. Freeze its inputs only after
+            // native presentation has finished and its actual stores execute.
+            wrapper_metrics->deferred=WrapperMetrics::Deferred{native.frame,native.calls};
+            ctx.r31.u64=0;return true; // The original peripheral tail still runs.
+        }
+        draw_recovery.Reset();
+    }
     return false;
 }
 bool SdojDelayDriverPeripheral(PPCContext&, std::uint8_t*) { return early_driver; }
@@ -374,6 +443,7 @@ extern "C" __declspec(dllexport) void SdojFrameDelayAdvance(PPCContext& ctx, std
     {
         std::lock_guard lock(gate);
         if (!handoff.active()) return;
+        draw_recovery.Reset();
         if constexpr(Module==1) {
             const auto native=Snapshot(base);
             render_metrics.Tick(native.frame,native.calls);
@@ -390,6 +460,21 @@ extern "C" __declspec(dllexport) void SdojFrameDelayAdvance(PPCContext& ctx, std
             return; // Finish this boundary with the balanced path before retry.
         }
         if (effective!=1) { ++low_policy_skips; return; }
+        if constexpr(Module==1) {
+            // Never replace an unseen completed batch. The ordinary draw
+            // captures it; a one-shot late-driver receipt may then move the
+            // pending wake to the following early slot, recovering 1V without
+            // remaining indefinitely on native-late (balanced) scheduling.
+            if (low.CanRequest() && handoff.parked() && !handoff.reading() &&
+                !render_metrics.Sampled(handoff.parked()->logic)) {
+                const auto native=Snapshot(base);
+                draw_recovery.Arm(*handoff.parked(),native);
+                if (++low_unparsed_skips<=8)
+                    REXLOG_INFO("SDOJ_FRAME_DELAY module={} phase=unparsed_completion logic={} frame={} calls={} action=draw_before_early_wake skips={}",
+                        Module,handoff.parked()->logic,native.frame,native.calls,low_unparsed_skips);
+                return;
+            }
+        }
         if constexpr(Module==1) {
             // The original late wake follows rendering. An unknown source
             // cannot be used for early logic yet: let the normal draw parse

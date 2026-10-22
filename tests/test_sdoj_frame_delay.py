@@ -78,6 +78,46 @@ class FrameDelayContractTests(unittest.TestCase):
         self.assertIn('low_metrics_skips', early[:early.index('SdojDelayPublish(ctx,base)')])
         self.assertIn('missing original slowdown metrics', adapter)
 
+    def test_unparsed_parked_batch_defers_before_bootstrap_and_early_input(self):
+        adapter = (SOURCE/'latency/module.cpp').read_text(encoding='utf-8')
+        early = adapter[adapter.index('void SdojFrameDelayAdvance('):]
+        guard = early.index('!render_metrics.Sampled(handoff.parked()->logic)')
+        for operation in ('SdojDelayPublish(ctx,base)', 'low.Begin(',
+                          'ResolveIndirectFunction(0x88044960)'):
+            self.assertLess(guard, early.index(operation))
+        self.assertIn('draw_before_early_wake', early[:early.index('SdojDelayPublish(ctx,base)')])
+
+    def test_draw_recovery_freezes_metrics_and_leaves_native_peripheral_tail(self):
+        adapter = (SOURCE/'latency/module.cpp').read_text(encoding='utf-8')
+        early = adapter[adapter.index('void SdojFrameDelayAdvance('):]
+        self.assertLess(early.index('draw_recovery.Reset()'), early.index('draw_recovery.Arm('))
+        late = adapter[adapter.index('bool SdojDelayDriverBegin('):adapter.index('bool SdojDelayDriverPeripheral(')]
+        self.assertLess(late.index('low.ConsumeDriver('), late.index('draw_recovery.Defer('))
+        self.assertLess(late.index('low.SuppressWriter()'), late.index('draw_recovery.Defer('))
+        self.assertIn('render_metrics.CanResolve(wrapper_metrics->logic)', late)
+        self.assertIn('handoff.parked()->logic==wrapper_metrics->logic', late)
+        self.assertIn('wrapper_metrics->deferred=WrapperMetrics::Deferred{native.frame,native.calls}', late)
+        self.assertNotIn('render_metrics.DeferWake(', late)
+        self.assertIn('effective==1 && handoff.active()', late)
+        self.assertIn('control && !Word(base,control+472)', late)
+        self.assertIn('ctx.r31.u64=0;return true;', late)
+        self.assertIn('SdojDelayDriverPeripheral(PPCContext&, std::uint8_t*) { return early_driver; }', adapter)
+
+    def test_metrics_identity_pinned_at_parser_return_but_values_finalized_at_native_stores(self):
+        adapter = (SOURCE/'latency/module.cpp').read_text(encoding='utf-8')
+        end = adapter[adapter.index('void SdojDelayReadEnd('):adapter.index('static void Publish(')]
+        self.assertIn('if constexpr(Module==1)', end)
+        self.assertIn('Word(base,renderer+544),Word(base,renderer+548)', end)
+        self.assertLess(end.index('render_metrics.EndRead()'), end.index('handoff.ReadEnd()'))
+        self.assertNotIn('render_metrics.Capture(', end)
+        stores = adapter[adapter.index('void SdojDelayRenderMetrics('):adapter.index('void SdojDelaySlowdownInputs(')]
+        self.assertIn('const RenderMetrics::Pair values{ctx.r11.u32,ctx.r10.u32}', stores)
+        capture = stores.index('render_metrics.Capture(wrapper_metrics->logic,values)')
+        self.assertLess(capture, stores.index('render_metrics.DeferWake(pending.frame,pending.calls)'))
+        self.assertIn('native.frame!=pending.frame || native.calls!=pending.calls', stores)
+        self.assertIn('wrapper_metrics->renderer!=native.renderer', stores)
+        self.assertIn('wrapper_metrics.reset()', stores)
+
 
 if __name__ == '__main__':
     unittest.main()
