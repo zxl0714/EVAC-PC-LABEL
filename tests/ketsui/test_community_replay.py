@@ -100,6 +100,17 @@ class ReplayEnvelopeTests(unittest.TestCase):
                     self.assertTrue(event['metadata_matched'])
                     self.assertEqual(event['mode'], mode)
 
+    def test_base_revision_retains_header_and_full_record_identity(self):
+        raw = record()
+        struct.pack_into('<I', raw, 4, 0x10000)
+        for board in (0, 1):
+            event = self.inspect(zlib.compress(raw), valid=True, board=board)
+            self.assertEqual((event['version'], event['data_version']), (0x10001, 0x10000))
+            self.assertEqual(event['record_sha256'], hashlib.sha256(raw).hexdigest())
+        for version in (0x10000, 0x10002):
+            struct.pack_into('<I', raw, 0, version)
+            self.inspect(zlib.compress(raw), board=0)
+
     def test_selected_score_mismatch_and_64bit_expectations_are_not_truncated(self):
         for score in (0, 9000, 9002, 9001 + 2 ** 32, 2 ** 63 - 1):
             with self.subTest(score=score):

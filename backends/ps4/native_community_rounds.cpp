@@ -72,6 +72,7 @@ std::string Text(std::uint64_t object) {
     return {text.data(),static_cast<std::size_t>(size)};
 }
 NativeCommunityRoundHandle Capture(std::uint64_t boards,std::uint64_t metadata,std::uint64_t stream) {
+    Require(active_version);
     auto round=std::make_shared<NativeCommunityRound>();
     const auto begin=Value<std::uint64_t>(boards,8),end=Value<std::uint64_t>(boards,16);
     Require(begin && end>=begin && (end-begin)%40==0 && (end-begin)/40>=1 && (end-begin)/40<=18);
@@ -85,8 +86,11 @@ NativeCommunityRoundHandle Capture(std::uint64_t boards,std::uint64_t metadata,s
     round->input.record.resize(kReplayRecordSize); Read(Value<std::uint64_t>(stream,0x60),round->input.record.data(),round->input.record.size());
     std::uint32_t version{},data_version{},record_score{};
     std::memcpy(&version,round->input.record.data(),4); std::memcpy(&data_version,round->input.record.data()+4,4); std::memcpy(&record_score,round->input.record.data()+108,4);
-    Require(version==0x10001 && data_version==0x10001 && round->input.score==record_score);
-    Require(active_version);
+    if (version!=0x10001 || data_version!=active_version->replay_data_version || round->input.score!=record_score) {
+        std::printf("{\"event\":\"native_community_round_header_rejected\",\"container_version\":%u,\"data_version\":%u,\"expected_data_version\":%u,\"score_matches\":%s}\n",
+                    version,data_version,active_version->replay_data_version,round->input.score==record_score?"true":"false");
+        Require(false);
+    }
     round->input.build="ketsui-native-round-"+std::string(active_version->version.substr(1)); return round;
 }
 NativeCommunityRoundHandle For(std::uint64_t job) {
@@ -386,6 +390,19 @@ bool NativeCommunityRoundsSelfTest(const std::filesystem::path& directory) {
     check(returned==test_group && test_arguments==args && errno==ERANGE && GetLastError()==103,"factory_forwards_all_five_sysv_arguments_return_and_error_state");
     const auto a=For(one); check(a && !a->failed && For(two)==a && a->input.boards==std::vector<std::uint32_t>({0,1}),"each_created_job_is_bound_to_its_shared_round_object");
     raw[300]=std::byte{7}; check(a->input.record[300]==std::byte{} && a->input.record.size()==kReplayRecordSize,"capture_is_owned_not_a_borrowed_guest_record");
+    {
+        const auto* saved_version=active_version;
+        for(const auto& version:kKetsuiVersions) {
+            active_version=&version;
+            Put(raw.data(),4,version.replay_data_version);
+            const auto captured=Capture(args[1],args[2],args[3]);
+            check(captured && captured->input.record==raw && captured->input.build=="ketsui-native-round-"+std::string(version.version.substr(1)),
+                  "each_verified_executable_captures_its_native_replay_revision_without_rewriting");
+            Put(raw.data(),4,version.replay_data_version==0x10000?std::uint32_t{0x10001}:std::uint32_t{0x10000});
+            check(rejects([&] {Capture(args[1],args[2],args[3]);}),"producer_rejects_the_other_executables_record_revision");
+        }
+        active_version=saved_version;Put(raw.data(),4,saved_version->replay_data_version);
+    }
     {
         for (unsigned i=0;i<2;++i) {
             names[i*40+8]=std::byte{'6'};names[i*40+9]=static_cast<std::byte>('0'+2*i);

@@ -43,6 +43,13 @@ def main():
         results.append(dict(check=name,passed=passed,exitCode=result.returncode))
         print(('PASS' if passed else 'FAIL')+': '+name,flush=True)
     djo=record('daioujou');kt=record('ketsui')
+    base=bytearray(kt);struct.pack_into('<I',base,4,0x10000)
+    check('ketsui-base','ketsui',zlib.compress(base),True,board=0)
+    check('ketsui-base-not-daioujou','daioujou',zlib.compress(base),False)
+    unknown_base=bytearray(base);struct.pack_into('<I',unknown_base,0,0x10000)
+    check('ketsui-base-still-requires-container','ketsui',zlib.compress(unknown_base),False,board=0)
+    unknown_base=bytearray(base);struct.pack_into('<I',unknown_base,4,0x10002)
+    check('ketsui-unknown-data-version','ketsui',zlib.compress(unknown_base),False,board=0)
     for board in (60,61,62):
         custom=bytearray(kt);struct.pack_into('<H',custom,106,3)
         struct.pack_into('<H',custom,112,4 if board==62 else 0)

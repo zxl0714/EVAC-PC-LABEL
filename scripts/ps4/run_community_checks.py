@@ -37,9 +37,10 @@ def main():
     profiles.append(('daioujou',daioujou.Store,'native-challenge'))
     profiles.extend(('ketsui',ketsui.Store,'native-custom-'+str(board)) for board in (60,61,62))
     profiles.append(('ketsui',ketsui.Store,'custom-round'))
+    profiles.append(('ketsui',ketsui.Store,'native-base-replay'))
     for game,profile,kind in profiles:
         custom_board=int(kind.rsplit('-',1)[1]) if kind.startswith('native-custom-') else None
-        replay_case=kind=='native-score-replay' or custom_board is not None
+        replay_case=kind in ('native-score-replay','native-base-replay') or custom_board is not None
         scene=directory/(game if kind=='client' else game+'-'+kind)
         scene.mkdir()
         store=profile(scene/'authored.sqlite3')
@@ -59,6 +60,8 @@ def main():
             else:
                 authored=record(game)
                 struct.pack_into('<I',authored,108,9001)
+                if kind=='native-base-replay':
+                    struct.pack_into('<I',authored,4,0x10000)
                 if custom_board is not None:
                     struct.pack_into('<H',authored,106,3)
                     struct.pack_into('<H',authored,112,4 if custom_board==62 else 0)

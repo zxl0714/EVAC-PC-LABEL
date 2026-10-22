@@ -22,6 +22,7 @@ constexpr unsigned char kPrefix[] = {0x55,0x48,0x89,0xe5,0x41,0x57,0x41,0x56,0x4
 using Method = std::uint64_t(KT_SYSV*)(std::uint64_t,std::uint64_t,std::uint64_t,std::uint64_t,std::uint64_t);
 bool enabled{};
 Method original{};
+const KetsuiVersion* active_version{};
 std::atomic<unsigned> observations{};
 bool Admit() {
     auto count = observations.load();
@@ -55,7 +56,7 @@ std::size_t Count(std::uint64_t begin, std::uint64_t end, std::size_t stride, st
     Require(begin || begin == end);
     return static_cast<std::size_t>((end - begin) / stride);
 }
-Json Snapshot(std::uint64_t boards, std::uint64_t metadata, std::uint64_t stream) {
+Json Snapshot(std::uint64_t boards, std::uint64_t metadata, std::uint64_t stream, std::uint32_t expected_data_version) {
     const auto begin = Value<std::uint64_t>(boards, 8), end = Value<std::uint64_t>(boards, 16);
     const auto count = Count(begin, end, 40, 22); Require(count != 0);
     Json board_ids = Json::array();
@@ -79,18 +80,19 @@ Json Snapshot(std::uint64_t boards, std::uint64_t metadata, std::uint64_t stream
     std::vector<std::byte> record(kRecord);
     Read(Value<std::uint64_t>(stream, 0x60), record.data(), record.size());
     const auto word = [&](std::size_t offset) { std::uint32_t v{}; std::memcpy(&v, record.data()+offset, sizeof(v)); return v; };
-    Require(word(0) == 0x10001 && word(4) == 0x10001 && word(108) == static_cast<std::uint64_t>(score));
+    Require(word(0) == 0x10001 && word(4) == expected_data_version && word(108) == static_cast<std::uint64_t>(score));
     // Header-only observation: no inflate, state interpretation or player call.
     return Json{{"event","native_community_round_audit"},{"valid",true},{"observational_only",true},
                 {"boards",std::move(board_ids)},{"score",score},{"columns",std::move(fields)},
                 {"record_bytes",record.size()},{"record_sha256",kt::community::Sha256(record)},
+                {"container_version",word(0)},{"data_version",word(4)},
                 {"total_frames",word(16)},{"consumed_frames",word(20)},{"envelope_validated",false}};
 }
 std::uint64_t KT_SYSV Observe(std::uint64_t backend, std::uint64_t boards, std::uint64_t metadata,
                               std::uint64_t stream, std::uint64_t result) {
     const auto saved_error = GetLastError(); const auto saved_errno = errno;
     if (Admit()) {
-        try { std::puts(Snapshot(boards, metadata, stream).dump().c_str()); }
+        try { Require(active_version); std::puts(Snapshot(boards, metadata, stream, active_version->replay_data_version).dump().c_str()); }
         catch (...) { std::puts("{\"event\":\"native_community_round_audit\",\"valid\":false,\"observational_only\":true}"); }
     }
     errno = saved_errno; SetLastError(saved_error);
@@ -110,6 +112,7 @@ void InstallNativeCommunityRoundAudit(unsigned char* image, std::size_t bytes,
     std::uint64_t target{}; std::memcpy(&target,image+version->factory_slot,8);
     Require(target==reinterpret_cast<std::uint64_t>(image+version->factory));
     original = reinterpret_cast<Method>(target);
+    active_version=version;
     target = reinterpret_cast<std::uint64_t>(&Observe);
     // The loader calls this once, after relocation and before segment protection.
     std::memcpy(image+version->factory_slot,&target,8);
@@ -143,7 +146,7 @@ bool CommunityRoundAuditSelfTest() {
     Put(meta.data(),0x88,reinterpret_cast<std::uint64_t>(column.data()+column.size()));
     std::vector<std::byte> raw(kRecord); Put(raw.data(),0,std::uint32_t{0x10001}); Put(raw.data(),4,std::uint32_t{0x10001}); Put(raw.data(),108,std::uint32_t{3850});
     std::array<std::byte,0x70> stream{}; Put(stream.data(),0x60,reinterpret_cast<std::uint64_t>(raw.data())); Put(stream.data(),0x68,std::uint32_t{kRecord});
-    const auto snapshot=[&] { return Snapshot(reinterpret_cast<std::uint64_t>(boards.data()),reinterpret_cast<std::uint64_t>(meta.data()),reinterpret_cast<std::uint64_t>(stream.data())); };
+    const auto snapshot=[&] { return Snapshot(reinterpret_cast<std::uint64_t>(boards.data()),reinterpret_cast<std::uint64_t>(meta.data()),reinterpret_cast<std::uint64_t>(stream.data()),0x10001); };
     const auto rejects=[&](auto operation) { try { operation(); return false; } catch (...) { return true; } };
     auto result=snapshot();
     check(result["boards"] == Json::array({"0","1"}) && result["score"]==3850 && result["columns"][0]["value"]==7 &&
@@ -158,8 +161,8 @@ bool CommunityRoundAuditSelfTest() {
     Put(meta.data(),0x38,std::int64_t{3851}); check(rejects(snapshot),"metadata_score_mismatch_rejected"); Put(meta.data(),0x38,std::int64_t{3850});
     Put(column.data(),0,std::uint32_t{3}); check(snapshot()["columns"][0]["type"]==3,"boolean_column_type_preserved"); Put(column.data(),0,std::uint32_t{0});
     Put(column.data(),0,std::uint32_t{2}); check(rejects(snapshot),"uninterpreted_column_type_rejected"); Put(column.data(),0,std::uint32_t{0});
-    check(rejects([&] { Snapshot(1,reinterpret_cast<std::uint64_t>(meta.data()),reinterpret_cast<std::uint64_t>(stream.data())); }),"unreadable_pointer_rejected_without_faulting");
-    check(rejects([&] { Snapshot((std::numeric_limits<std::uint64_t>::max)()-1,reinterpret_cast<std::uint64_t>(meta.data()),reinterpret_cast<std::uint64_t>(stream.data())); }),"pointer_addition_overflow_rejected_before_read");
+    check(rejects([&] { Snapshot(1,reinterpret_cast<std::uint64_t>(meta.data()),reinterpret_cast<std::uint64_t>(stream.data()),0x10001); }),"unreadable_pointer_rejected_without_faulting");
+    check(rejects([&] { Snapshot((std::numeric_limits<std::uint64_t>::max)()-1,reinterpret_cast<std::uint64_t>(meta.data()),reinterpret_cast<std::uint64_t>(stream.data()),0x10001); }),"pointer_addition_overflow_rejected_before_read");
     std::array<std::uint8_t,32> source{};
     const auto nibble=[](char c) { return c<='9' ? c-'0' : c-'a'+10; };
     for (std::size_t i=0;i<source.size();++i) source[i]=static_cast<std::uint8_t>(nibble(kSource[2*i])*16+nibble(kSource[2*i+1]));
@@ -183,7 +186,7 @@ bool CommunityRoundAuditSelfTest() {
     check(returned==0x123456789abcdef0ull && forwarded==args && GetLastError()==97 && errno==EDOM,"sysv_five_argument_forwarding_and_error_state_preserved");
     observations=0; unsigned admitted{}; for (unsigned i=0;i<16;++i) admitted+=Admit();
     check(admitted==8 && !Admit(),"observations_are_bounded_without_counter_wraparound");
-    original=nullptr; observations=0; enabled=false;
+    original=nullptr; active_version=nullptr; observations=0; enabled=false;
     std::printf("{\"event\":\"community_round_audit_self_test\",\"passed\":%s,\"cases\":%u}\n",okay?"true":"false",cases);
     return okay;
 }

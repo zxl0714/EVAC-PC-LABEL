@@ -132,7 +132,13 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
     Require(result.record.size() == contract.bytes, "record_size");
     const std::span<const std::byte> record(result.record);
     result.version = U32(record, 0); result.data_version = U32(record, 4);
-    Require(result.version == contract.version && result.data_version == contract.data_version, "unsupported_record_version");
+    // Both supported Ketsui releases use the same container and key framing.
+    // 01.00 records core data 0x10000; 01.02 also understands that revision
+    // through its original replay minor-version branch. Preserve this field:
+    // accepting an envelope is not permission to bypass native player checks.
+    const bool supported_data = result.data_version == contract.data_version ||
+        (game == "ketsui" && result.data_version == 0x10000);
+    Require(result.version == contract.version && supported_data, "unsupported_record_version");
     Require(U32(record, 8) <= contract.data_bytes && U32(record, 12) == 0, "unsupported_record_extents");
     result.total_frames = U32(record, 16); result.consumed_frames = U32(record, 20);
     Require(result.total_frames && result.consumed_frames && result.consumed_frames <= result.total_frames, "frame_bounds");

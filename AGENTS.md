@@ -298,6 +298,32 @@ Main config remains 3V. Preserve r5/r6 crashes. Final release still pending.
 
 ## Documentation and release
 
+Ketsui actual base regression now passes in NEW-root
+.local/v04-ketsui-desktop-r1/base-loopback-r3, PID 103252 (closed): ARCADE/Type-A
+player entry, natural result, saved credit-unlock progress cold-read 5 then 6,
+actual two-board loopback score/replay delivery, visible Online Ranking,
+download and full ~62-second Download Replay returning naturally. No production
+scores were written. Native replay data version is 0x10000 for base, not 0x10001;
+this exposed a real capture/envelope rejection in baseline PID 67116. Current
+candidate binds capture to each executable's replay revision, accepts only the
+two known envelope revisions, preserves raw bytes and native replay checks.
+The original 1.02 viewer already has a minor-version 0/1 branch. 49 capture,
+38 journal, 19 audit, 24 envelope, 33 profile and 10 HTTP checks pass; 489 source
+tests pass with one privilege skip. EXE SHA is
+9abbe1c885844980604ce79b940114228701df72fbd0b4a223b573939adcef30.
+Candidate PS4 runtime/ is staged; the Xbox final release is not yet rebuilt.
+Updated single-root actual regression has passed; PID 102668 is closed. Under
+updated-loopback-r1, a fresh COPY of base's native profiles, not originals,
+read prior unlock progress, entered ARCADE/Type-A, used a bomb and naturally
+finished at 1130. Both boards and replays reached loopback with HTTP 200 and
+native replay proof 0. Its original Download Replay viewer played the inherited
+base record for the full ~62 seconds and returned naturally. Normal Alt+F4
+completed presentation cleanup; existing incomplete finalizer/exit 27 remains.
+Its prepared cache is cache-91a4ac91863f32b7-a2cbdc24b033c45a6f9466885b045b46.
+Loopback server PID 38964 was stopped after confirming its client had exited
+and its exact database/port command line. These CLI tests explicitly use 120 ms
+diagnostic taps; do not label them physical held-input acceptance.
+
 Maintain README.md (Chinese) and README.en.md (English) together, reciprocal
 links and matching actual names/versions/paths. Write for players: no former-name
 history, internal diary or repeated defensive explanations. Keep required setup,

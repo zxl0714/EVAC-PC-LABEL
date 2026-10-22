@@ -116,6 +116,9 @@ r7 将身份与值分开：解析结束只固定批次身份，仍在原生最�
 一次恢复，无超时、预算跳过、排空或所有权拒绝，最长等待 990 µs。
 r5 的完整对照保留为其自身版本的证据，不再重复已接受的短录像。
 
+修正已提交并推送为 `af7246e`。提交后完整源码套件 489 项通过（1 项文件链接权限跳过），
+日志 `.local/v04-sdoj-native-final-r7-source.log`；源码边界审计通过，无 ROM。
+
 早期保护候选 10556 从 `out/xbox360/bin/sdoj.exe` 运行，进程模块枚举确认实际加载
 `out/xbox360/games/sdoj/sdoj_CA022100.dll`。该 DLL SHA-256 为
 `94FD34EBE7F020479FDB2E420A4FDBDA85CA82D3FC4C958DBC86A15994B53DA7`；
@@ -258,6 +261,50 @@ GitHub 已更名且新 SSH origin 可用；新工作目录的结果见本页首�
 
 ## v0.4 绊地狱单目录与双版本准备
 
+### 10 月 22 日本体实际回归与录像版本修正
+
+独立现场 `.local/v04-ketsui-desktop-r1` 使用本体 01.00、独立 profile 和
+loopback 服务，不访问正式榜单。基线 `8fab1ce` 的 PID 67116 实际完成 ARCADE／
+Type-A 选机、第一关、暂停／原生按键设置、自然结算和游玩解锁保存；810 分录像已
+进入本地原生槽位。输入使用 CU 短按及显式 120 ms 诊断脉冲，不作实体长按验收。
+窗口关闭走已有呈现清理／退出码 27；不是完整客体 finalizer 清理的新证明。
+
+本体局末采集的 `valid:false` 定位为版本合同缺项，不是低分资格：实际录像容器为
+`0x10001`、核心数据为 `0x10000`，既有代码错误地只接受更新版 `0x10001` 核心数据。
+两版原生录像 PSB 结构相同，更新版原生 viewer 有明确的 minor-version 0／1 分支。
+修正将每个已核验可执行文件绑定自己的采集版本，公共 envelope 接受两个已知数据
+版本，保留原始记录和原生播放版本判断，不修改原作回放或伪造 header。
+
+真实 810 分原记录 SHA-256 为
+`c1dfeb666d95abd63e0a5519ec615874684f9cea5cc077ef0b574a6cc4a05869`，524288 字节、
+4183 个 consumed frame、417 个快照块。旧程序拒绝，修正程序完整解析及成绩匹配通过。
+候选 EXE SHA-256 为 `9abbe1c885844980604ce79b940114228701df72fbd0b4a223b573939adcef30`。
+49 项采集、38 项 journal、19 项 audit、24 项 envelope 测试、33 项双作品格式检查及
+10 组本机 HTTP 检查通过；新增本体收发校验含数据库中的录像字节和下载哈希。
+证据为 `.local/v04-ketsui-base-replay-*`，原记录分析为上述现场的
+`base-replay-analysis.jsonl` 与 `base-810-{before,after}.jsonl`。HTTP r1 在运行前因测试
+脚本已更新而拒绝旧收据；重新构建／收据验证后的 r2 通过，失败记录保留。
+修正后的 PID 103252（`base-loopback-r3`）冷读回本体存档，实际 ARCADE／Type-A
+自然结束的 0 分局成功采集两榜并落盘，reference 为
+`67f6c0bf0b6b1f8c71d9643e8756d74c`；服务端综合／Type-A 榜均接受，两个 18641 字节
+录像附件 SHA-256 同为 `8acbe51b786f60afb368e371f8e5af5898a58422fbf3d0f9a3abfb2207a77451`。
+实际 Online Ranking 显示 V04-Base，下载返回 200／完整元数据校验通过；Download Replay
+中的该录像完整播放约 62 秒并自然回到列表，之后正常关窗。投币解锁上限从前进程保存的
+5 继续增长到 6，未重置。本机服务中是实际游戏采集，不是 fixture 或正式服务写入。
+原生保存记录包含后续本地元数据处理，未声称整个存档槽逐字节等于网络容器；网络原记录
+与附件身份见 `base-native-delivery.json`。489 项源码测试通过（1 项权限跳过），源码审计通过。
+更新版 PID 102668（`updated-loopback-r1`）使用 47 文件合并单目录和本体 profile 的
+独立副本，实际 ARCADE／Type-A 进关、炸弹击毁得分及 1130 分自然结算通过；读取既有
+6 次投币解锁进度并保存至 7。综合／Type-A 两榜成绩及录像均返回 200，原生回放证明
+返回 0。reference 为 `1df90b40372f2147cd42bb8456f17a89`，附件 31626 字节，SHA-256 为
+`612a9286b8f29587e516aa6d365a1e30a0ab9d599dd69ab4f471a19b3225f843`，数据版本为
+`0x10001`。该进程的 Download Replay 冷读回继承的 V04-Base 录像，完整播放约 62 秒
+并自然返回列表，验证了原生 viewer 的旧数据版本分支。随后 Alt+F4 正常关窗，呈现
+清理完成；退出码仍为既有的 27，没有声称 guest finalizer 全部清理。测试服务仅接受
+这两局各两个榜单记录，未改正式服务。程序、完整日志和 SQLite 均保留在独立现场。
+
+### 单目录准备基线
+
 开发代码已将绊地狱改为单个实际游戏根目录：01.00 本体使用 41 项清单，完整覆盖 01.02 的数据使用 47 项清单。以根 `eboot.bin` 的大小和 SHA-256 选择版本，再校验该版本的全部程序、资源和禁止混入项；不按文件夹名猜测、不在缺少更新文件时退回本体清单。旧双目录在实际只读检查中返回 `unsupported_version`，不自动迁移。
 
 - 从旧清单精确对应原文件，建立 `.local/inputs/ketsui-v04-single-root-r1/{base,update-102}` 两份全新测试副本。复制前后原文件和副本的大小／SHA-256 一致，共享配置未改；未在原始目录覆盖补丁。
@@ -268,7 +315,8 @@ GitHub 已更名且新 SSH origin 可用；新工作目录的结果见本页首�
 
 记录为 `.local/v04-ketsui-single-root-{build-r2,source-r2,launcher-r1,round-r1}.log`、`.local/v04-ketsui-{base,updated}-prepare-r2/result.json`、`.local/v04-ketsui-native-checks-r1/result.json`、`.local/v04-ketsui-resource-checks-r1/result.json` 和 `.local/analysis/ketsui-v04-base-contract-r2.json`。
 
-实际本体／更新版进关、保存重启和适用社区／录像短回归尚未完成，不能以准备验证替代。六个预建目录的发行说明与说明文件存在时的数据复制还待实现；当前发布包仍为 v0.3.2，未回改。
+本体和更新版的实际进关、保存读回和社区／录像代表性短回归已由上节补齐。
+六个预建目录与模板复制已在后续章节完成，最终 v0.4 发行包尚未生成；冻结的 v0.3.2 未回改。
 
 ## v0.4 游戏数据层级提示
 

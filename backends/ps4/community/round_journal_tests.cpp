@@ -138,6 +138,18 @@ bool RoundJournalSelfTest(const std::filesystem::path& directory) {
         check(first!=second && journal.Get(first).metadata.at("boards")[0].at("submission_id")!=journal.Get(second).metadata.at("boards")[0].at("submission_id"),"equal_score_equal_record_rounds_still_have_distinct_operation_identity");
     }
     {
+        auto base=input;Word(base.record,4,0x10000);base.build="ketsui-native-round-1.00";
+        std::string base_id;
+        {
+            RoundJournal journal(directory/"base");base_id=journal.Stage(config,base);Bind(journal,base_id);
+        }
+        RoundJournal reopened(directory/"base");const auto saved=reopened.Get(base_id);
+        const auto replay=InspectReplayEnvelope(saved.attachment);
+        check(saved.record==base.record && replay.data_version==0x10000 && replay.record==base.record &&
+              reopened.ScoreRequest(base_id,0).at("score")=="9001",
+              "base_round_revision_and_bytes_survive_encoding_storage_and_restart");
+    }
+    {
         auto large=input; std::uint32_t state=0x1977abcd;
         // Randomize only unused bytes, leaving the authored snapshot and its
         // zero-edge key directory intact. This stresses the encoder's bound.
