@@ -8,7 +8,7 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
-This branch targets v0.4; the instructions below describe the development code. See “Updates and backups” for the published v0.3.2 download.
+The current version is v0.4. Downloads are listed under “Updates and backups”.
 
 ## Supported games
 
@@ -88,13 +88,15 @@ Set `enabled` to `false` to play offline.
 
 ## Updates and backups
 
-Published version: **v0.3.2**. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
+Current version: **v0.4**. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
-[Download the v0.3.2 update package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip) · [SHA-256 checksum file](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip.sha256)
+- First installation: [complete program package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip.sha256). Supply your own game data.
+- Existing installation: [update package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip.sha256). Supports v0.3, v0.3.1, and v0.3.2.
+- Development: [corresponding source and pinned dependencies](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip.sha256). No game data included.
 
-The update package is for an existing v0.3, v0.3.1, or earlier v0.3.2 installation. Close the games and launcher, then extract the ZIP into your existing collection folder, replacing files with the same names. First-time installations need the complete program package.
+Close the games and launcher, then extract the update ZIP into your existing collection folder, replacing files with the same names. Configuration, saves, replays, and game data are retained. Existing shortcuts continue to open the updated launcher.
 
-v0.3.2 still uses `CAVE-PC-Collection.exe` and Ketsui's original two-folder layout. When moving to v0.4, follow this page's new data layout. The v0.4 update also refreshes the old executable filename so existing shortcuts open the new launcher. v0.4 has not been released yet.
+For Ketsui, follow the [game data guide (Chinese)](docs/GAME_DATA.md) to use a single game root: place the base game first, then overlay the optional update in the same folder. Save and replay locations stay unchanged.
 
 - `user-data/`: configuration, per-game saves, replays, and other player data. Keep the whole folder when backing up or moving an installation.
 - `game-data/`: the game files you provide. Keep them during an in-place update. When moving the installation, either move them too or select their existing location again.

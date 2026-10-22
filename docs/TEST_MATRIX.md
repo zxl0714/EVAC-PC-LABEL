@@ -2,6 +2,44 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.4 配套发行构建与一次解压验收
+
+发行程序和对应源码固定于 `091c15c76b9fb51919332310fc802280026cd613`；后续下载说明
+和交付记录不重打这些 ZIP。PS4、Xbox 360、启动器的构建收据同提交，56／6／2 对
+PE／PDB 及五款运行清单通过，27 项公共／360 原生 CTest 通过。最终 SDOJ 两模块及
+PS4 宿主／GPU 与已实际回归的候选逐字节相同。证据为
+`.local/v04-release-{build-r1.log,native-r1.log,certified-set-r1.json}`。
+
+| 包 | 字节数 | SHA-256 | 实际解压 |
+| --- | ---: | --- | --- |
+| Public | 72888170 | `8fd27d85b9a313fa002253de5c279415bfd53059c79969eaa03a4e00eb88ea96` | 136 文件，通过 |
+| Update | 78200361 | `ec24d85f4469b947683bf4042ea991cad979bf12398d880857fa094707d68aec` | 130 载荷文件，通过 |
+| Internal | 7105602167 | `5e5f91d38c783e895ca36515f5f7abd8270df28b4b4907d4da9047a801c3cdaa` | 2915 文件，通过 |
+| 对应源码 | 288246758 | `193396c82304a6cad74dc2c4ea8be1b62f47d6ab2438092cb9ff9cd66bbe9c17` | 37205 文件，通过 |
+
+每种最终 ZIP 只真实解压一次，收据以压缩包 SHA 绑定在
+`.local/release-acceptance-v04/<SHA前16位>/accepted.json`。Public／Internal 的六份放置
+说明、Internal 的五款数据与 DLC 清单、独立源码 Git、Public／Update 无 ROM 或源码
+边界通过。三种玩家包共有的 35 项运行文件哈希相同；旧文件名入口与新 EXE 完全相同。
+Update 覆盖已解压的 v0.3 程序副本，六项旧配置／数据／存档／录像／源码哨兵保持不变，
+真实旧入口正常打开 EVAC PC LABEL，读回选择与设置，正常关窗。
+
+对应源码包含 25 项 SDK 和 19 项 PS4 固定依赖，源码 Git 与对象独立。首次在较深验收
+目录核对 ext-boost 时，Git 默认长路径限制将七个长文件名 HTML 报为修改；文件 SHA
+已与 ZIP 清单一致。在该次验证进程单独设置 `core.longpaths=true` 后依赖身份及干净状态
+全部通过，未改变全局 Git 设置、源码内容或 ZIP。开发文档要求较短英文目录仍有效。
+
+Internal 解压副本的真实启动器正常打开，默认昵称 Player、首款选择、数据识别和布局
+正确，截图保存为 `.local/v04-release-media/launcher-v0.4.jpg`，随后正常关闭。未为不同
+包重复运行游戏；复用同组件身份的上述代表性回归。1V 实体长按／射击松开尚未实测，
+保留独立待办，默认仍为 3V。公网上传、发布标签和群通知另行记录。
+
+四种 ZIP 与校验文件已上传至 OSS 的 `v0.4/`。Public、Update、Source 和 Internal
+均通过远端大小／状态、公开 SHA-256 文本及 32 字节 Range 头部核对，不重新下载
+整包。证据为 `.local/v04-oss-{public-update,source,internal}-verified-r1.json`。
+中英 README 仅列不含 ROM 的 Public／Update／Source 下载。发行标签和群通知未执行，
+1V 实体长按待办是否延后已向用户提出；截图、群文案保留在本地。
+
 ## v0.4 桌面恢复后的实际回归
 
 用户于 10 月 22 日手动关闭 Taskmgr 后，游戏窗口可正常激活。以下日志位于新工作目录，

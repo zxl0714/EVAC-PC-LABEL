@@ -8,7 +8,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
-本分支面向 v0.4；下文说明对应当前开发代码。已发布的 v0.3.2 下载见“更新与备份”。
+当前版本为 v0.4，下载入口见“更新与备份”。
 
 ## 支持的游戏
 
@@ -88,13 +88,15 @@ nickname = Player
 
 ## 更新与备份
 
-已发布版本：**v0.3.2**。更新内容见[更新记录](docs/CHANGELOG.md)。
+当前版本：**v0.4**。更新内容见[更新记录](docs/CHANGELOG.md)。
 
-[下载 v0.3.2 覆盖更新包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip) · [SHA-256 校验文件](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.3.2/CAVE-PC-Collection-v0.3.2-update.zip.sha256)
+- 首次安装：[完整程序包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-public.zip.sha256)。游戏数据需自行准备。
+- 已有合集：[覆盖更新包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-update.zip.sha256)。适用于 v0.3／v0.3.1／v0.3.2。
+- 参与开发：[对应源码与固定依赖](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-source.zip.sha256)。不含游戏数据。
 
-覆盖更新包适用于已有 v0.3／v0.3.1／较早 v0.3.2 安装。关闭游戏和启动器，将 ZIP 解压到原合集目录并替换同名文件即可。首次安装需使用完整程序包。
+覆盖更新前关闭游戏和启动器，将 ZIP 解压到原合集目录并替换同名文件即可。配置、存档、录像和游戏数据保留，已有快捷方式继续打开新版启动器。
 
-v0.3.2 的启动文件仍为 `CAVE-PC-Collection.exe`，绊地狱仍使用其原有双目录。迁移到 v0.4 时按本页的新布局放置数据；v0.4 覆盖包会一并更新旧文件名入口，已有快捷方式仍打开新版启动器。v0.4 尚未发布。
+绊地狱需按[数据指南](docs/GAME_DATA.md)整理为一个游戏根目录：先放本体，再将可选更新覆盖到同一目录。存档与录像位置不变。
 
 - `user-data/`：配置、各游戏的存档、录像等。备份或换目录时，保留整个文件夹。
 - `game-data/`：自行准备的游戏数据。覆盖更新时保留；换目录安装时可一并转移，也可重新选择原数据目录。

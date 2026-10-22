@@ -6,6 +6,41 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### Latest handoff — v0.4 artifacts are frozen and uploaded
+
+Player/source artifacts are fixed at 091c15c76b9fb51919332310fc802280026cd613.
+Five-game build receipts share that commit; 56/6/2 PE/PDB pairs and five runtime
+certificates pass. Final SDOJ modules and PS4 runtime match the actual accepted
+candidates. The last 27 common/360 CTests pass. Do not repeat accepted gameplay,
+builds or extraction for the post-release documentation commit.
+
+All four final ZIPs under releases/v0.4-*-091c15c were really extracted ONCE;
+receipts are under .local/release-acceptance-v04/<zip-sha-prefix>/accepted.json.
+Public 136 files, Update 130, Internal 2915, corresponding source 37205 pass.
+Update overlays an existing extracted v0.3 copy, preserves six data/config/save/
+replay/source sentinels, and its old-name native launcher opens correctly.
+Internal's actual extracted launcher also opens correctly and is now closed;
+its screenshot is .local/v04-release-media/launcher-v0.4.jpg. All 35 shared
+player runtime files match across flavors. Corresponding source includes 25
+SDK and 19 PS4 fixed dependencies; Git verification in the deep test directory
+needed process-only core.longpaths=true for seven ext-boost HTML paths. Files
+already matched the ZIP inventory; no global setting or archive was changed.
+
+Internal 7105602167 bytes, Public 72888170, Update 78200361 and Source 288246758
+are uploaded under OSS v0.4/ with EVAC-PC-LABEL-v0.4-<flavor>.zip names and
+matching .sha256 files. All remote lengths, public checksums and bounded 32-byte
+ZIP range requests pass; .local/v04-oss-*-verified-r1.json has the evidence.
+Do not overwrite/re-upload/re-extract frozen files. No production service was
+modified. No games or owned loopback services remain running.
+
+Still unresolved: 1V physical held-direction/shoot-release acceptance was not
+done. An asynchronous question asks whether to defer it and ship with default
+3V; do not mark that test passed. No v0.4 release tag or QQ announcement has
+been made yet. Native CU found no targetable QQ window; do not open Taskmgr or
+start repeated QQ instances. Draft group text is .local/v04-group-message.txt.
+The updated public README links and artifact evidence are documentation only;
+the corresponding source of these packages remains 091c15c.
+
 Implement the complete v0.4 plan in docs/IMPLEMENTATION_PLAN.md step by step.
 The latest user goal authorizes implementation, including crash fixes, game-data
 layout, launcher UX, EVAC PC LABEL branding, repository/local-directory rename,
