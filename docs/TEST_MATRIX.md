@@ -2,6 +2,48 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.6 最终构建与本地双包验收
+
+运行源码固定为 `cca37bb69e87cddeb15fedbe6221eccd1354b66a`，已推送。
+后续发行记录的文档提交不改变包内 SOURCE.txt 和运行组件的源码身份。
+
+- `.local/v06-final-six-build-r1.log`：六款配套构建完成，Xbox 56 对、PS4
+  6 对、启动器／校验工具 2 对 PE/PDB 验证通过；三份运行组件收据均为该提交。
+- `.local/v06-final-native-r1.log`：28 项 common／360 CTest、5 项 GPU CTest、
+  73 项 PS4 原生、46 项准备、115 项资源转换及 23 项缓存检查通过。
+  CTest 的源码入口包含 517 项源码测试（1 项 Windows 符号链接权限跳过）；
+  另有 `.local/v06-source-regression-r4.log` 和提交前无 ROM 源码审计通过。
+- 最终 PS4 host SHA 与实玩候选相同：
+  `17e67da4cb5e198e1aff3fd52e91a45e17c18bfae196a070f7c73d4c9ca61e83`。
+  GPU 源文件恢复原 CRLF 后配套重编译，DLL SHA 为
+  `cb3306e58bee012aebdbbe3dfccd834b87402156474ba02f9ab81cee80d6f437`；
+  逻辑未因此改动，最终五项 GPU CTest 通过，沿用下文已接受的实玩结果。
+
+| 文件 | 大小（字节） | SHA-256 |
+| --- | ---: | --- |
+| `EVAC-PC-LABEL-v0.6-win-x64.zip` | 81,939,010 | `da6e1f4d05618d9fe038b9947941b01819296d13f5d3e81457f0351d72ba0129` |
+| `EVAC-PC-LABEL-v0.6-win-x64-internal.zip` | 8,069,399,388 | `ca1a09dca5ba83b2bee5d04d0d9bcb4559130adc09256c5783c6ebdd43b6d0b0` |
+
+两包分别位于 `releases/v0.6-win-x64-cca37bb/` 与
+`releases/v0.6-win-x64-internal-cca37bb/`。每个最终 ZIP 只实际解压一次；
+138／653 项载荷、各九项配置／存档等保留哨兵、38 项共用运行文件身份通过。
+Public 无游戏数据、源码、用户配置或符号；Internal 选入六款完整数据、
+虫姬二两份 DLC 和配套符号，无源码及用户配置。
+证据为 `.local/v06-public-accepted-r1.json`、`v06-internal-accepted-r1.json`，
+按完整 ZIP SHA 复用，不为文档变动重建或重复解压。
+
+实际解压 Public 的主启动器打开正常；六张横幅可见、全屏和昵称位置正确，
+无数据时解释缺失并禁用启动。首次生成的配置为 SDOJ 1V；关闭后保存 ESP
+选择。冷启动旧文件名入口仍打开新版启动器、恢复选中项，并正确识别在独立
+测试 INI 中指定的外部 ESP 数据，启动按钮可用。两个窗口均正常关闭，未重跑
+游戏流程。证据 `.local/v06-public-ui-r1.json`；发行截图为
+`.local/v06-release-media/launcher-v0.6.jpg`。
+
+六款正式 HTTPS health 再次读回正确身份；未重启服务、提交测试分数或重新
+安装。旧 loopback 94680／102464 已在确认无客户端后关闭，数据库和日志保留。
+**OSS 尚未上传。** 仓库未登录访问返回 404，用户尚未确认现在公开源码仓库
+还是限定给有访问权限的朋友；不把私有源码链接描述为公开可获取。
+
 ## v0.6 ESP Ra.De. 真实联网与离线录像
 
 - `.local/v06-esprade-online-r2`（PID 95148，已关闭）：独立 profile／loopback，ARCADE／祐介实际游玩至 1390 分、不续关。综合榜 0 与角色榜 1 的成绩及两份录像上传成功；原生排行榜显示 Player／1390 和录像标记，下载保存到槽 `0018-0000`，完整播放并返回列表。附件均为 76,826 字节，SHA-256 `5ce1932dd2f83c730f5831045cc3d3ef7c88ec4b91cbaa42ff93c35efe4be751`；网络头 version `0x10022`、data version `0x10000`、region `ARCADE_01000`。原局还完成原生 AC-OSARAI／解锁进度保存提示。
@@ -32,7 +74,7 @@
   正常关窗完成呈现回收，88227 条已接收日志全写出，无 sink failure。
 
 设置冷读回及 ARCADE／ARCADE PLUS／SUPER EASY 代表性玩家入口已验证。
-PS4 帧节拍短回归已完成，结果见下节；最终发行构建／双包验收仍未完成。
+PS4 帧节拍短回归已完成，结果见下节；最终构建／双包验收见本文件首节。
 
 ## v0.6 PS4 异步呈现候选
 
