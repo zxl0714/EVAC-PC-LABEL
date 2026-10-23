@@ -21,12 +21,12 @@ class CommunityDeploymentTests(unittest.TestCase):
         self.assertNotIn('/opt/cave-community/current', service)
         self.assertNotIn('espgaluda2', service)
 
-    def test_five_routes_keep_existing_upstreams_and_unknown_game_fallback(self):
+    def test_six_routes_keep_existing_upstreams_and_unknown_game_fallback(self):
         source = (DEPLOY / 'cave-live-locations.conf.in').read_text(encoding='utf-8')
         locations = dict(re.findall(r'^location ([^ ]+) \{\n(.*?)^\}', source, re.M | re.S))
         expected = {'espgaluda2': '127.0.0.1:18086', 'futari': '127.0.0.1:18084/futari/api/v1/',
                     'ketsui': '127.0.0.1:18085/ketsui/api/v1/', 'sdoj': '127.0.0.1:18087',
-                    'daioujou': '127.0.0.1:18088'}
+                    'daioujou': '127.0.0.1:18088', 'esprade': '127.0.0.1:18089'}
         self.assertEqual(set(locations), {f'/cave/api/v1/games/{game}/' for game in expected})
         for game, upstream in expected.items():
             block = locations[f'/cave/api/v1/games/{game}/']
@@ -43,6 +43,27 @@ class CommunityDeploymentTests(unittest.TestCase):
         self.assertIn('--directory /var/lib/cave-community/sdoj/backups', source)
         self.assertNotIn('espgaluda2', source)
         timer = (DEPLOY / 'cave-sdoj-backup.timer.in').read_text(encoding='utf-8')
+        self.assertIn('OnCalendar=daily', timer)
+        self.assertIn('Persistent=true', timer)
+
+    def test_esprade_has_separate_release_state_and_daily_backup(self):
+        service = (DEPLOY / 'cave-esprade.service.in').read_text(encoding='utf-8')
+        for line in ('User=cave-community', 'Group=cave-community',
+                     'WorkingDirectory=/opt/cave-community/esprade-current',
+                     'StateDirectory=cave-community/esprade',
+                     'ReadWritePaths=/var/lib/cave-community/esprade',
+                     'ProtectSystem=strict', 'NoNewPrivileges=true',
+                     'ExecStart=/usr/bin/python3 -B -m server.games.esprade --database '
+                     '/var/lib/cave-community/esprade/community.sqlite3 --port 18089'):
+            self.assertIn(line, service.splitlines())
+        backup = (DEPLOY / 'cave-esprade-backup.service.in').read_text(encoding='utf-8')
+        for token in ('After=cave-esprade.service', '/opt/cave-community/esprade-current/server/backup.py',
+                      '--database /var/lib/cave-community/esprade/community.sqlite3',
+                      '--directory /var/lib/cave-community/esprade/backups'):
+            self.assertIn(token, backup)
+        for peer in ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', '/opt/cave-community/current'):
+            self.assertNotIn(peer, service + backup)
+        timer = (DEPLOY / 'cave-esprade-backup.timer.in').read_text(encoding='utf-8')
         self.assertIn('OnCalendar=daily', timer)
         self.assertIn('Persistent=true', timer)
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily backup of ESP Ra.De. community database
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

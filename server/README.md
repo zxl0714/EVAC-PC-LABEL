@@ -1,6 +1,6 @@
 # 合集社区服务
 
-玩家无需注册，在根 `config.ini` 设置联网开关、API 根地址和昵称即可。昵称用于区分榜单上的玩家；相同昵称共享个人最高分。当前服务不提供身份认证或反作弊，不能把昵称当作账号所有权证明。
+玩家无需注册，在 `user-data/config.ini` 设置联网开关、API 根地址和昵称即可。昵称用于区分榜单上的玩家；相同昵称共享个人最高分。当前服务不提供身份认证或反作弊，不能把昵称当作账号所有权证明。
 
 ```ini
 [community]
@@ -62,6 +62,21 @@ AC-CHALLENGE 使用独立的 99 号榜，累计 66 场景、两种机体和三�
 构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，共九项检查：两作普通成绩／录像、大往生 AC-CHALLENGE、绊地狱三个 CUSTOM 榜的原生 ABI／HTTP 收发及 CUSTOM 整局 worker。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
 
 大往生服务校验本作网络结构、双版本、快照／输入边界和成绩／角色／模式匹配。本地存档记录与网络附件的尺寸不同；原生临时 CUSTOM=3 归入合资格 ARCADE 榜的行为单独验证，未开放 CUSTOM 榜或重写录像字节。可用 `python -B -m server.games.daioujou --database <独立数据库> --port 18088` 在 loopback 启动，不自动部署。接口、记录布局和代表性真实收发／回放身份在 `games/daioujou/community-references.json`，完整范围见验收矩阵。
+
+## ESP Ra.De. 开发适配
+
+`server/games/esprade.py` 适配 CUSA15155／01.04，使用 `/cave/api/v1/games/esprade/`、独立数据库和昵称映射。ARCADE、SUPER EASY、ARCADE PLUS（原生 `premium`）与 CUSTOM 各有综合及四角色榜；88／99 为仅提交进度的 OSARAI／いろりの部屋榜，不接受录像。成绩沿用本作原始整数，不套用大往生的十倍显示单位。
+
+运行本机服务：
+
+```sh
+python3 -B -m server.games.esprade --database /path/to/new/esprade.sqlite3 --port 18089
+python3 -B -m unittest discover -s tests -p 'test_esprade_community.py' -v
+```
+
+原生 1390 分的提交、读榜、录像上传／下载及冷启动离线播放已通过独立 loopback。正式部署使用 `cave-esprade` 三个模板，版本指针 `/opt/cave-community/esprade-current`，状态目录 `/var/lib/cave-community/esprade/`；不能切换其他游戏的版本指针。ECS 预检已通过，正式路由尚未启用。
+
+部署先核对 18089、服务单元、版本指针和数据库状态；在新的源码目录完成哈希与测试核验后，仅启用 ESP 服务。独立备份 nginx 片段，只追加本作路由，校验通过后 reload。最后核对六款健康身份、原五款 PID 不变和首次 SQLite 备份完整性。测试使用临时数据库，不向正式榜单写入自造记录。
 
 ## SDOJ 服务与验收范围
 
