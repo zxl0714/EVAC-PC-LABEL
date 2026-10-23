@@ -175,12 +175,18 @@ Settings ResolveSettings(const Ini& ini, std::string_view game_id) {
     return ResolveSettingsImpl(ini,game_id);
 }
 Settings ResolveSharedSettings(const Ini& ini) { return ResolveSettingsImpl(ini,{}); }
-void SaveSharedPreferences(const fs::path& root, std::string_view before, bool fullscreen, std::string_view nickname) {
+Settings PreviewSharedPreferences(std::string_view before, bool fullscreen, std::string_view nickname) {
     const std::array edits{IniEdit{"display","fullscreen",fullscreen?"true":"false"},
                            IniEdit{"community","nickname",std::string(nickname)}};
     const auto candidate=ResolveSharedSettings(Ini::Parse(EditIni(before,edits)));
     if(candidate.nickname!=nickname)
         throw std::runtime_error("Nickname must not start or end with whitespace.");
+    return candidate;
+}
+void SaveSharedPreferences(const fs::path& root, std::string_view before, bool fullscreen, std::string_view nickname) {
+    (void)PreviewSharedPreferences(before,fullscreen,nickname);
+    const std::array edits{IniEdit{"display","fullscreen",fullscreen?"true":"false"},
+                           IniEdit{"community","nickname",std::string(nickname)}};
     UpdateConfig(root,before,edits);
 }
 Settings ParseSettings(std::string_view text, std::string_view game_id) {

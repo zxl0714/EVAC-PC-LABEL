@@ -562,7 +562,7 @@ class ReleaseTests(unittest.TestCase):
                 'config/default.ini':'[collection]\nconfig_version=1\n', 'config/README.player.txt':'authored v02 instructions',
                 'config/README.player-v03.txt':'authored v03 instructions',
                 'config/README.player-v04.txt':'authored v04 instructions',
-                '启动游戏.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
+                'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for key in release.PLACEMENT_GAMES:
             text['config/game-data/'+key+'.txt']=(release.ROOT/'config/game-data'/ (key+'.txt')).read_text(encoding='utf-8')

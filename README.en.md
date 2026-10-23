@@ -31,7 +31,7 @@ Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, and SDOJ re
 ### Launch
 
 1. Extract the program package into a writable folder. Supply your own game data.
-2. Run `EVAC PC LABEL.exe` in the collection's root folder. `启动游戏.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
+2. Run `EVAC PC LABEL.exe` in the collection's root folder. `Launch.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
 3. Select a game, then choose **Game data… → Choose data folder…** at the bottom. Select the folder containing the extracted game files. Alternatively, place the data in the default location shown below.
 4. Click **Launch game**. The launcher verifies the data before starting; PS4 games also prepare their runtime files on first launch. Allow this process to finish.
 

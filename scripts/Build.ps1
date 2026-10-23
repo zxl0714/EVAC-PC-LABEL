@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,8)][int]$Jobs=2,
-    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou')][string[]]$Games=@(),
+    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou','esprade')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
     [switch]$SkipLauncherStage,
@@ -19,11 +19,11 @@ try {
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
     if ($DataDirectory -and $Games.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }
-    if ('ketsui' -in $Games -or 'daioujou' -in $Games) {
+    if ('ketsui' -in $Games -or 'daioujou' -in $Games -or 'esprade' -in $Games) {
         & (Join-Path $PSScriptRoot 'Build-Ps4.ps1') -Jobs $Jobs
         # PS4 preparation happens natively on first launch. Building the runtime
         # needs no ROM, and does not modify config.ini or any supplied data path.
-        $Games = @($Games | Where-Object { $_ -notin @('ketsui','daioujou') })
+        $Games = @($Games | Where-Object { $_ -notin @('ketsui','daioujou','esprade') })
         if (-not $Games.Count) { $DataDirectory = $null }
     }
     $selected=@($Games | Sort-Object -Unique)

@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Source','Native','All')][string]$Scope='All',
-    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou')][string[]]$Games=@()
+    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou','esprade')][string[]]$Games=@()
 )
 $ErrorActionPreference = 'Stop'
 $collectionTestRoot = Split-Path -Parent $PSScriptRoot
@@ -17,7 +17,7 @@ try {
     if ($Scope -in @('Native','All')) {
         $ctest = Join-Path $collectionTestRoot 'tools/apps/cmake/bin/ctest.exe'
         if (-not (Test-Path -LiteralPath $ctest)) { throw 'Run Prepare-Tools.ps1 and Build.ps1 first' }
-        $xboxGames = @($Games | Where-Object { $_ -notin @('ketsui','daioujou') })
+        $xboxGames = @($Games | Where-Object { $_ -notin @('ketsui','daioujou','esprade') })
         $builds=if (-not $xboxGames.Count) { @('out/common') } else {
             $selected=@($xboxGames | Sort-Object -Unique)
             $name=if ($selected.Count -gt 1) { 'xbox360' } else { $selected[0] }
@@ -29,7 +29,7 @@ try {
             & $ctest --test-dir $build --output-on-failure
             if ($LASTEXITCODE -ne 0) { throw "Native tests failed: $build" }
         }
-        if ('ketsui' -in $Games -or 'daioujou' -in $Games) {
+        if ('ketsui' -in $Games -or 'daioujou' -in $Games -or 'esprade' -in $Games) {
             & $ctest --test-dir (Join-Path $collectionTestRoot 'out/ps4-gpu') --output-on-failure
             if ($LASTEXITCODE -ne 0) { throw 'PS4 GPU tests failed' }
             & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_native_checks.py')

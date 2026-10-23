@@ -13,6 +13,7 @@ def stage():
     certified = {item['path']: item for item in receipt['outputs']}
     pairs = [('out/ps4-native/KetsuiNativeProbe.exe', 'runtime/ps4/ketsui.exe'),
              ('out/ps4-native/KetsuiNativeProbe.exe', 'runtime/ps4/daioujou.exe'),
+             ('out/ps4-native/KetsuiNativeProbe.exe', 'runtime/ps4/esprade.exe'),
              ('out/ps4-gpu/KetsuiGpuRuntime.dll', 'runtime/ps4/KetsuiGpuRuntime.dll')]
     outputs = []
     for source_name, target_name in pairs:
@@ -30,10 +31,10 @@ def stage():
             if digest(source) != expected['sha256'] or digest(target) != expected['sha256']:
                 raise ValueError('PS4 runtime copy failed verification')
             outputs.append(dict(path=target.relative_to(ROOT).as_posix(), bytes=expected['bytes'], sha256=expected['sha256']))
-    for game in ('ketsui', 'daioujou'):
+    for game in ('ketsui', 'daioujou', 'esprade'):
         game_outputs = [item for item in outputs if Path(item['path']).stem in (game, 'KetsuiGpuRuntime')]
         write_manifest(game, receipt, game_outputs)
-    return dict(games=['ketsui', 'daioujou'], stagedFiles=len(outputs) + 2, gameDataIncluded=False)
+    return dict(games=['ketsui', 'daioujou', 'esprade'], stagedFiles=len(outputs) + 3, gameDataIncluded=False)
 
 
 def write_manifest(game, receipt, outputs):

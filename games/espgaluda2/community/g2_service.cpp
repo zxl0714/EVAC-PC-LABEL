@@ -4,6 +4,7 @@
 #include "community/g2_service.h"
 #include "community/native_service.h"
 #include "community/replay_format.h"
+#include "common/nickname.h"
 #include <rex/logging.h>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -139,14 +140,7 @@ std::vector<CommunityColumn> DecodeCommunityColumns(const Json& properties,uint3
   return result;
 }
 
-std::string CommunityNativeName(std::string_view nickname) {
-  if (!nickname.empty() && std::all_of(nickname.begin(), nickname.end(), [](unsigned char c) { return c >= 32 && c <= 126; }))
-    return std::string(nickname.substr(0, 15));
-  unsigned char hash[32];
-  Require(BCryptHash(BCRYPT_SHA256_ALG_HANDLE, nullptr, 0,
-      reinterpret_cast<PUCHAR>(const_cast<char*>(nickname.data())), ULONG(nickname.size()), hash, 32) >= 0);
-  return "Player-" + Hex(hash).substr(0, 8);
-}
+std::string CommunityNativeName(std::string_view nickname) {return cave::LegacyDisplayNickname(nickname);}
 
 namespace {
 uint32_t UnrankedColumnType(uint16_t id) {return (id>=1 && id<=6) || id==15?2u:1u;}

@@ -111,13 +111,18 @@
       "id": "esprade",
       "name": "ESP Ra.De.",
       "nameJapanese": "エスプレイドΨ",
-      "backend": "undetermined",
+      "backend": "ps4",
       "integrated": false,
       "comingSoon": true,
+      "communitySupported": false,
       "dataDirectory": "game-data/esprade",
-      "dataManifest": null,
-      "executable": "runtime/unavailable/esprade.exe",
-      "runtimeFiles": []
+      "dataManifest": "esprade/data.json",
+      "executable": "runtime/ps4/esprade.exe",
+      "runtimeFiles": [
+        "runtime/ps4/esprade.exe",
+        "runtime/ps4/KetsuiGpuRuntime.dll",
+        "runtime/games/esprade/runtime-manifest.ini"
+      ]
     }
   ]
 }

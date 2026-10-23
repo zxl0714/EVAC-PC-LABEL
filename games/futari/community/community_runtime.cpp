@@ -1,5 +1,6 @@
 #include "community_runtime.h"
 #include "replay_format.h"
+#include "common/nickname.h"
 #include <rex/logging.h>
 #include <rex/filesystem.h>
 
@@ -90,10 +91,7 @@ std::string FutariNativeNickname(std::string name) {
   // The native gamer-tag font only draws Latin characters, even though other
   // title UI fonts draw Japanese. This bounded display alias is not identity:
   // scores, lookups and the Unicode gamer card always use the full nickname.
-  if(!name.empty() && std::all_of(name.begin(),name.end(),[](unsigned char c){return c>=0x20 && c<=0x7e;})) {
-    name.resize(std::min(size_t(15),name.size()));return name;
-  }
-  return "Player-"+Hash({reinterpret_cast<const uint8_t*>(name.data()),name.size()}).substr(0,8);
+  return cave::LegacyDisplayNickname(name);
 }
 std::string FutariCommunityBuildIdentity() {
   try {

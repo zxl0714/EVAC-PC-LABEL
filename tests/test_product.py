@@ -17,7 +17,7 @@ class ProductTests(unittest.TestCase):
         cmake = (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')
         self.assertIn('OUTPUT_NAME "'+product.NAME+'"', cmake)
         self.assertIn('project(EVACPCLabel VERSION 0.4.0', cmake)
-        self.assertIn('"%~dp0'+product.LAUNCHER+'" %*', (ROOT/'启动游戏.bat').read_text(encoding='utf-8'))
+        self.assertIn('"%~dp0'+product.LAUNCHER+'" %*', (ROOT/'Launch.bat').read_text(encoding='utf-8'))
         ignored = (ROOT/'.gitignore').read_text(encoding='utf-8').splitlines()
         self.assertIn('/'+product.LAUNCHER, ignored)
         self.assertIn('/'+product.NAME+'.pdb', ignored)

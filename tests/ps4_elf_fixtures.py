@@ -106,6 +106,10 @@ def cases():
     bad_contract=libc();bad_contract[0x220]=0x90
     result.append(('plain-self-libc',executable(),False,plain_self(libc()),True))
     result.append(('plain-self-note-libc',executable(),False,plain_self(libc(),True),True))
+    result.append(('plain-self-executable',plain_self(executable()),False,plain_self(libc()),True))
+    result.append(('plain-self-module',plain_self(module()),True,plain_self(libc()),True))
+    bad_source=plain_self(module());struct.pack_into('<Q',bad_source,32,0x802)
+    result.append(('encrypted-source-module',bad_source,True,None,False))
     for name,offset,value in [('encrypted',32,0x802),('compressed',32,0x808),
                               ('duplicate',64,0x800),('bad-program',32,0xfff00800)]:
         bad=plain_self(libc());struct.pack_into('<Q',bad,offset,value)

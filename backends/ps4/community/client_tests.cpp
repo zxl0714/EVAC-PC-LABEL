@@ -46,6 +46,7 @@ bool ClientSelfTest(const std::filesystem::path& directory) {
     }
     check(ParseEndpoint("https://example.invalid/ketsui/api/v1").secure, "https_endpoint_keeps_default_verification");
     check(ProtocolFor("ketsui").title_id=="CUSA09062" && ProtocolFor("daioujou").title_id=="CUSA32997" &&
+          ProtocolFor("esprade").title_id=="CUSA15155" && ProtocolFor("esprade").version=="1.04" &&
           ProtocolFor("daioujou").version=="1.04" && ProtocolFor("daioujou").replay_format=="daioujou-npscore-1.04",
           "ps4_transport_identity_and_replay_namespace_are_title_scoped");
     const auto other_defaults=ParseConfig("[community]\nenabled=true\n","daioujou");
@@ -55,7 +56,8 @@ bool ClientSelfTest(const std::filesystem::path& directory) {
           "standalone_title_selection_sets_defaults_and_rejects_peer_config");
     check(ParseEndpoint("https://example.invalid/cave/api/v1/games/daioujou","daioujou").secure &&
           rejects([&] { (void)ParseEndpoint("https://example.invalid/cave/api/v1/games/ketsui","daioujou"); }) &&
-          rejects([&] { (void)ProtocolFor("esprade"); }),"ps4_transport_rejects_peer_routes_and_unknown_titles");
+          rejects([&] { (void)ParseEndpoint("https://example.invalid/cave/api/v1/games/ketsui","esprade"); }) &&
+          rejects([&] { (void)ProtocolFor("unlisted-title"); }),"ps4_transport_rejects_peer_routes_and_unknown_titles");
     check(ParseJson("{\"a\":1,\"nested\":[{\"a\":2},{\"a\":3}]}").at("a") == 1, "json_sibling_object_keys_have_separate_scopes");
     check(rejects([&] { (void)ParseJson("{\"a\":1,\"a\":2}"); }) &&
           rejects([&] { (void)ParseJson("{\"a\":NaN}"); }) &&

@@ -37,8 +37,9 @@ def verified_init_env(libc):
 
 def prepare(source, names, libc=None, module=False):
     raw = source.read_bytes()
-    elf = Elf(raw)
+    elf = Elf(plain_self_elf(raw))
     inventory = elf.inventory(names)
+    inventory["sha256"] = hashlib.sha256(raw).hexdigest()
     if not module and (elf.elf_type != 0xFE10 or not elf.entry):
         raise ValueError("The startup probe currently accepts an eboot executable only")
     if module and (elf.elf_type != 0xFE18 or elf.entry or elf.procparam):

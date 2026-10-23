@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include "common/nickname.h"
 #include "../config/ini_sections.h"
 #include <windows.h>
 #include <winhttp.h>
@@ -62,8 +63,10 @@ bool Identifier(std::string_view value) {
 const TitleProtocol& ProtocolFor(std::string_view game) {
     static constexpr TitleProtocol ketsui{"ketsui","CUSA09062","1.02","ketsui-npscore-1.02"};
     static constexpr TitleProtocol daioujou{"daioujou","CUSA32997","1.04","daioujou-npscore-1.04"};
+    static constexpr TitleProtocol esprade{"esprade","CUSA15155","1.04","esprade-npscore-1.04"};
     if (game==ketsui.game) return ketsui;
     if (game==daioujou.game) return daioujou;
+    if (game==esprade.game) return esprade;
     throw std::runtime_error("Unknown PS4 community game");
 }
 Endpoint ParseEndpoint(std::string_view url,std::string_view game) {
@@ -201,8 +204,6 @@ std::string NewId() {
 }
 std::string ShortOnlineId(std::string_view name) {
     Require(ValidNicknameBytes(name), "Invalid display name");
-    auto end = (std::min)(name.size(), std::size_t{16});
-    while (end < name.size() && end && (static_cast<unsigned char>(name[end]) & 0xc0) == 0x80) { --end; }
-    return std::string(name.substr(0, end));
+    return cave::Ps4DisplayNickname(name);
 }
 }

@@ -2,6 +2,7 @@
 // 7dced5979076329db71b1296c81944c83fb72b48 (src/community_client.cpp).
 // Game-specific stats/replay layouts are deliberately not imported here.
 #include "community/http_client.h"
+#include "common/nickname.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -53,25 +54,7 @@ bool ValidEndpoint(std::string_view endpoint) {
 }
 
 std::string NormalizeNickname(std::string_view name) {
-  if(name.empty() || name.size()>512)return {};
-  const auto wide=Wide(name);
-  if(wide.empty())return {};
-  auto size=NormalizeString(NormalizationKC,wide.data(),int(wide.size()),nullptr,0);
-  if(size<=0 || size>512)return {};
-  std::wstring normalized(size,L'\0');
-  size=NormalizeString(NormalizationKC,wide.data(),int(wide.size()),normalized.data(),size);
-  if(size<=0)return {};
-  normalized.resize(size);
-  auto space=[](wchar_t ch) { WORD type=0;return GetStringTypeW(CT_CTYPE1,&ch,1,&type) && (type&C1_SPACE); };
-  auto first=std::find_if_not(normalized.begin(),normalized.end(),space);
-  auto last=std::find_if_not(normalized.rbegin(),normalized.rend(),space).base();
-  if(first>=last)return {};
-  std::wstring_view trimmed(&*first,size_t(last-first));
-  size=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,trimmed.data(),int(trimmed.size()),nullptr,0,nullptr,nullptr);
-  if(size<=0)return {};
-  std::string result(size,'\0');
-  if(!WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,trimmed.data(),int(trimmed.size()),result.data(),size,nullptr,nullptr))return {};
-  return result;
+  return cave::NormalizeDisplayNickname(name);
 }
 
 bool ValidNickname(std::string_view name) {

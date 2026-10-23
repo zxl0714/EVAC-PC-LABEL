@@ -25,6 +25,7 @@ struct Settings {
 Settings ResolveSettings(const Ini& ini, std::string_view game_id);
 // Public defaults only; do not accidentally edit a selected game's override.
 Settings ResolveSharedSettings(const Ini& ini);
+Settings PreviewSharedPreferences(std::string_view before, bool fullscreen, std::string_view nickname);
 void SaveSharedPreferences(const fs::path& root, std::string_view before, bool fullscreen, std::string_view nickname);
 Settings ParseSettings(std::string_view text, std::string_view game_id);
 Settings LoadSettings(const fs::path& path, std::string_view game_id);

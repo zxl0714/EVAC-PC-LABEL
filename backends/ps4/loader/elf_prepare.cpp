@@ -207,7 +207,10 @@ void VerifyLibc(std::span<const std::uint8_t> source) {
 }
 
 PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::span<const std::uint8_t> libc) {
-    const Elf elf(source);
+    // Decode the executable view while retaining the original file identity.
+    // Module loading compares this digest with the selected content file.
+    const auto plain=PlainSelfElf(source);
+    const Elf elf(plain);
     Require(module?(elf.type==0xfe18 && !elf.entry && !elf.procparam):(elf.type==0xfe10 && elf.entry),"ELF does not match requested executable/module contract");
     Require(!elf.tls_bytes,"Static TLS is not supported by the prepared-image runtime");
     Require(elf.procparam<elf.image_size,"ELF process parameters lie outside image extent");

@@ -6,6 +6,43 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.6 implementation — current, supersedes older v0.4 delivery work
+
+The active user goal is stepwise v0.6 implementation including ESP Ra.De.
+community features. Do not mark the goal complete from the launcher subset.
+Do not resume historical QQ announcements; the user handles those messages.
+
+Launcher layout, English Launch.bat and nickname warnings are implemented in
+the dirty development tree. Common nickname normalization/native display rules
+are shared with the three Xbox adapters and PS4 ShortOnlineId. Actual PS4 font
+coverage metadata distinguishes Ketsui 01.00/01.02. Cancel leaves the draft and
+INI intact and cancels automatic launch. See docs/NICKNAME_DISPLAY.md.
+456 common checks, launch CTest, 238 hidden UI checks, 7 Xbox community CTests,
+3 localization tests pass; PS4 community library/host link and client self-test
+pass (r2; r1 expected esprade to remain unknown, corrected to a truly unknown
+title while retaining cross-title rejection). Evidence is
+.local/v06-nickname-*. Actual independent desktop launcher PID 97768 showed the
+Chinese warning, default Return cancelled without saving, then normal Alt+F4
+closed it. The shared user config and root launcher remain unchanged. The 497
+source tests finished: one Windows symlink privilege skip, one audit failure
+from the unstaged BAT rename. Staging the rename and rerunning the 17 catalogue/
+boundary tests passes; no audit rule was loosened. Logs are
+.local/v06-source-regression-r1.log and v06-source-audit-checks-r2.log.
+Do not describe an old binary/PDB receipt as a new full release.
+
+ESP Ra.De. sources are prepared read-only under .local/v06-esprade-inputs-r1;
+merged-104 has 48 files/17 programs, original PKGs preserved. games/esprade/data.json
+and initial loader/staging are implemented; catalogue remains Coming Soon and
+communitySupported=false. Plain SELF inputs now keep original source SHA while
+preparing ELF (46 native differential checks passed). Current owned actual
+offline game PID 99892 is still running under .local/v06-esprade-smoke-r3 using
+the r4 prepared cache. It reached title, original ARCADE attract and native
+pause/options, not player first stage yet. Resume its current window if live;
+do not blindly restart it. Remaining: first-stage/save acceptance, normal
+collection-launch path, native ESP boards/replay and independent server, full
+v0.6 release profiles/docs and final component build/package checks. Production
+services are unchanged. Earlier r1/r2 game failures are retained locally.
+
 ### Next-package policy — unified Public and flexible Internal
 
 The October 23 user decision supersedes older four-flavor delivery plans for

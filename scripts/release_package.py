@@ -31,6 +31,11 @@ UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cach
 PROGRAM_PRESERVED = tuple(name for name in UPDATE_PRESERVED if name != 'game-data/')
 
 
+def batch_name(version=None):
+    current = version or DEFAULT_VERSION
+    return 'Launch.bat' if tuple(map(int, current.split('-', 1)[0].split('.')[:2])) >= (0, 6) else '启动游戏.bat'
+
+
 def git(root, *args):
     return subprocess.check_output(['git', '--no-optional-locks', '-C', str(root), *args], stderr=subprocess.PIPE)
 
@@ -244,7 +249,7 @@ def redist_directory():
 
 
 def validate_public_name(name, games, selection=GAMES, version=None):
-    allowed = runtime_names(games, selection=selection, version=version) | {'config.ini', 'user-data/config.ini', 'README.txt', '启动游戏.bat', 'SOURCE.txt'}
+    allowed = runtime_names(games, selection=selection, version=version) | {'config.ini', 'user-data/config.ini', 'README.txt', batch_name(version), 'SOURCE.txt'}
     allowed.update(placement_sources(version))
     if name in allowed or name.startswith('licenses/'):
         return
@@ -383,7 +388,7 @@ def verify_tree(directory, games=None):
         raise ValueError('Package SHA256SUMS does not match')
     if not runtime.issubset(expected):
         raise ValueError('Package is missing a required player component')
-    if package_format == 2 and not (set(required_data) | {'README.txt', 'SOURCE.txt', '启动游戏.bat'}).issubset(expected):
+    if package_format == 2 and not (set(required_data) | {'README.txt', 'SOURCE.txt', batch_name(release['version'])}).issubset(expected):
         raise ValueError('Package is missing selected data or instructions')
     if renamed(release['version']):
         primary = expected[LAUNCHER]
@@ -550,9 +555,9 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
               'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
     # Frozen pre-v0.4 package profiles retain their original executable name.
-    bat_source = ROOT / '启动游戏.bat'; reject_link(bat_source)
+    bat_source = ROOT / 'Launch.bat'; reject_link(bat_source)
     bat = bat_source.read_text(encoding='utf-8')
-    text_new(directory / '启动游戏.bat', bat.replace(LAUNCHER, launcher(version)), 'documentation', entries)
+    text_new(directory / batch_name(version), bat.replace(LAUNCHER, launcher(version)), 'documentation', entries)
     for file in license_files():
         copy_checked(file, directory / 'licenses' / file.relative_to(ROOT), 'license', entries)
     copy_checked(ROOT / 'launcher/artwork.json', directory / 'licenses/artwork-sources.json', 'license', entries)

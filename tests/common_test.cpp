@@ -5,6 +5,7 @@
 #include "common/config_update.h"
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
+#include "launcher/nickname.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -23,6 +24,35 @@ template<class F> void Reject(F action, const char* message) {
   bool rejected = false;
   try { action(); } catch (const std::exception&) { rejected = true; }
   Require(rejected, message);
+}
+void NicknameChecks() {
+  Require(NormalizeDisplayNickname("  Ｐｌａｙｅｒ　") == "Player","Nickname normalization drifted from community rules");
+  Require(NormalizeDisplayNickname("\xff").empty(),"Malformed nickname accepted for preview");
+  Require(LegacyDisplayNickname("Player") == "Player","Printable native name changed");
+  Require(LegacyDisplayNickname("abcdefghijklmnop") == "abcdefghijklmno","Legacy byte limit changed");
+  Require(LegacyDisplayNickname("友人") == "Player-797d0fd6","Native Unicode alias preview differs");
+  Require(Ps4DisplayNickname("abcdefghijklmn小") == "abcdefghijklmn","PS4 split a UTF-8 codepoint");
+  Require(Ps4DisplayNickname("abcdefghijklmnop") == "abcdefghijklmnop","PS4 exact-limit name shortened");
+  const auto ini=Ini::Parse("");
+  Require(launcher::NicknameIssues(ini,"Player").empty(),"Universal ASCII name warned");
+  Require(launcher::NicknameIssues(ini,"Ｐｌａｙｅｒ").empty(),"NFKC-compatible fullwidth Latin falsely warned");
+  const auto aliases=launcher::NicknameIssues(ini,"ルル");
+  Require(aliases.size()==3,"Supported PS4 kana incorrectly warned / Xbox limitations missed");
+  for(const auto& issue:aliases)Require(issue.alias && issue.missing==U"ル" && issue.native_name==LegacyDisplayNickname("ルル"),"Duplicate glyphs/alias mismatch");
+  const auto symbols=launcher::NicknameIssues(ini,"A@A");
+  Require(symbols.size()==4,"Missing PS4 ASCII glyph was not detected");
+  for(const auto& issue:symbols)Require(!issue.alias && issue.missing==U"@","ASCII rule incorrectly applied to PS4 font");
+  const auto astral=launcher::NicknameIssues(ini,"😀😀");
+  Require(astral.size()==7,"Emoji missed in a title/font variant");
+  for(const auto& issue:astral)Require(issue.missing==U"😀","Surrogate pair split or duplicate warning");
+  const auto independent=Ini::Parse("[game.futari.community]\nnickname=Separate\n");
+  const auto overridden=launcher::NicknameIssues(independent,"ルル");
+  Require(overridden.size()==2 && std::none_of(overridden.begin(),overridden.end(),[](const auto& item){return item.game->id=="futari";}),"Independent game nickname warning leaked from shared form");
+  Require(!launcher::HasNicknameGlyph("ketsui",U'路',"01.00") && launcher::HasNicknameGlyph("ketsui",U'路',"01.02"),"Ketsui base/update glyph differences ignored");
+  const auto long_name=launcher::NicknameIssues(ini,"abcdefghijklmnopq");
+  Require(long_name.size()==7,"Native length loss not warned");
+  for(const auto& issue:long_name)Require(issue.shortened && issue.missing.empty() && !issue.alias,"Length warning mislabeled as missing glyph");
+  Require(launcher::NicknameCodepoints("Aル😀")==U"Aル😀","UTF-8 warning character decoding");
 }
 void Write(const fs::path& path, std::string_view bytes = "abc") {
   fs::create_directories(path.parent_path());
@@ -283,6 +313,7 @@ void ContentChecks(Fixture& fixture) {
 }  // namespace
 int main() {
   try {
+    NicknameChecks();
     Fixture fixture;
     MigrationChecks();
     using launcher::Language;
@@ -317,9 +348,9 @@ int main() {
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
             "Integrated titles must advertise their verified community adapters");
     const auto normal=launcher::InitialWindowSize(1104,1920,1080,96,40,6);
-    Require(normal.width==1104 && normal.height==1018,"Launcher fits all six cards at 100% DPI");
+    Require(normal.width==1104 && normal.height==998,"Launcher fits all six cards at 100% DPI");
     const auto scaled=launcher::InitialWindowSize(1104,2560,2160,144,56,6);
-    Require(scaled.width==1104 && scaled.height==1523,"Launcher height follows 150% DPI");
+    Require(scaled.width==1104 && scaled.height==1493,"Launcher height follows 150% DPI");
     const auto small=launcher::InitialWindowSize(1104,1024,728,144,56,6);
     Require(small.width==1024 && small.height==728,"Launcher stays inside a small monitor work area");
     Require(launcher::InitialWindowSize(1104,2560,2160,144,56,7).height>scaled.height,

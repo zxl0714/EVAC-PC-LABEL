@@ -7,6 +7,7 @@
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
 #include "launcher/preferences.h"
+#include "launcher/nickname.h"
 #include "launcher/single_instance.h"
 #include "common/config_update.h"
 #include <Windows.h>
@@ -16,6 +17,7 @@
 #include <wincodec.h>
 #include <shobjidl.h>
 #include <shellapi.h>
+#include <commctrl.h>
 #include <wrl/client.h>
 #include <algorithm>
 #include <array>
@@ -32,6 +34,7 @@
 
 using Microsoft::WRL::ComPtr;
 using namespace cave;
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 namespace {
 constexpr UINT kWorkDone=WM_APP+1;
 constexpr UINT kCopyProgress=WM_APP+2;
@@ -58,6 +61,53 @@ void Error(HWND window,std::string_view message) {
   catch (...) {value=T(L"无法显示详细信息，请检查日志。");}
   value=std::wstring(T(L"操作失败。详细信息：\n\n"))+value;
   MessageBoxW(window,value.c_str(),kWindowTitle,MB_OK|MB_ICONERROR);
+}
+std::wstring WideCodepoint(char32_t cp) {
+  if(cp<0x10000)return std::wstring(1,wchar_t(cp));
+  cp-=0x10000;return {wchar_t(0xd800+(cp>>10)),wchar_t(0xdc00+(cp&0x3ff))};
+}
+bool ConfirmNickname(HWND window,const std::vector<cave::launcher::NicknameIssue>& issues) {
+  if(issues.empty())return true;
+  std::wstring body=T(L"部分游戏无法原样显示此昵称。完整昵称仍会保留。"),details;
+  std::vector<bool> printed(issues.size());
+  for(size_t index=0;index<issues.size();++index) {
+    if(printed[index])continue;
+    const auto& item=issues[index];
+    for(size_t other=index;other<issues.size();++other) {
+      const auto& match=issues[other];
+      if(match.native_name!=item.native_name || match.missing!=item.missing || match.alias!=item.alias || match.shortened!=item.shortened)continue;
+      if(other!=index)details+=L" / ";
+      details+=Wide(match.game->DisplayName());
+      if(!match.version.empty())details+=L" ("+Wide(match.version)+L")";
+      printed[other]=true;
+    }
+    details+=L"\n";
+    if(!item.missing.empty()) {
+      details+=T(L"不支持的字符：");
+      for(const auto cp:item.missing) {
+        wchar_t code[16]{};swprintf_s(code,L"U+%04X",unsigned(cp));
+        details+=L"「"+WideCodepoint(cp)+L"」("+code+L") ";
+      }
+      details+=L"\n";
+    }
+    details+=item.alias?T(L"游戏内显示名："):T(L"传入游戏的显示名：");
+    details+=Wide(item.native_name)+L"\n";
+    if(!item.alias && !item.missing.empty())details+=std::wstring(T(L"其中缺少字形的字符无法正常显示。"))+L"\n";
+    if(item.shortened)details+=std::wstring(T(L"超出游戏昵称长度的部分会截短。"))+L"\n";
+    details+=L"\n";
+  }
+  const TASKDIALOG_BUTTON buttons[]{{IDCANCEL,T(L"返回修改")},{IDYES,T(L"仍然保存")}};
+  TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);
+  dialog.hwndParent=window;dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
+  dialog.pszWindowTitle=kWindowTitle;dialog.pszMainIcon=TD_WARNING_ICON;
+  dialog.pszMainInstruction=T(L"确认排行榜昵称");dialog.pszContent=body.c_str();
+  dialog.pszExpandedInformation=details.c_str();dialog.pszExpandedControlText=T(L"隐藏详情");
+  dialog.pszCollapsedControlText=T(L"查看游戏内显示详情");
+  dialog.dwFlags|=TDF_EXPANDED_BY_DEFAULT;
+  dialog.cButtons=UINT(std::size(buttons));dialog.pButtons=buttons;dialog.nDefaultButton=IDCANCEL;
+  int result=IDCANCEL;
+  Check(TaskDialogIndirect(&dialog,&result,nullptr,nullptr),"Show nickname warning");
+  return result==IDYES;
 }
 fs::path ExecutableDirectory() {
   std::wstring value(32768,L'\0');
@@ -200,9 +250,10 @@ struct Layout {
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
   D2D1_RECT_F detail() const {return {margin()+371,height-45,margin()+436,height-14};}
-  D2D1_RECT_F fullscreen() const {return {margin(),99,margin()+132,127};}
-  D2D1_RECT_F nickname() const {return {margin()+230,98,margin()+420,128};}
-  D2D1_RECT_F save() const {return {margin()+431,98,margin()+493,128};}
+  D2D1_RECT_F fullscreen() const {const auto r=play();return {r.left,r.top-33,r.right,r.top-5};}
+  D2D1_RECT_F nickname() const {const auto right=width-margin();return {right-263,66,right-73,96};}
+  D2D1_RECT_F nickname_label() const {const auto r=nickname();return {r.left-80,r.top+7,r.left-6,r.bottom};}
+  D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
 void FitInitialWindow(HWND window) {
@@ -311,9 +362,9 @@ class Renderer {
       Button(target,layout.fullscreen(),T(L"□ 启动时全屏"));
       Button(target,layout.nickname(),L"Player");Button(target,layout.save(),T(L"保存"),false,true);
     }
-    Text(target,T(L"排行榜昵称"),{margin+153,105,margin+225,128},10,0x627368);
-    if(!layout.narrow()) Text(target,preferences_dirty?T(L"未保存 · 启动前会自动保存"):T(L"共用设置 · 下次启动生效"),
-        {margin+508,106,layout.width-margin,128},11,preferences_dirty?0x90754f:0x7d8881);
+    Text(target,T(L"排行榜昵称"),layout.nickname_label(),10,0x627368);
+    Text(target,preferences_dirty?T(L"未保存 · 启动前会自动保存"):T(L"共用设置 · 下次启动生效"),
+        {layout.nickname_label().left,100,layout.save().right,118},10,preferences_dirty?0x90754f:0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
     target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     for (size_t index=0;index<rows.size();++index) {
       const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
@@ -468,14 +519,21 @@ class App {
     if(ini.Get(section+".display","fullscreen") || ini.Get(section+".community","nickname"))
       override_hint=T(L"此游戏有独立的全屏／昵称设置，请在配置文件中调整");
   }
-  void SavePreferences() {
-    if(!preferences_dirty)return;
+  bool SavePreferences() {
+    if(!preferences_dirty)return true;
     if(!preferences_available)throw std::runtime_error("Fix config.ini and refresh before saving quick settings.");
     const auto count=GetWindowTextLengthW(nickname_control);
     std::wstring name(size_t(count)+1,L'\0');GetWindowTextW(nickname_control,name.data(),int(name.size()));name.resize(count);
-    SaveSharedPreferences(options.root,preferences_text,SendMessageW(fullscreen_control,BM_GETCHECK,0,0)==BST_CHECKED,Utf8(name));
+    const auto nickname=Utf8(name);const bool fullscreen=SendMessageW(fullscreen_control,BM_GETCHECK,0,0)==BST_CHECKED;
+    (void)PreviewSharedPreferences(preferences_text,fullscreen,nickname);
+    if(nickname!=ResolveSharedSettings(Ini::Parse(preferences_text)).nickname &&
+        !ConfirmNickname(hwnd,cave::launcher::NicknameIssues(Ini::Parse(preferences_text),nickname,options.root))) {
+      SetFocus(nickname_control);return false;
+    }
+    SaveSharedPreferences(options.root,preferences_text,fullscreen,nickname);
     ReloadPreferences();message=T(L"快捷设置已保存，下次启动生效");
     Log(options.root,"shared-preferences-updated");
+    return true;
   }
   void ManualRefresh() {
     if(busy||child)return;
@@ -491,7 +549,7 @@ class App {
   }
   void LaunchSelected() {
     if(busy||child||!CanPlay(rows[selected].inspection))return;
-    SavePreferences();Refresh(true);
+    if(SavePreferences())Refresh(true);
   }
   void SelectLanguage(size_t index) {
     if(busy||child||!preferences_available)return;
@@ -525,9 +583,9 @@ class App {
         return true;
       }
       if(input.hwnd==nickname_control && input.wParam==VK_RETURN) {
-        SavePreferences();SetFocus(hwnd);focus=0;Refresh();return true;
+        if(SavePreferences()) {SetFocus(hwnd);focus=0;Refresh();}return true;
       }
-      if(input.hwnd==save_control && input.wParam==VK_RETURN) {SavePreferences();Refresh();return true;}
+      if(input.hwnd==save_control && input.wParam==VK_RETURN) {if(SavePreferences())Refresh();return true;}
       if(input.hwnd!=hwnd && input.wParam==VK_F5) {ManualRefresh();return true;}
     }catch(const std::exception& error){Log(options.root,error.what());Error(hwnd,error.what());return true;}
     return false;
@@ -600,9 +658,9 @@ class App {
       const auto prompt=T(L"将完整复制并校验游戏数据。\n\n来源：")+path.native()+T(L"\n目标：")+target.native()+
           T(L"\n\n源文件保持不变。目标须为空或只含放置说明；已有游戏数据不会被覆盖。\n继续吗？");
       if(MessageBoxW(hwnd,prompt.c_str(),T(L"复制到合集"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
-      SavePreferences();message=T(L"正在校验源数据…");Refresh(false,path);return;
+      if(!SavePreferences())return;message=T(L"正在校验源数据…");Refresh(false,path);return;
     }
-    SavePreferences();
+    if(!SavePreferences())return;
     SetDataDirectory(options.root,Catalogue()[selected],path);
     ReloadPreferences();Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
   }
@@ -707,7 +765,7 @@ class App {
           else if(first==VK_NEXT)app->Scroll(app->layout.viewport_height());
           return 0;
         case WM_COMMAND:
-          if(LOWORD(first)==kSaveControl && HIWORD(first)==BN_CLICKED) {app->SavePreferences();app->Refresh();return 0;}
+          if(LOWORD(first)==kSaveControl && HIWORD(first)==BN_CLICKED) {if(app->SavePreferences())app->Refresh();return 0;}
           if((LOWORD(first)==kNicknameControl && HIWORD(first)==EN_CHANGE) ||
              (LOWORD(first)==kFullscreenControl && HIWORD(first)==BN_CLICKED)) {
             if(!app->loading_preferences){app->preferences_dirty=true;app->EnablePreferences();InvalidateRect(window,nullptr,FALSE);}return 0;

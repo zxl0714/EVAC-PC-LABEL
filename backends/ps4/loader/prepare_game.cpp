@@ -27,8 +27,9 @@ PreparedGame PrepareKetsuiGame(const fs::path& requested_root,const fs::path& re
     return PreparePs4Game(requested_root,requested_data,"ketsui");
 }
 PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& requested_data,std::string_view game) {
-    if (game!="ketsui" && game!="daioujou") throw std::runtime_error("Unsupported PS4 preparation game");
+    if (game!="ketsui" && game!="daioujou" && game!="esprade") throw std::runtime_error("Unsupported PS4 preparation game");
     const bool ketsui=game=="ketsui";
+    const bool esprade=game=="esprade";
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
     ValidateOutputs(Paths(root,game,data));const auto inspected=CheckData(root,data,game);
     std::array<wchar_t,32768> executable{};
@@ -41,34 +42,40 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui || inspected.layout=="merged-patch"},
         {"dataVariant",inspected.variant},{"dataVersion",inspected.version},
         {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
-        {"communityReplayPeerFallback",!ketsui},{"communityLocalReplay",!ketsui}};
+        {"communityReplayPeerFallback",game=="daioujou"},{"communityLocalReplay",game=="daioujou"}};
     const std::vector<std::string> programs=ketsui ?
         std::vector<std::string>{"eboot.bin","emu_integration_01400.prx","ketsui_01000.prx"} :
+        esprade ? std::vector<std::string>{"eboot.bin","emu_integration_01500.prx","esprade_01000.prx","esprade_01010.prx",
+            "esprade_01020.prx","esprade_01030.prx"} :
         std::vector<std::string>{"eboot.bin","emu_integration_01700.prx","daioujou_01000.prx","daioujou_01010.prx",
             "daioujou_01020.prx","daioujou_01030.prx"};
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
-    files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");
+    // ESP Ra.De. initially runs its unmodified resources. Add only transforms
+    // established from this title's own native flow, not DaiOuJou's scripts.
+    if (!esprade) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
         const auto libc=ReadPreparationInput(DataChild(data,"sce_module/libc.prx"));
         for (std::size_t i=0;i<programs.size();++i) {
             const auto source=ReadPreparationInput(DataChild(data,programs[i]));
             const auto prepared=PrepareElf(source,i!=0,libc);WritePreparedRelative(stage,files[i],prepared.bytes);
         }
-        const auto fixes=ketsui?PrepareReadFixes(data,true,true):PrepareDaioujouReadFixes(data);
-        WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
-        const auto metadata=fixes.report.dump(2)+'\n';
-        WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
+        if (!esprade) {
+            const auto fixes=ketsui?PrepareReadFixes(data,true,true):PrepareDaioujouReadFixes(data);
+            WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
+            const auto metadata=fixes.report.dump(2)+'\n';
+            WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
+        }
         if(CheckData(root,data,game).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
         if (Sha256(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
-    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",cache.directory/"game-fixes.ktfix"};
+    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",esprade?fs::path{}:cache.directory/"game-fixes.ktfix"};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {
         fs::path root,data;std::string game="ketsui";bool game_given{};
         for (int i=2;i<argc;++i) {
-            if (i+1>=argc || !*argv[i+1]) throw std::runtime_error("Usage: --prepare-game --root collection [--game ketsui|daioujou] [--data-dir supported-data]");
+            if (i+1>=argc || !*argv[i+1]) throw std::runtime_error("Usage: --prepare-game --root collection [--game ketsui|daioujou|esprade] [--data-dir supported-data]");
             const std::wstring_view option(argv[i]);
             if (option==L"--root" && root.empty()) root=argv[++i];
             else if (option==L"--data-dir" && data.empty()) data=argv[++i];

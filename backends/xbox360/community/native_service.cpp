@@ -3,6 +3,7 @@
 // Shared score-before-replay transport; native schemas are supplied by adapters.
 #include "community/native_service.h"
 #include "community/replay_encoding.h"
+#include "common/nickname.h"
 #include <rex/logging.h>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -93,9 +94,7 @@ NativeSchema ValidateSchema(NativeSchema schema) {
 }  // namespace
 
 std::string NativeLegacyName(std::string_view name) {
-  if(!name.empty() && std::all_of(name.begin(),name.end(),[](unsigned char c){return c>=32 && c<=126;}))
-    return std::string(name.substr(0,15));
-  return "Player-"+ReplaySha256({reinterpret_cast<const uint8_t*>(name.data()),name.size()}).substr(0,8);
+  return cave::LegacyDisplayNickname(name);
 }
 NativeService::NativeService(NativeSchema schema,std::string endpoint, std::string nickname, std::string build)
     : schema_(ValidateSchema(schema)), nickname_(Nickname(nickname)), build_(Build(std::move(build))), client_(GameEndpoint(std::move(endpoint),schema_.game)) {

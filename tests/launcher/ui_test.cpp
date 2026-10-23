@@ -6,10 +6,22 @@
 #include <filesystem>
 #include <cstring>
 #include <vector>
+#include <commctrl.h>
 static std::vector<std::filesystem::path> opened_paths;
 static unsigned unexpected_dialogs{};
 static unsigned show_requests{},foreground_requests{};
 static int last_show_request{};
+static std::vector<int> nickname_responses;
+static std::vector<std::wstring> nickname_details;
+static HRESULT WINAPI FixtureNicknameDialog(const TASKDIALOGCONFIG* config,int* result,int*,BOOL*) {
+  if(nickname_responses.empty()) {++unexpected_dialogs;return E_FAIL;}
+  if(config->nDefaultButton!=IDCANCEL || config->cButtons!=2 || config->pButtons[0].nButtonID!=IDCANCEL ||
+      config->pButtons[1].nButtonID!=IDYES || !(config->dwFlags&TDF_ALLOW_DIALOG_CANCELLATION)) {
+    ++unexpected_dialogs;return E_FAIL;
+  }
+  nickname_details.emplace_back(config->pszExpandedInformation);
+  *result=nickname_responses.front();nickname_responses.erase(nickname_responses.begin());return S_OK;
+}
 static BOOL WINAPI FixtureShowWindow(HWND,int command) {++show_requests;last_show_request=command;return TRUE;}
 static BOOL WINAPI FixtureForeground(HWND) {++foreground_requests;return TRUE;}
 static HINSTANCE WINAPI FixtureOpen(HWND,LPCWSTR verb,LPCWSTR file,LPCWSTR parameters,LPCWSTR directory,int show) {
@@ -24,7 +36,9 @@ static int WINAPI FixtureDialog(HWND,LPCWSTR,LPCWSTR,UINT) {
 #define MessageBoxW FixtureDialog
 #define ShowWindow FixtureShowWindow
 #define SetForegroundWindow FixtureForeground
+#define TaskDialogIndirect FixtureNicknameDialog
 #include "../../launcher/main.cpp"
+#undef TaskDialogIndirect
 #undef SetForegroundWindow
 #undef ShowWindow
 #undef MessageBoxW
@@ -115,6 +129,29 @@ void SelectionChecks() {
     Write(ConfigPath(fixture.root),std::string("[collection]\nselected_game=")+choice+"\n");
     Frame frame(fixture.root);Require(Catalogue()[frame.app.selected].id=="futari","Unknown or empty saved ID did not use the first supported game");
   }
+}
+void NicknameWarningChecks() {
+  Fixture fixture;Write(fixture.root/"user-data/config.ini","[collection]\nlanguage=en\n[community]\nnickname=Player\n[future]\nx=kept\n");
+  Frame frame(fixture.root);auto& app=frame.app;
+  const auto before=Ini::ReadText(ConfigPath(fixture.root));
+  SetWindowTextW(app.nickname_control,L"友人😀");
+  const auto count=nickname_details.size();nickname_responses.push_back(IDCANCEL);
+  App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kSaveControl,BN_CLICKED),0);
+  Require(nickname_details.size()==count+1 && nickname_details.back().find(L"U+1F600")!=std::wstring::npos,"Save did not show missing-character details");
+  Require(Ini::ReadText(ConfigPath(fixture.root))==before && app.preferences_dirty && ControlText(app.nickname_control)==L"友人😀","Cancel changed configuration or discarded the nickname draft");
+  app.rows[app.selected].inspection.state="ready";
+  nickname_responses.push_back(IDCANCEL);app.LaunchSelected();
+  Require(!app.busy && !app.child && !app.work && Ini::ReadText(ConfigPath(fixture.root))==before,"Launch bypassed the nickname warning/cancel");
+  nickname_responses.push_back(IDYES);
+  App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kSaveControl,BN_CLICKED),0);frame.Settle();
+  Require(ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).nickname=="友人😀" && !app.preferences_dirty,"Save anyway replaced the full Unicode nickname");
+  Require(Ini::ReadText(ConfigPath(fixture.root)).find("x=kept")!=std::string::npos,"Warning save lost unknown configuration");
+  const auto accepted=nickname_details.size();
+  SendMessageW(app.fullscreen_control,BM_SETCHECK,BST_CHECKED,0);app.preferences_dirty=true;
+  Require(app.SavePreferences() && nickname_details.size()==accepted,"Fullscreen-only edit repeated an accepted nickname warning");
+  SetWindowTextW(app.nickname_control,L"Player");
+  Require(app.SavePreferences() && nickname_details.size()==accepted,"Supported nickname raised a warning");
+  Require(nickname_responses.empty() && unexpected_dialogs==0,"Nickname dialog response was not consumed / unexpected side effect");
 }
 #include "instance_checks.h"
 #include "visual_checks.h"
@@ -214,6 +251,7 @@ void MainChecks() {
     app.focus=12;App::Window(app.hwnd,WM_KEYDOWN,VK_RETURN,0);
     Require(language==Language::Japanese,"Keyboard activation did not select JP");
     SendMessageW(app.fullscreen_control,BM_SETCHECK,BST_UNCHECKED,0);
+    nickname_responses.push_back(IDYES);
     App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kSaveControl,BN_CLICKED),0);frame.Settle();
     const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root)));
     Require(settings.nickname=="Draft-友人" && !settings.fullscreen,"Save handler did not persist quick settings");
@@ -238,6 +276,7 @@ void MainChecks() {
   }
   Require(unexpected_dialogs==0 && opened_paths.size()==2,"Unexpected shell or dialog side effects");
   SelectionChecks();
+  NicknameWarningChecks();
   InstanceChecks();
 }
 }

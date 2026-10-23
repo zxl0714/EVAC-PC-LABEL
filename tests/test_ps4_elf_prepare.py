@@ -22,6 +22,7 @@ class ElfPreparationOracleTests(unittest.TestCase):
                         data,report=prepare_native.prepare(source,{},libc if contract is not None else None,module)
                         self.assertEqual(data[:8],b'KTMODULE' if module else b'KTPROBE1')
                         self.assertEqual(report['probe_sha256'],prepare_native.hashlib.sha256(data).hexdigest())
+                        self.assertEqual(data[64:96],prepare_native.hashlib.sha256(raw).digest())
                     else:
                         with self.assertRaises((ValueError,KeyError,IndexError)):
                             prepare_native.prepare(source,{},libc if contract is not None else None,module)
