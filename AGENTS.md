@@ -46,12 +46,25 @@ described as overlay-safe.
 Do not add first-install/update classification to player-facing copy.
 README win-x64 program/checksum URLs are now verified. Group text uses the new
 names at .local/v04-win-x64-group-message.txt; no new group announcement yet.
-Native CU was freshly checked: list_windows returned [], and list_apps returned
-QQ with isRunning=false/windows=[]. No QQ or Taskmgr was opened, no message sent.
-1V held-input/focus testing remains a separate follow-up; the supported CU API
-has short press_key chords but no key-down/hold/release duration control. Do not
-call a diagnostic pulse physical-input acceptance. All package work is finished;
-do not repeat it while resolving these remaining desktop/manual items.
+Latest follow-up: actual 1V held-input acceptance now passes in
+.local/v04-sdoj-held-r1/logs/sdoj/run-20261023T041238915Z-102632 using frozen
+ddf71cf runtime and an independent offline profile. The existing TestPad holds
+logical buttons for 1..600 guest input frames; it is not limited to short taps.
+Eight steps cover movement+shooting, releasing either component, diagonals and
+neutral state: all 750 actual gameplay logic samples match, with same-frame
+core mask copies. 6285 early/prefix/driver receipts match, zero timeouts, 6140
+low publications; one bootstrap recovery. Six full present windows/722 intervals
+max at 17.307 ms, none over 20 ms; 33 audio windows have no silence blocks.
+Normal Alt+F4 shutdown completed; no game remains. Evidence and reproducible
+local controller/analyzer are in .local/v04-sdoj-held-r1. Shared config stays 3V.
+This is game-side logical-input acceptance, not a physical-device result. The
+latest scope decision removes held focus-loss testing from this round; do not wait for manual
+input or expand the boundary-test scope. Reuse already accepted training reentry,
+replay and A/V results; no new full campaign or package build.
+QQ's actual existing executable is C:/Program Files/Tencent/QQNT/QQ.exe, not the
+stale QQScLauncher installed-app entry. One launch through sky exposed its login
+window (2026-10-23); no messages sent. Authentication must be done by the human.
+Do not repeatedly launch QQ or automate authentication. Taskmgr was not opened.
 Existing v0.4 archives, source attachment, URLs and acceptance records remain
 unchanged. Do not rebuild them merely for the policy or documentation changes.
 
