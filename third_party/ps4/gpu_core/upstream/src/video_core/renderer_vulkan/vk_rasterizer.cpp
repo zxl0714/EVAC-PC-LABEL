@@ -3,6 +3,7 @@
 
 #include "common/debug.h"
 #include "gpu_metrics.h"
+#include "draw_timing.h"
 #include "core/emulator_settings.h"
 #include "core/memory.h"
 #include "shader_recompiler/resource.h"
@@ -179,6 +180,7 @@ void Rasterizer::EliminateFastClear() {
 
 void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
+    Ketsui::GpuCore::DrawTimingScope timing;
 
     scheduler.PopPendingOperations();
 
@@ -187,22 +189,28 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     }
 
     const auto& regs = liverpool->regs;
+    timing.Next(1);
     const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline();
     if (!pipeline) {
         return;
     }
 
+    timing.Next(2);
     PrepareRenderState(pipeline);
+    timing.Next(3);
     if (!BindResources(pipeline)) {
         return;
     }
+    timing.Next(4);
     const auto state = BeginRendering(pipeline);
 
+    timing.Next(5);
     BindVertexBuffers(pipeline);
     if (is_indexed) {
         BindIndexBuffer(index_offset);
     }
 
+    timing.Next(6);
     if (needs_barrier) {
         runtime.FlushBarriers();
     }

@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdio>
+#include <cstdarg>
 #include <cstdlib>
 #include <fmt/format.h>
 #include <mutex>
@@ -43,6 +44,14 @@ std::uint32_t ValidationErrors() { return validation_errors.load(); }
 std::uint32_t OverlaySubmissions() { return overlay_submissions.load(); }
 bool IsNeoMode() { return settings.neo; }
 bool HasPresentationSupport() { return settings.native_window != nullptr || settings.presentation_support; }
+void TimingLog(const char* format, ...) noexcept {
+  char buffer[2048];
+  va_list args; va_start(args,format);
+  const auto size=std::vsnprintf(buffer,sizeof(buffer),format,args); va_end(args);
+  if (size <= 0 || static_cast<std::size_t>(size) >= sizeof(buffer)) return;
+  if (settings.diagnostic_sink) (void)settings.diagnostic_sink(buffer,static_cast<std::size_t>(size));
+  else (void)std::fwrite(buffer,1,static_cast<std::size_t>(size),stdout);
+}
 void RecordDraw() { ++draws; }
 void RecordDispatch() { ++dispatches; }
 std::uint64_t DrawCount() { return draws.load(); }

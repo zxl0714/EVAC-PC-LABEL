@@ -228,8 +228,9 @@ int KT_SYSV InspectSubmitAndFlip(std::uint32_t count, const std::uint32_t* const
 int KT_SYSV SubmitDone() {
     auto& queue = Queue(); std::lock_guard lock(queue.mutex);
     // The queue is synchronous: every accepted submission already completed
-    // its GPU/writeback and WSI present fences before returning. Taking the
-    // same queue lock is the frame barrier, not a fabricated GPU completion.
+    // its GPU/writeback and guest-snapshot fences before returning. WSI consumes
+    // that independent snapshot asynchronously. Taking the same queue lock is
+    // the guest frame barrier, not a fabricated GPU or scanout completion.
     ++queue.frames;
     if (queue.frames <= 4) {
         std::printf("{\"event\":\"native_gnm_submit_done\",\"frames\":%llu,\"completed_submissions\":%llu,\"queue_idle\":true}\n", queue.frames, queue.completed);

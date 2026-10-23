@@ -18,13 +18,14 @@ from analysis_paths import private_output
 from project import ROOT, digest, write_json_new
 from ps4_build_receipt import verify
 sys.path.insert(0,str(ROOT))
-from server.games import daioujou, ketsui
+from server.games import daioujou, esprade, ketsui
 from replay_fixture import record
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path)
+    parser.add_argument('--games',nargs='+',choices=('ketsui','daioujou','esprade'),default=['ketsui','daioujou','esprade'])
     args=parser.parse_args()
     receipt=verify()
     directory=private_output(args.output or ROOT/'.local/ps4-community-checks'/
@@ -32,12 +33,13 @@ def main():
     directory.mkdir(parents=True,exist_ok=False)
     executable=ROOT/'out/ps4-native/KetsuiNativeProbe.exe'
     results=[]
-    profiles=[(game,profile,kind) for game,profile in [('ketsui',ketsui.Store),('daioujou',daioujou.Store)]
+    profiles=[(game,profile,kind) for game,profile in [('ketsui',ketsui.Store),('daioujou',daioujou.Store),('esprade',esprade.Store)]
               for kind in ('client','native-score-replay')]
     profiles.append(('daioujou',daioujou.Store,'native-challenge'))
     profiles.extend(('ketsui',ketsui.Store,'native-custom-'+str(board)) for board in (60,61,62))
     profiles.append(('ketsui',ketsui.Store,'custom-round'))
     profiles.append(('ketsui',ketsui.Store,'native-base-replay'))
+    profiles=[item for item in profiles if item[0] in args.games]
     for game,profile,kind in profiles:
         custom_board=int(kind.rsplit('-',1)[1]) if kind.startswith('native-custom-') else None
         replay_case=kind in ('native-score-replay','native-base-replay') or custom_board is not None
@@ -80,7 +82,7 @@ def main():
             events=[json.loads(line) for line in result.stdout.splitlines() if line.startswith(b'{')]
             final=events[-1] if events else {}
             passed=result.returncode==0 and final.get('passed') is True and (kind=='custom-round' or final.get('game')==game)
-            board=custom_board if custom_board is not None else 60 if kind=='custom-round' else 99 if kind=='native-challenge' else 0 if game=='ketsui' else 6
+            board=custom_board if custom_board is not None else 60 if kind=='custom-round' else 99 if kind=='native-challenge' else 6 if game=='daioujou' else 0
             page=store.leaderboard(board,'standard')
             expected='9001' if kind=='custom-round' else '10003' if kind=='native-challenge' else ('9007199254740993' if game=='ketsui' else '123456789') if kind=='client' else '9002'
             passed=passed and page['total']==1 and page['entries'][0]['score']==expected

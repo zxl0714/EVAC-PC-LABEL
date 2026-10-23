@@ -19,11 +19,15 @@ class Presenter {
 
 public:
   Presenter(const Vulkan::Instance &, const Frontend::WindowSDL &,
-            Vulkan::Scheduler &, Vulkan::Runtime &, VideoCore::TextureCache &, bool vsync = true);
+            Vulkan::Scheduler &, Vulkan::Runtime &, VideoCore::TextureCache &, bool vsync = true,
+            bool shared_present_queue = false);
   ~Presenter();
   RuntimePresentResult Present(const RuntimeDisplay &);
   RuntimePresentResult Prepare(const RuntimeDisplay &);
   RuntimePresentResult Complete(bool accepted);
+  void ReadPreparedSnapshot(void* output, std::uint64_t bytes);
+  RuntimePresentationStats Stats();
+  void PauseForDiagnostics(bool paused);
   void Drain();
 };
 } // namespace Ketsui::GpuCore

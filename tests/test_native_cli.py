@@ -39,11 +39,11 @@ class NativeCliTests(unittest.TestCase):
             self.assertEqual(result['games'][1]['dataState'], 'missing_data')
             self.assertEqual(result['games'][3]['dataState'], 'missing_data')
             self.assertEqual(result['games'][4]['state'], 'missing_data')
-            self.assertEqual(result['games'][5]['state'], 'coming_soon')
+            self.assertEqual(result['games'][5]['state'], 'missing_data')
             self.assertEqual(list(root.iterdir()), [])
             self.assertFalse(result['guestExecution'])
 
-    def test_placement_only_directories_are_missing_and_coming_soon_stays_separate(self):
+    def test_placement_only_directories_are_missing_for_all_supported_games(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for game in ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'):
@@ -52,12 +52,12 @@ class NativeCliTests(unittest.TestCase):
                 (folder / '放置说明.txt').write_bytes((ROOT/'config/game-data'/(game+'.txt')).read_bytes())
             before = sorted(path.relative_to(root) for path in root.rglob('*'))
             rows = self.run_cli(root)['games']
-            self.assertEqual([row['state'] for row in rows], ['missing_data'] * 5 + ['coming_soon'])
+            self.assertEqual([row['state'] for row in rows], ['missing_data'] * 6)
             self.assertTrue(all(not row['candidateRoots'] for row in rows))
             self.assertEqual(before, sorted(path.relative_to(root) for path in root.rglob('*')))
 
     def test_nested_entry_hint_is_read_only_and_never_accepts_an_unverified_program(self):
-        for game, entry in (('espgaluda2', 'default.xex'), ('daioujou', 'eboot.bin'), ('ketsui', 'eboot.bin')):
+        for game, entry in (('espgaluda2', 'default.xex'), ('daioujou', 'eboot.bin'), ('ketsui', 'eboot.bin'), ('esprade', 'eboot.bin')):
             with self.subTest(game=game), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 data = root / 'game-data' / game

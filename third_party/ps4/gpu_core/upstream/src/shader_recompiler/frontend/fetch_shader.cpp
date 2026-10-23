@@ -3,6 +3,7 @@
 
 #include <utility>
 #include <stdexcept>
+#include <array>
 #include "cache_memory.h"
 #include "common/assert.h"
 #include "shader_recompiler/frontend/decode.h"
@@ -46,22 +47,45 @@ std::vector<u32> GetFetchShaderCode(const Info& info, u32 sgpr_base) {
     if (!address || address % 4 || address > 0xffffffffffffull - limit) {
         throw std::runtime_error("Fetch shader address is invalid");
     }
+    // Cache only a bounded read-length hint, never guest bytes or decoded
+    // semantics. Even address reuse in another memory backend rereads live
+    // contents; a shortened/remapped extent falls back to exact word reads.
+    // Fixed storage also bounds hints when games generate many fetch programs.
+    struct Extent { u64 address{}; u32 words{}; };
+    static thread_local std::array<Extent, 64> extents{};
+    auto& extent = extents[(address >> 2) % extents.size()];
     std::vector<u32> code;
-    while (code.size() < limit / 4) {
-        u32 word;
-        Ketsui::GpuCore::CacheMemory().ReadProgram(address + code.size() * 4, &word, 4);
-        code.push_back(word);
+    if (extent.address == address && extent.words) {
+        code.resize(extent.words);
+        try {
+            Ketsui::GpuCore::CacheMemory().ReadProgram(address, code.data(), code.size() * 4);
+        } catch (const std::runtime_error&) {
+            code.clear();
+        }
+    }
+    u32 cursor{};
+    const auto read_word = [&] {
+        if (cursor == code.size()) {
+            u32 word;
+            Ketsui::GpuCore::CacheMemory().ReadProgram(address + cursor * 4, &word, 4);
+            code.push_back(word);
+        }
+        return code[cursor++];
+    };
+    while (cursor < limit / 4) {
+        const u32 word = read_word();
         const auto encoding = GetInstructionEncoding(word);
         if (encoding == InstEncoding::SOP1) {
             if (OpcodeSOP1((word >> 8) & 0xff) != OpcodeSOP1::S_SETPC_B64) {
                 throw std::runtime_error("Fetch shader has an unsupported scalar operation");
             }
+            code.resize(cursor);
+            extent = {address, cursor};
             return code;
         }
         if (encoding == InstEncoding::MUBUF || encoding == InstEncoding::MTBUF) {
-            if (code.size() == limit / 4) { break; }
-            Ketsui::GpuCore::CacheMemory().ReadProgram(address + code.size() * 4, &word, 4);
-            code.push_back(word);
+            if (cursor == limit / 4) { break; }
+            read_word();
         } else if (encoding != InstEncoding::SMRD && encoding != InstEncoding::SOPP &&
                    encoding != InstEncoding::VOP2 && encoding != InstEncoding::VOP1) {
             throw std::runtime_error("Fetch shader has an unsupported encoding");

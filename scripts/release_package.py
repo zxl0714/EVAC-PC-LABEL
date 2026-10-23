@@ -21,10 +21,11 @@ from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
 V03_GAMES = (*GAMES, 'daioujou')
-PLACEMENT_GAMES = (*V03_GAMES, 'esprade')
+V06_GAMES = (*V03_GAMES, 'esprade')
+PLACEMENT_GAMES = V06_GAMES
 PLACEMENT_NAME = '放置说明.txt'
 DEFAULT_VERSION = VERSION
-MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui'}
+MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade'}
 META = {'release.json', 'SHA256SUMS.txt'}
 UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3', '0.4': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
@@ -63,6 +64,8 @@ def release_games(version):
         return GAMES
     if (major, minor) in ((0, 3), (0, 4)):
         return V03_GAMES
+    if (major, minor) == (0, 6):
+        return V06_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -87,12 +90,13 @@ def selected_data_files(game, variant=None):
 
 def config_name(version):
     release_games(version)
-    return 'user-data/config.ini' if version in UPDATE_BASES or version.split('-', 1)[0].split('.')[:2] == ['0', '4'] else 'config.ini'
+    return 'user-data/config.ini' if version in UPDATE_BASES or renamed(version) else 'config.ini'
 
 
 def placement_sources(version):
-    if not version or version.split('-', 1)[0].split('.')[:2] != ['0', '4']:
+    if not version or not renamed(version):
         return {}
+    release_games(version)
     return {'game-data/' + key + '/' + PLACEMENT_NAME: ROOT / 'config/game-data' / (key + '.txt')
             for key in PLACEMENT_GAMES}
 
@@ -456,7 +460,7 @@ def certified_name(name):
     # These aliases are staged from the same certified PS4 host. Do not infer
     # aliases for other paths or arbitrary executable names.
     if name in {'runtime/ps4/' + game + suffix
-                for game in ('ketsui', 'daioujou') for suffix in ('.exe', '.pdb')}:
+                for game in ('ketsui', 'daioujou', 'esprade') for suffix in ('.exe', '.pdb')}:
         return 'KetsuiNativeProbe' + Path(name).suffix
     if name in {LEGACY_LAUNCHER, str(Path(LEGACY_LAUNCHER).with_suffix('.pdb'))}:
         return NAME + Path(name).suffix
@@ -551,6 +555,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             copy_checked(source, directory / name, 'documentation', entries)
     readme = ('README.player-v032.txt' if version == '0.3.2' else
               'README.player-v031.txt' if version == '0.3.1' else
+              'README.player-v06.txt' if 'esprade' in selection else
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
               'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
@@ -632,7 +637,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V03_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V06_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()

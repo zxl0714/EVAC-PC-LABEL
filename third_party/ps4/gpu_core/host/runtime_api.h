@@ -8,7 +8,15 @@
 namespace Ketsui::GpuCore {
 // This SDK is built as one clang-cl/MSVC-runtime pair. Shader, Vulkan and
 // register-layout classes never cross the DLL boundary.
-inline constexpr std::uint32_t RuntimeApiVersion = 7;
+inline constexpr std::uint32_t RuntimeApiVersion = 12;
+// Resource slots are not a measurement of displayed or queued screen frames.
+inline constexpr std::uint32_t PresentResourceSlots = 2;
+inline constexpr std::uint32_t PresentSnapshotSlots = 3;
+struct RuntimePresentationStats {
+  std::uint64_t accepted{}, queued{}, replaced{}, skipped{}, retired_resources{}, last_queued_sequence{};
+  std::uint32_t ready_images{}, active_images{}, retained_resources{};
+  bool independent_queue{};
+};
 struct RuntimeError {
   char message[2048]{};
 };
@@ -40,7 +48,9 @@ enum class RuntimePresentStatus : std::uint32_t {
 struct RuntimePresentResult {
   RuntimePresentStatus status{};
   std::uint32_t width{}, height{};
+  // tick completes the guest-to-host snapshot, not window composition or scanout.
   std::uint64_t tick{}, completed_presents{};
+  bool guest_copy_completed{};
   kt::diagnostics::BackendPresentTiming timing;
 };
 struct RuntimeApi {
@@ -69,6 +79,13 @@ struct RuntimeApi {
   bool (*clear)(void *, RuntimeError *) noexcept;
   bool (*prepare_present)(void *, const RuntimeDisplay *, RuntimePresentResult *, RuntimeError *) noexcept;
   bool (*complete_present)(void *, bool, RuntimePresentResult *, RuntimeError *) noexcept;
+  bool (*read_present_snapshot)(void *, void *, std::uint64_t, RuntimeError *) noexcept;
+  bool (*presentation_stats)(void *, RuntimePresentationStats *, RuntimeError *) noexcept;
+  // Component diagnostic gate. Drain/teardown always releases it.
+  bool (*pause_presentation)(void *, bool, RuntimeError *) noexcept;
+  // Guest memory barriers retire guest GPU work/callbacks, never WSI resources.
+  // Full drain remains required for window replacement and teardown.
+  bool (*finish_guest)(void *, RuntimeError *) noexcept;
 };
 using GetRuntimeApi = bool (*)(std::uint32_t, std::uint32_t,
                                RuntimeApi *) noexcept;

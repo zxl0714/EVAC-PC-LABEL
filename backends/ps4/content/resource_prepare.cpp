@@ -4,6 +4,7 @@
 #include "common/paths.h"
 #include "common/settings.h"
 #include "backends/ps4/ketsui_version.h"
+#include "backends/ps4/loader/plain_self.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <zlib.h>
@@ -22,6 +23,8 @@ using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t kPatchLimit = 262144;
 constexpr std::string_view kDaioujouExecutableHash = "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f";
+constexpr std::string_view kEspradeExecutableHash = "bf8e98b1d9bf22f8ef0f5343c7673af4da428ed2021d2c8e6c124e0371c384d0";
+enum class ResourceTitle { Ketsui, Daioujou, Esprade };
 void Require(bool okay, const char* message) { if (!okay) throw std::runtime_error(message); }
 std::string Hex(std::span<const std::byte> bytes) {
     constexpr char digits[] = "0123456789abcdef";
@@ -230,11 +233,16 @@ ResourceBytes ReadRange(const fs::path& path,std::uint64_t file_size,std::uint64
     ResourceBytes bytes(static_cast<std::size_t>(size));
     Require(bool(source.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(size))),"Truncated resource archive read"); return bytes;
 }
-ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,bool daioujou=false) {
+ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,ResourceTitle title=ResourceTitle::Ketsui) {
     const auto source=Hash(executable);
-    const auto* version=daioujou?nullptr:FindKetsuiVersion(source);
-    Require(daioujou?source==kDaioujouExecutableHash:version!=nullptr,
+    const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade;
+    const auto* version=title==ResourceTitle::Ketsui?FindKetsuiVersion(source):nullptr;
+    Require(esprade?source==kEspradeExecutableHash:daioujou?source==kDaioujouExecutableHash:version!=nullptr,
+        esprade?"Game fixes require the verified CUSA15155 1.04 executable":
         daioujou?"Game fixes require the verified CUSA32997 1.04 executable":"Game fixes require a verified CUSA09062 executable");
+    // Bind the original SELF identity before decoding its file-backed ELF.
+    const auto decoded=esprade?PlainSelfElf(executable):ResourceBytes{};
+    if (esprade) executable=decoded;
     const auto count=Number(executable,56,2),table=Number(executable,32,8);
     Require(count<=64 && table<=executable.size() && count<=(executable.size()-table)/56,"Invalid archive executable headers");
     auto virtual_read=[&](std::uint64_t address,unsigned size) {
@@ -259,7 +267,7 @@ ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,bool daioujou=
         Require(address>=0,"Invalid archive initialization address");
         return virtual_read(static_cast<std::uint64_t>(address),13);
     }
-    const auto load=version->archive_seed_load;
+    const auto load=esprade?0xd3:version->archive_seed_load;
     Require(virtual_read(load,2)==ResourceBytes{0x48,0xb8} && virtual_read(load+10,2)==ResourceBytes{0x48,0xb9},
         "Archive initialization instruction layout changed");
     auto key=virtual_read(load+12,8); const auto tail=virtual_read(load+5,5); key.insert(key.end(),tail.begin(),tail.end()); return key;
@@ -312,7 +320,9 @@ Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(sourc
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {
     Require(source.size()<=kResourceLimit,"Oversized resource script");
     auto raw=Text(source); const std::string newline=raw.find("\r\n")!=raw.npos ? "\r\n" : "\n";
-    if (fix==ResourceFix::CommunityLocalReplay) {
+    if (fix==ResourceFix::CommunityLocalReplay || fix==ResourceFix::EspradeLocalReplay) {
+        const bool esprade=fix==ResourceFix::EspradeLocalReplay;
+        if (esprade) Require(Count(raw,"is_blocked_id(")==0,"Unexpected ESP Ra.De. replay peer-check flow");
         // This title's community cache has no Sony session or Sony account
         // mapping. Adapt only its local viewer: retain stored names, native
         // header/state validation and all network-ranking/NP policy elsewhere.
@@ -322,9 +332,9 @@ ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix
         };
         method("  function pollCorrectFilter(_key) {","  function pollSelectFilter() {",
             "        if (System.getSpec() != \"nx\" && ::ugc_error_dialog())"+newline+"          return _key;","");
-        method("  function pollSelectTab() {","  function is_blocked_id(_id_h,_id_l) {",
+        method("  function pollSelectTab() {",esprade?"  function pollCorrectList(_key) {":"  function is_blocked_id(_id_h,_id_l) {",
             "if (!::ugc_error_dialog()) {","{");
-        method("  function pollCorrectList(_key) {","  function pollCancel() {",
+        if (!esprade) method("  function pollCorrectList(_key) {","  function pollCancel() {",
             "          if (System.getSpec() == \"ps4\" && m_tab_select == REPLAY_TAB_DOWN &&"+newline+
             "            is_blocked_id(m_replay_array[_n]._01_added_value._18_account_h, m_replay_array[_n]._01_added_value._19_account_l)) _ok = false;","");
         method("  function setReplayPage(_start, _cnt, _array, _list) {","  function getReplaySlot(_array) {",
@@ -464,26 +474,29 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     }
     report["read_overlay_sha256"]=Hash(output); return {std::move(output),std::move(report)};
 }
-PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) {
+namespace {
+PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,bool esprade) {
+    const auto expected_executable=esprade?kEspradeExecutableHash:kDaioujouExecutableHash;
+    const auto title=esprade?"CUSA15155":"CUSA32997";
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
-    const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,true);
+    const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,esprade?ResourceTitle::Esprade:ResourceTitle::Daioujou);
     const auto index_path=DataChild(root,"ps4data_info.psb.m"),patch_index_path=DataChild(root,"ps4data_patch_info.psb.m");
     const auto index_raw=ReadFile(index_path,kResourceLimit),patch_index_raw=ReadFile(patch_index_path,kResourceLimit);
     const auto index=ParseResourceIndex(UnwrapResource(index_raw,key,"ps4data_info.psb.m"));
     const auto patch_index=ParseResourceIndex(UnwrapResource(patch_index_raw,key,"ps4data_patch_info.psb.m"));
     const auto body=DataChild(root,"ps4data_body.bin");const auto file_size=fs::file_size(body);
-    kt::content::ReadPatchSet patches{"CUSA32997","01.04",{}};
+    kt::content::ReadPatchSet patches{title,"01.04",{}};
     auto resources=Json::array();
     const auto fix=[&](std::string_view resource,std::string_view expected,ResourceFix transform,std::string_view scope) {
-        Require(!patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched DaiOuJou replay script");
+        Require(!patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched community replay script");
         const auto& extent=index.at("file_info").at(std::string(resource));
-        Require(extent.is_array() && extent.size()==2,"Invalid DaiOuJou replay resource entry");
+        Require(extent.is_array() && extent.size()==2,"Invalid community replay resource entry");
         for (const auto& n:extent) Require(n.is_number_integer() && !n.is_boolean() &&
             (n.is_number_unsigned()?n.get<std::uint64_t>()<=INT64_MAX:n.get<std::int64_t>()>=0),"Invalid resource index integer");
         const auto offset=extent[0].get<std::uint64_t>(),size=extent[1].get<std::uint64_t>();
         const auto name=resource.substr(resource.rfind('/')+1);
         const auto packed=ReadRange(body,file_size,offset,size),script=UnwrapResource(packed,key,name);
-        Require(Hash(script)==expected,"DaiOuJou replay script differs from the verified input");
+        Require(Hash(script)==expected,"Community replay script differs from the verified input");
         const auto fixed=FixResourceScript(script,transform),replacement=WrapResource(fixed,key,name,static_cast<std::size_t>(size));
         kt::content::ReadPatch patch{"ps4data_body.bin",file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),{}};
         const auto bytes=ByteSpan(replacement);patch.replacement.assign(bytes.begin(),bytes.end());
@@ -491,20 +504,28 @@ PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) {
         resources.push_back({{"resource",resource},{"scope",scope},{"offset",offset},{"bytes",size},
             {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}});
     };
-    fix("1100/script/title_ranking_view.nut.m","5275193bc6590e3d826bcdd495bc074a2f3b4adc6157c5de32d0631457e96a19",
-        ResourceFix::CommunityReplayPeer,"initialized-community-provider");
-    fix("1100/script/title_replay_view.nut.m","31fb632273f6521ac2eb483e5e1040466a3630f2c4b4e685a0ed29d23334ec88",
-        ResourceFix::CommunityLocalReplay,"local-community-replay-cache");
+    if (esprade) {
+        fix("102/script/title_replay_view.nut.m","e712a6d48f78f70fca679a4ee2c5bff0e2ca9fe15dff4bc15497fa8b44d585aa",
+            ResourceFix::EspradeLocalReplay,"local-community-replay-cache");
+    } else {
+        fix("1100/script/title_ranking_view.nut.m","5275193bc6590e3d826bcdd495bc074a2f3b4adc6157c5de32d0631457e96a19",
+            ResourceFix::CommunityReplayPeer,"initialized-community-provider");
+        fix("1100/script/title_replay_view.nut.m","31fb632273f6521ac2eb483e5e1040466a3630f2c4b4e685a0ed29d23334ec88",
+            ResourceFix::CommunityLocalReplay,"local-community-replay-cache");
+    }
     auto output=EncodeReadFixes(patches);
-    Require(Hash(ReadFile(executable,512*1024*1024))==kDaioujouExecutableHash &&
+    Require(Hash(ReadFile(executable,512*1024*1024))==expected_executable &&
         Hash(ReadFile(index_path,kResourceLimit))==Hash(index_raw) &&
-        Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw),"DaiOuJou resources changed during preparation");
+        Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw),"Community resources changed during preparation");
     for (const auto& patch:patches.entries) Require(kt::content::ReadPatchHash(ByteSpan(
         ReadRange(body,file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
-        "DaiOuJou original replay resource changed during preparation");
-    Json report{{"format",1},{"fix","daioujou-community-replays"},{"title_id","CUSA32997"},{"app_version","01.04"},
-        {"executable_sha256",kDaioujouExecutableHash},{"resources",std::move(resources)},
+        "Original replay resource changed during preparation");
+    Json report{{"format",1},{"fix",esprade?"esprade-community-replays":"daioujou-community-replays"},{"title_id",title},{"app_version","01.04"},
+        {"executable_sha256",expected_executable},{"resources",std::move(resources)},
         {"original_files_modified",false},{"local_cache_requires_network",false},{"read_overlay_sha256",Hash(output)}};
     return {std::move(output),std::move(report)};
 }
+}
+PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,false); }
+PreparedReadFixes PrepareEspradeReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,true); }
 }

@@ -1,4 +1,5 @@
 #include "gpu_program.h"
+#include "draw_timing.h"
 #include "cache_memory.h"
 #include "common/hash.h"
 #include "video_core/amdgpu/regs_shader.h"
@@ -25,6 +26,7 @@ struct ReadScratch {
 ProgramScope::ProgramScope(ProgramStore& store) : previous{current} { current = &store; }
 ProgramScope::~ProgramScope() { current = previous; }
 Shader::ShaderParams ReadProgram(VAddr address, std::span<const u32, 16> user_data) {
+    ProgramReadTimingScope timing;
     constexpr u64 limit = 1024 * 1024;
     if (!current || !address || address % 256 || address > UINT64_MAX - limit - 32) {
         throw std::runtime_error("Shader program address/store is invalid");

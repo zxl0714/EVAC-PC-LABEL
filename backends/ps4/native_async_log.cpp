@@ -1,6 +1,7 @@
 #include "native_async_log.h"
 #include "diagnostics/async_log_queue.h"
 #include "diagnostics/monotonic_clock.h"
+#include "diagnostics/timing_trace.h"
 #include <windows.h>
 #include <algorithm>
 #include <atomic>
@@ -64,6 +65,11 @@ bool StartNativeAsyncLog() {
     // the process lifetime; never run a live worker's destructor during teardown.
     (void)state.release();
     std::puts("{\"event\":\"native_async_log_begin\",\"bounded\":true,\"producer_file_io\":false,\"capacity_records\":1024,\"record_bytes\":4096}");
+    if (kt::diagnostics::TimingTraceEnabled()) {
+        LARGE_INTEGER qpc{}, frequency{}; QueryPerformanceCounter(&qpc); QueryPerformanceFrequency(&frequency);
+        NativeLogf("{\"event\":\"native_timing_capture\",\"schema\":1,\"clock_us\":%llu,\"qpc\":%lld,\"qpc_frequency\":%lld,\"bounded_async_records\":1024,\"system_etw_available\":false,\"physical_scanout_measured\":false}\n",
+            kt::diagnostics::MonotonicMicroseconds(),qpc.QuadPart,frequency.QuadPart);
+    }
     return true;
 }
 

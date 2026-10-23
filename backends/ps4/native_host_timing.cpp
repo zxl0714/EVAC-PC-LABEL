@@ -1,5 +1,6 @@
 #include "native_host_timing.h"
 #include "native_async_log.h"
+#include "diagnostics/timing_trace.h"
 #include <windows.h>
 #include <algorithm>
 #include <array>
@@ -197,6 +198,11 @@ NativeHostOperationScope::~NativeHostOperationScope() noexcept {
         // Sum native clock durations before conversion; many sub-microsecond
         // calls must not disappear through per-call integer truncation.
         frame_counters.values.Add(category_index_, finished - began_, outer_, allocation_);
+    }
+    if (kt::diagnostics::TimingTraceEnabled() && completed >= began && completed-began >= 500 && category_index_ != 0) {
+        // Static host labels only; no image registry lookup or synchronous I/O.
+        NativeLogf("{\"event\":\"native_host_wait_detail\",\"name\":\"%s\",\"category\":\"%s\",\"detail\":%llu,\"began_clock_us\":%llu,\"clock_us\":%llu,\"thread\":%lu,\"previous_submission\":%llu}\n",
+            name_,category_,detail_,began,completed,GetCurrentThreadId(),began_submission_);
     }
     if (completed < began || completed - began < kThresholdUs) {
         errno = host_errno; SetLastError(error); return;

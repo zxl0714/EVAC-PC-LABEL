@@ -108,6 +108,7 @@ add_library(KetsuiGpuRenderer STATIC
     upstream/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
     upstream/src/video_core/renderer_vulkan/vk_rasterizer.cpp)
 target_compile_features(KetsuiGpuRenderer PUBLIC cxx_std_23)
+target_include_directories(KetsuiGpuRenderer PRIVATE "${BACKEND}")
 target_compile_options(KetsuiGpuRenderer PRIVATE /EHsc /W3)
 target_link_libraries(KetsuiGpuRenderer PUBLIC KetsuiGpuRecompiler)
 

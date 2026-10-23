@@ -127,7 +127,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
                 "Unknown, empty or repeated collection launch argument");
         }
         const auto game=Utf8(fs::path(values.at(L"--game_id")));
-        Require((game=="ketsui" || game=="daioujou") && values.at(L"--launch_contract")==L"1","Unsupported game or launch contract");
+        Require((game=="ketsui" || game=="daioujou" || game=="esprade") && values.at(L"--launch_contract")==L"1","Unsupported game or launch contract");
         const bool ketsui=game=="ketsui";
         const fs::path requested_root(values.at(L"--collection_root")),requested_data(values.at(L"--game_data_root")),
             requested_profile(values.at(L"--user_data_root"));
@@ -183,7 +183,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             L"--gpu-runtime",(root/"runtime/ps4/KetsuiGpuRuntime.dll").native()};
         if (ketsui) {
             arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native(),L"--community-rounds",L"on"});
-        } else {
+        } else if(!prepared.read_fixes.empty()) {
             // The local community replay cache must also work with networking
             // disabled. The ranking peer fallback separately checks readiness.
             arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native()});

@@ -23,8 +23,10 @@ def fix_replay_peer(source):
     return source[:start] + body + source[stop:]
 
 
-def fix_local_replay(source):
+def fix_local_replay(source, *, esprade=False):
     """Keep community-cache viewing local; do not change global NP state."""
+    if esprade and b'is_blocked_id(' in source:
+        raise ValueError('Unexpected ESP Ra.De. replay peer-check flow')
     newline = b'\r\n' if b'\r\n' in source else b'\n'
     def method(raw, begin, end, anchor, replacement):
         if raw.count(begin) != 1 or raw.count(end) != 1:
@@ -42,7 +44,7 @@ def fix_local_replay(source):
     changes = (
         (b'  function pollCorrectFilter(_key) {', b'  function pollSelectFilter() {',
          b'        if (System.getSpec() != "nx" && ::ugc_error_dialog())' + newline + b'          return _key;', b''),
-        (b'  function pollSelectTab() {', b'  function is_blocked_id(_id_h,_id_l) {',
+        (b'  function pollSelectTab() {', b'  function pollCorrectList(_key) {' if esprade else b'  function is_blocked_id(_id_h,_id_l) {',
          b'if (!::ugc_error_dialog()) {', b'{'),
         (b'  function pollCorrectList(_key) {', b'  function pollCancel() {',
          b'          if (System.getSpec() == "ps4" && m_tab_select == REPLAY_TAB_DOWN &&' + newline +
@@ -53,6 +55,8 @@ def fix_local_replay(source):
              b'      _net = NetworkModule(null);',
              b'      if (_net != null && _net.initializeIDMapper() >= 0) accountID = true;', b'    }')), b''),
     )
+    if esprade:
+        changes = changes[:2] + changes[3:]
     for change in changes:
         source = method(source, *change)
     return source

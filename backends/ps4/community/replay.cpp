@@ -21,9 +21,10 @@ RecordContract ContractFor(std::string_view game) {
     // with a 0x78000-byte data field. Keep its own version/core contract;
     // equal network sizes do not make a Ketsui record valid for DaiOuJou.
     if (game=="daioujou") return {0x80000,0x78000,0x10030,0x10000,"ARCADE_01030"};
+    if (game=="esprade") return {0x80000,0x78000,0x10022,0x10000,"ARCADE_01030"};
     return {kReplayRecordSize,kReplayDataSize,0x10001,0x10001,"ARCADE_01000"};
 }
-bool DaioujouRegion(std::string_view region) {
+bool ArcadeCoreRegion(std::string_view region) {
     // The 1.04 title can select any of its four shipped core revisions. The
     // container version is independent of that selection; an actual ARCADE
     // recording uses container 0x10030 with region ARCADE_01000.
@@ -138,7 +139,9 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
     // accepting an envelope is not permission to bypass native player checks.
     const bool supported_data = result.data_version == contract.data_version ||
         (game == "ketsui" && result.data_version == 0x10000);
-    Require(result.version == contract.version && supported_data, "unsupported_record_version");
+    const bool supported_version=result.version==contract.version || (game=="esprade" &&
+        (result.version==0x10019 || result.version==0x10020 || result.version==0x10021));
+    Require(supported_version && supported_data, "unsupported_record_version");
     Require(U32(record, 8) <= contract.data_bytes && U32(record, 12) == 0, "unsupported_record_extents");
     result.total_frames = U32(record, 16); result.consumed_frames = U32(record, 20);
     Require(result.total_frames && result.consumed_frames && result.consumed_frames <= result.total_frames, "frame_bounds");
@@ -163,6 +166,13 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
 }
 void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& expected) {
     const auto group = expected.board / 10, ship = expected.board % 10;
+    if(replay.game=="esprade") {
+        Require(group<=3 && ship<=4,"unsupported_replay_board"); // 88/99 have no attachment.
+        Require(ArcadeCoreRegion(replay.region) && replay.kind==0 && replay.mode==group,"replay_mode_mismatch");
+        Require(expected.score==replay.score,"replay_score_mismatch");
+        Require(replay.character<8 && (!ship || ship==replay.character%4+1),"replay_ship_mismatch");
+        return;
+    }
     if (replay.game=="daioujou") {
         Require((group==0 || (group>=2 && group<=6)) && ship<=6,"unsupported_replay_board");
         const auto mode=group==0 ? 0u : group==2 ? 1u : group==3 ? 2u : group==5 ? 5u : 4u;
@@ -171,7 +181,7 @@ void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& 
         // attachment. Native checkRegistRanking still excludes ALL-MIX/custom
         // submissions; board group 1 is not enabled here. Preserve raw bytes.
         const bool native_arcade_alias=group==0 && replay.mode==3;
-        Require(DaioujouRegion(replay.region) && replay.kind==0 && (replay.mode==mode || native_arcade_alias),"replay_mode_mismatch");
+        Require(ArcadeCoreRegion(replay.region) && replay.kind==0 && (replay.mode==mode || native_arcade_alias),"replay_mode_mismatch");
         Require(expected.score==replay.score,"replay_score_mismatch");
         Require(replay.character<6 && (ship==6 || ship==replay.character),"replay_ship_mismatch");
         return;

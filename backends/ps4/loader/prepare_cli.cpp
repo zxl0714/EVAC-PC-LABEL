@@ -61,7 +61,7 @@ int PrepareElfCommand(int argc,wchar_t** argv) {
 }
 int PrepareReadFixesCommand(int argc,wchar_t** argv) {
     try {
-        if (argc<7) throw std::runtime_error("Usage: --prepare-fixes game-data --root collection --output new.ktfix [--game ketsui|daioujou] [--community-replay] [--community-offline]");
+        if (argc<7) throw std::runtime_error("Usage: --prepare-fixes game-data --root collection --output new.ktfix [--game ketsui|daioujou|esprade] [--community-replay] [--community-offline]");
         fs::path root,output; bool replay{},offline{},game_given{};std::string game="ketsui";
         for (int i=3;i<argc;++i) {
             const std::wstring_view option(argv[i]);
@@ -83,9 +83,10 @@ int PrepareReadFixesCommand(int argc,wchar_t** argv) {
         root=fs::canonical(root); const auto data=fs::canonical(argv[2]);
         const auto source_sentinel=data/L"resource-preparation-source";
         CheckOutput(root,output,source_sentinel,{});
-        if ((game!="ketsui" && game!="daioujou") || (game=="daioujou" && (replay || offline)))
+        if ((game!="ketsui" && game!="daioujou" && game!="esprade") || (game!="ketsui" && (replay || offline)))
             throw std::runtime_error("Unsupported game or incompatible resource preparation options");
-        auto result=game=="ketsui"?PrepareReadFixes(data,replay,offline):PrepareDaioujouReadFixes(data);
+        auto result=game=="ketsui"?PrepareReadFixes(data,replay,offline):
+            game=="esprade"?PrepareEspradeReadFixes(data):PrepareDaioujouReadFixes(data);
         fs::create_directories(output.parent_path());
         CheckOutput(root,output,source_sentinel,{}); WritePreparationFile(output,result.bytes);
         result.report.update(kt::community::Json{{"event","read_fixes_prepared"},{"output",Utf8(output)},

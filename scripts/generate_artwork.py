@@ -114,6 +114,15 @@ def artwork(root):
     return entries
 
 
+def windows_version(version):
+    if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,3}', version):
+        raise ValueError('Windows version needs two to four numeric components')
+    parts = [int(part) for part in version.split('.')]
+    if any(part > 65535 for part in parts):
+        raise ValueError('Windows version component exceeds 65535')
+    return parts + [0] * (4 - len(parts))
+
+
 def generate(root, destination):
     entries=artwork(root)
     if not entries:
@@ -124,14 +133,17 @@ def generate(root, destination):
     header=['#pragma once','#include <array>','#include <string_view>','namespace cave::launcher {',
             'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y; bool contain;};',
             'inline constexpr std::array<Artwork,'+str(len(entries))+'> kArtwork{{']
+    version=windows_version(VERSION)
+    numeric_version=','.join(map(str,version))
+    file_version='.'.join(map(str,version))
     resources=['#pragma code_page(65001)','#include <windows.h>',
-        '1 VERSIONINFO', 'FILEVERSION 0,4,0,0', 'PRODUCTVERSION 0,4,0,0',
+        '1 VERSIONINFO', 'FILEVERSION '+numeric_version, 'PRODUCTVERSION '+numeric_version,
         'FILEFLAGSMASK VS_FFI_FILEFLAGSMASK', 'FILEFLAGS 0', 'FILEOS VOS_NT_WINDOWS32',
         'FILETYPE VFT_APP', 'FILESUBTYPE 0', 'BEGIN', '  BLOCK "StringFileInfo"',
         '  BEGIN', '    BLOCK "040904b0"', '    BEGIN',
         '      VALUE "FileDescription", "'+NAME+'\\0"',
         '      VALUE "ProductName", "'+NAME+'\\0"',
-        '      VALUE "FileVersion", "'+VERSION+'.0.0\\0"',
+        '      VALUE "FileVersion", "'+file_version+'\\0"',
         '      VALUE "ProductVersion", "'+VERSION+'\\0"',
         '      VALUE "InternalName", "EVACPCLabel\\0"',
         '      VALUE "OriginalFilename", "'+LAUNCHER+'\\0"',

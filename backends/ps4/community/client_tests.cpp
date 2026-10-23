@@ -110,7 +110,7 @@ bool ClientSmoke(const std::filesystem::path& config_path, const std::filesystem
     while (!client.State().ready && std::chrono::steady_clock::now() < deadline) { std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
     const auto identity = client.State();
     Require(identity.ready && identity.account == AccountId(identity.nickname,game), "Authored community identity not ready");
-    const auto board=game=="ketsui" ? 0u : 6u;
+    const auto board=game=="daioujou" ? 6u : 0u;
     const auto query="/leaderboards?board="+std::to_string(board)+"&rules=standard";
     Json request{{"submission_id", NewId()}, {"nickname", identity.nickname}, {"board", board}, {"rules", "standard"},
                  {"score", game=="ketsui"?"9007199254740993":"123456789"}, {"comment_base64", Base64(std::vector<std::byte>(64))}, {"game_info_base64", ""}, {"build", "authored-cpp-client"}};

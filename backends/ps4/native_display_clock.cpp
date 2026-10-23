@@ -2,6 +2,8 @@
 #include "native_equeue.h"
 #include "native_time.h"
 #include "native_diagnostics.h"
+#include "native_async_log.h"
+#include "diagnostics/timing_trace.h"
 
 #include <windows.h>
 #include <algorithm>
@@ -55,6 +57,7 @@ constexpr int kInvalidQueue = static_cast<int>(0x8029000cu), kInvalidHandle = st
 struct NativeDisplayClock::Impl {
     struct Subscription { std::uint64_t queue, ident; };
     const std::uint64_t owner;
+    const std::uint64_t frequency = Frequency();
     const Period period;
     const std::uint64_t start;
     mutable std::mutex mutex;
@@ -67,6 +70,7 @@ struct NativeDisplayClock::Impl {
     std::uint64_t rate_revision{};
     unsigned waiters{};
     NativeVblankStatus status;
+    std::uint64_t published_qpc{}, notified_clock_us{};
     std::vector<Subscription> subscriptions;
 
     Impl(std::uint64_t id, std::uint32_t numerator, std::uint32_t denominator)
@@ -128,6 +132,9 @@ struct NativeDisplayClock::Impl {
                 else { ++iterator; }
             }
             previous = count;
+            if (kt::diagnostics::TimingTraceEnabled()) {
+                published_qpc = Qpc(); notified_clock_us = kt::diagnostics::MonotonicMicroseconds();
+            }
             changed.notify_all();
         }
     }
@@ -154,7 +161,12 @@ std::uint64_t NativeDisplayClock::NextFlipCounter() const {
 }
 NativeDisplayClock::FlipOpportunity NativeDisplayClock::ReserveFlipOpportunity() const {
     std::lock_guard lock(impl_->mutex);
-    return {(impl_->status.count / impl_->divider + 1) * impl_->divider, impl_->rate_revision};
+    const FlipOpportunity opportunity{(impl_->status.count / impl_->divider + 1) * impl_->divider, impl_->rate_revision};
+    if (kt::diagnostics::TimingTraceEnabled()) {
+        NativeLogf("{\"event\":\"native_pacing_reserve\",\"clock_us\":%llu,\"qpc\":%llu,\"qpc_frequency\":%llu,\"target_qpc\":%llu,\"counter\":%llu,\"target_counter\":%llu,\"revision\":%llu,\"divider\":%u,\"thread\":%lu}\n",
+            kt::diagnostics::MonotonicMicroseconds(),Qpc(),impl_->frequency,impl_->start+impl_->period.Deadline(opportunity.counter),impl_->status.count,opportunity.counter,opportunity.revision,impl_->divider,GetCurrentThreadId());
+    }
+    return opportunity;
 }
 bool NativeDisplayClock::WaitVblank() {
     std::unique_lock lock(impl_->mutex);
@@ -168,14 +180,25 @@ bool NativeDisplayClock::WaitFlipOpportunity() {
     return WaitFlipOpportunity(ReserveFlipOpportunity());
 }
 bool NativeDisplayClock::WaitFlipOpportunity(FlipOpportunity opportunity) {
+    const auto began = kt::diagnostics::TimingTraceEnabled() ? kt::diagnostics::MonotonicMicroseconds() : 0;
     std::unique_lock lock(impl_->mutex);
+    const auto locked = began ? kt::diagnostics::MonotonicMicroseconds() : 0;
     while (!impl_->closed) {
         if (!opportunity.counter || opportunity.revision != impl_->rate_revision) {
             opportunity = {(impl_->status.count / impl_->divider + 1) * impl_->divider, impl_->rate_revision};
         }
         impl_->changed.wait(lock, [&] { return impl_->closed || impl_->status.count >= opportunity.counter || impl_->rate_revision != opportunity.revision; });
         if (impl_->closed) { return false; }
-        if (impl_->rate_revision == opportunity.revision && impl_->status.count >= opportunity.counter) { return true; }
+        if (impl_->rate_revision == opportunity.revision && impl_->status.count >= opportunity.counter) {
+            if (began) {
+                const auto ended = kt::diagnostics::MonotonicMicroseconds();
+                const auto count = impl_->status.count, notify = impl_->notified_clock_us, published = impl_->published_qpc;
+                const auto target = impl_->start+impl_->period.Deadline(opportunity.counter);
+                lock.unlock();
+                NativeLogf("{\"event\":\"native_pacing_wait\",\"began_clock_us\":%llu,\"locked_clock_us\":%llu,\"clock_us\":%llu,\"notified_clock_us\":%llu,\"published_qpc\":%llu,\"target_qpc\":%llu,\"target_counter\":%llu,\"completed_counter\":%llu,\"thread\":%lu}\n",began,locked,ended,notify,published,target,opportunity.counter,count,GetCurrentThreadId());
+            }
+            return true;
+        }
     }
     return false;
 }

@@ -432,6 +432,41 @@ class ReleaseTests(unittest.TestCase):
                              release.digest(installed/release.LEGACY_LAUNCHER))
         self.check_build_flavors('0.4', check)
 
+    def test_v06_six_game_program_and_selected_internal_data(self):
+        def check(root, games, commit, inspect):
+            self.assertEqual(release.release_games('0.6'), release.V06_GAMES)
+            self.assertEqual(release.config_name('0.6'), 'user-data/config.ini')
+            self.assertEqual(release.certified_name('runtime/ps4/esprade.pdb'), 'KetsuiNativeProbe.pdb')
+            with patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
+                public = release.build('Public', '0.6', root/'releases/public')
+                inspect.assert_not_called()
+                internal = release.build('Internal', '0.6', root/'releases/internal', data_games=['all'])
+            self.assertEqual([call.args[1] for call in inspect.call_args_list], list(release.V06_GAMES))
+            for flavor, result in (('Public', public), ('Internal', internal)):
+                self.assertEqual(Path(result['archive']).name,
+                    'EVAC-PC-LABEL-v0.6-win-x64' + ('-internal' if flavor == 'Internal' else '') + '.zip')
+                installed = self.root/('v06 ' + flavor)
+                with zipfile.ZipFile(result['archive']) as archive:
+                    archive.extractall(installed)
+                record = release.verify_tree(installed, games)
+                self.assertEqual(record['games'], list(release.V06_GAMES))
+                self.assertEqual(record['dataGames'], list(release.V06_GAMES) if flavor == 'Internal' else [])
+                self.assertEqual((installed/'README.txt').read_text(encoding='utf-8'), 'authored v06 instructions')
+                self.assertTrue((installed/'Launch.bat').is_file())
+                self.assertFalse((installed/'启动游戏.bat').exists())
+                self.assertFalse((installed/'source').exists())
+                self.assertFalse((installed/'user-data').exists())
+                self.assertFalse((installed/'config.ini').exists())
+                self.assertFalse(list(installed.rglob('*.pdb')))
+                self.assertEqual(release.digest(installed/'runtime/ps4/esprade.exe'),
+                                 release.digest(installed/'runtime/ps4/daioujou.exe'))
+                for key in release.V06_GAMES:
+                    self.assertTrue((installed/'game-data'/key/release.PLACEMENT_NAME).is_file())
+                    self.assertEqual((installed/'game-data'/key/'main.bin').exists(), flavor == 'Internal')
+                self.assertFalse((installed/'game-data/esprade/Project.gp4').exists())
+            self.assertEqual((root/'game-data/esprade/Project.gp4').read_bytes(), b'authored packaging-only file')
+        self.check_build_flavors('0.6', check)
+
     def test_windows_internal_selects_base_game_without_dlc_or_other_data(self):
         def check(root, games, commit, inspect):
             (root/'game-data/ketsui/main.bin').unlink()  # Unselected authored input is unavailable.
@@ -562,6 +597,7 @@ class ReleaseTests(unittest.TestCase):
                 'config/default.ini':'[collection]\nconfig_version=1\n', 'config/README.player.txt':'authored v02 instructions',
                 'config/README.player-v03.txt':'authored v03 instructions',
                 'config/README.player-v04.txt':'authored v04 instructions',
+                'config/README.player-v06.txt':'authored v06 instructions',
                 'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for key in release.PLACEMENT_GAMES:
@@ -579,7 +615,7 @@ class ReleaseTests(unittest.TestCase):
         identity=dict(path='main.bin',bytes=3,sha256=hashlib.sha256(b'abc').hexdigest())
         selection = release.release_games(version)
         games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
-            'runtime/'+('ps4' if key in ('ketsui', 'daioujou') else 'xbox360')+'/'+key+'.exe',
+            'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
@@ -595,7 +631,7 @@ class ReleaseTests(unittest.TestCase):
             (root/game['runtimeFiles'][1]).write_text('[runtime]\ncontract=1\ngame='+key+'\nsource_commit='+commit+
                 '\n[files]\n'+name+'='+certified[base]['sha256']+'\n',encoding='utf-8')
             data=root/'game-data'/key;data.mkdir(parents=True);(data/'main.bin').write_bytes(b'abc')
-            if key == 'daioujou':
+            if key in ('daioujou', 'esprade'):
                 (data/'Project.gp4').write_bytes(b'authored packaging-only file')
         (root/'dlc').mkdir();(root/'dlc/fixture-dlc.bin').write_bytes(b'abc')
         crt=root/'crt';crt.mkdir()

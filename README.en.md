@@ -8,7 +8,7 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
-The current version is v0.4. Downloads are listed under “Downloads and backups”.
+This page describes the v0.6 development version. Published builds are listed under “Downloads and backups”.
 
 ## Supported games
 
@@ -19,14 +19,13 @@ The current version is v0.4. Downloads are listed under “Downloads and backups
 | ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
 | 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
 | 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; complete merged 01.04 data |
-
-エスプレイドΨ (ESP Ra.De. Psi) is planned for a future version and marked Coming Soon in the launcher.
+| エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
 
 ## Getting started
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, and SDOJ require Direct3D 12; Ketsui and DaiOuJou require Vulkan. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, and SDOJ require Direct3D 12; Ketsui, DaiOuJou, and ESP Ra.De. require Vulkan. Application runtime libraries are included in the player package.
 
 ### Launch
 
@@ -46,6 +45,7 @@ The complete program package creates the folders below, each with a bilingual `�
 | Ketsui | `game-data/ketsui/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | SDOJ | `game-data/sdoj/` | `default.xex`, `CA022100.bin`, `CA022110.bin`, and the remaining resources |
 | DaiOuJou | `game-data/daioujou/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
+| ESP Ra.De. | `game-data/esprade/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.md).
 
@@ -59,11 +59,11 @@ See the [game data guide (Chinese)](docs/GAME_DATA.md) for complete folder examp
 
 ## Settings and controls
 
-Use the launcher header to change fullscreen mode and your leaderboard nickname. Select `CN / EN / JP` at the top right to change the launcher's language. In-game languages depend on the original game.
+**Start fullscreen** is above the launch button; edit your leaderboard nickname at the top right. Select `CN / EN / JP` to change the launcher's language. If a game cannot display characters in your nickname, saving shows the affected games and the names passed to them. In-game languages depend on the original game.
 
 The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](config/default.ini) for available options.
 
-SDOJ defaults to `frame_delay = 3`, the original three-frame path. Existing explicit 1V or 2V settings are preserved; change the value under `[game.sdoj]` to 3 manually if needed. 1V and 2V are manual test options.
+For SDOJ, set `frame_delay` under `[game.sdoj]` to `1` for low latency, `2` for balanced timing, or `3` for the original path. Version 0.6 defaults to `1`; existing explicit settings are preserved.
 
 | Default keyboard input | Function |
 | --- | --- |

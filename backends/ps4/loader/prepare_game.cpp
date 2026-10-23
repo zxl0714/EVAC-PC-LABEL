@@ -42,7 +42,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui || inspected.layout=="merged-patch"},
         {"dataVariant",inspected.variant},{"dataVersion",inspected.version},
         {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
-        {"communityReplayPeerFallback",game=="daioujou"},{"communityLocalReplay",game=="daioujou"}};
+        {"communityReplayPeerFallback",game=="daioujou"},{"communityLocalReplay",!ketsui}};
     const std::vector<std::string> programs=ketsui ?
         std::vector<std::string>{"eboot.bin","emu_integration_01400.prx","ketsui_01000.prx"} :
         esprade ? std::vector<std::string>{"eboot.bin","emu_integration_01500.prx","esprade_01000.prx","esprade_01010.prx",
@@ -51,17 +51,16 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             "daioujou_01020.prx","daioujou_01030.prx"};
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
-    // ESP Ra.De. initially runs its unmodified resources. Add only transforms
-    // established from this title's own native flow, not DaiOuJou's scripts.
-    if (!esprade) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
+    files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
         const auto libc=ReadPreparationInput(DataChild(data,"sce_module/libc.prx"));
         for (std::size_t i=0;i<programs.size();++i) {
             const auto source=ReadPreparationInput(DataChild(data,programs[i]));
             const auto prepared=PrepareElf(source,i!=0,libc);WritePreparedRelative(stage,files[i],prepared.bytes);
         }
-        if (!esprade) {
-            const auto fixes=ketsui?PrepareReadFixes(data,true,true):PrepareDaioujouReadFixes(data);
+        {
+            const auto fixes=ketsui?PrepareReadFixes(data,true,true):
+                esprade?PrepareEspradeReadFixes(data):PrepareDaioujouReadFixes(data);
             WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
             const auto metadata=fixes.report.dump(2)+'\n';
             WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
@@ -69,7 +68,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         if(CheckData(root,data,game).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
         if (Sha256(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
-    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",esprade?fs::path{}:cache.directory/"game-fixes.ktfix"};
+    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",cache.directory/"game-fixes.ktfix"};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {

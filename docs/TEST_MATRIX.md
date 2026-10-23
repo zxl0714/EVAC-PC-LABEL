@@ -2,6 +2,185 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.6 ESP Ra.De. 真实联网与离线录像
+
+- `.local/v06-esprade-online-r2`（PID 95148，已关闭）：独立 profile／loopback，ARCADE／祐介实际游玩至 1390 分、不续关。综合榜 0 与角色榜 1 的成绩及两份录像上传成功；原生排行榜显示 Player／1390 和录像标记，下载保存到槽 `0018-0000`，完整播放并返回列表。附件均为 76,826 字节，SHA-256 `5ce1932dd2f83c730f5831045cc3d3ef7c88ec4b91cbaa42ff93c35efe4be751`；网络头 version `0x10022`、data version `0x10000`、region `ARCADE_01000`。原局还完成原生 AC-OSARAI／解锁进度保存提示。
+- 下载列表原先在 Sony ID mapper 初始化失败后残留 NOW ACCESSING。现在只转换本作本地下载缓存查看路径，使用存储昵称、移除本地缓存的在线 UGC 查询，`pollCorrectList` 原生加载／校验方法逐字节不变。输入以 CUSA15155／01.04 原始 SELF 与脚本 SHA 绑定，原数据未修改。115 项原生资源检查、6 项 oracle 测试及真实资源的 native／Python 对照、固定 9145 字节覆盖、冷／热准备缓存检查通过。证据：`.local/v06-esprade-resource-checks-r1`、`v06-esprade-replay-fix-r1` 和 `v06-esprade-replay-fix-build-r1.log`。
+- `.local/v06-esprade-offline-replay-r1`（PID 93980，已关闭）：复制上述 profile 并关闭联网，冷启动下载列表正常，完整回放至 1390 分并自然返回，无残留面板；播放期间未发送游玩输入。Alt+F4 完成呈现回收，68,418 条日志全部写出，无丢弃或 sink failure。既有 guest-finalizer／exit 27 限制仍在。详细 timing trace 关闭。
+- `.local/v06-esprade-service-preflight-r1`：ECS 独立临时目录的 26 个源码成员 SHA 核对、Python 3.10.12 下 31 项 ESP／PS4 profile／备份／部署检查、三个 ESP systemd 单元 verify 通过。现有五款服务 PID／active 状态未变；未安装 ESP 服务、改 nginx 或正式数据库。
+
+### 正式服务与普通启动器入口
+
+- `.local/v06-esprade-deploy-r1`：从提交 `d66c11afdee8` 安装独立 `cave-esprade.service`／每日备份及 nginx 路由，本机端口 18089，版本指针 `/opt/cave-community/esprade-current`。六款 HTTPS 身份、两个旧入口、未知游戏 404、首次 SQLite 备份完整性通过；原五款服务 PID 未变，未写入自造分数。
+- 开发 catalogue 已启用 ESP。`.local/v06-esprade-https-r1/collection` 的普通启动器 PID 12048 启动本作 PID 81344，正常五参数合同、独立新存档、首次准备及只读数据校验通过。配置自动把共享 endpoint 解析为 `https://xiaolu.life/cave/api/v1/games/esprade`。详细追踪关闭，菜单短按辅助为 120 ms。
+- ARCADE／祐介实际射击计分、死亡复活，不续关自然得到 3300 分；综合／角色榜及两份录像上传均 HTTP 200。原生榜单显示 Player／3300 与录像图标，下载成功保存至 `0018-0000`。下载录像实际完整播放至 3300，约 82 秒后自然返回干净列表，期间未发送游玩输入。
+- 正式附件 75,727 字节，SHA-256 `61ca84e93ec1cb9826961c108870fddfe44caaa530b601c9e716c92228350ef4`；原生 version `0x10022`、data version `0x10000`、region `ARCADE_01000`、4961 帧。`online-result.json` 核对两个正式条目、附件 SHA、实际保存槽的状态／按键数据与模式／成绩／角色。最初假设整个网络 0x80000 封套可在本地容器中逐字节找到不成立：本地槽的校验字段和步长不同；改按已解析有效区间核对，不以填充区比较推断回放损坏。
+- 集成补齐 ESP 正常关窗收据识别，沿用 PID／进程出生时间／呈现回收的严格条件，146 项 launch/config/process/data-copy 检查通过；横幅分类改为 PS4 · 2019。旧复制启动器确实误报 exit 27，新构建已在后续实际关窗中正确显示 Game closed，无异常弹窗；原始退出收据及清理限制仍保留。
+- 同一独立目录重启后，启动器 PID 77368／游戏 PID 32232（均已关闭）使用热准备缓存并保留原生设置；实际 ARCADE PLUS／祐介第一关射击、死亡复活及自然结算得到 3510 分，正式 20／21 榜与两份录像均成功。附件 76,900 字节、SHA-256 `98fd1f54079b6f79e5f70f8274a51b31a3966590be3495c418457a4d7c6c4148`，原生 mode=2、5634 帧。`plus-result.json` 保存正式读回及结构核对。设置界面小字先后读作 65／68 不可靠，不能用存档中恰好等于 68 的任意偏移证明音量；准确百分比待单独复核。
+- 六游戏 format-2 Public／Internal、英文 BAT、六份放置说明和双语玩家 README 已接入；55 项打包／产品／清单测试通过（1 项 Windows 文件符号链接权限跳过），证据 `.local/v06-release-profile-tests-r1.log`。本节是自造小包测试，不是最终发行包验收。
+
+- `.local/v06-present-regression-r1/esprade-off-guest-fence`（86076，已关闭）补充
+  SUPER EASY／祐介玩家第一关，射击、死亡复活及自动防护，至中 BOSS、13780 分。
+  不是 DEMONSTRATION。此 profile 的 CREDIT 为 Triangle／键盘 V，R2 未绑定；
+  不沿用绊地狱测试档的 W 投币。实际原生菜单核对后成功投币选人。
+- 同次实际将 BGM 从 69% 改为 68%，SE 保持 70%，返回后原生保存提交完成。
+  独立 `cold-restart`（4240，已关闭）沿用同一 profile 和相同程序／DLL，
+  原生 SOUND SETTING 明确读回 BGM **068%**、SE **070%**。启动前系统存档
+  214016 字节，SHA-256 `55493f5d654f942660e64a0a1ec2fe4c243cb27446a97f95fad77b41ff9200b9`。
+  ARCADE 投币／演示界面短按 Enter 是开始，Backspace／Touchpad 打开暂停菜单；
+  OPTION SETTING → L1／A 切到 SOUND。此前将此入口记为 Enter 暂停不准确。
+  正常关窗完成呈现回收，88227 条已接收日志全写出，无 sink failure。
+
+设置冷读回及 ARCADE／ARCADE PLUS／SUPER EASY 代表性玩家入口已验证。
+PS4 帧节拍短回归已完成，结果见下节；最终发行构建／双包验收仍未完成。
+
+## v0.6 PS4 异步呈现候选
+
+配套 ABI 11 将窗口 acquire／合成／present 移至独立线程；三张宿主图像和
+两个窗口资源槽限制积压及资源寿命。游戏只等待必要复制与原作节拍，不等待
+当前窗口合成。支持第二条同族队列，也保留有外部同步的共享队列路径。
+普通游戏不调用像素读回，默认不开详细计时。
+
+- `.local/v06-present-async-build-r2.log`：六对 PE／PDB 通过并整理三款运行文件。
+- `v06-present-async-ctest-r1.log`：5/5 GPU CTest 通过。
+- `v06-present-async-validation-r1.log` 与 `shared-validation-r1.log`：独立及共享
+  队列各自 Vulkan 验证错误为 0。暂停消费者的自造测试证明只保留最新 ready
+  图像，读回像素／原缓冲改写隔离、取消、缩放、重开和 drain 正确。
+- 实际 `.local/v06-present-async-play-r1/`，PID 85148 已关闭：离线独立 profile，
+  ARCADE／Type-A 进关，射击至 320 分，死亡复活、自然结束和正常关闭。
+  此 profile 原生 CREDIT 绑定 R2，所以实际键盘投币为 W；未更改绑定。
+- `play-summary-r1.json` 限定可见第一关约 30.977 秒：1858 条连续窗口记录，
+  相邻 queuePresent 返回间隔最大 17.552 ms，0 次超过 18 ms；1834 条客体完成
+  记录最大 17.542 ms。客体详细发布日志有 24 处序号缺口，不能把其相邻日志
+  的 33 ms 当成出帧间隔；窗口记录在这一片段无缺口。音频欠载计数未增加。
+- 正常关闭完成呈现回收，437607 条日志全部写入，sink_failures=0；原有
+  incomplete guest finalizer／exit 27 状态保留，不改写成 guest 完整退出。
+  此前正常启动器路径 PID 103484 也已关闭，共享 INI 已逐字节恢复。
+- 捕获分析新增两条独立时间轴和窗口阶段拆分；5 项分析器用例通过，包括序号
+  重置、日志缺口及无客体事件时的窗口长间隔。源日志与全程报告均保留。
+
+### 每帧 guest barrier 与窗口 drain 分离
+
+- `.local/v06-present-regression-r1/ketsui-off`（PID 19964，已关闭）关闭详细追踪，
+  SUPER EASY／Type-A 实玩至第一关 BOSS、20152 分。两个 F8 间 144.252 秒，
+  8653 条完成记录，99 百分位 17.125 ms，但出现一次真实 33.327 ms 长帧，
+  其中 command acquire 15.681 ms。音频欠载增量为 0。另有一条日志缺口，
+  与该长帧不是同一位置，不能相互抵消。正常呈现回收完成，89042 条已接收
+  日志全部写出；日志竞争与被限流诊断仍按原计数保留。
+- 源码定位到原生每帧 ACQUIRE_MEM 调用 full Drain，连带排空独立 presenter，
+  使下一帧重新等待窗口。ABI 12 新增 `finish_guest`：保留 guest GPU fence、
+  写回与已提交 CPU 回调完成条件，只移除不属于客体内存屏障的 WSI 排空。
+  关闭、解绑和完整 drain 仍等待呈现资源。没有提前释放原游戏缓冲。
+- 暂停窗口消费者的组件测试在修复前明确失败（`v06-guest-fence-red-test-r1.log`），
+  修复后 5/5 GPU CTests 通过；独立与共享队列的 Vulkan 验证错误均为 0。
+  同次构建六对 PE／PDB 通过。日志：`.local/v06-guest-fence-{build,ctest,validation,
+  shared-validation}-r1.log`。
+- ABI 12 实玩 `.local/v06-present-regression-r1/ketsui-on-guest-fence`（66832，已关闭）：
+  SUPER EASY／Type-A，射击、自动炸弹、死亡复活，第一关结算 20372 分并进入第二关。
+  两个 F8 限定 132.279 秒，跨过两个分钟边界；7844 条完成记录的 p99 为
+  17.143 ms、最大 17.732 ms，无已记录间隔超过 18 ms。连续窗口提交间隔最大
+  18.330 ms，超过 18 ms 一次、超过 20 ms 零次；音频欠载增量为 0。
+  guest fence 平均 1.314 ms、最大 2.746 ms，未重现旧的 15.681 ms acquire。
+  详细日志存在客体及窗口序号缺口，报告单列全记录／连续记录统计，不把缺口
+  当作已证明的实际掉帧或零掉帧。完整 538794 条已接收日志写出，无 sink failure，
+  呈现回收完成。`play-summary.json` 保存原始边界与统计，源日志 SHA-256
+  `a8bc0908b13999fe8c4e2c6ca574492c751172847d819c2cdce9a004887d1ad2`。
+
+- ABI 12 大往生 `.local/v06-present-regression-r1/daioujou-off-guest-fence-r2`
+  （83372，已关闭）：关闭详细追踪，ARCADE／Type-A／Shotia 实际进关、射击、
+  死亡复活并自然结束于 560 分。首个 F8 后的 10 秒关内片段有 600 条连续完成记录，
+  p99 17.116 ms、最大 17.346 ms，音频欠载增量 0。两 F8 的完整 142.105 秒范围
+  包含结算保存及停留在投币解锁提示，不能全部称为游玩：其中三次约 33 ms 间隔
+  出现在结算保存事务和 480／900 ms 的原生 NGS rack 持锁附近，音频欠载增加 2。
+  这些帧的 command acquire 约 1.05–1.10 ms，未重现旧的 15 ms 窗口 drain；
+  保存与音频锁的因果关系尚未证明，作为结算阶段独立问题保留，不混入关内稳定性结论。
+  `transition-analysis.json` 与 `play-summary.json` 保留两种范围和原始事件；源 SHA
+  `3a72d9976e2d6b45add61b09101e1b7b54a5c87b48ad740a0a35ea626571fa48`。
+  正常关窗完成呈现回收，77625 条已接收日志全部写出，无 sink failure。
+
+- ABI 12 ESP `.local/v06-present-regression-r1/esprade-off-guest-fence`：F8 限定
+  SUPER EASY 玩家第一关 61.088 秒，3659 条完成记录无序号缺口；p99 18.275 ms，
+  最大 33.324 ms，7 次超过 20 ms，音频欠载增量 0。长帧 command draw 为
+  10.793–13.599 ms，执行后软件节拍等待又达 12.645–16.819 ms；窗口提交交接
+  本身仅约 0.064–0.083 ms。不能把整段写为稳定通过，继续针对绘图／节拍边界分析。
+  182555 条已接收日志完整写出、呈现回收完成。源 SHA-256
+  `99d92e76833997c351fc9adf181b404ab3e83806ea93a03911d1b41a4bba19a2`。
+
+### ESP 绘图读取优化及关闭追踪的最终短回归
+
+详细批次拆分定位到 fetch shader 逐 4 字节读取引起的重复一致性访问。
+固定 64 项、线程局部的表只记最近成功读取长度，不缓存程序内容或解码语义；
+每次仍读取实时内容，长度增长、缩短、映射变化和非法指令保留有界逐字读取路径。
+原始数据、玩法更新、渲染指令和原作减速规则未改。
+
+- `.local/v06-fetch-batch-red-test-r2.log` 的热路径单次读取检查在修复前失败；
+  修复后 `v06-fetch-batch-ctest-r1.log` 的 5/5 GPU CTest 通过。新增 9 项读取检查，
+  包括同地址改写、旧返回值所有权、增长、映射缩短、非法指令、恢复及提前返回。
+  r1 的测试错误地嵌套了内存上下文，不能当作预期失败证据；保留原记录。
+- `v06-fetch-batch-build-r1.log` 验证 6 对 PE/PDB，并整理三款 PS4 的 11 份运行文件。
+  接受候选 host SHA-256 为 `17e67da4cb5e198e1aff3fd52e91a45e17c18bfae196a070f7c73d4c9ca61e83`，
+  GPU DLL 为 `659cd846ad27389e8942b323cd8527d134ee8e18e5dd03feef6c261d3fe537f0`。
+- `.local/v06-present-regression-r1/first-minute-comparison.json` 固定比较每次 F8 后
+  前 60 秒、SUPER EASY／祐介；这是独立实玩，不是相同输入录像。详细追踪开启时，
+  pipeline 平均从 7.474 ms 降至 3.269 ms，每 draw 从 29.31 µs 降至 12.92 µs；
+  program-read 是其中的嵌套部分，不能与 pipeline 相加。关闭追踪时，绘图指令处理
+  从 10.100 ms 降至 4.908 ms，完整指令执行从 11.609 ms 降至 6.422 ms；
+  已记录最大完成间隔从 33.324 ms 降至 17.512 ms，超过 20 ms 从 7 次降为 0。
+- `esprade-on-fetch-batch`（101292，已关闭）完整标记范围 77.635 秒包含最后的续关画面，
+  不全部记作关内；上述固定前 60 秒是游玩范围。连续窗口提交间隔最大 17.568 ms，
+  无超过 18 ms，音频欠载增量 0。窗口序号有一处缺口，相邻日志 33.528 ms 不能
+  单独当作真实出帧间隔；422134 条已接收日志全部写出，呈现回收完成。
+- `esprade-off-fetch-batch`（94988，已关闭）两个 F8 限定 65.942 秒实际游玩，
+  从 STAGE 1A 到 1B，包含射击、死亡复活及中 BOSS；3956 条连续完成记录，
+  p99 17.131 ms、最大 17.512 ms，超过 18／20 ms 均为 0，音频欠载增量 0。
+  124408 条日志全部写出，呈现回收完成。源 SHA-256
+  `9e6cda03d2c341e5bf6d98f59c45fb7898a25ea3693b6a43376f7b25892e07b7`。
+- `ketsui-off-fetch-batch`（85888，已关闭）同一候选、独立离线档，SUPER EASY／Type-A。
+  中断后的旧局仍在运行；本轮通过原生 RESTART 返回选机，不重启进程。两个 F8
+  限定重新进入后的 127.231 秒、分数 0→16403，包含射击、自动炸弹、死亡复活、
+  中 BOSS 和第一关 BOSS；不是关后菜单或演示。7634 条连续完成记录，p99 17.183 ms、
+  最大 17.808 ms，超过 18／20 ms 均为 0，音频欠载增量 0。128507 条已接收日志
+  全部写出、无 sink failure、呈现回收完成。源 SHA-256
+  `5af76937cccd8f82114ab0ca833bde1e5cf9cfd8860674dd7b99646a3b580a1e`。
+
+两个关闭追踪样本均没有详细窗口时钟；只报告连续客体完成间隔，不推断物理扫描。
+采样时没有并行编译或日志分析，桌面刷新率未改变。正常关窗仍有原作 finalizer
+未完整执行的 exit 27 收据，启动器按既有呈现回收条件识别。至此本轮性能短回归
+通过；结算阶段的音频锁／保存问题单独保留，不再追加全模式、无限 FPS 或微小极值调优。
+
+## v0.6 PS4 呈现：此前资源回收与独立图像复制步骤
+
+开发候选使用两个有上限的呈现资源槽，复用时才等待旧窗口合成／呈现资源。
+游戏画面先在 GPU 上复制到独立图像，窗口合成不再直接采样游戏缓冲。
+`RuntimePresentResult.tick` 指复制批次，`composite_tick` 指后续窗口合成批次；
+游戏完成要求复制 fence 已完成且既有 pacing 接受，不等待当前窗口合成 fence。
+两个 tick 和呈现资源 fence 都不是屏幕扫描时间。GPU ABI 为 10，配套宿主与 DLL
+由 Build-Ps4 同次构建；六对程序／PDB 收据通过，三款 PS4 的运行文件已整理。
+
+- 五组 GPU CTest 通过，覆盖调度、绘制、FIFO 和关闭 VSync 的呈现路径。
+- 显式 `--validation --presentation` 通过，Khronos 核心／同步验证错误为 0。
+- 组件测试实际读回独立图像，线性 RGBA 和平铺 BGRA 与预期像素逐字节一致；
+  改写自造的原始游戏缓冲后，已复制图像仍逐字节一致。
+- 两槽轮换、取消、drain、缩放、最小化／恢复、解绑／重开通过；稳定循环中
+  没有原生内存后端的像素读写流量。诊断读回只由测试调用，不进入正常呈现。
+
+日志：`.local/v06-present-snapshot-{build-r2,ctest-r1,validation-r1}.log`。
+首轮构建的 const 参数／buffer 类型错误已修正，失败日志保留。此前资源槽测试
+的验证层首次运行失败是搜索路径缺失；设置进程级 VK_LAYER_PATH 后通过，
+日志为 `.local/v06-present-slots-validation-r{1,2}.log`，未注册全局验证层。
+
+待完成：将窗口图像获取／提交移出游戏 GPU 工作线程、有限最新图像交接，
+以及真实游戏帧节奏回归。本轮不启动游戏，不将组件通过写成卡顿改善或物理延迟结论。
+
+## v0.6 最大往生默认 1V
+
+玩家实际对比 1V／3V 后确认 v0.6 默认采用 1V。Settings 缺省、嵌入模板与
+本机 `user-data/config.ini` 已设为 1；已有显式 1／2／3 不被迁移覆盖。
+456 项 common 和 238 项隐藏启动器检查通过，含新配置、缺键配置、原样迁移、
+非法值拒绝与三语言独立进程冷读回。日志：`.local/v06-sdoj-default1-checks-r1.log`。
+本轮只构建测试组件；正式运行组件留待 v0.6 统一构建，未修改既有交接算法，
+未新增游玩验收结论，冻结的 v0.4 程序和发行包不变。
+
 ## v0.6 启动器布局与昵称提示
 
 开发构建完成全屏／昵称分区和 `Launch.bat`。沿用真实 renderer 六张三语言、

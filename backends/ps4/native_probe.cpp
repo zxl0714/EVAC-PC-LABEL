@@ -1840,9 +1840,9 @@ int NativeCommand(int argc, wchar_t** argv) {
     const bool configured_community = community_provider && std::wstring(community_provider) == L"configured";
     if (community_provider && (std::wstring(argv[2]) != L"--enter" ||
         (!configured_community && std::wstring(community_provider) != L"loopback") || (!input_config && !collection_config) || !user_directory)) { valid_arguments = false; }
-    const bool daioujou_provider=collection_game && std::wstring_view(collection_game)==L"daioujou";
-    if (configured_community && !community_rounds && !daioujou_provider) { valid_arguments = false; }
-    if (daioujou_provider && (community_rounds || community_round_audit)) valid_arguments=false;
+    const bool direct_score_provider=collection_game && (std::wstring_view(collection_game)==L"daioujou" || std::wstring_view(collection_game)==L"esprade");
+    if (configured_community && !community_rounds && !direct_score_provider) { valid_arguments = false; }
+    if (direct_score_provider && (community_rounds || community_round_audit)) valid_arguments=false;
     if (community_round_audit && (!community_provider || configured_community || std::wstring(community_round_audit) != L"on")) { valid_arguments = false; }
     if (community_rounds && (!community_provider || community_round_audit || std::wstring(community_rounds) != L"on")) { valid_arguments = false; }
     if (allocation_timing && ((std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate") ||
@@ -1896,7 +1896,8 @@ int NativeCommand(int argc, wchar_t** argv) {
             // catalogue's player-facing capability gate is accepted. It still
             // requires the user's enabled preference and literal loopback;
             // normal configured collection launches never take this branch.
-            const bool development_opt_in=!configured_community && collection && collection->game=="daioujou" && !collection->community_supported;
+            const bool development_opt_in=!configured_community && collection &&
+                (collection->game=="daioujou" || collection->game=="esprade") && !collection->community_supported;
             if (development_opt_in) config.enabled=collection->shared.community_enabled;
             const auto endpoint = kt::community::ParseEndpoint(config.endpoint,config.game);
             if (app_path && NativeContentTitleId()!=kt::community::ProtocolFor(config.game).title_id)
@@ -1907,7 +1908,8 @@ int NativeCommand(int argc, wchar_t** argv) {
             } else if (!config.enabled || endpoint.secure || endpoint.host != L"127.0.0.1") {
                 throw std::runtime_error("Community development entry requires enabled literal HTTP loopback");
             }
-            if (development_opt_in) std::puts("{\"event\":\"native_community_development_opt_in\",\"game\":\"daioujou\",\"loopback_only\":true,\"catalogue_capability_changed\":false}");
+            if (development_opt_in) std::puts(kt::community::Json{{"event","native_community_development_opt_in"},
+                {"game",collection->game},{"loopback_only",true},{"catalogue_capability_changed",false}}.dump().c_str());
             if (config.enabled) {
                 auto instance=std::make_shared<kt::community::Client>(config,std::filesystem::path(user_directory),community_rounds!=nullptr);
                 if (community_rounds && !ConfigureNativeCommunityRounds(instance)) throw std::runtime_error("Community round producer already configured");

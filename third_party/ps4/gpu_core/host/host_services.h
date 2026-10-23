@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <filesystem>
 
 namespace Ketsui::GpuCore {
@@ -22,6 +23,8 @@ struct HostSettings {
   void *native_window = nullptr;
   bool presentation_support = false;
   bool vsync = true;
+  bool diagnostic_shared_present_queue = false;
+  bool (*diagnostic_sink)(const char*, std::size_t) noexcept = nullptr;
 };
 
 void ConfigureHost(HostSettings settings);
@@ -29,5 +32,6 @@ std::uint32_t ValidationErrors();
 std::uint32_t OverlaySubmissions();
 bool IsNeoMode();
 bool HasPresentationSupport();
+void TimingLog(const char* format, ...) noexcept;
 
 } // namespace Ketsui::GpuCore

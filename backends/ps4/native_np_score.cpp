@@ -54,6 +54,7 @@ bool Writable(const void* target, std::size_t bytes) { return target && NativeMe
 bool BoardFor(std::string_view game,unsigned id) {
     if (game=="ketsui") return id == 99 || (id <= 62 && id % 10 <= 2);
     if (game=="daioujou") return id==99 || (id<=66 && id%10<=6);
+    if (game=="esprade") return id==88 || id==99 || (id<=34 && id%10<=4);
     return false;
 }
 unsigned U32(const Json& value, bool positive = false) {
@@ -411,6 +412,7 @@ public:
               unsigned* temporary_rank, const std::uint64_t* compare, void* option) {
         if (!Board(board) || score < 0 || compare || option || (temporary_rank && !Writable(temporary_rank, sizeof(*temporary_rank)))) { return kArgument; }
         if (game_=="daioujou" && (board/10==1 || score>(board==99 ? 3960000 : 999999999))) return kArgument;
+        if (game_=="esprade" && score>0xffffffffll) return kArgument;
         Comment copied{}; GameInfo information{};
         if ((comment && !Read(comment, &copied, sizeof(copied))) || copied.bytes[63] ||
             (info && (!Read(info, &information, sizeof(information)) || information.size > 189))) { return kArgument; }
@@ -712,6 +714,29 @@ bool ScoreProfileSelfTest() {
         "challenge_readback_keeps_exact_points_and_no_replay_badge");
     check(second.DeleteRequest(request)==0 && second.DeleteContext(context)==0 && !second.ContextsLive(),
         "title_local_contexts_are_released");
+    Bridge esprade;AuthoredTransport esp_transport;
+    check(esp_transport.Install(esprade,"esprade"),"esprade_owns_independent_native_bridge");
+    const auto esp_context=esprade.CreateContext(0,0x1000),esp_request=esprade.CreateRequest(esp_context);
+    for(const auto board:{0u,1u,4u,10u,14u,20u,24u,30u,31u,34u,88u,99u}) {
+        Require(esprade.Score(esp_request,board,12345,nullptr,nullptr,nullptr,nullptr,nullptr)==0);
+        check(esp_transport.bodies.back().at("board")==board &&
+            esp_transport.bodies.back().at("score")=="12345" &&
+            esp_transport.bodies.back().at("build")=="esprade-native-1.04",
+            "esprade_board_and_unscaled_score_preserved");
+        auto esp_receipt=AuthoredReceipt();esp_receipt.body["account_id"]=std::to_string(AccountId("Alice","esprade"));
+        esp_receipt.body["upload_eligible"]=board<88;
+        esp_transport.Complete(std::move(esp_receipt));
+        check(esprade.Poll(esp_request,&result.value)==0 && result.value==0,"esprade_score_receipt_uses_own_identity");
+        if(board>=88)check(esprade.UploadReplay(esp_request,board,12345,1,1,empty_attachment.data(),nullptr)==kNotBest,
+            "esprade_progress_boards_have_no_placeholder_replay");
+    }
+    const auto esp_queued=esp_transport.paths.size();
+    check(esprade.Score(esp_request,5,1,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        esprade.Score(esp_request,40,1,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        esprade.Score(esp_request,0,0x100000000ll,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        esp_transport.paths.size()==esp_queued,"esprade_unknown_boards_and_out_of_field_scores_refused");
+    check(esprade.DeleteRequest(esp_request)==0 && esprade.DeleteContext(esp_context)==0,
+        "esprade_native_contexts_released");
     std::printf("{\"event\":\"np_score_profile_self_test\",\"passed\":%s,\"cases\":%u,\"authored_data_only\":true,\"native_game_execution\":false}\n",okay?"true":"false",cases);
     return okay;
 }

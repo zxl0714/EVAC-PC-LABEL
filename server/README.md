@@ -59,7 +59,7 @@ CUSTOM 录像的原生 mode 为 3，不能发到 ARCADE 等其他模式榜。是
 
 AC-CHALLENGE 使用独立的 99 号榜，累计 66 场景、两种机体和三个人偶的奖牌积分，上限 3,960,000。金／银／铜牌分别为 10,000／3／1 分，按原生整数传输，不乘普通分数的十倍单位。原游戏榜单定义的 `uploadable=0`，只登记积分而不上传占位录像。本作共 50 个可读榜单；普通 CUSTOM 提交限制保持不变。
 
-构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，共九项检查：两作普通成绩／录像、大往生 AC-CHALLENGE、绊地狱三个 CUSTOM 榜的原生 ABI／HTTP 收发及 CUSTOM 整局 worker。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
+构建 PS4 组件后，运行 `py -3.12 scripts/ps4/run_community_checks.py`，会创建新的 `.local` 现场，共十二项检查：三作普通成绩／录像、大往生 AC-CHALLENGE、绊地狱三个 CUSTOM 榜的原生 ABI／HTTP 收发、CUSTOM 整局 worker 及本体版本录像。每项使用独立随机 loopback 与 SQLite；录像是不可游玩的自造结构。还会核对新高分出现后旧附件传输不串项、分值不符拒收、字节哈希与服务存储。该入口不访问正式服务、不执行游戏，也不验证原生回放。`scripts/ps4/run_native_checks.py` 另有协议、配置及关闭联网的原生自测。
 
 大往生服务校验本作网络结构、双版本、快照／输入边界和成绩／角色／模式匹配。本地存档记录与网络附件的尺寸不同；原生临时 CUSTOM=3 归入合资格 ARCADE 榜的行为单独验证，未开放 CUSTOM 榜或重写录像字节。可用 `python -B -m server.games.daioujou --database <独立数据库> --port 18088` 在 loopback 启动，不自动部署。接口、记录布局和代表性真实收发／回放身份在 `games/daioujou/community-references.json`，完整范围见验收矩阵。
 
@@ -74,7 +74,9 @@ python3 -B -m server.games.esprade --database /path/to/new/esprade.sqlite3 --por
 python3 -B -m unittest discover -s tests -p 'test_esprade_community.py' -v
 ```
 
-原生 1390 分的提交、读榜、录像上传／下载及冷启动离线播放已通过独立 loopback。正式部署使用 `cave-esprade` 三个模板，版本指针 `/opt/cave-community/esprade-current`，状态目录 `/var/lib/cave-community/esprade/`；不能切换其他游戏的版本指针。ECS 预检已通过，正式路由尚未启用。
+正式服务已部署，使用 `cave-esprade` 服务和每日备份单元，版本指针 `/opt/cave-community/esprade-current`，状态目录 `/var/lib/cave-community/esprade/`，本机监听端口 18089。共享 endpoint 自动分流到本作路径。首次备份、六款健康检查和旧入口检查通过，部署前后原五款服务 PID 不变。
+
+原生 1390 分的提交、读榜、录像上传／下载及冷启动离线播放通过独立 loopback。正常合集启动器的正式 HTTPS 测试实际打出 3300 分，综合／祐介榜提交、录像上传、游戏内读榜及下载通过；部署源码为 `d66c11afdee8`，记录见 `docs/TEST_MATRIX.md`。不得向正式榜单写入自造测试成绩。
 
 部署先核对 18089、服务单元、版本指针和数据库状态；在新的源码目录完成哈希与测试核验后，仅启用 ESP 服务。独立备份 nginx 片段，只追加本作路由，校验通过后 reload。最后核对六款健康身份、原五款 PID 不变和首次 SQLite 备份完整性。测试使用临时数据库，不向正式榜单写入自造记录。
 

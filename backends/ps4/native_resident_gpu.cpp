@@ -4,6 +4,7 @@
 #include "gpu_core/gpu_worker.h"
 #include "gpu_core/native_memory_backend.h"
 #include "runtime_api.h"
+#include "native_async_log.h"
 #include <windows.h>
 #include <cstdio>
 #include <map>
@@ -68,6 +69,12 @@ struct NativeResidentGpu::Impl {
         }
     }
     explicit Impl(const std::filesystem::path& path, bool validation) {
+        if (kt::diagnostics::TimingTraceEnabled()) {
+            worker.SetObserver([](const GpuWorker::Timing& t) noexcept {
+                NativeLogf("{\"event\":\"native_gpu_worker_handoff\",\"began_clock_us\":%llu,\"enqueued_clock_us\":%llu,\"started_clock_us\":%llu,\"finished_clock_us\":%llu,\"clock_us\":%llu,\"worker_cpu_100ns\":%llu,\"caller_thread\":%u,\"worker_thread\":%u,\"queue_depth\":%u}\n",
+                    t.began,t.enqueued,t.started,t.finished,t.resumed,t.cpu_100ns,t.caller,t.worker,t.depth);
+            });
+        }
         if (!path.is_absolute() || !std::filesystem::is_regular_file(path)) {
             throw std::runtime_error("Resident GPU DLL must be an existing absolute file path");
         }
@@ -82,7 +89,8 @@ struct NativeResidentGpu::Impl {
             }
             const HostSettings settings{.validation_core = validation, .validation_sync = validation,
                 .log_directory = path.parent_path(), .presentation_support = true,
-                .vsync = GetNativeDisplaySettings().vsync};
+                .vsync = GetNativeDisplaySettings().vsync,
+                .diagnostic_sink = [](const char* data, std::size_t bytes) noexcept { return WriteNativeLog({data, bytes}); }};
             worker.Sync([&] {
                 RuntimeError error;
                 Check(api.create(&settings, &memory, &context, &error), error);
@@ -120,7 +128,9 @@ void NativeResidentGpu::SetWindow(void* window) {
     Run([&] { RuntimeError error; Check(impl->api.set_window(impl->context, window, &error), error); });
 }
 void NativeResidentGpu::Drain() {
+    const auto began = kt::diagnostics::TimingTraceEnabled() ? kt::diagnostics::MonotonicMicroseconds() : 0;
     Run([&] { RuntimeError error; Check(impl->api.drain(impl->context, &error), error); });
+    if (began) NativeLogf("{\"event\":\"native_gpu_drain\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"thread\":%lu}\n",began,kt::diagnostics::MonotonicMicroseconds(),GetCurrentThreadId());
 }
 void NativeResidentGpu::Flush() {
     Run([&] {
@@ -128,6 +138,11 @@ void NativeResidentGpu::Flush() {
         std::uint64_t tick{};
         Check(impl->api.flush(impl->context, &tick, &error), error);
     });
+}
+void NativeResidentGpu::FinishGuest() {
+    const auto began = kt::diagnostics::TimingTraceEnabled() ? kt::diagnostics::MonotonicMicroseconds() : 0;
+    Run([&] { RuntimeError error; Check(impl->api.finish_guest(impl->context, &error), error); });
+    if (began) NativeLogf("{\"event\":\"native_gpu_guest_fence\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"thread\":%lu}\n",began,kt::diagnostics::MonotonicMicroseconds(),GetCurrentThreadId());
 }
 void NativeResidentGpu::Clear() {
     Run([&] { RuntimeError error; Check(impl->api.clear(impl->context, &error), error); });
@@ -142,6 +157,7 @@ void NativeResidentGpu::Extent(unsigned target, unsigned width, unsigned height)
     Run([&] { RuntimeError error; Check(impl->api.extent(impl->context, target, width, height, &error), error); });
 }
 void NativeResidentGpu::Draw(unsigned vertices, unsigned instances) {
+    const auto began = kt::diagnostics::TimingTraceEnabled() ? kt::diagnostics::MonotonicMicroseconds() : 0;
     Run([&] {
         RuntimeError error;
         // Already on the owning worker. Keep both guarded register writes, but
@@ -150,6 +166,10 @@ void NativeResidentGpu::Draw(unsigned vertices, unsigned instances) {
         Check(impl->api.registers(impl->context, impl->register_layout.num_instances, &instances, 1, &error), error);
         Check(impl->api.draw(impl->context, false, 0, &error), error);
     });
+    if (began) {
+        const auto ended = kt::diagnostics::MonotonicMicroseconds();
+        if (ended-began >= 250) NativeLogf("{\"event\":\"native_gpu_slow_draw\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"vertices\":%u,\"instances\":%u,\"thread\":%lu}\n",began,ended,vertices,instances,GetCurrentThreadId());
+    }
 }
 kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
     kt::diagnostics::BackendPresentTiming* timing, const kt::diagnostics::PresentationPacing* pacing) {
@@ -169,7 +189,9 @@ kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const k
     }
     if (timing && result.status == RuntimePresentStatus::Completed) { *timing = result.timing; }
     switch (result.status) {
-    case RuntimePresentStatus::Completed: return kt::gfx::PresentStatus::Completed;
+    case RuntimePresentStatus::Completed:
+        if (!result.guest_copy_completed) throw std::runtime_error("Guest buffer released before snapshot completion");
+        return kt::gfx::PresentStatus::Completed;
     case RuntimePresentStatus::ZeroExtent: return kt::gfx::PresentStatus::ZeroExtent;
     case RuntimePresentStatus::OutOfDate: return kt::gfx::PresentStatus::OutOfDate;
     case RuntimePresentStatus::Cancelled: return kt::gfx::PresentStatus::Cancelled;

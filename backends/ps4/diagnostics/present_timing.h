@@ -6,6 +6,9 @@ namespace kt::diagnostics {
 // excludes the separately reported gap between prepare and complete. That gap
 // includes caller pacing/worker handoff and can overlap submitted GPU work.
 // Fence waits include driver/scheduling time; these are not GPU timestamps.
+// The asynchronous snapshot path reports guest-side work only: gpu_wait_us waits
+// for the guest-to-host copy; acquire/queue_present/present_wait are zero here.
+// Window-side waits are in native_gpu_window_present, not zero display latency.
 struct BackendPresentTiming {
     bool completed{};
     std::uint64_t duration_us{}, prepare_us{}, retire_us{}, acquire_us{}, record_us{},

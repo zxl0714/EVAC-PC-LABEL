@@ -53,7 +53,7 @@ void RecordTimelineMarker() {
     static std::atomic<std::uint64_t> next_id{1};
     const auto id = next_id.fetch_add(1, std::memory_order_relaxed);
     const auto clock = kt::diagnostics::MonotonicMicroseconds();
-    std::printf("{\"event\":\"native_timeline_marker\",\"id\":%llu,\"clock_us\":%llu,\"source\":\"F8\"}\n", id, clock);
+    NativeLogf("{\"event\":\"native_timeline_marker\",\"id\":%llu,\"clock_us\":%llu,\"source\":\"F8\"}\n", id, clock);
 }
 
 // A virtual SDR output mode for the guest, independent of resized PC client

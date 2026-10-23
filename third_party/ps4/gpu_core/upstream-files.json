@@ -1019,8 +1019,8 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
-      "sha256": "d9da99adf2eaf0ce19475f6743867aa5358397f0e0401f3d565c3349fbc7cc04",
-      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; query and enable swapchain-maintenance present fences only for configured presentation support, including late window binding."
+      "sha256": "250958650f767c4732c3c0d4a240b478b416dc3d12967d641ca64a8151b85ac3",
+      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; query and enable swapchain-maintenance present fences only for configured presentation support, including late window binding. Use a second same-family queue for window composition/presentation when available, retaining the single-queue fallback."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.h",
@@ -1054,8 +1054,8 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
-      "sha256": "fb9c777a64478a569579e43a4a0f02b6378a9e0942f4f953ebd5b6b5e3ce063e",
-      "description": "Use host-owned register state and memory integration, record real draw/dispatch counters, and compile compute shaders normally rather than using title-specific HLE or emulator debug/allocator singletons."
+      "sha256": "964c4ed7b91afcdc96c1131aae2a28e3fa3d1444273305977cd4008d73bca88b",
+      "description": "Use host-owned register state and memory integration, record real draw/dispatch counters and opt-in batch draw-stage timings, and compile compute shaders normally rather than using title-specific HLE or emulator debug/allocator singletons."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.h",
@@ -1079,8 +1079,8 @@
     },
     {
       "path": "src/shader_recompiler/frontend/fetch_shader.cpp",
-      "sha256": "6679d76f45ba91ca0a37aa407bb29b34cd65394c17096e7e768ef5e8d49f235e",
-      "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge"
+      "sha256": "c5e4b7b5197c1bf46a37251aeee1f83496313bfae06567de09075303aa562464",
+      "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge. Batch the last successful extent using fixed-size length hints, reread current bytes on every draw, and retain exact bounded fallback for growth, shortening, remapping and invalid instructions."
     },
     {
       "path": "src/shader_recompiler/frontend/translate/translate.cpp",

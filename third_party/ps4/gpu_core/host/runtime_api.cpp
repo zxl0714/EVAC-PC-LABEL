@@ -2,6 +2,8 @@
 #include "gpu_metrics.h"
 #include "gpu_program.h"
 #include "presenter.h"
+#include "timing_queries.h"
+#include "draw_timing.h"
 #include "sdl_window.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -32,7 +34,9 @@ struct Session {
   AmdGpu::Liverpool command;
   std::unique_ptr<Vulkan::Rasterizer> rasterizer;
   std::unique_ptr<Presenter> presenter;
+  std::unique_ptr<TimingQueries> timing;
   bool vsync = true;
+  bool shared_present_queue = false;
   Session(const HostSettings &settings, CacheMemoryBackend &memory)
       : memory_scope{memory},
         window{Frontend::WindowSystemInfo{
@@ -41,6 +45,7 @@ struct Session {
                         ? Frontend::WindowSystemType::Windows
                         : Frontend::WindowSystemType::Headless}} {
     vsync = settings.vsync;
+    shared_present_queue = settings.diagnostic_shared_present_queue;
     ConfigureHost(settings);
     instance = std::make_unique<Vulkan::Instance>(window, -1,
                                                   settings.validation_core);
@@ -48,6 +53,7 @@ struct Session {
     std::printf("{\"event\":\"gpu_runtime_device\",\"vendor\":%u,\"device_id\":%u,\"api_version\":%u,\"driver_version\":%u}\n",
                 device.vendorID, device.deviceID, device.apiVersion, device.driverVersion);
     scheduler = std::make_unique<Vulkan::Scheduler>(*instance);
+    timing = std::make_unique<TimingQueries>(*instance,*scheduler);
     runtime = std::make_unique<Vulkan::Runtime>(*instance, *scheduler);
     ProgramScope program_scope{programs};
     rasterizer = std::make_unique<Vulkan::Rasterizer>(*instance, *scheduler,
@@ -55,13 +61,21 @@ struct Session {
     if (settings.native_window) {
       presenter =
           std::make_unique<Presenter>(*instance, window, *scheduler, *runtime,
-                                      rasterizer->GetTextureCache(), vsync);
+                                      rasterizer->GetTextureCache(), vsync, shared_present_queue);
     }
   }
   void Drain() {
     if (presenter) {
       presenter->Drain();
     }
+    FinishGuest();
+  }
+  void FinishGuest() {
+    // The presenter owns independent GPU snapshots. ACQUIRE_MEM may require
+    // guest writes and CPU callbacks to finish, but cannot wait for a window
+    // to consume a prior snapshot. Otherwise every next frame defeats the
+    // asynchronous handoff. Scheduler::Finish waits its submission tick, not
+    // device idle or the WSI present-retirement fences.
     rasterizer->OnFence();
     rasterizer->Finish();
     scheduler->PopPendingOperations();
@@ -135,6 +149,7 @@ bool Map(void *context, std::uint64_t address, std::uint64_t bytes,
 bool Access(void *context, std::uint64_t address, std::uint64_t bytes,
             bool write, RuntimeError *error) noexcept {
   return Guard(error, [&] {
+    const auto began=kt::diagnostics::TimingTraceEnabled()?kt::diagnostics::MonotonicMicroseconds():0;
     auto &session = Get(context);
     Require(bytes, "Empty GPU memory access");
     if (write) {
@@ -142,6 +157,10 @@ bool Access(void *context, std::uint64_t address, std::uint64_t bytes,
       session.rasterizer->InvalidateMemory(address, bytes, true);
     } else {
       session.rasterizer->ReadMemory(address, bytes, true);
+    }
+    if (began) {
+      const auto ended=kt::diagnostics::MonotonicMicroseconds();
+      if (ended-began>=250) TimingLog("{\"event\":\"native_gpu_memory_access\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"thread\":%lu,\"bytes\":%llu,\"write\":%s}\n",began,ended,GetCurrentThreadId(),bytes,write?"true":"false");
     }
   });
 }
@@ -156,6 +175,9 @@ bool Unmap(void *context, std::uint64_t address, std::uint64_t bytes,
 }
 bool Drain(void *context, RuntimeError *error) noexcept {
   return Guard(error, [&] { Get(context).Drain(); });
+}
+bool FinishGuest(void *context, RuntimeError *error) noexcept {
+  return Guard(error, [&] { Get(context).FinishGuest(); });
 }
 bool Registers(void *context, std::uint32_t offset, const std::uint32_t *data,
                std::uint32_t count, RuntimeError *error) noexcept {
@@ -185,6 +207,7 @@ bool Draw(void *context, bool indexed, std::uint32_t offset,
   return Guard(error, [&] {
     auto &session = Get(context);
     ProgramScope scope{session.programs};
+    session.timing->Begin();
     session.rasterizer->Draw(indexed, offset);
   });
 }
@@ -192,7 +215,10 @@ bool Flush(void *context, std::uint64_t *tick, RuntimeError *error) noexcept {
   return Guard(error, [&] {
     auto &session = Get(context);
     Require(tick, "Missing GPU completion tick output");
+    session.timing->End();
     *tick = session.rasterizer->Flush();
+    ReportDrawTiming(*tick);
+    if (kt::diagnostics::TimingTraceEnabled()) TimingLog("{\"event\":\"native_gpu_batch_submit\",\"tick\":%llu,\"clock_us\":%llu}\n",*tick,kt::diagnostics::MonotonicMicroseconds());
   });
 }
 bool ReadColor(void *context, std::uint64_t address, std::uint32_t width,
@@ -257,7 +283,29 @@ bool CompletePresent(void *context, bool accepted, RuntimePresentResult *result,
     auto& session = Get(context);
     Require(result && session.presenter, "Runtime has no presentation window or result");
     *result = session.presenter->Complete(accepted);
+    session.timing->Collect();
     if (result->status == RuntimePresentStatus::Completed) { session.rasterizer->OnSubmit(); }
+  });
+}
+bool ReadPresentSnapshot(void* context, void* output, std::uint64_t bytes, RuntimeError* error) noexcept {
+  return Guard(error, [&] {
+    auto& session = Get(context);
+    Require(bool(session.presenter), "Runtime has no presentation window");
+    session.presenter->ReadPreparedSnapshot(output,bytes);
+  });
+}
+bool PresentationStats(void* context, RuntimePresentationStats* output, RuntimeError* error) noexcept {
+  return Guard(error,[&] {
+    auto& session = Get(context);
+    Require(output && session.presenter, "Runtime has no presentation window or stats output");
+    *output = session.presenter->Stats();
+  });
+}
+bool PausePresentation(void* context, bool paused, RuntimeError* error) noexcept {
+  return Guard(error,[&] {
+    auto& session = Get(context);
+    Require(bool(session.presenter), "Runtime has no presentation window");
+    session.presenter->PauseForDiagnostics(paused);
   });
 }
 RuntimeRegisterLayout Layout() noexcept {
@@ -289,7 +337,7 @@ bool SetWindow(void *context, void *window, RuntimeError *error) noexcept {
     if (window) {
       session.presenter = std::make_unique<Presenter>(
           *session.instance, session.window, *session.scheduler,
-          *session.runtime, session.rasterizer->GetTextureCache(), session.vsync);
+          *session.runtime, session.rasterizer->GetTextureCache(), session.vsync, session.shared_present_queue);
     }
     std::fprintf(stderr, "gpu_runtime_window: bound=%s\n",
                  window ? "true" : "false");
@@ -333,6 +381,10 @@ KetsuiGpuRuntimeGetApi(std::uint32_t version, std::uint32_t bytes,
              SetWindow,
              Clear,
              PreparePresent,
-             CompletePresent};
+             CompletePresent,
+             ReadPresentSnapshot,
+             PresentationStats,
+             PausePresentation,
+             FinishGuest};
   return true;
 }

@@ -1,6 +1,8 @@
 #include "program_reader_tests.h"
 #include "cache_memory.h"
 #include "gpu_program.h"
+#include "shader_recompiler/frontend/fetch_shader.h"
+#include "shader_recompiler/info.h"
 #include "video_core/amdgpu/regs_shader.h"
 #include <algorithm>
 #include <array>
@@ -105,6 +107,57 @@ unsigned TestProgramReader() {
     check(nested_called && nested.hash == outer.hash && nested.code.data() == outer.code.data() && !store.scratch_leased, "Reentrant read damaged the outer reusable scratch");
     const auto owned = ReadProgram(base, user); store.programs.at(owned.hash)[2] ^= 1;
     check(rejects([&] { (void)ReadProgram(base, user); }), "Content collision checking was skipped");
+    // Fetch programs have no declared extent. Remember only a successful read
+    // length, never bytes: every subsequent draw must still see current code.
+    auto& fetch_memory = memory;
+    fetch_memory.reads = fetch_memory.failures = 0;
+    const std::array<u32, 1> placeholder{0xbf810000u};
+    std::array<u32, 16> fetch_user{};
+    const u64 fetch_address = base + 128;
+    std::memcpy(fetch_user.data(), &fetch_address, sizeof(fetch_address));
+    Shader::Info fetch_info{Shader::HwStage::Vertex, Shader::SwStage::Vertex,
+                           Shader::ShaderParams{fetch_user, placeholder, 1}};
+    const auto publish_fetch = [&](std::initializer_list<u32> words) {
+        std::memcpy(fetch_memory.bytes.data() + 128, words.begin(), words.size() * 4);
+        fetch_memory.readable = {{fetch_address, words.size() * 4}};
+    };
+    publish_fetch({0xbf8c0000u, 0xbf8c0000u, 0xe00c2000u, 0u,
+                   0xbf8c0000u, 0xbe802000u});
+    const auto first_fetch = Shader::Gcn::GetFetchShaderCode(fetch_info, 0);
+    check(first_fetch.size() == 6 && fetch_memory.reads == 6,
+          "Cold fetch reader must stop at its exact live return");
+    const auto before_fetch_hot = fetch_memory.reads;
+    check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0) == first_fetch &&
+          fetch_memory.reads == before_fetch_hot + 1,
+          "Hot fetch must reread the entire last extent in one bounded read");
+    publish_fetch({0xbf8c0001u, 0xbf8c0000u, 0xe00c2000u, 0u,
+                   0xbf8c0000u, 0xbe802000u});
+    check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0).front() == 0xbf8c0001u &&
+          first_fetch.front() == 0xbf8c0000u,
+          "Same-address fetch mutation must be visible without altering prior owned code");
+    publish_fetch({0xbf8c0000u, 0xbf8c0000u, 0xe00c2000u, 0u,
+                   0xbf8c0000u, 0xbf8c0000u, 0xbe802000u});
+    const auto before_fetch_growth = fetch_memory.reads;
+    check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0).size() == 7 &&
+          fetch_memory.reads == before_fetch_growth + 2,
+          "Growing fetch must scan beyond the old extent to its new return");
+    publish_fetch({0xbe802000u});
+    const auto fetch_failures = fetch_memory.failures;
+    check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0).size() == 1 &&
+          fetch_memory.failures == fetch_failures + 1,
+          "Shortened fetch mapping must safely fall back from the previous extent");
+    publish_fetch({0xbe800000u});
+    check(rejects([&] { Shader::Gcn::GetFetchShaderCode(fetch_info, 0); }),
+          "Live unsupported fetch scalar instruction must not be hidden by an extent hint");
+    publish_fetch({0xe00c2000u});
+    check(rejects([&] { Shader::Gcn::GetFetchShaderCode(fetch_info, 0); }),
+          "Live two-word fetch with unmapped second word must reject");
+    publish_fetch({0xbf8c0000u, 0xbe802000u});
+    check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0).size() == 2,
+          "Fetch read recovers after an invalid prior program");
+    publish_fetch({0xbe802000u, 0xbf8c0000u});
+    check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0).size() == 1,
+          "Earlier live return must truncate the prior extent even if its tail stays mapped");
     return checks;
 }
 }

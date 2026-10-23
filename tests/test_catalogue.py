@@ -20,8 +20,22 @@ class CatalogueTests(unittest.TestCase):
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
         self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
-        self.assertEqual([g['comingSoon'] for g in games], [False, False, False, False, False, True])
-        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou'])
+        self.assertEqual([g['comingSoon'] for g in games], [False] * 6)
+        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
+
+    def test_esprade_uses_merged_104_data_and_normal_community_entry(self):
+        game = next(g for g in catalogue.load(self.path) if g['id'] == 'esprade')
+        manifest = catalogue.read_json(self.root / 'games/esprade/data.json')
+        self.assertEqual((game['backend'], manifest['titleId'], manifest['version']), ('ps4', 'CUSA15155', '01.04'))
+        self.assertEqual(manifest['layout'], 'merged-patch')
+        self.assertEqual(len(game['files']), 48)
+        self.assertTrue(game['integrated'] and game['communitySupported'])
+        self.assertFalse(game['comingSoon'])
+        self.assertEqual(game['runtimeFiles'], ['runtime/ps4/esprade.exe', 'runtime/ps4/KetsuiGpuRuntime.dll',
+                                              'runtime/games/esprade/runtime-manifest.ini'])
+        self.assertTrue({'eboot.bin', 'emu_integration_01500.prx', 'esprade_01000.prx',
+                         'esprade_01010.prx', 'esprade_01020.prx', 'esprade_01030.prx'}.issubset(
+                             {f['path'] for f in game['files'] if f['program']}))
 
     def test_sdoj_uses_verified_disc_data_and_shared_online_launch(self):
         game = next(g for g in catalogue.load(self.path) if g['id'] == 'sdoj')

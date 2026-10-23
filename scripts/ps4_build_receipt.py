@@ -68,7 +68,8 @@ def snapshot():
                      'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'tests/ketsui/test_native.py',
                      'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py', 'scripts/ps4/run_replay_checks.py',
                      'scripts/ps4/replay_fixture.py',
-                     'server/games/ketsui.py', 'server/games/daioujou.py', 'tests/test_ps4_community_profiles.py',
+                     'server/games/ketsui.py', 'server/games/daioujou.py', 'server/games/esprade.py',
+                     'server/ps4_replay.py', 'tests/test_esprade_community.py', 'tests/test_ps4_community_profiles.py',
                      'tests/ketsui/test_community_replay.py'})
     files = {}
     for name in sorted({value.decode('utf-8') for value in raw.split(b'\0') if value}):

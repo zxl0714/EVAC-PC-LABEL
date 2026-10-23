@@ -135,13 +135,14 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
     SetEvent(release.value);child.Wait();Require(child.ExitCode()==code,"Child exit code changed");
     Require(!child.RequestedWindowClose(fixture.root,"ketsui",code),"Non-close exit accepted as requested close");
     Require(!child.RequestedWindowClose(fixture.root,"daioujou",code),"Non-close DaiOuJou exit accepted as requested close");
+    Require(!child.RequestedWindowClose(fixture.root,"esprade",code),"Non-close ESP Ra.De. exit accepted as requested close");
     if(code==27) {
       const auto process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,child.pid());
       FILETIME created{},ended{},kernel{},user{};
       Require(process && GetProcessTimes(process,&created,&ended,&kernel,&user),"Cannot identify fixture child birth");
       CloseHandle(process);
       const auto birth=std::to_string((std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime);
-      for(const auto title:{"ketsui","daioujou"}) {
+      for(const auto title:{"ketsui","daioujou","esprade"}) {
         const auto receipt=fixture.root/"logs"/title/("run-authoredZ-"+std::to_string(child.pid()))/"exit.ini";
         const auto text="[exit]\ngame="+std::string(title)+"\npid="+std::to_string(child.pid())+
             "\nprocess_created="+birth+"\ncode=27\nreason=window_close_requested\n"

@@ -355,18 +355,18 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
             }
             if (!packet.padding && packet.opcode == 0x58) {
                 const auto acquired_at = MonotonicMicroseconds();
-                // Strong synchronous profile: all earlier draws completed
-                // their GPU fences and wrote guest memory back. Drain the
-                // device explicitly before subsequent CPU snapshots/uploads.
+                // Complete earlier guest draws and their writeback callbacks
+                // before subsequent CPU snapshots/uploads. Window composition
+                // uses an independent copied image and is not a guest barrier.
                 // Cached shaders/textures compare current owned contents;
                 // this is not an address-only cache-invalidation shortcut.
-                if (target.resident) { target.resident->Drain(); }
+                if (target.resident) { target.resident->FinishGuest(); }
                 else { target.device->WaitIdle(); }
                 std::atomic_thread_fence(std::memory_order_seq_cst);
                 const auto& acquire = *state.last_acquire;
                 static std::atomic<unsigned> observed{};
                 if (acquire.control != 0x2ec47fc0u && observed.fetch_add(1) < 16) {
-                    std::printf("{\"event\":\"native_gpu_acquire_completed\",\"control\":\"0x%x\",\"base\":\"0x%llx\",\"bytes\":%llu,\"poll_interval\":%u,\"device_idle_completed\":true,\"profile\":\"synchronous_writeback\"}\n",
+                    std::printf("{\"event\":\"native_gpu_acquire_completed\",\"control\":\"0x%x\",\"base\":\"0x%llx\",\"bytes\":%llu,\"poll_interval\":%u,\"guest_work_completed\":true,\"profile\":\"synchronous_writeback\"}\n",
                         acquire.control, acquire.base, acquire.bytes, acquire.interval);
                 }
                 result.acquire_us += MonotonicMicroseconds() - acquired_at;

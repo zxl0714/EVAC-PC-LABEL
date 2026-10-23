@@ -389,10 +389,14 @@ bool Instance::CreateDevice() {
         return false;
     }
 
-    static constexpr std::array queue_priorities = {1.0f};
+    // Keep WSI driver waits off the guest graphics queue when the device has
+    // another queue in the same family. Single-queue devices retain a fully
+    // externally synchronized fallback; no queue-family ownership transfer.
+    static constexpr std::array queue_priorities = {1.0f, 1.0f};
+    const u32 queue_count = std::min<u32>(2, family_properties[queue_family_index].queueCount);
     const vk::DeviceQueueCreateInfo queue_info = {
         .queueFamilyIndex = queue_family_index,
-        .queueCount = static_cast<u32>(queue_priorities.size()),
+        .queueCount = queue_count,
         .pQueuePriorities = queue_priorities.data(),
     };
 
@@ -616,7 +620,7 @@ bool Instance::CreateDevice() {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*device);
 
     graphics_queue = device->getQueue(queue_family_index, 0);
-    present_queue = device->getQueue(queue_family_index, 0);
+    present_queue = device->getQueue(queue_family_index, queue_count > 1 ? 1 : 0);
 
     if (calibrated_timestamps) {
         const auto [time_domains_result, time_domains] =

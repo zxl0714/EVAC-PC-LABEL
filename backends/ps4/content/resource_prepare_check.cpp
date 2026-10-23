@@ -47,8 +47,10 @@ Json Run(const Json& item) {
     if (op=="fix") {
         const auto kind=item.at("kind").get<std::string>();
         const auto fix=kind=="music" ? ResourceFix::MusicAutosave : kind=="batch" ? ResourceFix::ReplayBatch :
-            kind=="peer" ? ResourceFix::CommunityReplayPeer : kind=="local-replay" ? ResourceFix::CommunityLocalReplay : ResourceFix::LocalRoundGate;
-        if (kind!="music" && kind!="batch" && kind!="offline" && kind!="peer" && kind!="local-replay") throw std::runtime_error("Unknown script test kind");
+            kind=="peer" ? ResourceFix::CommunityReplayPeer : kind=="local-replay" ? ResourceFix::CommunityLocalReplay :
+            kind=="esprade-local-replay" ? ResourceFix::EspradeLocalReplay : ResourceFix::LocalRoundGate;
+        if (kind!="music" && kind!="batch" && kind!="offline" && kind!="peer" && kind!="local-replay" && kind!="esprade-local-replay")
+            throw std::runtime_error("Unknown script test kind");
         return Hex(FixResourceScript(source,fix));
     }
     const auto seed=Unhex(item.at("seed")); const auto name=item.at("resource").get<std::string>();

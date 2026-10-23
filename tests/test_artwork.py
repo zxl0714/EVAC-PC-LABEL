@@ -6,6 +6,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import generate_artwork
@@ -69,9 +70,26 @@ class ArtworkTests(unittest.TestCase):
         self.assertIn('1 ICON ',(destination/'artwork.rc').read_text())
         self.assertIn('201 RCDATA ',(destination/'artwork.rc').read_text())
         resource=(destination/'artwork.rc').read_text(encoding='utf-8')
-        for text in ('1 VERSIONINFO','FILEVERSION 0,4,0,0','"ProductName", "EVAC PC LABEL\\0"',
-                     '"OriginalFilename", "EVAC PC LABEL.exe\\0"','"ProductVersion", "0.4\\0"'):
+        for text in ('1 VERSIONINFO','"ProductName", "EVAC PC LABEL\\0"',
+                     '"OriginalFilename", "EVAC PC LABEL.exe\\0"',
+                     '"ProductVersion", "'+generate_artwork.VERSION+'\\0"'):
             self.assertIn(text,resource)
+
+    def test_numeric_and_text_file_versions_follow_product_version(self):
+        for version, numeric, text in [('0.6','0,6,0,0','0.6.0.0'),
+                                       ('0.6.2','0,6,2,0','0.6.2.0'),
+                                       ('1.2.3.4','1,2,3,4','1.2.3.4')]:
+            with self.subTest(version=version), patch.object(generate_artwork,'VERSION',version):
+                destination=self.root/'version-out'
+                generate_artwork.generate(self.root,destination)
+                resource=(destination/'artwork.rc').read_text(encoding='utf-8')
+                self.assertIn('FILEVERSION '+numeric,resource)
+                self.assertIn('PRODUCTVERSION '+numeric,resource)
+                self.assertIn('"FileVersion", "'+text+'\\0"',resource)
+                self.assertIn('"ProductVersion", "'+version+'\\0"',resource)
+        for invalid in ('0','0.6-rc1','0.6.1.2.3','-1.0','0.65536'):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                generate_artwork.windows_version(invalid)
 
     def test_branding_rejects_non_alpha_png(self):
         path=self.root/'launcher/branding.json'

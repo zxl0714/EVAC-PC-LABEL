@@ -126,14 +126,16 @@ struct NativeSession {
       mappings.erase(range.mapping_address);
     }
   }
-  NativeSession(const RuntimeApi &api_, bool validation, void *window = nullptr, bool vsync = true)
+  NativeSession(const RuntimeApi &api_, bool validation, void *window = nullptr, bool vsync = true,
+                bool shared_present_queue = false)
       : api{api_} {
     const HostSettings settings{.validation_core = validation,
                                 .validation_sync = validation,
                                 .log_directory =
                                     std::filesystem::current_path(),
                                 .presentation_support = window != nullptr,
-                                .vsync = vsync};
+                                .vsync = vsync,
+                                .diagnostic_shared_present_queue = shared_present_queue};
     worker.Sync([&] {
       RuntimeError error;
       Call(api.create(&settings, &memory, &context, &error), error);
@@ -290,7 +292,7 @@ unsigned CheckPixels(NativeSession &session, bool green) {
 } // namespace
 int main(int argc, char **argv) {
   try {
-    bool validation = false, presentation = false, interactive = false, vsync = true;
+    bool validation = false, presentation = false, interactive = false, vsync = true, shared_present_queue = false;
     for (int i = 1; i < argc; ++i) {
       const std::string_view argument{argv[i]};
       if (argument == "--validation") {
@@ -301,6 +303,8 @@ int main(int argc, char **argv) {
         interactive = true;
       } else if (argument == "--no-vsync") {
         vsync = false;
+      } else if (argument == "--shared-present-queue") {
+        shared_present_queue = true;
       } else {
         throw std::runtime_error("Unknown runtime smoke argument");
       }
@@ -322,12 +326,12 @@ int main(int argc, char **argv) {
             "Runtime register layout does not match the command stream ABI");
     unsigned pixels = 0;
     u64 first_tick = 0, last_tick = 0, presents = 0;
-    unsigned zero_extents = 0;
+    unsigned zero_extents = 0, snapshot_checks = 0;
     bool resized = false, tiled_presented = false, reopened = false;
     u64 resident_read_bytes = 0, resident_write_bytes = 0;
     {
       NativeSession session{library.api, validation,
-                            window ? window->Handle() : nullptr, vsync};
+                            window ? window->Handle() : nullptr, vsync, shared_present_queue};
       Allocation allocation;
       if (window) {
         auto write_lease =
@@ -386,20 +390,63 @@ int main(int argc, char **argv) {
         }
         std::memcpy(allocation.data, pattern.data(), sizeof(pattern));
         RuntimeDisplay display{base, 64, 64, 64, 0x80002200, 1};
-        const auto present = [&](const kt::diagnostics::PresentationPacing* pacing = nullptr) {
+        const auto presentation_stats = [&] {
+          RuntimePresentationStats stats;
+          session.worker.Sync([&] { session.Call(library.api.presentation_stats(session.context,&stats,&error),error); });
+          return stats;
+        };
+        const auto drain_presentation = [&] {
+          session.worker.Sync([&] { session.Call(library.api.drain(session.context,&error),error); });
+          return presentation_stats();
+        };
+        const auto await_window = [&](u64 sequence) {
+          const auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(3);
+          for (;;) {
+            const auto stats = presentation_stats();
+            Require(stats.ready_images <= 1 && stats.active_images <= 1 &&
+                        stats.retained_resources <= PresentResourceSlots, "Window backlog is unbounded");
+            if (stats.last_queued_sequence >= sequence) return stats;
+            Require(std::chrono::steady_clock::now() < deadline, "Window worker did not present the accepted image");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          }
+        };
+        // No artificial sleeps in the game-side path: the presentation consumer
+        // is explicitly gated while the real GPU producer completes three frames.
+        session.worker.Sync([&] { session.Call(library.api.pause_presentation(session.context,true,&error),error); });
+        const auto present = [&](const kt::diagnostics::PresentationPacing* pacing = nullptr,
+                                 std::span<const std::uint8_t> expected_snapshot = {}) {
           RuntimePresentResult result;
           for (unsigned retry = 0; retry < 9; ++retry) {
             u64 paced_draw_tick{};
             session.worker.Sync([&] {
               // Exercise the native submit-before-pacing path. This does not
-              // report a flip; the following final present must still wait for
-              // its own completion and advance past the earlier queue tick.
+              // report a flip; the following snapshot must complete before the
+              // guest buffer is released, independently of window composition.
               session.Call(library.api.flush(session.context, &paced_draw_tick, &error), error);
               session.Call(library.api.prepare_present(session.context, &display, &result, &error),
                            error);
               if (result.status == RuntimePresentStatus::Prepared) {
-                Require(!result.timing.completed && result.tick > paced_draw_tick,
+                Require(!result.timing.completed && !result.guest_copy_completed && result.tick > paced_draw_tick,
                         "Prepare fabricated a completed present or lost queue order");
+                if (!expected_snapshot.empty()) {
+                  std::vector<std::uint8_t> readback(expected_snapshot.size());
+                  session.Call(library.api.read_present_snapshot(session.context,readback.data(),readback.size(),&error),error);
+                  Require(std::ranges::equal(readback,expected_snapshot), "Owned snapshot changed the display pixels");
+                  ++snapshot_checks;
+                  if (display.tiling_mode == 1) {
+                    // The readback retires the real GPU copy first. Overwrite
+                    // only our authored guest allocation, then prove the owned
+                    // image is unchanged before completing this prepared flip.
+                    session.Call(library.api.access(session.context,display.address,readback.size(),true,&error),error);
+                    auto* source = allocation.data + (display.address-base);
+                    std::memset(source,0,readback.size());
+                    session.Call(library.api.read_present_snapshot(session.context,readback.data(),readback.size(),&error),error);
+                    Require(std::ranges::equal(readback,expected_snapshot), "Snapshot still aliases overwritten guest pixels");
+                    session.Call(library.api.access(session.context,display.address,readback.size(),true,&error),error);
+                    std::memcpy(source,expected_snapshot.data(),expected_snapshot.size());
+                    ++snapshot_checks;
+                  }
+                }
               }
             });
             if (result.status == RuntimePresentStatus::Prepared) {
@@ -411,7 +458,10 @@ int main(int argc, char **argv) {
               Require(t.completed && t.duration_us == t.prepare_us+t.retire_us+t.acquire_us+t.record_us+
                   t.submit_us+t.queue_present_us+t.gpu_wait_us+t.present_wait_us+t.finalize_us,
                   "Resident presentation wall-time scopes do not reconcile");
-              Require(result.tick > paced_draw_tick, "Early draw flush fabricated final presentation completion");
+              Require(result.tick > paced_draw_tick && result.guest_copy_completed,
+                      "Guest completion did not wait for its independent snapshot");
+              Require(t.present_wait_us == 0 && t.acquire_us == 0 && t.queue_present_us == 0,
+                      "Window waits leaked into the game-side handoff");
             } else {
               Require(!t.completed, "Incomplete presentation fabricated completed timing");
             }
@@ -422,10 +472,20 @@ int main(int argc, char **argv) {
           throw std::runtime_error(
               "Presentation did not recover from OUT_OF_DATE");
         };
-        auto result = present();
+        auto result = present(nullptr,{reinterpret_cast<const std::uint8_t*>(pattern.data()),sizeof(pattern)});
         Require(result.status == RuntimePresentStatus::Completed &&
                     result.tick > last_tick && result.completed_presents == 1,
                 "First resident presentation did not complete");
+        auto stats = presentation_stats();
+        Require(!shared_present_queue || !stats.independent_queue, "Shared-queue diagnostic did not exercise the fallback");
+        Require(stats.accepted == 1 && stats.ready_images == 1 && stats.queued == 0 && stats.replaced == 0,
+                "First guest handoff waited for the gated presentation consumer");
+        // ACQUIRE_MEM at the start of the next guest frame must finish guest
+        // GPU work without consuming or unpausing its independent display copy.
+        session.worker.Sync([&] { session.Call(library.api.finish_guest(session.context,&error),error); });
+        stats = presentation_stats();
+        Require(stats.accepted == 1 && stats.ready_images == 1 && stats.queued == 0 && stats.replaced == 0,
+                "Guest memory barrier drained the independent presentation consumer");
         struct PacingFixture { NativeSession* session; unsigned calls{}; bool accept = true; bool caller_thread = true; bool memory_serviced{}; } paced{&session};
         const kt::diagnostics::PresentationPacing pacing{&paced, [](void* opaque) {
           auto& state = *static_cast<PacingFixture*>(opaque);
@@ -445,16 +505,33 @@ int main(int argc, char **argv) {
         Require(result.status == RuntimePresentStatus::Completed && result.completed_presents == paced_before+1 &&
                     paced.calls && paced.caller_thread && paced.memory_serviced && result.timing.between_phases_us >= 4000,
                 "Submitted composite did not retain its host pacing callback and completed fence");
+        stats = presentation_stats();
+        Require(stats.accepted == 2 && stats.ready_images == 1 && stats.queued == 0 && stats.replaced == 1,
+                "Latest-ready handoff accumulated stale images or blocked the producer");
         const auto before_cancel = result.completed_presents;
         paced.accept = false;
         result = present(&pacing);
         Require(result.status == RuntimePresentStatus::Cancelled && !result.timing.completed && !result.tick &&
                     result.completed_presents == before_cancel,
                 "Cancelled pacing published a guest completion or leaked the acquired frame");
+        stats = presentation_stats();
+        Require(stats.accepted == 2 && stats.ready_images == 1 && stats.queued == 0 && stats.replaced == 1,
+                "Cancelled pacing changed the pending display image");
         result = present();
         Require(result.status == RuntimePresentStatus::Completed && result.completed_presents == before_cancel+1 &&
                     result.timing.completed,
                 "Presentation did not recover after retiring a cancelled paced frame");
+        stats = drain_presentation();
+        Require(stats.accepted == 3 && stats.replaced == 2 && stats.queued == 1 &&
+                    stats.last_queued_sequence == 3 && !stats.ready_images && !stats.active_images &&
+                    !stats.retained_resources && stats.retired_resources == 1,
+                "Drain did not present the newest image and retire its resources");
+        for (unsigned i = 0; i < 3; ++i) {
+          result = present();
+          stats = await_window(result.completed_presents);
+          Require(stats.retained_resources == std::min(1u+i,PresentResourceSlots),
+                  "Window resources were not retained in their bounded rotation");
+        }
         const auto old_width = result.width, old_height = result.height;
         window->Resize(480, 320);
         result = present();
@@ -462,6 +539,7 @@ int main(int argc, char **argv) {
                     (result.width != old_width || result.height != old_height),
                 "Resize did not recreate the swapchain");
         resized = true;
+        await_window(result.completed_presents);
         const auto before_minimize = result.completed_presents;
         window->Minimize();
         result = present();
@@ -494,10 +572,11 @@ int main(int argc, char **argv) {
         std::memcpy(allocation.data + 0x40000, tiled_backing.data(),
                     tiled_backing.size());
         display = {base + 0x40000, 128, 64, 128, 0x80000000, 0};
-        result = present();
-        Require(result.status == RuntimePresentStatus::Completed,
+        result = present(nullptr,tiled_pixels);
+        Require(result.status == RuntimePresentStatus::Completed && snapshot_checks == 3,
                 "GPU-tiled BGRA presentation failed");
         tiled_presented = true;
+        await_window(result.completed_presents);
         const auto traffic_before = session.memory.Traffic();
         const auto end = std::chrono::steady_clock::now() +
                          std::chrono::seconds(interactive ? 45 : 0);
@@ -519,6 +598,12 @@ int main(int argc, char **argv) {
             traffic_after.write_bytes - traffic_before.write_bytes;
         Require(!resident_read_bytes && !resident_write_bytes,
                 "Unchanged resident presentation copied native backing");
+        stats = drain_presentation();
+        Require(stats.accepted == stats.queued+stats.replaced+stats.skipped &&
+                    !stats.active_images && !stats.ready_images && !stats.retained_resources,
+                "Asynchronous handoff lost images or retained work after drain");
+        std::printf("{\"event\":\"presentation_handoff_checks\",\"accepted\":%llu,\"queued\":%llu,\"replaced\":%llu,\"snapshotChecks\":%u,\"independentQueue\":%s}\n",
+            stats.accepted,stats.queued,stats.replaced,snapshot_checks,stats.independent_queue?"true":"false");
         presents = result.completed_presents;
         Require(presents >= 12,
                 "Presentation loop did not complete its expected frames");

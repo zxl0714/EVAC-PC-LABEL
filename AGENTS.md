@@ -6,6 +6,180 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.6 release readiness — latest, supersedes pending play notes below
+
+The focused gameplay work is complete. ESP ARCADE / ARCADE PLUS / SUPER EASY,
+formal HTTPS score/replay upload, native ranking/download, full online/offline
+playback and cold BGM 068% / SE 070% readback pass (TEST_MATRIX). Do not repeat
+those flows without a related change. The six-game catalogue is enabled.
+
+The ABI-12 presenter and guest-fence split pass independent/shared-queue
+validation. ESP fetch-shader reads now batch only the last successful length;
+all bytes are reread live, with exact fallback and mutation/growth/shortening
+tests. The corrected red test is .local/v06-fetch-batch-red-test-r2.log; five
+GPU CTests and the paired build pass. Restore native CRLF in vk_instance.cpp
+and upstream-files.json was formatting only; manifest SHA is updated.
+
+Final trace-OFF scenes under .local/v06-present-regression-r1 are closed:
+esprade-off-fetch-batch (94988), 65.942 s, 3956 consecutive completions, max
+17.512 ms; ketsui-off-fetch-batch (85888), 127.231 s, 7634 consecutive records,
+max 17.808 ms, stage 1 through BULLFROG at 16403. Neither has intervals >18 ms
+or increased audio underruns. All accepted log records drained, present cleanup
+completed; existing guest-finalizer exit 27 remains. Detailed window timing is
+OFF in these scenes: these are guest completion intervals, not scanout proof.
+No game remains from these tests. first-minute-comparison.json records the ESP
+draw CPU-side wall interval reduction 10.100 -> 4.908 ms on separate same-mode
+play sessions. Stop millisecond tuning; preserve earlier failures and the
+separate Daioujou result/save audio-lock observation.
+
+Final source regression r4 passes 517 tests (one Windows symlink privilege
+skip); audit covers 2306 source files, 22 submodules and no game data. Review
+and CRLF-aware diff check pass. The 48 manifest files were copied to the NEW
+game-data/esprade directory; native full inspection verifies all 48 hashes.
+Original PKGs and merged preparation inputs are unchanged.
+
+Remaining: commit/push, same-commit six-game build, Public/Internal ZIPs with
+one extraction each and verified OSS upload.
+Keep this goal active until actual final artifacts pass. No historical QQ work.
+
+### v0.6 PS4 asynchronous presentation — current candidate
+
+The paired PS4 host/GPU ABI is now 12. Guest copies and original pacing remain
+on the GPU worker; WSI acquire/composition/present run on an owned presentation
+thread. Three GPU snapshot slots hold at most one writing, ready and active
+image; only stale ready images can be replaced. Two WSI resource slots retire
+at reuse/drain. Prefer a second same-family queue when available; the shared
+queue fallback externally synchronizes submissions and presents. No normal
+CPU pixel readback. Preserve guest flip/label semantics and copy completion.
+
+Build-Ps4 async-r2 verified six PE/PDB pairs and staged all three PS4 profiles.
+All five GPU CTests pass; explicit validation passes on both separate and shared
+queues with zero errors. Evidence: .local/v06-present-async-{build-r2,ctest-r1,
+validation-r1,shared-validation-r1}.log. Deliberate paused-consumer tests prove
+bounded latest-ready replacement, not ordinary gameplay drop rates.
+
+Actual isolated Ketsui run .local/v06-present-async-play-r1 (PID 85148, closed)
+entered ARCADE/Type-A, fired/scored 320, died/respawned and naturally ended.
+The copied profile maps CREDIT to R2 (keyboard W), not Triangle/V. Its observed
+30.977 s stage slice has 1858 consecutive window events, max queue interval
+17.552 ms, none over 18 ms; audio underruns did not increase. Guest trace has
+24 missing records, so do not confuse adjacent logged intervals with real gaps.
+Normal close drained presentation and all 437607 log records; no sink failures.
+Analysis: play-summary-r1.json and analysis-r1.json under that scene. New capture
+analysis separates guest publication and window queue clocks; no scanout claim.
+The later trace-off Super Easy run (19964, closed) spans 144.252 s between F8
+markers, reaches the first boss/20152, and has no new audio underrun. It found
+one REAL 33.327 ms completion interval: command acquire took 15.681 ms. One
+other missing log submission is separate from that real long frame. Source
+inspection found ACQUIRE_MEM still called full Drain, rejoining WSI every frame.
+ABI 12 adds FinishGuest (same guest fences/writeback/callback completion, no
+presenter drain). Full Drain remains for teardown/window changes. The paused
+consumer regression fails before the fix and passes after it. Build verifies
+six PE/PDB pairs; 5 GPU CTests and independent/shared-queue validation pass with
+zero errors. Evidence: .local/v06-guest-fence-* and
+.local/v06-present-regression-r1/ketsui-off/play-summary.json. Actual new-candidate
+regression is recorded below; do not label the old 33 ms result accepted or an
+output gap caused solely by missing logs.
+ABI 12 Ketsui 66832 is now closed. ketsui-on-guest-fence has 132.279 seconds
+between F8 markers, Super Easy/Type-A through stage-1 clear at 20372 and stage 2.
+Observed shot/autobomb/death/respawn. Recorded completion max 17.732 ms, p99
+17.143 ms; consecutive window queue max 18.330 ms, none over 20 ms. Audio
+underrun delta 0. Detailed guest/window records have gaps; distinguish those
+from real individual interval values. Full summary/source identity is in that
+scene. No build/test load during sampling. Trace-off Ketsui new candidate and
+ESP short regression remain. Source rerun .local/v06-source-regression-r3.log
+passes 517 tests (one Windows symlink privilege skip); source audit passes.
+Daioujou 83372 is now closed: daioujou-off-guest-fence-r2 entered
+ARCADE/Type-A/Shotia and ended at 560. The first 10 seconds after F8 have 600
+consecutive records, max 17.346 ms, zero audio-underrun delta. Full 142-second
+marker range includes result/save and idle credit-unlock dialog, with three
+~33 ms frames and two underruns near long native NGS rack locks/save transactions.
+Do not call that entire range stable gameplay or assume save I/O causality.
+transition-analysis.json retains separate scopes. Presentation drained and all
+77625 records were written.
+Earlier 103484 normal-launch test also closed; shared config restored exactly.
+
+ESP ARCADE/Yusuke actual score 1390 reached loopback boards 0/1, both replay
+uploads, visible ranking and download slot 0018-0000 in online-r2 (95148, closed).
+Full playback worked but the local viewer retained NOW ACCESSING: Sony ID mapper
+failure skipped the overlay close. The ESP-only hash-bound local viewer transform
+now uses stored names, removes local-cache UGC gates and preserves native loading.
+Original data is unchanged. 115 native resource checks, 6 oracle tests and actual
+native/Python comparison with cold/warm preparation pass; build/staging evidence:
+.local/v06-esprade-replay-fix-build-r1.log and v06-esprade-replay-fix-r1/.
+
+Cold offline replay in .local/v06-esprade-offline-replay-r1 (93980, closed) passed:
+Player/1390 visible, full playback to 1390, natural return to a clean list. Normal
+Alt+F4 drained presentation and all 68418 records, no drops or sink failures;
+existing guest-finalizer/exit-27 limitation remains. Networking and detailed trace
+were disabled. Do not replay this accepted recording without a related change.
+
+ESP formal service is deployed from d66c11afdee8, with its independent pointer,
+database, port 18089 and daily backup. Six HTTPS health identities, legacy routes,
+first backup and unchanged five peer PIDs pass. Do not rerun first-install scripts
+in .local/v06-esprade-deploy-r1; installed targets must be preserved.
+The development catalogue enables ESP. Normal launcher isolated-root run
+.local/v06-esprade-https-r1/collection (launcher 12048, game 81344; both closed)
+entered ARCADE/Yusuke with a fresh profile, naturally scored 3300, uploaded both
+scores/replays and displayed/downloaded the real record over formal HTTPS.
+Detailed trace is off; 120 ms diagnostic taps are not physical held-input proof.
+The full downloaded replay naturally returned to a clean list. A cold restart
+(launcher 77368/game 32232, both closed) also played ARCADE PLUS to 3510, with
+formal boards 20/21 and both 76900-byte replays verified in plus-result.json.
+New launcher correctly recognized the normal close/exit-27 receipt, no crash
+modal. Exact sound-setting percentage still needs a clear UI recheck: earlier
+65/68 readings and arbitrary save-byte offset were not reliable. Do not repeat
+accepted online replay tests. Other representative modes and final release
+remain. Loopback 94680/102464 in online-r1
+is still owned (revalidate), not used by this HTTPS run.
+v0.6 six-game package profiles and bilingual player README are implemented;
+55 packaging/product/catalogue tests pass, one file-link privilege skip. Common
+close-receipt recognition now includes ESP with unchanged PID/birth/cleanup gates;
+146 launch tests pass; the replacement copied launcher passed actual close.
+
+### v0.6 presentation scope — October 24 revision
+
+Replace the all-game automatic refresh/display plan with a focused PS4 presenter
+refactor: independent image handoff, bounded outstanding work, safe resource
+retirement and capability-based present modes. Defer automatic desktop refresh
+switching, exclusive-fullscreen management, new shared display configuration and
+360 presenter changes. Preserve existing fullscreen/vsync and guest flip/label
+semantics. Optional timing extensions are tools, not mandatory scope. Keep the
+Ketsui stutter evidence and a small real-play regression; wallpaper correlation
+is not a proved cause. See docs/IMPLEMENTATION_PLAN.md. This is a plan revision,
+not implementation or authorization to change desktop settings now.
+
+### v0.6 SDOJ default — October 24 decision
+
+The player compared 1V and 3V and requested default 1V for v0.6. This supersedes
+the historical default-3V instructions below for current development only.
+Use frame_delay=1 in Settings, the new-config template and missing-key reads;
+preserve explicit 1/2/3 preferences. The local shared config is also set to 1.
+Keep the existing low-policy implementation and recovery guards unchanged.
+Only configuration/migration/cold-readback regression is needed for this switch;
+do not rerun campaigns, overwrite running components or rebuild frozen releases.
+456 common and 238 hidden launcher checks pass, including independent cold
+readback. Evidence: .local/v06-sdoj-default1-checks-r1.log. Only test components
+were rebuilt; player binaries will take the embedded default in the v0.6 build.
+
+### Current player request — Ketsui timing capture (October 24)
+
+The user requested instrumentation, a complete build and direct Ketsui launch
+for one actual play session. Do not operate the controls after handing it over.
+Opt-in environment EVAC_PS4_TIMING_TRACE=1 records pacing targets/notification,
+GPU-worker handoffs, host waits, slow draw/resource access and nonblocking GPU
+batch timestamps through the bounded asynchronous logger. The GPU ABI is now 8;
+build and stage the paired host/DLL. analyze_capture.py correlates long frames
+and F8 markers. WPR start failed with 0xc5585011 (performance policy permission),
+and status confirms no recording; no system trace/physical scanout claim.
+GPU batch spans include dependencies, not exclusive GPU busy time. Initial five
+GPU CTests and display-clock self-test pass with capture enabled. The first
+whole-build compiled successfully, but Xbox staging detected newly added analysis
+sources; rerun the incremental build after edits settle, not manual certification.
+This is diagnostic instrumentation, not a completed frame-pacing fix. Keep the
+ESP online work below; its actual online acceptance remains unfinished. Both old
+ESP game PIDs 99892 and 100304 are closed, superseding stale running-PID notes.
+
 ### v0.6 implementation — current, supersedes older v0.4 delivery work
 
 The active user goal is stepwise v0.6 implementation including ESP Ra.De.

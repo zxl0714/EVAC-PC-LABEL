@@ -4,6 +4,27 @@ import ps4_resource_fixtures as fixtures
 
 
 class ResourcePreparationFixtures(unittest.TestCase):
+    def test_esprade_cache_preserves_native_loader_and_stored_name(self):
+        for newline in (b'\n', b'\r\n'):
+            with self.subTest(newline=newline):
+                source = fixtures.authored_local_replay(newline, esprade=True)
+                fixed = fixtures.fix_local_replay(source, esprade=True)
+                start, stop = b'  function pollCorrectList(_key) {', b'  function pollCancel() {'
+                self.assertEqual(source[source.index(start):source.index(stop)],
+                                 fixed[fixed.index(start):fixed.index(stop)])
+                self.assertIn(b'local _psnid = authored_stored_name;', fixed)
+                self.assertIn(b'local accountID = false;', fixed)
+                self.assertNotIn(b'NOW_ACCESSING', fixed)
+                self.assertNotIn(b'ugc_error_dialog()', fixed)
+                self.assertNotIn(b'NetworkModule(null)', fixed)
+                self.assertEqual(fixed.count(b'{'), fixed.count(b'}'))
+                with self.assertRaises(ValueError):
+                    fixtures.fix_local_replay(fixed, esprade=True)
+                with self.assertRaises(ValueError):
+                    fixtures.fix_local_replay(source)
+                with self.assertRaises(ValueError):
+                    fixtures.fix_local_replay(fixtures.authored_local_replay(newline), esprade=True)
+
     def test_cached_replay_uses_stored_data_without_changing_global_np_or_validation(self):
         source=fixtures.authored_local_replay()
         fixed=fixtures.fix_local_replay(source)
@@ -44,7 +65,7 @@ class ResourcePreparationFixtures(unittest.TestCase):
         for case in fixtures.cases():
             with self.subTest(case=case['name']):
                 reject = any(part in case['name'] for part in ('invalid', 'duplicate', 'changed', 'count-', 'short',
-                    'truncated', 'wrong-', 'oversized', 'trailing', 'too-small', 'header', 'encode-path-'))
+                    'truncated', 'wrong-', 'oversized', 'trailing', 'too-small', 'header', 'foreign-', 'encode-path-'))
                 if reject:
                     with self.assertRaises(Exception): fixtures.oracle(case)
                 else:

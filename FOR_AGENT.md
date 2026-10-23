@@ -1,9 +1,9 @@
 # EVAC PC LABEL 开发入口
 
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
-当前开发目标为 v0.4；发行状态与实际验收范围见实施计划和验收矩阵。
+当前开发目标为 v0.6，已发行版本为 v0.4；发行状态与实际验收范围见实施计划和验收矩阵。
 
-当前已接入五款游戏。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
+开发版已接入六款游戏。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
 先读 [README](README.md) 和 [AGENTS.md](AGENTS.md)。实现计划、实际覆盖和技术分析分别在 [实施计划](docs/IMPLEMENTATION_PLAN.md)、[验收矩阵](docs/TEST_MATRIX.md) 与 [分析入口](docs/ANALYSIS.md)。调查过程留在这些文档中，本文件介绍如何接手开发。
 
@@ -25,7 +25,7 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 | prepared/、user-data/、logs/、cache/ | 独立的准备镜像、存档录像、日志和缓存 |
 | .local/、releases/ | 开发现场、证据与发行输出，不进 Git |
 
-游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 暂未接入。
+游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou、esprade。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 使用 CUSA15155 本体覆盖 01.04 更新后的单目录，共用 PS4 运行时。
 
 原始数据只读。写入目录与原数据隔离，不借用旧项目的工具安装、构建产物或个人 profile。
 
@@ -73,7 +73,7 @@ py -3.12 scripts/ps4_sources.py verify
 
 快速检查查存在性和大小；有多个数据版本时也会核对根程序 SHA-256，以选定精确清单。--full 校验全部资源 SHA-256，--programs 校验运行程序。检测工具只读、不运行游戏或联网。Coming Soon 与数据是否齐全是不同状态。
 
-最大往生使用受支持的光盘本体，不混入 default.xexp、.binp 或音乐补丁。两款 PS4 作品首次运行由原生准备链生成自己的 prepared/<id>/ 缓存，不修改原数据；大往生为 CUSA32997／01.04 合并目录。当前开发代码的绊地狱使用 CUSA09062／01.00 本体或本体覆盖 01.02 后的单目录，直接包含 eboot.bin；不再接受旧双目录。检测 JSON 的 dataVariant／dataVersion／dataLayout 标明实际识别结果，缓存和 Internal 组包绑定同一版本清单。两版准备链已验证，实际游玩增量验收见 TEST_MATRIX。
+最大往生使用受支持的光盘本体，不混入 default.xexp、.binp 或音乐补丁。三款 PS4 作品首次运行由原生准备链生成自己的 prepared/<id>/ 缓存，不修改原数据；大往生为 CUSA32997／01.04 合并目录，ESP Ra.De. 为 CUSA15155／01.04 合并目录。绊地狱使用 CUSA09062／01.00 本体或本体覆盖 01.02 后的单目录，直接包含 eboot.bin；不接受旧双目录。检测 JSON 的 dataVariant／dataVersion／dataLayout 标明实际识别结果，缓存和 Internal 组包绑定同一版本清单。实际游玩验收见 TEST_MATRIX。
 
 ## 编译与运行
 
@@ -81,8 +81,8 @@ py -3.12 scripts/ps4_sources.py verify
 
 ~~~powershell
 ./scripts/Build.ps1 -Games espgaluda2 -DataDirectory 'D:/Games/G2' -Jobs 2
-./scripts/Build.ps1 -Games @('espgaluda2','futari','sdoj','ketsui','daioujou') -Jobs 2
-./scripts/Test.ps1 -Scope Native -Games @('espgaluda2','futari','sdoj','ketsui','daioujou')
+./scripts/Build.ps1 -Games @('espgaluda2','futari','sdoj','ketsui','daioujou','esprade') -Jobs 2
+./scripts/Test.ps1 -Scope Native -Games @('espgaluda2','futari','sdoj','ketsui','daioujou','esprade')
 ~~~
 
 Xbox 360 的 -NativeOnly 构建无 ROM 的机制／分析工具，不代替游戏生成。PS4 宿主本身无须 ROM 即可编译，玩家数据在启动时准备。默认两个任务、低优先级，构建不自动启动游戏。
@@ -98,7 +98,7 @@ Xbox 360 的 -NativeOnly 构建无 ROM 的机制／分析工具，不代替游�
 
 `--game` 直接启动游戏；`--select` 只指定首次打开 GUI 时选中的作品。GUI 正常关闭时在 `[collection].selected_game` 保存选中 ID，下次打开恢复；昵称草稿不会因此自动保存。同一安装目录再次打开只唤起原窗口，不用新参数改变原选择或重复启动游戏，不同目录各自运行。
 
-GUI 和命令行共用 PrepareLaunch 的完整检查。两款 PS4 运行程序为 runtime/ps4/ketsui.exe、daioujou.exe，共用配套 GPU；GPU API 当前为 7，宿主和 DLL 必须来自同次认证构建。
+GUI 和命令行共用 PrepareLaunch 的完整检查。PS4 运行程序共用配套 GPU；开发分支 GPU API 当前为 12，宿主和 DLL 必须来自同次认证构建。
 
 收据检查入口：
 
@@ -118,6 +118,17 @@ py -3.12 scripts/launcher_receipt.py verify
 
 修改启动器交互后运行 `./scripts/Test-Launcher.ps1 -Jobs 2`。它无需 ROM，在隐藏的临时窗口中走生产鼠标／键盘消息处理、控件与 INI 保存，并启动独立进程检查三语言冷读回。配置／日志的 shell-open 请求在边界截获，不打开外部应用或向桌面注入输入；排版另用 `--render-preview` 与真实窗口截图检查。
 
+修改 PS4 呈现同步后，先运行 `ctest --test-dir out/ps4-gpu --output-on-failure`。
+有 Khronos 验证层时，再运行 `out/ps4-gpu/KetsuiGpuRuntimeSmoke.exe --validation --presentation`；
+可通过当前进程的 `VK_LAYER_PATH` 指向验证层 manifest 所在目录，无须全局注册。
+普通 CTest 默认不开验证层；输出的 `validation=false` 不能算验证层通过。
+独立图像读回 API 供组件检查像素与生命周期，正常游戏不调用它。
+`--shared-present-queue` 可检查不具备独立呈现队列时的兼容路径。
+诊断会话可显式设置 `EVAC_PS4_TIMING_TRACE=1`，再用
+`py -3.12 scripts/ps4/analyze_capture.py <stdout.jsonl> --output <新报告.json>`
+分别检查游戏交帧与窗口提交。`consecutive_interval` 只统计连续序号，
+`interval` 包含日志序号缺口；缺口本身不是显示丢帧证据。两者均不是物理扫描时间。
+
 G2 的 Novice 遗漏回调在 `recomp/dat163-functions.toml` 声明。重新生成后可运行 `./scripts/Test-G2Callback.ps1`，隔离编译真实生成的转发入口、检查注册和调用 ABI；测试只在 `.local/analysis/g2-callback-fixture/` 产生派生代码，不运行模式或替代模式内短测。
 
 最大往生的只读探针默认关闭，可在独立测试根的宿主命令行显式开启：
@@ -131,7 +142,7 @@ G2 的 Novice 遗漏回调在 `recomp/dat163-functions.toml` 声明。重新生�
 
 最大往生软件延迟的当前结论见 ANALYSIS.md 的“原生渲染队列与最终输出”：约三帧主要在原作发布／读取顺序和原生帧等待，而不是短暂的最终提交。离线复查使用 `py -3.12 scripts/sdoj_output.py '<run 目录>' --output '<新的报告路径>'`；内容候选使用同参数形式的 scripts/sdoj_content.py。报告记录全部输入日志 SHA-256，拒绝缺失来源和含歧义的关联；需要自机存活的实际画面来限定方向沿语义。不要为重算报告重复启动游戏或把 Present 返回称为物理出光。
 
-正在实现 [最大往生 Frame Delay 改进](docs/SDOJ_LATENCY_PLAN.md)：3V 原路径、2V balanced 与 1V low，不包含 0V。玩家配置为 `[game.sdoj].frame_delay = 3 / 2 / 1`（实际填写一个整数）；当前按用户要求恢复默认 3V，保留已有显式档位。1V 已有两模块进关／返回、旧／新录像、逐逻辑帧、输出来源链与节奏队列对照记录，但朋友新增反馈在第 3187 次更新缺少原作减速统计；1V／2V 暂保留为手动测试选项，不能用旧样本将稳定性问题关闭。普通键盘短按、存活自机移动、失焦恢复及同段音画观察仍待完成，不重复请求手动操作或重跑完整模式。默认值修改只需针对配置缺省、模板、迁移和冷启动读回验证，不重打冻结发行包。具体修复项见实施计划，既有比较范围见 TEST_MATRIX。
+[最大往生 Frame Delay 改进](docs/SDOJ_LATENCY_PLAN.md)提供 3V 原路径、2V balanced 与 1V low，不包含 0V。玩家配置为 `[game.sdoj].frame_delay = 3 / 2 / 1`（实际填写一个整数）；v0.6 按玩家实战反馈默认采用 1V，保留已有显式档位。减速统计与训练重入崩溃已修复；两模块、录像、输出来源链、持续输入和音画节奏的实际检查范围见 TEST_MATRIX。默认值修改只需针对配置缺省、模板、迁移和冷启动读回验证，不重跑完整模式或重打冻结发行包。
 
 生产实现分为原生输入前段、提前请求、完整结果交接、有界等待／排空、资源重试中途等待，以及保留原减速公式所读统计年龄的 RenderMetrics；新增地图只在分配时初始化。源码机制测试为 sdoj_frame_delay、sdoj_logic_trace 和 sdoj_tilemap；运行 `./scripts/Test-SdojPrefix.ps1` 可用本地生成物隔离验证两套原生输入前段（需要已安装 SDK，不打开窗口或读取实体设备）。来源分析另列 first_result_* 排除暂停重复画面的年龄。不改全局 SDL、VSync 或音频等待。
 
@@ -149,6 +160,16 @@ py -3.12 scripts/sdoj_logic_compare.py <reference-run> <candidate-run> --module 
 
 PS4 性能先用无窗口 bench 筛选，再合并有价值的改动做短固定录像回归：
 
+实际游玩卡顿的详细采集可在启动器子进程环境设置 `EVAC_PS4_TIMING_TRACE=1`，
+正常使用 `--game ketsui` 启动。该开关不写入玩家配置；新增帧节拍目标／通知、
+GPU 工作线程交接、500 微秒以上宿主操作、250 微秒以上绘图／资源访问和 GPU
+批次时间戳。沿用有界异步日志，溢出／写盘异常计入 `native_async_log`；GPU 查询
+不增加提交或等待。GPU 时间跨度包含依赖和队列空隙，不等于独占执行时间。
+Windows WPR 在当前普通权限下返回 0xc5585011，未启用系统调度／实际呈现采集；
+不得把这些内部时刻称为实际屏幕显示。F8 标记可回看前 5 秒。
+`scripts/ps4/analyze_capture.py <stdout.jsonl> --output <新报告.json>` 汇总最长帧
+及标记前后窗口；基础全局帧／音频统计仍用 `analyze_timing.py`。
+
 ~~~powershell
 py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目录>
 ~~~
@@ -159,9 +180,9 @@ py -3.12 scripts/ps4/run_offline_bench.py --output .local/offline-bench/<新目�
 
 ## 联网
 
-五款游戏共用 [community] 配置，默认 Player、enabled=true、endpoint=https://xiaolu.life/cave/api/v1，各自连接独立 namespace。客户端保留原作的成绩资格、模式、录像版本和格式；不借用另一款的 view ID 或回放合同。
+六款游戏共用 [community] 配置，默认 Player、enabled=true、endpoint=https://xiaolu.life/cave/api/v1，各自连接独立 namespace。客户端保留原作的成绩资格、模式、录像版本和格式；不借用另一款的 view ID 或回放合同。
 
-大往生、绊地狱使用各自 PS4 规则，G2／最大往生由公共有界 worker 传输。最大往生保留原生商店进度；大往生 CUSTOM 可游玩与能否上榜分开处理。服务测试的自造成绩只发 loopback，不向正式服务写 fixture。
+大往生、绊地狱、ESP Ra.De. 使用各自 PS4 规则，G2／最大往生由公共有界 worker 传输。最大往生保留原生商店进度；大往生 CUSTOM 可游玩与能否上榜分开处理。ESP 的 ARCADE／SUPER EASY／ARCADE PLUS／CUSTOM 各有综合及角色榜，OSARAI／いろりの部屋为进度榜。服务测试的自造成绩只发 loopback，不向正式服务写 fixture。
 
 ## 出包与交付
 
@@ -187,9 +208,9 @@ ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片�
 先提交发行源码并配套构建，再执行：
 
 ~~~powershell
-./scripts/Release.ps1 -Version 0.4
-./scripts/Release.ps1 -Flavor Internal -Version 0.4 -DataGames futari
-./scripts/Release.ps1 -Flavor Internal -Version 0.4 -DataGames all -FutariContent all -Symbols
+./scripts/Release.ps1 -Version 0.6
+./scripts/Release.ps1 -Flavor Internal -Version 0.6 -DataGames futari
+./scripts/Release.ps1 -Flavor Internal -Version 0.6 -DataGames all -FutariContent all -Symbols
 ~~~
 
 默认 Flavor 为 Public。Internal 的 -DataGames 接受游戏 ID 数组或 all；
@@ -217,7 +238,7 @@ py -3.12 scripts/release_package.py verify --directory '<实际解压后的程�
 记录 ZIP SHA-256、源码提交、步骤和结果，相同冻结文件复用成功记录。在同一
 临时目录补充配置、存档和录像哨兵，验证覆盖后保留。verify 命令针对干净解压的
 发行载荷，不用于带玩家新增文件的安装目录。两种包的公共程序比较哈希，Internal
-另查所选数据、DLC 和符号，不重复五款实战或整套环境恢复。
+另查所选数据、DLC 和符号，不重复已验收的实战或整套环境恢复。
 
 上传前核对本地产物身份，上传后检查远端大小、状态和公网校验文件，不重新下载整包或解压。仅内容变化／失败的部分重验；后续文档和交付记录单独提交，不因它们重打冻结包。
 

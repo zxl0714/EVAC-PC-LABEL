@@ -51,13 +51,14 @@ add_library(KetsuiZlib STATIC "${CAVE_PS4_DEPS}/zlib/adler32.c" "${CAVE_PS4_DEPS
 target_include_directories(KetsuiZlib SYSTEM PUBLIC "${CAVE_PS4_DEPS}/zlib")
 
 target_compile_definitions(KetsuiZlib PUBLIC Z_PREFIX)
-add_library(KetsuiResourcePreparation STATIC content/resource_prepare.cpp)
+# Plain SELF decoding is shared by executable and resource preparation.
+add_library(KetsuiResourcePreparation STATIC content/resource_prepare.cpp loader/plain_self.cpp)
 target_compile_features(KetsuiResourcePreparation PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiResourcePreparation PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiResourcePreparation PRIVATE /W4 /WX /EHsc)
 target_include_directories(KetsuiResourcePreparation SYSTEM PUBLIC "${CAVE_PS4_DEPS}/nlohmann-json/single_include")
 target_link_libraries(KetsuiResourcePreparation PRIVATE KetsuiContent KetsuiZlib cave_common bcrypt)
-add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/plain_self.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp)
+add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp)
 target_compile_features(KetsuiPreparedInputs PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiPreparedInputs PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiPreparedInputs PRIVATE /W4 /WX /EHsc)

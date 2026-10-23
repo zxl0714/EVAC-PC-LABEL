@@ -87,7 +87,8 @@ def oracle(item):
     if op == 'fix':
         transform = dict(music=fixes.fix_direct_menu, batch=fixes.fix_ranking_replay_batch,
                          offline=fixes.fix_community_local_round_gate, peer=fix_replay_peer,
-                         **{'local-replay': fix_local_replay})[item['kind']]
+                         **{'local-replay': fix_local_replay,
+                            'esprade-local-replay': lambda raw: fix_local_replay(raw, esprade=True)})[item['kind']]
         return transform(source).hex()
     seed, name = bytes.fromhex(item['seed']), item['resource']
     if op == 'mask': return fixes.mask_for(seed, name).hex()
@@ -104,8 +105,8 @@ def change_array(raw, at, index, value):
     return raw[:position] + value.to_bytes(item_width, 'little') + raw[position + item_width:]
 
 
-def authored_local_replay(newline=b'\n'):
-    return newline.join((
+def authored_local_replay(newline=b'\n', *, esprade=False):
+    raw = newline.join((
         b'// authored outside prefix',
         b'  function pollCorrectFilter(_key) {',
         b'        if (System.getSpec() != "nx" && ::ugc_error_dialog())',
@@ -129,6 +130,11 @@ def authored_local_replay(newline=b'\n'):
         b'    if (accountID) { authored_remote_name(_net); }', b'  }',
         b'  function getReplaySlot(_array) { return authored_slot; }',
         b'// authored outside suffix', b''))
+    if esprade:
+        raw = raw.replace(b'  function is_blocked_id(_id_h,_id_l) { return authored_existing_list; }' + newline, b'')
+        raw = raw.replace(b'          if (System.getSpec() == "ps4" && m_tab_select == REPLAY_TAB_DOWN &&' + newline +
+            b'            is_blocked_id(m_replay_array[_n]._01_added_value._18_account_h, m_replay_array[_n]._01_added_value._19_account_l)) _ok = false;' + newline, b'')
+    return raw
 
 
 def cases():
@@ -171,6 +177,11 @@ def cases():
         add('fix-local-replay-' + label, 'fix', local_replay, kind='local-replay')
         add('fix-local-replay-duplicate-' + label, 'fix', local_replay + local_replay, kind='local-replay')
         add('fix-local-replay-changed-' + label, 'fix', local_replay.replace(b'accountID = true', b'accountID = false'), kind='local-replay')
+        esp_replay = authored_local_replay(newline, esprade=True)
+        add('fix-esprade-local-replay-' + label, 'fix', esp_replay, kind='esprade-local-replay')
+        add('fix-esprade-local-replay-duplicate-' + label, 'fix', esp_replay + esp_replay, kind='esprade-local-replay')
+        add('fix-esprade-local-replay-changed-' + label, 'fix', esp_replay.replace(b'accountID = true', b'accountID = false'), kind='esprade-local-replay')
+        add('fix-esprade-local-replay-foreign-' + label, 'fix', local_replay, kind='esprade-local-replay')
     for count in (0, 1, 3):
         add('fix-music-count-' + str(count), 'fix', b'm_bgm_mode[_gamemode] = _bgmMode;\n' * count, kind='music')
     add('fix-batch-changed', 'fix', helper.authored_ranking_batch().replace(b'            break;', b'            return 0;'), kind='batch')
