@@ -9,6 +9,33 @@ address = 0x8217D514
 name = "SdojAudioEngineEnqueueEnd"
 registers = ["r3", "r31"]
 
+# Original worker timing, independent of the detailed command-record budget.
+# No guest call is replaced. Wait request is raw until its target is reviewed.
+[[midasm_hook]]
+address = 0x8218FF54
+name = "SdojAudioWorkerReset"
+registers = ["r31", "r21"]
+[[midasm_hook]]
+address = 0x8218FF8C
+name = "SdojAudioWorkerStart"
+registers = []
+[[midasm_hook]]
+address = 0x8218FF94
+name = "SdojAudioWorkerBankBegin"
+registers = []
+[[midasm_hook]]
+address = 0x8218FF98
+name = "SdojAudioWorkerBankEnd"
+registers = []
+[[midasm_hook]]
+address = 0x82191E58
+name = "SdojAudioWorkerWaitBegin"
+registers = ["r11", "r4"]
+[[midasm_hook]]
+address = 0x82191E5C
+name = "SdojAudioWorkerWaitEnd"
+registers = ["r3"]
+
 # Original memcpy has copied the popped command to engine + 120. One site is
 # for the global queue, the other for a per-channel queue; both still execute.
 [[midasm_hook]]

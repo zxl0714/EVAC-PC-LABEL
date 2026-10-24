@@ -29,7 +29,7 @@ void NoLinks(const fs::path& path,const fs::path& root) {
     item=parent;
   }
 }
-constexpr auto kGuide=L"放置说明.txt";
+constexpr auto kGuide=L"README.txt";
 struct Guide {
   uint64_t bytes{};std::string hash;
   bool operator==(const Guide&) const=default;

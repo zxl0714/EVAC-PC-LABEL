@@ -33,7 +33,7 @@ class ProductTests(unittest.TestCase):
         for version in ('0.1','0.2','0.3','0.3.1','0.3.2'):
             self.assertEqual(product.launcher(version), 'CAVE-PC-Collection.exe')
             self.assertEqual(product.slug(version), 'CAVE-PC-Collection')
-        self.assertEqual(release.DEFAULT_VERSION, '0.7')
+        self.assertEqual(release.DEFAULT_VERSION, '0.7.1')
         self.assertEqual(release.certified_name(product.LEGACY_LAUNCHER), product.LAUNCHER)
         self.assertEqual(release.certified_name('other.exe'), 'other.exe')
         self.assertEqual(release.UPDATE_PRESERVED, ('config.ini','user-data/','game-data/','prepared/','cache/','logs/','source/'))

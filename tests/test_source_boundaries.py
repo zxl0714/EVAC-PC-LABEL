@@ -45,6 +45,16 @@ class SourceBoundaryTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     project.audit_source(root)
 
+    def test_authored_paths_are_ascii_but_checkout_path_can_be_unicode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'项目'
+            root.mkdir()
+            self.audit_fixture(root)
+            self.assertEqual(project.audit_source(root)['files'],1)
+            (root/'说明.txt').write_text('authored guide',encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'filenames must use ASCII'):
+                project.audit_source(root)
+
     def test_audit_rejects_forced_game_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -13,6 +13,12 @@ static unsigned show_requests{},foreground_requests{};
 static int last_show_request{};
 static std::vector<int> nickname_responses;
 static std::vector<std::wstring> nickname_details;
+struct PaintRequest { HWND window; RECT area; bool whole; BOOL erase; };
+static std::vector<PaintRequest> paint_requests;
+static BOOL WINAPI FixtureInvalidate(HWND window,const RECT* area,BOOL erase) {
+  paint_requests.push_back({window,area?*area:RECT{},!area,erase});
+  return InvalidateRect(window,area,erase);
+}
 static HRESULT WINAPI FixtureNicknameDialog(const TASKDIALOGCONFIG* config,int* result,int*,BOOL*) {
   if(nickname_responses.empty()) {++unexpected_dialogs;return E_FAIL;}
   if(config->nDefaultButton!=IDCANCEL || config->cButtons!=2 || config->pButtons[0].nButtonID!=IDCANCEL ||
@@ -37,7 +43,9 @@ static int WINAPI FixtureDialog(HWND,LPCWSTR,LPCWSTR,UINT) {
 #define ShowWindow FixtureShowWindow
 #define SetForegroundWindow FixtureForeground
 #define TaskDialogIndirect FixtureNicknameDialog
+#define InvalidateRect FixtureInvalidate
 #include "../../launcher/main.cpp"
+#undef InvalidateRect
 #undef TaskDialogIndirect
 #undef SetForegroundWindow
 #undef ShowWindow
@@ -79,7 +87,7 @@ struct Fixture {
 struct Frame {
   App app;
   explicit Frame(const fs::path& root,std::string_view selection={},bool minimized=false):app(Options{.root=root,.selection=std::string(selection)}) {
-    Require(CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|(minimized?WS_MINIMIZE:0),
+    Require(CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|WS_VSCROLL|WS_CLIPCHILDREN|(minimized?WS_MINIMIZE:0),
         0,0,1080,900,nullptr,nullptr,GetModuleHandleW(nullptr),&app)!=nullptr,"Create hidden production launcher window");
     Settle();Require(app.preferences_available,"Load quick settings");
   }
@@ -153,6 +161,70 @@ void NicknameWarningChecks() {
   SetWindowTextW(app.nickname_control,L"Player");
   Require(app.SavePreferences() && nickname_details.size()==accepted,"Supported nickname raised a warning");
   Require(nickname_responses.empty() && unexpected_dialogs==0,"Nickname dialog response was not consumed / unexpected side effect");
+}
+void NicknameAlignmentChecks() {
+  Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
+  const auto edit=app.nickname_control;
+  const auto style=GetWindowLongPtrW(edit,GWL_STYLE);
+  Require(!(style&ES_MULTILINE) && (style&ES_AUTOHSCROLL),"Nickname must remain a horizontally scrolling single-line edit");
+  Require(SendMessageW(edit,EM_GETLIMITTEXT,0,0)==64,"Nickname character limit changed");
+  SetWindowTextW(edit,L"Player-友人");SendMessageW(edit,EM_SETSEL,1,4);
+  const auto before=Ini::ReadText(ConfigPath(fixture.root));
+  for(const auto dpi:{96u,120u,144u,192u}) {
+    app.PositionPreferences(dpi);
+    RECT rectangle{};GetWindowRect(edit,&rectangle);
+    MapWindowPoints(nullptr,app.hwnd,reinterpret_cast<POINT*>(&rectangle),2);
+    const auto dc=GetDC(edit);const auto old=SelectObject(dc,app.form_font);
+    TEXTMETRICW metrics{};Require(GetTextMetricsW(dc,&metrics)!=FALSE,"Measure native edit font");
+    SelectObject(dc,old);ReleaseDC(edit,dc);
+    const auto field=app.layout.nickname();const float scale=float(dpi)/96;
+    const auto text=SendMessageW(edit,EM_POSFROMCHAR,0,0);
+    const auto top=rectangle.top+GET_Y_LPARAM(text),bottom=top+metrics.tmHeight;
+    Require(std::abs((top-int(field.top*scale))-(int(field.bottom*scale)-bottom))<=1,
+            "Nickname text is not vertically centered at this DPI");
+    Require(rectangle.bottom-rectangle.top>=metrics.tmHeight,"Nickname line clips its font height");
+    DWORD start{},end{};SendMessageW(edit,EM_GETSEL,reinterpret_cast<WPARAM>(&start),reinterpret_cast<LPARAM>(&end));
+    Require(start==1 && end==4 && ControlText(edit)==L"Player-友人","Relayout changed text or selection");
+  }
+  app.PositionPreferences();
+  const auto r=app.layout.nickname();app.Click(r.left+2,r.top+2);
+  Require(app.focus==2,"Clicking nickname padding did not select the edit");
+  Require(Ini::ReadText(ConfigPath(fixture.root))==before,"Relayout saved the nickname draft");
+  SetWindowTextW(edit,L"Player");
+  MSG enter{};enter.hwnd=edit;enter.message=WM_KEYDOWN;enter.wParam=VK_RETURN;
+  Require(app.Input(enter),"Enter no longer saves the single-line nickname");frame.Settle();
+  Require(ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).nickname=="Player" && !app.preferences_dirty,
+          "Enter did not persist the nickname");
+}
+void PreferenceRepaintChecks() {
+  Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
+  Require(GetWindowLongPtrW(app.hwnd,GWL_STYLE)&WS_CLIPCHILDREN,"Parent painting must clip native preference controls");
+  // Hidden fixtures are not shown, so explicitly deliver the client-size event.
+  RECT client{};GetClientRect(app.hwnd,&client);
+  App::Window(app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(client.right,client.bottom));
+  const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+  for(bool hover:{false,true}) {
+    // Hidden HWNDs need not retain an update region. Observe the production
+    // invalidation request instead, while still forwarding it to User32.
+    paint_requests.clear();
+    if(hover) {
+      const auto card=app.layout.card(1);
+      App::Window(app.hwnd,WM_MOUSEMOVE,0,MAKELPARAM(int((card.left+20)*scale),int((card.top+20)*scale)));
+      Require(app.hover==1,"Hover fixture did not reach its visible game card");
+    }
+    else app.Scroll(90);
+    unsigned parent_requests{};
+    for(const auto& request:paint_requests) {
+      if(request.window!=app.hwnd)continue;
+      ++parent_requests;
+      Require(!request.whole && !request.erase &&
+              request.area.top>=std::floor((app.layout.header()-2)*scale) &&
+              request.area.bottom<=std::ceil(app.layout.footer()*scale),
+              "Scroll/hover repaint reaches native nickname/fullscreen controls");
+    }
+    Require(parent_requests>0,"Game-list interaction did not request a repaint");
+  }
+  Require(unexpected_dialogs==0,"Repaint checks opened a dialog");
 }
 #include "instance_checks.h"
 #include "visual_checks.h"
@@ -281,6 +353,8 @@ void MainChecks() {
   Require(unexpected_dialogs==0 && opened_paths.size()==2,"Unexpected shell or dialog side effects");
   SelectionChecks();
   NicknameWarningChecks();
+  NicknameAlignmentChecks();
+  PreferenceRepaintChecks();
   InstanceChecks();
 }
 }

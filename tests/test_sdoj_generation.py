@@ -260,12 +260,19 @@ class SdojGenerationTests(unittest.TestCase):
         hooks=tomllib.loads((ROOT/'games/sdoj/recomp'/filename).read_text(encoding='utf-8'))['midasm_hook']
         self.assertEqual({h['address'] for h in hooks}, {
             0x8217D4A8,0x8217D514,0x821900B8,0x82190160,
-            0x821906FC,0x82190774,0x821908C4,0x8219093C,0x82190778,0x82190940})
+            0x821906FC,0x82190774,0x821908C4,0x8219093C,0x82190778,0x82190940,
+            0x8218FF54,0x8218FF8C,0x8218FF94,0x8218FF98,0x82191E58,0x82191E5C})
         self.assertEqual({h['address'] for h in hooks if h['name'].endswith('PlayReturned')},
                          {0x82190778,0x82190940})
         self.assertTrue(all(not h.get('return',False) for h in hooks))
         self.assertTrue(all(h['registers']==['r31','f1','f27','f30','f31','r11']
                             for h in hooks if h['name'].endswith('Play')))
+        by_name={h['name']:h for h in hooks}
+        self.assertEqual(by_name['SdojAudioWorkerWaitBegin']['registers'],['r11','r4'])
+        self.assertEqual(by_name['SdojAudioWorkerWaitEnd']['registers'],['r3'])
+        host=(ROOT/'games/sdoj/diagnostics/audio_trace.cpp').read_text(encoding='utf-8')
+        self.assertIn('constexpr unsigned MaxWorkerRecords = 180;',host)
+        self.assertIn('thread_local AudioWorkerTiming worker_timing;',host)
 
 
 if __name__ == '__main__':

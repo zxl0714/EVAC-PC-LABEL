@@ -6,6 +6,78 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.1 launcher follow-up — development only
+
+The user approved isolated launcher/Guwange desktop testing on October 25.
+Use .local/v071-smoke-r1/collection, not C:/evac-pc-label or an old player copy.
+Nickname alignment/save and README.txt placement names are implemented. Scroll
+and hover invalidate only the list; WS_CLIPCHILDREN protects native preferences.
+282 hidden UI checks pass in launcher-checks-r5, including four DPI scales and
+production invalidation requests. r4's separate startup-lock fixture failure is
+retained; an unchanged rerun passes. Visible nickname editing/save, card hover
+and wheel input were exercised; the tall window fits all seven cards, so no
+claim of observed viewport displacement or captured transient flicker.
+42 package checks (one existing symlink skip), 12 native CLI and five source-
+boundary checks passed earlier. No new release, upload or player-file replacement.
+
+Active goal remains implement v0.7.1. Guwange host build r1 and 20 PE/PDB pairs
+pass. Development runtime/ is staged; the isolated copy verifies all 16 files.
+Actual run 103400 (20261024T182017406Z) returned through Game Library, logged
+Execution complete -> Window closing -> hard exit within 215ms. Its process is
+gone and the launcher showed exited/enabled. Relaunch 58620 reached the title
+and closed normally; no dump. See .local/v071-smoke-r1/acceptance.json. Do not
+repeat that accepted gate. Common, launch, community_sync and guwange_community
+CTests pass. Root launcher, C:/ player files and frozen ZIPs/OSS are unchanged.
+
+SDOJ Team Play dump 104832 reaches fatal after a false-success XHTTP startup
+stub and missing titlestorage endpoint. NetDll_XHttpStartup now returns BOOL
+false and guest last-error 120 rather than leaving caller=1 as success. The
+actual-export/thread ABI regression passes for callers 1 and 2. SDK r2 and SDOJ
+host r1 are built (19 PE/PDB pairs). Actual SDOJ 55104, run 20261024T182759514Z,
+entered Xbox 360 Team Score Attack, showed its original D-team assignment,
+entered Shot-style selection and stage 1, paused at 2558 and returned through
+both menus. It closed normally at 02:31:20.839; process gone/no dump. The native
+game continues despite XHTTP startup failure; it does NOT just show an error.
+No team transport was added or success response fabricated. Do not rerun this
+accepted entry gate. See .local/v071-smoke-r1/sdoj-team-acceptance.json.
+Five SDOJ/SDK CTests and 59 focused source tests (one existing skip) pass.
+All independent test windows/build sessions are now closed. Audio first-pass
+investigation below is complete, without a confirmed audio fix. Remaining:
+final version/docs/build/package; goal stays active.
+
+User added suspected SDOJ sound-effect delay to the same investigation. Compare
+Futari's scoped 1ms timeout/yield fix, native command/channel queueing and 1V/3V
+A/V timing; don't transplant Futari addresses or alter all audio queues. Latest
+user run 104832 has 1358 samples per output, queue32–42.7ms, consumption max52.6ms,
+zero silence, but no guest probes/F8. Older valid slot-matched engine report has
+100–122ms channel4 waits; same cause is NOT established. See ANALYSIS section
+v0.7.1 and .local/v071-investigation/sdoj-user-audio-r1.json. Only read-only
+audio investigation at that checkpoint; now superseded by the bounded paired
+run below. User's play remains undisturbed. Historical audio evidence is in the retained CAVE-PC-Collection
+.local tree; don't rerun or edit that tree.
+
+SDOJ audio worker probes are now built/tested, default off under sdoj_audio_trace:
+one summary/sec, separate cap180, thread-local stats, no guest writes/scheduling
+changes. 21 native and17 generation checks pass. Build sdoj-audio-r1 closed0,
+19 PE/PDB pairs; EXE07da5440 / source snapshot b31f4159. Isolated offline runs
+83412 and44616 (20261024T183537635Z / T183803576Z) played the SAME Arcade HD
+first replay's opening, not a whole replay, then closed normally/no processes.
+The chosen replay is1458133783/Stage4, SHA42d2c8cc, not the old short zero-score
+fixture. Wait target82197AD0 -> KeDelayExecutionThread -> nonalertable Sleep(1),
+not Futari's post-Wait timeout yield. End-loop waits mean1.68/1.70ms,max3.43/3.50;
+engine queue max18.66/30.97ms; output32-42.7ms. No seconds-long delay reproduced.
+Detailed4096-event budget exhausts in both runs; worker summary continues. Only
+62 command-prefix records match exactly, then contention/unpaired differences:
+do not claim complete sequence/A-V equality. No audio behavior fix is justified.
+Keep mode/event/F8 reproduction open; first investigation task is checked, not
+"audio fixed". Reports .local/v071-investigation/audio-{low,original}-r1.json,
+audio-compare-r1.json and *-output-r1.json; ANALYSIS/TEST_MATRIX have identities.
+Test INI restored1V/offline; C:/player unchanged. Version bumped to0.7.1 for final
+certification. 79 focused source checks pass (one existing symlink skip), including
+tiny actual v0.7.1 program/internal assembly and extraction; source audit2356files,
+22submodules,noROM. Log .local/v071-investigation/source-final-r1.log. This is
+not final seven-game build or real package acceptance. Do not rerun accepted UI/gameplay gates.
+
 ### v0.7 Guwange — released
 
 v0.7 adds Guwange XBLA (guwange / ぐわんげ): normal, Blue and Arrange,
@@ -791,6 +863,10 @@ accepted campaigns or treat old status paragraphs as new work requirements.
 
 ## Working rules
 
+- Use English ASCII names for authored source files and current player-package
+  paths. Per-game placement guides are README.txt. Keep bilingual contents and
+  user-supplied paths supported; never rename original game resources. Historical
+  archive verification may recognize old names, but new packages must not emit them.
 - Preserve original standalone projects, original game data and frozen releases.
   Use fresh copies for merged-data and test profiles; never auto-move, overwrite
   or delete the user's source extraction. Current development profiles are test

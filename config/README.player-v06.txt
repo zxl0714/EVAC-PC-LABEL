@@ -25,7 +25,7 @@ duplicate executables and symbols under the old launcher name.
 只需安装想玩的游戏。ISO／PKG 先提取为游戏文件；ZIP 解压后若仍为 ISO／PKG，
 还需继续提取。default.xex（360）或 eboot.bin（PS4）应直接位于所选目录，
 保留全部资源和内部层级，不要只复制入口文件，也不要再套一层文件夹。
-PS4 更新的内容覆盖到本体目录中；各目录的“放置说明.txt”提供具体要求。
+PS4 更新的内容覆盖到本体目录中；各目录的 README.txt 提供具体要求。
 首次启动会校验数据，PS4 作品还会自动准备运行文件，请等待完成。
 虫姬二不装 DLC 也能玩 Ver.1.5；Black Label／Ver.1.01 需要对应完整 DLC。
 

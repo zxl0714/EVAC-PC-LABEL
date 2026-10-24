@@ -358,9 +358,18 @@ class Renderer {
       if(index+1<language_choices.size())
         Text(target,L"/",{rectangle.right,rectangle.top+4,rectangle.right+10,rectangle.bottom},12,0xb7bfb5,DWRITE_TEXT_ALIGNMENT_CENTER);
     }
+    {
+      const auto r=layout.nickname();
+      ComPtr<ID2D1SolidColorBrush> fill,border;
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(busy||running?0xf3f4f0:0xffffff),&fill),"Create nickname fill");
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(focus==2?0x37644c:0xd9dfd6),&border),"Create nickname border");
+      target->FillRectangle(r,fill.Get());
+      target->DrawRectangle({r.left+.5f,r.top+.5f,r.right-.5f,r.bottom-.5f},border.Get());
+      if(preview)Text(target,L"Player",{r.left+6,r.top+6,r.right-6,r.bottom},13,0x23312d);
+    }
     if(preview) {
       Button(target,layout.fullscreen(),T(L"□ 启动时全屏"));
-      Button(target,layout.nickname(),L"Player");Button(target,layout.save(),T(L"保存"),false,true);
+      Button(target,layout.save(),T(L"保存"),false,true);
     }
     Text(target,T(L"排行榜昵称"),layout.nickname_label(),10,0x627368);
     target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
@@ -469,7 +478,7 @@ class App {
     const auto instance=GetModuleHandleW(nullptr);
     fullscreen_control=CreateWindowExW(0,L"BUTTON",T(L"启动时全屏"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX|BS_NOTIFY,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kFullscreenControl),instance,nullptr);
-    nickname_control=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+    nickname_control=CreateWindowExW(0,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kNicknameControl),instance,nullptr);
     save_control=CreateWindowExW(0,L"BUTTON",T(L"保存"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON|BS_NOTIFY,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kSaveControl),instance,nullptr);
@@ -478,16 +487,31 @@ class App {
     form_background=CreateSolidBrush(RGB(243,244,240));
     PositionPreferences();ReloadPreferences();
   }
-  void PositionPreferences() {
+  void PositionPreferences(UINT dpi=0) {
     if(!nickname_control)return;
-    const auto dpi=GetDpiForWindow(hwnd);const auto scale=float(dpi)/96;
+    if(!dpi)dpi=GetDpiForWindow(hwnd);const auto scale=float(dpi)/96;
     const auto font=CreateFontW(-MulDiv(13,int(dpi),96),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
     for(const auto pair:std::array{std::pair{fullscreen_control,layout.fullscreen()},
                                   std::pair{nickname_control,layout.nickname()},std::pair{save_control,layout.save()}}) {
       const auto r=pair.second;
-      SetWindowPos(pair.first,nullptr,int(r.left*scale),int(r.top*scale),int((r.right-r.left)*scale),int((r.bottom-r.top)*scale),SWP_NOZORDER|SWP_NOACTIVATE);
       if(font)SendMessageW(pair.first,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
+      int left=int(r.left*scale),top=int(r.top*scale),width=int((r.right-r.left)*scale),height=int((r.bottom-r.top)*scale);
+      if(pair.first==nickname_control) {
+        // Keep a real single-line edit (IME, selection, horizontal scrolling).
+        // Center its font-height client area inside the separately drawn field.
+        const auto dc=GetDC(nickname_control);
+        if(!dc)throw std::runtime_error("Cannot measure nickname font");
+        const auto old=SelectObject(dc,reinterpret_cast<HFONT>(SendMessageW(nickname_control,WM_GETFONT,0,0)));
+        TEXTMETRICW metrics{};const auto measured=GetTextMetricsW(dc,&metrics);
+        SelectObject(dc,old);ReleaseDC(nickname_control,dc);
+        if(!measured)throw std::runtime_error("Cannot measure nickname text height");
+        const auto inset=MulDiv(6,int(dpi),96);
+        const auto line=std::min(height,static_cast<int>(metrics.tmHeight));
+        left+=inset;width-=2*inset;top+=(height-line)/2;height=line;
+        SendMessageW(nickname_control,EM_SETMARGINS,EC_LEFTMARGIN|EC_RIGHTMARGIN,0);
+      }
+      SetWindowPos(pair.first,nullptr,left,top,width,height,SWP_NOZORDER|SWP_NOACTIVATE);
     }
     if(font){if(form_font)DeleteObject(form_font);form_font=font;}
   }
@@ -682,7 +706,13 @@ class App {
     layout.scroll=std::clamp(layout.scroll+delta,0.f,layout.max_scroll());
     SCROLLINFO info{sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS,0,std::max(0,int(std::ceil(layout.content_height()))-1),
                     UINT(std::ceil(layout.viewport_height())),int(layout.scroll),0};
-    SetScrollInfo(hwnd,SB_VERT,&info,TRUE);InvalidateRect(hwnd,nullptr,FALSE);
+    SetScrollInfo(hwnd,SB_VERT,&info,TRUE);InvalidateGameList();
+  }
+  void InvalidateGameList() {
+    const auto scale=float(GetDpiForWindow(hwnd))/96;
+    const RECT area{0,LONG(std::floor((layout.header()-2)*scale)),LONG(std::ceil(layout.width*scale)),
+                    LONG(std::ceil(layout.footer()*scale))};
+    InvalidateRect(hwnd,&area,FALSE);
   }
   void Paint() {
     PAINTSTRUCT paint{};BeginPaint(hwnd,&paint);
@@ -710,6 +740,9 @@ class App {
   void Click(float x,float y) {
     focus=0;SetFocus(hwnd);
     InvalidateRect(hwnd,nullptr,FALSE);
+    if(Inside(layout.nickname(),x,y)) {
+      if(IsWindowEnabled(nickname_control)){focus=2;SetFocus(nickname_control);}return;
+    }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.logs(),x,y)) {const auto logs=LogDirectory(options.root);if(!fs::exists(logs))fs::create_directories(logs);OpenPath(hwnd,logs);return;}
     for(size_t index=0;index<3;++index)
@@ -744,7 +777,7 @@ class App {
         case WM_LBUTTONUP:{const auto scale=float(GetDpiForWindow(window))/96;app->Click(GET_X_LPARAM(second)/scale,GET_Y_LPARAM(second)/scale);return 0;}
         case WM_MOUSEMOVE:{const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
           int hover=-1;if(y>=app->layout.header() && y<app->layout.footer())for(size_t index=0;index<app->rows.size();++index)if(Inside(app->layout.card(index),x,y))hover=int(index);
-          if(hover!=app->hover){app->hover=hover;InvalidateRect(window,nullptr,FALSE);}return 0;}
+          if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}
         case WM_MOUSEWHEEL:app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
@@ -857,7 +890,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     definition.hIconSm=BrandIcon(instance,GetSystemMetrics(SM_CXSMICON));definition.lpszClassName=kWindowClass;
     if(!RegisterClassExW(&definition))throw std::runtime_error("Cannot register launcher window");
     RECT rectangle{0,0,1080,900};AdjustWindowRectEx(&rectangle,WS_OVERLAPPEDWINDOW|WS_VSCROLL,FALSE,0);
-    const auto window=CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|WS_VSCROLL,CW_USEDEFAULT,CW_USEDEFAULT,
+    const auto window=CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|WS_VSCROLL|WS_CLIPCHILDREN,CW_USEDEFAULT,CW_USEDEFAULT,
         rectangle.right-rectangle.left,rectangle.bottom-rectangle.top,nullptr,nullptr,instance,&app);
     if(!window)throw std::runtime_error("Cannot create launcher window");
     instance_guard.Publish(window);

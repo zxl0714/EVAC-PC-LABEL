@@ -61,7 +61,7 @@ Create the parent folder `D:\GameExtract` first; the output folder `guwange` mus
 
 ### Where to put game data
 
-The complete program package creates the folders below, each with a bilingual `放置说明.txt` placement guide. Use **Choose data folder…** to use an existing folder without modifying its files, or **Copy into collection…** to copy it to a default location. The destination must be empty or contain only its placement guide.
+The complete program package creates the folders below, each with a bilingual `README.txt` placement guide. Use **Choose data folder…** to use an existing folder without modifying its files, or **Copy into collection…** to copy it to a default location. The destination must be empty or contain only this guide.
 
 | Game | Default folder | Files or folders directly inside it |
 | --- | --- | --- |

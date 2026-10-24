@@ -69,6 +69,8 @@ def audit_source(root=ROOT):
     brand={entry['path'] for entry in branding(root)}
     count, total = 0, 0
     for name in names:
+        if not name.isascii():
+            raise ValueError(f'Source filenames must use ASCII: {name}')
         if name in actual_links:
             continue
         first = Path(name).parts[0].casefold()

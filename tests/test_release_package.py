@@ -136,7 +136,8 @@ class ReleaseTests(unittest.TestCase):
             for name, source in release.placement_sources(version).items():
                 release.copy_checked(source, directory / name, 'documentation', entries)
         payload = [dict(item, path=item['path'].relative_to(directory).as_posix()) for item in entries]
-        record = dict(format=1, version=version, flavor=flavor, games=list(selection), files=payload)
+        record = dict(format=1, version=version, flavor=flavor, games=list(selection), files=payload,
+                      placementGuideName=release.PLACEMENT_NAME)
         if flavor == 'Update':
             record.update(baseVersion='0.3', preservedPaths=list(release.UPDATE_PRESERVED))
         (directory / 'release.json').write_text(json.dumps(record), encoding='utf-8')
@@ -256,7 +257,7 @@ class ReleaseTests(unittest.TestCase):
         guides=release.placement_sources('0.4-dev')
         self.assertEqual(len(guides),6)
         self.assertEqual({file.relative_to(directory).as_posix() for file in (directory/'game-data').rglob('*') if file.is_file()},set(guides))
-        for name in ('game-data/ketsui/eboot.bin','game-data/futari/notes.txt','game-data/unknown/放置说明.txt'):
+        for name in ('game-data/ketsui/eboot.bin','game-data/futari/notes.txt','game-data/unknown/README.txt'):
             with self.subTest(name=name),self.assertRaises(ValueError):
                 release.validate_public_name(name,self.games,release.V03_GAMES,'0.4-dev')
         for name in guides:
@@ -535,6 +536,13 @@ class ReleaseTests(unittest.TestCase):
         self.check_build_flavors('0.6', check)
 
     def test_v07_seven_game_program_and_guwange_only_internal_data(self):
+        self.check_seven_game_package('0.7')
+
+    def test_v071_seven_game_program_and_guwange_only_internal_data(self):
+        self.check_seven_game_package('0.7.1')
+
+    def check_seven_game_package(self, version):
+        self.assertEqual(release.PLACEMENT_NAME, 'README.txt')
         self.assertEqual(release.release_games('0.7'), release.V07_GAMES)
         self.assertEqual(release.release_games('0.6.1'), release.V06_GAMES)
         self.assertEqual(len(release.placement_sources('0.4')), 6)
@@ -545,15 +553,17 @@ class ReleaseTests(unittest.TestCase):
         def check(root, games, commit, inspect):
             (root/'game-data/guwange/container.zip').write_bytes(b'not selected')
             with patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
-                public=release.build('Public','0.7',root/'releases/public')
+                public=release.build('Public',version,root/'releases/public')
                 inspect.assert_not_called()
-                internal=release.build('Internal','0.7',root/'releases/internal',data_games=['guwange'])
+                internal=release.build('Internal',version,root/'releases/internal',data_games=['guwange'])
             self.assertEqual([call.args[1] for call in inspect.call_args_list], ['guwange'])
             for flavor, result in (('Public',public),('Internal',internal)):
                 installed=self.root/('v07 '+flavor)
                 with zipfile.ZipFile(result['archive']) as archive:
+                    self.assertTrue(all(name.isascii() for name in archive.namelist()))
                     archive.extractall(installed)
                 record=release.verify_tree(installed,games)
+                self.assertEqual(record['placementGuideName'], 'README.txt')
                 self.assertEqual(record['games'],list(release.V07_GAMES))
                 self.assertEqual(record['dataGames'],['guwange'] if flavor=='Internal' else [])
                 self.assertEqual((installed/'README.txt').read_text(),'authored v07 instructions')
@@ -567,9 +577,26 @@ class ReleaseTests(unittest.TestCase):
                     self.assertFalse((installed/name).exists())
                 self.assertFalse(list(installed.rglob('*.pdb')))
                 self.assertEqual(Path(result['archive']).name,
-                    'EVAC-PC-LABEL-v0.7-win-x64'+('-internal' if flavor=='Internal' else '')+'.zip')
+                    'EVAC-PC-LABEL-v'+version+'-win-x64'+('-internal' if flavor=='Internal' else '')+'.zip')
             self.assertEqual((root/'game-data/guwange/container.zip').read_bytes(),b'not selected')
-        self.check_build_flavors('0.7',check)
+        self.check_build_flavors(version,check)
+
+    def test_frozen_placement_names_are_verified_without_changing_new_packages(self):
+        directory=self.package('0.4-dev')
+        record=json.loads((directory/'release.json').read_text(encoding='utf-8'))
+        record.pop('placementGuideName')
+        for item in record['files']:
+            if item['path'].startswith('game-data/'):
+                old=directory/item['path']
+                replacement=old.with_name(release.LEGACY_PLACEMENT_NAME)
+                old.rename(replacement)
+                item['path']=replacement.relative_to(directory).as_posix()
+        (directory/'release.json').write_text(json.dumps(record),encoding='utf-8')
+        sums=''.join(item['sha256']+'  '+item['path']+'\n' for item in sorted(record['files'],key=lambda item:item['path']))
+        sums+=release.digest(directory/'release.json')+'  release.json\n'
+        (directory/'SHA256SUMS.txt').write_text(sums,encoding='utf-8')
+        release.verify_tree(directory,self.games)
+        self.assertTrue(all(Path(name).name=='README.txt' for name in release.placement_sources('0.7')))
 
     def test_v07_cannot_release_an_unaccepted_game(self):
         games=release.load(release.ROOT/'games/catalogue.json')

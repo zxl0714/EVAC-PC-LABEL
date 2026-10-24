@@ -2,6 +2,22 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.7.1 开发短回归
+
+- 音效调查：新增默认关闭、每秒汇总且独立限 180 条的工作线程计时；21 项原生统计／解码检查和 17 项生成声明检查通过。宿主增量构建完成 19 对 PE/PDB；EXE SHA-256 `07da54407566e5fb821c1843ba9eaa2a8291898d07978b9d1e5e236c51b63b45`，源码快照 `b31f41590b4a1445148c3f2a4e675cd1dac8e8de4c47ad7fd32298fa305c7b4e`。
+- 实际离线同录像开局对照：1V `run-20261024T183537635Z-83412`，日志 SHA-256 `f90be96fffe918246d00fd582d38c5326792c1886e074fd85fea44dbc4589e39`；3V `run-20261024T183803576Z-44616`，日志 SHA-256 `3f56b298e0dd2d1b4d1c686f5c0f5f084f2f4dc4d964c1b1fab224de52a74a7f`。两者均为 Arcade HD 第一条录像（1458133783 分／Stage 4）的开局，不是此前的短零分录像，未播完整局；02:37:51.436／02:40:02.659 正常退出，进程已消失。独立配置已还原 1V，联网仍关闭，玩家安装未改变。
+- 结果见 [音效分析](ANALYSIS.md#v071-音效延迟追加调查)：未复现明显音效滞后，不作为音效修复或所有模式正常的验收。详细事件达到上限后不再覆盖后续命令；工作汇总独立继续。原生数据、录像字节和音频行为未修改。
+- 版本号已同步到 0.7.1。最终构建前的 79 项源码检查通过（一个既有符号链接权限跳过），覆盖产品身份、双包实际小型组装／解压、ASCII 文件名、原生 CLI 和 SDOJ 声明；源码审计 2356 文件／22 子模块，无游戏数据。日志 `.local/v071-investigation/source-final-r1.log`。实际七游戏发行包尚未生成。
+
+- 启动器：282 项隐藏 UI 检查通过（`.local/v071-investigation/launcher-checks-r5.log`），包括四种 DPI、昵称保存、实际重绘请求范围和单实例。r2/r3 的隐藏窗口更新区断言改为记录真实 `InvalidateRect` 请求，仍调用 User32；r4 的独立进程启动锁用例失败保留，不改代码重跑通过。
+- 实际界面：独立目录 `.local/v071-smoke-r1/collection`，昵称从 Player 改成 Player-QA、保存及配置落盘通过。已操作卡片悬停和滚轮；窗口能完整放下七张卡片，本次没有发生列表位移，也没有录制瞬时闪烁的视频。
+- 狱门山：EXE SHA-256 `1627b653ecd72ed430562351805bd5b33b8d1fd6a551bafc301bad98e7a5881b`，SDK runtime `187fc560084be89667a19e6efd89d7c9c0731d37321cdfbe89c3ecd220405a81`。构建收据验证 20 对 PE/PDB，独立副本 16 项文件哈希一致。
+- `run-20261024T182017406Z-103400`：原生主菜单 → Return to Game Library → 确认；02:21:03.149 记录 Execution complete，.150 进入正常窗口关闭，.364 终止。进程消失，启动器显示游戏已退出，启动按钮可用。随后 `run-20261024T182112246Z-58620` 重新启动到标题，02:21:30.706 正常退出；两次均无 dump。
+- common、launch、community_sync、guwange_community 四项 CTest 通过。community_sync 新增真实客体线程上的 XHTTP 初始化失败返回值、错误码和非返回寄存器保持检查。
+- SDOJ：19 对 PE/PDB 验证通过，独立副本 12 项运行文件／符号哈希一致。EXE SHA-256 `16070991b22a02d108ca5b65328661fe48294254c121855bf211e5c3f6211c4a`。`run-20261024T182759514Z-55104` 在 Xbox 360／SCORE ATTACK (Team) 观察到原生分队 D、Shot 选择及第一关，自动射击／得分至 2558 后主动暂停，返回玩法菜单及外层主菜单，02:31:20.839 正常关闭，无 dump 和残留进程。
+- 同次日志记录 XHTTP 初始化返回不可用，未进入原来的 titlestorage fatal 路径。原作仍允许本地分组及开始游戏，并非只显示错误；没有实现团队服务器，也未进行团队成绩结算／上传验收。三个可选模块导出 003–005 的既有查询错误仍记录，未阻止上述流程。完整日志 SHA-256 `78cf76f257a374e7fc48cf382024a80896fa1ba65e3ca620aaa399d8ffe3db3b`。
+- SDK／SDOJ 的 community_sync、community、loopback、audio_trace、frame_delay 五项 CTest 通过；包规则／源码边界／原生 CLI 共 59 项检查通过（1 项既有权限跳过）。详细日志为 `.local/v071-investigation/{sdoj-native-r1,source-focused-r1}.log`。本轮未开启新的细粒度音效采样，不作为音效延迟验收。
+
 ## v0.7 最终构建与发行验收
 
 - 发行源码为 `00450c0e7bfa82e7f1f1243e5e23acf4f1c5011b`，七款组件及启动器在同一提交完成构建，`v0.7` 标签已推送。日志：`.local/guwange-analysis-r1/final-seven-build-r1.log`。

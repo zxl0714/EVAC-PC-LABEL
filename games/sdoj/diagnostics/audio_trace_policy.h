@@ -44,6 +44,49 @@ struct AudioEngineCommand {
     std::array<std::uint32_t,11> words{};
     bool operator==(const AudioEngineCommand&) const = default;
 };
+struct AudioDuration {
+    std::uint64_t count{}, total_us{}, max_us{}, over_5ms{}, over_10ms{};
+    void Add(std::uint64_t begin, std::uint64_t end) {
+        if (!begin || end < begin) return;
+        const auto us = end - begin;
+        ++count; total_us += us;
+        if (us > max_us) max_us = us;
+        over_5ms += us > 5000; over_10ms += us > 10000;
+    }
+};
+// One original worker on one host thread. No locks or guest-memory accesses.
+// Wait includes scheduling/preemption; it is not a measurement of CPU work.
+struct AudioWorkerTiming {
+    AudioDuration work, bank, wait, gap;
+    std::uint64_t window_us{}, loop_us{}, bank_us{}, wait_us{}, previous_loop_us{}, invalid{};
+    void Start(std::uint64_t now) {
+        if (!window_us) window_us = now;
+        if (loop_us || bank_us || wait_us) ++invalid;
+        gap.Add(previous_loop_us, now);
+        previous_loop_us = loop_us = now;
+        bank_us = wait_us = 0;
+    }
+    void BankBegin(std::uint64_t now) { bank_us = loop_us ? now : 0; }
+    void BankEnd(std::uint64_t now) {
+        if (bank_us) bank.Add(bank_us, now); else ++invalid;
+        bank_us = 0;
+    }
+    void WaitBegin(std::uint64_t now) {
+        if (loop_us) work.Add(loop_us, now); else ++invalid;
+        loop_us = bank_us = 0; wait_us = now;
+    }
+    void WaitEnd(std::uint64_t now) {
+        if (wait_us) wait.Add(wait_us, now); else ++invalid;
+        wait_us = 0;
+    }
+    bool Ready(std::uint64_t now) const {
+        return window_us && now >= window_us && now - window_us >= 1000000;
+    }
+    void Roll(std::uint64_t now) {
+        work = {}; bank = {}; wait = {}; gap = {}; invalid = 0;
+        window_us = now; // Keep previous_loop_us across summary windows.
+    }
+};
 inline std::optional<AudioEngineCommand> DecodeAudioEngineCommand(std::span<const std::uint8_t> bytes) {
     if (bytes.size()!=44) return {};
     AudioEngineCommand value;

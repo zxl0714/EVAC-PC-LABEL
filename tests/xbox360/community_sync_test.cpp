@@ -3,6 +3,7 @@
 #include <rex/logging.h>
 #include <rex/memory.h>
 #include <rex/runtime.h>
+#include <rex/ppc.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xam/community_service.h>
 #include <rex/system/xenumerator.h>
@@ -20,8 +21,23 @@
 using namespace rex::system;
 using namespace rex::system::xam;
 using namespace std::chrono_literals;
+REX_EXTERN(__imp__NetDll_XHttpStartup);
 namespace {
 void Check(bool ok,const char* text) {if(!ok)throw std::runtime_error(text);}
+void HttpUnavailable(rex::Runtime& runtime) {
+  // Execute the actual export on a real guest-owned thread. A logging-only
+  // stub leaves caller=1 in r3 and fails this check, as in SDOJ Team Play.
+  for(const uint32_t caller:{1u,2u}) {
+    PPCContext context{};
+    context.r3.u64=caller;context.r4.u64=0;context.r5.u64=0;
+    context.r6.u64=0x123456789abcdef0ull;
+    XThread::SetLastError(0);
+    __imp__NetDll_XHttpStartup(context,runtime.memory()->virtual_membase());
+    Check(context.r3.u32==0,"Unavailable XHTTP incorrectly reports startup success");
+    Check(XThread::GetLastError()==120,"XHTTP failure missing guest-thread last error");
+    Check(context.r6.u64==0x123456789abcdef0ull,"XHTTP failure changed unrelated register");
+  }
+}
 class Provider final : public CommunityService {
  public:
   uint32_t error=0;
@@ -142,7 +158,7 @@ int wmain(int argc,wchar_t** argv) {
     std::memset(runtime.memory()->TranslateVirtual(address),0,4096);
     std::promise<void> done;auto future=done.get_future();
     auto thread=make_object<XHostThread>(kernel,0,0,[&]{
-      try {Run(kernel,address,*provider);done.set_value();}
+      try {HttpUnavailable(runtime);Run(kernel,address,*provider);done.set_value();}
       catch(...) {done.set_exception(std::current_exception());}
       return 0;
     });

@@ -464,7 +464,18 @@ void ReXApp::LaunchModule() {
       OnGuestThreadExit(main_thread.get());
       REXLOG_INFO("Execution complete");
       if (!shutting_down_.load(std::memory_order_acquire)) {
-        app_context().CallInUIThread([this]() { app_context().QuitFromUIThread(); });
+        app_context().CallInUIThreadDeferred([this]() {
+          if (shutting_down_.load(std::memory_order_acquire)) return;
+          // A title returning to the game library must use the same close path
+          // as Alt+F4. Quitting only the UI loop bypasses OnClosing and enters
+          // subsystem destruction while guest/audio workers may still run.
+          if (window_) {
+            ui::UIEvent event(window_.get());
+            if (OnCloseRequested(event)) window_->RequestClose();
+          } else {
+            app_context().QuitFromUIThread();
+          }
+        });
       }
     });
   });

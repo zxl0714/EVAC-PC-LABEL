@@ -196,3 +196,50 @@ void SdojAudioEnginePlayReturned(PPCRegister& result,PPCRegister& engine) {
     if(prior.command && prior.owner==engine.u32)
         EngineEmit("native_play_return",engine.u32,0,*prior.command,prior.id,prior.began_us,result.u32,true);
 }
+
+namespace {
+constexpr unsigned MaxWorkerRecords = 180;
+std::atomic<unsigned> worker_records{};
+thread_local AudioWorkerTiming worker_timing;
+thread_local std::uint32_t worker_engine{}, worker_object{}, worker_target{}, worker_request{};
+bool WorkerEnabled() {
+    return REXCVAR_GET(sdoj_audio_trace) &&
+        worker_records.load(std::memory_order_relaxed) < MaxWorkerRecords;
+}
+}
+void SdojAudioWorkerReset(PPCRegister& engine,PPCRegister& worker) {
+    if (!WorkerEnabled()) return;
+    worker_timing = {}; worker_engine = engine.u32; worker_object = worker.u32;
+    worker_target = worker_request = 0;
+}
+void SdojAudioWorkerStart() {
+    if (WorkerEnabled()) worker_timing.Start(Now());
+}
+void SdojAudioWorkerBankBegin() {
+    if (WorkerEnabled()) worker_timing.BankBegin(Now());
+}
+void SdojAudioWorkerBankEnd() {
+    if (WorkerEnabled()) worker_timing.BankEnd(Now());
+}
+void SdojAudioWorkerWaitBegin(PPCRegister& target,PPCRegister& request) {
+    if (!WorkerEnabled()) return;
+    worker_timing.WaitBegin(Now()); worker_target = target.u32; worker_request = request.u32;
+}
+void SdojAudioWorkerWaitEnd(PPCRegister& result) {
+    if (!WorkerEnabled()) return;
+    const auto now = Now();
+    worker_timing.WaitEnd(now);
+    if (!worker_timing.Ready(now)) return;
+    const auto sample = worker_timing;
+    worker_timing.Roll(now); // Logger time belongs to the next loop gap, not wait.
+    const auto record = worker_records.fetch_add(1,std::memory_order_relaxed);
+    if (record >= MaxWorkerRecords) return;
+    REXLOG_INFO("SDOJ_AUDIO_WORKER t_us={} frame={} engine={:08X} worker={:08X} target={:08X} request_raw={} result_raw={:08X} window_us={} loops={} work_total_us={} work_max_us={} bank_calls={} bank_total_us={} bank_max_us={} waits={} wait_total_us={} wait_max_us={} wait_over_5ms={} wait_over_10ms={} gap_max_us={} invalid={} record={} no_guest_writes wall_time_not_cpu_or_speaker_latency",
+        now,rex::input::GuestInputFrame(),worker_engine,worker_object,worker_target,worker_request,result.u32,
+        now-sample.window_us,sample.work.count,sample.work.total_us,sample.work.max_us,
+        sample.bank.count,sample.bank.total_us,sample.bank.max_us,sample.wait.count,
+        sample.wait.total_us,sample.wait.max_us,sample.wait.over_5ms,sample.wait.over_10ms,
+        sample.gap.max_us,sample.invalid,record+1);
+    if (record+1 == MaxWorkerRecords)
+        REXLOG_INFO("SDOJ_AUDIO_WORKER record_limit_reached={} further_worker_observations_disabled",MaxWorkerRecords);
+}

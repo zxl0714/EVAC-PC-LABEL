@@ -218,7 +218,7 @@ void CopyChecks() {
 }
 void PlacementGuideCopyChecks() {
   const auto game=SyntheticCopyGame();
-  const fs::path guide=L"放置说明.txt";
+  const fs::path guide=L"README.txt";
   const std::string text="Placement instructions\nKeep this note unchanged.\n";
   for(bool same_source_guide:{false,true}) {
     Fixture fixture;Write(fixture.data/"main.bin","abc");

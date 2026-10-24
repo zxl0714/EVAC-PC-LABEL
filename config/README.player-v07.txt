@@ -1,7 +1,4 @@
-EVAC PC LABEL v0.7
-
-新增 ぐわんげ / Guwange（狱门山）Xbox 360 XBLA 版。
-New in this version: Guwange for Xbox 360 XBLA.
+EVAC PC LABEL
 
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
@@ -23,7 +20,7 @@ New in this version: Guwange for Xbox 360 XBLA.
 首次启动会校验数据；PS4 作品还会自动准备运行文件，请等待完成。
 虫姬二不装 DLC 也可玩 Ver.1.5；可选完整 DLC 放到 game-data/futari/dlc/。
 狱门山要保留 module/ 下的四个原始 DLL，它们是 Xbox 游戏数据；不要混入
-.xexp／.dllp 更新文件。各目录的“放置说明.txt”有对应要求。
+.xexp／.dllp 更新文件。各目录的 README.txt 有对应要求。
 
 解包 -------------------------------------------------------------------------
 ZIP／RAR 先用常规工具解压。如果里面已经有 default.xex／eboot.bin 和全部
@@ -99,7 +96,8 @@ Xbox 360 titles use Direct3D 12; PS4 titles use Vulkan. Runtime DLLs are include
 
 Install only the games you want. Use Game data to choose an extracted folder,
 or use the game-data paths listed above. Place default.xex (360) or eboot.bin
-(PS4) directly inside, preserving all files and subfolders. Click Refresh.
+(PS4) directly inside, preserving all files and subfolders. Each game's folder
+includes a bilingual README.txt with placement instructions. Click Refresh.
 Futari Ver.1.5 works without DLC; its optional content goes in futari/dlc/.
 Guwange uses XBLA base 0.0.0.4, Title ID 58410A78, without Title Update files.
 Keep all four original DLLs in module/; they are Xbox game data.

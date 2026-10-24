@@ -939,6 +939,16 @@ void NetDll_WSASetLastError_entry(u32 error_code) {
   XThread::SetLastError(error_code);
 }
 
+u32 NetDll_XHttpStartup_entry(u32 caller, u32 reserved, u32 flags) {
+  // No XHTTP transport exists yet. This API returns BOOL, not an HRESULT.
+  // Leaving the caller ID in r3 accidentally reports success, letting titles
+  // reach unimplemented authentication/endpoints instead of their error path.
+  REXLOG_WARN("XHttpStartup unavailable: caller={} reserved={} flags={:08X}",
+              caller, reserved, flags);
+  XThread::SetLastError(120);  // ERROR_CALL_NOT_IMPLEMENTED, guest thread-local.
+  return 0;
+}
+
 }  // namespace xam
 }  // namespace kernel
 }  // namespace rex
@@ -991,6 +1001,7 @@ REX_EXPORT(__imp__NetDll_send, rex::kernel::xam::NetDll_send_entry)
 REX_EXPORT(__imp__NetDll_sendto, rex::kernel::xam::NetDll_sendto_entry)
 REX_EXPORT(__imp__NetDll___WSAFDIsSet, rex::kernel::xam::NetDll___WSAFDIsSet_entry)
 REX_EXPORT(__imp__NetDll_WSASetLastError, rex::kernel::xam::NetDll_WSASetLastError_entry)
+REX_EXPORT(__imp__NetDll_XHttpStartup, rex::kernel::xam::NetDll_XHttpStartup_entry)
 
 REX_EXPORT_STUB(__imp__NetDll_UpnpActionCalculateWorkBufferSize);
 REX_EXPORT_STUB(__imp__NetDll_UpnpActionCreate);
@@ -1034,7 +1045,6 @@ REX_EXPORT_STUB(__imp__NetDll_XHttpSetCredentials);
 REX_EXPORT_STUB(__imp__NetDll_XHttpSetOption);
 REX_EXPORT_STUB(__imp__NetDll_XHttpSetStatusCallback);
 REX_EXPORT_STUB(__imp__NetDll_XHttpShutdown);
-REX_EXPORT_STUB(__imp__NetDll_XHttpStartup);
 REX_EXPORT_STUB(__imp__NetDll_XHttpWriteData);
 REX_EXPORT_STUB(__imp__NetDll_XNetConnect);
 REX_EXPORT_STUB(__imp__NetDll_XNetCreateKey);

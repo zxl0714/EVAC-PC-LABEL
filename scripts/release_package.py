@@ -24,7 +24,8 @@ V03_GAMES = (*GAMES, 'daioujou')
 V06_GAMES = (*V03_GAMES, 'esprade')
 V07_GAMES = (*V06_GAMES, 'guwange')
 PLACEMENT_GAMES = V07_GAMES
-PLACEMENT_NAME = '放置说明.txt'
+PLACEMENT_NAME = 'README.txt'
+LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
 MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade', 'guwange'}
 META = {'release.json', 'SHA256SUMS.txt'}
@@ -96,14 +97,16 @@ def config_name(version):
     return 'user-data/config.ini' if version in UPDATE_BASES or renamed(version) else 'config.ini'
 
 
-def placement_sources(version):
+def placement_sources(version, name=PLACEMENT_NAME):
+    if name not in (PLACEMENT_NAME, LEGACY_PLACEMENT_NAME):
+        raise ValueError('Unknown placement guide name')
     if not version or not renamed(version):
         return {}
     games = release_games(version)
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
     placement = V07_GAMES if 'guwange' in games else V06_GAMES
-    return {'game-data/' + key + '/' + PLACEMENT_NAME: ROOT / 'config/game-data' / (key + '.txt')
+    return {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
             for key in placement}
 
 
@@ -266,9 +269,9 @@ def redist_directory():
     return max(candidates, key=lambda path: tuple(int(value) for value in path.parents[1].name.split('.')))
 
 
-def validate_public_name(name, games, selection=GAMES, version=None):
+def validate_public_name(name, games, selection=GAMES, version=None, placement_name=PLACEMENT_NAME):
     allowed = runtime_names(games, selection=selection, version=version) | {'config.ini', 'user-data/config.ini', 'README.txt', batch_name(version), 'SOURCE.txt'}
-    allowed.update(placement_sources(version))
+    allowed.update(placement_sources(version, placement_name))
     allowed.update(extraction_sources(version))
     if name in allowed or name.startswith('licenses/'):
         return
@@ -280,14 +283,14 @@ def validate_public_name(name, games, selection=GAMES, version=None):
     raise ValueError('File is not in the Public allowlist: ' + name)
 
 
-def validate_update_name(name, games, selection=V03_GAMES, version=None):
+def validate_update_name(name, games, selection=V03_GAMES, version=None, placement_name=PLACEMENT_NAME):
     normalized = safe_name(name).casefold()
     if any(normalized == item.rstrip('/') or normalized.startswith(item)
            for item in UPDATE_PRESERVED):
         raise ValueError('Update must preserve existing player files: ' + name)
     if renamed(version) and normalized == LEGACY_LAUNCHER.casefold():
         return
-    validate_public_name(name, games, selection, version)
+    validate_public_name(name, games, selection, version, placement_name)
 
 
 def selected_items(requested, allowed, label):
@@ -353,10 +356,10 @@ def validate_windows_item(item, record, games, selection, required, runtime):
             raise ValueError('Invalid runtime role: ' + name)
         return
     if name.startswith('game-data/'):
-        if name not in placement_sources(record['version']) or item['role'] != 'documentation':
+        if name not in placement_sources(record['version'], record.get('placementGuideName', LEGACY_PLACEMENT_NAME)) or item['role'] != 'documentation':
             raise ValueError('Unselected game data in package: ' + name)
         return
-    validate_public_name(name, games, selection, record['version'])
+    validate_public_name(name, games, selection, record['version'], record.get('placementGuideName', LEGACY_PLACEMENT_NAME))
     if name in extraction_sources(record['version']):
         if item['role'] != 'documentation':
             raise ValueError('Invalid extraction-helper role: ' + name)
@@ -371,6 +374,8 @@ def verify_tree(directory, games=None):
     selection = release_games(release.get('version', ''))
     games = games or catalogue(selection)
     package_format = release.get('format')
+    guide_name = release.get('placementGuideName', LEGACY_PLACEMENT_NAME)
+    guides = placement_sources(release['version'], guide_name) if release['flavor'] != 'Update' else {}
     if type(package_format) is not int or package_format not in (1, 2, 3) or release.get('flavor') not in ('Internal', 'Public', 'Update') or release.get('games') != list(selection):
         raise ValueError('Invalid release identity')
     required_data = windows_policy(release, games, selection) if package_format in (2, 3) else {}
@@ -389,7 +394,7 @@ def verify_tree(directory, games=None):
             validate_windows_item(item, release, games, selection, required_data, runtime)
         elif release['flavor'] in ('Public', 'Update'):
             validator = validate_update_name if release['flavor'] == 'Update' else validate_public_name
-            validator(name, games, selection, release['version'])
+            validator(name, games, selection, release['version'], guide_name)
             allowed_roles = ('runtime', 'documentation', 'license', 'redist') if release['flavor'] == 'Update' else (
                 'runtime', 'config', 'documentation', 'license', 'redist')
             if item['role'] not in allowed_roles:
@@ -423,7 +428,6 @@ def verify_tree(directory, games=None):
                 raise ValueError('Old shortcut entry must be identical to the native launcher')
         elif LEGACY_LAUNCHER in expected:
             raise ValueError('Fresh packages must use only the new launcher name')
-    guides = placement_sources(release['version']) if release['flavor'] != 'Update' else {}
     for name, source in guides.items():
         reject_link(source)
         item = expected.get(name)
@@ -611,7 +615,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         for key, report in reports.items():
             print('Copying complete data: ' + key, flush=True)
             excluded = {'dlc'} if key == 'futari' else set()
-            if placement_sources(version):excluded.add(PLACEMENT_NAME.casefold())
+            if placement_sources(version):excluded.update((PLACEMENT_NAME.casefold(), LEGACY_PLACEMENT_NAME.casefold()))
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
                       excluded, manifest_only=package_format in (2, 3) or key in MANIFEST_ONLY_DATA)
         if dlc:
@@ -625,6 +629,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     if len({item['path'] for item in payload}) != len(payload):
         raise ValueError('Duplicate package destination')
     release = dict(format=package_format, version=version, flavor=flavor, games=list(selection), sourceCommit=commit,
+        placementGuideName=PLACEMENT_NAME,
         buildSnapshots={key: record['sourceSnapshot']['sha256'] for key, record in receipts.items()},
         files=sorted(payload, key=lambda item: item['path']),
         gameplayAcceptance='Recorded separately; packaging does not perform gameplay acceptance',

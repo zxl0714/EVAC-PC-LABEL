@@ -38,7 +38,7 @@ EVAC PC LABEL v0.4
 只安装一款游戏也能使用；ESP Ra.De. 暂未接入。
 虫姬二不装 DLC 也能玩 Ver.1.5 本体；dlc/ 留空或不存在均可，无须改配置。
 Black Label 和 Ver1.01 才需要对应 DLC，内容包目录和配套头文件需完整保留。
-game-data 下各目录的“放置说明.txt”介绍具体放法。
+game-data 下各目录的 README.txt 介绍具体放法。
 绊地狱先将本体目录里的内容放入 game-data/ketsui/；可选的 01.02 更新也把
 目录里的内容覆盖到同一位置。不要再套 CUSA09062-app／CUSA09062-patch 两层。
 保留原始本体和更新文件；想退回 01.00 时重新提取本体到一个新目录。

@@ -95,7 +95,7 @@ void NestedRootChecks(Fixture& fixture) {
     const std::array files{DataFile{entry,3,hash,true},DataFile{"res/asset.bin",3,hash,false}};
     Game game{"fixture","Fixture",entry==std::string_view("default.xex")?"xbox360":"ps4",
               "game-data/fixture","runtime/fake.exe",true,false,files,{}};
-    Write(source/FromUtf8("放置说明.txt"),"authored placement instructions");
+    Write(source/"README.txt","authored placement instructions");
     auto inspect=[&](const auto& data){return Inspect(game,fixture.root,data,CheckLevel::Full);};
     Require(inspect(source).state=="missing_data","placement-only directory is not an installed game");
     Write(inner/entry);Write(inner/"res/asset.bin");
