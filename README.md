@@ -8,7 +8,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
-本页介绍 v0.6 开发版；已发布版本的下载入口见“下载与备份”。
+本页介绍 v0.6，目前限小范围分享。公开下载见“下载与备份”。
 
 ## 支持的游戏
 
@@ -92,7 +92,7 @@ nickname = Player
 
 ## 下载与备份
 
-当前版本：**v0.4**。更新内容见[更新记录](docs/CHANGELOG.md)。
+公开下载版本：**v0.4**；v0.6 由维护者定向分享。更新内容见[更新记录](docs/CHANGELOG.md)。
 
 - [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256)。不含游戏数据。
 - 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。

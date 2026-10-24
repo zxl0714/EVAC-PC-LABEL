@@ -6,7 +6,7 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.6 accepted local releases — latest, supersedes pending work below
+### v0.6 delivered privately — latest, supersedes pending work below
 
 Player source is fixed at cca37bb69e87cddeb15fedbe6221eccd1354b66a and pushed.
 Six-game build .local/v06-final-six-build-r1.log passes: 56 Xbox, six PS4 and
@@ -35,13 +35,18 @@ Both windows are closed. UI evidence: .local/v06-public-ui-r1.json; screenshot:
 .local/v06-release-media/launcher-v0.6.jpg. No game was rerun for packaging.
 Owned old loopback 94680 and wrapper 102464 have exited; databases/logs remain.
 
-OSS upload has NOT happened. The unauthenticated GitHub repo API returns 404;
-the repository has not been made public. An async question asks whether to
-publish the source repository now or keep distribution limited to people with
-repository access. Await the human choice; do not change visibility or publish
-public downloads on inferred approval. Keep the goal active. The public README
-still links verified v0.4, and should change only after v0.6 upload is verified.
-No historical QQ work. The following gameplay evidence remains accepted.
+The user chose to keep the repository private with limited sharing, then
+explicitly requested uploading first and handling the repository themselves.
+Both ZIPs, their checksums and launcher-v0.6.jpg are uploaded under OSS v0.6/
+with per-object ACL private. Bucket permissions and old objects are unchanged.
+CLI upload/CRC checks passed; authenticated size/SHA metadata, anonymous 403,
+signed 32-byte header comparison and checksum readback pass. No full download.
+Evidence is .local/v06-oss-{program,internal,screenshot}-verified-r1.json;
+these ignored files contain seven-day signed URLs, expiring October 31, 2026
+around 12:20-12:26 +08:00. Never commit signed URLs or expose them in public
+README. Repository visibility was not changed. Public README retains verified
+v0.4 downloads and identifies v0.6 as limited sharing. No historical QQ work.
+The v0.6 implementation and delivery are complete; do not restart accepted work.
 
 The focused gameplay work is complete. ESP ARCADE / ARCADE PLUS / SUPER EASY,
 formal HTTPS score/replay upload, native ranking/download, full online/offline
@@ -73,9 +78,9 @@ and CRLF-aware diff check pass. The 48 manifest files were copied to the NEW
 game-data/esprade directory; native full inspection verifies all 48 hashes.
 Original PKGs and merged preparation inputs are unchanged.
 
-Remaining: the source-access/distribution decision above, verified OSS upload
-as appropriate, and public download documentation. Build and ZIP work is done.
-Keep this goal active until actual final artifacts pass. No historical QQ work.
+No v0.6 implementation or delivery work remains. Repository access is handled
+by the user; a later public release or new signed links require a new request.
+Builds, ZIPs and v0.6 source tag are frozen. No historical QQ work.
 
 ### v0.6 PS4 asynchronous presentation — current candidate
 

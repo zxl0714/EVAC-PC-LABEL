@@ -8,7 +8,7 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
-This page describes the v0.6 development version. Published builds are listed under “Downloads and backups”.
+This page describes v0.6, currently shared with a limited group. Public downloads are listed under “Downloads and backups”.
 
 ## Supported games
 
@@ -92,7 +92,7 @@ Set `enabled` to `false` to play offline.
 
 ## Downloads and backups
 
-Current version: **v0.4**. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
+Public download: **v0.4**. The maintainer shares v0.6 directly with a limited group. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
 - [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256). Game data is not included.
 - Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.
