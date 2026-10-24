@@ -37,21 +37,23 @@ void NicknameChecks() {
   Require(launcher::NicknameIssues(ini,"Player").empty(),"Universal ASCII name warned");
   Require(launcher::NicknameIssues(ini,"Ｐｌａｙｅｒ").empty(),"NFKC-compatible fullwidth Latin falsely warned");
   const auto aliases=launcher::NicknameIssues(ini,"ルル");
-  Require(aliases.size()==3,"Supported PS4 kana incorrectly warned / Xbox limitations missed");
+  Require(aliases.size()==4,"Supported PS4 kana incorrectly warned / Xbox limitations missed");
   for(const auto& issue:aliases)Require(issue.alias && issue.missing==U"ル" && issue.native_name==LegacyDisplayNickname("ルル"),"Duplicate glyphs/alias mismatch");
+  Require(std::any_of(aliases.begin(),aliases.end(),[](const auto& issue){return issue.game->id=="guwange";}),
+          "Guwange native nickname alias warning missing");
   const auto symbols=launcher::NicknameIssues(ini,"A@A");
   Require(symbols.size()==4,"Missing PS4 ASCII glyph was not detected");
   for(const auto& issue:symbols)Require(!issue.alias && issue.missing==U"@","ASCII rule incorrectly applied to PS4 font");
   const auto astral=launcher::NicknameIssues(ini,"😀😀");
   for(const auto& issue:astral)Require(issue.game->integrated && issue.game->community_supported,"Unavailable title leaked into shared nickname warnings");
-  Require(astral.size()==7,"Emoji missed in a title/font variant");
+  Require(astral.size()==8,"Emoji missed in a title/font variant");
   for(const auto& issue:astral)Require(issue.missing==U"😀","Surrogate pair split or duplicate warning");
   const auto independent=Ini::Parse("[game.futari.community]\nnickname=Separate\n");
   const auto overridden=launcher::NicknameIssues(independent,"ルル");
-  Require(overridden.size()==2 && std::none_of(overridden.begin(),overridden.end(),[](const auto& item){return item.game->id=="futari";}),"Independent game nickname warning leaked from shared form");
+  Require(overridden.size()==3 && std::none_of(overridden.begin(),overridden.end(),[](const auto& item){return item.game->id=="futari";}),"Independent game nickname warning leaked from shared form");
   Require(!launcher::HasNicknameGlyph("ketsui",U'路',"01.00") && launcher::HasNicknameGlyph("ketsui",U'路',"01.02"),"Ketsui base/update glyph differences ignored");
   const auto long_name=launcher::NicknameIssues(ini,"abcdefghijklmnopq");
-  Require(long_name.size()==7,"Native length loss not warned");
+  Require(long_name.size()==8,"Native length loss not warned");
   for(const auto& issue:long_name)Require(issue.shortened && issue.missing.empty() && !issue.alias,"Length warning mislabeled as missing glyph");
   Require(launcher::NicknameCodepoints("Aル😀")==U"Aル😀","UTF-8 warning character decoding");
 }

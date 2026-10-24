@@ -80,6 +80,7 @@ F11／Alt+Enter 切换全屏；Alt+F4 关闭；F8 在日志中标记当前时间
 enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社区身份，建议固定
 使用自己的昵称。服务检查提交格式与录像完整性，不验证昵称归属。
 狱门山在线合作、最大往生团队评分、大往生 CUSTOM 成绩提交暂未接入。
+狱门山本地双人尚未验收；本版支持三种单人玩法。
 
 最大往生 Frame Delay：在 [game.sdoj] 下设置 frame_delay = 1。
 1 为默认低延迟档，2 为平衡档，3 为原始路径；已有明确设置会保留。
@@ -140,7 +141,8 @@ under [community] for offline play. Use native ranking/replay menus. The same
 nickname represents the same identity within each game; keep a distinctive
 name. Formats and replay integrity are checked, not ownership of nicknames.
 Guwange online co-op, SDOJ team scores and DaiOuJou CUSTOM submissions are not
-integrated. In [game.sdoj], frame_delay=1 is low latency (default), 2 balanced,
+integrated. Guwange supports the three single-player modes; local two-player
+play has not been validated. In [game.sdoj], frame_delay=1 is low latency (default), 2 balanced,
 3 original. This is an internal scheduling policy, not total device-to-display
 latency. Existing explicit preferences are preserved. Restart after changes.
 

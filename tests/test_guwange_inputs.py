@@ -153,10 +153,11 @@ class GuwangeInputTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes(), b'authored patch placeholder')
                 path.unlink()
 
-    def test_build_covers_nested_xex_dlls_without_early_network_enablement(self):
+    def test_integrated_build_covers_native_community_and_nested_xex_dlls(self):
         game = next(g for g in load(ROOT / 'games/catalogue.json') if g['id'] == 'guwange')
-        self.assertFalse(game['communitySupported'])
-        self.assertFalse(game['integrated'])
+        self.assertTrue(game['communitySupported'])
+        self.assertTrue(game['integrated'])
+        self.assertFalse(game['comingSoon'])
         records = targets(self.manifest, game)
         self.assertEqual(len(records), 5)
         source = registry_source(records, 'guwange')

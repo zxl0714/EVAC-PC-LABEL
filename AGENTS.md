@@ -17,7 +17,37 @@ QQ 人均233.3 at 15:50 on October 24. Do not repeat old delivery work below.
 Latest user scope decision (October 24): cancel long-running gameplay tests.
 Do not reinstate the >4.5-minute gate or create a soak/input harness for it.
 Reuse the accepted thunk-cache mechanism tests and actual mode switching;
-finish remaining short input checks, HTTPS community and release delivery.
+reuse the now-passed short input and HTTPS checks, then finish release delivery.
+
+Production Guwange service installed October 24 20:55 from 2bf184f41fb5:
+/opt/cave-community/guwange-current -> releases/guwange-2bf184f41fb5,
+PID2695508, loopback18090, shared /cave/api/v1/games/guwange route. Seven
+healths/two legacy routes/unknown404 and first empty DB backup passed; six
+peer PIDs and pointers unchanged. Receipt: .local/v07-guwange-deploy-r1/installed.json.
+Catalogue is now enabled in DEVELOPMENT for normal launcher/HTTPS acceptance;
+no v0.7 release yet. Do not rerun the first-install script or fabricate scores.
+Actual production closure has now passed in r19 below; old-title smoke and
+final same-commit build/package/delivery remain.
+
+Latest r19 is CLOSED: normal launcher -> run 20261024T130448514Z-90800,
+EXE72f9f1bc161e57b8faa095b7ed1a1034a5c732c9415b74e7d9e6dfec250c8f3c.
+Arrange Xbox360 / ScoreAttack / 1P / Shishin naturally ended at 5336. Production
+HTTPS views9/10 score, estimate and replay uploads returned200; native board
+showed Guwange-QA/5336 and attachment. Download183230bytes and native Arrange
+Data2 (GWN_RP_XB01.bin) both match upload SHA
+faf6fd90028a8739b90eade2aa23c8401537cb0fe27695a6bdba24e3cd588fdc.
+Data1 preserved. Original x1 replay finished naturally and returned to rankings.
+Normal close21:14:39, PID90800 gone/no dump; launcher106744 closed normally too.
+Evidence: .local/guwange-analysis-r1/production-community-r19.json.
+Do not repeat this accepted closure. Root runtimes/frozen releases unchanged.
+Seven focused CTests and20 PE/PDB pairs passed before launch. Readme/agent/data
+guides and v0.7 version defaults now prepared. Source tests r20:557 tests pass,
+one existing symlink-privilege skip; audit2356files/22submodules/no game data.
+Final same-commit seven-title build and old-title smoke remain. Do not edit
+tracked source/docs during a live build receipt.
+Local two-player assessment: SDK only signs in user0; SDL device enumeration or
+the native 1P/2P starting-side menu does not establish two-player support.
+This is documented as not validated; don't expand v0.7 into co-op work.
 
 Latest r17 is CLOSED: run 20261024T124715195Z-12552 used the same r16 EXE
 with bounded input diagnostics. Arrange Xbox 360 / Offline / 1P reached stage 1,
@@ -37,8 +67,8 @@ native Blue Data2 save has the same hash, and Data1 was preserved. Full x1 repla
 finished naturally, displayed its completion dialog and returned to rankings.
 Normal Alt+F4 closed at 20:41:17; PID71660 is gone, no crash dump. Five focused
 CTests passed before launch. This accepts the actual LOOPBACK score/replay
-closure, not production HTTPS. No game is currently running. Catalogue remains
-disabled until the remaining acceptance; root player runtimes are unchanged.
+closure, not production HTTPS. No game is currently running. Root player
+runtimes are unchanged; latest catalogue development state is described above.
 Server session 50339 is the previous loopback handle: revalidate before use.
 
 Earlier actual r15: the approved shell escalation successfully launched the game

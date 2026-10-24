@@ -19,8 +19,9 @@ nickname = Player
 | `/cave/api/v1/games/sdoj/` | `127.0.0.1:18087` | `/var/lib/cave-community/sdoj/community.sqlite3` |
 | `/cave/api/v1/games/daioujou/` | `127.0.0.1:18088` | `/var/lib/cave-community/daioujou/community.sqlite3` |
 | `/cave/api/v1/games/esprade/` | `127.0.0.1:18089` | `/var/lib/cave-community/esprade/community.sqlite3` |
+| `/cave/api/v1/games/guwange/` | `127.0.0.1:18090` | `/var/lib/cave-community/guwange/community.sqlite3` |
 
-v0.7 准备中的 Guwange 使用 `/cave/api/v1/games/guwange/`、`127.0.0.1:18090` 和独立的 `/var/lib/cave-community/guwange/community.sqlite3`，目前尚未部署。模板包含这条路由，安装时只启用已就绪的作品。
+Guwange 已部署独立服务及每日备份，源码固定为 `2bf184f41fb5`，版本指针为 `/opt/cave-community/guwange-current`。七款合集入口、两条旧入口及首次备份检查通过，原六款服务进程和版本指针保持不变。
 
 虫姬二和绊地狱两条是反向代理别名，旧 `/futari/api/v1/`、`/ketsui/api/v1/` 入口继续保留，不需要搬迁数据库。未知游戏路径返回 404，不能落入另一款游戏的榜单。
 
@@ -114,7 +115,7 @@ python3 -B -m unittest discover -s tests -p 'test_guwange_community_server.py' -
 
 客户端沿用共享 endpoint、联网开关和昵称。原生流程先提交成绩，再上传合资格录像；服务器将模式、角色、分数、关卡与对应榜单绑定，完整保存原录像字节。成绩时间与录像时间由游戏分别生成，不要求相等。新昵称的单条个人最佳查询返回未上榜的零记录，避免原游戏直接解引用空行；该兼容结果不写入数据库，也不出现在公开榜单。
 
-离线协议、HTTP 收发和备份恢复检查使用临时数据库；真实游戏的提交、读榜、下载和完整回放仍须单独验收。详细进度见 [验收矩阵](../docs/TEST_MATRIX.md)。
+离线协议、HTTP 收发和备份恢复检查使用临时数据库。本机实际 Blue 2370 分已完成完整联网流程；正式 HTTPS 也通过正常合集入口的 Arrange／Shishin 5336 分提交、综合与角色榜读回、录像上传下载、保存及完整回放。两榜关联同一份 183230 字节原生录像。详细身份见 [验收矩阵](../docs/TEST_MATRIX.md)。
 
 ## 服务器目录与部署
 

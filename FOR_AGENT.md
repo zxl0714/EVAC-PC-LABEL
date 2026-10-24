@@ -3,7 +3,7 @@
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
 当前开发目标为 v0.7，已发行版本为 v0.6.1；发行状态与实际验收范围见实施计划和验收矩阵。
 
-已有六款游戏完成接入，Guwange 正在开发。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
+开发分支已接入七款游戏，Guwange 的三种单人玩法、保存及正式社区短流程已验证，v0.7 正在完成发行回归。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
 先读 [README](README.md) 和 [AGENTS.md](AGENTS.md)。实现计划、实际覆盖和技术分析分别在 [实施计划](docs/IMPLEMENTATION_PLAN.md)、[验收矩阵](docs/TEST_MATRIX.md) 与 [分析入口](docs/ANALYSIS.md)。调查过程留在这些文档中，本文件介绍如何接手开发。
 
@@ -25,19 +25,21 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 | prepared/、user-data/、logs/、cache/ | 独立的准备镜像、存档录像、日志和缓存 |
 | .local/、releases/ | 开发现场、证据与发行输出，不进 Git |
 
-游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou、esprade。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 使用 CUSA15155 本体覆盖 01.04 更新后的单目录，共用 PS4 运行时。
+游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou、esprade、guwange。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 使用 CUSA15155 本体覆盖 01.04 更新后的单目录，共用 PS4 运行时。
 
-v0.7 开发中的 Guwange 使用 ID `guwange`。其 `module/*.dll` 是 Xbox 360 XEX2 游戏模块，不能作为 Windows DLL 直接加载；生成器分别将四个同址模式模块转换为独立原生库。本体与 TU1 的程序地址不同，以 `games/guwange/inputs.json` 和 `data.json` 的实际哈希为准。
+Guwange 的 `module/*.dll` 是 Xbox 360 XEX2 游戏模块，不能作为 Windows DLL 直接加载；生成器分别将四个同址模式模块转换为独立原生库。本体与 TU1 的程序地址不同，以 `games/guwange/inputs.json` 和 `data.json` 的实际哈希为准。
 
 Guwange 的 Xbox 360 Arrange 自动射击，方向键移动角色，右摇杆移动式神、RT 召唤式神、B 炸弹；键盘对应方向键、I/K/J/L、W、X。`[game.guwange.keyboard]` 的 `right_stick_up/down/left/right` 可改式神方向，支持多个键或 `none`，与其他绑定重复时报错。此默认仅在 Guwange 生效，其他作品键位不变；SDL 手柄保留真实右摇杆。
 
 本作社区适配位于 `games/guwange/community/`，服务端为 `server/games/guwange.py`，使用独立数据库和 `/games/guwange` API。原生 view 1–4／5–8／9–12 分别对应普通／Blue／Arrange，每组为综合及三角色榜；保存原生录像字节，不复用其他作品的录像格式。机制测试为 `guwange_replay`、`guwange_community`、`guwange_community_loopback`。
 
-正式部署模板为 `server/deploy/cave-guwange*.in` 和共享 nginx 片段中的 18090 路由；使用独立 `guwange-current`、数据库及每日快照。增量上线步骤见 `server/README.md`，当前仍等实际联网验收，不要将模板存在视为已部署。
+正式 Guwange 服务已部署，使用独立 `guwange-current`、18090 端口、数据库及每日快照。正常合集入口已完成 Arrange 5336 分的 HTTPS 提交、读榜、录像上传下载、落盘和完整回放；部署模板及增量更新步骤见 `server/README.md`。
 
 Guwange 的单条 XUID 枚举用于结算前读取个人最佳成绩：适配为显式用户查询，新昵称返回 rank=0／rating=0 的本地记录。不能返回空行指针，也不能把 around-user 的第一名当成该玩家的成绩；公开榜与多条周边查询不补这条记录。保持原游戏的成绩比较和上榜资格，不通过预填服务端成绩规避空榜。
 
-开发验收期间，正常目录能力仍关闭。可用 `py -3.12 -m server.games.guwange --database '<独立测试目录>/community.sqlite3' --port 0` 建立本机服务，再给独立测试宿主传入 `--guwange_community_test_endpoint=http://127.0.0.1:<服务输出端口>/cave/api/v1`。此入口不接受远程地址，也不与正常社区 provider 同时启用；实际资格、提交与录像流程仍由游戏驱动。不要向正式榜单提交自造记录。
+正常启动沿用共享 `[community]` 配置。开发协议检查可用 `py -3.12 -m server.games.guwange --database '<独立测试目录>/community.sqlite3' --port 0` 建立本机服务，再给独立测试宿主传入 `--guwange_community_test_endpoint=http://127.0.0.1:<服务输出端口>/cave/api/v1`；该开发入口要求关闭正常社区配置，仅接受 loopback，不能与正常 provider 同时启用。实际资格、提交与录像流程由游戏驱动，不向正式榜单提交自造记录。
+
+v0.7 以单人玩法为验收范围。SDK 当前只提供 user 0 的登录身份；SDL 的多设备输入不等于第二个已登录用户。菜单里的 1P／2P Side Start 是起始侧选择，不能据此宣称本地双人已通过。合作模块已生成但在线合作未接入；第二用户身份、设备归属及原生加入流程留作后续独立工作。
 
 当前数据合同固定为 XBLA 本体 0.0.0.4，不应用 TU1。`scripts/Extract-Xbla.ps1` 在 Windows PowerShell 5.1 下提取已展开 ZIP 内的 LIVE／PIRS 容器，输出目录须新建、父目录已存在。实际本体的 29 个输出文件与 `games/guwange/data.json` 全部一致；这项提取校验不是游戏运行验收。格式边界与命令见 `docs/GAME_DATA.md`，自造容器回归为 `tests/test_xbla_extract.py`。
 
@@ -95,8 +97,8 @@ py -3.12 scripts/ps4_sources.py verify
 
 ~~~powershell
 ./scripts/Build.ps1 -Games espgaluda2 -DataDirectory 'D:/Games/G2' -Jobs 2
-./scripts/Build.ps1 -Games @('espgaluda2','futari','sdoj','ketsui','daioujou','esprade') -Jobs 2
-./scripts/Test.ps1 -Scope Native -Games @('espgaluda2','futari','sdoj','ketsui','daioujou','esprade')
+./scripts/Build.ps1 -Games @('espgaluda2','futari','sdoj','guwange','ketsui','daioujou','esprade') -Jobs 2
+./scripts/Test.ps1 -Scope Native -Games @('espgaluda2','futari','sdoj','guwange','ketsui','daioujou','esprade')
 ~~~
 
 Xbox 360 的 -NativeOnly 构建无 ROM 的机制／分析工具，不代替游戏生成。PS4 宿主本身无须 ROM 即可编译，玩家数据在启动时准备。默认两个任务、低优先级，构建不自动启动游戏。
@@ -117,7 +119,7 @@ GUI 和命令行共用 PrepareLaunch 的完整检查。PS4 运行程序共用配
 收据检查入口：
 
 ~~~powershell
-py -3.12 scripts/build_receipt.py verify-host --games espgaluda2,futari,sdoj
+py -3.12 scripts/build_receipt.py verify-host --games espgaluda2,futari,sdoj,guwange
 py -3.12 scripts/ps4_build_receipt.py verify
 py -3.12 scripts/launcher_receipt.py verify
 ~~~
@@ -225,9 +227,9 @@ ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片�
 先提交发行源码并配套构建，再执行：
 
 ~~~powershell
-./scripts/Release.ps1 -Version 0.6
-./scripts/Release.ps1 -Flavor Internal -Version 0.6 -DataGames futari
-./scripts/Release.ps1 -Flavor Internal -Version 0.6 -DataGames all -FutariContent all -Symbols
+./scripts/Release.ps1 -Version 0.7
+./scripts/Release.ps1 -Flavor Internal -Version 0.7 -DataGames guwange
+./scripts/Release.ps1 -Flavor Internal -Version 0.7 -DataGames all -FutariContent all -Symbols
 ~~~
 
 默认 Flavor 为 Public。Internal 的 -DataGames 接受游戏 ID 数组或 all；
@@ -247,7 +249,7 @@ Internal 另允许所选数据清单。历史 format=1／2 验证保留，新入
 
 v0.7 profile 包含七款运行组件、七份放置说明及 PS4／XBLA 两个提取脚本；
 内部包可用 `-Version 0.7 -DataGames guwange` 仅选狱门山数据，或 `all`
-选择全部作品。实际可玩／联网验收完成并开放目录能力前，正式打包仍会拒绝。
+选择全部作品。打包前须完成所选运行组件、启动器及 SDK 的同提交构建认证。
 旧版本继续按原游戏集与六份说明验证，不因新增 Guwange 改写历史清单。
 
 每次创建 releases/ 下的新输出目录，保留旧发行。一次公共构建认证之后，每个最终 ZIP 只在新目录解压验收一次：

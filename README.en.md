@@ -8,13 +8,13 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
-This page describes v0.6.1, currently shared with a limited group. Public downloads are listed under “Downloads and backups”.
+Download links are listed under “Downloads and backups”.
 
 ## Getting started
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, and SDOJ require Direct3D 12; Ketsui, DaiOuJou, and ESP Ra.De. require Vulkan. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, and ESP Ra.De. require Vulkan. Application runtime libraries are included in the player package.
 
 ### Launch
 
@@ -35,8 +35,9 @@ Prepare only the games you want:
 | 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
 | 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; complete merged 01.04 data |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
+| ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
 
-### Extracting ISO / PKG files
+### Extracting ISO / PKG / XBLA files
 
 - **Xbox 360 ISO**: download a [Windows Release build of extract-xiso](https://github.com/XboxDev/extract-xiso/releases), then run `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`. The output should contain `default.xex` directly.
 - **PS4 PKG**: download and fully unpack [PkgTool from LibOrbisPkg v0.2](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2). The player package includes `tools/Extract-Ps4Pkg.ps1` to extract both game files and `sce_sys` metadata. Open PowerShell in the collection folder and replace these example paths:
@@ -50,6 +51,14 @@ Each output folder must not already exist. The game files appear inside its `uro
 
 In a source checkout, the helper is at `scripts/Extract-Ps4Pkg.ps1`.
 
+**Guwange XBLA**: unpack the ZIP/RAR first, then extract the LIVE/PIRS content package inside it (usually a long filename without an extension) using the included helper:
+
+```powershell
+.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\original-content-package" -OutputDir "D:\GameExtract\guwange"
+```
+
+Create the parent folder `D:\GameExtract` first; the output folder `guwange` must not already exist. Windows PowerShell 5.1 is sufficient, with no additional extractor required. In a source checkout, use `scripts/Extract-Xbla.ps1`. Use base version 0.0.0.4 without a Title Update.
+
 ### Where to put game data
 
 The complete program package creates the folders below, each with a bilingual `放置说明.txt` placement guide. Use **Choose data folder…** to use an existing folder without modifying its files, or **Copy into collection…** to copy it to a default location. The destination must be empty or contain only its placement guide.
@@ -62,6 +71,7 @@ The complete program package creates the folders below, each with a bilingual `�
 | SDOJ | `game-data/sdoj/` | `default.xex`, `CA022100.bin`, `CA022110.bin`, and the remaining resources |
 | DaiOuJou | `game-data/daioujou/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | ESP Ra.De. | `game-data/esprade/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
+| Guwange | `game-data/guwange/` | `default.xex`, `module/`, `game_res/`, `res/`, and the remaining resources |
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.md).
 
@@ -91,6 +101,8 @@ The **Config file** action at the bottom opens `user-data/config.ini`. Edit audi
 
 Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
 
+Guwange's **Arrange Xbox 360** mode fires automatically. Use the arrow keys / left stick to move your character, `I / K / J / L` (up / down / left / right) or the right stick to move the Shikigami, `W / RT` to summon it, and `X / B` to bomb. Customize the Shikigami keys with `right_stick_up/down/left/right` under `[game.guwange.keyboard]`; other games' bindings are unchanged.
+
 Face-button reference:
 
 | Position | Xbox 360 | PS4 | Keyboard |
@@ -106,7 +118,7 @@ Keep the whole `user-data/` folder when backing up or moving the collection. It 
 
 Online features are enabled by default, with no registration required. Set your nickname in the launcher, then use the community service through the game's leaderboard and replay screens. Each title has separate leaderboards, with score eligibility following the game's rules.
 
-Within a game, the same nickname represents the same community identity, so choose a distinctive name and keep using it. The service checks submission formats and replay integrity, but does not authenticate nickname ownership. SDOJ team scores and DaiOuJou CUSTOM score submissions are not integrated.
+Within a game, the same nickname represents the same community identity, so choose a distinctive name and keep using it. The service checks submission formats and replay integrity, but does not authenticate nickname ownership. SDOJ team scores and DaiOuJou CUSTOM score submissions are not integrated. Guwange supports Arcade / Blue / Arrange leaderboards and replays; online co-op is not integrated, and local two-player play has not been validated.
 
 ```ini
 [community]
@@ -137,7 +149,7 @@ These select the game's internal frame scheduling policy. Total input-to-display
 
 ## Downloads and backups
 
-Public download: **v0.4**. The maintainer shares v0.6.1 directly with a limited group. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
+Public download: **v0.4**. The maintainer shares other versions directly with a limited group. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
 - [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256). Game data is not included.
 - Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.

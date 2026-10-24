@@ -8,13 +8,13 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
-本页介绍 v0.6.1，目前限小范围分享。公开下载见“下载与备份”。
+下载入口见“下载与备份”。
 
 ## 开始游玩
 
 ### 运行环境
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生需要 Direct3D 12；绊地狱、大往生、ESP Ra.De. 需要 Vulkan。程序运行库随玩家包附带。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De. 需要 Vulkan。程序运行库随玩家包附带。
 
 ### 运行
 
@@ -35,8 +35,9 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 | 怒首領蜂最大往生 | 最大往生／SDOJ | Xbox 360，原版光盘数据 |
 | 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.04 完整合并数据 |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
+| ぐわんげ | 狱门山／Guwange | Xbox 360 XBLA，58410A78，本体 0.0.0.4 |
 
-### ISO／PKG 怎么解包
+### ISO／PKG／XBLA 怎么解包
 
 - **Xbox 360 ISO**：下载 [extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，使用 `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`。提取后应能直接看到 `default.xex`。
 - **PS4 PKG**：下载并完整解压 [LibOrbisPkg v0.2 的 PkgTool](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2)。玩家包的 `tools/Extract-Ps4Pkg.ps1` 会提取游戏文件及 `sce_sys` 元数据。在合集目录打开 PowerShell，按下面的例子替换路径：
@@ -50,6 +51,14 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 源码目录中的脚本位于 `scripts/Extract-Ps4Pkg.ps1`。详细步骤及常见问题见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
 
+**狱门山 XBLA**：先解压 ZIP／RAR，再用随包脚本提取其中的 LIVE／PIRS 内容包（通常是一个没有扩展名的长文件名）：
+
+```powershell
+.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\原始容器文件名" -OutputDir "D:\GameExtract\guwange"
+```
+
+先创建父目录 `D:\GameExtract`，输出目录 `guwange` 须尚不存在。Windows PowerShell 5.1 即可运行，无须另外安装解包器；源码中的脚本在 `scripts/Extract-Xbla.ps1`。使用本体 0.0.0.4，不叠加 Title Update。
+
 ### 游戏数据放在哪里
 
 `game-data/` 下有以下目录，各附一份 `放置说明.txt`。“选择数据目录…”可直接使用现有文件夹，不改动原文件；“复制到合集…”会复制到默认位置，目标须为空或仅含放置说明。
@@ -62,6 +71,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 | 最大往生 | `game-data/sdoj/` | `default.xex`、`CA022100.bin`、`CA022110.bin` 等完整资源 |
 | 大往生 | `game-data/daioujou/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | ESP Ra.De. | `game-data/esprade/` | `eboot.bin`、各 `.prx` 及完整资源 |
+| 狱门山 | `game-data/guwange/` | `default.xex`、`module/`、`game_res/`、`res/` 等完整资源 |
 
 只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
 
@@ -100,13 +110,15 @@ ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录
 
 射击、炸弹、换人等具体动作由各游戏内的按键设置决定。手柄和摇杆通过 SDL 接入，可使用其支持的 XInput、PlayStation 等设备。
 
+狱门山的 **Arrange Xbox 360** 自动射击：方向键／左摇杆移动角色，`I / K / J / L`（上／下／左／右）或右摇杆移动式神，`W / RT` 召唤，`X / B` 炸弹。式神方向可在 `[game.guwange.keyboard]` 中通过 `right_stick_up/down/left/right` 调整；其他游戏的键位不受影响。
+
 备份或换目录时保留整个 `user-data/`，其中包含配置、存档和录像。修改游戏内设置后，等待保存完成再关闭。
 
 ## 社区排行榜
 
 联网默认开启，无须注册。在启动器设置昵称后，通过游戏内的排行榜和录像界面使用社区服务。各作品使用独立榜单，上榜资格沿用游戏规则。
 
-同一游戏内，相同昵称会归为同一社区身份，建议固定使用自己的昵称。服务会检查提交格式及录像完整性，但不验证昵称归属。最大往生团队评分和大往生 CUSTOM 成绩提交暂未接入。
+同一游戏内，相同昵称会归为同一社区身份，建议固定使用自己的昵称。服务会检查提交格式及录像完整性，但不验证昵称归属。最大往生团队评分和大往生 CUSTOM 成绩提交暂未接入。狱门山支持普通／Blue／Arrange 排行榜和录像；在线合作未接入，本地双人尚未验收。
 
 ~~~ini
 [community]
@@ -137,7 +149,7 @@ frame_delay = 1
 
 ## 下载与备份
 
-公开下载版本：**v0.4**；v0.6.1 由维护者定向分享。更新内容见[更新记录](docs/CHANGELOG.md)。
+公开下载版本：**v0.4**；其他版本由维护者定向分享。更新内容见[更新记录](docs/CHANGELOG.md)。
 
 - [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256)。不含游戏数据。
 - 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。

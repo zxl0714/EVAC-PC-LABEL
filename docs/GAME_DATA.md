@@ -60,7 +60,7 @@
 
 默认 passcode 是常见备份包的 32 个零。若备份使用其他 passcode，在命令末尾加 `-Passcode "对应的32字符"`。网站 ZIP／RAR 的解压密码只用于外层压缩包，不等于 PKG passcode；零售加密 PKG 需先准备可提取的备份。工具报错时先查看输出，不要把未提取完整的目录当作成品。
 
-### Xbox 360 XBLA：狱门山（v0.7 数据准备）
+### Xbox 360 XBLA：狱门山
 
 狱门山使用 XBLA 内容包，不用 `extract-xiso`。ZIP／RAR 解压后，如果得到一个长文件名、没有扩展名的大文件，它仍是容器。在合集根目录使用 v0.7 随包脚本，替换成实际文件路径：
 
@@ -135,9 +135,9 @@ game-data/sdoj/
 
 本体内的金币、商店和游玩解锁内容按原作流程使用，不需要另找 DLC。
 
-### v0.7：ぐわんげ（guwange）
+### ぐわんげ（guwange）
 
-数据准备使用 Xbox 360 XBLA **Title ID 58410A78／本体 0.0.0.4**，不应用 Title Update。游戏接入的验收状态见[实施计划](IMPLEMENTATION_PLAN.md)。
+使用 Xbox 360 XBLA **Title ID 58410A78／本体 0.0.0.4**，不应用 Title Update。
 
 ```text
 game-data/guwange/
