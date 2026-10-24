@@ -320,7 +320,9 @@ RuntimeRegisterLayout Layout() noexcept {
           REG_WORD(num_indices),       REG_WORD(num_instances),
           REG_WORD(viewports),         REG_WORD(viewport_control),
           REG_WORD(screen_scissor),    REG_WORD(window_scissor),
-          REG_WORD(generic_scissor),   REG_WORD(viewport_depths)};
+          REG_WORD(generic_scissor),   REG_WORD(viewport_depths),
+          REG_WORD(index_base_address), REG_WORD(index_buffer_type),
+          REG_WORD(max_index_size),    REG_WORD(draw_initiator)};
 #undef REG_WORD
 }
 bool SetWindow(void *context, void *window, RuntimeError *error) noexcept {

@@ -342,6 +342,18 @@ int KT_SYSV DrawAuto(std::uint32_t* output, std::uint32_t size, std::uint32_t ve
     }
     return 0;
 }
+int KT_SYSV DrawIndex(std::uint32_t* output, std::uint32_t size, std::uint32_t count,
+    std::uint64_t address, std::uint32_t flags, std::uint32_t type) {
+    if (!output || size != 10 || reinterpret_cast<std::uintptr_t>(output) % 4 || kNativeProfile.neo) { return -1; }
+    if (!kt::gfx::pm4::WriteDrawIndex({output, size}, count, address, flags)) { return -1; }
+    ObserveDraft(output, size);
+    static std::atomic<unsigned> traced{};
+    if (traced.fetch_add(1, std::memory_order_relaxed) < 4) {
+        std::printf("{\"event\":\"native_gnm_indexed_draw_command\",\"indices\":%u,\"address\":\"0x%llx\",\"type\":%u,\"dwords\":10,\"gpu_executed\":false}\n", count, address, type);
+        TraceNativeApi("sceGnmDrawIndex", count, __builtin_return_address(0));
+    }
+    return 0;
+}
 }
 std::uint64_t ResolveGnmImport(std::string_view identifier, std::string_view library, std::string_view module) {
     if (library != "libSceGnmDriver" || module != "libSceGnmDriver") { return 0; }
@@ -352,6 +364,7 @@ std::uint64_t ResolveGnmImport(std::string_view identifier, std::string_view lib
     if (identifier.substr(0, identifier.find('#')) == "mLVL7N7BVBg") { return reinterpret_cast<std::uint64_t>(&UpdatePixelShader350); }
     if (identifier.substr(0, identifier.find('#')) == "V31V01UiScY") { return reinterpret_cast<std::uint64_t>(&UpdateVertexShader); }
     if (identifier.substr(0, identifier.find('#')) == "GGsn7jMTxw4") { return reinterpret_cast<std::uint64_t>(&DrawAuto); }
+    if (identifier.substr(0, identifier.find('#')) == "HlTPoZ-oY7Y") { return reinterpret_cast<std::uint64_t>(&DrawIndex); }
     if (identifier.substr(0, identifier.find('#')) == "xbxNatawohc") { return reinterpret_cast<std::uint64_t>(&InspectSubmitAndFlip); }
     if (identifier.substr(0, identifier.find('#')) == "yvZ73uQUqrk") { return reinterpret_cast<std::uint64_t>(&SubmitDone); }
     return 0;

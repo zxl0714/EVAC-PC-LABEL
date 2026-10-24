@@ -1389,6 +1389,13 @@ int NativeCommand(int argc, wchar_t** argv) {
         catch (const std::exception& error) { std::fprintf(stderr,"Collection config: %s\n",error.what()); return 2; }
     }
     if (argc==3 && std::wstring(argv[1])==L"--waveform-check") { return Ngs2WaveformCheck(argv[2]); }
+    if ((argc == 3 || argc == 4) && std::wstring(argv[1]) == L"--indexed-draw-self-test") {
+        try {
+            if (argc == 4 && std::wstring(argv[3]) != L"--validation") { throw std::runtime_error("Unknown indexed draw self-test option"); }
+            return RunNativeIndexedDrawSelfTest(std::filesystem::absolute(argv[2]), argc == 4);
+        }
+        catch (const std::exception& error) { std::fprintf(stderr, "Indexed draw self-test: %s\n", error.what()); return 2; }
+    }
     if (argc >= 2 && std::wstring(argv[1]) == L"--offline-bench") {
         try {
             if (argc < 5 || argc > 7) { throw std::runtime_error("Usage: --offline-bench <GPU DLL> <samples 1..10000> <warmup 0..1000> [cv|address|event] [pinned|inherited]"); }

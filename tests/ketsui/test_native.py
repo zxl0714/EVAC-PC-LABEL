@@ -5363,7 +5363,7 @@ class RuntimeTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         cases = [event for line in result.stdout.splitlines() if (event := json.loads(line))['event'] == 'pm4_self_test_case']
-        self.assertEqual(len(cases), 41)
+        self.assertEqual(len(cases), 47)
         self.assertTrue(all(event['passed'] for event in cases))
 
     def test_pm4_journal_cli_reads_owned_stream_without_game_or_gpu_execution(self):

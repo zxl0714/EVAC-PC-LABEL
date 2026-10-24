@@ -30,6 +30,7 @@ struct DmaTransfer { std::uint64_t source, destination; std::uint32_t control, c
 // Base and size are decoded from the packet's 256-byte units, not pointers
 // to dereference. The control retains the PFP/ME engine bit and cache actions.
 struct MemoryAcquire { std::uint32_t control; std::uint64_t base, bytes; std::uint32_t interval; };
+struct IndexedDraw { std::uint64_t address; std::uint32_t count, max_count; };
 struct Analysis {
     Error error{};
     std::uint32_t error_offset{}, packets{}, padding_packets{}, register_writes{}, clears{}, acquires{}, context_controls{};
@@ -37,6 +38,7 @@ struct Analysis {
     std::uint32_t waits{};
     std::uint32_t draws{};
     std::optional<std::uint32_t> last_draw_vertices;
+    std::optional<IndexedDraw> last_indexed_draw;
     std::optional<MemoryWait> last_wait;
     std::optional<MemoryAcquire> last_acquire;
     std::uint32_t dma_transfers{};
@@ -59,5 +61,6 @@ bool WriteWaitFlip(std::span<std::uint32_t> output, std::uint64_t label_address)
 bool WriteVertexShader(std::span<std::uint32_t> output, std::span<const std::uint32_t> registers, std::uint32_t modifier, bool update = false);
 bool WritePixelShader350(std::span<std::uint32_t> output, std::span<const std::uint32_t> registers, bool update = false);
 bool WriteDrawAuto(std::span<std::uint32_t> output, std::uint32_t vertices, std::uint32_t flags);
+bool WriteDrawIndex(std::span<std::uint32_t> output, std::uint32_t count, std::uint64_t address, std::uint32_t flags);
 bool SelfTest();
 }

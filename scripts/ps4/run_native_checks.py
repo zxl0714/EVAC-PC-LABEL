@@ -19,7 +19,7 @@ CHECKS = (
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
     'np-score', 'np-score-profile', 'np-replay', 'community-round-audit', 'community-client', 'sfo', 'pm4',
-    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input', 'async-log',
+    'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input', 'async-log', 'indexed-draw',
 )
 
 
@@ -199,6 +199,8 @@ def main():
             command=[str(executable), '--' + name + '-self-test']
             if name=='community-client':
                 command.append(str(directory/'community-client-fixture'))
+            if name=='indexed-draw':
+                command.append(str(ROOT / 'out/ps4-gpu/KetsuiGpuRuntime.dll'))
             result = subprocess.run(command,
                                     cwd=directory, capture_output=True, timeout=45)
             code, stdout, stderr = result.returncode, result.stdout, result.stderr

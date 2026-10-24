@@ -6,17 +6,27 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.6.1 room-mode crash — diagnosis complete, implementation pending
+### v0.6.1 room-mode crash — fixed and gameplay checked, release pending
 
 The user requested inspecting the room-mode report in QQ 人均233.3 and proposed
 v0.6.1. Downloaded run-20261024T045137301Z-32308.zip through the QQ UI; extracted
 logs only to .local/v061-room-crash-r1. ESP v0.6 exits at unimplemented import
 HlTPoZ-oY7Y#i#G / libSceGnmDriver / sceGnmDrawIndex, caller eboot.bin+0x238118.
 The call uses 10 dwords, 480 indices, flags=0, type=1. Import, PM4 decoding and
-resident submission need the indexed-draw path; lower Vulkan rasterizer already
-supports indexed buffers/draws. No crash fix or gameplay verification yet.
+resident submission now support the indexed-draw path through paired GPU ABI 13.
+47 PM4 checks and the real 16/32-bit GPU pixel test pass, with zero Vulkan
+validation errors (.local/v061-pm4-r1.log, v061-indexed-pixels-r2.log).
+Actual run logs/esprade/run-20261024T052725293Z-103840 entered the room,
+selected Yusuke, ran Story Course / Stage 1A with Super Easy support to 11110,
+then returned from MISSION FAILED to the mission list and room. Indexed
+commands of 420/448 indices executed. Same-process ARCADE / Yusuke also
+entered the real first stage. No unimplemented import appeared.
+Final source checks, clean paired build, two packages, OSS and group notice
+remain to finish. Use one extraction per final ZIP, not repeated full cycles.
 Keep the crash fix separate from the completed launcher/package correction below.
 The plan and TEST_MATRIX record focused v0.6.1 work; avoid unrelated retesting.
+The approved Codex self-introduction was sent to 人均233.3 at 13:26 on
+2026-10-24 and verified in the sent bubble. Do not repeat it.
 
 ### Post-v0.6 package correction — latest
 

@@ -3,6 +3,7 @@
 #include "native_async_log.h"
 #include "native_display_clock.h"
 #include "native_gpu.h"
+#include "native_gnm.h"
 #include "native_memory.h"
 #include "native_resident_gpu.h"
 #include "native_semaphore.h"
@@ -503,6 +504,86 @@ void Print(const HandoffCase &result, unsigned warmup) {
   }
 }
 } // namespace
+
+int RunNativeIndexedDrawSelfTest(const std::filesystem::path& library, bool validation) {
+  Watchdog watchdog;
+  LogScope log;
+  Library api(library);
+  NativeResidentGpu gpu(library, validation);
+  Allocation allocation;
+  Program(allocation.data + 0x10000, true);
+  Program(allocation.data + 0x20000, false);
+  // v_cvt_f32_u32 v0, v0: the exported position now depends on the actual
+  // vertex index. Index 0 draws a center pixel; 65536 is outside the viewport.
+  const u32 convert_index = 0x7e000d00;
+  std::memcpy(allocation.data + 0x10000 + 8, &convert_index, sizeof(convert_index));
+  const u64 shader_hash = 0x1020304050607081ull;
+  std::memcpy(allocation.data + 0x10000 + 80, &shader_hash, sizeof(shader_hash));
+  const auto layout = api.api.layout();
+  const auto display = kt::gfx::DescribeDisplay({0x80002200, 1, 0, 64, 64, 64, 0, 0, 0}, false);
+  std::array<std::atomic<u64>, 1> labels{};
+  NativeVideoGpuContext target{nullptr, display.layout, {allocation.data, 64 * 64 * 4}, base, labels, &gpu};
+  kt::gfx::pm4::Analysis state;
+  const std::array<std::vector<u32>, 1> setup{Setup(layout)};
+  gpu.Run([&] {
+    gpu.Clear();
+    // This authored shader has no fragment interpolators. Establish all fixture
+    // registers instead of inheriting the game's hardware initialization defaults.
+    const std::vector<u32> zero(layout.bank_words);
+    gpu.Registers(0, zero);
+    gpu.Extent(0, 64, 64);
+    (void)ExecuteNativeGpuCommands(target, setup, state, nullptr);
+  });
+  using DrawIndex = int(BENCH_SYSV *)(u32*, u32, u32, u64, u32, u32);
+  const auto draw_index = reinterpret_cast<DrawIndex>(ResolveGnmImport("HlTPoZ-oY7Y#i#G", "libSceGnmDriver", "libSceGnmDriver"));
+  Require(draw_index && !ResolveGnmImport("HlTPoZ-oY7Y", "other", "libSceGnmDriver"), "Indexed import resolution failed");
+  std::array<u32, 11> commands; commands.fill(73);
+  Require(draw_index(commands.data(), 9, 1, base + 0x40000, 0, 1) == -1 &&
+          std::all_of(commands.begin(), commands.end(), [](u32 word) { return word == 73; }), "Invalid GNM extent overwrote output");
+  for (unsigned iteration = 0; iteration < 4; ++iteration) {
+    {
+      auto colors = BeginNativeHostWrite(allocation.data, 64 * 64 * 4);
+      auto indices = BeginNativeHostWrite(allocation.data + 0x40000, 4);
+      Require(bool(colors) && bool(indices), "Could not acquire authored fixture memory");
+      std::memset(allocation.data, 0, 64 * 64 * 4);
+      const u32 value = iteration < 2 ? 65536u : 0u;
+      std::memcpy(allocation.data + 0x40000, &value, 4);
+    }
+    std::vector<u32> stream;
+    Packet(stream, 0x2f, std::array<u32, 1>{1});
+    Packet(stream, 0x2a, std::array<u32, 1>{iteration == 0 ? 0u : 1u});
+    if (iteration < 3) {
+      Require(draw_index(commands.data(), 10, 1, base + 0x40000, 0, 1) == 0 && commands.back() == 73,
+              "GNM indexed writer failed or overwrote its tail");
+      stream.insert(stream.end(), commands.begin(), commands.begin() + 10);
+    } else { Packet(stream, 0x2d, std::array<u32, 2>{1, 2}); }
+    const std::array<std::vector<u32>, 1> streams{stream};
+    gpu.Run([&] { Require(ExecuteNativeGpuCommands(target, streams, state, nullptr).draws == 1, "Indexed fixture lost a draw"); });
+    gpu.Drain();
+    std::array<u32, 64 * 64> pixels{};
+    gpu.ReadColorForDiagnostics(base, 64, 64, pixels);
+    unsigned colored{};
+    for (unsigned index = 0; index < pixels.size(); ++index) {
+      if (!pixels[index]) continue;
+      Require(pixels[index] == 0xff0000ffu && index % 64 >= 31 && index % 64 <= 32 && index / 64 >= 31 && index / 64 <= 32,
+              "Indexed fixture produced unexpected pixels");
+      ++colored;
+    }
+    Require(colored == (iteration == 1 ? 0u : 1u), "Indexed format/address/content did not control the actual GPU pixels");
+    std::printf("{\"event\":\"indexed_draw_pixel_case\",\"case\":%u,\"colored\":%u,\"passed\":true}\n", iteration, colored);
+  }
+  unsigned rejected{};
+  for (const auto descriptor : {std::array<u64, 3>{0, 1, 0}, {base + 1, 1, 0}, {base + 2, 1, 1},
+                               {base, 1, 2}, {0xfffffffffeull, 2, 0}}) {
+    try { gpu.DrawIndexed(descriptor[0], static_cast<unsigned>(descriptor[1]), static_cast<unsigned>(descriptor[1]), 1, static_cast<unsigned>(descriptor[2])); }
+    catch (const std::exception&) { ++rejected; }
+  }
+  const auto stats = api.api.stats();
+  Require(rejected == 5 && stats.draws == 4 && !stats.validation_errors, "Indexed descriptor validation or GPU validation failed");
+  log.Stop();
+  std::printf("{\"event\":\"indexed_draw_self_test\",\"passed\":true,\"draws\":4,\"rejected\":5,\"validation\":%s,\"validationErrors\":0}\n", validation ? "true" : "false");
+  return 0;
+}
 
 int RunNativeOfflineBench(const std::filesystem::path &library,
                           unsigned samples, unsigned warmup, bool pin_workers) {

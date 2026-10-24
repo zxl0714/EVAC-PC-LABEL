@@ -1,4 +1,10 @@
-EVAC PC LABEL v0.6
+EVAC PC LABEL v0.6.1
+
+本次更新 / What's new
+修复 ESP Ra.De.「いろりの部屋」房屋模式崩溃。
+整理启动器页头布局，移除旧名称的重复 EXE／PDB。
+Fixed the ESP Ra.De. room-mode crash; tightened the launcher header and removed
+duplicate executables and symbols under the old launcher name.
 
 开始游玩
 运行 EVAC PC LABEL.exe，选中游戏，点击“启动游戏”。备用入口为 Launch.bat。

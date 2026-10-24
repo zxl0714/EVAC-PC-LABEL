@@ -1,7 +1,7 @@
 # EVAC PC LABEL 开发入口
 
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
-当前开发目标为 v0.6，已发行版本为 v0.4；发行状态与实际验收范围见实施计划和验收矩阵。
+当前开发目标为 v0.6.1，已发行版本为 v0.6；发行状态与实际验收范围见实施计划和验收矩阵。
 
 开发版已接入六款游戏。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
@@ -98,7 +98,7 @@ Xbox 360 的 -NativeOnly 构建无 ROM 的机制／分析工具，不代替游�
 
 `--game` 直接启动游戏；`--select` 只指定首次打开 GUI 时选中的作品。GUI 正常关闭时在 `[collection].selected_game` 保存选中 ID，下次打开恢复；昵称草稿不会因此自动保存。同一安装目录再次打开只唤起原窗口，不用新参数改变原选择或重复启动游戏，不同目录各自运行。
 
-GUI 和命令行共用 PrepareLaunch 的完整检查。PS4 运行程序共用配套 GPU；开发分支 GPU API 当前为 12，宿主和 DLL 必须来自同次认证构建。
+GUI 和命令行共用 PrepareLaunch 的完整检查。PS4 运行程序共用配套 GPU；开发分支 GPU API 当前为 13，宿主和 DLL 必须来自同次认证构建。
 
 收据检查入口：
 
@@ -123,6 +123,9 @@ py -3.12 scripts/launcher_receipt.py verify
 可通过当前进程的 `VK_LAYER_PATH` 指向验证层 manifest 所在目录，无须全局注册。
 普通 CTest 默认不开验证层；输出的 `validation=false` 不能算验证层通过。
 独立图像读回 API 供组件检查像素与生命周期，正常游戏不调用它。
+`out/ps4-native/KetsuiNativeProbe.exe --indexed-draw-self-test out/ps4-gpu/KetsuiGpuRuntime.dll --validation`
+检查 GNM → PM4 → Vulkan 索引绘图的实际像素、16/32 位格式和内容更新；需要上述验证层。
+不带 `--validation` 的版本加入 `scripts/ps4/run_native_checks.py`，无需 ROM。
 `--shared-present-queue` 可检查不具备独立呈现队列时的兼容路径。
 诊断会话可显式设置 `EVAC_PS4_TIMING_TRACE=1`，再用
 `py -3.12 scripts/ps4/analyze_capture.py <stdout.jsonl> --output <新报告.json>`

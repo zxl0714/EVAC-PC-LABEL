@@ -2,19 +2,39 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
-## v0.6.1 房屋模式崩溃定位（修复待实现）
+## v0.6.1 房屋模式修复
 
 群友日志 `run-20261024T045137301Z-32308.zip` 对应 ESP Ra.De. v0.6：
 主程序 SHA-256 为 `17e67da4cb5e198e1aff3fd52e91a45e17c18bfae196a070f7c73d4c9ca61e83`。
 最终事件是 `unimplemented_import`，`libSceGnmDriver` 的
 `HlTPoZ-oY7Y#i#G`（`sceGnmDrawIndex`），调用点 `eboot.bin+0x238118`。
 参数中命令缓冲大小为 10 dwords，索引数 480、flags=0、type=1。
-现有导入表没有该项，PM4 解析只有非索引 draw，resident 提交也固定为
-非索引绘图；下层 Vulkan 已有索引缓冲和绘制能力，需要接通完整路径。
+原版本导入表没有该项，PM4 解析与 resident 提交只有非索引 draw。
+现已接通 GNM 导入、10 dwords 命令生成、INDEX_TYPE／DRAW_INDEX_2 解析、
+resident 寄存器和已有 Vulkan 索引绘图；配套 GPU ABI 升为 13。
 此前教程视频已有音视频帧输出并正常关闭，不把它当作本次退出原因。
 
-证据位于 `.local/v061-room-crash-r1/`。目前仅完成日志与源码定位，尚未修改
-游戏运行组件或验证房屋模式；后续增加命令回归、房屋短流程和普通模式冒烟。
+原始证据位于 `.local/v061-room-crash-r1/`。47 项 PM4 检查通过；实际 GPU
+像素回归覆盖高位索引地址、16／32 位格式差异、缓冲改写和切回非索引绘图，
+另拒绝五种非法描述符，Vulkan validation 错误为 0。证据为
+`.local/v061-pm4-r1.log` 和 `.local/v061-indexed-pixels-r2.log`。
+首轮自造着色器夹具继承了不适用的插值器默认值；在夹具中完整初始化寄存器后
+验证通过，没有关闭或过滤验证错误。
+
+实际 `logs/esprade/run-20261024T052725293Z-103840` 通过首次房屋角色选择、
+祐介房间、出击 → STORY COURSE → STAGE 1A（SUPER EASY 支援）、
+11110 分任务结束 → 任务列表 → 返回房间。日志记录了 420／448 索引绘图。
+同进程切回 ARCADE、投币开始并进入祐介第一关，未出现缺失导入错误。
+这轮使用普通启动器和默认短按设置，详细计时关闭；不是全模式重测。
+候选 host SHA 为 `166bccb97df087991e4b87772ff87606abf0eee5c1554244232a84e25a5d0887`，
+GPU SHA 为 `8c3d1559534acc6a33a600b3137c4ee24a101367c1a39ff6157038759a0a0dcf`。
+普通局自然到续关画面后关闭窗口，呈现资源回收完成，181940 条日志全部写出，
+没有丢弃或 sink failure；退出仍使用已记录的 guest-finalizer／exit 27 路径。
+519 项源码检查除一个 loopback HTTP 连接中止外通过（另有一个既有符号链接
+权限跳过）；失败所属的 24 项 community 测试独立复跑全部通过。2306 文件、
+22 submodule 的源码审计通过，无游戏数据。分别见
+`.local/v061-source-regression-r1.log`、`v061-community-source-retry-r1.log`、
+`v061-source-audit-r1.log`。
 
 ## v0.6 启动器及包修订（2026-10-24）
 

@@ -46,7 +46,8 @@ Error Apply(const Packet& packet, Analysis& result) {
     case 0x12:
         if (packet.body.size() != 1) { return Error::BadSize; }
         if (packet.body[0] != 0) { return Error::BadValue; }
-        result.context.known.reset(); result.shader.known.reset(); result.uconfig.known.reset(); result.instances.reset(); ++result.clears; return Error::None;
+        result.context.known.reset(); result.shader.known.reset(); result.uconfig.known.reset(); result.instances.reset();
+        result.last_draw_vertices.reset(); result.last_indexed_draw.reset(); ++result.clears; return Error::None;
     case 0x28:
         if (packet.body.size() != 2) { return Error::BadSize; }
         if (packet.body[0] != 0x80000000u || packet.body[1] != 0x80000000u) { return Error::BadValue; }
@@ -54,10 +55,21 @@ Error Apply(const Packet& packet, Analysis& result) {
     case 0x2f:
         if (packet.body.size() != 1) { return Error::BadSize; }
         result.instances = packet.body[0]; return Error::None;
+    case 0x2a: // INDEX_TYPE: 16/32-bit indices, native byte order.
+        if (packet.body.size() != 1) { return Error::BadSize; }
+        if (packet.body[0] > 1) { return Error::BadValue; }
+        result.context.values[0x29f] = packet.body[0]; result.context.known.set(0x29f);
+        return Error::None;
+    case 0x27: // DRAW_INDEX_2, with a 40-bit byte address.
+        if (packet.body.size() != 5) { return Error::BadSize; }
+        if (packet.body[2] > 0xff || (packet.body[1] & 1) ||
+            !(packet.body[1] | packet.body[2]) || packet.body[3] > packet.body[0] || packet.body[4]) { return Error::BadValue; }
+        result.last_indexed_draw = IndexedDraw{packet.body[1] | (std::uint64_t{packet.body[2]} << 32), packet.body[3], packet.body[0]};
+        result.last_draw_vertices.reset(); ++result.draws; return Error::None;
     case 0x2d:
         if (packet.body.size() != 2) { return Error::BadSize; }
         if (packet.body[1] != 2) { return Error::BadValue; }
-        ++result.draws; result.last_draw_vertices = packet.body[0]; return Error::None;
+        result.last_indexed_draw.reset(); ++result.draws; result.last_draw_vertices = packet.body[0]; return Error::None;
     case 0x3c:
         if (packet.body.size() != 6) { return Error::BadSize; }
         if (packet.body[0] != 0x13 || (packet.body[1] & 3) || packet.body[2] > 0xffff) { return Error::BadValue; }
@@ -174,6 +186,15 @@ bool WriteDrawAuto(std::span<std::uint32_t> output, std::uint32_t vertices, std:
     // Base-machine contract: high Neo scheduling hints have no effect and
     // this entry point does not enable predication, including for flags bit 0.
     const std::uint32_t words[]{0xc0012d00u, vertices, 2, 0xc0021000u, 0, 0, 0};
+    std::copy(std::begin(words), std::end(words), output.begin()); return true;
+}
+bool WriteDrawIndex(std::span<std::uint32_t> output, std::uint32_t count, std::uint64_t address, std::uint32_t flags) {
+    if (output.size() != 10 || !address || (address & 1) || address > 0xffffffffffull || (flags & 0x1ffffffeu)) { return false; }
+    // Base-machine GNM emits DRAW_INDEX_2 and a three-word NOP payload.
+    // The API's cache-policy argument does not select 16/32-bit index format;
+    // that state comes from INDEX_TYPE (or the corresponding context register).
+    const std::uint32_t words[]{0xc0042700u, count, static_cast<std::uint32_t>(address),
+        static_cast<std::uint32_t>(address >> 32), count, 0, 0xc0021000u, 0, 0, 0};
     std::copy(std::begin(words), std::end(words), output.begin()); return true;
 }
 bool SelfTest() {
@@ -322,6 +343,42 @@ bool SelfTest() {
     check(!WriteDrawAuto(draw, 3, 0) && !WriteDrawAuto(std::span(draw).first(7), 3, 2) &&
           std::all_of(draw.begin(), draw.end(), [](auto n) { return n == 73; }) && WriteDrawAuto(std::span(draw).first(7), 0, 0xe0000001u) && draw[0] == 0xc0012d00u,
           "auto_index_draw_extent_flags_zero_count_and_base_profile_hints");
+    std::array<std::uint32_t, 11> indexed_draw; indexed_draw.fill(73);
+    const auto indexed_words = std::span(indexed_draw).first(10);
+    check(WriteDrawIndex(indexed_words, 480, 0x100106fffcull, 0) && indexed_draw.back() == 73 &&
+          indexed_draw[0] == 0xc0042700 && indexed_draw[2] == 0x0106fffc && indexed_draw[3] == 0x10 &&
+          Analyze(indexed_words).Complete() && Analyze(indexed_words).draws == 1 &&
+          Analyze(indexed_words).last_indexed_draw->address == 0x100106fffcull &&
+          Analyze(indexed_words).last_indexed_draw->count == 480 && !Analyze(indexed_words).last_draw_vertices,
+          "room_indexed_draw_exact_ten_words_high_address_and_tail");
+    indexed_draw.fill(73);
+    check(!WriteDrawIndex(indexed_draw, 1, 2, 0) && !WriteDrawIndex(indexed_words, 1, 0, 0) &&
+          !WriteDrawIndex(indexed_words, 1, 3, 0) && !WriteDrawIndex(indexed_words, 1, 0x10000000000ull, 0) &&
+          !WriteDrawIndex(indexed_words, 1, 2, 2) && std::all_of(indexed_draw.begin(), indexed_draw.end(), [](auto n) { return n == 73; }),
+          "indexed_draw_invalid_extent_address_flags_leave_output_unchanged");
+    check(WriteDrawIndex(indexed_words, 0, 2, 0xe0000001) && Analyze(indexed_words).Complete(),
+          "indexed_draw_zero_count_and_base_profile_hints");
+    WriteDrawIndex(indexed_words, 480, 0x100106fffcull, 0);
+    indexed_draw[4] = 481; const bool count_rejected = Analyze(indexed_words).error == Error::BadValue;
+    indexed_draw[4] = 480; indexed_draw[3] = 0x100; const bool high_rejected = Analyze(indexed_words).error == Error::BadValue;
+    indexed_draw[3] = 0x10; indexed_draw[5] = 2;
+    check(count_rejected && high_rejected && Analyze(indexed_words).error == Error::BadValue &&
+          Analyze(indexed_words.first(5)).error == Error::Truncated,
+          "indexed_packet_rejects_invalid_capacity_high_address_initiator_and_truncation");
+    WriteDrawIndex(indexed_words, 480, 0x100106fffcull, 0);
+    const std::array<std::uint32_t, 2> type16{0xc0002a00, 0}, type32{0xc0002a00, 1}, bad_type{0xc0002a00, 4};
+    check(Analyze(type16).context.Get(0x29f) == 0 && Analyze(type32).context.Get(0x29f) == 1 &&
+          Analyze(bad_type).error == Error::BadValue, "index_type_distinguishes_16_and_32_bits_and_rejects_byte_swap");
+    Analysis draw_state;
+    Advance(Decode(type16, 0).packet, draw_state);
+    Advance(Decode(indexed_words, 0).packet, draw_state);
+    const bool indexed_state = draw_state.last_indexed_draw && draw_state.context.Get(0x29f) == 0;
+    Advance(Decode(draw, 0).packet, draw_state);
+    const bool auto_state = !draw_state.last_indexed_draw && draw_state.last_draw_vertices.has_value();
+    const std::array<std::uint32_t, 2> clear{0xc0001200, 0};
+    Advance(Decode(clear, 0).packet, draw_state);
+    check(indexed_state && auto_state && !draw_state.last_indexed_draw && !draw_state.last_draw_vertices && !draw_state.context.Get(0x29f),
+          "indexed_auto_and_clear_do_not_leak_prior_draw_state");
     std::array dma{0xc0055000u, 0x60000000u, 0x12345000u, 0x10u, 0x3022cu, 0u, 0x2820005cu};
     const auto transfer = Analyze(dma);
     check(transfer.Complete() && transfer.dma_transfers == 1 && transfer.last_dma && transfer.last_dma->source == 0x1012345000ull &&

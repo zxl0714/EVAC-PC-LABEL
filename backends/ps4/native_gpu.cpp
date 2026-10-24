@@ -405,9 +405,15 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
                 result.prefetch_us += MonotonicMicroseconds() - prefetch_at;
                 ++result.prefetches;
             }
-            if (!packet.padding && packet.opcode == 0x2d) {
+            if (!packet.padding && (packet.opcode == 0x2d || packet.opcode == 0x27)) {
                 const auto draw_at = MonotonicMicroseconds();
-                if (target.resident) {
+                if (packet.opcode == 0x27) {
+                    if (!target.resident) { throw std::runtime_error("Indexed drawing requires the resident GPU backend"); }
+                    const auto type = state.context.Get(0x29f);
+                    if (!state.instances || !type) { throw std::runtime_error("Missing indexed draw instance/format state"); }
+                    const auto& indexed = *state.last_indexed_draw;
+                    target.resident->DrawIndexed(indexed.address, indexed.count, indexed.max_count, *state.instances, *type);
+                } else if (target.resident) {
                     if (!state.instances) { throw std::runtime_error("Missing resident draw instance count"); }
                     target.resident->Draw(packet.body[0], *state.instances);
                 } else { ExecuteDraw(target, state, reader); }

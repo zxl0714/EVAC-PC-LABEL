@@ -84,7 +84,9 @@ struct NativeResidentGpu::Impl {
             const auto get = reinterpret_cast<GetRuntimeApi>(GetProcAddress(library, "KetsuiGpuRuntimeGetApi"));
             if (!get || !get(RuntimeApiVersion, sizeof(api), &api)) { throw std::runtime_error("Resident GPU SDK version mismatch"); }
             register_layout = api.layout();
-            if (register_layout.num_indices >= register_layout.bank_words || register_layout.num_instances >= register_layout.bank_words) {
+            if (register_layout.num_indices >= register_layout.bank_words || register_layout.num_instances >= register_layout.bank_words ||
+                register_layout.index_base >= register_layout.bank_words - 1 || register_layout.index_type >= register_layout.bank_words ||
+                register_layout.max_index_size >= register_layout.bank_words || register_layout.draw_initiator >= register_layout.bank_words) {
                 throw std::runtime_error("Resident GPU draw register layout is invalid");
             }
             const HostSettings settings{.validation_core = validation, .validation_sync = validation,
@@ -170,6 +172,25 @@ void NativeResidentGpu::Draw(unsigned vertices, unsigned instances) {
         const auto ended = kt::diagnostics::MonotonicMicroseconds();
         if (ended-began >= 250) NativeLogf("{\"event\":\"native_gpu_slow_draw\",\"began_clock_us\":%llu,\"clock_us\":%llu,\"vertices\":%u,\"instances\":%u,\"thread\":%lu}\n",began,ended,vertices,instances,GetCurrentThreadId());
     }
+}
+void NativeResidentGpu::DrawIndexed(std::uint64_t address, unsigned count, unsigned max_count, unsigned instances, unsigned index_type) {
+    if (index_type > 1 || !address || (address & ((2u << index_type) - 1)) || count > max_count ||
+        address > 0xffffffffffull || std::uint64_t{count} * (2u << index_type) > 0x10000000000ull - address) {
+        throw std::runtime_error("Invalid resident index buffer descriptor");
+    }
+    Run([&] {
+        RuntimeError error;
+        const auto word = [&](unsigned offset, unsigned value) { Check(impl->api.registers(impl->context, offset, &value, 1, &error), error); };
+        // The register layout is high word then low word, unlike DRAW_INDEX_2.
+        const std::uint32_t base[]{static_cast<std::uint32_t>(address >> 32), static_cast<std::uint32_t>(address)};
+        Check(impl->api.registers(impl->context, impl->register_layout.index_base, base, 2, &error), error);
+        word(impl->register_layout.index_type, index_type);
+        word(impl->register_layout.max_index_size, max_count);
+        word(impl->register_layout.num_indices, count);
+        word(impl->register_layout.num_instances, instances);
+        word(impl->register_layout.draw_initiator, 0);
+        Check(impl->api.draw(impl->context, true, 0, &error), error);
+    });
 }
 kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
     kt::diagnostics::BackendPresentTiming* timing, const kt::diagnostics::PresentationPacing* pacing) {

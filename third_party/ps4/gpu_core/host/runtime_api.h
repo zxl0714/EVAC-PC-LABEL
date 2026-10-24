@@ -8,7 +8,7 @@
 namespace Ketsui::GpuCore {
 // This SDK is built as one clang-cl/MSVC-runtime pair. Shader, Vulkan and
 // register-layout classes never cross the DLL boundary.
-inline constexpr std::uint32_t RuntimeApiVersion = 12;
+inline constexpr std::uint32_t RuntimeApiVersion = 13;
 // Resource slots are not a measurement of displayed or queued screen frames.
 inline constexpr std::uint32_t PresentResourceSlots = 2;
 inline constexpr std::uint32_t PresentSnapshotSlots = 3;
@@ -33,6 +33,7 @@ struct RuntimeRegisterLayout {
   std::uint32_t num_indices, num_instances, viewports, viewport_control;
   std::uint32_t screen_scissor, window_scissor, generic_scissor,
       viewport_depths;
+  std::uint32_t index_base, index_type, max_index_size, draw_initiator;
 };
 struct RuntimeDisplay {
   std::uint64_t address;

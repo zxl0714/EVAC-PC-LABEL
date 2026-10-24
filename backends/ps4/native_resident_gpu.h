@@ -26,6 +26,7 @@ public:
     void Registers(std::uint32_t offset, std::span<const std::uint32_t> words);
     void Extent(unsigned target, unsigned width, unsigned height);
     void Draw(unsigned vertices, unsigned instances);
+    void DrawIndexed(std::uint64_t address, unsigned count, unsigned max_count, unsigned instances, unsigned index_type);
     kt::gfx::PresentStatus Present(std::uint64_t address, const kt::gfx::DisplayLayout& layout,
         kt::diagnostics::BackendPresentTiming* timing = nullptr,
         const kt::diagnostics::PresentationPacing* pacing = nullptr);
