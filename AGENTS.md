@@ -6,7 +6,23 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.1 launcher follow-up — development only
+### v0.7.1 — implemented and local packages accepted
+
+Final seven-game build and both local packages are complete at source
+f43852eae98263ab6d5a008e5f16849d952c704b. This supersedes the pending-build
+checkpoints below. PS4/host/launcher receipts share that commit; 6/68/2 PE/PDB
+pairs verify. Eight focused final CTests pass; reuse accepted UI/gameplay gates.
+Each final ZIP was extracted once: Public 147 files / 106028374 bytes /
+SHAd4b8233737d92317; Internal 696 files / 8230162441 bytes / SHAa322d74d9488a59a.
+All seven data sets, both Futari DLC and symbols are in Internal; neither package
+contains source or user configuration. All package paths are ASCII; all seven
+placement guides are README.txt. 44 shared runtime hashes and nine preservation
+sentinels per package pass. Evidence: .local/v071-investigation/final-package-set-r1.json
+and .local/release-acceptance-v071/. No repeat extraction/build is needed.
+Implementation is pushed to main. No v0.7.1 OSS upload or group announcement has
+been performed. C:/evac-pc-label and frozen releases remain untouched. All owned
+test/build/package sessions are closed. Audio behavior was not changed: targeted
+mode/event/F8 reproduction remains follow-up work, not a claimed audio fix.
 
 The user approved isolated launcher/Guwange desktop testing on October 25.
 Use .local/v071-smoke-r1/collection, not C:/evac-pc-label or an old player copy.
@@ -43,7 +59,7 @@ accepted entry gate. See .local/v071-smoke-r1/sdoj-team-acceptance.json.
 Five SDOJ/SDK CTests and 59 focused source tests (one existing skip) pass.
 All independent test windows/build sessions are now closed. Audio first-pass
 investigation below is complete, without a confirmed audio fix. Remaining:
-final version/docs/build/package; goal stays active.
+final version/docs/build/package was pending at that checkpoint and is now complete above.
 
 User added suspected SDOJ sound-effect delay to the same investigation. Compare
 Futari's scoped 1ms timeout/yield fix, native command/channel queueing and 1V/3V
