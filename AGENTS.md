@@ -6,11 +6,29 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7 Guwange — active implementation
+### v0.7 Guwange — released
 
-The active goal is v0.7, adding Guwange XBLA (guwange / ぐわんげ): normal,
-Blue and Arrange, saves, native community boards/replays and collection delivery.
-Online co-op is out of scope. Follow the six steps in IMPLEMENTATION_PLAN.
+v0.7 adds Guwange XBLA (guwange / ぐわんげ): normal, Blue and Arrange,
+saves, native community boards/replays and collection delivery. All six steps
+in IMPLEMENTATION_PLAN are complete. Online co-op is out of scope.
+Final seven-title build is complete at 00450c0e7bfa82e7f1f1243e5e23acf4f1c5011b;
+tag v0.7 is pushed. G2, Futari and SDOJ quick checks are accepted by the user.
+All 33 native CTests pass (five needed a sandbox temporary-directory permission
+retry, without code changes); 557 source checks already passed, one known skip.
+Both final ZIPs have one actual extraction acceptance; 44 common runtime files
+match and nine preservation sentinels pass. Program ZIP 4db2428a33454630 and
+internal ZIP 09b2adffe0d38eef are uploaded/verified at fixed v0.7 OSS keys.
+The user-requested upload/extraction overlap passed; both receipts agree on
+archive hash and size. The user approved the notice; the complete outgoing
+message and both links were verified in QQ 人均233.3 at22:23 on October24.
+Receipt: .local/v07-qq-delivery-r1.json. Do not rerun gameplay, rebuild,
+re-extract or send the release notice again. Commit documentation separately;
+these records do not change the frozen package source/tag 00450c0 / v0.7.
+Evidence: .local/v07-final-smoke-r1/acceptance.json, .local/release-acceptance-v07/,
+and .local/v07-*-oss-verified-r1.json. The isolated launcher remains user-owned;
+do not manipulate it. The user explicitly resumed QQ computer use after Escape.
+User feedback: Arrange's default keyboard layout is awkward. Improve it in
+follow-up work; the user explicitly said to send this release first.
 v0.6.1 is complete; the README revision and release notice were delivered to
 QQ 人均233.3 at 15:50 on October 24. Do not repeat old delivery work below.
 
@@ -24,10 +42,9 @@ Production Guwange service installed October 24 20:55 from 2bf184f41fb5:
 PID2695508, loopback18090, shared /cave/api/v1/games/guwange route. Seven
 healths/two legacy routes/unknown404 and first empty DB backup passed; six
 peer PIDs and pointers unchanged. Receipt: .local/v07-guwange-deploy-r1/installed.json.
-Catalogue is now enabled in DEVELOPMENT for normal launcher/HTTPS acceptance;
-no v0.7 release yet. Do not rerun the first-install script or fabricate scores.
-Actual production closure has now passed in r19 below; old-title smoke and
-final same-commit build/package/delivery remain.
+Catalogue is enabled; normal launcher/HTTPS acceptance passed in r19 below.
+Do not rerun the first-install script or fabricate scores. Final build,
+old-title smoke, packages and upload are complete as recorded above.
 
 Latest r19 is CLOSED: normal launcher -> run 20261024T130448514Z-90800,
 EXE72f9f1bc161e57b8faa095b7ed1a1034a5c732c9415b74e7d9e6dfec250c8f3c.
@@ -43,8 +60,8 @@ Do not repeat this accepted closure. Root runtimes/frozen releases unchanged.
 Seven focused CTests and20 PE/PDB pairs passed before launch. Readme/agent/data
 guides and v0.7 version defaults now prepared. Source tests r20:557 tests pass,
 one existing symlink-privilege skip; audit2356files/22submodules/no game data.
-Final same-commit seven-title build and old-title smoke remain. Do not edit
-tracked source/docs during a live build receipt.
+Final same-commit seven-title build and old-title smoke have now passed.
+Do not edit tracked source/docs during a future live build receipt.
 Local two-player assessment: SDK only signs in user0; SDL device enumeration or
 the native 1P/2P starting-side menu does not establish two-player support.
 This is documented as not validated; don't expand v0.7 into co-op work.
@@ -1098,6 +1115,9 @@ assemble each final flavor once, one real extraction acceptance per final ZIP.
 Reuse acceptance by ZIP SHA while unchanged. Shared runtime hashes avoid repeated
 game campaigns across flavors. Verify OSS upload by local identity, remote
 size/metadata, public checksum and bounded header GET, not whole re-download.
+After the packager closes the ZIP and writes its checksum, start upload and
+the single local extraction acceptance in parallel. Wait for BOTH before
+announcing the download. This is the user's October 24 workflow preference.
 Post-release docs/delivery records do not trigger frozen-package rebuilds.
 Keep old tags, ZIPs and OSS objects. Latest accepted v0.3.2 CUSTOM source is
 a8a75fb9d86a11003c8fa9f3e1fb38521bcb2a07 (tag v0.3.2-custom), SHA
