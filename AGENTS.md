@@ -6,7 +6,7 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.6 delivered privately — latest, supersedes pending work below
+### v0.6 delivered with fixed OSS links — latest, supersedes pending work below
 
 Player source is fixed at cca37bb69e87cddeb15fedbe6221eccd1354b66a and pushed.
 Six-game build .local/v06-final-six-build-r1.log passes: 56 Xbox, six PS4 and
@@ -37,15 +37,17 @@ Owned old loopback 94680 and wrapper 102464 have exited; databases/logs remain.
 
 The user chose to keep the repository private with limited sharing, then
 explicitly requested uploading first and handling the repository themselves.
-Both ZIPs, their checksums and launcher-v0.6.jpg are uploaded under OSS v0.6/
-with per-object ACL private. Bucket permissions and old objects are unchanged.
-CLI upload/CRC checks passed; authenticated size/SHA metadata, anonymous 403,
-signed 32-byte header comparison and checksum readback pass. No full download.
-Evidence is .local/v06-oss-{program,internal,screenshot}-verified-r1.json;
-these ignored files contain seven-day signed URLs, expiring October 31, 2026
-around 12:20-12:26 +08:00. Never commit signed URLs or expose them in public
-README. Repository visibility was not changed. Public README retains verified
-v0.4 downloads and identifies v0.6 as limited sharing. No historical QQ work.
+Both ZIPs, their checksums and launcher-v0.6.jpg are uploaded under OSS v0.6/.
+The user subsequently rejected link expiry; these five exact objects now use
+public-read ACL and fixed HTTPS URLs without query strings. Anyone with the
+link can download. Bucket permissions, old objects and repository visibility
+are unchanged. CLI upload/CRC, size/SHA metadata, 32-byte header comparison and
+checksum readback passed before this ACL-only change; all five anonymous HEADs
+now return 200 with unchanged lengths and ZIP SHA metadata. No full download.
+Evidence is .local/v06-oss-permanent-links-r1.json. The earlier private receipts
+and signed URLs are historical; use the fixed links for delivery. Public README
+retains v0.4 downloads pending the user's repository work; do not add the
+ROM-containing internal link there. No historical QQ work.
 The v0.6 implementation and delivery are complete; do not restart accepted work.
 
 The focused gameplay work is complete. ESP ARCADE / ARCADE PLUS / SUPER EASY,
@@ -78,8 +80,8 @@ and CRLF-aware diff check pass. The 48 manifest files were copied to the NEW
 game-data/esprade directory; native full inspection verifies all 48 hashes.
 Original PKGs and merged preparation inputs are unchanged.
 
-No v0.6 implementation or delivery work remains. Repository access is handled
-by the user; a later public release or new signed links require a new request.
+No v0.6 implementation or delivery work remains. Repository access and any
+change to the public README download section are handled separately by the user.
 Builds, ZIPs and v0.6 source tag are frozen. No historical QQ work.
 
 ### v0.6 PS4 asynchronous presentation — current candidate
