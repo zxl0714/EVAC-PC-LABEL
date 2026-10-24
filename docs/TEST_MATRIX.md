@@ -4,6 +4,34 @@
 
 ## v0.6.1 最终构建与交付
 
+### 玩家说明修订
+
+说明与提取辅助脚本源码为 `5d90677032d48d6310d28110ff7e3c56a9bc2233`。
+中英 README、玩家 TXT 和数据指南采用群友反馈的操作分组和手柄对照，
+补充 extract-xiso／PkgTool 的官方入口、命令及本体／更新覆盖步骤。
+`Extract-Ps4Pkg.ps1` 使用 PkgTool v0.2；分别提取原 ESP 两份 PKG 到新目录，
+按更新优先的合并视图核对原有 48 项资源：大小及 SHA-256 全部一致。
+Windows PowerShell 语法检查通过；源码审计为 2313 文件／22 submodule，
+无游戏数据。打包回归及新增辅助脚本实际入包／解压用例通过。
+
+证据位于 `.local/v061-readme-unpack-r1/`。保留另一解包器的对照结果：
+46 项匹配，`license.info`／`npbind.dat` 不同，未推荐未修正的该路径。
+此次不改游戏组件，两个 ZIP 仅更新说明／脚本及元数据；变更文件实际解压，
+其余成员按原压缩字节核对，复用 r2 全包验收，不重复解压游戏数据。
+两包和校验文件均已在原 OSS 地址替换并远端验证，完整包于 2026-10-24
+15:14 完成。138／652 项载荷；135／649 项不变成员的压缩字节完全一致，
+五项新增或变更文件实际解压一致。没有重新压缩或解压整份游戏数据。
+
+| 说明修订包 | 大小（字节） | SHA-256 |
+| --- | ---: | --- |
+| `EVAC-PC-LABEL-v0.6.1-win-x64.zip` | 76,620,581 | `d80ab36bb0447b3d8466d7518f8ca2ef8f06c76b4fc746472e56c7b9fa4cd234` |
+| `EVAC-PC-LABEL-v0.6.1-win-x64-internal.zip` | 8,057,401,739 | `7c25d57526b32b17e3a0ca74159a2438ed3e99e17cb9f87be464bd13d2f97251` |
+
+本地为 `releases/v0.6.1-{public,internal}-docs-5d906770/`；证据为
+`.local/v061-{public,internal}-docs-accepted-r3.json` 与
+`.local/v061-{public,internal}-docs-oss-verified-r3.json`。`SOURCE.txt`
+分别指明游戏源码与说明／脚本源码；原 r2 包保留，以下为其历史验收。
+
 运行源码为 `21477ca06b132a2d940adc0131f876c0bc374e95`，main 与
 `v0.6.1-final` 已推送；原房屋模式候选标签保持不变。最终六款构建见
 `.local/v061-final-six-build-r2.log`，56／6／2 对 Xbox、PS4、启动器

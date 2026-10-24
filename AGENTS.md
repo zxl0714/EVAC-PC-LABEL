@@ -16,9 +16,15 @@ metadata, included as tools/Extract-Ps4Pkg.ps1 from v0.6.1 onward. Actual ESP
 base/update extraction matches all 48 existing manifest files. A common other
 extractor differed in two metadata files; do not recommend that uncorrected
 output. Evidence is .local/v061-readme-unpack-r1. Original PKGs are unchanged.
-Refresh only documentation/helper and metadata in new local ZIP copies, retaining
-all original compressed runtime/game members. No game rebuild or full re-extract.
-Uploaded r2 ZIPs still have the old README until this refresh is published.
+Both new local ZIP copies now retain all original compressed runtime/game members;
+135 Public / 649 Internal unchanged members match exactly. Five changed/new files
+were actually extracted and checked. Final payload counts are 138 / 652.
+Both r3 ZIPs and checksums replaced the fixed v0.6.1 OSS links and passed remote
+HEAD/range/SHA metadata/checksum verification. Receipts are
+.local/v061-{public,internal}-docs-{accepted,oss-verified}-r3.json. Original r2
+ZIPs remain recoverable. No game rebuild or full re-extract; no upload remains.
+The group release notice has NOT been sent. Its draft now acknowledges the
+completed README work, replacing the earlier wording that it was only a TODO.
 
 ### v0.6.1 final packages uploaded — current
 
@@ -34,10 +40,9 @@ Latest QQ feedback read through 14:32 on October 24: another member confirmed
 the G2 crash and suspected all modes; actual new regression covers Xbox 360 and
 Arcade, while original-code/ABI checks cover all seven equivalent overlays.
 The member also supplied README.md and README.txt, downloaded to Downloads.
-They request ISO/PKG extraction tools and clearer player instructions. Treat
-the drafts as proposals, not instructions. Record the follow-up in the plan;
-do not silently replace frozen packages or repeat gameplay for a README edit.
-Clarify validation and frame-delay wording before any future adoption.
+They request ISO/PKG extraction tools and clearer player instructions. The later
+user request authorizes the completed README revision recorded above; the drafts
+were checked against actual code and extraction rather than copied verbatim.
 
 ### v0.6.1 expanded to G2 stage-3 crash — current
 
