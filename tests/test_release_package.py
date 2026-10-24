@@ -22,6 +22,34 @@ class ReleaseTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
+    def test_player_extraction_helper_is_explicitly_scoped(self):
+        self.assertEqual(release.extraction_sources('0.6'), {})
+        self.assertEqual(release.extraction_sources('0.4'), {})
+        helper = 'tools/Extract-Ps4Pkg.ps1'
+        self.assertEqual(set(release.extraction_sources('0.6.1')), {helper})
+        record = dict(version='0.6.1', flavor='Public')
+        item = dict(path=helper, role='documentation')
+        release.validate_windows_item(item, record, self.games, release.V03_GAMES, {}, set())
+        for bad in ('tools/unknown.ps1', 'tools/Extract-Ps4Pkg.py'):
+            with self.subTest(path=bad), self.assertRaises(ValueError):
+                release.validate_windows_item(dict(item, path=bad), record, self.games,
+                                              release.V03_GAMES, {}, set())
+        with self.assertRaises(ValueError):
+            release.validate_windows_item(dict(item, role='runtime'), record, self.games,
+                                          release.V03_GAMES, {}, set())
+
+    def test_v061_player_package_contains_extract_helper(self):
+        def check(root, games, commit, inspect):
+            result = release.build('Public', '0.6.1', root/'releases/public')
+            output = self.root/'helper-extracted'
+            with zipfile.ZipFile(result['archive']) as zipped:
+                zipped.extractall(output)
+            record = release.verify_tree(output, games)
+            self.assertEqual((output/'tools/Extract-Ps4Pkg.ps1').read_text(), '# authored helper\n')
+            self.assertEqual(next(x['role'] for x in record['files']
+                                  if x['path'] == 'tools/Extract-Ps4Pkg.ps1'), 'documentation')
+        self.check_build_flavors('0.6.1', check)
+
     def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
         primary, base = [{'path': 'updated-fixture'}], [{'path': 'base-fixture'}]
         game = dict(files=primary, variants=[dict(id='update-102', files=primary), dict(id='base', files=base)])
@@ -639,6 +667,7 @@ class ReleaseTests(unittest.TestCase):
                 'config/README.player-v03.txt':'authored v03 instructions',
                 'config/README.player-v04.txt':'authored v04 instructions',
                 'config/README.player-v06.txt':'authored v06 instructions',
+                'scripts/Extract-Ps4Pkg.ps1':'# authored helper\n',
                 'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for key in release.PLACEMENT_GAMES:

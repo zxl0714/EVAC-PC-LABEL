@@ -101,6 +101,11 @@ def placement_sources(version):
             for key in PLACEMENT_GAMES}
 
 
+def extraction_sources(version):
+    parts = tuple(map(int, (version or '0.0').split('-', 1)[0].split('.')))
+    return {'tools/Extract-Ps4Pkg.ps1': ROOT / 'scripts/Extract-Ps4Pkg.ps1'} if parts >= (0, 6, 1) else {}
+
+
 def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=None, package_format=1):
     names = {launcher(version), 'runtime/launcher/cave_inspect.exe'}
     # Historical packages refreshed old shortcuts. Format 3 ships only the
@@ -255,6 +260,7 @@ def redist_directory():
 def validate_public_name(name, games, selection=GAMES, version=None):
     allowed = runtime_names(games, selection=selection, version=version) | {'config.ini', 'user-data/config.ini', 'README.txt', batch_name(version), 'SOURCE.txt'}
     allowed.update(placement_sources(version))
+    allowed.update(extraction_sources(version))
     if name in allowed or name.startswith('licenses/'):
         return
     # App-local CRT copies only, not arbitrary DLLs supplied by an input tree.
@@ -342,6 +348,10 @@ def validate_windows_item(item, record, games, selection, required, runtime):
             raise ValueError('Unselected game data in package: ' + name)
         return
     validate_public_name(name, games, selection, record['version'])
+    if name in extraction_sources(record['version']):
+        if item['role'] != 'documentation':
+            raise ValueError('Invalid extraction-helper role: ' + name)
+        return
     if item['role'] not in ('documentation', 'license', 'redist') or Path(name).suffix.lower() in (
             '.pdb', '.cpp', '.h', '.xex', '.ktprobe', '.ktmodule', '.ktfix', '.py', '.ps1'):
         raise ValueError('Source, symbols or unexpected payload: ' + name)
@@ -559,6 +569,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
               'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
+    for name, source in extraction_sources(version).items():
+        copy_checked(source, directory / name, 'documentation', entries)
     # Frozen pre-v0.4 package profiles retain their original executable name.
     bat_source = ROOT / 'Launch.bat'; reject_link(bat_source)
     bat = bat_source.read_text(encoding='utf-8')

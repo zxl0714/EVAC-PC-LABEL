@@ -1,6 +1,6 @@
 # 游戏数据指南
 
-本文对应 v0.6 的数据布局。EVAC PC LABEL 可以只安装一款游戏；缺少其他作品的数据不影响使用。
+本文对应 v0.6.1 的数据布局。EVAC PC LABEL 可以只安装一款游戏；缺少其他作品的数据不影响使用。
 
 ## 先选哪一种放法
 
@@ -27,6 +27,38 @@
 ```
 
 已经多套一层时，可以直接在启动器选择那个实际包含入口文件的目录，无须重新解压。下载的压缩包名称、通过启动器选择的外层目录名称不影响识别；默认 `game-data/<游戏 ID>/` 路径及游戏内部文件名则按本文保留。程序会检查实际内容和版本，不是仅按名字识别。
+
+## ISO 和 PKG 解包
+
+已经有 `default.xex`／`eboot.bin` 和完整资源目录时，无须再次解包。ZIP／RAR 用常规解压软件完整展开；若得到 ISO／PKG，再按下面处理。
+
+### Xbox 360：extract-xiso
+
+1. 下载 [XboxDev/extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，完整解压工具 ZIP，使用其中的 `extract-xiso.exe`。
+2. 在工具所在目录打开 PowerShell，替换命令中的输入文件和新输出目录：
+
+```powershell
+.\extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"
+```
+
+3. 在启动器选择 `D:\GameExtract\futari`，或将里面全部内容复制到 `game-data/futari/`。G2／最大往生同理，使用各自的目录。原 ISO 保留；只提取文件，不需要重建或改写镜像。
+
+### PS4：PkgTool 与配套提取脚本
+
+1. 下载 [LibOrbisPkg v0.2](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2) 中的 `PkgTool-0.2.231.zip`，完整解压，保留 `PkgTool.exe` 旁的 DLL。不要只复制 EXE。
+2. 在合集根目录打开 PowerShell，运行包内 `tools/Extract-Ps4Pkg.ps1`；源码仓库中同一脚本在 `scripts/`。分别提取本体和所需更新，两个输出目录须尚不存在：
+
+```powershell
+.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
+.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
+```
+
+3. 提取成功后，脚本打印 `Game files: ...\uroot`。以 ESP Ra.De. 为例，先把 `base/uroot/` **内部所有文件和文件夹**复制进 `game-data/esprade/`，再把 `update/uroot/` 内部所有内容覆盖进去，替换同名文件。保留本体独有资源，不要用更新目录整体替换本体目录。
+4. 最终直接看到 `game-data/esprade/eboot.bin` 和 `game-data/esprade/sce_sys/param.sfo`；在启动器选择这一层并启动校验。其他 PS4 游戏使用各自支持的版本与默认目录。
+
+脚本补齐普通 `pkg_extract` 未导出的 PKG 元数据，避免只得到 `uroot` 资源却缺 `sce_sys`。它只写入新建的输出目录，原 PKG 不变；不使用会重新生成 SFO 的 `pkg_makegp4`。
+
+默认 passcode 是常见备份包的 32 个零。若备份使用其他 passcode，在命令末尾加 `-Passcode "对应的32字符"`。网站 ZIP／RAR 的解压密码只用于外层压缩包，不等于 PKG passcode；零售加密 PKG 需先准备可提取的备份。工具报错时先查看输出，不要把未提取完整的目录当作成品。
 
 ## Xbox 360 游戏
 

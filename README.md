@@ -8,18 +8,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
-本页介绍 v0.6，目前限小范围分享。公开下载见“下载与备份”。
-
-## 支持的游戏
-
-| 游戏 | 常用简称 | 支持的数据版本 |
-| --- | --- | --- |
-| 虫姫さまふたり Ver.1.5 | 虫姬二／Futari | Xbox 360；可选 Black Label、Ver.1.01 DLC |
-| エスプガルーダII ブラックレーベル | G2／Espgaluda II | Xbox 360 |
-| ケツイ Deathtiny ～絆地獄たち～ | 绊地狱／Ketsui | PS4，CUSA09062，01.00 本体或覆盖 01.02 更新后的完整单目录 |
-| 怒首領蜂最大往生 | 最大往生／SDOJ | Xbox 360，原版光盘数据 |
-| 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.04 完整合并数据 |
-| エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
+本页介绍 v0.6.1，目前限小范围分享。公开下载见“下载与备份”。
 
 ## 开始游玩
 
@@ -33,6 +22,33 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 2. 运行根目录的 `EVAC PC LABEL.exe`，备用入口为 `Launch.bat`。
 3. 选中想玩的游戏，点击底部“游戏数据…”→“选择数据目录…”，选择已经解包的游戏文件夹。也可以按下表直接放入合集。
 4. 点击“启动游戏”。首次启动会校验数据；PS4 作品还会自动准备运行文件，请等待完成。
+
+## 游戏数据
+
+只需准备想玩的游戏：
+
+| 游戏 | 常用简称 | 支持的数据版本 |
+| --- | --- | --- |
+| 虫姫さまふたり Ver.1.5 | 虫姬二／Futari | Xbox 360；可选 Black Label、Ver.1.01 DLC |
+| エスプガルーダII ブラックレーベル | G2／Espgaluda II | Xbox 360 |
+| ケツイ Deathtiny ～絆地獄たち～ | 绊地狱／Ketsui | PS4，CUSA09062，01.00 本体或覆盖 01.02 更新后的完整单目录 |
+| 怒首領蜂最大往生 | 最大往生／SDOJ | Xbox 360，原版光盘数据 |
+| 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.04 完整合并数据 |
+| エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
+
+### ISO／PKG 怎么解包
+
+- **Xbox 360 ISO**：下载 [extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，使用 `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`。提取后应能直接看到 `default.xex`。
+- **PS4 PKG**：下载并完整解压 [LibOrbisPkg v0.2 的 PkgTool](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2)。玩家包的 `tools/Extract-Ps4Pkg.ps1` 会提取游戏文件及 `sce_sys` 元数据。在合集目录打开 PowerShell，按下面的例子替换路径：
+
+```powershell
+.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
+.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
+```
+
+输出目录须尚不存在；实际游戏根目录在各自的 `uroot/` 下。先将 `base/uroot/` **里面的全部内容**复制到游戏目录，再用 `update/uroot/` 内的全部内容覆盖同名文件。没有更新时只做本体这一步。脚本使用常见备份包的 32 个零 passcode；不同 passcode 可用 `-Passcode` 指定，它不是 ZIP／RAR 的解压密码。零售加密 PKG 需先准备可提取的备份数据。
+
+源码目录中的脚本位于 `scripts/Extract-Ps4Pkg.ps1`。详细步骤及常见问题见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
 
 ### 游戏数据放在哪里
 
@@ -63,8 +79,6 @@ ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录
 
 底部“配置文件”打开 `user-data/config.ini`，可编辑音量、键盘、手柄和联网选项。保存后在启动器点“刷新”，再启动游戏生效。完整选项见[默认配置模板](config/default.ini)。
 
-最大往生可在 `[game.sdoj]` 中设置 `frame_delay`：`1` 为低延迟档，`2` 为平衡档，`3` 为原始路径。v0.6 默认采用 `1`，已有明确设置会保留。
-
 | 默认键盘操作 | 功能 |
 | --- | --- |
 | 方向键 | 方向输入 |
@@ -75,11 +89,24 @@ ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录
 | Alt+F4 | 关闭游戏 |
 | F8 | 在日志中标记当前时间，方便反馈问题 |
 
+手柄主按键对照：
+
+| 方位 | Xbox 360 | PS4 | 键盘 |
+| --- | --- | --- | --- |
+| 下／South | A | × | Z |
+| 右／East | B | ○ | X |
+| 左／West | X | □ | C |
+| 上／North | Y | △ | V |
+
 射击、炸弹、换人等具体动作由各游戏内的按键设置决定。手柄和摇杆通过 SDL 接入，可使用其支持的 XInput、PlayStation 等设备。
+
+备份或换目录时保留整个 `user-data/`，其中包含配置、存档和录像。修改游戏内设置后，等待保存完成再关闭。
 
 ## 社区排行榜
 
 联网默认开启，无须注册。在启动器设置昵称后，通过游戏内的排行榜和录像界面使用社区服务。各作品使用独立榜单，上榜资格沿用游戏规则。
+
+同一游戏内，相同昵称会归为同一社区身份，建议固定使用自己的昵称。服务会检查提交格式及录像完整性，但不验证昵称归属。最大往生团队评分和大往生 CUSTOM 成绩提交暂未接入。
 
 ~~~ini
 [community]
@@ -90,9 +117,27 @@ nickname = Player
 
 将 `enabled` 改为 `false` 可离线游玩。
 
+## 最大往生 Frame Delay
+
+在 `user-data/config.ini` 的 `[game.sdoj]` 段设置：
+
+```ini
+[game.sdoj]
+data_dir = game-data/sdoj
+frame_delay = 1
+```
+
+| 值 | 档位 |
+| --- | --- |
+| 1 | 低延迟，默认值 |
+| 2 | 平衡 |
+| 3 | 原始路径 |
+
+这是游戏内部的帧调度档位；实际按键到画面的总延迟还受手柄和显示链路影响。已有明确设置会保留，修改后重启游戏生效。
+
 ## 下载与备份
 
-公开下载版本：**v0.4**；v0.6 由维护者定向分享。更新内容见[更新记录](docs/CHANGELOG.md)。
+公开下载版本：**v0.4**；v0.6.1 由维护者定向分享。更新内容见[更新记录](docs/CHANGELOG.md)。
 
 - [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256)。不含游戏数据。
 - 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。

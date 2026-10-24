@@ -6,6 +6,20 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.6.1 player README revision — current
+
+The user now asks to apply the group README feedback. Chinese/English READMEs,
+the player TXT and GAME_DATA are updated with extraction commands, face-button
+mapping, nickname identity and accurate frame-policy wording. A player helper
+scripts/Extract-Ps4Pkg.ps1 uses external LibOrbisPkg v0.2 PkgTool to preserve
+metadata, included as tools/Extract-Ps4Pkg.ps1 from v0.6.1 onward. Actual ESP
+base/update extraction matches all 48 existing manifest files. A common other
+extractor differed in two metadata files; do not recommend that uncorrected
+output. Evidence is .local/v061-readme-unpack-r1. Original PKGs are unchanged.
+Refresh only documentation/helper and metadata in new local ZIP copies, retaining
+all original compressed runtime/game members. No game rebuild or full re-extract.
+Uploaded r2 ZIPs still have the old README until this refresh is published.
+
 ### v0.6.1 final packages uploaded — current
 
 Both fixes are built from 21477ca06b132a2d940adc0131f876c0bc374e95;

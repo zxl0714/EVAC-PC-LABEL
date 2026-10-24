@@ -8,18 +8,7 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 [Getting started](#getting-started) · [Game data guide (Chinese)](docs/GAME_DATA.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
-This page describes v0.6, currently shared with a limited group. Public downloads are listed under “Downloads and backups”.
-
-## Supported games
-
-| Game | English name / shorthand | Supported game data |
-| --- | --- | --- |
-| 虫姫さまふたり Ver.1.5 | Mushihimesama Futari Ver.1.5 / Futari | Xbox 360; optional Black Label and Ver.1.01 DLC |
-| エスプガルーダII ブラックレーベル | Espgaluda II Black Label / G2 | Xbox 360 |
-| ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
-| 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
-| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; complete merged 01.04 data |
-| エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
+This page describes v0.6.1, currently shared with a limited group. Public downloads are listed under “Downloads and backups”.
 
 ## Getting started
 
@@ -33,6 +22,33 @@ Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, and SDOJ re
 2. Run `EVAC PC LABEL.exe` in the collection's root folder. `Launch.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
 3. Select a game, then choose **Game data… → Choose data folder…** at the bottom. Select the folder containing the extracted game files. Alternatively, place the data in the default location shown below.
 4. Click **Launch game**. The launcher verifies the data before starting; PS4 games also prepare their runtime files on first launch. Allow this process to finish.
+
+## Game data
+
+Prepare only the games you want:
+
+| Game | English name / shorthand | Supported game data |
+| --- | --- | --- |
+| 虫姫さまふたり Ver.1.5 | Mushihimesama Futari Ver.1.5 / Futari | Xbox 360; optional Black Label and Ver.1.01 DLC |
+| エスプガルーダII ブラックレーベル | Espgaluda II Black Label / G2 | Xbox 360 |
+| ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
+| 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
+| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; complete merged 01.04 data |
+| エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
+
+### Extracting ISO / PKG files
+
+- **Xbox 360 ISO**: download a [Windows Release build of extract-xiso](https://github.com/XboxDev/extract-xiso/releases), then run `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`. The output should contain `default.xex` directly.
+- **PS4 PKG**: download and fully unpack [PkgTool from LibOrbisPkg v0.2](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2). The player package includes `tools/Extract-Ps4Pkg.ps1` to extract both game files and `sce_sys` metadata. Open PowerShell in the collection folder and replace these example paths:
+
+```powershell
+.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
+.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
+```
+
+Each output folder must not already exist. The game files appear inside its `uroot/`. Copy **all contents inside** `base/uroot/` into the game folder, then overlay all contents of `update/uroot/`, replacing matching files. Skip the update step for base-only installations. The script defaults to the common backup-package passcode of 32 zeros; use `-Passcode` for a different one. This is not a ZIP/RAR password. Encrypted retail PKGs require an extractable backup first.
+
+In a source checkout, the helper is at `scripts/Extract-Ps4Pkg.ps1`.
 
 ### Where to put game data
 
@@ -63,8 +79,6 @@ See the [game data guide (Chinese)](docs/GAME_DATA.md) for complete folder examp
 
 The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](config/default.ini) for available options.
 
-For SDOJ, set `frame_delay` under `[game.sdoj]` to `1` for low latency, `2` for balanced timing, or `3` for the original path. Version 0.6 defaults to `1`; existing explicit settings are preserved.
-
 | Default keyboard input | Function |
 | --- | --- |
 | Arrow keys | Directional input |
@@ -77,9 +91,22 @@ For SDOJ, set `frame_delay` under `[game.sdoj]` to `1` for low latency, `2` for 
 
 Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
 
+Face-button reference:
+
+| Position | Xbox 360 | PS4 | Keyboard |
+| --- | --- | --- | --- |
+| South | A | × | Z |
+| East | B | ○ | X |
+| West | X | □ | C |
+| North | Y | △ | V |
+
+Keep the whole `user-data/` folder when backing up or moving the collection. It contains configuration, saves, and replays. Wait for saving to finish before closing after changing in-game settings.
+
 ## Community leaderboards
 
 Online features are enabled by default, with no registration required. Set your nickname in the launcher, then use the community service through the game's leaderboard and replay screens. Each title has separate leaderboards, with score eligibility following the game's rules.
+
+Within a game, the same nickname represents the same community identity, so choose a distinctive name and keep using it. The service checks submission formats and replay integrity, but does not authenticate nickname ownership. SDOJ team scores and DaiOuJou CUSTOM score submissions are not integrated.
 
 ```ini
 [community]
@@ -90,9 +117,27 @@ nickname = Player
 
 Set `enabled` to `false` to play offline.
 
+## SDOJ Frame Delay
+
+Set the following under `[game.sdoj]` in `user-data/config.ini`:
+
+```ini
+[game.sdoj]
+data_dir = game-data/sdoj
+frame_delay = 1
+```
+
+| Value | Timing policy |
+| --- | --- |
+| 1 | Low latency; default |
+| 2 | Balanced |
+| 3 | Original path |
+
+These select the game's internal frame scheduling policy. Total input-to-display latency also depends on the controller and display chain. Explicit settings are preserved; restart the game after changing the value.
+
 ## Downloads and backups
 
-Public download: **v0.4**. The maintainer shares v0.6 directly with a limited group. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
+Public download: **v0.4**. The maintainer shares v0.6.1 directly with a limited group. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
 - [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256). Game data is not included.
 - Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.
