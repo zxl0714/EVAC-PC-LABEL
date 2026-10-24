@@ -6,6 +6,27 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.6.1 expanded to G2 stage-3 crash — current
+
+The user requests BOTH ESP room and G2 stage-3 midboss fixes in v0.6.1.
+QQ 人均233.3 member reports Xbox 360 and Arcade. Downloaded
+run-20261024T053850744Z-42844.7z: dat12 calls missing 0x880EEA28.
+Verified original 12-byte flag-0 forwarder and six equivalent overlays against
+input/section hashes. dat163 was already fixed; six new module declarations
+and a seven-module generated native ABI fixture are complete. 84 ABI checks and
+521 source tests pass (one existing link-privilege skip). See TEST_MATRIX.
+G2 actual offline training passes Xbox 360 and Arcade Stage 3 MID BOSS: firing,
+parts destruction, score 1260/2520, death and natural return. Run 101948 in
+.local/v061-g2-stage3-play-r1 closed normally. Both crash fixes are accepted
+within their focused scope; do not repeat campaigns. Final packaging remains.
+Room-only candidate commit/tag v0.6.1 is 33a8ddda72433053af82107715e86352d3a04c67.
+Its public ZIP was uploaded at the fixed v0.6.1 URL but NOT announced. Replace
+it after the G2 fix, retaining the old local candidate and tag identity.
+Internal room-only candidate finished at releases/20261024T054329Z-dd2df1c5,
+SHA c6330aea3e0fc94532aa29a7df02860e95e386fb9412f934725ce6bcc58d7c25.
+It is not uploaded. Reuse unchanged compressed game-data where practical.
+Do not announce or label either old candidate as G2-fixed. All test games closed.
+
 ### v0.6.1 room-mode crash — fixed and gameplay checked, release pending
 
 The user requested inspecting the room-mode report in QQ 人均233.3 and proposed

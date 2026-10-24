@@ -1,0 +1,5 @@
+# Xbox 360 stage-3 callback from run-20261024T053850744Z-42844.
+# Verified against inputs.json: forward (r3, r5, 0) to 0x880EE910.
+# Twelve-byte standalone entry, then padding; +0x10 is the existing flag-1 entry.
+[functions]
+0x880EEA28 = { size = 12 }

@@ -11,17 +11,18 @@ PPCContext observed{};
 std::uint8_t* observed_base{};
 void Check(bool condition) {
     ++checks;
-    if(!condition)throw std::runtime_error("Novice callback ABI mismatch");
-}
-void sub_880EE9E8(PPCContext& ctx,std::uint8_t* base) {
-    ++calls;observed=ctx;observed_base=base;
-    ctx.r3.u64=0xabcdef0100000000ull+calls;
+    if(!condition)throw std::runtime_error("G2 callback ABI mismatch");
 }
 #undef REX_FUNC_PROLOGUE
 #define REX_FUNC_PROLOGUE() ((void)0)
 #undef DEFINE_REX_FUNC
 #define DEFINE_REX_FUNC(name) void name(PPCContext& ctx,std::uint8_t* base)
 #include "callback.inc"
+
+void G2_CALLBACK_TARGET(PPCContext& ctx,std::uint8_t* base) {
+    ++calls;observed=ctx;observed_base=base;
+    ctx.r3.u64=0xabcdef0100000000ull+calls;
+}
 
 int main() {
     try {
@@ -34,7 +35,7 @@ int main() {
             ctx.r31.u64=0xfedcba9888880000ull;ctx.lr=0x88024aec;
             const auto before=ctx;
             using Callback=void (*)(PPCContext&,std::uint8_t*);
-            const Callback callback=sub_880EEB00;
+            const Callback callback=G2_CALLBACK_ENTRY;
             const auto previous=calls;
             callback(ctx,memory.data());
             Check(calls==previous+1 && observed_base==memory.data());
@@ -43,7 +44,7 @@ int main() {
             expected.r3.u64=0xabcdef0100000000ull+calls;
             Check(std::memcmp(&expected,&ctx,sizeof(ctx))==0);
         }
-        std::cout << "Novice generated callback: " << checks << " checks passed\n";
+        std::cout << "G2 generated callback: " << checks << " checks passed\n";
         return 0;
     } catch(const std::exception& error) {
         std::cerr << error.what() << '\n';return 1;

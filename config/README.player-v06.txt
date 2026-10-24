@@ -2,8 +2,10 @@ EVAC PC LABEL v0.6.1
 
 本次更新 / What's new
 修复 ESP Ra.De.「いろりの部屋」房屋模式崩溃。
+修复 G2 三面中 BOSS 相关的遗漏回调，补齐各模式对应入口。
 整理启动器页头布局，移除旧名称的重复 EXE／PDB。
-Fixed the ESP Ra.De. room-mode crash; tightened the launcher header and removed
+Fixed the ESP Ra.De. room-mode crash and missing G2 stage-3 callbacks across
+modes; tightened the launcher header and removed
 duplicate executables and symbols under the old launcher name.
 
 开始游玩

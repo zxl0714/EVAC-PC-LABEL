@@ -1,0 +1,5 @@
+# Black Label counterpart of the dat12 stage-3 forwarding callback.
+# Verified against inputs.json: forward (r3, r5, 0) to 0x880FC3B0.
+# Twelve-byte standalone entry, then padding; +0x10 is the existing flag-1 entry.
+[functions]
+0x880FC4C8 = { size = 12 }

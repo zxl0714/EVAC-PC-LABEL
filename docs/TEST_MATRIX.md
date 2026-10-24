@@ -2,6 +2,40 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.6.1 G2 三面中 BOSS 崩溃
+
+群友 `run-20261024T053850744Z-42844.7z` 在 Xbox 360 模式的 `dat12.xex`
+中调用未注册入口 `0x880EEA28` 后终止；另口头反馈 Arcade 同处崩溃。
+日志和配置提取到 `.local/g2-stage3-crash-r1`，原包、dump 和主程序快照保留。
+原始 dat12 的静态 census 与反汇编确认该入口为 12 字节无栈转发，
+将原来的 r5 放到 r4、r5 置零，然后尾跳到既有函数；后接零填充和 flag=1
+的独立入口。不是音频积压或 GPU 超时，未跳过 BOSS 或改写游戏逻辑。
+
+对输入锁和已有静态段的 SHA-256 核验后，七个 overlay 的同类入口分别是：
+dat00 `0x880EEB40`、dat11 `0x880FB808`、dat12 `0x880EEA28`、dat15
+`0x880FC4C8`、dat162 `0x880EE060`、dat163 `0x880EEB00`、dat164
+`0x880FC4E8`。只有 dat163 在旧版已注册；各目标和 flag=1 邻接入口均已存在。
+这些地址在已加载数据段内没有直接指针引用，之前的数据引用候选扫描没有覆盖它们。
+六份新声明均按各自真实指令边界添加，不用统一地址偏移推断。
+扩展的生成回调夹具在修改声明、尚未重新生成时正确拒绝 dat00 缺失注册，
+保留 `.local/v061-g2-callback-red-r1.log`。重新生成后七个模块各 12 项、合计
+84 项真实生成函数 ABI 检查通过，覆盖参数转发、上下文保留和返回值；证据为
+`.local/v061-g2-callback-green-r1.log`。六个修改的 DLL 构建通过；源码回归
+521 项通过（一个既有 Windows 符号链接权限跳过），见
+`.local/v061-g2-{candidate-build,source-regression}-r1.log`。
+
+实际回归使用 `.local/v061-g2-stage3-play-r1/collection` 的独立离线配置，
+从原生 TRAINING 选择 Ageha／Stage 3／MID BOSS。首次 run
+`20261024T060222607Z-84460` 验证 Xbox 360 与 Arcade 进场、弹幕和自然返回；
+补测 run `20261024T060840703Z-101948` 在两种模式都实际射击中 BOSS，
+观察部件破坏、得分由 0 增至 1260／2520、死亡复活和自然 Game Over，
+保存后返回训练设置。dat12／dat00 均注册 4363 个函数，模式切换正常卸载。
+没有 missing/unregistered function 或 FATAL；14:14:20 正常关窗，随后结束进程。
+这项代表性检查不声称击破整个 BOSS 或重测全部模式。
+候选 dat12 SHA-256 为 `92591bb1b25c6cbc97c29996146f00150769af3eca5c6c4b9bd8cf4ac58c6e59`，
+dat00 为 `eeab7f9b320346c6eaa38c1c5a5cf49dc83a195ed927a8516c7353ae3f0d9b1a`。
+共享用户配置、原始输入和正式排行榜没有改动。
+
 ## v0.6.1 房屋模式修复
 
 群友日志 `run-20261024T045137301Z-32308.zip` 对应 ESP Ra.De. v0.6：

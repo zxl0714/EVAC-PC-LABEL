@@ -1,0 +1,5 @@
+# Arcade counterpart of the stage-3 callback reported in dat12, run 42844.
+# Verified against inputs.json: forward (r3, r5, 0) to 0x880EEA28.
+# Twelve-byte standalone entry, then padding; +0x10 is the existing flag-1 entry.
+[functions]
+0x880EEB40 = { size = 12 }

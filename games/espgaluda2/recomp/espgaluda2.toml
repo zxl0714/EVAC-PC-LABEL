@@ -12,26 +12,31 @@ includes = ["default-functions.toml", "community-overrides.toml"]
 guest_path = "dat00.xex"
 file_path = "../../../game-data/espgaluda2/dat00.xex"
 out_directory_path = "../../../generated/espgaluda2/dat00"
+includes = ["dat00-functions.toml"]
 
 [[modules]]
 guest_path = "dat11.xex"
 file_path = "../../../game-data/espgaluda2/dat11.xex"
 out_directory_path = "../../../generated/espgaluda2/dat11"
+includes = ["dat11-functions.toml"]
 
 [[modules]]
 guest_path = "dat12.xex"
 file_path = "../../../game-data/espgaluda2/dat12.xex"
 out_directory_path = "../../../generated/espgaluda2/dat12"
+includes = ["dat12-functions.toml"]
 
 [[modules]]
 guest_path = "dat15.xex"
 file_path = "../../../game-data/espgaluda2/dat15.xex"
 out_directory_path = "../../../generated/espgaluda2/dat15"
+includes = ["dat15-functions.toml"]
 
 [[modules]]
 guest_path = "dat162.xex"
 file_path = "../../../game-data/espgaluda2/dat162.xex"
 out_directory_path = "../../../generated/espgaluda2/dat162"
+includes = ["dat162-functions.toml"]
 
 [[modules]]
 guest_path = "dat163.xex"
@@ -43,3 +48,4 @@ includes = ["dat163-functions.toml"]
 guest_path = "dat164.xex"
 file_path = "../../../game-data/espgaluda2/dat164.xex"
 out_directory_path = "../../../generated/espgaluda2/dat164"
+includes = ["dat164-functions.toml"]

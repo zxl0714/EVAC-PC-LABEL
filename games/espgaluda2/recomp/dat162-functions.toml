@@ -1,0 +1,5 @@
+# Module-162 counterpart of the dat12 stage-3 forwarding callback.
+# Verified against inputs.json: forward (r3, r5, 0) to 0x880EDF48.
+# Twelve-byte standalone entry, then padding; +0x10 is the existing flag-1 entry.
+[functions]
+0x880EE060 = { size = 12 }
