@@ -2,7 +2,49 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
-## v0.6 最终构建、双包验收与 OSS 交付
+## v0.6.1 房屋模式崩溃定位（修复待实现）
+
+群友日志 `run-20261024T045137301Z-32308.zip` 对应 ESP Ra.De. v0.6：
+主程序 SHA-256 为 `17e67da4cb5e198e1aff3fd52e91a45e17c18bfae196a070f7c73d4c9ca61e83`。
+最终事件是 `unimplemented_import`，`libSceGnmDriver` 的
+`HlTPoZ-oY7Y#i#G`（`sceGnmDrawIndex`），调用点 `eboot.bin+0x238118`。
+参数中命令缓冲大小为 10 dwords，索引数 480、flags=0、type=1。
+现有导入表没有该项，PM4 解析只有非索引 draw，resident 提交也固定为
+非索引绘图；下层 Vulkan 已有索引缓冲和绘制能力，需要接通完整路径。
+此前教程视频已有音视频帧输出并正常关闭，不把它当作本次退出原因。
+
+证据位于 `.local/v061-room-crash-r1/`。目前仅完成日志与源码定位，尚未修改
+游戏运行组件或验证房屋模式；后续增加命令回归、房屋短流程和普通模式冒烟。
+
+## v0.6 启动器及包修订（2026-10-24）
+
+修订源码为 `ff11f8475de5cf5142d3b62cf7d8495f7184c9bc`，只重编启动器并验证
+配套 PDB；游戏运行组件沿用 `cca37bb`。`SOURCE.txt` 与清单分别记录两者来源，
+不将旧游戏二进制标为重新编译。原始本地 ZIP 和 v0.6 标签保留。
+
+- 删除昵称下方的常驻说明及 20 DIP 占位，页头为 110 DIP；昵称输入／保存
+  控件底部与 logo 框底部均为 96 DIP。450 项 common、242 项隐藏启动器检查、
+  14 项视觉检查及三项翻译检查通过；实际桌面窗口已核对并正常关闭。
+- 新版 format=3 不包含旧名称 EXE／PDB。37 项包检查（一个已有文件符号链接
+  权限跳过）和六项源码包检查通过，保留历史 format=1／2 验证。
+- 直接修订已验收 ZIP，不重新压缩游戏数据。Public／Internal 分别有 135／648
+  项未修改成员，其压缩字节、CRC、压缩方式和大小与原包一致；仅变更的
+  4／5 项成员实际解压并逐字节核对。最终载荷 137／651 项，未重复游玩回归。
+
+| 文件 | 大小（字节） | SHA-256 |
+| --- | ---: | --- |
+| `EVAC-PC-LABEL-v0.6-win-x64.zip` | 76,570,975 | `14cce830b0ee008647e8dfe3cf6ee07b8a98088364fbd06a6a144f3e31dbe926` |
+| `EVAC-PC-LABEL-v0.6-win-x64-internal.zip` | 8,062,705,158 | `d9c7dc40b00733e9b5669fa9c47a67abf89bb202c941548149cecf777d5f765a` |
+
+本地目录为 `releases/v0.6-win-x64[-internal]-refresh-ff11f84/`。
+核对证据为 `.local/v06-{public,internal}-refresh-accepted-r2.json`，桌面及
+视觉证据为 `.local/v06-header-refresh-ui-r2.json` 和
+`.local/v06-header-refresh-visual-r2/`。两个包、校验文件和新截图已在原 OSS
+地址替换并通过匿名 HEAD／32 字节 Range／校验文件核对；远端证据为
+`.local/v06-{public,internal,screenshot}-oss-refresh-verified-r2.json`。
+新截图为 `.local/v06-release-media-r2/launcher-v0.6.jpg`。
+
+## v0.6 原始构建、双包验收与 OSS 交付（修订前）
 
 运行源码固定为 `cca37bb69e87cddeb15fedbe6221eccd1354b66a`，已推送。
 后续发行记录的文档提交不改变包内 SOURCE.txt 和运行组件的源码身份。

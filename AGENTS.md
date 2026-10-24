@@ -6,18 +6,42 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.6.1 room-mode crash — diagnosis complete, implementation pending
+
+The user requested inspecting the room-mode report in QQ 人均233.3 and proposed
+v0.6.1. Downloaded run-20261024T045137301Z-32308.zip through the QQ UI; extracted
+logs only to .local/v061-room-crash-r1. ESP v0.6 exits at unimplemented import
+HlTPoZ-oY7Y#i#G / libSceGnmDriver / sceGnmDrawIndex, caller eboot.bin+0x238118.
+The call uses 10 dwords, 480 indices, flags=0, type=1. Import, PM4 decoding and
+resident submission need the indexed-draw path; lower Vulkan rasterizer already
+supports indexed buffers/draws. No crash fix or gameplay verification yet.
+Keep the crash fix separate from the completed launcher/package correction below.
+The plan and TEST_MATRIX record focused v0.6.1 work; avoid unrelated retesting.
+
 ### Post-v0.6 package correction — latest
 
 New packages use format 3 and ship only EVAC PC LABEL.exe plus its matching
 PDB when symbols are selected. Do not reintroduce CAVE-PC-Collection aliases
 for shortcut compatibility. Historical format-1/2 verification remains.
 37 package tests pass (one existing symlink-privilege skip), plus six source
-package tests. The user now explicitly requests replacing the same v0.6 OSS
-links AND fixing the header helper row. Remove the label and its 20-DIP layout
-reservation, build only the launcher, and preserve the accepted game runtime.
-Record the new launcher source separately from the original game source when
-revising the packages; retain old local ZIPs and do not move the v0.6 tag.
-ZIP overlay does not delete existing aliases; no automatic cleanup is added.
+package tests. The user explicitly requested replacing the same v0.6 OSS links
+AND fixing the header helper row. Source ff11f84 removes the label and its
+20-DIP reservation; launcher-only build and matching PDB pass. 450 common,
+242 hidden UI, 14 visual and three localization checks pass. Actual desktop
+inspection and normal close pass; .local/v06-header-refresh-ui-r2.json records
+evidence. Root launcher is updated; game runtime remains cca37bb.
+Both revised ZIPs pass unchanged compressed-member equality (135/648) and
+changed-file extraction checks (4/5). Payloads have 137/651 files. Source.txt
+and metadata distinguish launcher ff11f84 from game baseline cca37bb. See
+.local/v06-{public,internal}-refresh-accepted-r2.json and TEST_MATRIX for SHA.
+Both packages/checksums and screenshot are replaced and remotely verified.
+See .local/v06-{public,internal,screenshot}-oss-refresh-verified-r2.json. Upload
+session 3329 completed; do not restart it. Original fixed URLs remain in use.
+After action-time user confirmation, the correction/apology and program URL
+were sent to QQ 人均233.3 at 13:20 on 2026-10-24. The sent bubble and empty
+composer were verified. It also states that the room fix belongs to v0.6.1,
+not this UI-only revision; do not send it again.
+Preserve old local ZIPs and v0.6 tag. No automatic installed-file deletion.
 
 ### v0.6 delivered with fixed OSS links — latest, supersedes pending work below
 
