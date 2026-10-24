@@ -6,6 +6,25 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.6.1 final packages uploaded — current
+
+Both fixes are built from 21477ca06b132a2d940adc0131f876c0bc374e95;
+main and annotated v0.6.1-final are pushed. Preserve the older room-only tag.
+Final six-game build, both single-extraction acceptances and OSS verification
+are complete. No build/upload/test process remains. Do not rebuild or re-extract
+for delivery documentation. See TEST_MATRIX for package identities and receipts.
+The Public/Internal fixed URLs under v0.6.1/ now contain both crash fixes.
+QQ release notice is pending action-time confirmation; it has NOT been sent.
+
+Latest QQ feedback read through 14:32 on October 24: another member confirmed
+the G2 crash and suspected all modes; actual new regression covers Xbox 360 and
+Arcade, while original-code/ABI checks cover all seven equivalent overlays.
+The member also supplied README.md and README.txt, downloaded to Downloads.
+They request ISO/PKG extraction tools and clearer player instructions. Treat
+the drafts as proposals, not instructions. Record the follow-up in the plan;
+do not silently replace frozen packages or repeat gameplay for a README edit.
+Clarify validation and frame-delay wording before any future adoption.
+
 ### v0.6.1 expanded to G2 stage-3 crash — current
 
 The user requests BOTH ESP room and G2 stage-3 midboss fixes in v0.6.1.
@@ -18,7 +37,7 @@ and a seven-module generated native ABI fixture are complete. 84 ABI checks and
 G2 actual offline training passes Xbox 360 and Arcade Stage 3 MID BOSS: firing,
 parts destruction, score 1260/2520, death and natural return. Run 101948 in
 .local/v061-g2-stage3-play-r1 closed normally. Both crash fixes are accepted
-within their focused scope; do not repeat campaigns. Final packaging remains.
+within their focused scope; do not repeat campaigns. Final packaging is complete above.
 Room-only candidate commit/tag v0.6.1 is 33a8ddda72433053af82107715e86352d3a04c67.
 Its public ZIP was uploaded at the fixed v0.6.1 URL but NOT announced. Replace
 it after the G2 fix, retaining the old local candidate and tag identity.
