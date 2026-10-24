@@ -39,7 +39,11 @@ std::vector<uint8_t> Recording(uint32_t mode) {
 void Units() {
   for(uint32_t mode=0;mode<3;++mode) {
     const auto bytes=Recording(mode);const auto info=guwange::InspectReplay(bytes);
-    Require(info.mode==mode && info.version==0 && info.stage==4,"Mode/version/native stage mapping");
+    Require(info.mode==mode && info.play_kind==0 && info.stage==4,"Mode/play kind/native stage mapping");
+    auto score_attack=bytes;Put32(score_attack,56,1);
+    Require(guwange::InspectReplay(score_attack).play_kind==1,"Native Score Attack recording rejected");
+    for(uint32_t kind:{2u,3u,4u,UINT32_MAX})
+      Reject([&]{auto bad=bytes;Put32(bad,56,kind);guwange::InspectReplay(bad);});
     Require(info.filetime==0x01dd63a61a501600ULL && info.payload_bytes==bytes.size()-256,"Native time/payload");
     Require(info.players[0].character==2 && info.players[0].score==12345 &&
         info.players[1].character==UINT32_MAX,"Player snapshot");
@@ -82,7 +86,7 @@ int main(int argc,char** argv) {
       std::ifstream input(argv[i],std::ios::binary);Require(bool(input),"Cannot open local recording");
       std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(input)),{});
       const auto info=guwange::InspectReplay(bytes);
-      std::cout<<"record mode="<<info.mode<<" stage="<<info.stage<<" bytes="<<bytes.size()
+      std::cout<<"record mode="<<info.mode<<" play_kind="<<info.play_kind<<" stage="<<info.stage<<" bytes="<<bytes.size()
           <<" p1_character="<<info.players[0].character<<" p1_score="<<info.players[0].score
           <<" p2_character="<<info.players[1].character<<" p2_score="<<info.players[1].score<<'\n';
     }

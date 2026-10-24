@@ -1,6 +1,7 @@
 #include "community/guwange_service.h"
 #include "community/replay_format.h"
 #include <algorithm>
+#include <bit>
 #include <charconv>
 #include <map>
 #include <stdexcept>
@@ -39,7 +40,11 @@ std::map<uint32_t,int64_t> Properties(const Json& props) {
   Check(result.at(0x10000008)>=0 && result.at(0x10000008)<=2);
   Check(result.at(0x10000006)>=INT16_MIN && result.at(0x10000006)<=INT16_MAX);
   for(auto id:{0x10000001,0x10000003,0x10000005})Check(result.at(id)==0);
-  Check(result.at(0x20000002)>0);
+  // Base 821BF1EC..821BF1FC packs the low FILETIME word into the high
+  // half of this signed property. Validate the decoded time, but retain
+  // the original property bits for transport, readback and RunKey.
+  const auto score_time=std::rotl(uint64_t(result.at(0x20000002)),32);
+  Check(score_time>0 && score_time<=INT64_MAX);
   if(result.contains(0x10008011)) {
     const auto bytes=result.at(0x10008011);
     Check(!bytes || (bytes>=kReplayHeaderBytes+kReplayFixedPayloadBytes && bytes<=kReplayMaxBytes));

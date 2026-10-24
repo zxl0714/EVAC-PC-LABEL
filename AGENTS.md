@@ -14,6 +14,54 @@ Online co-op is out of scope. Follow the six steps in IMPLEMENTATION_PLAN.
 v0.6.1 is complete; the README revision and release notice were delivered to
 QQ 人均233.3 at 15:50 on October 24. Do not repeat old delivery work below.
 
+Latest user scope decision (October 24): cancel long-running gameplay tests.
+Do not reinstate the >4.5-minute gate or create a soak/input harness for it.
+Reuse the accepted thunk-cache mechanism tests and actual mode switching;
+finish remaining short input checks, HTTPS community and release delivery.
+
+Latest r17 is CLOSED: run 20261024T124715195Z-12552 used the same r16 EXE
+with bounded input diagnostics. Arrange Xbox 360 / Offline / 1P reached stage 1,
+death/continue and pause/return to main menu. W+I delivered RT255/RY32767;
+H+W+J delivered DpadRight/RT255/RX-32767 together; W+K+L delivered
+RT255/RX23170/RY-23170. Each returned to zero on the following guest frame.
+This accepts actual short-key delivery, not sustained physical dual-stick play.
+Normal close at 20:52:50, PID12552 gone. No game currently running.
+
+Latest actual r16 is CLOSED: run 20261024T123153031Z-71660, EXE SHA
+af0d33df621d60a2eabb328677ab73f60eb3f02a72fc6b4af8c4198896170bd5.
+Blue Score Attack / Shishin / stage 1 ended at 2370. Views 5/6 score writes,
+rank estimates, replay uploads and storage-size acknowledgements succeeded.
+The original online board showed the player and replay attachment. Download
+returned 183250 bytes with SHA e678a73525db9aa712c1ea051dc068dcd6420fb6b0d207a8375f1cc6598ffc18;
+native Blue Data2 save has the same hash, and Data1 was preserved. Full x1 replay
+finished naturally, displayed its completion dialog and returned to rankings.
+Normal Alt+F4 closed at 20:41:17; PID71660 is gone, no crash dump. Five focused
+CTests passed before launch. This accepts the actual LOOPBACK score/replay
+closure, not production HTTPS. No game is currently running. Catalogue remains
+disabled until the remaining acceptance; root player runtimes are unchanged.
+Server session 50339 is the previous loopback handle: revalidate before use.
+
+Earlier actual r15: the approved shell escalation successfully launched the game
+normally (no alternative UI launch). Run 20261024T122213083Z-106668 uses r14 EXE
+0d5f3ada5afc792a3d30ae3036ce3997a11eb6f0118230abcee33f6787294c4c.
+Arcade Score Attack / Shishin ended at 3200; both native /scores requests returned
+200 and the UI confirmed success. The earlier timestamp and empty-best fixes
+are now actually exercised. The independent local DB has views 1/2 for
+Guwange-Local, score 3200, zero replays. Saved Data2 SHA
+b1bf308673cfb87385881278c579bfe975a0f25ae8e4cfa7e1e3369735aad49d;
+Data1 remains intact. r15 closed normally at 20:28:41.
+
+Replay submission failed BEFORE transport at native EstimateRank -> XLIVEBASE
+0005000D. Guwange's static Xbox API hooks were missing, despite the provider
+unit tests passing. r16 adds all five reviewed base API entries: 8224FFA0 rank,
+8224FD10 upload, 8224FA30 download, 82250180 local path, 82250218 remote path.
+They forward the original registers into existing SDK community helpers like
+G2, not the original game's score/eligibility/recorder state machines. Ten input
+contracts pass; generation/build and actual upload/download subsequently passed
+in r16 above. Do not repeat this accepted loopback replay without a related change.
+The test server has been restarted with the new validators on the SAME loopback
+port 64517, exec session 50339. No production records or service changes.
+
 The supplied Downloads/Guwange (World) (XBLA).zip is unchanged. Its base version
 0.0.0.4 is extracted only under .local/guwange-analysis-r1/extracted (29 files,
 Title ID 58410A78). TU1 is absent; an optional question asks the user for it.
@@ -77,7 +125,8 @@ run-20261024T104156469Z-684 switched normal -> Blue, entered Offline/1P/Shishin
 stage 1, scored, died/respawned, continued once and naturally ended at 22280.
 Native Data1 replay save succeeded (183290 bytes; signed payload checksum 62350),
 then returned to the mode menu. Header matches mode 1 / character 0 / score 22280;
-magic padding is nonzero, version is 0. See blue-replay-actual-r7.json.
+magic padding is nonzero, play kind is 0 (not a format version; corrected in
+r14). See blue-replay-actual-r7.json.
 Same-process Arrange entered stage 1 with automatic fire, naturally ended at
 5170, saved Data1 (183249 bytes; checksum 51932), then returned to mode selection.
 See arrange-replay-actual-r7.json. r7 closed normally at 18:57:24; PID684 is gone.
@@ -186,6 +235,29 @@ it is not a v0.7 release. r11's exact staged EXE/PDB remain the next gameplay
 candidate; do not rebuild/re-extract merely for the checkpoint commit.
 Independent preparation is now complete. Remaining gates require actual game
 entry/input/result/replay, then independent HTTPS deployment and final release.
+
+Actual r14 used r11's certified EXE in run-20261024T120741766Z-92548.
+Arcade Score Attack / 1P / Shishin reached stage 1 and naturally ended at 2780.
+The previously crashing new-player personal-best lookup now passes: views 1/2
+returned unranked local rows and the native upload prompt appeared. Submission
+was rejected locally before HTTP because the original score writer swaps the
+two FILETIME words (821BF1EC..821BF1FC). Captured signed value
+-5304130541461871696 decodes to 2026-10-24T12:10:51.638Z. Preserve this raw
+signed property for transport/readback/RunKey; decode only for validation.
+Do not change the SDK time conversion or replay header timestamp byte order.
+Native Arcade Data1 saved successfully and returned; window closed normally
+at 20:13:07. No score/replay reached the actual local server in this run.
+
+The saved 183260-byte Arcade recording (SHA 04716d48094c21dc4e4a70bed890515464a5e85356835cb3bae72062b39e7890)
+also proves header offset 56 is selected play kind, not format version:
+ordinary Play=0, Score Attack=1. Builder 821936A8 reads 82689BB8, set from
+menu selection at 821C9688. Client/server now accept both recording kinds;
+kind 2+ remains outside the supported recording contract. Corrects the early
+replay-static-r2 assumption; original records are not rewritten. Focused checks
+pass: 82 native replay checks plus the actual recording, 391 community checks
+and 10 Guwange server tests. r14 host rebuild/staging and positive-score
+upload/download playback are pending. Neither >4.5-minute actual gameplay nor
+held-input acceptance has been completed. Do not count menu waiting as play.
 
 Nickname warnings now exclude unintegrated/community-disabled titles. Native r4
 passes all seven CTests including the optimized main-wait check; source r4 has

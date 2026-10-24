@@ -12,7 +12,7 @@ inline constexpr auto kReplayFormat="guwange-base-native-v1";
 struct ReplayPlayer { uint32_t character,score; };
 struct ReplayInfo {
   uint64_t filetime;
-  uint32_t mode,version,payload_bytes;
+  uint32_t mode,play_kind,payload_bytes;
   int32_t stage;
   std::array<ReplayPlayer,2> players;
 };

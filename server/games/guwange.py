@@ -18,6 +18,7 @@ REQUIRED_PROPERTIES = frozenset(PROPERTY_TYPES) - {0x10008011}
 class ReplayInfo:
     filetime: int
     mode: int
+    play_kind: int
     stage: int
     players: tuple
 
@@ -25,9 +26,10 @@ class ReplayInfo:
 def replay_info(data):
     if not REPLAY_HEADER + FIXED_PAYLOAD <= len(data) <= MAX_REPLAY:
         raise ApiError(400, 'invalid_replay_size')
-    payload, filetime, kind, mode, version = struct.unpack_from('>IQIII', data, 36)
+    payload, filetime, kind, mode, play_kind = struct.unpack_from('>IQIII', data, 36)
+    # Native selected play kind: ordinary Play (0) or Score Attack (1).
     if (payload != len(data) - REPLAY_HEADER or kind != 2 or mode not in range(3)
-            or version != 0 or not 0 < filetime < 1 << 63):
+            or play_kind not in (0, 1) or not 0 < filetime < 1 << 63):
         raise ApiError(400, 'invalid_replay_envelope')
     # Native strcmp ignores nonzero padding after the terminator.
     if data[:32].split(b'\0', 1)[0] != MAGIC[mode]:
@@ -42,7 +44,7 @@ def replay_info(data):
     if (any(character not in (0, 1, 2, 0xffffffff) for character, _ in players)
             or all(character == 0xffffffff for character, _ in players)):
         raise ApiError(400, 'invalid_replay_players')
-    return ReplayInfo(filetime, mode, stage, players)
+    return ReplayInfo(filetime, mode, play_kind, stage, players)
 
 
 class Store(NativeStore):
@@ -63,10 +65,14 @@ class Store(NativeStore):
         slot = (view - 1) % 4
         if character not in range(3) or (slot and character != slot - 1):
             raise ApiError(400, 'native_view_mismatch')
+        # The native score writer swaps the two FILETIME words before
+        # storing this signed property. Preserve it; only decode to validate.
+        packed_time = int(actual[0x20000002]['value']) & ((1 << 64) - 1)
+        score_time = (packed_time & 0xffffffff) << 32 | packed_time >> 32
         if (not 0 <= score <= 0x7fffffff or
                 not -32768 <= int(actual[0x10000006]['value']) <= 32767 or
                 any(int(actual[key]['value']) != 0 for key in (0x10000001, 0x10000003, 0x10000005)) or
-                not 0 < int(actual[0x20000002]['value']) < 1 << 63):
+                not 0 < score_time < 1 << 63):
             raise ApiError(400, 'invalid_native_metadata')
         size = int(actual.get(0x10008011, {'value': 0})['value'])
         if size and not REPLAY_HEADER + FIXED_PAYLOAD <= size <= MAX_REPLAY:

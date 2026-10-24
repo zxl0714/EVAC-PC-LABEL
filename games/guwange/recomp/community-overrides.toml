@@ -1,0 +1,37 @@
+# XBLA base 0.0.0.4 default.xex SHA-256 (enforced before launch):
+# b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401
+# Static Xbox API entries, not title eligibility/state-machine replacements.
+# 821D6108: estimate rank, retain <=5000 gate, build local GameClip path,
+# upload exact native recording, then write confirmed storage size.
+# 821D6560: remote GameClip path, download with 20-byte native result,
+# and require downloaded length to match the title's advertised capacity.
+
+[[midasm_hook]]
+address = 0x8224FFA0
+name = "GuwangeCommunityEstimateRank"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x8224FD10
+name = "GuwangeStorageUpload"
+registers = ["r3", "r4", "r5", "r6", "r7"]
+return = true
+
+[[midasm_hook]]
+address = 0x8224FA30
+name = "GuwangeStorageDownload"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x82250180
+name = "GuwangeStorageLocalPath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true
+
+[[midasm_hook]]
+address = 0x82250218
+name = "GuwangeStorageRemotePath"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9"]
+return = true

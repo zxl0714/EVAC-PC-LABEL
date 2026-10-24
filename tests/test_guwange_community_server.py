@@ -16,12 +16,12 @@ from server.games.guwange import Store, GUWANGE, REPLAY_FORMAT, replay_info
 from server.backup import backup
 
 
-def recording(mode=0, character=0, score=12345, raw_stage=0, second=False):
+def recording(mode=0, character=0, score=12345, raw_stage=0, second=False, play_kind=1):
     # Independently authored Python fixture; deliberately opaque nonzero padding.
     data = bytearray([0x81] * (256 + 0x2cab8 + 35))
     magic = ('GWN_for_XB360_' + ('AC', 'BL', 'XB')[mode] + '20100820').encode() + b'\0'
     data[:len(magic)] = magic
-    struct.pack_into('>IQIII', data, 36, len(data) - 256, 0x01dd63a61a501600, 2, mode, 0)
+    struct.pack_into('>IQIII', data, 36, len(data) - 256, 0x01dd63a61a501600, 2, mode, play_kind)
     struct.pack_into('>I', data, 60, raw_stage)
     struct.pack_into('>II', data, 76, 0xffffffff if second else character, 0 if second else score)
     struct.pack_into('>II', data, 104, character if second else 0xffffffff, score if second else 0)
@@ -30,9 +30,15 @@ def recording(mode=0, character=0, score=12345, raw_stage=0, second=False):
     return bytes(data)
 
 
+def packed_score_time(filetime):
+    bits = (filetime & 0xffffffff) << 32 | filetime >> 32
+    return bits if bits < 1 << 63 else bits - (1 << 64)
+
+
 def submission(view=1, character=0, score=12345, stage=0, token='1' * 32, name='Player'):
     props = [(0x20000004, 2, str(score)), (0x10000008, 1, character), (0x10000006, 1, stage),
-             (0x10000001, 1, 0), (0x10000003, 1, 0), (0x20000002, 2, str(0x01dd63a61b501600)),
+             (0x10000001, 1, 0), (0x10000003, 1, 0),
+             (0x20000002, 2, str(packed_score_time(0x01dd63a69b501600))),
              (0x10000005, 1, 0), (0x10008011, 1, 0)]
     return dict(protocol=1, title_id=GUWANGE.title, submission=token, nickname=name,
                 view=view, rules='standard', score=str(score), build='authored-test',
@@ -50,6 +56,23 @@ class GuwangeCommunityServerTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / 'guwange.sqlite3'
         self.store = Store(self.path)
+
+    def test_native_packed_time_preserves_both_signs_and_captured_value(self):
+        # The last value is the scalar seen in the actual 2780-point run;
+        # these authored records contain no game or replay payload.
+        values = (packed_score_time(0x01dd63a61b501600),
+                  packed_score_time(0x01dd63a69b501600), -5304130541461871696)
+        for index, value in enumerate(values):
+            body = submission(score=2780, token=f'{index + 1:032x}', name=f'Time-{index}')
+            body['columns'][5]['value'] = str(value)
+            self.store.submit(body)
+            row = self.store.leaderboard(1, names=[body['nickname']])['rows'][0]
+            returned = next(item for item in row['columns'] if item['id'] == 0x20000002)
+            self.assertEqual(returned['value'], str(value))
+        for value in (0, 0x80000000):
+            bad = submission(token='e' * 32)
+            bad['columns'][5]['value'] = str(value)
+            with self.subTest(value=value), self.assertRaises(ApiError): self.store.submit(bad)
 
     def test_all_modes_and_character_boards_with_exact_replay(self):
         for view in GUWANGE.views:
@@ -71,6 +94,13 @@ class GuwangeCommunityServerTests(unittest.TestCase):
             for other in range(3):
                 if other != mode:
                     with self.assertRaises(ApiError): self.store.attach_replay(attachment(sid, recording(other)))
+
+    def test_native_play_and_score_attack_recordings(self):
+        for mode in range(3):
+            for kind in (0, 1):
+                self.assertEqual(replay_info(recording(mode, play_kind=kind)).play_kind, kind)
+            for kind in (2, 3, 4, 0xffffffff):
+                with self.assertRaises(ApiError): replay_info(recording(mode, play_kind=kind))
 
     def test_native_stage_player_and_separate_time(self):
         sid = self.store.submit(submission(stage=4))['id']

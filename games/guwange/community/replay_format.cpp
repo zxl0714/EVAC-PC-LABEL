@@ -18,10 +18,12 @@ uint64_t Be64(std::span<const uint8_t> data,size_t at) {
 ReplayInfo InspectReplay(std::span<const uint8_t> data) {
   // Base 0.0.0.4: header builder/finalizer 821934B8/821936C8,
   // signed-byte checksum 821935A0, serialization/player selection 821BFD10.
-  // Native local Blue and Arrange recordings independently confirm this layout.
+  // Native local Blue/Arrange and Arcade Score Attack recordings confirm it.
   Check(data.size()>=kReplayHeaderBytes+kReplayFixedPayloadBytes && data.size()<=kReplayMaxBytes);
-  const auto payload=Be32(data,36),mode=Be32(data,52),version=Be32(data,56);
-  Check(payload==data.size()-kReplayHeaderBytes && Be32(data,48)==2 && mode<3 && version==0);
+  const auto payload=Be32(data,36),mode=Be32(data,52),play_kind=Be32(data,56);
+  // 821936A8 copies the selected play kind (82689BB8), not a format version:
+  // 0 = ordinary Play, 1 = Score Attack. Both produce native recordings.
+  Check(payload==data.size()-kReplayHeaderBytes && Be32(data,48)==2 && mode<3 && play_kind<=1);
   constexpr std::array<std::string_view,3> magic{
       "GWN_for_XB360_AC20100820","GWN_for_XB360_BL20100820","GWN_for_XB360_XB20100820"};
   const auto expected=magic[mode];
@@ -35,7 +37,7 @@ ReplayInfo InspectReplay(std::span<const uint8_t> data) {
   // Native writer uses lwz/extsh, then removes the extra stage slot at >=5.
   int32_t stage=std::bit_cast<int16_t>(uint16_t(Be32(data,60)));
   if(stage>=5)--stage;
-  ReplayInfo info{filetime,mode,version,payload,stage,
+  ReplayInfo info{filetime,mode,play_kind,payload,stage,
       {{{Be32(data,76),Be32(data,80)},{Be32(data,104),Be32(data,108)}}}};
   bool active=false;
   for(const auto& player:info.players) {

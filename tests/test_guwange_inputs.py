@@ -44,7 +44,7 @@ class GuwangeInputTests(unittest.TestCase):
             self.assertEqual(record['file_path'], '../../../game-data/guwange/' + program)
             self.assertEqual(record['out_directory_path'], '../../../generated/guwange/' + name)
             outputs.add(record['out_directory_path'])
-            self.assertEqual(len(record['includes']), 5 if name == 'default' else 2)
+            self.assertEqual(len(record['includes']), 6 if name == 'default' else 2)
             declaration = (self.root / 'recomp' / record['includes'][0]).read_text(encoding='utf-8')
             self.assertIn(header['sha256'], declaration)
             functions = tomllib.loads(declaration)['functions']
@@ -81,6 +81,32 @@ class GuwangeInputTests(unittest.TestCase):
         hooks = tomllib.loads(text)['midasm_hook']
         self.assertEqual(hooks, [dict(address=0x821E98A4,
             name='GuwangeMainThreadWait', registers=['r11'])])
+
+    def test_native_community_api_hooks_are_base_bound_and_linked(self):
+        text = (self.root / 'recomp/community-overrides.toml').read_text()
+        self.assertIn(self.inputs['xex'][0]['sha256'], text)
+        self.assertIn('community-overrides.toml', self.manifest['entrypoint']['includes'])
+        self.assertIn('community/guest_hooks.cpp', (self.root / 'CMakeLists.txt').read_text())
+        expected = {
+            0x8224FFA0: ('GuwangeCommunityEstimateRank', 7),
+            0x8224FD10: ('GuwangeStorageUpload', 7),
+            0x8224FA30: ('GuwangeStorageDownload', 9),
+            0x82250180: ('GuwangeStorageLocalPath', 9),
+            0x82250218: ('GuwangeStorageRemotePath', 9),
+        }
+        hooks = tomllib.loads(text)['midasm_hook']
+        self.assertEqual({h['address'] for h in hooks}, expected.keys())
+        implementation = (self.root / 'community/guest_hooks.cpp').read_text()
+        for hook in hooks:
+            name, last = expected[hook['address']]
+            self.assertEqual(hook, dict(address=hook['address'], name=name,
+                registers=[f'r{i}' for i in range(3, last + 1)], **{'return': True}))
+            self.assertIn('void ' + name + '(', implementation)
+        self.assertEqual(implementation.count('StartCommunityRankIo('), 1)
+        self.assertEqual(implementation.count('StartCommunityReplayIo('), 2)
+        self.assertEqual(implementation.count('BuildCommunityReplayPath('), 2)
+        # No replacement of the original score/replay producer or rank gate.
+        self.assertNotIn(0x821D6108, expected)
 
     def test_state_writing_core_callbacks_include_blue_crash_entry(self):
         expected = {

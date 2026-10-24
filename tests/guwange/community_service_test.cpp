@@ -2,6 +2,7 @@
 #include "community/replay_format.h"
 #include <rex/logging.h>
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
@@ -24,7 +25,8 @@ template<class T,class F> T Complete(F action) {
 }
 CommunityWrite Score(uint32_t view=1,uint32_t character=0,int64_t score=12345) {
   return {view,{{0x20000004,2,score,0},{0x10000008,1,character,0},{0x10000006,1,0,0},
-      {0x10000001,1,0,0},{0x10000003,1,0,0},{0x20000002,2,0x01dd63a61b501600LL,0},
+      {0x10000001,1,0,0},{0x10000003,1,0,0},
+      {0x20000002,2,std::bit_cast<int64_t>(0x9b50160001dd63a6ULL),0},
       {0x10000005,1,0,0},{0x10008011,1,0,0}}};
 }
 std::vector<uint8_t> Recording(uint32_t mode=0,uint32_t character=0,uint32_t score=12345) {
@@ -33,7 +35,7 @@ std::vector<uint8_t> Recording(uint32_t mode=0,uint32_t character=0,uint32_t sco
   std::copy(names[mode].begin(),names[mode].end(),data.begin());data[names[mode].size()]=0;
   auto put32=[&](size_t at,uint32_t value){for(int i=3;i>=0;--i){data[at+i]=uint8_t(value);value>>=8;}};
   put32(36,uint32_t(data.size()-256));put32(40,0x01dd63a6);put32(44,0x1a501600);
-  put32(48,2);put32(52,mode);put32(56,0);put32(60,0);
+  put32(48,2);put32(52,mode);put32(56,1);put32(60,0);
   put32(76,character);put32(80,score);put32(104,UINT32_MAX);put32(108,0);
   int64_t sum=0;for(size_t i=256;i<data.size();++i)sum+=data[i]>=128?int(data[i])-256:data[i];
   data[32]=uint8_t(uint16_t(sum)>>8);data[33]=uint8_t(sum);return data;
@@ -77,6 +79,18 @@ CommunityReplayResult Replay(GuwangeCommunity& service,CommunityReplay request) 
   return Complete<CommunityReplayResult>([&](auto done){service.Replay(std::move(request),done);});
 }
 void Units() {
+  // Native 821BF1EC..821BF1FC packs the FILETIME words low-first. The
+  // signed XUSER_DATA value may be negative; keep its exact wire bits.
+  for(auto packed:{0x1b50160001dd63a6ULL,0x9b50160001dd63a6ULL,0xb663f16001dd63b0ULL}) {
+    auto score=Score(1,0,2780);score.columns[5].integer=std::bit_cast<int64_t>(uint64_t(packed));
+    const auto encoded=EncodeCommunityScore(score);
+    Require(encoded.at("columns")[5].at("value")==std::to_string(score.columns[5].integer),
+        "Native packed time changed during encoding");
+    Require(DecodeCommunityColumns(1,encoded.at("columns")).size()==3,"Packed time readback");
+    MatchCommunityReplay(1,encoded.at("columns"),Recording(0,0,2780));++checks;
+  }
+  for(auto packed:{int64_t(0),int64_t(0x80000000)})
+    Reject([&]{auto bad=Score();bad.columns[5].integer=packed;EncodeCommunityScore(bad);});
   for(uint32_t view=1;view<=12;++view) {
     const auto slot=(view-1)%4,character=slot?slot-1:2;
     const auto body=EncodeCommunityScore(Score(view,character));
