@@ -44,7 +44,7 @@ def git(root, *args):
 def version_name(version, flavor, package_format=1):
     if not re.fullmatch(r'[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[a-z0-9.-]+)?', version) or flavor not in ('Internal', 'Public', 'Update'):
         raise ValueError('Expected a numeric version and Internal/Public/Update flavor')
-    if package_format == 2:
+    if package_format in (2, 3):
         if flavor not in ('Public', 'Internal') or not renamed(version):
             raise ValueError('Windows packages require v0.4 or later and Public/Internal flavor')
         return slug(version) + '-v' + version + '-win-x64' + ('-internal' if flavor == 'Internal' else '')
@@ -103,8 +103,8 @@ def placement_sources(version):
 
 def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=None, package_format=1):
     names = {launcher(version), 'runtime/launcher/cave_inspect.exe'}
-    # Refresh an old shortcut target with the same native launcher. Format 2
-    # uses one payload for both empty and existing installation directories.
+    # Historical packages refreshed old shortcuts. Format 3 ships only the
+    # current launcher name, including when matching symbols are selected.
     if renamed(version) and (flavor == 'Update' or package_format == 2):
         names.add(LEGACY_LAUNCHER)
     for key in selection:
@@ -289,8 +289,8 @@ def selected_items(requested, allowed, label):
 
 
 def windows_policy(record, games, selection):
-    """Validate the format-2 contract independently of its file inventory."""
-    version_name(record['version'], record['flavor'], 2)
+    """Validate the flat Windows contract independently of its file inventory."""
+    version_name(record['version'], record['flavor'], record['format'])
     data_games, content = record.get('dataGames'), record.get('futariContent')
     if not isinstance(data_games, list) or not isinstance(content, list):
         raise ValueError('Missing explicit Internal content selection')
@@ -352,10 +352,10 @@ def verify_tree(directory, games=None):
     selection = release_games(release.get('version', ''))
     games = games or catalogue(selection)
     package_format = release.get('format')
-    if type(package_format) is not int or package_format not in (1, 2) or release.get('flavor') not in ('Internal', 'Public', 'Update') or release.get('games') != list(selection):
+    if type(package_format) is not int or package_format not in (1, 2, 3) or release.get('flavor') not in ('Internal', 'Public', 'Update') or release.get('games') != list(selection):
         raise ValueError('Invalid release identity')
-    required_data = windows_policy(release, games, selection) if package_format == 2 else {}
-    symbols = release['symbolsIncluded'] if package_format == 2 else release['flavor'] == 'Internal'
+    required_data = windows_policy(release, games, selection) if package_format in (2, 3) else {}
+    symbols = release['symbolsIncluded'] if package_format in (2, 3) else release['flavor'] == 'Internal'
     runtime = runtime_names(games, symbols, selection, release['version'], release['flavor'], package_format)
     if release['flavor'] == 'Update' and (release['version'] not in UPDATE_BASES
             or release.get('baseVersion') != UPDATE_BASES.get(release['version'])
@@ -366,7 +366,7 @@ def verify_tree(directory, games=None):
         name = safe_name(item['path'])
         if name in expected or name in META:
             raise ValueError('Duplicate or recursive package inventory entry')
-        if package_format == 2:
+        if package_format in (2, 3):
             validate_windows_item(item, release, games, selection, required_data, runtime)
         elif release['flavor'] in ('Public', 'Update'):
             validator = validate_update_name if release['flavor'] == 'Update' else validate_public_name
@@ -392,7 +392,7 @@ def verify_tree(directory, games=None):
         raise ValueError('Package SHA256SUMS does not match')
     if not runtime.issubset(expected):
         raise ValueError('Package is missing a required player component')
-    if package_format == 2 and not (set(required_data) | {'README.txt', 'SOURCE.txt', batch_name(release['version'])}).issubset(expected):
+    if package_format in (2, 3) and not (set(required_data) | {'README.txt', 'SOURCE.txt', batch_name(release['version'])}).issubset(expected):
         raise ValueError('Package is missing selected data or instructions')
     if renamed(release['version']):
         primary = expected[LAUNCHER]
@@ -484,20 +484,20 @@ def verify_certificate(game, certified, commit):
 
 
 def build(flavor, version, output=None, data=None, futari_dlc=None, *,
-          data_games=None, futari_content=None, symbols=False, package_format=2):
+          data_games=None, futari_content=None, symbols=False, package_format=3):
     package_name = version_name(version, flavor, package_format)
     selection = release_games(version)
     if flavor in ('Public', 'Update') and (data or futari_dlc or data_games or futari_content or symbols):
         raise ValueError(flavor + ' does not accept ROM or source inclusion options')
     if type(symbols) is not bool:
         raise ValueError('Symbols selection must be a boolean')
-    included = selected_items(data_games if data_games is not None else (data or {}).keys(), selection, 'game data') if package_format == 2 else list(selection)
+    included = selected_items(data_games if data_games is not None else (data or {}).keys(), selection, 'game data') if package_format in (2, 3) else list(selection)
     if data and set(data) - set(included):
         raise ValueError('Data directory override for an unselected game')
-    if package_format == 2 and ((futari_content and 'futari' not in included) or (futari_dlc and not futari_content)):
+    if package_format in (2, 3) and ((futari_content and 'futari' not in included) or (futari_dlc and not futari_content)):
         raise ValueError('Select Futari data and DLC packages before specifying a DLC source')
     games = catalogue(selection)
-    content_ids = selected_items(futari_content, [item['id'] for item in games['futari']['content']], 'Futari DLC') if package_format == 2 else [item['id'] for item in games['futari']['content']]
+    content_ids = selected_items(futari_content, [item['id'] for item in games['futari']['content']], 'Futari DLC') if package_format in (2, 3) else [item['id'] for item in games['futari']['content']]
     commit, receipts, certified = certified_runtime(selection)
     for key in selection:
         verify_certificate(games[key], certified, commit)
@@ -531,7 +531,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     reject_link(parent)
     parent.mkdir(parents=True, exist_ok=False); directory = parent / package_name; directory.mkdir()
     entries = []
-    include_symbols = symbols if package_format == 2 else flavor == 'Internal'
+    include_symbols = symbols if package_format in (2, 3) else flavor == 'Internal'
     for path in sorted(runtime_names(games, include_symbols, selection, version, flavor, package_format)):
         target = directory / path
         if path.endswith('/runtime-manifest.ini'):
@@ -578,7 +578,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         source_location + '若没有仓库访问权限，请联系提供本包的人获取\n' +
         '对应版本的维护源码、依赖版本与构建说明。原始游戏数据不在源码 Git 中。\n' +
         '各组件保留原许可证，完整声明见 licenses/。\n')
-    if package_format == 2:
+    if package_format in (2, 3):
         source_text = (NAME + '\n\nSource / 对应源码：\n' + REPOSITORY_URL + '/tree/' + commit +
             '\n\nBuild instructions / 构建说明：FOR_AGENT.md\n'
             'Pinned dependencies / 固定依赖：tools/sdk-source.lock.json, tools/ps4-source.lock.json\n'
@@ -591,10 +591,10 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             excluded = {'dlc'} if key == 'futari' else set()
             if placement_sources(version):excluded.add(PLACEMENT_NAME.casefold())
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
-                      excluded, manifest_only=package_format == 2 or key in MANIFEST_ONLY_DATA)
+                      excluded, manifest_only=package_format in (2, 3) or key in MANIFEST_ONLY_DATA)
         if dlc:
             copy_data(dlc, directory / 'game-data/futari/dlc', entries,
-                      [file for package in packages for file in package['files']], manifest_only=package_format == 2)
+                      [file for package in packages for file in package['files']], manifest_only=package_format in (2, 3))
     if flavor == 'Internal' and package_format == 1:
         source_clone(directory / 'source', commit)
         for file in tree_files(directory / 'source'):
@@ -611,7 +611,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         release['dataVariants'] = {key: report['dataVariant'] for key, report in reports.items() if games[key].get('variants')}
     if flavor == 'Update':
         release.update(baseVersion=UPDATE_BASES[version], preservedPaths=list(UPDATE_PRESERVED))
-    if package_format == 2:
+    if package_format in (2, 3):
         release.update(platform='win-x64', archiveLayout='flat', sourceIncluded=False,
                        sourceUrl=REPOSITORY_URL + '/tree/' + commit, preservedPaths=list(PROGRAM_PRESERVED),
                        dataGames=included if flavor == 'Internal' else [],

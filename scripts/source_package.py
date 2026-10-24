@@ -91,7 +91,7 @@ def build(binary_directory, output):
     binary_directory = Path(binary_directory).absolute()
     reject_link(binary_directory)
     binary = release.verify_tree(binary_directory)
-    if binary.get('format') == 2:
+    if binary.get('format') in (2, 3):
         raise ValueError('This package uses the matching GitHub source; no source attachment is produced')
     commit = release.git(ROOT, 'rev-parse', 'HEAD').decode().strip()
     if (release.git(ROOT, 'status', '--porcelain', '--untracked-files=normal').strip()

@@ -220,13 +220,12 @@ ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片�
 -FutariDlcDirectory 指定所选 DLC 的源目录。所有数据按精确清单复制，绊地狱绑定
 检测到的 base／update-102 版本，不收录目录中多余的 ISO、工具和补丁包。
 
-主入口为 `EVAC PC LABEL.exe`。旧文件名 `CAVE-PC-Collection.exe` 是其逐字节
-相同的副本，用于刷新已有快捷方式的目标。
-两者使用同一安装目录的单实例逻辑，不采用第二套宿主或封装程序。
+启动入口只保留 `EVAC PC LABEL.exe`，选用符号时配套 `EVAC PC LABEL.pdb`。
+新包不再复制旧名称的 EXE／PDB；ZIP 覆盖解压不会删除旧目录中已有的文件。
 
-清单 format=2 明确记录 dataGames、futariContent、symbolsIncluded、sourceCommit
+清单 format=3 明确记录 dataGames、futariContent、symbolsIncluded、sourceCommit
 和平台。Public 的 game-data 仅允许 `config/game-data/*.txt` 对应的六份说明；
-Internal 另允许所选数据清单。历史 format=1 验证保留，新入口不再生成 Update 或
+Internal 另允许所选数据清单。历史 format=1／2 验证保留，新入口不再生成 Update 或
 源码附件。冻结文件不改名、不覆盖。
 
 每次创建 releases/ 下的新输出目录，保留旧发行。一次公共构建认证之后，每个最终 ZIP 只在新目录解压验收一次：

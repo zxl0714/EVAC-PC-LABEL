@@ -348,9 +348,9 @@ int main() {
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
             "Integrated titles must advertise their verified community adapters");
     const auto normal=launcher::InitialWindowSize(1104,1920,1080,96,40,6);
-    Require(normal.width==1104 && normal.height==998,"Launcher fits all six cards at 100% DPI");
+    Require(normal.width==1104 && normal.height==978,"Launcher fits all six cards at 100% DPI");
     const auto scaled=launcher::InitialWindowSize(1104,2560,2160,144,56,6);
-    Require(scaled.width==1104 && scaled.height==1493,"Launcher height follows 150% DPI");
+    Require(scaled.width==1104 && scaled.height==1463,"Launcher height follows 150% DPI");
     const auto small=launcher::InitialWindowSize(1104,1024,728,144,56,6);
     Require(small.width==1024 && small.height==728,"Launcher stays inside a small monitor work area");
     Require(launcher::InitialWindowSize(1104,2560,2160,144,56,7).height>scaled.height,

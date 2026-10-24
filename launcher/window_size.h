@@ -3,7 +3,7 @@
 #include <cstddef>
 
 namespace cave::launcher {
-inline constexpr int kHeaderHeight=130,kFooterHeight=120,kCardGap=12;
+inline constexpr int kHeaderHeight=110,kFooterHeight=120,kCardGap=12;
 inline constexpr int kMinimumCardHeight=92,kDefaultCardHeight=108;
 
 struct WindowSize {int width,height;};

@@ -125,10 +125,12 @@ class SourcePackageTests(unittest.TestCase):
         self.assertTrue(archive.with_suffix('.zip.sha256').read_text().startswith(release.digest(archive)))
 
     def test_windows_package_does_not_create_a_source_attachment(self):
-        with patch.object(release, 'verify_tree', return_value=dict(format=2)), \
-                patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
-            with self.assertRaisesRegex(ValueError, 'no source attachment'):
-                source.build(self.root, self.root/'not-created')
+        for package_format in (2, 3):
+            with self.subTest(format=package_format), \
+                    patch.object(release, 'verify_tree', return_value=dict(format=package_format)), \
+                    patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
+                with self.assertRaisesRegex(ValueError, 'no source attachment'):
+                    source.build(self.root, self.root/'not-created')
         self.assertFalse((self.root/'not-created').exists())
 
 

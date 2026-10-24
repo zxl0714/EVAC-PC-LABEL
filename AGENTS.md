@@ -6,6 +6,19 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### Post-v0.6 package correction — latest
+
+New packages use format 3 and ship only EVAC PC LABEL.exe plus its matching
+PDB when symbols are selected. Do not reintroduce CAVE-PC-Collection aliases
+for shortcut compatibility. Historical format-1/2 verification remains.
+37 package tests pass (one existing symlink-privilege skip), plus six source
+package tests. The user now explicitly requests replacing the same v0.6 OSS
+links AND fixing the header helper row. Remove the label and its 20-DIP layout
+reservation, build only the launcher, and preserve the accepted game runtime.
+Record the new launcher source separately from the original game source when
+revising the packages; retain old local ZIPs and do not move the v0.6 tag.
+ZIP overlay does not delete existing aliases; no automatic cleanup is added.
+
 ### v0.6 delivered with fixed OSS links — latest, supersedes pending work below
 
 Player source is fixed at cca37bb69e87cddeb15fedbe6221eccd1354b66a and pushed.

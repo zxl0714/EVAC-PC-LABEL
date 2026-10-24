@@ -220,6 +220,9 @@ void MainChecks() {
     for(const auto dimensions:std::array{std::pair{720.f,520.f},std::pair{1080.f,900.f}}) {
       app.layout.width=dimensions.first;app.layout.height=dimensions.second;
       const auto brand=app.layout.brand();
+      Require(app.layout.nickname().bottom==brand.bottom && app.layout.save().bottom==brand.bottom,
+              "Nickname controls must bottom-align with the logo");
+      Require(app.layout.header()-brand.bottom==14,"Header retains a removed helper-row reservation");
       Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
               brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
       const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};

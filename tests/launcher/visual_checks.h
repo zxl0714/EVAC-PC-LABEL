@@ -46,6 +46,8 @@ void VisualChecks(const fs::path& output) {
       const auto first=layout.language_choice(0),last=layout.language_choice(2);
       const auto choices=first_ink({first.left,first.top,last.right,last.bottom});
       Require(brand>=0 && choices>=0 && std::abs(brand-choices)<=3,"Visible logo and language glyphs are not top-aligned");
+      Require(first_ink({layout.margin(),layout.brand().bottom+1,layout.width-layout.margin(),layout.header()-2})<0,
+              "Header gap still contains a permanent helper label");
       std::cout<<"visual "<<path.filename().string()<<" logo_top="<<brand<<" language_top="<<choices<<"\n";
     }
   }

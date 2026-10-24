@@ -396,14 +396,16 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn(release.LAUNCHER, zipped.namelist())
                 zipped.extractall(installed)
             record = release.verify_tree(installed, games)
-            self.assertEqual(record['format'], 2)
+            self.assertEqual(record['format'], 3)
             self.assertEqual(record['sourceUrl'], release.REPOSITORY_URL+'/tree/'+commit)
             self.assertEqual(record['dataGames'], [])
             self.assertFalse(record['symbolsIncluded'])
             self.assertFalse(record['sourceIncluded'])
             names = {item['path'] for item in record['files']}
             self.assertTrue(release.runtime_names(games, selection=release.V03_GAMES, version='0.4',
-                                                 package_format=2).issubset(names))
+                                                 package_format=3).issubset(names))
+            self.assertNotIn(release.LEGACY_LAUNCHER, names)
+            self.assertNotIn('CAVE-PC-Collection.pdb', names)
             self.assertEqual({name for name in names if name.startswith('game-data/')},
                              set(release.placement_sources('0.4')))
             self.assertFalse((installed/'user-data').exists())
@@ -428,9 +430,43 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual((installed/name).read_bytes(), value, name)
             for item in record['files']:
                 self.assertEqual(release.digest(installed/item['path']), item['sha256'])
-            self.assertEqual(release.digest(installed/release.LAUNCHER),
-                             release.digest(installed/release.LEGACY_LAUNCHER))
+            # ZIP extraction does not delete pre-existing files. New packages
+            # must neither ship nor refresh the retired shortcut target.
+            self.assertEqual((installed/release.LEGACY_LAUNCHER).read_bytes(), b'authored old launcher')
         self.check_build_flavors('0.4', check)
+
+    def test_frozen_format2_still_verifies_its_launcher_alias_and_symbols(self):
+        def check(root, games, commit, inspect):
+            result = release.build('Internal', '0.6', root/'releases/format2',
+                                   symbols=True, package_format=2)
+            directory = Path(result['directory'])
+            record = release.verify_tree(directory, games)
+            self.assertEqual(record['format'], 2)
+            for suffix in ('.exe', '.pdb'):
+                self.assertEqual(release.digest(directory/('EVAC PC LABEL'+suffix)),
+                                 release.digest(directory/('CAVE-PC-Collection'+suffix)))
+        self.check_build_flavors('0.6', check)
+
+    def test_new_packages_reject_retired_launcher_even_with_matching_inventory(self):
+        def check(root, games, commit, inspect):
+            for flavor in ('Public', 'Internal'):
+                result = release.build(flavor, '0.6', root/'releases'/flavor,
+                                       symbols=flavor == 'Internal')
+                directory = Path(result['directory'])
+                record = release.verify_tree(directory, games)
+                for suffix in ('.exe', '.pdb'):
+                    name = 'CAVE-PC-Collection'+suffix
+                    file = directory/name
+                    self.assertFalse(file.exists())
+                    original = directory/('EVAC PC LABEL'+suffix)
+                    file.write_bytes(original.read_bytes() if original.exists() else b'authored symbols')
+                    entry = dict(path=name, role='runtime', bytes=file.stat().st_size, sha256=release.digest(file))
+                    self.rewrite_inventory(directory, dict(record, files=[*record['files'], entry]))
+                    with self.subTest(flavor=flavor, name=name), self.assertRaises(ValueError):
+                        release.verify_tree(directory, games)
+                    file.unlink()
+                    self.rewrite_inventory(directory, record)
+        self.check_build_flavors('0.6', check)
 
     def test_v06_six_game_program_and_selected_internal_data(self):
         def check(root, games, commit, inspect):
@@ -450,6 +486,9 @@ class ReleaseTests(unittest.TestCase):
                     archive.extractall(installed)
                 record = release.verify_tree(installed, games)
                 self.assertEqual(record['games'], list(release.V06_GAMES))
+                self.assertEqual(record['format'], 3)
+                self.assertFalse((installed/release.LEGACY_LAUNCHER).exists())
+                self.assertFalse((installed/'CAVE-PC-Collection.pdb').exists())
                 self.assertEqual(record['dataGames'], list(release.V06_GAMES) if flavor == 'Internal' else [])
                 self.assertEqual((installed/'README.txt').read_text(encoding='utf-8'), 'authored v06 instructions')
                 self.assertTrue((installed/'Launch.bat').is_file())
@@ -509,6 +548,8 @@ class ReleaseTests(unittest.TestCase):
                 self.assertNotIn('game-data/futari/dlc/unselected.bin', names)
                 self.assertEqual('game-data/futari/dlc/second-dlc.bin' in names, all_data)
                 self.assertIn('EVAC PC LABEL.pdb', names)
+                self.assertNotIn(release.LEGACY_LAUNCHER, names)
+                self.assertNotIn('CAVE-PC-Collection.pdb', names)
                 self.assertNotIn('game-data/daioujou/Project.gp4', names)
                 self.assertFalse((Path(result['directory'])/'source').exists())
         self.check_build_flavors('0.4', check)
@@ -586,7 +627,7 @@ class ReleaseTests(unittest.TestCase):
                 with self.subTest(field=key), self.assertRaises(ValueError):
                     release.verify_tree(directory, games)
             self.rewrite_inventory(directory, record)
-            self.assertEqual(release.verify_tree(directory, games)['format'], 2)
+            self.assertEqual(release.verify_tree(directory, games)['format'], 3)
         self.check_build_flavors('0.4', check)
 
     def check_build_flavors(self, version, windows_checks=None):

@@ -334,7 +334,7 @@ class Renderer {
   }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
-            bool preferences_dirty=false,std::wstring_view override_hint={}) {
+            std::wstring_view override_hint={}) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     const auto brand=Logo(target);const auto brand_size=brand->GetSize();
@@ -363,8 +363,6 @@ class Renderer {
       Button(target,layout.nickname(),L"Player");Button(target,layout.save(),T(L"保存"),false,true);
     }
     Text(target,T(L"排行榜昵称"),layout.nickname_label(),10,0x627368);
-    Text(target,preferences_dirty?T(L"未保存 · 启动前会自动保存"):T(L"共用设置 · 下次启动生效"),
-        {layout.nickname_label().left,100,layout.save().right,118},10,preferences_dirty?0x90754f:0x7d8881,DWRITE_TEXT_ALIGNMENT_TRAILING);
     target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     for (size_t index=0;index<rows.size();++index) {
       const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
@@ -699,7 +697,7 @@ class App {
       }
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,preferences_dirty,override_hint);
+      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
