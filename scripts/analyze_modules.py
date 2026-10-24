@@ -13,7 +13,7 @@ from xex_inventory import inventory
 
 
 def verify_inputs(game, data_dir):
-    if game != 'espgaluda2':
+    if game not in ('espgaluda2', 'sdoj', 'guwange'):
         raise ValueError('Unsupported game adaptation')
     lock = json.loads((ROOT / 'games' / game / 'inputs.json').read_text(encoding='utf-8'))
     for item in lock['xex']:
@@ -51,9 +51,9 @@ def inspect_report(report, name, expected, target, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--game', choices=('espgaluda2',), default='espgaluda2')
+    parser.add_argument('--game', choices=('espgaluda2', 'sdoj', 'guwange'), default='espgaluda2')
     parser.add_argument('--data-dir', type=Path, required=True)
-    parser.add_argument('--module', action='append', help='Declared XEX name; default: all eight')
+    parser.add_argument('--module', action='append', help='Declared program path; default: all')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     data_dir = args.data_dir.resolve()
@@ -67,9 +67,10 @@ def main():
     cache = ROOT / 'out/sdk-build/CMakeCache.txt'
     if 'REXGLUE_ENABLE_TRACY:BOOL=OFF' not in cache.read_text(encoding='utf-8'):
         raise ValueError('Use the no-Tracy SDK build before running analysis')
-    builds = (ROOT / 'out' / args.game, ROOT / 'out' / (args.game + '-native'))
-    executable = next((path / 'bin' / (args.game + '_inspect.exe') for path in builds
-                       if (path / 'bin' / (args.game + '_inspect.exe')).is_file()), None)
+    builds = (ROOT / 'out' / args.game, ROOT / 'out' / (args.game + '-native'), ROOT / 'out/xbox360')
+    executable = next((path / 'bin' / tool for path in builds
+                       for tool in (args.game + '_inspect.exe', 'espgaluda2_inspect.exe')
+                       if (path / 'bin' / tool).is_file()), None)
     if executable is None:
         raise ValueError('Build the game native analysis tools first (-NativeOnly)')
     runtime = executable.parent / 'rexruntime.dll'
@@ -84,7 +85,7 @@ def main():
         with (output / (Path(name).stem + '-stdout.log')).open('xb') as stdout, \
                 (output / (Path(name).stem + '-stderr.log')).open('xb') as stderr:
             result = subprocess.run([str(executable), str(data_dir), name, str(target),
-                                     '--dump-sections'], stdout=stdout, stderr=stderr, timeout=90)
+                                     '--dump-sections', '--game=' + args.game], stdout=stdout, stderr=stderr, timeout=90)
         if result.returncode:
             raise RuntimeError(f'Static census failed for {name}: {result.returncode}; preserve {output}')
         report = json.loads(analysis_child(target, 'census.json').read_text(encoding='utf-8'))

@@ -272,6 +272,7 @@ bool FunctionDispatcher::SetFunction(uint32_t guest_address, ::PPCFunc* func) {
 
 uint32_t FunctionDispatcher::AllocateThunk(::PPCFunc* func, uint32_t caller_address) {
   std::lock_guard<std::recursive_mutex> lock(dispatch_mutex_);
+  if (!func) return 0;
   auto* mod = FindModuleByAddress(caller_address);
   if (!mod) {
     if (caller_address != 0) {
@@ -291,17 +292,56 @@ uint32_t FunctionDispatcher::AllocateThunk(::PPCFunc* func, uint32_t caller_addr
     }
   }
 
-  if (mod->next_thunk_address >= mod->thunk_limit) {
-    REXLOG_ERROR("Thunk address space exhausted for module at {:08X}", mod->code_base);
+  if (const auto cached = mod->host_thunks.find(func); cached != mod->host_thunks.end()) {
+    return cached->second;
+  }
+  const auto address = AllocateThunkSlot(*mod, func);
+  if (address) mod->host_thunks.emplace(func, address);
+  return address;
+}
+
+uint32_t FunctionDispatcher::AllocateThunkSlot(ModuleTableInfo& mod, ::PPCFunc* func) {
+  // Caller holds dispatch_mutex_. Failed installation is never cached.
+  if (mod.next_thunk_address >= mod.thunk_limit) {
+    REXLOG_ERROR("Thunk address space exhausted for module at {:08X}", mod.code_base);
     return 0;
   }
-  uint32_t addr = mod->next_thunk_address;
-  mod->next_thunk_address += 4;
+  uint32_t addr = mod.next_thunk_address;
+  mod.next_thunk_address += 4;
   if (!SetFunction(addr, func)) {
-    mod->next_thunk_address -= 4;
+    mod.next_thunk_address -= 4;
     return 0;
   }
   return addr;
+}
+
+uint32_t FunctionDispatcher::ResolveGuestProcedure(uint32_t guest_address, uint32_t caller_address) {
+  std::lock_guard<std::recursive_mutex> lock(dispatch_mutex_);
+  // Preserve direct guest addresses for non-recompiled exports / host lookups.
+  if (!guest_address || !caller_address) return guest_address;
+  auto* func = GetFunction(guest_address);
+  if (!func) return guest_address;
+  const auto* target = FindModuleByAddress(guest_address);
+  auto* caller = FindModuleByAddress(caller_address);
+  if (!target || !caller) {
+    REXLOG_ERROR("ResolveGuestProcedure: target {:08X} or caller {:08X} is not registered",
+                 guest_address, caller_address);
+    return 0;
+  }
+  auto found = caller->procedure_thunks.find(guest_address);
+  if (found != caller->procedure_thunks.end()) {
+    if (found->second.function == func && found->second.target_code_base == target->code_base) {
+      return found->second.address;
+    }
+    // Do not reuse an old pointer for a different export, even after a rebind.
+    function_table_.erase(found->second.address);
+    memory_->SetFunction(found->second.address, nullptr);
+    caller->procedure_thunks.erase(found);
+  }
+  const auto address = AllocateThunkSlot(*caller, func);
+  if (address) caller->procedure_thunks.emplace(guest_address,
+      ModuleTableInfo::ProcedureThunk{func, address, target->code_base});
+  return address;
 }
 
 void FunctionDispatcher::RegisterModule(const std::string& module_id, uint32_t code_base,
@@ -357,6 +397,21 @@ std::optional<std::pair<uint32_t, uint32_t>> FunctionDispatcher::UnregisterModul
                                [code_base = it->second.code_base](const ModuleTableInfo& mti) {
                                  return mti.code_base == code_base;
                                });
+
+  // A resident caller may have resolved exports in this short-lived overlay.
+  // Clear those dispatch slots before its native library is released. Leave
+  // retired slots unused: a stale guest pointer must not alias another mode.
+  for (auto& caller : module_tables_) {
+    for (auto cached = caller.procedure_thunks.begin(); cached != caller.procedure_thunks.end();) {
+      if (cached->second.target_code_base == it->second.code_base) {
+        function_table_.erase(cached->second.address);
+        memory_->SetFunction(cached->second.address, nullptr);
+        cached = caller.procedure_thunks.erase(cached);
+      } else {
+        ++cached;
+      }
+    }
+  }
 
   for (uint32_t addr : it->second.addresses) {
     function_table_.erase(addr);

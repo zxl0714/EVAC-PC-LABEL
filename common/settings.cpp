@@ -100,6 +100,10 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
         "Up","Down","Left","Right","Z","X","C","V","Enter","Backspace","A","S","Q","W","none","none"};
     for (std::size_t n=0; n<defaults.size(); ++n)
         ParseBinding(result.keyboard[n],defaults[n],0,kButtons[n],"keyboard");
+    constexpr std::array<std::string_view,4> right_stick_defaults{"I","K","J","L"};
+    for (std::size_t n=0; n<right_stick_defaults.size(); ++n)
+        ParseBinding(result.keyboard_right_stick[n],game_id=="guwange"?right_stick_defaults[n]:"none",
+                     0,kRightStickButtons[n],"game.guwange.keyboard");
     auto apply = [&](std::string_view section, std::string_view category, std::string_view key, const IniValue& entry) {
         const auto value=std::string_view(entry.text);
         const auto line=entry.line;
@@ -118,8 +122,14 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
         };
         if (category=="keyboard") {
             const auto button=std::find(kButtons.begin(),kButtons.end(),key);
-            if (button==kButtons.end()) Error(line,section,key,"unknown controller button");
-            ParseBinding(result.keyboard[button-kButtons.begin()],value,line,key,section);
+            if (button!=kButtons.end())
+                ParseBinding(result.keyboard[button-kButtons.begin()],value,line,key,section);
+            else {
+                const auto direction=std::find(kRightStickButtons.begin(),kRightStickButtons.end(),key);
+                if (game_id!="guwange" || section!="game.guwange.keyboard" || direction==kRightStickButtons.end())
+                    Error(line,section,key,"unknown controller button");
+                ParseBinding(result.keyboard_right_stick[direction-kRightStickButtons.begin()],value,line,key,section);
+            }
         } else if (category=="display" && key=="fullscreen") result.fullscreen=boolean();
         else if (category=="display" && key=="vsync") result.vsync=boolean();
         else if (category=="gamepad" && key=="enabled") result.gamepad_enabled=boolean();
@@ -158,16 +168,21 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             result.sdoj_frame_delay < 1 || result.sdoj_frame_delay > 3)
             Error(entry->line, "game.sdoj", "frame_delay", "expected 3 (original), 2 (balanced) or 1 (low latency)");
     }
-    std::map<std::uint16_t,std::size_t> occupied;
-    for (std::size_t n=0; n<kButtons.size(); ++n) for (auto code : result.keyboard[n].keys) {
-        auto [previous,inserted]=occupied.emplace(code,n);
+    std::map<std::uint16_t,std::pair<const Binding*,std::string_view>> occupied;
+    auto check_binding=[&](const Binding& binding,std::string_view name) {
+      for (auto code : binding.keys) {
+        auto [previous,inserted]=occupied.emplace(code,std::pair{&binding,name});
         if (!inserted) {
-            const auto changed=result.keyboard[n].line ? n : previous->second;
-            const auto other=changed==n ? previous->second : n;
-            const auto& binding=result.keyboard[changed];
-            Error(binding.line,binding.section,kButtons[changed],"binding conflicts with "+std::string(kButtons[other]));
+            const auto& changed=binding.line?binding:*previous->second.first;
+            const auto changed_name=binding.line?name:previous->second.second;
+            const auto other=binding.line?previous->second.second:name;
+            Error(changed.line,changed.section,changed_name,"binding conflicts with "+std::string(other));
         }
-    }
+      }
+    };
+    for (std::size_t n=0; n<kButtons.size(); ++n) check_binding(result.keyboard[n],kButtons[n]);
+    for (std::size_t n=0; n<kRightStickButtons.size(); ++n)
+        check_binding(result.keyboard_right_stick[n],kRightStickButtons[n]);
     return result;
 }
 Settings ResolveSettings(const Ini& ini, std::string_view game_id) {

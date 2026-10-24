@@ -6,6 +6,197 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7 Guwange — active implementation
+
+The active goal is v0.7, adding Guwange XBLA (guwange / ぐわんげ): normal,
+Blue and Arrange, saves, native community boards/replays and collection delivery.
+Online co-op is out of scope. Follow the six steps in IMPLEMENTATION_PLAN.
+v0.6.1 is complete; the README revision and release notice were delivered to
+QQ 人均233.3 at 15:50 on October 24. Do not repeat old delivery work below.
+
+The supplied Downloads/Guwange (World) (XBLA).zip is unchanged. Its base version
+0.0.0.4 is extracted only under .local/guwange-analysis-r1/extracted (29 files,
+Title ID 58410A78). TU1 is absent; an optional question asks the user for it.
+Do not apply the reference port's TU1 addresses to this base. Source metadata
+and declarations under games/guwange are provisional BASE-version development.
+All five no-execution censuses pass, including overlay unload/overlap checks.
+
+FunctionDispatcher now caches host/procedure thunks per caller, invalidates
+cross-module export slots on provider unload and preserves retired pointers as
+invalid. The old-runtime reuse test fails; new procedure_thunks passes repeated
+100000 lookups, parallel lookup, target rebind, same-base reload and real memory
+slot clearing. SDK built in out/sdk-build and installed with verified symbols.
+This is mechanism evidence, not actual Guwange long-run acceptance.
+
+Five-module generation r5 succeeded with no unresolved branch traps. It includes
+146 base-version declarations with reviewed vtable/core callback evidence and
+input/entry hashes. Generated bodies are never hand patched.
+The common generation script now rejects emitted unresolved-branch traps even
+when codegen exits zero. Original six player runtimes and frozen releases are
+unchanged; only development SDK/out outputs are rebuilt. Guwange's catalogue
+integrated and communitySupported flags remain false until real acceptance.
+Host r1 completed all 294 tasks; 16 PE/PDB pairs are certified. Only the isolated
+.local/guwange-play-r1/collection received those runtime files. Two real boots
+(106012 / 86008) initialized D3D12, audio and module registration, but the native
+main returned 0 before any menu. Both windows disappeared; their remaining
+windowless owned processes were stopped after path checks. They are NOT gameplay
+passes. Logs are run-20261024T094047165Z-106012 and
+run-20261024T094155415Z-86008 under that isolated collection. The second uses debug
+logging. r6/r7 diagnostic generation is complete. Real r3 boot 108320
+(run-20261024T095015489Z-108320) proves device allocation/init/reset and engine
+initialization all succeed, then main returns 0. Its owned windowless process
+is closed. The original cmp/beq keepalive at 821E98A4 is removed by clang -O2:
+main-r3-x64.txt shows an unconditional jump to return instead of the back-edge.
+Base-bound main-wait.toml now preserves the zero-register lifetime with cooperative
+sleep/title-termination checks and leaves nonzero fallthrough untouched. Its
+authored optimized mechanism test passes; r8 generation and r4/r5 host builds
+are complete (17 PE/PDB pairs). Real r4 boot 107112 stayed alive and closed
+normally, but rejected type-0 texture fetches. The existing compatibility flag
+is now enabled only by Guwange's host, not globally. Real r5 boot 103748
+(run-20261024T100048113Z-103748) displayed title and menus, loaded the normal
+module, selected Shishin and entered stage 1. Score growth, death/respawn and
+pause were visible; menus still showed the SDK's default XBLA trial edition.
+Alt+F4 closed normally at 18:07:13; the process is gone. Do not claim all inputs,
+mode-return, save/replay or long gameplay acceptance from this run. Up/Down CU
+taps did not move the pause menu; isolated I/J/K/L aliases are prepared for a
+controlled comparison. Host r6 sets this title's license_mask=1, preserving
+native mode/save gates. Actual r6 run-20261024T100847454Z-48048 displayed the full
+menu and created native SYSTEM.DAT (6956 bytes) after its own save prompt.
+I/J/K/L menu aliases worked. Settings cold read remains unverified. Entering
+Blue unloaded normal, loaded Blue, then failed at unregistered 0x882C95A0.
+The process exited; crash files are preserved in that isolated run.
+The original hash-verified 76-byte body is a state-writing core leaf. Review
+found 3 Blue, 4 Arrange and 10 co-op leaves omitted by the conservative
+readonly/same-shape inventory. All 17 now have base-bound declarations; section
+hashes, pointer references, independent mtctr/bctr boundaries, internal branches
+and final blr pass check_state_leaves_r7.py. The 22 remaining per-mode CRT/SEH
+continuations are not independent functions and must not be declared blindly.
+Nine input-contract tests pass. Generation r9 and host r7 completed; all 17
+declared generated bodies and 17 PE/PDB pairs verify. Actual r7
+run-20261024T104156469Z-684 switched normal -> Blue, entered Offline/1P/Shishin
+stage 1, scored, died/respawned, continued once and naturally ended at 22280.
+Native Data1 replay save succeeded (183290 bytes; signed payload checksum 62350),
+then returned to the mode menu. Header matches mode 1 / character 0 / score 22280;
+magic padding is nonzero, version is 0. See blue-replay-actual-r7.json.
+Same-process Arrange entered stage 1 with automatic fire, naturally ended at
+5170, saved Data1 (183249 bytes; checksum 51932), then returned to mode selection.
+See arrange-replay-actual-r7.json. r7 closed normally at 18:57:24; PID684 is gone.
+Native Controls confirms dpad/left stick moves the character, right stick moves
+Shikigami, RT summons, B bombs. Guwange-scoped keyboard right-stick I/K/J/L is
+built in host r8, with 18 PE/PDB pairs and all 9 CTests passing (535 source checks,
+one existing privilege skip). Tests cover simultaneous movement/summon/right
+stick, opposition, focus clear and one-frame taps. The isolated menu aliases
+are now T/G/F/H; do not use I/J/K/L to navigate menus in r8.
+Actual r8 run-20261024T105755908Z-107948 cold-read Blue Data1, loaded and played
+it at x1 through recorded continue/game over, displayed Replay playback has
+finished, then returned to the unchanged list and mode menu. See
+blue-replay-playback-r8.json. r8 changed native BGM 80 -> 79, saved and closed
+normally at 19:15:03. r9 run-20261024T111525691Z-105172 visibly cold-read
+BGM 79 / SE 80 / VOICE 80, then closed normally. See settings-cold-read-r9.json.
+No >4.5-minute gameplay or held-input acceptance yet; the r8 W+I tap alone does
+not establish independent Shikigami movement.
+
+The base-native community adapter and independent guwange server are implemented
+but NOT staged in the running r8. Replay parser passes 67 authored checks and
+the two actual r7 recordings. Guwange native HTTP loopback passes 281 checks
+across all three modes; 34 Python G2/SDOJ/Guwange server checks pass. Shared
+schema callbacks now receive view IDs, preserving G2/SDOJ through wrappers;
+both older adapters' unit and loopback CTests were rebuilt and pass. Only test
+targets were built in out/xbox360; root player files remain unchanged. Server
+attachment validation binds the actual database view to the replay mode.
+Guwange reader columns are view1 character/stage=4/5, other views=6/4; only
+reviewed columns and FFFA are returned. Native score and replay timestamps
+are separately generated and must not be forced equal. No production deploy,
+score or replay upload yet. Catalogue remains disabled pending actual acceptance.
+
+Host r9 completed with 20 PE/PDB pairs and all 12 CTests passing, including
+542 source checks (one existing privilege skip). Actual r9 correctly kept
+community disabled because PrepareRun gates it on the compiled catalogue;
+an INI change alone cannot enable development networking. Host r10 adds the
+same explicit loopback-only test provider pattern used by SDOJ, with cancel,
+stop and profile setup. It builds/certifies in two tasks, 20 pairs, and is staged
+only in .local/guwange-play-r1/collection. Its normal capability remains off.
+The initial launch with --guwange_community_test_endpoint was rejected by tool
+policy; no alternate launch was attempted. The user then manually started r10,
+run-20261024T112117715Z-106344, and confirmed it. Actual Arcade Score Attack
+ended at score 0 and read views 1/2 successfully from loopback, then crashed.
+Dump/PDB identify sub_821D56C0 at original 821D5968, reading guest address 0x10:
+the first-row pointer is null when a new player has no score. The process exited.
+Guwange's one-row XUID enumerator is a personal-best lookup. The title adapter
+now maps only this request shape to the existing explicit-user query, returning
+an unranked local zero row instead of no row or another player's top score.
+Public and multi-row around-user boards stay unchanged; no score is invented
+on the server and original score comparisons are preserved. Authored regression
+fails before the fix and passes after it: 380 checks, all three modes, empty
+and populated boards, exact user identity, ranked readback and SDK row pointer.
+Evidence: community-crash-r10.json and community-unranked-{red,green}-r11.log.
+Host r11 built in two tasks, certified 20 PE/PDB pairs, and staged 17 files only
+to the independent play root. Five focused Guwange CTests pass. Staged EXE SHA
+is 1979d565ecebe381aa3ee8f64c5dd7ec42e248ad0645d89b0943f27ce996df78.
+No game is currently running. This candidate still needs actual game regression;
+do not claim online acceptance. Manual launch with the same loopback argument
+is required; do not retry the previously denied launch through another mechanism.
+The independent local server is ready on 127.0.0.1:64517, exec session 50590,
+database .local/guwange-community-play-r1/community.sqlite3. No actual score
+or replay has been submitted; keep authored fixtures in disposable databases.
+Current isolated config requests this loopback endpoint and nickname
+Guwange-Local, not production. Root config and six player runtimes are unchanged.
+Do not skip original initialization/error branches.
+
+v0.7 data/release scaffolding is now prepared independently of the gameplay
+gate. The supported data contract is base 0.0.0.4 without TU1 (29 files).
+scripts/Extract-Xbla.ps1 runs on Windows PowerShell 5.1 with no Python/tool
+download; bounded LIVE/PIRS single-table extraction checks all paths, chains
+and data hashes before publishing a fresh directory. Seven authored test groups
+pass, including the level-1 boundary, corrupt/aliased blocks, unsafe paths and
+preserved existing/junction destinations. Actual extraction at
+.local/guwange-extract-helper-r1 verifies all 29 manifest files / 27516 blocks;
+accepted.json binds helper/input/output identities. Reuse this evidence; do
+not repeatedly extract the unchanged container. Original ZIP is unchanged.
+Seven-game Public/Internal profiles, placement guide and bilingual v07 player
+TXT are prepared. Authored package tests pass 41 checks (one existing link
+privilege skip), including real tiny ZIP assembly/extraction and Guwange-only
+Internal selection. Old v0.4/v0.6 profiles retain six guides. Product/default
+release version and published READMEs stay v0.6.1 until final acceptance; no
+real v0.7 package was built. Catalogue capability remains disabled. Manual
+game relaunch is still pending; continue independent development meanwhile.
+
+Independent r12 work is complete: Guwange deployment/backup/proxy templates and
+three-mode snapshot recovery tests pass (8 title, 6 deployment, 5 backup tests).
+They are NOT installed on ECS. Source suite passes 553 checks (one privilege
+skip); after that, the new relative-output regression and all 8 XBLA-helper
+groups pass. The C# extractor is byte-identical to the accepted r1 copy;
+only PowerShell output resolution changed. Do not re-extract the real input.
+Latest seven-title common/launcher build passes (17 tasks, 2 PE/PDB pairs),
+with -SkipLauncherStage: root launcher and player runtimes unchanged. New
+common/launch, 12 native CLI, 245 hidden UI and 26 preview checks pass. Tests
+now require seven titles, rather than silently accepting the old inspector.
+29 manifest files are copied to NEW game-data/guwange and fully verified by
+the latest inspector; shared config/originals unchanged, capability still off.
+Evidence: .local/guwange-analysis-r1/*-r12.* and guwange-launcher-visual-r12.
+Ready states in previews are authored examples, not actual installation or
+gameplay acceptance. No Guwange process exists at the latest observation;
+the user was given the corrected manual command. No alternative launch tried.
+
+Source review r13 checked the thunk-cache lifetime/invalidation, Guwange-only
+personal-best reply, shared G2/SDOJ schema wrappers, right-stick configuration,
+base-bound hooks and generation/output gates. No new definite defect was found.
+The development checkpoint retains integrated=false/communitySupported=false;
+it is not a v0.7 release. r11's exact staged EXE/PDB remain the next gameplay
+candidate; do not rebuild/re-extract merely for the checkpoint commit.
+Independent preparation is now complete. Remaining gates require actual game
+entry/input/result/replay, then independent HTTPS deployment and final release.
+
+Nickname warnings now exclude unintegrated/community-disabled titles. Native r4
+passes all seven CTests including the optimized main-wait check; source r4 has
+533 checks with one existing privilege skip. The initial common failure is kept.
+The original six runtimes and root launcher are not staged. Static community
+boundary notes are in community-boundaries-r1.json, not an accepted schema.
+The approved six-game development summary was sent to 人均233.3 at 17:32;
+group-experience-sent.json records UI readback. Do not repeat that message.
+The approved runtime-build follow-up was sent at 17:48 and visually verified;
+group-runtime-build-sent.json records it. Do not resend either group message.
+
 ### v0.6.1 player README revision — current
 
 The user now asks to apply the group README feedback. Chinese/English READMEs,

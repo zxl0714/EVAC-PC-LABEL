@@ -1,0 +1,13 @@
+# XBLA base default.xex SHA-256:
+# b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401
+# Original words at 821E98A0: 817F0004 2F0B0000 419AFFFC 38600000.
+# r11 is loaded ONCE; the cmp/beq pair is an invariant keepalive loop, not a
+# memory polling loop. clang -O2 deletes this side-effect-free C++ loop and
+# lets the main thread return. Keep its original nonzero fallthrough and zero
+# lifetime with a cooperative wait/check; no skipped instructions or fake result.
+# Verified against original base bytes and the local r3 host object's x64 output.
+
+[[midasm_hook]]
+address = 0x821E98A4
+name = "GuwangeMainThreadWait"
+registers = ["r11"]

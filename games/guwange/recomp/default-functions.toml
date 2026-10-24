@@ -1,0 +1,13 @@
+# XBLA base image only; Title Update 1 uses different addresses.
+# Input SHA-256: b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401
+# Unique base-image CRT pair: optional hook then mfcr/FPR stores; longjmp has
+# the SEH registration check and restores the same FPR/GPR buffer. These are
+# verified local addresses, not the TU1 pair 0x823EBB30 / 0x823EB810.
+setjmp_address = 0x823EB8C0
+longjmp_address = 0x823EB5A0
+
+[functions]
+# Keep both boolean-return tails in the same leaf. The branch at 0x82190CA8
+# returns to 0x82190C9C; discovering 0x82190CA4 as a new entry emits a trap.
+# Local base-image disassembly: 0x82190C58 through the blr at 0x82190CB0.
+0x82190C58 = { size = 0x5C }

@@ -63,9 +63,11 @@ void MatchReplay(const Json& properties,std::span<const uint8_t> record) {
 cave::community::NativeSchema Schema() {
   return {.game="sdoj",.title="435A07E7",.replay_namespace="sdoj-replay",
       .replay_format=kReplayFormat,.replay_header=kReplayHeaderBytes,.replay_max=kReplayMaxBytes,
-      .valid_view=View,.encode_score=EncodeCommunityScore,.decode_columns=DecodeCommunityColumns,
+      .valid_view=View,.encode_score=EncodeCommunityScore,
+      .decode_columns=[](uint32_t,const Json& p,uint32_t bytes){return DecodeCommunityColumns(p,bytes);},
       .column_type=ColumnType,.native_name=cave::community::NativeLegacyName,
-      .run_key=RunKey,.match_replay=MatchReplay,.storage_size_property=0x10008011};
+      .run_key=RunKey,.match_replay=[](uint32_t,const Json& p,std::span<const uint8_t> record){MatchReplay(p,record);},
+      .storage_size_property=0x10008011};
 }
 }
 Json EncodeCommunityScore(const CommunityWrite& view) {

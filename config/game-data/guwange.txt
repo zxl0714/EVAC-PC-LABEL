@@ -1,0 +1,18 @@
+ぐわんげ / Guwange
+Xbox 360 XBLA - Title ID 58410A78 - base 0.0.0.4
+
+将完整解包数据放在此目录，直接看到 default.xex、module/、game_res/、res/。
+保留 module 下全部四个原始 DLL；它们是游戏数据，不是 Windows 程序。
+本版本使用本体，不需要 Title Update；不要混入 .xexp／.dllp 更新文件。
+若 ZIP 解压后只有一个无扩展名的大文件，还需提取 XBLA 容器。
+使用包内 tools/Extract-Xbla.ps1，具体命令见根目录 README.txt。
+提取到新目录，再将里面的全部内容放入这里，或在启动器直接选择该目录。
+完成后点击“刷新”。不需要安装其他游戏。
+
+Place the complete extracted game here: default.xex, module/, game_res/ and res/.
+Keep all four original DLLs in module/; these are Xbox game data, not Windows
+programs. Use base version 0.0.0.4 without Title Update .xexp/.dllp files.
+If unpacking the ZIP leaves one large extensionless file, extract that XBLA
+container with tools/Extract-Xbla.ps1; see README.txt for the command.
+Extract to a new folder, then copy all its contents here or select it through
+Game data in the launcher. Click Refresh. Other games are optional.

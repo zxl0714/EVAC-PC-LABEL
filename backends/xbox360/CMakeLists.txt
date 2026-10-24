@@ -36,6 +36,14 @@ add_test(NAME codegen_paths COMMAND "${Python3_EXECUTABLE}"
     --generator "${CMAKE_SOURCE_DIR}/.deps/sdk-install/bin/rexglue.exe")
 set_tests_properties(codegen_paths PROPERTIES TIMEOUT 30)
 
+add_executable(cave_procedure_thunk_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/procedure_thunk_test.cpp")
+target_link_libraries(cave_procedure_thunk_tests PRIVATE rex::runtime)
+add_custom_command(TARGET cave_procedure_thunk_tests POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:cave_procedure_thunk_tests> $<TARGET_FILE_DIR:cave_procedure_thunk_tests>
+    COMMAND_EXPAND_LISTS VERBATIM)
+add_test(NAME procedure_thunks COMMAND cave_procedure_thunk_tests)
+set_tests_properties(procedure_thunks PROPERTIES TIMEOUT 30)
+
 add_executable(cave_community_sync_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/community_sync_test.cpp")
 target_link_libraries(cave_community_sync_tests PRIVATE rex::runtime)
 add_custom_command(TARGET cave_community_sync_tests POST_BUILD

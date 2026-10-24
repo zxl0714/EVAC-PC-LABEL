@@ -8,6 +8,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / 'out/common/bin/cave_inspect.exe'
+GAMES = ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange')
+CATALOGUE = json.loads((ROOT / 'games/catalogue.json').read_text(encoding='utf-8'))['games']
 
 
 @unittest.skipUnless(EXE.is_file(), 'Build common native targets first')
@@ -35,24 +37,28 @@ class NativeCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / '合集 空格'; root.mkdir()
             result = self.run_cli(root, cwd=Path(temporary))
-            self.assertEqual([r['id'] for r in result['games']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'])
+            self.assertEqual([r['id'] for r in result['games']], list(GAMES))
             self.assertEqual(result['games'][1]['dataState'], 'missing_data')
             self.assertEqual(result['games'][3]['dataState'], 'missing_data')
             self.assertEqual(result['games'][4]['state'], 'missing_data')
             self.assertEqual(result['games'][5]['state'], 'missing_data')
+            self.assertEqual(result['games'][6]['dataState'], 'missing_data')
             self.assertEqual(list(root.iterdir()), [])
             self.assertFalse(result['guestExecution'])
 
     def test_placement_only_directories_are_missing_for_all_supported_games(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for game in ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade'):
+            for game in GAMES:
                 folder = root / 'game-data' / game
                 folder.mkdir(parents=True)
                 (folder / '放置说明.txt').write_bytes((ROOT/'config/game-data'/(game+'.txt')).read_bytes())
             before = sorted(path.relative_to(root) for path in root.rglob('*'))
             rows = self.run_cli(root)['games']
-            self.assertEqual([row['state'] for row in rows], ['missing_data'] * 6)
+            self.assertEqual([row['id'] for row in rows], list(GAMES))
+            self.assertEqual([row['dataState'] for row in rows], ['missing_data'] * len(GAMES))
+            self.assertEqual([row['state'] for row in rows],
+                             ['missing_data' if game['integrated'] else 'not_integrated' for game in CATALOGUE])
             self.assertTrue(all(not row['candidateRoots'] for row in rows))
             self.assertEqual(before, sorted(path.relative_to(root) for path in root.rglob('*')))
 

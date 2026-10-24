@@ -32,6 +32,7 @@ inline std::vector<NicknameIssue> NicknameIssues(const Ini& ini,std::string_view
     if(canonical.empty())return {};
     std::vector<NicknameIssue> issues;
     for(const auto& game:Catalogue()) {
+        if(!game.integrated || !game.community_supported)continue;
         if(game.backend!="xbox360" && game.backend!="ps4")continue;
         // A per-game name is edited separately, not overwritten by this form.
         if(ini.Get("game."+std::string(game.id)+".community","nickname"))continue;

@@ -7,11 +7,16 @@ namespace cave::xbox360 {
 struct KeyboardSnapshot {
     std::uint16_t buttons{};
     std::uint8_t left_trigger{}, right_trigger{};
+    std::int16_t thumb_rx{}, thumb_ry{};
     bool operator==(const KeyboardSnapshot&) const = default;
 };
 class KeyboardState {
 public:
-    explicit KeyboardState(const Settings& settings) : bindings_(settings.keyboard) {}
+    explicit KeyboardState(const Settings& settings) {
+        for (std::size_t n=0;n<settings.keyboard.size();++n) bindings_[n]=settings.keyboard[n];
+        for (std::size_t n=0;n<settings.keyboard_right_stick.size();++n)
+            bindings_[settings.keyboard.size()+n]=settings.keyboard_right_stick[n];
+    }
     void SetFocus(bool focused) { focused_=focused; if (!focused) ClearKeys(); }
     void ClearKeys() { held_.fill(false); sampled_.fill(false); pending_.fill(false); latched_.fill(false); }
     void SetKey(std::uint16_t key, bool down) {
@@ -30,7 +35,7 @@ public:
     KeyboardSnapshot PollFrame(std::uint64_t frame,bool active=true);
 private:
     KeyboardSnapshot BuildSnapshot(bool active,std::uint16_t source_key,bool pending) const;
-    std::array<Binding,16> bindings_;
+    std::array<Binding,20> bindings_;
     std::array<bool,256> held_{};
     std::array<bool,256> sampled_{};
     std::array<bool,256> pending_{};

@@ -99,6 +99,28 @@ class XexInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'default.xex'):
                 project.inventory(Path(directory))
 
+    def test_inventory_finds_xex_dll_and_bin_without_treating_windows_dll_as_xex(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'game'
+            self.fixture(root)
+            (root / 'module').mkdir()
+            for name in ('module/core.dll', 'core.bin'):
+                (root / name).write_bytes(authored_xex())
+            (root / 'module/windows.dll').write_bytes(b'MZ' + bytes(126))
+            before = {p: p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            result = project.inventory(root)
+            self.assertEqual({item['path'] for item in result['xex']},
+                             {'default.xex', 'module/core.dll', 'core.bin'})
+            self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_inventory_rejects_malformed_xex_in_dll(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'game'
+            self.fixture(root)
+            (root / 'broken.dll').write_bytes(b'XEX2')
+            with self.assertRaises(ValueError):
+                project.inventory(root)
+
     def test_inventory_rejects_junction(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(Path, 'is_junction', return_value=True):

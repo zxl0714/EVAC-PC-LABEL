@@ -76,6 +76,20 @@ class GameGenerationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unsupported data'):
                 generate_game.verify_data(expected, data)
 
+    def test_generator_success_with_unresolved_branch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            module = root / 'default'
+            module.mkdir()
+            source = module / 'fixture.cpp'
+            source.write_text('void fixture() {}\n', encoding='utf-8')
+            generate_game.verify_generated_branches(root, {'default': {}})
+            for failure in ('REX_FATAL("Unresolved branch");', '// ERROR: conditional branch'):
+                source.write_text(failure, encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, 'default/fixture.cpp:1'):
+                    generate_game.verify_generated_branches(root, {'default': {}})
+                self.assertEqual(source.read_text(encoding='utf-8'), failure)
+
 
 if __name__ == '__main__':
     unittest.main()

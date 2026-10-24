@@ -43,6 +43,7 @@ void NicknameChecks() {
   Require(symbols.size()==4,"Missing PS4 ASCII glyph was not detected");
   for(const auto& issue:symbols)Require(!issue.alias && issue.missing==U"@","ASCII rule incorrectly applied to PS4 font");
   const auto astral=launcher::NicknameIssues(ini,"😀😀");
+  for(const auto& issue:astral)Require(issue.game->integrated && issue.game->community_supported,"Unavailable title leaked into shared nickname warnings");
   Require(astral.size()==7,"Emoji missed in a title/font variant");
   for(const auto& issue:astral)Require(issue.missing==U"😀","Surrogate pair split or duplicate warning");
   const auto independent=Ini::Parse("[game.futari.community]\nnickname=Separate\n");
@@ -149,6 +150,23 @@ void DataVariantChecks(Fixture& fixture) {
   Reject([&] {DataFiles(game,"unknown");},"unknown variant used as primary manifest");
 }
 void SettingsChecks(Fixture& fixture) {
+    const auto guwange=ParseSettings("","guwange");
+    const auto guwange_template=ParseSettings(DefaultConfig(),"guwange");
+    for (std::size_t n=0;n<kRightStickButtons.size();++n) {
+        Require(guwange.keyboard_right_stick[n].keys==guwange_template.keyboard_right_stick[n].keys,
+                "Guwange right-stick template/default mismatch");
+        Require(ParseSettings(DefaultConfig(),"futari").keyboard_right_stick[n].keys.empty(),
+                "Guwange axes leaked into another title");
+    }
+    Require(ParseSettings("[game.guwange.keyboard]\nright_stick_up=Numpad8,O\nright_stick_down=none\n","guwange")
+                .keyboard_right_stick[0].keys.size()==2,"Guwange right-stick override");
+    for (const auto* text:{"[game.guwange.keyboard]\nright_stick_up=Z\n",
+            "[game.guwange.keyboard]\nright_stick_up=L\n",
+            "[game.guwange.keyboard]\nright_stick_up=F8\n",
+            "[keyboard]\nright_stick_up=I\n"})
+        Reject([&] {ParseSettings(text,"guwange");},"Invalid/conflicting right-stick binding accepted");
+    Require(ResolveSharedSettings(Ini::Parse(DefaultConfig())).keyboard_right_stick[0].keys.empty(),
+            "Shared preferences unexpectedly enable title axes");
     Require(ParseSettings("", "sdoj").sdoj_frame_delay == 1, "Missing Frame Delay defaults to the low-latency path");
     Require(ParseSettings(DefaultConfig(), "sdoj").sdoj_frame_delay == 1,
             "Frame Delay template differs from the built-in default");
@@ -341,9 +359,10 @@ int main() {
     const std::array files{DataFile{"main.bin",3,hash,true}, DataFile{"res/asset.bin",3,hash,false}};
     const std::array<std::string_view,1> runtime{"runtime/fake.exe"};
     Game game{"fixture","Fixture","xbox360","game-data/fixture","runtime/fake.exe",true,false,files,runtime};
-    Require(Catalogue().size() == 6 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
+    Require(Catalogue().size() == 7 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
             Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
-            Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade", "Catalogue order");
+            Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade" &&
+            Catalogue()[6].id == "guwange", "Catalogue order");
     Require(FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
             "Integrated titles must advertise their verified community adapters");

@@ -1,0 +1,189 @@
+{
+  "format": 1,
+  "game": "guwange",
+  "variant": "xbla-base",
+  "titleUpdateApplied": false,
+  "forbiddenFiles": [
+    "default.xexp",
+    "module/Guwange01_coop_x360.dllp",
+    "module/Guwange01_x360.dllp",
+    "module/Guwange_arrange_x360.dllp",
+    "module/Guwange_blue_x360.dllp"
+  ],
+  "files": [
+    {
+      "path": "ach01.png",
+      "bytes": 14631,
+      "sha256": "4f59d643217c93e75a38b4a0407134db35dc8dab2200f14518bfaa56e3e1e145",
+      "program": false
+    },
+    {
+      "path": "ach02.png",
+      "bytes": 14265,
+      "sha256": "ceca2364ea4bd2c3f4b6fe001e320c014a4bf8a4d32d752aa6c1f4ad78b59dfd",
+      "program": false
+    },
+    {
+      "path": "ach03.png",
+      "bytes": 14818,
+      "sha256": "a8609b951fde38665347143fff1544b9f2158d266fcca542199c1bbf592b26d5",
+      "program": false
+    },
+    {
+      "path": "ach04.png",
+      "bytes": 11568,
+      "sha256": "fba1480219ef1cffef55af4d33f1b7a86046ecb0fed0809c834e75e86893a169",
+      "program": false
+    },
+    {
+      "path": "ach05.png",
+      "bytes": 9445,
+      "sha256": "d1baae09a992336d077f63138d80e6760a827a66cdcd780807dc51dea6c7c180",
+      "program": false
+    },
+    {
+      "path": "ach06.png",
+      "bytes": 7589,
+      "sha256": "28d2d2f38ff54d68e956b25d54ce920b2b439b14d0aaf9390dacd48590ca4dd7",
+      "program": false
+    },
+    {
+      "path": "ach07.png",
+      "bytes": 5430,
+      "sha256": "a8a3060b9d3410158401a791c80f2ee0b95c6a56a086d4e1238b7a4c3cad3ea0",
+      "program": false
+    },
+    {
+      "path": "ach08.png",
+      "bytes": 5843,
+      "sha256": "7b44efd3abb418a12c776708283c02bde184e343102de616fdb6e1dca3deca77",
+      "program": false
+    },
+    {
+      "path": "ach09.png",
+      "bytes": 9882,
+      "sha256": "db2cfe70a69e8b2ace43f6117abdb51552520ff4747cef7396af1db23100c1c8",
+      "program": false
+    },
+    {
+      "path": "ach10.png",
+      "bytes": 9796,
+      "sha256": "45243ccd99d5fe45677ca5e3072c0e85ea4f5a56e384bc6923ac952bf02649c2",
+      "program": false
+    },
+    {
+      "path": "ach11.png",
+      "bytes": 12486,
+      "sha256": "111fc1722b3498816edfc6bf5e67e7cd6c2c0c5770a7efc930e1d9c67e60a8af",
+      "program": false
+    },
+    {
+      "path": "ach12.png",
+      "bytes": 12520,
+      "sha256": "765edf01280d46bbf3d49c8a7c24a286e784a34800d04a596ffb4999c5474071",
+      "program": false
+    },
+    {
+      "path": "ArcadeInfo.xml",
+      "bytes": 2312,
+      "sha256": "96d77d4e09c20193b539f9cd07cb3820a1dd7f8b76db06ce82a6f44ed04c2f25",
+      "program": false
+    },
+    {
+      "path": "default.xex",
+      "bytes": 2547712,
+      "sha256": "b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401",
+      "program": true
+    },
+    {
+      "path": "game_res/rom/gb001.bin",
+      "bytes": 8388608,
+      "sha256": "54752ae7c09413d2e6e5a72a066d9a6f8dd80d730b3e161e27402fc2873c684f",
+      "program": false
+    },
+    {
+      "path": "game_res/rom/gb002.bin",
+      "bytes": 4194304,
+      "sha256": "7a5acc5b0d787fa3fab6834f2cff0df5cfa4b545dc1eb65679e8dd5f1fabb50b",
+      "program": false
+    },
+    {
+      "path": "game_res/rom/gb003.bin",
+      "bytes": 4194304,
+      "sha256": "42a3206735b4d60475f203ccb039fe5e02127da3d999af7132201b6007ee13a0",
+      "program": false
+    },
+    {
+      "path": "game_res/rom/gp001.bin",
+      "bytes": 1048576,
+      "sha256": "10ca30a7d94df39d3d085f8df7a3c550dad252a86b4bc364dab76640e3570cce",
+      "program": false
+    },
+    {
+      "path": "game_res/rom/gp002.bin",
+      "bytes": 1048576,
+      "sha256": "eb7777cdb9e6bc6116f40f171e915f83fd3d8a96d5331721164602a676e26b5a",
+      "program": false
+    },
+    {
+      "path": "game_res/rom/gs001.bin",
+      "bytes": 25182208,
+      "sha256": "24187c58693fa5e438bff5971af12444ed2453b90d90cc46dabe192d4de6baa8",
+      "program": false
+    },
+    {
+      "path": "kmrb_93.png",
+      "bytes": 4376,
+      "sha256": "eeb0056a6da1c07b8eb058648cca4f16255b84980e688b185eaebde0c0127aba",
+      "program": false
+    },
+    {
+      "path": "module/Guwange01_coop_x360.dll",
+      "bytes": 8069120,
+      "sha256": "bdc74b19ed9d01503a21aa41d28946d785d3550b6f02295906ecc44fdaca4bc8",
+      "program": true
+    },
+    {
+      "path": "module/Guwange01_x360.dll",
+      "bytes": 8036352,
+      "sha256": "c4313ef13c40d94728cc70a9d2a10dc09615a2dadb895816b0d070e47cf9e8c9",
+      "program": true
+    },
+    {
+      "path": "module/Guwange_arrange_x360.dll",
+      "bytes": 8069120,
+      "sha256": "4bbeca388e72fbae4fc99edb5cc6000aba8624ad3eedf88cecf99e99360c5043",
+      "program": true
+    },
+    {
+      "path": "module/Guwange_blue_x360.dll",
+      "bytes": 8101888,
+      "sha256": "34a6ae15ef8a2777cf1b590f658562c3440a8ecf3ed68f3870e702bfcfc74f60",
+      "program": true
+    },
+    {
+      "path": "res/DSD000.bin",
+      "bytes": 1791115,
+      "sha256": "1e995e31432b9e4f589046986e1acd0274ada04ff87b4b74401fac0e29f72331",
+      "program": false
+    },
+    {
+      "path": "res/DSD100.bin",
+      "bytes": 1920282,
+      "sha256": "fa4371bed20d9a7c1e90974a54e48a858a3fbe8c365fbc9eec2c8fa1b99d65f7",
+      "program": false
+    },
+    {
+      "path": "res/DSD200.bin",
+      "bytes": 29920847,
+      "sha256": "83e84620b7ef33595d4bd821c902101b724eead2f120a993cbb61ee6f442e60c",
+      "program": false
+    },
+    {
+      "path": "TitleImage.png",
+      "bytes": 13069,
+      "sha256": "9e4c68c73f07bbb9c183d4c5abb8d1686883ed14bea942360287d0990d194f35",
+      "program": false
+    }
+  ]
+}

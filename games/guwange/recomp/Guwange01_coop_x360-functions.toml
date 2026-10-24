@@ -1,0 +1,7 @@
+# XBLA base image only; Title Update 1 uses different addresses.
+# Input SHA-256: bdc74b19ed9d01503a21aa41d28946d785d3550b6f02295906ecc44fdaca4bc8
+[functions]
+# Verified 36-byte CRT copy tail, including its conditional return and byte loop.
+# Unconditional branch at 0x88614F8C. Tail SHA-256:
+# 8b9b3b88be63ac895270d25e79a9a0ec4249c59f4adccf4b67b1f60ba525eb09
+0x88614F3C = { size = 36 }

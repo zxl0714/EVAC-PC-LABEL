@@ -72,6 +72,18 @@
       "sourceUrl": "https://m2stg.com/esprade/assets/img/m2stg_esp_social_image_1908.jpg",
       "copyright": "©ATLUS / SEGA / CAVE / M2 Co., Ltd.",
       "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
+    },
+    {
+      "game": "guwange",
+      "path": "launcher/assets/guwange.png",
+      "sha256": "8ef5aed24196cf1acc84a4774dac7b72e6963aae5c54ffaf02c749b4af767665",
+      "resource": 107,
+      "focusY": 0.5,
+      "kicker": "XBOX 360 · 2010",
+      "sourcePage": "https://www.cave.co.jp/en/business/guwange/",
+      "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACguwange_780x353.png",
+      "copyright": "©CAVE Interactive CO., LTD. / ATLUS",
+      "usage": "Official promotional artwork. Source bytes unchanged; the shared launcher crop and gradient supply the banner treatment."
     }
   ]
 }

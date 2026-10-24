@@ -183,11 +183,12 @@ def readonly_leaf_size(code, offset, max_bytes=512):
     return max(positions) + 4 - offset if returns else None
 
 
-def inventory(analysis, data_dir, game='espgaluda2'):
-    if game not in ('espgaluda2', 'sdoj'):
+def inventory(analysis, data_dir, game='espgaluda2', generated_dir=None):
+    if game not in ('espgaluda2', 'sdoj', 'guwange'):
         raise ValueError('Unsupported game adaptation')
     analysis = Path(analysis).resolve()
     data_dir = Path(data_dir).resolve()
+    generated_dir = Path(generated_dir or ROOT / 'generated' / game).resolve()
     receipt = json.loads(analysis_child(analysis, 'analysis.json').read_text(encoding='utf-8'))
     if receipt.get('guestExecution') is not False or receipt.get('game') != game:
         raise ValueError('Expected a static census for the selected game')
@@ -217,7 +218,7 @@ def inventory(analysis, data_dir, game='espgaluda2'):
             if path.stat().st_size != section['bytes'] or digest(path) != hashes[relative]:
                 raise ValueError('Census section hash mismatch')
             sections.append((section, path.read_bytes()))
-        registers = list((ROOT / 'generated' / game / name).glob('*_register.cpp'))
+        registers = list((generated_dir / name).glob('*_register.cpp'))
         if len(registers) != 1:
             raise ValueError('Generate this module before reviewing callback coverage')
         known = {int(value, 16) for value in re.findall(
@@ -262,12 +263,13 @@ def inventory(analysis, data_dir, game='espgaluda2'):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('analysis', type=Path)
-    parser.add_argument('--game', choices=('espgaluda2', 'sdoj'), default='espgaluda2')
+    parser.add_argument('--game', choices=('espgaluda2', 'sdoj', 'guwange'), default='espgaluda2')
     parser.add_argument('--data-dir', type=Path, required=True)
+    parser.add_argument('--generated-dir', type=Path, help='Optional isolated generation root for this game')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     output = private_output(args.output, args.analysis, args.data_dir)
-    result = inventory(args.analysis, args.data_dir, args.game)
+    result = inventory(args.analysis, args.data_dir, args.game, args.generated_dir)
     write_json_new(output, result)
     print(json.dumps(result, indent=2))
 

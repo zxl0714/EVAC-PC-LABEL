@@ -208,7 +208,7 @@ CommunityResult NativeService::ReadNow(const CommunityRead& request, Clock::time
         reference.bytes=Unsigned(entry.at("replay_size"),schema_.replay_max);
         Require(ValidHash(reference.hash) && reference.bytes>schema_.replay_header);
       }
-      row.columns = schema_.decode_columns(reference.properties,reference.bytes);
+      row.columns = schema_.decode_columns(spec.view,reference.properties,reference.bytes);
       downloads_[{spec.view,row.xuid}]=std::move(reference);
       view.rows.push_back(std::move(row));
     }
@@ -309,7 +309,7 @@ CommunityReplayResult NativeService::ReplayNow(const CommunityReplay& request,Cl
     Require(found!=uploads_.end());
     const auto& reference=found->second;
     REXLOG_INFO("Native replay upload: view={} bytes={}",request.view,request.record.size());
-    schema_.match_replay(reference.properties,request.record);
+    schema_.match_replay(request.view,reference.properties,request.record);
     const auto hash=ReplaySha256(request.record);
     auto reply=Http("/replays",{{"protocol",1},{"title_id",std::string(schema_.title)},{"score_id",reference.id},
         {"nickname",nickname_},{"format",std::string(schema_.replay_format)},{"sha256",hash},{"data",ReplayBase64(request.record)}},deadline);
@@ -332,7 +332,7 @@ CommunityReplayResult NativeService::ReplayNow(const CommunityReplay& request,Cl
       reply.body.at("sha256")==reference.hash && Unsigned(reply.body.at("bytes"))==reference.bytes);
   auto record=ReplayUnbase64(reply.body.at("data").get<std::string>());
   Require(record.size()==reference.bytes && ReplaySha256(record)==reference.hash);
-  schema_.match_replay(reference.properties,record);
+  schema_.match_replay(request.view,reference.properties,record);
   REXLOG_INFO("Native replay downloaded: view={} bytes={} sha256={}",request.view,record.size(),reference.hash);
   return {0,std::move(record)};
 }

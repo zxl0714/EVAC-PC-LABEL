@@ -76,7 +76,11 @@ def inventory(root):
         if path.stat().st_size != size:
             raise ValueError('Input changed during inventory')
         records.append(item)
-        if path.suffix.lower() == '.xex':
+        # XBLA overlays may be named .dll (Guwange), and retail cores .bin
+        # (SDOJ). Identify XEX2 by its header rather than a Windows extension.
+        with path.open('rb') as source:
+            is_xex = source.read(4) == b'XEX2'
+        if path.suffix.lower() == '.xex' or is_xex:
             modules.append(dict(item, **xex_metadata(path)))
     if not any(item['path'].lower() == 'default.xex' for item in modules):
         raise ValueError('Expected default.xex at the game-data root')

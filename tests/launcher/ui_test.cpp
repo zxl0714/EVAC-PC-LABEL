@@ -125,6 +125,7 @@ void SelectionChecks() {
   Restart(fixture.root,L"en",L"Baseline",L"ketsui");
   {Frame frame(fixture.root);Require(Catalogue()[frame.app.selected].id=="ketsui","Next GUI did not restore the last closed choice");}
   {Frame frame(fixture.root,"esprade");Require(Catalogue()[frame.app.selected].id=="esprade","Explicit GUI choice did not take priority over saved choice");}
+  {Frame frame(fixture.root,"guwange");Require(Catalogue()[frame.app.selected].id=="guwange","Explicit GUI choice did not select the seventh title");}
   for(const auto choice:{"removed-game",""}) {
     Write(ConfigPath(fixture.root),std::string("[collection]\nselected_game=")+choice+"\n");
     Frame frame(fixture.root);Require(Catalogue()[frame.app.selected].id=="futari","Unknown or empty saved ID did not use the first supported game");

@@ -1,0 +1,59 @@
+# XBLA base input SHA-256: b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401
+# Independently referenced, locally reviewed PPC callbacks.
+# Core entries use the reviewed complete leaf shapes; relative branch graphs
+# are identical across modes, while data addresses/immediates remain original.
+# Evidence: .local/guwange-analysis-r1/census-r3 and reviewed_callbacks_r5.py.
+[functions]
+# Reference: 0x8216F42C; bytes SHA-256: c6fde8c0d022b4172f237a773475248c5f603671fb3ee19743ff779fc6f0cdf0
+0x821A6338 = { size = 0x18 }
+# Reference: 0x8216F588; bytes SHA-256: 2180863097a6f1066bce0179caab67e323e78eb232a1a84fffa8d738019a26ae
+0x821AA7A0 = { size = 0x3C }
+# Reference: 0x8216F718; bytes SHA-256: 6e9023a60a8a96698c0bf8b4f5d435b7d6c1f906ae0a5b127dc8b1480ab44e8c
+0x821AD138 = { size = 0x28 }
+# Reference: 0x82173FA8; bytes SHA-256: bf969288790e05280743db9ec21da29918da4c192240dead2e4381d28ca5a72d
+0x821F8318 = { size = 0xD0 }
+# Reference: 0x82174188; bytes SHA-256: fe1addeb21a35dde2a374426045a5ec7c99e48c360d274fd594f425d40367a0e
+0x821FB8A8 = { size = 0xC }
+# Reference: 0x82174B18; bytes SHA-256: 3b7e1ca28d0211f7057a67af9860260e47320b95ec737eb6d165ff42e394d266
+# Shared registered tail; infer the boundary without overlapping its declaration.
+0x82201808 = {}
+# Reference: 0x82174600; bytes SHA-256: 66a0d334a4b079397aad5a5438b7ca2234653fac9b6889b7409b7b4685ddcf7d
+0x82213170 = { size = 0x18 }
+# Reference: 0x8201B774; bytes SHA-256: b7ef1fe51aa9d1babcfbfe9e1fedb1d843be28b7be262d06478e57163fa66053
+0x822A4CD0 = { size = 0xC }
+# Reference: 0x8201BE68; bytes SHA-256: 7ef2fceaf419c068b8dfb9a0aa3fa2dd3fbb2caf369db4626074bb4c93e2f1fc
+0x822AC668 = { size = 0x20 }
+# Reference: 0x8201BE6C; bytes SHA-256: e2a9c11eb201703bcb4cd3543c62ccd3be3603aa998af32fc7b513cb21b48160
+0x822AC688 = { size = 0x20 }
+# Reference: 0x8201BE70; bytes SHA-256: c646b91dc4375e4e0eb8e3638a4e841b5db426ef11ebd53e34eba7fe02bb6e9b
+0x822AC6A8 = { size = 0x20 }
+# Reference: 0x8201BE74; bytes SHA-256: 280f9a668ff281dd49c5076ab30d615c5ddbeaea5ef2119babeffd88d099e2f7
+0x822AC6C8 = { size = 0x20 }
+# Reference: 0x8201BE78; bytes SHA-256: 3be1b3f526e7c1af1c589214a020ad37bd4bc28bbc3e8278600ee395d390b1e5
+0x822AC6E8 = { size = 0x20 }
+# Reference: 0x8201BE7C; bytes SHA-256: 6d42ca8b90052a28f07f7bdaa76cf4ba27d1012286d5f4209d8b82b93e2155e0
+0x822AC708 = { size = 0x20 }
+# Reference: 0x8201BE80; bytes SHA-256: 0874b5e37b2f8f626622383cf74f1afb83dedf3885ea8f3b5113265540ed3d71
+0x822AC728 = { size = 0x20 }
+# Reference: 0x8201BE84; bytes SHA-256: feaf9f21ccd4ee83be9af0ee5ae54e183e64f6f968ab3854bef1210715f6d24e
+0x822AC748 = { size = 0x20 }
+# Reference: 0x8201BE88; bytes SHA-256: 4aba382a14c287847e3ad6eb3b78a09d177a8da6f6a16c9b49ab3ec87a7f03cc
+0x822AC768 = { size = 0x20 }
+# Reference: 0x8201BE8C; bytes SHA-256: 76b67c115e99a3dda8d861c3bf2f1baed16283dd99b5c9915d4e47aef7a0f13d
+0x822AC788 = { size = 0x20 }
+# Reference: 0x8205E8FC; bytes SHA-256: 305a1eb44a22f34f78293bc7db72e5e1877116e0b2ec10365085145ac99bcef3
+# Shared registered tail; infer the boundary without overlapping its declaration.
+0x823933D8 = {}
+# Reference: 0x8207FCCC; bytes SHA-256: 8f7d9e484fae0816087437a192ce70a10874dd82fd430d7a2b50162108b99b5f
+# Shared registered tail; infer the boundary without overlapping its declaration.
+0x823CC350 = {}
+# Reference: 0x82080348; bytes SHA-256: 169967d73aad836f632f8a5411a4a77d9962941733a54035ddd597b898af643a
+0x823D2260 = { size = 0x14 }
+# Reference: 0x820814B0; bytes SHA-256: d0a3b046e4a7485cafd5398a554c218db70102e812c82e24a8d4768fc93792c6
+0x823E2830 = { size = 0x10 }
+# Reference: 0x820B5C60; bytes SHA-256: 245491dea0b4fceae6e7a001221b82dd90816502b2692c99dadb2a5450b488e6
+0x82574E68 = { size = 0x50 }
+# Reference: 0x820BA13C; bytes SHA-256: 47487a3f605f7764fb98ba6e965cf1453c84b1386bd80b5cc7b1e37cc94d88cc
+0x825A3DD0 = { size = 0x10 }
+# Reference: 0x820BA6BC; bytes SHA-256: 6c04db8802f9632f459d4817a529b5f8ce123d73d988541397510bd3b1bcd817
+0x825AEFB8 = { size = 0x2C }

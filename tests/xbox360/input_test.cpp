@@ -97,6 +97,31 @@ void TestMergedPackets() {
 int main() {
     try {
         uint64_t sampleFrame{};
+        KeyboardState twin(cave::ParseSettings("","guwange"));
+        twin.SetFocus(true);
+        twin.SetKey(KeyCode("I"),true);
+        Require(twin.PollFrame(++sampleFrame).thumb_ry==32767,"Right stick up");
+        twin.SetKey(KeyCode("L"),true);
+        twin.SetKey(KeyCode("Left"),true);
+        twin.SetKey(KeyCode("W"),true);
+        auto twin_sample=twin.PollFrame(++sampleFrame);
+        Require(twin_sample.thumb_rx==23170 && twin_sample.thumb_ry==23170 &&
+                twin_sample.buttons==4 && twin_sample.right_trigger==255,
+                "Independent movement, normalized Shikigami diagonal and summon");
+        twin.SetKey(KeyCode("J"),true);
+        twin.SetKey(KeyCode("K"),true);
+        twin_sample=twin.PollFrame(++sampleFrame);
+        Require(!twin_sample.thumb_rx && !twin_sample.thumb_ry,"Opposing stick directions must cancel");
+        twin.SetFocus(false);twin.SetFocus(true);
+        Require(twin.PollFrame(++sampleFrame)==KeyboardSnapshot{},"Right stick survived focus loss");
+        twin.SetKey(KeyCode("J"),true);twin.SetKey(KeyCode("J"),false);
+        twin_sample=twin.PollFrame(++sampleFrame);
+        Require(twin_sample.thumb_rx==-32767 && !twin_sample.thumb_ry,"Unsampled stick tap lost");
+        Require(twin.PollFrame(sampleFrame)==twin_sample,"Same-frame stick tap changed");
+        Require(twin.PollFrame(++sampleFrame)==KeyboardSnapshot{},"Stick tap failed to release");
+        KeyboardState ordinary(cave::ParseSettings("","espgaluda2"));
+        ordinary.SetFocus(true);ordinary.SetKey(KeyCode("I"),true);
+        Require(ordinary.PollFrame(++sampleFrame)==KeyboardSnapshot{},"Axes affected existing title");
         // Both titles consume the same resolved schema, without a G2 adapter.
         for (const auto& game : {"futari","espgaluda2"}) {
             const auto shared=cave::ParseSettings("[keyboard]\nsouth=Z\n"
@@ -194,6 +219,14 @@ int main() {
         rex::input::X_INPUT_STATE state{};
         rex::input::X_INPUT_CAPABILITIES caps{};
         Require(concrete->GetCapabilities(0,0,&caps)==0 && caps.type==1,"Keyboard controller capabilities");
+        Require(!caps.gamepad.thumb_rx && !caps.gamepad.thumb_ry,"Existing keyboard advertised new axes");
+        auto guwange_settings=cave::ParseSettings("[gamepad]\nenabled=false\n","guwange");
+        auto guwange_input=CreateConfiguredInput(guwange_settings,false);
+        auto* guwange_concrete=static_cast<rex::input::InputSystem*>(guwange_input.get());
+        rex::input::X_INPUT_CAPABILITIES guwange_caps{};
+        Require(guwange_concrete->GetCapabilities(0,0,&guwange_caps)==0 &&
+                guwange_caps.gamepad.thumb_rx==32767 && guwange_caps.gamepad.thumb_ry==32767,
+                "Guwange keyboard right-stick capabilities missing");
         Require(concrete->GetState(0,&state)==0 && !static_cast<uint16_t>(state.gamepad.buttons),"Unfocused controller state");
         Require(concrete->GetState(1,&state)!=0,"Phantom second controller");
         bool rejected{};

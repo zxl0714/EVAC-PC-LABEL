@@ -22,10 +22,11 @@ LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
 GAMES = (*LEGACY_GAMES, 'sdoj')
 V03_GAMES = (*GAMES, 'daioujou')
 V06_GAMES = (*V03_GAMES, 'esprade')
-PLACEMENT_GAMES = V06_GAMES
+V07_GAMES = (*V06_GAMES, 'guwange')
+PLACEMENT_GAMES = V07_GAMES
 PLACEMENT_NAME = '放置说明.txt'
 DEFAULT_VERSION = VERSION
-MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade'}
+MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade', 'guwange'}
 META = {'release.json', 'SHA256SUMS.txt'}
 UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3', '0.4': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
@@ -66,6 +67,8 @@ def release_games(version):
         return V03_GAMES
     if (major, minor) == (0, 6):
         return V06_GAMES
+    if (major, minor) == (0, 7):
+        return V07_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -96,14 +99,20 @@ def config_name(version):
 def placement_sources(version):
     if not version or not renamed(version):
         return {}
-    release_games(version)
+    games = release_games(version)
+    # Old v0.4/v0.6 packages included the six established placement folders.
+    # Adding a title must not invalidate their frozen inventories.
+    placement = V07_GAMES if 'guwange' in games else V06_GAMES
     return {'game-data/' + key + '/' + PLACEMENT_NAME: ROOT / 'config/game-data' / (key + '.txt')
-            for key in PLACEMENT_GAMES}
+            for key in placement}
 
 
 def extraction_sources(version):
     parts = tuple(map(int, (version or '0.0').split('-', 1)[0].split('.')))
-    return {'tools/Extract-Ps4Pkg.ps1': ROOT / 'scripts/Extract-Ps4Pkg.ps1'} if parts >= (0, 6, 1) else {}
+    result = {'tools/Extract-Ps4Pkg.ps1': ROOT / 'scripts/Extract-Ps4Pkg.ps1'} if parts >= (0, 6, 1) else {}
+    if parts >= (0, 7):
+        result['tools/Extract-Xbla.ps1'] = ROOT / 'scripts/Extract-Xbla.ps1'
+    return result
 
 
 def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=None, package_format=1):
@@ -565,6 +574,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             copy_checked(source, directory / name, 'documentation', entries)
     readme = ('README.player-v032.txt' if version == '0.3.2' else
               'README.player-v031.txt' if version == '0.3.1' else
+              'README.player-v07.txt' if 'guwange' in selection else
               'README.player-v06.txt' if 'esprade' in selection else
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
               'README.player-v03.txt' if 'daioujou' in selection else 'README.player.txt')
@@ -649,7 +659,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V06_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V07_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()

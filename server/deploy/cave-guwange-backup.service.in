@@ -1,0 +1,16 @@
+[Unit]
+Description=Back up EVAC PC LABEL Guwange community database
+After=cave-guwange.service
+
+[Service]
+Type=oneshot
+User=cave-community
+Group=cave-community
+ExecStart=/usr/bin/python3 -B /opt/cave-community/guwange-current/server/backup.py --database /var/lib/cave-community/guwange/community.sqlite3 --directory /var/lib/cave-community/guwange/backups
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cave-community/guwange
+MemoryMax=128M

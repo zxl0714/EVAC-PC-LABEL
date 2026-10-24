@@ -12,7 +12,7 @@ from build_receipt import verify_sdk
 from generate_catalogue import load, relative
 from project import ROOT, digest, reject_link, write_json_new
 
-SUPPORTED_GAMES = ('espgaluda2', 'futari', 'sdoj')
+SUPPORTED_GAMES = ('espgaluda2', 'futari', 'sdoj', 'guwange')
 
 
 def verify_data(game, data):
@@ -47,7 +47,7 @@ def targets(manifest, game):
         name = Path(guest).stem
         if (guest.casefold() not in programs or name in records or
                 not re.fullmatch('[A-Za-z][A-Za-z0-9_]*', name) or
-                Path(guest).suffix != ('.bin' if game_id == 'sdoj' else '.xex')):
+                Path(guest).suffix != {'sdoj': '.bin', 'guwange': '.dll'}.get(game_id, '.xex')):
             raise ValueError('Expected unique declared program overlays')
         records[name] = dict(item, program_path=programs[guest.casefold()])
     if {item['program_path'] for item in records.values()} != set(programs.values()):
@@ -102,6 +102,19 @@ def registry_source(records, game_id):
             lines += ['  {', f'    const auto library=cave::Utf8(root/"{game_id}_{name}.dll");',
                       f'    kernel_state->RegisterRecompiledModule("{Path(guest).name}","{guest}",library.c_str());', '  }']
     return '\n'.join(lines + ['}', ''])
+
+
+def verify_generated_branches(generated, records):
+    """The code generator can exit zero after emitting a branch failure trap."""
+    failures = []
+    for name in records:
+        for path in (Path(generated) / name).glob('*.cpp'):
+            reject_link(path)
+            for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                if 'REX_FATAL("Unresolved' in line or 'ERROR: conditional branch' in line:
+                    failures.append(f'{name}/{path.name}:{number}')
+    if failures:
+        raise ValueError('Unresolved generated branches; fix source declarations: ' + ', '.join(failures[:16]))
 
 
 def generate(game_id, data, regenerate=False):
@@ -163,6 +176,7 @@ def generate(game_id, data, regenerate=False):
         for name in records:
             if not (generated / name / 'sources.cmake').is_file():
                 raise ValueError('Incomplete generated target: ' + name)
+        verify_generated_branches(generated, records)
         # Only registry metadata is consolidated after the isolated codegen runs.
         # Translated guest function bodies are never patched by this script.
         (generated / 'default/module_registry.cpp').write_text(registry_source(records, game_id), encoding='utf-8', newline='\n')

@@ -238,17 +238,7 @@ X_STATUS UserModule::Unload() {
 
 uint32_t UserModule::GetProcAddressByOrdinal(uint16_t ordinal, uint32_t caller_address) {
   uint32_t guest_addr = xex_module()->GetProcAddress(ordinal);
-  if (!guest_addr || !caller_address) {
-    return guest_addr;
-  }
-
-  auto* dispatcher = kernel_state_->function_dispatcher();
-  auto* func = dispatcher->GetFunction(guest_addr);
-  if (!func) {
-    return guest_addr;
-  }
-
-  return dispatcher->AllocateThunk(func, caller_address);
+  return kernel_state_->function_dispatcher()->ResolveGuestProcedure(guest_addr, caller_address);
 }
 
 uint32_t UserModule::GetProcAddressByName(std::string_view name) {

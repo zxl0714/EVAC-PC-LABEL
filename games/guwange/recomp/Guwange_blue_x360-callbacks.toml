@@ -1,0 +1,34 @@
+# XBLA base input SHA-256: 34a6ae15ef8a2777cf1b590f658562c3440a8ecf3ed68f3870e702bfcfc74f60
+# Independently referenced, locally reviewed PPC callbacks.
+# Core entries use the reviewed complete leaf shapes; relative branch graphs
+# are identical across modes, while data addresses/immediates remain original.
+# Evidence: .local/guwange-analysis-r1/census-r3 and reviewed_callbacks_r5.py.
+[functions]
+# Reference: 0x886B7704; bytes SHA-256: a011f61f5272bf5d4cfc6d7257c93827f9ffc318aca92e28123a0911adcf4472
+0x8803CA50 = { size = 0x2C }
+# Reference: 0x886B77D4; bytes SHA-256: 035b58771306c47b37485a0235bca321d2006c360272a2afb3faa712e4ad03ea
+0x8803CAC8 = { size = 0x68 }
+# Reference: 0x886F5454; bytes SHA-256: 35d0a919fbe040cc3459b4628507a9f108f3b630f9952f1fb404949d2c30291f
+0x88139E28 = { size = 0x38 }
+# Reference: 0x8874BED4; bytes SHA-256: 0cdf8c0bce6287ec99e153784d5f6ddba1dbf729a41f300bf873afdd92173d7f
+0x88235FD8 = { size = 0x68 }
+# Reference: 0x88622084; bytes SHA-256: b4fd10a17fc6ed9958ada3d3d8496366c5a869f7f967e72442a022e19e110fcd
+0x882C6F50 = { size = 0x5C }
+# Reference: 0x88786444; bytes SHA-256: 416aaef60db8ee6bbed5545cd3e545f35cb2e545696281462768ed1db9d560ad
+0x883499E8 = { size = 0x34 }
+# Reference: 0x88790A24; bytes SHA-256: beab10ced95f3aa22a10154c5f871c9deedba3a2c49ba8fb32179084dfc87e63
+0x8836FC98 = { size = 0x2C }
+# Reference: 0x88797364; bytes SHA-256: fc39ec13468006086cef96991f2069bafb0563a0c585d129aae0838e1ef21b93
+0x88391EB8 = { size = 0x2C }
+# Reference: 0x88667744; bytes SHA-256: 386e8b11a9cae9b148ae257e90d972a6d73a35ff3ef826bee8b73f3f783ec0f2
+0x885FA018 = { size = 0x34 }
+
+# State-writing core leaves reviewed after the Blue entry crash at 0x882C95A0.
+# Each has a data-table reference, an independent entry after mtctr/bctr,
+# only internal branches and a final blr. No CRT/SEH continuations are added.
+# Reference: 0x88621EC4; bytes SHA-256: 8907331ec6e2fee4b960cd2114a0a1f3794cebeb795d399f060f97ca316987e5
+0x882C95A0 = { size = 0x4C }
+# Reference: 0x887964E4; bytes SHA-256: 4f2439de724d7d4a98d3acff69f742c242e70b06ab80303ec94b64ddbbc88550
+0x8838F1F0 = { size = 0x3C }
+# Reference: 0x887AD8F4; bytes SHA-256: 359e1cb6a55ec5a74901129dca79017f107a2ca9cc7929a340d4f328535842fb
+0x885F8D70 = { size = 0x80 }

@@ -12,11 +12,11 @@ struct NativeSchema {
   uint32_t replay_header=0,replay_max=0;
   bool (*valid_view)(uint32_t)=nullptr;
   nlohmann::json (*encode_score)(const rex::system::xam::CommunityWrite&)=nullptr;
-  std::vector<rex::system::xam::CommunityColumn> (*decode_columns)(const nlohmann::json&,uint32_t)=nullptr;
+  std::vector<rex::system::xam::CommunityColumn> (*decode_columns)(uint32_t,const nlohmann::json&,uint32_t)=nullptr;
   uint32_t (*column_type)(uint16_t)=nullptr;
   std::string (*native_name)(std::string_view)=nullptr;
   std::string (*run_key)(const nlohmann::json&)=nullptr;
-  void (*match_replay)(const nlohmann::json&,std::span<const uint8_t>)=nullptr;
+  void (*match_replay)(uint32_t,const nlohmann::json&,std::span<const uint8_t>)=nullptr;
   uint32_t storage_size_property=0;
 };
 

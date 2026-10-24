@@ -1,0 +1,64 @@
+# Read-only initialization results in XBLA base 0.0.0.4.
+# default.xex SHA-256: b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401
+# Each site is immediately after the original call, before its result is tested.
+# No return/skip: all original instructions and error handling still execute.
+
+[[midasm_hook]]
+address = 0x821E97A8 # cmplwi r3,0; after application allocation
+name = "GuwangeBootApplication"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x821E982C # after shared engine subsystem initialization
+name = "GuwangeBootSubsystems"
+registers = ["r3", "r30"]
+
+[[midasm_hook]]
+address = 0x821E9864 # after thread-object allocation
+name = "GuwangeBootThreadObject"
+registers = ["r3", "r31"]
+
+[[midasm_hook]]
+address = 0x821E989C # before main-thread object's virtual start
+name = "GuwangeBootThreadDispatch"
+registers = ["r11", "r3", "r4", "r5"]
+
+[[midasm_hook]]
+address = 0x821E98A0 # after start, before reading completion flag
+name = "GuwangeBootThreadStarted"
+registers = ["r3", "r31"]
+
+[[midasm_hook]]
+address = 0x821E98AC # final return, including initialization failures
+name = "GuwangeBootMainExit"
+registers = ["r11", "r31"]
+
+[[midasm_hook]]
+address = 0x8220DA60 # after native CreateThread wrapper
+name = "GuwangeBootCreateThread"
+registers = ["r3", "r31"]
+
+[[midasm_hook]]
+address = 0x821E97B4 # lis r30,-32063; after engine initialization
+name = "GuwangeBootEngine"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82258FD0 # mr. r31,r3; after graphics device allocation
+name = "GuwangeBootDeviceAllocation"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82258FEC # cmpwi r3,0; after device initialization
+name = "GuwangeBootDeviceInit"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82259028 # cmpwi r3,0; after device reset
+name = "GuwangeBootDeviceReset"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x8225906C # addi r1,r1,128; final CreateDevice HRESULT
+name = "GuwangeBootDeviceResult"
+registers = ["r3"]

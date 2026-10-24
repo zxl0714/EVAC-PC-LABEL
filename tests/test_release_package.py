@@ -534,6 +534,52 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual((root/'game-data/esprade/Project.gp4').read_bytes(), b'authored packaging-only file')
         self.check_build_flavors('0.6', check)
 
+    def test_v07_seven_game_program_and_guwange_only_internal_data(self):
+        self.assertEqual(release.release_games('0.7'), release.V07_GAMES)
+        self.assertEqual(release.release_games('0.6.1'), release.V06_GAMES)
+        self.assertEqual(len(release.placement_sources('0.4')), 6)
+        self.assertEqual(len(release.placement_sources('0.6.1')), 6)
+        self.assertEqual(len(release.placement_sources('0.7')), 7)
+        self.assertEqual(set(release.extraction_sources('0.7')),
+                         {'tools/Extract-Ps4Pkg.ps1', 'tools/Extract-Xbla.ps1'})
+        def check(root, games, commit, inspect):
+            (root/'game-data/guwange/container.zip').write_bytes(b'not selected')
+            with patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
+                public=release.build('Public','0.7',root/'releases/public')
+                inspect.assert_not_called()
+                internal=release.build('Internal','0.7',root/'releases/internal',data_games=['guwange'])
+            self.assertEqual([call.args[1] for call in inspect.call_args_list], ['guwange'])
+            for flavor, result in (('Public',public),('Internal',internal)):
+                installed=self.root/('v07 '+flavor)
+                with zipfile.ZipFile(result['archive']) as archive:
+                    archive.extractall(installed)
+                record=release.verify_tree(installed,games)
+                self.assertEqual(record['games'],list(release.V07_GAMES))
+                self.assertEqual(record['dataGames'],['guwange'] if flavor=='Internal' else [])
+                self.assertEqual((installed/'README.txt').read_text(),'authored v07 instructions')
+                self.assertEqual((installed/'tools/Extract-Xbla.ps1').read_text(),'# authored XBLA helper\n')
+                self.assertTrue((installed/'tools/Extract-Ps4Pkg.ps1').is_file())
+                for key in release.V07_GAMES:
+                    self.assertTrue((installed/'game-data'/key/release.PLACEMENT_NAME).is_file())
+                    self.assertEqual((installed/'game-data'/key/'main.bin').exists(),flavor=='Internal' and key=='guwange')
+                    self.assertTrue((installed/games[key]['runtimeFiles'][0]).is_file())
+                for name in ('source','config.ini','user-data',release.LEGACY_LAUNCHER,'game-data/guwange/container.zip'):
+                    self.assertFalse((installed/name).exists())
+                self.assertFalse(list(installed.rglob('*.pdb')))
+                self.assertEqual(Path(result['archive']).name,
+                    'EVAC-PC-LABEL-v0.7-win-x64'+('-internal' if flavor=='Internal' else '')+'.zip')
+            self.assertEqual((root/'game-data/guwange/container.zip').read_bytes(),b'not selected')
+        self.check_build_flavors('0.7',check)
+
+    def test_v07_cannot_release_an_unaccepted_game(self):
+        games=release.load(release.ROOT/'games/catalogue.json')
+        next(game for game in games if game['id']=='guwange')['communitySupported']=False
+        with patch.object(release,'load',return_value=games), \
+                patch.object(release,'certified_runtime',side_effect=AssertionError('Must reject before build reads')):
+            with self.assertRaisesRegex(ValueError,'integrated with community support'):
+                release.build('Public','0.7',self.root/'never-created')
+        self.assertFalse((self.root/'never-created').exists())
+
     def test_windows_internal_selects_base_game_without_dlc_or_other_data(self):
         def check(root, games, commit, inspect):
             (root/'game-data/ketsui/main.bin').unlink()  # Unselected authored input is unavailable.
@@ -667,7 +713,9 @@ class ReleaseTests(unittest.TestCase):
                 'config/README.player-v03.txt':'authored v03 instructions',
                 'config/README.player-v04.txt':'authored v04 instructions',
                 'config/README.player-v06.txt':'authored v06 instructions',
+                'config/README.player-v07.txt':'authored v07 instructions',
                 'scripts/Extract-Ps4Pkg.ps1':'# authored helper\n',
+                'scripts/Extract-Xbla.ps1':'# authored XBLA helper\n',
                 'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for key in release.PLACEMENT_GAMES:
@@ -739,7 +787,7 @@ class ReleaseTests(unittest.TestCase):
                              release.digest(internal/'runtime/ps4/ketsui.exe'))
         self.assertFalse((public/'source').exists())
         if version.startswith('0.4'):
-            for key in release.PLACEMENT_GAMES:
+            for key in release.V06_GAMES:
                 self.assertEqual({file.name for file in (public/'game-data'/key).iterdir()},{release.PLACEMENT_NAME})
                 self.assertTrue((internal/'game-data'/key/release.PLACEMENT_NAME).is_file())
         else:self.assertFalse((public/'game-data').exists())

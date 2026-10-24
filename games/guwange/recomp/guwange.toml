@@ -1,0 +1,33 @@
+[project]
+name = "guwange"
+sdk_version = "0.9.0"
+game_root = "../../../game-data/guwange"
+
+[entrypoint]
+file_path = "../../../game-data/guwange/default.xex"
+out_directory_path = "../../../generated/guwange/default"
+includes = ["default-functions.toml", "default-callbacks.toml", "default-vtable.toml", "boot-observations.toml", "main-wait.toml"]
+
+[[modules]]
+guest_path = "module/Guwange01_x360.dll"
+file_path = "../../../game-data/guwange/module/Guwange01_x360.dll"
+out_directory_path = "../../../generated/guwange/Guwange01_x360"
+includes = ["Guwange01_x360-functions.toml", "Guwange01_x360-callbacks.toml"]
+
+[[modules]]
+guest_path = "module/Guwange01_coop_x360.dll"
+file_path = "../../../game-data/guwange/module/Guwange01_coop_x360.dll"
+out_directory_path = "../../../generated/guwange/Guwange01_coop_x360"
+includes = ["Guwange01_coop_x360-functions.toml", "Guwange01_coop_x360-callbacks.toml"]
+
+[[modules]]
+guest_path = "module/Guwange_arrange_x360.dll"
+file_path = "../../../game-data/guwange/module/Guwange_arrange_x360.dll"
+out_directory_path = "../../../generated/guwange/Guwange_arrange_x360"
+includes = ["Guwange_arrange_x360-functions.toml", "Guwange_arrange_x360-callbacks.toml"]
+
+[[modules]]
+guest_path = "module/Guwange_blue_x360.dll"
+file_path = "../../../game-data/guwange/module/Guwange_blue_x360.dll"
+out_directory_path = "../../../generated/guwange/Guwange_blue_x360"
+includes = ["Guwange_blue_x360-functions.toml", "Guwange_blue_x360-callbacks.toml"]

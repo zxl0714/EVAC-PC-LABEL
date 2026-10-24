@@ -44,19 +44,26 @@ Json Allocation(rex::Runtime& runtime, std::uint32_t address) {
 
 int wmain(int argc, wchar_t** argv) {
     try {
-        if (argc < 4 || argc > 6) throw std::runtime_error("Usage: inspect <game-data> <module> <NEW-output> [--dump-sections] [--game=sdoj]");
-        bool dump{}, sdoj{}, gameSpecified{};
+        if (argc < 4 || argc > 6) throw std::runtime_error("Usage: inspect <game-data> <module> <NEW-output> [--dump-sections] [--game=espgaluda2|sdoj|guwange]");
+        bool dump{}, gameSpecified{};
+        std::string gameId = "espgaluda2";
         for (int index = 4; index < argc; ++index) {
             const std::wstring option = argv[index];
             if (option == L"--dump-sections" && !dump) dump = true;
-            else if (option == L"--game=sdoj" && !gameSpecified) { sdoj = true; gameSpecified = true; }
+            else if (!gameSpecified && (option == L"--game=sdoj" || option == L"--game=guwange" || option == L"--game=espgaluda2")) {
+                gameId = option == L"--game=sdoj" ? "sdoj" : option == L"--game=guwange" ? "guwange" : "espgaluda2";
+                gameSpecified = true;
+            }
             else throw std::runtime_error("Unknown or repeated option");
         }
         const std::wstring selected = argv[2];
         constexpr std::array<const wchar_t*, 8> g2Modules{L"default.xex", L"dat00.xex", L"dat11.xex", L"dat12.xex",
             L"dat15.xex", L"dat162.xex", L"dat163.xex", L"dat164.xex"};
         constexpr std::array<const wchar_t*, 3> sdojModules{L"default.xex", L"CA022100.bin", L"CA022110.bin"};
-        const std::span<const wchar_t* const> modules = sdoj ? std::span<const wchar_t* const>(sdojModules) : std::span<const wchar_t* const>(g2Modules);
+        constexpr std::array<const wchar_t*, 5> guwangeModules{L"default.xex", L"module/Guwange01_x360.dll",
+            L"module/Guwange01_coop_x360.dll", L"module/Guwange_arrange_x360.dll", L"module/Guwange_blue_x360.dll"};
+        const std::span<const wchar_t* const> modules = gameId == "sdoj" ? std::span<const wchar_t* const>(sdojModules) :
+            gameId == "guwange" ? std::span<const wchar_t* const>(guwangeModules) : std::span<const wchar_t* const>(g2Modules);
         bool known{};
         for (auto name : modules) known |= selected == name;
         if (!known) throw std::runtime_error("Expected a declared module filename, not an arbitrary guest path");
@@ -76,7 +83,7 @@ int wmain(int argc, wchar_t** argv) {
             throw std::runtime_error("Analysis unexpectedly initialized a presentation, audio or input system");
         CheckStatus(runtime.LoadXexImage("game:\\default.xex"), "Main XEX load");
         auto owner = runtime.kernel_state()->GetExecutableModule();
-        const std::uint32_t titleId = sdoj ? 0x435A07E7u : 0x435A07D8u;
+        const std::uint32_t titleId = gameId == "sdoj" ? 0x435A07E7u : gameId == "guwange" ? 0x58410A78u : 0x435A07D8u;
         auto checkTitle = [titleId](const auto& loaded) {
             if (!loaded || !loaded->xex_module()) throw std::runtime_error("Missing XEX image");
             const auto* execution = loaded->xex_module()->opt_execution_info();
@@ -114,7 +121,8 @@ int wmain(int argc, wchar_t** argv) {
             const auto codeAddress = owner->entry_point();
             std::array<unsigned char, 32> codeBefore{};
             std::memcpy(codeBefore.data(), runtime.memory()->TranslateVirtual(codeAddress), codeBefore.size());
-            const auto other = sdoj ? (moduleName == "CA022100.bin" ? "CA022110.bin" : "CA022100.bin") :
+            const auto other = gameId == "sdoj" ? (moduleName == "CA022100.bin" ? "CA022110.bin" : "CA022100.bin") :
+                gameId == "guwange" ? (moduleName == "module/Guwange01_x360.dll" ? "module/Guwange_blue_x360.dll" : "module/Guwange01_x360.dll") :
                 (moduleName == "dat00.xex" ? "dat12.xex" : "dat00.xex");
             std::cout << "Expected negative test: loading " << other << " into a live overlay range\n";
             auto rejected = runtime.kernel_state()->LoadUserModule(std::string("game:\\") + other, false);
@@ -129,7 +137,7 @@ int wmain(int argc, wchar_t** argv) {
         const auto imageSize = module->image_size();
         if (!imageSize || imageSize > 128 * 1024 * 1024 || std::uint64_t(imageBase) + imageSize > 0x100000000ull)
             throw std::runtime_error("Unexpected image bounds");
-        Json report{{"format",1}, {"game",sdoj ? "sdoj" : "espgaluda2"}, {"module",moduleName}, {"toolMode",true}, {"guestExecution",false},
+        Json report{{"format",1}, {"game",gameId}, {"module",moduleName}, {"toolMode",true}, {"guestExecution",false},
             {"gpuInitialized",false}, {"audioInitialized",false}, {"inputInitialized",false},
             {"imageBase",imageBase}, {"imageBytes",imageSize}, {"entryPoint",module->entry_point()},
             {"exportTable",module->export_table_address()}, {"sections",Json::array()}, {"imports",Json::array()}};

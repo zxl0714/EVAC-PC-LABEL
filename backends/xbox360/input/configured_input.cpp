@@ -27,7 +27,9 @@ uint64_t InputTraceClock() {
 
 class KeyboardDriver final : public InputDriver, public ui::WindowInputListener, public ui::WindowListener {
 public:
-    explicit KeyboardDriver(const Settings& settings) : InputDriver(nullptr,127), state_(settings), trace_(REXCVAR_GET(input_diagnostics)) {}
+    explicit KeyboardDriver(const Settings& settings) : InputDriver(nullptr,127), state_(settings), trace_(REXCVAR_GET(input_diagnostics)) {
+        for (const auto& binding:settings.keyboard_right_stick) right_stick_enabled_|=!binding.keys.empty();
+    }
     ~KeyboardDriver() override { Detach(); }
     X_STATUS Setup() override { return X_STATUS_SUCCESS; }
     bool IsKeyboardEmulation() const override { return true; }
@@ -50,6 +52,7 @@ public:
         *caps={}; caps->type=1; caps->sub_type=1;
         caps->gamepad.buttons=0xF3FF;
         caps->gamepad.left_trigger=caps->gamepad.right_trigger=255;
+        if (right_stick_enabled_) caps->gamepad.thumb_rx=caps->gamepad.thumb_ry=32767;
         return X_ERROR_SUCCESS;
     }
     X_RESULT GetState(uint32_t user, X_INPUT_STATE* output) override {
@@ -62,13 +65,16 @@ public:
         ++polls_;
         if (trace_ && trace_remaining_ && (snapshot!=last_ || (polls_ & (polls_-1))==0)) {
             --trace_remaining_;
-            REXLOG_INFO("INPUT_DIAG poll count={} active={} buttons={:04X} t_us={} frame={}",
-                polls_,active,snapshot.buttons,InputTraceClock(),rex::input::GuestInputFrame());
+            REXLOG_INFO("INPUT_DIAG poll count={} active={} buttons={:04X} t_us={} frame={} lt={} rt={} rx={} ry={}",
+                polls_,active,snapshot.buttons,InputTraceClock(),rex::input::GuestInputFrame(),
+                snapshot.left_trigger,snapshot.right_trigger,snapshot.thumb_rx,snapshot.thumb_ry);
         }
         if (snapshot!=last_) {last_=snapshot; ++packet_;}
         *output={}; output->packet_number=packet_; output->gamepad.buttons=snapshot.buttons;
         output->gamepad.left_trigger=snapshot.left_trigger;
         output->gamepad.right_trigger=snapshot.right_trigger;
+        output->gamepad.thumb_rx=snapshot.thumb_rx;
+        output->gamepad.thumb_ry=snapshot.thumb_ry;
         return X_ERROR_SUCCESS;
     }
     X_RESULT SetState(uint32_t user,X_INPUT_VIBRATION*) override {
@@ -141,6 +147,7 @@ private:
     uint32_t packet_{};
     std::deque<X_INPUT_KEYSTROKE> events_;
     bool trace_{};
+    bool right_stick_enabled_{};
     uint32_t trace_remaining_{256};
     uint64_t polls_{};
 };

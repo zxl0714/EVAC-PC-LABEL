@@ -18,6 +18,9 @@ nickname = Player
 | `/cave/api/v1/games/ketsui/` | `127.0.0.1:18085/ketsui/api/v1/` | 沿用绊地狱服务的数据目录 |
 | `/cave/api/v1/games/sdoj/` | `127.0.0.1:18087` | `/var/lib/cave-community/sdoj/community.sqlite3` |
 | `/cave/api/v1/games/daioujou/` | `127.0.0.1:18088` | `/var/lib/cave-community/daioujou/community.sqlite3` |
+| `/cave/api/v1/games/esprade/` | `127.0.0.1:18089` | `/var/lib/cave-community/esprade/community.sqlite3` |
+
+v0.7 准备中的 Guwange 使用 `/cave/api/v1/games/guwange/`、`127.0.0.1:18090` 和独立的 `/var/lib/cave-community/guwange/community.sqlite3`，目前尚未部署。模板包含这条路由，安装时只启用已就绪的作品。
 
 虫姬二和绊地狱两条是反向代理别名，旧 `/futari/api/v1/`、`/ketsui/api/v1/` 入口继续保留，不需要搬迁数据库。未知游戏路径返回 404，不能落入另一款游戏的榜单。
 
@@ -100,9 +103,22 @@ python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 1808
 
 修改 endpoint 后，其他服务的任务仍保留在原目录但不会发送。缺少来源的旧版 journal 同样保留，不按新配置猜测归属；旧记录的显式迁移尚未实现。已完成的 history 不受影响。改昵称不会改写已排队成绩或使本地存档改目录。
 
+## Guwange 开发适配（v0.7）
+
+`server/games/guwange.py` 对应 XBLA 本体 0.0.0.4，Title ID `58410A78`。普通、Blue、Arrange 分别使用 1–4、5–8、9–12 号榜；每组依次为综合、Shishin、Gensuke、Kosame。保留原生分数及游戏自身的提交资格，不提供在线合作。
+
+```sh
+python3 -B -m server.games.guwange --database /path/to/new/guwange.sqlite3 --port 18090
+python3 -B -m unittest discover -s tests -p 'test_guwange_community_server.py' -v
+```
+
+客户端沿用共享 endpoint、联网开关和昵称。原生流程先提交成绩，再上传合资格录像；服务器将模式、角色、分数、关卡与对应榜单绑定，完整保存原录像字节。成绩时间与录像时间由游戏分别生成，不要求相等。新昵称的单条个人最佳查询返回未上榜的零记录，避免原游戏直接解引用空行；该兼容结果不写入数据库，也不出现在公开榜单。
+
+离线协议、HTTP 收发和备份恢复检查使用临时数据库；真实游戏的提交、读榜、下载和完整回放仍须单独验收。详细进度见 [验收矩阵](../docs/TEST_MATRIX.md)。
+
 ## 服务器目录与部署
 
-`/opt/cave-community/releases/<版本>/` 保存不可变的服务源码，G2 的 `current`、SDOJ 的 `sdoj-current` 及大往生计划使用的 `daioujou-current` 分别选择自己的版本。服务程序属于 root，各游戏的 `/var/lib/cave-community/<游戏>/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。以下先说明 G2 的已有部署，各标题增量步骤见后文。模板列出的服务不代表均已部署；当前线上范围见本文开头。
+`/opt/cave-community/releases/<版本>/` 保存不可变的服务源码。G2 使用 `current`，SDOJ、大往生和 ESP Ra.De. 分别使用 `sdoj-current`、`daioujou-current`、`esprade-current`；Guwange 预留 `guwange-current`。各指针独立选择版本。服务程序属于 root，各游戏的 `/var/lib/cave-community/<游戏>/` 由低权限 `cave-community` 用户写入。发行源码不带数据库、服务账号信息、TLS 私钥或凭据。以下先说明 G2 的已有部署，各标题增量步骤见后文。模板列出的服务不代表均已部署；当前线上范围见本文开头。
 
 从已提交版本准备一个仅含下列文件的部署归档，记录 commit 与每个文件的 SHA-256，再上传并解压到新的版本目录：
 
@@ -148,6 +164,17 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 5. 启用本作服务和备份 timer，执行一次备份，核对 SQLite 完整性、Title ID CUSA32997 和本作 application_id。确认原四款 PID 与版本指针不变，保留部署、健康和备份记录。游戏内真实提交、榜单、录像收发与播放仍是单独验收条件。
 
 更新只切换 `daioujou-current` 并重启本作；回滚切回旧链接。首次上线失败时停止本作，恢复 nginx 片段并先校验，不删除数据库或旧目录。不要用对本作数据库的测试结果替代其他标题的服务验收，也不要向线上写入 fixture 分数。
+
+### 增量部署 Guwange
+
+完成本机实际成绩／录像闭环后，再部署正式服务。准备一个干净提交的源码归档，包含 `server/__init__.py`、`server/games/__init__.py`、`server/games/espgaluda2.py`、`server/games/guwange.py`、`server/backup.py`、`server/deploy/` 以及 `tests/test_guwange_community_server.py`、`tests/test_community_backup.py`、`tests/test_community_deployment.py`。保存提交号、归档和成员 SHA-256。
+
+1. 记录现有六款服务的 PID、版本指针及 nginx 片段哈希，确认 18090、Guwange 三个单元、版本指针和数据目录没有已有安装。已有安装应走更新流程，不能覆盖当作首次部署。
+2. 解压到新的只读发行目录，核验文件身份，在服务器 Python 上运行上述三组测试；测试仅使用临时数据库。建立 `guwange-current` 指针，安装三个 `cave-guwange*.in` 模板，去掉 `.in` 后缀。执行 `systemd-analyze verify` 和 `daemon-reload`，只启动 `cave-guwange.service`。
+3. 确认仅监听 `127.0.0.1:18090`，本机 `/cave/api/v1/games/guwange/health` 返回 `58410A78`。独立备份 nginx 片段，只追加 Guwange location；`nginx -t` 成功才 reload。检查七款合集入口、两条旧入口和未知游戏 404，核对原六款 PID 与版本指针不变。
+4. 启用服务和每日备份 timer，运行一次 `cave-guwange-backup.service`，核对快照的 `identity`、SQLite 完整性及外键。保留最新七份一致性快照。最后使用真实游玩记录完成正式 HTTPS 的提交、读榜、录像收发和回放；不提交自造成绩。
+
+后续更新只切换 `guwange-current` 并重启本作。回滚切回旧指针，不覆盖工作数据库；首次安装失败时停止本作、恢复并校验 nginx 片段，保留数据库现场。
 
 ### 日常操作
 

@@ -1,0 +1,50 @@
+# XBLA base input SHA-256: 4bbeca388e72fbae4fc99edb5cc6000aba8624ad3eedf88cecf99e99360c5043
+# Independently referenced, locally reviewed PPC callbacks.
+# Core entries use the reviewed complete leaf shapes; relative branch graphs
+# are identical across modes, while data addresses/immediates remain original.
+# Evidence: .local/guwange-analysis-r1/census-r3 and reviewed_callbacks_r5.py.
+[functions]
+# Reference: 0x886C3974; bytes SHA-256: 608bb7a57ef7a1e18111b5ecbf2623e19a938ea9f9ae2355fbc801eadb02e9e5
+0x8803D018 = { size = 0x2C }
+# Reference: 0x886CFBB4; bytes SHA-256: af9be31178fb354f2c6de38e142a87a394ed8a6569cba2622169b942537fe540
+0x88083C00 = { size = 0x2C }
+# Reference: 0x886F75F4; bytes SHA-256: 01702946bf419bdd793f4152f4dac2180395186a8d4c94721eba9d44f3064fc5
+0x8813F968 = { size = 0x38 }
+# Reference: 0x88755354; bytes SHA-256: cc66ea84bd3963fd6dad8c4d05bc6b548407cd451c60c99ab6195ff65cb0b748
+0x8825C7A8 = { size = 0x68 }
+# Reference: 0x88755544; bytes SHA-256: 14ce629050e160cc1d033db3371da58a6b3dc0a3bca25e4b4a8b105cb94a94a7
+0x8825CE38 = { size = 0x68 }
+# Reference: 0x88756324; bytes SHA-256: 68b92c6f39540666442f7c0be1a24fc29d87febc1aedab294acf6fedc0653094
+0x8825EE10 = { size = 0x68 }
+# Reference: 0x887564B4; bytes SHA-256: 7c7874e04a1cc4961e886e05030eea7e422de32c7b1f38f8d9a06e468c88f9e0
+0x8825F258 = { size = 0x68 }
+# Reference: 0x88756774; bytes SHA-256: 054a9947b78700b0b0164f84b8f0f6e09607a66cc08aa8a4146004203a2f0760
+0x8825F998 = { size = 0x68 }
+# Reference: 0x88756864; bytes SHA-256: 02d370c7bff9da66760482fcc9f0858d8ad42416513ca1f376b312b449e1570b
+0x8825FB60 = { size = 0x68 }
+# Reference: 0x88756A14; bytes SHA-256: a54577a8f925f662d71a13c183e6da0ae85d9024963817a2fd9dd8fe68c53cc9
+0x8825FFF0 = { size = 0x68 }
+# Reference: 0x88756B04; bytes SHA-256: 6ee59d05a7f4a1b3817bf87feb9b6555d95ef77f2def742acb9199fd8f142b98
+0x88260238 = { size = 0x68 }
+# Reference: 0x88757294; bytes SHA-256: 22f882aa881c96717fdf2f61504dac41f17eb57c6ee73f1652bfb39edcf2dfbc
+0x882615B8 = { size = 0x68 }
+# Reference: 0x88757424; bytes SHA-256: 3c7482850a3c9f4072f63e2d0ada93076615c46e3f40fa2ff1272653d7b0d381
+0x882619B8 = { size = 0x68 }
+# Reference: 0x88632094; bytes SHA-256: 76fa8bb2a33412a9769e87d97e6e89172abe8c8b2a715f0afd0b6ad98b414dc0
+0x882CF4A0 = { size = 0x5C }
+# Reference: 0x88784DD4; bytes SHA-256: cec78ac4a149a215d0259037a02785cb80ccefec0211d113e2062095ecce5bce
+0x88354BB8 = { size = 0x34 }
+# Reference: 0x8878DDB4; bytes SHA-256: cfd3c93895ed4c3fe7e6f2e2434f5a0b752823c09b5248cd9c6a4aceef7bf25c
+0x88377370 = { size = 0x34 }
+# Reference: 0x8878EF14; bytes SHA-256: 0e3cc91593850fbb10c3a6c7ce532617391666fc90eb8ecde20d7c646b5c565e
+0x8837AED0 = { size = 0x2C }
+
+# Independently reviewed state-writing core leaves; internal branches only.
+# Reference: 0x886CFBA4; bytes SHA-256: 26a8d3489d336463d90373e056b02d01ea3ff4a3af937db6b4877031cffb704b
+0x8823E268 = { size = 0x58 }
+# Reference: 0x887585D4; bytes SHA-256: 79fd2650638109dcb70360cbc0f514fb2d556795e6bb8ee761fd210368cb88d7
+0x882644F0 = { size = 0x9C }
+# Reference: 0x887966E4; bytes SHA-256: 2d635eea5e92fab65e51c383487850576bb3c85a9152ebe9d0fde7d61d53044e
+0x883A8240 = { size = 0x50 }
+# Reference: 0x886BE404; bytes SHA-256: 14c4cd21756f88afda4eaec4f7d579915476713ad9327a19f0c504e62b88627e
+0x8860A350 = { size = 0x54 }

@@ -1,0 +1,76 @@
+{
+  "format": 1,
+  "algorithm": "sha256",
+  "xex": [
+    {
+      "path": "default.xex",
+      "bytes": 2547712,
+      "sha256": "b426e877eec7e34afe0c1314390a8f11c1728053668b6aea2efed2387d1bf401",
+      "moduleFlags": "0x00000001",
+      "headerBytes": 12288,
+      "imageBase": "0x82000000",
+      "entryPoint": "0x8221C770",
+      "titleId": "58410A78",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 2,
+      "baseVersionRaw": "0x00000004"
+    },
+    {
+      "path": "module/Guwange01_coop_x360.dll",
+      "bytes": 8069120,
+      "sha256": "bdc74b19ed9d01503a21aa41d28946d785d3550b6f02295906ecc44fdaca4bc8",
+      "moduleFlags": "0x00000009",
+      "headerBytes": 8192,
+      "imageBase": "0x88000000",
+      "entryPoint": "0x88610E30",
+      "titleId": "58410A78",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    },
+    {
+      "path": "module/Guwange01_x360.dll",
+      "bytes": 8036352,
+      "sha256": "c4313ef13c40d94728cc70a9d2a10dc09615a2dadb895816b0d070e47cf9e8c9",
+      "moduleFlags": "0x00000009",
+      "headerBytes": 8192,
+      "imageBase": "0x88000000",
+      "entryPoint": "0x8861C5C8",
+      "titleId": "58410A78",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    },
+    {
+      "path": "module/Guwange_arrange_x360.dll",
+      "bytes": 8069120,
+      "sha256": "4bbeca388e72fbae4fc99edb5cc6000aba8624ad3eedf88cecf99e99360c5043",
+      "moduleFlags": "0x00000009",
+      "headerBytes": 8192,
+      "imageBase": "0x88000000",
+      "entryPoint": "0x8861F520",
+      "titleId": "58410A78",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    },
+    {
+      "path": "module/Guwange_blue_x360.dll",
+      "bytes": 8101888,
+      "sha256": "34a6ae15ef8a2777cf1b590f658562c3440a8ecf3ed68f3870e702bfcfc74f60",
+      "moduleFlags": "0x00000009",
+      "headerBytes": 8192,
+      "imageBase": "0x88000000",
+      "entryPoint": "0x8860DB40",
+      "titleId": "58410A78",
+      "versionRaw": "0x00000004",
+      "encryption": 1,
+      "compression": 1,
+      "baseVersionRaw": "0x00000004"
+    }
+  ]
+}

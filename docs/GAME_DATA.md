@@ -60,6 +60,18 @@
 
 默认 passcode 是常见备份包的 32 个零。若备份使用其他 passcode，在命令末尾加 `-Passcode "对应的32字符"`。网站 ZIP／RAR 的解压密码只用于外层压缩包，不等于 PKG passcode；零售加密 PKG 需先准备可提取的备份。工具报错时先查看输出，不要把未提取完整的目录当作成品。
 
+### Xbox 360 XBLA：狱门山（v0.7 数据准备）
+
+狱门山使用 XBLA 内容包，不用 `extract-xiso`。ZIP／RAR 解压后，如果得到一个长文件名、没有扩展名的大文件，它仍是容器。在合集根目录使用 v0.7 随包脚本，替换成实际文件路径：
+
+```powershell
+.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\原始容器文件名" -OutputDir "D:\GameExtract\guwange"
+```
+
+Windows PowerShell 5.1 即可运行，无须另装 Python。输出目录须尚不存在，上一层 `D:\GameExtract` 须已创建。源码仓库中脚本位于 `scripts/Extract-Xbla.ps1`。它提取本作使用的 LIVE／PIRS 单哈希表容器，检查文件链与数据块校验，原容器保留；不用于 ISO、CON 存档或应用 Title Update。
+
+完成后直接选择 `D:\GameExtract\guwange`，或把里面全部内容复制到 `game-data/guwange/`。不要把整个容器改名成 `default.xex`。
+
 ## Xbox 360 游戏
 
 ### 虫姫さまふたり Ver.1.5（futari）
@@ -122,6 +134,25 @@ game-data/sdoj/
 使用受支持的原版光盘解包数据。当前未接入音乐补丁或其他程序更新，不要将 `default.xexp`、`CA022100.binp`、`CA022110.binp` 混入此目录；如已有混合版本，请从保留的原始本体重新提取一份。
 
 本体内的金币、商店和游玩解锁内容按原作流程使用，不需要另找 DLC。
+
+### v0.7：ぐわんげ（guwange）
+
+数据准备使用 Xbox 360 XBLA **Title ID 58410A78／本体 0.0.0.4**，不应用 Title Update。游戏接入的验收状态见[实施计划](IMPLEMENTATION_PLAN.md)。
+
+```text
+game-data/guwange/
+  default.xex
+  module/
+    Guwange01_x360.dll
+    Guwange01_coop_x360.dll
+    Guwange_arrange_x360.dll
+    Guwange_blue_x360.dll
+  game_res/
+  res/
+  ...
+```
+
+保留全部 29 个文件及内部目录。这四个 DLL 是原始 Xbox 游戏模块，不是 Windows 程序，不要替换成运行程序目录里的同名组件。不要混入 `default.xexp` 或 `module/*.dllp` 更新文件；如果已有混合版本，从保留的本体重新提取到新目录。
 
 ## PS4 游戏
 

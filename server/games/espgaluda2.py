@@ -135,6 +135,9 @@ class Store:
     inspect_record = staticmethod(replay_info)
     match_record = staticmethod(match_replay)
 
+    def match_view_record(self, view, data, properties):
+        self.match_record(data, properties)
+
     def validate_properties(self, view, props, score):
         pass
 
@@ -285,12 +288,12 @@ class Store:
             raise ApiError(400, 'replay_hash_mismatch')
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            score = db.execute('SELECT nickname,columns_json FROM scores WHERE id=?', (score_id,)).fetchone()
+            score = db.execute('SELECT nickname,columns_json,view FROM scores WHERE id=?', (score_id,)).fetchone()
             if not score:
                 raise ApiError(404, 'score_not_found')
             if score[0] != name:
                 raise ApiError(409, 'score_owner_mismatch')
-            self.match_record(data, json.loads(score[1]))
+            self.match_view_record(score[2], data, json.loads(score[1]))
             old = db.execute('SELECT r.id,r.sha256 FROM attachments a JOIN replays r '
                              'ON r.id=a.replay_id WHERE a.score_id=?', (score_id,)).fetchone()
             if old and old[1] != digest:

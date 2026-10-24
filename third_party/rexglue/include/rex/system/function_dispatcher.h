@@ -84,6 +84,10 @@ class FunctionDispatcher : public IModuleRegistrar {
    */
   uint32_t AllocateThunk(::PPCFunc* func, uint32_t caller_address);
 
+  // Resolves a guest export into the caller's addressable pool. Unlike native
+  // host thunks, these references also expire when the exporting module unloads.
+  uint32_t ResolveGuestProcedure(uint32_t guest_address, uint32_t caller_address);
+
   /**
    * Returns the `code_base` of the module containing `guest_address`,
    * or 0 if no module covers that address.
@@ -115,9 +119,17 @@ class FunctionDispatcher : public IModuleRegistrar {
     uint32_t image_size;
     uint32_t next_thunk_address;
     uint32_t thunk_limit;
+    std::unordered_map<::PPCFunc*, uint32_t> host_thunks;
+    struct ProcedureThunk {
+      ::PPCFunc* function;
+      uint32_t address;
+      uint32_t target_code_base;
+    };
+    std::unordered_map<uint32_t, ProcedureThunk> procedure_thunks;
   };
 
   ModuleTableInfo* FindModuleByAddress(uint32_t guest_address);
+  uint32_t AllocateThunkSlot(ModuleTableInfo& module, ::PPCFunc* func);
 
   memory::Memory* memory_ = nullptr;
   ExportResolver* export_resolver_ = nullptr;

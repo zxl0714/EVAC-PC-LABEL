@@ -9,6 +9,8 @@
 namespace cave {
 inline constexpr std::array<std::string_view,16> kButtons{
     "up","down","left","right","south","east","west","north","start","select","l1","r1","l2","r2","l3","r3"};
+inline constexpr std::array<std::string_view,4> kRightStickButtons{
+    "right_stick_up","right_stick_down","right_stick_left","right_stick_right"};
 struct Binding {
     std::vector<std::uint16_t> keys;
     std::string text;
@@ -21,6 +23,8 @@ struct Settings {
     unsigned sdoj_frame_delay{1};
     std::string log_level{"info"}, endpoint{"https://xiaolu.life/cave/api/v1"}, nickname{"Player"};
     std::array<Binding,16> keyboard;
+    // Opt-in per-title axes: Guwange Xbox 360 mode independently moves Shikigami.
+    std::array<Binding,4> keyboard_right_stick;
 };
 Settings ResolveSettings(const Ini& ini, std::string_view game_id);
 // Public defaults only; do not accidentally edit a selected game's override.
