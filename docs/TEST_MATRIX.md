@@ -4,6 +4,8 @@
 
 ## v0.7.3 DLC 与更新检查
 
+- 自动解包最终本地包：源码 `0fac99fbd2d5658f11b569c604b2e6a4572708c5`，七游戏增量构建核对 71 Xbox／6 PS4／2 启动器 EXE/PDB 配对；五组最终 CTest 通过。`releases/v0.7.3-0fac99f/EVAC-PC-LABEL-v0.7.3-win-x64.zip`，106291280 字节，SHA-256 `e765ed3c6b0888acbc79cca6938ce66936adfd203e9c154bff7a99b8ef9f91b4`。一次实际解压、150 文件和 9 类覆盖保留检查通过。开发根目录入口与包内 EXE 一致；尚未推送、上传或发布。收据 `.local/release-acceptance-v073/e765ed3c6b0888ac/accepted.json`。
+
 - 自动解包追加验证：本机两份原始 LIVE DLC（`E:/xenia/虫姬2/435A07D7/00000002/`）原生识别通过，五项资源 SHA-256 符合清单。`cave_content_prepare_tests --real` 使用与宿主相同的准备函数完成提取、完整校验、SDK 内容枚举和热缓存复用；与旧 v0.7.2 解包输入选择同一份缓存，原始容器 SHA-256 保持不变。输出 `.local/v073-raw-dlc-accept-r1/`，日志 `.local/v073-raw-dlc-accept-r1.log`。这是准备链检查，未重复既有进关流程。
 - 新增 4 组原生 STFS 测试（包含一／二级边界、PIRS、空文件、损坏哈希／链、错误标题／类型／资源、危险路径／同名冲突）；全部通过。527 common、146 launch、12 native CLI、4 文档合同及原有内容准备测试通过。新程序包以自动解包追加版本为准，下面的 `906bf98` 包是先前候选。
 

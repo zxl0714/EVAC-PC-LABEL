@@ -16,6 +16,21 @@ do not describe it as supporting automatic raw-container import. Current work
 adds bounded native STFS inspection/preparation, bilingual player instructions
 and focused raw-input/cache/legacy equivalence checks. No new UI or shell prompt.
 
+Completed at source 0fac99fbd2d5658f11b569c604b2e6a4572708c5: both real original
+containers verify and extract through the host preparation function; native
+enumeration, warm reuse, unchanged source hashes and v0.7.2 cache equivalence
+pass (.local/v073-raw-dlc-accept-r1.log). Four authored native STFS groups, 527
+common, 146 launch, 12 CLI, four docs and 46 package cases pass (one existing
+symlink skip). Final five focused CTests pass. Seven-game incremental build
+certifies 71 Xbox, six PS4 and two launcher binary/PDB pairs. Root launcher is
+staged and matches the new program ZIP, SHA af8e57d4c6e25ea9fdb0b9fe4d5925f797ecdaaed287aadbf6496b63d4832d3b.
+New package: releases/v0.7.3-0fac99f/EVAC-PC-LABEL-v0.7.3-win-x64.zip,
+106291280 bytes, SHA e765ed3c6b0888acbc79cca6938ce66936adfd203e9c154bff7a99b8ef9f91b4.
+One extraction passes: 150 files and nine preservation sentinels; no ROM/source/
+PDB/config. Receipt .local/release-acceptance-v073/e765ed3c6b0888ac/accepted.json.
+No push/upload/tag/announcement; all owned sessions finished. Reuse the accepted
+gameplay/byte-equivalence gates and frozen ZIP; do not rebuild for this record.
+
 ### v0.7.3 DLC import and update check — implemented and packaged locally
 
 Release source 906bf98a2087cc607c4d03bfea30558ae020c9aa is committed locally.
