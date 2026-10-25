@@ -6,6 +6,22 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.2 release preparation — October 25
+
+The user requested a v0.7.2 public-release preparation package, with no new
+game functionality. They explicitly keep the repository private and will make
+it public themselves after the package is complete. Prepare/certify the local
+program-only ZIP, commit/push the source and matching tag; do not publish the
+download or send group messages before source access is opened. Do not change
+repository visibility, existing OSS object ACLs or old release links.
+Scope: version identity, bilingual player documentation, precise source/build
+links and retained third-party notices. Public issues request redacted text,
+not whole run folders containing config/dump/original-module snapshots.
+Reuse v0.7.1 gameplay acceptance. One incremental build and one actual ZIP
+extraction with update-preservation checks suffice; no new gameplay campaign.
+No Internal/source attachment is requested for this version. Original game
+data, C:/evac-pc-label and frozen v0.7.1 artifacts stay untouched.
+
 ### v0.7.1 player-card replacement — delivered October 25
 
 Source 674002e10a8d1ab9e90bef0bfcecf497c59d3672 is pushed. Four Xbox titles

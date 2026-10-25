@@ -9,6 +9,19 @@ import release_package as release
 
 
 class ProductTests(unittest.TestCase):
+    def test_current_release_docs_and_component_notices(self):
+        package_name = 'EVAC-PC-LABEL-v' + product.VERSION + '-win-x64.zip'
+        for name in ('README.md', 'README.en.md'):
+            text = (ROOT / name).read_text(encoding='utf-8')
+            self.assertIn('/v' + product.VERSION + '/' + package_name, text)
+            self.assertIn('SHA-256', text)
+            self.assertIn('*-module.bin', text)
+            self.assertIn('.dmp', text)
+            self.assertNotIn('v0.4-win-x64.zip', text)
+        player = (ROOT / 'config/README.player-v07.txt').read_text(encoding='utf-8')
+        self.assertTrue(player.startswith(product.NAME + ' v' + product.VERSION + '\n'))
+        self.assertIn(ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt', release.license_files())
+
     def test_current_build_executable_bat_and_windows_captions_agree(self):
         self.assertEqual(product.NAME, 'EVAC PC LABEL')
         self.assertEqual(product.LAUNCHER, 'EVAC PC LABEL.exe')
@@ -33,7 +46,7 @@ class ProductTests(unittest.TestCase):
         for version in ('0.1','0.2','0.3','0.3.1','0.3.2'):
             self.assertEqual(product.launcher(version), 'CAVE-PC-Collection.exe')
             self.assertEqual(product.slug(version), 'CAVE-PC-Collection')
-        self.assertEqual(release.DEFAULT_VERSION, '0.7.1')
+        self.assertEqual(release.DEFAULT_VERSION, '0.7.2')
         self.assertEqual(release.certified_name(product.LEGACY_LAUNCHER), product.LAUNCHER)
         self.assertEqual(release.certified_name('other.exe'), 'other.exe')
         self.assertEqual(release.UPDATE_PRESERVED, ('config.ini','user-data/','game-data/','prepared/','cache/','logs/','source/'))

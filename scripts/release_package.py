@@ -249,7 +249,7 @@ def source_clone(destination, commit):
 
 
 def license_files():
-    paths = {ROOT / 'third_party/rexglue/LICENSE'}
+    paths = {ROOT / 'third_party/rexglue/LICENSE', ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt'}
     paths.update((ROOT / 'third_party/ps4/LICENSES').glob('*.txt'))
     for directory in (ROOT / 'third_party/rexglue/thirdparty').iterdir():
         if directory.is_dir():
@@ -606,7 +606,11 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         '各组件保留原许可证，完整声明见 licenses/。\n')
     if package_format in (2, 3):
         source_text = (NAME + '\n\nSource / 对应源码：\n' + REPOSITORY_URL + '/tree/' + commit +
-            '\n\nBuild instructions / 构建说明：FOR_AGENT.md\n'
+            '\n\nBuild instructions / 构建说明：\n' + REPOSITORY_URL + '/blob/' + commit + '/FOR_AGENT.md\n'
+            '\nCheckout / 获取本版本源码：\n'
+            'git clone ' + REPOSITORY_URL + '.git\n'
+            'cd ' + slug(version) + '\n'
+            'git checkout --detach ' + commit + '\n\n'
             'Pinned dependencies / 固定依赖：tools/sdk-source.lock.json, tools/ps4-source.lock.json\n'
             'Restore / 恢复依赖：scripts/sdk_sources.py restore; scripts/ps4_sources.py restore\n'
             'Component licenses / 组件许可证：licenses/\n')

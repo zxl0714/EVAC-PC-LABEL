@@ -120,7 +120,9 @@ Keep the whole `user-data/` folder when backing up or moving the collection. It 
 
 Online features are enabled by default, with no registration required. Set your nickname in the launcher, then use the community service through the game's leaderboard and replay screens. Each title has separate leaderboards, with score eligibility following the game's rules.
 
-Within a game, the same nickname represents the same community identity, so choose a distinctive name and keep using it. The service checks submission formats and replay integrity, but does not authenticate nickname ownership. SDOJ team scores and DaiOuJou CUSTOM score submissions are not integrated. Guwange supports Arcade / Blue / Arrange leaderboards and replays; online co-op is not integrated, and local two-player play has not been validated.
+Within a game, the same nickname represents the same community identity. Change the default `Player` to your own distinctive nickname before playing, and keep using it. The service checks submission formats and replay integrity, but does not authenticate nickname ownership. SDOJ team scores and DaiOuJou CUSTOM score submissions are not integrated. Guwange supports Arcade / Blue / Arrange leaderboards and replays; online co-op is not integrated, and local two-player play has not been validated.
+
+Other players can view nicknames, scores, and replays submitted to the community. Local replays you have not shared are not automatically made public.
 
 ```ini
 [community]
@@ -151,10 +153,12 @@ These select the game's internal frame scheduling policy. Total input-to-display
 
 ## Downloads and backups
 
-Public download: **v0.4**. The maintainer shares other versions directly with a limited group. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
+**v0.7.2** · Windows x64. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
-- [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256). Game data is not included.
+- [Download the program package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256). Game data is not included.
 - Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.
+
+To update, close the games and launcher, then extract over the existing folder and replace matching files. The program package does not include `user-data/`; existing settings, saves, and replays are preserved.
 
 - `user-data/`: configuration, per-game saves, replays, and other player data. Keep the whole folder when backing up or moving an installation.
 - `game-data/`: the game files you provide. When moving the installation, either move them too or select their existing location again.
@@ -170,9 +174,11 @@ When reporting a crash, stutter, audio issue, or network problem, include:
 
 - The collection version (see `release.json`), game, mode, and character or ship.
 - Steps to reproduce the issue and what happened; a screenshot or short video can help.
-- A ZIP of the complete corresponding `run-*` folder under `logs/<game ID>/`.
+- Text logs from the corresponding `logs/<game ID>/run-*/` folder, such as `game.log`, `stdout.jsonl`, `stderr.txt`, and `startup-error.txt`, plus `run.json`. Include the files that exist for that session.
 
-Press F8 when the problem occurs to mark its time, then close the game and ZIP the logs. Check them for personal information before sharing publicly.
+Press F8 when the problem occurs to mark its time, then close the game and copy the relevant logs, keeping the originals. Before posting publicly, replace your Windows username, private paths, nickname, and custom server addresses in those copies with placeholders.
+
+Do not attach an entire `run-*` folder to a public issue: `config.ini` is a configuration snapshot, and `.dmp` or `*-module.bin` files may contain memory and original game code. A maintainer will arrange a separate transfer if these are needed. Game data, saves, and replays are not default public attachments either.
 
 ## Development
 

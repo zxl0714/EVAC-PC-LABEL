@@ -120,7 +120,9 @@ Xbox 360 游戏的排行榜玩家卡片可点击 `CLOSE` 或按 Enter／Esc 关�
 
 联网默认开启，无须注册。在启动器设置昵称后，通过游戏内的排行榜和录像界面使用社区服务。各作品使用独立榜单，上榜资格沿用游戏规则。
 
-同一游戏内，相同昵称会归为同一社区身份，建议固定使用自己的昵称。服务会检查提交格式及录像完整性，但不验证昵称归属。最大往生团队评分和大往生 CUSTOM 成绩提交暂未接入。狱门山支持普通／Blue／Arrange 排行榜和录像；在线合作未接入，本地双人尚未验收。
+同一游戏内，相同昵称会归为同一社区身份，首次游玩请把默认的 `Player` 改成自己的昵称，并固定使用。服务会检查提交格式及录像完整性，但不验证昵称归属。最大往生团队评分和大往生 CUSTOM 成绩提交暂未接入。狱门山支持普通／Blue／Arrange 排行榜和录像；在线合作未接入，本地双人尚未验收。
+
+提交到社区的昵称、成绩及分享的录像可被其他玩家查看；未分享的本地录像不会自动公开。
 
 ~~~ini
 [community]
@@ -151,10 +153,12 @@ frame_delay = 1
 
 ## 下载与备份
 
-公开下载版本：**v0.4**；其他版本由维护者定向分享。更新内容见[更新记录](docs/CHANGELOG.md)。
+**v0.7.2** · Windows x64。更新内容见[更新记录](docs/CHANGELOG.md)。
 
-- [Windows x64](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.4/EVAC-PC-LABEL-v0.4-win-x64.zip.sha256)。不含游戏数据。
+- [下载程序包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256)。不含游戏数据。
 - 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。
+
+更新时先关闭游戏和启动器，再解压到原目录替换同名文件。程序包不包含 `user-data/`，已有配置、存档和录像保留。
 
 - `user-data/`：配置、各游戏的存档、录像等。备份或换目录时，保留整个文件夹。
 - `game-data/`：自行准备的游戏数据。换目录时可一并转移，也可重新选择原数据目录。
@@ -170,9 +174,11 @@ frame_delay = 1
 
 - 合集版本（见 `release.json`）、游戏名称、模式与角色。
 - 从哪里进入、做了什么、实际发生什么；如方便可附截图或短视频。
-- `logs/<游戏 ID>/` 下对应的完整 `run-*` 文件夹，压缩后随反馈附上。
+- 对应 `logs/<游戏 ID>/run-*/` 中的文本日志，例如 `game.log`、`stdout.jsonl`、`stderr.txt`、`startup-error.txt`，以及运行信息 `run.json`；按实际存在的文件提供。
 
-问题发生时可按 F8 标记时间，退出游戏后打包日志。公开分享前检查其中的个人信息。
+问题发生时可按 F8 标记时间，退出游戏后复制需要的日志，保留原始记录。公开提交前将副本中的本机用户名、私人目录、昵称和自定义服务地址替换为占位文字。
+
+不要把整个 `run-*` 文件夹直接传到公开 Issue：其中的 `config.ini` 是配置快照，`.dmp` 和 `*-module.bin` 可能包含内存及原游戏代码。需要这些材料时，维护者会另行联系；游戏数据、存档和录像也不作为默认公开附件。
 
 ## 参与开发
 

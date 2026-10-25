@@ -1,4 +1,7 @@
-EVAC PC LABEL
+EVAC PC LABEL v0.7.2
+
+本版整理使用说明、对应源码入口及组件声明，沿用 v0.7.1 修订版的游戏功能。
+更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
@@ -75,8 +78,9 @@ Xbox 360 排行榜玩家卡片可点击 CLOSE 或按 Enter／Esc 关闭。
   enabled = true
   endpoint = https://xiaolu.life/cave/api/v1
   nickname = Player
-enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社区身份，建议固定
-使用自己的昵称。服务检查提交格式与录像完整性，不验证昵称归属。
+enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社区身份，首次游玩
+请将 Player 改成自己的昵称并固定使用。服务检查格式与录像完整性，不验证昵称归属。
+提交的昵称、成绩和分享的录像对其他玩家可见，未分享的本地录像不会自动公开。
 狱门山在线合作、最大往生团队评分、大往生 CUSTOM 成绩提交暂未接入。
 狱门山本地双人尚未验收；本版支持三种单人玩法。
 
@@ -85,11 +89,19 @@ enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社�
 这是游戏内部调度档位，总输入延迟还受设备和显示链路影响；重启后生效。
 
 反馈 -------------------------------------------------------------------------
-异常时可按 F8；退出后将 logs/<游戏>/ 下对应的完整 run-* 文件夹压缩，
-附上版本、模式、角色和复现步骤。底部“日志”可打开目录。
+异常时可按 F8；退出后在 logs/<游戏>/run-*/ 中复制实际存在的文本日志
+（game.log、stdout.jsonl、stderr.txt、startup-error.txt）及 run.json，
+附上版本、模式、角色和复现步骤。底部“日志”可打开目录，原始记录请保留。
+公开反馈前，替换日志副本中的用户名、私人路径、昵称和自定义服务地址。
+不要公开上传完整 run-*：config.ini 是配置快照，.dmp 和 *-module.bin
+可能包含内存与原游戏代码。需要这些材料时由维护者另行联系。
 源码提交与构建入口见 SOURCE.txt，组件许可证见 licenses/。
 
 English ======================================================================
+
+v0.7.2 updates player instructions, source links, and component notices.
+Game functionality is unchanged from the revised v0.7.1 package. To update,
+close games and launcher, extract over the existing folder, and keep user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the
 alternate entry. Windows x64 and graphics-vendor drivers are required.
@@ -138,14 +150,22 @@ Wait for in-game saving to finish before closing.
 Community is enabled by default, with nickname Player and endpoint
 https://xiaolu.life/cave/api/v1. No registration is needed. Set enabled=false
 under [community] for offline play. Use native ranking/replay menus. The same
-nickname represents the same identity within each game; keep a distinctive
-name. Formats and replay integrity are checked, not ownership of nicknames.
+nickname represents the same identity within each game; replace Player with
+your own distinctive name and keep it. Formats and replay integrity are checked,
+not ownership of nicknames. Submitted nicknames, scores, and shared replays are
+visible to other players; unshared local replays are not automatically public.
 Guwange online co-op, SDOJ team scores and DaiOuJou CUSTOM submissions are not
 integrated. Guwange supports the three single-player modes; local two-player
 play has not been validated. In [game.sdoj], frame_delay=1 is low latency (default), 2 balanced,
 3 original. This is an internal scheduling policy, not total device-to-display
 latency. Existing explicit preferences are preserved. Restart after changes.
 
-For issues, press F8, close the game and share the complete relevant run-*
-folder under logs/<game>, with version, mode, character and reproduction steps.
+For issues, press F8 and close the game. Copy the relevant text logs (game.log,
+stdout.jsonl, stderr.txt, startup-error.txt) and run.json from logs/<game>/run-*/,
+including only files that exist. Add version, mode, character and steps.
+Keep the originals. Before posting publicly, replace usernames, private paths,
+nicknames and custom server addresses in the copies with placeholders.
+Do not publicly attach the entire run-* folder: config.ini is a configuration
+snapshot; .dmp and *-module.bin may contain memory and original game code.
+A maintainer will arrange a separate transfer if these files are needed.
 See SOURCE.txt for source/build information and licenses/ for component licenses.

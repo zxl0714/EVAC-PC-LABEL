@@ -541,6 +541,9 @@ class ReleaseTests(unittest.TestCase):
     def test_v071_seven_game_program_and_guwange_only_internal_data(self):
         self.check_seven_game_package('0.7.1')
 
+    def test_v072_seven_game_program_and_guwange_only_internal_data(self):
+        self.check_seven_game_package('0.7.2')
+
     def check_seven_game_package(self, version):
         self.assertEqual(release.PLACEMENT_NAME, 'README.txt')
         self.assertEqual(release.release_games('0.7'), release.V07_GAMES)
@@ -567,6 +570,10 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(record['games'],list(release.V07_GAMES))
                 self.assertEqual(record['dataGames'],['guwange'] if flavor=='Internal' else [])
                 self.assertEqual((installed/'README.txt').read_text(),'authored v07 instructions')
+                notice = (installed/'SOURCE.txt').read_text(encoding='utf-8')
+                self.assertIn(release.REPOSITORY_URL + '/blob/' + commit + '/FOR_AGENT.md', notice)
+                self.assertIn('git clone ' + release.REPOSITORY_URL + '.git', notice)
+                self.assertIn('git checkout --detach ' + commit, notice)
                 self.assertEqual((installed/'tools/Extract-Xbla.ps1').read_text(),'# authored XBLA helper\n')
                 self.assertTrue((installed/'tools/Extract-Ps4Pkg.ps1').is_file())
                 for key in release.V07_GAMES:

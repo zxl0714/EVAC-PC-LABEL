@@ -1,5 +1,5 @@
-CAVE PC Collection PS4 component layout
-======================================
+EVAC PC LABEL PS4 component layout
+=================================
 
 This notice retains the component origins, revisions and licenses from the
 maintained Ketsui source baseline. Local source paths below use that baseline's
@@ -102,7 +102,7 @@ Revision: 529ceb32f5546b820588f194b903cc39d08015fe
 Local: third_party/gpu_core/upstream
 License: GPL-2.0-or-later; full text in LICENSES/GPL-2.0-or-later.txt.
 Original file notices and SHA-256 inventory: third_party/gpu_core/upstream-files.json.
-The separate experimental build extracts Vulkan device setup, command pools,
+The runtime integration extracts Vulkan device setup, command pools,
 timeline semaphores, scheduling, buffers, staging pools, image resources,
 transfer synchronization, blit helpers, full buffer/texture caches, page watch
 accounting and AMD format conversion. A configured host-memory interface supplies
@@ -113,7 +113,7 @@ Host adapters supply
 logging, thread names, explicit GPU settings, paths and a non-owning window
 descriptor. No upstream SDL, GUI, kernel, loader or emulator application target
 is compiled. The upstream Vulkan application name remains unchanged in this
-first integration target. This is not yet the game's active renderer.
+integration target. These components provide the PS4 games' active renderer.
 
 The separate KetsuiGpuRecompiler target also builds the complete upstream GCN
 frontend, IR passes and SPIR-V backend with Sirit. Descriptor dependency analysis
@@ -130,8 +130,8 @@ The host presenter uses the resident texture cache, the existing GPL fullscreen
 triangle shader and a project-maintained sampling shader. Win32 surfaces use
 maintenance1 present fences; no upstream GUI or application presenter is linked.
 The renderer test uses authored GCN, native shared backing, actual pixel readback,
-linear/tiled presentation, and late window binding. This does not switch the
-game's default backend or claim player-scene performance.
+linear/tiled presentation, and late window binding. Test fixtures are separate
+from the player runtime and are not bundled with the program package.
 
 Additional exact dependency commits: third_party/gpu_core/dependencies.json.
 VulkanMemoryAllocator: MIT, LICENSES/VMA-LICENSE.txt.

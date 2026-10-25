@@ -1,7 +1,7 @@
 # EVAC PC LABEL 开发入口
 
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
-当前代码及已上传的双包为 v0.7.1；发行状态与实际验收范围见实施计划和验收矩阵。
+当前版本为 v0.7.2；发行状态与实际验收范围见实施计划和验收矩阵。
 
 已接入七款游戏，Guwange 的三种单人玩法、保存及正式社区短流程已验证。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
@@ -50,7 +50,7 @@ v0.7 以单人玩法为验收范围。SDK 当前只提供 user 0 的登录身份
 使用 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。源码放较短的英文目录，例如 E:/CaveDev/EVAC-PC-LABEL；固定 CMake 的中文源码路径问题尚在，玩家包和游戏数据可使用中文路径。
 
 ~~~powershell
-git clone git@github.com:zxl0714/EVAC-PC-LABEL.git
+git clone https://github.com/zxl0714/EVAC-PC-LABEL.git
 cd EVAC-PC-LABEL
 ./scripts/Prepare-Tools.ps1
 ./scripts/Build.ps1 -Jobs 2
@@ -128,7 +128,7 @@ py -3.12 scripts/launcher_receipt.py verify
 
 ## 排查与验证
 
-朋友反馈先取 release.json、游戏／模式／角色、步骤、F8 时间标记和完整 run-* 日志。360 记录 game.log、配置快照、运行身份及崩溃材料；PS4 记录 run.json、stdout.jsonl、stderr.txt 和准备收据。按源码提交和程序哈希选择配套符号。
+反馈先取 release.json、游戏／模式／角色、步骤、F8 时间标记和脱敏文本日志。360 记录 game.log、配置快照、运行身份及崩溃材料；PS4 记录 run.json、stdout.jsonl、stderr.txt 和准备收据。公开 Issue 不收完整 run-*、配置快照、.dmp 或 *-module.bin；需要完整现场时另行约定私下传输，原始模块快照不进入 Git。按源码提交和程序哈希选择配套符号。
 
 源码测试、机制 fixture、实际游戏和端到端表现各回答不同问题。优先复用未受影响的可靠结果，新增检查针对改动；实际启动和输入操作使用 computer-use。独立测试局的重启和原生确认已获授权。
 
