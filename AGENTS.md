@@ -6,6 +6,27 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.2 complete package follow-up — delivered October 25
+
+The user subsequently requested a complete v0.7.2 package. Internal is built
+from the frozen f736f94 release source, reusing the certified binaries without
+recompilation. Main is restored to the delivery branch. GitHub program assets,
+old OSS objects and player installations remain unchanged.
+ZIP: releases/v0.7.2-internal-f736f94/EVAC-PC-LABEL-v0.7.2-win-x64-internal.zip,
+8230170812 bytes, SHA256 a373eb88972a556edd9e0163699666b43b386979873123ce6fa01dd696891437.
+One extraction passes: 697 files, all148 program files match the accepted
+v0.7.2 program package, all512 data entries match the accepted v0.7.1 complete
+package, and all9 update-preservation sentinels pass. Seven titles, both Futari
+DLC and symbols are included; no source/config/saves. Receipt:
+.local/release-acceptance-v072/a373eb88972a556e/accepted.json.
+Uploaded at the new fixed v0.7.2 OSS key, public-read/no expiry. Upload overlapped
+the single extraction. At21:43 Asia/Shanghai, HEAD size/SHA metadata, public
+checksum and32-byte Range206 all pass. Receipt:
+.local/v072-internal-oss-verified-r1.json; summary v072-internal-delivery-r1.json.
+All three owned package/extraction/upload sessions are closed successfully.
+Do not repeat compilation, packaging, extraction or gameplay. Keep internal
+download links out of the public README and GitHub Release; no group message.
+
 ### v0.7.2 GitHub Release — delivered October 25
 
 The user made the repository public themselves and requested the v0.7.2
@@ -27,14 +48,16 @@ sizes and SHA256 digests matching local files. Both README download links now
 use GitHub. Delivery documentation is a separate commit; keep the release
 tag/source fixed and do not rebuild, extract or upload again. Evidence:
 .local/v072-github-delivery-r1.json and .local/v072-github-release.jpg.
-No OSS upload, old-object change, internal package or QQ announcement occurred.
+That initial program delivery did not upload OSS, change old objects, produce
+an internal package or announce in QQ; the later complete package is above.
 Scope: version identity, bilingual player documentation, precise source/build
 links and retained third-party notices. Public issues request redacted text,
 not whole run folders containing config/dump/original-module snapshots.
 Reuse v0.7.1 gameplay acceptance. One incremental build and one actual ZIP
 extraction with update-preservation checks suffice; no new gameplay campaign.
-No Internal/source attachment is requested for this version. Original game
-data, C:/evac-pc-label and frozen v0.7.1 artifacts stay untouched.
+The initial request was program-only; the later complete-package request is
+recorded above. No source attachment is requested. Original game data,
+C:/evac-pc-label and frozen v0.7.1 artifacts stay untouched.
 
 ### v0.7.1 player-card replacement — delivered October 25
 
