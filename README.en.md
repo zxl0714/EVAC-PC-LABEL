@@ -83,28 +83,15 @@ Futari's Ver.1.5 base game works without DLC. Leave `game-data/futari/dlc/` empt
 
 ### Futari DLC
 
-Keep the existing DLC content tree:
+Place the original DLC files here, keeping their filenames:
 
 ```text
 game-data/futari/dlc/0000000000000000/435A07D7/00000002/
-  496F816DD4B53DAEFF931838B6C69831AAD7663043/
-    spa.bin
-    Rom/cg_black.bin
-    Rom/cg_blackhi.bin
-    Rom/dropprm.bl
-  9893A78CA6062B935BD1F53EA43CFD546B7246DF43/
-    ver101_key.bin
+  496F816DD4B53DAEFF931838B6C69831AAD7663043
+  9893A78CA6062B935BD1F53EA43CFD546B7246DF43
 ```
 
-The first package is Black Label; the second is Ver.1.01. Either can be installed independently. Black Label needs `spa.bin` **and all three `Rom/` files**. An existing `dlc/00000002/<package-folder>/` layout is also recognized without moving it.
-
-If your DLC is an original extensionless container, create `D:\GameExtract`, then run this from the collection folder:
-
-```powershell
-.\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\dlc-container" -OutputDir "D:\GameExtract\futari-dlc"
-```
-
-The output folder must not already exist. Copy its contents into the matching package folder above. Windows PowerShell 5.1 is sufficient. The helper supports LIVE/PIRS containers with one hash-table copy, up to 512 MiB, and checks file chains and data-block hashes. In a source checkout, use `scripts/Extract-Dlc.ps1` alongside `Extract-Xbla.ps1`.
+The first file is Black Label; the second is Ver.1.01. Install either or both, then start the game. Extraction is automatic on first use. Existing v0.7.2 extracted folders also work in place, including the shorter `dlc/00000002/<package-folder>/` layout. If using extracted Black Label files, keep `spa.bin` and all three `Rom/` files together.
 
 The default `[game.futari] dlc_dir = auto` searches the selected base game's `dlc/` folder. For example, selecting `D:/Games/Futari` searches `D:/Games/Futari/dlc`. An explicit path in an older config is preserved; change it to `auto` to follow the base folder, or set it to your own DLC directory. Select Futari and click **Details** to see the actual search path and each DLC's status.
 

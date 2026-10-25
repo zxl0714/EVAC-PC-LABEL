@@ -6,6 +6,16 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.3 follow-up — automatic raw DLC import
+
+The user rejected a manual extraction step: players place original DLC files
+in the existing locations and start the game. Implement native automatic
+extraction to prepared/cache, preserve originals and all v0.7.2 layouts/config.
+The frozen 906bf98 program ZIP below predates this requirement. Keep it intact;
+do not describe it as supporting automatic raw-container import. Current work
+adds bounded native STFS inspection/preparation, bilingual player instructions
+and focused raw-input/cache/legacy equivalence checks. No new UI or shell prompt.
+
 ### v0.7.3 DLC import and update check — implemented and packaged locally
 
 Release source 906bf98a2087cc607c4d03bfea30558ae020c9aa is committed locally.

@@ -66,3 +66,8 @@ class ProductTests(unittest.TestCase):
                 self.assertIn('game-data/' + game + '/', text)
         english = (ROOT / 'README.en.md').read_text(encoding='utf-8')
         self.assertNotIn('docs/GAME_DATA.md', english)
+        self.assertIn('Extraction is automatic', english)
+        for relative in ('README.md','README.en.md','docs/GAME_DATA.md','docs/GAME_DATA.en.md',
+                         'config/game-data/futari.txt','config/README.player-v07.txt'):
+            text = (ROOT / relative).read_text(encoding='utf-8')
+            self.assertNotIn('Extract-Dlc.ps1 -InputPackage', text)

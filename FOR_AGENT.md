@@ -36,7 +36,10 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 缓存按资源清单及原作内容名称分组，验证后复用，损坏缓存重建；原始游戏／DLC 不写入。
 `optionalContent.nativeName` 是原作枚举时匹配的内容名称，与启动器显示名称分开维护。
 `dlc_dir = auto` 跟随所选本体，显式路径和空值禁用语义保留。
-原始容器提取入口是 `scripts/Extract-Dlc.ps1`，共用 `Extract-Xbla.ps1` 的有界 STFS 读取器。
+`common/stfs.*` 原生读取 LIVE/PIRS DLC 容器；Quick 只遍历结构，Full 校验数据块与
+manifest 资源哈希。`ContentInspection.container` 记录原始文件，准备层自动提取到
+上述缓存，验证后原子发布；不启动 PowerShell。旧解包目录沿用同一份缓存配方。
+`scripts/Extract-Dlc.ps1` 保留为独立工具，玩家正常安装无需运行它。
 
 `launcher/update_check.*` 独立于游戏运行时及社区服务。后台查询固定 GitHub Release
 API，状态位于 `user-data/update-check.json`；成功检查缓存 24 小时，失败退避一小时。

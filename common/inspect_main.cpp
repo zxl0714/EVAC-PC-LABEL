@@ -90,7 +90,7 @@ int wmain(int argc, wchar_t** argv) {
         content = cave::InspectContent(game, content_source, level);
       } catch (const std::exception& error) {
         for (const auto& package : game.content)
-          content.push_back({std::string(package.id),std::string(package.name),cave::DataState::Invalid,0,0,{error.what()},{}});
+          content.push_back({std::string(package.id),std::string(package.name),cave::DataState::Invalid,0,0,{error.what()},{},{}});
       }
       bool first_content = true;
       for (const auto& package : content) {
@@ -99,6 +99,7 @@ int wmain(int argc, wchar_t** argv) {
         std::cout << "{\"id\":" << Json(package.id) << ",\"name\":" << Json(package.name)
                   << ",\"state\":" << Json(cave::Name(package.state))
                   << ",\"directory\":" << Json(cave::Utf8(package.directory))
+                  << ",\"container\":" << Json(cave::Utf8(package.container))
                   << ",\"filesChecked\":" << package.files_checked << ",\"hashesChecked\":" << package.hashes_checked
                   << ",\"problems\":";
         Strings(package.problems); std::cout << '}';

@@ -89,33 +89,20 @@ game-data/futari/
 
 使用完整的 Xbox 360 Ver.1.5 数据。Black Label 和 Ver.1.01 为可选 DLC，不是游玩本体的前提。没有 DLC 时，`dlc/` 可以留空或不存在，不必修改配置；Ver.1.5 本体仍可运行，Black Label 不可选、Ver.1.01 不显示。
 
-DLC 默认查找本体目录下的 `dlc/`。本体使用默认位置时，推荐保持以下内容树：
+DLC 默认查找本体目录下的 `dlc/`。把两个原始 DLC 文件放到以下位置，保留文件名，随后启动游戏：
 
 ```text
 game-data/futari/dlc/
   0000000000000000/
     435A07D7/
       00000002/
-        496F816DD4B53DAEFF931838B6C69831AAD7663043/
-          spa.bin
-          Rom/cg_black.bin
-          Rom/cg_blackhi.bin
-          Rom/dropprm.bl
-        9893A78CA6062B935BD1F53EA43CFD546B7246DF43/
-          ver101_key.bin
+        496F816DD4B53DAEFF931838B6C69831AAD7663043
+        9893A78CA6062B935BD1F53EA43CFD546B7246DF43
 ```
 
-`496F...` 是 Black Label，`9893...` 是 Ver.1.01，两项可分别安装。Black Label 需要 `spa.bin` 和三个 `Rom/` 文件；不要仅复制 `spa.bin`。
+`496F...` 是 Black Label，`9893...` 是 Ver.1.01，两项可分别安装。首次启动会自动解包，之后直接使用准备好的内容。
 
-已有完整内容树或 `dlc/00000002/<包目录>/` 都能识别，保留现有目录即可。
-
-如果手头是原始 DLC 容器（通常是一个很长的、无扩展名的文件），先创建 `D:\GameExtract`，再在合集根目录运行：
-
-```powershell
-.\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\DLC容器" -OutputDir "D:\GameExtract\futari-dlc"
-```
-
-输出目录须尚不存在；解包后把**里面的内容**放到上图对应的包目录。脚本支持不超过 512 MiB 的 LIVE／PIRS 单哈希表副本容器，校验文件链和资源块，保留原容器。源码仓库中的脚本位于 `scripts/Extract-Dlc.ps1`，与 `Extract-Xbla.ps1` 放在一起使用。
+已有 v0.7.2 的解包目录保持原样即可，`dlc/00000002/<包目录>/` 也能识别。已解包的 Black Label 包目录包含 `spa.bin` 和 `Rom/cg_black.bin`、`Rom/cg_blackhi.bin`、`Rom/dropprm.bl`；Ver.1.01 包目录包含 `ver101_key.bin`。
 
 默认配置会跟随启动器所选的本体目录：
 

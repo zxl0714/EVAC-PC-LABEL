@@ -87,33 +87,20 @@ game-data/futari/
 
 Use the complete Xbox 360 Ver.1.5 game data. Black Label and Ver.1.01 are optional DLC. For the base game alone, leave `dlc/` empty or absent.
 
-The default DLC location is `dlc/` inside the selected base-game folder. Use this content tree:
+The default DLC location is `dlc/` inside the selected base-game folder. Place the original DLC files here, keep their filenames, then start the game:
 
 ```text
 game-data/futari/dlc/
   0000000000000000/
     435A07D7/
       00000002/
-        496F816DD4B53DAEFF931838B6C69831AAD7663043/
-          spa.bin
-          Rom/cg_black.bin
-          Rom/cg_blackhi.bin
-          Rom/dropprm.bl
-        9893A78CA6062B935BD1F53EA43CFD546B7246DF43/
-          ver101_key.bin
+        496F816DD4B53DAEFF931838B6C69831AAD7663043
+        9893A78CA6062B935BD1F53EA43CFD546B7246DF43
 ```
 
-`496F...` is Black Label; `9893...` is Ver.1.01. Install either or both. Black Label requires `spa.bin` and all three `Rom/` files.
+`496F...` is Black Label; `9893...` is Ver.1.01. Install either or both. The game extracts the files automatically on first use and reuses the prepared content on later launches.
 
-An existing `dlc/00000002/<package-folder>/` layout is also recognized; you can keep it in place.
-
-For an original DLC container, usually a long filename without an extension, create `D:\GameExtract`, then run this from the collection's root folder:
-
-```powershell
-.\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\dlc-container" -OutputDir "D:\GameExtract\futari-dlc"
-```
-
-The output folder must not already exist. Copy **its contents** into the matching package folder in the tree above. The helper supports LIVE/PIRS containers with one hash-table copy, up to 512 MiB. In a source checkout, use `scripts/Extract-Dlc.ps1` alongside `Extract-Xbla.ps1`.
+Existing v0.7.2 extracted folders work in place, including the shorter `dlc/00000002/<package-folder>/` layout. An extracted Black Label folder contains `spa.bin`, `Rom/cg_black.bin`, `Rom/cg_blackhi.bin` and `Rom/dropprm.bl`; the Ver.1.01 folder contains `ver101_key.bin`.
 
 The default setting follows the base-game folder selected in the launcher:
 

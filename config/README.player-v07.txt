@@ -47,9 +47,8 @@ Xbox 360 XBLA：若狱门山解压后得到一个很长文件名、没有扩展�
 不要把整个 XBLA 容器改名为 default.xex。此工具支持本作使用的小型
 LIVE／PIRS 单哈希表副本布局；不是 ISO、CON 存档或 Title Update 应用工具。
 
-Xbox 360 DLC 原始容器：使用 tools/Extract-Dlc.ps1，参数同上，输出到新的目录。
-  .\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\DLC容器" -OutputDir "D:\GameExtract\futari-dlc"
-再将输出内的资源按 game-data/futari/README.txt 放入对应包目录。
+虫姬二 DLC：将原始文件按 game-data/futari/README.txt 放好，保留文件名，
+启动游戏时自动解包。已有 v0.7.2 解包目录保持原样即可。
 
 PS4 PKG：下载 LibOrbisPkg v0.2 的 PkgTool-0.2.231.zip，完整解压并保留 DLL：
 https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2
@@ -146,10 +145,9 @@ game files, use the appropriate command above with your own paths:
   The default backup passcode is 32 zeros; use -Passcode for a different one.
   ZIP/RAR passwords are separate. Encrypted retail PKGs need an extractable
   backup. Supported PS4 versions are listed beside each default path above.
-- DLC: tools/Extract-Dlc.ps1 uses the same -InputPackage / -OutputDir arguments.
-  Extract to a new folder, then place its contents in the matching package
-  folder shown in game-data/futari/README.txt. Supports LIVE/PIRS containers
-  with one hash-table copy, up to 512 MiB; it preserves the input container.
+- Futari DLC: place the original files as shown in game-data/futari/README.txt,
+  keep their filenames, then start the game. Extraction is automatic on first
+  use. Existing v0.7.2 extracted folders work in place.
 
 Keep the entire user-data/ folder when backing up or moving the collection.
 It contains config.ini, saves and replays. Config opens the shared INI; click

@@ -1,5 +1,6 @@
 #include "common/catalogue.h"
 #include "common/paths.h"
+#include "common/stfs.h"
 #include "catalogue_generated.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -235,12 +236,19 @@ std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& 
         for(const auto& entry:fs::directory_iterator(parent)) {
           if(++count>64)throw std::runtime_error("Too many DLC folders; select a more specific DLC directory");
           const auto attributes=GetFileAttributesW(entry.path().c_str());
-          if(attributes!=INVALID_FILE_ATTRIBUTES && !(attributes&FILE_ATTRIBUTE_REPARSE_POINT) && entry.is_directory())add(entry.path());
+          if(attributes!=INVALID_FILE_ATTRIBUTES && !(attributes&FILE_ATTRIBUTE_REPARSE_POINT) &&
+             (entry.is_directory() || entry.is_regular_file()))add(entry.path());
         }
       }
       unsigned best_present=0;
       for(const auto& directory:candidates) {
         unlinked(directory);
+        if(fs::is_regular_file(directory)) {
+          auto candidate=InspectStfs(package,directory,level);
+          if(candidate.state==DataState::Verified || candidate.state==DataState::Unverified){result=std::move(candidate);break;}
+          if(candidate.state!=DataState::Missing && result.state==DataState::Missing)result=std::move(candidate);
+          continue;
+        }
         if(!fs::is_directory(directory))continue;
         unsigned present=0;
         for(const auto& expected:package.files) {

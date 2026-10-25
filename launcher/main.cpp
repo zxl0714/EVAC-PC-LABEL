@@ -540,7 +540,8 @@ class App {
           item.state==DataState::Nested?T(L"解压目录层级不正确"):
           item.state==DataState::Incomplete?T(L"资源不完整或不匹配"):T(L"数据路径不可用");
         body+=L"\n\n"+Wide(item.name)+L" — "+status;
-        if(!item.directory.empty())body+=L"\n"+item.directory.native();
+        if(!item.container.empty())body+=L"\n"+item.container.native();
+        else if(!item.directory.empty())body+=L"\n"+item.directory.native();
         if(!item.problems.empty())body+=L"\n"+Wide(item.problems.front());
       }
     }

@@ -8,7 +8,7 @@ add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/catalogue_generated.h"
   COMMAND "${Python3_EXECUTABLE}" "${CAVE_COMMON_ROOT}/scripts/generate_catalogue.py"
     "${CATALOGUE}" "${CMAKE_BINARY_DIR}/include/catalogue_generated.h"
   DEPENDS "${CATALOGUE}" ${DATA_MANIFESTS} "${CAVE_COMMON_ROOT}/scripts/generate_catalogue.py" VERBATIM)
-add_library(cave_common STATIC catalogue.cpp ini.cpp paths.cpp settings.cpp config_update.cpp launch.cpp data_import.cpp nickname.cpp
+add_library(cave_common STATIC catalogue.cpp stfs.cpp ini.cpp paths.cpp settings.cpp config_update.cpp launch.cpp data_import.cpp nickname.cpp
   "${CMAKE_BINARY_DIR}/include/catalogue_generated.h")
 target_compile_features(cave_common PUBLIC cxx_std_23)
 target_include_directories(cave_common PUBLIC "${CAVE_COMMON_ROOT}" PRIVATE "${CMAKE_BINARY_DIR}/include")

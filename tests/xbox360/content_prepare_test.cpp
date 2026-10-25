@@ -14,6 +14,30 @@ void Write(const fs::path& path,std::string_view text="abc") {
 }
 int wmain(int argc,wchar_t** argv) {
   try {
+    if(argc==5 && std::wstring_view(argv[1])==L"--real") {
+      const auto root=fs::absolute(argv[2]),source=fs::canonical(argv[3]),old=fs::canonical(argv[4]);
+      Require(!fs::exists(root),"Fixture already exists");fs::create_directories(root);
+      const auto paths=Paths(root,"futari",root/"game-data/futari");
+      const auto& game=FindGame("futari");
+      const auto inputs=InspectContent(game,source,CheckLevel::Full);
+      Require(inputs.size()==2,"Expected both DLC");
+      std::vector<std::string> original;
+      for(const auto& input:inputs){Require(input.state==DataState::Verified && !input.container.empty(),"Raw DLC not recognized");original.push_back(Sha256(input.container));}
+      auto prepared=xbox360::PrepareContent(game,paths,source,inputs);
+      const auto stamp=fs::last_write_time(prepared);
+      Require(xbox360::PrepareContent(game,paths,source,inputs)==prepared && fs::last_write_time(prepared)==stamp,"Warm cache rewritten");
+      const auto legacy=InspectContent(game,old,CheckLevel::Full);
+      Require(legacy.size()==2 && legacy[0].state==DataState::Verified && legacy[1].state==DataState::Verified,"Legacy source rejected");
+      Require(xbox360::PrepareContent(game,paths,old,legacy)==prepared,"Legacy/raw cache differs");
+      const auto checks=InspectContent(game,prepared,CheckLevel::Full);
+      Require(checks[0].state==DataState::Verified && checks[1].state==DataState::Verified,"Automatic extraction failed");
+      rex::system::xam::ContentManager manager(nullptr,paths.profile);manager.SetReadOnlyContentRoot(prepared);
+      const auto list=manager.ListContent(1,0,rex::system::XContentType::kMarketplaceContent,0x435A07D7);
+      Require(list.size()==2,"Raw DLC native enumeration failed");
+      for(size_t i=0;i<inputs.size();++i)Require(Sha256(inputs[i].container)==original[i],"Raw input changed");
+      std::cout<<"Raw containers -> verified native content; warm reuse; v0.7.2 equivalence; originals unchanged\n";
+      return 0;
+    }
     Require(argc==2,"Expected fresh fixture directory");
     const auto root=fs::absolute(argv[1]);Require(!fs::exists(root),"Fixture already exists");
     fs::create_directories(root);

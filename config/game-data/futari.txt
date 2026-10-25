@@ -3,20 +3,15 @@ Xbox 360
 
 将完整解包数据的内容放在此目录，直接看到 default.xex、media/ 等文件。
 保留其余文件和内部目录。可选 Black Label／Ver.1.01 DLC 放入此处的 dlc/，
-保留 DLC 原有目录和文件名。推荐结构：
+将原始 DLC 文件放到以下位置，保留文件名，然后启动游戏：
   dlc/0000000000000000/435A07D7/00000002/
-    496F816DD4B53DAEFF931838B6C69831AAD7663043/
-      spa.bin
-      Rom/cg_black.bin
-      Rom/cg_blackhi.bin
-      Rom/dropprm.bl
-    9893A78CA6062B935BD1F53EA43CFD546B7246DF43/
-      ver101_key.bin
+    496F816DD4B53DAEFF931838B6C69831AAD7663043
+    9893A78CA6062B935BD1F53EA43CFD546B7246DF43
 前一项是 Black Label，后一项是 Ver.1.01，可分别安装。
-已有 dlc/00000002/<包目录>/ 也能识别，不必移动。
-如果 DLC 是单个无扩展名的容器，先用包内 tools/Extract-Dlc.ps1 提取：
-  .\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\DLC容器" -OutputDir "D:\GameExtract\futari-dlc"
-父目录 D:\GameExtract 须已存在，输出目录须不存在。再将提取出的文件按上方放置。
+首次启动自动解包；已有 v0.7.2 的解包目录保持原样即可。
+已有 dlc/00000002/<包目录>/ 也能识别。
+已解包的 Black Label 保留 spa.bin 和 Rom/ 下的三个文件；
+Ver.1.01 保留 ver101_key.bin。
 在启动器选中本作，点击“详情”可查看 DLC 实际查找位置和各项状态。
 默认 dlc_dir = auto 查找本体目录下的 dlc/；旧配置如写了固定路径会保留。
 不安装 DLC 也可游玩 Ver.1.5 本体；dlc/ 可以留空或不存在，无须改配置。
@@ -27,14 +22,13 @@ ISO 需先提取为游戏文件；ZIP 需解压，不要将镜像或压缩包本
 
 Place the complete extracted Xbox 360 game here, with default.xex directly
 inside this folder. Keep media/ and all remaining files and subfolders.
-Optional Black Label / Ver.1.01 content goes in dlc/. Use the tree above:
-496F... is Black Label (spa.bin plus all three Rom/ files); 9893... is Ver.1.01.
-Either package can be installed independently. An existing
-dlc/00000002/<package-folder>/ layout also works without moving it.
-For an original, extensionless DLC container, run from the collection root:
-  .\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\dlc-container" -OutputDir "D:\GameExtract\futari-dlc"
-Create D:\GameExtract first; the output folder must not exist. Place its extracted
-contents in the matching package folder shown above. Windows PowerShell 5.1 is enough.
+Optional DLC: place the original files at the paths above, keep their filenames,
+then start the game. 496F... is Black Label; 9893... is Ver.1.01.
+Either can be installed independently. Extraction is automatic on first use.
+Existing v0.7.2 extracted folders work in place, including
+dlc/00000002/<package-folder>/.
+For extracted Black Label, keep spa.bin and all three files in Rom/;
+for Ver.1.01, keep ver101_key.bin.
 Select Futari and click Details to see the DLC search path and each package's status.
 The default dlc_dir = auto follows the base game's dlc/ folder. Explicit paths in
 older configurations are preserved; change the value to auto to follow the base.

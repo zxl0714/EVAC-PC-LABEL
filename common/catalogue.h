@@ -68,6 +68,7 @@ struct ContentInspection {
   uint32_t files_checked{}, hashes_checked{};
   std::vector<std::string> problems;
   fs::path directory;
+  fs::path container; // Nonempty for a raw LIVE/PIRS input; directory is its parent.
 };
 // Manifest paths remain canonical for packaging; input folders need not be.
 fs::path ContentRelativePath(const ContentPackage& package, const DataFile& file);

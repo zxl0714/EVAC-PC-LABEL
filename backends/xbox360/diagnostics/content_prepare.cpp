@@ -1,5 +1,6 @@
 #include "content_prepare.h"
 #include "run_context.h"
+#include "common/stfs.h"
 #include <rex/system/xam/content_manager.h>
 #include <Windows.h>
 #include <algorithm>
@@ -82,7 +83,13 @@ fs::path PrepareContent(const Game& game,const GamePaths& paths,const fs::path& 
   // A failed transaction is left as a diagnostic cache; it is never mounted.
   ContentManager metadata(nullptr,staging);
   for(const auto& [package,input]:selected) {
-    for(const auto& file:package->files) {
+    if(!input->container.empty()) {
+      if(!Within(input->container,source))throw std::runtime_error("DLC container escapes source");
+      NoLinks(input->container,source);
+      StfsPackage archive(input->container,true);
+      if(archive.TitleId()!=package->title_id)throw std::runtime_error("DLC title changed during preparation");
+      archive.Extract(DataChild(staging,package->directory));
+    } else for(const auto& file:package->files) {
       const auto from=DataChild(input->directory,Utf8(ContentRelativePath(*package,file)));
       const auto to=DataChild(staging,file.path);
       NoLinks(from,source);NoLinks(to,paths.root);
