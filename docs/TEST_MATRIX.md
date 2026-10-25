@@ -2,6 +2,14 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.7.2 程序包验收
+
+- 源码及标签 `v0.7.2` 对应 `f736f94a9d590c3064aa67528c13b966ba90d148`，已推送。七款组件同提交增量构建完成；Xbox／PS4／启动器分别核验 68／6／2 对 PE/PDB。运行功能沿用 v0.7.1 修订版，不重复既有游玩验收。
+- 47 项源码／打包检查通过（1 项既有符号链接权限跳过），`common`、`launch` 两组原生检查通过。日志 `.local/v072-{build,package,native}-r1.log`。
+- 程序 ZIP 为 106033741 字节、148 文件；SHA-256 `24284fec748fdcddbc3b61a9772a48b6fcdd24ab78c658f693e270fb65be7720`。实际解压一次、清单和 9 类更新保留检查通过；无游戏数据、PDB、源码或用户配置，七款游戏均带 ASCII 命名的放置说明。启动器文件版本 `0.7.2.0`，产品版本 `0.7.2`。
+- 对应源码入口绑定精确提交，PS4 第三方声明存在。验收记录 `.local/release-acceptance-v072/24284fec748fdcdd/accepted.json`；后续按相同 ZIP SHA 复用，不重复解压。
+- 21:09 发布 [GitHub Release v0.7.2](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.2)，仅上传程序 ZIP 与 100 字节 `.sha256`。匿名 API 确认正式发布状态，两附件大小、上传状态和服务端 SHA-256 均与本地一致，无需整包重复下载。中英文 README 改用 GitHub 下载入口，3 项产品文档检查再次通过。记录 `.local/v072-github-delivery-r1.json`，页面截图 `.local/v072-github-release.jpg`。发布标签保持构建提交，交付文档单独提交；未上传 OSS 或发送群消息。
+
 ## v0.7.1 玩家卡片补发（10 月 25 日）
 
 - 发布源码 `674002e10a8d1ab9e90bef0bfcecf497c59d3672`；公共 SDK 与七款组件在该提交完成增量构建，分别核对 SDK／Xbox／PS4／启动器 3／68／6／2 对 PE/PDB。5 组原生检查通过，50 项源码／包规则检查通过（1 项既有符号链接跳过）。日志 `.local/v071-card-{sdk,build,native,source}-r1.log`。

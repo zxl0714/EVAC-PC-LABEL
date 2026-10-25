@@ -155,7 +155,7 @@ These select the game's internal frame scheduling policy. Total input-to-display
 
 **v0.7.2** · Windows x64. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
 
-- [Download the program package](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256). Game data is not included.
+- [Download the program package](https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256). Game data is not included.
 - Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.
 
 To update, close the games and launcher, then extract over the existing folder and replace matching files. The program package does not include `user-data/`; existing settings, saves, and replays are preserved.

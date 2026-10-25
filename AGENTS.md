@@ -6,14 +6,28 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.2 release preparation — October 25
+### v0.7.2 GitHub Release — delivered October 25
 
-The user requested a v0.7.2 public-release preparation package, with no new
-game functionality. They explicitly keep the repository private and will make
-it public themselves after the package is complete. Prepare/certify the local
-program-only ZIP, commit/push the source and matching tag; do not publish the
-download or send group messages before source access is opened. Do not change
-repository visibility, existing OSS object ACLs or old release links.
+The user made the repository public themselves and requested the v0.7.2
+program-only ZIP on GitHub Releases. Source f736f94a9d590c3064aa67528c13b966ba90d148
+and annotated tag v0.7.2 are pushed. Do not change repository visibility,
+existing OSS object ACLs or old release links; no group message is requested.
+All seven components built incrementally at that source; 68 Xbox, 6 PS4 and
+2 launcher PE/PDB pairs verify. Two focused native tests and 47 source/package
+cases pass (one existing symlink skip). Program ZIP is complete: 106033741 bytes,
+148 files, SHA256 24284fec748fdcddbc3b61a9772a48b6fcdd24ab78c658f693e270fb65be7720.
+One actual extraction and nine preservation checks pass; launcher version0.7.2.
+Evidence: .local/v072-{build,package,native}-r1.log and
+.local/release-acceptance-v072/24284fec748fdcdd/accepted.json. Reuse these results.
+Published at https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.2
+at 21:09 Asia/Shanghai after the user signed in. The ZIP and .sha256 are the
+only uploaded assets; GitHub's generated source archives are automatic.
+Anonymous API verifies public release/non-prerelease, both uploaded states,
+sizes and SHA256 digests matching local files. Both README download links now
+use GitHub. Delivery documentation is a separate commit; keep the release
+tag/source fixed and do not rebuild, extract or upload again. Evidence:
+.local/v072-github-delivery-r1.json and .local/v072-github-release.jpg.
+No OSS upload, old-object change, internal package or QQ announcement occurred.
 Scope: version identity, bilingual player documentation, precise source/build
 links and retained third-party notices. Public issues request redacted text,
 not whole run folders containing config/dump/original-module snapshots.

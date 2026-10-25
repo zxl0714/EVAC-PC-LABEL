@@ -155,7 +155,7 @@ frame_delay = 1
 
 **v0.7.2** · Windows x64。更新内容见[更新记录](docs/CHANGELOG.md)。
 
-- [下载程序包](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://xiaoluoss.oss-cn-beijing.aliyuncs.com/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256)。不含游戏数据。
+- [下载程序包](https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256)。不含游戏数据。
 - 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。
 
 更新时先关闭游戏和启动器，再解压到原目录替换同名文件。程序包不包含 `user-data/`，已有配置、存档和录像保留。
