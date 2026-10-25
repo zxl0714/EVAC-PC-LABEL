@@ -99,6 +99,8 @@ The **Config file** action at the bottom opens `user-data/config.ini`. Edit audi
 | Alt+F4 | Close the game |
 | F8 | Add a timestamp marker to the log for troubleshooting |
 
+In Xbox 360 games, close leaderboard player cards with `CLOSE`, Enter or Esc.
+
 Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
 
 Guwange's **Arrange Xbox 360** mode fires automatically. Use the arrow keys / left stick to move your character, `I / K / J / L` (up / down / left / right) or the right stick to move the Shikigami, `W / RT` to summon it, and `X / B` to bomb. Customize the Shikigami keys with `right_stick_up/down/left/right` under `[game.guwange.keyboard]`; other games' bindings are unchanged.

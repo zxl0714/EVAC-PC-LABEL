@@ -212,13 +212,15 @@ u32 XamIsUIActive_entry() {
 class MessageBoxDialog : public XamDialog {
  public:
   MessageBoxDialog(rex::ui::ImGuiDrawer* imgui_drawer, std::string title, std::string description,
-                   std::vector<std::string> buttons, uint32_t default_button)
+                   std::vector<std::string> buttons, uint32_t default_button,
+                   bool keyboard_close = false)
       : XamDialog(imgui_drawer),
         title_(title),
         description_(description),
         buttons_(std::move(buttons)),
         default_button_(default_button),
-        chosen_button_(default_button) {
+        chosen_button_(default_button),
+        keyboard_close_(keyboard_close) {
     if (!title_.size()) {
       title_ = "Message Box";
     }
@@ -250,6 +252,13 @@ class MessageBoxDialog : public XamDialog {
       }
       ImGui::Spacing();
       ImGui::Spacing();
+      // Only SDK-owned, single-action cards opt in. Guest message-box choices
+      // and their original cancellation semantics are left unchanged.
+      if (keyboard_close_ && (ImGui::IsKeyReleased(ImGuiKey_Enter) ||
+                              ImGui::IsKeyReleased(ImGuiKey_Escape))) {
+        ImGui::CloseCurrentPopup();
+        Close();
+      }
       ImGui::EndPopup();
     } else {
       Close();
@@ -263,6 +272,7 @@ class MessageBoxDialog : public XamDialog {
   std::vector<std::string> buttons_;
   uint32_t default_button_ = 0;
   uint32_t chosen_button_ = 0;
+  bool keyboard_close_ = false;
 };
 
 u32 XamShowCommunityGamerCard_entry(u32 user_index, u64 xuid, u32 flags) {
@@ -276,7 +286,7 @@ u32 XamShowCommunityGamerCard_entry(u32 user_index, u64 xuid, u32 flags) {
   auto* drawer=REX_KERNEL_STATE()->emulator()->imgui_drawer();
   if(!drawer)return kNotSupported;
   return xeXamDispatchDialog<MessageBoxDialog>(
-      new MessageBoxDialog(drawer,"社区玩家",name,{"关闭"},0),
+      new MessageBoxDialog(drawer,"PLAYER CARD",name,{"CLOSE"},0,true),
       [](MessageBoxDialog*) -> X_RESULT {return X_ERROR_SUCCESS;},0);
 }
 

@@ -6,6 +6,31 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.1 player-card replacement — requested October 25
+
+The user explicitly requests overwriting the existing v0.7.1 OSS downloads
+with the card-only update, both Public and Internal. Preserve the earlier local
+archives and original tag; build from a new source commit. Do not reintroduce
+Guide or repeat gameplay campaigns. Perform one relevant card check, package
+each flavor once, and overlap upload with its single extraction acceptance.
+Publish only after both acceptance and bounded OSS identity checks pass.
+
+### October 25 Guide follow-up — cancelled
+
+The user cancelled the common system-pause shortcut after the actual Futari
+test kept playing behind PAUSE. SDOJ did enter its own pause menu, but that is
+not a four-game pass. Remove the experimental host/config/input/notification
+changes; do not resume this investigation or claim F10 support. Keep only the
+shared PLAYER CARD / CLOSE labels and opt-in Enter/Escape closing behavior.
+The isolated .local/guide-smoke-r1 collection and logs are experimental, not a
+release. Frozen v0.7.1 packages/OSS objects and player installs are unchanged.
+The owned Futari test PID 107764 closed normally. Development runtime/ was
+restored from the already-accepted v0.7.1 extraction (hash checked, no repeat
+extraction); see .local/guide-rollback-r1.json. out/ and .deps/sdk-install still
+contain experimental builds: rebuild SDK/hosts before staging again. Seven
+focused source tests pass; card-only final build/UI acceptance remain pending.
+
+
 ### v0.7.1 — implemented, packaged and uploaded
 
 Final seven-game build and both local packages are complete at source

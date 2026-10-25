@@ -2,6 +2,13 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## Xbox 360 系统暂停尝试（10 月 25 日取消）
+
+- 独立测试目录 `.local/guide-smoke-r1/collection`：最大往生 `run-20261025T103204755Z-15076` 的 Xbox 360／Shot 第一关能触发原作暂停菜单，关闭小窗后需从原作菜单继续。
+- 虫姬二 `run-20261025T103410747Z-107764` 的 Ver.1.5／Arcade／Original／Reco Normal 在 PAUSE 小窗显示时继续滚屏、战斗，不能作为有效暂停。该测试进程已正常关闭，日志保留；G2、狱门山未做暂停验收。
+- 用户要求不好做就取消：撤回暂停入口、配置、输入及通知生命周期改动，不继续追加暂停测试。开发运行文件恢复为已验收 v0.7.1，哈希记录 `.local/guide-rollback-r1.json`；正式包及 OSS 未替换。
+- 仅保留玩家卡片 PLAYER CARD／CLOSE 与 Enter／Esc 关闭源码改动。两项卡片源码约束和五项源码边界检查通过；卡片独立最终构建／真实界面验收待后续完成。
+
 ## v0.7.1 最终构建与发行包
 
 - 运行源码固定为 `f43852eae98263ab6d5a008e5f16849d952c704b`。七款组件和启动器同提交构建，PS4／Xbox 360／启动器分别核对 6／68／2 对 PE/PDB。日志 `.local/v071-investigation/seven-game-final-build-r1.log`；8 组相关最终原生回归通过，见 `final-native-r1.log`。复用下节已接受的 UI、Team Play 进关及 Guwange 退出／重启，不重跑完整模式。
