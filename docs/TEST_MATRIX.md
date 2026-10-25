@@ -2,12 +2,20 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.7.1 玩家卡片补发（10 月 25 日）
+
+- 发布源码 `674002e10a8d1ab9e90bef0bfcecf497c59d3672`；公共 SDK 与七款组件在该提交完成增量构建，分别核对 SDK／Xbox／PS4／启动器 3／68／6／2 对 PE/PDB。5 组原生检查通过，50 项源码／包规则检查通过（1 项既有符号链接跳过）。日志 `.local/v071-card-{sdk,build,native,source}-r1.log`。
+- 实际卡片检查：`.local/v071-card-smoke-r1/collection`，`run-20261025T110117044Z-113360`，Xbox 360 → LEADERBOARDS → ONLINE → ALL／SHOT；V（Xbox Y）打开现有榜单玩家卡片，CLOSE 按钮可见；分别通过 Enter、鼠标点击 CLOSE、Esc 关闭并返回榜单。19:03:29 正常退出，无残留进程／dump，无成绩提交。原有自动宽度会裁切较长标题，未扩展为对话框重设计；关闭按钮完整显示。
+- EXE SHA-256 `c115627e359d45123c92d3e7977b18b16b1b8cee4022b25d2a192dd4cbc829b1`，公共 SDK `4dbe63448da90a1d296c2835ebda121e12c7eec28892a13455ebe4d0befb04cb`，与最终包一致。四款游戏均引用公共 `XamShowGamerCardUIForXUID`，未逐款重跑关卡。此次不含 Guide／F10 暂停。
+- 程序包 106028358 字节／147 文件，SHA-256 `982675f979f7c35e6626bb780d59cb7eefe64fd35926cffdadb75d3412819748`；内部包 8230165466 字节／696 文件，SHA-256 `f95107d09faace795669bcd829385b2053f8ef69fee9e56a23cb752bbd2d7f00`。两包各实际解压一次，44 个公共运行文件一致，每包 9 类保留哨兵通过，内部包 512 项游戏数据与上一包相同。
+- 按用户要求覆盖原 `v0.7.1/` OSS 对象及校验文件，无到期时间；HEAD 200、长度／SHA 元数据、校验文件和 32 字节 Range 206 均通过。内部包上传与解压并行，19:30 完成最终公网核验。汇总 `.local/v071-card-delivery-r1.json`；此前本地归档和原标签保留，未发送群消息。
+
 ## Xbox 360 系统暂停尝试（10 月 25 日取消）
 
 - 独立测试目录 `.local/guide-smoke-r1/collection`：最大往生 `run-20261025T103204755Z-15076` 的 Xbox 360／Shot 第一关能触发原作暂停菜单，关闭小窗后需从原作菜单继续。
 - 虫姬二 `run-20261025T103410747Z-107764` 的 Ver.1.5／Arcade／Original／Reco Normal 在 PAUSE 小窗显示时继续滚屏、战斗，不能作为有效暂停。该测试进程已正常关闭，日志保留；G2、狱门山未做暂停验收。
 - 用户要求不好做就取消：撤回暂停入口、配置、输入及通知生命周期改动，不继续追加暂停测试。开发运行文件恢复为已验收 v0.7.1，哈希记录 `.local/guide-rollback-r1.json`；正式包及 OSS 未替换。
-- 仅保留玩家卡片 PLAYER CARD／CLOSE 与 Enter／Esc 关闭源码改动。两项卡片源码约束和五项源码边界检查通过；卡片独立最终构建／真实界面验收待后续完成。
+- 仅保留玩家卡片 PLAYER CARD／CLOSE 与 Enter／Esc 关闭改动；其后完成的构建、界面检查和补发见上节。
 
 ## v0.7.1 最终构建与发行包
 

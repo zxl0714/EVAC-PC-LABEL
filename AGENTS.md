@@ -6,14 +6,28 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.1 player-card replacement — requested October 25
+### v0.7.1 player-card replacement — delivered October 25
 
-The user explicitly requests overwriting the existing v0.7.1 OSS downloads
-with the card-only update, both Public and Internal. Preserve the earlier local
-archives and original tag; build from a new source commit. Do not reintroduce
-Guide or repeat gameplay campaigns. Perform one relevant card check, package
-each flavor once, and overlap upload with its single extraction acceptance.
-Publish only after both acceptance and bounded OSS identity checks pass.
+Source 674002e10a8d1ab9e90bef0bfcecf497c59d3672 is pushed. Four Xbox titles
+share PLAYER CARD / CLOSE and opt-in Enter/Escape dismissal; Guide is absent.
+SDK and seven-game incremental build passed (3 SDK, 68 host, 6 PS4 and 2
+launcher PE/PDB pairs). Five focused native tests and 50 source/package checks
+pass, with one existing symlink skip. Actual SDOJ run 113360 opened the card
+from Xbox360/ONLINE/ALL/SHOT rankings and passed Enter, mouse CLOSE and Escape,
+then normal exit. No scores submitted; do not repeat gameplay campaigns.
+Evidence: .local/v071-card-smoke-r1/acceptance.json. Existing auto-sizing clips
+the longer title for short nicknames; CLOSE is fully visible. No redesign.
+
+Both replacement ZIPs were assembled once and extracted once. Public has147
+files,106028358bytes,SHA982675f979f7c35e; Internal has696files,8230165466bytes,
+SHAf95107d09faace79. 44 shared runtime hashes and nine preservation sentinels
+match; all512 game-data manifest entries are unchanged. Both fixed v0.7.1 OSS
+keys/checksums were overwritten as explicitly requested, public-read/no expiry.
+HEAD/SHA metadata/public checksum/32-byte Range checks pass. Internal upload
+overlapped extraction; final verification at19:30 Asia/Shanghai. Complete
+receipt: .local/v071-card-delivery-r1.json. Do not rebuild/re-extract/re-upload.
+Earlier local archives and original v0.7.1 tag remain intact. No QQ message;
+C:/evac-pc-label untouched. All owned test/build/package/upload sessions closed.
 
 ### October 25 Guide follow-up — cancelled
 
@@ -24,11 +38,10 @@ changes; do not resume this investigation or claim F10 support. Keep only the
 shared PLAYER CARD / CLOSE labels and opt-in Enter/Escape closing behavior.
 The isolated .local/guide-smoke-r1 collection and logs are experimental, not a
 release. Frozen v0.7.1 packages/OSS objects and player installs are unchanged.
-The owned Futari test PID 107764 closed normally. Development runtime/ was
+The owned Futari test PID 107764 closed normally. At that checkpoint runtime/ was
 restored from the already-accepted v0.7.1 extraction (hash checked, no repeat
-extraction); see .local/guide-rollback-r1.json. out/ and .deps/sdk-install still
-contain experimental builds: rebuild SDK/hosts before staging again. Seven
-focused source tests pass; card-only final build/UI acceptance remain pending.
+extraction); see .local/guide-rollback-r1.json. That checkpoint's experimental
+SDK/hosts have since been replaced by the accepted card-only build above.
 
 
 ### v0.7.1 — implemented, packaged and uploaded
