@@ -1,14 +1,25 @@
 怒首領蜂最大往生 / DoDonPachi SaiDaiOuJou
-Xbox 360 / 原版光盘数据
+Xbox 360
 
-将完整光盘解包数据的内容放在此目录，直接看到 default.xex、CA022100.bin、
-CA022110.bin 等文件，保留全部资源及内部目录。
-使用原版数据，不混入音乐补丁、default.xexp 或 .binp 文件。
-完成后在启动器点击“刷新”。不必安装其他游戏，也不必修改配置路径。
-ISO 需先提取为游戏文件；ZIP 需解压，不要将镜像或压缩包本身放在这里。
+game-data/
+└─ sdoj/
+   ├─ default.xex
+   ├─ CA022000.bin
+   ├─ CA022100.bin
+   ├─ CA022110.bin
+   ├─ PKG000.bin
+   ├─ SD_OPN.wmv
+   ├─ SDSE.xsb
+   ├─ SDSE.xwb
+   ├─ AvatarAssetPack
+   ├─ nxeart
+   └─ ...
 
-Place the complete original Xbox 360 disc files here, with default.xex,
-CA022100.bin and CA022110.bin directly inside this folder.
-Keep all resources. Do not overlay music/custom patches, default.xexp or .binp
-files. Click Refresh. Other games are optional; no path setting is needed.
-Extract ISO/ZIP contents first, not the archive itself.
+将原版光盘的完整解包文件放到以上位置，保留全部 CA*.bin 及其余资源。
+使用未加音乐补丁的原版数据，不叠加 default.xexp 或 .binp 文件。
+放好后，在启动器点击“刷新”，选择游戏并启动。
+
+Place the complete extracted original disc files here, including every CA*.bin
+and all remaining resources. Use the unmodified disc data without music patches,
+default.xexp or .binp files.
+Click Refresh in the launcher, select the game, then start it.

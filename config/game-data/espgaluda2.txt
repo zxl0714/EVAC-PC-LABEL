@@ -1,12 +1,28 @@
 エスプガルーダII ブラックレーベル / Espgaluda II Black Label
 Xbox 360
 
-将完整解包数据的内容放在此目录，直接看到 default.xex、dat*.xex 等文件。
-保留全部资源及内部目录，不要只复制启动文件。完成后在启动器点击“刷新”。
-不必安装其他游戏，也不必修改配置路径。
-ISO 需先提取为游戏文件；ZIP 需解压，不要将镜像或压缩包本身放在这里。
+game-data/
+└─ espgaluda2/
+   ├─ default.xex
+   ├─ dat00.xex
+   ├─ dat11.xex
+   ├─ dat12.xex
+   ├─ dat15.xex
+   ├─ dat162.xex
+   ├─ dat163.xex
+   ├─ dat164.xex
+   ├─ AvatarAssetPack
+   ├─ nxeart
+   └─ res/
+      └─ DISKDATA/
+         ├─ ARCADE/
+         ├─ BL/
+         ├─ SOUND/
+         ├─ SYS/
+         └─ XB360/
 
-Place the complete extracted Xbox 360 game here, with default.xex and dat*.xex
-directly inside this folder. Keep every other resource and its subfolders.
-Click Refresh in the launcher. Other games are optional; no path setting is
-needed. Extract ISO/ZIP contents first, not the archive itself.
+将完整解包文件放到以上位置，保留各目录内的全部文件。
+放好后，在启动器点击“刷新”，选择游戏并启动。
+
+Place the complete extracted files as shown above; keep all folder contents.
+Click Refresh in the launcher, select the game, then start it.

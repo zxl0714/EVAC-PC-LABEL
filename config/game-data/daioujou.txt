@@ -1,14 +1,26 @@
 怒首領蜂 大往生 臨廻転生 / DoDonPachi DaiOuJou Re:Incarnation
-PS4 / CUSA32997 / 01.04 完整合并数据
+PS4 / CUSA32997 / 01.04
 
-将本体与 01.04 更新完整合并后的内容放在此目录，直接看到 eboot.bin、
-daioujou_*.prx、sce_module/、sce_sys/ 及全部资源。
-保留原始内部层级，不要只放更新文件，也不用另外建立 patch 文件夹。
-完成后在启动器点击“刷新”。不必安装其他游戏，也不必修改配置路径。
-PKG 需先解包；ZIP 需解压，不要将镜像或压缩包本身放在这里。
+game-data/
+└─ daioujou/
+   ├─ eboot.bin
+   ├─ emu_integration_01700.prx
+   ├─ daioujou_01000.prx
+   ├─ daioujou_01010.prx
+   ├─ daioujou_01020.prx
+   ├─ daioujou_01030.prx
+   ├─ ps4data_body.bin
+   ├─ ps4data_info.psb.m
+   ├─ ps4data_patch_body.bin
+   ├─ ps4data_patch_info.psb.m
+   ├─ sce_module/
+   ├─ sce_sys/
+   └─ ...
 
-Place the complete merged CUSA32997 01.04 game here, with eboot.bin and
-daioujou_*.prx at the top level. Keep sce_module/, sce_sys/ and every resource.
-The update alone is not a complete game; do not use a separate patch folder.
-Click Refresh. Other games are optional; no path setting is needed.
-Extract PKG/ZIP contents first, not the package itself.
+先将本体 PKG 完整解包到以上位置，再把 01.04 更新解包后覆盖到同一目录。
+替换同名文件，保留其余本体文件和子目录。
+放好后，在启动器点击“刷新”，选择游戏并启动。
+
+Extract the complete base PKG here, then extract and overlay the 01.04 update
+into the same folder. Replace matching files and keep the rest of the base game.
+Click Refresh in the launcher, select the game, then start it.

@@ -1,23 +1,28 @@
 エスプレイドΨ / ESP Ra.De. Psi
+PS4 / CUSA15155 / 01.04
 
-支持 PS4 CUSA15155，01.00 本体覆盖 01.04 更新后的完整游戏数据。
-先将本体提取到新目录，再将 01.04 更新里的内容覆盖到同一目录。
-将合并后的全部内容放在这里，eboot.bin 应直接位于本目录：
-  game-data/esprade/eboot.bin
-  game-data/esprade/emu_integration_01500.prx
-  game-data/esprade/esprade_01000.prx
-  game-data/esprade/ps4data_body.bin
-  game-data/esprade/ps4data_patch_body.bin
-  game-data/esprade/sce_module/...
-这些只是层级示例，其余文件和子目录也要完整保留，不要多套一层。
-PKG 需先提取为游戏文件，不能直接放入此目录运行。
-也可在启动器中选择现有的完整合并目录，无须重复复制。
-首次启动会自动准备运行文件；存档和录像位于 user-data/esprade/。
+game-data/
+└─ esprade/
+   ├─ eboot.bin
+   ├─ emu_integration_01500.prx
+   ├─ esprade_01000.prx
+   ├─ esprade_01010.prx
+   ├─ esprade_01020.prx
+   ├─ esprade_01030.prx
+   ├─ ps4data_body.bin
+   ├─ ps4data_info.psb.m
+   ├─ ps4data_patch_body.bin
+   ├─ ps4data_patch_info.psb.m
+   ├─ 102/
+   │  └─ movie/
+   ├─ sce_module/
+   ├─ sce_sys/
+   └─ ...
 
-Supported data: PS4 CUSA15155, complete version 01.04.
-Extract the 01.00 base into a new folder, then copy the contents of the 01.04
-update over that same folder. Place all merged contents here, with eboot.bin
-directly inside game-data/esprade/. Preserve every remaining file and subfolder.
-PKG files must be extracted first; do not add an extra enclosing folder.
-Alternatively, select an existing merged folder through the launcher's Game Data
-menu. Runtime preparation is automatic; saves and replays use user-data/esprade/.
+先将 01.00 本体 PKG 完整解包到以上位置，再把 01.04 更新解包后覆盖到同一目录。
+替换同名文件，保留其余本体文件和子目录。
+放好后，在启动器点击“刷新”，选择游戏并启动。
+
+Extract the complete 01.00 base PKG here, then extract and overlay the 01.04 update
+into the same folder. Replace matching files and keep the rest of the base game.
+Click Refresh in the launcher, select the game, then start it.

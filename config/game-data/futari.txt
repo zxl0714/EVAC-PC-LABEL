@@ -1,39 +1,30 @@
 虫姫さまふたり Ver.1.5 / Mushihimesama Futari
-Xbox 360
 
-将完整解包数据的内容放在此目录，直接看到 default.xex、media/ 等文件。
-保留其余文件和内部目录。可选 Black Label／Ver.1.01 DLC 放入此处的 dlc/，
-将原始 DLC 文件放到以下位置，保留文件名，然后启动游戏：
-  dlc/0000000000000000/435A07D7/00000002/
-    496F816DD4B53DAEFF931838B6C69831AAD7663043
-    9893A78CA6062B935BD1F53EA43CFD546B7246DF43
-前一项是 Black Label，后一项是 Ver.1.01，可分别安装。
-首次启动自动解包；已有 v0.7.2 的解包目录保持原样即可。
-已有 dlc/00000002/<包目录>/ 也能识别。
-已解包的 Black Label 保留 spa.bin 和 Rom/ 下的三个文件；
-Ver.1.01 保留 ver101_key.bin。
-在启动器选中本作，点击“详情”可查看 DLC 实际查找位置和各项状态。
-默认 dlc_dir = auto 查找本体目录下的 dlc/；旧配置如写了固定路径会保留。
-不安装 DLC 也可游玩 Ver.1.5 本体；dlc/ 可以留空或不存在，无须改配置。
-不要多套一层目录，也不要将原文件重命名；例如正确位置为
-game-data/futari/default.xex，而不是 game-data/futari/解压目录/default.xex。
-完成后在启动器点击“刷新”。不必安装其他游戏，也不必修改配置路径。
-ISO 需先提取为游戏文件；ZIP 需解压，不要将镜像或压缩包本身放在这里。
+game-data/
+└─ futari/
+   ├─ default.xex
+   ├─ AvatarAssetPack
+   ├─ nxeart
+   ├─ media/
+   │  ├─ Module/
+   │  ├─ Rom/
+   │  ├─ Sound/
+   │  ├─ font/
+   │  ├─ motion/
+   │  ├─ text/
+   │  └─ wall/
+   └─ dlc/
+      └─ 0000000000000000/
+         └─ 435A07D7/
+            └─ 00000002/
+               ├─ 496F816DD4B53DAEFF931838B6C69831AAD7663043  (Black Label)
+               └─ 9893A78CA6062B935BD1F53EA43CFD546B7246DF43  (Ver.1.01)
 
-Place the complete extracted Xbox 360 game here, with default.xex directly
-inside this folder. Keep media/ and all remaining files and subfolders.
-Optional DLC: place the original files at the paths above, keep their filenames,
-then start the game. 496F... is Black Label; 9893... is Ver.1.01.
-Either can be installed independently. Extraction is automatic on first use.
-Existing v0.7.2 extracted folders work in place, including
-dlc/00000002/<package-folder>/.
-For extracted Black Label, keep spa.bin and all three files in Rom/;
-for Ver.1.01, keep ver101_key.bin.
-Select Futari and click Details to see the DLC search path and each package's status.
-The default dlc_dir = auto follows the base game's dlc/ folder. Explicit paths in
-older configurations are preserved; change the value to auto to follow the base.
-Ver.1.5 works without DLC. Leave dlc/ empty or absent; no config change is needed.
-Do not rename game files or add a wrapper folder: the entry belongs at
-game-data/futari/default.xex, not game-data/futari/extracted-folder/default.xex.
-Click Refresh in the launcher.
-Other games are optional. Extract ISO/ZIP contents first, not the archive itself.
+本体：放入完整解包文件，media/ 内所有文件原样保留。
+DLC：可选。上面两个长名字是原始文件，启动时自动解包；已有解包目录保持原样。
+放好后，在启动器点击“刷新”，选择虫姬二并启动。
+
+Base game: place the complete extracted files here; keep everything inside media/.
+DLC (optional): the two long names above are original files, extracted automatically
+on launch. Keep existing extracted DLC folders as they are.
+Click Refresh in the launcher, select Futari, then start the game.
