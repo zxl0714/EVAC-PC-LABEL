@@ -115,6 +115,8 @@ def extraction_sources(version):
     result = {'tools/Extract-Ps4Pkg.ps1': ROOT / 'scripts/Extract-Ps4Pkg.ps1'} if parts >= (0, 6, 1) else {}
     if parts >= (0, 7):
         result['tools/Extract-Xbla.ps1'] = ROOT / 'scripts/Extract-Xbla.ps1'
+    if parts >= (0, 7, 3):
+        result['tools/Extract-Dlc.ps1'] = ROOT / 'scripts/Extract-Dlc.ps1'
     return result
 
 
@@ -205,14 +207,36 @@ def certified_runtime(selection=GAMES):
     return commit, records, certified
 
 
-def inspect_game(inspector, key, data=None):
+def inspect_game(inspector, key, data=None, dlc=None):
     command = [str(inspector), '--root', str(ROOT), '--game', key, '--full']
     if data:
         command += ['--data-dir', str(data)]
+    if dlc:
+        command += ['--dlc-dir', str(dlc)]
     report = json.loads(subprocess.check_output(command))['games'][0]
     if report['dataState'] != 'verified' or report['problems']:
         raise ValueError('Complete supported data required for Internal: ' + key)
     return report
+
+
+def content_inputs(dlc, packages, report):
+    """Read the inspector's resolved inputs; keep canonical package outputs."""
+    checks = {item['id']: item for item in report.get('optionalContent', [])}
+    result = {}
+    for package in packages:
+        canonical = package.get('directory', '')
+        check = checks.get(package['id'], {})
+        base = Path(check.get('directory') or dlc / canonical).resolve(strict=True)
+        if not base.is_relative_to(dlc.resolve(strict=True)):
+            raise ValueError('Resolved DLC directory escapes source')
+        for file in package['files']:
+            relative = Path(file['path']).relative_to(canonical) if canonical else Path(file['path'])
+            source = base / relative
+            reject_link(source)
+            if not source.is_file() or source.stat().st_size != file['bytes'] or digest(source) != file['sha256']:
+                raise ValueError('Internal requires complete selected Futari DLC: ' + package['id'])
+            result[file['path']] = source
+    return result
 
 
 def copy_data(source, target, entries, required=(), exclude_top=(), manifest_only=False):
@@ -250,6 +274,7 @@ def source_clone(destination, commit):
 
 def license_files():
     paths = {ROOT / 'third_party/rexglue/LICENSE', ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt'}
+    paths.add(ROOT / 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/LICENSE.MIT')
     paths.update((ROOT / 'third_party/ps4/LICENSES').glob('*.txt'))
     for directory in (ROOT / 'third_party/rexglue/thirdparty').iterdir():
         if directory.is_dir():
@@ -529,18 +554,17 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     # Resolve all mandatory inputs before creating any package output.
     inspector = certified['cave_inspect.exe']['source']
     reports = {key: inspect_game(inspector, key, (data or {}).get(key)) for key in included} if flavor == 'Internal' else {}
+    if futari_dlc and 'futari' in reports:
+        reports['futari'] = inspect_game(inspector, 'futari', (data or {}).get('futari'), futari_dlc)
     packages = [item for item in games['futari']['content'] if item['id'] in content_ids] if flavor == 'Internal' else []
     dlc = None
+    dlc_files = {}
     if packages:
         source = futari_dlc or reports['futari'].get('contentDirectory')
         if not source:
             raise ValueError('Selected Futari DLC needs a content directory')
         dlc = Path(source)
-        for package in packages:
-            for file in package['files']:
-                source = dlc / file['path']
-                if not source.is_file() or source.stat().st_size != file['bytes'] or digest(source) != file['sha256']:
-                    raise ValueError('Internal requires complete selected Futari DLC: ' + package['id'])
+        dlc_files = content_inputs(dlc, packages, reports['futari'])
     redist = redist_directory(); crt = sorted(redist.glob('*.dll'))
     if not {'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140_atomic_wait.dll'}.issubset({file.name.lower() for file in crt}):
         raise ValueError('App-local CRT redistributables are incomplete')
@@ -623,8 +647,10 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
                       excluded, manifest_only=package_format in (2, 3) or key in MANIFEST_ONLY_DATA)
         if dlc:
-            copy_data(dlc, directory / 'game-data/futari/dlc', entries,
-                      [file for package in packages for file in package['files']], manifest_only=package_format in (2, 3))
+            for package in packages:
+                for file in package['files']:
+                    copy_checked(dlc_files[file['path']], directory / 'game-data/futari/dlc' / file['path'],
+                                 'game-data', entries, file)
     if flavor == 'Internal' and package_format == 1:
         source_clone(directory / 'source', commit)
         for file in tree_files(directory / 'source'):

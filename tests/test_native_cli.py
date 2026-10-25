@@ -155,6 +155,8 @@ class NativeCliTests(unittest.TestCase):
             root = Path(temporary)
             self.assertIn('error', self.run_cli(root, '--game', 'unknown', code=2))
             self.assertIn('error', self.run_cli(root, '--data-dir', str(root), code=2))
+            self.assertIn('error', self.run_cli(root, '--dlc-dir', str(root), code=2))
+            self.assertIn('error', self.run_cli(root, '--game', 'guwange', '--dlc-dir', str(root), code=2))
             (root / 'config.ini').write_text('[collection]\nconfig_version=99\n', encoding='utf-8')
             self.assertIn('error', self.run_cli(root, code=2))
 

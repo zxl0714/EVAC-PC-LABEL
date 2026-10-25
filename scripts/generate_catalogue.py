@@ -157,25 +157,29 @@ def load(path):
                         or not re.fullmatch('[0-9A-F]{40,64}', package['packageName'])):
                     raise ValueError('Invalid optional content identity')
                 content_ids.add(package['id'])
+                native_name = package.get('nativeName', package['name'])
+                if (not isinstance(native_name, str) or not native_name
+                        or any(ord(c) < 32 for c in native_name)
+                        or len(native_name.encode('utf-16-le')) > 254):
+                    raise ValueError('Invalid optional content native name')
                 identifier = package['id'].replace('-', '_')
                 if identifier in content_identifiers:
                     raise ValueError('Optional content identifiers collide after compilation')
                 content_identifiers.add(identifier)
                 directory = f"0000000000000000/{package['titleId']}/00000002/{package['packageName']}"
-                header = f"0000000000000000/{package['titleId']}/Headers/00000002/{package['packageName']}.header"
                 if (package['directory'] != directory or directory in content_paths or not package['files']):
                     raise ValueError('Invalid or duplicate optional content directory')
                 content_paths.add(directory)
                 names = set()
                 for item in package['files']:
                     name = relative(item['path'])
-                    if (name.casefold() in names or not (name.startswith(directory + '/') or name == header)
+                    if (name.casefold() in names or not name.startswith(directory + '/')
                             or type(item['bytes']) is not int or not 0 <= item['bytes'] <= 2**63-1
                             or not re.fullmatch('[0-9a-f]{64}', item['sha256']) or item['program'] is not False):
                         raise ValueError('Invalid optional content file')
                     names.add(name.casefold())
-                if header.casefold() not in names or len(names) < 2:
-                    raise ValueError('Optional content requires its header and payload')
+                if not names:
+                    raise ValueError('Optional content requires payload files')
                 game['content'].append(package)
     return games
 
@@ -213,7 +217,8 @@ def generate(games):
         for package in game['content']:
             part = key + '_' + package['id'].replace('-', '_')
             lines.append('{' + ','.join([quoted(package[k]) for k in ('id', 'name', 'directory', 'packageName')]
-                                        + ['0x' + package['titleId'] + 'u', f'content_files_{part}']) + '},')
+                                        + ['0x' + package['titleId'] + 'u', f'content_files_{part}',
+                                           quoted(package.get('nativeName', package['name']))]) + '},')
         lines.append('}};')
         lines.append(f'inline constexpr std::array<std::string_view,{len(game["runtimeFiles"])}> runtime_{key}{{{{')
         lines.extend(quoted(name) + ',' for name in game['runtimeFiles'])

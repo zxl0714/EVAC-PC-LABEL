@@ -30,27 +30,30 @@ int wmain(int argc, wchar_t** argv) {
     auto length = GetModuleFileNameW(nullptr, executable, 32768);
     if (!length || length == 32768) throw std::runtime_error("Cannot determine application root");
     cave::fs::path root = cave::fs::path(executable).parent_path();
-    cave::fs::path override_data;
+    cave::fs::path override_data,override_content;
     std::string selected;
     cave::CheckLevel level = cave::CheckLevel::Quick;
     for (int i = 1; i < argc; ++i) {
       std::wstring option = argv[i];
       if (option == L"--help") {
-        std::cout << "cave_inspect [--root <collection>] [--game <id>] [--data-dir <directory>] [--programs|--full]\n"
+        std::cout << "cave_inspect [--root <collection>] [--game <id>] [--data-dir <directory>] [--dlc-dir <directory>] [--programs|--full]\n"
                      "Read-only JSON report. No game execution, downloads or configuration writes.\n";
         return 0;
       }
       if (option == L"--full") level = cave::CheckLevel::Full;
       else if (option == L"--programs") level = cave::CheckLevel::Programs;
-      else if (option == L"--root" || option == L"--game" || option == L"--data-dir") {
+      else if (option == L"--root" || option == L"--game" || option == L"--data-dir" || option == L"--dlc-dir") {
         if (++i == argc) throw std::runtime_error("Missing option value");
         if (option == L"--root") root = argv[i];
         else if (option == L"--game") selected = cave::Utf8(cave::fs::path(argv[i]));
+        else if(option==L"--dlc-dir")override_content=argv[i];
         else override_data = argv[i];
       } else throw std::runtime_error("Unknown option");
     }
     if (!selected.empty()) (void)cave::FindGame(selected);
     if (!override_data.empty() && selected.empty()) throw std::runtime_error("--data-dir requires --game");
+    if (!override_content.empty() && (selected.empty() || cave::FindGame(selected).content.empty()))
+      throw std::runtime_error("--dlc-dir requires a game with optional content");
     root = cave::fs::weakly_canonical(cave::fs::absolute(root));
     const auto ini = cave::Ini::Load(cave::ConfigPath(root));
     std::cout << "{\"format\":1,\"guestExecution\":false,\"games\":[";
@@ -82,12 +85,12 @@ int wmain(int argc, wchar_t** argv) {
       cave::fs::path content_source;
       std::vector<cave::ContentInspection> content;
       try {
-        content_source = ini.ContentDirectory(game, info.data_dir);
+        content_source = override_content.empty()?ini.ContentDirectory(game, info.data_dir):override_content;
         if (!content_source.empty()) content_source = cave::Resolve(root, content_source);
         content = cave::InspectContent(game, content_source, level);
       } catch (const std::exception& error) {
         for (const auto& package : game.content)
-          content.push_back({std::string(package.id),std::string(package.name),cave::DataState::Invalid,0,0,{error.what()}});
+          content.push_back({std::string(package.id),std::string(package.name),cave::DataState::Invalid,0,0,{error.what()},{}});
       }
       bool first_content = true;
       for (const auto& package : content) {
@@ -95,6 +98,7 @@ int wmain(int argc, wchar_t** argv) {
         first_content = false;
         std::cout << "{\"id\":" << Json(package.id) << ",\"name\":" << Json(package.name)
                   << ",\"state\":" << Json(cave::Name(package.state))
+                  << ",\"directory\":" << Json(cave::Utf8(package.directory))
                   << ",\"filesChecked\":" << package.files_checked << ",\"hashesChecked\":" << package.hashes_checked
                   << ",\"problems\":";
         Strings(package.problems); std::cout << '}';

@@ -106,8 +106,9 @@ class CatalogueTests(unittest.TestCase):
         game = catalogue.load(self.path)[0]
         self.assertEqual(len(game['files']), 52)
         self.assertEqual([p['id'] for p in game['content']], ['black-label', 'ver101'])
-        self.assertEqual([len(p['files']) for p in game['content']], [5, 2])
-        self.assertEqual(sum(f['bytes'] for p in game['content'] for f in p['files']), 275443888)
+        self.assertEqual([len(p['files']) for p in game['content']], [4, 1])
+        self.assertEqual(sum(f['bytes'] for p in game['content'] for f in p['files']), 275443232)
+        self.assertFalse(any(f['path'].endswith('.header') for p in game['content'] for f in p['files']))
         self.assertFalse(any(p['content'] for p in catalogue.load(self.path)[1:]))
 
     def test_daioujou_native_boards_do_not_reuse_ketsui_filter_rules(self):
@@ -156,8 +157,11 @@ class CatalogueTests(unittest.TestCase):
     def test_invalid_optional_content_metadata(self):
         original = catalogue.read_json(self.root / 'games/futari/data.json')
         cases = []
+        for name in ('', 'x'*128, 'invalid\nname', 123):
+            value = copy.deepcopy(original); value['optionalContent'][0]['nativeName'] = name; cases.append(value)
         value = copy.deepcopy(original); value['optionalContent'][0]['files'][0]['path'] = '../escape'; cases.append(value)
-        value = copy.deepcopy(original); value['optionalContent'][0]['files'].pop(); cases.append(value)
+        value = copy.deepcopy(original); value['optionalContent'][0]['files'] = []; cases.append(value)
+        value = copy.deepcopy(original); value['optionalContent'][0]['files'][0]['path'] = 'Headers/generated.header'; cases.append(value)
         value = copy.deepcopy(original); value['optionalContent'][0]['files'][0]['program'] = True; cases.append(value)
         value = copy.deepcopy(original); value['optionalContent'][1]['id'] = 'black_label'; cases.append(value)
         value = copy.deepcopy(original); value['optionalContent'][1]['directory'] = value['optionalContent'][0]['directory']; cases.append(value)

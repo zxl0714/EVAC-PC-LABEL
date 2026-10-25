@@ -1,6 +1,6 @@
-EVAC PC LABEL v0.7.2
+EVAC PC LABEL v0.7.3
 
-本版整理使用说明、对应源码入口及组件声明，沿用 v0.7.1 修订版的游戏功能。
+本版修复虫姬二 DLC 识别与放置引导，新增启动器 GitHub 更新检查。
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
 开始游玩 ---------------------------------------------------------------------
@@ -22,6 +22,10 @@ EVAC PC LABEL v0.7.2
 和内部层级，不只复制入口文件，也不再套一层文件夹。复制完成后点“刷新”。
 首次启动会校验数据；PS4 作品还会自动准备运行文件，请等待完成。
 虫姬二不装 DLC 也可玩 Ver.1.5；可选完整 DLC 放到 game-data/futari/dlc/。
+保持原有内容树，已有 dlc/00000002/<包目录>/ 也能识别。
+Black Label 需要 spa.bin 和完整 Rom/。
+完整目录、提取命令见 game-data/futari/README.txt；选中本作点“详情”可查看状态。
+默认 [game.futari] dlc_dir = auto 跟随本体目录下的 dlc/；原有显式路径会保留。
 狱门山要保留 module/ 下的四个原始 DLL，它们是 Xbox 游戏数据；不要混入
 .xexp／.dllp 更新文件。各目录的 README.txt 有对应要求。
 
@@ -41,7 +45,11 @@ Xbox 360 XBLA：若狱门山解压后得到一个很长文件名、没有扩展�
 输出目录的上一层须已存在。脚本检查文件链与数据块校验，不改动原始容器。
 完成后直接选择 D:\GameExtract\guwange，或把里面全部内容复制到默认目录。
 不要把整个 XBLA 容器改名为 default.xex。此工具支持本作使用的小型
-LIVE／PIRS 单哈希表布局；不是 ISO、CON 存档或 Title Update 应用工具。
+LIVE／PIRS 单哈希表副本布局；不是 ISO、CON 存档或 Title Update 应用工具。
+
+Xbox 360 DLC 原始容器：使用 tools/Extract-Dlc.ps1，参数同上，输出到新的目录。
+  .\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\DLC容器" -OutputDir "D:\GameExtract\futari-dlc"
+再将输出内的资源按 game-data/futari/README.txt 放入对应包目录。
 
 PS4 PKG：下载 LibOrbisPkg v0.2 的 PkgTool-0.2.231.zip，完整解压并保留 DLL：
 https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2
@@ -57,6 +65,10 @@ ZIP／RAR 的解压密码不是 PKG passcode，零售加密 PKG 需先准备可�
 全屏。底部“配置文件”打开 user-data/config.ini，修改后点“刷新”并重启游戏。
 备份或换目录时保留整个 user-data/，其中包含配置、存档和录像。
 昵称含游戏字库不支持的字时，保存前会显示受影响游戏与实际传入的名字。
+启动器后台检查 GitHub 正式发布，每个新版只自动提醒一次，游玩中不弹窗。
+提醒中可打开发布页查看和下载新版本。成功结果缓存 24 小时；要关闭自动
+检查，在 [collection] 中设置 check_for_updates = false。此开关独立于排行榜联网。
+提醒记录在 user-data/update-check.json；下载后自行解压替换程序文件。
 
 方向键移动；Enter 为 Start；Backspace 为 Select／Touchpad；
 A／S 为 L1／R1，Q／W 为 L2／R2。主按键对照：
@@ -99,8 +111,7 @@ enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社�
 
 English ======================================================================
 
-v0.7.2 updates player instructions, source links, and component notices.
-Game functionality is unchanged from the revised v0.7.1 package. To update,
+v0.7.3 fixes Futari DLC detection/setup and adds GitHub update checks. To update,
 close games and launcher, extract over the existing folder, and keep user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the
@@ -112,6 +123,11 @@ or use the game-data paths listed above. Place default.xex (360) or eboot.bin
 (PS4) directly inside, preserving all files and subfolders. Each game's folder
 includes a bilingual README.txt with placement instructions. Click Refresh.
 Futari Ver.1.5 works without DLC; its optional content goes in futari/dlc/.
+Keep the original content tree; dlc/00000002/<package-folder>/ also works. Black Label
+needs spa.bin and all three Rom/ files. See game-data/futari/README.txt for the
+complete tree and commands. Details shows the actual search path and status.
+The default [game.futari] dlc_dir = auto follows the base game's dlc/ folder.
+Existing explicit paths are preserved; set auto to follow the selected base.
 Guwange uses XBLA base 0.0.0.4, Title ID 58410A78, without Title Update files.
 Keep all four original DLLs in module/; they are Xbox game data.
 
@@ -130,12 +146,23 @@ game files, use the appropriate command above with your own paths:
   The default backup passcode is 32 zeros; use -Passcode for a different one.
   ZIP/RAR passwords are separate. Encrypted retail PKGs need an extractable
   backup. Supported PS4 versions are listed beside each default path above.
+- DLC: tools/Extract-Dlc.ps1 uses the same -InputPackage / -OutputDir arguments.
+  Extract to a new folder, then place its contents in the matching package
+  folder shown in game-data/futari/README.txt. Supports LIVE/PIRS containers
+  with one hash-table copy, up to 512 MiB; it preserves the input container.
 
 Keep the entire user-data/ folder when backing up or moving the collection.
 It contains config.ini, saves and replays. Config opens the shared INI; click
 Refresh after external edits and restart the game. CN / EN / JP changes the
 launcher language. Nickname and Start fullscreen are available in the launcher.
 Unsupported nickname characters trigger a warning before saving.
+The launcher checks stable GitHub releases in the background and automatically
+announces each new version once, never during gameplay. Open the release page
+from the notification for notes and downloads. Successful checks are cached
+for 24 hours. Set [collection] check_for_updates = false to disable auto checks;
+community networking is independent.
+Reminder history lives in user-data/update-check.json. Download and replace
+program files yourself when updating.
 
 Arrows: direction. Z/X/C/V: Xbox A/B/X/Y or PS4 Cross/Circle/Square/Triangle.
 Enter: Start. Backspace: Select/Touchpad. A/S: L1/R1. Q/W: L2/R2.

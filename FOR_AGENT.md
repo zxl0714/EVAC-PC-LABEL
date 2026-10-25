@@ -1,7 +1,7 @@
 # EVAC PC LABEL 开发入口
 
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
-当前版本为 v0.7.2；发行状态与实际验收范围见实施计划和验收矩阵。
+当前产品版本为 v0.7.3；发行状态与实际验收范围见实施计划和验收矩阵。
 
 已接入七款游戏，Guwange 的三种单人玩法、保存及正式社区短流程已验证。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
@@ -26,6 +26,25 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 | .local/、releases/ | 开发现场、证据与发行输出，不进 Git |
 
 游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou、esprade、guwange。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 使用 CUSA15155 本体覆盖 01.04 更新后的单目录，共用 PS4 运行时。
+
+### DLC 与启动器更新检查
+
+虫姬二的 `games/futari/data.json` 只声明真实 DLC 资源，不将 `.header` 当作输入。
+`common/catalogue.cpp` 有界识别现有内容树及常见缺层目录，报告每项资源的实际来源；
+`backends/xbox360/diagnostics/content_prepare.cpp` 将已完整验证的资源复制到
+`prepared/futari/content/<recipe-sha256>/`，用 SDK 内容 API 生成元数据后只读挂载。
+缓存按资源清单及原作内容名称分组，验证后复用，损坏缓存重建；原始游戏／DLC 不写入。
+`optionalContent.nativeName` 是原作枚举时匹配的内容名称，与启动器显示名称分开维护。
+`dlc_dir = auto` 跟随所选本体，显式路径和空值禁用语义保留。
+原始容器提取入口是 `scripts/Extract-Dlc.ps1`，共用 `Extract-Xbla.ps1` 的有界 STFS 读取器。
+
+`launcher/update_check.*` 独立于游戏运行时及社区服务。后台查询固定 GitHub Release
+API，状态位于 `user-data/update-check.json`；成功检查缓存 24 小时，失败退避一小时。
+只有实际显示的提醒才记入 `notified`，游戏运行／窗口隐藏期间延后。网络线程仅持有
+结果对象，不引用窗口或路径，不阻塞关闭。UI 使用原生窗口，版本来自
+`scripts/product.py` 生成的 `artwork.h`，与 EXE 版本资源保持一致。
+机制检查：`cave_common_tests`、`content_prepare`、`cave_update_tests`、
+`tests/test_xbla_extract.py` 和 `scripts/Test-Launcher.ps1`。
 
 Guwange 的 `module/*.dll` 是 Xbox 360 XEX2 游戏模块，不能作为 Windows DLL 直接加载；生成器分别将四个同址模式模块转换为独立原生库。本体与 TU1 的程序地址不同，以 `games/guwange/inputs.json` 和 `data.json` 的实际哈希为准。
 
@@ -52,12 +71,13 @@ v0.7 以单人玩法为验收范围。SDK 当前只提供 user 0 的登录身份
 ~~~powershell
 git clone https://github.com/zxl0714/EVAC-PC-LABEL.git
 cd EVAC-PC-LABEL
+git submodule update --init -- third_party/rexglue/thirdparty/inja
 ./scripts/Prepare-Tools.ps1
 ./scripts/Build.ps1 -Jobs 2
 ./scripts/Test.ps1 -Scope All
 ~~~
 
-公共组件和启动器不需要 ROM 或先构建游戏 SDK。工具版本锁在 tools/packages.lock.json，统一使用 LLVM 23.1.3；两个后端保留各自的驱动形式和 ABI 参数。
+公共组件和启动器不需要 ROM 或先构建游戏 SDK；上述子模块命令恢复更新检查使用的 JSON 头文件。工具版本锁在 tools/packages.lock.json，统一使用 LLVM 23.1.3；两个后端保留各自的驱动形式和 ABI 参数。
 
 新 clone 编译 Xbox 360 前恢复固定依赖并构建 SDK：
 

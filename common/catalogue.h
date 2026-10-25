@@ -18,6 +18,7 @@ struct ContentPackage {
   std::string_view id, name, directory, package_name;
   uint32_t title_id;
   std::span<const DataFile> files;
+  std::string_view native_name{};
 };
 struct DataVariant {
   std::string_view id, version, layout, entry;
@@ -66,7 +67,10 @@ struct ContentInspection {
   DataState state{DataState::Missing};
   uint32_t files_checked{}, hashes_checked{};
   std::vector<std::string> problems;
+  fs::path directory;
 };
+// Manifest paths remain canonical for packaging; input folders need not be.
+fs::path ContentRelativePath(const ContentPackage& package, const DataFile& file);
 // Optional packages are independent of base-game readiness. Only a Full result
 // with state Verified may be exposed to the guest content manager.
 std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& source,

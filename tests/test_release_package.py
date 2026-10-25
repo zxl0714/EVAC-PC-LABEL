@@ -544,6 +544,22 @@ class ReleaseTests(unittest.TestCase):
     def test_v072_seven_game_program_and_guwange_only_internal_data(self):
         self.check_seven_game_package('0.7.2')
 
+    def test_v073_seven_game_package_includes_dlc_extractor(self):
+        self.assertIn('tools/Extract-Dlc.ps1', release.extraction_sources('0.7.3'))
+        self.assertNotIn('tools/Extract-Dlc.ps1', release.extraction_sources('0.7.2'))
+        self.check_seven_game_package('0.7.3')
+
+    def test_dlc_source_layout_does_not_change_packaged_paths(self):
+        dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
+        (base/'asset.bin').write_bytes(b'abc')
+        canonical = '0000000000000000/435A07D7/00000002/package'
+        file = dict(path=canonical+'/asset.bin', bytes=3, sha256=hashlib.sha256(b'abc').hexdigest())
+        packages = [dict(id='first', directory=canonical, files=[file])]
+        report = dict(optionalContent=[dict(id='first', directory=str(base), state='verified')])
+        self.assertEqual(release.content_inputs(dlc, packages, report), {file['path']: base/'asset.bin'})
+        (base/'asset.bin').write_bytes(b'bad')
+        with self.assertRaises(ValueError): release.content_inputs(dlc, packages, report)
+
     def check_seven_game_package(self, version):
         self.assertEqual(release.PLACEMENT_NAME, 'README.txt')
         self.assertEqual(release.release_games('0.7'), release.V07_GAMES)
@@ -750,6 +766,7 @@ class ReleaseTests(unittest.TestCase):
                 'config/README.player-v07.txt':'authored v07 instructions',
                 'scripts/Extract-Ps4Pkg.ps1':'# authored helper\n',
                 'scripts/Extract-Xbla.ps1':'# authored XBLA helper\n',
+                'scripts/Extract-Dlc.ps1':'# authored DLC helper\n',
                 'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
         for key in release.PLACEMENT_GAMES:

@@ -319,6 +319,7 @@
     {
       "id": "black-label",
       "name": "Black Label",
+      "nativeName": "虫姫さまふたり　ブラックレーベル",
       "titleId": "435A07D7",
       "packageName": "496F816DD4B53DAEFF931838B6C69831AAD7663043",
       "directory": "0000000000000000/435A07D7/00000002/496F816DD4B53DAEFF931838B6C69831AAD7663043",
@@ -346,18 +347,13 @@
           "bytes": 827250,
           "sha256": "21294889e23ac4197b06c13a89bed3e0ac8ed2fa8207210bf46fd80d99db57d1",
           "program": false
-        },
-        {
-          "path": "0000000000000000/435A07D7/Headers/00000002/496F816DD4B53DAEFF931838B6C69831AAD7663043.header",
-          "bytes": 328,
-          "sha256": "4aecb47a48274d82261eb3908495a8366adebcf5a4151899d193b96918af43fa",
-          "program": false
         }
       ]
     },
     {
       "id": "ver101",
       "name": "Ver1.01",
+      "nativeName": "虫姫さまふたり　Ver1.01",
       "titleId": "435A07D7",
       "packageName": "9893A78CA6062B935BD1F53EA43CFD546B7246DF43",
       "directory": "0000000000000000/435A07D7/00000002/9893A78CA6062B935BD1F53EA43CFD546B7246DF43",
@@ -366,12 +362,6 @@
           "path": "0000000000000000/435A07D7/00000002/9893A78CA6062B935BD1F53EA43CFD546B7246DF43/ver101_key.bin",
           "bytes": 11,
           "sha256": "7f7c946b0d5d6c742d522f55d0d3cb6de43696392e7f5d85961e9243d79554b1",
-          "program": false
-        },
-        {
-          "path": "0000000000000000/435A07D7/Headers/00000002/9893A78CA6062B935BD1F53EA43CFD546B7246DF43.header",
-          "bytes": 328,
-          "sha256": "e1c13fd3354d9feab6cd8e85ce1fa89ee649905cf8d599b9cc6d765518ac4c18",
           "program": false
         }
       ]

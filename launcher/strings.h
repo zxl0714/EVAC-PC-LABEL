@@ -24,6 +24,15 @@ inline const wchar_t* LanguageLabel(Language language) {
 }
 struct Translation {std::wstring_view key; const wchar_t* japanese; const wchar_t* english;};
 inline constexpr std::array kTranslations{
+  Translation{L"发现新版本 ",L"新バージョン ",L"New version "},
+  Translation{L"发布页提供更新说明和下载。",L"リリースページで更新内容とダウンロードを確認できます。",L"See the release page for notes and downloads."},
+  Translation{L"打开发布页",L"リリースページを開く",L"Open release page"},
+  Translation{L"关闭",L"閉じる",L"Close"},
+  Translation{L"DLC 查找目录：",L"DLC の検索先：",L"DLC directory: "},
+  Translation{L"已禁用",L"無効",L"Disabled"},
+  Translation{L"未安装",L"未インストール",L"Not installed"},
+  Translation{L"资源不完整或不匹配",L"データが不足しているか一致しません",L"Files are missing or do not match"},
+  Translation{L"游戏数据详情",L"ゲームデータの詳細",L"Game data details"},
   Translation{L"无法显示详细信息，请检查日志。",L"詳細を表示できません。ログを確認してください。",L"Cannot show details. Please check the logs."},
   Translation{L"操作失败。详细信息：\n\n",L"操作に失敗しました。詳細：\n\n",L"The operation failed. Details:\n\n"},
   Translation{L"已就绪",L"準備完了",L"Ready"},

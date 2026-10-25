@@ -74,7 +74,7 @@ fs::path Ini::DataDirectory(const Game& game) const {
 fs::path Ini::ContentDirectory(const Game& game, const fs::path& data) const {
   if (game.content.empty()) return {};
   const auto value = Get("game." + std::string(game.id), "dlc_dir");
-  if (value) return value->text.empty() ? fs::path{} : FromUtf8(value->text);
+  if (value && Lower(value->text)!="auto") return value->text.empty() ? fs::path{} : FromUtf8(value->text);
   return (data.empty() ? DataDirectory(game) : data) / "dlc";
 }
 }  // namespace cave

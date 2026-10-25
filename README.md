@@ -81,7 +81,7 @@ ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录
 
 虫姬二不安装 DLC 也可游玩 Ver.1.5 本体。`game-data/futari/dlc/` 可以留空或不存在，无须改配置；只有 Black Label／Ver.1.01 需要对应 DLC。默认数据目录名按表使用；选择外部数据目录时，外层文件夹可自行命名。
 
-完整目录示例、DLC 放法和识别问题见[游戏数据指南](docs/GAME_DATA.md)。
+虫姬二 DLC 保持原有内容目录，已有 `dlc/00000002/<包目录>/` 也能识别。单个原始 DLC 容器可用随包的 `tools/Extract-Dlc.ps1` 提取。完整目录和命令见[游戏数据指南](docs/GAME_DATA.md#虫姫さまふたり-ver15futari)，启动器“详情”可查看实际查找位置和两项 DLC 的状态。
 
 ## 配置与操作
 
@@ -115,6 +115,19 @@ Xbox 360 游戏的排行榜玩家卡片可点击 `CLOSE` 或按 Enter／Esc 关�
 狱门山的 **Arrange Xbox 360** 自动射击：方向键／左摇杆移动角色，`I / K / J / L`（上／下／左／右）或右摇杆移动式神，`W / RT` 召唤，`X / B` 炸弹。式神方向可在 `[game.guwange.keyboard]` 中通过 `right_stick_up/down/left/right` 调整；其他游戏的键位不受影响。
 
 备份或换目录时保留整个 `user-data/`，其中包含配置、存档和录像。修改游戏内设置后，等待保存完成再关闭。
+
+## 检查更新
+
+启动器会在后台检查 GitHub 正式发布，每个新版本只自动提醒一次；游玩中不弹窗。提醒中可打开发布页查看说明和下载。
+
+自动检查的成功结果缓存 24 小时。要关闭自动检查，在 `user-data/config.ini` 设置：
+
+```ini
+[collection]
+check_for_updates = false
+```
+
+此选项与社区排行榜联网开关独立。提醒记录保存在 `user-data/update-check.json`，更新文件由玩家自行下载和替换。
 
 ## 社区排行榜
 
@@ -153,9 +166,9 @@ frame_delay = 1
 
 ## 下载与备份
 
-**v0.7.2** · Windows x64。更新内容见[更新记录](docs/CHANGELOG.md)。
+Windows x64。更新内容见[更新记录](docs/CHANGELOG.md)。
 
-- [下载程序包](https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip) · [SHA-256](https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v0.7.2/EVAC-PC-LABEL-v0.7.2-win-x64.zip.sha256)。不含游戏数据。
+- [下载最新程序包与 SHA-256](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest)。不含游戏数据。
 - 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。
 
 更新时先关闭游戏和启动器，再解压到原目录替换同名文件。程序包不包含 `user-data/`，已有配置、存档和录像保留。

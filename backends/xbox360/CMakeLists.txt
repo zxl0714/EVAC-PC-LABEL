@@ -15,7 +15,7 @@ add_library(cave_community_native STATIC community/native_service.cpp)
 target_include_directories(cave_community_native PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(cave_community_native PUBLIC cave_community_http cave_replay_encoding)
 
-add_library(cave_xbox360_diagnostics STATIC diagnostics/run_context.cpp)
+add_library(cave_xbox360_diagnostics STATIC diagnostics/run_context.cpp diagnostics/content_prepare.cpp)
 target_include_directories(cave_xbox360_diagnostics PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(cave_xbox360_diagnostics PUBLIC cave_common cave_community_http bcrypt)
 add_library(cave_xbox360_crash STATIC diagnostics/crash_reporter.cpp)
@@ -31,6 +31,13 @@ add_custom_command(TARGET cave_content_source_tests POST_BUILD
     COMMAND_EXPAND_LISTS VERBATIM)
 add_test(NAME content_source COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/run_content_source_test.py" $<TARGET_FILE:cave_content_source_tests>)
 set_tests_properties(content_source PROPERTIES TIMEOUT 30)
+add_executable(cave_content_prepare_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/content_prepare_test.cpp")
+target_link_libraries(cave_content_prepare_tests PRIVATE cave_xbox360_diagnostics)
+add_custom_command(TARGET cave_content_prepare_tests POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:cave_content_prepare_tests> $<TARGET_FILE_DIR:cave_content_prepare_tests>
+    COMMAND_EXPAND_LISTS VERBATIM)
+add_test(NAME content_prepare COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/run_content_source_test.py" $<TARGET_FILE:cave_content_prepare_tests>)
+set_tests_properties(content_prepare PROPERTIES TIMEOUT 30)
 add_test(NAME codegen_paths COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_SOURCE_DIR}/tests/xbox360/check_codegen_paths.py"
     --generator "${CMAKE_SOURCE_DIR}/.deps/sdk-install/bin/rexglue.exe")

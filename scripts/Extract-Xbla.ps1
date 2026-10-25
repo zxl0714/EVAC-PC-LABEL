@@ -2,10 +2,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$InputPackage,
-    [Parameter(Mandatory)][string]$OutputDir
+    [Parameter(Mandatory)][string]$OutputDir,
+    [ValidateSet('Xbla','Dlc')][string]$ContentKind='Xbla'
 )
-# Read-only STFS extraction for small LIVE/PIRS XBLA packages (one hash-table
-# copy, below 170^2 blocks). ZIP/RAR must be unpacked first. No guest execution,
+# Read-only STFS extraction for LIVE/PIRS XBLA or DLC packages (one hash-table
+# copy, up to 512 MiB). ZIP/RAR must be unpacked first. No guest execution,
 # license modification or package signature authentication is performed.
 # Layout reference: ReXGlue/Xenia's BSD-licensed stfs_container_device.cpp.
 $ErrorActionPreference = 'Stop'
@@ -28,13 +29,15 @@ public sealed class XblaFile {
 public sealed class XblaResult {
     public string OutputDirectory;
     public string TitleId;
+    public string ContentType;
     public string PackageSha256;
     public int CheckedBlocks;
     public long TotalFileBytes;
     public List<XblaFile> Files = new List<XblaFile>();
 }
 public sealed class XblaExtractor {
-    const int BlockSize = 4096, End = 0xFFFFFF, MaxBlocks = 170 * 170;
+    const int BlockSize = 4096, End = 0xFFFFFF, LevelOne = 170 * 170;
+    const int MaxBytes = 512 * 1024 * 1024, MaxBlocks = MaxBytes / BlockSize;
     readonly byte[] data;
     readonly int first, blocks;
     readonly HashSet<int> used = new HashSet<int>();
@@ -54,15 +57,18 @@ public sealed class XblaExtractor {
     }
     int HashOffset(int block) {
         Need(block >= 0 && block < blocks, "Block index is outside the package.");
-        int table = block < 170 ? 0 : (block / 170) * 171 + 1;
+        int table = block < 170 ? 0 : (block / 170) * 171 + block / LevelOne + 1 + (block >= LevelOne ? 1 : 0);
         int offset = first + table * BlockSize + (block % 170) * 24;
         Need(offset <= data.Length-24, "Truncated hash table.");
         return offset;
     }
     int DataOffset(int block) {
         HashOffset(block);
-        int physical = block + (block+170)/170;
-        if (block >= 170) physical += (block+MaxBlocks)/MaxBlocks;
+        int physical = block;
+        for (int level=0, span=170; level<3; ++level, span*=170) {
+            physical += (block+span)/span;
+            if (block<span) break;
+        }
         int offset = first + physical * BlockSize;
         Need(offset <= data.Length-BlockSize, "Truncated data block.");
         return offset;
@@ -92,19 +98,19 @@ public sealed class XblaExtractor {
             !(stem.Length==4 && (stem.StartsWith("COM") || stem.StartsWith("LPT")) && stem[3]>='0' && stem[3]<='9'),
             "Reserved Windows filename.");
     }
-    XblaExtractor(byte[] bytes) {
+    XblaExtractor(byte[] bytes, uint expectedType) {
         data=bytes;
-        Need(data.Length>=0x400 && data.Length<=256*1024*1024, "Expected an XBLA package no larger than 256 MiB.");
+        Need(data.Length>=0x400 && data.Length<=MaxBytes, "Expected an STFS package no larger than 512 MiB.");
         string magic=Encoding.ASCII.GetString(data,0,4);
-        Need(magic=="LIVE" || magic=="PIRS", "Expected a LIVE/PIRS XBLA package. Unpack ZIP/RAR first; ISO/CON is not supported by this helper.");
+        Need(magic=="LIVE" || magic=="PIRS", "Expected a LIVE/PIRS package. Unpack ZIP/RAR first; ISO/CON is not supported by this helper.");
         uint header=Number(0x340,4);
         Need(header>=0x400 && header<=1024*1024 && header<=data.Length, "Invalid STFS header size.");
         first=(int)((header+4095)&~4095u);
-        Need(Number(0x344,4)==0xD0000, "Package is not an Xbox Live Arcade title.");
+        Need((expectedType==0xD0000 || expectedType==2) && Number(0x344,4)==expectedType, "Package content type does not match ContentKind (Xbla/Dlc).");
         Need(Number(0x3A9,4)==0 && data[0x379]==0x24 && (data[0x37B]&1)!=0,
             "Unsupported STFS layout: this helper requires one hash-table copy.");
         uint allocated=Number(0x395,4);
-        Need(allocated>0 && allocated<MaxBlocks, "Unsupported STFS size: fewer than 28900 blocks required.");
+        Need(allocated>0 && allocated<MaxBlocks, "STFS block count exceeds the extraction limit.");
         blocks=(int)allocated;
         DataOffset(blocks-1);
         int count=(int)Number(0x37C,2,true), current=(int)Number(0x37E,3,true);
@@ -130,7 +136,7 @@ public sealed class XblaExtractor {
             entries.Add(entry); slots.Add(n*64+slot,entry);
             if (entry.Directory) continue;
             uint lengthBytes=Number(at+52,4);
-            Need(lengthBytes<128*1024*1024, "Unsupported file size.");
+            Need(lengthBytes<=MaxBytes, "Unsupported file size.");
             entry.Bytes=(int)lengthBytes;
             int expected=(entry.Bytes+4095)/4096;
             Need(Number(at+44,3,true)==expected, "File size and block count disagree.");
@@ -143,9 +149,10 @@ public sealed class XblaExtractor {
         Need(result.Files.Count>0, "Package contains no files.");
         using (var hash=SHA256.Create()) result.PackageSha256=Hex(hash.ComputeHash(data));
         result.TitleId=Number(0x360,4).ToString("X8");
+        result.ContentType=expectedType.ToString("X8");
         result.CheckedBlocks=used.Count;
     }
-    public static XblaResult Extract(string input, string output) {
+    public static XblaResult Extract(string input, string output, uint expectedType) {
         input=System.IO.Path.GetFullPath(input); output=System.IO.Path.GetFullPath(output);
         Need(File.Exists(input), "InputPackage is not a file.");
         NoLinks(input); NoLinks(output);
@@ -154,14 +161,14 @@ public sealed class XblaExtractor {
         Need(!String.IsNullOrEmpty(parent) && Directory.Exists(parent), "OutputDir's parent folder must already exist.");
         byte[] bytes;
         using (var stream=new FileStream(input,FileMode.Open,FileAccess.Read,FileShare.Read)) {
-            Need(stream.Length>=0x400 && stream.Length<=256*1024*1024, "Expected an XBLA package no larger than 256 MiB.");
+            Need(stream.Length>=0x400 && stream.Length<=MaxBytes, "Expected an STFS package no larger than 512 MiB.");
             bytes=new byte[(int)stream.Length];
             int at=0;
             while (at<bytes.Length) { int read=stream.Read(bytes,at,bytes.Length-at); Need(read>0,"Truncated input."); at+=read; }
         }
         XblaExtractor archive=null;
         try {
-            archive=new XblaExtractor(bytes); // Validate every path/chain/hash before creating output.
+            archive=new XblaExtractor(bytes,expectedType); // Validate every path/chain/hash before creating output.
             NoLinks(output);
             Need(!File.Exists(output) && !Directory.Exists(output), "OutputDir appeared during validation.");
             string staging=System.IO.Path.GetFullPath(output+".extract-"+Guid.NewGuid().ToString("N"));
@@ -195,4 +202,5 @@ public sealed class XblaExtractor {
 }
 $inputPath = (Resolve-Path -LiteralPath $InputPackage).ProviderPath
 $outputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDir)
-[Evac.XblaExtractor]::Extract($inputPath, $outputPath) | ConvertTo-Json -Depth 5
+$contentType = if ($ContentKind -eq 'Dlc') { [uint32]2 } else { [uint32]0xD0000 }
+[Evac.XblaExtractor]::Extract($inputPath, $outputPath, $contentType) | ConvertTo-Json -Depth 5

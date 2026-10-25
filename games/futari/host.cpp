@@ -5,6 +5,7 @@
 #include "audio_guest_trace.h"
 #include "audio_diagnostics.h"
 #include "audio_wait_policy.h"
+#include "diagnostics/content_prepare.h"
 #include <rex/system/kernel_state.h>
 #include <rex/system/xam/content_manager.h>
 
@@ -35,11 +36,8 @@ private:
         }
         // Missing/disabled external content must not fall back to unvalidated
         // Marketplace files in a profile imported from an older installation.
-        auto source=run().content_source;
-        if (source.empty()) {
-            source=run().paths.prepared/"no-content";
-            std::filesystem::create_directories(source);
-        }
+        const auto source=cave::xbox360::PrepareContent(cave::FindGame("futari"),run().paths,run().content_source,run().content);
+        REXLOG_INFO("Prepared DLC mount: {}",cave::Utf8(source));
         runtime()->kernel_state()->content_manager()->SetReadOnlyContentRoot(source,std::move(allowed));
         FutariStartAudioWaitPolicy();FutariRegisterModuleAliases();
         audio_marker_=FutariCreateAudioMarker(window());FutariStartAudioGuestTrace();

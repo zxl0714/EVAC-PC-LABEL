@@ -10,10 +10,9 @@ import release_package as release
 
 class ProductTests(unittest.TestCase):
     def test_current_release_docs_and_component_notices(self):
-        package_name = 'EVAC-PC-LABEL-v' + product.VERSION + '-win-x64.zip'
         for name in ('README.md', 'README.en.md'):
             text = (ROOT / name).read_text(encoding='utf-8')
-            self.assertIn('/v' + product.VERSION + '/' + package_name, text)
+            self.assertIn(product.REPOSITORY_URL + '/releases/latest', text)
             self.assertIn('SHA-256', text)
             self.assertIn('*-module.bin', text)
             self.assertIn('.dmp', text)
@@ -21,6 +20,9 @@ class ProductTests(unittest.TestCase):
         player = (ROOT / 'config/README.player-v07.txt').read_text(encoding='utf-8')
         self.assertTrue(player.startswith(product.NAME + ' v' + product.VERSION + '\n'))
         self.assertIn(ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt', release.license_files())
+        self.assertIn(ROOT / 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/LICENSE.MIT', release.license_files())
+        self.assertIn('git submodule update --init -- third_party/rexglue/thirdparty/inja',
+                      (ROOT / 'FOR_AGENT.md').read_text(encoding='utf-8'))
 
     def test_current_build_executable_bat_and_windows_captions_agree(self):
         self.assertEqual(product.NAME, 'EVAC PC LABEL')
@@ -46,7 +48,21 @@ class ProductTests(unittest.TestCase):
         for version in ('0.1','0.2','0.3','0.3.1','0.3.2'):
             self.assertEqual(product.launcher(version), 'CAVE-PC-Collection.exe')
             self.assertEqual(product.slug(version), 'CAVE-PC-Collection')
-        self.assertEqual(release.DEFAULT_VERSION, '0.7.2')
+        self.assertEqual(release.DEFAULT_VERSION, product.VERSION)
         self.assertEqual(release.certified_name(product.LEGACY_LAUNCHER), product.LAUNCHER)
         self.assertEqual(release.certified_name('other.exe'), 'other.exe')
         self.assertEqual(release.UPDATE_PRESERVED, ('config.ini','user-data/','game-data/','prepared/','cache/','logs/','source/'))
+
+    def test_game_data_guides_have_matching_language_routes(self):
+        for suffix in ('', '.en'):
+            guide = ROOT / ('docs/GAME_DATA' + suffix + '.md')
+            text = guide.read_text(encoding='utf-8')
+            readme = (ROOT / ('README' + suffix + '.md')).read_text(encoding='utf-8')
+            self.assertIn('docs/' + guide.name, readme)
+            self.assertIn('(GAME_DATA.md)', text)
+            self.assertIn('(GAME_DATA.en.md)', text)
+            self.assertNotIn('.header', text)
+            for game in ('futari','espgaluda2','sdoj','guwange','ketsui','daioujou','esprade'):
+                self.assertIn('game-data/' + game + '/', text)
+        english = (ROOT / 'README.en.md').read_text(encoding='utf-8')
+        self.assertNotIn('docs/GAME_DATA.md', english)

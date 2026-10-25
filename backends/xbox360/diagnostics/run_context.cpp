@@ -143,6 +143,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     record["optionalContent"]=Json::array();
     for (const auto& package:run.content)
         record["optionalContent"].push_back({{"id",package.id},{"name",package.name},
+            {"directory",PathUtf8(package.directory)},
             {"state",cave::Name(package.state)},{"filesChecked",package.files_checked},
             {"hashesChecked",package.hashes_checked},{"problems",package.problems}});
     std::array<wchar_t,32768> executable{};

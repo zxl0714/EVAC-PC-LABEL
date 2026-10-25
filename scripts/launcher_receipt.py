@@ -24,6 +24,10 @@ def snapshot():
                 'scripts/generate_artwork.py', 'scripts/product.py', 'scripts/launcher_receipt.py', 'scripts/toolchain.py'}
     files = {name: digest(ROOT / name) for name in sorted(names) if name in explicit or
              name.startswith(('common/', 'launcher/')) or (name.startswith('games/') and name.endswith('/data.json'))}
+    json_header = 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/json.hpp'
+    if not (ROOT / json_header).is_file():
+        raise ValueError('Restore launcher JSON dependency: git submodule update --init -- third_party/rexglue/thirdparty/inja')
+    files[json_header] = digest(ROOT / json_header)
     tools = tool_snapshot(ROOT)
     state = dict(files=files, tools=tools)
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()

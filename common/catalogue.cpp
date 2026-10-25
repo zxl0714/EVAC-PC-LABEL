@@ -193,6 +193,11 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
   }
   return result;
 }
+fs::path ContentRelativePath(const ContentPackage& package, const DataFile& file) {
+  const auto prefix=std::string(package.directory)+"/";
+  if (!file.path.starts_with(prefix)) throw std::runtime_error("Content manifest file is outside its package");
+  return FromUtf8(file.path.substr(prefix.size()));
+}
 std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& requested, CheckLevel level) {
   std::vector<ContentInspection> results;
   for (const auto& package : game.content) {
@@ -202,53 +207,89 @@ std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& 
       if (requested.empty() || !fs::exists(requested)) { results.push_back(std::move(result)); continue; }
       const auto source = fs::canonical(requested);
       if (!fs::is_directory(source)) throw std::runtime_error("DLC source must be a directory");
-      const auto directory = DataChild(source, package.directory);
-      uint32_t present = 0;
       auto less = [](const fs::path& a, const fs::path& b) {
         return CompareStringOrdinal(a.c_str(), -1, b.c_str(), -1, TRUE) == CSTR_LESS_THAN;
       };
-      std::set<fs::path, decltype(less)> expected_paths(less);
-      for (const auto& expected : package.files) {
-        ++result.files_checked;
-        const auto file = DataChild(source, expected.path);
-        expected_paths.insert(FromUtf8(expected.path).make_preferred());
-        if (!fs::is_regular_file(file)) { result.problems.push_back("missing: " + std::string(expected.path)); continue; }
-        ++present;
-        const auto bytes = fs::file_size(file);
-        if (bytes != expected.bytes) { result.problems.push_back("size: " + std::string(expected.path)); continue; }
-        if (level == CheckLevel::Full) {
-          ++result.hashes_checked;
-          if (Sha256(file) != expected.sha256 || fs::file_size(file) != bytes)
-            result.problems.push_back("sha256: " + std::string(expected.path));
+      const auto unlinked=[&](const fs::path& path) {
+        for(auto current=path;current!=source;current=current.parent_path()) {
+          if(current.empty() || !Within(current,source))throw std::runtime_error("DLC path escapes source");
+          const auto attributes=GetFileAttributesW(current.c_str());
+          if(attributes!=INVALID_FILE_ATTRIBUTES && (attributes&FILE_ATTRIBUTE_REPARSE_POINT))
+            throw std::runtime_error("Linked DLC file or directory");
+        }
+      };
+      const auto canonical=FromUtf8(package.directory);
+      std::vector<fs::path> candidates;
+      std::set<fs::path,decltype(less)> seen(less);
+      const auto add=[&](fs::path path) {path=path.lexically_normal();if(seen.insert(path).second)candidates.push_back(std::move(path));};
+      add(source/canonical);
+      add(source/FromUtf8(package.package_name));add(source);
+      // Fixed-depth discovery covers extracted STFS folders and Xbox content
+      // trees without searching the drive or relying on a container's filename.
+      const auto title=canonical.parent_path().parent_path().filename();
+      const std::array parents{source,source/"00000002",source/title/"00000002",source/canonical.parent_path()};
+      for(const auto& parent:parents) {
+        unlinked(parent);
+        if(!fs::is_directory(parent))continue;
+        unsigned count=0;
+        for(const auto& entry:fs::directory_iterator(parent)) {
+          if(++count>64)throw std::runtime_error("Too many DLC folders; select a more specific DLC directory");
+          const auto attributes=GetFileAttributesW(entry.path().c_str());
+          if(attributes!=INVALID_FILE_ATTRIBUTES && !(attributes&FILE_ATTRIBUTE_REPARSE_POINT) && entry.is_directory())add(entry.path());
         }
       }
-      // A verified directory must not expose additional or linked payloads.
-      // The root itself may be an external path alias; links below it are not
-      // part of the supported extracted package layout.
-      for (auto part = FromUtf8(package.directory); !part.empty(); part = part.parent_path()) {
-        const auto path = source / part;
-        const auto attributes = GetFileAttributesW(path.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
-          throw std::runtime_error("Linked DLC package directory");
+      unsigned best_present=0;
+      for(const auto& directory:candidates) {
+        unlinked(directory);
+        if(!fs::is_directory(directory))continue;
+        unsigned present=0;
+        for(const auto& expected:package.files) {
+          const auto file=directory/ContentRelativePath(package,expected);unlinked(file);
+          if(fs::is_regular_file(file))++present;
+        }
+        if(!present && directory!=source/canonical)continue;
+        ContentInspection candidate;candidate.id=package.id;candidate.name=package.name;candidate.directory=directory;
+        std::set<fs::path,decltype(less)> expected_paths(less);
+        for(const auto& expected:package.files) {
+          ++candidate.files_checked;
+          auto relative=ContentRelativePath(package,expected);
+          const auto file=DataChild(directory,Utf8(relative));
+          expected_paths.insert(relative.make_preferred());
+          if(!fs::is_regular_file(file)) {candidate.problems.push_back("missing: "+Utf8(file));continue;}
+          if(fs::file_size(file)!=expected.bytes) {candidate.problems.push_back("size: "+Utf8(file));continue;}
+          if(level==CheckLevel::Full) {
+            ++candidate.hashes_checked;
+            if(Sha256(file)!=expected.sha256 || fs::file_size(file)!=expected.bytes)candidate.problems.push_back("sha256: "+Utf8(file));
+          }
+        }
+        unsigned entries=0;
+        for(const auto& entry:fs::recursive_directory_iterator(directory)) {
+          if(++entries>1024)throw std::runtime_error("Too many files in DLC payload directory");
+          unlinked(entry.path());
+          if(!entry.is_directory() && !expected_paths.contains(entry.path().lexically_relative(directory).make_preferred()))
+            candidate.problems.push_back("unexpected: "+Utf8(entry.path()));
+        }
+        candidate.state=candidate.problems.empty()?(level==CheckLevel::Full?DataState::Verified:DataState::Unverified):DataState::Incomplete;
+        if(candidate.problems.empty()) {result=std::move(candidate);break;}
+        if(result.state==DataState::Missing || present>best_present) {result=std::move(candidate);best_present=present;}
       }
-      if (fs::is_directory(directory)) for (const auto& entry : fs::recursive_directory_iterator(directory)) {
-        const auto attributes = GetFileAttributesW(entry.path().c_str());
-        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
-          throw std::runtime_error("Linked or unreadable DLC payload");
-        if (!entry.is_directory() && !expected_paths.contains(entry.path().lexically_relative(source).make_preferred()))
-          result.problems.push_back("unexpected: " + Utf8(entry.path().lexically_relative(source)));
-      }
-      // Header files also live outside the payload directory.
-      for (const auto& expected : package.files) {
-        for (auto part = FromUtf8(expected.path); !part.empty(); part = part.parent_path()) {
-          const auto attributes = GetFileAttributesW((source / part).c_str());
-          if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT))
-            throw std::runtime_error("Linked DLC file or parent directory");
+      if(result.state==DataState::Missing && !package.files.empty()) {
+        // Bounded structural hints for extra extraction wrappers. These paths
+        // are not accepted or mounted until the player selects and verifies one.
+        unsigned entries=0;
+        for(auto it=fs::recursive_directory_iterator(source);it!=fs::recursive_directory_iterator() && entries<256;++it,++entries) {
+          const auto attributes=GetFileAttributesW(it->path().c_str());
+          if(attributes==INVALID_FILE_ATTRIBUTES || (attributes&FILE_ATTRIBUTE_REPARSE_POINT)) {it.disable_recursion_pending();continue;}
+          if(it.depth()>=5)it.disable_recursion_pending();
+          if(!it->is_directory() || seen.contains(it->path().lexically_normal()))continue;
+          const auto marker=it->path()/ContentRelativePath(package,package.files.front());
+          unlinked(marker);
+          if(!fs::is_regular_file(marker))continue;
+          result.state=DataState::Nested;result.directory=it->path();
+          result.problems.push_back("Set [game."+std::string(game.id)+"] dlc_dir to: "+Utf8(it->path()));
+          break;
         }
       }
-      if (!present && !fs::exists(directory)) result.state = DataState::Missing;
-      else if (!result.problems.empty()) result.state = DataState::Incomplete;
-      else result.state = level == CheckLevel::Full ? DataState::Verified : DataState::Unverified;
     } catch (const std::exception& error) {
       result.state = DataState::Invalid; result.problems.push_back(error.what());
     }

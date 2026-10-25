@@ -161,7 +161,7 @@ def generate(root, destination):
         sources={entry['name']:Path(root)/entry['path'] for entry in brand}
         resources+=['201 RCDATA '+quoted(sources['logo'].resolve().as_posix()),
                     '1 ICON '+quoted(sources['icon'].resolve().as_posix())]
-    header+=['}']
+    header+=['inline constexpr char kProductVersion[]='+quoted(VERSION)+';', '}']
     for name,lines in [('artwork.h',header),('artwork.rc',resources)]:
         path=destination/name
         text='\n'.join(lines)+'\n'

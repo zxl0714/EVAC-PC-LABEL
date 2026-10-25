@@ -6,6 +6,55 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.3 DLC import and update check — implementation in progress
+
+The user requires fixing the external-player DLC setup gap in v0.7.3.
+Only Futari previously required generated .header sidecars as input; the other
+six titles do not. The plan in docs/IMPLEMENTATION_PLAN.md covers automatic
+metadata, plain extracted payloads/original-package guidance, common nested
+layouts, external-root selection and bilingual placement instructions.
+Keep the existing ROM/DLC directory layout; do not replace it with named mode
+folders or move user inputs. Generated headers/canonical runtime copies may
+live in a separate prepared/cache directory, as the user explicitly clarified.
+The launcher provides a simple automatic GitHub Release check:
+launcher-only background checks, 24-hour successful-result
+cache, a release-page link in the notice and independent config switch;
+no automatic download/install. Each new release is automatically announced only
+once, persisted after the notice is shown. Keep the launcher free of persistent
+version/update text and manual-check controls, per the user's UI correction.
+Use Open release page / Close, without Later / Skip choices.
+Public-facing documentation should describe the feature and its behavior, not
+research-process notes. Preserve required third-party licenses and attribution.
+Player setup guides should state required files, paths and actions; omit
+implementation explanations such as generated .header files and cache mechanics.
+Implementation is present but not release-certified. Current checks pass:
+539 common native checks, generated DLC cache preparation/enumeration with
+synthetic payloads, 48 update model/cache/lifetime checks, hidden launcher
+UI checks (including deferred and once-per-version reminders), 18 catalogue,
+12 native CLI, 9 STFS extraction and 46 packaging cases (one existing symlink
+skip). The native update fetch made one real read-only GitHub request and
+returned v0.7.2. Real local Futari payload hashes verify with no header in the
+manifest (four Black Label resources and one Ver.1.01 resource).
+Visible update-notice dismissal and cold restart without a repeated notice pass.
+The local v9.0 fixture is not a published version; the user rejected its footer
+label, so all persistent version/update text and manual UI have been removed.
+Actual Futari enumeration exposed native display-name comparisons: metadata now
+uses the exact Japanese names, separate from launcher labels. Both DLC options
+are enabled. Run 20261025T175705513Z-111648 passed Black Label Arcade first-stage
+entry, return to top menu, and Ver.1.01 Arcade first-stage entry in one process.
+It closed normally at 02:02:16 on October 26. Five original/fixture DLC payloads
+retain their hashes. The fixture added I/J/K/L direction aliases for computer
+use only; product bindings are unchanged. Do not repeat these gameplay gates.
+The complete English game-data guide and reciprocal links are present; README
+download links now use releases/latest. Product checks and local guide links pass.
+No final certified build or v0.7.3 package exists yet. Direct incremental builds
+under out/common and out/xbox360 are mechanism builds only; receipts have not
+been renewed. Keep frozen v0.7.2 intact. 300 hidden UI checks pass after footer
+removal; the updated visible launcher also has no persistent update text.
+Next: commit implementation, certify all seven components and package once.
+Current changes are uncommitted. Do not publish a GitHub release
+or group message on the basis of this checkpoint.
+
 ### v0.7.2 complete package follow-up — delivered October 25
 
 The user subsequently requested a complete v0.7.2 package. Internal is built

@@ -1,6 +1,8 @@
 # 游戏数据指南
 
-本文对应 v0.6.1 的数据布局。EVAC PC LABEL 可以只安装一款游戏；缺少其他作品的数据不影响使用。
+[简体中文](GAME_DATA.md) | [English](GAME_DATA.en.md)
+
+按需准备要玩的游戏数据即可。
 
 ## 先选哪一种放法
 
@@ -87,27 +89,49 @@ game-data/futari/
 
 使用完整的 Xbox 360 Ver.1.5 数据。Black Label 和 Ver.1.01 为可选 DLC，不是游玩本体的前提。没有 DLC 时，`dlc/` 可以留空或不存在，不必修改配置；Ver.1.5 本体仍可运行，Black Label 不可选、Ver.1.01 不显示。
 
-DLC 默认放在 `game-data/futari/dlc/`，使用已经提取的内容包目录，保留原目录名、包标识和配套头文件：
+DLC 默认查找本体目录下的 `dlc/`。本体使用默认位置时，推荐保持以下内容树：
 
 ```text
 game-data/futari/dlc/
   0000000000000000/
     435A07D7/
       00000002/
-        <原内容包目录>/...
-      Headers/
-        00000002/
-          <原内容包标识>.header
+        496F816DD4B53DAEFF931838B6C69831AAD7663043/
+          spa.bin
+          Rom/cg_black.bin
+          Rom/cg_blackhi.bin
+          Rom/dropprm.bl
+        9893A78CA6062B935BD1F53EA43CFD546B7246DF43/
+          ver101_key.bin
 ```
 
-尖括号表示原文件中已有的名称，不是需要新建的字面目录；完整复制原有内容，不将包目录改名成 `Black Label` 或 `Ver.1.01`。使用其他 DLC 位置时，在 `user-data/config.ini` 中修改：
+`496F...` 是 Black Label，`9893...` 是 Ver.1.01，两项可分别安装。Black Label 需要 `spa.bin` 和三个 `Rom/` 文件；不要仅复制 `spa.bin`。
+
+已有完整内容树或 `dlc/00000002/<包目录>/` 都能识别，保留现有目录即可。
+
+如果手头是原始 DLC 容器（通常是一个很长的、无扩展名的文件），先创建 `D:\GameExtract`，再在合集根目录运行：
+
+```powershell
+.\tools\Extract-Dlc.ps1 -InputPackage "D:\Games\DLC容器" -OutputDir "D:\GameExtract\futari-dlc"
+```
+
+输出目录须尚不存在；解包后把**里面的内容**放到上图对应的包目录。脚本支持不超过 512 MiB 的 LIVE／PIRS 单哈希表副本容器，校验文件链和资源块，保留原容器。源码仓库中的脚本位于 `scripts/Extract-Dlc.ps1`，与 `Extract-Xbla.ps1` 放在一起使用。
+
+默认配置会跟随启动器所选的本体目录：
+
+```ini
+[game.futari]
+dlc_dir = auto
+```
+
+例如本体选为 `D:/Games/Futari`，就查找 `D:/Games/Futari/dlc`。旧配置中已经写明的路径会继续使用；要跟随本体，将其改为 `auto`。使用其他 DLC 位置时填写具体路径：
 
 ```ini
 [game.futari]
 dlc_dir = D:/Games/Futari/DLC
 ```
 
-“选择数据目录…”只设置本体位置。默认配置已明确指定 `game-data/futari/dlc`，因此选择外部本体后，DLC 路径仍需按实际位置设置，不会自动跟着本体目录移动。
+选中虫姬二后点击启动器底部“详情”，可以看到实际 DLC 查找目录及 Black Label／Ver.1.01 的识别状态。显示缺文件或哈希不匹配时，补齐对应资源。
 
 ### エスプガルーダII ブラックレーベル（espgaluda2）
 

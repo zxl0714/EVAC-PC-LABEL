@@ -13,6 +13,12 @@ static unsigned show_requests{},foreground_requests{};
 static int last_show_request{};
 static std::vector<int> nickname_responses;
 static std::vector<std::wstring> nickname_details;
+static std::vector<int> update_responses;
+static std::vector<std::wstring> update_notices;
+static HWND update_foreground{};
+static bool update_dialog_failure{};
+static HWND WINAPI FixtureGetForeground(){return update_foreground?update_foreground:GetForegroundWindow();}
+static BOOL WINAPI FixtureVisible(HWND window){return window==update_foreground?TRUE:IsWindowVisible(window);}
 struct PaintRequest { HWND window; RECT area; bool whole; BOOL erase; };
 static std::vector<PaintRequest> paint_requests;
 static BOOL WINAPI FixtureInvalidate(HWND window,const RECT* area,BOOL erase) {
@@ -20,6 +26,12 @@ static BOOL WINAPI FixtureInvalidate(HWND window,const RECT* area,BOOL erase) {
   return InvalidateRect(window,area,erase);
 }
 static HRESULT WINAPI FixtureNicknameDialog(const TASKDIALOGCONFIG* config,int* result,int*,BOOL*) {
+  if(config->cButtons==2 && config->pButtons[0].nButtonID==IDYES && config->pButtons[1].nButtonID==IDCANCEL) {
+    if(update_dialog_failure)return E_FAIL;
+    if(update_responses.empty()){++unexpected_dialogs;return E_FAIL;}
+    update_notices.emplace_back(config->pszMainInstruction);
+    *result=update_responses.front();update_responses.erase(update_responses.begin());return S_OK;
+  }
   if(nickname_responses.empty()) {++unexpected_dialogs;return E_FAIL;}
   if(config->nDefaultButton!=IDCANCEL || config->cButtons!=2 || config->pButtons[0].nButtonID!=IDCANCEL ||
       config->pButtons[1].nButtonID!=IDYES || !(config->dwFlags&TDF_ALLOW_DIALOG_CANCELLATION)) {
@@ -44,7 +56,11 @@ static int WINAPI FixtureDialog(HWND,LPCWSTR,LPCWSTR,UINT) {
 #define SetForegroundWindow FixtureForeground
 #define TaskDialogIndirect FixtureNicknameDialog
 #define InvalidateRect FixtureInvalidate
+#define GetForegroundWindow FixtureGetForeground
+#define IsWindowVisible FixtureVisible
 #include "../../launcher/main.cpp"
+#undef IsWindowVisible
+#undef GetForegroundWindow
 #undef InvalidateRect
 #undef TaskDialogIndirect
 #undef SetForegroundWindow
@@ -87,6 +103,8 @@ struct Fixture {
 struct Frame {
   App app;
   explicit Frame(const fs::path& root,std::string_view selection={},bool minimized=false):app(Options{.root=root,.selection=std::string(selection)}) {
+    // Keep player config bytes intact while replacing only network I/O.
+    app.update_fetch=[]{return update::Result{false,{},"fixture transport"};};
     Require(CreateWindowExW(0,kWindowClass,kWindowTitle,WS_OVERLAPPEDWINDOW|WS_VSCROLL|WS_CLIPCHILDREN|(minimized?WS_MINIMIZE:0),
         0,0,1080,900,nullptr,nullptr,GetModuleHandleW(nullptr),&app)!=nullptr,"Create hidden production launcher window");
     Settle();Require(app.preferences_available,"Load quick settings");
@@ -101,6 +119,42 @@ struct Frame {
   }
 };
 void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname,std::wstring_view game=L"futari");
+void UpdateChecks() {
+  Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
+  app.update_request.reset();app.update_auto=true;
+  app.update_state.latest=update::Release{"v9.0",std::string(update::kReleasePrefix)+"v9.0","Authored UI fixture"};
+  const auto before=update_notices.size();
+  app.UpdateTick();Require(update_notices.size()==before && app.update_state.notified.empty(),"Hidden launcher displayed/marked reminder");
+  update_foreground=app.hwnd;app.busy=true;app.UpdateTick();app.busy=false;
+  Require(update_notices.size()==before && app.update_state.notified.empty(),"Busy launcher reminder");
+  app.child.emplace();app.UpdateTick();app.child.reset();
+  Require(update_notices.size()==before && app.update_state.notified.empty(),"Running game reminder");
+  app.preferences_dirty=true;app.UpdateTick();app.preferences_dirty=false;
+  Require(update_notices.size()==before,"Nickname editing interrupted");
+  update_dialog_failure=true;bool failed=false;
+  try{app.ShowUpdate();}catch(...){failed=true;}update_dialog_failure=false;
+  Require(failed && app.update_state.notified.empty(),"Failed dialog counted as shown");
+  update_responses.push_back(IDCANCEL);app.UpdateTick();
+  Require(update_notices.size()==before+1 && app.update_state.notified.contains("v9.0"),"Visible reminder missing");
+  app.UpdateTick();Require(update_notices.size()==before+1,"Same session repeated reminder");
+  app.update_state=update::Load(fixture.root);app.UpdateTick();
+  Require(update_notices.size()==before+1,"Cold state repeated reminder");
+  app.update_state.latest=update::Release{"v9.1",std::string(update::kReleasePrefix)+"v9.1","Next release"};
+  update_responses.push_back(IDYES);app.UpdateTick();
+  Require(update_notices.size()==before+2,"Next release not announced");
+  Require(!opened_paths.empty() && opened_paths.back()==FromUtf8(std::string(update::kReleasePrefix)+"v9.1"),"Notice did not open release page");
+  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
+  app.ManualRefresh();frame.Settle();
+  Require(!app.update_auto,"Refresh ignored disabled update setting");
+  app.update_state.latest=update::Release{"v9.2",std::string(update::kReleasePrefix)+"v9.2","Pending release"};
+  app.UpdateTick();Require(update_notices.size()==before+2,"Disabled updates displayed pending reminder");
+  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=true\n");
+  app.update_state.checked=update::Now();app.ManualRefresh();frame.Settle();
+  Require(app.update_auto && !app.update_request,"Refresh ignored enabled setting or bypassed cache");
+  update_responses.push_back(IDCANCEL);app.UpdateTick();
+  Require(update_notices.size()==before+3,"Reenabled reminder missing");
+  update_foreground=nullptr;
+}
 void SelectionChecks() {
   Fixture fixture;
   const auto ini="\xef\xbb\xbf; keep selected-game fixture\r\n[collection]\r\nconfig_version=1\r\nlanguage=en\r\nselected_game=daioujou\r\n[community]\r\nnickname=Baseline\r\n[future]\r\nvalue=untouched\r\n";
@@ -356,6 +410,7 @@ void MainChecks() {
   NicknameAlignmentChecks();
   PreferenceRepaintChecks();
   InstanceChecks();
+  UpdateChecks();
 }
 }
 int wmain(int count,wchar_t** arguments) {

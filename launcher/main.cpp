@@ -9,6 +9,7 @@
 #include "launcher/preferences.h"
 #include "launcher/nickname.h"
 #include "launcher/single_instance.h"
+#include "launcher/update_check.h"
 #include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
@@ -39,6 +40,7 @@ namespace {
 constexpr UINT kWorkDone=WM_APP+1;
 constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT_PTR kChildTimer=1;
+constexpr UINT_PTR kUpdateTimer=2;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr wchar_t kWindowClass[]=L"EVACPCLabel.Launcher.v1";
 constexpr wchar_t kWindowTitle[]=L"EVAC PC LABEL";
@@ -49,6 +51,7 @@ HICON BrandIcon(HINSTANCE instance,int size) {
   return icon;
 }
 using cave::launcher::Language;
+namespace update=cave::launcher::update;
 Language language=Language::Chinese;
 const wchar_t* T(std::wstring_view key) {return cave::launcher::Translate(language,key);}
 void Check(HRESULT status,const char* operation) {
@@ -174,7 +177,7 @@ Options Arguments() {
   if (!options.game.empty() && !options.selection.empty())throw std::runtime_error("Use --game to launch directly, or --select to open the launcher");
   return options;
 }
-struct Row {Inspection inspection;};
+struct Row {Inspection inspection;fs::path content_source;std::vector<ContentInspection> content;};
 std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
   std::vector<Row> rows(Catalogue().size());
   for(size_t index=0;index<rows.size();++index) {
@@ -189,6 +192,11 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
         rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick);
+        const auto content=ini.ContentDirectory(game,rows[index].inspection.data_dir);
+        if(!game.content.empty()) {
+          rows[index].content_source=content.empty()?fs::path{}:Resolve(root,content);
+          rows[index].content=InspectContent(game,rows[index].content_source,CheckLevel::Quick);
+        }
       } catch (const std::exception& error) {
         rows[index].inspection.game=game.id;rows[index].inspection.state="invalid_config";rows[index].inspection.reason=error.what();
       }
@@ -424,7 +432,7 @@ class Renderer {
     Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
     Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
     Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"日志"));
-    Button(target,layout.detail(),T(L"详情"),false,busy||running||CanPlay(inspection)||Catalogue()[selected].coming_soon);
+    Button(target,layout.detail(),T(L"详情"),false,busy||running||Catalogue()[selected].coming_soon);
     if (focus>=4 && focus<10) {
       const auto rectangle=focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail()))));
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
@@ -463,6 +471,81 @@ class App {
     message=T(L"正在检测游戏数据…");
   }
   ~App() {if(work)work->alive=false;if(worker.joinable())worker.detach();}
+  void SaveUpdateState() noexcept {
+    try {update::Save(options.root,update_state);}
+    catch(const std::exception& error){Log(options.root,error.what());}
+  }
+  void RefreshUpdates() {
+    update_auto=false;
+    try {
+      update_auto=update::Enabled(Ini::Load(ConfigPath(options.root)));
+      if(update_auto && !update_request && update::ParseVersion(cave::launcher::kProductVersion) && update::Due(update_state,update::Now()))
+        update_request.emplace(update_fetch);
+    }catch(const std::exception& error){Log(options.root,error.what());}
+  }
+  void StartUpdates() {
+    update_state=update::Load(options.root);RefreshUpdates();
+    SetTimer(hwnd,kUpdateTimer,500,nullptr);
+  }
+  bool HasUpdate() const {return update_state.latest && update::Newer(cave::launcher::kProductVersion,*update_state.latest);}
+  void ShowUpdate() {
+    if(update_dialog || child || busy || !HasUpdate())return;
+    update_dialog=true;struct Guard{bool& value;~Guard(){value=false;}} guard{update_dialog};
+    const auto release=*update_state.latest;
+    const auto title=std::wstring(T(L"发现新版本 "))+Wide(release.tag);
+    auto notes=release.notes.empty()?std::wstring(T(L"发布页提供更新说明和下载。")):Wide(release.notes);
+    size_t cut=0,lines=0;
+    for(;cut<notes.size() && cut<800 && lines<12;++cut)if(notes[cut]==L'\n')++lines;
+    if(cut<notes.size()) {
+      if(cut && notes[cut-1]>=0xd800 && notes[cut-1]<=0xdbff)--cut;
+      notes.resize(cut);notes+=L"\n…";
+    }
+    const TASKDIALOG_BUTTON buttons[]{{IDYES,T(L"打开发布页")},{IDCANCEL,T(L"关闭")}};
+    TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);dialog.hwndParent=hwnd;
+    dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
+    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=title.c_str();dialog.pszContent=notes.c_str();
+    dialog.cButtons=UINT(std::size(buttons));dialog.pButtons=buttons;dialog.nDefaultButton=IDCANCEL;
+    dialog.cxWidth=420;int result=IDCANCEL;
+    Check(TaskDialogIndirect(&dialog,&result,nullptr,nullptr),"Show update notice");
+    // Only a successfully displayed dialog counts as a reminder. Fetching,
+    // caching and deferring while a game runs never mark the release as shown.
+    update_state.notified.insert(release.tag);SaveUpdateState();
+    if(result==IDYES && update::Trusted(release))OpenPath(hwnd,FromUtf8(release.url));
+  }
+  void UpdateTick() {
+    if(update_dialog)return;
+    if(update_request) {
+      if(auto result=update_request->Poll()) {
+        update_request.reset();update::Apply(update_state,*result,update::Now());SaveUpdateState();
+        if(!result->okay)Log(options.root,"update-check: "+result->error);
+      }
+    }
+    // Do not interrupt a running game, another application, minimization or an
+    // in-progress nickname edit. Leave the reminder pending until the launcher
+    // is in use again.
+    if(child || busy || close_requested || preferences_dirty || !IsWindowVisible(hwnd) || IsIconic(hwnd) || GetForegroundWindow()!=hwnd)return;
+    if(update_auto && !update_request && update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
+  }
+  void ShowDetails() {
+    if(busy || child || Catalogue()[selected].coming_soon)return;
+    const auto& row=rows[selected];
+    std::wstring body=Wide(Catalogue()[selected].DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
+    if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
+    if(!row.content.empty()) {
+      body+=L"\n\n"+std::wstring(T(L"DLC 查找目录："))+(row.content_source.empty()?T(L"已禁用"):row.content_source.native());
+      for(const auto& item:row.content) {
+        const auto* status=item.state==DataState::Verified?T(L"已就绪"):
+          item.state==DataState::Unverified?T(L"数据已找到 · 启动时校验"):
+          item.state==DataState::Missing?T(L"未安装"):
+          item.state==DataState::Nested?T(L"解压目录层级不正确"):
+          item.state==DataState::Incomplete?T(L"资源不完整或不匹配"):T(L"数据路径不可用");
+        body+=L"\n\n"+Wide(item.name)+L" — "+status;
+        if(!item.directory.empty())body+=L"\n"+item.directory.native();
+        if(!item.problems.empty())body+=L"\n"+Wide(item.problems.front());
+      }
+    }
+    MessageBoxW(hwnd,body.c_str(),T(L"游戏数据详情"),MB_OK|MB_ICONINFORMATION);
+  }
   void PersistSelection() noexcept {
     try {cave::launcher::SaveSelection(options.root,selected);}
     catch(const std::exception& error) {Log(options.root,error.what());}
@@ -561,7 +644,7 @@ class App {
     if(busy||child)return;
     if(preferences_dirty && MessageBoxW(hwnd,T(L"刷新将放弃尚未保存的快捷设置，重新读取 config.ini。继续吗？"),
         T(L"刷新配置"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
-    ReloadPreferences();Refresh();
+    ReloadPreferences();RefreshUpdates();Refresh();
   }
   void Select(size_t index) {
     if(work && (work->starting||work->copying))return;
@@ -598,7 +681,7 @@ class App {
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
-          if(slot==9 && (busy||child||CanPlay(rows[selected].inspection)||Catalogue()[selected].coming_soon))continue;
+          if(slot==9 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
         }
@@ -751,7 +834,7 @@ class App {
     if(Inside(layout.refresh(),x,y)) {ManualRefresh();return;}
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
     if(Inside(layout.detail(),x,y)) {
-      if(!busy&&!child&&!CanPlay(rows[selected].inspection)&&!Catalogue()[selected].coming_soon)Error(hwnd,Details(rows[selected].inspection));
+      ShowDetails();
       return;
     }
     if(y<layout.header() || y>layout.footer())return;
@@ -766,7 +849,7 @@ class App {
     try {
       if(message==cave::launcher::ActivationMessage()) {app->Activate();return 1;}
       switch(message) {
-        case WM_CREATE:app->CreatePreferences();app->Refresh();return 0;
+        case WM_CREATE:app->CreatePreferences();app->Refresh();app->StartUpdates();return 0;
         case WM_GETMINMAXINFO:{auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};return 0;}
         case WM_SIZE:{if(first==SIZE_MINIMIZED)return 0;
           const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
@@ -814,7 +897,7 @@ class App {
             app->message=T(L"正在复制并校验数据… ")+std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
             InvalidateRect(window,nullptr,FALSE);
           }return 0;
-        case WM_TIMER:app->ChildTick();return 0;
+        case WM_TIMER:if(first==kUpdateTimer)app->UpdateTick();else if(first==kChildTimer)app->ChildTick();return 0;
         case WM_CLOSE:
           if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=T(L"正在取消复制，请稍候…");InvalidateRect(window,nullptr,FALSE);return 0;}
           if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
@@ -848,6 +931,10 @@ class App {
   std::thread worker;
   std::optional<ChildProcess> child;
   std::string active_game;
+  update::State update_state;
+  std::function<update::Result()> update_fetch=update::Fetch;
+  std::optional<update::Request> update_request;
+  bool update_auto{},update_dialog{};
 };
 void Preview(const Options& options) {
   if(fs::exists(options.preview))throw std::runtime_error("Preserve the existing launcher preview");

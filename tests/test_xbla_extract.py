@@ -13,15 +13,21 @@ SCRIPT = ROOT / 'scripts/Extract-Xbla.ps1'
 SHELL = shutil.which('powershell.exe') if os.name == 'nt' else None
 
 
-def fixture(*, boundary=False):
+def fixture(*, boundary=False, dlc=False):
     first = 0xA000
-    blocks = 171 if boundary else 3
-    offset = lambda b: first + (b + 1 + b // 170 + (1 if b >= 170 else 0)) * 4096
+    edge = 28900 if boundary == 'level2' else 170
+    blocks = edge + 1 if boundary else 3
+    def offset(block):
+        # Number of level 0 / 1 / 2 tables before this data block.
+        physical = block + block // 170 + 1
+        if block >= 170: physical += block // 28900 + 1
+        if block >= 28900: physical += 1
+        return first + physical * 4096
     data = bytearray(offset(blocks - 1) + 4096)
     def put(at, value, size=4, order='big'):
         data[at:at+size] = value.to_bytes(size, order)
     data[:4] = b'LIVE'
-    put(0x340, first); put(0x344, 0xD0000); put(0x360, 0x58410A78)
+    put(0x340, first); put(0x344, 2 if dlc else 0xD0000); put(0x360, 0x435A07D7 if dlc else 0x58410A78)
     data[0x379] = 0x24; data[0x37B] = 1
     put(0x37C, 1, 2, 'little'); put(0x395, blocks)
     table = offset(0)
@@ -30,14 +36,18 @@ def fixture(*, boundary=False):
     entry = table+64
     data[entry:entry+10] = b'sample.bin'; data[entry+40] = 10
     put(entry+44, 2, 3, 'little')
-    put(entry+47, 169 if boundary else 1, 3, 'little')
+    put(entry+47, edge-1 if boundary else 1, 3, 'little')
     put(entry+50, 0, 2); put(entry+52, 4101)
-    chain = [169, 170] if boundary else [1, 2]
+    chain = [edge-1, edge] if boundary else [1, 2]
     expected = b'A' * 4096 + b'hello'
     data[offset(chain[0]):offset(chain[0])+4096] = expected[:4096]
     data[offset(chain[1]):offset(chain[1])+5] = expected[4096:]
     def hash_offset(block):
-        return first + (0 if block < 170 else block // 170 * 171 + 1) * 4096 + block % 170 * 24
+        # Each level-zero table immediately precedes its first data block,
+        # except at a hierarchy boundary which adds upper-level tables first.
+        first_block = block // 170 * 170
+        table = offset(first_block) - 4096
+        return table + block % 170 * 24
     def rehash(block, next_block=0xFFFFFF):
         at = hash_offset(block)
         data[at:at+20] = hashlib.sha1(data[offset(block):offset(block)+4096]).digest()
@@ -56,10 +66,11 @@ class XblaExtractTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def run_helper(self, data, *, label='case', output=None, success=True):
+    def run_helper(self, data, *, label='case', output=None, success=True, dlc=False):
         source = self.root / (label+'.package'); source.write_bytes(data)
         output = output or self.root / (label+' extracted')
-        result = subprocess.run([SHELL, '-NoProfile', '-File', str(SCRIPT),
+        script = ROOT / 'scripts/Extract-Dlc.ps1' if dlc else SCRIPT
+        result = subprocess.run([SHELL, '-NoProfile', '-File', str(script),
                                  '-InputPackage', str(source), '-OutputDir', str(output)],
                                 capture_output=True, timeout=30)
         self.assertEqual(source.read_bytes(), data, 'Input was modified')
@@ -83,6 +94,16 @@ class XblaExtractTests(unittest.TestCase):
                 self.assertEqual(report['Files'][0]['Sha256'], hashlib.sha256(expected).hexdigest())
                 self.assertEqual({p.relative_to(output).as_posix() for p in output.rglob('*')},
                                  {'module', 'module/sample.bin'})
+
+    def test_dlc_level_two_boundary_and_content_type(self):
+        data, expected, *_ = fixture(boundary='level2', dlc=True)
+        output, report = self.run_helper(data, label='dlc-level2', dlc=True)
+        self.assertEqual((output/'module/sample.bin').read_bytes(), expected)
+        self.assertEqual((report['TitleId'], report['ContentType']), ('435A07D7', '00000002'))
+        small, *_ = fixture(dlc=True)
+        self.run_helper(small, label='dlc-as-xbla', success=False)
+        xbla, *_ = fixture()
+        self.run_helper(xbla, label='xbla-as-dlc', dlc=True, success=False)
 
     def test_pirs_and_empty_file(self):
         data, _, put, rehash, _, entry = fixture()
