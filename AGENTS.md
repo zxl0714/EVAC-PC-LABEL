@@ -6,7 +6,7 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.1 — implemented and local packages accepted
+### v0.7.1 — implemented, packaged and uploaded
 
 Final seven-game build and both local packages are complete at source
 f43852eae98263ab6d5a008e5f16849d952c704b. This supersedes the pending-build
@@ -19,9 +19,13 @@ contains source or user configuration. All package paths are ASCII; all seven
 placement guides are README.txt. 44 shared runtime hashes and nine preservation
 sentinels per package pass. Evidence: .local/v071-investigation/final-package-set-r1.json
 and .local/release-acceptance-v071/. No repeat extraction/build is needed.
-Implementation is pushed to main. No v0.7.1 OSS upload or group announcement has
-been performed. C:/evac-pc-label and frozen releases remain untouched. All owned
-test/build/package sessions are closed. Audio behavior was not changed: targeted
+Implementation and tag v0.7.1 are pushed. The user requested delivery on October
+25; both accepted ZIPs and checksum sidecars are now uploaded at fixed v0.7.1/
+OSS keys, public-read without expiry. HEAD length/SHA metadata, 32-byte Range GET
+and public checksum checks pass; see .local/v071-{public,internal}-oss-verified-r1.json.
+No repeat build/extraction or old-object replacement was performed. No group
+announcement has been sent. C:/evac-pc-label and frozen releases remain untouched.
+All owned test/build/package/upload sessions are closed. Audio behavior was not changed: targeted
 mode/event/F8 reproduction remains follow-up work, not a claimed audio fix.
 
 The user approved isolated launcher/Guwange desktop testing on October 25.
@@ -36,7 +40,7 @@ claim of observed viewport displacement or captured transient flicker.
 42 package checks (one existing symlink skip), 12 native CLI and five source-
 boundary checks passed earlier. No new release, upload or player-file replacement.
 
-Active goal remains implement v0.7.1. Guwange host build r1 and 20 PE/PDB pairs
+Earlier development checkpoint, superseded above: Guwange host build r1 and 20 PE/PDB pairs
 pass. Development runtime/ is staged; the isolated copy verifies all 16 files.
 Actual run 103400 (20261024T182017406Z) returned through Game Library, logged
 Execution complete -> Window closing -> hard exit within 215ms. Its process is

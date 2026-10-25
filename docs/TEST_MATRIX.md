@@ -2,13 +2,14 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
-## v0.7.1 最终构建与本地发行包
+## v0.7.1 最终构建与发行包
 
 - 运行源码固定为 `f43852eae98263ab6d5a008e5f16849d952c704b`。七款组件和启动器同提交构建，PS4／Xbox 360／启动器分别核对 6／68／2 对 PE/PDB。日志 `.local/v071-investigation/seven-game-final-build-r1.log`；8 组相关最终原生回归通过，见 `final-native-r1.log`。复用下节已接受的 UI、Team Play 进关及 Guwange 退出／重启，不重跑完整模式。
 - 程序包：106028374 字节，147 个清单文件，SHA-256 `d4b8233737d92317be482034ffb109172c9a79d98de40f73a92a5b214d6a05c2`；不含 ROM、PDB、源码和用户配置。
 - 内部包：8230162441 字节，696 个清单文件，SHA-256 `a322d74d9488a59a48a8fea314d11ec61951b2ab1c922db6539d4e342526def1`；包含七款完整数据、虫姬二两份 DLC 及匹配符号，不含源码、用户配置、存档或日志。
 - 每份 ZIP 实际解压一次；44 个共用运行文件哈希一致，9 类覆盖保留哨兵检查均通过；包内路径全部 ASCII、七份数据放置说明均为 `README.txt`，没有重复旧名入口。证据 `.local/release-acceptance-v071/{d4b8233737d92317,a322d74d9488a59a}/accepted.json`，汇总 `.local/v071-investigation/final-package-set-r1.json`。
-- 修复源码已推送。两包仅在本地，尚未上传 OSS 或群通知；`C:/evac-pc-label`、原始游戏数据和既有版本包未改动。以下音效调查不是音效修复验收。
+- 修复源码与 `v0.7.1` 标签已推送。10 月 25 日按用户要求上传两包及校验文件到固定 `v0.7.1/` OSS 路径，不设到期时间；公开 HEAD 200、长度及 SHA 元数据、32 字节 Range GET 206 和校验文件均一致。收据 `.local/v071-{public,internal}-oss-verified-r1.json`；沿用已接受 ZIP，没有重建、重复解压或完整下载。
+- 尚未发群通知；`C:/evac-pc-label`、原始游戏数据和既有版本包未改动。以下音效调查不是音效修复验收。
 
 ## v0.7.1 开发短回归
 
