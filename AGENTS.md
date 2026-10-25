@@ -6,6 +6,19 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.3 GitHub Release — delivered October 26
+
+The user accepted the refreshed package and authorized push/publication.
+Main through 74e34fc and annotated tag v0.7.3 are pushed; the tag stays fixed.
+Published at https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.3
+at 02:47 Asia/Shanghai, marked Latest, with bilingual release notes.
+Assets are the accepted 106289507-byte program ZIP (SHA256 2a402a850285b827b856ca133e00731dcc27ca168cf9ff7aed1b57bb0b669c82)
+and its .sha256 file only. Anonymous GitHub API verifies both sizes, hashes,
+uploaded states and the non-draft/non-prerelease status. No ROM/internal asset.
+Evidence: .local/v073-github-delivery-r1.json and .local/v073-github-release.jpg.
+No rebuild, repeat extraction, OSS upload or group message. Delivery records
+do not change the release tag/package; reuse the accepted package and tests.
+
 ### v0.7.3 placement-guide refresh — packaged locally
 
 All seven placement guides now use directory trees and short bilingual setup
