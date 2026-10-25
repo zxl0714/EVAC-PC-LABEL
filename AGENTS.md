@@ -6,7 +6,22 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.3 DLC import and update check — implementation in progress
+### v0.7.3 DLC import and update check — implemented and packaged locally
+
+Release source 906bf98a2087cc607c4d03bfea30558ae020c9aa is committed locally.
+All seven components are built at that source; 70 Xbox, 6 PS4 and 2 launcher
+binary/PDB pairs verify. Five focused final CTests pass. Program ZIP:
+releases/v0.7.3-906bf98/EVAC-PC-LABEL-v0.7.3-win-x64.zip, 106171080 bytes,
+SHA256 3ad734833d830e600efaf8203d6ffddc71f750bccc099d3c6bc3166ecae42b3c.
+One actual extraction passes: 150 files, 9 preservation sentinels, no ROM/source/
+PDB/user config; DLC helpers and JSON license included. File version0.7.3.0.
+Receipt .local/release-acceptance-v073/3ad734833d830e60/accepted.json; logs
+.local/v073-{build,native,package,accept}-r1.log. Development root launcher
+matches the packaged EXE; all owned test windows and build sessions are closed.
+No push, tag, upload, GitHub Release or QQ announcement is performed here.
+Do not repeat accepted gameplay/build/extraction or overwrite frozen releases.
+Documentation below records implementation evidence; delivery notes do not
+change the frozen package's source commit.
 
 The user requires fixing the external-player DLC setup gap in v0.7.3.
 Only Futari previously required generated .header sidecars as input; the other
@@ -27,7 +42,7 @@ Public-facing documentation should describe the feature and its behavior, not
 research-process notes. Preserve required third-party licenses and attribution.
 Player setup guides should state required files, paths and actions; omit
 implementation explanations such as generated .header files and cache mechanics.
-Implementation is present but not release-certified. Current checks pass:
+Implementation checks pass:
 539 common native checks, generated DLC cache preparation/enumeration with
 synthetic payloads, 48 update model/cache/lifetime checks, hidden launcher
 UI checks (including deferred and once-per-version reminders), 18 catalogue,
@@ -47,13 +62,11 @@ retain their hashes. The fixture added I/J/K/L direction aliases for computer
 use only; product bindings are unchanged. Do not repeat these gameplay gates.
 The complete English game-data guide and reciprocal links are present; README
 download links now use releases/latest. Product checks and local guide links pass.
-No final certified build or v0.7.3 package exists yet. Direct incremental builds
-under out/common and out/xbox360 are mechanism builds only; receipts have not
-been renewed. Keep frozen v0.7.2 intact. 300 hidden UI checks pass after footer
-removal; the updated visible launcher also has no persistent update text.
-Next: commit implementation, certify all seven components and package once.
-Current changes are uncommitted. Do not publish a GitHub release
-or group message on the basis of this checkpoint.
+The final certified build and program package supersede the earlier mechanism
+builds. Keep frozen v0.7.2 intact. 300 hidden UI checks pass after footer removal;
+the updated visible launcher also has no persistent update text. The isolated
+fixture's fake v9.0 cache and temporary direction aliases have been cleared.
+Future upload/publication requires the user's requested destination and scope.
 
 ### v0.7.2 complete package follow-up — delivered October 25
 
