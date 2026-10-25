@@ -6,6 +6,19 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.3 placement-guide refresh — packaged locally
+
+All seven placement guides now use directory trees and short bilingual setup
+steps, committed as c86ae2c. The refreshed program package reuses the accepted
+0fac99f binaries; all 143 non-guide payloads are byte-identical. Its manifest
+keeps sourceCommit=0fac99f and records documentationCommit=c86ae2c separately.
+ZIP: releases/v0.7.3-guides-c86ae2c/EVAC-PC-LABEL-v0.7.3-win-x64.zip,
+106289507 bytes, SHA256 2a402a850285b827b856ca133e00731dcc27ca168cf9ff7aed1b57bb0b669c82.
+One actual extraction passes: 150 files, seven updated guides, nine preservation
+sentinels. Receipt: .local/release-acceptance-v073/2a402a850285b827/accepted.json.
+No recompilation, upload, push, tag or announcement. Older ZIPs remain intact.
+Use this refreshed package for subsequent delivery; do not repeat acceptance.
+
 ### v0.7.3 follow-up — automatic raw DLC import
 
 The user rejected a manual extraction step: players place original DLC files
