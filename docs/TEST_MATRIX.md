@@ -4,6 +4,7 @@
 
 ## v0.7.4 issue #1 compatibility checks
 
+- 发布前实际启动发现 `66ce21f` 候选的 ESP Ra.De. 清单缺少 `variantId`，准备策略收到空版本并退出（run `20261026T135237676Z-6484`）；该候选包不发布。补为 `update-104`，新增真实生成清单到准备策略的原生检查，遍历三款 PS4 的全部版本及模块；Python 对应断言修复前失败、修复后通过。Ketsui 01.02（113576）模式菜单／ARCADE 切换与 DaiOuJou 01.04（116532）菜单／街机核心启动通过，均由 Alt+F4 正常请求关闭，呈现清理完成，沿用 exit 27 的既有关闭语义。最终修订版需补 ESP 启动和重新认证包。
 - 最终本地程序包：源码 `66ce21f62b6a87e16e8d278b2247805c66c2dba1`，七游戏增量构建核对 71 Xbox／7 PS4（含新增兼容测试程序）／2 启动器 EXE/PDB 配对；SDK 3 对验证。`releases/v0.7.4-66ce21f/EVAC-PC-LABEL-v0.7.4-win-x64.zip`，106323584 字节，SHA-256 `56dc9b872fe91aedc92dd28ab4b15359f8a89bd0585195cc71a9a9c40a519f22`。一次实际解压通过，150 文件，9 类保留检查；无 ROM／源码／PDB／玩家配置。收据 `.local/release-acceptance-v074/56dc9b872fe91aed/accepted.json`。未推送、上传或发布。
 - 最终构建后：common／launch／update_check 三项 CTest、110 项兼容检查、55 项 native round、community client 及 16 项配置检查通过。新版包装 fixture 共 47 项通过（一个既有跳过）。相关日志为 `.local/v074-*`；初次 native round 命令遗漏 fixture 目录而返回用法提示，补齐参数后的 `v074-round-final-r2.log` 为有效结果。
 - `Ps4CompatibilityTests`：110 项通过，约 0.12 秒；无 ROM／GPU，执行生产用扩展协商、准备策略、启动版本参数和资源种子读取。覆盖 EXT-only／KHR-only／双名／混合依赖／feature=false，Ketsui ELF／SELF 等价及坏文件拒绝，DaiOuJou 01.00 离线与 01.04 原路径。

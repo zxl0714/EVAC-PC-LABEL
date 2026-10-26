@@ -28,6 +28,8 @@ class CatalogueTests(unittest.TestCase):
         manifest = catalogue.read_json(self.root / 'games/esprade/data.json')
         self.assertEqual((game['backend'], manifest['titleId'], manifest['version']), ('ps4', 'CUSA15155', '01.04'))
         self.assertEqual(manifest['layout'], 'merged-patch')
+        self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
+                         [('update-104', '01.04', 'merged-patch')])
         self.assertEqual(len(game['files']), 48)
         self.assertTrue(game['integrated'] and game['communitySupported'])
         self.assertFalse(game['comingSoon'])

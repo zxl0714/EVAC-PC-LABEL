@@ -2,6 +2,7 @@
 #include "backends/ps4/loader/preparation_policy.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "backends/ps4/ketsui_version.h"
+#include "common/catalogue.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -46,6 +47,19 @@ void Presentation() {
 
 void Policies() {
     using namespace cave::ps4;
+    // Exercise the actual generated catalogue, not only hand-written policy inputs.
+    for (const auto* id : {"ketsui", "daioujou", "esprade"}) {
+        const auto& game = cave::FindGame(id);
+        Check(!game.variants.empty(), "PS4 catalogue supplies preparation identity");
+        for (const auto& variant : game.variants) {
+            const auto policy = PlanPs4Data(id, variant.version, variant.layout);
+            Check(!policy.programs.empty(), "every shipped PS4 variant has a preparation policy");
+            for (const auto& program : policy.programs)
+                Check(std::any_of(variant.files.begin(), variant.files.end(), [&](const auto& file) {
+                    return file.path == program && file.program;
+                }), "policy module exists in the selected manifest");
+        }
+    }
     const auto base=PlanPs4Data("daioujou","01.00","base");
     Check(base.programs==std::vector<std::string>{"eboot.bin","emu_integration_01700.prx","daioujou_01000.prx"},"DOJ base must not load update modules");
     Check(!base.merged_app&&!base.read_fixes&&base.community_offline&&!base.replay_peer&&!base.local_replay,"DOJ base offline recipe");

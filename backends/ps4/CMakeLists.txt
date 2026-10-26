@@ -73,7 +73,7 @@ target_link_libraries(KetsuiResourcePrepareCheck PRIVATE KetsuiResourcePreparati
 add_executable(Ps4CompatibilityTests "${CAVE_PS4_ROOT}/tests/ps4_compatibility_test.cpp")
 target_include_directories(Ps4CompatibilityTests PRIVATE "${CAVE_PS4_ROOT}")
 target_compile_features(Ps4CompatibilityTests PRIVATE cxx_std_20)
-target_link_libraries(Ps4CompatibilityTests PRIVATE KetsuiResourcePreparation)
+target_link_libraries(Ps4CompatibilityTests PRIVATE KetsuiResourcePreparation cave_common)
 enable_testing()
 add_test(NAME ps4_compatibility COMMAND Ps4CompatibilityTests)
 set_tests_properties(ps4_compatibility PROPERTIES TIMEOUT 15)

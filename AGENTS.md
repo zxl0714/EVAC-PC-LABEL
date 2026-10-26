@@ -8,6 +8,19 @@ active build root. Older .local evidence referenced below remains there.
 
 ### v0.7.4 — issue #1 compatibility work
 
+Publication smoke caught an ESP Ra.De. regression in candidate 66ce21f:
+its single-version manifest did not emit a DataVariant, so the new preparation
+policy received empty version/layout strings. Do not publish the 56dc9b87 ZIP.
+The manifest now names update-104; native compatibility tests consume every
+actual generated PS4 variant and verify all policy modules against its manifest.
+The Python ESP check failed before this fix and passes afterward. Ketsui 01.02
+and DaiOuJou 01.04 reached actual menus/arcade startup and closed as expected;
+ESP candidate run 6484 failed before guest execution. Evidence remains under
+.local/release-acceptance-v074/56dc9b872fe91aed/extracted/logs.
+The v0.7.4 GitHub release is still a draft. Source/tag 66ce21f was pushed before
+this smoke failure; update the unpublished tag to the corrected certified source,
+replace the two draft assets, and verify ESP actual launch before publication.
+
 Completed locally at source 66ce21f62b6a87e16e8d278b2247805c66c2dba1.
 110 ROM/GPU-free compatibility checks, 68 PS4 source tests, 19 catalogue,
 12 tool, 7 toolchain, 4 product and 47 package tests pass (one existing skip).
