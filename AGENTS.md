@@ -6,11 +6,17 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.5 — implemented and packaged locally
+### v0.7.5 — published October 27
 
-The active user goal now authorizes implementing both planned fixes, focused
-regression, and a local v0.7.5 package. Do not upload, publish a release, or send
-announcements. Keep the published v0.7.4 unchanged.
+The user authorized normal GitHub release delivery after local acceptance, then
+confirmed publication. Published at 00:07 Asia/Shanghai on October 27:
+https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.5 (release 424467884).
+Main and annotated tag are pushed; tag v0.7.5 stays fixed at the accepted source
+6d62d6b. Anonymous API verifies Latest, non-draft/non-prerelease, and exactly two
+uploaded assets with sizes/SHA256 matching the accepted ZIP and checksum file.
+Bilingual release notes cover the two fixes and earlier GPU diagnostic logging.
+Evidence: .local/v075-delivery-r1.json and .local/v075-release-published.jpg.
+No OSS upload or group announcement was requested. Published v0.7.4 is unchanged.
 
 Completed at source 6d62d6b23d68a162c01bd2aba8d22cc898f9f1eb. Seven-game incremental
 build certifies 71 Xbox / 7 PS4 / 2 launcher binary/PDB pairs at that commit.
@@ -24,8 +30,9 @@ One actual extraction verifies 150 files and nine update-preservation sentinels;
 no ROM/source/PDB/user config. Receipt:
 .local/release-acceptance-v075/66bc214a8c5dac13/accepted.json.
 The packaged launcher is 0.7.5.0 and byte-identical to the development entry.
-No upload, push, tag or announcement. Reuse this frozen package and acceptance;
-delivery-only documentation does not require rebuilding or extracting again.
+The accepted package was reused without rebuilding or extracting again for
+GitHub delivery. Keep its source tag and ZIP fixed; delivery-only documentation
+does not require repeating builds, acceptance or uploads.
 
 The user confirmed that selecting View Player Profile in DaiOuJou rankings
 caused run-20261026T142646136Z-112540 to exit at 22:27:36 Asia/Shanghai.
