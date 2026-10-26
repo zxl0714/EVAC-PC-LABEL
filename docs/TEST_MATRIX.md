@@ -4,12 +4,14 @@
 
 ## v0.7.5 PS4 兼容呈现与玩家资料窗口
 
+- 最终本地交付（10 月 27 日）：源码 `6d62d6b23d68a162c01bd2aba8d22cc898f9f1eb`；七游戏增量构建核对 71 Xbox／7 PS4／2 启动器 EXE/PDB 配对，来源提交一致。最终 GPU CTest 7/7、原生兼容／玩家卡片 2/2、score 38 项、common／launch／update 3/3 通过，两种队列的兼容呈现同步验证均为 0 错误。日志 `.local/v075-final-*.log`。
+- 程序包 `releases/v0.7.5-6d62d6b/EVAC-PC-LABEL-v0.7.5-win-x64.zip`，106353621 字节，SHA-256 `66bc214a8c5dac13911d61dbd269da734e19d625adb2964d460eeb9f595f24e1`。一次实际解压通过（150 文件、9 类保留检查），无 ROM／源码／PDB／玩家配置，全部包路径为 ASCII。启动器文件版本 0.7.5.0，与开发根目录入口哈希一致。收据 `.local/release-acceptance-v075/66bc214a8c5dac13/accepted.json`。未上传、推送或发布；不因后续交付文档重建此包。
 - `libSceNpProfileDialog` 使用共用原生窗口与模块生命周期。隐藏窗口测试覆盖真实 NID／SysV 参数布局、初始化、打开、状态／结果、API／CLOSE／Esc／窗口关闭、再次打开、运行中终止和其他对话框互斥；原有消息窗口检查通过。昵称取自已完整校验的排行榜响应，38 项 score 检查包含已知／未知账号和坏响应不得污染昵称缓存。Xbox 360 代码未修改。
 - 原生兼容 143 项和玩家窗口 CTest 通过：`.local/v075-native-tests-r2.log`；score 结果 `.local/v075-score-r2.log`。68 项 PS4 源码、4 项产品身份和 47 项包装检查通过（包装有一个既有链接权限跳过）。
 - 七项 GPU CTest 通过（`.local/v075-gpu-tests-r3.log`）。独立／共用呈现队列的兼容路径均开启同步验证，通过像素、图像轮转、缩放、最小化恢复、drain 和重新绑定检查，`validationErrors=0`：`.local/v075-compat-validation-r2.log`、`.local/v075-compat-shared-validation-r3.log`。早期缩放失败由缺少 `oldSwapchain` 交接造成，修复后通过，失败日志保留。
 - 独立目录 `.local/v075-smoke-r1/collection` 强制 `EVAC_PS4_PRESENT_COMPAT=1`：大往生 run `20261026T154645417Z-105528` 从真实榜单打开 Djo-Network5 玩家卡片，Enter 关闭、再次打开、Esc 关闭并返回榜单；绊地狱 run `20261026T155106979Z-36780` 和 ESP run `20261026T155216651Z-118008` 到模式菜单。三个进程均按窗口关闭请求退出，`presentation_cleanup_complete=true`，无 dump；沿用既有 exit 27 的宿主终结器语义。
 - 用户实玩绊地狱兼容模式 run `20261026T155500309Z-39740`，反馈“基本上感觉不到性能差距”。日志明确 `compatibility_forced=true`、`image_acquire_compatibility`，最后窗口关闭且呈现清理完成。这是本机实际游玩反馈，不是两路径定量 A/B 性能数据，也不代替报告者设备验证。
-- 本轮本机设备 RTX 4080、驱动 610.88、Vulkan 1.4.341。兼容路径不增加 CPU 回读，不改变原游戏节拍；仅显式 drain／退出及达到上限的连续重建等待队列空闲。最终构建另含清理旧交换链时清空已失效 handoff 句柄的收尾修正，最终产物检查待完成。
+- 本轮本机设备 RTX 4080、驱动 610.88、Vulkan 1.4.341。兼容路径不增加 CPU 回读，不改变原游戏节拍；仅显式 drain／退出及达到上限的连续重建等待队列空闲。最终构建包含清理旧交换链时清空已失效 handoff 句柄的收尾修正，最终 GPU／同步验证通过。
 
 ## v0.7.4 issue #1 compatibility checks
 

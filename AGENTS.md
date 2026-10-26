@@ -6,11 +6,26 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.5 — implementation active, local package only
+### v0.7.5 — implemented and packaged locally
 
 The active user goal now authorizes implementing both planned fixes, focused
 regression, and a local v0.7.5 package. Do not upload, publish a release, or send
 announcements. Keep the published v0.7.4 unchanged.
+
+Completed at source 6d62d6b23d68a162c01bd2aba8d22cc898f9f1eb. Seven-game incremental
+build certifies 71 Xbox / 7 PS4 / 2 launcher binary/PDB pairs at that commit.
+Final GPU CTests 7/7, native compatibility/profile 2/2, score 38 cases, and
+common/launch/update 3/3 pass. Both compatibility queue variants pass explicit
+synchronization validation with zero errors after the final cleanup correction.
+Logs: .local/v075-final-*.log. Program ZIP is
+releases/v0.7.5-6d62d6b/EVAC-PC-LABEL-v0.7.5-win-x64.zip, 106353621 bytes,
+SHA256 66bc214a8c5dac13911d61dbd269da734e19d625adb2964d460eeb9f595f24e1.
+One actual extraction verifies 150 files and nine update-preservation sentinels;
+no ROM/source/PDB/user config. Receipt:
+.local/release-acceptance-v075/66bc214a8c5dac13/accepted.json.
+The packaged launcher is 0.7.5.0 and byte-identical to the development entry.
+No upload, push, tag or announcement. Reuse this frozen package and acceptance;
+delivery-only documentation does not require rebuilding or extracting again.
 
 The user confirmed that selecting View Player Profile in DaiOuJou rankings
 caused run-20261026T142646136Z-112540 to exit at 22:27:36 Asia/Shanghai.
@@ -34,9 +49,9 @@ validation; seven GPU CTests pass. Three-game menu smoke uses an independent
 .local/v075-smoke-r1/collection and EVAC_PS4_PRESENT_COMPAT=1; all three reached
 mode menus. User gameplay run 39740 confirmed no noticeable performance gap.
 It closed with presentation cleanup complete, as did all three menu checks.
-Final certification and local program ZIP acceptance remain; do not upload or
-push. The final presenter cleanup also clears replacement_old after retiring
-old chains; include it in the final GPU smoke, without repeating gameplay.
+Final presenter cleanup also clears replacement_old after retiring old chains;
+the final GPU tests cover that build. Reporter's actual older-driver device
+verification remains external feedback, not a claim of local hardware coverage.
 
 ### v0.7.4 — delivered October 26
 
