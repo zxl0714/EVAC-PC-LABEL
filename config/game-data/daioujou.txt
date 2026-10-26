@@ -1,26 +1,25 @@
 怒首領蜂 大往生 臨廻転生 / DoDonPachi DaiOuJou Re:Incarnation
-PS4 / CUSA32997 / 01.04
+PS4 / CUSA32997 / 01.00 (offline) / 01.04
 
 game-data/
 └─ daioujou/
    ├─ eboot.bin
    ├─ emu_integration_01700.prx
    ├─ daioujou_01000.prx
-   ├─ daioujou_01010.prx
-   ├─ daioujou_01020.prx
-   ├─ daioujou_01030.prx
    ├─ ps4data_body.bin
    ├─ ps4data_info.psb.m
-   ├─ ps4data_patch_body.bin
-   ├─ ps4data_patch_info.psb.m
    ├─ sce_module/
    ├─ sce_sys/
    └─ ...
 
-先将本体 PKG 完整解包到以上位置，再把 01.04 更新解包后覆盖到同一目录。
-替换同名文件，保留其余本体文件和子目录。
+将 01.00 本体 PKG 完整解包到以上位置，可离线游玩。
+使用社区排行榜和联网录像时，将 01.04 更新覆盖到同一目录。
+更新后还应有 daioujou_01010.prx、daioujou_01020.prx、daioujou_01030.prx、
+ps4data_patch_body.bin、ps4data_patch_info.psb.m 等更新文件。保留其余本体文件。
 放好后，在启动器点击“刷新”，选择游戏并启动。
 
-Extract the complete base PKG here, then extract and overlay the 01.04 update
-into the same folder. Replace matching files and keep the rest of the base game.
+Extract the complete 01.00 base PKG here for offline play.
+For community rankings and online replays, overlay the 01.04 update into the same folder.
+Updated data also includes daioujou_01010.prx, daioujou_01020.prx, daioujou_01030.prx,
+ps4data_patch_body.bin and ps4data_patch_info.psb.m. Keep the rest of the base game.
 Click Refresh in the launcher, select the game, then start it.

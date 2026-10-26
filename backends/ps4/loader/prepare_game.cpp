@@ -1,4 +1,5 @@
 #include "prepared_cache.h"
+#include "preparation_policy.h"
 #include "elf_prepare.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "common/ini.h"
@@ -32,6 +33,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     const bool esprade=game=="esprade";
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
     ValidateOutputs(Paths(root,game,data));const auto inspected=CheckData(root,data,game);
+    const auto policy=PlanPs4Data(game,inspected.version,inspected.layout);
     std::array<wchar_t,32768> executable{};
     const auto length=GetModuleFileNameW(nullptr,executable.data(),static_cast<DWORD>(executable.size()));
     if (!length || length>=executable.size()) throw std::runtime_error("Cannot determine preparation program identity");
@@ -39,26 +41,22 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     auto inputs=Json::array();
     for (const auto& file:DataFiles(FindGame(game),inspected.variant)) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
     const Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
-        {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",!ketsui || inspected.layout=="merged-patch"},
+        {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",policy.merged_app},
         {"dataVariant",inspected.variant},{"dataVersion",inspected.version},
         {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
-        {"communityReplayPeerFallback",game=="daioujou"},{"communityLocalReplay",!ketsui}};
-    const std::vector<std::string> programs=ketsui ?
-        std::vector<std::string>{"eboot.bin","emu_integration_01400.prx","ketsui_01000.prx"} :
-        esprade ? std::vector<std::string>{"eboot.bin","emu_integration_01500.prx","esprade_01000.prx","esprade_01010.prx",
-            "esprade_01020.prx","esprade_01030.prx"} :
-        std::vector<std::string>{"eboot.bin","emu_integration_01700.prx","daioujou_01000.prx","daioujou_01010.prx",
-            "daioujou_01020.prx","daioujou_01030.prx"};
+        {"communityReplayPeerFallback",policy.replay_peer},{"communityLocalReplay",policy.local_replay},
+        {"communityOffline",policy.community_offline}};
+    const auto& programs=policy.programs;
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
-    files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");
+    if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
         const auto libc=ReadPreparationInput(DataChild(data,"sce_module/libc.prx"));
         for (std::size_t i=0;i<programs.size();++i) {
             const auto source=ReadPreparationInput(DataChild(data,programs[i]));
             const auto prepared=PrepareElf(source,i!=0,libc);WritePreparedRelative(stage,files[i],prepared.bytes);
         }
-        {
+        if (policy.read_fixes) {
             const auto fixes=ketsui?PrepareReadFixes(data,true,true):
                 esprade?PrepareEspradeReadFixes(data):PrepareDaioujouReadFixes(data);
             WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
@@ -68,7 +66,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         if(CheckData(root,data,game).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
         if (Sha256(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
-    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",cache.directory/"game-fixes.ktfix"};
+    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{}};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {

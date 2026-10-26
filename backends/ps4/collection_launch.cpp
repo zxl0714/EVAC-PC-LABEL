@@ -1,4 +1,5 @@
 #include "collection_launch.h"
+#include "loader/preparation_policy.h"
 #include "collection_config.h"
 #include "native_async_log.h"
 #include "loader/prepared_cache.h"
@@ -188,7 +189,8 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             // disabled. The ranking peer fallback separately checks readiness.
             arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native()});
         }
-        if(prepared.cache.receipt.at("recipe").at("mergedApp").get<bool>())arguments.insert(arguments.end(),{L"--merged-app",L"on"});
+        cave::ps4::AppendVersionArguments(arguments,prepared.cache.receipt.at("recipe").at("mergedApp").get<bool>(),
+            prepared.cache.receipt.at("recipe").value("communityOffline",false));
         // Development-only bridge to the existing pad diagnostic. Never save
         // this setting in the player INI or enable it in the launcher itself.
         if (diagnostic_tap) {arguments.push_back(L"--diagnostic-tap-ms");arguments.push_back(std::to_wstring(diagnostic_tap));}

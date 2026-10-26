@@ -178,6 +178,7 @@ std::vector<const char*> GetInstanceExtensions(Frontend::WindowSystemType window
         extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
         extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
         extensions.push_back(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+        extensions.push_back(cave::ps4::presentation::kSurfaceKhr);
         break;
 #elif defined(VK_USE_PLATFORM_XLIB_KHR) || defined(VK_USE_PLATFORM_WAYLAND_KHR)
     case Frontend::WindowSystemType::X11:
@@ -222,11 +223,11 @@ std::vector<const char*> GetInstanceExtensions(Frontend::WindowSystemType window
     });
 
     if (window_type == Frontend::WindowSystemType::Windows) {
-        for (const auto* required : {VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
-                                     VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME}) {
-            if (std::ranges::find(extensions, std::string_view{required}) == extensions.end()) {
-                throw std::runtime_error("Window presentation requires surface maintenance support");
-            }
+        const auto maintenance = cave::ps4::presentation::SurfaceExtensions([&](const char* name) {
+            return std::ranges::find(extensions, std::string_view{name}) != extensions.end();
+        });
+        if (!maintenance.Supported()) {
+            throw std::runtime_error("Window presentation requires surface maintenance1 (EXT or KHR)");
         }
     }
     return extensions;
@@ -266,7 +267,8 @@ std::vector<const char*> GetInstanceLayers(bool enable_validation, bool enable_c
 }
 
 vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool enable_validation,
-                                  bool enable_crash_diagnostic) {
+                                  bool enable_crash_diagnostic,
+                                  cave::ps4::presentation::Surfaces* maintenance) {
     LOG_INFO(Render_Vulkan, "Creating vulkan instance");
 
 #if defined(__APPLE__)
@@ -298,6 +300,11 @@ vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool e
 
     const auto layers = GetInstanceLayers(enable_validation, enable_crash_diagnostic);
     const auto extensions = GetLayerExtensions(GetInstanceExtensions(window_type, true), layers);
+    if (maintenance) {
+        *maintenance = cave::ps4::presentation::SurfaceExtensions([&](const char* name) {
+            return std::ranges::find(extensions, std::string_view{name}) != extensions.end();
+        });
+    }
 
     const vk::ApplicationInfo application_info = {
         .pApplicationName = "shadPS4",

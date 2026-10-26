@@ -978,9 +978,14 @@
   ],
   "localChanges": [
     {
+      "path": "src/video_core/renderer_vulkan/vk_platform.h",
+      "sha256": "3f2f59dc1fb036e4c30a4841e9d3a6d2a15be002421ade7d8efff27934780c16",
+      "description": "Pass enabled maintenance1 instance extensions to device negotiation (issue #1)."
+    },
+    {
       "path": "src/video_core/renderer_vulkan/vk_platform.cpp",
-      "sha256": "42f198c79ba21859ba270937f7f0ee4eda3dc21831560f2ca4bb1e7dd48ebef6",
-      "description": "Enable VK_KHR_surface in headless integration and syncval_full_validation with the pinned layer. Windows presentation requires the surface-maintenance instance extensions used by tracked present fences."
+      "sha256": "e7a5d7982745fb2a7caa1bd1bf2affa049cec1cb5c0c5040eecfb427664080c6",
+      "description": "Enable VK_KHR_surface in headless integration and syncval_full_validation with the pinned layer. Windows presentation requires the surface-maintenance instance extensions used by tracked present fences. Support paired EXT/KHR maintenance1 negotiation (issue #1)."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_runtime.h",
@@ -1019,13 +1024,13 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
-      "sha256": "250958650f767c4732c3c0d4a240b478b416dc3d12967d641ca64a8151b85ac3",
-      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; query and enable swapchain-maintenance present fences only for configured presentation support, including late window binding. Use a second same-family queue for window composition/presentation when available, retaining the single-queue fallback."
+      "sha256": "0fdd8d74b2e3c62346bab742a856722e37e9686ffc9c7c009f90320af6360058",
+      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; query and enable swapchain-maintenance present fences only for configured presentation support, including late window binding. Use a second same-family queue for window composition/presentation when available, retaining the single-queue fallback. Support paired EXT/KHR maintenance1 negotiation (issue #1)."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.h",
-      "sha256": "f9ca2fdd6d05581dd659aa31db32b1a3b280aeb39868dc2b2101ed6f3c9e8f5c",
-      "description": "Expose whether tracked presentation fences were enabled on this device."
+      "sha256": "3ed7afd02abfb0525d93852fbadcef946b48785bac3669749f1e8867b227dcec",
+      "description": "Expose whether tracked presentation fences were enabled on this device. Support paired EXT/KHR maintenance1 negotiation (issue #1)."
     },
     {
       "path": "src/shader_recompiler/ir/passes/srt.h",

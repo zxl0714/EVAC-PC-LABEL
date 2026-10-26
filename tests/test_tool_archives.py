@@ -19,6 +19,41 @@ import toolchain
 
 
 class SdkToolTests(unittest.TestCase):
+    def test_official_ninja_1110_pin_and_versioned_install(self):
+        package = next(p for p in toolchain.locked_packages(project.ROOT) if p['id'] == 'ninja')
+        self.assertEqual(package['url'], 'https://github.com/ninja-build/ninja/releases/download/v1.11.0/ninja-win.zip')
+        self.assertEqual(package['sha256'], 'd0ee3da143211aa447e750085876c9b9d7bcdd637ab5b2c5b41349c617f22f3b')
+        self.assertEqual(package['entrySha256'], 'e7f31a37d1bc9d77001103ecd3695c60fa16542885483b90c12280b39d9416c0')
+        self.assertEqual(toolchain.install_directory(package), 'ninja-1.11.0')
+
+    def test_fresh_archive_install_checks_inner_executable_and_preserves_old_tool(self):
+        for valid in (True, False):
+            with self.subTest(valid=valid), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                download = root / 'tools/downloads'; download.mkdir(parents=True)
+                archive = download / 'fixture.zip'
+                with zipfile.ZipFile(archive, 'w') as output:
+                    output.writestr('tool.exe', b'authored tool bytes')
+                import hashlib
+                expected = hashlib.sha256(b'authored tool bytes').hexdigest() if valid else '0' * 64
+                package = dict(id='fixture', version='1.0', installDirectory='fixture-1.0',
+                    url='https://example.invalid/fixture.zip', sha256=project.digest(archive),
+                    archiveRoot='', entry='tool.exe', entrySha256=expected)
+                (root / 'tools/packages.lock.json').write_text(json.dumps(dict(format=1, platform='windows-x64', packages=[package])))
+                old = root / 'tools/apps/fixture/tool.exe'; old.parent.mkdir(parents=True)
+                old.write_bytes(b'preserve legacy tool')
+                with patch.object(prepare_tools, 'ROOT', root), patch('builtins.print'), patch('urllib.request.urlopen', side_effect=AssertionError('Unexpected network')):
+                    if valid:
+                        prepare_tools.prepare()
+                        prepare_tools.prepare()
+                        self.assertEqual((root / 'tools/apps/fixture-1.0/tool.exe').read_bytes(), b'authored tool bytes')
+                        self.assertTrue(toolchain.receipt_path(root).exists())
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'fixed entry hash'):
+                            prepare_tools.prepare()
+                        self.assertFalse(toolchain.receipt_path(root).exists())
+                self.assertEqual(old.read_bytes(), b'preserve legacy tool')
+
     def test_dependency_parser_accepts_pinned_https_shape(self):
         result = sdk_sources.modules_from_text('[submodule "library"]\npath = third_party/lib\nurl = https://github.com/owner/repo.git\n')
         self.assertEqual(result, [dict(name='library', path='third_party/lib', url='https://github.com/owner/repo.git')])

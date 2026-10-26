@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.7.3
+EVAC PC LABEL v0.7.4
 
 本版修复虫姬二 DLC 识别与放置引导，新增启动器 GitHub 更新检查。
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
@@ -14,7 +14,7 @@ EVAC PC LABEL v0.7.3
   game-data/espgaluda2/  ESPGaluda II Black Label
   game-data/ketsui/      CUSA09062，01.00 本体或覆盖 01.02 更新后的完整数据
   game-data/sdoj/        最大往生，Xbox 360 原版光盘数据
-  game-data/daioujou/    CUSA32997，覆盖 01.04 更新后的完整数据
+  game-data/daioujou/    CUSA32997，01.00 本体（离线）或覆盖 01.04 更新
   game-data/esprade/     CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据
   game-data/guwange/     XBLA，Title ID 58410A78，本体 0.0.0.4，无 Title Update
 
@@ -110,7 +110,7 @@ enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社�
 
 English ======================================================================
 
-v0.7.3 fixes Futari DLC detection/setup and adds GitHub update checks. To update,
+v0.7.4 improves Vulkan driver compatibility and supports additional PS4 base layouts. To update,
 close games and launcher, extract over the existing folder, and keep user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the

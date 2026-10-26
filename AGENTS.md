@@ -6,6 +6,16 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.4 — issue #1 compatibility work
+
+Implement PS4 KHR maintenance1 negotiation, Ketsui 01.00 plaintext SELF,
+DaiOuJou 01.00 offline base support and the official Ninja executable pin.
+User requests small durable regression tests independent of the reporter's GPU
+and data. Shared production policy/decoder tests must cover both new and old
+paths; do not substitute a full gameplay campaign. No extra personal credits
+or acknowledgements; reference issue #1 for provenance. Preserve old releases.
+Prepare a new local program package after builds/checks; publication is separate.
+
 ### v0.7.3 GitHub Release — delivered October 26
 
 The user accepted the refreshed package and authorized push/publication.

@@ -76,6 +76,7 @@ target_compile_features(KetsuiGpuCore PUBLIC cxx_std_23)
 target_compile_options(KetsuiGpuCore PRIVATE /EHsc /W3)
 target_compile_definitions(KetsuiGpuCore PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
 target_include_directories(KetsuiGpuCore PUBLIC host upstream/src "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_include_directories(KetsuiGpuCore PUBLIC "${BACKEND}/graphics")
 target_include_directories(KetsuiGpuCore SYSTEM PUBLIC
     "${DEPS}/Vulkan-Headers/include" "${DEPS}/ext-boost"
     "${DEPS}/magic_enum/include" "${DEPS}/robin-map/include"

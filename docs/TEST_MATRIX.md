@@ -2,6 +2,16 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.7.4 issue #1 compatibility checks
+
+- `Ps4CompatibilityTests`：110 项通过，约 0.12 秒；无 ROM／GPU，执行生产用扩展协商、准备策略、启动版本参数和资源种子读取。覆盖 EXT-only／KHR-only／双名／混合依赖／feature=false，Ketsui ELF／SELF 等价及坏文件拒绝，DaiOuJou 01.00 离线与 01.04 原路径。
+- Python：68 项 PS4 源码测试、19 项清单及 12 项工具测试通过。原生 common 新增第三种封装身份、Quick/Full 识别、混合模块及补丁残留拒绝检查。
+- 本机 GPU：5/5 CTest 和呈现短测试通过；绘制、FIFO／非同步、缩放、最小化尺寸和重建路径无错误。报告 `.local/v074-gpu-tests-r1.log`、`.local/v074-presentation-r1.log`。
+- Ninja：官方 1.11.0 ZIP 哈希匹配锁文件，内含 EXE 为 `e7f31a37d1bc9d77001103ecd3695c60fa16542885483b90c12280b39d9416c0`。实际安装新版本目录成功，原 `tools/apps/ninja/` 保留。自造冷安装测试同时验证错误内层哈希被拒绝。
+- AMD 8060S 的纯 KHR 实机启动及两份新增 SELF 原始数据由 issue 报告者验证；本机无同一环境，不把机制检查记作这些实机结果。原始数据和已有发行包未改写。
+- 本机旧数据准备：Ketsui 01.00 ELF 本体和 DaiOuJou 01.04 合并数据通过完整检查、原生准备及输出验证。报告 `.local/v074-prepare-r1/`；`guestExecution=false`，仅写入独立测试准备目录，没有运行游戏或提交成绩。
+- common／launch／update_check 三项 CTest、4 项产品身份和 7 项工具链测试通过。初次产品测试发现 Release.ps1 默认版本未更新，已同步为 0.7.4 后通过。所有直接改动的上游文件保留原始换行格式，来源清单记录维护后的哈希。
+
 ## v0.7.3 DLC 与更新检查
 
 - 自动解包最终本地包：源码 `0fac99fbd2d5658f11b569c604b2e6a4572708c5`，七游戏增量构建核对 71 Xbox／6 PS4／2 启动器 EXE/PDB 配对；五组最终 CTest 通过。`releases/v0.7.3-0fac99f/EVAC-PC-LABEL-v0.7.3-win-x64.zip`，106291280 字节，SHA-256 `e765ed3c6b0888acbc79cca6938ce66936adfd203e9c154bff7a99b8ef9f91b4`。一次实际解压、150 文件和 9 类覆盖保留检查通过。开发根目录入口与包内 EXE 一致；尚未推送、上传或发布。收据 `.local/release-acceptance-v073/e765ed3c6b0888ac/accepted.json`。

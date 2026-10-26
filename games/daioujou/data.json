@@ -5,8 +5,10 @@
   "version": "01.04",
   "contentId": "JP0092-CUSA32997_00-DAIOUJOU00000000",
   "layout": "merged-patch",
+  "variantId": "update-104",
+  "entry": "eboot.bin",
   "source": {
-    "description": "Complete CRC-verified user-provided merged application/update; metadata only, no game content. Project.gp4 is packaging input, not a runtime resource.",
+    "description": "Complete CRC-verified user-provided merged application/update; metadata only, no game content. Project.gp4 is packaging input, not a runtime resource. The 01.00 base alternative runs offline without community replay fixes.",
     "archiveSha256": "b3b879def133c8d5924cf19766349a17e191b5c922404706c0960f56b98e0db9"
   },
   "files": [
@@ -369,6 +371,297 @@
       "bytes": 3926624,
       "sha256": "09fc93be62d6779d3ca1c94f70836e8be26b12980d515ca7018f64188414444a",
       "program": false
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "base-self",
+      "version": "01.00",
+      "layout": "base",
+      "entry": "eboot.bin",
+      "files": [
+        {
+          "path": "daioujou_01000.prx",
+          "bytes": 60245460,
+          "sha256": "f3553e993e278871283dd233220d0cca518e5fe1f370623f42775ad939712c6c",
+          "program": true
+        },
+        {
+          "path": "eboot.bin",
+          "bytes": 3233055,
+          "sha256": "8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79",
+          "program": true
+        },
+        {
+          "path": "emu_integration_01700.prx",
+          "bytes": 1305110,
+          "sha256": "f3c1d664f82e38f40ffa13561d8a8d2504c21d556722c8783db6c827aab5fbfc",
+          "program": true
+        },
+        {
+          "path": "ps4data_body.bin",
+          "bytes": 729643021,
+          "sha256": "07356a6baace52cba0059bb746eb449e7528c3dc49c920384cef314a83ac207b",
+          "program": false
+        },
+        {
+          "path": "ps4data_info.psb.m",
+          "bytes": 40263,
+          "sha256": "eed755e1d0e7e1e4725df0bf0b5d6faed39bb6c84c0b33f62a184c6e7e687ef7",
+          "program": false
+        },
+        {
+          "path": "sce_discmap.plt",
+          "bytes": 3288792,
+          "sha256": "6e0264ca6b2c0ec5d479267648c37975c7e44c49e7d46007e882a8ffdcf230ca",
+          "program": false
+        },
+        {
+          "path": "sce_module/libSceAudioLatencyEstimation.prx",
+          "bytes": 22442,
+          "sha256": "0489f313cf1242574087714365f1c316f9d6c18a1f4c305054487b9b940bc7d7",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceFace.prx",
+          "bytes": 302128,
+          "sha256": "6ad7ba84f3e91d182f1f32cdf75d9c589746c617d53c7e6edf4f69a8c64f5ab6",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceFaceTracker.prx",
+          "bytes": 2611551,
+          "sha256": "63b51f741e2065bb0039f9e1467aa11d691c3602edfd454557cab7aa54896b06",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceFios2.prx",
+          "bytes": 457105,
+          "sha256": "dc8f9b45b60da1b493b326d549ce99d63f5f9bffc67973d3245965e02b7b12ec",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceFontGsm.prx",
+          "bytes": 251547,
+          "sha256": "74a88a886cde05bb1df56026c7ebefee5945a42ceb076061349654a9aa859300",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceHand.prx",
+          "bytes": 23976,
+          "sha256": "29aa343715dd77548dbc3c15831a548f1ba2b6e9f40f51364771c0eda3522e62",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceHandTracker.prx",
+          "bytes": 54503,
+          "sha256": "75d0c337630313c33f4d10cb61cee94fe40a778a3bc4a7443477d1236957ed92",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceHeadTracker.prx",
+          "bytes": 1348767,
+          "sha256": "3cf68698e2729e748c5de5ebea70733a7ea35de3c3ca3baecb909f6fa0e9941d",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceJobManager.prx",
+          "bytes": 68406,
+          "sha256": "273890680290395b6354e950f3e8b9ccd3fc7c6b63d08fee70ddda8e9e5f4dda",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceNpToolkit2.prx",
+          "bytes": 834190,
+          "sha256": "f67200768542e42751aafdba22f966aa741b130fdebb16ba7a7b36a5c8e3b351",
+          "program": true
+        },
+        {
+          "path": "sce_module/libSceS3DConversion.prx",
+          "bytes": 352641,
+          "sha256": "716a2bd47a1ac427dd4119063146c40e7459b687c3a13fec8f6bdaf6e9e0529b",
+          "program": true
+        },
+        {
+          "path": "sce_module/libc.prx",
+          "bytes": 1374546,
+          "sha256": "e36b841adabe2cb0c81d9bb42d1fb8bcea9a317f32a4e5bc4c538368d292bd04",
+          "program": true
+        },
+        {
+          "path": "sce_sys/.image_key.encrypted",
+          "bytes": 256,
+          "sha256": "03e4b7d4ea9c86ec558edf8fdc0272e009554419ce66abb6a2cccad4a3d860c1",
+          "program": false
+        },
+        {
+          "path": "sce_sys/about/right.sprx",
+          "bytes": 15860,
+          "sha256": "3b87ffcc0cfe3e4536ba0ea9a88a5e66bde27f23c9982bea5a6f2fcc299b902e",
+          "program": false
+        },
+        {
+          "path": "sce_sys/icon0.dds",
+          "bytes": 131200,
+          "sha256": "66817d97fb04ccde10dba59677feb08925938b68884aafee02aac0e6fc2eea47",
+          "program": false
+        },
+        {
+          "path": "sce_sys/icon0.png",
+          "bytes": 578115,
+          "sha256": "0399c520bab8aa11cf320bb9b4f1a4a0443d9ae8b17bf3048e33159e1573cd4a",
+          "program": false
+        },
+        {
+          "path": "sce_sys/keystone",
+          "bytes": 96,
+          "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
+          "program": false
+        },
+        {
+          "path": "sce_sys/license.dat.encrypted",
+          "bytes": 1024,
+          "sha256": "81a8c7a047269f1e0882f94105b8f0fecb87ff598cf85113256b12c102267927",
+          "program": false
+        },
+        {
+          "path": "sce_sys/license.info.encrypted",
+          "bytes": 512,
+          "sha256": "909533bc6960fc9f177c31090cfb5b82413d9e686975b8e2d7bcbdd78a345444",
+          "program": false
+        },
+        {
+          "path": "sce_sys/npbind.dat",
+          "bytes": 532,
+          "sha256": "0481539a72f69df4a6e2c21ae21f5c89e9b6e91f3c5bf8e77dd2c667f1788f2c",
+          "program": false
+        },
+        {
+          "path": "sce_sys/npbind.dat.encrypted",
+          "bytes": 532,
+          "sha256": "e001279c65464be98ad08d3e8b85a6298d02fa0ed6bb014ad6d1c5f1aca770bb",
+          "program": false
+        },
+        {
+          "path": "sce_sys/nptitle.dat",
+          "bytes": 160,
+          "sha256": "1e5e08e962cabcd3e2021daaf4fdf28de49382da84d20ba009407c48ee63fc3e",
+          "program": false
+        },
+        {
+          "path": "sce_sys/nptitle.dat.encrypted",
+          "bytes": 160,
+          "sha256": "4b7045e1810ab59e620babc463276963e1faa7e84d4688c98869fa9ae64c3efb",
+          "program": false
+        },
+        {
+          "path": "sce_sys/param.sfo",
+          "bytes": 1868,
+          "sha256": "7befad6ddc323a26a65fbb5868b45c58789386c67346481b55cc71e961f69d17",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pic0.dds",
+          "bytes": 1036928,
+          "sha256": "1428a5a274201cb53bd0e24ffc04e10350fbca5761504e1387c0bcdce10f4662",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pic0.png",
+          "bytes": 4068941,
+          "sha256": "11374ab1d8383796a4416d81686ae7209bfd39de1469a087ca9911f47ae1ee98",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pic1.dds",
+          "bytes": 1036928,
+          "sha256": "cfc7211d267368a0ceb6555d45659498088069797264573b33d7ce2a427e0a07",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pic1.png",
+          "bytes": 2185913,
+          "sha256": "8c57645ffebcbec4b3af88af646057098821a3de834efbffe855ca32f1affbfc",
+          "program": false
+        },
+        {
+          "path": "sce_sys/playgo-chunk.dat",
+          "bytes": 416,
+          "sha256": "12cc05d51109f3e02e6dd391e0fddd8d3bdc52fe6d373a35397fedf7293f3c42",
+          "program": false
+        },
+        {
+          "path": "sce_sys/playgo-chunk.sha",
+          "bytes": 50120,
+          "sha256": "0d3b80b0c210575d5e1135fb50ac76baab7571d0516746ad83d87efd7878ac98",
+          "program": false
+        },
+        {
+          "path": "sce_sys/playgo-manifest.xml",
+          "bytes": 368,
+          "sha256": "b4d0036b544a66edc732cbd2e034cf5f5b1f46b5817209d333b33e5efc016b11",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pronunciation.sig",
+          "bytes": 20,
+          "sha256": "ac153e62c1fe96183f54ed1daee97f94d9c025e741049473e23efbaec71a6fde",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pronunciation.xml",
+          "bytes": 325,
+          "sha256": "8308c28e439318912e6805bc7bbf2198704e79072ac3c2de72db3f37454e46e1",
+          "program": false
+        },
+        {
+          "path": "sce_sys/psreserved.dat",
+          "bytes": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+          "program": false
+        },
+        {
+          "path": "sce_sys/shareparam.json",
+          "bytes": 145,
+          "sha256": "f70a8591fdc42d0afa5acfd1d6222a9536bef115328a8d2723bdaa40b0482653",
+          "program": false
+        },
+        {
+          "path": "sce_sys/snd0.at9",
+          "bytes": 154852,
+          "sha256": "ac85bfd1f6f3809bdab5ad76181a1a6c2a8bd89faa6c56fbdf66fa6466b81fcb",
+          "program": false
+        },
+        {
+          "path": "sce_sys/trophy/trophy00.trp",
+          "bytes": 3926672,
+          "sha256": "ec2d9f4a287eff8cadde8e505578de19a8ec490629e328a55925cc796cd604da",
+          "program": false
+        },
+        {
+          "path": "sce_sys/license.dat",
+          "bytes": 1024,
+          "sha256": "1d7a0f800627c571661c6d315766eacb109ab80f66c53c7842ed13c3f05b4cd4",
+          "program": false
+        },
+        {
+          "path": "sce_sys/license.info",
+          "bytes": 512,
+          "sha256": "49a9a057c57bdfeb48041b414521bdb4bdf37acec026ff90630091d8b94647c3",
+          "program": false
+        }
+      ],
+      "forbiddenFiles": [
+        "daioujou_01010.prx",
+        "daioujou_01020.prx",
+        "daioujou_01030.prx",
+        "ps4data_patch_body.bin",
+        "ps4data_patch_info.psb.m",
+        "sce_discmap_patch.plt",
+        "sce_sys/app/playgo-chunk.dat",
+        "sce_sys/changeinfo/changeinfo.xml",
+        "sce_sys/target-deltainfo.dat"
+      ]
     }
   ]
 }

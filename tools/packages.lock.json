@@ -36,8 +36,9 @@
       "url": "https://github.com/ninja-build/ninja/releases/download/v1.11.0/ninja-win.zip",
       "sha256": "d0ee3da143211aa447e750085876c9b9d7bcdd637ab5b2c5b41349c617f22f3b",
       "archiveRoot": "",
+      "installDirectory": "ninja-1.11.0",
       "entry": "ninja.exe",
-      "entrySha256": "c074015e9f7b40c85fb3d7593a77e0eef8485760a6d33b02257b55ec1199810e"
+      "entrySha256": "e7f31a37d1bc9d77001103ecd3695c60fa16542885483b90c12280b39d9416c0"
     }
   ]
 }

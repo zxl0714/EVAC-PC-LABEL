@@ -92,13 +92,13 @@ std::string GetReadableVersion(u32 version) {
 
 Instance::Instance(bool enable_validation, bool enable_crash_diagnostic)
     : instance{CreateInstance(Frontend::WindowSystemType::Headless, enable_validation,
-                              enable_crash_diagnostic)},
+                              enable_crash_diagnostic, &maintenance_surfaces)},
       physical_devices{EnumeratePhysicalDevices(instance)} {}
 
 Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
                    bool enable_validation /*= false*/, bool enable_crash_diagnostic /*= false*/)
     : instance{CreateInstance(window.GetWindowInfo().type, enable_validation,
-                              enable_crash_diagnostic)},
+                              enable_crash_diagnostic, &maintenance_surfaces)},
       physical_devices{EnumeratePhysicalDevices(instance)} {
     if (enable_validation) {
         debug_callback = CreateDebugCallback(*instance);
@@ -254,8 +254,12 @@ bool Instance::CreateDevice() {
                "Required Vulkan extension unavailable: {}", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     if (Ketsui::GpuCore::HasPresentationSupport()) {
         const auto completion = feature_chain.get<vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT>();
-        if (!completion.swapchainMaintenance1 || !add_extension(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
-            throw std::runtime_error("Tracked presentation requires VK_EXT_swapchain_maintenance1");
+        const auto name = cave::ps4::presentation::SwapchainExtension(maintenance_surfaces,
+            [&](const char* candidate) {
+                return std::ranges::find(available_extensions, std::string_view{candidate}) != available_extensions.end();
+            }, completion.swapchainMaintenance1);
+        if (!name || !add_extension(name)) {
+            throw std::runtime_error("Tracked presentation requires swapchain maintenance1 (EXT or KHR)");
         }
         present_fences = true;
     }

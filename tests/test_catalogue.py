@@ -58,7 +58,8 @@ class CatalogueTests(unittest.TestCase):
     def test_ketsui_base_and_merged_update_have_separate_complete_manifests(self):
         game = next(game for game in catalogue.load(self.path) if game['id'] == 'ketsui')
         self.assertEqual([(v['id'], v['version'], v['layout'], len(v['files'])) for v in game['variants']],
-                         [('update-102', '01.02', 'merged-patch', 47), ('base', '01.00', 'base', 41)])
+                         [('update-102', '01.02', 'merged-patch', 47), ('base', '01.00', 'base', 41),
+                          ('base-self', '01.00', 'base', 41)])
         self.assertEqual(game['files'], game['variants'][0]['files'])
         for variant in game['variants']:
             files = {item['path']: item for item in variant['files']}
@@ -69,7 +70,30 @@ class CatalogueTests(unittest.TestCase):
         base = game['variants'][1]
         self.assertIn('ps4data_patch_body.bin', base['forbiddenFiles'])
         self.assertIn('ps4data_patch_info.psb.m', base['forbiddenFiles'])
-        self.assertIn('std::array<DataVariant,2>', catalogue.generate(catalogue.load(self.path)))
+        self.assertIn('std::array<DataVariant,3>', catalogue.generate(catalogue.load(self.path)))
+
+    def test_issue_1_plain_self_manifests_keep_exact_versions_and_reject_mixed_updates(self):
+        games = {game['id']: game for game in catalogue.load(self.path)}
+        identities = {
+            'ketsui': '9113b52b4b61c71cf557a74f9d9e3dc29af91f572c245cdec5ba09c7e1b0a8ed',
+            'daioujou': '8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79',
+        }
+        for game, expected in identities.items():
+            with self.subTest(game=game):
+                variant = next(v for v in games[game]['variants'] if v['id'] == 'base-self')
+                self.assertEqual((variant['version'], variant['layout'], variant['entry']), ('01.00', 'base', 'eboot.bin'))
+                files = {f['path']: f for f in variant['files']}
+                self.assertEqual(files['eboot.bin']['sha256'], expected)
+                self.assertIn('ps4data_patch_body.bin', variant['forbiddenFiles'])
+                self.assertIn('ps4data_patch_info.psb.m', variant['forbiddenFiles'])
+                self.assertFalse(set(files) & set(variant['forbiddenFiles']))
+        base = next(v for v in games['daioujou']['variants'] if v['id'] == 'base-self')
+        for module in ('daioujou_01010.prx', 'daioujou_01020.prx', 'daioujou_01030.prx'):
+            self.assertIn(module, base['forbiddenFiles'])
+        self.assertEqual(games['daioujou']['variants'][0]['id'], 'update-104')
+        base_ketsui = {f['path']: f for f in games['ketsui']['variants'][1]['files']}
+        wrapped = {f['path']: f for f in games['ketsui']['variants'][2]['files']}
+        self.assertEqual(base_ketsui['ps4data_body.bin'], wrapped['ps4data_body.bin'])
 
     def test_invalid_or_ambiguous_data_variants_are_rejected(self):
         original = catalogue.read_json(self.root / 'games/ketsui/data.json')

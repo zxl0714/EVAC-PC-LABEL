@@ -184,7 +184,7 @@ If your extraction has separate `CUSA09062-app/` and `CUSA09062-patch/` folders,
 
 ### 怒首領蜂 大往生 臨廻転生 — DoDonPachi DaiOuJou Re:Incarnation (daioujou)
 
-Supported: **CUSA32997, complete merged version 01.04 data**.
+Supported: **CUSA32997, version 01.00 base (offline) or complete merged 01.04 data**. Use the complete base folder for 01.00. Community rankings and online replays require the 01.04 update. Updated layout:
 
 ```text
 game-data/daioujou/

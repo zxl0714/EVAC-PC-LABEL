@@ -487,6 +487,7 @@ private:
     [[nodiscard]] vk::FormatFeatureFlags2 GetFormatFeatureFlags(vk::Format format) const;
 
 private:
+    cave::ps4::presentation::Surfaces maintenance_surfaces;
     vk::UniqueInstance instance;
     vk::PhysicalDevice physical_device;
     vk::UniqueDevice device;

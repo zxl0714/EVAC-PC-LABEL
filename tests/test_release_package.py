@@ -549,6 +549,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('tools/Extract-Dlc.ps1', release.extraction_sources('0.7.2'))
         self.check_seven_game_package('0.7.3')
 
+    def test_v074_keeps_seven_game_program_package_and_placement_guides(self):
+        self.check_seven_game_package('0.7.4')
+
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
         (base/'asset.bin').write_bytes(b'abc')

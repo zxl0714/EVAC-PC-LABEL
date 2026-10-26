@@ -1,5 +1,6 @@
 #include "vulkan_device.h"
 #include "present_mode.h"
+#include "presentation_extensions.h"
 
 #include <windows.h>
 #include <vulkan/vulkan.h>
@@ -266,8 +267,13 @@ struct VulkanDevice::Impl {
             })) { throw std::runtime_error("Requested validation layer lacks synchronization validation features"); }
             extensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
-        surface_maintenance = has_instance_extension(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME) && has_instance_extension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-        if (surface_maintenance) { extensions.push_back(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME); extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME); }
+        const auto maintenance_surfaces = cave::ps4::presentation::SurfaceExtensions(has_instance_extension);
+        surface_maintenance = maintenance_surfaces.Supported();
+        if (surface_maintenance) {
+            extensions.push_back(cave::ps4::presentation::kCapabilities);
+            if (maintenance_surfaces.ext) extensions.push_back(cave::ps4::presentation::kSurfaceExt);
+            if (maintenance_surfaces.khr) extensions.push_back(cave::ps4::presentation::kSurfaceKhr);
+        }
         VkApplicationInfo app{};
         app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app.pApplicationName = "Ketsui PC independent graphics";
@@ -373,8 +379,11 @@ struct VulkanDevice::Impl {
         queue_info.pQueuePriorities = &priority;
         const auto selected_extensions = Enumerate<VkExtensionProperties>("vkEnumerateDeviceExtensionProperties", 16384,
             [&](auto* count, auto* data) { return enumerate_extensions(physical, nullptr, count, data); });
-        present_fences = surface_maintenance && std::any_of(selected_extensions.begin(), selected_extensions.end(),
-            [](const auto& entry) { return std::strcmp(entry.extensionName, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) == 0; });
+        const auto maintenance_name = cave::ps4::presentation::SwapchainExtension(maintenance_surfaces, [&](const char* name) {
+            return std::any_of(selected_extensions.begin(), selected_extensions.end(),
+                [&](const auto& entry) { return std::strcmp(entry.extensionName, name) == 0; });
+        });
+        present_fences = maintenance_name != nullptr;
         VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{}; maintenance.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT;
         if (present_fences) {
             VkPhysicalDeviceFeatures2 queried{}; queried.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2; queried.pNext = &maintenance;
@@ -382,7 +391,7 @@ struct VulkanDevice::Impl {
             present_fences = maintenance.swapchainMaintenance1 != 0;
         }
         std::vector<const char*> device_extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME};
-        if (present_fences) { device_extensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME); }
+        if (present_fences) { device_extensions.push_back(maintenance_name); }
         VkDeviceCreateInfo device_info{};
         device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         device_info.queueCreateInfoCount = 1;
@@ -1145,7 +1154,7 @@ void VulkanDevice::TrimRasterCaches() {
 
 PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8_t> linear) {
     auto& gpu = *impl_;
-    if (!gpu.present_fences) { throw std::runtime_error("VK_EXT_swapchain_maintenance1 is required for tracked presentation"); }
+    if (!gpu.present_fences) { throw std::runtime_error("Swapchain maintenance1 (EXT or KHR) is required for tracked presentation"); }
     const auto found = gpu.images.find(id);
     if (found == gpu.images.end()) { throw std::runtime_error("Present image is not registered"); }
     auto& source = found->second;

@@ -32,6 +32,8 @@ try {
         if ('ketsui' -in $Games -or 'daioujou' -in $Games -or 'esprade' -in $Games) {
             & $ctest --test-dir (Join-Path $collectionTestRoot 'out/ps4-gpu') --output-on-failure
             if ($LASTEXITCODE -ne 0) { throw 'PS4 GPU tests failed' }
+            & $ctest --test-dir (Join-Path $collectionTestRoot 'out/ps4-native') -R '^ps4_compatibility$' --output-on-failure
+            if ($LASTEXITCODE -ne 0) { throw 'PS4 compatibility tests failed' }
             & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_native_checks.py')
             if ($LASTEXITCODE -ne 0) { throw 'PS4 native checks failed' }
             & py -3.12 (Join-Path $PSScriptRoot 'ps4/run_prepare_checks.py')

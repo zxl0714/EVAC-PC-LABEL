@@ -15,7 +15,7 @@ from ps4_sources import locked_dependencies, verify_checkout
 from toolchain import tool_path, tool_snapshot
 
 OUTPUTS = {
-    'out/ps4-native': ('KetsuiNativeProbe', 'KetsuiResourcePrepareCheck'),
+    'out/ps4-native': ('KetsuiNativeProbe', 'KetsuiResourcePrepareCheck', 'Ps4CompatibilityTests'),
     'out/ps4-gpu': ('KetsuiGpuCoreSmoke', 'KetsuiGpuRuntimeSmoke', 'KetsuiGpuCompileMetricsSmoke', 'KetsuiGpuRuntime'),
 }
 RECEIPT = ROOT / 'out/ps4/build-receipt.json'
@@ -64,7 +64,8 @@ def snapshot():
                 'tools/packages.lock.json', 'config/default.ini', 'games/catalogue.json', 'scripts/generate_catalogue.py',
                 'scripts/ps4/run_prepare_checks.py', 'scripts/ps4/native_elf.py', 'scripts/ps4/prepare_native.py',
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
-    explicit.update({'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py', 'scripts/daioujou/resource_fixes.py',
+    explicit.update({'tests/ps4_compatibility_test.cpp', 'tests/test_ps4_compatibility.py',
+                     'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py', 'scripts/daioujou/resource_fixes.py',
                      'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'tests/ketsui/test_native.py',
                      'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py', 'scripts/ps4/run_replay_checks.py',
                      'scripts/ps4/replay_fixture.py',

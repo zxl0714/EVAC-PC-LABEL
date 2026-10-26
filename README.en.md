@@ -33,7 +33,7 @@ Prepare only the games you want:
 | エスプガルーダII ブラックレーベル | Espgaluda II Black Label / G2 | Xbox 360 |
 | ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
 | 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
-| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; complete merged 01.04 data |
+| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; 01.00 base (offline) or complete merged 01.04 data |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
 | ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
 

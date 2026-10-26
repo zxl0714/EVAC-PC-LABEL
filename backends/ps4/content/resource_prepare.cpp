@@ -240,9 +240,13 @@ ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,ResourceTitle 
     Require(esprade?source==kEspradeExecutableHash:daioujou?source==kDaioujouExecutableHash:version!=nullptr,
         esprade?"Game fixes require the verified CUSA15155 1.04 executable":
         daioujou?"Game fixes require the verified CUSA32997 1.04 executable":"Game fixes require a verified CUSA09062 executable");
-    // Bind the original SELF identity before decoding its file-backed ELF.
-    const auto decoded=esprade?PlainSelfElf(executable):ResourceBytes{};
-    if (esprade) executable=decoded;
+    // Check the original identity before interpreting its decoded program.
+    return ReadArchiveSeed(executable,daioujou?0xdd:esprade?0xd3:version->archive_seed_load,daioujou);
+}
+}
+ResourceBytes ReadArchiveSeed(std::span<const std::uint8_t> source,std::uint64_t load,bool relative_load) {
+    const auto decoded=PlainSelfElf(source);
+    const std::span<const std::uint8_t> executable=decoded;
     const auto count=Number(executable,56,2),table=Number(executable,32,8);
     Require(count<=64 && table<=executable.size() && count<=(executable.size()-table)/56,"Invalid archive executable headers");
     auto virtual_read=[&](std::uint64_t address,unsigned size) {
@@ -259,19 +263,17 @@ ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,ResourceTitle 
         }
         Require(matches==1,"Archive initialization data is not in one file-backed segment"); return bytes;
     };
-    if (daioujou) {
-        Require(virtual_read(0xdd,3)==ResourceBytes{0x48,0x8d,0x35} &&
-            virtual_read(0xe4,5)==ResourceBytes{0xba,0x0d,0,0,0},"Archive initialization instruction layout changed");
-        const auto relative=virtual_read(0xe0,4);
-        const auto address=std::int64_t{0xe4}+static_cast<std::int32_t>(Number(relative,0,4));
+    if (relative_load) {
+        Require(virtual_read(load,3)==ResourceBytes{0x48,0x8d,0x35} &&
+            virtual_read(load+7,5)==ResourceBytes{0xba,0x0d,0,0,0},"Archive initialization instruction layout changed");
+        const auto relative=virtual_read(load+3,4);
+        const auto address=static_cast<std::int64_t>(load+7)+static_cast<std::int32_t>(Number(relative,0,4));
         Require(address>=0,"Invalid archive initialization address");
         return virtual_read(static_cast<std::uint64_t>(address),13);
     }
-    const auto load=esprade?0xd3:version->archive_seed_load;
     Require(virtual_read(load,2)==ResourceBytes{0x48,0xb8} && virtual_read(load+10,2)==ResourceBytes{0x48,0xb9},
         "Archive initialization instruction layout changed");
     auto key=virtual_read(load+12,8); const auto tail=virtual_read(load+5,5); key.insert(key.end(),tail.begin(),tail.end()); return key;
-}
 }
 
 ResourceBytes ArchiveMask(std::span<const std::uint8_t> seed,std::string_view name) {

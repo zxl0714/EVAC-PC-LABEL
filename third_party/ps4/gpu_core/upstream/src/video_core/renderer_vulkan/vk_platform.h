@@ -4,6 +4,7 @@
 #pragma once
 
 #include <fmt/format.h>
+#include "presentation_extensions.h"
 
 #include "common/assert.h"
 #include "common/logging/log.h"
@@ -23,7 +24,8 @@ constexpr u32 TargetVulkanApiVersion = VK_API_VERSION_1_3;
 vk::SurfaceKHR CreateSurface(vk::Instance instance, const Frontend::WindowSDL& emu_window);
 
 vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool enable_validation,
-                                  bool enable_crash_diagnostic);
+                                  bool enable_crash_diagnostic,
+                                  cave::ps4::presentation::Surfaces* maintenance = nullptr);
 
 vk::UniqueDebugUtilsMessengerEXT CreateDebugCallback(vk::Instance instance);
 

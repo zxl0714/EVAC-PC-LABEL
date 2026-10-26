@@ -1,7 +1,7 @@
 # EVAC PC LABEL 开发入口
 
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
-当前产品版本为 v0.7.3；发行状态与实际验收范围见实施计划和验收矩阵。
+当前开发版本为 v0.7.4；发行状态与实际验收范围见实施计划和验收矩阵。
 
 已接入七款游戏，Guwange 的三种单人玩法、保存及正式社区短流程已验证。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
@@ -112,7 +112,9 @@ py -3.12 scripts/ps4_sources.py verify
 
 快速检查查存在性和大小；有多个数据版本时也会核对根程序 SHA-256，以选定精确清单。--full 校验全部资源 SHA-256，--programs 校验运行程序。检测工具只读、不运行游戏或联网。Coming Soon 与数据是否齐全是不同状态。
 
-最大往生使用受支持的光盘本体，不混入 default.xexp、.binp 或音乐补丁。三款 PS4 作品首次运行由原生准备链生成自己的 prepared/<id>/ 缓存，不修改原数据；大往生为 CUSA32997／01.04 合并目录，ESP Ra.De. 为 CUSA15155／01.04 合并目录。绊地狱使用 CUSA09062／01.00 本体或本体覆盖 01.02 后的单目录，直接包含 eboot.bin；不接受旧双目录。检测 JSON 的 dataVariant／dataVersion／dataLayout 标明实际识别结果，缓存和 Internal 组包绑定同一版本清单。实际游玩验收见 TEST_MATRIX。
+最大往生使用受支持的光盘本体，不混入 default.xexp、.binp 或音乐补丁。三款 PS4 作品首次运行由原生准备链生成自己的 prepared/<id>/ 缓存，不修改原数据；大往生为 CUSA32997／01.00 本体（离线）或 01.04 合并目录，ESP Ra.De. 为 CUSA15155／01.04 合并目录。绊地狱使用 CUSA09062／01.00 本体或本体覆盖 01.02 后的单目录，直接包含 eboot.bin；不接受旧双目录。检测 JSON 的 dataVariant／dataVersion／dataLayout 标明实际识别结果，缓存和 Internal 组包绑定同一版本清单。实际游玩验收见 TEST_MATRIX。
+
+PS4 兼容回归：构建后运行 `tools/apps/cmake/bin/ctest.exe --test-dir out/ps4-native -R ps4_compatibility --output-on-failure`。该测试无需 ROM 或显卡，直接执行生产扩展协商、版本准备策略和 SELF／ELF 资源种子读取函数。`tests/test_ps4_compatibility.py` 检查这些函数仍接在实际启动路径上，`tests/test_catalogue.py` 与原生 common 测试覆盖清单选择及混合版本拒绝。Ninja 固定包及新安装流程由 `tests/test_tool_archives.py` 覆盖。
 
 ## 编译与运行
 

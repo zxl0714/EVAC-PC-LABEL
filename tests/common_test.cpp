@@ -124,10 +124,13 @@ void DataVariantChecks(Fixture& fixture) {
   Write(source/"eboot.bin","def");const auto update_hash=Sha256(source/"eboot.bin");
   const std::array base_files{DataFile{"eboot.bin",3,base_hash,true},DataFile{"core.prx",3,base_hash,true},DataFile{"asset.bin",3,base_hash,false}};
   const std::array update_files{DataFile{"eboot.bin",3,update_hash,true},DataFile{"core.prx",3,update_hash,true},DataFile{"asset.bin",3,base_hash,false},DataFile{"patch.bin",3,update_hash,false}};
+  Write(source/"wrapper.bin","wrapped");const auto wrapper_hash=Sha256(source/"wrapper.bin");
+  const std::array wrapped_files{DataFile{"eboot.bin",7,wrapper_hash,true},DataFile{"core.prx",3,base_hash,true},DataFile{"asset.bin",3,base_hash,false}};
   const std::array<std::string_view,2> legacy{"CUSA09062-app","CUSA09062-patch"};
   const std::array<std::string_view,3> base_forbidden{"CUSA09062-app","CUSA09062-patch","patch.bin"};
   const std::array variants{DataVariant{"update-102","01.02","merged-patch","eboot.bin",update_files,legacy},
-                           DataVariant{"base","01.00","base","eboot.bin",base_files,base_forbidden}};
+                           DataVariant{"base","01.00","base","eboot.bin",base_files,base_forbidden},
+                           DataVariant{"base-self","01.00","base","eboot.bin",wrapped_files,base_forbidden}};
   Game game{"fixture","Fixture","ps4","game-data/fixture","runtime/fake.exe",true,false,update_files,{}};
   game.forbidden_files=legacy;game.variants=variants;
   auto inspect=[&](CheckLevel level=CheckLevel::Full){return Inspect(game,fixture.root,source,level);};
@@ -136,6 +139,14 @@ void DataVariantChecks(Fixture& fixture) {
   Require(base.state=="ready" && base.variant=="base" && base.version=="01.00" && base.layout=="base" &&
           base.files_checked==3 && base.hashes_checked==4,"base data selects its own complete hash manifest");
   Require(IdentifyDataVariant(game,source)==&variants[1] && DataFiles(game,"base").size()==3,"preparation can bind the identified base manifest");
+  Write(source/"eboot.bin","wrapped");
+  Require(inspect().state=="ready"&&inspect().variant=="base-self"&&inspect().version=="01.00","wrapped base selects its own full manifest");
+  Require(inspect(CheckLevel::Quick).variant=="base-self","quick check recognizes wrapped base by raw identity");
+  Write(source/"core.prx","def");
+  Require(inspect().state=="unsupported_version","wrapped base rejects mixed program hashes");
+  Write(source/"core.prx");Write(source/"patch.bin","def");
+  Require(inspect().state=="unsupported_version","wrapped base rejects update remnants");
+  fs::remove(source/"patch.bin");Write(source/"eboot.bin");
   Write(source/"patch.bin","def");
   Require(inspect().state=="unsupported_version","base executable with leftover patch resources is rejected");
   Write(source/"eboot.bin","def");

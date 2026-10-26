@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <bcrypt.h>
+#include "loader/preparation_policy.h"
 #include "guest_heap.h"
 #include "native_debug.h"
 #include "native_sync.h"
@@ -1805,7 +1806,8 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* community_provider = nullptr;
     const wchar_t* community_round_audit = nullptr;
     const wchar_t* community_rounds = nullptr;
-    bool valid_arguments = argc >= 3 && argc <= 43 && (argc % 2 == 1);
+    const wchar_t* community_offline = nullptr;
+    bool valid_arguments = argc >= 3 && argc <= 45 && (argc % 2 == 1);
     for (int i = 3; valid_arguments && i + 1 < argc; i += 2) {
         if (std::wstring(argv[i]) == L"--user-dir" && !user_directory) { user_directory = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--module-dir" && !modules_path) { modules_path = argv[i + 1]; }
@@ -1829,6 +1831,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--community-provider" && !community_provider) { community_provider = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-round-audit" && !community_round_audit) { community_round_audit = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-rounds" && !community_rounds) { community_rounds = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--community-offline" && !community_offline) { community_offline = argv[i + 1]; }
         else { valid_arguments = false; }
     }
     if ((patch_path || addons_path) && !app_path) { valid_arguments = false; }
@@ -1852,6 +1855,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (direct_score_provider && (community_rounds || community_round_audit)) valid_arguments=false;
     if (community_round_audit && (!community_provider || configured_community || std::wstring(community_round_audit) != L"on")) { valid_arguments = false; }
     if (community_rounds && (!community_provider || community_round_audit || std::wstring(community_rounds) != L"on")) { valid_arguments = false; }
+    if (community_offline && (!configured_community || community_rounds || std::wstring_view(community_offline) != L"on")) { valid_arguments = false; }
     if (allocation_timing && ((std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate") ||
         (std::wstring(allocation_timing) != L"full" && std::wstring(allocation_timing) != L"counts"))) { valid_arguments = false; }
     if (background_log && (std::wstring_view(argv[2])!=L"--enter" || std::wstring_view(background_log)!=L"on")) valid_arguments=false;
@@ -1906,6 +1910,10 @@ int NativeCommand(int argc, wchar_t** argv) {
             const bool development_opt_in=!configured_community && collection &&
                 (collection->game=="daioujou" || collection->game=="esprade") && !collection->community_supported;
             if (development_opt_in) config.enabled=collection->shared.community_enabled;
+            if (community_offline) {
+                std::puts("{\"event\":\"native_community_offline\",\"reason\":\"data_version\"}");
+            }
+            config.enabled=cave::ps4::CommunityEnabledForData(config.enabled,community_offline!=nullptr);
             const auto endpoint = kt::community::ParseEndpoint(config.endpoint,config.game);
             if (app_path && NativeContentTitleId()!=kt::community::ProtocolFor(config.game).title_id)
                 throw std::runtime_error("Community title does not match the configured game content");
