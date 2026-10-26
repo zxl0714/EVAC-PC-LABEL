@@ -6,6 +6,38 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.4 — delivered October 26
+
+Published https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.4 at
+22:00 Asia/Shanghai. Final source/tag is 46deed5dcde4c8e1fda2b315a893c2ce40e87a31.
+The earlier unpublished tag was corrected with an exact remote lease; do not
+move the published tag. Program ZIP: releases/v0.7.4-46deed5/EVAC-PC-LABEL-v0.7.4-win-x64.zip,
+106325853 bytes, SHA256 69f19cdb08abdec79065464529a9f151c8c9877c3ea391175f8e2a6f5f6edfee.
+One extraction passes (150 files, nine preserved sentinels); receipt
+.local/release-acceptance-v074/69f19cdb08abdec7/accepted.json.
+GitHub API verifies ZIP/checksum size, SHA256, uploaded state, Latest and
+non-draft/non-prerelease. Issue #1 was thanked and linked to v0.7.4, then closed
+as completed; comment 6417890785. No ROM, source bundle or personal credits.
+
+Actual offline desktop smoke used an independent installation: Ketsui 01.02
+run 113576 reached mode menu/ARCADE transition; DaiOuJou 01.04 run 116532 reached
+mode menu and arcade title. ESP initial run 6484 exposed the missing variant,
+fixed in 46deed5. Final run 115044 reached title, mode menu and ARCADE loading.
+Its EXE/GPU/launcher hashes match the final package. All three close through
+the existing window-close exit 27 with presentation cleanup and no dump; all
+test processes are gone. Ketsui/DOJ accepted smoke is reused after the ESP-only
+manifest correction; their policies and the GPU binary are unchanged.
+143 ROM/GPU-free native checks now include every actual shipped PS4 manifest;
+19 catalogue and three wiring tests plus common/launch/update CTests pass.
+Seven-game incremental certification verifies 71/7/2 Xbox/PS4/launcher pairs.
+
+The old 66ce21f candidate remains in a private, untagged GitHub draft titled
+"Superseded v0.7.4 candidate - do not publish" (title uses an em dash online).
+Deletion was not confirmed, so it and the local failed ZIP were retained;
+it is not the public release. Do not publish/re-upload that candidate.
+Do not repeat builds, gameplay, extraction, publication or issue replies for
+delivery-only documentation. Final evidence: .local/v074-delivery-r2.json.
+
 ### v0.7.4 — issue #1 compatibility work
 
 Publication smoke caught an ESP Ra.De. regression in candidate 66ce21f:
