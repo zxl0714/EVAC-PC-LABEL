@@ -9,6 +9,8 @@ std::uint64_t ResolveScoreImport(std::string_view identifier, std::string_view l
 // The replay bridge and native menu integration must be ready before that gate opens.
 bool ConfigureNativeScore(std::shared_ptr<kt::community::Client> client);
 bool NativeScoreContextsLive();
+// Names from validated community ranking responses only; never contacts PSN.
+std::string NativeScoreProfileName(std::uint64_t account);
 bool ScoreSelfTest();
 bool ScoreProfileSelfTest();
 bool ScoreReplaySelfTest();

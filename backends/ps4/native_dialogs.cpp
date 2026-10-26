@@ -6,6 +6,7 @@
 #include "native_content.h"
 #include "native_trophy.h"
 #include "native_np.h"
+#include "native_np_score.h"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -87,6 +88,29 @@ struct SaveResult {
     void* cookie;
     unsigned char reserved[32];
 };
+struct ProfileParam {
+    BaseParam base;
+    std::uint64_t size;
+    U32 mode;
+    int user;
+    char online[17];
+    unsigned char padding[7];
+    void* cookie;
+    unsigned char reserved[32];
+};
+struct ProfileAccountParam {
+    BaseParam base;
+    std::uint64_t size;
+    U32 mode;
+    int user;
+    std::uint64_t account, padding;
+    void* cookie;
+    unsigned char reserved[32];
+};
+struct ProfileResult { int result; U32 action; void* cookie; unsigned char reserved[32]; };
+static_assert(sizeof(ProfileParam) == 128 && offsetof(ProfileParam, cookie) == 88);
+static_assert(sizeof(ProfileAccountParam) == 120 && offsetof(ProfileAccountParam, account) == 64);
+static_assert(offsetof(ProfileAccountParam, cookie) == 80 && sizeof(ProfileResult) == 48);
 static_assert(sizeof(BaseParam) == 48 && offsetof(BaseParam, magic) == 44);
 static_assert(sizeof(MessageParam) == 136 && offsetof(MessageParam, user) == 64);
 static_assert(sizeof(UserParam) == 48 && sizeof(ProgressParam) == 80);
@@ -96,7 +120,7 @@ static_assert(sizeof(SaveUserParam) == 48 && sizeof(SaveProgressParam) == 48 && 
 
 struct Display {
     U32 mode{}, type{}, value{};
-    bool error{}, cancel{};
+    bool error{}, cancel{}, profile{};
     unsigned default_button{1};
     std::wstring message, first, second;
     U32 api_mode{};
@@ -127,7 +151,9 @@ std::mutex gate;
 Session message_session{0xa4, "libSceMsgDialog", 0, 0, false, {}};
 Session error_session{0xac, "libSceErrorDialog", 0, 0, false, {}};
 Session save_session{0xa0, "libSceSaveDataDialog", 0, 0, false, {}};
+Session profile_session{0xb2, "libSceNpProfileDialog", 0, 0, false, {}};
 bool common_initialized{};
+bool hidden_dialog_test{}; // set only by the standalone native UI self-test
 INIT_ONCE ui_once = INIT_ONCE_STATIC_INIT;
 
 template <typename Function> int Api(Function&& function) noexcept {
@@ -321,6 +347,10 @@ LRESULT WindowMessage(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
     }
     if (message == WM_COMMAND && HIWORD(wparam) == BN_CLICKED) {
         const unsigned button = LOWORD(wparam);
+        if (job->display.profile && button == IDCANCEL) {
+            FinishWindow(window, job, {0, 1, 0, {}});
+            return 0;
+        }
         if ((button == 1 && !job->display.first.empty()) || (button == 2 && !job->display.second.empty())) {
             FinishWindow(window, job, ButtonOutcome(job->display, button));
         }
@@ -392,6 +422,7 @@ DWORD WINAPI WindowThread(void* raw) noexcept {
     const int x = (GetSystemMetrics(SM_CXSCREEN) - 570) / 2;
     const int y = (GetSystemMetrics(SM_CYSCREEN) - 300) / 2;
     const auto window = CreateWindowExW(WS_EX_CONTROLPARENT, kClass,
+                      job->display.profile ? L"EVAC PC LABEL - PLAYER CARD" :
                       job->session == &save_session ? L"Ketsui PC - Save data" :
                       job->display.error ? L"Ketsui PC - Error" : L"Ketsui PC - Message",
                       WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, x, y, 570, 300,
@@ -403,9 +434,11 @@ DWORD WINAPI WindowThread(void* raw) noexcept {
     }
     SetEvent(job->ready);
     if (!window) { return 1; }
-    ShowWindow(window, SW_SHOWNORMAL);
-    UpdateWindow(window);
-    if (job->display.default_button) { SetFocus(GetDlgItem(window, static_cast<int>(job->display.default_button))); }
+    if (!hidden_dialog_test) {
+        ShowWindow(window, SW_SHOWNORMAL);
+        UpdateWindow(window);
+        if (job->display.default_button) { SetFocus(GetDlgItem(window, static_cast<int>(job->display.default_button))); }
+    }
     MSG message{};
     int received;
     while ((received = GetMessageW(&message, nullptr, 0, 0)) > 0) {
@@ -420,7 +453,7 @@ DWORD WINAPI WindowThread(void* raw) noexcept {
 
 Session* Module(unsigned id) {
     return id == message_session.id ? &message_session : id == error_session.id ? &error_session :
-           id == save_session.id ? &save_session : nullptr;
+           id == save_session.id ? &save_session : id == profile_session.id ? &profile_session : nullptr;
 }
 
 int KT_SYSV ModuleLoad(unsigned id) {
@@ -442,13 +475,10 @@ int KT_SYSV ModuleLoad(unsigned id) {
     // checks NetInit at main +0x13cccd. Neither provider is installed here.
     // PngEnc (0x8d) is not SaveDataDialog (0xa0). The startup PNG helper
     // tail-calls LoadModule at main +0x1ee518; no encoder is installed.
-    // NpProfileDialog (0xb2) constructors +0x1e4030/+0x1e40d0 only
-    // publish their enabled flag after successful load. NpScoreRanking
-    // (0x1e) at +0x1e4260/+0x1e4320 and Rudp (0x21) at +0x142ca0
-    // return failure before calling their online APIs when loading fails.
-    // Their providers are absent in this offline profile as well.
+    // NpProfileDialog (0xb2) has a local player-card provider below; it
+    // never opens a Sony session. Rudp still has no provider.
     if (id == 7 || id == 0x81 || id == 0x85 || id == 0x8d || id == 0xb7 || id == 0xe7 ||
-        id == 0xb2 || id == 0x1e || id == 0x21) {
+        id == 0x21) {
         TraceNativeApi("sceSysmoduleLoadModule_unavailable", id, __builtin_return_address(0));
         return kModuleNotLoaded;
     }
@@ -503,14 +533,18 @@ int KT_SYSV CommonInitialize() {
     common_initialized = true;
     return 0;
 }
-int KT_SYSV CommonIsUsed() { std::lock_guard lock(gate); return message_session.status != 0 || save_session.status != 0; }
+int KT_SYSV CommonIsUsed() { std::lock_guard lock(gate); return message_session.status != 0 || save_session.status != 0 || profile_session.status != 0; }
 
 int Initialize(Session& session) {
     std::lock_guard lock(gate);
     if (!session.references) { return kNotInitialized; }
     if (&session != &error_session && !common_initialized) { return kNoSystem; }
     if (session.status) { return kAlreadyInitialized; }
-    if ((&session == &message_session && save_session.status) || (&session == &save_session && message_session.status)) { return kBusy; }
+    if (&session != &error_session) {
+        for (const auto* other : {&message_session, &save_session, &profile_session}) {
+            if (other != &session && other->status) { return kBusy; }
+        }
+    }
     session.status = 1;
     return 0;
 }
@@ -582,6 +616,51 @@ int Terminate(Session& session) {
     if (!joined) { return kFatal; }
     session.job.reset();
     session.status = 0;
+    return 0;
+}
+
+int KT_SYSV ProfileInitialize() { return Api([] { return Initialize(profile_session); }); }
+int KT_SYSV ProfileTerminate() { return Api([] { return Terminate(profile_session); }); }
+int KT_SYSV ProfileStatus() { return Status(profile_session); }
+int KT_SYSV ProfileClose() { return Api([] { return Close(profile_session); }); }
+int OpenProfile(std::string name, void* cookie) {
+    Display display;
+    display.profile = display.cancel = true;
+    display.first = L"CLOSE";
+    display.cookie = cookie;
+    if (!Utf8(name.c_str(), display.message)) { return kParameter; }
+    return Open(profile_session, std::move(display));
+}
+int KT_SYSV ProfileOpen(const ProfileParam* param) {
+    return Api([&] {
+        const auto status = ProfileStatus();
+        if (status != 1 && status != 3) { return kState; }
+        if (!param) { return kNull; }
+        if (param->size != sizeof(*param) || param->base.size != sizeof(BaseParam)) { return kParameter; }
+        if (param->mode != 1) { return kUnsupported; }
+        const auto end = std::find(std::begin(param->online), std::end(param->online), '\0');
+        if (end == std::begin(param->online) || end == std::end(param->online)) { return kParameter; }
+        return OpenProfile(std::string(param->online, end), param->cookie);
+    });
+}
+int KT_SYSV ProfileOpenAccount(const ProfileAccountParam* param) {
+    return Api([&] {
+        const auto status = ProfileStatus();
+        if (status != 1 && status != 3) { return kState; }
+        if (!param) { return kNull; }
+        if (param->size != sizeof(*param) || param->base.size != sizeof(BaseParam) || !param->account) { return kParameter; }
+        if (param->mode != 1) { return kUnsupported; }
+        auto name = NativeScoreProfileName(param->account);
+        if (name.empty()) { name = "Player ID: " + std::to_string(param->account); }
+        return OpenProfile(std::move(name), param->cookie);
+    });
+}
+int KT_SYSV ProfileGetResult(ProfileResult* result) {
+    std::lock_guard lock(gate);
+    if (!profile_session.status) { return kNotInitialized; }
+    if (!result) { return kNull; }
+    if (profile_session.status != 3 || !profile_session.job) { return kNotFinished; }
+    *result = {0, profile_session.job->outcome.result, profile_session.job->display.cookie, {}};
     return 0;
 }
 
@@ -680,8 +759,11 @@ int KT_SYSV ErrorOpen(const ErrorParam* param) {
 } // namespace
 
 std::uint64_t ResolveDialogImport(std::string_view identifier, std::string_view library, std::string_view module) {
-    if (library != module) { return 0; }
     const auto hash = identifier.substr(0, identifier.find('#'));
+    if (module == "libSceNpProfileDialog" && library == "libSceNpProfileDialogCompat" && hash == "uj9Cz7Tk0cc") {
+        return reinterpret_cast<std::uint64_t>(&ProfileOpen);
+    }
+    if (library != module) { return 0; }
     struct Binding { std::string_view hash, library; std::uint64_t address; };
     const Binding bindings[]{
         {"g8cM39EUZ6o", "libSceSysmodule", reinterpret_cast<std::uint64_t>(&ModuleLoad)},
@@ -715,6 +797,14 @@ std::uint64_t ResolveDialogImport(std::string_view identifier, std::string_view 
         {"hay1CfTmLyA", "libSceSaveDataDialog", reinterpret_cast<std::uint64_t>(&SaveProgressSet)},
         {"YuH2FA7azqQ", "libSceSaveDataDialog", reinterpret_cast<std::uint64_t>(&SaveTerminate)},
         {"KK3Bdg1RWK0", "libSceSaveDataDialog", reinterpret_cast<std::uint64_t>(&SaveStatus)},
+        {"Lg+NCE6pTwQ", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileInitialize)},
+        {"0Sp9vJcB1-w", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileTerminate)},
+        {"3BqoiFOjSsk", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileStatus)},
+        {"haVZE9FgKqE", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileStatus)},
+        {"wkwjz0Xdo2A", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileClose)},
+        {"uj9Cz7Tk0cc", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileOpen)},
+        {"nrQRlLKzdwE", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileOpenAccount)},
+        {"8rhLl1-0W-o", "libSceNpProfileDialog", reinterpret_cast<std::uint64_t>(&ProfileGetResult)},
     };
     for (const auto& binding : bindings) {
         if (binding.hash == hash && binding.library == library) { return binding.address; }
@@ -771,6 +861,71 @@ bool DialogSelfTest() {
     save.mode = 5; save.progress = &save_progress; display = {};
     check("save_progress_translation", DescribeSave(&save, display) == 0 && display.mode == 2 && display.first.empty() && display.second.empty());
     std::printf("{\"event\":\"dialog_self_test\",\"passed\":%s}\n", passed ? "true" : "false");
+    return passed;
+}
+
+bool ProfileDialogSelfTest() {
+    // Runs the production windows/lifecycle without showing or focusing them.
+    hidden_dialog_test = true;
+    bool passed = true;
+    const auto check = [&](const char* name, bool ok) {
+        std::printf("{\"event\":\"profile_dialog_test\",\"name\":\"%s\",\"passed\":%s}\n", name, ok ? "true" : "false");
+        passed &= ok;
+    };
+    const auto resolve = [](const char* hash) {
+        return ResolveDialogImport(hash, "libSceNpProfileDialog", "libSceNpProfileDialog");
+    };
+    using Plain = int (KT_SYSV*)();
+    using OpenId = int (KT_SYSV*)(const ProfileAccountParam*);
+    using OpenName = int (KT_SYSV*)(const ProfileParam*);
+    using GetResult = int (KT_SYSV*)(ProfileResult*);
+    const auto init = reinterpret_cast<Plain>(resolve("Lg+NCE6pTwQ#BD#t"));
+    const auto status = reinterpret_cast<Plain>(resolve("haVZE9FgKqE"));
+    const auto close = reinterpret_cast<Plain>(resolve("wkwjz0Xdo2A"));
+    const auto terminate = reinterpret_cast<Plain>(resolve("0Sp9vJcB1-w"));
+    const auto open = reinterpret_cast<OpenId>(resolve("nrQRlLKzdwE"));
+    const auto open_name = reinterpret_cast<OpenName>(resolve("uj9Cz7Tk0cc"));
+    const auto result = reinterpret_cast<GetResult>(resolve("8rhLl1-0W-o"));
+    if (!init || !status || !close || !terminate || !open || !open_name || !result) { return false; }
+    check("namespaces", !ResolveDialogImport("Lg+NCE6pTwQ", "wrong", "libSceNpProfileDialog") &&
+          ResolveDialogImport("uj9Cz7Tk0cc", "libSceNpProfileDialogCompat", "libSceNpProfileDialog") == resolve("uj9Cz7Tk0cc") &&
+          resolve("3BqoiFOjSsk") == resolve("haVZE9FgKqE"));
+    check("unloaded", init() == kNotInitialized && result(nullptr) == kNotInitialized);
+    check("load", ModuleLoad(0xb2) == 0 && ModuleIsLoaded(0xb2) == 0 && init() == kNoSystem);
+    check("initialize", CommonInitialize() == 0 && init() == 0 && init() == kAlreadyInitialized && status() == 1 && CommonIsUsed());
+    check("exclusive", ModuleLoad(0xa4) == 0 && MessageInitialize() == kBusy && ModuleUnload(0xb2) == kModuleBusy);
+    ProfileAccountParam param{}; param.base.size = sizeof(BaseParam); param.size = sizeof(param);
+    param.mode = 1; param.user = 0x1000; param.account = 73; param.cookie = reinterpret_cast<void*>(0x12345678);
+    check("null_and_size", open(nullptr) == kNull && open_name(nullptr) == kNull);
+    param.size = 0; check("invalid_size", open(&param) == kParameter); param.size = sizeof(param);
+    param.mode = 2; check("no_psn_actions", open(&param) == kUnsupported && status() == 1); param.mode = 1;
+    ProfileResult answer{};
+    check("not_finished", result(&answer) == kNotFinished && close() == kNotRunning);
+    const auto wait_finished = [&] {
+        const auto end = GetTickCount64() + 3000;
+        while (status() == 2 && GetTickCount64() < end) { Sleep(1); }
+        return status() == 3;
+    };
+    for (unsigned round = 0; round != 4; ++round) {
+        check("open_account", open(&param) == 0 && status() == 2 && open(&param) == kState);
+        HWND window{};
+        { std::lock_guard lock(gate); if (profile_session.job) { window = profile_session.job->window; } }
+        if (round == 0) { check("api_close", close() == 0); }
+        else if (round == 1) { PostMessageW(window, WM_COMMAND, MAKEWPARAM(1, BN_CLICKED), 0); }
+        else if (round == 2) { PostMessageW(window, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0); }
+        else { PostMessageW(window, WM_CLOSE, 0, 0); }
+        check("finished", wait_finished() && result(&answer) == 0 && answer.result == 0 &&
+              answer.action == (round >= 2 ? 1u : 0u) && answer.cookie == param.cookie);
+    }
+    ProfileParam named{}; named.base.size = sizeof(BaseParam); named.size = sizeof(named); named.mode = 1;
+    std::memset(named.online, 'x', sizeof(named.online));
+    check("bounded_name", open_name(&named) == kParameter);
+    std::memcpy(named.online, "Player\0", 7);
+    check("open_name", open_name(&named) == 0 && status() == 2);
+    check("terminate_running", terminate() == 0 && status() == 0 && !CommonIsUsed());
+    check("reload", ModuleUnload(0xb2) == 0 && ModuleLoad(0xb2) == 0 && init() == 0 && terminate() == 0 && ModuleUnload(0xb2) == 0);
+    check("message_unchanged", MessageInitialize() == 0 && MessageTerminate() == 0 && ModuleUnload(0xa4) == 0);
+    hidden_dialog_test = false;
     return passed;
 }
 

@@ -329,8 +329,7 @@ bool SetWindow(void *context, void *window, RuntimeError *error) noexcept {
   return Guard(error, [&] {
     auto &session = Get(context);
     Require(
-        !window || (IsWindow(static_cast<HWND>(window)) &&
-                    session.instance->HasPresentFences()),
+        !window || IsWindow(static_cast<HWND>(window)),
         "Window binding requires a live HWND and presentation-enabled device");
     session.Drain();
     session.presenter.reset();

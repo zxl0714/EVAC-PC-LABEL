@@ -267,7 +267,8 @@ struct VulkanDevice::Impl {
             })) { throw std::runtime_error("Requested validation layer lacks synchronization validation features"); }
             extensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
-        const auto maintenance_surfaces = cave::ps4::presentation::SurfaceExtensions(has_instance_extension);
+        const auto maintenance_surfaces = cave::ps4::presentation::DiagnosticCompatibility()
+            ? cave::ps4::presentation::Surfaces{} : cave::ps4::presentation::SurfaceExtensions(has_instance_extension);
         surface_maintenance = maintenance_surfaces.Supported();
         if (surface_maintenance) {
             extensions.push_back(cave::ps4::presentation::kCapabilities);
@@ -330,6 +331,9 @@ struct VulkanDevice::Impl {
         for (const auto candidate : devices) {
             VkPhysicalDeviceProperties candidate_properties{};
             get_properties(candidate, &candidate_properties);
+            std::fprintf(stderr, "Vulkan GPU candidate: %s vendor=0x%x device=0x%x api=0x%x driver=0x%x\n",
+                candidate_properties.deviceName, candidate_properties.vendorID, candidate_properties.deviceID,
+                candidate_properties.apiVersion, candidate_properties.driverVersion);
             if (candidate_properties.apiVersion < VK_API_VERSION_1_2) { continue; }
             VkPhysicalDeviceVulkan12Features f12{}; f12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
             VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demote{}; demote.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT; f12.pNext = &demote;
@@ -1154,7 +1158,6 @@ void VulkanDevice::TrimRasterCaches() {
 
 PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8_t> linear) {
     auto& gpu = *impl_;
-    if (!gpu.present_fences) { throw std::runtime_error("Swapchain maintenance1 (EXT or KHR) is required for tracked presentation"); }
     const auto found = gpu.images.find(id);
     if (found == gpu.images.end()) { throw std::runtime_error("Present image is not registered"); }
     auto& source = found->second;
@@ -1167,8 +1170,8 @@ PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8
     if (extent.width == UINT32_MAX) { extent = {std::clamp(layout.width, caps.minImageExtent.width, caps.maxImageExtent.width), std::clamp(layout.height, caps.minImageExtent.height, caps.maxImageExtent.height)}; }
     if (!extent.width || !extent.height) { return PresentStatus::ZeroExtent; }
     if (gpu.swapchain && (gpu.swapchain_extent.width != extent.width || gpu.swapchain_extent.height != extent.height)) {
-        // Every earlier Present waited its own maintenance fence, so no
-        // presentation engine operation still owns the old swapchain.
+        // This synchronous upload path has already retired its previous
+        // submission using a present fence or the compatibility queue drain.
         gpu.Device<PFN_vkDestroySwapchainKHR>("vkDestroySwapchainKHR")(gpu.device, gpu.swapchain, nullptr); gpu.swapchain = {};
     }
     if (!gpu.swapchain) {
@@ -1201,23 +1204,24 @@ PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8
         gpu.swapchain_initialized.assign(gpu.swapchain_images.size(), false); gpu.swapchain_extent = extent;
         const auto mode_name = info.presentMode == VK_PRESENT_MODE_FIFO_KHR ? "FIFO" :
             info.presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR ? "IMMEDIATE" : "MAILBOX";
-        std::printf("{\"event\":\"native_graphics_swapchain\",\"width\":%u,\"height\":%u,\"images\":%zu,\"mode\":\"%s\",\"present_mode\":%u,\"vsync_requested\":%s,\"completion\":\"maintenance1_fence\"}\n",
-            extent.width, extent.height, gpu.swapchain_images.size(), mode_name, unsigned(info.presentMode), gpu.vsync ? "true" : "false");
+        std::printf("{\"event\":\"native_graphics_swapchain\",\"width\":%u,\"height\":%u,\"images\":%zu,\"mode\":\"%s\",\"present_mode\":%u,\"vsync_requested\":%s,\"completion\":\"%s\"}\n",
+            extent.width, extent.height, gpu.swapchain_images.size(), mode_name, unsigned(info.presentMode), gpu.vsync ? "true" : "false", gpu.present_fences ? "maintenance1_fence" : "synchronous_queue_drain");
     }
     struct Scope {
         Impl& gpu;
         VkFence pending{};
-        bool submitted{};
+        bool submitted{}, queue_pending{};
         std::vector<std::function<void()>> cleanup;
         ~Scope() {
             // Exceptional paths must not free a present-wait semaphore merely
-            // because vkQueuePresentKHR returned. The actual present fence is
-            // the lifetime proof. The process watchdog bounds a stuck driver.
+            // because vkQueuePresentKHR returned. Wait for the selected
+            // completion mechanism; the process watchdog bounds a stuck driver.
             if (pending) { gpu.Device<PFN_vkWaitForFences>("vkWaitForFences")(gpu.device, 1, &pending, VK_TRUE, UINT64_MAX); }
+            if (queue_pending) { gpu.Device<PFN_vkQueueWaitIdle>("vkQueueWaitIdle")(gpu.queue); }
             if (submitted) { gpu.wait_idle(gpu.device); }
             for (auto it = cleanup.rbegin(); it != cleanup.rend(); ++it) { (*it)(); }
         }
-    } scope{gpu, {}, false, {}};
+    } scope{gpu, {}, false, false, {}};
     const auto make_fence = [&] {
         VkFence fence{}; VkFenceCreateInfo info{}; info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         Check(gpu.Device<PFN_vkCreateFence>("vkCreateFence")(gpu.device, &info, nullptr, &fence), "vkCreateFence(present)");
@@ -1288,23 +1292,31 @@ PresentStatus VulkanDevice::Present(std::uint64_t id, std::span<const std::uint8
     submit.signalSemaphoreCount = 1; submit.pSignalSemaphores = &ready;
     Check(gpu.Device<PFN_vkQueueSubmit>("vkQueueSubmit")(gpu.queue, 1, &submit, completed), "vkQueueSubmit(present)"); scope.submitted = true;
     VkSwapchainPresentFenceInfoEXT tracking{}; tracking.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT; tracking.swapchainCount = 1; tracking.pFences = &presented;
-    VkPresentInfoKHR present{}; present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; present.pNext = &tracking;
+    VkPresentInfoKHR present{}; present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; present.pNext = gpu.present_fences ? &tracking : nullptr;
     present.waitSemaphoreCount = 1; present.pWaitSemaphores = &ready; present.swapchainCount = 1; present.pSwapchains = &gpu.swapchain; present.pImageIndices = &index;
+    scope.queue_pending = !gpu.present_fences;
     const auto status = gpu.Device<PFN_vkQueuePresentKHR>("vkQueuePresentKHR")(gpu.queue, &present);
     // OUT_OF_DATE/SUBOPTIMAL still enqueue semaphore waits and the fence.
-    if (status == VK_SUCCESS || status == VK_SUBOPTIMAL_KHR || status == VK_ERROR_OUT_OF_DATE_KHR || status == VK_ERROR_SURFACE_LOST_KHR) { scope.pending = presented; }
+    if (status == VK_SUCCESS || status == VK_SUBOPTIMAL_KHR || status == VK_ERROR_OUT_OF_DATE_KHR || status == VK_ERROR_SURFACE_LOST_KHR) { if (gpu.present_fences) scope.pending = presented; }
     else { Check(status, "vkQueuePresentKHR"); }
     Check(gpu.Device<PFN_vkWaitForFences>("vkWaitForFences")(gpu.device, 1, &completed, VK_TRUE, 5'000'000'000ull), "vkWaitForFences(display upload)"); scope.submitted = false;
     source.initialized = true; gpu.swapchain_initialized[index] = true;
-    Check(gpu.Device<PFN_vkWaitForFences>("vkWaitForFences")(gpu.device, 1, &presented, VK_TRUE, 5'000'000'000ull), "vkWaitForFences(present completion)"); scope.pending = {};
+    if (gpu.present_fences) {
+        Check(gpu.Device<PFN_vkWaitForFences>("vkWaitForFences")(gpu.device, 1, &presented, VK_TRUE, 5'000'000'000ull), "vkWaitForFences(present completion)"); scope.pending = {};
+    } else {
+        // This CPU-upload diagnostic path is synchronous already. Normal game
+        // rendering uses the asynchronous presenter and per-image semaphores.
+        Check(gpu.Device<PFN_vkQueueWaitIdle>("vkQueueWaitIdle")(gpu.queue), "vkQueueWaitIdle(compatibility present cleanup)");
+        scope.queue_pending = false;
+    }
     if (status == VK_ERROR_OUT_OF_DATE_KHR) {
         std::printf("{\"event\":\"native_graphics_present_retry\",\"phase\":\"present\",\"vk_result\":%d,\"swapchain_retired\":true}\n", static_cast<int>(status));
-        // Both the upload and presentation fences have retired their work.
+        // The upload and selected presentation cleanup have completed.
         gpu.Device<PFN_vkDestroySwapchainKHR>("vkDestroySwapchainKHR")(gpu.device, gpu.swapchain, nullptr); gpu.swapchain = {}; return PresentStatus::OutOfDate;
     }
     Check(status == VK_SUBOPTIMAL_KHR ? VK_SUCCESS : status, "vkQueuePresentKHR(completion)");
     if (gpu.validation_errors.load()) { throw std::runtime_error("Vulkan validation reported a presentation error; inspect stderr"); }
-    std::printf("{\"event\":\"native_graphics_present_completed\",\"image\":%llu,\"swapchain_index\":%u,\"present_fence_completed\":true}\n", id, index);
+    std::printf("{\"event\":\"native_graphics_present_completed\",\"image\":%llu,\"swapchain_index\":%u,\"present_fence_completed\":%s}\n", id, index, gpu.present_fences ? "true" : "false");
     return PresentStatus::Completed;
 }
 } // namespace kt::gfx

@@ -156,6 +156,7 @@ class Bridge {
     Upload upload_;
     Fetch fetch_;
     std::string game_{"ketsui"};
+    std::vector<std::pair<std::uint64_t, std::string>> profile_names_;
     bool Board(unsigned id) const {return BoardFor(game_,id);}
     std::array<Context, 32> contexts_{};
     std::array<Request, 32> requests_{};
@@ -242,6 +243,15 @@ class Bridge {
         if (query.info.address) { writes.push_back({query.info, std::move(infos)}); }
         if (query.date.address) { writes.push_back({query.date, Bytes(date)}); }
         if (query.total.address) { writes.push_back({query.total, Bytes(total)}); }
+        // Publish names only after the entire response passed validation. Keep
+        // this UI cache bounded independently of the lifetime of score requests.
+        for (const auto& item : entries) {
+            const auto account = Decimal(item.at("account_id").get<std::string>());
+            const auto name = item.at("nickname").get<std::string>();
+            std::erase_if(profile_names_, [&](const auto& entry) { return entry.first == account; });
+            if (profile_names_.size() == 512) { profile_names_.erase(profile_names_.begin()); }
+            profile_names_.emplace_back(account, name);
+        }
         return writes;
     }
     void Chunk(Request& request, const Query& query) {
@@ -289,6 +299,11 @@ class Bridge {
         }
     }
 public:
+    std::string ProfileName(std::uint64_t account) {
+        std::lock_guard lock(gate_);
+        for (const auto& [id, name] : profile_names_) { if (id == account) { return name; } }
+        return {};
+    }
     bool ContextsLive() {
         std::lock_guard lock(gate_);
         return std::any_of(contexts_.begin(), contexts_.end(), [](const auto& context) { return context.id != 0; });
@@ -592,6 +607,7 @@ bool ConfigureNativeScore(std::shared_ptr<kt::community::Client> client) {
         },client->Game());
 }
 bool NativeScoreContextsLive() { return bridge.ContextsLive(); }
+std::string NativeScoreProfileName(std::uint64_t account) { return bridge.ProfileName(account); }
 
 namespace {
 Json AuthoredEntry(std::string_view name = "Alice", unsigned serial = 1) {
@@ -783,6 +799,8 @@ bool ScoreSelfTest() {
           ranks.value[0].account == AccountId("Alice") && ranks.value[1].account == 0 &&
           Tail(ranks) && Tail(comments) && Tail(info) && Tail(date) && Tail(total) && Tail(result),
           "poll_commits_exact_144byte_rows_64bit_values_zero_unused_and_preserves_tails");
+    check(NativeScoreProfileName(AccountId("Alice")) == "Alice" && NativeScoreProfileName(73).empty(),
+          "player_card_uses_validated_ranking_name_without_network");
     ranks.value[0].score = 92;
     check(Poll(request, &result.value) == 0 && ranks.value[0].score == 92, "repeated_poll_does_not_rewrite_delivered_buffers");
     Guarded<PlayerRank> player;
@@ -832,6 +850,8 @@ bool ScoreSelfTest() {
     transport->Complete(std::move(bad)); date.value = 73; total.value = 73;
     check(Poll(malformed, &result.value) == 0 && result.value == kResponse && ranks.value[0].score == 73 && date.value == 73 && total.value == 73,
           "bad_second_row_does_not_partially_publish_first_row_or_metadata");
+    check(NativeScoreProfileName(AccountId("Bob")).empty() && NativeScoreProfileName(AccountId("Alice")) == "Alice",
+          "invalid_ranking_cannot_publish_player_card_names");
     (void)DeleteRequest(malformed);
     const auto protected_request = CreateRequest(context);
     auto* protected_rank = static_cast<Rank*>(VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));

@@ -226,8 +226,13 @@ std::vector<const char*> GetInstanceExtensions(Frontend::WindowSystemType window
         const auto maintenance = cave::ps4::presentation::SurfaceExtensions([&](const char* name) {
             return std::ranges::find(extensions, std::string_view{name}) != extensions.end();
         });
-        if (!maintenance.Supported()) {
-            throw std::runtime_error("Window presentation requires surface maintenance1 (EXT or KHR)");
+        LOG_INFO(Render_Vulkan, "Surface maintenance1 EXT={} KHR={} compatibility_forced={}",
+                 maintenance.ext, maintenance.khr, cave::ps4::presentation::DiagnosticCompatibility());
+        if (cave::ps4::presentation::DiagnosticCompatibility()) {
+            std::erase_if(extensions, [](const char* name) {
+                return std::string_view{name} == cave::ps4::presentation::kSurfaceExt ||
+                       std::string_view{name} == cave::ps4::presentation::kSurfaceKhr;
+            });
         }
     }
     return extensions;
@@ -291,6 +296,9 @@ vk::UniqueInstance CreateInstance(Frontend::WindowSystemType window_type, bool e
         VULKAN_HPP_DEFAULT_DISPATCHER.vkEnumerateInstanceVersion
             ? vk::enumerateInstanceVersion()
             : vk::ResultValue(vk::Result::eSuccess, VK_API_VERSION_1_0);
+    LOG_INFO(Render_Vulkan, "Vulkan loader query={} version={}.{}.{}",
+             vk::to_string(available_version_result), VK_VERSION_MAJOR(available_version),
+             VK_VERSION_MINOR(available_version), VK_VERSION_PATCH(available_version));
     ASSERT_MSG(available_version_result == vk::Result::eSuccess,
                "Failed to query Vulkan API version: {}", vk::to_string(available_version_result));
     ASSERT_MSG(available_version >= TargetVulkanApiVersion,

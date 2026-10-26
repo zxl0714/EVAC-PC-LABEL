@@ -2,6 +2,15 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.7.5 PS4 兼容呈现与玩家资料窗口
+
+- `libSceNpProfileDialog` 使用共用原生窗口与模块生命周期。隐藏窗口测试覆盖真实 NID／SysV 参数布局、初始化、打开、状态／结果、API／CLOSE／Esc／窗口关闭、再次打开、运行中终止和其他对话框互斥；原有消息窗口检查通过。昵称取自已完整校验的排行榜响应，38 项 score 检查包含已知／未知账号和坏响应不得污染昵称缓存。Xbox 360 代码未修改。
+- 原生兼容 143 项和玩家窗口 CTest 通过：`.local/v075-native-tests-r2.log`；score 结果 `.local/v075-score-r2.log`。68 项 PS4 源码、4 项产品身份和 47 项包装检查通过（包装有一个既有链接权限跳过）。
+- 七项 GPU CTest 通过（`.local/v075-gpu-tests-r3.log`）。独立／共用呈现队列的兼容路径均开启同步验证，通过像素、图像轮转、缩放、最小化恢复、drain 和重新绑定检查，`validationErrors=0`：`.local/v075-compat-validation-r2.log`、`.local/v075-compat-shared-validation-r3.log`。早期缩放失败由缺少 `oldSwapchain` 交接造成，修复后通过，失败日志保留。
+- 独立目录 `.local/v075-smoke-r1/collection` 强制 `EVAC_PS4_PRESENT_COMPAT=1`：大往生 run `20261026T154645417Z-105528` 从真实榜单打开 Djo-Network5 玩家卡片，Enter 关闭、再次打开、Esc 关闭并返回榜单；绊地狱 run `20261026T155106979Z-36780` 和 ESP run `20261026T155216651Z-118008` 到模式菜单。三个进程均按窗口关闭请求退出，`presentation_cleanup_complete=true`，无 dump；沿用既有 exit 27 的宿主终结器语义。
+- 用户实玩绊地狱兼容模式 run `20261026T155500309Z-39740`，反馈“基本上感觉不到性能差距”。日志明确 `compatibility_forced=true`、`image_acquire_compatibility`，最后窗口关闭且呈现清理完成。这是本机实际游玩反馈，不是两路径定量 A/B 性能数据，也不代替报告者设备验证。
+- 本轮本机设备 RTX 4080、驱动 610.88、Vulkan 1.4.341。兼容路径不增加 CPU 回读，不改变原游戏节拍；仅显式 drain／退出及达到上限的连续重建等待队列空闲。最终构建另含清理旧交换链时清空已失效 handoff 句柄的收尾修正，最终产物检查待完成。
+
 ## v0.7.4 issue #1 compatibility checks
 
 - 最终交付（10 月 26 日 22:00）：源码／标签 `46deed5dcde4c8e1fda2b315a893c2ce40e87a31`；143 项原生兼容检查、19 项清单及 3 项源码接线检查通过，最终 common／launch／update_check 三项 CTest 通过。71 Xbox／7 PS4／2 启动器产物配对认证通过。程序 ZIP 为 `releases/v0.7.4-46deed5/EVAC-PC-LABEL-v0.7.4-win-x64.zip`，106325853 字节，SHA-256 `69f19cdb08abdec79065464529a9f151c8c9877c3ea391175f8e2a6f5f6edfee`；一次解压通过（150 文件、9 类保留检查）。GitHub Release 两个附件的大小、摘要和上传状态均匹配；版本为 Latest。Issue #1 回复 `6417890785` 已发送，状态为 closed/completed。

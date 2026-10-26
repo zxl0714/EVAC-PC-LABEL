@@ -292,7 +292,7 @@ unsigned CheckPixels(NativeSession &session, bool green) {
 } // namespace
 int main(int argc, char **argv) {
   try {
-    bool validation = false, presentation = false, interactive = false, vsync = true, shared_present_queue = false;
+    bool validation = false, presentation = false, interactive = false, vsync = true, shared_present_queue = false, compatibility = false;
     for (int i = 1; i < argc; ++i) {
       const std::string_view argument{argv[i]};
       if (argument == "--validation") {
@@ -305,6 +305,9 @@ int main(int argc, char **argv) {
         vsync = false;
       } else if (argument == "--shared-present-queue") {
         shared_present_queue = true;
+      } else if (argument == "--present-compat") {
+        compatibility = true;
+        _putenv_s("EVAC_PS4_PRESENT_COMPAT", "1");
       } else {
         throw std::runtime_error("Unknown runtime smoke argument");
       }
@@ -404,7 +407,7 @@ int main(int argc, char **argv) {
           for (;;) {
             const auto stats = presentation_stats();
             Require(stats.ready_images <= 1 && stats.active_images <= 1 &&
-                        stats.retained_resources <= PresentResourceSlots, "Window backlog is unbounded");
+                        stats.retained_resources <= (compatibility ? 64u * 9u : PresentResourceSlots), "Window backlog is unbounded");
             if (stats.last_queued_sequence >= sequence) return stats;
             Require(std::chrono::steady_clock::now() < deadline, "Window worker did not present the accepted image");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -526,10 +529,11 @@ int main(int argc, char **argv) {
                     stats.last_queued_sequence == 3 && !stats.ready_images && !stats.active_images &&
                     !stats.retained_resources && stats.retired_resources == 1,
                 "Drain did not present the newest image and retire its resources");
-        for (unsigned i = 0; i < 3; ++i) {
+        for (unsigned i = 0; i < (compatibility ? 12u : 3u); ++i) {
           result = present();
           stats = await_window(result.completed_presents);
-          Require(stats.retained_resources == std::min(1u+i,PresentResourceSlots),
+          Require(compatibility ? (stats.retained_resources > 0 && stats.retained_resources <= 64) :
+                      stats.retained_resources == std::min(1u+i,PresentResourceSlots),
                   "Window resources were not retained in their bounded rotation");
         }
         const auto old_width = result.width, old_height = result.height;

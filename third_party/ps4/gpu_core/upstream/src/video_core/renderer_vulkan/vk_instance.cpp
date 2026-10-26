@@ -106,6 +106,12 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
     const std::size_t num_physical_devices = static_cast<u16>(physical_devices.size());
     ASSERT_MSG(num_physical_devices > 0, "No physical devices found");
     LOG_INFO(Render_Vulkan, "Found {} physical devices", num_physical_devices);
+    for (const auto& candidate : physical_devices) {
+        const auto info = candidate.getProperties();
+        LOG_INFO(Render_Vulkan, "GPU candidate: {} vendor=0x{:x} device=0x{:x} Vulkan={} driver_raw=0x{:x}",
+                 info.deviceName.data(), info.vendorID, info.deviceID,
+                 GetReadableVersion(info.apiVersion), info.driverVersion);
+    }
 
     if (physical_device_index < 0) {
         std::vector<
@@ -168,6 +174,8 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
     properties = physical_device.getProperties();
     memory_properties = physical_device.getMemoryProperties();
     CollectDeviceParameters();
+    LOG_INFO(Render_Vulkan, "Selected GPU: {} driver={} Vulkan={}",
+             properties.deviceName.data(), GetDriverVersionName(), GetReadableVersion(properties.apiVersion));
     ASSERT_MSG(properties.apiVersion >= TargetVulkanApiVersion,
                "Vulkan {}.{} is required, but only {}.{} is supported by device!",
                VK_VERSION_MAJOR(TargetVulkanApiVersion), VK_VERSION_MINOR(TargetVulkanApiVersion),
@@ -258,10 +266,10 @@ bool Instance::CreateDevice() {
             [&](const char* candidate) {
                 return std::ranges::find(available_extensions, std::string_view{candidate}) != available_extensions.end();
             }, completion.swapchainMaintenance1);
-        if (!name || !add_extension(name)) {
-            throw std::runtime_error("Tracked presentation requires swapchain maintenance1 (EXT or KHR)");
-        }
-        present_fences = true;
+        present_fences = name && add_extension(name);
+        LOG_INFO(Render_Vulkan, "Presentation completion: {} (surface EXT={} KHR={}, feature={})",
+                 present_fences ? "maintenance1 fence" : "swapchain image reacquisition",
+                 maintenance_surfaces.ext, maintenance_surfaces.khr, bool(completion.swapchainMaintenance1));
     }
     ASSERT_MSG(add_extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME),
                "Required Vulkan extension unavailable: {}", VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);

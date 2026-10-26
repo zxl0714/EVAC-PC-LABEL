@@ -6,6 +6,38 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.5 — implementation active, local package only
+
+The active user goal now authorizes implementing both planned fixes, focused
+regression, and a local v0.7.5 package. Do not upload, publish a release, or send
+announcements. Keep the published v0.7.4 unchanged.
+
+The user confirmed that selecting View Player Profile in DaiOuJou rankings
+caused run-20261026T142646136Z-112540 to exit at 22:27:36 Asia/Shanghai.
+The final event is unimplemented_import for libSceNpProfileDialog,
+Lg+NCE6pTwQ#BD#t, eboot.bin+0x1da93a, exit 20; preceding leaderboard/download
+requests returned HTTP 200. Logs remain in C:/evac-pc-label/logs/daioujou.
+The local profile card is implemented. Real DaiOuJou run 105528 opened it twice,
+closed with Enter/Esc, and returned to the ranking list. The shared hidden-window
+ABI/lifecycle test and validated-ranking nickname cache checks pass.
+
+The user also added PS4 Vulkan compatibility to v0.7.5. Downloads/logs 0.7.4.rar
+contains Ketsui run 19128 and DaiOuJou run 12552 from final source 46deed5;
+both exit 2 before device selection because neither EXT nor KHR surface
+maintenance1 is advertised. GPU model/driver are absent, so this is not evidence
+of insufficient performance. The candidate now selects per-image acquisition
+when maintenance1 is unavailable, defers old chains through oldSwapchain, and
+uses queue-idle only at explicit drain/teardown or bounded resize pressure.
+Keep existing fast-path fences, guest timing and snapshot handoff. Candidate
+component tests pass on both independent/shared queues with synchronization
+validation; seven GPU CTests pass. Three-game menu smoke uses an independent
+.local/v075-smoke-r1/collection and EVAC_PS4_PRESENT_COMPAT=1; all three reached
+mode menus. User gameplay run 39740 confirmed no noticeable performance gap.
+It closed with presentation cleanup complete, as did all three menu checks.
+Final certification and local program ZIP acceptance remain; do not upload or
+push. The final presenter cleanup also clears replacement_old after retiring
+old chains; include it in the final GPU smoke, without repeating gameplay.
+
 ### v0.7.4 — delivered October 26
 
 Published https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.4 at

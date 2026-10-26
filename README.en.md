@@ -113,7 +113,7 @@ The **Config file** action at the bottom opens `user-data/config.ini`. Edit audi
 | Alt+F4 | Close the game |
 | F8 | Add a timestamp marker to the log for troubleshooting |
 
-In Xbox 360 games, close leaderboard player cards with `CLOSE`, Enter or Esc.
+Close leaderboard player cards with `CLOSE`, Enter or Esc.
 
 Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
 

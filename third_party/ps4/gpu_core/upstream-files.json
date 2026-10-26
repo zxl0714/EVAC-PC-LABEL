@@ -984,8 +984,8 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_platform.cpp",
-      "sha256": "e7a5d7982745fb2a7caa1bd1bf2affa049cec1cb5c0c5040eecfb427664080c6",
-      "description": "Enable VK_KHR_surface in headless integration and syncval_full_validation with the pinned layer. Windows presentation requires the surface-maintenance instance extensions used by tracked present fences. Support paired EXT/KHR maintenance1 negotiation (issue #1)."
+      "sha256": "1ab598635ae8f89ba8163f7400ba625792e77eabae0db1c1af6f3bc0aff8509b",
+      "description": "Enable VK_KHR_surface in headless integration and syncval_full_validation with the pinned layer. Negotiate paired EXT/KHR maintenance1 when available; allow core swapchain presentation otherwise. Record loader capabilities and provide a process-local compatibility test switch."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_runtime.h",
@@ -1024,8 +1024,8 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
-      "sha256": "0fdd8d74b2e3c62346bab742a856722e37e9686ffc9c7c009f90320af6360058",
-      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; query and enable swapchain-maintenance present fences only for configured presentation support, including late window binding. Use a second same-family queue for window composition/presentation when available, retaining the single-queue fallback. Support paired EXT/KHR maintenance1 negotiation (issue #1)."
+      "sha256": "7fda26e7f2a6ab20c630855ed71b3b7788963efbc36476cda7a82623ba237f77",
+      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; negotiate paired EXT/KHR present fences when available, otherwise use per-image reacquisition. Use a second same-family presentation queue when available, retaining the shared-queue fallback. Log GPU and driver identity before device creation."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.h",

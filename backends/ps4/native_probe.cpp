@@ -1521,6 +1521,9 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--dialog-self-test") {
         return DialogSelfTest() ? 0 : 1;
     }
+    if (argc == 2 && std::wstring(argv[1]) == L"--profile-dialog-self-test") {
+        return ProfileDialogSelfTest() ? 0 : 1;
+    }
     if (argc == 2 && std::wstring(argv[1]) == L"--rtc-self-test") {
         return RtcSelfTest() ? 0 : 1;
     }

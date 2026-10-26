@@ -69,6 +69,14 @@ v0.7 以单人玩法为验收范围。SDK 当前只提供 user 0 的登录身份
 
 ## 准备环境
 
+### PS4 呈现兼容与玩家资料窗口
+
+支持 maintenance1 的设备继续使用呈现 fence；缺少 EXT／KHR 扩展时，呈现线程使用每个交换链图像独立的信号量，并等待同一图像重新获取后复用。重建交换链通过 `oldSwapchain` 交接，旧资源延后回收；显式 drain／退出时才等待队列空闲。游戏线程、快照交接和帧节拍不变。
+
+`EVAC_PS4_PRESENT_COMPAT=1` 是进程级诊断开关，可在支持扩展的设备上验证兼容路径。`out/ps4-gpu/KetsuiGpuRuntimeSmoke.exe --presentation --present-compat --validation` 覆盖出画、重建、最小化恢复、资源回收及重新绑定；加 `--shared-present-queue` 检查共用队列。校验层通过 `VK_LAYER_PATH` 指向本地安装，诊断环境变量不写入玩家配置。
+
+`libSceNpProfileDialog` 由 `backends/ps4/native_dialogs.cpp` 实现，玩家昵称来自已经验证的社区排行榜响应，不创建 Sony 会话。`KetsuiNativeProbe.exe --profile-dialog-self-test` 检查真实接口绑定、参数布局、打开／关闭／再次打开及已有消息窗口共存；`--np-score-self-test` 检查昵称查询和无效响应隔离。
+
 使用 Windows x64、PowerShell 7、Python 3.12、Git、VS 2022 C++ Build Tools 和 Windows SDK。源码放较短的英文目录，例如 E:/CaveDev/EVAC-PC-LABEL；固定 CMake 的中文源码路径问题尚在，玩家包和游戏数据可使用中文路径。
 
 ~~~powershell

@@ -18,7 +18,7 @@ CHECKS = (
     'thread-affinity', 'libc-memory', 'text', 'rtc', 'libc-calendar', 'time',
     'memory', 'tracked-texture', 'write-tracker', 'mspace', 'display-layout',
     'cxx-guard', 'equeue', 'display-clock', 'pad', 'pcm-voice', 'np-request',
-    'np-score', 'np-score-profile', 'np-replay', 'community-round-audit', 'community-client', 'sfo', 'pm4',
+    'np-score', 'np-score-profile', 'np-replay', 'profile-dialog', 'dialog', 'community-round-audit', 'community-client', 'sfo', 'pm4',
     'host-timing', 'host-timing-counts', 'host-timing-default', 'gamepad', 'collection-config', 'collection-input', 'async-log', 'indexed-draw',
 )
 

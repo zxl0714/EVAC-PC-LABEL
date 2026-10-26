@@ -1,7 +1,24 @@
 #pragma once
+#include <cstdlib>
+#include <string_view>
 
 // Vulkan-independent negotiation, shared by both PS4 graphics paths.
 namespace cave::ps4::presentation {
+// Process-local diagnostic switch: exercise the fallback without changing the
+// player's configuration or requiring a second GPU/driver installation.
+inline bool DiagnosticCompatibility() {
+#ifdef _WIN32
+    char* value{};
+    std::size_t length{};
+    if (_dupenv_s(&value, &length, "EVAC_PS4_PRESENT_COMPAT") != 0) return false;
+    const bool force = value && std::string_view{value} == "1";
+    std::free(value);
+    return force;
+#else
+    const auto* value = std::getenv("EVAC_PS4_PRESENT_COMPAT");
+    return value && std::string_view{value} == "1";
+#endif
+}
 inline constexpr const char* kCapabilities = "VK_KHR_get_surface_capabilities2";
 inline constexpr const char* kSurfaceExt = "VK_EXT_surface_maintenance1";
 inline constexpr const char* kSurfaceKhr = "VK_KHR_surface_maintenance1";

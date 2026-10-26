@@ -1,6 +1,6 @@
-EVAC PC LABEL v0.7.4
+EVAC PC LABEL v0.7.5
 
-本版修复虫姬二 DLC 识别与放置引导，新增启动器 GitHub 更新检查。
+本版修复大往生排行榜玩家资料窗口，增加 PS4 游戏的 Vulkan 兼容呈现路径。
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
 开始游玩 ---------------------------------------------------------------------
@@ -80,7 +80,7 @@ A／S 为 L1／R1，Q／W 为 L2／R2。主按键对照：
 狱门山 Arrange：方向键移动角色，I/K/J/L 对应右摇杆，W 召唤式神，X 炸弹。
 可在 [game.guwange.keyboard] 修改 right_stick_up/down/left/right。
 F11／Alt+Enter 切换全屏；Alt+F4 关闭；F8 在日志中标记当前时间。
-Xbox 360 排行榜玩家卡片可点击 CLOSE 或按 Enter／Esc 关闭。
+排行榜玩家卡片可点击 CLOSE 或按 Enter／Esc 关闭。
 修改游戏内设置后，等待保存完成再退出。
 
 联网 -------------------------------------------------------------------------
@@ -110,7 +110,7 @@ enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社�
 
 English ======================================================================
 
-v0.7.4 improves Vulkan driver compatibility and supports additional PS4 base layouts. To update,
+v0.7.5 fixes DaiOuJou player cards and adds a Vulkan presentation compatibility path. To update,
 close games and launcher, extract over the existing folder, and keep user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the
@@ -164,7 +164,7 @@ program files yourself when updating.
 
 Arrows: direction. Z/X/C/V: Xbox A/B/X/Y or PS4 Cross/Circle/Square/Triangle.
 Enter: Start. Backspace: Select/Touchpad. A/S: L1/R1. Q/W: L2/R2.
-Xbox 360 leaderboard player cards close with CLOSE, Enter or Esc.
+Leaderboard player cards close with CLOSE, Enter or Esc.
 Shot, bomb and coin follow in-game settings. SDL handles compatible controllers.
 Guwange Arrange uses arrows for the character, I/K/J/L for the right stick,
 W to summon Shikigami and X for bombs. Right-stick keys can be changed under

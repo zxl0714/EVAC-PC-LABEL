@@ -1,5 +1,11 @@
 # 更新记录
 
+## v0.7.5
+
+- 修复大往生排行榜“查看玩家资料”导致的退出，显示玩家昵称和 CLOSE 按钮，支持 Enter／Esc 关闭。
+- 绊地狱、大往生和 ESP Ra.De. 增加 Vulkan 兼容呈现路径，支持缺少 EXT／KHR maintenance1 的驱动环境。
+- 启动日志提前记录显卡型号、驱动版本、Vulkan 版本和呈现能力，便于定位启动失败。
+
 ## v0.7.4
 
 - 修复部分显卡驱动下绊地狱、大往生、ESP Ra.De. 启动退出的问题，兼容 Vulkan maintenance1 的 EXT 和 KHR 扩展。

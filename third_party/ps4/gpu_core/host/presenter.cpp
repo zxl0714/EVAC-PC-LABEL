@@ -25,6 +25,7 @@
 #include <optional>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 
 namespace Ketsui::GpuCore {
 namespace {
@@ -58,11 +59,23 @@ struct Presenter::Impl {
   VideoCore::TextureCache &cache;
   Surface surface;
   vk::UniqueSwapchainKHR chain;
+  vk::SwapchainKHR replacement_old{};
   vk::Extent2D extent{};
   vk::Format format{};
   std::vector<vk::Image> images;
   std::vector<vk::UniqueImageView> views;
   std::vector<bool> initialized;
+  struct ImagePresent {
+    vk::UniqueSemaphore ready;
+    bool pending{};
+  };
+  struct RetiredChain {
+    vk::UniqueSwapchainKHR chain;
+    std::vector<ImagePresent> images;
+  };
+  std::vector<ImagePresent> image_presents;
+  std::vector<RetiredChain> retired_chains;
+  static constexpr std::size_t MaxRetiredChains = 8, MaxChainImages = 64;
   vk::UniqueDescriptorSetLayout descriptors;
   vk::UniquePipelineLayout layout;
   vk::UniqueSampler sampler;
@@ -116,8 +129,9 @@ struct Presenter::Impl {
         copy_timeline{scheduler.GetWorkSemaphore()->Handle()},
         output_queue{shared_present_queue ? instance.GetGraphicsQueue()
                                           : instance.GetPresentQueue()} {
-    Require(window && IsWindow(window) && instance.HasPresentFences(),
-            "Presenter needs a live window and present fences");
+    Require(window && IsWindow(window), "Presenter needs a live window");
+    std::fprintf(stderr, "gpu_runtime_present_completion: %s\n",
+                 instance.HasPresentFences() ? "maintenance1_fence" : "image_acquire_compatibility");
     Require(Checked(instance.GetPhysicalDevice().getSurfaceSupportKHR(
                         instance.GetGraphicsQueueFamilyIndex(), surface.value),
                     "Query present queue"),
@@ -218,6 +232,33 @@ struct Presenter::Impl {
       ++stats.retired_resources;
       --stats.retained_resources;
     }
+  }
+  void RetireImage(ImagePresent& image) {
+    if (!image.pending) return;
+    image.pending = false;
+    std::lock_guard lock(handoff_mutex);
+    ++stats.retired_resources;
+    --stats.retained_resources;
+  }
+  void RetireOldChains() {
+    for (auto& old : retired_chains)
+      for (auto& image : old.images) RetireImage(image);
+    retired_chains.clear();
+    replacement_old = nullptr;
+  }
+  void DrainWindowResources() {
+    for (auto& frame : frames) Retire(frame);
+    if (instance.HasPresentFences()) return;
+    // Core Vulkan fallback uses per-image acquisition during normal play.
+    // Queue-idle is confined to explicit drain/teardown or sustained resize
+    // pressure, never used as a per-frame submit-completion shortcut.
+    {
+      std::unique_lock lock(Vulkan::Scheduler::submit_mutex, std::defer_lock);
+      if (!stats.independent_queue) lock.lock();
+      Check(output_queue.waitIdle(), "Drain compatibility presentation queue");
+    }
+    for (auto& image : image_presents) RetireImage(image);
+    RetireOldChains();
   }
   void Drain() {
     {
@@ -438,7 +479,21 @@ struct Presenter::Impl {
     for (auto &frame : frames)
       Retire(frame);
     views.clear();
-    chain.reset();
+    if (!instance.HasPresentFences() && chain) {
+      if (retired_chains.size() >= MaxRetiredChains) DrainWindowResources();
+      if (std::ranges::any_of(image_presents, [](const auto& image) { return image.pending; })) {
+        // A new-chain image must be presented and reacquired before old
+        // presentation semaphores/swapchains are retired (Khronos WSI pattern).
+        replacement_old = *chain;
+        retired_chains.push_back({std::move(chain), std::move(image_presents)});
+      } else {
+        replacement_old = nullptr;
+        image_presents.clear();
+        chain.reset();
+      }
+    } else {
+      chain.reset();
+    }
     images.clear();
     initialized.clear();
   }
@@ -495,11 +550,18 @@ struct Presenter::Impl {
                          .preTransform = caps.currentTransform,
                          .compositeAlpha = alpha,
                          .presentMode = SelectMode(),
-                         .clipped = true}),
+                         .clipped = true,
+                         .oldSwapchain = std::exchange(replacement_old, {})}),
                     "Create tracked swapchain");
     images =
         Checked(device.getSwapchainImagesKHR(*chain), "Get swapchain images");
+    Require(images.size() <= MaxChainImages, "Swapchain image count exceeds resource bound");
     initialized.assign(images.size(), false);
+    if (!instance.HasPresentFences()) {
+      image_presents.clear();
+      for (std::size_t i = 0; i < images.size(); ++i)
+        image_presents.push_back({Checked(device.createSemaphoreUnique({}), "Create per-image present semaphore"), false});
+    }
     for (auto image : images) {
       views.push_back(
           Checked(device.createImageViewUnique(
@@ -635,6 +697,12 @@ struct Presenter::Impl {
             "Wait swapchain acquire");
       const auto acquired_at = kt::diagnostics::MonotonicMicroseconds();
       Require(index < images.size(), "Acquired swapchain index is invalid");
+      if (!instance.HasPresentFences() && image_presents[index].pending) {
+        // Waiting on this acquisition proves the preceding present of THIS
+        // image consumed its semaphore. A draw-submit fence cannot prove that.
+        RetireImage(image_presents[index]);
+        RetireOldChains();
+      }
       const auto command = *frame.command;
       Check(command.reset(), "Reset window command buffer");
       Check(command.begin(
@@ -707,7 +775,7 @@ struct Presenter::Impl {
           .value = snapshot.copy_tick,
           .stageMask = vk::PipelineStageFlagBits2::eAllCommands};
       const vk::SemaphoreSubmitInfo signal{
-          .semaphore = *frame.ready,
+          .semaphore = instance.HasPresentFences() ? *frame.ready : *image_presents[index].ready,
           .stageMask = vk::PipelineStageFlagBits2::eAllCommands};
       const vk::CommandBufferSubmitInfo commands{.commandBuffer = command};
       const vk::SubmitInfo2 submit{.waitSemaphoreInfoCount = 1,
@@ -729,13 +797,13 @@ struct Presenter::Impl {
       const vk::Fence fence = *frame.presented;
       const vk::SwapchainPresentFenceInfoEXT completion{.swapchainCount = 1,
                                                         .pFences = &fence};
-      const auto semaphore = *frame.ready;
+      const auto semaphore = instance.HasPresentFences() ? *frame.ready : *image_presents[index].ready;
       vk::Result status;
       {
         std::unique_lock lock(Vulkan::Scheduler::submit_mutex, std::defer_lock);
         if (!stats.independent_queue)
           lock.lock();
-        status = output_queue.presentKHR({.pNext = &completion,
+        status = output_queue.presentKHR({.pNext = instance.HasPresentFences() ? &completion : nullptr,
                                           .waitSemaphoreCount = 1,
                                           .pWaitSemaphores = &semaphore,
                                           .swapchainCount = 1,
@@ -746,7 +814,8 @@ struct Presenter::Impl {
           status == vk::Result::eSuboptimalKHR ||
           status == vk::Result::eErrorOutOfDateKHR ||
           status == vk::Result::eErrorSurfaceLostKHR) {
-        frame.present_pending = true;
+        if (instance.HasPresentFences()) frame.present_pending = true;
+        else image_presents[index].pending = true;
         next_frame = (frame_index + 1) % PresentResourceSlots;
         std::lock_guard lock(handoff_mutex);
         ++stats.retained_resources;
@@ -816,8 +885,7 @@ struct Presenter::Impl {
         } else if (drain_request > drained) {
           const auto ticket = drain_request;
           lock.unlock();
-          for (auto &frame : frames)
-            Retire(frame);
+          DrainWindowResources();
           lock.lock();
           drained = ticket;
         }
