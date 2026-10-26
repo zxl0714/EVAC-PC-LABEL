@@ -8,6 +8,21 @@ active build root. Older .local evidence referenced below remains there.
 
 ### v0.7.4 — issue #1 compatibility work
 
+Completed locally at source 66ce21f62b6a87e16e8d278b2247805c66c2dba1.
+110 ROM/GPU-free compatibility checks, 68 PS4 source tests, 19 catalogue,
+12 tool, 7 toolchain, 4 product and 47 package tests pass (one existing skip).
+Five GPU CTests/presentation smoke and existing Ketsui 01.00 / DaiOuJou 01.04
+native preparation pass. Final common/launch/update CTests and PS4 native
+round/client/config checks pass. Reporter's hardware/data remain his coverage.
+SDK and seven-game incremental build verify 3/71/7/2 SDK/Xbox/PS4/launcher
+binary/PDB pairs. No gameplay campaign or production scores were generated.
+Program ZIP: releases/v0.7.4-66ce21f/EVAC-PC-LABEL-v0.7.4-win-x64.zip,
+106323584 bytes, SHA256 56dc9b872fe91aedc92dd28ab4b15359f8a89bd0585195cc71a9a9c40a519f22.
+One extraction passes: 150 files, nine preserved sentinels, no ROM/source/PDB/config.
+Receipt: .local/release-acceptance-v074/56dc9b872fe91aed/accepted.json.
+No push, tag, upload, issue reply or public release. All owned builds/tests finished.
+Reuse this accepted package; delivery records do not require rebuilding it.
+
 Implement PS4 KHR maintenance1 negotiation, Ketsui 01.00 plaintext SELF,
 DaiOuJou 01.00 offline base support and the official Ninja executable pin.
 User requests small durable regression tests independent of the reporter's GPU

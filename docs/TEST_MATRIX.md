@@ -4,6 +4,8 @@
 
 ## v0.7.4 issue #1 compatibility checks
 
+- 最终本地程序包：源码 `66ce21f62b6a87e16e8d278b2247805c66c2dba1`，七游戏增量构建核对 71 Xbox／7 PS4（含新增兼容测试程序）／2 启动器 EXE/PDB 配对；SDK 3 对验证。`releases/v0.7.4-66ce21f/EVAC-PC-LABEL-v0.7.4-win-x64.zip`，106323584 字节，SHA-256 `56dc9b872fe91aedc92dd28ab4b15359f8a89bd0585195cc71a9a9c40a519f22`。一次实际解压通过，150 文件，9 类保留检查；无 ROM／源码／PDB／玩家配置。收据 `.local/release-acceptance-v074/56dc9b872fe91aed/accepted.json`。未推送、上传或发布。
+- 最终构建后：common／launch／update_check 三项 CTest、110 项兼容检查、55 项 native round、community client 及 16 项配置检查通过。新版包装 fixture 共 47 项通过（一个既有跳过）。相关日志为 `.local/v074-*`；初次 native round 命令遗漏 fixture 目录而返回用法提示，补齐参数后的 `v074-round-final-r2.log` 为有效结果。
 - `Ps4CompatibilityTests`：110 项通过，约 0.12 秒；无 ROM／GPU，执行生产用扩展协商、准备策略、启动版本参数和资源种子读取。覆盖 EXT-only／KHR-only／双名／混合依赖／feature=false，Ketsui ELF／SELF 等价及坏文件拒绝，DaiOuJou 01.00 离线与 01.04 原路径。
 - Python：68 项 PS4 源码测试、19 项清单及 12 项工具测试通过。原生 common 新增第三种封装身份、Quick/Full 识别、混合模块及补丁残留拒绝检查。
 - 本机 GPU：5/5 CTest 和呈现短测试通过；绘制、FIFO／非同步、缩放、最小化尺寸和重建路径无错误。报告 `.local/v074-gpu-tests-r1.log`、`.local/v074-presentation-r1.log`。
