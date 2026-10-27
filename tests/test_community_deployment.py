@@ -21,22 +21,44 @@ class CommunityDeploymentTests(unittest.TestCase):
         self.assertNotIn('/opt/cave-community/current', service)
         self.assertNotIn('espgaluda2', service)
 
-    def test_seven_routes_keep_existing_upstreams_and_unknown_game_fallback(self):
+    def test_eight_routes_keep_existing_upstreams_and_unknown_game_fallback(self):
         source = (DEPLOY / 'cave-live-locations.conf.in').read_text(encoding='utf-8')
         locations = dict(re.findall(r'^location ([^ ]+) \{\n(.*?)^\}', source, re.M | re.S))
         expected = {'espgaluda2': '127.0.0.1:18086', 'futari': '127.0.0.1:18084/futari/api/v1/',
                     'ketsui': '127.0.0.1:18085/ketsui/api/v1/', 'sdoj': '127.0.0.1:18087',
                     'daioujou': '127.0.0.1:18088', 'esprade': '127.0.0.1:18089',
-                    'guwange': '127.0.0.1:18090'}
+                    'guwange': '127.0.0.1:18090', 'feveron': '127.0.0.1:18091'}
         self.assertEqual(set(locations), {f'/cave/api/v1/games/{game}/' for game in expected})
         for game, upstream in expected.items():
             block = locations[f'/cave/api/v1/games/{game}/']
             self.assertIn(f'proxy_pass http://{upstream};', block)
             self.assertIn('client_max_body_size 12m;', block)
             self.assertIn('limit_req_status 429;', block)
-            zone = 'ketsui_requests' if game in ('ketsui', 'daioujou', 'esprade') else 'futari_requests'
+            zone = 'ketsui_requests' if game in ('ketsui', 'daioujou', 'esprade', 'feveron') else 'futari_requests'
             self.assertIn(f'limit_req zone={zone} burst=20 nodelay;', block)
         self.assertIn('location /cave/api/v1/ { return 404; }', source.splitlines())
+
+    def test_feveron_has_separate_release_state_and_daily_backup(self):
+        service = (DEPLOY / 'cave-feveron.service.in').read_text(encoding='utf-8')
+        for line in ('User=cave-community', 'Group=cave-community',
+                     'WorkingDirectory=/opt/cave-community/feveron-current',
+                     'StateDirectory=cave-community/feveron',
+                     'ReadWritePaths=/var/lib/cave-community/feveron',
+                     'ProtectSystem=strict', 'ProtectHome=true', 'NoNewPrivileges=true',
+                     'ExecStart=/usr/bin/python3 -B -m server.games.feveron --database '
+                     '/var/lib/cave-community/feveron/community.sqlite3 --port 18091'):
+            self.assertIn(line, service.splitlines())
+        backup = (DEPLOY / 'cave-feveron-backup.service.in').read_text(encoding='utf-8')
+        for token in ('After=cave-feveron.service', '/opt/cave-community/feveron-current/server/backup.py',
+                      '--database /var/lib/cave-community/feveron/community.sqlite3',
+                      '--directory /var/lib/cave-community/feveron/backups'):
+            self.assertIn(token, backup)
+        for peer in ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange',
+                     '/opt/cave-community/current'):
+            self.assertNotIn(peer, service + backup)
+        timer = (DEPLOY / 'cave-feveron-backup.timer.in').read_text(encoding='utf-8')
+        self.assertIn('OnCalendar=daily', timer)
+        self.assertIn('Persistent=true', timer)
 
     def test_guwange_has_separate_release_state_and_daily_backup(self):
         service = (DEPLOY / 'cave-guwange.service.in').read_text(encoding='utf-8')
