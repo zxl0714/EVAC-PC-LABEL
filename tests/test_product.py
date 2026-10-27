@@ -9,6 +9,15 @@ import release_package as release
 
 
 class ProductTests(unittest.TestCase):
+    def test_feveron_build_test_and_package_entrypoints(self):
+        for script in ('Build.ps1', 'Test.ps1', 'Release.ps1'):
+            text = (ROOT / 'scripts' / script).read_text(encoding='utf-8')
+            self.assertRegex(text, r"\[ValidateSet\([^\n]*'feveron'[^\n]*\)\]")
+        for script in ('Build.ps1', 'Test.ps1'):
+            text = (ROOT / 'scripts' / script).read_text(encoding='utf-8')
+            self.assertIn("-notin @('ketsui','daioujou','esprade','feveron')", text)
+            self.assertIn("'feveron' -in $Games", text)
+
     def test_current_release_docs_and_component_notices(self):
         for name in ('README.md', 'README.en.md'):
             text = (ROOT / name).read_text(encoding='utf-8')
