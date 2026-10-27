@@ -6,6 +6,61 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.7.6 — local preview package requested, no publication
+
+The user now requests a local program package, release notes and launcher image
+for review. Package without ROM, source or PDB; preserve published releases.
+Save the current scoped changes as a local source checkpoint and use the normal
+same-commit build/package checks. Do not push, tag, upload, publish or deploy.
+Release notes must state that base-01.00 production networking is not deployed.
+
+Extractor scope is complete locally. Added current v0.7.6 work: adapt DaiOuJou
+01.00 community networking using the base PKG under E:/Game-Share/roms/
+JP0092-CUSA32997_00-DAIOUJOU00000000-A0100-V0100.pkg. It extracts and fully
+verifies as base-self (45 files/46 hashes) in .local/v076-daioujou-base-r1/.
+Native contracts compared: base replay container 0x1000e/core 0x10000,
+ARCADE_01000 only. Base rank/replay view scripts match 01.04. Forced-offline gate
+removed, seed lookup uses verified SELF at RIP-relative load 0xde. Client/server
+accept the base record without rewriting bytes; original future-version guard
+remains. Real base ARCADE Type-A/Shotia score 28 (display 280), upload/read/download
+and save passed against local loopback. Evidence: play-r2.log, play.sqlite3 and
+prepared-final.json under .local/v076-daioujou-base-r1/. Cold offline playback and
+production server deployment/HTTPS acceptance remain pending. Local service and
+game were closed. Do not deploy automatically during this no-release stage.
+Dangun Feveron is now Coming Soon only; actual support is next version.
+Its supplied PKG is E:/Game-Share/roms/
+UP2789-CUSA06735_00-DANGUNFEVERONUSA-A0100-V0101.pkg (PS4 CUSA06735).
+Catalogue has eight cards but only seven integrated titles. Official artwork is
+in launcher/assets/feveron.jpg with source/hash in artwork.json. CN/EN/JP actual
+preview passes; .local/v076-feveron-card-final.png shows selected disabled card.
+Preview also exposed a pre-existing missing 13pt font cache entry (invalid map key).
+Fonts now cache on demand, and launcher_preview CTest covers render/failure paths.
+PS4 local build is .local/v076-final-build-r1.log. Latest launcher build is
+.local/v076-launcher-height-r1.log: initial outer height is capped at 90 percent
+of monitor work area; extra cards scroll, header/footer stay fixed. 1080p
+100/125/150-percent geometry checks and common/launch/preview CTests pass.
+Root launcher stays unchanged; current candidate is out/common/bin/EVAC PC LABEL.exe.
+The current request permits local checkpointing and packaging only; publication
+and production deployment remain separate.
+The standalone player entry is out/ps4-extract-player/tools/Extract-PS4.exe with
+its full sibling dependency directory. Native Win32 GUI selects one base or patch
+PKG and a new output folder, extracts resources plus sce_sys metadata, supports
+cancel and opens uroot. PkgTool is pinned/bundled; no player shell is required.
+The user requests English for the extractor UI, independent of Windows language.
+Keep manual base-copy/patch-overlay, existing game-data layout, detection rules,
+launcher and Xbox 360 paths unchanged. Do not build an installation manager.
+Treat reported detection failures as extraction/merge issues first: actual ESP
+Ra.De. 01.00 + 01.04 extraction/overlay passes the unchanged inspector (48 files,
+49 hashes, update-104). Evidence: .local/v076-data-validation.json and
+.local/v076-extract-r1/. GUI patch extraction/Open game files passed; the user
+then pressed Escape to stop computer use. Do not resume desktop control just
+to repeat this check. Final source-only cleanup is built, not visually rechecked.
+28 native extraction checks, seven focused Python checks and 48 packaging cases
+(one existing skip) pass. Bilingual setup guides and package dependency rules
+are updated. The final launcher/inspector/extractor receipt has three binary/PDB
+pairs; root launcher was deliberately not staged. No gameplay campaign or actual
+v0.7.6 release ZIP was run. See docs/TEST_MATRIX.md for verification boundaries.
+
 ### v0.7.5 — published October 27
 
 The user authorized normal GitHub release delivery after local acceptance, then

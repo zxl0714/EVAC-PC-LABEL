@@ -1,15 +1,22 @@
 param(
     [Parameter(Mandatory)][string]$InputPkg,
     [Parameter(Mandatory)][string]$OutputDir,
-    [Parameter(Mandatory)][string]$PkgTool,
+    [string]$PkgTool,
     [string]$Passcode = '00000000000000000000000000000000'
 )
 # Extract a backup with LibOrbisPkg, including the original PKG metadata.
 # Each invocation creates a new output directory and leaves the input untouched.
 $ErrorActionPreference = 'Stop'
+if (-not $PkgTool) {
+    $PkgTool = Join-Path $PSScriptRoot 'pkgtool/PkgTool.exe'
+    if (-not (Test-Path -LiteralPath $PkgTool)) {
+        $PkgTool = Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/apps/pkgtool-0.2.231/PkgTool.exe'
+    }
+    if (-not (Test-Path -LiteralPath $PkgTool)) { throw 'PkgTool is missing; extract the complete program package, or prepare the pinned tools in a source checkout.' }
+}
 $inputPath = (Resolve-Path -LiteralPath $InputPkg).Path
 $toolPath = (Resolve-Path -LiteralPath $PkgTool).Path
-$outputPath = [IO.Path]::GetFullPath($OutputDir)
+$outputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDir)
 if (Test-Path -LiteralPath $outputPath) { throw 'OutputDir must not already exist.' }
 if ($Passcode.Length -ne 32) { throw 'The PKG passcode must contain 32 characters.' }
 function Read-Big32([IO.BinaryReader]$Reader) {
@@ -50,8 +57,9 @@ New-Item -ItemType Directory -Path $outputPath | Out-Null
 & $toolPath pkg_extract --passcode $Passcode $inputPath $outputPath
 if ($LASTEXITCODE -ne 0) { throw 'PkgTool extraction failed; keep the output for diagnosis.' }
 $gameRoot = Join-Path $outputPath 'uroot'
-if (-not (Test-Path -LiteralPath (Join-Path $gameRoot 'eboot.bin') -PathType Leaf)) {
-    throw 'No uroot/eboot.bin was extracted. Check the package and passcode.'
+if (-not (Test-Path -LiteralPath $gameRoot -PathType Container) -or
+    -not (Get-ChildItem -LiteralPath $gameRoot -Force | Select-Object -First 1)) {
+    throw 'No game files were extracted. Check the package and passcode.'
 }
 foreach ($entry in $entries) {
     $destination = Join-Path (Join-Path $gameRoot 'sce_sys') $entry.Name

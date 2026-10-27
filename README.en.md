@@ -33,23 +33,18 @@ Prepare only the games you want:
 | エスプガルーダII ブラックレーベル | Espgaluda II Black Label / G2 | Xbox 360 |
 | ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
 | 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
-| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; 01.00 base (offline) or complete merged 01.04 data |
+| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; 01.00 base or complete merged 01.04 data |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
 | ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
+
+Coming soon: 弾銃フィーバロン / Dangun Feveron.
 
 ### Extracting ISO / PKG / XBLA files
 
 - **Xbox 360 ISO**: download a [Windows Release build of extract-xiso](https://github.com/XboxDev/extract-xiso/releases), then run `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`. The output should contain `default.xex` directly.
-- **PS4 PKG**: download and fully unpack [PkgTool from LibOrbisPkg v0.2](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2). The player package includes `tools/Extract-Ps4Pkg.ps1` to extract both game files and `sce_sys` metadata. Open PowerShell in the collection folder and replace these example paths:
+- **PS4 PKG**: double-click `tools/Extract-PS4.exe` in the program package. Select the base PKG and a new output folder, then click **Extract**. When finished, click **Open game files** and copy all contents into `game-data/<game>/`. Extract an update PKG separately with the same tool, then overlay all its extracted contents onto the base, replacing matching files.
 
-```powershell
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
-```
-
-Each output folder must not already exist. The game files appear inside its `uroot/`. Copy **all contents inside** `base/uroot/` into the game folder, then overlay all contents of `update/uroot/`, replacing matching files. Skip the update step for base-only installations. The script defaults to the common backup-package passcode of 32 zeros; use `-Passcode` for a different one. This is not a ZIP/RAR password. Encrypted retail PKGs require an extractable backup first.
-
-In a source checkout, the helper is at `scripts/Extract-Ps4Pkg.ps1`.
+Keep the entire `tools/` folder; extraction dependencies are included. The tool extracts game resources and `sce_sys` metadata. **Open game files** opens `uroot/` directly, so copy its contents. See the [extraction guide](docs/GAME_DATA.en.md#extract-iso-pkg-and-xbla-packages) for details and advanced script usage.
 
 **Guwange XBLA**: unpack the ZIP/RAR first, then extract the LIVE/PIRS content package inside it (usually a long filename without an extension) using the included helper:
 

@@ -45,22 +45,28 @@
 
 3. 在启动器选择 `D:\GameExtract\futari`，或将里面全部内容复制到 `game-data/futari/`。G2／最大往生同理，使用各自的目录。原 ISO 保留；只提取文件，不需要重建或改写镜像。
 
-### PS4：PkgTool 与配套提取脚本
+### PS4：Extract PS4
 
-1. 下载 [LibOrbisPkg v0.2](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2) 中的 `PkgTool-0.2.231.zip`，完整解压，保留 `PkgTool.exe` 旁的 DLL。不要只复制 EXE。
-2. 在合集根目录打开 PowerShell，运行包内 `tools/Extract-Ps4Pkg.ps1`；源码仓库中同一脚本在 `scripts/`。分别提取本体和所需更新，两个输出目录须尚不存在：
+1. 双击程序包中的 `tools/Extract-PS4.exe`。
+2. 点击“Browse…”选中本体 PKG。工具会填好一个新输出目录，可用“Location…”更改输出位置，再点击“Extract”。
+3. 完成后点击“Open game files”，将打开目录**里面的全部文件和文件夹**复制到对应的 `game-data/<游戏>/`。
+4. 有更新 PKG 时，用同一工具另行解包，再将更新提取的全部内容覆盖到本体目录，替换同名文件、保留本体独有文件。
+5. 在启动器点“刷新”并启动。以 ESP Ra.De. 为例，最终直接看到 `game-data/esprade/eboot.bin` 和 `game-data/esprade/sce_sys/param.sfo`。
+
+本体和更新分别使用新输出目录。实际游戏文件在输出目录的 `uroot/` 中；“Open game files”会直接打开这一层。所需组件在 `tools/pkgtool/`，保留整个 `tools/` 文件夹。
+
+PKG passcode 通常保留默认的 32 个零；只有 PKG 使用其他 passcode 时才修改，它与 ZIP／RAR 的解压密码不同。解包失败时，窗口显示原因，详细输出在新目录的 `extract.log`。原始 PKG 保持不变。
+
+#### 高级用法：脚本
+
+在程序包根目录打开 PowerShell，替换以下输入和输出路径。脚本会自动找到随包的 PkgTool：
 
 ```powershell
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
+.\tools\Extract-Ps4Pkg.ps1 -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
+.\tools\Extract-Ps4Pkg.ps1 -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
 ```
 
-3. 提取成功后，脚本打印 `Game files: ...\uroot`。以 ESP Ra.De. 为例，先把 `base/uroot/` **内部所有文件和文件夹**复制进 `game-data/esprade/`，再把 `update/uroot/` 内部所有内容覆盖进去，替换同名文件。保留本体独有资源，不要用更新目录整体替换本体目录。
-4. 最终直接看到 `game-data/esprade/eboot.bin` 和 `game-data/esprade/sce_sys/param.sfo`；在启动器选择这一层并启动校验。其他 PS4 游戏使用各自支持的版本与默认目录。
-
-脚本补齐普通 `pkg_extract` 未导出的 PKG 元数据，避免只得到 `uroot` 资源却缺 `sce_sys`。它只写入新建的输出目录，原 PKG 不变；不使用会重新生成 SFO 的 `pkg_makegp4`。
-
-默认 passcode 是常见备份包的 32 个零。若备份使用其他 passcode，在命令末尾加 `-Passcode "对应的32字符"`。网站 ZIP／RAR 的解压密码只用于外层压缩包，不等于 PKG passcode；零售加密 PKG 需先准备可提取的备份。工具报错时先查看输出，不要把未提取完整的目录当作成品。
+源码仓库中的脚本位于 `scripts/Extract-Ps4Pkg.ps1`；开发环境依赖准备见 `tools/README.md`。可用 `-PkgTool` 指定外部工具、`-Passcode` 指定 PKG passcode。
 
 ### Xbox 360 XBLA：狱门山
 
@@ -186,7 +192,7 @@ game-data/ketsui/
 
 ### 怒首領蜂 大往生 臨廻転生（daioujou）
 
-支持 **CUSA32997／01.00 本体（离线）或 01.04 完整合并数据**。01.00 直接使用完整本体目录；社区排行榜和联网录像需要覆盖 01.04 更新。以下为更新后的结构：
+支持 **CUSA32997／01.00 本体或 01.04 完整合并数据**。两版均支持社区排行榜和录像；01.00 不能播放较新版游戏录制的录像。01.00 直接使用完整本体目录；使用 01.04 时将更新覆盖到同一目录。以下为更新后的结构：
 
 ```text
 game-data/daioujou/

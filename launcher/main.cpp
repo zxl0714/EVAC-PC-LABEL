@@ -285,17 +285,18 @@ class Renderer {
     Check(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,factory.GetAddressOf()),"Create Direct2D factory");
     Check(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),reinterpret_cast<IUnknown**>(write.GetAddressOf())),"Create text factory");
     Check(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&wic)),"Create image factory");
-    for (const auto size:{10.f,11.f,12.f,14.f,16.f,18.f,20.f,24.f,27.f}) {
+  }
+  void Text(ID2D1RenderTarget* target,std::wstring_view value,D2D1_RECT_F rectangle,float size,UINT32 color,
+            DWRITE_TEXT_ALIGNMENT align=DWRITE_TEXT_ALIGNMENT_LEADING) {
+    auto found=formats.find(size);
+    if(found==formats.end()) {
       ComPtr<IDWriteTextFormat> format;
       Check(write->CreateTextFormat(L"Segoe UI",nullptr,size>=20?DWRITE_FONT_WEIGHT_SEMI_BOLD:DWRITE_FONT_WEIGHT_NORMAL,
           DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,size,L"zh-CN",&format),"Create launcher font");
       format->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
-      formats.emplace(size,std::move(format));
+      found=formats.emplace(size,std::move(format)).first;
     }
-  }
-  void Text(ID2D1RenderTarget* target,std::wstring_view value,D2D1_RECT_F rectangle,float size,UINT32 color,
-            DWRITE_TEXT_ALIGNMENT align=DWRITE_TEXT_ALIGNMENT_LEADING) {
-    auto format=formats.at(size);format->SetTextAlignment(align);
+    auto format=found->second;format->SetTextAlignment(align);
     ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&brush),"Create text brush");
     target->DrawText(value.data(),UINT32(value.size()),format.Get(),rectangle,brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
@@ -943,10 +944,17 @@ void Preview(const Options& options) {
   Renderer renderer;
   ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
-  auto rows=InspectRows(options.root,1);
-  rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
+  size_t selected=1;
+  if(!options.selection.empty())for(size_t index=0;index<Catalogue().size();++index)
+    if(Catalogue()[index].id==options.selection)selected=index;
+  auto rows=InspectRows(options.root,selected);
+  if(options.selection.empty()) {
+    rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
+  }
+  Layout layout{1080,900,0};
+  layout.scroll=std::clamp(layout.card(selected).bottom-layout.footer(),0.f,layout.max_scroll());
   const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
-  target->BeginDraw();renderer.Draw(target.Get(),Layout{1080,900,0},rows,1,-1,false,caption,{},true);Check(target->EndDraw(),"Render preview");
+  target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true);Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
   if(!options.preview.parent_path().empty())fs::create_directories(options.preview.parent_path());
   Check(stream->InitializeFromFilename(options.preview.c_str(),GENERIC_WRITE),"Open preview file");
@@ -958,12 +966,14 @@ void Preview(const Options& options) {
 }
 }
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
+  bool render_preview=false;
   try {
     Check(CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED),"Initialize launcher COM");
     struct Apartment {~Apartment(){CoUninitialize();}} apartment;
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto options=Arguments();
-    if(!options.preview.empty()){Preview(options);return 0;}
+    render_preview=!options.preview.empty();
+    if(render_preview){Preview(options);return 0;}
     if(!options.game.empty()) {
       EnsureConfig(options.root);
       auto spec=PrepareLaunch(FindGame(options.game),options.root,Ini::Load(ConfigPath(options.root)),options.profile,options.data);
@@ -986,5 +996,9 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     ShowWindow(window,show);UpdateWindow(window);
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}
     return 0;
-  }catch(const std::exception& error){Error(nullptr,error.what());return 2;}
+  }catch(const std::exception& error){
+    if(render_preview)std::fprintf(stderr,"Launcher preview: %s\n",error.what());
+    else Error(nullptr,error.what());
+    return 2;
+  }
 }

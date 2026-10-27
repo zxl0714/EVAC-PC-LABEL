@@ -4,6 +4,21 @@
   "titleId": "CUSA32997",
   "version": "01.04",
   "status": "native-https-roundtrip-verified",
+  "base100": {
+    "appVersion": "01.00",
+    "sourceExecutableSha256": "8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79",
+    "archiveSeedLoadOffset": 222,
+    "archiveSeedLoadKind": "rip-relative",
+    "containerVersion": 65550,
+    "coreDataVersion": 65536,
+    "coreRegions": ["ARCADE_01000"],
+    "nativeUploadDownloadVerified": true,
+    "scope": "Independent 01.00 ARCADE / Type-A / Shotia round against loopback: score 28 (display 280), original replay upload, in-game ranking read and download saved to slot 0020-0000. Production deployment and cold offline playback are separate checks.",
+    "networkAttachmentBytes": 38319,
+    "networkAttachmentSha256": "39eb5d27288f0458892c33f2b86448f2ca67c123fcef71a995d22162af799f3c",
+    "resourceCompatibility": "The ranking-view and replay-view scripts are byte-identical to 01.04 and use the same hash-bound transforms. Preserve the original future-version replay guard; do not rewrite 01.04 records as 01.00.",
+    "transportIdentity": "Existing 1.04 protocol labels remain the service transport identity; replay container versions identify the original recording version."
+  },
   "sourceExecutableSha256": "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
   "sources": [
     "patch:1100/config/title_prof.psb.m",

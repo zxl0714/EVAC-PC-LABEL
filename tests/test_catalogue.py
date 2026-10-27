@@ -19,9 +19,13 @@ class CatalogueTests(unittest.TestCase):
 
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
-        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange'])
-        self.assertEqual([g['comingSoon'] for g in games], [False] * 7)
+        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron'])
+        self.assertEqual([g['comingSoon'] for g in games], [False] * 7 + [True])
         self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange'])
+        feveron=games[-1]
+        self.assertFalse(feveron['communitySupported'])
+        self.assertEqual(feveron['runtimeFiles'], [])
+        self.assertEqual(feveron['dataManifest'], '')
 
     def test_esprade_uses_merged_104_data_and_normal_community_entry(self):
         game = next(g for g in catalogue.load(self.path) if g['id'] == 'esprade')

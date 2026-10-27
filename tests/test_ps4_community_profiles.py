@@ -219,6 +219,36 @@ class Ps4CommunityProfiles(unittest.TestCase):
         with self.assertRaises(ketsui.ApiError):
             daioujou.replay_info(zlib.compress(network)+b'trailing')
 
+    def test_base_and_update_replays_keep_original_bytes_and_version_guards(self):
+        import struct
+        import zlib
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts/ps4'))
+        from replay_fixture import record
+        with tempfile.TemporaryDirectory() as temporary:
+            store=daioujou.Store(Path(temporary)/'versions.sqlite3')
+            for version,region,name in ((0x1000e,b'ARCADE_01000','Base'),
+                                        (0x10030,b'ARCADE_01030','Update')):
+                raw=record('daioujou')
+                struct.pack_into('<I',raw,0,version)
+                raw[80:96]=region+bytes(16-len(region))
+                payload=zlib.compress(raw)
+                info=daioujou.replay_info(payload)
+                self.assertEqual((info['version'],info['region']),(version,region.decode()))
+                request=score(6,'12345',name)
+                receipt=store.submit(request)
+                upload=dict(entry_id=receipt['entry_id'],submission_id=request['submission_id'],nickname=name,
+                    format=store.replay_format,sha256=hashlib.sha256(payload).hexdigest(),
+                    payload_base64=base64.b64encode(payload).decode())
+                store.upload(upload)
+                self.assertEqual(store.download(receipt['entry_id'])[0],payload)
+            self.assertEqual(store.leaderboard(6,'standard')['total'],2)
+        for version,region in ((0x1000e,b'ARCADE_01010'),(0x1000d,b'ARCADE_01000'),
+                               (0x10010,b'ARCADE_01000'),(0x10020,b'ARCADE_01000')):
+            raw=record('daioujou');struct.pack_into('<I',raw,0,version)
+            raw[80:96]=region+bytes(16-len(region))
+            with self.subTest(version=version,region=region),self.assertRaises(ketsui.ApiError):
+                daioujou.replay_info(zlib.compress(raw))
+
     def test_native_temporary_custom_alias_keeps_arcade_board_and_raw_bytes(self):
         import struct
         import zlib

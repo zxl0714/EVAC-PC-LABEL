@@ -396,21 +396,35 @@ int main() {
     const std::array files{DataFile{"main.bin",3,hash,true}, DataFile{"res/asset.bin",3,hash,false}};
     const std::array<std::string_view,1> runtime{"runtime/fake.exe"};
     Game game{"fixture","Fixture","xbox360","game-data/fixture","runtime/fake.exe",true,false,files,runtime};
-    Require(Catalogue().size() == 7 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
+    Require(Catalogue().size() == 8 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
             Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
             Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade" &&
-            Catalogue()[6].id == "guwange", "Catalogue order");
+            Catalogue()[6].id == "guwange" && Catalogue()[7].id == "feveron", "Catalogue order");
+    Require(FindGame("feveron").coming_soon && !FindGame("feveron").integrated &&
+            !FindGame("feveron").community_supported && FindGame("feveron").runtime_files.empty(),
+            "Feveron is a non-runnable announcement, not an integrated game");
     Require(FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
             "Integrated titles must advertise their verified community adapters");
     const auto normal=launcher::InitialWindowSize(1104,1920,1080,96,40,6);
-    Require(normal.width==1104 && normal.height==978,"Launcher fits all six cards at 100% DPI");
+    Require(normal.width==1104 && normal.height==972,"Launcher leaves ten percent of the work area free");
     const auto scaled=launcher::InitialWindowSize(1104,2560,2160,144,56,6);
     Require(scaled.width==1104 && scaled.height==1463,"Launcher height follows 150% DPI");
     const auto small=launcher::InitialWindowSize(1104,1024,728,144,56,6);
-    Require(small.width==1024 && small.height==728,"Launcher stays inside a small monitor work area");
+    Require(small.width==1024 && small.height==655,"Small monitor height cap rounds down");
     Require(launcher::InitialWindowSize(1104,2560,2160,144,56,7).height>scaled.height,
             "Launcher grows with the game catalogue");
+    for(const auto dpi:{96u,120u,144u}) {
+      const int work_height=1080-int(40*dpi/96),frame_height=int(32*dpi/96);
+      const auto eight=launcher::InitialWindowSize(1104,1920,work_height,dpi,frame_height,8);
+      Require(eight.height==work_height*9/10,"Eight-card 1080p launcher uses at most 90 percent at 100/125/150 percent DPI");
+      Require(launcher::InitialWindowSize(1104,1920,work_height,dpi,frame_height,30).height==eight.height,
+              "More games do not grow the initial window beyond the cap");
+    }
+    Require(launcher::InitialWindowSize(1104,1920,1080,96,32,1).height==370,
+            "Short catalogues do not expand to fill the height limit");
+    Require(launcher::InitialWindowSize(1104,0,0,0,0,8).height==1,
+            "Empty work area still yields a valid minimum size");
     Reject([] { FindGame("unknown"); }, "Unknown game accepted");
     Require(FindGame("espgaluda2").files.size() == 155, "G2 complete inventory");
     auto inspect = [&](CheckLevel level = CheckLevel::Full) { return Inspect(game, fixture.root, fixture.data, level); };

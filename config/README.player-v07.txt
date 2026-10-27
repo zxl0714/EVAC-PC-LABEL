@@ -1,6 +1,8 @@
-EVAC PC LABEL v0.7.5
+EVAC PC LABEL v0.7.6
 
-本版修复大往生排行榜玩家资料窗口，增加 PS4 游戏的 Vulkan 兼容呈现路径。
+本版增加 PS4 图形解包工具、大往生 01.00 联网适配及弹铳 Coming Soon 卡片。
+启动器默认高度不超过屏幕可用区域的 90%，游戏列表滚动显示。
+当前为本地预览包：大往生 01.00 联网已在本机验证，线上服务适配待部署。
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
 开始游玩 ---------------------------------------------------------------------
@@ -14,7 +16,7 @@ EVAC PC LABEL v0.7.5
   game-data/espgaluda2/  ESPGaluda II Black Label
   game-data/ketsui/      CUSA09062，01.00 本体或覆盖 01.02 更新后的完整数据
   game-data/sdoj/        最大往生，Xbox 360 原版光盘数据
-  game-data/daioujou/    CUSA32997，01.00 本体（离线）或覆盖 01.04 更新
+  game-data/daioujou/    CUSA32997，01.00 本体或覆盖 01.04 更新
   game-data/esprade/     CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据
   game-data/guwange/     XBLA，Title ID 58410A78，本体 0.0.0.4，无 Title Update
 
@@ -32,7 +34,7 @@ Black Label 需要 spa.bin 和完整 Rom/。
 解包 -------------------------------------------------------------------------
 ZIP／RAR 先用常规工具解压。如果里面已经有 default.xex／eboot.bin 和全部
 资源，直接选择那一层。如果仍是 ISO、PKG 或一个 XBLA 容器，继续提取。
-下面均在 PowerShell 中运行，请替换路径，输出目录必须是尚不存在的新目录。
+PS4 使用下面的图形工具；Xbox 360 的命令在 PowerShell 中运行，替换为实际路径。
 
 Xbox 360 ISO：下载并完整解压 extract-xiso 的 Windows Release：
 https://github.com/XboxDev/extract-xiso/releases
@@ -50,14 +52,13 @@ LIVE／PIRS 单哈希表副本布局；不是 ISO、CON 存档或 Title Update �
 虫姬二 DLC：将原始文件按 game-data/futari/README.txt 放好，保留文件名，
 启动游戏时自动解包。已有 v0.7.2 解包目录保持原样即可。
 
-PS4 PKG：下载 LibOrbisPkg v0.2 的 PkgTool-0.2.231.zip，完整解压并保留 DLL：
-https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2
-  .\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
-  .\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
-实际资源在各自的 uroot/。先复制 base/uroot/ 里面全部内容，再用 update/uroot/
-里面的内容覆盖同名文件。保留本体独有资源；没有更新时只做本体这一步。
-默认 passcode 为常见备份包的 32 个零；其他 passcode 用 -Passcode 指定。
-ZIP／RAR 的解压密码不是 PKG passcode，零售加密 PKG 需先准备可提取的备份。
+PS4 PKG：双击 tools/Extract-PS4.exe，选择本体 PKG 和新输出目录，点击
+“Extract”。完成后点击“Open game files”，将里面的全部内容复制到对应的
+game-data/<游戏>/。更新 PKG 用同一工具另行解包，再将提取的全部内容覆盖
+到本体目录，替换同名文件、保留本体独有资源。原 PKG 不会改动。
+保留整个 tools/ 文件夹，所需组件已随包提供。输出目录中的 uroot/ 是实际
+游戏文件目录；不要把 uroot 文件夹本身套进 game-data。详细用法见 tools/README.txt。
+PKG passcode 通常保留默认值；它与 ZIP／RAR 的解压密码不同。
 
 配置与操作 -------------------------------------------------------------------
 右上角 CN / EN / JP 切换启动器语言，页头修改排行榜昵称，启动按钮上方设置
@@ -110,8 +111,12 @@ enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社�
 
 English ======================================================================
 
-v0.7.5 fixes DaiOuJou player cards and adds a Vulkan presentation compatibility path. To update,
-close games and launcher, extract over the existing folder, and keep user-data/.
+v0.7.6 adds a graphical PS4 extractor, DaiOuJou 01.00 community support and a
+Dangun Feveron Coming Soon card. The initial launcher height is capped at 90%
+of the screen work area, with a scrollable game list.
+This local preview includes the 01.00 client changes; the matching online service
+update is pending deployment. To update, close games and launcher, extract over
+the existing folder, and keep user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the
 alternate entry. Windows x64 and graphics-vendor drivers are required.
@@ -139,12 +144,13 @@ game files, use the appropriate command above with your own paths:
   is unchanged. Select the output folder directly. Do not rename a container
   to default.xex. The helper supports this game's small LIVE/PIRS single-table
   layout, not ISO, CON saves or Title Update application.
-- PS4: PkgTool plus tools/Extract-Ps4Pkg.ps1. Keep PkgTool's DLLs. Extract base
-  and update into separate new folders, copy everything INSIDE base/uroot/,
-  then overlay everything inside update/uroot/. Keep base-only resources.
-  The default backup passcode is 32 zeros; use -Passcode for a different one.
-  ZIP/RAR passwords are separate. Encrypted retail PKGs need an extractable
-  backup. Supported PS4 versions are listed beside each default path above.
+- PS4: double-click tools/Extract-PS4.exe, select a PKG and a new output folder,
+  then click Extract. Click Open game files when finished and copy all contents
+  into game-data/<game>/. Extract updates separately and overlay all their game
+  files onto the base, keeping base-only files. Keep the entire tools/ folder;
+  dependencies are included. See tools/README.txt for the supported versions.
+  The PKG passcode normally stays at its default of 32 zeros; ZIP/RAR passwords
+  are separate. Original PKGs remain unchanged.
 - Futari DLC: place the original files as shown in game-data/futari/README.txt,
   keep their filenames, then start the game. Extraction is automatic on first
   use. Existing v0.7.2 extracted folders work in place.

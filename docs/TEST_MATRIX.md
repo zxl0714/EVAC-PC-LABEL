@@ -2,6 +2,25 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.7.6 大往生 01.00 与弹铳预告
+
+- **输入与资源：** 用户提供的 CUSA32997 01.00 本体提取到 `.local/v076-daioujou-base-r1/extracted/uroot`；原有 `base-self` 清单 45 文件／46 哈希通过。新原生准备加载两项只读覆盖，完整输入与输出验证通过，原文件未改变。01.04 合并数据也通过准备，记录分别为 `prepared-final.json`、`prepared-104.json`。
+- **真实 01.00 联网：** 独立 profile、仅 HTTP loopback；ARCADE／Type-A／Shotia 测试局显示 280 分（协议原生整数 28）。成绩、录像上传、读榜及下载均 HTTP 200；游戏内显示 Base100Check／280。录像附件 38,319 字节，SHA-256 `39eb5d27288f0458892c33f2b86448f2ca67c123fcef71a995d22162af799f3c`，头部 version=0x1000e、data_version=0x10000、region=ARCADE_01000。下载后原生存档事务提交到 `0020-0000`，SAVEDATA.BIN SHA-256 `daa691e5ce0191f4895ccb0bc0f52b690cf866dbbcedfc03271a05302a4b2905`。日志 `play-r2.log`；受控关闭，测试服务已停止。离线冷回放和生产 HTTPS 尚未执行，服务端修改未部署。
+- **机制回归：** 12 项服务 profile 测试；大往生客户端、1.04 原生榜单／录像、AC-CHALLENGE、1.00 原生榜单／录像共四项 HTTP 测试通过（`.local/v076-daioujou-community-r1`）。40 项录像结构检查、143 项 PS4 兼容检查、115 项资源覆盖检查通过。版本、核心、模式和元数据拒绝规则保留；不改写录像版本。最后构建 `.local/v076-final-build-r1.log`，七对 PS4 产物和三对启动器／检查器／提取器产物认证通过。
+- **弹铳 Coming Soon：** catalogue 保持七款可运行，新增第八项 `feveron`，不配置数据清单或运行组件，启动／数据操作禁用。19 项 catalogue、9 项 artwork、common／launch 通过。官方图片来源与哈希记于 `launcher/artwork.json`。三语言实际渲染覆盖 Coming Soon 选中状态，截图 `.local/v076-feveron-card-final.png`。
+- **预览错误修复：** 原有预览昵称绘制请求 13 号字体，但构造时缓存缺该项，触发 `invalid map<K, T> key`。字体改为按需创建缓存。新增 `launcher_preview` CTest，分别实际生成 CN／EN／JP PNG，并确认重复输出失败时返回而不弹阻塞窗口；通过。根目录旧启动器未替换。
+- **默认窗口高度：** `InitialWindowSize` 对整个窗口施加当前工作区高度 90% 的上限，沿用居中与游戏列表滚动。八卡片在 1080p 100%／125%／150% 的尺寸用例、更多卡片不再撑高窗口、小工作区向下取整及短列表不强制撑高均通过；这是几何逻辑测试，未切换实际桌面 DPI。构建 `.local/v076-launcher-height-r1.log`，common／launch／三语言 launcher_preview CTest 3/3 通过；根目录旧入口保持不变。
+
+## v0.7.6 PS4 解包工具
+
+- **本地实现范围：** `out/ps4-extract-player/tools/Extract-PS4.exe` 及相邻依赖目录已构建。原生 Win32 界面与诊断命令共用提取核心，静态链接 C++ 运行库；PE 导入只涉及 Windows 系统 DLL。固定 PkgTool 0.2.231／LibOrbisPkg、许可、源码入口和高级脚本已配齐。未修改游戏运行时、清单校验或现有数据目录。
+- **真实数据：** ESP Ra.De. 01.00 本体与 01.04 更新分别提取到 `.local/v076-extract-r1/base/`、`update/`；本体内容与更新内容复制合并至新建的 `merged/`。现有 `cave_inspect --full` 返回 `ready`、`verified`、`update-104`／`01.04`／`merged-patch`，48 文件／49 哈希通过，`problems=[]`；记录 `.local/v076-data-validation.json`。没有启动游戏或改写现用 game-data。
+- **实际界面：** 已打开文件选择框；真实更新包通过主窗口填写路径并点击“开始解包”完成，输出位于 `gui-patch/`；点击“打开游戏文件”打开 Explorer 的 `uroot`。工具未能在文件选择框中完成自动选取，因此不将完整文件选择流程记作实测。后续主题／白色背景及线程创建失败恢复已编译；用户按 Esc 停止 computer use 后未再操作桌面，未声称完成最后一轮视觉复核。
+- **28 项原生检查：** 执行生产核心及真实子进程管理，覆盖 PKG 头／条目表、元数据、资源型 patch、中文／空格／特殊字符路径、参数引用、缺依赖、错误 passcode、已有目录保护、失败日志及取消。子进程为自行编写的假 PkgTool，不使用 ROM。
+- **7 项 Python 检查：** 依赖冷准备／复用／哈希、坏压缩包／危险路径、独立 tools 目录完整性、原生提取器三对 EXE/PDB 构建认证、版本门槛、中英文入口及高级脚本自动定位依赖。高级脚本测试通过只含资源的 patch，并核对输入不变。
+- **打包与构建：** 48 项组包检查通过（1 项既有符号链接权限跳过），新增 v0.7.6 自造小文件 fixture，验证依赖进入清单且缺 DLL 会被拒绝；没有生成实际发布包。4 项产品身份、5 项构建配置检查通过。最终构建 `.local/v076-build-r3.log`，未替换根目录启动器；三对构建产物认证通过。
+- **交付边界：** 当前用户只要求实现功能，尚有其他需求；未提交／推送、打包、上传或发布 v0.7.6。正式包的一次解压验收在后续发版时进行，不追加七游戏游玩或 360 回归。
+
 ## v0.7.5 PS4 兼容呈现与玩家资料窗口
 
 - 后续 GitHub 交付（10 月 27 日 00:07）：用户确认后，源码／标签推送及 [v0.7.5](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.5) 发布完成，release ID `424467884`。公开 API 验证 Latest、非草稿／非预览，两个附件状态 uploaded，大小与 SHA-256 均匹配下述本地验收包及校验文件。收据 `.local/v075-delivery-r1.json`，截图 `.local/v075-release-published.jpg`。直接复用本地包，未重新构建／解压，未上传 OSS 或发送群消息。

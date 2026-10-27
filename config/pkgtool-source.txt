@@ -1,0 +1,16 @@
+PkgTool / LibOrbisPkg 0.2.231
+
+Unmodified upstream Windows binaries, distributed under GNU LGPL version 3.
+The accompanying LICENSE.txt and GPL-3.0.txt contain the LGPL and GPL terms.
+
+Project: https://github.com/maxton/LibOrbisPkg
+Corresponding source (including build projects):
+https://github.com/maxton/LibOrbisPkg/tree/72370ca3739e0708250695046b3886e50452dee7
+Source download:
+https://github.com/maxton/LibOrbisPkg/archive/72370ca3739e0708250695046b3886e50452dee7.zip
+
+The Extract PS4 frontend is part of EVAC PC LABEL:
+https://github.com/zxl0714/EVAC-PC-LABEL/tree/main/tools/ps4-extract
+
+PkgTool is invoked as a separate process. Its executable and LibOrbisPkg.dll
+remain separate files and may be replaced with compatible modified versions.

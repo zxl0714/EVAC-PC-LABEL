@@ -16,6 +16,7 @@ from generate_catalogue import load, relative
 from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from ps4_build_receipt import verify as verify_ps4
+import ps4_extract_tools
 from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
 
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
@@ -120,8 +121,24 @@ def extraction_sources(version):
     return result
 
 
+def has_ps4_extractor(version):
+    return tuple(map(int, (version or '0.0').split('-', 1)[0].split('.'))) >= (0, 7, 6)
+
+
+def extractor_sources(version):
+    return ps4_extract_tools.player_sources(ROOT) if has_ps4_extractor(version) else {}
+
+
+def extractor_role(name):
+    if name.endswith(('.exe', '.dll')):
+        return 'runtime'
+    return 'license' if Path(name).name in ('LICENSE.txt', 'GPL-3.0.txt', 'SOURCE.txt') else 'documentation'
+
+
 def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=None, package_format=1):
     names = {launcher(version), 'runtime/launcher/cave_inspect.exe'}
+    if has_ps4_extractor(version):
+        names.add('tools/Extract-PS4.exe')
     # Historical packages refreshed old shortcuts. Format 3 ships only the
     # current launcher name, including when matching symbols are selected.
     if renamed(version) and (flavor == 'Update' or package_format == 2):
@@ -190,7 +207,7 @@ def certified_runtime(selection=GAMES):
     xbox_names |= {str(Path(name).with_suffix('.pdb')) for name in list(xbox_names)}
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
-        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb'})
+        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb'})
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:
@@ -298,6 +315,7 @@ def validate_public_name(name, games, selection=GAMES, version=None, placement_n
     allowed = runtime_names(games, selection=selection, version=version) | {'config.ini', 'user-data/config.ini', 'README.txt', batch_name(version), 'SOURCE.txt'}
     allowed.update(placement_sources(version, placement_name))
     allowed.update(extraction_sources(version))
+    allowed.update(extractor_sources(version))
     if name in allowed or name.startswith('licenses/'):
         return
     # App-local CRT copies only, not arbitrary DLLs supplied by an input tree.
@@ -385,6 +403,13 @@ def validate_windows_item(item, record, games, selection, required, runtime):
             raise ValueError('Unselected game data in package: ' + name)
         return
     validate_public_name(name, games, selection, record['version'], record.get('placementGuideName', LEGACY_PLACEMENT_NAME))
+    if name in extractor_sources(record['version']):
+        if item['role'] != extractor_role(name):
+            raise ValueError('Invalid PS4 extraction component role: ' + name)
+        expected_sha = ps4_extract_tools.lock(ROOT)['files'].get(Path(name).name)
+        if expected_sha and item.get('sha256') != expected_sha:
+            raise ValueError('PS4 extraction dependency differs from its pin: ' + name)
+        return
     if name in extraction_sources(record['version']):
         if item['role'] != 'documentation':
             raise ValueError('Invalid extraction-helper role: ' + name)
@@ -441,6 +466,8 @@ def verify_tree(directory, games=None):
         raise ValueError('Package SHA256SUMS does not match')
     if not runtime.issubset(expected):
         raise ValueError('Package is missing a required player component')
+    if not set(extractor_sources(release['version'])).issubset(expected):
+        raise ValueError('Package is missing PS4 extraction dependencies or instructions')
     if package_format in (2, 3) and not (set(required_data) | {'README.txt', 'SOURCE.txt', batch_name(release['version'])}).issubset(expected):
         raise ValueError('Package is missing selected data or instructions')
     if renamed(release['version']):
@@ -547,6 +574,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     games = catalogue(selection)
     content_ids = selected_items(futari_content, [item['id'] for item in games['futari']['content']], 'Futari DLC') if package_format in (2, 3) else [item['id'] for item in games['futari']['content']]
     commit, receipts, certified = certified_runtime(selection)
+    if has_ps4_extractor(version):
+        ps4_extract_tools.verify(ROOT)
     for key in selection:
         verify_certificate(games[key], certified, commit)
     if data and set(data) - set(selection):
@@ -589,7 +618,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         source_name = certified_name(path)
         item = certified[source_name]
         certified_launcher = path in {launcher(version), LEGACY_LAUNCHER}
-        if not certified_launcher and path != 'runtime/launcher/cave_inspect.exe' and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
+        if not certified_launcher and path not in ('runtime/launcher/cave_inspect.exe', 'tools/Extract-PS4.exe') and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
             raise ValueError('Staged player component differs from certified build: ' + path)
         copy_checked(item['source'], target, 'runtime', entries, item)
     for file in crt:
@@ -609,6 +638,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     copy_checked(ROOT / 'config' / readme, directory / 'README.txt', 'documentation', entries)
     for name, source in extraction_sources(version).items():
         copy_checked(source, directory / name, 'documentation', entries)
+    for name, source in extractor_sources(version).items():
+        copy_checked(source, directory / name, extractor_role(name), entries)
     # Frozen pre-v0.4 package profiles retain their original executable name.
     bat_source = ROOT / 'Launch.bat'; reject_link(bat_source)
     bat = bat_source.read_text(encoding='utf-8')

@@ -8,7 +8,7 @@
   "variantId": "update-104",
   "entry": "eboot.bin",
   "source": {
-    "description": "Complete CRC-verified user-provided merged application/update; metadata only, no game content. Project.gp4 is packaging input, not a runtime resource. The 01.00 base alternative runs offline without community replay fixes.",
+    "description": "Complete CRC-verified user-provided merged application/update; metadata only, no game content. Project.gp4 is packaging input, not a runtime resource. Both the 01.00 base alternative and merged 01.04 support community rankings and replays.",
     "archiveSha256": "b3b879def133c8d5924cf19766349a17e191b5c922404706c0960f56b98e0db9"
   },
   "files": [

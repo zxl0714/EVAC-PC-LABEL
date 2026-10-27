@@ -13,6 +13,7 @@ from product import NAME
 from toolchain import tool_path, tool_snapshot
 
 RECEIPT = ROOT / 'out/launcher/build-receipt.json'
+OUTPUT_NAMES = (NAME, 'cave_inspect', 'Extract-PS4')
 
 
 def snapshot():
@@ -21,9 +22,10 @@ def snapshot():
     names = {name.decode() for name in raw.split(b'\0') if name}
     explicit = {'CMakeLists.txt', 'games/catalogue.json', 'config/default.ini', 'tools/packages.lock.json',
                 'scripts/Build.ps1', 'scripts/Build-Common.ps1', 'scripts/generate_catalogue.py',
-                'scripts/generate_artwork.py', 'scripts/product.py', 'scripts/launcher_receipt.py', 'scripts/toolchain.py'}
+                'scripts/generate_artwork.py', 'scripts/product.py', 'scripts/launcher_receipt.py', 'scripts/toolchain.py',
+                'tools/ps4-extract.lock.json', 'scripts/ps4_extract_tools.py'}
     files = {name: digest(ROOT / name) for name in sorted(names) if name in explicit or
-             name.startswith(('common/', 'launcher/')) or (name.startswith('games/') and name.endswith('/data.json'))}
+             name.startswith(('common/', 'launcher/', 'tools/ps4-extract/')) or (name.startswith('games/') and name.endswith('/data.json'))}
     json_header = 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/json.hpp'
     if not (ROOT / json_header).is_file():
         raise ValueError('Restore launcher JSON dependency: git submodule update --init -- third_party/rexglue/thirdparty/inja')
@@ -47,7 +49,7 @@ def finish(state_path, build, stage_root=True):
         raise ValueError('Launcher build must be inside collection/out')
     outputs = []
     readobj, pdbutil = tool_path('readobj', ROOT), tool_path('pdbutil', ROOT)
-    for name in (NAME, 'cave_inspect'):
+    for name in OUTPUT_NAMES:
         binary, symbols = build / 'bin' / (name + '.exe'), build / 'bin' / (name + '.pdb')
         pe = subprocess.check_output([str(readobj),
                                       '--coff-debug-directory', str(binary)]).decode()
@@ -55,7 +57,7 @@ def finish(state_path, build, stage_root=True):
                                        'dump', '-summary', str(symbols)]).decode()
         identity = signature(pe)
         if identity != signature(pdb, pdb=True):
-            raise ValueError('Launcher or inspector PDB does not match')
+            raise ValueError('Launcher, inspector or extractor PDB does not match')
         for path in (binary, symbols):
             reject_link(path)
             outputs.append(dict(path=path.relative_to(ROOT).as_posix(), bytes=path.stat().st_size,
@@ -73,8 +75,8 @@ def verify():
     record = json.loads(RECEIPT.read_text())
     if record.get('format') != 1 or record.get('backend') != 'launcher' or record['sourceSnapshot'] != snapshot():
         raise ValueError('Launcher source/tool inputs changed; rebuild')
-    if len(record['outputs']) != 4 or {Path(item['path']).name for item in record['outputs']} != {
-            NAME + '.exe', NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb'}:
+    expected = {name + extension for name in OUTPUT_NAMES for extension in ('.exe', '.pdb')}
+    if len(record['outputs']) != len(expected) or {Path(item['path']).name for item in record['outputs']} != expected:
         raise ValueError('Incomplete launcher receipt')
     for item in record['outputs']:
         path = ROOT / item['path']; reject_link(path)
@@ -100,6 +102,6 @@ if __name__ == '__main__':
         if not args.state or not args.build:
             parser.error('finish requires --state and --build')
         finish(args.state, args.build, stage_root=not args.skip_root_stage)
-        print('Launcher/inspector receipt verified; 2 binary/PDB pairs.')
+        print('Launcher/inspector/extractor receipt verified; 3 binary/PDB pairs.')
     else:
-        verify(); print('Launcher/inspector receipt verified; 2 binary/PDB pairs.')
+        verify(); print('Launcher/inspector/extractor receipt verified; 3 binary/PDB pairs.')

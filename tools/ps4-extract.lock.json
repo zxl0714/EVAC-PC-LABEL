@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "version": "0.2.231",
+  "directory": "pkgtool-0.2.231",
+  "url": "https://github.com/maxton/LibOrbisPkg/releases/download/v0.2/PkgTool-0.2.231.zip",
+  "sha256": "c639e591e35c2431f68410d1771541d95f7308863638f9e3a6eedf1818530097",
+  "sourceCommit": "72370ca3739e0708250695046b3886e50452dee7",
+  "sourceUrl": "https://github.com/maxton/LibOrbisPkg/tree/72370ca3739e0708250695046b3886e50452dee7",
+  "files": {
+    "PkgTool.exe": "8b1c269d29e42ec13d7aaa4c8ac5d1b120f0393b91b51af69da38b92f962a9ab",
+    "LibOrbisPkg.dll": "787057748be8c43fb2562ca6a47f664e86169a95671b646df60f042da862ef1d",
+    "LICENSE.txt": "ea8af5e789cb2d4e9b10bce3874982ade163b749b6bfbdb32e2df21c4d106de1"
+  }
+}

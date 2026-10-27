@@ -84,6 +84,18 @@
       "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACguwange_780x353.png",
       "copyright": "©CAVE Interactive CO., LTD. / ATLUS",
       "usage": "Official promotional artwork. Source bytes unchanged; the shared launcher crop and gradient supply the banner treatment."
+    },
+    {
+      "game": "feveron",
+      "path": "launcher/assets/feveron.jpg",
+      "sha256": "3c58a5dd6a9522b0937ff6d1ab3e9b73ca7cb590f1df60b5ff8674ef1cbd396e",
+      "resource": 108,
+      "focusY": 0.5,
+      "kicker": "PS4 · 2017",
+      "sourcePage": "https://m2stg.com/dangun-feveron/ps4/",
+      "sourceUrl": "https://m2stg.com/dangun-feveron/assets/img/m2stg_df_social_image.jpg",
+      "copyright": "©1998 CAVE Interactive CO., LTD. / ©2017 M2 Co., Ltd.",
+      "usage": "Official promotional artwork. Source bytes unchanged; the launcher supplies the crop, gradient and Coming Soon treatment."
     }
   ]
 }

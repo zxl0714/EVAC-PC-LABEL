@@ -1,4 +1,4 @@
-"""Independent DaiOuJou CUSA32997/1.04 native leaderboard profile."""
+"""DaiOuJou CUSA32997 native leaderboards for the 1.00 and 1.04 releases."""
 import hashlib
 from .ketsui import Store as Ps4Store, require, serve
 from ..ps4_replay import network_record
@@ -29,9 +29,11 @@ def ruleset(value, board):
 
 def replay_info(payload):
     # Same framing, independent native title/version and character contract.
-    return network_record(payload, versions=(0x10030,), data_versions=(0x10000,),
+    info = network_record(payload, versions=(0x1000e, 0x10030), data_versions=(0x10000,),
                           regions=tuple(f'ARCADE_{revision:05d}'.encode() for revision in (1000, 1010, 1020, 1030)),
                           characters=range(6))
+    require(info['version'] != 0x1000e or info['region'] == 'ARCADE_01000', 'invalid_replay_core')
+    return info
 
 
 class Store(Ps4Store):

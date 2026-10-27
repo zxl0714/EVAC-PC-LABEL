@@ -15,6 +15,7 @@ $previousPriority = $taskProcess.PriorityClass
 try {
     $taskProcess.PriorityClass = 'BelowNormal'
     Initialize-CollectionBuildEnvironment
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps4_extract_tools.py'),'prepare')
     $cmake = Get-CollectionTool 'cmake'
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
@@ -64,7 +65,7 @@ try {
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'begin','--state',$launcherState)
     Invoke-CollectionConfigure $cmake $configure $build
     $targets=@('--build',$build,'--parallel',"$Jobs")
-    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect') }
+    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect','ps4_extract') }
     Invoke-Checked $cmake $targets
     if (-not $SkipLauncherStage) { foreach ($extension in @('exe','pdb')) {
         $launcherSource=Join-Path $build "bin/EVAC PC LABEL.$extension"
@@ -76,6 +77,7 @@ try {
     $launcherFinish=@('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'finish','--state',$launcherState,'--build',$build)
     if ($SkipLauncherStage) { $launcherFinish+='--skip-root-stage' }
     Invoke-Checked 'py' $launcherFinish
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps4_extract_tools.py'),'stage','--build',$build)
     if ($selected.Count -and -not $NativeOnly) {
         # GPU plugins are loaded at runtime: refresh them even on a no-op host build.
         foreach ($component in @('rexruntime','rexgpu-xenos')) {

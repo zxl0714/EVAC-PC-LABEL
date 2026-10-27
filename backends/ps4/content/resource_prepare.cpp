@@ -23,6 +23,7 @@ using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t kPatchLimit = 262144;
 constexpr std::string_view kDaioujouExecutableHash = "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f";
+constexpr std::string_view kDaioujouBaseExecutableHash = "8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79";
 constexpr std::string_view kEspradeExecutableHash = "bf8e98b1d9bf22f8ef0f5343c7673af4da428ed2021d2c8e6c124e0371c384d0";
 enum class ResourceTitle { Ketsui, Daioujou, Esprade };
 void Require(bool okay, const char* message) { if (!okay) throw std::runtime_error(message); }
@@ -237,11 +238,13 @@ ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,ResourceTitle 
     const auto source=Hash(executable);
     const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade;
     const auto* version=title==ResourceTitle::Ketsui?FindKetsuiVersion(source):nullptr;
-    Require(esprade?source==kEspradeExecutableHash:daioujou?source==kDaioujouExecutableHash:version!=nullptr,
+    Require(esprade?source==kEspradeExecutableHash:daioujou?
+        (source==kDaioujouExecutableHash || source==kDaioujouBaseExecutableHash):version!=nullptr,
         esprade?"Game fixes require the verified CUSA15155 1.04 executable":
-        daioujou?"Game fixes require the verified CUSA32997 1.04 executable":"Game fixes require a verified CUSA09062 executable");
+        daioujou?"Game fixes require a verified CUSA32997 executable":"Game fixes require a verified CUSA09062 executable");
     // Check the original identity before interpreting its decoded program.
-    return ReadArchiveSeed(executable,daioujou?0xdd:esprade?0xd3:version->archive_seed_load,daioujou);
+    const auto load=daioujou?(source==kDaioujouBaseExecutableHash?0xde:0xdd):esprade?0xd3:version->archive_seed_load;
+    return ReadArchiveSeed(executable,load,daioujou);
 }
 }
 ResourceBytes ReadArchiveSeed(std::span<const std::uint8_t> source,std::uint64_t load,bool relative_load) {
@@ -478,19 +481,28 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
 }
 namespace {
 PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,bool esprade) {
-    const auto expected_executable=esprade?kEspradeExecutableHash:kDaioujouExecutableHash;
     const auto title=esprade?"CUSA15155":"CUSA32997";
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
     const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,esprade?ResourceTitle::Esprade:ResourceTitle::Daioujou);
-    const auto index_path=DataChild(root,"ps4data_info.psb.m"),patch_index_path=DataChild(root,"ps4data_patch_info.psb.m");
-    const auto index_raw=ReadFile(index_path,kResourceLimit),patch_index_raw=ReadFile(patch_index_path,kResourceLimit);
+    const auto expected_executable=Hash(original);
+    const bool base=!esprade && expected_executable==kDaioujouBaseExecutableHash;
+    const auto version=base?"01.00":"01.04";
+    const auto index_path=DataChild(root,"ps4data_info.psb.m");
+    const auto index_raw=ReadFile(index_path,kResourceLimit);
     const auto index=ParseResourceIndex(UnwrapResource(index_raw,key,"ps4data_info.psb.m"));
-    const auto patch_index=ParseResourceIndex(UnwrapResource(patch_index_raw,key,"ps4data_patch_info.psb.m"));
+    fs::path patch_index_path;
+    ResourceBytes patch_index_raw;
+    Json patch_index;
+    if (!base) {
+        patch_index_path=DataChild(root,"ps4data_patch_info.psb.m");
+        patch_index_raw=ReadFile(patch_index_path,kResourceLimit);
+        patch_index=ParseResourceIndex(UnwrapResource(patch_index_raw,key,"ps4data_patch_info.psb.m"));
+    }
     const auto body=DataChild(root,"ps4data_body.bin");const auto file_size=fs::file_size(body);
-    kt::content::ReadPatchSet patches{title,"01.04",{}};
+    kt::content::ReadPatchSet patches{title,version,{}};
     auto resources=Json::array();
     const auto fix=[&](std::string_view resource,std::string_view expected,ResourceFix transform,std::string_view scope) {
-        Require(!patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched community replay script");
+        Require(base || !patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched community replay script");
         const auto& extent=index.at("file_info").at(std::string(resource));
         Require(extent.is_array() && extent.size()==2,"Invalid community replay resource entry");
         for (const auto& n:extent) Require(n.is_number_integer() && !n.is_boolean() &&
@@ -518,11 +530,11 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,bool esprade) {
     auto output=EncodeReadFixes(patches);
     Require(Hash(ReadFile(executable,512*1024*1024))==expected_executable &&
         Hash(ReadFile(index_path,kResourceLimit))==Hash(index_raw) &&
-        Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw),"Community resources changed during preparation");
+        (base || Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw)),"Community resources changed during preparation");
     for (const auto& patch:patches.entries) Require(kt::content::ReadPatchHash(ByteSpan(
         ReadRange(body,file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
         "Original replay resource changed during preparation");
-    Json report{{"format",1},{"fix",esprade?"esprade-community-replays":"daioujou-community-replays"},{"title_id",title},{"app_version","01.04"},
+    Json report{{"format",1},{"fix",esprade?"esprade-community-replays":"daioujou-community-replays"},{"title_id",title},{"app_version",version},
         {"executable_sha256",expected_executable},{"resources",std::move(resources)},
         {"original_files_modified",false},{"local_cache_requires_network",false},{"read_overlay_sha256",Hash(output)}};
     return {std::move(output),std::move(report)};

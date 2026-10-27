@@ -20,9 +20,14 @@ game-data/
    └─ ...
 
 先将 01.00 本体 PKG 完整解包到以上位置，再把 01.04 更新解包后覆盖到同一目录。
+解包工具：合集目录 tools/Extract-PS4.exe，双击后选择 PKG 和新输出目录。
+本体与更新分别提取；完成后点“Open game files”，复制打开目录里面的内容。
 替换同名文件，保留其余本体文件和子目录。
 放好后，在启动器点击“刷新”，选择游戏并启动。
 
 Extract the complete 01.00 base PKG here, then extract and overlay the 01.04 update
 into the same folder. Replace matching files and keep the rest of the base game.
+Double-click tools/Extract-PS4.exe in the collection folder, select the PKG and
+a new output folder, then click Extract. Extract base and update separately;
+click Open game files to copy their contents.
 Click Refresh in the launcher, select the game, then start it.

@@ -78,8 +78,15 @@ def main():
     check('daioujou-is-not-ketsui','ketsui',zlib.compress(djo),False,board=0)
     wrong=bytearray(djo);struct.pack_into('<I',wrong,4,0x10001)
     check('daioujou-wrong-core','daioujou',zlib.compress(wrong),False)
-    wrong=bytearray(djo);struct.pack_into('<I',wrong,0,0x1000e)
-    check('daioujou-legacy-not-assumed','daioujou',zlib.compress(wrong),False)
+    base=bytearray(djo);struct.pack_into('<I',base,0,0x1000e)
+    check('daioujou-base-cannot-name-update-core','daioujou',zlib.compress(base),False)
+    base[80:96]=b'ARCADE_01000'+bytes(4)
+    check('daioujou-base-combined','daioujou',zlib.compress(base),True)
+    check('daioujou-base-character','daioujou',zlib.compress(base),True,board=0)
+    check('daioujou-base-not-ketsui','ketsui',zlib.compress(base),False,board=0)
+    for version in (0x1000d,0x1000f,0x10010,0x10020):
+        wrong=bytearray(base);struct.pack_into('<I',wrong,0,version)
+        check('daioujou-unverified-version-'+str(version),'daioujou',zlib.compress(wrong),False)
     check('daioujou-trailing-data','daioujou',zlib.compress(djo)+b'extra',False)
     write_json_new(directory/'result.json',dict(format=1,buildSourceCommit=receipt['sourceCommit'],
         buildSourceDirty=receipt['sourceDirty'],executableSha256=digest(executable),

@@ -39,6 +39,7 @@ def main():
     profiles.extend(('ketsui',ketsui.Store,'native-custom-'+str(board)) for board in (60,61,62))
     profiles.append(('ketsui',ketsui.Store,'custom-round'))
     profiles.append(('ketsui',ketsui.Store,'native-base-replay'))
+    profiles.append(('daioujou',daioujou.Store,'native-base-replay'))
     profiles=[item for item in profiles if item[0] in args.games]
     for game,profile,kind in profiles:
         custom_board=int(kind.rsplit('-',1)[1]) if kind.startswith('native-custom-') else None
@@ -64,6 +65,9 @@ def main():
                 struct.pack_into('<I',authored,108,9001)
                 if kind=='native-base-replay':
                     struct.pack_into('<I',authored,4,0x10000)
+                    if game=='daioujou':
+                        struct.pack_into('<I',authored,0,0x1000e)
+                        authored[80:96]=b'ARCADE_01000'+bytes(4)
                 if custom_board is not None:
                     struct.pack_into('<H',authored,106,3)
                     struct.pack_into('<H',authored,112,4 if custom_board==62 else 0)

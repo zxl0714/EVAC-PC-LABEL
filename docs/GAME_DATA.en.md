@@ -43,22 +43,28 @@ If you already have `default.xex` or `eboot.bin` alongside the complete game res
 
 3. Select `D:\GameExtract\futari` in the launcher, or copy all its contents into `game-data/futari/`. Use the same process for G2 and SDOJ with their respective folders.
 
-### PS4 PKG: PkgTool and the extraction helper
+### PS4 PKG: Extract PS4
 
-1. Download `PkgTool-0.2.231.zip` from [LibOrbisPkg v0.2](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2). Extract the entire archive, keeping the DLLs alongside `PkgTool.exe`.
-2. Open PowerShell in the collection's root folder. Extract the base game and required update into separate new folders:
+1. Double-click `tools/Extract-PS4.exe` in the program package.
+2. Click **Browse…** and select the base PKG. A new output folder is suggested automatically; use **Location…** to choose another location, then click **Extract**.
+3. When finished, click **Open game files**. Copy **all files and folders inside** the opened directory into `game-data/<game>/`.
+4. If you have an update PKG, extract it separately with the same tool, then overlay all its game files onto the base, replacing matching files and keeping base-only resources.
+5. Click **Refresh** in the launcher and start the game. For ESP Ra.De., the final folder should directly contain `game-data/esprade/eboot.bin` and `game-data/esprade/sce_sys/param.sfo`.
+
+Use a new output folder for each extraction. Game files are inside its `uroot/`; **Open game files** opens that folder directly. Dependencies are included in `tools/pkgtool/`. Keep the entire `tools/` folder.
+
+The PKG passcode defaults to 32 zeros. Change it only if your PKG uses another passcode; this is separate from a ZIP/RAR password. Errors appear in the window, with detailed output in `extract.log` in the new output folder. Input PKGs remain unchanged.
+
+#### Advanced: script usage
+
+Open PowerShell in the program package's root folder and substitute the input and output paths. The helper finds the bundled PkgTool automatically:
 
 ```powershell
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
+.\tools\Extract-Ps4Pkg.ps1 -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
+.\tools\Extract-Ps4Pkg.ps1 -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
 ```
 
-3. The script prints `Game files: ...\uroot`. For ESP Ra.De., copy **all contents inside** `base/uroot/` into `game-data/esprade/`. Then copy all contents of `update/uroot/` over the same folder, replacing matching files and keeping the remaining base-game files.
-4. Check that `game-data/esprade/eboot.bin` and `game-data/esprade/sce_sys/param.sfo` exist. Select `game-data/esprade/` in the launcher. Use the corresponding folder and supported version for other PS4 games.
-
-Both output folders must not already exist. In a source checkout, the helper is at `scripts/Extract-Ps4Pkg.ps1`.
-
-The default PKG passcode is 32 zeros. For a different passcode, add `-Passcode "your-32-character-passcode"` to the command. A ZIP/RAR password applies to the outer archive, not the PKG. Encrypted retail PKGs require an extractable backup first. If extraction reports an error, resolve it before selecting the output folder.
+In a source checkout, use `scripts/Extract-Ps4Pkg.ps1`; see `tools/README.md` for dependency preparation. Use `-PkgTool` to select an external tool or `-Passcode` to supply another PKG passcode.
 
 ### Xbox 360 XBLA: Guwange
 
@@ -184,7 +190,7 @@ If your extraction has separate `CUSA09062-app/` and `CUSA09062-patch/` folders,
 
 ### 怒首領蜂 大往生 臨廻転生 — DoDonPachi DaiOuJou Re:Incarnation (daioujou)
 
-Supported: **CUSA32997, version 01.00 base (offline) or complete merged 01.04 data**. Use the complete base folder for 01.00. Community rankings and online replays require the 01.04 update. Updated layout:
+Supported: **CUSA32997, version 01.00 base or complete merged 01.04 data**. Both support community rankings and replays; 01.00 cannot play replays recorded by a newer game version. Use the complete base folder for 01.00, or overlay the 01.04 update into that folder. Updated layout:
 
 ```text
 game-data/daioujou/

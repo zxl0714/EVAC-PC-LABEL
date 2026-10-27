@@ -50,6 +50,28 @@ class ReleaseTests(unittest.TestCase):
                                   if x['path'] == 'tools/Extract-Ps4Pkg.ps1'), 'documentation')
         self.check_build_flavors('0.6.1', check)
 
+    def test_v076_package_contains_gui_and_all_dependencies(self):
+        def check(root, games, commit, inspect):
+            result = release.build('Public', '0.7.6', root/'releases/extractor')
+            directory = Path(result['directory'])
+            record = release.verify_tree(directory, games)
+            expected = {'tools/Extract-PS4.exe', *release.extractor_sources('0.7.6')}
+            self.assertTrue(expected.issubset({item['path'] for item in record['files']}))
+            self.assertNotIn('tools/Extract.exe', {item['path'] for item in record['files']})
+            with zipfile.ZipFile(result['archive']) as zipped:
+                self.assertTrue(expected.issubset(set(zipped.namelist())))
+            name = 'tools/pkgtool/LibOrbisPkg.dll'
+            content = (directory/name).read_bytes()
+            (directory/name).unlink()
+            missing = dict(record, files=[item for item in record['files'] if item['path'] != name])
+            self.rewrite_inventory(directory, missing)
+            with self.assertRaisesRegex(ValueError, 'extraction dependencies'):
+                release.verify_tree(directory, games)
+            (directory/name).write_bytes(content)
+            self.rewrite_inventory(directory, record)
+            self.assertEqual(release.verify_tree(directory, games)['version'], '0.7.6')
+        self.check_build_flavors('0.7.6', check)
+
     def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
         primary, base = [{'path': 'updated-fixture'}], [{'path': 'base-fixture'}]
         game = dict(files=primary, variants=[dict(id='update-102', files=primary), dict(id='base', files=base)])
@@ -772,6 +794,13 @@ class ReleaseTests(unittest.TestCase):
                 'scripts/Extract-Dlc.ps1':'# authored DLC helper\n',
                 'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
                 'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
+        if release.has_ps4_extractor(version):
+            dependencies = {name: 'authored ' + name for name in ('PkgTool.exe', 'LibOrbisPkg.dll', 'LICENSE.txt')}
+            text.update({'tools/apps/pkgtool-fixture/' + name: value for name, value in dependencies.items()})
+            text['tools/ps4-extract.lock.json'] = json.dumps(dict(directory='pkgtool-fixture',
+                files={name: hashlib.sha256(value.encode()).hexdigest() for name, value in dependencies.items()}))
+            for name in ('config/README.extract-ps4.txt','config/pkgtool-source.txt','config/licenses/GPL-3.0.txt'):
+                text[name] = 'authored extraction instructions/license\n'
         for key in release.PLACEMENT_GAMES:
             text['config/game-data/'+key+'.txt']=(release.ROOT/'config/game-data'/ (key+'.txt')).read_text(encoding='utf-8')
         for name, value in text.items():

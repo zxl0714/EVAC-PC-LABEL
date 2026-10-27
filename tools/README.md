@@ -1,5 +1,23 @@
 # 开发工具
 
+## PS4 玩家解包工具
+
+`tools/ps4-extract/` 是轻量 Win32 图形入口及提取核心，构建不依赖 ROM。
+`tools/ps4-extract.lock.json` 固定 PkgTool 归档和配套组件的 SHA-256。
+
+```powershell
+py -3.12 scripts/ps4_extract_tools.py prepare
+./scripts/Build.ps1 -LauncherOnly -SkipLauncherStage -Jobs 2
+```
+
+双击 `out/ps4-extract-player/tools/Extract-PS4.exe` 做本地验证；该目录包含
+玩家所需的工具、依赖、许可和双语说明，不是版本发布包。图形入口使用
+系统 Win32 控件及静态 C++ 运行库，PkgTool 使用 Windows 的 .NET Framework 4。
+正式打包按 v0.7.6 配置自动收集这些组件。脚本高级入口仍是
+`scripts/Extract-Ps4Pkg.ps1`，会默认找到项目内的固定 PkgTool。
+
+## 构建工具链
+
 在合集根目录准备工具和 SDK 依赖：
 
 ```powershell

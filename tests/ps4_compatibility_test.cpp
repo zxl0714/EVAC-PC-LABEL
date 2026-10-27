@@ -62,12 +62,12 @@ void Policies() {
     }
     const auto base=PlanPs4Data("daioujou","01.00","base");
     Check(base.programs==std::vector<std::string>{"eboot.bin","emu_integration_01700.prx","daioujou_01000.prx"},"DOJ base must not load update modules");
-    Check(!base.merged_app&&!base.read_fixes&&base.community_offline&&!base.replay_peer&&!base.local_replay,"DOJ base offline recipe");
+    Check(!base.merged_app&&base.read_fixes&&!base.community_offline&&base.replay_peer&&base.local_replay,"DOJ base community recipe");
     std::vector<std::wstring> arguments{L"--community-provider",L"configured"};
     AppendVersionArguments(arguments,base.merged_app,base.community_offline);
-    Check(arguments==std::vector<std::wstring>{L"--community-provider",L"configured",L"--community-offline",L"on"},"DOJ base launcher forwards offline flag");
+    Check(arguments==std::vector<std::wstring>{L"--community-provider",L"configured"},"DOJ base launcher does not force offline");
     for (bool configured:{false,true}) {
-        Check(!CommunityEnabledForData(configured,base.community_offline),"DOJ base cannot enable online service");
+        Check(CommunityEnabledForData(configured,base.community_offline)==configured,"DOJ base honors community preference");
         Check(CommunityEnabledForData(configured,false)==configured,"updated data honors online setting");
     }
     for (const auto* game:{"daioujou","esprade"}) {

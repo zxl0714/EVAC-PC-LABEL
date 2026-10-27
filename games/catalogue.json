@@ -146,6 +146,19 @@
         "runtime/games/guwange/guwange_Guwange_blue_x360.dll",
         "runtime/games/guwange/runtime-manifest.ini"
       ]
+    },
+    {
+      "id": "feveron",
+      "name": "Dangun Feveron",
+      "nameJapanese": "弾銃フィーバロン",
+      "backend": "ps4",
+      "integrated": false,
+      "comingSoon": true,
+      "communitySupported": false,
+      "dataDirectory": "game-data/feveron",
+      "dataManifest": "",
+      "executable": "runtime/ps4/feveron.exe",
+      "runtimeFiles": []
     }
   ]
 }

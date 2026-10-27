@@ -139,7 +139,8 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
     // accepting an envelope is not permission to bypass native player checks.
     const bool supported_data = result.data_version == contract.data_version ||
         (game == "ketsui" && result.data_version == 0x10000);
-    const bool supported_version=result.version==contract.version || (game=="esprade" &&
+    const bool daioujou_base=game=="daioujou" && result.version==0x1000e;
+    const bool supported_version=result.version==contract.version || daioujou_base || (game=="esprade" &&
         (result.version==0x10019 || result.version==0x10020 || result.version==0x10021));
     Require(supported_version && supported_data, "unsupported_record_version");
     Require(U32(record, 8) <= contract.data_bytes && U32(record, 12) == 0, "unsupported_record_extents");
@@ -153,6 +154,7 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
     KeyDirectory(result, players, mask,contract.data_bytes);
     Require(!Text(record, 48, 16).empty(), "missing_record_title");
     result.region = Text(record, 80, 16);
+    Require(!daioujou_base || result.region=="ARCADE_01000", "unsupported_base_replay_core");
     Require(!result.region.empty() && std::all_of(result.region.begin(), result.region.end(), [](unsigned char c) {
         return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
     }), "unsupported_region_syntax");

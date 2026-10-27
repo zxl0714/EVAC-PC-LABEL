@@ -33,23 +33,18 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 | エスプガルーダII ブラックレーベル | G2／Espgaluda II | Xbox 360 |
 | ケツイ Deathtiny ～絆地獄たち～ | 绊地狱／Ketsui | PS4，CUSA09062，01.00 本体或覆盖 01.02 更新后的完整单目录 |
 | 怒首領蜂最大往生 | 最大往生／SDOJ | Xbox 360，原版光盘数据 |
-| 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.00 本体（离线）或 01.04 完整合并数据 |
+| 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.00 本体或 01.04 完整合并数据 |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
 | ぐわんげ | 狱门山／Guwange | Xbox 360 XBLA，58410A78，本体 0.0.0.4 |
+
+后续支持：弾銃フィーバロン / Dangun Feveron。
 
 ### ISO／PKG／XBLA 怎么解包
 
 - **Xbox 360 ISO**：下载 [extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，使用 `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`。提取后应能直接看到 `default.xex`。
-- **PS4 PKG**：下载并完整解压 [LibOrbisPkg v0.2 的 PkgTool](https://github.com/maxton/LibOrbisPkg/releases/tag/v0.2)。玩家包的 `tools/Extract-Ps4Pkg.ps1` 会提取游戏文件及 `sce_sys` 元数据。在合集目录打开 PowerShell，按下面的例子替换路径：
+- **PS4 PKG**：双击程序包中的 `tools/Extract-PS4.exe`，选择本体 PKG 和新输出目录，点击“Extract”。完成后点击“Open game files”，把里面的全部内容复制到对应的 `game-data/<游戏>/`。更新 PKG 用同一个工具另行解包，再把提取的全部内容覆盖进本体目录，替换同名文件。
 
-```powershell
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\base.pkg" -OutputDir "D:\GameExtract\base"
-.\tools\Extract-Ps4Pkg.ps1 -PkgTool "D:\Tools\PkgTool\PkgTool.exe" -InputPkg "D:\Games\update.pkg" -OutputDir "D:\GameExtract\update"
-```
-
-输出目录须尚不存在；实际游戏根目录在各自的 `uroot/` 下。先将 `base/uroot/` **里面的全部内容**复制到游戏目录，再用 `update/uroot/` 内的全部内容覆盖同名文件。没有更新时只做本体这一步。脚本使用常见备份包的 32 个零 passcode；不同 passcode 可用 `-Passcode` 指定，它不是 ZIP／RAR 的解压密码。零售加密 PKG 需先准备可提取的备份数据。
-
-源码目录中的脚本位于 `scripts/Extract-Ps4Pkg.ps1`。详细步骤及常见问题见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
+保留整个 `tools/` 文件夹，解包依赖已随包提供。工具会提取游戏资源和 `sce_sys` 元数据；“Open game files”直接进入 `uroot/`，复制其中内容即可。详细步骤及脚本高级用法见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
 
 **狱门山 XBLA**：先解压 ZIP／RAR，再用随包脚本提取其中的 LIVE／PIRS 内容包（通常是一个没有扩展名的长文件名）：
 
