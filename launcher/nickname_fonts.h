@@ -6,7 +6,7 @@
 
 namespace cave::launcher {
 // Unicode coverage metadata only, not font pixels, metrics or game resources.
-// Native ranking fonts: CUSA09062 01.00/01.02, CUSA32997 01.04, CUSA15155 01.04.
+// Native ranking fonts: CUSA09062 01.00/01.02, CUSA32997 01.04, CUSA15155 01.04, CUSA06735 01.00.
 // See docs/NICKNAME_DISPLAY.md.
 inline constexpr std::array<std::uint32_t,761> kNicknameGlyphsCommon{
     0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29,0x2a,0x2b,
@@ -99,8 +99,18 @@ inline constexpr std::array<std::uint32_t,68> kNicknameGlyphsEsprade{
     0x7d71,0x7e2e,0x7f8e,0x843d,0x88c5,0x88cf,0x899a,0x8cb4,0x8def,0x8fd1,0x904e,0x90e8,
     0x916c,0x91cd,0x9854,0x98ef,0x9b25,0x9cf4,0x9d09,0xff20,
 };
+inline constexpr std::array<std::uint32_t,46> kNicknameGlyphsFeveron{
+    0x401,0x306d,0x4e45,0x5149,0x5175,0x539f,0x53ce,0x5438,0x548c,0x56e0,0x56fa,0x58eb,
+    0x592a,0x5bc6,0x5c0f,0x5c64,0x611b,0x63d0,0x6483,0x653b,0x654f,0x6607,0x6b8b,0x6e2c,
+    0x6e9c,0x6ec5,0x7269,0x7565,0x7740,0x7763,0x7b56,0x7c21,0x7de9,0x8010,0x8377,0x843d,
+    0x88c1,0x8ca0,0x8df3,0x8fd1,0x8fd4,0x904e,0x90ce,0x90e8,0x96a0,0x9b5a,
+};
+inline constexpr std::array<std::uint32_t,8> kNicknameGlyphsFeveronMissingCommon{
+    0x5f62,0x666f,0x6c34,0x7dd1,0x80cc,0x8272,0x9ec4,0x9ed2,
+};
 inline bool HasNicknameGlyph(std::string_view game,std::uint32_t cp,std::string_view version={}) {
     auto has=[&](const auto& chars){return std::binary_search(chars.begin(),chars.end(),cp);};
+    if(game=="feveron")return (has(kNicknameGlyphsCommon) && !has(kNicknameGlyphsFeveronMissingCommon)) || has(kNicknameGlyphsFeveron);
     return has(kNicknameGlyphsCommon) || (game=="ketsui" && (version=="01.00"?has(kNicknameGlyphsKetsuiBase):has(kNicknameGlyphsKetsui))) ||
         (game=="daioujou" && has(kNicknameGlyphsDaioujou)) ||
         (game=="esprade" && has(kNicknameGlyphsEsprade));

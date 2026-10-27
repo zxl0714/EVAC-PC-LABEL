@@ -61,7 +61,7 @@ class FutariCommunity final : public rex::system::xam::CommunityService {
   std::map<uint32_t,nlohmann::json> accepted_scores_;
   struct StagedReplay { std::string reference; uint32_t size; };
   std::map<uint32_t,StagedReplay> staged_replays_;
-  struct ReplayReference { std::string score, replay, build; };
+  struct ReplayReference { std::string score, replay, build, nickname; };
   std::map<std::pair<uint32_t,uint64_t>,ReplayReference> replay_references_;
 };
 

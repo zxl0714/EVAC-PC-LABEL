@@ -3,6 +3,7 @@
 #include "host.h"
 #include "community/sdoj_service.h"
 #include "latency/frame_delay.h"
+#include "performance/native_wait.h"
 #include "diagnostics/test_pad.h"
 #include <rex/cvar.h>
 #include <rex/ui/window.h>
@@ -42,6 +43,7 @@ private:
         }
     }
     void OnGameStop() override {
+        sdoj::performance::StopNativeWait();
         sdoj::latency::Stop();
         if(test_community_) {
             if(runtime() && runtime()->kernel_state())rex::system::xam::CancelCommunityIo(runtime()->kernel_state());
@@ -49,6 +51,7 @@ private:
         }
     }
     void OnGamePreSetup(rex::RuntimeConfig& config) override {
+        sdoj::performance::StartNativeWait();
         sdoj::latency::Configure(run().settings.sdoj_frame_delay);
         const auto pad_file=rex::cvar::GetFlagByName("sdoj_test_pad_file");
         if(!pad_file.empty()) {

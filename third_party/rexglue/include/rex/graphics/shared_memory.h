@@ -79,6 +79,10 @@ class SharedMemory {
   // the range has been fully updated and is usable.
   bool RequestRanges(const std::pair<uint32_t, uint32_t>* ranges, size_t count);
   bool RequestRange(uint32_t start, uint32_t length);
+  // Caller proves every destination byte will be overwritten before any GPU
+  // read. Does not mark valid or fire watches: RangeWrittenByGpu still must run
+  // after the write is encoded. Non-whole host pages use ordinary preservation.
+  bool RequestRangeForGpuOverwrite(uint32_t start, uint32_t length);
 
   // Marks the range and, if not exact_range, potentially its surroundings
   // (to up to the first GPU-written page, as an access violation exception
@@ -95,6 +99,9 @@ class SharedMemory {
   // the pages they touch, the CPU data is properly loaded to the unmodified
   // regions in those pages.
   void RangeWrittenByGpu(uint32_t start, uint32_t length);
+#if defined(REX_GPU_TRACE_BENCH)
+  bool TraceRangeHasGpuWrites(uint32_t start, uint32_t length);
+#endif
 
  protected:
   SharedMemory(memory::Memory& memory);

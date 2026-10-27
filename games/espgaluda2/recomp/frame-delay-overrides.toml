@@ -1,0 +1,14 @@
+# Bound to the verified default.xex identity in games/espgaluda2/data.json.
+# Publish only after the native VBlank handler has released its spinlock.
+[[midasm_hook]]
+address = 0x8217064C
+name = "G2CompletedVblank"
+registers = ["context", "memory"]
+
+# Optional CPU-side pacing replaces just the standard Present sync call.
+# Returning false preserves that original call and every following instruction.
+[[midasm_hook]]
+address = 0x821713A4
+name = "G2PresentCpuWait"
+registers = ["context", "memory"]
+jump_address_on_true = 0x821713A8

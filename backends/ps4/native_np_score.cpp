@@ -55,6 +55,7 @@ bool BoardFor(std::string_view game,unsigned id) {
     if (game=="ketsui") return id == 99 || (id <= 62 && id % 10 <= 2);
     if (game=="daioujou") return id==99 || (id<=66 && id%10<=6);
     if (game=="esprade") return id==88 || id==99 || (id<=34 && id%10<=4);
+    if (game=="feveron") return id<=74 && id%10<=4;
     return false;
 }
 unsigned U32(const Json& value, bool positive = false) {
@@ -427,7 +428,7 @@ public:
               unsigned* temporary_rank, const std::uint64_t* compare, void* option) {
         if (!Board(board) || score < 0 || compare || option || (temporary_rank && !Writable(temporary_rank, sizeof(*temporary_rank)))) { return kArgument; }
         if (game_=="daioujou" && (board/10==1 || score>(board==99 ? 3960000 : 999999999))) return kArgument;
-        if (game_=="esprade" && score>0xffffffffll) return kArgument;
+        if ((game_=="esprade" || game_=="feveron") && score>0xffffffffll) return kArgument;
         Comment copied{}; GameInfo information{};
         if ((comment && !Read(comment, &copied, sizeof(copied))) || copied.bytes[63] ||
             (info && (!Read(info, &information, sizeof(information)) || information.size > 189))) { return kArgument; }
@@ -753,6 +754,28 @@ bool ScoreProfileSelfTest() {
         esp_transport.paths.size()==esp_queued,"esprade_unknown_boards_and_out_of_field_scores_refused");
     check(esprade.DeleteRequest(esp_request)==0 && esprade.DeleteContext(esp_context)==0,
         "esprade_native_contexts_released");
+    Bridge feveron;AuthoredTransport fever_transport;
+    check(fever_transport.Install(feveron,"feveron"),"feveron_owns_independent_native_bridge");
+    const auto fever_context=feveron.CreateContext(0,0x1000),fever_request=feveron.CreateRequest(fever_context);
+    for(unsigned group=0;group<8;++group) for(unsigned ship=0;ship<5;++ship) {
+        const auto board=group*10+ship;
+        Require(feveron.Score(fever_request,board,12345,nullptr,nullptr,nullptr,nullptr,nullptr)==0);
+        check(fever_transport.bodies.back().at("board")==board &&
+            fever_transport.bodies.back().at("score")=="12345" &&
+            fever_transport.bodies.back().at("build")=="feveron-native-1.00",
+            "feveron_normal_time_attack_and_custom_board_units_preserved");
+        auto fever_receipt=AuthoredReceipt();fever_receipt.body["account_id"]=std::to_string(AccountId("Alice","feveron"));
+        fever_transport.Complete(std::move(fever_receipt));
+        Require(feveron.Poll(fever_request,&result.value)==0 && result.value==0);
+    }
+    const auto fever_queued=fever_transport.paths.size();
+    check(feveron.Score(fever_request,5,1,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        feveron.Score(fever_request,88,1,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        feveron.Score(fever_request,99,1,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        feveron.Score(fever_request,0,0x100000000ll,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument &&
+        fever_transport.paths.size()==fever_queued,"feveron_peer_boards_and_overflow_refused_before_transport");
+    check(feveron.DeleteRequest(fever_request)==0 && feveron.DeleteContext(fever_context)==0,
+        "feveron_native_contexts_released");
     std::printf("{\"event\":\"np_score_profile_self_test\",\"passed\":%s,\"cases\":%u,\"authored_data_only\":true,\"native_game_execution\":false}\n",okay?"true":"false",cases);
     return okay;
 }

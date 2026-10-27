@@ -59,11 +59,12 @@ struct Keyboard {
     std::uint32_t pending{};
     unsigned diagnostic_tap_ms{};
     unsigned diagnostic_circle_hold_ms{};
+    std::uint32_t diagnostic_hold_button{0x2000};
     std::array<std::uint64_t, 256> pulse_until{};
     std::uint32_t mouse_left_binding{};
     std::uint32_t Binding(unsigned key) const {
         if (key == VK_LBUTTON) { return mouse_left_binding; }
-        if (key == 'H' && diagnostic_circle_hold_ms) { return 0x2000; }
+        if (key == 'H' && diagnostic_circle_hold_ms) { return diagnostic_hold_button; }
         return key < bindings.size() ? bindings[key] : 0;
     }
     void Focus(void* window, bool active) {
@@ -75,7 +76,7 @@ struct Keyboard {
         if (window == owner && focused && key < keys.size()) {
             if (down && !keys[key]) {
                 pending |= Binding(key);
-                // The existing explicit Circle diagnostic also supports one
+                // The explicit confirmation diagnostic also supports one
                 // bounded firing hold. Normal H retains its short confirmation
                 // duration; Shift+H is useful when CU can only send tap edges.
                 // This never exists in ordinary input (diagnostic default 0).
@@ -143,6 +144,7 @@ struct PadState {
     std::uint32_t mouse_left_binding{};
     unsigned diagnostic_tap_ms{};
     unsigned diagnostic_circle_hold_ms{};
+    std::uint32_t diagnostic_hold_button{0x2000};
     ~PadState() {
         { std::lock_guard lock(mutex); stopping = true; condition.notify_all(); }
         if (sampler.joinable()) { sampler.join(); }
@@ -288,6 +290,7 @@ void NativePadAttachWindow(void* window) {
     state.keyboard.mouse_left_binding = state.mouse_left_binding;
     state.keyboard.diagnostic_tap_ms = state.diagnostic_tap_ms;
     state.keyboard.diagnostic_circle_hold_ms = state.diagnostic_circle_hold_ms;
+    state.keyboard.diagnostic_hold_button = state.diagnostic_hold_button;
 }
 void NativePadDetachWindow(void* window) {
     auto& state = State(); std::lock_guard lock(state.mutex);
@@ -360,13 +363,16 @@ bool ConfigureNativeDiagnosticTaps(unsigned milliseconds) {
     std::printf("{\"event\":\"native_pad_diagnostic_taps\",\"milliseconds\":%u,\"changes_game_coin_counter\":false}\n", milliseconds);
     return true;
 }
-bool ConfigureNativeDiagnosticCircleHold(unsigned milliseconds) {
+static bool ConfigureNativeDiagnosticHold(unsigned milliseconds, bool cross) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (milliseconds > 2000 || state.initialized || state.keyboard.owner || (milliseconds && state.keyboard_bindings['H'])) { return false; }
     state.diagnostic_circle_hold_ms = milliseconds;
-    std::printf("{\"event\":\"native_pad_diagnostic_circle_hold\",\"trigger\":\"H\",\"milliseconds\":%u,\"shift_hold_ms\":%u,\"changes_game_state_directly\":false}\n", milliseconds, milliseconds ? 30000u : 0u);
+    state.diagnostic_hold_button = cross ? 0x4000 : 0x2000;
+    std::printf("{\"event\":\"native_pad_diagnostic_%s_hold\",\"trigger\":\"H\",\"milliseconds\":%u,\"shift_hold_ms\":%u,\"changes_game_state_directly\":false}\n", cross ? "cross" : "circle", milliseconds, milliseconds ? 30000u : 0u);
     return true;
 }
+bool ConfigureNativeDiagnosticCircleHold(unsigned milliseconds) { return ConfigureNativeDiagnosticHold(milliseconds,false); }
+bool ConfigureNativeDiagnosticCrossHold(unsigned milliseconds) { return ConfigureNativeDiagnosticHold(milliseconds,true); }
 std::uint64_t ResolvePadImport(std::string_view identifier, std::string_view library, std::string_view module) {
     if (library != "libScePad" || module != "libScePad") { return 0; }
     const auto id = identifier.substr(0, identifier.find('#'));
@@ -435,6 +441,20 @@ bool PadSelfTest() {
     ordinary.Key(&owner,VK_SHIFT,true,40000); ordinary.Key(&owner,'H',true,40001);
     ordinary.Key(&owner,'H',false,40002); ordinary.Key(&owner,VK_SHIFT,false,40003); ordinary.Acknowledge();
     check(ordinary.Buttons(40004)==0, "shift_h_remains_unbound_when_circle_diagnostic_is_disabled");
+    Keyboard cross; cross.owner=&owner; cross.Focus(&owner,true);
+    cross.diagnostic_hold_button=0x4000;
+    cross.Key(&owner,'H',true,41000); cross.Key(&owner,'H',false,41002); cross.Acknowledge();
+    check(cross.Buttons(41003)==0, "cross_diagnostic_button_alone_does_not_enable_hold");
+    cross.diagnostic_circle_hold_ms=1500;
+    cross.Key(&owner,'H',true,42000); cross.Key(&owner,'H',false,42002); cross.Acknowledge();
+    check(cross.Buttons(43499)==0x4000 && cross.Buttons(43500)==0,
+        "cross_diagnostic_uses_cross_only_and_same_bounded_deadline");
+    cross.Key(&owner,VK_SHIFT,true,44000); cross.Key(&owner,'H',true,44010);
+    cross.Key(&owner,'H',false,44012); cross.Key(&owner,VK_SHIFT,false,44013); cross.Acknowledge();
+    check(cross.Buttons(74009)==0x4000 && cross.Buttons(74010)==0,
+        "cross_diagnostic_long_hold_uses_same_deadline");
+    cross.Key(&owner,'H',true,75000); cross.Focus(&owner,false); cross.Focus(&owner,true);
+    check(cross.Buttons(75001)==0, "cross_diagnostic_clears_on_focus_loss");
     diagnostic.Key(&owner, 'V', true, 1200); diagnostic.Focus(&owner, false); diagnostic.Focus(&owner, true);
     check(diagnostic.Buttons(1201) == 0, "diagnostic_taps_cannot_survive_focus_loss");
     keyboard.Key(&owner, VK_RETURN, true); keyboard.Key(&owner, VK_RETURN, false);

@@ -1,0 +1,47 @@
+# Optional bounded caller census; original instructions and registers remain.
+[[midasm_hook]]
+address = 0x8221C030
+name = "GuwangePollCaller"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x821F74AC
+name = "GuwangeWaitCallback"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821F6A30
+name = "GuwangeCallbackChanged"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821E96B4
+name = "GuwangeWaitPending"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821F7504
+name = "GuwangePendingChanged"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x821F6E78
+name = "GuwangeWaitRenderQueue"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821FDF74
+name = "GuwangeRenderWorkChanged"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821F7708
+name = "GuwangeRenderWorkChanged"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821F7810
+name = "GuwangeRenderWorkChanged"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x821EBB88
+name = "GuwangeRenderWorkChanged"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x82208ACC
+name = "GuwangeRenderWorkChanged"
+registers = ["context", "memory"]

@@ -8,6 +8,7 @@
 #include <Windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#include <algorithm>
 #include <stdexcept>
 
 namespace espgaluda2 {
@@ -29,6 +30,23 @@ ReplayInfo InspectReplay(std::span<const uint8_t> record) {
   const auto character=Be32(record,36);
   Check(time>0 && time<=INT64_MAX && score<=INT64_MAX && character<=2);
   return {time,int64_t(score),Be32(record,24),character};
+}
+void SetDownloadedReplayAuthor(std::vector<uint8_t>& record,std::string_view native_tag) {
+  InspectReplay(record);
+  Check(!native_tag.empty() && native_tag.size()<=15 &&
+        std::all_of(native_tag.begin(),native_tag.end(),[](unsigned char c){return c>=0x20 && c<=0x7e;}));
+  // 8209BBD8 copies the 96-byte list metadata starting at record +8. Its
+  // zero-XUID path preserves the embedded tag; equal-to-local renames it and
+  // nonzero foreign IDs trigger the original Live profile-name lookup. A
+  // downloaded community archive has a stored author, not a Live identity.
+  std::fill(record.begin()+64,record.begin()+72,0);
+  std::fill(record.begin()+80,record.begin()+96,0);
+  std::copy(native_tag.begin(),native_tag.end(),record.begin()+80);
+  // Native 8209C438: record byte count plus unsigned bytes after word zero.
+  // The game's save path recalculates it again after setting download flags.
+  uint32_t checksum=uint32_t(record.size());
+  for(size_t i=4;i<record.size();++i)checksum+=record[i];
+  for(size_t i=0;i<4;++i)record[i]=uint8_t(checksum>>((3-i)*8));
 }
 std::string ReplaySha256(std::span<const uint8_t> record) {return cave::community::ReplaySha256(record);}
 std::string ReplayBase64(std::span<const uint8_t> record) {return cave::community::ReplayBase64(record);}

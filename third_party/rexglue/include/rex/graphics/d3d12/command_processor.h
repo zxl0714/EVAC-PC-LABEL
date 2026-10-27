@@ -44,6 +44,8 @@
 
 namespace rex::graphics::d3d12 {
 
+class SubmissionTiming;
+
 class D3D12CommandProcessor : public CommandProcessor {
  public:
   explicit D3D12CommandProcessor(D3D12GraphicsSystem* graphics_system,
@@ -59,6 +61,7 @@ class D3D12CommandProcessor : public CommandProcessor {
   void RequestFrameTrace(const std::filesystem::path& root_path) override;
 
   void TracePlaybackWroteMemory(uint32_t base_ptr, uint32_t length) override;
+  bool TracePlaybackCanReuseMemory(uint32_t base_ptr, uint32_t length) override;
 
   void RestoreEdramSnapshot(const void* snapshot) override;
 
@@ -466,6 +469,8 @@ class D3D12CommandProcessor : public CommandProcessor {
   ID3D12GraphicsCommandList* command_list_ = nullptr;
   ID3D12GraphicsCommandList1* command_list_1_ = nullptr;
   DeferredCommandList deferred_command_list_;
+  std::unique_ptr<SubmissionTiming> submission_timing_;
+  uint32_t timing_draws_ = 0, timing_copies_ = 0;
 
   bool debug_markers_enabled_ = false;
 

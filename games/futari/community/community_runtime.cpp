@@ -205,7 +205,7 @@ CommunityResult FutariCommunity::ReadNow(const CommunityRead& request,Clock::tim
       row.nickname=entry.at("nickname").get<std::string>();if(!FutariValidNickname(row.nickname))return {kInvalidData,{}};
       row.native_tag=FutariNativeNickname(row.nickname);
       row.xuid=NativeToken(row.nickname); row.rank=entry.at("rank").get<uint32_t>();
-      ReplayReference reference{entry.at("id").get<std::string>(),{},entry.at("build").get<std::string>()};
+      ReplayReference reference{entry.at("id").get<std::string>(),{},entry.at("build").get<std::string>(),row.nickname};
       if(!IsReference(reference.score) || reference.build.empty() || reference.build.size()>96)return {kInvalidData,{}};
       if(!entry.at("replay_id").is_null()) {
         reference.replay=entry.at("replay_id").get<std::string>();
@@ -415,6 +415,13 @@ CommunityReplayResult FutariCommunity::ReplayNow(const CommunityReplay& request,
   FutariValidateStorageReplay(payload);
   if(payload.size()>request.capacity)return {kInvalidData,{}};
   auto record=std::move(payload);
+  // A stable download-only namespace, separate from both the local profile and
+  // transient leaderboard row tokens. Stored authors survive a cold/offline
+  // restart, a changed local nickname and a different leaderboard read order.
+  const auto& author=reference.nickname;
+  const auto digest=Hash(std::span(reinterpret_cast<const uint8_t*>(author.data()),author.size()));
+  const auto author_xuid=0xC000000000000000ull|std::stoull(digest.substr(0,15),nullptr,16);
+  FutariSetStorageReplayAuthor(record,author_xuid,FutariNativeNickname(author));
   REXLOG_INFO("Community replay verified: view={} bytes={}",request.view,record.size());
   return {0,std::move(record)};
 }

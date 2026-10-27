@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / 'out/common/bin/cave_inspect.exe'
-GAMES = ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange')
+GAMES = ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron')
 CATALOGUE = json.loads((ROOT / 'games/catalogue.json').read_text(encoding='utf-8'))['games']
 
 

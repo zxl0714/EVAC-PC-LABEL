@@ -18,6 +18,8 @@ struct NativeSchema {
   std::string (*run_key)(const nlohmann::json&)=nullptr;
   void (*match_replay)(uint32_t,const nlohmann::json&,std::span<const uint8_t>)=nullptr;
   uint32_t storage_size_property=0;
+  // Optional title-specific metadata binding, after transport/run validation.
+  void (*prepare_download)(std::vector<uint8_t>&,std::string_view)=nullptr;
 };
 
 // One bounded worker and native token/reference cache. Title adapters supply
@@ -48,7 +50,7 @@ class NativeService : public rex::system::xam::CommunityService {
   rex::system::xam::CommunityRankResult EstimateNow(const std::vector<rex::system::xam::CommunityRank>&,Clock::time_point);
   rex::system::xam::CommunityReplayResult ReplayNow(const rex::system::xam::CommunityReplay&,Clock::time_point);
   struct ScoreReference {
-    std::string id,replay,hash;
+    std::string id,replay,hash,nickname;
     uint32_t bytes=0;
     nlohmann::json properties;
   };

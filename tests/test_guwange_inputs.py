@@ -44,7 +44,8 @@ class GuwangeInputTests(unittest.TestCase):
             self.assertEqual(record['file_path'], '../../../game-data/guwange/' + program)
             self.assertEqual(record['out_directory_path'], '../../../generated/guwange/' + name)
             outputs.add(record['out_directory_path'])
-            self.assertEqual(len(record['includes']), 6 if name == 'default' else 2)
+            self.assertEqual(len(record['includes']), 7 if name == 'default' else 2)
+            self.assertEqual('native-wait-overrides.toml' in record['includes'], name == 'default')
             declaration = (self.root / 'recomp' / record['includes'][0]).read_text(encoding='utf-8')
             self.assertIn(header['sha256'], declaration)
             functions = tomllib.loads(declaration)['functions']

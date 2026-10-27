@@ -1801,6 +1801,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* diagnostic_tap = nullptr;
     const wchar_t* diagnostic_unpaced = nullptr;
     const wchar_t* diagnostic_circle_hold = nullptr;
+    const wchar_t* diagnostic_cross_hold = nullptr;
     const wchar_t* input_config = nullptr;
     const wchar_t* collection_config = nullptr;
     const wchar_t* collection_game = nullptr;
@@ -1826,6 +1827,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--diagnostic-tap-ms" && !diagnostic_tap) { diagnostic_tap = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--diagnostic-unpaced" && !diagnostic_unpaced) { diagnostic_unpaced = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--diagnostic-circle-hold-ms" && !diagnostic_circle_hold) { diagnostic_circle_hold = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--diagnostic-cross-hold-ms" && !diagnostic_cross_hold) { diagnostic_cross_hold = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--input-config" && !input_config) { input_config = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--collection-config" && !collection_config) { collection_config = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--collection-game" && !collection_game) { collection_game = argv[i + 1]; }
@@ -1847,13 +1849,14 @@ int NativeCommand(int argc, wchar_t** argv) {
     if (diagnostic_unpaced && (std::wstring_view(argv[2]) != L"--enter" ||
         std::wstring_view(diagnostic_unpaced) != L"on" || !collection_config || !user_directory)) valid_arguments=false;
     if (diagnostic_circle_hold && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
+    if (diagnostic_cross_hold && (diagnostic_circle_hold || std::wstring(argv[2]) != L"--enter")) { valid_arguments = false; }
     if (input_config && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (collection_config && (input_config || std::wstring(argv[2]) != L"--enter")) { valid_arguments = false; }
     if (collection_game && !collection_config) valid_arguments=false;
     const bool configured_community = community_provider && std::wstring(community_provider) == L"configured";
     if (community_provider && (std::wstring(argv[2]) != L"--enter" ||
         (!configured_community && std::wstring(community_provider) != L"loopback") || (!input_config && !collection_config) || !user_directory)) { valid_arguments = false; }
-    const bool direct_score_provider=collection_game && (std::wstring_view(collection_game)==L"daioujou" || std::wstring_view(collection_game)==L"esprade");
+    const bool direct_score_provider=collection_game && (std::wstring_view(collection_game)==L"daioujou" || std::wstring_view(collection_game)==L"esprade" || std::wstring_view(collection_game)==L"feveron");
     if (configured_community && !community_rounds && !direct_score_provider) { valid_arguments = false; }
     if (direct_score_provider && (community_rounds || community_round_audit)) valid_arguments=false;
     if (community_round_audit && (!community_provider || configured_community || std::wstring(community_round_audit) != L"on")) { valid_arguments = false; }
@@ -1911,7 +1914,7 @@ int NativeCommand(int argc, wchar_t** argv) {
             // requires the user's enabled preference and literal loopback;
             // normal configured collection launches never take this branch.
             const bool development_opt_in=!configured_community && collection &&
-                (collection->game=="daioujou" || collection->game=="esprade") && !collection->community_supported;
+                (collection->game=="daioujou" || collection->game=="esprade" || collection->game=="feveron") && !collection->community_supported;
             if (development_opt_in) config.enabled=collection->shared.community_enabled;
             if (community_offline) {
                 std::puts("{\"event\":\"native_community_offline\",\"reason\":\"data_version\"}");
@@ -1941,6 +1944,11 @@ int NativeCommand(int argc, wchar_t** argv) {
             const std::wstring value(diagnostic_circle_hold);
             if (value.empty() || value.size()>4 || value.find_first_not_of(L"0123456789")!=std::wstring::npos ||
                 !ConfigureNativeDiagnosticCircleHold(static_cast<unsigned>(std::stoul(value)))) { throw std::runtime_error("Invalid diagnostic Circle hold (0..2000 ms), or H is already bound in the input config"); }
+        }
+        if (diagnostic_cross_hold) {
+            const std::wstring value(diagnostic_cross_hold);
+            if (value.empty() || value.size()>4 || value.find_first_not_of(L"0123456789")!=std::wstring::npos ||
+                !ConfigureNativeDiagnosticCrossHold(static_cast<unsigned>(std::stoul(value)))) { throw std::runtime_error("Invalid diagnostic Cross hold (0..2000 ms), or H is already bound in the input config"); }
         }
         if (diagnostic_tap) {
             const std::wstring value(diagnostic_tap);

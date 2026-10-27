@@ -17,8 +17,10 @@
 #include <rex/bit.h>
 #include <rex/dbg.h>
 #include <rex/graphics/shared_memory.h>
+#include <rex/graphics/range_requests.h>
 #include <rex/math.h>
 #include <rex/memory.h>
+#include "d3d12/work_profile.h"
 
 namespace rex::graphics {
 
@@ -328,6 +330,22 @@ void SharedMemory::RangeWrittenByGpu(uint32_t start, uint32_t length) {
   MakeRangeValid(start, length, true);
 }
 
+#if defined(REX_GPU_TRACE_BENCH)
+bool SharedMemory::TraceRangeHasGpuWrites(uint32_t start, uint32_t length) {
+  if (!length || start >= kBufferSize || length > kBufferSize - start) return true;
+  const uint32_t first = start >> page_size_log2_;
+  const uint32_t last = (start + length - 1) >> page_size_log2_;
+  auto lock = global_critical_region_.Acquire();
+  for (uint32_t block = first >> 6; block <= last >> 6; ++block) {
+    uint64_t mask = UINT64_MAX;
+    if (block == (first >> 6)) mask &= UINT64_MAX << (first & 63);
+    if (block == (last >> 6)) mask &= UINT64_MAX >> (63 - (last & 63));
+    if (system_page_flags_valid_and_gpu_written_[block] & mask) return true;
+  }
+  return false;
+}
+#endif
+
 bool SharedMemory::AllocateSparseHostGpuMemoryRange(uint32_t offset_allocations,
                                                     uint32_t length_allocations) {
   assert_always(
@@ -337,6 +355,7 @@ bool SharedMemory::AllocateSparseHostGpuMemoryRange(uint32_t offset_allocations,
 }
 
 void SharedMemory::MakeRangeValid(uint32_t start, uint32_t length, bool written_by_gpu) {
+  REX_CPU_SUBSET_SCOPE(SharedMark);
   if (length == 0 || start >= kBufferSize) {
     return;
   }
@@ -403,50 +422,20 @@ void SharedMemory::UnlinkWatchRange(WatchRange* range) {
 }
 
 bool SharedMemory::RequestRanges(const std::pair<uint32_t, uint32_t>* ranges, size_t count) {
+  REX_CPU_SUBSET_SCOPE(SharedRequest);
   if (ranges == nullptr || !count) {
     return true;
   }
 
   // Some texture or buffer is empty, for example - safe to draw in this case.
-  std::vector<std::pair<uint32_t, uint32_t>> merged_ranges;
-  merged_ranges.reserve(count);
-  for (size_t i = 0; i < count; ++i) {
-    uint32_t start = ranges[i].first;
-    uint32_t length = ranges[i].second;
-    if (!length) {
-      continue;
-    }
-    if (start > kBufferSize || (kBufferSize - start) < length) {
-      return false;
-    }
-    merged_ranges.emplace_back(start, length);
-  }
+  RangeRequests request;
+  if (!request.Prepare(ranges, count, kBufferSize)) return false;
+  const auto merged_ranges = request.view();
   if (merged_ranges.empty()) {
     return true;
   }
 
   SCOPE_profile_cpu_f("gpu");
-
-  std::sort(merged_ranges.begin(), merged_ranges.end(),
-            [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b) {
-              return a.first < b.first;
-            });
-  size_t merged_write = 0;
-  for (size_t i = 1; i < merged_ranges.size(); ++i) {
-    std::pair<uint32_t, uint32_t>& range_previous = merged_ranges[merged_write];
-    const std::pair<uint32_t, uint32_t>& range_current = merged_ranges[i];
-    uint64_t previous_end = uint64_t(range_previous.first) + uint64_t(range_previous.second);
-    uint64_t current_start = uint64_t(range_current.first);
-    if (current_start <= previous_end) {
-      uint64_t current_end = current_start + uint64_t(range_current.second);
-      if (current_end > previous_end) {
-        range_previous.second = uint32_t(current_end - uint64_t(range_previous.first));
-      }
-    } else {
-      merged_ranges[++merged_write] = range_current;
-    }
-  }
-  merged_ranges.resize(merged_write + 1);
 
   for (const std::pair<uint32_t, uint32_t>& range : merged_ranges) {
     if (!EnsureHostGpuMemoryAllocated(range.first, range.second)) {
@@ -576,6 +565,13 @@ bool SharedMemory::RequestRanges(const std::pair<uint32_t, uint32_t>* ranges, si
 bool SharedMemory::RequestRange(uint32_t start, uint32_t length) {
   std::pair<uint32_t, uint32_t> range(start, length);
   return RequestRanges(&range, 1);
+}
+
+bool SharedMemory::RequestRangeForGpuOverwrite(uint32_t start, uint32_t length) {
+  if (!length || start > kBufferSize || length > kBufferSize - start) return false;
+  const uint32_t page_mask = (uint32_t(1) << page_size_log2_) - 1;
+  if ((start | length) & page_mask) return RequestRange(start, length);
+  return EnsureHostGpuMemoryAllocated(start, length);
 }
 
 std::pair<uint32_t, uint32_t> SharedMemory::MemoryInvalidationCallbackThunk(
@@ -733,6 +729,11 @@ void SharedMemory::PrepareForTraceDownload() {
       trace_download_page_count_ += gpu_written_range_length;
     }
   }
+  // Host textures may remain cached after their shared-memory upload pages
+  // have been invalidated. They still need to be reloaded during this capture
+  // so their source bytes reach the trace. GPU-written pages stay valid above
+  // and are supplied by the GPU download, never by stale CPU memory.
+  FireWatches(0, page_count - 1, false);
 }
 
 void SharedMemory::ReleaseTraceDownloadRanges() {

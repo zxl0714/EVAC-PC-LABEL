@@ -14,7 +14,7 @@ Download links are listed under “Downloads and backups”.
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, and ESP Ra.De. require Vulkan. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., and Dangun Feveron require Vulkan. Application runtime libraries are included in the player package.
 
 ### Launch
 
@@ -36,8 +36,7 @@ Prepare only the games you want:
 | 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; 01.00 base or complete merged 01.04 data |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
 | ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
-
-Coming soon: 弾銃フィーバロン / Dangun Feveron.
+| 弾銃フィーバロン | Dangun Feveron | PS4, US CUSA06735, version 01.00 base game |
 
 ### Extracting ISO / PKG / XBLA files
 
@@ -46,13 +45,7 @@ Coming soon: 弾銃フィーバロン / Dangun Feveron.
 
 Keep the entire `tools/` folder; extraction dependencies are included. The tool extracts game resources and `sce_sys` metadata. **Open game files** opens `uroot/` directly, so copy its contents. See the [extraction guide](docs/GAME_DATA.en.md#extract-iso-pkg-and-xbla-packages) for details and advanced script usage.
 
-**Guwange XBLA**: unpack the ZIP/RAR first, then extract the LIVE/PIRS content package inside it (usually a long filename without an extension) using the included helper:
-
-```powershell
-.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\original-content-package" -OutputDir "D:\GameExtract\guwange"
-```
-
-Create the parent folder `D:\GameExtract` first; the output folder `guwange` must not already exist. Windows PowerShell 5.1 is sufficient, with no additional extractor required. In a source checkout, use `scripts/Extract-Xbla.ps1`. Use base version 0.0.0.4 without a Title Update.
+**Guwange XBLA**: unpack the ZIP/RAR, then double-click `tools/Extract-XBLA.exe`. Click **Select package...**, select the content package inside it (usually a long filename without an extension), and choose an output location. Click **Open game files** when finished and copy all contents into `game-data/guwange/`, with `default.xex` directly inside that folder. Use base version 0.0.0.4 without a Title Update.
 
 ### Where to put game data
 
@@ -67,6 +60,7 @@ The complete program package creates the folders below, each with a bilingual `R
 | DaiOuJou | `game-data/daioujou/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | ESP Ra.De. | `game-data/esprade/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | Guwange | `game-data/guwange/` | `default.xex`, `module/`, `game_res/`, `res/`, and the remaining resources |
+| Dangun Feveron | `game-data/feveron/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.en.md).
 
@@ -172,6 +166,17 @@ frame_delay = 1
 | 3 | Original path |
 
 These select the game's internal frame scheduling policy. Total input-to-display latency also depends on the controller and display chain. Explicit settings are preserved; restart the game after changing the value.
+
+## Experimental G2 Frame Delay
+
+Set the following in `user-data/config.ini`:
+
+```ini
+[game.espgaluda2]
+frame_delay = 1
+```
+
+`2` is the default original path; `1` enables the experimental low-latency path. Restart the game after changing it. Set it back to `2` to restore the original path.
 
 ## Downloads and backups
 

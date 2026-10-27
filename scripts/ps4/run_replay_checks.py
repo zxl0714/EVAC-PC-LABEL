@@ -88,6 +88,21 @@ def main():
         wrong=bytearray(base);struct.pack_into('<I',wrong,0,version)
         check('daioujou-unverified-version-'+str(version),'daioujou',zlib.compress(wrong),False)
     check('daioujou-trailing-data','daioujou',zlib.compress(djo)+b'extra',False)
+    fever=record('feveron')
+    for group in range(8):
+        selected=bytearray(fever);struct.pack_into('<H',selected,106,group//2)
+        struct.pack_into('<H',selected,112,0x734)
+        check('feveron-mode-'+str(group),'feveron',zlib.compress(selected),True,board=group*10+4)
+    for version in (0x10001,0x10002):
+        selected=bytearray(fever);struct.pack_into('<I',selected,0,version)
+        check('feveron-version-'+str(version),'feveron',zlib.compress(selected),True,board=0)
+    for character in (5,0x40,0x800):
+        selected=bytearray(fever);struct.pack_into('<H',selected,112,character)
+        check('feveron-invalid-character-'+str(character),'feveron',zlib.compress(selected),False,board=0)
+    check('feveron-wrong-ship','feveron',zlib.compress(fever),False,board=2)
+    check('feveron-wrong-mode','feveron',zlib.compress(fever),False,board=20)
+    check('feveron-score-only-peer-board','feveron',zlib.compress(fever),False,board=99)
+    check('feveron-not-esprade','esprade',zlib.compress(fever),False,board=0)
     write_json_new(directory/'result.json',dict(format=1,buildSourceCommit=receipt['sourceCommit'],
         buildSourceDirty=receipt['sourceDirty'],executableSha256=digest(executable),
         authoredDataOnly=True,nativeGameExecution=False,nativePlaybackValidated=False,checks=results))

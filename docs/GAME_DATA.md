@@ -70,13 +70,14 @@ PKG passcode 通常保留默认的 32 个零；只有 PKG 使用其他 passcode 
 
 ### Xbox 360 XBLA：狱门山
 
-狱门山使用 XBLA 内容包，不用 `extract-xiso`。ZIP／RAR 解压后，如果得到一个长文件名、没有扩展名的大文件，它仍是容器。在合集根目录使用 v0.7 随包脚本，替换成实际文件路径：
+先解压 ZIP／RAR。若里面是一个长文件名、没有扩展名的大文件，用随包的 `tools/Extract-XBLA.exe` 提取：
 
-```powershell
-.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\原始容器文件名" -OutputDir "D:\GameExtract\guwange"
-```
+1. 双击工具，点击 **Select package...**，选择这个内容包。
+2. 选择输出位置，工具会创建新的 `xbla-extracted` 文件夹。
+3. 完成后点击 **Open game files**，把里面的全部内容复制到 `game-data/guwange/`。该目录应直接包含 `default.xex`、`module/`、`game_res/` 和 `res/`。
+4. 在启动器点击“刷新”，选择狱门山并启动。
 
-Windows PowerShell 5.1 即可运行，无须另装 Python。输出目录须尚不存在，上一层 `D:\GameExtract` 须已创建。源码仓库中脚本位于 `scripts/Extract-Xbla.ps1`。它提取本作使用的 LIVE／PIRS 单哈希表容器，检查文件链与数据块校验，原容器保留；不用于 ISO、CON 存档或应用 Title Update。
+使用本体 0.0.0.4，不叠加 Title Update。自动化提取仍可使用仓库中的 `scripts/Extract-Xbla.ps1` 或随包的同名脚本。
 
 完成后直接选择 `D:\GameExtract\guwange`，或把里面全部内容复制到 `game-data/guwange/`。不要把整个容器改名成 `default.xex`。
 
@@ -222,6 +223,25 @@ game-data/esprade/
 将本体 PKG 提取到一个新目录，再将 01.04 更新中提取的全部内容覆盖到同一目录。把合并结果放进 `game-data/esprade/`，或在启动器直接选择这份合并目录。`eboot.bin` 应直接位于所选目录下，不要再套一层本体／更新目录。单独的更新包不能运行；保留其余模块、资源和内部层级。
 
 PS4 作品首次启动时自动生成 `prepared/` 下的运行文件，原始游戏数据不变；这些生成物无须手工放进游戏数据目录。ESP Ra.De. 的存档、下载录像与设置位于 `user-data/esprade/`。
+
+### 弾銃フィーバロン（feveron）
+
+支持 **美版 CUSA06735／01.00 本体**：
+
+```text
+game-data/feveron/
+  eboot.bin
+  emu_integration_01200.prx
+  dfeveron_01000.prx
+  dfeveron_01010.prx
+  ps4data_body.bin
+  ps4data_info.psb.m
+  sce_module/
+  sce_sys/
+  ...
+```
+
+用 `tools/Extract-PS4.exe` 提取本体 PKG，点击“Open game files”，将打开目录中的全部内容复制到 `game-data/feveron/`。也可以在启动器直接选择该目录。存档、录像和设置位于 `user-data/feveron/`。
 
 ## 无法识别时怎么检查
 

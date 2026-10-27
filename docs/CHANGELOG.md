@@ -1,5 +1,23 @@
 # 更新记录
 
+## v0.8.0
+
+- 新增《弾銃フィーバロン / Dangun Feveron》，支持 ARCADE、SUPER EASY、FEVER、CUSTOM，以及存档、录像和社区排行榜。
+- 修复虫姬二 Black Label 和 ESPGaluda II 下载录像后作者显示为自己的问题，重启或修改昵称后仍保留原作者。
+- 修复 ESPGaluda II 启动后首次下载录像失败、需要重试的问题。
+- 降低虫姬二、G2、最大往生和狱门山的 CPU 开销，优化定时器、渲染任务和原生完成等待；虫姬二高清模式的代表回放中 GPU 工作减少约 19%～23%。
+- G2 新增实验性 `frame_delay=1`，可在配置文件中启用；默认保持 `2`。
+- 新增 `tools/Extract-XBLA.exe`，通过窗口选择内容包并提取狱门山游戏文件。
+
+### English
+
+- Added Dangun Feveron: ARCADE, SUPER EASY, FEVER, CUSTOM, saves, replays and community leaderboards.
+- Fixed downloaded replay authors being replaced with your own nickname in Futari Black Label and ESPGaluda II, including after restarting or changing your nickname.
+- Fixed ESPGaluda II's first replay download after startup requiring a retry.
+- Reduced CPU work in Futari, G2, SaiDaiOuJou and Guwange through timer, renderer and completion-wait improvements. GPU work fell by approximately 19–23% in the representative Futari HD replay.
+- Added experimental G2 `frame_delay=1`; the default remains `2`.
+- Added `tools/Extract-XBLA.exe` for extracting Guwange content packages through a file picker.
+
 ## v0.7.6
 
 - 新增 PS4 图形解包工具，可直接提取本体和更新 PKG。

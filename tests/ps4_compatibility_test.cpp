@@ -48,7 +48,7 @@ void Presentation() {
 void Policies() {
     using namespace cave::ps4;
     // Exercise the actual generated catalogue, not only hand-written policy inputs.
-    for (const auto* id : {"ketsui", "daioujou", "esprade"}) {
+    for (const auto* id : {"ketsui", "daioujou", "esprade", "feveron"}) {
         const auto& game = cave::FindGame(id);
         Check(!game.variants.empty(), "PS4 catalogue supplies preparation identity");
         for (const auto& variant : game.variants) {
@@ -85,6 +85,13 @@ void Policies() {
     Reject([]{PlanPs4Data("daioujou","01.00","merged-patch");},"mixed DOJ data is not base");
     Reject([]{PlanPs4Data("daioujou","01.01","base");},"unknown DOJ version");
     Reject([]{PlanPs4Data("esprade","01.00","base");},"no accidental ESP base support");
+    const auto feveron=PlanPs4Data("feveron","01.00","base");
+    Check(feveron.programs==std::vector<std::string>{"eboot.bin","emu_integration_01200.prx","dfeveron_01000.prx","dfeveron_01010.prx"},
+        "Feveron base includes both shipped core revisions");
+    Check(!feveron.merged_app&&feveron.read_fixes&&!feveron.replay_peer&&feveron.local_replay,
+        "Feveron prepares only its own local replay viewer adaptation");
+    Reject([]{PlanPs4Data("feveron","01.01","base");},"Feveron master version is not application version");
+    Reject([]{PlanPs4Data("feveron","01.00","merged-patch");},"unsupported Feveron merged version rejected");
     Reject([]{PlanPs4Data("other","01.00","base");},"unknown title");
     // The wrapper changes identity, not the 01.00 native hook/replay layout.
     const auto* elf=FindKetsuiVersion("22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f");

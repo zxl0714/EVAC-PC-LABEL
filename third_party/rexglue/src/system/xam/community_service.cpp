@@ -251,15 +251,25 @@ uint32_t BuildCommunityReplayPath(KernelState* kernel,uint32_t user,uint64_t xui
     return X_ERROR_INVALID_PARAMETER;
   }
   if(user==0)xuid=0xB13EBABEBABEBABEull;
-  if(!xuid)return X_ERROR_INVALID_PARAMETER;
+  if(!xuid) {
+    REXLOG_WARN("Community native replay path rejected: empty owner");
+    return X_ERROR_INVALID_PARAMETER;
+  }
   const auto view=Read32(kernel->memory()->TranslateVirtual(info));
   const auto path=CommunityReplayPath(view,xuid);
-  if(path.empty())return X_ERROR_INVALID_PARAMETER;
+  if(path.empty()) {
+    REXLOG_WARN("Community native replay path rejected: invalid provider namespace");
+    return X_ERROR_INVALID_PARAMETER;
+  }
   auto* size=kernel->memory()->TranslateVirtual(length);
   const auto capacity=Read32(size),required=uint32_t((path.size()+1)*2);
+  REXLOG_INFO("Community native replay path buffer: view={} capacity={} required={}",view,capacity,required);
   Put32(size,required);
   if(capacity<required)return X_ERROR_INSUFFICIENT_BUFFER;
-  if(!Valid(kernel,destination,required,true))return X_ERROR_INVALID_PARAMETER;
+  if(!Valid(kernel,destination,required,true)) {
+    REXLOG_WARN("Community native replay path rejected: output not writable");
+    return X_ERROR_INVALID_PARAMETER;
+  }
   auto* out=kernel->memory()->TranslateVirtual(destination);
   for(size_t i=0;i<path.size();++i)memory::store_and_swap<uint16_t>(out+i*2,uint16_t(path[i]));
   memory::store_and_swap<uint16_t>(out+path.size()*2,0);

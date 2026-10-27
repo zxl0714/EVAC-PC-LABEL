@@ -168,6 +168,13 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             result.sdoj_frame_delay < 1 || result.sdoj_frame_delay > 3)
             Error(entry->line, "game.sdoj", "frame_delay", "expected 3 (original), 2 (balanced) or 1 (low latency)");
     }
+    if (game_id == "espgaluda2") if (const auto* entry = ini.Get("game.espgaluda2", "frame_delay")) {
+        const auto& value = entry->text;
+        const auto parsed = std::from_chars(value.data(), value.data()+value.size(), result.g2_frame_delay);
+        if (parsed.ec != std::errc{} || parsed.ptr != value.data()+value.size() ||
+            result.g2_frame_delay < 1 || result.g2_frame_delay > 2)
+            Error(entry->line, "game.espgaluda2", "frame_delay", "expected 2 (original) or 1 (experimental low latency)");
+    }
     std::map<std::uint16_t,std::pair<const Binding*,std::string_view>> occupied;
     auto check_binding=[&](const Binding& binding,std::string_view name) {
       for (auto code : binding.keys) {

@@ -33,6 +33,10 @@ ranking viewer:
 | Ketsui CUSA09062 01.02 | `system/font/m2shot_font.psb.m` | 809 | `d4c5b666c9bf50f3d84a209f787827f247afe65f819de8e515fc12d3b99ed7de` |
 | DaiOuJou CUSA32997 01.04 | `system/font/m2shot_font.psb.m` | 806 | `ed2dd80622ba549f74be80154452d6cbae26203d993102d7bd89825a2928e4ef` |
 | ESP Ra.De. CUSA15155 01.04 | `system/font/m2shot_font.psb.m` | 829 | `26e49ecf2a9ff437a1da94c7f15097641987785a725ce3dda12035c5957412ca` |
+| Dangun Feveron US CUSA06735 01.00 | `system/font/m2shot_font.psb.m` | 799 | `bc526fdfe2467dc57c27b18b880fc57187775a1a953f04e4c8baa56be65302e2` |
+
+Feveron's font adds 46 codepoints and omits eight from the existing common set.
+Its check applies both differences; the other games' coverage is unchanged.
 
 Ketsui's two supported versions differ. When its root program identifies a known
 variant, the launcher uses that version. Without identifiable local data it

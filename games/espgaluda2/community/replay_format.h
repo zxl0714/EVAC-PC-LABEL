@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace espgaluda2 {
@@ -13,9 +14,10 @@ struct ReplayInfo {
   int64_t score;
   uint32_t mode, character;
 };
-// Original envelope and compressed input bytes are retained verbatim. This is
-// not Futari's version/length convention and is never wrapped in its save table.
+// This is not Futari's version/length convention or its local save table.
 ReplayInfo InspectReplay(std::span<const uint8_t> record);
+// Bind the archived tag without an Xbox Live profile lookup on local reload.
+void SetDownloadedReplayAuthor(std::vector<uint8_t>& record,std::string_view native_tag);
 std::string ReplaySha256(std::span<const uint8_t> record);
 std::string ReplayBase64(std::span<const uint8_t> record);
 std::vector<uint8_t> ReplayUnbase64(const std::string& text);

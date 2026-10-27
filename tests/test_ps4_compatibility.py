@@ -34,5 +34,13 @@ class CompatibilityWiringTests(unittest.TestCase):
         self.assertIn('CommunityEnabledForData(config.enabled,community_offline!=nullptr)', self.text('backends/ps4/native_probe.cpp'))
         self.assertIn('ps4_compatibility', self.text('scripts/Test.ps1'))
 
+    def test_feveron_cache_and_explicit_preparation_use_own_replay_fix(self):
+        for path in ('backends/ps4/loader/prepare_game.cpp',
+                     'backends/ps4/loader/prepare_cli.cpp'):
+            source = self.text(path)
+            self.assertIn('game=="feveron"?PrepareFeveronReadFixes(data)', source)
+        policy = self.text('backends/ps4/loader/preparation_policy.h')
+        self.assertIn('feveron', policy)
+
 if __name__ == '__main__':
     unittest.main()

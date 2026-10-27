@@ -152,13 +152,17 @@
       "name": "Dangun Feveron",
       "nameJapanese": "弾銃フィーバロン",
       "backend": "ps4",
-      "integrated": false,
-      "comingSoon": true,
-      "communitySupported": false,
+      "integrated": true,
+      "comingSoon": false,
+      "communitySupported": true,
       "dataDirectory": "game-data/feveron",
-      "dataManifest": "",
+      "dataManifest": "feveron/data.json",
       "executable": "runtime/ps4/feveron.exe",
-      "runtimeFiles": []
+      "runtimeFiles": [
+        "runtime/ps4/feveron.exe",
+        "runtime/ps4/KetsuiGpuRuntime.dll",
+        "runtime/games/feveron/runtime-manifest.ini"
+      ]
     }
   ]
 }

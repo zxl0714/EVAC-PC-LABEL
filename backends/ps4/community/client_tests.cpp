@@ -49,6 +49,14 @@ bool ClientSelfTest(const std::filesystem::path& directory) {
           ProtocolFor("esprade").title_id=="CUSA15155" && ProtocolFor("esprade").version=="1.04" &&
           ProtocolFor("daioujou").version=="1.04" && ProtocolFor("daioujou").replay_format=="daioujou-npscore-1.04",
           "ps4_transport_identity_and_replay_namespace_are_title_scoped");
+    const auto feveron_defaults=ParseConfig("[community]\nenabled=true\n","feveron");
+    check(ProtocolFor("feveron").title_id=="CUSA06735" && ProtocolFor("feveron").version=="1.00" &&
+          ProtocolFor("feveron").replay_format=="feveron-npscore-1.00" &&
+          feveron_defaults.game=="feveron" && feveron_defaults.nickname=="Player" &&
+          feveron_defaults.endpoint=="https://xiaolu.life/cave/api/v1/games/feveron" &&
+          rejects([&] { (void)ParseEndpoint("https://example.invalid/cave/api/v1/games/esprade","feveron"); }) &&
+          AccountId("Alice","feveron")!=AccountId("Alice","esprade"),
+          "feveron_application_version_route_and_account_are_title_scoped");
     const auto other_defaults=ParseConfig("[community]\nenabled=true\n","daioujou");
     check(other_defaults.game=="daioujou" && other_defaults.nickname=="Player" &&
           other_defaults.endpoint=="https://xiaolu.life/cave/api/v1/games/daioujou" &&

@@ -24,11 +24,12 @@ GAMES = (*LEGACY_GAMES, 'sdoj')
 V03_GAMES = (*GAMES, 'daioujou')
 V06_GAMES = (*V03_GAMES, 'esprade')
 V07_GAMES = (*V06_GAMES, 'guwange')
-PLACEMENT_GAMES = V07_GAMES
+V08_GAMES = (*V07_GAMES, 'feveron')
+PLACEMENT_GAMES = V08_GAMES
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
-MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade', 'guwange'}
+MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade', 'guwange', 'feveron'}
 META = {'release.json', 'SHA256SUMS.txt'}
 UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3', '0.4': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
@@ -71,6 +72,8 @@ def release_games(version):
         return V06_GAMES
     if (major, minor) == (0, 7):
         return V07_GAMES
+    if (major, minor) == (0, 8):
+        return V08_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -106,7 +109,7 @@ def placement_sources(version, name=PLACEMENT_NAME):
     games = release_games(version)
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
-    placement = V07_GAMES if 'guwange' in games else V06_GAMES
+    placement = V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
     return {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
             for key in placement}
 
@@ -125,6 +128,10 @@ def has_ps4_extractor(version):
     return tuple(map(int, (version or '0.0').split('-', 1)[0].split('.'))) >= (0, 7, 6)
 
 
+def has_xbla_extractor(version):
+    return tuple(map(int, (version or '0.0').split('-', 1)[0].split('.'))) >= (0, 8)
+
+
 def extractor_sources(version):
     return ps4_extract_tools.player_sources(ROOT) if has_ps4_extractor(version) else {}
 
@@ -139,6 +146,8 @@ def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=No
     names = {launcher(version), 'runtime/launcher/cave_inspect.exe'}
     if has_ps4_extractor(version):
         names.add('tools/Extract-PS4.exe')
+    if has_xbla_extractor(version):
+        names.add('tools/Extract-XBLA.exe')
     # Historical packages refreshed old shortcuts. Format 3 ships only the
     # current launcher name, including when matching symbols are selected.
     if renamed(version) and (flavor == 'Update' or package_format == 2):
@@ -207,7 +216,7 @@ def certified_runtime(selection=GAMES):
     xbox_names |= {str(Path(name).with_suffix('.pdb')) for name in list(xbox_names)}
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
-        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb'})
+        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb'})
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:
@@ -535,7 +544,7 @@ def certified_name(name):
     # These aliases are staged from the same certified PS4 host. Do not infer
     # aliases for other paths or arbitrary executable names.
     if name in {'runtime/ps4/' + game + suffix
-                for game in ('ketsui', 'daioujou', 'esprade') for suffix in ('.exe', '.pdb')}:
+                for game in ('ketsui', 'daioujou', 'esprade', 'feveron') for suffix in ('.exe', '.pdb')}:
         return 'KetsuiNativeProbe' + Path(name).suffix
     if name in {LEGACY_LAUNCHER, str(Path(LEGACY_LAUNCHER).with_suffix('.pdb'))}:
         return NAME + Path(name).suffix
@@ -618,7 +627,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         source_name = certified_name(path)
         item = certified[source_name]
         certified_launcher = path in {launcher(version), LEGACY_LAUNCHER}
-        if not certified_launcher and path not in ('runtime/launcher/cave_inspect.exe', 'tools/Extract-PS4.exe') and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
+        if not certified_launcher and path not in ('runtime/launcher/cave_inspect.exe', 'tools/Extract-PS4.exe', 'tools/Extract-XBLA.exe') and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
             raise ValueError('Staged player component differs from certified build: ' + path)
         copy_checked(item['source'], target, 'runtime', entries, item)
     for file in crt:
@@ -631,6 +640,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             copy_checked(source, directory / name, 'documentation', entries)
     readme = ('README.player-v032.txt' if version == '0.3.2' else
               'README.player-v031.txt' if version == '0.3.1' else
+              'README.player-v08.txt' if 'feveron' in selection else
               'README.player-v07.txt' if 'guwange' in selection else
               'README.player-v06.txt' if 'esprade' in selection else
               'README.player-v04.txt' if config_name(version).startswith('user-data/') else
@@ -725,7 +735,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V07_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V08_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()

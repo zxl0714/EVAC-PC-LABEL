@@ -28,7 +28,7 @@ PreparedGame PrepareKetsuiGame(const fs::path& requested_root,const fs::path& re
     return PreparePs4Game(requested_root,requested_data,"ketsui");
 }
 PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& requested_data,std::string_view game) {
-    if (game!="ketsui" && game!="daioujou" && game!="esprade") throw std::runtime_error("Unsupported PS4 preparation game");
+    if (game!="ketsui" && game!="daioujou" && game!="esprade" && game!="feveron") throw std::runtime_error("Unsupported PS4 preparation game");
     const bool ketsui=game=="ketsui";
     const bool esprade=game=="esprade";
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
@@ -58,7 +58,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         }
         if (policy.read_fixes) {
             const auto fixes=ketsui?PrepareReadFixes(data,true,true):
-                esprade?PrepareEspradeReadFixes(data):PrepareDaioujouReadFixes(data);
+                esprade?PrepareEspradeReadFixes(data):game=="feveron"?PrepareFeveronReadFixes(data):PrepareDaioujouReadFixes(data);
             WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
             const auto metadata=fixes.report.dump(2)+'\n';
             WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
@@ -72,7 +72,7 @@ int PrepareGameCommand(int argc,wchar_t** argv) {
     try {
         fs::path root,data;std::string game="ketsui";bool game_given{};
         for (int i=2;i<argc;++i) {
-            if (i+1>=argc || !*argv[i+1]) throw std::runtime_error("Usage: --prepare-game --root collection [--game ketsui|daioujou|esprade] [--data-dir supported-data]");
+            if (i+1>=argc || !*argv[i+1]) throw std::runtime_error("Usage: --prepare-game --root collection [--game ketsui|daioujou|esprade|feveron] [--data-dir supported-data]");
             const std::wstring_view option(argv[i]);
             if (option==L"--root" && root.empty()) root=argv[++i];
             else if (option==L"--data-dir" && data.empty()) data=argv[++i];

@@ -48,3 +48,17 @@ registers = ["context", "memory"]
 address = 0x880313C0
 name = "SdojDelayReadEnd"
 registers = ["context", "memory"]
+
+# Preserve the original signed tick-distance comparison and teardown handling.
+[[midasm_hook]]
+address = 0x880332D0
+name = "SdojWaitNativeTick"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x88030A8C
+name = "SdojNativeTickInterrupted"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x880316A4
+name = "SdojNativeTickInterrupted"
+registers = ["context", "memory"]

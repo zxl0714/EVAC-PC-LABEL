@@ -13,7 +13,7 @@ from product import NAME
 from toolchain import tool_path, tool_snapshot
 
 RECEIPT = ROOT / 'out/launcher/build-receipt.json'
-OUTPUT_NAMES = (NAME, 'cave_inspect', 'Extract-PS4')
+OUTPUT_NAMES = (NAME, 'cave_inspect', 'Extract-PS4', 'Extract-XBLA')
 
 
 def snapshot():
@@ -25,7 +25,7 @@ def snapshot():
                 'scripts/generate_artwork.py', 'scripts/product.py', 'scripts/launcher_receipt.py', 'scripts/toolchain.py',
                 'tools/ps4-extract.lock.json', 'scripts/ps4_extract_tools.py'}
     files = {name: digest(ROOT / name) for name in sorted(names) if name in explicit or
-             name.startswith(('common/', 'launcher/', 'tools/ps4-extract/')) or (name.startswith('games/') and name.endswith('/data.json'))}
+             name.startswith(('common/', 'launcher/', 'tools/ps4-extract/', 'tools/xbla-extract/')) or (name.startswith('games/') and name.endswith('/data.json'))}
     json_header = 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/json.hpp'
     if not (ROOT / json_header).is_file():
         raise ValueError('Restore launcher JSON dependency: git submodule update --init -- third_party/rexglue/thirdparty/inja')
@@ -102,6 +102,6 @@ if __name__ == '__main__':
         if not args.state or not args.build:
             parser.error('finish requires --state and --build')
         finish(args.state, args.build, stage_root=not args.skip_root_stage)
-        print('Launcher/inspector/extractor receipt verified; 3 binary/PDB pairs.')
+        print('Launcher/inspector/extractor receipt verified; 4 binary/PDB pairs.')
     else:
-        verify(); print('Launcher/inspector/extractor receipt verified; 3 binary/PDB pairs.')
+        verify(); print('Launcher/inspector/extractor receipt verified; 4 binary/PDB pairs.')

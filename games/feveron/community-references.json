@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "game": "feveron",
+  "titleId": "CUSA06735",
+  "version": "01.00",
+  "status": "implementation-awaiting-native-network-acceptance",
+  "sourceExecutableSha256": "119851e0b62f06d6eb44ba9227fe989c0e9a2f53bf66558852f4881c8d99ee0b",
+  "sources": [
+    "1000/config/title_leaderboards.psb.m",
+    "1000/script/title_standalone.nut.m",
+    "1000/script/title_emu_const.nut.m",
+    "1000/script/title_const.nut.m",
+    "system/script/ranking_ctrl.nut.m",
+    "system/script/backup_replaydata.nut.m",
+    "system/config/struct_replay.psb.m"
+  ],
+  "boardGroups": [
+    {"base": 0, "mode": "arcade"},
+    {"base": 10, "mode": "arcade_time_attack"},
+    {"base": 20, "mode": "super_easy"},
+    {"base": 30, "mode": "super_easy_time_attack"},
+    {"base": 40, "mode": "fever"},
+    {"base": 50, "mode": "fever_time_attack"},
+    {"base": 60, "mode": "custom"},
+    {"base": 70, "mode": "custom_time_attack"}
+  ],
+  "boardOffsets": ["all", "type_a", "type_b", "type_c", "uotaro_poko"],
+  "uploadLimit": "100 for combined boards below 60; 10 for every other board, including CUSTOM combined boards.",
+  "score": {"maximum": 4294967295, "nativeUnitInDisplayPoints": 1},
+  "replay": {
+    "recordBytes": 524288,
+    "dataOffset": 1280,
+    "dataBytes": 491520,
+    "containerVersions": [65537, 65538],
+    "coreDataVersion": 65536,
+    "coreRegions": ["ARCADE_01000", "ARCADE_01010"],
+    "coreVersionEvidence": "The verified eboot registers getEmuVersion at 0xe50f, loads its function pointer through relocation 0x2c39b8, and calls leaf 0x147d0 through wrapper 0x1c870. The leaf returns 0x10000.",
+    "mode": "Network header stores GameMode 0..3. Ranking group is GameMode*2 plus TimeAttack. The header alone does not certify TimeAttack eligibility.",
+    "character": "Bits 8..10 encode ship and player side; bits 4..7 encode weapon 0..3; bits 0..3 encode speed 0..4. Native ship filter is ((character>>8)&3)+1.",
+    "nativeRecordingVerified": false
+  },
+  "eligibility": "Preserve native checkRegistRanking, recording state and m_is_ranking_regist. Do not add DaiOuJou's CUSTOM exclusion or score scaling."
+}

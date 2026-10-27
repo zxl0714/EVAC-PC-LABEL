@@ -1,0 +1,6 @@
+# Default executable's native D3D completion poll, before its watchdog helper.
+# Original comparison, helper, wraparound arithmetic and Present policy remain.
+[[midasm_hook]]
+address = 0x82173B78
+name = "G2WaitGpuFence"
+registers = ["context", "memory"]

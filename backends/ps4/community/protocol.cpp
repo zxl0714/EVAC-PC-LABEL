@@ -64,9 +64,11 @@ const TitleProtocol& ProtocolFor(std::string_view game) {
     static constexpr TitleProtocol ketsui{"ketsui","CUSA09062","1.02","ketsui-npscore-1.02"};
     static constexpr TitleProtocol daioujou{"daioujou","CUSA32997","1.04","daioujou-npscore-1.04"};
     static constexpr TitleProtocol esprade{"esprade","CUSA15155","1.04","esprade-npscore-1.04"};
+    static constexpr TitleProtocol feveron{"feveron","CUSA06735","1.00","feveron-npscore-1.00"};
     if (game==ketsui.game) return ketsui;
     if (game==daioujou.game) return daioujou;
     if (game==esprade.game) return esprade;
+    if (game==feveron.game) return feveron;
     throw std::runtime_error("Unknown PS4 community game");
 }
 Endpoint ParseEndpoint(std::string_view url,std::string_view game) {

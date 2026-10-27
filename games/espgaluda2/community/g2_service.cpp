@@ -153,7 +153,8 @@ cave::community::NativeSchema Schema() {
       .valid_view=View,.encode_score=EncodeCommunityScore,
       .decode_columns=[](uint32_t,const Json& p,uint32_t bytes){return DecodeCommunityColumns(p,bytes);},
       .column_type=UnrankedColumnType,.native_name=CommunityNativeName,
-      .run_key=RunKey,.match_replay=[](uint32_t,const Json& p,std::span<const uint8_t> record){MatchNativeRecording(p,record);}};
+      .run_key=RunKey,.match_replay=[](uint32_t,const Json& p,std::span<const uint8_t> record){MatchNativeRecording(p,record);},
+      .prepare_download=SetDownloadedReplayAuthor};
 }
 }
 G2Community::G2Community(std::string endpoint,std::string nickname,std::string build)

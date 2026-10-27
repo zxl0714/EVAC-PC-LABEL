@@ -30,6 +30,7 @@
 #include <rex/memory/ring_buffer.h>
 #include <rex/system/xthread.h>
 #include <rex/thread.h>
+#include <rex/thread/callback_queue.h>
 #include <rex/ui/presenter.h>
 
 namespace rex::stream {
@@ -122,6 +123,9 @@ class CommandProcessor {
   virtual void EndTracing();
 
   virtual void TracePlaybackWroteMemory(uint32_t base_ptr, uint32_t length) = 0;
+  void TracePlaybackPrimaryBufferEnd() { OnPrimaryBufferEnd(); }
+  // Keep the exported class layout identical in developer and normal builds.
+  virtual bool TracePlaybackCanReuseMemory(uint32_t, uint32_t) { return false; }
 
   void RestoreRegisters(uint32_t first_register, const uint32_t* register_values,
                         uint32_t register_count, bool execute_callbacks);
@@ -259,13 +263,16 @@ class CommandProcessor {
     kSingleFrame,
   };
   TraceState trace_state_ = TraceState::kDisabled;
+  // Only used by developer tracing; retained for stable exported class layout.
+  std::filesystem::path trace_request_file_;
+  bool trace_request_consumed_ = false;
   std::filesystem::path trace_stream_path_;
   std::filesystem::path trace_frame_path_;
 
   std::atomic<bool> worker_running_;
   system::object_ref<system::XHostThread> worker_thread_;
 
-  std::queue<std::function<void()>> pending_fns_;
+  thread::CallbackQueue pending_fns_;
 
   // MicroEngine binary from PM4_ME_INIT
   std::vector<uint32_t> me_bin_;

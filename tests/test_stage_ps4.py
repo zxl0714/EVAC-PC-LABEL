@@ -26,8 +26,8 @@ class Ps4StageTests(unittest.TestCase):
                                         sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
             receipt = dict(sourceCommit='a' * 40, sourceSnapshot=dict(sha256='b' * 64), outputs=outputs)
             with patch.object(module, 'ROOT', root), patch.object(module, 'verify', return_value=receipt):
-                self.assertEqual(module.stage()['games'], ['ketsui', 'daioujou', 'esprade'])
-                for game, peer in [('ketsui', 'daioujou'), ('daioujou', 'ketsui'), ('esprade', 'daioujou')]:
+                self.assertEqual(module.stage()['games'], ['ketsui', 'daioujou', 'esprade', 'feveron'])
+                for game, peer in [('ketsui', 'daioujou'), ('daioujou', 'ketsui'), ('esprade', 'daioujou'), ('feveron', 'esprade')]:
                     directory = root / 'runtime/games' / game
                     manifest = json.loads((directory / 'runtime-manifest.json').read_text())
                     self.assertEqual(manifest['game'], game)
@@ -44,8 +44,10 @@ class Ps4StageTests(unittest.TestCase):
                                  (root / 'runtime/ps4/daioujou.exe').read_bytes())
                 self.assertEqual((root / 'runtime/ps4/esprade.exe').read_bytes(),
                                  (root / 'runtime/ps4/ketsui.exe').read_bytes())
-                self.assertEqual(module.stage()['stagedFiles'], 11)
-                self.assertEqual(len(list((root / '.local/staging').glob('*-previous.json'))), 3)
+                self.assertEqual((root / 'runtime/ps4/feveron.exe').read_bytes(),
+                                 (root / 'runtime/ps4/ketsui.exe').read_bytes())
+                self.assertEqual(module.stage()['stagedFiles'], 14)
+                self.assertEqual(len(list((root / '.local/staging').glob('*-previous.json'))), 4)
 
 
 if __name__ == '__main__':

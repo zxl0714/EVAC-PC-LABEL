@@ -247,8 +247,11 @@ int Initialize(const Params* supplied, const void* caller) {
         Params params{};
         if (!Copy(supplied, &params, sizeof(params))) { return kAddress; }
         if (((params.header >> 1) & 0x7fff) != sizeof(Params)) { return kArgument; }
+        // The shipped FIOS initialization ABI accepts both low bits (0..3),
+        // including Feveron's value 1. Neither changes this provider's read /
+        // callback contract. Keep rejecting the reserved upper bits.
         if (params.profiling || params.reserved0 || params.reserved1 || params.padding || params.reserved2[0] || params.reserved2[1] ||
-            params.profile_callback || (params.flags & ~2u) || params.internal_flags > 3 || params.tail_padding) { return kArgument; }
+            params.profile_callback || (params.flags & ~3u) || params.internal_flags > 3 || params.tail_padding) { return kArgument; }
         const auto path_max = std::min(params.header >> 16 ? params.header >> 16 : 1024u, 1024u);
         const std::array buffers{params.operations, params.files, params.directories, params.chunks};
         const std::array<std::size_t, 4> strides{(path_max + 0x107u) & ~std::size_t{7}, (path_max + 0x77u) & ~std::size_t{7},
@@ -410,7 +413,22 @@ int Terminate() {
     }
     service->Stop(); return 0;
 }
-int KT_SYSV FiosInitialize(const Params* params) { return Initialize(params, __builtin_return_address(0)); }
+int KT_SYSV FiosInitialize(const Params* supplied) {
+    const auto caller=__builtin_return_address(0);
+    const auto result=Initialize(supplied,caller);
+    if (result) {
+        Params params{};
+        if (Copy(supplied,&params,sizeof(params))) {
+            std::printf("{\"event\":\"native_fios_initialize_rejected\",\"result\":%d,\"header\":%u,\"parameter_bytes\":%u,"
+                "\"profiling\":%u,\"flags\":%u,\"internal_flags\":%u,\"operation_bytes\":%llu,\"file_bytes\":%llu,"
+                "\"directory_bytes\":%llu,\"chunk_bytes\":%llu}\n",result,params.header,(params.header>>1)&0x7fff,
+                params.profiling,params.flags,params.internal_flags,params.operations.bytes,params.files.bytes,
+                params.directories.bytes,params.chunks.bytes);
+        }
+        TraceNativeApi("sceFiosInitialize_rejected",static_cast<unsigned>(result),caller);
+    }
+    return result;
+}
 int KT_SYSV FiosOpen(const Attr* attr, Handle* output, const char* path, const OpenParams* params) { return Open(attr, output, path, params, __builtin_return_address(0)); }
 int KT_SYSV FiosClose(const Attr* attr, Handle file) { return Close(attr, file, __builtin_return_address(0)); }
 int KT_SYSV FiosStat(const Attr* attr, Handle file, Stat* stat) { return FileStat(attr, file, stat, __builtin_return_address(0)); }
@@ -467,6 +485,8 @@ bool FiosSelfTest(const std::filesystem::path& app, const std::filesystem::path&
     check("invalid_size_preserves_storage_and_does_not_start_workers", Initialize(&invalid, nullptr) == kArgument && !Current() && ops[0] == 73);
     invalid = params; invalid.files = invalid.operations;
     check("overlapping_workspaces_are_rejected", Initialize(&invalid, nullptr) == kArgument && !Current());
+    invalid = params; invalid.flags = 4;
+    check("reserved_initialization_flag_preserves_storage_and_starts_no_workers", Initialize(&invalid, nullptr) == kArgument && !Current() && ops[0] == 73);
     const auto original_params = params;
     check("initialization_starts_bounded_workers_without_modifying_params", Initialize(&params, nullptr) == 0 && Current()->workers.size() == 2 &&
         Current()->op_pool.used.size() == 4 && Current()->file_pool.used.size() == 2 && std::memcmp(&params, &original_params, sizeof(params)) == 0);
@@ -535,6 +555,22 @@ bool FiosSelfTest(const std::filesystem::path& app, const std::filesystem::path&
     check("restart_never_reuses_stale_file_identity", Initialize(&params, nullptr) == 0 &&
         Open(nullptr, &callback.file, "/app0/fallback.txt", nullptr, nullptr) == 0 && callback.file != file && Close(nullptr, file, nullptr) == kHandle &&
         Close(nullptr, callback.file, nullptr) == 0 && Terminate() == 0);
+    for (const unsigned flags : {1u, 2u, 3u}) {
+        auto options = params; options.flags = flags;
+        const auto initialized = Initialize(&options, nullptr);
+        Handle opened{};
+        bool valid = initialized == 0 && Current() && Current()->params.flags == flags;
+        if (initialized == 0) {
+            valid &= Open(nullptr, &opened, "/app0/overlay.txt", nullptr, nullptr) == 0;
+            data.fill(73);
+            const auto reading = opened ? Pread(nullptr, opened, data.data(), 5, 0, nullptr) : 0;
+            valid &= reading && Delete(reading) == 0 && std::memcmp(data.data(), "patch", 5) == 0 && data[5] == 73;
+            if (opened) { valid &= Close(nullptr, opened, nullptr) == 0; }
+            valid &= Terminate() == 0 && !Current();
+        }
+        const auto name = "initialization_flags_" + std::to_string(flags) + "_preserve_real_async_read_and_shutdown";
+        check(name.c_str(), valid);
+    }
     check("exact_library_and_module_identity_are_required", !ResolveFiosImport("wAKZ-det+yo", "wrong", "libSceFios2") &&
         !ResolveFiosImport("wAKZ-det+yo", "libSceFios2", "wrong"));
     std::printf("{\"event\":\"fios_self_test\",\"passed\":%s}\n", passed ? "true" : "false"); return passed;

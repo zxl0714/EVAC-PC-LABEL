@@ -6,6 +6,639 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+### v0.8.0 integration checkpoint — October 28, 06:26 local
+
+All four Xbox 360 CPU optimization actual comparisons are recorded below and
+in TEST_MATRIX. G2 final combination 1V run221857938Z-75992 used EXE8dde3aad,
+same Black Label/Seseri/No2; request22:21:02.024Z, crop50..65: CPU380.54ms/s,
+GPU3637.97us/frame, present mean16.6669/max17.618ms, no>20/audio0/queue42.7.
+Replay returned naturally; normal Alt+F4 and process gone confirmed. No current
+game remains. Reports g2-bl-native-onev-r1.json. 2V stays default.
+
+Native XBLA GUI implemented under tools/xbla-extract, static CRT, new-folder
+output with shared verified STFS reader. Build xbla-gui-build-r2 and native
+XBLA/DLC tests pass. Build/receipt/package and bilingual instructions updated.
+Actual raw container -> GUI extraction -> clean final package -> launcher ->
+stage1 -> exit acceptance remains; combine with ONE final ZIP extraction.
+Version is now 0.8.0 in product/CMake/release wrapper; final same-commit SDK,
+hosts/PS4/launcher builds remain. Full source tests running v080-source-final-r1.
+No local final package exists. Do not publish/upload/push/tag/message.
+
+### Guwange performance follow-up — October 28
+
+Two original completion waits are implemented and actually compared in
+`.local/v080-peers-perf-r1/collection`: callback word 82C0D578 and pending
+count 82C0D938, retaining predicates and original native instructions. Only
+the verified pending vtable reader 821F7868 is parked. After original writes,
+notify; bounded 50 ms fallback re-arms only on that producer. Host C5CD8C01,
+GPU a2aa3cda/runtime 8f318616; Blue Data 1, Shishin 22280, Stage1.
+Old shared/native baseline CPU 2054.54 ms/s. Candidate 525.17 ms/s, repeat
+via original Restart 522.17 (slightly different restart transition, not exact
+logical-frame alignment). Same-binary native-wait OFF reverses to 1871.27.
+Host-present maxima 18.287 / 17.372 / 17.794 / 17.451 ms; all zero >20 ms
+and audio silence. GPU ~5.13..5.29 ms, no confirmed improvement. Candidate
+17247 callback/pending waits each, zero fallback. Normal exits confirmed.
+Reports: `guwange-blue-shared-control-r1`, `guwange-blue-native-candidate-r{1,2}`,
+`guwange-blue-native-control-r2`. Candidate run 215919561Z-126408; reverse
+220410523Z-129004. Both are closed; no current game remains at this checkpoint.
+
+Follow-up is now ACCEPTED: queue-wait host A3BAD0CF, same Blue Data1 crop,
+ON 236.2637 CPU ms/s / GPU5170.02 us / max17.717ms, same-binary queueOFF
+509.8627 / GPU4444.74 / max17.563. Both zero >20ms/audio silence. No GPU gain.
+ON run221127352Z-128816 request22:12:49.850Z; OFF221426088Z-131060
+request22:16:57.985Z. Reports guwange-blue-queue-{candidate,control}-r1.json.
+10,527 queue waits /21,040 notifications/zero timeouts; both completion waits
+also zero timeouts. Pause->previousmenu->replay list and normal close passed.
+Both are closed (22:14:24/22:18:18 UTC). 500 shared +256 predicate checks pass.
+The raw/codegen hooks are verified and 9 Python wiring tests pass. The following
+paragraph records the implementation reasoning, not an outstanding candidate.
+
+Further read-only attribution found the renderer loop 821F6AC8 spends ~317
+CPU ms/s checking empty queues and native timing, after the two waits. Queue
+wait was generated/built in
+`.local/v080-peers-perf-r1/guwange-queue-{generation,build}-r1.log`.
+It parks only after all native queue locks are released at 821F6E78, when both
+ring queues are empty, the cleanup list is empty, no flush is pending and the
+verified thread-state reader 8220D948 says running. Notifications follow
+original resource/draw/frame enqueues, flush and cleanup readiness. Existing
+SignalWait (formerly SDOJ TickWait) was moved unchanged to the shared backend;
+SDOJ now aliases it, as with WordWait. Shared mechanism and predicate checks,
+generated hooks and actual A/B passed. 28 raw instruction checks also pass.
+
+Native RGBA8 resolve default is now TRUE in source after Futari actual A/B,
+GPU pixel validation and G2/SDOJ/Guwange representative checks. Final SDK receipt
+must be rebuilt; the current installed SDK still defaults FALSE, tested games
+explicitly opted in. Overwritten-upload shortcut remains FALSE.
+
+SDOJ Arrange smoke is complete: run 215139781Z-79440 entered Xbox360/SHOT
+stage1, paused, returned to 1P START and closed normally at 21:55:27 UTC.
+No frame-delay timeout. This overlapped generation, so not a performance run.
+
+### Expanded Xbox 360 optimization scope
+
+The user now requires optimization of all four Xbox 360 titles in this v0.8.0
+round. Finish Futari first, then ESPGaluda II, SDOJ and Guwange. Reuse measured
+shared-backend improvements, but inspect each game's actual wait producers,
+predicates and module lifetime before changing game-specific polling. Keep
+separate before/after evidence for each title, including frame pacing and a
+representative gameplay/replay check. Existing timing defaults stay unchanged.
+Do not mark the four-title work complete from Futari's results alone. The final
+local-package / stop-before-publication boundary remains unchanged.
+
+The latest user emphasizes that Futari's remaining ~198..217 CPU ms/s after
+polling removal is the MAIN optimization target, requiring repeated measured
+CPU rounds rather than stopping at the easy polling win or small GPU gains.
+Existing Arcade split is user157.97..173.99/kernel40.33..43.50 ms/s; this is not
+all proven useful game work. Attribute threads/functions, remaining busy waits,
+translation/dispatch, copies/state updates, drivers and synchronization first.
+Use the new HD No.5 replay for a separately frozen baseline; do not compare HD
+against Arcade. Keep benchmark-only/diagnostic cost separate, retain measurable
+changes, verify pacing/input/A-V/slowdown, then repeat before moving to peers.
+
+### Futari native-counter performance checkpoint
+
+The default module's native 8216B148 Present wrapper spins on 821F8560 at
+8216B244 (1V) / 8216B2E4 (0V); callback 8216AD44 increments it. Default-only
+hooks park with WaitOnAddress and wake after the original store. Original
+predicate, counter, GPU drain, frame-delay branches and guest registers remain.
+50 ms failure falls back to original polling; futari_host_vblank_wait=false
+also retains the control path. Thirteen raw instruction checks and generated
+hook inspection passed. C++ concurrent/predicate tests and three source tests
+pass. Microbench uses the production wait: original ~1016 CPU ms per 60 waits,
+address wait below GetThreadTimes resolution, median wake 7.2..7.6 us.
+Independent .local/v080-futari-perf-r1 used the same No.3 Ver1.5 Arcade Original
+Reco replay. Baseline 118632 and candidate 105616 each completed twice and
+closed normally. Request-relative early-stage crops show 1235 CPU ms/s before,
+217/198 after (82.4/83.9 percent less). Mean host-present interval 16.663 vs
+16.669/16.664 ms; max 17.528 vs 17.725/17.892 ms, no >20 ms or audio silence.
+This is short representative evidence, not exact logical-frame or physical
+latency proof. Candidate SHA 1a5d89e53147837cb442985d5ad8f569b18301be7071b9f66ede8101bc0fbc32.
+Report counter-comparison-r1.json and build-r1.log are under that fixture.
+GPU optimization remains open. Optional --d3d12_profile_submissions=true now
+records within-command-list GPU timestamp pairs, reclaimed only after the
+existing submission fence; it adds no waits/submissions and is disabled by default.
+Its explicit hardware test passed 275 submits, ring saturation/drop/reuse,
+incomplete/removal-fence guards and D3D12 debug validation with no errors.
+Build-Sdk receipt is gpu-timing-sdk-build-r1.log, three pairs verified. GPU DLL
+13548517e3015574692c9a02904988d2a6076bd53e1c57269bb3dd7cbc01bd8f was copied ONLY
+to the independent fixture; original remains baseline-host. Actual PID 24060
+played No.3 through Stage 1 and returned, then closed normally. Request was
+18:55:33.612 UTC; +9.5..14.5 sec crop has 300 frames, GPU mean 417.410 us / p95
+482.304 / max 518.144; CPU deferred-command encoding mean 113.745 us, median
+104.25. Mean 2.2 submissions, 282.57 draws, 3 guest resolves per frame. This
+excludes queue gaps, presenter/compositor/scanout and non-encoding CPU work.
+Report gpu-baseline-r1.json; target records rotated into game.1.log. Initial
+analysis of only game.log correctly failed for lack of samples; no new run.
+An opt-in Build-Sdk -GpuTraceBench now builds rexgpu_trace_bench and a one-shot
+trace request-file hook. Offline replay uses the real D3D12 backend and offscreen
+presenter; original capture-reference.ppm must match before accepting timings.
+Captures-r1/r2 were rejected: stable repeated output was still missing original
+textures. Trace fixes include advancing multi-range download offsets, honoring
+primary-buffer completion and invalidating all cached texture watches at capture
+start. Build r3 includes these fixes; HD pixel validation now passes. All
+evidence is private under .local/v080-futari-perf-r1; never package traces or ROM
+pixels. The SDK currently has developer tracing enabled: rebuild with the default
+OFF before final certification. No GPU optimization gain claimed yet.
+The user requested Xbox 360 HD mode for GPU capture. Use Ver1.5 Xbox 360 for the
+new GPU baseline; preserve earlier Arcade CPU evidence and do not compare costs
+across modes. PID 120084 entered Ver1.5 Xbox 360 / Normal Play / Original / Reco
+Normal stage 1, captured frame 37743, then closed normally. This fixture has no
+HD replays. Menu confirm is Z, but game mode/character/shot confirm is C in this
+copied profile; do not misdiagnose Z's lack of gameplay confirmation as input lag.
+captures-r3/435A07D7_37743.xtr is 93,962,619 bytes, SHA256
+82b7407447545024b3f3f37fb18108185aaddd53f24adb6ac6763a18b230b097.
+Original reference SHA256 af520eb54163766a692562e51eb81fb0ce3b450fab0d7e8f0ea082f0ffa1865e.
+Offline 3+5 then 20+120 replays all exactly matched the original 1280x720 RGB
+output (hash 5AAC8EE6FF984412); trace-baseline-r3 and trace-baseline-hd-r1.
+This is the first valid offline capture benchmark, NOT a GPU optimization gain.
+Replay wall time includes snapshot restoration/decompression; separate those
+costs before using it as a steady-frame CPU/GPU benchmark.
+
+Native GPU prototype: d3d12_native_rgba8_resolve remains default FALSE. It copies
+a fully owned, unscaled, single-sample RGBA8 host RT directly to guest tiled
+memory, preserving ownership, partial-page uploads, UAV ordering, invalidation
+and original clears; unsupported cases fall back. Scalar prototype had no stable
+gain. Current four-pixel Store4 shader passes 32 real GPU gradient/endian/swap/
+offset/partial-width cases with D3D12 validation, and all captured RGB pixels.
+Warm offline replay reuses only equal CPU bytes without GPU-written pages;
+snapshot restoration is still separate and this setup improvement is not a game
+optimization. GPU-free report tests pass 7 cases. A new production format/span
+policy test passes 35 checks; default/developer exported CommandProcessor layouts
+are now identical. SDK rebuild native-policy-sdk-build-r1.log passed three
+PE/PDB pairs; latest GPU SHA a462bba83e500a15bff91070d19c1aaac68da396db31a5fdb8206a2c7e57546f.
+native-policy-pixels-r1 passed 3+8 original-image comparisons with old/new
+alternating; 32 GPU cases still pass validation. This later SDK is installed
+but NOT copied into the actual-game fixture described below.
+128x actual-copy amplification, same-process old/new/new/old, 24 warm + 400
+measured, yields 22.46/23.25 percent GPU reduction in two runs (99 complete groups
+each). Normal 1x copies give only 2.17 percent median paired-group improvement;
+mean 8.69 percent is outlier-sensitive, NOT an in-game performance claim.
+Reports vector-interleaved-r1/r2.json and vector-normal-interleaved-r1.json.
+
+Actual prototype PID 111672, GPU DLL SHA 2fe6337fbda015f49af000e596423b854fd1aa2e70b6afce0e6f2a89d93a6bd8,
+explicitly enabled native resolve and timing in the independent fixture. After
+an initial accidental Arcade entry, returned to TOP and visibly selected Xbox360;
+Normal Play / Original / Reco Normal entered Stage1, shot/explosion/background
+looked correct, ended without continuing, and saved a NEW No.5 HD replay. Existing
+No.1..4 retained. replaydata.bin is 19,428 bytes, SHA256
+24964d7566abf172bd294bbfe4e4df7f6cab0a8d100fc654d0c27b5d0f244701.
+03:40:08..20 local contained 603 host-present intervals, mean16.6664/max18.600 ms,
+no >20 ms; audio silence0/queue42.7 ms. This is a smoke, not a matched A/B.
+native-hd-smoke-r1.json and run-20261027T193609875Z-111672 retain evidence. Normal
+Alt+F4 closed at03:42:19. New HD No.5 enables actual same-replay A/B next.
+
+CPU round 2 identified TimerQueue: HD sampler PID85696 measured ~120 CPU ms/s
+in that thread versus GPU worker31; IP wall samples are NOT on-CPU shares.
+The production 1ms KeTimeStampBundle timer still spun/yielded before sleeping.
+New Windows DeadlineWait uses a high-resolution one-shot plus retained auto-reset
+notification, checks original published sequence/deadline, preserves recurring
+due+=interval and Disarm. Unsupported/failing hosts or init option
+timer_queue_blocking_wait=false keep the original strategy. 79 production-queue
+checks pass in both modes (including 1000 callbacks, concurrent publication,
+earlier deadline, cancellation, self-disarm and shutdown); timing reports are
+timer-bench-{original,blocking}-r1.txt. SDK timer-sdk-build-r1.log verified3 pairs.
+Independent fixture runtime SHA8f318616a9b00dd1da5d111197344cd22dd58f615b7229f5e24f4220462a1a11;
+GPU stayed2fe6337f. Previous pair is timer-baseline-host (runtime4dbe6344).
+Actual No.5 HD baseline PID85696 request19:49:57.030UTC yielded296.62 CPUms/s.
+Candidate PID87692 requests19:54:53.633 and19:55:59.601 yielded131.63/114.33
+CPUms/s in the same +9.5..14.5sec crop (55.62/61.46% less). Mean present16.667;
+max17.384 baseline vs20.489/17.270. First candidate has ONE >20ms interval,
+retained, not declared pacing-clean. Guest VBlank max17.160 vs17.784/17.156;
+audio silence0/queue42.7. Both replay completions natural; normal close03:57:13.
+Thread-only non-suspending follow-up measured TimerQueue3.09ms/s, but that later
+window is result/menu, not the same Stage1 crop. Raw reports futari-hd-timer-*.json,
+collector results under .local/perf-compare-v075, .local/futari_timer_report.py.
+
+CPU round3 candidate now parks the GPU command worker directly rather than
+500 SwitchToThread calls before waiting. CallbackQueue adds synchronized enqueue/
+dequeue and notifies the same retained event; ring publication and shutdown
+already notify. Original option gpu_blocking_command_wait=false remains.
+command-wait-sdk-build-r1 verified3 pairs; 3+8 offline frames still match original
+RGB5AAC8EE6FF984412 (command-wait-pixels-r1). Production policy microbench60
+handoffs: worker cycles10.85m/9.70m original vs1.11m/1.48m parked; CPU timer
+resolution reports0 for both. Wake medians6.3/7.3us vs8.9/8.6us; concurrent/
+reentrant/callback-only/ring/shutdown checks pass. This is NOT actual-game gain.
+New SDK GPU/runtime must be used as a matching pair; full final host rebuild
+still required. Actual command candidate PID124508 used runtime8f318616 and
+GPU1af929f90d879439571352a358b07f17a69e91d079e585c6ddb97f433b3df7b8,
+both native-resolve and GPU profiling OFF. No.5 requests20:00:56.140 and
+20:02:03.431UTC gave101.875/111.228 CPUms/s at the same crop; mean present
+16.669/16.6655, max17.310/17.587, no>20 or audio silence, queue42.7. Both complete
+naturally. CTest4/4 passed (shared-wait-ctest-r1.log), including overlapping
+producers/consumer. Reports futari-hd-command-candidate-r{1,2}.json.
+Third No.5 request20:03:08.772UTC was solely non-suspending thread attribution,
+starting~5.5sec later for10.05sec: GPUworker24.876 CPUms/s, mainThr18.657,
+gameMain15.548, XThread15DB0 12.438, SDLAudio12.438, AudioWorker6.219,
+XThread1C3C0 6.219, two unnamed9.329/3.110, vsync1.555; TimerQueue below this
+GetThreadTimes resolution. This is a different window, not a sumable phase
+decomposition. Evidence command-candidate-gameplay-thread-cpu-r1.txt; replay
+SHA24964d75 remains unchanged. PID124508 returned to list for the third time and
+closed normally04:04:20.416. No game, collectors or builds running.
+Next: attribute useful CPU work (register state, memory protection/uploads,
+driver calls and guest/module processing) with low-overhead developer-only cycle
+scopes or representative offline benchmarks; do NOT stop at these wait wins.
+No final package exists; GPU and remaining three titles stay open.
+
+### Futari useful-work candidate checkpoint
+
+Developer CPU attribution now separates IssueDraw phases using thread cycles
+and wall time, plus nested upload/request subsets. It is compiled only with
+REX_GPU_TRACE_BENCH and disabled by default. Offline attribution exposed 6.35MB
+uploads/frame, but snapshot restoration can create these reloads. Never call
+this the live game's steady upload volume. Same-value shader constant dedup
+was tested in 400-frame ABBA: paired median -0.109%, no benefit. Removed that
+candidate; private constant-dedup-abba-r1 retains evidence.
+
+d3d12_resolve_skip_overwritten_uploads remains FALSE. Candidate avoids uploading
+old CPU contents for fully overwritten RGBA8 32x32 tile-row/page prefixes; tail
+still uploads normally, original RangeWrittenByGpu/watches/barriers preserved.
+108 policy checks pass. overwrite-upload-sdk-r2.log verified three PE/PDB pairs,
+GPU cffe670206b84b85e3c518847913bcfa98c2b108b769c6eef8f747a6e29289a9.
+Normal 400-frame offline ABBA (99 complete groups) saves21.81% median packet
+wall and38.95% GPU work, every output matches originalRGB5AAC8EE6FF984412.
+These are offline restoration/reload workloads, NOT in-game speedups.
+
+Same-DLL actual No.5 ON PID124440 requests20:19:18.203/20:20:18.965UTC:
+CPU127.85/144.38ms/s, present max19.745/17.389ms. OFF PID114952 requests
+20:24:19.636/20:25:25.838UTC:104.90/134.73ms/s, max17.342/17.499ms.
+All four crops +9.5..14.5s, no >20ms/audio silence, queue42.7. All replays
+complete naturally. OFF normal close04:26:34, unchanged replay SHA24964d75.
+No repeatable actual benefit: do NOT enable from offline numbers. Reports
+futari-hd-overwrite-{candidate,control}-r{1,2}.json remain private.
+
+Follow-up build actual-work-profile-sdk-r1 verified three pairs. GPU
+a2cf0580f3ded29fcae2ed7ec959046da56d116da5d2a86a0caf5ab7657cafdc copied only
+to independent fixture. PID85224 completed No.5 with cpu-work profiling ON and
+both GPU prototypes OFF; request20:29:12.592UTC, normal close04:30:43.
+Actual 240-frame crop uploads53,265bytes/frame vs6.35MB in offline replay.
+Draws278.55/frame, shared requests236.58, texture-prepare161.01; upload subset
+wall27.19us/frame vs offline350.72us. Thus overwritten-upload optimization
+targets replay restoration cost, not an actual dominant game workload.
+Report futari-hd-work-profile-r1.json. CPU_WORK aggregates
+60 swaps (frames field); offline bench uses1. Phase wall includes instrumentation,
+nested subsets overlap and are not additive; profile run is NOT a total-CPU A/B.
+SDK trace build must still be rebuilt OFF before final certification.
+
+Next useful-work change borrows the sole memory range instead of heap-allocating
+and sorting a one-element vector. Multi-range validation/sorting/merging, page
+validity, allocations and uploads unchanged. RangeRequests production helper
+passes18,201 boundary/random/reuse/input-preservation checks. Two microbench
+ABBA rounds: single normalization26.1ns->2.45ns, multi-range~33ns unchanged.
+This is a small mechanism gain, NOT a large total-CPU claim.
+range-sdk-r1.log verifies3 pairs, GPU d22ad2d17322d3d79faeba8bc1f7a076da5b40f15ba27fdc631f72fff5b70999.
+Separate baseline/candidate8+120 captured frames match originalRGB exactly;
+range-pixels-comparison-r1.json retains wall/GPU variability, no cross-process
+offline speedup claim. range-micro-r2.txt retained. Current installedSDK traceON
+includes helper; actual fixture still a2cf0580 profiling build, no game running.
+Four-title shared-wait rollout next; verify this small change in those actual
+short checks instead of another broad Futari campaign. Normal SDK rebuild
+shared-release-sdk-r1.log NOW completed with tracing OFF and3 pairs verified:
+GPU a8f2035729362962bcaa7d5e379a1d47c9e37fe6843a4e1396f1403b22699875,
+runtime8f318616 unchanged. Developer binaries preserved range-bench-candidate;
+do NOT run stale out/sdk-build/bin trace EXE against normal GPU. Six CTests
+(counter wait, both timers, command wait, range requests, resolve policy) pass.
+Fresh G2 perf fixture .local/v080-g2-perf-r1/collection copied ONLY runtime and
+user-data from g2-latency fixture, communityOFF,2V,IJKL,original data read-only.
+No.2 SHA54798537fe1a55e96e5f21c2c396537d8118014fabcef4669cb3090c13580862.
+Four-host normal build shared-hosts-r1.log completed successfully (70 steps,
+existing generated-code timestamps unchanged); all receipts/staging passed.
+Futari EXE e0b1156b and G2 EXE760d6fb0 now use GPUa8f20357/runtime8f318616.
+Independent G2 perf fixture has those fresh runtime/module files, not old ones.
+Next matched same-binary shared wait OFF/ON No.2 G2 samples; CPU20s crops
+preferred over5s. Final same-commit build/package is still pending.
+
+### Futari actual single-pass-copy comparison
+
+Normal trace-OFF SDK, same HD No.5, both shared waits ON, overwritten-upload
+experiment OFF. GPU timestamps ON on both sides. No other builds during runs.
+OFF PID83852 (closed) requests20:44:51.405/20:45:51.338UTC: CPU151.44/131.29ms/s,
+GPU791.02/769.05us per frame, host-present max20.278(one>20)/17.245ms.
+ON PID111876 (closed) requests20:48:36.788/20:49:51.813UTC: CPU77.37/84.21ms/s,
+GPU626.33/622.47us, present max17.802/17.834ms, no>20. Reverse OFF PID124636
+request20:54:16.444UTC: CPU91.06ms/s, GPU804.06us, present max19.595ms, no>20.
+All same +9.5..14.5sec crop, 299/300 valid GPU frames each, silence0/queue42.7.
+Reports futari-hd-native-{control-r1,control-r2,candidate-r1,candidate-r2,
+control-r3}.json under .local/v080-futari-perf-r1. Reverse control confirms
+GPU reduction (~19..23%), but CPU varies substantially even with path OFF;
+do NOT claim the first two runs' ~40% CPU difference as a stable causal gain.
+Original images and independent GPU correctness checks already pass. Native
+copy remains default FALSE pending the other titles' short shared-backend
+checks; overwritten-upload stays FALSE because actual benefit was not seen.
+Ordinary screenshots of gameplay are not pixel-exact validation. Neither
+GPU command-list timestamps nor host present intervals are display scanout.
+
+### G2 shared-performance rollout and native fence candidate
+
+Futari reverse-control PID124636 completed No.5 and closed normally04:55:22.
+G2 independent perf fixture now has actual same-No.2 baseline/candidate:
+OFF PID71148 request20:56:38.398UTC, both shared waits/native-copyOFF;
+ON PID32968 request20:59:31.135UTC, both waits/native-copyON; GPU timestampsON
+on both, frame_delay2 unchanged. No.2 contains ~30sec of character selection;
+use +50..65sec actual Stage1, NOT the initially proposed +15..35 crop.
+CPU1296.45->1185.59ms/s; GPU4003.25->3825.28us, maxhost19.296->18.624ms,
+no>20/audio silence, queue42.7. Only one aggregate A/B, not isolated native-copy
+proof. Both full recordings returned to the list, normal close04:58:15/05:01:22.
+Reports g2-bl-gameplay-{control,candidate}-r1.json in .local/v080-g2-perf-r1.
+Initial g2-bl-shared-control-r1 collector ended too early, preserve but do not
+use its whole-window CPU as Stage1 evidence. No game/collector remains.
+
+Separate candidate MENU sampler menu-hotspots-r1.txt found MainXThread~995
+CPUms/s and native sub_82173AE8/sub_8216FF48. IP samples perturb scheduling,
+not timing acceptance. This loop waits for the device's completed GPU serial
+through device+10896, with submitted+10908 and original modulo predicate.
+New G2-only hook at82173B78 parks the canonical physical alias; EVENT_WRITE_SHD
+notifies after its unchanged original store. Original watchdog/helper,
+comparisons, stores and 2V/1V presentation policy remain. Failure50ms disables
+host parking and keeps native polling; lifecycle stop wakes last parked word.
+Source tests3 pass, 9 original instruction checks pass (fence-raw-r1.json).
+Raw default hash7991cb83. New production helper test covers alias mapping,
+wraparound, publish-before-wait, concurrent notification and CPU microbench.
+Normal SDK fence-sdk-r2 and four-host fence-hosts-r3 builds now pass. First SDK
+link needed synchronization.lib; first host compile used unavailable generated
+load macros. Retain both failed logs. First actual candidate PID121172 completed
+No.2 but CPU1187.96ms/s was unchanged: its raw base+address read omitted the
+E0000000 physical alias's +1000 host offset. WaitOnAddress returned immediately,
+4.50 billion calls; NOT an accepted optimization. Process closed normally.
+ReadGuestWord now uses Memory::TranslateVirtual, volatile loads and byte swap.
+Two extra mapping regression checks plus existing tests pass (2523 checks).
+SDK GPU a2aa3cda / runtime8f318616, corrected EXE8dde3aad. PID108352 completed
+the same No.2 twice at2V, requests21:13:47.348/21:15:30.906UTC. Same +50..65sec
+crop: CPU394.00/368.54ms/s vs prior shared-only1185.59; GPU3856.84/3916.48us;
+host mean16.666/16.668ms, max19.215/18.882, no>20 or audio silence, queue42.7.
+Both first stages visually confirmed, both natural list returns. No fallback;
+29921 waits by normal close05:17:04.595. Reports g2-bl-fence-candidate-r2/r3.
+Separate sampler at21:16:43.127 (+72sec, AFTER measured crop) found main147,
+GPU134CPUms/s; this late replay/result window is NOT a phase breakdown of crop.
+Same-binary reverse OFF PID110704, request21:18:12.791UTC, completed No.2:
+CPU1199.04ms/s, GPU3720.90us, hostmax18.715/no>20/audio0, queue42.7.
+Report g2-bl-fence-control-r2 confirms ~67..69% CPU reduction from this wait.
+Closed normally after natural list return. Next peers' shared-performance A/B.
+Native-copy still defaultFALSE until peer checks. Do not edit during receipt builds.
+
+### SDOJ native-wait optimization checkpoint
+
+Read-only raw/default and both-module instruction audits located three busy
+waits: callback flag8279C770 (8219D9B4/DA84, producer8219CD08), pending frame
+count8279C774 (8215298C, audited vtable+68 target8219DE60, producer8219DB18),
+and module native tick886B41EC+Offset (880332D0, producer88030DF0). Native stores,
+comparisons, GPU drain, frame-delay policy and guest registers remain unchanged.
+Tick wait also wakes for the original teardown/reset stores88030A8C/880316A4.
+Host uses init-only sdoj_host_callback_wait; module sdoj_host_tick_wait. Both
+default true; sdoj_poll_callers is bounded16sites/thread and default false.
+
+Both original predicates can legitimately wait >50ms while loading/compiling.
+Failed r2 host disabled all waits forever; r3 fixed host waits but the module
+still latched off during load. Preserve those results. Current r4 WordWait and
+TickWait fall back to original polling until their own original producer is
+observed again; notifications cannot undo lifetime Stop. 500 C++ checks and92
+SDOJ Python tests pass, original frame-delay ownership1371 checks also pass.
+Build native-wait-build-r4.log is incremental, NOT final receipt certification.
+Host SHAe5b8ba336e2a930b2dc8083c661d307f8c17a31eb9ede5678d21ba755748163c,
+normal module34a28dcd5cc8d8f1af4df43b89dd99d82ac7666b165a927e1770f1d597cb47d6,
+Arrange00e0dcaca2453b8ff69dd66599acc7bdd3bfb0ce02a4dba5a19c739503a80fe1.
+
+Independent fixture .local/v080-peers-perf-r1/collection, communityOFF,1V,IJKL.
+Arcade HD No1 TypeA Shot 1458133783 Stage4, request-relative15..35s Stage1 crop.
+Control PID112328 request21:27:02.607UTC:3316.10CPUms/s, GPU6732.71us/frame,
+host mean16.6668/max17.896ms,0>20/audio0. Old module, shared waits/native copyOFF.
+r3 PID123800 request21:35:36.085UTC:1340.71CPUms/s,GPU6559.00us,max17.495,
+0>20/audio0; tickwait fell back on load, later non-suspending thread check still
+finds one~994CPUms/s native module thread. Both hosts now park successfully.
+Normal close21:36:38.240UTC. r3 is partial progress, not the final candidate.
+All use GPU timestampsON and log_max_file_size_mb=64 solely for capture; otherwise
+the many submissions rotate away the sample. No production log limit change.
+Final r4 PID81824 requests21:38:26.216/21:40:20.083UTC give412.646/456.030CPUms/s,
+GPU6639.24/6631.59us, host max17.868/17.841ms,0>20/audio0/queue42.7. Original
+pause/return-to-menu then re-enter succeeds, normal close21:41:10.841UTC.
+Same EXE/modules reverse control PID116176 disables ONLY the two SDOJ waits,
+shared waits/native copy stayON. Request21:42:42.057UTC:3294.734CPUms/s,
+GPU5737.67us,host max17.562ms,0>20/audio0; normal close21:43:30.188UTC.
+Thus native waits alone reduce CPU86.2..87.5%; GPU fluctuates with no proven
+SDOJ gain. No clock-locking or power-setting changes. Logs/report filenames
+sdoj-arcade-native-{candidate-r4,candidate-r5,control-r3}. Only Stage1 short crops,
+not full four-stage replay. Post-crop perturbing sampler finds GPUworker181,
+native-render122, another native worker59CPUms/s; tickthread3.1, no saturated
+native waiters. IP residency is not on-CPU attribution. All processes closed.
+Arrange module shares audited tick hook addresses but still needs its short
+actual entry/exit smoke before final certification. Evidence and failed raw
+runs are retained under that fixture.
+
+### G2 low-latency and Futari replay-author checkpoint
+
+G2 configurable frame_delay=1/2 is implemented; default and missing values are 2.
+Native post-VBlank notification plus a bounded host gate replaces only Present's
+queued sync in mode 1. Existing GPU drain, resolve, swap and retirement remain.
+1013 gate checks, 561 common checks, three source contracts and the existing
+37 raw-instruction/63-instruction comparison passed. Independent fixture
+.local/v080-g2-latency-r1/collection ran the same Black Label/Seseri/No.2 replay
+fully with no playback input at 1V (PID 74232) and then 2V (PID 105632).
+Both reached stage 1 and returned to the list, then closed normally. Module
+lifetimes were 77.769 and 77.804 seconds; this is a coarse duration check, not
+deterministic slowdown or physical-latency proof. Replay bytes stayed unchanged.
+The initial 1V shutdown warning meant Stop cancellation; the rebuilt candidate
+logs that normal path at INFO. Latest G2 EXE SHA256 is
+9120760df9083b9c602b08d988a01fbe3b12826060c191df77c525278ed7b9c7.
+Causal timing, stressed slowdown equivalence and final A/V scope remain open.
+
+Futari's replay author defect is traced to the native local-list refresh at
+821AA000: metadata +32 equal to the local XUID replaces +12 with the local name.
+An actual HTTPS Black Label replay has that shared local B13EBABEBABEBABE XUID.
+The candidate binds verified downloads to the cached score author's display tag
+and a stable SHA256-derived C-prefix XUID, touching only +12..27 and +32..39.
+The server's original attachment and local recording path are unchanged.
+Native loopback tests (including cold session, changed nickname/token order,
+offline byte readback, separate authors and compressed-stream preservation) pass.
+Build/tests: .local/v080-futari-author-{build,tests}-r1.log. Actual download and
+save passed with ReplayViewer (PID 122028); cold offline PID 119536 showed No.5
+as xiaolu while prior same-local-ID records showed User. Config was renamed to
+OfflineViewer, but offline provider uses User, not that config nickname.
+Both processes closed normally. Saved file SHA stayed 672e6ad7; original and
+downloaded copies of the same full recording differ only at local +40..47 XUID.
+Evidence: .local/v080-futari-author-cold-r1.json, TEST_MATRIX. The Futari bug is
+complete; inspect G2/SDOJ/Guwange author handling separately, as the user asked.
+Do not apply Futari metadata offsets to those formats. Keep original data intact.
+
+G2 also has the author bug: 8209BBD8 compares record +64 XUID to local identity,
+renames +80, and resolves foreign nonzero IDs through legacy Live lookup. Its
+zero-owner branch preserves the embedded author. The new optional NativeSchema
+prepare_download callback runs only after attachment/hash/run verification;
+G2 clears owner, stores the rank author and updates the native save checksum.
+No SDOJ/Guwange callback is enabled. Eleven raw checks and seven targeted
+community CTests pass; .local/v080-g2-author-{raw-r1.json,tests-r1.log}.
+Build-r2 succeeds with EXE SHA d78b8b28f0ab7ecd6d9e5340b25ca8a09480c7de937e073d6b931b86b6cccc0d.
+Actual PID 73772 downloaded CollectionCheck/10 via Black Label/Seseri view 39,
+saved empty No.3; offline cold PID 103736 showed CollectionCheck while old No.2
+showed User. Both closed normally. Independent fixture v080-g2-author-r1.
+Old/new copies differ only in owner +64..71 and checksum bytes +2/+3;
+input stream and tag identical. Saved/cold reports are in .local.
+The first-download issue is now fixed. Diagnostic PID 122228 proved cold
+view 73 capacity=0 / required=88 before HTTP. G2's sole remote-path caller at
+820AB67C..820AB6A8 has a 2048-byte array at object+5876, then length at +7924.
+G2's adapter initializes that exact verified/writable layout on every download;
+the shared API retains its insufficient-buffer behavior. 17 raw checks and
+seven community CTests pass; .local/v080-g2-path-{build-r3,tests-r1}.log.
+Candidate EXE SHA b88e6dead5aeab96acc44ed716b0b0ee803006308148c4f8f9227768dc1f7623.
+Cold PID 124048 succeeded on its FIRST view 73 download, saved empty No.4, and
+closed normally. No.4 is byte-identical to previously accepted No.3 (33afeee0).
+Failed diagnostic run and two intermediate build errors are retained.
+SDOJ local-list loader 8212E878 sets renderer mode +7772 to 3; 821479B8 prints
+the row-name field only for mode 1. Offline PID 126540 confirmed Arcade HD's
+local list shows date/score/character/style/stage, not an author. Guwange's
+offline PID 115200 confirmed Arrange Xbox 360 Data 2 (previously downloaded
+Shishin/5336) shows date/stage/characters/scores, with no author field either.
+Downloaded GWN_RP_XB01.bin remains SHA256 faf6fd90028a8739b90eade2aa23c8401537cb0fe27695a6bdba24e3cd588fdc.
+Both peer processes closed normally; independent fixture is
+.local/v080-replay-author-peers-r1/collection. Neither title needs the Futari/G2
+author rewrite; their existing download-byte-preservation loopbacks pass.
+This completes the four-title author audit, not a new networking campaign.
+
+### Active Feveron implementation checkpoint
+
+The v0.8.0 branch now has a 46-file Feveron base-US data manifest, native
+preparation policy/build routing and focused catalogue/compatibility checks.
+SFO APP_VER is 01.00; VERSION 01.01 is not the application patch version.
+Original data remains at .local/v080-feveron-base-r1/uroot. Native prepared
+paths are in .local/v080-feveron-prepare-r1.json, warm cache checked.
+First execution stalled because native_fios rejected flags=1. The supplied
+FIOS initializer accepts 0..3; corrected mask with 29 passing production-provider
+fixtures, including real asynchronous reads, callbacks and original file hashes.
+Build receipt: .local/v080-feveron-fios-flags-build-r1.log (7 PE/PDB pairs).
+Actual r4 offline test entered ARCADE Type-A / Lock-On / speed 2 first stage.
+The collection route, isolated settings/profile/logs and native community identity
+are now implemented. Catalogue is integrated and communitySupported is true
+after local and production acceptance. Stage emits four PS4 hosts and manifests.
+Local live test .local/v080-feveron-online-r1/play-r2.jsonl entered the same mode,
+scored 7 with shot/bomb, ended without continuing, uploaded score/replay to boards
+0 and 1, displayed FeveronCheck/7 on the ranking screen and downloaded to native
+slot 0017-0000. Two scores and two replays are in the independent play.sqlite3.
+Local service was stopped; offline-r1 with community disabled and nickname
+OfflineViewer displayed original author FeveronCheck/7 and played the entire
+~1:23.56 downloaded recording through GAME OVER to the list without input.
+No community request/unimplemented import was recorded. That process is closed.
+All UI tests use the existing --diagnostic-tap-ms 120, not physical-input proof.
+Prior game closes returned the existing exit-27 presentation-cleanup receipt.
+Feveron local replay fix removes only two network gates in the verified original
+title_replay_view script, via immutable read overlay. 123 resource checks and
+cold/warm preparation pass; CLI and cache overlays have the same SHA256. Latest
+build .local/v080-feveron-cli-build-r1.log certifies seven PE/PDB pairs. Native
+profile 86 checks and four independent HTTP cases pass. See TEST_MATRIX.
+SUPER EASY / Type-B, FEVER / Type-A and CUSTOM / Type-A each entered actual
+stage 1 and opened Pause Menu in modes-r1. A separate settings-cold-r1 process
+restored CUSTOM on its Pause Menu, then closed with presentation cleanup 27.
+US mode reset uses held Cross: --diagnostic-cross-hold-ms 1500 enables H only
+for these explicit developer runs; ordinary input is unchanged. Built in
+.local/v080-feveron-cross-hold-build-r1.log; 42 pad checks and 27 content/CLI
+checks pass, including disabled defaults, bounds and Circle/Cross exclusivity.
+Player placement/readmes and the v0.8 eight-game package profile are added;
+49 package tests pass (one existing link-privilege skip). No final ZIP exists.
+The service-only local commit is eba1845. Production installation passed 18 tests,
+eight HTTPS health checks, empty-board read and a consistent first backup.
+Seven peer PIDs/links and previous nginx route bytes are unchanged. Evidence:
+.local/v080-feveron-deploy-r1/installed.json. No release or Git push.
+production-r2 (configured provider, real HTTPS) completed CUSTOM / Type-A /
+Lock-On / speed 2 with score 5, no continue. Boards 60/61 accepted both score
+and 16,622-byte native replay; ranking displayed FeveronCheck/5; download passed
+the native envelope check and saved. This uses actual gameplay, not fixtures.
+production-r1 lacked the diagnostic CLI's explicit provider flag and stayed
+offline; retained as setup evidence, not a service failure. Normal collection
+launch already supplies --community-provider configured.
+The enabled build is .local/v080-feveron-enabled-build-r1.log (7 PE/PDB pairs).
+18 config, 547 common, 153 launch, 300 hidden UI checks and three-language preview
+pass. Nickname coverage now uses Feveron's 799 glyph codepoints, with its 46
+additions and eight exclusions, without changing peers. No physical-input/full
+campaign acceptance is claimed. Feveron integration is complete for the agreed
+representative scope; final same-commit package build remains with v0.8 delivery.
+The eight-title latency evidence table is now in docs/ANALYSIS.md. New
+scripts/present_latency.py has 13 passing tests and reuses the accepted Futari
+PresentMon 2.6.0 scene crops. Present entry to OS display median is 0.3779 ms
+for EVAC v0.7.5 (539 samples, Independent Flip), 11.31465 ms for Xenia 291f0c9
+(598, Composed Flip). These are different display configurations, not physical
+input latency or a controlled architectural advantage. Reports and input hashes:
+.local/analysis/v080-latency-r1/{evac,xenia}-futari-present.json. Both SyncInterval
+values are zero. Guest FrameDelay was not read back in those historical runs.
+Current input audit: both EVAC backends use SDL3; PS4 sampler is ~16.67 ms with
+pending-edge sampling at reads; shadPS4 v0.20.0 has event updates plus 4 ms timer.
+Xenia selected build uses SDL2 for SDL and also has XInput; old capture used keyboard.
+Do not infer per-device latency from timer periods or SDL library major versions.
+Full software causal chains and physical input/photon measurements remain open;
+do not block implementation on unavailable hardware measurements. The user is now
+asleep/unavailable and requests autonomous operations with no manual keypress help.
+Continue the comparison and then G2 experimental 1V; no release publication.
+
+### v0.8.0 — implement locally, stop before publication
+
+The active user goal is to implement v0.8.0 and finish a verified local package,
+then stop before a formal Release. Scope is Feveron integration (play,
+saves/replays and community networking), Futari Black Label downloaded-replay
+authorship, Guwange's first-time XBLA workflow, and Xbox 360 runtime CPU/GPU
+performance optimization of all four Xbox 360 titles, completing Futari first
+as the representative workload before ESPGaluda II, SDOJ and Guwange. The G2
+input-to-output comparison is complete. The user subsequently requested an
+experimental configurable G2 1V mode for v0.8.0, to be implemented AFTER Feveron.
+The latest user request adds an eight-title input-latency comparison table:
+finish Feveron first, then compare current ports with Xenia (360) or shadPS4
+(PS4), then implement G2 1V and add its result. Include the default settings and
+optional latency modes separately, emulator versions, matched scenes/settings,
+frames/ms, differences and evidence. Distinguish game-side V policy, software
+input-to-corresponding-presentation timing and physical input-to-photon latency;
+never turn static policy or FPS into measured latency or assume an emulator adds
+a fixed frame. Reuse reliable evidence and representative short checks, not a
+full-mode campaign; mark unavailable measurements explicitly. See the plan.
+The comparison now also includes physical device-to-game and submission-to-display
+latency, not only the middle game pipeline. Audit the actual SDL/XInput/HID input
+routes and sampling of EVAC, Xenia and shadPS4; both current EVAC input backends
+use SDL3. Separate earliest observable OS/SDL event, guest API return and actual
+logic consumption. For Futari 1V, distinguish guest immediate presentation from
+host Present(0): GPU/queue, compositor/flip, scanout and panel response remain.
+Record actual refresh/VRR/presentation mode and measurement endpoints; software
+events/Present return are not physical button/photons. Do not invent absent
+hardware measurements, sum overlapping phases or add separate medians as totals.
+Keep the current 2V strategy as default (including a missing setting), preserve
+explicit switching back to 2V, and validate timing/slowdown, replays and A/V.
+Do not add the optional
+keyboard, audio, build-parallelism or compression backlog to this version.
+G2 analysis is complete: its native standard D3D Present wrapper and device
+flags correspond most closely to Futari 2V, not default Futari 1V. Xbox360 and
+Black Label core entries are synchronous before draw/present. This is a static
+presentation-policy comparison, not measured physical or fixed 33.3 ms latency.
+37 raw-section checks and a 63-instruction Present comparison are recorded in
+.local/analysis/g2-latency-r1/comparison.json; see docs/ANALYSIS.md. No G2 timing
+or configuration was changed during the analysis. The later user request now
+authorizes the separate experimental implementation, after Feveron integration.
+Use the current worktree, keep older projects/data/releases intact, and record
+focused evidence in TEST_MATRIX. Local source commits for build/package identity
+are normal steps; do not publish, upload packages, push release tags or announce.
+The external program ZIP is the required deliverable; internal data packaging is
+not requested in this goal. Complete actual targeted acceptance, not just source
+tests, before handing over the local candidate and concise bilingual notes.
+
+Xbox 360 performance is now a required v0.8.0 item, not optional backlog.
+Try replacing costly polling with correctly synchronized host waits while
+preserving frame pacing, input response, audio and original slowdown. Profile
+CPU and GPU separately; production-backed microbenchmarks should guide repeated
+optimization, including GPU backend changes and verified title-specific native
+fast paths. Freeze a same-scene baseline, repeat measurements, validate output,
+then report CPU execution cost, actual GPU work and frame-time tails before/after.
+Do not count a lower utilization percentage or synthetic-only speedup as the
+requested meaningful in-game gain. This authorizes focused iterative performance
+work, not removal of necessary synchronization or changing game speed.
+
+Futari Black Label
+shows the current player's own nickname as author after downloading someone
+else's replay to the local list. Fix in v0.8.0; cause and reproduction remain
+unconfirmed. Preserve the original author through download, save and local list
+loading. Cover different author/downloader nicknames, cold restart, a local
+nickname change and the player's own recordings. See docs/IMPLEMENTATION_PLAN.md.
+
+Perform a Guwange first-time-player workflow audit for v0.8.0. Start with
+only a clean external program package and the original XBLA container; verify
+the bundled extractor, discoverable steps/dependencies, output placement under
+game-data/guwange, launcher detection and actual first-stage entry/exit. Do not
+rely on a developer checkout, prepared data or existing caches. Assess the flow
+for players unfamiliar with shell commands and fix concrete friction with minimal
+changes, keeping bilingual placement guidance aligned. Initial implementation
+has not yet passed new gameplay or onboarding acceptance.
+
 ### v0.7.6 — published October 27
 
 Published at 23:18 Asia/Shanghai:

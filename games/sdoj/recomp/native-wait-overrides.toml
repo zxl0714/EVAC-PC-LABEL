@@ -1,0 +1,28 @@
+# Disc-base default module only. Original code and callback stores remain.
+[[midasm_hook]]
+address = 0x8219D9B4
+name = "SdojWaitCallback"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x8219DA84
+name = "SdojWaitCallback"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x8219CD08
+name = "SdojCallbackChanged"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x8215298C
+name = "SdojWaitPendingFrames"
+registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x8219DB18
+name = "SdojPendingFramesChanged"
+registers = ["context", "memory"]
+
+# Optional bounded caller census; no guest mutations.
+[[midasm_hook]]
+address = 0x82215758
+name = "SdojPollCaller"
+registers = ["context", "memory"]

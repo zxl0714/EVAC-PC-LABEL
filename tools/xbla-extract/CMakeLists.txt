@@ -1,0 +1,16 @@
+add_library(xbla_extract_core STATIC extract.cpp ../../common/stfs.cpp ../../common/paths.cpp)
+target_include_directories(xbla_extract_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}")
+target_compile_definitions(xbla_extract_core PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+if(MSVC)
+  target_compile_options(xbla_extract_core PUBLIC /utf-8)
+endif()
+target_link_libraries(xbla_extract_core PUBLIC bcrypt ole32)
+add_executable(xbla_extract WIN32 main.cpp)
+set_target_properties(xbla_extract PROPERTIES OUTPUT_NAME "Extract-XBLA")
+target_link_libraries(xbla_extract PRIVATE xbla_extract_core comctl32 shell32 uuid)
+target_link_options(xbla_extract PRIVATE "LINKER:/MANIFEST:EMBED"
+  "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/common/windows.manifest"
+  "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/tools/ps4-extract/windows.manifest")
+foreach(target xbla_extract_core xbla_extract)
+  set_property(TARGET ${target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endforeach()

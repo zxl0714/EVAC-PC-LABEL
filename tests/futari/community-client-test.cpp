@@ -96,6 +96,26 @@ void ReplayTest() {
   bool rejected_local=false;
   try{FutariValidateStorageReplay(record);}catch(const std::exception&){rejected_local=true;}
   Check(rejected_local,"local save slot accepted as a native network replay");
+  auto author_record=storage;
+  FutariSetStorageReplayAuthor(author_record,0xc123456789abcdefull,"OriginalAuthor");
+  Check(rex::memory::load_and_swap<uint64_t>(author_record.data()+32)==0xc123456789abcdefull
+      && std::string(reinterpret_cast<const char*>(author_record.data()+12))=="OriginalAuthor",
+      "download author did not use native metadata offsets");
+  for(size_t i=0;i<storage.size();++i)
+    if(!(i>=12 && i<28) && !(i>=32 && i<40))
+      Check(author_record[i]==storage[i],"author binding changed native replay data");
+  for(const auto bad_tag:{"", "0123456789abcdef", "bad\nname", "\x80"}) {
+    auto unchanged=storage;bool rejected=false;
+    try{FutariSetStorageReplayAuthor(unchanged,0xc123456789abcdefull,bad_tag);}
+    catch(const std::exception&){rejected=true;}
+    Check(rejected && unchanged==storage,"invalid author tag modified the replay");
+  }
+  for(uint64_t bad_xuid:{0ull,0xB13EBABEBABEBABEull}) {
+    auto unchanged=storage;bool rejected=false;
+    try{FutariSetStorageReplayAuthor(unchanged,bad_xuid,"Author");}
+    catch(const std::exception&){rejected=true;}
+    Check(rejected && unchanged==storage,"local/empty author identity accepted for a download");
+  }
 }
 void ReplayPathAbiTest(const std::string& endpoint,const std::filesystem::path& directory) {
   using namespace rex::system::xam;
@@ -330,10 +350,49 @@ void ProviderTest(const std::string& endpoint,const std::filesystem::path& direc
         "native Info menu's replay-present offset was not set");
   }
   auto downloaded=transfer(viewer,{7001,shared.xuid,false,uint32_t(record.size()),{}});
-  Check(!downloaded.error && downloaded.record==record,"independent replay download changed native record");
+  Check(!downloaded.error && downloaded.record.size()==record.size(),"independent replay download failed");
+  auto expected_download=record;
+  const auto stored_author=rex::memory::load_and_swap<uint64_t>(downloaded.record.data()+32);
+  Check((stored_author>>60)==0xc && stored_author!=shared.xuid,
+      "stored replay author depends on the local profile or transient leaderboard token");
+  FutariSetStorageReplayAuthor(expected_download,stored_author,"NativeTest");
+  Check(downloaded.record==expected_download,"download changed bytes outside verified author metadata");
+  // The original local-list routine compares metadata XUID at +32 with the
+  // current profile, refreshing +12 only for that owner's own recordings.
+  auto native_display=[](const std::vector<uint8_t>& bytes,std::string local_name) {
+    if(rex::memory::load_and_swap<uint64_t>(bytes.data()+32)==0xB13EBABEBABEBABEull)return local_name;
+    return std::string(reinterpret_cast<const char*>(bytes.data()+12),
+        strnlen(reinterpret_cast<const char*>(bytes.data()+12),16));
+  };
+  Check(native_display(record,"Viewer")=="Viewer","fixture no longer reproduces the shared-XUID defect");
+  Check(native_display(downloaded.record,"Viewer")=="NativeTest"
+      && native_display(downloaded.record,"ChangedLocalName")=="NativeTest",
+      "downloaded author follows the local nickname");
+  Check(native_display(record,"NativeTest")=="NativeTest",
+      "own recording author no longer follows the native profile rule");
+  const auto saved_download=directory/"downloaded-replay-fixture.bin";
+  {std::ofstream file(saved_download,std::ios::binary);file.write(
+      reinterpret_cast<const char*>(downloaded.record.data()),downloaded.record.size());}
+  auto disk=Read(saved_download);std::vector<uint8_t> disk_record(disk.begin(),disk.end());
+  Check(disk_record==downloaded.record && native_display(disk_record,"OfflineNewName")=="NativeTest",
+      "offline readback lost the saved author");
+  {
+    FutariCommunity restarted(endpoint,"ChangedLocalName","newer-host-build",directory/"viewer-cold");
+    // Deliberately change token allocation before fetching the original author.
+    FutariCommunity another(endpoint,"AnotherAuthor","test-build",directory/"another-author");
+    auto other_write=write;other_write.view=7099;
+    std::promise<uint32_t> done;auto future=done.get_future();
+    another.Write({other_write},[&](auto error){done.set_value(error);});
+    Check(future.wait_for(5s)==std::future_status::ready && !future.get(),"independent author fixture failed");
+    auto other=fetch(restarted,7099);(void)other;
+    auto cold_row=fetch(restarted,7001);
+    Check(cold_row.xuid!=shared.xuid,"cold replay check did not change transient token allocation");
+    auto cold=transfer(restarted,{7001,cold_row.xuid,false,uint32_t(record.size()),{}});
+    Check(!cold.error && cold.record==downloaded.record,"cold download changed persistent replay authorship");
+  }
   auto staged_shared=fetch(viewer,7020);
   auto staged_download=transfer(viewer,{7020,staged_shared.xuid,false,uint32_t(record.size()),{}});
-  Check(!staged_download.error && staged_download.record==record,"upload-before-score published incorrect replay");
+  Check(!staged_download.error && staged_download.record==expected_download,"upload-before-score published incorrect replay");
   Check(transfer(viewer,{7001,shared.xuid,false,uint32_t(record.size()-1),{}}).error!=0,
       "oversized replay accepted into native buffer");
   Check(transfer(viewer,{7002,shared.xuid,false,uint32_t(record.size()),{}}).error!=0,
@@ -405,7 +464,12 @@ void ProviderTest(const std::string& endpoint,const std::filesystem::path& direc
     Check(std::filesystem::is_empty(staged_profile/"community/outbox"),"staged run did not retry after restart");
     auto row=fetch(retry,7021);
     auto replay=transfer(retry,{7021,row.xuid,false,uint32_t(record.size()),{}});
-    Check(!replay.error && replay.record==record,"staged retry lost exact run/replay association");
+    Check(!replay.error && replay.record.size()==record.size(),"staged retry download failed");
+    auto expected=record;
+    const auto author=rex::memory::load_and_swap<uint64_t>(replay.record.data()+32);
+    Check((author>>60)==0xc && author!=stored_author,"different replay authors shared an identity");
+    FutariSetStorageReplayAuthor(expected,author,"StagedRetry");
+    Check(replay.record==expected,"staged retry lost exact run/replay association");
     retry.Stop();
   }
   Check(std::filesystem::is_empty(staged_profile/"community/pending-replays")
@@ -540,6 +604,9 @@ int main(int argc, char** argv) {
     auto put=[&](size_t offset,uint32_t value){for(size_t i=0;i<4;++i)record[offset+i]=uint8_t(value>>((3-i)*8));};
     // Synthetic, non-playable XStorage envelope for isolated transfer tests.
     put(0,uint32_t(record.size()));put(4,kFutariReplayVersion);
+    std::memcpy(record.data()+12,"NativeTest",10);
+    rex::memory::store_and_swap<uint64_t>(record.data()+32,0xB13EBABEBABEBABEull);
+    for(size_t i=kFutariStorageReplayHeaderBytes;i<record.size();++i)record[i]=uint8_t(i);
     if (argc == 4) {
       auto bytes = Read(argv[3]);
       auto data = std::span(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());

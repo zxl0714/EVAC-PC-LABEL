@@ -5,6 +5,7 @@
 #include "audio_guest_trace.h"
 #include "audio_diagnostics.h"
 #include "audio_wait_policy.h"
+#include "performance/counter_wait.h"
 #include "diagnostics/content_prepare.h"
 #include <rex/system/kernel_state.h>
 #include <rex/system/xam/content_manager.h>
@@ -39,10 +40,12 @@ private:
         const auto source=cave::xbox360::PrepareContent(cave::FindGame("futari"),run().paths,run().content_source,run().content);
         REXLOG_INFO("Prepared DLC mount: {}",cave::Utf8(source));
         runtime()->kernel_state()->content_manager()->SetReadOnlyContentRoot(source,std::move(allowed));
+        futari::performance::StartCounterWait();
         FutariStartAudioWaitPolicy();FutariRegisterModuleAliases();
         audio_marker_=FutariCreateAudioMarker(window());FutariStartAudioGuestTrace();
     }
     void OnGameStop() override {
+        futari::performance::StopCounterWait();
         FutariStopAudioWaitPolicy();FutariStopAudioGuestTrace();
         if (audio_marker_) {window()->RemoveInputListener(audio_marker_.get());audio_marker_.reset();}
     }

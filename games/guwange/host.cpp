@@ -3,6 +3,7 @@
 #include "host.h"
 #include "common/nickname.h"
 #include "community/guwange_service.h"
+#include "performance/native_wait.h"
 #include <rex/cvar.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xam/user_profile.h>
@@ -31,6 +32,7 @@ private:
         REXLOG_WARN("Guwange development community provider enabled; loopback only, capability acceptance remains pending");
     }
     void OnGameStop() override {
+        guwange::performance::StopNativeWait();
         if(!test_community_) return;
         if(runtime() && runtime()->kernel_state())
             rex::system::xam::CancelCommunityIo(runtime()->kernel_state());
@@ -38,6 +40,7 @@ private:
         test_community_->Stop();test_community_.reset();
     }
     void OnGamePreSetup(rex::RuntimeConfig&) override {
+        guwange::performance::StartNativeWait();
         // The base game's UI emits type-0 texture fetch constants. Reuse the
         // existing Xenos compatibility path, scoped to this executable.
         if (!rex::cvar::SetFlagByName("gpu_allow_invalid_fetch_constants", "true"))

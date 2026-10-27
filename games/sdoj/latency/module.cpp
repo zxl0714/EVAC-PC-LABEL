@@ -3,6 +3,7 @@
 #include "native_prefix.h"
 #include "guest_call.h"
 #include "render_metrics.h"
+#include "../performance/tick_wait.h"
 #include <rex/ppc.h>
 #include <rex/memory.h>
 #include <rex/logging.h>
@@ -38,6 +39,8 @@ constexpr std::uint32_t WaitReturn = Module == 1 ? 0x88052180 : 0x88052134;
 constexpr std::uint32_t ResourceWaitReturn = Module == 1 ? 0x8806F384 : 0x8806FDBC;
 constexpr std::uint32_t SwapReturn = Module == 1 ? 0x88051398 : 0x88051310;
 std::mutex gate;
+sdoj::performance::TickWait native_tick_wait;
+std::atomic<unsigned> native_tick_timeouts{};
 Handoff handoff;
 LowHandoff low;
 DrawRecovery draw_recovery;
@@ -130,6 +133,9 @@ void Summary(const char* phase) {
 }
 }
 extern "C" __declspec(dllexport) void ReXModule_OnLoad() {
+    native_tick_timeouts=0;
+    const auto tick_enabled=HostFunction<bool (*)()>("SdojNativeTickWaitEnabled");
+    native_tick_wait.Start(tick_enabled && tick_enabled());
     using GetPolicy = unsigned (*)();
     const auto getter = reinterpret_cast<GetPolicy>(GetProcAddress(GetModuleHandleW(nullptr), "SdojFrameDelayPolicy"));
     std::lock_guard lock(gate);
@@ -153,10 +159,12 @@ extern "C" __declspec(dllexport) void ReXModule_OnLoad() {
         if (const auto sink = reinterpret_cast<Sink>(GetProcAddress(GetModuleHandleW(nullptr), name))) sink(Module, 0, 0);
 }
 extern "C" __declspec(dllexport) void ReXModule_OnUnload() {
+    native_tick_wait.Stop();
     std::lock_guard lock(gate);
     handoff.Retire(); low.Retire(); completion_changed.notify_all(); Summary("unload");
 }
 extern "C" __declspec(dllexport) void SdojFrameDelayStop() {
+    native_tick_wait.Stop();
     std::lock_guard lock(gate);
     handoff.Retire(); low.Retire(); completion_changed.notify_all(); Summary("stop");
 }
@@ -433,7 +441,21 @@ bool SdojDelayDriverBegin(PPCContext& ctx, std::uint8_t* base) {
     }
     return false;
 }
-bool SdojDelayDriverPeripheral(PPCContext&, std::uint8_t*) { return early_driver; }
+bool SdojDelayDriverPeripheral(PPCContext&, std::uint8_t*) {
+    // This hook follows the original counter store, including an early driver.
+    // A skipped tick may notify too; the original predicate still decides.
+    native_tick_wait.Notify();
+    return early_driver;
+}
+
+void SdojWaitNativeTick(PPCContext& ctx, std::uint8_t* base) {
+    if (!native_tick_wait.Wait([&] {
+            return !Word(base,ctx.r28.u32+4) && sdoj::performance::TickPending(
+                Word(base,0x886B41EC+Offset),ctx.r29.u32,ctx.r30.s32);
+        }) && native_tick_timeouts.fetch_add(1)==0)
+        REXLOG_WARN("SDOJ_TICK_WAIT module={} fallback=original_poll reason=bounded_wait_failed recovery=next_original_producer",Module);
+}
+void SdojNativeTickInterrupted(PPCContext&, std::uint8_t*) { native_tick_wait.Notify(); }
 
 extern "C" __declspec(dllexport) void SdojFrameDelayAdvance(PPCContext& ctx, std::uint8_t* base) {
     if (policy != 1) return;

@@ -1,0 +1,23 @@
+弾銃フィーバロン / Dangun Feveron
+PS4 / CUSA06735 / 01.00 (US)
+
+game-data/
+└─ feveron/
+   ├─ eboot.bin
+   ├─ emu_integration_01200.prx
+   ├─ dfeveron_01000.prx
+   ├─ dfeveron_01010.prx
+   ├─ ps4data_body.bin
+   ├─ ps4data_info.psb.m
+   ├─ sce_module/
+   ├─ sce_sys/
+   └─ ...
+
+双击 tools/Extract-PS4.exe，选择 01.00 美版本体 PKG 和新输出目录，点击 Extract。
+完成后点“Open game files”，把打开目录内的全部内容复制到以上位置。
+在启动器点击“刷新”，选择游戏并启动。
+
+Double-click tools/Extract-PS4.exe, select the US 01.00 base PKG and a new
+output folder, then click Extract. Click Open game files and copy all contents
+of that folder into game-data/feveron/ as shown above.
+Click Refresh in the launcher, select the game, then start it.

@@ -63,7 +63,7 @@ Guwange 的单条 XUID 枚举用于结算前读取个人最佳成绩：适配为
 
 v0.7 以单人玩法为验收范围。SDK 当前只提供 user 0 的登录身份；SDL 的多设备输入不等于第二个已登录用户。菜单里的 1P／2P Side Start 是起始侧选择，不能据此宣称本地双人已通过。合作模块已生成但在线合作未接入；第二用户身份、设备归属及原生加入流程留作后续独立工作。
 
-当前数据合同固定为 XBLA 本体 0.0.0.4，不应用 TU1。`scripts/Extract-Xbla.ps1` 在 Windows PowerShell 5.1 下提取已展开 ZIP 内的 LIVE／PIRS 容器，输出目录须新建、父目录已存在。实际本体的 29 个输出文件与 `games/guwange/data.json` 全部一致；这项提取校验不是游戏运行验收。格式边界与命令见 `docs/GAME_DATA.md`，自造容器回归为 `tests/test_xbla_extract.py`。
+当前数据合同固定为 XBLA 本体 0.0.0.4，不应用 TU1。玩家入口为 `tools/Extract-XBLA.exe`，共用原生 STFS 校验后提取到新目录；实际本体的 29 个输出文件与 `games/guwange/data.json` 全部一致。高级脚本 `scripts/Extract-Xbla.ps1` 仍可在 Windows PowerShell 5.1 使用。格式边界与命令见 `docs/GAME_DATA.md`，原生／脚本自造容器回归分别为 `tests/test_xbla_native.py`、`tests/test_xbla_extract.py`。
 
 原始数据只读。写入目录与原数据隔离，不借用旧项目的工具安装、构建产物或个人 profile。
 
@@ -160,6 +160,23 @@ py -3.12 scripts/launcher_receipt.py verify
 联合 360 收据在 out/xbox360/bin/build-receipt.json，PS4 与启动器分别在 out/ps4/、out/launcher/。收据绑定源码、工具、依赖、程序和 PDB；改动后按影响范围重建。重现发行版时从对应标签建立独立 checkout，保留已冻结包。
 
 ## 排查与验证
+
+### Xbox 360 性能回归
+
+构建四款 360 后，可先运行不需要 ROM 的生产机制检查：
+
+```powershell
+tools/apps/cmake/bin/ctest.exe --test-dir out/xbox360 -R "counter_wait|timer_queue|gpu_command_wait|gpu_range_requests|native_resolve_policy|guest_fence|tick_wait|render_queue|vblank_gate" --output-on-failure
+out/xbox360/bin/futari_counter_wait_bench.exe
+out/xbox360/bin/range_requests_tests.exe --bench
+out/xbox360/bin/d3d12_native_resolve_test.exe
+```
+
+最后一项使用本机 D3D12 GPU，核对直接复制的像素、边界及格式策略；它与无 GPU 的谓词检查分开。真实游戏可临时加 `--d3d12_profile_submissions=true`，读取命令列表内 GPU 时间戳；不包含 presenter、桌面合成或扫描。普通构建不启用详细 CPU 工作采样。
+
+离线抓帧基准需单独用 `scripts/Build-Sdk.ps1 -GpuTraceBench` 构建。`rexgpu_trace_bench.exe` 与匹配的 GPU DLL 一起运行，参数包括 `--bench_trace=<本地xtr>`、`--bench_reference=<原始PPM>`、`--bench_output=<新目录>`、`--bench_warmup=20`、`--bench_iterations=120`；`scripts/gpu_trace_report.py` 汇总结果。先要求每帧与原图逐像素一致，再比较开销。捕获文件含游戏资源，只保存在本地忽略目录；离线快照恢复产生的上传不能当成真实游戏每帧工作。发行构建重新运行不带 `-GpuTraceBench` 的 SDK 构建。
+
+每轮保留同一录像、游戏模式、配置、二进制哈希和固定时间片；分别报告进程 CPU ms/s、GPU 命令工作、呈现间隔及音频状态。微基准用于筛选，真实同场景开／关对照决定是否默认启用。已验收的 v0.8.0 四作结果见 TEST_MATRIX。
 
 反馈先取 release.json、游戏／模式／角色、步骤、F8 时间标记和脱敏文本日志。360 记录 game.log、配置快照、运行身份及崩溃材料；PS4 记录 run.json、stdout.jsonl、stderr.txt 和准备收据。公开 Issue 不收完整 run-*、配置快照、.dmp 或 *-module.bin；需要完整现场时另行约定私下传输，原始模块快照不进入 Git。按源码提交和程序哈希选择配套符号。
 

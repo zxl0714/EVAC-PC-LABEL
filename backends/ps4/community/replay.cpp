@@ -22,6 +22,7 @@ RecordContract ContractFor(std::string_view game) {
     // equal network sizes do not make a Ketsui record valid for DaiOuJou.
     if (game=="daioujou") return {0x80000,0x78000,0x10030,0x10000,"ARCADE_01030"};
     if (game=="esprade") return {0x80000,0x78000,0x10022,0x10000,"ARCADE_01030"};
+    if (game=="feveron") return {0x80000,0x78000,0x10002,0x10000,"ARCADE_01010"};
     return {kReplayRecordSize,kReplayDataSize,0x10001,0x10001,"ARCADE_01000"};
 }
 bool ArcadeCoreRegion(std::string_view region) {
@@ -141,7 +142,8 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
         (game == "ketsui" && result.data_version == 0x10000);
     const bool daioujou_base=game=="daioujou" && result.version==0x1000e;
     const bool supported_version=result.version==contract.version || daioujou_base || (game=="esprade" &&
-        (result.version==0x10019 || result.version==0x10020 || result.version==0x10021));
+        (result.version==0x10019 || result.version==0x10020 || result.version==0x10021)) ||
+        (game=="feveron" && result.version==0x10001);
     Require(supported_version && supported_data, "unsupported_record_version");
     Require(U32(record, 8) <= contract.data_bytes && U32(record, 12) == 0, "unsupported_record_extents");
     result.total_frames = U32(record, 16); result.consumed_frames = U32(record, 20);
@@ -168,6 +170,19 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
 }
 void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& expected) {
     const auto group = expected.board / 10, ship = expected.board % 10;
+    if (replay.game=="feveron") {
+        Require(group<=7 && ship<=4,"unsupported_replay_board");
+        // Native ranking selects GameMode*2 + TimeAttack, while its network
+        // header stores the unexpanded GameMode. Preserve both representations.
+        Require((replay.region=="ARCADE_01000" || replay.region=="ARCADE_01010") &&
+            replay.kind==0 && replay.mode==group/2,"replay_mode_mismatch");
+        Require(expected.score==replay.score,"replay_score_mismatch");
+        // High byte: ship + player side; low byte: weapon and speed, including
+        // the native Uotaro/Poko weapon=3 and speed=4 choices.
+        Require(replay.character<0x800 && ((replay.character>>4)&15)<=3 && (replay.character&15)<=4 &&
+            (!ship || ship==((replay.character>>8)&3)+1),"replay_ship_mismatch");
+        return;
+    }
     if(replay.game=="esprade") {
         Require(group<=3 && ship<=4,"unsupported_replay_board"); // 88/99 have no attachment.
         Require(ArcadeCoreRegion(replay.region) && replay.kind==0 && replay.mode==group,"replay_mode_mismatch");

@@ -1,6 +1,7 @@
 #include <rex/ppc.h>
 #include <rex/runtime.h>
 #include <rex/system/xam/community_service.h>
+#include "path_buffer.h"
 
 // Static-linked Xbox API boundary only, not a replacement for title eligibility.
 void G2CommunityEstimateRank(PPCRegister& r3, PPCRegister& r4, PPCRegister& r5,
@@ -26,6 +27,8 @@ void G2StorageLocalPath(PPCRegister& r3,PPCRegister& r4,PPCRegister& r5,
 }
 void G2StorageRemotePath(PPCRegister& r3,PPCRegister& r4,PPCRegister& r5,
                          PPCRegister& r6,PPCRegister& r7,PPCRegister& r8,PPCRegister& r9) {
+  if(!espgaluda2::InitializeDownloadPathCapacity(*rex::Runtime::instance()->memory(),
+      r5.u32,r8.u32,r9.u32)) { r3.u64=87;return; }
   r3.u64=rex::system::xam::BuildCommunityReplayPath(rex::Runtime::instance()->kernel_state(),
       254,r3.u64,r4.u32,r5.u32,r6.u32,r7.u32,r8.u32,r9.u32);
 }

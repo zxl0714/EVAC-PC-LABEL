@@ -14,7 +14,10 @@ class FrameDelayContractTests(unittest.TestCase):
                     0x880340D8: 'SdojDelayCommands', 0x88033304: 'SdojDelayUnpark',
                     0x88031288: 'SdojDelayRead', 0x880313C0: 'SdojDelayReadEnd',
                     0x88030DA0: 'SdojDelayDriverBegin', 0x88030DF0: 'SdojDelayDriverPeripheral',
-                    0x88044978: 'SdojDelayInputStart'}
+                    0x88044978: 'SdojDelayInputStart',
+                    0x880332D0: 'SdojWaitNativeTick',
+                    0x88030A8C: 'SdojNativeTickInterrupted',
+                    0x880316A4: 'SdojNativeTickInterrupted'}
         self.assertEqual({hook['address']: hook['name'] for hook in common['midasm_hook']}, expected)
         for hook in common['midasm_hook']:
             self.assertEqual(hook['registers'], ['context', 'memory'])
@@ -37,7 +40,8 @@ class FrameDelayContractTests(unittest.TestCase):
             self.assertEqual([(hook['address'], hook['name']) for hook in hooks],expected_hooks)
             self.assertEqual(hooks[1]['jump_address_on_true'], swap+4)
             self.assertTrue(all(hook['registers'] == ['context', 'memory'] for hook in hooks))
-        self.assertEqual(manifest['entrypoint']['includes'][-1], 'frame-delay-host.toml')
+        self.assertEqual(manifest['entrypoint']['includes'][-2:],
+                         ['frame-delay-host.toml', 'native-wait-overrides.toml'])
         host = tomllib.loads((SOURCE/'recomp/frame-delay-host.toml').read_text(encoding='utf-8'))
         self.assertEqual(host['midasm_hook'], [dict(address=0x8211F0DC, name='SdojDelayAdvance',registers=['context','memory'])])
         self.assertFalse({0x8219D9B0, 0x8219D9C8} & expected.keys())
@@ -101,7 +105,10 @@ class FrameDelayContractTests(unittest.TestCase):
         self.assertIn('effective==1 && handoff.active()', late)
         self.assertIn('control && !Word(base,control+472)', late)
         self.assertIn('ctx.r31.u64=0;return true;', late)
-        self.assertIn('SdojDelayDriverPeripheral(PPCContext&, std::uint8_t*) { return early_driver; }', adapter)
+        peripheral = adapter.split('bool SdojDelayDriverPeripheral(', 1)[1].split('\n}', 1)[0]
+        self.assertLess(peripheral.index('native_tick_wait.Notify();'),
+                        peripheral.index('return early_driver;'))
+        self.assertNotIn('early_driver=', peripheral)
 
     def test_metrics_identity_pinned_at_parser_return_but_values_finalized_at_native_stores(self):
         adapter = (SOURCE/'latency/module.cpp').read_text(encoding='utf-8')

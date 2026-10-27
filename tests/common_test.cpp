@@ -42,18 +42,23 @@ void NicknameChecks() {
   Require(std::any_of(aliases.begin(),aliases.end(),[](const auto& issue){return issue.game->id=="guwange";}),
           "Guwange native nickname alias warning missing");
   const auto symbols=launcher::NicknameIssues(ini,"A@A");
-  Require(symbols.size()==4,"Missing PS4 ASCII glyph was not detected");
+  Require(symbols.size()==5,"Missing PS4 ASCII glyph was not detected");
   for(const auto& issue:symbols)Require(!issue.alias && issue.missing==U"@","ASCII rule incorrectly applied to PS4 font");
   const auto astral=launcher::NicknameIssues(ini,"😀😀");
   for(const auto& issue:astral)Require(issue.game->integrated && issue.game->community_supported,"Unavailable title leaked into shared nickname warnings");
-  Require(astral.size()==8,"Emoji missed in a title/font variant");
+  Require(astral.size()==9,"Emoji missed in a title/font variant");
   for(const auto& issue:astral)Require(issue.missing==U"😀","Surrogate pair split or duplicate warning");
   const auto independent=Ini::Parse("[game.futari.community]\nnickname=Separate\n");
   const auto overridden=launcher::NicknameIssues(independent,"ルル");
   Require(overridden.size()==3 && std::none_of(overridden.begin(),overridden.end(),[](const auto& item){return item.game->id=="futari";}),"Independent game nickname warning leaked from shared form");
   Require(!launcher::HasNicknameGlyph("ketsui",U'路',"01.00") && launcher::HasNicknameGlyph("ketsui",U'路',"01.02"),"Ketsui base/update glyph differences ignored");
+  Require(launcher::HasNicknameGlyph("feveron",U'魚') && !launcher::HasNicknameGlyph("feveron",U'黒') &&
+          launcher::HasNicknameGlyph("esprade",U'黒'),"Feveron coverage must not inherit unavailable common glyphs");
+  const auto feveron_missing=launcher::NicknameIssues(ini,"黒");
+  Require(std::any_of(feveron_missing.begin(),feveron_missing.end(),[](const auto& issue){return issue.game->id=="feveron" && issue.missing==U"黒";}),
+          "Feveron-specific missing glyph warning omitted");
   const auto long_name=launcher::NicknameIssues(ini,"abcdefghijklmnopq");
-  Require(long_name.size()==8,"Native length loss not warned");
+  Require(long_name.size()==9,"Native length loss not warned");
   for(const auto& issue:long_name)Require(issue.shortened && issue.missing.empty() && !issue.alias,"Length warning mislabeled as missing glyph");
   Require(launcher::NicknameCodepoints("Aル😀")==U"Aル😀","UTF-8 warning character decoding");
 }
@@ -191,6 +196,18 @@ void SettingsChecks(Fixture& fixture) {
                "Invalid SDOJ frame delay accepted");
     Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 1,
             "Another game interpreted SDOJ frame delay");
+    Require(ParseSettings("", "espgaluda2").g2_frame_delay == 2, "G2 missing Frame Delay retains original path");
+    Require(ParseSettings(DefaultConfig(), "espgaluda2").g2_frame_delay == 2, "G2 default template");
+    for (unsigned mode : {1u, 2u})
+        Require(ParseSettings("[game.espgaluda2]\nframe_delay="+std::to_string(mode), "espgaluda2").g2_frame_delay == mode,
+                "G2 frame delay integer selection");
+    for (const auto* value : {"0", "3", "-1", "1V", "low", "1.0", "1junk", ""})
+        Reject([&] {ParseSettings(std::string("[game.espgaluda2]\nframe_delay=")+value,"espgaluda2");},
+               "Invalid G2 frame delay accepted");
+    Require(ParseSettings("[game.espgaluda2]\nframe_delay=bad", "futari").g2_frame_delay == 2,
+            "Another game interpreted G2 frame delay");
+    Require(ResolveSharedSettings(Ini::Parse("[game.espgaluda2]\nframe_delay=bad")).g2_frame_delay == 2,
+            "Shared preferences interpreted G2 frame delay");
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
     const auto documented=parse(DefaultConfig());
@@ -400,9 +417,9 @@ int main() {
             Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
             Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade" &&
             Catalogue()[6].id == "guwange" && Catalogue()[7].id == "feveron", "Catalogue order");
-    Require(FindGame("feveron").coming_soon && !FindGame("feveron").integrated &&
-            !FindGame("feveron").community_supported && FindGame("feveron").runtime_files.empty(),
-            "Feveron is a non-runnable announcement, not an integrated game");
+    Require(!FindGame("feveron").coming_soon && FindGame("feveron").integrated &&
+            FindGame("feveron").community_supported && FindGame("feveron").runtime_files.size()==3,
+            "Feveron offline runtime is integrated; community acceptance remains separate");
     Require(FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
             "Integrated titles must advertise their verified community adapters");

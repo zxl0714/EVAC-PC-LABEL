@@ -6,7 +6,7 @@ game_root = "../../../game-data/espgaluda2"
 [entrypoint]
 file_path = "../../../game-data/espgaluda2/default.xex"
 out_directory_path = "../../../generated/espgaluda2/default"
-includes = ["default-functions.toml", "community-overrides.toml"]
+includes = ["default-functions.toml", "community-overrides.toml", "frame-delay-overrides.toml", "fence-wait-overrides.toml"]
 
 [[modules]]
 guest_path = "dat00.xex"

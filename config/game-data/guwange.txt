@@ -15,12 +15,15 @@ game-data/
    ├─ res/
    └─ ...
 
-用 tools/Extract-Xbla.ps1 提取 XBLA 本体，命令见根目录 README.txt。
-将完整解包文件放到以上位置，保留其余文件和子目录。
+双击 tools/Extract-XBLA.exe，点击 Select package... 选择 ZIP/RAR 内的原始
+内容包（通常无扩展名），再选择输出位置。完成后点击 Open game files，
+将里面的全部内容复制到以上位置，保留其余文件和子目录。
 使用 0.0.0.4 本体，不叠加 Title Update（.xexp / .dllp）。
 放好后，在启动器点击“刷新”，选择游戏并启动。
 
-Extract the XBLA base with tools/Extract-Xbla.ps1; see the root README.txt
-for the command. Place all extracted files here, keeping every file and subfolder.
+Double-click tools/Extract-XBLA.exe. Click Select package... and choose the
+content package inside the ZIP/RAR (usually without an extension), then an
+output location. Click Open game files and copy all contents here, keeping
+every file and subfolder.
 Use base 0.0.0.4 without Title Update (.xexp / .dllp).
 Click Refresh in the launcher, select the game, then start it.

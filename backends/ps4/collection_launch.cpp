@@ -128,7 +128,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
                 "Unknown, empty or repeated collection launch argument");
         }
         const auto game=Utf8(fs::path(values.at(L"--game_id")));
-        Require((game=="ketsui" || game=="daioujou" || game=="esprade") && values.at(L"--launch_contract")==L"1","Unsupported game or launch contract");
+        Require((game=="ketsui" || game=="daioujou" || game=="esprade" || game=="feveron") && values.at(L"--launch_contract")==L"1","Unsupported game or launch contract");
         const bool ketsui=game=="ketsui";
         const fs::path requested_root(values.at(L"--collection_root")),requested_data(values.at(L"--game_data_root")),
             requested_profile(values.at(L"--user_data_root"));

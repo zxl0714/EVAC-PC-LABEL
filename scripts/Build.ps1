@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,8)][int]$Jobs=2,
-    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou','esprade','guwange')][string[]]$Games=@(),
+    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou','esprade','guwange','feveron')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
     [switch]$SkipLauncherStage,
@@ -20,11 +20,11 @@ try {
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
     if ($DataDirectory -and $Games.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }
-    if ('ketsui' -in $Games -or 'daioujou' -in $Games -or 'esprade' -in $Games) {
+    if ('ketsui' -in $Games -or 'daioujou' -in $Games -or 'esprade' -in $Games -or 'feveron' -in $Games) {
         & (Join-Path $PSScriptRoot 'Build-Ps4.ps1') -Jobs $Jobs
         # PS4 preparation happens natively on first launch. Building the runtime
         # needs no ROM, and does not modify config.ini or any supplied data path.
-        $Games = @($Games | Where-Object { $_ -notin @('ketsui','daioujou','esprade') })
+        $Games = @($Games | Where-Object { $_ -notin @('ketsui','daioujou','esprade','feveron') })
         if (-not $Games.Count) { $DataDirectory = $null }
     }
     $selected=@($Games | Sort-Object -Unique)
@@ -65,7 +65,7 @@ try {
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'begin','--state',$launcherState)
     Invoke-CollectionConfigure $cmake $configure $build
     $targets=@('--build',$build,'--parallel',"$Jobs")
-    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect','ps4_extract') }
+    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect','ps4_extract','xbla_extract') }
     Invoke-Checked $cmake $targets
     if (-not $SkipLauncherStage) { foreach ($extension in @('exe','pdb')) {
         $launcherSource=Join-Path $build "bin/EVAC PC LABEL.$extension"

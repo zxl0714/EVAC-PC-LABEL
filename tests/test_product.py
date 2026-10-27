@@ -17,7 +17,7 @@ class ProductTests(unittest.TestCase):
             self.assertIn('*-module.bin', text)
             self.assertIn('.dmp', text)
             self.assertNotIn('v0.4-win-x64.zip', text)
-        player = (ROOT / 'config/README.player-v07.txt').read_text(encoding='utf-8')
+        player = (ROOT / 'config/README.player-v08.txt').read_text(encoding='utf-8')
         self.assertTrue(player.startswith(product.NAME + ' v' + product.VERSION + '\n'))
         self.assertIn(ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt', release.license_files())
         self.assertIn(ROOT / 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/LICENSE.MIT', release.license_files())
@@ -62,12 +62,12 @@ class ProductTests(unittest.TestCase):
             self.assertIn('(GAME_DATA.md)', text)
             self.assertIn('(GAME_DATA.en.md)', text)
             self.assertNotIn('.header', text)
-            for game in ('futari','espgaluda2','sdoj','guwange','ketsui','daioujou','esprade'):
+            for game in ('futari','espgaluda2','sdoj','guwange','ketsui','daioujou','esprade','feveron'):
                 self.assertIn('game-data/' + game + '/', text)
         english = (ROOT / 'README.en.md').read_text(encoding='utf-8')
         self.assertNotIn('docs/GAME_DATA.md', english)
         self.assertIn('Extraction is automatic', english)
         for relative in ('README.md','README.en.md','docs/GAME_DATA.md','docs/GAME_DATA.en.md',
-                         'config/game-data/futari.txt','config/README.player-v07.txt'):
+                         'config/game-data/futari.txt','config/README.player-v08.txt'):
             text = (ROOT / relative).read_text(encoding='utf-8')
             self.assertNotIn('Extract-Dlc.ps1 -InputPackage', text)

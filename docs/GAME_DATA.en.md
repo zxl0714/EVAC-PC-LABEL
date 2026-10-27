@@ -68,13 +68,14 @@ In a source checkout, use `scripts/Extract-Ps4Pkg.ps1`; see `tools/README.md` fo
 
 ### Xbox 360 XBLA: Guwange
 
-Guwange uses an XBLA content package. After unpacking a ZIP/RAR, this may appear as a large file with a long name and no extension. Open PowerShell in the collection's root folder and run:
+Unpack the ZIP/RAR first. If it contains a large file with a long name and no extension, extract that content package with the included `tools/Extract-XBLA.exe`:
 
-```powershell
-.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\original-content-package" -OutputDir "D:\GameExtract\guwange"
-```
+1. Double-click the tool, click **Select package...**, and select the content package.
+2. Choose an output location. The tool creates a new `xbla-extracted` folder.
+3. Click **Open game files** when finished and copy all contents into `game-data/guwange/`. This folder should directly contain `default.xex`, `module/`, `game_res/`, and `res/`.
+4. Click **Refresh** in the launcher, select Guwange, and start it.
 
-Create the parent folder `D:\GameExtract` first; the output folder `guwange` must not already exist. The helper runs in Windows PowerShell 5.1 and supports the LIVE/PIRS single-hash-table-copy containers used by this game. In a source checkout, use `scripts/Extract-Xbla.ps1`.
+Use base version 0.0.0.4 without a Title Update. For scripted extraction, `scripts/Extract-Xbla.ps1` is also available in the repository and included under `tools/` in the player package.
 
 Select `D:\GameExtract\guwange` in the launcher, or copy all its contents into `game-data/guwange/`.
 
@@ -220,6 +221,25 @@ game-data/esprade/
 Extract the base PKG, then copy all extracted update files over the base-game files. Place the merged contents in `game-data/esprade/`, or select that merged folder in the launcher. Keep `eboot.bin` directly inside the selected folder, along with all modules, resources, and internal folders.
 
 Saves, downloaded replays, and settings are stored in `user-data/esprade/`.
+
+### 弾銃フィーバロン — Dangun Feveron (feveron)
+
+Supported: **US CUSA06735, version 01.00 base game**.
+
+```text
+game-data/feveron/
+  eboot.bin
+  emu_integration_01200.prx
+  dfeveron_01000.prx
+  dfeveron_01010.prx
+  ps4data_body.bin
+  ps4data_info.psb.m
+  sce_module/
+  sce_sys/
+  ...
+```
+
+Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, then copy all contents into `game-data/feveron/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/feveron/`.
 
 ## Troubleshooting
 

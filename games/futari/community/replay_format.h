@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 struct FutariReplaySlot {
@@ -26,3 +27,8 @@ std::vector<uint8_t> FutariWrapReplay(std::span<const uint8_t> record);
 // then title metadata and the original (possibly compressed) stream at +104.
 // This is not a slot from replaydata.bin; never wrap it in the local save table.
 void FutariValidateStorageReplay(std::span<const uint8_t> record);
+
+// Bind verified download metadata to a persistent, non-local author identity.
+// Only the native display tag (+12, 16 bytes) and XUID (+32, 8 bytes) change.
+void FutariSetStorageReplayAuthor(std::vector<uint8_t>& record, uint64_t xuid,
+                                 std::string_view native_tag);

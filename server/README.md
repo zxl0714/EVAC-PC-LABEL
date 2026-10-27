@@ -20,6 +20,7 @@ nickname = Player
 | `/cave/api/v1/games/daioujou/` | `127.0.0.1:18088` | `/var/lib/cave-community/daioujou/community.sqlite3` |
 | `/cave/api/v1/games/esprade/` | `127.0.0.1:18089` | `/var/lib/cave-community/esprade/community.sqlite3` |
 | `/cave/api/v1/games/guwange/` | `127.0.0.1:18090` | `/var/lib/cave-community/guwange/community.sqlite3` |
+| `/cave/api/v1/games/feveron/` | `127.0.0.1:18091` | `/var/lib/cave-community/feveron/community.sqlite3` |
 
 Guwange 已部署独立服务及每日备份，源码固定为 `2bf184f41fb5`，版本指针为 `/opt/cave-community/guwange-current`。七款合集入口、两条旧入口及首次备份检查通过，原六款服务进程和版本指针保持不变。
 
@@ -116,6 +117,19 @@ python3 -B -m unittest discover -s tests -p 'test_guwange_community_server.py' -
 客户端沿用共享 endpoint、联网开关和昵称。原生流程先提交成绩，再上传合资格录像；服务器将模式、角色、分数、关卡与对应榜单绑定，完整保存原录像字节。成绩时间与录像时间由游戏分别生成，不要求相等。新昵称的单条个人最佳查询返回未上榜的零记录，避免原游戏直接解引用空行；该兼容结果不写入数据库，也不出现在公开榜单。
 
 离线协议、HTTP 收发和备份恢复检查使用临时数据库。本机实际 Blue 2370 分已完成完整联网流程；正式 HTTPS 也通过正常合集入口的 Arrange／Shishin 5336 分提交、综合与角色榜读回、录像上传下载、保存及完整回放。两榜关联同一份 183230 字节原生录像。详细身份见 [验收矩阵](../docs/TEST_MATRIX.md)。
+
+## Dangun Feveron 开发适配（v0.8.0）
+
+`server/games/feveron.py` 对应 CUSA06735 美版 01.00，API 为 `/cave/api/v1/games/feveron/`。ARCADE、SUPER EASY、FEVER、CUSTOM 各有普通与 Time Attack 两组榜单；每组包含综合、Type-A、Type-B、Type-C、Uotaro/Poko，共 40 榜。按原生整数保存成绩，保留游戏的提交资格和录像字节。
+
+```sh
+python3 -B -m server.games.feveron --database /path/to/new/feveron.sqlite3 --port 18091
+python3 -B -m unittest discover -s tests -p 'test_feveron_community.py' -v
+```
+
+部署使用独立的 `cave-feveron` 服务、`feveron-current` 版本指针和 `/var/lib/cave-community/feveron/` 状态目录，监听 `127.0.0.1:18091`。服务、每日备份和代理模板位于 `server/deploy/`。正式服务固定到源码 `eba1845ac41e`，目标 Python 的 18 项服务／备份／部署检查、八款 HTTPS 健康检查、空榜读取及首次一致性备份通过；七款旧服务和版本指针未改变。实际本地成绩／录像闭环及断网冷启动完整回放已通过；正式 HTTPS 游戏内验收见[验收矩阵](../docs/TEST_MATRIX.md#v080-弹铳接入)。
+
+上线归档需包含 `server/games/feveron.py` 及其共用依赖 `ketsui.py`、`server/ps4_replay.py`、`server/backup.py` 和包初始化文件。目标 Python 上运行 profile、备份和部署检查；profile 用例还依赖 `tests/test_esprade_community.py`、其他 PS4 profile 模块及 `scripts/ps4/replay_fixture.py`。测试仅使用临时数据库。确认本作本地健康检查后，备份 nginx 片段并只追加 Feveron location，`nginx -t` 通过再 reload；核对七款旧服务、已有代理和数据库均未变化。启动独立每日备份并验证首份一致性快照。
 
 ## 服务器目录与部署
 

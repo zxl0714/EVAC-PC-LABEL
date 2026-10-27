@@ -200,6 +200,7 @@ CommunityResult NativeService::ReadNow(const CommunityRead& request, Clock::time
       row.rating = Decimal(entry.at("score")); Require(row.rating >= 0);
       ScoreReference reference;
       reference.id=entry.at("id").get<std::string>();
+      reference.nickname=name;
       reference.properties=entry.at("columns");
       if(!entry.at("replay_id").is_null()) {
         Require(ValidReference(entry.at("replay_id")) && entry.at("replay_format")==std::string(schema_.replay_format));
@@ -269,7 +270,8 @@ uint32_t NativeService::WriteNow(const std::vector<CommunityWrite>& views, Clock
     if (auto error = Error(reply)) { uploads_.clear(); return error; }
     Require(ValidReference(reply.body.at("id")));
     const auto view=body.at("view").get<uint32_t>();
-    if(!run.empty())uploads_[view]={reply.body.at("id").get<std::string>(),{},{},0,body.at("columns")};
+    if(!run.empty())uploads_[view]={.id=reply.body.at("id").get<std::string>(),
+        .nickname=nickname_,.properties=body.at("columns")};
     REXLOG_INFO("Native community native score accepted: view={}", view);
   }
   return 0;
@@ -333,7 +335,8 @@ CommunityReplayResult NativeService::ReplayNow(const CommunityReplay& request,Cl
   auto record=ReplayUnbase64(reply.body.at("data").get<std::string>());
   Require(record.size()==reference.bytes && ReplaySha256(record)==reference.hash);
   schema_.match_replay(request.view,reference.properties,record);
-  REXLOG_INFO("Native replay downloaded: view={} bytes={} sha256={}",request.view,record.size(),reference.hash);
+  if(schema_.prepare_download) schema_.prepare_download(record,schema_.native_name(reference.nickname));
+  REXLOG_INFO("Native replay downloaded: view={} bytes={} source_sha256={}",request.view,record.size(),reference.hash);
   return {0,std::move(record)};
 }
 }  // namespace cave::community

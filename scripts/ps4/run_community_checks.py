@@ -18,14 +18,14 @@ from analysis_paths import private_output
 from project import ROOT, digest, write_json_new
 from ps4_build_receipt import verify
 sys.path.insert(0,str(ROOT))
-from server.games import daioujou, esprade, ketsui
+from server.games import daioujou, esprade, feveron, ketsui
 from replay_fixture import record
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path)
-    parser.add_argument('--games',nargs='+',choices=('ketsui','daioujou','esprade'),default=['ketsui','daioujou','esprade'])
+    parser.add_argument('--games',nargs='+',choices=('ketsui','daioujou','esprade','feveron'),default=['ketsui','daioujou','esprade','feveron'])
     args=parser.parse_args()
     receipt=verify()
     directory=private_output(args.output or ROOT/'.local/ps4-community-checks'/
@@ -33,7 +33,7 @@ def main():
     directory.mkdir(parents=True,exist_ok=False)
     executable=ROOT/'out/ps4-native/KetsuiNativeProbe.exe'
     results=[]
-    profiles=[(game,profile,kind) for game,profile in [('ketsui',ketsui.Store),('daioujou',daioujou.Store),('esprade',esprade.Store)]
+    profiles=[(game,profile,kind) for game,profile in [('ketsui',ketsui.Store),('daioujou',daioujou.Store),('esprade',esprade.Store),('feveron',feveron.Store)]
               for kind in ('client','native-score-replay')]
     profiles.append(('daioujou',daioujou.Store,'native-challenge'))
     profiles.extend(('ketsui',ketsui.Store,'native-custom-'+str(board)) for board in (60,61,62))

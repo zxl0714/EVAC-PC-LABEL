@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <string>
+#include <unordered_map>
 
 #include <rex/graphics/trace_protocol.h>
 #include <rex/graphics/trace_reader.h>
@@ -28,6 +29,10 @@ enum class TracePlaybackMode {
 
 class TracePlayer : public TraceReader {
  public:
+  struct ReplayStats {
+    double restore_us = 0, packets_us = 0, primary_end_us = 0;
+    uint64_t restored_bytes = 0, reused_bytes = 0, packets = 0;
+  };
   TracePlayer(GraphicsSystem* graphics_system);
 
   GraphicsSystem* graphics_system() const { return graphics_system_; }
@@ -44,6 +49,18 @@ class TracePlayer : public TraceReader {
   void SeekCommand(int target_command);
 
   void WaitOnPlayback();
+  // Replay an entire captured frame even when it is already selected. Caches
+  // are retained, but the trace restores captured registers/EDRAM/memory.
+  bool ReplayFrame(int target_frame);
+  bool WaitOnPlayback(std::chrono::milliseconds timeout);
+  // Read only after WaitOnPlayback succeeds (the event publishes these values).
+  const ReplayStats& replay_stats() const { return replay_stats_; }
+  void set_reuse_memory(bool reuse) { reuse_memory_ = reuse; }
+  bool Open(std::string_view path) {
+    if (playing_trace_) return false;
+    decoded_memory_.clear();
+    return TraceReader::Open(path);
+  }
 
  private:
   void PlayTrace(const uint8_t* trace_data, size_t trace_size, TracePlaybackMode playback_mode,
@@ -54,9 +71,12 @@ class TracePlayer : public TraceReader {
   GraphicsSystem* graphics_system_;
   int current_frame_index_;
   int current_command_index_;
-  bool playing_trace_ = false;
+  std::atomic<bool> playing_trace_ = false;
   std::atomic<uint32_t> playback_percent_ = {0};
   std::unique_ptr<rex::thread::Event> playback_event_;
+  ReplayStats replay_stats_;
+  bool reuse_memory_ = false;
+  std::unordered_map<const uint8_t*, std::vector<uint8_t>> decoded_memory_;
 };
 
 }  // namespace rex::graphics

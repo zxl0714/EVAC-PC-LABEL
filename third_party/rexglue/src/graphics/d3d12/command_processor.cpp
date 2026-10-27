@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstdarg>
+#include <chrono>
 #include <cstring>
 #include <sstream>
 #include <utility>
@@ -22,6 +23,7 @@
 #include <rex/graphics/d3d12/command_processor.h>
 #include <rex/graphics/d3d12/graphics_system.h>
 #include <rex/graphics/d3d12/shader.h>
+#include <rex/graphics/d3d12/submission_timing.h>
 #include <rex/graphics/flags.h>
 #include <rex/graphics/registers.h>
 #include <rex/graphics/util/draw.h>
@@ -31,6 +33,15 @@
 #include <rex/memory/utils.h>
 #include <rex/ui/d3d12/d3d12_presenter.h>
 #include <rex/ui/d3d12/d3d12_util.h>
+#include "work_profile.h"
+
+#if defined(REX_GPU_TRACE_BENCH)
+REXCVAR_DEFINE_BOOL(d3d12_profile_cpu_work, false, "GPU benchmark",
+                    "Attribute draw work with thread cycles; development only").transient();
+REXCVAR_DEFINE_INT32(d3d12_profile_cpu_interval, 60, "GPU benchmark",
+                    "Aggregate CPU attribution over this many swaps")
+    .range(1, 600).lifecycle(rex::cvar::Lifecycle::kInitOnly).transient();
+#endif
 
 REXCVAR_DEFINE_BOOL(d3d12_bindless, true, "GPU/D3D12", "Use bindless resources where available")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
@@ -46,6 +57,10 @@ REXCVAR_DEFINE_BOOL(d3d12_readback_resolve, false, "GPU/D3D12",
 REXCVAR_DEFINE_BOOL(d3d12_submit_on_primary_buffer_end, true, "GPU/D3D12",
                     "Submit command list when PM4 primary buffer ends")
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
+
+REXCVAR_DEFINE_BOOL(d3d12_profile_submissions, false, "GPU/D3D12",
+                    "Record fenced GPU timestamps and CPU command encoding for development")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace rex::graphics::d3d12 {
 
@@ -162,6 +177,14 @@ void D3D12CommandProcessor::RequestFrameTrace(const std::filesystem::path& root_
 void D3D12CommandProcessor::TracePlaybackWroteMemory(uint32_t base_ptr, uint32_t length) {
   shared_memory_->MemoryInvalidationCallback(base_ptr, length, true);
   primitive_processor_->MemoryInvalidationCallback(base_ptr, length, true);
+}
+
+bool D3D12CommandProcessor::TracePlaybackCanReuseMemory(uint32_t base_ptr, uint32_t length) {
+#if defined(REX_GPU_TRACE_BENCH)
+  return !shared_memory_->TraceRangeHasGpuWrites(base_ptr, length);
+#else
+  return false;
+#endif
 }
 
 void D3D12CommandProcessor::RestoreEdramSnapshot(const void* snapshot) {
@@ -1644,6 +1667,16 @@ bool D3D12CommandProcessor::SetupContext() {
   pix_capturing_ = false;
   occlusion_query_resources_available_ = InitializeOcclusionQueryResources();
 
+  if (REXCVAR_GET(d3d12_profile_submissions)) {
+    auto timing = std::make_unique<SubmissionTiming>();
+    if (timing->Initialize(GetD3D12Provider().GetDevice(), GetD3D12Provider().GetDirectQueue())) {
+      submission_timing_ = std::move(timing);
+      REXGPU_INFO("GPU_WORK enabled=true scope=command_list no_extra_waits=true");
+    } else {
+      REXGPU_WARN("GPU_WORK unavailable; continuing without GPU timestamps");
+    }
+  }
+
   // Just not to expose uninitialized memory.
   std::memset(&system_constants_, 0, sizeof(system_constants_));
 
@@ -1652,6 +1685,7 @@ bool D3D12CommandProcessor::SetupContext() {
 
 void D3D12CommandProcessor::ShutdownContext() {
   AwaitAllQueueOperationsCompletion();
+  submission_timing_.reset();
   InvalidateAllVertexBufferResidency();
   ShutdownOcclusionQueryResources();
 
@@ -2278,6 +2312,9 @@ void D3D12CommandProcessor::IssueSwap(uint32_t frontbuffer_ptr, uint32_t frontbu
   // End the frame even if did not present for any reason (the image refresher
   // was not called), to prevent leaking per-frame resources.
   EndSubmission(true);
+#if defined(REX_GPU_TRACE_BENCH)
+  work_profile::EndFrame();
+#endif
 }
 
 void D3D12CommandProcessor::OnPrimaryBufferEnd() {
@@ -2295,6 +2332,7 @@ Shader* D3D12CommandProcessor::LoadShader(xenos::ShaderType shader_type, uint32_
 bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint32_t index_count,
                                       IndexBufferInfo* index_buffer_info,
                                       bool major_mode_explicit) {
+  REX_CPU_DRAW_SCOPE();
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
 #endif  // XE_GPU_FINE_GRAINED_DRAW_SCOPES
@@ -2305,6 +2343,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
   xenos::EdramMode edram_mode = regs.Get<reg::RB_MODECONTROL>().edram_mode;
   if (edram_mode == xenos::EdramMode::kCopy) {
     // Special copy handling.
+    REX_CPU_DRAW_NEXT(Copy);
     return IssueCopy();
   }
 
@@ -2356,6 +2395,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
   }
 
   // Process primitives.
+  REX_CPU_DRAW_NEXT(Primitive);
   PrimitiveProcessor::ProcessingResult primitive_processing_result;
   if (!primitive_processor_->Process(primitive_processing_result)) {
     return false;
@@ -2385,6 +2425,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
           : DxbcShaderTranslator::Modification(0);
 
   // Set up the render targets - this may perform dispatches and draws.
+  REX_CPU_DRAW_NEXT(RenderTargets);
   uint32_t normalized_color_mask =
       pixel_shader ? draw_util::GetNormalizedColorMask(regs, pixel_shader->writes_color_targets())
                    : 0;
@@ -2394,6 +2435,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
   }
 
   // Create the pipeline (for this, need the actually used render target formats
+  REX_CPU_DRAW_NEXT(Pipeline);
   // from the render target cache), translating the shaders - doing this now to
   // obtain the used textures.
   D3D12Shader::D3D12Translation* vertex_shader_translation =
@@ -2428,12 +2470,14 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
   }
 
   // Update the textures - this may bind pipelines.
+  REX_CPU_DRAW_NEXT(Textures);
   uint32_t used_texture_mask =
       vertex_shader->GetUsedTextureMaskAfterTranslation() |
       (pixel_shader != nullptr ? pixel_shader->GetUsedTextureMaskAfterTranslation() : 0);
   texture_cache_->RequestTextures(used_texture_mask);
 
   // Bind the pipeline after configuring it and doing everything that may bind
+  REX_CPU_DRAW_NEXT(FixedState);
   // other pipelines.
   if (current_guest_pipeline_ != pipeline_handle) {
     deferred_command_list_.SetPipelineStateHandle(reinterpret_cast<void*>(pipeline_handle));
@@ -2494,12 +2538,14 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
                              used_texture_mask, normalized_depth_control, normalized_color_mask);
 
   // Update constant buffers, descriptors and root parameters.
+  REX_CPU_DRAW_NEXT(Bindings);
   if (!UpdateBindings(vertex_shader, pixel_shader, root_signature, memexport_used)) {
     return false;
   }
   // Must not call anything that can change the descriptor heap from now on!
 
   // Ensure vertex buffers are resident.
+  REX_CPU_DRAW_NEXT(Residency);
   const Shader::ConstantRegisterMap& constant_map_vertex = vertex_shader->constant_register_map();
   for (uint32_t i = 0; i < rex::countof(constant_map_vertex.vertex_fetch_bitmap); ++i) {
     uint32_t vfetch_bits_remaining = constant_map_vertex.vertex_fetch_bitmap[i];
@@ -2578,6 +2624,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
   }
 
   // Primitive topology.
+  REX_CPU_DRAW_NEXT(Draw);
   D3D_PRIMITIVE_TOPOLOGY primitive_topology;
   if (primitive_processing_result.IsTessellated()) {
     switch (primitive_processing_result.host_primitive_type) {
@@ -2652,6 +2699,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
     SubmitBarriers();
     PROFILE_DRAW_CALL();
     PROFILE_VERTICES(primitive_processing_result.host_draw_vertex_count);
+    if (submission_timing_) ++timing_draws_;
     deferred_command_list_.D3DDrawInstanced(primitive_processing_result.host_draw_vertex_count, 1,
                                             0, 0);
   } else {
@@ -2711,6 +2759,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
     SubmitBarriers();
     PROFILE_DRAW_CALL();
     PROFILE_VERTICES(primitive_processing_result.host_draw_vertex_count);
+    if (submission_timing_) ++timing_draws_;
     deferred_command_list_.D3DDrawIndexedInstanced(
         primitive_processing_result.host_draw_vertex_count, 1, 0, 0, 0);
     if (scratch_index_buffer != nullptr) {
@@ -2921,6 +2970,7 @@ bool D3D12CommandProcessor::IssueCopy() {
   if (!BeginSubmission(true)) {
     return false;
   }
+  if (submission_timing_) ++timing_copies_;
   ReadbackResolveMode readback_mode = GetReadbackResolveMode(REXCVAR_GET(d3d12_readback_resolve));
   if (readback_mode == ReadbackResolveMode::kDisabled) {
     uint32_t written_address, written_length;
@@ -3346,6 +3396,7 @@ bool D3D12CommandProcessor::BeginSubmission(bool is_guest_command) {
     // end of the submission (when async pipeline creation requests are
     // fulfilled).
     deferred_command_list_.Reset();
+    timing_draws_ = timing_copies_ = 0;
 
     // Reset cached state of the command list.
     ff_viewport_update_needed_ = true;
@@ -3477,7 +3528,27 @@ bool D3D12CommandProcessor::EndSubmission(bool is_swap) {
         command_allocator_writable_first_->command_allocator;
     command_allocator->Reset();
     command_list_->Reset(command_allocator, nullptr);
+    int timing_slot = -1;
+    if (submission_timing_) {
+      submission_timing_->Collect(submission_fence_->GetCompletedValue(),
+          [this](const SubmissionTiming::Sample& sample) {
+            REXGPU_INFO("GPU_WORK submission={} frame={} gpu_us={:.3f} encode_us={:.3f} draws={} copies={} closes_frame={} dropped={} invalid={}",
+                sample.submission, sample.frame, sample.gpu_us, sample.encode_us,
+                sample.draws, sample.copies, sample.closes_frame,
+                submission_timing_->dropped(), submission_timing_->invalid());
+          });
+      timing_slot = submission_timing_->Begin(command_list_);
+    }
+    const auto timing_start = submission_timing_ ? std::chrono::steady_clock::now()
+                                               : std::chrono::steady_clock::time_point{};
     deferred_command_list_.Execute(command_list_, command_list_1_);
+    if (submission_timing_) {
+      const double encode_us = std::chrono::duration<double, std::micro>(
+          std::chrono::steady_clock::now() - timing_start).count();
+      submission_timing_->End(command_list_, timing_slot,
+          {submission_current_, frame_current_, 0, encode_us,
+           timing_draws_, timing_copies_, is_closing_frame});
+    }
     command_list_->Close();
     ID3D12CommandList* execute_command_lists[] = {command_list_};
     direct_queue->ExecuteCommandLists(1, execute_command_lists);

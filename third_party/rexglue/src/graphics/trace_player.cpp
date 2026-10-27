@@ -17,32 +17,31 @@
 #include <rex/graphics/trace_player.h>
 #include <rex/graphics/xenos.h>
 #include <rex/memory.h>
+#if defined(REX_GPU_TRACE_BENCH)
+#endif
 
 namespace rex::graphics {
 
 TracePlayer::TracePlayer(GraphicsSystem* graphics_system)
-    : graphics_system_(graphics_system), current_frame_index_(0), current_command_index_(-1) {
-  // Need to allocate all of physical memory so that we can write to it during
-  // playback. The 64 KB page heap is larger, covers the entire physical memory,
-  // so it is used instead of the 4 KB page one.
-  auto heap = graphics_system_->memory()->LookupHeapByType(true, 64 * 1024);
-  heap->AllocFixed(heap->heap_base(), heap->heap_size(), heap->page_size(),
-                   memory::kMemoryAllocationReserve | memory::kMemoryAllocationCommit,
-                   memory::kMemoryProtectRead | memory::kMemoryProtectWrite);
+    : graphics_system_(graphics_system), current_frame_index_(-1), current_command_index_(-1) {
+  // Memory::Initialize already commits the entire host physical view for GPU
+  // access. Reserving a guest alias of it again conflicts with the runtime's
+  // writeback/kernel allocations. Replay only writes through TranslatePhysical.
 
   playback_event_ = rex::thread::Event::CreateAutoResetEvent(false);
   assert_not_null(playback_event_);
 }
 
 const TraceReader::Frame* TracePlayer::current_frame() const {
-  if (current_frame_index_ >= frame_count()) {
+  if (current_frame_index_ < 0 || current_frame_index_ >= frame_count()) {
     return nullptr;
   }
   return frame(current_frame_index_);
 }
 
 void TracePlayer::SeekFrame(int target_frame) {
-  if (current_frame_index_ == target_frame) {
+  if (target_frame < 0 || target_frame >= frame_count() || playing_trace_ ||
+      current_frame_index_ == target_frame) {
     return;
   }
   current_frame_index_ = target_frame;
@@ -82,6 +81,21 @@ void TracePlayer::WaitOnPlayback() {
   rex::thread::Wait(playback_event_.get(), true);
 }
 
+bool TracePlayer::WaitOnPlayback(std::chrono::milliseconds timeout) {
+  return rex::thread::Wait(playback_event_.get(), false, timeout) ==
+         rex::thread::WaitResult::kSuccess;
+}
+
+bool TracePlayer::ReplayFrame(int target_frame) {
+  if (target_frame < 0 || target_frame >= frame_count() || playing_trace_) return false;
+  current_frame_index_ = target_frame;
+  current_command_index_ = int(current_frame()->commands.size()) - 1;
+  const auto* selected = current_frame();
+  PlayTrace(selected->start_ptr, selected->end_ptr - selected->start_ptr,
+            TracePlaybackMode::kUntilEnd, false);
+  return true;
+}
+
 void TracePlayer::PlayTrace(const uint8_t* trace_data, size_t trace_size,
                             TracePlaybackMode playback_mode, bool clear_caches) {
   playing_trace_ = true;
@@ -103,6 +117,7 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
 
   playing_trace_ = true;
   auto trace_ptr = trace_data;
+  replay_stats_ = {};
   bool pending_break = false;
   const PacketStartCommand* pending_packet = nullptr;
   while (trace_ptr < trace_data + trace_size) {
@@ -110,6 +125,7 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
         uint32_t((float(trace_ptr - trace_data) / float(trace_end - trace_data)) * 10000);
 
     auto type = static_cast<TraceCommandType>(memory::load<uint32_t>(trace_ptr));
+    const auto command_begin = std::chrono::steady_clock::now();
     switch (type) {
       case TraceCommandType::kPrimaryBufferStart: {
         auto cmd = reinterpret_cast<const PrimaryBufferStartCommand*>(trace_ptr);
@@ -119,7 +135,7 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
       }
       case TraceCommandType::kPrimaryBufferEnd: {
         auto cmd = reinterpret_cast<const PrimaryBufferEndCommand*>(trace_ptr);
-        //
+        command_processor->TracePlaybackPrimaryBufferEnd();
         trace_ptr += sizeof(*cmd);
         break;
       }
@@ -148,10 +164,12 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
         trace_ptr += sizeof(*cmd);
         if (pending_packet) {
           command_processor->ExecutePacket(pending_packet->base_ptr, pending_packet->count);
+          ++replay_stats_.packets;
           pending_packet = nullptr;
         }
         if (pending_break) {
           playing_trace_ = false;
+          playback_event_->Set();
           return;
         }
         break;
@@ -159,10 +177,31 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
       case TraceCommandType::kMemoryRead: {
         auto cmd = reinterpret_cast<const MemoryCommand*>(trace_ptr);
         trace_ptr += sizeof(*cmd);
-        DecompressMemory(cmd->encoding_format, trace_ptr, cmd->encoded_length,
-                         memory->TranslatePhysical(cmd->base_ptr), cmd->decoded_length);
+        auto* destination = memory->TranslatePhysical(cmd->base_ptr);
+        bool reused = false;
+        if (reuse_memory_) {
+          auto [cached, inserted] = decoded_memory_.try_emplace(trace_ptr);
+          if (inserted) {
+            cached->second.resize(cmd->decoded_length);
+            DecompressMemory(cmd->encoding_format, trace_ptr, cmd->encoded_length,
+                             cached->second.data(), cmd->decoded_length);
+          }
+          // GPU-written pages must be restored even if their stale CPU mirror
+          // equals the snapshot. Only truly unchanged CPU data may stay cached.
+          reused = command_processor->TracePlaybackCanReuseMemory(cmd->base_ptr, cmd->decoded_length) &&
+              !std::memcmp(destination, cached->second.data(), cmd->decoded_length);
+          if (!reused) std::memcpy(destination, cached->second.data(), cmd->decoded_length);
+        } else {
+          DecompressMemory(cmd->encoding_format, trace_ptr, cmd->encoded_length,
+                           destination, cmd->decoded_length);
+        }
         trace_ptr += cmd->encoded_length;
-        command_processor->TracePlaybackWroteMemory(cmd->base_ptr, cmd->decoded_length);
+        if (reused) {
+          replay_stats_.reused_bytes += cmd->decoded_length;
+        } else {
+          command_processor->TracePlaybackWroteMemory(cmd->base_ptr, cmd->decoded_length);
+          replay_stats_.restored_bytes += cmd->decoded_length;
+        }
         break;
       }
       case TraceCommandType::kMemoryWrite: {
@@ -181,6 +220,7 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
                          xenos::kEdramSizeBytes);
         trace_ptr += cmd->encoded_length;
         command_processor->RestoreEdramSnapshot(edram_snapshot.get());
+        replay_stats_.restored_bytes += xenos::kEdramSizeBytes;
         break;
       }
       case TraceCommandType::kEvent: {
@@ -220,6 +260,15 @@ void TracePlayer::PlayTraceOnThread(const uint8_t* trace_data, size_t trace_size
             cmd->rw_component);
         break;
       }
+    }
+    const double command_us = std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - command_begin).count();
+    if (type == TraceCommandType::kPacketEnd) {
+      replay_stats_.packets_us += command_us;
+    } else if (type == TraceCommandType::kPrimaryBufferEnd) {
+      replay_stats_.primary_end_us += command_us;
+    } else {
+      replay_stats_.restore_us += command_us;
     }
   }
 

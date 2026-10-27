@@ -1,11 +1,16 @@
 #include "community/g2_service.h"
 #include "community/replay_format.h"
+#include "community/path_buffer.h"
+#include <rex/runtime.h>
+#include <rex/system/kernel_state.h>
 #include <rex/logging.h>
 #include <chrono>
 #include <array>
 #include <iostream>
 #include <stdexcept>
 #include <fstream>
+#include <algorithm>
+#include <filesystem>
 
 using namespace espgaluda2;
 using namespace rex::system::xam;
@@ -42,6 +47,9 @@ std::vector<uint8_t> ReplayFixture(int64_t score=999) {
   auto put64=[&](size_t at,uint64_t n){put32(at,uint32_t(n>>32));put32(at+4,uint32_t(n));};
   put32(0,0);put32(4,2);put64(8,134368194753020000ull);put64(16,uint64_t(score));
   put32(24,12);put32(36,2);put32(96,32);
+  put64(64,kCommunityLocalXuid);
+  constexpr std::string_view tag="OldTag";
+  std::copy(tag.begin(),tag.end(),bytes.begin()+80);
   for(size_t i=104;i<bytes.size();++i)bytes[i]=uint8_t(i);
   return bytes;
 }
@@ -53,7 +61,77 @@ template<class F> void Reject(F action) {
   throw std::runtime_error("Invalid native schema accepted");
 }
 
+std::string ReplayTag(const std::vector<uint8_t>& bytes) {
+  const auto start=bytes.begin()+80,end=bytes.begin()+96;
+  return {start,std::find(start,end,0)};
+}
+// Mirrors the original list refresh's three-way owner choice. Actual game
+// acceptance is recorded separately; this is not guest execution.
+std::string ListAuthor(const std::vector<uint8_t>& bytes,std::string local_name) {
+  uint64_t xuid=0;for(size_t i=64;i<72;++i)xuid=(xuid<<8)|bytes[i];
+  if(!xuid)return ReplayTag(bytes);
+  return xuid==kCommunityLocalXuid?local_name:"Live profile lookup";
+}
+void CheckDownload(const std::vector<uint8_t>& original,const std::vector<uint8_t>& downloaded,
+                   std::string_view author) {
+  Require(downloaded.size()==original.size(),"Replay size changed");
+  for(size_t i=4;i<original.size();++i)
+    if(!(i>=64 && i<72) && !(i>=80 && i<96))
+      Require(downloaded[i]==original[i],"Non-author replay data changed");
+  Require(ReplayTag(downloaded)==author && ListAuthor(downloaded,"RenamedViewer")==author,
+          "Archive author changed on local nickname update");
+  Require(std::all_of(downloaded.begin()+64,downloaded.begin()+72,[](auto b){return b==0;}),
+          "Archive still resolves a local or remote Live profile");
+  uint32_t sum=uint32_t(downloaded.size()),saved=0;
+  for(size_t i=4;i<downloaded.size();++i)sum+=downloaded[i];
+  for(size_t i=0;i<4;++i)saved=(saved<<8)|downloaded[i];
+  Require(sum==saved,"Native replay checksum was not refreshed");
+}
+
+void DownloadPathBufferTest() {
+  const auto directory=std::filesystem::temp_directory_path()/
+      ("evac-g2-path-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(directory);
+  struct Cleanup { std::filesystem::path path; ~Cleanup(){std::error_code error;std::filesystem::remove_all(path,error);} } cleanup{directory};
+  rex::Runtime runtime(directory,directory,{},directory/"cache",{});
+  rex::RuntimeConfig config;config.tool_mode=true;
+  Require(runtime.Setup(std::move(config))==0,"Download path runtime setup failed");
+  auto provider=std::make_shared<G2Community>("https://example.invalid/api","PathTest","test");
+  SetCommunityService(provider);
+  struct Reset { ~Reset(){SetCommunityService({});} } reset;
+  auto* memory=runtime.memory();
+  const auto address=memory->SystemHeapAlloc(4096);
+  Require(address!=0,"Download path fixture allocation failed");
+  const auto destination=address+4,length=destination+2048;
+  auto* bytes=memory->TranslateVirtual(address);
+  auto put=[&](uint32_t at,uint32_t value){rex::memory::store_and_swap<uint32_t>(bytes+at,value);};
+  auto get=[&](uint32_t at){return rex::memory::load_and_swap<uint32_t>(bytes+at);};
+  put(0,73);put(2052,0);std::fill(bytes+4,bytes+2052,0xcc);
+  const auto build=[&]{return BuildCommunityReplayPath(runtime.kernel_state(),254,
+      0xb000000100000002ull,1,address,4,0,destination,length);};
+  Require(build()==122 && bytes[4]==0xcc,"Shared API accepted zero capacity");
+  put(2052,0); // Reproduce the actual cold download, not the second-attempt state.
+  Require(InitializeDownloadPathCapacity(*memory,address,destination,length),"Cold G2 path capacity rejected");
+  Require(get(2052)==2048 && build()==0,"First G2 download path failed");
+  const auto path=CommunityReplayPath(73,0xb000000100000002ull);
+  const auto required=uint32_t((path.size()+1)*2);
+  Require(get(2052)==required && bytes[4+required]==0xcc,"Download path output bounds changed");
+  for(size_t i=0;i<path.size();++i)
+    Require(rex::memory::load_and_swap<uint16_t>(bytes+4+i*2)==path[i],"Download path contents wrong");
+  Require(!rex::memory::load_and_swap<uint16_t>(bytes+4+path.size()*2),"Download path lacks terminator");
+  put(0,39);
+  Require(InitializeDownloadPathCapacity(*memory,address,destination,length) && build()==0,
+      "Repeated download did not restore array capacity");
+  const auto unchanged=get(2052);
+  Require(!InitializeDownloadPathCapacity(*memory,address,destination,length-4) && get(2052)==unchanged,
+      "Unknown layout altered capacity");
+  Require(!InitializeDownloadPathCapacity(*memory,address+4,destination,length),"Wrong view layout accepted");
+  Require(!InitializeDownloadPathCapacity(*memory,1,5,2053),"Unmapped buffer accepted");
+  Require(!InitializeDownloadPathCapacity(*memory,0xfffffffc,0,2048),"Wrapped buffer accepted");
+  memory->SystemHeapFree(address);
+}
 void Units() {
+  DownloadPathBufferTest();
   auto encoded = EncodeCommunityScore(Score(71,9007199254740993LL));
   Require(encoded.at("score") == "9007199254740993", "64-bit total rounded");
   Require(encoded.at("columns").at(0).at("id") == 0x20000001, "Native write property namespace lost");
@@ -93,6 +171,20 @@ void Units() {
   const auto alias = CommunityNativeName("大佐");
   Require(alias.starts_with("Player-") && alias.size() == 15 && alias == CommunityNativeName("大佐"), "Stable display alias");
   auto fixture=ReplayFixture();
+  Require(ListAuthor(fixture,"Viewer")=="Viewer","Fixture does not reproduce local rename");
+  auto archived=fixture;
+  SetDownloadedReplayAuthor(archived,"RemoteAuthor");
+  CheckDownload(fixture,archived,"RemoteAuthor");
+  const auto once=archived;
+  SetDownloadedReplayAuthor(archived,"RemoteAuthor");
+  Require(archived==once && ReplayTag(fixture)=="OldTag","Author preparation changed original or is not idempotent");
+  for(const auto& invalid:{std::string(),std::string(16,'x'),std::string("A\nB"),std::string("\xc3\xa9")}) {
+    auto bad=fixture;Reject([&]{SetDownloadedReplayAuthor(bad,invalid);});
+    Require(bad==fixture,"Invalid tag partially rewrote metadata");
+  }
+  auto invalid_record=fixture;invalid_record[7]=3;const auto before_invalid=invalid_record;
+  Reject([&]{SetDownloadedReplayAuthor(invalid_record,"Author");});
+  Require(invalid_record==before_invalid,"Invalid record was modified");
   auto info=InspectReplay(fixture);
   Require(info.score==999 && info.time==134368194753020000ull && info.character==2,"Replay envelope metadata");
   auto local_prefix=fixture;
@@ -199,12 +291,29 @@ nlohmann::json Probe(std::string endpoint) {
   auto shared=Read(player,Board(1));
   Require(!shared.error && shared.views[0].rows[0].columns.back().integer==136,"Native attachment byte count missing");
   auto download=Replay(player,{1,kCommunityLocalXuid,false,136,{}});
-  Require(!download.error && download.record==record,"Downloaded replay changed bytes");
+  Require(!download.error,"Own replay download failed");
+  const auto expected_author=CommunityNativeName("G2TransportTest");
+  CheckDownload(record,download.record,expected_author);
   Require(Replay(player,{1,kCommunityLocalXuid,false,135,{}}).error==122,"Download overflow not rejected");
   auto foreign=Read(rival,Board(1));
   const auto owner=foreign.views[0].rows[0].xuid;
   auto remote=Replay(rival,{1,owner,false,136,{}});
-  Require(!remote.error && remote.record==record,"Remote nickname replay lookup failed");
+  Require(!remote.error && remote.record==download.record,"Remote nickname replay lookup failed");
+  CheckDownload(record,remote.record,expected_author);
+  G2Community cold(endpoint,"RenamedViewer","authored-test");
+  Read(cold,Board(71)); // Allocate different temporary leaderboard IDs first.
+  const auto cold_board=Read(cold,Board(1));
+  const auto cold_download=Replay(cold,{1,cold_board.views.at(0).rows.at(0).xuid,false,136,{}});
+  Require(!cold_download.error && cold_download.record==download.record,"Cold profile changed archived author");
+  cold.Stop();
+  // This round-trip uses only saved bytes; no network call supplies the name.
+  const auto fixture_path=std::filesystem::temp_directory_path()/
+      ("evac-g2-author-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".bin");
+  {std::ofstream file(fixture_path,std::ios::binary);file.write(reinterpret_cast<const char*>(download.record.data()),download.record.size());Require(bool(file),"Offline fixture write failed");}
+  std::vector<uint8_t> restored;
+  {std::ifstream file(fixture_path,std::ios::binary);restored.assign(std::istreambuf_iterator<char>(file),{});}
+  std::filesystem::remove(fixture_path);
+  Require(restored==download.record && ListAuthor(restored,"OfflineUser")==expected_author,"Offline archived author changed");
   Require(Write(player,{Score(0,10)})==13 && Replay(player,{1,kCommunityLocalXuid,true,136,record}).error==13,
           "Failed new write retained an old upload receipt");
   player.Stop();rival.Stop();

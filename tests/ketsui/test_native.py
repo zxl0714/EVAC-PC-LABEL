@@ -4892,6 +4892,7 @@ class RuntimeTests(unittest.TestCase):
                 events = [json.loads(line) for line in result.stdout.splitlines()]
                 event = next(e for e in events if e['event'] == 'native_pad_diagnostic_circle_hold')
                 self.assertEqual(event, dict(event='native_pad_diagnostic_circle_hold', trigger='H', milliseconds=value,
+                                             shift_hold_ms=30000 if value else 0,
                                              changes_game_state_directly=False))
 
     def test_resident_gpu_requires_explicit_entry_mode_and_absolute_existing_library(self):
@@ -5175,7 +5176,7 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 events = [json.loads(line) for line in result.stdout.splitlines()]
                 checks = [e for e in events if e['event'] == 'fios_self_test_case']
-                self.assertEqual(len(checks), 25)
+                self.assertEqual(len(checks), 29)
                 self.assertTrue(all(e['passed'] for e in checks))
                 self.assertEqual(before, {str(p): hashlib.sha256(p.read_bytes()).digest() for p in Path(directory).rglob('*') if p.is_file()})
 

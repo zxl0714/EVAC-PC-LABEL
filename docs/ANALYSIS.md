@@ -1,6 +1,6 @@
 # 分析与诊断工具
 
-最大往生 Frame Delay 已从设计进入实现。当前两模块的 2V 候选采用真正 park 确认、完整原生交换和晚段结算，未移动输入与玩法唤醒。r2 实际旧录像／暂停恢复及模块切换完成，首次输入消费至对应 Present 返回中位 33.134 ms、p95 33.584 ms；仍有少量进入／结束及命令准备长样本待原路径对照。详情见 [开发验收](TEST_MATRIX.md#最大往生-frame-delay-开发检查) 和 [方案当前状态](SDOJ_LATENCY_PLAN.md#当前实现状态)。1V 尚未实现，默认仍为 3；不将候选收益称作全部功能完成或物理出光测量。
+最大往生已支持 1V／2V／3V，当前默认 1V。对应游戏输入到原生呈现的策略、历史实测和显示链边界集中在[八款游戏输入延迟对照](#八款游戏输入延迟对照)；实现与恢复机制见 [Frame Delay 方案](SDOJ_LATENCY_PLAN.md)。v0.8.0 的地址通知等待减少原有轮询，不改变选定的 V 档位。
 
 线程派发、信号量、mutex／condition、GPU worker 和日志队列审查及当前根因修复集中在 [PS4 任务派发与同步](PS4_SYNCHRONIZATION.md)。已通过交错对照确认旧硬宿主 CPU 绑定放大批量任务长尾；默认改为继承宿主可运行范围，保留六线程和完整同步。375 源码／73 原生通过，两款实际固定录像的关卡最大 17.185／17.188 ms。该文同时保留旧 33.508 ms 实际长帧、未通过的 event 候选、时间点语义、配套身份与覆盖边界；下文较早记录不覆盖其当前结论。
 
@@ -395,6 +395,126 @@ kiniro_abnormal  da3ab8cb8edb287a10866ad262b7bc5ceeacd431044d59bdf0b85067a5792f2
 
 本次只增加本地离线分析与文档，没有加入输入、等待或绘图行为补丁，没有启动游戏或改动配置／原始 game-data。以前的 Futari 音频 worker 等待修复不等于输入管线降延迟；目前不能把差异归功于那项修复。
 
+## G2 与虫姬二 Frame Delay 对照
+
+G2 当前原生呈现策略最接近虫姬二的 **2V(PCB)**，不是虫姬二默认的 **1V(Fast)**。依据是实际提交函数及初始化开关的对应，而不是由 FPS 或手感换算帧数。Xbox360（dat12）和 Black Label（dat15）的普通玩法入口均已核对；其他模式共用主程序呈现端，但未逐一分析核心内部时序。
+
+| 呈现环节 | 虫姬二 1V | 虫姬二 2V | G2 当前路径 |
+| --- | --- | --- | --- |
+| 帧尾入口 | 游戏自行等待 VBlank，然后 resolve／直接 swap | 标准 D3D Present | 标准 D3D Present，与虫姬二 2V 对应 |
+| 立即交换开关 | 开启 | 关闭 | 关闭 |
+| D3D 呈现间隔 | immediate，节拍由游戏等待负责 | 1 | default=0，在该 D3D 实现中按 1 处理 |
+| 区分虫姬二 3V 的额外开关 | 关闭 | 关闭 | 关闭 |
+
+两款游戏虽然共用 PC 输入与 D3D12 后端，进入后端前的原生提交策略仍然不同。G2 把同步安排在标准 D3D 命令流里，CPU 提前准备与 GPU 等待可以重叠；虫姬二 1V 则在游戏侧等待后直接交换。因此，G2 比默认虫姬二显得迟钝有代码层面的解释，但尚未测得本机固定多出 16.7 ms；这里的 2V 是呈现策略对应，不是物理按键到屏幕出光恰为 33.3 ms。
+
+### 输入与绘图顺序
+
+主循环 `820ED800` 先经 `820ECBC8 → 820FAB90` 更新输入，再调用 `82090FF0 → 82090940` 运行游戏。Xbox360 常态入口 `820CFD48` 先执行 `82091598 → 82094F38 → 820A7020` 转换按键，再进入 `820BB230` 的核心虚表 `+8`。核心读取的回调由主程序 `820B5478` 注册为 `82091690`，经 `82095190 → 820A6678` 返回映射状态。
+
+dat12 的 `880202A8 → 88022C50` 在 `8814AC08` 取输入，然后运行 `88055FD0`；dat15 对应 `880202A8 → 88021CC0`、输入 `88158A80`、玩法 `8805F670`。这些入口同步返回到主程序，之后同一轮 `820912A8 → 8209A420` 处理绘图列表，`82092180 → 82095F48 → 820AD048` 调用呈现虚函数。没有在这条外层交接中发现 SDOJ 原先固定晚发布／晚取用的两轮滞后。原生 slowdown 会跳过部分玩法更新，不能算作固定输入排队。
+
+### 呈现策略证据
+
+- G2 渲染对象虚表起点是 `82012CA0`；`+8=820F4180` 处理命令，`+12=820F3E40` 调用 `82171340`。相邻的 `82012C30` 是其内部对象的另一张虚表，不能混用偏移。
+- G2 `82171340` 与虫姬二 `820A5A68` 都是 63 条指令的标准 Present 包装；逐项核对后，11 处差异仅为调用目标及常量地址，两者 resolve 常量均为 1.0。G2 经 `821708B0` 安排同步，再经 `82170CE0` 调用 VdSwap；虫姬二对应 `820A4FD8`、`820A5408`。
+- 虫姬二 `8216B148` 在模式 2／3 调用 `820A5A68`，模式 0／1 则绕过该包装直接 resolve／swap。模式 2 清除设备 `+24192` 的 bit 2 和 bit 0，呈现间隔设为 1；模式 3 的区别是打开 bit 0。模式 1 打开 bit 2，使用 immediate 间隔，并在 CPU 端等待 VBlank。
+- G2 `820E7D00` 用行为标志 0 创建设备；`821703F8` 的缺省高位补充不改变上述两个低位。初始化参数的间隔字段为 0，复制到设备 `+13804` 后，在 `821708B0` 中与 1 一起映射为一次 VBlank。`82178988` 重设状态时保留这些值。其组合与虫姬二 2V 对应，不包含 3V 的额外开关。
+
+本地复查入口 `.local/g2_latency_audit.py` 对原始区段执行 37 项指令／表项核对，并比对上述 63 条指令；结果在 `.local/analysis/g2-latency-r1/comparison.json`。default、dat12、dat15 原文件 SHA-256 与 `games/espgaluda2/inputs.json` 一致。只读分析不启动游戏、不改配置或时序。若继续量化差值，需匹配有效方向输入、对应绘图内容和最终 Present，不能把下一次出帧直接当成本次输入的画面。
+
+## v0.8.0 Xbox 360 性能结果
+
+在 i7-13700KF／RTX 4080 上，每款使用自身同一份第一关录像，窗口 VSync，
+保持原游戏节拍。CPU 是进程各线程实际执行时间相加，不是等待时间或整机
+占用百分比。以下每行只比较本行相同模式；详细采样区间、哈希、反向控制、
+帧间隔和音频记录见 TEST_MATRIX。
+
+| 代表场景／改动 | 原 CPU ms/s | 新 CPU ms/s | 本行收益 |
+| --- | ---: | ---: | ---: |
+| 虫姬二 Arcade No.3：原生完成轮询 | 1235 | 198～217 | 82%～84% |
+| 虫姬二 Xbox360 HD No.5：进一步定时器、命令线程与队列优化 | 297 | 102～111 | 63%～66% |
+| G2 Black Label No.2：原生 fence 等待 | 1199 | 369～394 | 67%～69% |
+| 最大往生 Arcade HD No.1：三处原生完成等待 | 3295 | 413～456 | 86%～88% |
+| 狱门山 Blue Data1：两处原生完成等待 | 1871 | 522～525 | 约 72% |
+| 狱门山同录像：继续消除空渲染队列轮询 | 510 | 236 | 约 54% |
+
+虫姬二 HD 的原生 RGBA8 复制另外进行了同程序开／关及反向关闭对照：
+GPU 命令工作由 769～804 降到 622～626 µs/帧，约减少 19%～23%。开启侧
+CPU 为 77～84 ms/s，但关闭侧 91～151 ms/s 波动较大，不把全部 CPU 差值
+算作复制路径的收益。其余三款没有确认 GPU 降幅。
+
+最终代表片段的 host-present 最大间隔分别约为虫姬二 17.80～17.83 ms、
+G2 2V 18.88～19.22 ms／1V 17.62 ms、最大往生 17.84～17.87 ms、狱门山
+17.72 ms，片段内均无 >20 ms 或音频空块。虫姬二早期定时器单项测试有一次
+20.49 ms，保留该记录；不以几个短片段宣称所有机器、全部关卡无长帧。
+
+剩余成本不全是游戏运算：GPU 命令转换、驱动调用、输入／音频及线程交接
+均计入 CPU。单资源范围检查已消除临时分配；常量去重没有稳定收益而撤回。
+整页覆盖上传候选在离线快照恢复中有收益，在真实回放无稳定收益，默认关闭。
+保留这些负结果，避免以后重复优化基准夹具而非实际游戏。
+
+## 八款游戏输入延迟对照
+
+### 当前证据表
+
+比较拆为设备／系统事件到玩法消费输入、玩法到对应画面提交、提交到显示三段。V 是游戏策略，毫秒数只在有明确起止点的实测中填写。`—` 表示尚无该口径数据，不是零；当前还不能给八款游戏排物理输入延迟名次。
+
+模拟器基线固定为已有本机官方程序：Xenia Canary `291f0c9be`（EXE SHA-256 `242c5acc4b4f7cfd1e5038ec0ef6981e5923c019cc242c08e4e79c9b510ecabc`），shadPS4 `v0.20.0 / 529ceb32f5546b820588f194b903cc39d08015fe`（EXE `d2844a3ad350e2c51edc6e61dc6684b29dcde76e23746f1bdf97cb9367ec88c3`）。身份来自 `.local/perf-compare-v075/` 实际启动日志和采集收据。下表合集策略按当前源码，历史实测单列版本。
+
+| 游戏／代表范围 | 移植版默认游戏侧策略 | 对应模拟器的原游戏策略 | 玩法消费 → 对应 Present CPU 返回 | 设备 → 游戏／物理端到端 |
+| --- | --- | --- | --- | --- |
+| 虫姬二：Ver1.5、Black Label／Xbox360 | 原生新配置 1V；菜单可选 0V／2V／3V | Xenia 保留相同原生选项；实际玩家存档需读回 | 双方 —；已核对本次核心完成后绘制，无 SDOJ 原先两轮发布滞后 | 双方 — |
+| G2：Xbox360、Black Label | 默认相当于虫姬二 2V；可配置实验性 1V | 未改游戏时相同 2V 策略；JIT 本身不固定加减一 V | 双方 —；同步核心返回后绘制，1V 改为 CPU 等待完成的 VBlank 后直接交换 | 双方 — |
+| 最大往生：Arcade HD | 合集默认 1V；可选 2V／3V | 原作交接对应 3V；不是 Xenia 的实测数值 | 合集历史同构建：1V **16.847 ms**，2V **33.266 ms**，3V **49.957 ms** 中位；Xenia — | 双方 — |
+| 狱门山：普通模式 | 保留原生时序；尚未定量几 V | Xenia 保留原时序，未定量 | 双方 —；主程序有标准 Present，也有等待标志后直接 swap，不能只据库函数定档 | 双方 — |
+| 绊地狱：ARCADE | 原生逻辑／提交，宿主默认同步呈现 | shadPS4 原生逻辑；基线配置 FIFO | 双方 —；已有 CPU／GPU／帧间隔横评不是输入延迟 | 双方 — |
+| 大往生：ARCADE | 原生逻辑／提交，宿主默认同步呈现 | shadPS4 原生逻辑，需匹配数据版本 | 双方 —；不能借用绊地狱的内部帧数 | 双方 — |
+| ESP Ra.De.：ARCADE | 原生逻辑／提交，宿主默认同步呈现 | shadPS4 原生逻辑，匹配 01.04 数据 | 双方 — | 双方 — |
+| 弹铳：ARCADE | 原生逻辑／提交，宿主默认同步呈现 | shadPS4 原生逻辑，匹配美版 01.00 数据 | 双方 —；接入验收没有测输入响应 | 双方 — |
+
+最大往生三档分别跨 1／2／3 个输出周期，正常第一关各 2,125 个首个对应结果，p95 为 17.293／33.657／50.345 ms。缓冲身份关联及减速边界见 [Frame Delay 验收](TEST_MATRIX.md#地图初始化修正版的输出链)。原始报告在旧工程 `.local/analysis/sdoj-map-init-r1-{low,balanced,original}-stage.json`；不是新 v0.8 构建横评。
+
+G2 实验性 1V 保留本轮核心计算、绘图、原生 GPU 排空、resolve、交换和缓冲退役；只将标准 Present 中排入 GPU 队列的同步改为 CPU 等待已经完成的原生 VBlank，再以 immediate 策略交换。通知位于原 VBlank 处理器解锁之后；漏过多轮只消费最新完成序号，不补跑多轮玩法。设备变化或 150 ms 超时会恢复原始 2V，退出可取消等待。缺省配置仍为 2V。
+
+同一 Black Label／Seseri／No.2 录像在两档均完整结束，模块运行约 77.77／77.80 秒；最终等待优化组合的 1V 第一关片段平均呈现间隔 16.6669 ms、最大 17.618 ms、无 >20 ms 或音频空块。这验证运行顺序、节拍与短录像结果；没有输入身份到屏幕内容的配对测量，所以不把“1V”写成已测得 16.67 ms 物理延迟。重负载的遗漏通知和无追赶机制由生产门控测试覆盖，不代替各关卡的真实 slowdown 全量核对。
+
+### 输入前段：库版本不等于延迟数字
+
+| 实现 | 已核对的数据更新路径 | 尚需测量的等待 |
+| --- | --- | --- |
+| 合集 Xbox 360 | 默认 SDL3；event watch 入暂存队列，`GetState` 排 UI pump，drain 已到事件后返回缓存；另可选 XInput | 设备报告、UI pump 排队、事件到客体 API，以及 API 到玩法消费的年龄 |
+| Xenia Canary `291f0c9be` | SDL 路径为 SDL2，`GetState` 排 UI pump 后读状态；XInput 路径直接调用宿主 API。历史虫姬回放指定 `--hid=keyboard` | 明确所选驱动；不能拿键盘采集代表 SDL 手柄，或由 SDL2／3 直接判胜负 |
+| 合集 PS4 | SDL3，实际弹铳日志为 3.4.18。约 16.67 ms 的 pad sampler；按下边沿 latch 可在游戏读取时促成新采样；单报告读最新并退役历史 | 按下／松开、数字方向／轴分测。无 pending 边沿的状态变化可能等 sampler；并非所有输入固定多 16.67 ms |
+| shadPS4 `v0.20.0` | SDL3 `WaitEvent` 分发；按钮／轴事件更新状态，另有 4 ms `PollController` 定时器；单报告读最新，批量读历史 | 事件到分发／游戏读取的实际年龄；4 ms 是定时器设置，不是设备到游戏延迟上限 |
+
+本地入口：`third_party/rexglue/src/input/sdl/sdl_input_driver.cpp`、`backends/ps4/input/sdl_gamepad.cpp`、`backends/ps4/native_pad.cpp`。外部固定源码：[Xenia SDL](https://github.com/xenia-canary/xenia-canary/blob/291f0c9be/src/xenia/hid/sdl/sdl_input_driver.cc)、[XInput](https://github.com/xenia-canary/xenia-canary/blob/291f0c9be/src/xenia/hid/xinput/xinput_input_driver.cc)、[shadPS4 事件循环](https://github.com/shadps4-emu/shadPS4/blob/529ceb32f5546b820588f194b903cc39d08015fe/src/sdl_window.cpp)、[状态读取](https://github.com/shadps4-emu/shadPS4/blob/529ceb32f5546b820588f194b903cc39d08015fe/src/input/controller.cpp)。这些是源码对照，不是设备实测。
+
+### 虫姬二：immediate 后仍有显示等待
+
+原作 1V 的 immediate 与 Windows 的 `Present(0, ...)` 是不同层的开关。当前合集和基线 Xenia 的 D3D12 都以 interval 0、RESTART 及条件式 ALLOW_TEARING 提交，Windows 实际显示路径仍可能不同。[Present 定义](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present)不保证调用返回时像素已经出光。
+
+复用 v0.7.5 横评同一 Ver1.5／ARCADE／Original／Reco Normal 第一关短录像，i7-13700KF、RTX 4080、驱动 610.88，桌面 3840×2160／144 Hz，窗口 1280×720。沿用此前确认的游玩区段。双方游戏内 FrameDelay 当时未读回，因此仅回答宿主 Present 后的等待，不能据此算 1V 完整输入延迟。
+
+| Present → Windows 显示事件 | 合集 v0.7.5 | Xenia Canary `291f0c9be` |
+| --- | ---: | ---: |
+| 实际路径 | Hardware: Independent Flip | Composed: Flip |
+| SyncInterval／PresentFlags | 0／516 | 0／516 |
+| AllowsTearing（实际事件） | 1 | 0 |
+| 有效样本 | 539 | 598 |
+| **调用开始 → 首次显示，中位** | **0.378 ms** | **11.315 ms** |
+| p95／最大 | 2.571／3.465 ms | 14.148／16.811 ms |
+| 调用返回 → 首次显示，中位 | 0.245 ms | 11.197 ms |
+| Present 函数自身耗时，中位 | 0.134 ms | 0.117 ms |
+
+中位差约 **10.94 ms**。两边调用都很短，却有不同的后续等待：interval 0 不足以说明输出延迟。这里实际合成／撕裂路径不同，不代表“移植架构固定快 10.94 ms”；AllowsTearing 也不能单独证明 VRR 已启用。显示事件后的扫描位置和面板响应未测，0.378 ms 不是完整画面已显示或按键到出光。
+
+复算入口 `scripts/present_latency.py`，接受 PresentMon 2.6.0 CSV。依据该版 [CPU](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/IntelPresentMon/CommonUtilities/mc/MetricsCalculatorCpuGpu.cpp)和[显示指标实现](https://github.com/GameTechDev/PresentMon/blob/v2.6.0/IntelPresentMon/CommonUtilities/mc/MetricsCalculatorDisplay.cpp)，逐行 `DisplayLatency - CPUBusy` 是调用开始到显示，再减 `CPUWait` 是调用返回到显示；后者允许负数，表示显示早于函数返回。CPUBusy 是推导帧起点到 Present 的墙钟间隔，不是线程执行成本。仅接受 DXGI、同交换链、单调时间和配对显示数据，按策略分组；NA 不记零，跨场景末尾记录排除。
+
+结果及输入 SHA-256：`.local/analysis/v080-latency-r1/{evac,xenia}-futari-present.json`。EVAC QPC `[92237141000000, 92237231000000)`，Xenia `[92233262564423, 92233362564423)`，时钟 10 MHz；两边各排除 2 条跨末尾记录。分析器 13 项测试覆盖公式、负返回偏移、NA、边界及错误数据拒绝，没有改动游戏或显示配置。
+
+后续优先补游戏输入身份与对应图像，再关联显示事件。Vulkan `Other` 事件不能直接套 DXGI 起点公式。实体输入前段和面板出光保留硬件测量位置，自动测试不冒充该证据。
+
 ## 绊地狱帧节拍与后台日志
 
 ### 最终合成提前提交与映射回退
@@ -586,6 +706,46 @@ v0.3 开发构建另外对至少 20 ms 的已完成呈现输出 `native_video_pr
 独立诊断命令默认保留同步输出。`KetsuiNativeProbe.exe --async-log-self-test` 使用自造阻塞 sink 验证提交与磁盘分离、容量及整条记录、失败计数、多线程投递和排空；`scripts/ps4/run_native_checks.py` 另外检查终止记录仍为最后一条完整 JSON。这些机制检查不执行游戏。
 
 固定录像复测路径为：进入 ARCADE → Backspace 打开暂停菜单 → Materials Room → Replay Theater → My Replay。现有 380 分／TYPE-A／00:53.45 录像可重复用于对照；播放期间不发射击、暂停或加速输入，等待自然返回，再核对 F8、程序哈希、选定区间、丢失状态及音频观测。共享 INI 的临时离线与 CU 方向别名在测试结束后恢复。
+
+## v0.8.0 虫姬二 CPU／GPU 性能基线
+
+原作 Present 包装 `8216B148` 在 1V／0V 下反复读取 `821F8560`，直到 VBlank 回调推进计数。采样显示主线程几乎占用一个逻辑核。当前优化保留原始读、比较和分支，仅在相等时通过 Windows `WaitOnAddress` 休眠，由原始回调写入后通知；没有改变游戏速度、GPU 完成条件或 Frame Delay 档位。
+
+同一 Ver1.5／Arcade／Original／Reco Normal 的 No.3 录像早期区间，原版进程 CPU 执行为 1235 ms/s，通知等待两轮为 217／198 ms/s，降低约 82%–84%。这是所有线程 CPU 执行时间之和，不是整个电脑的占用百分比。平均 host-present 间隔均约 16.67 ms；该短测未出现 >20 ms 间隔或音频欠载。详见验收矩阵中的原始日志、区间及尾部数值。
+
+GPU 独立基线用 `--d3d12_profile_submissions=true` 记录已完成命令列表内的时间戳。300 帧的 GPU 工作平均 0.417 ms，CPU 将已整理的绘图命令编码为 D3D12 调用平均 0.114 ms；每帧平均 2.2 次提交、约 283 次客体绘制及 3 次 resolve。这两项不包含原作 CPU 逻辑、提交间空闲、后续窗口合成或显示扫描，不能相加充当整帧延迟。
+
+诊断默认关闭，不增加 GPU 等待；256 槽有界查询环仅在原 fence 完成后读取，满环丢诊断而不拖慢游戏。已通过实际 D3D12 验证层和槽位复用测试。GPU 优化继续以该基线为依据，尚未将当前 CPU 单项收益记为整个性能项目完成。
+
+### 高清 GPU 抓帧基准
+
+后续 CPU 主场景也单独固定为 Xbox 360 高清 No.5。残余成本检查找到 1 kHz 定时器的自旋／让出，以及 GPU 空闲线程先让出 500 次的策略，现均改为谓词通知等待。高清旧基线约 297 CPU ms/s，经两轮改造降到约 102–111 ms/s；旧 Arcade 的 198–217 ms/s 不参与这组降幅。继续检查实际处理成本，而不是将剩余 CPU 全部视为不可减少的有效运算。数字、长帧例外和配套身份见 [验收记录](TEST_MATRIX.md#第二轮定时器残余忙等)。
+
+可重跑的生产路径机制基准为 `out/xbox360/bin/timer_queue_tests.exe original`／`blocking` 和 `command_wait_tests.exe`。前者执行真实队列和 1,000 次周期回调，输出线程 CPU 和截止误差；后者运行真实命令等待策略及回调队列，输出工作线程 CPU、cycles 和事件交接延迟。GetThreadTimes 的零读数仅表示低于采样分辨率。Win32 高精度等待依据 [CreateWaitableTimerExW](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createwaitabletimerexw)，失败时保留旧定时器策略；不改全局定时分辨率。
+
+主场景为 Ver1.5／Xbox 360／Original／Reco Normal 第一关。旧 Arcade CPU 对照单独保留；不要跨模式计算渲染收益。开发构建使用 `./scripts/Build-Sdk.ps1 -GpuTraceBench`，普通构建不含抓帧请求和复制次数放大开关。
+
+```powershell
+& ./out/sdk-build/bin/rexgpu_trace_bench.exe `
+  --bench_trace=PATH_TO_PRIVATE_FRAME.xtr `
+  --bench_reference=PATH_TO_CAPTURE_REFERENCE.ppm `
+  --bench_output=PATH_TO_NEW_OUTPUT_DIRECTORY `
+  --bench_warmup=24 --bench_iterations=400 `
+  --bench_reuse_memory=true --bench_alternate_resolve=true
+py -3.12 scripts/gpu_trace_report.py PATH_TO_NEW_OUTPUT_DIRECTORY --output PATH_TO_NEW_REPORT.json
+```
+
+先要求每次输出与捕获当时的原图逐字节一致，再读取 GPU 时间戳。CPU 快照恢复、命令处理、主缓冲收尾和图像读回分别计时；GPU 快照上传与目标绘制提交分列。`bench_reuse_memory` 仅复用内容相同且不含 GPU 写入页的 CPU 数据，不跳过 EDRAM／寄存器恢复。它减少的是离线准备开销，不算游戏性能收益。
+
+`bench_alternate_resolve` 在完整帧边界按旧／新／新／旧交错，CSV 记录每帧实际开关，减少进程间时钟状态变化对比较的影响。正常 `d3d12_bench_resolve_repetitions=1`；设为 128 是仅供定位复制路径的放大负载，不是游戏工作量。当前四像素单次复制原型在两轮放大负载下降约 23%，但正常次数的逐组改善率中位仅 2.17%，必须另做同录像实际对照，不能称整帧快了 23%。详见验收矩阵。
+
+生产 shader 位于 `third_party/rexglue/src/graphics/shaders/direct_rgba8_resolve.cs.hlsl`。更新字节码使用 Windows SDK 的 `fxc.exe /T cs_5_1 /E main /O3 /Vn direct_rgba8_resolve_cs /Fh <bytecode-header> <shader-source>`；`d3d12_native_resolve_test` 显式执行真实 GPU 输出检查，`native_resolve_policy` 为不创建 GPU 的准入规则回归。抓帧及原图包含游戏资源，仅留在本地忽略目录。
+
+### 实际处理开销与离线重放的区别
+
+开发构建可用 `--d3d12_profile_cpu_work=true` 按绘图阶段累计线程 cycles 和墙钟时间，默认每 60 次交换输出一组 `CPU_WORK`；`frames` 给出累计帧数。`subset_*` 是嵌套子集，不能再次加到总和；`CPU_UPLOAD` 记录实际上传字节。普通玩家构建不编译这部分采样。采样调用自身有成本，因此它用于定位阶段，最终进程 CPU 对照须关闭采样。
+
+离线基准的 `--bench_alternate_overwrite=true` 可比较跳过整页覆盖前旧内容上传的候选，不能同时交错另一项优化。此路径有约 22% 的离线命令处理墙钟收益，但真实同录像的四次开关对照没有确认收益，默认不启用。快照重放会制造重新上传，需以实际 `CPU_UPLOAD` 核对是否属于真实热点。相同着色器常量去重也因未测得收益而移除。
 
 ## 虫姬二本机联网现场
 

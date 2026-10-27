@@ -14,7 +14,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 ### 运行环境
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De. 需要 Vulkan。程序运行库随玩家包附带。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳需要 Vulkan。程序运行库随玩家包附带。
 
 ### 运行
 
@@ -36,8 +36,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 | 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.00 本体或 01.04 完整合并数据 |
 | エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
 | ぐわんげ | 狱门山／Guwange | Xbox 360 XBLA，58410A78，本体 0.0.0.4 |
-
-后续支持：弾銃フィーバロン / Dangun Feveron。
+| 弾銃フィーバロン | 弹铳／Dangun Feveron | PS4，美版 CUSA06735，01.00 本体 |
 
 ### ISO／PKG／XBLA 怎么解包
 
@@ -46,13 +45,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 保留整个 `tools/` 文件夹，解包依赖已随包提供。工具会提取游戏资源和 `sce_sys` 元数据；“Open game files”直接进入 `uroot/`，复制其中内容即可。详细步骤及脚本高级用法见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
 
-**狱门山 XBLA**：先解压 ZIP／RAR，再用随包脚本提取其中的 LIVE／PIRS 内容包（通常是一个没有扩展名的长文件名）：
-
-```powershell
-.\tools\Extract-Xbla.ps1 -InputPackage "D:\Games\原始容器文件名" -OutputDir "D:\GameExtract\guwange"
-```
-
-先创建父目录 `D:\GameExtract`，输出目录 `guwange` 须尚不存在。Windows PowerShell 5.1 即可运行，无须另外安装解包器；源码中的脚本在 `scripts/Extract-Xbla.ps1`。使用本体 0.0.0.4，不叠加 Title Update。
+**狱门山 XBLA**：先解压 ZIP／RAR，双击 `tools/Extract-XBLA.exe`。点击 **Select package...**，选择其中的内容包（通常是没有扩展名的长文件名），再选择输出位置。完成后点击 **Open game files**，将里面的全部内容复制到 `game-data/guwange/`，让 `default.xex` 直接位于该目录。使用本体 0.0.0.4，不叠加 Title Update。
 
 ### 游戏数据放在哪里
 
@@ -67,6 +60,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 | 大往生 | `game-data/daioujou/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | ESP Ra.De. | `game-data/esprade/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | 狱门山 | `game-data/guwange/` | `default.xex`、`module/`、`game_res/`、`res/` 等完整资源 |
+| 弹铳 | `game-data/feveron/` | `eboot.bin`、各 `.prx` 及完整资源 |
 
 只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
 
@@ -158,6 +152,17 @@ frame_delay = 1
 | 3 | 原始路径 |
 
 这是游戏内部的帧调度档位；实际按键到画面的总延迟还受手柄和显示链路影响。已有明确设置会保留，修改后重启游戏生效。
+
+## G2 实验性 Frame Delay
+
+在 `user-data/config.ini` 设置：
+
+```ini
+[game.espgaluda2]
+frame_delay = 1
+```
+
+`2` 为默认的原始路径，`1` 为实验性低延迟路径。修改后重启游戏生效；设回 `2` 即可恢复原始路径。
 
 ## 下载与备份
 

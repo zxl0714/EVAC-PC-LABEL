@@ -36,11 +36,11 @@ if(CAVE_BUILD_GAME)
         message(FATAL_ERROR "Run scripts/Generate.ps1 -Game guwange first")
     endif()
     include("${CMAKE_SOURCE_DIR}/generated/guwange/default/sources.cmake")
-    add_executable(guwange WIN32 host.cpp boot_observations.cpp main_wait.cpp community/guest_hooks.cpp ${GENERATED_SOURCES})
+    add_executable(guwange WIN32 host.cpp boot_observations.cpp main_wait.cpp performance/native_wait.cpp community/guest_hooks.cpp ${GENERATED_SOURCES})
     target_include_directories(guwange PRIVATE "${CMAKE_SOURCE_DIR}"
         "${CMAKE_SOURCE_DIR}/generated/guwange/default" "${CAVE_GAME_METADATA_DIR}")
     target_compile_options(guwange PRIVATE -fno-char8_t)
-    target_link_libraries(guwange PRIVATE cave_xbox360_host guwange_community)
+    target_link_libraries(guwange PRIVATE cave_xbox360_host guwange_community synchronization)
     target_link_options(guwange PRIVATE "LINKER:/MANIFEST:EMBED"
         "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
     add_dependencies(guwange guwange_crash_writer)
@@ -52,6 +52,10 @@ add_executable(cave_guwange_main_wait_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/g
 target_include_directories(cave_guwange_main_wait_tests PRIVATE "${CMAKE_SOURCE_DIR}")
 add_test(NAME guwange_main_wait COMMAND cave_guwange_main_wait_tests)
 set_tests_properties(guwange_main_wait PROPERTIES TIMEOUT 5)
+
+add_executable(guwange_render_queue_tests "${CMAKE_SOURCE_DIR}/tests/guwange/render_queue_test.cpp")
+target_include_directories(guwange_render_queue_tests PRIVATE "${CMAKE_SOURCE_DIR}")
+add_test(NAME guwange_render_queue COMMAND guwange_render_queue_tests)
 
 add_executable(guwange_input_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/input_test.cpp")
 target_link_libraries(guwange_input_tests PRIVATE cave_xbox360_input)

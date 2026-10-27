@@ -662,6 +662,8 @@ class D3D12RenderTargetCache final : public RenderTargetCache {
   bool TryResolveCopyDirectly(const draw_util::ResolveInfo& resolve_info,
                               draw_util::ResolveCopyShaderIndex copy_shader,
                               bool draw_resolution_scaled);
+  bool TryNativeRgba8Resolve(const draw_util::ResolveInfo& resolve_info,
+                            D3D12SharedMemory& shared_memory, D3D12TextureCache& texture_cache);
 
   // Writes contents of host render targets within rectangles from
   // ResolveInfo::GetCopyEdramTileSpan to edram_buffer_.
@@ -746,6 +748,9 @@ class D3D12RenderTargetCache final : public RenderTargetCache {
   uint64_t direct_resolve_attempt_count_ = 0;
   uint64_t direct_resolve_success_count_ = 0;
   uint64_t direct_resolve_fallback_count_ = 0;
+  ID3D12RootSignature* native_rgba8_resolve_root_ = nullptr;
+  ID3D12PipelineState* native_rgba8_resolve_pipeline_ = nullptr;
+  bool native_rgba8_resolve_pipeline_attempted_ = false;
 
   // Parameter 0 - 2 root constants (red, green).
   ID3D12RootSignature* uint32_rtv_clear_root_signature_ = nullptr;

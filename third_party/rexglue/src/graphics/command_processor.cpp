@@ -22,6 +22,7 @@
 #include <rex/perf/counter.h>
 #include <rex/chrono/clock.h>
 #include <rex/graphics/command_processor.h>
+#include <rex/graphics/command_wait.h>
 #include <rex/graphics/flags.h>
 #include <rex/graphics/graphics_system.h>
 #include <rex/graphics/pipeline/texture/info.h>
@@ -34,9 +35,20 @@
 #include <rex/stream.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/user_module.h>
+#include <rex/thread/guest_memory_wait.h>
 #include <rex/ui/flags.h>
 
 REXCVAR_DEFINE_BOOL(vsync, true, "GPU", "Enable vertical sync");
+
+REXCVAR_DEFINE_BOOL(gpu_blocking_command_wait, true, "GPU",
+                   "Park the idle command worker until ring work or a callback is published")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+
+#if defined(REX_GPU_TRACE_BENCH)
+REXCVAR_DEFINE_STRING(trace_gpu_request_file, "", "GPU",
+    "Developer capture: record one frame when this file exists; empty disables checks")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly).transient();
+#endif
 
 REXCVAR_DEFINE_BOOL(clear_memory_page_state, true, "GPU",
                     "Refresh page-valid state from GPU-written memory at frame end. "
@@ -83,6 +95,10 @@ REXCVAR_DEFINE_BOOL(async_shader_compilation, true, "GPU",
 
 namespace rex::graphics {
 
+#if defined(REX_GPU_TRACE_BENCH)
+bool CaptureTraceReference(ui::Presenter* presenter, const std::filesystem::path& path);
+#endif
+
 using namespace rex::graphics::xenos;
 
 namespace {
@@ -113,6 +129,9 @@ CommandProcessor::CommandProcessor(GraphicsSystem* graphics_system,
       write_ptr_index_event_(rex::thread::Event::CreateAutoResetEvent(false)),
       write_ptr_index_(0) {
   assert_not_null(write_ptr_index_event_);
+#if defined(REX_GPU_TRACE_BENCH)
+  trace_request_file_ = std::filesystem::u8path(REXCVAR_GET(trace_gpu_request_file));
+#endif
 }
 
 CommandProcessor::~CommandProcessor() = default;
@@ -237,6 +256,7 @@ void CommandProcessor::CallInThread(std::function<void()> fn) {
     fn();
   } else {
     pending_fns_.push(std::move(fn));
+    write_ptr_index_event_->Set();
   }
 }
 
@@ -278,10 +298,9 @@ void CommandProcessor::WorkerThreadMain() {
     return;
   }
 
+  const bool blocking_wait = REXCVAR_GET(gpu_blocking_command_wait);
   while (worker_running_) {
-    while (!pending_fns_.empty()) {
-      auto fn = std::move(pending_fns_.front());
-      pending_fns_.pop();
+    while (auto fn = pending_fns_.TryPop()) {
       fn();
     }
 
@@ -289,23 +308,18 @@ void CommandProcessor::WorkerThreadMain() {
     if (write_ptr_index == 0xBAADF00D || read_ptr_index_ == write_ptr_index) {
       SCOPE_profile_cpu_i("gpu", "rex::graphics::CommandProcessor::Stall");
       // We've run out of commands to execute.
-      // We spin here waiting for new ones, as the overhead of waiting on our
-      // event is too high.
       PrepareForWait();
-      uint32_t loop_count = 0;
-      do {
-        // If we spin around too much, revert to a "low-power" state.
-        if (loop_count > 500) {
-          const int wait_time_ms = 5;
-          rex::thread::Wait(write_ptr_index_event_.get(), true,
-                            std::chrono::milliseconds(wait_time_ms));
-        }
-
-        rex::thread::MaybeYield();
-        loop_count++;
-        write_ptr_index = write_ptr_index_.load();
-      } while (worker_running_ && pending_fns_.empty() &&
-               (write_ptr_index == 0xBAADF00D || read_ptr_index_ == write_ptr_index));
+      WaitForCommandWork(
+          blocking_wait,
+          [&] {
+            write_ptr_index = write_ptr_index_.load();
+            return !worker_running_ || !pending_fns_.empty() ||
+                   (write_ptr_index != 0xBAADF00D && read_ptr_index_ != write_ptr_index);
+          },
+          [&](std::chrono::milliseconds timeout) {
+            rex::thread::Wait(write_ptr_index_event_.get(), true, timeout);
+          },
+          [] { rex::thread::MaybeYield(); });
       ReturnFromWait();
       if (!worker_running_ || !pending_fns_.empty()) {
         continue;
@@ -1007,6 +1021,15 @@ bool CommandProcessor::ExecutePacketType3(memory::RingBuffer* reader, uint32_t p
 
   trace_writer_.WritePacketEnd();
   if (opcode == PM4_XE_SWAP) {
+#if defined(REX_GPU_TRACE_BENCH)
+    if (!trace_request_consumed_ && !trace_request_file_.empty()) {
+      std::error_code error;
+      if (std::filesystem::is_regular_file(trace_request_file_, error)) {
+        trace_request_consumed_ = true;
+        RequestFrameTrace(std::filesystem::u8path(REXCVAR_GET(trace_gpu_prefix)));
+      }
+    }
+#endif
     // End the trace writer frame.
     if (trace_writer_.is_open()) {
       trace_writer_.WriteEvent(EventCommand::Type::kSwap);
@@ -1014,6 +1037,12 @@ bool CommandProcessor::ExecutePacketType3(memory::RingBuffer* reader, uint32_t p
       if (trace_state_ == TraceState::kSingleFrame) {
         trace_state_ = TraceState::kDisabled;
         trace_writer_.Close();
+#if defined(REX_GPU_TRACE_BENCH)
+        if (trace_request_consumed_ && graphics_system_->presenter()) {
+          CaptureTraceReference(graphics_system_->presenter(),
+                                trace_frame_path_ / "capture-reference.ppm");
+        }
+#endif
       }
     } else if (trace_state_ == TraceState::kSingleFrame) {
       // New trace request - we only start tracing at the beginning of a frame.
@@ -1382,6 +1411,9 @@ bool CommandProcessor::ExecutePacketType3_EVENT_WRITE_SHD(memory::RingBuffer* re
   address &= ~0x3;
   data_value = GpuSwap(data_value, endianness);
   memory::store(memory_->TranslatePhysical(address), data_value);
+  // Retain the original EVENT_WRITE_SHD completion point and byte order.
+  // CPU-side native fence loops may park on this canonical physical alias.
+  rex::thread::NotifyGuestMemoryWord(memory_->TranslatePhysical(address));
   trace_writer_.WriteMemoryWrite(CpuToGpu(address), 4);
   return true;
 }

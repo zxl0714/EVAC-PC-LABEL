@@ -1,6 +1,6 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([ValidateRange(1,8)][int]$Jobs=2)
+param([ValidateRange(1,8)][int]$Jobs=2, [switch]$GpuTraceBench)
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $self = Get-Process -Id $PID
 $previousPriority = $self.PriorityClass
@@ -26,7 +26,8 @@ try {
         '-DCMAKE_SHARED_LINKER_FLAGS=-Xlinker /DEBUG:FULL -Xlinker /OPT:REF -Xlinker /OPT:ICF',
         '-DCMAKE_EXE_LINKER_FLAGS=-Xlinker /DEBUG:FULL -Xlinker /OPT:REF -Xlinker /OPT:ICF',
         '-DREXGLUE_USE_D3D12=ON', '-DREXGLUE_USE_VULKAN=OFF',
-        '-DREXGLUE_ENABLE_FIDELITYFX=OFF', '-DREXGLUE_ENABLE_TRACY=OFF', '-DREXGLUE_BUILD_TESTS=OFF')
+        '-DREXGLUE_ENABLE_FIDELITYFX=OFF', '-DREXGLUE_ENABLE_TRACY=OFF', '-DREXGLUE_BUILD_TESTS=OFF',
+        ('-DREXGLUE_BUILD_GPU_TRACE_BENCH=' + $(if ($GpuTraceBench) { 'ON' } else { 'OFF' })))
     Invoke-CollectionConfigure $cmake $configure $build
     Invoke-Checked $cmake @('--build',$build,'--parallel',"$Jobs")
     Invoke-Checked $cmake @('--install',$build)

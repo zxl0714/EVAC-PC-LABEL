@@ -25,7 +25,8 @@ constexpr std::size_t kPatchLimit = 262144;
 constexpr std::string_view kDaioujouExecutableHash = "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f";
 constexpr std::string_view kDaioujouBaseExecutableHash = "8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79";
 constexpr std::string_view kEspradeExecutableHash = "bf8e98b1d9bf22f8ef0f5343c7673af4da428ed2021d2c8e6c124e0371c384d0";
-enum class ResourceTitle { Ketsui, Daioujou, Esprade };
+constexpr std::string_view kFeveronExecutableHash = "119851e0b62f06d6eb44ba9227fe989c0e9a2f53bf66558852f4881c8d99ee0b";
+enum class ResourceTitle { Ketsui, Daioujou, Esprade, Feveron };
 void Require(bool okay, const char* message) { if (!okay) throw std::runtime_error(message); }
 std::string Hex(std::span<const std::byte> bytes) {
     constexpr char digits[] = "0123456789abcdef";
@@ -236,14 +237,15 @@ ResourceBytes ReadRange(const fs::path& path,std::uint64_t file_size,std::uint64
 }
 ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,ResourceTitle title=ResourceTitle::Ketsui) {
     const auto source=Hash(executable);
-    const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade;
+    const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade,feveron=title==ResourceTitle::Feveron;
     const auto* version=title==ResourceTitle::Ketsui?FindKetsuiVersion(source):nullptr;
-    Require(esprade?source==kEspradeExecutableHash:daioujou?
+    Require(feveron?source==kFeveronExecutableHash:esprade?source==kEspradeExecutableHash:daioujou?
         (source==kDaioujouExecutableHash || source==kDaioujouBaseExecutableHash):version!=nullptr,
+        feveron?"Game fixes require the verified CUSA06735 1.00 executable":
         esprade?"Game fixes require the verified CUSA15155 1.04 executable":
         daioujou?"Game fixes require a verified CUSA32997 executable":"Game fixes require a verified CUSA09062 executable");
     // Check the original identity before interpreting its decoded program.
-    const auto load=daioujou?(source==kDaioujouBaseExecutableHash?0xde:0xdd):esprade?0xd3:version->archive_seed_load;
+    const auto load=feveron?0xf2:daioujou?(source==kDaioujouBaseExecutableHash?0xde:0xdd):esprade?0xd3:version->archive_seed_load;
     return ReadArchiveSeed(executable,load,daioujou);
 }
 }
@@ -325,6 +327,19 @@ Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(sourc
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {
     Require(source.size()<=kResourceLimit,"Oversized resource script");
     auto raw=Text(source); const std::string newline=raw.find("\r\n")!=raw.npos ? "\r\n" : "\n";
+    if (fix==ResourceFix::FeveronLocalReplay) {
+        // This older viewer already uses stored author names and has no ID
+        // mapper. Only its two download-cache tab gates need adaptation.
+        Require(Count(raw,"is_blocked_id(")==0 && Count(raw,"initializeIDMapper(")==0,
+            "Unexpected Feveron replay identity flow");
+        auto [start,stop,body]=Method(raw,"  function pollCorrectFilter(_key) {","  function pollSelectFilter() {");
+        Replace(body,"        if (::ugc_error_dialog())"+newline+"          return _key;","",1);
+        raw.replace(start,stop-start,Compact(body));
+        auto [tab_start,tab_stop,tab_body]=Method(raw,"  function pollSelectTab() {","  function pollCorrectList(_key) {");
+        Replace(tab_body,"if (!::ugc_error_dialog()) {","{",1);
+        raw.replace(tab_start,tab_stop-tab_start,Compact(tab_body));
+        return Bytes(raw);
+    }
     if (fix==ResourceFix::CommunityLocalReplay || fix==ResourceFix::EspradeLocalReplay) {
         const bool esprade=fix==ResourceFix::EspradeLocalReplay;
         if (esprade) Require(Count(raw,"is_blocked_id(")==0,"Unexpected ESP Ra.De. replay peer-check flow");
@@ -480,12 +495,13 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     report["read_overlay_sha256"]=Hash(output); return {std::move(output),std::move(report)};
 }
 namespace {
-PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,bool esprade) {
-    const auto title=esprade?"CUSA15155":"CUSA32997";
+PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle resource_title) {
+    const bool esprade=resource_title==ResourceTitle::Esprade,feveron=resource_title==ResourceTitle::Feveron;
+    const auto title=feveron?"CUSA06735":esprade?"CUSA15155":"CUSA32997";
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
-    const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,esprade?ResourceTitle::Esprade:ResourceTitle::Daioujou);
+    const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,resource_title);
     const auto expected_executable=Hash(original);
-    const bool base=!esprade && expected_executable==kDaioujouBaseExecutableHash;
+    const bool base=feveron || (!esprade && expected_executable==kDaioujouBaseExecutableHash);
     const auto version=base?"01.00":"01.04";
     const auto index_path=DataChild(root,"ps4data_info.psb.m");
     const auto index_raw=ReadFile(index_path,kResourceLimit);
@@ -518,7 +534,10 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,bool esprade) {
         resources.push_back({{"resource",resource},{"scope",scope},{"offset",offset},{"bytes",size},
             {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}});
     };
-    if (esprade) {
+    if (feveron) {
+        fix("1000/script/title_replay_view.nut.m","e92989ac1e051ae219697a8ebb959b3869b5e1734de709848f8641de71242d5d",
+            ResourceFix::FeveronLocalReplay,"local-community-replay-cache");
+    } else if (esprade) {
         fix("102/script/title_replay_view.nut.m","e712a6d48f78f70fca679a4ee2c5bff0e2ca9fe15dff4bc15497fa8b44d585aa",
             ResourceFix::EspradeLocalReplay,"local-community-replay-cache");
     } else {
@@ -534,12 +553,13 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,bool esprade) {
     for (const auto& patch:patches.entries) Require(kt::content::ReadPatchHash(ByteSpan(
         ReadRange(body,file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
         "Original replay resource changed during preparation");
-    Json report{{"format",1},{"fix",esprade?"esprade-community-replays":"daioujou-community-replays"},{"title_id",title},{"app_version",version},
+    Json report{{"format",1},{"fix",feveron?"feveron-community-replays":esprade?"esprade-community-replays":"daioujou-community-replays"},{"title_id",title},{"app_version",version},
         {"executable_sha256",expected_executable},{"resources",std::move(resources)},
         {"original_files_modified",false},{"local_cache_requires_network",false},{"read_overlay_sha256",Hash(output)}};
     return {std::move(output),std::move(report)};
 }
 }
-PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,false); }
-PreparedReadFixes PrepareEspradeReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,true); }
+PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Daioujou); }
+PreparedReadFixes PrepareEspradeReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Esprade); }
+PreparedReadFixes PrepareFeveronReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Feveron); }
 }

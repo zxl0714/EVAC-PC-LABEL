@@ -25,6 +25,7 @@
 #include <rex/cvar.h>
 #include <rex/graphics/d3d12/command_processor.h>
 #include <rex/graphics/d3d12/deferred_command_list.h>
+#include <rex/graphics/d3d12/native_resolve.h>
 #include <rex/graphics/d3d12/render_target_cache.h>
 #include <rex/graphics/d3d12/texture_cache.h>
 #include <rex/graphics/flags.h>
@@ -42,16 +43,40 @@
 REXCVAR_DEFINE_BOOL(native_stencil_value_output_d3d12_intel, false, "GPU/D3D12",
                     "Native stencil value output for Intel D3D12");
 
+REXCVAR_DEFINE_BOOL(d3d12_resolve_skip_overwritten_uploads, false, "GPU/D3D12",
+                    "Skip old contents upload for proven whole-page resolve writes")
+    .lifecycle(rex::cvar::Lifecycle::kHotReload);
+
 REXCVAR_DEFINE_STRING(render_target_path_d3d12, "", "GPU/D3D12",
                       "D3D12 render target implementation path")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_BOOL(native_stencil_value_output, true, "GPU", "Enable native stencil value output");
+REXCVAR_DEFINE_BOOL(d3d12_native_rgba8_resolve, true, "GPU/D3D12",
+                    "Single-pass owned single-sample RGBA8 resolve");
+
+#if defined(REX_GPU_TRACE_BENCH)
+REXCVAR_DEFINE_BOOL(d3d12_trace_resolves, false, "GPU benchmark", "Log first twelve resolve layouts")
+    .transient();
+REXCVAR_DEFINE_INT32(d3d12_bench_resolve_repetitions, 1, "GPU benchmark",
+                    "Repeat identical resolve copies before the original clear")
+    .range(1, 256).transient();
+#endif
 
 namespace rex::graphics::d3d12 {
 
+static bool RequestResolveDestination(SharedMemory& memory, const draw_util::ResolveInfo& info) {
+  const uint32_t prefix = REXCVAR_GET(d3d12_resolve_skip_overwritten_uploads)
+      ? ResolveWholePagePrefixLength(info, false) : 0;
+  if (!prefix) return memory.RequestRange(info.copy_dest_extent_start, info.copy_dest_extent_length);
+  if (!memory.RequestRangeForGpuOverwrite(info.copy_dest_extent_start, prefix)) return false;
+  const uint32_t tail = info.copy_dest_extent_length - prefix;
+  return !tail || memory.RequestRange(info.copy_dest_extent_start + prefix, tail);
+}
+
 // Generated with `xb buildshaders`.
 namespace shaders {
+#include "../shaders/bytecode/d3d12_5_1/direct_rgba8_resolve_cs.h"
 #include "../shaders/bytecode/d3d12_5_1/clear_uint2_ps.h"
 #include "../shaders/bytecode/d3d12_5_1/fullscreen_cw_vs.h"
 #include "../shaders/bytecode/d3d12_5_1/host_depth_store_1xmsaa_cs.h"
@@ -991,6 +1016,9 @@ void D3D12RenderTargetCache::Shutdown(bool from_destructor) {
     }
   }
   direct_resolve_pipelines_.clear();
+  ui::d3d12::util::ReleaseAndNull(native_rgba8_resolve_pipeline_);
+  ui::d3d12::util::ReleaseAndNull(native_rgba8_resolve_root_);
+  native_rgba8_resolve_pipeline_attempted_ = false;
   ui::d3d12::util::ReleaseAndNull(direct_resolve_root_signature_depth_);
   ui::d3d12::util::ReleaseAndNull(direct_resolve_root_signature_color_);
   ui::d3d12::util::ReleaseAndNull(dump_root_signature_depth_);
@@ -1182,6 +1210,22 @@ bool D3D12RenderTargetCache::Resolve(const memory::Memory& memory, D3D12SharedMe
     return false;
   }
 
+#if defined(REX_GPU_TRACE_BENCH)
+  // Command-processor thread only; bounded and absent from ordinary builds.
+  static uint32_t diagnostic_resolves = 0;
+  if (REXCVAR_GET(d3d12_trace_resolves) && diagnostic_resolves++ < 12) {
+    REXGPU_INFO(
+        "RESOLVE_LAYOUT color={:08X} depth={:08X} coordinates={:08X} height={} dest_info={:08X} "
+        "dest_coordinates={:08X} dest_base={:08X} extent={:08X}+{} control={:08X} scaled={}",
+        resolve_info.color_edram_info.packed, resolve_info.depth_edram_info.packed,
+        resolve_info.coordinate_info.packed, resolve_info.height_div_8 * 8,
+        resolve_info.copy_dest_info.value, resolve_info.copy_dest_coordinate_info.packed,
+        resolve_info.copy_dest_base, resolve_info.copy_dest_extent_start,
+        resolve_info.copy_dest_extent_length, resolve_info.rb_copy_control.value,
+        draw_resolution_scaled);
+  }
+#endif
+
   // Nothing to copy/clear.
   if (!resolve_info.coordinate_info.width_div_8 || !resolve_info.height_div_8) {
     return true;
@@ -1192,141 +1236,160 @@ bool D3D12RenderTargetCache::Resolve(const memory::Memory& memory, D3D12SharedMe
   // Copying.
   bool copied = false;
   if (resolve_info.copy_dest_extent_length) {
-    draw_util::ResolveCopyShaderConstants copy_shader_constants;
-    uint32_t copy_group_count_x, copy_group_count_y;
-    draw_util::ResolveCopyShaderIndex copy_shader =
-        resolve_info.GetCopyShader(draw_resolution_scale_x(), draw_resolution_scale_y(),
-                                   copy_shader_constants, copy_group_count_x, copy_group_count_y);
-    assert_true(copy_group_count_x && copy_group_count_y);
-    if (copy_shader != draw_util::ResolveCopyShaderIndex::kUnknown) {
-      const draw_util::ResolveCopyShaderInfo& copy_shader_info =
-          draw_util::resolve_copy_shader_info[size_t(copy_shader)];
-      bool direct_resolved = false;
-      if (GetPath() == Path::kHostRenderTargets) {
-        if (REXCVAR_GET(direct_host_resolve)) {
-          direct_resolved =
-              TryResolveCopyDirectly(resolve_info, copy_shader, draw_resolution_scaled);
-          if (direct_resolved) {
-            ++direct_resolve_success_count_;
-          } else {
-            ++direct_resolve_fallback_count_;
-          }
-        }
-        if (!direct_resolved) {
-          // Dump the current contents of the render targets owning the affected
-          // range to edram_buffer_.
-          uint32_t dump_base;
-          uint32_t dump_row_length_used;
-          uint32_t dump_rows;
-          uint32_t dump_pitch;
-          resolve_info.GetCopyEdramTileSpan(dump_base, dump_row_length_used, dump_rows, dump_pitch);
-          if (!DumpRenderTargets(dump_base, dump_row_length_used, dump_rows, dump_pitch)) {
-            REXGPU_ERROR("D3D12RenderTargetCache: Failed to dump host render targets for resolve");
-            return false;
-          }
-        }
-      }
-
-      // Make sure there is memory to write to.
-      bool copy_dest_committed;
-      if (draw_resolution_scaled) {
-        // Committing starting with the beginning of the potentially written
-        // extent, but making the buffer containing the base current as the
-        // beginning of the bound buffer is the base.
-        copy_dest_committed =
-            texture_cache.EnsureScaledResolveMemoryCommitted(
-                resolve_info.copy_dest_extent_start, resolve_info.copy_dest_extent_length) &&
-            texture_cache.MakeScaledResolveRangeCurrent(resolve_info.copy_dest_base,
-                                                        resolve_info.copy_dest_extent_start -
-                                                            resolve_info.copy_dest_base +
-                                                            resolve_info.copy_dest_extent_length);
+    // Developer microbenchmark: amplify the real copy path, not the draw work.
+    // The source remains unchanged until the original clear below. Resource
+    // transitions, destination UAV ordering and all production checks still run.
+    // Normal builds execute precisely one copy and contain no repetition flag.
+#if defined(REX_GPU_TRACE_BENCH)
+    const int copy_repetitions = REXCVAR_GET(d3d12_bench_resolve_repetitions);
+#else
+    constexpr int copy_repetitions = 1;
+#endif
+    for (int copy_iteration = 0; copy_iteration < copy_repetitions; ++copy_iteration) {
+      if (GetPath() == Path::kHostRenderTargets && REXCVAR_GET(d3d12_native_rgba8_resolve) &&
+          TryNativeRgba8Resolve(resolve_info, shared_memory, texture_cache)) {
+        written_address_out = resolve_info.copy_dest_extent_start;
+        written_length_out = resolve_info.copy_dest_extent_length;
+        copied = true;
       } else {
-        copy_dest_committed = shared_memory.RequestRange(resolve_info.copy_dest_extent_start,
-                                                         resolve_info.copy_dest_extent_length);
-      }
-      if (copy_dest_committed) {
-        // Write the descriptors and transition the resources.
-        // Full shared memory without resolution scaling, range of the scaled
-        // resolve buffer with scaling because only at least 128 * 2^20 R32
-        // elements must be addressable
-        // (D3D12_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP).
-        ui::d3d12::util::DescriptorCpuGpuHandlePair descriptor_dest;
-        ui::d3d12::util::DescriptorCpuGpuHandlePair descriptor_source;
-        ui::d3d12::util::DescriptorCpuGpuHandlePair descriptors[2];
-        if (command_processor_.RequestOneUseSingleViewDescriptors(
-                bindless_resources_used_ ? uint32_t(draw_resolution_scaled) : 2, descriptors)) {
-          if (bindless_resources_used_) {
-            if (draw_resolution_scaled) {
-              descriptor_dest = descriptors[0];
-            } else {
-              descriptor_dest = command_processor_.GetSharedMemoryUintPow2BindlessUAVHandlePair(
-                  copy_shader_info.dest_bpe_log2);
+        draw_util::ResolveCopyShaderConstants copy_shader_constants;
+        uint32_t copy_group_count_x, copy_group_count_y;
+        draw_util::ResolveCopyShaderIndex copy_shader = resolve_info.GetCopyShader(
+            draw_resolution_scale_x(), draw_resolution_scale_y(), copy_shader_constants,
+            copy_group_count_x, copy_group_count_y);
+        assert_true(copy_group_count_x && copy_group_count_y);
+        if (copy_shader != draw_util::ResolveCopyShaderIndex::kUnknown) {
+          const draw_util::ResolveCopyShaderInfo& copy_shader_info =
+              draw_util::resolve_copy_shader_info[size_t(copy_shader)];
+          bool direct_resolved = false;
+          if (GetPath() == Path::kHostRenderTargets) {
+            if (REXCVAR_GET(direct_host_resolve)) {
+              direct_resolved =
+                  TryResolveCopyDirectly(resolve_info, copy_shader, draw_resolution_scaled);
+              if (direct_resolved) {
+                ++direct_resolve_success_count_;
+              } else {
+                ++direct_resolve_fallback_count_;
+              }
             }
-            if (copy_shader_info.source_is_raw) {
-              descriptor_source = command_processor_.GetSystemBindlessViewHandlePair(
-                  D3D12CommandProcessor::SystemBindlessView::kEdramRawSRV);
-            } else {
-              descriptor_source = command_processor_.GetEdramUintPow2BindlessSRVHandlePair(
-                  copy_shader_info.source_bpe_log2);
+            if (!direct_resolved) {
+              // Dump the current contents of the render targets owning the affected
+              // range to edram_buffer_.
+              uint32_t dump_base;
+              uint32_t dump_row_length_used;
+              uint32_t dump_rows;
+              uint32_t dump_pitch;
+              resolve_info.GetCopyEdramTileSpan(dump_base, dump_row_length_used, dump_rows,
+                                                dump_pitch);
+              if (!DumpRenderTargets(dump_base, dump_row_length_used, dump_rows, dump_pitch)) {
+                REXGPU_ERROR(
+                    "D3D12RenderTargetCache: Failed to dump host render targets for resolve");
+                return false;
+              }
             }
-          } else {
-            descriptor_dest = descriptors[0];
-            if (!draw_resolution_scaled) {
-              shared_memory.WriteUintPow2UAVDescriptor(descriptor_dest.first,
-                                                       copy_shader_info.dest_bpe_log2);
-            }
-            descriptor_source = descriptors[1];
-            if (copy_shader_info.source_is_raw) {
-              WriteEdramRawSRVDescriptor(descriptor_source.first);
-            } else {
-              WriteEdramUintPow2SRVDescriptor(descriptor_source.first,
-                                              copy_shader_info.source_bpe_log2);
-            }
-          }
-          if (draw_resolution_scaled) {
-            texture_cache.CreateCurrentScaledResolveRangeUintPow2UAV(
-                descriptor_dest.first, copy_shader_info.dest_bpe_log2);
-            texture_cache.TransitionCurrentScaledResolveRange(
-                D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-          } else {
-            shared_memory.UseForWriting();
-          }
-          TransitionEdramBuffer(D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-          // Submit the resolve.
-          command_list.D3DSetComputeRootSignature(resolve_copy_root_signature_);
-          command_list.D3DSetComputeRootDescriptorTable(2, descriptor_source.second);
-          command_list.D3DSetComputeRootDescriptorTable(1, descriptor_dest.second);
-          if (draw_resolution_scaled) {
-            command_list.D3DSetComputeRoot32BitConstants(
-                0, sizeof(copy_shader_constants.dest_relative) / sizeof(uint32_t),
-                &copy_shader_constants.dest_relative, 0);
-          } else {
-            command_list.D3DSetComputeRoot32BitConstants(
-                0, sizeof(copy_shader_constants) / sizeof(uint32_t), &copy_shader_constants, 0);
-          }
-          command_processor_.SetExternalPipeline(resolve_copy_pipelines_[size_t(copy_shader)]);
-          command_processor_.SubmitBarriers();
-          command_list.D3DDispatch(copy_group_count_x, copy_group_count_y, 1);
-
-          // Order the resolve with other work using the destination as a UAV.
-          if (draw_resolution_scaled) {
-            texture_cache.MarkCurrentScaledResolveRangeUAVWritesCommitNeeded();
-          } else {
-            shared_memory.MarkUAVWritesCommitNeeded();
           }
 
-          // Invalidate textures and mark the range as scaled if needed.
-          texture_cache.MarkRangeAsResolved(resolve_info.copy_dest_extent_start,
-                                            resolve_info.copy_dest_extent_length);
-          written_address_out = resolve_info.copy_dest_extent_start;
-          written_length_out = resolve_info.copy_dest_extent_length;
-          copied = true;
+          // Make sure there is memory to write to.
+          bool copy_dest_committed;
+          if (draw_resolution_scaled) {
+            // Committing starting with the beginning of the potentially written
+            // extent, but making the buffer containing the base current as the
+            // beginning of the bound buffer is the base.
+            copy_dest_committed =
+                texture_cache.EnsureScaledResolveMemoryCommitted(
+                    resolve_info.copy_dest_extent_start, resolve_info.copy_dest_extent_length) &&
+                texture_cache.MakeScaledResolveRangeCurrent(
+                    resolve_info.copy_dest_base, resolve_info.copy_dest_extent_start -
+                                                     resolve_info.copy_dest_base +
+                                                     resolve_info.copy_dest_extent_length);
+          } else {
+            copy_dest_committed = RequestResolveDestination(shared_memory, resolve_info);
+          }
+          if (copy_dest_committed) {
+            // Write the descriptors and transition the resources.
+            // Full shared memory without resolution scaling, range of the scaled
+            // resolve buffer with scaling because only at least 128 * 2^20 R32
+            // elements must be addressable
+            // (D3D12_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP).
+            ui::d3d12::util::DescriptorCpuGpuHandlePair descriptor_dest;
+            ui::d3d12::util::DescriptorCpuGpuHandlePair descriptor_source;
+            ui::d3d12::util::DescriptorCpuGpuHandlePair descriptors[2];
+            if (command_processor_.RequestOneUseSingleViewDescriptors(
+                    bindless_resources_used_ ? uint32_t(draw_resolution_scaled) : 2, descriptors)) {
+              if (bindless_resources_used_) {
+                if (draw_resolution_scaled) {
+                  descriptor_dest = descriptors[0];
+                } else {
+                  descriptor_dest = command_processor_.GetSharedMemoryUintPow2BindlessUAVHandlePair(
+                      copy_shader_info.dest_bpe_log2);
+                }
+                if (copy_shader_info.source_is_raw) {
+                  descriptor_source = command_processor_.GetSystemBindlessViewHandlePair(
+                      D3D12CommandProcessor::SystemBindlessView::kEdramRawSRV);
+                } else {
+                  descriptor_source = command_processor_.GetEdramUintPow2BindlessSRVHandlePair(
+                      copy_shader_info.source_bpe_log2);
+                }
+              } else {
+                descriptor_dest = descriptors[0];
+                if (!draw_resolution_scaled) {
+                  shared_memory.WriteUintPow2UAVDescriptor(descriptor_dest.first,
+                                                           copy_shader_info.dest_bpe_log2);
+                }
+                descriptor_source = descriptors[1];
+                if (copy_shader_info.source_is_raw) {
+                  WriteEdramRawSRVDescriptor(descriptor_source.first);
+                } else {
+                  WriteEdramUintPow2SRVDescriptor(descriptor_source.first,
+                                                  copy_shader_info.source_bpe_log2);
+                }
+              }
+              if (draw_resolution_scaled) {
+                texture_cache.CreateCurrentScaledResolveRangeUintPow2UAV(
+                    descriptor_dest.first, copy_shader_info.dest_bpe_log2);
+                texture_cache.TransitionCurrentScaledResolveRange(
+                    D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+              } else {
+                shared_memory.UseForWriting();
+              }
+              TransitionEdramBuffer(D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+              // Submit the resolve.
+              command_list.D3DSetComputeRootSignature(resolve_copy_root_signature_);
+              command_list.D3DSetComputeRootDescriptorTable(2, descriptor_source.second);
+              command_list.D3DSetComputeRootDescriptorTable(1, descriptor_dest.second);
+              if (draw_resolution_scaled) {
+                command_list.D3DSetComputeRoot32BitConstants(
+                    0, sizeof(copy_shader_constants.dest_relative) / sizeof(uint32_t),
+                    &copy_shader_constants.dest_relative, 0);
+              } else {
+                command_list.D3DSetComputeRoot32BitConstants(
+                    0, sizeof(copy_shader_constants) / sizeof(uint32_t), &copy_shader_constants, 0);
+              }
+              command_processor_.SetExternalPipeline(resolve_copy_pipelines_[size_t(copy_shader)]);
+              command_processor_.SubmitBarriers();
+              command_list.D3DDispatch(copy_group_count_x, copy_group_count_y, 1);
+
+              // Order the resolve with other work using the destination as a UAV.
+              if (draw_resolution_scaled) {
+                texture_cache.MarkCurrentScaledResolveRangeUAVWritesCommitNeeded();
+              } else {
+                shared_memory.MarkUAVWritesCommitNeeded();
+              }
+
+              // Invalidate textures and mark the range as scaled if needed.
+              texture_cache.MarkRangeAsResolved(resolve_info.copy_dest_extent_start,
+                                                resolve_info.copy_dest_extent_length);
+              written_address_out = resolve_info.copy_dest_extent_start;
+              written_length_out = resolve_info.copy_dest_extent_length;
+              copied = true;
+            }
+          } else {
+            REXGPU_ERROR(
+                "D3D12RenderTargetCache: Failed to obtain the resolve destination "
+                "memory region");
+          }
         }
-      } else {
-        REXGPU_ERROR(
-            "D3D12RenderTargetCache: Failed to obtain the resolve destination "
-            "memory region");
       }
     }
   } else {
@@ -1361,7 +1424,7 @@ bool D3D12RenderTargetCache::Resolve(const memory::Memory& memory, D3D12SharedMe
         bool descriptor_edram_obtained;
         if (bindless_resources_used_) {
           descriptor_edram = command_processor_.GetSystemBindlessViewHandlePair(
-              D3D12CommandProcessor::SystemBindlessView ::kEdramR32G32B32A32UintUAV);
+              D3D12CommandProcessor::SystemBindlessView::kEdramR32G32B32A32UintUAV);
           descriptor_edram_obtained = true;
         } else {
           descriptor_edram_obtained =
@@ -5671,6 +5734,105 @@ ID3D12PipelineState* D3D12RenderTargetCache::GetOrCreateDumpPipeline(DumpPipelin
   // again.
   dump_pipelines_.emplace(key, pipeline);
   return pipeline;
+}
+
+bool D3D12RenderTargetCache::TryNativeRgba8Resolve(const draw_util::ResolveInfo& info,
+                                                   D3D12SharedMemory& shared_memory,
+                                                   D3D12TextureCache& texture_cache) {
+  if (!NativeRgba8ResolveFormatSupported(info, IsDrawResolutionScaled()))
+    return false;
+
+  uint32_t base, row_length, rows, pitch;
+  info.GetCopyEdramTileSpan(base, row_length, rows, pitch);
+  if (!NativeRgba8ResolveSpanSupported(base, row_length, rows, pitch))
+    return false;
+  GetResolveCopyRectanglesToDump(base, row_length, rows, pitch, dump_rectangles_);
+  if (dump_rectangles_.size() != 1)
+    return false;
+  const auto& rectangle = dump_rectangles_.front();
+  if (!rectangle.render_target || rectangle.row_first || rectangle.rows != rows ||
+      rectangle.row_first_start || rectangle.row_last_end != row_length)
+    return false;
+  auto& source = *static_cast<D3D12RenderTarget*>(rectangle.render_target);
+  const auto key = source.key();
+  if (key.is_depth || key.msaa_samples != xenos::MsaaSamples::k1X ||
+      key.GetColorFormat() != xenos::ColorRenderTargetFormat::k_8_8_8_8 ||
+      key.GetPitchTiles() != pitch || info.color_edram_info.base_tiles < key.base_tiles)
+    return false;
+  const uint32_t tile_offset = info.color_edram_info.base_tiles - key.base_tiles;
+  const uint32_t source_x = (tile_offset % pitch) * xenos::kEdramTileWidthSamples +
+                            info.coordinate_info.edram_offset_x_div_8 * 8;
+  const uint32_t source_y = (tile_offset / pitch) * xenos::kEdramTileHeightSamples +
+                            info.coordinate_info.edram_offset_y_div_8 * 8;
+  const uint32_t width = info.coordinate_info.width_div_8 * 8, height = info.height_div_8 * 8;
+  const auto resource_desc = source.resource()->GetDesc();
+  if (source_x + width > resource_desc.Width || source_y + height > resource_desc.Height)
+    return false;
+
+  const auto& provider = command_processor_.GetD3D12Provider();
+  auto* device = provider.GetDevice();
+  if (!native_rgba8_resolve_pipeline_attempted_) {
+    native_rgba8_resolve_pipeline_attempted_ = true;
+    D3D12_DESCRIPTOR_RANGE ranges[2]{};
+    ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+    ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    ranges[0].NumDescriptors = ranges[1].NumDescriptors = 1;
+    D3D12_ROOT_PARAMETER parameters[3]{};
+    parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    parameters[0].Constants.Num32BitValues = 10;
+    for (uint32_t i = 1; i < 3; ++i) {
+      parameters[i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+      parameters[i].DescriptorTable = {1, &ranges[i - 1]};
+    }
+    D3D12_ROOT_SIGNATURE_DESC root{3, parameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE};
+    native_rgba8_resolve_root_ = ui::d3d12::util::CreateRootSignature(provider, root);
+    if (native_rgba8_resolve_root_) {
+      native_rgba8_resolve_pipeline_ = ui::d3d12::util::CreateComputePipeline(
+          device, shaders::direct_rgba8_resolve_cs, sizeof(shaders::direct_rgba8_resolve_cs),
+          native_rgba8_resolve_root_);
+    }
+  }
+  if (!native_rgba8_resolve_pipeline_)
+    return false;
+  ui::d3d12::util::DescriptorCpuGpuHandlePair descriptors[2];
+  if (!command_processor_.RequestOneUseSingleViewDescriptors(2, descriptors))
+    return false;
+  if (!RequestResolveDestination(shared_memory, info)) return false;
+  shared_memory.WriteRawUAVDescriptor(descriptors[0].first);
+  device->CopyDescriptorsSimple(1, descriptors[1].first, source.descriptor_srv().GetHandle(),
+                                D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+  shared_memory.UseForWriting();
+  command_processor_.PushTransitionBarrier(
+      source.resource(), source.SetResourceState(D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+      D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+  const uint32_t constants[] = {source_x,
+                                source_y,
+                                width,
+                                height,
+                                uint32_t(info.copy_dest_coordinate_info.offset_x_div_8) * 8,
+                                uint32_t(info.copy_dest_coordinate_info.offset_y_div_8) * 8,
+                                uint32_t(info.copy_dest_coordinate_info.pitch_aligned_div_32) * 32,
+                                info.copy_dest_base,
+                                uint32_t(info.copy_dest_info.copy_dest_endian),
+                                info.copy_dest_info.copy_dest_swap};
+  auto& list = command_processor_.GetDeferredCommandList();
+  list.D3DSetComputeRootSignature(native_rgba8_resolve_root_);
+  list.D3DSetComputeRoot32BitConstants(0, 10, constants, 0);
+  list.D3DSetComputeRootDescriptorTable(1, descriptors[0].second);
+  list.D3DSetComputeRootDescriptorTable(2, descriptors[1].second);
+  command_processor_.SetExternalPipeline(native_rgba8_resolve_pipeline_);
+  command_processor_.SubmitBarriers();
+  list.D3DDispatch((width + 31) / 32, (height + 7) / 8, 1);
+  shared_memory.MarkUAVWritesCommitNeeded();
+  texture_cache.MarkRangeAsResolved(info.copy_dest_extent_start, info.copy_dest_extent_length);
+#if defined(REX_GPU_TRACE_BENCH)
+  static uint32_t diagnostic_native_resolves = 0;
+  if (REXCVAR_GET(d3d12_trace_resolves) && diagnostic_native_resolves++ < 12) {
+    REXGPU_INFO("NATIVE_RGBA8_RESOLVE width={} height={} source={},{} dest={:08X}", width, height,
+                source_x, source_y, info.copy_dest_base);
+  }
+#endif
+  return true;
 }
 
 ID3D12PipelineState* D3D12RenderTargetCache::GetOrCreateDirectResolvePipeline(

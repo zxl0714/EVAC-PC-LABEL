@@ -17,6 +17,7 @@
 #include <rex/cvar.h>
 #include <rex/graphics/d3d12/command_processor.h>
 #include <rex/graphics/d3d12/shared_memory.h>
+#include "work_profile.h"
 #include <rex/logging.h>
 #include <rex/math.h>
 #include <rex/ui/d3d12/d3d12_util.h>
@@ -308,6 +309,7 @@ void D3D12SharedMemory::InitializeTraceCompleteDownloads() {
       trace_writer_.WriteMemoryRead(
           download_range.first, download_range.second,
           reinterpret_cast<const uint8_t*>(download_mapping) + download_buffer_offset);
+      download_buffer_offset += download_range.second;
     }
     D3D12_RANGE download_write_range = {};
     trace_download_buffer_->Unmap(0, &download_write_range);
@@ -367,6 +369,7 @@ bool D3D12SharedMemory::AllocateSparseHostGpuMemoryRange(uint32_t offset_allocat
 
 bool D3D12SharedMemory::UploadRanges(
     const std::vector<std::pair<uint32_t, uint32_t>>& upload_page_ranges) {
+  REX_CPU_SUBSET_SCOPE(SharedUpload);
   if (upload_page_ranges.empty()) {
     return true;
   }
@@ -390,6 +393,7 @@ bool D3D12SharedMemory::UploadRanges(
         return false;
       }
       MakeRangeValid(upload_range_start << page_size_log2(), uint32_t(upload_buffer_size), false);
+      REX_CPU_UPLOAD_BYTES(upload_buffer_size);
       std::memcpy(upload_buffer_mapping,
                   memory().TranslatePhysical(upload_range_start << page_size_log2()),
                   upload_buffer_size);

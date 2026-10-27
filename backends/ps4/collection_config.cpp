@@ -76,6 +76,17 @@ bool CollectionConfigurationSelfTest() {
     const auto daioujou_offline=ResolveCollectionConfiguration(Ini::Parse("[community]\nenabled=false\n"),"daioujou");
     check(daioujou_offline.community_supported && !daioujou_offline.community.enabled,
         "daioujou_offline_preference_does_not_create_provider");
+    const auto feveron=ResolveCollectionConfiguration(Ini::Parse(
+        "[display]\nfullscreen=true\n[game.feveron.display]\nfullscreen=false\n"
+        "[game.feveron.community]\nnickname=Feveron Player\n"
+        "[game.esprade.keyboard]\nunknown=invalid\n"),"feveron");
+    check(feveron.game=="feveron" && !feveron.shared.fullscreen &&
+        feveron.display.title==L"EVAC PC LABEL — 弾銃フィーバロン" &&
+        feveron.community.nickname=="Feveron Player" &&
+        feveron.community.endpoint=="https://xiaolu.life/cave/api/v1/games/feveron",
+        "feveron_title_settings_and_service_identity_isolated");
+    check(feveron.shared.community_enabled && feveron.community_supported && feveron.community.enabled,
+        "feveron_accepted_service_uses_shared_online_preference");
     check(defaults.keyboard['Z']==0x4000 && defaults.keyboard['X']==0x2000 && defaults.keyboard['C']==0x8000 &&
         defaults.keyboard['V']==0x1000 && defaults.keyboard[13]==8 && defaults.keyboard[8]==0x100000,
         "common_positions_map_to_ps4_face_options_touchpad");

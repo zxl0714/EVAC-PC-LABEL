@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts/ketsui'))
 import game_fixes as fixes
 from ketsui.test_game_fixes import GameFixTests
 from daioujou.resource_fixes import fix_replay_peer, fix_local_replay
+from feveron.resource_fixes import fix_local_replay as fix_feveron_local_replay
 
 
 def array(values):
@@ -88,7 +89,8 @@ def oracle(item):
         transform = dict(music=fixes.fix_direct_menu, batch=fixes.fix_ranking_replay_batch,
                          offline=fixes.fix_community_local_round_gate, peer=fix_replay_peer,
                          **{'local-replay': fix_local_replay,
-                            'esprade-local-replay': lambda raw: fix_local_replay(raw, esprade=True)})[item['kind']]
+                            'esprade-local-replay': lambda raw: fix_local_replay(raw, esprade=True),
+                            'feveron-local-replay': fix_feveron_local_replay})[item['kind']]
         return transform(source).hex()
     seed, name = bytes.fromhex(item['seed']), item['resource']
     if op == 'mask': return fixes.mask_for(seed, name).hex()
@@ -182,6 +184,17 @@ def cases():
         add('fix-esprade-local-replay-duplicate-' + label, 'fix', esp_replay + esp_replay, kind='esprade-local-replay')
         add('fix-esprade-local-replay-changed-' + label, 'fix', esp_replay.replace(b'accountID = true', b'accountID = false'), kind='esprade-local-replay')
         add('fix-esprade-local-replay-foreign-' + label, 'fix', local_replay, kind='esprade-local-replay')
+        fever_replay = newline.join((b'// authored outside prefix',
+            b'  function pollCorrectFilter(_key) {', b'        if (::ugc_error_dialog())',
+            b'          return _key;', b'    authored_filter();', b'  }',
+            b'  function pollSelectFilter() { authored_filter_selection(); }',
+            b'  function pollSelectTab() {', b'    if (!::ugc_error_dialog()) { authored_local_tab(); }', b'  }',
+            b'  function pollCorrectList(_key) { authored_validate_and_play(); }',
+            b'  function setReplayPage() { authored_stored_author(); }', b''))
+        add('fix-feveron-local-replay-' + label, 'fix', fever_replay, kind='feveron-local-replay')
+        add('fix-feveron-local-replay-duplicate-' + label, 'fix', fever_replay + fever_replay, kind='feveron-local-replay')
+        add('fix-feveron-local-replay-changed-' + label, 'fix', fever_replay.replace(b'return _key;', b'return false;'), kind='feveron-local-replay')
+        add('fix-feveron-local-replay-foreign-' + label, 'fix', esp_replay, kind='feveron-local-replay')
     for count in (0, 1, 3):
         add('fix-music-count-' + str(count), 'fix', b'm_bgm_mode[_gamemode] = _bgmMode;\n' * count, kind='music')
     add('fix-batch-changed', 'fix', helper.authored_ranking_batch().replace(b'            break;', b'            return 0;'), kind='batch')

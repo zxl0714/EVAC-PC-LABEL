@@ -61,3 +61,18 @@ void FutariValidateStorageReplay(std::span<const uint8_t> record) {
       || Read32(record,0)!=record.size() || Read32(record,4)!=kFutariReplayVersion)
     throw std::runtime_error("Incompatible or damaged Futari XStorage replay envelope");
 }
+
+void FutariSetStorageReplayAuthor(std::vector<uint8_t>& record, uint64_t xuid,
+                                 std::string_view native_tag) {
+  FutariValidateStorageReplay(record);
+  if(!xuid || xuid==0xB13EBABEBABEBABEull || native_tag.empty() || native_tag.size()>15
+      || std::any_of(native_tag.begin(),native_tag.end(),[](unsigned char c){return c<0x20 || c>0x7e;}))
+    throw std::runtime_error("Invalid Futari downloaded replay author");
+  // Native 821AA000 refreshes +12 from the current user whenever +32 equals
+  // the local XUID. Uploaders share the runtime's local XUID, so leaving it in
+  // a downloaded record misidentifies every author as the downloading player.
+  std::fill(record.begin()+12,record.begin()+28,0);
+  std::copy(native_tag.begin(),native_tag.end(),record.begin()+12);
+  Write32(record,32,uint32_t(xuid>>32));
+  Write32(record,36,uint32_t(xuid));
+}

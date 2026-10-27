@@ -25,6 +25,7 @@
 #include <rex/graphics/xenos.h>
 #include <rex/logging.h>
 #include <rex/math.h>
+#include "../../d3d12/work_profile.h"
 
 REXCVAR_DEFINE_INT32(texture_cache_memory_limit_render_to_texture, 24, "GPU",
                      "Texture cache memory limit for render-to-texture (MB)")
@@ -365,6 +366,7 @@ uint32_t TextureCache::GuestToHostSwizzle(uint32_t guest_swizzle, uint32_t host_
 bool TextureCache::PrepareTextureLoad(Texture& texture, PendingTextureLoad& pending_load_out,
                                       PendingSharedMemoryRange* pending_ranges_out,
                                       size_t& pending_range_count_out) {
+  REX_CPU_SUBSET_SCOPE(TexturePrepare);
   uint32_t outdated_mask = texture.outdated_mask();
   if (!outdated_mask) {
     return false;
@@ -410,6 +412,7 @@ bool TextureCache::PrepareTextureLoad(Texture& texture, PendingTextureLoad& pend
 }
 
 bool TextureCache::CommitPreparedTextureLoad(const PendingTextureLoad& pending_load) {
+  REX_CPU_SUBSET_SCOPE(TextureCommit);
   if (!pending_load.texture || (!pending_load.load_base && !pending_load.load_mips)) {
     return true;
   }

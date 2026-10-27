@@ -131,11 +131,20 @@ def check_content_layout(executable, directory):
         path.write_text('[community]\nenabled='+str(community).lower()+'\n[display]\nvsync='+str(vsync).lower()+'\n',encoding='utf-8')
         pacing_configs[name]=str(path)
     before={str(path):digest(path) for path in scene.rglob('*') if path.is_file()}
-    cases=[('content-layout-self-test',['--content-self-test',str(app),str(patch),str(addons)],0)]
+    cases=[('content-layout-self-test',['--content-self-test',str(app),str(patch),str(addons)],0),
+           ('fios-self-test',['--fios-self-test',str(app),str(patch)],0)]
     cases.extend((
         ('background-log-fixture',[str(probe),'--enter','--background-log','on'],7),
         ('background-log-validation-rejected',[str(probe),'--validate','--background-log','on'],2),
         ('background-log-bad-value',[str(probe),'--enter','--background-log','off'],2)))
+    for button in ('circle','cross'):
+        flag='--diagnostic-'+button+'-hold-ms'
+        cases.append(('hold-'+button+'-1500',[str(probe),'--enter',flag,'1500'],7))
+        for mode,value in (('--validate','1500'),('--enter','2001'),('--enter','-1')):
+            cases.append(('hold-'+button+'-'+mode[2:]+'-'+value,
+                          [str(probe),mode,flag,value],2))
+    cases.append(('hold-mutually-exclusive',[str(probe),'--enter',
+                  '--diagnostic-circle-hold-ms','1500','--diagnostic-cross-hold-ms','1500'],2))
     diagnostic=[str(probe),'--enter','--diagnostic-unpaced','on']
     user=['--user-dir',str(directory / 'benchmark-authored')]
     cases.extend((
@@ -166,12 +175,24 @@ def check_content_layout(executable, directory):
             events=[json.loads(line) for line in result.stdout.splitlines()]
             checks=[event for event in events if event['event']=='content_self_test_case']
             passed=len(checks)==23 and all(event['passed'] for event in checks)
+        if name=='fios-self-test' and passed:
+            events=[json.loads(line) for line in result.stdout.splitlines()]
+            checks=[event for event in events if event['event']=='fios_self_test_case']
+            passed=len(checks)==29 and all(event['passed'] for event in checks)
         if name=='background-log-fixture' and passed:
             events=[json.loads(line) for line in result.stdout.splitlines()]
             stats=next(event for event in reversed(events) if event['event']=='native_async_log')
             passed=events[-1]['event']=='native_exit' and stats['drain_completed'] and stats['pending']==stats['in_flight']==0
             pacing=next(event for event in events if event['event']=='native_presentation_pacing')
             passed &= not pacing['diagnostic_unpaced'] and pacing['software_flip_wait']
+        if name in ('hold-circle-1500','hold-cross-1500') and passed:
+            events=[json.loads(line) for line in result.stdout.splitlines()]
+            button=name.split('-')[1]
+            event=next((event for event in events if event.get('event')=='native_pad_diagnostic_'+button+'_hold'),None)
+            passed=event==dict(event='native_pad_diagnostic_'+button+'_hold',trigger='H',
+                              milliseconds=1500,shift_hold_ms=30000,changes_game_state_directly=False)
+        if name.startswith('hold-') and expected==2:
+            passed &= b'"event":"enter_game"' not in result.stdout
         if name=='unpaced-offline-fixture' and passed:
             events=[json.loads(line) for line in result.stdout.splitlines()]
             pacing=next(event for event in events if event['event']=='native_presentation_pacing')

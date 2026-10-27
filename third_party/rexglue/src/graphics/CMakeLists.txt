@@ -100,6 +100,15 @@ endif()
 add_library(rexgpu-xenos SHARED ${REXGPU_XENOS_SOURCES})
 add_library(rex::gpu-xenos ALIAS rexgpu-xenos)
 
+# Developer-only replay of locally captured GPU work. Not installed or packaged.
+option(REXGLUE_BUILD_GPU_TRACE_BENCH "Build the offline D3D12 trace benchmark" OFF)
+if(REXGLUE_BUILD_GPU_TRACE_BENCH AND REXGLUE_USE_D3D12 AND WIN32)
+    target_sources(rexgpu-xenos PRIVATE trace_reader.cpp trace_player.cpp trace_benchmark.cpp)
+    target_compile_definitions(rexgpu-xenos PRIVATE REX_GPU_TRACE_BENCH=1)
+    add_executable(rexgpu_trace_bench trace_benchmark_main.cpp)
+    add_dependencies(rexgpu_trace_bench rexgpu-xenos)
+endif()
+
 set_target_properties(rexgpu-xenos PROPERTIES
     EXPORT_NAME gpu-xenos
     CXX_VISIBILITY_PRESET hidden
@@ -121,6 +130,9 @@ target_link_libraries(rexgpu-xenos PRIVATE
     xxHash::xxhash
     snappy
 )
+if(WIN32)
+    target_link_libraries(rexgpu-xenos PRIVATE synchronization)
+endif()
 
 if(REXGLUE_USE_VULKAN)
     target_link_libraries(rexgpu-xenos PRIVATE

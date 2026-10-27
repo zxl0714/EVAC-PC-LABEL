@@ -6,7 +6,7 @@ game_root = "../../../game-data/guwange"
 [entrypoint]
 file_path = "../../../game-data/guwange/default.xex"
 out_directory_path = "../../../generated/guwange/default"
-includes = ["default-functions.toml", "default-callbacks.toml", "default-vtable.toml", "boot-observations.toml", "main-wait.toml", "community-overrides.toml"]
+includes = ["default-functions.toml", "default-callbacks.toml", "default-vtable.toml", "boot-observations.toml", "main-wait.toml", "community-overrides.toml", "native-wait-overrides.toml"]
 
 [[modules]]
 guest_path = "module/Guwange01_x360.dll"

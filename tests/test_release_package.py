@@ -72,6 +72,16 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(release.verify_tree(directory, games)['version'], '0.7.6')
         self.check_build_flavors('0.7.6', check)
 
+    def test_v080_includes_native_xbla_extractor(self):
+        self.assertNotIn('tools/Extract-XBLA.exe', release.runtime_names(self.games, version='0.7.6', selection=release.V03_GAMES))
+        def check(root, games, commit, inspect):
+            result = release.build('Public', '0.8.0', root/'releases/xbla-extractor')
+            record = release.verify_tree(Path(result['directory']), games)
+            self.assertIn('tools/Extract-XBLA.exe', {item['path'] for item in record['files']})
+            with zipfile.ZipFile(result['archive']) as zipped:
+                self.assertIn('tools/Extract-XBLA.exe', zipped.namelist())
+        self.check_build_flavors('0.8.0', check)
+
     def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
         primary, base = [{'path': 'updated-fixture'}], [{'path': 'base-fixture'}]
         game = dict(files=primary, variants=[dict(id='update-102', files=primary), dict(id='base', files=base)])
@@ -574,6 +584,39 @@ class ReleaseTests(unittest.TestCase):
     def test_v074_keeps_seven_game_program_package_and_placement_guides(self):
         self.check_seven_game_package('0.7.4')
 
+    def test_v080_adds_feveron_without_changing_frozen_profiles(self):
+        self.assertEqual(release.release_games('0.8.0'), release.V08_GAMES)
+        self.assertEqual(len(release.placement_sources('0.7.6')), 7)
+        self.assertEqual(len(release.placement_sources('0.8.0')), 8)
+        self.assertEqual(release.certified_name('runtime/ps4/feveron.exe'), 'KetsuiNativeProbe.exe')
+        self.assertEqual(release.certified_name('runtime/ps4/unknown.exe'), 'unknown.exe')
+        def check(root, games, commit, inspect):
+            extra = root/'game-data/feveron/container.pkg'
+            extra.write_bytes(b'unselected original container')
+            with patch.object(release, 'source_clone', side_effect=AssertionError('No source clone')):
+                public = release.build('Public', '0.8.0', root/'releases/public')
+                inspect.assert_not_called()
+                internal = release.build('Internal', '0.8.0', root/'releases/internal', data_games=['feveron'])
+            self.assertEqual([call.args[1] for call in inspect.call_args_list], ['feveron'])
+            for result, included in ((public, False), (internal, True)):
+                directory = Path(result['directory'])
+                record = release.verify_tree(directory, games)
+                self.assertEqual(record['games'], list(release.V08_GAMES))
+                self.assertEqual(record['dataGames'], ['feveron'] if included else [])
+                self.assertEqual((directory/'README.txt').read_text(), 'authored v08 instructions')
+                self.assertTrue((directory/'runtime/ps4/feveron.exe').is_file())
+                self.assertTrue((directory/'game-data/feveron/README.txt').is_file())
+                self.assertEqual((directory/'game-data/feveron/main.bin').exists(), included)
+                for name in ('game-data/feveron/container.pkg', 'game-data/feveron/Project.gp4',
+                             'user-data', 'source', release.LEGACY_LAUNCHER):
+                    self.assertFalse((directory/name).exists())
+                self.assertFalse(list(directory.rglob('*.pdb')))
+                with zipfile.ZipFile(result['archive']) as zipped:
+                    self.assertTrue(all(name.isascii() for name in zipped.namelist()))
+                    self.assertIn('tools/Extract-PS4.exe', zipped.namelist())
+            self.assertEqual(extra.read_bytes(), b'unselected original container')
+        self.check_build_flavors('0.8.0', check)
+
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
         (base/'asset.bin').write_bytes(b'abc')
@@ -789,6 +832,7 @@ class ReleaseTests(unittest.TestCase):
                 'config/README.player-v04.txt':'authored v04 instructions',
                 'config/README.player-v06.txt':'authored v06 instructions',
                 'config/README.player-v07.txt':'authored v07 instructions',
+                'config/README.player-v08.txt':'authored v08 instructions',
                 'scripts/Extract-Ps4Pkg.ps1':'# authored helper\n',
                 'scripts/Extract-Xbla.ps1':'# authored XBLA helper\n',
                 'scripts/Extract-Dlc.ps1':'# authored DLC helper\n',
@@ -816,7 +860,7 @@ class ReleaseTests(unittest.TestCase):
         identity=dict(path='main.bin',bytes=3,sha256=hashlib.sha256(b'abc').hexdigest())
         selection = release.release_games(version)
         games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
-            'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade') else 'xbox360')+'/'+key+'.exe',
+            'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
@@ -832,7 +876,7 @@ class ReleaseTests(unittest.TestCase):
             (root/game['runtimeFiles'][1]).write_text('[runtime]\ncontract=1\ngame='+key+'\nsource_commit='+commit+
                 '\n[files]\n'+name+'='+certified[base]['sha256']+'\n',encoding='utf-8')
             data=root/'game-data'/key;data.mkdir(parents=True);(data/'main.bin').write_bytes(b'abc')
-            if key in ('daioujou', 'esprade'):
+            if key in ('daioujou', 'esprade', 'feveron'):
                 (data/'Project.gp4').write_bytes(b'authored packaging-only file')
         (root/'dlc').mkdir();(root/'dlc/fixture-dlc.bin').write_bytes(b'abc')
         crt=root/'crt';crt.mkdir()

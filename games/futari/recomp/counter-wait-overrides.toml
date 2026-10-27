@@ -1,0 +1,18 @@
+# default.xex identity is validated by the ordinary generation manifest.
+# Notify after the native 64-bit counter store, before callback return.
+[[midasm_hook]]
+address = 0x8216AD48
+name = "FutariVblankCounterChanged"
+registers = ["context", "memory"]
+
+# Preserve the original loads, comparisons, branches, GPU drain and swap.
+# The hook parks only while that same guest counter equals the same operand.
+[[midasm_hook]]
+address = 0x8216B244
+name = "FutariWaitVblank1"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x8216B2E4
+name = "FutariWaitVblank0"
+registers = ["context", "memory"]

@@ -8,7 +8,7 @@ game_root = "../../../game-data/futari"
 [entrypoint]
 file_path = "../../../game-data/futari/default.xex"
 out_directory_path = "../../../generated/futari/default"
-includes = ["default-functions.toml", "module-switch-overrides.toml", "storage-diagnostics-overrides.toml", "audio-default-overrides.toml", "community-overrides.toml"]
+includes = ["default-functions.toml", "module-switch-overrides.toml", "storage-diagnostics-overrides.toml", "audio-default-overrides.toml", "community-overrides.toml", "counter-wait-overrides.toml"]
 
 [[modules]]
 guest_path = "media/module/hirow_abnormal.xex"

@@ -9,7 +9,9 @@
  * @modified    Tom Clay, 2026 - Adapted for ReXGlue runtime
  */
 
+#include <algorithm>
 #include <cinttypes>
+#include <iterator>
 
 #include <rex/filesystem.h>
 #include <rex/graphics/packet_disassembler.h>
@@ -21,7 +23,7 @@
 #include <rex/memory/mapped_memory.h>
 #include <rex/platform.h>
 
-#include <snappy.h"
+#include <snappy.h>
 
 namespace rex::graphics {
 
@@ -44,6 +46,11 @@ bool TraceReader::Open(const std::string_view path) {
   trace_data_ = reinterpret_cast<const uint8_t*>(mmap_->data());
   trace_size_ = mmap_->size();
 
+  if (trace_size_ < sizeof(TraceHeader)) {
+    Close();
+    return false;
+  }
+
   // Verify version.
   auto header = reinterpret_cast<const TraceHeader*>(trace_data_);
   if (header->version != kTraceFormatVersion) {
@@ -55,9 +62,11 @@ bool TraceReader::Open(const std::string_view path) {
     return false;
   }
 
-  REXGPU_INFO("Mapped {}b trace from {}", trace_size_, rex::path_to_utf8(path));
+  REXGPU_INFO("Mapped {}b trace from {}", trace_size_, path);
   REXGPU_INFO("   Version: {}", header->version);
-  auto commit_str = std::string(header->build_commit_sha, rex::countof(header->build_commit_sha));
+  auto commit_end = std::find(std::begin(header->build_commit_sha),
+                              std::end(header->build_commit_sha), '\0');
+  auto commit_str = std::string(std::begin(header->build_commit_sha), commit_end);
   REXGPU_INFO("    Commit: {}", commit_str);
   REXGPU_INFO("  Title ID: {}", header->title_id);
 
@@ -67,6 +76,7 @@ bool TraceReader::Open(const std::string_view path) {
 }
 
 void TraceReader::Close() {
+  frames_.clear();
   mmap_.reset();
   trace_data_ = nullptr;
   trace_size_ = 0;

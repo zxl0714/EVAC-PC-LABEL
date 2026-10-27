@@ -48,8 +48,9 @@ Json Run(const Json& item) {
         const auto kind=item.at("kind").get<std::string>();
         const auto fix=kind=="music" ? ResourceFix::MusicAutosave : kind=="batch" ? ResourceFix::ReplayBatch :
             kind=="peer" ? ResourceFix::CommunityReplayPeer : kind=="local-replay" ? ResourceFix::CommunityLocalReplay :
-            kind=="esprade-local-replay" ? ResourceFix::EspradeLocalReplay : ResourceFix::LocalRoundGate;
-        if (kind!="music" && kind!="batch" && kind!="offline" && kind!="peer" && kind!="local-replay" && kind!="esprade-local-replay")
+            kind=="esprade-local-replay" ? ResourceFix::EspradeLocalReplay :
+            kind=="feveron-local-replay" ? ResourceFix::FeveronLocalReplay : ResourceFix::LocalRoundGate;
+        if (kind!="music" && kind!="batch" && kind!="offline" && kind!="peer" && kind!="local-replay" && kind!="esprade-local-replay" && kind!="feveron-local-replay")
             throw std::runtime_error("Unknown script test kind");
         return Hex(FixResourceScript(source,fix));
     }

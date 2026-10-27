@@ -18,8 +18,17 @@
 #include <disruptorplus/spin_wait_strategy.hpp>
 
 #include <rex/assert.h>
+#include <rex/cvar.h>
 #include <rex/thread.h>
 #include <rex/thread/timer_queue.h>
+
+#if REX_PLATFORM_WIN32
+#include <rex/thread/deadline_wait_win.h>
+#endif
+
+REXCVAR_DEFINE_BOOL(timer_queue_blocking_wait, true, "Kernel",
+                    "Park the timer dispatcher on a high-resolution host deadline")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace dp = disruptorplus;
 
@@ -67,9 +76,25 @@ class TimerQueue {
     while (!stop_token.stop_requested()) {
       {
         // Consume new wait items and add them to sorted wait queue
-        dp::sequence_t available = claim_strategy_.wait_until_published(
-            next_sequence, next_sequence - 1,
-            wait_queue_.empty() ? clock::time_point::max() : wait_queue_.front()->due_);
+        const auto deadline =
+            wait_queue_.empty() ? clock::time_point::max() : wait_queue_.front()->due_;
+        dp::sequence_t available = next_sequence - 1;
+#if REX_PLATFORM_WIN32
+        bool use_original_wait = !blocking_wait_enabled_.load(std::memory_order_relaxed);
+        if (!use_original_wait) {
+          available = claim_strategy_.last_published_after(next_sequence - 1);
+          if (available == next_sequence - 1) {
+            use_original_wait =
+                deadline_wait_.WaitUntil(deadline) == DeadlineWait::Result::kUnavailable;
+            available = claim_strategy_.last_published_after(next_sequence - 1);
+          }
+        }
+        if (use_original_wait)
+#endif
+        {
+          available =
+              claim_strategy_.wait_until_published(next_sequence, next_sequence - 1, deadline);
+        }
 
         // Check for timeout
         if (available != next_sequence - 1) {
@@ -132,6 +157,13 @@ class TimerQueue {
     auto sequence = claim_strategy_.claim_one();
     buffer_[sequence] = std::move(wait_item);
     claim_strategy_.publish(sequence);
+#if REX_PLATFORM_WIN32
+    // Read the init-only option on the publishing thread, after host config has
+    // loaded. The dispatcher starts before main, so it must not read CVar storage
+    // concurrently with initial configuration. Publication precedes notification.
+    blocking_wait_enabled_.store(REXCVAR_GET(timer_queue_blocking_wait), std::memory_order_relaxed);
+    deadline_wait_.Notify();
+#endif
 
     return wait_item_weak;
   }
@@ -149,6 +181,10 @@ class TimerQueue {
   // This is a _sorted_ (ascending due_) list of active timers managed by a
   // dedicated thread
   std::forward_list<std::shared_ptr<WaitItem>> wait_queue_;
+#if REX_PLATFORM_WIN32
+  DeadlineWait deadline_wait_;
+  std::atomic<bool> blocking_wait_enabled_{true};
+#endif
   std::jthread dispatch_thread_;
 };
 

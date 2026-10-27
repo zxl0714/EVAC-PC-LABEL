@@ -73,18 +73,19 @@ struct StfsPackage::Impl {
     const auto offset=first+physical*kBlock;
     Need(offset<=size && kBlock<=size-offset,"Truncated package data block");return offset;
   }
-  void Load(const fs::path& source,bool verify) {
+  void Load(const fs::path& source,bool verify,uint32_t content_type) {
+    Need(content_type==2 || content_type==0xD0000,"Unsupported content type");
     NoLinks(source);
     file=CreateFileW(source.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
-    Need(file!=INVALID_HANDLE_VALUE,"Cannot read DLC container");
-    LARGE_INTEGER length{};Need(GetFileSizeEx(file,&length) && length.QuadPart>=0x400 && length.QuadPart<=kMax,"Expected DLC container up to 512 MiB");
+    Need(file!=INVALID_HANDLE_VALUE,"Cannot read content package");
+    LARGE_INTEGER length{};Need(GetFileSizeEx(file,&length) && length.QuadPart>=0x400 && length.QuadPart<=kMax,"Expected a content package up to 512 MiB");
     size=uint32_t(length.QuadPart);
     mapping=CreateFileMappingW(file,nullptr,PAGE_READONLY,0,0,nullptr);Need(mapping!=nullptr,"Cannot map DLC container");
     data=static_cast<const uint8_t*>(MapViewOfFile(mapping,FILE_MAP_READ,0,0,0));Need(data!=nullptr,"Cannot view DLC container");
-    Need(!std::memcmp(data,"LIVE",4) || !std::memcmp(data,"PIRS",4),"Expected LIVE/PIRS DLC container");
+    Need(!std::memcmp(data,"LIVE",4) || !std::memcmp(data,"PIRS",4),"Expected a LIVE/PIRS content package; unpack ZIP/RAR first");
     auto header=Number(0x340,4);Need(header>=0x400 && header<=1024*1024 && header<=size,"Invalid package header");
     first=(header+4095)&~4095u;
-    Need(Number(0x344,4)==2,"Expected DLC content type");title=Number(0x360,4);
+    Need(Number(0x344,4)==content_type,content_type==2?"Expected DLC content type":"Expected XBLA content type");title=Number(0x360,4);
     Need(Number(0x3A9,4)==0 && data[0x379]==0x24 && (data[0x37B]&1),"Unsupported STFS layout");
     blocks=Number(0x395,4);Need(blocks>0 && blocks<kMax/kBlock,"Package block count exceeds limit");(void)Offset(blocks-1);
     std::set<uint32_t> used;
@@ -119,7 +120,7 @@ struct StfsPackage::Impl {
     Need(!files.empty(),"Empty DLC container");verified=verify;
   }
 };
-StfsPackage::StfsPackage(const fs::path& source,bool verify):impl_(std::make_unique<Impl>()){impl_->Load(source,verify);}
+StfsPackage::StfsPackage(const fs::path& source,bool verify,uint32_t content_type):impl_(std::make_unique<Impl>()){impl_->Load(source,verify,content_type);}
 StfsPackage::~StfsPackage()=default;
 uint32_t StfsPackage::TitleId()const{return impl_->title;}
 const std::vector<StfsFile>& StfsPackage::Files()const{return impl_->files;}
@@ -137,30 +138,5 @@ void StfsPackage::Extract(const fs::path& output)const {
     } catch(...){CloseHandle(handle);throw;}
     CloseHandle(handle);
   }
-}
-ContentInspection InspectStfs(const ContentPackage& package,const fs::path& file,CheckLevel level) {
-  ContentInspection result;result.id=package.id;result.name=package.name;
-  try {
-    StfsPackage archive(file,level==CheckLevel::Full);
-    if(archive.TitleId()!=package.title_id)return result;
-    unsigned present=0;
-    for(const auto& expected:package.files)for(const auto& entry:archive.Files())
-      if(Lower(entry.path)==Lower(Utf8(ContentRelativePath(package,expected))))++present;
-    if(!present)return result;
-    result.directory=file.parent_path();result.container=file;
-    for(const auto& expected:package.files) {
-      ++result.files_checked;const auto relative=Utf8(ContentRelativePath(package,expected));
-      const auto entry=std::find_if(archive.Files().begin(),archive.Files().end(),[&](const auto& item){return Lower(item.path)==Lower(relative);});
-      if(entry==archive.Files().end()){result.problems.push_back("missing: "+relative);continue;}
-      if(entry->bytes!=expected.bytes){result.problems.push_back("size: "+relative);continue;}
-      if(level==CheckLevel::Full){++result.hashes_checked;if(entry->sha256!=expected.sha256)result.problems.push_back("sha256: "+relative);}
-    }
-    if(archive.Files().size()!=package.files.size())result.problems.push_back("Unexpected DLC payload files");
-    result.state=result.problems.empty()?(level==CheckLevel::Full?DataState::Verified:DataState::Unverified):DataState::Incomplete;
-  }catch(const std::exception& error) {
-    // A recognizably named broken container must not silently look absent.
-    if(file.filename()==FromUtf8(package.package_name)){result.directory=file.parent_path();result.container=file;result.state=DataState::Incomplete;result.problems.push_back(error.what());}
-  }
-  return result;
 }
 }
