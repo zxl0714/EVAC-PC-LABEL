@@ -4,6 +4,7 @@
 
 ## v0.7.6 大往生 01.00 与弹铳预告
 
+- **正式交付（10 月 27 日 23:18）：** [v0.7.6](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.6) 已发布并设为 Latest，release ID `425627949`。固定标签对应已验收二进制源码 `9393c10`；最终包只刷新 README，documentationCommit=`c83b376`，其余 156 文件不变。ZIP 为 `releases/v0.7.6-docs-c83b376/EVAC-PC-LABEL-v0.7.6-win-x64.zip`，106931835 字节，SHA-256 `6f450f85b53d0db18b252b72ff6671dc536a8b545e0c1391e469e8312fb00f4b`。一次解压通过 157 文件／9 类保留检查；公开 API 核对两个附件大小、摘要和 uploaded 状态。收据 `.local/v076-github-delivery-r1.json`；未上传 OSS 或发群消息。
 - **离线冷回放：** 新进程 126768、`community.enabled=false`，从原生下载槽 `0020-0000` 读出 Base100Check／280 分录像。MATERIALS ROOM → REPLAY THEATER → DOWNLOAD REPLAY 中进入选人、第一关和中 Boss，完整 57 秒自然结束后返回列表；回放期间未发按键。`cold-offline-r3.log`、`cold-offline-playback.png`、`cold-offline-result.png` 保存于原 1.00 测试目录。下载存档 SHA-256 未变。前两次手动命令测试遗漏 GPU 路径／异步日志参数，未作为验收结果。
 - **正式部署：** `9393c10` 已部署至独立大往生服务，目标 Python 3.10.12 的 23 项 profile／备份／部署检查通过。更新前一致性快照与数据库完整性通过；既有 3 位玩家、4 条成绩和 4 份录像逐行保持不变。七款 HTTPS 健康检查、大往生普通／综合／挑战榜读取通过，其他六款进程与 nginx 未变；没有写入测试积分。收据 `.local/v076-deploy-r1/installed.json`。
 - **发布构建与预览：** 源码 `9393c10` 的七游戏增量构建认证 73 Xbox／7 PS4／3 启动器、检查器及提取器 EXE/PDB 配对；四项最终 CTest 通过。预览程序包完成一次实际解压，157 文件、9 类保留检查通过。实际启动器显示八张卡片，弹铳选中时不能启动；截图 `releases/v0.7.6-9393c10/launcher-v0.7.6.jpg`。正式包仅更新 README，保留原 sourceCommit 并单独记录 documentationCommit，不重编译或重复七游戏游玩。

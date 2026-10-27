@@ -6,14 +6,28 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.6 — normal publication authorized
+### v0.7.6 — published October 27
+
+Published at 23:18 Asia/Shanghai:
+https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.7.6 (425627949).
+Main and annotated tag are pushed; keep v0.7.6 fixed at accepted binary source
+9393c10. Final program ZIP reuses those binaries and updates README only,
+with documentationCommit=c83b376 and all 156 other payloads unchanged:
+releases/v0.7.6-docs-c83b376/EVAC-PC-LABEL-v0.7.6-win-x64.zip, 106931835 bytes,
+SHA256 6f450f85b53d0db18b252b72ff6671dc536a8b545e0c1391e469e8312fb00f4b.
+One extraction passes 157 files and 9 preservation checks. Anonymous API verifies
+Latest, non-draft/non-prerelease, and exactly two uploaded assets with matching
+sizes/digests. Evidence: .local/v076-github-delivery-r1.json and
+.local/v076-release-published.jpg. No OSS upload or QQ announcement. The owned
+offline replay process is closed with presentation cleanup complete (exit 27,
+the existing finalizer behavior). Do not repeat builds/extraction/gameplay for
+delivery-only records. Next-version Feveron implementation is not started.
 
 The user reviewed the local package/image and simplified bilingual release notes,
-then requested normal publication. Finish the remaining replay check, deploy the
-DaiOuJou service, push main and a fixed v0.7.6 tag, and publish the program ZIP and
-SHA256 on GitHub. No ROM/source/PDB, OSS upload or group announcement is requested.
-Reuse accepted binaries at 9393c10; remove the preview-only README text via a
-documentation-only package refresh, preserving its original source identity.
+then requested normal publication. The replay check, DaiOuJou deployment,
+repository push and program ZIP/SHA256 publication are complete. No ROM/source/
+PDB package, OSS upload or group announcement was requested. The README refresh
+preserves the original binary source identity.
 Player-facing release notes list user-visible changes only. Keep internal fixes,
 development/deployment status and routine installation instructions out of release
 notes; retain pending acceptance and deployment work in the development plan.
