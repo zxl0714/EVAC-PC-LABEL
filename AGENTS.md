@@ -6,7 +6,33 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.8.0 integration checkpoint — October 28, 06:26 local
+### v0.8.0 local delivery complete — October 28, 06:43 local
+
+Final program ZIP is frozen at source c427257bdf45e0e5b57087108739e16342eb894c:
+releases/v0.8.0-local-r1/EVAC-PC-LABEL-v0.8.0-win-x64.zip, 110826007 bytes,
+SHA256 8a93f2ac042e95f6dcaee7ec30c356d6281dccf59b165ea25ee5ee8644408b3d.
+Sibling checksum and actual packaged-launcher screenshot launcher-v0.8.0.jpg
+are ready. All SDK/hosts/modules/PS4/launcher receipts name that source. Final
+SDK trace benchmark is OFF, native RGBA8 resolve ON, overwrite-upload OFF.
+642 source tests (one existing privilege skip), 47 native CTests, 86 PS4 native
+checks, compatibility, 32 GPU pixel cases and 275 GPU timing submissions pass.
+
+ONE actual extraction into .local/v080-final-accept-r1/collection verified all
+161 payload hashes. No ROM/source/PDB/user-data payload; protected paths have
+no archive collisions. Do not re-extract or rebuild this ZIP for status records.
+Raw Guwange ZIP -> packaged Extract-XBLA GUI -> Open game files -> copy contents
+to game-data/guwange -> launcher -> create new system save -> Arcade/1P/Shishin
+stage1, bomb and pause -> normal Alt+F4 all passed. No imported cache/profile.
+29 real extracted files match the manifest; source ZIP/container hashes unchanged.
+Run20261027T224001339Z-128788 closed22:42:05Z; launcher records exit0, resets
+running state. Three native wait summaries have zero timeouts; no error/dump.
+Test-only config is offline/windowed/volume0.25/TGFH directions; screenshot
+switches language to zh. Original installed files and player config untouched.
+All owned game/launcher/extractor windows closed. No upload/push/tag/Release/QQ.
+The requested local v0.8.0 objective is complete; stop before publication.
+This checkpoint supersedes the older pending-build/onboarding notes below.
+
+### Earlier v0.8.0 integration checkpoint — October 28, 06:26 local
 
 All four Xbox 360 CPU optimization actual comparisons are recorded below and
 in TEST_MATRIX. G2 final combination 1V run221857938Z-75992 used EXE8dde3aad,
