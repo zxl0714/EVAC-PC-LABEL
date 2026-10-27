@@ -28,7 +28,7 @@ class G2FrameDelayTests(unittest.TestCase):
         self.assertIn('espgaluda2::performance::StopFenceWait();', stop)
         self.assertIn('espgaluda2::latency::Stop();', stop)
         cmake = (ROOT / 'games/espgaluda2/CMakeLists.txt').read_text()
-        self.assertIn('target_sources(espgaluda2 PRIVATE latency/host.cpp)', cmake)
+        self.assertIn('target_sources(espgaluda2 PRIVATE latency/host.cpp performance/fence_wait.cpp)', cmake)
         self.assertIn('NAME g2_vblank_gate', cmake)
 
     def test_default_and_fallback_are_original(self):
