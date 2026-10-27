@@ -1,5 +1,5 @@
 #pragma once
-#include "backends/xbox360/performance/signal_wait.h"
+#include "../../../backends/xbox360/performance/signal_wait.h"
 #include <cstdint>
 
 namespace sdoj::performance {
