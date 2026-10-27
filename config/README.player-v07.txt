@@ -2,7 +2,6 @@ EVAC PC LABEL v0.7.6
 
 本版增加 PS4 图形解包工具、大往生 01.00 联网适配及弹铳 Coming Soon 卡片。
 启动器默认高度不超过屏幕可用区域的 90%，游戏列表滚动显示。
-当前为本地预览包：大往生 01.00 联网已在本机验证，线上服务适配待部署。
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
 开始游玩 ---------------------------------------------------------------------
@@ -114,9 +113,8 @@ English ======================================================================
 v0.7.6 adds a graphical PS4 extractor, DaiOuJou 01.00 community support and a
 Dangun Feveron Coming Soon card. The initial launcher height is capped at 90%
 of the screen work area, with a scrollable game list.
-This local preview includes the 01.00 client changes; the matching online service
-update is pending deployment. To update, close games and launcher, extract over
-the existing folder, and keep user-data/.
+To update, close games and launcher, extract over the existing folder, and keep
+user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the
 alternate entry. Windows x64 and graphics-vendor drivers are required.

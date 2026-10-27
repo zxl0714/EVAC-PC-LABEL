@@ -59,7 +59,7 @@ CUSTOM 录像的原生 mode 为 3，不能发到 ARCADE 等其他模式榜。是
 
 ## 大往生开发适配
 
-`server/games/daioujou.py` 定义 CUSA32997／1.04 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储。代表性的真实原生 loopback 与正常合集正式 HTTPS 成绩／录像上传、读榜、下载保存及离线冷回放已通过，正式实战记录为 ARCADE／Type-A／Shotia 的 1040 分。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。未逐一实测所有榜单／模式。
+`server/games/daioujou.py` 定义 CUSA32997 的独立协议、昵称映射和榜单，复用 PS4 的 HTTP／SQLite 存储，同时接受 1.00 与 1.04 的原生录像。每组编号 0–5 对应三个人偶与两种机体，6 为综合榜，99 为 AC-CHALLENGE；传输成绩是显示分数除以十的原生整数。CUSTOM 不接受提交，也不套用绊地狱的 CUSTOM 编号规则。各版本录像保留原始字节，由游戏执行原生版本兼容检查。
 
 AC-CHALLENGE 使用独立的 99 号榜，累计 66 场景、两种机体和三个人偶的奖牌积分，上限 3,960,000。金／银／铜牌分别为 10,000／3／1 分，按原生整数传输，不乘普通分数的十倍单位。原游戏榜单定义的 `uploadable=0`，只登记积分而不上传占位录像。本作共 50 个可读榜单；普通 CUSTOM 提交限制保持不变。
 
@@ -154,9 +154,9 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 ### 增量部署大往生
 
-当前大往生服务版本为 a865369，`daioujou-current` 指向 `/opt/cave-community/releases/a865369`，18088 仅监听 loopback。v0.3.2 增加 AC-CHALLENGE 99 号榜，沿用原数据库和普通录像。更新前的一致性快照位于 `/var/lib/cave-community/daioujou/pre-v032-a865369/community.sqlite3`，旧 171d8a5 发行目录保留，可切回链接回滚。既有成绩及录像保持原字节，其他四款服务 PID 和 nginx 片段哈希未变；公开挑战榜读取为 200，未写入测试积分。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer，常规数据库及备份目录不变。
+当前 `daioujou-current` 指向 `/opt/cave-community/releases/daioujou-v076-9393c10ee402`，支持 1.00 与 1.04，18088 仅监听 loopback。数据库和每日备份目录不变；更新前的一致性快照位于 `/var/lib/cave-community/daioujou/pre-v076-9393c10ee402/community.sqlite3`。旧 `a865369` 发行目录保留，可切回链接回滚。三个 `cave-daioujou*.in` 模板提供独立服务、每日备份与 timer。
 
-服务和每日备份 timer 已启用，快照的 Title ID、application_id 与完整性已核对。v0.3.2 在目标 Python 3.10.12 通过 profile／备份／部署测试，代表性普通游戏内收发沿用前述验收；挑战榜另通过本机 ABI／HTTP 检查，游戏内目视复验尚未补做。以下为首次部署步骤与更新边界。
+服务和每日备份 timer 已启用。v0.7.6 在目标 Python 3.10.12 通过 23 项 profile／备份／部署测试；快照的 Title ID、application_id、完整性及既有记录逐行对照通过。七款 HTTPS 健康检查和本作普通／综合／挑战榜读取正常，其他六款服务和 nginx 未修改。以下为首次部署步骤与更新边界。
 
 1. 从干净提交准备仅含 `server/__init__.py`、`server/games/__init__.py`、`server/games/ketsui.py`、`server/games/daioujou.py`、`server/backup.py`、部署模板及 profile／备份／部署测试的归档。测试还需 `scripts/ps4/replay_fixture.py`，它只生成不可游玩的自造记录，不依赖 Windows 构建工具或 ROM。记录提交、成员和哈希；不携带数据库、游戏数据或本机配置。
 2. 上传到新的不可变版本目录，核验后用服务器 Python 执行 `test_ps4_community_profiles.py`、`test_community_backup.py`、`test_community_deployment.py`。这一步只使用随机 loopback 和临时 SQLite，不改玩家榜单。先记录原四款服务 PID、各版本指针与 nginx 片段哈希。

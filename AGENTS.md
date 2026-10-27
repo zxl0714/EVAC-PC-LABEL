@@ -6,13 +6,17 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-### v0.7.6 — local preview package requested, no publication
+### v0.7.6 — normal publication authorized
 
-The user now requests a local program package, release notes and launcher image
-for review. Package without ROM, source or PDB; preserve published releases.
-Save the current scoped changes as a local source checkpoint and use the normal
-same-commit build/package checks. Do not push, tag, upload, publish or deploy.
-Release notes must state that base-01.00 production networking is not deployed.
+The user reviewed the local package/image and simplified bilingual release notes,
+then requested normal publication. Finish the remaining replay check, deploy the
+DaiOuJou service, push main and a fixed v0.7.6 tag, and publish the program ZIP and
+SHA256 on GitHub. No ROM/source/PDB, OSS upload or group announcement is requested.
+Reuse accepted binaries at 9393c10; remove the preview-only README text via a
+documentation-only package refresh, preserving its original source identity.
+Player-facing release notes list user-visible changes only. Keep internal fixes,
+development/deployment status and routine installation instructions out of release
+notes; retain pending acceptance and deployment work in the development plan.
 
 Extractor scope is complete locally. Added current v0.7.6 work: adapt DaiOuJou
 01.00 community networking using the base PKG under E:/Game-Share/roms/
@@ -24,9 +28,17 @@ removed, seed lookup uses verified SELF at RIP-relative load 0xde. Client/server
 accept the base record without rewriting bytes; original future-version guard
 remains. Real base ARCADE Type-A/Shotia score 28 (display 280), upload/read/download
 and save passed against local loopback. Evidence: play-r2.log, play.sqlite3 and
-prepared-final.json under .local/v076-daioujou-base-r1/. Cold offline playback and
-production server deployment/HTTPS acceptance remain pending. Local service and
-game were closed. Do not deploy automatically during this no-release stage.
+prepared-final.json under .local/v076-daioujou-base-r1/. Production deployment
+passed 23 tests on Python 3.10.12; the consistent backup and existing 3 players,
+4 scores and 4 replays were verified. Seven HTTPS healths and three DaiOuJou
+boards pass; peer processes and nginx are unchanged. Receipt:
+.local/v076-deploy-r1/installed.json. Cold offline replay acceptance is below.
+Cold run 126768 disables community networking, reads native downloaded slot
+0020-0000, then plays Base100Check/280 for the full 57 seconds and returns to
+DOWNLOAD REPLAY without input during playback. Evidence: cold-offline-r3.log
+and cold-offline-{playback,result}.png in the same fixture. Navigation is
+Backspace -> MATERIALS ROOM -> REPLAY THEATER -> DOWNLOAD REPLAY, not the
+separate RANKING VIEWER. Diagnostic keyboard aliases use I/J/K/L, X confirm.
 Dangun Feveron is now Coming Soon only; actual support is next version.
 Its supplied PKG is E:/Game-Share/roms/
 UP2789-CUSA06735_00-DANGUNFEVERONUSA-A0100-V0101.pkg (PS4 CUSA06735).
@@ -40,8 +52,7 @@ PS4 local build is .local/v076-final-build-r1.log. Latest launcher build is
 of monitor work area; extra cards scroll, header/footer stay fixed. 1080p
 100/125/150-percent geometry checks and common/launch/preview CTests pass.
 Root launcher stays unchanged; current candidate is out/common/bin/EVAC PC LABEL.exe.
-The current request permits local checkpointing and packaging only; publication
-and production deployment remain separate.
+Publication is now authorized; preserve all older release tags and artifacts.
 The standalone player entry is out/ps4-extract-player/tools/Extract-PS4.exe with
 its full sibling dependency directory. Native Win32 GUI selects one base or patch
 PKG and a new output folder, extracts resources plus sce_sys metadata, supports
@@ -58,8 +69,13 @@ to repeat this check. Final source-only cleanup is built, not visually rechecked
 28 native extraction checks, seven focused Python checks and 48 packaging cases
 (one existing skip) pass. Bilingual setup guides and package dependency rules
 are updated. The final launcher/inspector/extractor receipt has three binary/PDB
-pairs; root launcher was deliberately not staged. No gameplay campaign or actual
-v0.7.6 release ZIP was run. See docs/TEST_MATRIX.md for verification boundaries.
+pairs; root launcher was deliberately not staged. The full seven-game build at
+9393c10 certifies 73 Xbox, 7 PS4 and 3 launcher/inspector/extractor PE/PDB pairs.
+The local program ZIP passed one extraction (157 files, 9 preservation checks).
+Actual launcher smoke showed eight cards with Feveron disabled; screenshot is
+releases/v0.7.6-9393c10/launcher-v0.7.6.jpg. Final publication refreshes README
+only and records documentationCommit separately; all other payloads stay fixed.
+See docs/TEST_MATRIX.md for verification boundaries.
 
 ### v0.7.5 — published October 27
 
