@@ -18,6 +18,18 @@ class CompatibilityWiringTests(unittest.TestCase):
             self.assertIn('presentation::SwapchainExtension', source)
         self.assertIn('&maintenance_surfaces', gpu)
 
+    def test_old_device_api_is_a_recoverable_error_before_format_queries(self):
+        gpu = self.text('third_party/ps4/gpu_core/upstream/src/video_core/renderer_vulkan/vk_instance.cpp')
+        constructor = gpu.split('Instance::Instance(Frontend::WindowSDL&', 1)[1].split('Instance::~Instance()', 1)[0]
+        self.assertIn('RequireVulkanApi(properties.apiVersion, TargetVulkanApiVersion', constructor)
+        self.assertLess(constructor.index('RequireVulkanApi('), constructor.index('GetFormatProperties(physical_device)'))
+        self.assertLess(constructor.index('RequireVulkanApi('), constructor.index('CreateDevice();'))
+        self.assertNotIn('ASSERT_MSG(properties.apiVersion', constructor)
+        guard = self.text('third_party/ps4/gpu_core/host/runtime_api.cpp').split('bool Guard(', 1)[1].split('bool Create(', 1)[0]
+        self.assertIn('catch (const std::exception &error)', guard)
+        self.assertIn('error.what()', guard)
+        self.assertIn('return false;', guard)
+
     def test_verified_identity_precedes_shared_seed_decoder(self):
         source = self.text('backends/ps4/content/resource_prepare.cpp')
         key = source[source.index('ResourceBytes ArchiveKey('):source.index('ResourceBytes ReadArchiveSeed(')]

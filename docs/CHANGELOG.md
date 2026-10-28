@@ -7,6 +7,7 @@
 - 修复 ESPGaluda II 启动后首次下载录像失败、需要重试的问题。
 - 降低虫姬二、G2、最大往生和狱门山的 CPU 开销，优化定时器、渲染任务和原生完成等待。
 - G2 新增并默认启用 1V 低延迟路径，可将 `frame_delay` 设为 `2` 使用原始路径；已有显式设置保留。
+- PS4 作品遇到 Vulkan 版本过低的驱动时正常报错，明确记录显卡、驱动版本和更新提示，不再触发断言崩溃。
 - 新增 `tools/Extract-XBLA.exe`，通过窗口选择内容包并提取狱门山游戏文件。
 
 ### 延迟与性能
@@ -28,6 +29,7 @@
 - Fixed ESPGaluda II's first replay download after startup requiring a retry.
 - Reduced CPU work in Futari, G2, SaiDaiOuJou and Guwange through timer, renderer and completion-wait improvements.
 - Added G2's 1V low-latency path and enabled it by default. Set `frame_delay=2` for the original path; existing explicit settings are preserved.
+- PS4 games now report an outdated Vulkan device driver as a startup error with GPU details and driver-update guidance instead of an assertion crash.
 - Added `tools/Extract-XBLA.exe` for extracting Guwange content packages through a file picker.
 
 ### Latency and performance

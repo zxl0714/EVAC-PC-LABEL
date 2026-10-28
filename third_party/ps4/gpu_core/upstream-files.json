@@ -1024,8 +1024,8 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
-      "sha256": "7fda26e7f2a6ab20c630855ed71b3b7788963efbc36476cda7a82623ba237f77",
-      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; negotiate paired EXT/KHR present fences when available, otherwise use per-image reacquisition. Use a second same-family presentation queue when available, retaining the shared-queue fallback. Log GPU and driver identity before device creation."
+      "sha256": "c0e46ba3a0639148305a280f067b25823c5f865dc2d8190f91fde969fa6d571d",
+      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; negotiate paired EXT/KHR present fences when available, otherwise use per-image reacquisition. Use a second same-family presentation queue when available, retaining the shared-queue fallback. Log GPU and driver identity before device creation. Reject an unsupported device API through a recoverable startup error before querying Vulkan 1.3 formats."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.h",

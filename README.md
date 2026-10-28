@@ -28,7 +28,7 @@ EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动�
 
 ### 运行环境
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳需要 Vulkan。程序运行库随玩家包附带。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
 
 ### 运行
 
@@ -196,6 +196,8 @@ Windows x64。更新内容见[更新记录](docs/CHANGELOG.md)。
 ## 遇到问题
 
 数据缺失或版本不支持时，检查[数据指南](docs/GAME_DATA.md#无法识别时怎么检查)中的目录层级和版本要求。
+
+PS4 作品提示 Vulkan 版本过低时，更新显卡驱动并重启 Windows。AMD 显卡可从[官方驱动支持页](https://www.amd.com/en/support/download/drivers.html)选择对应型号。
 
 反馈崩溃、卡顿、音效或联网问题时，请提供：
 

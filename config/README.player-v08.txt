@@ -17,7 +17,8 @@ CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核，1 核 = 1000 CPU 
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
 使用 Windows 64 位及显卡厂商驱动。Xbox 360 作品使用 Direct3D 12，PS4 作品
-使用 Vulkan。运行库已随包附带。
+需要显卡驱动支持 Vulkan 1.3。运行库已随包附带。提示 Vulkan 版本过低时，
+更新显卡驱动并重启 Windows。
 
 游戏数据 ---------------------------------------------------------------------
 仅安装想玩的游戏即可。在底部“游戏数据…”选择已解包目录，或放到默认位置：
@@ -140,7 +141,9 @@ user-data/.
 
 Run EVAC PC LABEL.exe, select a game and click Launch game. Launch.bat is the
 alternate entry. Windows x64 and graphics-vendor drivers are required.
-Xbox 360 titles use Direct3D 12; PS4 titles use Vulkan. Runtime DLLs are included.
+Xbox 360 titles use Direct3D 12; PS4 titles require a driver supporting Vulkan 1.3.
+If the reported Vulkan version is too old, update the graphics driver and restart
+Windows. Runtime DLLs are included.
 
 Install only the games you want. Use Game data to choose an extracted folder,
 or use the game-data paths listed above. Place default.xex (360) or eboot.bin

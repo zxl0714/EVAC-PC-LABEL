@@ -6,7 +6,18 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-LATEST human request (October28): make G2 default 1V and produce a new v0.8.0
+LATEST human request (October28): investigate Downloads/logs.rar PS4 startup
+failures in v0.8.0 without computer use while the human plays. Three logs fail
+before guest entry on RX580 2048SP device Vulkan1.2.133 / AMD2.0.137, despite
+loader1.4.363. The resident GPU requires1.3; do not remove requirements or
+advertise a1.2 renderer. Replace the version assertion with an actionable
+recoverable startup error before1.3 format queries; add GPU-independent tests.
+Friend must update their GPU driver; AMD22.2.1 documents RX500 Vulkan1.3 support.
+Do not touch live C:/evac-pc-label, open windows, stop games or run GPU tests.
+Rebuild with bounded jobs/BelowNormal, refresh the local program ZIP and STOP
+before push/upload/publication. Preserve older frozen ZIPs and G2 default1V.
+
+Previous human request (October28): make G2 default 1V and produce a new v0.8.0
 program ZIP, then STOP before push/upload/publication. Built-in settings and new
 INI template now use1; missing keys use1; existing explicit1/2 remain unchanged.
 Keep native2V fallback and 1V synchronization intact. Reuse the already accepted

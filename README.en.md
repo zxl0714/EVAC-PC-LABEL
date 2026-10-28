@@ -28,7 +28,7 @@ Latency combines game-internal measurements, an average 8.3 ms sampling wait and
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., and Dangun Feveron require Vulkan. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., and Dangun Feveron require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
 
 ### Launch
 
@@ -210,6 +210,8 @@ An older root-level `config.ini` is automatically migrated to `user-data/config.
 ## Troubleshooting and feedback
 
 For missing data or unsupported-version messages, check the folder level and version requirements in the [data troubleshooting guide](docs/GAME_DATA.en.md#troubleshooting).
+
+If a PS4 game reports an unsupported Vulkan version, update the graphics driver and restart Windows. For AMD GPUs, select your model on the [official driver support page](https://www.amd.com/en/support/download/drivers.html).
 
 When reporting a crash, stutter, audio issue, or network problem, include:
 

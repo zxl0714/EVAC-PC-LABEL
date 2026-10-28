@@ -1,4 +1,5 @@
 #include "backends/ps4/graphics/presentation_extensions.h"
+#include "backends/ps4/graphics/device_requirements.h"
 #include "backends/ps4/loader/preparation_policy.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "backends/ps4/ketsui_version.h"
@@ -42,6 +43,28 @@ void Presentation() {
             }
             Check((!actual&&!expected)||(actual&&expected&&std::string_view(actual)==expected),"paired presentation extension/feature selection");
         }
+    }
+}
+
+void DeviceRequirements() {
+    using namespace cave::ps4::graphics;
+    constexpr std::uint32_t required=(1u<<22)|(3u<<12);
+    for (auto version : {0u,(1u<<22),(1u<<22)|(1u<<12),(1u<<22)|(2u<<12)|133u,
+                         (1u<<29)|required})
+        Reject([&]{RequireVulkanApi(version,required,"AMD Radeon RX 580 2048SP","2.0.137");},
+               "old or incompatible device API is rejected without an assertion");
+    for (auto version : {required,required|1u,(1u<<22)|(4u<<12),2u<<22}) {
+        RequireVulkanApi(version,required,"supported GPU","test driver");
+        Check(true,"supported Vulkan API remains accepted");
+    }
+    Check(ApiVersionText((1u<<22)|(2u<<12)|133u)=="1.2.133","reported device API formatting");
+    try {
+        RequireVulkanApi((1u<<22)|(2u<<12)|133u,required,"AMD Radeon RX 580 2048SP","2.0.137");
+        Check(false,"old RX 580 driver was accepted");
+    } catch (const std::runtime_error& error) {
+        const std::string_view message=error.what();
+        for (auto part : {"Vulkan 1.3.0", "RX 580 2048SP", "2.0.137", "1.2.133", "Update the graphics driver"})
+            Check(message.find(part)!=std::string_view::npos,"old driver error is actionable and preserves GPU identity");
     }
 }
 
@@ -153,7 +176,7 @@ void Seeds() {
 }
 int main() {
     try {
-        Presentation();Policies();Seeds();
+        Presentation();DeviceRequirements();Policies();Seeds();
         std::printf("%u PS4 compatibility checks passed (no ROM or GPU required)\n",checks);return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr,"PS4 compatibility check %u failed: %s\n",checks,error.what());return 1;

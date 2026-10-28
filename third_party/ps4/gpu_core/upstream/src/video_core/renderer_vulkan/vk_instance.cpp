@@ -11,6 +11,7 @@
 #include "common/types.h"
 #include "imgui/renderer/imgui_core.h"
 #include "host_services.h"
+#include "device_requirements.h"
 #include "sdl_window.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -170,16 +171,16 @@ Instance::Instance(Frontend::WindowSDL& window, s32 physical_device_index,
     }
 
     available_extensions = GetSupportedExtensions(physical_device);
-    format_properties = GetFormatProperties(physical_device);
     properties = physical_device.getProperties();
     memory_properties = physical_device.getMemoryProperties();
     CollectDeviceParameters();
     LOG_INFO(Render_Vulkan, "Selected GPU: {} driver={} Vulkan={}",
              properties.deviceName.data(), GetDriverVersionName(), GetReadableVersion(properties.apiVersion));
-    ASSERT_MSG(properties.apiVersion >= TargetVulkanApiVersion,
-               "Vulkan {}.{} is required, but only {}.{} is supported by device!",
-               VK_VERSION_MAJOR(TargetVulkanApiVersion), VK_VERSION_MINOR(TargetVulkanApiVersion),
-               VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion));
+    // Return a recoverable startup error through RuntimeApi::Guard rather than
+    // aborting the process on an old driver. Check before querying 1.3 formats.
+    cave::ps4::graphics::RequireVulkanApi(properties.apiVersion, TargetVulkanApiVersion,
+                                        properties.deviceName.data(), GetDriverVersionName());
+    format_properties = GetFormatProperties(physical_device);
 
     CreateDevice();
     CollectPhysicalMemoryInfo();
