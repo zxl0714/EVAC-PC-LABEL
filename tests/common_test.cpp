@@ -196,17 +196,17 @@ void SettingsChecks(Fixture& fixture) {
                "Invalid SDOJ frame delay accepted");
     Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 1,
             "Another game interpreted SDOJ frame delay");
-    Require(ParseSettings("", "espgaluda2").g2_frame_delay == 2, "G2 missing Frame Delay retains original path");
-    Require(ParseSettings(DefaultConfig(), "espgaluda2").g2_frame_delay == 2, "G2 default template");
+    Require(ParseSettings("", "espgaluda2").g2_frame_delay == 1, "G2 missing Frame Delay selects low latency");
+    Require(ParseSettings(DefaultConfig(), "espgaluda2").g2_frame_delay == 1, "G2 default template");
     for (unsigned mode : {1u, 2u})
         Require(ParseSettings("[game.espgaluda2]\nframe_delay="+std::to_string(mode), "espgaluda2").g2_frame_delay == mode,
                 "G2 frame delay integer selection");
     for (const auto* value : {"0", "3", "-1", "1V", "low", "1.0", "1junk", ""})
         Reject([&] {ParseSettings(std::string("[game.espgaluda2]\nframe_delay=")+value,"espgaluda2");},
                "Invalid G2 frame delay accepted");
-    Require(ParseSettings("[game.espgaluda2]\nframe_delay=bad", "futari").g2_frame_delay == 2,
+    Require(ParseSettings("[game.espgaluda2]\nframe_delay=bad", "futari").g2_frame_delay == 1,
             "Another game interpreted G2 frame delay");
-    Require(ResolveSharedSettings(Ini::Parse("[game.espgaluda2]\nframe_delay=bad")).g2_frame_delay == 2,
+    Require(ResolveSharedSettings(Ini::Parse("[game.espgaluda2]\nframe_delay=bad")).g2_frame_delay == 1,
             "Shared preferences interpreted G2 frame delay");
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
@@ -249,6 +249,7 @@ void SettingsChecks(Fixture& fixture) {
     const auto path=EnsureConfig(fixture.root);
     Require(path==fixture.root/"user-data/config.ini" && LoadSettings(path,"espgaluda2").nickname=="Player","First-launch configuration");
     Require(LoadSettings(path,"sdoj").sdoj_frame_delay==1,"New configuration did not select 1V");
+    Require(LoadSettings(path,"espgaluda2").g2_frame_delay==1,"New G2 configuration did not select 1V");
     Write(path,"; preserve comments and future fields\n[future]\nextra=unchanged\n[community]\nnickname=友人\n");
     const auto hash=Sha256(path);
     EnsureConfig(fixture.root);
@@ -266,6 +267,7 @@ void MigrationChecks() {
     Require(Ini::ReadText(current)==before,"Migration changed original config bytes");
     const auto ini=Ini::Load(current);
     Require(ResolveSettings(ini,"sdoj").sdoj_frame_delay==1,"Legacy config without Frame Delay did not select 1V");
+    Require(ResolveSettings(ini,"espgaluda2").g2_frame_delay==1,"Legacy G2 config without Frame Delay did not select 1V");
     Require(ResolveSettings(ini,"futari").nickname=="友人" && ResolveSettings(ini,"futari").fullscreen &&
             ResolveSettings(ini,"futari").keyboard[4].keys[0]==96 &&
             Paths(fixture.root,"futari",ini.DataDirectory(FindGame("futari"))).data==fixture.root/"game-data/futari",
@@ -283,6 +285,17 @@ void MigrationChecks() {
         const auto migrated=EnsureConfig(explicit_mode.root);
         Require(Ini::ReadText(migrated)==text && LoadSettings(migrated,"sdoj").sdoj_frame_delay==mode,
                 "Migration replaced an explicit Frame Delay preference");
+    }
+    for (unsigned mode : {1u,2u}) {
+        Fixture explicit_g2;
+        const std::string text="; preserve explicit G2 preference\r\n[game.espgaluda2]\r\nframe_delay = "+std::to_string(mode)+"\r\n";
+        Write(explicit_g2.root/"config.ini",text);
+        const auto migrated=EnsureConfig(explicit_g2.root);
+        Require(Ini::ReadText(migrated)==text && LoadSettings(migrated,"espgaluda2").g2_frame_delay==mode,
+                "Migration replaced an explicit G2 Frame Delay preference");
+        Require(EnsureConfig(explicit_g2.root)==migrated && Ini::ReadText(migrated)==text &&
+                LoadSettings(migrated,"espgaluda2").g2_frame_delay==mode,
+                "Existing G2 Frame Delay preference changed after reopening");
     }
 }
 void PreferenceChecks(Fixture& fixture) {

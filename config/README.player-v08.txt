@@ -8,7 +8,7 @@ EVAC PC LABEL v0.8.0
   虫姬二               26           36            0.08        1.26
   ESPGaluda II          26           51            0.38        1.37
   最大往生             26           69            0.43        3.46
-移植版三款均按 1V；G2 需在 [game.espgaluda2] 设置 frame_delay=1，默认仍为 2。
+移植版三款均使用默认 1V；G2 可在 [game.espgaluda2] 设置 frame_delay=2 切回原始路径。
 Xenia 分别为原作 1V、2V、3V。延迟计入 8.3ms 平均采样等待及同机历史呈现
 数据，按移植版独立翻转、Xenia 桌面合成估算，不含设备输入及显示器扫描／响应。
 CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核，1 核 = 1000 CPU ms/s。
@@ -67,8 +67,8 @@ game-data/<游戏>/。更新 PKG 用同一工具另行解包，再将提取的�
 游戏文件目录；不要把 uroot 文件夹本身套进 game-data。详细用法见 tools/README.txt。
 PKG passcode 通常保留默认值；它与 ZIP／RAR 的解压密码不同。
 
-G2 可在 [game.espgaluda2] 设置 frame_delay=1 试用低延迟路径；默认值为 2，
-设回 2 恢复原始路径。修改后重启游戏。
+G2 在 [game.espgaluda2] 默认使用 frame_delay=1 低延迟路径；设为 2 使用原始
+路径。已有显式设置保留，修改后重启游戏。
 
 配置与操作 -------------------------------------------------------------------
 右上角 CN / EN / JP 切换启动器语言，页头修改排行榜昵称，启动按钮上方设置
@@ -127,8 +127,8 @@ Estimated latency and measured CPU usage in representative Xbox 360 scenes:
   Futari         26               36                0.08            1.26
   ESPGaluda II   26               51                0.38            1.37
   SaiDaiOuJou    26               69                0.43            3.46
-All ports use 1V here; enable frame_delay=1 in [game.espgaluda2] for G2,
-which still defaults to 2. Xenia retains the original 1V, 2V and 3V settings.
+All ports default to 1V; set frame_delay=2 in [game.espgaluda2] for G2's
+original path. Xenia retains the original 1V, 2V and 3V settings.
 Latency includes an average 8.3 ms sampling wait and historical same-PC
 presentation data, assuming independent flip for the ports and desktop
 composition for Xenia. Device input, display scanout and panel response are
@@ -211,8 +211,8 @@ play has not been validated. In [game.sdoj], frame_delay=1 is low latency (defau
 3 original. This is an internal scheduling policy, not total device-to-display
 latency. Existing explicit preferences are preserved. Restart after changes.
 
-G2 offers experimental frame_delay=1 under [game.espgaluda2]. The default is 2;
-set it back to 2 for the original timing path. Restart after changing it.
+G2 defaults to frame_delay=1 under [game.espgaluda2]. Set it to 2 for the
+original timing path. Existing explicit settings are preserved; restart after changes.
 
 For issues, press F8 and close the game. Copy the relevant text logs (game.log,
 stdout.jsonl, stderr.txt, startup-error.txt) and run.json from logs/<game>/run-*/,

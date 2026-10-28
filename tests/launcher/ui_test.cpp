@@ -293,6 +293,8 @@ void ColdReadback(const fs::path& root,std::wstring_view expected_language,std::
   Require(Ini::ReadText(ConfigPath(root))==before,"Readback changed configuration");
   Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==1,
           "Cold startup did not resolve SDOJ's default 1V");
+  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"espgaluda2").g2_frame_delay==1,
+          "Cold startup did not resolve G2's default 1V");
 }
 void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname,std::wstring_view game) {
   std::wstring executable(32768,L'\0');

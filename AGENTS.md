@@ -6,6 +6,15 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+LATEST human request (October28): make G2 default 1V and produce a new v0.8.0
+program ZIP, then STOP before push/upload/publication. Built-in settings and new
+INI template now use1; missing keys use1; existing explicit1/2 remain unchanged.
+Keep native2V fallback and 1V synchronization intact. Reuse the already accepted
+complete 1V replay/performance check; only configuration/template/migration,
+launcher cold readback and affected shared-component regression are needed.
+Keep frozen older ZIPs; final outputs and acceptance are recorded under releases/
+v0.8.0-final-<sourceCommit>/ and .local/release-acceptance-v080/<ZIP SHA prefix>/.
+
 NEW human CPU-comparison request (October28), separate from completed latency goal:
 three accepted Xenia CPU replay-opening windows, Guwange still UNMEASURED.
 Do not reopen the old latency goal. Reused existing optimized EVAC CPU evidence.

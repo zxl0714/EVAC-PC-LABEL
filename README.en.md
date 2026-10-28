@@ -20,7 +20,7 @@ Lower CPU usage, with 1V low-latency options for G2 and SaiDaiOuJou. Estimated l
 | ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
 | DoDonPachi SaiDaiOuJou | 26 | 69 | 0.43 | 3.46 |
 
-All three ports use 1V for this comparison. G2 requires [enabling experimental Frame Delay](#experimental-g2-frame-delay); its default remains 2V. Xenia retains the games' original 1V, 2V and 3V settings, respectively.
+All three ports use their default 1V setting. Xenia retains the games' original 1V, 2V and 3V settings, respectively. G2 can return to 2V through its [Frame Delay setting](#g2-frame-delay).
 
 Latency combines game-internal measurements, an average 8.3 ms sampling wait and historical same-PC presentation data, assuming independent flip for the ports and desktop composition for Xenia. Device input, display scanout and panel response are excluded. CPU figures are equivalent logical cores from replay workloads on an i7-13700KF / RTX 4080; one core equals 1,000 CPU ms/s. [Method and data (Chinese)](docs/ANALYSIS.md#360-统一条件比较).
 
@@ -181,7 +181,7 @@ frame_delay = 1
 
 These select the game's internal frame scheduling policy. Total input-to-display latency also depends on the controller and display chain. Explicit settings are preserved; restart the game after changing the value.
 
-## Experimental G2 Frame Delay
+## G2 Frame Delay
 
 Set the following in `user-data/config.ini`:
 
@@ -190,7 +190,7 @@ Set the following in `user-data/config.ini`:
 frame_delay = 1
 ```
 
-`2` is the default original path; `1` enables the experimental low-latency path. Restart the game after changing it. Set it back to `2` to restore the original path.
+`1` is the default low-latency path; `2` selects the original path. Existing explicit settings are preserved. Restart the game after changing it.
 
 ## Downloads and backups
 

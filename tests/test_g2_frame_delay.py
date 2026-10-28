@@ -31,7 +31,7 @@ class G2FrameDelayTests(unittest.TestCase):
         self.assertIn('target_sources(espgaluda2 PRIVATE latency/host.cpp performance/fence_wait.cpp)', cmake)
         self.assertIn('NAME g2_vblank_gate', cmake)
 
-    def test_default_and_fallback_are_original(self):
+    def test_low_latency_preserves_native_completion_and_original_fallback(self):
         source = (ROOT / 'games/espgaluda2/latency/host.cpp').read_text()
         self.assertIn('enabled.store(mode==1', source)
         self.assertIn('Result::advanced', source)
@@ -40,6 +40,13 @@ class G2FrameDelayTests(unittest.TestCase):
         self.assertIn('sub_82174B30(ctx,base)', source)
         self.assertLess(source.index('Drain(ctx,base,device)'), source.index('gate.Wait(device'))
         self.assertIn('ctx.fpscr.setcsr(csr)', source)
+
+    def test_low_latency_default_and_template_agree(self):
+        self.assertIn('unsigned g2_frame_delay{1};', (ROOT / 'common/settings.h').read_text())
+        import configparser
+        config = configparser.ConfigParser()
+        config.read(ROOT / 'config/default.ini', encoding='utf-8')
+        self.assertEqual(config['game.espgaluda2']['frame_delay'], '1')
 
 
 if __name__ == '__main__':
