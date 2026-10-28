@@ -132,6 +132,15 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             }
         } else if (category=="display" && key=="fullscreen") result.fullscreen=boolean();
         else if (category=="display" && key=="vsync") result.vsync=boolean();
+        else if (category=="display" && (key=="window_width" || key=="window_height")) {
+            unsigned dimension{};
+            const auto parsed=std::from_chars(value.data(),value.data()+value.size(),dimension);
+            const auto minimum=key=="window_width"?320u:180u;
+            const auto maximum=key=="window_width"?7680u:4320u;
+            if(parsed.ec!=std::errc{} || parsed.ptr!=value.data()+value.size() || dimension<minimum || dimension>maximum)
+                Error(line,section,key,key=="window_width"?"expected 320..7680 physical pixels":"expected 180..4320 physical pixels");
+            (key=="window_width"?result.window_width:result.window_height)=dimension;
+        }
         else if (category=="gamepad" && key=="enabled") result.gamepad_enabled=boolean();
         else if (category=="gamepad" && key=="deadzone") result.deadzone=number(true);
         else if (category=="audio" && key=="volume") result.volume=number(false);
@@ -209,6 +218,30 @@ void SaveSharedPreferences(const fs::path& root, std::string_view before, bool f
     (void)PreviewSharedPreferences(before,fullscreen,nickname);
     const std::array edits{IniEdit{"display","fullscreen",fullscreen?"true":"false"},
                            IniEdit{"community","nickname",std::string(nickname)}};
+    UpdateConfig(root,before,edits);
+}
+Settings PreviewSharedPreferences(std::string_view before, DisplaySelection display, std::string_view nickname) {
+    const std::array edits{IniEdit{"display","fullscreen",display.fullscreen?"true":"false"},
+        IniEdit{"display","window_width",std::to_string(display.width)},
+        IniEdit{"display","window_height",std::to_string(display.height)},
+        IniEdit{"community","nickname",std::string(nickname)}};
+    const auto candidate=ResolveSharedSettings(Ini::Parse(EditIni(before,edits)));
+    if(candidate.nickname!=nickname)throw std::runtime_error("Nickname must not start or end with whitespace.");
+    return candidate;
+}
+void SaveSharedPreferences(const fs::path& root, std::string_view before, DisplaySelection display, std::string_view nickname) {
+    (void)PreviewSharedPreferences(before,display,nickname);
+    const std::array edits{IniEdit{"display","fullscreen",display.fullscreen?"true":"false"},
+        IniEdit{"display","window_width",std::to_string(display.width)},
+        IniEdit{"display","window_height",std::to_string(display.height)},
+        IniEdit{"community","nickname",std::string(nickname)}};
+    UpdateConfig(root,before,edits);
+}
+void SaveSharedDisplay(const fs::path& root, std::string_view before, DisplaySelection display) {
+    (void)PreviewSharedPreferences(before,display,ResolveSharedSettings(Ini::Parse(before)).nickname);
+    const std::array edits{IniEdit{"display","fullscreen",display.fullscreen?"true":"false"},
+        IniEdit{"display","window_width",std::to_string(display.width)},
+        IniEdit{"display","window_height",std::to_string(display.height)}};
     UpdateConfig(root,before,edits);
 }
 Settings ParseSettings(std::string_view text, std::string_view game_id) {

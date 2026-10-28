@@ -37,6 +37,19 @@ class CompatibilityWiringTests(unittest.TestCase):
         seed = source[source.index('ResourceBytes ReadArchiveSeed('):source.index('ResourceBytes ArchiveMask(')]
         self.assertIn('PlainSelfElf(source)', seed)
 
+    def test_snapshot_is_published_before_guest_pacing_and_latched_after_wsi_wait(self):
+        native = self.text('backends/ps4/native_resident_gpu.cpp')
+        present = native.split('NativeResidentGpu::Present(', 1)[1].split('NativeResidentGpu::Read(', 1)[0]
+        self.assertIn('PublishThenPace(', present)
+        self.assertLess(present.index('complete_present('), present.index('pacing->wait('))
+        self.assertIn('if(!accepted)result.status=RuntimePresentStatus::Cancelled', present)
+        presenter = self.text('third_party/ps4/gpu_core/host/presenter.cpp')
+        worker = presenter.split('bool PresentSnapshot(', 1)[1].split('void RunPresentation()', 1)[0]
+        self.assertLess(worker.index('waitForFences(*frame.acquired'), worker.index('LatchNewestSnapshot('))
+        self.assertLess(worker.index('LatchNewestSnapshot('), worker.index('command.begin('))
+        self.assertIn('PresentSnapshot(u32& snapshot_index)', presenter)
+        self.assertIn('auto index = *ready_snapshot', presenter)
+
     def test_preparation_and_launch_share_tested_version_policy(self):
         prepare = self.text('backends/ps4/loader/prepare_game.cpp')
         self.assertIn('PlanPs4Data(game,inspected.version,inspected.layout)', prepare)
@@ -45,6 +58,16 @@ class CompatibilityWiringTests(unittest.TestCase):
         self.assertIn('AppendVersionArguments', self.text('backends/ps4/collection_launch.cpp'))
         self.assertIn('CommunityEnabledForData(config.enabled,community_offline!=nullptr)', self.text('backends/ps4/native_probe.cpp'))
         self.assertIn('ps4_compatibility', self.text('scripts/Test.ps1'))
+
+    def test_resident_window_uses_owned_bootstrap_before_low_latency_mode(self):
+        presenter=self.text('third_party/ps4/gpu_core/host/presenter.cpp')
+        create=presenter.split('void CreateChain(',1)[1].split('RuntimePresentResult Prepare(',1)[0]
+        self.assertIn('CreateWindowSwapchain(create_info,window_chain_established,',create)
+        self.assertIn('device.createSwapchainKHRUnique(info)',create)
+        self.assertIn('temporary_presents=0',create)
+        bootstrap=self.text('backends/ps4/graphics/swapchain_bootstrap.h')
+        self.assertIn('info.oldSwapchain=*bootstrap',bootstrap)
+        self.assertNotIn('queue.present',bootstrap)
 
     def test_feveron_cache_and_explicit_preparation_use_own_replay_fix(self):
         for path in ('backends/ps4/loader/prepare_game.cpp',

@@ -13,6 +13,17 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from project import digest, write_json_new
 
 
+def checked_pixel_region(text):
+    if not re.fullmatch(r'\d+,\d+,\d+,\d+,\d+', text):
+        raise ValueError('Five numeric pixel region fields required')
+    x, y, width, height, capacity = map(int, text.split(','))
+    if (max(x, y) > 2**32-1 or not 1 <= width <= 1024 or
+            not 1 <= height <= 1024 or not 1 <= capacity <= 1024 or
+            width*height*capacity > 100000000):
+        raise ValueError('ROI/capacity exceeds bounded pixel observer limits')
+    return text
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture',type=Path,required=True)
@@ -20,7 +31,10 @@ def main():
     parser.add_argument('--label',required=True)
     parser.add_argument('--seed-profile',type=Path)
     parser.add_argument('--pixel-region',help='x,y,width,height,capacity; private bounded ROI')
+    parser.add_argument('--timing',action='store_true',help='Enable existing worker/draw wall and CPU diagnostics')
     args=parser.parse_args()
+    if args.pixel_region:
+        checked_pixel_region(args.pixel_region)
     base=ROOT/'.local/input-latency-v080-r1'
     fixture=args.fixture.resolve(strict=True)
     if not fixture.is_relative_to(base) or not re.fullmatch('[a-z0-9-]{1,60}',args.label):
@@ -55,12 +69,12 @@ def main():
                     raise ValueError('Seed profile copy differs')
                 seeded.append(dict(path=relative.as_posix(),sha256=identity))
     env={k:v for k,v in os.environ.items() if not k.startswith('EVAC_LATENCY_') and
-         not k.startswith('CAVE_DIAGNOSTIC_')}
+         not k.startswith('CAVE_DIAGNOSTIC_') and k!='EVAC_PS4_TIMING_TRACE'}
     settings=dict(EVAC_LATENCY_TRACE=str(trace),EVAC_LATENCY_CAPACITY='1048576',
                   EVAC_LATENCY_TEST_PAD=args.label)
+    if args.timing:
+        settings['EVAC_PS4_TIMING_TRACE']='1'
     if args.pixel_region:
-        if not re.fullmatch(r'\d+,\d+,\d+,\d+,\d+', args.pixel_region):
-            raise ValueError('Five numeric pixel region fields required')
         pixel_prefix=base/(args.label+'-pixels')
         if any(Path(str(pixel_prefix)+suffix).exists() for suffix in ('.bin','.csv')):
             raise ValueError('Fresh pixel destination required')

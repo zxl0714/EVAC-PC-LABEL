@@ -16,7 +16,8 @@ struct BackendPresentTiming {
     std::uint64_t between_phases_us{};
 };
 // Host callback on the calling thread, never guest code or a GPU worker wait.
-// Called between prepare/complete while the worker remains free for coherent
-// memory requests. false cancels guest completion, not GPU resource retirement.
+// Called after the owned snapshot is published, while the GPU worker remains
+// free for coherent memory requests. false cancels guest completion, not GPU
+// resource retirement; the independent presentation worker owns published data.
 struct PresentationPacing { void* context{}; bool (*wait)(void*){}; };
 }

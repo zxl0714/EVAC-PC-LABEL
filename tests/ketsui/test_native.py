@@ -5540,13 +5540,23 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
 
     def test_standard_imported_math_requires_exact_libc_namespace(self):
-        for name in ('acosf', 'asinf', 'atan2f', 'atanf', 'tanf', 'exp2f', 'expf', 'fmod', 'fmodf', 'pow'):
+        for name in ('acosf', 'asinf', 'atan2f', 'atan2', 'atanf', 'tanf', 'exp2f', 'expf', 'fmod', 'fmodf', 'pow'):
             for library, module in (('fixture', 'libc'), ('libc', 'fixture')):
                 with self.subTest(name=name, library=library, module=module):
                     result = self.invoke(synthetic_probe(identifier=nid(name) + '#A#A', name=name,
                                                          library=library, module=module), '--enter')
                     self.assertEqual(result.returncode, 20, result.stdout + result.stderr)
                     self.assertEqual(json.loads(result.stdout.splitlines()[-1])['event'], 'unimplemented_import')
+
+    def test_feveron_reported_atan2_import_uses_two_double_sse_arguments(self):
+        self.assertEqual(nid('atan2'), 'HUbZmOnT-Dg')
+        cases = tuple((args, math.atan2(*args)) for args in (
+            (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0), (-1.0, 1.0),
+            (0.0, -1.0), (-0.0, 1.0), (-0.0, -1.0),
+            (1e200, 1e200), (1e-200, 1e-200),
+            (math.inf, -math.inf), (math.nan, 1.0)))
+        result = self.invoke(numerical_math_fixture('atan2', cases, single=False), '--enter')
+        self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
 
     def test_trig_sysv_float_double_and_nonzero_cosine_selector(self):
         for double in (False, True):

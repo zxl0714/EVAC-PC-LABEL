@@ -35,16 +35,19 @@ Shader::ShaderParams ReadProgram(VAddr address, std::span<const u32, 16> user_da
     auto& code = lease.Words();
     std::array<u32, 2> header;
     u64 prefetched{};
+    bool combine = true;
     if (const auto extent = current->read_extents.find(address); extent != current->read_extents.end()) {
-        code.resize(extent->second / 4);
+        const auto hint = extent->second;
+        combine = hint.read_bytes > hint.code_bytes;
+        code.resize(hint.read_bytes / 4);
         try {
-            // Read the current header AND full previous code extent together.
+            // Read current bytes, including nearby metadata when contiguous.
             // A shortened/remapped allocation may no longer cover that guess;
             // fall back to the original bounded header/metadata/code reads.
-            CacheMemory().ReadProgram(address, code.data(), extent->second);
-            prefetched = extent->second;
+            CacheMemory().ReadProgram(address, code.data(), hint.read_bytes);
+            prefetched = hint.read_bytes;
             std::memcpy(header.data(), code.data(), sizeof(header));
-        } catch (const std::runtime_error&) { prefetched = 0; }
+        } catch (const std::runtime_error&) { prefetched = 0; combine = false; }
     }
     if (!prefetched) { CacheMemory().ReadProgram(address, header.data(), sizeof(header)); }
     if (header[0] != 0xbeeb03ffu) { throw std::runtime_error("Shader program has no bounded entry declaration"); }
@@ -52,7 +55,11 @@ Shader::ShaderParams ReadProgram(VAddr address, std::span<const u32, 16> user_da
     if (offset < 8 || offset > limit) { throw std::runtime_error("Shader metadata exceeds the program window"); }
     AmdGpu::BinaryInfo info{};
     constexpr auto info_bytes = offsetof(AmdGpu::BinaryInfo, crc32) + sizeof(info.crc32);
-    CacheMemory().ReadProgram(address + offset, &info, info_bytes);
+    if (prefetched >= offset + info_bytes) {
+        std::memcpy(&info, reinterpret_cast<const u8*>(code.data()) + offset, info_bytes);
+    } else {
+        CacheMemory().ReadProgram(address + offset, &info, info_bytes);
+    }
     if (!info.Valid() || info.version != 7 || info.length < sizeof(header) || info.length % 4 || info.length > offset) {
         throw std::runtime_error("Shader signature/version/code extent is invalid");
     }
@@ -71,7 +78,13 @@ Shader::ShaderParams ReadProgram(VAddr address, std::span<const u32, 16> user_da
     } else if (it->second.size() != words || !std::equal(it->second.begin(), it->second.end(), code.begin())) {
         throw std::runtime_error("Shader program content hash collision");
     }
-    current->read_extents.insert_or_assign(address, static_cast<u32>(info.length));
+    // Avoid reading large gaps. A failed contiguous hint stays on the split
+    // path instead of throwing again on every draw. Both paths reread live
+    // code and metadata and retain the content/hash collision checks above.
+    static_assert(info_bytes % sizeof(u32) == 0);
+    const auto next_read = combine && offset - info.length <= 64
+        ? static_cast<u32>(offset + info_bytes) : static_cast<u32>(info.length);
+    current->read_extents.insert_or_assign(address, ProgramStore::ReadExtent{static_cast<u32>(info.length), next_read});
     return {.user_data=user_data, .code=it->second, .hash=hash, .guest_base=address};
 }
 }

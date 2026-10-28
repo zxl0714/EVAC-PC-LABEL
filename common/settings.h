@@ -17,8 +17,16 @@ struct Binding {
     std::size_t line{};
     std::string section;
 };
+struct DisplaySelection {
+    bool fullscreen{};
+    unsigned width{1280}, height{720};
+    bool operator==(const DisplaySelection&) const = default;
+};
+inline constexpr std::array<DisplaySelection,5> kWindowSelections{{
+    {false,640,360},{false,960,540},{false,1280,720},{false,1600,900},{false,1920,1080}}};
 struct Settings {
-    bool fullscreen{}, vsync{true}, gamepad_enabled{true}, community_enabled{true};
+    bool fullscreen{}, vsync{}, gamepad_enabled{true}, community_enabled{true};
+    unsigned window_width{1280}, window_height{720};
     double deadzone{0.20}, volume{1.0};
     unsigned sdoj_frame_delay{1};
     unsigned g2_frame_delay{1};
@@ -32,6 +40,10 @@ Settings ResolveSettings(const Ini& ini, std::string_view game_id);
 Settings ResolveSharedSettings(const Ini& ini);
 Settings PreviewSharedPreferences(std::string_view before, bool fullscreen, std::string_view nickname);
 void SaveSharedPreferences(const fs::path& root, std::string_view before, bool fullscreen, std::string_view nickname);
+// Saves only the display selection; an unsaved nickname draft is not submitted.
+void SaveSharedDisplay(const fs::path& root, std::string_view before, DisplaySelection display);
+Settings PreviewSharedPreferences(std::string_view before, DisplaySelection display, std::string_view nickname);
+void SaveSharedPreferences(const fs::path& root, std::string_view before, DisplaySelection display, std::string_view nickname);
 Settings ParseSettings(std::string_view text, std::string_view game_id);
 Settings LoadSettings(const fs::path& path, std::string_view game_id);
 std::uint16_t KeyCode(std::string_view name);

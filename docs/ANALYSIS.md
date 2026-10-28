@@ -12,9 +12,97 @@
 
 在合集根目录运行下列命令。`--data-dir` 显式指定要读取的数据，不修改根配置；使用外部目录时替换示例中的路径即可。工具不需要原 ESPGaluda2-PC 工程。
 
+## v0.8.1 显示后段采集
+
+10 月 29 日优先完成了一轮人工确认管理员权限的 PresentMon 2.5.1 采集，覆盖候选 Vulkan 绊地狱、已发布的 360 D3D12 虫姬二和 shadPS4 绊地狱。采集在 15 分钟后自动退出，保存 43,980 行，GPU／系统显示事件均存在；三个独立测试进程已正常关闭。原始文件为 `.local/v081-display-admin-r1.csv`，SHA-256 为 `d1dd08731026ad6f69b404cf47098832643b818bf9f9bd0cd99961a49e5fdef3`，分组与完整性记录为 `.local/v081-display-admin-r1-summary.json`。
+
+这轮首先确认了测量接口的限制：NVIDIA Vulkan 驱动暴露的 DXGI 事件与程序自己的 `vkQueuePresentKHR` 调用异步。两个完整、无溢出的 Vulkan 跟踪分别只找到 3 个时间区间包含关系，不能据此确认同一幅图像的因果对应，也不能将驱动内部 DXGI 调用到显示的分布当作 Vulkan Present 到显示的结果。窗口合成、硬件合成独立翻转、独立翻转分别保留，不混算。场景包含标题、菜单和演示画面，不作为第一关响应或代表性 CPU 横评验收。
+
+后续用独立 WSI micro bench 拆开交换链初始化、呈现模式和测量工具本身的影响。工具位于 `tools/latency/Build-VulkanPresentBench.ps1`、`Run-VulkanPresentBench.ps1`；不加载游戏数据，用正常 60 Hz 节拍提交带编号的工作与 Present，记录 GPU 时间戳、QPC 和可选的驱动反馈。`scripts/vulkan_wsi_crosscheck.py` 只连接这个单生产者、单交换链、有界样例的驱动事件，不作为普通游戏的图像对应器。
+
+### Immediate 初始化路径
+
+本机 RTX 4080／NVIDIA 驱动的控制组发现：从未创建 FIFO 交换链、直接从 Immediate 启动时，驱动使用 `Composed Copy with GPU GDI`；仅增加 OwnDC 没有改变结果。先创建一个不取得图像、不进行 Present 的 FIFO 交换链，再以 `oldSwapchain` 替换成 Immediate 后，转为 `Hardware Independent Flip`。这个初始化方式不启用新的 Vulkan 扩展，也不改变正常游戏帧的呈现模式或时钟。
+
+`.local/v081-wsi-controls-r1/` 保留相同 r7 二进制的四组控制、输入身份和原始记录；PresentMon 2.5.1 对照在 `.local/v081-wsi-controls-presentmon-r1.csv`。每组 8 秒，481 次应用 Present、479 条驱动事件；不启用 timing feedback、只增加 FIFO 初始化的组，419 个预热后样本的应用请求到系统采用中位约 0.494 ms、p95 约 2.158 ms。它是独立样例的系统显示事件，不是物理面板发光或完整游戏输入延迟。
+
+测量工具也会影响路径：启用 `VK_EXT_present_timing` 本身就能让相同驱动切换到独立翻转。因此最初启用反馈的 Immediate 测量不能直接证明正式游戏采用同一路径。该扩展的 Immediate `FIRST_PIXEL_OUT` 反馈还出现早于请求的时间戳，分析器明确拒绝这些记录，没有将负数截成零。FIFO／Mailbox 的反馈与系统显示事件能独立互证，但 `FIRST_PIXEL_OUT` 仍不等于 `FIRST_PIXEL_VISIBLE` 或屏幕发光。正式路径使用没有 feedback 扩展的初始化方案，并单独采集实际游戏确认。
+
+Vulkan 只保证 FIFO；关闭 `display.vsync` 时现有选择次序为 Immediate、Mailbox、FIFO，开启时为 FIFO。不支持 Immediate 时仍可运行；退化的刷新等待和排队开销需按实际模式报告。该保证和能力查询不依赖显卡生产年份。依据：[Vulkan 呈现模式规范](https://docs.vulkan.org/refpages/latest/refpages/source/VkPresentModeKHR.html)。
+
+### 游戏图像交接
+
+完成 GPU 到独立快照的复制并等待复制 fence 后，立即发布快照，随后继续原有客体节拍等待；不提前报告原游戏 flip 完成。呈现线程在取得交换链图像并完成旧资源等待之后、录制绘图指令之前，再取最新的完整快照。已经进入 Presenting 的图像不能被生产者覆写，相关互斥和 GPU 资源 fence 均保留。
+
+绊地狱 ARCADE／Type-A 第一关的候选 R4 保留 146 幅 ROI 快照，跟踪 50,763 条完整记录且无溢出。已对第一条右移输入做人工画面检查，并以两个不重叠的机体特征复核：12～19 号快照静止，20 号首次右移 4 像素并成功提交，22 号持续右移。原 PadRead 到原核心输入交付为 0.449 ms，核心交付到该响应图像的 CPU Present 为 4.943 ms，合成输入发布到 Present 为 20.827 ms；后者包含这次输入碰到的 15.435 ms 采样相位，不能直接作为均值。证据为 `.local/input-latency-v080-r1/v081-ketsui-first-response-r1.json`，复核入口 `tools/latency/review_ketsui_v081_pixels.py`。仅接受这一条首响应，没有为其声称 p95、物理设备输入或同图像的 OS 采用时间。
+
+另外三个候选已完成代表性进关：大往生 ARCADE／Type-A／Shotia、ESP Ra.De. ARCADE／祐介、弹铳 ARCADE／Type-A。大往生前两轮没有有效的首响应，保留原始数据但不用于延迟结论。R3 改用固定时序缩短选机与采样之间的间隔，148 幅 ROI、57,026 条完整跟踪记录、无溢出；原 PadRead／6700 回调／61250 数字输入交付的 12 条合成输入全部对应。已复核的第一条右移中，12～21 号快照静止，22～24 号依次右移 4／10／14 像素，机体和尾部两个不重叠特征一致；22 号即首次提交的响应图像。原 PadRead 到核心交付为 0.480 ms，核心交付到响应 Present 为 4.006 ms，合成发布到 Present 为 15.428 ms，其中这次采样相位等待 10.941 ms。证据为 `.local/input-latency-v080-r1/v081-daioujou-first-response-r1.json`，复核入口 `tools/latency/review_daioujou_v081_pixels.py`；同样只接受一条首响应，不外推均值、p95 或屏幕发光。
+
+### 取样相位与 VSync 的含义
+
+4.006 ms 的起点是原核心输入交付函数返回，不是实体按键，也不是街机 CPU 读取输入端口。由原 `scePadRead` 返回起算为 4.487 ms。原模块先交付输入，再调用核心执行；原引擎在本轮状态更新之前清理输入缓存。本轮没有将输入改成连续取样，也没有提高原游戏更新频率。
+
+同一大往生 R3 跟踪的输入区间及两侧各 200 ms，共 129 次原核心帧回调，相邻间隔中位 16.667 ms、范围 15.703～17.907 ms。首响应相对 PadRead 返回的时序为：核心交付完成 +0.480 ms、帧回调返回 +1.410 ms、响应快照准备 +4.143 ms、复制完成并发布 +4.434 ms、CPU Present 开始 +4.487 ms；下一次原核心回调在 +17.131 ms。因此响应能在同一轮较早交出，同时仍按约 60 Hz 更新。虫姬二 1V 现有约 17 ms 的内部链包含一次出帧节拍等待，不能据两者相减声称纯计算快了约 13 ms。复查结果在 `.local/input-latency-v080-r1/v081-daioujou-input-phase-r1.json`，绑定原始跟踪、核心交付报告、像素首响应报告和原模块审计的哈希。
+
+继续核对同进程 `stdout.jsonl` 的提交记录：唯一对应的 submission3154 在响应快照准备前 5.1 μs 结束命令执行，提交者与原核心回调同为线程75212。241次绘制的命令执行为2.291 ms，其中生产命令计时2.276 ms：draw1.821 ms、ACQUIRE_MEM完成等待0.241 ms、99次预取0.055 ms、flush0.031 ms、其余0.128 ms。它覆盖了回调返回到快照准备2.734 ms中的主要部分；快照复制等待另为0.258 ms。这里的draw是宿主绘图指令处理与命令录制区间，不能当作GPU绘制时间或纯CPU执行时间。证据 `.local/input-latency-v080-r1/v081-daioujou-response-cost-r1.json`。虫姬二既有代表轮的逻辑更新0.115 ms、绘图处理0.432 ms确实更短；不同游戏场景与原核心实现不同，后续优先围绕实际draw路径归因和基准验证，不把跨游戏差值直接归因于某个同步或图形API。
+
+关闭 VSync 时，候选先发布完整图像，再完成原有客体节拍等待；客体 flip 完成通知与下一轮推进仍受原时钟约束。开启 VSync 则选择 FIFO，完整图像须等显示刷新边界。固定刷新、没有待显示图像积压且就绪相位均匀的条件下，这段额外等待为 0～一个显示刷新周期：144 Hz 时平均约 3.47 ms，60 Hz 时平均约 8.33 ms。它从图像已经 GPU 就绪起算，不是 Present 的 CPU 调用耗时；既有队列、GPU 未完成、桌面合成或可变刷新会改变结果。此理论预算不能替代同幅图像的应用提交到 OS 采用实测，也不能恢复旧版几十毫秒的过期快照交接。原游戏 60 Hz 节拍与显示器刷新率分别计算。
+
+弹铳其他机器开局崩溃的反馈独立列入本版末尾修复，当前机器进关不覆盖该问题。
+
+### PS4 绘图处理优化
+
+大往生固定 ARCADE／Type-A／Shotia 流程启用既有 `EVAC_PS4_TIMING_TRACE`，只采一段约7.08秒的方向／射击区间。425个绘图批次、每批228～245次绘制，管线检查均值1.144 ms，其中着色器读取0.530 ms为嵌套子集；顶点处理0.432 ms、资源绑定0.247 ms。GPU worker操作中GetThreadTimes累计CPU约1172 ms、对应墙钟1444 ms，说明存在实际CPU工作，也有等待。此计数粒度较粗，未包含调用者和worker调度框架，不能用作整进程CPU对照。
+
+候选将相邻的着色器代码与元数据合并读取，记住读取范围而不缓存客体原始内容。每次仍读取当前代码、元数据并校验内容哈希；元数据远离代码、映射缩小或不连续时保留分开读取，失败的合并提示不会每次绘制重复触发异常。测试覆盖原址代码／元数据修改、扩展、移动、缩小、映射拆分、非法元数据、重入和内容碰撞。
+
+同机离线基准每组128样本、16预热、两轮，逐次检查实际GPU像素和完成计数。170draw／60预取负载的execute均值731→562 μs（−23.1%）、中位704→533 μs；250draw／86预取为934→768 μs（−17.8%）、中位950→735 μs。原始数据为 `.local/offline-bench/v081-processing-{baseline,coalesced}-r1/report.json`，没有去掉绘制、栅栏或同步。
+
+实际大往生相同固定输入流程复核425批、每批227～244绘制，着色器读取分段均值降为0.311 ms，管线检查为0.931 ms，其他阶段基本相近。两次游玩没有逐帧对齐，仅用于确认优化命中真实热点，不能把约0.22 ms直接从之前单次4.01 ms相减，或宣称游戏整体快了23%。两份诊断记录 `v081-daioujou-processing-breakdown-r1.json`／`r2.json` 均绑定完整无溢出的跟踪、配置和日志；测量诊断不进入玩家默认设置。
+
+### PS4 统一条件比较
+
+同机 i7-13700KF／RTX 4080，3840×2160 全屏、144Hz 桌面，ARCADE／Type-A；大往生为 Shotia。移植版使用本版 Immediate 路径，shadPS4 固定 v0.20.0／`529ceb32`、默认 FIFO。显示扫描和面板响应沿用 README 的排除范围。
+
+| 游戏 | 移植版估算/ms | shadPS4估算/ms | 移植版CPU/核 | shadPS4CPU/核 |
+| --- | ---: | ---: | ---: | ---: |
+| 绊地狱 | 17 | 55 | 0.26 | 0.62 |
+| 大往生 | 16 | 55 | 0.37 | 0.34 |
+
+延迟预算以原 PadRead 可消费状态为前段边界：平均取样等待＋取样到首响应提交＋呈现后段。原核心回调在移植版约16.667ms、该 shadPS4 路径约33.389ms；平均相位分别按8.333／16.695ms估算，不把双方取样等待都填8.3ms。原生首响应 PadRead→Present 为5.392／4.487ms；shad 为33.591／33.574ms，各为既有已复核单例，不能写作多样本响应均值。shad后段沿用同机已确认的驱动DXGI→系统采用4.562／4.450ms，不是已配对的应用Vulkan→OS全段，因此其55ms仍是该显示路径下的估算值。
+
+移植版补充了按精确Present ID关联的异步 `VK_KHR_present_wait` 完成观测：绊地狱／大往生各240张实际第一关画面，请求→完成返回均值3.257／3.345ms，p95为4.196／3.977ms。完整两轮分别8822／8980个ID全部成功、零丢失；240样本窗口之外包含菜单和暂停，不混进游玩分布。20／20幅末尾GPU原图完整、零溢出，实际第一关及暂停菜单确认通过。将上述保守完成返回预算计入，得到8.333＋5.392＋3.257≈17ms和8.333＋4.487＋3.345≈16ms。它们是阶段预算估算，不是直接测出的物理按钮→像素总体均值。
+
+这个观测器只进入独立测量构建，渲染线程只投递带ID的记录，不等待完成；后台线程以50ms有界等待记录通知返回，停止后才写文件，并在交换链退休前退出。根据[官方语义](https://docs.vulkan.org/refpages/latest/refpages/source/vkWaitForPresentKHR.html)，通知尽量接近首像素呈现，但没有精确时间关系；它包含驱动通知及线程调度误差，应作为完成上界，不能冒充精确Windows显示事件或发光。生产程序没有新增扩展依赖。独立样例仍保留FIFO／Immediate无反馈控制，已发现的timing-feedback路径变化也没有被忽略。
+
+CPU由 `GetProcessTimes` 差分获得：绊地狱移植版257.722ms/s、shad616.953ms/s（各4s）；大往生369.014／341.682ms/s（各8s）。均确认实际第一关，双方含原输入时间戳观测，测量期没有GPU原图复制或详细绘图计时；这是短代表场景，不是逐帧对齐回放或纯生产程序成本。大往生shadCPU略低，按实记录。CPU汇总 `v081-ps4-cpu-comparison-r1.json`，呈现汇总 `v081-{ketsui,daioujou}-present-wait-r1-summary.json`，均位于 `.local/input-latency-v080-r1/`。
+
+## v0.8.1 低版本 Vulkan 调研
+
+当前结论：优先更新显卡驱动；保留 Vulkan 1.3 正常路径。可以设计 1.2 加扩展路径，但它并不能解决这次 RX 580 旧驱动缺少对应扩展的问题。无扩展的 1.2 后端需要另一套渲染／同步实现，不是移除版本判断即可获得的兼容性。
+
+| 方案 | 当前代码涉及的位置 | 可行性与成本 |
+| --- | --- | --- |
+| 更新匹配驱动 | RX 580 2048SP 反馈的设备 API 为 1.2.133、AMD 内部版本 2.0.137；加载器 1.4 不改变设备能力 | 首选。AMD 22.2.1 已列出 RX 500 系列和 Vulkan 1.3 支持；具体机器仍需更新后验证 |
+| Vulkan 1.2 加 KHR 扩展 | `vk_instance.cpp` 的 1.3 features/properties 链、动态绘制／同步调用、格式能力查询、VMA API 目标 | 技术上可行，成本中等。需逐项探测、启用扩展，使用正确的 KHR 入口和结构；缺一项时不能伪装支持。该反馈的扩展列表没有 dynamic rendering 和 synchronization2，因此不能仅靠此方案兼容该驱动 |
+| 无相应扩展的 Vulkan 1.2 | 游戏绘制和呈现的动态 rendering、pipeline barrier2／submit2、格式／子组能力及 shader 编译环境 | 成本高。需要缓存传统 render pass／framebuffer、翻译同步／访问掩码和 timeline submit、审计格式能力，并提供经过验证的着色器降级。性能影响需实测，不保证比正常路径更快 |
+| 新建 D3D12 后端 | 图形命令、资源／描述符、GCN 着色器转换、同步、呈现及所有游戏回归 | 相当于新后端，不是解决这次旧驱动问题的经济选择 |
+
+着色器也有版本门槛：`vk_pipeline_cache.cpp` 将 guest shader 的目标固定为 SPIR-V 1.6，`HostShaders.cmake` 使用 `--target-env vulkan1.3`。即使补齐 KHR 函数，也需要调整目标环境、审计实际使用的能力／指令，并重新验证纹理、整数运算、原子操作和图像结果；不能只改 API 检查。现有 maintenance1 兼容呈现解决的是呈现资源退休方式，不等于完整 Vulkan 1.2 支持。
+
+推荐实施边界：v0.8.1 完成上述能力／改造点调研，保留正常运行要求和可操作的驱动提示；不引入未经旧硬件验证的大型 legacy renderer，也不改系统驱动。若后续确有无法更新驱动的设备群体，先收集其完整能力，再决定是否实现 1.2 加扩展分支。
+
+依据：[Khronos 版本与迁移指南](https://docs.vulkan.org/guide/latest/versions.html)、[1.3 晋升功能列表](https://docs.vulkan.org/spec/latest/appendices/versions.html)、[dynamic rendering 的依赖与 KHR 入口](https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_dynamic_rendering.html)、[AMD 22.2.1](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-22-2-1.html)。代码与反馈为本地只读核对，未在朋友显卡上验证新后端。
+
+## v0.8.1 弹铳开局退出
+
+反馈 `feveron.zip`（SHA-256 `e33af98be55ce11d02710b8f695b9c407eeaae0b36f1e15e45298b743dea77c9`）的最后一条终止事件是`unimplemented_import`，`libc`／`libc`中的`HUbZmOnT-Dg#Q#Q`，调用者`dfeveron_01010.prx+0x9f74`。NID从`atan2`名称独立重算一致，固定shadPS4源代码也映射为双精度`atan2(y,x)`。这次是缺失数学导入的受控退出，非Vulkan驱动初始化失败。
+
+在共享`native_math.cpp`补齐双精度SysV包装，保留两条SSE参数通道及宿主errno；原`atan2f`继续使用float。原生自检和机器码导入夹具覆盖四象限、符号零、NaN／无穷、超过float范围和极小同阶数，防止错误复用float入口；错误库命名空间仍拒绝。88项原生检查通过。最新普通组件以相同01010核心实际进入ARCADE／Type-A第一关，方向／射击有效，退出的呈现资源清理完成。日志与独立测试目录为`.local/feveron-startup-v081-r1/`及`.local/v081-feveron-startup-r1/`，未使用玩家存档。
+
 ## 本轮输入延迟结论
 
-范围为虫姬二、G2、最大往生、狱门山、绊地狱和大往生。ESP Ra.De.、弹铳按最新要求暂缓。
+范围为虫姬二、G2、最大往生、狱门山、绊地狱和大往生。ESP Ra.De.、弹铳按该轮要求暂缓。
 软件响应和显示理论分开报告，显示参考统一为 **144 Hz、屏幕中心、固定刷新**。
 
 ### 360 统一条件比较

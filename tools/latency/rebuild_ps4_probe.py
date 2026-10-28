@@ -53,6 +53,12 @@ def build(fixture, destination, execute):
         rule = 'CXX_COMPILER__' + target + '_unscanned_RelWithDebInfo'
         entries = json.loads(subprocess.check_output(
             [str(ninja), '-C', str(original_build), '-t', 'compdb', rule], encoding='utf-8'))
+        extra_object = None
+        if part == 'ps4-gpu' and (fixture/'vk_instance.cpp').is_file():
+            entries += json.loads(subprocess.check_output(
+                [str(ninja), '-C', str(original_build), '-t', 'compdb',
+                 'CXX_COMPILER__KetsuiGpuCore_unscanned_RelWithDebInfo'], encoding='utf-8'))
+            names = names + ['vk_instance.cpp']
         replacements = {}
         for name in names:
             matches = [e for e in entries if Path(e['file']).name == name]
@@ -63,6 +69,8 @@ def build(fixture, destination, execute):
             patched = fixture / name
             output = destination / (part + '-' + name + '.obj')
             replacements[normalized(entry['output'])] = str(output)
+            if name == 'vk_instance.cpp':
+                extra_object = (normalized(entry['output']), str(output))
             arguments = split_windows(entry['command'])
             changed_source = changed_output = False
             rewritten = []
@@ -118,6 +126,11 @@ def build(fixture, destination, execute):
             elif lower == '/incremental':
                 rewrite.append('/INCREMENTAL:NO')
             else:
+                if extra_object and lower.endswith('ketsuigpucore.lib'):
+                    # Resolve this translation unit from our private object;
+                    # the unchanged archive is still used for all other code.
+                    rewrite.append(extra_object[1])
+                    replaced_objects.add(extra_object[0])
                 rewrite.append(arg)
             candidate = Path(arg) if Path(arg).is_absolute() else original_build / arg
             if lower.endswith(('.obj', '.lib')) and candidate.is_file():

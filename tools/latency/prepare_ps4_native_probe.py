@@ -1,5 +1,6 @@
 """Generate private host/GPU source copies for a PS4 latency measurement build."""
 from pathlib import Path
+import argparse
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -151,4 +152,11 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
     print(DEST)
 
 
-if __name__ == '__main__': prepare()
+if __name__ == '__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--destination',type=Path,default=DEST)
+    args=parser.parse_args()
+    DEST=args.destination.resolve()
+    if not DEST.is_relative_to(ROOT/'.local/input-latency-v080-r1'):
+        raise ValueError('Private measurement source directory required')
+    prepare()

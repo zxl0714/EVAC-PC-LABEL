@@ -1,5 +1,6 @@
 #include "native_resident_gpu.h"
 #include "native_video.h"
+#include "graphics/snapshot_handoff.h"
 #include "graphics/vulkan_device.h"
 #include "gpu_core/gpu_worker.h"
 #include "gpu_core/native_memory_backend.h"
@@ -200,13 +201,12 @@ kt::gfx::PresentStatus NativeResidentGpu::Present(std::uint64_t address, const k
         layout.format == kt::gfx::ColorFormat::Bgra8Srgb ? 0x80000000u : 0x80002200u, layout.tiled ? 0u : 1u};
     Run([&] { RuntimeError error; Check(impl->api.prepare_present(impl->context, &display, &result, &error), error); });
     if (result.status == RuntimePresentStatus::Prepared) {
-        bool accepted{};
-        try { accepted = !pacing || pacing->wait(pacing->context); }
-        catch (...) {
-            Run([&] { RuntimeError error; Check(impl->api.complete_present(impl->context, false, &result, &error), error); });
-            throw;
-        }
-        Run([&] { RuntimeError error; Check(impl->api.complete_present(impl->context, accepted, &result, &error), error); });
+        const bool accepted=cave::ps4::PublishThenPace([&] {
+            Run([&] { RuntimeError error; Check(impl->api.complete_present(impl->context, true, &result, &error), error); });
+        },[&] { return !pacing || pacing->wait(pacing->context); });
+        // The owned image is already safe for the output worker. Cancellation
+        // still prevents guest label release / flip completion at the caller.
+        if(!accepted)result.status=RuntimePresentStatus::Cancelled;
     }
     if (timing && result.status == RuntimePresentStatus::Completed) { *timing = result.timing; }
     switch (result.status) {

@@ -3,6 +3,7 @@ import argparse
 import datetime
 import importlib.util
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -125,6 +126,15 @@ def check_content_layout(executable, directory):
     app,patch,addons=fixtures.content_tree(scene)
     probe=scene / 'authored.ktprobe'
     probe.write_bytes(fixtures.exit_fixture())
+    atan_cases=tuple((args,math.atan2(*args)) for args in (
+        (1.0,1.0),(1.0,-1.0),(-1.0,-1.0),(-1.0,1.0),
+        (-0.0,1.0),(-0.0,-1.0),(1e200,1e200),(1e-200,1e-200),
+        (math.inf,-math.inf),(math.nan,1.0)))
+    atan_probe=scene/'atan2-double.ktprobe'
+    atan_probe.write_bytes(fixtures.numerical_math_fixture('atan2',atan_cases,single=False))
+    atan_wrong=scene/'atan2-wrong-library.ktprobe'
+    atan_wrong.write_bytes(fixtures.synthetic_probe(identifier=fixtures.nid('atan2')+'#Q#Q',
+        name='atan2',library='fixture',module='libc'))
     pacing_configs={}
     for name, community, vsync in (('offline',False,False),('online',True,False),('vsync',False,True)):
         path=scene / (name+'.ini')
@@ -132,7 +142,9 @@ def check_content_layout(executable, directory):
         pacing_configs[name]=str(path)
     before={str(path):digest(path) for path in scene.rglob('*') if path.is_file()}
     cases=[('content-layout-self-test',['--content-self-test',str(app),str(patch),str(addons)],0),
-           ('fios-self-test',['--fios-self-test',str(app),str(patch)],0)]
+           ('fios-self-test',['--fios-self-test',str(app),str(patch)],0),
+           ('feveron-atan2-double-sysv-fixture',[str(atan_probe),'--enter'],7),
+           ('atan2-exact-library-fixture',[str(atan_wrong),'--enter'],20)]
     cases.extend((
         ('background-log-fixture',[str(probe),'--enter','--background-log','on'],7),
         ('background-log-validation-rejected',[str(probe),'--validate','--background-log','on'],2),

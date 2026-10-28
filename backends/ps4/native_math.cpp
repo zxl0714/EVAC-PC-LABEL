@@ -81,10 +81,11 @@ float KT_SYSV AtanFloat(float value) { return UnaryFloat<Unary::Atan>(value); }
 float KT_SYSV TanFloat(float value) { return UnaryFloat<Unary::Tan>(value); }
 float KT_SYSV ExpFloat(float value) { return UnaryFloat<Unary::Exp>(value); }
 float KT_SYSV ExpTwoFloat(float value) { return UnaryFloat<Unary::Exp2>(value); }
-__declspec(noinline) float AtanTwo(float y, float x) {
+template <typename T> __declspec(noinline) T AtanTwo(T y, T x) {
     const auto host_error = errno; const auto result = std::atan2(y, x); errno = host_error; return result;
 }
 float KT_SYSV AtanTwoFloat(float y, float x) { return AtanTwo(y, x); }
+double KT_SYSV AtanTwoDouble(double y, double x) { return AtanTwo(y, x); }
 template <typename T> __declspec(noinline) T Remainder(T left, T right) {
     const auto host_error = errno; const auto result = std::fmod(left, right); errno = host_error; return result;
 }
@@ -112,6 +113,7 @@ std::uint64_t ResolveMathImport(std::string_view identifier) {
     if (hash == "QI-x0SL8jhw") { return reinterpret_cast<std::uint64_t>(&AcosFloat); }
     if (hash == "GZWjF-YIFFk") { return reinterpret_cast<std::uint64_t>(&AsinFloat); }
     if (hash == "EH-x713A99c") { return reinterpret_cast<std::uint64_t>(&AtanTwoFloat); }
+    if (hash == "HUbZmOnT-Dg") { return reinterpret_cast<std::uint64_t>(&AtanTwoDouble); }
     if (hash == "weDug8QD-lE") { return reinterpret_cast<std::uint64_t>(&AtanFloat); }
     if (hash == "ZE6RNL+eLbk") { return reinterpret_cast<std::uint64_t>(&TanFloat); }
     if (hash == "wuAQt-j+p4o") { return reinterpret_cast<std::uint64_t>(&ExpTwoFloat); }
@@ -150,5 +152,19 @@ bool MathSelfTest() {
     float results[]{73,0,0,73};combined(0.5f,&results[1],&results[2]);
     check(results[0]==73 && results[3]==73 && results[1]==std::sin(0.5f) && results[2]==std::cos(0.5f),
         "sincosf_separate_sse_input_and_integer_pointer_lanes");
+    using BinaryDouble=double(KT_SYSV*)(double,double);
+    const auto atan2=reinterpret_cast<BinaryDouble>(ResolveMathImport("HUbZmOnT-Dg#Q#Q"));
+    check(atan2 && atan2(1,1)==std::atan2(1.0,1.0) && atan2(1,-1)==std::atan2(1.0,-1.0) &&
+        atan2(-1,-1)==std::atan2(-1.0,-1.0) && atan2(-1,1)==std::atan2(-1.0,1.0),
+        "feveron_atan2_double_sysv_quadrants");
+    check(atan2 && atan2(1e-200,1e200)==0 && atan2(1e200,1e200)==std::atan2(1.0,1.0) &&
+        atan2(1e-200,1e-200)==std::atan2(1.0,1.0),"atan2_double_does_not_narrow_to_float");
+    errno=73;
+    const auto infinity=std::numeric_limits<double>::infinity();
+    check(atan2 && std::signbit(atan2(-0.0,1)) && atan2(0.0,-1)==std::atan2(0.0,-1.0) &&
+        atan2(infinity,-infinity)==std::atan2(infinity,-infinity) &&
+        std::isnan(atan2(std::numeric_limits<double>::quiet_NaN(),1)) && errno==73,
+        "atan2_double_special_values_and_preserved_host_errno");
+    errno=saved;
     std::printf("{\"event\":\"math_self_test\",\"passed\":%s}\n",passed?"true":"false");return passed;
 }

@@ -2,6 +2,7 @@
 #include "common/ini.h"
 #include "common/paths.h"
 #include "common/settings.h"
+#include "common/window_geometry.h"
 #include "common/config_update.h"
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
@@ -211,9 +212,11 @@ void SettingsChecks(Fixture& fixture) {
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
     const auto documented=parse(DefaultConfig());
-    Require(!defaults.fullscreen && defaults.vsync && defaults.gamepad_enabled && defaults.community_enabled &&
+    Require(!defaults.fullscreen && !defaults.vsync && defaults.gamepad_enabled && defaults.community_enabled &&
             defaults.volume==1 && defaults.deadzone==0.20 && defaults.nickname=="Player" &&
             defaults.endpoint=="https://xiaolu.life/cave/api/v1", "Common built-in defaults");
+    Require(!documented.vsync && parse("[display]\nvsync=true\n").vsync,
+            "Low-latency defaults changed an explicit synchronization preference");
     for (size_t n=0; n<kButtons.size(); ++n)
         Require(defaults.keyboard[n].keys==documented.keyboard[n].keys,"Template/button mapping differs");
     Require(parse("\xef\xbb\xbf[DISPLAY]\r\nfullscreen=TRUE\r\n").fullscreen,"Settings BOM/case/CRLF");
@@ -296,6 +299,66 @@ void MigrationChecks() {
         Require(EnsureConfig(explicit_g2.root)==migrated && Ini::ReadText(migrated)==text &&
                 LoadSettings(migrated,"espgaluda2").g2_frame_delay==mode,
                 "Existing G2 Frame Delay preference changed after reopening");
+    }
+}
+void DisplaySelectionChecks(Fixture& fixture) {
+    Require(FitClientExtent({1920,1080},1280,720)==ClientExtent{1280,720},"Window fitting must preserve aspect");
+    Require(FitClientExtent({1280,720},4000,2000)==ClientExtent{1280,720},"Window fitting must not upscale a preset");
+    const auto small=FitClientExtent({1920,1080},1330,700);
+    Require(small.width==1244 && small.height==700,"Small/high-DPI desktop work area fitting");
+    Reject([&]{FitClientExtent({0,720},1280,720);},"Zero window extent accepted");
+    {
+        struct PhysicalWindow {
+            DPI_AWARENESS_CONTEXT previous=SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            HWND window=CreateWindowExW(0,L"STATIC",L"EVAC hidden display-size check",WS_OVERLAPPEDWINDOW,
+                0,0,100,100,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+            ~PhysicalWindow(){if(window)DestroyWindow(window);if(previous)SetThreadDpiAwarenessContext(previous);}
+        } hidden;
+        Require(hidden.previous && hidden.window,"Cannot create hidden physical-pixel sizing fixture");
+        for(const ClientExtent requested:std::array{ClientExtent{640,360},ClientExtent{960,540},ClientExtent{1920,1080},ClientExtent{7680,4320}}) {
+            FitGameWindow(hidden.window,requested.width,requested.height);
+            RECT client{},outer{};MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+            Require(GetClientRect(hidden.window,&client) && GetWindowRect(hidden.window,&outer) &&
+                GetMonitorInfoW(MonitorFromWindow(hidden.window,MONITOR_DEFAULTTONEAREST),&monitor),"Cannot inspect fitted game window");
+            Require(client.right>0 && client.bottom>0 && unsigned(client.right)<=requested.width && unsigned(client.bottom)<=requested.height,
+                "Actual client was enlarged or empty after fitting");
+            Require(std::abs(double(client.right)/client.bottom-double(requested.width)/requested.height)<.01,
+                "Actual fitted window lost the selected aspect ratio");
+            Require(outer.left>=monitor.rcWork.left && outer.top>=monitor.rcWork.top && outer.right<=monitor.rcWork.right && outer.bottom<=monitor.rcWork.bottom,
+                "Actual fitted window exceeds the monitor work area");
+            if(requested.width<=960)Require(client.right==LONG(requested.width) && client.bottom==LONG(requested.height),
+                "Window preset was scaled again by desktop DPI");
+        }
+    }
+    const auto config=EnsureConfig(fixture.root);
+    const auto legacy=ParseSettings("[display]\nfullscreen=true\n","ketsui");
+    Require(legacy.fullscreen && legacy.window_width==1280 && legacy.window_height==720,"Legacy fullscreen migrates without size keys");
+    for(const auto* text:{"window_width=0","window_width=-640","window_width=7681","window_height=0",
+                         "window_height=4321","window_width=1e3","window_height=720tail"})
+        Reject([&]{ParseSettings(std::string("[display]\n")+text,"ketsui");},"Invalid display dimensions accepted");
+    for(const auto& display:kWindowSelections) {
+        const std::string before="; keep\r\n[display]\r\nfullscreen=true\r\n[community]\r\nnickname=Keep\r\n"
+            "[game.futari.display]\r\nfullscreen=true\r\nwindow_width=800\r\nwindow_height=600\r\n[future]\r\nx=kept\r\n";
+        Write(config,before);SaveSharedDisplay(fixture.root,before,display);
+        const auto saved=Ini::ReadText(config);const auto ini=Ini::Parse(saved);
+        for(const auto id:{"ketsui","daioujou","esprade","feveron","espgaluda2","sdoj","guwange"}) {
+            const auto settings=ResolveSettings(ini,id);
+            Require(!settings.fullscreen && settings.window_width==display.width && settings.window_height==display.height &&
+                    settings.nickname=="Keep","Display preference not inherited by a runtime");
+        }
+        const auto own=ResolveSettings(ini,"futari");
+        Require(own.fullscreen && own.window_width==800 && own.window_height==600,"Display save changed an explicit override");
+        Require(saved.find("x=kept\r\n")!=saved.npos,"Display save changed unrelated config");
+        Reject([&]{SaveSharedDisplay(fixture.root,before,{true,1280,720});},"Stale display form overwrote config");
+        Reject([&]{SaveSharedDisplay(fixture.root,saved,{false,0,720});},"Invalid size was saved");
+        Require(Ini::ReadText(config)==saved,"Invalid display edit changed config");
+        SaveSharedPreferences(fixture.root,saved,true,"Renamed");
+        const auto renamed=ResolveSharedSettings(Ini::Load(config));
+        Require(renamed.fullscreen && renamed.window_width==display.width && renamed.nickname=="Renamed","Nickname edit lost selected size");
+        const auto current=Ini::ReadText(config);
+        SaveSharedPreferences(fixture.root,current,DisplaySelection{false,1234,696},"Custom");
+        const auto custom=ResolveSharedSettings(Ini::Load(config));
+        Require(custom.window_width==1234 && custom.window_height==696 && custom.nickname=="Custom","Custom physical size not retained");
     }
 }
 void PreferenceChecks(Fixture& fixture) {
@@ -513,6 +576,7 @@ int main() {
     Require(inspect().state == "ready", "Other-game settings affected current title");
     SettingsChecks(fixture);
     PreferenceChecks(fixture);
+    DisplaySelectionChecks(fixture);
     ContentChecks(fixture);
     NestedRootChecks(fixture);
     DataVariantChecks(fixture);

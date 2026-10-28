@@ -1,5 +1,7 @@
 #include "backends/ps4/graphics/presentation_extensions.h"
 #include "backends/ps4/graphics/device_requirements.h"
+#include "backends/ps4/graphics/snapshot_handoff.h"
+#include "backends/ps4/graphics/swapchain_bootstrap.h"
 #include "backends/ps4/loader/preparation_policy.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "backends/ps4/ketsui_version.h"
@@ -7,6 +9,8 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <memory>
+#include <vector>
 #include <stdexcept>
 #include <string_view>
 
@@ -46,6 +50,71 @@ void Presentation() {
     }
 }
 
+void SnapshotHandoff() {
+    using namespace cave::ps4;
+    using S=SnapshotOwnership;
+    struct Slot {S state;};
+    for(std::uint32_t active_index=0;active_index<3;++active_index)
+      for(std::uint32_t ready_index=0;ready_index<3;++ready_index) {
+        if(active_index==ready_index)continue;
+        std::array<Slot,3> slots{{{S::Free},{S::Free},{S::Free}}};
+        slots[active_index].state=S::Presenting;slots[ready_index].state=S::Ready;
+        std::optional<std::uint32_t> ready=ready_index;auto active=active_index;
+        Check(LatchNewestSnapshot(slots,ready,active),"new ready image is latched after WSI wait");
+        Check(active==ready_index && !ready && slots[active_index].state==S::Free && slots[ready_index].state==S::Presenting,
+              "late latch preserves one owner and releases only the unused old snapshot");
+        Check(!LatchNewestSnapshot(slots,ready,active),"no ready image leaves the active image unchanged");
+        slots[active_index].state=S::Writing;ready=active_index;
+        Reject([&]{LatchNewestSnapshot(slots,ready,active);},"partial writing image cannot be presented");
+        Check(slots[active_index].state==S::Writing && active==ready_index,"invalid handoff cannot change ownership");
+      }
+    for(bool accepted:{false,true}) {
+        unsigned order=0;
+        const auto result=PublishThenPace([&]{Check(++order==1,"copy completion and publish precede pacing");},
+            [&]{Check(++order==2,"guest pacing still executes exactly once");return accepted;});
+        Check(result==accepted && order==2,"guest cancellation is preserved after owned-image publication");
+    }
+    unsigned paced=0;
+    Reject([&]{PublishThenPace([]{throw std::runtime_error("copy failed");},[&]{++paced;return true;});},
+           "copy failure propagates");
+    Check(!paced,"failed copy must not advance the guest pacing path");
+}
+void SwapchainBootstrap() {
+    struct Info {int presentMode,oldSwapchain,width,images;};
+    for(bool prior:{false,true}) for(int mode:{0,1,2}) {
+        bool established=prior;
+        std::vector<Info> created;std::vector<int> destroyed;
+        const auto retire=[&](int* handle){destroyed.push_back(*handle);delete handle;};
+        using Owner=std::unique_ptr<int,decltype(retire)>;
+        {
+            auto chain=cave::ps4::CreateWindowSwapchain(Info{mode,9,1280,3},established,2,
+                [&](Info info){created.push_back(info);return Owner(new int(static_cast<int>(created.size())),retire);});
+            const bool bootstrap=!prior && mode!=2;
+            Check(established && created.size()==(bootstrap?2u:1u),"bootstrap is only needed before the first non-FIFO chain");
+            Check(*chain==static_cast<int>(created.size()),"final owner is the requested mode chain");
+            Check(created.back().presentMode==mode && created.front().oldSwapchain==9,"requested mode and preceding retirement are preserved");
+            for(const auto& info:created) Check(info.width==1280 && info.images==3,"bootstrap preserves format/resource creation parameters");
+            if(bootstrap) {
+                Check(created.front().presentMode==2 && created.back().oldSwapchain==1,"replacement retires the never-presented bootstrap chain");
+                Check(destroyed==std::vector<int>{1},"only the temporary chain is released before return");
+            } else Check(destroyed.empty(),"direct creation retains its only live owner");
+        }
+        Check(destroyed.size()==created.size(),"all created chains have exactly one retirement owner");
+    }
+    for(unsigned fail_at:{1u,2u}) {
+        bool established=false;unsigned called=0;std::vector<int> destroyed;
+        const auto retire=[&](int* handle){destroyed.push_back(*handle);delete handle;};
+        using Owner=std::unique_ptr<int,decltype(retire)>;
+        Reject([&]{
+            cave::ps4::CreateWindowSwapchain(Info{0,9,1280,3},established,2,[&](Info) {
+                if(++called==fail_at)throw std::runtime_error("creation failed");
+                return Owner(new int(static_cast<int>(called)),retire);
+            });
+        },"bootstrap creation/replacement failures propagate");
+        Check(!established,"failed initialization cannot suppress a later bootstrap retry");
+        Check(destroyed.size()==fail_at-1,"failure releases the temporary chain exactly once");
+    }
+}
 void DeviceRequirements() {
     using namespace cave::ps4::graphics;
     constexpr std::uint32_t required=(1u<<22)|(3u<<12);
@@ -176,7 +245,7 @@ void Seeds() {
 }
 int main() {
     try {
-        Presentation();DeviceRequirements();Policies();Seeds();
+        Presentation();SnapshotHandoff();SwapchainBootstrap();DeviceRequirements();Policies();Seeds();
         std::printf("%u PS4 compatibility checks passed (no ROM or GPU required)\n",checks);return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr,"PS4 compatibility check %u failed: %s\n",checks,error.what());return 1;

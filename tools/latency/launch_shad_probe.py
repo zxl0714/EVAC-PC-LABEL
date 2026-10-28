@@ -11,6 +11,7 @@ import sys
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
 from project import digest,write_json_new
+from launch_ps4_probe import checked_pixel_region
 
 
 def main():
@@ -21,6 +22,8 @@ def main():
     parser.add_argument('--pixel-region')
     parser.add_argument('--audit',type=Path,help='Original per-game audit; default is the accepted Ketsui audit')
     args=parser.parse_args()
+    if args.pixel_region:
+        checked_pixel_region(args.pixel_region)
     base=ROOT/'.local/input-latency-v080-r1';fixture=args.fixture.resolve(strict=True)
     if not fixture.is_relative_to(base) or not re.fullmatch('[a-z0-9-]{1,60}',args.label):
         raise ValueError('Private fixture and fresh ASCII label required')
@@ -55,7 +58,6 @@ def main():
                 seeds.append(dict(path=relative.as_posix(),sha256=identity))
     settings=dict(EVAC_LATENCY_TRACE=str(trace),EVAC_LATENCY_CAPACITY='2097152',EVAC_LATENCY_TEST_PAD=args.label)
     if args.pixel_region:
-        if not re.fullmatch(r'\d+,\d+,\d+,\d+,\d+',args.pixel_region): raise ValueError('Five numeric ROI fields required')
         prefix=base/(args.label+'-pixels')
         if any(Path(str(prefix)+suffix).exists() for suffix in ('.bin','.csv')): raise ValueError('Fresh ROI output required')
         settings.update(EVAC_LATENCY_PIXELS=str(prefix),EVAC_LATENCY_PIXEL_REGION=args.pixel_region)

@@ -81,7 +81,7 @@ unsigned TestProgramReader() {
     const auto before_hot = memory.reads; (void)ReadProgram(base, user);
     check(memory.reads == before_hot + 2, "Read extent was not updated after remapping");
     memory.Program(16, 1024); const auto moved = ReadProgram(base, user);
-    check(moved.code.size() == 4 && store.read_extents.at(base) == 16, "Moving metadata was not followed through the current header");
+    check(moved.code.size() == 4 && store.read_extents.at(base).code_bytes == 16, "Moving metadata was not followed through the current header");
     memory.Program(64); (void)ReadProgram(base, user);
     info = memory.Info(); info.signature[0] ^= 1; memory.Info(info);
     check(rejects([&] { (void)ReadProgram(base, user); }) && !store.scratch_leased, "Bad live metadata was accepted or leaked the scratch lease");
@@ -107,6 +107,33 @@ unsigned TestProgramReader() {
     check(nested_called && nested.hash == outer.hash && nested.code.data() == outer.code.data() && !store.scratch_leased, "Reentrant read damaged the outer reusable scratch");
     const auto owned = ReadProgram(base, user); store.programs.at(owned.hash)[2] ^= 1;
     check(rejects([&] { (void)ReadProgram(base, user); }), "Content collision checking was skipped");
+    {
+        auto& packed = memory; packed.Program(64, 64); packed.readable = {{base, 64 + info_bytes}};
+        ProgramStore packed_store; ProgramScope packed_scope(packed_store);
+        const auto initial = ReadProgram(base, user); const auto before = packed.reads;
+        check(ReadProgram(base, user).hash == initial.hash && packed.reads == before + 1,
+              "Contiguous shader code and metadata should be reread together");
+        auto live = packed.Info(64); ++live.shader_hash; packed.Info(live, 64);
+        const auto changed_metadata = ReadProgram(base, user);
+        check(changed_metadata.hash != initial.hash, "Combined read hid a same-address metadata mutation");
+        const u32 instruction = initial.code[2] ^ 1; std::memcpy(packed.bytes.data() + 8, &instruction, 4);
+        check(ReadProgram(base, user).code[2] == instruction && initial.code[2] != instruction,
+              "Combined read hid a live code mutation or altered prior owned code");
+        live.version = 6; packed.Info(live, 64);
+        check(rejects([&] { (void)ReadProgram(base, user); }) && !packed_store.scratch_leased,
+              "Combined read accepted invalid current metadata");
+        packed.Program(96, 96); packed.readable = {{base, 96 + info_bytes}};
+        check(ReadProgram(base, user).code.size() == 24, "Combined hint hid growth or relocated metadata");
+        const auto grown_reads = packed.reads;
+        check(ReadProgram(base, user).code.size() == 24 && packed.reads == grown_reads + 1,
+              "Combined hint did not follow the new live extent");
+        packed.Program(16, 16); const auto packed_failures = packed.failures;
+        check(ReadProgram(base, user).code.size() == 4 && packed.failures == packed_failures + 1,
+              "Combined hint did not fall back after shrinking or splitting the mapping");
+        const auto split_reads = packed.reads;
+        check(ReadProgram(base, user).code.size() == 4 && packed.reads == split_reads + 2 && packed.failures == packed_failures + 1,
+              "Failed combined hint should retain fresh split reads without repeated speculative faults");
+    }
     // Fetch programs have no declared extent. Remember only a successful read
     // length, never bytes: every subsequent draw must still see current code.
     auto& fetch_memory = memory;

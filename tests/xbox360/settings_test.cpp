@@ -19,10 +19,12 @@ int wmain(int argc, wchar_t** argv) {
         Require(argc==2,"Usage: settings_test <default.ini>");
         auto defaults = ParseSettings("");
         auto file = LoadSettings(argv[1]);
-        Require(!file.fullscreen && file.vsync && file.gamepad_enabled && file.community_enabled &&
+        Require(!file.fullscreen && !file.vsync && file.gamepad_enabled && file.community_enabled &&
             file.deadzone==0.2 && file.volume==1.0 && file.nickname=="Player" && file.endpoint=="https://xiaolu.life/cave/api/v1","Default template differs");
         for (std::size_t n=0; n<kButtons.size(); ++n)
             Require(file.keyboard[n].keys==defaults.keyboard[n].keys,"Default keyboard template differs");
+        Require(!defaults.vsync && ParseSettings("[display]\nvsync=true\n").vsync,
+                "Explicit vertical synchronization preference changed");
         Require(ParseSettings("\xEF\xBB\xBF[DISPLAY]\r\nfullscreen = TRUE\r\n").fullscreen,"BOM/CRLF/case handling");
         auto multi = ParseSettings("[keyboard]\nsouth = Z, Numpad0\nl3 = none\n");
         Require(multi.keyboard[4].keys.size()==2 && multi.keyboard[14].keys.empty(),"Multi-key/none parsing");

@@ -54,6 +54,9 @@ using cave::launcher::Language;
 namespace update=cave::launcher::update;
 Language language=Language::Chinese;
 const wchar_t* T(std::wstring_view key) {return cave::launcher::Translate(language,key);}
+std::wstring DisplayLabel(DisplaySelection display) {
+  return display.fullscreen?T(L"全屏"):std::to_wstring(display.width)+L" × "+std::to_wstring(display.height);
+}
 void Check(HRESULT status,const char* operation) {
   if (FAILED(status)) throw std::runtime_error(std::string(operation)+" (HRESULT "+std::to_string(static_cast<unsigned>(status))+")");
 }
@@ -377,7 +380,7 @@ class Renderer {
       if(preview)Text(target,L"Player",{r.left+6,r.top+6,r.right-6,r.bottom},13,0x23312d);
     }
     if(preview) {
-      Button(target,layout.fullscreen(),T(L"□ 启动时全屏"));
+      Button(target,layout.fullscreen(),L"1280 × 720     ▾");
       Button(target,layout.save(),T(L"保存"),false,true);
     }
     Text(target,T(L"排行榜昵称"),layout.nickname_label(),10,0x627368);
@@ -561,7 +564,7 @@ class App {
   }
   void CreatePreferences() {
     const auto instance=GetModuleHandleW(nullptr);
-    fullscreen_control=CreateWindowExW(0,L"BUTTON",T(L"启动时全屏"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX|BS_NOTIFY,
+    fullscreen_control=CreateWindowExW(0,L"COMBOBOX",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|CBS_DROPDOWNLIST|CBS_HASSTRINGS|WS_VSCROLL,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kFullscreenControl),instance,nullptr);
     nickname_control=CreateWindowExW(0,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
         0,0,0,0,hwnd,reinterpret_cast<HMENU>(kNicknameControl),instance,nullptr);
@@ -596,6 +599,11 @@ class App {
         left+=inset;width-=2*inset;top+=(height-line)/2;height=line;
         SendMessageW(nickname_control,EM_SETMARGINS,EC_LEFTMARGIN|EC_RIGHTMARGIN,0);
       }
+      if(pair.first==fullscreen_control) {
+        SendMessageW(fullscreen_control,CB_SETITEMHEIGHT,WPARAM(-1),MulDiv(22,int(dpi),96));
+        SendMessageW(fullscreen_control,CB_SETITEMHEIGHT,0,MulDiv(26,int(dpi),96));
+        height=MulDiv(230,int(dpi),96);
+      }
       SetWindowPos(pair.first,nullptr,left,top,width,height,SWP_NOZORDER|SWP_NOACTIVATE);
     }
     if(font){if(form_font)DeleteObject(form_font);form_font=font;}
@@ -605,14 +613,42 @@ class App {
     EnableWindow(fullscreen_control,enabled);EnableWindow(nickname_control,enabled);
     EnableWindow(save_control,enabled&&preferences_dirty);
   }
+  void PopulateDisplay(const Settings& settings) {
+    display_choices={{true,settings.window_width,settings.window_height}};
+    display_choices.insert(display_choices.end(),kWindowSelections.begin(),kWindowSelections.end());
+    const DisplaySelection current{false,settings.window_width,settings.window_height};
+    auto found=std::find(display_choices.begin()+1,display_choices.end(),current);
+    if(found==display_choices.end()){display_choices.push_back(current);found=display_choices.end()-1;}
+    const auto selected=settings.fullscreen?0:std::distance(display_choices.begin(),found);
+    SendMessageW(fullscreen_control,CB_RESETCONTENT,0,0);
+    for(const auto& choice:display_choices) {
+      const auto label=DisplayLabel(choice);
+      if(SendMessageW(fullscreen_control,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label.c_str()))<0)
+        throw std::runtime_error("Cannot populate display choices");
+    }
+    SendMessageW(fullscreen_control,CB_SETCURSEL,WPARAM(selected),0);
+  }
+  DisplaySelection SelectedDisplay() const {
+    const auto index=SendMessageW(fullscreen_control,CB_GETCURSEL,0,0);
+    if(index<0 || size_t(index)>=display_choices.size())throw std::runtime_error("Choose a display mode");
+    return display_choices[size_t(index)];
+  }
+  void DisplayChanged() {
+    if(loading_preferences)return;
+    SaveSharedDisplay(options.root,preferences_text,SelectedDisplay());
+    preferences_text=Ini::ReadText(ConfigPath(options.root));
+    const auto count=GetWindowTextLengthW(nickname_control);
+    std::wstring name(size_t(count)+1,L'\0');GetWindowTextW(nickname_control,name.data(),int(name.size()));name.resize(count);
+    preferences_dirty=Utf8(name)!=ResolveSharedSettings(Ini::Parse(preferences_text)).nickname;
+    message.clear();EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
+  }
   void ReloadPreferences() {
     loading_preferences=true;
     try {
       preferences_text=Ini::ReadText(EnsureConfig(options.root));
       const auto ini=Ini::Parse(preferences_text);const auto settings=ResolveSharedSettings(ini);
       language=options.language.value_or(cave::launcher::ReadLanguage(ini));
-      SetWindowTextW(fullscreen_control,T(L"启动时全屏"));SetWindowTextW(save_control,T(L"保存"));
-      SendMessageW(fullscreen_control,BM_SETCHECK,settings.fullscreen?BST_CHECKED:BST_UNCHECKED,0);
+      PopulateDisplay(settings);SetWindowTextW(save_control,T(L"保存"));
       SetWindowTextW(nickname_control,Wide(settings.nickname).c_str());
       preferences_available=true;preferences_dirty=false;UpdateOverrideHint(ini);
     } catch(const std::exception& error) {
@@ -623,21 +659,22 @@ class App {
   }
   void UpdateOverrideHint(const Ini& ini) {
     override_hint.clear();const auto section="game."+std::string(Catalogue()[selected].id);
-    if(ini.Get(section+".display","fullscreen") || ini.Get(section+".community","nickname"))
-      override_hint=T(L"此游戏有独立的全屏／昵称设置，请在配置文件中调整");
+    if(ini.Get(section+".display","fullscreen") || ini.Get(section+".display","window_width") ||
+       ini.Get(section+".display","window_height") || ini.Get(section+".community","nickname"))
+      override_hint=T(L"此游戏有独立的显示／昵称设置，请在配置文件中调整");
   }
   bool SavePreferences() {
     if(!preferences_dirty)return true;
     if(!preferences_available)throw std::runtime_error("Fix config.ini and refresh before saving quick settings.");
     const auto count=GetWindowTextLengthW(nickname_control);
     std::wstring name(size_t(count)+1,L'\0');GetWindowTextW(nickname_control,name.data(),int(name.size()));name.resize(count);
-    const auto nickname=Utf8(name);const bool fullscreen=SendMessageW(fullscreen_control,BM_GETCHECK,0,0)==BST_CHECKED;
-    (void)PreviewSharedPreferences(preferences_text,fullscreen,nickname);
+    const auto nickname=Utf8(name);const auto display=SelectedDisplay();
+    (void)PreviewSharedPreferences(preferences_text,display,nickname);
     if(nickname!=ResolveSharedSettings(Ini::Parse(preferences_text)).nickname &&
         !ConfirmNickname(hwnd,cave::launcher::NicknameIssues(Ini::Parse(preferences_text),nickname,options.root))) {
       SetFocus(nickname_control);return false;
     }
-    SaveSharedPreferences(options.root,preferences_text,fullscreen,nickname);
+    SaveSharedPreferences(options.root,preferences_text,display,nickname);
     ReloadPreferences();message=T(L"快捷设置已保存，下次启动生效");
     Log(options.root,"shared-preferences-updated");
     return true;
@@ -666,7 +703,7 @@ class App {
     UpdateConfig(options.root,preferences_text,changes);
     preferences_text=Ini::ReadText(ConfigPath(options.root));
     language=next;options.language.reset();
-    SetWindowTextW(fullscreen_control,T(L"启动时全屏"));SetWindowTextW(save_control,T(L"保存"));
+    PopulateDisplay(ResolveSharedSettings(Ini::Parse(preferences_text)));SetWindowTextW(save_control,T(L"保存"));
     UpdateOverrideHint(Ini::Parse(preferences_text));message.clear();
     InvalidateRect(hwnd,nullptr,FALSE);
   }
@@ -881,14 +918,18 @@ class App {
           else if(first==VK_NEXT)app->Scroll(app->layout.viewport_height());
           return 0;
         case WM_COMMAND:
+          if(LOWORD(first)==kFullscreenControl && HIWORD(first)==CBN_SELCHANGE){app->DisplayChanged();return 0;}
           if(LOWORD(first)==kSaveControl && HIWORD(first)==BN_CLICKED) {if(app->SavePreferences())app->Refresh();return 0;}
-          if((LOWORD(first)==kNicknameControl && HIWORD(first)==EN_CHANGE) ||
-             (LOWORD(first)==kFullscreenControl && HIWORD(first)==BN_CLICKED)) {
+          if(LOWORD(first)==kNicknameControl && HIWORD(first)==EN_CHANGE) {
             if(!app->loading_preferences){app->preferences_dirty=true;app->EnablePreferences();InvalidateRect(window,nullptr,FALSE);}return 0;
           }
-          if((LOWORD(first)==kNicknameControl && HIWORD(first)==EN_SETFOCUS) || HIWORD(first)==BN_SETFOCUS) {
+          if((LOWORD(first)==kNicknameControl && HIWORD(first)==EN_SETFOCUS) ||
+             (LOWORD(first)==kFullscreenControl && HIWORD(first)==CBN_SETFOCUS) || HIWORD(first)==BN_SETFOCUS) {
             app->focus=LOWORD(first)==kFullscreenControl?1:(LOWORD(first)==kNicknameControl?2:3);InvalidateRect(window,nullptr,FALSE);
           }break;
+        case WM_CTLCOLORLISTBOX:
+          SetBkColor(reinterpret_cast<HDC>(first),RGB(255,255,255));SetTextColor(reinterpret_cast<HDC>(first),RGB(35,49,45));
+          return reinterpret_cast<LRESULT>(GetStockObject(WHITE_BRUSH));
         case WM_CTLCOLORBTN:case WM_CTLCOLORSTATIC:
           SetBkColor(reinterpret_cast<HDC>(first),RGB(243,244,240));SetTextColor(reinterpret_cast<HDC>(first),RGB(73,90,80));
           return reinterpret_cast<LRESULT>(app->form_background);
@@ -913,6 +954,7 @@ class App {
   Options options;
   HWND hwnd{};
   HWND fullscreen_control{},nickname_control{},save_control{};
+  std::vector<DisplaySelection> display_choices;
   HFONT form_font{};
   HBRUSH form_background{};
   bool preferences_available{},preferences_dirty{},loading_preferences{};

@@ -33,7 +33,7 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::strin
     result.community = {result.shared.community_enabled && result.community_supported, result.shared.nickname, std::move(endpoint),std::string(game)};
     if (!kt::community::ValidNicknameBytes(result.community.nickname)) throw std::runtime_error("Invalid community nickname");
     result.display = {FromUtf8("EVAC PC LABEL — " + std::string(title.DisplayName())).wstring(),
-        result.shared.fullscreen, result.shared.vsync};
+        result.shared.fullscreen, result.shared.vsync, result.shared.window_width, result.shared.window_height};
     return result;
 }
 CollectionConfiguration LoadCollectionConfiguration(const fs::path& path,std::string_view game) {
@@ -52,7 +52,8 @@ void ReportCollectionConfiguration(const CollectionConfiguration& config) {
     for (std::size_t n=0; n<kButtons.size(); ++n) keyboard[std::string(kButtons[n])] = config.shared.keyboard[n].keys;
     const auto title=fs::path(config.display.title).u8string();
     const auto report=Json{{"event","collection_configuration"},{"game",config.game},
-        {"fullscreen",config.display.fullscreen},{"vsync",config.display.vsync},{"volume",config.shared.volume},
+        {"fullscreen",config.display.fullscreen},{"window_width",config.display.window_width},
+        {"window_height",config.display.window_height},{"vsync",config.display.vsync},{"volume",config.shared.volume},
         {"gamepad",{{"enabled",config.shared.gamepad_enabled},{"deadzone",config.shared.deadzone}}},
         {"community",{{"requested",config.shared.community_enabled},{"supported",config.community_supported},
             {"enabled",config.community.enabled},{"endpoint",config.community.endpoint},{"nickname",config.community.nickname}}},

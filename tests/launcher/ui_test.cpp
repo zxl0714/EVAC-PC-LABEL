@@ -210,7 +210,7 @@ void NicknameWarningChecks() {
   Require(ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).nickname=="友人😀" && !app.preferences_dirty,"Save anyway replaced the full Unicode nickname");
   Require(Ini::ReadText(ConfigPath(fixture.root)).find("x=kept")!=std::string::npos,"Warning save lost unknown configuration");
   const auto accepted=nickname_details.size();
-  SendMessageW(app.fullscreen_control,BM_SETCHECK,BST_CHECKED,0);app.preferences_dirty=true;
+  SendMessageW(app.fullscreen_control,CB_SETCURSEL,0,0);app.preferences_dirty=true;
   Require(app.SavePreferences() && nickname_details.size()==accepted,"Fullscreen-only edit repeated an accepted nickname warning");
   SetWindowTextW(app.nickname_control,L"Player");
   Require(app.SavePreferences() && nickname_details.size()==accepted,"Supported nickname raised a warning");
@@ -250,6 +250,31 @@ void NicknameAlignmentChecks() {
   Require(ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).nickname=="Player" && !app.preferences_dirty,
           "Enter did not persist the nickname");
 }
+void DisplayDropdownChecks() {
+  Fixture fixture;
+  for(const auto lang:std::array{Language::Chinese,Language::English,Language::Japanese}) {
+    Frame frame(fixture.root);auto& app=frame.app;
+    language=lang;app.PopulateDisplay(ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))));
+    Require((GetWindowLongPtrW(app.fullscreen_control,GWL_STYLE)&CBS_DROPDOWNLIST)==CBS_DROPDOWNLIST,
+            "Display selector must be a real accessible keyboard-operable dropdown");
+    SetWindowTextW(app.nickname_control,L"Unsaved nickname");
+    const auto old_name=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).nickname;
+    for(size_t index=0;index<app.display_choices.size();++index) {
+      SendMessageW(app.fullscreen_control,CB_SETCURSEL,index,0);
+      App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kFullscreenControl,CBN_SELCHANGE),0);
+      const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root)));
+      const auto expected=app.display_choices[index];
+      Require(settings.fullscreen==expected.fullscreen && settings.window_width==expected.width &&
+              settings.window_height==expected.height,"Dropdown change did not immediately persist");
+      Require(settings.nickname==old_name && ControlText(app.nickname_control)==L"Unsaved nickname" && app.preferences_dirty,
+              "Display selection submitted or discarded the nickname draft");
+    }
+    {Frame reopened(fixture.root);Require(reopened.app.SelectedDisplay()==app.SelectedDisplay(),"Display selection lost after closing/reopening");}
+  }
+  const auto before=Ini::ReadText(ConfigPath(fixture.root));
+  SaveSharedDisplay(fixture.root,before,{false,1234,696});
+  {Frame frame(fixture.root);Require(frame.app.SelectedDisplay()==DisplaySelection{false,1234,696},"Custom INI resolution silently replaced by a preset");}
+}
 void PreferenceRepaintChecks() {
   Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
   Require(GetWindowLongPtrW(app.hwnd,GWL_STYLE)&WS_CLIPCHILDREN,"Parent painting must clip native preference controls");
@@ -288,7 +313,8 @@ void ColdReadback(const fs::path& root,std::wstring_view expected_language,std::
   Require(cave::launcher::LanguageCode(language)==Utf8(expected_language),"Cold language readback");
   Require(ControlText(frame.app.nickname_control)==nickname,"Cold nickname readback");
   Require(Catalogue()[frame.app.selected].id==Utf8(game),"Independent cold process did not restore the selected game");
-  Require(SendMessageW(frame.app.fullscreen_control,BM_GETCHECK,0,0)==BST_UNCHECKED,"Cold fullscreen readback");
+  Require(!frame.app.SelectedDisplay().fullscreen && frame.app.SelectedDisplay().width==1280 &&
+          frame.app.SelectedDisplay().height==720,"Cold display selection readback");
   Require(ControlText(frame.app.save_control)==T(L"保存"),"Cold localized controls");
   Require(Ini::ReadText(ConfigPath(root))==before,"Readback changed configuration");
   Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==1,
@@ -382,7 +408,7 @@ void MainChecks() {
     Require(language==Language::English && Ini::ReadText(ConfigPath(fixture.root))==saved,"Busy language switch changed config");
     app.focus=12;App::Window(app.hwnd,WM_KEYDOWN,VK_RETURN,0);
     Require(language==Language::Japanese,"Keyboard activation did not select JP");
-    SendMessageW(app.fullscreen_control,BM_SETCHECK,BST_UNCHECKED,0);
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,3,0);
     nickname_responses.push_back(IDYES);
     App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kSaveControl,BN_CLICKED),0);frame.Settle();
     const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root)));
@@ -411,6 +437,7 @@ void MainChecks() {
   NicknameWarningChecks();
   NicknameAlignmentChecks();
   PreferenceRepaintChecks();
+  DisplayDropdownChecks();
   InstanceChecks();
   UpdateChecks();
 }

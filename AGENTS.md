@@ -6,6 +6,385 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+LATEST end-of-implementation checkpoint (overrides every live-process note below):
+NO game running now. Both present-wait tests closed normally. DOI97228 also
+passed Stage1/Shotia pause;8980IDs all completed/0drops,240gameplay bounds mean
+3.3448/p953.977ms,20valid rawframes/nooverflow. Ketsui bound3.2566ms as below.
+Both bilingual READMEs and v081CHANGELOG now include PS4 totals17/16ms versus
+shad55/55ms and CPU.26/.37 versus.62/.34; method is EXPLICIT stage-budget
+estimate with per-runtime sampling periods and completion-return upper bound,
+not physical panel or exact OS timestamps. Plan implementation items checked.
+
+Version now0.8.1 (CMake/product.py/Release.ps1/playerguide). All8 production
+hosts+launcher built successfully before local commit; native PS4 88checks pass.
+Final858source tests:856pass,1skip,1Windows10053 loopback connection-budget
+failure; ONLY failed test rerun passes, original logs retained. No serverchange.
+Actual360Futari960x540 PID73216 reachedtitle, closed; matches150%DPI640x360CUA,
+same as earlierPS4window. Real hidden HWND geometry checks alreadypassed.
+
+Feveron friend archive LAST now resolved: SHAe33af98b..., final
+unimplemented_import HUbZmOnT-Dg#Q#Q libc/libc fromdfeveron_01010+9f74 is
+double atan2, verified by ownNIDhash and fixedshad source. Added SysV double
+wrapper sharing typedhelper, preservederrno; floatentry unchanged. Native3new
+mathcases and authoredSSE/import+wrongnamespace fixtures inrun_native_checks
+pass88/88. Actual production fixture .local/v081-feveron-startup-r1: PID37932
+closed afterattract; PID116772 restartwithONLYCAVE_DIAGNOSTIC_INPUT_TAP_MS100
+to make CU0.6-1.5ms taps reliable, enteredARCADE/TypeA/lockon/defaultspeed first
+stage, moved/fired(score5), eventuallyGO due nohumanmovement, closed normally.
+Same01010core asfriend; exit.ini window_close_requested27, presentation cleanup
+complete, no unimplemented_import. No defaultinput change. Do NOT askhumanhelp.
+
+NEXT: final source audit/diff/commit locally (NOpush), rebuild same localcommit
+for release receipts (mostlyNinja no-op), local Public ZIP+SHA+screenshot, ONE
+actualextract/preservation acceptance, stop before publication. Existing
+.local/accept-v080-program.py is template for v081 acceptance; copy/adapt rather
+than reextractoldZIP. scripts/release_package.py requires cleangit and all3
+receipts sourceCommit==HEAD; currentprecommit receipts still08f0186. Final
+buildlogs .local/v081-final-{common,xbox360,ps4}-build-r1.log. Finalsource log
+.local/v081-final-source-checks-r1.log, isolatedHTTP rerun
+.local/v081-http-budget-rerun-r1.log. No v081 package/publication yet.
+
+LATEST override (Oct29, this checkpoint supersedes ALL older live-process notes):
+Only live game is private DOI PID97228/window24646948, CUA waitD1. CPU-scene
+helper exec70486 running; poll it, then inspect actual Stage1/pause and normal
+AltF4 flush. Label v081-daioujou-present-wait-r1 under input-latency-v080-r1.
+It uses current optimized GPU plus PRIVATE asynchronous present-wait observer;
+CPU here is diagnostic, not public CPU baseline. DOI build7steps succeeded.
+
+Actual progress: KetsuiCPU frame-r2 PID101380 closed normally. .257722cores over
+4.001s is accepted representative Stage1/Type-A; actual raw GPU frames0/15
+verified71.616ms after final CPU read. It retained30valid frames, then dropped
+late frames at capacity2531; don't feed it to strict latency read_capture or
+pretend complete timing ROI. Earlier frame-r1 produced NO pixels because width
+1280 exceeded observer1024limit, not an established WGC/HIF staleness bug.
+New launch_ps4_probe.checked_pixel_region rejects this BEFORE launch; shared
+with shad launcher,3tests pass. run_ps4_cpu_scene now turns ROI OFF after150ms
+and uses Back/Touchpad to pause M2 games: Options is arcade Start, NOT pause.
+
+ShadKetsui PID112948 closed: CPU-r1(.629) was PSN dialog, REJECTED. After real
+observed clearing signout/credit dialog, insert coin/Start, select Type-A and
+3s wait, CPU-r2 is .616953cores/4.002s. Actual immediate end shows Stage1 pause,
+2spares,0score, intro river. Not identical exact frames to native laterStage1.
+DOI earlier native.369014/shad.341682 both valid representative scenes as below.
+Aggregate .local/input-latency-v080-r1/v081-ps4-cpu-comparison-r1.json records
+hashes, scene limitations and includes input timestamp observer in BOTH builds;
+do not label these uninstrumented CPU or attribute entire difference to one fix.
+
+Postpresent: NEW tools/latency/vulkan_present_wait.h, async bounded request
+worker, NO render-thread wait; sourceID joins exact trace Presentbegin. New
+scripts/vulkan_present_wait.py +5tests pass (timeout/drop/reversed clock/source
+reuse rejected). Standalone r9 bench all3eight-second controls pass. Wait-mode
+Immediate421steady bounds mean3.942/median3.727/p957.673ms; FIFO7.295/7.435/12.965.
+This is KHR completion-notification upper bound, NOT precise OS event or photons.
+Private Ketsui actual r1 PID84940 closed,8822IDs all completed/0drops/0errors,
+trace74575complete/0overflow; same CPU window240real game presents gives bound
+mean3.25657/median3.37245/p954.1964/max5.3351ms.20raw GPU frames valid/0overflow,
+first+67.443ms; actual Stage1 pause confirmed. Summary -present-wait-r1-summary.
+Production source/binaries do NOT enable present-wait. Private source generator
+prepare_ps4_present_wait_probe.py copies presenter and vk_instance; rebuild tool
+compiles private vk_instance then resolves it before original static library,
+checks original inputs unchanged. NativeK buildr2 7steps passed; failed prep1/2
+and build1 remain (source match/const pNext typing), corrected in generator.
+KHR wait is supported on this GPU but no new production dependency introduced.
+
+Current remaining: DOI present-wait end/analysis; actual360 resolution launch;
+final honest PS4 total latency/CPU tables +bilingual docs; Feveron friend ZIP
+LAST; version0.8.1 and same-snapshot builds/localZIP/SHA/screenshot/one acceptance.
+NO v081 package, push, tag, upload or release yet. User sleeping; no help/UAC.
+
+RUNNING NOW override: private frame-r1 KetsuiPID8956/window22353188, CUA variable
+cpuFrameK, raised. CPU scene runner launched in exec session74750; poll THAT
+session, do not restart on observation timeout. It replays accepted nativeR4
+navigation to~66.9s, samples4s, then arms ROI90 and requests Options91. Output
+v081-ketsui-cpu-frame-r1-result.json plus -navigation.json under input-latency-
+v080-r1. Inspect actual end/rawGPU scene after normalAltF4 flush; ROI30full
+1280x720 frames created ONLY AFTER CPU. This is not yet accepted gameplay CPU.
+The latest helper metadata names pause_REQUESTED (ACK isn't proof of pause).
+Ketsui r5 ended234.30ms/s but CUA signout/credit3/AMI, rejected; no traceoverflow
+(291467complete). No newWGC-stale or product-regression claim without rawframes.
+All other games/builds are closed. No release artifacts created or published.
+
+LATEST October29 ~03:40 override to checkpoints below: KetsuiCPU r5 also failed
+visual acceptance (post-sample CUA was signout, then credit3-unlock, then AMI
+with credit0). It is234.30ms/s but DO NOT use it as gameplay CPU. Its full trace
+was flushed after normalAltF4,291467records/zerooverflow; test-pad capacity
+was NOT the cause. After clearing dialogs AMI appeared static in repeatedCUA;
+could be timing/navigation or stale HIF window capture, not established as a
+product regression. All prior KetsuiCPU r1..r5 remain unaccepted. NO LIVE old
+game29032 now. CUA cpuKetsuiR5 window961023178 is stale.
+
+Better next action ALREADY prepared: rebuilt a complete private native+GPU ROI
+observer against CURRENT production objects (including shader coalescing),
+rebuild_ps4_probe.py using unchanged verified v081-ketsui-bootstrap-probe-r1;
+new v081-ketsui-cpu-pixels-build-r1,6compile/linksteps succeeded, no originals
+modified. Fresh staged v081-ketsui-cpu-frame-r1 has fullscreentrue/vsyncfalse,
+seed from old private accepted latency fixture, --pixel-region0,0,1280,720,30.
+New launchlabel v081-ketsui-cpu-frame-r1 JUST STARTED; read launchJSON forPID.
+Not raised/runner-started at this exact checkpoint. This test captures RAW GPU
+frames after CPU to resolve possible stale CUA/HIF captures and actual scene.
+
+run_ps4_cpu_scene.py now EXCLUDES original nav command90 (doesn't change released
+controls) and uses activeCPU pulse IDs1001+, so existing vulkan_pixel_probe.h
+gate90<=command<1000 makes NO ROI allocations/copies during CPU. AFTER sampler
+last CPU read it sends90/zero, waits100ms to capture actual unpaused scene, then
+91/Options to freeze and capture following UI. Thus do not call65000 to pause:
+that disables ROI. This design is test-only, no production flags changed. Run
+helper using accepted v081-ketsui-latency-r4-trace.csv as reference, newlaunchJSON,
+fresh output name -result.json to avoid launchlabel metadata collision. Duration
+~71s; stop/flush normally afterwards and inspect raw pixels, not just CUA. If
+raw scene notStage1, reject, fix navigation from actual scene instead of blindly
+repeating r1..r5. Existing Shad ROI observer uses same gate and supports full
+1280x720 source; accepted old header confirms width1280,height720. For its CPU
+test use --pixel-region0,0,1280,720,30 and helper exact nav ref
+shad-ketsui-core-pixels-r3-trace.csv; capture ONLY AFTER CPU for scene proof.
+
+PlayerREADME CN/EN display paragraph updated to dropdown/remembers selection;
+version still0.8.0. No newCPU table or VulkanPresentWait observer implemented.
+No game processes other than JUST launched new frame-r1 known live; no builds.
+
+October29 03:32 checkpoint: user handed over computer and is sleeping; continue
+v081 autonomously, no help requests, STOP before release as originally agreed.
+Concrete progress this turn: shader metadata/code coalescing implemented in
+third_party/ps4/gpu_core/host/gpu_program.{h,cpp}, with8 meaningful new mutation/
+layout/fallback checks in program_reader_tests.cpp. Nearby metadata (gap<=64)
+can be reread with the full current code in ONE RPM rather than two; no stale
+code or metadata cache. Disjoint/shrunk mapping falls back and demotes the hint
+so no repeated speculative faults. API/pacing/fences unchanged. Production GPU
+DLL now6b91733ace7fae16771b632877befb55a761805930bc8d8ad3787d004fe9af5c.
+GPU7 tests pass (first cache fixture failed due nested CacheMemoryScope in new
+test, fixed to reuse current backend; failed target rerun passes, other6 pass).
+Complete Python source tests850 pass/1 skipped, .local/v081-source-checks-r1.log.
+Real hidden HWND/DPI/workarea/aspect tests added common_test.cpp and passed;
+common/launch and launcher359 previously passed, all8 production hosts built.
+
+Controlled authored GPU microbench128samples/16warmup/two repeats:
+.local/offline-bench/v081-processing-baseline-r1/report.json versus
+v081-processing-coalesced-r1/report.json.170draw mean731.25->562.07us(-23.14%);
+250draw934.46->768.19us(-17.79%); RGB/draw/fence checks pass. No other renderer
+ran during these benchmarks. Actual DOI timing profile R1 PID129716/R2 PID103608
+both closed,425batches/~7.08s each: pipeline1144->931us, nested shader read
+530->311us; vertices/resources roughly unchanged. Not pixel/frame matched,
+use as corroboration not exact whole-frame gain or subtract from4.01ms.
+Reports v081-daioujou-processing-breakdown-r1/r2.json under input-latency-v080-r1.
+Docs ANALYSIS/TEST_MATRIX updated, plan now explicitly requires processing opt.
+
+CPU work: DOI native PID129616 closed, eight-second ARCADE/TypeA/Shotia fixed
+sequence yields369.014ms/s=.369cores, v081-daioujou-cpu-r1.json. Native endpoint
+CU shows still playing Stage1/midboss, with last life, valid representative
+gameplay. Shad DOI first CPU r1=.422cores is NOT accepted (slow old navigation,
+end GameOver/credit-unlock modal). Fast same native navigation Shad r2 PID117480
+closed,341.682ms/s=.342cores, v081-shad-daioujou-cpu-r2.json; CU during/end
+window shows Stage1A/Shotia/TypeA with2spare lives and actual shots. Both low
+overhead input timestamp probes, NO ROI/timing trace. Trace overhead is included;
+don't label these ordinary uninstrumented production figures. Same monitor/
+fullscreen but nativeImmediate/shaddefaultFIFO, profile/stage identities recorded.
+No table yet, don't hide DOI CPU reference being slightly lower than native.
+
+KetsuiCPU attempts r1(.172) stayed signout menu; r2(.287) endedGO; r3(.117)
+returned signout; r4(.242) used correct full recorded navigation but no end pause
+so not accepted by visual scope yet. DO NOT silently use these in public table.
+Ketsui has LATE PSN/signout dialogs after ~30s: generic fast DOI sequence fails.
+Accepted old nativeR4 source pre101: Start0/1.98s; B2.706..10.989 seven times;
+then B41.609/42.989; Y45.598; Start46.296; X57.971; zero66.575; sample66.901.
+Use new tools/latency/run_ps4_cpu_scene.py to replay that actual timing and
+sample4seconds with small100ms left/right+fire pulses. It NOW automatically
+sends Options/Start AFTER last CPU read to freeze endpoint for CU inspection,
+metadata scene_verified=false until actual CU proof. Avoid repeated blind
+navigation. Current new nativeKetsui label v081-ketsui-cpu-r5 launched in
+.local/input-latency-v080-r1/v081-ketsui-cpu-r1; CHECK launch JSON/PID live.
+Not yet raised or runner started at this checkpoint. No other game known live.
+Old CUA cpuKetsuiR4 window371854160 is stale. Current Ketsui game EXE56610451...
+and latest production GPU6b9173...; source fixture binaries documented under
+v081-ketsui-cpu-binaries-r1 and probe-stage.json. Native DOICPU EXEaf5dee7...
+is old pinned private observer with same original input semantics; trace on,
+ROI off. After nativeKetsui, shadKetsui uses existing shad-ps4-r3 fixture,
+launch_shad_probe.py default audit, replay accepted shad-ketsui-core-pixels-r3
+trace; sample same4s and freeze; actual screenshot required before accepting.
+
+Remaining v081: finish CPU/table with honest endpoints and sample scopes;
+actual360 window dimension launch; final post-Present alignment evidence;
+Feveron friend archive LAST; bilingual playerREADME/changelog/version0.8.1;
+same-snapshot builds and local ZIP+SHA+screenshot, one acceptance, NO publish.
+Version STILL0.8.0, no local v081 package. All changes uncommitted; no push/tag.
+Postpresent critical limitation still holds: real GPU bootstrap changes games
+toHIF and same-session DXGI->OS~.9ms versus360~.98ms, but that's INTERNAL DXGI,
+not same-image application Vulkan->OS. Authored no-feedback bench causal tail
+~.494ms median, actual-game endpoint still needs proof/bounds. Researched
+VK_KHR_present_wait: supported (and wait2/id/id2) per original GPU extension log.
+An asynchronous waiter keyed by owned image/presentId could give a completion
+upper bound without UAC; don't block render or remove pacing to measure it.
+Official vkWaitForPresentKHR has approximate first-pixel semantics, NOT physical
+photons; mailbox replacement/retired swapchains and observer backlogs matter.
+No waiter implemented yet. Keep diagnostic extension use separate, because
+previous VK_EXT_present_timing itself changed driver presentation path.
+No new UAC can be confirmed by sleeping human; no security bypass/Taskmgr.
+
+October29 latest human steering: computer is available, human is sleeping and
+cannot assist. Complete GUI/tests autonomously; do not wait for manual input.
+They explicitly require PS4 processing optimization in v0.8.1, beyond the
+presentation/queue fixes already made. DOI accepted single response4.006ms is
+wall time: original frame callback remainder.929ms; then2.734ms to prepare;
+snapshot/ready->CPU Present.343ms. Same-process submission3154 matches response
+prepare within5.1us and is unique: execute2.291ms,241draws, draw1.821ms,
+ACQUIRE_MEM.241ms,99prefetches.055ms,flush.031ms,other.128ms. Saved evidence
+.local/input-latency-v080-r1/v081-daioujou-response-cost-r1.json. Inspect existing
+EVAC_PS4_TIMING_TRACE draw breakdown and authored offline bench before changing
+GPU code. WithNativeVideoGpu ALREADY wraps the complete command parser in one
+resident->Run; nested Sync is reentrant, do not propose batching as a new fix.
+Futari prior core update.115ms/draw.432ms are wall intervals from a different
+game/scene; don't call all4ms CPU or compare17ms pacing as processing.
+Main table always includes sampling wait plus game/draw plus output tail.
+
+All eight production hosts now rebuilt successfully with fresh vsync=false
+and requested display sizes. Logs .local/v081-display-default-{common,ps4,
+xbox360}-build-r1.log. common/launch tests pass; launcher hidden359 and PS4
+compatibility tests pass. New private .local/v081-window-cpu-r1 contains
+production Futari/Ketsui/DOI and launcher,960x540 window, offline/no gamepad.
+Ketsui108984 window test reached ARCADE and has been closed normally by AltF4.
+Earlier85456 failed startup because its PS launch passed one concatenated
+argument; receipt v081-window-ketsui-launch-r1.json is NOT valid runtime test.
+Correct launch r2 used Python argument list. No game processes known live now;
+recheck before another renderer. CUA handle winCpu1452084108 is stale.
+CPU/shad table, processing optimization, actual 360 window validation, friend
+Feveron crash LAST, final same-snapshot build/package remain. No publication.
+
+October29 latest checkpoint: Ketsui40732 has now exited normally; exit.ini in
+.local/v081-ketsui-user-play-r1/logs/ketsui/run-20261028T181446238Z-40732
+records window_close_requested, code27, presentation_cleanup_complete=true.
+Recheck live processes before further interactive tests. Fresh shared vsync
+default is now false in Settings/default.ini; explicit existing true remains
+true. New default assertions and both README display-setting paragraphs changed;
+these newest edits still need final build/tests. No v081 package/publication.
+The user questions whether4ms skips periodic sampling: original DOI frame
+callbacks in R3 are129 samples, median16.667ms. First response PadRead+4.487ms,
+original delivery+.480ms, callback return+1.410ms; next callback+17.131ms.
+Evidence v081-daioujou-input-phase-r1.json under input-latency-v080-r1.
+Do not call delivery return an actual emulated CPU port read or4ms a full
+input latency. VSync FIFO adds refresh/queue wait after GPU readiness, separate
+from the original60Hz game clock. Analysis now explains this and conditional
+144Hz/60Hz refresh waits. Still finish all v081 requirements and LAST friend
+Feveron archive; no source changes/builds beyond the above newest defaults yet.
+
+October29 02:15 historical handoff: the human was trying the new presentation path.
+Production Ketsui PID40732 was launched in
+.local/v081-ketsui-user-play-r1, fullscreen=true / vsync=false, normal keyboard
+and gamepad enabled, no latency observer or synthetic input. Receipt
+.local/v081-ketsui-user-play-r1-launch.json. Do not control/close this window,
+start another renderer, or run heavy builds/benchmarks while they are playing.
+Continue lightweight source/docs/offline analysis; resume interactive tests
+only after they finish or explicitly authorize them. Earlier Feveron17764
+test window was already absent when switching. Its independent logs remain.
+The human asked what disabling vsync means: game still uses original60Hz
+guest pacing; host presentation needn't wait for screen refresh and can tear.
+
+The approved one-hour collector69872 has NOW EXITED normally. Raw
+.local/v081-runtime-display-r1.csv has120553 rows, SHA
+e321ab82652003ebf82b3a17d7a99366c701abc066b95aa7661f80ce503ecd87.
+Summary .local/v081-runtime-display-r1-summary.json SHA2ef1031e...cf813,
+generated by tools/latency/report_runtime_display.py. Twelve processes,
+no repeated frame identities; two out-of-order startup ETW rows are explicitly
+counted, not used as Vulkan image joins. Native four games use Hardware
+Independent Flip after bootstrap, driver-DXGI->OS tail roughly.9..1.3ms;
+same-session production Futari134264 about.98ms. Shad96568/93224 hardware
+composed independent flip about4.5ms. Mixed menus/attract/gameplay, not same-image
+Vulkan->OS or photons. All reference/probe processes are closed.
+
+Accepted new first-response evidence: Ketsui R4 PID124092,146ROI/50763complete,
+core-delivery->first-response CPU Present4.9432ms; report
+.local/input-latency-v080-r1/v081-ketsui-first-response-r1.json, reviewer
+tools/latency/review_ketsui_v081_pixels.py. DOI R3 PID100224,148ROI/57026complete,
+4.0063ms; report v081-daioujou-first-response-r1.json, reviewer
+review_daioujou_v081_pixels.py. Two disjoint body features per response, zero
+trace overflow. Each accepts ONE response, not a mean/P95. Original DOI73.4343
+uses SAME core delivery->CPU Present endpoint (15.2343+16.7976+41.4024), but
+old config WINDOWED/FIFO and candidate FULLSCREEN/Immediate differ. Human asked
+this exact comparison; explain both common endpoint and changed conditions,
+not a controlled mean69ms saving or physical input-to-light. Actual emulated
+CPU port-load and physical frontend still unmeasured; delivery is the original
+integration input function returning, not a physical switch timestamp.
+
+New production policy/default vsync still unresolved (source/default.ini true).
+CPU/shad comparisons, actual window-size handoff, final complete build/packages
+and LAST friend Feveron crash remain. No publication and no scope reduction.
+New microbench r8 adds proper DPI and HWND lifetime; FIFO and no-feedback
+bootstrap Immediate121frames each pass. r7 measured sources archived under
+.local/v081-vulkan-present-bench-r7/sources before editing. Sampler
+sample_process_cpu.py only API-smoked against a shell, NOT game CPU evidence.
+
+Latest steering: record friend Feveron start-of-game crash archive
+C:/Users/Xiaolu/Downloads/feveron.zip. Add to v081 and investigate/fix LAST,
+after current latency work/regressions, before final local packages. Do not
+interrupt the current measurement sequence or treat our successful Stage1
+as proof that this other-machine report is solved. Source archive untouched.
+
+October29 01:29 checkpoint: approved PresentMon2.5.1 collector69872 is live
+until02:02:52 Asia/Shanghai, .local/v081-runtime-display-r1.csv (one-hour bounded
+capture; do not restart it because the CSV is write-locked). Microbench r7 and
+controlled ETW show NVIDIA Immediate-only startup takes Composed Copy/GPU GDI;
+creating then replacing an unused FIFO swapchain selects Independent Flip
+without timing extensions. OwnDC alone does not help. Evidence in
+.local/v081-wsi-controls-r1/comparison.json and per-case raw captures. Production
+bootstrap helper and lifecycle tests pass252 native compatibility checks;
+all four PS4 production binaries and fresh private probe built successfully.
+The timing extension itself changes the driver path, so feedback-enabled
+microbench results cannot establish production behavior. Game capture still
+needs final ETW verification after collector exit. Existing fallback is
+Immediate -> Mailbox -> required FIFO when vsync=false, FIFO when true.
+Default vsync remains true; low-latency default policy is still unresolved.
+Current candidate Ketsui private R3 entered ARCADE/Type-A/Stage1 successfully
+with180ms Y then Start (earlier500ms holds were unreliable, not proven a runtime
+regression). Trace complete171487 records/zero overflow; owned image
+prepare->Present median.381ms, ready->Present.056ms in the requested interval.
+Its149 ROI frames show CONTINUE and cannot establish first-response latency.
+Fresh R4 PID124092 is now navigating the same fixture with earlier bounded
+sampling planned. Do not accept R3 as input-to-image evidence. Baseline
+control80856 also entered Type-A and closed normally. Launcher dropdown actual
+UI/persistence passed960x540 close/reopen in private fixture; game size launches
+and Xbox builds remain. Goal v081 active; no publication; all requirements stay.
+
+October29 admin-display checkpoint: the human asked to prioritize any UAC-assisted
+display capture before sleeping. The approved PresentMon2.5.1 session75904 ran
+900s and auto-exited00:10:04 Asia/Shanghai. Raw .local/v081-display-admin-r1.csv
+has43980 rows, SHA d1dd08731026ad6f69b404cf47098832643b818bf9f9bd0cd99961a49e5fdef3;
+summary .local/v081-display-admin-r1-summary.json preserves per-PID/mode results.
+Captured candidate Ketsui130588, accepted v080 Futari20660, shad110828. All three
+test games and collector have now closed normally. GPU/display feedback exists;
+do NOT say the capture failed because the CSV was locked while collecting.
+CRITICAL: NVIDIA Vulkan's tracked DXGI events are asynchronous to actual
+vkQueuePresent calls: only3 contained intervals per Vulkan trace, NOT accepted
+causal image/display joins. Do not label internal DXGI->display distributions
+as Vulkan call->display or input->display measurements. No accepted input
+response was obtained in these menu/title/attract scenes, no representative CPU
+claim. Independent Flip and Hardware Composed Independent Flip differ, retain
+separate groups. Both private traces flushed complete with zero overflow.
+Current GPU supports VK_EXT_present_timing rev3, surface stages0x5 (queue end
+and FIRST_PIXEL_OUT, NOT FIRST_PIXEL_VISIBLE), relative timing only. Driver
+present-ID feedback is a useful next non-admin route; it
+still needs implementation/verification, not a measured result. Baseline alone
+does not accept future backend changes. The v081 goal remains active, all four
+requirements and local packages remain, NO publication. No need to repeat this
+admin baseline or restart games just to inspect the same unchanged CSV.
+
+LATEST human request (October28): IMPLEMENT v0.8.1 through accepted local
+packages, then STOP before formal release. All four requirements stay in scope;
+no scope reduction to only UI or research. No push/upload/tag/Release/QQ until
+separately requested. Human allows computer use and has finished playing; use
+independent test directories, preserve C:/evac-pc-label and frozen v0.8.0.
+Authoritative list at
+docs/IMPLEMENTATION_PLAN.md: PS4 latency target aligned with360 1V; replace
+launcher fullscreen checkbox with a polished fullscreen/window-resolution
+dropdown, persisted in user-data/config.ini; after optimization publish PS4
+latency and equivalent-core CPU comparisons against shadPS4 in both READMEs;
+research lower-version Vulkan options and report feasibility/cost. Cover all
+four PS4 games, first baseline Ketsui/DOJ; preserve timing/replay/audio behavior.
+ADDED human requirement: PS4 post-Present GPU/WSI/desktop-composition/display
+adoption latency must ALSO align with360 1V. Do not stop at vkQueuePresent or
+reuse D3D12 historical tail as measured Vulkan data. Common endpoints/display
+conditions; monitor scanout/panel separate. This is part of the completion gate.
+Do not equate1V with a fixed physical input-to-light latency. Frozen v0.8.0
+release remains unchanged. Baseline worktree has only the two requirement-note
+edits in AGENTS.md and docs/IMPLEMENTATION_PLAN.md; these are ours, preserve them.
+
 v0.8.0 publication COMPLETE (October28 22:59 Asia/Shanghai). GitHub release
 426810838 is stable/Latest at /releases/tag/v0.8.0; main and annotated tag pushed.
 Tag/runtime source3ae60a6, release-note documentation40f7eea. ZIP and checksum

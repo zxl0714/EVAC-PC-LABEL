@@ -7,7 +7,8 @@ struct ProgramStore {
     std::map<u64, std::vector<u32>> programs;
     // Only read extents are remembered. Code and metadata are reread on every
     // lookup, including reuse of the same address after guest writes/remapping.
-    std::map<u64, u32> read_extents;
+    struct ReadExtent { u32 code_bytes{}, read_bytes{}; };
+    std::map<u64, ReadExtent> read_extents;
     std::vector<u32> read_scratch;
     bool scratch_leased{};
 };

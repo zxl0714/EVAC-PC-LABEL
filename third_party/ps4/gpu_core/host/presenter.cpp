@@ -5,6 +5,8 @@
 #include "diagnostics/monotonic_clock.h"
 #include "diagnostics/timing_trace.h"
 #include "graphics/present_mode.h"
+#include "snapshot_handoff.h"
+#include "swapchain_bootstrap.h"
 #include "sdl_window.h"
 #include "video_core/host_shaders/fs_tri_vert.h"
 #include "video_core/host_shaders/host_present_frag.h"
@@ -80,7 +82,7 @@ struct Presenter::Impl {
   vk::UniquePipelineLayout layout;
   vk::UniqueSampler sampler;
   vk::UniquePipeline pipeline;
-  enum class SnapshotState { Free, Writing, Ready, Presenting };
+  using SnapshotState=cave::ps4::SnapshotOwnership;
   struct Snapshot {
     vk::UniqueFence copied;
     std::unique_ptr<VideoCore::UniqueImage> snapshot;
@@ -102,6 +104,7 @@ struct Presenter::Impl {
   std::array<FrameResources, PresentResourceSlots> frames;
   u32 next_frame{};
   bool vsync = true;
+  bool window_chain_established{};
   u64 presents{};
   const vk::Semaphore copy_timeline;
   const vk::Queue output_queue;
@@ -538,8 +541,8 @@ struct Presenter::Impl {
       count = std::min(count, caps.maxImageCount);
     }
     const auto device = instance.GetDevice();
-    chain = Checked(device.createSwapchainKHRUnique(
-                        {.surface = surface.value,
+    const vk::SwapchainCreateInfoKHR create_info{
+                         .surface = surface.value,
                          .minImageCount = count,
                          .imageFormat = selected->format,
                          .imageColorSpace = selected->colorSpace,
@@ -551,8 +554,14 @@ struct Presenter::Impl {
                          .compositeAlpha = alpha,
                          .presentMode = SelectMode(),
                          .clipped = true,
-                         .oldSwapchain = std::exchange(replacement_old, {})}),
-                    "Create tracked swapchain");
+                         .oldSwapchain = std::exchange(replacement_old, {})};
+    const bool bootstrap=!window_chain_established && create_info.presentMode!=vk::PresentModeKHR::eFifo;
+    chain=cave::ps4::CreateWindowSwapchain(create_info,window_chain_established,
+        vk::PresentModeKHR::eFifo,[&](const auto& info) {
+            return Checked(device.createSwapchainKHRUnique(info),"Create tracked swapchain");
+        });
+    if(bootstrap) std::fprintf(stderr,"gpu_runtime_swapchain_bootstrap: initial=Fifo selected=%s temporary_presents=0\n",
+                               vk::to_string(create_info.presentMode).c_str());
     images =
         Checked(device.getSwapchainImagesKHR(*chain), "Get swapchain images");
     Require(images.size() <= MaxChainImages, "Swapchain image count exceeds resource bound");
@@ -652,8 +661,7 @@ struct Presenter::Impl {
                            retired_at, recorded_at, submitted_at};
     return result;
   }
-  bool PresentSnapshot(u32 snapshot_index) {
-    auto &snapshot = snapshots[snapshot_index];
+  bool PresentSnapshot(u32& snapshot_index) {
     for (unsigned retry = 0; retry < 9; ++retry) {
       const auto began = kt::diagnostics::MonotonicMicroseconds();
       RECT client{};
@@ -703,6 +711,16 @@ struct Presenter::Impl {
         RetireImage(image_presents[index]);
         RetireOldChains();
       }
+      {
+        // WSI acquisition / resource retirement can block. Select pixels only
+        // after those waits, not when this worker first woke up.
+        std::lock_guard lock(handoff_mutex);
+        if(cave::ps4::LatchNewestSnapshot(snapshots,ready_snapshot,snapshot_index)) {
+          ++stats.replaced;
+          stats.ready_images=0;
+        }
+      }
+      auto& snapshot=snapshots[snapshot_index];
       const auto command = *frame.command;
       Check(command.reset(), "Reset window command buffer");
       Check(command.begin(
@@ -870,7 +888,7 @@ struct Presenter::Impl {
         if (stopping)
           return;
         if (ready_snapshot && !diagnostic_paused) {
-          const auto index = *ready_snapshot;
+          auto index = *ready_snapshot;
           ready_snapshot.reset();
           snapshots[index].state = SnapshotState::Presenting;
           stats.ready_images = 0;

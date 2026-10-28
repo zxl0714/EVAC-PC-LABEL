@@ -2,6 +2,7 @@
 #include "diagnostics/crash_reporter.h"
 #include "input/configured_input.h"
 #include "common/catalogue.h"
+#include "common/window_geometry.h"
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/system/gpu_plugin.h>
@@ -85,6 +86,8 @@ bool CollectionApp::SetupEnvironment() {
         Flag("log_level",run_->settings.log_level);
         Flag("log_async_file","true");Flag("log_flush_interval","2");Flag("log_max_files","3");
         Flag("fullscreen",run_->settings.fullscreen?"true":"false");
+        Flag("window_width",std::to_string(run_->settings.window_width));
+        Flag("window_height",std::to_string(run_->settings.window_height));
         Flag("mnk_mode","false");Flag("allow_game_relative_writes","false");
         Flag("audio_master_volume",std::to_string(run_->settings.volume));
         const auto mappings=rex::filesystem::GetExecutableFolder()/"gamecontrollerdb.txt";
@@ -121,6 +124,9 @@ void CollectionApp::OnPreSetup(rex::RuntimeConfig& config) {
     OnGamePreSetup(config);
 }
 void CollectionApp::OnCreateDialogs(rex::ui::ImGuiDrawer*) {
+    if(!window()->IsFullscreen())
+        cave::FitGameWindow(static_cast<HWND>(window()->GetNativeWindowHandle()),
+                            run_->settings.window_width,run_->settings.window_height);
     window()->SetTitle("EVAC PC LABEL — "+std::string(cave::FindGame(game_).DisplayName()));
     rex::ui::UnregisterBind("bind_settings");shortcuts_=std::make_unique<Shortcuts>(window());
 }

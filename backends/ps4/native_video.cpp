@@ -1,4 +1,5 @@
 #include "native_video.h"
+#include "common/window_geometry.h"
 #include "native_async_log.h"
 #include "native_diagnostics.h"
 #include "native_host_timing.h"
@@ -284,6 +285,13 @@ DWORD WINAPI WindowThread(void* argument) noexcept {
     if (!window) { job->failure.store(GetLastError()); SetEvent(job->ready); }
     else {
         job->window.store(window);
+        try { cave::FitGameWindow(window,job->display.window_width,job->display.window_height); }
+        catch(const std::exception& error) {
+            std::fprintf(stderr,"Game window sizing failed: %s\n",error.what());
+            job->failure.store(ERROR_GEN_FAILURE);DestroyWindow(window);SetEvent(job->ready);
+            if(previous_dpi)SetThreadDpiAwarenessContext(previous_dpi);
+            return 0;
+        }
         if (job->visible && job->display.fullscreen && !ToggleFullscreen(window, *job)) {
             job->failure.store(GetLastError() ? GetLastError() : ERROR_GEN_FAILURE);
             DestroyWindow(window);
@@ -801,6 +809,8 @@ std::uint64_t ResolveVideoImport(std::string_view identifier, std::string_view l
 }
 
 void ConfigureNativeDisplay(NativeDisplaySettings settings) {
+    if(settings.window_width<320 || settings.window_width>7680 || settings.window_height<180 || settings.window_height>4320)
+        throw std::runtime_error("Invalid game window dimensions");
     if (settings.title.empty() || settings.title.size() > 256 || settings.title.find(L'\0') != settings.title.npos)
         throw std::runtime_error("Invalid game window title");
     auto& state = State(); std::lock_guard lock(state.mutex);
