@@ -6,6 +6,24 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+FINAL v0.8.1 COMPLETE locally. Stop work; no push/tag/upload/publication.
+Code/build/package commit d33c4455ab62cdff5bb8c72ab7798c3ddb0976d9. Subsequent
+commit is documentation-only completion checkpoint; DO NOT rebuild/repackage
+just because HEAD now has that documentation commit. All3release build receipts
+and packageSOURCE point to the exact tested code commit d33c445. All8runtimes
+and launcher built, accepted program ZIP110878509bytes, SHA09b7d35a85129caa223c
+5bfc669160ed234a35b2ef9024a8f2875d2e8247b1d7. Path releases/v0.8.1-final-d33c445/
+EVAC-PC-LABEL-v0.8.1-win-x64.zip, adjacent .zip.sha256, launcher-v0.8.1.png and
+release-notes.md. ONE actual extraction161files/9preservationchecks accepted:
+.local/release-acceptance-v081/09b7d35a85129caa/accepted.json. Actual extracted
+launcher PID124808 opened/selected960x540/closed; PID100792 reopened with AX
+960x540 confirmed, closed. No games/launcher left running. No publication.
+Implementation, CPU/latency methods and Feveron fix details immediately below
+remain valid; all older RUNNING/NEXT notes are historical. Final docs record
+the one transient source HTTP10053 failure and isolated passing rerun, not an
+invented all-green first run. Next user action may authorize publication; don't
+relaunch games, collect more latency, reextractZIP or publish automatically.
+
 LATEST end-of-implementation checkpoint (overrides every live-process note below):
 NO game running now. Both present-wait tests closed normally. DOI97228 also
 passed Stage1/Shotia pause;8980IDs all completed/0drops,240gameplay bounds mean
