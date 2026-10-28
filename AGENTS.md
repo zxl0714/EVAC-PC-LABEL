@@ -6,6 +6,794 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+NEW human CPU-comparison request (October28), separate from completed latency goal:
+three accepted Xenia CPU replay-opening windows, Guwange still UNMEASURED.
+Do not reopen the old latency goal. Reused existing optimized EVAC CPU evidence.
+Current reader entry docs/ANALYSIS.md section 补充：优化版与 Xenia 的 CPU 对照.
+Private .local/xenia-cpu-v080-r1/comparison-r1.json SHA
+508082e5b2db5c4ec8e4f8853f7da22892f4aa1c95e3dca54e0d4e81d5b262ab.
+Futari HD No5 Xenia1258.97 vs77.37/84.21 CPUms/s; G2 BL Seseri No2 Xenia1373.41
+vs368.54/394.00; SDOJ ArcadeHD No1 Xenia3462.46 vs412.65/456.03. Request windows
++9.5..14.5,+50..65,+15..35, effective4.567/14.915/19.919s. NOT frame-lockstep:
+G2 post-view CONTINUE, SDOJ pre10s entrance/post35s Stage1; SDOJ native1V vsXenia3V.
+CPU helper .local/Measure-XeniaCpu.ps1, recheck .local/summarize_xenia_cpu.py.
+Excluded Futari r1 truncated1.39s and SDOJ r1 load-complete dialog. G2 r1 1455.56
+is supplementary, not primary. All accepted raw CPU differences recomputed.
+Xenia private input-only relink (not official EXE)0256194c...4e412, base291f0c9;
+main disables ALL Record before game init; private test_pad Publish fallback
+sequence preserves packet changes without recording. No guest sites/pixels/ETW/
+GPUtimestamps. Build scripts .local/build_xenia_cpu.py and Build-XeniaCpu.ps1;
+build-r1 zero packet navigation failed, r2 fixed. Original libs/source unmodified.
+G2 native header XUID B13 resolves to B13 despite E030 enumeration: copied native
+TEST B13 path into private content, replay payload unchanged. Same for SDOJ.
+Guwange loaded Blue but Xenia text missing; three bounded none/full/fresh-profile
+attempts did NOT confirm same Blue Data1 playback. Do NOT report its menu CPU or
+declare all-four comparison complete, or claim Xenia cannot run the title (prior
+ordinary-mode latency gameplay passed). Latest fixture guwange-r4;111200 CLOSED
+normally. All games/compilers/collectors closed, node cpuWindow stale. No production
+code/runtime/game-data/config or frozen ZIP changed; no publication/push authorized.
+If user continues this comparison, only Guwange remains; reuse the other three.
+
+FINAL six-game latency analysis assembled/audited (October28). Prior goal turn
+was concrete progress; this turn finalized the requested report, no new gameplay.
+Authoritative reader entry: docs/ANALYSIS.md section 本轮输入延迟结论 at top;
+seven rows = six titles plus OPTIONAL G2 1V, with verified-response-only medians
+or explicitly single examples,60Hz duration units (NOT V), pair differences,
+same-sample source->core and DIRECT source->first-response totals, physical
+frontend/code analysis and144Hz/screenCENTER/THEORY light column. Physical H,
+post-Present R and panel D are unknown, not zero; full total H+B+R+S+D remains
+symbolic. No hardware-to-photon ranking or fixed advantage from tiny samples.
+ESP Ra.De./Feveron remain HELD by human, not incomplete requirements this round.
+Final tool tools/latency/finalize_input_latency.py rehashes retained reports,
+trace/image sources, frontend code and staged runtime files. Current receipt
+.local/input-latency-v080-r1/six-game-final-analysis-r2.json SHA
+0252e2e36e3dbe6a27b5182e36ad2d6061d3b9f7a4d60a3263c06e45b4c4bf02;
+82reports/258files checked. Source HEAD Xenia291f0c9be398a3e0a0e29f378cbd564fa28c55a9,
+shad529ceb32f5546b820588f194b903cc39d08015fe confirmed. Measurement EXEs are
+instrumented private builds, distinct from historical stock official binaries.
+188latency-pattern tests pass incl6final-summary tests; diffcheckclean. Plan
+latency item now marks SIX-title ANALYSIS complete, not unknown hardware
+measurements. TEST_MATRIX has requirement-by-requirement completion audit.
+No games/builds/collectors live; frozen ZIP hash unchanged8a93f2ac...4408b3d.
+NO MORE gameplay, variants, sample enlargement, ETW/UAC, packaging, publication,
+push, OSS or QQ for this analysis. Remaining turn action: show/deliver final
+table and close the active analysis goal only after final document verification.
+
+LATEST DOJ+PS4 closure (October28), supersedes currently-linking note below:
+shad SESSION52006 FINISHED0; source shad-daioujou-probe-r1/build-r1 SUCCESS,
+EXEcf858b179e7f1b203ed95427944303145f930ade61c331e0817dddefa25931ab.
+Fixture shad-daioujou-r1. NO active game/compiler/collector. Original data,
+production source/runtime and frozen ZIP unchanged. No publication authorized.
+Shad R1/PID129892 CLOSED181817complete0overflow: menu-only, confirmed B input
+delivered but Circle confirm didn't match isolated shad Cross-enter setting.
+Read original systemservice code/config, ONLY private user/config changed
+General.console_language1->0 and Input.is_circle_enter false->true to match
+native profile. R2/PID131768 CLOSED135279complete80pixels0overflow,12corepairs
+but 6.5s after doll was STILL ENTRANCE; no accepted response. Preserve both.
+R3/PID64688 CLOSED157788complete80pixels0overflow,12/12delivery pairs, actual
+ARCADE/TypeA/Shotia/Stage1A before/after sequence. Wait20s after actual doll
+confirmation, CU actualStage1, then IMMEDIATELY90zero/250ms/101..112right+Square
+vsleft+Square60ms gap97ms/300ms/1000zero, CU+AltF4 in sameexec after completed
+script. No LLM analysis delay before final capture/close. Native confirms Circle;
+TypeA and Shotia EACH need Square (600ms separation), not auto60s selection.
+Shad manual101: frames6..11stationary,12right4,13right10,14..16retain10;
+body516,239,12,14 andtail514,254,16,8 disjoint, template11,NCC>=.8/margin.025.
+First12 IS submitted Present153229. source->delivery22.9161ms;
+delivery->Prepare2.060, Prepare->submitReady20.2725, submitReady->Present10.5872;
+core->firstResponse32.9197/API33.5735/source55.8358. ONE response,noP95/fixedV.
+Receipt shad-daioujou-manual-first-response-r1.json SHA3529bde1...c476e.
+Shad same-build OFF R4/PID128592 CLOSED142908complete0overflow,12/12delivery;
+before/after actualStage1, one ship remains. ON/OFF58/59images Prepare->Present
+median29.43065/29.5252,P95 31.1145/31.1929ms. No OFF response pixels.
+Control daioujou-shad-pixel-control-r1.json SHAba7bd6e6...1a25d.
+Aggregate daioujou-comparison-r1.json SHA19b7efe348e0a4772bca50747658716f8441dca0c6af3be207411ceb96c23d1b
+rehashes original game + response/control evidence. Native/shad core73.4343/
+32.9197,API74.3497/33.5735,source77.9687/55.8358. Differences40.5146/40.7762/
+22.1329 are TWO separately phased cases/different progression, NOT fixed gains.
+Callback cadence native16.6685ms/shad33.3894; Present intervals30.4896/33.2237.
+Do not call shad's core callback60Hz simply because its config vblank60, or
+subtract Ready phases with different definitions. No timing fix in production.
+182latency tests pass (14new DOJ), diffcheckclean. Tools shad_daioujou_core_latency.py,
+review_shad_daioujou_pixels.py, compare_daioujou.py. Current goal SIX rows:
+FOUR360 +Ketsui+DOJ. Human HOLDS ESP/Feveron. Representative gameplay sampling
+is DONE; do NOT launch more games, enlarge samples or retry ETW/UAC. Next ONLY
+consolidate six-title final table, common physical/frontend/code-theory,
+Present-vs-display and144Hz/center photon budget; audit evidence and deliver.
+Physical device/panel unknowns remain explicit, theory allowed by user. Goal
+still active, NOT complete until final analysis/table delivered and audited.
+
+LATEST scope/progress (October28): human explicitly HOLDS ESP Ra.De./Feveron
+latency work. Current goal is FOUR360 plus PS4 Ketsui/DOJ, six active rows;
+do NOT pursue the other two or call them complete. Prior table-acknowledgement
+turn was no-progress; current work makes concrete DOJ/controls progress.
+Ketsui shad same-build OFF now DONE, PID125324 CLOSED319673complete0overflow,
+live Stage1/TypeA after sequence,12/12delivery pairs. ON/OFF Prepare->Present
+median30.743/30.812ms,P95 31.619/31.677,57/58images. Control receipt
+shad-ketsui-pixel-control-r1.json SHA1b212a25...422c4; old next-OFF note superseded.
+DOJ actual ARCADE loads daioujou_01030.prx (not prior01000). Original audit
+daioujou-core-flow-r3/report.json SHA439aeffb...b6e3a3 confirms400088->6700,
+GOT2006A0->integration01700+61250,helper68C0->2FA50, tail parent return1B55E
+plus alternate direct27C04. Do not reuse Ketsui29629 or assume raw masks.
+Native private source evac-daioujou-probe-r2/build-r2 SUCCESS; EXE9141221c...2d478f,
+GPUa6dcd549...9c123e, stage evac-daioujou-r2/collection. Original sources/data intact.
+R1/PID124036 CLOSED28660complete: module discovery only. R2/PID115648 CLOSED
+80424complete146images: early gameplay but laterCONTINUE, no accepted response.
+R3/PID99368 CLOSED44922complete147images0overflow,12/12 input deliveries,
+ARCADE/TypeA/Shotia/Stage1A alive2ships at immediate final CU. Manual command101
+frames15..19stationary;20right4px,21right10,22right14. Two disjoint features
+(576,239,12,14) and (574,254,16,8), template19, all NCC>=.8/margin.025.
+20ready NOT presented,21first responsePresent42664. Core->firsthandoff15.2343ms,
+next handoff16.7976, handoff->Present41.4024; total core73.4343/API74.3497/
+source77.9687. ONE response, no P95/physical photons. Receipt
+native-daioujou-manual-first-response-r1.json SHA41da4b19...9768d.
+Native same-build OFF R4/PID131164 CLOSED51785complete,12/12delivery, liveStage1
+at final CU. ON/OFFready->Presentmed38.33635/38.1703, Prepare->Present
+49.8841/49.6678ms,58/57images. Control daioujou-native-pixel-control-r1.json
+SHA992be555...7d68b. No extra whole output cycle established by ROI, not zero cost.
+Tools daioujou_core_latency.py, review_daioujou_pixels.py, compare_daioujou_control.py;
+11new mechanism tests pass. All native processes closed. Latest shad DOI source
+shad-daioujou-probe-r1 prepared; build shad-daioujou-build-r1 currently linking
+under exec SESSION52006, not finished yet: poll SAME handle before game sampling.
+Never run gameplay measurements while compiling. New shad launch --audit chooses
+actual per-game original identity; defaults retain old Ketsui route. Next complete
+DOJ shad same-scene response+bounded OFF, then consolidate SIX rows.144Hz/center
+photon THEORY retained; no ETW/UAC retry, no publication, no user gameplay request.
+
+LATEST shad Ketsui first-response progress (October28): previous goal turn IS
+progress, not blocked. Private source shad-ketsui-probe-r5, build
+shad-ketsui-build-r5 SUCCESS, EXE8285d53c9ae6fb3b8ece3592d0addd639770ba4bf452c9354fbc4910a3f22a4e.
+Baseline shad-source529ceb and original objects/libs unchanged. Only private
+linker/presenter/swapchain objects compiled sequential BelowNormal. Win206 first
+link and CMake-expands-@rsp second attempt preserved. Direct original lld-link
+@private-link-direct.rsp /MANIFEST:EMBED,ID=1 succeeded via SAME compiled objects;
+build-result and resume-link-direct-plan pin inputs. Do not rebuild baseline.
+Tools prepare_shad_ketsui_probe.py, rebuild_shad_probe.py, Build-ShadProbe.ps1.
+Fixture shad-ps4-r3; first launch seeded only stopped shad-ps4-r2/user HOME and
+users.json, not cache/config/credentials. launch_shad_probe.py verifies original
+eboot/modules SHA against ketsui-core-flow-r2 audit, staged EXE and fresh outputs.
+New shad core observer wraps original50088->6610 and only input GOT313936 ->
+loaded integration+5C0A0, actual loaded bases, no instruction rewrite. Site98
+(kind10,PC29629,c=mainbase) now allowed by inspect_ketsui_core_probe.py.
+shad_ketsui_core_latency.py resolves source by controllerID/timestamp/buttons
+(kind27 -> original PadRead report), then shared LAST-report/same-thread/first
+callback pairing. Not nearest matching and not replacing original history.
+shad pixel adapter derives native Vulkan capture but waits original draw
+timeline ONLY during teardown/quick_exit. Ready is AFTER GPU SUBMIT, NOT GPU
+completion (different from native completed/paced handoff). Copies same original
+guest image before host scaling; exact prepare/ready/Present retained. Stop1000.
+R1/PID31260 CLOSED520494complete/80pixels0overflow; R2/PID124364 CLOSED256050/
+79pixels0overflow. Both12 core pairs BUT PIXELS ARE CHARACTER-SELECTION/
+entrance, NOT accepted gameplay response. Just increasing after-X wait to16.5s
+did NOT fix R2: X had arrived before actual character-selection was ready.
+R3/PID52592 CLOSED303319complete/80pixels0overflow,12/12 pairs; actual live
+ARCADE/Type-A/Stage1. Navigation correction: VERIFY actual coin screen; Y12,
+500ms->Start13,1500ms->CU actual TYPE-A CHARACTER PORTRAIT with30count. Then
+Square/X14 hold600ms; wait16.5s ->90zero1ms ->250ms ->101..112 right+Square /
+left+Square60ms/gap97ms ->300ms ->1000zero. Entire final sequence executed with
+exec_command yield30000 AND immediately sky screenshot+AltF4 in SAMEfunctions.exec
+after completion, NO LLM boundary; this avoids minutes of unintended gameplay
+between input script end and CU observation. Do not repeat blind first8.5s.
+Mode pre-nav fast batch B3/4,B5,B6/7 left SECOND signout notice still open;
+observed it then B10/11 before actual coin12. Avoid guessing notice timing.
+R3 manual command101: image4..11 stationary,12 right4px,13 right8px,14/15retain8.
+Two features body205,238,28,18 and upper206,225,28,28, templates6even/7odd,
+search180..280, NCC>=.8 and margin.025 all pass. First image12 IS first submitted
+response, Present298787; source298707/input-delivery end298748.
+source->delivery26.6243ms; delivery->Prepare1.6556; Prepare->submitReady23.6611;
+submitReady->Present7.6633. Core-delivery->firstResponsePresent32.9800ms;
+APIreturn33.5911/source59.6043. ONE response, no P95 or fixed V.
+Receipt shad-ketsui-manual-first-response-r1.json SHA
+c0fd20a876027dbe53611a97bdb63b52dc06c51ba2f5822e987a119c4a7227ba.
+Tool review_shad_ketsui_pixels.py. shad-ketsui-core-input-r3.json all12pairs.
+Rawtrace SHA7bc91a4199d1d6adae7eb151692598db0788bf91d80fd82b8d30e9fc2427bc98.
+Vulkan reader strengthened: metadata ready0/Present0 must agree with full trace
+NO actual matching ready/gamePresent. Cannot infer replacement from zero fields
+alone. 168latency tests pass. Native old pixel evidence revalidated with stronger
+reader: current manual receipt native-ketsui-manual-first-response-r3.json SHA
+3e0adda9345001acfbdead5f3c5e7c789e900649addb9b749075fd1292468ee1.
+Use r3, not old r2 whose source-reader hash is now historical. Values unchanged.
+Aggregate ketsui-comparison-r1.json SHA
+72ba5882cd1c7116ab0e7d56ed86afbc1565c2c66aa551c04e3cf52cbf9ed375;
+compare_ketsui.py validates source trees. Native/shad core-delivery63.5003/32.98,
+API63.978/33.5911, synthetic67.1224/59.6043. Differences30.5203/30.3869/7.5181
+are TWO SEPARATELY PHASED EXAMPLES, NOT fixed population advantages. Stage
+positions differ, no matched-live OFF response control. Do not subtract their
+Ready timings because definitions differ. No production timing fix implemented.
+System WMI reads RTX4080,3840x2160,144Hz,driver32.0.16.1088; not actual scanout.
+Next: one bounded shad SAME-BUILD OFF control using now-confirmed navigation;
+then remaining DOJ/ESP/Feveron actual responses+shad comparisons. No more native
+Ketsui sample enlargement. Physical frontend/display/photons remain explicit
+gaps/theory; all8-game goal active. NO game/compiler/collector live. Node
+shadWindow is stale closed52592; reselect fresh returned windows. No publication.
+
+Latest bounded native Ketsui OFF control: SAMEr9 fixture/EXE/config/stage/contract,
+label evac-ketsui-pixels-off-r3, PID32448 CLOSED normally121486complete0overflow.
+Source101..112 intervals each57Present events. ON/OFFready->Present med
+37.9678/37.9307ms; Present intervals30.5717/30.5416ms. Still substantial waiting
+with ROI disabled. OFF later CU screenshot GAME OVER, not independently known
+alive throughout source interval: PRESENTATION-TIMING control only, NOT OFF
+first-response/zero observer cost/live-input-equivalence pass. Don't rerun to
+enlarge native samples. Next shadPS4 same-scene actual response. Original
+receipt native-ketsui-manual-first-response-r2.json remains immutable; new
+ketsui-present-pixel-control-r1.json SHA
+4a0d0ced2941d4d5fc8cd5bf0247b2286ccc3d8717cbc9b4ad1d638ffdb6613a
+pins both traces/launch receipts, same binary/config/contract and ready IDs.
+Tool compare_ps4_present_control.py. OFF raw SHA
+00851e608c1206775ef6d3dc17a9f2ec345672f5b1a0cd12e182053a94a2d277;
+discovery ketsui-pixels-off-discovery-r1.json. 5066complete callbacks, all12
+sources within core interval, actual core direction+Square states recorded.
+OFF profile logging run-20261028T092552663Z-32448. All games/compilers closed.
+154latency tests+10existing pixel tests pass, diffcheckclean. NumPy tests require
+bundled Python, not system py3.12 (system missing numpy failure retained).
+Node ps4Window is now stale CLOSED32448; reselect fresh returned windows.
+
+Latest Ketsui response-image progress (October28): private native build r9 from
+sourceprobe-r10 SUCCESS. EXE28d3e77ac943281e59b6becdcdacc34a1137e1122fc2fbdbca87023eeaa383ff,
+GPU7e4519f60a34addc9632a32749503f80b9aa650f1885187ccfedfb3209f6c0c6.
+Fixture .local/input-latency-v080-r1/evac-ps4-r9/collection. All processes CLOSED.
+New vulkan_pixel_probe.h copies SAME original guest image on RecordSnapshot's
+command buffer, same prepare ID; exact ready/Present IDs recorded, same copied
+fence proves readback. No extra submit/CPU wait/per-frame IO. Flush only after
+original presenter drain and worker join. Production source/data untouched.
+launch_ps4_probe.py --pixel-region x,y,w,h,capacity opts in; command90 starts,
+command1000 stops. Native host exports CurrentTestCommand. ROI320,360,640,320,300.
+R1/PID129260 CLOSED98212complete,146pixels0overflow; overlaps entrance animation,
+NOT accepted first response. R2/PID122820 CLOSED97240complete,145pixels0overflow;
+actual ARCADE/Type-A/Stage1,12/12 source->PadRead->input deliveries paired.
+Only command101 response manually accepted. Raw images12..17 stationary;18first
+right4px;19/20/21 continue8/12/16px. Invincibility blink phases use separate
+stationary templates14/15. Primary body feature205,238,28,18 passes all12..21;
+secondary213,225,14,16 passes even12/14/16/18/20. Do not treat uncertain odd
+cockpit tracks as passes. Snapshot18 READY but NOT SUBMITTED;19 is first
+submitted response, PresentBEGIN77627. Source77567/input delivery end77576.
+Same one response breakdown: source->delivery3.6221ms; delivery->first response
+handoff16.0957; next-response handoff16.576; handoff->Present30.8286. Total source
+67.1224ms/APIreturn63.978/core-input-delivery63.5003. Handoff is AFTER original
+pacing+copy fence, NOT earliest GPU completion. No actual CPU port load/physical
+frontend/OS display/photons, no P95/4V claim. Theory remains144Hz/screenCENTER.
+Receipt native-ketsui-manual-first-response-r2.json SHA
+0a6140e994ad8c3d6cf254e4e798d3b03bf637b5ade9675b6dbe0aa82c0562be;
+review_ketsui_pixels.py revalidates hashes, input pairs, two features and exact
+image/event ownership. ketsui-pixels-core-input-r2.json holds all12 pairs.
+New16 tests pass;154latency-pattern tests total. Rawtrace SHA
+d4fa8c68f553c500780d3e27882da76e7e422ff56b0587c16a0f463fbe4a0f5c.
+During R2 source interval ready->Present med37.9678ms, Present gap30.5717ms;
+older pixel-OFF buildr8 med38.3082/30.5208, suggesting not only new ROI copy,
+BUT different binary does not replace SAME-BUILD ON/OFF. Next do one bounded
+OFF control on SAMEr9, then shadPS4 same scene first response; don't redo native
+to enlarge image counts or move to other PS4 prematurely. All8 scope active.
+Navigation correction: R1wait5.5s after Type-A was still entrance! R2wait8.5s
+then command90 zero ->250ms ->12direction+Square60ms/gap97 ->300ms ->1000zero.
+CU verifies after sampling. First noticesB3/B4; B5Arcade; B6/B7notices; then
+Y8 coin->400ms->Start9->700ms->X10 Type-A. No pause before sampling.
+Vulkan reader originally wrongly required next-ready AFTER previous Present;
+valid pipeline can have next-ready BEFORE prior Present. Correct rule retains
+each exact ready->Present order and Present order. Test covers this; no image
+identity gates relaxed. 80/146 R1 images actually submitted; rest ready replaced.
+
+Latest Ketsui core-input progress (October28, after the four360 representative
+rows): ORIGINAL callback table50038 slot50088 ->module6610, main eboot caller
+29626/[rax+50], return29629 with ignored return value. Original module6610
+delivers P1/P2 through stub2F8 ->integration01400+5C0A0 BEFORE core29610.
+Digital type3 buttons+8/+9, right100/left80/Square1. This is INPUT DELIVERY,
+NOT yet the emulated arcade CPU port load or first response. Audit
+ketsui-core-flow-r2/report.json SHA656c9c1e...2dc7b0 pins original files,
+relocations, NID/library/module and ordered instructions/caller ABI.
+Private native R8 EXE381e673675ff99e52bb4b8f006004ab280a49968e78a66e71c3d2de557772d4f,
+GPUa1abfc8b46b5095ac5f3c7dfbdc4ebe0f8cfafb362db9f4daf5eb6b19f30e1f4;
+build .local/input-latency-v080-r1/evac-ps4-build-r8, preparationprobe-r9.
+Stage .local/input-latency-v080-r1/evac-ps4-r8/collection; profile is a verified
+copy of stopped private evac-ps4-r6/default. Launch helper launch_ps4_probe.py
+uses full FIVE-argument collection contract, capacity1m and receipt; no online.
+R2/PID72980 CLOSED normally,122290complete0overflow,4515callback pairs,
+9030input deliveries. CU actual ARCADE/Type-A/Stage1, same pulse masks4008/4004;
+35/35 source IDs pair via LAST returned PadRead report, same thread's FIRST
+following original callback, exact actual digital bits. No global nearest-time
+pairing, no replacing a bad first callback with a later complete one.
+Publisher->PadRead med/p958.5868/16.3195ms; APIreturn->delivery.6439/.9869ms;
+paired publisher->delivery9.0682/16.8107ms. Callback walltime1.0844/1.7243ms.
+Not physical frontend/CPU-only cost/response image or a V result. Report
+ketsui-core-input-pairs-r2.json SHA
+567d9402bfd7ddfa3d8a60c609b95df9fcc3c7cd83d37ed7ac08f7e6ebe09852.
+11mechanism tests pass. scripts/ketsui_core_latency.py also checks actual
+eboot image base/hash from stdout.jsonl against original audit, caller29629.
+R1/PID131776 CLOSED normally112395complete;4087callbacks stopped BEFORE all35
+sample inputs (paused/menu), all excluded; ketsui-core-discovery-r1.json retained.
+First native import observer only handled late RebindImports, but this module
+was bound immediately during Load. prepare_ketsui_core_probe.py now wraps BOTH
+initial and late GuestExport paths, plus only the pinned callback data slot;
+no original code instructions overwritten. Never redo R1 as a gameplay result.
+Navigation: Start skips opening/title; Circle/B acknowledges offline notices;
+after actual Arcade ready, Y=coin ->400ms->Start ->700ms->X=Type-A ->5500ms->
+35 direction+X pulses,60ms hold/97ms gaps. DO NOT inject another Start/pause
+before sampling: it was delayed relative to CU screenshot and caused R1 failure.
+Core end f=100000000 records raw descriptor words+8/+12; their semantics are
+UNASSIGNED, NOT image width/height! No accepted CPU bitmap/pixel capture yet.
+Next: keep focus Ketsui; follow actual core port use and output image ownership,
+then shadPS4 same scene; only then other three PS4. Reuse current evidence,
+do not repeat failed ETW/UAC approaches, do not ask away human for gameplay.
+No live game/compiler/collector. Full eight-game goal remains active.
+
+Latest Guwange representative comparison (October28): actual original P1 port
+D00011 load882CE5E0/after882CE5E4 in arcade CPU88020000, original caller821CCA78
+(LR821CCA7C), now linked through exact type0/type1 queue slots and physical
+VdSwap packet to owned Present. Do NOT call the ~17ms API->core-owned output
+the first responsive image! Native R3/PID128112 ON20/20, R4/PID48100 OFF35/35;
+Xenia R6/PID106228 ON35/35, R7/PID127068 OFF35/35. All CLOSED normally, complete
+zero-overflow; raw397029/388554/688774/461756. Same EXE/modules/config within
+each ON/OFF pair. API->owned Present ON/OFF med/p95 native17.012/17.292 and
+17.047/17.457ms, Xenia16.811/16.840 and16.811/16.961ms. Controls only establish
+no added whole output cycle in this internal path, not zero observer cost.
+Actual pixels212/353 complete0overflow. Explicit manual command101: native
+owned17, body unchanged16..18, FIRST right-facing step19 and continuation20..21;
+Xenia owned16, unchanged15..17, FIRST18 and continuation19..20. BOTH offset+2!
+Port->first-response Present46.2518/46.7818ms; GetState return->first-response
+50.2032/50.1417ms, about3x60Hz cycles in THESE examples. Each one manual response,
+no first-response P95/all-mode conclusion. Original NCC gates ALL reject; retain
+them. Two templates only corroborate stationary pre-response body, NOT the
+low-confidence positions after walking pose changes. review_guwange_pixels.py
+and compare_guwange.py revalidate current source hashes, identity and clocks.
+Aggregate guwange-comparison-r1.json SHA
+94206671aa9b49a48d0217c4436789bdbcaff8752e0e9ee59b53a9ef2e41bcf4.
+Native private EXEbc8fc7e0...743d47/moduleec7eda40...b63be1, declaration/hooks
+codegen only; production source/data and frozen ZIP unchanged. R1/PID106152
+failed startup: private IJKL mappings conflict with Guwange right-stick defaults;
+stage now uses original arrow directions for this game. Preserve failed fixture.
+R2/PID103712 native35 internal chains are valid but player obscured; no pixel
+acceptance. Xenia R5 wrong ROI and R4 paused pulses remain excluded. No more
+Guwange rounds to enlarge subsets. Next is Ketsui/remaining four PS4 actual
+core consumption and first-responsive-image comparisons; all eight scope stays.
+Device/frontend, current OS display and panel photons remain separate gaps;
+144Hz/center/theory display column retained. No game/compiler/collector active.
+
+Earlier Guwange discovery, superseded by the representative comparison above:
+Latest Guwange discovery (not a latency row): prepare_guwange_xenia.py pins28
+original register sites to census-r3 sections/opcodes and current XBLA0.0.0.4.
+Generic Xenia22aa6a81 reused; no build. R1/PID126480 CLOSED but OVERFLOW:
+523444658reserved/2000000committed; site16 was wrongly inside Sleep(0) loop.
+Never use its timings. Moved16 to821F74A8 before flag store, not821F74AC.
+R2/PID127568 CLOSED normally;217144complete0overflow,4/4 sources reachAPI.
+Dynamic main-vcall821E9664 ->821EBA10 is only li3,1/blr, NOT core update!
+Queue producers821F7620/821F7720 and draw-binding821F6628 confirmed. No module
+88020000 entry yet, no player stage, no latency accepted. Receipt
+guwange-control-targets-r1.json SHA98a36e7b...165a2e.
+R3/PID54132 same EXE/config with --output-only (omits GUEST_SITES env) CLOSED
+normally;69318complete0overflow,3/3 sources reachAPI, final CU screenshot DID
+reach main menu. Do NOT call Xenia incompatible/frozen from earlier splash
+screens. guwange-output-only-r1.json SHA42a68236...7a50cc. Both runs only basic
+navigation; no image response/probe-cost claim. New launch flag recorded per
+receipt. Two Guwange-site mechanism tests added (loop exclusion/unique sites).
+Next: reuse isolated xenia-guwange-r2 (check saved profile/content before assuming
+it was created) for bounded core-entry/caller discovery in Arcade/Shishin/stage1; do not
+keep enlarging graphics-only sample counts. Module export4=88020000 is arcade
+CPU execution loop; site30/31 can identify its real caller after module loads.
+Then native Guwange measurements; four PS4 still required. No active game.
+
+Latest SDOJ current comparison: native1V ON/OFF35/35 each, core->PresentBEGIN
+median/p9516.792/17.169 and16.784/17.103ms. Host-only private EXE659318bd...c9288a;
+original game DLLs unchanged, identical EXE/config both runs. R1/PID129280 and
+R2/PID109524 CLOSED normally;29090/44818complete0overflow; native observers
+109386/79246continuous, no budget rejection. Driver publication packet is NOT
+the original InputSystem change counter. evac_sdoj_latency.py joins exact
+original pass/thread, synthetic sample ID and buttons before first core copy.
+No replacing an unpaired first core with a later complete core. Native352ROI
+complete0overflow; explicit visual command101 frames13..15stationary,16first
+right,17..18sustained, two body features agree<=1px. Manual17.207ms,offset0,noP95.
+Automatic NCC gate unchanged/ALL35rejected. review_sdoj_native_pixels.py records
+only that one visual response; receipt SHA43511c44...68a1c2. Native direction+x
+maps24/20 versus Xenia72/68 (extra-button mapping differs); direction verified,
+not identical shooting workload or subms comparison. Native7mechanism tests.
+Xenia original3V remains OFF60/ON35,49.89785/49.989 and49.9049/49.9981ms;
+manual command101 frame18=49.8626ms,offset0,noP95. All Xenia processes CLOSED.
+Aggregate compare_sdoj.py --current-native => sdoj-comparison-r2.json SHA
+27d76b9d550c6339edd204626d196b31a0910c1103bd353f1ba9f286ae9f446c.
+Revalidates both native earliest-core reports, old pilot, history and Xenia;
+keep historical builds separate.113latency-pattern tests+3pixel tests pass.
+Next: Guwange then four PS4 internal/core-first-response comparisons; do not
+redo SDOJ/Futari/G2 to enlarge image subsets. Device/frontend and current display
+remain separately marked gaps. No game/compiler live; frozen ZIP unchanged.
+Use launch_xenia_probe.py: correct TEST_PAD and5fieldROI, freshpaths, pinned
+binary/sites, per-run receipt. SDOJ old wrong TEST_PIPE R1 and malformed4field
+ROI R2 failures retained. No publication/push/upload authorized.
+
+Latest G2 quantitative progress (October28): native default2V and experimental1V
+now paired through earliest matching original core input -> synchronous update /
+draw -> actual VdSwap packet -> owned Present. Private build r3 SUCCESS, EXE
+eb246244...25b9c09/dat12 DLL61381351...69f169b; same binaries both modes.
+R2/PID103696 and R3/PID24968 CLOSED normally, raw339356/174841 complete0overflow,
+60/60 each. Core->Present begin median/p95:2V32.0215/32.9835ms,
+1V16.96675/17.3231ms. Pixel ROI562/562 complete0overflow; first sprite responses
+32/35, larger-template31/34, ALL offset0. Native pixel-OFF R5/PID78576 and
+R4/PID102352 CLOSED;52/50 gameplay sources, core med/p9530.962/32.3735 and
+16.9172/17.4309. Remaining8/10 after game-over rejected. Different stage start
+offsets, so only no-extra-whole-cycle control, NOT zero observer cost or exact1ms
+causation. Synthetic input is not physical/Windows frontend; no photon claim.
+Artifact .local/input-latency-v080-r1/g2-native-comparison-r1.json SHA
+278b5064b669adb709212e1b3f593b731efd75db020611762649d2c07848d6a7.
+New tools prepare/rebuild/stage_g2_probe,ppc_functions,compare_g2_native and
+scripts/g2_latency.py;6report+4build tests pass. Build reused objects,2BelowNormal
+workers; production sources/ROM/frozen ZIP unchanged; no processes remain.
+Original G2 VdSwap call is82170F84 ->8237BBEC, verified census import; initial
+R1 wrongly used82170EF0 (different video import), no GuestSwap links, REJECTED.
+Do NOT redo it. R1 pixel data valid but not accepted latency. G2 site3 at
+820CFDA8 is not on these actual cycles; reporter follows confirmed core callback
+82091690 and checks returned directional bits, not that optional callsite.
+G2 Xenia same-scene comparison now captured with pinned generic observer EXE
+22aa6a81...b4db9, original Canary291f0c9 and NO1Vpatch. R3/PID115240 ON and
+R4/PID115132 OFF CLOSED normally;320240/446469 complete0overflow,60/60 internal
+chains each, actual flags0x0C000000=2V. Core->Present begin med/p95:
+31.4077/32.4114 and31.6789/32.486ms. ON pixels561complete0overflow; body7 and
+larger2 first responses ALL offset0, noP95smalln. R2 excluded: dead before
+sampling; R1Hidden startup had no usable window/flushed capture. No more reruns.
+Aggregate g2-comparison-r1.json SHA b00fdd790dc75be2343a78e432f591285ba9c08e56c08a92fa687ecd3782513e;
+compare_g2_xenia.py revalidates source identities and earliest core. Native2V
+and Xenia both ~31-32ms, native1V~17ms; subms difference not a fixed win.
+Main comparison table now explicitly includes144Hz/center/theory pixel-light
+column, unknown panel D, origin image-ready NOT CPU Present. Device/frontend,
+same-response OSdisplay and physical photons remain unmeasured.
+Next: SDOJ/Guwange/four PS4 internal response links and emulator comparisons;
+do not redo Futari FD/BL or G2 measurements to expand small image subsets.
+All eight games remain in scope; Futari FD/BL extra measurements still cancelled.
+
+Latest offline progress: all four PS4 cache resets are linked to engine phase80
+BEFORE the state update(slot28), including task completion. Original per-title
+virtual-table relocation, constructor registration, node adapter, reset bytes,
+normal/deferred dispatch, drain->update ordering checked. The drain's original
+PLT/GOT imports are SignalSema4czppHBiriw and WaitSemaZxa0VhQVTsk in all four;
+native_semaphore.cpp implements actual waiting. Artifact is .local/input-latency-
+v080-r1/ps4-static-pad-r1/reset-phase-r2.json (retain r1). Loop/reset/update:
+Ketsui19bc20/1ea7d0/19bd30; DOJ192b30/1dc1f0/192c42;
+ESP1caae0/216f20/1cabf0; Feveron192c40/1dc710/192d79.
+This rules out a fixed old-input frame in this OUTER cache phase; it does NOT
+establish emulated core consumption, first response, total V or photon time.
+No game run, compiler, production change or publication. Next missing PS4 link
+is state/module input consumption -> responsive draw batch. G2 default/1V still
+need quantitative pairing; do not replace it with replay-pacing evidence.
+
+Offline PS4 follow-up now has original per-title input boundaries, no new game
+run: .local/input-latency-v080-r1/ps4-static-pad-r1/{report,cache-check}.json.
+LLVM23 decodes original ELF/locally reconstructed plaintext SELF; import GOT/
+PLT and actual call displacement checked. PadRead wrapper/call addresses:
+Ketsui1ea660/1ea6d1, DOJ1dc0c0/1dc105, ESP216dc0/216e31, Feveron1dc5a0/1dc611.
+All four request63 reports and use+0x1d cache-valid guard, with cached return
+bypassing PadRead;16 key encodings validated. Reset cadence/core consumption
+and total V remain unproven. Do NOT infer63frames or one new USB sample per
+button getter. Original data and frozen release untouched; worker99566 ended0.
+
+Latest HUMAN addition: final comparison MUST include the pixel-light endpoint,
+explicitly labeled 144 Hz and the reference screen position (center for theory).
+Separate measured OS-display timestamps from scan position and unmeasured panel
+processing/response D. Ideal ready-image models are 3.47ms+D immediate versus
+6.94ms+D empty-FIFO at fixed144Hz/center/uniform phase. These start AFTER the
+image is ready/adoptable, not at CPU Present. Do not add them wholesale to old
+ETW display tails or treat unknown D as zero. See ANALYSIS display budget.
+
+Latest HUMAN scope clarification, October 28: no more Futari Frame Delay
+variants or Black Label measurements. Hand off Ver1.5/Xbox360/Training/Stage1/
+Original/RecoNormal actual1V row, with frontend/display gaps clearly separated,
+then continue the remaining seven. Theory using valid old evidence remains
+authorized; do not wait for new display capture to do offline analysis.
+Guwange read-only audit is now .local/input-latency-v080-r1/
+guwange-static-policy-r1.json: original input and section identities checked,
+17 functions/17 ordered sequences/234 direct branches. Confirms input refresh
+before main update and renderer VBlank callback gate before swap; does NOT
+establish a fixed total V or milliseconds. PS4 shared input/ready/WSI and
+display-refresh conditional budgets are now documented in ANALYSIS. No new
+game run, production change, capture, build, release or publication this turn.
+
+### Input-latency comparison reopened — October 28
+
+Latest HUMAN direction supersedes the analysis-wide wait below: proceed with
+theoretical analysis using prior valid measurements. No new game/capture/UAC
+needed for this step. Keep current measured, historical measured and conditional
+models separate; do not discard sound old evidence solely because of its version.
+Futari presentation source blobs are identical at v0.7.5 and c427257/current:
+d3d12_presenter.cpp2822c244...3d53, presenter.cppda3e39d1...fe1. GPU command/
+resolve/waits changed, and OS presentation mode is environment-dependent, so
+unchanged policy is not proof of identical current milliseconds.
+ANALYSIS now has a conditional mean-budget model starting at game-readable state:
+uniform60Hz phase8.333ms + current core->Present mean17.045852/16.834278ms +
+historical display-tail mean0.918538/11.178276ms => roughly26/36ms under old
+Independent/Composed Flip paths. NOT measured totals, NOT summed medians, no
+model P95, excludes device/USB/pre-readability Windows/SDL and panel photons.
+All eight-title deliverables remain in scope. Empirical display gate below
+remains unresolved, but it does not prohibit the newly requested theory work.
+
+Current external gate after three consecutive goal turns: same-response OS
+display remains unavailable on the current token. All ordinary full/display-only,
+PM2.5.1 and before-window initialization alternatives failed; no collector,
+PresentMon service or reusable task is live/configured. Read-only provider ACL
+query etw-access-check-r1.json reports not elevated and error5 for all four
+providers. This is NOT proof of runtime event access denial; do not assert that
+elevation is a guaranteed fix. DXGI submission collection remains proven.
+User explicitly required finishing Futari before moving to other titles. Current
+safe continuation requires a working display-feedback capture environment,
+probably a human-confirmed bounded elevated session as used historically. Do not
+automate UAC, change permissions/security, reboot, repeat the failed combinations,
+or fill current missing display data from old medians. Preserve all eight-title
+scope and unmeasured hardware boundaries. No active game/compiler/collector.
+Goal is to be marked blocked pending this external condition, NOT complete.
+
+Latest window frontend follow-up: Xenia keyboard private build R1 SUCCESS,
+EXE1909642d...113668b. Only presenter+input-system objs/libs privately relinked,
+all original objects unchanged. Test command>=900 now passes to original drivers;
+navigation<900 unchanged. Generated copy, not pinned-source or keyboard logic edit.
+window R2/PID67680 CLOSED normally; CSV194367 complete/no overflow,
+SHA18c4271c...93655, ROI297 complete/no overflow. Real arrows bind DPAD22546/22547;
+12 presses held0.3803..1.5879ms; 1 observed by original guest API,11 confirmed
+missed after release and subsequent reads. Sole time0.0659ms is OVERLAP-CONDITIONED,
+NOT typical latency or comparable to native retained-tap median7.625ms. Character
+is dying at that press (ROI218..232), so no first-response/Present acceptance.
+Report xenia-futari-window-events-r3.json; original12/12 native taps remain valid.
+Window R1 had right-thumb bindings+209 ROI overflow; rejected, retained.
+No more rounds of these sub2ms CU taps to chase samples; a held-input mechanism
+or different measurement source would be needed and must retain its proper origin.
+Normal-user display collection BEFORE game/window creation also tried: native
+R13/PID103900 CLOSED normally,28971 complete records; timed30s PM127724 ended,
+still no display CSV. Do not repeat that startup-order combination. All owned
+games/compilers/collectors gone. No release/source-data/security settings changed.
+Original Xenia config IJKL preserved (temporary arrows were CLI overrides only).
+
+Present->display follow-up: native R11/PID127664 and R12/PID38064 CLOSED
+normally. Current non-admin PresentMon2.6 full/display-only and official2.5.1
+display-only produced no CSV; no-display2.6 DOES capture DXGI calls. Account
+already belongs to Performance Log Users. Do not infer the exact cause from
+the generic elevation warning or keep repeating unchanged failed captures.
+R12 ROI586 complete/zero overflow; all586 ETW entry+return pairs fall inside
+their own instrumented Present call intervals (not nearest-frame matching).
+futari-etw-same-image-submit-r2.json; etw control chain60/60 actual1V. No new
+first-response pixel acceptance, no display feedback in this run. Tools and
+13 focused tests in scripts/present_frame_join.py/tests/test_present_frame_join.py.
+Historical valid v0.7.5 vs officialXenia291f0c9 first-stage replay ETW reanalysis:
+539/598 displayed rows; Present->OS display median0.3779/11.31465ms,
+p952.57066/14.14793ms, different Independent/Composed Flip paths. Reports
+futari-historical-present-display-r1.json and xenia-futari-historical-present-
+display-r1.json. DO NOT add these historical distributions to current input
+totals. Current Futari same-response OS display remains open; all eight-title
+scope remains active. No security settings, production runtime or frozen ZIP
+changed. Official PM2.5.1 download SHA9bec3083...c80a191, Intel signature valid.
+
+Latest Futari result, October 28 (supersedes the pixel-pending notes):
+native R6/PID118976 and Xenia R9/PID114092 are CLOSED normally. Same Ver1.5/
+Xbox360/Training/Stage1/Original/RecoNormal, all60 actual1V,60/60 first-core
+chains. Native ROI569/Xenia570 complete/zero overflow. Body tracking validates
+19/6 first directional responses; all on the owned first output (offset0).
+Large-template independent check12/4 also offset0. Reports final-r1 and pixel
+response reports are in .local/input-latency-v080-r1; full conclusions now in
+docs/ANALYSIS.md#虫姬二输入延迟结论. Do not call all60 pixel-verified.
+Pixel-OFF controls native/Xenia R10 CLOSED,60/60 each; core->Present median
+16.9839/16.8252ms,p9517.680/16.8912. ON16.95505/16.8292ms. Same EXEs within
+each ON/OFF pair. This supports the1V conclusion, not zero observer cost or
+a ranking at0.1ms. Native list processing before FrameDelay branch0.4316ms;
+branch->PPC VdSwap call15.9807ms (wait plus resolve/swap preparation).
+Native real-window frontend R9/PID96160 CLOSED, trace69841 complete/zero
+overflow; Arcade Training Stage1 Original RecoNormal1V. Twelve window presses
+all pair to exact next original PollFrame count/buttons; median7.625ms,
+range0.615..13.144. Eight first directional pixels pair to same-image Present,
+median28.85945ms,range22.73870..30.22140. No P95. Not merged with HD stages.
+CU Right/Left actually emit VK_NUMPAD6/4; private fixture binds those. Earlier
+IME/unbound presses and Xenia R8 (missing EVAC_LATENCY_GUEST_SITES) are rejected.
+Frontend probe host now passes through real configured input for command>=900;
+901 enables original keyboard with pixel gate,1000 disables pixels. Production
+host/source not changed. Do not mistake this helper change for player input fix.
+Xenia pixels EXE22aa6a81...b4db9 reuses all original inputs unchanged, private
+presenter only; quick_exit flush verified. All owned games/compilers are gone.
+Frozen release unchanged. Physical USB/SDL-device timing, Xenia real-device
+frontend and scanout/photons remain unavailable; Present is the measured CPU
+endpoint. Other seven comparisons remain required. Keep Futari as the focus
+until its report is handed off; do not restart the failed pilot loops.
+
+Latest user direction: complete Futari end-to-end analysis FIRST. Do not launch
+or expand another game's measurement until Futari's input/logic/response image/
+presentation chain, Xenia comparison and measurement controls are resolved.
+The other seven comparisons remain required afterwards, not cancelled. Current
+action: bounded asynchronous D3D12 pixel evidence in private builds, using the
+existing Futari core/list/swap identity rather than nearest-time correlation.
+
+Latest input diagnostic: trace-OFF/test-pad-OFF native PID129468, run
+20261028T022050161Z-129468, with existing 120ms keyboard diagnostic taps, DID
+insert a coin with V, select Type-A with Return/C and reach player Stage1/CONTINUE.
+Normal Alt+F4/exit27; closed. This was functional only while shad compiled.
+Real successful edges returned two PadRead reports; synthetic held inputs had
+mostly one. Private r7 fixture adds a synthetic pending latch to the original
+ReadReports edge/ack flow; its ten mechanism checks pass, build r6 succeeded.
+No production code/data changed. The later R5 below validates basic gameplay
+navigation with the latch, not input-to-first-response latency.
+shadPS4 r3 build session36182 is terminal SUCCESS, EXE SHA
+189ea3c05a6a385385c37c4929c49a3f1920f08ad1fedb7facad391246cb5523;
+fresh offline stage shad-ps4-r1 exists. The historical live-build notes below
+are superseded. Native r5 capture is currently in evac-ps4-r6/collection,
+PID123216/session62310 is now CLOSED normally (terminal exit1/code27).
+Trace evac-ketsui-probe-r5.csv:65481 complete/zero overflow,14/14 API input pairs,
+SHA7395036f7e746fb61bd0bc71542b66393aecd525b3554b8e000094ab049edc45.
+The pending latch DID allow coin/start/Type-A/stage1/shooting; command101 was in
+player gameplay. Output figures remain mixed navigation, not latency acceptance;
+window foreground was not explicitly fixed. Use sky.activate_window next time.
+shad build r4/session44199 is SUCCESS, EXEbb97b9aa...f11b8f0, stage shad-ps4-r2.
+Synthetic input now follows original controller queue and timestamps (kind27),
+not a fabricated single PadRead report. Only handle1/user1000 opened in R1.
+Shad R1/PID128008/session14442 entered ARCADE/Type-A/stage1 and shot/moved with
+commands101..160; normal exit0. Trace OVERFLOW109137: invalid timing capture,
+retain it. R2/session34533/PID105212 is CLOSED normally (exit0). Capacity1048576;
+shad-ketsui-probe-r2.csv has429640 complete records,zero overflow/incomplete,
+SHA8beddb5f577fd6e049b4da68e93268fa4b2ec491147a6252092bfb322da364d8.
+Foreground explicitly activated. ARCADE/Type-A/Stage1 was shown before101 and
+after160; commands101..160 (80ms left+x/right+x,43ms gap) all reach PadRead.
+Report shad-ketsui-gameplay-r2.json:60/60 sources,240 owned outputs in that
+window. Source->API median15.4809/p9533.7239ms; prepare->Present30.5613/64.3346ms.
+These are SEPARATE chains, not input->response totals. No first-response pixels,
+game consumption, display or probe-OFF evidence. No owned game/compiler running.
+Analyzer82 tests pass; shad patch reverse-check passes.
+
+Latest PS4 checkpoint (supersedes older PS4-not-built statements): native private
+build r5 succeeded, using generated fixture evac-ps4-probe-r6. No production
+objects, source bodies, frozen package or original data changed. Four source
+objects are compiled and linked privately; expanded Ninja linker commands are
+checked for redirected outputs and actual replacement-object participation.
+Ketsui R4/PID72648 closed normally in exec session12644 (terminal exit1 from
+original code27), stage evac-ps4-r5/collection, trace evac-ketsui-probe-r4.csv.
+Navigation IDs1..19 only. No actual player gameplay: a one-second Triangle/CREDIT
+hold and Options still did not start; applying another preset then default and
+saving did not fix it. UI verifies Triangle/CREDIT. Do not repeat blind coin taps.
+118184 records complete/zero overflow,19451 PadRead calls,10767 owned images,
+19/19 synthetic inputs reach API; SHA1ee5a0428a6337c07f961ed96de34dd12fccd8978adc4d8bf7d8a5cda8f09ea8.
+Report evac-ketsui-menu-r4.json remains menu/demo ONLY, no first-response claim.
+No owned game is running. Close future captures normally, never terminate them.
+Flush is now before original normal-close TerminateProcess27; R2's zero-byte
+trace is invalid and retained. R3 menu/demo CSV45812 complete/zero overflow,
+7461 PadRead calls,4178 owned output frames, SHA6b9d3e9b...24957. It is NOT
+gameplay latency. Caller0x101ea6d6 requests63 reports; direct synthetic API
+override navigated menus but did not coin in arcade. Current r6 instead samples
+synthetic buttons into the original history cadence, with timestamp/button/source
+sidecars, preserving returned report counts. This fix is not gameplay-validated.
+The real keyboard frontend R1 trace45794 complete also remains menu/demo only.
+scripts/ps4_latency.py keeps API input and image ownership as SEPARATE chains;
+neither is proof of the first image responding to the input. 80 latency tests pass.
+shadPS4 r2 build stopped2064/2363: missing default WIN32/_WINDOWS defines in
+measurement CXX flags selected POSIX code. Build-ShadProbe.ps1 now restores
+them; r3 is LIVE in exec session36182, shad-probe-build-r3.log, last334/1300.
+Poll SAME handle, do not duplicate. Two jobs BelowNormal, no gameplay measurement
+while it runs. HAVE_ENDIAN_H=0 and /EHsc are also required. Pinned source
+529ceb32f5546b820588f194b903cc39d08015fe; refreshed7-file patch reverse-check
+passes. Its direct synthetic API path still needs matching-history review.
+All evidence under .local/input-latency-v080-r1. Actual input->response-image,
+frontend/display, probe-OFF controls and all-title comparisons remain open.
+LLVM23 llvm-objdump directly disassembles the original ELF PT_LOAD segments,
+even with a no-section-overlaps warning; no capstone install needed. Ketsui
+eboot SHAa32b4b79...ac073: scePadRead caller0x1ea6d6 is inside0x1ea660, reads63
+reports into this+0x28, caches count at+0x18/valid-at+0x1d; connected check+0x74,
+connected_count+0x90, information at+0x1db0. Runtime base0x10000000. No runtime
+observation of downstream core consumption yet; original code unmodified.
+
+Latest checkpoint (supersedes the historical r7/test-pad-not-wired notes below):
+Xenia r9 build is terminal SUCCESS; EXE SHA309d1bb1...31cf. R6/PID42064 and
+R7/PID129404 both played Futari Ver1.5 Xbox360/Training/Stage1/Original/Reco
+Normal and closed normally. R6 saved native 1V; R7 cold-read it, all60 selected
+presses actual1V. R7 CSV184254 complete/no overflow/no invalid sites, SHA
+9b8edbc6b1d94f13a60dcdadbfef2e230892de868c7b07432149a7e637303de1.
+`xenia-futari-onev-chain-r2.json`:60/60 first core samples paired through original
+completion owner + draw-list pointer/count/owner/lock + swap/mailbox to Present.
+Game input->Present begin median16.8242/p9516.9077ms; synthetic publish->Present
+24.67105/31.8589ms. NOT Windows/SDL/device/display/pixel proof. All4932 DXGI
+stats queries unpopulated. Probe OFF/official baseline controls remain open.
+The refreshed Xenia patch reverse-check passed. Shared probe21 + Futari7 tests
+pass. Native-log adapter7 tests pass, including teardown after trace closure.
+
+EVAC private build session62319 is terminal SUCCESS (208/208); no compiler or
+owned game is running. Preparation r2 generated only default/reco_abnormal with
+17 read-only hooks and original compatibility declarations, no translated-body
+edits. Native clock-check-r1.json passed1000 QPC/FrameTiming brackets, zero
+failures, max1us. Stage is evac-futari-r1/collection under the private root.
+IMPORTANT: do not copy Xenia container headers as a native profile. R1 could not
+read those settings; it used different button mapping and ended in GAME OVER.
+R1 is structurally complete but REJECTED as a same-gameplay comparison.
+For R2, after R1 exited, retained the game-created native header and copied only
+TEST savegame.bin from the stopped Xenia fixture (SHA c078a82b...bc88c39).
+Stage script still needs this workflow correction before another fresh fixture.
+
+EVAC R2/PID78660 closed normally and is gone. Run20261028T013714965Z-78660;
+CSV evac-futari-probe-r2.csv SHA e7855977206dd735c15f90ca7bb39dda367a98bb33488c547132f40c89ab99db.
+206480 native records complete, zero overflow/incomplete; adapter joins28860
+production output records, excludes18 AFTER the probe interval at teardown.
+evac-futari-onev-chain-r2.json pairs60/60 first core samples, all1V, actual core
+masks65553/131105 match Xenia. Same Xbox360/Training/Stage1/Original/RecoNormal;
+before/after screenshots show live gameplay, but deaths/first response pixels
+are not independently classified per press. Core->Present begin median17.00825,
+p9517.562ms; synthetic publish->Present25.83525/32.996ms. Not Windows/device or
+display latency, and not a final performance ranking (probe OFF controls open).
+Native VdSwap probe is entry, Xenia return: compare common total endpoints,
+not the individual VdSwap-adjacent subdivisions as if identical boundaries.
+Next: scene-selection receipt, stage profile fix, probe-OFF/ON controls, actual
+input frontend and corresponding first response/display evidence. All eight
+complete comparisons remain open; preserve the frozen release and raw R1 failure.
+
+The active goal is to complete the promised eight-title input-latency analysis.
+The frozen v0.8.0 package below is not evidence that this requirement is done.
+The existing ANALYSIS table contains policy/source audits and partial historical
+measurements; the all-title paired software-input/output and emulator comparison
+is INCOMPLETE. Keep the frozen ZIP and its accepted extraction unchanged.
+Measure current EVAC versus pinned Xenia/shadPS4 in isolated fixtures, with
+default/optional modes separate. Correlate each input edge, actual game
+consumption, its resulting image and that image's presentation; report paired
+totals, median/p95, drops and coverage. Physical switch/USB and panel photons
+need hardware evidence and must not be fabricated. Software events, emulator
+policy, replay duration and frame pacing are not substitutes for the missing
+paired measurements. No publication/push/upload is authorized by this goal.
+
+Latest measurement work is in `.local/input-latency-v080-r1`. Frozen SDOJ host
+3009f01e / GPU287f7a4f / runtime8f318616, run20261028T001153607Z-113580,
+normal Alt+F4 closed. Arcade HD/Training/Stage1/TypeA/Shot/1V: three live-player
+direction presses (9309881494138, 9309885841627, 9309890163511 us); fourth
+9309895856544 is CONTINUE and excluded. Window event -> identified Present begin
+median29.042 ms, range25.693..31.081; return29.214 ms. Pilot only: no P95,
+first changed pixel or display. Source log rotation lost prefix; accepted local
+chains are intact. Reports `sdoj-onev-{probe,probe-selection,paired}-r1.json`.
+Use `--log_max_file_size_mb=100` next capture (maximum100), not default5.
+`scripts/input_latency_report.py` has seven passing focused tests.
+
+Pinned emulator source/dependency restores finished successfully. Xenia source
+291f0c9be398a3e0a0e29f378cbd564fa28c55a9 and shadPS4 source
+529ceb32f5546b820588f194b903cc39d08015fe are under the same private directory.
+Xenia has a measurement-only patch archived in
+`tools/latency/xenia-291f0c9be.patch` (reverse-check passes). Shared Windows
+`latency_probe.h` logs opt-in `EVAC_LATENCY_TRACE` to a new path only, bounded
+memory/QPC records, exit flush. 104001-record native check complete; overflow
+check correctly flags37857 dropped; existing path unchanged. Reporter
+`scripts/latency_probe.py` has14 tests, including real press ID -> binding sample
+-> API return, missed/censored edges, and swap/mailbox/Present ownership.
+No input-to-first-pixel claim. shadPS4 is not instrumented/built yet.
+
+Xenia measurement tooling is being verified, NOT a completed emulator comparison.
+October 28 follow-up: r4 built, but pilot R1 produced a zero-byte CSV because
+Xenia exits via std::quick_exit. The measurement entry now registers Flush with
+at_quick_exit. R2 (PID111216, binary f3f2b726...50796) captured43308 complete
+records, zero overflow/incomplete,1881 linked output frames, zero packet-link
+errors. Scene was M2/title only, NOT gameplay. Three Return taps lasted
+0.8325..1.4972ms and all missed actual guest reads. This is not focus failure.
+CSV xenia-futari-probe-r2.csv SHA a3ca8287...c76d9; latest report suffix
+-summary-r2.json. Non-admin PresentMon exited normally without a CSV; no display
+timestamp evidence came from it.
+
+The new opt-in JIT observer (guest_sites.h/xenia_guest_probe.h) matches module,
+address and original opcode, reads four PPC registers via context barriers,
+and never writes guest memory. Fourteen parser checks pass; actual JIT/gameplay
+acceptance remains open. R3 crashed before the window with c0000374: Ninja had
+zero header dependencies, and Processor retained the old sizeof(PPCFrontend).
+Correct UTF-8 MSVC include prefix and a checked processor dependency are now
+in Build-XeniaProbe.ps1/msvc_includes.cmake. Full repair build r7 is LIVE in
+exec session67978 (last observed855/939). Poll SAME handle; don't duplicate.
+Old session56466 is terminal. R3 is invalid tool-build evidence, not a game bug.
+
+Standalone Vulkan capability query on an actual Win32 surface reports timing
+stages0x5 (queue completion and first pixel OUT), NOT pixel VISIBLE. Device
+extension availability alone was insufficient. Source vulkan_surface_caps.cpp,
+result vulkan-surface-capabilities-r1.txt. No production backend was modified.
+Synthetic guest-only test controller test_pad.h/client.py is prepared but NOT
+yet wired into Xenia. Its native acknowledgement/down/release/source-ID check
+passes. It is explicitly NOT Windows/SDL/USB input evidence. Probe reporter has
+18 passing tests with synthetic sources separate. No games currently running.
+
+MSVC19.44 local versus official workflow VS2026 must be disclosed; compare trace
+OFF/ON and official baseline before claiming equal behavior/performance.
+Build r1 lacked /EHsc in supplied CXX flags, r2 lacked generated version.h;
+both fixed in Build-XeniaProbe.ps1. r3 stopped at missing SPIR-V tools after138
+of382 steps. GLSLang16.6.0 official ZIP SHA82bf434e...94a8d9b downloaded/verified,
+extracted privately, glslang.exe copied to legacy glslangValidator.exe alias.
+SPIRV-Tools uses Xenia's pinned33e02568 source and exact DEPS headers2a611a97.
+`Build-SpirvTools.ps1` builds two utilities, then `Build-XeniaProbe.ps1` resumes
+incrementally: historical session56466, shader log `spirv-tools-build-r2.log`,
+then `xenia-probe-build-r4.log`. Both are complete. Two jobs/BelowNormal.
+No edits to sources/headers being compiled during the active r7 build.
+Shader tools finished209/209; opt SHA74e63199...4333a6a, dis5198f90c...6c39c8c.
+The same live session has moved to Xenia r4 (last observed23/245, kernel sources).
+49 latency-named +14 probe reporter tests pass. SDOJ paired-r2 regeneration also
+reverified report/source hashes and still selects3/excludes1. Frozen ZIP hash
+was rechecked and unchanged. No emulator gameplay capture yet.
+Prepared xenia-futari fixture contains eight copied TEST profile/save files and
+config:1280x720,vsync,keyboardIJKL,Z confirm/X back,Return start,C/P face buttons,
+protect_zero=false. Source original profile and official EXE untouched. No game
+is currently running. All eight complete paired comparisons remain outstanding.
+
 ### v0.8.0 local delivery complete — October 28, 06:43 local
 
 Final program ZIP is frozen at source c427257bdf45e0e5b57087108739e16342eb894c:

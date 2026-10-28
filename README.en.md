@@ -10,6 +10,20 @@ EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launch
 
 Download links are listed under “Downloads and backups”.
 
+## Latency and performance
+
+Lower CPU usage, with 1V low-latency options for G2 and SaiDaiOuJou. Estimated latency and measured CPU usage in representative Xbox 360 scenes:
+
+| Game | Port latency/ms | Xenia latency/ms | Port CPU/cores | Xenia CPU/cores |
+| --- | ---: | ---: | ---: | ---: |
+| Mushihimesama Futari | 26 | 36 | 0.08 | 1.26 |
+| ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
+| DoDonPachi SaiDaiOuJou | 26 | 69 | 0.43 | 3.46 |
+
+All three ports use 1V for this comparison. G2 requires [enabling experimental Frame Delay](#experimental-g2-frame-delay); its default remains 2V. Xenia retains the games' original 1V, 2V and 3V settings, respectively.
+
+Latency combines game-internal measurements, an average 8.3 ms sampling wait and historical same-PC presentation data, assuming independent flip for the ports and desktop composition for Xenia. Device input, display scanout and panel response are excluded. CPU figures are equivalent logical cores from replay workloads on an i7-13700KF / RTX 4080; one core equals 1,000 CPU ms/s. [Method and data (Chinese)](docs/ANALYSIS.md#360-统一条件比较).
+
 ## Getting started
 
 ### System requirements

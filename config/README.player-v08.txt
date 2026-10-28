@@ -2,6 +2,18 @@ EVAC PC LABEL v0.8.0
 
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
+延迟与性能 -------------------------------------------------------------------
+360 代表场景的延迟估算与 CPU 实测对比：
+  游戏                 移植延迟/ms  Xenia延迟/ms  移植CPU/核  XeniaCPU/核
+  虫姬二               26           36            0.08        1.26
+  ESPGaluda II          26           51            0.38        1.37
+  最大往生             26           69            0.43        3.46
+移植版三款均按 1V；G2 需在 [game.espgaluda2] 设置 frame_delay=1，默认仍为 2。
+Xenia 分别为原作 1V、2V、3V。延迟计入 8.3ms 平均采样等待及同机历史呈现
+数据，按移植版独立翻转、Xenia 桌面合成估算，不含设备输入及显示器扫描／响应。
+CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核，1 核 = 1000 CPU ms/s。
+方法与数据：https://github.com/zxl0714/EVAC-PC-LABEL/blob/main/docs/ANALYSIS.md
+
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
 使用 Windows 64 位及显卡厂商驱动。Xbox 360 作品使用 Direct3D 12，PS4 作品
@@ -108,6 +120,20 @@ enabled = false 为离线游玩。同一游戏中，相同昵称代表同一社�
 源码提交与构建入口见 SOURCE.txt，组件许可证见 licenses/。
 
 English ======================================================================
+
+Latency and performance
+Estimated latency and measured CPU usage in representative Xbox 360 scenes:
+  Game           Port latency/ms  Xenia latency/ms  Port CPU/cores  Xenia CPU/cores
+  Futari         26               36                0.08            1.26
+  ESPGaluda II   26               51                0.38            1.37
+  SaiDaiOuJou    26               69                0.43            3.46
+All ports use 1V here; enable frame_delay=1 in [game.espgaluda2] for G2,
+which still defaults to 2. Xenia retains the original 1V, 2V and 3V settings.
+Latency includes an average 8.3 ms sampling wait and historical same-PC
+presentation data, assuming independent flip for the ports and desktop
+composition for Xenia. Device input, display scanout and panel response are
+excluded. CPU is equivalent logical cores on an i7-13700KF / RTX 4080;
+one core equals 1,000 CPU ms/s. Method and data are linked above.
 
 To update, close games and launcher, extract over the existing folder, and keep
 user-data/.

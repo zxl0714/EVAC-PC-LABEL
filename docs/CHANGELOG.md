@@ -5,18 +5,42 @@
 - 新增《弾銃フィーバロン / Dangun Feveron》，支持 ARCADE、SUPER EASY、FEVER、CUSTOM，以及存档、录像和社区排行榜。
 - 修复虫姬二 Black Label 和 ESPGaluda II 下载录像后作者显示为自己的问题，重启或修改昵称后仍保留原作者。
 - 修复 ESPGaluda II 启动后首次下载录像失败、需要重试的问题。
-- 降低虫姬二、G2、最大往生和狱门山的 CPU 开销，优化定时器、渲染任务和原生完成等待；虫姬二高清模式的代表回放中 GPU 工作减少约 19%～23%。
+- 降低虫姬二、G2、最大往生和狱门山的 CPU 开销，优化定时器、渲染任务和原生完成等待。
 - G2 新增实验性 `frame_delay=1`，可在配置文件中启用；默认保持 `2`。
 - 新增 `tools/Extract-XBLA.exe`，通过窗口选择内容包并提取狱门山游戏文件。
+
+### 延迟与性能
+
+360 代表场景的延迟估算与 CPU 实测对比：
+
+| 游戏 | 移植版延迟/ms | Xenia 延迟/ms | 移植版 CPU/核 | Xenia CPU/核 |
+| --- | ---: | ---: | ---: | ---: |
+| 虫姬二 | 26 | 36 | 0.08 | 1.26 |
+| ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
+| 最大往生 | 26 | 69 | 0.43 | 3.46 |
+
+移植版三款均按 1V，G2 需手动启用，默认仍为 2V；Xenia 分别为原作 1V、2V、3V。延迟计入 8.3ms 平均采样等待及同机历史呈现后段，按移植版独立翻转、Xenia 桌面合成估算，不含设备输入和显示器扫描／响应。CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核数，1 核 = 1000 CPU ms/s。[比较方法与数据](ANALYSIS.md#360-统一条件比较)。
 
 ### English
 
 - Added Dangun Feveron: ARCADE, SUPER EASY, FEVER, CUSTOM, saves, replays and community leaderboards.
 - Fixed downloaded replay authors being replaced with your own nickname in Futari Black Label and ESPGaluda II, including after restarting or changing your nickname.
 - Fixed ESPGaluda II's first replay download after startup requiring a retry.
-- Reduced CPU work in Futari, G2, SaiDaiOuJou and Guwange through timer, renderer and completion-wait improvements. GPU work fell by approximately 19–23% in the representative Futari HD replay.
+- Reduced CPU work in Futari, G2, SaiDaiOuJou and Guwange through timer, renderer and completion-wait improvements.
 - Added experimental G2 `frame_delay=1`; the default remains `2`.
 - Added `tools/Extract-XBLA.exe` for extracting Guwange content packages through a file picker.
+
+### Latency and performance
+
+Estimated latency and measured CPU usage in representative Xbox 360 scenes:
+
+| Game | Port latency/ms | Xenia latency/ms | Port CPU/cores | Xenia CPU/cores |
+| --- | ---: | ---: | ---: | ---: |
+| Mushihimesama Futari | 26 | 36 | 0.08 | 1.26 |
+| ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
+| DoDonPachi SaiDaiOuJou | 26 | 69 | 0.43 | 3.46 |
+
+All three ports use 1V; G2 requires enabling it manually and still defaults to 2V. Xenia retains the original 1V, 2V and 3V settings, respectively. Latency includes an average 8.3 ms sampling wait and historical same-PC presentation data, assuming independent flip for the ports and desktop composition for Xenia. Device input, display scanout and panel response are excluded. CPU figures are equivalent logical cores from replay workloads on an i7-13700KF / RTX 4080; one core equals 1,000 CPU ms/s. [Method and data (Chinese)](ANALYSIS.md#360-统一条件比较).
 
 ## v0.7.6
 
