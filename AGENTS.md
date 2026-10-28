@@ -6,7 +6,17 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-LATEST human request (October28): investigate Downloads/logs.rar PS4 startup
+LATEST human request (October28): formally publish v0.8.0 to GitHub. Push main,
+create the v0.8.0 tag and upload the accepted ROM-free ZIP plus checksum, latest
+stable release. Remove the old-driver error-handling bullet from bilingual
+release notes; requirements/troubleshooting stay in README. Frozen package
+source3ae60a6, SHAbe6ebba09e12fdf25e817d8641f40ad0e19ceeaedacd076d0921b55260c0f21b,
+161 files/9 preservation checks accepted. Documentation-only publication edits
+do not rebuild/re-extract it; record the documentation commit separately.
+Human finished playing and allows computer use; do not repeat gameplay tests.
+No separate OSS upload or QQ announcement requested in this release turn.
+
+Previous human request (October28): investigate Downloads/logs.rar PS4 startup
 failures in v0.8.0 without computer use while the human plays. Three logs fail
 before guest entry on RX580 2048SP device Vulkan1.2.133 / AMD2.0.137, despite
 loader1.4.363. The resident GPU requires1.3; do not remove requirements or
