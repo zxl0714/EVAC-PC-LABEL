@@ -2,6 +2,12 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.8.0 正式发布
+
+- 10 月 28 日 22:59 发布 [GitHub Release v0.8.0](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.0)，正式版／Latest。`main` 和标签已 push；标签及运行源码为 `3ae60a6`，发布说明调整为独立文档提交 `40f7eea`。
+- 复用已通过一次实际解压验收的程序包：161 个文件、9 类保留检查，SHA-256 `be6ebba09e12fdf25e817d8641f40ad0e19ceeaedacd076d0921b55260c0f21b`。仅上传不含游戏数据的 ZIP 和校验文件；公开 API 返回的大小／摘要、完整中英文说明、Latest 身份及下载后的 100 字节校验文件全部一致。
+- 交付收据 `.local/v080-github-delivery-r1.json`，页面截图 `.local/v080-release-published.jpg`。本次文案删去旧驱动报错处理条目，保留 README 的运行要求；不重复编译、解压或游玩，不上传 OSS，不发送群消息。
+
 ## v0.8.0 PS4 旧驱动启动反馈
 
 - 同一份反馈中的绊地狱、大往生、ESP Ra.De. 均完成数据准备，随后在 GPU 初始化断言退出，未进入游戏代码。设备为 RX 580 2048SP，AMD 驱动 `2.0.137`，设备 Vulkan `1.2.133`；加载器 `1.4.363` 不代表设备支持 1.3。

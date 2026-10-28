@@ -6,7 +6,17 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-LATEST human request (October28): formally publish v0.8.0 to GitHub. Push main,
+v0.8.0 publication COMPLETE (October28 22:59 Asia/Shanghai). GitHub release
+426810838 is stable/Latest at /releases/tag/v0.8.0; main and annotated tag pushed.
+Tag/runtime source3ae60a6, release-note documentation40f7eea. ZIP and checksum
+are the only uploaded assets; public API sizes/digests, exact bilingual notes,
+Latest identity and downloaded100-byte checksum all pass. No ZIP redownload or
+repeat extraction/build. Delivery .local/v080-github-delivery-r1.json; screenshot
+.local/v080-release-published.jpg. Frozen ZIP SHAbe6ebba0...c0f21b unchanged.
+No OSS upload, QQ announcement or further gameplay performed. This delivery-only
+record does not invalidate the accepted frozen build or require repackaging.
+
+Latest completed human request (October28): formally publish v0.8.0 to GitHub. Push main,
 create the v0.8.0 tag and upload the accepted ROM-free ZIP plus checksum, latest
 stable release. Remove the old-driver error-handling bullet from bilingual
 release notes; requirements/troubleshooting stay in README. Frozen package
