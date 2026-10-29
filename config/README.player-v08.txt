@@ -14,6 +14,15 @@ Xenia 分别为原作 1V、2V、3V。延迟计入 8.3ms 平均采样等待及同
 CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核，1 核 = 1000 CPU ms/s。
 方法与数据：https://github.com/zxl0714/EVAC-PC-LABEL/blob/main/docs/ANALYSIS.md
 
+PS4 代表场景对比：
+  游戏                 移植延迟/ms  shadPS4延迟/ms  移植CPU/核  shadPS4CPU/核
+  绊地狱               17           55              0.29        0.62
+  大往生               16           55              0.23        0.34
+  ESP Ra.De.            19           46              0.36        0.62
+  弹铳                 31           46              0.25        0.66
+同机全屏；移植版使用 [display] vsync=false，shadPS4 v0.20.0 使用默认 FIFO。
+延迟估算包含采样等待和呈现后段，CPU 为等效逻辑核数。方法与数据见上方链接。
+
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
 使用 Windows 64 位及显卡厂商驱动。Xbox 360 作品使用 Direct3D 12，PS4 作品
@@ -136,6 +145,16 @@ presentation data, assuming independent flip for the ports and desktop
 composition for Xenia. Device input, display scanout and panel response are
 excluded. CPU is equivalent logical cores on an i7-13700KF / RTX 4080;
 one core equals 1,000 CPU ms/s. Method and data are linked above.
+
+Representative PS4 scenes:
+  Game            Port latency/ms  shadPS4 latency/ms  Port CPU/cores  shadPS4 CPU/cores
+  Ketsui          17               55                  0.29            0.62
+  DaiOuJou        16               55                  0.23            0.34
+  ESP Ra.De.      19               46                  0.36            0.62
+  Dangun Feveron  31               46                  0.25            0.66
+Same PC and fullscreen display; the ports use [display] vsync=false and
+shadPS4 v0.20.0 uses default FIFO. Latency estimates include sampling wait and
+presentation. CPU is measured in equivalent logical cores. Method linked above.
 
 To update, close games and launcher, extract over the existing folder, and keep
 user-data/.

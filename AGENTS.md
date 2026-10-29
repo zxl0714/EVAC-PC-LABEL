@@ -6,6 +6,23 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+ACTIVE October29: user explicitly authorized fresh package + normal formal
+v0.8.1 publication. Include720p-and-up presets and bilingual PS4 table in packaged
+README. Review notes for concise player-facing3bullets +performance table only.
+Commit source, certify incremental8runtimes+launcher, one Public ZIP +one actual
+extraction/preservation check, push main/tag and GitHub Release Latest. Existing
+IAB GitHub login available, no gh executable or GitHub connector. Browser tab1
+is prior v0.8.0 release. Do not publish internal ROM package; no QQ/OSS request.
+User authorization is sufficient; no extra confirmation unless actual blocker.
+
+LATEST October29 launcher preset follow-up: user considers sub-720p choices
+unnecessary. Source kWindowSelections now only1280x720/1600x900/1920x1080 plus
+the launcher fullscreen choice. Keep shared/custom INI dimensions and automatic
+small-screen fitting. Build only common tests+launcher; no runtime campaign or
+package rewrite. Frozen75ea7b8 ZIP predates this change. User also asked about
+PS4 data in README: repo bilingual tables are current, packaged README.txt still
+has360 table only; that omission was disclosed and needs syncing at next repack.
+
 COMPLETE October29 latest v0.8.1 local package, STOP BEFORE PUBLICATION.
 Source/build/package commit75ea7b813ac64bac4642249a3c585fcf273d42bf includes
 ordinary-PS4 ESP Ra.De. latency fix. All8runtimes +launcher certified at same

@@ -2,10 +2,9 @@
 
 ## v0.8.1
 
-- 降低绊地狱、大往生、ESP Ra.De. 和弹铳的画面交接与呈现延迟，新配置默认使用低延迟呈现。
-- ESP Ra.De. 在普通 PS4 模式下使用两帧预演，减少一帧输入响应等待。
-- 优化 PS4 着色器检查、顶点和资源准备，减少绘图处理开销。
-- 修复弹铳部分模式开始游玩时退出的问题。
+- 降低绊地狱、大往生、ESP Ra.De. 和弹铳的输入与呈现延迟。
+- 优化 PS4 图形处理，降低 CPU 开销。
+- 修复弹铳部分模式开局退出的问题。
 
 | 游戏 | 移植版延迟/ms | shadPS4 延迟/ms | 移植版 CPU/核 | shadPS4 CPU/核 |
 | --- | ---: | ---: | ---: | ---: |
@@ -14,14 +13,13 @@
 | ESP Ra.De. | 19 | 46 | 0.36 | 0.62 |
 | 弹铳 | 31 | 46 | 0.25 | 0.66 |
 
-同机代表场景；延迟估算包含平均取样等待与呈现后段，ESP Ra.De.、弹铳复用同机呈现预算。CPU 为等效逻辑核数。[比较方法](ANALYSIS.md#ps4-统一条件比较)。
+同机代表场景。延迟估算包含采样等待与呈现后段，CPU 为等效逻辑核数。[比较方法](ANALYSIS.md#ps4-统一条件比较)。
 
 ### English
 
-- Reduced image handoff and presentation latency in Ketsui, DaiOuJou, ESP Ra.De. and Dangun Feveron. New configurations use low-latency presentation by default.
-- ESP Ra.De. uses two-frame prediction in standard PS4 mode, removing one frame of input-response wait.
-- Optimized PS4 shader checks, vertex inputs and resource preparation to reduce draw-processing work.
-- Fixed Dangun Feveron exiting when starting certain modes.
+- Reduced input and presentation latency in Ketsui, DaiOuJou, ESP Ra.De. and Dangun Feveron.
+- Optimized PS4 graphics processing to reduce CPU usage.
+- Fixed Dangun Feveron exiting at the start of certain modes.
 
 | Game | Port latency/ms | shadPS4 latency/ms | Port CPU/cores | shadPS4 CPU/cores |
 | --- | ---: | ---: | ---: | ---: |
@@ -30,7 +28,7 @@
 | ESP Ra.De. | 19 | 46 | 0.36 | 0.62 |
 | Dangun Feveron | 31 | 46 | 0.25 | 0.66 |
 
-Representative scenes on the same PC. Latency estimates include average sampling wait and presentation; ESP Ra.De. and Dangun Feveron reuse the same-PC presentation budget. CPU is measured in equivalent logical cores. [Method (Chinese)](ANALYSIS.md#ps4-统一条件比较).
+Representative scenes on the same PC. Latency estimates include sampling wait and presentation. CPU is measured in equivalent logical cores. [Method (Chinese)](ANALYSIS.md#ps4-统一条件比较).
 
 ## v0.8.0
 
