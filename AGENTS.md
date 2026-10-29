@@ -5,57 +5,50 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
-ACTIVE October30: implement v0.8.2. Full NEO/PS4 Pro support, four-title
-ordinary/NEO benefit comparison, Dangun Feveron latency improvement, bilingual
-docs and LOCAL program package. Stop before publication; no push/upload/tag.
-User prefers NEO default on, with per-game neo=false opt-out. No subagents.
-Published v0.8.1 ZIP/tag stay frozen.
+COMPLETE October30: v0.8.2 implemented and local program package accepted.
+Stop before publication. No push/upload/tag/release requested or performed.
+Source/build/package commit e4d4c962321c360bc133ae76eb6deada716238ab.
+NEO defaults true for all4PS4 games, per-game neo=false opt-out. Full 1080p
+profile, NEO350/indexed UCONFIG, ALT16pipe and D16S8 GPU conversion toD24/D32.
+README bilingual and playerguide/changelog updated. Detailed scope/data in
+ANALYSIS v082 NEO and TEST_MATRIX. Preserve frozen publishedv0.8.1 assets.
 
-Implementation and actual comparison are complete, local build/package pending.
-Production config defaults neo=true for all4 PS4 titles. Full 1080p profile,
-NEO350 init/indexed UCONFIG, ALT16pipe and D16S8 GPU conversion to D24/D32
-are wired. GPU validation-r5 passes18 image checks/1703936bytes/zeroVUID;
-common661, config22 and PM4/compatibility passed. Current version0.8.2.
-New maintained upstream hashes recorded; original CRLF preserved with scoped
-whitespace attributes. AGENTS is LF: apply_patch or explicit newline='\n'.
+Local ZIP releases/v0.8.2-local-e4d4c96/EVAC-PC-LABEL-v0.8.2-win-x64.zip,
+110919433bytes, SHA7e12f2b32bd9bf62b1d25db5e21decccfb726200c10bebbad2386371aa928ef6.
+One actual extraction162files/9preservation categories accepted under
+.local/release-acceptance-v082/7e12f2b32bd9bf62/accepted.json. MIT notice and
+bilingual NEO guide present. Notes beside ZIP; .local/v082/delivery-r1.json.
+Common661, native88/88, source22/22, GPU18imagechecks/1703936bytes/zeroVUID,
+finalGPU scheduler/draw, launchercommon/launch/preview and hiddenUI pass.
+All8runtime certificates +launcher match same source commit. This closing
+checkpoint is docs-only: do not rebuild/repack frozenZIP or recertify it merely
+for this update. No games running; original ROM and profiles untouched.
 
-Final latency evidence in .local/input-latency-v080-r1:
-v082-{ketsui,daioujou,esprade,feveron}-neo-comparison-r1.json, reproduced by
-corresponding tools/latency/review_*_neo.py. Padreturn->firstresponsePresent
-ordinary/NEO: Ketsui4.9112/5.4886ms, DOI5.5856/5.6678, ESP7.5844/7.935,
-Fever21.538208/6.888592. Ketsui/DOI/ESP one clean same-command pair each;
-Fever12 each. DOI observer identifies LAST PadRead+originalcallback/P1delivery,
-12/12 each; lowlatencyflag1 live aftercrossmodequickload. Whole budget adds
-8.333333ms sampling+historical3.300679ms presenter, NEO rounds17/17/20/19.
-ESP ordinary alreadyahead2; do not doublecount this as new NEO benefit.
-Early capture analysis/death/respawn cases excluded, not new regression evidence.
-ESP neo-pixel-r3 overflowed because CPUhelper endedid93 armedpixels while
-paused; EXCLUDE. AcceptedESPbase-r4/Neo-r5 are pixel-only, both observedslot01.
+Ordinary/NEO Padreturn->firstresponsePresentms: Ketsui4.9112/5.4886,
+DOI5.5856/5.6678,ESP7.5844/7.935,Fever21.538208/6.888592. Threegames1clean
+pair each, Fever12each. DOIoriginalcallback/P1delivery12/12 both; lowlatency1
+retainedafterordinaryquickloadinNEO. Wholebudget adds8.333333sampling+historical
+3.300679presenter, NEO rounds17/17/20/19. ESPordinaryalreadyahead2, no doublecount.
+Reports .local/input-latency-v080-r1/v082-*-neo-comparison-r1.json reproduced by
+tools/latency/review_*_neo.py. GPUspanus407/494,307/362,546/677,267/308;
+p95interval~17.03-17.09ms. Spans include dependencies, not exclusivebusy.
+Matched timingCPU Ketsui.293/.223,DOI.285/.281,ESP.410/.426; no causal%claim.
+READMEcleanNEOmeans.25/.26/.38/.27cores; r2/r3 distinction recordedTEST_MATRIX.
+Feveroriginalaudit01000/01010 effectiveordinary1/Neo2or3updates; these are NOT V
+counts. Originalsave/predict/restore retained. NEO old7pointdownloadedreplay
+completed1:23.56 naturally and returnedlist7points, isolatedseededprofile,
+PID95772 closednormally. All4representativeStage1andcrossmodequickloadpassed.
 
-GPU/CPU work reports .local/v082/{ketsui,daioujou}-paired-work-r2.json,
-esprade-paired-work-r1.json; public reviewer review_ps4_neo_workload.py.
-GPUspanus ordinary/Neo407/494,307/362,546/677,Fever267/308. Spans include
-batch dependencies, not exclusivebusy. p95intervalall~17.03-17.09ms.
-Matched timingCPU Ketsui.293/.223,DOI.285/.281,ESP.410/.426cores; no causal%
-claim from4s windows. READMEcleanNEOmeans .25/.26/.38/.27cores; source identities
-and r2 vs r3(D32fallbackonly) distinction in docs/TEST_MATRIX. Keepcostscopesapart.
-Fever original01000/01010 audit v082-feveron-lookahead-audit-r3/report.json:
-ordinaryeffective1update,Neo2/3. Save/predict/restore preserved, not V counts.
+Private measurement fixtures r1/r2/r3 frozen; raw traces and rejected samples
+retained. ESPneo-pixel-r3 OVERFLOWED because CPUhelper endedid93 armedpixels
+whilepaused: EXCLUDE. AcceptedESPbase-r4/Neo-r5 pixelonly bothobservedslot01.
+EarlierDOIblink/earlyPad samples do NOT establish latency regression; accepted
+newcoreobserverr5/r6 provescurrentcallbackresponse. Oldemptyreplaylist-r14 was
+emptyprofile, validoldprofile-r15 used. Wrong standalone unittest invocations
+r1/r2 had wrongROOT/PYTHONPATH; supported native runner88pass +source22pass.
 
-Actual NEO KetsuiTypeAStage1 save/load01, DOIShotiaStage1 save/load01,
-ESP YusukeStage1 oldbase1350slot01+Neo5620slot02 save/load, all passed.
-Fever olddownloadedFeveronCheck7pointreplay from isolatedv080profile seeded
-into v082-replay-game-r1 completed1:23.56 naturally and returnedlist7points.
-PID95772 closednormally. No games running. Old empty measurementprofile-r14
-list was emptydata, not gamefailure; validprofile-r15 used. No input after
-replaystartid54 except finalclose, trace/launch receipt binds testfixture.
-
-BilingualREADME/playerguide/changelog updated. Need finish final targetedchecks,
-commit source locally, build/certify all8runtimes+launcher atsamecommit, one local
-Public programZIP+oneextraction acceptance. No publication/push. GoalACTIVE;
-do notmarkcompleteuntilpackageactuallydone. Earlier test invocation errors in
-source-tests-r1/r2 were wrong standalone testloaderROOT/PYTHONPATH; use supported
-scripts/ps4/run_native_checks.py after certification, not directoldtestmodule.
+No subagents. AGENTS LF; preserve explicit newline='\n'. Scoped CRLF attributes
+for maintained GPU sources and upstream inventory. No pending v0.8.2 work.
 
 COMPLETE October29 22:46 CST: v0.8.1 formally published as GitHub Latest.
 Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.1,

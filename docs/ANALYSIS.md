@@ -43,7 +43,7 @@ GPU 数字来自现有批次首尾 timestamp，包含批次内依赖，不是独
 
 ### 实现与正确性
 
-NEO 档位在客体启动与 GPU 创建前确定，使用对应的 GNM 350 初始化、合法 indexed UCONFIG 和 ALT 16-pipe 资源布局；D16S8 在宿主 D24S8／D32S8 上通过 GPU 转换。实际 Vulkan validation 下 18 项图像检查、1,703,936 字节校验通过，包括全部 D16 值、奇数尾部、子分配边界及独立 ALT 地址梯度图。四作代表进关和跨档快速读档通过，详见[验收记录](TEST_MATRIX.md#v082-开发中)。
+NEO 档位在客体启动与 GPU 创建前确定，使用对应的 GNM 350 初始化、合法 indexed UCONFIG 和 ALT 16-pipe 资源布局；D16S8 在宿主 D24S8／D32S8 上通过 GPU 转换。实际 Vulkan validation 下 18 项图像检查、1,703,936 字节校验通过，包括全部 D16 值、奇数尾部、子分配边界及独立 ALT 地址梯度图。四作代表进关和跨档快速读档通过，详见[验收记录](TEST_MATRIX.md#v082-本地验收)。
 
 弹铳两份原核心的 save／predict／restore 静态审计见 `audit_feveron_lookahead.py`：01000 普通／NEO 的有效预演为 1／2 次，01010 为 1／3 次。实际 01010 在 NEO 读回普通存档后 count=3、flag=1。这些是原实现的核心更新次数，不是 V 档位，也未通过加速游戏时钟换取提前响应。
 
