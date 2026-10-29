@@ -6,19 +6,27 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-ACTIVE October29: user explicitly authorized fresh package + normal formal
-v0.8.1 publication. Include720p-and-up presets and bilingual PS4 table in packaged
-README. Review notes for concise player-facing3bullets +performance table only.
-Commit source, certify incremental8runtimes+launcher, one Public ZIP +one actual
-extraction/preservation check, push main/tag and GitHub Release Latest. Existing
-IAB GitHub login available, no gh executable or GitHub connector. Browser tab1
-is prior v0.8.0 release. Do not publish internal ROM package; no QQ/OSS request.
-User authorization is sufficient; no extra confirmation unless actual blocker.
-Final hidden launcher check exposed stale test index3 (used to select1280x720,
-now1920x1080); ColdReadback correctly rejected it. Fix fixture to find1280x720
-by value, not preset index; production unchanged. Keep first failure evidence.
-60421b4 candidate ZIP exists but NOT accepted/published; final commit/package
-must include corrected test. Run this check before the next package attempt.
+COMPLETE October29 22:46 CST: v0.8.1 formally published as GitHub Latest.
+Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.1,
+ID427992601. main and annotated tag pushed; tag/source/build/package commit
+b176ac52867fe17ffed8ec87705401860a2fb03f. All8runtimes+launcher certified at
+same commit. Final ZIP releases/v0.8.1-final-b176ac5/EVAC-PC-LABEL-v0.8.1-win-x64.zip,
+110896400bytes, SHA85414cb0844ba7674877a7dab633594c4403c81e2f5ebf92da7163a7156723d7.
+ONE actual extraction161files/9preservation categories accepted under
+.local/release-acceptance-v081/85414cb0844ba767/accepted.json. Packaged bilingual
+README includes PS4 table; presets fullscreen/720p/900p/1080p. Final common,
+launch, preview, PS4 compatibility and hidden launcher UI checks pass. Initial
+hidden UI failure was stale preset index3; fixture now finds1280x720 by value.
+No production change for that correction;60421b4 candidate never accepted.
+Published notes are3player-facing bullets+table per language. Public API
+confirms Latest/non-draft/non-prerelease,2asset sizes/digests and notes (CRLF
+normalized);100-byte downloaded checksum matches. No ZIP redownload/re-extract.
+Delivery .local/v081-github-delivery-r1.json, screenshot
+.local/v081-release-published.jpg. No OSS/internal-ROM/group announcement.
+This closing checkpoint is docs-only: do not rebuild/repack or move release tag.
+User follow-up answered: Ketsui1.00/1.02 and Daioujou1.00/1.04 use shared host
+latency improvements; vsync=false for low-latency presentation, original modes
+may differ. Older checkpoints below are historical, superseded by this release.
 
 LATEST October29 launcher preset follow-up: user considers sub-720p choices
 unnecessary. Source kWindowSelections now only1280x720/1600x900/1920x1080 plus

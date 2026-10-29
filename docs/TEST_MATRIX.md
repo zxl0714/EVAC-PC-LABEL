@@ -2,6 +2,13 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.8.1 正式发布
+
+- 10 月 29 日 22:46 发布 [GitHub Release v0.8.1](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.1)，正式版／Latest。`main` 与标签已推送；标签、八款运行组件、启动器和程序包对应 `b176ac52867fe17ffed8ec87705401860a2fb03f`。
+- 最终程序包 `releases/v0.8.1-final-b176ac5/EVAC-PC-LABEL-v0.8.1-win-x64.zip`，110,896,400 字节，SHA-256 `85414cb0844ba7674877a7dab633594c4403c81e2f5ebf92da7163a7156723d7`。一次实际解压验收 161 文件／9 类保留检查通过；包内中英文 README 已同步 PS4 对照表，窗口预设为 720p／900p／1080p 及全屏。
+- common／launch／launcher_preview、PS4 compatibility 与隐藏窗口 launcher_ui 检查通过。最初的启动器检查因旧预设索引选成 1080p 而失败；改为按 1280×720 的值查找后通过，未改生产逻辑。保留首轮失败记录，未将 `60421b4` 候选包发布。
+- GitHub 公开 API 核对 Latest 身份、两份附件大小／摘要及完整中英文说明通过；说明只存在 CRLF／LF 换行差异。下载后的 100 字节校验文件与本地一致，未重复下载或解压 ZIP。交付收据 `.local/v081-github-delivery-r1.json`，截图 `.local/v081-release-published.jpg`；本次未上传 OSS 或发送群消息。以下为发布前历史验收记录。
+
 ## v0.8.1 本地开发验收
 
 - **最新本地程序包：** 普通PS4模式的ESP Ra.De.低延迟改动已纳入`75ea7b813ac64bac4642249a3c585fcf273d42bf`。八款运行组件与启动器构建认证对应同一提交，源码审计2615文件／22子模块通过。新包`releases/v0.8.1-final-75ea7b8/EVAC-PC-LABEL-v0.8.1-win-x64.zip`，110,896,019字节，SHA-256`7c1c24098dcff0c6a2f15903dad11bd479677b1978c06dc64fdb96ea34458dcc`；一次实际解压161文件／9类保留检查通过。中英文说明已去掉启动器分辨率条目；预览复用前核对启动器EXE未变。交付记录`.local/v081-low-package-delivery-75ea7b8.json`；旧包保留，未push／上传／发布，未重复玩法测试。
