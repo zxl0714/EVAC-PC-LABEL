@@ -20,6 +20,11 @@ struct NativeMemoryCacheBackend::Observer final : NativeGpuMemoryObserver {
     hooks.sync([&] { hooks.before_change(ranges); });
   }
   void Access(std::span<const NativeMemoryRangeInfo> ranges, bool write) {
+    if (ranges.size() == 1) {
+      const auto aliases = NativeMemoryAliases(ranges[0].address, ranges[0].bytes);
+      hooks.sync([&] { hooks.access(aliases, write); });
+      return;
+    }
     std::vector<NativeMemoryRangeInfo> aliases;
     for (const auto &range : ranges) {
       auto found = NativeMemoryAliases(range.address, range.bytes);
@@ -139,6 +144,13 @@ bool NativeMemoryCacheBackend::WriteBacking(std::uint64_t address,
 void NativeMemoryCacheBackend::ReadMetadata(std::uint64_t address, void *data,
                                             std::uint64_t bytes) {
   RunGpuSync([&] {
+    NativeMemoryRangeInfo single;
+    if (QueryNativeMemoryRange(address, bytes, &single)) {
+      observer->Access(std::span{&single, 1}, false);
+      ReadSparse(address, data, bytes);
+      ++metadata_reads;
+      return;
+    }
     if (!IsMapped(address, bytes)) {
       throw std::runtime_error(
           "Shader descriptor read outside registered GPU memory");

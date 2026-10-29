@@ -6,6 +6,42 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+LATEST user request: rebuild the local v0.8.1 candidate including draw preparation
+optimization; investigate an anonymous "360 practice boss crash" comment. User
+confirmed NO game/mode/stage/log details exist. Do not infer a specific game or
+claim a fix without reproduction. No publication/push/upload is authorized.
+Updated CPU samples verified in actual Stage1: Ketsui93924 .288941cores,
+DOI46888 .226463cores. Both closed viaAltF4. Original core observers enabled,
+draw timing OFF, ROI afterCPU. The first sample in each process was menu/dialog
+and REJECTED; valid files end -stage-cpu.json. Same-process later ROI snapshots
+hit capacity after earlier menu shots; retained end scenes verified, not accepted
+as complete latency captures. Report v081-ps4-cpu-comparison-r2.json binds values.
+Bilingual README/CHANGELOG CPU now.29/.23 vs shad.62/.34; latency stays17/16.
+Next commit source locally, refresh all3 build receipts at same commit, PublicZIP
+in a NEW releases directory, ONE extraction acceptance, preserve frozen oldZIP.
+
+LATEST October29 user-requested draw preparation optimization COMPLETE locally.
+This supersedes the frozen-package stop below for source/build status. No push,
+tag, upload or publication. Current source changes are not committed. Build r4
+and staging completed; old releases/v0.8.1-final-d33c445 ZIP remains unchanged
+and DOES NOT include this second processing round. Do not present it as updated.
+Pipeline/fetch decoding reuses only exact live bytes; specialization shares
+current-draw vertex descriptors with binding. Single-view backing reads and
+metadata queries avoid redundant allocation/checks; empty/small SRT is cheaper.
+GPU targets7 passed (initial fake-metadata fixture failure fixed and rerun),
+native checks88/88 passed including4 live vertex pixel cases, Python15 passed.
+Interleaved before/after/after/before benchmark:
+.local/offline-bench/v081-preparation-abba-r1/report.json, fetch170 mean663->515us,
+fetch250 mean919->694us, p95709->554/998->730. Final standalone timing r2 had
+host drift; retained, not the source of these interleaved numbers.
+Actual DOI private test118624 closed viaAltF4. Stage1A/TypeA/Shotia moved/fired,
+score34000; raw22frames/75850trace records,0overflow. Game pipeline.931->.724ms,
+vertices.436->.073,resources.253->.226 in similar227..244draw batches (196new).
+Representative savings~.60ms, NOT frame-matched or whole4.006ms latency A/B.
+.local/input-latency-v080-r1/v081-draw-preparation-comparison-r1.json binds all.
+Earlier test82652 title and116916 BGM menu samples REJECTED. No game running.
+Full details in docs/ANALYSIS.md under second draw preparation round.
+
 FINAL v0.8.1 COMPLETE locally. Stop work; no push/tag/upload/publication.
 Code/build/package commit d33c4455ab62cdff5bb8c72ab7798c3ddb0976d9. Subsequent
 commit is documentation-only completion checkpoint; DO NOT rebuild/repackage

@@ -199,12 +199,17 @@ std::vector<u32> Setup(const RuntimeRegisterLayout &layout) {
   return stream;
 }
 std::vector<u32> Workload(const RuntimeRegisterLayout &layout, unsigned draws,
-                          unsigned prefetches, bool green) {
+                          unsigned prefetches, bool green, bool fetch = false) {
   std::vector<u32> stream;
   Shader(stream, layout.ps_program, base + (green ? 0x30000 : 0x20000));
   const std::array<u32, 1> instances{1};
   Packet(stream, 0x2f, instances);
   for (unsigned index = 0; index < draws; ++index) {
+    if (fetch) {
+      const u64 descriptor = base + 0x60000 + (index % 4) * 16;
+      const std::array<u32, 2> pointer{static_cast<u32>(descriptor), static_cast<u32>(descriptor >> 32)};
+      Register(stream, layout.vs_program + 6, pointer);
+    }
     if (index == 8) {
       const std::array<u32, 6> acquire{0x2ec47fc0, 0xffffffff, 0, 0, 0, 10};
       Packet(stream, 0x58, acquire);
@@ -227,6 +232,25 @@ std::vector<u32> Workload(const RuntimeRegisterLayout &layout, unsigned draws,
   flip[0] = 0x68750777;
   Packet(stream, 0x10, flip);
   return stream;
+}
+void FetchProgram(unsigned char* data) {
+  Program(data + 0x50000, true);
+  // Authored VS calls a four-component vertex fetch, then exports its position.
+  const std::array<u32, 9> words{0xbeeb03ff, 7, 0xbe802100, 0xbf8c0000,
+      0xf80000cf, 0x03020100, 0xf80008d1, 3, 0xbf810000};
+  std::memcpy(data + 0x50000, words.data(), sizeof(words));
+  const u64 hash = 0x1020304050607082ull;
+  std::memcpy(data + 0x50000 + 80, &hash, sizeof(hash));
+  const std::array<u32, 5> fetch{0xc0820300, 0xbf8c0000, 0xe00c2000, 0x00010000, 0xbe802000};
+  std::memcpy(data + 0x51000, fetch.data(), sizeof(fetch));
+  for (unsigned index = 0; index < 4; ++index) {
+    const u64 address = base + 0x70000 + index * 64;
+    const std::array<u32, 4> descriptor{static_cast<u32>(address),
+        static_cast<u32>(address >> 32) | (16u << 16), 1, 0x00077fac};
+    const std::array<float, 4> position{0, 0, 0, 1};
+    std::memcpy(data + 0x60000 + index * 16, descriptor.data(), sizeof(descriptor));
+    std::memcpy(data + 0x70000 + index * 64, position.data(), sizeof(position));
+  }
 }
 struct GpuSample {
   u64 snapshot{}, execute{}, completion{}, verification{}, total{};
@@ -253,15 +277,25 @@ GpuCase GpuBenchmark(NativeResidentGpu &gpu,
       nullptr, display.layout, {allocation.data, 64 * 64 * 4},
       base,    labels,         &gpu};
   kt::gfx::pm4::Analysis state;
-  const std::array<std::vector<u32>, 1> setup{Setup(registers)};
+  auto setup_words = Setup(registers);
+  const bool fetch = std::string_view(name).starts_with("fetch-");
+  if (fetch) {
+    Shader(setup_words, registers.vs_program, base + 0x50000);
+    Word(setup_words, registers.vs_program + 3, 8);
+    const std::array<u32, 4> user{static_cast<u32>(base + 0x51000),
+        static_cast<u32>((base + 0x51000) >> 32), static_cast<u32>(base + 0x60000),
+        static_cast<u32>((base + 0x60000) >> 32)};
+    Register(setup_words, registers.vs_program + 4, user);
+  }
+  const std::array<std::vector<u32>, 1> setup{std::move(setup_words)};
   gpu.Run([&] {
     gpu.Clear();
     gpu.Extent(0, 64, 64);
     (void)ExecuteNativeGpuCommands(target, setup, state, nullptr);
   });
   const std::array<std::vector<u32>, 2> streams{
-      Workload(registers, draws, prefetches, false),
-      Workload(registers, draws, prefetches, true)};
+      Workload(registers, draws, prefetches, false, fetch),
+      Workload(registers, draws, prefetches, true, fetch)};
   for (unsigned iteration = 0; iteration < samples + warmup; ++iteration) {
     GpuSample row;
     const auto start = MonotonicMicroseconds();
@@ -580,8 +614,59 @@ int RunNativeIndexedDrawSelfTest(const std::filesystem::path& library, bool vali
   }
   const auto stats = api.api.stats();
   Require(rejected == 5 && stats.draws == 4 && !stats.validation_errors, "Indexed descriptor validation or GPU validation failed");
+  // Exercise the same fetch specialization/binding path as the preparation
+  // benchmark, with live vertex writes that must move actual GPU output.
+  {
+    auto write = BeginNativeHostWrite(allocation.data + 0x50000, 0x21000);
+    Require(bool(write), "Could not prepare live vertex fixtures");
+    FetchProgram(allocation.data);
+    auto fragment_write = BeginNativeHostWrite(allocation.data + 0x30000, 128);
+    Require(bool(fragment_write), "Could not prepare the second authored fragment shader");
+    Program(allocation.data + 0x30000, false, true);
+  }
+  auto fetch_setup = Setup(layout);
+  Shader(fetch_setup, layout.vs_program, base + 0x50000);
+  Word(fetch_setup, layout.vs_program + 3, 8);
+  Register(fetch_setup, layout.vs_program + 4, std::array<u32, 4>{
+      static_cast<u32>(base + 0x51000), static_cast<u32>((base + 0x51000) >> 32),
+      static_cast<u32>(base + 0x60000), static_cast<u32>((base + 0x60000) >> 32)});
+  const std::array<std::vector<u32>, 1> fetch_setup_stream{std::move(fetch_setup)};
+  gpu.Run([&] { (void)ExecuteNativeGpuCommands(target, fetch_setup_stream, state, nullptr); });
+  for (unsigned iteration = 0; iteration < 4; ++iteration) {
+    const bool moved = iteration % 2;
+    {
+      auto clear = BeginNativeHostWrite(allocation.data, 64 * 64 * 4);
+      auto vertices = BeginNativeHostWrite(allocation.data + 0x70000, 256);
+      Require(bool(clear) && bool(vertices), "Could not mutate live vertex data");
+      std::memset(allocation.data, 0, 64 * 64 * 4);
+      const std::array<float, 4> position{moved ? 0.25f : 0.0f, 0, 0, 1};
+      for (unsigned index = 0; index < 4; ++index) {
+        std::memcpy(allocation.data + 0x70000 + index * 64, position.data(), sizeof(position));
+      }
+    }
+    const std::array<std::vector<u32>, 1> streams{Workload(layout, 4, 0, moved, true)};
+    gpu.Run([&] { Require(ExecuteNativeGpuCommands(target, streams, state, nullptr).draws == 4,
+                         "Live vertex fixture lost a draw"); });
+    gpu.Drain();
+    std::array<u32, 64 * 64> pixels{};
+    gpu.ReadColorForDiagnostics(base, 64, 64, pixels);
+    unsigned colored{};
+    for (unsigned index = 0; index < pixels.size(); ++index) {
+      if (!pixels[index]) continue;
+      const unsigned center = moved ? 40 : 32;
+      Require(pixels[index] == (moved ? 0xff00ff00u : 0xff0000ffu) &&
+                  index % 64 >= center - 1 && index % 64 <= center &&
+                  index / 64 >= 31 && index / 64 <= 32,
+              "Live vertex changes did not control the actual GPU pixel");
+      ++colored;
+    }
+    Require(colored == 1, "Live vertex fixture must produce exactly one pixel");
+    std::printf("{\"event\":\"live_vertex_pixel_case\",\"case\":%u,\"passed\":true}\n", iteration);
+  }
+  Require(api.api.stats().draws == 20 && !api.api.stats().validation_errors,
+          "Live vertex draw count or GPU validation failed");
   log.Stop();
-  std::printf("{\"event\":\"indexed_draw_self_test\",\"passed\":true,\"draws\":4,\"rejected\":5,\"validation\":%s,\"validationErrors\":0}\n", validation ? "true" : "false");
+  std::printf("{\"event\":\"indexed_draw_self_test\",\"passed\":true,\"draws\":20,\"indexedCases\":4,\"liveVertexCases\":4,\"rejected\":5,\"validation\":%s,\"validationErrors\":0}\n", validation ? "true" : "false");
   return 0;
 }
 
@@ -608,6 +693,7 @@ int RunNativeOfflineBench(const std::filesystem::path &library,
     Program(allocation.data + 0x10000, true);
     Program(allocation.data + 0x20000, false);
     Program(allocation.data + 0x30000, false, true);
+    FetchProgram(allocation.data);
     const auto layout = api.api.layout();
     Require(layout.bank_words == 0xd000,
             "Offline fixture needs the supported register bank");
@@ -615,9 +701,13 @@ int RunNativeOfflineBench(const std::filesystem::path &library,
                                  warmup, allocation));
     cases.push_back(GpuBenchmark(gpu, layout, 250, 86, "pm4-250-86", samples,
                                  warmup, allocation));
+    cases.push_back(GpuBenchmark(gpu, layout, 170, 60, "fetch-170-60", samples,
+                                 warmup, allocation));
+    cases.push_back(GpuBenchmark(gpu, layout, 250, 86, "fetch-250-86", samples,
+                                 warmup, allocation));
     const auto stats = api.api.stats();
     Require(stats.validation_errors == 0 && stats.dispatches == 0 &&
-                stats.draws == u64{samples + warmup} * (170 + 250),
+                stats.draws == u64{samples + warmup} * 2 * (170 + 250),
             "GPU validation or executed-draw count differs");
   }
   log.Stop();
@@ -638,6 +728,6 @@ int RunNativeOfflineBench(const std::filesystem::path &library,
     Print(result, warmup);
   }
   std::puts("{\"event\":\"offline_bench_complete\",\"schema\":1,\"passed\":"
-            "true,\"cases\":6}");
+            "true,\"cases\":8}");
   return 0;
 }

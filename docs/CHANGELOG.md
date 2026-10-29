@@ -4,13 +4,13 @@
 
 - 降低绊地狱、大往生、ESP Ra.De. 和弹铳的画面交接与呈现延迟，新配置默认使用低延迟呈现。
 - 启动器可选择全屏或常用窗口分辨率，并记住上次选择；窗口按屏幕可用区域适配。
-- 合并 PS4 着色器代码和元数据的读取，减少绘图处理开销。
+- 优化 PS4 着色器检查、顶点和资源准备，减少绘图处理开销。
 - 修复弹铳部分模式开始游玩时退出的问题。
 
 | 游戏 | 移植版延迟/ms | shadPS4 延迟/ms | 移植版 CPU/核 | shadPS4 CPU/核 |
 | --- | ---: | ---: | ---: | ---: |
-| 绊地狱 | 17 | 55 | 0.26 | 0.62 |
-| 大往生 | 16 | 55 | 0.37 | 0.34 |
+| 绊地狱 | 17 | 55 | 0.29 | 0.62 |
+| 大往生 | 16 | 55 | 0.23 | 0.34 |
 
 同机代表场景；延迟估算包含平均取样等待与呈现后段，CPU 为等效逻辑核数。[比较方法](ANALYSIS.md#ps4-统一条件比较)。
 
@@ -18,13 +18,13 @@
 
 - Reduced image handoff and presentation latency in Ketsui, DaiOuJou, ESP Ra.De. and Dangun Feveron. New configurations use low-latency presentation by default.
 - The launcher now offers fullscreen and common window resolutions, remembers the selection and fits windows to the available screen area.
-- Combined PS4 shader code and metadata reads to reduce draw-processing work.
+- Optimized PS4 shader checks, vertex inputs and resource preparation to reduce draw-processing work.
 - Fixed Dangun Feveron exiting when starting certain modes.
 
 | Game | Port latency/ms | shadPS4 latency/ms | Port CPU/cores | shadPS4 CPU/cores |
 | --- | ---: | ---: | ---: | ---: |
-| Ketsui | 17 | 55 | 0.26 | 0.62 |
-| DaiOuJou | 16 | 55 | 0.37 | 0.34 |
+| Ketsui | 17 | 55 | 0.29 | 0.62 |
+| DaiOuJou | 16 | 55 | 0.23 | 0.34 |
 
 Representative scenes on the same PC. Latency estimates include average sampling wait and presentation; CPU is measured in equivalent logical cores. [Method (Chinese)](ANALYSIS.md#ps4-统一条件比较).
 

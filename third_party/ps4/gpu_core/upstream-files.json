@@ -1039,8 +1039,8 @@
     },
     {
       "path": "src/shader_recompiler/info.h",
-      "sha256": "19cf5ee3468e4a660d4a9e8515d554d9d58f0f886f1cfa662eb5c023f26a3a72",
-      "description": "Execute the portable descriptor plan; route direct and tessellation descriptor reads through coherent GPU metadata access, validating flattened and direct user-data bounds."
+      "sha256": "6deaefb994cd3427a90f3aeecca02fca72383ce65a6d9e5b4dc6ba59bbcd768a",
+      "reason": "Keep current-draw vertex fetch descriptors for specialization and binding; retire the snapshot on input refresh."
     },
     {
       "path": "src/shader_recompiler/ir/passes/flatten_extended_userdata_pass.cpp",
@@ -1084,8 +1084,8 @@
     },
     {
       "path": "src/shader_recompiler/frontend/fetch_shader.cpp",
-      "sha256": "c5e4b7b5197c1bf46a37251aeee1f83496313bfae06567de09075303aa562464",
-      "reason": "Owned bounded fetch-shader reads through the native coherent memory bridge. Batch the last successful extent using fixed-size length hints, reread current bytes on every draw, and retain exact bounded fallback for growth, shortening, remapping and invalid instructions."
+      "sha256": "05d59c983d4767f94f4e435c71b2884f8223294d96e1957bb6baf2b69e02fc10",
+      "reason": "Reread bounded live fetch instructions, then reuse decoding only on exact owned-byte equality in a bounded cache; retain growth, shortening and invalid-instruction checks."
     },
     {
       "path": "src/shader_recompiler/frontend/translate/translate.cpp",
@@ -1116,6 +1116,16 @@
       "path": "src/video_core/texture_cache/tile_manager.cpp",
       "sha256": "77bd96879fda42e9ee0d8a00310242b9d773157910f61bb1bb817930f20b7ec0",
       "description": "Time tiler/detiler cache-miss pipeline creation on the shared host steady clock; preserve shader selection, specialization and cache behavior."
+    },
+    {
+      "path": "src/shader_recompiler/specialization.h",
+      "sha256": "1be5a52f393d0ed5367fae2c8d2f5f1855caeea1490a033e5059d00d32399d24",
+      "reason": "Read current vertex fetch descriptors once per specialization and share that draw snapshot with vertex binding."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp",
+      "sha256": "a7c96f9dc360bb6085b58c02ddb24e70fbefbab0d95afc2da70fbb752d45eb92",
+      "reason": "Bind vertex inputs from the current specialization descriptor snapshot, with a fresh-read fallback when no snapshot is available."
     }
   ]
 }

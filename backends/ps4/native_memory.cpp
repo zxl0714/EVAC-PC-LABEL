@@ -460,6 +460,29 @@ public:
         if (bytes && (!data || bytes > UINT64_MAX - address)) { return false; }
         std::lock_guard lock(mutex_);
         if (!gpu_observer_) { return false; }
+        // The common single-view copy needs no temporary segment allocation.
+        // The lock retains the mapping/backing and the original GPU permission
+        // check; multi-view copies still validate every part before writing.
+        if (bytes) {
+            auto it = maps_.upper_bound(address);
+            if (it != maps_.begin()) {
+                --it;
+                auto& mapping = it->second;
+                const auto offset = address - it->first;
+                if (offset < mapping.size && bytes <= mapping.size - offset) {
+                    if (!(mapping.protection & (write ? 0x20 : 0x10))) { return false; }
+                    auto& allocation = allocations_.at(mapping.allocation);
+                    if (!allocation.backing) {
+                        allocation.backing = MapViewOfFile(allocation.section, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+                        if (!allocation.backing) { throw std::runtime_error("Cannot map native GPU section backing"); }
+                    }
+                    auto* backing = static_cast<unsigned char*>(allocation.backing) + mapping.physical - mapping.allocation + offset;
+                    if (write) { std::memcpy(backing, data, static_cast<std::size_t>(bytes)); }
+                    else { std::memcpy(data, backing, static_cast<std::size_t>(bytes)); }
+                    return true;
+                }
+            }
+        }
         struct Part { Allocation* allocation; std::uint64_t offset, bytes; };
         std::vector<Part> parts;
         const auto end = address + bytes;

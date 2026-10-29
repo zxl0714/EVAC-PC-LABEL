@@ -80,7 +80,10 @@ void PersistentSrtInfo::Execute(std::span<const u32> user_data,
       flat.size() < user_data.size()) {
     throw std::runtime_error("Invalid flattened SRT buffer");
   }
-  std::vector<u8> written(flat.size());
+  if (steps.empty()) {
+    return;
+  }
+  boost::container::small_vector<u8, 128> written(flat.size(), 0);
   std::fill_n(written.begin(), user_data.size(), u8{1});
   std::array<u64, 128> stack{};
   unsigned depth{};

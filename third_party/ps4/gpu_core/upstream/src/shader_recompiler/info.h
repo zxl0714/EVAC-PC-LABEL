@@ -10,6 +10,7 @@
 #include <boost/container/static_vector.hpp>
 #include "common/assert.h"
 #include "common/types.h"
+#include "common/small_vector.h"
 #include "shader_recompiler/backend/bindings.h"
 #include "shader_recompiler/frontend/copy_shader.h"
 #include "shader_recompiler/frontend/tessellation.h"
@@ -104,6 +105,10 @@ struct Info : InfoPersistent {
 
     std::span<const u32> user_data;
     std::vector<u32> flattened_ud_buf;
+    // Refreshed by specialization for this draw; vertex binding consumes the
+    // same descriptor snapshot instead of traversing guest pointers twice.
+    mutable SmallVector<AmdGpu::Buffer, 8> fetch_buffers;
+    mutable bool fetch_buffers_valid{};
     PersistentSrtInfo srt_info;
 
     AttributeFlags loads{};
@@ -172,6 +177,7 @@ struct Info : InfoPersistent {
     }
 
     void RefreshFlatBuf() {
+        fetch_buffers_valid = false;
         flattened_ud_buf.resize(srt_info.flattened_bufsize_dw);
         ASSERT(user_data.size() <= NUM_USER_DATA_REGS);
         std::memcpy(flattened_ud_buf.data(), user_data.data(), user_data.size_bytes());

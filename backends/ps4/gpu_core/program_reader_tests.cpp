@@ -3,6 +3,7 @@
 #include "gpu_program.h"
 #include "shader_recompiler/frontend/fetch_shader.h"
 #include "shader_recompiler/info.h"
+#include "shader_recompiler/specialization.h"
 #include "video_core/amdgpu/regs_shader.h"
 #include <algorithm>
 #include <array>
@@ -32,7 +33,7 @@ struct Memory final : CacheMemoryBackend {
         std::memcpy(output, bytes.data() + (address - base), static_cast<std::size_t>(size));
     }
     void ReadSparse(u64, void*, u64) override { throw std::logic_error("Unexpected sparse read"); }
-    void ReadMetadata(u64, void*, u64) override { throw std::logic_error("Unexpected metadata bridge"); }
+    void ReadMetadata(u64 address, void* output, u64 size) override { ReadProgram(address, output, size); }
     bool WriteBacking(u64, const void*, u64) override { return false; }
     void Protect(u64, u64, unsigned) override { throw std::logic_error("Unexpected protection"); }
     bool HandleAccess(u64, u64, bool, bool) override { return false; }
@@ -185,6 +186,44 @@ unsigned TestProgramReader() {
     publish_fetch({0xbe802000u, 0xbf8c0000u});
     check(Shader::Gcn::GetFetchShaderCode(fetch_info, 0).size() == 1,
           "Earlier live return must truncate the prior extent even if its tail stays mapped");
+    fetch_info.has_fetch_shader = true;
+    fetch_info.fetch_shader_sgpr_base = 0;
+    publish_fetch({0xc0820300u, 0xbf8c0000u, 0xe00c2000u, 0x00010000u, 0xbe802000u});
+    const u64 descriptor_address = base + 512;
+    std::memcpy(fetch_user.data() + 2, &descriptor_address, 8);
+    fetch_memory.readable.push_back({descriptor_address, 16});
+    std::array<u32, 4> descriptor{static_cast<u32>(base + 1024), 16u << 16, 1, 0x00077fac};
+    std::memcpy(fetch_memory.bytes.data() + 512, descriptor.data(), 16);
+    Shader::RuntimeInfo runtime{};
+    runtime.Initialize(Shader::HwStage::Vertex, Shader::SwStage::Vertex);
+    fetch_info.RefreshFlatBuf();
+    const Shader::StageSpecialization first_spec(fetch_info, runtime, {}, {});
+    check(first_spec.vs_attribs.size() == 1 && fetch_info.fetch_buffers_valid &&
+          fetch_info.fetch_buffers.size() == 1 && fetch_info.fetch_buffers[0].base_address == base + 1024,
+          "Vertex specialization must publish its current descriptor snapshot");
+    const auto before_repeat = fetch_memory.reads;
+    const Shader::StageSpecialization repeated_spec(fetch_info, runtime, {}, {});
+    check(first_spec == repeated_spec && fetch_memory.reads >= before_repeat + 2,
+          "Decoded fetch reuse must still read live code and descriptors each draw");
+    descriptor[0] += 64;
+    descriptor[3] = (descriptor[3] & ~(7u << 12)) | (5u << 12);
+    std::memcpy(fetch_memory.bytes.data() + 512, descriptor.data(), 16);
+    fetch_info.RefreshFlatBuf();
+    check(!fetch_info.fetch_buffers_valid, "A new shader-input refresh must retire the prior descriptor snapshot");
+    const Shader::StageSpecialization changed_spec(fetch_info, runtime, {}, {});
+    check(first_spec.vs_attribs != changed_spec.vs_attribs &&
+          fetch_info.fetch_buffers[0].base_address == base + 1088,
+          "Same-address descriptor format and address changes must affect specialization and binding inputs");
+    publish_fetch({0xc0820300u, 0xbf8c0000u, 0xe00c2000u, 0x00010400u, 0xbe802000u});
+    Shader::Gcn::FetchShaderData decoded;
+    check(Shader::Gcn::ParseFetchShader(fetch_info, decoded) && decoded.attributes[0].dest_vgpr == 4,
+          "Decoded fetch cache must observe same-address instruction rewrites");
+    publish_fetch({0xbe800000u});
+    check(rejects([&] { Shader::Gcn::ParseFetchShader(fetch_info, decoded); }),
+          "A cached fetch must not hide newly invalid live instructions");
+    publish_fetch({0xbe802000u});
+    check(Shader::Gcn::ParseFetchShader(fetch_info, decoded) && decoded.attributes.empty() && decoded.size == 4,
+          "A shortened valid fetch must drop all prior decoded attributes");
     return checks;
 }
 }

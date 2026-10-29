@@ -99,8 +99,6 @@ bool ParseFetchShader(const Shader::Info& info, FetchShaderData& out_fetch_data)
         return false;
     }
 
-    out_fetch_data.attributes.clear();
-
     struct VsharpLoad {
         u32 dword_offset{};
         u32 base_sgpr{};
@@ -108,6 +106,21 @@ bool ParseFetchShader(const Shader::Info& info, FetchShaderData& out_fetch_data)
     std::array<VsharpLoad, 104> loads{};
 
     const auto code = GetFetchShaderCode(info, info.fetch_shader_sgpr_base);
+    // Reuse decoding only after the bounded reader has reread and validated
+    // current instructions. Same-address rewrites and backend changes are
+    // covered by exact owned-byte equality, never just the pointer or a hash.
+    struct Decoded {
+        std::vector<u32> code;
+        FetchShaderData data;
+    };
+    static thread_local std::array<Decoded, 32> decoded{};
+    const auto low = info.user_data[info.fetch_shader_sgpr_base];
+    auto& cached = decoded[((low >> 2) ^ (low >> 10)) % decoded.size()];
+    if (cached.code == code) {
+        out_fetch_data = cached.data;
+        return true;
+    }
+    out_fetch_data = {};
     const u32* ptr = code.data();
     while (true) {
         const u32 word0 = *(ptr++);
@@ -188,6 +201,9 @@ bool ParseFetchShader(const Shader::Info& info, FetchShaderData& out_fetch_data)
     }
 
     out_fetch_data.size = (ptr - code.data()) * sizeof(u32);
+    // Publish only after a complete successful parse.
+    Decoded replacement{code, out_fetch_data};
+    cached = std::move(replacement);
     return true;
 }
 

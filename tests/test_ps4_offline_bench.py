@@ -37,7 +37,7 @@ def fixture(samples=2, warmup=1):
         for index in range(samples):
             result.append(dict(event='offline_bench_sample', name=name, index=index, handoff_us=10+index,
                                cadence_wait_us=16600 if paced else 1))
-    result.append(dict(event='offline_bench_complete', schema=1, passed=True, cases=6))
+    result.append(dict(event='offline_bench_complete', schema=1, passed=True, cases=8))
     return result
 
 
@@ -73,9 +73,9 @@ class OfflineBenchTests(unittest.TestCase):
             items=fixture();items[2]['semaphore_wait']=mode
             self.assertEqual(bench.parse_run(encoded(items),2,1)['identity']['semaphore_wait'],mode)
 
-    def test_six_complete_cases_with_verified_tasks_and_pixels(self):
+    def test_eight_complete_cases_with_verified_tasks_and_pixels(self):
         result=bench.parse_run(encoded(fixture()),2,1)
-        self.assertEqual(len(result['cases']),6)
+        self.assertEqual(len(result['cases']),8)
         self.assertEqual(len(result['rows']['pm4-170-60']),2)
 
     def test_missing_or_duplicate_or_out_of_order_sample_is_rejected(self):

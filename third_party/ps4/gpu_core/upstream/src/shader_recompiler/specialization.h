@@ -94,22 +94,28 @@ struct StageSpecialization {
     StageSpecialization(const Info& info_, RuntimeInfo runtime_info_, const Profile& profile_,
                         Backend::Bindings start_)
         : info{&info_}, runtime_info{runtime_info_}, start{start_} {
+        info_.fetch_buffers_valid = false;
+        info_.fetch_buffers.clear();
         if (info_.sw_stage == SwStage::Vertex && Gcn::ParseFetchShader(info_, fetch_shader_data)) {
             // Specialize shader on VS input number types to follow spec.
-            ForEachSharp(vs_attribs, fetch_shader_data.attributes,
-                         [this](auto& spec, const auto& desc, AmdGpu::Buffer sharp) {
-                             using InstanceIdType = Shader::Gcn::VertexAttribute::InstanceIdType;
-                             if (const auto step_rate = desc.GetStepRate();
-                                 step_rate != InstanceIdType::None) {
-                                 spec.divisor = step_rate == InstanceIdType::OverStepRate0
-                                                    ? runtime_info.sw.vs.step_rate_0
-                                                    : (step_rate == InstanceIdType::OverStepRate1
-                                                           ? runtime_info.sw.vs.step_rate_1
-                                                           : 1);
-                             }
-                             spec.num_class = AmdGpu::GetNumberClass(sharp.GetNumberFmt());
-                             spec.dst_select = sharp.DstSelect();
-                         });
+            for (const auto& desc : fetch_shader_data.attributes) {
+                const auto sharp = desc.GetSharp(info_);
+                info_.fetch_buffers.push_back(sharp);
+                auto& spec = vs_attribs.emplace_back();
+                if (!sharp) {
+                    continue;
+                }
+                using InstanceIdType = Shader::Gcn::VertexAttribute::InstanceIdType;
+                if (const auto step_rate = desc.GetStepRate(); step_rate != InstanceIdType::None) {
+                    spec.divisor = step_rate == InstanceIdType::OverStepRate0
+                                       ? runtime_info.sw.vs.step_rate_0
+                                       : (step_rate == InstanceIdType::OverStepRate1
+                                              ? runtime_info.sw.vs.step_rate_1 : 1);
+                }
+                spec.num_class = AmdGpu::GetNumberClass(sharp.GetNumberFmt());
+                spec.dst_select = sharp.DstSelect();
+            }
+            info_.fetch_buffers_valid = true;
         }
         u32 binding{};
         ForEachSharp(binding, buffers, info->buffers,

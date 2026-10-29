@@ -16,8 +16,9 @@ from analysis_paths import private_output
 from project import ROOT, digest, reject_link, write_json_new
 from ps4_build_receipt import verify
 
-SUITE = 'ps4-authored-offline-v1'
-GPU_CASES = {'pm4-170-60': (170, 60), 'pm4-250-86': (250, 86)}
+SUITE = 'ps4-authored-offline-v2'
+GPU_CASES = {f'{kind}-{draws}-{prefetches}': (draws, prefetches)
+             for kind in ('pm4', 'fetch') for draws, prefetches in ((170, 60), (250, 86))}
 HANDOFF_CASES = {f'handoff-{tasks}-{cadence}': (tasks, cadence == 'cadenced')
                  for tasks in (14, 16) for cadence in ('burst', 'cadenced')}
 GPU_FIELDS = ('snapshot_us', 'execute_us', 'draw_us', 'acquire_us', 'prefetch_us',
@@ -92,7 +93,7 @@ def parse_run(text, samples, warmup):
         raise ValueError('Actual GPU/driver identity was not recorded')
     if set(cases) != GPU_CASES.keys() | HANDOFF_CASES.keys() or not complete or \
             type(complete.get('schema')) is not int or type(complete.get('cases')) is not int or \
-            complete != dict(event='offline_bench_complete', schema=1, passed=True, cases=6) or complete.get('passed') is not True:
+            complete != dict(event='offline_bench_complete', schema=1, passed=True, cases=8) or complete.get('passed') is not True:
         raise ValueError('Benchmark did not complete every declared case')
     if not diagnostics or diagnostics.get('drain_completed') is not True or any(diagnostics.get(name) != 0 for name in
             ('dropped_oldest', 'invalid_records', 'format_failures', 'sink_failures', 'pending', 'in_flight')):
@@ -227,6 +228,7 @@ def execute(output, samples, warmup, repeats, baseline=None, semaphore_wait='add
                       'Optional Vulkan validation instrumentation is disabled for benchmark timings, with exact RGB and completion/counter checks retained; game defaults are unchanged.',
                       'Host wall time is not pure CPU/GPU execution. Completion includes real GPU and callback waits; no work or synchronization is omitted.',
                       'No game is loaded and no window is created. Authored point shaders are simpler than game shaders/textures; counts are representative, not a captured game frame.',
+                      'Fetch cases execute an authored vertex fetch shader and rotate four live descriptor pointers per draw; both shader specialization and actual vertex binding run.',
                       'No display acquire/composite/present/scanout or guest logic is measured. This does not replace final game replay and pacing checks.',
                       'No uncapped game experiment, networking, save/profile changes, system power changes or process-priority changes are used.',
                       'Raw diagnostics can be contended, but timing rows are written after their bounded logger drains; every declared sample is checked.',

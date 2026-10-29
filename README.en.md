@@ -28,8 +28,8 @@ Representative PS4 scenes:
 
 | Game | Port latency/ms | shadPS4 latency/ms | Port CPU/cores | shadPS4 CPU/cores |
 | --- | ---: | ---: | ---: | ---: |
-| Ketsui | 17 | 55 | 0.26 | 0.62 |
-| DaiOuJou | 16 | 55 | 0.37 | 0.34 |
+| Ketsui | 17 | 55 | 0.29 | 0.62 |
+| DaiOuJou | 16 | 55 | 0.23 | 0.34 |
 
 Same PC and fullscreen display; the ports use low-latency presentation and shadPS4 v0.20.0 uses its default FIFO mode. Latency estimates use each implementation's observed input-sampling period and include presentation; the ports use an upper bound from completion notifications for the same submitted images. CPU figures cover short Stage 1 scenes with input observation enabled in both builds. [Method and data (Chinese)](docs/ANALYSIS.md#ps4-统一条件比较).
 

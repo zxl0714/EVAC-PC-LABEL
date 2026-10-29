@@ -437,7 +437,10 @@ void GraphicsPipeline::GetVertexInputs(
     for (u32 semantic = 0; semantic < fetch_shader.attributes.size(); ++semantic) {
         const auto& attrib = fetch_shader.attributes[semantic];
         const auto step_rate = attrib.GetStepRate();
-        const auto buffer = attrib.GetSharp(vs_info);
+        const auto buffer = vs_info.fetch_buffers_valid &&
+                                    vs_info.fetch_buffers.size() == fetch_shader.attributes.size()
+                                ? vs_info.fetch_buffers[semantic]
+                                : attrib.GetSharp(vs_info);
         attributes.push_back(Attribute{
             .location = semantic,
             .binding = semantic,
