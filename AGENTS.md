@@ -14,6 +14,11 @@ extraction/preservation check, push main/tag and GitHub Release Latest. Existing
 IAB GitHub login available, no gh executable or GitHub connector. Browser tab1
 is prior v0.8.0 release. Do not publish internal ROM package; no QQ/OSS request.
 User authorization is sufficient; no extra confirmation unless actual blocker.
+Final hidden launcher check exposed stale test index3 (used to select1280x720,
+now1920x1080); ColdReadback correctly rejected it. Fix fixture to find1280x720
+by value, not preset index; production unchanged. Keep first failure evidence.
+60421b4 candidate ZIP exists but NOT accepted/published; final commit/package
+must include corrected test. Run this check before the next package attempt.
 
 LATEST October29 launcher preset follow-up: user considers sub-720p choices
 unnecessary. Source kWindowSelections now only1280x720/1600x900/1920x1080 plus

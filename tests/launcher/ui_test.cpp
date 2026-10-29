@@ -408,7 +408,9 @@ void MainChecks() {
     Require(language==Language::English && Ini::ReadText(ConfigPath(fixture.root))==saved,"Busy language switch changed config");
     app.focus=12;App::Window(app.hwnd,WM_KEYDOWN,VK_RETURN,0);
     Require(language==Language::Japanese,"Keyboard activation did not select JP");
-    SendMessageW(app.fullscreen_control,CB_SETCURSEL,3,0);
+    const auto display=std::find(app.display_choices.begin(),app.display_choices.end(),DisplaySelection{false,1280,720});
+    Require(display!=app.display_choices.end(),"1280x720 display choice is missing");
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,WPARAM(std::distance(app.display_choices.begin(),display)),0);
     nickname_responses.push_back(IDYES);
     App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kSaveControl,BN_CLICKED),0);frame.Settle();
     const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root)));
