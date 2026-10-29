@@ -25,12 +25,16 @@ Decoded Decode(std::span<const std::uint32_t> words, std::uint32_t offset) {
     packet.body = words.subspan(static_cast<std::size_t>(offset) + 1, size);
     result.next = offset + 1 + size; return result;
 }
+std::uint32_t RegisterOffset(const Packet& packet) { return packet.body.front() & 0xffffu; }
 namespace {
 Error Registers(const Packet& packet, RegisterBank& bank, std::uint32_t& writes) {
     if (packet.body.size() < 2) { return Error::BadSize; }
-    const auto first = packet.body.front();
-    // Indexed/set-offset variants and their high control bits need their own
-    // contract; do not mask them into an ordinary register write.
+    const auto control = packet.body.front();
+    const auto first = RegisterOffset(packet);
+    // NEO's indexed primitive and IA_MULTI_VGT writes target the same single
+    // register bank. Reject other indexed variants rather than truncating them.
+    if (control != first && !(packet.opcode==0x79 && packet.body.size()==2 &&
+        ((control==0x10000242u) || (control==0x40000258u)))) return Error::RegisterRange;
     if (first >= bank.values.size() || packet.body.size() - 1 > bank.values.size() - first) { return Error::RegisterRange; }
     for (std::size_t i = 1; i < packet.body.size(); ++i) {
         const auto index = first + i - 1; bank.values[index] = packet.body[i]; bank.known[index] = true;
@@ -63,12 +67,12 @@ Error Apply(const Packet& packet, Analysis& result) {
     case 0x27: // DRAW_INDEX_2, with a 40-bit byte address.
         if (packet.body.size() != 5) { return Error::BadSize; }
         if (packet.body[2] > 0xff || (packet.body[1] & 1) ||
-            !(packet.body[1] | packet.body[2]) || packet.body[3] > packet.body[0] || packet.body[4]) { return Error::BadValue; }
+            !(packet.body[1] | packet.body[2]) || packet.body[3] > packet.body[0] || (packet.body[4] & ~0xe0000000u)) { return Error::BadValue; }
         result.last_indexed_draw = IndexedDraw{packet.body[1] | (std::uint64_t{packet.body[2]} << 32), packet.body[3], packet.body[0]};
         result.last_draw_vertices.reset(); ++result.draws; return Error::None;
     case 0x2d:
         if (packet.body.size() != 2) { return Error::BadSize; }
-        if (packet.body[1] != 2) { return Error::BadValue; }
+        if ((packet.body[1] & ~0xe0000000u) != 2) { return Error::BadValue; }
         result.last_indexed_draw.reset(); ++result.draws; result.last_draw_vertices = packet.body[0]; return Error::None;
     case 0x3c:
         if (packet.body.size() != 6) { return Error::BadSize; }
@@ -118,7 +122,7 @@ Analysis Analyze(std::span<const std::uint32_t> words) {
     }
     return result;
 }
-std::uint32_t WriteHardware350(std::span<std::uint32_t> output) {
+std::uint32_t WriteHardware350(std::span<std::uint32_t> output, bool neo) {
     if (output.size() < kHardware350Words) { return 0; }
     auto destination = output.first(kHardware350Words);
     std::fill(destination.begin(), destination.end(), 0u);
@@ -127,10 +131,12 @@ std::uint32_t WriteHardware350(std::span<std::uint32_t> output) {
     constexpr std::uint32_t prefix[]{0xc0012800u, 0x80000000u, 0x80000000u, 0xc0001200u, 0u,
         0xc0055800u, 0x2ec47fc0u, 0xffffffffu, 0u, 0u, 0u, 10u};
     static_assert(std::size(prefix) + ps4::kInit350.size() + 2 <= kHardware350Words);
+    static_assert(std::size(prefix) + ps4::kInit350Neo.size() + 2 <= kHardware350Words);
     std::copy(std::begin(prefix), std::end(prefix), destination.begin());
-    std::copy(ps4::kInit350.begin(), ps4::kInit350.end(), destination.begin() + std::size(prefix));
-    constexpr auto nop_offset = std::size(prefix) + ps4::kInit350.size();
-    constexpr auto nop_body = kHardware350Words - nop_offset - 1;
+    const auto sequence=neo?std::span<const std::uint32_t>(ps4::kInit350Neo):std::span<const std::uint32_t>(ps4::kInit350);
+    std::copy(sequence.begin(), sequence.end(), destination.begin() + std::size(prefix));
+    const auto nop_offset = std::size(prefix) + sequence.size();
+    const auto nop_body = kHardware350Words - nop_offset - 1;
     destination[nop_offset] = 0xc0001000u | (static_cast<std::uint32_t>(nop_body - 1) << 16);
     return kHardware350Words;
 }
@@ -181,20 +187,19 @@ bool WritePixelShader350(std::span<std::uint32_t> output, std::span<const std::u
     }
     std::copy(words.begin(), words.end(), output.begin()); return true;
 }
-bool WriteDrawAuto(std::span<std::uint32_t> output, std::uint32_t vertices, std::uint32_t flags) {
+bool WriteDrawAuto(std::span<std::uint32_t> output, std::uint32_t vertices, std::uint32_t flags, bool neo) {
     if (output.size() != 7 || (flags & 0x1ffffffeu)) { return false; }
-    // Base-machine contract: high Neo scheduling hints have no effect and
-    // this entry point does not enable predication, including for flags bit 0.
-    const std::uint32_t words[]{0xc0012d00u, vertices, 2, 0xc0021000u, 0, 0, 0};
+    // NEO retains the scheduling bits. Predication remains disabled.
+    const std::uint32_t words[]{0xc0012d00u, vertices, (neo?(flags & 0xe0000000u):0u)|2u, 0xc0021000u, 0, 0, 0};
     std::copy(std::begin(words), std::end(words), output.begin()); return true;
 }
-bool WriteDrawIndex(std::span<std::uint32_t> output, std::uint32_t count, std::uint64_t address, std::uint32_t flags) {
+bool WriteDrawIndex(std::span<std::uint32_t> output, std::uint32_t count, std::uint64_t address, std::uint32_t flags, bool neo) {
     if (output.size() != 10 || !address || (address & 1) || address > 0xffffffffffull || (flags & 0x1ffffffeu)) { return false; }
     // Base-machine GNM emits DRAW_INDEX_2 and a three-word NOP payload.
     // The API's cache-policy argument does not select 16/32-bit index format;
     // that state comes from INDEX_TYPE (or the corresponding context register).
     const std::uint32_t words[]{0xc0042700u, count, static_cast<std::uint32_t>(address),
-        static_cast<std::uint32_t>(address >> 32), count, 0, 0xc0021000u, 0, 0, 0};
+        static_cast<std::uint32_t>(address >> 32), count, neo?(flags & 0xe0000000u):0u, 0xc0021000u, 0, 0, 0};
     std::copy(std::begin(words), std::end(words), output.begin()); return true;
 }
 bool SelfTest() {
@@ -214,6 +219,23 @@ bool SelfTest() {
           analysis.context.Get(0x296) == 256 && analysis.context.Get(0x297) == 4 && analysis.uconfig.Get(0x200) == 0xe0000000u,
           "shader_context_uconfig_and_multi_register_values");
     check(!analysis.shader.Get(0x219) && !analysis.context.Get(0x1) && !analysis.uconfig.Get(1024), "unknown_register_values_are_not_fabricated_zero");
+    WriteHardware350(std::span(output).first(kHardware350Words),true);
+    const auto neo=Analyze(std::span(output).first(kHardware350Words));
+    check(neo.Complete() && output.back()==0x73737373u && neo.shader.Get(0x219)==0xffffffffu &&
+          neo.shader.Get(0x21a)==0xffffffffu && neo.uconfig.Get(0x258)==0x6d007fu,
+          "neo_init350_has_extended_shader_masks_and_index4_ia_state");
+    const std::array primitive{0xc0017900u,0x10000242u,4u};
+    check(Analyze(primitive).Complete() && Analyze(primitive).uconfig.Get(0x242)==4,
+          "neo_index1_primitive_updates_actual_register");
+    const std::array wrong_index{0xc0017900u,0x20000242u,4u};
+    const std::array long_index{0xc0027900u,0x10000242u,4u,5u};
+    check(Analyze(wrong_index).error==Error::RegisterRange && Analyze(long_index).error==Error::RegisterRange,
+          "neo_register_control_rejects_other_indices_and_ranges");
+    std::array<std::uint32_t,7> neo_draw{};
+    std::array<std::uint32_t,10> neo_indexed{};
+    check(WriteDrawAuto(neo_draw,3,0xa0000000u,true) && neo_draw[2]==0xa0000002u && Analyze(neo_draw).Complete() &&
+          WriteDrawIndex(neo_indexed,3,0x10000000,0xc0000000u,true) && neo_indexed[5]==0xc0000000u && Analyze(neo_indexed).Complete(),
+          "neo_draws_keep_scheduling_hints_without_predication");
     const std::array clear_after_write{0xc0016900u, 1u, 7u, 0xc0001200u, 0u};
     const auto reset = Analyze(clear_after_write);
     check(reset.Complete() && !reset.context.Get(1) && reset.register_writes == 1 && reset.clears == 1, "clear_invalidates_known_state_without_zero_default_claim");

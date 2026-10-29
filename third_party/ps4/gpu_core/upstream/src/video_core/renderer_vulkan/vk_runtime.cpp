@@ -8,6 +8,7 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/texture_cache/blit_helper.h"
 #include "video_core/texture_cache/image.h"
+#include "depth_transfer.h"
 
 #include <vulkan/vulkan_format_traits.hpp>
 
@@ -82,7 +83,11 @@ static u32 BufferImageCopySize(const vk::BufferImageCopy& copy, const vk::Format
     const u32 height = copy.bufferImageHeight ? copy.bufferImageHeight : copy.imageExtent.height;
 
     const auto block = vk::blockExtent(pixel_format);
-    const u32 block_size = vk::blockSize(pixel_format);
+    u32 block_size = vk::blockSize(pixel_format);
+    if(copy.imageSubresource.aspectMask==vk::ImageAspectFlagBits::eStencil) block_size=1;
+    else if(copy.imageSubresource.aspectMask==vk::ImageAspectFlagBits::eDepth) {
+        block_size=(pixel_format==vk::Format::eD16Unorm || pixel_format==vk::Format::eD16UnormS8Uint)?2:4;
+    }
     const u32 row_pitch = (row_length / block[0]) * block_size;
     const u32 slice_pitch = (height / block[1]) * row_pitch;
 
@@ -171,6 +176,27 @@ bool Runtime::Transit(VideoCore::Image* image, vk::ImageLayout dst_layout,
 
 void Runtime::UploadImage(VideoCore::Image* dst, const VideoCore::Buffer* src,
                           std::span<const vk::BufferImageCopy> upload_copies) {
+    if(dst->info.pixel_format==vk::Format::eD16UnormS8Uint &&
+       (dst->backing->image.image_ci.format==vk::Format::eD24UnormS8Uint ||
+        dst->backing->image.image_ci.format==vk::Format::eD32SfloatS8Uint)) {
+        if(!depth_transfer) depth_transfer=std::make_unique<DepthTransfer>(instance,scheduler,*this);
+        for(auto copy:upload_copies) {
+            if(copy.imageSubresource.aspectMask!=vk::ImageAspectFlagBits::eDepth) {
+                UploadImageRaw(dst,src,{&copy,1});continue;
+            }
+            const auto pixels=BufferImageCopySize(copy,vk::Format::eD16Unorm)/2;
+            const auto converted=staging_pool.Request(u64(pixels)*4,VideoCore::MemoryType::DeviceLocal,256,false,true);
+            depth_transfer->Convert(src,copy.bufferOffset,converted.buffer,converted.offset,pixels,false,
+                dst->backing->image.image_ci.format==vk::Format::eD32SfloatS8Uint);
+            copy.bufferOffset=converted.offset;
+            UploadImageRaw(dst,converted.buffer,{&copy,1});
+        }
+        return;
+    }
+    UploadImageRaw(dst,src,upload_copies);
+}
+void Runtime::UploadImageRaw(VideoCore::Image* dst,const VideoCore::Buffer* src,
+                            std::span<const vk::BufferImageCopy> upload_copies) {
     SetBackingSamples(dst, dst->info.num_samples, false);
     scheduler.EndRendering();
 
@@ -178,7 +204,7 @@ void Runtime::UploadImage(VideoCore::Image* dst, const VideoCore::Buffer* src,
         Transit(dst, vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eCopy,
                 vk::AccessFlagBits2::eTransferWrite);
     for (const auto& copy : upload_copies) {
-        const auto copy_size = BufferImageCopySize(copy, dst->info.pixel_format);
+        const auto copy_size = BufferImageCopySize(copy, dst->backing->image.image_ci.format);
         needs_flush |= IsBufferAccessed(src, copy.bufferOffset, copy_size);
     }
     if (needs_flush) {
@@ -190,7 +216,7 @@ void Runtime::UploadImage(VideoCore::Image* dst, const VideoCore::Buffer* src,
                              upload_copies);
 
     for (const auto& copy : upload_copies) {
-        const auto copy_size = BufferImageCopySize(copy, dst->info.pixel_format);
+        const auto copy_size = BufferImageCopySize(copy, dst->backing->image.image_ci.format);
         AccessBuffer(src, copy.bufferOffset, copy_size, vk::PipelineStageFlagBits2::eCopy,
                      vk::AccessFlagBits2::eTransferRead);
     }
@@ -200,6 +226,28 @@ void Runtime::UploadImage(VideoCore::Image* dst, const VideoCore::Buffer* src,
 
 void Runtime::DownloadImage(VideoCore::Image* src, const VideoCore::Buffer* dst,
                             std::span<const vk::BufferImageCopy> download_copies) {
+    if(src->info.pixel_format==vk::Format::eD16UnormS8Uint &&
+       (src->backing->image.image_ci.format==vk::Format::eD24UnormS8Uint ||
+        src->backing->image.image_ci.format==vk::Format::eD32SfloatS8Uint)) {
+        if(!depth_transfer) depth_transfer=std::make_unique<DepthTransfer>(instance,scheduler,*this);
+        for(auto copy:download_copies) {
+            if(copy.imageSubresource.aspectMask!=vk::ImageAspectFlagBits::eDepth) {
+                DownloadImageRaw(src,dst,{&copy,1});continue;
+            }
+            const auto pixels=BufferImageCopySize(copy,vk::Format::eD16Unorm)/2;
+            const auto converted=staging_pool.Request(u64(pixels)*4,VideoCore::MemoryType::DeviceLocal,256,false,true);
+            const auto output=copy.bufferOffset;
+            copy.bufferOffset=converted.offset;
+            DownloadImageRaw(src,converted.buffer,{&copy,1});
+            depth_transfer->Convert(converted.buffer,converted.offset,dst,output,pixels,true,
+                src->backing->image.image_ci.format==vk::Format::eD32SfloatS8Uint);
+        }
+        return;
+    }
+    DownloadImageRaw(src,dst,download_copies);
+}
+void Runtime::DownloadImageRaw(VideoCore::Image* src,const VideoCore::Buffer* dst,
+                              std::span<const vk::BufferImageCopy> download_copies) {
     SetBackingSamples(src, src->info.num_samples);
     scheduler.EndRendering();
 
@@ -207,7 +255,7 @@ void Runtime::DownloadImage(VideoCore::Image* src, const VideoCore::Buffer* dst,
         Transit(src, vk::ImageLayout::eTransferSrcOptimal, vk::PipelineStageFlagBits2::eCopy,
                 vk::AccessFlagBits2::eTransferRead);
     for (const auto& copy : download_copies) {
-        const auto copy_size = BufferImageCopySize(copy, src->info.pixel_format);
+        const auto copy_size = BufferImageCopySize(copy, src->backing->image.image_ci.format);
         needs_flush |= IsBufferAccessed(dst, copy.bufferOffset, copy_size, true);
     }
     if (needs_flush) {
@@ -219,7 +267,7 @@ void Runtime::DownloadImage(VideoCore::Image* src, const VideoCore::Buffer* dst,
                              download_copies);
 
     for (const auto& copy : download_copies) {
-        const auto copy_size = BufferImageCopySize(copy, src->info.pixel_format);
+        const auto copy_size = BufferImageCopySize(copy, src->backing->image.image_ci.format);
         AccessBuffer(dst, copy.bufferOffset, copy_size, vk::PipelineStageFlagBits2::eCopy,
                      vk::AccessFlagBits2::eTransferWrite);
     }

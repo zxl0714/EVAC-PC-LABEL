@@ -26,6 +26,7 @@ class TileManager {
         u32 num_bits;
         u32 num_samples;
         bool is_tiler;
+        bool alt_tile;
 
         bool operator==(const TilingKey&) const = default;
 
@@ -36,6 +37,7 @@ class TileManager {
                 boost::hash_combine(hash, key.num_bits);
                 boost::hash_combine(hash, key.num_samples);
                 boost::hash_combine(hash, key.is_tiler);
+                boost::hash_combine(hash, key.alt_tile);
                 return hash;
             }
         };

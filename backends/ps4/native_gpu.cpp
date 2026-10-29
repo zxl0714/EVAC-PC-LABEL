@@ -340,7 +340,7 @@ NativeGpuExecution ExecuteNativeGpuCommands(NativeVideoGpuContext& target,
             if (target.resident && !packet.padding) {
                 if (packet.opcode == 0x69 || packet.opcode == 0x76 || packet.opcode == 0x79) {
                     const unsigned base = packet.opcode == 0x69 ? 0xa000u : packet.opcode == 0x76 ? 0x2c00u : 0xc000u;
-                    target.resident->Registers(base + packet.body[0], packet.body.subspan(1));
+                    target.resident->Registers(base + RegisterOffset(packet), packet.body.subspan(1));
                     if (packet.opcode == 0x69 && packet.body[0] >= 0x318 && packet.body[0] <= 0x381 && (packet.body[0] - 0x318) % 15 == 0) {
                         unsigned hint{};
                         const auto count = packet.body.size() - 1;

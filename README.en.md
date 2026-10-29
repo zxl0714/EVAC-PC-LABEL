@@ -28,12 +28,14 @@ Representative PS4 scenes:
 
 | Game | Port latency/ms | shadPS4 latency/ms | Port CPU/cores | shadPS4 CPU/cores |
 | --- | ---: | ---: | ---: | ---: |
-| Ketsui | 17 | 55 | 0.29 | 0.62 |
-| DaiOuJou | 16 | 55 | 0.23 | 0.34 |
-| ESP Ra.De. | 19 | 46 | 0.36 | 0.62 |
-| Dangun Feveron | 31 | 46 | 0.25 | 0.66 |
+| Ketsui | 17 | 55 | 0.25 | 0.62 |
+| DaiOuJou | 17 | 55 | 0.26 | 0.34 |
+| ESP Ra.De. | 20 | 46 | 0.38 | 0.62 |
+| Dangun Feveron | 19 | 46 | 0.27 | 0.66 |
 
-Same PC and fullscreen display; the ports use low-latency presentation and shadPS4 v0.20.0 uses its default FIFO mode. Latency estimates include sampling wait and presentation; ESP Ra.De. and Dangun Feveron reuse the same-PC presentation budget. CPU figures are measured equivalent cores from short Stage 1 scenes, with input observation enabled in both builds. [Method and data (Chinese)](docs/ANALYSIS.md#ps4-统一条件比较).
+The ports default to NEO (PS4 Pro) mode with low-latency presentation; shadPS4 v0.20.0 uses ordinary mode and default FIFO. Latency estimates include average sampling wait and the same-PC presentation budget. CPU figures are measured equivalent cores from short Stage 1 scenes. [Method and data (Chinese)](docs/ANALYSIS.md#v082-neo-对照).
+
+NEO uses 1080p composition and brings Dangun Feveron's first response forward by about one frame. Matched-scene latency is essentially unchanged in the other three games, with slightly higher GPU cost. Set `neo=false` under `[game.ketsui]`, `[game.daioujou]`, `[game.esprade]` or `[game.feveron]` in `user-data/config.ini` and restart the game to use ordinary mode.
 
 ## Getting started
 

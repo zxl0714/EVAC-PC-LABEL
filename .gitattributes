@@ -1,1 +1,3 @@
 * -text
+third_party/ps4/gpu_core/upstream/** whitespace=cr-at-eol
+third_party/ps4/gpu_core/upstream-files.json whitespace=cr-at-eol

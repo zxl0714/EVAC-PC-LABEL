@@ -10,6 +10,7 @@
 #define KT_SYSV __attribute__((sysv_abi))
 
 namespace {
+std::atomic<bool> neo_mode{};
 constexpr int kParameter = static_cast<int>(0x80a10003u);
 bool Writable(const void* address, std::size_t bytes) {
     return address && NativeMemoryWritable(address, bytes);
@@ -46,9 +47,9 @@ int KT_SYSV PowerTick() {
 int KT_SYSV IsNeoMode() {
     static std::atomic_flag traced = ATOMIC_FLAG_INIT;
     if (!traced.test_and_set()) {
-        TraceNativeApi("sceKernelIsNeoMode", kNativeProfile.neo, __builtin_return_address(0));
+        TraceNativeApi("sceKernelIsNeoMode", GetNativeProfile().neo, __builtin_return_address(0));
     }
-    return kNativeProfile.neo ? 1 : 0;
+    return GetNativeProfile().neo ? 1 : 0;
 }
 int KT_SYSV GetSystemStatus(void* output) {
     if (!Writable(output, 9)) { return kParameter; }
@@ -75,6 +76,11 @@ int KT_SYSV DisplaySafeArea(void* output) {
     return 0;
 }
 }
+
+const NativeProfile& GetNativeProfile() {
+    return neo_mode.load(std::memory_order_relaxed) ? kNeoNativeProfile : kNativeProfile;
+}
+void ConfigureNativeProfile(bool neo) { neo_mode.store(neo,std::memory_order_relaxed); }
 
 std::uint64_t ResolveProfileImport(std::string_view identifier) {
     const auto hash = identifier.substr(0, identifier.find('#'));

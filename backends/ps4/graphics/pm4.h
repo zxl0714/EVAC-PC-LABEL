@@ -56,11 +56,13 @@ Analysis Analyze(std::span<const std::uint32_t> words);
 Error Advance(const Packet& packet, Analysis& state);
 
 constexpr std::uint32_t kHardware350Words = 256;
-std::uint32_t WriteHardware350(std::span<std::uint32_t> output);
+std::uint32_t WriteHardware350(std::span<std::uint32_t> output, bool neo=false);
+// Use only after Advance/Analyze has validated this register packet.
+std::uint32_t RegisterOffset(const Packet& packet);
 bool WriteWaitFlip(std::span<std::uint32_t> output, std::uint64_t label_address);
 bool WriteVertexShader(std::span<std::uint32_t> output, std::span<const std::uint32_t> registers, std::uint32_t modifier, bool update = false);
 bool WritePixelShader350(std::span<std::uint32_t> output, std::span<const std::uint32_t> registers, bool update = false);
-bool WriteDrawAuto(std::span<std::uint32_t> output, std::uint32_t vertices, std::uint32_t flags);
-bool WriteDrawIndex(std::span<std::uint32_t> output, std::uint32_t count, std::uint64_t address, std::uint32_t flags);
+bool WriteDrawAuto(std::span<std::uint32_t> output, std::uint32_t vertices, std::uint32_t flags, bool neo=false);
+bool WriteDrawIndex(std::span<std::uint32_t> output, std::uint32_t count, std::uint64_t address, std::uint32_t flags, bool neo=false);
 bool SelfTest();
 }

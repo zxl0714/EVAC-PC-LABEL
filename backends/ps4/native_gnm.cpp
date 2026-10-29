@@ -270,9 +270,8 @@ __declspec(noinline) void ObserveDraft(std::uint32_t* last_command, std::uint32_
 std::uint32_t KT_SYSV Hardware350(std::uint32_t* output, std::uint32_t capacity) {
     const auto caller = __builtin_return_address(0);
     if (capacity < kt::gfx::pm4::kHardware350Words || !output || reinterpret_cast<std::uintptr_t>(output) % alignof(std::uint32_t)) { return 0; }
-    if (kNativeProfile.neo) { UnsupportedApi("sceGnmDrawInitDefaultHardwareState350_neo_profile", 0, caller); }
     std::array<std::uint32_t, kt::gfx::pm4::kHardware350Words> commands{};
-    const auto size = kt::gfx::pm4::WriteHardware350(commands);
+    const auto size = kt::gfx::pm4::WriteHardware350(commands,GetNativeProfile().neo);
     const auto analysis = kt::gfx::pm4::Analyze(commands);
     if (!size || !analysis.Complete()) { UnsupportedApi("native_gnm_init_sequence_invalid", analysis.error_offset, caller); }
     std::memcpy(output, commands.data(), sizeof(commands));
@@ -332,8 +331,8 @@ int KT_SYSV UpdatePixelShader350(std::uint32_t* output, std::uint32_t size, cons
     return PixelShader350Impl(output, size, registers, true, __builtin_return_address(0));
 }
 int KT_SYSV DrawAuto(std::uint32_t* output, std::uint32_t size, std::uint32_t vertices, std::uint32_t flags) {
-    if (!output || size != 7 || reinterpret_cast<std::uintptr_t>(output) % 4 || kNativeProfile.neo) { return -1; }
-    if (!kt::gfx::pm4::WriteDrawAuto({output, size}, vertices, flags)) { return -1; }
+    if (!output || size != 7 || reinterpret_cast<std::uintptr_t>(output) % 4) { return -1; }
+    if (!kt::gfx::pm4::WriteDrawAuto({output, size}, vertices, flags,GetNativeProfile().neo)) { return -1; }
     ObserveDraft(output, size);
     static std::atomic<unsigned> traced{};
     if (traced.fetch_add(1, std::memory_order_relaxed) < 4) {
@@ -344,8 +343,8 @@ int KT_SYSV DrawAuto(std::uint32_t* output, std::uint32_t size, std::uint32_t ve
 }
 int KT_SYSV DrawIndex(std::uint32_t* output, std::uint32_t size, std::uint32_t count,
     std::uint64_t address, std::uint32_t flags, std::uint32_t type) {
-    if (!output || size != 10 || reinterpret_cast<std::uintptr_t>(output) % 4 || kNativeProfile.neo) { return -1; }
-    if (!kt::gfx::pm4::WriteDrawIndex({output, size}, count, address, flags)) { return -1; }
+    if (!output || size != 10 || reinterpret_cast<std::uintptr_t>(output) % 4) { return -1; }
+    if (!kt::gfx::pm4::WriteDrawIndex({output, size}, count, address, flags,GetNativeProfile().neo)) { return -1; }
     ObserveDraft(output, size);
     static std::atomic<unsigned> traced{};
     if (traced.fetch_add(1, std::memory_order_relaxed) < 4) {

@@ -69,7 +69,7 @@ set(GPU_SOURCES
     upstream/src/common/recursive_lock.cpp
     upstream/src/common/error.cpp
     upstream/src/video_core/amdgpu/tiling.cpp
-    host/host_services.cpp host/cache_memory.cpp)
+    host/host_services.cpp host/cache_memory.cpp host/depth_transfer.cpp)
 add_library(KetsuiGpuCore STATIC ${GPU_SOURCES})
 add_dependencies(KetsuiGpuCore KetsuiGpuHostShaders)
 target_compile_features(KetsuiGpuCore PUBLIC cxx_std_23)

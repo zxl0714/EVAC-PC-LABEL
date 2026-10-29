@@ -50,18 +50,29 @@ The clang-cl toolchain supplies the statically linked x64 builtins used for
 128-bit integer division in rational clock arithmetic. The exact runtime
 library path and SHA-256 are recorded in build.json alongside the compiler.
 
-shadPS4 base-machine hardware initialization data
-===============================================
+shadPS4 hardware initialization data
+===================================
 
 Source: https://github.com/shadps4-emu/shadPS4
 Revision: 529ceb32f5546b820588f194b903cc39d08015fe
-Original: src/core/libraries/gnmdriver/gnmdriver_init.h, InitSequence350
+Original: src/core/libraries/gnmdriver/gnmdriver_init.h, InitSequence350 and InitSequence350Neo
 Local: src/graphics/ps4_init_350.h
 Copyright 2025 shadPS4 Emulator Project
 License: GPL-2.0-or-later; full text in LICENSES/GPL-2.0-or-later.txt.
-The local file retains only the base-machine 350 initialization data, without
+The local file retains the base-machine and NEO 350 initialization data, without
 the reference's synthetic clear-state preamble. No emulator core, loader,
 kernel, application framework, or complete renderer is compiled from that project.
+
+AMD AddrLib pipe addressing
+==========================
+
+Source: https://github.com/GPUOpen-Drivers/pal
+Revision: 6353b182d28fe85f28b40d1809291b515fcddd3e
+Original: src/core/imported/addrlib/src/r800/siaddrlib.cpp,
+          SiLib::ComputePipeFromCoordWoRotation, ADDR_PIPECFG_P16_32x32_8x16
+Local: gpu_core/upstream/src/video_core/host_shaders/tiling.comp
+The NEO ALT layout uses the documented sixteen-pipe coordinate equations.
+License: MIT; full text in LICENSES/AMD-AddrLib-MIT.txt.
 
 Isolated GCN shader compiler
 ===========================

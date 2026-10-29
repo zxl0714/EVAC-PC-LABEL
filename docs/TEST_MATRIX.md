@@ -2,6 +2,21 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+## v0.8.2 开发中
+
+- **四作 NEO A/B 已汇总：** 同构建／相同普通模式存档、同窗口尺寸、VSync 关闭。绊地狱取样后响应 4.911／5.489 ms，大往生 5.586／5.668 ms，ESP Ra.De. 7.584／7.935 ms；三作各有一组双特征首响应配对。大往生额外观察原 callback／P1 交付，两侧 12 次均配对，普通存档恢复到 NEO 后低延迟开关为 1。三个独立复核入口 `review_{ketsui,daioujou,esprade}_neo.py` 均通过，原始报告 `v082-*-neo-comparison-r1.json`；未将复活闪烁或较早 API 查询当作新的延迟结论。
+- **GPU 与节拍：** 绊地狱 407／494 µs、大往生 307／362 µs、ESP Ra.De. 546／677 µs、弹铳 267／308 µs；均为带依赖的批次 timestamp 跨度。四作普通／NEO 出帧 P95 均在约 17.03–17.09 ms。`review_ps4_neo_workload.py` 将前三作 CPU 采样 QPC 窗口、实际配置快照及帧／GPU 日志重新配对；结果 `.local/v082/{ketsui,daioujou}-paired-work-r2.json`、`esprade-paired-work-r1.json`。CPU 短窗变化不作为稳定百分比收益。
+- **默认 NEO 的 CPU 主表：** 不含绘图分解诊断的旧独立短样本：绊地狱两次 0.26160／0.24600 核取均值 0.25，大往生 0.26163 取 0.26，ESP 两次 0.35145／0.41788 取均值 0.38，弹铳两次 0.25382／0.27725 取均值 0.27。源文件均为 `.local/input-latency-v080-r1/v082-<game>-neo-cpu-*-slot.json`，绑定进程与二进制摘要；绊地狱／大往生／弹铳采样用 r2 GPU 构建，后续 r3 仅补宿主 D32 深度后备，本机两轮均使用 D24 后备。ESP 为最终 r3。它们与上项开启绘图分解的对照窗口分列。
+- **延迟主表：** 沿用 8.333 ms 取样等待与历史 3.300679 ms 呈现预算，NEO 为 17／17／20／19 ms。ESP 的 19.22／19.57 ms 位于取整边界，实差约 0.35 ms；弹铳正式同场景收益为 14.65 ms，不拿旧 31 ms 代表时点直接相减。中英文 README、随包双语说明与简洁更新记录已同步。
+- NEO 按游戏配置、系统查询、1080p 虚拟输出和 GPU 档位已接通。共享配置检查 661 项，PS4 配置自检 22 项及 PM4／兼容检查通过；四作 A/B 见上，本地交付待完成。
+- GPU 增加 NEO 350 初始化、合法 indexed UCONFIG、16-pipe ALT 贴图寻址，以及 D16S8 到 D24S8／D32S8 的 GPU 深度转换。`gpu-neo-validation-r5.log` 在真实 Khronos validation 下通过 18 项图像检查，校验 1,703,936 字节，零 Vulkan validation error；包括全部 65,536 个 D16 值、奇数尾部及实际两种后备图像的往返。最初浮点夹具误用逐位相等，r4 失败保留；修正为浮点精度界限并同时要求全部 D16 值无损往返后通过。
+- 独立 NEO 短测：绊地狱 ARCADE／Type-A 第一关、移动射击、快速保存 01／读回通过；大往生 ARCADE／Type-A／Shotia 第一关、移动射击、快速保存 01／读回通过。进程 89520／17304 正常关闭。两作 CPU 预热短样本约 0.25–0.26 核，普通模式同存档对照待补，暂不更新主表。
+- 最终 GPU 构建的 ESP Ra.De. NEO：旧普通模式存档 01／祐介／第一关 A 读回并移动射击；NEO 新建存档 02／5620 分写入并再次读回（捕获 5630 分／生命 1 的实际画面）。只读核对原 `esprade_01030` 的预演变量仍为 2，进程 95272 正常关闭。未把这项既有两帧预演优化重复计为 NEO 收益。
+- 弹铳最终同构建、同存档、持续射击预热的两侧各 12 次实际响应：普通 API 返回到首张响应 Present 平均 21.538 ms，NEO 6.889 ms，提前 14.650 ms。双独立机体特征验证、图像拥有关系及每次响应的原始范围均由 `tools/latency/review_feveron_neo.py` 重新检查通过；报告 `v082-feveron-neo-comparison-r1.json`。保持此前主表采样／呈现预算时 NEO 总估算约 18.52 ms，最终四作表仍待汇总。
+- 弹铳两份原核心已逐一静态审计：01000 的普通／NEO 有效预演为 1／2 次，01010 为 1／3 次，原 save／predict／restore 保留。入口 `tools/latency/audit_feveron_lookahead.py`，报告 `v082-feveron-lookahead-audit-r3/report.json`。运行时实际加载 01010，NEO 跨模式快速读档后只读核对参数仍为 count=3／flag=1；没有被普通模式存档覆盖。
+- 弹铳同存档的绘图批次 GPU 时间跨度普通约 260 µs，NEO 两次 305／306 µs；代表窗口出帧 p95 均约 17.03 ms。它是带依赖的 GPU 批次跨度，不是独占 GPU 忙碌时间。原始范围、帧间隔和样本身份见 `.local/v082/feveron-gpu-pacing-r1.json`。CPU／输入延迟样本继续统一预热；读档恢复期的静止画面不用于首响应结论。
+- 私有测量构建、导航和失败样本保留于 `.local/v082/` 与 `.local/input-latency-v080-r1/v082-*`。未推送、打包或发布，v0.8.1 的二进制及标签保持冻结。
+
 ## v0.8.1 正式发布
 
 - 10 月 29 日 22:46 发布 [GitHub Release v0.8.1](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.1)，正式版／Latest。`main` 与标签已推送；标签、八款运行组件、启动器和程序包对应 `b176ac52867fe17ffed8ec87705401860a2fb03f`。

@@ -16,7 +16,10 @@ std::uint32_t Align(std::uint32_t value, std::uint32_t alignment) {
 
 LayoutResult DescribeDisplay(const DisplayAttribute& attribute, bool neo) {
     if (attribute.reserved0 || attribute.reserved1) { return {LayoutError::Value, {}}; }
-    if (neo || attribute.option) { return {LayoutError::Unsupported, {}}; }
+    // SDR video-out uses Display2DThin on both machines; NEO's alternate
+    // texture tiling is handled by each GPU resource descriptor, not this API.
+    (void)neo;
+    if (attribute.option) { return {LayoutError::Unsupported, {}}; }
     if (attribute.aspect) { return {LayoutError::Aspect, {}}; }
     if (attribute.tiling > 1) { return {LayoutError::Tiling, {}}; }
     ColorFormat format{};
@@ -153,7 +156,8 @@ bool DisplayLayoutSelfTest() {
     attribute.format = 0x80000000u; attribute.reserved1 = 1;
     check("invalid_pitch_format_and_reserved", invalid_pitch && invalid_format && DescribeDisplay(attribute, false).error == LayoutError::Value);
     attribute.reserved1 = 0;
-    check("unsupported_profile_is_explicit", DescribeDisplay(attribute, true).error == LayoutError::Unsupported);
+    check("neo_sdr_preserves_display_layout", DescribeDisplay(attribute, true).error == LayoutError::None &&
+          DescribeDisplay(attribute, true).layout==DescribeDisplay(attribute, false).layout);
     const auto tiled_layout = DescribeDisplay({0x80000000u, 0, 0, 120, 60, 128, 0, 0, 0}, false).layout;
     check("display_tiling_known_coordinate_vectors", DisplayByteOffset(tiled_layout, 0, 0) == 0 && DisplayByteOffset(tiled_layout, 4, 0) == 32 &&
         DisplayByteOffset(tiled_layout, 0, 2) == 64 && DisplayByteOffset(tiled_layout, 8, 0) == 256 &&

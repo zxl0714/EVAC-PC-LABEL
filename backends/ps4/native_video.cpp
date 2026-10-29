@@ -44,7 +44,6 @@ constexpr int kFatal = static_cast<int>(0x802900ffu);
 constexpr wchar_t kClass[] = L"KetsuiNativeVideo";
 constexpr UINT kFinish = WM_APP + 210;
 constexpr LONG kStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-constexpr unsigned kWidth = kNativeProfile.output_width, kHeight = kNativeProfile.output_height;
 
 bool IsTimelineMarkerKey(UINT message, WPARAM key, LPARAM flags) noexcept {
     return message == WM_KEYDOWN && key == VK_F8 && !(flags & (1ll << 30));
@@ -275,7 +274,7 @@ DWORD WINAPI WindowThread(void* argument) noexcept {
     std::unique_ptr<std::shared_ptr<WindowJob>> owned(static_cast<std::shared_ptr<WindowJob>*>(argument));
     const auto job = *owned;
     const auto previous_dpi = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    RECT bounds{0, 0, static_cast<LONG>(kWidth), static_cast<LONG>(kHeight)};
+    RECT bounds{0, 0, static_cast<LONG>(GetNativeProfile().output_width), static_cast<LONG>(GetNativeProfile().output_height)};
     HWND window = nullptr;
     if (AdjustWindowRectExForDpi(&bounds, kStyle, FALSE, 0, GetDpiForSystem())) {
         window = CreateWindowExW(0, kClass, job->display.title.c_str(), kStyle,
@@ -399,7 +398,9 @@ int ResolutionStatus(int handle, Resolution* output) {
     auto& state = State();
     std::lock_guard lock(state.mutex);
     if (!state.active || handle != state.handle) { return kHandle; }
-    *output = {kWidth, kHeight, kWidth, kHeight, 0, 0.0f, 0, 0, {0, 0, 0}, 0};
+    const auto& profile=GetNativeProfile();
+    *output = {static_cast<int>(profile.output_width), static_cast<int>(profile.output_height),
+        static_cast<int>(profile.output_width), static_cast<int>(profile.output_height), 0, 0.0f, 0, 0, {0, 0, 0}, 0};
     return 0;
 }
 
@@ -431,7 +432,7 @@ int RegisterBuffers(int handle, int first, void* const* addresses, int count, co
     auto& state = State();
     std::lock_guard lock(state.mutex);
     if (!state.active || handle != state.handle || state.stopping_handle) { return kHandle; }
-    const auto described = kt::gfx::DescribeDisplay(*attribute, kNativeProfile.neo);
+    const auto described = kt::gfx::DescribeDisplay(*attribute, GetNativeProfile().neo);
     if (const auto error = LayoutError(described.error, caller)) { return error; }
     const auto& layout = described.layout;
     int available = -1;

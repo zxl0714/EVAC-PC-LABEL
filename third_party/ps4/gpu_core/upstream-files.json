@@ -989,12 +989,12 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_runtime.h",
-      "sha256": "7456391faba3e798d948905154281906b7b5500afd65a839d51dd480b87ff551",
+      "sha256": "1d628afcd13c4d349c55fd0d99df8b6cb7a7d988d4bdc890e1ea6e3396aff844",
       "description": "Independent compilation: out-of-line Runtime destructor sees complete BlitHelper; forward declarations match Image/ImageView struct tags for the Microsoft ABI."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_runtime.cpp",
-      "sha256": "a3105724af41cdb474f4a1ac7a8a88910c04c4818baface3081dcccfdb2c48f8",
+      "sha256": "94e8c7cadc40a6dc0fb58afe9881c8b522697791083af2705f02ba0e7ce739c2",
       "description": "Independent compilation: out-of-line Runtime destructor sees complete BlitHelper; forward declarations match Image/ImageView struct tags for the Microsoft ABI."
     },
     {
@@ -1014,7 +1014,7 @@
     },
     {
       "path": "src/video_core/texture_cache/tile_manager.h",
-      "sha256": "f4d5d2f48ff6c55e6bc9ea15b95d11df126ea96f63491b0412e0a82e3f688f1a",
+      "sha256": "6a988a8969941cc3067c9eac117d86e64897af92b363298d8a37298d010f3e3b",
       "description": "Match Runtime class forward declaration to its definition for the Microsoft ABI."
     },
     {
@@ -1114,7 +1114,7 @@
     },
     {
       "path": "src/video_core/texture_cache/tile_manager.cpp",
-      "sha256": "77bd96879fda42e9ee0d8a00310242b9d773157910f61bb1bb817930f20b7ec0",
+      "sha256": "6a7f7f5146fad462c4ecb5262d52afbb855c9c52733cbaecfc8d78f2fc2a3c1b",
       "description": "Time tiler/detiler cache-miss pipeline creation on the shared host steady clock; preserve shader selection, specialization and cache behavior."
     },
     {
@@ -1126,6 +1126,11 @@
       "path": "src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp",
       "sha256": "a7c96f9dc360bb6085b58c02ddb24e70fbefbab0d95afc2da70fbb752d45eb92",
       "reason": "Bind vertex inputs from the current specialization descriptor snapshot, with a fresh-read fallback when no snapshot is available."
+    },
+    {
+      "path": "src/video_core/host_shaders/tiling.comp",
+      "sha256": "932fc301398c6e0520f8e077ea90fe0f4a6e092a8ad7c9326a625b45729f684d",
+      "description": "Support NEO alternate 16-pipe P16 tiling using pinned AMD AddrLib equations."
     }
   ]
 }

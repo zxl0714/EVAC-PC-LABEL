@@ -169,6 +169,15 @@ void DataVariantChecks(Fixture& fixture) {
   Reject([&] {DataFiles(game,"unknown");},"unknown variant used as primary manifest");
 }
 void SettingsChecks(Fixture& fixture) {
+    for (const auto id:{"ketsui","daioujou","esprade","feveron"}) {
+        Require(ParseSettings("",id).neo && ParseSettings(DefaultConfig(),id).neo,"NEO defaults differ from template");
+        const auto section="[game."+std::string(id)+"]\nneo=";
+        Require(!ParseSettings(section+"false",id).neo && ParseSettings(section+"TRUE",id).neo,"NEO per-title opt-out");
+        Reject([&]{ParseSettings(section+"1",id);},"Invalid NEO selection accepted");
+        Require(ParseSettings(section+"bad","futari").neo,"Other title interpreted NEO setting");
+    }
+    Require(ParseSettings("[game.ketsui]\nneo=false\n[game.esprade]\nneo=true\n","esprade").neo,
+            "NEO selection leaked between titles");
     const auto guwange=ParseSettings("","guwange");
     const auto guwange_template=ParseSettings(DefaultConfig(),"guwange");
     for (std::size_t n=0;n<kRightStickButtons.size();++n) {

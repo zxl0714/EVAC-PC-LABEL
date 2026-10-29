@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.8.1
+EVAC PC LABEL v0.8.2
 
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
@@ -16,12 +16,16 @@ CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核，1 核 = 1000 CPU 
 
 PS4 代表场景对比：
   游戏                 移植延迟/ms  shadPS4延迟/ms  移植CPU/核  shadPS4CPU/核
-  绊地狱               17           55              0.29        0.62
-  大往生               16           55              0.23        0.34
-  ESP Ra.De.            19           46              0.36        0.62
-  弹铳                 31           46              0.25        0.66
-同机全屏；移植版使用 [display] vsync=false，shadPS4 v0.20.0 使用默认 FIFO。
+  绊地狱               17           55              0.25        0.62
+  大往生               17           55              0.26        0.34
+  ESP Ra.De.            20           46              0.38        0.62
+  弹铳                 19           46              0.27        0.66
+移植版默认 NEO（PS4 Pro）与低延迟呈现，shadPS4 v0.20.0 为普通模式／FIFO。
 延迟估算包含采样等待和呈现后段，CPU 为等效逻辑核数。方法与数据见上方链接。
+
+NEO 默认使用 1080p 合成输出，弹铳响应提前约一帧。要使用普通模式，在
+[game.ketsui]、[game.daioujou]、[game.esprade] 或 [game.feveron] 下设置
+neo=false，重启游戏后生效。
 
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
@@ -148,13 +152,17 @@ one core equals 1,000 CPU ms/s. Method and data are linked above.
 
 Representative PS4 scenes:
   Game            Port latency/ms  shadPS4 latency/ms  Port CPU/cores  shadPS4 CPU/cores
-  Ketsui          17               55                  0.29            0.62
-  DaiOuJou        16               55                  0.23            0.34
-  ESP Ra.De.      19               46                  0.36            0.62
-  Dangun Feveron  31               46                  0.25            0.66
-Same PC and fullscreen display; the ports use [display] vsync=false and
-shadPS4 v0.20.0 uses default FIFO. Latency estimates include sampling wait and
+  Ketsui          17               55                  0.25            0.62
+  DaiOuJou        17               55                  0.26            0.34
+  ESP Ra.De.      20               46                  0.38            0.62
+  Dangun Feveron  19               46                  0.27            0.66
+The ports use default NEO (PS4 Pro) and low-latency presentation;
+shadPS4 v0.20.0 uses ordinary mode and default FIFO. Latency estimates include sampling wait and
 presentation. CPU is measured in equivalent logical cores. Method linked above.
+
+NEO uses 1080p composition and brings Feveron's response forward by about one
+frame. Set neo=false under [game.ketsui], [game.daioujou], [game.esprade] or
+[game.feveron] and restart the game for ordinary mode.
 
 To update, close games and launcher, extract over the existing folder, and keep
 user-data/.

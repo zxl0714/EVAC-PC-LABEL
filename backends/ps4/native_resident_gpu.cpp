@@ -1,5 +1,6 @@
 #include "native_resident_gpu.h"
 #include "native_video.h"
+#include "native_profile.h"
 #include "graphics/snapshot_handoff.h"
 #include "graphics/vulkan_device.h"
 #include "gpu_core/gpu_worker.h"
@@ -91,6 +92,7 @@ struct NativeResidentGpu::Impl {
                 throw std::runtime_error("Resident GPU draw register layout is invalid");
             }
             const HostSettings settings{.validation_core = validation, .validation_sync = validation,
+                .neo = GetNativeProfile().neo,
                 .log_directory = path.parent_path(), .presentation_support = true,
                 .vsync = GetNativeDisplaySettings().vsync,
                 .diagnostic_sink = [](const char* data, std::size_t bytes) noexcept { return WriteNativeLog({data, bytes}); }};

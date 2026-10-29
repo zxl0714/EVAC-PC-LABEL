@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#version 450
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer Source { uint source[]; };
+layout(set=0,binding=1,std430) buffer Destination { uint destination[]; };
+layout(push_constant) uniform Parameters { uint src_word; uint dst_word; uint pixels; uint mode; } p;
+
+uint expand16(uint v) { return v*256u+(v*255u+32767u)/65535u; }
+uint compress24(uint v) {
+    v &= 0xffffffu;
+    uint q=min((v+128u)/256u,65535u);
+    if(q>0u && v<(expand16(q-1u)+expand16(q)+1u)/2u) --q;
+    return q;
+}
+uint encodeDepth(uint v) {
+    return (p.mode&2u)!=0u ? floatBitsToUint(float(v)/65535.0) : expand16(v);
+}
+uint decodeDepth(uint v) {
+    if((p.mode&2u)==0u) return compress24(v);
+    float z=uintBitsToFloat(v);
+    if(isnan(z) || z<=0.0) return 0u;
+    if(z>=1.0) return 65535u;
+    return uint(floor(z*65535.0+0.5));
+}
+void main() {
+    uint first=gl_GlobalInvocationID.x*2u;
+    if(first>=p.pixels) return;
+    if((p.mode&1u)==0u) {
+        uint pair=source[p.src_word+first/2u];
+        destination[p.dst_word+first]=encodeDepth(pair&65535u);
+        if(first+1u<p.pixels) destination[p.dst_word+first+1u]=encodeDepth(pair>>16u);
+    } else {
+        uint a=decodeDepth(source[p.src_word+first]);
+        uint b=first+1u<p.pixels ? decodeDepth(source[p.src_word+first+1u]) :
+            destination[p.dst_word+first/2u]>>16u;
+        destination[p.dst_word+first/2u]=a|(b<<16u);
+    }
+}

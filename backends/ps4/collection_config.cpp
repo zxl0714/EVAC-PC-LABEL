@@ -1,6 +1,7 @@
 #include "collection_config.h"
 #include "native_audio.h"
 #include "native_pad.h"
+#include "native_profile.h"
 #include "audio/wasapi_engine.h"
 #include "graphics/present_mode.h"
 #include <array>
@@ -41,6 +42,7 @@ CollectionConfiguration LoadCollectionConfiguration(const fs::path& path,std::st
     return ResolveCollectionConfiguration(Ini::Load(path),game);
 }
 void ApplyCollectionConfiguration(const CollectionConfiguration& config) {
+    ConfigureNativeProfile(config.shared.neo);
     ConfigureNativePadSettings(config.keyboard, config.shared.gamepad_enabled, config.shared.deadzone);
     ConfigureNativeAudioVolume(config.shared.volume);
     ConfigureNativeDisplay(config.display);
@@ -52,7 +54,7 @@ void ReportCollectionConfiguration(const CollectionConfiguration& config) {
     for (std::size_t n=0; n<kButtons.size(); ++n) keyboard[std::string(kButtons[n])] = config.shared.keyboard[n].keys;
     const auto title=fs::path(config.display.title).u8string();
     const auto report=Json{{"event","collection_configuration"},{"game",config.game},
-        {"fullscreen",config.display.fullscreen},{"window_width",config.display.window_width},
+        {"neo",config.shared.neo},{"fullscreen",config.display.fullscreen},{"window_width",config.display.window_width},
         {"window_height",config.display.window_height},{"vsync",config.display.vsync},{"volume",config.shared.volume},
         {"gamepad",{{"enabled",config.shared.gamepad_enabled},{"deadzone",config.shared.deadzone}}},
         {"community",{{"requested",config.shared.community_enabled},{"supported",config.community_supported},
@@ -67,6 +69,17 @@ bool CollectionConfigurationSelfTest() {
         okay &= result; passed += result;
     };
     const auto defaults=ResolveCollectionConfiguration(Ini::Parse(DefaultConfig()));
+    check(defaults.shared.neo,"neo_default_enabled");
+    const auto base=ResolveCollectionConfiguration(Ini::Parse("[game.ketsui]\nneo=false\n[game.esprade]\nneo=true\n"));
+    ApplyCollectionConfiguration(base);
+    check(!GetNativeProfile().neo && GetNativeProfile().output_width==1280 && GetNativeProfile().output_height==720,
+          "base_opt_out_reaches_profile");
+    ApplyCollectionConfiguration(defaults);
+    const auto query=reinterpret_cast<int(__attribute__((sysv_abi))*)()>(ResolveProfileImport("WslcK1FQcGI"));
+    check(GetNativeProfile().neo && GetNativeProfile().output_width==1920 && GetNativeProfile().output_height==1080 && query && query()==1,
+          "neo_default_reaches_real_system_query_and_output");
+    ApplyCollectionConfiguration(base);
+    check(query && query()==0,"base_query_restored");
     const auto daioujou=ResolveCollectionConfiguration(Ini::Parse(
         "[display]\nfullscreen=true\n[game.daioujou.display]\nfullscreen=false\n"
         "[game.ketsui.keyboard]\nunknown=invalid\n"),"daioujou");

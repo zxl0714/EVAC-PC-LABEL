@@ -18,6 +18,7 @@ namespace Vulkan {
 
 class Instance;
 class Scheduler;
+class DepthTransfer;
 
 class Runtime {
 public:
@@ -78,11 +79,14 @@ public:
 
 private:
     void MakeCurrent(const VideoCore::Buffer* handle);
+    void UploadImageRaw(VideoCore::Image* dst,const VideoCore::Buffer* src,std::span<const vk::BufferImageCopy> copies);
+    void DownloadImageRaw(VideoCore::Image* src,const VideoCore::Buffer* dst,std::span<const vk::BufferImageCopy> copies);
 
 private:
     const Instance& instance;
     Scheduler& scheduler;
     std::unique_ptr<VideoCore::BlitHelper> blit_helper;
+    std::unique_ptr<DepthTransfer> depth_transfer;
     StagingBufferPool staging_pool;
     struct BufferBarriers {
         const VideoCore::Buffer* handle;

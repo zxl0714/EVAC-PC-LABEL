@@ -184,6 +184,14 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             result.g2_frame_delay < 1 || result.g2_frame_delay > 2)
             Error(entry->line, "game.espgaluda2", "frame_delay", "expected 2 (original) or 1 (experimental low latency)");
     }
+    if (game_id=="ketsui" || game_id=="daioujou" || game_id=="esprade" || game_id=="feveron") {
+        const auto section="game."+std::string(game_id);
+        if (const auto* entry=ini.Get(section,"neo")) {
+            const auto value=Lower(entry->text);
+            if (value!="true" && value!="false") Error(entry->line,section,"neo","expected true or false");
+            result.neo=value=="true";
+        }
+    }
     std::map<std::uint16_t,std::pair<const Binding*,std::string_view>> occupied;
     auto check_binding=[&](const Binding& binding,std::string_view name) {
       for (auto code : binding.keys) {

@@ -1,5 +1,15 @@
 # 更新记录
 
+## v0.8.2
+
+- PS4 四作默认启用 NEO（PS4 Pro）模式与 1080p 合成输出，可在配置中切回普通模式。
+- 弹铳首张响应画面提前约一帧，按相同呈现预算估算的总延迟约为 19 ms。
+
+### English
+
+- Enabled NEO (PS4 Pro) mode and 1080p composition by default for all four PS4 games, with an ordinary-mode option in the configuration.
+- Brought Dangun Feveron's first response forward by about one frame, for an estimated total latency of 19 ms under the same presentation budget.
+
 ## v0.8.1
 
 - 降低绊地狱、大往生、ESP Ra.De. 和弹铳的输入与呈现延迟。
