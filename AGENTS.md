@@ -6,6 +6,24 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+LATEST completion October29: v0.8.1 REPACK COMPLETE, stop before publication.
+Frozen code/build/package commit cea174febb906363debb49bddb798a0188d42d81.
+NEW releases/v0.8.1-final-cea174f/EVAC-PC-LABEL-v0.8.1-win-x64.zip,
+110892363 bytes, SHA b445d966caa2614c88dca09c59d988abae1ce6d3440d9759516ffd901de8e7b3.
+ONE extraction accepted 161 files/9 preservation checks, .local/release-acceptance-v081/b445d966caa2614c/accepted.json.
+All 3 build stages succeeded at cea174f, old d33 frozen ZIP preserved. Notes and
+unchanged launcher preview beside new ZIP. Delivery .local/v081-repack-delivery-cea174f.json.
+CPU .29/.23 cores in bilingual README/CHANGELOG; latency retained17/16ms.
+Anonymous360 practice comment: 3 representative actual boss entries passed:
+G2 Xbox360 Stage3 MID BOSS/Ageha, Futari1.5 Xbox360 Original Stage1Boss/RecoNormal,
+SDOJ Xbox360 Stage1BOSS/TypeD SayaShot. Natural death/return observed, no crash
+reports/fatal logs. .local/v081-practice-checks-r1.json. Still unlocated, NOT fixed;
+no all-boss/character matrix. Test PIDs95536/53380/39964 closed normally viaAltF4;
+earlier G2 104864 also closed. Direction keys for CUA remapped T/G/F/H only in
+.local/v081-futari-display-r1/user-data/config.ini; player defaults unchanged.
+DO NOT rebuild/repackage due this documentation-only checkpoint after cea174f.
+No push/tag/upload/release. This supersedes older running/next checkpoints below.
+
 LATEST user request: rebuild the local v0.8.1 candidate including draw preparation
 optimization; investigate an anonymous "360 practice boss crash" comment. User
 confirmed NO game/mode/stage/log details exist. Do not infer a specific game or
