@@ -6,13 +6,18 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
-ACTIVE October29 packaging follow-up: user asked whether a package is ready.
-Repack local v0.8.1 including the ordinary-PS4 ESP Ra.De. latency fix and latest
-bilingual performance table/notes. Commit source locally, certify incremental
-production builds at that commit, make one fresh Public ZIP and one actual
-extraction/preservation acceptance. Keep old releases. No push/upload/release.
-Existing gameplay acceptance below is sufficient; don't repeat the campaign.
-User removed the launcher-resolution bullet from bilingual release notes.
+COMPLETE October29 latest v0.8.1 local package, STOP BEFORE PUBLICATION.
+Source/build/package commit75ea7b813ac64bac4642249a3c585fcf273d42bf includes
+ordinary-PS4 ESP Ra.De. latency fix. All8runtimes +launcher certified at same
+commit; PS4 and360 incremental builds pass. Source audit2615files/22submodules
+passes. Latest Public ZIP releases/v0.8.1-final-75ea7b8/EVAC-PC-LABEL-v0.8.1-win-x64.zip,
+110896019bytes, SHA7c1c24098dcff0c6a2f15903dad11bd479677b1978c06dc64fdb96ea34458dcc.
+ONE actual extraction161files/9preservationchecks passes, accepted.json under
+.local/release-acceptance-v081/7c1c24098dcff0c6/. Updated bilingual notes and
+unchanged-launcher-hash verified preview adjacent. Notes omit launcher display
+selection bullet per user. Delivery .local/v081-low-package-delivery-75ea7b8.json.
+No push/upload/tag/release, no games started. Earlier ZIPs retained. This source
+checkpoint is documentation-only; don't recertify/repack the frozen ZIP for it.
 
 COMPLETE October29: user changed plan to ordinary PS4 mode with lower ESP Ra.De.
 latency. Production keeps Neo=false/720p. All full-Pro profile/GNM/GPU changes
