@@ -32,6 +32,10 @@ def main():
     parser.add_argument('--seed-profile',type=Path)
     parser.add_argument('--pixel-region',help='x,y,width,height,capacity; private bounded ROI')
     parser.add_argument('--timing',action='store_true',help='Enable existing worker/draw wall and CPU diagnostics')
+    parser.add_argument('--esprade-test-ahead',type=int,choices=(0,1,2),
+                        help='Private identity-pinned ESP Ra.De. core experiment only')
+    parser.add_argument('--esprade-core-observer-off',action='store_true',
+                        help='Keep only the shared input/presentation observers for CPU sampling')
     args=parser.parse_args()
     if args.pixel_region:
         checked_pixel_region(args.pixel_region)
@@ -69,11 +73,18 @@ def main():
                     raise ValueError('Seed profile copy differs')
                 seeded.append(dict(path=relative.as_posix(),sha256=identity))
     env={k:v for k,v in os.environ.items() if not k.startswith('EVAC_LATENCY_') and
-         not k.startswith('CAVE_DIAGNOSTIC_') and k!='EVAC_PS4_TIMING_TRACE'}
+         not k.startswith('CAVE_DIAGNOSTIC_') and k not in ('EVAC_PS4_TIMING_TRACE','EVAC_ESPRADE_TEST_AHEAD','EVAC_ESPRADE_TEST_NO_CORE')}
     settings=dict(EVAC_LATENCY_TRACE=str(trace),EVAC_LATENCY_CAPACITY='1048576',
                   EVAC_LATENCY_TEST_PAD=args.label)
     if args.timing:
         settings['EVAC_PS4_TIMING_TRACE']='1'
+    if args.esprade_test_ahead is not None:
+        if args.game!='esprade':raise ValueError('ESP Ra.De. core experiment requires esprade')
+        settings['EVAC_ESPRADE_TEST_AHEAD']=str(args.esprade_test_ahead)
+    if args.esprade_core_observer_off:
+        if args.game!='esprade' or args.esprade_test_ahead is not None:
+            raise ValueError('Core observer off requires ordinary ESP Ra.De. mode selection')
+        settings['EVAC_ESPRADE_TEST_NO_CORE']='1'
     if args.pixel_region:
         pixel_prefix=base/(args.label+'-pixels')
         if any(Path(str(pixel_prefix)+suffix).exists() for suffix in ('.bin','.csv')):

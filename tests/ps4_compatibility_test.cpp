@@ -3,6 +3,7 @@
 #include "backends/ps4/graphics/snapshot_handoff.h"
 #include "backends/ps4/graphics/swapchain_bootstrap.h"
 #include "backends/ps4/loader/preparation_policy.h"
+#include "backends/ps4/loader/esprade_latency.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "backends/ps4/ketsui_version.h"
 #include "common/catalogue.h"
@@ -243,9 +244,38 @@ void Seeds() {
     Check(ReadArchiveSeed(relative,32,true)==expected,"DOJ relative ELF seed unchanged");
 }
 }
+void EspradeLatency() {
+    using namespace cave::ps4;
+    constexpr std::array<std::string_view,4> identities{
+        "46fb512a30b680784a0f792556a86ced58305fcff4475610c10dd892bc72c10e",
+        "9c8d0a7f77e983b1379d2f469c2e510e8345e3f1668b642a2600b3255da13396",
+        "0896b435c78ae9438c95d88927961f90b241c16a845dce9d376ccb40da063a18",
+        "96d673c91afe2ecc03c45ae316cb10573f1007627fa9c279af4d912585e64953"};
+    const auto hash=[](std::string_view text) {
+        std::array<std::uint8_t,32> result{};
+        const auto hex=[](char c){return c<='9'?c-'0':c-'a'+10;};
+        for (std::size_t i=0;i<result.size();++i) result[i]=static_cast<std::uint8_t>((hex(text[i*2])<<4)|hex(text[i*2+1]));
+        return result;
+    };
+    const std::vector<std::uint8_t> original{0x83,0xf8,0x01,0xb8,0x02,0,0,0,0x83,0xd8,0,0xc3,0x31,0xc0,0xc3};
+    for (auto identity:identities) {
+        auto code=original;
+        Check(ApplyEspradeLatency(code,0x10ef,hash(identity)),"supported ESP revision adapted");
+        Check(std::equal(code.begin(),code.begin()+8,original.begin()) && code[8]==0x90 && code[9]==0x90 && code[10]==0x90 &&
+              std::equal(code.begin()+11,code.end(),original.begin()+11),"only base-machine subtraction changes; disabled branch preserved");
+    }
+    auto untouched=original;
+    Check(!ApplyEspradeLatency(untouched,0x10ef,{} )&&untouched==original,"other original images remain unchanged");
+    auto bad=original;bad[3]^=1;const auto before=bad;
+    Reject([&]{ApplyEspradeLatency(bad,0x10ef,hash(identities[0]));},"different selector rejected");
+    Check(bad==before,"rejected selector not partly patched");
+    Reject([&]{ApplyEspradeLatency(std::span(untouched).first(10),0x10ef,hash(identities[0]));},"truncated selector rejected");
+    Check(!ApplyEspradeLatency(untouched,0x2000,hash(identities[0]))&&untouched==original,"unrelated segment not written");
+}
+
 int main() {
     try {
-        Presentation();SnapshotHandoff();SwapchainBootstrap();DeviceRequirements();Policies();Seeds();
+        Presentation();SnapshotHandoff();SwapchainBootstrap();DeviceRequirements();Policies();Seeds();EspradeLatency();
         std::printf("%u PS4 compatibility checks passed (no ROM or GPU required)\n",checks);return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr,"PS4 compatibility check %u failed: %s\n",checks,error.what());return 1;

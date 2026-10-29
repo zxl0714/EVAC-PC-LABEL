@@ -40,12 +40,13 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     const fs::path producer(executable.data());const auto producer_hash=Sha256(producer);
     auto inputs=Json::array();
     for (const auto& file:DataFiles(FindGame(game),inspected.variant)) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
-    const Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
+    Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
         {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",policy.merged_app},
         {"dataVariant",inspected.variant},{"dataVersion",inspected.version},
         {"musicAutosave",ketsui},{"communityReplayBatch",ketsui},{"communityLocalRounds",ketsui},
         {"communityReplayPeerFallback",policy.replay_peer},{"communityLocalReplay",policy.local_replay},
         {"communityOffline",policy.community_offline}};
+    if (esprade) recipe["lowLatencyPredictionFrames"]=2;
     const auto& programs=policy.programs;
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");

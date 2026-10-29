@@ -6,6 +6,84 @@ active build root. Older .local evidence referenced below remains there.
 
 ## Current objective
 
+ACTIVE October29 packaging follow-up: user asked whether a package is ready.
+Repack local v0.8.1 including the ordinary-PS4 ESP Ra.De. latency fix and latest
+bilingual performance table/notes. Commit source locally, certify incremental
+production builds at that commit, make one fresh Public ZIP and one actual
+extraction/preservation acceptance. Keep old releases. No push/upload/release.
+Existing gameplay acceptance below is sufficient; don't repeat the campaign.
+User removed the launcher-resolution bullet from bilingual release notes.
+
+COMPLETE October29: user changed plan to ordinary PS4 mode with lower ESP Ra.De.
+latency. Production keeps Neo=false/720p. All full-Pro profile/GNM/GPU changes
+were restored (ours/initially clean); no Pro/1080p support is being shipped.
+loader/esprade_latency.h pins4 rawSHA +11-byte original selector; ONLY prepared
+copy sbb eax,0 becomes3NOP. Original machine query and low-latency OFF remain;
+ON uses original2-frame save/predict/restore. Original game-data hashes unchanged.
+C++/Python full prepared bytes match all4modules, recipe predictionFrames2.
+Build r2 successful; first const-plain failure retained. Compatibility passes,
+native88/88, analyzer5+ROI3 pass. Private low-probe-build-r1 compiled restored
+base objects +new loader; old directory name pro-probe-r2 does not imply Pro.
+Default-path latency NO experimental ahead env: v081-esprade-low-latency-r2,
+4 actual Stage1A/Yusuke responses7.7792/7.3476/7.4504/7.6678ms,mean7.56125.
+All current callback,1837ahead2,1836/1836 clockrestore;96197trace/74pixels complete.
+README estimate8.333+7.56125+3.300679=19.195ms ->19ms, same scope as older tables.
+CPU same EXE, detailed core observer OFF/NO ROI, actual Stage1 shooting2x2seconds:
+1437.5CPUms/4.001053wall=.359280cores ->.36. Earlier.25 is different activity,
+not controlled before/after CPU cost. Shad reference46ms/.62cores retained.
+Functional91780: Arcade/SuperEasy Stage1 shooting/movement/pause; quick save/load;
+Replay Theater menu (0entries, NO playback claimed); Osarai menu; room firstshot
+tutorial cleared(reward10money/3tickets). Cold34604 loaded Arcade slot01 with
+score1350/life2/power2. Both closed viaAltF4; complete386953/147534traces, no ROI
+or core observations,720p. No games left running. No all-mode/full-replay claim.
+Final verified evidence .local/input-latency-v080-r1/v081-esprade-low-final-r1.json,
+recheck generator review_esprade_low_final.py. Bilingual README/CHANGELOG, local
+release-notes draft, ANALYSIS/TEST_MATRIX updated. Source changes uncommitted.
+NO release/push/upload/repack. Frozen cea174f ZIP unchanged SHA b445d966...e7b3;
+it does not include this fix. Earlier checkpoints below are historical.
+
+Abandoned full-Pro evidence retained privately: PM4 index1 VGT_PRIMITIVE_TYPE,
+then D16S8->D24S8 unsafe copy validation VUID00171(18.28MB>16MB). Test128024
+reachedtitle/closednormally, others exited. Do not revive these unrelated GPU
+changes for the ordinary-mode request. No user help is needed to finish task.
+
+LATEST October29 Daioujou follow-up STATIC ANALYSIS COMPLETE. All4 original
+cores01000/10/20/30 setter69c0 via200058 writes enabled?1:0, no core Neo import.
+Original save/predict/restore exists; NOT ESP Ra.De.'s base1/Neo2 selector.
+Eboot has6 direct Neo callers, including display/capability paths; don't claim
+the whole title has no Neo queries. console.overdrive is separate outer branch.
+Earlier01030 responsePadRead->Present4.487ms precedes nextcallback17.131ms;
+doesn't measure live option value. Audit tool audit_daioujou_lookahead.py and
+.local/input-latency-v080-r1/daioujou-lookahead-audit-r4/report.json bind all6
+originals and earlier response. No game launch, production changes, rebuild,
+repack or publication. No need more measurement to answer this code question.
+
+LATEST October29 ESP Ra.De. latency ROOT CAUSE CONFIRMED, analysis request done.
+Original module01030 callback10e0 calls sceKernelIsNeoMode (WslcK1FQcGI), selects
+lookahead1 for current base profile/0, 2 for Neo/1, variable3403f60. Private
+ARCADE/Yusuke 1->2->1 controls, four pixel-verified movements each, read->first
+responsePresent24.190->7.655->23.787ms. Last2 use IDENTICAL EXE/DLL/config,
+causal saving16.133ms. Input delivery~.28ms, original callback~.98/1.17ms;
+not20ms CPU work. Original save/run-ahead/restore, next normal scheduler clocks
+match previous normal end in1503/1251/1248 adjacent pairs. console.overdrive0
+is a SEPARATE branch. Audit esprade-core-audit-r2/report.json; final evidence
+.local/input-latency-v080-r1/v081-esprade-lookahead-cause-r2.json, public reviewer
+tools/latency/review_esprade_lookahead.py. Details docs/ANALYSIS.md. All game PIDs
+closed normally. Added private measurement tools only; NO production fix,
+build/repack/push/release. Frozen cea174f ZIP remains unchanged. README40ms is
+current production; experimental~19ms estimate is NOT shipping. If implementing
+later, prefer title-specific original lookahead2; do not globally enable Neo.
+Eight relevant analyzer/ROI tests pass. No user help required.
+
+LATEST October29: ESP Ra.De./Feveron CPU+latency supplement COMPLETE. Bilingual
+README/CHANGELOG and local final-cea174f release-notes updated: ESP40/46ms,
+CPU.25/.62cores; Feveron31/46ms,CPU.25/.66. Four/six inspected responses per
+side, normalized60Hz phase, reused same-PC presentation budgets3.301/4.506ms.
+Evidence .local/input-latency-v080-r1/v081-ps4-extra-comparison-r1.json, checked
+by review_extra_final.py. All6 accepted pixel captures complete/zerooverflow.
+All test processes closed normally. DOCS ONLY: frozen ZIP/build unchanged;
+do not rebuild/repackage automatically. No push/tag/upload/publication.
+
 LATEST completion October29: v0.8.1 REPACK COMPLETE, stop before publication.
 Frozen code/build/package commit cea174febb906363debb49bddb798a0188d42d81.
 NEW releases/v0.8.1-final-cea174f/EVAC-PC-LABEL-v0.8.1-win-x64.zip,

@@ -4,6 +4,8 @@
 
 ## v0.8.1 本地开发验收
 
+- **ESP Ra.De. 普通 PS4 低延迟：** 保持 `Neo=false` 和720p，只在准备副本中将原低延迟开启路径调整为两帧预演；原关闭选项保留。四份核心原文件哈希未变，C++／Python完整输出一致；13项精确改动／隔离／拒绝检查纳入compatibility并通过，88项native检查及8项输入证据／ROI检查通过，生产组件已编译。实际默认路径四次首响应均在本轮核心更新提交，均值7.561ms；主表预算19ms，CPU独立射击场景0.36核。
+- **本次功能短回归：** ARCADE／祐介和SUPER EASY／祐介第一关移动、射击、暂停通过；ARCADE快速存档01同进程读回，重启后再次读回分数1350／生命2／火力2。录像菜单／过滤器与OSARAI菜单打开正常；独立档案没有录像条目，本次未验证播放。房屋模式首个射击教学实际完成，获得10钱币／3票券。进程91780／34604均通过Alt+F4关闭，跟踪完整无溢出，仍为1280×720；未覆盖全部模式、角色和关卡。汇总 `.local/input-latency-v080-r1/v081-esprade-low-final-r1.json`；本次新增源码及文档尚未重打冻结ZIP，未push／发布。
 - **10 月 29 日重新出包：** 第二轮 PS4 绘图准备优化与 CPU 复测已纳入。八款运行组件、启动器／工具的构建收据统一对应 `cea174febb906363debb49bddb798a0188d42d81`；中英文 README／更新记录改用绊地狱 0.29 核、大往生 0.23 核，延迟仍为 17／16 ms。新程序包 `releases/v0.8.1-final-cea174f/EVAC-PC-LABEL-v0.8.1-win-x64.zip`，110,892,363 字节，SHA-256 `b445d966caa2614c88dca09c59d988abae1ce6d3440d9759516ffd901de8e7b3`。一次实际解压验收 161 文件、9 类用户数据保留检查通过；收据 `.local/release-acceptance-v081/b445d966caa2614c/accepted.json`。旧 ZIP 保留，未 push／上传／发布。
 - **360 匿名练习崩溃反馈：** 用户确认仅有一句评论，未提供游戏名、模式、关卡或日志。生产组件短检查覆盖 G2／Xbox 360 Training／Ageha／Stage 3 MID BOSS，虫姬二／Ver1.5 Xbox 360 Training／Original／Reco Normal／Stage 1 Boss，最大往生／Xbox 360 Training／Type D Saya Shot／Stage 1 BOSS。均实际进入 Boss、角色自然死亡及返回，随后正常关闭；三份日志未生成崩溃报告或记录致命错误。未复现，保留待定位，不标为已修复；未覆盖完整击破、全部角色和关卡组合。`.local/v081-practice-checks-r1.json` 绑定进程和原始日志。自动方向键改用独立测试配置 T/G/F/H，未改玩家默认按键。
 

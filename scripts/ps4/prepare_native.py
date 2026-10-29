@@ -12,6 +12,13 @@ from analysis_paths import private_output
 
 from native_elf import Elf, nid, read_names, plain_self_elf
 
+ESPRADE_LATENCY_MODULES = {
+    '46fb512a30b680784a0f792556a86ced58305fcff4475610c10dd892bc72c10e',
+    '9c8d0a7f77e983b1379d2f469c2e510e8345e3f1668b642a2600b3255da13396',
+    '0896b435c78ae9438c95d88927961f90b241c16a845dce9d376ccb40da063a18',
+    '96d673c91afe2ecc03c45ae316cb10573f1007627fa9c279af4d912585e64953',
+}
+
 
 def verified_init_env(libc):
     raw = libc.read_bytes()
@@ -102,7 +109,15 @@ def prepare(source, names, libc=None, module=False):
     for segment in elf.segments:
         output += struct.pack("<4Q", segment["address"], segment["memory_size"],
                               segment["flags"], segment["file_size"])
-        output += elf.slice(segment["file_offset"], segment["file_size"])
+        content = bytearray(elf.slice(segment["file_offset"], segment["file_size"]))
+        if module and inventory['sha256'] in ESPRADE_LATENCY_MODULES and segment['flags'] & 1:
+            offset = 0x10ef - segment['address']
+            if 0 <= offset < len(content):
+                if content[offset:offset+11] != bytes.fromhex('83 f8 01 b8 02 00 00 00 83 d8 00'):
+                    raise ValueError('ESP Ra.De. low-latency selector differs')
+                content[offset+8:offset+11] = b'\x90'*3
+                inventory['low_latency_prediction_frames'] = 2
+        output += content
     for symbol in imports:
         for field in ("name", "friendly", "library", "module"):
             data = symbol[field].encode("utf-8")
