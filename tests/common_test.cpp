@@ -43,11 +43,13 @@ void NicknameChecks() {
   Require(std::any_of(aliases.begin(),aliases.end(),[](const auto& issue){return issue.game->id=="guwange";}),
           "Guwange native nickname alias warning missing");
   const auto symbols=launcher::NicknameIssues(ini,"A@A");
-  Require(symbols.size()==5,"Missing PS4 ASCII glyph was not detected");
+  Require(symbols.size()==6,"Missing PS4 ASCII glyph was not detected");
+  Require(std::any_of(symbols.begin(),symbols.end(),[](const auto& issue){return issue.game->id=="garegga";}),
+          "Accepted Garegga community title must participate in shared nickname warnings");
   for(const auto& issue:symbols)Require(!issue.alias && issue.missing==U"@","ASCII rule incorrectly applied to PS4 font");
   const auto astral=launcher::NicknameIssues(ini,"😀😀");
   for(const auto& issue:astral)Require(issue.game->integrated && issue.game->community_supported,"Unavailable title leaked into shared nickname warnings");
-  Require(astral.size()==9,"Emoji missed in a title/font variant");
+  Require(astral.size()==10,"Emoji missed in a title/font variant");
   for(const auto& issue:astral)Require(issue.missing==U"😀","Surrogate pair split or duplicate warning");
   const auto independent=Ini::Parse("[game.futari.community]\nnickname=Separate\n");
   const auto overridden=launcher::NicknameIssues(independent,"ルル");
@@ -61,7 +63,7 @@ void NicknameChecks() {
   Require(std::any_of(feveron_missing.begin(),feveron_missing.end(),[](const auto& issue){return issue.game->id=="feveron" && issue.missing==U"黒";}),
           "Feveron-specific missing glyph warning omitted");
   const auto long_name=launcher::NicknameIssues(ini,"abcdefghijklmnopq");
-  Require(long_name.size()==9,"Native length loss not warned");
+  Require(long_name.size()==10,"Native length loss not warned");
   for(const auto& issue:long_name)Require(issue.shortened && issue.missing.empty() && !issue.alias,"Length warning mislabeled as missing glyph");
   Require(launcher::NicknameCodepoints("Aル😀")==U"Aル😀","UTF-8 warning character decoding");
 }

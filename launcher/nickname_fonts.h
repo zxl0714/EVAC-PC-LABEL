@@ -6,7 +6,8 @@
 
 namespace cave::launcher {
 // Unicode coverage metadata only, not font pixels, metrics or game resources.
-// Native ranking fonts: CUSA09062 01.00/01.02, CUSA32997 01.04, CUSA15155 01.04, CUSA06735 01.00.
+// Native ranking fonts: CUSA09062 01.00/01.02, CUSA32997 01.04, CUSA15155 01.04,
+// CUSA06735 01.00 and CUSA10207 01.00.
 // See docs/NICKNAME_DISPLAY.md.
 inline constexpr std::array<std::uint32_t,761> kNicknameGlyphsCommon{
     0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29,0x2a,0x2b,
