@@ -4,6 +4,7 @@
 
 ## v0.8.2 本地验收
 
+- **10 月 30 日实际退出排查：** 绊地狱进程 38576 在 23:35:21 被 Defender 报为 `Trojan:Win32/Bearfoos.A!ml`，事件 1116／1117 记录终止与隔离，PID 和创建时间与本次运行完全匹配。启动器记录退出码 0；运行日志没有游戏异常栈或正常退出收尾。日志中的 EXE 哈希与 `7c5d48d` 构建清单一致，安装目录的 EXE 已被隔离，开发副本读取也被阻断。作为疑似误报处理，尚未独立确认误报；未恢复隔离、修改安全设置或为此重编包。私有证据 `.local/v082/ketsui-defender-20261030-r1/`。该发行问题需要处理，先前功能／出包检查通过不覆盖它，也不将本次退出归为 NEO 游戏逻辑崩溃。
 - **最新分辨率修订包：** 增加 2560×1440、3840×2160 选项，源码／八款运行组件／启动器对应 `7c5d48df320bc56468b21a438aaa0021f605f7b4`。common 689、launch 153、PS4 配置 22 项及 CN／EN／JP 预览、隐藏启动器检查通过；现有检查逐项覆盖预设保存、重开恢复和物理窗口适配，不重复关卡回归。新包 `releases/v0.8.2-local-7c5d48d/EVAC-PC-LABEL-v0.8.2-win-x64.zip`，110,919,487 字节，SHA-256 `7537c63c270aafd535e3daa3798d45a89a02c066256dc3f9780dffeddd0f2b4f`。一次解压 162 文件／9 类保留检查通过，双语说明同步，旧包保留；未推送或发布。交付 `.local/v082/delivery-presets-r1.json`。以下为首个候选及共用功能验收。
 - **本地交付完成，停在正式发布前：** 源码、八款运行组件及启动器对应 `e4d4c962321c360bc133ae76eb6deada716238ab`。程序包 `releases/v0.8.2-local-e4d4c96/EVAC-PC-LABEL-v0.8.2-win-x64.zip`，110,919,433 字节，SHA-256 `7e12f2b32bd9bf62b1d25db5e21decccfb726200c10bebbad2386371aa928ef6`。一次实际解压验收 162 文件／9 类保留检查通过，含新增 AMD AddrLib 许可与双语 NEO 用法。收据 `.local/release-acceptance-v082/7e12f2b32bd9bf62/accepted.json`、交付 `.local/v082/delivery-r1.json`，简洁双语更新说明在 ZIP 旁。未上传、push、tag 或发布。
 - 最终构建的原生检查 88/88、源码专项 22/22、PS4 compatibility、GPU scheduler／draw、common／launch／launcher_preview 及隐藏窗口 launcher_ui 均通过。源码审计 2625 文件／22 子模块通过；此前独立测试模块的直接调用使用错误 ROOT／PYTHONPATH，保留调用失败记录，使用受支持入口重跑通过。

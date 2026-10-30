@@ -5,6 +5,17 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
+October30 player-exit triage: current v0.8.2 Ketsui process38576 was terminated
+and quarantined by Defender at23:35:21 CST, events1116/1117 Bearfoos.A!ml.
+ExactPID+creationtime match run; recordedEXE SHA d3ced03500efa4befb9964000b2537e83d6fc8fbb87a1c3c6f3e860121ade977
+matches7c5d48d build manifest. Launcher exit0, no game exception/shutdown record;
+installed ketsui.exe removed and development copy now AV-blocked on read.
+Suspected false positive, not established malware-free by hash alone. Evidence
+.local/v082/ketsui-defender-20261030-r1/report.json plus copied run/Defender XML.
+No security settings changed, no quarantine restore, no new build/package.
+Resolve this distribution/Defender issue before treating this candidate as
+ready for publication. This report does not establish a NEO/game-engine crash.
+
 COMPLETE October30 resolution follow-up: v0.8.2 now includes2560x1440 and
 3840x2160 presets (fullscreen+720p/900p/1080p/1440p/4K). Same-source build,
 all8runtime certificates+launcher at7c5d48df320bc56468b21a438aaa0021f605f7b4.
