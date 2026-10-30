@@ -2812,6 +2812,8 @@ Public RC2 的绊地狱普通启动合同完成原生准备及菜单进入。现
 - 性能：NEO／1920×1080 合成／720p 窗口／VSync 关闭，6.002 秒 361 帧，60.006 FPS、CPU 0.250 核，P95 17.055 ms、最大 17.235 ms。以采样后暂停截图核对实际第一关 2110 分场景。前两次混入提示的采样排除；详细分解见 ANALYSIS。
 - 回归：r10 88/88 无 ROM 原生检查通过；完整源码回归运行 871 项，通过（1 项跳过）；r6 127/127 资源检查及 2/2 本作 Windows HTTP 协议检查通过。服务端本作 5 项、备份 5 项、部署 8 项在服务器 Python 3.10.12 通过。
 - 正式服务：独立源码提交 `66c1438`，端口 18092，仅监听 loopback；九款 HTTPS 健康及旧八款 PID／指针保持检查通过。每日备份已启用，首次快照的完整性／外键／application_id 及空库检查通过。r12 正式配置已提交 CUSTOM 1040 分至 30／31 号榜，两份录像上传成功，游戏内正式 CUSTOM 综合榜显示 1040 分及录像标志。测试只提交实际游玩记录。
-- 待完成：最终同提交构建、程序包和发布验收。
+- 最终交付：九款运行组件、启动器及工具的构建认证统一对应 `f7ee39173b5231e78acd3ba631a318ffa5bac9ef`；最终 common／launch／launcher_preview 通过。源码审计 2635 文件／22 子模块通过。`f7ee391` 修正新增作品后的昵称测试计数，未改实际验收版本的游戏逻辑。
+- 程序包 `releases/v0.8.3-final-f7ee391/EVAC-PC-LABEL-v0.8.3-win-x64.zip`，115,034,097 字节，SHA-256 `c5a077d6d709fbf8b532331605430ba6b7759977ec5a3f9d7855115d38db2c08`。一次实际解压 165 文件／9 类保留检查通过，双语说明、九款数据指南、解包工具及 ASCII 文件名检查通过。验收收据 `.local/release-acceptance-v083/c5a077d6d709fbf8/accepted.json`。
+- 10 月 31 日 07:14 正式发布 [GitHub v0.8.3](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.3)，Latest，ID `429571675`。`main` 与固定标签已推送；公开 API 核对状态、两份附件大小／摘要及完整中英文说明通过，下载的 100 字节校验文件与本地一致，未重新下载 ZIP。交付 `.local/v083/github-delivery-r1.json`，截图 `.local/v083-release-published.png`。本次收尾仅更新验收文档，冻结包和标签保持不变。
 
 证据位于 `.local/v083/`：`native-community-r1.stdout.jsonl`、独立测试目录的 run 日志、`native-checks-r10/result.json`、`server-remote-tests-r1.log`、`server-installed-r1.log` 和 `performance-super-easy-stage1-r3.json`、`garegga-quickload-after-restart-r3.png`、`garegga-https-ranking-r2.png`。静态盘点和协议 fixture 不代替实际游戏回放。

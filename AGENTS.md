@@ -5,87 +5,46 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
-ACTIVE October31: finish and formally release v0.8.3 Battle Garegga Rev.2016.
-User authorizes full integration, saves/replays/native community, frame/CPU checks,
-careful banner, light regression, then formal GitHub Latest. No further release
-approval needed. No subagents. Frozen v082 unchanged. Work here explicitly.
+COMPLETE October31 07:14 CST: v0.8.3 Battle Garegga Rev.2016 formally published
+as GitHub Latest. Release ID429571675:
+https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.3
+Main and annotated v0.8.3 tag pushed. Source/build/package/tag commit:
+f7ee39173b5231e78acd3ba631a318ffa5bac9ef. All nine runtime components and launcher
+certified at this commit; SDK unchanged and verified. This closing checkpoint
+is docs-only: do not rebuild/repack or move the frozen tag.
 
-Original downloaded/extracted read-only .local/v083/base-kr-r1/uroot: CUSA10207 KR,
-APP_VER01.00.47files/761243678bytes. PKG762707968 SHA0cb0584404d649c947a49c8eab8d172848a555584597733bc581f3ee67ae73a5.
-Original eboot SHA4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984.
-Private analysis .local/v083/analysis-r1 contains decoded scripts/ELF/inventory.
-Original program DT_NEEDED six modules now loaded integration-first before entry,
-only for original main SHA. Census/validate never call initializers. All five
-core01000..01040 plus unversioned integration static;01100 remains dynamic.
-Legacy NP4arg/NpId36/rank128/player136, NpCommonCmpNpId, old32DWORD GNM init,
-Stod scaled parse now implemented. Full metadata/resource/hash boundaries kept.
+Final program ZIP releases/v0.8.3-final-f7ee391/EVAC-PC-LABEL-v0.8.3-win-x64.zip,
+115034097bytes, SHA c5a077d6d709fbf8b532331605430ba6b7759977ec5a3f9d7855115d38db2c08.
+Public, no ROM/source/PDB. One actual extraction165files/9preservation files
+passed; receipt .local/release-acceptance-v083/c5a077d6d709fbf8/accepted.json.
+Public API verified Latest/non-draft/non-prerelease, exact two asset sizes and
+digests, complete bilingual notes and downloaded100byte checksum. No ZIP
+redownload. Delivery .local/v083/github-delivery-r1.json; published screenshot
+.local/v083-release-published.png. Actual extracted launcher preview reviewed.
+No internal package, OSS upload or group announcement requested/performed.
 
-Main HEAD66c1438007f285a22d0bc0eab80207b1efb97cb1 is server-only commit, NOT pushed.
-Rest v083 code/docs/catalogue/banner/build/package UNCOMMITTED. Final version083,
-9games, Garegga integrated/community true now accepted actual. R10 build completed
-runtimePS4 EXE0ed9ffb7fdb6766b68c9b4c367f23d8f79ae11ea697f88984d1ad5549c40b8d4.
-GPU31f5bbd3f8fdd06bd90e4db3bcd0af4a5225a119b42ce43f78ad3e914714685c.
-All actual launch attempts since improvedr7 accepted. No current launch block.
-Prior rejection was a combined command, not a current general ban; do not bundle
-launching with source downloads. Native current game process37984 (r12), window
-14357410, private collection .local/v083/play-r1/collection, acceptance-r1 profile.
-Regular five contract arguments, rootconfig communitytrue/defaultHTTPS, NEOtrue,
-720p, gamepadfalse. Diagnostic CAVE_DIAGNOSTIC_INPUT_TAP_MS120 enables CUA short
-keys. CUA Windows durationMs unsupported. Long confirm:24 pressKey('x') pulses
-with20ms gaps holds diagnostic input. UI transitions ~1sec. Backspace pause,
-X confirm/formation,Z cancel/weapon,C/S shot,V coin,Enter start. Do not reopen
-Task Manager. Game Mode arrows are BOUNDED: Custom->Arcade needs LEFT THREE,
-RIGHT does NOT wrap. Final actual checks completed: ARCADE QuickLoad01 restored20point Stage1
-after restarts; actualHTTPS CUSTOM ranking displayed1040 and replayflag.
-Game37984 was closed normally. No actual game is running. Slots
-are per-mode; prior Custom NoData is expected. Do not call that a game bug.
+Garegga CUSA10207 KR01.00: ARCADE, SUPER EASY, PREMIUM, CUSTOM entered Stage1;
+movement/shooting, settings restart, ARCADE QuickSave20points/restart/QuickLoad,
+original downloaded100point replay FULL1:21 offline after restart all passed.
+Formal HTTPS CUSTOM1040points on boards30/31, two real replays and actual ranking
+UI passed. Only own service cave-garegga on loopback18092 and own nginx route
+added; daily backup enabled. Nine HTTPS health checks and old eight service
+PID/pointer preservation passed. Deployment source66c1438, evidence in v083.
 
-Actual acceptance: ARCADE Stage1, SUPER EASY Stage1 shooting/movement, PREMIUM
-Stage1 (.local/v083/garegga-premium-stage1-r4.png), CUSTOM Stage1 firing1040
-(.local/v083/garegga-custom-stage1-r1.png). QuickSaveARCADE01 wrote20points.
-Original settings persisted across restarts. Local service53663 still running
-port64518, DBcommunity-native-r1.sqlite3. Native real100points submitted boards
-10/11,2native replays uploaded/downloaded. Offline regularr11 PID66104 restarted
-with communityfalse, downloaded100point recording enteredStage1 and played
-FULL1:21 naturally back to100point list, screenshots offline-r1 andended-r1.
-R12 actualHTTPS configured: CUSTOM1040points boards30/31 +2 replays accepted live.
-Server .local/v083/server-live-acceptance-r1.json, logrun-20261030T222800... (find
-latest run bymtime; do not invent exact names). Native headers prove units1x,
-mode3,char0,version10400,data10000,regionARCADE_01040. Formal ViewRanking/read and QuickLoad both passed; screenshots
-garegga-https-ranking-r2.png andgaregga-quickload-after-restart-r3.png.
+Accepted Stage1 performance: NEO1080pcomposition/720pwindow, vsyncfalse,
+6.002sec361frames60.006FPS, CPU0.250equivalentcores, P9517.055ms/max17.235ms.
+R1/r2 end/prompt samples excluded; accepted cpu/performance-super-easy-stage1-r3
+reports. README bilingual updated, no unmeasured Garegga latency row added.
+Native88/88, resources127/127, actual WindowsHTTP2/2, full source871tests OK
+(skip1); final common/launch/preview all pass. f7ee391 fixed stale nickname test
+counts, no gameplay change from acceptedr10. Source audit2635files/22submodules
+passed. Final package verified all same-source receipts and ASCII guides/tools.
+All actual test games and local loopback server closed. No current launch block.
+Original data read-only in .local/v083/base-kr-r1/uroot,47files/761243678bytes;
+private analysis/play fixtures under .local/v083. Frozen v0.8.2 unchanged.
+No subagents. Never open Task Manager. No further testing/publishing work remains.
 
-New server code66c1438 deployed immutable /opt/cave-community/releases/garegga-66c1438,
-only own service18092 andnginxroute;9HTTPS health pass,old8PIDs/pointers unchanged.
-Dailybackupenabled,firstemptybackupchecked, latestbackup afterreal1040triggered.
-Evidence .local/v083/server-installed-r1.json/log andremote-tests-r1.log.
-
-Accepted performance r3: SUPER EASY Stage1 NEO1080pcomposition/720pwindow,
-vsyncfalse,6.002sec361frames60.006FPS,CPU0.2499277cores;intervalmean16.665ms,
-P9517.055,max17.235. RenderCPU1.952ms,backendpresent0.938ms. Original sampled
-EXE224fc64dbfca22dc869fe764320eb7058ed15fd86309d477e575f2631870477c (r9; r10only
-cataloguecapflag). cpu-super-easy-stage1-r3.json +performance report +paused2110
-screenshot. R1/r2 sampled end/prompts EXCLUDED. README bilingual metrics added;
-no invented Garegga latency row. Plan narrowed to requestedFPS/CPU with original
-lowlatency/NEO path. Official M2 goldaircraft art hash90e0cfef... focusY.8; r2
-launcher-garegga-r2.png reviewed good. No image editing needed.
-
-Regression: nativeR10 88/88, resourceR6 127/127, realHTTPauthored2/2; full source
-runR10 under bundledPython3.12.14 ran871 tests OK(skip1), logs. r7NP35,PM4,libcR9
-pass. Source auditR10 2635files/43986521bytes,22submodules,9art,3brand,noROM. Earlier
-sourceR1 failures were stale8game assertions +missingNumPy, all resolved/R10clean.
-LauncherR2 rebuilt and previewgood; current rootlauncher oldercapflag metadata,
-needs final release rebuild after clean source commit. All final9runtime and
-launcher certificates MUST use SAME final commit. SDK unchanged verify reusable.
-
-Remaining: all actualgame checks are complete. Finish clean source commit
-and finalsame-source builds. No repeat full regression or gameplay needed. Build
-PS4 and fourXbox360+launcher at final commit, verify same-source receipts. Public
-ZIP+SHA(noROM/source), ONE extraction/preservation acceptance, freeze. Pushmain+
-annotatedv0.8.3tag; publish GitHubLatest through authenticatedIAB releaseTab (last
-v082 page). Browser file upload use visibleAttach binariesfilechooser, not hidden
-input.click. Verify publicAPIassetdigests/status/notes +checksum(noZIPredownload).
-Save/EMBED release screenshot final. No internalROMpackage/OSS/group asked.
-Mark persistent goal complete ONLY once formally published/verified.
+## Previous release checkpoints
 
 COMPLETE October31 01:13 CST: v0.8.2 formally published as GitHub Latest.
 Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.2,
