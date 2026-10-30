@@ -12,6 +12,8 @@ def record(game):
         size, version, data_version, region = 0x80000, 0x10022, 0x10000, b'ARCADE_01030'
     elif game == 'feveron':
         size, version, data_version, region = 0x80000, 0x10002, 0x10000, b'ARCADE_01010'
+    elif game == 'garegga':
+        size, version, data_version, region = 0x80000, 0x10400, 0x10000, b'ARCADE_01040'
     else:
         raise ValueError('Unknown authored replay profile')
     data = bytearray(size)

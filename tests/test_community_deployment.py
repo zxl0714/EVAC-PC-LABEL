@@ -21,20 +21,20 @@ class CommunityDeploymentTests(unittest.TestCase):
         self.assertNotIn('/opt/cave-community/current', service)
         self.assertNotIn('espgaluda2', service)
 
-    def test_eight_routes_keep_existing_upstreams_and_unknown_game_fallback(self):
+    def test_nine_routes_keep_existing_upstreams_and_unknown_game_fallback(self):
         source = (DEPLOY / 'cave-live-locations.conf.in').read_text(encoding='utf-8')
         locations = dict(re.findall(r'^location ([^ ]+) \{\n(.*?)^\}', source, re.M | re.S))
         expected = {'espgaluda2': '127.0.0.1:18086', 'futari': '127.0.0.1:18084/futari/api/v1/',
                     'ketsui': '127.0.0.1:18085/ketsui/api/v1/', 'sdoj': '127.0.0.1:18087',
                     'daioujou': '127.0.0.1:18088', 'esprade': '127.0.0.1:18089',
-                    'guwange': '127.0.0.1:18090', 'feveron': '127.0.0.1:18091'}
+                    'guwange': '127.0.0.1:18090', 'feveron': '127.0.0.1:18091', 'garegga': '127.0.0.1:18092'}
         self.assertEqual(set(locations), {f'/cave/api/v1/games/{game}/' for game in expected})
         for game, upstream in expected.items():
             block = locations[f'/cave/api/v1/games/{game}/']
             self.assertIn(f'proxy_pass http://{upstream};', block)
             self.assertIn('client_max_body_size 12m;', block)
             self.assertIn('limit_req_status 429;', block)
-            zone = 'ketsui_requests' if game in ('ketsui', 'daioujou', 'esprade', 'feveron') else 'futari_requests'
+            zone = 'ketsui_requests' if game in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') else 'futari_requests'
             self.assertIn(f'limit_req zone={zone} burst=20 nodelay;', block)
         self.assertIn('location /cave/api/v1/ { return 404; }', source.splitlines())
 
@@ -58,6 +58,19 @@ class CommunityDeploymentTests(unittest.TestCase):
             self.assertNotIn(peer, service + backup)
         timer = (DEPLOY / 'cave-feveron-backup.timer.in').read_text(encoding='utf-8')
         self.assertIn('OnCalendar=daily', timer)
+        self.assertIn('Persistent=true', timer)
+
+    def test_garegga_release_state_and_backup_are_independent(self):
+        service=(DEPLOY/'cave-garegga.service.in').read_text(encoding='utf-8')
+        backup=(DEPLOY/'cave-garegga-backup.service.in').read_text(encoding='utf-8')
+        self.assertIn('WorkingDirectory=/opt/cave-community/garegga-current',service)
+        self.assertIn('--database /var/lib/cave-community/garegga/community.sqlite3 --port 18092',service)
+        self.assertIn('ReadWritePaths=/var/lib/cave-community/garegga',service)
+        self.assertIn('/opt/cave-community/garegga-current/server/backup.py',backup)
+        self.assertIn('--directory /var/lib/cave-community/garegga/backups',backup)
+        timer=(DEPLOY/'cave-garegga-backup.timer.in').read_text()
+        self.assertIn('OnCalendar=daily',timer)
+        self.assertNotIn('feveron',service+backup)
         self.assertIn('Persistent=true', timer)
 
     def test_guwange_has_separate_release_state_and_daily_backup(self):

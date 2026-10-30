@@ -1,0 +1,28 @@
+[Unit]
+Description=EVAC PC LABEL Battle Garegga community API
+After=network.target
+
+[Service]
+Type=simple
+User=cave-community
+Group=cave-community
+WorkingDirectory=/opt/cave-community/garegga-current
+ExecStart=/usr/bin/python3 -B -m server.games.garegga --database /var/lib/cave-community/garegga/community.sqlite3 --port 18092
+Restart=on-failure
+RestartSec=3
+StateDirectory=cave-community/garegga
+StateDirectoryMode=0750
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cave-community/garegga
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+MemoryMax=384M
+TasksMax=32
+LimitNOFILE=256
+
+[Install]
+WantedBy=multi-user.target

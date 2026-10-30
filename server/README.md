@@ -21,6 +21,7 @@ nickname = Player
 | `/cave/api/v1/games/esprade/` | `127.0.0.1:18089` | `/var/lib/cave-community/esprade/community.sqlite3` |
 | `/cave/api/v1/games/guwange/` | `127.0.0.1:18090` | `/var/lib/cave-community/guwange/community.sqlite3` |
 | `/cave/api/v1/games/feveron/` | `127.0.0.1:18091` | `/var/lib/cave-community/feveron/community.sqlite3` |
+| `/cave/api/v1/games/garegga/` | `127.0.0.1:18092` | `/var/lib/cave-community/garegga/community.sqlite3` |
 
 Guwange 已部署独立服务及每日备份，源码固定为 `2bf184f41fb5`，版本指针为 `/opt/cave-community/guwange-current`。七款合集入口、两条旧入口及首次备份检查通过，原六款服务进程和版本指针保持不变。
 
@@ -204,3 +205,9 @@ systemctl start cave-g2-backup.service
 每天生成一致的在线 SQLite 快照，执行完整性检查后保留最新七份。备份位于 `/var/lib/cave-community/espgaluda2/backups/`；不会复制整个 `/var/lib`，也不清理其他目录或文件。恢复前停止 G2，另存当前数据库及 WAL／SHM 现场，再把选定快照恢复为新的工作数据库，核对 identity 后启动。不要直接覆盖运行中的 SQLite 文件。
 
 正式服务仅存放玩家主动提交的成绩与录像，不存放 ROM、资源或解压游戏程序。
+
+## Battle Garegga
+
+`server/games/garegga.py` 对应 CUSA10207 01.00，使用独立的 18092 端口、数据库和 `garegga-current` 版本指针。ARCADE、SUPER EASY、PREMIUM、CUSTOM 各有综合与八种机体榜，共 36 个。保留原生成绩、机体变体和录像格式，综合前 100 名、机体前 10 名可以分享录像。
+
+部署使用干净提交的 `server/` 源码归档，先在服务器临时数据库运行本作、备份及部署测试，再安装三个 `cave-garegga` 单元。只追加本作 nginx 路由，校验后 reload；核对原八款服务 PID 和版本指针不变。启用每日备份并核对首份快照的完整性和 CUSA10207 身份。正式榜单只使用实际游玩产生的记录验收。
