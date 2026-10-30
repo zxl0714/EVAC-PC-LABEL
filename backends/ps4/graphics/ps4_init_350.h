@@ -1,13 +1,22 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Data extracted from gnmdriver_init.h, revision
-// 529ceb32f5546b820588f194b903cc39d08015fe. Base and NEO 350 sequences;
-// the reference's synthetic two-word preamble is omitted.
+// 529ceb32f5546b820588f194b903cc39d08015fe. Base and NEO 350 sequences
+// omit the reference's synthetic two-word preamble. Context sequences are intact.
 #pragma once
 #include <array>
 #include <cstdint>
 
 namespace kt::gfx::ps4 {
+inline constexpr std::array<std::uint32_t,15> kContextInit{
+    0xc0012800u,0x80000000u,0x80000000u,0xc0001200u,0u,0xc0002f00u,1u,
+    0xc0016900u,0x102u,0u,0xc0016900u,0x202u,0xcc0010u,0xc0111000u,0u,
+};
+inline constexpr std::array<std::uint32_t,19> kContextInitNeo{
+    0xc0012800u,0x80000000u,0x80000000u,0xc0001200u,0u,0xc0002f00u,1u,
+    0xc0016900u,0x102u,0u,0xc0016900u,0x202u,0xcc0010u,
+    0xc0026900u,0xebu,0xff00ff00u,0xff00u,0xc00d1000u,0u,
+};
 inline constexpr std::array<std::uint32_t, 124> kInit350{
     0xc0017600u, 0x216u, 0xffffffffu,
     0xc0017600u, 0x217u, 0xffffffffu,

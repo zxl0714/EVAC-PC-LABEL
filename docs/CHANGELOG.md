@@ -1,5 +1,15 @@
 # 更新记录
 
+## v0.8.3
+
+- 新增《バトルガレッガ Rev.2016 / Battle Garegga Rev.2016》（空战之路），支持韩版 CUSA10207 01.00。
+- 支持 ARCADE、SUPER EASY、PREMIUM、CUSTOM，以及存档、录像和社区排行榜。
+
+### English
+
+- Added Battle Garegga Rev.2016, supporting the Korean CUSA10207 01.00 release.
+- Supports ARCADE, SUPER EASY, PREMIUM and CUSTOM, with saves, replays and community leaderboards.
+
 ## v0.8.2
 
 - 启动器新增 2560×1440 和 3840×2160 窗口分辨率选项。

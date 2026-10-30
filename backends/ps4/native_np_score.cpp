@@ -40,11 +40,14 @@ struct Rank {
     unsigned char padding2[8];
 };
 struct PlayerRank { std::int32_t present{}; unsigned char padding[4]; Rank value; };
+struct LegacyNpId { OnlineId online; unsigned char options[8],reserved[8]; };
+constexpr std::size_t kLegacyRankBytes=128,kLegacyPlayerRankBytes=136;
 struct Comment { char bytes[64]; };
 struct GameInfo { std::uint64_t size{}; std::byte bytes[189], padding[3]; };
 static_assert(sizeof(OnlineId) == 20 && sizeof(Rank) == 144 && sizeof(PlayerRank) == 152);
 static_assert(offsetof(Rank, pc) == 88 && offsetof(Rank, score) == 112 && offsetof(Rank, account) == 128);
 static_assert(sizeof(Comment) == 64 && sizeof(GameInfo) == 200 && offsetof(PlayerRank, value) == 8);
+static_assert(sizeof(LegacyNpId)==36 && offsetof(Rank,score)+sizeof(std::int64_t)*2==kLegacyRankBytes);
 void Require(bool value) { if (!value) { throw std::runtime_error("Invalid native community response"); } }
 bool Read(const void* source, void* target, std::size_t bytes) {
     SIZE_T copied{};
@@ -56,6 +59,7 @@ bool BoardFor(std::string_view game,unsigned id) {
     if (game=="daioujou") return id==99 || (id<=66 && id%10<=6);
     if (game=="esprade") return id==88 || id==99 || (id<=34 && id%10<=4);
     if (game=="feveron") return id<=74 && id%10<=4;
+    if (game=="garegga") return id<=38 && id%10<=8;
     return false;
 }
 unsigned U32(const Json& value, bool positive = false) {
@@ -110,6 +114,7 @@ const char* KindName(Kind kind) {
 }
 struct Query {
     Kind kind = Kind::Idle;
+    bool legacy{};
     unsigned board{}, start{}, count{};
     std::uint64_t account{};
     Output ranks, comments, info, date, total, temporary_rank;
@@ -224,7 +229,18 @@ class Bridge {
                 selected.digest = digest; selected.size = U32(replay.at("size"), true);
             }
             selections.push_back(std::move(selected));
-            if (query.kind == Kind::Range) { std::memcpy(ranks.data() + index * sizeof(Rank), &rank, sizeof(rank)); }
+            if (query.legacy) {
+                // The legacy ABI ends at recordDate and carries an NpId in
+                // its first 36 bytes, separate from the 144-byte A ABI.
+                std::memcpy(rank.reserved0,&rank.account,sizeof(rank.account));
+                if (query.kind==Kind::Range) {
+                    std::memcpy(ranks.data()+index*kLegacyRankBytes,&rank,kLegacyRankBytes);
+                } else {
+                    const std::int32_t present=1;
+                    std::memcpy(ranks.data(),&present,sizeof(present));
+                    std::memcpy(ranks.data()+8,&rank,kLegacyRankBytes);
+                }
+            } else if (query.kind == Kind::Range) { std::memcpy(ranks.data() + index * sizeof(Rank), &rank, sizeof(rank)); }
             else { const PlayerRank player{1, {}, rank}; std::memcpy(ranks.data(), &player, sizeof(player)); }
             const auto comment = Unbase64(item.at("comment_base64").get<std::string>(), sizeof(Comment));
             Require(comment.size() == sizeof(Comment) && comment.back() == std::byte{});
@@ -300,6 +316,26 @@ class Bridge {
         }
     }
 public:
+    std::uint64_t LegacyAccount(const LegacyNpId* source,bool own=false) {
+        LegacyNpId value{};
+        if (!Read(source,&value,sizeof(value)) || value.online.term ||
+            std::any_of(std::begin(value.online.padding),std::end(value.online.padding),[](auto b){return b!=0;}) ||
+            std::any_of(std::begin(value.reserved),std::end(value.reserved),[](auto b){return b!=0;})) return 0;
+        std::uint64_t account{};std::memcpy(&account,value.options,sizeof(account));
+        if (!account || account>0x7fffffffffffffffull) return 0;
+        std::lock_guard lock(gate_);
+        if (!state_) return 0;
+        const auto matches=[&](std::string_view name) {
+            OnlineId expected{};const auto shortened=ShortOnlineId(name);
+            std::memcpy(expected.text,shortened.data(),shortened.size());
+            return std::memcmp(&expected,&value.online,sizeof(expected))==0;
+        };
+        const auto current=state_();
+        if (current.ready && account==current.account && matches(current.nickname)) return account;
+        if (own) return 0;
+        for (const auto& [id,name]:profile_names_) if (id==account && matches(name)) return account;
+        return 0;
+    }
     std::string ProfileName(std::uint64_t account) {
         std::lock_guard lock(gate_);
         for (const auto& [id, name] : profile_names_) { if (id == account) { return name; } }
@@ -428,7 +464,7 @@ public:
               unsigned* temporary_rank, const std::uint64_t* compare, void* option) {
         if (!Board(board) || score < 0 || compare || option || (temporary_rank && !Writable(temporary_rank, sizeof(*temporary_rank)))) { return kArgument; }
         if (game_=="daioujou" && (board/10==1 || score>(board==99 ? 3960000 : 999999999))) return kArgument;
-        if ((game_=="esprade" || game_=="feveron") && score>0xffffffffll) return kArgument;
+        if ((game_=="esprade" || game_=="feveron" || game_=="garegga") && score>0xffffffffll) return kArgument;
         Comment copied{}; GameInfo information{};
         if ((comment && !Read(comment, &copied, sizeof(copied))) || copied.bytes[63] ||
             (info && (!Read(info, &information, sizeof(information)) || information.size > 189))) { return kArgument; }
@@ -520,8 +556,8 @@ public:
     }
     int Ranking(int id, unsigned board, unsigned start, void* ranks, std::uint64_t rank_bytes,
                 Comment* comments, std::uint64_t comment_bytes, GameInfo* info, std::uint64_t info_bytes,
-                std::uint64_t count, std::uint64_t* date, unsigned* total, void* option, std::uint64_t account = 0) {
-        const auto stride = account ? sizeof(PlayerRank) : sizeof(Rank);
+                std::uint64_t count, std::uint64_t* date, unsigned* total, void* option, std::uint64_t account = 0,bool legacy=false) {
+        const auto stride = account ? (legacy?kLegacyPlayerRankBytes:sizeof(PlayerRank)) : (legacy?kLegacyRankBytes:sizeof(Rank));
         if (!Board(board) || !start || !count || count > 100 || (account && count != 1) || option || rank_bytes != count * stride ||
             (comments ? comment_bytes != count * sizeof(Comment) : comment_bytes != 0) ||
             (info ? info_bytes != count * sizeof(GameInfo) : info_bytes != 0)) { return kArgument; }
@@ -534,6 +570,7 @@ public:
         std::lock_guard lock(gate_);
         auto* request = RequestFor(id); if (const auto error = Ready(request)) { return error; }
         Query query; query.kind = account ? Kind::Account : Kind::Range;
+        query.legacy=legacy;
         query.board = board; query.start = start; query.count = static_cast<unsigned>(count); query.account = account;
         query.ranks = outputs[0]; query.comments = {comments, static_cast<std::size_t>(comment_bytes)};
         query.info = {info, static_cast<std::size_t>(info_bytes)}; query.date = {date, sizeof(*date)}; query.total = {total, sizeof(*total)};
@@ -579,6 +616,34 @@ int KT_SYSV Account(int id, unsigned board, const std::uint64_t* accounts, std::
         return bridge.Ranking(id, board, 1, ranks, rank_bytes, comments, comment_bytes, info, info_bytes, count, date, total, option, account);
     });
 }
+int KT_SYSV LegacyCreateContext(unsigned label,const LegacyNpId* identity) {
+    return Guard([&] {return NativeUserInitialized() && bridge.LegacyAccount(identity,true) ?
+        bridge.CreateContext(label,0x1000) : kLogin;});
+}
+int KT_SYSV LegacyRange(int id,unsigned board,unsigned start,void* ranks,std::uint64_t rank_bytes,
+                       Comment* comments,std::uint64_t comment_bytes,GameInfo* info,std::uint64_t info_bytes,
+                       std::uint64_t count,std::uint64_t* date,unsigned* total,void* option) {
+    return Guard([&] {return bridge.Ranking(id,board,start,ranks,rank_bytes,comments,comment_bytes,
+        info,info_bytes,count,date,total,option,0,true);});
+}
+int KT_SYSV LegacyPersonal(int id,unsigned board,const LegacyNpId* identities,std::uint64_t identity_bytes,
+                          void* ranks,std::uint64_t rank_bytes,Comment* comments,std::uint64_t comment_bytes,
+                          GameInfo* info,std::uint64_t info_bytes,std::uint64_t count,
+                          std::uint64_t* date,unsigned* total,void* option) {
+    return Guard([&] {
+        if (count!=1 || identity_bytes!=sizeof(LegacyNpId)) return kArgument;
+        const auto account=bridge.LegacyAccount(identities);
+        return account ? bridge.Ranking(id,board,1,ranks,rank_bytes,comments,comment_bytes,info,info_bytes,
+            count,date,total,option,account,true) : kArgument;
+    });
+}
+int KT_SYSV LegacyGetData(int id,unsigned board,const LegacyNpId* identity,std::uint64_t* total,
+                         std::uint64_t size,void* data,void* option) {
+    return Guard([&] {
+        const auto account=bridge.LegacyAccount(identity);
+        return account ? bridge.DownloadReplay(id,board,account,total,size,data,option) : kArgument;
+    });
+}
 }
 std::uint64_t ResolveScoreImport(std::string_view identifier, std::string_view library, std::string_view module) {
     if (library != "libSceNpScore" || module != "libSceNpScore") { return 0; }
@@ -594,6 +659,10 @@ std::uint64_t ResolveScoreImport(std::string_view identifier, std::string_view l
     if (id == "dRszNNyGWkw") { return reinterpret_cast<std::uint64_t>(&Account); }
     if (id == "1gL5PwYzrrw") { return reinterpret_cast<std::uint64_t>(&RecordData); }
     if (id == "PP9jx8s0574") { return reinterpret_cast<std::uint64_t>(&GetData); }
+    if (id == "KnNA1TEgtBI") { return reinterpret_cast<std::uint64_t>(&LegacyCreateContext); }
+    if (id == "rShmqXHwoQE") { return reinterpret_cast<std::uint64_t>(&LegacyRange); }
+    if (id == "Rd27dqUFZV8") { return reinterpret_cast<std::uint64_t>(&LegacyPersonal); }
+    if (id == "JjOFRVPdQWc") { return reinterpret_cast<std::uint64_t>(&LegacyGetData); }
     return 0;
 }
 bool ConfigureNativeScore(std::shared_ptr<kt::community::Client> client) {
@@ -776,6 +845,47 @@ bool ScoreProfileSelfTest() {
         fever_transport.paths.size()==fever_queued,"feveron_peer_boards_and_overflow_refused_before_transport");
     check(feveron.DeleteRequest(fever_request)==0 && feveron.DeleteContext(fever_context)==0,
         "feveron_native_contexts_released");
+    Bridge garegga;AuthoredTransport garegga_transport;
+    check(garegga_transport.Install(garegga,"garegga"),"garegga_independent_legacy_native_provider");
+    const auto garegga_context=garegga.CreateContext(0,0x1000),garegga_request=garegga.CreateRequest(garegga_context);
+    const auto garegga_account=AccountId("Alice","garegga");
+    for (const auto board:{0u,8u,10u,18u,20u,28u,30u,38u}) {
+        Require(garegga.Score(garegga_request,board,12345,nullptr,nullptr,nullptr,nullptr,nullptr)==0);
+        auto receipt=AuthoredReceipt();receipt.body["account_id"]=std::to_string(garegga_account);
+        garegga_transport.Complete(std::move(receipt));
+        Require(garegga.Poll(garegga_request,&result.value)==0 && result.value==0);
+    }
+    check(!BoardFor("garegga",9) && !BoardFor("garegga",39) && !BoardFor("garegga",99) &&
+        garegga.Score(garegga_request,0,0x100000000ll,nullptr,nullptr,nullptr,nullptr,nullptr)==kArgument,
+        "garegga_four_mode_eight_ship_board_set_and_unsigned_score_extent");
+    Guarded<std::array<std::byte,kLegacyRankBytes>> legacy_rank;
+    Require(garegga.Ranking(garegga_request,0,1,legacy_rank.value.data(),legacy_rank.value.size(),
+        nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr,0,true)==0);
+    auto garegga_entry=AuthoredEntry();garegga_entry["account_id"]=std::to_string(garegga_account);garegga_entry["score"]="12345";
+    garegga_transport.Complete(AuthoredPage(Json::array({garegga_entry})));
+    Require(garegga.Poll(garegga_request,&result.value)==0 && result.value==1);
+    LegacyNpId legacy_identity{};std::memcpy(&legacy_identity,legacy_rank.value.data(),sizeof(legacy_identity));
+    std::int64_t legacy_score{};std::memcpy(&legacy_score,legacy_rank.value.data()+112,sizeof(legacy_score));
+    check(Tail(legacy_rank) && legacy_score==12345 && garegga.LegacyAccount(&legacy_identity,true)==garegga_account,
+        "legacy_range_writes_exactly_128_bytes_and_retains_native_name_and_account");
+    Guarded<std::array<std::byte,kLegacyPlayerRankBytes>> legacy_personal;
+    Require(garegga.Ranking(garegga_request,0,1,legacy_personal.value.data(),legacy_personal.value.size(),
+        nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr,garegga_account,true)==0);
+    garegga_transport.Complete(AuthoredPage(Json::array({garegga_entry})));
+    Require(garegga.Poll(garegga_request,&result.value)==0 && result.value==1);
+    std::int32_t legacy_present{};std::memcpy(&legacy_present,legacy_personal.value.data(),sizeof(legacy_present));
+    check(Tail(legacy_personal) && legacy_present==1 &&
+        garegga.Ranking(garegga_request,0,1,legacy_rank.value.data(),144,nullptr,0,nullptr,0,1,
+            nullptr,nullptr,nullptr,0,true)==kArgument,"legacy_personal_136_byte_extent_and_modern_stride_rejected");
+    legacy_identity.options[0]^=1;
+    check(garegga.LegacyAccount(&legacy_identity)==0 && garegga.LegacyAccount(reinterpret_cast<const LegacyNpId*>(1))==0 &&
+        ResolveScoreImport("KnNA1TEgtBI","libSceNpScore","libSceNpScore") &&
+        ResolveScoreImport("rShmqXHwoQE","libSceNpScore","libSceNpScore") &&
+        ResolveScoreImport("Rd27dqUFZV8","libSceNpScore","libSceNpScore") &&
+        ResolveScoreImport("JjOFRVPdQWc","libSceNpScore","libSceNpScore"),
+        "legacy_identity_binding_and_four_exact_np_score_imports");
+    check(garegga.DeleteRequest(garegga_request)==0 && garegga.DeleteContext(garegga_context)==0,
+        "garegga_legacy_native_contexts_released");
     std::printf("{\"event\":\"np_score_profile_self_test\",\"passed\":%s,\"cases\":%u,\"authored_data_only\":true,\"native_game_execution\":false}\n",okay?"true":"false",cases);
     return okay;
 }
@@ -1201,21 +1311,48 @@ bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::
     while (!client->State().ready && std::chrono::steady_clock::now() < deadline) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
     Require(client->State().ready);
     const auto account = client->State().account;
-    const auto context = CreateContext(0, 0x1000), scoring = CreateRequest(context), transfer = CreateRequest(context), listing = CreateRequest(context);
+    const bool legacy=game=="garegga";
+    LegacyNpId identity{};const auto name=ShortOnlineId(client->State().nickname);
+    std::memcpy(identity.online.text,name.data(),name.size());std::memcpy(identity.options,&account,sizeof(account));
+    const auto context = legacy?LegacyCreateContext(0,&identity):CreateContext(0,0x1000);
+    const auto scoring=CreateRequest(context),transfer=CreateRequest(context),listing=CreateRequest(context);
     Require(context > 0 && scoring > 0 && transfer > 0 && listing > 0);
     Require(Score(scoring, board, 9001, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == 0);
     Require(RecordData(transfer, board, 9001, payload.size(), payload.size(), payload.data(), nullptr) == 0 && AwaitScore(transfer) == 0);
     Guarded<Rank> rank;
-    Require(Range(listing, board, 1, &rank.value, sizeof(rank.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == 0);
-    Require(AwaitScore(listing) == 1 && rank.value.has_data == 1 && rank.value.account == account);
+    Guarded<std::array<std::byte,kLegacyRankBytes>> legacy_rank;
+    const auto range=[&] {
+        return legacy?LegacyRange(listing,board,1,legacy_rank.value.data(),legacy_rank.value.size(),nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr):
+            Range(listing,board,1,&rank.value,sizeof(rank.value),nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr);
+    };
+    const auto read_rank=[&] {
+        if (!legacy) return;
+        Require(Tail(legacy_rank));std::memcpy(&rank.value,legacy_rank.value.data(),kLegacyRankBytes);
+        LegacyNpId selected{};std::memcpy(&selected,legacy_rank.value.data(),sizeof(selected));
+        rank.value.account=bridge.LegacyAccount(&selected);
+    };
+    Require(range()==0 && AwaitScore(listing)==1);read_rank();
+    Require(rank.value.has_data==1 && rank.value.account==account);
     Guarded<PlayerRank> personal;
-    Require(Account(listing,board,&account,sizeof(account),&personal.value,sizeof(personal.value),
-        nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr)==0);
-    Require(AwaitScore(listing)==1 && personal.value.present==1 && personal.value.value.score==9001 &&
+    Guarded<std::array<std::byte,kLegacyPlayerRankBytes>> legacy_personal;
+    Require((legacy?LegacyPersonal(listing,board,&identity,sizeof(identity),legacy_personal.value.data(),legacy_personal.value.size(),
+        nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr):Account(listing,board,&account,sizeof(account),&personal.value,sizeof(personal.value),
+        nullptr,0,nullptr,0,1,nullptr,nullptr,nullptr))==0);
+    const auto personal_result=AwaitScore(listing);
+    if (legacy) {
+        Require(Tail(legacy_personal));std::memcpy(&personal.value,legacy_personal.value.data(),kLegacyPlayerRankBytes);
+        LegacyNpId selected{};std::memcpy(&selected,legacy_personal.value.data()+8,sizeof(selected));
+        personal.value.value.account=bridge.LegacyAccount(&selected);
+    }
+    Require(personal_result==1 && personal.value.present==1 && personal.value.value.score==9001 &&
         personal.value.value.has_data==1 && personal.value.value.account==account && Tail(personal));
     Guarded<std::array<std::byte, 17>> buffer; Guarded<std::uint64_t> total;
     buffer.value.fill(std::byte{0xa7}); total.value = 73;
-    Require(GetData(transfer, board, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == 0 && total.value == 73);
+    const auto download=[&](int request) {
+        return legacy?LegacyGetData(request,board,&identity,&total.value,buffer.value.size(),buffer.value.data(),nullptr):
+            GetData(request,board,account,&total.value,buffer.value.size(),buffer.value.data(),nullptr);
+    };
+    Require(download(transfer)==0 && total.value==73);
     // Refresh the same account to a newer entry while the old transfer is
     // pinned. Neither its first delivery nor continuations may change games.
     Require(Score(scoring, board, 9002, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == 0);
@@ -1223,8 +1360,8 @@ bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::
     // This receipt belongs to 9002, but the owned replay says 9001. Metadata
     // validation must reject it on the worker before durable staging/HTTP.
     Require(RecordData(unavailable, board, 9002, payload.size(), payload.size(), payload.data(), nullptr) == 0 && AwaitScore(unavailable) == kResponse);
-    Require(Range(listing, board, 1, &rank.value, sizeof(rank.value), nullptr, 0, nullptr, 0, 1, nullptr, nullptr, nullptr) == 0);
-    Require(AwaitScore(listing) == 1 && rank.value.has_data == 0 && rank.value.score == 9002);
+    Require(range()==0 && AwaitScore(listing)==1);read_rank();
+    Require(rank.value.has_data==0 && rank.value.score==9002);
     std::vector<std::byte> received;
     for (;;) {
         Require(AwaitScore(transfer) == 0 && total.value == payload.size() && Tail(total) && Tail(buffer));
@@ -1233,10 +1370,10 @@ bool ScoreReplaySmoke(const std::filesystem::path& path, const std::filesystem::
         Require(std::all_of(buffer.value.begin() + bytes, buffer.value.end(), [](auto value) { return value == std::byte{0xa7}; }));
         if (received.size() == payload.size()) { break; }
         buffer.value.fill(std::byte{0xa7});
-        Require(GetData(transfer, board, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == 0);
+        Require(download(transfer)==0);
     }
     Require(received == payload);
-    Require(GetData(unavailable, board, account, &total.value, buffer.value.size(), buffer.value.data(), nullptr) == kNoData);
+    Require(download(unavailable)==kNoData);
     Require(Score(scoring, board, 9002, nullptr, nullptr, nullptr, nullptr, nullptr) == 0 && AwaitScore(scoring) == kNotBest);
     Require(RecordData(unavailable, board, 9002, payload.size(), payload.size(), payload.data(), nullptr) == kNotBest);
     Require(DeleteRequest(unavailable) == 0 && DeleteRequest(scoring) == 0 && DeleteRequest(transfer) == 0 &&

@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.8.2
+EVAC PC LABEL v0.8.3
 
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 
@@ -28,7 +28,7 @@ NEO 默认使用 1080p 合成输出，弹铳响应提前约一帧。关闭时点
   [game.ketsui]
   neo = false
 重启游戏后生效。大往生／ESP Ra.De.／弹铳分别使用 [game.daioujou]／
-[game.esprade]／[game.feveron]；设回 neo=true 可重新开启。
+[game.esprade]／[game.feveron]／[game.garegga]；设回 neo=true 可重新开启。
 
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
@@ -46,6 +46,7 @@ NEO 默认使用 1080p 合成输出，弹铳响应提前约一帧。关闭时点
   game-data/esprade/     CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据
   game-data/guwange/     XBLA，Title ID 58410A78，本体 0.0.0.4，无 Title Update
   game-data/feveron/     美版 CUSA06735，01.00 本体
+  game-data/garegga/     韩版 CUSA10207，01.00 本体
 
 所选目录应直接包含 default.xex（360）或 eboot.bin（PS4），保留全部资源
 和内部层级，不只复制入口文件，也不再套一层文件夹。复制完成后点“刷新”。
@@ -170,7 +171,7 @@ the game's existing section in user-data/config.ini:
   [game.ketsui]
   neo = false
 Restart the game to apply. For DaiOuJou / ESP Ra.De. / Feveron use
-[game.daioujou] / [game.esprade] / [game.feveron]. Set neo=true to enable again.
+[game.daioujou] / [game.esprade] / [game.feveron] / [game.garegga]. Set neo=true to enable again.
 
 To update, close games and launcher, extract over the existing folder, and keep
 user-data/.
@@ -195,6 +196,8 @@ Guwange uses XBLA base 0.0.0.4, Title ID 58410A78, without Title Update files.
 Keep all four original DLLs in module/; they are Xbox game data.
 Dangun Feveron uses the US PS4 base game, CUSA06735 version 01.00, in
 game-data/feveron/.
+Battle Garegga uses the Korean PS4 base game, CUSA10207 version 01.00, in
+game-data/garegga/.
 
 Extract ZIP/RAR first. If it contains an ISO, PKG or XBLA container rather than
 game files, use the matching extraction tool:

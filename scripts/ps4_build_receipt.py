@@ -66,12 +66,12 @@ def snapshot():
                 'tests/ps4_elf_fixtures.py', 'scripts/ps4_inventory.py', 'scripts/ketsui/verify_preparation.py'}
     explicit.update({'tests/ps4_compatibility_test.cpp', 'tests/test_ps4_compatibility.py',
                      'scripts/ps4/run_resource_checks.py', 'scripts/ketsui/game_fixes.py', 'scripts/daioujou/resource_fixes.py',
-                     'scripts/feveron/resource_fixes.py',
+                     'scripts/feveron/resource_fixes.py', 'scripts/garegga/resource_fixes.py',
                      'tests/ps4_resource_fixtures.py', 'tests/ketsui/test_game_fixes.py', 'tests/ketsui/test_native.py',
                      'scripts/ps4/run_cache_checks.py', 'scripts/ps4/run_community_checks.py', 'scripts/ps4/run_replay_checks.py',
                      'scripts/ps4/replay_fixture.py',
                      'server/games/ketsui.py', 'server/games/daioujou.py', 'server/games/esprade.py', 'server/games/feveron.py',
-                     'tests/test_feveron_community.py',
+                     'tests/test_feveron_community.py', 'server/games/garegga.py', 'tests/test_garegga_community.py',
                      'server/ps4_replay.py', 'tests/test_esprade_community.py', 'tests/test_ps4_community_profiles.py',
                      'tests/ketsui/test_community_replay.py'})
     files = {}

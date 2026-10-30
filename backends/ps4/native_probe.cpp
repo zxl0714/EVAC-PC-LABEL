@@ -746,11 +746,16 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
             throw std::runtime_error("Invalid no-TLS module metadata");
         }
     }
-    for (std::uintptr_t preferred = 0x10000000; preferred <= 0x70000000; preferred += 0x10000000) {
-        runtime.image = static_cast<unsigned char*>(VirtualAlloc(reinterpret_cast<void*>(preferred),
-                           static_cast<SIZE_T>(Align(header.image_size, 65536)), MEM_RESERVE, PAGE_NOACCESS));
-        if (runtime.image) {
-            break;
+    // Preserve the original seven choices first. Titles with more resident
+    // core revisions can then use the gaps, still wholly below signed 2 GiB.
+    const auto image_bytes=Align(header.image_size,65536);
+    for (unsigned pass=0;pass<2 && !runtime.image;++pass) {
+        for (std::uintptr_t preferred=pass?0x08000000:0x10000000;
+             preferred<=0x78000000;preferred+=0x10000000) {
+            if (image_bytes>0x80000000ull-preferred) continue;
+            runtime.image=static_cast<unsigned char*>(VirtualAlloc(reinterpret_cast<void*>(preferred),
+                static_cast<SIZE_T>(image_bytes),MEM_RESERVE,PAGE_NOACCESS));
+            if (runtime.image) break;
         }
     }
     if (!runtime.image) {
@@ -1194,6 +1199,10 @@ __declspec(noinline) int LoadStartModuleImpl(const char* path, std::uint64_t byt
         owners.push_back(std::move(candidate));
         module_images[slot].store(module, std::memory_order_release);
         published = true;
+        // Resolve the newly published exports before its DT_INIT can call
+        // back into another image through a copied function/data pointer.
+        RebindImports(*active_runtime);
+        for (const auto& owner : owners) { RebindImports(*owner); }
         std::printf("{\"event\":\"native_module_start\",\"image_name\":%s,\"handle\":%d,\"image_base\":\"%p\",\"init_offset\":\"0x%llx\",\"exports\":%zu}\n",
             Quoted(name).c_str(), module->module_handle, static_cast<void*>(module->image), module->module_info.init, module->exports.size());
         using Initializer = int (KT_SYSV *)(std::uint64_t, const void*, void*);
@@ -1217,6 +1226,25 @@ int KT_SYSV NativeLoadStartModule(const char* path, std::uint64_t bytes, const v
                                  unsigned flags, const void* options, int* result) {
     // All host exception handling stays in an ordinary Windows-ABI frame.
     return LoadStartModuleImpl(path, bytes, argument, flags, options, result, __builtin_return_address(0));
+}
+
+void StartLinkedOriginalModules(Runtime& runtime) {
+    constexpr std::array<std::uint8_t,32> garegga{
+        0x4c,0xc8,0x96,0x22,0x3d,0x6a,0x5d,0x85,0x29,0x78,0xbe,0x63,0x91,0x61,0x42,0xb7,
+        0x02,0x21,0x34,0xe9,0xb0,0xb4,0x8c,0x4d,0x85,0xa6,0x65,0x13,0xd5,0x0b,0xc9,0x84};
+    if (runtime.header.source_sha256!=garegga) return;
+    // CUSA10207 01.00 links these six original PRXs in DT_NEEDED. Unlike
+    // later titles it does not load them via sceKernelLoadStartModule.
+    // Integration is their only game-module dependency, so start it first.
+    constexpr const char* linked[]{"emu_integration.prx","garegga_01000.prx",
+        "garegga_01010.prx","garegga_01020.prx","garegga_01030.prx","garegga_01040.prx"};
+    for (const auto* name:linked) {
+        const auto path=std::string("/app0/")+name;
+        int result{};
+        const auto handle=LoadStartModuleImpl(path.c_str(),0,nullptr,0,nullptr,&result,nullptr);
+        if (handle<0 || result<0) throw std::runtime_error("Cannot start linked original module: "+path);
+    }
+    std::puts("{\"event\":\"native_linked_modules_started\",\"count\":6,\"title_id\":\"CUSA10207\"}");
 }
 
 std::string SymbolNid(std::string_view name) {
@@ -1856,7 +1884,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const bool configured_community = community_provider && std::wstring(community_provider) == L"configured";
     if (community_provider && (std::wstring(argv[2]) != L"--enter" ||
         (!configured_community && std::wstring(community_provider) != L"loopback") || (!input_config && !collection_config) || !user_directory)) { valid_arguments = false; }
-    const bool direct_score_provider=collection_game && (std::wstring_view(collection_game)==L"daioujou" || std::wstring_view(collection_game)==L"esprade" || std::wstring_view(collection_game)==L"feveron");
+    const bool direct_score_provider=collection_game && (std::wstring_view(collection_game)==L"daioujou" || std::wstring_view(collection_game)==L"esprade" || std::wstring_view(collection_game)==L"feveron" || std::wstring_view(collection_game)==L"garegga");
     if (configured_community && !community_rounds && !direct_score_provider) { valid_arguments = false; }
     if (direct_score_provider && (community_rounds || community_round_audit)) valid_arguments=false;
     if (community_round_audit && (!community_provider || configured_community || std::wstring(community_round_audit) != L"on")) { valid_arguments = false; }
@@ -1914,7 +1942,7 @@ int NativeCommand(int argc, wchar_t** argv) {
             // requires the user's enabled preference and literal loopback;
             // normal configured collection launches never take this branch.
             const bool development_opt_in=!configured_community && collection &&
-                (collection->game=="daioujou" || collection->game=="esprade" || collection->game=="feveron") && !collection->community_supported;
+                (collection->game=="daioujou" || collection->game=="esprade" || collection->game=="feveron" || collection->game=="garegga") && !collection->community_supported;
             if (development_opt_in) config.enabled=collection->shared.community_enabled;
             if (community_offline) {
                 std::puts("{\"event\":\"native_community_offline\",\"reason\":\"data_version\"}");
@@ -1980,6 +2008,7 @@ int NativeCommand(int argc, wchar_t** argv) {
             std::puts("{\"event\":\"validation_complete\",\"game_entry_reached\":false}");
             return 0;
         }
+        StartLinkedOriginalModules(runtime);
         struct Parameters {
             std::uint64_t argc;
             const char* argv[33];

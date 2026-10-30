@@ -9,14 +9,14 @@ import release_package as release
 
 
 class ProductTests(unittest.TestCase):
-    def test_feveron_build_test_and_package_entrypoints(self):
+    def test_ps4_build_test_and_package_entrypoints(self):
         for script in ('Build.ps1', 'Test.ps1', 'Release.ps1'):
             text = (ROOT / 'scripts' / script).read_text(encoding='utf-8')
-            self.assertRegex(text, r"\[ValidateSet\([^\n]*'feveron'[^\n]*\)\]")
+            self.assertRegex(text, r"\[ValidateSet\([^\n]*'garegga'[^\n]*\)\]")
         for script in ('Build.ps1', 'Test.ps1'):
             text = (ROOT / 'scripts' / script).read_text(encoding='utf-8')
-            self.assertIn("-notin @('ketsui','daioujou','esprade','feveron')", text)
-            self.assertIn("'feveron' -in $Games", text)
+            self.assertIn("-notin @('ketsui','daioujou','esprade','feveron','garegga')", text)
+            self.assertIn("'garegga' -in $Games", text)
 
     def test_current_release_docs_and_component_notices(self):
         for name in ('README.md', 'README.en.md'):
@@ -71,7 +71,7 @@ class ProductTests(unittest.TestCase):
             self.assertIn('(GAME_DATA.md)', text)
             self.assertIn('(GAME_DATA.en.md)', text)
             self.assertNotIn('.header', text)
-            for game in ('futari','espgaluda2','sdoj','guwange','ketsui','daioujou','esprade','feveron'):
+            for game in ('futari','espgaluda2','sdoj','guwange','ketsui','daioujou','esprade','feveron','garegga'):
                 self.assertIn('game-data/' + game + '/', text)
         english = (ROOT / 'README.en.md').read_text(encoding='utf-8')
         self.assertNotIn('docs/GAME_DATA.md', english)

@@ -617,6 +617,26 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(extra.read_bytes(), b'unselected original container')
         self.check_build_flavors('0.8.0', check)
 
+    def test_v083_garegga_keeps_published_eight_game_inventories(self):
+        for version in ('0.8.0', '0.8.1', '0.8.2'):
+            self.assertEqual(release.release_games(version), release.V08_GAMES)
+            self.assertEqual(len(release.placement_sources(version)), 8)
+        self.assertEqual(release.release_games('0.8.3'), release.V083_GAMES)
+        self.assertEqual(len(release.placement_sources('0.8.3')), 9)
+        self.assertEqual(release.certified_name('runtime/ps4/garegga.exe'), 'KetsuiNativeProbe.exe')
+        def check(root, games, commit, inspect):
+            public = release.build('Public', '0.8.3', root/'releases/public')
+            inspect.assert_not_called()
+            directory = Path(public['directory'])
+            record = release.verify_tree(directory, games)
+            self.assertEqual(record['games'], list(release.V083_GAMES))
+            self.assertEqual(record['dataGames'], [])
+            self.assertTrue((directory/'runtime/ps4/garegga.exe').is_file())
+            self.assertTrue((directory/'game-data/garegga/README.txt').is_file())
+            self.assertFalse((directory/'game-data/garegga/main.bin').exists())
+            self.assertFalse((directory/'source').exists())
+        self.check_build_flavors('0.8.3', check)
+
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
         (base/'asset.bin').write_bytes(b'abc')
@@ -860,7 +880,7 @@ class ReleaseTests(unittest.TestCase):
         identity=dict(path='main.bin',bytes=3,sha256=hashlib.sha256(b'abc').hexdigest())
         selection = release.release_games(version)
         games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
-            'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron') else 'xbox360')+'/'+key+'.exe',
+            'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}

@@ -33,13 +33,13 @@ class ArtworkTests(unittest.TestCase):
     def test_catalogue_sources_and_reproducible_generation(self):
         entries = generate_artwork.artwork(self.root)
         self.assertEqual([entry['game'] for entry in entries],
-                         ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron'])
+                         ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga'])
         destination = self.root / 'out'
         generate_artwork.generate(self.root, destination)
         before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()}
         generate_artwork.generate(self.root, destination)
         self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()})
-        self.assertIn('std::array<Artwork,8>', (destination / 'artwork.h').read_text())
+        self.assertIn('std::array<Artwork,9>', (destination / 'artwork.h').read_text())
 
     def test_invalid_manifest(self):
         for key, value in [('resource', True), ('resource', 99), ('focusY', -1), ('focusY', 1.1),

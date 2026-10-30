@@ -22,6 +22,11 @@ inline PreparationPolicy PlanPs4Data(std::string_view game, std::string_view ver
         result.programs = {"eboot.bin", "emu_integration_01700.prx", "daioujou_01000.prx"};
         result.replay_peer = true;
         result.local_replay = true;
+    } else if (game == "garegga" && version == "01.00" && layout == "base") {
+        result.programs = {"eboot.bin", "emu_integration.prx", "emu_integration_01100.prx",
+            "garegga_01000.prx", "garegga_01010.prx", "garegga_01020.prx",
+            "garegga_01030.prx", "garegga_01040.prx"};
+        result.local_replay = true;
     } else if (game == "feveron" && version == "01.00" && layout == "base") {
         result.programs = {"eboot.bin", "emu_integration_01200.prx", "dfeveron_01000.prx", "dfeveron_01010.prx"};
         // This base includes both core revisions; 01.01 is only its master

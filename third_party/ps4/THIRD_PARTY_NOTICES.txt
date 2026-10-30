@@ -55,12 +55,12 @@ shadPS4 hardware initialization data
 
 Source: https://github.com/shadps4-emu/shadPS4
 Revision: 529ceb32f5546b820588f194b903cc39d08015fe
-Original: src/core/libraries/gnmdriver/gnmdriver_init.h, InitSequence350 and InitSequence350Neo
+Original: src/core/libraries/gnmdriver/gnmdriver_init.h, InitSequence350, InitSequence350Neo, CtxInitSequence and CtxInitSequenceNeo
 Local: src/graphics/ps4_init_350.h
 Copyright 2025 shadPS4 Emulator Project
 License: GPL-2.0-or-later; full text in LICENSES/GPL-2.0-or-later.txt.
 The local file retains the base-machine and NEO 350 initialization data, without
-the reference's synthetic clear-state preamble. No emulator core, loader,
+the reference's synthetic clear-state preamble, and the original context initialization data. No emulator core, loader,
 kernel, application framework, or complete renderer is compiled from that project.
 
 AMD AddrLib pipe addressing

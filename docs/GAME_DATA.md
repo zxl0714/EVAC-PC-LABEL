@@ -243,6 +243,22 @@ game-data/feveron/
 
 用 `tools/Extract-PS4.exe` 提取本体 PKG，点击“Open game files”，将打开目录中的全部内容复制到 `game-data/feveron/`。也可以在启动器直接选择该目录。存档、录像和设置位于 `user-data/feveron/`。
 
+### バトルガレッガ Rev.2016（garegga）
+
+支持 **韩版 CUSA10207／01.00 本体**：
+
+```text
+game-data/garegga/
+  eboot.bin
+  *.prx
+  ps4data_body.bin
+  ps4data_info.psb.m
+  sce_module/
+  sce_sys/
+```
+
+用 `tools/Extract-PS4.exe` 提取本体 PKG，点击“Open game files”，将全部内容复制到 `game-data/garegga/`，或在启动器直接选择提取目录。存档、录像和设置位于 `user-data/garegga/`。
+
 ## 无法识别时怎么检查
 
 **只有 ISO、PKG 或 ZIP 文件，能直接选吗？**

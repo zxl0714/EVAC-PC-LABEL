@@ -108,8 +108,18 @@ inline constexpr std::array<std::uint32_t,46> kNicknameGlyphsFeveron{
 inline constexpr std::array<std::uint32_t,8> kNicknameGlyphsFeveronMissingCommon{
     0x5f62,0x666f,0x6c34,0x7dd1,0x80cc,0x8272,0x9ec4,0x9ed2,
 };
+inline constexpr std::array<std::uint32_t,32> kNicknameGlyphsGaregga{
+    0x401,0x201c,0x3086,0x30db,0x4eee,0x4f4e,0x52f2,0x539f,0x5438,0x56fa,0x5c0f,0x5e55,
+    0x5f97,0x6027,0x6483,0x6539,0x653b,0x6b8b,0x6ec5,0x7247,0x76e3,0x7740,0x7ae0,0x843d,
+    0x8996,0x8f03,0x8f1d,0x90e8,0x91cd,0x9577,0x96a0,0x9cf4,
+};
+inline constexpr std::array<std::uint32_t,13> kNicknameGlyphsGareggaMissingCommon{
+    0x4eba,0x5f62,0x6012,0x63cf,0x666f,0x6c34,0x7dd1,0x80cc,0x8702,0x9818,0x9996,0x9ec4,
+    0x9ed2,
+};
 inline bool HasNicknameGlyph(std::string_view game,std::uint32_t cp,std::string_view version={}) {
     auto has=[&](const auto& chars){return std::binary_search(chars.begin(),chars.end(),cp);};
+    if(game=="garegga")return (has(kNicknameGlyphsCommon) && !has(kNicknameGlyphsGareggaMissingCommon)) || has(kNicknameGlyphsGaregga);
     if(game=="feveron")return (has(kNicknameGlyphsCommon) && !has(kNicknameGlyphsFeveronMissingCommon)) || has(kNicknameGlyphsFeveron);
     return has(kNicknameGlyphsCommon) || (game=="ketsui" && (version=="01.00"?has(kNicknameGlyphsKetsuiBase):has(kNicknameGlyphsKetsui))) ||
         (game=="daioujou" && has(kNicknameGlyphsDaioujou)) ||

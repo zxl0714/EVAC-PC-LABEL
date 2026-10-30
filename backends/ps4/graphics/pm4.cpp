@@ -140,6 +140,13 @@ std::uint32_t WriteHardware350(std::span<std::uint32_t> output, bool neo) {
     destination[nop_offset] = 0xc0001000u | (static_cast<std::uint32_t>(nop_body - 1) << 16);
     return kHardware350Words;
 }
+std::uint32_t WriteDefaultContext(std::span<std::uint32_t> output,bool neo) {
+    if (output.size()<32) return 0;
+    auto destination=output.first(32);std::fill(destination.begin(),destination.end(),0u);
+    const auto sequence=neo?std::span<const std::uint32_t>(ps4::kContextInitNeo):std::span<const std::uint32_t>(ps4::kContextInit);
+    std::copy(sequence.begin(),sequence.end(),destination.begin());
+    return 32;
+}
 bool WriteWaitFlip(std::span<std::uint32_t> output, std::uint64_t address) {
     if (output.size() != 7 || !address || (address & 3) || address > 0xffffffffffffull) { return false; }
     const std::uint32_t words[]{0xc0053c00u, 0x13, static_cast<std::uint32_t>(address), static_cast<std::uint32_t>(address >> 32), 0, 0xffffffffu, 10};
@@ -225,6 +232,19 @@ bool SelfTest() {
           neo.shader.Get(0x21a)==0xffffffffu && neo.uconfig.Get(0x258)==0x6d007fu,
           "neo_init350_has_extended_shader_masks_and_index4_ia_state");
     const std::array primitive{0xc0017900u,0x10000242u,4u};
+    std::array<std::uint32_t,33> context;context.fill(0x73737373u);
+    check(!WriteDefaultContext(std::span(context).first(31)) && context.front()==0x73737373u &&
+        context.back()==0x73737373u,"default_context_short_buffer_untouched");
+    check(WriteDefaultContext(context)==32 && context.back()==0x73737373u,
+        "default_context_exact_32_dword_extent_preserves_tail");
+    const auto base_context=Analyze(std::span(context).first(32));
+    check(base_context.Complete() && base_context.packets==6 && base_context.register_writes==2 &&
+        base_context.context.Get(0x202)==0xcc0010u,"legacy_default_context_base_packet_and_register_values");
+    WriteDefaultContext(context,true);
+    const auto neo_context=Analyze(std::span(context).first(32));
+    check(neo_context.Complete() && neo_context.packets==7 && neo_context.register_writes==4 &&
+        neo_context.context.Get(0xeb)==0xff00ff00u && neo_context.context.Get(0xec)==0xff00u &&
+        context.back()==0x73737373u,"legacy_default_context_neo_packet_and_register_values");
     check(Analyze(primitive).Complete() && Analyze(primitive).uconfig.Get(0x242)==4,
           "neo_index1_primitive_updates_actual_register");
     const std::array wrong_index{0xc0017900u,0x20000242u,4u};

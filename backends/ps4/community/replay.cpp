@@ -23,6 +23,7 @@ RecordContract ContractFor(std::string_view game) {
     if (game=="daioujou") return {0x80000,0x78000,0x10030,0x10000,"ARCADE_01030"};
     if (game=="esprade") return {0x80000,0x78000,0x10022,0x10000,"ARCADE_01030"};
     if (game=="feveron") return {0x80000,0x78000,0x10002,0x10000,"ARCADE_01010"};
+    if (game=="garegga") return {0x80000,0x78000,0x10400,0x10000,"ARCADE_01040"};
     return {kReplayRecordSize,kReplayDataSize,0x10001,0x10001,"ARCADE_01000"};
 }
 bool ArcadeCoreRegion(std::string_view region) {
@@ -143,7 +144,8 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
     const bool daioujou_base=game=="daioujou" && result.version==0x1000e;
     const bool supported_version=result.version==contract.version || daioujou_base || (game=="esprade" &&
         (result.version==0x10019 || result.version==0x10020 || result.version==0x10021)) ||
-        (game=="feveron" && result.version==0x10001);
+        (game=="feveron" && result.version==0x10001) || (game=="garegga" &&
+        (result.version==0x10012 || result.version==0x10100 || result.version==0x10200 || result.version==0x10300));
     Require(supported_version && supported_data, "unsupported_record_version");
     Require(U32(record, 8) <= contract.data_bytes && U32(record, 12) == 0, "unsupported_record_extents");
     result.total_frames = U32(record, 16); result.consumed_frames = U32(record, 20);
@@ -170,6 +172,14 @@ ReplayEnvelope InspectReplayEnvelope(std::span<const std::byte> compressed,std::
 }
 void MatchReplayMetadata(const ReplayEnvelope& replay, const ReplayExpectation& expected) {
     const auto group = expected.board / 10, ship = expected.board % 10;
+    if (replay.game=="garegga") {
+        Require(group<=3 && ship<=8,"unsupported_replay_board");
+        Require((ArcadeCoreRegion(replay.region) || replay.region=="ARCADE_01040") &&
+            replay.kind==0 && replay.mode==group,"replay_mode_mismatch");
+        Require(expected.score==replay.score,"replay_score_mismatch");
+        Require(replay.character<128 && (!ship || ship==((replay.character>>4)&7)+1),"replay_ship_mismatch");
+        return;
+    }
     if (replay.game=="feveron") {
         Require(group<=7 && ship<=4,"unsupported_replay_board");
         // Native ranking selects GameMode*2 + TimeAttack, while its network

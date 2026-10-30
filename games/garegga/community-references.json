@@ -1,0 +1,130 @@
+{
+  "format": 1,
+  "game": "garegga",
+  "titleId": "CUSA10207",
+  "version": "01.00",
+  "status": "native-https-and-offline-replay-accepted",
+  "sourceExecutableSha256": "4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984",
+  "sources": [
+    {
+      "path": "2000/config/title_leaderboards.psb.m",
+      "sha256": "7697129db79deb3b184693fdf88f95f05c94a6b358d3a69905fec42c95e7a920"
+    },
+    {
+      "path": "2000/script/title_const.nut.m",
+      "sha256": "4f64af1c49a007d6bf8653fb259fbdb28b5782e4e953f175d6098c36c55dd81e"
+    },
+    {
+      "path": "2000/script/title_standalone.nut.m",
+      "sha256": "6a98f5463df1e221f8c909f5f36897ffd828fb616c3739b8052ab7ed6c991a55"
+    },
+    {
+      "path": "2000/script/title_replay_view.nut.m",
+      "sha256": "b795cd406bd1dc1003225b96e3941e6a73492c8ba2d09c0cbf90a6e6851a1df9"
+    },
+    {
+      "path": "system/config/struct_replay.psb.m",
+      "sha256": "3495298d7cf3f1362aff9cbab9058867116819c2ac5264ff7572189eb6f57e9d"
+    },
+    {
+      "path": "system/script/ranking_ctrl.nut.m",
+      "sha256": "9e7c26ed550e6e73c15240edcac9df49e86c0fcb733c982d05c274005f3d4a1f"
+    },
+    {
+      "path": "system/script/backup_replaydata.nut.m",
+      "sha256": "93d564f42cc83928def7ccf5f325bb7ddfe11bd5c9c2ba5a9fecc3437cc212f3"
+    }
+  ],
+  "boardGroups": [
+    {
+      "base": 0,
+      "mode": "arcade"
+    },
+    {
+      "base": 10,
+      "mode": "super_easy"
+    },
+    {
+      "base": 20,
+      "mode": "premium"
+    },
+    {
+      "base": 30,
+      "mode": "custom"
+    }
+  ],
+  "boardOffsets": [
+    "all",
+    "silver_sword",
+    "grass_hopper",
+    "flying_baron",
+    "wild_snail",
+    "gain",
+    "chitta",
+    "miyamoto",
+    "bornnam"
+  ],
+  "uploadLimit": "100 for combined boards; 10 for each ship board.",
+  "score": {
+    "maximum": 4294967295,
+    "nativeUnitInDisplayPoints": 1,
+    "gameplaySubmissionUnitsAwaitingRealRecord": false
+  },
+  "replay": {
+    "recordBytes": 524288,
+    "dataOffset": 1280,
+    "dataBytes": 491520,
+    "containerVersions": [
+      65554,
+      65792,
+      66048,
+      66304,
+      66560
+    ],
+    "coreDataVersion": 65536,
+    "coreRegions": [
+      "ARCADE_01000",
+      "ARCADE_01010",
+      "ARCADE_01020",
+      "ARCADE_01030",
+      "ARCADE_01040"
+    ],
+    "coreVersionEvidence": "The eboot getEmuVersion binding at 0xe708 uses relocation 0x2af178; its leaf at 0x146b0 returns 0x10000.",
+    "character": "Native record masks 0x1015AA to seven bits. Ship filter is ((character >> 4) & 7) + 1; low nibble retains original variation flags.",
+    "nativeRecordingVerified": true
+  },
+  "legacyAbi": {
+    "npIdBytes": 36,
+    "rankBytes": 128,
+    "playerRankBytes": 136,
+    "stateCallbackArguments": 4,
+    "reference": "https://github.com/shadps4-emu/shadPS4/tree/main/src/core/libraries/np"
+  },
+  "eligibility": "Keep original checkRegistRanking, continue marker in score % 10, recording state, quick-load and two-player gates.",
+  "acceptance": {
+    "loopback": {
+      "score": 100,
+      "boards": [
+        10,
+        11
+      ],
+      "nativeReplayUploads": 2,
+      "nativeReplayDownloads": 2
+    },
+    "https": {
+      "score": 1040,
+      "boards": [
+        30,
+        31
+      ],
+      "nativeReplayUploads": 2,
+      "rankingDisplayed": true
+    },
+    "offlinePlayback": {
+      "restart": true,
+      "score": 100,
+      "naturalEnd": true
+    },
+    "evidence": "docs/TEST_MATRIX.md#v083-battle-garegga"
+  }
+}

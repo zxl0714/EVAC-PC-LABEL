@@ -184,7 +184,7 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             result.g2_frame_delay < 1 || result.g2_frame_delay > 2)
             Error(entry->line, "game.espgaluda2", "frame_delay", "expected 2 (original) or 1 (experimental low latency)");
     }
-    if (game_id=="ketsui" || game_id=="daioujou" || game_id=="esprade" || game_id=="feveron") {
+    if (game_id=="ketsui" || game_id=="daioujou" || game_id=="esprade" || game_id=="feveron" || game_id=="garegga") {
         const auto section="game."+std::string(game_id);
         if (const auto* entry=ini.Get(section,"neo")) {
             const auto value=Lower(entry->text);

@@ -34,6 +34,7 @@ ketsui               01.00            01.02 optional / 可选
 daioujou             01.00            01.04
 esprade              01.00            01.04 required / 必需
 feveron (US)         01.00            none / 无
+garegga (KR)         01.00            none / 无
 
 The default PKG passcode is 32 zeros. Change it only if your PKG uses another
 passcode. A ZIP/RAR archive password is separate from the PKG passcode.

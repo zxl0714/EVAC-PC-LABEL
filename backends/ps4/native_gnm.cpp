@@ -283,6 +283,13 @@ std::uint32_t KT_SYSV Hardware350(std::uint32_t* output, std::uint32_t capacity)
     }
     return size;
 }
+std::uint32_t KT_SYSV DefaultContext(std::uint32_t* output,std::uint32_t size) {
+    if (!output || size!=32 || reinterpret_cast<std::uintptr_t>(output)%alignof(std::uint32_t)) return 0;
+    std::array<std::uint32_t,32> commands{};
+    const auto count=kt::gfx::pm4::WriteDefaultContext(commands,GetNativeProfile().neo);
+    std::memcpy(output,commands.data(),sizeof(commands));
+    return count;
+}
 int KT_SYSV WaitFlip(std::uint32_t* output, std::uint32_t size, int handle, unsigned index) {
     if (!output || size != 7 || reinterpret_cast<std::uintptr_t>(output) % alignof(std::uint32_t)) { return -1; }
     const auto label = AcquireNativeVideoBufferLabel(handle, index);
@@ -357,6 +364,7 @@ int KT_SYSV DrawIndex(std::uint32_t* output, std::uint32_t size, std::uint32_t c
 std::uint64_t ResolveGnmImport(std::string_view identifier, std::string_view library, std::string_view module) {
     if (library != "libSceGnmDriver" || module != "libSceGnmDriver") { return 0; }
     if (identifier.substr(0, identifier.find('#')) == "yb2cRhagD1I") { return reinterpret_cast<std::uint64_t>(&Hardware350); }
+    if (identifier.substr(0, identifier.find('#')) == "8lH54sfjfmU") { return reinterpret_cast<std::uint64_t>(&DefaultContext); }
     if (identifier.substr(0, identifier.find('#')) == "1qXLHIpROPE") { return reinterpret_cast<std::uint64_t>(&WaitFlip); }
     if (identifier.substr(0, identifier.find('#')) == "gAhCn6UiU4Y") { return reinterpret_cast<std::uint64_t>(&VertexShader); }
     if (identifier.substr(0, identifier.find('#')) == "5uFKckiJYRM") { return reinterpret_cast<std::uint64_t>(&PixelShader350); }

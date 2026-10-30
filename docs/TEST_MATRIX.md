@@ -2802,3 +2802,16 @@ Public RC2 的绊地狱普通启动合同完成原生准备及菜单进入。现
 | G2 社区／Live | 原生空榜及未排名本人查询、成绩提交、跨进程榜单读回通过；Black Label Novice 7,705,305 分及 Xbox 360 7,614,133 分由原游戏分别写入六个 view。录像时区由 Windows XConfig 提供，旧文件字节不变。原生网络录像已在本机完成上传、六条成绩关联、GAMECLIP 下载、空槽 No.10 保存和自然回放返回；十五项 C++／本机 API 检查、66 项 Python 回归及九组原生测试通过。整数元数据映射已逐字段修正，新宿主实际读回高分为 Stage 2／Continue 0。正式服务未部署，默认开关仍关闭；XGI 0x000B0013 兼容清理及持久化离线补传继续跟踪 |
 | 实体输入 | 当前未枚举到可用实体手柄，保持待测 |
 | 音画与长期稳定性 | 宿主等待精度、VBlank 截止时间与空闲 UI 重绘已修正，实际出帧从基线约 45.6 FPS 恢复到 60 FPS；Xbox 360 回放约 74 秒内 4462 个间隔无超过 20 ms，Black Label 关卡约 30 秒内最大 19.1 ms。关卡切入附近仍见一次约 32 ms 间隔，保留观测；按用户要求不无限微调单个极值，新增明显实战停顿仍需处理。最终显示与长期稳定性未由平均 FPS 或单次音频队列正常代替 |
+
+
+## v0.8.3 Battle Garegga
+
+- 本体：CUSA10207 01.00，原始 PKG SHA-256 `0cb0584404d649c947a49c8eab8d172848a555584597733bc581f3ee67ae73a5`，47 个文件，独立解包／测试目录；原始文件未改写。
+- 运行适配：摘要约束的六个 DT_NEEDED 模块按依赖启动，32 DWORD 图形初始化、旧版 NP ABI、`_Stod` 数值转换。实际 ARCADE、SUPER EASY、PREMIUM、CUSTOM 选机／第一关通过，SUPER EASY／CUSTOM 移动射击通过；ARCADE Quick Save 01 实际保存 20 分，重启后切回该模式，Quick Load 恢复原第一关 20 分现场；设置读回通过。快速存档按模式隔离，CUSTOM 的空槽不是 ARCADE 存档丢失。
+- 本机联网：独立 SQLite 和 64518 loopback；真实 SUPER EASY 100 分提交到 10／11 号榜，两份原生录像上传与下载，榜单与下载列表的作者／分数正确。关闭联网、重启后，下载录像已进入实际第一关；完整 1:21 录像自然结束并返回 100 分列表，离线回放通过。
+- 性能：NEO／1920×1080 合成／720p 窗口／VSync 关闭，6.002 秒 361 帧，60.006 FPS、CPU 0.250 核，P95 17.055 ms、最大 17.235 ms。以采样后暂停截图核对实际第一关 2110 分场景。前两次混入提示的采样排除；详细分解见 ANALYSIS。
+- 回归：r10 88/88 无 ROM 原生检查通过；完整源码回归运行 871 项，通过（1 项跳过）；r6 127/127 资源检查及 2/2 本作 Windows HTTP 协议检查通过。服务端本作 5 项、备份 5 项、部署 8 项在服务器 Python 3.10.12 通过。
+- 正式服务：独立源码提交 `66c1438`，端口 18092，仅监听 loopback；九款 HTTPS 健康及旧八款 PID／指针保持检查通过。每日备份已启用，首次快照的完整性／外键／application_id 及空库检查通过。r12 正式配置已提交 CUSTOM 1040 分至 30／31 号榜，两份录像上传成功，游戏内正式 CUSTOM 综合榜显示 1040 分及录像标志。测试只提交实际游玩记录。
+- 待完成：最终同提交构建、程序包和发布验收。
+
+证据位于 `.local/v083/`：`native-community-r1.stdout.jsonl`、独立测试目录的 run 日志、`native-checks-r10/result.json`、`server-remote-tests-r1.log`、`server-installed-r1.log` 和 `performance-super-easy-stage1-r3.json`、`garegga-quickload-after-restart-r3.png`、`garegga-https-ranking-r2.png`。静态盘点和协议 fixture 不代替实际游戏回放。

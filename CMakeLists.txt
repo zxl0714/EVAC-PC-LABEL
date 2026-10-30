@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(EVACPCLabel VERSION 0.8.2 LANGUAGES CXX)
+project(EVACPCLabel VERSION 0.8.3 LANGUAGES CXX)
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "EVAC PC LABEL requires Windows x64")
 endif()

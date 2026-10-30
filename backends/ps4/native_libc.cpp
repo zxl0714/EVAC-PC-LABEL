@@ -85,6 +85,15 @@ __declspec(noinline) double ParseDouble(const char* input, char** end, const voi
 }
 double KT_SYSV StringDouble(const char* input, char** end) { return ParseDouble(input, end, __builtin_return_address(0)); }
 double KT_SYSV AsciiDouble(const char* input) { return ParseDouble(input, nullptr, __builtin_return_address(0)); }
+double KT_SYSV ScaledDouble(const char* input,char** end,std::int64_t exponent) {
+    const auto value=ParseDouble(input,end,__builtin_return_address(0));
+    if (!exponent) return value;
+    const auto saved_errno=errno;
+    const auto scaled=value*std::pow(10.0,static_cast<double>(exponent));
+    errno=saved_errno;
+    if (std::isfinite(value) && value!=0 && (!std::isfinite(scaled) || scaled==0)) SetNativeErrno(34);
+    return scaled;
+}
 float KT_SYSV StringFloat(const char* input, char** end) {
     static const NumericLocale locale;
     const auto caller = __builtin_return_address(0);
@@ -212,6 +221,7 @@ std::uint64_t ResolveLibcMemoryImport(std::string_view identifier) {
     if (hash == "sUP1hBaouOw") { return reinterpret_cast<std::uint64_t>(&ClassTable); }
     if (hash == "2vDqwBlpF-o") { return reinterpret_cast<std::uint64_t>(&StringDouble); }
     if (hash == "SRI6S9B+-a4") { return reinterpret_cast<std::uint64_t>(&AsciiDouble); }
+    if (hash == "c41UEHVtiEA") { return reinterpret_cast<std::uint64_t>(&ScaledDouble); }
     if (hash == "xENtRue8dpI") { return reinterpret_cast<std::uint64_t>(&StringFloat); }
     if (hash == "AEJdIVZTEmo") { return reinterpret_cast<std::uint64_t>(&Sort); }
     if (hash == "mXlxhmLNMPg" || hash == "VOBg+iNwB-4") { return reinterpret_cast<std::uint64_t>(&StringLong); }
@@ -266,6 +276,15 @@ bool LibcMemorySelfTest() {
     const char decimal[] = " \t-12.5suffix";
     check("strtod_c_locale_decimal_and_end_pointer", StringDouble(decimal, &end) == -12.5 && end == decimal + 7);
     check("strtod_hexadecimal_and_exponent", StringDouble("0x1.8p+1", nullptr) == 3.0 && StringDouble("1.25e2", nullptr) == 125.0);
+    using ScaledFunction=double(KT_SYSV*)(const char*,char**,std::int64_t);
+    const auto stod=reinterpret_cast<ScaledFunction>(ResolveLibcMemoryImport("c41UEHVtiEA#g#g"));
+    const char scaled_input[]="1.25rest";
+    check("stod_sysv_decimal_scale_and_end_pointer",stod(scaled_input,&end,2)==125 && end==scaled_input+4 &&
+        stod("125",nullptr,-2)==1.25 && std::signbit(stod("-0",nullptr,0)));
+    errno=73;
+    const auto large_scaled=stod("2",nullptr,400);
+    check("stod_scaling_preserves_host_errno_and_range_result",std::isinf(large_scaled) && errno==73 &&
+        stod("2",nullptr,-400)==0);
     const char invalid[] = "not-a-number"; const auto old_error = errno; errno = 73;
     const bool unconverted = StringDouble(invalid, &end) == 0 && end == invalid && errno == 73; errno = old_error;
     check("strtod_no_conversion_preserves_start_pointer_and_host_errno", unconverted);

@@ -19,14 +19,24 @@ class CatalogueTests(unittest.TestCase):
 
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
-        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron'])
-        self.assertEqual([g['comingSoon'] for g in games], [False] * 8)
-        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron'])
-        feveron=games[-1]
+        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga'])
+        self.assertEqual([g['comingSoon'] for g in games], [False] * 9)
+        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga'])
+        feveron=next(g for g in games if g['id']=='feveron')
         self.assertTrue(feveron['communitySupported'])
         self.assertEqual(feveron['runtimeFiles'], ['runtime/ps4/feveron.exe', 'runtime/ps4/KetsuiGpuRuntime.dll',
                                                 'runtime/games/feveron/runtime-manifest.ini'])
         self.assertEqual(feveron['dataManifest'], 'feveron/data.json')
+
+    def test_garegga_korean_base_keeps_all_original_core_revisions(self):
+        game=next(g for g in catalogue.load(self.path) if g['id']=='garegga')
+        manifest=catalogue.read_json(self.root/'games/garegga/data.json')
+        self.assertEqual((manifest['titleId'],manifest['version'],manifest['layout']),('CUSA10207','01.00','base'))
+        self.assertEqual(len(game['files']),47)
+        programs={f['path'] for f in game['files'] if f['program'] and '/' not in f['path']}
+        self.assertEqual(programs,{'eboot.bin','emu_integration.prx','emu_integration_01100.prx',
+            *('garegga_'+version+'.prx' for version in ('01000','01010','01020','01030','01040'))})
+        self.assertEqual(set(game['forbiddenFiles']),{'ps4data_patch_info.psb.m','ps4data_patch_body.bin'})
 
     def test_feveron_base_manifest_uses_application_version_and_own_modules(self):
         game = next(g for g in catalogue.load(self.path) if g['id'] == 'feveron')

@@ -2,9 +2,9 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-Bringing CAVE's classic bullet-hell shooters to Windows PC.
+Bringing classic bullet-hell shooters to Windows PC.
 
-EVAC PC LABEL is an unofficial collection of CAVE PC ports with a unified launcher, shared configuration, saves, replays, and community leaderboards. Install game data only for the titles you want to play.
+EVAC PC LABEL is an unofficial collection of classic shooter PC ports with a unified launcher, shared configuration, saves, replays, and community leaderboards. Install game data only for the titles you want to play.
 
 [Getting started](#getting-started) · [Game data guide](docs/GAME_DATA.en.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
@@ -42,13 +42,15 @@ NEO uses 1080p composition and brings Dangun Feveron's first response forward by
 neo = false
 ```
 
-Use `[game.daioujou]`, `[game.esprade]` or `[game.feveron]` for DaiOuJou, ESP Ra.De. or Dangun Feveron. Set `neo=true` to enable it again.
+Use `[game.daioujou]`, `[game.esprade]`, `[game.feveron]` or `[game.garegga]` for DaiOuJou, ESP Ra.De., Dangun Feveron or Battle Garegga. Set `neo=true` to enable it again.
+
+Battle Garegga, SUPER EASY Stage 1: 60.01 FPS, 0.25 CPU cores, and a 17.06 ms P95 frame interval in a short sample. [Measurements (Chinese)](docs/ANALYSIS.md#v083-battle-garegga).
 
 ## Getting started
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., and Dangun Feveron require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, and Battle Garegga require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
 
 ### Launch
 
@@ -71,6 +73,7 @@ Prepare only the games you want:
 | エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
 | ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
 | 弾銃フィーバロン | Dangun Feveron | PS4, US CUSA06735, version 01.00 base game |
+| バトルガレッガ Rev.2016 | Battle Garegga Rev.2016 | PS4, Korean CUSA10207, version 01.00 base game |
 
 ### Extracting ISO / PKG / XBLA files
 
@@ -95,6 +98,7 @@ The complete program package creates the folders below, each with a bilingual `R
 | ESP Ra.De. | `game-data/esprade/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | Guwange | `game-data/guwange/` | `default.xex`, `module/`, `game_res/`, `res/`, and the remaining resources |
 | Dangun Feveron | `game-data/feveron/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
+| Battle Garegga | `game-data/garegga/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.en.md).
 
@@ -141,6 +145,8 @@ In `[display]`, `vsync = false` enables low-latency presentation while preservin
 Close leaderboard player cards with `CLOSE`, Enter or Esc.
 
 Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
+
+Battle Garegga defaults: `V` for Credit, `Enter` for Start, `C / S` for Shot, `Z / A` for Weapon, `X` for Formation, and `Backspace` for the pause menu. Quick-save slots are separate for each game mode.
 
 Guwange's **Arrange Xbox 360** mode fires automatically. Use the arrow keys / left stick to move your character, `I / K / J / L` (up / down / left / right) or the right stick to move the Shikigami, `W / RT` to summon it, and `X / B` to bomb. Customize the Shikigami keys with `right_stick_up/down/left/right` under `[game.guwange.keyboard]`; other games' bindings are unchanged.
 

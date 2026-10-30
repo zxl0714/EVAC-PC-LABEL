@@ -1,9 +1,9 @@
 # EVAC PC LABEL 开发入口
 
 EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存档、录像及日志。
-当前开发版本为 v0.7.4；发行状态与实际验收范围见实施计划和验收矩阵。
+当前开发版本为 v0.8.3；发行状态与实际验收范围见实施计划和验收矩阵。
 
-已接入七款游戏，Guwange 的三种单人玩法、保存及正式社区短流程已验证。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
+工程现有九款游戏：四款 Xbox 360 作品和五款 PS4 作品。Battle Garegga 使用共享 PS4 运行时、独立数据清单及社区服务。源码来自本仓库维护代码与固定开源依赖，不包含 ROM 或生成的游戏程序正文。程序包对应的提交见包内 SOURCE.txt。
 
 先读 [README](README.md) 和 [AGENTS.md](AGENTS.md)。实现计划、实际覆盖和技术分析分别在 [实施计划](docs/IMPLEMENTATION_PLAN.md)、[验收矩阵](docs/TEST_MATRIX.md) 与 [分析入口](docs/ANALYSIS.md)。调查过程留在这些文档中，本文件介绍如何接手开发。
 
@@ -25,7 +25,7 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 | prepared/、user-data/、logs/、cache/ | 独立的准备镜像、存档录像、日志和缓存 |
 | .local/、releases/ | 开发现场、证据与发行输出，不进 Git |
 
-游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou、esprade、guwange。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 使用 CUSA15155 本体覆盖 01.04 更新后的单目录，共用 PS4 运行时。
+游戏 ID 为 futari、espgaluda2、ketsui、sdoj、daioujou、esprade、guwange、feveron、garegga。最大往生是 sdoj，大往生是 daioujou。ESP Ra.De. 使用 CUSA15155 本体覆盖 01.04 更新后的单目录，共用 PS4 运行时。
 
 ### DLC 与启动器更新检查
 
@@ -277,9 +277,9 @@ ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片�
 先提交发行源码并配套构建，再执行：
 
 ~~~powershell
-./scripts/Release.ps1 -Version 0.7
-./scripts/Release.ps1 -Flavor Internal -Version 0.7 -DataGames guwange
-./scripts/Release.ps1 -Flavor Internal -Version 0.7 -DataGames all -FutariContent all -Symbols
+./scripts/Release.ps1 -Version 0.8.3
+./scripts/Release.ps1 -Flavor Internal -Version 0.8.3 -DataGames guwange
+./scripts/Release.ps1 -Flavor Internal -Version 0.8.3 -DataGames all -FutariContent all -Symbols
 ~~~
 
 默认 Flavor 为 Public。Internal 的 -DataGames 接受游戏 ID 数组或 all；
@@ -297,10 +297,10 @@ ICO 嵌入程序，构建显式跟踪资源变更；不要求玩家另放图片�
 Internal 另允许所选数据清单。历史 format=1／2 验证保留，新入口不再生成 Update 或
 源码附件。冻结文件不改名、不覆盖。
 
-v0.7 profile 包含七款运行组件、七份放置说明及 PS4／XBLA 两个提取脚本；
-内部包可用 `-Version 0.7 -DataGames guwange` 仅选狱门山数据，或 `all`
+v0.8.3 profile 包含九款运行组件、九份放置说明及 PS4／XBLA 提取工具；
+内部包可用 `-Version 0.8.3 -DataGames guwange` 仅选狱门山数据，或 `all`
 选择全部作品。打包前须完成所选运行组件、启动器及 SDK 的同提交构建认证。
-旧版本继续按原游戏集与六份说明验证，不因新增 Guwange 改写历史清单。
+旧版本继续按各自游戏集合验证，新增作品不改写历史清单。
 
 每次创建 releases/ 下的新输出目录，保留旧发行。一次公共构建认证之后，每个最终 ZIP 只在新目录解压验收一次：
 

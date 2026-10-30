@@ -185,6 +185,13 @@ void Policies() {
         "Feveron prepares only its own local replay viewer adaptation");
     Reject([]{PlanPs4Data("feveron","01.01","base");},"Feveron master version is not application version");
     Reject([]{PlanPs4Data("feveron","01.00","merged-patch");},"unsupported Feveron merged version rejected");
+    const auto garegga=PlanPs4Data("garegga","01.00","base");
+    Check(garegga.programs==std::vector<std::string>{"eboot.bin","emu_integration.prx","emu_integration_01100.prx",
+        "garegga_01000.prx","garegga_01010.prx","garegga_01020.prx","garegga_01030.prx","garegga_01040.prx"},
+        "Garegga includes both integration modules and all five native core revisions");
+    Check(garegga.local_replay&&!garegga.replay_peer,"Garegga local viewer keeps its own identity flow");
+    Reject([]{PlanPs4Data("garegga","01.01","base");},"Garegga master version is not application version");
+    Reject([]{PlanPs4Data("garegga","01.00","merged-patch");},"unsupported Garegga merged data rejected");
     Reject([]{PlanPs4Data("other","01.00","base");},"unknown title");
     // The wrapper changes identity, not the 01.00 native hook/replay layout.
     const auto* elf=FindKetsuiVersion("22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f");

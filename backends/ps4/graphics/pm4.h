@@ -57,6 +57,7 @@ Error Advance(const Packet& packet, Analysis& state);
 
 constexpr std::uint32_t kHardware350Words = 256;
 std::uint32_t WriteHardware350(std::span<std::uint32_t> output, bool neo=false);
+std::uint32_t WriteDefaultContext(std::span<std::uint32_t> output,bool neo=false);
 // Use only after Advance/Analyze has validated this register packet.
 std::uint32_t RegisterOffset(const Packet& packet);
 bool WriteWaitFlip(std::span<std::uint32_t> output, std::uint64_t label_address);

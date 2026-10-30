@@ -90,7 +90,8 @@ def oracle(item):
                          offline=fixes.fix_community_local_round_gate, peer=fix_replay_peer,
                          **{'local-replay': fix_local_replay,
                             'esprade-local-replay': lambda raw: fix_local_replay(raw, esprade=True),
-                            'feveron-local-replay': fix_feveron_local_replay})[item['kind']]
+                            'feveron-local-replay': fix_feveron_local_replay,
+                            'garegga-local-replay': fix_feveron_local_replay})[item['kind']]
         return transform(source).hex()
     seed, name = bytes.fromhex(item['seed']), item['resource']
     if op == 'mask': return fixes.mask_for(seed, name).hex()
@@ -195,6 +196,8 @@ def cases():
         add('fix-feveron-local-replay-duplicate-' + label, 'fix', fever_replay + fever_replay, kind='feveron-local-replay')
         add('fix-feveron-local-replay-changed-' + label, 'fix', fever_replay.replace(b'return _key;', b'return false;'), kind='feveron-local-replay')
         add('fix-feveron-local-replay-foreign-' + label, 'fix', esp_replay, kind='feveron-local-replay')
+        add('fix-garegga-local-replay-' + label, 'fix', fever_replay, kind='garegga-local-replay')
+        add('fix-garegga-local-replay-changed-' + label, 'fix', fever_replay.replace(b'return _key;', b'return false;'), kind='garegga-local-replay')
     for count in (0, 1, 3):
         add('fix-music-count-' + str(count), 'fix', b'm_bgm_mode[_gamemode] = _bgmMode;\n' * count, kind='music')
     add('fix-batch-changed', 'fix', helper.authored_ranking_batch().replace(b'            break;', b'            return 0;'), kind='batch')

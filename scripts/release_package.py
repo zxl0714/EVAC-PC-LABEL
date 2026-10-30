@@ -25,11 +25,12 @@ V03_GAMES = (*GAMES, 'daioujou')
 V06_GAMES = (*V03_GAMES, 'esprade')
 V07_GAMES = (*V06_GAMES, 'guwange')
 V08_GAMES = (*V07_GAMES, 'feveron')
-PLACEMENT_GAMES = V08_GAMES
+V083_GAMES = (*V08_GAMES, 'garegga')
+PLACEMENT_GAMES = V083_GAMES
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
-MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade', 'guwange', 'feveron'}
+MANIFEST_ONLY_DATA = {'sdoj', 'daioujou', 'ketsui', 'esprade', 'guwange', 'feveron', 'garegga'}
 META = {'release.json', 'SHA256SUMS.txt'}
 UPDATE_BASES = {'0.3.1': '0.3', '0.3.2': '0.3', '0.4': '0.3'}
 UPDATE_PRESERVED = ('config.ini', 'user-data/', 'game-data/', 'prepared/', 'cache/', 'logs/', 'source/')
@@ -73,7 +74,8 @@ def release_games(version):
     if (major, minor) == (0, 7):
         return V07_GAMES
     if (major, minor) == (0, 8):
-        return V08_GAMES
+        parts=version.split('-',1)[0].split('.')
+        return V083_GAMES if len(parts)>2 and int(parts[2])>=3 else V08_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -109,7 +111,7 @@ def placement_sources(version, name=PLACEMENT_NAME):
     games = release_games(version)
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
-    placement = V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
+    placement = V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
     return {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
             for key in placement}
 
@@ -544,7 +546,7 @@ def certified_name(name):
     # These aliases are staged from the same certified PS4 host. Do not infer
     # aliases for other paths or arbitrary executable names.
     if name in {'runtime/ps4/' + game + suffix
-                for game in ('ketsui', 'daioujou', 'esprade', 'feveron') for suffix in ('.exe', '.pdb')}:
+                for game in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') for suffix in ('.exe', '.pdb')}:
         return 'KetsuiNativeProbe' + Path(name).suffix
     if name in {LEGACY_LAUNCHER, str(Path(LEGACY_LAUNCHER).with_suffix('.pdb'))}:
         return NAME + Path(name).suffix
@@ -735,7 +737,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V08_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V083_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()

@@ -241,6 +241,22 @@ game-data/feveron/
 
 Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, then copy all contents into `game-data/feveron/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/feveron/`.
 
+### バトルガレッガ Rev.2016 — Battle Garegga Rev.2016 (garegga)
+
+Supported: **Korean CUSA10207, version 01.00 base game**.
+
+```text
+game-data/garegga/
+  eboot.bin
+  *.prx
+  ps4data_body.bin
+  ps4data_info.psb.m
+  sce_module/
+  sce_sys/
+```
+
+Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, and copy all contents into `game-data/garegga/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/garegga/`.
+
 ## Troubleshooting
 
 ### I only have an ISO, PKG, or ZIP

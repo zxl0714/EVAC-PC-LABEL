@@ -260,8 +260,80 @@ int KT_SYSV AccountId(int user, std::uint64_t* output) {
     if (!current.ready) { return kOffline; }
     return CopyToNativeMemory(output, &current.account, sizeof(current.account)) ? 0 : kArgument;
 }
+struct OnlineId { std::array<char,16> data{}; char terminator{}; std::array<char,3> padding{}; };
+struct NpId { OnlineId handle; std::array<unsigned char,8> options{},reserved{}; };
+static_assert(sizeof(OnlineId)==20 && sizeof(NpId)==36);
+int KT_SYSV CompareNpId(const NpId* first,const NpId* second) {
+    NpId a{},b{};SIZE_T copied{};
+    if (!first || !second ||
+        !ReadProcessMemory(GetCurrentProcess(),first,&a,sizeof(a),&copied) || copied!=sizeof(a) ||
+        !ReadProcessMemory(GetCurrentProcess(),second,&b,sizeof(b),&copied) || copied!=sizeof(b)) return kArgument;
+    return std::strncmp(a.handle.data.data(),b.handle.data.data(),a.handle.data.size()) ||
+        a.options!=b.options || a.reserved!=b.reserved ? static_cast<int>(0x80550609u) : 0;
+}
+OnlineId CommunityOnlineId(const kt::community::Identity& identity) {
+    OnlineId result;
+    const auto name=kt::community::ShortOnlineId(identity.nickname);
+    std::copy(name.begin(),name.end(),result.data.begin());
+    return result;
+}
+NpId CommunityNpId(const kt::community::Identity& identity) {
+    NpId result{CommunityOnlineId(identity)};
+    for (unsigned i=0;i<8;++i) result.options[i]=static_cast<unsigned char>(identity.account>>(i*8));
+    return result;
+}
+int LegacyUser(const OnlineId* source) {
+    OnlineId value; SIZE_T copied{};
+    if (!source || !ReadProcessMemory(GetCurrentProcess(),source,&value,sizeof(value),&copied) ||
+        copied!=sizeof(value) || value.terminator) return kArgument;
+    if (!NativeUserInitialized()) return kNoUser;
+    const auto current=CommunitySnapshot();
+    if (!current.ready) return kOffline;
+    return value.data==CommunityOnlineId(current).data ? 0x1000 : kNoUser;
+}
+int KT_SYSV OnlineIdentity(int user,OnlineId* output) {
+    if (!output || user==-1) return kArgument;
+    if (user!=0x1000 || !NativeUserInitialized()) return kNoUser;
+    const auto current=CommunitySnapshot();
+    if (!current.ready) return kOffline;
+    const auto value=CommunityOnlineId(current);
+    return CopyToNativeMemory(output,&value,sizeof(value)) ? 0 : kArgument;
+}
+int KT_SYSV FullIdentity(int user,NpId* output) {
+    if (!output || user==-1) return kArgument;
+    if (user!=0x1000 || !NativeUserInitialized()) return kNoUser;
+    const auto current=CommunitySnapshot();
+    if (!current.ready) return kOffline;
+    const auto value=CommunityNpId(current);
+    return CopyToNativeMemory(output,&value,sizeof(value)) ? 0 : kArgument;
+}
+int KT_SYSV LegacyAvailability(int request,const OnlineId* online) {
+    const auto user=LegacyUser(online);
+    return user<0 ? user : Availability(request,user);
+}
+int KT_SYSV LegacyLanguage(int request,const OnlineId* online,Language* output) {
+    if (!output) return kArgument;
+    const auto user=LegacyUser(online);
+    return user<0 ? user : AccountLanguage(request,user,output);
+}
+int KT_SYSV LegacyParental(int request,const OnlineId* online,signed char* age,ParentalInfo* output) {
+    if (!age || !output) return kArgument;
+    const auto user=LegacyUser(online);
+    return user<0 ? user : ParentalControl(request,user,age,output);
+}
+int KT_SYSV LegacyCountry(const OnlineId* online,void* output) {
+    if (!output) return kArgument;
+    const auto user=LegacyUser(online);
+    return user<0 ? user : AccountCountry(user,output);
+}
+int KT_SYSV LegacyAccount(const OnlineId* online,std::uint64_t* output) {
+    if (!output) return kArgument;
+    const auto user=LegacyUser(online);
+    return user<0 ? user : AccountId(user,output);
+}
 using Callback = void (KT_SYSV *)(int, int, void*);
-struct Subscription { int id{}; Callback callback{}; void* argument{}; };
+using LegacyCallback = void (KT_SYSV *)(int,int,NpId*,void*);
+struct Subscription { int id{}; Callback callback{}; void* argument{}; LegacyCallback legacy{}; };
 struct StateEvent { int user{}, value{}, last_registration{}; };
 struct Notifications {
     std::recursive_mutex dispatch;
@@ -270,6 +342,7 @@ struct Notifications {
     std::array<StateEvent, 64> events{};
     unsigned event_count{};
     int next = 1;
+    int legacy_id{};
     bool community_ready{};
 };
 Notifications& State() { static Notifications notifications; return notifications; }
@@ -295,7 +368,10 @@ int Unregister(int id) {
     std::lock_guard dispatcher(state.dispatch);
     std::lock_guard lock(state.mutex);
     for (auto& slot : state.entries) {
-        if (id > 0 && slot.id == id) { slot = {}; return 0; }
+        if (id > 0 && slot.id == id) {
+            if (state.legacy_id==id) state.legacy_id=0;
+            slot = {}; return 0;
+        }
     }
     return kNoCallback;
 }
@@ -353,6 +429,12 @@ int Pump() {
             // No registry lock spans original machine code. Registrations and
             // events created by callbacks cannot re-enter this captured batch.
             if (current.callback) { current.callback(event.user, event.value, current.argument); }
+            else if (current.legacy) {
+                const auto identity=CommunitySnapshot();
+                NpId value{};
+                if (identity.ready) value=CommunityNpId(identity);
+                current.legacy(event.user,event.value,identity.ready?&value:nullptr,current.argument);
+            }
         }
     }
     return 0;
@@ -365,6 +447,24 @@ int KT_SYSV GetState(int user, int* output) {
 }
 int KT_SYSV RegisterCallback(Callback callback, void* argument) { return Register(callback, argument, __builtin_return_address(0)); }
 int KT_SYSV UnregisterCallback(int id) { return Unregister(id); }
+int KT_SYSV RegisterLegacyCallback(LegacyCallback callback,void* argument) {
+    if (!callback) return kArgument;
+    auto& state=State();std::lock_guard lock(state.mutex);
+    if (state.legacy_id) return static_cast<int>(0x80550008u);
+    if (state.next==(std::numeric_limits<int>::max)()) return kLimit;
+    for (auto& slot:state.entries) {
+        if (slot.id) continue;
+        slot={state.next++,nullptr,argument,callback};state.legacy_id=slot.id;
+        TraceNativeApi("sceNpRegisterStateCallback",static_cast<unsigned>(slot.id),__builtin_return_address(0));
+        return 0;
+    }
+    return kLimit;
+}
+int KT_SYSV UnregisterLegacyCallback() {
+    auto& state=State();std::lock_guard dispatcher(state.dispatch);
+    int id{};{std::lock_guard lock(state.mutex);id=state.legacy_id;}
+    return id ? Unregister(id) : kNoCallback;
+}
 int KT_SYSV CheckCallback() { return Pump(); }
 
 struct TestCall {
@@ -384,6 +484,11 @@ void KT_SYSV TestCallback(int user, int state, void* argument) {
         (void)Pump();
     }
     if (record.cancel_next) { (void)Unregister(record.second); }
+}
+void KT_SYSV TestLegacyCallback(int user,int state,NpId* identity,void* argument) {
+    auto& record=*static_cast<TestCall*>(argument);
+    ++record.count;record.user=user;record.state=state;
+    record.cancel_next=identity!=nullptr;
 }
 }
 
@@ -417,6 +522,8 @@ int CommunityScoreModule(CommunityScoreModuleAction action) {
 
 std::uint64_t ResolveNpImport(std::string_view identifier, std::string_view library, std::string_view module) {
     const auto hash = identifier.substr(0, identifier.find('#'));
+    if (library=="libSceNpCommon" && module=="libSceNpCommon" && hash=="i8UmXTSq7N4")
+        return reinterpret_cast<std::uint64_t>(&CompareNpId);
     if (library == "libSceHttp" && module == "libSceHttp" && hash == "Ik-KpLTlf7Q") {
         return reinterpret_cast<std::uint64_t>(&HttpTermOffline);
     }
@@ -439,6 +546,15 @@ std::uint64_t ResolveNpImport(std::string_view identifier, std::string_view libr
     const auto id = identifier.substr(0, identifier.find('#'));
     if (id == "qQJfO8HAiaY") { return reinterpret_cast<std::uint64_t>(&RegisterCallback); }
     if (id == "M3wFXbYQtAA") { return reinterpret_cast<std::uint64_t>(&UnregisterCallback); }
+    if (id == "VfRSmPmj8Q8") { return reinterpret_cast<std::uint64_t>(&RegisterLegacyCallback); }
+    if (id == "mjjTXh+NHWY") { return reinterpret_cast<std::uint64_t>(&UnregisterLegacyCallback); }
+    if (id == "p-o74CnoNzY") { return reinterpret_cast<std::uint64_t>(&FullIdentity); }
+    if (id == "XDncXQIJUSk") { return reinterpret_cast<std::uint64_t>(&OnlineIdentity); }
+    if (id == "2rsFmlGWleQ") { return reinterpret_cast<std::uint64_t>(&LegacyAvailability); }
+    if (id == "KZ1Mj9yEGYc") { return reinterpret_cast<std::uint64_t>(&LegacyLanguage); }
+    if (id == "ilwLM4zOmu4") { return reinterpret_cast<std::uint64_t>(&LegacyParental); }
+    if (id == "Ghz9iWDUtC4") { return reinterpret_cast<std::uint64_t>(&LegacyCountry); }
+    if (id == "a8R9-75u4iM") { return reinterpret_cast<std::uint64_t>(&LegacyAccount); }
     if (id == "3Zl8BePTh9Y") { return reinterpret_cast<std::uint64_t>(&CheckCallback); }
     if (id == "eQH7nWPcAgc") { return reinterpret_cast<std::uint64_t>(&GetState); }
     if (id == "GpLQDNKICac") { return reinterpret_cast<std::uint64_t>(&CreateRequest); }
@@ -514,6 +630,40 @@ bool NpSelfTest() {
     (void)Pump(); (void)Pump();
     check(queued && bounded.count == 64 && Unregister(bounded_id) == 0,
           "bounded_event_queue_reports_overflow_and_drains_once");
+    TestCall legacy;
+    check(RegisterLegacyCallback(nullptr,nullptr)==kArgument && UnregisterLegacyCallback()==kNoCallback &&
+        RegisterLegacyCallback(TestLegacyCallback,&legacy)==0 &&
+        RegisterLegacyCallback(TestLegacyCallback,&legacy)==static_cast<int>(0x80550008u),
+        "legacy_registration_returns_zero_has_one_slot_and_rejects_duplicates");
+    (void)Pump();
+    check(legacy.count==0,"legacy_registration_does_not_fabricate_transition");
+    (void)QueueStateEvent(0x1000,kSignedOut);(void)Pump();
+    check(legacy.count==1 && legacy.user==0x1000 && legacy.state==kSignedOut && !legacy.cancel_next &&
+        UnregisterLegacyCallback()==0 && UnregisterLegacyCallback()==kNoCallback,
+        "legacy_four_argument_callback_preserves_userdata_and_offline_null_identity");
+    OnlineId online;std::memset(&online,73,sizeof(online));
+    NpId npid;std::memset(&npid,73,sizeof(npid));
+    check(OnlineIdentity(0x1000,&online)==kOffline && FullIdentity(0x1000,&npid)==kOffline &&
+        online.data[0]==73 && online.padding[2]==73 && npid.handle.data[0]==73 && npid.reserved[7]==73,
+        "offline_legacy_identity_queries_preserve_all_twenty_and_thirty_six_output_bytes");
+    const auto alias=CommunityOnlineId({true,"Alice",0x123456789abcdef0ull});
+    const auto full_alias=CommunityNpId({true,"Alice",0x123456789abcdef0ull});
+    check(std::string(alias.data.data())=="Alice" && !alias.terminator &&
+        full_alias.options[0]==0xf0 && full_alias.options[7]==0x12 &&
+        std::all_of(alias.padding.begin(),alias.padding.end(),[](char c){return c==0;}),
+        "legacy_identity_preserves_utf8_name_full_community_account_and_abi_padding");
+    auto peer=full_alias;peer.handle.padding[0]=73;
+    check(CompareNpId(&full_alias,&peer)==0 && CompareNpId(nullptr,&peer)==kArgument &&
+        CompareNpId(reinterpret_cast<const NpId*>(1),&peer)==kArgument,
+        "legacy_np_id_comparison_uses_bounded_handle_and_ignores_abi_padding");
+    peer.options[0]^=1;
+    check(CompareNpId(&full_alias,&peer)==static_cast<int>(0x80550609u),
+        "legacy_np_id_comparison_includes_account_identity_bytes");
+    const auto legacy_request=CreateRequest();
+    check(LegacyAvailability(legacy_request,nullptr)==kArgument &&
+        LegacyAvailability(legacy_request,reinterpret_cast<const OnlineId*>(1))==kArgument &&
+        LegacyAvailability(legacy_request,&alias)==kOffline && Availability(legacy_request,0x1000)==kOffline &&
+        DeleteRequest(legacy_request)==0,"invalid_or_offline_legacy_lookup_does_not_consume_request");
     AgeRestriction country{{'J', 'P', 0, 0}, 17, {}};
     ContentRestriction content{sizeof(ContentRestriction), 12, {}, 1, &country};
     const auto content_result = SetContentRestriction(&content);

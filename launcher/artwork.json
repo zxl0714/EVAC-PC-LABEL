@@ -42,7 +42,7 @@
       "path": "launcher/assets/sdoj.jpg",
       "sha256": "aa991b87cd5cb21ff891a051439597b88bcece67f69cf6d9ac3baee68372a61e",
       "resource": 106,
-      "focusY": 0.10,
+      "focusY": 0.1,
       "kicker": "XBOX 360 · 2013",
       "sourcePage": "https://www.cave.co.jp/gameonline/saidaioujou/",
       "sourceUrl": "https://www.cave.co.jp/gameonline/saidaioujou/common/img/toponsaleb.jpg",
@@ -96,6 +96,18 @@
       "sourceUrl": "https://m2stg.com/dangun-feveron/assets/img/m2stg_df_social_image.jpg",
       "copyright": "©1998 CAVE Interactive CO., LTD. / ©2017 M2 Co., Ltd.",
       "usage": "Official promotional artwork. Source bytes unchanged; the launcher supplies the crop, gradient and Coming Soon treatment."
+    },
+    {
+      "game": "garegga",
+      "path": "launcher/assets/garegga.jpg",
+      "sha256": "90e0cfef22a29830ab4bd3811443c6e5b2a7533a6c6ed5b603e2d49bc5241d93",
+      "resource": 109,
+      "focusY": 0.8,
+      "kicker": "PS4 · 2016",
+      "sourcePage": "https://m2stg.com/battle-garegga/ps4/",
+      "sourceUrl": "https://m2stg.com/battle-garegga/assets/img/m2stg_bg_social_image.jpg",
+      "copyright": "©1996 EIGHTING / ©2016 M2 Co., Ltd.",
+      "usage": "Official promotional hangar artwork. Source bytes unchanged; the shared launcher crop and gradient frame the gold aircraft and preserve the native Japanese title and English subtitle."
     }
   ]
 }

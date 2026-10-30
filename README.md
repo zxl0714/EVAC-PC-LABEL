@@ -2,9 +2,9 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-将 CAVE 的经典弹幕射击游戏带到 Windows PC。
+将经典弹幕射击游戏带到 Windows PC。
 
-EVAC PC LABEL 是 CAVE 游戏的非官方 PC 移植合集，提供统一启动器、共享配置、存档、录像和社区排行榜。游戏数据按需安装。
+EVAC PC LABEL 是经典射击游戏的非官方 PC 移植合集，提供统一启动器、共享配置、存档、录像和社区排行榜。游戏数据按需安装。
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
@@ -42,13 +42,15 @@ NEO 使用 1080p 合成输出，弹铳的首张响应画面比普通模式提前
 neo = false
 ```
 
-大往生、ESP Ra.De.、弹铳分别使用 `[game.daioujou]`、`[game.esprade]`、`[game.feveron]`。设回 `neo=true` 可重新开启。
+大往生、ESP Ra.De.、弹铳、空战之路分别使用 `[game.daioujou]`、`[game.esprade]`、`[game.feveron]`、`[game.garegga]`。设回 `neo=true` 可重新开启。
+
+空战之路 SUPER EASY 第一关短场景：60.01 FPS，CPU 0.25 核，出帧间隔 P95 17.06 ms。[测量记录](docs/ANALYSIS.md#v083-battle-garegga)。
 
 ## 开始游玩
 
 ### 运行环境
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳、空战之路需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
 
 ### 运行
 
@@ -71,6 +73,7 @@ neo = false
 | エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
 | ぐわんげ | 狱门山／Guwange | Xbox 360 XBLA，58410A78，本体 0.0.0.4 |
 | 弾銃フィーバロン | 弹铳／Dangun Feveron | PS4，美版 CUSA06735，01.00 本体 |
+| バトルガレッガ Rev.2016 | 空战之路／Battle Garegga | PS4，韩版 CUSA10207，01.00 本体 |
 
 ### ISO／PKG／XBLA 怎么解包
 
@@ -95,6 +98,7 @@ neo = false
 | ESP Ra.De. | `game-data/esprade/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | 狱门山 | `game-data/guwange/` | `default.xex`、`module/`、`game_res/`、`res/` 等完整资源 |
 | 弹铳 | `game-data/feveron/` | `eboot.bin`、各 `.prx` 及完整资源 |
+| 空战之路 | `game-data/garegga/` | `eboot.bin`、各 `.prx` 及完整资源 |
 
 只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
 
@@ -136,6 +140,8 @@ ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录
 | 上／North | Y | △ | V |
 
 射击、炸弹、换人等具体动作由各游戏内的按键设置决定。手柄和摇杆通过 SDL 接入，可使用其支持的 XInput、PlayStation 等设备。
+
+空战之路默认：`V` 投币，`Enter` 开始，`C / S` 射击，`Z / A` 武器，`X` 阵型，`Backspace` 暂停菜单。快速存档按游戏模式分别保存。
 
 狱门山的 **Arrange Xbox 360** 自动射击：方向键／左摇杆移动角色，`I / K / J / L`（上／下／左／右）或右摇杆移动式神，`W / RT` 召唤，`X / B` 炸弹。式神方向可在 `[game.guwange.keyboard]` 中通过 `right_stick_up/down/left/right` 调整；其他游戏的键位不受影响。
 

@@ -55,6 +55,8 @@ void NicknameChecks() {
   Require(!launcher::HasNicknameGlyph("ketsui",U'路',"01.00") && launcher::HasNicknameGlyph("ketsui",U'路',"01.02"),"Ketsui base/update glyph differences ignored");
   Require(launcher::HasNicknameGlyph("feveron",U'魚') && !launcher::HasNicknameGlyph("feveron",U'黒') &&
           launcher::HasNicknameGlyph("esprade",U'黒'),"Feveron coverage must not inherit unavailable common glyphs");
+  Require(launcher::HasNicknameGlyph("garegga",U'勲') && !launcher::HasNicknameGlyph("garegga",U'黒'),
+          "Garegga nickname coverage must use its original font metadata");
   const auto feveron_missing=launcher::NicknameIssues(ini,"黒");
   Require(std::any_of(feveron_missing.begin(),feveron_missing.end(),[](const auto& issue){return issue.game->id=="feveron" && issue.missing==U"黒";}),
           "Feveron-specific missing glyph warning omitted");
@@ -498,10 +500,10 @@ int main() {
     const std::array files{DataFile{"main.bin",3,hash,true}, DataFile{"res/asset.bin",3,hash,false}};
     const std::array<std::string_view,1> runtime{"runtime/fake.exe"};
     Game game{"fixture","Fixture","xbox360","game-data/fixture","runtime/fake.exe",true,false,files,runtime};
-    Require(Catalogue().size() == 8 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
+    Require(Catalogue().size() == 9 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
             Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
             Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade" &&
-            Catalogue()[6].id == "guwange" && Catalogue()[7].id == "feveron", "Catalogue order");
+            Catalogue()[6].id == "guwange" && Catalogue()[7].id == "feveron" && Catalogue()[8].id == "garegga", "Catalogue order");
     Require(!FindGame("feveron").coming_soon && FindGame("feveron").integrated &&
             FindGame("feveron").community_supported && FindGame("feveron").runtime_files.size()==3,
             "Feveron offline runtime is integrated; community acceptance remains separate");

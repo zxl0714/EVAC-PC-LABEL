@@ -163,6 +163,23 @@
         "runtime/ps4/KetsuiGpuRuntime.dll",
         "runtime/games/feveron/runtime-manifest.ini"
       ]
+    },
+    {
+      "id": "garegga",
+      "name": "Battle Garegga Rev.2016",
+      "nameJapanese": "バトルガレッガ Rev.2016",
+      "backend": "ps4",
+      "integrated": true,
+      "comingSoon": false,
+      "communitySupported": true,
+      "dataDirectory": "game-data/garegga",
+      "dataManifest": "garegga/data.json",
+      "executable": "runtime/ps4/garegga.exe",
+      "runtimeFiles": [
+        "runtime/ps4/garegga.exe",
+        "runtime/ps4/KetsuiGpuRuntime.dll",
+        "runtime/games/garegga/runtime-manifest.ini"
+      ]
     }
   ]
 }
