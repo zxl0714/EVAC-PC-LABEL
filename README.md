@@ -35,7 +35,14 @@ PS4 代表场景对比：
 
 移植版默认启用 NEO（PS4 Pro）模式与低延迟呈现；shadPS4 v0.20.0 为普通模式、默认 FIFO。延迟估算包含平均采样等待与同机呈现预算，CPU 为第一关短场景的实测等效核数。[比较方法与数据](docs/ANALYSIS.md#v082-neo-对照)。
 
-NEO 使用 1080p 合成输出，弹铳的首张响应画面比普通模式提前约一帧。另三作的同场景延迟基本不变，GPU 开销略增。可在 `user-data/config.ini` 对应的 `[game.ketsui]`、`[game.daioujou]`、`[game.esprade]` 或 `[game.feveron]` 下设置 `neo=false`，重启游戏后生效。
+NEO 使用 1080p 合成输出，弹铳的首张响应画面比普通模式提前约一帧。另三作的同场景延迟基本不变，GPU 开销略增。关闭 NEO：打开启动器底部“配置文件”，在 `user-data/config.ini` 已有的对应游戏段落中添加或修改 `neo=false`，然后重启游戏。例如关闭绊地狱：
+
+```ini
+[game.ketsui]
+neo = false
+```
+
+大往生、ESP Ra.De.、弹铳分别使用 `[game.daioujou]`、`[game.esprade]`、`[game.feveron]`。设回 `neo=true` 可重新开启。
 
 ## 开始游玩
 

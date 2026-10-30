@@ -23,9 +23,12 @@ PS4 代表场景对比：
 移植版默认 NEO（PS4 Pro）与低延迟呈现，shadPS4 v0.20.0 为普通模式／FIFO。
 延迟估算包含采样等待和呈现后段，CPU 为等效逻辑核数。方法与数据见上方链接。
 
-NEO 默认使用 1080p 合成输出，弹铳响应提前约一帧。要使用普通模式，在
-[game.ketsui]、[game.daioujou]、[game.esprade] 或 [game.feveron] 下设置
-neo=false，重启游戏后生效。
+NEO 默认使用 1080p 合成输出，弹铳响应提前约一帧。关闭时点击启动器底部
+“配置文件”，在 user-data/config.ini 已有的游戏段落中添加或修改：
+  [game.ketsui]
+  neo = false
+重启游戏后生效。大往生／ESP Ra.De.／弹铳分别使用 [game.daioujou]／
+[game.esprade]／[game.feveron]；设回 neo=true 可重新开启。
 
 开始游玩 ---------------------------------------------------------------------
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。备用入口为 Launch.bat。
@@ -162,8 +165,12 @@ shadPS4 v0.20.0 uses ordinary mode and default FIFO. Latency estimates include s
 presentation. CPU is measured in equivalent logical cores. Method linked above.
 
 NEO uses 1080p composition and brings Feveron's response forward by about one
-frame. Set neo=false under [game.ketsui], [game.daioujou], [game.esprade] or
-[game.feveron] and restart the game for ordinary mode.
+frame. To disable it, click Config in the launcher and add or change this in
+the game's existing section in user-data/config.ini:
+  [game.ketsui]
+  neo = false
+Restart the game to apply. For DaiOuJou / ESP Ra.De. / Feveron use
+[game.daioujou] / [game.esprade] / [game.feveron]. Set neo=true to enable again.
 
 To update, close games and launcher, extract over the existing folder, and keep
 user-data/.

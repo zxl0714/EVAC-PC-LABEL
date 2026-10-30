@@ -35,7 +35,14 @@ Representative PS4 scenes:
 
 The ports default to NEO (PS4 Pro) mode with low-latency presentation; shadPS4 v0.20.0 uses ordinary mode and default FIFO. Latency estimates include average sampling wait and the same-PC presentation budget. CPU figures are measured equivalent cores from short Stage 1 scenes. [Method and data (Chinese)](docs/ANALYSIS.md#v082-neo-对照).
 
-NEO uses 1080p composition and brings Dangun Feveron's first response forward by about one frame. Matched-scene latency is essentially unchanged in the other three games, with slightly higher GPU cost. Set `neo=false` under `[game.ketsui]`, `[game.daioujou]`, `[game.esprade]` or `[game.feveron]` in `user-data/config.ini` and restart the game to use ordinary mode.
+NEO uses 1080p composition and brings Dangun Feveron's first response forward by about one frame. Matched-scene latency is essentially unchanged in the other three games, with slightly higher GPU cost. To disable NEO, click **Config** at the bottom of the launcher and add or change `neo=false` in the game's existing section in `user-data/config.ini`, then restart the game. For Ketsui:
+
+```ini
+[game.ketsui]
+neo = false
+```
+
+Use `[game.daioujou]`, `[game.esprade]` or `[game.feveron]` for DaiOuJou, ESP Ra.De. or Dangun Feveron. Set `neo=true` to enable it again.
 
 ## Getting started
 

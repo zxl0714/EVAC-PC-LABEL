@@ -6,11 +6,29 @@
 - PS4 四作默认启用 NEO（PS4 Pro）模式与 1080p 合成输出，可在配置中切回普通模式。
 - 弹铳首张响应画面提前约一帧，按相同呈现预算估算的总延迟约为 19 ms。
 
+关闭 NEO：打开 `user-data/config.ini`，在已有的对应游戏段落中设置 `neo=false`，重启游戏生效。例如绊地狱：
+
+```ini
+[game.ketsui]
+neo = false
+```
+
+其余三作的段落为 `[game.daioujou]`、`[game.esprade]`、`[game.feveron]`。
+
 ### English
 
 - Added 2560×1440 and 3840×2160 window resolution options to the launcher.
 - Enabled NEO (PS4 Pro) mode and 1080p composition by default for all four PS4 games, with an ordinary-mode option in the configuration.
 - Brought Dangun Feveron's first response forward by about one frame, for an estimated total latency of 19 ms under the same presentation budget.
+
+To disable NEO, set `neo=false` in the game's existing section in `user-data/config.ini`, then restart the game. For Ketsui:
+
+```ini
+[game.ketsui]
+neo = false
+```
+
+Use `[game.daioujou]`, `[game.esprade]` or `[game.feveron]` for the other three games.
 
 ## v0.8.1
 

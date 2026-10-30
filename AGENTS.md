@@ -5,6 +5,22 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
+ACTIVE October31: user authorized formal v0.8.2 release after quick picture
+comparison, plus explicit NEO disable examples in release notes/readmes.
+Ketsui comparison done: same quickslot01 and requested1920x1080; CUA screenshots
+1283x751, ordinary and NEO. Sidebar text/lines clearer in NEO, arcadeassets
+no new detail, no obvious corruption. Frames not synchronized. Evidence
+.local/v082/visual-comparison-r1/report.json plus twoJPEGs and comparisonPNG.
+Both testgames closed. User restored installedEXE; hash matches7c5d48d and
+Defender reports IsActive=false. No agent security-setting changes. Suspected
+false-positive tracking remains; user explicitly authorizes publication after
+seeing this diagnosis. Do not claim globally resolved AV detection.
+Finish docs-only candidate rebuild/cert/package, oneextraction, push+tag and
+GitHub formal Latest release with ZIP/checksum, verify publicmetadata.
+Browser fix: reset cua_repl, then getTab by URL with browser=iab works. Do not
+use nativeChrome: URL policy stopped prior turn. IAB tab1 loggedin/newrelease.
+
+
 October30 player-exit triage: current v0.8.2 Ketsui process38576 was terminated
 and quarantined by Defender at23:35:21 CST, events1116/1117 Bearfoos.A!ml.
 ExactPID+creationtime match run; recordedEXE SHA d3ced03500efa4befb9964000b2537e83d6fc8fbb87a1c3c6f3e860121ade977
@@ -13,8 +29,8 @@ installed ketsui.exe removed and development copy now AV-blocked on read.
 Suspected false positive, not established malware-free by hash alone. Evidence
 .local/v082/ketsui-defender-20261030-r1/report.json plus copied run/Defender XML.
 No security settings changed, no quarantine restore, no new build/package.
-Resolve this distribution/Defender issue before treating this candidate as
-ready for publication. This report does not establish a NEO/game-engine crash.
+This report does not establish a NEO/game-engine crash; see October31 user
+release authorization and current local status above.
 
 COMPLETE October30 resolution follow-up: v0.8.2 now includes2560x1440 and
 3840x2160 presets (fullscreen+720p/900p/1080p/1440p/4K). Same-source build,
