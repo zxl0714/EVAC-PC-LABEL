@@ -5,13 +5,22 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
-ACTIVE October30 follow-up: user requested adding 2560x1440 and 3840x2160
-launcher presets to v0.8.2 and repackaging. Existing tests iterate all presets
-for persistence/reopen/physical window fit; run those, no gameplay retest.
-Preserve the first ZIP; create a fresh local candidate. No publication/push.
+COMPLETE October30 resolution follow-up: v0.8.2 now includes2560x1440 and
+3840x2160 presets (fullscreen+720p/900p/1080p/1440p/4K). Same-source build,
+all8runtime certificates+launcher at7c5d48df320bc56468b21a438aaa0021f605f7b4.
+Latest ZIP releases/v0.8.2-local-7c5d48d/EVAC-PC-LABEL-v0.8.2-win-x64.zip,
+110919487bytes,SHA7537c63c270aafd535e3daa3798d45a89a02c066256dc3f9780dffeddd0f2b4f.
+One extraction162files/9preservation categories accepted; receipt under
+.local/release-acceptance-v082/7537c63c270aafd5/accepted.json. Delivery
+.local/v082/delivery-presets-r1.json. Common689,launch153,preview3languages,
+nativeconfig22,hiddenlauncherUI pass; preset persistence/reopen and physical
+window fitting covered. No game/replay remeasurement needed for this change.
+BilingualREADME/playerguide/notes updated. EarlierZIP below preserved; use THIS
+latestpackage. No push/upload/tag/publication. Closingcheckpoint docs-only,
+do not rebuild/repack merely for this checkpoint.
 
 
-COMPLETE October30: v0.8.2 implemented and local program package accepted.
+Previous v0.8.2 candidate (before resolution presets):
 Stop before publication. No push/upload/tag/release requested or performed.
 Source/build/package commit e4d4c962321c360bc133ae76eb6deada716238ab.
 NEO defaults true for all4PS4 games, per-game neo=false opt-out. Full 1080p
