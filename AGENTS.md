@@ -5,20 +5,31 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
-ACTIVE October31: user authorized formal v0.8.2 release after quick picture
-comparison, plus explicit NEO disable examples in release notes/readmes.
-Ketsui comparison done: same quickslot01 and requested1920x1080; CUA screenshots
-1283x751, ordinary and NEO. Sidebar text/lines clearer in NEO, arcadeassets
-no new detail, no obvious corruption. Frames not synchronized. Evidence
-.local/v082/visual-comparison-r1/report.json plus twoJPEGs and comparisonPNG.
-Both testgames closed. User restored installedEXE; hash matches7c5d48d and
-Defender reports IsActive=false. No agent security-setting changes. Suspected
-false-positive tracking remains; user explicitly authorizes publication after
-seeing this diagnosis. Do not claim globally resolved AV detection.
-Finish docs-only candidate rebuild/cert/package, oneextraction, push+tag and
-GitHub formal Latest release with ZIP/checksum, verify publicmetadata.
-Browser fix: reset cua_repl, then getTab by URL with browser=iab works. Do not
-use nativeChrome: URL policy stopped prior turn. IAB tab1 loggedin/newrelease.
+COMPLETE October31 01:13 CST: v0.8.2 formally published as GitHub Latest.
+Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.2,
+ID429293623. main and annotated tag pushed; tag/source/build/package commit
+607e4546b5e5edbe74c58eb4e998fc387d9f6361. Final program ZIP
+releases/v0.8.2-final-607e454/EVAC-PC-LABEL-v0.8.2-win-x64.zip,
+110919598bytes, SHA601b01d85003e9abb996cd2590f7922f63d03199b16b27662c3863da59431025.
+One actual extraction162files/9preservation categories passed. Local private
+acceptance initially matched neo=false literally; guide uses neo = false.
+Corrected whitespace check and verified SAME extracted tree; no re-extraction.
+Receipt .local/release-acceptance-v082/601b01d85003e9ab/accepted.json.
+Public API verifies Latest/non-draft/non-prerelease, both asset sizes/digests,
+full bilingual notes and downloaded100byte checksum. No ZIP redownload.
+Delivery .local/v082-github-delivery-r1.json; screenshot
+.local/v082-release-published.jpg. No OSS/internal-ROM/group announcement.
+README, packaged bilingual guide and release notes explain per-game neo=false
+in user-data/config.ini plus restart. Ketsui quick visual comparison: same
+quickslot01, requested1920x1080, captures1283x751; NEO sidebar text/lines clearer,
+no obvious corruption, arcade pixels no new detail; frames not synchronized.
+Evidence .local/v082/visual-comparison-r1/. Both testgames closed.
+User restored installed EXE; hash matches7c5d48d, Defender IsActive=false.
+No agent security-setting changes; do not claim globally resolved AV detection.
+User explicitly authorized publication after diagnosis. This closing checkpoint
+is docs-only: do not rebuild/repack or move frozen release tag.
+IAB browser works; nativeChrome URL policy stopped a prior turn. Upload actual
+fileinput did not open chooser; visible Attach binaries button worked.
 
 
 October30 player-exit triage: current v0.8.2 Ketsui process38576 was terminated
