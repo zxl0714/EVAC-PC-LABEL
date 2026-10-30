@@ -22,8 +22,9 @@ struct DisplaySelection {
     unsigned width{1280}, height{720};
     bool operator==(const DisplaySelection&) const = default;
 };
-inline constexpr std::array<DisplaySelection,3> kWindowSelections{{
-    {false,1280,720},{false,1600,900},{false,1920,1080}}};
+inline constexpr std::array<DisplaySelection,5> kWindowSelections{{
+    {false,1280,720},{false,1600,900},{false,1920,1080},
+    {false,2560,1440},{false,3840,2160}}};
 struct Settings {
     bool fullscreen{}, vsync{}, gamepad_enabled{true}, community_enabled{true};
     unsigned window_width{1280}, window_height{720};

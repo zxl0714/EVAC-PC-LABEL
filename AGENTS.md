@@ -5,6 +5,12 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
+ACTIVE October30 follow-up: user requested adding 2560x1440 and 3840x2160
+launcher presets to v0.8.2 and repackaging. Existing tests iterate all presets
+for persistence/reopen/physical window fit; run those, no gameplay retest.
+Preserve the first ZIP; create a fresh local candidate. No publication/push.
+
+
 COMPLETE October30: v0.8.2 implemented and local program package accepted.
 Stop before publication. No push/upload/tag/release requested or performed.
 Source/build/package commit e4d4c962321c360bc133ae76eb6deada716238ab.

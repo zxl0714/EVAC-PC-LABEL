@@ -2,11 +2,13 @@
 
 ## v0.8.2
 
+- 启动器新增 2560×1440 和 3840×2160 窗口分辨率选项。
 - PS4 四作默认启用 NEO（PS4 Pro）模式与 1080p 合成输出，可在配置中切回普通模式。
 - 弹铳首张响应画面提前约一帧，按相同呈现预算估算的总延迟约为 19 ms。
 
 ### English
 
+- Added 2560×1440 and 3840×2160 window resolution options to the launcher.
 - Enabled NEO (PS4 Pro) mode and 1080p composition by default for all four PS4 games, with an ordinary-mode option in the configuration.
 - Brought Dangun Feveron's first response forward by about one frame, for an estimated total latency of 19 ms under the same presentation budget.
 

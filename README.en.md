@@ -115,7 +115,7 @@ See the [game data guide](docs/GAME_DATA.en.md) for other games' folder examples
 
 ## Settings and controls
 
-Choose fullscreen or a window resolution above the launch button; the launcher remembers your selection. Edit your leaderboard nickname at the top right. Select `CN / EN / JP` to change the launcher's language. If a game cannot display characters in your nickname, saving shows the affected games and the names passed to them. In-game languages depend on the original game.
+Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×2160 window above the launch button; the launcher remembers your selection. Edit your leaderboard nickname at the top right. Select `CN / EN / JP` to change the launcher's language. If a game cannot display characters in your nickname, saving shows the affected games and the names passed to them. In-game languages depend on the original game.
 
 The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](config/default.ini) for available options.
 

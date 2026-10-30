@@ -86,7 +86,8 @@ G2 在 [game.espgaluda2] 默认使用 frame_delay=1 低延迟路径；设为 2 �
 
 配置与操作 -------------------------------------------------------------------
 右上角 CN / EN / JP 切换启动器语言，页头修改排行榜昵称。启动按钮上方的
-下拉框选择全屏或窗口大小，重启后保留选择。底部“配置文件”打开
+下拉框选择全屏或 720p／900p／1080p／1440p／4K 窗口大小，重启后保留选择。
+底部“配置文件”打开
 user-data/config.ini，修改后点“刷新”并重启游戏。
 备份或换目录时保留整个 user-data/，其中包含配置、存档和录像。
 昵称含游戏字库不支持的字时，保存前会显示受影响游戏与实际传入的名字。
@@ -210,7 +211,8 @@ Keep the entire user-data/ folder when backing up or moving the collection.
 It contains config.ini, saves and replays. Config opens the shared INI; click
 Refresh after external edits and restart the game. CN / EN / JP changes the
 launcher language. Set your nickname in the header and choose Fullscreen or a
-window size above Launch game. Your display selection is remembered.
+720p / 900p / 1080p / 1440p / 4K window above Launch game. Your display
+selection is remembered.
 Unsupported nickname characters trigger a warning before saving.
 The launcher checks stable GitHub releases in the background and automatically
 announces each new version once, never during gameplay. Open the release page
