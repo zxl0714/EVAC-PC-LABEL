@@ -7,6 +7,7 @@
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
 #include "launcher/nickname.h"
+#include "launcher/data_state.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -535,6 +536,16 @@ int main() {
     Require(FindGame("espgaluda2").files.size() == 155, "G2 complete inventory");
     auto inspect = [&](CheckLevel level = CheckLevel::Full) { return Inspect(game, fixture.root, fixture.data, level); };
     Require(inspect().state == "missing_data", "Empty data state");
+    Require(cave::launcher::MissingGameData(inspect()),"Missing game data is dimmed");
+    {
+      Inspection pending;pending.state="checking";pending.data_state=DataState::Missing;
+      Require(!cave::launcher::MissingGameData(pending),"Pending inspection must not flash as missing data");
+      for(const auto state:{DataState::Unverified,DataState::Verified,DataState::Incomplete,
+                            DataState::Unsupported,DataState::Nested,DataState::Invalid}) {
+        Inspection present;present.state="missing_runtime";present.data_state=state;
+        Require(!cave::launcher::MissingGameData(present),"Data status is independent of missing runtime and optional content");
+      }
+    }
     Write(fixture.data / "main.bin");
     Require(Sha256(fixture.data / "main.bin") == hash, "SHA-256 known vector");
     Require(inspect().state == "incomplete_data", "Missing resource state");

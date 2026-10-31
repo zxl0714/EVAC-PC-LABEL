@@ -5,6 +5,109 @@ E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
 ## Current objective
 
+PAUSED November1 at the user's request: v0.9.0 development and its persistent
+goal. Current task is investigating new author logs on DaiOuJou issue6; do not
+continue PS2/UI implementation until the user resumes it. Existing
+releases and original data stay intact. Eight PS2 source dependencies locked in
+tools/ps2-source.lock.json and restored independently under .deps/ps2. Build-Ps2
+uses Get-CollectionTool/VS2022, clang-cl23.1.3/CMake4.2.3/Ninja1.11.0, two jobs
+BelowNormal; tools and initial runtime/IOP/raylib libraries compile without ROM.
+No upstream AVX2/fast-math/native-CPU flags; actual compile_commands checked.
+This is not yet a playable or certified PS2 port.
+
+User supplied correct ZIPs; verified/read-only ISOs now E:/Game-Share/roms/
+Espgaluda (Japan).iso (4073586688bytes, SLPS-25352, boot SHAff8eaac6...0510055)
+and Ibara (Japan).iso (3932848128bytes, SLPM-66301, boot SHA263d3079...812ffac).
+Original Downloads ZIPs preserved. Simoun - Ibara Sensou is WRONG title; ignored.
+Canceled redundant Ibara network transfer; do not restart it. Developer ISO
+inventory/extraction scripts/ps2_disc.py has six authored-input tests passing.
+Inputs, ELF, maps and generated bodies remain ignored in .local/v090.
+
+ESPGaluda heuristic generation r1 was invalid (16760 errors; RWX flattened ELF
+made data look like code). Ghidra12.1.4 + EmotionEngineReloaded2.1.39 correct
+language is r5900:LE:32:default. Export via pinned upstream Java script produced
+2542 functions plus36924 executable labels; .local/v090/espgaluda/functions.csv.
+Validated codegen-r2.json: 39466 functions, 51 stubs, zero unhandled/decode/errors;
+601 indirect fallbacks still need actual testing. New ps2_codegen.py rejects the
+upstream CLI's false-success exit0 when its report contains translation errors.
+Fixed VCALLMSR emitter in licensed third_party/ps2/recomp source: CMSAR0 is VU
+control register27, not vi[27]. Actual emitted-code contract compiles/runs with
+array-bounds errors enabled. Fresh full output-r2 differs in exactly one body;
+the regenerated file was copied to stable ghidra-output-r1 for incremental build.
+Never hand-edit generated bodies. Delta hashes recorded in codegen-delta-r2.json.
+Development host backends/ps2/probe_main.cpp/-ProbeGenerated links all original
+EE functions and sets missing-function policy Stop; not player integration.
+SDK binding adapter preserves caller PC before yielding; native ABI regression
+passes. ESPGaluda binds183 implemented SDK handlers and single-layer CD search;
+19 upstream TODO handlers retain original statically recompiled bodies.
+Real boot now loads11 IOP modules and reaches a black-screen file-read wait in
+FUN_00125cc0, polling FUN_0027f310 for status3 (PC126280/126780). No menu/stage1
+yet. play-r7 closed normally; build-r10/play-r8 adds optional read-only EE-side
+observers and synchronized IOP snapshots. Inspect current process/logs first.
+Disc-root is an independent development cache, not the eventual player layout.
+Private Ghidra project cache/ps2-analysis/ghidra/ESPGaluda; Ghidra disallows .local
+in PROJECT paths. Project-local install tools/apps/ghidra-12.1.4, added checked
+extension only there; original E:/Tools installation untouched. Development Java
+currently uses existing E:/Tools JDK21 (not a game build compiler/dependency).
+
+Missing-data greying implemented in existing banner renderer with cached colour
+and grey bitmaps. InspectRows checks every base game on its existing worker;
+optional content only for selection. Pending inspections do not dim. 704 common
+checks, 6 disc/4 codegen/5 dependency Python tests, 2 native PS2 CTests,
+CN/EN/JP previews and 4459 hidden launcher
+checks pass. One initial launcher instance timing failure preserved in r1; r2
+passes incl actual greyscale pixels/cache and production interaction paths.
+Root launcher NOT replaced (-SkipLauncherStage). New covers UI/config still only
+planned; do not advertise or enable it publicly.
+
+November1 launcher requirement for v0.9.0: redesign a traditional cover-grid UI
+for the growing library, prioritizing simple browsing, selection and launch.
+Plan docs/LAUNCHER_COVERS_PLAN.md; proposed [collection].launcher_layout values
+banner (existing default) / covers (internal opt-in). Share config/data/launch
+logic, retain missing-data greying and selection, self-review design and test
+internally before any public UI rollout. No current UI/config implementation.
+User reference copied privately to .local/v090/ui/launcher-cover-grid-reference.png.
+
+November1 issue6 FOLLOW-UP investigated: author ZIP34223001 now includes stdout.
+DaiOuJou base100 illegal instruction C000001D at eboot+1fb415 is BMI1 BEXTR
+ecx,[rdi],eax; EAX408 selects start8/length4. Actual original SHA8256abd9... matches
+log identity and instruction bytes. No BMI instruction fallback exists in ProbeFault.
+Most likely missing host BMI1; CPUID is absent, so do not invent exact CPU/model or
+assume all eight-logical-processor CPUs are affected. v083 binary/data identities
+and GTX1080Ti Vulkan startup still valid. Base100/update104 mains each contain465
+BEXTR/107ANDN; Ketsui/ESP main also use BMI1. Presence is not executed coverage;
+other inputs/modules still need scoped audit. Plan shared CPU compatibility plus
+ROM-free semantics tests and forced-path short game regressions in v0.8.4.
+User requested investigation first; no runtime fix/build/release/new issue reply
+yet. Evidence .local/issues/6/followup-r1, SHA/instruction audit and complete logs
+private. Earlier comment posted/verified, issue remains open. v0.9.0 is paused.
+
+October31: user requested planning v0.9.0: shared PS2 runtime, then PS2 ESPGaluda
+and Ibara. Planning saved in docs/PS2_RUNTIME_PLAN.md and the top of
+docs/IMPLEMENTATION_PLAN.md. Also plan grey launcher cards for ALL games lacking
+data; keep cards selectable and data import available. Resolve readiness from the
+selected data source, not integration status or optional DLC. No runtime/code/catalogue/version/build changes in
+this planning turn. Start with actual ISO/ELF/IOP/VU inventory and a first-game
+static-recompilation proof; upstream PS2Recomp/native-runtime candidates remain
+experimental and game-specific. Keep current PS4/360 and frozen releases intact.
+No subagents. Never open Task Manager.
+
+November1 planning addition: audit DLC activation across existing games. Directly
+enable content already fully present in base data and gated only by entitlement
+or unlock flags. Reuse existing automatic package extraction for external assets;
+Futari raw STFS extraction already exists. Investigate key-only unlock dependencies,
+keep original progression unlocks, and keep optional DLC independent of card greying.
+
+November1 toolchain requirement: PS2 tools, runtime, dependencies and generated
+game C++ MUST build with the SAME project-locked LLVM/CMake/Ninja and existing
+VS2022/Windows SDK environment. Use current Prepare/Build/Test/Package entrypoints,
+Get-CollectionTool and build certification. clang++/clang-cl driver differences
+within the same LLVM package are fine; no independent compiler installation,
+external project build or PATH fallback. Adapt upstream compatibility here and
+verify fresh-checkout native-only and supplied-ROM game build paths.
+
+## Last completed release
+
 COMPLETE October31 07:14 CST: v0.8.3 Battle Garegga Rev.2016 formally published
 as GitHub Latest. Release ID429571675:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.3

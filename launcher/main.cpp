@@ -7,6 +7,7 @@
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
 #include "launcher/preferences.h"
+#include "launcher/data_state.h"
 #include "launcher/nickname.h"
 #include "launcher/single_instance.h"
 #include "launcher/update_check.h"
@@ -189,14 +190,16 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
   }
   try {
     const auto ini=Ini::Load(ConfigPath(root));
-    {
-      const auto index=selected;
+    // Inspect once on the existing worker, selected title first. Every card
+    // needs a real base-data result; repaint/scroll never touch the filesystem.
+    for(size_t step=0;step<rows.size();++step) {
+      const auto index=step==0?selected:(step<=selected?step-1:step);
       const auto& game=Catalogue()[index];
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
         rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick);
         const auto content=ini.ContentDirectory(game,rows[index].inspection.data_dir);
-        if(!game.content.empty()) {
+        if(index==selected && !game.content.empty()) {
           rows[index].content_source=content.empty()?fs::path{}:Resolve(root,content);
           rows[index].content=InspectContent(game,rows[index].content_source,CheckLevel::Quick);
         }
@@ -312,10 +315,11 @@ class Renderer {
     const auto rounded=D2D1::RoundedRect(rectangle,8,8);target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
-  ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index) {
+  ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false) {
     SelectTarget(target);
-    if (bitmaps[index]) return bitmaps[index].Get();
-    bitmaps[index]=DecodeImage(target,cave::launcher::kArtwork[index].resource);return bitmaps[index].Get();
+    auto& bitmap=grey?grey_bitmaps[index]:bitmaps[index];
+    if(!bitmap)bitmap=DecodeImage(target,cave::launcher::kArtwork[index].resource,grey);
+    return bitmap.Get();
   }
   ID2D1Bitmap* Logo(ID2D1RenderTarget* target) {
     SelectTarget(target);
@@ -325,10 +329,11 @@ class Renderer {
   void SelectTarget(ID2D1RenderTarget* target) {
     if(last_target!=target) {
       for(auto& bitmap:bitmaps)bitmap.Reset();
+      for(auto& bitmap:grey_bitmaps)bitmap.Reset();
       logo.Reset();last_target=target;
     }
   }
-  ComPtr<ID2D1Bitmap> DecodeImage(ID2D1RenderTarget* target,unsigned identity) {
+  ComPtr<ID2D1Bitmap> DecodeImage(ID2D1RenderTarget* target,unsigned identity,bool grey=false) {
     const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(identity),RT_RCDATA);
     if (!resource) throw std::runtime_error("Missing embedded banner resource");
     const auto bytes=SizeofResource(nullptr,resource);auto data=LockResource(LoadResource(nullptr,resource));
@@ -342,7 +347,18 @@ class Renderer {
     ComPtr<IWICFormatConverter> converter;Check(wic->CreateFormatConverter(&converter),"Create artwork converter");
     Check(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom),"Convert banner");
     ComPtr<ID2D1Bitmap> bitmap;
-    Check(target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&bitmap),"Upload artwork");return bitmap;
+    if(grey) {
+      const auto stride=width*4;
+      std::vector<BYTE> pixels(size_t(stride)*height);
+      Check(converter->CopyPixels(nullptr,stride,UINT(pixels.size()),pixels.data()),"Read artwork pixels");
+      for(size_t offset=0;offset<pixels.size();offset+=4) {
+        const auto luminance=BYTE((29*unsigned(pixels[offset])+150*unsigned(pixels[offset+1])+77*unsigned(pixels[offset+2])+128)>>8);
+        pixels[offset]=pixels[offset+1]=pixels[offset+2]=luminance;
+      }
+      const auto properties=D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_PREMULTIPLIED));
+      Check(target->CreateBitmap({width,height},pixels.data(),stride,properties,&bitmap),"Upload grey artwork");
+    } else Check(target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&bitmap),"Upload artwork");
+    return bitmap;
   }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
@@ -388,7 +404,9 @@ class Renderer {
     for (size_t index=0;index<rows.size();++index) {
       const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
       const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
-      const auto color=soon?0xf6f7f4:0xffffff;
+      const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
+      const bool muted=soon||missing;
+      const auto color=muted?0xf6f7f4:0xffffff;
       ComPtr<ID2D1SolidColorBrush> background,border;
       Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&background),"Create card fill");
       Check(target->CreateSolidColorBrush(D2D1::ColorF(selected==index?0x37644c:(hover==int(index)?0xa0b1a3:0xdee3db)),&border),"Create card border");
@@ -397,14 +415,14 @@ class Renderer {
       target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
       const float art_width=(rectangle.right-rectangle.left)*(layout.narrow()?.61f:.66f);
       const D2D1_RECT_F art{rectangle.right-art_width,rectangle.top,rectangle.right,rectangle.bottom};
-      auto bitmap=Image(target,index);const auto size=bitmap->GetSize();
+      auto bitmap=Image(target,index,muted);const auto size=bitmap->GetSize();
       const bool contain=cave::launcher::kArtwork[index].contain;
       const auto scale=contain?std::min(art_width/size.width,layout.row_height()/size.height):
                                std::max(art_width/size.width,layout.row_height()/size.height);
       const float y=rectangle.top-(size.height*scale-layout.row_height())*cave::launcher::kArtwork[index].focus_y;
       const float art_left=contain?art.right-size.width*scale:art.left;
       target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-      target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:1.f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+      target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:(missing?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
       target->PopAxisAlignedClip();
       const std::array stops{D2D1_GRADIENT_STOP{0,D2D1::ColorF(color,1)},D2D1_GRADIENT_STOP{.14f,D2D1::ColorF(color,.96f)},
           D2D1_GRADIENT_STOP{.35f,D2D1::ColorF(color,.47f)},D2D1_GRADIENT_STOP{.63f,D2D1::ColorF(color,0)},D2D1_GRADIENT_STOP{1,D2D1::ColorF(color,0)}};
@@ -419,8 +437,8 @@ class Renderer {
       Text(target,soon?T(layout.row_height()<100.f?L"敬请期待":L"后续作品"):Wide(cave::launcher::kArtwork[index].kicker),{left,text_top,rectangle.right-16,text_top+14},10,soon?0x9ca59e:0x829087);
       const auto title=Wide(game.DisplayName());
       const auto title_size=layout.narrow()?(title.size()>19?16.f:18.f):(title.size()>24?18.f:20.f);
-      Text(target,title,{left,text_top+16,rectangle.right-16,text_top+43},title_size,soon?0x737e76:0x23312d);
-      Text(target,Wide(game.name),{left,text_top+43,rectangle.right-16,text_top+60},11,soon?0x8c978f:0x748179);
+      Text(target,title,{left,text_top+16,rectangle.right-16,text_top+43},title_size,muted?0x647168:0x23312d);
+      Text(target,Wide(game.name),{left,text_top+43,rectangle.right-16,text_top+60},11,muted?0x8c978f:0x748179);
       if(layout.row_height()>=100.f) {
         const float label_top=text_top+65;
         if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
@@ -452,6 +470,7 @@ class Renderer {
   ComPtr<IDWriteFactory> write;
   std::map<float,ComPtr<IDWriteTextFormat>> formats;
   std::array<ComPtr<ID2D1Bitmap>,cave::launcher::kArtwork.size()> bitmaps;
+  std::array<ComPtr<ID2D1Bitmap>,cave::launcher::kArtwork.size()> grey_bitmaps;
   ComPtr<ID2D1Bitmap> logo;
   ID2D1RenderTarget* last_target{};
 };
