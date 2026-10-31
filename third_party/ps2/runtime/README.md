@@ -29,3 +29,8 @@ continuing. The headless kernel regression exercises this transfer.
 
 CMake stages one complete runtime include tree with the adapted header. Both
 direct and quoted sibling includes therefore use the same class layout.
+
+`ps2_pad.cpp` comes from the same commit's `src/lib/ps2_pad.cpp`. It combines
+keyboard and controller buttons instead of disabling the keyboard whenever
+gamepad 0 is connected. The host-input regression uses authored key/controller
+states and calls the actual pad implementation.

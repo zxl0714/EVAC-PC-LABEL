@@ -85,6 +85,10 @@ add_executable(ps2_module_contract "${COLLECTION_ROOT}/tests/ps2_modules_test.cp
   "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp")
 target_include_directories(ps2_module_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
 add_test(NAME ps2_module_contract COMMAND ps2_module_contract)
+add_executable(ps2_pad_contract "${COLLECTION_ROOT}/tests/ps2_pad_test.cpp"
+  "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp")
+target_include_directories(ps2_pad_contract PRIVATE "${PS2_RUNTIME_INCLUDE}" "${DEPS}/raylib/src")
+add_test(NAME ps2_pad_contract COMMAND ps2_pad_contract)
 
 option(PS2_BUILD_RUNTIME "Compile the initial shared PS2 runtime library" ON)
 if(PS2_BUILD_RUNTIME)
@@ -110,7 +114,7 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/gs/gs_cpu_backend.cpp"
     "${RUNTIME}/src/lib/ps2_iop_host.cpp"
     "${RUNTIME}/src/lib/ps2_memory.cpp"
-    "${RUNTIME}/src/lib/ps2_pad.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"
     "${RUNTIME}/src/lib/ps2_vfs.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
@@ -140,6 +144,7 @@ if(PS2_BUILD_RUNTIME)
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   set(PS2_ARCADE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARCADE module")
   set(PS2_ARRANGE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARRANGE module")
+  set(PS2_STAGE_MODULES_MANIFEST "" CACHE FILEPATH "Private stage module build manifest")
   if(PS2_GAME_GENERATED)
     file(GLOB GENERATED_SOURCES CONFIGURE_DEPENDS "${PS2_GAME_GENERATED}/*.cpp")
     if(NOT EXISTS "${PS2_GAME_GENERATED}/register_functions.cpp")
@@ -189,6 +194,21 @@ if(PS2_BUILD_RUNTIME)
       endforeach()
       target_sources(ps2_espgaluda_probe PRIVATE "${COLLECTION_ROOT}/games/espgaluda/static_modules.cpp")
       target_compile_definitions(ps2_espgaluda_probe PRIVATE EVAC_PS2_ESPGALUDA_MODULES=1)
+      if(PS2_STAGE_MODULES_MANIFEST)
+        set(stageBuildDir "${CMAKE_BINARY_DIR}/espgaluda-stages")
+        execute_process(COMMAND py -3.12 "${COLLECTION_ROOT}/scripts/ps2_module_build.py"
+          "${PS2_STAGE_MODULES_MANIFEST}" --metadata "${COLLECTION_ROOT}/games/espgaluda/modules.json"
+          --output "${stageBuildDir}" RESULT_VARIABLE stageResult
+          OUTPUT_VARIABLE stageOutput ERROR_VARIABLE stageErrors)
+        if(NOT stageResult EQUAL 0)
+          message(FATAL_ERROR "Invalid ESPGaluda stage input: ${stageErrors}")
+        endif()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+          "${PS2_STAGE_MODULES_MANIFEST}" "${COLLECTION_ROOT}/games/espgaluda/modules.json"
+          "${COLLECTION_ROOT}/scripts/ps2_module_build.py"
+          "${COLLECTION_ROOT}/scripts/ps2_translation_units.py")
+        include("${stageBuildDir}/modules.cmake")
+      endif()
     endif()
   endif()
 endif()

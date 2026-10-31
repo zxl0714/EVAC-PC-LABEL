@@ -47,6 +47,10 @@
 PS4 默认键盘映射：方向键移动；Z=Cross、X=Circle、C=Square、V=Triangle、
 Enter=Options、Backspace=Touchpad。**仍以该次配置为准。**
 
+PS2 v0.9 开发宿主的源码绑定不同：方向键／WASD 移动，X／Space=Cross，
+C=Circle，Z=Square，V=Triangle，Enter=Start，Tab=Select；不要按 Esc。
+上游“接手柄就跳过键盘”的分支已改为合并输入；该宿主尚待接入合集配置。
+
 大往生 1.00 初次启动的操作图已确认：Circle=连射、Square=射击、Cross=炸弹、
 Triangle=投币、Options=开始、Touchpad=暂停。菜单确认用 Circle（默认 X）。
 此前投币失败时，日志显示 V 已作为 Triangle 交给 PadRead；不要再猜投币键。

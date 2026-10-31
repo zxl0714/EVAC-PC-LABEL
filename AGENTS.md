@@ -53,7 +53,7 @@ FUN14e930 +five getters. Both analysis+generation complete, zero errors/unknown
 instructions. Outputs arcade-generated-r2 /arrange-generated-r2 underespgaluda;
 receipts arcade-codegen-r2.json andarrange-codegen-r2.json. Symbols suffixov16/17.
 All15other modules analyzed using entrybase+80; stages/module-01..15, generation
-currently running serially (exec90364), see codegen-r1.json per module.
+COMPLETE, zero unknown/decode/error/critical fallbacks; see codegen-r1.json.
 Per-runtime static_modules.* matches original header/id/layout; shared PCs use
 different native tables. Native call dispatch unwinds if loader replaces caller
 bank. Headless same-address/sparse/bad-header/bounds/transfer tests4/4 passed.
@@ -67,8 +67,26 @@ just because CPU usage is low; two jobs are intentional default. Configure took
 199.3sec per pass on~300k source files. Build-Common now validates first cache,
 retries ONLY if flags were reset/mismatched (6 authored guard tests pass).
 New ps2_translation_units.py +2 tests batches input includes without rewriting
-bodies, but is NOT YET WIRED into CMake; current uses native CMakeUnity256.
-Integrate for future graph size reduction without discarding current build.
+bodies; mode16/17 still use native CMakeUnity256 to retain current objects.
+Stage build uses batches via ps2_module_build.py: validated receipts/prepared
+image hashes, separate CRC-bound AutoRegister callback, appended non-Unity glue
+so adding stages doesn't invalidate boot/mode PCH/objects. New Build-Ps2
+-StageModulesManifest points to build-stage1-modules-r1.json (1/9) or
+build-all-modules-r1.json (1..15), under .local/v090/espgaluda.
+All15-stage glue generated/validated at all-stage-build-glue-r1; real CMake
+syntax/graph check .local/v090/cmake-stage-grammar-r1: 4.6s configure/0.3s
+generation, without compiling game code. Existing mode graph199.3s generation.
+139514 ARCADE cpp files batch to545units in4.557s. Three authored stage-builder
+tests pass, plus18 existing PS2Python tests (now21 total).
+IMPORTANT new pad fix: upstream ps2_pad disabled keyboard if gamepad0 connected.
+Local vendor copy merges both; actual implementation with fake raylib states
+passed connected-controller keyboard/combined/release regression. New
+ps2_pad_contract test target. Temporary check built/executed via above grammar
+fixture. Current r16 build started BEFORE pad/CMake-stage changes: once it
+finishes, rebuild with current CMake+pad before doing keyboard CU. No header
+layout change from these additions; keep existing mode/boot objects. Input
+source defaults X=Cross,C=Circle,Z=Square,V=Triangle,Enter=Start,Tab=Select.
+Do not apply PS4's Z/X mapping. SDL/shared config is still pending.
 VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
 .local/v090/analysis/espgaluda-cri-*.c, throughr15. Probe now has bounded
 --frames N and --trace-boot with CreateThread/ReferThreadStatus observers.
