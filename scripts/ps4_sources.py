@@ -13,8 +13,10 @@ def git(path, *args):
                                    stderr=subprocess.PIPE).decode('utf-8').strip()
 
 
-def locked_dependencies(root=ROOT):
-    path = Path(root) / 'tools/ps4-source.lock.json'
+def locked_dependencies(root=ROOT, backend='ps4'):
+    if backend not in ('ps4', 'ps2'):
+        raise ValueError('Unknown dependency backend')
+    path = Path(root) / f'tools/{backend}-source.lock.json'
     reject_link(path)
     lock = json.loads(path.read_text(encoding='utf-8'))
     if lock.get('format') != 1 or not isinstance(lock.get('dependencies'), list) or not lock['dependencies']:
@@ -50,12 +52,12 @@ def verify_checkout(path, item):
         raise ValueError('Dependency has external Git object alternates')
 
 
-def restore(root=ROOT, cache=None, verify_only=False):
+def restore(root=ROOT, cache=None, verify_only=False, backend='ps4'):
     root = Path(root).absolute()
     reject_link(root)
-    dependencies = locked_dependencies(root)
+    dependencies = locked_dependencies(root, backend)
     for item in dependencies:
-        target = root / '.deps/ps4' / item['name']
+        target = root / '.deps' / backend / item['name']
         reject_link(target)
         if target.exists():
             verify_checkout(target, item)
@@ -68,7 +70,7 @@ def restore(root=ROOT, cache=None, verify_only=False):
             # storage, remote, config or working files through a link.
             verify_checkout(seed, item)
         target.parent.mkdir(parents=True, exist_ok=True)
-        print(f'Restoring PS4 {item["name"]} at {item["revision"][:12]}', flush=True)
+        print(f'Restoring {backend.upper()} {item["name"]} at {item["revision"][:12]}', flush=True)
         if seed and seed.exists():
             command = ['git', 'clone', '--no-local', '--no-hardlinks', '--no-checkout', '--depth', '1',
                        '--', str(seed), str(target)]
@@ -80,7 +82,7 @@ def restore(root=ROOT, cache=None, verify_only=False):
         git(target, 'checkout', '--detach', item['revision'])
         git(target, 'remote', 'set-url', 'origin', item['url'])
         verify_checkout(target, item)
-    return dict(verifiedDependencies=len(dependencies), directory='.deps/ps4', gameDataIncluded=False)
+    return dict(verifiedDependencies=len(dependencies), directory=f'.deps/{backend}', gameDataIncluded=False)
 
 
 if __name__ == '__main__':

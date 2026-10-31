@@ -334,7 +334,29 @@ void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickn
   GetExitCodeProcess(process.hProcess,&exit_code);CloseHandle(process.hProcess);
   Require(waited==WAIT_OBJECT_0 && exit_code==0,"Independent process did not read back saved settings");
 }
+void ArtworkStateChecks() {
+  Renderer renderer;
+  ComPtr<IWICBitmap> bitmap;
+  Check(renderer.wic->CreateBitmap(64,64,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create grey artwork fixture");
+  ComPtr<ID2D1RenderTarget> target;
+  Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create grey artwork surface");
+  const auto grey=renderer.Image(target.Get(),0,true);
+  Require(grey==renderer.Image(target.Get(),0,true),"Grey artwork is decoded once per target");
+  Require(grey!=renderer.Image(target.Get(),0,false),"Colour artwork remains available after data import");
+  target->BeginDraw();target->Clear(D2D1::ColorF(0xffffff));
+  target->DrawBitmap(grey,{0,0,64,64});
+  Check(target->EndDraw(),"Render actual grey artwork");
+  std::array<BYTE,64*64*4> pixels{};
+  Check(bitmap->CopyPixels(nullptr,64*4,UINT(pixels.size()),pixels.data()),"Read grey artwork output");
+  unsigned minimum=255,maximum=0;
+  for(size_t index=0;index<pixels.size();index+=4) {
+    Require(pixels[index]==pixels[index+1] && pixels[index+1]==pixels[index+2],"Missing-data artwork must be neutral grey");
+    minimum=std::min(minimum,unsigned(pixels[index]));maximum=std::max(maximum,unsigned(pixels[index]));
+  }
+  Require(maximum-minimum>40,"Grey artwork must preserve image detail");
+}
 void MainChecks() {
+  ArtworkStateChecks();
   const auto module=GetModuleHandleW(nullptr);
   for(const auto size:{16,20,24,32,40,48,64,128,256}) {
     const auto icon=BrandIcon(module,size);ICONINFO info{};

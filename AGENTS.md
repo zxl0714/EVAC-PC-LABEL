@@ -11,10 +11,36 @@ another historical narrative or one-off input script.
 ## Current objective
 
 ACTIVE November1: resume v0.9.0 through packaging, retaining the released v084
-CPU fixes. Merge work/v090-checkpoint (cb1426c884f0ac58727a6e0d377639aa14e27d9a)
-into current source; never reset back to it. Ignored ROMs, PS2 generated files,
+CPU fixes. work/v090-checkpoint (cb1426c884f0ac58727a6e0d377639aa14e27d9a)
+has been merged into work/v090-resume; original checkpoint remains intact. Ignored ROMs, PS2 generated files,
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
+
+PS2 resume point: eight pinned source deps in .deps/ps2; Build-Ps2.ps1 uses
+project LLVM23.1.3/CMake4.2.3/Ninja1.11.0/VS2022, two BelowNormal jobs. No
+AVX2/native/fast-math flags. Development runtime is NOT yet playable/certified.
+Correct read-only ISOs E:/Game-Share/roms/Espgaluda (Japan).iso (SLPS25352,
+4073586688bytes) and Ibara (Japan).iso (SLPM66301,3932848128bytes). Original
+Downloads ZIPs preserved; Simoun is WRONG game. Do not restart ROM downloads.
+ESPGaluda Ghidra12.1.4 +EmotionEngineReloaded2.1.39, r5900:LE:32:default:
+39466 generated functions/51stubs/601indirect fallbacks, zero codegen errors.
+Private generated dir .local/v090/espgaluda/ghidra-output-r1. Never hand-edit
+bodies. VCALLMSR generator already fixed to CMSAR0, not vi[27]. SDK bindings
+preserve returnPC before yielding:183 implemented,19TODO kept original bodies.
+Last real boot loads11IOP modules but waits black in FUN125cc0 for FUN27f310
+status3 (currently2). VBlank callbacks11d530 and280f70 confirmed running;
+IOP ticks/instructions advance. Trace CRI file server task27f728/category5,
+registered by27f798; callback280e48 calls294428 ->2942b8 (0). Do not skip waits.
+Latest private decompilation .local/v090/analysis/espgaluda-cri-*.c, through r9.
+Build out/ps2-tools/bin/ps2_espgaluda_probe.exe; all old probes closed. Inspect
+existing log/CLI controls before running; do not redo codegen or setup from scratch.
+Ghidra project cache/ps2-analysis/ghidra/ESPGaluda (Ghidra rejects .local project
+paths). Project-local tools/apps/ghidra-12.1.4, existing E:/Tools JDK21 only for
+Ghidra. Original tools install untouched. Initial PS2 generation/SDK/VU tests pass.
+Missing-data greying source implemented; common704/hiddenUI4459 and3language
+previews passed before pause. Root launcher is still releasedv084; rebuild only
+into test output until acceptance. Covers UI/config remains PLAN ONLY; default
+banner, proposed [collection].launcher_layout=banner|covers for internal opt-in.
 
 COMPLETE November1 04:22 CST: v0.8.4 formally published as GitHub Latest,
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.4, ID430162415.

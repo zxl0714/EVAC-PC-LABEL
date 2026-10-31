@@ -68,6 +68,19 @@ class Ps4SourceTests(unittest.TestCase):
                 module.restore(collection, seed.parent)
             self.assertFalse((collection / '.deps').exists())
 
+    def test_ps2_restore_uses_its_own_lock_and_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            collection, seed, item = self.fixture(Path(temp))
+            (collection / 'tools/ps2-source.lock.json').write_text(
+                json.dumps(dict(format=1, dependencies=[item])))
+            result = module.restore(collection, seed.parent, backend='ps2')
+            self.assertEqual(result['directory'], '.deps/ps2')
+            self.assertTrue((collection / '.deps/ps2/Fixture/.git').is_dir())
+            self.assertFalse((collection / '.deps/ps4').exists())
+            self.assertEqual(module.restore(collection, verify_only=True, backend='ps2'), result)
+            with self.assertRaisesRegex(ValueError, 'backend'):
+                module.restore(collection, backend='../escape')
+
     def test_current_lock_matches_maintained_component_declarations(self):
         root = Path(__file__).resolve().parents[1]
         locked = {item['name']: item for item in module.locked_dependencies(root)}

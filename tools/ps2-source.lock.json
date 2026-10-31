@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "dependencies": [
+    {"name":"PS2Recomp","revision":"e5636981a1c9de368f6b71e819c3dc188dfedbf4","url":"https://github.com/ran-j/PS2Recomp.git"},
+    {"name":"elfio","revision":"8ae6cec5d60495822ecd57d736f66149da9b1830","url":"https://github.com/serge1/ELFIO.git"},
+    {"name":"toml11","revision":"be08ba2be2a964edcdb3d3e3ea8d100abc26f286","url":"https://github.com/ToruNiina/toml11.git"},
+    {"name":"fmt","revision":"407c905e45ad75fc29bf0f9bb7c5c2fd3475976f","url":"https://github.com/fmtlib/fmt.git"},
+    {"name":"libdwarf","revision":"2e088b983562860f497b4fd789a3e61524eb857c","url":"https://github.com/davea42/libdwarf-code.git"},
+    {"name":"rabbitizer","revision":"d5804fa488474830a47fbf9f3693048ec1e45589","url":"https://github.com/Decompollaborate/rabbitizer.git"},
+    {"name":"nlohmann_json","revision":"9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03","url":"https://github.com/nlohmann/json.git"},
+    {"name":"raylib","revision":"c1ab645ca298a2801097931d1079b10ff7eb9df8","url":"https://github.com/raysan5/raylib.git"}
+  ]
+}
