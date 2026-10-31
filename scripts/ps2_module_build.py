@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+import re
 from ps2_translation_units import make_units, write_changed
 
 
@@ -29,9 +30,11 @@ def prepare(manifest, metadata, output):
             any(summary[key] for key in ('errors','decodeFailures','unhandledInstructions','criticalGuestFallbacks'))):
             raise ValueError('Stage generation does not match original module '+str(number))
         tag=f'{number:02}';prefix=f'g_ps2Stage{tag}FunctionTable'
-        units=make_units(directory,output/f'module-{tag}')
+        roots=re.findall(r'^void (root_[A-Za-z_0-9]+)\(',
+                         (directory/'ps2_recompiled_functions.h').read_text(encoding='utf-8'),re.M)
+        units=make_units(directory,output/f'module-{tag}',symbols=roots)
         configured.append(dict(number=number,tag=tag,prefix=prefix,directory=directory,
-                               units=Path(units['manifest']),module=original))
+                               units=Path(units['manifest']),rootUsers=units['symbolUsers'],module=original))
     if not configured:
         raise ValueError('No stage modules requested')
     output.mkdir(parents=True,exist_ok=True)
@@ -52,6 +55,15 @@ def prepare(manifest, metadata, output):
         cmake+=f'target_precompile_headers({name} PRIVATE "${{PS2_RUNTIME_INCLUDE}}/ps2_runtime.h"\n'
         cmake+=f'  "{item["directory"].as_posix()}/ps2_recompiled_functions.h" "{item["directory"].as_posix()}/ps2_recompiled_stubs.h")\n'
         cmake+=f'target_sources(ps2_espgaluda_probe PRIVATE $<TARGET_OBJECTS:{name}>)\n'
+        # Scope ELF entry symbols in every unit that defines or references them.
+        # Keep untouched body units and their PCH reusable across incremental builds.
+        aliases={}
+        for symbol,users in item['rootUsers'].items():
+            for unit in users:
+                aliases.setdefault(unit,[]).append(f'{symbol}=espgaluda_stage_{item["tag"]}_{symbol}')
+        for unit,definitions in sorted(aliases.items()):
+            cmake+=f'set_source_files_properties("{Path(unit).as_posix()}" PROPERTIES\n'
+            cmake+='  COMPILE_DEFINITIONS "'+';'.join(sorted(definitions))+'" SKIP_PRECOMPILE_HEADERS ON)\n'
         cmake+=f'set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "{item["directory"].as_posix()}/register_functions.cpp"\n'
         cmake+=f'  "{item["directory"].as_posix()}/ps2_recompiled_functions.h")\n'
         cpp+=f'extern const uint32_t {prefix}Base;\nextern const uint32_t {prefix}SlotCount;\n'

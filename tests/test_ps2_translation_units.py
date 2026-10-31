@@ -41,6 +41,20 @@ class Ps2TranslationUnitTests(unittest.TestCase):
             with self.assertRaises(ValueError):make_units(source,source)
             with self.assertRaises(ValueError):make_units(source,source/'units',0)
 
+    def test_entry_references_found_outside_definition_batch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'generated';source.mkdir()
+            bodies={'a.cpp':'void root_same() {}',
+                    'b.cpp':'void call() { root_same(); }',
+                    'c.cpp':'void root_same_other() {}',
+                    'register_functions.cpp':'auto entry = &root_same;'}
+            for name,text in bodies.items():(source/name).write_text(text)
+            (source/'ps2_recompiled_functions.h').write_text('void root_same();')
+            result=make_units(source,root/'units',1,symbols=['root_same'])
+            users=[Path(p).name for p in result['symbolUsers']['root_same']]
+            self.assertEqual(users,['batch_0000.cpp','batch_0001.cpp','batch_0003.cpp'])
+            self.assertEqual({p.name:p.read_text() for p in source.glob('*.cpp')},bodies)
+
 
 if __name__ == '__main__':
     unittest.main()

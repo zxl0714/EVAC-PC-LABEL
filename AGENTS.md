@@ -67,8 +67,11 @@ outside-unit references in all466 ARRANGE objects; evidence
 .local/v090/espgaluda/arrange-root-references-r1.json. New analysis images scope
 roots by module id; current legacy outputs use source-specific compiler aliases
 for the five getters and registration table, retaining the other objects.
-Current incremental build r17, log .local/v090/ps2-build-r17.log, adds this fix,
-the pad fix and stage1 banks1/9. Before starting another build, inspect its process
+Incremental r17 compiled both stage1 banks, then caught their shared entry
+root_00649880 at link. Stage builder now aliases every unit that defines OR
+references a root, including registration; untouched body objects stay cached.
+Current build r18, exec80745, log .local/v090/ps2-build-r18.log, compiles only
+the affected stage batches and relinks. Before another build, inspect its process
 and log. Latest game remains closedr12; no menu/stage acceptance yet. Two
 BelowNormal jobs are intentional. Configure took
 199.3sec per pass on~300k source files. Build-Common now validates first cache,
@@ -89,11 +92,21 @@ IMPORTANT new pad fix: upstream ps2_pad disabled keyboard if gamepad0 connected.
 Local vendor copy merges both; actual implementation with fake raylib states
 passed connected-controller keyboard/combined/release regression. New
 ps2_pad_contract test target. Temporary check built/executed via above grammar
-fixture. Current r17 includes pad/CMake-stage changes; wait for its actual link
-and five CTests before keyboard CU. No header layout change from these additions;
+fixture. All five production CTests passed after pad rebuild. Current r18 includes
+pad/CMake-stage changes; wait for its actual link before keyboard CU. No header layout change from these additions;
 keep existing mode/boot objects. Input
 source defaults X=Cross,C=Circle,Z=Square,V=Triangle,Enter=Start,Tab=Select.
 Do not apply PS4's Z/X mapping. SDL/shared config is still pending.
+Ibara Ghidra project Ibara, original boot SHA263d3079...812ffac. Its flat RWX
+segment contains resource tables misidentified as synthetic entries: 12 verified
+data-only/PARAM references, no containing functions or flow refs. games/ibara/
+analysis.json +tools/ps2/ghidra/MarkDataEntries.java annotate analysis only,
+with SHA/function/flow-reference guards. RefineLabels.java bounds non-function
+entries at the first undisassembled gap; the upstream exporter otherwise extends
+them into data until a distant next label. Actual 236 entry extents refined.
+Ibara accepted generation .local/v090/ibara/ghidra-generated-r3, receipt
+codegen-ghidra-r3.json:17926functions/55stubs/773warnings/zero errors, decode,
+unhandled or critical fallback. No Ibara native build/play acceptance yet.
 VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
 .local/v090/analysis/espgaluda-cri-*.c, throughr15. Probe now has bounded
 --frames N and --trace-boot with CreateThread/ReferThreadStatus observers.

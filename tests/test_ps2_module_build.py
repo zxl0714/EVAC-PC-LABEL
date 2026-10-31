@@ -47,6 +47,18 @@ class Ps2ModuleBuildTests(unittest.TestCase):
                 (root/'receipt.json').write_text(json.dumps(receipt))
                 with self.assertRaises(ValueError):prepare(root/'build.json',root/'metadata.json',root/'output')
 
+    def test_entry_alias_covers_table_and_definition_without_changing_bodies(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);self.fixture(root);generated=root/'generated'
+            (generated/'ps2_recompiled_functions.h').write_text('void root_same(uint8_t*, Ctx*, Runtime*);')
+            (generated/'root_same.cpp').write_text('void root_same() {}')
+            (generated/'register_functions.cpp').write_text('auto table = &root_same;')
+            prepare(root/'build.json',root/'metadata.json',root/'output')
+            cmake=(root/'output/modules.cmake').read_text()
+            self.assertIn('root_same=espgaluda_stage_01_root_same',cmake)
+            self.assertIn('SKIP_PRECOMPILE_HEADERS ON',cmake)
+            self.assertEqual((generated/'root_same.cpp').read_text(),'void root_same() {}')
+
     def test_mode_ids_and_duplicate_stage_banks_rejected(self):
         for ids in ([16],[1,1]):
             with self.subTest(ids=ids),tempfile.TemporaryDirectory() as temporary:
