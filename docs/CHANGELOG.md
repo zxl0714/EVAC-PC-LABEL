@@ -1,5 +1,13 @@
 # 更新记录
 
+## v0.8.4
+
+- 改善旧 CPU 对 PS4 游戏的兼容性，修复大往生等作品启动时的非法指令崩溃。
+
+### English
+
+- Improved PS4 game compatibility with older CPUs, fixing illegal-instruction crashes at startup in DaiOuJou and other titles.
+
 ## v0.8.3
 
 - 新增《バトルガレッガ Rev.2016 / Battle Garegga Rev.2016》（空战之路），支持韩版 CUSA10207 01.00。

@@ -36,6 +36,15 @@ def executable():
     return raw
 
 
+def unwind_executable(duplicate=False):
+    raw=executable()
+    struct.pack_into('<H',raw,56,5 if duplicate else 4)
+    struct.pack_into('<II6Q',raw,232,0x6474e550,4,0x230,0x30,0,16,16,4)
+    if duplicate:
+        struct.pack_into('<II6Q',raw,288,0x6474e550,4,0x230,0x30,0,16,16,4)
+    return raw
+
+
 def libc():
     raw=module()
     name=b'\0libFixture\0bzQExy189ZI#A#A\0'
@@ -73,6 +82,8 @@ def plain_self(elf,version_note=False):
 
 def cases():
     result=[('executable',executable(),False,None,True),('module',module(),True,None,True),
+            ('unwind-header',unwind_executable(),False,None,True),
+            ('duplicate-unwind-header',unwind_executable(True),False,None,False),
             ('verified-libc',executable(),False,libc(),True),
             ('weak-unreferenced',module(untyped=2),True,None,True),
             ('tls',module(tls=True),True,None,False),('duplicate-export',module(duplicate=True),True,None,False),

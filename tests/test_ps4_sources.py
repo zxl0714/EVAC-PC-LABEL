@@ -71,9 +71,9 @@ class Ps4SourceTests(unittest.TestCase):
     def test_current_lock_matches_maintained_component_declarations(self):
         root = Path(__file__).resolve().parents[1]
         locked = {item['name']: item for item in module.locked_dependencies(root)}
-        self.assertEqual(len(locked), 19)
+        self.assertEqual(len(locked), 21)
         declared = {}
-        for name in ('gcn', 'gpu_core', 'input', 'audio', 'community'):
+        for name in ('gcn', 'gpu_core', 'input', 'audio', 'community', 'cpu'):
             for raw in json.loads((root / f'third_party/ps4/{name}/dependencies.json').read_text()):
                 item = {key: raw[key] for key in ('name', 'revision', 'url')}
                 self.assertNotIn(item['name'], declared)

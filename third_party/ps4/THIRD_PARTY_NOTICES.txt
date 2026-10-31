@@ -8,6 +8,16 @@ and LICENSES live below third_party/ps4/. Build dependencies are pinned in
 tools/ps4-source.lock.json and restored by scripts/ps4_sources.py to .deps/ps4/.
 The standalone launcher and its packaging scripts are not part of this import.
 
+CPU instruction compatibility
+=============================
+
+The project-authored CPU adapters use Zydis 4.1.1 and its Zycore 1.5.2
+dependency for x86 instruction decoding and encoding, statically linked.
+Sources: https://github.com/zyantific/zydis and https://github.com/zyantific/zycore-c
+Exact revisions: third_party/ps4/cpu/dependencies.json and tools/ps4-source.lock.json.
+Both are MIT licensed; complete notices are in LICENSES/Zydis-MIT.txt and
+LICENSES/Zycore-MIT.txt.
+
 Vulkan-Headers
 ==============
 

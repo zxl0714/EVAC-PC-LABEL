@@ -50,7 +50,8 @@ public:
     std::vector<Relocation> relocations;
     std::vector<std::pair<std::uint64_t,std::uint64_t>> dynamic;
     std::map<std::uint64_t,std::uint64_t> tags;
-    std::uint64_t entry{},image_size{},procparam{},tls_bytes{};
+    std::uint64_t entry{},image_size{},procparam{},tls_bytes{},unwind_address{},unwind_size{};
+    bool unwind_present{};
     std::uint16_t type{};
     std::span<const std::uint8_t> Slice(std::uint64_t offset,std::uint64_t size) const {
         Require(offset<=raw_.size() && size<=raw_.size()-offset,"ELF file extent is out of bounds");
@@ -102,6 +103,7 @@ public:
             (void)Slice(h.offset,h.file_size); headers.push_back(h);
             if (h.kind==0x61000001 && !procparam) procparam=h.address;
             if (h.kind==7) tls_bytes|=h.memory_size;
+            if(h.kind==0x6474e550){Require(!unwind_present,"Duplicate unwind header");unwind_present=true;unwind_address=h.address;unwind_size=h.file_size;}
             if (h.kind!=1 && h.kind!=0x61000010) continue;
             Require(h.memory_size && h.file_size<=h.memory_size && h.address<=kLimit && h.memory_size<=kLimit-h.address,
                 "Invalid ELF load segment extent");
@@ -249,7 +251,7 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
     const std::string_view magic=module?"KTMODULE":"KTPROBE1";
     writer.Raw({reinterpret_cast<const std::uint8_t*>(magic.data()),magic.size()});
     for (std::uint64_t value:{elf.image_size,elf.entry,static_cast<std::uint64_t>(elf.segments.size()),
-            static_cast<std::uint64_t>(elf.relocations.size()),static_cast<std::uint64_t>(imports.size()),elf.procparam,std::uint64_t(!libc.empty())}) writer.Value(value);
+            static_cast<std::uint64_t>(elf.relocations.size()),static_cast<std::uint64_t>(imports.size()),elf.procparam,std::uint64_t(!libc.empty())|2ull}) writer.Value(value);
     const auto sha=Hash(source); writer.Raw(sha);
     if (module && EspradeLatencyModule(sha)) {
         bool applied{};
@@ -284,6 +286,7 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
         }
         writer.Value(relocation.address);writer.Value(kind);writer.Value(value);writer.Value(relocation.addend);
     }
+    writer.Value(elf.unwind_address);writer.Value(elf.unwind_size);
     return {std::move(writer.bytes),sha,elf.image_size,imports.size(),exports.size(),elf.relocations.size(),elf.segments.size()};
 }
 }

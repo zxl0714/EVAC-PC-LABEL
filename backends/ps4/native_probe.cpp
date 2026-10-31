@@ -1,6 +1,8 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include "loader/preparation_policy.h"
+#include "cpu/compatibility.h"
+#include "cpu/function_ranges.h"
 #include "guest_heap.h"
 #include "native_debug.h"
 #include "native_sync.h"
@@ -207,6 +209,7 @@ struct ExitCallback {
 };
 
 struct Runtime {
+    std::unique_ptr<cave::ps4::cpu::Image> cpu;
     GuestHeap heap;
     unsigned char* image{};
     unsigned char* thunks{};
@@ -646,6 +649,10 @@ LONG WINAPI Unhandled(EXCEPTION_POINTERS* exception) {
 
 LONG CALLBACK ProbeFault(EXCEPTION_POINTERS* exception) {
     const auto code = exception->ExceptionRecord->ExceptionCode;
+    if(code==EXCEPTION_BREAKPOINT) {
+        auto* owner=ImageAt(reinterpret_cast<std::uintptr_t>(exception->ExceptionRecord->ExceptionAddress));
+        if(owner && owner->cpu && owner->cpu->HandleException(exception))return EXCEPTION_CONTINUE_EXECUTION;
+    }
     if (code == EXCEPTION_ACCESS_VIOLATION && exception->ExceptionRecord->NumberParameters >= 2 &&
         exception->ExceptionRecord->ExceptionInformation[0] == 1 && kt::memory::WriteTracker::HandleWriteFault(
             reinterpret_cast<void*>(exception->ExceptionRecord->ExceptionInformation[1]))) { return EXCEPTION_CONTINUE_EXECUTION; }
@@ -733,7 +740,7 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
     runtime.header = reader.Value<Header>();
     runtime.is_module = module;
     const auto& header = runtime.header;
-    if (std::memcmp(header.magic.data(), module ? "KTMODULE" : "KTPROBE1", 8) || (header.capabilities & ~1ull) ||
+    if (std::memcmp(header.magic.data(), module ? "KTMODULE" : "KTPROBE1", 8) || (header.capabilities & ~3ull) ||
         !header.image_size || header.image_size > kMaximumImage || header.entry >= header.image_size ||
         !header.segments || header.segments > 32 || header.imports > 10000 ||
         header.relocations > 1000000 || header.procparam >= header.image_size) {
@@ -1035,7 +1042,24 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
         value += static_cast<std::uint64_t>(relocation.addend);
         std::memcpy(runtime.image + relocation.address, &value, 8);
     }
+    std::uint64_t unwind_address{},unwind_size{};
+    if(header.capabilities&2){unwind_address=reader.Value<std::uint64_t>();unwind_size=reader.Value<std::uint64_t>();}
     reader.End();
+    runtime.cpu=std::make_unique<cave::ps4::cpu::Image>();
+    std::size_t cpu_function_ranges{};
+    if(runtime.cpu->Needed()) {
+        if(!unwind_size || !Contains(runtime,unwind_address,unwind_size))throw std::runtime_error("CPU compatibility requires supported function metadata; prepare this image again");
+        const auto ranges=cave::ps4::cpu::FunctionRanges({runtime.image,static_cast<std::size_t>(header.image_size)},unwind_address,unwind_size);
+        for(const auto& range:ranges) {
+            if(!Contains(runtime,range.address,range.size,true))throw std::runtime_error("Guest function metadata is outside executable bytes");
+            runtime.cpu->Prepare({runtime.image+range.address,static_cast<std::size_t>(range.size)});
+        }
+        cpu_function_ranges=ranges.size();
+    }
+    const auto& cpu_stats=runtime.cpu->Stats();
+    std::printf("{\"event\":\"native_cpu_image_compatibility\",\"image\":%s,\"function_ranges\":%zu,\"trampolines\":%zu,\"short_traps\":%zu,\"bextr\":%zu,\"andn\":%zu,\"blsi\":%zu,\"blsmsk\":%zu,\"blsr\":%zu,\"lzcnt\":%zu,\"tzcnt\":%zu,\"movbe\":%zu}\n",
+        Quoted(runtime.image_name).c_str(),cpu_function_ranges,cpu_stats.trampolines,cpu_stats.short_traps,
+        cpu_stats.converted[0],cpu_stats.converted[1],cpu_stats.converted[2],cpu_stats.converted[3],cpu_stats.converted[4],cpu_stats.converted[5],cpu_stats.converted[6],cpu_stats.converted[7]);
     if (!runtime.is_module) {
         InstallNativeCommunityRoundAudit(runtime.image, static_cast<std::size_t>(header.image_size), header.source_sha256);
         InstallNativeCommunityRounds(runtime.image, static_cast<std::size_t>(header.image_size), header.source_sha256);
@@ -1828,6 +1852,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* gpu_runtime = nullptr;
     const wchar_t* diagnostic_tap = nullptr;
     const wchar_t* diagnostic_unpaced = nullptr;
+    const wchar_t* cpu_compatibility_test = nullptr;
     const wchar_t* diagnostic_circle_hold = nullptr;
     const wchar_t* diagnostic_cross_hold = nullptr;
     const wchar_t* input_config = nullptr;
@@ -1839,7 +1864,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* community_round_audit = nullptr;
     const wchar_t* community_rounds = nullptr;
     const wchar_t* community_offline = nullptr;
-    bool valid_arguments = argc >= 3 && argc <= 45 && (argc % 2 == 1);
+    bool valid_arguments = argc >= 3 && argc <= 47 && (argc % 2 == 1);
     for (int i = 3; valid_arguments && i + 1 < argc; i += 2) {
         if (std::wstring(argv[i]) == L"--user-dir" && !user_directory) { user_directory = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--module-dir" && !modules_path) { modules_path = argv[i + 1]; }
@@ -1865,6 +1890,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--community-round-audit" && !community_round_audit) { community_round_audit = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-rounds" && !community_rounds) { community_rounds = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--community-offline" && !community_offline) { community_offline = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--cpu-compatibility-test" && !cpu_compatibility_test) { cpu_compatibility_test = argv[i + 1]; }
         else { valid_arguments = false; }
     }
     if ((patch_path || addons_path) && !app_path) { valid_arguments = false; }
@@ -1934,6 +1960,17 @@ int NativeCommand(int argc, wchar_t** argv) {
                 throw std::runtime_error("Unpaced diagnostic requires offline collection config, vsync=false and an absolute benchmark-* user directory");
         }
         ConfigureNativeUnpacedPresentation(diagnostic_unpaced != nullptr);
+        if(cpu_compatibility_test) {
+            if(std::wstring_view(cpu_compatibility_test)!=L"on" || !collection || collection->shared.community_enabled ||
+               !user_directory || !std::filesystem::path(user_directory).is_absolute() ||
+               !std::filesystem::path(user_directory).filename().wstring().starts_with(L"benchmark-"))
+                throw std::runtime_error("CPU compatibility test requires offline collection config and an absolute benchmark-* profile");
+        }
+        cave::ps4::cpu::ConfigureForTests(cpu_compatibility_test!=nullptr);
+        const auto cpu_features=cave::ps4::cpu::DetectFeatures();
+        std::printf("{\"event\":\"native_cpu_features\",\"bmi1\":%s,\"bmi2\":%s,\"lzcnt\":%s,\"avx\":%s,\"f16c\":%s,\"sse41\":%s,\"ssse3\":%s,\"movbe\":%s,\"compatibility_test\":%s}\n",
+            cpu_features.bmi1?"true":"false",cpu_features.bmi2?"true":"false",cpu_features.lzcnt?"true":"false",
+            cpu_features.avx?"true":"false",cpu_features.f16c?"true":"false",cpu_features.sse41?"true":"false",cpu_features.ssse3?"true":"false",cpu_features.movbe?"true":"false",cpu_compatibility_test?"true":"false");
         if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",merged_app!=nullptr); }
         if (community_provider) {
             auto config = collection ? collection->community : kt::community::LoadConfig(input_config);

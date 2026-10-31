@@ -69,6 +69,19 @@ v0.7 以单人玩法为验收范围。SDK 当前只提供 user 0 的登录身份
 
 ## 准备环境
 
+### PS4 CPU 指令兼容
+
+`backends/ps4/cpu/` 按 CPUID 自动转换缺失的 BMI1、LZCNT 和 MOVBE 指令。
+Zydis 与 Zycore 由 `scripts/ps4_sources.py restore` 恢复。转换只在原始
+`.eh_frame_hdr`／FDE 标明的函数范围内进行；可执行段包含游戏数据，不能整段扫描改写。
+原生加载器与 Python 准备工具使用相同的元数据扩展，缓存随运行时摘要自动更新。
+
+`ctest --test-dir out/ps4-native -R ps4_cpu_compatibility --output-on-failure`
+运行无 ROM 的指令结果、标志、寄存器／向量状态、寻址、并发和数据隔离检查。
+`out/ps4-native/Ps4CpuCompatibilityTests.exe --bench` 比较本机原生指令与转换路径。
+实际游戏强制兼容诊断参数为 `--cpu-compatibility-test on`，要求关闭社区联网，
+并使用绝对路径、目录名以 `benchmark-` 开头的独立 profile。游戏操作先读根目录 `MEMORY.md`。
+
 ### PS4 呈现兼容与玩家资料窗口
 
 支持 maintenance1 的设备继续使用呈现 fence；缺少 EXT／KHR 扩展时，呈现线程使用每个交换链图像独立的信号量，并等待同一图像重新获取后复用。重建交换链通过 `oldSwapchain` 交接，旧资源延后回收；显式 drain／退出时才等待队列空闲。游戏线程、快照交接和帧节拍不变。

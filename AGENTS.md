@@ -24,9 +24,25 @@ The user updated the active goal: test/package/formally publish v084, reply on
 issue6 afterward, then resume v090 through packaging, retaining v084 fixes.
 Publication and that issue reply are now authorized. Never open Task Manager;
 no agents. CPU implementation uses pinned Zydis4.1.1 + required Zycore1.5.2,
-no Xbyak. Adapter result/red-zone/alias/feature-gate tests currently72951 pass;
-host build-r1 links, but more boundary/concurrency checks and actual forced-path
-games remain. Development output is not a certified release. Evidence .local/v084.
+no Xbyak. CPU tests r14:197495 checks pass (BMI1/LZCNT/TZCNT/MOVBE,16/32/64-bit,
+flags/red-zone/YMM/aliases/concurrency/feature gates, real tracked writes,
+CFI/data exclusion and exact issue6 BEXTR encoding). /EHa is REQUIRED for the
+guarded direct store; /EHsc optimized its SEH away in r12 (AV). VZEROUPPER after
+YMM backup avoids AVX/SSE transitions; BEXTR adapter microbench~15.7ns, short
+LZCNT32 trap~714ns on this modern host, not an old-hardware performance claim.
+CRITICAL: executable segments include ROM/data; convert only compiler
+EH-frame function extents, never full executable segments. All30 original main/
+PRX metadata inventories pass (.local/v084/function-inventory-r2). Prepared
+capability2 appends EH header VA/size; Python/native writers updated; producer
+EXE hash naturally regenerates caches. Forced base100 r5,base104 r2 andKetsui r1
+all inserted credit, selected character and entered actual Stage1; Ketsui shot
+and all closed normally. See MEMORY for200ms pulse/merged-app/offline prompts.
+Full source871 tests OK(skip1), with bundled CPython3.12 numpy on PYTHONPATH;
+system py3.12 lacks numpy (r1 import failure). Source audit2645/22 passed.
+Need clean same-source official build, normal CPU path check, package/publish
+and issue reply. Latest helper VZEROUPPER/tracked-store change has full authored
+tests; actual Ketsui r1 ran prior helper. Final same-source short check remains.
+Development output is not a certified release. Evidence .local/v084.
 
 COMPLETE October31 07:14 CST: v0.8.3 Battle Garegga Rev.2016 formally published
 as GitHub Latest. Release ID429571675:

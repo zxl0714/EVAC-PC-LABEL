@@ -52,6 +52,8 @@ Battle Garegga, SUPER EASY Stage 1: 60.01 FPS, 0.25 CPU cores, and a 17.06 ms P9
 
 Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, and Battle Garegga require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
 
+PS4 games automatically adapt BMI1, LZCNT and MOVBE instructions to the available CPU features.
+
 ### Launch
 
 1. Extract the program package into a writable folder. Supply your own game data.

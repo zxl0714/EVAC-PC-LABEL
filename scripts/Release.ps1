@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Internal','Public')][string]$Flavor='Public',
-    [string]$Version='0.8.3',
+    [string]$Version='0.8.4',
     [string]$OutputDirectory,
     [hashtable]$DataDirectories=@{},
     [string]$FutariDlcDirectory,

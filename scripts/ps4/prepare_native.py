@@ -46,6 +46,10 @@ def prepare(source, names, libc=None, module=False):
     raw = source.read_bytes()
     elf = Elf(plain_self_elf(raw))
     inventory = elf.inventory(names)
+    unwind = [p for p in elf.headers if p[0] == 0x6474E550]
+    if len(unwind) > 1:
+        raise ValueError('Duplicate unwind header')
+    unwind_address, unwind_size = (unwind[0][3], unwind[0][5]) if unwind else (0, 0)
     inventory["sha256"] = hashlib.sha256(raw).hexdigest()
     if not module and (elf.elf_type != 0xFE10 or not elf.entry):
         raise ValueError("The startup probe currently accepts an eboot executable only")
@@ -103,7 +107,7 @@ def prepare(source, names, libc=None, module=False):
         relocations.append((relocation["address"], kind, value, addend))
     output = bytearray(struct.pack("<8s7Q32s", b"KTMODULE" if module else b"KTPROBE1", elf.image_size, elf.entry,
                                   len(elf.segments), len(relocations), len(imports), elf.procparam,
-                                  1 if contracts else 0, hashlib.sha256(raw).digest()))
+                                  (1 if contracts else 0) | 2, hashlib.sha256(raw).digest()))
     if module:
         output += struct.pack('<4Q', module_info['init'], module_info['fini'], module_info['flags'], len(exports))
     for segment in elf.segments:
@@ -130,6 +134,7 @@ def prepare(source, names, libc=None, module=False):
         output += struct.pack('<IIQQ', symbol['type'], symbol['binding'], symbol['value'], symbol['size'])
     for relocation in relocations:
         output += struct.pack("<3Qq", *relocation)
+    output += struct.pack('<2Q', unwind_address, unwind_size)
     if hashlib.sha256(source.read_bytes()).hexdigest() != inventory["sha256"]:
         raise ValueError("Source changed during preparation")
     inventory["probe_format"] = "KTMODULE" if module else "KTPROBE1"

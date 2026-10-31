@@ -1,0 +1,4 @@
+[
+  {"name":"Zydis","revision":"a2278f1d254e492f6a6b39f6cb5d1f5d515659dc","url":"https://github.com/zyantific/zydis.git"},
+  {"name":"Zycore","revision":"0b2432ced0884fd152b471d97ecf0258ff4d859f","url":"https://github.com/zyantific/zycore-c.git"}
+]

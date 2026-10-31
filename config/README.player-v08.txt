@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.8.3
+EVAC PC LABEL v0.8.4
 
 更新时关闭游戏和启动器，解压到原目录替换同名文件；保留 user-data/。
 

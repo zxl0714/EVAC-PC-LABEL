@@ -1,6 +1,8 @@
 {
   "format": 1,
   "dependencies": [
+    {"name":"Zydis","revision":"a2278f1d254e492f6a6b39f6cb5d1f5d515659dc","url":"https://github.com/zyantific/zydis.git"},
+    {"name":"Zycore","revision":"0b2432ced0884fd152b471d97ecf0258ff4d859f","url":"https://github.com/zyantific/zycore-c.git"},
     {"name":"Vulkan-Headers","revision":"ee3b5caaa7e372715873c7b9c390ee1c3ca5db25","url":"https://github.com/KhronosGroup/Vulkan-Headers.git"},
     {"name":"fmt","revision":"ec73fb72477d80926c758894a3ab2cb3994fd051","url":"https://github.com/shadps4-emu/ext-fmt.git"},
     {"name":"magic_enum","revision":"a413fcc9c46a020a746907136a384c227f3cd095","url":"https://github.com/Neargye/magic_enum.git"},
