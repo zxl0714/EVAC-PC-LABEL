@@ -15,6 +15,14 @@ void Require(bool value,const char* message) {
 int32_t Result(const R5900Context& context) {
   return static_cast<int32_t>(getRegU32(&context,2));
 }
+void BootEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
+void ModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
+void OtherModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
+void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
+  const uint32_t other=17;
+  std::memcpy(memory+0x200004,&other,4);
+  context->pc=getRegU32(context,31);
+}
 }
 
 int main() {
@@ -73,6 +81,25 @@ int main() {
     ps2_syscalls::iChangeThreadPriority(memory.data(),&context,&runtime);
     Require(Result(context)==-403 && scheduler.thread(1)->currentPriority==24,
             "Failed syscall lost error or changed priority");
+    Require(runtime.memory().initialize(),"Headless memory initialization failed");
+    const std::array<PS2Runtime::RecompiledFunction,2> table{ModuleEntry,nullptr};
+    runtime.registerStaticModule({16,0x200000,64,16,16,0x200040,table});
+    Require(runtime.registerFunction(0x100000,BootEntry),"Boot function registration failed");
+    Require(runtime.hasFunction(0x100000) && !runtime.hasFunction(0x200040),
+            "Unloaded bank affected boot lookup");
+    const std::array<uint32_t,6> moduleHeader{0x336f574d,16,0x200000,64,16,16};
+    std::memcpy(runtime.memory().getRDRAM()+0x200000,moduleHeader.data(),sizeof(moduleHeader));
+    Require(runtime.hasFunction(0x200040) && runtime.lookupFunction(0x200040)==ModuleEntry &&
+            runtime.lookupFunction(0x100000)==BootEntry && !runtime.hasFunction(0x200044),
+            "Runtime module dispatch lost selected bank, boot entry or sparse slot");
+    const std::array<PS2Runtime::RecompiledFunction,2> otherTable{OtherModuleEntry,nullptr};
+    runtime.registerStaticModule({17,0x200000,64,16,16,0x200040,otherTable});
+    Require(runtime.registerFunction(0x100100,LoadOtherModule),"Loader fixture registration failed");
+    SET_GPR_U32(&context,31,0x200048);
+    Require(!runtime.dispatchGuestBranch(runtime.memory().getRDRAM(),&context,0x100100,
+              0x200044,0x200048,PS2Runtime::GuestBranchKind::DirectCall,"JAL") &&
+            context.pc==0x200048 && runtime.lookupFunction(0x200040)==OtherModuleEntry,
+            "Native caller continued after its guest code bank was replaced");
     std::cout<<"PS2 kernel: EE ABI, priority inheritance, boundaries and restore passed\n";
     return 0;
   }catch(const std::exception& error) {

@@ -1,13 +1,17 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param([ValidateRange(1,8)][int]$Jobs=2, [string]$CacheFrom, [switch]$ToolsOnly,
-      [string]$ProbeGenerated)
+      [string]$ProbeGenerated, [string]$ArcadeGenerated, [string]$ArrangeGenerated)
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $taskProcess=Get-Process -Id $PID
 $previousPriority=$taskProcess.PriorityClass
 try {
     $taskProcess.PriorityClass='BelowNormal'
     if($ToolsOnly -and $ProbeGenerated) { throw '-ToolsOnly cannot compile the development host' }
+    if(($ArcadeGenerated -or $ArrangeGenerated) -and
+       (-not $ProbeGenerated -or -not $ArcadeGenerated -or -not $ArrangeGenerated)) {
+        throw 'Both ESPGaluda modules and the development host are required together'
+    }
     Initialize-CollectionBuildEnvironment
     $restore=@('-3.12',(Join-Path $PSScriptRoot 'ps2_sources.py'),'restore')
     if ($CacheFrom) { $restore+=@('--cache-from',$CacheFrom) }
@@ -24,8 +28,10 @@ try {
         '-DCMAKE_EXE_LINKER_FLAGS=/DEBUG:FULL /OPT:REF /OPT:ICF',
         ('-DPS2_BUILD_RUNTIME='+$(if ($ToolsOnly) {'OFF'} else {'ON'})))
     $configure+=@('-DPS2_GAME_GENERATED='+$(if ($ProbeGenerated) {[IO.Path]::GetFullPath($ProbeGenerated).Replace('\','/')} else {''}))
+    $configure+=@('-DPS2_ARCADE_GENERATED='+$(if ($ArcadeGenerated) {[IO.Path]::GetFullPath($ArcadeGenerated).Replace('\','/')} else {''}))
+    $configure+=@('-DPS2_ARRANGE_GENERATED='+$(if ($ArrangeGenerated) {[IO.Path]::GetFullPath($ArrangeGenerated).Replace('\','/')} else {''}))
     Invoke-CollectionConfigure $cmake $configure $build
-    $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract')
+    $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract','ps2_module_contract')
     if (-not $ToolsOnly) { $targets+=@('ps2_runtime','ps2_sdk_contract','ps2_kernel_contract') }
     if ($ProbeGenerated) { $targets+='ps2_espgaluda_probe' }
     Invoke-Checked $cmake $targets

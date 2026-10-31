@@ -17,3 +17,15 @@ The range agrees with the EE kernel implementation in
 [Play! PS2OS.cpp](https://github.com/jpd002/Play-/blob/master/Source/ee/PS2OS.cpp).
 `ps2_kernel_contract` tests the guest ABI, inherited priority, both boundaries,
 and invalid values without game data.
+
+`ps2_runtime.h` and `ps2_runtime.cpp` come from the same commit's `include/` and
+`src/lib/`. They add per-runtime static module registration and lookup through
+`backends/ps2/static_modules.*`. The original MWo3 loader header selects native
+code for overlays sharing the same guest addresses. Unknown or mismatched
+headers cannot select a bank. Re-loading an ELF clears the registrations.
+When an original synchronous loader replaces its caller's bank, native call
+dispatch unwinds at the preserved guest PC and resolves the new bank before
+continuing. The headless kernel regression exercises this transfer.
+
+CMake stages one complete runtime include tree with the adapted header. Both
+direct and quoted sibling includes therefore use the same class layout.

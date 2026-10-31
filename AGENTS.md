@@ -40,6 +40,35 @@ interpreter fallback. Header64bytes; textSize4c3ac0/data10e000/bss2e100 forarcad
 402840/f3700/21700 forarrange. First payload+64, bss beginsd02300/c26780.
 Original boot ELF reserves both zero-file-size segments. Analysis must include
 overlay bytes separately; ordinary load still uses original ELF/ISO.
+All17MWo3 modules now inventoried in games/espgaluda/modules.json: stage/end/
+gallery1..15 at649800, modes16/17 at730800. Some zero-BSS files contain zero
+sector padding; parser validates it and does NOT shift BSS/text extents.
+scripts/ps2_module.py --iso <ISO> --manifest games/espgaluda/modules.json
+--output <fresh-dir> validates boot+all17hashes and prepares analysis ELFs/roots.
+Actual .local/v090/espgaluda/modules-prepared-r1 passed; mode16/17 images match
+seededr2 byte-for-byte. Original ISO/resources unchanged. No ROM files in Git.
+Do not repeat naive two-mode Ghidra analysis: it omitted original boot's external
+initializer entries. Seededr2 includes92/72 verified roots from mode branches
+FUN14e930 +five getters. Both analysis+generation complete, zero errors/unknown
+instructions. Outputs arcade-generated-r2 /arrange-generated-r2 underespgaluda;
+receipts arcade-codegen-r2.json andarrange-codegen-r2.json. Symbols suffixov16/17.
+All15other modules analyzed using entrybase+80; stages/module-01..15, generation
+currently running serially (exec90364), see codegen-r1.json per module.
+Per-runtime static_modules.* matches original header/id/layout; shared PCs use
+different native tables. Native call dispatch unwinds if loader replaces caller
+bank. Headless same-address/sparse/bad-header/bounds/transfer tests4/4 passed.
+ps2_runtime.h/.cpp adapted at same upstream pin. CMake stages ONE include tree,
+excluding upstream ps2_runtime.h from COPY before installing adapted header;
+never mix old/new class layouts or use original header in PCH.
+Current initial full two-mode build exec61692, log .local/v090/ps2-build-r16.log,
+1207steps, twoBelowNormaljobs; first actual rebuild with module libraries. Latest
+test game remains closedr12; no menu/stage acceptance yet. Do not restart build
+just because CPU usage is low; two jobs are intentional default. Configure took
+199.3sec per pass on~300k source files. Build-Common now validates first cache,
+retries ONLY if flags were reset/mismatched (6 authored guard tests pass).
+New ps2_translation_units.py +2 tests batches input includes without rewriting
+bodies, but is NOT YET WIRED into CMake; current uses native CMakeUnity256.
+Integrate for future graph size reduction without discarding current build.
 VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
 .local/v090/analysis/espgaluda-cri-*.c, throughr15. Probe now has bounded
 --frames N and --trace-boot with CreateThread/ReferThreadStatus observers.

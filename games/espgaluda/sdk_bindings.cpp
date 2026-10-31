@@ -7,6 +7,9 @@
 #include "ps2_runtime.h"
 #include <iostream>
 #include <stdexcept>
+#ifdef EVAC_PS2_ESPGALUDA_MODULES
+void RegisterEspgaludaStaticModules(PS2Runtime& runtime);
+#endif
 
 // Upstream TODO services retain their original statically recompiled bodies.
 namespace {
@@ -19,6 +22,9 @@ void SearchSingleLayer(uint8_t* memory,R5900Context* context,PS2Runtime* runtime
   ps2_stubs::sceCdSearchFile(memory,context,runtime);
 }
 void BindSdk(PS2Runtime& runtime) {
+#ifdef EVAC_PS2_ESPGALUDA_MODULES
+  RegisterEspgaludaStaticModules(runtime);
+#endif
   if(!runtime.replaceFunction(0x00112090u,&cave::ps2::SdkEntry<&SearchSingleLayer>))
     throw std::runtime_error("Cannot bind ESPGaluda single-layer disc search");
   if(!cave::ps2::BindSdkHandler(runtime,0x001009a8u,"sceGsResetGraph"))

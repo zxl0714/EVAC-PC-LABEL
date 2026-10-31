@@ -9,6 +9,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 get_filename_component(COLLECTION_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(DEPS "${COLLECTION_ROOT}/.deps/ps2")
 set(UPSTREAM "${DEPS}/PS2Recomp")
+set(PS2_RUNTIME_INCLUDE "${CMAKE_BINARY_DIR}/runtime-include")
+# All runtime headers come from one view, including quoted sibling includes in
+# the SDK headers. Mixing the upstream class layout with the adapted layout
+# would violate the native ABI.
+file(COPY "${UPSTREAM}/ps2xRuntime/include/" DESTINATION "${PS2_RUNTIME_INCLUDE}"
+  PATTERN "ps2_runtime.h" EXCLUDE)
+configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.h"
+  "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" COPYONLY)
 
 # Sources are restored and verified before configure. No FetchContent downloads,
 # upstream release flags, game-specific generated code or system library fallback.
@@ -45,7 +53,7 @@ target_compile_definitions(ps2_recomp_lib PUBLIC LIBDWARF_STATIC)
 target_include_directories(ps2_recomp_lib PUBLIC
   "${UPSTREAM}/ps2xRecomp/include" "${DEPS}/elfio"
   "${DEPS}/libdwarf/src/lib/libdwarf" "${CMAKE_BINARY_DIR}/deps/libdwarf"
-  "${UPSTREAM}/ps2xRuntime/include")
+  "${PS2_RUNTIME_INCLUDE}" "${COLLECTION_ROOT}/backends/ps2")
 target_link_libraries(ps2_recomp_lib PUBLIC fmt::fmt toml11::toml11 dwarf ps2_rabbitizer)
 file(GLOB RECOMP_RUNNER CONFIGURE_DEPENDS "${UPSTREAM}/ps2xRecomp/src/runner/*.cpp")
 add_executable(ps2_recomp ${RECOMP_RUNNER})
@@ -73,6 +81,10 @@ add_executable(ps2_vu_contract "${COLLECTION_ROOT}/tests/ps2_vu_contract.cpp"
 target_include_directories(ps2_vu_contract PRIVATE "${CMAKE_BINARY_DIR}/include")
 target_compile_options(ps2_vu_contract PRIVATE -Werror=array-bounds)
 add_test(NAME ps2_vu_contract COMMAND ps2_vu_contract)
+add_executable(ps2_module_contract "${COLLECTION_ROOT}/tests/ps2_modules_test.cpp"
+  "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp")
+target_include_directories(ps2_module_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
+add_test(NAME ps2_module_contract COMMAND ps2_module_contract)
 
 option(PS2_BUILD_RUNTIME "Compile the initial shared PS2 runtime library" ON)
 if(PS2_BUILD_RUNTIME)
@@ -101,13 +113,15 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"
     "${RUNTIME}/src/lib/ps2_vfs.cpp"
-    "${RUNTIME}/src/lib/ps2_runtime.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp"
     "${RUNTIME}/src/lib/ps2_vif1_interpreter.cpp"
     "${RUNTIME}/src/lib/vu/ps2_vu1_core.cpp"
     "${RUNTIME}/src/lib/vu/ps2_vu1_upper.cpp"
     "${RUNTIME}/src/lib/vu/ps2_vu1_lower.cpp"
     "${RUNTIME}/src/lib/games_database.cpp" ${KERNEL_SOURCES})
-  target_include_directories(ps2_runtime PUBLIC "${RUNTIME}/include"
+  target_include_directories(ps2_runtime PUBLIC "${PS2_RUNTIME_INCLUDE}"
+    "${COLLECTION_ROOT}/backends/ps2"
     "${RUNTIME}/src/lib/Kernel" PRIVATE "${RUNTIME}/src/lib"
     "${RUNTIME}/src/lib/Kernel/Syscalls")
   target_compile_definitions(ps2_runtime PRIVATE PS2X_HAS_FFMPEG=0 PS2X_ENABLE_IOP_RPC_TRACE=0)
@@ -124,6 +138,8 @@ if(PS2_BUILD_RUNTIME)
   add_test(NAME ps2_kernel_contract COMMAND ps2_kernel_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
+  set(PS2_ARCADE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARCADE module")
+  set(PS2_ARRANGE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARRANGE module")
   if(PS2_GAME_GENERATED)
     file(GLOB GENERATED_SOURCES CONFIGURE_DEPENDS "${PS2_GAME_GENERATED}/*.cpp")
     if(NOT EXISTS "${PS2_GAME_GENERATED}/register_functions.cpp")
@@ -135,10 +151,44 @@ if(PS2_BUILD_RUNTIME)
     target_link_libraries(ps2_espgaluda_probe PRIVATE ps2_runtime)
     target_compile_options(ps2_espgaluda_probe PRIVATE /bigobj)
     target_precompile_headers(ps2_espgaluda_probe PRIVATE
-      "${RUNTIME}/include/ps2_runtime.h" "${PS2_GAME_GENERATED}/ps2_recompiled_functions.h"
+      "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" "${PS2_GAME_GENERATED}/ps2_recompiled_functions.h"
       "${PS2_GAME_GENERATED}/ps2_recompiled_stubs.h")
     set_target_properties(ps2_espgaluda_probe PROPERTIES UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE 256)
     # The upstream runtime creates sizeable EE/VU stack frames.
     target_link_options(ps2_espgaluda_probe PRIVATE /STACK:8388608)
+    if(PS2_ARCADE_GENERATED OR PS2_ARRANGE_GENERATED)
+      if(NOT PS2_ARCADE_GENERATED OR NOT PS2_ARRANGE_GENERATED)
+        message(FATAL_ERROR "Both ESPGaluda module banks are required")
+      endif()
+      foreach(module arcade arrange)
+        string(TOUPPER "${module}" moduleUpper)
+        if(module STREQUAL "arcade")
+          set(tablePrefix "g_ps2ArcadeFunctionTable")
+        else()
+          set(tablePrefix "g_ps2ArrangeFunctionTable")
+        endif()
+        set(moduleDir "${PS2_${moduleUpper}_GENERATED}")
+        if(NOT EXISTS "${moduleDir}/register_functions.cpp")
+          message(FATAL_ERROR "Missing ESPGaluda ${module} function table")
+        endif()
+        file(GLOB moduleSources CONFIGURE_DEPENDS "${moduleDir}/*.cpp")
+        add_library(ps2_espgaluda_${module} OBJECT ${moduleSources})
+        target_include_directories(ps2_espgaluda_${module} PRIVATE "${moduleDir}")
+        target_link_libraries(ps2_espgaluda_${module} PRIVATE ps2_runtime)
+        target_compile_definitions(ps2_espgaluda_${module} PRIVATE
+          "g_ps2RecompiledFunctionTable=${tablePrefix}"
+          "g_ps2RecompiledFunctionTableBase=${tablePrefix}Base"
+          "g_ps2RecompiledFunctionTableEnd=${tablePrefix}End"
+          "g_ps2RecompiledFunctionTableSlotCount=${tablePrefix}SlotCount")
+        target_compile_options(ps2_espgaluda_${module} PRIVATE /bigobj)
+        target_precompile_headers(ps2_espgaluda_${module} PRIVATE
+          "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" "${moduleDir}/ps2_recompiled_functions.h"
+          "${moduleDir}/ps2_recompiled_stubs.h")
+        set_target_properties(ps2_espgaluda_${module} PROPERTIES UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE 256)
+        target_sources(ps2_espgaluda_probe PRIVATE $<TARGET_OBJECTS:ps2_espgaluda_${module}>)
+      endforeach()
+      target_sources(ps2_espgaluda_probe PRIVATE "${COLLECTION_ROOT}/games/espgaluda/static_modules.cpp")
+      target_compile_definitions(ps2_espgaluda_probe PRIVATE EVAC_PS2_ESPGALUDA_MODULES=1)
+    endif()
   endif()
 endif()

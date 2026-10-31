@@ -70,6 +70,11 @@ try {
         self.assertTrue(result['accepted'], result)
         self.assertEqual(result['passes'], 2)
 
+    def test_matching_cache_needs_only_one_configuration(self):
+        result = self.exercise()
+        self.assertTrue(result['accepted'], result)
+        self.assertEqual(result['passes'], 1)
+
     def test_retained_wrong_build_type_flags_or_features_cannot_start_build(self):
         for key in ('CMAKE_BUILD_TYPE', 'CMAKE_CXX_FLAGS_RELEASE', 'FEATURE_ENABLED', 'CMAKE_GENERATOR',
                     'CMAKE_CXX_COMPILER', 'CMAKE_MAKE_PROGRAM'):
@@ -91,7 +96,7 @@ try {
         self.assertIn('authored configure failure', result['message'])
 
     def test_all_native_build_entry_points_use_the_same_guard(self):
-        for name in ('Build.ps1', 'Build-Sdk.ps1', 'Build-Ps4.ps1'):
+        for name in ('Build.ps1', 'Build-Sdk.ps1', 'Build-Ps4.ps1', 'Build-Ps2.ps1'):
             text = (ROOT / 'scripts' / name).read_text(encoding='utf-8')
             self.assertIn('Invoke-CollectionConfigure ', text, name)
 

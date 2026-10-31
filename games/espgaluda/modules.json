@@ -1,0 +1,251 @@
+{
+  "format": 1,
+  "bootSha256": "ff8eaac60476e5bf3789aa5b3b972fa0f50a50b104b7cc8a1e78af042d510055",
+  "modules": [
+    {
+      "id": 1,
+      "discPath": "A0A0/A0A0.",
+      "name": "ov_st1.bin",
+      "address": "0x649800",
+      "textSize": "0xb1bc0",
+      "dataSize": "0x4900",
+      "bssSize": "0x80",
+      "fileSize": 746752,
+      "sha256": "200702e0951a4aec758cf693886804765655d4f50baa61e6a0b30df0e77cb1bf",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 2,
+      "discPath": "A0A0/A0A1.",
+      "name": "ov_st2.bin",
+      "address": "0x649800",
+      "textSize": "0x92940",
+      "dataSize": "0x3580",
+      "bssSize": "0x0",
+      "fileSize": 614400,
+      "sha256": "3b00ef792a9e6a5fb23af637afd2519f4203951c0ca90434817725eb70930444",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 3,
+      "discPath": "A0A0/A0A2.",
+      "name": "ov_st3.bin",
+      "address": "0x649800",
+      "textSize": "0x80ec0",
+      "dataSize": "0x3e00",
+      "bssSize": "0x40080",
+      "fileSize": 544000,
+      "sha256": "da963991eff5885c6b3a4b683c7cedfc1d737a739ad74d14579f093a341c6a6a",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 4,
+      "discPath": "A0A0/A0A3.",
+      "name": "ov_st4.bin",
+      "address": "0x649800",
+      "textSize": "0xbdec0",
+      "dataSize": "0x4200",
+      "bssSize": "0x0",
+      "fileSize": 796672,
+      "sha256": "acbf15e62cd1ca745594b661ac736179f84510ef20c1b970ae55c9b6631432e9",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 5,
+      "discPath": "A0A0/A0A4.",
+      "name": "ov_st5.bin",
+      "address": "0x649800",
+      "textSize": "0x45cc0",
+      "dataSize": "0x2d80",
+      "bssSize": "0x0",
+      "fileSize": 299008,
+      "sha256": "6ca9240575cf36d67aff247282c1ed6b4a0956dd284be86dc64dcce822a11e36",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 6,
+      "discPath": "A0A0/A0A5.",
+      "name": "ov_st6.bin",
+      "address": "0x649800",
+      "textSize": "0xe20c0",
+      "dataSize": "0x4800",
+      "bssSize": "0x0",
+      "fileSize": 946176,
+      "sha256": "63e45734fdb0e5d7a4ac21e9560a18615e5f19dda888bf4ba932443620a715b6",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 7,
+      "discPath": "A0A0/A0A6.",
+      "name": "ov_end.bin",
+      "address": "0x649800",
+      "textSize": "0x63c0",
+      "dataSize": "0x1000",
+      "bssSize": "0x80",
+      "fileSize": 29696,
+      "sha256": "1db5c204a984de121fa2705b8bd62da3535d4f7c81de694b155c60c72cfa600b",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 8,
+      "discPath": "A0A0/A0A7.",
+      "name": "ov_gal.bin",
+      "address": "0x649800",
+      "textSize": "0x2bc0",
+      "dataSize": "0x90f00",
+      "bssSize": "0x15100",
+      "fileSize": 604928,
+      "sha256": "e5901aed478d537a19923448a390274948cf57981ccc6a1b29b7954a511d99dd",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 9,
+      "discPath": "A0A0/A0AA.",
+      "name": "ov_arc_st1.bin",
+      "address": "0x649800",
+      "textSize": "0xaccc0",
+      "dataSize": "0x2f00",
+      "bssSize": "0x80",
+      "fileSize": 719872,
+      "sha256": "ee97d5b3f3b0df049b8340540e023fb1e4c28f6214f5c09a6d8306d9a33a02fe",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 10,
+      "discPath": "A0A0/A0AB.",
+      "name": "ov_arc_st2.bin",
+      "address": "0x649800",
+      "textSize": "0x8abc0",
+      "dataSize": "0x1b00",
+      "bssSize": "0x0",
+      "fileSize": 575488,
+      "sha256": "4e58752f90c244e9b57571ae9047a84820f895c748b532887cff31e45f618248",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 11,
+      "discPath": "A0A0/A0AC.",
+      "name": "ov_arc_st3.bin",
+      "address": "0x649800",
+      "textSize": "0x773c0",
+      "dataSize": "0x1f00",
+      "bssSize": "0x40080",
+      "fileSize": 496384,
+      "sha256": "41019933230558d7c6afa801ba2a8a375d8bae986e31f302d366225baee6121b",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 12,
+      "discPath": "A0A0/A0AD.",
+      "name": "ov_arc_st4.bin",
+      "address": "0x649800",
+      "textSize": "0xb6c40",
+      "dataSize": "0x1e80",
+      "bssSize": "0x0",
+      "fileSize": 757760,
+      "sha256": "6a098cdf4c7cb7d958ded08db0ba5db129388c131b2e87be46c9923150ba1d8f",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 13,
+      "discPath": "A0A0/A0AE.",
+      "name": "ov_arc_st5.bin",
+      "address": "0x649800",
+      "textSize": "0x3d4c0",
+      "dataSize": "0xf80",
+      "bssSize": "0x0",
+      "fileSize": 256000,
+      "sha256": "caa8a6b78267ef46a8b3cf18e836060eff76a5c1a15caeb17780223a5594f328",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 14,
+      "discPath": "A0A0/A0AF.",
+      "name": "ov_arc_st6.bin",
+      "address": "0x649800",
+      "textSize": "0xd38c0",
+      "dataSize": "0x4800",
+      "bssSize": "0x0",
+      "fileSize": 886784,
+      "sha256": "ea93ce60ab34ea230289831bac7a2180486231ac01334a9cee212788ff9d33dc",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 15,
+      "discPath": "A0A0/A0B0.",
+      "name": "ov_arc_end.bin",
+      "address": "0x649800",
+      "textSize": "0x1b840",
+      "dataSize": "0x3e00",
+      "bssSize": "0x80",
+      "fileSize": 128640,
+      "sha256": "046fc25e022640c1c1c2e665190fba20bdd55e108acdf0d245e6d180db5d7160",
+      "entry": "0x649880",
+      "bootCallRanges": []
+    },
+    {
+      "id": 16,
+      "discPath": "A0A0/A0A8.",
+      "name": "ov_arcade.bin",
+      "address": "0x730800",
+      "textSize": "0x4c3ac0",
+      "dataSize": "0x10e000",
+      "bssSize": "0x2e100",
+      "fileSize": 6101760,
+      "sha256": "f473f434fc8e925e2d2dd441b888a1d5ab388e87a537a91840fc6c6d35393a7d",
+      "entry": "0x733080",
+      "bootCallRanges": [
+        [
+          "0x14ec60",
+          "0x14efb8"
+        ]
+      ],
+      "roots": [
+        "0x730880",
+        "0x730890",
+        "0x7308a0",
+        "0x7308b0",
+        "0x7308c0"
+      ]
+    },
+    {
+      "id": 17,
+      "discPath": "A0A0/A0A9.",
+      "name": "ov_arrange.bin",
+      "address": "0x730800",
+      "textSize": "0x402840",
+      "dataSize": "0xf3700",
+      "bssSize": "0x21700",
+      "fileSize": 5201792,
+      "sha256": "4ddc842923ec0d3bd70983a9f25df092ab2ddcca6596d13367b9e389b2d4653e",
+      "entry": "0x7308d0",
+      "bootCallRanges": [
+        [
+          "0x14e9a0",
+          "0x14ec50"
+        ]
+      ],
+      "roots": [
+        "0x730880",
+        "0x730890",
+        "0x7308a0",
+        "0x7308b0",
+        "0x7308c0"
+      ]
+    }
+  ]
+}
