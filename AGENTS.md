@@ -10,39 +10,40 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE November1: implement/publish v0.8.4 CPU instruction compatibility for PS4
-games, reply on issue6, then resume v0.9.0 through packaging. v0.9.0 checkpoint is
-work/v090-checkpoint, commit cb1426c884f0ac58727a6e0d377639aa14e27d9a.
-All ignored ROMs, PS2 generated files, dependency/build trees and evidence remain
-in this checkout; do not clean them. Current branch fix/v084-cpu-compat starts
-from688e665 (published v083 code + closing docs), isolating unfinished PS2/UI.
-Issue6 complete logs under .local/issues/6/followup-r1 confirm C000001D at
-base100 eboot+1fb415: BMI1 BEXTR. Original byte/digest match verified. Implement
-host-capability-gated shared PS4 compatibility, authored no-ROM regressions and
-short actual base100/update104/Ketsui checks, then prepare v084 candidate package.
-The user updated the active goal: test/package/formally publish v084, reply on
-issue6 afterward, then resume v090 through packaging, retaining v084 fixes.
-Publication and that issue reply are now authorized. Never open Task Manager;
-no agents. CPU implementation uses pinned Zydis4.1.1 + required Zycore1.5.2,
-no Xbyak. CPU tests r14:197495 checks pass (BMI1/LZCNT/TZCNT/MOVBE,16/32/64-bit,
-flags/red-zone/YMM/aliases/concurrency/feature gates, real tracked writes,
-CFI/data exclusion and exact issue6 BEXTR encoding). /EHa is REQUIRED for the
-guarded direct store; /EHsc optimized its SEH away in r12 (AV). VZEROUPPER after
-YMM backup avoids AVX/SSE transitions; BEXTR adapter microbench~15.7ns, short
-LZCNT32 trap~714ns on this modern host, not an old-hardware performance claim.
-CRITICAL: executable segments include ROM/data; convert only compiler
-EH-frame function extents, never full executable segments. All30 original main/
-PRX metadata inventories pass (.local/v084/function-inventory-r2). Prepared
-capability2 appends EH header VA/size; Python/native writers updated; producer
-EXE hash naturally regenerates caches. Forced base100 r5,base104 r2 andKetsui r1
-all inserted credit, selected character and entered actual Stage1; Ketsui shot
-and all closed normally. See MEMORY for200ms pulse/merged-app/offline prompts.
-Full source871 tests OK(skip1), with bundled CPython3.12 numpy on PYTHONPATH;
-system py3.12 lacks numpy (r1 import failure). Source audit2645/22 passed.
-Need clean same-source official build, normal CPU path check, package/publish
-and issue reply. Latest helper VZEROUPPER/tracked-store change has full authored
-tests; actual Ketsui r1 ran prior helper. Final same-source short check remains.
-Development output is not a certified release. Evidence .local/v084.
+ACTIVE November1: resume v0.9.0 through packaging, retaining the released v084
+CPU fixes. Merge work/v090-checkpoint (cb1426c884f0ac58727a6e0d377639aa14e27d9a)
+into current source; never reset back to it. Ignored ROMs, PS2 generated files,
+dependency/build trees and evidence remain in this checkout; do not clean them.
+Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
+
+COMPLETE November1 04:22 CST: v0.8.4 formally published as GitHub Latest,
+https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.4, ID430162415.
+Source/build/package/annotated tag680c016a031485d1aac69f8a2890ebadc6407214;
+main and tag pushed. Nine game components +launcher certified at this commit.
+SDK unchanged/verified. Program ZIP releases/v0.8.4-final-680c016/
+EVAC-PC-LABEL-v0.8.4-win-x64.zip,115889273bytes,
+SHA20e2007625a74f8d5726024df0b4a553cfb64c62ecb3962bfe4cae35ac9b36ae.
+One extraction169files/9preservation checks passed; acceptance under
+.local/release-acceptance-v084/20e2007625a74f8d. Public Latest/API asset digests,
+sizes and downloaded100byte checksum verified. No ZIP redownload. Delivery
+.local/v084/github-delivery-r1.json; screenshot .local/v084-release-published.jpg.
+Issue6 reply publicly verified: issuecomment-6548706106. It remains open for
+the author's hardware confirmation. No internal package/OSS/group request.
+PS4 and launcher PDBs +PS4 receipt preserved in .local/v084/symbols.
+
+CPU tests197495; native88/88,preparation48/48,cache23/23,common/launch/preview3/3,
+source871 OK(skip1),audit2645/22. Base100 r5/base104 r2/Ketsui r1 actual Stage1;
+FINAL same-source Ketsui play-ketsui-final-r1 also entered player Stage1 and
+closed normally. Native binding census confirms zero conversions on this CPU.
+All test games closed. Numpy tests use bundled CPython3.12 site-packages on
+PYTHONPATH; system py3.12 lacks numpy. Do not repeat its r1 import failure.
+CPU safety: only EH-frame function extents, never whole executable segments
+(ROMs are embedded there). /EHa is REQUIRED for guarded stores/write tracking.
+Save full YMM then VZEROUPPER before Windows helper calls; restore afterward.
+Prepared capability2 carries EH header VA/size; producer hash refreshes caches.
+This closing record is docs-only: do not rebuild/repack or move frozen v084 tag.
+CUA existing getTab failed browser.user unavailable; a NEW iab tab worked.
+Release form caches tag list: save draft/reload after pushing a new tag.
 
 COMPLETE October31 07:14 CST: v0.8.3 Battle Garegga Rev.2016 formally published
 as GitHub Latest. Release ID429571675:

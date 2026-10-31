@@ -10,7 +10,10 @@
 - 大往生 1.00 与 1.04：离线强制转换全部支持指令，投币、开始、选人及实际第一关通过，正常关闭。绊地狱：同样的强制路径实际选机、进入第一关、射击和正常关闭通过。1.04 与绊地狱短段出帧中位数约 16.6 ms，诊断脉冲已启用，未作为普通性能表的新数据。
 - 完整源码回归 871 项通过（1 项跳过），源码审计通过。上述本机强制路径用于验证转换行为；issue 报告者的实际机器回测在正式发布后跟进。
 
-证据目录为 `.local/v084`，包括 `cpu-tests-r14.log`、`function-inventory-r2/`、`source-tests-r2.log`、`play-base100-r5/`、`play-base104-r2/` 和 `play-ketsui-r1/`。正式同源构建、组包及发布另行记录。
+证据目录为 `.local/v084`，包括 `cpu-tests-r14.log`、`function-inventory-r2/`、`source-tests-r2.log`、`play-base100-r5/`、`play-base104-r2/` 和 `play-ketsui-r1/`。
+
+- 正式构建：九款运行组件和启动器均对应 `680c016a031485d1aac69f8a2890ebadc6407214`；SDK 沿用已验证构建。最终 CPU／版本机制 CTest 2/2、原生 88/88、准备格式 48/48、缓存 23/23、common／launch／preview 3/3 通过。普通 CPU 的真实三模块 binding census 转换数均为 0；同源正式构建强制兼容的绊地狱再次选机进入实际第一关，正常关闭。
+- 正式交付：11 月 1 日 04:22 发布 [v0.8.4](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.4)，Latest，ID `430162415`。ZIP 为 115,889,273 字节，SHA-256 `20e2007625a74f8d5726024df0b4a553cfb64c62ecb3962bfe4cae35ac9b36ae`；一次解压 169 文件／9 类保留检查通过，新增 MIT 声明及双语指南核对一致。公开 API 的附件摘要、大小、正式状态和下载的 100 字节校验文件一致，未重复下载 ZIP。main 和标签已推送；issue #6 已回复，保留开放等待原机器回测。
 
 ## v0.8.2 正式发布
 
