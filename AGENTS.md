@@ -3,7 +3,30 @@
 Active workspace: E:/Projects/EVAC-PC-LABEL. Develop/build here. The former
 E:/Projects/CAVE-PC-Collection is a recovery/evidence copy.
 
+Before any gameplay automation, read [MEMORY.md](MEMORY.md). It is the short,
+maintained playbook for input mappings, pulse duration, stale screenshots and
+other repeated testing traps. Update a resolved recipe there instead of adding
+another historical narrative or one-off input script.
+
 ## Current objective
+
+ACTIVE November1: implement/publish v0.8.4 CPU instruction compatibility for PS4
+games, reply on issue6, then resume v0.9.0 through packaging. v0.9.0 checkpoint is
+work/v090-checkpoint, commit cb1426c884f0ac58727a6e0d377639aa14e27d9a.
+All ignored ROMs, PS2 generated files, dependency/build trees and evidence remain
+in this checkout; do not clean them. Current branch fix/v084-cpu-compat starts
+from688e665 (published v083 code + closing docs), isolating unfinished PS2/UI.
+Issue6 complete logs under .local/issues/6/followup-r1 confirm C000001D at
+base100 eboot+1fb415: BMI1 BEXTR. Original byte/digest match verified. Implement
+host-capability-gated shared PS4 compatibility, authored no-ROM regressions and
+short actual base100/update104/Ketsui checks, then prepare v084 candidate package.
+The user updated the active goal: test/package/formally publish v084, reply on
+issue6 afterward, then resume v090 through packaging, retaining v084 fixes.
+Publication and that issue reply are now authorized. Never open Task Manager;
+no agents. CPU implementation uses pinned Zydis4.1.1 + required Zycore1.5.2,
+no Xbyak. Adapter result/red-zone/alias/feature-gate tests currently72951 pass;
+host build-r1 links, but more boundary/concurrency checks and actual forced-path
+games remain. Development output is not a certified release. Evidence .local/v084.
 
 COMPLETE October31 07:14 CST: v0.8.3 Battle Garegga Rev.2016 formally published
 as GitHub Latest. Release ID429571675:
