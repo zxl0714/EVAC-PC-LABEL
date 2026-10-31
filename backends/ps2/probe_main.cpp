@@ -54,9 +54,17 @@ template<uint32_t Address> struct Observe {
 
 int main(int argc,char** argv) {
   try {
-    if(argc!=5 && argc!=6)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot]");
-    const bool traceBoot=argc==6 && std::string_view(argv[5])=="--trace-boot";
-    if(argc==6 && !traceBoot)throw std::runtime_error("Unknown development option");
+    if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
+    bool traceBoot=false;
+    uint64_t frameLimit{};
+    for(int i=5;i<argc;++i) {
+      const std::string_view option=argv[i];
+      if(option=="--trace-boot")traceBoot=true;
+      else if(option=="--frames" && i+1<argc) {
+        frameLimit=std::stoull(argv[++i]);
+        if(frameLimit<1 || frameLimit>36000)throw std::runtime_error("Frame limit must be 1..36000");
+      } else throw std::runtime_error("Unknown development option");
+    }
     const auto elf=std::filesystem::canonical(argv[1]);
     const auto iso=std::filesystem::canonical(argv[2]);
     const auto data=std::filesystem::canonical(argv[3]);
@@ -65,11 +73,13 @@ int main(int argc,char** argv) {
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
     PS2Runtime runtime;
-    uint64_t frames{};
+    struct Progress {uint64_t frames{},limit{};} progress{0,frameLimit};
     runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
       [](PS2Runtime& state,void* user) {
-        auto& count=*static_cast<uint64_t*>(user);
-        if(++count%120)return;
+        auto& progress=*static_cast<Progress*>(user);
+        const auto count=++progress.frames;
+        if(progress.limit && count>=progress.limit)state.requestStop();
+        if(count%120)return;
         // snapshot() owns its synchronization; do not read the live EE context
         // concurrently from the host rendering thread.
         const auto snapshot=state.eeScheduler().snapshot();
@@ -86,7 +96,7 @@ int main(int argc,char** argv) {
                  <<" modules="<<iop.emulatorLoadedModules<<" threads="<<iop.emulatorThreads
                  <<" rpcServers="<<iop.emulatorRpcServers<<'\n';
         for(const auto& diagnostic:iop.diagnostics)std::cerr<<"[ps2-iop] "<<diagnostic<<'\n';
-      },[](PS2Runtime&,void*){},&frames);
+      },[](PS2Runtime&,void*){},&progress);
     runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
     if(!runtime.initialize("EVAC PC LABEL | PS2 development"))throw std::runtime_error("PS2 host initialization failed");
     if(!runtime.loadELF(elf.string()))throw std::runtime_error("Boot ELF loading failed");
@@ -102,6 +112,9 @@ int main(int argc,char** argv) {
       Observe<0x107be8u>::Bind(runtime);
       Observe<0x11d530u>::Bind(runtime);
       Observe<0x280f70u>::Bind(runtime);
+      Observe<0x103aa0u>::Bind(runtime);
+      Observe<0x103ba0u>::Bind(runtime);
+      Observe<0x2806c8u>::Bind(runtime);
     }
     runtime.run();
     return 0;

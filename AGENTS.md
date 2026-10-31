@@ -27,11 +27,22 @@ ESPGaluda Ghidra12.1.4 +EmotionEngineReloaded2.1.39, r5900:LE:32:default:
 Private generated dir .local/v090/espgaluda/ghidra-output-r1. Never hand-edit
 bodies. VCALLMSR generator already fixed to CMSAR0, not vi[27]. SDK bindings
 preserve returnPC before yielding:183 implemented,19TODO kept original bodies.
-Last real boot loads11IOP modules but waits black in FUN125cc0 for FUN27f310
-status3 (currently2). VBlank callbacks11d530 and280f70 confirmed running;
-IOP ticks/instructions advance. Trace CRI file server task27f728/category5,
-registered by27f798; callback280e48 calls294428 ->2942b8 (0). Do not skip waits.
-Latest private decompilation .local/v090/analysis/espgaluda-cri-*.c, through r9.
+Current boot passed the first CRI file load: play-r12 status3. Two real kernel
+defects fixed in third_party/ps2/runtime: EE priority0 was rejected (four CRI
+CreateThread failures -403 in r10); ChangeThreadPriority returned success0
+instead of old priority, promoting main permanently and starving workers.
+Kernel ABI/range/priority-restore regression +SDK/VU CTests3/3 passed. Sources
+remain pinned/unmodified in .deps. No game code or wait/status bypass.
+Next stop is missing static overlay target733080 fromJAL14ec60. Disc A0A0/A0A8
+is ov_arcade.bin MWo3 module16 at730800; A0A9 ov_arrange.bin module17 shares
+the address. Need static compilation and bank-aware dispatch for BOTH, not EE
+interpreter fallback. Header64bytes; textSize4c3ac0/data10e000/bss2e100 forarcade,
+402840/f3700/21700 forarrange. First payload+64, bss beginsd02300/c26780.
+Original boot ELF reserves both zero-file-size segments. Analysis must include
+overlay bytes separately; ordinary load still uses original ELF/ISO.
+VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
+.local/v090/analysis/espgaluda-cri-*.c, throughr15. Probe now has bounded
+--frames N and --trace-boot with CreateThread/ReferThreadStatus observers.
 Build out/ps2-tools/bin/ps2_espgaluda_probe.exe; all old probes closed. Inspect
 existing log/CLI controls before running; do not redo codegen or setup from scratch.
 Ghidra project cache/ps2-analysis/ghidra/ESPGaluda (Ghidra rejects .local project

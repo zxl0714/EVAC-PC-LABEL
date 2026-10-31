@@ -84,6 +84,10 @@ if(PS2_BUILD_RUNTIME)
   add_subdirectory("${UPSTREAM}/ps2xIOP" "deps/iop" EXCLUDE_FROM_ALL)
   set(RUNTIME "${UPSTREAM}/ps2xRuntime")
   file(GLOB_RECURSE KERNEL_SOURCES CONFIGURE_DEPENDS "${RUNTIME}/src/lib/Kernel/*.cpp")
+  list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/EeScheduler.cpp")
+  list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/EeScheduler.cpp")
+  list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Syscalls/Thread.cpp")
+  list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/Thread.cpp")
   add_library(ps2_runtime STATIC
     "${RUNTIME}/src/lib/game_overrides.cpp"
     "${RUNTIME}/src/lib/gs/ps2_gif_arbiter.cpp"
@@ -104,7 +108,8 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/vu/ps2_vu1_lower.cpp"
     "${RUNTIME}/src/lib/games_database.cpp" ${KERNEL_SOURCES})
   target_include_directories(ps2_runtime PUBLIC "${RUNTIME}/include"
-    "${RUNTIME}/src/lib/Kernel" PRIVATE "${RUNTIME}/src/lib")
+    "${RUNTIME}/src/lib/Kernel" PRIVATE "${RUNTIME}/src/lib"
+    "${RUNTIME}/src/lib/Kernel/Syscalls")
   target_compile_definitions(ps2_runtime PRIVATE PS2X_HAS_FFMPEG=0 PS2X_ENABLE_IOP_RPC_TRACE=0)
   target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop)
 
@@ -112,6 +117,11 @@ if(PS2_BUILD_RUNTIME)
   target_include_directories(ps2_sdk_contract PRIVATE "${COLLECTION_ROOT}")
   target_link_libraries(ps2_sdk_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_sdk_contract COMMAND ps2_sdk_contract)
+
+  add_executable(ps2_kernel_contract "${COLLECTION_ROOT}/tests/ps2_kernel_test.cpp"
+    "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
+  target_link_libraries(ps2_kernel_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_kernel_contract COMMAND ps2_kernel_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   if(PS2_GAME_GENERATED)
