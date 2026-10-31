@@ -60,6 +60,10 @@ class Ps2ModuleTests(unittest.TestCase):
         entries = [struct.unpack_from('<IIIBBH', elf, symbols[4]+16*i) for i in (1,2)]
         self.assertEqual([(entry[1],entry[3],entry[5]) for entry in entries],
                          [(0x730840,0x12,2), (0x730850,0x12,2)])
+        self.assertIn(b'root_ov16_00730840\0',elf)
+        other=fixture();struct.pack_into('<I',other,4,17)
+        self.assertIn(b'root_ov17_00730840\0',analysis_elf(other,0x730840))
+        self.assertNotIn(b'root_ov16_00730840\0',analysis_elf(other,0x730840))
         with self.assertRaises(ValueError):
             analysis_elf(data, 0x730840, [0x730860])
 

@@ -51,7 +51,8 @@ def analysis_elf(data, entry, roots=()):
     names = b'\0.module.header\0.module.text\0.module.data\0.module.bss\0.shstrtab\0.strtab\0.symtab\0'
     payload_offset = 0x1000
     name_offset = payload_offset+len(data)
-    strings = b'\0'+b''.join(f'root_{root:08x}'.encode()+b'\0' for root in roots)
+    root_names={root:f'root_ov{module.module_id:02}_{root:08x}' for root in roots}
+    strings = b'\0'+b''.join(root_names[root].encode()+b'\0' for root in roots)
     string_offset = name_offset+len(names)
     symbol_offset = (string_offset+len(strings)+3)&~3
     section_offset = symbol_offset+16*(len(roots)+1)
@@ -67,7 +68,7 @@ def analysis_elf(data, entry, roots=()):
     result[string_offset:string_offset+len(strings)] = strings
     for index, root in enumerate(roots, 1):
         struct.pack_into('<IIIBBH', result, symbol_offset+16*index,
-                         strings.index(f'root_{root:08x}'.encode()), root, 0, 0x12, 0, 2)
+                         strings.index(root_names[root].encode()), root, 0, 0x12, 0, 2)
     sections = [
         ('.module.header', 1, 3, module.address, payload_offset, 64),
         ('.module.text', 1, 7, text_start, payload_offset+64, module.text_size),

@@ -60,10 +60,17 @@ bank. Headless same-address/sparse/bad-header/bounds/transfer tests4/4 passed.
 ps2_runtime.h/.cpp adapted at same upstream pin. CMake stages ONE include tree,
 excluding upstream ps2_runtime.h from COPY before installing adapted header;
 never mix old/new class layouts or use original header in PCH.
-Current initial full two-mode build exec61692, log .local/v090/ps2-build-r16.log,
-1207steps, twoBelowNormaljobs; first actual rebuild with module libraries. Latest
-test game remains closedr12; no menu/stage acceptance yet. Do not restart build
-just because CPU usage is low; two jobs are intentional default. Configure took
+The initial two-mode compile r16 completed 1206steps, then link failed on five
+identically named ELF seed getters in overlapping banks. Do NOT merge them or
+use /FORCE:MULTIPLE: they return different bank constants. llvm-nm verified zero
+outside-unit references in all466 ARRANGE objects; evidence
+.local/v090/espgaluda/arrange-root-references-r1.json. New analysis images scope
+roots by module id; current legacy outputs use source-specific compiler aliases
+for the five getters and registration table, retaining the other objects.
+Current incremental build r17, log .local/v090/ps2-build-r17.log, adds this fix,
+the pad fix and stage1 banks1/9. Before starting another build, inspect its process
+and log. Latest game remains closedr12; no menu/stage acceptance yet. Two
+BelowNormal jobs are intentional. Configure took
 199.3sec per pass on~300k source files. Build-Common now validates first cache,
 retries ONLY if flags were reset/mismatched (6 authored guard tests pass).
 New ps2_translation_units.py +2 tests batches input includes without rewriting
@@ -82,9 +89,9 @@ IMPORTANT new pad fix: upstream ps2_pad disabled keyboard if gamepad0 connected.
 Local vendor copy merges both; actual implementation with fake raylib states
 passed connected-controller keyboard/combined/release regression. New
 ps2_pad_contract test target. Temporary check built/executed via above grammar
-fixture. Current r16 build started BEFORE pad/CMake-stage changes: once it
-finishes, rebuild with current CMake+pad before doing keyboard CU. No header
-layout change from these additions; keep existing mode/boot objects. Input
+fixture. Current r17 includes pad/CMake-stage changes; wait for its actual link
+and five CTests before keyboard CU. No header layout change from these additions;
+keep existing mode/boot objects. Input
 source defaults X=Cross,C=Circle,Z=Square,V=Triangle,Enter=Start,Tab=Select.
 Do not apply PS4's Z/X mapping. SDL/shared config is still pending.
 VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
