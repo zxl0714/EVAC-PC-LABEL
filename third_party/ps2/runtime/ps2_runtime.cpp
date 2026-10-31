@@ -622,7 +622,10 @@ ps2x::iop::DebugSnapshot PS2Runtime::iopDebugSnapshot() const
 
 uint32_t PS2Runtime::allocateIopMemory(uint32_t size, uint32_t alignment)
 {
-    return m_iopSubsystem ? m_iopSubsystem->allocateMemory(size, alignment) : 0u;
+    const uint32_t address=m_iopSubsystem ? m_iopSubsystem->allocateMemory(size, alignment) : 0u;
+    if(!address && size)
+        std::cerr<<"[ps2-iop-heap] allocation failed: bytes="<<size<<" alignment="<<alignment<<std::endl;
+    return address;
 }
 
 bool PS2Runtime::freeIopMemory(uint32_t address)
@@ -2407,6 +2410,22 @@ void PS2Runtime::run()
         catch (const std::exception &e)
         {
             std::cerr << "Error during program execution: " << e.what() << std::endl;
+            if (const auto* fault=m_eeScheduler->currentThread())
+            {
+                const auto& context=fault->activeContext();
+                std::cerr<<"[ps2-fault] thread="<<fault->id<<" pc=0x"<<std::hex<<context.pc
+                         <<" ra=0x"<<getRegU32(&context,31)<<" sp=0x"<<getRegU32(&context,29)
+                         <<" trace="<<formatDispatchHistory()<<std::dec<<std::endl;
+                context.dump();
+                for (unsigned reg=4;reg<=5;++reg)
+                {
+                    const uint32_t address=getRegU32(&context,reg)&PS2_RAM_MASK;
+                    if (address>PS2_RAM_SIZE-64)continue;
+                    std::cerr<<"[ps2-fault] arg"<<reg-4<<" bytes="<<std::hex;
+                    for (unsigned i=0;i<64;++i)std::cerr<<unsigned(m_memory.getRDRAM()[address+i])<<',';
+                    std::cerr<<std::dec<<std::endl;
+                }
+            }
         }
         catch (...)
         {

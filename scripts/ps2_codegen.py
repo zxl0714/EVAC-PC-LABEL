@@ -10,6 +10,25 @@ from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import restore
 
 
+def validate_sdk_bindings(general, source):
+    """A dispatch-table replacement cannot intercept a generated direct call."""
+    bindings=re.findall(r'BindSdkHandler\(runtime,0x([0-9a-fA-F]+)u,"([^"]+)"\)',source)
+    if not bindings:
+        raise ValueError('No explicit native SDK bindings found')
+    selectors={}
+    for selector in general.get('stubs',[]):
+        name,separator,address=selector.rpartition('@')
+        if separator:
+            number=int(address,0)
+            if number in selectors and selectors[number]!=name:
+                raise ValueError('Conflicting SDK handler names at '+address)
+            selectors[number]=name
+    for address,name in bindings:
+        if selectors.get(int(address,16))!=name:
+            raise ValueError(f'Native SDK direct call lacks a generated binding: {name}@0x{address}')
+    return len(bindings)
+
+
 def translation_summary(text):
     patterns = {
         'discovered': r'^Functions discovered: (\d+)$',
@@ -48,7 +67,10 @@ def generate(config, log, receipt, root=ROOT):
     reject_link(tool)
     general = tomllib.loads(config.read_text(encoding='utf-8'))['general']
     inputs = {}
-    for key in ('input', 'ghidra_output'):
+    input_keys=['input','ghidra_output']
+    if 'sdk_bindings' in general:
+        input_keys.append('sdk_bindings')
+    for key in input_keys:
         value = general.get(key)
         if not isinstance(value, str) or not value:
             raise ValueError(f'PS2 game generation requires an explicit {key}')
@@ -57,6 +79,8 @@ def generate(config, log, receipt, root=ROOT):
             path = root/path
         reject_link(path)
         inputs[key] = dict(path=path, sha256=digest(path))
+    if 'sdk_bindings' in inputs:
+        validate_sdk_bindings(general,inputs['sdk_bindings']['path'].read_text(encoding='utf-8'))
     destination = Path(general['output'])
     if not destination.is_absolute():
         destination = root/destination
@@ -85,6 +109,8 @@ def generate(config, log, receipt, root=ROOT):
     value = dict(format=1, configSha256=config_hash, toolSha256=tool_hash,
                  elfSha256=inputs['input']['sha256'], functionMapSha256=inputs['ghidra_output']['sha256'],
                  logSha256=digest(log), summary=summary, gameplayVerified=False)
+    if 'sdk_bindings' in inputs:
+        value['sdkBindingsSha256']=inputs['sdk_bindings']['sha256']
     write_json_new(receipt, value)
     return value
 

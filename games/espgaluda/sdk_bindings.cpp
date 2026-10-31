@@ -11,6 +11,7 @@
 void RegisterEspgaludaStaticModules(PS2Runtime& runtime);
 #endif
 
+// Software libraries keep the original allocator, string and math semantics.
 // Upstream TODO services retain their original statically recompiled bodies.
 namespace {
 void SearchSingleLayer(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {
@@ -61,8 +62,6 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceGsExecStoreImage");
   if(!cave::ps2::BindSdkHandler(runtime,0x00102718u,"sceGsSyncVCallback"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceGsSyncVCallback");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00102960u,"memclr"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memclr");
   if(!cave::ps2::BindSdkHandler(runtime,0x00102998u,"sceDmaGetChan"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceDmaGetChan");
   if(!cave::ps2::BindSdkHandler(runtime,0x001029c0u,"sceDmaReset"))
@@ -329,71 +328,7 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceMcUnformat");
   if(!cave::ps2::BindSdkHandler(runtime,0x00114cf0u,"sceMcGetEntSpace"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceMcGetEntSpace");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00114e70u,"_calloc_r"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _calloc_r");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00116380u,"exit"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: exit");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00116408u,"fflush"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: fflush");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001167b8u,"_free_r"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _free_r");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00116a98u,"_malloc_trim_r"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _malloc_trim_r");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00117560u,"malloc_extend_top"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: malloc_extend_top");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001177b8u,"_malloc_r"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _malloc_r");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00117ea0u,"_mbtowc_r"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _mbtowc_r");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00117ed0u,"memchr"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memchr");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00117fb0u,"memcmp"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memcmp");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00118048u,"memcpy"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memcpy");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001180f8u,"memmove"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memmove");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00118200u,"memset"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memset");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001182c0u,"__malloc_lock"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __malloc_lock");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00118318u,"__malloc_unlock"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __malloc_unlock");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00119338u,"_printf_r"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _printf_r");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00119378u,"printf"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: printf");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001193e0u,"rand"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: rand");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001199f8u,"sprintf"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sprintf");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00119c70u,"strcat"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strcat");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00119da0u,"strcmp"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strcmp");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00119ee8u,"strcpy"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strcpy");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0011a000u,"strlen"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strlen");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0011a210u,"strncat"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strncat");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0011a3c0u,"strncmp"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strncmp");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0011a578u,"strncpy"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: strncpy");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0011aaa0u,"vfprintf"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: vfprintf");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0011b7f8u,"vfprintf"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: vfprintf");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00127db8u,"__ieee754_rem_pio2f"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __ieee754_rem_pio2f");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00128230u,"__kernel_cosf"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __kernel_cosf");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00128ba0u,"__kernel_sinf"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __kernel_sinf");
-  if(!cave::ps2::BindSdkHandler(runtime,0x0012dfe0u,"__divdi3"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __divdi3");
-  std::cerr<<"[ps2-bindings] ESPGaluda SDK: 183 handlers\n";
+  std::cerr<<"[ps2-bindings] ESPGaluda SDK: 150 handlers\n";
 }
 }
 PS2_REGISTER_GAME_OVERRIDE("ESPGaluda SLPS-25352 SDK","",0x00100008u,0x95b4197du,BindSdk)

@@ -70,9 +70,38 @@ for the five getters and registration table, retaining the other objects.
 Incremental r17 compiled both stage1 banks, then caught their shared entry
 root_00649880 at link. Stage builder now aliases every unit that defines OR
 references a root, including registration; untouched body objects stay cached.
-Current build r18, exec80745, log .local/v090/ps2-build-r18.log, compiles only
-the affected stage batches and relinks. Before another build, inspect its process
-and log. Latest game remains closedr12; no menu/stage acceptance yet. Two
+r18 completed:387614208-byte EXE +2564616192-byte PDB, both mode banks and first
+stages1/9 linked. play-r13 thin mount stopped on sceCdSearchFile A0A0/A0A0.;1:
+upstream searches only loose files. Full-root play-r14 passed that load and the
+former733080 missing target, then waited in153c08/153c10 (sound-bank init).
+Both bounded probes have closed; neither menu nor stage accepted yet.
+IMPORTANT: generated FUN127590 tail-jumps directly to FUN10bfd8, bypassing
+replaceFunction's dispatch-table replacement. This left the original IOP heap
+RPC body active despite the manual SDK binding. Regenerated boot with all183
+implemented SDK selectors: .local/v090/espgaluda/ghidra-sdk-output-r1;
+ghidra-sdk-codegen-r1.json has39466functions/221stubs/zero generation errors.
+The183 bindings overlap13 existing selectors. Native generated10bfd8 now calls
+sceSifAllocIopHeap directly and sets returnPC. Custom single-layer wrapper112090
+is still runtime-only; inspect if a direct tail call to it becomes relevant.
+r19 completed, six native tests passed. r20 integrated ISO lookup +fault context;
+seven native tests passed. play-r15(full root),r16/r17(thin root) then stopped
+at28bc6c/RA28bc6c on malformed path passed through112090. See r17stderr: path
+is backslash+A0A0+backslash followed by bytes de,9c,ee,01 (a stack pointer), then
+;1. Earlier valid ISO searches advanced through A0AE; live returned LBA1caa36/
+size3e800 exactly matches original inventory, so raw ISO lookup is working.
+Fault stdout has all registers; catch runs on EE executor and safely dumps live
+context and bounded argument bytes. Read-only decompilations espgaluda-path-r1.c
+and-path-build-r1.c: FUN28c858 builds paths with strcpy/strcat/strlen/strcmp;
+FUN28cb58 calls it then28bc38->112090. Caller path data is wrong; do not guess keys.
+Current controlled build r22, exec69618, log .local/v090/ps2-build-r22.log:
+preserve33 software-library bindings as original code (allocator/strings/math),
+retain150 platform SDK bindings. New generated boot ghidra-platform-output-r1;
+ghidra-platform-codegen-r1.json has39466functions/189stubs/zero errors and
+sdkBindingsSha25648c82d6f...c8f59aefc. Config has sdk_bindings path, and generation
+tool now requires every declared native binding to have an explicit selector.
+Wait for this comparison build, then use fresh play-r18/thin-disc-root-r1.
+No menu/stage accepted yet. All probes closed. Before another build, inspect its
+process and log. Two
 BelowNormal jobs are intentional. Configure took
 199.3sec per pass on~300k source files. Build-Common now validates first cache,
 retries ONLY if flags were reset/mismatched (6 authored guard tests pass).
@@ -86,14 +115,17 @@ build-all-modules-r1.json (1..15), under .local/v090/espgaluda.
 All15-stage glue generated/validated at all-stage-build-glue-r1; real CMake
 syntax/graph check .local/v090/cmake-stage-grammar-r1: 4.6s configure/0.3s
 generation, without compiling game code. Existing mode graph199.3s generation.
-139514 ARCADE cpp files batch to545units in4.557s. Three authored stage-builder
-tests pass, plus18 existing PS2Python tests (now21 total).
+139514 ARCADE cpp files batch to545units in4.557s. PS2 Python tests24 total pass,
+including cross-unit root references and missing direct SDK binding rejection.
 IMPORTANT new pad fix: upstream ps2_pad disabled keyboard if gamepad0 connected.
 Local vendor copy merges both; actual implementation with fake raylib states
 passed connected-controller keyboard/combined/release regression. New
 ps2_pad_contract test target. Temporary check built/executed via above grammar
-fixture. All five production CTests passed after pad rebuild. Current r18 includes
-pad/CMake-stage changes; wait for its actual link before keyboard CU. No header layout change from these additions;
+fixture. Seven production CTests passed after r20. The SDK codegen test uses an
+authored MIPS tail-jump fixture with memset binding; caller bypasses dispatch
+and native execution must check actual bytes +returnPC. No ROM dependency.
+Current r22 includes pad/CMake-stage changes; wait for actual link/native tests
+before gameplay. No header layout change from these additions;
 keep existing mode/boot objects. Input
 source defaults X=Cross,C=Circle,Z=Square,V=Triangle,Enter=Start,Tab=Select.
 Do not apply PS4's Z/X mapping. SDL/shared config is still pending.
@@ -107,6 +139,19 @@ them into data until a distant next label. Actual 236 entry extents refined.
 Ibara accepted generation .local/v090/ibara/ghidra-generated-r3, receipt
 codegen-ghidra-r3.json:17926functions/55stubs/773warnings/zero errors, decode,
 unhandled or critical fallback. No Ibara native build/play acceptance yet.
+ISO support integrated in r20: backends/ps2/iso_disc.* +authored
+tests/ps2_iso_test.cpp. Independent same-toolchain build under
+.local/v090/cmake-iso-r1/build/ps2_iso_contract.exe passed core checks and actual
+read-only ESPGaluda A0A0/A0A0. +Ibara IOP/MTSFILE.IRX original LBA/size checks.
+New third_party/ps2/runtime/CD.cpp prefers ISO search and physical LBAs, without
+registering image entries as loose files/pseudo-LBAs. Wired into main CMake and
+Build-Ps2 entry, native contract passes. Thin-root r17 advanced through A0AE
+using original ISO sectors, then failed on corrupt caller filename (see above).
+Headers use existing include dirs; no VM ABI change. For CPP-only changes, use
+Initialize-CollectionBuildEnvironment then cmake --build out/ps2-tools
+--parallel2 --target ps2_espgaluda_probe, without repeated full configure.
+Run() currently catches execution failures and returns normally; player host
+must eventually propagate a failure exit after cleanup (not accepted as success).
 VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
 .local/v090/analysis/espgaluda-cri-*.c, throughr15. Probe now has bounded
 --frames N and --trace-boot with CreateThread/ReferThreadStatus observers.

@@ -85,6 +85,10 @@ add_executable(ps2_module_contract "${COLLECTION_ROOT}/tests/ps2_modules_test.cp
   "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp")
 target_include_directories(ps2_module_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
 add_test(NAME ps2_module_contract COMMAND ps2_module_contract)
+add_executable(ps2_iso_contract "${COLLECTION_ROOT}/tests/ps2_iso_test.cpp"
+  "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp")
+target_include_directories(ps2_iso_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
+add_test(NAME ps2_iso_contract COMMAND ps2_iso_contract)
 add_executable(ps2_pad_contract "${COLLECTION_ROOT}/tests/ps2_pad_test.cpp"
   "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp")
 target_include_directories(ps2_pad_contract PRIVATE "${PS2_RUNTIME_INCLUDE}" "${DEPS}/raylib/src")
@@ -104,6 +108,8 @@ if(PS2_BUILD_RUNTIME)
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/EeScheduler.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Syscalls/Thread.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/Thread.cpp")
+  list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/CD.cpp")
+  list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/CD.cpp")
   add_library(ps2_runtime STATIC
     "${RUNTIME}/src/lib/game_overrides.cpp"
     "${RUNTIME}/src/lib/gs/ps2_gif_arbiter.cpp"
@@ -119,6 +125,7 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/ps2_vfs.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
     "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp"
     "${RUNTIME}/src/lib/ps2_vif1_interpreter.cpp"
     "${RUNTIME}/src/lib/vu/ps2_vu1_core.cpp"
     "${RUNTIME}/src/lib/vu/ps2_vu1_upper.cpp"
@@ -140,6 +147,19 @@ if(PS2_BUILD_RUNTIME)
     "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
   target_link_libraries(ps2_kernel_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_kernel_contract COMMAND ps2_kernel_contract)
+
+  set(sdkFixture "${CMAKE_BINARY_DIR}/sdk-direct-fixture")
+  set(sdkFixtureSources "${sdkFixture}/generated/FUN_00100000_0x100000.cpp"
+    "${sdkFixture}/generated/FUN_00100100_0x100100.cpp")
+  add_custom_command(OUTPUT ${sdkFixtureSources} "${sdkFixture}/generated/ps2_recompiled_functions.h"
+    COMMAND py -3.12 "${COLLECTION_ROOT}/tests/ps2_generate_sdk_fixture.py"
+      --tool $<TARGET_FILE:ps2_recomp> --output "${sdkFixture}"
+    DEPENDS ps2_recomp "${COLLECTION_ROOT}/tests/ps2_generate_sdk_fixture.py"
+      "${COLLECTION_ROOT}/scripts/ps2_codegen.py" VERBATIM)
+  add_executable(ps2_sdk_codegen_contract "${COLLECTION_ROOT}/tests/ps2_sdk_codegen_test.cpp" ${sdkFixtureSources})
+  target_include_directories(ps2_sdk_codegen_contract PRIVATE "${sdkFixture}/generated")
+  target_link_libraries(ps2_sdk_codegen_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_sdk_codegen_contract COMMAND ps2_sdk_codegen_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   set(PS2_ARCADE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARCADE module")

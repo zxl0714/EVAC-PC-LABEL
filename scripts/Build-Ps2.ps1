@@ -36,8 +36,8 @@ try {
     $configure+=@('-DPS2_ARRANGE_GENERATED='+$(if ($ArrangeGenerated) {[IO.Path]::GetFullPath($ArrangeGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_STAGE_MODULES_MANIFEST='+$(if ($StageModulesManifest) {[IO.Path]::GetFullPath($StageModulesManifest).Replace('\','/')} else {''}))
     Invoke-CollectionConfigure $cmake $configure $build
-    $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract','ps2_module_contract','ps2_pad_contract')
-    if (-not $ToolsOnly) { $targets+=@('ps2_runtime','ps2_sdk_contract','ps2_kernel_contract') }
+    $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract','ps2_module_contract','ps2_iso_contract','ps2_pad_contract')
+    if (-not $ToolsOnly) { $targets+=@('ps2_runtime','ps2_sdk_contract','ps2_kernel_contract','ps2_sdk_codegen_contract') }
     if ($ProbeGenerated) { $targets+='ps2_espgaluda_probe' }
     Invoke-Checked $cmake $targets
     Write-Host "PS2 tools and requested development targets built under $build. No game has been launched."

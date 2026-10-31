@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from ps2_codegen import translation_summary
+from ps2_codegen import translation_summary, validate_sdk_bindings
 
 REPORT = '''Functions discovered: 3
 Functions processed: 3, recompiled: 2, stubs: 1, skipped: 0, decode failures: 0
@@ -15,6 +15,16 @@ Warnings: 1, errors: 0
 
 
 class Ps2CodegenTests(unittest.TestCase):
+    def test_native_sdk_bindings_require_generation_selectors(self):
+        source='if(!cave::ps2::BindSdkHandler(runtime,0x0010bfd8u,"sceSifAllocIopHeap"))'
+        self.assertEqual(validate_sdk_bindings({'stubs':['sceSifAllocIopHeap@0x0010BFD8']},source),1)
+        for general in ({},{'stubs':['sceSifAllocIopHeap@0x0010bfd0']},
+                        {'stubs':['other@0x0010bfd8']},
+                        {'stubs':['other@0x0010bfd8','sceSifAllocIopHeap@0x0010bfd8']}):
+            with self.subTest(general=general),self.assertRaises(ValueError):
+                validate_sdk_bindings(general,source)
+        with self.assertRaises(ValueError):validate_sdk_bindings({},'// no declared bindings')
+
     def test_complete_report_and_crlf_preserve_warning_count(self):
         result = translation_summary(REPORT.replace('\n', '\r\n'))
         self.assertEqual((result['functions'], result['stubs'], result['warnings']), (3, 1, 1))
