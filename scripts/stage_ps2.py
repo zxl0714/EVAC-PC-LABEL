@@ -1,6 +1,5 @@
 """Stage the certified PS2 player runtime and its matching private symbols."""
 import json
-from pathlib import Path
 import shutil
 import uuid
 

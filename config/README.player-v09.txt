@@ -65,7 +65,6 @@ PS2 ESPGaluda 使用原作本地成绩与记忆卡。
 性能对比：https://github.com/zxl0714/EVAC-PC-LABEL#readme
 
 English
-=======
 
 Run EVAC PC LABEL.exe, select a game, and click Launch game.
 To update, close the games and launcher, replace the program files, and keep user-data/.
