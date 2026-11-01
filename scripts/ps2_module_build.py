@@ -32,9 +32,16 @@ def prepare(manifest, metadata, output):
         tag=f'{number:02}';prefix=f'g_ps2Stage{tag}FunctionTable'
         roots=re.findall(r'^void (root_[A-Za-z_0-9]+)\(',
                          (directory/'ps2_recompiled_functions.h').read_text(encoding='utf-8'),re.M)
-        units=make_units(directory,output/f'module-{tag}',symbols=roots)
+        global_roots=source.get('globalRootAliases',False)
+        if type(global_roots)!=bool:
+            raise ValueError('Stage root alias mode must be boolean')
+        # New banks can scope their entry names in the whole target, including
+        # its PCH. This avoids reading every generated body to find references.
+        # Existing banks retain source-specific aliases and their cached objects.
+        units=make_units(directory,output/f'module-{tag}',symbols=() if global_roots else roots)
         configured.append(dict(number=number,tag=tag,prefix=prefix,directory=directory,
-                               units=Path(units['manifest']),rootUsers=units['symbolUsers'],module=original))
+                               units=Path(units['manifest']),rootUsers=units['symbolUsers'],module=original,
+                               globalRoots=roots if global_roots else []))
     if not configured:
         raise ValueError('No stage modules requested')
     output.mkdir(parents=True,exist_ok=True)
@@ -49,6 +56,8 @@ def prepare(manifest, metadata, output):
         cmake+=f'target_compile_definitions({name} PRIVATE\n'
         for suffix in ('','Base','End','SlotCount'):
             cmake+=f'  "g_ps2RecompiledFunctionTable{suffix}={prefix}{suffix}"\n'
+        for symbol in item['globalRoots']:
+            cmake+=f'  "{symbol}=espgaluda_stage_{item["tag"]}_{symbol}"\n'
         cmake+=')\n'
         cmake+=f'target_compile_options({name} PRIVATE /bigobj)\n'
         cmake+=f'set_target_properties({name} PROPERTIES UNITY_BUILD OFF)\n'

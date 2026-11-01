@@ -3,6 +3,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from ps2_module_build import prepare
@@ -66,6 +67,24 @@ class Ps2ModuleBuildTests(unittest.TestCase):
                 original=build['modules'][0];build['modules']=[dict(original,id=number) for number in ids]
                 (root/'build.json').write_text(json.dumps(build))
                 with self.assertRaises(ValueError):prepare(root/'build.json',root/'metadata.json',root/'output')
+
+    def test_new_bank_scopes_entry_for_the_target_and_pch_without_reading_bodies(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);values=self.fixture(root);generated=root/'generated'
+            (generated/'ps2_recompiled_functions.h').write_text('void root_same(uint8_t*, Ctx*, Runtime*);')
+            body=generated/'root_same.cpp';body.write_text('void root_same() {}')
+            values['build.json']['modules'][0]['globalRootAliases']=True
+            (root/'build.json').write_text(json.dumps(values['build.json']))
+            read=Path.read_text
+            def guarded(path,*args,**kwargs):
+                if path==body:raise AssertionError('Global aliases must not scan function bodies')
+                return read(path,*args,**kwargs)
+            with mock.patch.object(Path,'read_text',guarded):
+                prepare(root/'build.json',root/'metadata.json',root/'output')
+            code=(root/'output/modules.cmake').read_text()
+            self.assertIn('root_same=espgaluda_stage_01_root_same',code)
+            self.assertNotIn('SKIP_PRECOMPILE_HEADERS ON',code)
+            self.assertEqual(body.read_text(),'void root_same() {}')
 
 
 if __name__=='__main__':unittest.main()

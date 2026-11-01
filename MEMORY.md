@@ -89,6 +89,8 @@ Numpad0／Numpad1，Computer Use 对应 KP_0／KP_1。
 - PS2 只改运行时／宿主 C++ 时，直接 `cmake --build out/ps2-tools --parallel 2`。
   `Build-Ps2.ps1` 会重新生成大型构建图，只有生成目录、模块清单或构建配置变化才重跑；
   活跃构建的会话和日志见 `AGENTS.md`，不要因日志暂未刷新就另起一次构建。
+  新关卡首次构建使用 `globalRootAliases`，让目标与 PCH 统一重命名入口，避免逐个打开全部生成文件。
+  已编译模块保留原来的重命名方式和缓存；原生检查用 `tools/apps/cmake/bin/ctest.exe`。
 - `.local/v084/launch-check.ps1`：本次 CPU 兼容验收共用启动入口，按参数选择大往生版本／绊地狱和新日志目录。
 - 长时间没推进时，先查看本轮日志／配置和已有验收记录，定位一个原因再行动。
   不重启全部流程，不再全文翻几千行历史寻找“可能用过的键”。
