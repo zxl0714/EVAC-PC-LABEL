@@ -102,13 +102,23 @@ if(PS2_BUILD_RUNTIME)
   set(PS2X_IOP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
   add_subdirectory("${DEPS}/raylib" "deps/raylib" EXCLUDE_FROM_ALL)
   add_subdirectory("${UPSTREAM}/ps2xIOP" "deps/iop" EXCLUDE_FROM_ALL)
+  # Every private IOP include sees one memory layout, including quoted sibling
+  # headers. Keep the pinned dependency tree immutable.
+  set(IOP_SOURCE_VIEW "${CMAKE_BINARY_DIR}/iop-source")
+  file(COPY "${UPSTREAM}/ps2xIOP/src/" DESTINATION "${IOP_SOURCE_VIEW}"
+    PATTERN "iop_memory.h" EXCLUDE PATTERN "iop_memory.cpp" EXCLUDE
+    PATTERN "iop_module_loader.cpp" EXCLUDE)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.h"
+    "${IOP_SOURCE_VIEW}/emulator/core/iop_memory.h" COPYONLY)
   get_target_property(IOP_SOURCES ps2_iop SOURCES)
-  list(TRANSFORM IOP_SOURCES PREPEND "${UPSTREAM}/ps2xIOP/")
-  list(REMOVE_ITEM IOP_SOURCES "${UPSTREAM}/ps2xIOP/src/emulator/core/iop_memory.cpp")
+  list(REMOVE_ITEM IOP_SOURCES "src/emulator/core/iop_memory.cpp" "src/emulator/services/iop_module_loader.cpp")
+  list(TRANSFORM IOP_SOURCES REPLACE "^src/" "${IOP_SOURCE_VIEW}/")
   set_property(TARGET ps2_iop PROPERTY SOURCES ${IOP_SOURCES}
-    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.cpp")
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.cpp")
+  target_include_directories(ps2_iop BEFORE PRIVATE "${IOP_SOURCE_VIEW}")
   add_executable(ps2_iop_memory_contract "${COLLECTION_ROOT}/tests/ps2_iop_memory_test.cpp")
-  target_include_directories(ps2_iop_memory_contract PRIVATE "${UPSTREAM}/ps2xIOP/src")
+  target_include_directories(ps2_iop_memory_contract PRIVATE "${IOP_SOURCE_VIEW}")
   target_link_libraries(ps2_iop_memory_contract PRIVATE ps2_iop)
   add_test(NAME ps2_iop_memory_contract COMMAND ps2_iop_memory_contract)
   set(RUNTIME "${UPSTREAM}/ps2xRuntime")

@@ -16,18 +16,36 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
-Latest PS2 checkpoint (Nov1 11:22): r42/r43COMPLETE, native8/8PASSr43,
-Python34PASSr11. Noactivegame/build/analysis. play-r34PID124712/exec16650CLOSED,
-reaped, exit0 at11:20:22,18000frames306264ms. REALARCADEstage1/AGEHAobserved!
-Enemies/background/shootingandContinue8appeared; actualmovementnotyetclearly
-proved(A/Ddeliveredbutdeath/respawnconfounded). ContinueReturnarrivedafterframe
-capclosed, NOTinputfailure/crash. HowToPlayruns~2minutes; letitfinish, ZNOTskip.
-DswitchTATEHAverifiedr32. AlloriginalROMs/oldoutputsuntouched. ReadMEMORYbeforeCU.
+Latest PS2 checkpoint (Nov1 11:38): r44/r45COMPLETE, native8/8PASSr44;
+strongerIOPcapacitycontractPASS(.local/v090/ps2-iop-capacity-test-r1.log).
+ALLgamesclosed, noactivebuild/analysis. r35PID89672/exec62144 needsreap,
+NORMALAlt+F4exit0at11:37:22. Actualr35mainmenu/ARCADE/defaultAGEHA/stage1,
+LEFTandRIGHTmovementvisiblyproved, Continue8->Returnresumedgame! Shooterinput
+Zdelivered; shootingnotyetstronglyisolatedfrombullets/death. Noheapfailuresor
+missingtargetsanywhereinfullr35log. Diagnostic200,24000capdidNOTcauseexit.
+CurrentCUwindowobjectisSTALE. ReadMEMORYbeforeanynewautomation.
+r34alsofirststage/shooting/Continueobserved, normalcapexit0; originaldatafrozen.
 
-CurrentEXEout/ps2-tools/bin/ps2_espgaluda_probe.exe=r43. r42addsconstructedcallbacks
-andpresentation-size-changelog; r43CPP-onlyaddsIOPheapfailurelayoutlog. r43build
-log.local/v090/ps2-build-r43.log/native-r43.log. Get-CollectionTooldoesNOTsupport
-ctest; use tools/apps/cmake/bin/ctest.exe. AvoidunneededreconfigureforCPP-only.
+CurrentEXEr45adds4:3CRTpresent(PS2non-square384x448pixels)and640x480window;
+menu/spritesnowvisiblywider/correctphysicalaspect, noarbitrarycropping. IOPpool
+r44unifiesmoduleimagesandserviceheapwithinoriginal2MiB:HeapBase10000to1f0000,
+kernellow64KiB/callstacktop64KiBreserved. PICloaderallocatesfullimagespan, fixed
+ET_EXECcollisionreject;RAIIrollbackforbadimage. ALLprivateIOPfilesuseONEstaged
+source/header view underout/ps2-tools/iop-source; originaldepsunchanged. Special
+CPPfilescompileDIRECTfromadapters, notconfigure_file, soCPP-onlyeditsstayfast.
+r35actualstartup11IRXsloaded(baseschangedvalidly), ZEROheapallocationfailure;
+old832KiBpartitionfailuregone. NativecontractalsoactualauthoredIRXloads/late
+modulevsheapcollision/fixedcollision/badloadrollback andexactrepresentative
+20servicebuffers+256KiBuploadalongside320KiBcode(guardsagainstoldpartition).
+CurrentsourceIOPheader/loader/CMake/test/aspectvalidatedinr35; commitnow.
+Lastcommita24c0ef containsfirststage/callback/initialheapcontracts.
+
+SoundstillNOTaccepted: sourceinspection PS2AudioBackend::onSoundCommand accepts
+ONLYsid80000701 andheuristicvoicesamples. IOPcorelibsdHLEroutesONLYsameSID.
+ESPGusesEZMIDI/SDRcustomIRXandRAMSPU2registerwrites. ExistingIopMemoryhardware
+writesemulateDMAcompletion/dictionarybutnotfullSPU2mixing. Needcheckactual
+command/voice/outputpath; likelyreusematureSPU2coreinsteadheuristicGOWcommands.
+NoSPU2newimplementationyet. DoNOTclaimheapfixprovesaudibleaudio.
 
 r42inputs: originalbootghidra-allocation-output-r2, originalmodebases*-generated-r2,
 fullstage1/9generated-r2/build-stage1-modules-r2.json; ModeExtrasManifestr10:
@@ -58,34 +76,18 @@ All-stageexternalcalls found16boot+45ARCADE+39ARRANGEbeyondfirststagebatch;
 fullbootr7,modesr8 seededthat. Thusbootextra-r5matchesfunctions.csv; modeextra-r6
 matchesoriginal*-functions-r2.csv. DoNOTuseoldr4extras again(knownmissing256860).
 
-IOP: adapteriop_memory.cpp nowLINKEDsince r41, originaldepsuntouched. Native8tests
-pass(r41); standaloneactualupstreamFAILEDreuse, adapterpasses64reusecycles,
-fixedranges/alignment/overflow/largestgap/fullcapacity/reset. HOWEVERactualr33
-stillhas256Kfailure line54; DO NOTclaimgonefromtaillog. Readfullstartuplog.
-Readonlydecomp espgaluda-iop-allocation-callers-r1.c: FUN1267f0 at12695c allocates
-40000temporaryIOPbuffer forresourceupload, thenusesresultWITHOUTcheckingfor0 in
-SifDMA; canoverwriteIOPIRX ifallocationfails. FirstfitbugfixisvalidbutNOTenough.
-r34layoutPROVEDcapacityshortage:20liveblocks,largest65216,request262144. Heap
-fixed120000..1f0000 (832KiB) includesbuffers40000+30c40+40000and20smallstacks.
-Original2MiBIOPRAMhasunusedspacebelow120000; IRXmodulesstart10000,last~5ca00.
-NeedSHAREDmodule+heapallocation/reservationwithin2MiB, NOTjustgrowRAMorlower
-heapbasewithoutprotectingfutureIRXs. LoadercurrentlyplacesPICatmoduleCursor,
-rejectsbase+span>=HeapBase,thenwriteRam/zeroRam; itdoesNOTreservefullimagespan
-inallocationlist, anddoesnotcheckheapcollision. Source iop_module_loader.cpp
-lines425..460. IopMemorymarkOwnedrecordswrittenbytes; canreservefullmodule
-spanasallocatorblocktoavoidholes. IopEmulatorconstantskKernelHeapBase/Limit
-alsoqueryheap, sokeepconsistent. Strongcandidate:oneprivateIOPsourceview with
-adaptedheaderHeapBase10000,allocatorfirstfitacrosssharedpool,loaderallocates
-imagefullspanBEFOREwriting/relocating;ET_EXECfixedaddresscollisionreject,
-PICselectsalignedfreeblock. Kernel0..10000andcallstack1f0000..2Mreserved.
-NeednativeauthoredIRX/allocatorcollision/late-loadandactualsounduploadtest.
-Nochangesforunifiedlayoutyet, onlyanalysis. Existingfirstfitfixvalidbutinsufficient.
+IOPpreviouscause/evidence: r34heap-layoutline55 had20liveblocks,largest65216,
+request262144 withold120000..1f0000partition. FUN1267f0at12695c allocatestemp
+40000uploadbufferthenusesunchecked0forDMA, corruptingIRX. Readonlydecomp
+.local/v090/analysis/espgaluda-iop-allocation-callers-r1.c. Sharedpoolfixabove
+nowpreventsactualfailure. Initialfirstfit/freefix remains; fullsourceviewavoids
+ODR/oldheaderconstants. Native8andrepresentativecapacitytestsPASS. NoRAMgrowth.
 
 GS: newruntimeUploadFrame emits[ps2-present] ONLYonwidth/heightchangeforr42; use
 it toinvestigatecurrentlynarrow~150x300viewportbeforeassumingaspectfix. Frontend
 copyLatchedpacksrowscorrectly, UploadFrame'srowcopyisfine. Actualsize384x448; currenthostfitsRAWpixelaspect, likelyneeds4:3CRTpresentation
 (non-squarepixels)ratherthanrawratio. Framecontainsnarrow224wideplayfieldplus
-sidebars; doNOTcroparbitrarily. Needverifyphysicalaspectafterfix. NoGSfixyet; quality/
+sidebars; doNOTcroparbitrarily. Needverifyphysicalaspectafterfix. 4:3hostfitnowimplemented; detailedtexture/quality/
 audio/perfnotaccepted. Currentcommitted d6d5ddc; laterIOP/modulemetadata/tools/
 MEMORY/AGENTS/CMake/Build-Ps2UNCOMMITTED, preservethencommitafterverification.
 v084published/replied; v090stillneedsactualESPGstage/boss/save/Arrange,Ibara,

@@ -49,7 +49,7 @@ static constexpr int HOST_WINDOW_WIDTH = 960;
 static constexpr int HOST_WINDOW_HEIGHT = 544;
 #else
 static constexpr int HOST_WINDOW_WIDTH = FB_WIDTH;
-static constexpr int HOST_WINDOW_HEIGHT = DEFAULT_DISPLAY_HEIGHT;
+static constexpr int HOST_WINDOW_HEIGHT = 480;
 #endif
 struct ElfHeader
 {
@@ -2490,9 +2490,10 @@ void PS2Runtime::run()
         const float srcHeight = static_cast<float>(std::max<uint32_t>(1u, presentHeight));
         const float screenWidth = static_cast<float>(GetScreenWidth());
         const float screenHeight = static_cast<float>(GetScreenHeight());
-        const float scale = std::min(screenWidth / srcWidth, screenHeight / srcHeight);
-        const float dstWidth = srcWidth * scale;
-        const float dstHeight = srcHeight * scale;
+        // The GS framebuffer uses non-square pixels; its storage dimensions
+        // are independent of these PS2 titles' 4:3 television output.
+        const float dstHeight = std::min(screenHeight, screenWidth * 0.75f);
+        const float dstWidth = dstHeight * (4.0f / 3.0f);
         const Rectangle srcRect{0.0f, 0.0f, srcWidth, srcHeight};
         const Rectangle dstRect{
             (screenWidth - dstWidth) * 0.5f,
