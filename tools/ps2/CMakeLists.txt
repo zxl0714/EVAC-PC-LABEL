@@ -96,6 +96,7 @@ add_test(NAME ps2_pad_contract COMMAND ps2_pad_contract)
 
 option(PS2_BUILD_RUNTIME "Compile the initial shared PS2 runtime library" ON)
 if(PS2_BUILD_RUNTIME)
+  include("${CMAKE_CURRENT_LIST_DIR}/Spu.cmake")
   set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
   set(CUSTOMIZE_BUILD OFF CACHE BOOL "" FORCE)

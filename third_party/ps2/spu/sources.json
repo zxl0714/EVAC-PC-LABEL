@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "files": [
+    {
+      "source": "PlaySpu/Source/iop/Iop_SpuBase.cpp",
+      "target": "src/Iop_SpuBase.cpp",
+      "sha256": "8028d08737f3804be4dfaaa3b6e7c7dad7840c3ac6e75e5ad5f516eb8c51e8b7"
+    },
+    {
+      "source": "PlaySpu/Source/iop/Iop_SpuBase.h",
+      "target": "include/Iop_SpuBase.h",
+      "sha256": "26953236a4d1111f6596340f6dbdf7cf4b99bd47f55215f6e9a59365afd1d556"
+    },
+    {
+      "source": "PlaySpu/Source/iop/Iop_Spu2_Core.cpp",
+      "target": "src/Iop_Spu2_Core.cpp",
+      "sha256": "6c9c41ab667133a4c1ab239636de447fff378d7fa763b6a921c100ad10dd0d98"
+    },
+    {
+      "source": "PlaySpu/Source/iop/Iop_Spu2_Core.h",
+      "target": "include/Iop_Spu2_Core.h",
+      "sha256": "ae4d961a7c54bf1e69bdd051dbf1f7a88c5d52a249fbdf4526c93aa240abd3ac"
+    },
+    {
+      "source": "PlaySpu/Source/iop/Iop_Spu2.cpp",
+      "target": "src/Iop_Spu2.cpp",
+      "sha256": "522575831238509ae20610c9973e1a86d3a36ae84a96e8c9cac669a536ec3416"
+    },
+    {
+      "source": "PlaySpu/Source/iop/Iop_Spu2.h",
+      "target": "include/Iop_Spu2.h",
+      "sha256": "c9baa318885d73115a6a0026f3053cbc0faaacce72d89e5a5559d421a3e84860"
+    },
+    {
+      "source": "PlayFramework/include/Types.h",
+      "target": "include/Types.h",
+      "sha256": "9ab1cfc79e7a58abf35ad4b3265aff7112d42bda0bdf9c2dc0cf43630b637fec"
+    },
+    {
+      "source": "PlayFramework/include/BasicUnion.h",
+      "target": "include/BasicUnion.h",
+      "sha256": "cf1f0a7745f3ffcb7a14822653bc481a302f5ef686b17bbc5b47c6d344e2f46a"
+    },
+    {
+      "source": "PlayFramework/include/Convertible.h",
+      "target": "include/Convertible.h",
+      "sha256": "e2eb44eea41a85a410f3fea178e725b830614b6671a8f4743194c0ed967fa6da"
+    },
+    {
+      "source": "PlayFramework/include/string_format.h",
+      "target": "include/string_format.h",
+      "sha256": "a0b9ab5966734a1779c57f4ed97085124286a761423e094978938f6b75f88db6"
+    },
+    {
+      "source": "PlayFramework/include/maybe_unused.h",
+      "target": "include/maybe_unused.h",
+      "sha256": "72caa64152e53ad229cfc8b2994be59726e5e9807950bff008ce614c4fa61d0c"
+    },
+    {
+      "source": "PlayFramework/include/make_unique.h",
+      "target": "include/make_unique.h",
+      "sha256": "8bd67aec625c8697ca170d68ae6da0f376642a2d8b3e6fa52ec540aa2c96936c"
+    },
+    {
+      "source": "PlayFramework/include/placeholder_def.h",
+      "target": "include/placeholder_def.h",
+      "sha256": "4d39c8dbe1baabb439397c44d857133db93795d9b7d5ca982d211fad0febd630"
+    },
+    {
+      "source": "PlaySpu/Source/app_shared/Log.h",
+      "target": "include/Log.h",
+      "sha256": "137f9a79b0a359f4595368150239cf764749c486a8a6831d12c4bef500346944"
+    },
+    {
+      "source": "PlaySpu/License.txt",
+      "target": "LICENSE_PLAY.txt",
+      "sha256": "e9089da5950600267bb657503aba6eb59cb679b455c2997d341d83144144daab"
+    },
+    {
+      "source": "PlayFramework/License.txt",
+      "target": "LICENSE_FRAMEWORK.txt",
+      "sha256": "e9089da5950600267bb657503aba6eb59cb679b455c2997d341d83144144daab"
+    }
+  ]
+}

@@ -8,6 +8,8 @@
     {"name":"libdwarf","revision":"2e088b983562860f497b4fd789a3e61524eb857c","url":"https://github.com/davea42/libdwarf-code.git"},
     {"name":"rabbitizer","revision":"d5804fa488474830a47fbf9f3693048ec1e45589","url":"https://github.com/Decompollaborate/rabbitizer.git"},
     {"name":"nlohmann_json","revision":"9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03","url":"https://github.com/nlohmann/json.git"},
-    {"name":"raylib","revision":"c1ab645ca298a2801097931d1079b10ff7eb9df8","url":"https://github.com/raysan5/raylib.git"}
+    {"name":"raylib","revision":"c1ab645ca298a2801097931d1079b10ff7eb9df8","url":"https://github.com/raysan5/raylib.git"},
+    {"name":"PlaySpu","revision":"1f27232772e484bfb79364b751b84f41f4c87481","url":"https://github.com/jpd002/Play-.git"},
+    {"name":"PlayFramework","revision":"587f278917acc0026bf5fc34b39f995fc26bd015","url":"https://github.com/jpd002/Play--Framework.git"}
   ]
 }
