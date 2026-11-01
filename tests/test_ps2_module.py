@@ -82,12 +82,13 @@ class Ps2ModuleTests(unittest.TestCase):
     def test_original_direct_calls_seed_only_their_bank(self):
         boot_data=fixture()
         struct.pack_into('<I',boot_data,8,0x100000)
-        struct.pack_into('<2I',boot_data,64,0x0c000000|(0x730844>>2),0x0c000000|(0x800000>>2))
+        struct.pack_into('<3I',boot_data,64,0x0c000000|(0x730844>>2),
+                         0x08000000|(0x73084c>>2),0x0c000000|(0x800000>>2))
         boot=analysis_elf(boot_data,0x100040)
         declaration={'entry':'0x730840','roots':[],
-                     'bootCallRanges':[['0x100040','0x100048']]}
+                     'bootCallRanges':[['0x100040','0x10004c']]}
         module=inspect(fixture())
-        self.assertEqual(module_roots(boot,module,declaration),[0x730840,0x730844])
+        self.assertEqual(module_roots(boot,module,declaration),[0x730840,0x730844,0x73084c])
         declaration['bootCallRanges']=[['0x200000','0x200008']]
         with self.assertRaises(ValueError):module_roots(boot,module,declaration)
 

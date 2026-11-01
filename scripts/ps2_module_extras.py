@@ -117,6 +117,10 @@ def prepare_one(spec, output):
             raise ValueError('Additional function directly references a generation entry anchor')
     entries={pc:name for pc,name in table_entries(generated/'register_functions.cpp').items() if name in symbols}
     retain_return_slots(spec,original,entries,base,generated,rows,previous,receipt)
+    required={int(pc,0) for pc in spec.get('requiredEntries',[])}
+    missing=required-(original.keys()|entries.keys())
+    if missing:
+        raise ValueError('Missing required original module entries: '+','.join(hex(pc) for pc in sorted(missing)))
     if (set(entries.values())!=symbols or original.keys()&entries.keys() or
         any(int(row['Start'],0) not in entries for row in rows)):
         overlaps=','.join(hex(pc) for pc in sorted(original.keys()&entries.keys())[:12])

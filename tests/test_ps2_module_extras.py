@@ -48,6 +48,19 @@ class Ps2ModuleExtrasTests(unittest.TestCase):
                 stream.write('g_ps2RecompiledFunctionTable[4] = old; // 0x730890\n')
             with self.assertRaisesRegex(ValueError,'overlap'):prepare(manifest,root/'output')
 
+    def test_original_import_roots_must_exist_in_base_or_extension(self):
+        for missing in (False,True):
+            with self.subTest(missing=missing),tempfile.TemporaryDirectory() as temporary:
+                root=Path(temporary);manifest=self.fixture(root)
+                spec=json.loads(manifest.read_text())
+                spec['requiredEntries']=['0x730880','0x730898' if missing else '0x730894']
+                manifest.write_text(json.dumps(spec))
+                if missing:
+                    with self.assertRaisesRegex(ValueError,'Missing required original module entries'):
+                        prepare(manifest,root/'output')
+                    self.assertFalse((root/'output').exists())
+                else:self.assertEqual(prepare(manifest,root/'output')['functions'],1)
+
     def test_reviewed_return_continuation_is_retained_only_with_identical_epilogue(self):
         for failure in (None,'stack32','opcode','generator','entry'):
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as temporary:

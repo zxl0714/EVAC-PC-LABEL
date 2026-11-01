@@ -100,7 +100,7 @@ def module_roots(boot, module, declaration):
                 raise ValueError('Initializer range is outside original boot code')
             offset=segment['offset']+pc-int(segment['address'],16)
             word=struct.unpack_from('<I',boot,offset)[0]
-            if word>>26==3:
+            if word>>26 in (2,3):
                 target=((pc+4)&0xf0000000)|((word&0x3ffffff)<<2)
                 if module.address+64<=target<module.address+64+module.text_size:
                     roots.add(target)
