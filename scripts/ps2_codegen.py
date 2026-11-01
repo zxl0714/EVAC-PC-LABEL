@@ -4,11 +4,102 @@ import csv
 import json
 from pathlib import Path
 import re
+import struct
 import subprocess
 import tomllib
 
 from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import restore
+from ps2_module_extras import guest_branch_targets, table_entries
+
+
+SDK_LIFECYCLES = (
+    ('sceSifAllocIopHeap', 'sceSifFreeIopHeap'),
+    ('sceSifAllocSysMemory', 'sceSifFreeSysMemory'),
+    ('sceOpen', 'sceClose'), ('sceMcOpen', 'sceMcClose'),
+    ('scePadPortOpen', 'scePadPortClose'),
+    ('_malloc_r', '_free_r'), ('_calloc_r', '_free_r'),
+    ('memalign', '_free_r'), ('__malloc_lock', '__malloc_unlock'),
+    ('CreateSema', 'DeleteSema'), ('AddIntcHandler', 'RemoveIntcHandler'),
+    ('AddDmacHandler', 'RemoveDmacHandler'),
+)
+
+
+def validate_sdk_lifecycles(general, source):
+    names={selector.rsplit('@',1)[0] for selector in general.get('stubs',[])}
+    names.update(re.findall(r'BindSdkHandler\(runtime,0x[0-9a-fA-F]+u,"([^"]+)"\)',source))
+    checked=[]
+    for acquire,release in SDK_LIFECYCLES:
+        if acquire not in names:
+            continue
+        if release not in names:
+            raise ValueError(f'Incomplete native SDK lifecycle: {acquire} requires {release}')
+        checked.append(dict(acquire=acquire,release=release))
+    return checked
+
+
+def validate_static_edges(generated, elf):
+    """Reject missing constant branches and reachable translated-block tails.
+
+    A plain generated C++ tail can follow an unconditional JR/ERET return, so
+    its presence alone does not establish a reachable guest continuation.
+    Callback and computed-jump closure still requires separate game analysis.
+    """
+    generated = Path(generated)
+    image = Path(elf).read_bytes()
+    if len(image) < 52 or image[:6] != b'\x7fELF\x01\x01':
+        raise ValueError('Static-edge validation requires a little-endian ELF32')
+    phoff = struct.unpack_from('<I', image, 28)[0]
+    phsize, phcount = struct.unpack_from('<HH', image, 42)
+    if phsize < 32 or phoff + phsize*phcount > len(image):
+        raise ValueError('Invalid ELF program headers')
+    segments = []
+    for index in range(phcount):
+        kind, offset, address, _, size, _, _, _ = struct.unpack_from('<8I', image, phoff+index*phsize)
+        if kind == 1:
+            if offset+size > len(image):
+                raise ValueError('ELF load segment exceeds the file')
+            segments.append((address, address+size, offset))
+
+    def instruction(address):
+        for begin, end, offset in segments:
+            if begin <= address and address+4 <= end:
+                return struct.unpack_from('<I', image, offset+address-begin)[0]
+        raise ValueError(f'Generated tail has no original instruction: 0x{address:x}')
+
+    linked = table_entries(generated/'register_functions.cpp')
+    if not linked:
+        raise ValueError('Static-edge validation requires a generated function table')
+    missing = []; bodies = edges = tails = 0
+    for source in generated.glob('*.cpp'):
+        if source.name == 'register_functions.cpp':
+            continue
+        bodies += 1
+        text = source.read_text(encoding='utf-8')
+        targets = guest_branch_targets(text)
+        tail = re.search(r'ctx->pc\s*=\s*0x([0-9a-fA-F]+)u;\s*}\s*$', text)
+        if tail:
+            address = int(tail[1], 16)
+            header = re.search(r'// Address: 0x([0-9a-fA-F]+) - ', text)
+            if not header:
+                raise ValueError('Generated tail has no function boundary: '+source.name)
+            begin = int(header[1], 16)
+            last = instruction(address-4)
+            previous = instruction(address-8) if address-begin >= 8 else 0
+            kind = previous >> 26
+            # ERET has no delay slot. J/JR and BEQ with identical operands
+            # always transfer control after theirs; the emitted tail is dead.
+            terminal = (last == 0x42000018 or kind == 2 or
+                        (kind == 0 and previous & 63 == 8) or
+                        (kind == 4 and ((previous >> 21) & 31) == ((previous >> 16) & 31)))
+            if not terminal:
+                targets.add(address)
+                tails += 1
+        edges += len(targets)
+        missing.extend(f'{source.stem}:0x{target:x}' for target in sorted(targets-linked.keys()))
+    if missing:
+        raise ValueError('Missing statically compiled guest edges: '+', '.join(missing[:24]))
+    return dict(bodies=bodies, constantEdges=edges, reachableTails=tails)
 
 
 def validate_sdk_bindings(general, source):
@@ -93,6 +184,7 @@ def generate(config, log, receipt, root=ROOT):
     if 'sdk_bindings' in inputs:
         bindings_source = inputs['sdk_bindings']['path'].read_text(encoding='utf-8')
         validate_sdk_bindings(general, bindings_source)
+        sdk_lifecycles=validate_sdk_lifecycles(general, bindings_source)
         # Sparse runtime-only entries remain valid for existing builds. Games
         # that request a complete direct SDK table can require it explicitly.
         if general.get('require_sdk_map_entries', False):
@@ -117,6 +209,8 @@ def generate(config, log, receipt, root=ROOT):
     # The upstream CLI can return zero despite unhandled instructions or output
     # errors. Its version is pinned; a changed report format must be reviewed.
     summary = translation_summary(log.read_text(encoding='utf-8', errors='replace'))
+    static_edges = (validate_static_edges(destination, inputs['input']['path'])
+                    if general.get('require_static_edges', False) else None)
     if digest(config) != config_hash or digest(tool) != tool_hash:
         raise ValueError('Recompiler or configuration changed during generation')
     for item in inputs.values():
@@ -127,6 +221,9 @@ def generate(config, log, receipt, root=ROOT):
                  logSha256=digest(log), summary=summary, gameplayVerified=False)
     if 'sdk_bindings' in inputs:
         value['sdkBindingsSha256']=inputs['sdk_bindings']['sha256']
+        value['sdkLifecycles']=sdk_lifecycles
+    if static_edges is not None:
+        value['staticEdges']=static_edges
     write_json_new(receipt, value)
     return value
 

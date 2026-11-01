@@ -1,6 +1,14 @@
 {
   "format": 1,
   "bootSha256": "ff8eaac60476e5bf3789aa5b3b972fa0f50a50b104b7cc8a1e78af042d510055",
+  "bootCallbackTables": [
+    {
+      "address": "0x34f170",
+      "count": 8,
+      "stride": 12,
+      "callbackOffset": 8
+    }
+  ],
   "modules": [
     {
       "id": 1,

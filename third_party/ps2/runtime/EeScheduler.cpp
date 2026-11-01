@@ -127,6 +127,7 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
         std::lock_guard lock(m_eventMutex);
         m_events.clear();
         m_deadlines.clear();
+        m_deferredVBlank.reset();
         m_pendingInvocations.clear();
     }
     m_eventSequence = 0;
@@ -1788,6 +1789,22 @@ void EeScheduler::processPendingEvents()
 
 void EeScheduler::processDueDeadlines()
 {
+    const auto startVBlank=[this](const ScheduledEvent& scheduled) {
+        // A queued field may be behind a GS SIGNAL waiting for an EE IRQ/CSR
+        // acknowledgement. Never wait here on its host future or capacity.
+        if(!m_runtime.gs().queueVBlankFrame(m_vsyncTick+1u))return false;
+        cave::ps2::frame_trace::Vblank(m_vsyncTick+1u,scheduled.hostDeadline);
+        scheduleEvent(scheduled.deadlineCycle+kVBlankDurationCycles,
+                      scheduled.hostDeadline+kVBlankDuration,
+                      EeEvent{EeEventType::VBlankEnd,0,m_vsyncTick+1u});
+        scheduleEvent(scheduled.deadlineCycle+kVBlankPeriodCycles,
+                      scheduled.hostDeadline+kVBlankPeriod,
+                      EeEvent{EeEventType::VBlankStart,0,0});
+        processEvent(scheduled.event);return true;
+    };
+    // Keep the original deadline/tick. The host posts a GS event when the one
+    // outstanding field completes, waking an otherwise idle dispatcher.
+    if(m_deferredVBlank && startVBlank(*m_deferredVBlank))m_deferredVBlank.reset();
     for (;;)
     {
         std::vector<ScheduledEvent> due;
@@ -1860,13 +1877,8 @@ void EeScheduler::processDueDeadlines()
         {
             if (scheduled.event.type == EeEventType::VBlankStart)
             {
-                cave::ps2::frame_trace::Vblank(m_vsyncTick+1u,scheduled.hostDeadline);
-                scheduleEvent(scheduled.deadlineCycle + kVBlankDurationCycles,
-                              scheduled.hostDeadline + kVBlankDuration,
-                              EeEvent{EeEventType::VBlankEnd, 0, m_vsyncTick + 1u});
-                scheduleEvent(scheduled.deadlineCycle + kVBlankPeriodCycles,
-                              scheduled.hostDeadline + kVBlankPeriod,
-                              EeEvent{EeEventType::VBlankStart, 0, 0});
+                if(!startVBlank(scheduled))m_deferredVBlank=scheduled;
+                continue;
             }
             processEvent(scheduled.event);
         }
@@ -1902,7 +1914,6 @@ void EeScheduler::processEvent(const EeEvent &event)
         }
         m_vsyncFlagAddress = 0u;
         m_vsyncTickAddress = 0u;
-        m_runtime.gs().queueVBlankFrame();
         completeVSync(m_vsyncTick);
         if (m_gsVSyncCallback != 0u && m_runtime.hasFunction(m_gsVSyncCallback))
         {

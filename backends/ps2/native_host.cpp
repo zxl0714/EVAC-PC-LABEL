@@ -37,6 +37,7 @@ public:
     void Snapshot(std::vector<uint8_t>& data) override{queue->Snapshot(data);}
     void WriteVram(size_t offset,std::span<const uint8_t> data) override{queue->WriteVram(offset,data);}
     void Frame(const GsFrame& frame) override{queue->Frame(frame);}
+    bool TryFrame(const GsFrame& frame) override{return queue->TryFrame(frame);}
     GsCompletions CollectCompletions() override{return queue->CollectCompletions();}
     void AcknowledgeStatus(uint32_t mask) override{queue->AcknowledgeStatus(mask);}
     void AcknowledgeSignal() override{queue->AcknowledgeSignal();}
@@ -157,6 +158,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     if(!impl->display || impl->queue->GetStats().closed)throw std::logic_error("PS2 host is not ready");
     auto& display=*impl->display;auto mailbox=display.Device().Completions();
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
+    impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
         if(!display.Present(frame))throw GsWindowClosed();
         ++impl->frames;if(onFrame)onFrame();
@@ -182,7 +184,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         // be blocked on a full queue, initial upload, frame or SIGNAL.
     }catch(...){ownerFailure=std::current_exception();}
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
-    mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
+    impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
     const auto stats=impl->queue->GetStats();
     std::cerr<<"[ps2-host] frames="<<impl->frames<<" readbacks="<<display.Device().ReadbackRequests()
         <<" queue_peak_bytes="<<stats.highWaterBytes<<" queue_peak_commands="<<stats.highWaterCommands<<'\n';

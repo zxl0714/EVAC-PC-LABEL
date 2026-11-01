@@ -22,6 +22,24 @@ void OtherModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
 void YieldAtEntry(uint8_t*,R5900Context* context,PS2Runtime*) {
   context->pc=0x100200;
 }
+void IopHeapLifecycle(PS2Runtime& runtime) {
+  const auto allocate=cave::ps2::SdkHandler("sceSifAllocIopHeap");
+  const auto release=cave::ps2::SdkHandler("sceSifFreeIopHeap");
+  const auto releaseSys=cave::ps2::SdkHandler("sceSifFreeSysMemory");
+  Require(allocate && release && releaseSys,"IOP heap SDK lifecycle handlers missing");
+  R5900Context context{};
+  uint32_t first{};
+  for(unsigned cycle=0;cycle<128;++cycle) {
+    SET_GPR_U32(&context,4,0x40000u);
+    allocate(nullptr,&context,&runtime);
+    const auto address=getRegU32(&context,2);
+    Require(address && (!first || first==address),"Sound-bank reload leaked its IOP staging buffer");
+    first=address;
+    SET_GPR_U32(&context,4,address);
+    (cycle&1?releaseSys:release)(nullptr,&context,&runtime);
+    Require(Result(context)==0,"Sound-bank staging buffer did not return to the common IOP heap");
+  }
+}
 void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
   const uint32_t other=17;
   std::memcpy(memory+0x200004,&other,4);
@@ -133,6 +151,7 @@ int main() {
     Require(callbackTop>=0x90000+0x4000-16 && callbackTop<0x100000,
             "Callback stack aliases the game heap or main stack");
     Require(runtime.memory().initialize(),"Headless memory initialization failed");
+    IopHeapLifecycle(runtime);
     runtime.configureGuestHeap(0x400000,0x410000);
     const auto arena=runtime.guestMalloc(0xf000);
     Require(arena!=0,"Large SDK allocation failed within the heap");
@@ -198,6 +217,7 @@ int main() {
     GsMmioCompletions(runtime.memory());
     GsSdkDisplay(runtime);
     GsIdleWake();
+    GsFrameSignalProgress();
     std::cout<<"PS2 kernel: EE ABI, priority inheritance, boundaries, restore and raw VIF transport passed\n";
     return 0;
   }catch(const std::exception& error) {

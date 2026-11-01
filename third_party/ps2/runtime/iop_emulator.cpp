@@ -511,7 +511,10 @@ namespace ps2x::iop::detail
         // Not that good to use exception handling for control flow but will do for now
         void servicePendingDmaInterrupts()
         {
-            if (servicingDmaInterrupts || pendingDmaInterrupts.empty())
+            // CpuSuspendIntr protects the original driver's queue updates.
+            // A completion can become due while suspended, but its handler
+            // must remain pending until CpuResumeIntr restores delivery.
+            if (servicingDmaInterrupts || pendingDmaInterrupts.empty() || !memory.interruptControl())
                 return;
 
             servicingDmaInterrupts = true;

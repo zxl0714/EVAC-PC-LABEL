@@ -16,6 +16,7 @@ public:
     std::vector<uint8_t> image,edited;
     std::array<uint64_t,4> setup{};
     uint64_t value=0;uint8_t address=0;GsFrame frame{};size_t editOffset=0;
+    bool rejectField=false;
     void Initialize(std::span<const uint8_t> bytes) override{Require(bytes.size()==VramBytes && bytes[9]==7,"Initial VRAM changed");order.push_back(1);}
     void Reset() override{order.push_back(2);}
     void Gif(GifPathId path,std::span<const uint8_t> bytes) override{gifs.emplace_back(path,std::vector<uint8_t>(bytes.begin(),bytes.end()));order.push_back(3);}
@@ -23,6 +24,7 @@ public:
     void Image(const std::array<uint64_t,4>& s,std::span<const uint8_t> bytes) override{setup=s;image.assign(bytes.begin(),bytes.end());order.push_back(5);}
     void WriteVram(size_t offset,std::span<const uint8_t> bytes) override{editOffset=offset;edited.assign(bytes.begin(),bytes.end());order.push_back(6);}
     void Frame(const GsFrame& f) override{frame=f;order.push_back(7);}
+    bool TryFrame(const GsFrame& f) override{if(rejectField)return false;Frame(f);return true;}
     size_t ReadFifo(std::span<uint8_t> bytes) override{std::fill(bytes.begin(),bytes.end(),0x5c);order.push_back(8);return bytes.size();}
     void Snapshot(std::vector<uint8_t>&) override{throw std::runtime_error("Capture requested an unexpected snapshot");}
 };
@@ -104,7 +106,19 @@ void RejectMalformed(const std::filesystem::path& root) {
     Consumer replay;bool bounded=false;try{ReplayGsTrace(root/"full.evacgs",replay,1024);}catch(const std::runtime_error&){bounded=true;}
     Require(bounded && replay.order.empty(),"File limit was checked after replay started");
 }
+void DeferredField(const std::filesystem::path& path) {
+    auto live=std::make_unique<Consumer>();auto* source=live.get();
+    GsRecordingBackend recorder(std::move(live),path);
+    std::vector<uint8_t> initial(VramBytes);initial[9]=7;recorder.Initialize(initial);
+    GsFrame field{};field.vsyncTick=23;source->rejectField=true;
+    Require(!recorder.TryFrame(field) && recorder.Stats().frames==0,"Rejected field entered the capture");
+    source->rejectField=false;
+    Require(recorder.TryFrame(field),"Deferred field was not accepted after capacity release");
+    recorder.Finish();Consumer replay;const auto result=ReplayGsTrace(path,replay);
+    Require(result.frames==1 && replay.frame.vsyncTick==23 && source->order==replay.order,
+            "Retried field was omitted or duplicated in the GS trace");
 }
-int main(){try{Files files;RoundTrip(files.root/"full.evacgs");Limits(files.root);RejectMalformed(files.root);
+}
+int main(){try{Files files;RoundTrip(files.root/"full.evacgs");Limits(files.root);RejectMalformed(files.root);DeferredField(files.root/"deferred.evacgs");
     std::cout<<"GS capture/replay paths, shortcuts, frame state, budgets, no overwrite and malformed input: PASS\n";return 0;
 }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}}

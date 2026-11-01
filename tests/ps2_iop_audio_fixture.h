@@ -159,6 +159,44 @@ AudioFixtureHost DelayedThreadImage() {
     std::memcpy(host.image.data()+0x300,imports,sizeof(imports));
     return host;
 }
+void AudioDmaCriticalSection() {
+    auto host=DelayedThreadImage();
+    std::fill(host.image.begin()+0x100,host.image.end(),uint8_t{});
+    const auto jal=[](uint32_t pc){return 0x0c000000u|(pc>>2u);};
+    const uint32_t main[]{
+        0x27bdffe0,0xafbf001c,
+        0x24040024,0x24050001,0x3c060001,0x34c60180,0x00003821,jal(0x10214),0,
+        0x24040024,jal(0x1021c),0, // EnableIntr(SPU DMA)
+        0x3c040001,0x34840400,jal(0x10224),0, // CpuSuspendIntr(&saved)
+        0x3c081f90,0x34098000,0xa509019a,0x34090001,0xa50901b0,
+        0x3c0a1f80,0x3c0b0001,0x356b0500,0xad4b10c0,
+        0x3c0b0001,0x356b0200,0xad4b10c4,
+        0x3c0b0100,0x356b0201,0xad4b10c8,
+        0x3c0b0001,0x256bffff,0x1560fffe,0, // spin through the audio DMA deadline
+        0x3c080001,0x35080400,0x8d100004,0, // count while still in critical section
+        0x8d040000,0,jal(0x1022c),0, // CpuResumeIntr(saved)
+        0x02001021,0x8fbf001c,0,0x27bd0020,0x03e00008,0
+    };
+    Require(sizeof(main)<=0x180,"Authored interrupt fixture overlaps its callback");
+    std::memcpy(host.image.data()+0x100,main,sizeof(main));
+    const uint32_t handler[]{0x3c080001,0x35080404,0x8d090000,0,0x25290001,
+                             0xad090000,0x24020001,0x03e00008,0};
+    std::memcpy(host.image.data()+0x280,handler,sizeof(handler));
+    const uint32_t imports[]{0x41e00000,0,0x101,0x72746e69,0x006e616d,
+        0x03e00008,0x24000004,0x03e00008,0x24000006,
+        0x03e00008,0x24000011,0x03e00008,0x24000012,0,0};
+    std::memcpy(host.image.data()+0x300,imports,sizeof(imports));
+    std::fill(host.image.begin()+0x600,host.image.begin()+0xe00,uint8_t{0x24});
+    ps2x::iop::detail::IopEmulator emulator(host);
+    const auto loaded=emulator.loadModuleBuffer(0,nullptr,0);
+    Require(loaded.moduleId>0 && loaded.startResult==0,
+            "SPU DMA interrupt ran while CpuSuspendIntr protected the guest");
+    uint32_t delivered{};
+    Require(emulator.readMemory(0x10404,&delivered,4) && delivered==1,
+            "Masked SPU DMA completion was lost or duplicated after CpuResumeIntr");
+    std::cout<<"IOP SPU DMA critical section: defer, resume, exactly one completion: PASS\n";
+}
+
 void IopIdleContract(bool bench=false) {
     auto host=DelayedThreadImage();
     ps2x::iop::detail::IopEmulator emulator(host);

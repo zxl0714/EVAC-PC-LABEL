@@ -4,6 +4,7 @@
 #include "Iop_Spu2.h"
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <stdexcept>
 #include <vector>
 
@@ -18,6 +19,7 @@ public:
     Iop::CSpu2 registers{core0,core1};
     std::array<int16_t,MaxRenderFrames*2> core1Samples{};
     unsigned tracedVoices=0;
+    std::array<int64_t,2> lastStreamTrace{-1000,-1000};
 };
 SpuDevice::SpuDevice():impl(std::make_unique<Impl>()) {Reset();}
 SpuDevice::~SpuDevice()=default;
@@ -65,6 +67,22 @@ void SpuDevice::Write16(uint32_t address,uint16_t value) {
 size_t SpuDevice::Transfer(unsigned core,std::span<uint8_t> bytes,bool toSpu) {
     if(core>1 || (bytes.size()&3u))throw std::invalid_argument("Invalid SPU2 DMA span");
     auto& spu=core?impl->core1:impl->core0;
+    if(audio_trace::enabled && toSpu) {
+        const auto now=audio_trace::Milliseconds();
+        if(now-impl->lastStreamTrace[core]>=1000) {
+            impl->lastStreamTrace[core]=now;
+            const auto checked=bytes.first(std::min<size_t>(bytes.size(),2048));
+            unsigned nonzero=0;int peak=0;
+            for(size_t i=0;i+1<checked.size();i+=2) {
+                int16_t sample{};std::memcpy(&sample,checked.data()+i,2);
+                nonzero+=sample!=0;peak=std::max(peak,std::abs(int(sample)));
+            }
+            std::osyncstream(std::cerr)<<"[ps2-audio-source] ms="<<now<<" core="<<core
+                <<" bytes="<<bytes.size()<<" checked="<<checked.size()<<" nonzero="<<nonzero
+                <<" peak="<<peak<<" input="<<spu.m_inputVolL<<','<<spu.m_inputVolR
+                <<" control="<<spu.GetControl()<<'\n';
+        }
+    }
     size_t offset=0;
     while(offset<bytes.size()) {
         const auto words=uint32_t(std::min<size_t>((bytes.size()-offset)/4u,256u));

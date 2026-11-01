@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
-from ps2_module import analysis_elf, inspect, module_roots
+from ps2_module import analysis_elf, inspect, module_roots, boot_callback_roots
 from ps2_disc import elf_info
 
 
@@ -17,6 +17,21 @@ def fixture():
 
 
 class Ps2ModuleTests(unittest.TestCase):
+    def test_boot_owned_record_callbacks_include_empty_return_function(self):
+        data=fixture();struct.pack_into('<I',data,8,0x100000)
+        struct.pack_into('<2I',data,64,0x03e00008,0)  # Original JR RA + delay slot.
+        struct.pack_into('<3I',data,96,0xa7,0xa7,0x100040)
+        boot=analysis_elf(data,0x100040);original=bytes(boot)
+        table={'address':'0x100060','count':1,'stride':12,'callbackOffset':8}
+        self.assertEqual(boot_callback_roots(boot,{'bootCallbackTables':[table]}),[0x100040])
+        self.assertEqual(boot,original)
+        for override in ({'count':2},{'stride':0},{'callbackOffset':12},{'address':'0x200000'}):
+            with self.subTest(override=override),self.assertRaises(ValueError):
+                boot_callback_roots(boot,{'bootCallbackTables':[dict(table,**override)]})
+        struct.pack_into('<I',data,104,0x200000)  # Outside the initialized executable segment.
+        with self.assertRaisesRegex(ValueError,'outside executable'):
+            boot_callback_roots(analysis_elf(data,0x100040),{'bootCallbackTables':[table]})
+
     def test_exact_payload_and_separate_text_data_bss(self):
         data = fixture()
         module = inspect(data)

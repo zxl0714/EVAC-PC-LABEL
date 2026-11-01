@@ -2,6 +2,7 @@
 #include "gs_command_backend.h"
 #include <chrono>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 
@@ -30,6 +31,8 @@ public:
     bool ConsumeOne(GsCommandBackend& consumer,std::chrono::milliseconds timeout);
     void Close(std::exception_ptr failure={});
     Stats GetStats() const;
+    // Installed before the producer starts; called outside the queue lock.
+    void SetFrameNotifier(std::function<void()> notify);
     GsCompletions CollectCompletions() override;
     void AcknowledgeSignal() override;
     void AcknowledgeStatus(uint32_t mask) override;
@@ -45,6 +48,7 @@ public:
     // Frame is a submission boundary: only one frame request can be outstanding.
     // The consumer must also gate next-frame GPU commands on its previous fence.
     void Frame(const GsFrame& request) override;
+    bool TryFrame(const GsFrame& request) override;
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

@@ -73,6 +73,15 @@ public:
         Blob header;U32(header,uint32_t(op));U32(header,uint32_t(payload.size()));Write(header);Write(payload);
         ++stats.commands;return true;
     }
+    void RecordFrame(const GsFrame& request) {
+        if(stats.finished)return;
+        Blob record;auto copy=request;for(auto* value:Fields(copy))U64(record,*value);U32(record,request.field);
+        if(Record(Op::Frame,record)) {
+            ++stats.frames;
+            if(std::fflush(file.get()))throw std::runtime_error("Cannot flush GS field capture");
+            if(stats.frames>=maxFrames){stats.limited=true;Finish();}
+        }
+    }
 };
 GsRecordingBackend::GsRecordingBackend(std::unique_ptr<GsCommandBackend> target,const std::filesystem::path& path,uint64_t bytes,uint64_t frames)
     :impl(std::make_unique<Impl>(std::move(target),path,bytes,frames)){}
@@ -117,15 +126,13 @@ void GsRecordingBackend::WriteVram(size_t offset,std::span<const uint8_t> bytes)
 }
 void GsRecordingBackend::Frame(const GsFrame& request) {
     if(request.field>1)throw std::invalid_argument("Invalid captured GS field parity");
-    if(!impl->stats.finished) {
-      Blob record;auto copy=request;for(auto* value:Fields(copy))U64(record,*value);U32(record,request.field);
-      if(impl->Record(Op::Frame,record)) {
-        ++impl->stats.frames;
-        if(std::fflush(impl->file.get()))throw std::runtime_error("Cannot flush GS field capture");
-        if(impl->stats.frames>=impl->maxFrames){impl->stats.limited=true;impl->Finish();}
-      }
-    }
+    impl->RecordFrame(request);
     impl->target->Frame(request);
+}
+bool GsRecordingBackend::TryFrame(const GsFrame& request) {
+    if(request.field>1)throw std::invalid_argument("Invalid captured GS field parity");
+    if(!impl->target->TryFrame(request))return false;
+    impl->RecordFrame(request);return true;
 }
 
 class GsTraceWorkload::Impl {

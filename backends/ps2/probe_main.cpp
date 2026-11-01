@@ -25,6 +25,39 @@ constexpr const char* WindowTitle="EVAC PC LABEL | Ibara";
 constexpr bool IsIbara=false;
 constexpr const char* WindowTitle="EVAC PC LABEL | ESPGaluda";
 #endif
+int ProbeIopHeapLifecycle(const char* elf) {
+  PS2Runtime runtime;
+  if(!runtime.memory().initialize() || !runtime.loadELF(elf))
+    throw std::runtime_error("Cannot initialize headless IOP heap probe");
+  runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+  constexpr uint32_t Stack=0x1ee9f90,Stop=0x100010,Bytes=0x40000;
+  bool completed=false;
+  static bool* completion;completion=&completed;
+  runtime.replaceFunction(Stop,[](uint8_t*,R5900Context*,PS2Runtime* state){
+    *completion=true;state->eeScheduler().requestStop();
+  });
+  const auto call=[&](uint32_t entry,uint32_t a0,uint32_t a1=0u) {
+    completed=false;
+    R5900Context context{};context.pc=entry;
+    context.r[4]=_mm_cvtsi32_si128(a0);context.r[5]=_mm_cvtsi32_si128(a1);
+    context.r[29]=_mm_cvtsi32_si128(Stack);context.r[31]=_mm_cvtsi32_si128(Stop);
+    runtime.eeScheduler().reset(runtime.memory().getRDRAM(),context);
+    runtime.eeScheduler().run();
+    if(!completed)throw std::runtime_error("IOP heap probe did not return");
+    return uint32_t(_mm_cvtsi128_si32(runtime.cpu().r[2]));
+  };
+  uint32_t first{};
+  for(unsigned cycle=0;cycle<128;++cycle) {
+    const auto address=(cycle&1)?call(0x10c048,0,Bytes):call(0x10bfd8,Bytes);
+    if(!address || (first && address!=first))
+      throw std::runtime_error("IOP sample-buffer allocation leaked across a sound-bank reload");
+    first=address;
+    if(call((cycle&1)?0x10c0c8:0x10c140,address)!=0)
+      throw std::runtime_error("IOP sample-buffer release failed");
+  }
+  std::cout<<"ESPGaluda IOP heap: 128 original allocation/release cycles, 256 KiB reused: PASS\n";
+  return 0;
+}
 int ProbeAdxCoefficients(const char* elf) {
   PS2Runtime runtime;
   if(!runtime.memory().initialize() || !runtime.loadELF(elf))
@@ -117,6 +150,140 @@ int ProbeDiscIndex(const char* elf) {
   }
   return 0;
 }
+// Development-only history of the CRI remote output queues. Keep the last
+// operations in memory and emit them only when live chunks overlap or escape
+// their physical IOP buffer; normal audio rendering does not use this hook.
+struct AudioRingWatch {
+  static inline std::array<std::string,128> history{};
+  static inline uint64_t written{};
+  static inline bool failed=false;
+  static uint32_t Word(const uint8_t* memory,uint32_t address) {
+    uint32_t value{};std::memcpy(&value,memory+address,4);return value;
+  }
+  static void Record(uint8_t* memory,R5900Context* context,PS2Runtime* runtime,uint32_t entry) {
+    const auto ring=uint32_t(_mm_cvtsi128_si32(context->r[4]));
+    if(ring!=0x2fa338u && ring!=0x2fa368u)return;
+    const auto channel=ring==0x2fa338u?0u:1u;
+    const auto base=Word(memory,0x2f2b30u+channel*0x18u);
+    const auto capacity=Word(memory,0x2f2b34u+channel*0x18u);
+    std::ostringstream line;
+    line<<"[ps2-ring] ms="<<cave::ps2::audio_trace::Milliseconds()<<" entry="<<std::hex<<entry
+        <<" ra="<<_mm_cvtsi128_si32(context->r[31])<<" ring="<<ring
+        <<" thread="<<std::dec<<runtime->eeScheduler().currentThreadId();
+    for(unsigned reg=5;reg<8;++reg)line<<" a"<<reg-4<<'='<<std::hex<<_mm_cvtsi128_si32(context->r[reg]);
+    const auto block=uint32_t(_mm_cvtsi128_si32(context->r[6]));
+    if(entry==0x2928d0u && block<PS2_RAM_SIZE-8)
+      line<<" block="<<Word(memory,block)<<','<<Word(memory,block+4);
+    struct Chunk {uint32_t begin,end;};std::array<Chunk,64> chunks{};unsigned count=0;
+    bool bad=false;
+    for(unsigned queue=0;queue<4;++queue) {
+      line<<" q"<<queue<<'=';
+      auto node=Word(memory,ring+0x18+queue*4);
+      for(unsigned depth=0;node && depth<16;++depth) {
+        if(node>PS2_RAM_SIZE-16){bad=true;break;}
+        const auto start=Word(memory,node+8),size=Word(memory,node+12);
+        line<<node<<':'<<start<<'+'<<size<<',';
+        if(size) {
+          if(start<base || size>capacity || uint64_t(start)+size>uint64_t(base)+capacity)bad=true;
+          const auto end=start+size;
+          for(unsigned i=0;i<count;++i)if(start<chunks[i].end && chunks[i].begin<end)bad=true;
+          chunks[count++]={start,end};
+        }
+        node=Word(memory,node);
+        if(depth==15 && node)bad=true;
+      }
+    }
+    history[written++%history.size()]=line.str();
+    if(bad && !failed) {
+      failed=true;
+      std::cerr<<"[ps2-ring-invalid] live remote chunks overlap or exceed their buffer\n";
+      for(uint64_t i=written>history.size()?written-history.size():0;i<written;++i)
+        std::cerr<<history[i%history.size()]<<'\n';
+      runtime->requestStop();
+    }
+  }
+  template<uint32_t Address> struct Hook {
+    static inline PS2Runtime::RecompiledFunction original{};
+    static void Call(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {
+      if(context->pc==Address)Record(memory,context,runtime,Address);
+      original(memory,context,runtime);
+    }
+    static void Bind(PS2Runtime& runtime) {
+      original=runtime.lookupFunction(Address);
+      if(!original || !runtime.replaceFunction(Address,&Call))
+        throw std::runtime_error("Cannot attach CRI remote queue diagnostic");
+    }
+  };
+  static void Bind(PS2Runtime& runtime) {
+    Hook<0x292798u>::Bind(runtime);Hook<0x2928d0u>::Bind(runtime);Hook<0x292720u>::Bind(runtime);
+  }
+};
+struct MusicCycle {
+  static inline PS2Runtime::RecompiledFunction original{};
+  static inline std::chrono::steady_clock::time_point started{};
+  static inline unsigned next{};
+  static inline bool stopQueued=false;
+  static inline bool cycleEnabled=false;
+  static inline int64_t lastSnapshot=-2000;
+  static void Snapshot(uint8_t* memory,const char* phase) {
+    std::ostringstream line;
+    line<<"[ps2-music-cycle] ms="<<cave::ps2::audio_trace::Milliseconds()<<" phase="<<phase;
+    for(const uint32_t address:{0x5505d0u,0x51e6c0u,0x2e3018u,0x2eedf8u,0x2f4f20u,0x2ebf70u}) {
+      line<<" memory=0x"<<std::hex<<address<<':';
+      const unsigned words=address==0x2e3018u?49u:16u;
+      for(unsigned i=0;i<words;++i) {
+        uint32_t value{};std::memcpy(&value,memory+address+i*4,4);
+        line<<value<<',';
+      }
+    }
+    line<<std::dec<<'\n';
+    std::cerr<<line.str();
+  }
+  static void Call(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {
+    // Queue ordinary requests at the EE sound-dispatch boundary. The original
+    // game performs stop, cleanup, file opening and decoder startup.
+    // This diagnostic sends no Windows input and replaces no audio routine.
+    if(context->pc==0x12d830u) {
+      const auto now=std::chrono::steady_clock::now();
+      if(started==std::chrono::steady_clock::time_point{})started=now;
+      const auto elapsed=std::chrono::duration_cast<std::chrono::milliseconds>(now-started).count();
+      if(elapsed-lastSnapshot>=2000 && elapsed<600000) {
+        lastSnapshot=elapsed;Snapshot(memory,"watch");
+      }
+      constexpr unsigned TrackCount=20;
+      const uint32_t track=(next&1u)?24u:18u;
+      if(cycleEnabled && next>0 && next<TrackCount && !stopQueued && elapsed>=13000+int64_t(next)*4709) {
+        Snapshot(memory,"fade");
+        // Exercise the actual stage->boss fade, not only its final stop.
+        // 220 / 4 takes 55 fields; allow cleanup before the next request.
+        memory[0x5505d0]|=0x10u;
+        stopQueued=true;
+      }
+      if(cycleEnabled && next<TrackCount && elapsed>=15000+int64_t(next)*4709) {
+        Snapshot(memory,"before");
+        auto* queue=memory+0x5505d0;
+        queue[0]=0xc0u;
+        queue[1]=1;
+        const uint16_t volume=220;
+        const uint32_t command=0x09800000u|track;
+        std::memcpy(queue+2,&volume,2);
+        std::memcpy(queue+8,&command,4);
+        std::cerr<<"[ps2-music-cycle] request="<<track<<" step="<<next
+                 <<" ms="<<cave::ps2::audio_trace::Milliseconds()<<'\n';
+        ++next;
+        stopQueued=false;
+      }
+    }
+    original(memory,context,runtime);
+  }
+  static void Bind(PS2Runtime& runtime,bool cycle) {
+    cycleEnabled=cycle;
+    original=runtime.lookupFunction(0x12d830u);
+    if(!original || !runtime.replaceFunction(0x12d830u,&Call))
+      throw std::runtime_error("Cannot attach original music lifecycle diagnostic");
+  }
+};
+
 template<uint32_t Address> struct Observe {
   static inline PS2Runtime::RecompiledFunction original{};
   static inline uint64_t calls{};
@@ -198,7 +365,12 @@ template<uint32_t Address> struct Observe {
 }
 
 int main(int argc,char** argv) {
+  std::filesystem::path frameTimes;
   try {
+    if(argc==3 && std::string_view(argv[1])=="--probe-iop-heap") {
+      if(IsIbara)throw std::runtime_error("The IOP heap entry probe requires the ESPGaluda host");
+      return ProbeIopHeapLifecycle(argv[2]);
+    }
     if(argc==3 && std::string_view(argv[1])=="--probe-adx-coefficients") {
       if(IsIbara)throw std::runtime_error("The ADX coefficient probe requires the ESPGaluda host");
       return ProbeAdxCoefficients(argv[2]);
@@ -208,16 +380,16 @@ int main(int argc,char** argv) {
       return ProbeDiscIndex(argv[2]);
     }
     if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
-    bool traceBoot=false,traceAudio=false;
+    bool traceBoot=false,traceAudio=false,musicCycle=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
-    std::filesystem::path frameTimes;
     std::filesystem::path audioCapture;
     cave::ps2::NativeHostOptions hostOptions;
     for(int i=5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
       else if(option=="--trace-audio")traceAudio=true;
+      else if(option=="--music-cycle")musicCycle=traceAudio=true;
       else if(option=="--capture-audio" && i+1<argc)audioCapture=std::filesystem::absolute(argv[++i]);
       else if(option=="--coarse-timer")hostOptions.timerPrecision=false;
       else if(option=="--frame-times" && i+1<argc) {
@@ -294,6 +466,11 @@ int main(int argc,char** argv) {
     paths.elfPath=elf;paths.elfDirectory=elf.parent_path();
     paths.hostRoot=data;paths.cdRoot=data;paths.cdImage=iso;paths.mcRoot=profile/"mc0";
     PS2Runtime::setIoPaths(paths);
+    if(musicCycle) {
+      if(IsIbara)throw std::runtime_error("The original music lifecycle diagnostic requires the ESPGaluda host");
+      AudioRingWatch::Bind(runtime);
+    }
+    if(traceAudio && !IsIbara)MusicCycle::Bind(runtime,musicCycle);
     if(traceBoot && !IsIbara) {
       Observe<0x27e6c0u>::Bind(runtime);
       Observe<0x27ed68u>::Bind(runtime);
@@ -329,6 +506,7 @@ int main(int argc,char** argv) {
     return 0;
   }catch(const std::exception& error) {
     try{cave::ps2::audio_capture::Save();}catch(...){}
+    try{if(!frameTimes.empty())cave::ps2::frame_trace::Save(frameTimes);}catch(...){}
     std::cerr<<"PS2 development host: "<<error.what()<<'\n';return 1;
   }
 }

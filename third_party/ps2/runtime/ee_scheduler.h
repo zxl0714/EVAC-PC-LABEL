@@ -441,6 +441,7 @@ private:
     std::condition_variable m_eventCv;
     std::deque<EeEvent> m_events;
     std::vector<ScheduledEvent> m_deadlines;
+    std::optional<ScheduledEvent> m_deferredVBlank;
     std::deque<GuestInvocation> m_pendingInvocations;
     uint64_t m_eventSequence = 0;
     uint64_t m_invocationSequence = 0;

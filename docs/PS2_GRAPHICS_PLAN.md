@@ -66,8 +66,11 @@ boundary without changing generated game functions or game-specific addresses.
   packet queue and no pointer into a recycled DMA buffer.
 - `GsCommandQueue` currently reserves at most 8 MiB and 2048 commands, including
   the command in execution. It copies payloads only after capacity is available.
-  FIFO/snapshot/reset requests return through ordered replies. A frame request
-  waits for consumer submission; errors and shutdown release every waiter.
+  FIFO/snapshot/reset requests return through ordered replies. EE VBlank offers
+  a frame without blocking: one field may be outstanding, and the dispatcher
+  retains a deferred VBlank until a completion/capacity event wakes it. The EE
+  must remain able to execute GS IRQ handlers that acknowledge SIGNAL. Errors
+  and shutdown release every synchronous waiter.
 - Separate VBlank/game time, GS completion and host presentation. Preserve the
   source field/frame cadence, parity, CRT aspect and display circuits.
 - Normal presentation keeps scanout on the GPU. Avoid the current route of

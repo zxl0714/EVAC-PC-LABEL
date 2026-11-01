@@ -109,7 +109,9 @@ public:
     void setRasterBackend(std::unique_ptr<GSRasterBackend> backend);
     void setCommandBackend(std::unique_ptr<cave::ps2::GsCommandBackend> backend);
     bool usesCommandBackend() const;
-    void queueVBlankFrame();
+    // Zero snapshots the current privileged tick/field (standalone probes).
+    // A supplied next tick can be offered before committing the EE VBlank.
+    bool queueVBlankFrame(uint64_t nextTick=0);
     uint32_t pollCompletedEvents();
     uint32_t afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous);
 

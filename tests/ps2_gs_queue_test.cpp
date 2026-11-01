@@ -125,9 +125,23 @@ void CloseActiveRead() {
     release.set_value();Require(consumer.get(),"Active consumer did not unwind after close");
     Require(queue.GetStats().closed && !queue.GetStats().commands,"Closed in-flight accounting underflowed");
 }
+void NonblockingField() {
+    GsCommandQueue queue(32,1);Consumer sink;unsigned wakes=0;
+    queue.SetFrameNotifier([&]{++wakes;});
+    queue.Register(7,42);cave::ps2::GsFrame first{};first.vsyncTick=1;
+    Require(!queue.TryFrame(first),"Full command queue accepted an extra field");
+    queue.ConsumeOne(sink,0ms);
+    Require(wakes==1 && queue.TryFrame(first),"Capacity release did not wake a deferred field");
+    auto second=first;second.vsyncTick=2;
+    Require(!queue.TryFrame(second) && queue.GetStats().commands==1,"More than one field became outstanding");
+    queue.ConsumeOne(sink,0ms);
+    Require(sink.frame==1 && wakes==2 && queue.TryFrame(second),"Deferred field lost its first snapshot or completion wake");
+    queue.ConsumeOne(sink,0ms);
+    Require(sink.frame==2 && wakes==3 && queue.GetStats().submitted==3,"Field retry lost or duplicated a request");
+}
 }
 int main() {
-    try{OwnedPayloadAndReplies();BackpressureAndClose();FrameAndFailure();ClosePendingReadAndOwner();CloseActiveRead();
+    try{OwnedPayloadAndReplies();BackpressureAndClose();FrameAndFailure();ClosePendingReadAndOwner();CloseActiveRead();NonblockingField();
         std::cout<<"GS queue owned payloads, order, bounds, frame barrier, failure and shutdown: PASS\n";return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

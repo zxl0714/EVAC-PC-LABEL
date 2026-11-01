@@ -48,6 +48,8 @@ public:
     std::shared_ptr<Reply> activeReply;
     std::thread::id consumerThread;
     std::shared_ptr<GsCompletionMailbox> completions;
+    std::function<void()> frameNotifier;
+    bool frameWaiter=false;
     Impl(size_t bytes,size_t count,std::shared_ptr<GsCompletionMailbox> mailbox)
         :capacityBytes(bytes),capacityCommands(count),completions(mailbox?std::move(mailbox):std::make_shared<GsCompletionMailbox>()) {
         if(!bytes || !count)throw std::invalid_argument("GS queue capacity must be positive");
@@ -99,6 +101,9 @@ void GsCommandQueue::Close(std::exception_ptr error) {
 GsCommandQueue::Stats GsCommandQueue::GetStats() const {
     std::lock_guard lock(impl->mutex);return impl->stats;
 }
+void GsCommandQueue::SetFrameNotifier(std::function<void()> notify) {
+    std::lock_guard lock(impl->mutex);impl->frameNotifier=std::move(notify);
+}
 bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::milliseconds timeout) {
     Command command;
     {
@@ -137,16 +142,22 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         auto error=std::current_exception();
         Close(error);if(command.reply)command.reply->Fail(error);throw;
     }
+    std::function<void()> frameNotifier;
     {
         std::lock_guard lock(impl->mutex);
         if(!impl->stats.closed) {
             impl->stats.pendingBytes-=command.cost;--impl->stats.commands;++impl->stats.completed;
             if(command.kind==Kind::Frame)impl->stats.frameOutstanding=false;
+            if(command.kind==Kind::Frame || (impl->frameWaiter && !impl->stats.frameOutstanding &&
+                                             impl->stats.commands<impl->capacityCommands)) {
+                impl->frameWaiter=false;frameNotifier=impl->frameNotifier;
+            }
         }
         impl->activeReply.reset();
     }
     if(command.reply)command.reply->Complete(std::move(answer));
     impl->writable.notify_all();
+    if(frameNotifier)frameNotifier();
     return true;
 }
 void GsCommandQueue::Initialize(std::span<const uint8_t> bytes) {
@@ -187,5 +198,16 @@ void GsCommandQueue::WriteVram(size_t offset,std::span<const uint8_t> bytes) {
 void GsCommandQueue::Frame(const GsFrame& request) {
     if(auto* row=frame_trace::Get(request.vsyncTick))row->enqueued=frame_trace::Stamp();
     Command command;command.kind=Kind::Frame;command.frame=request;impl->Request(std::move(command));
+}
+bool GsCommandQueue::TryFrame(const GsFrame& request) {
+    std::unique_lock lock(impl->mutex);
+    impl->CheckOpen();
+    if(impl->stats.frameOutstanding || impl->stats.commands==impl->capacityCommands){impl->frameWaiter=true;return false;}
+    Command command;command.kind=Kind::Frame;command.frame=request;command.generation=impl->completions->Generation();
+    impl->commands.push_back(std::move(command));
+    auto& stats=impl->stats;++stats.commands;++stats.submitted;stats.frameOutstanding=true;
+    stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
+    if(auto* row=frame_trace::Get(request.vsyncTick))row->enqueued=frame_trace::Stamp();
+    lock.unlock();impl->readable.notify_one();return true;
 }
 }

@@ -30,6 +30,7 @@ public:
     void Snapshot(std::vector<uint8_t>& bytes) override;
     void WriteVram(size_t offset,std::span<const uint8_t> bytes) override;
     void Frame(const GsFrame& request) override;
+    bool TryFrame(const GsFrame& request) override;
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

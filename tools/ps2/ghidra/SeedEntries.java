@@ -42,8 +42,14 @@ public class SeedEntries extends GhidraScript {
             entries.add(address);
         }
         for(Address address:entries) {
-            if(getInstructionAt(address)==null && !disassemble(address))
-                throw new IllegalArgumentException("Cannot disassemble verified call target: "+address);
+            if(getInstructionAt(address)==null) {
+                disassemble(address);
+                // Ghidra can report that it started disassembly without
+                // defining an instruction when a listing/context conflict
+                // blocks the root. Do not export a one-byte empty function.
+                if(getInstructionAt(address)==null)
+                    throw new IllegalArgumentException("No decoded instruction at verified call target: "+address);
+            }
             if(markOwned)currentProgram.getSymbolTable().addExternalEntryPoint(address);
             // Earlier roots can discover a shared, non-contiguous block that
             // owns a later verified entry. Keep that function's ownership.

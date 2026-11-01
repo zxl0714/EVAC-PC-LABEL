@@ -124,6 +124,32 @@ def module_roots(boot, module, declaration):
     return sorted(roots)
 
 
+def boot_callback_roots(boot, manifest):
+    """Read reviewed boot-owned callback records, including empty leaf functions."""
+    segments=elf_info(boot)['segments']
+    roots=set()
+    for table in manifest.get('bootCallbackTables',[]):
+        address=int(table['address'],0)
+        count,stride,field=(table[key] for key in ('count','stride','callbackOffset'))
+        if (any(type(value)!=int for value in (count,stride,field)) or
+                not 1<=count<=4096 or stride<4 or stride>4096 or
+                (address|stride|field)&3 or field<0 or field>stride-4):
+            raise ValueError('Invalid boot-owned callback table')
+        for index in range(count):
+            pointer=address+index*stride+field
+            segment=next((s for s in segments if int(s['address'],16)<=pointer<=
+                          int(s['address'],16)+s['fileSize']-4),None)
+            if segment is None:
+                raise ValueError('Boot callback record is outside initialized data')
+            offset=segment['offset']+pointer-int(segment['address'],16)
+            target=struct.unpack_from('<I',boot,offset)[0]
+            if (target&3 or not any(s['permissions']&1 and int(s['address'],16)<=target<=
+                                   int(s['address'],16)+s['fileSize']-4 for s in segments)):
+                raise ValueError(f'Boot callback is outside executable code: 0x{target:x}')
+            roots.add(target)
+    return sorted(roots)
+
+
 def prepare_modules(iso, manifest, output):
     iso, manifest, output=Path(iso),Path(manifest),Path(output)
     spec=json.loads(manifest.read_text(encoding='utf-8'))
@@ -138,6 +164,7 @@ def prepare_modules(iso, manifest, output):
         boot=disc.contents(entries[boot_name])
         if hashlib.sha256(boot).hexdigest()!=spec.get('bootSha256'):
             raise ValueError('Boot program does not match module manifest')
+        boot_callbacks=boot_callback_roots(boot,spec)
         identities=set()
         for declaration in spec['modules']:
             data=disc.contents(entries[declaration['discPath']]);module=inspect(data)
@@ -157,8 +184,10 @@ def prepare_modules(iso, manifest, output):
             prepared.append((module,image,roots))
     output.mkdir(parents=True)
     (output/'boot.elf').write_bytes(boot)
+    (output/'boot-callbacks.txt').write_text(''.join(f'{root:08x}\n' for root in boot_callbacks),encoding='ascii')
     receipt={'format':1,'bootSha256':spec['bootSha256'],
-             'manifestSha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),'modules':[]}
+             'manifestSha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+             'bootCallbacks':boot_callbacks,'modules':[]}
     for module,image,roots in prepared:
         directory=output/f'module-{module.module_id:02}';directory.mkdir()
         (directory/'analysis.elf').write_bytes(image)

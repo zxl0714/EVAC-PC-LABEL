@@ -27,5 +27,8 @@ public:
     virtual void Snapshot(std::vector<uint8_t>& bytes)=0;
     virtual void WriteVram(size_t offset,std::span<const uint8_t> bytes)=0;
     virtual void Frame(const GsFrame& request)=0;
+    // The EE dispatcher must remain able to execute GS IRQ handlers while a
+    // queued field waits behind SIGNAL. False leaves the request unconsumed.
+    virtual bool TryFrame(const GsFrame& request){Frame(request);return true;}
 };
 }

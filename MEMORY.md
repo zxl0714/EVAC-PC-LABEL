@@ -8,6 +8,8 @@
 - 当前 EXE／构建、游戏数据版本、独立测试目录和 PID。
 - **该进程实际读取的配置**：优先看 `config.snapshot.ini`、启动参数和按键绑定日志。
   主目录 INI、旧测试 INI、Xenia 和移植版的映射可能完全不同。
+- 查上游实现前先确认实际编译的源文件：PS2 的 `third_party/ps2/runtime` 和构建目录的
+  source view 会覆盖 `.deps` 原始文件；不要把已修过的依赖原版问题再当作当前缺陷。
 - 本轮只列一个小而完整的验收集合；已通过且未受改动影响的项目不重跑。
 - 原始 ROM、冻结发布包和旧项目保留；测试局允许自行重置，不再为同一授权反复询问。
 
@@ -75,6 +77,9 @@
     要排除后台全变体着色器预编译，预热实际工作负载；不要把启动编译计入稳态 CPU。
     PGS 的纹理上传可能保留命令缓冲；先 flush，再进 WSI begin_frame。反过来会在
     next_frame_context 等待自己的未提交缓冲。用持续上传纹理的探针回归，不能只测寄存器画图。
+    GS SIGNAL 会等待原游戏写 CSR 确认；EE 的 VBlank 不能同步等同一队列的 Frame，否则
+    双方互等。保留一帧在途，用完成事件唤醒调度器；不要自动 ACK 或丢帧绕过。
+    卡死先抓小线程 dump 与独立 EE RAM，尽快保存最后90秒音频；全进程大 dump 会错过声音现场。
     有非零 PCM 也不等于声音正确：检查实际 KON 的声 RAM 内容和样本上传返回码。
     通用 `sceSdRemote` 占位实现会假报传输完成；ESPGaluda 应保留原始静态编译的 SDR RPC 客户端。
     物理 IRX `_start` 收的是包含路径的 argc/argv，不是原始参数字节数／缓冲。
@@ -111,6 +116,8 @@ ARCADE 选人后约一分钟教学会显示 PLEASE WAIT，之后才是玩家局�
 DEMONSTRATION 当游玩验收。教学结束后按短间隔观察，玩家不动会很快损失全部生命。
 短关卡检查优先用 MAIN MENU → ARCADE SIMULATION → STAGE SELECT，默认 STAGE 1 TOP；
 再向下一个是 STAGE 1 BOSS。确认都是 X。这样可直接进玩家局，不必重等教学。
+需要自然滚动到 BOSS 时，先在 SETTING → SIMULATION SETTING 将 DEATH 设 OFF，
+再返回 STAGE SELECT 选 TOP；Return 暂停 → QUIT → YES 可返回后重新开局。
 PS2 可见测试窗应可见启动；隐藏启动曾导致没有可操作窗口。后台工具仍隐藏运行。
 通过 functions 转发 computer-use 结果时，对图像块用 image(c)，不要 text 整个结果。
 

@@ -1738,7 +1738,7 @@ uint32_t GS::afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous)
     return 0;
 }
 
-void GS::queueVBlankFrame()
+bool GS::queueVBlankFrame(uint64_t nextTick)
 {
     std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
     if (m_commandBackend && m_privRegs)
@@ -1752,10 +1752,11 @@ void GS::queueVBlankFrame()
         frame.dispfb2=m_privRegs->dispfb2;frame.display2=m_privRegs->display2;
         frame.extbuf=m_privRegs->extbuf;frame.extdata=m_privRegs->extdata;frame.extwrite=m_privRegs->extwrite;
         frame.bgcolor=m_privRegs->bgcolor;
-        frame.vsyncTick=m_privRegs->vsyncTick.load(std::memory_order_acquire);
-        frame.field=uint32_t((m_privRegs->csr.load(std::memory_order_acquire)>>13)&1u);
-        m_commandBackend->Frame(frame);
+        frame.vsyncTick=nextTick?nextTick:m_privRegs->vsyncTick.load(std::memory_order_acquire);
+        frame.field=nextTick?uint32_t(nextTick&1u):uint32_t((m_privRegs->csr.load(std::memory_order_acquire)>>13)&1u);
+        return m_commandBackend->TryFrame(frame);
     }
+    return true;
 }
 
 void GS::setCommandBackend(std::unique_ptr<cave::ps2::GsCommandBackend> backend)

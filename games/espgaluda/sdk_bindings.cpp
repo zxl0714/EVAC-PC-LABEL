@@ -165,6 +165,10 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSifAllocIopHeap");
   if(!cave::ps2::BindSdkHandler(runtime,0x0010c048u,"sceSifAllocSysMemory"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSifAllocSysMemory");
+  if(!cave::ps2::BindSdkHandler(runtime,0x0010c0c8u,"sceSifFreeSysMemory"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSifFreeSysMemory");
+  if(!cave::ps2::BindSdkHandler(runtime,0x0010c140u,"sceSifFreeIopHeap"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSifFreeIopHeap");
   if(!cave::ps2::BindSdkHandler(runtime,0x0010c160u,"sceSifLoadIopHeap"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSifLoadIopHeap");
   if(!cave::ps2::BindSdkHandler(runtime,0x0010c630u,"sceSifLoadFileReset"))

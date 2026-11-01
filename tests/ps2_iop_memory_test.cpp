@@ -123,6 +123,7 @@ int main(int argc,char** argv) {
         AudioBridge();
         SysclibCharacterFlags();
         AudioInsideGuestCall();
+        AudioDmaCriticalSection();
         IopModuleArguments();
         IopIdleContract();
         IopMemory memory;

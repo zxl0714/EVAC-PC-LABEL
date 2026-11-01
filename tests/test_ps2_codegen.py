@@ -1,9 +1,11 @@
 from pathlib import Path
 import sys
+import struct
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from ps2_codegen import translation_summary, validate_sdk_bindings, validate_sdk_map
+from ps2_codegen import translation_summary, validate_sdk_bindings, validate_sdk_map, validate_static_edges, validate_sdk_lifecycles
 
 REPORT = '''Functions discovered: 3
 Functions processed: 3, recompiled: 2, stubs: 1, skipped: 0, decode failures: 0
@@ -15,6 +17,94 @@ Warnings: 1, errors: 0
 
 
 class Ps2CodegenTests(unittest.TestCase):
+    def test_allocations_cannot_be_native_with_guest_only_release(self):
+        for acquire,release in [('sceSifAllocIopHeap','sceSifFreeIopHeap'),
+                                ('sceSifAllocSysMemory','sceSifFreeSysMemory')]:
+            with self.subTest(acquire=acquire):
+                source=f'BindSdkHandler(runtime,0x100000u,"{acquire}")'
+                with self.assertRaisesRegex(ValueError,release):
+                    validate_sdk_lifecycles({'stubs':[acquire+'@0x100000']},source)
+                result=validate_sdk_lifecycles({'stubs':[acquire+'@0x100000',release+'@0x100100']},source)
+                self.assertEqual(result,[dict(acquire=acquire,release=release)])
+
+    def test_file_pad_and_callback_lifecycles_are_checked_together(self):
+        names=['sceOpen','sceClose','sceMcOpen','sceMcClose','scePadPortOpen','scePadPortClose',
+               'CreateSema','DeleteSema','AddIntcHandler','RemoveIntcHandler','AddDmacHandler','RemoveDmacHandler']
+        general={'stubs':[name+'@0x100000' for name in names]}
+        self.assertEqual(len(validate_sdk_lifecycles(general,'')),6)
+        for release in ('sceClose','sceMcClose','scePadPortClose','DeleteSema','RemoveIntcHandler','RemoveDmacHandler'):
+            with self.subTest(release=release),self.assertRaisesRegex(ValueError,release):
+                validate_sdk_lifecycles({'stubs':[x for x in general['stubs'] if not x.startswith(release+'@')]},'')
+
+    def edge_fixture(self, root, instructions, body, linked=()):
+        # Authored ELF32 PT_LOAD bytes: no game executable or analysis cache.
+        image=bytearray(0x100+4*len(instructions))
+        image[:6]=b'\x7fELF\x01\x01'
+        struct.pack_into('<I',image,28,52)
+        struct.pack_into('<HH',image,42,32,1)
+        struct.pack_into('<8I',image,52,1,0x100,0x100000,0x100000,
+                         4*len(instructions),4*len(instructions),5,4)
+        for index,opcode in enumerate(instructions):
+            struct.pack_into('<I',image,0x100+4*index,opcode)
+        elf=root/'fixture.elf';elf.write_bytes(image)
+        generated=root/'generated';generated.mkdir()
+        (generated/'register_functions.cpp').write_text(''.join(
+            f'g_ps2RecompiledFunctionTable[{index}] = entry; // 0x{address:x}\n'
+            for index,address in enumerate((0x100000,*linked))))
+        (generated/'entry.cpp').write_text('// Address: 0x100000 - 0x100008\n'+body)
+        return generated,elf
+
+    def test_missing_reachable_fallthrough_is_rejected_before_build(self):
+        # LUI; ADDIU; next block. This is not a return, even without an
+        # explicit C++ return statement after the emitted PC assignment.
+        for linked in ((),(0x100008,)):
+            with self.subTest(linked=linked),tempfile.TemporaryDirectory() as temporary:
+                generated,elf=self.edge_fixture(Path(temporary),[0x3c020001,0x24420001,0],
+                    'void entry() {ctx->pc = 0x100008u;}\n',linked)
+                if linked:
+                    result=validate_static_edges(generated,elf)
+                    self.assertEqual((result['bodies'],result['reachableTails']),(1,1))
+                else:
+                    with self.assertRaisesRegex(ValueError,'entry:0x100008'):
+                        validate_static_edges(generated,elf)
+
+    def test_unreachable_tail_after_guest_returns_is_not_a_missing_entry(self):
+        for instructions in ([0x03e00008,0], [0,0x42000018],
+                             [0x08040040,0], [0x10000010,0]):
+            with self.subTest(instructions=instructions),tempfile.TemporaryDirectory() as temporary:
+                generated,elf=self.edge_fixture(Path(temporary),instructions,
+                    'void entry() {ctx->pc = 0x100008u;}\n')
+                self.assertEqual(validate_static_edges(generated,elf)['reachableTails'],0)
+
+    def test_conditional_branch_has_a_reachable_false_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated,elf=self.edge_fixture(Path(temporary),[0x10400010,0],
+                'void entry() {ctx->pc = 0x100008u;}\n')
+            with self.assertRaisesRegex(ValueError,'entry:0x100008'):
+                validate_static_edges(generated,elf)
+
+    def test_fixed_jump_is_checked_even_when_its_tail_is_unreachable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated,elf=self.edge_fixture(Path(temporary),[0x08040040,0],
+                'void entry() {runtime->dispatchGuestBranch(rdram, ctx, 0x100100u, 0x100000u, 0u);\n'
+                'ctx->pc = 0x100008u;}\n')
+            with self.assertRaisesRegex(ValueError,'entry:0x100100'):
+                validate_static_edges(generated,elf)
+
+    def test_single_instruction_tail_cannot_borrow_a_return_from_previous_function(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated,elf=self.edge_fixture(Path(temporary),[0],
+                'void entry() {ctx->pc = 0x100004u;}\n')
+            with self.assertRaisesRegex(ValueError,'entry:0x100004'):
+                validate_static_edges(generated,elf)
+
+    def test_static_edge_check_rejects_truncated_original_image(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated,elf=self.edge_fixture(Path(temporary),[0],
+                'void entry() {ctx->pc = 0x100008u;}\n')
+            with self.assertRaisesRegex(ValueError,'no original instruction'):
+                validate_static_edges(generated,elf)
+
     def test_a_selector_does_not_create_a_missing_native_entry(self):
         source='cave::ps2::BindSdkHandler(runtime,0x00100004u,"sceDmaGetChan")'
         gap='Name,Start,End,Size\nentry,0x00100000,0x00100004,4\n'
