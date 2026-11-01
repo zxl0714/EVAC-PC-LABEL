@@ -92,6 +92,28 @@ int main() {
     SET_GPR_U32(&context,4,0x35fcf0);
     SET_GPR_U32(&context,5,0xffffffffu);
     SET_GPR_U32(&context,6,0x106000);
+    SET_GPR_U32(&context,7,0x3000);
+    const auto previousPaths=PS2Runtime::getIoPaths();
+    auto bootPaths=previousPaths;bootPaths.elfPath="fixture/boot.elf";
+    PS2Runtime::setIoPaths(bootPaths);
+    ps2_syscalls::SetupThread(memory.data(),&context,&runtime);
+    PS2Runtime::setIoPaths(previousPaths);
+    std::array<uint32_t,3> bootArguments{};
+    std::memcpy(bootArguments.data(),memory.data()+0x3000,sizeof(bootArguments));
+    Require(bootArguments==std::array<uint32_t,3>{1u,0x300cu,0u} &&
+            std::strcmp(reinterpret_cast<const char*>(memory.data()+bootArguments[1]),"boot.elf")==0,
+            "EE boot argc/argv omitted the executable or final null pointer");
+    SET_GPR_U32(&context,7,PS2_RAM_SIZE-8);
+    bool invalidArguments=false;
+    try{ps2_syscalls::SetupThread(memory.data(),&context,&runtime);}
+    catch(const std::runtime_error&){invalidArguments=true;}
+    Require(invalidArguments,"Out-of-range EE boot argument block was accepted");
+    SET_GPR_U32(&context,7,PS2_RAM_SIZE+0x3000u);
+    invalidArguments=false;
+    try{ps2_syscalls::SetupThread(memory.data(),&context,&runtime);}
+    catch(const std::runtime_error&){invalidArguments=true;}
+    Require(invalidArguments,"Invalid physical argument address wrapped into RDRAM");
+    SET_GPR_U32(&context,7,0);
     ps2_syscalls::SetupThread(memory.data(),&context,&runtime);
     const auto mainTop=PS2_RAM_SIZE-0x1000u;
     Require(getRegU32(&context,2)==mainTop-0x2a0u && scheduler.thread(1)->stack==mainTop-0x106000 &&

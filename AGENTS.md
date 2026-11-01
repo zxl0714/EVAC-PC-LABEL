@@ -16,11 +16,14 @@ generated, build and evidence trees. No cleaning. No subagents; never open Task
 Manager. User handed the computer back for autonomous testing. Read MEMORY.md
 before game input. Freeze graphics architecture and use a small acceptance set.
 
-NO ACTIVE BUILD OR GAME. Latest r88 build succeeded, session83288 reaped;
-r86/r87 sessions19826/68681 reaped. Latest EXE is out/ps2-tools/bin/
-ps2_espgaluda_probe.exe. r55 PID27872 closed normally; no stale window reuse.
-Configuration still uses boot ghidra-audio-native-output-r2, mode extrasr21,
-original ARCADE/ARRANGE generated-r2 and all15 stage generated-r2 inputs.
+NO ACTIVE GAME, BUILD OR CAPTURE. Sound follow-up play-r56 PID135492 and play-r57
+PID92148 closed normally. WASAPI helpers67996/87096 finished their bounded45s
+capture. ESP EXE remains r88. out/ps2-tools is currently configured IBARA ONLY;
+new bounds-fix build-r10 and kernel-arguments-r2 PASS. Session15861 reaped.
+Ibara play-r3 PID94556 exited itself on a missing static target; see below.
+Before restoring ESP options use saved cache
+.local/v090/cmake-cache-espgaluda-r88.txt: boot ghidra-audio-native-output-r2,
+mode extrasr21, original ARCADE/ARRANGE generated-r2 and all15 stage-r2 inputs.
 PS2_GAME_SYMBOLS=OFF only for private fast links; restore ON for final packages.
 Final game builds must include matching full PDBs.
 
@@ -36,7 +39,8 @@ ESPGALUDA SOUND: three independent causes have been fixed and verified:
   into new r2, preserving r1. New emitted-C++ instruction test passes. Original
   predictor headless check at22050/44100/48000Hz passes;48k gives7400,-3343
   versus7400,-3342 expected (old8152,-4056 was wrong). Only boot FUN27bb20 and
-  entry27bbd8 affected here; Ibara1ba3c0/1ba488 need regeneration on resume.
+  entry27bbd8 affected here. Ibara1ba3c0/1ba488 regenerated in generation r8;
+  Ibara's function is a GRAPHICS transform, not the ESP ADX predictor ABI.
   Full audit .local/v090/analysis/sqrt-affected-files-r1.txt; no stage/mode SQRT.
 
 Audio acceptance evidence (private, no ROM in Git):
@@ -49,6 +53,19 @@ Audio acceptance evidence (private, no ROM in Git):
   observers OFF: .9999978,gain.8929. No separate missing-music cause established;
   do not invent one. Both captures contain correct ARRANGE BGM, beyond merely
   nonzero samples. Physical device loopback was not measured.
+- Follow-up play-r56 captured actual default XMOS USB Audio WASAPI output.
+  ARRANGE GAME START -> Chihiro -> actual stage1: original980/18 request at
+  102018ms. Correct BGM found internally and after Windows output (three short
+  beginning windows corr.9815/.9915/.9859). See audio-result-r1.json and
+  wasapi-bgm-match-r1.json; 5s audible excerpt arrange-stage1-output.wav. This
+  trace-enabled run has underruns/drops; do not call it a no-glitch acceptance.
+  r57 repeated without --trace-audio and again found correct stage1 BGM after
+  Windows output (same beginning correlations). Normal-play music does reach
+  this endpoint; neither run reproduces sustained missing BGM. Do not call
+  trace-enabled underruns a normal-play defect without a control. Actual
+  acoustic speaker output is unmeasured. r57 was closed after its later attract
+  scene, so LAST90s internal ring may no longer include the target stage; use
+  its bounded wasapi.wav. No new sound code was changed for this follow-up.
 - Evidence in each run's bgm-match-confirmed-r1.json / bgm-first3s-r1.json.
   ffmpeg references .local/v090/espgaluda/audio-reference-r1 (29 BGM prefixes,
   ten jingles). Source ISO E:/Game-Share/roms/Espgaluda (Japan).iso unchanged.
@@ -106,20 +123,38 @@ TESTS / BUILD:
   F11fullscreen. Diagnostic pulse200ms only automation; normal0. No short --frames
   limit for CU. Fast ARCADE SIMULATION -> STAGE SELECT -> STAGE1TOP/BOSS; confirmX.
 
-IBARA PARKED / NEXT:
-- Shared host compiledr72 SSE4.1 baseline(noAVX/native). First boot missing
-  callback1c7510 from1c73ec (jrra/lwv0,104c(a0)),vtable337c70. Generationr6.
-- .local/v090/ibara/callback-audit-r1.json has91candidates,many datafalsepositives.
-  Ghidra ibara-callbacks-r3.txt/log DONE. Classify before seeding; combine callback
-  closure and SQRT regeneration in one build. Original ISO/thinroot preserved.
+IBARA NEXT AFTER SOUND FOLLOW-UP:
+- Callback audit classified91 candidates;17 true entries accepted in
+  games/ibara/analysis.json and callback-roots-r2.txt. Nine SDK anchors retained.
+  Ghidra17 entries +2079 functions +15865 labels. MUST RefineLabels after export:
+  raw r7 interpreted data as10795 invalid instructions. r8 refined236 ranges;
+  functions-sdk-r8.csv17953 entries,17757 compiled,196 stubs,771 warnings,
+  ZERO decode/critical/errors. Output ghidra-sdk-generated-r8; preserved r7.
+- Ibara r8 build75 steps succeeded. New EVAC_PS2_IBARA define fixes title and
+  guards ESP-specific observers/headless probes; no foreign function hooks.
+  1ba3c0 is a graphics transform. Earlier ADX probe used invalid ABI; disregard.
+- play-r2 blackscreen root cause: EE SetupThread didn't fill argc/argv at
+  4e52c0. Original arg parser1acc90 loops on argc0 before SetGsCrt/IOP startup.
+  System.cpp now writes argc1, argv[0] program filename, final NULL like Play!.
+  build-r9 and kernel-arguments-r1 PASS. argsBase mask now0x1fffffff with an
+  extra beyond-RDRAM physical-address contract, preventing modulo-RAM wrapping.
+  Latest build-r10/kernel-arguments-r2 PASS. Actual play-r3 now gets beyond the
+  old argc loop and into original static constructors, then stops at320030,
+  following constructor31f930. Full fault/trace is play-r3/stderr.log. No menu
+  or IOP init acceptance yet. Audit generated split/fallthrough closure in one
+  batch before another game run; don't seed one missing PC per test blindly.
+  play-r2 PID105488 closed normally; no stale window reuse.
 - Remaining v090: Ibara actual play/audio; both games save/restart; common
   launcher/catalogue/config/ISO preparation; internal cover assets+CN/JP/DPI QA
   (defaultbanner); direct DLC audit; repro JDK still external E:/Tools/
   Ketsui-Reverse/apps/jdk/jdk-21.0.12.1+1; licenses,bilingual docs,build certificate,
   full-symbol package. Stop before Release/OSS/QQ.
 
-Current checkpoint records the sound/crash/shadow/timing fixes; the earlier
-reference is e20a0b5. Update this section with the next verified checkpoint.
+Checkpoint220392f records ESP sound/crash/shadow/timing fixes. The next
+checkpoint adds Ibara callback roots and EE boot arguments; actual Ibara
+currently stops at constructor continuation320030, not accepted for play.
+Arrange sustained missing-music feedback remains unclosed: two new output
+recordings reproduce the correct music, not the reported silence.
 
 
 ## Previous release checkpoints

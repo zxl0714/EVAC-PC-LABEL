@@ -18,6 +18,13 @@
 #include "audio_trace.h"
 
 namespace {
+#ifdef EVAC_PS2_IBARA
+constexpr bool IsIbara=true;
+constexpr const char* WindowTitle="EVAC PC LABEL | Ibara";
+#else
+constexpr bool IsIbara=false;
+constexpr const char* WindowTitle="EVAC PC LABEL | ESPGaluda";
+#endif
 int ProbeAdxCoefficients(const char* elf) {
   PS2Runtime runtime;
   if(!runtime.memory().initialize() || !runtime.loadELF(elf))
@@ -192,8 +199,14 @@ template<uint32_t Address> struct Observe {
 
 int main(int argc,char** argv) {
   try {
-    if(argc==3 && std::string_view(argv[1])=="--probe-adx-coefficients")return ProbeAdxCoefficients(argv[2]);
-    if(argc==3 && std::string_view(argv[1])=="--probe-disc-index")return ProbeDiscIndex(argv[2]);
+    if(argc==3 && std::string_view(argv[1])=="--probe-adx-coefficients") {
+      if(IsIbara)throw std::runtime_error("The ADX coefficient probe requires the ESPGaluda host");
+      return ProbeAdxCoefficients(argv[2]);
+    }
+    if(argc==3 && std::string_view(argv[1])=="--probe-disc-index") {
+      if(IsIbara)throw std::runtime_error("The disc-index probe requires the ESPGaluda host");
+      return ProbeDiscIndex(argv[2]);
+    }
     if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
     bool traceBoot=false,traceAudio=false;
     uint64_t frameLimit{};
@@ -275,13 +288,13 @@ int main(int argc,char** argv) {
         for(const auto& diagnostic:iop.diagnostics)std::cerr<<"[ps2-iop] "<<diagnostic<<'\n';
       },[](PS2Runtime&,void*){},&progress);
     runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
-    if(!runtime.initialize("EVAC PC LABEL | PS2 development"))throw std::runtime_error("PS2 host initialization failed");
+    if(!runtime.initialize(WindowTitle))throw std::runtime_error("PS2 host initialization failed");
     if(!runtime.loadELF(elf.string()))throw std::runtime_error("Boot ELF loading failed");
     auto paths=PS2Runtime::getIoPaths();
     paths.elfPath=elf;paths.elfDirectory=elf.parent_path();
     paths.hostRoot=data;paths.cdRoot=data;paths.cdImage=iso;paths.mcRoot=profile/"mc0";
     PS2Runtime::setIoPaths(paths);
-    if(traceBoot) {
+    if(traceBoot && !IsIbara) {
       Observe<0x27e6c0u>::Bind(runtime);
       Observe<0x27ed68u>::Bind(runtime);
       Observe<0x27f310u>::Bind(runtime);
@@ -300,8 +313,8 @@ int main(int argc,char** argv) {
       Observe<0x127480u>::Bind(runtime);
       Observe<0x124600u>::Bind(runtime);
     }
-    if(traceAudio && !traceBoot)Observe<0x27e6c0u>::Bind(runtime);
-    if(traceAudio) {
+    if(traceAudio && !traceBoot && !IsIbara)Observe<0x27e6c0u>::Bind(runtime);
+    if(traceAudio && !IsIbara) {
       Observe<0x124a40u>::Bind(runtime);
       Observe<0x124dc0u>::Bind(runtime);
       Observe<0x124ff0u>::Bind(runtime);

@@ -1,6 +1,9 @@
 #include "Common.h"
 #include "System.h"
 #include "crt_mode.h"
+#include <array>
+#include <cstring>
+#include <string>
 
 namespace ps2_syscalls
 {
@@ -517,6 +520,22 @@ namespace ps2_syscalls
             initialStack = stack;
         }
 
+        // crt0 passes its argument block in a3 and reads argc followed by
+        // argv pointers after SetupThread. A boot executable is argv[0].
+        // Match the EE kernel layout (Play! sc_SetupThread), including NULL.
+        const uint32_t argsBase = getRegU32(ctx, 7) & 0x1fffffffu;
+        if (argsBase)
+        {
+            const auto filename = PS2Runtime::getIoPaths().elfPath.filename().u8string();
+            const std::string executable = filename.empty() ? "game.elf" :
+                std::string(filename.begin(), filename.end());
+            const uint64_t bytes = 3u * sizeof(uint32_t) + executable.size() + 1u;
+            if (!rdram || bytes > PS2_RAM_SIZE || argsBase > PS2_RAM_SIZE - bytes)
+                throw std::runtime_error("EE startup argument block exceeds RDRAM");
+            const std::array<uint32_t, 3> arguments{1u, argsBase + 12u, 0u};
+            std::memcpy(rdram + argsBase, arguments.data(), sizeof(arguments));
+            std::memcpy(rdram + argsBase + sizeof(arguments), executable.c_str(), executable.size() + 1u);
+        }
         scheduler.setupCurrentThread(initialStack, stackSize, getRegU32(ctx, 28));
         setReturnU32(ctx, sp);
     }
