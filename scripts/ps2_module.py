@@ -36,7 +36,7 @@ def inspect(data):
                   raw_name.decode('ascii'), hashlib.sha256(data).hexdigest())
 
 
-def analysis_elf(data, entry, roots=()):
+def analysis_elf(data, entry, roots=(), *, root_prefix=None):
     module = inspect(data)
     payload_size=64+module.text_size+module.data_size
     text_start = module.address+64
@@ -51,7 +51,10 @@ def analysis_elf(data, entry, roots=()):
     names = b'\0.module.header\0.module.text\0.module.data\0.module.bss\0.shstrtab\0.strtab\0.symtab\0'
     payload_offset = 0x1000
     name_offset = payload_offset+len(data)
-    root_names={root:f'root_ov{module.module_id:02}_{root:08x}' for root in roots}
+    prefix = f'root_ov{module.module_id:02}_' if root_prefix is None else root_prefix
+    if prefix != 'root_' and prefix != f'root_ov{module.module_id:02}_':
+        raise ValueError('Unsupported analysis root naming')
+    root_names={root:f'{prefix}{root:08x}' for root in roots}
     strings = b'\0'+b''.join(root_names[root].encode()+b'\0' for root in roots)
     string_offset = name_offset+len(names)
     symbol_offset = (string_offset+len(strings)+3)&~3

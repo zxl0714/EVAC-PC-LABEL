@@ -67,6 +67,8 @@ def audit_source(root=ROOT):
     from generate_artwork import artwork, branding
     art={entry['path'] for entry in artwork(root)}
     brand={entry['path'] for entry in branding(root)}
+    from ps2_game import analysis_sources
+    analysis=analysis_sources(root)
     count, total = 0, 0
     for name in names:
         if not name.isascii():
@@ -80,6 +82,12 @@ def audit_source(root=ROOT):
         path = root / name
         reject_link(path)
         if name in art or name in brand:
+            count+=1
+            total+=path.stat().st_size
+            continue
+        if name in analysis:
+            if path.stat().st_size > 5*1024*1024 or SECRET.search(analysis[name]):
+                raise ValueError(f'Invalid PS2 analysis metadata: {name}')
             count+=1
             total+=path.stat().st_size
             continue

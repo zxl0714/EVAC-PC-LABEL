@@ -82,6 +82,15 @@ class Ps2ModuleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             analysis_elf(data, 0x730840, [0x730860])
 
+    def test_reviewed_legacy_root_names_preserve_original_payload(self):
+        data=fixture()
+        elf=analysis_elf(data,0x730840,[0x730850],root_prefix='root_')
+        self.assertIn(b'root_00730840\0',elf)
+        self.assertNotIn(b'root_ov16_',elf)
+        self.assertEqual(elf[0x1000:0x1000+len(data)],data)
+        with self.assertRaisesRegex(ValueError,'root naming'):
+            analysis_elf(data,0x730840,root_prefix='../')
+
     def test_sector_padding_does_not_move_bss_or_become_executable(self):
         original=fixture()
         padded=original+bytes(2048-len(original))
