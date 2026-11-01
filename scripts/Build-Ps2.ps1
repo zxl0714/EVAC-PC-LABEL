@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param([ValidateRange(1,8)][int]$Jobs=2, [string]$CacheFrom, [switch]$ToolsOnly,
       [string]$ProbeGenerated, [string]$ArcadeGenerated, [string]$ArrangeGenerated,
-      [string]$StageModulesManifest)
+      [string]$StageModulesManifest, [string]$ModeExtrasManifest)
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $taskProcess=Get-Process -Id $PID
 $previousPriority=$taskProcess.PriorityClass
@@ -15,6 +15,9 @@ try {
     }
     if($StageModulesManifest -and (-not $ArcadeGenerated -or -not $ArrangeGenerated)) {
         throw 'Stage modules require both ESPGaluda mode modules'
+    }
+    if($ModeExtrasManifest -and (-not $ArcadeGenerated -or -not $ArrangeGenerated)) {
+        throw 'Additional mode entries require both ESPGaluda mode modules'
     }
     Initialize-CollectionBuildEnvironment
     $restore=@('-3.12',(Join-Path $PSScriptRoot 'ps2_sources.py'),'restore')
@@ -35,6 +38,7 @@ try {
     $configure+=@('-DPS2_ARCADE_GENERATED='+$(if ($ArcadeGenerated) {[IO.Path]::GetFullPath($ArcadeGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_ARRANGE_GENERATED='+$(if ($ArrangeGenerated) {[IO.Path]::GetFullPath($ArrangeGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_STAGE_MODULES_MANIFEST='+$(if ($StageModulesManifest) {[IO.Path]::GetFullPath($StageModulesManifest).Replace('\','/')} else {''}))
+    $configure+=@('-DPS2_MODE_EXTRAS_MANIFEST='+$(if ($ModeExtrasManifest) {[IO.Path]::GetFullPath($ModeExtrasManifest).Replace('\','/')} else {''}))
     Invoke-CollectionConfigure $cmake $configure $build
     $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract','ps2_module_contract','ps2_iso_contract','ps2_pad_contract')
     if (-not $ToolsOnly) { $targets+=@('ps2_runtime','ps2_sdk_contract','ps2_kernel_contract','ps2_sdk_codegen_contract') }

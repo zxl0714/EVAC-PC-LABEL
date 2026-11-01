@@ -26,6 +26,7 @@
 #include <thread>
 #include <unordered_map>
 #include <sstream>
+#include <exception>
 
 namespace ps2_stubs
 {
@@ -503,8 +504,10 @@ PS2Runtime::PS2Runtime()
     m_guestHeapLimit = std::min(kGuestHeapHardLimit, PS2_RAM_SIZE);
     m_guestHeapSuggestedBase = kGuestHeapDefaultBase;
     m_guestHeapConfigured = false;
-    m_asyncCallbackStackFloor = std::min(kGuestHeapHardLimit, PS2_RAM_SIZE);
-    m_asyncCallbackStackTop = PS2_RAM_SIZE;
+    // Native kernel callbacks use the kernel-owned gap above SDK patch space,
+    // below ordinary EE executables. The top of RAM belongs to the main stack.
+    m_asyncCallbackStackFloor = 0x00090000u;
+    m_asyncCallbackStackTop = 0x00100000u;
 }
 
 void PS2Runtime::setDebugUiCallbacks(DebugUiCallback initCallback,
@@ -975,9 +978,8 @@ bool PS2Runtime::loadELF(const std::string &elfPath)
     }
     {
         std::lock_guard<std::mutex> lock(m_asyncCallbackStackMutex);
-        const uint32_t hardLimit = std::min(kGuestHeapHardLimit, PS2_RAM_SIZE);
-        m_asyncCallbackStackFloor = std::min(std::max(hardLimit, suggestedHeapBase), PS2_RAM_SIZE);
-        m_asyncCallbackStackTop = PS2_RAM_SIZE;
+        m_asyncCallbackStackFloor = 0x00090000u;
+        m_asyncCallbackStackTop = std::min(moduleBase, 0x00100000u);
     }
 
     LoadedModule module;
@@ -1362,6 +1364,7 @@ void PS2Runtime::reportMissingFunction(uint8_t *rdram,
     if (policy == MissingFunctionPolicy::Stop)
     {
         requestStop();
+        throw std::runtime_error("Missing statically compiled guest target");
     }
 }
 
@@ -1418,18 +1421,12 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
     }
 
     RecompiledFunction targetFn = lookupFunction(targetPc);
-    const uint32_t entryPc = ctx->pc;
     const auto* callerModule = m_staticModules.selected(sourcePc);
     targetFn(rdram, ctx, this);
 
     if (isStopRequested() || ctx->pc == 0u)
     {
         return false;
-    }
-
-    if (ctx->pc == entryPc)
-    {
-        ctx->pc = fallthroughPc;
     }
 
     // A synchronous original loader can replace the caller's code bank. Unwind
@@ -1691,9 +1688,12 @@ void PS2Runtime::resetGuestHeapLocked(uint32_t guestBase, uint32_t guestLimit)
     }
 
     m_guestHeapBlocks.clear();
-    if (limit > base)
+    // Retain the minimum header/top-chunk capacity of the EE allocator.
+    // Native bookkeeping lives on the host, but its absence must not make
+    // almost-whole-heap probes succeed when the SDK allocation would fail.
+    if (limit > base && limit - base > 0x20u)
     {
-        m_guestHeapBlocks.push_back({base, limit - base, true});
+        m_guestHeapBlocks.push_back({base + 0x10u, limit - base - 0x20u, true});
     }
 
     m_guestHeapBase = base;
@@ -2395,6 +2395,7 @@ void PS2Runtime::run()
     UnloadImage(blank);
 
     std::atomic<bool> gameThreadFinished{false};
+    std::exception_ptr executionFailure;
 
     std::thread gameThread([&]()
                            {
@@ -2403,12 +2404,14 @@ void PS2Runtime::run()
         {
             m_eeScheduler->reset(m_memory.getRDRAM(), m_cpuContext);
             m_eeScheduler->run();
+            std::cerr<<"[ps2-exit-ee] trace="<<formatDispatchHistory()<<std::endl;
             uint32_t pc = m_debugPc.load(std::memory_order_relaxed);
             RUNTIME_LOG("Game thread returned. PC=0x" << std::hex << pc
                       << " RA=0x" << static_cast<uint32_t>(_mm_extract_epi32(m_cpuContext.r[31], 0)) << std::dec << std::endl);
         }
         catch (const std::exception &e)
         {
+            executionFailure = std::current_exception();
             std::cerr << "Error during program execution: " << e.what() << std::endl;
             if (const auto* fault=m_eeScheduler->currentThread())
             {
@@ -2429,6 +2432,7 @@ void PS2Runtime::run()
         }
         catch (...)
         {
+            executionFailure = std::current_exception();
             std::cerr << "Error during program execution: unknown exception" << std::endl;
         }
         gameThreadFinished.store(true, std::memory_order_release); });
@@ -2517,4 +2521,6 @@ void PS2Runtime::run()
     CloseWindow();
 
     RUNTIME_LOG("[run] exiting loop");
+    if (executionFailure)
+        std::rethrow_exception(executionFailure);
 }

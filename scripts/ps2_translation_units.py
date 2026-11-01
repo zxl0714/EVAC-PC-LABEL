@@ -1,6 +1,7 @@
 """Batch private generated C++ without adding each guest label to CMake's graph."""
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 
@@ -18,13 +19,29 @@ def make_units(generated, output, batch_size=256, symbols=()):
     for name in ('register_functions.cpp', 'ps2_recompiled_functions.h'):
         if not (generated/name).is_file():
             raise ValueError('Missing generated function inventory')
-    sources = sorted(path for path in generated.iterdir() if path.suffix == '.cpp')
-    if any(not path.is_file() or path.is_symlink() for path in sources):
-        raise ValueError('Expected regular generated C++ files')
+    facts={}
+    with os.scandir(generated) as directory:
+        for entry in directory:
+            if not entry.name.endswith('.cpp'):continue
+            if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
+                raise ValueError('Expected regular generated C++ files')
+            stat=entry.stat(follow_symlinks=False)
+            facts[entry.name]=[entry.name,stat.st_size,stat.st_mtime_ns]
+    sources = sorted(generated/name for name in facts)
     output.mkdir(parents=True, exist_ok=True)
     units = []
     symbol_users = {symbol: [] for symbol in symbols}
     symbol_pattern = re.compile(r'\b(?:'+ '|'.join(re.escape(s) for s in symbols)+r')\b') if symbols else None
+    cache_path=output/'references.json'
+    cache={}
+    if symbols and cache_path.is_file():
+        try:
+            prior=json.loads(cache_path.read_text(encoding='utf-8'))
+            if (prior.get('format')==1 and prior.get('generated')==str(generated)
+                    and prior.get('symbols')==list(symbols) and isinstance(prior.get('batches'),dict)):
+                cache=prior.get('batches',{})
+        except (ValueError,OSError,AttributeError,TypeError):pass
+    batches={}
     for index, start in enumerate(range(0, len(sources), batch_size)):
         unit = output/f'batch_{index:04}.cpp'
         text = '// Generated PS2 compilation batch. Original bodies remain unchanged.\n'
@@ -32,11 +49,22 @@ def make_units(generated, output, batch_size=256, symbols=()):
         write_changed(unit, text)
         units.append(unit)
         if symbol_pattern:
-            referenced = set()
-            for source in sources[start:start+batch_size]:
-                referenced.update(symbol_pattern.findall(source.read_text(encoding='utf-8')))
+            inputs=[facts[source.name] for source in sources[start:start+batch_size]]
+            prior=cache.get(unit.name,{})
+            if (isinstance(prior,dict) and prior.get('inputs')==inputs
+                    and isinstance(prior.get('references'),list)
+                    and all(isinstance(name,str) for name in prior['references'])
+                    and set(prior['references'])<=set(symbols)):
+                referenced=set(prior['references'])
+            else:
+                referenced = set()
+                for source in sources[start:start+batch_size]:
+                    referenced.update(symbol_pattern.findall(source.read_text(encoding='utf-8')))
+            batches[unit.name]=dict(inputs=inputs,references=sorted(referenced))
             for symbol in referenced:
                 symbol_users[symbol].append(str(unit))
+    if symbols:
+        write_changed(cache_path,json.dumps(dict(format=1,generated=str(generated),symbols=list(symbols),batches=batches),sort_keys=True))
     manifest = 'set(PS2_TRANSLATION_UNITS\n'
     manifest += ''.join('  "'+path.as_posix().replace(';', '\\;')+'"\n' for path in units)+')\n'
     write_changed(output/'sources.cmake', manifest)

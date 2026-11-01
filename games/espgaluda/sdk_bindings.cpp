@@ -11,7 +11,8 @@
 void RegisterEspgaludaStaticModules(PS2Runtime& runtime);
 #endif
 
-// Software libraries keep the original allocator, string and math semantics.
+// Allocations share the runtime heap with kernel services and DMA helpers.
+// String and math routines retain the original implementations.
 // Upstream TODO services retain their original statically recompiled bodies.
 namespace {
 void SearchSingleLayer(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {
@@ -328,7 +329,23 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceMcUnformat");
   if(!cave::ps2::BindSdkHandler(runtime,0x00114cf0u,"sceMcGetEntSpace"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceMcGetEntSpace");
-  std::cerr<<"[ps2-bindings] ESPGaluda SDK: 150 handlers\n";
+  if(!cave::ps2::BindSdkHandler(runtime,0x00114e70u,"_calloc_r"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _calloc_r");
+  if(!cave::ps2::BindSdkHandler(runtime,0x001167b8u,"_free_r"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _free_r");
+  if(!cave::ps2::BindSdkHandler(runtime,0x00117330u,"memalign"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: memalign");
+  if(!cave::ps2::BindSdkHandler(runtime,0x00116a98u,"_malloc_trim_r"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _malloc_trim_r");
+  if(!cave::ps2::BindSdkHandler(runtime,0x00117560u,"malloc_extend_top"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: malloc_extend_top");
+  if(!cave::ps2::BindSdkHandler(runtime,0x001177b8u,"_malloc_r"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: _malloc_r");
+  if(!cave::ps2::BindSdkHandler(runtime,0x001182c0u,"__malloc_lock"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __malloc_lock");
+  if(!cave::ps2::BindSdkHandler(runtime,0x00118318u,"__malloc_unlock"))
+    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: __malloc_unlock");
+  std::cerr<<"[ps2-bindings] ESPGaluda SDK: 158 handlers\n";
 }
 }
 PS2_REGISTER_GAME_OVERRIDE("ESPGaluda SLPS-25352 SDK","",0x00100008u,0x95b4197du,BindSdk)

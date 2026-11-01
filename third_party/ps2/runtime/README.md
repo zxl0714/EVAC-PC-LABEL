@@ -34,3 +34,23 @@ direct and quoted sibling includes therefore use the same class layout.
 keyboard and controller buttons instead of disabling the keyboard whenever
 gamepad 0 is connected. The host-input regression uses authored key/controller
 states and calls the actual pad implementation.
+
+`System.cpp` comes from `Kernel/Syscalls/System.cpp`. Automatic main stacks
+start at the top of their allocation and report a stable lower bound through
+`ReferThreadStatus`. The heap ceiling excludes that allocation. This corrects
+the placement defect also described in [upstream PR 398](https://github.com/ran-j/PS2Recomp/pull/398).
+Automatic stacks leave the kernel's top 4 KiB reserved and a `0x2a0` initial
+context frame, matching [Play!'s EE kernel](https://github.com/jpd002/Play-/blob/master/Source/ee/PS2OS.cpp).
+`SetupHeap` returns the upper boundary below the main stack. Kernel helpers and
+bound guest allocation functions, including aligned allocation, share one heap;
+its capacity includes the allocator's minimum bookkeeping reserve. This matters
+to software that probes available heap space during initialization.
+Asynchronous callback stacks occupy the kernel-owned gap from `0x90000` to
+the lower of `0x100000` and the first loaded segment. Exhaustion fails explicitly.
+The kernel regression checks placement, metadata and heap isolation.
+
+Native calls resume their caller only when the guest PC actually reaches the
+return address; a yield at the callee's entry keeps that entry pending. Execution
+exceptions propagate after thread and window cleanup, giving the host a failure
+result. `CD.cpp`, from `Kernel/Stubs/CD.cpp`, resolves original ISO9660 extents
+through `backends/ps2/iso_disc.*`, retaining physical sector addresses.

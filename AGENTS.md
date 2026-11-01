@@ -16,6 +16,83 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
+Latest PS2 checkpoint (Nov1 09:22): build r36 is RUNNING; unified exec session
+96951, .local/v090/ps2-build-r36.log. Boot/mode/stage base inputs are unchanged;
+-ModeExtrasManifest .local/v090/espgaluda/build-mode-extras-r2.json now includes
+boot0 +ARCADE16 +ARRANGE17 extensions. Do not start another build or launch the
+old probe. CMake configuration now4.2s (was322.6s): stage root-reference scans
+are cached by file metadata with invalidation tests. CMake generation still
+spends~212s on the huge base source graph. CPP-only edits use existing --build.
+
+r35 compiled only79ARCADEextra bodies successfully. play-r26 CLOSED, exit1 at
+module16JAL90796c ->missing boot131650. No menu/stage acceptance yet. r25 reached
+the original memory-card check screen; r26 initial capture was magenta during
+startup. New observers now assemble each entry line before writing stderr,
+which otherwise split fields into thousands of synchronous writes. All prior
+play profiles throughr26 are CLOSED. No game input was sent this session.
+
+Offline cross-module closure: boot's371overlay flow targets missed21ARCADE and
+36ARRANGE leaf roots; SeedEntries added them to the respective seeded projects.
+All old mode CSV rows stayed identical. Private extras are79ARCADEfunctions/
+82slots and520ARRANGEfunctions/526slots. Their generation still includes92/72
+ELF-symbol roots; the extras tool MUST compile ONLY the explicit new map bodies.
+Mode->boot flow exports found70missing roots. Boot project seeded70 and exported
+boot-functions-r4.csv, adding2043rows. One old synthetic entry1bee50 shrank from
+1bf070 to1beef0: the old body returns unconditionally at1beee0, before the added
+routines. Its live entry remains valid and no existing dispatch slot is replaced.
+Boot extra r1 FAILED only because the exporter requires the ELF entry row.
+Accepted boot-extra-generated-r2 /boot-extra-codegen-r2.json includes100008 as a
+generation anchor; manifest baseEntries reuses the already-linked original.
+Result:2043new boot bodies/2045slots, total2642new bodies/2653slots in3tables,
+ZERO dispatch collisions. New-body constant branch targets all resolved offline
+against the appropriate boot/mode tables and stages1/9. Generation errors,
+unknown instructions and critical fallbacks allzero. Actual runtime acceptance
+of these additions is pending r36. Python31PS2 tests passed inr7; native7/7passed
+r32 before these pure tooling additions. SDK source still158bindings, base boot
+receipt ghidra-allocation-codegen-r2.json (39466functions/197stubs).
+
+New project helpers: tools/ps2/ghidra/{ExportExternalCalls,SeedEntries}.java,
+scripts/ps2_module_extras.py; English instructions tools/ps2/README.md. The extras
+manifest binds matching ELF and map receipts, compiles selected additional bodies,
+and checks every destination slot before installation. Both mode/boot selectors
+are independent. Immutable generated bodies and original ISOs/ELFs remain intact.
+Compilation batch sorting was briefly changed while adding the metadata cache;
+restored original Path ordering before any native build. All159stage1/9 unit
+include lists are unchanged; cached object reuse was checked against original
+body timestamps. Evidence .local/v090/ps2-unit-order-restored-r1.json. Do not
+change batch ordering or use str sorting in place of WindowsPath sorting.
+
+Main-stack and heap ABI: SetupThread(stack=-1) must use RAM-0x1000 as allocation
+top and return top-0x2a0 initial SP; metadata records top-stackSize. Play!'s EE
+kernel explicitly documents ESPGaluda's precise 4KiB reserve requirement.
+SetupHeap returns the upper boundary below that allocation. Guest/kernel
+allocations now share one heap with32bytes minimum allocator capacity reserve.
+Original memalign@117330 directly manipulates newlib chunks, so it MUST share
+the native allocator family rather than remaining original. Pure strings/math
+stay original; no game wait/status bypass. Main stack for actual game asks116000,
+base1ee9000. Callback stacks occupy bounded kernel gap90000..100000, not top RAM.
+Seven native CTests passed after these changes (.local/v090/ps2-native-r32.log).
+Python24PS2 tests passed. Current source changes are uncommitted; preserve them.
+
+Frequent diagnostic snapshot280edc is callback activity, not proof of a loop:
+EE-thread final trace inr22/r23 showed main repeatedly querying27f310 after a
+failed sound read. Observer/binding lookups on the host thread are not executor
+traces; the final EE-thread ring is authoritative. Earlier path/RA corruption was
+stack/heap overlap, fixed by moving initialSP to allocationTOP (r20 onward).
+
+Reused offline diagnostics: out/ps2-libc-probe/ps2_libc_probe.exe executes the
+four original library bodies from ghidra-platform-output-r1 (27648 boundary/
+alignment/register cases passed,133.6ms). Optional build entry
+tools/ps2/libc_probe/CMakeLists.txt links current runtime libraries. Existing
+ps2_espgaluda_probe --probe-disc-index <boot.elf> uses the ACTUAL dispatch table
+for1/10/50/130 authored rows, ordinary and forced checkpoint variants; allpassed
+in disc-index-probe-r3.log. Neither diagnostic opens a window. Original ISO and
+ELFs unchanged. No generated bodies inGit. Runtime now propagates execution
+exceptions after cleanup; Stop-policy missing targets throw instead of exit0.
+Removed dispatchGuestBranch's entryPC==return assumption (a real yield can
+retain entryPC); authored native regression passes. Diagnostic observer is
+--trace-boot only. Current edits not yet committed; preserve them.
+
 PS2 resume point: eight pinned source deps in .deps/ps2; Build-Ps2.ps1 uses
 project LLVM23.1.3/CMake4.2.3/Ninja1.11.0/VS2022, two BelowNormal jobs. No
 AVX2/native/fast-math flags. Development runtime is NOT yet playable/certified.

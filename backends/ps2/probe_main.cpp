@@ -7,8 +7,72 @@
 #include <cstring>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
+#include <vector>
 
 namespace {
+int ProbeDiscIndex(const char* elf) {
+  PS2Runtime runtime;
+  if(!runtime.memory().initialize() || !runtime.loadELF(elf))
+    throw std::runtime_error("Cannot initialize headless library probe");
+  runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+  constexpr uint32_t Destination=0x400000,Source=0x646980,Stack=0x1ee9f90;
+  constexpr uint32_t Capacity=195,Stride=12,Stop=0x100010;
+  bool completed=false;
+  static bool* completion;
+  static PS2Runtime::RecompiledFunction originalLength;
+  static bool forceCheckpoint;
+  completion=&completed;
+  runtime.replaceFunction(Stop,[](uint8_t*,R5900Context*,PS2Runtime* state) {
+    *completion=true;state->eeScheduler().requestStop();
+  });
+  originalLength=runtime.lookupFunction(0x11a000);
+  runtime.replaceFunction(0x11a000,[](uint8_t* ram,R5900Context* context,PS2Runtime* state) {
+    originalLength(ram,context,state);
+    if(forceCheckpoint)state->eeScheduler().postEvent({EeEventType::Dmac,0,0});
+  });
+  auto* memory=runtime.memory().getRDRAM();
+  for(bool forced:{false,true}) {
+  forceCheckpoint=forced;
+  for(unsigned count:{1u,10u,50u,130u}) {
+    completed=false;
+    std::string input;
+    std::vector<std::string> expected;
+    for(unsigned i=0;i<count;++i) {
+      std::ostringstream line;line<<"A000\\A"<<std::uppercase<<std::hex;
+      line.width(3);line.fill('0');line<<i<<".;1";
+      expected.push_back(line.str());input+=line.str()+"\r\n";
+    }
+    std::memset(memory+Source,0,4096);
+    std::memcpy(memory+Source,input.c_str(),input.size()+1);
+    std::memset(memory+Destination-16,0xa5,4096+32);
+    std::memset(memory+Destination,0,4096);
+    std::memset(memory+0x2eef70,0,16);
+    R5900Context context{};context.pc=0x28ca28;
+    context.r[4]=_mm_cvtsi32_si128(Destination);
+    context.r[5]=_mm_cvtsi32_si128(Source);
+    context.r[6]=_mm_cvtsi32_si128(Capacity);
+    context.r[7]=_mm_cvtsi32_si128(Stride);
+    context.r[29]=_mm_cvtsi32_si128(Stack);
+    context.r[31]=_mm_cvtsi32_si128(Stop);
+    runtime.eeScheduler().reset(memory,context);
+    runtime.eeScheduler().run();
+    const auto& result=runtime.cpu();
+    if(!completed || _mm_cvtsi128_si32(result.r[2])!=count ||
+       _mm_cvtsi128_si32(result.r[29])!=Stack)
+      throw std::runtime_error("Index probe failed to return with the expected row count and stack");
+    for(unsigned i=0;i<count;++i) {
+      const auto* actual=reinterpret_cast<const char*>(memory+Destination+Capacity*8+i*(Stride+1));
+      if(std::memcmp(actual,expected[i].c_str(),expected[i].size()+1)!=0)
+        throw std::runtime_error("Index probe row mismatch at "+std::to_string(i));
+    }
+    if(memory[Destination-1]!=0xa5 || memory[Destination+4096]!=0xa5)
+      throw std::runtime_error("Index probe overwrote destination guards");
+    std::cerr<<"[ps2-index-probe] forced="<<forced<<" rows="<<count<<" passed\n";
+  }
+  }
+  return 0;
+}
 template<uint32_t Address> struct Observe {
   static inline PS2Runtime::RecompiledFunction original{};
   static inline uint64_t calls{};
@@ -18,28 +82,54 @@ template<uint32_t Address> struct Observe {
     const auto physical=argument&0x1fffffffu;
     uint32_t state=~0u;
     if(physical<PS2_RAM_SIZE-48)std::memcpy(&state,memory+physical,4);
-    const bool log=++calls<=(Address==0x107be8u?128u:4u) || (Address==0x27f310u && state!=lastState);
+    const auto source=static_cast<uint32_t>(_mm_cvtsi128_si32(context->r[5]));
+    const bool indexCopy=Address==0x118048u && source>=0x646980 && source<0x647980;
+    const bool log=++calls<=((Address==0x107be8u || Address==0x1043a0u || Address==0x127480u)?128u:4u) || (Address==0x27f310u && state!=lastState);
     lastState=state;
     if(log) {
-      std::cerr<<"[ps2-observe] entry=0x"<<std::hex<<Address<<" pc=0x"<<context->pc
-               <<" ra=0x"<<_mm_cvtsi128_si32(context->r[31]);
-      for(unsigned reg=4;reg<=11;++reg)std::cerr<<" a"<<(reg-4)<<"=0x"<<_mm_cvtsi128_si32(context->r[reg]);
+      std::ostringstream line;
+      line<<"[ps2-observe] entry=0x"<<std::hex<<Address<<" pc=0x"<<context->pc
+               <<" ra=0x"<<_mm_cvtsi128_si32(context->r[31])
+               <<" sp=0x"<<_mm_cvtsi128_si32(context->r[29]);
+      for(unsigned reg=4;reg<=11;++reg)line<<" a"<<(reg-4)<<"=0x"<<_mm_cvtsi128_si32(context->r[reg]);
+      if(indexCopy) {
+        line<<" sp=0x"<<_mm_cvtsi128_si32(context->r[29]);
+        for(unsigned reg=16;reg<=23;++reg)line<<" s"<<(reg-16)<<"=0x"<<_mm_cvtsi128_si32(context->r[reg]);
+      }
+      if constexpr(Address==0x1043a0u || Address==0x127480u) {
+        uint32_t heapBreak{};std::memcpy(&heapBreak,memory+0x29544c,4);
+        line<<" break=0x"<<heapBreak<<" nativeEnd=0x"<<runtime->guestHeapEnd()
+                 <<" limit=0x"<<runtime->guestHeapLimit();
+      }
       if(physical<PS2_RAM_SIZE-48) {
-        std::cerr<<" object=";
+        line<<" object=";
         for(unsigned i=0;i<12;++i) {
           uint32_t word{};std::memcpy(&word,memory+physical+i*4,4);
-          std::cerr<<word<<',';
+          line<<word<<',';
         }
       }
       if constexpr(Address==0x11d530u) {
         for(uint32_t address:{0x2e03f0u,0x2e3c64u,0x2e3d6cu,0x2e3d70u,
                              0x648da0u,0x648da8u,0x2fbc90u,0x2e3008u}) {
           uint32_t word{};std::memcpy(&word,memory+address,4);
-          std::cerr<<" mem["<<address<<"]="<<word;
+          line<<" mem["<<address<<"]="<<word;
         }
       }
-      std::cerr<<std::dec<<'\n';
+      if constexpr(Address==0x124600u) {
+        for(uint32_t address:{0x649800u,0x730800u,0x83ffd0u}) {
+          line<<" region["<<address<<"]=";
+          for(unsigned i=0;i<8;++i) {
+            uint32_t word{};std::memcpy(&word,memory+address+i*4,4);
+            line<<word<<',';
+          }
+        }
+        line<<" compiledTarget="<<runtime->hasFunction(0x83ffd0u);
+      }
+      line<<std::dec<<'\n';
+      std::cerr<<line.str();
     }
+    if(indexCopy && (argument<0x100000 || _mm_cvtsi128_si32(context->r[6])>13))
+      throw std::runtime_error("Invalid disc index copy observed before memory overwrite");
     original(memory,context,runtime);
     if(log)std::cerr<<"[ps2-observe] leave=0x"<<std::hex<<Address<<" v0=0x"
                     <<_mm_cvtsi128_si32(context->r[2])<<" pc=0x"<<context->pc<<std::dec<<'\n';
@@ -54,6 +144,7 @@ template<uint32_t Address> struct Observe {
 
 int main(int argc,char** argv) {
   try {
+    if(argc==3 && std::string_view(argv[1])=="--probe-disc-index")return ProbeDiscIndex(argv[2]);
     if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
     bool traceBoot=false;
     uint64_t frameLimit{};
@@ -115,6 +206,13 @@ int main(int argc,char** argv) {
       Observe<0x103aa0u>::Bind(runtime);
       Observe<0x103ba0u>::Bind(runtime);
       Observe<0x2806c8u>::Bind(runtime);
+      Observe<0x118048u>::Bind(runtime);
+      Observe<0x2805c0u>::Bind(runtime);
+      Observe<0x2800c8u>::Bind(runtime);
+      Observe<0x280edcu>::Bind(runtime);
+      Observe<0x1043a0u>::Bind(runtime);
+      Observe<0x127480u>::Bind(runtime);
+      Observe<0x124600u>::Bind(runtime);
     }
     runtime.run();
     return 0;
