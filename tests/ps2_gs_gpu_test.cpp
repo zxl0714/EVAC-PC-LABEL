@@ -1,7 +1,11 @@
 #include "gs_device.h"
+#include "gs_device_sink.h"
+#include "runtime/gs/gs_frontend.h"
+#include "runtime/ps2_memory.h"
 #include "runtime/gs/ps2_gs_psmct32.h"
 #include "runtime/gs/gs_types.h"
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <iostream>
@@ -15,15 +19,20 @@ int main() {
         using cave::ps2::GsGifPath;
         GsDevice gs;
         std::vector<uint8_t> vram(GsDevice::VramBytes);
-        gs.WriteVram(0,vram);
-        gs.WriteRegister(GS_REG_PRMODECONT,1);
-        gs.WriteRegister(GS_REG_FRAME_1,uint64_t(1)<<16);
-        gs.WriteRegister(GS_REG_ZBUF_1,uint64_t(1)<<32);
-        gs.WriteRegister(GS_REG_TEST_1,0x30000);
-        gs.WriteRegister(GS_REG_SCISSOR_1,(uint64_t(63)<<16)|(uint64_t(63)<<48));
-        gs.WriteRegister(GS_REG_XYOFFSET_1,0);
-        gs.WriteRegister(GS_REG_COLCLAMP,1);
-        gs.WriteRegister(GS_REG_PRIM,6|0x100);
+        GS frontend;
+        GSRegisters hardware{};
+        unsigned presented=0;
+        frontend.init(vram.data(),uint32_t(vram.size()),&hardware);
+        frontend.setCommandBackend(std::make_unique<cave::ps2::GsDeviceSink>(gs,
+            [&](const cave::ps2::GsFrame&){++presented;}));
+        frontend.writeRegister(GS_REG_PRMODECONT,1);
+        frontend.writeRegister(GS_REG_FRAME_1,uint64_t(1)<<16);
+        frontend.writeRegister(GS_REG_ZBUF_1,uint64_t(1)<<32);
+        frontend.writeRegister(GS_REG_TEST_1,0x30000);
+        frontend.writeRegister(GS_REG_SCISSOR_1,(uint64_t(63)<<16)|(uint64_t(63)<<48));
+        frontend.writeRegister(GS_REG_XYOFFSET_1,0);
+        frontend.writeRegister(GS_REG_COLCLAMP,1);
+        frontend.writeRegister(GS_REG_PRIM,6|0x100);
         constexpr std::array paths{GsGifPath::Path1,GsGifPath::Path2,GsGifPath::Path3};
         constexpr std::array<uint32_t,3> colors{0x80563412,0x80785634,0x809a7856};
         // All paths retain separate partial tags. Original A_D register input
@@ -32,24 +41,41 @@ int main() {
         const auto bytes=[](const auto& words){
             return std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(words.data()),sizeof(words));
         };
-        for(const auto path:paths)gs.GifTransfer(path,bytes(tag));
+        for(const auto path:paths)frontend.processGIFPacket(static_cast<GifPathId>(path),bytes(tag).data(),16);
         for(size_t i=0;i<paths.size();++i) {
             alignas(16) const std::array<uint64_t,2> ad{0x3f80000000000000ull|colors[i],GS_REG_RGBAQ};
-            gs.GifTransfer(paths[i],bytes(ad));
-            gs.WriteRegister(GS_REG_XYZ2,uint64_t(i*16*16));
-            gs.WriteRegister(GS_REG_XYZ2,uint64_t((i+1)*16*16)|(uint64_t(16*16)<<16));
+            frontend.processGIFPacket(static_cast<GifPathId>(paths[i]),bytes(ad).data(),16);
+            frontend.writeRegister(GS_REG_XYZ2,uint64_t(i*16*16));
+            frontend.writeRegister(GS_REG_XYZ2,uint64_t((i+1)*16*16)|(uint64_t(16*16)<<16));
         }
         gs.Flush();
-        gs.ReadbackVram(0,vram); // only this offscreen correctness test reads back
+        std::vector<uint8_t> readback(vram.size());
+        gs.ReadbackVram(0,readback); // diagnostic output is separate from the CPU mirror
         for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x) {
             uint32_t value{};
-            std::memcpy(&value,vram.data()+GSPSMCT32::addrPSMCT32(0,1,x,y),4);
+            std::memcpy(&value,readback.data()+GSPSMCT32::addrPSMCT32(0,1,x,y),4);
             const auto expected=x<48 && y<16?colors[x/16]:0u;
             if(value!=expected)throw std::runtime_error("GPU GIF path/color/coverage differs from authored pixels");
         }
+        if(std::any_of(vram.begin(),vram.end(),[](auto value){return value!=0;}))
+            throw std::runtime_error("GPU frontend also rendered into CPU VRAM");
+        const std::array<uint32_t,4> pixels{0x80332211,0x80665544,0x80998877,0x80ccbbaa};
+        const std::array<uint64_t,4> upload{(uint64_t(128)<<32)|(uint64_t(1)<<48),0,
+                                         uint64_t(2)|(uint64_t(2)<<32),0};
+        frontend.uploadImageNative(upload[0],upload[1],upload[2],upload[3],
+            reinterpret_cast<const uint8_t*>(pixels.data()),16);
+        frontend.writeRegister(GS_REG_BITBLTBUF,128|(uint64_t(1)<<16));
+        frontend.writeRegister(GS_REG_TRXPOS,0);
+        frontend.writeRegister(GS_REG_TRXREG,uint64_t(2)|(uint64_t(2)<<32));
+        frontend.writeRegister(GS_REG_TRXDIR,1);
+        std::array<uint32_t,4> downloaded{};
+        if(frontend.consumeLocalToHostBytes(reinterpret_cast<uint8_t*>(downloaded.data()),16)!=16 || downloaded!=pixels)
+            throw std::runtime_error("Native image upload / GPU FIFO round-trip changed pixels");
+        frontend.queueVBlankFrame();
+        if(presented!=1)throw std::runtime_error("GPU frame destination was bypassed");
         std::atomic<bool> wrongOwnerRejected{};
         std::thread wrongOwner([&]{
-            try{gs.WriteRegister(GS_REG_PRIM,0);}
+            try{frontend.writeRegister(GS_REG_PRIM,0);}
             catch(const std::logic_error&){wrongOwnerRejected=true;}
         });
         wrongOwner.join();
@@ -60,7 +86,7 @@ int main() {
         try{gs.GifTransfer(GsGifPath::Path1,partial);}catch(const std::invalid_argument&){++rejected;}
         try{gs.ReadbackVram(GsDevice::VramBytes,partial);}catch(const std::out_of_range&){++rejected;}
         if(rejected!=3)throw std::runtime_error("Invalid GS commands were accepted");
-        std::cout<<"GPU="<<gs.GpuName()<<"; raw GIF paths/fragments, 4096 pixels, owner/range checks: PASS\n";
+        std::cout<<"GPU="<<gs.GpuName()<<"; runtime GIF routing, 4096 pixels, native image/FIFO, owner/range checks: PASS\n";
         return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

@@ -63,6 +63,9 @@
 10. **PS2 窗口重绘率不能代表游戏速度。** 分开看 `frame`、`vsync`、EE 时钟和 PCM 欠载。
     声音 DMA 假完成曾制造大量 IOP 空转；修正真实传输后再查热点。
     图形按 [PS2_GRAPHICS_PLAN.md](docs/PS2_GRAPHICS_PLAN.md) 接成熟 GPU 后端，先保留原始 GIF 路径与顺序。
+    GPU 的独立 `GsFrame` 一起快照 SMODE1、SYNCV、EXT 与 FIELD；不要再套用旧 CPU 显示请求。
+    paraLLEl-GS 的 `vsync()` 消费已 flush 的命令；不能遗漏前面的 flush，也不能用每帧 wait_idle 代替。
+    独立图形探针的 DISPLAY 也要提供真实 CRTC 起点；小图在 DX/DY=0 时可能被裁出可见区。
 
 ## 已验证的按键信息
 

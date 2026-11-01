@@ -1888,6 +1888,7 @@ void EeScheduler::processEvent(const EeEvent &event)
         }
         m_vsyncFlagAddress = 0u;
         m_vsyncTickAddress = 0u;
+        m_runtime.gs().queueVBlankFrame();
         completeVSync(m_vsyncTick);
         if (m_gsVSyncCallback != 0u && m_runtime.hasFunction(m_gsVSyncCallback))
         {

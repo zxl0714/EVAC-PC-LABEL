@@ -29,6 +29,7 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 }
 }
 
+#include "ps2_vif_transport_fixture.h"
 int main() {
   try {
     PS2Runtime runtime;
@@ -168,7 +169,8 @@ int main() {
               0x200044,0x200048,PS2Runtime::GuestBranchKind::DirectCall,"JAL") &&
             context.pc==0x200048 && runtime.lookupFunction(0x200040)==OtherModuleEntry,
             "Native caller continued after its guest code bank was replaced");
-    std::cout<<"PS2 kernel: EE ABI, priority inheritance, boundaries and restore passed\n";
+    VifImageContinuation(runtime.memory());
+    std::cout<<"PS2 kernel: EE ABI, priority inheritance, boundaries, restore and raw VIF transport passed\n";
     return 0;
   }catch(const std::exception& error) {
     std::cerr<<error.what()<<'\n';return 1;

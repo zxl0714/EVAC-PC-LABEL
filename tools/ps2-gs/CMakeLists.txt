@@ -19,7 +19,7 @@ set(GRANITE_INSTALL_TARGETS OFF CACHE BOOL "" FORCE)
 set(GRANITE_VULKAN_DXGI_INTEROP OFF CACHE BOOL "" FORCE)
 set(GRANITE_TARGET_NATIVE OFF CACHE BOOL "" FORCE)
 set(GRANITE_FAST_MATH OFF CACHE BOOL "" FORCE)
-add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS)
+add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS VK_USE_PLATFORM_WIN32_KHR)
 add_subdirectory("${PS2_GS_SOURCE}" upstream EXCLUDE_FROM_ALL)
 # clang-cl treats -Wall as MSVC /Wall (every warning), rather than Clang's
 # normal -Wall group. Preserve the upstream options with explicit forwarding.
@@ -50,9 +50,36 @@ endif()
 add_library(ps2_gs_device STATIC "${COLLECTION_ROOT}/backends/ps2/gs_device.cpp")
 target_include_directories(ps2_gs_device PUBLIC "${COLLECTION_ROOT}/backends/ps2")
 target_link_libraries(ps2_gs_device PRIVATE parallel-gs)
+set(PS2_RUNTIME "${COLLECTION_ROOT}/.deps/ps2/PS2Recomp/ps2xRuntime")
+set(PS2_GS_HEADERS "${CMAKE_BINARY_DIR}/runtime-include")
+foreach(header gs_frontend ps2_gif_arbiter)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/${header}.h"
+    "${PS2_GS_HEADERS}/runtime/gs/${header}.h" COPYONLY)
+endforeach()
+configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.h"
+  "${PS2_GS_HEADERS}/runtime/ps2_memory.h" COPYONLY)
+target_sources(ps2_gs_device PRIVATE "${COLLECTION_ROOT}/backends/ps2/gs_device_sink.cpp"
+  "${COLLECTION_ROOT}/backends/ps2/gs_display.cpp" "${COLLECTION_ROOT}/backends/ps2/gs_present_program.cpp")
+target_include_directories(ps2_gs_device PUBLIC "${PS2_GS_HEADERS}" "${PS2_RUNTIME}/include")
+add_library(ps2_gs_transport STATIC
+  "${COLLECTION_ROOT}/third_party/ps2/runtime/gs_frontend.cpp"
+  "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_gif_arbiter.cpp"
+  "${PS2_RUNTIME}/src/lib/gs/gs_cpu_backend.cpp"
+  "${PS2_RUNTIME}/src/lib/gs/ps2_gs_memory.cpp")
+target_include_directories(ps2_gs_transport PUBLIC "${PS2_GS_HEADERS}"
+  "${COLLECTION_ROOT}/backends/ps2" "${PS2_RUNTIME}/include")
+add_executable(ps2_gs_transport_contract "${COLLECTION_ROOT}/tests/ps2_gs_transport_test.cpp")
+target_link_libraries(ps2_gs_transport_contract PRIVATE ps2_gs_transport)
+add_library(ps2_gs_queue STATIC "${COLLECTION_ROOT}/backends/ps2/gs_command_queue.cpp")
+target_include_directories(ps2_gs_queue PUBLIC "${COLLECTION_ROOT}/backends/ps2" "${PS2_GS_HEADERS}" "${PS2_RUNTIME}/include")
+add_executable(ps2_gs_queue_contract "${COLLECTION_ROOT}/tests/ps2_gs_queue_test.cpp")
+target_link_libraries(ps2_gs_queue_contract PRIVATE ps2_gs_queue)
+add_executable(ps2_gs_window_probe "${COLLECTION_ROOT}/tests/ps2_gs_window_probe.cpp")
+target_link_libraries(ps2_gs_window_probe PRIVATE ps2_gs_device ps2_gs_queue)
 add_executable(ps2_gs_gpu_contract "${COLLECTION_ROOT}/tests/ps2_gs_gpu_test.cpp")
-target_include_directories(ps2_gs_gpu_contract PRIVATE
-  "${COLLECTION_ROOT}/.deps/ps2/PS2Recomp/ps2xRuntime/include")
-target_link_libraries(ps2_gs_gpu_contract PRIVATE ps2_gs_device)
+target_link_libraries(ps2_gs_gpu_contract PRIVATE ps2_gs_device ps2_gs_transport)
 enable_testing()
 add_test(NAME ps2_gs_gpu_contract COMMAND ps2_gs_gpu_contract)
+add_test(NAME ps2_gs_transport_contract COMMAND ps2_gs_transport_contract)
+add_test(NAME ps2_gs_queue_contract COMMAND ps2_gs_queue_contract)
+set_tests_properties(ps2_gs_queue_contract PROPERTIES TIMEOUT 10)

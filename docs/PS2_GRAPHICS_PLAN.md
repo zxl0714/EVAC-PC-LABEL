@@ -1,7 +1,8 @@
 # PS2 graphics architecture
 
-Status: standalone GPU device and raw-command contract passed on RTX 4080.
-Game integration and presentation acceptance remain pending. This plan takes
+Status: raw-command, GPU pixel/transfer and bounded-queue contracts passed on
+RTX 4080. Direct GPU window output, resize and two-thread submission have also
+passed an authored workload. Game integration remains pending. This plan takes
 precedence over tuning the initial CPU rasterizer.
 
 ## Renderer choice
@@ -35,8 +36,9 @@ native EE game code
 ```
 
 - Preserve original GIF path identity, packet continuation and command order.
-  The current `GifArbiter` queues path IDs but discards them in its callback;
-  repair this boundary before feeding `GSInterface::gif_transfer`.
+  The adapted arbiter now passes path identity to `GSInterface::gif_transfer`.
+  VIF IMAGE continuations retain the original payload; native image/register
+  shortcuts enter the same GPU state owner. These have authored regressions.
 - Include direct SDK register/image-upload shortcuts, not just DMA packets.
   Each command goes through one authoritative state owner. The CPU decoder and
   GPU decoder must not both draw the same packet or disagree about CLUT state.
@@ -60,14 +62,27 @@ boundary without changing generated game functions or game-specific addresses.
 - Transfer command payloads into bounded owned storage before the producer can
   reuse guest memory. Apply backpressure at a documented boundary; no unbounded
   packet queue and no pointer into a recycled DMA buffer.
+- `GsCommandQueue` currently reserves at most 8 MiB and 2048 commands, including
+  the command in execution. It copies payloads only after capacity is available.
+  FIFO/snapshot/reset requests return through ordered replies. A frame request
+  waits for consumer submission; errors and shutdown release every waiter.
 - Separate VBlank/game time, GS completion and host presentation. Preserve the
   source field/frame cadence, parity, CRT aspect and display circuits.
 - Normal presentation keeps scanout on the GPU. Avoid the current route of
   whole-VRAM snapshot -> CPU RGBA conversion -> OpenGL texture upload.
+- `GsFrame` carries complete privileged timing/circuit registers and actual FIELD
+  state, copied on the EE producer. The GPU owner never reads live guest display
+  registers. This is independent of the CPU renderer's presentation hints.
+- The GS public header forward-declares the command backend; its destructor is
+  defined out of line. Changes to queue/renderer/command implementation do not
+  force a rebuild of all generated game code.
 - Vulkan surface creation and presentation belong to the window/device owner.
   Reuse the collection's window/input conventions; do not add a second frontend.
 - Start with one outstanding game frame. Configure internal resource contexts
   independently; more allocator contexts do not justify queuing extra frames.
+- The consumer's begin-frame hook waits for the previous submission fence before
+  executing the next field's GS commands. Waiting only at `Present()` would let
+  the next field's rendering enter the GPU before this limit took effect.
 - Select present mode from supported capabilities and use an explicit fallback.
   Measure input sample -> game draw -> GPU -> present with the existing reporting
   convention. Immediate presentation alone is not a latency measurement.
@@ -125,3 +140,50 @@ their own notices. No additional source attachment is added to player packages.
 Do not optimize isolated triangle loops while this integration remains pending.
 Renderer bring-up, correct command transport and presentation are separate gates;
 passing one does not establish the others.
+
+## Integration gates still open
+
+- **Completion and interrupts:** SIGNAL/FINISH/LABEL callbacks from paraLLEl-GS
+  report command processing. Returning true flushes commands but does not wait
+  for their GPU completion. Define an ordered fence/event handoff to the EE CSR
+  state, preserve masks and reset generations, and cover polling without a frame
+  being submitted. Never set FINISH merely because a packet reached the queue.
+- **Offline replay:** capture from a known reset state, including initial VRAM,
+  privileged timing, all ordered paths/registers/images and field boundaries.
+  A mid-packet or arbitrary mid-game VRAM-only snapshot is incomplete: draw
+  registers, GIF continuations and transfer state also matter. Keep captures
+  bounded and private; replay without EE/IOP to isolate GS correctness and cost.
+- **Production WSI:** direct blit checks the source/destination format features
+  and swapchain transfer-destination support. A GPU sampled-image path uses the
+  original renderer's checked-in shaders when direct blit is unavailable; its
+  forced path has passed the authored window test. Verify fullscreen/minimize,
+  device loss and unsupported capabilities before making this the game default.
+- **Shared host:** connect the collection's SDL input/config and the existing sound
+  stream to the same window lifecycle. The native Win32 window is an isolated
+  presentation probe, not a second player-facing frontend.
+
+Current evidence: `.local/v090/ps2-gs-test-r23.log` (three contracts),
+`graphics-window-r5` (resize and preserved 4:3 aspect), and `graphics-window-r6`
+(1200 frames through the owned queue, zero normal VRAM readbacks; peak 4 MiB /
+12 commands), `graphics-window-r7` (forced GPU sampled-image path, FIFO,
+1200 frames and zero normal VRAM readbacks), and `graphics-window-r8` (final field
+command, normal Alt+F4, pending producers released). Runtime mechanisms also pass
+all nine tests in `ps2-native-r61.log`. These authored tests use no ROM or BIOS and do not establish game
+compatibility or a game performance claim.
+
+## Developer entry points
+
+```powershell
+pwsh -File scripts/Build-Ps2Gs.ps1 -Jobs 2
+tools/apps/cmake/bin/ctest.exe --test-dir out/ps2-gs --output-on-failure
+# Optional visible authored workload: frame count, present policy, transfer path.
+out/ps2-gs/ps2_gs_window_probe.exe 1200
+out/ps2-gs/ps2_gs_window_probe.exe 1200 fifo shader
+```
+
+The window probe produces commands on one thread and consumes them on the window
+owner. Follow the same initialization handshake when attaching a queued backend
+to the game: the producer may wait for its initial VRAM transfer, so the window
+owner must already be pumping. On shutdown, close the transport before joining a
+producer that could be waiting for a reply. GPU consumers must not call back into
+locked frontend state; completion events cross back through an explicit mailbox.
