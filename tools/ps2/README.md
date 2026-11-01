@@ -27,6 +27,8 @@ end, in `0x` notation. Review these targets against the module's function map.
 `ghidra/SeedEntries.java` adds verified missing functions from a file containing
 one hexadecimal address per line; it rejects targets inside existing functions.
 Export the updated function map after seeding.
+For reviewed callback-table candidates, `--skip-owned <new-report.csv>` leaves
+interior addresses untouched and records their owning functions for inspection.
 
 For additional boot or mode entries, `scripts/ps2_module_extras.py` validates an
 independent generation against the base image and emits build glue. Its private
@@ -38,6 +40,10 @@ Pass the manifest to `Build-Ps2.ps1 -ModeExtrasManifest` together with the boot,
 ARCADE, ARRANGE and stage build inputs.
 If generation needs the ELF entry row as an anchor, list its already-linked PC
 in `baseEntries`; it is validated against the base table and reuses that body.
+With all three inventories present, `checkLinks: true` checks additional fixed
+branch targets against the boot and active-mode tables before building.
+`linkedTables` supplies any separately compiled stage tables. This catches
+missing direct entries; callback and virtual-table targets require data analysis.
 
 ## Incremental builds and diagnostics
 

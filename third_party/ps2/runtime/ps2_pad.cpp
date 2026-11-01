@@ -1,6 +1,12 @@
 #include "runtime/ps2_pad.h"
 #include "ps2_host_backend.h"
 #include <cstring>
+#include "../../../backends/ps2/diagnostic_input.h"
+#include <array>
+#include <atomic>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
 
 namespace
 {
@@ -23,9 +29,65 @@ namespace
     constexpr uint16_t PAD_L1 = 0x0400u;
     constexpr uint16_t PAD_R2 = 0x0200u;
     constexpr uint16_t PAD_L2 = 0x0100u;
+    std::atomic<uint32_t> diagnosticTapMs{};
+    std::atomic<uint16_t> diagnosticButtons{};
+    std::array<uint64_t,16> diagnosticDeadlines{};
+    std::array<std::atomic<uint16_t>,2> diagnosticLastRead{0xffffu,0xffffu};
+
+    uint16_t diagnosticKeyMask(int key)
+    {
+        switch(key) {
+        case KEY_UP:case KEY_W:return PAD_UP;
+        case KEY_DOWN:case KEY_S:return PAD_DOWN;
+        case KEY_LEFT:case KEY_A:return PAD_LEFT;
+        case KEY_RIGHT:case KEY_D:return PAD_RIGHT;
+        case KEY_X:case KEY_SPACE:return PAD_CROSS;
+        case KEY_C:case KEY_ESCAPE:return PAD_CIRCLE;
+        case KEY_Z:case KEY_KP_0:return PAD_SQUARE;
+        case KEY_V:case KEY_KP_1:return PAD_TRIANGLE;
+        case KEY_Q:return PAD_L1;
+        case KEY_E:return PAD_R1;
+        case KEY_LEFT_SHIFT:return PAD_L2;
+        case KEY_RIGHT_SHIFT:return PAD_R2;
+        case KEY_ENTER:return PAD_START;
+        case KEY_TAB:return PAD_SELECT;
+        default:return 0;
+        }
+    }
 }
 
-bool PSPadBackend::readState(int /*port*/, int /*slot*/, uint8_t *data, size_t size)
+namespace cave::ps2 {
+void ConfigureDiagnosticInput(uint32_t milliseconds)
+{
+    if(milliseconds>500)throw std::invalid_argument("Diagnostic tap duration must be 0..500 ms");
+    diagnosticDeadlines.fill(0);
+    diagnosticButtons.store(0);
+    for(auto& value:diagnosticLastRead)value.store(0xffffu);
+    diagnosticTapMs.store(milliseconds);
+}
+
+void PollDiagnosticInput(uint64_t now)
+{
+    const auto duration=diagnosticTapMs.load(std::memory_order_relaxed);
+    if(!duration)return;
+    for(int key=GetKeyPressed();key;key=GetKeyPressed()) {
+        const auto mask=diagnosticKeyMask(key);
+        if(!mask)continue;
+        for(unsigned bit=0;bit<16;++bit)
+            if(mask&(1u<<bit))diagnosticDeadlines[bit]=now+duration;
+        std::ostringstream line;
+        line<<"[ps2-pad-event] key="<<key<<" active=0x"<<std::hex<<mask
+            <<std::dec<<" pulse_ms="<<duration<<'\n';
+        std::cerr<<line.str();
+    }
+    uint16_t active{};
+    for(unsigned bit=0;bit<16;++bit)
+        if(now<diagnosticDeadlines[bit])active|=uint16_t(1u<<bit);
+    diagnosticButtons.store(active,std::memory_order_release);
+}
+}
+
+bool PSPadBackend::readState(int port, int slot, uint8_t *data, size_t size)
 {
     if (!data || size < 32)
         return false;
@@ -119,6 +181,15 @@ bool PSPadBackend::readState(int /*port*/, int /*slot*/, uint8_t *data, size_t s
             clearBit(PAD_SELECT);
     }
 
+    if(diagnosticTapMs.load(std::memory_order_relaxed)) {
+        if(port==0)btns&=uint16_t(~diagnosticButtons.load(std::memory_order_acquire));
+        if(port>=0 && port<2 && diagnosticLastRead[port].exchange(btns)!=btns) {
+            std::ostringstream line;
+            line<<"[ps2-pad-read] port="<<port<<" slot="<<slot<<" active=0x"
+                <<std::hex<<uint16_t(~btns)<<std::dec<<'\n';
+            std::cerr<<line.str();
+        }
+    }
     data[2] = static_cast<uint8_t>(btns & 0xFF);
     data[3] = static_cast<uint8_t>(btns >> 8);
     return true;

@@ -13,6 +13,7 @@
 #include "ps2_host_backend.h"
 #include "ps2_iop_host.h"
 #include "ps2x/iop/iop_subsystem.h"
+#include "diagnostic_input.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -2440,6 +2441,9 @@ void PS2Runtime::run()
     uint64_t tick = 0;
     while (!isStopRequested() && !gameThreadFinished.load(std::memory_order_acquire))
     {
+        cave::ps2::PollDiagnosticInput(static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count()));
         PS2_IF_AGRESSIVE_LOGS({
             tick++;
             if ((tick % 120) == 0)

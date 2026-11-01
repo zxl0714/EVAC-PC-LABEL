@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <sstream>
 #include <vector>
+#include <chrono>
+#include "diagnostic_input.h"
 
 namespace {
 int ProbeDiscIndex(const char* elf) {
@@ -148,12 +150,17 @@ int main(int argc,char** argv) {
     if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
     bool traceBoot=false;
     uint64_t frameLimit{};
+    uint32_t diagnosticTapMs{};
     for(int i=5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
       else if(option=="--frames" && i+1<argc) {
         frameLimit=std::stoull(argv[++i]);
         if(frameLimit<1 || frameLimit>36000)throw std::runtime_error("Frame limit must be 1..36000");
+      } else if(option=="--diagnostic-tap-ms" && i+1<argc) {
+        const auto value=std::stoul(argv[++i]);
+        if(value>500)throw std::runtime_error("Diagnostic tap duration must be 0..500 ms");
+        diagnosticTapMs=static_cast<uint32_t>(value);
       } else throw std::runtime_error("Unknown development option");
     }
     const auto elf=std::filesystem::canonical(argv[1]);
@@ -163,18 +170,22 @@ int main(int argc,char** argv) {
     if(!std::filesystem::is_regular_file(iso) || !std::filesystem::is_directory(data))
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
+    cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
     PS2Runtime runtime;
-    struct Progress {uint64_t frames{},limit{};} progress{0,frameLimit};
+    struct Progress {uint64_t frames{},limit{};std::chrono::steady_clock::time_point started{};} progress{0,frameLimit};
     runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
       [](PS2Runtime& state,void* user) {
         auto& progress=*static_cast<Progress*>(user);
         const auto count=++progress.frames;
+        if(count==1)progress.started=std::chrono::steady_clock::now();
         if(progress.limit && count>=progress.limit)state.requestStop();
         if(count%120)return;
         // snapshot() owns its synchronization; do not read the live EE context
         // concurrently from the host rendering thread.
         const auto snapshot=state.eeScheduler().snapshot();
-        std::cerr<<"[ps2-probe] frame="<<count<<" sequence="<<snapshot.sequence
+        const auto elapsed=std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now()-progress.started).count();
+        std::cerr<<"[ps2-probe] frame="<<count<<" elapsed_ms="<<elapsed<<" sequence="<<snapshot.sequence
                  <<" cycle="<<snapshot.eeCycle<<" running="<<snapshot.runningThreadId;
         for(const auto& thread:snapshot.threads)
           std::cerr<<" thread="<<thread.id<<" pc=0x"<<std::hex<<thread.pc

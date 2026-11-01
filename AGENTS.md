@@ -16,51 +16,55 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
-Latest PS2 checkpoint (Nov1 09:22): build r36 is RUNNING; unified exec session
-96951, .local/v090/ps2-build-r36.log. Boot/mode/stage base inputs are unchanged;
--ModeExtrasManifest .local/v090/espgaluda/build-mode-extras-r2.json now includes
-boot0 +ARCADE16 +ARRANGE17 extensions. Do not start another build or launch the
-old probe. CMake configuration now4.2s (was322.6s): stage root-reference scans
-are cached by file metadata with invalidation tests. CMake generation still
-spends~212s on the huge base source graph. CPP-only edits use existing --build.
+Latest PS2 checkpoint (Nov1 10:28): r39 build RUNNING, exec32277,
+log.local/v090/ps2-build-r39.log. No game is running. Do not duplicate configure.
+r38 native7/7pass; Python extras7pass with explicit retained-return guards.
+Latest commitdebec40, later input/callback changes UNCOMMITTED; preserve.
+v084 published/replied. v090 still requires PS2 gameplay, Ibara and integration.
 
-r35 compiled only79ARCADEextra bodies successfully. play-r26 CLOSED, exit1 at
-module16JAL90796c ->missing boot131650. No menu/stage acceptance yet. r25 reached
-the original memory-card check screen; r26 initial capture was magenta during
-startup. New observers now assemble each entry line before writing stderr,
-which otherwise split fields into thousands of synchronous writes. All prior
-play profiles throughr26 are CLOSED. No game input was sent this session.
+ESPGaluda r29/r30 verified: Return from attract opens MAIN MENU; C(Circle)
+ARCADE MODE -> GAME START -> CHARACTER SELECT -> HOW TO PLAY. RIGHT did not
+visibly switch AGEHA, so no switch acceptance yet. r30 crashed BEFORE attempted
+Z at JALR88b52c -> missing88cbe0. r29 was normal6000-frame exit, not a hang.
+All play profiles throughr30 CLOSED. Use freshplay-r31 after currentr39build.
+Framecap18000 and --diagnostic-tap-ms200; select current unique game window.
+No new input scripts/guessed keys. If CU says foreground has no PID, inspectexit
+and logs before retrying. Actual firststage/audio/quality not accepted; IOPheap
+262144 allocationfailure is pendinginvestigation. Window aspect stillnarrow.
 
-Offline cross-module closure: boot's371overlay flow targets missed21ARCADE and
-36ARRANGE leaf roots; SeedEntries added them to the respective seeded projects.
-All old mode CSV rows stayed identical. Private extras are79ARCADEfunctions/
-82slots and520ARRANGEfunctions/526slots. Their generation still includes92/72
-ELF-symbol roots; the extras tool MUST compile ONLY the explicit new map bodies.
-Mode->boot flow exports found70missing roots. Boot project seeded70 and exported
-boot-functions-r4.csv, adding2043rows. One old synthetic entry1bee50 shrank from
-1bf070 to1beef0: the old body returns unconditionally at1beee0, before the added
-routines. Its live entry remains valid and no existing dispatch slot is replaced.
-Boot extra r1 FAILED only because the exporter requires the ELF entry row.
-Accepted boot-extra-generated-r2 /boot-extra-codegen-r2.json includes100008 as a
-generation anchor; manifest baseEntries reuses the already-linked original.
-Result:2043new boot bodies/2045slots, total2642new bodies/2653slots in3tables,
-ZERO dispatch collisions. New-body constant branch targets all resolved offline
-against the appropriate boot/mode tables and stages1/9. Generation errors,
-unknown instructions and critical fallbacks allzero. Actual runtime acceptance
-of these additions is pending r36. Python31PS2 tests passed inr7; native7/7passed
-r32 before these pure tooling additions. SDK source still158bindings, base boot
-receipt ghidra-allocation-codegen-r2.json (39466functions/197stubs).
+Opt-in queued diagnostic input runs on window owner, atomic primary-port mask,
+0..500ms default0. Logs ps2-pad-event/ps2-pad-read. Native unit coversexpiry,
+player2isolation,defaultunchanged. Normal sharedSDL/snapshot integrationpending.
+Original scePadRead1106e8 caller11e4b0 has correct active-low littleendianpacket.
+Do NOT fix guessed byteorder/status. ReadMEMORY before any gameautomation.
 
-New project helpers: tools/ps2/ghidra/{ExportExternalCalls,SeedEntries}.java,
-scripts/ps2_module_extras.py; English instructions tools/ps2/README.md. The extras
-manifest binds matching ELF and map receipts, compiles selected additional bodies,
-and checks every destination slot before installation. Both mode/boot selectors
-are independent. Immutable generated bodies and original ISOs/ELFs remain intact.
-Compilation batch sorting was briefly changed while adding the metadata cache;
-restored original Path ordering before any native build. All159stage1/9 unit
-include lists are unchanged; cached object reuse was checked against original
-body timestamps. Evidence .local/v090/ps2-unit-order-restored-r1.json. Do not
-change batch ordering or use str sorting in place of WindowsPath sorting.
+r39inputs: original boot ghidra-allocation-output-r2, modebanks *-generated-r2,
+stages1/9 via build-stage1-modules-r1. ModeExtrasManifest build-mode-extras-r5:
+boot-extra-generated-r3 (2045bodies +100008anchor), arcadeextra-r3 (369),
+arrangeextra-r3 (1132). Total3546bodies/3578additional slots; no base replacements.
+Fixed branch closure uses boot+ACTIVE mode+stages; separate mode address spaces.
+Two reviewed resumepoints88a348/88ac38 retain their original bodies: extras tool
+checks same generator and identical ld ra,0(sp);jr ra;addiu sp,sp,16 epilogue;
+new functionstarts and nonidentical/unknowncontinuations still rejected.
+Seven authored extras tests pass. codegen461/1204 includes ignoredELFroots,
+zeroerrors/decode/unknown/criticalfallbacks for both. Never handeditgeneratedbody.
+
+Callback scan: original module data is LITTLE endian; runtime dumps mayalready
+be converted. ELF has ONE RWX segment; text/data boundary fromMWo3header.
+Original LE runscan>=2 all16aligned, excludespagebase/colorpatterns, no spanlimit:
+15ARCADE/4ARRANGE new candidates, Ghidraadded12/3 and skipowned3/1. Fullmapsr6,
+reports *-callback-owned-r2.csv, extra-mapsr3 compared againstoriginalfullr2.
+Actualcrash88cbe0 now included. Oldmaps onlyshrink/promote, none removed/expanded.
+Do not rerun naive modeanalysis or rebuild giant banks. extras linkage preserves
+cached bodies and fills emptydispatchslots only. CurrentmanifestcheckLinks=true.
+
+Configuration performance: stage root-symbol reference scan cached by member
+file sizes/mtimes, configuration went322.6s ->4.2s; stagepreparealone0.47s.
+CMake generation still~192s for the huge original source graph. CPP-only edits
+use existing cmake --build, TWO BelowNormal jobs, no fullconfigure. WindowsPath
+batch ordering must stay unchanged;159stageobjects restored/verified after an
+initial sorting change, evidence ps2-unit-order-restored-r1.json. Native r37
+reused them. Do not rewrite/freeze old generated outputs or delete private data.
 
 Main-stack and heap ABI: SetupThread(stack=-1) must use RAM-0x1000 as allocation
 top and return top-0x2a0 initial SP; metadata records top-stackSize. Play!'s EE

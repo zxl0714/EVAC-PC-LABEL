@@ -14,6 +14,61 @@ def table_entries(path):
     return {int(pc,16):name for name,pc in re.findall(pattern,text)}
 
 
+def retain_return_slots(spec, original, entries, base, generated, rows, previous, receipt):
+    """Reuse explicitly reviewed, identical leaf-return continuations only."""
+    retained={int(pc,0) for pc in spec.get('retainedReturnSlots',[])}
+    if not retained:
+        return
+    if (retained-(original.keys()&entries.keys()) or
+            retained&{int(row['Start'],0) for row in rows} or
+            not receipt.get('toolSha256') or receipt['toolSha256']!=previous.get('toolSha256')):
+        raise ValueError('Retained return slots need existing continuations and the same generator')
+    def instructions(path):
+        return {int(pc,16):int(opcode,16) for pc,opcode in re.findall(
+            r'// 0x([0-9a-fA-F]+): 0x([0-9a-fA-F]+)\s',path.read_text(encoding='utf-8'))}
+    for pc in sorted(retained):
+        before=instructions(base/(original[pc]+'.cpp'))
+        after=instructions(generated/(entries[pc]+'.cpp'))
+        opcodes=[before.get(pc+offset) for offset in (0,4,8)]
+        # ld ra,0(sp); jr ra; addiu sp,sp,16. No work or branch can be
+        # skipped by retaining this already-linked return from a yielding call.
+        if (opcodes!=[0xdfbf0000,0x03e00008,0x27bd0010] or
+                opcodes!=[after.get(pc+offset) for offset in (0,4,8)]):
+            raise ValueError('Retained return slot is not an identical stack epilogue')
+        del entries[pc]
+
+
+def fixed_branch_gaps(spec):
+    """Check additional constant targets using the active mode's linked table."""
+    modules=spec['modules']
+    if {module['id'] for module in modules}!={0,16,17}:
+        raise ValueError('Fixed-branch checks require the boot and both mode tables')
+    inventories={};bodies={}
+    for module in modules:
+        generated=Path(module['generated'])
+        with Path(module['map']).open(encoding='utf-8',newline='') as stream:
+            rows=list(csv.DictReader(stream))
+        anchors={int(pc,0) for pc in module.get('baseEntries',[])}
+        symbols={row['Name']+'_0x'+format(int(row['Start'],0),'x')
+                 for row in rows if int(row['Start'],0) not in anchors}
+        linked=set(table_entries(Path(module['base'])/'register_functions.cpp'))
+        linked.update(pc for pc,name in table_entries(generated/'register_functions.cpp').items() if name in symbols)
+        inventories[module['id']]=linked
+        bodies[module['id']]=[generated/(name+'.cpp') for name in sorted(symbols)]
+    external=set()
+    for table in spec.get('linkedTables',[]):external.update(table_entries(table))
+    gaps=[]
+    for number,sources in bodies.items():
+        allowed=inventories[0]|inventories[number]|external
+        if number==0:allowed=allowed|inventories[16]|inventories[17]
+        for source in sources:
+            targets={int(pc,16) for pc in re.findall(
+                r'dispatchGuestBranch\(rdram, ctx, 0x([0-9a-fA-F]+)u,',source.read_text(encoding='utf-8'))}
+            for pc in sorted(targets-allowed):
+                if pc>=0x100000:gaps.append(dict(module=number,target=pc,source=source.stem))
+    return gaps
+
+
 def prepare_one(spec, output):
     if spec.get('format')!=1 or spec.get('id') not in (0,16,17):
         raise ValueError('Expected ESPGaluda boot or mode additional entries')
@@ -50,6 +105,7 @@ def prepare_one(spec, output):
         if anchors and re.search(r'\b(?:'+'|'.join(map(re.escape,anchors))+r')\b',source.read_text(encoding='utf-8')):
             raise ValueError('Additional function directly references a generation entry anchor')
     entries={pc:name for pc,name in table_entries(generated/'register_functions.cpp').items() if name in symbols}
+    retain_return_slots(spec,original,entries,base,generated,rows,previous,receipt)
     if (set(entries.values())!=symbols or original.keys()&entries.keys() or
         any(int(row['Start'],0) not in entries for row in rows)):
         raise ValueError('Additional functions overlap or are missing from dispatch tables')
@@ -96,6 +152,11 @@ def prepare(manifest, output):
     modules=spec['modules']
     if spec.get('format')!=1 or not modules or len({m['id'] for m in modules})!=len(modules):
         raise ValueError('Expected unique additional module inventories')
+    if spec.get('checkLinks'):
+        gaps=fixed_branch_gaps(spec)
+        if gaps:
+            detail=', '.join(f'module {gap["module"]}:0x{gap["target"]:x} ({gap["source"]})' for gap in gaps[:12])
+            raise ValueError('Missing statically compiled fixed branch targets: '+detail)
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=True)
     results=[prepare_one(dict(module,format=1),output/str(module['id'])) for module in modules]
     write_changed(output/'extras.cmake',''.join('include("'+Path(r['cmake']).as_posix()+'")\n' for r in results))
