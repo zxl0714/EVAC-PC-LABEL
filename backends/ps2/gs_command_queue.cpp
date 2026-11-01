@@ -84,7 +84,7 @@ GsCommandQueue::GsCommandQueue(size_t bytes,size_t count,std::shared_ptr<GsCompl
     :impl(std::make_unique<Impl>(bytes,count,std::move(mailbox))){}
 GsCommandQueue::~GsCommandQueue(){Close();}
 void GsCommandQueue::Close(std::exception_ptr error) {
-    if(!error)error=std::make_exception_ptr(std::runtime_error("GS command queue closed"));
+    if(!error)error=std::make_exception_ptr(GsQueueClosed());
     std::lock_guard lock(impl->mutex);
     if(impl->stats.closed)return;
     impl->failure=error;impl->stats.closed=true;

@@ -266,3 +266,41 @@ EE argument registers and GParam layout now have a headless native regression
 writes its own privileged display registers; the GPU scanout consumes their
 complete field snapshot. No framebuffer size or guest display mode is inferred
 from the player's chosen host-window size.
+
+## Integrated native host
+
+`NativeHost` now connects the shared runtime to the Vulkan consumer. Its PIMPL
+keeps graphics/window headers out of generated game headers. The EE attaches a
+shared queue proxy while the main thread is already pumping, including the
+initial 4 MiB upload handshake. The completion mailbox posts `GsStatus` events
+to the EE scheduler. Callback execution and guest register ownership stay on EE.
+
+The window owns presentation, focus and keyboard events. SDL3 uses the same
+pinned input implementation and keyboard parser as PS4; it owns physical devices
+only. Host pad reads retain short key edges, combine keyboard/controller state,
+and acknowledge delivered SDL edges. The legacy Raylib pad path remains only for
+small fallback tests. The normal host keeps the existing miniaudio/SPU2 stream
+without creating an OpenGL window or converting frames through CPU RGBA.
+
+Closing the host first closes the queue/mailbox, then joins the EE. The shared
+proxy can safely outlive the GPU owner during runtime destruction. Shutdown does
+not request a backend-to-CPU snapshot. Typed cancellation is separate from a
+guest or device failure; real EE exceptions propagate after cleanup. Wait-pump
+callbacks also notice an EE stop while waiting for SIGNAL/GPU completion.
+
+Current evidence:
+
+- `.local/v090/ps2-native-r67.log`: all 15 native/GS checks pass.
+- `ps2-native-host-r2`: actual runtime/EE -> Vulkan window, 10 fields, standalone
+  audio stream, normal completion, zero normal-path VRAM readbacks.
+- `ps2-native-host-fault-r1`: authored EE failure after three fields propagates
+  after transport/thread/audio cleanup.
+- `ps2-native-host-window-r2`: computer-use F11 fullscreen and restore observed;
+  4:3 scanout retained. It reached its authored 3600-field limit before Alt+F4,
+  so this run does not establish user-close cancellation.
+
+All authored host probes use no ROM or BIOS. Actual game rendering, input,
+audio pacing, minimize/device-loss, and user-close acceptance remain required.
+Use `Build-Ps2.ps1 -RuntimeChecks` for the independent no-ROM build graph; it does
+not reconfigure or rebuild the large game graph. The visible integration probe
+is an explicit optional executable, not an automatically opened CTest window.

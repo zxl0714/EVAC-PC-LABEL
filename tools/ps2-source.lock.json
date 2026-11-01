@@ -14,6 +14,7 @@
     {"name":"ParallelGS","revision":"cc6184af7e0c03da603045ca371ffa5dae9b0655","url":"https://github.com/Arntzen-software/parallel-gs.git"},
     {"name":"GraniteGS","revision":"16e7395f6a4858c1783dbf6f521f90b9d5f82ac5","url":"https://github.com/Themaister/Granite.git"},
     {"name":"VolkGS","revision":"47cddf7ed97b94118a08aacb548a411188e016cc","url":"https://github.com/zeux/volk.git"},
-    {"name":"VulkanHeadersGS","revision":"11d6898377797e07dbd543aaaa367e4465074597","url":"https://github.com/KhronosGroup/Vulkan-Headers.git"}
+    {"name":"VulkanHeadersGS","revision":"11d6898377797e07dbd543aaaa367e4465074597","url":"https://github.com/KhronosGroup/Vulkan-Headers.git"},
+    {"name":"SDL","revision":"829a65d769d935c4852f8159e964312c0957260a","url":"https://github.com/libsdl-org/SDL.git"}
   ]
 }

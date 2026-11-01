@@ -1,3 +1,4 @@
+#include "native_host.h"
 // Internal static-recompilation bring-up host. The player-facing launch contract
 // is connected only after ISO, input, graphics and save behaviour are verified.
 #include "ps2_runtime.h"
@@ -152,6 +153,7 @@ int main(int argc,char** argv) {
     bool traceBoot=false,traceAudio=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
+    cave::ps2::NativeHostOptions hostOptions;
     for(int i=5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
@@ -163,6 +165,12 @@ int main(int argc,char** argv) {
         const auto value=std::stoul(argv[++i]);
         if(value>500)throw std::runtime_error("Diagnostic tap duration must be 0..500 ms");
         diagnosticTapMs=static_cast<uint32_t>(value);
+      } else if(option=="--fullscreen")hostOptions.fullscreen=true;
+      else if(option=="--vsync")hostOptions.vsync=true;
+      else if(option=="--config" && i+1<argc)hostOptions.keyboardConfig=std::filesystem::absolute(argv[++i]);
+      else if(option=="--capture-gs" && i+1<argc)hostOptions.capture=std::filesystem::absolute(argv[++i]);
+      else if(option=="--window-size" && i+2<argc) {
+        hostOptions.width=std::stoul(argv[++i]);hostOptions.height=std::stoul(argv[++i]);
       } else throw std::runtime_error("Unknown development option");
     }
     const auto elf=std::filesystem::canonical(argv[1]);
@@ -175,6 +183,7 @@ int main(int argc,char** argv) {
     cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
     cave::ps2::audio_trace::Configure(traceAudio);
     PS2Runtime runtime;
+    runtime.nativeHost().Configure(std::move(hostOptions));
     struct Progress {uint64_t frames{},limit{};std::chrono::steady_clock::time_point started{};} progress{0,frameLimit};
     runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
       [](PS2Runtime& state,void* user) {

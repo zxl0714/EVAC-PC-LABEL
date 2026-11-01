@@ -2,6 +2,7 @@
 #include "ps2_host_backend.h"
 #include <cstring>
 #include "../../../backends/ps2/diagnostic_input.h"
+#include "../../../backends/ps2/host_input.h"
 #include <array>
 #include <atomic>
 #include <iostream>
@@ -33,6 +34,7 @@ namespace
     std::atomic<uint16_t> diagnosticButtons{};
     std::array<uint64_t,16> diagnosticDeadlines{};
     std::array<std::atomic<uint16_t>,2> diagnosticLastRead{0xffffu,0xffffu};
+    std::atomic<std::shared_ptr<cave::ps2::HostPadSource>> hostSource;
 
     uint16_t diagnosticKeyMask(int key)
     {
@@ -57,6 +59,8 @@ namespace
 }
 
 namespace cave::ps2 {
+void SetHostPadSource(std::shared_ptr<HostPadSource> source){hostSource.store(std::move(source),std::memory_order_release);}
+uint32_t DiagnosticTapMilliseconds(){return diagnosticTapMs.load(std::memory_order_relaxed);}
 void ConfigureDiagnosticInput(uint32_t milliseconds)
 {
     if(milliseconds>500)throw std::invalid_argument("Diagnostic tap duration must be 0..500 ms");
@@ -98,6 +102,18 @@ bool PSPadBackend::readState(int port, int slot, uint8_t *data, size_t size)
     data[2] = 0xFF;
     data[3] = 0xFF;
     data[4] = data[5] = data[6] = data[7] = kPadStickCenter;
+
+    if(const auto source=hostSource.load(std::memory_order_acquire)) {
+        const auto snapshot=source->Read(unsigned(port));
+        const auto buttons=uint16_t(~snapshot.buttons);
+        data[2]=uint8_t(buttons);data[3]=uint8_t(buttons>>8);
+        std::copy(snapshot.axes.begin(),snapshot.axes.end(),data+4);
+        if(diagnosticTapMs.load(std::memory_order_relaxed) && port>=0 && port<2 &&
+           diagnosticLastRead[port].exchange(buttons)!=buttons)
+            std::cerr<<"[ps2-pad-read] port="<<port<<" slot="<<slot<<" active=0x"
+                <<std::hex<<snapshot.buttons<<std::dec<<'\n';
+        return true;
+    }
 
     uint16_t btns = 0xFFFFu;
     constexpr int kGamepad = 0;

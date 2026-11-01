@@ -3,8 +3,12 @@
 #include <chrono>
 #include <exception>
 #include <memory>
+#include <stdexcept>
 
 namespace cave::ps2 {
+class GsQueueClosed : public std::runtime_error {
+public: GsQueueClosed():std::runtime_error("GS command queue closed"){}
+};
 class GsCompletionMailbox;
 // FIFO transport only. The window thread supplies a consumer and owns all GS /
 // Vulkan state. Payloads are copied before enqueue returns. Capacity includes

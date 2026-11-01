@@ -1,3 +1,6 @@
+#include "native_host.h"
+#include "gs_display.h"
+#include "gs_command_queue.h"
 #include "ps2_runtime.h"
 #include "ps2_log.h"
 #include "ps2_stubs.h"
@@ -539,6 +542,7 @@ PS2Runtime::~PS2Runtime()
     {
         requestStop();
         m_iopHost->stopAudio();
+        m_nativeHost.reset();
         m_iopSubsystem.reset();
         m_iopHost.reset();
 #if defined(PLATFORM_VITA)
@@ -736,6 +740,12 @@ bool PS2Runtime::syncCoreSubsystems()
     return true;
 }
 
+cave::ps2::NativeHost& PS2Runtime::nativeHost()
+{
+    if (!m_nativeHost) m_nativeHost = std::make_unique<cave::ps2::NativeHost>();
+    return *m_nativeHost;
+}
+
 bool PS2Runtime::initialize(const char *title)
 {
     try
@@ -751,16 +761,10 @@ bool PS2Runtime::initialize(const char *title)
             std::cerr << "Failed to bind runtime core subsystems" << std::endl;
             return false;
         }
-#if defined(PLATFORM_VITA)
-        InitWindow(HOST_WINDOW_WIDTH, HOST_WINDOW_HEIGHT, title); // raylib vita does not support audio
-#else
-        SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-        InitWindow(HOST_WINDOW_WIDTH, HOST_WINDOW_HEIGHT, title);
+        nativeHost().Initialize(title);
         InitAudioDevice();
         m_audioBackend.setAudioReady(IsAudioDeviceReady());
         m_iopHost->startAudio(*m_iopSubsystem);
-#endif
-        SetTargetFPS(60);
         if (m_debugUiInitCallback)
         {
             m_debugUiInitCallback(*this, m_debugUiUserData);
@@ -2417,19 +2421,11 @@ void PS2Runtime::run()
 
     RUNTIME_LOG("Starting execution at address 0x" << std::hex << m_cpuContext.pc << std::dec);
 
-    // A blank image to use as a framebuffer
-    Image blank = GenImageColor(FB_WIDTH, FB_HEIGHT, BLANK);
-    Texture2D frameTex = LoadTextureFromImage(blank);
-    UnloadImage(blank);
-
-    std::atomic<bool> gameThreadFinished{false};
-    std::exception_ptr executionFailure;
-
-    std::thread gameThread([&]()
-                           {
+    m_nativeHost->Run(*this, [&]() {
         ThreadNaming::SetCurrentThreadName("GameThread");
         try
         {
+            m_gs.setCommandBackend(m_nativeHost->CreateBackend());
             m_eeScheduler->reset(m_memory.getRDRAM(), m_cpuContext);
             m_eeScheduler->run();
             std::cerr<<"[ps2-exit-ee] trace="<<formatDispatchHistory()<<std::endl;
@@ -2437,9 +2433,10 @@ void PS2Runtime::run()
             RUNTIME_LOG("Game thread returned. PC=0x" << std::hex << pc
                       << " RA=0x" << static_cast<uint32_t>(_mm_extract_epi32(m_cpuContext.r[31], 0)) << std::dec << std::endl);
         }
+        catch (const cave::ps2::GsQueueClosed&) { throw; }
+        catch (const cave::ps2::GsWindowClosed&) { throw; }
         catch (const std::exception &e)
         {
-            executionFailure = std::current_exception();
             std::cerr << "Error during program execution: " << e.what() << std::endl;
             if (const auto* fault=m_eeScheduler->currentThread())
             {
@@ -2457,102 +2454,21 @@ void PS2Runtime::run()
                     std::cerr<<std::dec<<std::endl;
                 }
             }
+            throw;
         }
         catch (...)
         {
-            executionFailure = std::current_exception();
             std::cerr << "Error during program execution: unknown exception" << std::endl;
+            throw;
         }
-        gameThreadFinished.store(true, std::memory_order_release); });
-
-    uint64_t tick = 0;
-    while (!isStopRequested() && !gameThreadFinished.load(std::memory_order_acquire))
-    {
-        cave::ps2::PollDiagnosticInput(static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()).count()));
-        PS2_IF_AGRESSIVE_LOGS({
-            tick++;
-            if ((tick % 120) == 0)
-            {
-                uint64_t curDma = m_memory.dmaStartCount();
-                uint64_t curGif = m_memory.gifCopyCount();
-                uint64_t curGs = m_memory.gsWriteCount();
-                uint64_t curVif = m_memory.vifWriteCount();
-                const GSRegisters &gs = m_memory.gs();
-                const uint32_t dbgPc = m_debugPc.load(std::memory_order_relaxed);
-                const uint32_t dbgRa = m_debugRa.load(std::memory_order_relaxed);
-                const uint32_t dbgSp = m_debugSp.load(std::memory_order_relaxed);
-                const uint32_t dbgGp = m_debugGp.load(std::memory_order_relaxed);
-                const auto eeSnapshot = m_eeScheduler->snapshot();
-
-                RUNTIME_LOG("[run:tick] tick=" << tick
-                                               << " pc=0x" << std::hex << dbgPc
-                                               << " ra=0x" << dbgRa
-                                               << " sp=0x" << dbgSp
-                                               << " gp=0x" << dbgGp
-                                               << " dispfb1=0x" << gs.dispfb1
-                                               << " display1=0x" << gs.display1
-                                               << std::dec
-                                               << " activeThreads=" << eeSnapshot.threads.size()
-                                               << " dma=" << curDma
-                                               << " gif=" << curGif
-                                               << " gsw=" << curGs
-                                               << " vif=" << curVif
-                                               << std::endl);
-
-            }
-        });
-        uint32_t presentWidth = FB_WIDTH;
-        uint32_t presentHeight = DEFAULT_DISPLAY_HEIGHT;
-        UploadFrame(frameTex, this, presentWidth, presentHeight);
-
-        BeginDrawing();
-        ClearBackground(BLACK);
-        const float srcWidth = static_cast<float>(std::max<uint32_t>(1u, presentWidth));
-        const float srcHeight = static_cast<float>(std::max<uint32_t>(1u, presentHeight));
-        const float screenWidth = static_cast<float>(GetScreenWidth());
-        const float screenHeight = static_cast<float>(GetScreenHeight());
-        // The GS framebuffer uses non-square pixels; its storage dimensions
-        // are independent of these PS2 titles' 4:3 television output.
-        const float dstHeight = std::min(screenHeight, screenWidth * 0.75f);
-        const float dstWidth = dstHeight * (4.0f / 3.0f);
-        const Rectangle srcRect{0.0f, 0.0f, srcWidth, srcHeight};
-        const Rectangle dstRect{
-            (screenWidth - dstWidth) * 0.5f,
-            (screenHeight - dstHeight) * 0.5f,
-            dstWidth,
-            dstHeight};
-        DrawTexturePro(frameTex, srcRect, dstRect, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+    }, [&]() {
         if (m_debugUiInitialized && m_debugUiDrawCallback)
-        {
             m_debugUiDrawCallback(*this, m_debugUiUserData);
-        }
-        EndDrawing();
-
-        if (WindowShouldClose())
-        {
-            RUNTIME_LOG("[run] window close requested, breaking out of loop");
-            requestStop();
-            break;
-        }
-    }
-
-    requestStop();
-    if (gameThread.joinable())
-    {
-        gameThread.join();
-    }
-
+    });
     if (m_debugUiInitialized && m_debugUiShutdownCallback)
     {
         m_debugUiShutdownCallback(*this, m_debugUiUserData);
         m_debugUiInitialized = false;
     }
-    UnloadTexture(frameTex);
-    CloseWindow();
-
-    RUNTIME_LOG("[run] exiting loop");
-    if (executionFailure)
-        std::rethrow_exception(executionFailure);
 }
+

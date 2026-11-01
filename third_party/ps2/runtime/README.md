@@ -75,3 +75,13 @@ registers; zero register values never fall back to stale stack contents.
 The returned GParam uses four 16-bit fields. The headless native fixture checks
 CRT-only reset, privileged/drawing separation, both interlace modes, PAL offsets,
 zero argument values, GParam layout, and SDK interrupt unmask notification.
+
+
+The desktop `PS2Runtime` owns a forward-declared `NativeHost` through a PIMPL.
+The normal run path submits original GS commands to the Vulkan consumer and
+retains the existing Raylib/miniaudio audio stream independently of a graphics
+window. Physical controllers and keyboard configuration reuse the collection's
+SDL3 input implementation. The SDL source revision is locked in
+`tools/ps2-source.lock.json`. `host_input.h` supplies scoped shared pad-source
+ownership so an in-flight EE read cannot outlive its device state. The CPU pad
+fallback remains available to authored mechanism tests.

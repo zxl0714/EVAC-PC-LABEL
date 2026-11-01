@@ -107,6 +107,24 @@ add_test(NAME ps2_pad_contract COMMAND ps2_pad_contract)
 
 option(PS2_BUILD_RUNTIME "Compile the initial shared PS2 runtime library" ON)
 if(PS2_BUILD_RUNTIME)
+  if(NOT PS2_GS_SOURCE)
+    message(FATAL_ERROR "Prepare pinned GS sources with scripts/Build-Ps2.ps1")
+  endif()
+  add_subdirectory("${COLLECTION_ROOT}/tools/ps2-gs" "graphics" EXCLUDE_FROM_ALL)
+  set(SDL_SHARED ON CACHE BOOL "" FORCE)
+  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+  set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+  set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+  set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+  add_subdirectory("${DEPS}/SDL" "deps/sdl" EXCLUDE_FROM_ALL)
+  add_library(ps2_shared_input STATIC
+    "${COLLECTION_ROOT}/backends/ps4/input/sdl_gamepad.cpp"
+    "${COLLECTION_ROOT}/backends/ps4/input/keyboard_config.cpp"
+    "${COLLECTION_ROOT}/backends/ps4/community/protocol.cpp"
+    "${COLLECTION_ROOT}/common/nickname.cpp")
+  target_include_directories(ps2_shared_input PRIVATE "${COLLECTION_ROOT}")
+  target_compile_definitions(ps2_shared_input PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+  target_link_libraries(ps2_shared_input PUBLIC SDL3::SDL3 nlohmann_json::nlohmann_json PRIVATE winhttp bcrypt crypt32 normaliz)
   include("${CMAKE_CURRENT_LIST_DIR}/Spu.cmake")
   set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
@@ -169,6 +187,7 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/ps2_vfs.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
     "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/native_host.cpp"
     "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vif1_interpreter.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vu1_core.cpp"
@@ -180,7 +199,12 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/Kernel" PRIVATE "${RUNTIME}/src/lib"
     "${RUNTIME}/src/lib/Kernel/Syscalls")
   target_compile_definitions(ps2_runtime PRIVATE PS2X_HAS_FFMPEG=0 PS2X_ENABLE_IOP_RPC_TRACE=0)
-  target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop)
+  target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop ps2_gs_device ps2_shared_input)
+
+  add_executable(ps2_native_host_probe "${COLLECTION_ROOT}/tests/ps2_native_host_probe.cpp"
+    "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
+  target_link_libraries(ps2_native_host_probe PRIVATE ps2_runtime)
+  target_link_options(ps2_native_host_probe PRIVATE /STACK:8388608)
 
   add_executable(ps2_sdk_contract "${COLLECTION_ROOT}/tests/ps2_sdk_test.cpp")
   target_include_directories(ps2_sdk_contract PRIVATE "${COLLECTION_ROOT}")

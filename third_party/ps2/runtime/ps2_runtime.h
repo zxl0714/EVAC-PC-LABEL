@@ -270,6 +270,8 @@ inline void ps2TraceGuestRangeWrite(uint8_t *rdram,
     // TODO we dont need this anymore so on next release it will be deleted
 }
 
+namespace cave::ps2 { class NativeHost; }
+
 class PS2Runtime
 {
 public:
@@ -286,6 +288,7 @@ public:
     PS2Runtime();
     ~PS2Runtime();
 
+    cave::ps2::NativeHost& nativeHost();
     bool initialize(const char *title = "PS2 Game");
     bool syncCoreSubsystems();
     bool loadELF(const std::string &elfPath);
@@ -494,6 +497,7 @@ private:
     cave::ps2::StaticModules m_staticModules;
     GifArbiter m_gifArbiter;
     GS m_gs;
+    std::unique_ptr<cave::ps2::NativeHost> m_nativeHost;
     std::unique_ptr<PS2IopHostAdapter> m_iopHost;
     std::unique_ptr<ps2x::iop::IopSubsystem> m_iopSubsystem;
     PS2AudioBackend m_audioBackend;

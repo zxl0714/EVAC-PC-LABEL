@@ -16,6 +16,10 @@ class NativeWindow final : public Vulkan::WSIPlatform {
 public:
     HWND handle{};
     bool closed=false;
+    bool fullscreen=false;
+    WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
+    std::function<void(unsigned,bool)> keyHandler;
+    std::exception_ptr inputFailure;
     NativeWindow(unsigned width,unsigned height,const std::wstring& title) {
         WNDCLASSW info{};
         info.lpfnWndProc=Procedure;info.hInstance=GetModuleHandleW(nullptr);
@@ -64,8 +68,32 @@ public:
             if(message==WM_CLOSE){self->closed=true;return 0;}
             if(message==WM_SIZE)self->resize=true;
             if(message==WM_ERASEBKGND)return 1;
+            if(message==WM_KEYDOWN || message==WM_KEYUP || message==WM_SYSKEYDOWN || message==WM_SYSKEYUP) {
+                try {
+                    const bool down=message==WM_KEYDOWN || message==WM_SYSKEYDOWN;
+                    if(wparam==VK_F11 && down && !(lparam&(1ll<<30)))self->ToggleFullscreen();
+                    else if(self->keyHandler)self->keyHandler(unsigned(wparam),down);
+                }catch(...){self->inputFailure=std::current_exception();self->closed=true;}
+            }
         }
         return DefWindowProcW(handle,message,wparam,lparam);
+    }
+    void ToggleFullscreen() {
+        if(!fullscreen) {
+            MONITORINFO monitor{sizeof(MONITORINFO)};
+            if(!GetWindowPlacement(handle,&placement) ||
+               !GetMonitorInfoW(MonitorFromWindow(handle,MONITOR_DEFAULTTONEAREST),&monitor))
+                throw std::runtime_error("Cannot select fullscreen monitor");
+            SetWindowLongPtrW(handle,GWL_STYLE,GetWindowLongPtrW(handle,GWL_STYLE)&~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(handle,HWND_TOP,monitor.rcMonitor.left,monitor.rcMonitor.top,
+                monitor.rcMonitor.right-monitor.rcMonitor.left,monitor.rcMonitor.bottom-monitor.rcMonitor.top,
+                SWP_NOOWNERZORDER|SWP_FRAMECHANGED);
+        }else {
+            SetWindowLongPtrW(handle,GWL_STYLE,GetWindowLongPtrW(handle,GWL_STYLE)|WS_OVERLAPPEDWINDOW);
+            SetWindowPlacement(handle,&placement);
+            SetWindowPos(handle,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_FRAMECHANGED);
+        }
+        fullscreen=!fullscreen;
     }
 };
 }
@@ -104,13 +132,20 @@ GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bo
     impl->transfer=transfer;
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
     impl->gs->SetWaitPump([this]{
-        if(!Alive())throw std::runtime_error("Graphics window closed while waiting for GS completion");
+        if(!Alive())throw GsWindowClosed();
     });
     ShowWindow(impl->window.handle,SW_SHOWNORMAL);
 }
 GsDisplay::~GsDisplay()=default;
 GsDevice& GsDisplay::Device(){return *impl->gs;}
-bool GsDisplay::Alive(){impl->window.poll_input();return !impl->window.closed;}
+bool GsDisplay::Alive(){
+    impl->window.poll_input();
+    if(impl->window.inputFailure)std::rethrow_exception(impl->window.inputFailure);
+    return !impl->window.closed;
+}
+bool GsDisplay::Focused() const{return GetForegroundWindow()==impl->window.handle;}
+void GsDisplay::SetKeyHandler(std::function<void(unsigned,bool)> handler){impl->window.keyHandler=std::move(handler);}
+void GsDisplay::ToggleFullscreen(){impl->window.ToggleFullscreen();}
 void GsDisplay::WaitPreviousFrame() {
     impl->gs->impl->CheckOwner();
     if(impl->pending){impl->pending->wait();impl->pending.reset();}
