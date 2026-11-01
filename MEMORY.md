@@ -74,14 +74,13 @@
 PS4 默认键盘映射：方向键移动；Z=Cross、X=Circle、C=Square、V=Triangle、
 Enter=Options、Backspace=Touchpad。**仍以该次配置为准。**
 
-PS2 v0.9 开发宿主的源码绑定不同：方向键／WASD 移动，X／Space=Cross，
-C=Circle，Z=Square，V=Triangle，Enter=Start，Tab=Select；不要按 Esc。
-上游“接手柄就跳过键盘”的分支已改为合并输入；该宿主尚待接入合集配置。
-自动化已验证 `--diagnostic-tap-ms 200`：Return 从片头／吸引画面进入主菜单；
-C（Circle）确认，默认 ARCADE MODE → GAME START → 选人，选人时 C 可继续。
-D 可将 AGEHA 切为 TATEHA；该测试中 Right 没有产生窗口按键事件，使用源码已有的 WASD。
-操作说明需要等它结束；Z 会演示射击，不能把它记成“跳过说明”。
-先核对 `ps2-pad-event` 与 `ps2-pad-read`；游戏游玩、计时或性能测量保持默认 0。
+PS2 新 Vulkan 宿主复用 PS4 默认绑定：方向键移动，Z=Cross、X=Circle、
+C=Square、V=Triangle，Enter=Start，Backspace=Select。旧 CPU 宿主的 C 确认／WASD
+流程已过期，不能再套用。ESPGaluda 的菜单确认仍是 Circle（现在对应 X）。
+自动化用 `--diagnostic-tap-ms 200`，核对 `ps2-pad-event` 与 `ps2-pad-read`；
+正式游玩、计时与性能测量保持默认 0。新宿主的进关流程尚待实际确认。
+PS2 可见测试窗应可见启动；隐藏启动曾导致没有可操作窗口。后台工具仍隐藏运行。
+通过 functions 转发 computer-use 结果时，对图像块用 image(c)，不要 text 整个结果。
 
 大往生 1.00 初次启动的操作图已确认：Circle=连射、Square=射击、Cross=炸弹、
 Triangle=投币、Options=开始、Touchpad=暂停。菜单确认用 Circle（默认 X）。

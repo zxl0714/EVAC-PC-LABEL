@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from ps2_codegen import translation_summary, validate_sdk_bindings
+from ps2_codegen import translation_summary, validate_sdk_bindings, validate_sdk_map
 
 REPORT = '''Functions discovered: 3
 Functions processed: 3, recompiled: 2, stubs: 1, skipped: 0, decode failures: 0
@@ -15,6 +15,13 @@ Warnings: 1, errors: 0
 
 
 class Ps2CodegenTests(unittest.TestCase):
+    def test_a_selector_does_not_create_a_missing_native_entry(self):
+        source='cave::ps2::BindSdkHandler(runtime,0x00100004u,"sceDmaGetChan")'
+        gap='Name,Start,End,Size\nentry,0x00100000,0x00100004,4\n'
+        with self.assertRaisesRegex(ValueError, 'absent from function map'):
+            validate_sdk_map(source,gap)
+        self.assertEqual(validate_sdk_map(source,gap+'sdk,0x00100004,0x00100008,4\n'),1)
+
     def test_native_sdk_bindings_require_generation_selectors(self):
         source='if(!cave::ps2::BindSdkHandler(runtime,0x0010bfd8u,"sceSifAllocIopHeap"))'
         self.assertEqual(validate_sdk_bindings({'stubs':['sceSifAllocIopHeap@0x0010BFD8']},source),1)

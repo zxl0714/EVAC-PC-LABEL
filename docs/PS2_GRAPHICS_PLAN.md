@@ -173,9 +173,9 @@ sleeping-EE-to-IRQ dispatch. These components still need actual game integration
 ## Integration gates still open
 
 - **Game event connection:** the completion mailbox, GPU fences, GS MMIO status
-  handoff and idle-EE IRQ wake have mechanism coverage. NativeHost must connect
-  its mailbox notifier to `EeEventType::GsStatus` before starting the producer,
-  then verify actual game waits and exit with this integrated path.
+  handoff and idle-EE IRQ wake have mechanism coverage. NativeHost now connects
+  its mailbox notifier to `EeEventType::GsStatus` before starting the producer.
+  Actual game waits and exit still need integrated acceptance.
 - **Offline replay:** the bounded `.evacgs` recorder and decoded workload are
   implemented. Attach recording at the initial VRAM handoff, before any draw.
   A mid-game VRAM-only snapshot is incomplete: registers, GIF continuations and
@@ -185,9 +185,9 @@ sleeping-EE-to-IRQ dispatch. These components still need actual game integration
   original renderer's checked-in shaders when direct blit is unavailable; its
   forced path has passed the authored window test. Verify fullscreen/minimize,
   device loss and unsupported capabilities before making this the game default.
-- **Shared host:** connect the collection's SDL input/config and the existing sound
-  stream to the same window lifecycle. The native Win32 window is an isolated
-  presentation probe, not a second player-facing frontend.
+- **Shared host:** the integrated NativeHost now connects the shared SDL
+  input/config and the existing sound stream to the same lifecycle. Complete
+  actual gameplay/input/audio acceptance before player packaging.
 
 Current evidence: `.local/v090/ps2-gs-test-r23.log` (three contracts),
 `graphics-window-r5` (resize and preserved 4:3 aspect), and `graphics-window-r6`

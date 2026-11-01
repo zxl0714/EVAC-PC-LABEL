@@ -1,5 +1,6 @@
 """Run the pinned recompiler and validate its report before accepting generated code."""
 import argparse
+import csv
 import json
 from pathlib import Path
 import re
@@ -26,6 +27,16 @@ def validate_sdk_bindings(general, source):
     for address,name in bindings:
         if selectors.get(int(address,16))!=name:
             raise ValueError(f'Native SDK direct call lacks a generated binding: {name}@0x{address}')
+    return len(bindings)
+
+
+def validate_sdk_map(source, map_text):
+    """Every bound native entry must exist in the generated address table."""
+    starts = {int(row['Start'], 0) for row in csv.DictReader(map_text.splitlines())}
+    bindings = re.findall(r'BindSdkHandler\(runtime,0x([0-9a-fA-F]+)u,"([^"]+)"\)', source)
+    missing = [f'{name}@0x{address}' for address, name in bindings if int(address, 16) not in starts]
+    if missing:
+        raise ValueError('SDK entries absent from function map: ' + ', '.join(missing))
     return len(bindings)
 
 
@@ -80,7 +91,12 @@ def generate(config, log, receipt, root=ROOT):
         reject_link(path)
         inputs[key] = dict(path=path, sha256=digest(path))
     if 'sdk_bindings' in inputs:
-        validate_sdk_bindings(general,inputs['sdk_bindings']['path'].read_text(encoding='utf-8'))
+        bindings_source = inputs['sdk_bindings']['path'].read_text(encoding='utf-8')
+        validate_sdk_bindings(general, bindings_source)
+        # Sparse runtime-only entries remain valid for existing builds. Games
+        # that request a complete direct SDK table can require it explicitly.
+        if general.get('require_sdk_map_entries', False):
+            validate_sdk_map(bindings_source, inputs['ghidra_output']['path'].read_text(encoding='utf-8'))
     destination = Path(general['output'])
     if not destination.is_absolute():
         destination = root/destination
