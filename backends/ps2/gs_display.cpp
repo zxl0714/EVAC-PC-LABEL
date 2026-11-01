@@ -154,6 +154,11 @@ bool GsDisplay::Present(const GsFrame& request) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     WaitPreviousFrame();
+    // Texture uploads can retain Granite command buffers between GS packets.
+    // WSI begins a new allocation context and waits for all recorded buffers
+    // to be submitted. Drain PGS before that boundary, rather than waiting on
+    // our own pending upload inside begin_frame(). No device-wide idle wait.
+    impl->gs->Flush();
     if(!Alive() || !impl->wsi.begin_frame())return false;
     auto& device=impl->wsi.get_device();
     const auto& destination=device.get_swapchain_view().get_image();

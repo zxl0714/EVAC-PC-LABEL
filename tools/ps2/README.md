@@ -9,6 +9,17 @@ LLVM, CMake, Ninja and Windows SDK. It uses two compiler jobs by default.
 py -3.12 scripts/ps2_disc.py '<game.iso>' --output '<new-disc-report.json>' --extract-boot '<new-boot.elf>'
 ```
 
+Compile the Ibara boot program against that same runtime and toolchain:
+
+```powershell
+& scripts/Build-Ps2.ps1 -IbaraGenerated '<verified-generated-directory>'
+```
+
+The pinned generator uses SSE4.1 intrinsics for Ibara's VU0 operations. Its
+generated-code target selects this fixed CPU baseline, without AVX, AVX2 or
+machine-specific instruction selection. ESPGaluda's overlay inputs are separate
+options on the same build script; generated code is never shared across games.
+
 Keep private game inputs, generated code and analysis projects under the ignored
 development directories. The disc inspector reads ISO9660 extents and records
 the boot ELF, segments and file inventory. Module preparation uses

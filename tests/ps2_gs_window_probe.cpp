@@ -2,6 +2,7 @@
 #include "gs_device_sink.h"
 #include "gs_command_queue.h"
 #include "runtime/gs/gs_types.h"
+#include <array>
 #include <chrono>
 #include <future>
 #include <iostream>
@@ -41,7 +42,13 @@ int main(int argc,char** argv) {
             request.display1=636|(uint64_t(25)<<12)|(uint64_t(3)<<23)|
                              (uint64_t(2559)<<32)|(uint64_t(223)<<44);
             const auto start=std::chrono::steady_clock::now();
+            const std::vector<uint8_t> texture(16u*16u*4u,0x7f);
+            const std::array<uint64_t,4> upload{(uint64_t(0x100)<<32)|(uint64_t(1)<<48),
+                                              0,16|(uint64_t(16)<<32),0};
             for(unsigned field=0;field<limit;++field) {
+                // Transfers may retain a recorded command buffer until PGS
+                // flush. Cross that real boundary before each WSI begin.
+                queue.Image(upload,texture);
                 queue.Register(GS_REG_RGBAQ,0x3f800000ff604020ull);
                 queue.Register(GS_REG_XYZ2,0);
                 queue.Register(GS_REG_XYZ2,uint64_t(640*16)|(uint64_t(224*16)<<16));

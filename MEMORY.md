@@ -68,6 +68,8 @@
     独立图形探针的 DISPLAY 也要提供真实 CRTC 起点；小图在 DX/DY=0 时可能被裁出可见区。
     SDK 显示寄存器走 MMIO，不是 A_D 绘图寄存器；DX/DW 是视频时钟单位。离线 bench
     要排除后台全变体着色器预编译，预热实际工作负载；不要把启动编译计入稳态 CPU。
+    PGS 的纹理上传可能保留命令缓冲；先 flush，再进 WSI begin_frame。反过来会在
+    next_frame_context 等待自己的未提交缓冲。用持续上传纹理的探针回归，不能只测寄存器画图。
 
 ## 已验证的按键信息
 
@@ -78,7 +80,9 @@ PS2 新 Vulkan 宿主复用 PS4 默认绑定：方向键移动，Z=Cross、X=Cir
 C=Square、V=Triangle，Enter=Start，Backspace=Select。旧 CPU 宿主的 C 确认／WASD
 流程已过期，不能再套用。ESPGaluda 的菜单确认仍是 Circle（现在对应 X）。
 自动化用 `--diagnostic-tap-ms 200`，核对 `ps2-pad-event` 与 `ps2-pad-read`；
-正式游玩、计时与性能测量保持默认 0。新宿主的进关流程尚待实际确认。
+正式游玩、计时与性能测量保持默认 0。新宿主已出第一关和续关画面；实际移动／射击仍待确认。
+ARCADE 选人后约一分钟教学会显示 PLEASE WAIT，之后才是玩家局；不能把教学或
+DEMONSTRATION 当游玩验收。教学结束后按短间隔观察，玩家不动会很快损失全部生命。
 PS2 可见测试窗应可见启动；隐藏启动曾导致没有可操作窗口。后台工具仍隐藏运行。
 通过 functions 转发 computer-use 结果时，对图像块用 image(c)，不要 text 整个结果。
 

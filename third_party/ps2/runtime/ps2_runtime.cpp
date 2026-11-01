@@ -2471,4 +2471,3 @@ void PS2Runtime::run()
         m_debugUiInitialized = false;
     }
 }
-

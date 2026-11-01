@@ -2,7 +2,9 @@
 
 Status: raw-command, GPU pixel/transfer and bounded-queue contracts passed on
 RTX 4080. Direct GPU window output, resize and two-thread submission have also
-passed an authored workload. Game integration remains pending. This plan takes
+passed authored workloads. NativeHost now runs ESPGaluda menus, character
+selection and its tutorial through Vulkan; gameplay/audio acceptance remains
+open. This plan takes
 precedence over tuning the initial CPU rasterizer.
 
 ## Renderer choice
@@ -88,6 +90,12 @@ boundary without changing generated game functions or game-specific addresses.
   convention. Immediate presentation alone is not a latency measurement.
 - Reserve `device.wait_idle()` for shutdown/device rebuild and explicit test
   readback. It must not become a per-draw or per-frame synchronization shortcut.
+- Submit PGS's pending texture transfers before `WSI::begin_frame()`. Granite
+  waits for recorded command buffers before advancing allocation contexts;
+  entering that wait before PGS flushes its uploads would wait on our own work.
+  The window regression uploads a texture before every presented field, so it
+  covers this boundary as well as register-only drawing. This uses submission,
+  not a device-wide idle wait.
 
 ## Dependencies and compiler
 

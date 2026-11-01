@@ -2,14 +2,15 @@
 [CmdletBinding()]
 param([ValidateRange(1,8)][int]$Jobs=2, [string]$CacheFrom, [switch]$ToolsOnly,
       [string]$ProbeGenerated, [string]$ArcadeGenerated, [string]$ArrangeGenerated,
+      [string]$IbaraGenerated,
       [string]$StageModulesManifest, [string]$ModeExtrasManifest, [switch]$RuntimeChecks)
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $taskProcess=Get-Process -Id $PID
 $previousPriority=$taskProcess.PriorityClass
 try {
     $taskProcess.PriorityClass='BelowNormal'
-    if($RuntimeChecks -and ($ToolsOnly -or $ProbeGenerated -or $ArcadeGenerated -or $ArrangeGenerated -or $StageModulesManifest -or $ModeExtrasManifest)) { throw '-RuntimeChecks builds the independent no-ROM check graph' }
-    if($ToolsOnly -and $ProbeGenerated) { throw '-ToolsOnly cannot compile the development host' }
+    if($RuntimeChecks -and ($ToolsOnly -or $ProbeGenerated -or $ArcadeGenerated -or $ArrangeGenerated -or $IbaraGenerated -or $StageModulesManifest -or $ModeExtrasManifest)) { throw '-RuntimeChecks builds the independent no-ROM check graph' }
+    if($ToolsOnly -and ($ProbeGenerated -or $IbaraGenerated)) { throw '-ToolsOnly cannot compile the development host' }
     if(($ArcadeGenerated -or $ArrangeGenerated) -and
        (-not $ProbeGenerated -or -not $ArcadeGenerated -or -not $ArrangeGenerated)) {
         throw 'Both ESPGaluda modules and the development host are required together'
@@ -42,6 +43,7 @@ try {
         '-DCMAKE_EXE_LINKER_FLAGS=/DEBUG:FULL /OPT:REF /OPT:ICF',
         ('-DPS2_BUILD_RUNTIME='+$(if ($ToolsOnly) {'OFF'} else {'ON'})))
     $configure+=@('-DPS2_GAME_GENERATED='+$(if ($ProbeGenerated) {[IO.Path]::GetFullPath($ProbeGenerated).Replace('\','/')} else {''}))
+    $configure+=@('-DPS2_IBARA_GENERATED='+$(if ($IbaraGenerated) {[IO.Path]::GetFullPath($IbaraGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_ARCADE_GENERATED='+$(if ($ArcadeGenerated) {[IO.Path]::GetFullPath($ArcadeGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_ARRANGE_GENERATED='+$(if ($ArrangeGenerated) {[IO.Path]::GetFullPath($ArrangeGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_STAGE_MODULES_MANIFEST='+$(if ($StageModulesManifest) {[IO.Path]::GetFullPath($StageModulesManifest).Replace('\','/')} else {''}))
@@ -50,6 +52,7 @@ try {
     $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract','ps2_module_contract','ps2_iso_contract','ps2_pad_contract')
     if (-not $ToolsOnly) { $targets+=@('ps2_runtime','ps2_sdk_contract','ps2_kernel_contract','ps2_sdk_codegen_contract','ps2_iop_memory_contract','ps2_spu_contract','ps2_gs_gpu_contract','ps2_gs_transport_contract','ps2_gs_queue_contract','ps2_gs_completion_contract','ps2_gs_trace_contract','ps2_gs_trace_gpu_contract','ps2_native_host_probe') }
     if ($ProbeGenerated) { $targets+='ps2_espgaluda_probe' }
+    if ($IbaraGenerated) { $targets+='ps2_ibara_probe' }
     Invoke-Checked $cmake $targets
     Write-Host "PS2 tools and requested development targets built under $build. No game has been launched."
 } finally { $taskProcess.PriorityClass=$previousPriority }

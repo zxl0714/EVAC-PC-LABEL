@@ -10,7 +10,9 @@ if(PS2_IBARA_GENERATED)
     "${COLLECTION_ROOT}/games/ibara/sdk_bindings.cpp" ${IBARA_GENERATED_SOURCES})
   target_include_directories(ps2_ibara_probe PRIVATE "${PS2_IBARA_GENERATED}")
   target_link_libraries(ps2_ibara_probe PRIVATE ps2_runtime)
-  target_compile_options(ps2_ibara_probe PRIVATE /bigobj)
+  # The pinned generator emits SSE4.1 blend/min/extract intrinsics for VU0.
+  # Select that fixed minimum; never inherit the build machine's CPU features.
+  target_compile_options(ps2_ibara_probe PRIVATE /bigobj /clang:-msse4.1)
   target_link_options(ps2_ibara_probe PRIVATE /STACK:8388608
     /MANIFEST:EMBED "/MANIFESTINPUT:${COLLECTION_ROOT}/common/windows.manifest")
   target_precompile_headers(ps2_ibara_probe PRIVATE

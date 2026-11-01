@@ -2,6 +2,7 @@
 
 Uses short SuspendThread/GetThreadContext/ResumeThread pairs. Symbol lookup runs
 after sampling, with every target thread resumed. No administrator/ETW session.
+Optional stack capture is a separate intrusive stall diagnostic, not timing data.
 """
 import argparse
 import collections
@@ -19,10 +20,16 @@ def main():
     parser.add_argument('--expected-exe', type=Path, required=True)
     parser.add_argument('--symbols', type=Path, required=True)
     parser.add_argument('--seconds', type=float, default=8)
+    parser.add_argument('--all-threads', action='store_true',
+                        help='Include blocked threads when diagnosing a stalled test process')
+    parser.add_argument('--stacks', action='store_true',
+                        help='Capture one bounded native stack per selected thread after sampling')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if os.name != 'nt' or not 1 <= args.seconds <= 60:
         raise SystemExit('Windows x64 and a 1..60 second duration are required')
+    if args.output.exists():
+        raise SystemExit('Choose a new output path to preserve earlier samples')
     kernel = c.WinDLL('kernel32', use_last_error=True)
     dbg = c.WinDLL('dbghelp', use_last_error=True)
     def api(dll, name, result, *arguments):
@@ -62,7 +69,8 @@ def main():
             return sum((v.dwHighDateTime<<32)|v.dwLowDateTime for v in values[2:])
         initial = {tid:cpu(h) for tid,h in handles.items()}
         time.sleep(.25)
-        active = {tid:h for tid,h in handles.items() if cpu(h)-initial[tid] >= 20000}
+        active = {tid:h for tid,h in handles.items()
+                  if args.all_threads or cpu(h)-initial[tid] >= 20000}
         if not active: raise RuntimeError('No active target threads during calibration')
         suspend = api(kernel,'SuspendThread',w.DWORD,w.HANDLE)
         resume = api(kernel,'ResumeThread',w.DWORD,w.HANDLE)
@@ -95,9 +103,41 @@ def main():
         cleanup = api(dbg,'SymCleanup',w.BOOL,w.HANDLE)
         from_address = api(dbg,'SymFromAddrW',w.BOOL,w.HANDLE,c.c_uint64,c.POINTER(c.c_uint64),c.c_void_p)
         resolved = {}
+        stacks = {}
         if initialize(process,str(args.symbols.resolve()),True):
             try:
-                for _,ip in counts:
+                if args.stacks:
+                    class Address(c.Structure):
+                        _fields_ = [('offset',c.c_uint64),('segment',w.WORD),('mode',c.c_uint32)]
+                    class Frame(c.Structure):
+                        _fields_ = [('pc',Address),('ret',Address),('frame',Address),
+                                    ('stack',Address),('backing',Address),('tail',c.c_byte*512)]
+                    walk = api(dbg,'StackWalk64',w.BOOL,w.DWORD,w.HANDLE,w.HANDLE,
+                               c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p)
+                    for tid,handle in active.items():
+                        c.memset(address,0,1232)
+                        c.c_uint32.from_address(address+48).value = 0x100003
+                        if suspend(handle)==0xffffffff: continue
+                        try:
+                            if not context(handle,address): continue
+                            frame = Frame()
+                            frame.pc.offset = c.c_uint64.from_address(address+248).value
+                            frame.stack.offset = c.c_uint64.from_address(address+152).value
+                            frame.frame.offset = c.c_uint64.from_address(address+160).value
+                            frame.pc.mode = frame.stack.mode = frame.frame.mode = 3
+                            chain = []
+                            for _ in range(48):
+                                if not walk(0x8664,process,handle,c.byref(frame),address,None,
+                                            dbg.SymFunctionTableAccess64,dbg.SymGetModuleBase64,None): break
+                                if not frame.pc.offset or (chain and chain[-1]==frame.pc.offset): break
+                                chain.append(frame.pc.offset)
+                            stacks[tid] = chain
+                        finally:
+                            if resume(handle)==0xffffffff:
+                                raise RuntimeError(f'Cannot resume target thread {tid}')
+                addresses = {ip for _,ip in counts}
+                addresses.update(ip for chain in stacks.values() for ip in chain)
+                for ip in addresses:
                     if ip in resolved: continue
                     symbol = c.create_string_buffer(88+2048)
                     c.c_uint32.from_buffer(symbol,0).value = 88
@@ -110,11 +150,15 @@ def main():
         grouped = collections.Counter()
         for (tid,ip),count in counts.items(): grouped[(tid,resolved.get(ip,f'0x{ip:x}'))] += count
         result = {'pid':args.pid,'exe':path.value,'seconds':elapsed,'failed':failed,
+                  'selection':'all' if args.all_threads else 'active',
                   'threads_cpu_ms':final_cpu,'samples':sum(counts.values()),
                   'functions':[{'tid':tid,'name':name,'samples':count}
                                for (tid,name),count in grouped.most_common()],
                   'ips':[{'tid':tid,'ip':f'0x{ip:x}','name':resolved.get(ip,''),'samples':count}
                          for (tid,ip),count in counts.most_common()]}
+        if args.stacks:
+            result['stacks'] = {tid:[resolved.get(ip,f'0x{ip:x}') for ip in chain]
+                                for tid,chain in stacks.items()}
         args.output.write_text(json.dumps(result,indent=2),encoding='utf-8')
         print(json.dumps({k:result[k] for k in ('seconds','samples','failed','threads_cpu_ms')}))
         print(json.dumps(result['functions'][:18],indent=2))
