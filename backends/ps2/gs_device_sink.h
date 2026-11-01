@@ -10,6 +10,10 @@ class GsDeviceSink final : public GsCommandBackend {
 public:
     GsDeviceSink(GsDevice& device,std::function<void(const GsFrame&)> frame,
                  std::function<void()> beginFrame={});
+    void BeginCommand(uint64_t generation) override;
+    GsCompletions CollectCompletions() override;
+    void AcknowledgeSignal() override;
+    void AcknowledgeStatus(uint32_t mask) override;
     void Initialize(std::span<const uint8_t> vram) override;
     void Reset() override;
     void Gif(GifPathId path,std::span<const uint8_t> bytes) override;

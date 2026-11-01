@@ -15,11 +15,13 @@ set(PS2_RUNTIME_INCLUDE "${CMAKE_BINARY_DIR}/runtime-include")
 # would violate the native ABI.
 file(COPY "${UPSTREAM}/ps2xRuntime/include/" DESTINATION "${PS2_RUNTIME_INCLUDE}"
   PATTERN "ps2_runtime.h" EXCLUDE PATTERN "ps2_memory.h" EXCLUDE
-  PATTERN "gs_frontend.h" EXCLUDE PATTERN "ps2_gif_arbiter.h" EXCLUDE)
+  PATTERN "gs_frontend.h" EXCLUDE PATTERN "ps2_gif_arbiter.h" EXCLUDE PATTERN "ee_scheduler.h" EXCLUDE)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.h"
   "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" COPYONLY)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
   "${PS2_RUNTIME_INCLUDE}/ps2x/iop/iop_subsystem.h" COPYONLY)
+configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ee_scheduler.h"
+  "${PS2_RUNTIME_INCLUDE}/runtime/ee_scheduler.h" COPYONLY)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.h"
   "${PS2_RUNTIME_INCLUDE}/runtime/ps2_memory.h" COPYONLY)
 foreach(header gs_frontend ps2_gif_arbiter)
@@ -159,7 +161,7 @@ if(PS2_BUILD_RUNTIME)
     "${COLLECTION_ROOT}/third_party/ps2/runtime/gs_frontend.cpp"
     "${RUNTIME}/src/lib/gs/gs_cpu_backend.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_iop_host.cpp"
-    "${RUNTIME}/src/lib/ps2_memory.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"
     "${RUNTIME}/src/lib/ps2_vfs.cpp"

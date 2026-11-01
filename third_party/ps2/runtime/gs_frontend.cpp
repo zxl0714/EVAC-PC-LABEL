@@ -1694,6 +1694,50 @@ bool GS::usesCommandBackend() const
     return bool(m_commandBackend);
 }
 
+uint32_t GS::pollCompletedEvents()
+{
+    std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
+    if (!m_commandBackend || !m_privRegs) return 0;
+    const auto completed=m_commandBackend->CollectCompletions();
+    if (!completed) return 0;
+    uint64_t ids=m_privRegs->siglblid;
+    if (completed.signal)
+    {
+        const auto mask=uint32_t(completed.signalPayload>>32);
+        const auto value=(uint32_t(ids)&~mask)|(uint32_t(completed.signalPayload)&mask);
+        ids=(ids&0xffffffff00000000ull)|value;
+    }
+    if (completed.label)
+    {
+        const auto mask=uint32_t(completed.labelPayload>>32);
+        const auto value=(uint32_t(ids>>32)&~mask)|(uint32_t(completed.labelPayload)&mask);
+        ids=(uint64_t(value)<<32)|uint32_t(ids);
+    }
+    m_privRegs->siglblid=ids;
+    const uint32_t status=(completed.signal?1u:0u)|(completed.finish?2u:0u);
+    m_privRegs->csr.fetch_or(status,std::memory_order_release);
+    return status&~uint32_t(m_privRegs->imr>>8);
+}
+
+uint32_t GS::afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
+    if (!m_commandBackend || !m_privRegs) return 0;
+    if (offset==0x1000u)
+    {
+        if (value&0x200u)
+        {
+            m_commandBackend->Reset();
+            m_privRegs->csr.fetch_and(~3ull,std::memory_order_acq_rel);
+            m_privRegs->siglblid=0;
+        }
+        else m_commandBackend->AcknowledgeStatus(uint32_t(value)&3u);
+    }
+    else if (offset==0x1010u)
+        return uint32_t(m_privRegs->csr.load(std::memory_order_acquire))&uint32_t((previous&~m_privRegs->imr)>>8)&3u;
+    return 0;
+}
+
 void GS::queueVBlankFrame()
 {
     std::lock_guard<std::recursive_mutex> lock(m_stateMutex);

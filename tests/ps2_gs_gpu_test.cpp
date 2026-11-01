@@ -1,5 +1,7 @@
 #include "gs_device.h"
 #include "gs_device_sink.h"
+#include "gs_completion_mailbox.h"
+#include "gs_command_queue.h"
 #include "runtime/gs/gs_frontend.h"
 #include "runtime/ps2_memory.h"
 #include "runtime/gs/ps2_gs_psmct32.h"
@@ -8,6 +10,8 @@
 #include <algorithm>
 #include <atomic>
 #include <cstring>
+#include <future>
+#include <chrono>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -48,7 +52,11 @@ int main() {
             frontend.writeRegister(GS_REG_XYZ2,uint64_t(i*16*16));
             frontend.writeRegister(GS_REG_XYZ2,uint64_t((i+1)*16*16)|(uint64_t(16*16)<<16));
         }
-        gs.Flush();
+        const auto readsBeforeFinish=gs.ReadbackRequests();
+        frontend.writeRegister(GS_REG_FINISH,0);
+        auto completion=gs.Completions()->Take();
+        if(!completion.finish || completion.signal || presented || gs.ReadbackRequests()!=readsBeforeFinish)
+            throw std::runtime_error("GPU FINISH required a frame or VRAM readback");
         std::vector<uint8_t> readback(vram.size());
         gs.ReadbackVram(0,readback); // diagnostic output is separate from the CPU mirror
         for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x) {
@@ -73,6 +81,19 @@ int main() {
             throw std::runtime_error("Native image upload / GPU FIFO round-trip changed pixels");
         frontend.queueVBlankFrame();
         if(presented!=1)throw std::runtime_error("GPU frame destination was bypassed");
+        // Marker callbacks also have to work in the original raw A_D stream,
+        // rather than only in the SDK's direct-register shortcut.
+        const std::array<uint64_t,8> markers{
+            3u|(1u<<15)|(uint64_t(1)<<60),0xe,
+            0xffff000012340000ull,GS_REG_SIGNAL,
+            0x0000ffff00005678ull,GS_REG_LABEL,
+            0,GS_REG_FINISH};
+        frontend.processGIFPacket(GifPathId::Path2,bytes(markers).data(),uint32_t(sizeof(markers)));
+        completion=gs.Completions()->Take();
+        if(!completion.signal || !completion.finish || !completion.label ||
+           completion.signalPayload!=0xffff000012340000ull || completion.labelPayload!=0x0000ffff00005678ull)
+            throw std::runtime_error("Raw GIF marker completion was lost");
+        gs.Completions()->AcknowledgeSignal();
         std::atomic<bool> wrongOwnerRejected{};
         std::thread wrongOwner([&]{
             try{frontend.writeRegister(GS_REG_PRIM,0);}
@@ -86,6 +107,30 @@ int main() {
         try{gs.GifTransfer(GsGifPath::Path1,partial);}catch(const std::invalid_argument&){++rejected;}
         try{gs.ReadbackVram(GsDevice::VramBytes,partial);}catch(const std::out_of_range&){++rejected;}
         if(rejected!=3)throw std::runtime_error("Invalid GS commands were accepted");
+        {
+            // Reset must also release a real GPU owner blocked by an unacked
+            // second SIGNAL, while that reset command is queued behind it.
+            using namespace std::chrono_literals;
+            const auto mailbox=gs.Completions();const auto old=mailbox->Generation();
+            cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,mailbox);
+            cave::ps2::GsDeviceSink sink(gs,[](const cave::ps2::GsFrame&){});
+            std::promise<void> waiting;auto didWait=waiting.get_future();bool notified=false;
+            const auto deadline=std::chrono::steady_clock::now()+3s;
+            gs.SetWaitPump([&]{
+                if(std::chrono::steady_clock::now()>deadline)throw std::runtime_error("SIGNAL reset handshake timed out");
+                if(mailbox->Take().signal && !notified){notified=true;waiting.set_value();}
+            });
+            auto producer=std::async(std::launch::async,[&]{
+                queue.Register(GS_REG_SIGNAL,0xffffffff00000001ull);
+                queue.Register(GS_REG_SIGNAL,0xffffffff00000002ull);
+                if(didWait.wait_for(3s)!=std::future_status::ready){queue.Close();throw std::runtime_error("GPU SIGNAL did not reach wait pump");}
+                queue.Reset();
+            });
+            while(producer.wait_for(0ms)!=std::future_status::ready)queue.ConsumeOne(sink,5ms);
+            producer.get();gs.SetWaitPump({});
+            if(!notified || mailbox->Generation()==old || mailbox->Take() || queue.GetStats().commands)
+                throw std::runtime_error("Queued RESET leaked stale SIGNAL completion");
+        }
         std::cout<<"GPU="<<gs.GpuName()<<"; runtime GIF routing, 4096 pixels, native image/FIFO, owner/range checks: PASS\n";
         return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}

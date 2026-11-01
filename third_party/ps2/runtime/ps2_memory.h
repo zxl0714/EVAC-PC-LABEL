@@ -313,6 +313,9 @@ public:
     [[nodiscard]] uint64_t cyclesUntilNextEeTimerInterrupt() const noexcept;
     void resetEeTimers() noexcept;
 
+    using GsAccessCallback=std::function<void(uint32_t offset,uint64_t written,uint64_t previous,bool afterWrite)>;
+    void setGsAccessCallback(GsAccessCallback callback){m_gsAccessCallback=std::move(callback);}
+
     using GifPacketCallback = std::function<void(const uint8_t *, uint32_t)>;
     void setGifPacketCallback(GifPacketCallback cb) { m_gifPacketCallback = std::move(cb); }
     void setRawGifTransfers(bool enabled) { m_rawGifTransfers = enabled; }
@@ -399,6 +402,9 @@ public:
 
     std::vector<TLBEntry> m_tlbEntries;
 
+    GsAccessCallback m_gsAccessCallback;
+    uint64_t beginGsAccess(uint32_t address,uint64_t written=0);
+    void writeGsPartial(uint32_t address,uint64_t value,uint32_t bits);
     GifPacketCallback m_gifPacketCallback;
     GifArbiter *m_gifArbiter = nullptr;
     Vu1MscalCallback m_vu1MscalCallback;

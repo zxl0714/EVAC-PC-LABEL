@@ -5,6 +5,7 @@
 #include <memory>
 
 namespace cave::ps2 {
+class GsCompletionMailbox;
 // FIFO transport only. The window thread supplies a consumer and owns all GS /
 // Vulkan state. Payloads are copied before enqueue returns. Capacity includes
 // the command currently executing, not just the pending deque.
@@ -15,7 +16,8 @@ public:
         uint64_t submitted=0,completed=0;
         bool frameOutstanding=false,closed=false;
     };
-    explicit GsCommandQueue(size_t capacityBytes=8u*1024u*1024u,size_t capacityCommands=2048);
+    explicit GsCommandQueue(size_t capacityBytes=8u*1024u*1024u,size_t capacityCommands=2048,
+                            std::shared_ptr<GsCompletionMailbox> completions={});
     ~GsCommandQueue() override;
     GsCommandQueue(const GsCommandQueue&)=delete;
     GsCommandQueue& operator=(const GsCommandQueue&)=delete;
@@ -24,6 +26,9 @@ public:
     bool ConsumeOne(GsCommandBackend& consumer,std::chrono::milliseconds timeout);
     void Close(std::exception_ptr failure={});
     Stats GetStats() const;
+    GsCompletions CollectCompletions() override;
+    void AcknowledgeSignal() override;
+    void AcknowledgeStatus(uint32_t mask) override;
 
     void Initialize(std::span<const uint8_t> vram) override;
     void Reset() override;

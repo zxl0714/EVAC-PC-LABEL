@@ -103,6 +103,9 @@ GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bo
     :impl(std::make_unique<Impl>(width,height,title,vsync)) {
     impl->transfer=transfer;
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
+    impl->gs->SetWaitPump([this]{
+        if(!Alive())throw std::runtime_error("Graphics window closed while waiting for GS completion");
+    });
     ShowWindow(impl->window.handle,SW_SHOWNORMAL);
 }
 GsDisplay::~GsDisplay()=default;

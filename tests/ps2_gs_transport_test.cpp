@@ -17,6 +17,10 @@ public:
     std::vector<uint8_t> image;
     std::array<uint64_t,4> imageSetup{};
     std::vector<cave::ps2::GsFrame> frames;
+    cave::ps2::GsCompletions completed;
+    uint32_t acknowledged=0;
+    cave::ps2::GsCompletions CollectCompletions() override{auto value=completed;completed={};return value;}
+    void AcknowledgeStatus(uint32_t mask) override{acknowledged=mask;}
     void Initialize(std::span<const uint8_t> bytes) override{initialized=bytes.size();}
     void Reset() override{++resets;}
     void Gif(GifPathId path,std::span<const uint8_t> bytes) override{packets.emplace_back(path,std::vector<uint8_t>(bytes.begin(),bytes.end()));}
@@ -55,6 +59,14 @@ void RawRouting() {
     Require(record->snapshots==0,"Normal presentation read back GPU VRAM");
     frontend.writeRegister(0x59,0x2468);frontend.queueVBlankFrame();
     Require(record->frames.back().dispfb1==0x2468 && record->registers.size()==1,"SDK privileged pseudo-register entered drawing decoder or was lost");
+    hardware.siglblid=0xaaaa0000bbbb0000ull;hardware.imr=0x100;
+    record->completed={1,0x0000ffff00001234ull,0x0000ffff00005678ull,true,true,true};
+    Require(frontend.pollCompletedEvents()==2 && hardware.siglblid==0xaaaa5678bbbb1234ull && (hardware.csr.load()&3)==3,
+            "Completed GS events did not apply masked IDs/status/IRQ mask on frontend");
+    Require(frontend.pollCompletedEvents()==0,"Completed IRQ delivered twice");
+    hardware.imr=0;
+    Require(frontend.afterPrivWrite(0x1010,0,0x100)==1,"Unmask did not raise pending signal IRQ");
+    frontend.afterPrivWrite(0x1000,1,0);Require(record->acknowledged==1,"CSR acknowledgement did not reach owner mailbox");
     Require(frontend.consumeLocalToHostBytes(payload.data(),16)==16 && payload[0]==0x3c,"Game FIFO read did not reach command backend");
     Require(frontend.ReadVram(GS_PSM_CT32,0,1,2,3)==0xa5a5a5a5,"Debug pixel read used stale CPU memory");
     frontend.WriteVram(GS_PSM_CT32,0,1,2,3,0x12345678);

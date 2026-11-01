@@ -18,7 +18,7 @@ int main(int argc,char** argv) {
             cave::ps2::GsPresentTransfer::Sampled:cave::ps2::GsPresentTransfer::Automatic;
         cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,transfer);
         auto& gs=display.Device();
-        cave::ps2::GsCommandQueue queue;
+        cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,gs.Completions());
         unsigned frames=0;
         bool closed=false;
         cave::ps2::GsDeviceSink sink(gs,[&](const cave::ps2::GsFrame& request){

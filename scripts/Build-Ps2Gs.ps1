@@ -21,5 +21,5 @@ try {
         '-DCMAKE_CXX_FLAGS_RELEASE=/O2 /DNDEBUG /Zi /EHsc /fp:precise',
         '-DCMAKE_EXE_LINKER_FLAGS=/DEBUG:FULL /OPT:REF /OPT:ICF')
     Invoke-CollectionConfigure $gsCmake $gsConfigure $gsBuild
-    Invoke-Checked $gsCmake @('--build',$gsBuild,'--parallel',"$Jobs",'--target','ps2_gs_gpu_contract','ps2_gs_transport_contract','ps2_gs_queue_contract','ps2_gs_window_probe')
+    Invoke-Checked $gsCmake @('--build',$gsBuild,'--parallel',"$Jobs",'--target','ps2_gs_gpu_contract','ps2_gs_transport_contract','ps2_gs_queue_contract','ps2_gs_completion_contract','ps2_gs_window_probe')
 } finally { $gsTaskProcess.PriorityClass=$gsPreviousPriority }

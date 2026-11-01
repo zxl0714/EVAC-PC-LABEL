@@ -16,68 +16,75 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
-Latest PS2 checkpoint (Nov1 16:10): USER DIRECTIVE: graphics starts from mature
-architecture. Read /docs/PS2_GRAPHICS_PLAN.md before more GS work. No game open.
-GPU prototype r6 finished 1200frames/exit0, zero normal VRAM readbacks; probe closed.
+Latest PS2 checkpoint (Nov1 16:48): graphics uses mature paraLLEl-GS + Granite.
+Read /docs/PS2_GRAPHICS_PLAN.md before more GS work. NOactivebuild/window sessions.
+Previous goal turn PROGRESS commit9afbb50 (rawtransport+WSI); this turn adds actual
+GPU completions and EE/MMIO/IRQ handoff, not game GPU integration yet.
 
-GRAPHICS FOUNDATION (game GPU integration STILL PENDING):
+GRAPHICS FOUNDATION / COMPLETIONS NOW IMPLEMENTED:
 - paraLLEl-GS cc6184af7e0c03da603045ca371ffa5dae9b0655 + Granite16e7395 /
-  original Volk/Vulkan-Headers pins restored clean, total14deps. Build-Ps2Gs.ps1
-  uses SAME LLVM23.1.3/CMake4.2.3/Ninja/VS SDK/MD CRT, out/ps2-gs SMALL build graph.
-  Python43 tests PASS r19; source-v2-* view hash-verifies EVERY staged source.
-- Runtime adapters preserve ORIGINAL GIF path1/2/3, native SDK register/image
-  bypasses, raw VIF IMAGE continuation and VU XGKICK path1. Raw+CPU exclusive.
-  GsCommandBackend is the boundary. GifArbiter comparator now strict stable rank;
-  full hardware arbitration/preemption is NOT claimed yet.
-- GsDeviceSink -> actual GPU contract: all3 interleaved partialtags,4096exactpixels,
-  CPUshadow unchanged, image upload / local-to-host FIFO roundtrip, owner guards.
-- GsCommandQueue is bounded8MiB/2048commands, COPY payload before return, capacity
-  includes active consumer, ordered synchronous readbacks / frame submission,
-  one outstanding frame request, error/close unblocks all producers. Tests PASS.
-- GsDisplay: native Win32 + Granite WSI, DIRECT GPU scanout->swapchain blit, no CPU
-  RGBA/readback/GL. Frame fence gates NEXT command batch, no per-frame wait_idle.
-  Window-owner device,16 internal allocatorcontexts NOT16queuedgameframes.
-  Immediate/FIFO available through supported Granite mode selection.
-- r18 standalone CTests all3 PASS: GPU, rawtransport, queue. Window r6 actual
-  two-thread queue->GS->WSI:1200frames/0readbacks,queue highwater4MiB/12commands.
-  Window r5 actual resize640x480->2560x1369,4:3 letterbox,exit0; no game ROM.
-- GsFrame NOW replaces CPU GSPresentationRequest at command boundary: complete
-  privileged timing/circuits + actual FIELD snapshot on EE, no live read onGPU.
-  Rawfrontend contract checks SMODE1/SYNCV/EXT/FIELD. SDKpseudo59..5c/5f still update
-  privilegedstate instead of entering GPUdrawdecoder. GsCommandBackend fwd-declared
-  in GS publicheader, destructoroutofline: subsequentcommandchanges do NOT touch
-  generatedgame PCHs. All3smallGScontractsPASS r23 (including active-read shutdown and bothclearshortcuts).
-  Do NOT hardcode NTSC timing from authoredprobe into game. Flush GSInterface
-  BEFORE vsync. Test DISPLAY includes CRTC origin;64pixelsDX0/DY0canclipentirely.
-- NEXT correctness gates: SIGNAL/FINISH/LABEL + actual
-  GPU completion/CSR handoff, bounded original-command capture/offline replay,
-  host window+SDL/audio/config integration, actual ESPGaluda then Ibara.
-  No game uses PGS yet. CPU raster loops must NOT receive more local optimization.
-  WSI checks transfer usage + source/dest format blit features; falls back to
-  GPU sampled quad using original PGS checked-inshaderbank (noGLSLcompiler).
-  Authored forcedshader+FIFO r7:1200frames/zeroVRAMreadbacks/exit0 andvisualPASS.
-  Fullscreen/minimize/device-loss/oldGPU capabilities and cache budget pending.
-- PGS large image slab log is BUDGET, not measured residency; measure/cap before
-  default. Research .local/v090/research/*-readonly NOT production deps.
+  original Volk/Vulkan-Headers pins restored clean,total14deps. Build-Ps2Gs.ps1
+  SAME LLVM23.1.3/CMake4.2.3/Ninja/VS SDK/MD CRT; out/ps2-gs SMALL graph.
+  Python43 PASS r19; source-v2-* view SHA256-verifies EVERY staged source.
+- Original GIF path1/2/3, raw VIF IMAGE continuations and VU XGKICK1 preserved.
+  NativeSDK register/image bypasses enter sameGPUowner, never drawCPU+GPU twice.
+  GifArbiter strictstablecomparator fixed; full hardware arbitration notclaimed.
+- GsDevice/GsDeviceSink actualGPUcontract: partialtagsall3paths,4096exactpixels,
+  CPUshadowunchanged,image/FIFO roundtrip,owner/rangeguards. Normaldrawing noVRAM
+  readback. FIFOcurrentlyrequires16-byteunits: SDK StoreImage canrequestoddcount;
+  review this before game acceptance (do not silently drop cached trailingbytes).
+- GsCommandQueue 8MiB/2048commands includesactiveconsumer,ownedcopies,ordered
+  replies,1outstandingframe,error/closeunblocksallwaiters. BeginCommand stamps
+  producer completiongeneration. Reset advancesepoch BEFOREqueuing behind an old
+  blockedSIGNAL; oldqueuedcommands retainoldgeneration and cannotpublishnewstatus.
+- GsFrame snapshots COMPLETE privilegedtiming/circuits/FIELD onEE. NoGPUread oflive
+  guestregisters. GSpublicheader forwarddeclarescommandbackend/destructoroutofline:
+  privateGPU/queue interfaces nowdo NOTforcegeneratedgamePCH rebuild.
+- GsDisplay Win32+GraniteWSI directGPUscanout->swapchain,4:3,Immediate/FIFO;
+  source/destblitfeatureschecked;GPU sampledshaderfallback reusesPGSshaderbank.
+  Priorframefencegates NEXTcommands;16allocatorcontextsNOT16queuedgameframes.
+  Actual r6/r7 1200frames/zeroVRAMreadbacks forblitandshader/FIFO; r5resizePASS;
+  r8finalGsFrame+AltF4exit2EXPECTED/1007frames/zeroReadbacks/nohang.
+- NEW GsCompletionMailbox FIXEDSIZE coalesces FINISH+maskedLABEL updates;
+  secondSIGNAL stalls untilCSRack. Close/resetreleaseswaiters. Generationdrops
+  staleevents. Collect/Acknowledge operates onmailbox, never foreignGPUstate.
+  Coalesced notifier postsonewake forunreadbatch; NativeHostmustbindit to
+  runtime.postEeEvent({EeEventType::GsStatus,0,0}) when hostisconnected.
+- PGS SignalInterface callbacks areCPUparse events. Adapter explicitly gs.flush
+  then GenericqueueFence wait BEFOREpublishingSIGNAL/FINISH; no wait_idle, frame,
+  orVRAMreadbackrequired. LABEL publishesmaskedID. Windowmessagepump runs during
+  rareSignal/Fencewaits soquitcanunblock. GPUtest real2SIGNAL->queuedResetPASS.
+- GS::pollCompletedEvents mergesSIGLBLID andCSR ONLYonEE; mask/IMRunmask/ack/reset
+  covered. ps2_memory.cpp adapter adds8/16/32/64-bitGSports andpre/postMMIOhooks.
+  Runtimecallback rejectsforeignexecutors. New adapted ee_scheduler.h stagesONE
+  view; executoridentity usesuniquegeneration+TLS (avoidscross-threadstdthreadid
+  race/reusedobjectidentity), GsStatus event wakesidleEE, ownerpoll dispatchesIRQ0.
+- LATESTall4GSCTestsPASS ps2-gs-test-r29.log. Includesmaskcomposition,signalstall,
+  wakecoalescing,epochs/close,realGPUfinishwithoutframe/readback andblockedreset.
+- LATESTall9nativeCTestsPASS ps2-native-r64.log: byte/half/dwordCSRports,maskedIDs,
+  IMRunmask/W1c/reset,plus sleepEE->externalGsStatus->ONEactualnativeIRQhandler.
+  r63Kernelcrash wasTESTSTACKOVERFLOW 0xC00000FD (directexeconfirmed), secondlarge
+  PS2Runtime ondefault1MiBteststack. Newfixtureownssecondruntimeonheap;r64PASS.
+  GPUr29 no window. All sessions5137/75007/77596/49934/48152/ r64 reaped.
 
-PS2 MAIN SMALL TARGETS r60/r61 DONE, all9nativeCTestsPASS ps2-native-r61.log.
-Only49runtime/teststeps, then5incrementalsteps for finalrawclearfix. NOactivebuild
-orwindow sessions. r59INTENTIONALLY stopped at~800/2178 for completeframe/API
-isolation, notcompilerfailure; alloutputsretained. ps2-build-r59-stop.json verifies
-ownedPIDs; session50302 reapedexit1EXPECTED. r60session96427/r61session78023reaped.
-Raw VIF IMAGEsplit fixture PASS. r58privateVUinclude fixed.
-IMPORTANT: GeneratedgamePCHs stillneedONEfinalfullgamebuild afterGS/hostintegration.
-Do NOT build all2178gameobjects while architecturechanges. NativeCTests validate
-runtime independently. Public GS header now forwarddeclarescommandbackend, so
-new renderer/queue changes no longer affectgamePCHs. Configure~80sec+210secgenerate;
-source-only changes use incrementalbuild, NOTBuild-Ps2.ps1/reconfigure.
-r57islastFULLYlinkedgame/native9CTestsPASS; latestactualgame r42copiedr56.
-Mode manifest build-mode-extras-r17.json, stages build-all-stage-modules-r3.json.
-AllGPU/probe sessions throughr23/r8 REAPED. Windowr8finalGsFrameinterface: actual
-blueauthoredscene, AltF4exit2EXPECTED,1007frames,0readbacks,noproducerhang.
-ps2Window/ps2State CLOSED r42; gpuWindow/gpuState CLOSED r8.
-Next: GPU completion events+CSR, ordered capture/replay, then NativeHost integration
-and actualgame. Retain whole remainingv090scope (Ibara/UI/data/package).
+NEXT: bounded original-command capture/offline replay; then NativeHost connection
+(window+SDL/config+existingaudio, notifier/quit), actual ESPGaluda ARCADE/ARRANGE,
+then Ibara. Fullscreen/minimize/device-loss/oldGPUcapabilities/cachebudget pending.
+No game usesPGSyet. STOP localCPUtriangleoptimizations. PGSimageslabbudgetlog isnot
+measuredresidency;measure/cap beforedefault. Research.readonlydirsNOTproductiondeps.
+ReferenceGSsemantics PCS X2 da6bae1050843d47ef1a8c00a1708f0cfb9a0ff5 files in
+.local/v090/research/pcsx2-gs-events-r1; pins+source areevidence,notlinkedcode.
+
+MAIN GAME BUILD POLICY: generatedgamePCHs stillneedONEfinalfullgamebuild AFTER
+GS/hostinterfacescomplete. Do NOTbuild2178gameobjectswhilearchitecturechanges;
+smallnativeCTestsvalidate runtime independently. PublicGSprivatebridge nowisolated.
+Source-onlychanges cmake--build existingout/ps2-tools;configureonlywhenrequired.
+Configure~8..80sec+~195..210secgeneration duecurrentlargeoptionalgamegraph.
+r59intentionallystopped~800/2178 beforefinalframe/APIrevision; outputsretained,
+ownedPIDproofps2-build-r59-stop.json. r57lastFULLYlinkedgame; latestactualr42usedr56.
+Mode manifest build-mode-extras-r17.json; stages build-all-stage-modules-r3.json.
+ps2Window/ps2State CLOSED r42; gpuWindow/gpuState CLOSED r8. Keep fullv090remaining
+scope (Ibara/UI/data/covers/DLC/sharedinput/audio/bench/cert/package), no release.
 
 Game functional evidence: ARCADE r35 stage1, movement/shooting, Continue->Return;
 ARRANGE r41 Chihiro actual stage1, passed old crash, GAME OVER, normal exit0.

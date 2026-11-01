@@ -110,6 +110,8 @@ public:
     void setCommandBackend(std::unique_ptr<cave::ps2::GsCommandBackend> backend);
     bool usesCommandBackend() const;
     void queueVBlankFrame();
+    uint32_t pollCompletedEvents();
+    uint32_t afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous);
 
     void processGIFPacket(const uint8_t *data, uint32_t sizeBytes);
     void processGIFPacket(GifPathId path, const uint8_t *data, uint32_t sizeBytes);

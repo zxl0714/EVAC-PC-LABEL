@@ -679,6 +679,15 @@ bool PS2Runtime::syncCoreSubsystems()
     }
 
     m_gs.init(gsVram, static_cast<uint32_t>(PS2_GS_VRAM_SIZE), &m_memory.gs());
+    m_memory.setGsAccessCallback([this](uint32_t offset,uint64_t written,uint64_t previous,bool afterWrite)
+    {
+        // GUI/debug readers must not consume events or dispatch IRQs on behalf
+        // of the EE executor while the game is running on another thread.
+        if(m_eeScheduler && !m_eeScheduler->isExecutorThread())return;
+        const auto interrupt=afterWrite?m_gs.afterPrivWrite(offset,written,previous):m_gs.pollCompletedEvents();
+        if(interrupt && m_eeScheduler && m_eeScheduler->isExecutingGuest())
+            m_eeScheduler->dispatchIrq(false,0u);
+    });
     m_gifArbiter.setProcessPacketFn([this](GifPathId path, const uint8_t *data, uint32_t size)
                                     { m_gs.processGIFPacket(path, data, size); });
     m_memory.setGifArbiter(&m_gifArbiter);

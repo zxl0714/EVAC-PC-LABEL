@@ -1,4 +1,5 @@
 #include "gs_device_sink.h"
+#include "gs_completion_mailbox.h"
 #include <stdexcept>
 
 namespace cave::ps2 {
@@ -7,6 +8,10 @@ GsDeviceSink::GsDeviceSink(GsDevice& gs,std::function<void(const GsFrame&)> onFr
     :device(gs),frame(std::move(onFrame)),beginFrame(std::move(onBeginFrame)) {
     if(!frame)throw std::invalid_argument("GS command consumer requires a frame destination");
 }
+void GsDeviceSink::BeginCommand(uint64_t generation){device.SetCommandGeneration(generation);}
+GsCompletions GsDeviceSink::CollectCompletions(){return device.Completions()->Take();}
+void GsDeviceSink::AcknowledgeSignal(){device.Completions()->AcknowledgeSignal();}
+void GsDeviceSink::AcknowledgeStatus(uint32_t mask){device.Completions()->AcknowledgeStatus(mask);}
 void GsDeviceSink::BeforeCommand() {
     if(beginNeeded) {
         if(beginFrame)beginFrame();

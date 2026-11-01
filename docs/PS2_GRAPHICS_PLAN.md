@@ -141,13 +141,41 @@ Do not optimize isolated triangle loops while this integration remains pending.
 Renderer bring-up, correct command transport and presentation are separate gates;
 passing one does not establish the others.
 
+## Completion and interrupt model
+
+The implementation separates CPU command parsing, GPU work completion and EE
+status. This follows the responsibilities visible in
+[PCSX2's GIF handling](https://github.com/PCSX2/pcsx2/blob/da6bae1050843d47ef1a8c00a1708f0cfb9a0ff5/pcsx2/Gif_Unit.cpp)
+and [CSR/IMR handling](https://github.com/PCSX2/pcsx2/blob/da6bae1050843d47ef1a8c00a1708f0cfb9a0ff5/pcsx2/GS.cpp),
+while using paraLLEl-GS for the renderer itself.
+
+- The adapter flushes preceding commands and waits on their Generic-queue fence
+  before publishing FINISH/SIGNAL. It does not use device-wide idle or scanout
+  readback. These explicit status markers can complete without a window frame.
+- A fixed-size mailbox coalesces sticky FINISH and ordered masked LABEL updates.
+  A second SIGNAL waits for the EE CSR acknowledgement; reset and close release
+  the wait. A message-pump callback keeps the owner window responsive while it
+  waits. Mailbox notification coalesces one unread batch into one EE wake.
+- Every queued command retains its producer generation. Reset advances the
+  generation before its own queue submission, so an owner stalled in an older
+  command can unwind; stale callbacks cannot populate the new generation.
+- The EE merges SIGLBLID/CSR, applies interrupt masks and acknowledges status.
+  Byte, halfword and word MMIO accesses share the same boundary. IMR unmask can
+  raise an existing pending source. The GPU owner never writes guest registers.
+- Runtime MMIO callbacks and scheduler polling use the EE executor; an explicit
+  `GsStatus` event wakes an idle executor. A generation-based thread-local owner
+  identity rejects foreign GUI/debug dispatch.
+
+Evidence: `ps2-gs-test-r29.log` covers the real GPU path including a queued reset
+behind a blocked second SIGNAL; `ps2-native-r64.log` includes native MMIO and
+sleeping-EE-to-IRQ dispatch. These components still need actual game integration.
+
 ## Integration gates still open
 
-- **Completion and interrupts:** SIGNAL/FINISH/LABEL callbacks from paraLLEl-GS
-  report command processing. Returning true flushes commands but does not wait
-  for their GPU completion. Define an ordered fence/event handoff to the EE CSR
-  state, preserve masks and reset generations, and cover polling without a frame
-  being submitted. Never set FINISH merely because a packet reached the queue.
+- **Game event connection:** the completion mailbox, GPU fences, GS MMIO status
+  handoff and idle-EE IRQ wake have mechanism coverage. NativeHost must connect
+  its mailbox notifier to `EeEventType::GsStatus` before starting the producer,
+  then verify actual game waits and exit with this integrated path.
 - **Offline replay:** capture from a known reset state, including initial VRAM,
   privileged timing, all ordered paths/registers/images and field boundaries.
   A mid-packet or arbitrary mid-game VRAM-only snapshot is incomplete: draw

@@ -100,6 +100,8 @@ Numpad0／Numpad1，Computer Use 对应 KP_0／KP_1。
   hold／repeat／gap；它不发送 Windows 输入，也不证明真实设备输入或端到端延迟。
 - `tools/latency/launch_*_probe.py`：先读适用平台、夹具范围与依赖，不把旧探针直接套到普通构建。
 - PS2 只改运行时／宿主 C++ 时，直接 `cmake --build out/ps2-tools --parallel 2`。
+  Windows 无窗口测试默认栈只有 1 MiB；测试里再建第二份大型 `PS2Runtime` 时放到堆上。
+  `0xC00000FD` 是栈溢出，先核对测试对象和调用栈，别当作游戏代码崩溃。
   `Build-Ps2.ps1` 会重新生成大型构建图，只有生成目录、模块清单或构建配置变化才重跑；
   活跃构建的会话和日志见 `AGENTS.md`，不要因日志暂未刷新就另起一次构建。
   新关卡首次构建使用 `globalRootAliases`，让目标与 PCH 统一重命名入口，避免逐个打开全部生成文件。

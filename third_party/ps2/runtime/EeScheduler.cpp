@@ -11,6 +11,9 @@
 
 namespace
 {
+    std::atomic<uint64_t> s_nextExecutorGeneration{0};
+    thread_local const EeScheduler* s_executor=nullptr;
+    thread_local uint64_t s_executorGeneration=0;
     constexpr int KE_OK = 0;
     constexpr int KE_ERROR = -1;
     constexpr int KE_ILLEGAL_PRIORITY = -403;
@@ -85,6 +88,9 @@ EeScheduler::~EeScheduler()
 void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
 {
     m_executorThread = std::this_thread::get_id();
+    const auto generation=s_nextExecutorGeneration.fetch_add(1,std::memory_order_relaxed)+1;
+    m_executorGeneration.store(generation,std::memory_order_release);
+    s_executor=this;s_executorGeneration=generation;
     m_rdram = rdram;
     m_readyQueues = {};
     m_threads.clear();
@@ -398,6 +404,11 @@ void EeScheduler::accountCycles(uint32_t cycles) noexcept
     {
         m_checkpointPending.store(true, std::memory_order_release);
     }
+}
+
+bool EeScheduler::isExecutorThread() const noexcept
+{
+    return s_executor==this && s_executorGeneration==m_executorGeneration.load(std::memory_order_acquire);
 }
 
 bool EeScheduler::isExecutingGuest() const noexcept
@@ -1743,6 +1754,7 @@ void EeScheduler::applyPendingPreemption()
 void EeScheduler::processPendingEvents()
 {
     assertExecutor();
+    if(m_runtime.gs().pollCompletedEvents())dispatchIrq(false,0u);
     processDueDeadlines();
     const uint32_t timerInterrupts = m_pendingEeTimerInterrupts;
     m_pendingEeTimerInterrupts = 0u;
@@ -1908,6 +1920,9 @@ void EeScheduler::processEvent(const EeEvent &event)
         break;
     case EeEventType::VBlankEnd:
         dispatchIrq(false, 3u);
+        break;
+    case EeEventType::GsStatus:
+        if(m_runtime.gs().pollCompletedEvents())dispatchIrq(false,0u);
         break;
     case EeEventType::Dmac:
         break;

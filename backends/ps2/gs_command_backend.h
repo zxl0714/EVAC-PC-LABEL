@@ -1,5 +1,6 @@
 #pragma once
 #include "gs_scanout.h"
+#include "gs_completions.h"
 #include "runtime/gs/ps2_gif_arbiter.h"
 #include <array>
 #include <cstddef>
@@ -13,6 +14,10 @@ namespace cave::ps2 {
 class GsCommandBackend {
 public:
     virtual ~GsCommandBackend()=default;
+    virtual void BeginCommand(uint64_t generation) {}
+    virtual GsCompletions CollectCompletions(){return {};}
+    virtual void AcknowledgeSignal(){}
+    virtual void AcknowledgeStatus(uint32_t mask){if(mask&1u)AcknowledgeSignal();}
     virtual void Initialize(std::span<const uint8_t> vram)=0;
     virtual void Reset()=0;
     virtual void Gif(GifPathId path,std::span<const uint8_t> bytes)=0;

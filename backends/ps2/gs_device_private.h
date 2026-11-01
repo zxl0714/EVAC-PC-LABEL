@@ -3,10 +3,11 @@
 #include "gs_device.h"
 #include "gs_interface.hpp"
 #include "context.hpp"
+#include "gs_completion_mailbox.h"
 #include <thread>
 
 namespace cave::ps2 {
-class GsDevice::Impl {
+class GsDevice::Impl : public ParallelGS::SignalInterface {
 public:
     Vulkan::Context context;
     Vulkan::Device ownedDevice;
@@ -15,9 +16,17 @@ public:
     const std::thread::id owner=std::this_thread::get_id();
     std::string gpu;
     uint64_t readbacks=0;
+    std::shared_ptr<GsCompletionMailbox> completions=std::make_shared<GsCompletionMailbox>();
+    std::function<void()> waitPump;
+    uint64_t commandGeneration=0,activeGeneration=1;
     explicit Impl(Vulkan::Device* borrowed=nullptr);
     ~Impl();
     void CheckOwner() const;
     void CheckRange(size_t offset,size_t bytes) const;
+    void BeginOperation();
+    void CompleteMarker();
+    bool on_signal(uint64_t payload) override;
+    bool on_finish(uint64_t payload) override;
+    bool on_label(uint64_t payload) override;
 };
 }

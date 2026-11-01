@@ -1,4 +1,5 @@
 #include "gs_command_queue.h"
+#include "gs_completion_mailbox.h"
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -28,6 +29,7 @@ struct Command {
     uint8_t address{};
     uint64_t value{};
     size_t offset=0,cost=0;
+    uint64_t generation=1;
     std::array<uint64_t,4> setup{};
     GsFrame frame{};
     std::vector<uint8_t> bytes;
@@ -44,7 +46,9 @@ public:
     std::exception_ptr failure;
     std::shared_ptr<Reply> activeReply;
     std::thread::id consumerThread;
-    Impl(size_t bytes,size_t count):capacityBytes(bytes),capacityCommands(count) {
+    std::shared_ptr<GsCompletionMailbox> completions;
+    Impl(size_t bytes,size_t count,std::shared_ptr<GsCompletionMailbox> mailbox)
+        :capacityBytes(bytes),capacityCommands(count),completions(mailbox?std::move(mailbox):std::make_shared<GsCompletionMailbox>()) {
         if(!bytes || !count)throw std::invalid_argument("GS queue capacity must be positive");
     }
     void CheckOpen() const {if(stats.closed)std::rethrow_exception(failure);}
@@ -57,6 +61,7 @@ public:
             (stats.commands<capacityCommands && command.cost<=capacityBytes-stats.pendingBytes &&
              (!frame || !stats.frameOutstanding));});
         CheckOpen();
+        command.generation=completions->Generation();
         // Allocate only after capacity is reserved; blocked writers do not keep
         // an extra unbounded copy of their guest DMA buffers.
         command.bytes.assign(payload.begin(),payload.end());
@@ -75,13 +80,15 @@ public:
         return future.get();
     }
 };
-GsCommandQueue::GsCommandQueue(size_t bytes,size_t count):impl(std::make_unique<Impl>(bytes,count)){}
+GsCommandQueue::GsCommandQueue(size_t bytes,size_t count,std::shared_ptr<GsCompletionMailbox> mailbox)
+    :impl(std::make_unique<Impl>(bytes,count,std::move(mailbox))){}
 GsCommandQueue::~GsCommandQueue(){Close();}
 void GsCommandQueue::Close(std::exception_ptr error) {
     if(!error)error=std::make_exception_ptr(std::runtime_error("GS command queue closed"));
     std::lock_guard lock(impl->mutex);
     if(impl->stats.closed)return;
     impl->failure=error;impl->stats.closed=true;
+    impl->completions->Close();
     for(auto& command:impl->commands)if(command.reply)command.reply->Fail(error);
     if(impl->activeReply)impl->activeReply->Fail(error);
     impl->commands.clear();
@@ -105,6 +112,7 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
     }
     std::vector<uint8_t> answer;
     try {
+        consumer.BeginCommand(command.generation);
         switch(command.kind) {
         case Kind::Initialize:consumer.Initialize(command.bytes);break;
         case Kind::Reset:consumer.Reset();break;
@@ -144,7 +152,15 @@ void GsCommandQueue::Initialize(std::span<const uint8_t> bytes) {
     if(bytes.size()!=VramBytes)throw std::invalid_argument("GS initialization requires 4 MiB VRAM");
     Command command;command.kind=Kind::Initialize;impl->Request(std::move(command),bytes);
 }
-void GsCommandQueue::Reset(){Command command;command.kind=Kind::Reset;impl->Request(std::move(command));}
+void GsCommandQueue::Reset(){
+    // Release any owner blocked on an old SIGNAL before enqueuing RESET behind
+    // that command. Already queued work keeps its original generation.
+    impl->completions->Reset();
+    Command command;command.kind=Kind::Reset;impl->Request(std::move(command));
+}
+GsCompletions GsCommandQueue::CollectCompletions(){return impl->completions->Take();}
+void GsCommandQueue::AcknowledgeSignal(){impl->completions->AcknowledgeSignal();}
+void GsCommandQueue::AcknowledgeStatus(uint32_t mask){impl->completions->AcknowledgeStatus(mask);}
 void GsCommandQueue::Gif(GifPathId path,std::span<const uint8_t> bytes) {
     if(unsigned(path)<1 || unsigned(path)>3 || bytes.size()%16)throw std::invalid_argument("Invalid queued GIF transfer");
     Command command;command.kind=Kind::Gif;command.path=path;impl->Push(std::move(command),bytes);
