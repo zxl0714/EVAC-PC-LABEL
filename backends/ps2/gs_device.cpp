@@ -16,7 +16,7 @@ GsDevice::Impl::Impl(Vulkan::Device* borrowed) : device(borrowed ? borrowed : &o
         context.set_num_thread_indices(1);
         if(!context.init_instance_and_device(nullptr,0,nullptr,0))
             throw std::runtime_error("Cannot initialize headless Vulkan device");
-        ownedDevice.set_context(context);ownedDevice.init_frame_contexts(2);
+        ownedDevice.set_context(context);ownedDevice.init_frame_contexts(AllocationContexts);
     }
     if(device->get_gpu_properties().deviceType==VK_PHYSICAL_DEVICE_TYPE_CPU)
         throw std::runtime_error("PS2 graphics requires a hardware Vulkan device");
@@ -119,4 +119,51 @@ void GsDevice::Reset(){
     impl->CheckOwner();impl->completions->Reset();impl->commandGeneration=0;
     impl->gs.flush();impl->gs.reset_context_state();
 }
+ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImageLayout layout,
+                                                VkPipelineStageFlags2 stage,VkAccessFlags2 access) {
+    CheckOwner();
+    auto& registers=gs.get_priv_register_state();
+    using namespace ParallelGS;
+    registers.pmode=Reg64<PMODEBits>(request.pmode).desc;
+    registers.smode1=Reg64<SMODE1Bits>(request.smode1).desc;
+    // The pinned SMODE2 declaration has oversized unused padding. Assign its
+    // defined fields instead of treating that host struct as an eight-byte union.
+    registers.smode2.INT=request.smode2&1u;
+    registers.smode2.FFMD=(request.smode2>>1u)&1u;
+    registers.smode2.DPMS=(request.smode2>>2u)&3u;
+    registers.srfsh.dummy=request.srfsh;registers.synch1.dummy=request.synch1;registers.synch2.dummy=request.synch2;
+    registers.dispfb1=Reg64<DISPFBBits>(request.dispfb1).desc;
+    registers.display1=Reg64<DISPLAYBits>(request.display1).desc;
+    registers.dispfb2=Reg64<DISPFBBits>(request.dispfb2).desc;
+    registers.display2=Reg64<DISPLAYBits>(request.display2).desc;
+    registers.bgcolor=Reg64<BGCOLORBits>(request.bgcolor).desc;
+    registers.syncv=Reg64<SYNCVBits>(request.syncv).desc;
+    registers.extbuf=Reg64<EXTBUFBits>(request.extbuf).desc;
+    registers.extdata=Reg64<EXTDATABits>(request.extdata).desc;
+    registers.extwrite=Reg64<EXTWRITEBits>(request.extwrite).desc;
+    VSyncInfo info{};
+    info.phase=request.field&1u;
+    info.dst_layout=layout;info.dst_stage=stage;info.dst_access=access;
+    info.adapt_to_internal_horizontal_resolution=true;
+    // The renderer's vsync consumes completed GS command batches. It does not
+    // flush GSInterface's pending draw/transfer tracker on behalf of callers.
+    gs.flush();
+    return gs.vsync(info);
+}
+
+bool GsDevice::RenderField(const GsFrame& frame) {
+    impl->CheckOwner();WaitField();
+    auto result=impl->Scanout(frame,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    impl->lastField=std::move(result.image);
+    auto command=impl->device->request_command_buffer();impl->device->submit(command,&impl->fieldFence);
+    return bool(impl->lastField);
+}
+void GsDevice::WaitField() {
+    impl->CheckOwner();if(impl->fieldFence){impl->fieldFence->wait();impl->fieldFence.reset();}
+}
+void GsDevice::SetOfflineReplay(bool enabled) {
+    impl->CheckOwner();impl->gs.set_signal_interface(enabled?nullptr:impl.get());
+}
+
 }

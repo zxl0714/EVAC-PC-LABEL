@@ -176,11 +176,10 @@ sleeping-EE-to-IRQ dispatch. These components still need actual game integration
   handoff and idle-EE IRQ wake have mechanism coverage. NativeHost must connect
   its mailbox notifier to `EeEventType::GsStatus` before starting the producer,
   then verify actual game waits and exit with this integrated path.
-- **Offline replay:** capture from a known reset state, including initial VRAM,
-  privileged timing, all ordered paths/registers/images and field boundaries.
-  A mid-packet or arbitrary mid-game VRAM-only snapshot is incomplete: draw
-  registers, GIF continuations and transfer state also matter. Keep captures
-  bounded and private; replay without EE/IOP to isolate GS correctness and cost.
+- **Offline replay:** the bounded `.evacgs` recorder and decoded workload are
+  implemented. Attach recording at the initial VRAM handoff, before any draw.
+  A mid-game VRAM-only snapshot is incomplete: registers, GIF continuations and
+  transfer state also matter. Actual game capture remains an integration gate.
 - **Production WSI:** direct blit checks the source/destination format features
   and swapchain transfer-destination support. A GPU sampled-image path uses the
   original renderer's checked-in shaders when direct blit is unavailable; its
@@ -215,3 +214,41 @@ to the game: the producer may wait for its initial VRAM transfer, so the window
 owner must already be pumping. On shutdown, close the transport before joining a
 producer that could be waiting for a reply. GPU consumers must not call back into
 locked frontend state; completion events cross back through an explicit mailbox.
+
+## Capture and offline measurement
+
+`GsRecordingBackend` records the original three paths, direct SDK register/image
+operations, explicit CPU VRAM writes, FIFO replies and complete field snapshots.
+The initial 4 MiB comes from the producer's existing initialization handoff.
+Recording adds no VRAM readbacks. Byte and frame limits finalize a valid prefix
+while live drawing continues; output creation never overwrites an existing file.
+
+The versioned `.evacgs` format is collection-owned. A synthetic A_D packet on an
+arbitrary path could corrupt a partially received original GIF tag, so native
+SDK writes remain distinct operations. The decoder validates the entire bounded
+file before executing it. Each reusable workload owns its payloads and FIFO
+scratch; measured replay performs no file I/O or packet-buffer allocation.
+
+```powershell
+# Create an authored trace without a game or BIOS; choose a new output name.
+out/ps2-gs/ps2_gs_trace_gpu_contract.exe --keep .local/authored.evacgs
+out/ps2-gs/ps2_gs_replay.exe .local/authored.evacgs --seconds 2 --warmup 2
+```
+
+The replay tool measures wall time and aggregate process CPU time, reports cost
+per field and equivalent CPU cores, and verifies recorded FIFO replies. It
+includes reset and initial VRAM upload for every iteration; it excludes EE, IOP,
+input, window presentation and disk decoding. It runs uncapped. This is not a
+game frame rate or CPU-usage result. The tool disables speculative background
+shader precompilation in its own process and warms the workload's actual
+pipelines before measurement. Normal game initialization retains precompilation.
+
+Offline replay disables EE completion callbacks: the recorded command order
+already reflects the original SIGNAL acknowledgements, which are not graphics
+commands. Live gameplay retains the mailbox and interrupt protocol.
+
+Evidence: all six GS contracts pass in `.local/v090/ps2-gs-test-r33.log`.
+The GPU capture test checks three interleaved partial paths, native shortcuts,
+FIFO data and repeated field scanout, then compares the entire 4 MiB VRAM exactly.
+The final verification readbacks are diagnostic-only. The authored benchmark
+runs in `ps2-gs-bench-r2.json` without a window or normal-path VRAM snapshots.

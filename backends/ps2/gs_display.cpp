@@ -90,7 +90,7 @@ public:
         if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
         // are independent of the one outstanding game-frame fence below.
-        wsi.get_device().init_frame_contexts(16);
+        wsi.get_device().init_frame_contexts(GsDevice::AllocationContexts);
     }
     ~Impl() {
         if(pending)pending->wait();
@@ -130,35 +130,10 @@ bool GsDisplay::Present(const GsFrame& request) {
         std::cerr<<"[ps2-gs-present] transfer="<<(blit?"gpu-blit":"gpu-sampled")<<'\n';
         impl->loggedTransfer=int(blit);
     }
-    auto& registers=state.gs.get_priv_register_state();
-    using namespace ParallelGS;
-    registers.pmode=Reg64<PMODEBits>(request.pmode).desc;
-    registers.smode1=Reg64<SMODE1Bits>(request.smode1).desc;
-    // The pinned SMODE2 declaration has oversized unused padding. Assign its
-    // defined fields instead of treating that host struct as an eight-byte union.
-    registers.smode2.INT=request.smode2&1u;
-    registers.smode2.FFMD=(request.smode2>>1u)&1u;
-    registers.smode2.DPMS=(request.smode2>>2u)&3u;
-    registers.srfsh.dummy=request.srfsh;registers.synch1.dummy=request.synch1;registers.synch2.dummy=request.synch2;
-    registers.dispfb1=Reg64<DISPFBBits>(request.dispfb1).desc;
-    registers.display1=Reg64<DISPLAYBits>(request.display1).desc;
-    registers.dispfb2=Reg64<DISPFBBits>(request.dispfb2).desc;
-    registers.display2=Reg64<DISPLAYBits>(request.display2).desc;
-    registers.bgcolor=Reg64<BGCOLORBits>(request.bgcolor).desc;
-    registers.syncv=Reg64<SYNCVBits>(request.syncv).desc;
-    registers.extbuf=Reg64<EXTBUFBits>(request.extbuf).desc;
-    registers.extdata=Reg64<EXTDATABits>(request.extdata).desc;
-    registers.extwrite=Reg64<EXTWRITEBits>(request.extwrite).desc;
-    VSyncInfo info{};
-    info.phase=request.field&1u;
-    info.dst_layout=blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    info.dst_stage=blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    info.dst_access=blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
-    info.adapt_to_internal_horizontal_resolution=true;
-    // The renderer's vsync consumes completed GS command batches. It does not
-    // flush GSInterface's pending draw/transfer tracker on behalf of callers.
-    state.gs.flush();
-    auto source=state.gs.vsync(info);
+    auto source=state.Scanout(request,
+        blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+        blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     auto command=device.request_command_buffer();
     const auto width=destination.get_width(),height=destination.get_height();
     unsigned targetWidth=width,targetHeight=width*3u/4u;

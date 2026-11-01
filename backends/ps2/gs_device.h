@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include "gs_scanout.h"
 
 namespace Vulkan { class Device; }
 
@@ -19,6 +20,7 @@ enum class GsGifPath : uint8_t { Path1=1, Path2=2, Path3=3 };
 class GsDevice {
 public:
     static constexpr size_t VramBytes=4u*1024u*1024u;
+    static constexpr unsigned AllocationContexts=16;
     GsDevice();
     ~GsDevice();
     GsDevice(const GsDevice&)=delete;
@@ -35,6 +37,13 @@ public:
     void ReadTransferFifo(std::span<uint8_t> bytes);
     void Flush();
     void Reset();
+    // Headless rendering uses the same GS scanout as the window path. WaitField
+    // gates the next command batch; it does not wait idle for the whole device.
+    bool RenderField(const GsFrame& frame);
+    void WaitField();
+    // A graphics-only replay contains EE's already resolved command sequence.
+    // No EE is present to acknowledge SIGNAL in that diagnostic workload.
+    void SetOfflineReplay(bool enabled);
     // Explicitly synchronous diagnostics. Never the normal presentation route.
     void ReadbackVram(size_t offset,std::span<uint8_t> bytes);
 private:
