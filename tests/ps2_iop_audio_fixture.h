@@ -3,6 +3,7 @@
 #include <array>
 #include <cstring>
 #include <vector>
+#include <chrono>
 
 namespace {
 // Only the authored ELF image is visible to this host. No game/BIOS files.
@@ -74,5 +75,64 @@ void AudioInsideGuestCall() {
     emulator.reset();
     Require(emulator.readPcm(pcm.data(),256)==0,"IOP emulator reset retained PCM from an old module");
     std::cout<<"IOP guest-call DMA wait and PCM clock: PASS\n";
+}
+
+AudioFixtureHost DelayedThreadImage() {
+    AudioFixtureHost host;
+    host.image.resize(0x1100);
+    const uint8_t ident[]{0x7f,'E','L','F',1,1,1};
+    std::memcpy(host.image.data(),ident,sizeof(ident));
+    Put16(host.image,16,2);Put16(host.image,18,8);Put32(host.image,20,1);
+    Put32(host.image,24,0x10000);Put32(host.image,28,52);
+    Put16(host.image,40,52);Put16(host.image,42,32);Put16(host.image,44,1);
+    Put16(host.image,46,40);Put32(host.image,52,1);Put32(host.image,56,0x100);
+    Put32(host.image,60,0x10000);Put32(host.image,64,0x10000);
+    Put32(host.image,68,0x1000);Put32(host.image,72,0x1000);
+    Put32(host.image,76,7);Put32(host.image,80,0x100);
+    const auto jal=[](uint32_t pc){return 0x0c000000u|(pc>>2u);};
+    std::vector<uint32_t> entry{0x27bdffe0,0xafbf001c,0x00002821};
+    for(unsigned i=0;i<8;++i) {
+        const uint32_t create[]{0x3c040001,0x34840300u+i*32u,jal(0x10214),0,
+                                0x00402021,jal(0x1021c),0};
+        entry.insert(entry.end(),std::begin(create),std::end(create));
+        const uint32_t descriptor[]{0,0,0x10100,0x400,10u+i};
+        std::memcpy(host.image.data()+0x400+i*32,descriptor,sizeof(descriptor));
+    }
+    const uint32_t end[]{0x8fbf001c,0x00001021,0x27bd0020,0x03e00008,0};
+    entry.insert(entry.end(),std::begin(end),std::end(end));
+    Require(entry.size()*4<=0x100,"Authored IOP entry overlaps its workers");
+    std::memcpy(host.image.data()+0x100,entry.data(),entry.size()*4);
+    const uint32_t worker[]{
+        0x27bdffe0,0xafbf001c,0x240403e8,jal(0x10224),0, // DelayThread(1000 us)
+        0x3c080001,0x35080400,0x8d090000,0,0x25290001,0xad090000,
+        0x8fbf001c,0,0x27bd0020,0x03e00008,0
+    };
+    std::memcpy(host.image.data()+0x200,worker,sizeof(worker));
+    const uint32_t imports[]{0x41e00000,0,0x101,0x61626874,0x6573,
+        0x03e00008,0x24000004,0x03e00008,0x24000006,0x03e00008,0x24000021,0,0};
+    std::memcpy(host.image.data()+0x300,imports,sizeof(imports));
+    return host;
+}
+void IopIdleContract(bool bench=false) {
+    auto host=DelayedThreadImage();
+    ps2x::iop::detail::IopEmulator emulator(host);
+    // Populate an empty idle interval, then load code creating ready threads.
+    emulator.runEeCycles(800);
+    Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0,"Authored delayed-thread IRX failed");
+    for(unsigned i=0;i<20000;++i)emulator.runEeCycles(8);
+    uint32_t count{};
+    Require(emulator.readMemory(0x10400,&count,4) && count==0,"Delayed IOP threads woke early");
+    for(unsigned i=0;i<20000;++i)emulator.runEeCycles(8);
+    Require(emulator.readMemory(0x10400,&count,4) && count==8,"Idle IOP skipped a delayed thread wake");
+    const auto before=emulator.cycles();
+    const auto start=std::chrono::steady_clock::now();
+    constexpr unsigned calls=400000;
+    if(bench)for(unsigned i=0;i<calls;++i)emulator.runEeCycles(8);
+    const auto elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+    if(bench) {
+        Require(emulator.cycles()-before==calls,"Idle fast-forward changed IOP clock accounting");
+        std::cout<<"calls,guest_cycles,elapsed_ms\n"<<calls<<','<<emulator.cycles()-before<<','<<elapsed<<'\n';
+    }
+    else std::cout<<"IOP idle interval, new module, delayed thread wake: PASS\n";
 }
 }

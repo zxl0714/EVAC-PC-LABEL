@@ -25,6 +25,7 @@
 #include <span>
 #include <sstream>
 #include <utility>
+#include <limits>
 
 namespace ps2x::iop::detail
 {
@@ -130,6 +131,7 @@ namespace ps2x::iop::detail
             nextModuleId = 1;
             moduleCursor = kModuleLoadBase;
             totalCycles = 0;
+            idleUntil = 0;
             totalInstructions = 0;
             profile.Reset();
             eeCycleCarry = 0;
@@ -447,6 +449,7 @@ namespace ps2x::iop::detail
                               uint32_t gp,
                               uint32_t budget = kMaxCallInstructions)
         {
+            idleUntil = 0;
             struct CallDepthGuard
             {
                 uint32_t &depth;
@@ -582,6 +585,14 @@ namespace ps2x::iop::detail
             try
             {
                 const uint64_t target = totalCycles + cycles;
+                // No ready thread and no event can change that state before
+                // idleUntil. EE checkpoints can be only a few IOP cycles apart;
+                // do not rescan the same sleeping threads at each checkpoint.
+                if (idleUntil > totalCycles)
+                {
+                    totalCycles = std::min(target, idleUntil);
+                    if (totalCycles == target) return;
+                }
                 while (totalCycles < target)
                 {
                     serviceAudio();
@@ -591,16 +602,18 @@ namespace ps2x::iop::detail
                     IopThread *next = kernel.beginNextReady(totalCycles);
                     if (!next)
                     {
-                        uint64_t nextWake = kernel.nextWakeCycle(target);
+                        uint64_t nextWake = kernel.nextWakeCycle(std::numeric_limits<uint64_t>::max());
                         for (const auto &[irq, completionCycle] : pendingDmaInterrupts)
                             nextWake = std::min(nextWake, completionCycle);
                         if (!pendingGuestCallbacks.empty())
                             nextWake = std::min(nextWake, pendingGuestCallbacks.begin()->first);
                         nextWake = timrman.nextEventCycle(nextWake);
                         nextWake = std::min(nextWake, memory.nextAudioCycle());
-                        totalCycles = std::max(totalCycles + 1u, std::min(target, nextWake));
+                        idleUntil = std::max(totalCycles + 1u, nextWake);
+                        totalCycles = std::min(target, idleUntil);
                         continue;
                     }
+                    idleUntil = 0;
                     const uint64_t before = totalCycles;
                     runCpu(next->cpu, static_cast<uint32_t>(std::min<uint64_t>(kDefaultSlice, target - totalCycles)));
                     kernel.endTimeslice(*next, kThreadReturnSentinel);
@@ -726,6 +739,7 @@ namespace ps2x::iop::detail
         uint32_t nextModuleId = 1;
         uint32_t moduleCursor = kModuleLoadBase;
         uint64_t totalCycles = 0;
+        uint64_t idleUntil = 0;
         uint64_t totalInstructions = 0;
         cave::ps2::IopProfile profile;
         uint64_t eeCycleCarry = 0;
@@ -765,6 +779,7 @@ namespace ps2x::iop::detail
 
     bool IopEmulator::stopModule(int32_t moduleId, int32_t *result)
     {
+        m_impl->idleUntil = 0;
         return m_impl->stopModule(moduleId, result);
     }
 
@@ -784,6 +799,7 @@ namespace ps2x::iop::detail
 
     RpcResult IopEmulator::handleRpc(const RpcRequest &request)
     {
+        m_impl->idleUntil = 0;
         return m_impl->rpc.handleRpc(request, *m_impl);
     }
 
@@ -794,6 +810,7 @@ namespace ps2x::iop::detail
 
     void IopEmulator::onSifTransfer(const SifTransfer &transfer)
     {
+        m_impl->idleUntil = 0;
         m_impl->rpc.onSifTransfer(transfer);
     }
 
@@ -815,12 +832,14 @@ namespace ps2x::iop::detail
 
     bool IopEmulator::writeMemory(uint32_t address, const void *source, size_t size)
     {
+        m_impl->idleUntil = 0;
         return isMemoryRange(address, size) &&
                m_impl->memory.writeRam(address, source, size);
     }
 
     bool IopEmulator::zeroMemory(uint32_t address, size_t size)
     {
+        m_impl->idleUntil = 0;
         return isMemoryRange(address, size) &&
                m_impl->memory.zeroRam(address, size);
     }

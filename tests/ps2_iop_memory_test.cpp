@@ -101,10 +101,12 @@ void AudioBridge() {
 }
 }
 #include "ps2_iop_audio_fixture.h"
-int main() {
+int main(int argc,char** argv) {
     try {
+        if(argc==2 && std::string_view(argv[1])=="--bench-idle") { IopIdleContract(true); return 0; }
         AudioBridge();
         AudioInsideGuestCall();
+        IopIdleContract();
         IopMemory memory;
         const auto capacity=IopMemory::HeapLimit-IopMemory::HeapBase;
         const auto first=memory.allocate(262144,64);
