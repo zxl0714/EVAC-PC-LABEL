@@ -240,19 +240,27 @@ std::string Details(const Inspection& inspection) {
 }
 struct Layout {
   float width{},height{},scroll{};
+  bool covers=false;
   bool narrow() const {return width<800;}
   float margin() const {return std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
   float header() const {return cave::launcher::kHeaderHeight;}
   float footer() const {return height-cave::launcher::kFooterHeight;}
   float row_height() const {
+    if(covers)return cover_width()*4.f/3.f+65.f;
     const auto count=float(Catalogue().size());
     return std::clamp((viewport_height()-cave::launcher::kCardGap*(count-1))/count,
                       float(cave::launcher::kMinimumCardHeight),180.f);
   }
   float viewport_height() const {return std::max(0.f,footer()-header());}
-  float content_height() const {return float(Catalogue().size())*(row_height()+12)-12;}
+  size_t columns() const {return covers?std::clamp(size_t(std::max(0.f,width-2*margin()+18)/194.f),size_t(1),size_t(6)):1;}
+  float cover_width() const {return std::max(1.f,(width-2*margin()-18.f*float(columns()-1))/float(columns()));}
+  float content_height() const {return float((Catalogue().size()+columns()-1)/columns())*(row_height()+12)-12;}
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
-  D2D1_RECT_F card(size_t index) const {const auto top=header()+float(index)*(row_height()+12)-scroll;return {margin(),top,width-margin(),top+row_height()};}
+  D2D1_RECT_F card(size_t index) const {
+    const auto top=header()+float(index/columns())*(row_height()+12)-scroll;
+    const auto left=margin()+(covers?float(index%columns())*(cover_width()+18):0);
+    return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
+  }
   D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
   D2D1_RECT_F config() const {return {margin()+185,height-45,margin()+283,height-14};}
   D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+361,height-14};}
@@ -293,7 +301,7 @@ class Renderer {
     Check(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&wic)),"Create image factory");
   }
   void Text(ID2D1RenderTarget* target,std::wstring_view value,D2D1_RECT_F rectangle,float size,UINT32 color,
-            DWRITE_TEXT_ALIGNMENT align=DWRITE_TEXT_ALIGNMENT_LEADING) {
+            DWRITE_TEXT_ALIGNMENT align=DWRITE_TEXT_ALIGNMENT_LEADING,bool wrap=false) {
     auto found=formats.find(size);
     if(found==formats.end()) {
       ComPtr<IDWriteTextFormat> format;
@@ -303,6 +311,7 @@ class Renderer {
       found=formats.emplace(size,std::move(format)).first;
     }
     auto format=found->second;format->SetTextAlignment(align);
+    format->SetWordWrapping(wrap?DWRITE_WORD_WRAPPING_WRAP:DWRITE_WORD_WRAPPING_NO_WRAP);
     ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&brush),"Create text brush");
     target->DrawText(value.data(),UINT32(value.size()),format.Get(),rectangle,brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
@@ -413,6 +422,31 @@ class Renderer {
       auto round=D2D1::RoundedRect(rectangle,13,13);target->FillRoundedRectangle(round,background.Get());
       ComPtr<ID2D1RoundedRectangleGeometry> clip;Check(factory->CreateRoundedRectangleGeometry(round,&clip),"Create card clip");
       target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
+      if(layout.covers) {
+        const D2D1_RECT_F art{rectangle.left+7,rectangle.top+7,rectangle.right-7,rectangle.bottom-63};
+        auto bitmap=Image(target,index,muted);const auto size=bitmap->GetSize();
+        const float scale=std::max((art.right-art.left)/size.width,(art.bottom-art.top)/size.height);
+        const float x=art.left-((size.width*scale)-(art.right-art.left))*.5f;
+        const float y=art.top-((size.height*scale)-(art.bottom-art.top))*cave::launcher::kArtwork[index].focus_y;
+        target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+        target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
+            soon?.26f:(missing?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+        target->PopAxisAlignedClip();
+        if(soon) {
+          ComPtr<ID2D1SolidColorBrush> shade;
+          Check(target->CreateSolidColorBrush(D2D1::ColorF(0xf3f4f0,.87f),&shade),"Create future-cover label");
+          const D2D1_RECT_F label{art.left,art.bottom-29,art.right,art.bottom};
+          target->FillRectangle(label,shade.Get());
+          Text(target,T(L"敬请期待"),{label.left+10,label.top+6,label.right-10,label.bottom},11,0x647168);
+        }
+        const auto left=rectangle.left+10;
+        Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-57,rectangle.right-10,rectangle.bottom-20},
+            13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
+        Text(target,Wide(game.name),{left,rectangle.bottom-19,rectangle.right-10,rectangle.bottom-4},10,0x748179);
+        target->PopLayer();
+        target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
+        continue;
+      }
       const float art_width=(rectangle.right-rectangle.left)*(layout.narrow()?.61f:.66f);
       const D2D1_RECT_F art{rectangle.right-art_width,rectangle.top,rectangle.right,rectangle.bottom};
       auto bitmap=Image(target,index,muted);const auto size=bitmap->GetSize();
@@ -490,6 +524,7 @@ class App {
   explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
     const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
     selected=cave::launcher::InitialSelection(ini,options.selection);
+    layout.covers=cave::launcher::CoverLayout(ini);
     language=options.language.value_or(cave::launcher::ReadLanguage(ini));
     message=T(L"正在检测游戏数据…");
   }
@@ -923,8 +958,18 @@ class App {
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
         case WM_KEYDOWN:
-          if((first==VK_UP || first==VK_NUMPAD8) && app->selected){app->Select(app->selected-1);}
-          else if((first==VK_DOWN || first==VK_NUMPAD2) && app->selected+1<app->rows.size()){app->Select(app->selected+1);}
+          if(first==VK_UP || first==VK_NUMPAD8) {
+            const auto step=app->layout.columns();
+            if(app->selected>=step)app->Select(app->selected-step);
+          }
+          else if(first==VK_DOWN || first==VK_NUMPAD2) {
+            const auto next=std::min(app->selected+app->layout.columns(),app->rows.size()-1);
+            if(next!=app->selected)app->Select(next);
+          }
+          else if(app->layout.covers && first==VK_LEFT && app->selected)app->Select(app->selected-1);
+          else if(app->layout.covers && first==VK_RIGHT && app->selected+1<app->rows.size())app->Select(app->selected+1);
+          else if(first==VK_HOME)app->Select(0);
+          else if(first==VK_END)app->Select(app->rows.size()-1);
           else if(first==VK_RETURN || first==VK_SPACE) {
             if(app->focus>=4) {
               if(app->focus>=10) {app->SelectLanguage(size_t(app->focus-10));return 0;}
@@ -1011,8 +1056,10 @@ void Preview(const Options& options) {
   auto rows=InspectRows(options.root,selected);
   if(options.selection.empty()) {
     rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
+    rows[0].inspection.data_state=DataState::Missing;rows[1].inspection.data_state=DataState::Verified;
   }
   Layout layout{1080,900,0};
+  layout.covers=cave::launcher::CoverLayout(Ini::Load(EnsureConfig(options.root)));
   layout.scroll=std::clamp(layout.card(selected).bottom-layout.footer(),0.f,layout.max_scroll());
   const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
   target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true);Check(target->EndDraw(),"Render preview");

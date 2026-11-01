@@ -8,6 +8,7 @@
 #include "launcher/strings.h"
 #include "launcher/nickname.h"
 #include "launcher/data_state.h"
+#include "launcher/preferences.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -475,6 +476,11 @@ void ContentChecks(Fixture& fixture) {
 }  // namespace
 int main() {
   try {
+    Require(!launcher::CoverLayout(Ini::Parse("")),"Default launcher layout must stay banner");
+    Require(launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=covers\n")),"Internal cover layout was not selected");
+    Require(!launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=banner\n")),"Banner layout was not retained");
+    Reject([] {launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=unknown\n"));},"Unknown launcher layout accepted");
+
     NicknameChecks();
     Fixture fixture;
     MigrationChecks();

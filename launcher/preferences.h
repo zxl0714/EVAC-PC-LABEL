@@ -5,6 +5,12 @@
 #include <stdexcept>
 
 namespace cave::launcher {
+inline bool CoverLayout(const Ini& ini) {
+  const auto value=ini.Get("collection","launcher_layout");
+  if(!value || value->text=="banner")return false;
+  if(value->text=="covers")return true;
+  throw std::runtime_error("[collection].launcher_layout must be banner or covers");
+}
 inline std::size_t InitialSelection(const Ini& ini,std::string_view explicit_choice={}) {
   const auto stored=ini.Get("collection","selected_game");
   const auto choice=explicit_choice.empty()?(stored?std::string_view(stored->text):std::string_view{}):explicit_choice;
