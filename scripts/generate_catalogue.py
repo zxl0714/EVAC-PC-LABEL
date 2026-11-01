@@ -92,7 +92,7 @@ def load(path):
         if identifier in identifiers:
             raise ValueError('Game identifiers collide after compilation')
         identifiers.add(identifier)
-        if game['backend'] not in ('xbox360', 'ps4', 'undetermined'):
+        if game['backend'] not in ('xbox360', 'ps4', 'ps2', 'undetermined'):
             raise ValueError('Invalid backend')
         if not isinstance(game['name'], str) or not game['name'] or any(ord(c) < 32 for c in game['name']):
             raise ValueError('Invalid display name')

@@ -180,6 +180,32 @@
         "runtime/ps4/KetsuiGpuRuntime.dll",
         "runtime/games/garegga/runtime-manifest.ini"
       ]
+    },
+    {
+      "id": "espgaluda",
+      "name": "ESPGaluda",
+      "nameJapanese": "エスプガルーダ",
+      "backend": "ps2",
+      "integrated": false,
+      "comingSoon": false,
+      "communitySupported": false,
+      "dataDirectory": "game-data/espgaluda",
+      "dataManifest": "",
+      "executable": "runtime/ps2/espgaluda.exe",
+      "runtimeFiles": []
+    },
+    {
+      "id": "ibara",
+      "name": "Ibara",
+      "nameJapanese": "鋳薔薇",
+      "backend": "ps2",
+      "integrated": false,
+      "comingSoon": true,
+      "communitySupported": false,
+      "dataDirectory": "game-data/ibara",
+      "dataManifest": "",
+      "executable": "runtime/ps2/ibara.exe",
+      "runtimeFiles": []
     }
   ]
 }
