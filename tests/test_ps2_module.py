@@ -91,6 +91,17 @@ class Ps2ModuleTests(unittest.TestCase):
         declaration['bootCallRanges']=[['0x200000','0x200008']]
         with self.assertRaises(ValueError):module_roots(boot,module,declaration)
 
+    def test_boot_data_callback_table_seeds_code_without_touching_original_bytes(self):
+        boot_data=fixture();struct.pack_into('<I',boot_data,8,0x100000)
+        struct.pack_into('<4I',boot_data,96,0x730844,0x73085c,0,0x730860)
+        boot=analysis_elf(boot_data,0x100040);original=bytes(boot)
+        declaration={'entry':'0x730840','bootCallbackTables':[['0x100060','0x100070']]}
+        module=inspect(fixture())
+        self.assertEqual(module_roots(boot,module,declaration),[0x730840,0x730844,0x73085c])
+        self.assertEqual(boot,original)
+        declaration['bootCallbackTables']=[['0x200000','0x200004']]
+        with self.assertRaises(ValueError):module_roots(boot,module,declaration)
+
 
 if __name__ == '__main__':
     unittest.main()

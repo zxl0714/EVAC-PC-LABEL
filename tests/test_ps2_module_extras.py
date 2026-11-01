@@ -104,23 +104,25 @@ class Ps2ModuleExtrasTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'already be linked'):prepare(manifest,root/'output')
 
     def test_fixed_branch_uses_active_mode_and_reports_missing_function_before_build(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root=Path(temporary);manifest=self.fixture(root)
-            module=json.loads(manifest.read_text());module.pop('format')
-            alternate=root/'arrange';alternate.mkdir()
-            (alternate/'register_functions.cpp').write_text(
-                (root/'base/register_functions.cpp').read_text()+
-                'g_ps2RecompiledFunctionTable[12] = alternate; // 0x7308b0\n')
-            (root/'extra/fresh_0x730890.cpp').write_text(
-                'runtime->dispatchGuestBranch(rdram, ctx, 0x7308b0u, 0x730890u, 0x730898u);')
-            spec=dict(format=1,checkLinks=True,modules=[dict(module,id=0),dict(module,id=16),
-                      dict(module,id=17,base=str(alternate))])
-            gaps=fixed_branch_gaps(spec)
-            self.assertEqual([(g['module'],g['target']) for g in gaps],[(16,0x7308b0)])
-            manifest.write_text(json.dumps(spec))
-            with self.assertRaisesRegex(ValueError,'module 16:0x7308b0'):
-                prepare(manifest,root/'output')
-            self.assertFalse((root/'output').exists())
+        for body in (
+            'runtime->dispatchGuestBranch(rdram, ctx, 0x7308b0u, 0x730890u, 0x730898u);',
+            'if (taken) {ctx->pc = 0x7308B0u;\n return;}'):
+            with self.subTest(body=body),tempfile.TemporaryDirectory() as temporary:
+                root=Path(temporary);manifest=self.fixture(root)
+                module=json.loads(manifest.read_text());module.pop('format')
+                alternate=root/'arrange';alternate.mkdir()
+                (alternate/'register_functions.cpp').write_text(
+                    (root/'base/register_functions.cpp').read_text()+
+                    'g_ps2RecompiledFunctionTable[12] = alternate; // 0x7308b0\n')
+                (root/'extra/fresh_0x730890.cpp').write_text(body)
+                spec=dict(format=1,checkLinks=True,modules=[dict(module,id=0),dict(module,id=16),
+                          dict(module,id=17,base=str(alternate))])
+                gaps=fixed_branch_gaps(spec)
+                self.assertEqual([(g['module'],g['target']) for g in gaps],[(16,0x7308b0)])
+                manifest.write_text(json.dumps(spec))
+                with self.assertRaisesRegex(ValueError,'module 16:0x7308b0'):
+                    prepare(manifest,root/'output')
+                self.assertFalse((root/'output').exists())
 
     def test_stage_fixed_calls_cannot_use_the_other_mode(self):
         with tempfile.TemporaryDirectory() as temporary:

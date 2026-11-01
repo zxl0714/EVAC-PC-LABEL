@@ -104,6 +104,21 @@ def module_roots(boot, module, declaration):
                 target=((pc+4)&0xf0000000)|((word&0x3ffffff)<<2)
                 if module.address+64<=target<module.address+64+module.text_size:
                     roots.add(target)
+    # Overlay callbacks can live in the boot program's data, rather than in
+    # the overlay itself. Read only reviewed tables for the active module.
+    for low,high in declaration.get('bootCallbackTables',[]):
+        low,high=int(low,0),int(high,0)
+        if low&3 or high&3 or high<=low or high-low>0x10000:
+            raise ValueError('Invalid boot callback table')
+        for address in range(low,high,4):
+            segment=next((s for s in segments if int(s['address'],16)<=address<=
+                          int(s['address'],16)+s['fileSize']-4),None)
+            if segment is None:
+                raise ValueError('Callback table is outside initialized boot data')
+            offset=segment['offset']+address-int(segment['address'],16)
+            target=struct.unpack_from('<I',boot,offset)[0]
+            if module.address+64<=target<module.address+64+module.text_size:
+                roots.add(target)
     if any(root & 3 or not module.address+64<=root<module.address+64+module.text_size for root in roots):
         raise ValueError('Declared initializer is outside module text')
     return sorted(roots)

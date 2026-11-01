@@ -14,6 +14,16 @@ def table_entries(path):
     return {int(pc,16):name for name,pc in re.findall(pattern,text)}
 
 
+def guest_branch_targets(source):
+    targets={int(pc,16) for pc in re.findall(
+        r'dispatchGuestBranch\(rdram, ctx, 0x([0-9a-fA-F]+)u,',source)}
+    # A branch beyond this translated block returns the destination PC to the
+    # EE scheduler instead of calling dispatchGuestBranch. It still needs code.
+    targets.update(int(pc,16) for pc in re.findall(
+        r'ctx->pc\s*=\s*0x([0-9a-fA-F]+)u;\s*return;',source))
+    return targets
+
+
 def retain_return_slots(spec, original, entries, base, generated, rows, previous, receipt):
     """Reuse explicitly reviewed, identical leaf-return continuations only."""
     retained={int(pc,0) for pc in spec.get('retainedReturnSlots',[])}
@@ -64,8 +74,7 @@ def fixed_branch_gaps(spec):
         elif 1<=number<=15:
             allowed=inventories[0]|inventories[number]|inventories[17 if number<=8 else 16]
         for source in sources:
-            targets={int(pc,16) for pc in re.findall(
-                r'dispatchGuestBranch\(rdram, ctx, 0x([0-9a-fA-F]+)u,',source.read_text(encoding='utf-8'))}
+            targets=guest_branch_targets(source.read_text(encoding='utf-8'))
             for pc in sorted(targets-allowed):
                 if pc>=0x100000:gaps.append(dict(module=number,target=pc,source=source.stem))
     return gaps
