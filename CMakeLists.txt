@@ -36,7 +36,7 @@ option(CAVE_BUILD_LAUNCHER "Build the native collection launcher" ON)
 if(CAVE_BUILD_LAUNCHER)
   add_subdirectory(launcher)
   enable_language(RC)
-  file(GLOB LAUNCHER_ART CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/launcher/assets/*")
+  file(GLOB_RECURSE LAUNCHER_ART CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/launcher/assets/*")
   file(GLOB LAUNCHER_BRAND CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/launcher/branding/*")
   list(APPEND LAUNCHER_ART ${LAUNCHER_BRAND})
   add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc"

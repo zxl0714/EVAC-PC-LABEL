@@ -325,10 +325,11 @@ class Renderer {
     const auto rounded=D2D1::RoundedRect(rectangle,8,8);target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
-  ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false) {
+  ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false,bool cover=false) {
     SelectTarget(target);
-    auto& bitmap=grey?grey_bitmaps[index]:bitmaps[index];
-    if(!bitmap)bitmap=DecodeImage(target,cave::launcher::kArtwork[index].resource,grey);
+    auto& bitmap=cover?(grey?grey_covers[index]:covers[index]):(grey?grey_bitmaps[index]:bitmaps[index]);
+    const auto& artwork=cover?cave::launcher::kCoverArtwork[index]:cave::launcher::kArtwork[index];
+    if(!bitmap)bitmap=DecodeImage(target,artwork.resource,grey);
     return bitmap.Get();
   }
   ID2D1Bitmap* Logo(ID2D1RenderTarget* target) {
@@ -340,6 +341,8 @@ class Renderer {
     if(last_target!=target) {
       for(auto& bitmap:bitmaps)bitmap.Reset();
       for(auto& bitmap:grey_bitmaps)bitmap.Reset();
+      for(auto& bitmap:covers)bitmap.Reset();
+      for(auto& bitmap:grey_covers)bitmap.Reset();
       logo.Reset();last_target=target;
     }
   }
@@ -425,10 +428,12 @@ class Renderer {
       target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
       if(layout.covers) {
         const D2D1_RECT_F art{rectangle.left+7,rectangle.top+7,rectangle.right-7,rectangle.bottom-63};
-        auto bitmap=Image(target,index,muted);const auto size=bitmap->GetSize();
-        const float scale=std::max((art.right-art.left)/size.width,(art.bottom-art.top)/size.height);
+        auto bitmap=Image(target,index,muted,true);const auto size=bitmap->GetSize();
+        const auto& artwork=cave::launcher::kCoverArtwork[index];
+        const float scale=artwork.contain?std::min((art.right-art.left)/size.width,(art.bottom-art.top)/size.height):
+                                          std::max((art.right-art.left)/size.width,(art.bottom-art.top)/size.height);
         const float x=art.left-((size.width*scale)-(art.right-art.left))*.5f;
-        const float y=art.top-((size.height*scale)-(art.bottom-art.top))*cave::launcher::kArtwork[index].focus_y;
+        const float y=art.top-((size.height*scale)-(art.bottom-art.top))*artwork.focus_y;
         target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
         target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
             soon?.26f:(missing?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
@@ -506,6 +511,7 @@ class Renderer {
   std::map<float,ComPtr<IDWriteTextFormat>> formats;
   std::array<ComPtr<ID2D1Bitmap>,cave::launcher::kArtwork.size()> bitmaps;
   std::array<ComPtr<ID2D1Bitmap>,cave::launcher::kArtwork.size()> grey_bitmaps;
+  std::array<ComPtr<ID2D1Bitmap>,cave::launcher::kArtwork.size()> covers,grey_covers;
   ComPtr<ID2D1Bitmap> logo;
   ID2D1RenderTarget* last_target{};
 };

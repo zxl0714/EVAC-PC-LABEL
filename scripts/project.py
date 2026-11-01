@@ -65,7 +65,7 @@ def audit_source(root=ROOT):
     if actual_links != expected_links:
         raise ValueError('SDK dependency index differs from its source lock')
     from generate_artwork import artwork, branding
-    art={entry['path'] for entry in artwork(root)}
+    art={entry['path'] for entry in [*artwork(root),*artwork(root,'covers')]}
     brand={entry['path'] for entry in branding(root)}
     from ps2_game import analysis_sources
     analysis=analysis_sources(root)

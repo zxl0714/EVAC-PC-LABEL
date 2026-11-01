@@ -70,7 +70,7 @@ def branding(root):
     return entries
 
 
-def artwork(root):
+def artwork(root, kind='assets'):
     root=Path(root).resolve()
     manifest=root/'launcher/artwork.json'
     if not manifest.exists():
@@ -78,10 +78,14 @@ def artwork(root):
     value=read_json(manifest)
     if type(value['format']) is not int or value['format']!=1:
         raise ValueError('Unsupported artwork manifest')
-    entries=value['assets']
+    if kind not in ('assets','covers'):
+        raise ValueError('Unknown artwork set')
+    entries=value.get(kind,[])
+    if kind=='covers' and not entries:
+        return []
     games=[game['id'] for game in load(root/'games/catalogue.json')]
     if [entry['game'] for entry in entries]!=games:
-        raise ValueError('Each catalogue game needs one authored banner')
+        raise ValueError('Each catalogue game needs one authored image in '+kind)
     paths,resources=set(),set()
     for entry in entries:
         name=relative(entry['path'])
@@ -125,6 +129,9 @@ def windows_version(version):
 
 def generate(root, destination):
     entries=artwork(root)
+    covers=artwork(root,'covers')
+    if covers and {e['resource'] for e in covers}&{e['resource'] for e in entries}:
+        raise ValueError('Cover and banner resources must be distinct')
     if not entries:
         raise ValueError('No artwork manifest')
     destination=Path(destination)
@@ -154,6 +161,15 @@ def generate(root, destination):
                       ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')
         resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
     header+=['}};']
+    if covers:
+        header+=['inline constexpr std::array<Artwork,'+str(len(covers))+'> kCoverArtwork{{']
+        for entry in covers:
+            header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
+                          ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')
+            resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
+        header+=['}};']
+    else:
+        header+=['inline constexpr auto kCoverArtwork=kArtwork;']
     brand=branding(root)
     if brand:
         header+=['inline constexpr unsigned kBrandLogoResource=201;',
