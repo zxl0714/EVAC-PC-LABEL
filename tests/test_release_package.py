@@ -637,6 +637,36 @@ class ReleaseTests(unittest.TestCase):
             self.assertFalse((directory/'source').exists())
         self.check_build_flavors('0.8.3', check)
 
+    def test_v090_ps2_iso_and_runtime_are_scoped_to_the_selected_flavor(self):
+        self.assertEqual(release.release_games('0.9.0'), release.V09_GAMES)
+        self.assertEqual(release.release_games('0.8.4'), release.V083_GAMES)
+        self.assertEqual(len(release.placement_sources('0.9.0')), 11)
+        self.assertNotIn('ibara', release.release_games('0.9.0'))
+        def check(root, games, commit, inspect):
+            public=release.build('Public','0.9.0',root/'releases/program')
+            inspect.assert_not_called()
+            internal=release.build('Internal','0.9.0',root/'releases/internal',data_games=['espgaluda'])
+            self.assertEqual([call.args[1] for call in inspect.call_args_list],['espgaluda'])
+            for result, included in ((public,False),(internal,True)):
+                directory=Path(result['directory'])
+                record=release.verify_tree(directory,games)
+                self.assertEqual(record['dataGames'],['espgaluda'] if included else [])
+                self.assertTrue((directory/'runtime/ps2/espgaluda.exe').is_file())
+                self.assertTrue((directory/'runtime/ps2/SDL3.dll').is_file())
+                self.assertTrue((directory/'game-data/espgaluda/README.txt').is_file())
+                self.assertTrue((directory/'game-data/ibara/README.txt').is_file())
+                self.assertEqual((directory/'game-data/espgaluda/disc.iso').is_file(),included)
+                for name in ('inner-boot','main.bin','original.iso'):
+                    self.assertFalse((directory/'game-data/espgaluda'/name).exists())
+                self.assertFalse((directory/'runtime/ps2/ibara.exe').exists())
+                self.assertFalse((directory/'source').exists())
+                self.assertFalse((directory/'user-data').exists())
+                self.assertFalse(list(directory.rglob('*.pdb')))
+                with zipfile.ZipFile(result['archive']) as zipped:
+                    self.assertTrue(all(name.isascii() for name in zipped.namelist()))
+            self.assertEqual((root/'game-data/espgaluda/original.iso').read_bytes(),b'abc')
+        self.check_build_flavors('0.9.0',check)
+
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
         (base/'asset.bin').write_bytes(b'abc')
@@ -714,7 +744,7 @@ class ReleaseTests(unittest.TestCase):
         next(game for game in games if game['id']=='guwange')['communitySupported']=False
         with patch.object(release,'load',return_value=games), \
                 patch.object(release,'certified_runtime',side_effect=AssertionError('Must reject before build reads')):
-            with self.assertRaisesRegex(ValueError,'integrated with community support'):
+            with self.assertRaises(ValueError):
                 release.build('Public','0.7',self.root/'never-created')
         self.assertFalse((self.root/'never-created').exists())
 
@@ -853,11 +883,12 @@ class ReleaseTests(unittest.TestCase):
                 'config/README.player-v06.txt':'authored v06 instructions',
                 'config/README.player-v07.txt':'authored v07 instructions',
                 'config/README.player-v08.txt':'authored v08 instructions',
+                'config/README.player-v09.txt':'authored v09 instructions',
                 'scripts/Extract-Ps4Pkg.ps1':'# authored helper\n',
                 'scripts/Extract-Xbla.ps1':'# authored XBLA helper\n',
                 'scripts/Extract-Dlc.ps1':'# authored DLC helper\n',
                 'Launch.bat':'@echo off\nstart "" "%~dp0EVAC PC LABEL.exe" %*\n', 'launcher/artwork.json':'{}',
-                'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}'}
+                'tools/sdk-source.lock.json':'{}', 'tools/ps4-source.lock.json':'{}', 'tools/ps2-source.lock.json':'{}'}
         if release.has_ps4_extractor(version):
             dependencies = {name: 'authored ' + name for name in ('PkgTool.exe', 'LibOrbisPkg.dll', 'LICENSE.txt')}
             text.update({'tools/apps/pkgtool-fixture/' + name: value for name, value in dependencies.items()})
@@ -882,6 +913,11 @@ class ReleaseTests(unittest.TestCase):
         games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
             'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
+        if 'espgaluda' in games:
+            games['espgaluda'].update(backend='ps2', files=[dict(identity,path='inner-boot',program=True),
+                                                         dict(identity,path='disc.iso',program=False)])
+            games['espgaluda']['runtimeFiles'][0]='runtime/ps2/espgaluda.exe'
+            games['espgaluda']['runtimeFiles'].append('runtime/ps2/SDL3.dll')
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
         for name in release.runtime_names(games,True,selection,version):
@@ -893,9 +929,12 @@ class ReleaseTests(unittest.TestCase):
         for key,game in games.items():
             name=game['runtimeFiles'][0];base=release.certified_name(name)
             (root/game['runtimeFiles'][1]).parent.mkdir(parents=True,exist_ok=True)
+            file_lines=''.join(path+'='+certified[release.certified_name(path)]['sha256']+'\n'
+                               for path in game['runtimeFiles'] if not path.endswith('.ini'))
             (root/game['runtimeFiles'][1]).write_text('[runtime]\ncontract=1\ngame='+key+'\nsource_commit='+commit+
-                '\n[files]\n'+name+'='+certified[base]['sha256']+'\n',encoding='utf-8')
+                '\n[files]\n'+file_lines,encoding='utf-8')
             data=root/'game-data'/key;data.mkdir(parents=True);(data/'main.bin').write_bytes(b'abc')
+            if key=='espgaluda':(data/'original.iso').write_bytes(b'abc')
             if key in ('daioujou', 'esprade', 'feveron'):
                 (data/'Project.gp4').write_bytes(b'authored packaging-only file')
         (root/'dlc').mkdir();(root/'dlc/fixture-dlc.bin').write_bytes(b'abc')
@@ -903,7 +942,8 @@ class ReleaseTests(unittest.TestCase):
         for name in ('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','msvcp140_atomic_wait.dll'):
             (crt/name).write_bytes(b'authored CRT fixture')
         def inspected(executable,key,data=None):
-            return dict(dataDirectory=str(root/'game-data'/key),contentDirectory=str(root/'dlc'))
+            return dict(dataDirectory=str(root/'game-data'/key),contentDirectory=str(root/'dlc'),
+                        discImage=str(root/'game-data'/key/'original.iso'))
         receipts={key:dict(sourceSnapshot=dict(sha256='fixture')) for key in ('launcher','ps4','xbox360')}
         with patch.object(release,'ROOT',root),patch.object(release,'catalogue',return_value=games), \
                 patch.object(release,'certified_runtime',return_value=(commit,receipts,certified)), \

@@ -1,0 +1,38 @@
+EVAC PC LABEL -- PS2 components
+
+PS2Recomp / ps2xRuntime
+https://github.com/ran-j/PS2Recomp
+GNU General Public License version 3. Maintained changes are under
+third_party/ps2/runtime/ and third_party/ps2/recomp/ in the corresponding source.
+License: runtime/LICENSE and recomp/LICENSE in this directory.
+
+Play! SPU and Play! Framework
+https://github.com/jpd002/Play-
+https://github.com/jpd002/Play--Framework
+Copyright Jean-Philip Desjardins. BSD license texts:
+spu/LICENSE_PLAY.txt and spu/LICENSE_FRAMEWORK.txt.
+
+paraLLEl-GS
+https://github.com/Arntzen-software/parallel-gs
+GNU Lesser General Public License version 3.
+License: licenses/.deps/ps2/ParallelGS/COPYING.LGPLv3.
+
+Granite
+https://github.com/Themaister/Granite
+Copyright Hans-Kristian Arntzen. MIT license:
+licenses/.deps/ps2/GraniteGS/LICENSE.
+
+Volk and Vulkan-Headers
+https://github.com/zeux/volk
+https://github.com/KhronosGroup/Vulkan-Headers
+License texts are included under licenses/.deps/ps2/VolkGS/ and VulkanHeadersGS/.
+
+SDL 3 and raylib/miniaudio
+https://github.com/libsdl-org/SDL
+https://github.com/raysan5/raylib
+License texts are included under licenses/.deps/ps2/SDL/ and raylib/.
+raylib's bundled dependency notices are retained in its corresponding source.
+
+Exact dependency revisions: licenses/ps2-sources.json.
+Corresponding maintained source and build instructions: SOURCE.txt and
+docs/PS2_DEVELOPMENT.md in the referenced source checkout.

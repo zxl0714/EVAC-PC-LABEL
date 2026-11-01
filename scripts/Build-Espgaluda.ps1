@@ -5,11 +5,18 @@ param([ValidateRange(1,8)][int]$Jobs=2,[string]$DataDirectory,[switch]$NativeOnl
 Initialize-CollectionBuildEnvironment
 $cmake=Get-CollectionTool 'cmake'
 $taskBuild=Join-Path $CollectionRoot 'out/ps2-tools'
+function Invoke-CertifiedEspgaludaBuild {
+    $taskReceiptState=Join-Path $CollectionRoot ('.local/build-inputs/ps2-'+[guid]::NewGuid().ToString('N')+'.json')
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskReceiptState)
+    Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_espgaluda_probe','--parallel',"$Jobs")
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskReceiptState)
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'stage_ps2.py'))
+}
 if($NativeOnly) {
     if(-not (Test-Path -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt'))) {
         throw 'Build ESPGaluda once before using -NativeOnly'
     }
-    Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_espgaluda_probe','--parallel',"$Jobs")
+    Invoke-CertifiedEspgaludaBuild
     return
 }
 if(-not $DataDirectory){$DataDirectory=Join-Path $CollectionRoot 'game-data/espgaluda'}
@@ -33,7 +40,7 @@ if($LASTEXITCODE){throw 'ESPGaluda code generation failed'}
 $inputs=($inputs -join "`n") | ConvertFrom-Json
 $taskExpected=@{PS2_GAME_GENERATED=$inputs.boot;PS2_ARCADE_GENERATED=$inputs.arcade;
     PS2_ARRANGE_GENERATED=$inputs.arrange;PS2_STAGE_MODULES_MANIFEST=$inputs.stages;
-    PS2_MODE_EXTRAS_MANIFEST=$inputs.extras;PS2_GAME_SYMBOLS='ON'}
+    PS2_MODE_EXTRAS_MANIFEST=$inputs.extras;PS2_GAME_SYMBOLS='ON';PS2_RUNTIME_THINLTO='ON'}
 $taskCache=@{}
 foreach($line in Get-Content -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt')) {
     if($line -match '^([^/#][^:]*):[^=]+=(.*)$'){$taskCache[$Matches[1]]=$Matches[2]}
@@ -46,7 +53,7 @@ foreach($key in $taskExpected.Keys){
 if($taskSame){
     # Ninja tracks CMake sources and copied headers itself. Reuse its current
     # graph when the reviewed generated input set has not changed.
-    Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_espgaluda_probe','--parallel',"$Jobs")
+    Invoke-CertifiedEspgaludaBuild
 } else {
     & (Join-Path $PSScriptRoot 'Build-Ps2.ps1') -Jobs $Jobs -ProbeGenerated $inputs.boot `
         -ArcadeGenerated $inputs.arcade -ArrangeGenerated $inputs.arrange `

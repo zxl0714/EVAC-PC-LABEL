@@ -24,6 +24,12 @@ can use the existing generated inputs:
 ./scripts/Build-Espgaluda.ps1 -NativeOnly
 ```
 
+The normal build certifies its source, toolchain, locked dependencies and
+generated input set, checks both EXE/DLL against their matching PDBs, then stages
+the player files under `runtime/ps2/`. The private symbols remain available for
+debugging; player packages omit them. The certificate is
+`out/ps2/build-receipt.json`.
+
 ## Source layout
 
 | Location | Purpose |
@@ -36,6 +42,7 @@ can use the existing generated inputs:
 | `tools/ps2/` | Shared runtime and game CMake targets |
 | `.local/ps2/espgaluda/` | Fingerprinted ISO analysis and generated build inputs |
 | `out/ps2-tools/` | Compiled tools, runtime libraries, EXE and matching PDB |
+| `scripts/ps2_build_receipt.py`, `scripts/stage_ps2.py` | Build certification and player runtime staging |
 
 The analysis maps contain names and addresses. Game code is generated locally
 from the supplied ISO. Changing a supported image or a callback table starts

@@ -16,6 +16,7 @@ from generate_catalogue import load, relative
 from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from ps4_build_receipt import verify as verify_ps4
+from ps2_build_receipt import verify as verify_ps2
 import ps4_extract_tools
 from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
 
@@ -26,7 +27,8 @@ V06_GAMES = (*V03_GAMES, 'esprade')
 V07_GAMES = (*V06_GAMES, 'guwange')
 V08_GAMES = (*V07_GAMES, 'feveron')
 V083_GAMES = (*V08_GAMES, 'garegga')
-PLACEMENT_GAMES = V083_GAMES
+V09_GAMES = (*V083_GAMES, 'espgaluda')
+PLACEMENT_GAMES = (*V09_GAMES, 'ibara')
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
@@ -76,14 +78,16 @@ def release_games(version):
     if (major, minor) == (0, 8):
         parts=version.split('-',1)[0].split('.')
         return V083_GAMES if len(parts)>2 and int(parts[2])>=3 else V08_GAMES
+    if (major, minor) == (0, 9):
+        return V09_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
 def catalogue(selection=GAMES):
     games = {game['id']: game for game in load(ROOT / 'games/catalogue.json')}
     if any(not games[key]['integrated'] or games[key]['comingSoon'] or not games[key]['runtimeFiles']
-           or not games[key].get('communitySupported', True) for key in selection):
-        raise ValueError('All selected release games must be integrated with community support: ' + ', '.join(selection))
+           or (games[key].get('backend') != 'ps2' and not games[key].get('communitySupported', True)) for key in selection):
+        raise ValueError('Selected release games require integrated runtimes and their supported services: ' + ', '.join(selection))
     return games
 
 
@@ -91,6 +95,13 @@ def selected_data_files(game, variant=None):
     if not game.get('variants'):
         if variant:
             raise ValueError('Unexpected data variant')
+        if game.get('backend') == 'ps2':
+            # The boot-program identity is inside the original ISO. Players
+            # receive one disc image; the runtime prepares its own small cache.
+            images = [item for item in game['files'] if not item['program'] and item['path'] == 'disc.iso']
+            if len(images) != 1:
+                raise ValueError('PS2 data requires one supported original disc identity')
+            return images
         return game['files']
     matches = [item['files'] for item in game['variants'] if item['id'] == variant]
     if len(matches) != 1:
@@ -111,7 +122,7 @@ def placement_sources(version, name=PLACEMENT_NAME):
     games = release_games(version)
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
-    placement = V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
+    placement = PLACEMENT_GAMES if 'espgaluda' in games else V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
     return {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
             for key in placement}
 
@@ -210,6 +221,8 @@ def certified_runtime(selection=GAMES):
     games = catalogue(selection)
     xbox = tuple(sorted(key for key in selection if games[key]['backend'] == 'xbox360'))
     records = dict(xbox360=verify_receipt('host', xbox), ps4=verify_ps4(), launcher=verify_launcher())
+    if any(games[key]['backend'] == 'ps2' for key in selection):
+        records['ps2'] = verify_ps2()
     commit = git(ROOT, 'rev-parse', 'HEAD').decode().strip()
     if any(record['sourceCommit'] != commit for record in records.values()):
         raise ValueError('Rebuild all player components at the release commit')
@@ -219,6 +232,7 @@ def certified_runtime(selection=GAMES):
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
         launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb'})
+    selected['ps2'] = {'espgaluda.exe', 'espgaluda.pdb', 'SDL3.dll', 'SDL3.pdb'}
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:
@@ -300,12 +314,20 @@ def source_clone(destination, commit):
     audit_source(destination)
 
 
-def license_files():
+def license_files(selection=GAMES):
     paths = {ROOT / 'third_party/rexglue/LICENSE', ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt'}
     paths.add(ROOT / 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/LICENSE.MIT')
     paths.update((ROOT / 'third_party/ps4/LICENSES').glob('*.txt'))
     for directory in (ROOT / 'third_party/rexglue/thirdparty').iterdir():
         if directory.is_dir():
+            for pattern in ('LICENSE*', 'COPYING*', 'NOTICE*'):
+                paths.update(path for path in directory.glob(pattern) if path.is_file())
+    if 'espgaluda' in selection:
+        paths.update((ROOT / 'third_party/ps2').rglob('LICENSE*'))
+        paths.add(ROOT / 'third_party/ps2/THIRD_PARTY_NOTICES.txt')
+        paths.add(ROOT / '.deps/ps2/raylib/src/external/glfw/LICENSE.md')
+        for dependency in ('ParallelGS', 'GraniteGS', 'VolkGS', 'VulkanHeadersGS', 'SDL', 'raylib'):
+            directory = ROOT / '.deps/ps2' / dependency
             for pattern in ('LICENSE*', 'COPYING*', 'NOTICE*'):
                 paths.update(path for path in directory.glob(pattern) if path.is_file())
     return sorted(paths)
@@ -331,7 +353,9 @@ def validate_public_name(name, games, selection=GAMES, version=None, placement_n
         return
     # App-local CRT copies only, not arbitrary DLLs supplied by an input tree.
     parent, base = Path(name).parent.as_posix(), Path(name).name.lower()
-    if parent in ('.', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher') and re.fullmatch(
+    redist_roots = ('.', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher',
+                    *(['runtime/ps2'] if 'espgaluda' in selection else []))
+    if parent in redist_roots and re.fullmatch(
             r'(?:msvcp140(?:_[12]|_atomic_wait|_codecvt_ids)?|vcruntime140(?:_1|_threads)?|concrt140|vccorlib140)\.dll', base):
         return
     raise ValueError('File is not in the Public allowlist: ' + name)
@@ -633,7 +657,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             raise ValueError('Staged player component differs from certified build: ' + path)
         copy_checked(item['source'], target, 'runtime', entries, item)
     for file in crt:
-        for subdir in ('', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher'):
+        for subdir in ('', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher', *(['runtime/ps2'] if 'espgaluda' in selection else [])):
             copy_checked(file, directory / subdir / file.name, 'redist', entries)
     if flavor != 'Update' and package_format == 1:
         copy_checked(ROOT / 'config/default.ini', directory / config_name(version), 'config', entries)
@@ -642,6 +666,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             copy_checked(source, directory / name, 'documentation', entries)
     readme = ('README.player-v032.txt' if version == '0.3.2' else
               'README.player-v031.txt' if version == '0.3.1' else
+              'README.player-v09.txt' if 'espgaluda' in selection else
               'README.player-v08.txt' if 'feveron' in selection else
               'README.player-v07.txt' if 'guwange' in selection else
               'README.player-v06.txt' if 'esprade' in selection else
@@ -656,11 +681,12 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     bat_source = ROOT / 'Launch.bat'; reject_link(bat_source)
     bat = bat_source.read_text(encoding='utf-8')
     text_new(directory / batch_name(version), bat.replace(LAUNCHER, launcher(version)), 'documentation', entries)
-    for file in license_files():
+    for file in license_files(selection):
         copy_checked(file, directory / 'licenses' / file.relative_to(ROOT), 'license', entries)
     copy_checked(ROOT / 'launcher/artwork.json', directory / 'licenses/artwork-sources.json', 'license', entries)
     for source, license_name in (('tools/sdk-source.lock.json', 'sdk-sources.json'),
-                         ('tools/ps4-source.lock.json', 'ps4-sources.json')):
+                         ('tools/ps4-source.lock.json', 'ps4-sources.json'),
+                         *([('tools/ps2-source.lock.json', 'ps2-sources.json')] if 'espgaluda' in selection else [])):
         copy_checked(ROOT / source, directory / 'licenses' / license_name, 'license', entries)
     source_location = ('覆盖更新保留旧 source/ 目录，其中源码不会自动更新。继续开发前请拉取\n'
                        '上述提交，或使用本版对应源码附件。\n' if flavor == 'Update' else
@@ -681,10 +707,17 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
             'Pinned dependencies / 固定依赖：tools/sdk-source.lock.json, tools/ps4-source.lock.json\n'
             'Restore / 恢复依赖：scripts/sdk_sources.py restore; scripts/ps4_sources.py restore\n'
             'Component licenses / 组件许可证：licenses/\n')
+        if 'espgaluda' in selection:
+            source_text += 'PS2 dependencies: tools/ps2-source.lock.json\nPS2 development: docs/PS2_DEVELOPMENT.md\n'
     text_new(directory / 'SOURCE.txt', source_text, 'documentation', entries)
     if flavor == 'Internal':
         for key, report in reports.items():
             print('Copying complete data: ' + key, flush=True)
+            if games[key].get('backend') == 'ps2':
+                identity, = selected_data_files(games[key])
+                copy_checked(Path(report['discImage']), directory / 'game-data' / key / identity['path'],
+                             'game-data', entries, identity)
+                continue
             excluded = {'dlc'} if key == 'futari' else set()
             if placement_sources(version):excluded.update((PLACEMENT_NAME.casefold(), LEGACY_PLACEMENT_NAME.casefold()))
             copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
@@ -737,7 +770,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V083_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V09_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()
