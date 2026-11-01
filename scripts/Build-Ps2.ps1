@@ -3,7 +3,8 @@
 param([ValidateRange(1,8)][int]$Jobs=2, [string]$CacheFrom, [switch]$ToolsOnly,
       [string]$ProbeGenerated, [string]$ArcadeGenerated, [string]$ArrangeGenerated,
       [string]$IbaraGenerated,
-      [string]$StageModulesManifest, [string]$ModeExtrasManifest, [switch]$RuntimeChecks)
+      [string]$StageModulesManifest, [string]$ModeExtrasManifest, [switch]$RuntimeChecks,
+      [switch]$FastGameLink)
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $taskProcess=Get-Process -Id $PID
 $previousPriority=$taskProcess.PriorityClass
@@ -43,6 +44,7 @@ try {
         '-DCMAKE_EXE_LINKER_FLAGS=/DEBUG:FULL /OPT:REF /OPT:ICF',
         ('-DPS2_BUILD_RUNTIME='+$(if ($ToolsOnly) {'OFF'} else {'ON'})))
     $configure+=@('-DPS2_GAME_GENERATED='+$(if ($ProbeGenerated) {[IO.Path]::GetFullPath($ProbeGenerated).Replace('\','/')} else {''}))
+    $configure+=@('-DPS2_GAME_SYMBOLS='+$(if($FastGameLink){'OFF'}else{'ON'}))
     $configure+=@('-DPS2_IBARA_GENERATED='+$(if ($IbaraGenerated) {[IO.Path]::GetFullPath($IbaraGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_ARCADE_GENERATED='+$(if ($ArcadeGenerated) {[IO.Path]::GetFullPath($ArcadeGenerated).Replace('\','/')} else {''}))
     $configure+=@('-DPS2_ARRANGE_GENERATED='+$(if ($ArrangeGenerated) {[IO.Path]::GetFullPath($ArrangeGenerated).Replace('\','/')} else {''}))

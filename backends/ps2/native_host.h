@@ -9,7 +9,7 @@ namespace cave::ps2 {
 class GsCommandBackend;
 struct NativeHostOptions {
     unsigned width=1280,height=720;
-    bool fullscreen=false,vsync=false;
+    bool fullscreen=false,vsync=false,timerPrecision=true;
     std::filesystem::path keyboardConfig,capture;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL

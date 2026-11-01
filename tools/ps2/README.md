@@ -73,8 +73,23 @@ large translation units may take time without producing another log line.
 Compilation batches cache root-symbol references against file names, sizes and
 modification times. Editing a generated body invalidates its batch's cache.
 
+Private gameplay iterations can pass `-FastGameLink` to omit generated-game PDB
+linking. The normal build includes full symbols; use it for final validation
+and packaging so crash reports match the shipped executable.
+
 The development host accepts `boot.elf disc.iso extracted-disc-root test-profile`,
 with optional `--frames N` and `--trace-boot`. Use a fresh profile for each run.
+`--frame-times <new.csv>` buffers up to 36,000 presentation-return timestamps
+and writes them after normal shutdown. `--coarse-timer` disables the shared
+Windows timer request for a controlled diagnostic comparison; normal gameplay
+uses the same scoped 1 ms request as the 360 host. These timestamps describe
+host presentation returns, rather than monitor scanout.
+`--capture-audio <new-directory>` keeps the latest 90 seconds of each SPU2 core
+and the mixed output in bounded memory, then writes three stereo WAV files on
+exit. `--trace-audio` adds bounded sample-bank, playback, volume and ADX-error
+events. These diagnostics remain disabled during normal gameplay.
+`--probe-adx-coefficients boot.elf` checks the original ESPGaluda predictor headlessly at three sample
+rates; it creates no game window.
 `--probe-disc-index boot.elf` runs the original index parser headlessly against
 authored inputs, including forced scheduler checkpoints. `libc_probe/` provides
 an optional headless build for the original memory/string translations, using

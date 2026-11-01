@@ -83,6 +83,33 @@ when extending that policy.
 
 ## Bridge constraints
 
+- Preserve ESPGaluda's original EE SDR RPC client for `sceSdRemoteInit` and
+  `sceSdRemote`. Its variable arguments, receive buffers and callbacks are
+  compiled from the original program. The generic upstream voice-transfer
+  placeholder only updates transfer bookkeeping, leaving sound RAM empty.
+- Physical IRX startup uses `argc` / `argv`: the module path is argument zero,
+  EE payload strings become successive arguments, and the pointer table ends
+  with a null entry. Numeric options also depend on `sysclib` ordinal 8 returning
+  PS2 character flags. ESPGaluda supplies `spucore=1` to CRI ADX; ignoring this
+  option starts streaming on the sample-upload core, where the original driver
+  rejects bank transfers with `-210`. The authored IOP contract covers both
+  interfaces. Trace bank return codes and actual keyed-on sound-RAM content
+  before accepting game audio.
+- ADX predictor initialization also exercises R5900 `SQRT.S fd, ft`. The
+  generator must read `ft`, rather than the otherwise unused `fs` field. A
+  wrong source changes the decoder coefficients and causes severe clipping
+  even when sound-RAM upload, DMA and output-device formatting are correct.
+  Keep the emitted-C++ instruction regression and headless original-coefficient
+  check separate from final audio playback acceptance.
+
+The ESPGaluda music check aligns generated PCM against an independently decoded
+disc track after accounting for the game's volume. Both ARCADE SIMULATION's
+first-stage music and ARRANGE's first-stage music have matched the reference;
+ARRANGE was also checked with playback observers disabled. Compare both SPU2
+core output and final mixed PCM, retaining the start of the selected track.
+Additional voices can lower whole-recording correlation while the music remains
+correct. Match an isolated interval before diagnosing decoder or DMA corruption.
+
 - Keep `SpuDevice` and its sound RAM on the IOP owner thread. The device consumer
   only reads the stereo PCM queue. The existing `PcmQueue` contract covers
   concurrent wrap, full-buffer pressure and producer-requested discard on IOP

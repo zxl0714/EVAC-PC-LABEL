@@ -1,5 +1,7 @@
 #include "emulator/core/iop_memory.h"
 #include "emulator/services/iop_module_loader.h"
+#include "emulator/imports/iop_sysclib.h"
+#include "emulator/core/iop_cpu.h"
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -99,13 +101,29 @@ void AudioBridge() {
     Require(memory.readPcm(pcm.data(),64)==0,"IOP reset replayed stale PCM");
     std::cout<<"IOP sound: real DMA, wrap, dual completion, AutoDMA backpressure, PCM clock/reset passed\n";
 }
+
+void SysclibCharacterFlags() {
+    IopMemory memory;
+    ps2x::iop::detail::IopSysclib library(memory);
+    ps2x::iop::detail::IopCpuState cpu{};
+    for (const auto [character,expected] : std::array<std::pair<uint32_t,uint32_t>,13>{{
+        {'0',4},{'1',4},{'9',4},{'A',0x41},{'f',0x42},{'G',1},{'g',2},
+        {' ',0x18},{'\t',8},{'!',0x10},{0,0x20},{127,0x20},{0xffffffff,0}}}) {
+        cpu.gpr[4]=character;
+        Require(library.dispatchImport(8,cpu) && cpu.gpr[2]==expected,
+                "IOP sysclib character flags changed module numeric-option parsing");
+    }
+    std::cout<<"IOP sysclib digit/letter/space/control classification: PASS\n";
+}
 }
 #include "ps2_iop_audio_fixture.h"
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench-idle") { IopIdleContract(true); return 0; }
         AudioBridge();
+        SysclibCharacterFlags();
         AudioInsideGuestCall();
+        IopModuleArguments();
         IopIdleContract();
         IopMemory memory;
         const auto capacity=IopMemory::HeapLimit-IopMemory::HeapBase;

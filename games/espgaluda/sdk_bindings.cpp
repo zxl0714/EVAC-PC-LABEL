@@ -249,10 +249,8 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: scePadGetModVersion");
   if(!cave::ps2::BindSdkHandler(runtime,0x00111418u,"scePadSetWarningLevel"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: scePadSetWarningLevel");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001115a8u,"sceSdRemoteInit"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSdRemoteInit");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00111700u,"sceSdRemote"))
-    throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceSdRemote");
+  // Keep the original SDR RPC client: the generic placeholder reports voice
+  // transfers as complete without loading their sample data into SPU2 RAM.
   if(!cave::ps2::BindSdkHandler(runtime,0x00111a88u,"sceCdCallback"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceCdCallback");
   if(!cave::ps2::BindSdkHandler(runtime,0x00111c60u,"sceCdInitEeCB"))

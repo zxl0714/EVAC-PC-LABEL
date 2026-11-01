@@ -49,10 +49,13 @@ inline void Dma(unsigned core,uint32_t source,uint64_t words,uint32_t chcr,uint3
     // This path has one IOP owner. Avoid spending the whole trace budget on
     // the initialization driver's rapid ping-pong DMA loop.
     static std::array<uint32_t,2> counts{};
+    static std::array<uint32_t,2> bankCounts{};
     static std::array<int64_t,2> lastMs{};
     if(core>1 || counts[core]>=256)return;
     const auto now=Milliseconds();
-    if(counts[core]>=4 && now-lastMs[core]<1000)return;
+    const bool bank=tsa>=0x5000u && bankCounts[core]<64u;
+    if(!bank && counts[core]>=4 && now-lastMs[core]<1000)return;
+    if(bank)++bankCounts[core];
     ++counts[core];lastMs[core]=now;
     std::osyncstream(std::cerr)<<"[ps2-audio-dma] ms="<<Milliseconds()<<" core="<<core
         <<" source=0x"<<std::hex<<source<<" chcr=0x"<<chcr<<" tsa=0x"<<tsa

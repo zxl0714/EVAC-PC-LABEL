@@ -77,6 +77,52 @@ void AudioInsideGuestCall() {
     std::cout<<"IOP guest-call DMA wait and PCM clock: PASS\n";
 }
 
+void IopModuleArguments() {
+    AudioFixtureHost host;
+    host.image=ModuleFixture();
+    host.image.resize(0x500);
+    Put16(host.image,16,2);Put32(host.image,24,0x10000);
+    Put32(host.image,60,0x10000);Put32(host.image,64,0x10000);
+    Put32(host.image,68,0x400);Put32(host.image,72,0x400);
+    std::vector<uint32_t> code{0x00801021,0x8ca80000,0}; // v0=argc, t0=argv[0]
+    std::vector<size_t> failBranches,returnBranches;
+    auto failIf=[&](uint32_t instruction){failBranches.push_back(code.size());code.push_back(instruction);code.push_back(0);};
+    failIf(0x11000000); // argv[0] must exist
+    code.insert(code.end(),{0x91090000,0});
+    failIf(0x11200000); // and contain a nonempty module path
+    code.insert(code.end(),{0x00044080,0x00a84021,0x8d090000,0});
+    failIf(0x15200000); // argv[argc] must be NULL
+    auto doneIf=[&](uint32_t count){
+        code.push_back(0x24080000|count);
+        returnBranches.push_back(code.size());code.push_back(0x10880000);code.push_back(0);
+    };
+    doneIf(1);
+    code.insert(code.end(),{0x8ca80004,0,0x91090000,0,0x00094a00,0x00491025});
+    doneIf(2);
+    code.insert(code.end(),{0x8ca80008,0,0x91090000,0,0x00094c00,0x00491025});
+    const auto done=code.size();code.insert(code.end(),{0x03e00008,0});
+    const auto fail=code.size();code.insert(code.end(),{0x2402ffff,0x03e00008,0});
+    for(auto branch:failBranches)code[branch]|=uint16_t(fail-branch-1);
+    for(auto branch:returnBranches)code[branch]|=uint16_t(done-branch-1);
+    std::memcpy(host.image.data()+0x100,code.data(),code.size()*sizeof(uint32_t));
+    ps2x::iop::detail::IopEmulator emulator(host);
+    auto check=[&](const char* args,uint32_t bytes,uint32_t expected){
+        emulator.reset();
+        const auto result=emulator.loadModuleBuffer(0,args,bytes);
+        Require(result.moduleId>0 && uint32_t(result.startResult)==expected,
+                "IRX startup did not receive argc/argv with path and terminated argument pointers");
+    };
+    check(nullptr,0,1);
+    check("core1",6,2u|('c'<<8));
+    const char separated[]="core1\0stream";
+    check(separated,sizeof(separated),3u|('c'<<8)|('s'<<16));
+    check(separated,sizeof(separated)-1,3u|('c'<<8)|('s'<<16));
+    emulator.reset();
+    Require(emulator.loadModuleBuffer(0,nullptr,8).moduleId<0,
+            "IRX accepted a nonempty null argument payload");
+    std::cout<<"IOP module argc/argv: no args, separated args, final terminator, invalid payload: PASS\n";
+}
+
 AudioFixtureHost DelayedThreadImage() {
     AudioFixtureHost host;
     host.image.resize(0x1100);

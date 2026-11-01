@@ -15,6 +15,9 @@ if(PS2_IBARA_GENERATED)
   target_compile_options(ps2_ibara_probe PRIVATE /bigobj /clang:-msse4.1)
   target_link_options(ps2_ibara_probe PRIVATE /STACK:8388608
     /MANIFEST:EMBED "/MANIFESTINPUT:${COLLECTION_ROOT}/common/windows.manifest")
+  if(NOT PS2_GAME_SYMBOLS)
+    target_link_options(ps2_ibara_probe PRIVATE /DEBUG:NONE)
+  endif()
   target_precompile_headers(ps2_ibara_probe PRIVATE
     "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h"
     "${PS2_IBARA_GENERATED}/ps2_recompiled_functions.h"

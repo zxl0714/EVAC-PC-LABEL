@@ -13,6 +13,7 @@
 #include "ps2_runtime.h"
 #include "runtime/ee_scheduler.h"
 #include <Windows.h>
+#include "../../common/windows_timer_resolution.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -106,6 +107,7 @@ std::wstring Wide(const char* value) {
 }
 class NativeHost::Impl {
 public:
+    cave::ScopedTimerResolution timerResolution;
     NativeHostOptions options;
     std::unique_ptr<GsDisplay> display;
     std::shared_ptr<GsCommandQueue> queue;
@@ -130,6 +132,11 @@ void NativeHost::Configure(NativeHostOptions options) {
 }
 void NativeHost::Initialize(const char* title) {
     if(impl->display)throw std::logic_error("PS2 host is already initialized");
+    // EE deadlines and the 2 ms input wake use timed condition variables.
+    // The default Windows timer quantum can round both to about 15.6 ms.
+    // Scope the request to this interactive host, including failed startup.
+    if(impl->options.timerPrecision)impl->timerResolution.Enable();
+    std::cerr<<"[ps2-host] timer_resolution_ms="<<(impl->timerResolution.Active()?1:0)<<'\n';
     auto input=std::make_shared<Input>(impl->options.keyboardConfig);
     auto display=std::make_unique<GsDisplay>(impl->options.width,impl->options.height,Wide(title),impl->options.vsync);
     auto queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display->Device().Completions());
@@ -142,7 +149,8 @@ void NativeHost::Initialize(const char* title) {
 std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
     if(!impl->queue)throw std::logic_error("Initialize PS2 host before creating the producer");
     std::unique_ptr<GsCommandBackend> backend=std::make_unique<SharedQueue>(impl->queue);
-    if(!impl->options.capture.empty())backend=std::make_unique<GsRecordingBackend>(std::move(backend),impl->options.capture);
+    if(!impl->options.capture.empty())backend=std::make_unique<GsRecordingBackend>(
+        std::move(backend),impl->options.capture,512u*1024u*1024u,18000);
     return backend;
 }
 void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {

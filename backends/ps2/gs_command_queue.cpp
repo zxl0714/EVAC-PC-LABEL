@@ -1,5 +1,6 @@
 #include "gs_command_queue.h"
 #include "gs_completion_mailbox.h"
+#include "frame_trace.h"
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -184,6 +185,7 @@ void GsCommandQueue::WriteVram(size_t offset,std::span<const uint8_t> bytes) {
     Command command;command.kind=Kind::WriteVram;command.offset=offset;impl->Push(std::move(command),bytes);
 }
 void GsCommandQueue::Frame(const GsFrame& request) {
+    if(auto* row=frame_trace::Get(request.vsyncTick))row->enqueued=frame_trace::Stamp();
     Command command;command.kind=Kind::Frame;command.frame=request;impl->Request(std::move(command));
 }
 }

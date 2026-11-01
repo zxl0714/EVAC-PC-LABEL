@@ -13,7 +13,6 @@
 #include <rex/system/xam/user_profile.h>
 #include <rex/ui/keybinds.h>
 #include <cstdio>
-#include <mmsystem.h>
 #include <stdexcept>
 
 REXCVAR_DEFINE_STRING(project_root,"","Collection","Compatibility alias for collection_root")
@@ -69,9 +68,7 @@ CollectionApp::CollectionApp(rex::ui::WindowedAppContext& context,std::string_vi
     :ReXApp(context,game,image),game_(game),build_(build) {
     if (build_.game!=game_) throw std::runtime_error("Compiled metadata belongs to another game");
 }
-CollectionApp::~CollectionApp() {
-    if (timer_active_) timeEndPeriod(1);
-}
+CollectionApp::~CollectionApp()=default;
 bool CollectionApp::SetupEnvironment() {
     try {
         const auto selected=REXCVAR_GET(game_id);
@@ -108,8 +105,8 @@ void CollectionApp::OnConfigurePaths(rex::PathConfig& paths) {
 }
 void CollectionApp::OnPostInitLogging() {
     const bool requested=REXCVAR_GET(host_timer_precision);
-    if (requested && !timer_active_) timer_active_=timeBeginPeriod(1)==TIMERR_NOERROR;
-    REXLOG_INFO("HOST_TIMING timer_period_ms=1 requested={} active={} guest_clock_scale=unchanged",requested,timer_active_);
+    if (requested) timer_resolution_.Enable();
+    REXLOG_INFO("HOST_TIMING timer_period_ms=1 requested={} active={} guest_clock_scale=unchanged",requested,timer_resolution_.Active());
     if (!StartCrashReporter(run_->directory,game_,run_->source_build))
         throw std::runtime_error("Cannot start the crash writer; check runtime files");
     REXLOG_INFO("Collection diagnostics ready; game={} report={} configuration=root-INI community={}",
@@ -156,7 +153,7 @@ void CollectionApp::StopGame() {
         rex::system::xam::SetCommunityService(nullptr);community_->Stop();community_.reset();
     }
     if (game_started_) {game_started_=false;OnGameStop();}
-    if (timer_active_) {timeEndPeriod(1);timer_active_=false;}
+    timer_resolution_.Reset();
 }
 void CollectionApp::OnShutdown() {StopGame();shortcuts_.reset();}
 bool CollectionApp::OnWindowCloseRequested() {

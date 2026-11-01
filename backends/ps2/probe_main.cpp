@@ -11,10 +11,43 @@
 #include <sstream>
 #include <vector>
 #include <chrono>
+#include <cmath>
+#include "frame_trace.h"
+#include "audio_capture.h"
 #include "diagnostic_input.h"
 #include "audio_trace.h"
 
 namespace {
+int ProbeAdxCoefficients(const char* elf) {
+  PS2Runtime runtime;
+  if(!runtime.memory().initialize() || !runtime.loadELF(elf))
+    throw std::runtime_error("Cannot initialize headless ADX coefficient probe");
+  runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+  constexpr uint32_t Destination=0x400000,Stack=0x1ee9f90,Stop=0x100010;
+  bool completed=false,passed=true;
+  static bool* completion;completion=&completed;
+  runtime.replaceFunction(Stop,[](uint8_t*,R5900Context*,PS2Runtime* state){
+    *completion=true;state->eeScheduler().requestStop();
+  });
+  auto* memory=runtime.memory().getRDRAM();
+  std::cout<<"sample_rate,cutoff,coefficient1,coefficient2,expected1,expected2,passed\n";
+  for(uint32_t rate:{22050u,44100u,48000u}) {
+    completed=false;
+    R5900Context context{};context.pc=0x27bb20;context.f[0]=100.0f;
+    context.r[4]=_mm_cvtsi32_si128(500);context.r[5]=_mm_cvtsi32_si128(rate);
+    context.r[6]=_mm_cvtsi32_si128(Destination);context.r[7]=_mm_cvtsi32_si128(Destination+2);
+    context.r[29]=_mm_cvtsi32_si128(Stack);context.r[31]=_mm_cvtsi32_si128(Stop);
+    runtime.eeScheduler().reset(memory,context);runtime.eeScheduler().run();
+    int16_t actual[2]{};std::memcpy(actual,memory+Destination,sizeof(actual));
+    const float root=std::sqrt(2.0f),a=root-std::cos(6.283185f*500.0f/float(rate)),b=root-1.0f;
+    const float c=(a-std::sqrt(a*a-b*b))/b;
+    const int expected1=int(c*8192.0f),expected2=int(-c*c*4096.0f);
+    const bool ok=completed && std::abs(int(actual[0])-expected1)<=4 && std::abs(int(actual[1])-expected2)<=4;
+    passed&=ok;
+    std::cout<<rate<<",500,"<<actual[0]<<','<<actual[1]<<','<<expected1<<','<<expected2<<','<<ok<<'\n';
+  }
+  return passed?0:1;
+}
 int ProbeDiscIndex(const char* elf) {
   PS2Runtime runtime;
   if(!runtime.memory().initialize() || !runtime.loadELF(elf))
@@ -88,11 +121,13 @@ template<uint32_t Address> struct Observe {
     if(physical<PS2_RAM_SIZE-48)std::memcpy(&state,memory+physical,4);
     const auto source=static_cast<uint32_t>(_mm_cvtsi128_si32(context->r[5]));
     const bool indexCopy=Address==0x118048u && source>=0x646980 && source<0x647980;
-    const bool log=++calls<=((Address==0x107be8u || Address==0x1043a0u || Address==0x127480u)?128u:4u) || (Address==0x27f310u && state!=lastState);
+    const bool soundEntry=Address==0x124a40u || Address==0x124dc0u || Address==0x124ff0u ||
+      Address==0x285ab0u || Address==0x27f3e0u || Address==0x27d6e0u || Address==0x27d738u;
+    const bool log=++calls<=((soundEntry || Address==0x27e6c0u || Address==0x107be8u || Address==0x1043a0u || Address==0x127480u)?128u:4u) || (Address==0x27f310u && state!=lastState);
     lastState=state;
     if(log) {
       std::ostringstream line;
-      line<<"[ps2-observe] entry=0x"<<std::hex<<Address<<" pc=0x"<<context->pc
+      line<<"[ps2-observe] ms="<<cave::ps2::audio_trace::Milliseconds()<<" entry=0x"<<std::hex<<Address<<" pc=0x"<<context->pc
                <<" ra=0x"<<_mm_cvtsi128_si32(context->r[31])
                <<" sp=0x"<<_mm_cvtsi128_si32(context->r[29]);
       for(unsigned reg=4;reg<=11;++reg)line<<" a"<<(reg-4)<<"=0x"<<_mm_cvtsi128_si32(context->r[reg]);
@@ -110,6 +145,15 @@ template<uint32_t Address> struct Observe {
         for(unsigned i=0;i<12;++i) {
           uint32_t word{};std::memcpy(&word,memory+physical+i*4,4);
           line<<word<<',';
+        }
+      }
+      if constexpr(Address==0x27e6c0u || Address==0x27d6e0u || Address==0x27d738u) {
+        if(physical<PS2_RAM_SIZE-256) {
+          line<<" path=";
+          for(unsigned i=0;i<256 && memory[physical+i];++i) {
+            const char value=char(memory[physical+i]);
+            line<<(value>=32 && value<127?value:'?');
+          }
         }
       }
       if constexpr(Address==0x11d530u) {
@@ -148,16 +192,25 @@ template<uint32_t Address> struct Observe {
 
 int main(int argc,char** argv) {
   try {
+    if(argc==3 && std::string_view(argv[1])=="--probe-adx-coefficients")return ProbeAdxCoefficients(argv[2]);
     if(argc==3 && std::string_view(argv[1])=="--probe-disc-index")return ProbeDiscIndex(argv[2]);
     if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
     bool traceBoot=false,traceAudio=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
+    std::filesystem::path frameTimes;
+    std::filesystem::path audioCapture;
     cave::ps2::NativeHostOptions hostOptions;
     for(int i=5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
       else if(option=="--trace-audio")traceAudio=true;
+      else if(option=="--capture-audio" && i+1<argc)audioCapture=std::filesystem::absolute(argv[++i]);
+      else if(option=="--coarse-timer")hostOptions.timerPrecision=false;
+      else if(option=="--frame-times" && i+1<argc) {
+        frameTimes=std::filesystem::absolute(argv[++i]);
+        if(std::filesystem::exists(frameTimes))throw std::runtime_error("Frame timing output already exists");
+      }
       else if(option=="--frames" && i+1<argc) {
         frameLimit=std::stoull(argv[++i]);
         if(frameLimit<1 || frameLimit>36000)throw std::runtime_error("Frame limit must be 1..36000");
@@ -182,16 +235,24 @@ int main(int argc,char** argv) {
     std::filesystem::create_directories(profile/"mc0");
     cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
     cave::ps2::audio_trace::Configure(traceAudio);
+    cave::ps2::frame_trace::Configure(!frameTimes.empty());
+    cave::ps2::audio_capture::Configure(audioCapture);
     PS2Runtime runtime;
     runtime.nativeHost().Configure(std::move(hostOptions));
-    struct Progress {uint64_t frames{},limit{};std::chrono::steady_clock::time_point started{};} progress{0,frameLimit};
+    struct Progress {
+      uint64_t frames{},limit{};
+      std::chrono::steady_clock::time_point started{};
+      bool trace=false;
+    } progress{0,frameLimit};
+    progress.trace=traceBoot;
     runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
       [](PS2Runtime& state,void* user) {
         auto& progress=*static_cast<Progress*>(user);
         const auto count=++progress.frames;
-        if(count==1)progress.started=std::chrono::steady_clock::now();
+        const auto now=std::chrono::steady_clock::now();
+        if(count==1)progress.started=now;
         if(progress.limit && count>=progress.limit)state.requestStop();
-        if(count%120)return;
+        if(count%120 || !progress.trace)return;
         // snapshot() owns its synchronization; do not read the live EE context
         // concurrently from the host rendering thread.
         const auto snapshot=state.eeScheduler().snapshot();
@@ -239,9 +300,22 @@ int main(int argc,char** argv) {
       Observe<0x127480u>::Bind(runtime);
       Observe<0x124600u>::Bind(runtime);
     }
+    if(traceAudio && !traceBoot)Observe<0x27e6c0u>::Bind(runtime);
+    if(traceAudio) {
+      Observe<0x124a40u>::Bind(runtime);
+      Observe<0x124dc0u>::Bind(runtime);
+      Observe<0x124ff0u>::Bind(runtime);
+      Observe<0x285ab0u>::Bind(runtime);
+      Observe<0x27f3e0u>::Bind(runtime);
+      Observe<0x27d6e0u>::Bind(runtime);
+      Observe<0x27d738u>::Bind(runtime);
+    }
     runtime.run();
+    cave::ps2::audio_capture::Save();
+    if(!frameTimes.empty())cave::ps2::frame_trace::Save(frameTimes);
     return 0;
   }catch(const std::exception& error) {
+    try{cave::ps2::audio_capture::Save();}catch(...){}
     std::cerr<<"PS2 development host: "<<error.what()<<'\n';return 1;
   }
 }

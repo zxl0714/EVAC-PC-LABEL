@@ -1,5 +1,6 @@
 #pragma once
 #include "diagnostics/run_context.h"
+#include "common/windows_timer_resolution.h"
 #include <rex/rex_app.h>
 #include <rex/system/xam/community_service.h>
 #include <optional>
@@ -34,6 +35,7 @@ private:
     std::filesystem::path root_;
     std::unique_ptr<rex::ui::WindowInputListener> shortcuts_;
     std::shared_ptr<rex::system::xam::CommunityService> community_;
-    bool timer_active_{},game_started_{};
+    cave::ScopedTimerResolution timer_resolution_;
+    bool game_started_{};
 };
 }

@@ -10,504 +10,117 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE November1: resume v0.9.0 through packaging, retaining the released v084
-CPU fixes. work/v090-checkpoint (cb1426c884f0ac58727a6e0d377639aa14e27d9a)
-has been merged into work/v090-resume; original checkpoint remains intact. Ignored ROMs, PS2 generated files,
-dependency/build trees and evidence remain in this checkout; do not clean them.
-Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
+ACTIVE Nov01: v0.9.0 through packaging only; v0.8.4 is released. Branch
+work/v090-resume retains the cb1426c checkpoint and all ignored original ROM,
+generated, build and evidence trees. No cleaning. No subagents; never open Task
+Manager. User handed the computer back for autonomous testing. Read MEMORY.md
+before game input. Freeze graphics architecture and use a small acceptance set.
 
-Latest PS2 checkpoint (Nov01 19:18): GPU host integrated, actual ESPGaluda
-runs; Ibara compiled and its first boot identified an omitted static callback.
+NO ACTIVE BUILD OR GAME. Latest r88 build succeeded, session83288 reaped;
+r86/r87 sessions19826/68681 reaped. Latest EXE is out/ps2-tools/bin/
+ps2_espgaluda_probe.exe. r55 PID27872 closed normally; no stale window reuse.
+Configuration still uses boot ghidra-audio-native-output-r2, mode extrasr21,
+original ARCADE/ARRANGE generated-r2 and all15 stage generated-r2 inputs.
+PS2_GAME_SYMBOLS=OFF only for private fast links; restore ON for final packages.
+Final game builds must include matching full PDBs.
 
-HUMAN IS PLAYING NOW. Do not send more game input or close/restart this process:
-- ESPGaluda PID40792, started19:17:13, exe under
-  .local/v090/espgaluda/user-play-r1/ps2_espgaluda_probe.exe.
-- This is the current r71 linked ESPGaluda (Vulkan upload/WSI fix + DPI manifest),
-  normal input (diagnosticTap0),1280x720. Logs and independent profile beside EXE.
-- CU detected manual input during activation. ps2Window now refers to user-play;
-  do NOT reuse old r44/r43/native-host/GS-probe handles. Observe only if needed.
+ESPGALUDA SOUND: three independent causes have been fixed and verified:
+- Generic sceSdRemote placeholder faked uploads. Removed bindings1115a8/111700;
+  original EE SDR clients are compiled in boot r2. Preserve their real ABI.
+- IRX startup now builds argc/argv with path and final NULL. sysclib ordinal8
+  supplies PS2 character flags; the old zero made CRI ignore spucore=1. Actual
+  CRI now streams on core1; core0 sample banks return40000/16000/18800 bytes,
+  instead of -210 BUSY and empty voice RAM. Authored IOP contracts cover both.
+- R5900 SQRT.S uses ft, not fs. Original word46160504 at27bb3c read f0 in old
+  generated C++, instead of f22. Fixed generator adapter and regenerated boot
+  into new r2, preserving r1. New emitted-C++ instruction test passes. Original
+  predictor headless check at22050/44100/48000Hz passes;48k gives7400,-3343
+  versus7400,-3342 expected (old8152,-4056 was wrong). Only boot FUN27bb20 and
+  entry27bbd8 affected here; Ibara1ba3c0/1ba488 need regeneration on resume.
+  Full audit .local/v090/analysis/sqrt-affected-files-r1.txt; no stage/mode SQRT.
 
-NO ACTIVE BUILD. All sessions50529/75503/21404/81214/38867/26180/97139 REAPED.
-- r69 full ABI/PCH rebuild completed2526steps. r70 incremental graphics fix;
-  r71 integrated Ibara+DPI but its initial compile failed on missing SSE4.1 flag;
-  r72 fixed the explicit Ibara target flag and built all73steps successfully.
-- Main cache out/ps2-tools now contains both targets. Ibara generation
-  .local/v090/ibara/ghidra-sdk-generated-r6,17935functions/196SDKstubs.
-- All15 native/GS CTests passed .local/v090/ps2-native-r68.log (5.06sec).
-- Reconfigure only when options/manifests/CMake change. Game graph currently
-  costs~8..30sec configure PLUS~200..330sec GENERATE. Not a hung process.
-  Implementation-only C++ changes use cmake--build; no full game regeneration.
-  Native checks use independent out/ps2-native-check (small graph).
+Audio acceptance evidence (private, no ROM in Git):
+- pacing-audio-fixed-r1: original A981-6 jingle match corr0.9999765,gain.7075.
+- play-r51: ARCADE SIMULATION first stage, actual left movement and X shooting
+  observed; original A980-0 stereo8s corr0.999995 both channels,gain.892.
+- User additionally reported ARRANGE stage1 no music. play-r54 traced original
+  request980/track18 and nonzero volume220. Its first3s match corr0.9999978 in
+  BOTH core1 and final mixed output. play-r55 repeats this with playback
+  observers OFF: .9999978,gain.8929. No separate missing-music cause established;
+  do not invent one. Both captures contain correct ARRANGE BGM, beyond merely
+  nonzero samples. Physical device loopback was not measured.
+- Evidence in each run's bgm-match-confirmed-r1.json / bgm-first3s-r1.json.
+  ffmpeg references .local/v090/espgaluda/audio-reference-r1 (29 BGM prefixes,
+  ten jingles). Source ISO E:/Game-Share/roms/Espgaluda (Japan).iso unchanged.
+  r54 also has bgm-chunks-r1.json with early exact matches. Initial coarse
+  matching reports were false negatives; exact alignment supersedes them.
+- --capture-audio buffers LAST90s core0/core1/mixed; close soon after target
+  scene. Coarse full-recording matching can select silence or a wrong phase;
+  refine short nonsilent chunks at48kHz, then compare an isolated interval.
+  Concurrent jingles legitimately reduce full-recording correlation.
+- --trace-audio now adds bounded original stream-start/stop, volume, partition
+  resolve and ADX error hooks. No heavy full snapshots or observers by default.
 
-IMPORTANT GRAPHICS FIX / EVIDENCE:
-- r43 stopped after120-ish initialization fields: main stack was
-  Vulkan::Device::next_frame_context -> WSI::begin_frame, EE waiting queue.Frame.
-  PGS retained an upload command buffer. Flush PGS BEFORE WSI begin_frame;
-  waiting for our own pending upload before submitting it deadlocks. FIXED in
-  backends/ps2/gs_display.cpp, no wait_idle added. Native stacks diagnostic now
-  supports --all-threads --stacks (intrusive diagnosis, not performance evidence).
-- Authored window-r9 uploads a16x16texture BEFORE EVERY field:120fields passed,
-  zeroVRAMreadbacks, peak4MiB/13commands. Old register-only workload missed this.
-- Actual ESPGaluda r44:66850fields, zeroVRAMreadbacks, peak4MiB/16commands;
-  menu/ARCADE/character switching/tutorial/stage1 image/Continue/options observed,
-  real Alt+F4 closed both producer+owner and audio cleanly. No live r44process.
-  .local/v090/espgaluda/play-r44/acceptance.json records exact limits.
-- Median120field interval60Hz, but load/catchup outliers31.6..187.8Hz exist.
-  Do NOT call pacing fully accepted or use it as final performance data.
-  Audio initially underflowed; later overflow increased during compilation and
-  mode changes. Nonzero PCM stopped in some scenes. Needs isolated actual-play
-  audio/pacing check. Effect/shadow stripes also need original-command capture
-  review. New Vulkan GAMEPLAY movement/shooting + ARRANGE still unverified;
-  old CPU r35/r41 functional evidence below remains historical only.
-- ARCADE tutorial after character choice runs naturally~one minute. Do not
-  mistake its PLEASE WAIT or later DEMONSTRATION for a live player stage.
-  AFK player dies quickly after tutorial; watch transition at short intervals.
+PACING / INPUT:
+- Shared common/windows_timer_resolution.h scopes timeBeginPeriod(1); used by
+  PS2 and360. 360 shared host library compiled successfully, behavior retained.
+  PS4 high-resolution waitable timers unchanged. Standalone CV bench shows
+  2ms waits were15.36ms default,2.43ms withperiod1;16.667ms waits30.49/17.38.
+- Actual long-frame culprit: synchronous full EE/IOP snapshots and cerr in each
+  120-field progress callback. Worst r50 frame429.6ms, VBlanklate413.5ms while
+  actual present.700ms; most long frames120n+1. DEFAULT OFF now, --trace-boot only.
+- With fixes, play-r51 7277 steady fields: median16.656ms,p9518.043,p9918.720,
+  max27.724ms,2fields>25ms. Worst present.467ms,VBlanklate11.912ms. Optional raw
+  capture and200ms diagnostic taps active: not a published performance benchmark.
+  Bounded attract1500fields gave median16.6535,p9518.124,max28.351. Old heavy-log
+  controlled run max36.062ms,10/1200fields>25. Do not claim all frame variation
+  eliminated or end-to-end input latency measured.
+- --frame-times new.csv buffers36000fields and saves after producer join; phase
+  fields separate VBlank late, queue, previous fence, flush/acquire/scanout/
+  submit/present. Host present return is not monitor light.
 
-NATIVE HOST / GS ARCHITECTURE (details docs/PS2_GRAPHICS_PLAN.md):
-- paraLLEl-GS + Granite/Volk/VKHeaders pinned,15deps now including shared SDL3.
-  Win32/Vulkan owner; static EE producer; owned8MiB/2048command queue with one
-  outstanding field; previous GPU fence gates next commands. No normal CPU
-  rasterization, VRAMsnapshot/scanout readback or per-frame wait_idle.
-- Original GIF1/2/3 continuations, nativeSDKregister/image operations, full CRT
-  snapshots/field parity, GPU blit+sampled fallback. CSR/IMR widths+FINISH/SIGNAL/
-  LABEL complete via GPU fence+mailbox -> GsStatus event -> EE only MMIO/IRQ.
-  Queue/mailbox CLOSE BEFORE EEjoin; typed cancellation releases waiters.
-- NativeHost private options keep public Runtime ABI isolated. SharedSDL device
-  source, per-game keyboard INI,2msownerpoll, miniaudio48kSPU2stream retained.
-  NORMAL keys arrows; ZCross/XCircle/CSquare/VTriangle, EnterStart, BackspaceSelect,
-  F11borderlessfullscreen. Diagnostic pulse200ms only for automation, never perf.
-- Authored host10fields/fault propagation/F11restore passed before this turn;
-  actual r44 now also proves normal close. ESPGaluda and Ibara target embed
-  common/windows.manifest. Background helpers hidden, interactive games visible.
-- Capture .evacgs preserves initial4MiB + original paths/direct operations/full
-  fields, adds zero readbacks. Bounded/exclusive Unicode output, reusable decoded
-  workloads; measured replay noI/O/allocation. SixGS contracts passedr33.
-  Authored benchr2 .555mswall/.438msCPU perfield excludesEE/IOP/WSI: NOT gameperf.
-- FIFO remains128bit-only; verify selected games' tiny/odd StoreImages before
-  acceptance. Do not duplicate PSM decoding or add a naive16byte stash.
-- SDKCRT MMIO/SMODE1/2/clockunits fixes abbe3f8 retained, all9mechanisms PASS.
+CRASH / SHADOW:
+- Original user crash ARRANGE17 source7fc100 -> missing79ad70; real import
+  veneer tail-calls153f80 sound request80000d01. Batch44/mode audit also found
+  ARCADEa2d5b0. Metadata includes both; real extras ARCADEr11/ARRANGEr14 selected
+  by manifestr21. Strict13inventories7102bodies8712slots PASS, no replacements.
+  r52/r54/r55 ARRANGE selected character and entered stage1 without crash;
+  exact later original sound event not independently identified. No long soak.
+- SMODE2=1 means interlaced FIELD mode. PGS temporal weave combed the game's
+  flickering shadows. force_progressive only for FIELD mode now. r49/r50 actual
+  same medium plane/miniboss shows a solid shadow; FRAME mode unchanged.
+- Critical e20a0b5: Flush PGS BEFORE WSI begin_frame, otherwise pending texture
+  upload waits on its own allocation context. Continuous upload probe passed.
+  Keep8MiB/2048-command owned queue,one outstandingfield,previous fence,no normal
+  CPU VRAM readback or wait_idle. Six GS contracts passedr35.
 
-IBARA NEXT BLOCKER:
-- tools/ps2/Ibara.cmake now INCLUDED; Build-Ps2.ps1 -IbaraGenerated supported.
-  Same LLVM23.1.3/CMake/Ninja/SDK/runtime/CRT; target selects fixed SSE4.1 for
-  upstream VU0 intrinsics (no AVX/AVX2/native). r71 failure was only compilerflag.
-- First real boot .local/v090/ibara/play-r1 (PID53524 now EXITED): original
-  indirectcall source1c73ec -> missing1c7510. Real code jr ra; lw v0,104c(a0).
-  Map gap: priorentry1c74f0 ends1c750c; next function1c7520. Original vtable
-  pointer337c70, neighbours1c7600/1c7520. Do not invent a return shim.
-- Batch audit vtable/callback pointers and static closure using original ELF /
-  Ghidra, then generate real bodies. SeedEntries --mark-owned preserves existing
-  function ownership; never split shared bodies or replace already linked slots.
-  MainISO E:/Game-Share/roms/Ibara (Japan).iso unchanged; thin-disc-root-r1 has
- 15small support files, no1GiBdummy/PDMcopies. MTSIOP/audio still untested.
+TESTS / BUILD:
+- Native VU/SQRT,SPU,IOP memory/argc/ctype,EE kernel,pad contracts all5 PASS in
+  .local/v090/ps2-audio-regression-r3.log. Python44 PASS ps2-python-r23.log.
+- Reconfigure only CMake/options/manifests changes. CPP-only direct cmake--build
+  out/ps2-tools --parallel2. Never reconfigure the large graph just to compile.
+  Keep strict module guards. Do not patch generated game C++ by hand.
+- Private -FastGameLink avoids full PDB linking; final build omits this switch.
+  Headless --probe-adx-coefficients boot.elf is independent of game/CU/audio I/O.
+- Normal keys arrows,ZCross/XCircle/CSquare/VTriangle,EnterStart,BackspaceSelect,
+  F11fullscreen. Diagnostic pulse200ms only automation; normal0. No short --frames
+  limit for CU. Fast ARCADE SIMULATION -> STAGE SELECT -> STAGE1TOP/BOSS; confirmX.
 
-COVERS INTERNAL DRAFT:
-- [collection]launcher_layout=banner|covers,defaultbanner,no public switch.
-  1..6responsivecolumns,2lineJapanese/English titles, sharedselection/data/launch,
-  up/downbyrow,left/right,HomeEnd.708commonchecks+3langbannerpreviewsPASS.
-- .local/v090/ui/covers-draft-r2.png: geometry good, landscapeart cutsFeveron/
-  Garegga logos. Need dedicated portrait art and actualCU/CN/JP/DPI tests.
-  OfficialHTML research in .local/v090/ui/art-research-r1 (ignored), no newart
-  committed. CAVE collection CSS has package_l_04=futari,l_05=G2,package_11=SDOJ;
-  m2ketsui assets/img/img_pkg.jpg candidate. Do not replace old banner assets.
+IBARA PARKED / NEXT:
+- Shared host compiledr72 SSE4.1 baseline(noAVX/native). First boot missing
+  callback1c7510 from1c73ec (jrra/lwv0,104c(a0)),vtable337c70. Generationr6.
+- .local/v090/ibara/callback-audit-r1.json has91candidates,many datafalsepositives.
+  Ghidra ibara-callbacks-r3.txt/log DONE. Classify before seeding; combine callback
+  closure and SQRT regeneration in one build. Original ISO/thinroot preserved.
+- Remaining v090: Ibara actual play/audio; both games save/restart; common
+  launcher/catalogue/config/ISO preparation; internal cover assets+CN/JP/DPI QA
+  (defaultbanner); direct DLC audit; repro JDK still external E:/Tools/
+  Ketsui-Reverse/apps/jdk/jdk-21.0.12.1+1; licenses,bilingual docs,build certificate,
+  full-symbol package. Stop before Release/OSS/QQ.
 
-NEXT PRIORITIES: freeze GS architecture. Batch static callback audit for Ibara;
-actual short PS2 gameplay/audio/effect correctness; shared launcher/config/ISO
-prepare/save/restart integration; internal covers assets+QA; DLCaudit/repro
-(including Ghidra JDK stillexternal E:/Tools/Ketsui-Reverse/apps/jdk/...), licenses,
-bilingual docs/buildcert/package. v090 goal ends AFTER PACKAGING, noRelease/OSS/QQ.
-User frustrated by time: concentrate on playable deliverable, avoid extra
-architecture expansion, repeated menu loops or redundant large rebuilds.
+Current checkpoint records the sound/crash/shadow/timing fixes; the earlier
+reference is e20a0b5. Update this section with the next verified checkpoint.
 
-Game functional evidence: ARCADE r35 stage1, movement/shooting, Continue->Return;
-ARRANGE r41 Chihiro actual stage1, passed old crash, GAME OVER, normal exit0.
-Complete original boot imports included, strict extra collision/required links
-PASS:13inventories7100bodies8710newslots zero overwrites. All289 imported prefixes
-checked against original ELF, no delay-slot cuts. Four exact epilogue exceptions
-unchanged. Shared helper83fc60 part of discontiguous FUN844550, do not force split.
-Boot callback table2d7eb0..2d7f70 and jump veneers26ae00..26af30 included. Native EE
-remains static, no interpreter. Commit35718af complete cross-module imports.
-
-AUDIO NOW CONNECTED: commitda1b605, docs/PS2_AUDIO_PLAN.md. Actual IOP register/DMA
-bridge routes SDR/EzMIDI/CRI path into isolated Play SPU2, guest-clock PCM queue and
-raylib/miniaudio stream. Both DMA cores, IOP wrap, stopped/resume, AutoDMA full
-buffer, dual completion and reset tests PASS. Authored IRX busy-waits inside
-callFunction and succeeds as sound clock advances. Public IOP methods retain
-PIMPL, PS2Runtime class layout unchanged. Host stops audio stream BEFORE IOP reset
-on destruction. Private IOP/runtime headers use ONE view. New CPP adapters compile
-directly. Two source lock Play deps unchanged; totalnow15 includesGS and sharedSDL dependencies.
-
-r42 actual ARCADEstage1 generated nonzero PCM and normal AltF4exit0. Initializer
-and some scenes underrun because guest execution still slower than real time.
-IOP busy instruction ratio dropped massively after real AutoDMA; don't call sound
-fully accepted until pace is fixed. Next graphics work should remove main CPU GS
-bottleneck rather than masking it with audio resampling or altered guest clocks.
-
-Hotspot evidence: .local/v090/espgaluda/play-r42/native-ip-r1.json (8sec,1518samples,
-0fail), using tools/latency/sample_native_ip.py with explicit expectedEXE path.
-GS DrawTriangle159,WritePixel111,SampleTexture58,TextureReads71 samples on busy EE
-thread; IOP beginNextReady104/nextWake39. Hostrender thread mostly waits. NoAdmin.
-IOP instruction sampler under --trace-audio also captured CRI decodePC8e1xx.
-
-IOP idle interval cache implemented commit33d7414: skip repeated no-ready scans
-until actual next audio/DMA/timer/thread/callback event; invalidate on external
-RPC/SIF/memory writes and direct guest calls. Guest clock unchanged. Authored8
-DelayThread workers verify no early wake, allwake, newmodule aftercachedidle.
-Bench400000calls400000IOPcycles18.8903ms baseline ->0.652ms; evidence
-ps2-idle-{baseline,fast}-r1.csv. No actualr57 gameplay yet; can combine with next
-GS transport change regression. Audio/graphics correctness still pending overall.
-
-r46wasINTENTIONALLYcancelledduringconfiguration, notcompiler/gamefailure:
-first-timeper-bodyrootreferencescan took2..3minperstage; after>10minonlystages
-2/3/4done. VerifiedPID/date/commandbeforestoppingownedpython98240,py40708,
-cmake79068. exec80808reapedexit-1expected. Originalcachedoutputsuntouched.
-NewoptionalglobalRootAliases=true inps2_module_build.py scopesrootmacrosfor
-WHOLEtargetANDPCH, soNOgeneratedbodyreference scan. Newbanks2..15except9 useit;
-existing1/9keepoldsource-specificaliases/cachedobjects. Authoredtestguardsagainst
-readingbodyandchecksPCHpreserved;5modulebuildtestspass. All15preparemeasured
-4.31secusingnewmanifest. CMakegenerationstill~200sec; don'tduplicatebuild.
-WindowsPathbatchsortunchanged. Needall-stagefullnativelink/8CTestconfirmation.
-
-r47fullgenerationinputsareALLstagesgenerated-r2(alreadyvalid); tinyconstructed
-extras-r2 for1/2/3/4/6/9/10/11/12/14. ExtraManifest13inventories(total6303bodies/
-7913newslots),checkLinks+strictcollisionsPASS. Modesextra-r6,bootextra-r5, four
-reviewedreturnepilogueresumesretainedexactly. NoEEinterpreterlinked. Thisbuild
-isfirstnativecompileof13otherbanks;1/9reuseexistingbodyobjects.
-
-Audioauditplan docs/PS2_AUDIO_PLAN.md. ReadonlyPlay! pin1f27232772e484bfb79364b751b84f41f4c87481,
-Frameworkpin587f278917acc0026bf5fc34b39f995fc26bd015; copies.local/v090/audio/
-play-1f272327. ThreeDSPclasses SpuBase/Spu2Core/Spu2 BSD-style; utilityheaders
-Types/BasicUnion/Convertible/string_format downloaded. Log.h isSource/app_shared,
-notSource/Log.h(two404sresolved). Frameworkmaybe_unused.hnotyetfetched. Core
-haszip/RegisterStateLoad/Save deps, canisolateoptionalemulatorstates(noimpact
-ongamememorycards), butdonotfakeunimplementedvoices. NOnewaudiocorelinked.
-NEXTwhilefullbuildruns: boundedopt-inRPC/keyOn/SPUDMAtrace design, auditstandalone
-DSPcomponent/microbench. DO NOTmutatecurrentruntimeinputswhilebuildactive;
-newprivateexperimentallowed. Audioactualprotocolstillneedsproof; currentSID
-80000701-onlyheuristic+IOPregisterdictionary/DMA-completioncannotguaranteesound.
-
-CurrentEXEr45adds4:3CRTpresent(PS2non-square384x448pixels)and640x480window;
-menu/spritesnowvisiblywider/correctphysicalaspect, noarbitrarycropping. IOPpool
-r44unifiesmoduleimagesandserviceheapwithinoriginal2MiB:HeapBase10000to1f0000,
-kernellow64KiB/callstacktop64KiBreserved. PICloaderallocatesfullimagespan, fixed
-ET_EXECcollisionreject;RAIIrollbackforbadimage. ALLprivateIOPfilesuseONEstaged
-source/header view underout/ps2-tools/iop-source; originaldepsunchanged. Special
-CPPfilescompileDIRECTfromadapters, notconfigure_file, soCPP-onlyeditsstayfast.
-r35actualstartup11IRXsloaded(baseschangedvalidly), ZEROheapallocationfailure;
-old832KiBpartitionfailuregone. NativecontractalsoactualauthoredIRXloads/late
-modulevsheapcollision/fixedcollision/badloadrollback andexactrepresentative
-20servicebuffers+256KiBuploadalongside320KiBcode(guardsagainstoldpartition).
-CurrentsourceIOPheader/loader/CMake/test/aspectvalidatedinr35; commitnow.
-Lastcommita24c0ef containsfirststage/callback/initialheapcontracts.
-
-SoundstillNOTaccepted: sourceinspection PS2AudioBackend::onSoundCommand accepts
-ONLYsid80000701 andheuristicvoicesamples. IOPcorelibsdHLEroutesONLYsameSID.
-ESPGusesEZMIDI/SDRcustomIRXandRAMSPU2registerwrites. ExistingIopMemoryhardware
-writesemulateDMAcompletion/dictionarybutnotfullSPU2mixing. Needcheckactual
-command/voice/outputpath; likelyreusematureSPU2coreinsteadheuristicGOWcommands.
-NoSPU2newimplementationyet. DoNOTclaimheapfixprovesaudibleaudio.
-
-r42inputs: originalbootghidra-allocation-output-r2, originalmodebases*-generated-r2,
-fullstage1/9generated-r2/build-stage1-modules-r2.json; ModeExtrasManifestr10:
-bootextra-r5(2504new+100008anchor),arcadeextra-r6(1449),arrangeextra-r6(1746),
-stage1extra-r2(73),stage9extra-r2(27). Total5799bodies/7350newslots, ZEROoverwrites.
-Fourreviewedreturnslots retainoriginalidenticalepilogues: mode16 88a348/88ac38
-(stack16),775a94(stack32);mode17 8e6874(stack32). Guardrequiresexactldra0(sp),
-jrra,addiuSP16/32bytesANDsamegenerator; mismatched/entry/unknownoverlapreject.
-NativecodegenallZEROerrors/unknown/decode/criticalfallbacks. Python34passr11.
-Additionalstageprefixandactive-modechecksnowimplemented/tested; THISstageextra
-baseisFULLgenerated-r2, notoldr1 whichhad389/383nontrivialoverlaps (neverrelax).
-
-Callbackanalysisbatchafterr33: SPprologues+SDRA scanidentifiedONLY3remainingreal
-functionspermode, allseeded; thenLUI+ADDIU/ORIaddressconstructionidentified14
-ARCADE/10ARRANGEleaf/thunkcallbacks, originalinstructionsreviewed, allseeded0
-ownedskips. Fullmapsmodesfunctions-r10. Actual766710isamongfirst3, serializedby
-code7691ac.. tobytes. Modesextras-r6includesALL. Across15stagesconstruct/prologue
-scanfound1..4pernonemptystage; seeded1,2,3,4,6,9,10,11,12,14, fullfunctions-r3.
-Only1/9newextrascurrentlygenerated/nativebuilding. Otherstagesfullr2already
-codegeneratedbutnotnativecompiled; eitherregeneratefullr3orbuildtheirtinyextras
-againstfullr2whenallstageslinked. Oldbuild-all-stage-modules-r2onlyhasr2.
-NoGhidra/codegen/externalexportsessionsstillrunning. Allreaped.
-
-EarlierbatchALL15stageoriginalfixed-callinventorycomplete: mode->boot,boot->
-stageinitializers,ownLEcallbacktables. PublicmodulemanifestbootCallRangescovers
-1..7/9..15 fromoriginalbranches. Allstagefullr2codegenvalid; only1/9nativecompiled.
-All-stageexternalcalls found16boot+45ARCADE+39ARRANGEbeyondfirststagebatch;
-fullbootr7,modesr8 seededthat. Thusbootextra-r5matchesfunctions.csv; modeextra-r6
-matchesoriginal*-functions-r2.csv. DoNOTuseoldr4extras again(knownmissing256860).
-
-IOPpreviouscause/evidence: r34heap-layoutline55 had20liveblocks,largest65216,
-request262144 withold120000..1f0000partition. FUN1267f0at12695c allocatestemp
-40000uploadbufferthenusesunchecked0forDMA, corruptingIRX. Readonlydecomp
-.local/v090/analysis/espgaluda-iop-allocation-callers-r1.c. Sharedpoolfixabove
-nowpreventsactualfailure. Initialfirstfit/freefix remains; fullsourceviewavoids
-ODR/oldheaderconstants. Native8andrepresentativecapacitytestsPASS. NoRAMgrowth.
-
-GS: newruntimeUploadFrame emits[ps2-present] ONLYonwidth/heightchangeforr42; use
-it toinvestigatecurrentlynarrow~150x300viewportbeforeassumingaspectfix. Frontend
-copyLatchedpacksrowscorrectly, UploadFrame'srowcopyisfine. Actualsize384x448; currenthostfitsRAWpixelaspect, likelyneeds4:3CRTpresentation
-(non-squarepixels)ratherthanrawratio. Framecontainsnarrow224wideplayfieldplus
-sidebars; doNOTcroparbitrarily. Needverifyphysicalaspectafterfix. 4:3hostfitnowimplemented; detailedtexture/quality/
-audio/perfnotaccepted. Currentcommitted d6d5ddc; laterIOP/modulemetadata/tools/
-MEMORY/AGENTS/CMake/Build-Ps2UNCOMMITTED, preservethencommitafterverification.
-v084published/replied; v090stillneedsactualESPGstage/boss/save/Arrange,Ibara,
-sharedSDL/config/catalogue,coversUI/cert/package. Noformalv090release.
-
-Configuration performance: stage root-symbol reference scan cached by member
-file sizes/mtimes, configuration went322.6s ->4.2s; stagepreparealone0.47s.
-CMake generation still~192s for the huge original source graph. CPP-only edits
-use existing cmake --build, TWO BelowNormal jobs, no fullconfigure. WindowsPath
-batch ordering must stay unchanged;159stageobjects restored/verified after an
-initial sorting change, evidence ps2-unit-order-restored-r1.json. Native r37
-reused them. Do not rewrite/freeze old generated outputs or delete private data.
-
-Main-stack and heap ABI: SetupThread(stack=-1) must use RAM-0x1000 as allocation
-top and return top-0x2a0 initial SP; metadata records top-stackSize. Play!'s EE
-kernel explicitly documents ESPGaluda's precise 4KiB reserve requirement.
-SetupHeap returns the upper boundary below that allocation. Guest/kernel
-allocations now share one heap with32bytes minimum allocator capacity reserve.
-Original memalign@117330 directly manipulates newlib chunks, so it MUST share
-the native allocator family rather than remaining original. Pure strings/math
-stay original; no game wait/status bypass. Main stack for actual game asks116000,
-base1ee9000. Callback stacks occupy bounded kernel gap90000..100000, not top RAM.
-Seven native CTests passed after these changes (.local/v090/ps2-native-r32.log).
-Python24PS2 tests passed. Current source changes are uncommitted; preserve them.
-
-Frequent diagnostic snapshot280edc is callback activity, not proof of a loop:
-EE-thread final trace inr22/r23 showed main repeatedly querying27f310 after a
-failed sound read. Observer/binding lookups on the host thread are not executor
-traces; the final EE-thread ring is authoritative. Earlier path/RA corruption was
-stack/heap overlap, fixed by moving initialSP to allocationTOP (r20 onward).
-
-Reused offline diagnostics: out/ps2-libc-probe/ps2_libc_probe.exe executes the
-four original library bodies from ghidra-platform-output-r1 (27648 boundary/
-alignment/register cases passed,133.6ms). Optional build entry
-tools/ps2/libc_probe/CMakeLists.txt links current runtime libraries. Existing
-ps2_espgaluda_probe --probe-disc-index <boot.elf> uses the ACTUAL dispatch table
-for1/10/50/130 authored rows, ordinary and forced checkpoint variants; allpassed
-in disc-index-probe-r3.log. Neither diagnostic opens a window. Original ISO and
-ELFs unchanged. No generated bodies inGit. Runtime now propagates execution
-exceptions after cleanup; Stop-policy missing targets throw instead of exit0.
-Removed dispatchGuestBranch's entryPC==return assumption (a real yield can
-retain entryPC); authored native regression passes. Diagnostic observer is
---trace-boot only. Current edits not yet committed; preserve them.
-
-PS2 resume point: eight pinned source deps in .deps/ps2; Build-Ps2.ps1 uses
-project LLVM23.1.3/CMake4.2.3/Ninja1.11.0/VS2022, two BelowNormal jobs. No
-AVX2/native/fast-math flags. Development runtime is NOT yet playable/certified.
-Correct read-only ISOs E:/Game-Share/roms/Espgaluda (Japan).iso (SLPS25352,
-4073586688bytes) and Ibara (Japan).iso (SLPM66301,3932848128bytes). Original
-Downloads ZIPs preserved; Simoun is WRONG game. Do not restart ROM downloads.
-ESPGaluda Ghidra12.1.4 +EmotionEngineReloaded2.1.39, r5900:LE:32:default:
-39466 generated functions/51stubs/601indirect fallbacks, zero codegen errors.
-Private generated dir .local/v090/espgaluda/ghidra-output-r1. Never hand-edit
-bodies. VCALLMSR generator already fixed to CMSAR0, not vi[27]. SDK bindings
-preserve returnPC before yielding:183 implemented,19TODO kept original bodies.
-Current boot passed the first CRI file load: play-r12 status3. Two real kernel
-defects fixed in third_party/ps2/runtime: EE priority0 was rejected (four CRI
-CreateThread failures -403 in r10); ChangeThreadPriority returned success0
-instead of old priority, promoting main permanently and starving workers.
-Kernel ABI/range/priority-restore regression +SDK/VU CTests3/3 passed. Sources
-remain pinned/unmodified in .deps. No game code or wait/status bypass.
-Next stop is missing static overlay target733080 fromJAL14ec60. Disc A0A0/A0A8
-is ov_arcade.bin MWo3 module16 at730800; A0A9 ov_arrange.bin module17 shares
-the address. Need static compilation and bank-aware dispatch for BOTH, not EE
-interpreter fallback. Header64bytes; textSize4c3ac0/data10e000/bss2e100 forarcade,
-402840/f3700/21700 forarrange. First payload+64, bss beginsd02300/c26780.
-Original boot ELF reserves both zero-file-size segments. Analysis must include
-overlay bytes separately; ordinary load still uses original ELF/ISO.
-All17MWo3 modules now inventoried in games/espgaluda/modules.json: stage/end/
-gallery1..15 at649800, modes16/17 at730800. Some zero-BSS files contain zero
-sector padding; parser validates it and does NOT shift BSS/text extents.
-scripts/ps2_module.py --iso <ISO> --manifest games/espgaluda/modules.json
---output <fresh-dir> validates boot+all17hashes and prepares analysis ELFs/roots.
-Actual .local/v090/espgaluda/modules-prepared-r1 passed; mode16/17 images match
-seededr2 byte-for-byte. Original ISO/resources unchanged. No ROM files in Git.
-Do not repeat naive two-mode Ghidra analysis: it omitted original boot's external
-initializer entries. Seededr2 includes92/72 verified roots from mode branches
-FUN14e930 +five getters. Both analysis+generation complete, zero errors/unknown
-instructions. Outputs arcade-generated-r2 /arrange-generated-r2 underespgaluda;
-receipts arcade-codegen-r2.json andarrange-codegen-r2.json. Symbols suffixov16/17.
-All15other modules analyzed using entrybase+80; stages/module-01..15, generation
-COMPLETE, zero unknown/decode/error/critical fallbacks; see codegen-r1.json.
-Per-runtime static_modules.* matches original header/id/layout; shared PCs use
-different native tables. Native call dispatch unwinds if loader replaces caller
-bank. Headless same-address/sparse/bad-header/bounds/transfer tests4/4 passed.
-ps2_runtime.h/.cpp adapted at same upstream pin. CMake stages ONE include tree,
-excluding upstream ps2_runtime.h from COPY before installing adapted header;
-never mix old/new class layouts or use original header in PCH.
-The initial two-mode compile r16 completed 1206steps, then link failed on five
-identically named ELF seed getters in overlapping banks. Do NOT merge them or
-use /FORCE:MULTIPLE: they return different bank constants. llvm-nm verified zero
-outside-unit references in all466 ARRANGE objects; evidence
-.local/v090/espgaluda/arrange-root-references-r1.json. New analysis images scope
-roots by module id; current legacy outputs use source-specific compiler aliases
-for the five getters and registration table, retaining the other objects.
-Incremental r17 compiled both stage1 banks, then caught their shared entry
-root_00649880 at link. Stage builder now aliases every unit that defines OR
-references a root, including registration; untouched body objects stay cached.
-r18 completed:387614208-byte EXE +2564616192-byte PDB, both mode banks and first
-stages1/9 linked. play-r13 thin mount stopped on sceCdSearchFile A0A0/A0A0.;1:
-upstream searches only loose files. Full-root play-r14 passed that load and the
-former733080 missing target, then waited in153c08/153c10 (sound-bank init).
-Both bounded probes have closed; neither menu nor stage accepted yet.
-IMPORTANT: generated FUN127590 tail-jumps directly to FUN10bfd8, bypassing
-replaceFunction's dispatch-table replacement. This left the original IOP heap
-RPC body active despite the manual SDK binding. Regenerated boot with all183
-implemented SDK selectors: .local/v090/espgaluda/ghidra-sdk-output-r1;
-ghidra-sdk-codegen-r1.json has39466functions/221stubs/zero generation errors.
-The183 bindings overlap13 existing selectors. Native generated10bfd8 now calls
-sceSifAllocIopHeap directly and sets returnPC. Custom single-layer wrapper112090
-is still runtime-only; inspect if a direct tail call to it becomes relevant.
-r19 completed, six native tests passed. r20 integrated ISO lookup +fault context;
-seven native tests passed. play-r15(full root),r16/r17(thin root) then stopped
-at28bc6c/RA28bc6c on malformed path passed through112090. See r17stderr: path
-is backslash+A0A0+backslash followed by bytes de,9c,ee,01 (a stack pointer), then
-;1. Earlier valid ISO searches advanced through A0AE; live returned LBA1caa36/
-size3e800 exactly matches original inventory, so raw ISO lookup is working.
-Fault stdout has all registers; catch runs on EE executor and safely dumps live
-context and bounded argument bytes. Read-only decompilations espgaluda-path-r1.c
-and-path-build-r1.c: FUN28c858 builds paths with strcpy/strcat/strlen/strcmp;
-FUN28cb58 calls it then28bc38->112090. Caller path data is wrong; do not guess keys.
-Current controlled build r22, exec69618, log .local/v090/ps2-build-r22.log:
-preserve33 software-library bindings as original code (allocator/strings/math),
-retain150 platform SDK bindings. New generated boot ghidra-platform-output-r1;
-ghidra-platform-codegen-r1.json has39466functions/189stubs/zero errors and
-sdkBindingsSha25648c82d6f...c8f59aefc. Config has sdk_bindings path, and generation
-tool now requires every declared native binding to have an explicit selector.
-Wait for this comparison build, then use fresh play-r18/thin-disc-root-r1.
-No menu/stage accepted yet. All probes closed. Before another build, inspect its
-process and log. Two
-BelowNormal jobs are intentional. Configure took
-199.3sec per pass on~300k source files. Build-Common now validates first cache,
-retries ONLY if flags were reset/mismatched (6 authored guard tests pass).
-New ps2_translation_units.py +2 tests batches input includes without rewriting
-bodies; mode16/17 still use native CMakeUnity256 to retain current objects.
-Stage build uses batches via ps2_module_build.py: validated receipts/prepared
-image hashes, separate CRC-bound AutoRegister callback, appended non-Unity glue
-so adding stages doesn't invalidate boot/mode PCH/objects. New Build-Ps2
--StageModulesManifest points to build-stage1-modules-r1.json (1/9) or
-build-all-modules-r1.json (1..15), under .local/v090/espgaluda.
-All15-stage glue generated/validated at all-stage-build-glue-r1; real CMake
-syntax/graph check .local/v090/cmake-stage-grammar-r1: 4.6s configure/0.3s
-generation, without compiling game code. Existing mode graph199.3s generation.
-139514 ARCADE cpp files batch to545units in4.557s. PS2 Python tests24 total pass,
-including cross-unit root references and missing direct SDK binding rejection.
-IMPORTANT new pad fix: upstream ps2_pad disabled keyboard if gamepad0 connected.
-Local vendor copy merges both; actual implementation with fake raylib states
-passed connected-controller keyboard/combined/release regression. New
-ps2_pad_contract test target. Temporary check built/executed via above grammar
-fixture. Seven production CTests passed after r20. The SDK codegen test uses an
-authored MIPS tail-jump fixture with memset binding; caller bypasses dispatch
-and native execution must check actual bytes +returnPC. No ROM dependency.
-Current r22 includes pad/CMake-stage changes; wait for actual link/native tests
-before gameplay. No header layout change from these additions;
-keep existing mode/boot objects. Input
-source defaults X=Cross,C=Circle,Z=Square,V=Triangle,Enter=Start,Tab=Select.
-Do not apply PS4's Z/X mapping. SDL/shared config is still pending.
-Ibara Ghidra project Ibara, original boot SHA263d3079...812ffac. Its flat RWX
-segment contains resource tables misidentified as synthetic entries: 12 verified
-data-only/PARAM references, no containing functions or flow refs. games/ibara/
-analysis.json +tools/ps2/ghidra/MarkDataEntries.java annotate analysis only,
-with SHA/function/flow-reference guards. RefineLabels.java bounds non-function
-entries at the first undisassembled gap; the upstream exporter otherwise extends
-them into data until a distant next label. Actual 236 entry extents refined.
-Ibara accepted generation .local/v090/ibara/ghidra-generated-r3, receipt
-codegen-ghidra-r3.json:17926functions/55stubs/773warnings/zero errors, decode,
-unhandled or critical fallback. No Ibara native build/play acceptance yet.
-ISO support integrated in r20: backends/ps2/iso_disc.* +authored
-tests/ps2_iso_test.cpp. Independent same-toolchain build under
-.local/v090/cmake-iso-r1/build/ps2_iso_contract.exe passed core checks and actual
-read-only ESPGaluda A0A0/A0A0. +Ibara IOP/MTSFILE.IRX original LBA/size checks.
-New third_party/ps2/runtime/CD.cpp prefers ISO search and physical LBAs, without
-registering image entries as loose files/pseudo-LBAs. Wired into main CMake and
-Build-Ps2 entry, native contract passes. Thin-root r17 advanced through A0AE
-using original ISO sectors, then failed on corrupt caller filename (see above).
-Headers use existing include dirs; no VM ABI change. For CPP-only changes, use
-Initialize-CollectionBuildEnvironment then cmake --build out/ps2-tools
---parallel2 --target ps2_espgaluda_probe, without repeated full configure.
-Run() currently catches execution failures and returns normally; player host
-must eventually propagate a failure exit after cleanup (not accepted as success).
-VBlank callbacks11d530/280f70 run;11IOPmodules advance. Private decompilations
-.local/v090/analysis/espgaluda-cri-*.c, throughr15. Probe now has bounded
---frames N and --trace-boot with CreateThread/ReferThreadStatus observers.
-Build out/ps2-tools/bin/ps2_espgaluda_probe.exe; all old probes closed. Inspect
-existing log/CLI controls before running; do not redo codegen or setup from scratch.
-Ghidra project cache/ps2-analysis/ghidra/ESPGaluda (Ghidra rejects .local project
-paths). Project-local tools/apps/ghidra-12.1.4, existing E:/Tools JDK21 only for
-Ghidra. Original tools install untouched. Initial PS2 generation/SDK/VU tests pass.
-Missing-data greying source implemented; common704/hiddenUI4459 and3language
-previews passed before pause. Root launcher is still releasedv084; rebuild only
-into test output until acceptance. Covers UI/config remains PLAN ONLY; default
-banner, proposed [collection].launcher_layout=banner|covers for internal opt-in.
-
-COMPLETE November1 04:22 CST: v0.8.4 formally published as GitHub Latest,
-https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.4, ID430162415.
-Source/build/package/annotated tag680c016a031485d1aac69f8a2890ebadc6407214;
-main and tag pushed. Nine game components +launcher certified at this commit.
-SDK unchanged/verified. Program ZIP releases/v0.8.4-final-680c016/
-EVAC-PC-LABEL-v0.8.4-win-x64.zip,115889273bytes,
-SHA20e2007625a74f8d5726024df0b4a553cfb64c62ecb3962bfe4cae35ac9b36ae.
-One extraction169files/9preservation checks passed; acceptance under
-.local/release-acceptance-v084/20e2007625a74f8d. Public Latest/API asset digests,
-sizes and downloaded100byte checksum verified. No ZIP redownload. Delivery
-.local/v084/github-delivery-r1.json; screenshot .local/v084-release-published.jpg.
-Issue6 reply publicly verified: issuecomment-6548706106. It remains open for
-the author's hardware confirmation. No internal package/OSS/group request.
-PS4 and launcher PDBs +PS4 receipt preserved in .local/v084/symbols.
-
-CPU tests197495; native88/88,preparation48/48,cache23/23,common/launch/preview3/3,
-source871 OK(skip1),audit2645/22. Base100 r5/base104 r2/Ketsui r1 actual Stage1;
-FINAL same-source Ketsui play-ketsui-final-r1 also entered player Stage1 and
-closed normally. Native binding census confirms zero conversions on this CPU.
-All test games closed. Numpy tests use bundled CPython3.12 site-packages on
-PYTHONPATH; system py3.12 lacks numpy. Do not repeat its r1 import failure.
-CPU safety: only EH-frame function extents, never whole executable segments
-(ROMs are embedded there). /EHa is REQUIRED for guarded stores/write tracking.
-Save full YMM then VZEROUPPER before Windows helper calls; restore afterward.
-Prepared capability2 carries EH header VA/size; producer hash refreshes caches.
-This closing record is docs-only: do not rebuild/repack or move frozen v084 tag.
-CUA existing getTab failed browser.user unavailable; a NEW iab tab worked.
-Release form caches tag list: save draft/reload after pushing a new tag.
-
-COMPLETE October31 07:14 CST: v0.8.3 Battle Garegga Rev.2016 formally published
-as GitHub Latest. Release ID429571675:
-https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.3
-Main and annotated v0.8.3 tag pushed. Source/build/package/tag commit:
-f7ee39173b5231e78acd3ba631a318ffa5bac9ef. All nine runtime components and launcher
-certified at this commit; SDK unchanged and verified. This closing checkpoint
-is docs-only: do not rebuild/repack or move the frozen tag.
-
-Final program ZIP releases/v0.8.3-final-f7ee391/EVAC-PC-LABEL-v0.8.3-win-x64.zip,
-115034097bytes, SHA c5a077d6d709fbf8b532331605430ba6b7759977ec5a3f9d7855115d38db2c08.
-Public, no ROM/source/PDB. One actual extraction165files/9preservation files
-passed; receipt .local/release-acceptance-v083/c5a077d6d709fbf8/accepted.json.
-Public API verified Latest/non-draft/non-prerelease, exact two asset sizes and
-digests, complete bilingual notes and downloaded100byte checksum. No ZIP
-redownload. Delivery .local/v083/github-delivery-r1.json; published screenshot
-.local/v083-release-published.png. Actual extracted launcher preview reviewed.
-No internal package, OSS upload or group announcement requested/performed.
-
-Garegga CUSA10207 KR01.00: ARCADE, SUPER EASY, PREMIUM, CUSTOM entered Stage1;
-movement/shooting, settings restart, ARCADE QuickSave20points/restart/QuickLoad,
-original downloaded100point replay FULL1:21 offline after restart all passed.
-Formal HTTPS CUSTOM1040points on boards30/31, two real replays and actual ranking
-UI passed. Only own service cave-garegga on loopback18092 and own nginx route
-added; daily backup enabled. Nine HTTPS health checks and old eight service
-PID/pointer preservation passed. Deployment source66c1438, evidence in v083.
-
-Accepted Stage1 performance: NEO1080pcomposition/720pwindow, vsyncfalse,
-6.002sec361frames60.006FPS, CPU0.250equivalentcores, P9517.055ms/max17.235ms.
-R1/r2 end/prompt samples excluded; accepted cpu/performance-super-easy-stage1-r3
-reports. README bilingual updated, no unmeasured Garegga latency row added.
-Native88/88, resources127/127, actual WindowsHTTP2/2, full source871tests OK
-(skip1); final common/launch/preview all pass. f7ee391 fixed stale nickname test
-counts, no gameplay change from acceptedr10. Source audit2635files/22submodules
-passed. Final package verified all same-source receipts and ASCII guides/tools.
-All actual test games and local loopback server closed. No current launch block.
-Original data read-only in .local/v083/base-kr-r1/uroot,47files/761243678bytes;
-private analysis/play fixtures under .local/v083. Frozen v0.8.2 unchanged.
-No subagents. Never open Task Manager. No further testing/publishing work remains.
 
 ## Previous release checkpoints
 

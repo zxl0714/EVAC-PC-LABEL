@@ -145,6 +145,10 @@ ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImage
     info.phase=request.field&1u;
     info.dst_layout=layout;info.dst_stage=stage;info.dst_access=access;
     info.adapt_to_internal_horizontal_resolution=true;
+    // These 2D games render a complete framebuffer in FIELD mode. Preserve
+    // each frame's 30 Hz flicker effects instead of weaving alternating shadow
+    // fields together. The renderer keeps normal interlaced FRAME mode intact.
+    info.force_progressive=(request.smode2&3u)==1u;
     // The renderer's vsync consumes completed GS command batches. It does not
     // flush GSInterface's pending draw/transfer tracker on behalf of callers.
     gs.flush();

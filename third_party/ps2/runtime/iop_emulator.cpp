@@ -17,6 +17,7 @@
 #include "emulator/imports/iop_vblank.h"
 #include "emulator/iop_emulator_const.h"
 #include "../../../backends/ps2/iop_profile.h"
+#include "../../../backends/ps2/audio_trace.h"
 
 #include <algorithm>
 #include <cctype>
@@ -630,6 +631,9 @@ namespace ps2x::iop::detail
         ModuleLoadResult loadImage(std::string path, std::span<const uint8_t> image, const void *arguments, uint32_t argumentSize)
         {
             ModuleLoadResult result{true, -1, -1};
+            if ((!arguments && argumentSize) || argumentSize > IopMemory::RamSize ||
+                path.size() >= IopMemory::RamSize)
+                return result;
             const IopImageLoadResult loaded = IopModuleLoader::load(image, memory, moduleCursor);
             moduleCursor = loaded.nextModuleCursor;
             if (!loaded)
@@ -653,19 +657,36 @@ namespace ps2x::iop::detail
             module.entry = loaded.entry;
             module.gp = loaded.gp;
 
-            uint32_t args = 0u;
-            if (arguments && argumentSize)
+            // LoadModule's argument payload is a sequence of NUL-terminated
+            // strings. The IRX entry receives argc/argv, including its path as
+            // argv[0], rather than the EE transport's byte count and raw bytes.
+            std::vector<uint32_t> offsets{0u};
+            const auto pathBytes = uint32_t(module.path.size() + 1u);
+            const auto *payload = static_cast<const char *>(arguments);
+            for (uint32_t position = 0; position < argumentSize;)
             {
-                args = allocate(argumentSize + 1u, 16u);
-                if (args)
-                {
-                    writeRam(args, arguments, argumentSize);
-                    write8(args + argumentSize, 0u);
-                }
+                offsets.push_back(pathBytes + position);
+                const auto *end = std::find(payload + position, payload + argumentSize, '\0');
+                position = uint32_t(end - payload) + 1u;
             }
-            const uint32_t startResult = callFunction(module.entry, argumentSize, args, 0u, 0u, module.gp);
-            if (args)
-                freeAllocation(args);
+            const uint64_t stringBytes = uint64_t(pathBytes) + argumentSize + 1u;
+            const uint64_t argvOffset = (stringBytes + 3u) & ~uint64_t(3u);
+            const uint64_t storageBytes = argvOffset + (offsets.size() + 1u) * sizeof(uint32_t);
+            const auto storage = storageBytes <= IopMemory::RamSize ? allocate(uint32_t(storageBytes), 16u) : 0u;
+            if (!storage)
+            {
+                freeAllocation(loaded.base);
+                return result;
+            }
+            writeRam(storage, module.path.c_str(), pathBytes);
+            if (argumentSize) writeRam(storage + pathBytes, arguments, argumentSize);
+            write8(storage + pathBytes + argumentSize, 0u);
+            const auto argv = storage + uint32_t(argvOffset);
+            for (size_t i = 0; i < offsets.size(); ++i)
+                write32(argv + uint32_t(i * sizeof(uint32_t)), storage + offsets[i]);
+            write32(argv + uint32_t(offsets.size() * sizeof(uint32_t)), 0u);
+            const uint32_t startResult = callFunction(module.entry, uint32_t(offsets.size()), argv, 0u, 0u, module.gp);
+            freeAllocation(storage);
             module.resident = startResult == 0u || startResult == 2u;
             result.moduleId = module.id;
             result.startResult = static_cast<int32_t>(startResult);
@@ -800,7 +821,30 @@ namespace ps2x::iop::detail
     RpcResult IopEmulator::handleRpc(const RpcRequest &request)
     {
         m_impl->idleUntil = 0;
-        return m_impl->rpc.handleRpc(request, *m_impl);
+        const bool traceTransfer = cave::ps2::audio_trace::enabled &&
+            request.sid == 0x80000701u && request.function == 0x80d0u;
+        if (traceTransfer)
+        {
+            std::array<uint32_t, 16> words{};
+            m_impl->host.readGuest(request.send.address, words.data(),
+                                  std::min<size_t>(request.send.size, sizeof(words)));
+            std::osyncstream line(std::cerr);
+            line << "[ps2-audio-bank] ms=" << cave::ps2::audio_trace::Milliseconds() << " packet=" << std::hex;
+            for (auto word : words) line << word << ',';
+            line << std::dec << '\n';
+        }
+        auto result = m_impl->rpc.handleRpc(request, *m_impl);
+        if (traceTransfer)
+        {
+            std::array<uint32_t, 4> words{};
+            m_impl->host.readGuest(request.receive.address, words.data(),
+                                  std::min<size_t>(request.receive.size, sizeof(words)));
+            std::osyncstream line(std::cerr);
+            line << "[ps2-audio-bank-result] handled=" << result.handled << " packet=" << std::hex;
+            for (auto word : words) line << word << ',';
+            line << std::dec << '\n';
+        }
+        return result;
     }
 
     bool IopEmulator::hasRpcServer(uint32_t sid) const noexcept

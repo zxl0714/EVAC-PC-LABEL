@@ -2,6 +2,7 @@
 
 #include "ps2_log.h"
 #include "ps2_runtime_macros.h"
+#include "../../../backends/ps2/frame_trace.h"
 
 #include <algorithm>
 #include <cassert>
@@ -1859,6 +1860,7 @@ void EeScheduler::processDueDeadlines()
         {
             if (scheduled.event.type == EeEventType::VBlankStart)
             {
+                cave::ps2::frame_trace::Vblank(m_vsyncTick+1u,scheduled.hostDeadline);
                 scheduleEvent(scheduled.deadlineCycle + kVBlankDurationCycles,
                               scheduled.hostDeadline + kVBlankDuration,
                               EeEvent{EeEventType::VBlankEnd, 0, m_vsyncTick + 1u});

@@ -1,6 +1,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #include <Windows.h>
 #include "gs_display.h"
+#include "frame_trace.h"
 #include "gs_device_private.h"
 #include "wsi.hpp"
 #include "fence.hpp"
@@ -104,6 +105,7 @@ public:
     std::unique_ptr<GsDevice> gs;
     Vulkan::Fence pending;
     uint64_t frames=0;
+    int64_t tracedGpuWait=0;
     GsPresentTransfer transfer=GsPresentTransfer::Automatic;
     Vulkan::Program* presentProgram=nullptr;
     int loggedTransfer=-1;
@@ -148,18 +150,27 @@ void GsDisplay::SetKeyHandler(std::function<void(unsigned,bool)> handler){impl->
 void GsDisplay::ToggleFullscreen(){impl->window.ToggleFullscreen();}
 void GsDisplay::WaitPreviousFrame() {
     impl->gs->impl->CheckOwner();
-    if(impl->pending){impl->pending->wait();impl->pending.reset();}
+    if(impl->pending){
+        const auto start=frame_trace::rows?frame_trace::Stamp():0;
+        impl->pending->wait();impl->pending.reset();
+        if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
+    }
 }
 bool GsDisplay::Present(const GsFrame& request) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
+    auto* trace=frame_trace::Get(request.vsyncTick);
+    if(trace)trace->presentStart=frame_trace::Stamp();
     WaitPreviousFrame();
+    if(trace){trace->gpuWait=impl->tracedGpuWait;impl->tracedGpuWait=0;}
     // Texture uploads can retain Granite command buffers between GS packets.
     // WSI begins a new allocation context and waits for all recorded buffers
     // to be submitted. Drain PGS before that boundary, rather than waiting on
     // our own pending upload inside begin_frame(). No device-wide idle wait.
     impl->gs->Flush();
+    if(trace)trace->flushed=frame_trace::Stamp();
     if(!Alive() || !impl->wsi.begin_frame())return false;
+    if(trace)trace->acquired=frame_trace::Stamp();
     auto& device=impl->wsi.get_device();
     const auto& destination=device.get_swapchain_view().get_image();
     const bool blit=impl->transfer==GsPresentTransfer::Automatic &&
@@ -174,6 +185,7 @@ bool GsDisplay::Present(const GsFrame& request) {
         blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
         blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    if(trace)trace->scanned=frame_trace::Stamp();
     auto command=device.request_command_buffer();
     const auto width=destination.get_width(),height=destination.get_height();
     unsigned targetWidth=width,targetHeight=width*3u/4u;
@@ -215,7 +227,9 @@ bool GsDisplay::Present(const GsFrame& request) {
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,VK_PIPELINE_STAGE_2_NONE,0);
     }
     device.submit(command,&impl->pending);
+    if(trace)trace->submitted=frame_trace::Stamp();
     if(!impl->wsi.end_frame())return false;
+    if(trace)trace->presented=frame_trace::Stamp();
     ++impl->frames;
     return true;
 }

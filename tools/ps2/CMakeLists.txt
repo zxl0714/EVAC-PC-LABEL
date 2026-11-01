@@ -59,6 +59,8 @@ target_include_directories(ps2_rabbitizer PUBLIC
 file(GLOB RECOMP_SOURCES CONFIGURE_DEPENDS "${UPSTREAM}/ps2xRecomp/src/lib/*.cpp")
 list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/vu_translation_helpers.cpp")
 list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/vu_translation_helpers.cpp")
+list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/fpu_translator.cpp")
+list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/fpu_translator.cpp")
 add_library(ps2_recomp_lib STATIC ${RECOMP_SOURCES})
 target_compile_definitions(ps2_recomp_lib PUBLIC LIBDWARF_STATIC)
 target_include_directories(ps2_recomp_lib PUBLIC
@@ -138,7 +140,8 @@ if(PS2_BUILD_RUNTIME)
   file(COPY "${UPSTREAM}/ps2xIOP/src/" DESTINATION "${IOP_SOURCE_VIEW}"
     PATTERN "iop_memory.h" EXCLUDE PATTERN "iop_memory.cpp" EXCLUDE
     PATTERN "iop_module_loader.cpp" EXCLUDE PATTERN "iop_emulator.cpp" EXCLUDE
-    PATTERN "iop_emulator.h" EXCLUDE PATTERN "iop_subsystem.cpp" EXCLUDE)
+    PATTERN "iop_emulator.h" EXCLUDE PATTERN "iop_subsystem.cpp" EXCLUDE
+    PATTERN "iop_sysclib.cpp" EXCLUDE)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.h"
     "${IOP_SOURCE_VIEW}/emulator/core/iop_memory.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.h"
@@ -147,13 +150,14 @@ if(PS2_BUILD_RUNTIME)
     "${IOP_SOURCE_VIEW}/ps2x/iop/iop_subsystem.h" COPYONLY)
   get_target_property(IOP_SOURCES ps2_iop SOURCES)
   list(REMOVE_ITEM IOP_SOURCES "src/emulator/core/iop_memory.cpp" "src/emulator/services/iop_module_loader.cpp"
-    "src/emulator/iop_emulator.cpp" "src/iop_subsystem.cpp")
+    "src/emulator/iop_emulator.cpp" "src/iop_subsystem.cpp" "src/emulator/imports/iop_sysclib.cpp")
   list(TRANSFORM IOP_SOURCES REPLACE "^src/" "${IOP_SOURCE_VIEW}/")
   set_property(TARGET ps2_iop PROPERTY SOURCES ${IOP_SOURCES}
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.cpp"
-    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.cpp")
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_sysclib.cpp")
   target_include_directories(ps2_iop BEFORE PRIVATE "${IOP_SOURCE_VIEW}")
   target_link_libraries(ps2_iop PRIVATE ps2_spu)
   add_executable(ps2_iop_memory_contract "${COLLECTION_ROOT}/tests/ps2_iop_memory_test.cpp")
@@ -230,6 +234,7 @@ if(PS2_BUILD_RUNTIME)
   add_test(NAME ps2_sdk_codegen_contract COMMAND ps2_sdk_codegen_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
+  option(PS2_GAME_SYMBOLS "Link full PDBs for generated game hosts" ON)
   set(PS2_ARCADE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARCADE module")
   set(PS2_ARRANGE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARRANGE module")
   set(PS2_STAGE_MODULES_MANIFEST "" CACHE FILEPATH "Private stage module build manifest")
@@ -251,6 +256,9 @@ if(PS2_BUILD_RUNTIME)
     # The upstream runtime creates sizeable EE/VU stack frames.
     target_link_options(ps2_espgaluda_probe PRIVATE /STACK:8388608
       /MANIFEST:EMBED "/MANIFESTINPUT:${COLLECTION_ROOT}/common/windows.manifest")
+    if(NOT PS2_GAME_SYMBOLS)
+      target_link_options(ps2_espgaluda_probe PRIVATE /DEBUG:NONE)
+    endif()
     if(PS2_ARCADE_GENERATED OR PS2_ARRANGE_GENERATED)
       if(NOT PS2_ARCADE_GENERATED OR NOT PS2_ARRANGE_GENERATED)
         message(FATAL_ERROR "Both ESPGaluda module banks are required")

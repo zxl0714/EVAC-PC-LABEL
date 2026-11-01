@@ -30,6 +30,13 @@ continuing. The headless kernel regression exercises this transfer.
 CMake stages one complete runtime include tree with the adapted header. Both
 direct and quoted sibling includes therefore use the same class layout.
 
+`iop_emulator.cpp` supplies the IRX startup `argc`/`argv` interface, including the
+module path and a null table terminator. `iop_sysclib.cpp`, adapted from
+`ps2xIOP/src/emulator/imports/iop_sysclib.cpp` at the same revision, implements
+the PS2 ASCII classification flags returned by ordinal 8. CRI ADX validates
+numeric startup options through this API before selecting its SPU2 core.
+The no-ROM IOP contract checks argument framing and character classification.
+
 `ps2_pad.cpp` comes from the same commit's `src/lib/ps2_pad.cpp`. It combines
 keyboard and controller buttons instead of disabling the keyboard whenever
 gamepad 0 is connected. The host-input regression uses authored key/controller

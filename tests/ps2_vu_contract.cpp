@@ -1,3 +1,5 @@
+#include <cmath>
+inline float FPU_SQRT_S(float value){return std::sqrt(std::fabs(value));}
 #include "ps2_vu_fixture.h"
 #include <array>
 #include <iostream>
@@ -6,6 +8,7 @@
 struct Context {
   uint16_t vi[16]{};
   uint32_t vu0_cmsar0{},vu0_pc{};
+  float f[32]{};
 };
 struct Runtime {
   uint32_t address{};
@@ -22,6 +25,12 @@ int main() {
       if(runtime.calls!=1 || runtime.address!=expected || context.vu0_pc!=expected)
         throw std::runtime_error("VCALLMSR did not use CMSAR0 with VU0 address wrapping");
     }
-    std::cout<<"PS2 VCALLMSR: emitted C++ executed six register/wrap cases\n";return 0;
+    for(float value:{2.0f,4.0f,9.0f}) {
+      Context context;context.f[0]=100.0f;context.f[22]=value;
+      GeneratedSquareRoot(&context);
+      if(context.f[20]!=std::sqrt(value) || context.f[0]!=100.0f || context.f[22]!=value)
+        throw std::runtime_error("R5900 SQRT.S used fs rather than ft or clobbered a source");
+    }
+    std::cout<<"PS2 emitted C++: six VCALLMSR register/wrap cases and three SQRT.S ft cases\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }
