@@ -49,7 +49,7 @@ class Ps2ModuleExtrasTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'overlap'):prepare(manifest,root/'output')
 
     def test_reviewed_return_continuation_is_retained_only_with_identical_epilogue(self):
-        for failure in (None,'opcode','generator','entry'):
+        for failure in (None,'stack32','opcode','generator','entry'):
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as temporary:
                 root=Path(temporary);manifest=self.fixture(root)
                 with (root/'base/register_functions.cpp').open('a') as stream:
@@ -57,6 +57,7 @@ class Ps2ModuleExtrasTests(unittest.TestCase):
                 tail=('// 0x730894: 0xdfbf0000 ld ra,0(sp)\n'
                       '// 0x730898: 0x03e00008 jr ra\n'
                       '// 0x73089c: 0x27bd0010 addiu sp,sp,16\n')
+                if failure=='stack32':tail=tail.replace('0x27bd0010','0x27bd0020')
                 (root/'base/old_return.cpp').write_text(tail)
                 (root/'extra/fresh_0x730890.cpp').write_text(
                     tail.replace('0x27bd0010','0x27bd0020') if failure=='opcode' else tail)
@@ -67,21 +68,22 @@ class Ps2ModuleExtrasTests(unittest.TestCase):
                 spec=json.loads(manifest.read_text())
                 spec['retainedReturnSlots']=['0x730890' if failure=='entry' else '0x730894']
                 manifest.write_text(json.dumps(spec))
-                if failure:
+                if failure and failure!='stack32':
                     with self.assertRaisesRegex(ValueError,'Retained return'):prepare(manifest,root/'output')
                 else:
                     result=prepare(manifest,root/'output')
                     self.assertEqual((result['functions'],result['entries']),(1,1))
                     self.assertNotIn('{0x730894u,',(root/'output/registration.cpp').read_text())
 
-    def test_boot_and_arrange_use_their_own_tables(self):
+    def test_boot_arrange_and_stages_use_their_own_tables(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);manifest=self.fixture(root)
             spec=json.loads(manifest.read_text());spec.pop('format')
-            manifest.write_text(json.dumps(dict(format=1,modules=[dict(spec,id=0),dict(spec,id=17)])))
+            manifest.write_text(json.dumps(dict(format=1,modules=[dict(spec,id=n) for n in (0,17,1,9)])))
             result=prepare(manifest,root/'output')
-            self.assertEqual((result['modules'],result['functions'],result['entries']),(2,2,4))
-            for number,prefix in ((0,'g_ps2RecompiledFunctionTable'),(17,'g_ps2ArrangeFunctionTable')):
+            self.assertEqual((result['modules'],result['functions'],result['entries']),(4,4,8))
+            for number,prefix in ((0,'g_ps2RecompiledFunctionTable'),(17,'g_ps2ArrangeFunctionTable'),
+                                  (1,'g_ps2Stage01FunctionTable'),(9,'g_ps2Stage09FunctionTable')):
                 code=(root/f'output/{number}/registration.cpp').read_text()
                 self.assertIn(prefix+'Base',code)
                 self.assertNotIn('g_ps2ArcadeFunctionTable',code)
@@ -119,6 +121,21 @@ class Ps2ModuleExtrasTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'module 16:0x7308b0'):
                 prepare(manifest,root/'output')
             self.assertFalse((root/'output').exists())
+
+    def test_stage_fixed_calls_cannot_use_the_other_mode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);manifest=self.fixture(root)
+            module=json.loads(manifest.read_text());module.pop('format')
+            alternate=root/'arrange';alternate.mkdir()
+            (alternate/'register_functions.cpp').write_text(
+                (root/'base/register_functions.cpp').read_text()+
+                'g_ps2RecompiledFunctionTable[12] = alternate; // 0x7308b0\n')
+            (root/'extra/fresh_0x730890.cpp').write_text(
+                'runtime->dispatchGuestBranch(rdram, ctx, 0x7308b0u, 0x730890u, 0x730898u);')
+            spec=dict(modules=[dict(module,id=n,base=str(alternate) if n==17 else module['base'])
+                               for n in (0,16,17,1,9)],
+                      linkedTables=[str(alternate/'register_functions.cpp')])
+            self.assertEqual([(g['module'],g['target']) for g in fixed_branch_gaps(spec)],[(9,0x7308b0)])
 
     def test_mismatched_images_maps_and_unreviewed_root_linkage_rejected(self):
         for failure in ('image','map','root','report'):

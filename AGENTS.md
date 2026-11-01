@@ -16,47 +16,80 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
-Latest PS2 checkpoint (Nov1 10:28): r39 build RUNNING, exec32277,
-log.local/v090/ps2-build-r39.log. No game is running. Do not duplicate configure.
-r38 native7/7pass; Python extras7pass with explicit retained-return guards.
-Latest commitdebec40, later input/callback changes UNCOMMITTED; preserve.
-v084 published/replied. v090 still requires PS2 gameplay, Ibara and integration.
+Latest PS2 checkpoint (Nov1 11:22): r42/r43COMPLETE, native8/8PASSr43,
+Python34PASSr11. Noactivegame/build/analysis. play-r34PID124712/exec16650CLOSED,
+reaped, exit0 at11:20:22,18000frames306264ms. REALARCADEstage1/AGEHAobserved!
+Enemies/background/shootingandContinue8appeared; actualmovementnotyetclearly
+proved(A/Ddeliveredbutdeath/respawnconfounded). ContinueReturnarrivedafterframe
+capclosed, NOTinputfailure/crash. HowToPlayruns~2minutes; letitfinish, ZNOTskip.
+DswitchTATEHAverifiedr32. AlloriginalROMs/oldoutputsuntouched. ReadMEMORYbeforeCU.
 
-ESPGaluda r29/r30 verified: Return from attract opens MAIN MENU; C(Circle)
-ARCADE MODE -> GAME START -> CHARACTER SELECT -> HOW TO PLAY. RIGHT did not
-visibly switch AGEHA, so no switch acceptance yet. r30 crashed BEFORE attempted
-Z at JALR88b52c -> missing88cbe0. r29 was normal6000-frame exit, not a hang.
-All play profiles throughr30 CLOSED. Use freshplay-r31 after currentr39build.
-Framecap18000 and --diagnostic-tap-ms200; select current unique game window.
-No new input scripts/guessed keys. If CU says foreground has no PID, inspectexit
-and logs before retrying. Actual firststage/audio/quality not accepted; IOPheap
-262144 allocationfailure is pendinginvestigation. Window aspect stillnarrow.
+CurrentEXEout/ps2-tools/bin/ps2_espgaluda_probe.exe=r43. r42addsconstructedcallbacks
+andpresentation-size-changelog; r43CPP-onlyaddsIOPheapfailurelayoutlog. r43build
+log.local/v090/ps2-build-r43.log/native-r43.log. Get-CollectionTooldoesNOTsupport
+ctest; use tools/apps/cmake/bin/ctest.exe. AvoidunneededreconfigureforCPP-only.
 
-Opt-in queued diagnostic input runs on window owner, atomic primary-port mask,
-0..500ms default0. Logs ps2-pad-event/ps2-pad-read. Native unit coversexpiry,
-player2isolation,defaultunchanged. Normal sharedSDL/snapshot integrationpending.
-Original scePadRead1106e8 caller11e4b0 has correct active-low littleendianpacket.
-Do NOT fix guessed byteorder/status. ReadMEMORY before any gameautomation.
+r42inputs: originalbootghidra-allocation-output-r2, originalmodebases*-generated-r2,
+fullstage1/9generated-r2/build-stage1-modules-r2.json; ModeExtrasManifestr10:
+bootextra-r5(2504new+100008anchor),arcadeextra-r6(1449),arrangeextra-r6(1746),
+stage1extra-r2(73),stage9extra-r2(27). Total5799bodies/7350newslots, ZEROoverwrites.
+Fourreviewedreturnslots retainoriginalidenticalepilogues: mode16 88a348/88ac38
+(stack16),775a94(stack32);mode17 8e6874(stack32). Guardrequiresexactldra0(sp),
+jrra,addiuSP16/32bytesANDsamegenerator; mismatched/entry/unknownoverlapreject.
+NativecodegenallZEROerrors/unknown/decode/criticalfallbacks. Python34passr11.
+Additionalstageprefixandactive-modechecksnowimplemented/tested; THISstageextra
+baseisFULLgenerated-r2, notoldr1 whichhad389/383nontrivialoverlaps (neverrelax).
 
-r39inputs: original boot ghidra-allocation-output-r2, modebanks *-generated-r2,
-stages1/9 via build-stage1-modules-r1. ModeExtrasManifest build-mode-extras-r5:
-boot-extra-generated-r3 (2045bodies +100008anchor), arcadeextra-r3 (369),
-arrangeextra-r3 (1132). Total3546bodies/3578additional slots; no base replacements.
-Fixed branch closure uses boot+ACTIVE mode+stages; separate mode address spaces.
-Two reviewed resumepoints88a348/88ac38 retain their original bodies: extras tool
-checks same generator and identical ld ra,0(sp);jr ra;addiu sp,sp,16 epilogue;
-new functionstarts and nonidentical/unknowncontinuations still rejected.
-Seven authored extras tests pass. codegen461/1204 includes ignoredELFroots,
-zeroerrors/decode/unknown/criticalfallbacks for both. Never handeditgeneratedbody.
+Callbackanalysisbatchafterr33: SPprologues+SDRA scanidentifiedONLY3remainingreal
+functionspermode, allseeded; thenLUI+ADDIU/ORIaddressconstructionidentified14
+ARCADE/10ARRANGEleaf/thunkcallbacks, originalinstructionsreviewed, allseeded0
+ownedskips. Fullmapsmodesfunctions-r10. Actual766710isamongfirst3, serializedby
+code7691ac.. tobytes. Modesextras-r6includesALL. Across15stagesconstruct/prologue
+scanfound1..4pernonemptystage; seeded1,2,3,4,6,9,10,11,12,14, fullfunctions-r3.
+Only1/9newextrascurrentlygenerated/nativebuilding. Otherstagesfullr2already
+codegeneratedbutnotnativecompiled; eitherregeneratefullr3orbuildtheirtinyextras
+againstfullr2whenallstageslinked. Oldbuild-all-stage-modules-r2onlyhasr2.
+NoGhidra/codegen/externalexportsessionsstillrunning. Allreaped.
 
-Callback scan: original module data is LITTLE endian; runtime dumps mayalready
-be converted. ELF has ONE RWX segment; text/data boundary fromMWo3header.
-Original LE runscan>=2 all16aligned, excludespagebase/colorpatterns, no spanlimit:
-15ARCADE/4ARRANGE new candidates, Ghidraadded12/3 and skipowned3/1. Fullmapsr6,
-reports *-callback-owned-r2.csv, extra-mapsr3 compared againstoriginalfullr2.
-Actualcrash88cbe0 now included. Oldmaps onlyshrink/promote, none removed/expanded.
-Do not rerun naive modeanalysis or rebuild giant banks. extras linkage preserves
-cached bodies and fills emptydispatchslots only. CurrentmanifestcheckLinks=true.
+EarlierbatchALL15stageoriginalfixed-callinventorycomplete: mode->boot,boot->
+stageinitializers,ownLEcallbacktables. PublicmodulemanifestbootCallRangescovers
+1..7/9..15 fromoriginalbranches. Allstagefullr2codegenvalid; only1/9nativecompiled.
+All-stageexternalcalls found16boot+45ARCADE+39ARRANGEbeyondfirststagebatch;
+fullbootr7,modesr8 seededthat. Thusbootextra-r5matchesfunctions.csv; modeextra-r6
+matchesoriginal*-functions-r2.csv. DoNOTuseoldr4extras again(knownmissing256860).
+
+IOP: adapteriop_memory.cpp nowLINKEDsince r41, originaldepsuntouched. Native8tests
+pass(r41); standaloneactualupstreamFAILEDreuse, adapterpasses64reusecycles,
+fixedranges/alignment/overflow/largestgap/fullcapacity/reset. HOWEVERactualr33
+stillhas256Kfailure line54; DO NOTclaimgonefromtaillog. Readfullstartuplog.
+Readonlydecomp espgaluda-iop-allocation-callers-r1.c: FUN1267f0 at12695c allocates
+40000temporaryIOPbuffer forresourceupload, thenusesresultWITHOUTcheckingfor0 in
+SifDMA; canoverwriteIOPIRX ifallocationfails. FirstfitbugfixisvalidbutNOTenough.
+r34layoutPROVEDcapacityshortage:20liveblocks,largest65216,request262144. Heap
+fixed120000..1f0000 (832KiB) includesbuffers40000+30c40+40000and20smallstacks.
+Original2MiBIOPRAMhasunusedspacebelow120000; IRXmodulesstart10000,last~5ca00.
+NeedSHAREDmodule+heapallocation/reservationwithin2MiB, NOTjustgrowRAMorlower
+heapbasewithoutprotectingfutureIRXs. LoadercurrentlyplacesPICatmoduleCursor,
+rejectsbase+span>=HeapBase,thenwriteRam/zeroRam; itdoesNOTreservefullimagespan
+inallocationlist, anddoesnotcheckheapcollision. Source iop_module_loader.cpp
+lines425..460. IopMemorymarkOwnedrecordswrittenbytes; canreservefullmodule
+spanasallocatorblocktoavoidholes. IopEmulatorconstantskKernelHeapBase/Limit
+alsoqueryheap, sokeepconsistent. Strongcandidate:oneprivateIOPsourceview with
+adaptedheaderHeapBase10000,allocatorfirstfitacrosssharedpool,loaderallocates
+imagefullspanBEFOREwriting/relocating;ET_EXECfixedaddresscollisionreject,
+PICselectsalignedfreeblock. Kernel0..10000andcallstack1f0000..2Mreserved.
+NeednativeauthoredIRX/allocatorcollision/late-loadandactualsounduploadtest.
+Nochangesforunifiedlayoutyet, onlyanalysis. Existingfirstfitfixvalidbutinsufficient.
+
+GS: newruntimeUploadFrame emits[ps2-present] ONLYonwidth/heightchangeforr42; use
+it toinvestigatecurrentlynarrow~150x300viewportbeforeassumingaspectfix. Frontend
+copyLatchedpacksrowscorrectly, UploadFrame'srowcopyisfine. Actualsize384x448; currenthostfitsRAWpixelaspect, likelyneeds4:3CRTpresentation
+(non-squarepixels)ratherthanrawratio. Framecontainsnarrow224wideplayfieldplus
+sidebars; doNOTcroparbitrarily. Needverifyphysicalaspectafterfix. NoGSfixyet; quality/
+audio/perfnotaccepted. Currentcommitted d6d5ddc; laterIOP/modulemetadata/tools/
+MEMORY/AGENTS/CMake/Build-Ps2UNCOMMITTED, preservethencommitafterverification.
+v084published/replied; v090stillneedsactualESPGstage/boss/save/Arrange,Ibara,
+sharedSDL/config/catalogue,coversUI/cert/package. Noformalv090release.
 
 Configuration performance: stage root-symbol reference scan cached by member
 file sizes/mtimes, configuration went322.6s ->4.2s; stagepreparealone0.47s.

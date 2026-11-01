@@ -446,6 +446,10 @@ static void UploadFrame(Texture2D &tex, PS2Runtime *rt, uint32_t &outWidth, uint
         }
         ++s_uploadDebugCount;
     });
+    if (width != s_lastWidth || height != s_lastHeight)
+        std::cerr << "[ps2-present] size=" << width << 'x' << height
+                  << " displayFbp=" << displayFbp << " sourceFbp=" << sourceFbp
+                  << " preferred=" << usedPreferredDisplaySource << '\n';
     s_lastDisplayFbp = displayFbp;
     s_lastSourceFbp = sourceFbp;
     s_lastPreferred = usedPreferredDisplaySource;

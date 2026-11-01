@@ -30,9 +30,9 @@ def retain_return_slots(spec, original, entries, base, generated, rows, previous
         before=instructions(base/(original[pc]+'.cpp'))
         after=instructions(generated/(entries[pc]+'.cpp'))
         opcodes=[before.get(pc+offset) for offset in (0,4,8)]
-        # ld ra,0(sp); jr ra; addiu sp,sp,16. No work or branch can be
+        # ld ra,0(sp); jr ra; addiu sp,sp,16/32. No work or branch can be
         # skipped by retaining this already-linked return from a yielding call.
-        if (opcodes!=[0xdfbf0000,0x03e00008,0x27bd0010] or
+        if (opcodes[:2]!=[0xdfbf0000,0x03e00008] or opcodes[2] not in (0x27bd0010,0x27bd0020) or
                 opcodes!=[after.get(pc+offset) for offset in (0,4,8)]):
             raise ValueError('Retained return slot is not an identical stack epilogue')
         del entries[pc]
@@ -41,7 +41,7 @@ def retain_return_slots(spec, original, entries, base, generated, rows, previous
 def fixed_branch_gaps(spec):
     """Check additional constant targets using the active mode's linked table."""
     modules=spec['modules']
-    if {module['id'] for module in modules}!={0,16,17}:
+    if not {0,16,17}<={module['id'] for module in modules}:
         raise ValueError('Fixed-branch checks require the boot and both mode tables')
     inventories={};bodies={}
     for module in modules:
@@ -61,6 +61,8 @@ def fixed_branch_gaps(spec):
     for number,sources in bodies.items():
         allowed=inventories[0]|inventories[number]|external
         if number==0:allowed=allowed|inventories[16]|inventories[17]
+        elif 1<=number<=15:
+            allowed=inventories[0]|inventories[number]|inventories[17 if number<=8 else 16]
         for source in sources:
             targets={int(pc,16) for pc in re.findall(
                 r'dispatchGuestBranch\(rdram, ctx, 0x([0-9a-fA-F]+)u,',source.read_text(encoding='utf-8'))}
@@ -70,9 +72,9 @@ def fixed_branch_gaps(spec):
 
 
 def prepare_one(spec, output):
-    if spec.get('format')!=1 or spec.get('id') not in (0,16,17):
+    if spec.get('format')!=1 or type(spec.get('id'))!=int or not 0<=spec['id']<=17:
         raise ValueError('Expected ESPGaluda boot or mode additional entries')
-    mode={0:'boot',16:'arcade',17:'arrange'}[spec['id']]
+    mode={0:'boot',16:'arcade',17:'arrange'}.get(spec['id'],f'stage_{spec["id"]:02}')
     target='ps2_espgaluda_'+mode+'_extras'
     base,generated=Path(spec['base']).resolve(),Path(spec['generated']).resolve()
     function_map=Path(spec['map']).resolve()
@@ -108,11 +110,13 @@ def prepare_one(spec, output):
     retain_return_slots(spec,original,entries,base,generated,rows,previous,receipt)
     if (set(entries.values())!=symbols or original.keys()&entries.keys() or
         any(int(row['Start'],0) not in entries for row in rows)):
-        raise ValueError('Additional functions overlap or are missing from dispatch tables')
+        overlaps=','.join(hex(pc) for pc in sorted(original.keys()&entries.keys())[:12])
+        raise ValueError(f'Additional functions overlap or are missing from dispatch tables: module {spec["id"]}, overlap [{overlaps}]')
     # Generation contains ELF-symbol roots too; only the explicit map's new
     # bodies and their resumable PCs belong in this extension.
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=True)
-    prefix={0:'g_ps2RecompiledFunctionTable',16:'g_ps2ArcadeFunctionTable',17:'g_ps2ArrangeFunctionTable'}[spec['id']]
+    prefix={0:'g_ps2RecompiledFunctionTable',16:'g_ps2ArcadeFunctionTable',17:'g_ps2ArrangeFunctionTable'}.get(
+        spec['id'],f'g_ps2Stage{spec["id"]:02}FunctionTable')
     code='#include "ps2_runtime.h"\n#include "game_overrides.h"\n#include <stdexcept>\n'
     code+=f'extern const uint32_t {prefix}Base, {prefix}SlotCount;\n'
     code+=f'extern PS2Runtime::RecompiledFunction {prefix}[];\n'

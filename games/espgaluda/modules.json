@@ -13,7 +13,12 @@
       "fileSize": 746752,
       "sha256": "200702e0951a4aec758cf693886804765655d4f50baa61e6a0b30df0e77cb1bf",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f1c0",
+          "0x14f228"
+        ]
+      ]
     },
     {
       "id": 2,
@@ -26,7 +31,12 @@
       "fileSize": 614400,
       "sha256": "3b00ef792a9e6a5fb23af637afd2519f4203951c0ca90434817725eb70930444",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f2f0",
+          "0x14f340"
+        ]
+      ]
     },
     {
       "id": 3,
@@ -39,7 +49,12 @@
       "fileSize": 544000,
       "sha256": "da963991eff5885c6b3a4b683c7cedfc1d737a739ad74d14579f093a341c6a6a",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f3f0",
+          "0x14f448"
+        ]
+      ]
     },
     {
       "id": 4,
@@ -52,7 +67,12 @@
       "fileSize": 796672,
       "sha256": "acbf15e62cd1ca745594b661ac736179f84510ef20c1b970ae55c9b6631432e9",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f500",
+          "0x14f550"
+        ]
+      ]
     },
     {
       "id": 5,
@@ -65,7 +85,12 @@
       "fileSize": 299008,
       "sha256": "6ca9240575cf36d67aff247282c1ed6b4a0956dd284be86dc64dcce822a11e36",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f600",
+          "0x14f630"
+        ]
+      ]
     },
     {
       "id": 6,
@@ -78,7 +103,12 @@
       "fileSize": 946176,
       "sha256": "63e45734fdb0e5d7a4ac21e9560a18615e5f19dda888bf4ba932443620a715b6",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f6c0",
+          "0x14f738"
+        ]
+      ]
     },
     {
       "id": 7,
@@ -91,7 +121,12 @@
       "fileSize": 29696,
       "sha256": "1db5c204a984de121fa2705b8bd62da3535d4f7c81de694b155c60c72cfa600b",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f830",
+          "0x14f840"
+        ]
+      ]
     },
     {
       "id": 8,
@@ -117,7 +152,12 @@
       "fileSize": 719872,
       "sha256": "ee97d5b3f3b0df049b8340540e023fb1e4c28f6214f5c09a6d8306d9a33a02fe",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f240",
+          "0x14f2a8"
+        ]
+      ]
     },
     {
       "id": 10,
@@ -130,7 +170,12 @@
       "fileSize": 575488,
       "sha256": "4e58752f90c244e9b57571ae9047a84820f895c748b532887cff31e45f618248",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f358",
+          "0x14f3a8"
+        ]
+      ]
     },
     {
       "id": 11,
@@ -143,7 +188,12 @@
       "fileSize": 496384,
       "sha256": "41019933230558d7c6afa801ba2a8a375d8bae986e31f302d366225baee6121b",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f460",
+          "0x14f4b8"
+        ]
+      ]
     },
     {
       "id": 12,
@@ -156,7 +206,12 @@
       "fileSize": 757760,
       "sha256": "6a098cdf4c7cb7d958ded08db0ba5db129388c131b2e87be46c9923150ba1d8f",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f568",
+          "0x14f5b8"
+        ]
+      ]
     },
     {
       "id": 13,
@@ -169,7 +224,12 @@
       "fileSize": 256000,
       "sha256": "caa8a6b78267ef46a8b3cf18e836060eff76a5c1a15caeb17780223a5594f328",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f648",
+          "0x14f670"
+        ]
+      ]
     },
     {
       "id": 14,
@@ -182,7 +242,12 @@
       "fileSize": 886784,
       "sha256": "ea93ce60ab34ea230289831bac7a2180486231ac01334a9cee212788ff9d33dc",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f750",
+          "0x14f7c8"
+        ]
+      ]
     },
     {
       "id": 15,
@@ -195,7 +260,12 @@
       "fileSize": 128640,
       "sha256": "046fc25e022640c1c1c2e665190fba20bdd55e108acdf0d245e6d180db5d7160",
       "entry": "0x649880",
-      "bootCallRanges": []
+      "bootCallRanges": [
+        [
+          "0x14f860",
+          "0x14f870"
+        ]
+      ]
     },
     {
       "id": 16,
