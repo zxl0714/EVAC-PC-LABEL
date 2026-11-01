@@ -211,6 +211,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     const auto stats=impl->queue->GetStats();
     std::cerr<<"[ps2-host] frames="<<impl->frames<<" readbacks="<<display.Device().ReadbackRequests()
         <<" queue_peak_bytes="<<stats.highWaterBytes<<" queue_peak_commands="<<stats.highWaterCommands<<'\n';
+    std::cerr<<"[ps2-host-queue] submitted="<<stats.submitted<<" completed="<<stats.completed<<'\n';
     if(ownerFailure)std::rethrow_exception(ownerFailure);
     if(executionFailure) {
         try{std::rethrow_exception(executionFailure);}

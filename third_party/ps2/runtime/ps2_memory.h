@@ -374,6 +374,7 @@ public:
     uint8_t *iop_ram;
 
     bool m_seenGifCopy;
+    bool m_gifFqcPending = false;
     std::atomic<uint64_t> m_dmaStartCount{0};
     std::atomic<uint64_t> m_gifCopyCount{0};
     std::atomic<uint64_t> m_gsWriteCount{0};

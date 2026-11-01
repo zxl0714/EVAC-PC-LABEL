@@ -7,6 +7,7 @@
 #include "fence.hpp"
 #include "thread_id.hpp"
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <stdexcept>
 
@@ -21,6 +22,7 @@ public:
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
     std::function<void(unsigned,bool)> keyHandler;
     std::exception_ptr inputFailure;
+    std::chrono::steady_clock::time_point nextMessagePoll{};
     NativeWindow(unsigned width,unsigned height,const std::wstring& title) {
         WNDCLASSW info{};
         info.lpfnWndProc=Procedure;info.hInstance=GetModuleHandleW(nullptr);
@@ -51,6 +53,11 @@ public:
     uint32_t get_surface_height() override{RECT size{};GetClientRect(handle,&size);return uint32_t(size.bottom);}
     bool alive(Vulkan::WSI&) override{return !closed;}
     void poll_input() override {
+        // Command bursts can request thousands of polls between two fields.
+        // Bound native message polling to 125 us; SDL retains its own cadence.
+        const auto now=std::chrono::steady_clock::now();
+        if(now<nextMessagePoll)return;
+        nextMessagePoll=now+std::chrono::microseconds(125);
         MSG message{};
         while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)) {
             if(message.message==WM_QUIT){closed=true;continue;}

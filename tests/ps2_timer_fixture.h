@@ -4,6 +4,22 @@
 #include <iostream>
 
 inline void EeTimerArithmetic(PS2Memory& memory) {
+  // FIFO occupancy expires at the next nonzero EE advance, including a new
+  // occupancy update after any number of idle checkpoints.
+  constexpr uint32_t gifStat=0x10003020u,fqc=0x1f000000u;
+  for(unsigned repeat=0;repeat<2;++repeat) {
+    memory.writeIORegister(gifStat,0x10000100u);
+    memory.advanceEeTimers(0);
+    if((memory.readIORegister(gifStat)&fqc)!=0x10000000u)
+      throw std::runtime_error("GIF occupancy expired without guest cycles");
+    memory.advanceEeTimers(1);
+    if(memory.readIORegister(gifStat)&fqc)
+      throw std::runtime_error("GIF occupancy survived the next EE advance");
+    if(!(memory.readIORegister(gifStat)&0x100u))
+      throw std::runtime_error("GIF occupancy expiration changed unrelated status");
+    for(unsigned i=0;i<32;++i)memory.advanceEeTimers(1);
+  }
+  memory.writeIORegister(gifStat,0);
   constexpr uint64_t frequency=294912000;
   constexpr uint64_t clocks[]{147456000,9216000,576000,15734};
   for(unsigned mode=0;mode<4;++mode)for(bool resetAtCompare:{false,true}) {

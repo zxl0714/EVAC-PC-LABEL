@@ -318,6 +318,7 @@ bool PS2Memory::initialize(size_t ramSize)
 
     cleanup();
     m_seenGifCopy = false;
+    m_gifFqcPending = false;
     m_dmaStartCount.store(0, std::memory_order_relaxed);
     m_gifCopyCount.store(0, std::memory_order_relaxed);
     m_gsWriteCount.store(0, std::memory_order_relaxed);
@@ -413,9 +414,13 @@ uint32_t PS2Memory::advanceEeTimers(uint64_t eeCycles) noexcept
 
     constexpr uint32_t kGifStat = 0x10003020u;
     constexpr uint32_t kGifFqcMask = 0x1F000000u;
-    auto gifStatIt = m_ioRegisters.find(kGifStat);
-    if (gifStatIt != m_ioRegisters.end())
-        gifStatIt->second &= ~kGifFqcMask;
+    if (m_gifFqcPending)
+    {
+        auto gifStatIt = m_ioRegisters.find(kGifStat);
+        if (gifStatIt != m_ioRegisters.end())
+            gifStatIt->second &= ~kGifFqcMask;
+        m_gifFqcPending = false;
+    }
 
     uint32_t interruptMask = 0u;
     for (size_t index = 0; index < m_eeTimers.size(); ++index)
@@ -1178,6 +1183,9 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
 
     m_ioRegisters[address] = value;
 
+    if (address == 0x10003020u)
+        m_gifFqcPending = (value & 0x1F000000u) != 0u;
+
     if (address >= 0x10003C00u && address < 0x10003E00u)
     {
         m_vifWriteCount.fetch_add(1, std::memory_order_relaxed);
@@ -1637,6 +1645,7 @@ void PS2Memory::processPendingTransfers()
         constexpr uint32_t kGifFqcMask = 0x1F000000u;
         uint32_t &gifStat = m_ioRegisters[kGifStat];
         gifStat = (gifStat & ~kGifFqcMask) | (observedGifQwc << 24u);
+        m_gifFqcPending = true;
     }
 
     for (size_t idx = 0; idx < m_pendingGifTransfers.size(); ++idx)

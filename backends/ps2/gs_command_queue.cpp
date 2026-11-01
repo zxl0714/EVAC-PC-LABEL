@@ -50,6 +50,7 @@ public:
     std::shared_ptr<GsCompletionMailbox> completions;
     std::function<void()> frameNotifier;
     bool frameWaiter=false;
+    unsigned waitingWriters=0;
     Impl(size_t bytes,size_t count,std::shared_ptr<GsCompletionMailbox> mailbox)
         :capacityBytes(bytes),capacityCommands(count),completions(mailbox?std::move(mailbox):std::make_shared<GsCompletionMailbox>()) {
         if(!bytes || !count)throw std::invalid_argument("GS queue capacity must be positive");
@@ -60,21 +61,27 @@ public:
         if(command.cost>capacityBytes)throw std::length_error("GS command exceeds queue byte capacity");
         const bool frame=command.kind==Kind::Frame;
         std::unique_lock lock(mutex);
-        writable.wait(lock,[&]{return stats.closed ||
+        const auto available=[&]{return stats.closed ||
             (stats.commands<capacityCommands && command.cost<=capacityBytes-stats.pendingBytes &&
-             (!frame || !stats.frameOutstanding));});
+             (!frame || !stats.frameOutstanding));};
+        if(!available()) {
+            ++waitingWriters;
+            writable.wait(lock,available);
+            --waitingWriters;
+        }
         CheckOpen();
         command.generation=completions->Generation();
         // Allocate only after capacity is reserved; blocked writers do not keep
         // an extra unbounded copy of their guest DMA buffers.
         command.bytes.assign(payload.begin(),payload.end());
+        const bool wakeReader=commands.empty();
         commands.push_back(std::move(command));
         stats.pendingBytes+=commands.back().cost;
         ++stats.commands;++stats.submitted;
         stats.highWaterBytes=std::max(stats.highWaterBytes,stats.pendingBytes);
         stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
         if(frame)stats.frameOutstanding=true;
-        lock.unlock();readable.notify_one();
+        lock.unlock();if(wakeReader)readable.notify_one();
     }
     std::vector<uint8_t> Request(Command command,std::span<const uint8_t> payload={}) {
         command.reply=std::make_shared<Reply>();
@@ -143,6 +150,7 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         Close(error);if(command.reply)command.reply->Fail(error);throw;
     }
     std::function<void()> frameNotifier;
+    bool wakeWriters=false;
     {
         std::lock_guard lock(impl->mutex);
         if(!impl->stats.closed) {
@@ -154,9 +162,10 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
             }
         }
         impl->activeReply.reset();
+        wakeWriters=impl->waitingWriters!=0;
     }
     if(command.reply)command.reply->Complete(std::move(answer));
-    impl->writable.notify_all();
+    if(wakeWriters)impl->writable.notify_all();
     if(frameNotifier)frameNotifier();
     return true;
 }
@@ -204,10 +213,11 @@ bool GsCommandQueue::TryFrame(const GsFrame& request) {
     impl->CheckOpen();
     if(impl->stats.frameOutstanding || impl->stats.commands==impl->capacityCommands){impl->frameWaiter=true;return false;}
     Command command;command.kind=Kind::Frame;command.frame=request;command.generation=impl->completions->Generation();
+    const bool wakeReader=impl->commands.empty();
     impl->commands.push_back(std::move(command));
     auto& stats=impl->stats;++stats.commands;++stats.submitted;stats.frameOutstanding=true;
     stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
     if(auto* row=frame_trace::Get(request.vsyncTick))row->enqueued=frame_trace::Stamp();
-    lock.unlock();impl->readable.notify_one();return true;
+    lock.unlock();if(wakeReader)impl->readable.notify_one();return true;
 }
 }
