@@ -2,6 +2,7 @@
 #include "emulator/services/iop_module_loader.h"
 #include "emulator/imports/iop_sysclib.h"
 #include "emulator/core/iop_cpu.h"
+#include "emulator/core/iop_kernel.h"
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -115,12 +116,59 @@ void SysclibCharacterFlags() {
     }
     std::cout<<"IOP sysclib digit/letter/space/control classification: PASS\n";
 }
+void ReadyElectionInvalidation() {
+    IopMemory memory;
+    ps2x::iop::detail::IopKernel kernel(memory);
+    ps2x::iop::detail::IopCpuState call{};
+    constexpr uint32_t descriptor=0x18000, sentinel=0x1fffff00;
+    auto create=[&](uint32_t priority,uint32_t entry) {
+        for(unsigned i=0;i<5;++i)memory.write32(descriptor+4*i,0);
+        memory.write32(descriptor+8,entry);memory.write32(descriptor+12,0x400);
+        memory.write32(descriptor+16,priority);call.gpr[4]=descriptor;
+        Require(kernel.dispatchThreadImport(4,call,0),"CreateThread fixture failed");
+        const int id=int(call.gpr[2]);Require(id>0,"Thread stack allocation failed");
+        call.gpr[4]=id;call.gpr[5]=0;
+        Require(kernel.dispatchThreadImport(6,call,0),"StartThread fixture failed");
+        return id;
+    };
+    auto take=[&](uint64_t cycle,int id) {
+        auto* next=kernel.beginNextReady(cycle);
+        Require(next && next->id==id,"Cached IOP election changed priority or wake timing");
+        return next;
+    };
+    const auto low=create(40,0x50000),high=create(10,0x51000);
+    auto* next=take(0,high);
+    kernel.delayCurrentUntil(100,next->cpu);kernel.endTimeslice(*next,sentinel);
+    for(unsigned i=0;i<100;++i){next=take(i,low);kernel.endTimeslice(*next,sentinel);}
+    next=take(100,high);
+    const auto flag=kernel.createInternalEventFlag(0,0,0);
+    next->cpu.gpr[4]=flag;next->cpu.gpr[5]=1;next->cpu.gpr[6]=1;next->cpu.gpr[7]=0;
+    Require(kernel.dispatchEventImport(10,next->cpu),"Event wait fixture failed");
+    kernel.endTimeslice(*next,sentinel);
+    next=take(101,low);kernel.endTimeslice(*next,sentinel);
+    Require(kernel.setInternalEventFlag(flag,1),"External IOP event wake failed");
+    next=take(102,high);kernel.endTimeslice(*next,sentinel);
+    const auto urgent=create(5,0x52000);
+    next=take(103,urgent);next->cpu.pc=sentinel;kernel.endTimeslice(*next,sentinel);
+    next=take(104,high);kernel.endTimeslice(*next,sentinel);
+    // Erase the cached candidate while it is ready, before the next election.
+    call.gpr[4]=high;Require(kernel.dispatchThreadImport(5,call,105),"DeleteThread fixture failed");
+    next=take(105,low);kernel.endTimeslice(*next,sentinel);
+    const auto peer=create(40,0x53000);
+    next=take(106,low);kernel.endTimeslice(*next,sentinel);
+    kernel.terminateThreadsInRange(0x50000,4);kernel.cleanupDeadThreads();
+    next=take(107,peer);kernel.endTimeslice(*next,sentinel);
+    kernel.reset();Require(kernel.beginNextReady(108)==nullptr,"Reset retained a cached IOP thread");
+    std::cout<<"IOP ready election: exact wake, event, creation, return, erase, tie, unload, reset: PASS\n";
+}
 }
 #include "ps2_iop_audio_fixture.h"
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench-idle") { IopIdleContract(true); return 0; }
+        if(argc==2 && std::string_view(argv[1])=="--bench-dispatch") { IopDispatchBench(); return 0; }
         AudioBridge();
+        ReadyElectionInvalidation();
         SysclibCharacterFlags();
         AudioInsideGuestCall();
         AudioDmaCriticalSection();

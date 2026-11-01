@@ -384,7 +384,9 @@ namespace ps2x::iop::detail
             if (checkInterrupt(cpu))
                 return true;
 
-            if (const auto import = imports.decode(cpu.pc))
+            const uint32_t instruction = memory.read32(cpu.pc);
+            const auto import = instruction == 0x03E00008u ? imports.decode(cpu.pc) : std::nullopt;
+            if (import)
             {
                 const ImportDisposition disposition = dispatchImport(*import, cpu);
                 ++totalInstructions;
@@ -396,8 +398,11 @@ namespace ps2x::iop::detail
                 return !cpu.stopped;
             }
 
-            const bool running = cpuCore.executeInstruction(cpu);
-            schedulePendingDma();
+            const bool running = cpuCore.executeInstruction(cpu, instruction);
+            // Only store instructions can start hardware DMA. Other producers
+            // (audio advancement and host writes) drain their starts directly.
+            if ((instruction >> 26u) >= 0x28u)
+                schedulePendingDma();
             ++totalInstructions;
             ++totalCycles;
             return running;

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <array>
 #include <deque>
 #include <memory>
@@ -49,7 +50,17 @@ namespace ps2x::iop::detail
 
         [[nodiscard]] uint8_t read8(uint32_t address) const;
         [[nodiscard]] uint16_t read16(uint32_t address) const;
-        [[nodiscard]] uint32_t read32(uint32_t address) const;
+        [[nodiscard]] uint32_t read32(uint32_t address) const
+        {
+            const uint32_t physical = address & 0x1FFFFFFFu;
+            if ((physical & 3u) == 0u && physical < RamSize)
+            {
+                uint32_t value;
+                std::memcpy(&value, m_ram.data() + physical, sizeof(value));
+                return value;
+            }
+            return read32Slow(address);
+        }
         void write8(uint32_t address, uint8_t value);
         void write16(uint32_t address, uint16_t value);
         void write32(uint32_t address, uint32_t value);
@@ -84,6 +95,7 @@ namespace ps2x::iop::detail
         [[nodiscard]] static uint32_t physicalAddress(uint32_t address) noexcept;
 
     private:
+        [[nodiscard]] uint32_t read32Slow(uint32_t address) const;
         [[nodiscard]] uint32_t readHardware32(uint32_t address) const;
         void writeHardware32(uint32_t address, uint32_t value);
         void markOwned(uint32_t address, size_t size);

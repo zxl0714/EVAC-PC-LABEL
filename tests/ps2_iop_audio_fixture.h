@@ -197,6 +197,29 @@ void AudioDmaCriticalSection() {
     std::cout<<"IOP SPU DMA critical section: defer, resume, exactly one completion: PASS\n";
 }
 
+void IopDispatchBench() {
+    for(const uint32_t quantum: {8u,128u}) {
+        auto host=DelayedThreadImage();
+        // Authored load/arithmetic/store loop in a real scheduled IRX thread.
+        // Small EE checkpoints expose instruction fetch and scheduler overhead.
+        const uint32_t worker[]{0x3c080001,0x35080400,0x8d090000,0,
+            0x25290001,0xad090000,0x08004042,0};
+        std::memcpy(host.image.data()+0x200,worker,sizeof(worker));
+        ps2x::iop::detail::IopEmulator emulator(host);
+        Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0,"Dispatch fixture did not start");
+        constexpr uint64_t eeCycles=16'000'000;
+        const auto before=emulator.instructions();
+        const auto start=std::chrono::steady_clock::now();
+        for(uint64_t i=0;i<eeCycles;i+=quantum)emulator.runEeCycles(quantum);
+        const auto ns=std::chrono::duration<double,std::nano>(std::chrono::steady_clock::now()-start).count();
+        const auto instructions=emulator.instructions()-before;
+        uint32_t count{};
+        Require(emulator.readMemory(0x10400,&count,4) && count>100000 && instructions==eeCycles/8,
+                "Dispatch optimization changed executed guest work");
+        std::cout<<"dispatch_bench quantum="<<quantum<<" instructions="<<instructions
+                 <<" checksum="<<count<<" ns_per_instruction="<<ns/instructions<<'\n';
+    }
+}
 void IopIdleContract(bool bench=false) {
     auto host=DelayedThreadImage();
     ps2x::iop::detail::IopEmulator emulator(host);

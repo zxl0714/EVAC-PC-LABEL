@@ -103,17 +103,11 @@ namespace ps2x::iop::detail
         return static_cast<uint16_t>(read8(address) | (static_cast<uint16_t>(read8(address + 1u)) << 8u));
     }
 
-    uint32_t IopMemory::read32(uint32_t address) const
+    uint32_t IopMemory::read32Slow(uint32_t address) const
     {
         const uint32_t phys = physicalAddress(address);
         if (phys >= Spu2Base && phys < Spu2Base + 0xfffeu && !(phys & 1u))
             return uint32_t(read16(phys)) | (uint32_t(read16(phys + 2u)) << 16u);
-        if ((phys & 3u) == 0u && phys + 3u < RamSize)
-        {
-            uint32_t value;
-            std::memcpy(&value, m_ram.data() + phys, sizeof(value));
-            return value;
-        }
         if ((phys & 3u) == 0u && phys >= ScratchBase && phys + 3u < ScratchBase + ScratchSize)
         {
             uint32_t value;

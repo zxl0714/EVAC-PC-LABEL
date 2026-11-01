@@ -1080,6 +1080,7 @@ void PS2Runtime::setIoPaths(const IoPaths &paths)
 void PS2Runtime::configureIoPathsFromElf(const std::string &elfPath)
 {
     IoPaths paths = runtimeIoPaths();
+    const auto previousDirectory=paths.elfDirectory;
     paths.elfPath = normalizeAbsolutePath(std::filesystem::path(elfPath));
     if (!paths.elfPath.empty())
     {
@@ -1088,9 +1089,9 @@ void PS2Runtime::configureIoPathsFromElf(const std::string &elfPath)
 
     if (!paths.elfDirectory.empty())
     {
-        paths.hostRoot = paths.elfDirectory;
-        paths.cdRoot = paths.elfDirectory;
-        paths.mcRoot = paths.elfDirectory / "mc0";
+        if(paths.hostRoot.empty() || paths.hostRoot==previousDirectory)paths.hostRoot=paths.elfDirectory;
+        if(paths.cdRoot.empty() || paths.cdRoot==previousDirectory)paths.cdRoot=paths.elfDirectory;
+        if(paths.mcRoot.empty() || paths.mcRoot==previousDirectory/"mc0")paths.mcRoot=paths.elfDirectory/"mc0";
     }
 
     setIoPaths(paths);

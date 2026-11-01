@@ -141,20 +141,28 @@ if(PS2_BUILD_RUNTIME)
     PATTERN "iop_memory.h" EXCLUDE PATTERN "iop_memory.cpp" EXCLUDE
     PATTERN "iop_module_loader.cpp" EXCLUDE PATTERN "iop_emulator.cpp" EXCLUDE
     PATTERN "iop_emulator.h" EXCLUDE PATTERN "iop_subsystem.cpp" EXCLUDE
-    PATTERN "iop_sysclib.cpp" EXCLUDE)
+    PATTERN "iop_sysclib.cpp" EXCLUDE PATTERN "iop_cpu.h" EXCLUDE
+    PATTERN "iop_cpu.cpp" EXCLUDE PATTERN "iop_kernel.cpp" EXCLUDE PATTERN "iop_kernel.h" EXCLUDE)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.h"
     "${IOP_SOURCE_VIEW}/emulator/core/iop_memory.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_cpu.h"
+    "${IOP_SOURCE_VIEW}/emulator/core/iop_cpu.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_kernel.h"
+    "${IOP_SOURCE_VIEW}/emulator/core/iop_kernel.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.h"
     "${IOP_SOURCE_VIEW}/emulator/iop_emulator.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
     "${IOP_SOURCE_VIEW}/ps2x/iop/iop_subsystem.h" COPYONLY)
   get_target_property(IOP_SOURCES ps2_iop SOURCES)
   list(REMOVE_ITEM IOP_SOURCES "src/emulator/core/iop_memory.cpp" "src/emulator/services/iop_module_loader.cpp"
-    "src/emulator/iop_emulator.cpp" "src/iop_subsystem.cpp" "src/emulator/imports/iop_sysclib.cpp")
+    "src/emulator/iop_emulator.cpp" "src/iop_subsystem.cpp" "src/emulator/imports/iop_sysclib.cpp"
+    "src/emulator/core/iop_cpu.cpp" "src/emulator/core/iop_kernel.cpp")
   list(TRANSFORM IOP_SOURCES REPLACE "^src/" "${IOP_SOURCE_VIEW}/")
   set_property(TARGET ps2_iop PROPERTY SOURCES ${IOP_SOURCES}
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_cpu.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_kernel.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_sysclib.cpp")
