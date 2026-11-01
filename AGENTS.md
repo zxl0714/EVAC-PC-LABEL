@@ -16,15 +16,114 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
-Latest PS2 checkpoint (Nov1 11:38): r44/r45COMPLETE, native8/8PASSr44;
-strongerIOPcapacitycontractPASS(.local/v090/ps2-iop-capacity-test-r1.log).
-ALLgamesclosed, noactivebuild/analysis. r35PID89672/exec62144 needsreap,
-NORMALAlt+F4exit0at11:37:22. Actualr35mainmenu/ARCADE/defaultAGEHA/stage1,
-LEFTandRIGHTmovementvisiblyproved, Continue8->Returnresumedgame! Shooterinput
-Zdelivered; shootingnotyetstronglyisolatedfrombullets/death. Noheapfailuresor
-missingtargetsanywhereinfullr35log. Diagnostic200,24000capdidNOTcauseexit.
-CurrentCUwindowobjectisSTALE. ReadMEMORYbeforeanynewautomation.
-r34alsofirststage/shooting/Continueobserved, normalcapexit0; originaldatafrozen.
+Latest PS2 checkpoint (Nov1 14:58): USER DIRECTIVE: graphics must start from
+mature architecture, not local CPU triangle optimizations. Read
+/docs/PS2_GRAPHICS_PLAN.md before more GS work. No game currently open.
+
+GRAPHICS FOUNDATION NOW IMPLEMENTED AND TESTED (not yet game integration):
+- Candidate paraLLEl-GS cc6184af7e0c03da603045ca371ffa5dae9b0655; Granite
+  16e7395f6a4858c1783dbf6f521f90b9d5f82ac5; exact Volk/Vulkan-Headers submodule
+  pins added to tools/ps2-source.lock.json, independently restored clean (14deps).
+- scripts/Build-Ps2Gs.ps1 uses SAME LLVM23.1.3/CMake4.2.3/Ninja/VS SDK/MD CRT.
+  tools/ps2-gs is an ISOLATED small build graph (out/ps2-gs), no EE game PCHs.
+  Original PGS shaders used, no foreign game patches, no native CPU tuning/fastmath.
+- ps2_gs_sources.py verifies clean revisions AND parent submodule pins, creates
+  build-local source-v2-* view, SHA256 guards every staged file against changes.
+  Original deps preserved. Python43 PASS ps2-python-r19.log.
+- backends/ps2/gs_device.{h,cpp}: actual standalone PIMPL library, owns Vulkan
+  context/device/GS in order; one owner thread; raw GIF paths1/2/3, 16-byte
+  fragments, explicit register/VRAM/FIFO ops. ReadbackVram only diagnostics.
+- GPU contract uses this module, PASSES on RTX4080: all3 interleaved partial tags,
+  exact4096pixels, wrong owner/path/size/range guards. Latest build/test-r5 logs
+  .local/v090/ps2-gs-{build,test}-r5.log; out/ps2-gs/Testing/Temporary/LastTest.log.
+  No game routes to GPU yet, no Vulkan WSI window/scanout integration yet.
+- NEXT: preserve raw GIF metadata at transport boundary, cover SDK direct
+  register/image bypasses, capture/replay bounded streams; then direct GPU scanout
+  and bounded presentation. Current GifArbiter queues path IDs but callback type
+  drops them (ProcessPacketFn(data,size)). PGS accepts path1..3 directly (4slots,
+  no -1 conversion!). Do not route CPU-decoded triangles to GPU and draw twice.
+- Current GS frontend/backend APIs are in pinned ps2xRuntime headers. PS2Runtime
+  exposes gs().setRasterBackend, but Submit(GSPrimitiveBatch) is NOT the final
+  raw-command interface. Do not simply attach and reconstruct floating vertices.
+- Reference dbziw-recomp1e8ae9c contains PGS adapter but decoded-state translation
+  and GPU->CPU readback ring need review, do not wholesale copy. Research repos
+  .local/v090/research/*-readonly are evidence, not production dependencies.
+  PGS requires feature checks (descriptorIndexing/timeline/BDA/8-16bit/scalar/
+  subgroup/sharedmem), not just Vulkan version. Init budget logs large image slab
+  limits; measure actual memory, cap caches appropriately before default.
+
+PS2 GAME CANONICAL: r57 builds, all9 nativeCTests PASS ps2-native-r57.log.
+Mode manifest build-mode-extras-r17.json; stages build-all-stage-modules-r3.json.
+ARCADE extra-r9 / ARRANGE extra-r12 / boot-r5 / stage extra-r2. Canonical r57 has
+idle optimization but actual last game test r42 copied r56, not r57. No active
+build/process sessions; all have been reaped. ps2Window/ps2State are CLOSED r42.
+
+Game functional evidence: ARCADE r35 stage1, movement/shooting, Continue->Return;
+ARRANGE r41 Chihiro actual stage1, passed old crash, GAME OVER, normal exit0.
+Complete original boot imports included, strict extra collision/required links
+PASS:13inventories7100bodies8710newslots zero overwrites. All289 imported prefixes
+checked against original ELF, no delay-slot cuts. Four exact epilogue exceptions
+unchanged. Shared helper83fc60 part of discontiguous FUN844550, do not force split.
+Boot callback table2d7eb0..2d7f70 and jump veneers26ae00..26af30 included. Native EE
+remains static, no interpreter. Commit35718af complete cross-module imports.
+
+AUDIO NOW CONNECTED: commitda1b605, docs/PS2_AUDIO_PLAN.md. Actual IOP register/DMA
+bridge routes SDR/EzMIDI/CRI path into isolated Play SPU2, guest-clock PCM queue and
+raylib/miniaudio stream. Both DMA cores, IOP wrap, stopped/resume, AutoDMA full
+buffer, dual completion and reset tests PASS. Authored IRX busy-waits inside
+callFunction and succeeds as sound clock advances. Public IOP methods retain
+PIMPL, PS2Runtime class layout unchanged. Host stops audio stream BEFORE IOP reset
+on destruction. Private IOP/runtime headers use ONE view. New CPP adapters compile
+directly. Two source lock Play deps unchanged; totalnow14 includesGS dependencies.
+
+r42 actual ARCADEstage1 generated nonzero PCM and normal AltF4exit0. Initializer
+and some scenes underrun because guest execution still slower than real time.
+IOP busy instruction ratio dropped massively after real AutoDMA; don't call sound
+fully accepted until pace is fixed. Next graphics work should remove main CPU GS
+bottleneck rather than masking it with audio resampling or altered guest clocks.
+
+Hotspot evidence: .local/v090/espgaluda/play-r42/native-ip-r1.json (8sec,1518samples,
+0fail), using tools/latency/sample_native_ip.py with explicit expectedEXE path.
+GS DrawTriangle159,WritePixel111,SampleTexture58,TextureReads71 samples on busy EE
+thread; IOP beginNextReady104/nextWake39. Hostrender thread mostly waits. NoAdmin.
+IOP instruction sampler under --trace-audio also captured CRI decodePC8e1xx.
+
+IOP idle interval cache implemented commit33d7414: skip repeated no-ready scans
+until actual next audio/DMA/timer/thread/callback event; invalidate on external
+RPC/SIF/memory writes and direct guest calls. Guest clock unchanged. Authored8
+DelayThread workers verify no early wake, allwake, newmodule aftercachedidle.
+Bench400000calls400000IOPcycles18.8903ms baseline ->0.652ms; evidence
+ps2-idle-{baseline,fast}-r1.csv. No actualr57 gameplay yet; can combine with next
+GS transport change regression. Audio/graphics correctness still pending overall.
+
+r46wasINTENTIONALLYcancelledduringconfiguration, notcompiler/gamefailure:
+first-timeper-bodyrootreferencescan took2..3minperstage; after>10minonlystages
+2/3/4done. VerifiedPID/date/commandbeforestoppingownedpython98240,py40708,
+cmake79068. exec80808reapedexit-1expected. Originalcachedoutputsuntouched.
+NewoptionalglobalRootAliases=true inps2_module_build.py scopesrootmacrosfor
+WHOLEtargetANDPCH, soNOgeneratedbodyreference scan. Newbanks2..15except9 useit;
+existing1/9keepoldsource-specificaliases/cachedobjects. Authoredtestguardsagainst
+readingbodyandchecksPCHpreserved;5modulebuildtestspass. All15preparemeasured
+4.31secusingnewmanifest. CMakegenerationstill~200sec; don'tduplicatebuild.
+WindowsPathbatchsortunchanged. Needall-stagefullnativelink/8CTestconfirmation.
+
+r47fullgenerationinputsareALLstagesgenerated-r2(alreadyvalid); tinyconstructed
+extras-r2 for1/2/3/4/6/9/10/11/12/14. ExtraManifest13inventories(total6303bodies/
+7913newslots),checkLinks+strictcollisionsPASS. Modesextra-r6,bootextra-r5, four
+reviewedreturnepilogueresumesretainedexactly. NoEEinterpreterlinked. Thisbuild
+isfirstnativecompileof13otherbanks;1/9reuseexistingbodyobjects.
+
+Audioauditplan docs/PS2_AUDIO_PLAN.md. ReadonlyPlay! pin1f27232772e484bfb79364b751b84f41f4c87481,
+Frameworkpin587f278917acc0026bf5fc34b39f995fc26bd015; copies.local/v090/audio/
+play-1f272327. ThreeDSPclasses SpuBase/Spu2Core/Spu2 BSD-style; utilityheaders
+Types/BasicUnion/Convertible/string_format downloaded. Log.h isSource/app_shared,
+notSource/Log.h(two404sresolved). Frameworkmaybe_unused.hnotyetfetched. Core
+haszip/RegisterStateLoad/Save deps, canisolateoptionalemulatorstates(noimpact
+ongamememorycards), butdonotfakeunimplementedvoices. NOnewaudiocorelinked.
+NEXTwhilefullbuildruns: boundedopt-inRPC/keyOn/SPUDMAtrace design, auditstandalone
+DSPcomponent/microbench. DO NOTmutatecurrentruntimeinputswhilebuildactive;
+newprivateexperimentallowed. Audioactualprotocolstillneedsproof; currentSID
+80000701-onlyheuristic+IOPregisterdictionary/DMA-completioncannotguaranteesound.
 
 CurrentEXEr45adds4:3CRTpresent(PS2non-square384x448pixels)and640x480window;
 menu/spritesnowvisiblywider/correctphysicalaspect, noarbitrarycropping. IOPpool

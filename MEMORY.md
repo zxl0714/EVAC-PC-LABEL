@@ -60,6 +60,10 @@
    初始 SP 应在分配区顶端；线程状态报告的是底部。中断／RPC 回调另用独立内核栈。
    类似问题先查固定版本上游的 issue／PR，配合已有离线库函数、索引解析入口缩小范围。
 
+10. **PS2 窗口重绘率不能代表游戏速度。** 分开看 `frame`、`vsync`、EE 时钟和 PCM 欠载。
+    声音 DMA 假完成曾制造大量 IOP 空转；修正真实传输后再查热点。
+    图形按 [PS2_GRAPHICS_PLAN.md](docs/PS2_GRAPHICS_PLAN.md) 接成熟 GPU 后端，先保留原始 GIF 路径与顺序。
+
 ## 已验证的按键信息
 
 PS4 默认键盘映射：方向键移动；Z=Cross、X=Circle、C=Square、V=Triangle、

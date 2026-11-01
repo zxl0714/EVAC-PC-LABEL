@@ -10,6 +10,10 @@
     {"name":"nlohmann_json","revision":"9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03","url":"https://github.com/nlohmann/json.git"},
     {"name":"raylib","revision":"c1ab645ca298a2801097931d1079b10ff7eb9df8","url":"https://github.com/raysan5/raylib.git"},
     {"name":"PlaySpu","revision":"1f27232772e484bfb79364b751b84f41f4c87481","url":"https://github.com/jpd002/Play-.git"},
-    {"name":"PlayFramework","revision":"587f278917acc0026bf5fc34b39f995fc26bd015","url":"https://github.com/jpd002/Play--Framework.git"}
+    {"name":"PlayFramework","revision":"587f278917acc0026bf5fc34b39f995fc26bd015","url":"https://github.com/jpd002/Play--Framework.git"},
+    {"name":"ParallelGS","revision":"cc6184af7e0c03da603045ca371ffa5dae9b0655","url":"https://github.com/Arntzen-software/parallel-gs.git"},
+    {"name":"GraniteGS","revision":"16e7395f6a4858c1783dbf6f521f90b9d5f82ac5","url":"https://github.com/Themaister/Granite.git"},
+    {"name":"VolkGS","revision":"47cddf7ed97b94118a08aacb548a411188e016cc","url":"https://github.com/zeux/volk.git"},
+    {"name":"VulkanHeadersGS","revision":"11d6898377797e07dbd543aaaa367e4465074597","url":"https://github.com/KhronosGroup/Vulkan-Headers.git"}
   ]
 }
