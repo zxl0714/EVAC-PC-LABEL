@@ -1,4 +1,5 @@
 #include "runtime/ee_scheduler.h"
+#include "../../../common/deadline_wait.h"
 
 #include "ps2_log.h"
 #include "ps2_runtime_macros.h"
@@ -77,7 +78,7 @@ namespace
 }
 
 EeScheduler::EeScheduler(PS2Runtime &runtime)
-    : m_runtime(runtime)
+    : m_runtime(runtime), m_deadlineWait(std::make_unique<cave::DeadlineWait>())
 {
 }
 
@@ -343,6 +344,7 @@ void EeScheduler::requestStop()
 {
     m_stopRequested.store(true, std::memory_order_release);
     m_checkpointPending.store(true, std::memory_order_release);
+    m_deadlineWait->Notify();
     m_eventCv.notify_all();
 }
 
@@ -359,6 +361,7 @@ void EeScheduler::postEvent(EeEvent event)
         m_events.push_back(event);
         m_checkpointPending.store(true, std::memory_order_release);
     }
+    m_deadlineWait->Notify();
     m_eventCv.notify_one();
 }
 
@@ -1830,9 +1833,9 @@ void EeScheduler::processDueDeadlines()
 
             if (now < pacingDeadline)
             {
-                m_eventCv.wait_until(lock, pacingDeadline, [this]()
+                m_deadlineWait->Until(lock, pacingDeadline, [this]()
                                      { return !m_events.empty() ||
-                                              m_stopRequested.load(std::memory_order_acquire); });
+                                              m_stopRequested.load(std::memory_order_acquire); },m_eventCv);
                 if (!m_events.empty() || m_stopRequested.load(std::memory_order_acquire))
                 {
                     updateNextDeadline();
@@ -2065,9 +2068,9 @@ void EeScheduler::waitForEvent()
         }
     }
 
-    const bool signaled = m_eventCv.wait_until(lock, hostDeadline, [this]()
+    const bool signaled = m_deadlineWait->Until(lock, hostDeadline, [this]()
                                                { return !m_events.empty() ||
-                                                        m_stopRequested.load(std::memory_order_acquire); });
+                                                        m_stopRequested.load(std::memory_order_acquire); },m_eventCv);
     if (!signaled)
     {
         const uint64_t elapsed = deadlineCycle > m_eeCycle ? deadlineCycle - m_eeCycle : 0u;
@@ -2092,6 +2095,7 @@ void EeScheduler::scheduleEvent(uint64_t deadlineCycle,
         m_deadlines.push_back(ScheduledEvent{deadlineCycle, hostDeadline, event, ++m_eventSequence});
         updateNextDeadline();
     }
+    m_deadlineWait->Notify();
     m_eventCv.notify_one();
 }
 

@@ -16,6 +16,8 @@
 #include <variant>
 #include <vector>
 
+namespace cave { class DeadlineWait; }
+
 // This exception is the EE equivalent of a longjmp to the dispatcher.  It is
 // not an error and must only be caught at EeScheduler::run().
 struct EeDispatcherTransfer final
@@ -439,6 +441,7 @@ private:
 
     mutable std::mutex m_eventMutex;
     std::condition_variable m_eventCv;
+    std::unique_ptr<cave::DeadlineWait> m_deadlineWait;
     std::deque<EeEvent> m_events;
     std::vector<ScheduledEvent> m_deadlines;
     std::optional<ScheduledEvent> m_deferredVBlank;
