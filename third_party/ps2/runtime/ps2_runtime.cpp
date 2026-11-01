@@ -538,6 +538,7 @@ PS2Runtime::~PS2Runtime()
     try
     {
         requestStop();
+        m_iopHost->stopAudio();
         m_iopSubsystem.reset();
         m_iopHost.reset();
 #if defined(PLATFORM_VITA)
@@ -748,6 +749,7 @@ bool PS2Runtime::initialize(const char *title)
         InitWindow(HOST_WINDOW_WIDTH, HOST_WINDOW_HEIGHT, title);
         InitAudioDevice();
         m_audioBackend.setAudioReady(IsAudioDeviceReady());
+        m_iopHost->startAudio(*m_iopSubsystem);
 #endif
         SetTargetFPS(60);
         if (m_debugUiInitCallback)

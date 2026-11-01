@@ -1,0 +1,78 @@
+#pragma once
+#include "emulator/iop_emulator.h"
+#include <array>
+#include <cstring>
+#include <vector>
+
+namespace {
+// Only the authored ELF image is visible to this host. No game/BIOS files.
+class AudioFixtureHost final : public ps2x::iop::IopHost {
+public:
+    std::vector<uint8_t> image;
+    bool readGuest(uint32_t a,void* out,size_t n) const override {
+        if(a>image.size() || n>image.size()-a)return false;
+        if(n)std::memcpy(out,image.data()+a,n);
+        return true;
+    }
+    bool writeGuest(uint32_t,const void*,size_t) override{return false;}
+    bool zeroGuest(uint32_t,size_t) override{return false;}
+    bool normalizeGuestAddress(uint32_t a,uint32_t& n) const override{n=a;return a<image.size();}
+    uint32_t allocateIopHandle(ps2x::iop::IopHandleKind) override{return 0;}
+    uint32_t allocateGuest(uint32_t,uint32_t) override{return 0;}
+    void freeGuest(uint32_t) override{}
+    void audioCommand(uint32_t,uint32_t,ps2x::iop::GuestBuffer,ps2x::iop::GuestBuffer) override{}
+    std::string hostPath(ps2x::iop::HostPathKind) const override{return {};}
+    std::string translateGuestPath(std::string_view p) const override{return std::string(p);}
+    uint64_t openHostFile(std::string_view) override{return 0;}
+    bool hostFileSize(uint64_t,uint64_t&) const override{return false;}
+    bool readHostFile(uint64_t,uint64_t,void*,size_t,size_t&) override{return false;}
+    void closeHostFile(uint64_t) override{}
+    int32_t memoryCard(const ps2x::iop::MemoryCardRequest&) override{return -1;}
+    bool hasGuestFunction(uint32_t) const override{return false;}
+    bool invokeGuestFunction(uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t*) override{return false;}
+    void log(ps2x::iop::LogLevel,std::string_view) override{}
+};
+
+void AudioInsideGuestCall() {
+    AudioFixtureHost host;
+    host.image.resize(0x1100);
+    const uint8_t ident[]{0x7f,'E','L','F',1,1,1};
+    std::memcpy(host.image.data(),ident,sizeof(ident));
+    Put16(host.image,16,2);Put16(host.image,18,8);Put32(host.image,20,1);
+    Put32(host.image,24,0x10000);Put32(host.image,28,52);
+    Put16(host.image,40,52);Put16(host.image,42,32);Put16(host.image,44,1);
+    Put16(host.image,46,40);
+    Put32(host.image,52,1);Put32(host.image,56,0x100);
+    Put32(host.image,60,0x10000);Put32(host.image,64,0x10000);
+    Put32(host.image,68,0x1000);Put32(host.image,72,0x1000);
+    Put32(host.image,76,7);Put32(host.image,80,0x100);
+    const uint32_t code[]{
+        0x3c081f90, // lui t0, SPU2 registers
+        0x34098000, 0xa509019a, // enable core0
+        0x34090001, 0xa50901b0, // core0 streaming transfer mode
+        0x3c0a1f80, // lui t2, DMA register page
+        0x3c0b0001, 0x356b0400, 0xad4b10c0, // MADR = authored data 0x10400
+        0x3c0b0001, 0x356b0200, 0xad4b10c4, // BCR = 1 * 512 words
+        0x3c0b0100, 0x356b0201, 0xad4b10c8, // start channel4 RAM -> SPU
+        0x8d4b10c8, 0x3c0c0100, 0x016c5824, // load busy, independent load-delay slot, mask
+        0x1560fffc, 0, // wait until complete, branch delay slot
+        0x2402002a, 0x03e00008, 0 // return 42 after sound hardware consumes input
+    };
+    std::memcpy(host.image.data()+0x100,code,sizeof(code));
+    std::fill(host.image.begin()+0x500,host.image.begin()+0xd00,uint8_t{0x24});
+    ps2x::iop::detail::IopEmulator emulator(host);
+    const auto loaded=emulator.loadModuleBuffer(0,nullptr,0);
+    Require(loaded.moduleId>0 && loaded.startResult==42,
+            "IOP guest startup could not complete DMA while inside callFunction");
+    Require(emulator.cycles()>=49152 && emulator.cycles()<2000000,
+            "IOP sound advanced without consuming its guest-clock budget");
+    std::array<int16_t,512> pcm{};
+    const auto expected=std::min<uint64_t>(256,(emulator.cycles()/(64u*768u))*64u);
+    const auto read=emulator.readPcm(pcm.data(),256);
+    Require(expected && read==expected && std::any_of(pcm.begin(),pcm.end(),[](auto v){return v!=0;}),
+            "IOP callback did not expose its sound PCM through the subsystem boundary");
+    emulator.reset();
+    Require(emulator.readPcm(pcm.data(),256)==0,"IOP emulator reset retained PCM from an old module");
+    std::cout<<"IOP guest-call DMA wait and PCM clock: PASS\n";
+}
+}

@@ -1,5 +1,7 @@
 #include "emulator/core/iop_memory.h"
 #include "../../../backends/ps2/audio_trace.h"
+#include "../../../backends/ps2/spu_device.h"
+#include "../../../backends/ps2/pcm_queue.h"
 
 #include <algorithm>
 #include <cstring>
@@ -23,11 +25,29 @@ namespace ps2x::iop::detail
         }
     }
 
+    class IopMemory::AudioState
+    {
+    public:
+        cave::ps2::SpuDevice spu;
+        cave::ps2::PcmQueue queue;
+        std::array<uint16_t, 0x8000> writtenRegisters{};
+        struct Dma { uint64_t bytes = 0; uint32_t address = 0; bool toSpu = false; bool decrement = false; };
+        std::array<Dma, 2> dma{};
+        static constexpr uint64_t CyclesPerFrame = 768;
+        static constexpr size_t QuantumFrames = 64;
+        uint64_t nextCycle = CyclesPerFrame * QuantumFrames;
+        uint64_t frames = 0, nonzero = 0, dropped = 0;
+        std::atomic<uint64_t> readFrames{}, underruns{};
+        std::array<int16_t, QuantumFrames * 2> samples{};
+    };
+
     IopMemory::IopMemory()
-        : m_ram(RamSize), m_owned(RamSize), m_scratch(ScratchSize)
+        : m_audio(std::make_unique<AudioState>()), m_ram(RamSize), m_owned(RamSize), m_scratch(ScratchSize)
     {
         reset();
     }
+
+    IopMemory::~IopMemory() = default;
 
     void IopMemory::reset()
     {
@@ -40,7 +60,15 @@ namespace ps2x::iop::detail
         m_interruptStatus = 0;
         m_interruptMask = 0;
         m_interruptControl = 1;
-        m_dmaStart.reset();
+        m_dmaStarts.clear();
+        m_audio->spu.Reset();
+        m_audio->queue.DiscardFromProducer();
+        m_audio->writtenRegisters.fill(0);
+        m_audio->dma = {};
+        m_audio->nextCycle = AudioState::CyclesPerFrame * AudioState::QuantumFrames;
+        m_audio->frames = m_audio->nonzero = m_audio->dropped = 0;
+        m_audio->readFrames.store(0, std::memory_order_relaxed);
+        m_audio->underruns.store(0, std::memory_order_relaxed);
     }
 
     uint32_t IopMemory::physicalAddress(uint32_t address) noexcept
@@ -51,6 +79,8 @@ namespace ps2x::iop::detail
     uint8_t IopMemory::read8(uint32_t address) const
     {
         const uint32_t phys = physicalAddress(address);
+        if (phys >= Spu2Base && phys < Spu2Base + 0x10000u)
+            return uint8_t(m_audio->spu.Read16(phys & ~1u) >> ((phys & 1u) * 8u));
         if (phys < RamSize)
             return m_ram[phys];
         if (phys >= ScratchBase && phys < ScratchBase + ScratchSize)
@@ -62,6 +92,8 @@ namespace ps2x::iop::detail
     uint16_t IopMemory::read16(uint32_t address) const
     {
         const uint32_t phys = physicalAddress(address);
+        if (phys >= Spu2Base && phys < Spu2Base + 0x10000u && !(phys & 1u))
+            return m_audio->spu.Read16(phys);
         if (phys + 1u < RamSize)
         {
             uint16_t value;
@@ -74,6 +106,8 @@ namespace ps2x::iop::detail
     uint32_t IopMemory::read32(uint32_t address) const
     {
         const uint32_t phys = physicalAddress(address);
+        if (phys >= Spu2Base && phys < Spu2Base + 0xfffeu && !(phys & 1u))
+            return uint32_t(read16(phys)) | (uint32_t(read16(phys + 2u)) << 16u);
         if ((phys & 3u) == 0u && phys + 3u < RamSize)
         {
             uint32_t value;
@@ -98,6 +132,14 @@ namespace ps2x::iop::detail
     void IopMemory::write8(uint32_t address, uint8_t value)
     {
         const uint32_t phys = physicalAddress(address);
+        if (phys >= Spu2Base && phys < Spu2Base + 0x10000u)
+        {
+            const auto index = (phys - Spu2Base) / 2u;
+            const auto shift = (phys & 1u) * 8u;
+            const auto old = m_audio->writtenRegisters[index];
+            writeSpu16(phys & ~1u, uint16_t((old & ~(0xffu << shift)) | (uint32_t(value) << shift)));
+            return;
+        }
         if (phys < RamSize)
         {
             m_ram[phys] = value;
@@ -119,6 +161,11 @@ namespace ps2x::iop::detail
     void IopMemory::write16(uint32_t address, uint16_t value)
     {
         const uint32_t phys = physicalAddress(address);
+        if (phys >= Spu2Base && phys < Spu2Base + 0x10000u && !(phys & 1u))
+        {
+            writeSpu16(phys, value);
+            return;
+        }
         if (phys + 1u < RamSize)
         {
             std::memcpy(m_ram.data() + phys, &value, sizeof(value));
@@ -132,6 +179,12 @@ namespace ps2x::iop::detail
     void IopMemory::write32(uint32_t address, uint32_t value)
     {
         const uint32_t phys = physicalAddress(address);
+        if (phys >= Spu2Base && phys < Spu2Base + 0xfffeu && !(phys & 1u))
+        {
+            writeSpu16(phys, uint16_t(value));
+            writeSpu16(phys + 2u, uint16_t(value >> 16u));
+            return;
+        }
         if ((phys & 3u) == 0u && phys + 3u < RamSize)
         {
             std::memcpy(m_ram.data() + phys, &value, sizeof(value));
@@ -235,8 +288,6 @@ namespace ps2x::iop::detail
 
     void IopMemory::writeHardware32(uint32_t address, uint32_t value)
     {
-        if(address>=Spu2Base && address<Spu2End)
-            cave::ps2::audio_trace::Register(address,value);
         switch (address)
         {
         case 0x1F801070u:
@@ -257,38 +308,99 @@ namespace ps2x::iop::detail
             return;
 
         const bool secondCore = address == kDmaSpu1Chcr;
-        m_hardware[address] = value & ~kDmaStart;
-
-        const uint32_t statusAddress = 0x1F900344u + (secondCore ? 0x400u : 0u);
-        const uint32_t alignedStatus = statusAddress & ~3u;
-        const uint32_t shift = (statusAddress & 2u) * 8u;
-        uint32_t status = 0u;
-        if (const auto current = m_hardware.find(alignedStatus); current != m_hardware.end())
-            status = current->second;
-        status |= 0x80u << shift;
-        m_hardware[alignedStatus] = status;
-
         const uint32_t blockControlAddress = address - sizeof(uint32_t);
         uint32_t blockControl = 0u;
         if (const auto current = m_hardware.find(blockControlAddress); current != m_hardware.end())
             blockControl = current->second;
-        const uint32_t wordsPerBlock = std::max<uint32_t>(blockControl & 0xFFFFu, 1u);
-        const uint32_t blockCount = std::max<uint32_t>(blockControl >> 16u, 1u);
+        const uint32_t wordsPerBlock = (blockControl & 0xFFFFu) ? (blockControl & 0xFFFFu) : 0x10000u;
+        const uint32_t blockCount = ((value >> 9u) & 3u) == 0u ? 1u :
+            ((blockControl >> 16u) ? (blockControl >> 16u) : 0x10000u);
         const uint64_t transferWords = static_cast<uint64_t>(wordsPerBlock) * blockCount;
         const uint32_t tsaBase=0x1F9001A8u+(secondCore?0x400u:0u);
         cave::ps2::audio_trace::Dma(secondCore?1u:0u,readHardware32(address-8u),transferWords,value,
             (uint32_t(read16(tsaBase))<<17u)|(uint32_t(read16(tsaBase+2u))<<1u));
-        m_dmaStart = DmaStart{
-            secondCore ? kDmaSpu1Irq : kDmaSpu0Irq,
-            std::max<uint64_t>(transferWords * 2u, 64u),
-        };
+        auto &dma = m_audio->dma[secondCore ? 1u : 0u];
+        dma = {transferWords * 4u, readHardware32(address - 8u) & (RamSize - 4u),
+               (value & 1u) != 0u, (value & 2u) != 0u};
+        serviceSpuDma(secondCore ? 1u : 0u);
     }
 
     std::optional<IopMemory::DmaStart> IopMemory::takeDmaStart() noexcept
     {
-        std::optional<DmaStart> result = m_dmaStart;
-        m_dmaStart.reset();
+        if (m_dmaStarts.empty()) return std::nullopt;
+        const auto result = m_dmaStarts.front();
+        m_dmaStarts.pop_front();
         return result;
+    }
+
+    void IopMemory::writeSpu16(uint32_t address, uint16_t value)
+    {
+        m_audio->writtenRegisters[(address - Spu2Base) / 2u] = value;
+        cave::ps2::audio_trace::Register(address, value);
+        m_audio->spu.Write16(address, value);
+        // A driver may configure ATTR after starting its DMA channel.
+        if ((address & 0x3ffu) == 0x19au || (address & 0x3ffu) == 0x1b0u)
+            serviceSpuDma((address & 0x400u) ? 1u : 0u);
+    }
+
+    void IopMemory::serviceSpuDma(unsigned core)
+    {
+        auto &dma = m_audio->dma[core];
+        const auto chcr = core ? kDmaSpu1Chcr : kDmaSpu0Chcr;
+        if (!dma.bytes || !(readHardware32(chcr) & kDmaStart)) return;
+        uint64_t transferred = 0;
+        while (dma.bytes)
+        {
+            const auto bytes = size_t(std::min<uint64_t>(dma.bytes,
+                dma.decrement ? 4u : RamSize - dma.address));
+            const auto done = m_audio->spu.Transfer(core,
+                std::span<uint8_t>(m_ram.data() + dma.address, bytes), dma.toSpu);
+            if (!dma.toSpu && done) markOwned(dma.address, done);
+            if (done) dma.address = (dma.address + (dma.decrement ? uint32_t(-4) : uint32_t(done))) & (RamSize - 1u);
+            dma.bytes -= done;
+            transferred += done;
+            if (done < bytes) break;
+        }
+        m_hardware[chcr - 8u] = dma.address;
+        if (!dma.bytes)
+        {
+            m_hardware[chcr] &= ~kDmaStart;
+            m_dmaStarts.push_back({core ? kDmaSpu1Irq : kDmaSpu0Irq,
+                                  std::max<uint64_t>(transferred / 2u, 64u)});
+        }
+    }
+
+    void IopMemory::advanceAudioTo(uint64_t cycles)
+    {
+        while (cycles >= m_audio->nextCycle)
+        {
+            m_audio->nextCycle += AudioState::CyclesPerFrame * AudioState::QuantumFrames;
+            m_audio->spu.Render(m_audio->samples);
+            m_audio->frames += AudioState::QuantumFrames;
+            m_audio->nonzero += std::count_if(m_audio->samples.begin(), m_audio->samples.end(),
+                                             [](int16_t sample) { return sample != 0; });
+            m_audio->dropped += AudioState::QuantumFrames - m_audio->queue.Write(m_audio->samples);
+            serviceSpuDma(0);
+            serviceSpuDma(1);
+            if (cave::ps2::audio_trace::enabled && m_audio->frames % 96000u == 0u)
+                std::osyncstream(std::cerr) << "[ps2-audio-pcm] frames=" << m_audio->frames
+                    << " nonzero=" << m_audio->nonzero << " dropped=" << m_audio->dropped
+                    << " read=" << m_audio->readFrames.load(std::memory_order_relaxed)
+                    << " underruns=" << m_audio->underruns.load(std::memory_order_relaxed) << '\n';
+        }
+    }
+
+    uint64_t IopMemory::nextAudioCycle() const noexcept { return m_audio->nextCycle; }
+    bool IopMemory::audioIrqPending() const noexcept { return m_audio->spu.IrqPending(); }
+    size_t IopMemory::readPcm(void *stereo, size_t frames) noexcept
+    {
+        if (!stereo || !frames) return 0;
+        auto output = std::span<int16_t>(static_cast<int16_t *>(stereo), frames * 2u);
+        const auto read = m_audio->queue.Read(output);
+        std::fill(output.begin() + read * 2u, output.end(), int16_t{});
+        m_audio->readFrames.fetch_add(read, std::memory_order_relaxed);
+        if (read < frames) m_audio->underruns.fetch_add(1, std::memory_order_relaxed);
+        return read;
     }
 
     uint32_t IopMemory::allocate(uint32_t size, uint32_t alignment, std::optional<uint32_t> fixed)

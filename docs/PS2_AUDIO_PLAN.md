@@ -12,17 +12,29 @@ and `0x90000200`, nonzero SPU2 key-ons on core 1, and core 0 streaming DMA throu
 the original SDR/EzMIDI/CRI drivers. The `0x80000701` heuristic does not cover
 this path. Register/DMA integration with the isolated DSP is the selected bridge.
 
-The adapted `IopMemory` currently stores SPU2 register values and simulates DMA
-completion. It does not copy those DMA transfers into sound RAM or synthesize
-voices. The shared IOP allocator fixes the sound upload allocation failure,
-but audio output remains unaccepted.
+The adapted `IopMemory` now routes native 16-bit register accesses and channel
+4/7 DMA to the isolated SPU2 device. It preserves DMA busy state under AutoDMA
+backpressure, schedules both channel completions, and advances 48 kHz PCM from
+the 36.864 MHz IOP clock. Sound IRQ 9 is delivered through the existing guest
+interrupt dispatcher. Startup and guest callbacks advance this clock too.
+
+The SPSC queue feeds a raylib/miniaudio stream owned by the IOP host adapter.
+The stream stops before the IOP is destroyed; reset discards the previous queue
+epoch. Public subsystem methods retain the runtime's existing class layout.
+
+Native r56 passed all nine contracts, including an authored IRX that waits for
+streaming DMA inside its startup function. In `play-r42`, ESPGaluda entered
+ARCADE stage 1, produced nonzero PCM and exited normally. Real DMA also removed
+most IOP busy execution. Full sound acceptance is still pending: guest pace
+falls below 60 Hz in some scenes and the PCM queue records underruns. Correct
+the remaining execution/rendering cost before judging continuous playback.
 
 ## Candidate component
 
 Audit [Play!'s SPU2 implementation](https://github.com/jpd002/Play-/tree/1f27232772e484bfb79364b751b84f41f4c87481/Source/iop)
 at `1f27232772e484bfb79364b751b84f41f4c87481`. Its Framework submodule is pinned
 to `587f278917acc0026bf5fc34b39f995fc26bd015`. Both licenses accompany the component under `third_party/ps2/spu/`. The source
-lock now restores these revisions; no new component is linked into gameplay yet.
+lock restores these revisions; only their isolated DSP component is linked.
 
 The relevant DSP sources are `Iop_SpuBase`, `Iop_Spu2_Core` and `Iop_Spu2`.
 They depend on small Framework utilities plus logging and state serialization.

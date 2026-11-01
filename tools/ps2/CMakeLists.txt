@@ -17,6 +17,8 @@ file(COPY "${UPSTREAM}/ps2xRuntime/include/" DESTINATION "${PS2_RUNTIME_INCLUDE}
   PATTERN "ps2_runtime.h" EXCLUDE)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.h"
   "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" COPYONLY)
+configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
+  "${PS2_RUNTIME_INCLUDE}/ps2x/iop/iop_subsystem.h" COPYONLY)
 
 # Sources are restored and verified before configure. No FetchContent downloads,
 # upstream release flags, game-specific generated code or system library fallback.
@@ -108,16 +110,25 @@ if(PS2_BUILD_RUNTIME)
   set(IOP_SOURCE_VIEW "${CMAKE_BINARY_DIR}/iop-source")
   file(COPY "${UPSTREAM}/ps2xIOP/src/" DESTINATION "${IOP_SOURCE_VIEW}"
     PATTERN "iop_memory.h" EXCLUDE PATTERN "iop_memory.cpp" EXCLUDE
-    PATTERN "iop_module_loader.cpp" EXCLUDE)
+    PATTERN "iop_module_loader.cpp" EXCLUDE PATTERN "iop_emulator.cpp" EXCLUDE
+    PATTERN "iop_emulator.h" EXCLUDE PATTERN "iop_subsystem.cpp" EXCLUDE)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.h"
     "${IOP_SOURCE_VIEW}/emulator/core/iop_memory.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.h"
+    "${IOP_SOURCE_VIEW}/emulator/iop_emulator.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
+    "${IOP_SOURCE_VIEW}/ps2x/iop/iop_subsystem.h" COPYONLY)
   get_target_property(IOP_SOURCES ps2_iop SOURCES)
-  list(REMOVE_ITEM IOP_SOURCES "src/emulator/core/iop_memory.cpp" "src/emulator/services/iop_module_loader.cpp")
+  list(REMOVE_ITEM IOP_SOURCES "src/emulator/core/iop_memory.cpp" "src/emulator/services/iop_module_loader.cpp"
+    "src/emulator/iop_emulator.cpp" "src/iop_subsystem.cpp")
   list(TRANSFORM IOP_SOURCES REPLACE "^src/" "${IOP_SOURCE_VIEW}/")
   set_property(TARGET ps2_iop PROPERTY SOURCES ${IOP_SOURCES}
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.cpp"
-    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.cpp")
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.cpp")
   target_include_directories(ps2_iop BEFORE PRIVATE "${IOP_SOURCE_VIEW}")
+  target_link_libraries(ps2_iop PRIVATE ps2_spu)
   add_executable(ps2_iop_memory_contract "${COLLECTION_ROOT}/tests/ps2_iop_memory_test.cpp")
   target_include_directories(ps2_iop_memory_contract PRIVATE "${IOP_SOURCE_VIEW}")
   target_link_libraries(ps2_iop_memory_contract PRIVATE ps2_iop)
@@ -140,7 +151,7 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/gs/ps2_gs_memory.cpp"
     "${RUNTIME}/src/lib/gs/gs_frontend.cpp"
     "${RUNTIME}/src/lib/gs/gs_cpu_backend.cpp"
-    "${RUNTIME}/src/lib/ps2_iop_host.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_iop_host.cpp"
     "${RUNTIME}/src/lib/ps2_memory.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"

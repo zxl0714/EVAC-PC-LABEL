@@ -2,6 +2,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
+#include <deque>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -40,6 +43,7 @@ namespace ps2x::iop::detail
         };
 
         IopMemory();
+        ~IopMemory();
 
         void reset();
 
@@ -70,6 +74,11 @@ namespace ps2x::iop::detail
         void setInterruptControl(uint32_t value) noexcept { m_interruptControl = value & 1u; }
 
         [[nodiscard]] std::optional<DmaStart> takeDmaStart() noexcept;
+        // IOP clock is 36.864 MHz; sound advances even inside guest callbacks.
+        void advanceAudioTo(uint64_t cycles);
+        [[nodiscard]] uint64_t nextAudioCycle() const noexcept;
+        [[nodiscard]] bool audioIrqPending() const noexcept;
+        size_t readPcm(void *stereo, size_t frames) noexcept;
         [[nodiscard]] std::span<const uint8_t> ram() const noexcept { return m_ram; }
 
         [[nodiscard]] static uint32_t physicalAddress(uint32_t address) noexcept;
@@ -78,6 +87,10 @@ namespace ps2x::iop::detail
         [[nodiscard]] uint32_t readHardware32(uint32_t address) const;
         void writeHardware32(uint32_t address, uint32_t value);
         void markOwned(uint32_t address, size_t size);
+        void serviceSpuDma(unsigned core);
+        void writeSpu16(uint32_t address, uint16_t value);
+        class AudioState;
+        std::unique_ptr<AudioState> m_audio;
 
         std::vector<uint8_t> m_ram;
         std::vector<uint8_t> m_owned;
@@ -88,6 +101,6 @@ namespace ps2x::iop::detail
         uint32_t m_interruptStatus = 0;
         uint32_t m_interruptMask = 0;
         uint32_t m_interruptControl = 1;
-        std::optional<DmaStart> m_dmaStart;
+        std::deque<DmaStart> m_dmaStarts;
     };
 }
