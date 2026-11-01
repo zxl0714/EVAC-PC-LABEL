@@ -110,8 +110,9 @@ Enter=Options、Backspace=Touchpad。**仍以该次配置为准。**
 PS2 新 Vulkan 宿主复用 PS4 默认绑定：方向键移动，Z=Cross、X=Circle、
 C=Square、V=Triangle，Enter=Start，Backspace=Select。旧 CPU 宿主的 C 确认／WASD
 流程已过期，不能再套用。ESPGaluda 的菜单确认仍是 Circle（现在对应 X）。
-自动化用 `--diagnostic-tap-ms 200`，核对 `ps2-pad-event` 与 `ps2-pad-read`；
-正式游玩、计时与性能测量保持默认 0。新宿主已出第一关和续关画面；实际移动／射击仍待确认。
+当前合集宿主已实际确认正常短按可走完整菜单，保持默认 `--diagnostic-tap-ms 0`。
+旧探针确有漏按时才用 200 ms，并核对 `ps2-pad-event` 与 `ps2-pad-read`；
+正式游玩、计时与性能测量保持默认 0。用户已实际游玩并确认 BOSS／重开音乐正常。
 ARCADE 选人后约一分钟教学会显示 PLEASE WAIT，之后才是玩家局；不能把教学或
 DEMONSTRATION 当游玩验收。教学结束后按短间隔观察，玩家不动会很快损失全部生命。
 短关卡检查优先用 MAIN MENU → ARCADE SIMULATION → STAGE SELECT，默认 STAGE 1 TOP；
@@ -142,6 +143,12 @@ F16=Up、F17=Left、F18=Right、F19=Square、F20=Triangle。每个宏必须成�
 第一次开启后立即 get_window_state，再无条件第二次关闭并立即刷新；方向宏若跨
 模型轮次保持，会自动连跳多项。原生短按映射仍为方向键、Z/X/C/V/Return。
 这组配置仅在私有模拟器对照环境使用；不能用于输入延迟测量，后者须独立标记。
+PCSX2 暂停或新启动器被遮住时，WGC 可能显示背后的旧窗口；先激活目标窗口再截图。
+首次旧画面不能证明新 EXE 没更新，核对返回的进程路径并重新观察。
+
+性能采样开始和结束都立即截图，再做符号解析／热点调查。BOSS 放置太久会回到
+RESULT；符号解析后的场景不能倒推为采样时的场景。对照 CSV 的 `present_qpc_us`
+和 CPU 的 QPC 窗口，排除额外追踪／SuspendThread 阶段，不能对整段混合记录取最大值。
 
 ## 复用入口与证据
 

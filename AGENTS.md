@@ -10,302 +10,149 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-CURRENT Nov02: normal r100 full build completed (1981 tasks), followed by
-production collection r4 normal incremental build with PS2_GAME_SYMBOLS=ON.
-out/ps2-tools/bin/espgaluda.exe and matching full espgaluda.pdb are current.
-No build live. ISO inspection/import/cache/production launch are IMPLEMENTED,
-currently uncommitted. ESP catalogue integrated=true. Three common contracts
-and21 Python catalogue/source audits PASS; explicit profile-root regression
-PASS. Authoritative cache whitelist16 path/size/SHA entries, no original bytes.
-Clean .local/v090/player-iso-r1 first raw-ISO launch reached real menus, F8,
-normal exit and launcher child-exit0. Second warm run76164 reached attract,
-closed via Alt+F4 exit0; cache reuse receipt in analysis/player-iso-warm-acceptance-r1.json.
-Actual missing-data gray publication bug fixed; Ibara Coming Soon passed.
-User music acceptance +r64 gallery/SAVE/r65 cold readback PASS; receipt
-.local/v090/espgaluda/gallery-save-acceptance-r1.json. Do not redo unchanged flows.
-PCSX2 official2.8.2 private-only incl BIOS, NEVER package; PID36628 is PAUSED
-after stage1. D3D12 Renderer15 is CU visible; VK WGC stale but real screenshot
-works. Verified fixed-pair toggle macros recorded in MEMORY. Native r66 CPU
-.389 cores vs PCSX2 .206 were different stage intervals, NOT final comparison.
-Native IOP execute/scheduling, SPU and EE timer bookkeeping are active hotspots.
-EE timer arithmetic microbench candidate regressed5.81->7.19ns and was REVERTED;
-fixture/bench retained. r66 steady180s segment0>20ms but12>19/max19.523; investigate
-VBlank wake/present variation. Current normal CSV includes absolute present QPC.
-Production player first flow and logs now work. Performance/latency vs PCSX2,
-reproducible dev pipeline/certification, portrait covers/UI checks, docs and
-packaging still REQUIRED. No Release/OSS/QQ. Preserve all originals.
-No Release/OSS/QQ. v090 only ESP plus Ibara Coming Soon. Preserve all originals.
+ACTIVE Nov02 07:00 CST: implement v0.9.0 through PACKAGING ONLY. Branch
+work/v090-resume. v0.8.4 is already released; no GitHub Release, OSS or QQ now.
+PS2 ESPGaluda ONLY; Ibara Coming Soon, retain its existing work. User asleep:
+handle testing autonomously, no manual help/approval requests. No subagents,
+Task Manager, cleanup or original-data changes. Prior release checkpoints below
+are archival; do not revive their tasks.
 
-SCOPE OVERRIDE Nov02: v0.9.0 is ESPGaluda ONLY. Ibara explicitly deferred to a
-later version; preserve its work, do not develop/package its runtime now. User subsequently requested an Ibara
-Coming Soon launcher card in this release. User wants
-all work autonomous through packaging, stop before publication. New gates are
-in docs/PS2_RUNTIME_PLAN.md: stable <=19-20ms fields (trace/optimize every long
-field), same-convention latency +CPU-core comparison against PCSX2 and real
-optimization where needed, bilingual README table, good launcher artwork,
-simple original-ISO player flow, existing missing-data gray/internal covers/DLC
-items, reproducible pinned toolchain/full symbols and final package acceptance.
-User CONFIRMED r63 stage1 BOSS and restart music are both NORMAL. r63 PID103268
-has EXITED with a DIFFERENT fault on selecting GALLERY: JALR123dec->14f880,
-original JR RA/NOP callback in boot, referenced at34f1cc. Boot's reviewed table
-starts34f170,8 records,stride12,callbackOffset8. Seven roots already linked; only
-14f880 absent. Metadata +boot_callback_roots extraction +8 Python tests now pass.
-Ghidra seed/export/refine r9 succeeded, missing leaf is decoded; r8 export was
-an unsuccessful seed predecessor (missing roots file), do not treat it as fixed.
-New generation boot-extra-r6/map+manifest r23 preparation is next. No game live.
-User is going to sleep: do not ask for hands-on help; use Computer Use yourself.
+Scope: docs/PS2_RUNTIME_PLAN.md. Still REQUIRED: lower CPU than PCSX2,
+same-convention input/presentation latency comparison, frame stability and
+representative actual controls/modes/score save, final build certification,
+1080p/remaining covers workflow, licenses/docs/version/release notes, final
+program +internal ZIPs and one extraction acceptance. Completion is UNPROVEN.
 
+Commits this continuation (no push):
+- 07fafa8 original-ISO inspection/import/cache and collection launch.
+- 7209f28 IOP RAM/fetch/DMA/ready-election cache +explicit profile roots.
+- a3d29e4 reviewed analysis maps and reproducible ISO/code generation.
+- 09a5f21 interruptible high-resolution EE deadline waits.
+- 6040497 runtime-only ThinLTO option, FIFO occupancy dirty check, bounded
+  Win32 message polling125us, GS queue notifications only when needed.
+- 0993623 11 dedicated cover assets, separate lazy image caches, native grid.
+- 20c0b7f PS2 build receipt/staging and v0.9 program/internal package profiles.
+- c400501 player-guide separator/import cleanup.
+Only handoff docs/MEMORY/PS2_RUNTIME_PLAN are currently uncommitted.
 
-ACTIVE Nov01: v0.9.0 through packaging only; v0.8.4 is released. Branch
-work/v090-resume retains the cb1426c checkpoint and all ignored original ROM,
-generated, build and evidence trees. No cleaning. No subagents; never open Task
-Manager. User handed the computer back for autonomous testing. Read MEMORY.md
-before game input. Freeze graphics architecture and use a small acceptance set.
+LIVE BUILD: exec session2078, out/ps2-tools, started06:05-06:09. Log
+.local/v090/analysis/repro-runtime-full-build-r1.log. Two BelowNormal jobs;
+2253 tasks total, last observed1246+ (ARRANGE huge unity chunks can take several
+minutes). Latest PID observations cmake115636/ninja121028 and live clang-cl
+children. Poll/reap SAME handle. Quiet logs are not a stopped process.
+This is the full compile of the freshly generated .local/v090/repro-inputs-r1
+graph: boot00, ARCADE16, ARRANGE17, stage-modules.json, mode-extras.json.
+Full game PDB enabled and runtime ThinLTO ON. Do not launch a parallel build in
+this SAME directory. Source/header changes were already present before it began.
+The script was parsed BEFORE automatic PS2 receipt integration; this run will
+NOT automatically certify/stage its outputs.
 
-ACTIVE: finish ESPGaluda first; user explicitly parked Ibara. User run play-r58
-PID123224 has EXITED normally (11140 fields). User found BGM stops at stage1
-boss, then remains silent in the next new game while shooting SFX still work.
-Its stderr proves 256KiB IOP allocation failure with FOUR live0x40000 staging
-buffers. Original bank loader1267f0 calls1c140 ->1c0c8 to free, but both were
-unbound; InitIopHeap/Alloc were already native, so original free returned without
-releasing via its uninitialized RPC client. Binding both real free APIs and
-regenerating boot r3; no hand edits to generated bodies. Headless original-entry
-128-cycle staging-buffer probe + authored SDK lifecycle regression added.
-User played r59 and confirms stage1 BOSS STILL has no BGM. It closed normally;
-last90s PCM + bounded WASAPI missing-boss recording saved. No IOP heap failure,
-so allocation/release fix is real but not the full music fix. Track18 begins
-39936ms; fades/stops136696; boss24 requested137355/volume220 yet silent.
-ADXF NULL errors also occur before working music; not a proved cause.
-Music-cycle-r1 (r91, abrupt stop) and r2 (r92, actual fade) both EXITED to their
-bounded frame caps. Both match boss24 reference corr0.999979 and track18 .999997;
-short stop/reopen/fade alone does NOT reproduce the actual long-play failure.
-r93 incremental build succeeded and session73636 reaped. It adds diagnostic-only (trace-audio)
-2s original EE stream/player snapshots and1s SPU input source/nonzero/volume.
-play-r60 r93 PID120372 has EXITED normally via Alt+F4 after USER observed a
-hard freeze near stage1 boss. Full dump hang-full.dmp (5.1GB) + ee-ram.bin saved.
-EE is in original ASSERT loop2912f0 inside2911b0: right channel remote queue
-expected0x4000 contiguous bytes but returned0x800. Saved R5900 context in dump
-host13b0f157d80, guestSP2e6460, s0=2f4f2c,s1=2f4f20,s3=1,v0=4000,v1=800.
-Physical IOP chunks overlap/gap: queue2fa368 previously totaled4000 but actual
-A6D00+800 vs remainingA3900+3800. Volume32767normal; input DMA allzero from117s,
-EE queue dispatcher watch stops116848ms. BOSS24 started117111 then CRI worker
-asserts. It is not an OS device mute. Last90s audio lost onset while taking dump;
-full dump/RAM and trace preserve the critical state. Need trace FIRST corruption.
-music-cycle-r4 r94 PID38904 EXITED to9000field cap; no ring-invalid hit. Repeated
-requests can remain pending due attract/jingle state, so not a full switch proof.
-It used original requests18/24
-and4709ms dwell. New AudioRingWatch captures last128 original queue operations,
-stops diagnostic if active chunks overlap/escape IOP buffer. Source event logs are diagnostic only.
-Confirmed NEW runtime bug: servicePendingDmaInterrupts ignored interruptControl,
-calling original DMA handlers inside CpuSuspendIntr critical sections. Authored
-IRX fixture AudioDmaCriticalSection in tests/ps2_iop_audio_fixture.h reproduces:
-before iop-critical-before-r1.log FAIL (handler ran masked); after adding delivery
-guard in iop_emulator.cpp iop-critical-after-r1.log PASS incl exactly one pending
-completion after restore. Full IOP memory/audio fixture passes. r95/r96 builds succeeded; sessions24241/
-99416 reaped. r96 also buffers snapshot formatting before one stderr write;
-unbuffered per-word logging was unnecessary diagnostic load. Four native
-SPU/IOP/kernel/SDK contracts PASS audio-critical-regression-r1.log.
-Music-cycle-r5 r96 PID74880 has EXITED to9000fields: stayed MAIN MENU (Return
-at logo), all20 alternating18/24 requests REALLY started (21 incl menujingle),
-no ring-invalid. LAST90s contains10 musical prefixes; five18 corr.9999974 and
-five24 corr.9999792; cycle-bgm-match-r1.json. This proves repeated decoder/output
-restart, not yet user ARRANGE fullstage acceptance.
-play-r61 r96 PID73460 EXITED normally via Alt+F4 after successful ARCADE
-SIMULATION actual transition: track0 stopped240643ms, BOSS track10 started241319,
-continuous nonzero DMA/core1 and screenshot BOSS alive. Return->Up(QUIT)->X->Left
-YES->X returned STAGE SELECT, X started a new STAGE1TOP at333553; music0 nonzero
-and player screenshot confirmed. Closed377s, full90s PCM saved. Capture contains
-BOSS continuation (onset older than90s) and next newgame; don't search only first
-4s boss prefix. Need read longer original track10 reference for exact matching.
-CURRENT Nov02: play-r62 r96 PID98524 is CLOSED normally after user hard freeze.
-ARRANGE actual18->BOSS24 works until134204ms, core1 nonzero through143571ms.
-New native freeze is GS deadlock, separate from r60 original audio assertion:
-main99824 waits second SIGNAL in GsCompletionMailbox; EE107940 is blocked on
-GsCommandQueue::Frame Request/future inside VBlank. It cannot execute CSR ACK.
-Only16 peak commands/4MiB, not capacity saturation. Small thread dump0x1860,
-EE RAM, last90s PCM and native-stack-symbols-r2.txt saved under play-r62.
-Exact r96 .text matches analysis/espgaluda-map-r1.exe/map SHA0736c6c6..., for
-native symbol offsets without a full PDB. Dump Stack.Rva=0 resolves through
-MemoryList stream5; do not read offset0 as stack. No live game currently.
-Fix implemented: nonblocking TryFrame, exactly one outstanding field, deferred
-VBlank with original deadline/tick, host completion/capacity wakes EE via GsStatus.
-Real SIGNAL/CSR ACK and FIFO ordering remain. GsFrameSignalProgress reproduces
-before FAIL; after all5 native kernel/GS queue/transport/completion/trace contracts
-PASS (analysis/gs-frame-deadlock-{before,after}-r1.log). It covers a second SIGNAL
-waiting behind VBlank and a40ms delayed field with idle EE, ticks1/2 and parity.
-Queue capacity wake and rejected trace field retry tests also pass. Session40990
-fully exited. Full ESP Ninja rebuild r97 started session51273, then INTENTIONALLY
-STOPPED after38/2134 unchanged game compilation units: user wanted to test before
-sleeping. Do NOT claim a completed full game rebuild. Existing game body objects
-have unchanged ABI (GS frontend class layout unchanged; EeScheduler allocation
-lives in rebuilt runtime); private debug relink uses r96 object inventory +new
-compiled ps2_runtime/GS libs. Exact new TryFrame and scheduler symbols verified
-in analysis/espgaluda-native-r97.map; relink7sec succeeded. Original-entry128 heap
-cycles pass with this binary. Full normal Ninja rebuild still REQUIRED before
-release/certification, after user finishes; no clean/regeneration needed.
-CURRENT USER PLAYING: play-r63 PID103268, r97 private relink, normal pulse0,
-960x720, trace-audio+last90s PCM+buffered frame-times.csv. Sky selected unique
-window18158960; activation detected HUMAN INPUT, so DO NOT SEND ANY GAME KEYS.
-User explicitly wants to replay once before sleep. Wait for report; no heavy
-build/bench during their performance check. On handback verify actual ARRANGE
-BOSS24 and next newgame, close promptly to preserve90s PCM. No full sound/crash
-acceptance yet. Ibara remains PARKED.
-r94 build session62833 succeeded/reaped. r3 was accidentally copied before r94
-link completed; its process.json CORRECTED to r93/no ring watch. Do NOT cite r3
-as testing r94. r4 binary presence of ring-invalid string explicitly verified.
-Original SDK review must use third_party runtime overlays/build source, NOT
-unpatched .deps. ChangeThreadPriority ABI old-priority/priority0 was ALREADY
-fixed and authored kernel tests cover it; don't rediscover it as current cause.
-Do not claim sound fully fixed. Ibara remains explicitly PARKED.
-r89 fully passed; headless actual128x256KiB lifecycle and4 native contracts PASS.
-SDK audit r2:499 entries; all selected routes exist after runtime registration.
-Two native memory-query TODOs1c2c0/1c330 remain. New lifecycle guard +3 audit tests
-PASS. Ibara explicitly PARKED: do not resume it before ESPGaluda accepted.
-Before restoring ESP options use saved cache
-.local/v090/cmake-cache-espgaluda-r88.txt: boot ghidra-audio-native-output-r2,
-mode extrasr21, original ARCADE/ARRANGE generated-r2 and all15 stage-r2 inputs.
-PS2_GAME_SYMBOLS=OFF only for private fast links; restore ON for final packages.
-Final game builds must include matching full PDBs.
+Important next build/certification details:
+- tools/ps2/CMakeLists.txt subsequently gained SDL3's matching PDB output/flags;
+  after2078 finishes, a normal incremental build must apply this CMake change.
+  Queue notification edits/native host count logging also require checking the
+  current output contains them (their .cpp compilation may still be pending).
+- New scripts/ps2_build_receipt.py and stage_ps2.py bind all generated source
+  trees, maintained/shared inputs, pinned dependencies/tools/flags and EXE/DLL
+  PDB identities. Release.ps2 requires the final source commit. Mechanism tests
+  pass; actual begin/finish/staging acceptance has NOT happened.
+- Current ps2_recomp.exe SHA changed to bfbd204034d4aac1b3be1a7db75d4a630010e4d4829e6d7638316c0f4165237c
+  when the shared runtime header caused recompilation. The31 accepted r1
+  generation receipts identify dc263b16640fa726189f1486992eae3c2514311b92384996076dcea190f709b5.
+  generate_all/receipt correctly reject that mismatch. Do not rewrite hashes.
+  Resolve reproducible final generator/input provenance AFTER runtime changes
+  settle; the normal Build-Espgaluda wrapper uses a fingerprinted fresh set.
+  Avoid blindly starting another full graph while2078 is live.
+- Existing out/ps2-tools/bin/espgaluda.exe before the link is the older
+  95c523ca5549871829e1a81fe5b3f5e914d57377dfb93cdb9408f26a96e48185 build;
+  player-iso-r1's runtime is still that version. No new gameplay acceptance yet.
 
-ESPGALUDA SOUND: three independent causes have been fixed and verified:
-- Generic sceSdRemote placeholder faked uploads. Removed bindings1115a8/111700;
-  original EE SDR clients are compiled in boot r2. Preserve their real ABI.
-- IRX startup now builds argc/argv with path and final NULL. sysclib ordinal8
-  supplies PS2 character flags; the old zero made CRI ignore spucore=1. Actual
-  CRI now streams on core1; core0 sample banks return40000/16000/18800 bytes,
-  instead of -210 BUSY and empty voice RAM. Authored IOP contracts cover both.
-- R5900 SQRT.S uses ft, not fs. Original word46160504 at27bb3c read f0 in old
-  generated C++, instead of f22. Fixed generator adapter and regenerated boot
-  into new r2, preserving r1. New emitted-C++ instruction test passes. Original
-  predictor headless check at22050/44100/48000Hz passes;48k gives7400,-3343
-  versus7400,-3342 expected (old8152,-4056 was wrong). Only boot FUN27bb20 and
-  entry27bbd8 affected here. Ibara1ba3c0/1ba488 regenerated in generation r8;
-  Ibara's function is a GRAPHICS transform, not the ESP ADX predictor ABI.
-  Full audit .local/v090/analysis/sqrt-affected-files-r1.txt; no stage/mode SQRT.
+All other exec sessions are reaped:35804 LTO result0 (handle now absent),90105
+runtime hotpath contracts0,93562 failed package contract (kept),47976 fixed
+package contracts0,87182 launcher0,35236 audit0,76175 common native checks0.
+No ESPGaluda game currently running. Original private launcher119196/window
+20251614 remains open; PCSX2 PID36628/window14094602 is PAUSED.
+New cover-test launchers71328/41956 were closed normally; their handles are stale.
 
-Audio acceptance evidence (private, no ROM in Git):
-- pacing-audio-fixed-r1: original A981-6 jingle match corr0.9999765,gain.7075.
-- play-r51: ARCADE SIMULATION first stage, actual left movement and X shooting
-  observed; original A980-0 stereo8s corr0.999995 both channels,gain.892.
-- User additionally reported ARRANGE stage1 no music. play-r54 traced original
-  request980/track18 and nonzero volume220. Its first3s match corr0.9999978 in
-  BOTH core1 and final mixed output. play-r55 repeats this with playback
-  observers OFF: .9999978,gain.8929. No separate missing-music cause established;
-  do not invent one. Both captures contain correct ARRANGE BGM, beyond merely
-  nonzero samples. Physical device loopback was not measured.
-- Follow-up play-r56 captured actual default XMOS USB Audio WASAPI output.
-  ARRANGE GAME START -> Chihiro -> actual stage1: original980/18 request at
-  102018ms. Correct BGM found internally and after Windows output (three short
-  beginning windows corr.9815/.9915/.9859). See audio-result-r1.json and
-  wasapi-bgm-match-r1.json; 5s audible excerpt arrange-stage1-output.wav. This
-  trace-enabled run has underruns/drops; do not call it a no-glitch acceptance.
-  r57 repeated without --trace-audio and again found correct stage1 BGM after
-  Windows output (same beginning correlations). Normal-play music does reach
-  this endpoint; neither run reproduces sustained missing BGM. Do not call
-  trace-enabled underruns a normal-play defect without a control. Actual
-  acoustic speaker output is unmeasured. r57 was closed after its later attract
-  scene, so LAST90s internal ring may no longer include the target stage; use
-  its bounded wasapi.wav. No new sound code was changed for this follow-up.
-- Evidence in each run's bgm-match-confirmed-r1.json / bgm-first3s-r1.json.
-  ffmpeg references .local/v090/espgaluda/audio-reference-r1 (29 BGM prefixes,
-  ten jingles). Source ISO E:/Game-Share/roms/Espgaluda (Japan).iso unchanged.
-  r54 also has bgm-chunks-r1.json with early exact matches. Initial coarse
-  matching reports were false negatives; exact alignment supersedes them.
-- --capture-audio buffers LAST90s core0/core1/mixed; close soon after target
-  scene. Coarse full-recording matching can select silence or a wrong phase;
-  refine short nonsilent chunks at48kHz, then compare an isolated interval.
-  Concurrent jingles legitimately reduce full-recording correlation.
-- --trace-audio now adds bounded original stream-start/stop, volume, partition
-  resolve and ADX error hooks. No heavy full snapshots or observers by default.
+Fresh evidence under .local/v090/analysis:
+- ThinLTO no-ROM contracts PASS. Dispatch quantum8:22.0954->17.1971ns/instruction;
+  quantum128:9.2376->7.3789;2M instructions/checksum333333 unchanged. Timer
+  5.76145->6.28905ns (no universal win). thinlto-*-r2.log;35804 reaped/missing.
+- FIFO dirty check +LTO: runtime-hotpath-{kernel,iop}-r1.log PASS; four-timer
+  bench6.07169ns. Existing arithmetic/carry/IRQ behavior and FQC nonzero-cycle
+  expiration checked. Queue notify ownership/order/bounds/frame/shutdown and
+  completion signal/reset checks PASS in queue-*-r1.log.
+- ps2-release-contracts-r3.log:52 tests PASS,one Windows symlink-privilege skip.
+  Real tiny authored ZIPs prove PS2 ISO internal-only copy, no boot/cache leak,
+  no Ibara executable and unchanged historical release profiles. This is NOT
+  a real release package. ps2-receipt-contracts-r2.log3PASS.
+- ps2-source-contracts-r5.log64PASS; cover-art-contracts-r1.log10PASS;
+  player-flow-native-r5.log4 CTests PASS (common/launch/ps2_data/deadline_wait).
+- source-audit-covers-and-package-r1.log:2862 files59.48MB,22 artwork files,
+  3 branding,22 submodules, no game data. Later tiny source/doc changes still
+  need the final source audit.
 
-PACING / INPUT:
-- Shared common/windows_timer_resolution.h scopes timeBeginPeriod(1); used by
-  PS2 and360. 360 shared host library compiled successfully, behavior retained.
-  PS4 high-resolution waitable timers unchanged. Standalone CV bench shows
-  2ms waits were15.36ms default,2.43ms withperiod1;16.667ms waits30.49/17.38.
-- Actual long-frame culprit: synchronous full EE/IOP snapshots and cerr in each
-  120-field progress callback. Worst r50 frame429.6ms, VBlanklate413.5ms while
-  actual present.700ms; most long frames120n+1. DEFAULT OFF now, --trace-boot only.
-- With fixes, play-r51 7277 steady fields: median16.656ms,p9518.043,p9918.720,
-  max27.724ms,2fields>25ms. Worst present.467ms,VBlanklate11.912ms. Optional raw
-  capture and200ms diagnostic taps active: not a published performance benchmark.
-  Bounded attract1500fields gave median16.6535,p9518.124,max28.351. Old heavy-log
-  controlled run max36.062ms,10/1200fields>25. Do not claim all frame variation
-  eliminated or end-to-end input latency measured.
-- --frame-times new.csv buffers36000fields and saves after producer join; phase
-  fields separate VBlank late, queue, previous fence, flush/acquire/scanout/
-  submit/present. Host present return is not monitor light.
+Player flow already accepted (do not redo unchanged):
+- .local/v090/player-iso-r1 original ISO ->menu/F8/normal exit0; warm second
+  launch all16 cached file hashes+mtimes unchanged. player-iso-warm-acceptance-r1.json.
+- Source ISO E:/Game-Share/roms/Espgaluda (Japan).iso remains read-only. Runtime
+  cache is only16 boot/IOP files; normal resources stream from original ISO.
+- User twice accepted Stage1 BOSS/restart music (r63). Gallery loading, full
+  image/back/grid/main, wallpaper save1 and cold readback passed r64/r65;
+  .local/v090/espgaluda/gallery-save-acceptance-r1.json. Actual SCORE save/cold
+  readback and remaining representative controls/modes remain open.
+-31 generation jobs accepted zero critical/decode/unhandled/errors in
+  .local/v090/repro-inputs-r1.17 analysis ELF wrappers reconstructed identically;
+  15stage glue +13extension groups accepted7103 bodies/8713slots and fixed-edge
+  closure (sessions8540/81695 already reaped0).
 
-CRASH / SHADOW:
-- Original user crash ARRANGE17 source7fc100 -> missing79ad70; real import
-  veneer tail-calls153f80 sound request80000d01. Batch44/mode audit also found
-  ARCADEa2d5b0. Metadata includes both; real extras ARCADEr11/ARRANGEr14 selected
-  by manifestr21. Strict13inventories7102bodies8712slots PASS, no replacements.
-  r52/r54/r55 ARRANGE selected character and entered stage1 without crash;
-  exact later original sound event not independently identified. No long soak.
-- SMODE2=1 means interlaced FIELD mode. PGS temporal weave combed the game's
-  flickering shadows. force_progressive only for FIELD mode now. r49/r50 actual
-  same medium plane/miniboss shows a solid shadow; FRAME mode unchanged.
-- Critical e20a0b5: Flush PGS BEFORE WSI begin_frame, otherwise pending texture
-  upload waits on its own allocation context. Continuous upload probe passed.
-  Keep8MiB/2048-command owned queue,one outstandingfield,previous fence,no normal
-  CPU VRAM readback or wait_idle. Six GS contracts passedr35.
+Performance evidence (do NOT overclaim):
+- Real baseline fixed ARCADE SIMULATION Stage1BOSS Ageha stationary/deathOFF
+  .34347cores; fetch-only .34339 NO gain; ready-cache r2 .31901 (~7%).
+  cpu-frame-boss-after-r2.json:1802fields,max19.177ms,1>19,0>20.
+- High-res r3 .30132cores;1802fields,P95=17.419,P99=17.708,max18.498ms,0>19/20.
+  PROVISIONAL scene: BOSS observed before, no immediate AFTER screenshot; much
+  later it was RESULT. Do not use as final matched comparison.
+- PCSX2 official2.8.2 D3D12/1x/vsyncfalse sameBOSS ~.187cores, also provisional:
+  logical window640x480 versus native854x480. CPU lower-than-reference goal is
+  still NOT met. Match final output settings and capture before+immediate after.
+- After-fetch22.074ms frame was previous-GPU wait20.502ms, not merely VBlank
+  wake(.997ms). Investigate if recurring after current changes.
+- Earlier post-cache hotspot sample native-hotspots-after-cache-r1.json:
+  producer1625CPUms/8s,main625ms,driver78ms. Active leads EE timers18samples,
+  IOP core10,SPU9,checkpoint7,main PeekMessage37. Intrusive profile scene may
+  have crossed RESULT; leads only, NOT final scene or latency data.
+- No PS2 input-to-response/presentation latency evidence yet. Do not fill
+  README rows from other platforms' tails or guest Present alone.
 
-TESTS / BUILD:
-- Native VU/SQRT,SPU,IOP memory/argc/ctype,EE kernel,pad contracts all5 PASS in
-  .local/v090/ps2-audio-regression-r3.log. Python44 PASS ps2-python-r23.log.
-- Reconfigure only CMake/options/manifests changes. CPP-only direct cmake--build
-  out/ps2-tools --parallel2. Never reconfigure the large graph just to compile.
-  Keep strict module guards. Do not patch generated game C++ by hand.
-- Private -FastGameLink avoids full PDB linking; final build omits this switch.
-  Headless --probe-adx-coefficients boot.elf is independent of game/CU/audio I/O.
-- Normal keys arrows,ZCross/XCircle/CSquare/VTriangle,EnterStart,BackspaceSelect,
-  F11fullscreen. Diagnostic pulse200ms only automation; normal0. No short --frames
-  limit for CU. Fast ARCADE SIMULATION -> STAGE SELECT -> STAGE1TOP/BOSS; confirmX.
+Internal covers UI:
+- launcher/assets/covers has11 unchanged scans/promotional originals, separate
+  source hashes/URLs in artwork.json. Main default remains banner; covers is
+  only [collection] launcher_layout=covers. No public promotion/switch added.
+- New launcher built out/common with SkipLauncherStage; root launcher untouched.
+  .local/v090/ui/covers-player-build-r1.log. Actual private test root
+  .local/v090/ui/cover-preview-r3 at144DPI: CN/EN/JP,mouse Ketsui,Down toESP Ra.De.,
+  wheel scroll preserving selection, normal close selected_game=esprade, reopen
+  banner preserving game+JP all observed. Runtime/import/relaunch and1080p
+  checks remain. Native previews covers-art-r3.png and covers-data-present-r4.png
+  are explicitly sample-state previews. Private root now configured covers/JP,
+  data_dir points to player-iso-r1's existing ISO (no copy); no UI test process
+  remains. Logs logs/launcher/run-71328.log and run-41956.log preserve DPI/sizing.
 
-IBARA NEXT AFTER SOUND FOLLOW-UP:
-- Callback audit classified91 candidates;17 true entries accepted in
-  games/ibara/analysis.json and callback-roots-r2.txt. Nine SDK anchors retained.
-  Ghidra17 entries +2079 functions +15865 labels. MUST RefineLabels after export:
-  raw r7 interpreted data as10795 invalid instructions. r8 refined236 ranges;
-  functions-sdk-r8.csv17953 entries,17757 compiled,196 stubs,771 warnings,
-  ZERO decode/critical/errors. Output ghidra-sdk-generated-r8; preserved r7.
-- Ibara r8 build75 steps succeeded. New EVAC_PS2_IBARA define fixes title and
-  guards ESP-specific observers/headless probes; no foreign function hooks.
-  1ba3c0 is a graphics transform. Earlier ADX probe used invalid ABI; disregard.
-- play-r2 blackscreen root cause: EE SetupThread didn't fill argc/argv at
-  4e52c0. Original arg parser1acc90 loops on argc0 before SetGsCrt/IOP startup.
-  System.cpp now writes argc1, argv[0] program filename, final NULL like Play!.
-  build-r9 and kernel-arguments-r1 PASS. argsBase mask now0x1fffffff with an
-  extra beyond-RDRAM physical-address contract, preventing modulo-RAM wrapping.
-  Latest build-r10/kernel-arguments-r2 PASS. Actual play-r3 now gets beyond the
-  old argc loop and into original static constructors, then stops at320030,
-  following constructor31f930. Full fault/trace is play-r3/stderr.log. No menu
-  or IOP init acceptance yet. Audit generated split/fallthrough closure in one
-  batch before another game run; don't seed one missing PC per test blindly.
-  play-r2 PID105488 closed normally; no stale window reuse.
-- Continuation audit after r3: branch-closure-r2.json found ZERO missing fixed
-  dispatch/ctx-pc-return edges, but reachable end-of-function fallthroughs at
-  320030 and SDK cache loop14b690. The many plain emitted tails after JR/ERET
-  are unreachable; don't blindly seed thousands of data/padding false positives.
-  InspectEntries ibara-fallthrough-r1.txt confirms320030 is real undisassembled
-  straight-line constructor code. Ghidra seed2 (fallthrough-roots-r1.txt) and
-  Export+Refine r9 ran, BUT new FUN320030 is ONLY1 BYTE (320030..320031), not a
-  valid decoded function. Stop before generation; determine why disassemble
-  claimed success yet left no instruction. Original CSV r8/generated r8 retained.
-  No codegen r9 or new build started; only ignored evidence/Ghidra DB changed.
-- Remaining v090: Ibara actual play/audio; both games save/restart; common
-  launcher/catalogue/config/ISO preparation; internal cover assets+CN/JP/DPI QA
-  (defaultbanner); direct DLC audit; repro JDK still external E:/Tools/
-  Ketsui-Reverse/apps/jdk/jdk-21.0.12.1+1; licenses,bilingual docs,build certificate,
-  full-symbol package. Stop before Release/OSS/QQ.
+Computer use: node_repl @oai/sky skill+guidance/API/confirmations read. sky globals
+persist, but coverState=null and last native ps2Window closed/stale. Always list
+current windows. ps2Tap normal short pulses0 (not diagnostic200ms) reliably walks
+Return ->Down/X practice ->Down/X stage ->Down/X BOSS. PCSX2 macro toggles must
+be paired within one call. Read MEMORY before input; first occluded captures may
+show the older window--activate and refresh. Take BEFORE and IMMEDIATE AFTER
+screenshots around CPU windows, THEN any slow PDB/symbol profiling. Keep builds,
+traces and SuspendThread sampling out of timing windows. Never Task Manager.
 
-Checkpoint220392f records ESP sound/crash/shadow/timing fixes. The next
-checkpoint adds Ibara callback roots and EE boot arguments; actual Ibara
-currently stops at constructor continuation320030, not accepted for play.
-Arrange sustained missing-music feedback remains unclosed: two new output
-recordings reproduce the correct music, not the reported silence.
-
+Hardware: C1TB NVMe(Solidigm),E8TB WD80EAZZ HDD,32GB RAM. Large generated CMake
+scans,unity chunks and4GB PDB links are expensive; inspect real live processes.
+PCSX2/reference BIOS stay private-only, never package/add to Git. Product version
+is still0.8.4; final0.9 version/docs/performance tables/licenses/certification and
+real ZIPs remain required. No publication this goal.
 
 ## Previous release checkpoints
 
