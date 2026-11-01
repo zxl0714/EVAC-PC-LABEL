@@ -1,5 +1,6 @@
 """Compile verified additional module entries while retaining cached native bodies."""
 import argparse
+import bisect
 import csv
 import json
 from pathlib import Path
@@ -22,6 +23,31 @@ def guest_branch_targets(source):
     targets.update(int(pc,16) for pc in re.findall(
         r'ctx->pc\s*=\s*0x([0-9a-fA-F]+)u;\s*return;',source))
     return targets
+
+
+def slice_unlinked_entries(rows, linked_entries):
+    """Compile only a new prefix, handing its suffix to an existing entry.
+
+    Do not replace already compiled resume slots when exposing an import into
+    an existing function. The emitted prefix ends at the first linked PC, and
+    the ordinary EE dispatcher continues there using the original native body.
+    """
+    linked=set(linked_entries)
+    boundaries=sorted(linked)
+    sliced=[];continuations=set()
+    for row in rows:
+        start,end=int(row['Start'],0),int(row['End'],0)
+        if (start|end)&3 or end<=start:
+            raise ValueError('Invalid imported code interval')
+        if start in linked:
+            continue
+        index=bisect.bisect_right(boundaries,start)
+        stop=min(end,boundaries[index]) if index<len(boundaries) else end
+        value=dict(row)
+        value['End']=f'0x{stop:08X}';value['Size']=stop-start
+        sliced.append(value)
+        if stop<end:continuations.add(stop)
+    return sliced,sorted(continuations)
 
 
 def retain_return_slots(spec, original, entries, base, generated, rows, previous, receipt):

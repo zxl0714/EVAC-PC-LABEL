@@ -11,6 +11,7 @@
 #include <vector>
 #include <chrono>
 #include "diagnostic_input.h"
+#include "audio_trace.h"
 
 namespace {
 int ProbeDiscIndex(const char* elf) {
@@ -148,12 +149,13 @@ int main(int argc,char** argv) {
   try {
     if(argc==3 && std::string_view(argv[1])=="--probe-disc-index")return ProbeDiscIndex(argv[2]);
     if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
-    bool traceBoot=false;
+    bool traceBoot=false,traceAudio=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
     for(int i=5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
+      else if(option=="--trace-audio")traceAudio=true;
       else if(option=="--frames" && i+1<argc) {
         frameLimit=std::stoull(argv[++i]);
         if(frameLimit<1 || frameLimit>36000)throw std::runtime_error("Frame limit must be 1..36000");
@@ -171,6 +173,7 @@ int main(int argc,char** argv) {
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
     cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
+    cave::ps2::audio_trace::Configure(traceAudio);
     PS2Runtime runtime;
     struct Progress {uint64_t frames{},limit{};std::chrono::steady_clock::time_point started{};} progress{0,frameLimit};
     runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
@@ -185,7 +188,9 @@ int main(int argc,char** argv) {
         const auto snapshot=state.eeScheduler().snapshot();
         const auto elapsed=std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now()-progress.started).count();
-        std::cerr<<"[ps2-probe] frame="<<count<<" elapsed_ms="<<elapsed<<" sequence="<<snapshot.sequence
+        std::cerr<<"[ps2-probe] frame="<<count<<" elapsed_ms="<<elapsed
+                 <<" vsync="<<state.memory().gs().vsyncTick.load(std::memory_order_acquire)
+                 <<" sequence="<<snapshot.sequence
                  <<" cycle="<<snapshot.eeCycle<<" running="<<snapshot.runningThreadId;
         for(const auto& thread:snapshot.threads)
           std::cerr<<" thread="<<thread.id<<" pc=0x"<<std::hex<<thread.pc

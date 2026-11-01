@@ -14,6 +14,7 @@
 #include "ps2_iop_host.h"
 #include "ps2x/iop/iop_subsystem.h"
 #include "diagnostic_input.h"
+#include "audio_trace.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -602,6 +603,7 @@ bool PS2Runtime::canBindIopRpc(uint32_t sid) const noexcept
 
 ps2x::iop::RpcResult PS2Runtime::handleIopRpc(uint8_t *rdram, R5900Context *ctx, ps2x::iop::RpcRequest request)
 {
+    cave::ps2::audio_trace::Rpc(request.sid,request.function,request.send.size,request.receive.size);
     auto scope = m_iopHost->enterCall(ctx, rdram);
     request.callToken = scope.token();
     return m_iopSubsystem->handleRpc(request);
@@ -1305,11 +1307,21 @@ void PS2Runtime::reportMissingFunction(uint8_t *rdram,
 
     if (firstReport)
     {
+        uint32_t sourceInstruction{},sourceDelay{},targetInstruction{},targetNext{};
+        readGuestU32At(sourcePc,sourceInstruction);
+        readGuestU32Offset(sourcePc,4u,sourceDelay);
+        readGuestU32At(targetPc,targetInstruction);
+        readGuestU32Offset(targetPc,4u,targetNext);
+        const auto* activeModule=m_staticModules.selected(targetPc);
+        const auto moduleId=activeModule?activeModule->id:~0u;
         std::ostringstream oss;
         oss << "[guest-branch:missing-target] kind=" << describeGuestBranchKind(kind)
             << " op=" << (debugName ? debugName : "<unknown>")
             << " source=0x" << std::hex << sourcePc
             << " target=0x" << targetPc
+            << " sourceCode=0x" << sourceInstruction << ",0x" << sourceDelay
+            << " targetCode=0x" << targetInstruction << ",0x" << targetNext
+            << " selectedModule=0x" << moduleId
             << " pc=0x" << pc
             << " ra=0x" << ra
             << " sp=0x" << sp

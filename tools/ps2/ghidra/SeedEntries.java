@@ -13,9 +13,10 @@ public class SeedEntries extends GhidraScript {
         int added=0;
         String[] args=getScriptArgs();
         boolean skipOwned=args.length==3 && args[1].equals("--skip-owned");
-        if(args.length!=1 && !skipOwned)
-            throw new IllegalArgumentException("Expected roots file, optionally --skip-owned new-report.csv");
-        if(skipOwned && Files.exists(Path.of(args[2])))
+        boolean markOwned=args.length==3 && args[1].equals("--mark-owned");
+        if(args.length!=1 && !skipOwned && !markOwned)
+            throw new IllegalArgumentException("Expected roots file, optionally --skip-owned/--mark-owned new-report.csv");
+        if((skipOwned || markOwned) && Files.exists(Path.of(args[2])))
             throw new IllegalArgumentException("The skipped-entry report already exists");
         ArrayList<String> skipped=new ArrayList<>();
         ArrayList<Address> entries=new ArrayList<>();
@@ -25,6 +26,11 @@ public class SeedEntries extends GhidraScript {
             Function existing=getFunctionContaining(address);
             if(existing!=null) {
                 if(!existing.getEntryPoint().equals(address)) {
+                    if(markOwned) {
+                        currentProgram.getSymbolTable().addExternalEntryPoint(address);
+                        skipped.add(address+","+existing.getEntryPoint()+","+existing.getName());
+                        continue;
+                    }
                     if(skipOwned) {
                         skipped.add(address+","+existing.getEntryPoint()+","+existing.getName());
                         continue;
@@ -38,12 +44,17 @@ public class SeedEntries extends GhidraScript {
         for(Address address:entries) {
             if(getInstructionAt(address)==null && !disassemble(address))
                 throw new IllegalArgumentException("Cannot disassemble verified call target: "+address);
-            if(createFunction(address,null)==null)
+            if(markOwned)currentProgram.getSymbolTable().addExternalEntryPoint(address);
+            // Earlier roots can discover a shared, non-contiguous block that
+            // owns a later verified entry. Keep that function's ownership.
+            if(markOwned && getFunctionContaining(address)!=null)continue;
+            if(createFunction(address,null)==null && !markOwned)
                 throw new IllegalArgumentException("Cannot create verified function: "+address);
             added++;
         }
-        if(skipOwned)Files.write(Path.of(args[2]),skipped,StandardOpenOption.CREATE_NEW);
+        if(skipOwned || markOwned)Files.write(Path.of(args[2]),skipped,StandardOpenOption.CREATE_NEW);
         println("Added "+added+" verified cross-module entries");
         if(skipOwned)println("Left "+skipped.size()+" owned candidate entries for separate review");
+        if(markOwned)println("Marked "+skipped.size()+" existing code entries without changing function bodies");
     }
 }

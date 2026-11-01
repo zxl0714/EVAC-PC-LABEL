@@ -6,10 +6,21 @@ import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from project import digest
-from ps2_module_extras import prepare, fixed_branch_gaps
+from ps2_module_extras import prepare, fixed_branch_gaps, slice_unlinked_entries
 
 
 class Ps2ModuleExtrasTests(unittest.TestCase):
+    def test_import_prefix_stops_before_existing_resume_code(self):
+        rows=[dict(Name='imported',Start='0x100000',End='0x100030',Size='48'),
+              dict(Name='already_linked',Start='0x100020',End='0x100030',Size='16')]
+        original=[dict(row) for row in rows]
+        result,continuations=slice_unlinked_entries(rows,{0x100010,0x100020})
+        self.assertEqual(result,[dict(Name='imported',Start='0x100000',End='0x00100010',Size=16)])
+        self.assertEqual(continuations,[0x100010])
+        self.assertEqual(rows,original)
+        with self.assertRaisesRegex(ValueError,'interval'):
+            slice_unlinked_entries([dict(Name='bad',Start='0x100002',End='0x100010')],set())
+
     def fixture(self,root):
         base=root/'base';extra=root/'extra';base.mkdir();extra.mkdir()
         (base/'register_functions.cpp').write_text('g_ps2RecompiledFunctionTable[0] = old; // 0x730880\n')

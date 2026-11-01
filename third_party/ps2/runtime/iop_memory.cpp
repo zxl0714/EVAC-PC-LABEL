@@ -1,4 +1,5 @@
 #include "emulator/core/iop_memory.h"
+#include "../../../backends/ps2/audio_trace.h"
 
 #include <algorithm>
 #include <cstring>
@@ -234,6 +235,8 @@ namespace ps2x::iop::detail
 
     void IopMemory::writeHardware32(uint32_t address, uint32_t value)
     {
+        if(address>=Spu2Base && address<Spu2End)
+            cave::ps2::audio_trace::Register(address,value);
         switch (address)
         {
         case 0x1F801070u:
@@ -272,6 +275,9 @@ namespace ps2x::iop::detail
         const uint32_t wordsPerBlock = std::max<uint32_t>(blockControl & 0xFFFFu, 1u);
         const uint32_t blockCount = std::max<uint32_t>(blockControl >> 16u, 1u);
         const uint64_t transferWords = static_cast<uint64_t>(wordsPerBlock) * blockCount;
+        const uint32_t tsaBase=0x1F9001A8u+(secondCore?0x400u:0u);
+        cave::ps2::audio_trace::Dma(secondCore?1u:0u,readHardware32(address-8u),transferWords,value,
+            (uint32_t(read16(tsaBase))<<17u)|(uint32_t(read16(tsaBase+2u))<<1u));
         m_dmaStart = DmaStart{
             secondCore ? kDmaSpu1Irq : kDmaSpu0Irq,
             std::max<uint64_t>(transferWords * 2u, 64u),
