@@ -252,3 +252,17 @@ The GPU capture test checks three interleaved partial paths, native shortcuts,
 FIFO data and repeated field scanout, then compares the entire 4 MiB VRAM exactly.
 The final verification readbacks are diagnostic-only. The authored benchmark
 runs in `ps2-gs-bench-r2.json` without a window or normal-path VRAM snapshots.
+
+## CRT and SDK boundary
+
+The SDK and firmware service adapter must preserve the same hardware boundary
+as original code. PMODE, SMODE, DISPLAY and DISPFB use privileged MMIO; they are
+not aliases for A_D drawing registers. The adapted graph reset no longer emits
+an invented GIF packet that writes SCISSOR_2/ALPHA_1 instead of display state.
+
+CRT mode IDs, stable clock/carrier fields, libgraph magnification/offset units,
+EE argument registers and GParam layout now have a headless native regression
+(`ps2-native-r65.log`, all nine tests pass). Ordinary generated game code still
+writes its own privileged display registers; the GPU scanout consumes their
+complete field snapshot. No framebuffer size or guest display mode is inferred
+from the player's chosen host-window size.

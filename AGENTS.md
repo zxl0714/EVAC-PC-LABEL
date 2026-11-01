@@ -16,64 +16,86 @@ has been merged into work/v090-resume; original checkpoint remains intact. Ignor
 dependency/build trees and evidence remain in this checkout; do not clean them.
 Never open Task Manager; no subagents. Game automation first reads MEMORY.md.
 
-Latest PS2 checkpoint (Nov1 16:48): graphics uses mature paraLLEl-GS + Granite.
-Read /docs/PS2_GRAPHICS_PLAN.md before more GS work. NOactivebuild/window sessions.
-Previous goal turn PROGRESS commit9afbb50 (rawtransport+WSI); this turn adds actual
-GPU completions and EE/MMIO/IRQ handoff, not game GPU integration yet.
+Latest PS2 checkpoint (Nov1 17:36): mature paraLLEl-GS + Granite foundation.
+Read docs/PS2_GRAPHICS_PLAN.md. NO active builds or windows. Never Task Manager,
+no subagents. Commits caa9eb7 capture/replay; CRT SDK changes validated this turn.
 
-GRAPHICS FOUNDATION / COMPLETIONS NOW IMPLEMENTED:
-- paraLLEl-GS cc6184af7e0c03da603045ca371ffa5dae9b0655 + Granite16e7395 /
-  original Volk/Vulkan-Headers pins restored clean,total14deps. Build-Ps2Gs.ps1
-  SAME LLVM23.1.3/CMake4.2.3/Ninja/VS SDK/MD CRT; out/ps2-gs SMALL graph.
-  Python43 PASS r19; source-v2-* view SHA256-verifies EVERY staged source.
-- Original GIF path1/2/3, raw VIF IMAGE continuations and VU XGKICK1 preserved.
-  NativeSDK register/image bypasses enter sameGPUowner, never drawCPU+GPU twice.
-  GifArbiter strictstablecomparator fixed; full hardware arbitration notclaimed.
-- GsDevice/GsDeviceSink actualGPUcontract: partialtagsall3paths,4096exactpixels,
-  CPUshadowunchanged,image/FIFO roundtrip,owner/rangeguards. Normaldrawing noVRAM
-  readback. FIFOcurrentlyrequires16-byteunits: SDK StoreImage canrequestoddcount;
-  review this before game acceptance (do not silently drop cached trailingbytes).
-- GsCommandQueue 8MiB/2048commands includesactiveconsumer,ownedcopies,ordered
-  replies,1outstandingframe,error/closeunblocksallwaiters. BeginCommand stamps
-  producer completiongeneration. Reset advancesepoch BEFOREqueuing behind an old
-  blockedSIGNAL; oldqueuedcommands retainoldgeneration and cannotpublishnewstatus.
-- GsFrame snapshots COMPLETE privilegedtiming/circuits/FIELD onEE. NoGPUread oflive
-  guestregisters. GSpublicheader forwarddeclarescommandbackend/destructoroutofline:
-  privateGPU/queue interfaces nowdo NOTforcegeneratedgamePCH rebuild.
-- GsDisplay Win32+GraniteWSI directGPUscanout->swapchain,4:3,Immediate/FIFO;
-  source/destblitfeatureschecked;GPU sampledshaderfallback reusesPGSshaderbank.
-  Priorframefencegates NEXTcommands;16allocatorcontextsNOT16queuedgameframes.
-  Actual r6/r7 1200frames/zeroVRAMreadbacks forblitandshader/FIFO; r5resizePASS;
-  r8finalGsFrame+AltF4exit2EXPECTED/1007frames/zeroReadbacks/nohang.
-- NEW GsCompletionMailbox FIXEDSIZE coalesces FINISH+maskedLABEL updates;
-  secondSIGNAL stalls untilCSRack. Close/resetreleaseswaiters. Generationdrops
-  staleevents. Collect/Acknowledge operates onmailbox, never foreignGPUstate.
-  Coalesced notifier postsonewake forunreadbatch; NativeHostmustbindit to
-  runtime.postEeEvent({EeEventType::GsStatus,0,0}) when hostisconnected.
-- PGS SignalInterface callbacks areCPUparse events. Adapter explicitly gs.flush
-  then GenericqueueFence wait BEFOREpublishingSIGNAL/FINISH; no wait_idle, frame,
-  orVRAMreadbackrequired. LABEL publishesmaskedID. Windowmessagepump runs during
-  rareSignal/Fencewaits soquitcanunblock. GPUtest real2SIGNAL->queuedResetPASS.
-- GS::pollCompletedEvents mergesSIGLBLID andCSR ONLYonEE; mask/IMRunmask/ack/reset
-  covered. ps2_memory.cpp adapter adds8/16/32/64-bitGSports andpre/postMMIOhooks.
-  Runtimecallback rejectsforeignexecutors. New adapted ee_scheduler.h stagesONE
-  view; executoridentity usesuniquegeneration+TLS (avoidscross-threadstdthreadid
-  race/reusedobjectidentity), GsStatus event wakesidleEE, ownerpoll dispatchesIRQ0.
-- LATESTall4GSCTestsPASS ps2-gs-test-r29.log. Includesmaskcomposition,signalstall,
-  wakecoalescing,epochs/close,realGPUfinishwithoutframe/readback andblockedreset.
-- LATESTall9nativeCTestsPASS ps2-native-r64.log: byte/half/dwordCSRports,maskedIDs,
-  IMRunmask/W1c/reset,plus sleepEE->externalGsStatus->ONEactualnativeIRQhandler.
-  r63Kernelcrash wasTESTSTACKOVERFLOW 0xC00000FD (directexeconfirmed), secondlarge
-  PS2Runtime ondefault1MiBteststack. Newfixtureownssecondruntimeonheap;r64PASS.
-  GPUr29 no window. All sessions5137/75007/77596/49934/48152/ r64 reaped.
+GRAPHICS FOUNDATION NOW IMPLEMENTED:
+- Pinned paraLLEl-GS cc6184af7 + Granite16e7395 + original Volk/Vulkan-Headers,
+  total14deps. Shared LLVM23.1.3/CMake4.2.3/Ninja/VS SDK/MD CRT. Build-Ps2Gs.ps1
+  out/ps2-gs SMALL graph. Source-v2 view SHA256 verifies all staged files.
+- Original GIF1/2/3 + VIF raw IMAGE + VU XGKICK1 preserved; SDK image/register
+  bypasses enter the same GPU owner. No CPU/GPU double draw, no normal readback.
+- Queue bounded8MiB/2048includingactive; one outstanding field, owned payloads,
+  ordered replies, Close/error wakes all. Begin-frame waits previous GPU fence
+  BEFORE next field's commands;16resourcecontexts are not16queuedgameframes.
+- Complete privileged timing/circuits/FIELD snapshot onEE; direct GPU scanout
+  -> Vulkan WSI. Format/usage checks + sampled-image fallback via PGS shaders.
+- Completions fixed-size mailbox FINISH/LABEL + second SIGNAL waits CSR ack;
+  reset generations discard old callbacks. PGS parse callback flush+queueFence
+  before GPU completion publication, never wait_idle/frame/readback. Rare waits
+  pump window messages. Runtime MMIO8/16/32/64 merges CSR/SIGLBLID on EE only.
+  IMR unmask/W1c/reset and sleepingEE -> GsStatus -> IRQ0 are tested. NativeHost
+  still must bind mailbox notifier to runtime.postEeEvent({GsStatus,0,0}).
+- Capture GsRecordingBackend from initial reset/4MiB producer handoff. Bounded
+  v1 .evacgs original paths + direct writes + image + VRAM writes + FIFO replies
+  + full fields. No extra readback, exclusive Unicode file creation, valid End
+  on limit; live target continues. Decoder validates all before any replay, owns
+  payloads and reusable FIFO scratch; no I/O/packet allocation in measured replay.
+- ALL6 GS CTests PASS .local/v090/ps2-gs-test-r33.log. Real GPU capture/replay:
+  interleaved partial tags + SDK shortcut + FIFO + field + repeated replay =>
+  exact4MiB VRAM/known pixels, zero normal snapshots. Retained authored trace
+  .local/v090/graphics-authored-r1.evacgs. Never overwrite --keep destination.
+- Headless RenderField shares window Scanout; WaitField enforces boundary.
+  SetOfflineReplay(true) disables EE marker callbacks: graphics captures already
+  reflect acknowledgements, which aren't recorded commands. NEVER use in game.
+- ps2_gs_replay.exe trace --seconds2 --warmup2 measures uncapped authored replay;
+  includes reset +4MiBupload, excludes EE/IOP/window/present/diskdecode. Process CPU
+  sums all threads. r1 absurd11.7cores INCLUDED PGS background ALL-variant shader
+  precompile (not validation; log had no validation layer). FIXED benchmark-only
+  PGS_SKIP_COMPILATION_TASKS=1; warm actual scene pipelines before measurement.
+  r2 3604fields/2sec:0.555ms wall,0.438msCPU/field, zero snapshots. NOT game data.
+  Do NOT disable normal game's background precompilation based on this bench.
+- CRT audit FIXED using original native generated SDK code and ps2sdk references:
+  old ResetGraph invented privileged->A_D aliases0x41/42/59..; new adapted
+  third_party/ps2/runtime/GS.cpp uses CSR/IMR MMIO + SetGsCrt. Mode0reset/mode5
+  clockonly; no fake display defaults. System.cpp initializes SMODE1/SMODE2,
+  uses real BIOS mode IDs2NTSC/3PAL/50(480p); no forcedPMODE. SDK GParam is four
+  uint16, not4bytes; private scratch writer corrected. Display PMODE0x66,
+  NTSC DX636/PAL656, DY interlace50/72 or25/36, ceil2560/width magnification,
+  DW video-clock units, frame mode doubles field height. Offsets signed pixels.
+  EE args5..8 use r8..11, zero values never take stale stack. Unknown CRT mode
+  validates before state change. Adapter includes Stubs/Common.h, not Syscalls.
+- LATEST all9 native CTests PASS ps2-native-r65.log. New GS SDK fixture checks
+  graphreset no GIF/register packet, mode5 no drawing reset, raw MMIO output,
+  GParam eightbytes, PAL/NTSC/field/frame/zero ABI args and GsPutIMR notification.
+  Build/test session62860 reaped exit0. No active game, GPU window or build.
 
-NEXT: bounded original-command capture/offline replay; then NativeHost connection
-(window+SDL/config+existingaudio, notifier/quit), actual ESPGaluda ARCADE/ARRANGE,
-then Ibara. Fullscreen/minimize/device-loss/oldGPUcapabilities/cachebudget pending.
-No game usesPGSyet. STOP localCPUtriangleoptimizations. PGSimageslabbudgetlog isnot
-measuredresidency;measure/cap beforedefault. Research.readonlydirsNOTproductiondeps.
-ReferenceGSsemantics PCS X2 da6bae1050843d47ef1a8c00a1708f0cfb9a0ff5 files in
-.local/v090/research/pcsx2-gs-events-r1; pins+source areevidence,notlinkedcode.
+NEXT: NativeHost connection (window + common SDL/config + existing audio,
+notifier/quit) and actual ESPGaluda ARCADE/ARRANGE, then Ibara. No game usesPGS
+YET. Do not spend another turn on speculative CPU triangle or shader tuning.
+NativeHost should keep a PIMPL in Runtime public headers, add host config once
+then ONE final full game/PCH rebuild. Own GS queue via shared proxy: owner pumps
+before EE setCommandBackend's initial 4MiB handshake. Close queue/mailbox BEFORE
+joining EE; GS destructor drops backend without snapshot so closed-queue detach
+must NOT call setCommandBackend(nullptr) (that performs a snapshot). Preserve
+EE errors after cleanup; requested window close is normal. SDL physical devices
+can reuse backends/ps4/input/sdl_gamepad (no SDL window/audio). Main-thread create/
+destroy, thread-safe Poll/Acknowledge. PS4 masks same16bits except0x100000->Select1.
+Existing keyboard_config parses shared INI; link protocol.cpp/ini_sections too.
+Do not leak Vulkan headers into generated game PCH. Raylib/miniaudio audio works
+without InitWindow; keep existing48k stereo stream, stop before IOP destruction.
+Existing Pad uses Raylib; inject a scoped source/snapshot for new Win32 host,
+retain fallback test path. No guessed input keys. Shared default ZCross/XCircle,
+CSquare/VTriangle matches PS4; old PS2probe Cconfirm will change after integration.
+FIFO currently 128bit-only; SDK StoreImage can request oddbytes. PGS internal
+local-to-host size floors to128bits, so naive16byte stash does NOT fix transfers
+smaller than16bytes. Review real SDK caller alignment before acceptance; proper
+fix would adapt byte FIFO at core, not duplicate GS address/PSM decoding.
+WSI fullscreen/minimize/device-loss/oldGPUcaps/cachebudget acceptance pending.
+PGSimageslabbudget5093MiB is budget, not measured residency. Do not claim game
+performance from authored offline trace. Existing WSI r5resize, r6/r7 1200frames
+blit+sampled/FIFO, r8AltF4 normal close allzeroReadbacks evidence retained.
 
 MAIN GAME BUILD POLICY: generatedgamePCHs stillneedONEfinalfullgamebuild AFTER
 GS/hostinterfacescomplete. Do NOTbuild2178gameobjectswhilearchitecturechanges;

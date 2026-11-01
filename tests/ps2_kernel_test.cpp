@@ -32,6 +32,7 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 #include "ps2_vif_transport_fixture.h"
 #include "ps2_gs_mmio_fixture.h"
 #include "ps2_gs_wake_fixture.h"
+#include "ps2_gs_sdk_fixture.h"
 int main() {
   try {
     PS2Runtime runtime;
@@ -173,6 +174,7 @@ int main() {
             "Native caller continued after its guest code bank was replaced");
     VifImageContinuation(runtime.memory());
     GsMmioCompletions(runtime.memory());
+    GsSdkDisplay(runtime);
     GsIdleWake();
     std::cout<<"PS2 kernel: EE ABI, priority inheritance, boundaries, restore and raw VIF transport passed\n";
     return 0;

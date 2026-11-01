@@ -54,3 +54,24 @@ return address; a yield at the callee's entry keeps that entry pending. Executio
 exceptions propagate after thread and window cleanup, giving the host a failure
 result. `CD.cpp`, from `Kernel/Stubs/CD.cpp`, resolves original ISO9660 extents
 through `backends/ps2/iso_disc.*`, retaining physical sector addresses.
+
+
+`GS.cpp` is adapted from `Kernel/Stubs/GS.cpp` at the same pinned revision.
+Graph reset writes CSR/IMR and CRT mode through the privileged MMIO ports;
+it does not encode PMODE/DISPLAY as A_D drawing registers. This distinction
+matters when the original raw GIF stream reaches a hardware renderer.
+`System.cpp` programs SMODE1/SMODE2 for supported BIOS video-mode IDs and routes
+SDK interrupt-mask writes through the same notification as guest MMIO.
+Stable PLL/carrier encodings follow
+[ps2sdk graph_mode.c](https://github.com/ps2dev/ps2sdk/blob/master/ee/graph/src/graph_mode.c).
+
+`backends/ps2/crt_mode.h` isolates video-mode selection and the libgraph display
+builder. DX/DW use CRT clock units; caller offsets are signed pixels, and
+interlaced frame mode spans two fields. The display builder currently supports
+NTSC, PAL and 480p; unknown modes fail explicitly. Other timing-register guest
+writes remain intact. This does not emulate analog PLL settling or define a
+host-window resolution. SDK arguments use the EE's first eight argument
+registers; zero register values never fall back to stale stack contents.
+The returned GParam uses four 16-bit fields. The headless native fixture checks
+CRT-only reset, privileged/drawing separation, both interlace modes, PAL offsets,
+zero argument values, GParam layout, and SDK interrupt unmask notification.

@@ -1,28 +1,21 @@
 #include "Common.h"
 #include "System.h"
+#include "crt_mode.h"
 
 namespace ps2_syscalls
 {
     void GsSetCrt(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
     {
-        int interlaced = getRegU32(ctx, 4); // $a0 - 0=non-interlaced, 1=interlaced
-        int videoMode = getRegU32(ctx, 5);  // $a1 - 0=NTSC, 1=PAL, 2=VESA, 3=HiVision
-        int frameMode = getRegU32(ctx, 6);  // $a2 - 0=field, 1=frame
-
+        const auto interlaced = getRegU32(ctx, 4) & 1u;
+        const auto videoMode = getRegU32(ctx, 5) & 0xffu;
+        const auto frameMode = getRegU32(ctx, 6) & 1u;
+        // Validate before changing any guest register. SetGsCrt controls the
+        // CRT clock, not PMODE/DISPLAY or the host's fullscreen selection.
+        const auto smode1 = cave::ps2::CrtSmode1(videoMode);
         if (runtime)
         {
-            auto &gs = runtime->memory().gs();
-            const uint64_t smode2 =
-                (static_cast<uint64_t>(interlaced) & 0x1ull) |
-                ((static_cast<uint64_t>(frameMode) & 0x1ull) << 1);
-
-            gs.smode2 = smode2;
-
-            // Keep CRT1 enabled after the BIOS syscall selects a display mode.
-            if ((gs.pmode & 0x3ull) == 0ull)
-            {
-                gs.pmode |= 0x1ull;
-            }
+            runtime->memory().write64(0x12000010, smode1);
+            runtime->memory().write64(0x12000020, cave::ps2::CrtSmode2(interlaced, frameMode));
         }
 
         RUNTIME_LOG("PS2 GsSetCrt: interlaced=" << interlaced
@@ -65,7 +58,7 @@ namespace ps2_syscalls
         if (runtime)
         {
             oldImr = runtime->memory().gs().imr;
-            runtime->memory().gs().imr = newImr;
+            runtime->memory().write64(0x12001010, newImr);
         }
         RUNTIME_LOG("PS2 GsPutIMR: " << " new=0x" << newImr
                                      << " a0_64=0x" << GPR_U64(ctx, 4)

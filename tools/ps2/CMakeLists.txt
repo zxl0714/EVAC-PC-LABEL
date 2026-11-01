@@ -150,6 +150,8 @@ if(PS2_BUILD_RUNTIME)
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/Thread.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Syscalls/System.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/System.cpp")
+  list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/GS.cpp")
+  list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/GS.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/CD.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/CD.cpp")
   add_library(ps2_runtime STATIC

@@ -5,7 +5,7 @@
 #include <mutex>
 
 namespace {
-class GsMmioBackend final : public cave::ps2::GsCommandBackend {
+class GsMmioBackend : public cave::ps2::GsCommandBackend {
 public:
     cave::ps2::GsCompletions completed;
     uint32_t acknowledged=0,resets=0;

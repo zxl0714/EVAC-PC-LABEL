@@ -66,6 +66,8 @@
     GPU 的独立 `GsFrame` 一起快照 SMODE1、SYNCV、EXT 与 FIELD；不要再套用旧 CPU 显示请求。
     paraLLEl-GS 的 `vsync()` 消费已 flush 的命令；不能遗漏前面的 flush，也不能用每帧 wait_idle 代替。
     独立图形探针的 DISPLAY 也要提供真实 CRTC 起点；小图在 DX/DY=0 时可能被裁出可见区。
+    SDK 显示寄存器走 MMIO，不是 A_D 绘图寄存器；DX/DW 是视频时钟单位。离线 bench
+    要排除后台全变体着色器预编译，预热实际工作负载；不要把启动编译计入稳态 CPU。
 
 ## 已验证的按键信息
 
