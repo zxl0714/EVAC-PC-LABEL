@@ -6,6 +6,12 @@ Initialize-CollectionBuildEnvironment
 $cmake=Get-CollectionTool 'cmake'
 $taskBuild=Join-Path $CollectionRoot 'out/ps2-tools'
 function Invoke-CertifiedEspgaludaBuild {
+    $taskGeneratedLine=Get-Content -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt') |
+        Where-Object { $_ -match '^PS2_GAME_GENERATED:[^=]+=' } | Select-Object -First 1
+    if(-not $taskGeneratedLine){throw 'No ESPGaluda generated input graph is configured'}
+    $taskGeneratedPath=($taskGeneratedLine -split '=',2)[1]
+    $taskInputDirectory=Split-Path -Parent (Split-Path -Parent $taskGeneratedPath)
+    Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_game.py'),'--output',$taskInputDirectory,'--refresh-tool','--progress')
     $taskReceiptState=Join-Path $CollectionRoot ('.local/build-inputs/ps2-'+[guid]::NewGuid().ToString('N')+'.json')
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskReceiptState)
     Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_espgaluda_probe','--parallel',"$Jobs")

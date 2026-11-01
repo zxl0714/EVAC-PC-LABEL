@@ -11,7 +11,7 @@ import struct
 import sys
 
 from project import ROOT, digest, reject_link
-from ps2_codegen import generate
+from ps2_codegen import generate, tree_identity, equivalence_path, verify_equivalence, refresh_tool
 from ps2_disc import Iso9660, inspect as inspect_disc
 from ps2_module import analysis_elf, prepare_modules
 from ps2_translation_units import write_changed
@@ -161,7 +161,7 @@ def prepare(iso, output, metadata=METADATA):
     return plan
 
 
-def generate_all(output, progress=None):
+def generate_all(output, progress=None, refresh=False, source_identities=None):
     output = Path(output).resolve()
     plan = json.loads((output / 'plan.json').read_text(encoding='utf-8'))
     metadata = Path(plan['metadata'])
@@ -185,15 +185,26 @@ def generate_all(output, progress=None):
                                 elfSha256=digest(Path(general['input'])), functionMapSha256=digest(Path(general['ghidra_output'])))
                 if 'sdk_bindings' in general:
                     expected['sdkBindingsSha256']=digest(Path(general['sdk_bindings']))
-                if any(previous.get(k) != v for k, v in expected.items()):
+                if any(previous.get(k) != v for k, v in expected.items() if k != 'toolSha256'):
                     raise ValueError('Existing generation inputs differ; prepare a fresh build directory')
                 if any(previous.get('summary',{}).get(k) != 0 for k in
                        ('errors','decodeFailures','unhandledInstructions','criticalGuestFallbacks')):
                     raise ValueError('Existing generation has incomplete translation')
                 if not (directory / (label + '-generated/register_functions.cpp')).is_file():
                     raise ValueError('Existing generation is incomplete')
+                if previous.get('toolSha256') != expected['toolSha256']:
+                    if refresh and not equivalence_path(report, expected['toolSha256']).exists():
+                        identity = refresh_tool(config, report)
+                    else:
+                        identity = verify_equivalence(config, report, expected['toolSha256'])
+                    if source_identities is not None:
+                        source_identities[str(directory / (label + '-generated'))] = identity
             else:
                 generate(config, directory / (label + '-codegen.log'), report)
+            if source_identities is not None:
+                path = str(directory / (label + '-generated'))
+                if path not in source_identities:
+                    source_identities[path] = dict(tree_identity(Path(path)), codegenReceiptSha256=digest(report))
             if progress:
                 progress(f'[ps2-codegen] module={number:02} kind={label} accepted')
         if 1 <= number <= 15:
@@ -222,6 +233,7 @@ if __name__ == '__main__':
     parser.add_argument('--default-output', action='store_true', help='Print the fingerprinted build input directory')
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--progress', action='store_true')
+    parser.add_argument('--refresh-tool', action='store_true', help='Validate exact source equivalence after a tool relink')
     args = parser.parse_args()
     if args.default_output:
         print(default_output())
@@ -235,4 +247,4 @@ if __name__ == '__main__':
         prepare(args.iso, args.output)
     if not args.prepare_only:
         progress=(lambda text: print(text,file=sys.stderr,flush=True)) if args.progress else None
-        print(json.dumps(generate_all(args.output,progress), indent=2))
+        print(json.dumps(generate_all(args.output,progress,refresh=args.refresh_tool), indent=2))

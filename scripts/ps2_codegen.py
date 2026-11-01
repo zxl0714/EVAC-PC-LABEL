@@ -1,12 +1,15 @@
 """Run the pinned recompiler and validate its report before accepting generated code."""
 import argparse
 import csv
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import struct
 import subprocess
 import tomllib
+import uuid
 
 from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import restore
@@ -23,6 +26,145 @@ SDK_LIFECYCLES = (
     ('CreateSema', 'DeleteSema'), ('AddIntcHandler', 'RemoveIntcHandler'),
     ('AddDmacHandler', 'RemoveDmacHandler'),
 )
+
+
+def tree_identity(directory):
+    directory = Path(directory)
+    reject_link(directory)
+    state = hashlib.sha256()
+    count = size = 0
+    sources = []
+    for current, folders, files in os.walk(directory, followlinks=False):
+        for name in (*folders, *files):
+            child = Path(current) / name
+            if child.is_symlink() or child.is_junction():
+                raise ValueError('Linked generated source: ' + name)
+        sources.extend(Path(current) / name for name in files if Path(name).suffix in ('.h', '.cpp'))
+    for path in sorted(sources):
+        name = path.relative_to(directory).as_posix()
+        state.update(name.encode('utf-8') + b'\0' + bytes.fromhex(digest(path)))
+        count += 1
+        size += path.stat().st_size
+    if not count:
+        raise ValueError('Generated PS2 source directory is empty')
+    return dict(path=str(directory), files=count, bytes=size, sha256=state.hexdigest())
+
+
+def equivalence_path(report, tool_hash):
+    report = Path(report)
+    return report.with_name(report.stem + '-equivalence-' + tool_hash[:20] + '.json')
+
+
+def verify_equivalence(config, report, tool_hash, root=ROOT):
+    config, report = Path(config), Path(report)
+    proof_path = equivalence_path(report, tool_hash)
+    reject_link(proof_path)
+    proof = json.loads(proof_path.read_text(encoding='utf-8'))
+    if (type(proof.get('format')) is not int or proof['format'] != 1 or
+            proof.get('kind') != 'identical-generated-sources' or proof.get('toolSha256') != tool_hash or
+            proof.get('originalConfigSha256') != digest(config) or proof.get('originalReceiptSha256') != digest(report)):
+        raise ValueError('Generated-source equivalence belongs to different inputs')
+    fresh_config, fresh_report = Path(proof['freshConfig']), Path(proof['freshReceipt'])
+    for path in (fresh_config, fresh_report):
+        reject_link(path)
+        if not path.resolve().is_relative_to(Path(root).resolve()):
+            raise ValueError('Generated-source equivalence escapes the project')
+    if digest(fresh_config) != proof['freshConfigSha256'] or digest(fresh_report) != proof['freshReceiptSha256']:
+        raise ValueError('Fresh generation evidence changed')
+    original = tomllib.loads(config.read_text(encoding='utf-8'))
+    fresh = tomllib.loads(fresh_config.read_text(encoding='utf-8'))
+    fresh_output = fresh['general']['output']
+    for path in (Path(fresh_output), Path(original['general']['output'])):
+        if not path.resolve().is_relative_to(Path(root).resolve()):
+            raise ValueError('Generated-source equivalence escapes the project')
+    fresh['general']['output'] = original['general']['output']
+    if fresh != original:
+        raise ValueError('Fresh generation changed more than its output directory')
+    checked = json.loads(fresh_report.read_text(encoding='utf-8'))
+    previous = json.loads(report.read_text(encoding='utf-8'))
+    if (checked.get('toolSha256') != tool_hash or checked.get('configSha256') != digest(fresh_config) or
+            any(checked.get(key) != previous.get(key) for key in
+                ('elfSha256', 'functionMapSha256', 'sdkBindingsSha256')) or
+            any(checked.get('summary', {}).get(key) != 0 for key in
+                ('errors', 'decodeFailures', 'unhandledInstructions', 'criticalGuestFallbacks'))):
+        raise ValueError('Fresh generation did not validate the same original inputs')
+    original_tree = tree_identity(Path(original['general']['output']))
+    for key in ('files', 'bytes', 'sha256'):
+        # Only the original tree is compiled. The separate, freshly generated
+        # tree was compared in full when this immutable proof was produced.
+        if original_tree[key] != proof['sourceTree'][key] or original_tree[key] != proof['freshSourceTree'][key]:
+            raise ValueError('Generated game bodies changed; use the fresh build inputs')
+    return dict(original_tree, codegenReceiptSha256=digest(report), equivalenceProofSha256=digest(proof_path),
+                toolSha256=tool_hash)
+
+
+def refresh_tool(config, report, root=ROOT):
+    """Re-run a changed tool; preserve compiled bodies only on exact equivalence."""
+    config, report, root = map(Path, (config, report, root))
+    tool_hash = digest(root / 'out/ps2-tools/bin/ps2_recomp.exe')
+    proof_path = equivalence_path(report, tool_hash)
+    if proof_path.exists():
+        return verify_equivalence(config, report, tool_hash, root)
+    original_text = config.read_text(encoding='utf-8')
+    original_config_hash, original_report_hash = digest(config), digest(report)
+    original = tomllib.loads(original_text)
+    previous = json.loads(report.read_text(encoding='utf-8'))
+    recovered = None
+    # An interrupted comparison may already have a completed fresh generation.
+    # Reuse that evidence rather than generating another copy of every body.
+    for candidate in sorted(report.parent.glob(report.stem + '-refresh-*')):
+        fresh_config, fresh_report = candidate / 'config.toml', candidate / 'codegen.json'
+        for path in (candidate, fresh_config, fresh_report):
+            reject_link(path)
+        if not fresh_config.is_file() or not fresh_report.is_file():
+            continue
+        record = json.loads(fresh_report.read_text(encoding='utf-8'))
+        parsed = tomllib.loads(fresh_config.read_text(encoding='utf-8'))
+        destination = (candidate / 'generated').resolve()
+        if Path(parsed['general']['output']).resolve() != destination:
+            continue
+        parsed['general']['output'] = original['general']['output']
+        if (parsed == original and record.get('configSha256') == digest(fresh_config) and
+                record.get('toolSha256') == tool_hash and
+                all(record.get(key) == previous.get(key) for key in
+                    ('elfSha256', 'functionMapSha256', 'sdkBindingsSha256')) and
+                all(record.get('summary', {}).get(key) == 0 for key in
+                    ('errors', 'decodeFailures', 'unhandledInstructions', 'criticalGuestFallbacks'))):
+            recovered = fresh_config, fresh_report, destination, record
+            break
+    if recovered:
+        fresh_config, fresh_report, destination, generated = recovered
+    else:
+        directory = report.parent / (report.stem + '-refresh-' + uuid.uuid4().hex[:12])
+        reject_link(directory)
+        directory.mkdir()
+        destination = (directory / 'generated').resolve()
+        fresh_text, count = re.subn(r'(?m)^output\s*=.*$',
+            lambda _: 'output = ' + json.dumps(destination.as_posix()), original_text)
+        parsed = tomllib.loads(fresh_text)
+        parsed['general']['output'] = original['general']['output']
+        if count != 1 or parsed != original:
+            raise ValueError('Cannot isolate the generation output setting')
+        fresh_config, fresh_report = directory / 'config.toml', directory / 'codegen.json'
+        fresh_config.write_text(fresh_text, encoding='utf-8', newline='\n')
+        generated = generate(fresh_config, directory / 'codegen.log', fresh_report, root)
+    if any(generated.get(key) != previous.get(key) for key in
+           ('elfSha256', 'functionMapSha256', 'sdkBindingsSha256')):
+        raise ValueError('Original inputs changed while refreshing the tool')
+    before, after = tree_identity(Path(original['general']['output'])), tree_identity(destination)
+    if any(before[key] != after[key] for key in ('files', 'bytes', 'sha256')):
+        raise ValueError('Generated game bodies changed; use the fresh build inputs')
+    if digest(root / 'out/ps2-tools/bin/ps2_recomp.exe') != tool_hash:
+        raise ValueError('Recompiler changed during equivalence validation')
+    if digest(config) != original_config_hash or digest(report) != original_report_hash:
+        raise ValueError('Original generation evidence changed during equivalence validation')
+    write_json_new(proof_path, dict(format=1, kind='identical-generated-sources', toolSha256=tool_hash,
+        originalConfigSha256=original_config_hash, originalReceiptSha256=original_report_hash,
+        freshConfig=str(fresh_config.resolve()), freshConfigSha256=digest(fresh_config),
+        freshReceipt=str(fresh_report.resolve()), freshReceiptSha256=digest(fresh_report),
+        sourceTree=before, freshSourceTree=after))
+    return dict(before, codegenReceiptSha256=digest(report), equivalenceProofSha256=digest(proof_path),
+                toolSha256=tool_hash)
 
 
 def validate_sdk_lifecycles(general, source):

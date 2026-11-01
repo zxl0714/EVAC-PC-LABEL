@@ -11,6 +11,7 @@ from analysis_paths import private_output
 from build_receipt import signature
 from project import ROOT, digest, reject_link, write_json_new
 from ps2_game import generate_all
+from ps2_codegen import tree_identity
 from ps2_gs_sources import digests as gs_digests
 from ps4_sources import locked_dependencies, verify_checkout
 from toolchain import tool_path, tool_snapshot
@@ -18,24 +19,6 @@ from toolchain import tool_path, tool_snapshot
 BUILD = ROOT / 'out/ps2-tools'
 RECEIPT = ROOT / 'out/ps2/build-receipt.json'
 OUTPUTS = ('espgaluda.exe', 'espgaluda.pdb', 'SDL3.dll', 'SDL3.pdb')
-
-
-def tree_identity(directory):
-    """Bind every compiled source, without copying generated bodies to the receipt."""
-    directory = Path(directory)
-    reject_link(directory)
-    state = hashlib.sha256()
-    count = size = 0
-    for path in sorted(directory.rglob('*')):
-        reject_link(path)
-        if path.is_file() and path.suffix in ('.h', '.cpp'):
-            name = path.relative_to(directory).as_posix()
-            state.update(name.encode('utf-8') + b'\0' + bytes.fromhex(digest(path)))
-            count += 1
-            size += path.stat().st_size
-    if not count:
-        raise ValueError('Generated PS2 source directory is empty')
-    return dict(path=str(directory), files=count, bytes=size, sha256=state.hexdigest())
 
 
 def configuration(build=BUILD):
@@ -56,7 +39,8 @@ def configuration(build=BUILD):
 
 def generation(values):
     output = Path(values['PS2_GAME_GENERATED']).parent.parent
-    inputs = generate_all(output)
+    identities = {}
+    inputs = generate_all(output, source_identities=identities)
     expected = dict(PS2_GAME_GENERATED=inputs['boot'], PS2_ARCADE_GENERATED=inputs['arcade'],
                     PS2_ARRANGE_GENERATED=inputs['arrange'], PS2_STAGE_MODULES_MANIFEST=inputs['stages'],
                     PS2_MODE_EXTRAS_MANIFEST=inputs['extras'])
@@ -66,7 +50,7 @@ def generation(values):
     if len(directories) != 31:
         raise ValueError('PS2 build requires all reviewed base and extension modules')
     return dict(plan=digest(output / 'plan.json'), stages=digest(Path(inputs['stages'])),
-                extras=digest(Path(inputs['extras'])), sources=[tree_identity(p) for p in directories])
+                extras=digest(Path(inputs['extras'])), sources=[identities[str(p)] for p in directories])
 
 
 def snapshot():

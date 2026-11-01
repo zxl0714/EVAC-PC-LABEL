@@ -1,11 +1,15 @@
 from pathlib import Path
+import json
 import sys
 import struct
 import tempfile
 import unittest
+import tomllib
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from ps2_codegen import translation_summary, validate_sdk_bindings, validate_sdk_map, validate_static_edges, validate_sdk_lifecycles
+import ps2_codegen as codegen
 
 REPORT = '''Functions discovered: 3
 Functions processed: 3, recompiled: 2, stubs: 1, skipped: 0, decode failures: 0
@@ -14,6 +18,76 @@ Unhandled instructions: 0
 Correctness-critical guest fallbacks: 0, failures: 0
 Warnings: 1, errors: 0
 '''
+
+
+class ToolEquivalenceTests(unittest.TestCase):
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory(prefix='evac-ps2-equivalence-')
+        self.addCleanup(temporary.cleanup)
+        self.root=Path(temporary.name)
+        self.directory=self.root/'.local/module';self.directory.mkdir(parents=True)
+        self.tool=self.root/'out/ps2-tools/bin/ps2_recomp.exe';self.tool.parent.mkdir(parents=True)
+        self.tool.write_bytes(b'authored changed generator identity')
+        self.source=self.directory/'generated';self.source.mkdir()
+        self.body='void authored_entry() {}\n'
+        (self.source/'entry.cpp').write_text(self.body)
+        (self.source/'register_functions.cpp').write_text('void authored_entry();\n')
+        self.config=self.directory/'config.toml';self.report=self.directory/'codegen.json'
+        self.config.write_text('[general]\ninput="authored-input"\noutput='+json.dumps(self.source.as_posix())+'\n')
+        self.previous=dict(format=1,configSha256=codegen.digest(self.config),toolSha256='1'*64,
+                           elfSha256='2'*64,functionMapSha256='3'*64,
+                           summary=dict(errors=0,decodeFailures=0,unhandledInstructions=0,criticalGuestFallbacks=0))
+        self.report.write_text(json.dumps(self.previous))
+
+    def generate(self,config,log,report,root):
+        output=Path(tomllib.loads(config.read_text())['general']['output']);output.mkdir()
+        (output/'entry.cpp').write_text(self.body)
+        (output/'register_functions.cpp').write_text('void authored_entry();\n')
+        log.write_text('Authored generation fixture\n')
+        record=dict(self.previous,configSha256=codegen.digest(config),toolSha256=codegen.digest(self.tool))
+        report.write_text(json.dumps(record))
+        return record
+
+    def test_relinked_tool_preserves_original_bodies_timestamps_and_receipts(self):
+        originals={p:(p.read_bytes(),p.stat().st_mtime_ns) for p in (*self.source.iterdir(),self.config,self.report)}
+        with patch.object(codegen,'generate',side_effect=self.generate) as generated:
+            accepted=codegen.refresh_tool(self.config,self.report,self.root)
+            again=codegen.verify_equivalence(self.config,self.report,codegen.digest(self.tool),self.root)
+            self.assertEqual(accepted,again)
+            self.assertEqual(codegen.refresh_tool(self.config,self.report,self.root),accepted)
+            self.assertEqual(generated.call_count,1)
+        self.assertEqual(originals,{p:(p.read_bytes(),p.stat().st_mtime_ns) for p in originals})
+
+    def test_changed_bodies_require_new_build_inputs(self):
+        self.body='void authored_entry() { return; }\n'
+        before=(self.source/'entry.cpp').read_bytes()
+        with patch.object(codegen,'generate',side_effect=self.generate),self.assertRaisesRegex(ValueError,'bodies changed'):
+            codegen.refresh_tool(self.config,self.report,self.root)
+        self.assertEqual((self.source/'entry.cpp').read_bytes(),before)
+        self.assertFalse(codegen.equivalence_path(self.report,codegen.digest(self.tool)).exists())
+
+    def test_interrupted_comparison_reuses_the_completed_fresh_generation(self):
+        directory=self.directory/'codegen-refresh-interrupted';directory.mkdir()
+        config=directory/'config.toml';report=directory/'codegen.json'
+        text=self.config.read_text().replace(self.source.as_posix(),(directory/'generated').as_posix())
+        config.write_text(text)
+        self.generate(config,directory/'codegen.log',report,self.root)
+        with patch.object(codegen,'generate',side_effect=AssertionError('Generation must be reused')):
+            accepted=codegen.refresh_tool(self.config,self.report,self.root)
+        self.assertEqual(accepted['sha256'],codegen.tree_identity(self.source)['sha256'])
+
+    def test_stale_source_or_fresh_evidence_cannot_reuse_the_equivalence(self):
+        with patch.object(codegen,'generate',side_effect=self.generate):
+            codegen.refresh_tool(self.config,self.report,self.root)
+        proof=codegen.equivalence_path(self.report,codegen.digest(self.tool))
+        evidence=json.loads(proof.read_text())
+        body=self.source/'entry.cpp';body.write_text('void changed_authored_entry() {}\n')
+        with self.assertRaisesRegex(ValueError,'bodies changed'):
+            codegen.verify_equivalence(self.config,self.report,codegen.digest(self.tool),self.root)
+        body.write_text(self.body)
+        Path(evidence['freshReceipt']).write_text('{}')
+        with self.assertRaisesRegex(ValueError,'evidence changed'):
+            codegen.verify_equivalence(self.config,self.report,codegen.digest(self.tool),self.root)
 
 
 class Ps2CodegenTests(unittest.TestCase):
