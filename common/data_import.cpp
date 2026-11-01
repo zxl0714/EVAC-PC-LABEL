@@ -90,6 +90,18 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
   std::vector<Entry> entries;
   std::vector<fs::path> directories;
   uint64_t total{};
+  const bool disc_only=game.backend=="ps2";
+  fs::file_time_type disc_source_time{},disc_copy_time{};
+  if(disc_only) {
+    const auto& image=inspection.disc_image;
+    if(image.empty() || !SamePath(image.parent_path(),source))throw std::runtime_error("Missing verified game ISO");
+    NoLinks(image,source);
+    total=fs::file_size(image);
+    disc_source_time=fs::last_write_time(image);
+    const auto identity=std::find_if(game.files.begin(),game.files.end(),[](const auto& file){return file.path=="disc.iso" && !file.program;});
+    if(identity==game.files.end())throw std::runtime_error("Missing verified disc identity");
+    entries.push_back({image.filename(),total,std::string(identity->sha256)});
+  } else {
   for (const auto& item:fs::recursive_directory_iterator(source)) {
     check();NoLinks(item.path(),source);
     const auto relative=item.path().lexically_relative(source);
@@ -99,6 +111,7 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
     const auto bytes=item.file_size();
     if (bytes>std::numeric_limits<uint64_t>::max()-total)throw std::runtime_error("Copy size exceeds supported bounds");
     total+=bytes;entries.push_back({relative,bytes,Sha256(item.path())});
+  }
   }
   if (entries.empty())throw std::runtime_error("The source data directory is empty");
   check();
@@ -125,12 +138,14 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
     // removed even when the source medium marked its files read-only.
     fs::permissions(output,fs::perms::owner_write,fs::perm_options::add);
     if (fs::file_size(input)!=entry.bytes || fs::file_size(output)!=entry.bytes ||
-        Sha256(output)!=entry.hash || Sha256(input)!=entry.hash)
+        Sha256(output)!=entry.hash || (disc_only?fs::last_write_time(input)!=disc_source_time:Sha256(input)!=entry.hash))
       throw std::runtime_error("Game-data copy verification failed; source or output changed");
+    if(disc_only)disc_copy_time=fs::last_write_time(output);
     copied+=entry.bytes;if(progress)progress(copied,total);
   }
   check();
-  if (Inspect(game,root,stage.directory,CheckLevel::Full).data_state!=DataState::Verified)
+  if (Inspect(game,root,stage.directory,disc_only?CheckLevel::Programs:CheckLevel::Full).data_state!=
+      (disc_only?DataState::Unverified:DataState::Verified))
     throw std::runtime_error("Copied data no longer matches the supported version");
   // Compare exact inventories, not just counts. Re-read all bytes, including
   // extra resources, so a concurrent edit cannot publish a mixed snapshot.
@@ -138,6 +153,13 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
   for(const auto& entry:entries)expected_files.emplace(entry.relative,&entry);
   const std::set<fs::path> expected_directories(directories.begin(),directories.end());
   for(const auto& directory:{source,stage.directory}) {
+    if(disc_only && directory==source) {
+      const auto current=Inspect(game,root,source,CheckLevel::Programs);
+      if(current.disc_image!=inspection.disc_image || current.data_state!=DataState::Unverified ||
+         fs::last_write_time(current.disc_image)!=disc_source_time)
+        throw std::runtime_error("The source ISO changed during copy verification");
+      continue;
+    }
     size_t current_files{};std::set<fs::path> current_directories;
     for(const auto& item:fs::recursive_directory_iterator(directory)) {
       check();NoLinks(item.path(),directory);
@@ -145,7 +167,7 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
       if(item.is_directory()) {current_directories.insert(relative);continue;}
       const auto found=expected_files.find(relative);
       if(!item.is_regular_file() || found==expected_files.end() || item.file_size()!=found->second->bytes ||
-         Sha256(item.path())!=found->second->hash)
+         (disc_only?fs::last_write_time(item.path())!=disc_copy_time:Sha256(item.path())!=found->second->hash))
         throw std::runtime_error("Game-data files changed during copy verification");
       ++current_files;
     }

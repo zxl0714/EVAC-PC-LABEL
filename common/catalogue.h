@@ -44,6 +44,7 @@ const Game& FindGame(std::string_view id);
 const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr);
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant);
 std::string Sha256(const fs::path& file);
+std::string Sha256Range(const fs::path& file,uint64_t offset,uint64_t bytes);
 std::string Utf8(const fs::path& path);
 fs::path FromUtf8(std::string_view text);
 
@@ -54,6 +55,7 @@ struct Inspection {
   std::string game, state, reason;
   DataState data_state{DataState::Unknown};
   fs::path data_dir;
+  fs::path disc_image;
   uint32_t files_checked{}, hashes_checked{};
   std::vector<std::string> problems, missing_runtime;
   // Structural hints only: none of these candidates has passed validation.

@@ -1,4 +1,5 @@
 #include "native_host.h"
+#include "collection_launch.h"
 // Internal static-recompilation bring-up host. The player-facing launch contract
 // is connected only after ISO, input, graphics and save behaviour are verified.
 #include "ps2_runtime.h"
@@ -366,7 +367,9 @@ template<uint32_t Address> struct Observe {
 
 int main(int argc,char** argv) {
   std::filesystem::path frameTimes;
+  std::unique_ptr<cave::ps2::CollectionLaunch> collection;
   try {
+    collection=cave::ps2::CollectionLaunch::Parse(argc,argv);
     if(argc==3 && std::string_view(argv[1])=="--probe-iop-heap") {
       if(IsIbara)throw std::runtime_error("The IOP heap entry probe requires the ESPGaluda host");
       return ProbeIopHeapLifecycle(argv[2]);
@@ -379,13 +382,14 @@ int main(int argc,char** argv) {
       if(IsIbara)throw std::runtime_error("The disc-index probe requires the ESPGaluda host");
       return ProbeDiscIndex(argv[2]);
     }
-    if(argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
+    if(!collection && argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
     bool traceBoot=false,traceAudio=false,musicCycle=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
     std::filesystem::path audioCapture;
     cave::ps2::NativeHostOptions hostOptions;
-    for(int i=5;i<argc;++i) {
+    if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
+    for(int i=collection?argc:5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
       else if(option=="--trace-audio")traceAudio=true;
@@ -411,10 +415,10 @@ int main(int argc,char** argv) {
         hostOptions.width=std::stoul(argv[++i]);hostOptions.height=std::stoul(argv[++i]);
       } else throw std::runtime_error("Unknown development option");
     }
-    const auto elf=std::filesystem::canonical(argv[1]);
-    const auto iso=std::filesystem::canonical(argv[2]);
-    const auto data=std::filesystem::canonical(argv[3]);
-    const auto profile=std::filesystem::absolute(argv[4]);
+    const auto elf=collection?collection->Elf():std::filesystem::canonical(argv[1]);
+    const auto iso=collection?collection->Disc():std::filesystem::canonical(argv[2]);
+    const auto data=collection?collection->Data():std::filesystem::canonical(argv[3]);
+    const auto profile=collection?collection->Profile():std::filesystem::absolute(argv[4]);
     if(!std::filesystem::is_regular_file(iso) || !std::filesystem::is_directory(data))
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
@@ -422,6 +426,11 @@ int main(int argc,char** argv) {
     cave::ps2::audio_trace::Configure(traceAudio);
     cave::ps2::frame_trace::Configure(!frameTimes.empty());
     cave::ps2::audio_capture::Configure(audioCapture);
+    // IOP services may initialize memory-card roots during construction.
+    PS2Runtime::IoPaths configured;
+    configured.elfPath=elf;configured.elfDirectory=elf.parent_path();
+    configured.hostRoot=data;configured.cdRoot=data;configured.cdImage=iso;configured.mcRoot=profile/"mc0";
+    PS2Runtime::setIoPaths(configured);
     PS2Runtime runtime;
     runtime.nativeHost().Configure(std::move(hostOptions));
     struct Progress {
@@ -503,10 +512,12 @@ int main(int argc,char** argv) {
     runtime.run();
     cave::ps2::audio_capture::Save();
     if(!frameTimes.empty())cave::ps2::frame_trace::Save(frameTimes);
+    if(collection)collection->Complete(0);
     return 0;
   }catch(const std::exception& error) {
     try{cave::ps2::audio_capture::Save();}catch(...){}
     try{if(!frameTimes.empty())cave::ps2::frame_trace::Save(frameTimes);}catch(...){}
+    try{if(collection)collection->Complete(1);}catch(...){}
     std::cerr<<"PS2 development host: "<<error.what()<<'\n';return 1;
   }
 }

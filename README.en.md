@@ -50,7 +50,7 @@ Battle Garegga, SUPER EASY Stage 1: 60.01 FPS, 0.25 CPU cores, and a 17.06 ms P9
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, and Battle Garegga require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, Battle Garegga, and ESPGaluda require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
 
 PS4 games automatically adapt BMI1, LZCNT and MOVBE instructions to the available CPU features.
 
@@ -58,8 +58,8 @@ PS4 games automatically adapt BMI1, LZCNT and MOVBE instructions to the availabl
 
 1. Extract the program package into a writable folder. Supply your own game data.
 2. Run `EVAC PC LABEL.exe` in the collection's root folder. `Launch.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
-3. Select a game, then choose **Game data… → Choose data folder…** at the bottom. Select the folder containing the extracted game files. Alternatively, place the data in the default location shown below.
-4. Click **Launch game**. The launcher verifies the data before starting; PS4 games also prepare their runtime files on first launch. Allow this process to finish.
+3. Select a game, then choose **Game data… → Choose data folder…** at the bottom. For PS2, select the folder containing the original ISO; for Xbox 360 and PS4, select the extracted game folder. Alternatively, use the default location shown below.
+4. Click **Launch game**. The launcher verifies the data and prepares the required runtime files on first launch.
 
 ## Game data
 
@@ -76,11 +76,13 @@ Prepare only the games you want:
 | ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
 | 弾銃フィーバロン | Dangun Feveron | PS4, US CUSA06735, version 01.00 base game |
 | バトルガレッガ Rev.2016 | Battle Garegga Rev.2016 | PS4, Korean CUSA10207, version 01.00 base game |
+| エスプガルーダ | ESPGaluda | PS2, Japanese SLPS-25352, original ISO |
 
 ### Extracting ISO / PKG / XBLA files
 
 - **Xbox 360 ISO**: download a [Windows Release build of extract-xiso](https://github.com/XboxDev/extract-xiso/releases), then run `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`. The output should contain `default.xex` directly.
 - **PS4 PKG**: double-click `tools/Extract-PS4.exe` in the program package. Select the base PKG and a new output folder, then click **Extract**. When finished, click **Open game files** and copy all contents into `game-data/<game>/`. Extract an update PKG separately with the same tool, then overlay all its extracted contents onto the base, replacing matching files.
+- **PS2 ISO**: place the original image in `game-data/espgaluda/`, keeping its filename. The launcher prepares it automatically.
 
 Keep the entire `tools/` folder; extraction dependencies are included. The tool extracts game resources and `sce_sys` metadata. **Open game files** opens `uroot/` directly, so copy its contents. See the [extraction guide](docs/GAME_DATA.en.md#extract-iso-pkg-and-xbla-packages) for details and advanced script usage.
 
@@ -101,10 +103,11 @@ The complete program package creates the folders below, each with a bilingual `R
 | Guwange | `game-data/guwange/` | `default.xex`, `module/`, `game_res/`, `res/`, and the remaining resources |
 | Dangun Feveron | `game-data/feveron/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | Battle Garegga | `game-data/garegga/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
+| ESPGaluda | `game-data/espgaluda/` | The original `.iso` image |
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.en.md).
 
-Extract ISO or PKG images into game files first. For ZIP archives, unpack them and select the actual game root. Archive filenames do not affect detection; changing a file extension does not extract an image or package.
+Extract Xbox 360 ISOs and PS4 PKGs into game files first. Place PS2 ISOs directly in the game's folder. Unpack ZIP/RAR archives first.
 
 Copy **all contents inside** the extracted game folder, not the outer folder itself. For example, Futari's entry should be `game-data/futari/default.xex`, not `game-data/futari/extracted-folder/default.xex`. The filenames in the table identify the correct folder level, not a complete list of required files. Keep every resource, its original name, and the internal folder structure.
 

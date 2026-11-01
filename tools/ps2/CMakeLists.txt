@@ -203,7 +203,12 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/Kernel" PRIVATE "${RUNTIME}/src/lib"
     "${RUNTIME}/src/lib/Kernel/Syscalls")
   target_compile_definitions(ps2_runtime PRIVATE PS2X_HAS_FFMPEG=0 PS2X_ENABLE_IOP_RPC_TRACE=0)
-  target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop ps2_gs_device ps2_shared_input)
+  add_subdirectory("${COLLECTION_ROOT}/common" "collection-common" EXCLUDE_FROM_ALL)
+  target_include_directories(ps2_runtime PRIVATE "${COLLECTION_ROOT}")
+  target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop ps2_gs_device ps2_shared_input PRIVATE cave_common)
+  add_library(ps2_collection STATIC "${COLLECTION_ROOT}/backends/ps2/collection_launch.cpp")
+  target_include_directories(ps2_collection PRIVATE "${COLLECTION_ROOT}")
+  target_link_libraries(ps2_collection PRIVATE cave_common dbghelp)
 
   add_executable(ps2_native_host_probe "${COLLECTION_ROOT}/tests/ps2_native_host_probe.cpp"
     "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
@@ -247,7 +252,8 @@ if(PS2_BUILD_RUNTIME)
     add_executable(ps2_espgaluda_probe "${COLLECTION_ROOT}/backends/ps2/probe_main.cpp"
       "${COLLECTION_ROOT}/games/espgaluda/sdk_bindings.cpp" ${GENERATED_SOURCES})
     target_include_directories(ps2_espgaluda_probe PRIVATE "${PS2_GAME_GENERATED}")
-    target_link_libraries(ps2_espgaluda_probe PRIVATE ps2_runtime)
+    target_link_libraries(ps2_espgaluda_probe PRIVATE ps2_runtime ps2_collection)
+    set_target_properties(ps2_espgaluda_probe PROPERTIES OUTPUT_NAME "espgaluda" PDB_NAME "espgaluda")
     target_compile_options(ps2_espgaluda_probe PRIVATE /bigobj)
     target_precompile_headers(ps2_espgaluda_probe PRIVATE
       "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" "${PS2_GAME_GENERATED}/ps2_recompiled_functions.h"

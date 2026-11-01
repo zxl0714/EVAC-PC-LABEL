@@ -50,7 +50,7 @@ neo = false
 
 ### 运行环境
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳、空战之路需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳、空战之路、ESPGaluda 需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
 
 PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 
@@ -58,8 +58,8 @@ PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 
 1. 将程序包解压到一个可写文件夹，游戏数据需自行准备。
 2. 运行根目录的 `EVAC PC LABEL.exe`，备用入口为 `Launch.bat`。
-3. 选中想玩的游戏，点击底部“游戏数据…”→“选择数据目录…”，选择已经解包的游戏文件夹。也可以按下表直接放入合集。
-4. 点击“启动游戏”。首次启动会校验数据；PS4 作品还会自动准备运行文件，请等待完成。
+3. 选中想玩的游戏，点击底部“游戏数据…”→“选择数据目录…”。PS2 选择原始 ISO 所在文件夹，360／PS4 选择已经解包的游戏文件夹。也可以按下表直接放入合集。
+4. 点击“启动游戏”。首次启动会校验数据，并自动准备所需的运行文件。
 
 ## 游戏数据
 
@@ -76,11 +76,13 @@ PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 | ぐわんげ | 狱门山／Guwange | Xbox 360 XBLA，58410A78，本体 0.0.0.4 |
 | 弾銃フィーバロン | 弹铳／Dangun Feveron | PS4，美版 CUSA06735，01.00 本体 |
 | バトルガレッガ Rev.2016 | 空战之路／Battle Garegga | PS4，韩版 CUSA10207，01.00 本体 |
+| エスプガルーダ | ESPGaluda | PS2，日版 SLPS-25352，原始 ISO |
 
 ### ISO／PKG／XBLA 怎么解包
 
 - **Xbox 360 ISO**：下载 [extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，使用 `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`。提取后应能直接看到 `default.xex`。
 - **PS4 PKG**：双击程序包中的 `tools/Extract-PS4.exe`，选择本体 PKG 和新输出目录，点击“Extract”。完成后点击“Open game files”，把里面的全部内容复制到对应的 `game-data/<游戏>/`。更新 PKG 用同一个工具另行解包，再把提取的全部内容覆盖进本体目录，替换同名文件。
+- **PS2 ISO**：将原始镜像直接放入 `game-data/espgaluda/`，保留原文件名，启动器会自动准备。
 
 保留整个 `tools/` 文件夹，解包依赖已随包提供。工具会提取游戏资源和 `sce_sys` 元数据；“Open game files”直接进入 `uroot/`，复制其中内容即可。详细步骤及脚本高级用法见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
 
@@ -101,10 +103,11 @@ PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 | 狱门山 | `game-data/guwange/` | `default.xex`、`module/`、`game_res/`、`res/` 等完整资源 |
 | 弹铳 | `game-data/feveron/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | 空战之路 | `game-data/garegga/` | `eboot.bin`、各 `.prx` 及完整资源 |
+| ESPGaluda | `game-data/espgaluda/` | 原始 `.iso` 镜像 |
 
 只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
 
-ISO／PKG 需先提取为游戏文件；ZIP 解压后选择实际游戏根目录。压缩包叫什么名字不影响识别，也不能靠改扩展名把 ISO／PKG 变成可用数据。
+Xbox 360 ISO／PS4 PKG 需先提取为游戏文件；PS2 ISO 直接放入对应目录。ZIP／RAR 先解压。
 
 复制的是解包目录**里面的全部内容**，不是把外层文件夹再套进去。例如虫姬二应为 `game-data/futari/default.xex`，而不是 `game-data/futari/解压目录/default.xex`。表中的文件名只是帮助确认层级，不是只需复制这几个文件；保留其余资源、原文件名和内部目录结构。
 

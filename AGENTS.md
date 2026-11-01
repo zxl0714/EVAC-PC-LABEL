@@ -10,36 +10,31 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-CURRENT Nov02 02:40: gallery fix r98 private relink passed actual r64 CU:
-GALLERY list -> full image -> back -> MAIN MENU -> GALLERY again -> back.
-User's r63 music acceptance is complete (both BOSS and restart normal).
-r64 PID130036 was asked to close by Alt+F4 after original SAVE completed;
-verify PID terminal before reusing its path/window. WALL PAPER changed OFF->1,
-save confirmed; mc0 has sys.dat165888, icon.sys964, cube.ico33696 plus metadata.
-Cold restart/readback still next. Reuse SAME matching r64 EXE for a new run's
-logs/profile instead of copying600MiB each time. r64 has normal-light frame CSV
-but function-test diagnostic200ms and later compiler load, not a perf baseline.
-boot-extra-r6 generation2506 bodies zeroerrors; required8 boot callbacks checked
-by manifest build-mode-extras-r23.json (13extensions7103bodies8713slots). CMake
-configured successfully. Sessions95904/nativeparts78132 completed. Native r98
-symbols and gallery installer were recompiled before private relink; Save now
-also flushes buffered frame times on exceptions. All old evidence preserved.
-FULL NORMAL BUILD is LIVE session27980, log analysis/espgaluda-full-build-r100.log,
-8jobs. Prior3job session84843 intentionally stopped to increase jobs after seeing
-~10GB freeRAM and only~50-80MiB private/compiler. Same graph/caches, no clean.
-Do not restart a live build or measure CPU/latency during it. Full PDB link still
-OFF until final certification (switch affects link only, not game compilation).
-Catalogue now has ESPGaluda (not_integrated until ISO/launch plumbing done) and
-Ibara (comingSoon=true, integrated=false); ps2 is an allowed backend. Official
-780x353 PNGs copied to launcher/assets/espgaluda.png and ibara.png, recorded with
-hashes/source in artwork.json. 21 catalogue/source-audit tests PASS r2. Source
-audit now accepts UTF-8 .java analysis scripts, retaining all binary/secret gates.
-PCSX2 official stable2.8.2 downloaded, digest verified and extracted once under
-.local/v090/pcsx2/official-v2.8.2. No BIOS located yet; no emulator launched. ETW
-access read-only check r1 shows not elevated, provider queries denied5. Do not
-ask sleeping user for interaction; use sound game/CPU evidence and investigate
-supported presentation measurement alternatives, no security/ACL changes.
-No Release/OSS/QQ. Finish v090 only ESP plus Ibara Coming Soon; plans authoritative.
+CURRENT Nov02: normal r100 full build completed (1981 tasks), followed by
+production collection r4 normal incremental build with PS2_GAME_SYMBOLS=ON.
+out/ps2-tools/bin/espgaluda.exe and matching full espgaluda.pdb are current.
+No build live. ISO inspection/import/cache/production launch are IMPLEMENTED,
+currently uncommitted. ESP catalogue integrated=true. Three common contracts
+and21 Python catalogue/source audits PASS; explicit profile-root regression
+PASS. Authoritative cache whitelist16 path/size/SHA entries, no original bytes.
+Clean .local/v090/player-iso-r1 first raw-ISO launch reached real menus, F8,
+normal exit and launcher child-exit0. Second warm run76164 reached attract,
+closed via Alt+F4 exit0; cache reuse receipt in analysis/player-iso-warm-acceptance-r1.json.
+Actual missing-data gray publication bug fixed; Ibara Coming Soon passed.
+User music acceptance +r64 gallery/SAVE/r65 cold readback PASS; receipt
+.local/v090/espgaluda/gallery-save-acceptance-r1.json. Do not redo unchanged flows.
+PCSX2 official2.8.2 private-only incl BIOS, NEVER package; PID36628 is PAUSED
+after stage1. D3D12 Renderer15 is CU visible; VK WGC stale but real screenshot
+works. Verified fixed-pair toggle macros recorded in MEMORY. Native r66 CPU
+.389 cores vs PCSX2 .206 were different stage intervals, NOT final comparison.
+Native IOP execute/scheduling, SPU and EE timer bookkeeping are active hotspots.
+EE timer arithmetic microbench candidate regressed5.81->7.19ns and was REVERTED;
+fixture/bench retained. r66 steady180s segment0>20ms but12>19/max19.523; investigate
+VBlank wake/present variation. Current normal CSV includes absolute present QPC.
+Production player first flow and logs now work. Performance/latency vs PCSX2,
+reproducible dev pipeline/certification, portrait covers/UI checks, docs and
+packaging still REQUIRED. No Release/OSS/QQ. Preserve all originals.
+No Release/OSS/QQ. v090 only ESP plus Ibara Coming Soon. Preserve all originals.
 
 SCOPE OVERRIDE Nov02: v0.9.0 is ESPGaluda ONLY. Ibara explicitly deferred to a
 later version; preserve its work, do not develop/package its runtime now. User subsequently requested an Ibara

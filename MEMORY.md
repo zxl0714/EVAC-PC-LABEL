@@ -134,6 +134,15 @@ Numpad0／Numpad1，Computer Use 对应 KP_0／KP_1。
 关闭联网时，主菜单和模式加载可能各出现“PSN 已退出／网络错误”两张提示，分别 X 关闭。
 街机核心中 V 投币 → Enter 开始 → X 选机；200 ms 诊断脉冲已实际进第一关并射击。
 
+PCSX2 2.8.2 对照环境：Vulkan IMMEDIATE 的 WGC 画面会停在初始空白，F8 原生
+截图有正常游戏内容；D3D12（Renderer=15）可被正常捕获。用独立渲染窗／-nogui。
+自动短按可能完全漏掉，使用 PCSX2 自带 Pad1 MacroN/ MacroNBinds/ MacroNToggle=true/
+MacroNFrequency=0 保持游戏按键，映射 F12=Start、F13=Down、F14=Circle、F15=Cross、
+F16=Up、F17=Left、F18=Right、F19=Square、F20=Triangle。每个宏必须成对触发：
+第一次开启后立即 get_window_state，再无条件第二次关闭并立即刷新；方向宏若跨
+模型轮次保持，会自动连跳多项。原生短按映射仍为方向键、Z/X/C/V/Return。
+这组配置仅在私有模拟器对照环境使用；不能用于输入延迟测量，后者须独立标记。
+
 ## 复用入口与证据
 
 - `tools/latency/test_pad_client.py`：仅控制明确启用的进程内测试手柄，支持有界

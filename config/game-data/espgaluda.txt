@@ -1,0 +1,14 @@
+エスプガルーダ / ESPGaluda
+PlayStation 2 / Japan / SLPS-25352
+
+game-data/
+  espgaluda/
+    README.txt
+    <original-name>.iso
+
+将原始 ISO 放到这里，在启动器点击“刷新”，选择游戏并启动。
+也可以通过“游戏数据…”选择 ISO 所在的外部目录。
+
+Place the original ISO here. Click Refresh in the launcher, select the game,
+then start it. Game Data... can also select an external directory containing
+the ISO. Keep its original filename.

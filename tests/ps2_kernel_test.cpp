@@ -40,6 +40,20 @@ void IopHeapLifecycle(PS2Runtime& runtime) {
     Require(Result(context)==0,"Sound-bank staging buffer did not return to the common IOP heap");
   }
 }
+void ExplicitIoRoots(PS2Runtime& runtime) {
+  const auto before=PS2Runtime::getIoPaths();
+  auto requested=before;
+  const auto temporary=std::filesystem::temp_directory_path()/"evac-authored-no-disc-fixture";
+  requested.elfDirectory=temporary/"prepared";requested.elfPath=requested.elfDirectory/"missing.elf";
+  requested.hostRoot=temporary/"readonly";requested.cdRoot=requested.hostRoot;
+  requested.mcRoot=temporary/"user-data/mc0";
+  PS2Runtime::setIoPaths(requested);
+  Require(!runtime.loadELF(requested.elfPath.string()),"Missing authored test ELF unexpectedly exists");
+  const auto after=PS2Runtime::getIoPaths();
+  Require(after.hostRoot==requested.hostRoot && after.cdRoot==requested.cdRoot && after.mcRoot==requested.mcRoot,
+          "ELF loading replaced explicit read-only data or profile roots");
+  PS2Runtime::setIoPaths(before);
+}
 void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
   const uint32_t other=17;
   std::memcpy(memory+0x200004,&other,4);
@@ -51,9 +65,14 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 #include "ps2_gs_mmio_fixture.h"
 #include "ps2_gs_wake_fixture.h"
 #include "ps2_gs_sdk_fixture.h"
-int main() {
+#include "ps2_timer_fixture.h"
+int main(int argc,char** argv) {
   try {
     PS2Runtime runtime;
+    if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
+    if(argc!=1)throw std::runtime_error("Unknown kernel test option");
+    EeTimerArithmetic(runtime.memory());
+    ExplicitIoRoots(runtime);
     std::vector<uint8_t> memory(PS2_RAM_SIZE);
     R5900Context context{};
     context.pc=0x100000;

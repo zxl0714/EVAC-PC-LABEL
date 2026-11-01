@@ -52,7 +52,7 @@ std::wstring QuoteArgument(std::wstring_view argument) {
 }
 LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,std::string_view profile,const fs::path& override_data) {
   if (game.coming_soon || !game.integrated) throw std::runtime_error("This game is not integrated yet");
-  if (game.backend!="xbox360" && game.backend!="ps4") throw std::runtime_error("The selected runtime backend is not integrated yet");
+  if (game.backend!="xbox360" && game.backend!="ps4" && game.backend!="ps2") throw std::runtime_error("The selected runtime backend is not integrated yet");
   (void)ResolveSettings(ini,game.id);
   LaunchSpec result;
   result.game=game.id;

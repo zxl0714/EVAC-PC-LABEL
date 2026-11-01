@@ -222,6 +222,7 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="missing_data") return T(L"未找到游戏数据");
   if (state=="incomplete_data") return T(L"游戏数据不完整");
   if (state=="nested_data") return T(L"解压目录层级不正确");
+  if (state=="unknown_layout") return T(L"请检查游戏数据目录");
   if (state=="unsupported_version") return T(L"数据版本不支持");
   if (state=="missing_runtime") return T(L"缺少运行组件");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
@@ -810,7 +811,7 @@ class App {
     if(worker.joinable())worker.join();busy=false;EnablePreferences();
     if (!work) return;
     if(close_requested){work.reset();DestroyWindow(hwnd);return;}
-    if (!work->rows.empty()) rows[work->selected]=std::move(work->rows[work->selected]);
+    if (!work->rows.empty()) rows=std::move(work->rows);
     const bool selection_changed=selected!=work->selected;
     try {
       if(!work->error.empty())throw std::runtime_error(work->error);

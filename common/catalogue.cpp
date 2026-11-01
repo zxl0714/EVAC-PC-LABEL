@@ -1,6 +1,7 @@
 #include "common/catalogue.h"
 #include "common/paths.h"
 #include "common/stfs.h"
+#include "common/ps2_data.h"
 #include "catalogue_generated.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -16,7 +17,8 @@ const Game& FindGame(std::string_view id) {
   for (const auto& game : Catalogue()) if (game.id == id) return game;
   throw std::runtime_error("Unknown game ID: " + std::string(id));
 }
-std::string Sha256(const fs::path& file) {
+std::string Sha256(const fs::path& file) { return Sha256Range(file,0,fs::file_size(file)); }
+std::string Sha256Range(const fs::path& file,uint64_t offset,uint64_t bytes) {
   struct Handles {
     BCRYPT_ALG_HANDLE algorithm{};
     BCRYPT_HASH_HANDLE hash{};
@@ -30,13 +32,18 @@ std::string Sha256(const fs::path& file) {
     throw std::runtime_error("Cannot initialize SHA-256");
   std::ifstream stream(file, std::ios::binary);
   if (!stream) throw std::runtime_error("Cannot open file for SHA-256");
+  const auto size=fs::file_size(file);
+  if(offset>size || bytes>size-offset)throw std::runtime_error("SHA-256 range exceeds file");
+  stream.seekg(static_cast<std::streamoff>(offset));
   std::array<char, 65536> block;
-  while (stream) {
-    stream.read(block.data(), block.size());
-    if (stream.gcount() && BCryptHashData(handles.hash, reinterpret_cast<PUCHAR>(block.data()), ULONG(stream.gcount()), 0) < 0)
+  while (bytes) {
+    const auto count=static_cast<std::streamsize>(std::min<uint64_t>(block.size(),bytes));
+    stream.read(block.data(), count);
+    if(!stream || stream.gcount()!=count)throw std::runtime_error("File read failed during SHA-256");
+    if (BCryptHashData(handles.hash, reinterpret_cast<PUCHAR>(block.data()), ULONG(count), 0) < 0)
       throw std::runtime_error("SHA-256 failed");
+    bytes-=count;
   }
-  if (!stream.eof()) throw std::runtime_error("File read failed during SHA-256");
   std::array<unsigned char, 32> hash{};
   if (BCryptFinishHash(handles.hash, hash.data(), ULONG(hash.size()), 0) < 0) throw std::runtime_error("SHA-256 finish failed");
   constexpr char digits[] = "0123456789abcdef";
@@ -128,6 +135,8 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       result.reason = "Backend and data manifest not integrated";
       return result;
     }
+    if(game.backend=="ps2")InspectPs2Disc(game,paths.data,level,result);
+    else {
     const auto* variant=IdentifyDataVariant(game,paths.data,&result.hashes_checked);
     const auto files=variant?variant->files:game.files;
     const auto forbidden=variant?variant->forbidden_files:game.forbidden_files;
@@ -179,6 +188,7 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
     else if (incomplete) result.data_state = DataState::Incomplete;
     else if (level == CheckLevel::Full) result.data_state = DataState::Verified;
     else result.data_state = DataState::Unverified;
+    }
     for (auto relative : game.runtime_files)
       if (!fs::is_regular_file(DataChild(paths.root, relative))) result.missing_runtime.emplace_back(relative);
     if (!game.integrated) { result.state = "not_integrated"; result.reason = "Collection backend not integrated"; }

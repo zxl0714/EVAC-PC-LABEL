@@ -14,7 +14,7 @@ In the examples below, select the folder shown at the top of each tree. The exam
 
 ## Set up the game folder
 
-1. **Extract the files.** Extract ISO or PKG images into game files. Unpack ZIP/RAR archives; if they contain an ISO or PKG, extract that too.
+1. **Prepare the data.** Use the original ISO for PS2. Extract Xbox 360 ISOs and PS4 PKGs into game files. Unpack ZIP/RAR archives first.
 2. **Find the game root.** For Xbox 360 games, this is the folder directly containing `default.xex`. For PS4 games, it directly contains `eboot.bin`.
 3. **Copy all contents** into `game-data/<game ID>/`, preserving filenames and internal folders. Apply updates as specified for each game below.
 4. **Click Refresh**, select the game, and launch it. If using an external location, select it through **Game data… → Choose data folder…** first.
@@ -257,11 +257,23 @@ game-data/garegga/
 
 Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, and copy all contents into `game-data/garegga/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/garegga/`.
 
+### エスプガルーダ — ESPGaluda (espgaluda)
+
+Supported: **PS2 Japanese SLPS-25352, original ISO**.
+
+```text
+game-data/espgaluda/
+  README.txt
+  <original-name>.iso
+```
+
+Place the ISO here, click **Refresh**, select the game, then launch it. **Game data…** can also select an external folder containing the ISO. Keep its original filename. The launcher prepares the runtime cache automatically; saves and settings are stored in `user-data/espgaluda/`.
+
 ## Troubleshooting
 
 ### I only have an ISO, PKG, or ZIP
 
-Extract it first, following the steps above, then select the folder containing the game files. If a ZIP contains an ISO or PKG, extract that image or package as well.
+Place the original PS2 ISO in the game's folder. Extract Xbox 360 ISOs and PS4 PKGs using the steps above. Unpack ZIP/RAR archives first, then follow the layout for your game.
 
 ### Does the folder name matter?
 

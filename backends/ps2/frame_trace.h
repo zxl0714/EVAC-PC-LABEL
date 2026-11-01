@@ -29,7 +29,7 @@ inline void Save(const std::filesystem::path& path) {
     if(!rows)return;
     std::ofstream out(path);
     if(!out)throw std::runtime_error("Cannot write frame timing output");
-    out<<"frame,present_return_us,interval_us,vblank_late_us,presentation_us,previous_gpu_wait_us,flush_us,acquire_us,scanout_us,submit_us,present_us,queue_us\n";
+    out<<"frame,present_return_us,interval_us,vblank_late_us,presentation_us,previous_gpu_wait_us,flush_us,acquire_us,scanout_us,submit_us,present_us,queue_us,present_qpc_us\n";
     int64_t first=0,previous=0;uint64_t tick=0;
     for(const auto& row:*rows){
         ++tick;if(!row.presented)continue;
@@ -38,7 +38,7 @@ inline void Save(const std::filesystem::path& path) {
            <<row.vblank-row.deadline<<','<<row.presented-row.presentStart<<','<<row.gpuWait<<','
            <<row.flushed-row.presentStart<<','<<row.acquired-row.flushed<<','
            <<row.scanned-row.acquired<<','<<row.submitted-row.scanned<<','
-           <<row.presented-row.submitted<<','<<row.presentStart-row.enqueued<<'\n';
+           <<row.presented-row.submitted<<','<<row.presentStart-row.enqueued<<','<<row.presented<<'\n';
         previous=row.presented;
     }
     if(!out)throw std::runtime_error("Frame timing output failed");

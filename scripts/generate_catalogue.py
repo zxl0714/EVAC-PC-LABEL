@@ -135,6 +135,14 @@ def load(path):
                 if not re.fullmatch('[0-9a-f]{64}', item['sha256']) or type(item['program']) is not bool:
                     raise ValueError('Invalid hash or program flag')
             game['files'] = manifest['files']
+            if game['backend'] == 'ps2':
+                programs = [item for item in game['files'] if item['program']]
+                discs = [item for item in game['files'] if not item['program']]
+                if (manifest.get('layout') != 'iso' or len(programs) != 1 or len(discs) != 1
+                        or discs[0]['path'] != 'disc.iso' or '/' in programs[0]['path']
+                        or programs[0]['bytes'] == 0 or discs[0]['bytes'] < 18 * 2048
+                        or manifest.get('optionalContent') or manifest.get('alternatives') or 'variantId' in manifest):
+                    raise ValueError('PS2 ISO manifest needs one boot entry and disc identity')
             forbidden = manifest.get('forbiddenFiles', [])
             if not isinstance(forbidden, list) or len(forbidden) > 128:
                 raise ValueError('Invalid forbidden file list')

@@ -186,13 +186,17 @@
       "name": "ESPGaluda",
       "nameJapanese": "エスプガルーダ",
       "backend": "ps2",
-      "integrated": false,
+      "integrated": true,
       "comingSoon": false,
       "communitySupported": false,
       "dataDirectory": "game-data/espgaluda",
-      "dataManifest": "",
+      "dataManifest": "espgaluda/data.json",
       "executable": "runtime/ps2/espgaluda.exe",
-      "runtimeFiles": []
+      "runtimeFiles": [
+        "runtime/ps2/espgaluda.exe",
+        "runtime/ps2/SDL3.dll",
+        "runtime/games/espgaluda/runtime-manifest.ini"
+      ]
     },
     {
       "id": "ibara",

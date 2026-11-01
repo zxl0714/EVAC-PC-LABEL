@@ -14,11 +14,17 @@
 #include "runtime/ee_scheduler.h"
 #include <Windows.h>
 #include "../../common/windows_timer_resolution.h"
+#include "common/settings.h"
+#include "frame_trace.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
 #include <mutex>
 #include <thread>
+
+// Audio entrypoints only: raylib's drawing typedefs share names with Win32 GDI.
+extern "C" bool IsAudioDeviceReady(void);
+extern "C" void SetMasterVolume(float volume);
 
 namespace cave::ps2 {
 namespace {
@@ -52,9 +58,15 @@ class Input final : public HostPadSource {
     std::mutex mutex;
     bool focused=false;
 public:
-    explicit Input(const std::filesystem::path& config) {
-        bindings=config.empty()?kt::input::DefaultKeyboardBindings():kt::input::LoadKeyboardConfig(config);
-        gamepad.Configure(true,0.25);gamepad.Initialize();
+    explicit Input(const NativeHostOptions& options) {
+        if(options.gameId.empty())
+            bindings=options.keyboardConfig.empty()?kt::input::DefaultKeyboardBindings():kt::input::LoadKeyboardConfig(options.keyboardConfig);
+        else {
+            const auto settings=LoadSettings(options.keyboardConfig,options.gameId);
+            constexpr std::array<uint32_t,16> masks{0x10,0x40,0x80,0x20,0x4000,0x2000,0x8000,0x1000,8,0x100000,0x400,0x800,0x100,0x200,2,4};
+            for(size_t i=0;i<masks.size();++i)for(const auto key:settings.keyboard[i].keys)bindings.at(key)|=masks[i];
+        }
+        gamepad.Configure(options.gamepadEnabled,options.deadzone);gamepad.Initialize();
     }
     void Key(unsigned key,bool down) {
         if(key>=keys.size())return;
@@ -133,15 +145,25 @@ void NativeHost::Configure(NativeHostOptions options) {
 }
 void NativeHost::Initialize(const char* title) {
     if(impl->display)throw std::logic_error("PS2 host is already initialized");
+    // Window presets are physical client pixels, as in the other runtimes.
+    // Set this before SDL or Vulkan creates any native window; desktop bitmap
+    // scaling would otherwise enlarge 1280x720 to 1920x1080 at 150% DPI.
+    using SetDpiContext=BOOL(WINAPI*)(DPI_AWARENESS_CONTEXT);
+    if(const auto setDpi=reinterpret_cast<SetDpiContext>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext")))
+        setDpi(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    else SetProcessDPIAware();
     // EE deadlines and the 2 ms input wake use timed condition variables.
     // The default Windows timer quantum can round both to about 15.6 ms.
     // Scope the request to this interactive host, including failed startup.
     if(impl->options.timerPrecision)impl->timerResolution.Enable();
     std::cerr<<"[ps2-host] timer_resolution_ms="<<(impl->timerResolution.Active()?1:0)<<'\n';
-    auto input=std::make_shared<Input>(impl->options.keyboardConfig);
+    auto input=std::make_shared<Input>(impl->options);
     auto display=std::make_unique<GsDisplay>(impl->options.width,impl->options.height,Wide(title),impl->options.vsync);
     auto queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display->Device().Completions());
-    display->SetKeyHandler([weak=std::weak_ptr<Input>(input)](unsigned key,bool down){if(auto owner=weak.lock())owner->Key(key,down);});
+    display->SetKeyHandler([weak=std::weak_ptr<Input>(input)](unsigned key,bool down){
+        if(key==VK_F8 && down)std::cerr<<"[ps2-marker] qpc_us="<<frame_trace::Stamp()<<'\n';
+        if(auto owner=weak.lock())owner->Key(key,down);
+    });
     if(impl->options.fullscreen)display->ToggleFullscreen();
     impl->display=std::move(display);impl->queue=std::move(queue);impl->input=std::move(input);
     SetHostPadSource(impl->input);
@@ -157,6 +179,7 @@ std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
 void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {
     if(!impl->display || impl->queue->GetStats().closed)throw std::logic_error("PS2 host is not ready");
     auto& display=*impl->display;auto mailbox=display.Device().Completions();
+    if(IsAudioDeviceReady())SetMasterVolume(impl->options.volume);
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){

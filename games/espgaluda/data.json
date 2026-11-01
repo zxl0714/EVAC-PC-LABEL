@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "game": "espgaluda",
+  "titleId": "SLPS-25352",
+  "version": "1.03",
+  "layout": "iso",
+  "files": [
+    {
+      "path": "SLPS_253.52",
+      "bytes": 2460760,
+      "sha256": "ff8eaac60476e5bf3789aa5b3b972fa0f50a50b104b7cc8a1e78af042d510055",
+      "program": true
+    },
+    {
+      "path": "disc.iso",
+      "bytes": 4073586688,
+      "sha256": "d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f",
+      "program": false
+    }
+  ]
+}

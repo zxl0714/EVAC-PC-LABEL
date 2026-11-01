@@ -509,10 +509,11 @@ int main() {
     const std::array files{DataFile{"main.bin",3,hash,true}, DataFile{"res/asset.bin",3,hash,false}};
     const std::array<std::string_view,1> runtime{"runtime/fake.exe"};
     Game game{"fixture","Fixture","xbox360","game-data/fixture","runtime/fake.exe",true,false,files,runtime};
-    Require(Catalogue().size() == 9 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
+    Require(Catalogue().size() == 11 && Catalogue()[0].id == "futari" && Catalogue()[1].id == "espgaluda2" &&
             Catalogue()[2].id == "ketsui" && Catalogue()[3].id == "sdoj" &&
             Catalogue()[4].id == "daioujou" && Catalogue()[5].id == "esprade" &&
-            Catalogue()[6].id == "guwange" && Catalogue()[7].id == "feveron" && Catalogue()[8].id == "garegga", "Catalogue order");
+            Catalogue()[6].id == "guwange" && Catalogue()[7].id == "feveron" && Catalogue()[8].id == "garegga" &&
+            Catalogue()[9].id == "espgaluda" && Catalogue()[10].id == "ibara", "Catalogue order");
     Require(!FindGame("feveron").coming_soon && FindGame("feveron").integrated &&
             FindGame("feveron").community_supported && FindGame("feveron").runtime_files.size()==3,
             "Feveron offline runtime is integrated; community acceptance remains separate");
