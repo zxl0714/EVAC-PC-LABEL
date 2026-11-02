@@ -2,12 +2,12 @@
 
 ## v0.9.1
 
-- 精简 ESPGaluda 的重复生成代码，缩小程序体积。
+- 精简 ESPGaluda 的重复生成代码，程序由 599 MB 缩小至 366 MB，减少约 39%。
 - 优化 PS2 构建与打包校验流程。
 
 ### English
 
-- Reduced duplicate generated code in ESPGaluda to shrink the executable.
+- Reduced duplicate generated code in ESPGaluda, shrinking the executable from 599 MB to 366 MB (39%).
 - Streamlined PS2 builds and package verification.
 
 ## v0.9.0

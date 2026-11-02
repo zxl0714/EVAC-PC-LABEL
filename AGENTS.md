@@ -10,45 +10,46 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE v0.9.1 implementation: common PS2 source-level compaction, execution
-regressions, complete ESPGaluda rebuild/gameplay, measured size/build benefits,
-packaging efficiency and local program package. Do not publish automatically.
-Existing v0.9.0 release/tag/packages and installed C:/evac-pc-label stay intact.
-New scripts/ps2_compact.py folds nested entry_* maps into original owner bodies
-using pinned generator entry_points/resume dispatch. Keep native/protected,
-standalone/crossing and branch-delay-slot entries independent. Old Size fields
-may be stale after map refinement; Start/End are authoritative. Extra inventories
-retain their explicit symbols. No generated game C++ edited.
-Small real module07:552->18 bodies, all1522 original callable PCs retained.
-Full accepted inputs .local/v091/espgaluda-r2, 103.904s generation; old inputs
-.local/v090/repro-inputs-r1. All31tables preserve1,866,931 old address slots,
-528546->33369 generated bodies (93.69% fewer),495177 shared entries. Native
-authored baseline/compact execution640 comparisons PASS (direct+indirect calls,
-yields/resume, branch likely/delay slots/loops). Evidence compact-contract-r2.log,
-out/ps2-native-check/Testing/Temporary/LastTest.log. Ibara reuse PASS:17953->7510
-bodies,10443 shared entries; .local/v091/ibara-reuse-r1/codegen.json, not gameplay.
-Initial r1 stopped on actual ELF owner remapping; verifier now checks real body
-bounds and resume labels, not CSV owner equality. Do NOT resume r1 or regenerate
-r2 merely for a docs change. Old EXE/PDB/receipt copied to .local/v091/baseline.
-ACTIVE full native compile exec23395, log .local/v091/build-r1.log (226steps,
-currently ARRANGE/stage objects). Source tests/version docs were finalized during
-this DEVELOPMENT compile, so finish certification may reject changed snapshot;
-retain binaries, then do a clean-commit incremental recertification, not full
-regeneration. Original native-fixture exec7841 was intentionally stopped during
-huge old game CMake generation; native-check graph93485/87970 completed instead.
-Full Python suite969 tests PASS/1skip using bundled CPython3.12+numpy; log
-.local/v091/source-final-r1.log. System py3.12 lacks numpy; original suite's
-import error and outdated CLI9game assertions were investigated, fixed/rechecked.
-Package52 tests PASS/1skip, PS2 receipt7 PASS; focused compaction8 and input7 PASS.
-Module07 single-TU O2/full-symbol compile+archive sample8.574->5.719s,
-library7281916->3978630bytes (.local/v091/compile-bench/result.json), not full link.
-Input-order tool now resolves source owners from actual table; same late-v1 policy.
-Packaging uses verify_package() to require frozen clean commit, consistent source
-certificate and actual EXE/DLL hashes, without rereading excluded source/PDB.
-Remaining: finish live full rebuild; measure EXE/PDB, run actual ARCADE/ARRANGE,
-boss/practice/gallery/return/cold-save small regression; update size/cost evidence
-and concise091notes. Freeze source, recertify/stage all components and output one
-Public-only program ZIP with one real extraction, then stop before publication.
+ACTIVE v0.9.1: common PS2 compaction implemented and real gameplay accepted.
+Do not publish automatically. Preserve v0.9.0 releases and C:/evac-pc-label.
+Code db1fce9; current docs finalize measurements before frozen certification.
+New scripts/ps2_compact.py owner-entries-v1 folds safe nested entry_* into owners;
+keep native/protected, standalone/crossing and delay-slot entries independent.
+Actual emitter bounds/resume labels verified; no generated game C++ edited.
+Accepted inputs .local/v091/espgaluda-r2, 103.904s generation. All31 tables retain
+1,866,931 address slots:528546->33369 bodies,495177 shared. Native authored
+execution640 comparisons PASS. Ibara reuse17953->7510 bodies,10443 shared verified,
+NOT gameplay support. Do not regenerate accepted inputs for docs changes.
+EXE599135232->365986816 bytes (-38.914%), PDB4061732864->1973559296 (-51.411%).
+No independent symbol trimming. Original binaries retained .local/v091/baseline.
+Module07 O2/full-symbol compile+archive8.574->5.719s (single sample, not full link).
+Development compile226/226 succeeded; finish rejected changed source snapshot
+because version/tests finalized during build. Retain binaries, use final clean
+commit incremental recertification, not full regeneration. Log build-r1.log.
+360/launcher and PS4 prior builds succeeded; final no-op clean-commit receipts
+needed for same-head packaging. SDK unchanged, verify/reuse existing certificate.
+Full source969 tests PASS/1skip via bundled CPython3.12+numpy; source-final-r1.log.
+Focused compaction8/input7, PS2 receipt7, package52 tests PASS/1skip. Existing
+out/ps2-native-check execution fixture640PASS; final full native checks pending.
+Live compacted game PID97808 CLOSED normally. ARCADE and ARRANGE actual first
+stage: movement/shot/Kakusei, pause/resume and quit; gallery image opened; final
+5-2 BOSS rendered/attacked and returned. Life2->3 saved, overwritten in isolated
+profile, PID134192 cold boot read3 via NORMAL keyboard; also CLOSED normally.
+Full runtime data .local/v090/player-iso-r1/prepared/espgaluda/disc-d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f.
+Generation-only disc misses IRX: first wrong launch was closed; preserve failed
+logs but do NOT tail its ~397MB spam file or poll old buffered exec96611.
+Mode callback probe needs analysis disc (.local/v091/espgaluda-r2/disc), boot
+callback probe needs boot.elf. Final probes: boot12entries/4x5states+8empty PASS,
+mode8x3states PASS; logs boot-callbacks-r1 and mode-callbacks-r2.
+Evidence .local/v091/gameplay-regression-r1.json. Input event cap overflowed;
+frame cap36000 excludes laterBOSS. Actual short ARCADE/ARRANGE windows195/166
+frames max17.971/17.735ms, no>19ms, diagnostic only, no ordinary CPU/latency claim.
+Normal profile .local/v090/latency/v091-profile-r1; both current game windows gone.
+Remaining: freeze final docs/source commit; incremental certify/stage PS2 plus
+unchanged360/launcher/PS4; final native CTest. Then one Public-only program ZIP,
+one real extraction and checksum/acceptance. No ROM/source/PDB/internal package.
+Packaging verify_package reuses frozen source certificate and hashes actual
+EXE/DLL bytes; does not rescan generated sources or excluded PDB. Stop locally.
 
 ## v0.9.0 published checkpoint
 
