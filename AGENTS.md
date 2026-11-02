@@ -10,149 +10,122 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov02 07:00 CST: implement v0.9.0 through PACKAGING ONLY. Branch
-work/v090-resume. v0.8.4 is already released; no GitHub Release, OSS or QQ now.
-PS2 ESPGaluda ONLY; Ibara Coming Soon, retain its existing work. User asleep:
-handle testing autonomously, no manual help/approval requests. No subagents,
-Task Manager, cleanup or original-data changes. Prior release checkpoints below
-are archival; do not revive their tasks.
+ACTIVE Nov02 08:35 CST: implement v0.9.0 through PACKAGING ONLY. Workspace
+E:/Projects/EVAC-PC-LABEL, branch work/v090-resume. v0.8.4 already released.
+PS2 ESPGaluda ONLY; Ibara Coming Soon, preserve parked work. User asleep:
+no manual help/UAC/questions. No subagents, Task Manager, original-data changes
+or cleanup. No GitHub/OSS/QQ/push. Completion is UNPROVEN.
 
-Scope: docs/PS2_RUNTIME_PLAN.md. Still REQUIRED: lower CPU than PCSX2,
-same-convention input/presentation latency comparison, frame stability and
-representative actual controls/modes/score save, final build certification,
-1080p/remaining covers workflow, licenses/docs/version/release notes, final
-program +internal ZIPs and one extraction acceptance. Completion is UNPROVEN.
+Scope: docs/PS2_RUNTIME_PLAN.md. Required: lower CPU than PCSX2, comparable
+input/response/presentation latency, stable actual gameplay fields, representative
+controls/modes/score cold save, final certification, covers runtime workflow,
+docs/version/licenses, real program +internal ZIPs and one extraction acceptance.
+Do not replace these with mechanism tests or only the already working modes.
 
-Commits this continuation (no push):
-- 07fafa8 original-ISO inspection/import/cache and collection launch.
-- 7209f28 IOP RAM/fetch/DMA/ready-election cache +explicit profile roots.
-- a3d29e4 reviewed analysis maps and reproducible ISO/code generation.
-- 09a5f21 interruptible high-resolution EE deadline waits.
-- 6040497 runtime-only ThinLTO option, FIFO occupancy dirty check, bounded
-  Win32 message polling125us, GS queue notifications only when needed.
-- 0993623 11 dedicated cover assets, separate lazy image caches, native grid.
-- 20c0b7f PS2 build receipt/staging and v0.9 program/internal package profiles.
-- c400501 player-guide separator/import cleanup.
-Only handoff docs/MEMORY/PS2_RUNTIME_PLAN are currently uncommitted.
+Latest local commits (not pushed):
+- 46c1ad7 validates fresh generator output byte-for-byte before reusing compiled
+  game bodies. Original receipts, source bytes and mtimes remain unchanged.
+- 0b11817 reuses directory-enumeration metadata while hashing generated sources;
+  18 codegen tests +3 receipt tests pass. Verified SAME 20795-file module01
+  tree identity against its previously accepted proof (session53400 completed).
+- 6d38f0a resolves a guest-call target once instead of hasFunction+lookupFunction;
+  keeps live overlay header validation, missing-target policy and caller bank
+  reload checks. Existing EE kernel/overlay/yield contracts PASS.
+- d19961d bounded opt-in input/pixel trace, shared process-local test pad,
+  reusable launch/frame-window/input analysis tools, native message polling500us.
 
-LIVE BUILD: exec session2078, out/ps2-tools, started06:05-06:09. Log
-.local/v090/analysis/repro-runtime-full-build-r1.log. Two BelowNormal jobs;
-2253 tasks total, last observed1246+ (ARRANGE huge unity chunks can take several
-minutes). Latest PID observations cmake115636/ninja121028 and live clang-cl
-children. Poll/reap SAME handle. Quiet logs are not a stopped process.
-This is the full compile of the freshly generated .local/v090/repro-inputs-r1
-graph: boot00, ARCADE16, ARRANGE17, stage-modules.json, mode-extras.json.
-Full game PDB enabled and runtime ThinLTO ON. Do not launch a parallel build in
-this SAME directory. Source/header changes were already present before it began.
-The script was parsed BEFORE automatic PS2 receipt integration; this run will
-NOT automatically certify/stage its outputs.
+LIVE: exec session95512 / Python PID93308, started07:10, codegen equivalence r2.
+Log .local/v090/analysis/codegen-equivalence-full-r2.log. Accepted through module16
+base+extra; module17 base currently active. Fresh module17 generation completed
+but source validation/hash comparison remains expensive on HDD. Poll SAME handle;
+do not restart for quiet output. It has been authoritatively live with increasing
+read/CPU counters. Module01 alone has20795 tiny files;31 jobs share many bodies.
+The old r1 was intentionally stopped before proof publication to fix redundant
+ancestor traversal; its fresh boot result was recovered by r2, not discarded.
 
-Important next build/certification details:
-- tools/ps2/CMakeLists.txt subsequently gained SDL3's matching PDB output/flags;
-  after2078 finishes, a normal incremental build must apply this CMake change.
-  Queue notification edits/native host count logging also require checking the
-  current output contains them (their .cpp compilation may still be pending).
-- New scripts/ps2_build_receipt.py and stage_ps2.py bind all generated source
-  trees, maintained/shared inputs, pinned dependencies/tools/flags and EXE/DLL
-  PDB identities. Release.ps2 requires the final source commit. Mechanism tests
-  pass; actual begin/finish/staging acceptance has NOT happened.
-- Current ps2_recomp.exe SHA changed to bfbd204034d4aac1b3be1a7db75d4a630010e4d4829e6d7638316c0f4165237c
-  when the shared runtime header caused recompilation. The31 accepted r1
-  generation receipts identify dc263b16640fa726189f1486992eae3c2514311b92384996076dcea190f709b5.
-  generate_all/receipt correctly reject that mismatch. Do not rewrite hashes.
-  Resolve reproducible final generator/input provenance AFTER runtime changes
-  settle; the normal Build-Espgaluda wrapper uses a fingerprinted fresh set.
-  Avoid blindly starting another full graph while2078 is live.
-- Existing out/ps2-tools/bin/espgaluda.exe before the link is the older
-  95c523ca5549871829e1a81fe5b3f5e914d57377dfb93cdb9408f26a96e48185 build;
-  player-iso-r1's runtime is still that version. No new gameplay acceptance yet.
+Builds COMPLETED/reaped:
+-2078 full2253-task Release/full PDB/runtime ThinLTO graph.
+-10716 input trace+SDL PDB incremental12tasks.
+-62479 feedback opt-in /500us poll incremental3tasks.
+-21335 resolve-once incremental+EE kernel contract PASS.
+-36813 automatic pixel extent+early trace save incremental5tasks.
+-85953 input trace contract completed/missing handle; PASS log retained.
+-12282 hotspot profile,53400 tree identity,28318 read listing all completed.
+No build currently active. Latest out/ps2-tools/bin/espgaluda.exe599113728bytes,
+written08:23; full matching PDB4061609984bytes08:24. SDL3.pdb now exists9.19MB.
+The live codegen proof is separate from the build, no source bodies are mutated.
 
-All other exec sessions are reaped:35804 LTO result0 (handle now absent),90105
-runtime hotpath contracts0,93562 failed package contract (kept),47976 fixed
-package contracts0,87182 launcher0,35236 audit0,76175 common native checks0.
-No ESPGaluda game currently running. Original private launcher119196/window
-20251614 remains open; PCSX2 PID36628/window14094602 is PAUSED.
-New cover-test launchers71328/41956 were closed normally; their handles are stale.
+After95512 finishes, Build-Espgaluda.ps1 -NativeOnly should verify these existing
+proofs, begin/finish the source receipt, do a no-op/current incremental build,
+then stage. Do NOT blindly regenerate/recompile the full2253 graph. Actual
+receipt/staging still NOT accepted. Product version still0.8.4. All PS2 player
+files in player-iso-r1 remain old95c523; do not confuse them with current bin.
 
-Fresh evidence under .local/v090/analysis:
-- ThinLTO no-ROM contracts PASS. Dispatch quantum8:22.0954->17.1971ns/instruction;
-  quantum128:9.2376->7.3789;2M instructions/checksum333333 unchanged. Timer
-  5.76145->6.28905ns (no universal win). thinlto-*-r2.log;35804 reaped/missing.
-- FIFO dirty check +LTO: runtime-hotpath-{kernel,iop}-r1.log PASS; four-timer
-  bench6.07169ns. Existing arithmetic/carry/IRQ behavior and FQC nonzero-cycle
-  expiration checked. Queue notify ownership/order/bounds/frame/shutdown and
-  completion signal/reset checks PASS in queue-*-r1.log.
-- ps2-release-contracts-r3.log:52 tests PASS,one Windows symlink-privilege skip.
-  Real tiny authored ZIPs prove PS2 ISO internal-only copy, no boot/cache leak,
-  no Ibara executable and unchanged historical release profiles. This is NOT
-  a real release package. ps2-receipt-contracts-r2.log3PASS.
-- ps2-source-contracts-r5.log64PASS; cover-art-contracts-r1.log10PASS;
-  player-flow-native-r5.log4 CTests PASS (common/launch/ps2_data/deadline_wait).
-- source-audit-covers-and-package-r1.log:2862 files59.48MB,22 artwork files,
-  3 branding,22 submodules, no game data. Later tiny source/doc changes still
-  need the final source audit.
+New actual evidence:
+- .local/v090/latency/input-r4: clean diagnostic exit,96 full366x448 RGBA scanouts,
+  failed=0,45943 input rows/overflow0, synthetic trace complete/no overflow.
+  Launch JSON binds actual EXE and command. Input analysis exports13 PNGs under
+  input-r4-analysis. Visually reviewed4356/4357 unchanged,4358 first right move.
+  response-review.json: one command90 sample, host->pad1.7937ms, host->Present
+  return33.0827ms, pad->Present return31.289ms. NOT an average/end-to-end result;
+  scanout/display-engine tail and PCSX2 comparison still missing.
+- Do NOT infer an extra presentation field merely from queue-before-VBlank IRQ:
+  display writes follow queue by~26us but DISPFB values stay68608. Need original
+  game/ordered GIF work analysis to distinguish its own response pipeline.
+- input-r2 enabled VK_EXT_present_timing feedback and stopped after16 presents
+  (queue full is a hypothesis, exact return code not captured). Ordinary path
+  runs normally. Feedback is now SEPARATE opt-in EVAC_PS2_PRESENT_FEEDBACK=1;
+  input/pixel measurement leaves it off. Generic feedback stage stays unknown.
+- input-r3 requested640x448 but actual scanout is366x448. Throwing from this
+  diagnostic inside acquired-frame recording left graphics teardown stuck;
+  own PID133740 was verified/stopped, teardown-stall.json retained. Fixed:
+  auto ROI0,0,0,0,96; bad capture disables itself and records failed=1 instead
+  of throwing. Input trace saves immediately AFTER producer join, before
+  graphics teardown. The corrected r4 successfully captured and exited.
 
-Player flow already accepted (do not redo unchanged):
-- .local/v090/player-iso-r1 original ISO ->menu/F8/normal exit0; warm second
-  launch all16 cached file hashes+mtimes unchanged. player-iso-warm-acceptance-r1.json.
-- Source ISO E:/Game-Share/roms/Espgaluda (Japan).iso remains read-only. Runtime
-  cache is only16 boot/IOP files; normal resources stream from original ISO.
-- User twice accepted Stage1 BOSS/restart music (r63). Gallery loading, full
-  image/back/grid/main, wallpaper save1 and cold readback passed r64/r65;
-  .local/v090/espgaluda/gallery-save-acceptance-r1.json. Actual SCORE save/cold
-  readback and remaining representative controls/modes remain open.
--31 generation jobs accepted zero critical/decode/unhandled/errors in
-  .local/v090/repro-inputs-r1.17 analysis ELF wrappers reconstructed identically;
-  15stage glue +13extension groups accepted7103 bodies/8713slots and fixed-edge
-  closure (sessions8540/81695 already reaped0).
+Performance still FAILS acceptance:
+- normal-lto-r1 PID78116 EXE c912308f, no input/pixel diagnostics. Matched BOSS
+  before+immediate after screenshots,20s CPU311.616ms/s=.311616cores. Separate
+  codegen verification was still active. cpu-frame-boss-thinlto-r1:1199fields,
+  median16.622/P9517.341/P9918.298/max342.767ms,10>19 and10>20. Retain ALL long
+  frames, do not silently trim them. Largest field10758 had338.864ms queue time;
+  cluster may involve scheduling/page-in/background IO, but NOT proved.
+- native-hotspots-thinlto-r1 5s sample (separate intrusive window): producer
+ 1093.75CPUms,main468.75,driver140.625. Leading active samples PeekMessage21,
+  IOP execute6,EE timers6,guest memcpy1180485,runCycles4; function data persisted.
+  No claim that runtime ThinLTO alone materially lowered actual CPU.
+- Previous baseline .34347cores; readycache .31901 (~7% lower), max19.177ms.
+  Highres .30132/max18.498 was provisional scene, do not use as final comparison.
+  PCSX2 official2.8.2 D3D12/1x/vsyncfalse .187cores was provisional size match.
+- Native message poll changed125->500us after hotspot. Dispatch duplicate lookup
+  removed. NO new quiet ordinary CPU/frame sample of these last changes yet.
+- READ/WRITE RAM macros ALREADY have inline RAM fast paths and no-op trace;
+  do not rediscover this as a missing optimization. No header-wide changes now.
 
-Performance evidence (do NOT overclaim):
-- Real baseline fixed ARCADE SIMULATION Stage1BOSS Ageha stationary/deathOFF
-  .34347cores; fetch-only .34339 NO gain; ready-cache r2 .31901 (~7%).
-  cpu-frame-boss-after-r2.json:1802fields,max19.177ms,1>19,0>20.
-- High-res r3 .30132cores;1802fields,P95=17.419,P99=17.708,max18.498ms,0>19/20.
-  PROVISIONAL scene: BOSS observed before, no immediate AFTER screenshot; much
-  later it was RESULT. Do not use as final matched comparison.
-- PCSX2 official2.8.2 D3D12/1x/vsyncfalse sameBOSS ~.187cores, also provisional:
-  logical window640x480 versus native854x480. CPU lower-than-reference goal is
-  still NOT met. Match final output settings and capture before+immediate after.
-- After-fetch22.074ms frame was previous-GPU wait20.502ms, not merely VBlank
-  wake(.997ms). Investigate if recurring after current changes.
-- Earlier post-cache hotspot sample native-hotspots-after-cache-r1.json:
-  producer1625CPUms/8s,main625ms,driver78ms. Active leads EE timers18samples,
-  IOP core10,SPU9,checkpoint7,main PeekMessage37. Intrusive profile scene may
-  have crossed RESULT; leads only, NOT final scene or latency data.
-- No PS2 input-to-response/presentation latency evidence yet. Do not fill
-  README rows from other platforms' tails or guest Present alone.
+Player/data/UI evidence:
+- Original ISO readonly E:/Game-Share/roms/Espgaluda (Japan).iso SHA d1547e...51a0f.
+  .local/v090/player-iso-r1 original ISO launch/menu/F8/exit+warm16file hash/mtime
+  reuse already accepted. Cache only16 boot/IOP files; resources stream ISO.
+- User r63 twice confirmed BOSS/restart BGM; r64 gallery images/back/grid/main
+  and wallpaper save1, r65 cold readback1 accepted. SCORE/cold read still open.
+- DLC reader audit .local/v090/analysis/dlc-reader-audit-r1.log4tests PASS;
+  original STFS extraction and unchanged bilingual placement guides inspected.
+- Covers actual root .local/v090/ui/cover-preview-r3: mouse/keyboard/CN/EN/JP/
+  scroll/persistence/banner switch accepted earlier. New actual resize to
+ 723x514 logical at144DPI keeps all header/footer controls usable; screenshot
+  .local/v090/ui/covers-small-window-r4.png. Selected ESPGaluda correctly says
+  runtime missing (root has no PS2 runtime yet). Runtime launch/import/relaunch
+  still needs actual acceptance. Normal close saved covers/EN/espgaluda.
+- Last authoritative process query: no games/reference/launchers remain,
+  including old119196/PCSX2 36628. Do not reuse their handles or assume paused.
+  Last CU windows only Codex/Chrome/QQ/Explorer. sky globals exist but are stale.
 
-Internal covers UI:
-- launcher/assets/covers has11 unchanged scans/promotional originals, separate
-  source hashes/URLs in artwork.json. Main default remains banner; covers is
-  only [collection] launcher_layout=covers. No public promotion/switch added.
-- New launcher built out/common with SkipLauncherStage; root launcher untouched.
-  .local/v090/ui/covers-player-build-r1.log. Actual private test root
-  .local/v090/ui/cover-preview-r3 at144DPI: CN/EN/JP,mouse Ketsui,Down toESP Ra.De.,
-  wheel scroll preserving selection, normal close selected_game=esprade, reopen
-  banner preserving game+JP all observed. Runtime/import/relaunch and1080p
-  checks remain. Native previews covers-art-r3.png and covers-data-present-r4.png
-  are explicitly sample-state previews. Private root now configured covers/JP,
-  data_dir points to player-iso-r1's existing ISO (no copy); no UI test process
-  remains. Logs logs/launcher/run-71328.log and run-41956.log preserve DPI/sizing.
-
-Computer use: node_repl @oai/sky skill+guidance/API/confirmations read. sky globals
-persist, but coverState=null and last native ps2Window closed/stale. Always list
-current windows. ps2Tap normal short pulses0 (not diagnostic200ms) reliably walks
-Return ->Down/X practice ->Down/X stage ->Down/X BOSS. PCSX2 macro toggles must
-be paired within one call. Read MEMORY before input; first occluded captures may
-show the older window--activate and refresh. Take BEFORE and IMMEDIATE AFTER
-screenshots around CPU windows, THEN any slow PDB/symbol profiling. Keep builds,
-traces and SuspendThread sampling out of timing windows. Never Task Manager.
-
-Hardware: C1TB NVMe(Solidigm),E8TB WD80EAZZ HDD,32GB RAM. Large generated CMake
-scans,unity chunks and4GB PDB links are expensive; inspect real live processes.
-PCSX2/reference BIOS stay private-only, never package/add to Git. Product version
-is still0.8.4; final0.9 version/docs/performance tables/licenses/certification and
-real ZIPs remain required. No publication this goal.
+Use MEMORY.md before CU. Skill/guidance/API/confirmations read; use node_repl
+@oai/sky, not cua_repl. Normal PS2 short keys arrows/ZCross/XCircle/CSquare/
+VTriangle/ReturnStart work. Diagnostic test pad is shared protocol, no Windows
+input injection. launch_ps2_probe.py --help is the reusable entry; --normal
+turns all probe input/images off. Legacy --config only accepts [keyboard] and
+[community], NOT the collection INI. Do not repeat that startup mistake.
 
 ## Previous release checkpoints
 

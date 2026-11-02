@@ -154,6 +154,10 @@ RESULT；符号解析后的场景不能倒推为采样时的场景。对照 CSV 
 
 - `tools/latency/test_pad_client.py`：仅控制明确启用的进程内测试手柄，支持有界
   hold／repeat／gap；它不发送 Windows 输入，也不证明真实设备输入或端到端延迟。
+- `tools/latency/launch_ps2_probe.py`：共用 PS2 独立诊断入口，输入追踪、进程内测试
+  手柄与 F9 一次性像素采集；`--normal` 关闭这些诊断，用正常输入测性能。
+  旧 PS2 CLI 的 `--config` 只收 `[keyboard]`／`[community]`，不能传合集 INI；
+  合集正常启动由五个 contract 参数传配置，不把两种配置入口混用。
 - `tools/latency/launch_*_probe.py`：先读适用平台、夹具范围与依赖，不把旧探针直接套到普通构建。
 - PS2 只改运行时／宿主 C++ 时，直接 `cmake --build out/ps2-tools --parallel 2`。
   Windows 无窗口测试默认栈只有 1 MiB；测试里再建第二份大型 `PS2Runtime` 时放到堆上。
