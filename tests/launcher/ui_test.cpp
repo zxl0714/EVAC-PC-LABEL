@@ -155,6 +155,42 @@ void UpdateChecks() {
   Require(update_notices.size()==before+3,"Reenabled reminder missing");
   update_foreground=nullptr;
 }
+void CoverLayoutChecks() {
+  Fixture fixture;
+  Write(fixture.root/"user-data/config.ini","[collection]\nlanguage=en\nlauncher_layout=covers\nselected_game=espgaluda\ncheck_for_updates=false\n");
+  {
+    Frame frame(fixture.root);auto& app=frame.app;
+    Require(app.layout.covers && Catalogue()[app.selected].id=="espgaluda","Cover layout did not restore its selected game");
+    for(const auto dimensions:std::array{std::pair{720.f,520.f},std::pair{1080.f,900.f},std::pair{1280.f,720.f}}) {
+      app.layout.width=dimensions.first;app.layout.height=dimensions.second;
+      Require(app.layout.columns()>1,"Representative cover window did not form a grid");
+      for(size_t index=0;index<Catalogue().size();++index) {
+        app.Select(index);frame.Settle();
+        const auto card=app.layout.card(index);
+        const auto visible=std::min(card.bottom,app.layout.footer())-std::max(card.top,app.layout.header());
+        Require(visible>=std::min(card.bottom-card.top,app.layout.viewport_height())-1,
+                "Selected cover is outside the visible grid viewport");
+        Require(card.left>=app.layout.margin()-1 && card.right<=app.layout.width-app.layout.margin()+1,
+                "Cover lies outside the grid width");
+      }
+      App::Window(app.hwnd,WM_KEYDOWN,VK_HOME,0);frame.Settle();
+      Require(app.selected==0,"Cover Home did not select the first game");
+      App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);frame.Settle();
+      Require(app.selected==app.layout.columns(),"Cover Down did not select the next row");
+      App::Window(app.hwnd,WM_KEYDOWN,VK_RIGHT,0);frame.Settle();
+      Require(app.selected==app.layout.columns()+1,"Cover Right did not select the next column");
+      App::Window(app.hwnd,WM_KEYDOWN,VK_UP,0);frame.Settle();
+      Require(app.selected==1,"Cover Up did not preserve its column");
+    }
+    app.Select(Catalogue().size()-1);frame.Settle();
+    Require(app.rows[app.selected].inspection.state=="coming_soon" && !CanPlay(app.rows[app.selected].inspection),
+            "Ibara must remain Coming Soon and cannot be launched");
+  }
+  const auto saved=Ini::Load(ConfigPath(fixture.root));
+  Require(cave::launcher::CoverLayout(saved),"Normal close changed the internal cover setting");
+  Require(saved.Get("collection","selected_game")->text==Catalogue().back().id,
+          "Cover selection was not retained at close");
+}
 void SelectionChecks() {
   Fixture fixture;
   const auto ini="\xef\xbb\xbf; keep selected-game fixture\r\n[collection]\r\nconfig_version=1\r\nlanguage=en\r\nselected_game=daioujou\r\n[community]\r\nnickname=Baseline\r\n[future]\r\nvalue=untouched\r\n";
@@ -343,6 +379,13 @@ void ArtworkStateChecks() {
   const auto grey=renderer.Image(target.Get(),0,true);
   Require(grey==renderer.Image(target.Get(),0,true),"Grey artwork is decoded once per target");
   Require(grey!=renderer.Image(target.Get(),0,false),"Colour artwork remains available after data import");
+  for(size_t index=0;index<Catalogue().size();++index) {
+    const auto cover=renderer.Image(target.Get(),index,false,true);
+    const auto missing=renderer.Image(target.Get(),index,true,true);
+    Require(cover==renderer.Image(target.Get(),index,false,true) && missing==renderer.Image(target.Get(),index,true,true),
+            "Cover repaint must reuse decoded colour and grey images");
+    Require(cover!=missing,"Missing-data covers lost their independent colour image");
+  }
   target->BeginDraw();target->Clear(D2D1::ColorF(0xffffff));
   target->DrawBitmap(grey,{0,0,64,64});
   Check(target->EndDraw(),"Render actual grey artwork");
@@ -458,6 +501,7 @@ void MainChecks() {
   }
   Require(unexpected_dialogs==0 && opened_paths.size()==2,"Unexpected shell or dialog side effects");
   SelectionChecks();
+  CoverLayoutChecks();
   NicknameWarningChecks();
   NicknameAlignmentChecks();
   PreferenceRepaintChecks();

@@ -880,7 +880,7 @@ class App {
     DestroyMenu(menu);if(selection)Choose(selection==2);
   }
   void EnsureVisible() {
-    const auto top=float(selected)*(layout.row_height()+12),bottom=top+layout.row_height();
+    const auto top=float(selected/layout.columns())*(layout.row_height()+12),bottom=top+layout.row_height();
     if(top<layout.scroll)layout.scroll=top;
     if(bottom>layout.scroll+layout.viewport_height())layout.scroll=bottom-layout.viewport_height();
     Scroll(0);

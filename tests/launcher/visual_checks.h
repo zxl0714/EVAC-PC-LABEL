@@ -16,6 +16,7 @@ void VisualChecks(const fs::path& output) {
   for(const auto current:{Language::Chinese,Language::English,Language::Japanese}) {
     language=current;
     for(const auto dimensions:std::array{std::array{1080u,900u,96u},std::array{720u,520u,144u}}) {
+      for(const auto covers:{false,true}) {
       for(const auto selected:{std::size_t(4),Catalogue().size()-1}) {
       const auto dpi=dimensions[2];const auto scale=float(dpi)/96;
       const auto width=UINT(dimensions[0]*scale),height=UINT(dimensions[1]*scale);
@@ -25,12 +26,20 @@ void VisualChecks(const fs::path& output) {
       Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create visual target");
       target->SetDpi(float(dpi),float(dpi));
       Layout layout{float(dimensions[0]),float(dimensions[1]),0};
-      layout.scroll=std::clamp(float(selected)*(layout.row_height()+12)+layout.row_height()-layout.viewport_height(),0.f,layout.max_scroll());
+      layout.covers=covers;
+      layout.scroll=std::clamp(float(selected/layout.columns())*(layout.row_height()+12)+layout.row_height()-layout.viewport_height(),0.f,layout.max_scroll());
       std::vector<Row> rows(Catalogue().size());
-      for(auto& row:rows)row.inspection.state="ready";
+      for(size_t index=0;index<rows.size();++index) {
+        rows[index].inspection.state=Catalogue()[index].coming_soon?"coming_soon":"ready";
+        rows[index].inspection.data_state=DataState::Verified;
+      }
+      if(covers) {
+        rows[2].inspection.state="missing_data";
+        rows[2].inspection.data_state=DataState::Missing;
+      }
       target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,L"",{},true);
       Check(target->EndDraw(),"Render production visual layout");
-      const auto prefix=selected==4?"":"last-";
+      const auto prefix=std::string(covers?"covers-":"")+(selected==4?"":"last-");
       const auto path=output/(prefix+std::string(cave::launcher::LanguageCode(current))+"-"+std::to_string(dimensions[0])+"-"+std::to_string(dpi)+"dpi.png");
       SaveVisual(renderer,bitmap.Get(),path,width,height);
       std::vector<BYTE> pixels(std::size_t(width)*height*4);
@@ -50,6 +59,7 @@ void VisualChecks(const fs::path& output) {
       Require(first_ink({layout.margin(),layout.brand().bottom+1,layout.width-layout.margin(),layout.header()-2})<0,
               "Header gap still contains a permanent helper label");
       std::cout<<"visual "<<path.filename().string()<<" logo_top="<<brand<<" language_top="<<choices<<"\n";
+      }
       }
     }
   }

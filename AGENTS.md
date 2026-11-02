@@ -19,13 +19,40 @@ latency including backend tail, stable fields, remaining controls/modes/score
 cold-save, actual covers launch/import/relaunch, final version/docs/licenses,
 real program/internal ZIPs and one extraction acceptance each.
 
-LIVE main build: exec68159, PowerShell90572 started12:44:10 CST Nov02,
-CMake135784/Ninja100816, all2175 dependent units rebuilt for the new timer layout.
-Log .local/v090/analysis/timer-lazy-certified-build-r1.log. Begin snapshot completed
-12:51:40 at.local/build-inputs/ps2-f7bb90db234b49b281416cecd2fd5732.json.
-At13:30-ish764/2175, now ARRANGE units, CPU/IO advancing. Poll SAME handle; do
-not restart for quiet large unity files. DO NOT mutate covered source until its
-finish snapshot/stage completes. Source build commit9ed9bcc. No game is running.
+LIVE main build: SAME exec68159, PowerShell90572 started12:44:10 CST Nov02.
+All2175 compile/link tasks FINISHED. Actual finish certification/stage is now
+py79168, created14:19:33, running ps2_build_receipt.py finish --state
+.local/build-inputs/ps2-f7bb90db234b49b281416cecd2fd5732.json --stage.
+Verified live at14:24. Log .local/v090/analysis/timer-lazy-certified-build-r1.log.
+DO NOT mutate covered source until finish snapshot/stage completes. No game runs.
+PS2 source build commit9ed9bcc; later UI/docs/bench changes are outside its snapshot.
+
+New this turn:
+- Covers EnsureVisible BUG FIXED: use selected/columns, not single-column index.
+  New regression first failed before the one-line fix, then complete4570 launcher
+  checks PASS.24 native CN/EN/JP/banner/covers/size/selection renders PASS50checks,
+  self-reviewed representative images in .local/v090/ui/covers-visual-r2.
+  Actual current launcher84640 Home->Down selected row2 stillvisible; saved
+  covers-row-navigation-r2.png and normalclosed.1080p work-area math checks exist;
+ 720x520logical@144DPI render is1080x780physical. Covers UI plan updated; final
+  internal delivery still open. Covers all decodedRGBA40.11MiB, bothsets80.22MiB.
+- Reusable build_ps2_iop_bench.py now supports --candidate nop; complete original
+  CPU reference and tools/latency/ps2_iop_cpu_differential.cpp200000states PASS,
+  all original DMA/IRQ/thread contracts PASS. r2 long20millioninstr ABBAx3:
+  quantum8 cycles median58.120->57.467, quantum12824.951->22.965 (wall17.035->
+  16.850ns,7.315->6.731ns). r3 reusable tool rerun PASS. NOP NOT ADOPTED; production
+  iop_cpu.cpp unchanged. Wait for real timer CPU outcome first. r1 noisy excluded.
+- controls-extra-r1 PID124412 used OLD staged1856SPU EXE, now normalclosed.
+  SIM BOSS Circle held showed barrier charge, release/game continued. Pause/QUIT/
+  YES returned stage list. ARRANGE ranking opened, but another player-flow attempt
+  ended DEMONSTRATION/title; no accepted ARRANGE gameplay/new score/continue.
+  .local/v090/latency/controls-extra-r1/acceptance.json+PNGs. InputCSVoverflow665229,
+  cannot use as complete latency trace. Synthetic148records complete. MEMORY has
+  client --repeat blocking/session rule, trace limit and ranking return delay.
+- Artwork10 checks, localization6 checks, release-package52checks(1skip) PASS.
+  release-source-check-r1.log. v090 program/internal ISO-boundary fixture included.
+- Search exec53587 completed exit0 (CtrlC reached after completion); do not repoll.
+  Private NOP sessions89545/72195/60282 and launcher94199/14643/85016/68039 terminal.
 
 exec24499 completed certification and
 staging of SPU adoption, log .local/v090/analysis/spu-adoption-certified-build-r1.log.

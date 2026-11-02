@@ -113,6 +113,12 @@ C=Square、V=Triangle，Enter=Start，Backspace=Select。旧 CPU 宿主的 C 确
 当前合集宿主已实际确认正常短按可走完整菜单，保持默认 `--diagnostic-tap-ms 0`。
 `launch_ps2_probe.py` 默认开启独占的进程内测试手柄，实际键盘不会交给游戏；
 这一入口用 `test_pad_client.py` 操作，检查真实键盘必须加 `--normal`。不要混用两条输入路径。
+`test_pad_client.py --repeat` 在客户端逐次等待后发送，会持续占用该 exec session；
+等同一 session 完成再发其他输入，不能把首个 OK 当成整串脉冲已经结束。
+输入 CSV 默认仅保留 200000 条事件；长时间菜单操作会用尽容量。测量前重开短局，
+先核对文件头的 overflow，不能拿缺失后半段的记录分析响应时间。
+ARRANGE RANKING 按 Cross 返回后需等待实际菜单就绪；已验证单次 Cross 后等约 3 秒，
+再 Up→Circle 进入 GAME START。不能在返回动画中连续预发这两个键。
 ESPGaluda 原生 BUTTON CONFIG 已核对：ARCADE 的 Square=SHOT、Triangle=KAKUSEI、
 Circle=BARRIER、Cross=RAPID（键盘 C/V/X/Z）。同页方括号是 ARRANGE 的功能，
 依次 POWER SHOT/KAKUSEI/MAIN SHOT/BARRIER；不能凭别的 CAVE 游戏习惯填写说明。

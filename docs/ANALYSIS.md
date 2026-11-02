@@ -64,6 +64,15 @@ EE 定时器改为按中断截止点累计周期，在寄存器访问前同步�
 未修改生产 IOP 源码。复用工具为 `tools/latency/build_ps2_iop_bench.py`，
 最后一组证据在 `.local/v090/iop-calendar-bench-r3/comparison.json`。
 
+IOP NOP 候选单独保留分支延迟槽、待提交 load、零寄存器、异常和 yield 状态的退休行为。
+20 万组随机完整 CPU 状态对照一致，原有声音／中断／线程检查也通过。
+每次 2000 万条指令、ABBA 三轮的中位数：小片段 58.120→57.467 CPU cycles/指令，
+大片段 24.951→22.965；墙钟分别为 17.035→16.850 ns 和 7.315→6.731 ns。
+原始证据为 `.local/v090/iop-nop-bench-r2/comparison.json`，候选尚未进入当前游戏构建。
+复用工具 `tools/latency/build_ps2_iop_bench.py --candidate nop --output <新的.local目录> --run`
+会冻结链接库／头文件，生成完整参考实现，并运行状态对照与机制检查；须先进入项目构建环境。
+工具的独立复跑证据为 `iop-nop-bench-r3/comparison.json`。
+
 PCSX2 2.8.2／D3D12／1×／关闭 VSync，在同一桌面的全屏输出、重新读取固定
 BOSS 即时存档后，10.112 秒窗口消耗 2515.625 CPU ms，即 0.249 核。
 开始和结束截图均为 BOSS 游玩画面。记录为
