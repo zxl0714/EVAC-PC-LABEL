@@ -10,74 +10,57 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-LATEST Nov02 cache follow-up: human requested small persistent cache despite first-use nature.
-PS4 pipeline disk cache implemented, tested cold/warm in ROM-free65draw smoke plus actual
-Feveron normal launch/FEVER demo. GPU driver data210091bytes saved on normal window
-teardown and accepted next process. Common10pipeline creation25.777->4.185ms; slowest
-10.752->.477ms. Shared all PS4 titles; cache/ps4/<game>, device+driver UUID, checksum,
-optional failure, no in-frame disk IO. API14 requires matching rebuilt host+DLL.
-Evidence .local/v090/analysis/feveron-pipeline-cache-game-r1.json. Both games closed.
-Noncompile long frames STILL present in actual cold/warm demo, including hot136.126ms
-frame4154 (46.189ms command execution,84.409ms GPU fence, .001ms pacing, no compile).
-No claim all stutter fixed. Investigation report in ANALYSIS v090 Feveron pipeline cache.
-Finish final incremental builds/receipts/tests and revised v090 packages once, then STOP
-before publication. Frozen9df candidates preserved; use new candidate source commit.
-ESPGaluda remains CLOSED per human; do not reopen any PS2 gameplay or optimization.
+COMPLETE Nov02: v0.9.0 candidate packaging finished; STOP before publication.
+Latest human steering: Feveron in-game stutter not reproduced; continue downstream,
+user will manually play later. Do not resume autonomous Feveron or PS2 experiments.
+No push, tag, GitHub/OSS/QQ, UAC, Task Manager or subagents. No game running.
 
-LATEST HUMAN STEERING Nov02: STOP all ESPGaluda development/optimization/retests.
-Only consolidate existing measurements; PS2 latency estimate now27ms versusPCSX243ms,
-CPU .43/.25cores. Methods/assumptions in ANALYSIS v090-ps2-latency-estimate. Do NOT
-resume CPU/frame/presentation experiments, scoring/replay/continue fixture research.
-Private test89308 closed normally; fixture score-fixture-r2 only saved EASY/LIFE5/
-AutoSaveON through original UI, NOT a new-score acceptance. Production untouched.
-Active work now: investigate Dangun Feveron dropped frames, then finish required
-v0.9.0 packaging. Existing9df candidates remain frozen; no rebuild merely for docs.
-New finding: Oct29 worst99.837ms frame3057 has graphics-pipeline compile75.409ms,
-combined compile76.671ms; Oct28 worst99.641ms has73.992ms combined compilation.
-Other long frames have different causes; do not call all dropped frames solved.
-Evidence .local/v090/analysis/feveron-long-frame-compiles-r1.json. No game running.
+Frozen code/build/package commit:7c85be0f15818b43521c20791261fbe44fb65e33.
+Final artifacts releases/v0.9.0-candidate-7c85be0/ (DELIVERY.json/RELEASE_NOTES.md):
+- public/EVAC-PC-LABEL-v0.9.0-win-x64.zip 247055405bytes,
+  SHA7cf8b447a838ac38d29ff9acbdb642a9244684dc738aa04c86f657dc3cb94a7c.
+- internal/EVAC-PC-LABEL-v0.9.0-win-x64-internal.zip 9427957968bytes,
+  SHA6be31c57c541f28f5515fa7e5407f1c8dd107a14ee4b0e70da8970e74c49284c.
+Each archive actually extracted ONCE and verified; acceptance.json in each output.
+Public195payload files/no ROM/source/symbols; internal784files/all10supported games
+plus both Futari DLCs, no source/symbols. Both use the same certified runtime set.
+All runtime receipts/manifests match7c85be0. Post-package updates are DOCS ONLY;
+do not rebuild/recertify/repack merely to match this checkpoint's later commit.
+Old9df candidates remain frozen; newest accepted candidate is7c85be0.
 
+Includes shared PS4 persisted Vulkan driver pipeline cache, API14. Actual cross-
+process reuse accepted210091bytes; common10pipeline creation25.777->4.185ms;
+controlled already-warm-driver ABBA confirms creation reduction. Files keyed by
+GPU/driver UUID with checksum, optional failure, save after window drains; no
+in-frame disk IO.9GPU/presentation tests,4receipt tests,52release tests(one skip)
+pass. Full matching PDBs retained locally; developer GPU DLL/PDB restored from
+certified runtime/ps4 and ps4_build_receipt.py verify passes9binary/PDB pairs.
 
-PACKAGING BOUNDARY REACHED Nov02: v0.9.0 candidate program + internal ZIPs built
-and each actually extracted ONCE and verified. STOP before publication. No push,
-GitHub/OSS/QQ, or automatic return to optional experiments. Workspace
-E:/Projects/EVAC-PC-LABEL, branch work/v090-resume. PS2 ESPGaluda only; Ibara Coming Soon.
+Feveron follow-up: actual coin/ship/first-stage shooting,41seconds across two F8
+windows.2428logged intervals +32single-record intervals reconstructed from
+clock identities, no unresolved gaps; longest18.135ms,0>20ms, no large uploads.
+First-use large uploads were interface atlases; decoded4096x4096 RGBA atlas
+shows CAVE/M2, side instructions, score panels and sprites. Original reporter's
+in-game issue remains unconfirmed; manual follow-up deferred by human, NOT a
+claim all stages/environments are stutter-free. Evidence analysis/
+feveron-player-stage1-both-windows-r6.json under .local/v090/ plus two JPGs.
+All tests closed normally. Research source/patch/bench/DLL/PDB preserved in
+.local/v090/feveron-resource-research-r1/; NOT adopted as shipping code. Do not
+apply that prototype or replace candidate binaries without a new explicit task.
 
-Frozen artifact source/build/package commit9df10121bc55a7c143a0b52b6c3df81e5bb18118.
-Artifacts: releases/v0.9.0-candidate-9df1012/{public,internal}/. See each acceptance.json
-and root DELIVERY.json / RELEASE_NOTES.md. Both flat Windows ZIPs, current EVAC
-launcher only, no source attachment or symbols. Public195payload files/no ROM;
-internal all10supported games plus both Futari DLC packages. All backend receipts
-and staged manifests match9df1012. Developer/staged PS2 game901eff9d, formal late-v1.
-Full matching PDBs retained locally. Post-package checkpoint is DOCS ONLY: do not
-rebuild/recertify/repack frozen artifacts just to move their commit to this record.
+ESPGaluda development/optimization/retests CLOSED by human. Final README figures
+27ms versus PCSX243ms are documented budget estimates; CPU .43/.25cores.
+Native PadRead->response Present16.873ms, PCSX2 two updates; presentation-tail
+assumptions in ANALYSIS. CPU-lower-than-emulator target not achieved; ordinary
+max19.880ms (4>19,0>20 in605fields). New-score cold-read/continue not separately
+accepted; user explicitly stopped further work. Reuse accepted ARCADE/ARRANGE,
+BOSS/restart BGM(user confirmed), gallery, settings cold-save and ISO-first-run
+flow. User did not authorize reopening these checks. Ibara stays Coming Soon.
 
-Latest human steering: stop expanding work and reach delivery. Tests and optional
-experiments are FROZEN. 77 PS2 source tests pass; release tests52,one legacy skip.
-Both ZIPs use the same full certification in one process; copied binaries are still
-individually hash-checked. Large PS2 certification scans528625generated files/2.50GB;
-do NOT repeat it once per flavour, or repeat actual ZIP extraction after acceptance.
-Private driver .local/v090/package_candidate.py, log analysis/final-package-r1.log.
-
-This is candidate packaging, NOT a claim all original performance targets passed.
-Open: CPU .427cores versus PCSX2 .249; complete same-scope presentation-tail latency;
-new-score cold-read/continue专项; ordinary longest19.880ms (4>19,0>20 in605fields).
-Do not invent passing evidence or restart an endless campaign. Full limits in
-docs/ANALYSIS.md#v090-ps2-closeout and docs/PS2_RUNTIME_PLAN.md; bilingual README has
-actual CPU/frame results. Dangun current reporter issue remains open; historical
-Oct29 log17>20ms/10762frames (16>30), worst99.837ms execute81.620ms, not fixed.
-
-Reuse accepted actual game evidence: user confirmed BOSS/restart BGM; gallery and
-wallpaper/coldsave; originalISO first-run prepare/warm cache; LIFE2 setting coldread;
-ARRANGE Chihiro movement/fire/Kakusei/barrier/pause/resume/QUIT title. Low-input
-PadRead->firstresponse Present31.135->16.873ms, Pad+2->Pad+1; PCSX2 PINE both
-directions input-consumption->response2updates. Not photon or full normal-tail data.
-Evidence .local/v090/{analysis,latency}; original ROM/user profiles unchanged.
-
-All current build/package sessions are closed. No game running. Do not use Task
-Manager, subagents, UAC or ask the sleeping user for help. Before any later game
-automation read MEMORY.md, use Node @oai/sky and current returned windows. Use
-py -3.12; do not broad-search .local or reread all historical AGENTS content.
+Before later requested manual testing read MEMORY.md; the private Feveron copied
+profile is Custom: L1/AddCredit=A, Circle/FullAuto=X, R1/FullAuto=S, R2/Restart=W.
+The five-argument contract uses CAVE_DIAGNOSTIC_INPUT_TAP_MS for CU-only pulses;
+remove it for human play. Normal source/packaged defaults remain unaffected.
 
 ## Previous release checkpoints
 

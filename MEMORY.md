@@ -19,6 +19,12 @@
   解压验收，按 ZIP SHA 复用结果。PS2 有约 53 万个生成小文件，不按包的种类重复扫描。
 - 出包后写交付检查点并冻结源码提交与 ZIP；仅记录结果的文档提交不触发重建、重打包。
 
+- 长帧分析先区分启动／自动演示／实际投币玩家局，并把资源上传时间对到具体画面。
+  一次首次界面图集准备不等于关内持续卡顿，先确认用户场景再决定是否优化。
+- 帧日志缺行不等于渲染掉帧。先查异步日志 contended／dropped_oldest 与 submission 连续性；
+  只少一条时可用两次 completed_clock_us 之差减去后帧 completion_interval_us 还原，
+  连续多条缺失不能据此分解成每帧时长。
+
 ## 开始前，先确认这四件事
 
 - 当前 EXE／构建、游戏数据版本、独立测试目录和 PID。
@@ -128,6 +134,17 @@
     发散。已有生成后执行的寄存器区分回归；修生成器后重生成受影响代码，不手改游戏输出。
 
 ## 已验证的按键信息
+
+合集正式五参数入口需要诊断脉冲时，用进程环境 `CAVE_DIAGNOSTIC_INPUT_TAP_MS=200`；
+不要把 `--diagnostic-tap-ms` 追加到五参数合同后面，它会被精确参数校验拒绝。
+原生直接入口才用该 CLI；必须从当次 run.json 核实 diagnosticInputTapMs。
+
+弹铳 v090 的私有复制存档是 Player1 Custom，已在原生 Controller Settings 读到：
+L1=Add Credit（键盘 A），Triangle=Bomber（V），Circle=Full-Auto（X），Square=Shot（C），
+R2=Restart（W）。不能套用大往生的 V 投币；默认 Player2 配置也不证明 Player1 配置。
+此规则仅针对该私有复制存档，普通用户可能是 Default；实际测试先核对原生菜单。
+Sky 动作后若截图仍旧，先 `include_screenshot=false, include_text=true` 刷新，再等约200ms
+抓图；两个 include 都是false会被接口拒绝，发生后先重新观察，不重复发送按键。
 
 PS4 默认键盘映射：方向键移动；Z=Cross、X=Circle、C=Square、V=Triangle、
 Enter=Options、Backspace=Touchpad。**仍以该次配置为准。**
