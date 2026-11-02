@@ -128,7 +128,63 @@ P99 18.675 ms、最大 19.171 ms，2 个超过 19 ms、没有超过 20 ms。
 第二窗口开始已是 RESULT，保留 `native-iop-fullscreen-cpu-r2.json` 原始数据并明确排除。
 完整性能目标仍未达到，不用微基准降幅代替实际游戏差距。
 
-### GPU 完成等待的隔离实验
+### 首响应图像与第三轮 IOP 候选
+
+实际 ARCADE／Ageha 第一关的三次独立方向命令，均已核对输入前静止、首次位移和随后
+持续移动的原始图像。PadRead 当场及下一场位置不变，第二场首次位移；三次
+PadRead→响应图像 Present 返回分别为 30.879／31.724／30.801 ms，平均 31.135 ms。
+记录与文件哈希在 `.local/v090/latency/arcade-response-r6-analysis/response-review.json`，
+并有三列逐场对照图。取样相位等待另计，不能把这里的 Present 返回当作显示完成。
+另一个 BOSS r5 样本在注入前已移动、同时出现死亡／重生，未用于首响应结论。
+
+离线 GS 状态检查器新增 `--inspect-state <新的 CSV>`；只能使用零预热、单次非计时重放，
+不影响普通运行。现有 3655 场轨迹中的绘图与显示 FRAME base 相同，不能据此将多出的
+一场归因于选择了旧 framebuffer；轨迹是否覆盖目标输入场景仍须单独核对。
+
+第三轮 IOP 候选仅在没有分支／load 延迟时合并纯整数指令的退休路径。40 万组完整
+CPU 状态对照及声音／线程／定时器检查通过，但 ABBA 三轮每指令中位 CPU cycles：
+短片段 53.650→50.308，长片段 22.376→23.039，收益不一致，未进入正式运行时。
+冻结输入与结果保存在 `.local/v090/iop-integer-bench-r2/comparison.json`。
+`build_ps2_iop_bench.py --candidate integer` 可复跑；须先初始化项目构建环境。
+
+当前构建的另一次 BOSS 侵入式热点采样指向 EE checkpoint、IOP 执行／调度和 SPU；
+图形线程还包含窗口消息轮询与驱动调用。原始结果为
+`.local/v090/analysis/native-hotspots-current-r1.json`。这份采样会短暂挂起线程，
+只用于定位，不更新普通帧时间或 CPU 对照表。
+
+### ESPGaluda 帧循环重排候选
+
+原程序主循环 `1007b4` 先调用手柄更新，`1007bc` 转换按键，`1007c4` 才调用
+`11d480` 的 SyncPath→SyncV→绘图环境准备，随后更新游戏并提交绘图。
+因此取样之后仍需经过本轮的 VBlank 等待。私有候选将这三个无参数调用改为
+同步／等待→手柄更新→按键转换；保留每轮同一组调用、所有来源／返回 PC、延迟槽副作用、
+中途让出后的续执行标签、SyncPath 与 SyncV 的相对顺序，不改原 ISO 或生成目录。
+两个独立输出文件的身份由 `espgaluda-input-order/identity.json` 记录。
+
+候选 `e94840fb` 的实际 ARCADE／Ageha 第一关三次方向输入，逐场图像均确认在
+Pad+1 首次位移，Pad 当场仍静止。PadRead→响应 Present 返回为
+16.981／16.717／16.921 ms，平均 **16.873 ms**；原版三例平均 31.135 ms，差约
+14.262 ms。归档为 `.local/v090/latency/late-input-response-r1-analysis/response-review.json`。
+它证明该段首响应提前了一场，尚不代替全模式／声音／帧时间和显示后段验收。
+当前仅由 CMake `PS2_EXPERIMENTAL_LATE_INPUT=ON` 开启，默认 OFF；发行构建认证
+会拒绝私有候选，待功能验收后再决定正式接入及记录完整构建输入。
+
+关闭输入／像素追踪的同尺寸普通全屏 BOSS 窗口为 10.104 秒、3796.875 CPU ms，
+即 0.376 核，未证明 CPU 收益。605 个完整间隔中位 16.648、P95 17.819、P99 18.632、
+最大 19.902 ms，5 个超过 19 ms、没有超过 20 ms。最长帧的 VBlank 迟到 2.644 ms，
+前帧 GPU 等待 4.781 ms、本次呈现 2.058 ms；这些阶段不能相加为 CPU 运算时间。
+原始记录为 `analysis/late-input-normal-{cpu,frames}-r1.json`，窗口两端均有实际 BOSS 截图。
+普通键盘 X／Enter／方向键完成读取存档、选关、开始 BOSS、暂停和退出，无需改键或额外按键脉冲。
+
+窗口消息检查的隔离试验未采用 QueueStatus 预检。空消息队列 ABBA 四组中，直接
+PeekMessage 每次约 11.49 CPU cycles，QueueStatus 与计时预检约 1087.87；两者均通过
+实际 posted／nonqueued 消息交付。这个负结果只适用于该消息窗口微基准，不解释游戏
+图形线程全部开销。记录为 `analysis/message-poll-r1-summary.json`，开发目标
+`ps2_message_poll_probe`；正式窗口轮询没有改动。API 依据
+[GetQueueStatus](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getqueuestatus)
+和 [PeekMessage](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew)。
+
+### GPU 完成通知
 
 `ps2_gpu_wait_probe` 复用 Granite 已有的外部 timeline 导入接口，将同一适配器的
 D3D12 共享 fence 用于 Windows 事件等待。原始 Vulkan fence 与共享 fence 在同一次

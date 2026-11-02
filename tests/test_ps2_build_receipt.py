@@ -45,7 +45,8 @@ class Ps2ReceiptTests(unittest.TestCase):
         with patch.object(receipt,'tool_path',side_effect=lambda name,root:tools[name]):
             save();self.assertEqual(receipt.configuration(self.root),values)
             for key,value in (('PS2_GAME_SYMBOLS','OFF'),('PS2_RUNTIME_THINLTO','OFF'),
-                              ('CMAKE_BUILD_TYPE','Debug'),('CMAKE_CXX_COMPILER','outside/clang-cl')):
+                              ('CMAKE_BUILD_TYPE','Debug'),('CMAKE_CXX_COMPILER','outside/clang-cl'),
+                              ('PS2_EXPERIMENTAL_LATE_INPUT','ON')):
                 save({key:value})
                 with self.subTest(key=key),self.assertRaises(ValueError):receipt.configuration(self.root)
 

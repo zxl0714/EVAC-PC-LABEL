@@ -10,125 +10,123 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov02 afternoon CST: implement v0.9.0 through PACKAGING ONLY.
+ACTIVE Nov02 17:30 CST: implement v0.9.0 through PACKAGING ONLY.
 Workspace E:/Projects/EVAC-PC-LABEL, branch work/v090-resume. PS2 ESPGaluda ONLY;
 Ibara Coming Soon. No manual help/UAC/questions, subagents, Task Manager,
-original-data changes or cleanup. No push/GitHub/OSS/QQ. Completion UNPROVEN.
-Scope docs/PS2_RUNTIME_PLAN.md. CPU below PCSX2, comparable full latency including
-presentation tail, stable fields, remaining real ARCADE/ARRANGE controls/continue/
-score cold-save, final version/docs/licenses and two actual ZIPs remain open.
-Product is still0.8.4. Latest Dangun dropped-frame report is unchecked at the top
-of docs/IMPLEMENTATION_PLAN.md; no investigation/fix claimed for it.
+original-data changes or cleanup. No push/GitHub/OSS/QQ. Goal NOT complete.
+Scope docs/PS2_RUNTIME_PLAN.md. Product remains0.8.4; no final v0.9 ZIPs.
+Dangun dropped frames is unchecked at top docs/IMPLEMENTATION_PLAN.md, not fixed.
 
-No live build or game now. exec65576 completed incremental game + IOP contract,
-exit0. Current developer EXE out/ps2-tools/bin/espgaluda.exe is
-221634aee8287ff57d2f71e41059ba71b76c7ebc27bf7043c2df1576360ae458.
-Source unchanged semantically after CRLF restoration to iop_emulator.cpp;
-.gitattributes now scopes cr-at-eol there. Actual final game relink/cert still needed.
-exec42089 rebuilt IOP contract and all lifecycle/NOP retirement checks PASS.
-Stage runtime/ps2 is OLDER bc95, final source receipt STALE. No final ZIPs.
+No game or build running at this checkpoint. All test games closed normally.
+Current developer out/ps2-tools/bin/espgaluda.exe is a PRIVATE late-input candidate:
+e94840fbeb4535717ebdca057b60d7cb072aec0c58a7f50fa22ea2419a96b1b0.
+CMake cache PS2_EXPERIMENTAL_LATE_INPUT=ON; default is OFF. New certification
+explicitly REJECTS this private flag. DO NOT stage/package it as accepted product.
+Previous ordinary binary221634ae included adopted IOP optimizations. Stage
+runtime/ps2 remains OLD bc95; final source receipt STALE. Root launcher old0.8.4;
+latest developer launcher out/common/bin/EVAC PC LABEL.exe. No publication.
 
-Latest actual results:
-- Ordinary fullscreen BOSS221634ae10.101sec .369712cores; producer .238144,
-  main .112886/audio .017010.605intervals median16.639/P9517.680/P9918.610/
-  max18.918ms,0>19/20. native-iop-fullscreen-{cpu,frames}-r1.json plus actual
-  before/after BOSS screenshots. Reduction vs.405 is ~9pct, not exact deterministic
-  scene A/B. r2 startedRESULT, excluded by native-iop-fullscreen-cpu-r2-excluded.json.
-  CPU still FAILS PCSX2.249 target.
-- ARRANGE Chihiro REAL player stage1 now passed: SquarePowerShot/CircleMainShot,
-  left/rightmovement, TriangleKakusei resourcechange, Startpause/resume, QUITYES
-  returnsTITLE. acceptance.json and screenshots in latency/arrange-flow-r1.
-  Character loading needs reliable timedinput; MEMORY has12Squarepulses recipe.
-  Resume has3sec countdown; WAIT4sec before measurements. Barrierinput didnot
-  crash but effect/resourceisolation notproven. Continue/newscorecoldsave open.
-- This trace recorded938956inputevents overflow0;160synthetic committed all/0overflow;
-  96pixel frames failed0. Direction90 was during resume countdown, NOT latency.
-  2GiB graphics cap reached before lateractualARRANGE controls; normal game
-  kept working. Entirecapture6849fields/67216commands replayed0readbacks in
-  graphics-large-trace-replay-r1.log. No warmup: NOT performance data.
-- New headless ps2_gpu_wait_probe uses existingGraniteexternal-timeline import and
-  D3D12 sharedfence, SAME GPU submission in bothwaits, ABBAx3x80 pluswarmup,
-  expected4byteGPUoutput and alreadycompletevalue PASS. Logs gpu-event-wait-r2
-  and summary in analysis. Windows event saves onlythousands ofCPUcycles/wait,
-  not the graphics thread .113core. NOT ADOPTED into production. No busy-spin fix
-  claimed. CMake target is developmentonly, no setting/path in shipped runtime.
-  Mainwsipresentation/actualGSprocessing remain worth attribution. Existing
-  GRANITE_VULKAN_DXGI_INTEROP is forcedOFF; mature upstream wsi_dxgi is a possible
-  private comparison, do not enable globally/recompile allgame without evidence.
-  exec50723 terminal failed onlycopy_buffer argorder; corrected build r2/r3 PASS.
+Latest concrete progress:
+- Original main loop reads pad at1007b4, maps it1007bc, THEN SyncPath/SyncV and
+  drawing environment at1007c4. Static decompile frame-order-r2.c in analysis.
+  Private scripts/ps2_input_order.py copies TWO generated bodies into build output,
+  reorders the three direct-call targets to wait -> pad -> map, preserves original
+  source/return PC, delay-slot effects and resume labels. Original generated
+  input tree and ISO UNCHANGED. CMake includes copies in same unity slots.
+  Four no-ROM transform/continuation/rejection checks PASS. Final adoption OPEN.
+  Review global358c38 reset in first delay slot and state consumed across VBlank
+  as part of semantic review before adopting; original reset remains in place.
+- exec96900 completed configuration and six compile/link tasks exit0, reaped.
+  Config9sec + generation188.6sec, not a hung build. Logs late-input-*-r1.log.
+- Baseline actual ARCADE/Ageha Stage1: three image-reviewed directions first
+  move Pad+2. PadRead->response Present return30.879/31.724/30.801 mean31.134667ms.
+  Complete BASELINE input452062/overflow0, pixels128/failed0. Review/identities
+  latency/arcade-response-r6-analysis/response-review.json, response-grid.png.
+- Candidate actual same mode/character/Stage1: three directions first move Pad+1,
+  PadRead->response Present return16.981/16.717/16.921 mean16.873ms, reduction
+  14.261667ms. All three full sprites/bubbles reviewed across five fields, no
+  movement at Pad and sustained movement after Pad+1. Resume waited4100ms.
+  latency/late-input-response-r1-analysis/response-review.json and response-grid.png.
+  Input224819/overflow0; synthetic50/complete/0overflow; pixels160/failed0.
+  This is NOT display/photons, full CPU acceptance, or all-mode acceptance.
+- Ordinary candidate --normal/fullscreen actual BOSS10.104133sec3796.875CPUms,
+  .375774cores: producer .250535/main .103616/audio .015465.605intervals median
+  16.648/P9517.819/P9918.632/max19.902ms;5>19,0>20. Longest VBlanklate2.644ms,
+  previousGPUwait4.781ms,presentation2.058ms (not additive CPU work).
+  analysis/late-input-normal-{cpu,frames}-r1.json and BOSS before/after PNGs.
+  No demonstrated CPU gain. Normal CU X/Return/Down navigation, pause and exit
+  worked without remapping or diagnostic pulses. All games now CLOSED.
+- Baseline normal221634ae fullscreen BOSS .369712cores,605intervals max18.918,
+  0>19/20. native-iop-fullscreen-{cpu,frames}-r1.json. Still CPU FAIL vs. PCSX2.
+- PCSX2 official2.8.2 D3D12/1x/vsyncfalse/fullscreen3840x2160 150pctDPI BOSS
+  .248783cores in10.1117163sec. pcsx2-fullscreen-cpu-r2.json + before/after PNGs.
+  r1 endedRESULT, excluded. EXE982c7c62600a999cf15a25c18349426166c785e7867b2fcc5018d733245b71a3.
+  Fixed sstate .local/v090/pcsx2/official-v2.8.2/sstates/SLPS-25352 (59BF6019).01.p2s.
 
-Terminal builds:
-- exec68159 completed all2175 tasks, full finish certification/stage, exit0.
-  Log timer-lazy-certified-build-r1.log ends receipt verified, two matching
-  binary/PDB pairs. Stage runtime/ps2 EXE bc95c45602d8b9657793c14230933d7bb0e2e30b9a1e909ed438191d5f44fb46,
-  599117312bytes, PDB4061622272bytes. Source timer commit9ed9bcc. Current runtime
-  changes are newer, so do NOT use old stage as latest source or final certificate.
-- exec64221 completed all13 compile/link tasks for diagnostic budgets; script
-  then failed only because test path omitted bin. Correct
-  out/ps2-tools/bin/ps2_gs_trace_contract.exe independently PASS. Do not rebuild.
-- Private bench sessions93966/73978/61698/65071/54463 terminal. Failed r2/r3 were
-  authored-fixture address reuse, not runtime failures. r4 fixed distinct modules.
+Open requirements / next work:
+1. Validate late-input candidate in ARRANGE, music/BOSS/restart and remaining
+   controls; solve >19ms VBlank/graphics waits. Need complete same-scope PCSX2
+   latency and presentation-tail comparison. Present return is NOT display.
+2. CPU below .249 target still not met. Current hotspots native-hotspots-current-r1
+   show EE checkpoint, IOP interpreter/scheduling, SPU; graphics includes driver
+   and message API. Intrusive samples are NOT ordinary timing. Consider real
+   static-module lookup/dispatch cost and mature WSI, not endless unrelated keys.
+   Actual flags /O2 /Zi /fp:precise /MD, runtime/IOP/SPU ThinLTO alreadyON.
+3. Continue + new-score cold-save still OPEN. controls-save-r1 original SAVE/cold
+   LIFECOUNTS2 preserved already PASS. Directly zeroing sys.dat ranking words in
+   a separate low-ranking-fixture-r1 was REJECTED by original integrity checking;
+   fixture restored exact original sys.dat. Do NOT call it valid/new score.
+4. Final full version/docs/licenses/source audit, matching symbols/build receipt,
+   same-commit components, program+internal ZIPs and one actual extraction each.
+   No final ZIP or release until full audit passes. Do not mark complete/blocked.
 
-Performance evidence:
-- Ordinary fullscreen BOSS bc95c456 normal input:10.101sec .405282cores,
-  producer .253651/main .111359/audio .027840.605fields median16.644/P9517.859/
-  P9918.675/max19.171ms,2>19/0>20. analysis/native-timer-fullscreen-{cpu,frames}-r1.json,
-  before/after BOSS screenshots. .408->.405 is NOT a demonstrated whole-game gain.
-- PCSX2 official2.8.2, SHA982c7c62600a999cf15a25c18349426166c785e7867b2fcc5018d733245b71a3,
-  D3D12/1x/vsyncfalse fullscreen3840x2160/150pctDPI BOSS .248783cores.
-  analysis/pcsx2-fullscreen-cpu-r2.json plus BOSS before/after PNGs. r1 endedRESULT,
-  excluded. Reference is closed. Savestate path/identity in ANALYSIS/prior files.
-- Private timer+NOP ABBAx3,20millioninstr: smallquantum CPU63.642->48.859cycles,
-  large27.670->23.228; wall18.742->14.375ns/8.117->6.819. FullCPU differential
-  200000cases PASS. Timer IRX lifecycle start/periodic/callback stop/restart/
-  explicitstop/reset exact counts/cycles/instructions PASS bothvariants, all
-  old sound/thread/IRQ tests PASS. .local/v090/iop-timer-nop-{bench-r1,contract-r4}/comparison.json.
-  Production adopted; actual CPU/frames above. No change to IOP rate.
-- IOP profile r4 (--trace-audio, heavy) identifies real 32/64slot CRI audio scans.
-  1024instruction periodic sampling has alias bias; do not treat percentages as
-  exact. PID76964 closed after profiling. PCM drops here are diagnostic overhead,
-  not ordinary audio failure. Capstone5.0.6 installed privately at
-  .local/v090/analysis/python-disasm for static IRX inspection only.
-- Earlier calendar prototype REJECTED/slower. Timer shiftcarry and GPU Sleep
-  experiments REJECTED/reverted. SPU staticchannel adoption and EE lazytimer
-  checks/identity documented in ANALYSIS. ThinLTO already covers IOP/runtime/SPU.
+Other new evidence / rejected candidates:
+- IOP pure-integer fast path: 400000 full CPU-state differential plus existing
+  sound/thread/timer contracts PASS. ABBA3x20million median cycles short53.650->
+  50.308, long22.376->23.039; inconsistent, NOT ADOPTED. Frozen iop-integer-bench-r2.
+  r1 failed only missing rc environment; run independent benches after dotting
+  Build-Common.ps1 and Initialize-CollectionBuildEnvironment. All sessions reaped.
+- QueueStatus hint microbench NOT ADOPTED: empty message queue Peek11.49cycles,
+  QueueStatus+clock1087.87; real posted/nonqueued delivery PASS. Dev-only target
+  ps2_message_poll_probe; sources in tools/ps2-gs. Formal window poll unchanged.
+- GS --inspect-state new.csv only permits seconds0/warmup0/iterations1. Read-only
+  owner-thread drawing register snapshot; no normal runtime logs or GPU readback.
+  boss-response-r5 trace3655fields36078commands replay PASS, both draw/displayFBP0.
+  Trace caps may precede gameplay; cannot treat it as measured BOSS response.
+  BOSS r5 input response confounded by movement before input/death, EXCLUDED.
+- Prior shared-D3D12-fence wait microbench saves thousandscycles/wait only, NOT
+  ADOPTED. gpu-event-wait-r2-summary.json. Not graphics thread .113core explanation.
+  Granite DXGI interop OFF; simply togglingON fails current TRANSFER_DST extra
+  usage check. Fair private WSI comparison must account for sampled present path.
+- Independent present-wait601complete/0drop mean return->hostnotify1.332ms;
+  first-pixel-out unavailable. NOT exact game display timestamp/photons.
+- 75 PS2 Python source tests PASS in source-ps2-late-input-r1.log (unit mocked
+  receipt prints are NOT final actual certification). git diff --check clean.
 
-New diagnostic capacity (uncommitted): --capture-gs-mib8..4096/default512,
---input-trace-events1..1000000/default200000; offline --trace-limit-mib1..4096.
-18000field limit remains. FourGiB valid and >4GiB rejection noROM GS contract PASS.
-launch_ps2_probe.py forwards --trace-audio and marks it diagnostic_only even
-with --normal. Ordinary input/CPU has no heavy traces. The testpad currently
-requires BOTH input_trace and EVAC_LATENCY_TRACE; cannot silently use it as normal.
+Reuse prior acceptance / adopted optimizations, do not repeat unrelated gates:
+- IOP timer deadline cache+NOP exact CPU/due-cycle semantics adopted in840621b,
+  lifecycle tests initialidle/start/periodic/callbackstop/reconfigure/restart/
+  explicitstop/reset PASS. iop-adoption-proof-r1.json and timer-nop-contract-r4.
+  Prior calendar/shiftcarry/GPU Sleep wait rejected; do not revive absent evidence.
+- EE lazy timer 100000-step equivalence and SPU static-stopped-voice exact PCM/
+  register/IRQ8workloads adopted. Full game audio render order/streams unchanged.
+- User twice confirmed BOSS and restart BGM. Gallery/grid/back/wallpaper save+cold
+  passed. Original ISO E:/Game-Share/roms/Espgaluda (Japan).iso readonly SHA
+  d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f.
+- Prior ARRANGE Chihiro actualStage1 PowerShot/MainShot/movement/Kakusei/pause/
+  resume/QUIT YES title passed at latency/arrange-flow-r1/acceptance.json. Barrier
+  isolation, continue/newscore OPEN. Prior user-flow ISO automaticprepare/cache
+  and covers-runtime acceptance passed; all artwork/localization tests passed.
+- Prior full build exec68159 completed2175tasks certification+stage for OLD bc95,
+  timer commit9ed9bcc; not latest source. Current certification gate intentionally
+  rejects private candidate. No need repeat allgame just for ordinary cpp edits.
 
-Reuse verified functional/UI evidence; do not rerun unrelated gates:
-- User twice BOSS+restart BGM normal. Gallery images/back/wallpaper save/coldread
-  passed. Newplayer original ISO automaticprepare/menu/F8/exit/warm16file reuse
-  passed. Original ISO E:/Game-Share/roms/Espgaluda (Japan).iso SHA
-  d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f readonly.
-- controls-save-r1 SAVE->cold LIFECOUNTS2 preserved. controls-save-acceptance-r1.json.
-  SIM movement/SquareSHOT/TriangleKakusei/gemdrain/Startpause/QUIT/YES passed.
-  controls-extra-r1 Circle1.8sec greenbarrier visible; release/gamecontinued.
-  ARRANGE ranking ready screenshot passed, newscore/continue still open; actual ARRANGE controls now accepted above. Read MEMORY.
-- input-r4 clean45943events/0overflow/96pixels: firstPad4356,4356/4357 unchanged,
-  firstdisplacement4358. Host->Pad1.7937ms,Host->Present33.0827,Pad->Present31.289.
-  ONE observation, not mean/display. PCSX2 pausedF10 first2fields unchanged,3moves,
-  unobservedguestPadphase; cannot simply call50ms end-to-end. PS2 game present
-  feedback staysOFF after priorstall. Independent KHRpresentwait hostnotification
-  mean1.332ms/601complete is NOT exactdisplaytimestamp or photons.
-- covers EnsureVisible selected/columns fix,4570checks PASS,24native bilingual/
-  JP/banner/covers/size renders50checks PASS, representative selfreview. Actual
-  row2 visible screenshot covers-row-navigation-r2.png.1080pworkarea tests and
-  1080x780render exist; actual edge drag DID NOT resize (don'tclaimhardwaretest).
-  covers-runtime-acceptance-r1.json proves real launch/exit/importgrey->color/
-  relaunch/persistence. Cache40.11MiB oneartset,80.22MiB both,notprocessRAM.
-  Artwork10/localization3/release52checks(1skip)/sourceaudit PASS. Defaults banner;
-  covers remains internal option. Internal delivery checkbox still open.
-- Current launcher out/common/bin/EVAC PC LABEL.exe; root EXE old0.8.4. Allclosed.
-- gs-response-r2 exhausted512MiB in menus, not usable gameplaycapture. InputCSV
-  controls-extra-r1 overflow665229, not latency data. Newcapacity aims to fix this.
-
-Read MEMORY.md before gameplay. NodeRepl @oai/sky only; skill/guidance/API/
-confirmations read. Use py -3.12. No terminal UI/no TaskManager. No subagents.
+Before gameplay read MEMORY.md. NodeRepl @oai/sky only, skill/docs read. Current
+Node last ps2Window is CLOSED; recover from returned list_windows for next game.
+Use py -3.12, no PIL installed. No broad rg across all.local generated trees.
+Ghidra12.1.4 is project-local; this turn read-only analysis used process-local
+JAVA_HOME E:/Tools/Ketsui-Reverse/apps/jdk/jdk-21.0.12.1+1. Player build needs
+reviewed maps, not Ghidra/JDK; do not add an external build dependency.
 
 ## Previous release checkpoints
 

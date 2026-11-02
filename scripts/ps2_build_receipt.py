@@ -30,6 +30,8 @@ def configuration(build=BUILD):
     if (values.get('PS2_GAME_SYMBOLS') != 'ON' or values.get('PS2_RUNTIME_THINLTO') != 'ON'
             or values.get('CMAKE_BUILD_TYPE') != 'Release'):
         raise ValueError('PS2 certification requires the Release runtime with full game symbols and ThinLTO')
+    if values.get('PS2_EXPERIMENTAL_LATE_INPUT') == 'ON':
+        raise ValueError('Private frame-order candidates are not release inputs')
     for key, tool in (('CMAKE_C_COMPILER', 'clang-cl'), ('CMAKE_CXX_COMPILER', 'clang-cl'),
                       ('CMAKE_MAKE_PROGRAM', 'ninja')):
         if Path(values.get(key, '')).resolve() != tool_path(tool, ROOT).resolve():

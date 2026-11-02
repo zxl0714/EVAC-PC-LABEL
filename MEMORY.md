@@ -12,6 +12,9 @@
   source view 会覆盖 `.deps` 原始文件；不要把已修过的依赖原版问题再当作当前缺陷。
 - 本轮只列一个小而完整的验收集合；已通过且未受改动影响的项目不重跑。
 - 原始 ROM、冻结发布包和旧项目保留；测试局允许自行重置，不再为同一授权反复询问。
+- PowerShell 下给 `rg` 传目录并用 `-g '*.cpp'` 等筛选，不传 `scripts/ps2*` 这样的字面路径。
+  独立 CMake 微基准也先点入 `scripts/Build-Common.ps1` 并执行
+  `Initialize-CollectionBuildEnvironment`；仅找到 clang 不代表 Windows SDK 的 rc／链接环境已准备好。
 
 ## 最容易浪费时间的坑
 
@@ -130,6 +133,10 @@ ARRANGE 的可靠短流程：主菜单选 ARRANGE MODE → Circle → 等 1.8 �
 700 ms，共 12 次）覆盖加载与选人 → 等 1.6 秒 → Start 暂停。已实际进入 Chihiro
 第一关，射击、左右移动、觉圣、暂停和 QUIT→YES 回到标题通过；不要把确认键全发在加载期间。
 **暂停恢复有约 3 秒倒计时，等 4 秒后再测输入。** 本轮在倒计时发出的方向命令不能作延迟样本。
+普通 `--normal` 入口已用 Computer Use 的 X／Return／Down 短按完成存档确认、标题、
+主菜单→ARCADE SIMULATION→STAGE SELECT→STAGE 1 BOSS、暂停和正常退出；
+每次按后先刷新，再等转场完成。不要因为诊断手柄入口收不到键盘就重映射普通入口。
+`sys.dat` 的排行榜字节受原作完整性校验；直接改低分数会显示存档损坏，不能作为已加载的成绩夹具。
 游戏右上角的 PLEASE WAIT 也会出现在真实玩家局，不能据此认定还在加载或教学。
 截图往返之间可过去十几秒，非操作时停在原生暂停菜单，避免玩家已经死亡却继续采样。
 短关卡检查优先用 MAIN MENU → ARCADE SIMULATION → STAGE SELECT，默认 STAGE 1 TOP；

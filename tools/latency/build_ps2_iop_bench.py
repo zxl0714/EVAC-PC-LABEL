@@ -133,10 +133,72 @@ def timer_candidate(source):
     return source
 
 
+def integer_candidate(source):
+    """Keep exceptional instructions and both architectural delays on the reference path."""
+    anchor='''        const uint32_t pc = cpu.pc;
+'''
+    fast='''        // Pure integer operations can retire without constructing the generic
+        // exception/load/branch transaction when neither delay is pending.
+        if (!cpu.pendingLoad && !cpu.branchPending)
+        {
+            const uint32_t op = instruction >> 26u;
+            const uint32_t rs = (instruction >> 21u) & 31u;
+            const uint32_t rt = (instruction >> 16u) & 31u;
+            uint32_t destination = rt, value = 0;
+            bool handled = true;
+            switch (op)
+            {
+            case 0:
+                destination = (instruction >> 11u) & 31u;
+                switch (instruction & 63u)
+                {
+                case 0: value = cpu.gpr[rt] << ((instruction >> 6u) & 31u); break;
+                case 2: value = cpu.gpr[rt] >> ((instruction >> 6u) & 31u); break;
+                case 3: value = uint32_t(int32_t(cpu.gpr[rt]) >> ((instruction >> 6u) & 31u)); break;
+                case 4: value = cpu.gpr[rt] << (cpu.gpr[rs] & 31u); break;
+                case 6: value = cpu.gpr[rt] >> (cpu.gpr[rs] & 31u); break;
+                case 7: value = uint32_t(int32_t(cpu.gpr[rt]) >> (cpu.gpr[rs] & 31u)); break;
+                case 0x21: value = cpu.gpr[rs] + cpu.gpr[rt]; break;
+                case 0x23: value = cpu.gpr[rs] - cpu.gpr[rt]; break;
+                case 0x24: value = cpu.gpr[rs] & cpu.gpr[rt]; break;
+                case 0x25: value = cpu.gpr[rs] | cpu.gpr[rt]; break;
+                case 0x26: value = cpu.gpr[rs] ^ cpu.gpr[rt]; break;
+                case 0x27: value = ~(cpu.gpr[rs] | cpu.gpr[rt]); break;
+                case 0x2a: value = int32_t(cpu.gpr[rs]) < int32_t(cpu.gpr[rt]); break;
+                case 0x2b: value = cpu.gpr[rs] < cpu.gpr[rt]; break;
+                default: handled = false; break;
+                }
+                break;
+            case 9: value = cpu.gpr[rs] + uint32_t(int32_t(int16_t(instruction))); break;
+            case 0xa: value = int32_t(cpu.gpr[rs]) < int32_t(int16_t(instruction)); break;
+            case 0xb: value = cpu.gpr[rs] < uint32_t(int32_t(int16_t(instruction))); break;
+            case 0xc: value = cpu.gpr[rs] & (instruction & 0xffffu); break;
+            case 0xd: value = cpu.gpr[rs] | (instruction & 0xffffu); break;
+            case 0xe: value = cpu.gpr[rs] ^ (instruction & 0xffffu); break;
+            case 0xf: value = instruction << 16u; break;
+            default: handled = false; break;
+            }
+            if (handled)
+            {
+                if (destination) cpu.gpr[destination] = value;
+                cpu.gpr[0] = 0;
+                cpu.pc += 4u;
+                cpu.branchTarget = 0;
+                cpu.exception = false;
+                cpu.yielded = false;
+                return !cpu.stopped;
+            }
+        }
+'''
+    if source.count(anchor)!=1:
+        raise ValueError('IOP integer retirement entry changed')
+    return source.replace(anchor,fast+anchor)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--candidate',choices=('calendar','nop','timer','timer-nop'),default='calendar')
+    parser.add_argument('--candidate',choices=('calendar','nop','timer','timer-nop','integer'),default='calendar')
     parser.add_argument('--rounds',type=int,choices=range(1,11),default=2)
     parser.add_argument('--run',action='store_true')
     args=parser.parse_args()
@@ -158,13 +220,13 @@ def main():
         includes.append(copied)
         for path in sorted(copied.rglob('*')):
             if path.is_file():identities[str(path)]=digest(path)
-    source=ROOT/'third_party/ps2/runtime'/('iop_cpu.cpp' if args.candidate=='nop' else 'iop_emulator.cpp')
+    source=ROOT/'third_party/ps2/runtime'/('iop_cpu.cpp' if args.candidate in ('nop','integer') else 'iop_emulator.cpp')
     original=source.read_text(encoding='utf8')
     # Each pair replaces a complete translation unit. The frozen public ABI
     # and all other library inputs remain identical.
     variants={}
     transform={'nop':nop_candidate,'calendar':calendar_candidate,'timer':timer_candidate,
-               'timer-nop':timer_candidate}[args.candidate]
+               'timer-nop':timer_candidate,'integer':integer_candidate}[args.candidate]
     for name,text in [('baseline',original),('candidate',transform(original))]:
         text=text.replace('../../../backends/ps2/',(ROOT/'backends/ps2').as_posix()+'/')
         path=output/(name+'.cpp');path.write_text(text,encoding='utf8',newline='\n')
@@ -176,7 +238,7 @@ def main():
     for path in (source,test,output/'ps2_iop_audio_fixture.h',output/'ps2_iop_timer_fixture.h'):
         identities[str(path)]=digest(path)
     differential=[]
-    if args.candidate in ('nop','timer-nop'):
+    if args.candidate in ('nop','timer-nop','integer'):
         cpu_source=ROOT/'third_party/ps2/runtime/iop_cpu.cpp'
         cpu_original=cpu_source.read_text(encoding='utf8')
         cpu_candidate=variants['candidate']

@@ -13,6 +13,10 @@ namespace Vulkan { class Device; }
 namespace cave::ps2 {
 class GsCompletionMailbox;
 enum class GsGifPath : uint8_t { Path1=1, Path2=2, Path3=3 };
+struct GsDrawRegisters {
+    std::array<uint64_t,2> frame{},tex0{},alpha{};
+    uint64_t prim{};
+};
 
 // One GS command owner. Calls consume their payload before returning; any
 // cross-thread producer must enqueue an owned copy before calling this API.
@@ -44,6 +48,8 @@ public:
     // A graphics-only replay contains EE's already resolved command sequence.
     // No EE is present to acknowledge SIGNAL in that diagnostic workload.
     void SetOfflineReplay(bool enabled);
+    // Owner-thread inspection of decoded registers, without GPU readback/wait.
+    GsDrawRegisters InspectDrawRegisters() const;
     // Explicitly synchronous diagnostics. Never the normal presentation route.
     void ReadbackVram(size_t offset,std::span<uint8_t> bytes);
 private:

@@ -169,5 +169,11 @@ void GsDevice::WaitField() {
 void GsDevice::SetOfflineReplay(bool enabled) {
     impl->CheckOwner();impl->gs.set_signal_interface(enabled?nullptr:impl.get());
 }
+GsDrawRegisters GsDevice::InspectDrawRegisters() const {
+    impl->CheckOwner();const auto& state=impl->gs.get_register_state();
+    return {{state.ctx[0].frame.bits,state.ctx[1].frame.bits},
+            {state.ctx[0].tex0.bits,state.ctx[1].tex0.bits},
+            {state.ctx[0].alpha.bits,state.ctx[1].alpha.bits},state.prim.bits};
+}
 
 }

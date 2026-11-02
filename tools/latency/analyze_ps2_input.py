@@ -32,6 +32,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--capture', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--player-region',help='Optional x,y,width,height for the green-sprite review aid')
     args = parser.parse_args()
     header, events = table(args.capture/'input.csv')
     if not header.endswith(' overflow=0'):
@@ -45,6 +46,14 @@ def main():
     if geometry['failed'] or geometry['format'] != 37 or geometry['captured'] != len(frames):
         raise ValueError('A complete RGBA8 pixel capture is required')
     width, height, stride = (geometry[key] for key in ('width','height','stride'))
+    region=(0,height*3//4,width,height*97//100-height*3//4)
+    if args.player_region:
+        try:region=tuple(int(value) for value in args.player_region.split(','))
+        except ValueError:raise ValueError('Player region must be x,y,width,height')
+        if len(region)!=4:raise ValueError('Player region must be x,y,width,height')
+    rx,ry,rw,rh=region
+    if min(rx,ry)<0 or min(rw,rh)<=0 or rx+rw>width or ry+rh>height:
+        raise ValueError('Player region exceeds the captured image')
     pixels = (args.capture/'scanout.bin').read_bytes()
     if len(pixels) != stride*len(frames) or stride != width*height*4:
         raise ValueError('Pixel capture size differs from its metadata')
@@ -76,8 +85,8 @@ def main():
             # Image-analysis aid only: the low playfield green silhouette can
             # identify movement, but animation/visibility still needs review.
             xs=[]
-            for y in range(height*3//4,height*97//100):
-                for x in range(width):
+            for y in range(ry,ry+rh):
+                for x in range(rx,rx+rw):
                     at=(y*width+x)*4
                     red,green,blue=data[at:at+3]
                     if green>100 and green-red>45 and green-blue>30:
@@ -90,7 +99,7 @@ def main():
             host_to_pad_ms=(int(first['qpc_us'])-published)/1000,pad_field=field,candidates=candidates))
     if not commands:
         raise ValueError('No directional measurement command was captured')
-    record=dict(geometry=geometry,commands=commands,response_frame_requires_image_review=True,
+    record=dict(geometry=geometry,player_review_region=region,commands=commands,response_frame_requires_image_review=True,
                 display_engine_or_photon_latency_measured=False)
     write_json_new(args.output/'analysis.json',record)
     print(json.dumps(record,indent=2))
