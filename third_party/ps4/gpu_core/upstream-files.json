@@ -1054,7 +1054,7 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.cpp",
-      "sha256": "f870dfbe02bf449e93c4ce75f8ae8ba62a2338c6d6379025ebef3b683cbc4a83",
+      "sha256": "df627cbfb05dd1bd3c019d41775dc6f261e9b69b06b1ff50fbf9e7906d59519c",
       "description": "Retain pipeline/shader specialization and compilation; omit unconfigured emulator persistence/debug patching, and explicitly release owned shader modules at cache teardown. Include the cache declaration directly and preserve hardware/software stages in program and pipeline-permutation identity. Time cache-miss compilation scopes on the shared host steady clock without changing cache or submission semantics.",
       "reason": "Persist the Vulkan driver pipeline cache across game sessions, validate device/driver identity and checksummed payload, and save only after presentation drains or on teardown."
     },
