@@ -10,10 +10,19 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-COMPLETE Nov03 v0.9.0 LOCAL PROGRAM PACKAGE. User explicitly cancelled Internal
-packaging; do not resume it or distribute its unfinished output. Default future
-packaging is program-only unless user explicitly asks for included game data.
-No push/tag/GitHub release/OSS/QQ was performed. Stop at local package delivery.
+COMPLETE Nov03 v0.9.0 FORMALLY PUBLISHED as GitHub Latest at03:24 CST.
+Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.0.
+main pushed through df3f309; annotated tag v0.9.0 points to frozen runtime/package
+source56775745b96b2986b3102916b86de35c3a91b9f2. Published ONLY the accepted program
+ZIP and SHA-256 file; GitHub displays the matching ZIP digest. No rebuild,
+repack, repeated extraction, OSS upload or QQ announcement. User cancelled
+Internal packaging; never resume or distribute its unfinished output. Default
+future packaging is program-only unless explicitly requested otherwise.
+Issue7 replied https://github.com/zxl0714/EVAC-PC-LABEL/issues/7#issuecomment-6586339607
+with "Fixed in v0.9.0. Please update and try again." and the release link.
+Issue remains open. Evidence .local/v090-github-delivery.json and
+.local/v090-release-published.jpg. This checkpoint is docs-only: preserve the
+published tag and archive unchanged.
 
 Frozen runtime/package source56775745b96b2986b3102916b86de35c3a91b9f2.
 Program ZIP releases/v0.9.0-candidate-5677574/public/
@@ -49,7 +58,7 @@ missing boot transforms1c28e0/1c29f0/1c2c00 compiled as48byte prefixes to existi
 continuations, plus8originalJR/NOP callbacks154e70..154ee0. Native12entry table,
 4transforms x5states+8empty bodies PASS. Futari issue7 RecoNormal881B0038 release
 callback +2shifted leaves fixed, all8module audit/native regression PASS. No
-GitHub issue comment or closure this goal. Private evidence case
+GitHub issue closure; the brief release reply is recorded above. Private evidence case
 .local/v090/espgaluda-final-boss-r1/ and .local/v090/issue-7/; never publish RAM,
 dumps or private generated game code.
 
