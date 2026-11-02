@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include "pipeline_disk_cache.h"
 
 #include <variant>
 #include <tsl/robin_map.h>
@@ -75,6 +76,7 @@ public:
     explicit PipelineCache(const Instance& instance, Scheduler& scheduler,
                            AmdGpu::Liverpool* liverpool, u32 sparse_page_shift);
     ~PipelineCache();
+    void SaveDiskCache() noexcept;
 
 
     const GraphicsPipeline* GetGraphicsPipeline(const DrawIndirectParams params = {});
@@ -115,6 +117,8 @@ private:
     AmdGpu::Liverpool* liverpool;
     DescriptorHeap desc_heap;
     vk::UniquePipelineCache pipeline_cache;
+    Ketsui::GpuCore::PipelineDiskIdentity disk_identity{};
+    std::filesystem::path disk_cache_path;
     vk::UniquePipelineLayout pipeline_layout;
     Shader::Profile profile{};
     Shader::Pools pools;
@@ -129,6 +133,7 @@ private:
     GraphicsPipelineKey graphics_key{};
     ComputePipelineKey compute_key{};
     u32 num_new_pipelines{}; // new pipelines added to the cache since the game start
+    u32 num_saved_pipelines{};
 
     // Only if Config::collectShadersForDebug()
     tsl::robin_map<vk::ShaderModule,

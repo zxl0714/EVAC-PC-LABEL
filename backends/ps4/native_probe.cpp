@@ -2030,7 +2030,15 @@ int NativeCommand(int argc, wchar_t** argv) {
             CheckModulePath(module_directory);
         }
         InitializeNativeTime();
-        const auto resident_gpu = gpu_runtime ? std::make_unique<NativeResidentGpu>(gpu_runtime) : nullptr;
+        // Keep generated driver data beside the collection's other caches.
+        std::filesystem::path pipeline_cache;
+        if (collection && collection_config) {
+            auto root = std::filesystem::absolute(collection_config).parent_path();
+            if (root.filename() == L"user-data") { root = root.parent_path(); }
+            pipeline_cache = root / L"cache" / L"ps4" / cave::FromUtf8(collection->game);
+        }
+        const auto resident_gpu = gpu_runtime
+            ? std::make_unique<NativeResidentGpu>(gpu_runtime, true, pipeline_cache) : nullptr;
         Runtime runtime;
         active_runtime = &runtime;
         SetUnhandledExceptionFilter(Unhandled);

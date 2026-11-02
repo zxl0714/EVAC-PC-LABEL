@@ -16,7 +16,8 @@ from toolchain import tool_path, tool_snapshot
 
 OUTPUTS = {
     'out/ps4-native': ('KetsuiNativeProbe', 'KetsuiResourcePrepareCheck', 'Ps4CompatibilityTests', 'Ps4CpuCompatibilityTests'),
-    'out/ps4-gpu': ('KetsuiGpuCoreSmoke', 'KetsuiGpuRuntimeSmoke', 'KetsuiGpuCompileMetricsSmoke', 'KetsuiGpuRuntime'),
+    'out/ps4-gpu': ('KetsuiGpuCoreSmoke', 'KetsuiGpuRuntimeSmoke', 'KetsuiGpuCompileMetricsSmoke',
+                    'KetsuiPipelineDiskCacheTests', 'KetsuiGpuRuntime'),
 }
 RECEIPT = ROOT / 'out/ps4/build-receipt.json'
 

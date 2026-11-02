@@ -6,6 +6,7 @@
 - 原始 ISO 放入 `game-data/espgaluda/` 即可，启动器自动准备游戏数据。
 - 缺少游戏数据的作品在启动器中置灰，导入后刷新即可恢复。
 - ESPGaluda 输入响应提前约一帧；延迟估算约 27 ms，PCSX2 对照约 43 ms。
+- PS4 游戏新增持久绘图缓存，减少重开游戏后的重复编译卡顿。
 
 ### English
 
@@ -13,6 +14,7 @@
 - Place the original ISO in `game-data/espgaluda/`; the launcher prepares the game automatically.
 - Games without installed data appear grey in the launcher and return to full colour after importing and refreshing.
 - ESPGaluda responds about one frame earlier, with estimated latency of 27 ms versus 43 ms in PCSX2.
+- Added persistent PS4 pipeline caching to reduce repeated compilation hitches across sessions.
 
 ## v0.8.4
 

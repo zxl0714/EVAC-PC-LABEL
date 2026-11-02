@@ -12,7 +12,8 @@ class NativeResidentGpu {
     struct Impl;
     std::unique_ptr<Impl> impl;
 public:
-    explicit NativeResidentGpu(const std::filesystem::path& library, bool validation = true);
+    explicit NativeResidentGpu(const std::filesystem::path& library, bool validation = true,
+                               const std::filesystem::path& pipeline_cache = {});
     ~NativeResidentGpu();
     NativeResidentGpu(const NativeResidentGpu&) = delete;
     void Run(std::function<void()> operation);

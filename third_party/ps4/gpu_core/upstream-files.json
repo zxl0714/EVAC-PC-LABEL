@@ -1054,8 +1054,9 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.cpp",
-      "sha256": "db97f8f1c5060115760fd126dcfb7954a5c77dc599530339df04dcf59633828e",
-      "description": "Retain pipeline/shader specialization and compilation; omit unconfigured emulator persistence/debug patching, and explicitly release owned shader modules at cache teardown. Include the cache declaration directly and preserve hardware/software stages in program and pipeline-permutation identity. Time cache-miss compilation scopes on the shared host steady clock without changing cache or submission semantics."
+      "sha256": "f870dfbe02bf449e93c4ce75f8ae8ba62a2338c6d6379025ebef3b683cbc4a83",
+      "description": "Retain pipeline/shader specialization and compilation; omit unconfigured emulator persistence/debug patching, and explicitly release owned shader modules at cache teardown. Include the cache declaration directly and preserve hardware/software stages in program and pipeline-permutation identity. Time cache-miss compilation scopes on the shared host steady clock without changing cache or submission semantics.",
+      "reason": "Persist the Vulkan driver pipeline cache across game sessions, validate device/driver identity and checksummed payload, and save only after presentation drains or on teardown."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
@@ -1064,8 +1065,9 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_pipeline_cache.h",
-      "sha256": "92e08e9facaaed8f0cc0c8ef4b7957b481b56a4485ab38429560b095887c284f",
-      "description": "Keep in-memory graphics/compute specialization caches; omit the emulator disk-cache/debug-patching interface and match the Liverpool register-state struct ABI."
+      "sha256": "72c05a4cefd5d13569b14acdae366e9e6101df21b758ca93b8bcffeb186f181f",
+      "description": "Keep in-memory graphics/compute specialization caches; omit the emulator disk-cache/debug-patching interface and match the Liverpool register-state struct ABI.",
+      "reason": "Persist the Vulkan driver pipeline cache across game sessions, validate device/driver identity and checksummed payload, and save only after presentation drains or on teardown."
     },
     {
       "path": "src/shader_recompiler/params.h",

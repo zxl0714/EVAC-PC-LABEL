@@ -333,6 +333,7 @@ bool SetWindow(void *context, void *window, RuntimeError *error) noexcept {
         "Window binding requires a live HWND and presentation-enabled device");
     session.Drain();
     session.presenter.reset();
+    if(!window)session.rasterizer->GetPipelineCache().SaveDiskCache();
     session.window = Frontend::WindowSDL{Frontend::WindowSystemInfo{
         .render_surface = window, .type = Frontend::WindowSystemType::Windows}};
     if (window) {

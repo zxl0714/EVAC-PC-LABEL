@@ -25,6 +25,7 @@ struct HostSettings {
   bool vsync = true;
   bool diagnostic_shared_present_queue = false;
   bool (*diagnostic_sink)(const char*, std::size_t) noexcept = nullptr;
+  std::filesystem::path pipeline_cache_directory;
 };
 
 void ConfigureHost(HostSettings settings);
@@ -32,6 +33,7 @@ std::uint32_t ValidationErrors();
 std::uint32_t OverlaySubmissions();
 bool IsNeoMode();
 bool HasPresentationSupport();
+const std::filesystem::path& PipelineCacheDirectory();
 void TimingLog(const char* format, ...) noexcept;
 
 } // namespace Ketsui::GpuCore

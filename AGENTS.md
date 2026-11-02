@@ -10,6 +10,20 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+LATEST Nov02 cache follow-up: human requested small persistent cache despite first-use nature.
+PS4 pipeline disk cache implemented, tested cold/warm in ROM-free65draw smoke plus actual
+Feveron normal launch/FEVER demo. GPU driver data210091bytes saved on normal window
+teardown and accepted next process. Common10pipeline creation25.777->4.185ms; slowest
+10.752->.477ms. Shared all PS4 titles; cache/ps4/<game>, device+driver UUID, checksum,
+optional failure, no in-frame disk IO. API14 requires matching rebuilt host+DLL.
+Evidence .local/v090/analysis/feveron-pipeline-cache-game-r1.json. Both games closed.
+Noncompile long frames STILL present in actual cold/warm demo, including hot136.126ms
+frame4154 (46.189ms command execution,84.409ms GPU fence, .001ms pacing, no compile).
+No claim all stutter fixed. Investigation report in ANALYSIS v090 Feveron pipeline cache.
+Finish final incremental builds/receipts/tests and revised v090 packages once, then STOP
+before publication. Frozen9df candidates preserved; use new candidate source commit.
+ESPGaluda remains CLOSED per human; do not reopen any PS2 gameplay or optimization.
+
 LATEST HUMAN STEERING Nov02: STOP all ESPGaluda development/optimization/retests.
 Only consolidate existing measurements; PS2 latency estimate now27ms versusPCSX243ms,
 CPU .43/.25cores. Methods/assumptions in ANALYSIS v090-ps2-latency-estimate. Do NOT

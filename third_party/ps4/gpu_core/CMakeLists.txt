@@ -69,7 +69,7 @@ set(GPU_SOURCES
     upstream/src/common/recursive_lock.cpp
     upstream/src/common/error.cpp
     upstream/src/video_core/amdgpu/tiling.cpp
-    host/host_services.cpp host/cache_memory.cpp host/depth_transfer.cpp)
+    host/host_services.cpp host/cache_memory.cpp host/depth_transfer.cpp host/pipeline_disk_cache.cpp)
 add_library(KetsuiGpuCore STATIC ${GPU_SOURCES})
 add_dependencies(KetsuiGpuCore KetsuiGpuHostShaders)
 target_compile_features(KetsuiGpuCore PUBLIC cxx_std_23)
@@ -145,6 +145,13 @@ target_compile_options(KetsuiGpuCoreSmoke PRIVATE /EHsc /W4)
 target_link_options(KetsuiGpuCoreSmoke PRIVATE /DEBUG:FULL)
 
 enable_testing()
+add_executable(KetsuiPipelineDiskCacheTests host/pipeline_disk_cache.cpp "${BACKEND}/gpu_core/pipeline_disk_cache_tests.cpp")
+target_include_directories(KetsuiPipelineDiskCacheTests PRIVATE host)
+target_compile_features(KetsuiPipelineDiskCacheTests PRIVATE cxx_std_20)
+target_compile_definitions(KetsuiPipelineDiskCacheTests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_options(KetsuiPipelineDiskCacheTests PRIVATE /EHsc /W4)
+target_link_options(KetsuiPipelineDiskCacheTests PRIVATE /DEBUG:FULL)
+add_test(NAME gpu_pipeline_disk_cache COMMAND KetsuiPipelineDiskCacheTests)
 add_executable(KetsuiGpuCompileMetricsSmoke "${BACKEND}/gpu_core/compile_metrics_smoke.cpp")
 target_include_directories(KetsuiGpuCompileMetricsSmoke PRIVATE host)
 target_compile_features(KetsuiGpuCompileMetricsSmoke PRIVATE cxx_std_20)
@@ -167,6 +174,9 @@ target_compile_options(KetsuiGpuRuntimeSmoke PRIVATE /EHsc /W4)
 target_link_options(KetsuiGpuRuntimeSmoke PRIVATE /DEBUG:FULL)
 add_dependencies(KetsuiGpuRuntimeSmoke KetsuiGpuRuntime)
 add_test(NAME gpu_runtime_draw COMMAND KetsuiGpuRuntimeSmoke)
+add_test(NAME gpu_pipeline_cache_cold_warm COMMAND "${CMAKE_COMMAND}"
+    "-DPROBE=$<TARGET_FILE:KetsuiGpuRuntimeSmoke>" -P "${BACKEND}/gpu_core/pipeline_cache_smoke.cmake")
+set_tests_properties(gpu_pipeline_cache_cold_warm PROPERTIES TIMEOUT 65)
 set_tests_properties(gpu_runtime_draw PROPERTIES TIMEOUT 30)
 add_test(NAME gpu_runtime_present COMMAND KetsuiGpuRuntimeSmoke --presentation)
 set_tests_properties(gpu_runtime_present PROPERTIES TIMEOUT 30)

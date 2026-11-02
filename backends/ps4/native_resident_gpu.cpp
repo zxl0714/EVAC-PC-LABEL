@@ -70,7 +70,7 @@ struct NativeResidentGpu::Impl {
             mappings.erase(range.mapping_address);
         }
     }
-    explicit Impl(const std::filesystem::path& path, bool validation) {
+    explicit Impl(const std::filesystem::path& path, bool validation, const std::filesystem::path& pipeline_cache) {
         if (kt::diagnostics::TimingTraceEnabled()) {
             worker.SetObserver([](const GpuWorker::Timing& t) noexcept {
                 NativeLogf("{\"event\":\"native_gpu_worker_handoff\",\"began_clock_us\":%llu,\"enqueued_clock_us\":%llu,\"started_clock_us\":%llu,\"finished_clock_us\":%llu,\"clock_us\":%llu,\"worker_cpu_100ns\":%llu,\"caller_thread\":%u,\"worker_thread\":%u,\"queue_depth\":%u}\n",
@@ -95,7 +95,8 @@ struct NativeResidentGpu::Impl {
                 .neo = GetNativeProfile().neo,
                 .log_directory = path.parent_path(), .presentation_support = true,
                 .vsync = GetNativeDisplaySettings().vsync,
-                .diagnostic_sink = [](const char* data, std::size_t bytes) noexcept { return WriteNativeLog({data, bytes}); }};
+                .diagnostic_sink = [](const char* data, std::size_t bytes) noexcept { return WriteNativeLog({data, bytes}); },
+                .pipeline_cache_directory = pipeline_cache};
             worker.Sync([&] {
                 RuntimeError error;
                 Check(api.create(&settings, &memory, &context, &error), error);
@@ -120,9 +121,9 @@ struct NativeResidentGpu::Impl {
         FreeLibrary(library);
     }
 };
-NativeResidentGpu::NativeResidentGpu(const std::filesystem::path& path, bool validation) {
+NativeResidentGpu::NativeResidentGpu(const std::filesystem::path& path, bool validation, const std::filesystem::path& pipeline_cache) {
     if (active) { throw std::runtime_error("Resident GPU already exists"); }
-    impl = std::make_unique<Impl>(path, validation);
+    impl = std::make_unique<Impl>(path, validation, pipeline_cache);
     active = this;
     std::printf("{\"event\":\"native_gpu_backend\",\"backend\":\"resident\",\"sdk\":%u,\"attached_before_guest_entry\":true}\n", RuntimeApiVersion);
 }

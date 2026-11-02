@@ -44,6 +44,7 @@ std::uint32_t ValidationErrors() { return validation_errors.load(); }
 std::uint32_t OverlaySubmissions() { return overlay_submissions.load(); }
 bool IsNeoMode() { return settings.neo; }
 bool HasPresentationSupport() { return settings.native_window != nullptr || settings.presentation_support; }
+const std::filesystem::path& PipelineCacheDirectory() { return settings.pipeline_cache_directory; }
 void TimingLog(const char* format, ...) noexcept {
   char buffer[2048];
   va_list args; va_start(args,format);

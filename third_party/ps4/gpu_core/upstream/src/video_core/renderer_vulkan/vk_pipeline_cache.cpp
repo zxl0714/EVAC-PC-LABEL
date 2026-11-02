@@ -3,6 +3,7 @@
 
 #include <ranges>
 #include "compile_metrics.h"
+#include "host_services.h"
 
 #include "common/hash.h"
 #include "common/io_file.h"
@@ -328,16 +329,55 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .supports_shader_stencil_export = instance_.IsShaderStencilExportSupported(),
     };
 
-    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique({});
+    const auto properties = instance.GetPhysicalDevice().getProperties();
+    disk_identity.vendor = properties.vendorID;
+    disk_identity.device = properties.deviceID;
+    std::copy(properties.pipelineCacheUUID.begin(), properties.pipelineCacheUUID.end(),
+              disk_identity.uuid.begin());
+    disk_cache_path = Ketsui::GpuCore::PipelineDiskPath(
+        Ketsui::GpuCore::PipelineCacheDirectory(), disk_identity);
+    const auto disk_data = Ketsui::GpuCore::ReadPipelineDisk(disk_cache_path, disk_identity);
+    vk::PipelineCacheCreateInfo cache_info{};
+    cache_info.initialDataSize = disk_data.size();
+    cache_info.pInitialData = disk_data.data();
+    auto [cache_result, cache] = instance.GetDevice().createPipelineCacheUnique(cache_info);
+    const bool disk_accepted = !disk_data.empty() && cache_result == vk::Result::eSuccess;
+    if (cache_result != vk::Result::eSuccess && !disk_data.empty()) {
+        auto [empty_result, empty_cache] = instance.GetDevice().createPipelineCacheUnique({});
+        cache_result = empty_result;
+        cache = std::move(empty_cache);
+    }
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
+    Ketsui::GpuCore::TimingLog(
+        "{\"event\":\"native_gpu_pipeline_disk_cache\",\"operation\":\"load\","
+        "\"enabled\":%s,\"accepted\":%s,\"bytes\":%zu}\n",
+        disk_cache_path.empty() ? "false" : "true", disk_accepted ? "true" : "false", disk_data.size());
 }
 
 PipelineCache::~PipelineCache() {
+    SaveDiskCache();
     for (const auto& [hash, program] : program_cache) {
         (void)hash;
         for (const auto& module : program->modules) { instance.GetDevice().destroyShaderModule(module.module); }
+    }
+}
+
+void PipelineCache::SaveDiskCache() noexcept {
+    if (disk_cache_path.empty() || num_new_pipelines == num_saved_pipelines) { return; }
+    try {
+        const auto [result, data] = instance.GetDevice().getPipelineCacheData(*pipeline_cache);
+        const bool saved = result == vk::Result::eSuccess &&
+            Ketsui::GpuCore::WritePipelineDisk(disk_cache_path, data, disk_identity);
+        if (saved) { num_saved_pipelines = num_new_pipelines; }
+        Ketsui::GpuCore::TimingLog(
+            "{\"event\":\"native_gpu_pipeline_disk_cache\",\"operation\":\"save\","
+            "\"success\":%s,\"bytes\":%zu,\"pipelines\":%u}\n",
+            saved ? "true" : "false", data.size(), num_new_pipelines);
+    } catch (...) {
+        Ketsui::GpuCore::TimingLog(
+            "{\"event\":\"native_gpu_pipeline_disk_cache\",\"operation\":\"save\",\"success\":false}\n");
     }
 }
 

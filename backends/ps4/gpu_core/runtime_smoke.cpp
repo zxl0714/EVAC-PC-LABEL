@@ -127,7 +127,7 @@ struct NativeSession {
     }
   }
   NativeSession(const RuntimeApi &api_, bool validation, void *window = nullptr, bool vsync = true,
-                bool shared_present_queue = false)
+                bool shared_present_queue = false,const std::filesystem::path& pipeline_cache = {})
       : api{api_} {
     const HostSettings settings{.validation_core = validation,
                                 .validation_sync = validation,
@@ -135,7 +135,8 @@ struct NativeSession {
                                     std::filesystem::current_path(),
                                 .presentation_support = window != nullptr,
                                 .vsync = vsync,
-                                .diagnostic_shared_present_queue = shared_present_queue};
+                                .diagnostic_shared_present_queue = shared_present_queue,
+                                .pipeline_cache_directory = pipeline_cache};
     worker.Sync([&] {
       RuntimeError error;
       Call(api.create(&settings, &memory, &context, &error), error);
@@ -293,6 +294,7 @@ unsigned CheckPixels(NativeSession &session, bool green) {
 int main(int argc, char **argv) {
   try {
     bool validation = false, presentation = false, interactive = false, vsync = true, shared_present_queue = false, compatibility = false;
+    std::filesystem::path pipeline_cache;
     for (int i = 1; i < argc; ++i) {
       const std::string_view argument{argv[i]};
       if (argument == "--validation") {
@@ -308,6 +310,8 @@ int main(int argc, char **argv) {
       } else if (argument == "--present-compat") {
         compatibility = true;
         _putenv_s("EVAC_PS4_PRESENT_COMPAT", "1");
+      } else if (argument == "--pipeline-cache" && i+1<argc) {
+        pipeline_cache=std::filesystem::absolute(argv[++i]);
       } else {
         throw std::runtime_error("Unknown runtime smoke argument");
       }
@@ -334,7 +338,7 @@ int main(int argc, char **argv) {
     u64 resident_read_bytes = 0, resident_write_bytes = 0;
     {
       NativeSession session{library.api, validation,
-                            window ? window->Handle() : nullptr, vsync, shared_present_queue};
+                            window ? window->Handle() : nullptr, vsync, shared_present_queue,pipeline_cache};
       Allocation allocation;
       if (window) {
         auto write_lease =
