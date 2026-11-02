@@ -70,6 +70,17 @@ class Ps2InputOrder(unittest.TestCase):
             prepare(generated,output)
             (output/'identity.json').write_text('{}',encoding='utf8')
             with self.assertRaises(ValueError):verify(generated,output)
+
+    def test_compacted_frame_entries_patch_the_shared_body_once(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);generated=root/'original';generated.mkdir();output=root/'compiled'
+            (generated/FILES[0]).write_text(fixture(),encoding='utf8')
+            name=Path(FILES[0]).stem
+            (generated/'register_functions.cpp').write_text(
+                f'g_ps2RecompiledFunctionTable[0] = {name}; // 0x1004d0\n'
+                f'g_ps2RecompiledFunctionTable[1] = {name}; // 0x1007b0\n')
+            prepare(generated,output)
+            self.assertEqual(len(verify(generated,output)['files']),1)
             prepare(generated,output)
             (generated/FILES[0]).write_text('changed original body',encoding='utf8')
             with self.assertRaises(ValueError):verify(generated,output)

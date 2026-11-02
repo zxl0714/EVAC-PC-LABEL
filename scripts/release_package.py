@@ -16,7 +16,7 @@ from generate_catalogue import load, relative
 from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from ps4_build_receipt import verify as verify_ps4
-from ps2_build_receipt import verify as verify_ps2
+from ps2_build_receipt import verify_package as verify_ps2
 import ps4_extract_tools
 from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
 

@@ -1,5 +1,15 @@
 # 更新记录
 
+## v0.9.1
+
+- 精简 ESPGaluda 的重复生成代码，缩小程序体积。
+- 优化 PS2 构建与打包校验流程。
+
+### English
+
+- Reduced duplicate generated code in ESPGaluda to shrink the executable.
+- Streamlined PS2 builds and package verification.
+
 ## v0.9.0
 
 - 新增 PS2《エスプガルーダ / ESPGaluda》，支持 ARCADE、ARRANGE、练习、画廊及记忆卡存档。

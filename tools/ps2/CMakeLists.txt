@@ -250,6 +250,18 @@ if(PS2_BUILD_RUNTIME)
   target_link_libraries(ps2_sdk_codegen_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_sdk_codegen_contract COMMAND ps2_sdk_codegen_contract)
 
+  set(compactFixture "${CMAKE_BINARY_DIR}/compact-fixture")
+  add_custom_command(OUTPUT "${compactFixture}/fixture.h"
+    COMMAND py -3.12 "${COLLECTION_ROOT}/tests/ps2_generate_compact_fixture.py"
+      --tool $<TARGET_FILE:ps2_recomp> --output "${compactFixture}"
+    DEPENDS ps2_recomp "${COLLECTION_ROOT}/tests/ps2_generate_compact_fixture.py"
+      "${COLLECTION_ROOT}/scripts/ps2_compact.py" VERBATIM)
+  add_executable(ps2_compact_contract "${COLLECTION_ROOT}/tests/ps2_compact_test.cpp"
+    "${compactFixture}/fixture.h")
+  target_include_directories(ps2_compact_contract PRIVATE "${compactFixture}")
+  target_link_libraries(ps2_compact_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_compact_contract COMMAND ps2_compact_contract)
+
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   option(PS2_GAME_SYMBOLS "Link full PDBs for generated game hosts" ON)
   set(PS2_ARCADE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARCADE module")

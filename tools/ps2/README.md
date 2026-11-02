@@ -26,6 +26,28 @@ the boot ELF, segments and file inventory. Module preparation uses
 `scripts/ps2_module.py`; code generation and its report validation use
 `scripts/ps2_codegen.py`.
 
+## Shared internal-entry generation
+
+Set `compact_entries = true` in the recompiler configuration's `[general]`
+section, then run `scripts/ps2_codegen.py` as usual. The common preparation
+step folds nested `entry_*` ranges into their owning original function and
+keeps their callable PCs in the generator's resume table. Standalone entries,
+native bindings and branch-delay-slot entries retain independent bodies.
+ESPGaluda enables this for its base modules; Ibara can use the same option.
+
+The receipt's `compaction` section records original/shared body counts,
+instruction ranges, tool/input hashes and the generated-entry verification.
+For analysis without running the recompiler:
+
+```powershell
+py -3.12 scripts/ps2_compact.py '<config.toml>' --output '<new-analysis-directory>'
+```
+
+This writes a derived function map, configuration and report; the input map,
+ELF and original generated files stay unchanged. `ps2_compact_contract` builds
+and executes authored baseline/compact programs to compare entries, calls,
+yield/resume, likely branches, delay slots and loops without game data.
+
 ## Analysis entries
 
 Use Ghidra's Emotion Engine processor and the pinned upstream function exporter.

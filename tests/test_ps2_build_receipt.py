@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
@@ -33,6 +34,36 @@ class Ps2ReceiptTests(unittest.TestCase):
         a.write_text('void authored_extra() {}\n')
         self.assertEqual(receipt.tree_identity(source)['files'],3)
         with self.assertRaises(ValueError):receipt.tree_identity(self.root/'empty')
+
+    def test_package_reuses_certificate_but_checks_actual_payload_bytes(self):
+        source=dict(files={'authored.cpp':'original-source-identity'},game='espgaluda')
+        source['sha256']=hashlib.sha256(json.dumps(source,sort_keys=True).encode()).hexdigest()
+        outputs=[]
+        for name in receipt.OUTPUTS:
+            path=self.root/'out/ps2-tools/bin'/name
+            path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes(('authored '+name).encode())
+            outputs.append(dict(path=path.relative_to(self.root).as_posix(),bytes=path.stat().st_size,
+                                sha256=receipt.digest(path)))
+        value=dict(format=1,backend='ps2',games=['espgaluda'],sourceCommit='frozen',sourceDirty=False,
+                   sourceSnapshot=source,outputs=outputs)
+        record=self.root/'receipt.json';record.write_text(json.dumps(value))
+        original_digest=receipt.digest
+        def payload_digest(path):
+            self.assertNotEqual(Path(path).suffix,'.pdb','Packaging reread an excluded PDB')
+            return original_digest(path)
+        with patch.object(receipt,'ROOT',self.root),patch.object(receipt,'RECEIPT',record), \
+             patch.object(receipt,'snapshot',side_effect=AssertionError('Rescanned generated source')), \
+             patch.object(receipt,'digest',side_effect=payload_digest), \
+             patch.object(receipt.subprocess,'check_output',side_effect=lambda args:
+                          b'frozen' if 'rev-parse' in args else b''):
+            self.assertEqual(receipt.verify_package(),value)
+            (self.root/'out/ps2-tools/bin/espgaluda.exe').write_bytes(b'changed executable')
+            with self.assertRaisesRegex(ValueError,'output differs'):
+                receipt.verify_package()
+            value['sourceCommit']='different';record.write_text(json.dumps(value))
+            with self.assertRaisesRegex(ValueError,'clean source commit'):
+                receipt.verify_package()
 
     def test_configuration_requires_release_symbols_lto_and_pinned_tools(self):
         tools={name:self.root/name for name in ('clang-cl','ninja')}

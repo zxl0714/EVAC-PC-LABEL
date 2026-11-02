@@ -10,6 +10,48 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+ACTIVE v0.9.1 implementation: common PS2 source-level compaction, execution
+regressions, complete ESPGaluda rebuild/gameplay, measured size/build benefits,
+packaging efficiency and local program package. Do not publish automatically.
+Existing v0.9.0 release/tag/packages and installed C:/evac-pc-label stay intact.
+New scripts/ps2_compact.py folds nested entry_* maps into original owner bodies
+using pinned generator entry_points/resume dispatch. Keep native/protected,
+standalone/crossing and branch-delay-slot entries independent. Old Size fields
+may be stale after map refinement; Start/End are authoritative. Extra inventories
+retain their explicit symbols. No generated game C++ edited.
+Small real module07:552->18 bodies, all1522 original callable PCs retained.
+Full accepted inputs .local/v091/espgaluda-r2, 103.904s generation; old inputs
+.local/v090/repro-inputs-r1. All31tables preserve1,866,931 old address slots,
+528546->33369 generated bodies (93.69% fewer),495177 shared entries. Native
+authored baseline/compact execution640 comparisons PASS (direct+indirect calls,
+yields/resume, branch likely/delay slots/loops). Evidence compact-contract-r2.log,
+out/ps2-native-check/Testing/Temporary/LastTest.log. Ibara reuse PASS:17953->7510
+bodies,10443 shared entries; .local/v091/ibara-reuse-r1/codegen.json, not gameplay.
+Initial r1 stopped on actual ELF owner remapping; verifier now checks real body
+bounds and resume labels, not CSV owner equality. Do NOT resume r1 or regenerate
+r2 merely for a docs change. Old EXE/PDB/receipt copied to .local/v091/baseline.
+ACTIVE full native compile exec23395, log .local/v091/build-r1.log (226steps,
+currently ARRANGE/stage objects). Source tests/version docs were finalized during
+this DEVELOPMENT compile, so finish certification may reject changed snapshot;
+retain binaries, then do a clean-commit incremental recertification, not full
+regeneration. Original native-fixture exec7841 was intentionally stopped during
+huge old game CMake generation; native-check graph93485/87970 completed instead.
+Full Python suite969 tests PASS/1skip using bundled CPython3.12+numpy; log
+.local/v091/source-final-r1.log. System py3.12 lacks numpy; original suite's
+import error and outdated CLI9game assertions were investigated, fixed/rechecked.
+Package52 tests PASS/1skip, PS2 receipt7 PASS; focused compaction8 and input7 PASS.
+Module07 single-TU O2/full-symbol compile+archive sample8.574->5.719s,
+library7281916->3978630bytes (.local/v091/compile-bench/result.json), not full link.
+Input-order tool now resolves source owners from actual table; same late-v1 policy.
+Packaging uses verify_package() to require frozen clean commit, consistent source
+certificate and actual EXE/DLL hashes, without rereading excluded source/PDB.
+Remaining: finish live full rebuild; measure EXE/PDB, run actual ARCADE/ARRANGE,
+boss/practice/gallery/return/cold-save small regression; update size/cost evidence
+and concise091notes. Freeze source, recertify/stage all components and output one
+Public-only program ZIP with one real extraction, then stop before publication.
+
+## v0.9.0 published checkpoint
+
 COMPLETE Nov03 v0.9.0 FORMALLY PUBLISHED as GitHub Latest at03:24 CST.
 Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.0.
 main pushed through df3f309; annotated tag v0.9.0 points to frozen runtime/package
@@ -68,9 +110,16 @@ cf21bc215848b10cfdc7a4325e6ad1f8678e1f311b645260d1961cfd322c7af8. GUI production
 upload20261102-1733da67db7a49a2 verified. Text-only ZIP,32MiB compressed/128MiB
 text, no binary dumps/ROM, private SSH retrieval. Server unchanged since deploy.
 
-NEXT VERSION user requests recorded in docs/PS2_RUNTIME_PLAN.md: shrink PS2 EXE
-AND local PDB, deduplicate interior branch/resume bodies while preserving PC,
-registers,scheduler,module semantics, quantify size+build/link/certification time;
+NEXT v0.9.1 planning recorded in docs/PS2_RUNTIME_PLAN.md and IMPLEMENTATION_PLAN:
+build shared PS2 analysis/generation compaction tools for ESPGaluda and later
+Ibara, configured per game/module. Analyze overlapping bodies/interior entries,
+share generated code while preserving PC, registers, delay slots, scheduler and
+module semantics; never merge overlay code solely because addresses match.
+Use ROM-free mechanism fixtures, then affected-game short regression; use Ibara
+existing analysis to check reuse without requiring its full playable support.
+Observe PDB reduction from source-level deduplication, not a separate symbols
+project unless it remains abnormally large. Quantify EXE/PDB size, generated
+file count and generation/build/link/certification time. No compaction implemented.
 packaging certify frozen build ONCE then verify actual payloads, no repeated
 source/PDB scan. Current EXE599135232bytes/PDB4061732864bytes accepted this release.
 Read-only comparison: FutariEXE+8DLLs97.8MB(shared runtime separate),50306functions;

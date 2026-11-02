@@ -130,6 +130,36 @@ def verify():
     return record
 
 
+def verify_package():
+    """Verify release payloads against a completed, frozen build certificate.
+
+    Full source/dependency/PDB validation belongs to build finish. Packaging
+    requires that exact clean commit and rechecks the bytes it will distribute.
+    """
+    record = json.loads(RECEIPT.read_text(encoding='utf-8'))
+    commit = subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD']).decode().strip()
+    dirty = subprocess.check_output(['git','-C',str(ROOT),'status','--porcelain'])
+    if (record.get('format') != 1 or record.get('backend') != 'ps2' or
+            record.get('games') != ['espgaluda'] or record.get('sourceCommit') != commit or
+            record.get('sourceDirty') is not False or dirty):
+        raise ValueError('PS2 package requires its certified clean source commit')
+    source = dict(record['sourceSnapshot'])
+    declared = source.pop('sha256', None)
+    if declared != hashlib.sha256(json.dumps(source,sort_keys=True).encode()).hexdigest():
+        raise ValueError('PS2 source certificate is inconsistent')
+    expected = {'out/ps2-tools/bin/' + name for name in OUTPUTS}
+    if len(record['outputs']) != len(expected) or {item['path'] for item in record['outputs']} != expected:
+        raise ValueError('Incomplete PS2 build receipt')
+    for item in record['outputs']:
+        if Path(item['path']).suffix == '.pdb':
+            continue
+        path = ROOT / item['path']
+        reject_link(path)
+        if path.stat().st_size != item['bytes'] or digest(path) != item['sha256']:
+            raise ValueError('PS2 package output differs: ' + item['path'])
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['begin', 'finish', 'verify'])

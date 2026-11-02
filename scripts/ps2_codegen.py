@@ -12,10 +12,12 @@ import struct
 import subprocess
 import tomllib
 import uuid
+import time
 
 from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import restore
 from ps2_module_extras import guest_branch_targets, table_entries
+import ps2_compact
 
 
 SDK_LIFECYCLES = (
@@ -368,8 +370,14 @@ def generate(config, log, receipt, root=ROOT):
         raise FileExistsError('Use an empty generation directory; existing outputs are preserved')
     config_hash, tool_hash = digest(config), digest(tool)
     log.parent.mkdir(parents=True, exist_ok=True)
+    invocation = config
+    compact = None
+    if general.get('compact_entries', False):
+        compact = ps2_compact.prepare(config, receipt.with_name(receipt.stem + '-compact'))
+        invocation = Path(compact['config'])
+    started = time.perf_counter()
     with log.open('xb') as output:
-        result = subprocess.run([str(tool), str(config)], cwd=root,
+        result = subprocess.run([str(tool), str(invocation)], cwd=root,
                                 stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
                                 timeout=600)
     if result.returncode:
@@ -377,6 +385,9 @@ def generate(config, log, receipt, root=ROOT):
     # The upstream CLI can return zero despite unhandled instructions or output
     # errors. Its version is pinned; a changed report format must be reviewed.
     summary = translation_summary(log.read_text(encoding='utf-8', errors='replace'))
+    if compact is not None:
+        linked = table_entries(destination / 'register_functions.cpp')
+        compact['verification'] = ps2_compact.verify_generated(compact, destination, linked)
     static_edges = (validate_static_edges(destination, inputs['input']['path'])
                     if general.get('require_static_edges', False) else None)
     if digest(config) != config_hash or digest(tool) != tool_hash:
@@ -392,6 +403,11 @@ def generate(config, log, receipt, root=ROOT):
         value['sdkLifecycles']=sdk_lifecycles
     if static_edges is not None:
         value['staticEdges']=static_edges
+    value['generationSeconds'] = time.perf_counter() - started
+    if compact is not None:
+        value['compaction'] = {k: v for k, v in compact.items() if k != 'aliases'}
+        value['compaction']['toolSha256'] = digest(Path(ps2_compact.__file__))
+        value['compaction']['reportSha256'] = digest(invocation.parent / 'report.json')
     write_json_new(receipt, value)
     return value
 

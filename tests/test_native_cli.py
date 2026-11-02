@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / 'out/common/bin/cave_inspect.exe'
-GAMES = ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga')
+GAMES = ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara')
 CATALOGUE = json.loads((ROOT / 'games/catalogue.json').read_text(encoding='utf-8'))['games']
 
 
@@ -56,9 +56,11 @@ class NativeCliTests(unittest.TestCase):
             before = sorted(path.relative_to(root) for path in root.rglob('*'))
             rows = self.run_cli(root)['games']
             self.assertEqual([row['id'] for row in rows], list(GAMES))
-            self.assertEqual([row['dataState'] for row in rows], ['missing_data'] * len(GAMES))
+            self.assertEqual([row['dataState'] for row in rows],
+                             ['missing_data' if game['integrated'] else 'unknown_layout' for game in CATALOGUE])
             self.assertEqual([row['state'] for row in rows],
-                             ['missing_data' if game['integrated'] else 'not_integrated' for game in CATALOGUE])
+                             ['coming_soon' if game['comingSoon'] else
+                              'missing_data' if game['integrated'] else 'not_integrated' for game in CATALOGUE])
             self.assertTrue(all(not row['candidateRoots'] for row in rows))
             self.assertEqual(before, sorted(path.relative_to(root) for path in root.rglob('*')))
 

@@ -15,6 +15,7 @@ from ps2_codegen import generate, tree_identity, equivalence_path, verify_equiva
 from ps2_disc import Iso9660, inspect as inspect_disc
 from ps2_module import analysis_elf, prepare_modules
 from ps2_translation_units import write_changed
+from ps2_compact import POLICY as COMPACT_POLICY
 
 
 METADATA = ROOT / 'games/espgaluda/analysis/manifest.json'
@@ -24,6 +25,7 @@ def default_output():
     paths = [METADATA, Path(__file__), ROOT / 'scripts/ps2_module.py',
              ROOT / 'games/espgaluda/modules.json', ROOT / 'games/espgaluda/sdk_bindings.cpp',
              ROOT / 'out/ps2-tools/bin/ps2_recomp.exe']
+    paths += [ROOT / 'scripts/ps2_codegen.py', ROOT / 'scripts/ps2_compact.py']
     fingerprint = hashlib.sha256(''.join(digest(path) for path in paths).encode()).hexdigest()[:20]
     return ROOT / '.local/ps2/espgaluda' / fingerprint
 
@@ -115,7 +117,7 @@ def config_text(general, elf, output, function_map, sdk=None):
     return '[general]\n' + ''.join(k + ' = ' + json.dumps(v, ensure_ascii=True) + '\n' for k, v in values.items())
 
 
-def prepare(iso, output, metadata=METADATA):
+def prepare(iso, output, metadata=METADATA, compact=True):
     iso, output, metadata = Path(iso).resolve(), Path(output).resolve(), Path(metadata).resolve()
     reject_link(iso)
     reject_link(output)
@@ -151,12 +153,17 @@ def prepare(iso, output, metadata=METADATA):
             for label, config in [('base', module), *([('extra', module['extra'])] if 'extra' in module else [])]:
                 function_map = directory / (label + '.csv')
                 function_map.write_bytes(read_map(metadata.parent, config))
-                text = config_text(config['general'], elf, directory / (label + '-generated'), function_map,
+                general = dict(config['general'])
+                # Extensions retain explicit body names for their build glue.
+                # Base modules share their synthetic interior entries.
+                if compact and label == 'base':
+                    general['compact_entries'] = True
+                text = config_text(general, elf, directory / (label + '-generated'), function_map,
                                    ROOT / 'games/espgaluda/sdk_bindings.cpp' if not number and label == 'base' else None)
                 (directory / (label + '.toml')).write_text(text, encoding='utf-8', newline='\n')
     (prepared / 'prepared.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8', newline='\n')
     plan = dict(format=1, metadataSha256=digest(metadata), metadata=str(metadata), iso=str(iso),
-                output=str(output), modules=spec['modules'])
+                output=str(output), modules=spec['modules'], compaction=COMPACT_POLICY if compact else None)
     (output / 'plan.json').write_text(json.dumps(plan, indent=2) + '\n', encoding='utf-8', newline='\n')
     return plan
 
@@ -199,6 +206,12 @@ def generate_all(output, progress=None, refresh=False, source_identities=None):
                         identity = verify_equivalence(config, report, expected['toolSha256'])
                     if source_identities is not None:
                         source_identities[str(directory / (label + '-generated'))] = identity
+                if general.get('compact_entries'):
+                    proof = previous.get('compaction', {})
+                    if (proof.get('policy') != COMPACT_POLICY or
+                            proof.get('toolSha256') != digest(ROOT / 'scripts/ps2_compact.py') or
+                            proof.get('reportSha256') != digest(report.with_name(report.stem+'-compact')/'report.json')):
+                        raise ValueError('PS2 compaction inputs changed; prepare fresh generation')
             else:
                 generate(config, directory / (label + '-codegen.log'), report)
             if source_identities is not None:

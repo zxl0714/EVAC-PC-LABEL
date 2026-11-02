@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from ps2_translation_units import write_changed
+from ps2_module_extras import table_entries
 
 
 # The two pad routines remain consecutive and in their original order. The
@@ -15,6 +16,16 @@ CALLS = ((0x1007b4, 0x11e840, 0x11d480),
          (0x1007c4, 0x11d480, 0x1210a0))
 FILES = ('FUN_001004d0_0x1004d0.cpp', 'entry_001007b0_0x1007b0.cpp')
 POLICY = 'late-v1'
+
+
+def source_files(generated):
+    table = Path(generated) / 'register_functions.cpp'
+    if not table.exists():
+        return FILES  # Authored source-only rewrite fixtures.
+    entries = table_entries(table)
+    if not {0x1004d0, 0x1007b0} <= entries.keys():
+        raise ValueError('Missing ESPGaluda frame-loop entries')
+    return tuple(dict.fromkeys(entries[pc] + '.cpp' for pc in (0x1004d0, 0x1007b0)))
 
 
 def rewrite(source):
@@ -44,7 +55,7 @@ def prepare(generated, output):
         raise ValueError('Candidate output must be outside the original generated tree')
     output.mkdir(parents=True, exist_ok=True)
     identities = []
-    for name in FILES:
+    for name in source_files(generated):
         original = (generated/name).read_text(encoding='utf8')
         candidate = rewrite(original)
         write_changed(output/name, candidate)
@@ -59,7 +70,7 @@ def prepare(generated, output):
 def verify(generated, output):
     generated, output = Path(generated).resolve(strict=True), Path(output).resolve(strict=True)
     identities = []
-    for name in FILES:
+    for name in source_files(generated):
         original = (generated/name).read_text(encoding='utf8')
         expected = rewrite(original)
         if (output/name).read_text(encoding='utf8') != expected:
