@@ -17,7 +17,52 @@ original-data changes or cleanup. No push/GitHub/OSS/QQ. Goal NOT complete.
 Scope docs/PS2_RUNTIME_PLAN.md. Product remains0.8.4; no final v0.9 ZIPs.
 Dangun dropped frames is unchecked at top docs/IMPLEMENTATION_PLAN.md, not fixed.
 
-No game or build running at this checkpoint. All test games closed normally.
+LIVE private ABI rebuild: exec session 62493, Ninja PID17744, start Nov02 17:58:16 CST,
+path tools/apps/ninja-1.11.0/ninja.exe, target ps2_module_contract + ps2_espgaluda_probe.
+Latest observed 1495/2171 tasks; log .local/v090/analysis/module-range-game-build-r1.log.
+Poll SAME session with write_stdin; no restart for observation timeout. Four jobs this run
+with >14GiB available RAM and BelowNormal priority; future default remains two jobs.
+No game is running. Failed private PCSX2 r1 PID34228 was identity-checked and stopped;
+successful PCSX2 r2, native98136 and private WSI probes all exited. No Task Manager.
+
+LATEST HUMAN STEERING: repeated validation is taking too long. Reuse unaffected accepted
+results. After this full build, run only affected short regression, ONE ordinary performance
+before/after window, and new-score cold-save, then docs/package. Expand investigation only
+for a specific failed metric or observed defect. Do NOT add experimental probes, repeated
+screenshots or whole-mode campaigns as release gates. CPU/latency/frame goals remain;
+optional WSI research is NOT a mandatory extra gate. Scope updated in PS2_RUNTIME_PLAN.
+
+New progress this goal turn (local source commit574e7d6, no push):
+- StaticModules range guard adopted EXACTLY from frozen module-range-bench-r1 candidate.
+  Production standalone module contract rebuilt and PASSED; all game objects rebuilding
+  because StaticModules size changes runtime ABI. No cached active headers or reordering.
+  Proof analysis/module-range-adoption-r1.json. Whole-game CPU gain not yet measured.
+- Low-input e948 candidate ARRANGE actual Chihiro selection/stage1, Kakusei250->238,
+  visible independent Cross barrier, pause/resume and QUIT YES title return PASSED.
+  latency/late-input-arrange-r2/acceptance.json + four PNGs; synthetic118 committed,
+  0 incomplete/overflow; queued302673 submitted/completed, exit33419fields/0readbacks.
+  Heavy trace-audio run: NOT performance/audio-glitch or BOSS-lifecycle evidence.
+  Opening animation ignores Start; wait actual HUD/enemies before pause. Last synthetic
+  hold is still active when client returns; wait release before a different command.
+- Read-only PCSX2 PINE probe resolves the formerly unknown input-consumption step.
+  Official2.8.2, original BOSS state, right read at maincounter15293, first motion15295;
+  left read15296, first reversal15298. Both Pad-consumption->response gaps TWO updates.
+  Seven screenshots reviewed and green-sprite centroid check corroborates motion.
+  latency/pcsx2-pine-r2/response-review.json hashes21 files. Not wall-clock/panel latency.
+  Private EnablePINE and StartPaused restored false. Original ISO remains read-only.
+- Private Vulkan vs Granite DXGI WSI pair now builds separately with frozen libraries,
+  both using sampled output (extra usage0). tools/latency/build_ps2_wsi_bench.py and
+  tools/ps2-gs/wsi_probe.cpp. Correct DPI-aware r3 binaries ready; exec87900 terminal0.
+  r2 both smoke PASS, DXGI initialization confirmed,0readbacks; visible Sky launch
+  shows expected blue field and black bars. Hidden Start-Process suppresses the first
+  ShowWindow: do not repeat that trap. r3 matches game's per-monitor DPI policy.
+  No performance conclusion under active compiler load, no production WSI change.
+  This optional comparison must not become another mandatory release gate.
+- Original LIBSD hot IO PIO loop at loaded4be90 = IRX2690 copies halfwords into a fixed
+  sound register: LHU,ADDIU source,ADDIU count,SH,SLT,BNE,NOP. It is actual transfer
+  work, NOT an idle polling loop to remove. No behavior changed.
+- New mechanism helpers compiled; four input-order tests PASS. No new v0.9 ZIP yet.
+
 Current developer out/ps2-tools/bin/espgaluda.exe is a PRIVATE late-input candidate:
 e94840fbeb4535717ebdca057b60d7cb072aec0c58a7f50fa22ea2419a96b1b0.
 CMake cache PS2_EXPERIMENTAL_LATE_INPUT=ON; default is OFF. New certification
@@ -64,8 +109,8 @@ Latest concrete progress:
   Fixed sstate .local/v090/pcsx2/official-v2.8.2/sstates/SLPS-25352 (59BF6019).01.p2s.
 
 Open requirements / next work:
-1. Validate late-input candidate in ARRANGE, music/BOSS/restart and remaining
-   controls; solve >19ms VBlank/graphics waits. Need complete same-scope PCSX2
+1. ARRANGE late-input short controls now PASS; reuse unaffected prior audio acceptance.
+   Complete only remaining affected short checks; solve observed >19ms waits. Need complete same-scope PCSX2
    latency and presentation-tail comparison. Present return is NOT display.
 2. CPU below .249 target still not met. Current hotspots native-hotspots-current-r1
    show EE checkpoint, IOP interpreter/scheduling, SPU; graphics includes driver
