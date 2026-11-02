@@ -1431,7 +1431,16 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
         return false;
     }
 
-    if (!hasFunction(targetPc))
+    // Resolve once at this safe point. hasFunction()+lookupFunction() repeated
+    // the same live-overlay header and sparse-table checks for every call.
+    RecompiledFunction targetFn = m_staticModules.lookup(targetPc);
+    if (targetFn == nullptr)
+    {
+        uint32_t slot = 0u;
+        if (generatedFunctionTableSlot(targetPc, slot))
+            targetFn = g_ps2RecompiledFunctionTable[slot];
+    }
+    if (targetFn == nullptr)
     {
         reportMissingFunction(rdram, ctx, targetPc, sourcePc, kind, debugName);
 
@@ -1453,7 +1462,7 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
         return false;
     }
 
-    RecompiledFunction targetFn = lookupFunction(targetPc);
+    pushDispatchPc(targetPc);
     const auto* callerModule = m_staticModules.selected(sourcePc);
     targetFn(rdram, ctx, this);
 
