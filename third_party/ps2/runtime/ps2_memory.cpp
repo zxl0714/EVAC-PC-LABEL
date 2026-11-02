@@ -404,6 +404,8 @@ bool PS2Memory::initialize(size_t ramSize)
 void PS2Memory::resetEeTimers() noexcept
 {
     m_eeTimers = {};
+    m_eeTimerPendingCycles = 0u;
+    m_eeTimerInterruptDeadline = std::numeric_limits<uint64_t>::max();
 }
 
 uint32_t PS2Memory::advanceEeTimers(uint64_t eeCycles) noexcept
@@ -423,6 +425,28 @@ uint32_t PS2Memory::advanceEeTimers(uint64_t eeCycles) noexcept
         m_gifFqcPending = false;
     }
 
+    uint32_t interruptMask = 0u;
+    // Preserve all cycles even for API callers advancing by UINT64_MAX after
+    // a partial advance; accumulating those two values must not wrap.
+    if (eeCycles > std::numeric_limits<uint64_t>::max() - m_eeTimerPendingCycles)
+        interruptMask = synchronizeEeTimers();
+    m_eeTimerPendingCycles += eeCycles;
+    if (m_eeTimerPendingCycles >= m_eeTimerInterruptDeadline)
+        interruptMask |= synchronizeEeTimers();
+    return interruptMask;
+}
+
+uint32_t PS2Memory::synchronizeEeTimers() noexcept
+{
+    const uint64_t elapsed = m_eeTimerPendingCycles;
+    m_eeTimerPendingCycles = 0u;
+    const uint32_t interrupts = advanceEeTimersNow(elapsed);
+    m_eeTimerInterruptDeadline = computeEeTimerInterruptDeadline();
+    return interrupts;
+}
+
+uint32_t PS2Memory::advanceEeTimersNow(uint64_t eeCycles) noexcept
+{
     uint32_t interruptMask = 0u;
     for (size_t index = 0; index < m_eeTimers.size(); ++index)
     {
@@ -487,6 +511,13 @@ uint32_t PS2Memory::advanceEeTimers(uint64_t eeCycles) noexcept
 }
 
 uint64_t PS2Memory::cyclesUntilNextEeTimerInterrupt() const noexcept
+{
+    if (m_eeTimerInterruptDeadline == std::numeric_limits<uint64_t>::max())
+        return m_eeTimerInterruptDeadline;
+    return m_eeTimerInterruptDeadline - m_eeTimerPendingCycles;
+}
+
+uint64_t PS2Memory::computeEeTimerInterruptDeadline() const noexcept
 {
     uint64_t nearest = std::numeric_limits<uint64_t>::max();
     for (const EeTimer &timer : m_eeTimers)
@@ -1108,6 +1139,7 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
     uint32_t timerOffset = 0u;
     if (decodeEeTimerRegister(address, timerIndex, timerOffset))
     {
+        synchronizeEeTimers();
         EeTimer &timer = m_eeTimers[timerIndex];
         switch (timerOffset)
         {
@@ -1135,6 +1167,7 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
         default:
             return false;
         }
+        m_eeTimerInterruptDeadline = computeEeTimerInterruptDeadline();
         return true;
     }
 
@@ -2254,6 +2287,7 @@ uint32_t PS2Memory::readIORegister(uint32_t address)
     uint32_t timerOffset = 0u;
     if (decodeEeTimerRegister(address, timerIndex, timerOffset))
     {
+        synchronizeEeTimers();
         const EeTimer &timer = m_eeTimers[timerIndex];
         switch (timerOffset)
         {

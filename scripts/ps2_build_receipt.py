@@ -37,10 +37,10 @@ def configuration(build=BUILD):
     return values
 
 
-def generation(values):
+def generation(values, refresh=False):
     output = Path(values['PS2_GAME_GENERATED']).parent.parent
     identities = {}
-    inputs = generate_all(output, source_identities=identities)
+    inputs = generate_all(output, source_identities=identities, refresh=refresh)
     expected = dict(PS2_GAME_GENERATED=inputs['boot'], PS2_ARCADE_GENERATED=inputs['arcade'],
                     PS2_ARRANGE_GENERATED=inputs['arrange'], PS2_STAGE_MODULES_MANIFEST=inputs['stages'],
                     PS2_MODE_EXTRAS_MANIFEST=inputs['extras'])
@@ -53,7 +53,7 @@ def generation(values):
                 extras=digest(Path(inputs['extras'])), sources=[identities[str(p)] for p in directories])
 
 
-def snapshot():
+def snapshot(refresh=False):
     dependencies = locked_dependencies(ROOT, 'ps2')
     for item in dependencies:
         verify_checkout(ROOT / '.deps/ps2' / item['name'], item)
@@ -86,7 +86,7 @@ def snapshot():
     flags={key:values.get(key,'') for key in ('CMAKE_C_FLAGS_RELEASE','CMAKE_CXX_FLAGS_RELEASE',
                                              'CMAKE_EXE_LINKER_FLAGS','CMAKE_SHARED_LINKER_FLAGS')}
     state = dict(files=files, dependencies=dependencies, tools=tool_snapshot(ROOT), flags=flags,
-                 generated=generation(values), graphics=declared, buildType='Release', game='espgaluda')
+                 generated=generation(values,refresh=refresh), graphics=declared, buildType='Release', game='espgaluda')
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
 
@@ -128,13 +128,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['begin', 'finish', 'verify'])
     parser.add_argument('--state', type=Path)
+    parser.add_argument('--stage',action='store_true',help='Stage directly after successful finish verification')
     args = parser.parse_args()
+    if args.stage and args.action!='finish':
+        parser.error('--stage requires finish')
     if args.action == 'verify':
         record = verify()
     elif args.action == 'begin':
         if not args.state:
             parser.error('--state required')
-        write_json_new(private_output(args.state), snapshot())
+        write_json_new(private_output(args.state), snapshot(refresh=True))
         return
     else:
         if not args.state:
@@ -151,6 +154,9 @@ def main():
         temporary = RECEIPT.with_name('receipt-' + uuid.uuid4().hex + '.json')
         write_json_new(temporary, record)
         os.replace(temporary, RECEIPT)
+        if args.stage:
+            from stage_ps2 import _stage_verified
+            print(json.dumps(_stage_verified(record),indent=2))
     print('PS2 runtime receipt verified; two matching binary/PDB pairs.')
 
 

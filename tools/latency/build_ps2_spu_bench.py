@@ -11,6 +11,7 @@ from build_ps2_library_bench import ROOT,properties,quoted,freeze_libraries
 sys.path.insert(0,str(ROOT/'scripts'))
 from project import digest,reject_link,write_json_new
 from toolchain import tool_path
+from ps2_spu_sources import prepare
 
 
 def compare(output,blocks):
@@ -46,46 +47,6 @@ def compare(output,blocks):
     print(json.dumps(comparisons,indent=2))
 
 
-def candidate(cpp,header):
-    declaration='\t\t\tint32 GetSample();\n'
-    if header.count(declaration)!=1: raise ValueError('Pinned sample-reader declaration differs')
-    header=header.replace(declaration,declaration+'\t\t\tbool HasStaticCursor() const;\n')
-    reader='int32 CSpuBase::CSampleReader::GetSample()\n'
-    if cpp.count(reader)!=1: raise ValueError('Pinned sample-reader definition differs')
-    cpp=cpp.replace(reader,'''bool CSpuBase::CSampleReader::HasStaticCursor() const
-{
-    return m_sampleStep == 0 && m_srcSampleIdx < BUFFER_SAMPLES * PITCH_BASE &&
-           !m_done && !m_didChangeRepeat;
-}
-
-'''+reader)
-    start=cpp.index('void CSpuBase::Render(')
-    end=cpp.index('\nuint32 CSpuBase::GetAdsrDelta',start)
-    render=cpp[start:end]
-    anchor='\tmemset(samples, 0, sizeof(int16) * sampleCount);\n'
-    if render.count(anchor)!=1: raise ValueError('Pinned DSP render initializer differs')
-    render=render.replace(anchor,anchor+'''
-    unsigned activeChannels[24], activeCount = 0;
-    for(unsigned i = 0; i < 24; ++i) {
-        auto& channel = m_channel[i];
-        auto& reader = m_reader[i];
-        if(ticks && channel.status == STOPPED && channel.adsrVolume == 0 &&
-           !channel.volumeLeft.mode.mode && !channel.volumeRight.mode.mode && reader.HasStaticCursor()) {
-            reader.SetRepeat(channel.repeat);
-            channel.current = reader.GetCurrent();
-            channel.volumeLeftAbs = ComputeChannelVolume(channel.volumeLeft, channel.volumeLeftAbs);
-            channel.volumeRightAbs = ComputeChannelVolume(channel.volumeRight, channel.volumeRightAbs);
-        } else activeChannels[activeCount++] = i;
-    }
-''')
-    loop='\t\tfor(unsigned int i = 0; i < 24; i++)\n\t\t{'
-    if render.count(loop)!=1: raise ValueError('Pinned DSP channel loop differs')
-    first=render.index('\tfor(unsigned int j = 0; j < ticks; j++)')
-    last=render.index('\n\tif(irqEnabled && m_irqWatcher',first)
-    dense=render[first:last]
-    sparse=dense.replace(loop,'\t\tfor(unsigned active = 0; active < activeCount; ++active)\n\t\t{\n            const unsigned i = activeChannels[active];')
-    render=render[:first]+'\tif(activeCount == 24)\n\t{\n'+dense+'\t}\n\telse\n\t{\n'+sparse+'\t}\n'+render[last:]
-    return cpp[:start]+render+cpp[end:],header
 
 
 def main():
@@ -102,18 +63,11 @@ def main():
     lines=(build/'build.ninja').read_text(encoding='utf8').splitlines()
     props=properties(lines,'ps2_spu_contract.exe:')
     libraries,identities,origins=freeze_libraries(props['LINK_LIBRARIES'],build,output)
-    entries=json.loads((ROOT/'third_party/ps2/spu/sources.json').read_text())['files']
-    for variant in ('baseline','candidate'):
-        for entry in entries:
-            source=build/'spu-source'/entry['target'];reject_link(source)
-            path=output/variant/entry['target'];path.parent.mkdir(parents=True,exist_ok=True)
-            path.write_bytes(source.read_bytes())
-    cpp=output/'candidate/src/Iop_SpuBase.cpp';header=output/'candidate/include/Iop_SpuBase.h'
-    code,declarations=candidate(cpp.read_text(),header.read_text())
-    cpp.write_text(code,encoding='utf8',newline='\n');header.write_text(declarations,encoding='utf8',newline='\n')
+    prepare(ROOT/'.deps/ps2',output/'baseline',static_channel_optimization=False)
+    prepare(ROOT/'.deps/ps2',output/'candidate',static_channel_optimization=True)
     source=ROOT/'tools/latency/ps2_spu_bench.cpp'
     device=ROOT/'backends/ps2/spu_device.cpp'
-    for path in [source,device,ROOT/'tests/ps2_spu_test.cpp']+list((output/'baseline').rglob('*'))+list((output/'candidate').rglob('*')):
+    for path in [source,device,ROOT/'tests/ps2_spu_test.cpp',ROOT/'scripts/ps2_spu_sources.py']+list((output/'baseline').rglob('*'))+list((output/'candidate').rglob('*')):
         if path.is_file(): identities[str(path)]=digest(path)
     cmake='\n'.join(['cmake_minimum_required(VERSION 3.25)','project(Ps2SpuBench LANGUAGES CXX)',
         'set(CMAKE_CXX_STANDARD 20)','set(SPU_VARIANT "baseline" CACHE STRING "Frozen DSP source variant")',

@@ -9,7 +9,11 @@ from stage_ps4 import write_manifest
 
 
 def stage():
-    receipt = verify()
+    return _stage_verified(verify())
+
+
+def _stage_verified(receipt):
+    """Use the same-process finished snapshot; still recheck every copied byte."""
     outputs = []
     for item in receipt['outputs']:
         source = ROOT / item['path']

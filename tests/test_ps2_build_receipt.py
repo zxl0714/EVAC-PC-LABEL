@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import ps2_build_receipt as receipt
+import ps2_codegen as codegen
+import stage_ps2 as staging
 
 
 class Ps2ReceiptTests(unittest.TestCase):
@@ -46,6 +48,55 @@ class Ps2ReceiptTests(unittest.TestCase):
                               ('CMAKE_BUILD_TYPE','Debug'),('CMAKE_CXX_COMPILER','outside/clang-cl')):
                 save({key:value})
                 with self.subTest(key=key),self.assertRaises(ValueError):receipt.configuration(self.root)
+
+    def test_parallel_source_hash_is_identical_and_propagates_read_errors(self):
+        source=self.root/'parallel';source.mkdir()
+        for index in range(1031):
+            folder=source/str(index%3);folder.mkdir(exist_ok=True)
+            (folder/(str(index)+'.cpp')).write_text('authored '+str(index))
+        (source/'ignored.txt').write_text('not compiled')
+        expected=codegen.tree_identity(source,workers=1)
+        self.assertEqual(codegen.tree_identity(source,workers=8),expected)
+        changed=source/'1/1.cpp';changed.write_text('changed bytes')
+        self.assertNotEqual(codegen.tree_identity(source)['sha256'],expected['sha256'])
+        original=codegen.digest
+        def read(path):
+            if Path(path)==changed:raise OSError('authored unreadable source')
+            return original(path)
+        with patch.object(codegen,'digest',side_effect=read),self.assertRaises(OSError):
+            codegen.tree_identity(source)
+        with self.assertRaises(ValueError):codegen.tree_identity(source,workers=32)
+
+    def test_finish_stages_only_after_same_process_source_and_output_checks(self):
+        state=self.root/'before.json';before=dict(sha256='authored')
+        state.write_text(json.dumps(before))
+        target=self.root/'receipt.json'
+        with patch.object(receipt,'RECEIPT',target),patch.object(receipt,'snapshot',return_value=before), \
+             patch.object(receipt,'completed_outputs',return_value=['checked binary and PDB']), \
+             patch.object(receipt.subprocess,'check_output',side_effect=[b'authored-commit',b'']), \
+             patch.object(staging,'_stage_verified',return_value={}) as stage, \
+             patch.object(sys,'argv',['receipt','finish','--state',str(state),'--stage']):
+            receipt.main()
+            completed=json.loads(target.read_text())
+            stage.assert_called_once_with(completed)
+        target.unlink()
+        with patch.object(receipt,'RECEIPT',target),patch.object(receipt,'snapshot',return_value=dict(sha256='changed')), \
+             patch.object(staging,'_stage_verified') as stage, \
+             patch.object(sys,'argv',['receipt','finish','--state',str(state),'--stage']),self.assertRaises(ValueError):
+            receipt.main()
+        stage.assert_not_called()
+        self.assertFalse(target.exists())
+
+    def test_combined_staging_rechecks_output_bytes(self):
+        source=self.root/'out/espgaluda.exe';source.parent.mkdir();source.write_bytes(b'authored executable')
+        entry=dict(path='out/espgaluda.exe',bytes=source.stat().st_size,sha256=receipt.digest(source))
+        record=dict(outputs=[entry])
+        with patch.object(staging,'ROOT',self.root),patch.object(staging,'write_manifest') as manifest:
+            staging._stage_verified(record)
+            self.assertEqual((self.root/'runtime/ps2/espgaluda.exe').read_bytes(),source.read_bytes())
+            manifest.assert_called_once()
+            source.write_bytes(b'changed output')
+            with self.assertRaises(ValueError):staging._stage_verified(record)
 
     def test_verifier_rejects_stale_sources_missing_symbols_and_changed_outputs(self):
         path=self.root/'receipt.json';snapshot=dict(sha256='authored-snapshot')

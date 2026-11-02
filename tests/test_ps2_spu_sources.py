@@ -25,7 +25,7 @@ class SpuSourcesTests(unittest.TestCase):
             files=[dict(source=name,target=name,sha256=hashlib.sha256((deps/name).read_bytes()).hexdigest())
                    for name in ('dsp.cpp','LICENSE.txt')]
             inventory=root/'sources.json';inventory.write_text(json.dumps({'files':files}))
-            result=prepare(deps,output,inventory)
+            result=prepare(deps,output,inventory,static_channel_optimization=False)
             self.assertEqual(result['files'],2)
             self.assertEqual((output/'dsp.cpp').read_bytes(),source)
             self.assertEqual((deps/'dsp.cpp').read_bytes(),source)

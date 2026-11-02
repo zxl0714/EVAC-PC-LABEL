@@ -72,6 +72,7 @@ int main(int argc,char** argv) {
     if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
     EeTimerArithmetic(runtime.memory());
+    EeTimerDeferredEquivalence();
     ExplicitIoRoots(runtime);
     std::vector<uint8_t> memory(PS2_RAM_SIZE);
     R5900Context context{};

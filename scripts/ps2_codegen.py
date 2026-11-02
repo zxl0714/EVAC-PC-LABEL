@@ -1,5 +1,6 @@
 """Run the pinned recompiler and validate its report before accepting generated code."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import csv
 import hashlib
 import json
@@ -29,7 +30,9 @@ SDK_LIFECYCLES = (
 )
 
 
-def tree_identity(directory):
+def tree_identity(directory, workers=8):
+    if not 1 <= workers <= 8:
+        raise ValueError('Source hashing requires 1..8 workers')
     directory = Path(directory)
     reject_link(directory)
     if not directory.is_dir():
@@ -51,11 +54,23 @@ def tree_identity(directory):
                     pending.append(child)
                 elif stat.S_ISREG(info.st_mode) and child.suffix in ('.h', '.cpp'):
                     sources.append((child, info.st_size))
-    for path, length in sorted(sources):
-        name = path.relative_to(directory).as_posix()
-        state.update(name.encode('utf-8') + b'\0' + bytes.fromhex(digest(path)))
-        count += 1
-        size += length
+    sources.sort()
+    def append(batch, hashes):
+        nonlocal count, size
+        for (path, length), identity in zip(batch, hashes, strict=True):
+            name = path.relative_to(directory).as_posix()
+            state.update(name.encode('utf-8') + b'\0' + bytes.fromhex(identity))
+            count += 1
+            size += length
+    if workers == 1 or len(sources) < 256:
+        append(sources, (digest(path) for path, _ in sources))
+    else:
+        # Bound both outstanding reads and Future storage. Only this owner
+        # updates the digest, in the identical sorted order of the serial path.
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for offset in range(0, len(sources), 512):
+                batch=sources[offset:offset+512]
+                append(batch,pool.map(digest,(path for path,_ in batch)))
     if not count:
         raise ValueError('Generated PS2 source directory is empty')
     return dict(path=str(directory), files=count, bytes=size, sha256=state.hexdigest())

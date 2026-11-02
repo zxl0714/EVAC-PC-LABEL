@@ -63,8 +63,7 @@ try {
     if ($IbaraGenerated) { $targets+='ps2_ibara_probe' }
     Invoke-Checked $cmake $targets
     if($taskReceiptState) {
-        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskReceiptState)
-        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'stage_ps2.py'))
+        Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskReceiptState,'--stage')
     }
     Write-Host "PS2 tools and requested development targets built under $build. No game has been launched."
 } finally { $taskProcess.PriorityClass=$previousPriority }

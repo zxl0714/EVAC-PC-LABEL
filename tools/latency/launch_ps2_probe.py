@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--label', required=True)
     parser.add_argument('--pixels', help='Native scanout ROI: x,y,width,height,frame_count; F9 arms capture')
     parser.add_argument('--normal', action='store_true', help='Ordinary input; disable synthetic input and image tracing')
+    parser.add_argument('--fullscreen',action='store_true',help='Use the same full desktop output for emulator comparisons')
     parser.add_argument('--present-feedback', action='store_true', help='Opt in to driver presentation-timing feedback')
     parser.add_argument('--capture-gs', action='store_true', help='Record a bounded graphics workload for offline replay')
     args = parser.parse_args()
@@ -62,6 +63,7 @@ def main():
                '--frame-times', str(output / 'frame-times.csv')]
     if args.capture_gs:
         command.extend(['--capture-gs',str(output/'graphics.evacgs')])
+    if args.fullscreen:command.append('--fullscreen')
     if args.normal:
         environment = {}
         start = command.index('--input-trace')

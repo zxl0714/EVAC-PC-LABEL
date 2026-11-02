@@ -458,6 +458,13 @@ public:
     };
 
     std::array<EeTimer, 4> m_eeTimers{};
+    // Counts may stay deferred between observable MMIO accesses and IRQs.
+    // Both values use EE cycles, independent of the host clock.
+    uint64_t m_eeTimerPendingCycles = 0u;
+    uint64_t m_eeTimerInterruptDeadline = UINT64_MAX;
+    uint32_t advanceEeTimersNow(uint64_t eeCycles) noexcept;
+    uint32_t synchronizeEeTimers() noexcept;
+    [[nodiscard]] uint64_t computeEeTimerInterruptDeadline() const noexcept;
     bool tryProcessScratchpadDma(uint32_t channelBase, uint32_t chcr);
     void completeDmacChannel(uint32_t channelBase, uint32_t cause);
     void queueCompletedDmacCause(uint32_t cause);

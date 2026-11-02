@@ -44,7 +44,46 @@ py -3.12 tools/latency/build_ps2_spu_bench.py --output .local/spu-bench-new --ru
 | 停止但解码游标移动 | 8.799 | 8.847 |
 
 完整输入、EXE、原始日志及输出身份在 `.local/v090/spu-static-bench-r4/`。
-该优化仍为私有候选，尚未并入运行时，不能将组件收益当作游戏 CPU 收益。
+该优化已接入 SPU 源码准备流程，正式准备后的声音机制检查通过。
+全屏实际 BOSS 段已完成采样，但没有同输出、同场景的旧 SPU 成对采样，不能将整个进程的变化归因于它。
+生产准备器的两份输出与上述基准逐字节相同，记录在 `.local/v090/spu-adoption-proof-r1/proof.json`。
+
+### 全屏对照与呈现完成观察
+
+EE 定时器改为按中断截止点累计周期，在寄存器访问前同步。原有分数时钟、比较／溢出、
+模式切换及 UINT64_MAX 检查通过；另用 10 万步随机序列，将每步强制同步的参考实例与
+延迟同步实例比较返回中断、下次中断周期和全部可见寄存器，结果一致。
+实际 kernel 基准 ABBA 从 6.079／6.054 ns 每次降到 1.042／1.039 ns，最终校验和均为 131264。
+原始结果为 `.local/v090/timer-lazy-bench-r1/comparison.json`。完整游戏构建和实际收益待确认，
+不能将约 83% 的这项微基准降幅写成整个游戏的 CPU 降幅。
+
+PCSX2 2.8.2／D3D12／1×／关闭 VSync，在同一桌面的全屏输出、重新读取固定
+BOSS 即时存档后，10.112 秒窗口消耗 2515.625 CPU ms，即 0.249 核。
+开始和结束截图均为 BOSS 游玩画面。记录为
+`.local/v090/analysis/pcsx2-fullscreen-cpu-r2.json`，配套 `pcsx2-fullscreen-boss-*-r2.png`。
+较早的全屏 r1 在末尾进入 RESULT，保留原始结果但不用于 BOSS 对照。
+全屏截图为 2560×1440 逻辑像素，桌面输出为 3840×2160、150% DPI；
+移植版新构建 `1856d5f6` 在同样全屏输出下，10.102 秒窗口消耗 4125 CPU ms，即 0.408 核；
+605 个完整间隔中位 16.639 ms、P95 17.787 ms、P99 18.850 ms、最大 19.653 ms，
+5 个超过 19 ms、没有超过 20 ms。尚未达到 CPU 低于模拟器及稳定压低长帧的目标。
+原始 CPU／帧窗口记录为 `native-spu-fullscreen-cpu-r1.json`、`native-spu-fullscreen-frames-r1.json`，
+两端截图均为 BOSS。另存的模拟设置确认 DEATH=OFF；重生本身不能证明该设置开启。
+单独的 8 秒侵入式热点采样只用于定位：IOP 指令执行、IOP 调度和 EE 定时器仍在主要热点中，
+不将该轮的帧间隔计入普通游玩统计。记录为 `native-hotspots-spu-r1.json`。
+
+独立 Vulkan IMMEDIATE／全屏微基准再次得到有效 GPU 完成时间，但所有
+first-pixel-out 字段仍为零，无法据此建立显示时间戳。
+另一轮 KHR present-wait 观察完成 601 个请求、全部成功、无丢弃；
+排除头 60 帧后，Present 返回到完成通知平均 1.332 ms、中位 1.584 ms、P95 1.935 ms。
+证据在 `.local/v090/analysis/present-wait-fullscreen-r1-summary.json`。
+这是独立 WSI 工作负载的宿主完成通知观察，不能当作游戏或面板的实际显示延迟。
+[Vulkan 规范](https://docs.vulkan.org/refpages/latest/refpages/source/vkWaitForPresentKHR.html)
+也未要求该通知与用户看到画面之间存在精确的时间关系。
+
+源码认证改为大目录最多 8 路、每批最多 512 个文件的读取，并按原顺序合成同一个
+SHA-256；读失败仍终止认证。构建开始与结束各检查完整源码身份，结束后在同一进程
+拷入运行目录并重新检查文件字节，省去两轮重复的全树读取。
+6 项认证回归和 18 项生成器回归通过；新音频版的实际构建认证仍在运行。
 
 ## v0.8.4 CPU 指令兼容
 
