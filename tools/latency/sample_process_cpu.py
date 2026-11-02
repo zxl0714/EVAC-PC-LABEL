@@ -12,12 +12,50 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from project import digest, write_json_new
 
 
+def thread_times(kernel, pid):
+    """Read thread accounting without suspending or waking target threads."""
+    class Entry(c.Structure):
+        _fields_ = [(name,w.DWORD) for name in ('size','usage','id','owner','priority','delta','flags')]
+    kernel.CreateToolhelp32Snapshot.argtypes=[w.DWORD,w.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype=w.HANDLE
+    kernel.Thread32First.argtypes=kernel.Thread32Next.argtypes=[w.HANDLE,c.POINTER(Entry)]
+    kernel.OpenThread.argtypes=[w.DWORD,w.BOOL,w.DWORD]
+    kernel.OpenThread.restype=w.HANDLE
+    kernel.GetThreadTimes.argtypes=[w.HANDLE,*([c.POINTER(w.FILETIME)]*4)]
+    kernel.CloseHandle.argtypes=[w.HANDLE]
+    snapshot=kernel.CreateToolhelp32Snapshot(4,0)
+    if snapshot==c.c_void_p(-1).value:
+        raise c.WinError(c.get_last_error())
+    result={}
+    def integer(value): return value.dwLowDateTime | (value.dwHighDateTime<<32)
+    try:
+        entry=Entry(); entry.size=c.sizeof(entry)
+        valid=kernel.Thread32First(snapshot,c.byref(entry))
+        while valid:
+            if entry.owner==pid:
+                handle=kernel.OpenThread(0x800,False,entry.id)
+                if handle:
+                    try:
+                        stamps=[w.FILETIME() for _ in range(4)]
+                        if kernel.GetThreadTimes(handle,*(c.byref(value) for value in stamps)):
+                            qpc=c.c_longlong()
+                            if not kernel.QueryPerformanceCounter(c.byref(qpc)):
+                                raise c.WinError(c.get_last_error())
+                            result[str(entry.id)]=dict(created=integer(stamps[0]),
+                                qpc=qpc.value,kernel_100ns=integer(stamps[2]),user_100ns=integer(stamps[3]))
+                    finally: kernel.CloseHandle(handle)
+            valid=kernel.Thread32Next(snapshot,c.byref(entry))
+        return result
+    finally: kernel.CloseHandle(snapshot)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pid', type=int, required=True)
     parser.add_argument('--seconds', type=int, choices=range(1, 61), default=20)
     parser.add_argument('--scene', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--threads', action='store_true', help='Add read-only per-thread CPU accounting at both window boundaries')
     args = parser.parse_args()
     if args.pid <= 0 or not args.scene.strip() or args.output.exists():
         raise ValueError('Explicit process, scene and fresh output required')
@@ -70,9 +108,11 @@ def main():
         executable = Path(name.value)
         identity = digest(executable)
         rows = [sample()]
+        threads_begin=thread_times(kernel,args.pid) if args.threads else {}
         for _ in range(args.seconds):
             time.sleep(1)
             rows.append(sample())
+        threads_end=thread_times(kernel,args.pid) if args.threads else {}
         if len({r['created'] for r in rows}) != 1 or digest(executable) != identity:
             raise ValueError('Process or executable identity changed')
         wall = (rows[-1]['qpc'] - rows[0]['qpc']) / frequency.value
@@ -82,8 +122,28 @@ def main():
             wall_seconds=wall, cpu_ms=cpu, cpu_ms_per_second=cpu/wall,
             equivalent_logical_cores=cpu/wall/1000,
             sampler_sha256=digest(Path(__file__)))
+        if args.threads:
+            paired={}
+            for tid,begin in threads_begin.items():
+                end=threads_end.get(tid)
+                if not end or begin['created']!=end['created']: continue
+                kernel_ms=(end['kernel_100ns']-begin['kernel_100ns'])/10000
+                user_ms=(end['user_100ns']-begin['user_100ns'])/10000
+                thread_wall=(end['qpc']-begin['qpc'])/frequency.value
+                if thread_wall<=0 or kernel_ms<0 or user_ms<0:
+                    raise ValueError('Thread accounting moved backwards')
+                paired[tid]=dict(created=begin['created'],kernel_ms=kernel_ms,user_ms=user_ms,
+                                 cpu_ms=kernel_ms+user_ms,wall_seconds=thread_wall,
+                                 cores=(kernel_ms+user_ms)/thread_wall/1000)
+            result['thread_accounting']=dict(begin=threads_begin,end=threads_end,paired=paired,
+                method='Read-only GetThreadTimes; threads are never suspended',
+                limitations=['Boundary enumeration adds a small timestamp skew.',
+                    'CPU accounting is quantized; zero is below accounting resolution.',
+                    'Threads missing at either boundary are excluded from paired totals.'])
         write_json_new(args.output, result)
-        print(json.dumps({k:v for k,v in result.items() if k != 'samples'}, indent=2))
+        print(json.dumps({k:v for k,v in result.items() if k not in ('samples','thread_accounting')}, indent=2))
+        if args.threads:
+            print(json.dumps(dict(top_threads=sorted(paired.items(),key=lambda row:row[1]['cpu_ms'],reverse=True)[:8]),indent=2))
     finally:
         kernel.CloseHandle(handle)
 

@@ -111,6 +111,12 @@ PS2 新 Vulkan 宿主复用 PS4 默认绑定：方向键移动，Z=Cross、X=Cir
 C=Square、V=Triangle，Enter=Start，Backspace=Select。旧 CPU 宿主的 C 确认／WASD
 流程已过期，不能再套用。ESPGaluda 的菜单确认仍是 Circle（现在对应 X）。
 当前合集宿主已实际确认正常短按可走完整菜单，保持默认 `--diagnostic-tap-ms 0`。
+`launch_ps2_probe.py` 默认开启独占的进程内测试手柄，实际键盘不会交给游戏；
+这一入口用 `test_pad_client.py` 操作，检查真实键盘必须加 `--normal`。不要混用两条输入路径。
+ESPGaluda 原生 BUTTON CONFIG 已核对：ARCADE 的 Square=SHOT、Triangle=KAKUSEI、
+Circle=BARRIER、Cross=RAPID（键盘 C/V/X/Z）。同页方括号是 ARRANGE 的功能，
+依次 POWER SHOT/KAKUSEI/MAIN SHOT/BARRIER；不能凭别的 CAVE 游戏习惯填写说明。
+BUTTON CONFIG 页的脸键会直接修改当前绑定，Cross 也不是返回；用 EXIT 项退出。
 旧探针确有漏按时才用 200 ms，并核对 `ps2-pad-event` 与 `ps2-pad-read`；
 正式游玩、计时与性能测量保持默认 0。用户已实际游玩并确认 BOSS／重开音乐正常。
 ARCADE 选人后约一分钟教学会显示 PLEASE WAIT，之后才是玩家局；不能把教学或

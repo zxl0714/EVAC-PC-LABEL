@@ -10,7 +10,7 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov02 09:40 CST: implement v0.9.0 through PACKAGING ONLY. Workspace
+ACTIVE Nov02 late morning CST: implement v0.9.0 through PACKAGING ONLY. Workspace
 E:/Projects/EVAC-PC-LABEL, branch work/v090-resume. v0.8.4 already released.
 PS2 ESPGaluda ONLY; Ibara Coming Soon, preserve parked work. User asleep:
 no manual help/UAC/questions. No subagents, Task Manager, original-data changes
@@ -30,12 +30,15 @@ memory/IO counters; 5e675a8 timer deadline/large-advance contracts.
 COMPLETED/reaped95512 / old Python93308: all31 modules accepted with current
 recompiler. Original source bytes/mtimes and receipts preserved; equivalence
 proofs compare freshly generated bodies byte-for-byte. Do not regenerate.
-LIVE: exec38274, PowerShell99636 / Python26328, started09:13, runs
+LIVE: exec38274, PowerShell99636, started09:13, runs
 Build-Espgaluda.ps1 -NativeOnly through certification and staging. Log
-.local/v090/analysis/certify-stage-r1.log. Last module14 base active. This is
-verifying existing proofs. Authoritatively live with increasing CPU/IO counters,
-1.28GB read at09:39. Poll SAME handle; never restart merely for quiet output.
-After refresh it begins source receipt, builds, finishes receipt and stages.
+.local/v090/analysis/certify-stage-r1.log. Refresh26328 and begin104296 completed;
+restored native build completed4 tasks. Finish snapshot Python31064 started
+10:25:39 and remains live, increasing CPU/IO,3.50GB read at11:29. Poll SAME
+handle; never restart merely for quiet output. After finish it stages (currently
+another source verification). Do not mutate covered source before it completes.
+Begin snapshot is.local/build-inputs/ps2-bc94f052bdd04ddbaf5831eb36133446.json:
+31trees,528625 tiny source files,2499549823bytes. This explains HDD cost.
 Do not start another CMake/certification graph.20795 tiny files in module01;
 HDD reads remain slow. Deep recursive Get-ChildItem through generated .local
 was stopped using its own exec10864 Ctrl+C; no files were changed.
@@ -46,11 +49,34 @@ Builds completed/reaped:2078 full2253 tasks Release/PDB/runtime ThinLTO;
 experiment;92379 restored arithmetic+expanded kernel contract;2890 optional
 sleeping-GPU-wait experiment. Last experimental EXE16ae41f4 must NOT be staged
 manually: all sleep-wait source/CLI/header changes were reverted after results.
-38274 will rebuild the restored default source and certify its matching PDB.
+38274 rebuilt restored default EXE eea6a1af...b7477a and is certifying its PDB.
 SDL3.pdb exists. Actual receipt/staging still NOT accepted. Product0.8.4.
 Player-iso-r1/runtime is still old95c523; do not confuse it with current bin.
 
 Performance still FAILS acceptance:
+- New ordinary normal-thread-r1/PID94372, old16ae41f4 EXE with optional wait
+  OFF:20.081sec6062.5CPUms=.301900cores.1204fields,median16.656/P9517.408/
+  P9917.810/max18.547ms,0>19/20. Read-only GetThreadTimes producer132648
+  .197585cores/main96408 .082457, own QPC windows. No SuspendThread during
+  sampling. Before/after BOSS PNGs and native-cpu/frames-threads-r1 evidence.
+- Private library-bench-r2 ordinary/ThinLTO ABBA:4x27648 ABI checks PASS.
+  memcpy4096 aligned1547->1382ns (~10.7%),unaligned37020->35725 (~3.5%);
+ 64aligned slightly worse. Do NOT recompile full game for this modest evidence.
+- Private spu-static-bench-r4 ABBA,16000x64 audio frames/scenario,8scenarios:
+  full PCM bytes/final registers/per-block IRQ hashes equal. Existing sound
+  contracts PASS each run. Quiet/1/8/24voices6.900/7.027/7.740/10.131ms per
+  audio sec ->.278/.556/2.667/7.010.48voices13.486->13.605 (+.88%);stopped
+  moving decoder8.799->8.847. Render wall time only, NOT game CPU gain.
+  Candidate skips only stopped+ADSR0+fixed volume+static cursor/no pending
+  done/repeat, keeps original dense loop. NOT adopted in runtime yet.
+  tools/latency/build_ps2_spu_bench.py --output <fresh.local> --run reproduces
+  frozen full3 DSP cpp+spu_device.cpp pair (avoid old r1 mixed-header objects).
+- Source-hash parallel cold-candidate read-only bench source-hash-parallel-r2:
+  384disjoint files each,8/1/1/8 workers .266/2.390/2.321/.280sec. Warm r1
+  sequential is faster than threads. After38274 completes, implement bounded
+  parallel hashing for large trees, preserving identical sorted crypto result;
+  combine finish+stage in one process and remove redundant pre-refresh. Keep
+  full before/after source checks; never use mtime as identity or bypass them.
 - normal-resolve-r1/PID3240, EXE b9a76a90, no input/pixel tracing, background
   codegen finished.20sec382.662CPUms/s=.382662cores, BOSS before/after PNGs.
   native-frames-resolve-r1:1200fields,median16.6645/P9517.747/P9918.510/
@@ -115,6 +141,20 @@ Player/UI/function evidence:
   cache only16 boot/IOP files, resources stream original ISO. Do not repeat it.
 - User twice confirmed BOSS and restart BGM r63. Gallery grid/images/back/main,
   wallpaper save1 r64 and cold read1 r65 PASS. Score/cold read still open.
+- controls-save-r1/PID24240 and normal controls-cold-r1/PID70892, restored EXE
+  eea6a1af: native SAVE created4 mc0/BISLPS-25352 files and success message;
+  cold load succeeded and GAME OPTION LIFE COUNTS still2. UI PNGs+hashes/card
+  identities in analysis/controls-save-acceptance-r1.json. Score still open.
+  Simulation Stage1 TOP/right movement/Square shot/Triangle Kakusei+purple
+  bullets/gem drain/Start pause/Quit Yes->stage list accepted. Circle barrier
+  held test and continue open. ARRANGE Chihiro entered actual Stage1 then died
+  while unattended; final named arrange-stage1 PNG is TITLE, not gameplay proof.
+  controls-save input trace OVERFLOW; functional/UI evidence only. Normal cold
+  keyboard Return/arrows/X/Z worked. Both processes closed normally.
+  launch_ps2_probe --profile <existing private.v090 profile> reuses cold-save;
+  diagnostics use EXCLUSIVE test pad; add --normal for real keyboard. MEMORY
+  now contains exact original ARCADE/ARRANGE face bindings and BUTTON CONFIG
+  exit trap (face keys rebind; use EXIT item). Do not repeat those mistakes.
 - DLC reader audit analysis/dlc-reader-audit-r1.log4 tests PASS; guides and
   original STFS extraction inspected. No PS2 external DLC needed.
 - Covers11 assets committed, default banners; internal collection.launcher_layout
@@ -122,7 +162,7 @@ Player/UI/function evidence:
   persistence/banner switch accepted.723x514logical at144DPI usable, screenshot
   covers-small-window-r4.png. Its PS2 runtime absent; real launch/import/relaunch
   through covers still needs acceptance. Saved covers/EN/espgaluda normally.
-- No game/reference remains after this turn's normal closes. Re-select current
+- No game/reference remains after normal closes. Re-select current
   returned windows before CU; node_repl @oai/sky only, never Task Manager.
 
 Use MEMORY.md before gameplay. Skill/guidance/API/confirmations read. Native

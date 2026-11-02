@@ -17,14 +17,16 @@ def main():
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--disc', type=Path, required=True)
     parser.add_argument('--prepared', type=Path, required=True)
+    parser.add_argument('--profile', type=Path, help='Reuse an existing private v090 profile for cold-save checks')
     parser.add_argument('--label', required=True)
     parser.add_argument('--pixels', help='Native scanout ROI: x,y,width,height,frame_count; F9 arms capture')
     parser.add_argument('--normal', action='store_true', help='Ordinary input; disable synthetic input and image tracing')
     parser.add_argument('--present-feedback', action='store_true', help='Opt in to driver presentation-timing feedback')
+    parser.add_argument('--capture-gs', action='store_true', help='Record a bounded graphics workload for offline replay')
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', args.label):
         parser.error('Use an ASCII diagnostic label')
-    if args.normal and (args.pixels or args.present_feedback):
+    if args.normal and (args.pixels or args.present_feedback or args.capture_gs):
         parser.error('Normal input measurements do not capture diagnostic pixels')
     binary, disc, prepared = (p.resolve(strict=True) for p in
                              (args.binary, args.disc, args.prepared))
@@ -38,8 +40,14 @@ def main():
     output = ROOT / '.local/v090/latency' / args.label
     reject_link(output)
     output.mkdir(parents=True, exist_ok=False)
-    profile = output / 'profile'
-    profile.mkdir()
+    if args.profile:
+        profile=args.profile.resolve(strict=True)
+        reject_link(profile)
+        if not profile.is_dir() or not profile.is_relative_to(ROOT/'.local/v090'):
+            raise ValueError('Reuse only a private v090 test profile')
+    else:
+        profile = output / 'profile'
+        profile.mkdir()
     environment = dict(EVAC_LATENCY_TRACE=str(output / 'synthetic-input.csv'),
                        EVAC_LATENCY_TEST_PAD='ps2-' + args.label,
                        EVAC_LATENCY_CAPACITY='262144')
@@ -52,6 +60,8 @@ def main():
                '--window-size', '1280', '720',
                '--input-trace', str(output / 'input.csv'),
                '--frame-times', str(output / 'frame-times.csv')]
+    if args.capture_gs:
+        command.extend(['--capture-gs',str(output/'graphics.evacgs')])
     if args.normal:
         environment = {}
         start = command.index('--input-trace')
