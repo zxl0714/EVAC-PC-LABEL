@@ -10,122 +10,127 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov02 08:35 CST: implement v0.9.0 through PACKAGING ONLY. Workspace
+ACTIVE Nov02 09:40 CST: implement v0.9.0 through PACKAGING ONLY. Workspace
 E:/Projects/EVAC-PC-LABEL, branch work/v090-resume. v0.8.4 already released.
 PS2 ESPGaluda ONLY; Ibara Coming Soon, preserve parked work. User asleep:
 no manual help/UAC/questions. No subagents, Task Manager, original-data changes
 or cleanup. No GitHub/OSS/QQ/push. Completion is UNPROVEN.
 
-Scope: docs/PS2_RUNTIME_PLAN.md. Required: lower CPU than PCSX2, comparable
-input/response/presentation latency, stable actual gameplay fields, representative
-controls/modes/score cold save, final certification, covers runtime workflow,
-docs/version/licenses, real program +internal ZIPs and one extraction acceptance.
-Do not replace these with mechanism tests or only the already working modes.
+Scope: docs/PS2_RUNTIME_PLAN.md. Still required: lower CPU than PCSX2, comparable
+input/response/presentation latency, stable actual gameplay fields, controls/
+modes/score cold save, final certification, covers runtime workflow, final
+version/docs/licenses, real program +internal ZIPs and one extraction acceptance.
+Do not replace these with mechanism tests or only already working modes.
 
-Latest local commits (not pushed):
-- 46c1ad7 validates fresh generator output byte-for-byte before reusing compiled
-  game bodies. Original receipts, source bytes and mtimes remain unchanged.
-- 0b11817 reuses directory-enumeration metadata while hashing generated sources;
-  18 codegen tests +3 receipt tests pass. Verified SAME 20795-file module01
-  tree identity against its previously accepted proof (session53400 completed).
-- 6d38f0a resolves a guest-call target once instead of hasFunction+lookupFunction;
-  keeps live overlay header validation, missing-target policy and caller bank
-  reload checks. Existing EE kernel/overlay/yield contracts PASS.
-- d19961d bounded opt-in input/pixel trace, shared process-local test pad,
-  reusable launch/frame-window/input analysis tools, native message polling500us.
+Local commits (not pushed): 46c1ad7 codegen equivalence; 0b11817 scandir tree
+hashing; 6d38f0a resolve guest-call targets once; d19961d input/pixel traces,
+reusable probes and500us native poll; b62c543 command timings and CPU sampler
+memory/IO counters; 5e675a8 timer deadline/large-advance contracts.
 
-LIVE: exec session95512 / Python PID93308, started07:10, codegen equivalence r2.
-Log .local/v090/analysis/codegen-equivalence-full-r2.log. Accepted through module16
-base+extra; module17 base currently active. Fresh module17 generation completed
-but source validation/hash comparison remains expensive on HDD. Poll SAME handle;
-do not restart for quiet output. It has been authoritatively live with increasing
-read/CPU counters. Module01 alone has20795 tiny files;31 jobs share many bodies.
-The old r1 was intentionally stopped before proof publication to fix redundant
-ancestor traversal; its fresh boot result was recovered by r2, not discarded.
+COMPLETED/reaped95512 / old Python93308: all31 modules accepted with current
+recompiler. Original source bytes/mtimes and receipts preserved; equivalence
+proofs compare freshly generated bodies byte-for-byte. Do not regenerate.
+LIVE: exec38274, PowerShell99636 / Python26328, started09:13, runs
+Build-Espgaluda.ps1 -NativeOnly through certification and staging. Log
+.local/v090/analysis/certify-stage-r1.log. Last module14 base active. This is
+verifying existing proofs. Authoritatively live with increasing CPU/IO counters,
+1.28GB read at09:39. Poll SAME handle; never restart merely for quiet output.
+After refresh it begins source receipt, builds, finishes receipt and stages.
+Do not start another CMake/certification graph.20795 tiny files in module01;
+HDD reads remain slow. Deep recursive Get-ChildItem through generated .local
+was stopped using its own exec10864 Ctrl+C; no files were changed.
 
-Builds COMPLETED/reaped:
--2078 full2253-task Release/full PDB/runtime ThinLTO graph.
--10716 input trace+SDL PDB incremental12tasks.
--62479 feedback opt-in /500us poll incremental3tasks.
--21335 resolve-once incremental+EE kernel contract PASS.
--36813 automatic pixel extent+early trace save incremental5tasks.
--85953 input trace contract completed/missing handle; PASS log retained.
--12282 hotspot profile,53400 tree identity,28318 read listing all completed.
-No build currently active. Latest out/ps2-tools/bin/espgaluda.exe599113728bytes,
-written08:23; full matching PDB4061609984bytes08:24. SDL3.pdb now exists9.19MB.
-The live codegen proof is separate from the build, no source bodies are mutated.
-
-After95512 finishes, Build-Espgaluda.ps1 -NativeOnly should verify these existing
-proofs, begin/finish the source receipt, do a no-op/current incremental build,
-then stage. Do NOT blindly regenerate/recompile the full2253 graph. Actual
-receipt/staging still NOT accepted. Product version still0.8.4. All PS2 player
-files in player-iso-r1 remain old95c523; do not confuse them with current bin.
-
-New actual evidence:
-- .local/v090/latency/input-r4: clean diagnostic exit,96 full366x448 RGBA scanouts,
-  failed=0,45943 input rows/overflow0, synthetic trace complete/no overflow.
-  Launch JSON binds actual EXE and command. Input analysis exports13 PNGs under
-  input-r4-analysis. Visually reviewed4356/4357 unchanged,4358 first right move.
-  response-review.json: one command90 sample, host->pad1.7937ms, host->Present
-  return33.0827ms, pad->Present return31.289ms. NOT an average/end-to-end result;
-  scanout/display-engine tail and PCSX2 comparison still missing.
-- Do NOT infer an extra presentation field merely from queue-before-VBlank IRQ:
-  display writes follow queue by~26us but DISPFB values stay68608. Need original
-  game/ordered GIF work analysis to distinguish its own response pipeline.
-- input-r2 enabled VK_EXT_present_timing feedback and stopped after16 presents
-  (queue full is a hypothesis, exact return code not captured). Ordinary path
-  runs normally. Feedback is now SEPARATE opt-in EVAC_PS2_PRESENT_FEEDBACK=1;
-  input/pixel measurement leaves it off. Generic feedback stage stays unknown.
-- input-r3 requested640x448 but actual scanout is366x448. Throwing from this
-  diagnostic inside acquired-frame recording left graphics teardown stuck;
-  own PID133740 was verified/stopped, teardown-stall.json retained. Fixed:
-  auto ROI0,0,0,0,96; bad capture disables itself and records failed=1 instead
-  of throwing. Input trace saves immediately AFTER producer join, before
-  graphics teardown. The corrected r4 successfully captured and exited.
+Builds completed/reaped:2078 full2253 tasks Release/PDB/runtime ThinLTO;
+10716 input trace;62479 feedback opt-in;21335 resolve-once+kernel contract;
+36813 automatic ROI;26932 command timing+GS queue contract;46224 timer
+experiment;92379 restored arithmetic+expanded kernel contract;2890 optional
+sleeping-GPU-wait experiment. Last experimental EXE16ae41f4 must NOT be staged
+manually: all sleep-wait source/CLI/header changes were reverted after results.
+38274 will rebuild the restored default source and certify its matching PDB.
+SDL3.pdb exists. Actual receipt/staging still NOT accepted. Product0.8.4.
+Player-iso-r1/runtime is still old95c523; do not confuse it with current bin.
 
 Performance still FAILS acceptance:
-- normal-lto-r1 PID78116 EXE c912308f, no input/pixel diagnostics. Matched BOSS
-  before+immediate after screenshots,20s CPU311.616ms/s=.311616cores. Separate
-  codegen verification was still active. cpu-frame-boss-thinlto-r1:1199fields,
-  median16.622/P9517.341/P9918.298/max342.767ms,10>19 and10>20. Retain ALL long
-  frames, do not silently trim them. Largest field10758 had338.864ms queue time;
-  cluster may involve scheduling/page-in/background IO, but NOT proved.
-- native-hotspots-thinlto-r1 5s sample (separate intrusive window): producer
- 1093.75CPUms,main468.75,driver140.625. Leading active samples PeekMessage21,
-  IOP execute6,EE timers6,guest memcpy1180485,runCycles4; function data persisted.
-  No claim that runtime ThinLTO alone materially lowered actual CPU.
-- Previous baseline .34347cores; readycache .31901 (~7% lower), max19.177ms.
-  Highres .30132/max18.498 was provisional scene, do not use as final comparison.
-  PCSX2 official2.8.2 D3D12/1x/vsyncfalse .187cores was provisional size match.
-- Native message poll changed125->500us after hotspot. Dispatch duplicate lookup
-  removed. NO new quiet ordinary CPU/frame sample of these last changes yet.
-- READ/WRITE RAM macros ALREADY have inline RAM fast paths and no-op trace;
-  do not rediscover this as a missing optimization. No header-wide changes now.
+- normal-resolve-r1/PID3240, EXE b9a76a90, no input/pixel tracing, background
+  codegen finished.20sec382.662CPUms/s=.382662cores, BOSS before/after PNGs.
+  native-frames-resolve-r1:1200fields,median16.6645/P9517.747/P9918.510/
+  max19.744ms,4>19 and0>20. Largest: VBlank late1.262ms,presentation3.207ms
+  (acquire1.773,flush.671,scanout.463),queue.013ms.716 page faults,1.61MB read.
+  Separate12sec intrusive native-hotspots-resolve-r1: producer2984.375CPUms,
+  main1250ms. Work hotspots: IOP execute/runCpu,EE timers,SPU render and guest
+  memcpy118048. Keep CPU profile OUTSIDE the frame/ordinary CPU window.
+- Rejected timer shift/carry variant: four-timer bench6.06555->7.01227ns,
+  checksum131264. Runtime source fully restored. Expanded fractional-deadline,
+  UINT64_MAX and clock-change/kernel checks PASS; retain the tests.
+- Rejected GPU sleep wait: normal-sleep-wait-r1/PID74280, EXE16ae41f4,
+  20sec306.916ms/s,1199fields,max20.021ms,1>19/20. NOT an established gain:
+  separate12sec profile main1218.75ms vs old1250ms nearly unchanged; producer
+  2546.875 vs2984.375 varies with scene. Do not claim apparent20% total CPU
+  improvement as a wait-policy win. Env/header/CLI/source were all reverted.
+- Earlier normal-lto-r1/PID78116, EXE c912308f:20sec311.616ms/s while codegen
+  active; median16.622/P9517.341/P9918.298/max342.767ms,10>19/20. Largest queue
+ 338.864ms. Never silently trim those samples or assert background IO caused it.
+- Earlier CPU .34347 baseline,.31901 ready-cache (~7% lower); .30132/max18.498
+  highres was provisional scene. PCSX2 official2.8.2 D3D12/1x/vsyncfalse~.187
+  cores was provisional size comparison, not final matching-output baseline.
+- Current native500us poll and resolve-once are measured in normal-resolve-r1,
+  still above CPU target. RAM macros ALREADY inline RAM fast paths. Do not
+  rediscover that optimization or change shared generated headers casually.
 
-Player/data/UI evidence:
-- Original ISO readonly E:/Game-Share/roms/Espgaluda (Japan).iso SHA d1547e...51a0f.
-  .local/v090/player-iso-r1 original ISO launch/menu/F8/exit+warm16file hash/mtime
-  reuse already accepted. Cache only16 boot/IOP files; resources stream ISO.
-- User r63 twice confirmed BOSS/restart BGM; r64 gallery images/back/grid/main
-  and wallpaper save1, r65 cold readback1 accepted. SCORE/cold read still open.
-- DLC reader audit .local/v090/analysis/dlc-reader-audit-r1.log4tests PASS;
-  original STFS extraction and unchanged bilingual placement guides inspected.
-- Covers actual root .local/v090/ui/cover-preview-r3: mouse/keyboard/CN/EN/JP/
-  scroll/persistence/banner switch accepted earlier. New actual resize to
- 723x514 logical at144DPI keeps all header/footer controls usable; screenshot
-  .local/v090/ui/covers-small-window-r4.png. Selected ESPGaluda correctly says
-  runtime missing (root has no PS2 runtime yet). Runtime launch/import/relaunch
-  still needs actual acceptance. Normal close saved covers/EN/espgaluda.
-- Last authoritative process query: no games/reference/launchers remain,
-  including old119196/PCSX2 36628. Do not reuse their handles or assume paused.
-  Last CU windows only Codex/Chrome/QQ/Explorer. sky globals exist but are stale.
+Latency evidence:
+- input-r4: clean exit,96 full366x448 RGBA8 scanouts,failed0;45943 input events,
+  overflow0; synthetic trace complete. input-r4-analysis/response-review.json
+  binds command90: publish9742771234232.3us,first Pad4356 at9742771236026us,
+  first displacement4358 (4356/4357 visually unchanged). Host->Pad1.7937ms,
+  Host->Present return33.0827ms,Pad->Present31.289ms. One observation, NOT mean
+  end-to-end or display-engine latency. DISPFBs remain68608; queue-before-IRQ
+  alone does not prove an erroneous extra field. Need ordered original draw work.
+- command-r1/PID110380:68818events/overflow0,96pixels/failed0,clean exit. GS
+  command traces distinguish kind and elapsed duration including GPU waits.
+  Candidate player obscured by bullets/flicker; whole-width green centroid also
+  includes HUD. Do not replace accepted r4 response proof with that estimate.
+- Current-source WSI bench.local/v090/present-micro-r1 EXE6ad9b467. Fresh r2 and
+  bootstrap r1 both181presents/124 complete feedbacks, all first-pixel-out times
+  ZERO/unavailable. Analyzer warmup1000ms;3sec capture is sufficient. No usable
+  output-stage observation on this path; zero does NOT mean0ms latency.
+- Game feedback opt-in input-r2 stopped after16 presents; exact VkResult unknown.
+  Leave EVAC_PS2_PRESENT_FEEDBACK off for normal input/pixel tracing. Granite
+  generic stats do not expose stage and remain feedback_unknown_stage.
+- PCSX2 official2.8.2 actual field steps in analysis/pcsx2-response-r2: paused
+  F18 Right held, settled step1/2 unchanged, first displacement step3. F10
+  FrameAdvance works (source Hotkeys.cpp advances1); CU rejects F21. Save-state
+  .local/v090/pcsx2/official-v2.8.2/sstates/SLPS-25352 (59BF6019).01.p2s allows
+  reuse without repeated menus. response-review.json binds screenshots and
+  limits: guest read phase and ordinary backend wall time are NOT instrumented.
+  Reference90836/33048 closed normally. Right macro released. PCSX2 automatic
+  aspect resize stayed640x480 logical, so final CPU output match still pending.
+- Failed input-r1 legacy --config mismatch fixed in reusable launcher; input-r3
+  explicit640x448 ROI exceeded actual366x448 and stalled teardown. Own133740
+  stopped, evidence retained. Auto ROI0,0,0,0,96 works; failures disable capture
+  instead of throwing mid-frame, input traces save after producer join.
 
-Use MEMORY.md before CU. Skill/guidance/API/confirmations read; use node_repl
-@oai/sky, not cua_repl. Normal PS2 short keys arrows/ZCross/XCircle/CSquare/
-VTriangle/ReturnStart work. Diagnostic test pad is shared protocol, no Windows
-input injection. launch_ps2_probe.py --help is the reusable entry; --normal
-turns all probe input/images off. Legacy --config only accepts [keyboard] and
-[community], NOT the collection INI. Do not repeat that startup mistake.
+Player/UI/function evidence:
+- Original ISO E:/Game-Share/roms/Espgaluda (Japan).iso SHA d1547e...51a0f readonly.
+  player-iso-r1 first ISO launch/menu/F8/exit and warm16file hash/mtime reuse PASS;
+  cache only16 boot/IOP files, resources stream original ISO. Do not repeat it.
+- User twice confirmed BOSS and restart BGM r63. Gallery grid/images/back/main,
+  wallpaper save1 r64 and cold read1 r65 PASS. Score/cold read still open.
+- DLC reader audit analysis/dlc-reader-audit-r1.log4 tests PASS; guides and
+  original STFS extraction inspected. No PS2 external DLC needed.
+- Covers11 assets committed, default banners; internal collection.launcher_layout
+  covers. Actual root ui/cover-preview-r3 mouse/keyboard/CN/EN/JP/scroll/
+  persistence/banner switch accepted.723x514logical at144DPI usable, screenshot
+  covers-small-window-r4.png. Its PS2 runtime absent; real launch/import/relaunch
+  through covers still needs acceptance. Saved covers/EN/espgaluda normally.
+- No game/reference remains after this turn's normal closes. Re-select current
+  returned windows before CU; node_repl @oai/sky only, never Task Manager.
+
+Use MEMORY.md before gameplay. Skill/guidance/API/confirmations read. Native
+short arrows,Z Cross,X Circle,C Square,V Triangle,Return Start work. Diagnostic
+launch_ps2_probe.py uses process-local test pad only when input trace enabled;
+--normal strips diagnostics. Legacy --config accepts only keyboard/community,
+not collection INI. Normal performance measurements leave diagnostic taps0.
+Prepared/disc paths and real launch receipts live.local/v090/player-iso-r1.
 
 ## Previous release checkpoints
 
