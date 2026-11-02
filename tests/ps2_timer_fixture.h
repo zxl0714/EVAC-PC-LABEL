@@ -30,9 +30,10 @@ inline void EeTimerArithmetic(PS2Memory& memory) {
     uint64_t total=0;uint32_t random=0x78123456,interrupts=0;
     for(unsigned step=0;step<10000;++step) {
       random=random*1664525u+1013904223u;
-      const uint64_t cycles=step%19==0?0:1+(random&8191u);
+      const uint64_t cycles=step%19==0?0:
+          (step%257==0?3*frequency+(random&8191u):1+(random&8191u));
       total+=cycles;interrupts|=memory.advanceEeTimers(cycles);
-      const auto ticks=(total*clocks[mode])/frequency;
+      const auto ticks=(total/frequency)*clocks[mode]+(total%frequency)*clocks[mode]/frequency;
       const auto expected=resetAtCompare?ticks%compare:ticks%65536u;
       if(memory.readIORegister(0x10000000)!=expected)throw std::runtime_error("EE timer lost fractional cycle carry");
       const auto status=memory.readIORegister(0x10000010);
@@ -45,6 +46,26 @@ inline void EeTimerArithmetic(PS2Memory& memory) {
     memory.writeIORegister(0x10000010,((mode+1)%4)|0xf80u);
     memory.advanceEeTimers(1);
     if(memory.readIORegister(0x10000000)!=0)throw std::runtime_error("EE timer mode change retained an old clock phase");
+  }
+  for(unsigned mode=0;mode<4;++mode) {
+    for(const uint64_t phase:{1ull,17ull,513ull}) {
+      memory.resetEeTimers();
+      memory.writeIORegister(0x10000020,1234);
+      memory.writeIORegister(0x10000010,mode|0x380u);
+      if(memory.advanceEeTimers(phase))throw std::runtime_error("Timer fired before test phase");
+      const auto deadline=memory.cyclesUntilNextEeTimerInterrupt();
+      if(deadline<2 || deadline==UINT64_MAX || memory.advanceEeTimers(deadline-1))
+        throw std::runtime_error("EE timer deadline precedes its interrupt");
+      if(memory.cyclesUntilNextEeTimerInterrupt()!=1 || memory.advanceEeTimers(1)!=1)
+        throw std::runtime_error("EE timer fractional deadline missed its interrupt");
+    }
+    memory.resetEeTimers();
+    memory.writeIORegister(0x10000010,mode|0x80u);
+    memory.advanceEeTimers(UINT64_MAX);
+    const auto ticks=(UINT64_MAX/frequency)*clocks[mode]+
+        (UINT64_MAX%frequency)*clocks[mode]/frequency;
+    if(memory.readIORegister(0x10000000)!=(ticks&65535u))
+      throw std::runtime_error("EE timer large cycle advance overflowed");
   }
   memory.resetEeTimers();
 }
