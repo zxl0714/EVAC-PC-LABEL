@@ -19,7 +19,15 @@ latency including backend tail, stable fields, remaining controls/modes/score
 cold-save, actual covers launch/import/relaunch, final version/docs/licenses,
 real program/internal ZIPs and one extraction acceptance each.
 
-No main build is live at this checkpoint. exec24499 completed certification and
+LIVE main build: exec68159, PowerShell90572 started12:44:10 CST Nov02,
+CMake135784/Ninja100816, all2175 dependent units rebuilt for the new timer layout.
+Log .local/v090/analysis/timer-lazy-certified-build-r1.log. Begin snapshot completed
+12:51:40 at.local/build-inputs/ps2-f7bb90db234b49b281416cecd2fd5732.json.
+At13:30-ish764/2175, now ARRANGE units, CPU/IO advancing. Poll SAME handle; do
+not restart for quiet large unity files. DO NOT mutate covered source until its
+finish snapshot/stage completes. Source build commit9ed9bcc. No game is running.
+
+exec24499 completed certification and
 staging of SPU adoption, log .local/v090/analysis/spu-adoption-certified-build-r1.log.
 EXE1856d5f68af7c5dc6a73ad600c530e0f588deb82315cecad61a5548baa2032d3 and
 matching4.06GB PDB copied to runtime/ps2. This certificate is now STALE because
@@ -43,6 +51,14 @@ Latest source changes awaiting full game rebuild:
   .local/v090/timer-lazy-bench-r1/comparison.json. Header layout changed: rebuild
   ALL dependent game units; never link old generated objects with new layout.
   Memory header upstream CRLF preserved, gitattributes cr-at-eol scoped to it.
+- IOP calendar private prototype REJECTED; do not adopt from the new reusable
+  tools/latency/build_ps2_iop_bench.py. r1 invalidated on all stores and was slower;
+  r2 narrowed invalidation but classified store addresses after load retirement;
+  r3 correctly computes addresses before execution and freezes headers, still
+  ~6-8% slower in small-quantum dispatch. Same2million instructions/checksum333333
+  and all existing IOP sound/IRQ/thread contracts PASS, no production IOP edits.
+  .local/v090/iop-calendar-bench-r3/comparison.json. Private runs48937/83560/67367
+  terminal/reaped. No second main graph was started.
 
 Actual ordinary fullscreen SPU EXE comparison still FAILS CPU target:
 - Native10.102sec .408349cores,605fields, median16.639/P9517.787/P9918.850/
@@ -87,7 +103,19 @@ Functional evidence to reuse:
   death; final namedstage1PNG isTITLE, notproof. Need actual accepted controls.
 - DLC reader4checksPASS.11coversassets/defaultbanner/internalcovers; actual
   cover-preview-r3 mouse/keyboard/CN/EN/JP/scroll/persistence/banner/smallwindow
-  PASS. Its runtime absent; now use staged PS2 EXE for real workflow acceptance.
+  PASS. Now real covers workflow also PASS: current launcher out/common/bin EXE
+  with --root cover-preview-r3; launcher78320 ->games123732/127168 both outpicture
+  and normal exit0; button/state recover. File chooser empty-iso-r1 ->grey/disabled,
+  restored externalISOdir ->color/enabled. Closing saves selected_game=espgaluda.
+  Evidence.local/v090/ui/covers-runtime-acceptance-r1.json+5PNG. All windows closed.
+  Root EXE was old0.8.4; mistakenly launched42656 first, closed normally; don't use
+  it for covers/PS2. New Release.ps1 accepts DataGames espgaluda; product still0.8.4.
+- gs-response-r2 PID95472 closed normally.512MiB graphics cap AGAIN reached in
+  menus before response. Do not rerun same fixed-cap experiment or use that prefix
+  as gameplay data. ARRANGE Chihiro selection/PLEASE WAIT seen, then unattended
+  death/DEMONSTRATION; not new accepted controls/score/latency. Next diagnostic
+  change after current main build: bounded configurable capture bytes (e.g.4GiB),
+  same full initialization; don't arm late without a complete GS initial state.
 - MEMORY.md exact controls and pitfalls; node_repl @oai/sky only. Skill/guidance/
   API/confirmations read. launch_ps2_probe.py --normal for real keyboard;
   diagnostics default uses EXCLUSIVE process-local testpad. --fullscreen now

@@ -6,7 +6,7 @@ param(
     [string]$OutputDirectory,
     [hashtable]$DataDirectories=@{},
     [string]$FutariDlcDirectory,
-    [ValidateSet('all','futari','espgaluda2','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga')][string[]]$DataGames,
+    [ValidateSet('all','futari','espgaluda2','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga','espgaluda')][string[]]$DataGames,
     [ValidateSet('all','black-label','ver101')][string[]]$FutariContent,
     [switch]$Symbols
 )

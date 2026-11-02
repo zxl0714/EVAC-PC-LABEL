@@ -169,6 +169,10 @@ RESULT；符号解析后的场景不能倒推为采样时的场景。对照 CSV 
   旧 PS2 CLI 的 `--config` 只收 `[keyboard]`／`[community]`，不能传合集 INI；
   合集正常启动由五个 contract 参数传配置，不把两种配置入口混用。
 - `tools/latency/launch_*_probe.py`：先读适用平台、夹具范围与依赖，不把旧探针直接套到普通构建。
+- 封面版启动器的当前构建在 `out/common/bin/EVAC PC LABEL.exe`；根目录 EXE 可能仍是旧发行版。
+  测试时传独立 `--root`，不要因旧入口看不到 PS2／封面而重查配置。文件夹选择器可用
+  Alt+D → 输入路径 → Enter 导航，再点对应弹窗截图中的“选择文件夹”；它只展示文件夹，
+  看不到 ISO 属正常。该弹窗 UIA 曾错报焦点、set_value 失败，优先按截图和地址栏操作。
 - PS2 只改运行时／宿主 C++ 时，直接 `cmake --build out/ps2-tools --parallel 2`。
   Windows 无窗口测试默认栈只有 1 MiB；测试里再建第二份大型 `PS2Runtime` 时放到堆上。
   `0xC00000FD` 是栈溢出，先核对测试对象和调用栈，别当作游戏代码崩溃。
