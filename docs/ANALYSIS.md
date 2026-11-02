@@ -1,5 +1,32 @@
 # 分析与诊断工具
 
+## v090 PS2 latency estimate
+
+按 11 月 2 日的收尾要求，ESPGaluda 停止进一步优化和复测，用已有数据完成估算。
+口径沿用 README：输入状态到达程序后，平均取样等待＋游戏首响应＋呈现后段；
+设备／系统输入前段、显示器扫描与面板响应单独排除。
+
+| 路径 | 平均取样等待/ms | 游戏响应/ms | 呈现后段预算/ms | 合计/ms | README取整 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 移植版，Vulkan IMMEDIATE | 8.333 | 16.873 | 1.332 | 26.539 | 27 |
+| PCSX2 2.8.2，D3D12，VSync关闭 | 8.333 | 33.333 | 0.919 | 42.585 | 43 |
+
+移植版的 16.873 ms 来自三次已复核的首次位移，边界为 PadRead→Present 返回；
+1.332 ms 来自现有全屏 Vulkan IMMEDIATE 小基准，541 个预热后有效样本的
+Present 返回→present-wait 完成通知均值，601 个请求全部完成、0 丢失。
+这是复用的呈现预算，完成通知不标定特定扫描线或物理出光。
+
+PCSX2 的两次游戏更新已由只读 PINE、主循环计数和左右位移图像共同确认，
+响应毫秒数按统一 60 Hz 推算为 33.333 ms。D3D12 后段复用同机既有虫姬二
+Hardware Independent Flip、SyncInterval=0 的 539 个有效显示样本：
+Present 入口→系统显示事件均值 0.918538 ms。该侧假设采用相同独立翻转条件，
+它不是本次 PCSX2 的完整端到端实测；实际排队／合成路径变化会改变结果。
+
+计算与原始证据哈希见 `.local/v090/analysis/ps2-latency-estimate-r1.json`；输入来源为
+`late-input-response-r1-analysis/response-review.json`、`pcsx2-pine-r2/response-review.json`、
+`present-wait-fullscreen-r1-summary.json` 和 `futari-historical-present-display-r1.json`。
+CPU 继续使用已采集普通 BOSS 窗口的 0.427／0.249 核，不追加新的性能测量。
+
 ## v090 PS2 closeout
 
 本轮停止增加实验，按已有证据完成候选包。以下项目分别报告，不将未达标目标写成通过。
@@ -19,7 +46,7 @@ ARCADE 三次首位移图像对照的 PadRead→响应画面 Present 返回均�
 PCSX2 通过只读 PINE 与逐帧位移交叉核对，两侧方向均为输入消费后两个游戏更新响应。
 这组逐帧证据不含正常输出呈现的尾段，不能填写为完整毫秒延迟对比。
 独立 present-wait 探针约 1.332 ms 的返回后宿主通知也不是游戏的实际显示时间。
-因此本版未把 PS2 填入已有的按键到输出延迟表。
+此处保留当时的测量边界；本版最终采用上节注明假设的统一预算估算。
 
 设置保存与重启读回、原始 ISO 首次准备、画廊、BOSS／重新开局音乐验收复用既有记录。
 新的成绩冷保存／续关专项仍保留为未关闭项，不扩展为新一轮全模式回归。

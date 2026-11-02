@@ -46,7 +46,13 @@ Use `[game.daioujou]`, `[game.esprade]`, `[game.feveron]` or `[game.garegga]` fo
 
 Battle Garegga, SUPER EASY Stage 1: 60.01 FPS, 0.25 CPU cores, and a 17.06 ms P95 frame interval in a short sample. [Measurements (Chinese)](docs/ANALYSIS.md#v083-battle-garegga).
 
-PS2 ESPGaluda responds one game update after consuming input, down from two. Short boss samples used 0.43 CPU cores in the port and 0.25 in PCSX2 2.8.2; CPU efficiency remains an area for improvement. The port's P95 frame interval was 18.06 ms, with a 19.88 ms maximum. [Measurement scope and results (Chinese)](docs/ANALYSIS.md#v090-ps2-closeout).
+PS2 comparison (PCSX2 2.8.2):
+
+| Game | Port latency/ms | PCSX2 latency/ms | Port CPU/cores | PCSX2 CPU/cores |
+| --- | ---: | ---: | ---: | ---: |
+| ESPGaluda | 27 | 43 | 0.43 | 0.25 |
+
+Latency is a stage-budget estimate: an 8.33 ms average sampling wait; a measured 16.87 ms response in the port and two confirmed game updates in PCSX2; presentation allowances from the same PC's Vulkan IMMEDIATE microbenchmark and historical D3D12 independent-flip capture. CPU figures are ordinary boss-scene samples. The port's P95 frame interval was 18.06 ms, with a 19.88 ms maximum. [Method and data (Chinese)](docs/ANALYSIS.md#v090-ps2-latency-estimate).
 
 ## Getting started
 

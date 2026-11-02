@@ -46,7 +46,13 @@ neo = false
 
 空战之路 SUPER EASY 第一关短场景：60.01 FPS，CPU 0.25 核，出帧间隔 P95 17.06 ms。[测量记录](docs/ANALYSIS.md#v083-battle-garegga)。
 
-PS2 ESPGaluda 的输入响应从两次游戏更新提前到一次。普通 BOSS 短场景的 CPU 开销为 0.43 核，PCSX2 2.8.2 为 0.25 核；当前移植版的 CPU 效率仍需优化。出帧间隔 P95 18.06 ms，最大 19.88 ms。[测量范围与结果](docs/ANALYSIS.md#v090-ps2-closeout)。
+PS2 对比（PCSX2 2.8.2）：
+
+| 游戏 | 移植版延迟/ms | PCSX2 延迟/ms | 移植版 CPU/核 | PCSX2 CPU/核 |
+| --- | ---: | ---: | ---: | ---: |
+| ESPGaluda | 27 | 43 | 0.43 | 0.25 |
+
+延迟为阶段预算估算：平均取样等待 8.33 ms；移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。CPU 为普通 BOSS 短场景实测。移植版出帧间隔 P95 18.06 ms，最大 19.88 ms。[方法与数据](docs/ANALYSIS.md#v090-ps2-latency-estimate)。
 
 ## 开始游玩
 

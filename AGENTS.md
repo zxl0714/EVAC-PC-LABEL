@@ -10,6 +10,20 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+LATEST HUMAN STEERING Nov02: STOP all ESPGaluda development/optimization/retests.
+Only consolidate existing measurements; PS2 latency estimate now27ms versusPCSX243ms,
+CPU .43/.25cores. Methods/assumptions in ANALYSIS v090-ps2-latency-estimate. Do NOT
+resume CPU/frame/presentation experiments, scoring/replay/continue fixture research.
+Private test89308 closed normally; fixture score-fixture-r2 only saved EASY/LIFE5/
+AutoSaveON through original UI, NOT a new-score acceptance. Production untouched.
+Active work now: investigate Dangun Feveron dropped frames, then finish required
+v0.9.0 packaging. Existing9df candidates remain frozen; no rebuild merely for docs.
+New finding: Oct29 worst99.837ms frame3057 has graphics-pipeline compile75.409ms,
+combined compile76.671ms; Oct28 worst99.641ms has73.992ms combined compilation.
+Other long frames have different causes; do not call all dropped frames solved.
+Evidence .local/v090/analysis/feveron-long-frame-compiles-r1.json. No game running.
+
+
 PACKAGING BOUNDARY REACHED Nov02: v0.9.0 candidate program + internal ZIPs built
 and each actually extracted ONCE and verified. STOP before publication. No push,
 GitHub/OSS/QQ, or automatic return to optional experiments. Workspace
