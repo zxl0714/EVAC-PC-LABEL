@@ -2830,3 +2830,21 @@ Public RC2 的绊地狱普通启动合同完成原生准备及菜单进入。现
 - 10 月 31 日 07:14 正式发布 [GitHub v0.8.3](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.8.3)，Latest，ID `429571675`。`main` 与固定标签已推送；公开 API 核对状态、两份附件大小／摘要及完整中英文说明通过，下载的 100 字节校验文件与本地一致，未重新下载 ZIP。交付 `.local/v083/github-delivery-r1.json`，截图 `.local/v083-release-published.png`。本次收尾仅更新验收文档，冻结包和标签保持不变。
 
 证据位于 `.local/v083/`：`native-community-r1.stdout.jsonl`、独立测试目录的 run 日志、`native-checks-r10/result.json`、`server-remote-tests-r1.log`、`server-installed-r1.log` 和 `performance-super-easy-stage1-r3.json`、`garegga-quickload-after-restart-r3.png`、`garegga-https-ranking-r2.png`。静态盘点和协议 fixture 不代替实际游戏回放。
+
+## v0.9.0 本地增量验收（2026-11-02）
+
+- IOP 定时器截止时间缓存与 NOP 退休快路径：冻结前后库、20 万组完整 CPU 状态对照、
+  声音 DMA／临界区／IRQ／线程检查通过；新增真实调度 IRX 覆盖周期回调、停止、重新设置
+  周期后启动、显式停止和复位。基线／候选的计数、周期、指令一致。
+  见 `.local/v090/iop-timer-nop-contract-r4/comparison.json`。
+- `221634ae` 普通全屏 BOSS 窗口 0.370 核、605 帧最大 18.918 ms、0 次超过 19 ms。
+  `native-iop-fullscreen-{cpu,frames}-r1.json` 和前后截图有效；r2 起点已经是 RESULT，排除。
+- ARRANGE：Chihiro 进入第一关，Power Shot、Main Shot、左右移动、觉圣、暂停／恢复和
+  QUIT→YES 回到标题通过。觉圣宝石从 250 减少、画面内射击与角色位移均已观察。
+  Barrier 按住后游戏继续正常，但本轮没有独立证明其资源消耗／效果；续关和新成绩冷保存仍待验证。
+  实际截图及输入在 `.local/v090/latency/arrange-flow-r1/`，属于诊断局，不计入普通性能。
+- 诊断事件容量扩展：938,956 条输入事件、160 条合成事件完整落盘，均无 overflow／incomplete；
+  一次性像素采集 96 帧、failed=0。但方向命令 90 位于暂停恢复倒计时，不作响应延迟样本。
+- 大图形记录约 2 GiB 达限后，实际游戏仍可操作、暂停、退出；离线读取并重放 6,849 个字段、
+  67,216 条命令成功，VRAM 快照为 0。`graphics-large-trace-replay-r1.log` 是无预热的机制检查，
+  不作为 GPU 性能结论；记录达限早于后续 ARRANGE 控制验收，也不作为该段响应证据。

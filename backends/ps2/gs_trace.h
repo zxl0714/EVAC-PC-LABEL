@@ -4,6 +4,7 @@
 #include <memory>
 
 namespace cave::ps2 {
+inline constexpr uint64_t MaxGsTraceBytes=4ull*1024u*1024u*1024u;
 struct GsTraceStats {
     uint64_t commands=0,frames=0,bytes=0;
     bool finished=false,limited=false;

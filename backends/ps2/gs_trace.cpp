@@ -49,7 +49,7 @@ public:
     bool initialized=false;
     Impl(std::unique_ptr<GsCommandBackend> consumer,const std::filesystem::path& path,uint64_t bytes,uint64_t frames)
         :target(std::move(consumer)),maxBytes(bytes),maxFrames(frames) {
-        if(!target || bytes<VramBytes+32 || bytes>1024ull*1024u*1024u || !frames)
+        if(!target || bytes<VramBytes+32 || bytes>MaxGsTraceBytes || !frames)
             throw std::invalid_argument("Invalid GS capture target or limit");
         file.reset(_wfopen(path.c_str(),L"wbx"));
         if(!file)throw std::runtime_error("Cannot create a new GS trace file");
@@ -145,6 +145,7 @@ public:
     Blob fifo;
     GsTraceStats stats;
     Impl(const std::filesystem::path& path,uint64_t maxBytes) {
+        if(maxBytes>MaxGsTraceBytes)throw std::invalid_argument("GS replay limit exceeds 4096 MiB");
         const auto size=std::filesystem::file_size(path);
         if(size<24 || size>maxBytes)throw std::runtime_error("GS trace file exceeds size limits");
         std::ifstream file(path,std::ios::binary);if(!file)throw std::runtime_error("Cannot open GS trace");

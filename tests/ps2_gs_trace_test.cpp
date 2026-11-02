@@ -106,6 +106,21 @@ void RejectMalformed(const std::filesystem::path& root) {
     Consumer replay;bool bounded=false;try{ReplayGsTrace(root/"full.evacgs",replay,1024);}catch(const std::runtime_error&){bounded=true;}
     Require(bounded && replay.order.empty(),"File limit was checked after replay started");
 }
+void ExtendedBudget(const std::filesystem::path& root) {
+    const auto path=root/"extended-budget.evacgs";
+    GsRecordingBackend capture(std::make_unique<Consumer>(),path,MaxGsTraceBytes,1);
+    std::vector<uint8_t> initial(VramBytes);initial[9]=7;
+    capture.Initialize(initial);capture.Frame({});capture.Finish();
+    Consumer replay;const auto stats=ReplayGsTrace(path,replay,MaxGsTraceBytes);
+    Require(stats.frames==1 && stats.bytes<VramBytes+1024,"Extended budget must not preallocate a multi-gigabyte file");
+    const auto rejected=root/"over-budget.evacgs";
+    bool writeRejected=false,readRejected=false;
+    try {GsRecordingBackend invalid(std::make_unique<Consumer>(),rejected,MaxGsTraceBytes+1,1);}
+    catch(const std::invalid_argument&){writeRejected=true;}
+    try {ReplayGsTrace(path,replay,MaxGsTraceBytes+1);}
+    catch(const std::invalid_argument&){readRejected=true;}
+    Require(writeRejected && readRejected && !std::filesystem::exists(rejected),"Diagnostic budget must remain bounded before file creation/replay");
+}
 void DeferredField(const std::filesystem::path& path) {
     auto live=std::make_unique<Consumer>();auto* source=live.get();
     GsRecordingBackend recorder(std::move(live),path);
@@ -119,6 +134,6 @@ void DeferredField(const std::filesystem::path& path) {
             "Retried field was omitted or duplicated in the GS trace");
 }
 }
-int main(){try{Files files;RoundTrip(files.root/"full.evacgs");Limits(files.root);RejectMalformed(files.root);DeferredField(files.root/"deferred.evacgs");
+int main(){try{Files files;RoundTrip(files.root/"full.evacgs");Limits(files.root);RejectMalformed(files.root);ExtendedBudget(files.root);DeferredField(files.root/"deferred.evacgs");
     std::cout<<"GS capture/replay paths, shortcuts, frame state, budgets, no overwrite and malformed input: PASS\n";return 0;
 }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}}

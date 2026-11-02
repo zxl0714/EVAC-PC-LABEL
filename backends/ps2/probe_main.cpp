@@ -387,6 +387,7 @@ int main(int argc,char** argv) {
     bool traceBoot=false,traceAudio=false,musicCycle=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
+    size_t inputTraceEvents=200000;
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
@@ -397,6 +398,10 @@ int main(int argc,char** argv) {
       else if(option=="--music-cycle")musicCycle=traceAudio=true;
       else if(option=="--capture-audio" && i+1<argc)audioCapture=std::filesystem::absolute(argv[++i]);
       else if(option=="--input-trace" && i+1<argc)inputTrace=std::filesystem::absolute(argv[++i]);
+      else if(option=="--input-trace-events" && i+1<argc) {
+        inputTraceEvents=std::stoull(argv[++i]);
+        if(!inputTraceEvents || inputTraceEvents>1000000)throw std::runtime_error("Input trace events must be 1..1000000");
+      }
       else if(option=="--coarse-timer")hostOptions.timerPrecision=false;
       else if(option=="--frame-times" && i+1<argc) {
         frameTimes=std::filesystem::absolute(argv[++i]);
@@ -413,6 +418,11 @@ int main(int argc,char** argv) {
       else if(option=="--vsync")hostOptions.vsync=true;
       else if(option=="--config" && i+1<argc)hostOptions.keyboardConfig=std::filesystem::absolute(argv[++i]);
       else if(option=="--capture-gs" && i+1<argc)hostOptions.capture=std::filesystem::absolute(argv[++i]);
+      else if(option=="--capture-gs-mib" && i+1<argc) {
+        const auto mib=std::stoull(argv[++i]);
+        if(mib<8 || mib>4096)throw std::runtime_error("GS capture limit must be 8..4096 MiB");
+        hostOptions.captureBytes=mib*1024ull*1024u;
+      }
       else if(option=="--window-size" && i+2<argc) {
         hostOptions.width=std::stoul(argv[++i]);hostOptions.height=std::stoul(argv[++i]);
       } else throw std::runtime_error("Unknown development option");
@@ -425,7 +435,7 @@ int main(int argc,char** argv) {
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
     cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
-    cave::ps2::input_trace::Scope inputTraceScope(inputTrace);
+    cave::ps2::input_trace::Scope inputTraceScope(inputTrace,inputTraceEvents);
     cave::ps2::audio_trace::Configure(traceAudio);
     cave::ps2::frame_trace::Configure(!frameTimes.empty());
     cave::ps2::audio_capture::Configure(audioCapture);

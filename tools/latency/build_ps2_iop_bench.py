@@ -14,6 +14,8 @@ from build_ps2_library_bench import properties,words,quoted,freeze_libraries
 
 
 def nop_candidate(source):
+    if 'if (instruction == 0u)' in source:
+        raise ValueError('The NOP fast path is already present; use a frozen pre-change source')
     anchor='''    bool IopCpuCore::executeInstruction(IopCpuState &cpu, uint32_t instruction)
     {
 '''
@@ -102,10 +104,40 @@ def calendar_candidate(source):
     return source
 
 
+def timer_candidate(source):
+    replacements=[
+        ('        uint64_t idleUntil = 0;',
+         '        uint64_t idleUntil = 0;\n        uint64_t nextTimerCycle = UINT64_MAX;'),
+        ('            timrman.reset();',
+         '            timrman.reset();\n            nextTimerCycle = UINT64_MAX;'),
+        ('''            if (iequals(call.library, "timrman") && timrman.dispatchImport(call.ordinal, cpu, totalCycles))
+                return ImportDisposition::Handled;''',
+         '''            if (iequals(call.library, "timrman") && timrman.dispatchImport(call.ordinal, cpu, totalCycles))
+            {
+                nextTimerCycle = timrman.nextEventCycle(UINT64_MAX);
+                return ImportDisposition::Handled;
+            }'''),
+        ('                    timrman.serviceDue(totalCycles, *this);',
+         '''                    if (totalCycles >= nextTimerCycle)
+                    {
+                        timrman.serviceDue(totalCycles, *this);
+                        nextTimerCycle = timrman.nextEventCycle(UINT64_MAX);
+                    }'''),
+        ('                        nextWake = timrman.nextEventCycle(nextWake);',
+         '                        nextWake = std::min(nextWake, nextTimerCycle);'),
+    ]
+    for old,new in replacements:
+        if source.count(old)!=1:
+            raise ValueError('IOP timer-dispatch source changed: '+old[:90])
+        source=source.replace(old,new)
+    return source
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--candidate',choices=('calendar','nop'),default='calendar')
+    parser.add_argument('--candidate',choices=('calendar','nop','timer','timer-nop'),default='calendar')
+    parser.add_argument('--rounds',type=int,choices=range(1,11),default=2)
     parser.add_argument('--run',action='store_true')
     args=parser.parse_args()
     output=args.output.resolve();reject_link(output)
@@ -131,31 +163,41 @@ def main():
     # Each pair replaces a complete translation unit. The frozen public ABI
     # and all other library inputs remain identical.
     variants={}
-    transform=nop_candidate if args.candidate=='nop' else calendar_candidate
+    transform={'nop':nop_candidate,'calendar':calendar_candidate,'timer':timer_candidate,
+               'timer-nop':timer_candidate}[args.candidate]
     for name,text in [('baseline',original),('candidate',transform(original))]:
         text=text.replace('../../../backends/ps2/',(ROOT/'backends/ps2').as_posix()+'/')
         path=output/(name+'.cpp');path.write_text(text,encoding='utf8',newline='\n')
         variants[name]=path
     test=output/'ps2_iop_memory_test.cpp'
-    for path in (ROOT/'tests/ps2_iop_memory_test.cpp',ROOT/'tests/ps2_iop_audio_fixture.h'):
+    for path in (ROOT/'tests/ps2_iop_memory_test.cpp',ROOT/'tests/ps2_iop_audio_fixture.h',
+                 ROOT/'tests/ps2_iop_timer_fixture.h'):
         shutil.copyfile(path,output/path.name)
-    for path in (source,test,output/'ps2_iop_audio_fixture.h'):
+    for path in (source,test,output/'ps2_iop_audio_fixture.h',output/'ps2_iop_timer_fixture.h'):
         identities[str(path)]=digest(path)
     differential=[]
-    if args.candidate=='nop':
+    if args.candidate in ('nop','timer-nop'):
+        cpu_source=ROOT/'third_party/ps2/runtime/iop_cpu.cpp'
+        cpu_original=cpu_source.read_text(encoding='utf8')
+        cpu_candidate=variants['candidate']
+        if args.candidate=='timer-nop':
+            cpu_candidate=output/'cpu_candidate.cpp'
+            cpu_candidate.write_text(nop_candidate(cpu_original),encoding='utf8')
+        identities[str(cpu_source)]=digest(cpu_source)
         header=(ROOT/'third_party/ps2/runtime/iop_cpu.h').read_text(encoding='utf8')
         reference=output/'reference.cpp'
-        reference.write_text(original.replace('"emulator/core/iop_cpu.h"','"cpu_reference.h"')
+        reference.write_text(cpu_original.replace('"emulator/core/iop_cpu.h"','"cpu_reference.h"')
                              .replace('IopCpuCore','IopCpuReference'),encoding='utf8')
         definition=header[header.index('    class IopCpuCore'):header.rfind('}')]
         (output/'cpu_reference.h').write_text('#pragma once\n#include "emulator/core/iop_cpu.h"\n'
             'namespace ps2x::iop::detail {\n'+definition.replace('IopCpuCore','IopCpuReference')+'}\n',encoding='utf8')
         fixture=output/'differential.cpp'
         shutil.copyfile(ROOT/'tools/latency/ps2_iop_cpu_differential.cpp',fixture)
-        differential=[fixture,reference,variants['candidate']]
+        differential=[fixture,reference,cpu_candidate]
     cmake=['cmake_minimum_required(VERSION 3.25)','project(Ps2IopDispatchBench LANGUAGES CXX)',
            'set(CMAKE_CXX_STANDARD 20)']
     targets={name:[test,path] for name,path in variants.items()}
+    if args.candidate=='timer-nop':targets['candidate'].append(cpu_candidate)
     if differential:targets['differential']=differential
     for name,sources in targets.items():
         cmake += [f'add_executable({name} '+' '.join(map(quoted,sources))+')',
@@ -180,7 +222,7 @@ def main():
             result=subprocess.run([str(exe)],text=True,capture_output=True,check=True)
             record['variants'][name]=dict(exe_sha256=digest(exe),contract_stdout=result.stdout)
         record['runs']=[]
-        for name in ('baseline','candidate','candidate','baseline'):
+        for name in ('baseline','candidate','candidate','baseline')*args.rounds:
             for mode in ('--bench-dispatch','--bench-idle'):
                 result=subprocess.run([str(output/'build'/(name+'.exe')),mode],
                                       text=True,capture_output=True,check=True)

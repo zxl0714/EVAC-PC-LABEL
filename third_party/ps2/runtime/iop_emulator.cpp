@@ -126,6 +126,7 @@ namespace ps2x::iop::detail
             cdvd.reset();
             intrman.reset();
             timrman.reset();
+            nextTimerCycle = UINT64_MAX;
             ioman.reset();
             pendingDmaInterrupts.clear();
             pendingGuestCallbacks.clear();
@@ -331,7 +332,10 @@ namespace ps2x::iop::detail
             if (iequals(call.library, "vblank") && vblank.dispatchImport(call.ordinal, cpu, totalCycles))
                 return ImportDisposition::Handled;
             if (iequals(call.library, "timrman") && timrman.dispatchImport(call.ordinal, cpu, totalCycles))
+            {
+                nextTimerCycle = timrman.nextEventCycle(UINT64_MAX);
                 return ImportDisposition::Handled;
+            }
             if (iequals(call.library, "dmacman"))
             {
                 setV0(0);
@@ -607,7 +611,11 @@ namespace ps2x::iop::detail
                     serviceAudio();
                     servicePendingDmaInterrupts();
                     servicePendingGuestCallbacks();
-                    timrman.serviceDue(totalCycles, *this);
+                    if (totalCycles >= nextTimerCycle)
+                    {
+                        timrman.serviceDue(totalCycles, *this);
+                        nextTimerCycle = timrman.nextEventCycle(UINT64_MAX);
+                    }
                     IopThread *next = kernel.beginNextReady(totalCycles);
                     if (!next)
                     {
@@ -616,7 +624,7 @@ namespace ps2x::iop::detail
                             nextWake = std::min(nextWake, completionCycle);
                         if (!pendingGuestCallbacks.empty())
                             nextWake = std::min(nextWake, pendingGuestCallbacks.begin()->first);
-                        nextWake = timrman.nextEventCycle(nextWake);
+                        nextWake = std::min(nextWake, nextTimerCycle);
                         nextWake = std::min(nextWake, memory.nextAudioCycle());
                         idleUntil = std::max(totalCycles + 1u, nextWake);
                         totalCycles = std::min(target, idleUntil);
@@ -769,6 +777,7 @@ namespace ps2x::iop::detail
         uint32_t moduleCursor = kModuleLoadBase;
         uint64_t totalCycles = 0;
         uint64_t idleUntil = 0;
+        uint64_t nextTimerCycle = UINT64_MAX;
         uint64_t totalInstructions = 0;
         cave::ps2::IopProfile profile;
         uint64_t eeCycleCarry = 0;

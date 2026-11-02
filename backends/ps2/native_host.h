@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -11,6 +12,7 @@ struct NativeHostOptions {
     unsigned width=1280,height=720;
     bool fullscreen=false,vsync=false,timerPrecision=true;
     std::filesystem::path keyboardConfig,capture;
+    uint64_t captureBytes=512ull*1024u*1024u;
     std::string gameId;
     bool gamepadEnabled=true;
     float deadzone=0.20f,volume=1.0f;

@@ -88,6 +88,13 @@ host presentation returns, rather than monitor scanout.
 and the mixed output in bounded memory, then writes three stereo WAV files on
 exit. `--trace-audio` adds bounded sample-bank, playback, volume and ADX-error
 events. These diagnostics remain disabled during normal gameplay.
+`--input-trace <new.csv>` buffers input and graphics event ordering; its default
+200,000 records can be raised with `--input-trace-events` up to 1,000,000.
+Check the saved overflow count before analysing an interval.
+`--capture-gs <new.evacgs>` records from the initial graphics state. Its default
+512 MiB budget can be raised with `--capture-gs-mib` up to 4096; the 18,000-field
+limit remains in place. Offline replay accepts `--trace-limit-mib` for a larger
+file. These options affect only explicitly enabled diagnostic capture.
 `--probe-adx-coefficients boot.elf` checks the original ESPGaluda predictor headlessly at three sample
 rates; it creates no game window.
 `--probe-disc-index boot.elf` runs the original index parser headlessly against
@@ -97,3 +104,13 @@ an optional headless build for the original memory/string translations, using
 
 Read the root `MEMORY.md` before controlling a game window. Runtime contracts,
 generated-code validation and observed gameplay are separate acceptance checks.
+
+`ps2_gpu_wait_probe` is a headless Windows experiment built by the same graphics
+toolchain. It compares Vulkan completion waits with a D3D12 shared-fence event,
+using Granite's external-timeline import API on the same adapter. Both paths
+observe the same GPU submission; every sample checks its output and an already
+completed fence value. It reports ABBA batches after warmup and changes no game
+setting. Build the target in `out/ps2-tools` and run `bin/ps2_gpu_wait_probe.exe`.
+This measures a transfer workload's completion wait, rather than game latency or
+display presentation. API references: [Vulkan timeline interop](https://docs.vulkan.org/refpages/latest/refpages/source/VkD3D12FenceSubmitInfoKHR.html)
+and [SetEventOnCompletion](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12fence-seteventoncompletion).

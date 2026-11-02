@@ -125,8 +125,13 @@ Circle=BARRIER、Cross=RAPID（键盘 C/V/X/Z）。同页方括号是 ARRANGE �
 BUTTON CONFIG 页的脸键会直接修改当前绑定，Cross 也不是返回；用 EXIT 项退出。
 旧探针确有漏按时才用 200 ms，并核对 `ps2-pad-event` 与 `ps2-pad-read`；
 正式游玩、计时与性能测量保持默认 0。用户已实际游玩并确认 BOSS／重开音乐正常。
-ARCADE 选人后约一分钟教学会显示 PLEASE WAIT，之后才是玩家局；不能把教学或
-DEMONSTRATION 当游玩验收。教学结束后按短间隔观察，玩家不动会很快损失全部生命。
+ARRANGE 的可靠短流程：主菜单选 ARRANGE MODE → Circle → 等 1.8 秒 → Circle
+进入 GAME START → 等 1.8 秒 → 用进程内测试手柄每秒一次 Square（按 300 ms、间隔
+700 ms，共 12 次）覆盖加载与选人 → 等 1.6 秒 → Start 暂停。已实际进入 Chihiro
+第一关，射击、左右移动、觉圣、暂停和 QUIT→YES 回到标题通过；不要把确认键全发在加载期间。
+**暂停恢复有约 3 秒倒计时，等 4 秒后再测输入。** 本轮在倒计时发出的方向命令不能作延迟样本。
+游戏右上角的 PLEASE WAIT 也会出现在真实玩家局，不能据此认定还在加载或教学。
+截图往返之间可过去十几秒，非操作时停在原生暂停菜单，避免玩家已经死亡却继续采样。
 短关卡检查优先用 MAIN MENU → ARCADE SIMULATION → STAGE SELECT，默认 STAGE 1 TOP；
 再向下一个是 STAGE 1 BOSS。确认都是 X。这样可直接进玩家局，不必重等教学。
 需要自然滚动到 BOSS 时，先在 SETTING → SIMULATION SETTING 将 DEATH 设 OFF，

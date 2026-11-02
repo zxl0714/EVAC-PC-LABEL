@@ -59,6 +59,23 @@ namespace ps2x::iop::detail
 
     bool IopCpuCore::executeInstruction(IopCpuState &cpu, uint32_t instruction)
     {
+        if (instruction == 0u)
+        {
+            const bool delaySlot = cpu.branchPending;
+            cpu.pc = delaySlot ? cpu.branchTarget : cpu.pc + 4u;
+            cpu.branchPending = false;
+            if (!delaySlot) cpu.branchTarget = 0u;
+            cpu.exception = false;
+            cpu.yielded = false;
+            if (cpu.pendingLoad)
+            {
+                if (cpu.pendingLoadReg != 0u)
+                    cpu.gpr[cpu.pendingLoadReg] = cpu.pendingLoadValue;
+                cpu.pendingLoad = false;
+            }
+            cpu.gpr[0] = 0u;
+            return !cpu.stopped;
+        }
         const uint32_t pc = cpu.pc;
         const bool wasDelaySlot = cpu.branchPending;
         const uint32_t priorBranchTarget = cpu.branchTarget;

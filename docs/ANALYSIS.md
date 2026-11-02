@@ -54,7 +54,7 @@ EE 定时器改为按中断截止点累计周期，在寄存器访问前同步�
 模式切换及 UINT64_MAX 检查通过；另用 10 万步随机序列，将每步强制同步的参考实例与
 延迟同步实例比较返回中断、下次中断周期和全部可见寄存器，结果一致。
 实际 kernel 基准 ABBA 从 6.079／6.054 ns 每次降到 1.042／1.039 ns，最终校验和均为 131264。
-原始结果为 `.local/v090/timer-lazy-bench-r1/comparison.json`。完整游戏构建和实际收益待确认，
+原始结果为 `.local/v090/timer-lazy-bench-r1/comparison.json`。完整游戏构建已完成，
 不能将约 83% 的这项微基准降幅写成整个游戏的 CPU 降幅。
 
 另一个 IOP 事件日历原型未采用。它保留原来的指令数和到期周期，尝试减少尚未到期的
@@ -86,6 +86,62 @@ BOSS 即时存档后，10.112 秒窗口消耗 2515.625 CPU ms，即 0.249 核。
 两端截图均为 BOSS。另存的模拟设置确认 DEATH=OFF；重生本身不能证明该设置开启。
 单独的 8 秒侵入式热点采样只用于定位：IOP 指令执行、IOP 调度和 EE 定时器仍在主要热点中，
 不将该轮的帧间隔计入普通游玩统计。记录为 `native-hotspots-spu-r1.json`。
+
+EE 定时器新版 `bc95c456` 已完成全量构建、符号匹配及构建认证。相同全屏 BOSS
+场景的 10.101 秒普通输入窗口为 4093.75 CPU ms，即 0.405 核；生产线程约 0.254、
+窗口／图形约 0.111、音频约 0.028 核。605 个间隔中位 16.644 ms、P95 17.859 ms、
+P99 18.675 ms、最大 19.171 ms，2 个超过 19 ms、没有超过 20 ms。
+最长帧的 VBlank 迟到 1.375 ms，前帧 GPU 等待 3.156 ms，本次呈现 2.633 ms，
+其中 flush 0.569、acquire 1.297、scanout 0.538、submit 0.081、Present 0.148 ms。
+这些阶段部分发生在前后帧之间，不能相加当成一帧的全部执行时间。
+证据为 `native-timer-fullscreen-cpu-r1.json`、`native-timer-fullscreen-frames-r1.json`
+及同名 BOSS 前后截图。与 0.408 核旧版的细微差值不足以证明整机收益，CPU 目标仍未达到。
+
+### IOP 调度的第二轮优化
+
+独立诊断的热点 PC 对应 CRI 音频驱动的 32／64 个播放通道扫描循环；它们执行实际
+状态检查，不能作为纯空转跳过。采样每 1024 条指令取一次，存在周期性偏差，
+只用来定位代码，不把样本比例当作严格的指令分布。
+
+这轮只缓存 `timrman` 的下一次到期周期，在每个相关导入和回调服务后更新，复位时清空。
+没有改变逐指令音频、DMA、中断和 EE／IOP 周期。另为 NOP 保留完整的原始退休语义。
+生产运行时采用前，冻结原始库及头文件，20 万组完整 CPU 状态对照通过；新增的真实
+调度 IRX 覆盖空闲后启动、周期回调、回调停止、修改周期后重新启动、显式停止和复位。
+两份实现的回调计数、总周期和指令数一致，既有声音／线程／DMA 检查也通过。
+
+每次 2000 万条指令、ABBA 三轮的中位数如下。这是调度机制基准，尚不表示整个游戏收益。
+
+| EE 检查点周期 | 原始 CPU cycles／指令 | 候选 | 原始 ns／指令 | 候选 |
+| --- | ---: | ---: | ---: | ---: |
+| 8 | 63.642 | 48.859 | 18.742 | 14.375 |
+| 128 | 27.670 | 23.228 | 8.117 | 6.819 |
+
+完整结果为 `.local/v090/iop-timer-nop-bench-r1/comparison.json`；扩展定时器生命周期
+检查为 `iop-timer-nop-contract-r4/comparison.json`。运行时已采用并完成增量游戏构建。
+复用基准现在会拒绝重复注入已经存在的 NOP 优化，避免把同一实现误作前后对照。
+
+普通输入、相同全屏 BOSS 场景的新游戏 `221634ae`，10.101 秒消耗 3734.375 CPU ms，
+即 0.370 核；生产线程约 0.238、窗口／图形约 0.113、音频约 0.017 核。
+605 个间隔中位 16.639 ms、P95 17.680 ms、P99 18.610 ms、最大 18.918 ms，
+没有超过 19 或 20 ms。证据为 `native-iop-fullscreen-{cpu,frames}-r1.json` 及两端 BOSS 截图。
+相对前一普通窗口减少约 9%，但不是确定性同一弹幕片段的 A/B；仍高于 PCSX2 的 0.249 核。
+第二窗口开始已是 RESULT，保留 `native-iop-fullscreen-cpu-r2.json` 原始数据并明确排除。
+完整性能目标仍未达到，不用微基准降幅代替实际游戏差距。
+
+### GPU 完成等待的隔离实验
+
+`ps2_gpu_wait_probe` 复用 Granite 已有的外部 timeline 导入接口，将同一适配器的
+D3D12 共享 fence 用于 Windows 事件等待。原始 Vulkan fence 与共享 fence 在同一次
+提交中发信号；每次完成 512 MiB 填充，再核对 4 字节读回，并检查已完成值的通知。
+16 次预热后按 ABBA 三轮、每批 80 次，两侧各 480 次，全部输出及完成顺序检查通过。
+
+批次中位数：Vulkan 等待墙钟 296.376 µs、13,657 CPU cycles；Windows 事件为
+291.808 µs、4,839 CPU cycles。差值只有数千 cycles／等待，不能将它当作图形线程
+约 0.113 核的主要来源；没有据此修改正式游戏的等待或引入共享 fence 路径。
+结果在 `.local/v090/analysis/gpu-event-wait-r2-summary.json`，程序和源文件身份均已记录。
+此实验没有窗口或 swapchain，不能用于证明游戏呈现／显示延迟。原理及 API 约束见
+[Vulkan D3D12 timeline 互操作](https://docs.vulkan.org/refpages/latest/refpages/source/VkD3D12FenceSubmitInfoKHR.html)
+和 [Windows fence 完成事件](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12fence-seteventoncompletion)。
 
 独立 Vulkan IMMEDIATE／全屏微基准再次得到有效 GPU 完成时间，但所有
 first-pixel-out 字段仍为零，无法据此建立显示时间戳。

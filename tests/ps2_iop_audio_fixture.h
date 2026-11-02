@@ -4,6 +4,9 @@
 #include <cstring>
 #include <vector>
 #include <chrono>
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 namespace {
 // Only the authored ELF image is visible to this host. No game/BIOS files.
@@ -207,17 +210,25 @@ void IopDispatchBench() {
         std::memcpy(host.image.data()+0x200,worker,sizeof(worker));
         ps2x::iop::detail::IopEmulator emulator(host);
         Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0,"Dispatch fixture did not start");
-        constexpr uint64_t eeCycles=16'000'000;
+        constexpr uint64_t eeCycles=160'000'000;
         const auto before=emulator.instructions();
+        uint64_t cpuBefore=0,cpuAfter=0;
+#ifdef _WIN32
+        Require(QueryThreadCycleTime(GetCurrentThread(),&cpuBefore),"CPU cycle counter unavailable");
+#endif
         const auto start=std::chrono::steady_clock::now();
         for(uint64_t i=0;i<eeCycles;i+=quantum)emulator.runEeCycles(quantum);
         const auto ns=std::chrono::duration<double,std::nano>(std::chrono::steady_clock::now()-start).count();
+#ifdef _WIN32
+        Require(QueryThreadCycleTime(GetCurrentThread(),&cpuAfter),"CPU cycle counter unavailable");
+#endif
         const auto instructions=emulator.instructions()-before;
         uint32_t count{};
         Require(emulator.readMemory(0x10400,&count,4) && count>100000 && instructions==eeCycles/8,
                 "Dispatch optimization changed executed guest work");
         std::cout<<"dispatch_bench quantum="<<quantum<<" instructions="<<instructions
-                 <<" checksum="<<count<<" ns_per_instruction="<<ns/instructions<<'\n';
+                 <<" checksum="<<count<<" ns_per_instruction="<<ns/instructions
+                 <<" cpu_cycles_per_instruction="<<double(cpuAfter-cpuBefore)/instructions<<'\n';
     }
 }
 void IopIdleContract(bool bench=false) {

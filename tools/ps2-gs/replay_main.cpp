@@ -27,18 +27,21 @@ std::string Quoted(const std::string& source) {
 }
 int wmain(int argc,wchar_t** argv) {
     try {
-        if(argc<2)throw std::invalid_argument("Usage: ps2_gs_replay trace.evacgs [--seconds 1] [--warmup 1] [--iterations 1]");
+        if(argc<2)throw std::invalid_argument("Usage: ps2_gs_replay trace.evacgs [--seconds 1] [--warmup 1] [--iterations 1] [--trace-limit-mib 1024]");
         double seconds=1;unsigned warmup=1,minimum=1;
+        uint64_t traceMib=1024;
         for(int i=2;i<argc;i+=2) {
             if(i+1>=argc)throw std::invalid_argument("Missing replay option value");
             const std::wstring option(argv[i]);
             if(option==L"--seconds")seconds=std::stod(argv[i+1]);
             else if(option==L"--warmup")warmup=std::stoul(argv[i+1]);
             else if(option==L"--iterations")minimum=std::stoul(argv[i+1]);
+            else if(option==L"--trace-limit-mib")traceMib=std::stoull(argv[i+1]);
             else throw std::invalid_argument("Unknown replay option");
         }
         if(!(seconds>=0 && seconds<=30) || warmup>10 || !minimum || minimum>10000)throw std::invalid_argument("Replay options out of range");
-        cave::ps2::GsTraceWorkload workload{std::filesystem::path(argv[1])};
+        if(!traceMib || traceMib>4096)throw std::invalid_argument("Trace limit must be 1..4096 MiB");
+        cave::ps2::GsTraceWorkload workload{std::filesystem::path(argv[1]),traceMib*1024ull*1024u};
         const auto source=workload.Stats();if(!source.frames)throw std::runtime_error("Trace contains no complete fields");
         // A microbench warms only the pipelines used by its workload. PGS's
         // normal startup concurrently precompiles every potential variant;

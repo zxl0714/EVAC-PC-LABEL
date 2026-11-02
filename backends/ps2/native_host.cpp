@@ -186,7 +186,7 @@ std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
     if(!impl->queue)throw std::logic_error("Initialize PS2 host before creating the producer");
     std::unique_ptr<GsCommandBackend> backend=std::make_unique<SharedQueue>(impl->queue);
     if(!impl->options.capture.empty())backend=std::make_unique<GsRecordingBackend>(
-        std::move(backend),impl->options.capture,512u*1024u*1024u,18000);
+        std::move(backend),impl->options.capture,impl->options.captureBytes,18000);
     return backend;
 }
 void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {

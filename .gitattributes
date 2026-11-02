@@ -2,3 +2,4 @@
 third_party/ps4/gpu_core/upstream/** whitespace=cr-at-eol
 third_party/ps4/gpu_core/upstream-files.json whitespace=cr-at-eol
 third_party/ps2/runtime/ps2_memory.h whitespace=cr-at-eol
+third_party/ps2/runtime/iop_emulator.cpp whitespace=cr-at-eol

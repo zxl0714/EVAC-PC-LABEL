@@ -24,11 +24,20 @@ def main():
     parser.add_argument('--fullscreen',action='store_true',help='Use the same full desktop output for emulator comparisons')
     parser.add_argument('--present-feedback', action='store_true', help='Opt in to driver presentation-timing feedback')
     parser.add_argument('--capture-gs', action='store_true', help='Record a bounded graphics workload for offline replay')
+    parser.add_argument('--trace-audio',action='store_true',help='Enable bounded sound and IOP instruction profiling')
+    parser.add_argument('--capture-gs-mib',type=int,default=512,help='Diagnostic capture budget, 8..4096 MiB')
+    parser.add_argument('--input-trace-events',type=int,default=200000,help='Diagnostic event capacity, 1..1000000')
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', args.label):
         parser.error('Use an ASCII diagnostic label')
     if args.normal and (args.pixels or args.present_feedback or args.capture_gs):
         parser.error('Normal input measurements do not capture diagnostic pixels')
+    if not 8<=args.capture_gs_mib<=4096 or not 1<=args.input_trace_events<=1000000:
+        parser.error('Diagnostic capture budget or event capacity is out of range')
+    if not args.capture_gs and args.capture_gs_mib!=512:
+        parser.error('A custom GS budget requires --capture-gs')
+    if args.normal and args.input_trace_events!=200000:
+        parser.error('Normal measurements do not record input events')
     binary, disc, prepared = (p.resolve(strict=True) for p in
                              (args.binary, args.disc, args.prepared))
     for path in (binary, disc, prepared):
@@ -61,9 +70,13 @@ def main():
                '--window-size', '1280', '720',
                '--input-trace', str(output / 'input.csv'),
                '--frame-times', str(output / 'frame-times.csv')]
+    if not args.normal:
+        command.extend(['--input-trace-events',str(args.input_trace_events)])
     if args.capture_gs:
-        command.extend(['--capture-gs',str(output/'graphics.evacgs')])
+        command.extend(['--capture-gs',str(output/'graphics.evacgs'),
+                        '--capture-gs-mib',str(args.capture_gs_mib)])
     if args.fullscreen:command.append('--fullscreen')
+    if args.trace_audio:command.append('--trace-audio')
     if args.normal:
         environment = {}
         start = command.index('--input-trace')
@@ -75,7 +88,7 @@ def main():
                                    stdout=stdout, stderr=stderr)
     record = dict(pid=process.pid, binary=str(binary), binary_sha256=digest(binary),
                   command=command, environment=environment,
-                  tool_sha256=digest(Path(__file__)), diagnostic_only=not args.normal,
+                  tool_sha256=digest(Path(__file__)), diagnostic_only=not args.normal or args.trace_audio,
                   physical_input_measured=False)
     write_json_new(output / 'launch.json', record)
     print(json.dumps(dict(pid=process.pid, output=str(output), pipe=environment.get('EVAC_LATENCY_TEST_PAD'))))

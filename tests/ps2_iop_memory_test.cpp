@@ -116,6 +116,30 @@ void SysclibCharacterFlags() {
     }
     std::cout<<"IOP sysclib digit/letter/space/control classification: PASS\n";
 }
+void NopRetirement() {
+    using ps2x::iop::detail::IopCpuState;
+    IopMemory memory;ps2x::iop::detail::IopCpuCore core(memory);
+    for(const bool delay:{false,true})for(const bool pending:{false,true})
+    for(const uint32_t reg:{0u,1u,31u})for(const bool stopped:{false,true}) {
+        IopCpuState cpu{};
+        cpu.gpr.fill(0x44332211);cpu.pc=0xfffffffcu;
+        cpu.branchPending=delay;cpu.branchTarget=0x12345678;
+        cpu.pendingLoad=pending;cpu.pendingLoadReg=reg;cpu.pendingLoadValue=0xabcdef01;
+        cpu.exception=true;cpu.yielded=true;cpu.stopped=stopped;
+        Require(core.executeInstruction(cpu,0)==!stopped,"NOP changed stopped state");
+        Require(cpu.pc==(delay?0x12345678u:0u) && !cpu.branchPending,
+                "NOP lost delayed branch or PC wrap");
+        Require(cpu.branchTarget==(delay?0x12345678u:0u),"NOP changed branch-target retirement");
+        Require(!cpu.exception && !cpu.yielded && !cpu.pendingLoad && cpu.gpr[0]==0,
+                "NOP retained transient CPU state");
+        for(uint32_t i=1;i<32;++i)
+            Require(cpu.gpr[i]==(pending && reg==i?0xabcdef01u:0x44332211u),
+                    "NOP lost a pending load or modified another register");
+        Require(cpu.pendingLoadReg==reg && cpu.pendingLoadValue==0xabcdef01,
+                "NOP modified inactive load metadata");
+    }
+    std::cout<<"IOP NOP: delayed branch, load retirement, zero register, PC wrap and stopped state: PASS\n";
+}
 void ReadyElectionInvalidation() {
     IopMemory memory;
     ps2x::iop::detail::IopKernel kernel(memory);
@@ -163,6 +187,7 @@ void ReadyElectionInvalidation() {
 }
 }
 #include "ps2_iop_audio_fixture.h"
+#include "ps2_iop_timer_fixture.h"
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench-idle") { IopIdleContract(true); return 0; }
@@ -170,10 +195,12 @@ int main(int argc,char** argv) {
         AudioBridge();
         ReadyElectionInvalidation();
         SysclibCharacterFlags();
+        NopRetirement();
         AudioInsideGuestCall();
         AudioDmaCriticalSection();
         IopModuleArguments();
         IopIdleContract();
+        IopScheduledTimerContract();
         IopMemory memory;
         const auto capacity=IopMemory::HeapLimit-IopMemory::HeapBase;
         const auto first=memory.allocate(262144,64);
