@@ -231,8 +231,8 @@
       "elfSha256": "ff8eaac60476e5bf3789aa5b3b972fa0f50a50b104b7cc8a1e78af042d510055",
       "extra": {
         "map": "module-00-extra.csv.gz",
-        "mapSha256": "b39144b43fed1959691e75d38ee73c16ca378ce7378f84f944d6a1f369743050",
-        "rows": 2506,
+        "mapSha256": "687ffcf3be9673c793c679a406ffb205c8b42eecf3780502757c2456c8dc4598",
+        "rows": 2517,
         "general": {
           "output_worker_threads": 2,
           "single_file_output": false,
@@ -254,7 +254,21 @@
           "0x14f5e0",
           "0x14f6a0",
           "0x14f800",
-          "0x14f880"
+          "0x14f880",
+          "0x1c28d0",
+          "0x1c28e0",
+          "0x1c29f0",
+          "0x1c2c00",
+          "0x1c9520",
+          "0x1c9160",
+          "0x154e70",
+          "0x154e80",
+          "0x154e90",
+          "0x154ea0",
+          "0x154eb0",
+          "0x154ec0",
+          "0x154ed0",
+          "0x154ee0"
         ]
       }
     },
@@ -867,8 +881,8 @@
       "rootPrefix": "root_",
       "extra": {
         "map": "module-16-extra.csv.gz",
-        "mapSha256": "2e8a00ee2c05a6866c594e7fc4718d216cd3265e58a4fe86008c187fc4e73c27",
-        "rows": 1591,
+        "mapSha256": "f86b50e69b8011aa555635671b443c4da598c193d3cb417287c5145cf8ca76c1",
+        "rows": 1593,
         "general": {
           "output_worker_threads": 2,
           "single_file_output": false,
@@ -890,6 +904,7 @@
           "0x733080",
           "0x7330f0",
           "0x733160",
+          "0x733170",
           "0x733180",
           "0x7331b0",
           "0x733320",
@@ -1128,6 +1143,10 @@
           "0x8b5b00",
           "0x8b62c0",
           "0x8bbae0",
+          "0x8bd8d0",
+          "0x8bd960",
+          "0x8bd9f0",
+          "0x8bda80",
           "0x8c84e0",
           "0x8c8b20",
           "0x8dd700",
@@ -1355,8 +1374,8 @@
       "rootPrefix": "root_",
       "extra": {
         "map": "module-17-extra.csv.gz",
-        "mapSha256": "ad8da53732726471fedd3efcf4b6ad5a4596fe79a632122eb2a271b91e2502b4",
-        "rows": 2403,
+        "mapSha256": "76e9f31618568349325c9cfd0abc90982d4d8b9e4309af3d086bb5a090e06053",
+        "rows": 2404,
         "general": {
           "output_worker_threads": 2,
           "single_file_output": false,
@@ -1496,6 +1515,10 @@
           "0x7d61b0",
           "0x7d61e0",
           "0x7d6210",
+          "0x7d7fd0",
+          "0x7d8060",
+          "0x7d80f0",
+          "0x7d8180",
           "0x7e1d00",
           "0x7e1dd0",
           "0x7e1df0",

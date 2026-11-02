@@ -211,3 +211,20 @@ systemctl start cave-g2-backup.service
 `server/games/garegga.py` 对应 CUSA10207 01.00，使用独立的 18092 端口、数据库和 `garegga-current` 版本指针。ARCADE、SUPER EASY、PREMIUM、CUSTOM 各有综合与八种机体榜，共 36 个。保留原生成绩、机体变体和录像格式，综合前 100 名、机体前 10 名可以分享录像。
 
 部署使用干净提交的 `server/` 源码归档，先在服务器临时数据库运行本作、备份及部署测试，再安装三个 `cave-garegga` 单元。只追加本作 nginx 路由，校验后 reload；核对原八款服务 PID 和版本指针不变。启用每日备份并核对首份快照的完整性和 CUSA10207 身份。正式榜单只使用实际游玩产生的记录验收。
+
+## 玩家日志
+
+启动器“上传日志”向 `/cave/api/v1/reports` 提交选中一局的文本日志、配置快照和选填留言。
+上传与排行榜开关独立，复用配置中的 API 根地址。服务监听 `127.0.0.1:18093`，
+使用 `server/deploy/cave-reports.service.in` 部署，存储目录 `/var/lib/cave-reports`。
+日志归档仅通过 SSH 取回，上传成功返回报告编号。
+
+查看已收到的报告：
+
+```sh
+ssh root@8.222.80.54 'python3 /opt/cave-reports/reports.py --directory /var/lib/cave-reports --list'
+scp root@8.222.80.54:/var/lib/cave-reports/<report-id>.zip .
+```
+
+每份压缩包最大 32 MiB，展开后的文本最大 128 MiB；总归档容量 4 GiB。
+`report.json` 包含游戏、版本、昵称、运行记录名及留言；归档中的 `logs/` 保留原目录结构。

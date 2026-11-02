@@ -1,0 +1,19 @@
+[Unit]
+Description=EVAC PC LABEL log reports
+After=network.target
+
+[Service]
+User=cave-reports
+Group=cave-reports
+WorkingDirectory=/opt/cave-reports
+ExecStart=/usr/bin/python3 -B /opt/cave-reports/reports.py --directory /var/lib/cave-reports
+Restart=on-failure
+StateDirectory=cave-reports
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

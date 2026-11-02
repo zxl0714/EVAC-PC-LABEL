@@ -66,11 +66,16 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 #include "ps2_gs_wake_fixture.h"
 #include "ps2_gs_sdk_fixture.h"
 #include "ps2_timer_fixture.h"
+#include "ps2_dma_chain_fixture.h"
 int main(int argc,char** argv) {
   try {
+    if(argc==5 && std::string_view(argv[1])=="--replay-dma") {
+      ReplayPrivateDma(argv[2],argv[3],argv[4]);return 0;
+    }
     PS2Runtime runtime;
     if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
+    DmaLongChain();
     EeTimerArithmetic(runtime.memory());
     EeTimerDeferredEquivalence();
     ExplicitIoRoots(runtime);

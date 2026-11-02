@@ -266,10 +266,12 @@ game-data/garegga/
 ```text
 game-data/espgaluda/
   README.txt
-  <original-name>.iso
+  Espgaluda (Japan).iso
 ```
 
-放入镜像后点击“刷新”，选择游戏并启动。也可通过“游戏数据…”选择镜像所在的外部目录。保留原文件名，启动器会自动准备运行缓存；存档和设置位于 `user-data/espgaluda/`。
+文件名不限，`Espgaluda (Japan).iso` 只是示例，保留你已有的 ISO 文件名即可。如果下载的是 ZIP，先解压得到 ISO，再放入上述目录。
+
+点击“刷新”，选择游戏并启动。也可通过“游戏数据…”选择 ISO 所在的外部目录。启动器会自动准备运行缓存；存档和设置位于 `user-data/espgaluda/`。
 
 ## 无法识别时怎么检查
 

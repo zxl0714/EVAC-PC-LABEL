@@ -44,14 +44,14 @@ Json Allocation(rex::Runtime& runtime, std::uint32_t address) {
 
 int wmain(int argc, wchar_t** argv) {
     try {
-        if (argc < 4 || argc > 6) throw std::runtime_error("Usage: inspect <game-data> <module> <NEW-output> [--dump-sections] [--game=espgaluda2|sdoj|guwange]");
+        if (argc < 4 || argc > 6) throw std::runtime_error("Usage: inspect <game-data> <module> <NEW-output> [--dump-sections] [--game=espgaluda2|sdoj|guwange|futari]");
         bool dump{}, gameSpecified{};
         std::string gameId = "espgaluda2";
         for (int index = 4; index < argc; ++index) {
             const std::wstring option = argv[index];
             if (option == L"--dump-sections" && !dump) dump = true;
-            else if (!gameSpecified && (option == L"--game=sdoj" || option == L"--game=guwange" || option == L"--game=espgaluda2")) {
-                gameId = option == L"--game=sdoj" ? "sdoj" : option == L"--game=guwange" ? "guwange" : "espgaluda2";
+            else if (!gameSpecified && (option == L"--game=sdoj" || option == L"--game=guwange" || option == L"--game=espgaluda2" || option == L"--game=futari")) {
+                gameId = option == L"--game=sdoj" ? "sdoj" : option == L"--game=guwange" ? "guwange" : option == L"--game=futari" ? "futari" : "espgaluda2";
                 gameSpecified = true;
             }
             else throw std::runtime_error("Unknown or repeated option");
@@ -62,8 +62,14 @@ int wmain(int argc, wchar_t** argv) {
         constexpr std::array<const wchar_t*, 3> sdojModules{L"default.xex", L"CA022100.bin", L"CA022110.bin"};
         constexpr std::array<const wchar_t*, 5> guwangeModules{L"default.xex", L"module/Guwange01_x360.dll",
             L"module/Guwange01_coop_x360.dll", L"module/Guwange_arrange_x360.dll", L"module/Guwange_blue_x360.dll"};
+        constexpr std::array<const wchar_t*, 9> futariModules{L"default.xex",
+            L"media/Module/hirow_abnormal.xex", L"media/Module/hirow_normal.xex",
+            L"media/Module/kiniro_abnormal.xex", L"media/Module/kiniro_normal.xex",
+            L"media/Module/palm_abnormal.xex", L"media/Module/palm_normal.xex",
+            L"media/Module/reco_abnormal.xex", L"media/Module/reco_normal.xex"};
         const std::span<const wchar_t* const> modules = gameId == "sdoj" ? std::span<const wchar_t* const>(sdojModules) :
-            gameId == "guwange" ? std::span<const wchar_t* const>(guwangeModules) : std::span<const wchar_t* const>(g2Modules);
+            gameId == "guwange" ? std::span<const wchar_t* const>(guwangeModules) :
+            gameId == "futari" ? std::span<const wchar_t* const>(futariModules) : std::span<const wchar_t* const>(g2Modules);
         bool known{};
         for (auto name : modules) known |= selected == name;
         if (!known) throw std::runtime_error("Expected a declared module filename, not an arbitrary guest path");
@@ -83,7 +89,7 @@ int wmain(int argc, wchar_t** argv) {
             throw std::runtime_error("Analysis unexpectedly initialized a presentation, audio or input system");
         CheckStatus(runtime.LoadXexImage("game:\\default.xex"), "Main XEX load");
         auto owner = runtime.kernel_state()->GetExecutableModule();
-        const std::uint32_t titleId = gameId == "sdoj" ? 0x435A07E7u : gameId == "guwange" ? 0x58410A78u : 0x435A07D8u;
+        const std::uint32_t titleId = gameId == "sdoj" ? 0x435A07E7u : gameId == "guwange" ? 0x58410A78u : gameId == "futari" ? 0x435A07D7u : 0x435A07D8u;
         auto checkTitle = [titleId](const auto& loaded) {
             if (!loaded || !loaded->xex_module()) throw std::runtime_error("Missing XEX image");
             const auto* execution = loaded->xex_module()->opt_execution_info();
@@ -123,6 +129,7 @@ int wmain(int argc, wchar_t** argv) {
             std::memcpy(codeBefore.data(), runtime.memory()->TranslateVirtual(codeAddress), codeBefore.size());
             const auto other = gameId == "sdoj" ? (moduleName == "CA022100.bin" ? "CA022110.bin" : "CA022100.bin") :
                 gameId == "guwange" ? (moduleName == "module/Guwange01_x360.dll" ? "module/Guwange_blue_x360.dll" : "module/Guwange01_x360.dll") :
+                gameId == "futari" ? (moduleName == "media/Module/reco_normal.xex" ? "media/Module/palm_normal.xex" : "media/Module/reco_normal.xex") :
                 (moduleName == "dat00.xex" ? "dat12.xex" : "dat00.xex");
             std::cout << "Expected negative test: loading " << other << " into a live overlay range\n";
             auto rejected = runtime.kernel_state()->LoadUserModule(std::string("game:\\") + other, false);

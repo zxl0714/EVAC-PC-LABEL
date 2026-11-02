@@ -254,15 +254,9 @@ For missing data or unsupported-version messages, check the folder level and ver
 
 If a PS4 game reports an unsupported Vulkan version, update the graphics driver and restart Windows. For AMD GPUs, select your model on the [official driver support page](https://www.amd.com/en/support/download/drivers.html).
 
-When reporting a crash, stutter, audio issue, or network problem, include:
+After closing the game, click **Upload logs** at the bottom of the launcher. It selects your latest session; you can choose another run. Optionally describe the mode, character, and what happened, then click **Upload**.
 
-- The collection version (see `release.json`), game, mode, and character or ship.
-- Steps to reproduce the issue and what happened; a screenshot or short video can help.
-- Text logs from the corresponding `logs/<game ID>/run-*/` folder, such as `game.log`, `stdout.jsonl`, `stderr.txt`, and `startup-error.txt`, plus `run.json`. Include the files that exist for that session.
-
-Press F8 when the problem occurs to mark its time, then close the game and copy the relevant logs, keeping the originals. Before posting publicly, replace your Windows username, private paths, nickname, and custom server addresses in those copies with placeholders.
-
-Do not attach an entire `run-*` folder to a public issue: `config.ini` is a configuration snapshot, and `.dmp` or `*-module.bin` files may contain memory and original game code. A maintainer will arrange a separate transfer if these are needed. Game data, saves, and replays are not default public attachments either.
+Include the report ID when reporting the issue. **Open local logs** opens the selected session folder.
 
 ## Development
 

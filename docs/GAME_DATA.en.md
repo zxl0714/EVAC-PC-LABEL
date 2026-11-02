@@ -264,10 +264,12 @@ Supported: **PS2 Japanese SLPS-25352, original ISO**.
 ```text
 game-data/espgaluda/
   README.txt
-  <original-name>.iso
+  Espgaluda (Japan).iso
 ```
 
-Place the ISO here, click **Refresh**, select the game, then launch it. **Game data…** can also select an external folder containing the ISO. Keep its original filename. The launcher prepares the runtime cache automatically; saves and settings are stored in `user-data/espgaluda/`.
+Any ISO filename is accepted. `Espgaluda (Japan).iso` is an example; keep the filename of your ISO. If you have a ZIP, extract the ISO first and place it in the folder above.
+
+Click **Refresh**, select the game, then launch it. **Game data…** can also select an external folder containing the ISO. The launcher prepares the runtime cache automatically; saves and settings are stored in `user-data/espgaluda/`.
 
 ## Troubleshooting
 

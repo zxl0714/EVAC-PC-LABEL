@@ -10,57 +10,131 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-COMPLETE Nov02: v0.9.0 candidate packaging finished; STOP before publication.
-Latest human steering: Feveron in-game stutter not reproduced; continue downstream,
-user will manually play later. Do not resume autonomous Feveron or PS2 experiments.
-No push, tag, GitHub/OSS/QQ, UAC, Task Manager or subagents. No game running.
+ACTIVE Nov03: v0.9.0 log upload + ESPGaluda crash fixes + clear ISO guide;
+fix issue7, rebuild Public/Internal once and stop before publishing. No push,
+tag, GitHub release, OSS or QQ. No subagents, Task Manager or UAC. Preserve
+original ROMs, frozen release candidates and all intentional uncommitted edits.
+HEAD ad33c50, work/v090-resume. PS2 performance/latency work remains closed.
 
-Frozen code/build/package commit:7c85be0f15818b43521c20791261fbe44fb65e33.
-Final artifacts releases/v0.9.0-candidate-7c85be0/ (DELIVERY.json/RELEASE_NOTES.md):
-- public/EVAC-PC-LABEL-v0.9.0-win-x64.zip 247055405bytes,
-  SHA7cf8b447a838ac38d29ff9acbdb642a9244684dc738aa04c86f657dc3cb94a7c.
-- internal/EVAC-PC-LABEL-v0.9.0-win-x64-internal.zip 9427957968bytes,
-  SHA6be31c57c541f28f5515fa7e5407f1c8dd107a14ee4b0e70da8970e74c49284c.
-Each archive actually extracted ONCE and verified; acceptance.json in each output.
-Public195payload files/no ROM/source/symbols; internal784files/all10supported games
-plus both Futari DLCs, no source/symbols. Both use the same certified runtime set.
-All runtime receipts/manifests match7c85be0. Post-package updates are DOCS ONLY;
-do not rebuild/recertify/repack merely to match this checkpoint's later commit.
-Old9df candidates remain frozen; newest accepted candidate is7c85be0.
+CURRENT PRIORITY Nov03 02:08: user replayed DMA-fixed build and CRASHED before
+stage2 midboss. Run C:/evac-pc-label/logs/espgaluda/run-20261102T180401366Z-66960,
+C++ exception missing statically compiled target0x1c28e0, JALR source1c4e58.
+No native crash dump; code1 reasonexception. User confirmed stage2 midboss.
+PID66960 now exited. SHA405e01c3fb605830c5f06a0e60bedb28395d586a824e6065d80accbecffd6eb5,
+C installed manifest working-tree-dma-chain-test. This build includes DMA fix.
 
-Includes shared PS4 persisted Vulkan driver pipeline cache, API14. Actual cross-
-process reuse accepted210091bytes; common10pipeline creation25.777->4.185ms;
-controlled already-warm-driver ABBA confirms creation reduction. Files keyed by
-GPU/driver UUID with checksum, optional failure, save after window drains; no
-in-frame disk IO.9GPU/presentation tests,4receipt tests,52release tests(one skip)
-pass. Full matching PDBs retained locally; developer GPU DLL/PDB restored from
-certified runtime/ps4 and ps4_build_receipt.py verify passes9binary/PDB pairs.
+Root cause: boot callback table at original RAM2d5900,12entries, first4 targets
+1c28d0(noop),1c28e0(flipX),1c29f0(flipXY),1c2c00(flipY); only noop was linked.
+All3original leaf routines found. Do NOT hand-stub. Added3prefixes to boot EXTRA
+map via slice_unlinked_entries (48bytes each), handing off to existing compiled
+continuations1c2910/1c2a20/1c2c30. Full original routines have264/520/264bytes;
+shared suffix already exists. Boot static pointer census also found8uncompiled
+JR/NOP callbacks154e70..154ee0step16, referenced in stage callback data table;
+added original8byte bodies. Audit skipped103900 (reference is an instruction
+word, not the callback data region). New boot extra metadata2517rows, SHA
+687ffcf3be9673c793c679a406ffb205c8b42eecf3780502757c2456c8dc4598.
+Original maps/generated trees preserved at case/stage2-callback-r1/ and its
+three-entry-generation/. Plan and mode-extras requiredEntries updated correctly.
+Generation2517PASS, no warnings/fallbacks/errors. Seven Python game tests PASS.
 
-Feveron follow-up: actual coin/ship/first-stage shooting,41seconds across two F8
-windows.2428logged intervals +32single-record intervals reconstructed from
-clock identities, no unresolved gaps; longest18.135ms,0>20ms, no large uploads.
-First-use large uploads were interface atlases; decoded4096x4096 RGBA atlas
-shows CAVE/M2, side instructions, score panels and sprites. Original reporter's
-in-game issue remains unconfirmed; manual follow-up deferred by human, NOT a
-claim all stages/environments are stutter-free. Evidence analysis/
-feveron-player-stage1-both-windows-r6.json under .local/v090/ plus two JPGs.
-All tests closed normally. Research source/patch/bench/DLL/PDB preserved in
-.local/v090/feveron-resource-research-r1/; NOT adopted as shipping code. Do not
-apply that prototype or replace candidate binaries without a new explicit task.
+Stage2 build/probe exec51392 COMPLETED PASS. Probe executes4original callbacks
+x5signed/zero inputs, validates12entry table and8empty callbacks. Log case/
+stage2-callback-r1/build.log and native-probe.log. New EXE SHA97e1dc5d324dd71a
+67f3b0d23d18c571cdeb94ed5cc66861861b449d39b0ba5b. Installed C runtime verified
+exact hash, manifest working-tree-boot-callback-test. STARTED visible Normal
+five-arg game PID13296 at02:30:20 for USER. Do NOT send game input while they
+play. No more manual gameplay campaign; user will report faults. All previous
+failed test processes are closed. Native full PDB expected, see cancellation.
 
-ESPGaluda development/optimization/retests CLOSED by human. Final README figures
-27ms versus PCSX243ms are documented budget estimates; CPU .43/.25cores.
-Native PadRead->response Present16.873ms, PCSX2 two updates; presentation-tail
-assumptions in ANALYSIS. CPU-lower-than-emulator target not achieved; ordinary
-max19.880ms (4>19,0>20 in605fields). New-score cold-read/continue not separately
-accepted; user explicitly stopped further work. Reuse accepted ARCADE/ARRANGE,
-BOSS/restart BGM(user confirmed), gallery, settings cold-save and ISO-first-run
-flow. User did not authorize reopening these checks. Ibara stays Coming Soon.
+FINAL SOURCE FREEZE NEXT: live delivery state is .local/v090/final-delivery-r1/
+status.json. After commit do not edit tracked sources/AGENTS during certified
+builds; update only that private JSON/logs until build+package finish. Need one
+same-source certificate for SDK, PS4, four360games, PS2 and launcher. Share one
+expensive PS2 hash/certification across Both package flavors. No repeated unzip.
 
-Before later requested manual testing read MEMORY.md; the private Feveron copied
-profile is Custom: L1/AddCredit=A, Circle/FullAuto=X, R1/FullAuto=S, R2/Restart=W.
-The five-argument contract uses CAVE_DIAGNOSTIC_INPUT_TAP_MS for CU-only pulses;
-remove it for human play. Normal source/packaged defaults remain unaffected.
+DMA graphics corruption FIXED and kernel/private-data tests PASS. Previous
+manually captured chain5888tags was silently stopped at4096 by inherited
+PS2Recomp limit; TADR0x569f40 exactly4096steps from0x552d50,1792remaining toEND.
+New third_party/ps2/runtime/dma_chain_guard.h uses constant-space Brent cycle
+check with CALL stack state; ps2_memory traverses toEND/IRQ, faults explicitly on
+true cycles/budgets. Regression tests/ps2_dma_chain_fixture.h via kernel contract:
+6000payload tags, repeatedCALL/RET, trueNEXTcycle PASS. Exact original1779904byte
+payload PASS against independent decoded bytes (dma-private-replay.log).
+Kernel fullsuite PASS (dma-contract-r3.log). Initial fixture failures were missing
+Memory.initialize and incorrect END TADR+16 assumption, both test-only fixes.
+Private evidence case/arrange-manual-failed-r1/ includesRAM/dump/screenshot;
+never commit or upload these binaries. Current saved frame's4096boundary happened
+to align a GIF tag; do not claim that specific cut was mid-tag. It definitely
+lost remaining drawing/state restoration, and other cuts can split GIF tags.
+Microbench5888states: extra3.436-3.503us,0.0034-0.0035ms,0.02%of16.67ms. Pure guard,
+not gameplay timing. User informed. No more baseline/benchmark work needed.
+
+SYMBOL WORK CANCELLED by user: PDBs are local development only and never included
+in either release ZIP. They do NOT care about local4GB PDB. Do NOT reapply
+case/compact-symbols.patch or trigger500kbody fullrebuild. Those changes were
+safely preserved then reversed only previously clean files; current CMake/build
+scripts remain original. User cares about599MB EXE instead. Read-only analysis
+case/exe-size-comparison.json: EXE599129600bytes, .text547133440bytes. Futari EXE+
+8character DLLs97801728bytes, .text94148608bytes (shared runtime separate).
+PS2 reviewed maps521254entries:512402interior,8220FUN,632other; code ranges
+~1.9xoverlap. Futari50306DEFINE_REX_FUNC bodies. Main issue is generating interior
+branch/resume labels as separate native bodies alongside whole functions. Do
+not claim size can halve yet. EXE size optimization DEFERRED explicitly to NEXT VERSION by user: they
+compressed it to~100MB and accept current size for v0.9.0. No microbench or
+generator redesign this round. Preserve current crash and packaging priority.
+
+README preferences: user meant latency/CPU, already both README27/43ms and
+0.43/0.25cores. User asked no extensive ESPGaluda description; the newly added
+mode/control paragraph+table were REMOVED. Keep existing ISO/data/performance
+info. User explicitly said no ESPGaluda DEVELOPMENT FIX bullets in first release
+notes; removed both CN/EN. Upload bullet now says encountering a problem ->
+Upload logs -> select play session -> briefly describe problem (CN/EN updated).
+
+Futari issue7 latest native4case+extra2entry test PASS1.9s; Python8modulePASS.
+Do not repeat. Packaging/certification still pending after latest ESPGaluda fixes. Latest user
+instruction: after compile/probe, START fixed game for them, then finish local
+packages first. Private helper .local/v090/package_candidate_current.py is ready
+(--flavor Both --source-commit <fullsha>); dynamically keyed newcommit, shared
+once-certified runtimes, one extraction perZIP. Do not run until source frozen
+and all certificates complete. Old frozen7c85be0 candidates must stay intact.
+
+ESPGaluda human finalboss missing module16 callback8bd960..8bd9e8 fixed using
+original136-byte leaf in reviewed gzip map. 18-module family sweep also fixed
+ARRANGE7d8060..7d80e8. Practice5-2 immediate crash733170..733178 J/NOP veneer to
+already compiled8d3ea0 fixed. Regenerate normally; generated C++ never handedit.
+Metadata/plan identities updated. Native callback probe PASS8original bodies x
+3states plus practice veneer registered;79PS2 source tests PASS. Current894...
+build includes all3. C:/evac-pc-label/runtime/ps2 EXE replaced for human test;
+installed manifest working-tree-practice-boss-test actual hash matches. Old
+program/manifest backed up in installed-before/. Reopen visible games Normal,
+not Hidden. User has NOT explicitly accepted latest Practice5-2; ARRANGE black
+currently under investigation. Source maps+requiredEntries carry regressions.
+
+Issue7 Futari RecoNormal stage2 crash unregistered881B0038: all8original-module
+signature audit proved only RecoNormal missing128-byte release callback.
+Added explicit881B0038..881B00B8 plus2shifted counterpart leaves8817D190 and
+881E4E80, regenerated only default+RecoNormal, DLL rebuilt. Latest native4case callback
+plus extra2entry checks PASS and Python8module map checks PASS. Evidence .local/v090/issue-7/. No
+GitHub posting/closure unless asked. Exact fix, not guarantee all crashes gone.
+
+Upload logs done: launcher/log_upload.*, optional comment, latest30sessions,
+async Windows tar+WinHTTP, whitelist text only, no .bin/dmp/ROM. CN/EN/JP UI
+checked, real GUI upload report20261102-1733da67db7a49a2 succeeded to production
+https://xiaolu.life/cave/api/v1/reports. Private /var/lib/cave-reports on root@
+8.222.80.54, servicecave-reports loopback18093. Source server/reports.py SHA
+cf21bc215848b10cfdc7a4325e6ad1f8678e1f311b645260d1961cfd322c7af8. GET404;
+no adminwebsite, retention ceiling4GiB+512MiB reserve, no expiry. Server3tests,
+native ZIP/unicode/exclusion/HTTP roundtrip PASS. Final UI localtime labels and
+white static background built, focused5Ctest common/launch/preview/update/log
+upload PASS6.91s. Receipts still require new finalcommit. Source docs bilingual
+updated; ISO example Espgaluda (Japan).iso, filename unrestricted, ZIP->ISO.
+
+After black fix and compact symbols: focused affected tests/review; ONE local
+source commit; formal same-source SDK/PS4/360/PS2/launcher builds and certificates.
+Do not commit midway. PS2 hashes528625files2.5GiB ~10min; share ONE certification
+across Public/Internal, never repeat per flavor. Each final ZIP one extraction.
+Existing frozen releases/v0.9.0-candidate-7c85be0/ stay intact. New candidatepath
+keyed newcommit. No reopening old performance or unrelated mode campaigns.
 
 ## Previous release checkpoints
 

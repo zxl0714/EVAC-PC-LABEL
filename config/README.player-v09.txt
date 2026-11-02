@@ -59,8 +59,8 @@ F11／Alt+Enter 切换全屏；Alt+F4 退出；F8 标记日志时间。
 PS2 ESPGaluda 使用原作本地成绩与记忆卡。
 
 反馈
-异常时按 F8，退出后将 logs/<游戏>/ 最新 run-* 的文本日志和 run.json
-连同版本、模式及操作步骤提交。配置快照、转储等材料按需要单独提供。
+退出游戏后点击“上传日志”，选择游玩记录，选填留言并上传。
+反馈问题时提供上传成功后显示的报告编号。
 源码与构建入口见 SOURCE.txt，组件许可证见 licenses/。
 性能对比：https://github.com/zxl0714/EVAC-PC-LABEL#readme
 
@@ -108,8 +108,7 @@ the default is Player. The [community] settings above control the connection.
 PS2 ESPGaluda uses the original local scores and memory cards.
 
 Feedback
-Press F8 when a problem occurs. After exiting, submit the text logs and run.json from
-the latest logs/<game>/run-* folder with the version, mode and reproduction steps.
-Provide configuration snapshots or crash dumps separately when requested.
+After closing the game, click Upload logs, select a session, add an optional message,
+and upload. Include the report ID when reporting an issue.
 Source and build instructions: SOURCE.txt. Component licenses: licenses/.
 Performance comparisons: https://github.com/zxl0714/EVAC-PC-LABEL#readme

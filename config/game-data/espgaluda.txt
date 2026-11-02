@@ -4,11 +4,15 @@ PlayStation 2 / Japan / SLPS-25352
 game-data/
   espgaluda/
     README.txt
-    <original-name>.iso
+    Espgaluda (Japan).iso
 
-将原始 ISO 放到这里，在启动器点击“刷新”，选择游戏并启动。
+将日版 ISO 放到这里，文件名不限。上面以 Espgaluda (Japan).iso 为例，保留你已有的文件名即可。
+如果下载的是 ZIP，先解压得到 ISO，再放入此目录。
+在启动器点击“刷新”，选择游戏并启动。
 也可以通过“游戏数据…”选择 ISO 所在的外部目录。
 
-Place the original ISO here. Click Refresh in the launcher, select the game,
-then start it. Game Data... can also select an external directory containing
-the ISO. Keep its original filename.
+Place the Japanese ISO here. Any filename is accepted; Espgaluda (Japan).iso
+is an example. Keep the filename of your ISO.
+If you have a ZIP, extract the ISO first and place it in this folder.
+Click Refresh in the launcher, select the game, then start it.
+Game Data... can also select an external directory containing the ISO.

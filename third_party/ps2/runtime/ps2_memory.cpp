@@ -1,5 +1,6 @@
 #include "runtime/ps2_memory.h"
 #include "runtime/ps2_address.h"
+#include "dma_chain_guard.h"
 #include "runtime/gs/gs_frontend.h"
 #include "ps2_log.h"
 #include "../../../backends/ps2/input_trace.h"
@@ -1346,12 +1347,13 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                     uint32_t asr1 = m_ioRegisters[channelBase + 0x50];
                     uint32_t asp = (chcr >> 4) & 0x3u;
                     const bool tieEnabled = (chcr & (1u << 7)) != 0u;
-                    const int kMaxChainTags = 4096;
+                    DmaChainGuard chainGuard;
                     std::vector<uint8_t> chainBuf;
 
                     auto appendData = [&](uint32_t srcAddr, uint32_t qwCount)
                     {
                         const uint64_t bytes64 = static_cast<uint64_t>(qwCount) * 16ull;
+                        chainGuard.Append(static_cast<size_t>(bytes64));
                         uint32_t bytes = (bytes64 > 0xFFFFFFFFull) ? 0xFFFFFFFFu : static_cast<uint32_t>(bytes64);
                         const bool scratch = isScratchpad(srcAddr);
                         uint32_t src = 0;
@@ -1397,6 +1399,7 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
 
                         // CHCR.TTE sends the DMAtag's upper 64 bits to the channel before
                         // the tag payload. VIF chains use those bytes for two VIFcodes.
+                        chainGuard.Append(8);
                         chainBuf.insert(chainBuf.end(), localBase + tagPhys + 8u, localBase + tagPhys + 16u);
                     };
 
@@ -1404,11 +1407,11 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                         channelBase == 0x10009000u || channelBase == 0x10008000u;
                     const bool transferTagData = isVifChannel && (chcr & 0x40u) != 0u;
 
-                    int tagsProcessed = 0;
                     uint32_t lastTagUpper = (chcr >> 16) & 0xFFFFu;
 
-                    while (tagsProcessed < kMaxChainTags)
+                    for (;;)
                     {
+                        chainGuard.Visit(tagAddr,asp,asr0,asr1);
                         const uint32_t currentTagAddr = tagAddr;
                         const bool tagInSPR = isScratchpad(tagAddr);
                         uint32_t physTag = 0;
@@ -1442,7 +1445,6 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                         const bool irq = ((tag >> 31) & 0x1ull) != 0ull;
                         uint32_t addr = static_cast<uint32_t>((tag >> 32) & 0x7FFFFFFF);
                         lastTagUpper = static_cast<uint32_t>((tag >> 16) & 0xFFFFu);
-                        ++tagsProcessed;
 
                         uint32_t dataAddr = 0;
                         bool hasPayload = (tagQwc > 0);

@@ -19,7 +19,105 @@
 #include "audio_trace.h"
 #include "input_trace.h"
 
+#ifdef EVAC_PS2_ESPGALUDA_MODULES
+extern const uint32_t g_ps2ArcadeFunctionTableBase, g_ps2ArcadeFunctionTableSlotCount;
+extern PS2Runtime::RecompiledFunction g_ps2ArcadeFunctionTable[];
+extern const uint32_t g_ps2ArrangeFunctionTableBase, g_ps2ArrangeFunctionTableSlotCount;
+extern PS2Runtime::RecompiledFunction g_ps2ArrangeFunctionTable[];
+#endif
+
 namespace {
+#ifdef EVAC_PS2_ESPGALUDA_MODULES
+int ProbeBootTransformCallbacks(const char* disc) {
+  PS2Runtime runtime;
+  if(!runtime.memory().initialize() ||
+     !runtime.loadELF((std::filesystem::path(disc)/"boot.elf").string()))
+    throw std::runtime_error("Cannot load original boot callback table");
+  runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+  constexpr uint32_t Table=0x2d5900,Gp=0x35fcf0,Stop=0x100010;
+  const std::array<uint32_t,4> expected{0x1c28d0,0x1c28e0,0x1c29f0,0x1c2c00};
+  auto* ram=runtime.memory().getRDRAM();
+  for(unsigned i=0;i<12;++i) {
+    uint32_t pc{};std::memcpy(&pc,ram+Table+i*4,4);
+    if(!runtime.lookupFunction(pc) || (i<4 && pc!=expected[i]))
+      throw std::runtime_error("Original boot callback table has an unlinked target");
+  }
+  bool completed=false;static bool* completion;completion=&completed;
+  runtime.replaceFunction(Stop,[](uint8_t*,R5900Context*,PS2Runtime* state){
+    *completion=true;state->eeScheduler().requestStop();
+  });
+  for(uint32_t pc=0x154e70;pc<=0x154ee0;pc+=16) {
+    const auto callback=runtime.lookupFunction(pc);
+    if(!callback)throw std::runtime_error("Original empty stage callback is not linked");
+    R5900Context context{};context.pc=pc;context.r[31]=_mm_cvtsi32_si128(Stop);
+    callback(ram,&context,&runtime);
+    if(context.pc!=Stop)throw std::runtime_error("Original empty stage callback did not return");
+  }
+  for(unsigned kind=0;kind<4;++kind)for(uint16_t value:{uint16_t(0),uint16_t(1),uint16_t(0x7fff),uint16_t(0x8000),uint16_t(0xffff)}) {
+    const uint16_t y=uint16_t(value+7),flags=0xa055;
+    std::memcpy(ram+0x481108,&value,2);std::memcpy(ram+0x481100,&y,2);
+    std::memcpy(ram+Gp-0x7ee4,&flags,2);
+    R5900Context context{};context.pc=expected[kind];
+    context.r[28]=_mm_cvtsi32_si128(Gp);context.r[31]=_mm_cvtsi32_si128(Stop);
+    completed=false;runtime.eeScheduler().reset(ram,context);runtime.eeScheduler().run();
+    uint16_t actualX{},actualY{},actualFlags{};
+    std::memcpy(&actualX,ram+0x481108,2);std::memcpy(&actualY,ram+0x481100,2);
+    std::memcpy(&actualFlags,ram+Gp-0x7ee4,2);
+    const bool flipX=kind==1 || kind==2,flipY=kind==2 || kind==3;
+    if(!completed || actualX!=uint16_t(flipX?-value:value) || actualY!=uint16_t(flipY?-y:y) ||
+       (actualFlags&~0x1f00)!=(flags&~0x1f00))
+      throw std::runtime_error("Original boot transform callback produced incorrect state");
+  }
+  std::cout<<"Boot callback tables: 12 transform entries linked, 4 bodies x 5 states, 8 empty stage callbacks: PASS\n";
+  return 0;
+}
+int ProbeArcadeResetCallbacks(const char* disc) {
+  struct Family {unsigned module;uint32_t first,base,slots,scratch,ports;PS2Runtime::RecompiledFunction* table;};
+  const std::array families{
+    Family{16,0x8bd8d0,g_ps2ArcadeFunctionTableBase,g_ps2ArcadeFunctionTableSlotCount,0x78d8,0xd05200,g_ps2ArcadeFunctionTable},
+    Family{17,0x7d7fd0,g_ps2ArrangeFunctionTableBase,g_ps2ArrangeFunctionTableSlotCount,0x75e0,0x61f160,g_ps2ArrangeFunctionTable}};
+  for(const auto& family:families) {
+  PS2Runtime runtime;
+  const auto elf=std::filesystem::path(disc)/("module-"+std::to_string(family.module))/"analysis.elf";
+  if(!runtime.memory().initialize() ||
+     !runtime.loadELF((std::filesystem::path(disc)/"boot.elf").string()) || !runtime.loadELF(elf.string()))
+    throw std::runtime_error("Cannot load the original mode image");
+  auto* ram=runtime.memory().getRDRAM();
+  constexpr uint32_t Gp=0x35fcf0,Stop=0x100010;
+  if(family.module==16 && !family.table[(0x733170-family.base)/4])
+    throw std::runtime_error("Practice final-boss tail entry is not linked");
+  // The original arcade-core reset callbacks differ only in the selected bank.
+  // Execute every member, including the one reached by the final-boss script.
+  for(unsigned bank=0;bank<4;++bank) {
+    const uint32_t pc=family.first+bank*0x90;
+    const auto slot=(pc-family.base)/4;
+    if(pc<family.base || slot>=family.slots || !family.table[slot])
+      throw std::runtime_error("Original ARCADE reset callback is not linked");
+    for(uint16_t seed:{uint16_t(0),uint16_t(0xffff),uint16_t(0x1234)}) {
+      R5900Context context{};context.pc=pc;
+      context.r[28]=_mm_cvtsi32_si128(Gp);context.r[31]=_mm_cvtsi32_si128(Stop);
+      std::memset(ram+Gp-family.scratch,0xa5,6);
+      std::memset(ram+family.ports,0xa5,4);
+      std::memcpy(ram+Gp-0x7ee4,&seed,2);
+      family.table[slot](ram,&context,&runtime);
+      uint16_t flags{};std::memcpy(&flags,ram+Gp-0x7ee4,2);
+      if(context.pc!=Stop || ram[Gp-family.scratch+4]!=0 || ram[Gp-family.scratch+5]!=bank+2 ||
+         ram[Gp-family.scratch]!=0 || ram[Gp-family.scratch+1]!=0 ||
+         ram[family.ports]!=0 || ram[family.ports+1]!=0 || ram[family.ports+2]!=0 || ram[family.ports+3]!=0 ||
+         flags!=uint16_t((seed&0xf0ff)|0x400)) {
+        std::cerr<<"[ps2-reset-probe] module="<<family.module<<" bank="<<bank<<" seed="<<std::hex<<seed
+          <<" pc="<<context.pc<<" flags="<<flags<<" scratch=";
+        for(unsigned i=0;i<6;++i)std::cerr<<unsigned(ram[Gp-family.scratch+i])<<',';
+        std::cerr<<" ports=";for(unsigned i=0;i<4;++i)std::cerr<<unsigned(ram[family.ports+i])<<',';std::cerr<<'\n';
+        throw std::runtime_error("Original ARCADE callback produced unexpected state");
+      }
+    }
+  }
+  }
+  std::cout<<"ARCADE/ARRANGE reset callbacks: 8 original bodies x 3 initial states: PASS\n";
+  return 0;
+}
+#endif
 #ifdef EVAC_PS2_IBARA
 constexpr bool IsIbara=true;
 constexpr const char* WindowTitle="EVAC PC LABEL | Ibara";
@@ -371,6 +469,12 @@ int main(int argc,char** argv) {
   std::unique_ptr<cave::ps2::CollectionLaunch> collection;
   try {
     collection=cave::ps2::CollectionLaunch::Parse(argc,argv);
+#ifdef EVAC_PS2_ESPGALUDA_MODULES
+    if(argc==3 && std::string_view(argv[1])=="--probe-boot-transform-callbacks")
+      return ProbeBootTransformCallbacks(argv[2]);
+    if(argc==3 && std::string_view(argv[1])=="--probe-arcade-reset-callbacks")
+      return ProbeArcadeResetCallbacks(argv[2]);
+#endif
     if(argc==3 && std::string_view(argv[1])=="--probe-iop-heap") {
       if(IsIbara)throw std::runtime_error("The IOP heap entry probe requires the ESPGaluda host");
       return ProbeIopHeapLifecycle(argv[2]);

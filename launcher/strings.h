@@ -24,6 +24,17 @@ inline const wchar_t* LanguageLabel(Language language) {
 }
 struct Translation {std::wstring_view key; const wchar_t* japanese; const wchar_t* english;};
 inline constexpr std::array kTranslations{
+  Translation{L"上传日志",L"ログを送信",L"Upload logs"},
+  Translation{L"游玩记录",L"プレイ記録",L"Play session"},
+  Translation{L"问题描述（选填）",L"問題の説明（任意）",L"Describe the issue (optional)"},
+  Translation{L"查看本地日志",L"ローカルログ",L"Open local logs"},
+  Translation{L"上传",L"送信",L"Upload"},
+  Translation{L"取消",L"キャンセル",L"Cancel"},
+  Translation{L"正在打包并上传…",L"圧縮して送信中…",L"Packaging and uploading…"},
+  Translation{L"已上传，编号：",L"送信完了、番号：",L"Uploaded. Report ID: "},
+  Translation{L"上传失败，可重试",L"送信失敗。再試行できます",L"Upload failed. You can retry."},
+  Translation{L"还没有游玩日志",L"プレイログがありません",L"No play sessions yet"},
+  Translation{L"现在上传日志？",L"ログを送信しますか？",L"Upload logs now?"},
   Translation{L"发现新版本 ",L"新バージョン ",L"New version "},
   Translation{L"发布页提供更新说明和下载。",L"リリースページで更新内容とダウンロードを確認できます。",L"See the release page for notes and downloads."},
   Translation{L"打开发布页",L"リリースページを開く",L"Open release page"},

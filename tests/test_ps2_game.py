@@ -1,3 +1,5 @@
+import csv
+import io
 import gzip
 import hashlib
 import json
@@ -13,6 +15,39 @@ import ps2_game
 
 
 class Ps2GameTests(unittest.TestCase):
+    def test_boot_transform_callback_table_is_linked(self):
+        spec=ps2_game.load_metadata()['modules'][0]
+        required={int(pc,0) for pc in spec['extra']['requiredEntries']}
+        self.assertTrue({0x1c28d0,0x1c28e0,0x1c29f0,0x1c2c00,0x1c9520,0x1c9160}<=required)
+        rows=list(csv.DictReader(io.StringIO(ps2_game.read_map(ps2_game.METADATA.parent,spec['extra']).decode())))
+        linked={int(row['Start'],0) for row in rows}
+        self.assertTrue({0x1c28e0,0x1c29f0,0x1c2c00}<=linked)
+        for pc in range(0x154e70,0x154ef0,16):
+            self.assertIn(pc,required)
+            row=next(row for row in rows if int(row['Start'],0)==pc)
+            self.assertEqual(int(row['End'],0),pc+8)
+
+    def test_practice_boss_tail_entry_is_linked(self):
+        spec=ps2_game.load_metadata()['modules'][16]
+        self.assertIn('0x733170',spec['extra']['requiredEntries'])
+        rows=list(csv.DictReader(io.StringIO(ps2_game.read_map(ps2_game.METADATA.parent,spec['extra']).decode())))
+        row=next(row for row in rows if int(row['Start'],0)==0x733170)
+        self.assertEqual(int(row['End'],0),0x733178)
+
+    def test_both_computed_reset_callback_families_are_complete(self):
+        spec=ps2_game.load_metadata()
+        for number,first in ((16,0x8bd8d0),(17,0x7d7fd0)):
+            module=spec['modules'][number]
+            required={int(pc,0) for pc in module['extra']['requiredEntries']}
+            rows=[]
+            for item in (module,module['extra']):
+                rows.extend(csv.DictReader(io.StringIO(
+                    ps2_game.read_map(ps2_game.METADATA.parent,item).decode())))
+            for pc in range(first,first+4*0x90,0x90):
+                with self.subTest(module=number,pc=hex(pc)):
+                    self.assertIn(pc,required)
+                    self.assertTrue(any(int(row['Start'],0)==pc and int(row['End'],0)>=pc+136 for row in rows))
+
     def test_frozen_analysis_has_every_module_and_no_machine_paths(self):
         spec=ps2_game.load_metadata()
         self.assertEqual(len(spec['modules']),18)

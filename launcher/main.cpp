@@ -11,6 +11,7 @@
 #include "launcher/nickname.h"
 #include "launcher/single_instance.h"
 #include "launcher/update_check.h"
+#include "launcher/log_upload.h"
 #include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
@@ -264,7 +265,7 @@ struct Layout {
   }
   D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
   D2D1_RECT_F config() const {return {margin()+185,height-45,margin()+283,height-14};}
-  D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+361,height-14};}
+  D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+393,height-14};}
   D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
     const auto left=width-margin()-112+float(index)*40;
@@ -272,7 +273,7 @@ struct Layout {
   }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
-  D2D1_RECT_F detail() const {return {margin()+371,height-45,margin()+436,height-14};}
+  D2D1_RECT_F detail() const {return {margin()+403,height-45,margin()+468,height-14};}
   D2D1_RECT_F fullscreen() const {const auto r=play();return {r.left,r.top-33,r.right,r.top-5};}
   D2D1_RECT_F nickname() const {const auto right=width-margin();return {right-263,66,right-73,96};}
   D2D1_RECT_F nickname_label() const {const auto r=nickname();return {r.left-80,r.top+7,r.left-6,r.bottom};}
@@ -493,7 +494,7 @@ class Renderer {
     Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!CanPlay(inspection));
     Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
     Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
-    Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"日志"));
+    Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"上传日志"),false,busy||running);
     Button(target,layout.detail(),T(L"详情"),false,busy||running||Catalogue()[selected].coming_soon);
     if (focus>=4 && focus<10) {
       const auto rectangle=focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail()))));
@@ -844,8 +845,10 @@ class App {
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
       message=requested_close?T(L"游戏已关闭（退出清理限制已记入日志）"):(*code?T(L"游戏异常退出，请查看该游戏的日志"):T(L"游戏已退出"));
+      const auto exited_game=active_game;
       child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
-      if(*code && !requested_close)MessageBoxW(hwnd,detail.c_str(),kWindowTitle,MB_OK|MB_ICONWARNING);
+      if(*code && !requested_close && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
+        cave::launcher::reports::Show(hwnd,options.root,language,exited_game);
     }
   }
   void Choose(bool copy=false) {
@@ -927,7 +930,7 @@ class App {
       if(IsWindowEnabled(nickname_control)){focus=2;SetFocus(nickname_control);}return;
     }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
-    if(Inside(layout.logs(),x,y)) {const auto logs=LogDirectory(options.root);if(!fs::exists(logs))fs::create_directories(logs);OpenPath(hwnd,logs);return;}
+    if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))cave::launcher::reports::Show(hwnd,options.root,language);return;}
     for(size_t index=0;index<3;++index)
       if(Inside(layout.language_choice(index),x,y)) {SelectLanguage(index);return;}
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
