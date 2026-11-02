@@ -1,5 +1,6 @@
 #include "static_modules.h"
 #include <array>
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 
@@ -21,10 +22,12 @@ void StaticModules::add(std::span<const uint8_t> memory,const StaticModule& modu
       throw std::invalid_argument("Duplicate static PS2 module identity");
   memory_=memory;
   modules_.push_back(module);
+  firstAddress_=std::min(firstAddress_,uint32_t(textBegin));
+  lastAddress_=std::max(lastAddress_,uint32_t(textEnd));
 }
 
 const StaticModule* StaticModules::selected(uint32_t address) const {
-  if(address&3)return nullptr;
+  if((address&3) || address<firstAddress_ || address>=lastAddress_)return nullptr;
   for(const auto& module:modules_) {
     const uint64_t textBegin=uint64_t(module.address)+64;
     if(address<textBegin || address>=textBegin+module.textSize)continue;
@@ -45,5 +48,5 @@ Function StaticModules::lookup(uint32_t address) const {
   return slot<module->table.size()?module->table[slot]:nullptr;
 }
 
-void StaticModules::clear() {modules_.clear();memory_={};}
+void StaticModules::clear() {modules_.clear();memory_={};firstAddress_=UINT32_MAX;lastAddress_=0;}
 }

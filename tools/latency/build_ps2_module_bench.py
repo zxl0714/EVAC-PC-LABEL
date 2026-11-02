@@ -33,12 +33,17 @@ def candidate(source,header):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--baseline-directory',type=Path,
+        help='Frozen pre-change static_modules.cpp/.h pair for comparisons after adoption')
     args=parser.parse_args();output=args.output.resolve();reject_link(output)
     if not output.is_relative_to(ROOT/'.local') or output.exists():
         raise ValueError('Use a new private .local directory')
     output.mkdir(parents=True)
-    original=(ROOT/'backends/ps2/static_modules.cpp').read_text()
-    header=(ROOT/'backends/ps2/static_modules.h').read_text()
+    baseline=(args.baseline_directory or ROOT/'backends/ps2').resolve(strict=True)
+    reject_link(baseline)
+    for name in ('static_modules.cpp','static_modules.h'):reject_link(baseline/name)
+    original=(baseline/'static_modules.cpp').read_text()
+    header=(baseline/'static_modules.h').read_text()
     modified,definition=candidate(original,header)
     test=ROOT/'tests/ps2_modules_test.cpp'
     for name,source,h in [('baseline',original,header),('candidate',modified,definition)]:
@@ -68,8 +73,10 @@ def main():
         result=subprocess.run([str(output/'build'/(name+'.exe')),'--bench'],text=True,capture_output=True,check=True)
         runs.append(dict(variant=name,rows=[json.loads(line) for line in result.stdout.splitlines()]))
     identities={str(p):digest(p) for p in sorted(output.glob('*/*')) if p.is_file() and p.suffix in ('.cpp','.h')}
+    matches=((ROOT/'backends/ps2/static_modules.cpp').read_text()==modified and
+             (ROOT/'backends/ps2/static_modules.h').read_text()==definition)
     record=dict(scope='Authored module lookup only; not whole game CPU',contracts=contracts,runs=runs,sources=identities,
-        production_adopted=False,source_sha256=digest(Path(__file__)))
+        production_matches_candidate=matches,baseline_directory=str(baseline),source_sha256=digest(Path(__file__)))
     write_json_new(output/'comparison.json',record)
     print(json.dumps(record,indent=2))
 

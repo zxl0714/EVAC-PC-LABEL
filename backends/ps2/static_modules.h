@@ -25,5 +25,6 @@ public:
 private:
   std::span<const uint8_t> memory_;
   std::vector<StaticModule> modules_;
+  uint32_t firstAddress_=UINT32_MAX,lastAddress_=0;
 };
 }
