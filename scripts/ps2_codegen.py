@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import struct
 import subprocess
 import tomllib
@@ -31,20 +32,30 @@ SDK_LIFECYCLES = (
 def tree_identity(directory):
     directory = Path(directory)
     reject_link(directory)
+    if not directory.is_dir():
+        raise ValueError('Generated PS2 source directory is missing')
     state = hashlib.sha256()
     count = size = 0
     sources = []
-    for current, folders, files in os.walk(directory, followlinks=False):
-        for name in (*folders, *files):
-            child = Path(current) / name
-            if child.is_symlink() or child.is_junction():
-                raise ValueError('Linked generated source: ' + name)
-        sources.extend(Path(current) / name for name in files if Path(name).suffix in ('.h', '.cpp'))
-    for path in sorted(sources):
+    pending = [directory]
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                # Windows directory enumeration already includes these fields.
+                # Reuse them instead of issuing several metadata reads per body.
+                info = entry.stat(follow_symlinks=False)
+                if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+                    raise ValueError('Linked generated source: ' + entry.name)
+                child = Path(entry.path)
+                if stat.S_ISDIR(info.st_mode):
+                    pending.append(child)
+                elif stat.S_ISREG(info.st_mode) and child.suffix in ('.h', '.cpp'):
+                    sources.append((child, info.st_size))
+    for path, length in sorted(sources):
         name = path.relative_to(directory).as_posix()
         state.update(name.encode('utf-8') + b'\0' + bytes.fromhex(digest(path)))
         count += 1
-        size += path.stat().st_size
+        size += length
     if not count:
         raise ValueError('Generated PS2 source directory is empty')
     return dict(path=str(directory), files=count, bytes=size, sha256=state.hexdigest())
