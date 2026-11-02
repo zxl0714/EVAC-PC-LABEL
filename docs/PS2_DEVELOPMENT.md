@@ -50,11 +50,18 @@ debugging; player packages omit them. The certificate is
 | `.local/ps2/espgaluda/` | Fingerprinted ISO analysis and generated build inputs |
 | `out/ps2-tools/` | Compiled tools, runtime libraries, EXE and matching PDB |
 | `scripts/ps2_build_receipt.py`, `scripts/stage_ps2.py` | Build certification and player runtime staging |
+| `scripts/ps2_input_order.py` | Reviewed main-loop input order and generated-body identity checks |
 
 The analysis maps contain names and addresses. Game code is generated locally
 from the supplied ISO. Changing a supported image or a callback table starts
 with updating the analysis and its checksums; generated C++ stays in the build
 directories.
+
+The ESPGaluda main loop keeps its original graphics wait, then reads and maps
+input before updating the game. The build prepares the two affected bodies in
+`out/ps2-tools/espgaluda-input-order/`; the original generated tree stays intact.
+The build receipt verifies both transformed bodies and their original sources
+under the `late-v1` policy before staging the executable.
 
 ## Checks and profiling
 

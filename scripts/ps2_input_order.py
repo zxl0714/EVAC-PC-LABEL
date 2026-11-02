@@ -1,4 +1,4 @@
-"""Prepare an isolated ESPGaluda frame-order candidate without changing generated inputs."""
+"""Prepare ESPGaluda's reviewed input order without changing generated inputs."""
 import argparse
 import hashlib
 import json
@@ -14,6 +14,7 @@ CALLS = ((0x1007b4, 0x11e840, 0x11d480),
          (0x1007bc, 0x1210a0, 0x11e840),
          (0x1007c4, 0x11d480, 0x1210a0))
 FILES = ('FUN_001004d0_0x1004d0.cpp', 'entry_001007b0_0x1007b0.cpp')
+POLICY = 'late-v1'
 
 
 def rewrite(source):
@@ -50,9 +51,27 @@ def prepare(generated, output):
         identities.append(dict(name=name,
             originalSha256=hashlib.sha256(original.encode()).hexdigest(),
             candidateSha256=hashlib.sha256(candidate.encode()).hexdigest()))
-    write_changed(output/'identity.json', json.dumps(dict(format=1,
-        scope='ESPGaluda SLPS-25352 private late-input candidate',
+    write_changed(output/'identity.json', json.dumps(dict(format=2, policy=POLICY,
+        scope='ESPGaluda SLPS-25352 input order',
         originalGenerated=str(generated), files=identities), indent=2)+'\n')
+
+
+def verify(generated, output):
+    generated, output = Path(generated).resolve(strict=True), Path(output).resolve(strict=True)
+    identities = []
+    for name in FILES:
+        original = (generated/name).read_text(encoding='utf8')
+        expected = rewrite(original)
+        if (output/name).read_text(encoding='utf8') != expected:
+            raise ValueError('ESPGaluda input-order body differs: '+name)
+        identities.append(dict(name=name,
+            originalSha256=hashlib.sha256(original.encode()).hexdigest(),
+            candidateSha256=hashlib.sha256(expected.encode()).hexdigest()))
+    expected = dict(format=2, policy=POLICY, scope='ESPGaluda SLPS-25352 input order',
+                    originalGenerated=str(generated), files=identities)
+    if json.loads((output/'identity.json').read_text(encoding='utf8')) != expected:
+        raise ValueError('ESPGaluda input-order identity differs')
+    return expected
 
 
 if __name__ == '__main__':

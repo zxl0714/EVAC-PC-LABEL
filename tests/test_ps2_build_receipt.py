@@ -38,7 +38,7 @@ class Ps2ReceiptTests(unittest.TestCase):
         tools={name:self.root/name for name in ('clang-cl','ninja')}
         values=dict(CMAKE_C_COMPILER=str(tools['clang-cl']),CMAKE_CXX_COMPILER=str(tools['clang-cl']),
                     CMAKE_MAKE_PROGRAM=str(tools['ninja']),CMAKE_BUILD_TYPE='Release',
-                    PS2_GAME_SYMBOLS='ON',PS2_RUNTIME_THINLTO='ON')
+                    PS2_GAME_SYMBOLS='ON',PS2_RUNTIME_THINLTO='ON',PS2_ESPGALUDA_INPUT_ORDER='late-v1')
         def save(changes=None):
             state=dict(values,**(changes or {}))
             (self.root/'CMakeCache.txt').write_text(''.join(k+':STRING='+v+'\n' for k,v in state.items()))
@@ -46,7 +46,7 @@ class Ps2ReceiptTests(unittest.TestCase):
             save();self.assertEqual(receipt.configuration(self.root),values)
             for key,value in (('PS2_GAME_SYMBOLS','OFF'),('PS2_RUNTIME_THINLTO','OFF'),
                               ('CMAKE_BUILD_TYPE','Debug'),('CMAKE_CXX_COMPILER','outside/clang-cl'),
-                              ('PS2_EXPERIMENTAL_LATE_INPUT','ON')):
+                              ('PS2_EXPERIMENTAL_LATE_INPUT','ON'),('PS2_ESPGALUDA_INPUT_ORDER','original')):
                 save({key:value})
                 with self.subTest(key=key),self.assertRaises(ValueError):receipt.configuration(self.root)
 

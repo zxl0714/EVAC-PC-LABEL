@@ -6,6 +6,8 @@ Initialize-CollectionBuildEnvironment
 $cmake=Get-CollectionTool 'cmake'
 $taskBuild=Join-Path $CollectionRoot 'out/ps2-tools'
 function Invoke-CertifiedEspgaludaBuild {
+    # Let Ninja refresh a changed CMake policy before capturing the build inputs.
+    Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_recomp','--parallel',"$Jobs")
     $taskReceiptState=Join-Path $CollectionRoot ('.local/build-inputs/ps2-'+[guid]::NewGuid().ToString('N')+'.json')
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskReceiptState)
     Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_espgaluda_probe','--parallel',"$Jobs")
@@ -39,7 +41,8 @@ if($LASTEXITCODE){throw 'ESPGaluda code generation failed'}
 $inputs=($inputs -join "`n") | ConvertFrom-Json
 $taskExpected=@{PS2_GAME_GENERATED=$inputs.boot;PS2_ARCADE_GENERATED=$inputs.arcade;
     PS2_ARRANGE_GENERATED=$inputs.arrange;PS2_STAGE_MODULES_MANIFEST=$inputs.stages;
-    PS2_MODE_EXTRAS_MANIFEST=$inputs.extras;PS2_GAME_SYMBOLS='ON';PS2_RUNTIME_THINLTO='ON'}
+    PS2_MODE_EXTRAS_MANIFEST=$inputs.extras;PS2_GAME_SYMBOLS='ON';PS2_RUNTIME_THINLTO='ON';
+    PS2_ESPGALUDA_INPUT_ORDER='late-v1'}
 $taskCache=@{}
 foreach($line in Get-Content -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt')) {
     if($line -match '^([^/#][^:]*):[^=]+=(.*)$'){$taskCache[$Matches[1]]=$Matches[2]}

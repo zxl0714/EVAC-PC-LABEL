@@ -46,7 +46,7 @@ CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
   V             Y          △
 方向键移动，Enter 为 Start，Backspace 为 Select／Touchpad。
 A／S 为 L1／R1，Q／W 为 L2／R2。支持 SDL 手柄与摇杆。
-ESPGaluda 默认 C 射击，X 觉圣，Z 护罩；长按与连射设置沿用原游戏菜单。
+ESPGaluda ARCADE 默认 C 射击，V 觉圣，X 护罩，Z 连射；按键可在游戏的 BUTTON CONFIG 中调整。
 狱门山 Arrange：方向键移动，I/J/K/L 控制式神，W 召唤，X 炸弹。
 F11／Alt+Enter 切换全屏；Alt+F4 退出；F8 标记日志时间。
 
@@ -98,7 +98,7 @@ Keep the whole user-data/ folder when updating or moving your installation.
 Arrow keys move; Enter is Start; Backspace is Select/Touchpad.
 Z / X / C / V map to A / B / X / Y on Xbox and Cross / Circle / Square / Triangle on PS4/PS2.
 A / S are L1 / R1; Q / W are L2 / R2. SDL controllers and arcade sticks are supported.
-ESPGaluda defaults: C shot, X Kakusei, Z guard barrier. Hold/rapid-fire options are in the game.
+ESPGaluda ARCADE defaults: C shot, V Kakusei, X barrier, Z rapid fire. Edit them in the game's BUTTON CONFIG.
 Guwange Arrange: arrows move, I/J/K/L aim the shikigami, W summons, X bombs.
 F11 or Alt+Enter toggles fullscreen; Alt+F4 exits; F8 marks the log timestamp.
 

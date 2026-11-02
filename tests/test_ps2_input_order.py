@@ -2,9 +2,10 @@ import sys
 import re
 from pathlib import Path
 import unittest
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
-from ps2_input_order import CALLS, rewrite
+from ps2_input_order import CALLS, FILES, POLICY, rewrite, prepare, verify
 
 
 def fixture():
@@ -50,6 +51,28 @@ class Ps2InputOrder(unittest.TestCase):
     def test_candidate_cannot_be_applied_twice(self):
         with self.assertRaises(ValueError):
             rewrite(rewrite(fixture()))
+
+    def test_receipt_binds_both_compiled_bodies_and_their_policy(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);generated=root/'original';generated.mkdir();output=root/'compiled'
+            for name in FILES:(generated/name).write_text(fixture(),encoding='utf8')
+            prepare(generated,output)
+            self.assertEqual(verify(generated,output)['policy'],POLICY)
+            self.assertEqual(len(verify(generated,output)['files']),2)
+            (output/FILES[1]).write_text('changed compiled body',encoding='utf8')
+            with self.assertRaises(ValueError):verify(generated,output)
+            self.assertEqual((output/FILES[1]).read_text(),'changed compiled body')
+
+    def test_receipt_rejects_changed_original_and_stale_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);generated=root/'original';generated.mkdir();output=root/'compiled'
+            for name in FILES:(generated/name).write_text(fixture(),encoding='utf8')
+            prepare(generated,output)
+            (output/'identity.json').write_text('{}',encoding='utf8')
+            with self.assertRaises(ValueError):verify(generated,output)
+            prepare(generated,output)
+            (generated/FILES[0]).write_text('changed original body',encoding='utf8')
+            with self.assertRaises(ValueError):verify(generated,output)
 
 
 if __name__ == '__main__':

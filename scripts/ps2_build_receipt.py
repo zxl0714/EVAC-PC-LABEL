@@ -13,6 +13,7 @@ from project import ROOT, digest, reject_link, write_json_new
 from ps2_game import generate_all
 from ps2_codegen import tree_identity
 from ps2_gs_sources import digests as gs_digests
+from ps2_input_order import POLICY as INPUT_ORDER_POLICY, verify as verify_input_order
 from ps4_sources import locked_dependencies, verify_checkout
 from toolchain import tool_path, tool_snapshot
 
@@ -31,7 +32,9 @@ def configuration(build=BUILD):
             or values.get('CMAKE_BUILD_TYPE') != 'Release'):
         raise ValueError('PS2 certification requires the Release runtime with full game symbols and ThinLTO')
     if values.get('PS2_EXPERIMENTAL_LATE_INPUT') == 'ON':
-        raise ValueError('Private frame-order candidates are not release inputs')
+        raise ValueError('Reconfigure the PS2 build to replace its retired experimental input policy')
+    if values.get('PS2_ESPGALUDA_INPUT_ORDER') != INPUT_ORDER_POLICY:
+        raise ValueError('PS2 certification requires the reviewed ESPGaluda input order')
     for key, tool in (('CMAKE_C_COMPILER', 'clang-cl'), ('CMAKE_CXX_COMPILER', 'clang-cl'),
                       ('CMAKE_MAKE_PROGRAM', 'ninja')):
         if Path(values.get(key, '')).resolve() != tool_path(tool, ROOT).resolve():
@@ -88,7 +91,8 @@ def snapshot(refresh=False):
     flags={key:values.get(key,'') for key in ('CMAKE_C_FLAGS_RELEASE','CMAKE_CXX_FLAGS_RELEASE',
                                              'CMAKE_EXE_LINKER_FLAGS','CMAKE_SHARED_LINKER_FLAGS')}
     state = dict(files=files, dependencies=dependencies, tools=tool_snapshot(ROOT), flags=flags,
-                 generated=generation(values,refresh=refresh), graphics=declared, buildType='Release', game='espgaluda')
+                 generated=generation(values,refresh=refresh), graphics=declared, buildType='Release', game='espgaluda',
+                 inputOrder=verify_input_order(values['PS2_GAME_GENERATED'],BUILD/'espgaluda-input-order'))
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
 

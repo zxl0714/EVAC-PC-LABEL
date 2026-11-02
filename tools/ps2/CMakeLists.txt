@@ -256,19 +256,22 @@ if(PS2_BUILD_RUNTIME)
   set(PS2_ARRANGE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARRANGE module")
   set(PS2_STAGE_MODULES_MANIFEST "" CACHE FILEPATH "Private stage module build manifest")
   set(PS2_MODE_EXTRAS_MANIFEST "" CACHE FILEPATH "Verified additional mode entry build manifest")
-  option(PS2_EXPERIMENTAL_LATE_INPUT "Private ESPGaluda frame-order comparison" OFF)
+  unset(PS2_EXPERIMENTAL_LATE_INPUT CACHE)
   if(PS2_GAME_GENERATED)
     file(GLOB GENERATED_SOURCES CONFIGURE_DEPENDS "${PS2_GAME_GENERATED}/*.cpp")
     if(NOT EXISTS "${PS2_GAME_GENERATED}/register_functions.cpp")
       message(FATAL_ERROR "Missing generated function table")
     endif()
-    if(PS2_EXPERIMENTAL_LATE_INPUT)
+    # Keep the original generated tree immutable. Both compiled main-loop bodies
+    # use the reviewed wait -> pad -> map order and are bound by the build receipt.
+    set(PS2_ESPGALUDA_INPUT_ORDER "late-v1" CACHE INTERNAL "ESPGaluda input-order policy" FORCE)
+    if(PS2_GAME_GENERATED)
       set(inputOrderOutput "${CMAKE_BINARY_DIR}/espgaluda-input-order")
       execute_process(COMMAND py -3.12 "${COLLECTION_ROOT}/scripts/ps2_input_order.py"
         --generated "${PS2_GAME_GENERATED}" --output "${inputOrderOutput}"
         RESULT_VARIABLE inputOrderResult ERROR_VARIABLE inputOrderError)
       if(NOT inputOrderResult EQUAL 0)
-        message(FATAL_ERROR "Invalid ESPGaluda input-order candidate: ${inputOrderError}")
+        message(FATAL_ERROR "Invalid ESPGaluda input order: ${inputOrderError}")
       endif()
       foreach(inputBody FUN_001004d0_0x1004d0 entry_001007b0_0x1007b0)
         list(TRANSFORM GENERATED_SOURCES REPLACE "${PS2_GAME_GENERATED}/${inputBody}\\.cpp$"

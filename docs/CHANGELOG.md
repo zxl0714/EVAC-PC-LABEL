@@ -1,5 +1,19 @@
 # 更新记录
 
+## v0.9.0
+
+- 新增 PS2《エスプガルーダ / ESPGaluda》，支持 ARCADE、ARRANGE、练习、画廊及记忆卡存档。
+- 原始 ISO 放入 `game-data/espgaluda/` 即可，启动器自动准备游戏数据。
+- 缺少游戏数据的作品在启动器中置灰，导入后刷新即可恢复。
+- ESPGaluda 首张输入响应画面提前约一帧。
+
+### English
+
+- Added the PS2 version of ESPGaluda, including ARCADE, ARRANGE, practice, gallery and memory-card saves.
+- Place the original ISO in `game-data/espgaluda/`; the launcher prepares the game automatically.
+- Games without installed data appear grey in the launcher and return to full colour after importing and refreshing.
+- ESPGaluda's first input response appears about one frame earlier.
+
 ## v0.8.4
 
 - 改善旧 CPU 对 PS4 游戏的兼容性，修复大往生等作品启动时的非法指令崩溃。
