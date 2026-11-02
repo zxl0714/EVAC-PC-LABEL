@@ -10,47 +10,46 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov02: v0.9.0 through PACKAGING ONLY, workspace E:/Projects/EVAC-PC-LABEL,
-branch work/v090-resume. PS2 ESPGaluda only; Ibara Coming Soon. No push/GitHub/OSS/QQ,
-subagents, Task Manager, UAC, user questions, original-data changes or cleanup.
+PACKAGING BOUNDARY REACHED Nov02: v0.9.0 candidate program + internal ZIPs built
+and each actually extracted ONCE and verified. STOP before publication. No push,
+GitHub/OSS/QQ, or automatic return to optional experiments. Workspace
+E:/Projects/EVAC-PC-LABEL, branch work/v090-resume. PS2 ESPGaluda only; Ibara Coming Soon.
 
-LATEST HUMAN STEERING: stop expanding tests and optimization; finish the packages.
-Freeze optional experiments. Reuse unaffected acceptance and report missed goals honestly.
-Next sequence: final source checks/commit -> certified incremental builds -> public +
-internal ZIP -> ONE extraction each -> stop before publication. Do not reopen old tests.
+Frozen artifact source/build/package commit9df10121bc55a7c143a0b52b6c3df81e5bb18118.
+Artifacts: releases/v0.9.0-candidate-9df1012/{public,internal}/. See each acceptance.json
+and root DELIVERY.json / RELEASE_NOTES.md. Both flat Windows ZIPs, current EVAC
+launcher only, no source attachment or symbols. Public195payload files/no ROM;
+internal all10supported games plus both Futari DLC packages. All backend receipts
+and staged manifests match9df1012. Developer/staged PS2 game901eff9d, formal late-v1.
+Full matching PDBs retained locally. Post-package checkpoint is DOCS ONLY: do not
+rebuild/recertify/repack frozen artifacts just to move their commit to this record.
 
-Completed: module-range full ABI build (session62493 exit0); developer game901eff9d,
-normal game112804 exited with complete queue drain. Latest ordinary10.096sec BOSS
-sample0.427cores,605fields median16.651/P9518.060/P9918.780/max19.880ms,4>19/0>20.
-Death/respawn occurred during window; no deterministic whole-game gain claimed.
-CPU target below PCSX2 .249cores NOT MET; complete presentation-tail latency not proven.
-README bilingual and ANALYSIS v090-ps2-closeout state these limits. Do not invent numbers.
+Latest human steering: stop expanding work and reach delivery. Tests and optional
+experiments are FROZEN. 77 PS2 source tests pass; release tests52,one legacy skip.
+Both ZIPs use the same full certification in one process; copied binaries are still
+individually hash-checked. Large PS2 certification scans528625generated files/2.50GB;
+do NOT repeat it once per flavour, or repeat actual ZIP extraction after acceptance.
+Private driver .local/v090/package_candidate.py, log analysis/final-package-r1.log.
 
-Functional evidence reused: user confirmed BOSS/restart BGM; gallery/wallpaper/coldsave;
-originalISO first-run prepare/warm reuse; settingLIFE2 save/coldread; ARRANGE Chihiro
-movement/fire/Kakusei/barrier/pause/resume/QUIT title. New-score coldsave and continue
-remain open, not silently passed. No new full-mode campaign as packaging gate.
-Low-input PadRead->firstresponse Present31.135->16.873ms; firstmotionPad+2->Pad+1.
-PCSX2 readonly PINE both directions consume->motion2updates. Evidence under
-.local/v090/latency/{late-input-response-r1,late-input-arrange-r2,pcsx2-pine-r2}.
-Input-order late-v1 now formal build policy with exact transformed-body verification;
-retired experimental flag rejected. 77 PS2 Python tests PASS Nov02. No actual final
-receipt yet; out/ps2-tools developer901, runtime/ps2 stage stillbc95 pending finalbuild.
+This is candidate packaging, NOT a claim all original performance targets passed.
+Open: CPU .427cores versus PCSX2 .249; complete same-scope presentation-tail latency;
+new-score cold-read/continue专项; ordinary longest19.880ms (4>19,0>20 in605fields).
+Do not invent passing evidence or restart an endless campaign. Full limits in
+docs/ANALYSIS.md#v090-ps2-closeout and docs/PS2_RUNTIME_PLAN.md; bilingual README has
+actual CPU/frame results. Dangun current reporter issue remains open; historical
+Oct29 log17>20ms/10762frames (16>30), worst99.837ms execute81.620ms, not fixed.
 
-Use scripts/Build-Espgaluda.ps1 -NativeOnly to let Ninja refresh policy before receipt.
-No ABI changes now: reuse all expensive generated objects; no full rebuild just for
-metadata. All player receipts must bind final source commit before release packaging.
-Version source0.9.0. Main stage/launcher and existing360/PS4 certificates need refresh.
-Internal data overrides: C:/evac-pc-label/game-data/<id> for nine prior games;
-ESPGaluda verified private .local/v090/player-iso-r1/game-data/espgaluda originalISO.
-Public/internal package format3, no source attachment. Preserve frozen releases.
+Reuse accepted actual game evidence: user confirmed BOSS/restart BGM; gallery and
+wallpaper/coldsave; originalISO first-run prepare/warm cache; LIFE2 setting coldread;
+ARRANGE Chihiro movement/fire/Kakusei/barrier/pause/resume/QUIT title. Low-input
+PadRead->firstresponse Present31.135->16.873ms, Pad+2->Pad+1; PCSX2 PINE both
+directions input-consumption->response2updates. Not photon or full normal-tail data.
+Evidence .local/v090/{analysis,latency}; original ROM/user profiles unchanged.
 
-Dangun historical-log investigation: docs/IMPLEMENTATION_PLAN.md unchecked item and
-.local/v090/analysis/feveron-existing-logs-r1.json. Oct29 sample10762frames,17>20ms,
-16>30ms, worst99.837ms execute81.620ms. Not current reporter logs and NOT fixed.
-
-Before gameplay read MEMORY.md. Existing Node @oai/sky available; all testgames closed.
-Use py -3.12. Do not broad-search .local or reread all historical AGENTS content.
+All current build/package sessions are closed. No game running. Do not use Task
+Manager, subagents, UAC or ask the sleeping user for help. Before any later game
+automation read MEMORY.md, use Node @oai/sky and current returned windows. Use
+py -3.12; do not broad-search .local or reread all historical AGENTS content.
 
 ## Previous release checkpoints
 
