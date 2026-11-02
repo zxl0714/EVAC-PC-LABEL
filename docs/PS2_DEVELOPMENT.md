@@ -85,6 +85,10 @@ one buffered timeline. The trace is disabled by default and serialized after
 the execution threads join. A `feedback_unknown_stage` row is a driver timing
 observation whose presentation stage is not exposed by Granite's public API;
 it is not proof of scanout.
+`gs_command` rows carry the producer field, command kind (initialize/reset/GIF/
+register/image/FIFO/snapshot/VRAM write/frame, numbered 0–8), elapsed microseconds
+and payload bytes. They include synchronous GPU waits performed by that command;
+the elapsed value is not a CPU-work measurement.
 Driver feedback is a separate opt-in (`EVAC_PS2_PRESENT_FEEDBACK=1`);
 input and pixel tracing do not require it.
 

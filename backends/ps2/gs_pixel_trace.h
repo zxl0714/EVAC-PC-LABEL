@@ -88,7 +88,7 @@ public:
             bytes.write(static_cast<const char*>(mapped),std::streamsize(rows.size()*stride));
             device.unmap_host_buffer(*buffer,Vulkan::MEMORY_ACCESS_READ_BIT);
         }
-        table<<"# format=1 full_width="<<fullWidth<<" full_height="<<fullHeight<<" x="<<x<<" y="<<y
+        table<<"# version=1 full_width="<<fullWidth<<" full_height="<<fullHeight<<" x="<<x<<" y="<<y
              <<" width="<<width<<" height="<<height<<" format="<<format<<" stride="<<stride
              <<" capacity="<<capacity<<" captured="<<rows.size()<<" failed="<<failed<<'\n'<<"index,field,copy_qpc_us\n";
         for(size_t i=0;i<rows.size();++i)table<<i<<','<<rows[i].field<<','<<rows[i].copied<<'\n';

@@ -30,6 +30,16 @@ def main():
     kernel.QueryFullProcessImageNameW.argtypes = [w.HANDLE, w.DWORD, w.LPWSTR, c.POINTER(w.DWORD)]
     kernel.GetExitCodeProcess.argtypes = [w.HANDLE, c.POINTER(w.DWORD)]
     kernel.CloseHandle.argtypes = [w.HANDLE]
+    class Memory(c.Structure):
+        _fields_ = [('cb',w.DWORD),('PageFaultCount',w.DWORD)] + [
+            (name,c.c_size_t) for name in ('PeakWorkingSetSize','WorkingSetSize',
+                'QuotaPeakPagedPoolUsage','QuotaPagedPoolUsage','QuotaPeakNonPagedPoolUsage',
+                'QuotaNonPagedPoolUsage','PagefileUsage','PeakPagefileUsage','PrivateUsage')]
+    class Io(c.Structure):
+        _fields_ = [(name,c.c_ulonglong) for name in ('ReadOperationCount','WriteOperationCount',
+            'OtherOperationCount','ReadTransferCount','WriteTransferCount','OtherTransferCount')]
+    kernel.K32GetProcessMemoryInfo.argtypes = [w.HANDLE,c.POINTER(Memory),w.DWORD]
+    kernel.GetProcessIoCounters.argtypes = [w.HANDLE,c.POINTER(Io)]
     handle = kernel.OpenProcess(0x1000, False, args.pid)  # QUERY_LIMITED_INFORMATION
     if not handle:
         raise c.WinError(c.get_last_error())
@@ -42,8 +52,17 @@ def main():
                 not kernel.GetExitCodeProcess(handle, c.byref(status)) or status.value != 259 or
                 not kernel.QueryPerformanceCounter(c.byref(qpc))):
             raise RuntimeError('Target exited or process timing is unavailable')
-        return dict(qpc=qpc.value, created=integer(stamps[0]),
-                    cpu_100ns=integer(stamps[2]) + integer(stamps[3]))
+        row = dict(qpc=qpc.value, created=integer(stamps[0]),
+                   cpu_100ns=integer(stamps[2]) + integer(stamps[3]))
+        memory, io = Memory(), Io()
+        memory.cb=c.sizeof(memory)
+        if kernel.K32GetProcessMemoryInfo(handle,c.byref(memory),c.sizeof(memory)):
+            row.update(page_faults=memory.PageFaultCount,working_set_bytes=memory.WorkingSetSize,
+                       private_bytes=memory.PrivateUsage)
+        if kernel.GetProcessIoCounters(handle,c.byref(io)):
+            row.update(read_bytes=io.ReadTransferCount,write_bytes=io.WriteTransferCount,
+                       read_operations=io.ReadOperationCount,other_operations=io.OtherOperationCount)
+        return row
     try:
         name, length, frequency = c.create_unicode_buffer(32768), w.DWORD(32768), c.c_longlong()
         if not kernel.QueryFullProcessImageNameW(handle, 0, name, c.byref(length)) or not kernel.QueryPerformanceFrequency(c.byref(frequency)):

@@ -31,6 +31,7 @@ struct Command {
     uint64_t value{};
     size_t offset=0,cost=0;
     uint64_t generation=1;
+    uint64_t field=0;
     std::array<uint64_t,4> setup{};
     GsFrame frame{};
     std::vector<uint8_t> bytes;
@@ -71,6 +72,7 @@ public:
         }
         CheckOpen();
         command.generation=completions->Generation();
+        command.field=input_trace::CurrentField();
         // Allocate only after capacity is reserved; blocked writers do not keep
         // an extra unbounded copy of their guest DMA buffers.
         command.bytes.assign(payload.begin(),payload.end());
@@ -124,6 +126,7 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         impl->activeReply=command.reply;
     }
     std::vector<uint8_t> answer;
+    const auto tracedStart=input_trace::Enabled()?input_trace::Stamp():0;
     try {
         consumer.BeginCommand(command.generation);
         switch(command.kind) {
@@ -149,6 +152,9 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         auto error=std::current_exception();
         Close(error);if(command.reply)command.reply->Fail(error);throw;
     }
+    if(tracedStart)input_trace::Record(input_trace::Kind::GsCommand,
+        command.kind==Kind::Frame?command.frame.vsyncTick:command.field,
+        uint64_t(command.kind),uint64_t(input_trace::Stamp()-tracedStart),command.cost);
     std::function<void()> frameNotifier;
     bool wakeWriters=false;
     {
