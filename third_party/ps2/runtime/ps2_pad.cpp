@@ -2,6 +2,7 @@
 #include "ps2_host_backend.h"
 #include <cstring>
 #include "../../../backends/ps2/diagnostic_input.h"
+#include "../../../backends/ps2/input_trace.h"
 #include "../../../backends/ps2/host_input.h"
 #include <array>
 #include <atomic>
@@ -108,6 +109,7 @@ bool PSPadBackend::readState(int port, int slot, uint8_t *data, size_t size)
         const auto buttons=uint16_t(~snapshot.buttons);
         data[2]=uint8_t(buttons);data[3]=uint8_t(buttons>>8);
         std::copy(snapshot.axes.begin(),snapshot.axes.end(),data+4);
+        cave::ps2::input_trace::Record(cave::ps2::input_trace::Kind::PadRead,0,uint64_t(port),uint64_t(slot),snapshot.buttons);
         if(diagnosticTapMs.load(std::memory_order_relaxed) && port>=0 && port<2 &&
            diagnosticLastRead[port].exchange(buttons)!=buttons)
             std::cerr<<"[ps2-pad-read] port="<<port<<" slot="<<slot<<" active=0x"

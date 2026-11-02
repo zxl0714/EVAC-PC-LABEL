@@ -2,6 +2,7 @@
 #include "runtime/ps2_address.h"
 #include "runtime/gs/gs_frontend.h"
 #include "ps2_log.h"
+#include "../../../backends/ps2/input_trace.h"
 #include <atomic>
 #include <cstring>
 #include <limits>
@@ -2524,8 +2525,11 @@ void PS2Memory::writeGsPartial(uint32_t address,uint64_t value,uint32_t bits)
             desired&=~(written&3ull);
         }while(!gs_regs.csr.compare_exchange_weak(expected,desired,std::memory_order_acq_rel));
     }
-    else if(auto* reg=gsRegPtr(gs_regs,address))
+    else if(auto* reg=gsRegPtr(gs_regs,address)) {
         *reg=(*reg&~mask)|written;
+        if(offset==0x70u || offset==0x90u)
+            cave::ps2::input_trace::Record(cave::ps2::input_trace::Kind::DisplayWrite,0,address,*reg,bits);
+    }
     m_gsWriteCount.fetch_add(1,std::memory_order_relaxed);
     if(m_gsAccessCallback)m_gsAccessCallback(offset,written,previous,true);
 }

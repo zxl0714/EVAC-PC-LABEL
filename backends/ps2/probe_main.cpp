@@ -17,6 +17,7 @@
 #include "audio_capture.h"
 #include "diagnostic_input.h"
 #include "audio_trace.h"
+#include "input_trace.h"
 
 namespace {
 #ifdef EVAC_PS2_IBARA
@@ -386,7 +387,7 @@ int main(int argc,char** argv) {
     bool traceBoot=false,traceAudio=false,musicCycle=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
-    std::filesystem::path audioCapture;
+    std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
     for(int i=collection?argc:5;i<argc;++i) {
@@ -395,6 +396,7 @@ int main(int argc,char** argv) {
       else if(option=="--trace-audio")traceAudio=true;
       else if(option=="--music-cycle")musicCycle=traceAudio=true;
       else if(option=="--capture-audio" && i+1<argc)audioCapture=std::filesystem::absolute(argv[++i]);
+      else if(option=="--input-trace" && i+1<argc)inputTrace=std::filesystem::absolute(argv[++i]);
       else if(option=="--coarse-timer")hostOptions.timerPrecision=false;
       else if(option=="--frame-times" && i+1<argc) {
         frameTimes=std::filesystem::absolute(argv[++i]);
@@ -423,6 +425,7 @@ int main(int argc,char** argv) {
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
     cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
+    cave::ps2::input_trace::Scope inputTraceScope(inputTrace);
     cave::ps2::audio_trace::Configure(traceAudio);
     cave::ps2::frame_trace::Configure(!frameTimes.empty());
     cave::ps2::audio_capture::Configure(audioCapture);

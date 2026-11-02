@@ -24,6 +24,13 @@ can use the existing generated inputs:
 ./scripts/Build-Espgaluda.ps1 -NativeOnly
 ```
 
+If a shared-header change relinks the generator, the native-only build validates
+the new generator in a separate output directory. It reuses compiled game
+objects only when every generated C++ and header is byte-for-byte identical.
+The original generation receipts and file timestamps stay intact; an additional
+equivalence receipt records the fresh validation. Changed game bodies require
+the normal full build.
+
 The normal build certifies its source, toolchain, locked dependencies and
 generated input set, checks both EXE/DLL against their matching PDBs, then stages
 the player files under `runtime/ps2/`. The private symbols remain available for
@@ -71,3 +78,27 @@ contains the configuration snapshot and buffered `frame-times.csv`, including
 absolute QPC timestamps. F8 writes a timestamp marker. Additional audio,
 instruction-pointer sampling and image readback belong in separate diagnostic
 runs. See [MEMORY.md](../MEMORY.md) for the tested input and menu workflow.
+
+The development CLI accepts `--input-trace <new.csv>` to record host key
+transitions, guest pad reads, display-register writes and field/present IDs in
+one buffered timeline. The trace is disabled by default and serialized after
+the execution threads join. A `feedback_unknown_stage` row is a driver timing
+observation whose presentation stage is not exposed by Granite's public API;
+it is not proof of scanout.
+Driver feedback is a separate opt-in (`EVAC_PS2_PRESENT_FEEDBACK=1`);
+input and pixel tracing do not require it.
+
+For first-response image analysis, set `EVAC_PS2_PIXEL_TRACE` to a fresh output
+prefix and `EVAC_PS2_PIXEL_REGION` to `x,y,width,height,frame_count` in the native
+scanout image, then launch with input tracing. F9 starts the one-shot capture.
+Use `0,0,0,0,96` to select the complete native scanout automatically.
+The bounded ROI copies use the existing GPU submission and frame fence;
+`.bin` pixels and `.csv` field IDs are saved after drain. Keep this diagnostic
+run separate from ordinary CPU and frame-time measurements.
+
+Held input in an independent diagnostic session can use the existing
+`tools/latency/test_pad_client.py` protocol: set `EVAC_LATENCY_TRACE` to a fresh
+trace file and `EVAC_LATENCY_TEST_PAD` to a unique pipe name, alongside
+`--input-trace`. This is a process-local synthetic controller. Its published
+timestamps can establish the guest-side input chain; they do not measure USB,
+keyboard or SDL front-end latency. Ordinary launches leave it disabled.

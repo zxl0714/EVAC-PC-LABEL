@@ -6,6 +6,8 @@
 #include "wsi.hpp"
 #include "fence.hpp"
 #include "thread_id.hpp"
+#include "timer.hpp"
+#include "gs_pixel_trace.h"
 #include <algorithm>
 #include <chrono>
 #include <iostream>
@@ -54,10 +56,10 @@ public:
     bool alive(Vulkan::WSI&) override{return !closed;}
     void poll_input() override {
         // Command bursts can request thousands of polls between two fields.
-        // Bound native message polling to 125 us; SDL retains its own cadence.
+        // Bound native message polling to 500 us; SDL retains its own cadence.
         const auto now=std::chrono::steady_clock::now();
         if(now<nextMessagePoll)return;
-        nextMessagePoll=now+std::chrono::microseconds(125);
+        nextMessagePoll=now+std::chrono::microseconds(500);
         MSG message{};
         while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)) {
             if(message.message==WM_QUIT){closed=true;continue;}
@@ -79,6 +81,7 @@ public:
             if(message==WM_KEYDOWN || message==WM_KEYUP || message==WM_SYSKEYDOWN || message==WM_SYSKEYUP) {
                 try {
                     const bool down=message==WM_KEYDOWN || message==WM_SYSKEYDOWN;
+                    if(wparam==VK_F9 && down && !(lparam&(1ll<<30)))pixel_trace::Arm();
                     if(wparam==VK_F11 && down && !(lparam&(1ll<<30)))self->ToggleFullscreen();
                     else if(self->keyHandler)self->keyHandler(unsigned(wparam),down);
                 }catch(...){self->inputFailure=std::current_exception();self->closed=true;}
@@ -116,6 +119,8 @@ public:
     GsPresentTransfer transfer=GsPresentTransfer::Automatic;
     Vulkan::Program* presentProgram=nullptr;
     int loggedTransfer=-1;
+    uint64_t lastFeedback=0;
+    pixel_trace::Capture pixels;
     Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync):window(width,height,title) {
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
@@ -123,6 +128,9 @@ public:
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
         wsi.set_present_mode(vsync?Vulkan::PresentMode::SyncToVBlank:Vulkan::PresentMode::UnlockedForceTearing);
         wsi.set_present_low_latency_mode(true);
+        const auto* feedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
+        if(input_trace::Enabled() && feedback && std::wcscmp(feedback,L"1")==0)
+            wsi.set_enable_timing_feedback(true);
         wsi.set_extra_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT);
         if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
@@ -131,6 +139,8 @@ public:
     }
     ~Impl() {
         if(pending)pending->wait();
+        try{pixels.Save(wsi.get_device());}
+        catch(const std::exception& error){std::cerr<<"[ps2-pixel-trace] "<<error.what()<<'\n';}
         const auto readbacks=gs?gs->ReadbackRequests():0;
         gs.reset(); // GS must die before WSI's device and the native surface.
         std::cerr<<"[ps2-gs-present] frames="<<frames<<" readbacks="<<readbacks<<'\n';
@@ -166,6 +176,7 @@ void GsDisplay::WaitPreviousFrame() {
 bool GsDisplay::Present(const GsFrame& request) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
+    input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
     auto* trace=frame_trace::Get(request.vsyncTick);
     if(trace)trace->presentStart=frame_trace::Stamp();
     WaitPreviousFrame();
@@ -177,6 +188,16 @@ bool GsDisplay::Present(const GsFrame& request) {
     impl->gs->Flush();
     if(trace)trace->flushed=frame_trace::Stamp();
     if(!Alive() || !impl->wsi.begin_frame())return false;
+    if(input_trace::Enabled()) {
+        Vulkan::PresentationStats stats{};
+        if(impl->wsi.get_presentation_stats(stats) && stats.feedback_present_id!=impl->lastFeedback) {
+            impl->lastFeedback=stats.feedback_present_id;
+            input_trace::Record(input_trace::Kind::Feedback,request.vsyncTick,stats.feedback_present_id,
+                                stats.gpu_done_ts,stats.present_done_ts);
+        }
+        if(impl->frames%120==0)input_trace::Record(input_trace::Kind::ClockLink,request.vsyncTick,
+                                                 uint64_t(Util::get_current_time_nsecs()));
+    }
     if(trace)trace->acquired=frame_trace::Stamp();
     auto& device=impl->wsi.get_device();
     const auto& destination=device.get_swapchain_view().get_image();
@@ -194,6 +215,7 @@ bool GsDisplay::Present(const GsFrame& request) {
         blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     if(trace)trace->scanned=frame_trace::Stamp();
     auto command=device.request_command_buffer();
+    if(source.image)impl->pixels.Copy(device,*command,*source.image,request.vsyncTick,blit);
     const auto width=destination.get_width(),height=destination.get_height();
     unsigned targetWidth=width,targetHeight=width*3u/4u;
     if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
@@ -234,8 +256,12 @@ bool GsDisplay::Present(const GsFrame& request) {
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,VK_PIPELINE_STAGE_2_NONE,0);
     }
     device.submit(command,&impl->pending);
+    impl->pixels.Submitted(request.vsyncTick);
+    input_trace::Record(input_trace::Kind::Submit,request.vsyncTick);
     if(trace)trace->submitted=frame_trace::Stamp();
     if(!impl->wsi.end_frame())return false;
+    if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,
+                                                 impl->wsi.get_last_submitted_present_id());
     if(trace)trace->presented=frame_trace::Stamp();
     ++impl->frames;
     return true;

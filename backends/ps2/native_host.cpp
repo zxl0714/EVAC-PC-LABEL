@@ -16,6 +16,8 @@
 #include "../../common/windows_timer_resolution.h"
 #include "common/settings.h"
 #include "frame_trace.h"
+#include "input_trace.h"
+#include "../../tools/latency/test_pad.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -59,6 +61,9 @@ class Input final : public HostPadSource {
     bool focused=false;
 public:
     explicit Input(const NativeHostOptions& options) {
+        // The established process-local test pad is opt-in and requires both
+        // fresh diagnostic traces. It never sends Windows/controller input.
+        if(input_trace::Enabled() && evac_latency::Initialize())evac_latency::InitializeTestPad();
         if(options.gameId.empty())
             bindings=options.keyboardConfig.empty()?kt::input::DefaultKeyboardBindings():kt::input::LoadKeyboardConfig(options.keyboardConfig);
         else {
@@ -74,6 +79,7 @@ public:
         if(keys[key]==down)return;
         keys[key]=down;
         const auto mask=Ps2Buttons(bindings[key]);
+        input_trace::Record(input_trace::Kind::HostKey,0,key,mask,down);
         if(down) {
             pending|=mask;
             const auto duration=DiagnosticTapMilliseconds();
@@ -96,6 +102,13 @@ public:
     HostPadState Read(unsigned port) override {
         if(port)return {};
         kt::input::GamepadSnapshot delivered;HostPadState state;
+        if(evac_latency::test_pad) {
+            const auto sample=evac_latency::ReadTestPad();
+            constexpr std::array<uint16_t,16> masks{
+                0x10,0x40,0x80,0x20,8,1,2,4,0x400,0x800,0,0,0x4000,0x2000,0x8000,0x1000};
+            for(unsigned i=0;i<masks.size();++i)if(sample.buttons&(1u<<i))state.buttons|=masks[i];
+            return state;
+        }
         {
             std::lock_guard lock(mutex);
             if(!focused)return {};
@@ -208,6 +221,10 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     }catch(...){ownerFailure=std::current_exception();}
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
     impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
+    // All event producers have joined. Preserve the input timeline before
+    // later graphics/audio teardown, which is outside the measured session.
+    try{input_trace::Save();}
+    catch(const std::exception& error){std::cerr<<"[ps2-input-trace] "<<error.what()<<'\n';}
     const auto stats=impl->queue->GetStats();
     std::cerr<<"[ps2-host] frames="<<impl->frames<<" readbacks="<<display.Device().ReadbackRequests()
         <<" queue_peak_bytes="<<stats.highWaterBytes<<" queue_peak_commands="<<stats.highWaterCommands<<'\n';

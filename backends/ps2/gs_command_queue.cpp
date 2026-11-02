@@ -218,6 +218,7 @@ bool GsCommandQueue::TryFrame(const GsFrame& request) {
     auto& stats=impl->stats;++stats.commands;++stats.submitted;stats.frameOutstanding=true;
     stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
     if(auto* row=frame_trace::Get(request.vsyncTick))row->enqueued=frame_trace::Stamp();
+    input_trace::Record(input_trace::Kind::FrameQueue,request.vsyncTick,request.dispfb1,request.dispfb2,request.field);
     lock.unlock();if(wakeReader)impl->readable.notify_one();return true;
 }
 }

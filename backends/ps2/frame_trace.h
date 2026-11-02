@@ -1,4 +1,5 @@
 #pragma once
+#include "input_trace.h"
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -23,6 +24,7 @@ inline Field* Get(uint64_t tick) {
 }
 inline void Configure(bool enabled){rows=enabled?std::make_unique<std::vector<Field>>(36000):nullptr;}
 inline void Vblank(uint64_t tick,std::chrono::steady_clock::time_point deadline) {
+    input_trace::Tick(tick);
     if(auto* row=Get(tick)){row->deadline=Stamp(deadline);row->vblank=Stamp();}
 }
 inline void Save(const std::filesystem::path& path) {

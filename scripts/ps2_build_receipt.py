@@ -63,6 +63,7 @@ def snapshot():
                 'scripts/toolchain.py', 'scripts/generate_catalogue.py', 'scripts/product.py',
                 'scripts/ps4_sources.py', 'tools/packages.lock.json',
                 'tools/python-tools.lock.txt', 'tools/ps2-source.lock.json', 'config/default.ini',
+                'tools/latency/latency_probe.h', 'tools/latency/test_pad.h',
                 'games/catalogue.json', 'scripts/stage_ps2.py'}
     files = {}
     for raw in sorted(set(names)):
