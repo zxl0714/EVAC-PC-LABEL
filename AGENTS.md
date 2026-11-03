@@ -10,19 +10,28 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE: user authorized compact table initialization and shared memory
-instructions together, then measure the full EXE. Estimate 120–125 MB remains
-unverified. No release/upload/package before this candidate is accepted.
-Implementation is ready: compact BSS table initialization; 13 shared dynamic
-integer memory instructions, with access bodies inlined inside these helpers.
-Original READ/WRITE callers remain out of line; constant FAST paths unchanged.
-Checks: 19 native + 96 Python passed; 2,340 instruction comparisons passed.
-After flattening: RAM bench 3.318->4.077 ms, scratch 12.395->14.869 ms per
-2.4 million operations. Actual game CPU must decide acceptance, not code size.
-Fresh inputs .local/v091/espgaluda-r3 generated successfully in 102.9 seconds.
-Next: full build Jobs=2, size measurement, short ARCADE/ARRANGE + CPU regression.
-Preserved old EXE/PDB/SDL3 in .local/v091/easy-size-r5/baseline. Evidence goes
-under easy-size-r5. No subagents. The earlier table restriction is superseded.
+COMPLETE current request: both compact dispatch initialization and shared
+integer memory instructions implemented and accepted at source a92795a.
+EXE 164559872 -> 118738944 bytes (-27.84%); PDB 573820928 -> 489811968.
+SHA256 078f21867663a91f9799caf002695f7fcdd1a48ecfaa43e424926d193bc16bf1.
+31 original mappings identical; 97 source / 19 native checks + 2340 generated
+memory comparisons + original boot/mode callback probes passed.
+Short ARCADE/ARRANGE play, movement/shots/Kakusei/pause/menu return passed.
+Same 599-frame,10-second comparison CPU .27058 -> .27237 cores; max frame
+18.078 -> 17.932ms, both zero >19ms; input trace no overflow. Tight memory
+microbench is slower; real short game did not show material regression.
+Baseline saved .local/v091/easy-size-r5/baseline; evidence in easy-size-r5.
+Runs combined-baseline-r1 PID54044 and combined-candidate-r1 PID88116 are
+closed normally. Fresh generated inputs .local/v091/espgaluda-r3; full build
+and receipt passed, staged in out/ps2. ToolsOnly -> runtime CMake relinked the
+generator, so one existing equivalence refresh and no-op incremental build
+was needed; final certificate matches clean a92795a source. Do not repeat.
+This update is docs only; no recompile/recertification/package required.
+No package, push, tag, upload, release, or subagents in this follow-up. Keep
+previous accepted ZIP 59618f6; it still contains the earlier 164.6MB EXE.
+
+Earlier stages below are historical; compact table implementation is now
+explicitly authorized and complete.
 
 ACTIVE Nov03 user requests ANOTHER simple substantial reduction from164.6MB,
 not final delivery yet. The local candidate below is accepted but NOT published;
