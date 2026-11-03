@@ -1,258 +1,92 @@
-# EVAC PC LABEL
+<p align="center">
+  <img src="launcher/branding/evac-logo.png" width="260" alt="EVAC PC LABEL">
+</p>
 
-[简体中文](README.md) | [English](README.en.md)
-
-将经典弹幕射击游戏带到 Windows PC。
+<p align="center">
+  <a href="README.md">简体中文</a> · <a href="README.en.md">English</a>
+</p>
 
 EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统一的启动器和游玩体验。Xbox 360 和 PS2 游戏采用静态重编译；PS4 游戏通过专用运行时执行原始 x86-64 代码，并在需要时转换不兼容的 CPU 指令。
 
-[开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
+<p align="center">
+  <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
+  <a href="docs/GAME_DATA.md">游戏数据</a> ·
+  <a href="docs/SETTINGS.md">设置与操作</a> ·
+  <a href="docs/CHANGELOG.md">更新记录</a>
+</p>
 
-下载入口见“下载与备份”。
+<p align="center">
+  <a href="docs/images/launcher.png"><img src="docs/images/launcher.png" width="360" alt="EVAC PC LABEL 启动器：游戏列表、昵称、显示设置和启动按钮"></a>
+</p>
 
 ## 延迟与性能
 
-更低的 CPU 开销，以及 G2、最大往生的 1V 低延迟选项。360 代表场景的延迟估算与 CPU 实测对比：
+代表场景对比，数值越低越好。延迟单位为毫秒，CPU 单位为等效逻辑核。
 
-| 游戏 | 移植版延迟/ms | Xenia 延迟/ms | 移植版 CPU/核 | Xenia CPU/核 |
+**Xbox 360**
+
+| 游戏 | 移植版延迟 | Xenia 延迟 | 移植版 CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
 | 虫姬二 | 26 | 36 | 0.08 | 1.26 |
 | ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
 | 最大往生 | 26 | 69 | 0.43 | 3.46 |
 
-移植版三款均使用默认 1V；Xenia 分别保留原作的 1V、2V、3V。G2 可通过 [Frame Delay 配置](#g2-frame-delay)切回 2V。
+**PS4**
 
-延迟由游戏内测量、8.3ms 平均采样等待和同机历史呈现数据估算，输出路径按移植版独立翻转、Xenia 桌面合成；不含设备输入及显示器扫描、面板响应。CPU 为 i7-13700KF／RTX 4080 回放场景的等效逻辑核数，1 核 = 1000 CPU ms/s。[比较方法与数据](docs/ANALYSIS.md#360-统一条件比较)。
-
-PS4 代表场景对比：
-
-| 游戏 | 移植版延迟/ms | shadPS4 延迟/ms | 移植版 CPU/核 | shadPS4 CPU/核 |
+| 游戏 | 移植版延迟 | shadPS4 延迟 | 移植版 CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | 绊地狱 | 17 | 55 | 0.25 | 0.62 |
 | 大往生 | 17 | 55 | 0.26 | 0.34 |
 | ESP Ra.De. | 20 | 46 | 0.38 | 0.62 |
 | 弹铳 | 19 | 46 | 0.27 | 0.66 |
 
-移植版默认启用 NEO（PS4 Pro）模式与低延迟呈现；shadPS4 v0.20.0 为普通模式、默认 FIFO。延迟估算包含平均采样等待与同机呈现预算，CPU 为第一关短场景的实测等效核数。[比较方法与数据](docs/ANALYSIS.md#v082-neo-对照)。
+**PS2**
 
-NEO 使用 1080p 合成输出，弹铳的首张响应画面比普通模式提前约一帧。另三作的同场景延迟基本不变，GPU 开销略增。关闭 NEO：打开启动器底部“配置文件”，在 `user-data/config.ini` 已有的对应游戏段落中添加或修改 `neo=false`，然后重启游戏。例如关闭绊地狱：
-
-```ini
-[game.ketsui]
-neo = false
-```
-
-大往生、ESP Ra.De.、弹铳、空战之路分别使用 `[game.daioujou]`、`[game.esprade]`、`[game.feveron]`、`[game.garegga]`。设回 `neo=true` 可重新开启。
-
-空战之路 SUPER EASY 第一关短场景：60.01 FPS，CPU 0.25 核，出帧间隔 P95 17.06 ms。[测量记录](docs/ANALYSIS.md#v083-battle-garegga)。
-
-PS2 对比（PCSX2 2.8.2）：
-
-| 游戏 | 移植版延迟/ms | PCSX2 延迟/ms | 移植版 CPU/核 | PCSX2 CPU/核 |
+| 游戏 | 移植版延迟 | PCSX2 延迟 | 移植版 CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 27 | 43 | 0.27 | 0.25 |
 
-延迟为阶段预算估算：平均取样等待 8.33 ms；移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。移植版 CPU 使用 v0.9.1 第一关短场景的已有采样，PCSX2 使用此前的 BOSS 场景。移植版出帧间隔 P95 17.32 ms，最大 17.93 ms。[方法与数据](docs/ANALYSIS.md#v090-ps2-latency-estimate)。
+延迟为估算，包含平均取样等待、游戏响应及呈现，不含设备输入和显示器扫描、面板响应。CPU 实测于 i7-13700KF／RTX 4080；PS2 两侧 CPU 采样场景不同。[测试条件与计算方法 →](docs/PERFORMANCE.md)
+
+## 支持游戏
+
+| 平台 | 游戏 |
+| --- | --- |
+| Xbox 360 | [虫姬二](docs/GAME_DATA.md#futari) · [ESPGaluda II](docs/GAME_DATA.md#espgaluda2) · [最大往生](docs/GAME_DATA.md#sdoj) · [狱门山](docs/GAME_DATA.md#guwange) |
+| PS4 | [绊地狱](docs/GAME_DATA.md#ketsui) · [大往生](docs/GAME_DATA.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.md#esprade) · [弹铳](docs/GAME_DATA.md#feveron) · [空战之路](docs/GAME_DATA.md#garegga) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) |
+
+点击游戏名查看支持的版本、解包方法和目录示例。只需准备想玩的游戏数据。
 
 ## 开始游玩
 
-### 运行环境
+Windows x64。Xbox 360 作品需要 Direct3D 12；PS4、PS2 作品需要 Vulkan 1.3。请安装显卡厂商的正式驱动。
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳、空战之路、ESPGaluda 需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
+1. **下载并解压**[最新程序包](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest)，发布页提供 SHA-256 校验文件。游戏数据自行准备。
+2. **打开 `EVAC PC LABEL.exe`**，选中游戏，点击“游戏数据…”→“选择数据目录…”。Xbox 360、PS4 选择已解包的游戏目录；PS2 选择原始 ISO 所在目录。
+3. **点击“启动游戏”**。首次启动会校验数据并自动准备运行文件。
 
-PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
+PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和 DLC 的处理方法见[游戏数据指南](docs/GAME_DATA.md)。备用启动入口为 `Launch.bat`。
 
-### 运行
+## 配置与存档
 
-1. 将程序包解压到一个可写文件夹，游戏数据需自行准备。
-2. 运行根目录的 `EVAC PC LABEL.exe`，备用入口为 `Launch.bat`。
-3. 选中想玩的游戏，点击底部“游戏数据…”→“选择数据目录…”。PS2 选择原始 ISO 所在文件夹，360／PS4 选择已经解包的游戏文件夹。也可以按下表直接放入合集。
-4. 点击“启动游戏”。首次启动会校验数据，并自动准备所需的运行文件。
+在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。键盘、手柄、音量和联网设置通过底部“配置文件”编辑。
 
-## 游戏数据
-
-只需准备想玩的游戏：
-
-| 游戏 | 常用简称 | 支持的数据版本 |
-| --- | --- | --- |
-| 虫姫さまふたり Ver.1.5 | 虫姬二／Futari | Xbox 360；可选 Black Label、Ver.1.01 DLC |
-| エスプガルーダII ブラックレーベル | G2／Espgaluda II | Xbox 360 |
-| ケツイ Deathtiny ～絆地獄たち～ | 绊地狱／Ketsui | PS4，CUSA09062，01.00 本体或覆盖 01.02 更新后的完整单目录 |
-| 怒首領蜂最大往生 | 最大往生／SDOJ | Xbox 360，原版光盘数据 |
-| 怒首領蜂 大往生 臨廻転生 | 大往生／DaiOuJou | PS4，CUSA32997，01.00 本体或 01.04 完整合并数据 |
-| エスプレイドΨ | ESP Ra.De. Psi | PS4，CUSA15155，01.00 本体覆盖 01.04 更新后的完整数据 |
-| ぐわんげ | 狱门山／Guwange | Xbox 360 XBLA，58410A78，本体 0.0.0.4 |
-| 弾銃フィーバロン | 弹铳／Dangun Feveron | PS4，美版 CUSA06735，01.00 本体 |
-| バトルガレッガ Rev.2016 | 空战之路／Battle Garegga | PS4，韩版 CUSA10207，01.00 本体 |
-| エスプガルーダ | ESPGaluda | PS2，日版 SLPS-25352，原始 ISO |
-
-### ISO／PKG／XBLA 怎么解包
-
-- **Xbox 360 ISO**：下载 [extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，使用 `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`。提取后应能直接看到 `default.xex`。
-- **PS4 PKG**：双击程序包中的 `tools/Extract-PS4.exe`，选择本体 PKG 和新输出目录，点击“Extract”。完成后点击“Open game files”，把里面的全部内容复制到对应的 `game-data/<游戏>/`。更新 PKG 用同一个工具另行解包，再把提取的全部内容覆盖进本体目录，替换同名文件。
-- **PS2 ISO**：将原始镜像直接放入 `game-data/espgaluda/`，保留原文件名，启动器会自动准备。
-
-保留整个 `tools/` 文件夹，解包依赖已随包提供。工具会提取游戏资源和 `sce_sys` 元数据；“Open game files”直接进入 `uroot/`，复制其中内容即可。详细步骤及脚本高级用法见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
-
-**狱门山 XBLA**：先解压 ZIP／RAR，双击 `tools/Extract-XBLA.exe`。点击 **Select package...**，选择其中的内容包（通常是没有扩展名的长文件名），再选择输出位置。完成后点击 **Open game files**，将里面的全部内容复制到 `game-data/guwange/`，让 `default.xex` 直接位于该目录。使用本体 0.0.0.4，不叠加 Title Update。
-
-### 游戏数据放在哪里
-
-`game-data/` 下有以下目录，各附一份中英双语 `README.txt`。“选择数据目录…”可直接使用现有文件夹，不改动原文件；“复制到合集…”会复制到默认位置，目标须为空或仅含这份说明。
-
-| 游戏 | 默认目录 | 在所选目录中应直接看到 |
-| --- | --- | --- |
-| 虫姬二 | `game-data/futari/` | `default.xex`、`media/` 等完整资源 |
-| G2 | `game-data/espgaluda2/` | `default.xex`、`dat*.xex` 等完整资源 |
-| 绊地狱 | `game-data/ketsui/` | `eboot.bin`、各 `.prx` 及完整资源 |
-| 最大往生 | `game-data/sdoj/` | `default.xex`、`CA022100.bin`、`CA022110.bin` 等完整资源 |
-| 大往生 | `game-data/daioujou/` | `eboot.bin`、各 `.prx` 及完整资源 |
-| ESP Ra.De. | `game-data/esprade/` | `eboot.bin`、各 `.prx` 及完整资源 |
-| 狱门山 | `game-data/guwange/` | `default.xex`、`module/`、`game_res/`、`res/` 等完整资源 |
-| 弹铳 | `game-data/feveron/` | `eboot.bin`、各 `.prx` 及完整资源 |
-| 空战之路 | `game-data/garegga/` | `eboot.bin`、各 `.prx` 及完整资源 |
-| ESPGaluda | `game-data/espgaluda/` | 原始 `.iso` 镜像 |
-
-只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
-
-Xbox 360 ISO／PS4 PKG 需先提取为游戏文件；PS2 ISO 直接放入对应目录。ZIP／RAR 先解压。
-
-复制的是解包目录**里面的全部内容**，不是把外层文件夹再套进去。例如虫姬二应为 `game-data/futari/default.xex`，而不是 `game-data/futari/解压目录/default.xex`。表中的文件名只是帮助确认层级，不是只需复制这几个文件；保留其余资源、原文件名和内部目录结构。
-
-虫姬二不安装 DLC 也可游玩 Ver.1.5 本体。`game-data/futari/dlc/` 可以留空或不存在，无须改配置；只有 Black Label／Ver.1.01 需要对应 DLC。默认数据目录名按表使用；选择外部数据目录时，外层文件夹可自行命名。
-
-虫姬二 DLC 将原始文件放入 `game-data/futari/dlc/0000000000000000/435A07D7/00000002/`，保留文件名，启动游戏时自动解包。已有 v0.7.2 的解包目录保持原样即可。完整目录见[游戏数据指南](docs/GAME_DATA.md#虫姫さまふたり-ver15futari)，启动器“详情”可查看两项 DLC 的状态。
-
-## 配置与操作
-
-启动按钮上方可选择全屏或 1280×720、1600×900、1920×1080、2560×1440、3840×2160 窗口分辨率，重启后恢复上次选择。排行榜昵称在页头右侧修改；右上角 `CN / EN / JP` 切换启动器语言。保存昵称时，如有游戏字库无法显示的字符，会提示受影响游戏及实际传入的名字。游戏本身的语言按原作提供。
-
-底部“配置文件”打开 `user-data/config.ini`，可编辑音量、键盘、手柄和联网选项。保存后在启动器点“刷新”，再启动游戏生效。完整选项见[默认配置模板](config/default.ini)。
-
-`[display]` 的 `vsync = false` 使用低延迟呈现；游戏仍按原作节拍运行，可能出现画面撕裂。需要垂直同步时设为 `true`。升级保留已有配置，原来为 `true` 的设置可在这里修改。
-
-| 默认键盘操作 | 功能 |
-| --- | --- |
-| 方向键 | 方向输入 |
-| Z / X / C / V | 手柄下／右／左／上方按钮 |
-| Enter / Backspace | Start / Select（PS4 为 Touchpad） |
-| A / S、Q / W | L1 / R1、L2 / R2 |
-| F11 或 Alt+Enter | 切换全屏 |
-| Alt+F4 | 关闭游戏 |
-| F8 | 在日志中标记当前时间，方便反馈问题 |
-
-排行榜玩家卡片可点击 `CLOSE` 或按 Enter／Esc 关闭。
-
-手柄主按键对照：
-
-| 方位 | Xbox 360 | PS4 | 键盘 |
-| --- | --- | --- | --- |
-| 下／South | A | × | Z |
-| 右／East | B | ○ | X |
-| 左／West | X | □ | C |
-| 上／North | Y | △ | V |
-
-射击、炸弹、换人等具体动作由各游戏内的按键设置决定。手柄和摇杆通过 SDL 接入，可使用其支持的 XInput、PlayStation 等设备。
-
-
-空战之路默认：`V` 投币，`Enter` 开始，`C / S` 射击，`Z / A` 武器，`X` 阵型，`Backspace` 暂停菜单。快速存档按游戏模式分别保存。
-
-狱门山的 **Arrange Xbox 360** 自动射击：方向键／左摇杆移动角色，`I / K / J / L`（上／下／左／右）或右摇杆移动式神，`W / RT` 召唤，`X / B` 炸弹。式神方向可在 `[game.guwange.keyboard]` 中通过 `right_stick_up/down/left/right` 调整；其他游戏的键位不受影响。
-
-备份或换目录时保留整个 `user-data/`，其中包含配置、存档和录像。修改游戏内设置后，等待保存完成再关闭。
-
-## 检查更新
-
-启动器会在后台检查 GitHub 正式发布，每个新版本只自动提醒一次；游玩中不弹窗。提醒中可打开发布页查看说明和下载。
-
-自动检查的成功结果缓存 24 小时。要关闭自动检查，在 `user-data/config.ini` 设置：
-
-```ini
-[collection]
-check_for_updates = false
-```
-
-此选项与社区排行榜联网开关独立。提醒记录保存在 `user-data/update-check.json`，更新文件由玩家自行下载和替换。
-
-## 社区排行榜
-
-联网默认开启，无须注册。在启动器设置昵称后，通过游戏内的排行榜和录像界面使用社区服务。各作品使用独立榜单，上榜资格沿用游戏规则。
-
-同一游戏内，相同昵称会归为同一社区身份，首次游玩请把默认的 `Player` 改成自己的昵称，并固定使用。服务会检查提交格式及录像完整性，但不验证昵称归属。最大往生团队评分和大往生 CUSTOM 成绩提交暂未接入。狱门山支持普通／Blue／Arrange 排行榜和录像；在线合作未接入，本地双人尚未验收。
-
-提交到社区的昵称、成绩及分享的录像可被其他玩家查看；未分享的本地录像不会自动公开。
-
-~~~ini
-[community]
-enabled = true
-endpoint = https://xiaolu.life/cave/api/v1
-nickname = Player
-~~~
-
-将 `enabled` 改为 `false` 可离线游玩。
-
-## 最大往生 Frame Delay
-
-在 `user-data/config.ini` 的 `[game.sdoj]` 段设置：
-
-```ini
-[game.sdoj]
-data_dir = game-data/sdoj
-frame_delay = 1
-```
-
-| 值 | 档位 |
-| --- | --- |
-| 1 | 低延迟，默认值 |
-| 2 | 平衡 |
-| 3 | 原始路径 |
-
-这是游戏内部的帧调度档位；实际按键到画面的总延迟还受手柄和显示链路影响。已有明确设置会保留，修改后重启游戏生效。
-
-## G2 Frame Delay
-
-在 `user-data/config.ini` 设置：
-
-```ini
-[game.espgaluda2]
-frame_delay = 1
-```
-
-`1` 为默认低延迟路径，`2` 为原始路径。已有显式设置保持不变；修改后重启游戏生效。
-
-## 下载与备份
-
-Windows x64。更新内容见[更新记录](docs/CHANGELOG.md)。
-
-- [下载最新程序包与 SHA-256](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest)。不含游戏数据。
-- 参与开发：[GitHub 仓库](https://github.com/zxl0714/EVAC-PC-LABEL)。程序对应的源码提交见包内 `SOURCE.txt`，依赖恢复和构建步骤见 [FOR_AGENT.md](FOR_AGENT.md)。
-
-更新时先关闭游戏和启动器，再解压到原目录替换同名文件。程序包不包含 `user-data/`，已有配置、存档和录像保留。
-
-- `user-data/`：配置、各游戏的存档、录像等。备份或换目录时，保留整个文件夹。
-- `game-data/`：自行准备的游戏数据。换目录时可一并转移，也可重新选择原数据目录。
-- `logs/`：运行日志。保留遇到问题的那次记录即可。
-
-旧版根目录的 `config.ini` 会自动迁入 `user-data/config.ini`；新位置已有配置时优先使用它。相对数据路径以合集根目录为起点。
+- **操作**：方向键移动，`Z / X / C / V` 对应手柄四个主按钮，`Enter` 为 Start。[完整按键与特殊模式 →](docs/SETTINGS.md#配置与操作)
+- **低延迟设置**：[NEO](docs/SETTINGS.md#neo-模式) · [最大往生 Frame Delay](docs/SETTINGS.md#最大往生-frame-delay) · [G2 Frame Delay](docs/SETTINGS.md#g2-frame-delay)
+- **社区排行榜**：默认联网，无须注册。先把默认昵称 `Player` 改为自己的名字。[排行榜与录像 →](docs/SETTINGS.md#社区排行榜)
+- **更新与备份**：关闭游戏和启动器后覆盖程序文件，保留整个 `user-data/`，其中包含配置、存档和录像。[详细说明 →](docs/SETTINGS.md#更新与备份)
 
 ## 遇到问题
 
-数据缺失或版本不支持时，检查[数据指南](docs/GAME_DATA.md#无法识别时怎么检查)中的目录层级和版本要求。
+退出游戏后，点击启动器底部“上传日志”，选择对应的一局并简单描述问题。上传成功后，向 [Issues](https://github.com/zxl0714/EVAC-PC-LABEL/issues) 提供报告编号；如有画面异常，可附截图。
 
-PS4 作品提示 Vulkan 版本过低时，更新显卡驱动并重启 Windows。AMD 显卡可从[官方驱动支持页](https://www.amd.com/en/support/download/drivers.html)选择对应型号。
+无法启动时也能上传日志。“详情”会显示缺少的数据或运行组件及处理方法。[数据识别与版本检查 →](docs/GAME_DATA.md#无法识别时怎么检查)
 
-退出游戏后点击启动器底部的“上传日志”，默认选择最近一局，也可以切换其他记录。可在留言中写下模式、角色和出现问题的场景，然后点击“上传”。
+## 开发与致谢
 
-上传成功后会显示报告编号，反馈时附上该编号即可。弹窗中的“查看本地日志”可打开对应记录。
+[开发与构建](FOR_AGENT.md) · [贡献约定](AGENTS.md) · [实施计划](docs/IMPLEMENTATION_PLAN.md)
 
-游戏无法启动时也可以上传日志。若提示运行组件不可用，点击“详情”查看具体文件和处理方法。
+项目基于 ReXGlue／Xenia 相关组件、shadPS4 派生图形组件、PS2Recomp／paraLLEl-GS、SDL 等开源工作。[源码来源](docs/SOURCE_ORIGINS.json) · [ReXGlue 许可](third_party/rexglue/LICENSE) · [PS4 组件声明](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 组件声明](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [素材来源](launcher/artwork.json)
 
-## 参与开发
-
-环境准备、编译、运行和打包见 [FOR_AGENT.md](FOR_AGENT.md)。提交改动前阅读 [AGENTS.md](AGENTS.md)；后续工作见[实施计划](docs/IMPLEMENTATION_PLAN.md)。
-
-## 来源与许可
-
-项目使用 ReXGlue／Xenia 相关组件、shadPS4 派生图形组件、SDL 等开源工作。维护源码的来源见[来源清单](docs/SOURCE_ORIGINS.json)，组件声明见 [ReXGlue 许可证](third_party/rexglue/LICENSE)与 [PS4 第三方说明](third_party/ps4/THIRD_PARTY_NOTICES.txt)，横幅素材来源见[素材清单](launcher/artwork.json)。各组件保留各自的许可证。
-
-发行包的 `licenses/` 包含许可证，`SOURCE.txt` 提供对应源码与构建说明的获取方式。
+各组件保留各自许可证。发行包的 `licenses/` 包含许可证，`SOURCE.txt` 提供对应源码与构建说明。

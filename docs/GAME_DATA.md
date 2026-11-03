@@ -83,6 +83,8 @@ PKG passcode 通常保留默认的 32 个零；只有 PKG 使用其他 passcode 
 
 ## Xbox 360 游戏
 
+<a id="futari"></a>
+
 ### 虫姫さまふたり Ver.1.5（futari）
 
 ```text
@@ -127,6 +129,8 @@ dlc_dir = D:/Games/Futari/DLC
 
 选中虫姬二后点击启动器底部“详情”，可以看到实际 DLC 查找目录及 Black Label／Ver.1.01 的识别状态。显示缺文件或哈希不匹配时，补齐对应资源。
 
+<a id="espgaluda2"></a>
+
 ### エスプガルーダII ブラックレーベル（espgaluda2）
 
 ```text
@@ -138,6 +142,8 @@ game-data/espgaluda2/
 ```
 
 保留全部 `dat*.xex` 和原始资源目录，不要只提取 `default.xex`。`espgaluda2` 是完整游戏的数据位置，不是单独存放 Black Label DLC 的目录。
+
+<a id="sdoj"></a>
 
 ### 怒首領蜂最大往生（sdoj）
 
@@ -152,6 +158,8 @@ game-data/sdoj/
 使用受支持的原版光盘解包数据。当前未接入音乐补丁或其他程序更新，不要将 `default.xexp`、`CA022100.binp`、`CA022110.binp` 混入此目录；如已有混合版本，请从保留的原始本体重新提取一份。
 
 本体内的金币、商店和游玩解锁内容按原作流程使用，不需要另找 DLC。
+
+<a id="guwange"></a>
 
 ### ぐわんげ（guwange）
 
@@ -174,6 +182,8 @@ game-data/guwange/
 
 ## PS4 游戏
 
+<a id="ketsui"></a>
+
 ### ケツイ Deathtiny ～絆地獄たち～（ketsui）
 
 支持 **CUSA09062／01.00 本体**和**本体覆盖 01.02 更新后的完整数据**，均使用一个游戏根目录：
@@ -191,6 +201,8 @@ game-data/ketsui/
 
 从旧双目录迁移时，在一个新目录先复制 `CUSA09062-app/` 内全部内容，再按需覆盖 `CUSA09062-patch/` 内全部内容，最后选择这个新目录。不要把两层目录名直接放进去；v0.4 不再使用旧双目录。保留原提取文件，程序不自动移动它们。想从 01.02 退回 01.00 时，重新提取完整本体到新目录，不要仅删除几个补丁文件。存档与录像仍位于原来的 `user-data/ketsui/`。
 
+<a id="daioujou"></a>
+
 ### 怒首領蜂 大往生 臨廻転生（daioujou）
 
 支持 **CUSA32997／01.00 本体或 01.04 完整合并数据**。两版均支持社区排行榜和录像；01.00 不能播放较新版游戏录制的录像。01.00 直接使用完整本体目录；使用 01.04 时将更新覆盖到同一目录。以下为更新后的结构：
@@ -204,6 +216,8 @@ game-data/daioujou/
 ```
 
 选择直接包含 `eboot.bin` 的目录，保留全部游戏模块和资源。单独的补丁目录不等于完整合并数据。
+
+<a id="esprade"></a>
 
 ### エスプレイドΨ（esprade）
 
@@ -224,6 +238,8 @@ game-data/esprade/
 
 PS4 作品首次启动时自动生成 `prepared/` 下的运行文件，原始游戏数据不变；这些生成物无须手工放进游戏数据目录。ESP Ra.De. 的存档、下载录像与设置位于 `user-data/esprade/`。
 
+<a id="feveron"></a>
+
 ### 弾銃フィーバロン（feveron）
 
 支持 **美版 CUSA06735／01.00 本体**：
@@ -243,6 +259,8 @@ game-data/feveron/
 
 用 `tools/Extract-PS4.exe` 提取本体 PKG，点击“Open game files”，将打开目录中的全部内容复制到 `game-data/feveron/`。也可以在启动器直接选择该目录。存档、录像和设置位于 `user-data/feveron/`。
 
+<a id="garegga"></a>
+
 ### バトルガレッガ Rev.2016（garegga）
 
 支持 **韩版 CUSA10207／01.00 本体**：
@@ -258,6 +276,10 @@ game-data/garegga/
 ```
 
 用 `tools/Extract-PS4.exe` 提取本体 PKG，点击“Open game files”，将全部内容复制到 `game-data/garegga/`，或在启动器直接选择提取目录。存档、录像和设置位于 `user-data/garegga/`。
+
+## PS2 游戏
+
+<a id="espgaluda"></a>
 
 ### エスプガルーダ / ESPGaluda（espgaluda）
 

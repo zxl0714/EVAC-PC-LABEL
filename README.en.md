@@ -1,272 +1,92 @@
-# EVAC PC LABEL
+<p align="center">
+  <img src="launcher/branding/evac-logo.png" width="260" alt="EVAC PC LABEL">
+</p>
 
-[简体中文](README.md) | [English](README.en.md)
-
-Bringing classic bullet-hell shooters to Windows PC.
+<p align="center">
+  <a href="README.md">简体中文</a> · <a href="README.en.md">English</a>
+</p>
 
 EVAC PC LABEL is an open-source project that ports classic shooters to PC with a unified launcher and play experience. Xbox 360 and PS2 titles use static recompilation. PS4 titles execute their original x86-64 code through a dedicated runtime, with CPU instruction translation where needed.
 
-[Getting started](#getting-started) · [Game data guide](docs/GAME_DATA.en.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
+<p align="center">
+  <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
+  <a href="docs/GAME_DATA.en.md">Game data</a> ·
+  <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
+  <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases">Release notes</a>
+</p>
 
-Download links are listed under “Downloads and backups”.
+<p align="center">
+  <a href="docs/images/launcher.png"><img src="docs/images/launcher.png" width="360" alt="EVAC PC LABEL launcher with game library, nickname, display settings and launch button"></a>
+</p>
 
 ## Latency and performance
 
-Lower CPU usage, with 1V low-latency options for G2 and SaiDaiOuJou. Estimated latency and measured CPU usage in representative Xbox 360 scenes:
+Representative workloads; lower is better. Latency is in milliseconds and CPU usage is in equivalent logical cores.
 
-| Game | Port latency/ms | Xenia latency/ms | Port CPU/cores | Xenia CPU/cores |
+**Xbox 360**
+
+| Game | Port latency | Xenia latency | Port CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
 | Mushihimesama Futari | 26 | 36 | 0.08 | 1.26 |
 | ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
 | DoDonPachi SaiDaiOuJou | 26 | 69 | 0.43 | 3.46 |
 
-All three ports use their default 1V setting. Xenia retains the games' original 1V, 2V and 3V settings, respectively. G2 can return to 2V through its [Frame Delay setting](#g2-frame-delay).
+**PS4**
 
-Latency combines game-internal measurements, an average 8.3 ms sampling wait and historical same-PC presentation data, assuming independent flip for the ports and desktop composition for Xenia. Device input, display scanout and panel response are excluded. CPU figures are equivalent logical cores from replay workloads on an i7-13700KF / RTX 4080; one core equals 1,000 CPU ms/s. [Method and data (Chinese)](docs/ANALYSIS.md#360-统一条件比较).
-
-Representative PS4 scenes:
-
-| Game | Port latency/ms | shadPS4 latency/ms | Port CPU/cores | shadPS4 CPU/cores |
+| Game | Port latency | shadPS4 latency | Port CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | Ketsui | 17 | 55 | 0.25 | 0.62 |
 | DaiOuJou | 17 | 55 | 0.26 | 0.34 |
 | ESP Ra.De. | 20 | 46 | 0.38 | 0.62 |
 | Dangun Feveron | 19 | 46 | 0.27 | 0.66 |
 
-The ports default to NEO (PS4 Pro) mode with low-latency presentation; shadPS4 v0.20.0 uses ordinary mode and default FIFO. Latency estimates include average sampling wait and the same-PC presentation budget. CPU figures are measured equivalent cores from short Stage 1 scenes. [Method and data (Chinese)](docs/ANALYSIS.md#v082-neo-对照).
+**PS2**
 
-NEO uses 1080p composition and brings Dangun Feveron's first response forward by about one frame. Matched-scene latency is essentially unchanged in the other three games, with slightly higher GPU cost. To disable NEO, click **Config** at the bottom of the launcher and add or change `neo=false` in the game's existing section in `user-data/config.ini`, then restart the game. For Ketsui:
-
-```ini
-[game.ketsui]
-neo = false
-```
-
-Use `[game.daioujou]`, `[game.esprade]`, `[game.feveron]` or `[game.garegga]` for DaiOuJou, ESP Ra.De., Dangun Feveron or Battle Garegga. Set `neo=true` to enable it again.
-
-Battle Garegga, SUPER EASY Stage 1: 60.01 FPS, 0.25 CPU cores, and a 17.06 ms P95 frame interval in a short sample. [Measurements (Chinese)](docs/ANALYSIS.md#v083-battle-garegga).
-
-PS2 comparison (PCSX2 2.8.2):
-
-| Game | Port latency/ms | PCSX2 latency/ms | Port CPU/cores | PCSX2 CPU/cores |
+| Game | Port latency | PCSX2 latency | Port CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 27 | 43 | 0.27 | 0.25 |
 
-Latency is a stage-budget estimate: an 8.33 ms average sampling wait; a measured 16.87 ms response in the port and two confirmed game updates in PCSX2; presentation allowances from the same PC's Vulkan IMMEDIATE microbenchmark and historical D3D12 independent-flip capture. The port CPU figure uses the existing v0.9.1 Stage 1 sample; PCSX2 uses the earlier boss scene. The port's P95 frame interval was 17.32 ms, with a 17.93 ms maximum. [Method and data (Chinese)](docs/ANALYSIS.md#v090-ps2-latency-estimate).
+Latency estimates include average sampling wait, game response and presentation, excluding device input, display scanout and panel response. CPU measurements use an i7-13700KF / RTX 4080; PS2 CPU samples come from different scenes. [Test conditions and methods →](docs/PERFORMANCE.en.md)
+
+## Supported games
+
+| Platform | Games |
+| --- | --- |
+| Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) · [Guwange](docs/GAME_DATA.en.md#guwange) |
+| PS4 | [Ketsui Deathtiny](docs/GAME_DATA.en.md#ketsui) · [DaiOuJou Re:Incarnation](docs/GAME_DATA.en.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.en.md#esprade) · [Dangun Feveron](docs/GAME_DATA.en.md#feveron) · [Battle Garegga Rev.2016](docs/GAME_DATA.en.md#garegga) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) |
+
+Select a title for supported versions, extraction steps and folder examples. Prepare data only for the games you want to play.
 
 ## Getting started
 
-### System requirements
+Windows x64. Xbox 360 titles require Direct3D 12; PS4 and PS2 titles require Vulkan 1.3. Install your GPU vendor's graphics drivers.
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, Battle Garegga, and ESPGaluda require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
+1. **Download and extract** the [latest program package](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest). SHA-256 checksums are provided on the release page. Supply your own game data.
+2. **Open `EVAC PC LABEL.exe`**, select a game, and choose **Game data… → Choose data folder…**. Select extracted game files for Xbox 360 / PS4, or the folder containing the original ISO for PS2.
+3. **Click Launch game.** The launcher verifies the data and prepares runtime files on first launch.
 
-PS4 games automatically adapt BMI1, LZCNT and MOVBE instructions to the available CPU features.
+Extract PS4 PKGs with the included `tools/Extract-PS4.exe`. For Xbox 360 ISOs, XBLA packages and DLC, see the [game data guide](docs/GAME_DATA.en.md). `Launch.bat` is an alternative launch entry.
 
-### Launch
+## Settings and saves
 
-1. Extract the program package into a writable folder. Supply your own game data.
-2. Run `EVAC PC LABEL.exe` in the collection's root folder. `Launch.bat` is an alternative entry point. Select `EN` at the top right of the launcher to use English.
-3. Select a game, then choose **Game data… → Choose data folder…** at the bottom. For PS2, select the folder containing the original ISO; for Xbox 360 and PS4, select the extracted game folder. Alternatively, use the default location shown below.
-4. Click **Launch game**. The launcher verifies the data and prepares the required runtime files on first launch.
+Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. Use **Config file** for keyboard, controller, audio and online settings.
 
-## Game data
+- **Controls:** arrow keys for movement, `Z / X / C / V` for the four controller face buttons, and `Enter` for Start. [All controls and special modes →](docs/SETTINGS.en.md#launcher-and-controls)
+- **Low-latency settings:** [NEO](docs/SETTINGS.en.md#neo-mode) · [SDOJ Frame Delay](docs/SETTINGS.en.md#sdoj-frame-delay) · [G2 Frame Delay](docs/SETTINGS.en.md#g2-frame-delay)
+- **Community leaderboards:** enabled by default, with no registration. Change `Player` to your own nickname before playing. [Rankings and replays →](docs/SETTINGS.en.md#community-leaderboards)
+- **Updates and backups:** close the games and launcher before replacing program files. Keep the entire `user-data/` folder for settings, saves and replays. [Details →](docs/SETTINGS.en.md#updating-and-backups)
 
-Prepare only the games you want:
+## Troubleshooting
 
-| Game | English name / shorthand | Supported game data |
-| --- | --- | --- |
-| 虫姫さまふたり Ver.1.5 | Mushihimesama Futari Ver.1.5 / Futari | Xbox 360; optional Black Label and Ver.1.01 DLC |
-| エスプガルーダII ブラックレーベル | Espgaluda II Black Label / G2 | Xbox 360 |
-| ケツイ Deathtiny ～絆地獄たち～ | Ketsui Deathtiny / Ketsui | PS4, CUSA09062; 01.00 base game or complete data with the 01.02 update overlaid in one folder |
-| 怒首領蜂最大往生 | DoDonPachi SaiDaiOuJou / SDOJ | Xbox 360, original disc data |
-| 怒首領蜂 大往生 臨廻転生 | DoDonPachi DaiOuJou Re:Incarnation / DaiOuJou | PS4, CUSA32997; 01.00 base or complete merged 01.04 data |
-| エスプレイドΨ | ESP Ra.De. Psi | PS4, CUSA15155; complete 01.00 base data with the 01.04 update overlaid |
-| ぐわんげ | Guwange | Xbox 360 XBLA, 58410A78; base version 0.0.0.4 |
-| 弾銃フィーバロン | Dangun Feveron | PS4, US CUSA06735, version 01.00 base game |
-| バトルガレッガ Rev.2016 | Battle Garegga Rev.2016 | PS4, Korean CUSA10207, version 01.00 base game |
-| エスプガルーダ | ESPGaluda | PS2, Japanese SLPS-25352, original ISO |
+After closing the game, click **Upload logs**, select the affected session, and briefly describe the problem. Include the resulting report ID in a [GitHub issue](https://github.com/zxl0714/EVAC-PC-LABEL/issues), with screenshots for visual problems.
 
-### Extracting ISO / PKG / XBLA files
+Logs can also be uploaded when a game cannot start. **Details** shows missing data or runtime components and how to restore them. [Game data and version checks →](docs/GAME_DATA.en.md#troubleshooting)
 
-- **Xbox 360 ISO**: download a [Windows Release build of extract-xiso](https://github.com/XboxDev/extract-xiso/releases), then run `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`. The output should contain `default.xex` directly.
-- **PS4 PKG**: double-click `tools/Extract-PS4.exe` in the program package. Select the base PKG and a new output folder, then click **Extract**. When finished, click **Open game files** and copy all contents into `game-data/<game>/`. Extract an update PKG separately with the same tool, then overlay all its extracted contents onto the base, replacing matching files.
-- **PS2 ISO**: place the original image in `game-data/espgaluda/`, keeping its filename. The launcher prepares it automatically.
+## Development and credits
 
-Keep the entire `tools/` folder; extraction dependencies are included. The tool extracts game resources and `sce_sys` metadata. **Open game files** opens `uroot/` directly, so copy its contents. See the [extraction guide](docs/GAME_DATA.en.md#extract-iso-pkg-and-xbla-packages) for details and advanced script usage.
+[Build guide (Chinese)](FOR_AGENT.md) · [Contributor instructions](AGENTS.md) · [Implementation plan (Chinese)](docs/IMPLEMENTATION_PLAN.md)
 
-**Guwange XBLA**: unpack the ZIP/RAR, then double-click `tools/Extract-XBLA.exe`. Click **Select package...**, select the content package inside it (usually a long filename without an extension), and choose an output location. Click **Open game files** when finished and copy all contents into `game-data/guwange/`, with `default.xex` directly inside that folder. Use base version 0.0.0.4 without a Title Update.
+Built on ReXGlue/Xenia-related components, graphics components derived from shadPS4, PS2Recomp/paraLLEl-GS, SDL and other open-source work. [Source origins](docs/SOURCE_ORIGINS.json) · [ReXGlue license](third_party/rexglue/LICENSE) · [PS4 notices](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 notices](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [Artwork sources](launcher/artwork.json)
 
-### Where to put game data
-
-The complete program package creates the folders below, each with a bilingual `README.txt` placement guide. Use **Choose data folder…** to use an existing folder without modifying its files, or **Copy into collection…** to copy it to a default location. The destination must be empty or contain only this guide.
-
-| Game | Default folder | Files or folders directly inside it |
-| --- | --- | --- |
-| Futari | `game-data/futari/` | `default.xex`, `media/`, and the remaining resources |
-| G2 | `game-data/espgaluda2/` | `default.xex`, `dat*.xex`, and the remaining resources |
-| Ketsui | `game-data/ketsui/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
-| SDOJ | `game-data/sdoj/` | `default.xex`, `CA022100.bin`, `CA022110.bin`, and the remaining resources |
-| DaiOuJou | `game-data/daioujou/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
-| ESP Ra.De. | `game-data/esprade/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
-| Guwange | `game-data/guwange/` | `default.xex`, `module/`, `game_res/`, `res/`, and the remaining resources |
-| Dangun Feveron | `game-data/feveron/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
-| Battle Garegga | `game-data/garegga/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
-| ESPGaluda | `game-data/espgaluda/` | The original `.iso` image |
-
-Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.en.md).
-
-Extract Xbox 360 ISOs and PS4 PKGs into game files first. Place PS2 ISOs directly in the game's folder. Unpack ZIP/RAR archives first.
-
-Copy **all contents inside** the extracted game folder, not the outer folder itself. For example, Futari's entry should be `game-data/futari/default.xex`, not `game-data/futari/extracted-folder/default.xex`. The filenames in the table identify the correct folder level, not a complete list of required files. Keep every resource, its original name, and the internal folder structure.
-
-Futari's Ver.1.5 base game works without DLC. Leave `game-data/futari/dlc/` empty or absent; no configuration change is needed. Only Black Label and Ver.1.01 require their respective DLC. Use the default folder names shown above, or choose an external data folder with any outer folder name.
-
-### Futari DLC
-
-Place the original DLC files here, keeping their filenames:
-
-```text
-game-data/futari/dlc/0000000000000000/435A07D7/00000002/
-  496F816DD4B53DAEFF931838B6C69831AAD7663043
-  9893A78CA6062B935BD1F53EA43CFD546B7246DF43
-```
-
-The first file is Black Label; the second is Ver.1.01. Install either or both, then start the game. Extraction is automatic on first use. Existing v0.7.2 extracted folders also work in place, including the shorter `dlc/00000002/<package-folder>/` layout. If using extracted Black Label files, keep `spa.bin` and all three `Rom/` files together.
-
-The default `[game.futari] dlc_dir = auto` searches the selected base game's `dlc/` folder. For example, selecting `D:/Games/Futari` searches `D:/Games/Futari/dlc`. An explicit path in an older config is preserved; change it to `auto` to follow the base folder, or set it to your own DLC directory. Select Futari and click **Details** to see the actual search path and each DLC's status.
-
-See the [game data guide](docs/GAME_DATA.en.md) for other games' folder examples and troubleshooting.
-
-## Settings and controls
-
-Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×2160 window above the launch button; the launcher remembers your selection. Edit your leaderboard nickname at the top right. Select `CN / EN / JP` to change the launcher's language. If a game cannot display characters in your nickname, saving shows the affected games and the names passed to them. In-game languages depend on the original game.
-
-The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](config/default.ini) for available options.
-
-In `[display]`, `vsync = false` enables low-latency presentation while preserving the original game timing; tearing is possible. Set it to `true` for vertical synchronization. Updates preserve your configuration, so an existing `true` value can be changed here.
-
-| Default keyboard input | Function |
-| --- | --- |
-| Arrow keys | Directional input |
-| Z / X / C / V | Bottom / right / left / top controller face button |
-| Enter / Backspace | Start / Select (Touchpad for PS4) |
-| A / S, Q / W | L1 / R1, L2 / R2 |
-| F11 or Alt+Enter | Toggle fullscreen |
-| Alt+F4 | Close the game |
-| F8 | Add a timestamp marker to the log for troubleshooting |
-
-Close leaderboard player cards with `CLOSE`, Enter or Esc.
-
-Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
-
-
-Battle Garegga defaults: `V` for Credit, `Enter` for Start, `C / S` for Shot, `Z / A` for Weapon, `X` for Formation, and `Backspace` for the pause menu. Quick-save slots are separate for each game mode.
-
-Guwange's **Arrange Xbox 360** mode fires automatically. Use the arrow keys / left stick to move your character, `I / K / J / L` (up / down / left / right) or the right stick to move the Shikigami, `W / RT` to summon it, and `X / B` to bomb. Customize the Shikigami keys with `right_stick_up/down/left/right` under `[game.guwange.keyboard]`; other games' bindings are unchanged.
-
-Face-button reference:
-
-| Position | Xbox 360 | PS4 | Keyboard |
-| --- | --- | --- | --- |
-| South | A | × | Z |
-| East | B | ○ | X |
-| West | X | □ | C |
-| North | Y | △ | V |
-
-Keep the whole `user-data/` folder when backing up or moving the collection. It contains configuration, saves, and replays. Wait for saving to finish before closing after changing in-game settings.
-
-## Checking for updates
-
-The launcher checks GitHub stable releases in the background and automatically announces each new version once. It does not interrupt a running game. Open the release page from the notification for notes and downloads.
-
-Successful checks are cached for 24 hours. To disable automatic checks, set this in `user-data/config.ini`:
-
-```ini
-[collection]
-check_for_updates = false
-```
-
-This setting is separate from community networking. Reminder history is stored in `user-data/update-check.json`; download and replace update files yourself.
-
-## Community leaderboards
-
-Online features are enabled by default, with no registration required. Set your nickname in the launcher, then use the community service through the game's leaderboard and replay screens. Each title has separate leaderboards, with score eligibility following the game's rules.
-
-Within a game, the same nickname represents the same community identity. Change the default `Player` to your own distinctive nickname before playing, and keep using it. The service checks submission formats and replay integrity, but does not authenticate nickname ownership. SDOJ team scores and DaiOuJou CUSTOM score submissions are not integrated. Guwange supports Arcade / Blue / Arrange leaderboards and replays; online co-op is not integrated, and local two-player play has not been validated.
-
-Other players can view nicknames, scores, and replays submitted to the community. Local replays you have not shared are not automatically made public.
-
-```ini
-[community]
-enabled = true
-endpoint = https://xiaolu.life/cave/api/v1
-nickname = Player
-```
-
-Set `enabled` to `false` to play offline.
-
-## SDOJ Frame Delay
-
-Set the following under `[game.sdoj]` in `user-data/config.ini`:
-
-```ini
-[game.sdoj]
-data_dir = game-data/sdoj
-frame_delay = 1
-```
-
-| Value | Timing policy |
-| --- | --- |
-| 1 | Low latency; default |
-| 2 | Balanced |
-| 3 | Original path |
-
-These select the game's internal frame scheduling policy. Total input-to-display latency also depends on the controller and display chain. Explicit settings are preserved; restart the game after changing the value.
-
-## G2 Frame Delay
-
-Set the following in `user-data/config.ini`:
-
-```ini
-[game.espgaluda2]
-frame_delay = 1
-```
-
-`1` is the default low-latency path; `2` selects the original path. Existing explicit settings are preserved. Restart the game after changing it.
-
-## Downloads and backups
-
-Windows x64. See the [changelog (Chinese)](docs/CHANGELOG.md) for release notes.
-
-- [Download the latest program package and SHA-256](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest). Game data is not included.
-- Development: [GitHub repository](https://github.com/zxl0714/EVAC-PC-LABEL). See the package's `SOURCE.txt` for the matching source commit, and [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for dependency setup and build instructions.
-
-To update, close the games and launcher, then extract over the existing folder and replace matching files. The program package does not include `user-data/`; existing settings, saves, and replays are preserved.
-
-- `user-data/`: configuration, per-game saves, replays, and other player data. Keep the whole folder when backing up or moving an installation.
-- `game-data/`: the game files you provide. When moving the installation, either move them too or select their existing location again.
-- `logs/`: run logs. Keep the logs from any session in which you encounter a problem.
-
-An older root-level `config.ini` is automatically migrated to `user-data/config.ini`; an existing configuration at the new location takes precedence. Relative data paths are resolved from the collection's root folder.
-
-## Troubleshooting and feedback
-
-For missing data or unsupported-version messages, check the folder level and version requirements in the [data troubleshooting guide](docs/GAME_DATA.en.md#troubleshooting).
-
-If a PS4 game reports an unsupported Vulkan version, update the graphics driver and restart Windows. For AMD GPUs, select your model on the [official driver support page](https://www.amd.com/en/support/download/drivers.html).
-
-After closing the game, click **Upload logs** at the bottom of the launcher. It selects your latest session; you can choose another run. Optionally describe the mode, character, and what happened, then click **Upload**.
-
-You can also upload logs when a game cannot start. If the runtime is unavailable, click **Details** to see the affected files and how to restore them.
-
-Include the report ID when reporting the issue. **Open local logs** opens the selected session folder.
-
-## Development
-
-See [FOR_AGENT.md (Chinese)](FOR_AGENT.md) for environment setup, building, running, and packaging. Read [AGENTS.md](AGENTS.md) before making changes. Upcoming work is in the [implementation plan (Chinese)](docs/IMPLEMENTATION_PLAN.md).
-
-## Credits and licenses
-
-The project builds on ReXGlue/Xenia-related components, graphics components derived from shadPS4, SDL, and other open-source work. See the [source origins](docs/SOURCE_ORIGINS.json), [ReXGlue license](third_party/rexglue/LICENSE), [PS4 third-party notices](third_party/ps4/THIRD_PARTY_NOTICES.txt), and [banner artwork sources](launcher/artwork.json). Components retain their respective licenses.
-
-Release packages include licenses in `licenses/` and instructions for obtaining matching source and build documentation in `SOURCE.txt`.
+Components retain their respective licenses. Release packages include `licenses/` and `SOURCE.txt` with corresponding source and build information.

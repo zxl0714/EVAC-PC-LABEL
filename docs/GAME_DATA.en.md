@@ -81,6 +81,8 @@ Select `D:\GameExtract\guwange` in the launcher, or copy all its contents into `
 
 ## Xbox 360 games
 
+<a id="futari"></a>
+
 ### 虫姫さまふたり Ver.1.5 — Mushihimesama Futari (futari)
 
 ```text
@@ -125,6 +127,8 @@ dlc_dir = D:/Games/Futari/DLC
 
 Select Futari and click **Details** at the bottom of the launcher to see the actual DLC search path and the status of Black Label and Ver.1.01. Replace missing or mismatched files with the correct resources.
 
+<a id="espgaluda2"></a>
+
 ### エスプガルーダII ブラックレーベル — Espgaluda II Black Label (espgaluda2)
 
 ```text
@@ -136,6 +140,8 @@ game-data/espgaluda2/
 ```
 
 Keep all `dat*.xex` files and the original resource folders. `game-data/espgaluda2/` holds the complete game, including Black Label.
+
+<a id="sdoj"></a>
 
 ### 怒首領蜂最大往生 — DoDonPachi SaiDaiOuJou (sdoj)
 
@@ -150,6 +156,8 @@ game-data/sdoj/
 Use the supported original disc data. Music patches and other program updates are not supported. Keep `default.xexp`, `CA022100.binp`, and `CA022110.binp` out of this folder; if updates have already been mixed in, extract the original base game into a new folder.
 
 Coins, the shop, and unlockable content follow the original game's progression.
+
+<a id="guwange"></a>
 
 ### ぐわんげ — Guwange (guwange)
 
@@ -172,6 +180,8 @@ Keep all 29 files and their internal folders. These four DLLs are original Xbox 
 
 ## PS4 games
 
+<a id="ketsui"></a>
+
 ### ケツイ Deathtiny ～絆地獄たち～ — Ketsui Deathtiny (ketsui)
 
 Supported: **CUSA09062, base version 01.00**, or the **complete base game with update 01.02 overlaid**. Both use a single game folder:
@@ -189,6 +199,8 @@ Select the folder containing `eboot.bin` in the launcher. The scan identifies ve
 
 If your extraction has separate `CUSA09062-app/` and `CUSA09062-patch/` folders, copy everything inside `CUSA09062-app/` into a new folder, then overlay the contents of `CUSA09062-patch/` if desired. Select the merged folder. To return to 01.00, extract the complete base game into a new folder. Saves and replays remain in `user-data/ketsui/`.
 
+<a id="daioujou"></a>
+
 ### 怒首領蜂 大往生 臨廻転生 — DoDonPachi DaiOuJou Re:Incarnation (daioujou)
 
 Supported: **CUSA32997, version 01.00 base or complete merged 01.04 data**. Both support community rankings and replays; 01.00 cannot play replays recorded by a newer game version. Use the complete base folder for 01.00, or overlay the 01.04 update into that folder. Updated layout:
@@ -202,6 +214,8 @@ game-data/daioujou/
 ```
 
 Select the folder containing `eboot.bin` and the complete game modules and resources. Apply the update over the base game's files before selecting the folder.
+
+<a id="esprade"></a>
 
 ### エスプレイドΨ — ESP Ra.De. Psi (esprade)
 
@@ -222,6 +236,8 @@ Extract the base PKG, then copy all extracted update files over the base-game fi
 
 Saves, downloaded replays, and settings are stored in `user-data/esprade/`.
 
+<a id="feveron"></a>
+
 ### 弾銃フィーバロン — Dangun Feveron (feveron)
 
 Supported: **US CUSA06735, version 01.00 base game**.
@@ -241,6 +257,8 @@ game-data/feveron/
 
 Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, then copy all contents into `game-data/feveron/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/feveron/`.
 
+<a id="garegga"></a>
+
 ### バトルガレッガ Rev.2016 — Battle Garegga Rev.2016 (garegga)
 
 Supported: **Korean CUSA10207, version 01.00 base game**.
@@ -256,6 +274,10 @@ game-data/garegga/
 ```
 
 Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, and copy all contents into `game-data/garegga/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/garegga/`.
+
+## PS2 games
+
+<a id="espgaluda"></a>
 
 ### エスプガルーダ — ESPGaluda (espgaluda)
 
