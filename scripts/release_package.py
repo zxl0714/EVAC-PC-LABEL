@@ -2,21 +2,20 @@
 import argparse
 import configparser
 import datetime as dt
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 import uuid
 import zipfile
 
-from build_receipt import verify_receipt, verify_sdk
 from generate_catalogue import load, relative
-from launcher_receipt import verify as verify_launcher
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
-from ps4_build_receipt import verify as verify_ps4
-from ps2_build_receipt import verify_package as verify_ps2
+from package_receipt import PackageInputs
 import ps4_extract_tools
 from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
 
@@ -196,13 +195,16 @@ def tree_files(root):
 
 def copy_checked(source, target, role, entries, expected=None):
     reject_link(source); reject_link(target)
-    before = digest(source)
-    if expected and (before != expected['sha256'] or source.stat().st_size != expected['bytes']):
+    if expected and (digest(source) != expected['sha256'] or source.stat().st_size != expected['bytes']):
         raise ValueError('Source differs from its certificate: ' + source.name)
     target.parent.mkdir(parents=True, exist_ok=True)
     with source.open('rb') as original, target.open('xb') as destination:
-        shutil.copyfileobj(original, destination, 1024 * 1024)
-    if digest(target) != before or digest(source) != before:
+        copied = hashlib.sha256()
+        while chunk := original.read(1024 * 1024):
+            copied.update(chunk)
+            destination.write(chunk)
+    before = copied.hexdigest()
+    if (expected and before != expected['sha256']) or digest(target) != before:
         raise ValueError('Copy verification failed: ' + source.name)
     entries.append(dict(path=target, bytes=target.stat().st_size, sha256=before, role=role))
 
@@ -215,17 +217,16 @@ def text_new(target, value, role, entries):
 
 
 def certified_runtime(selection=GAMES):
-    if git(ROOT, 'status', '--porcelain', '--untracked-files=normal'):
-        raise ValueError('Commit source changes before release packaging')
-    verify_sdk()
+    inputs = PackageInputs(ROOT)
     games = catalogue(selection)
     xbox = tuple(sorted(key for key in selection if games[key]['backend'] == 'xbox360'))
-    records = dict(xbox360=verify_receipt('host', xbox), ps4=verify_ps4(), launcher=verify_launcher())
+    records = dict(
+        xbox360=inputs.load(ROOT/'out/xbox360/bin/build-receipt.json', 'xbox360', xbox),
+        ps4=inputs.load(ROOT/'out/ps4/build-receipt.json', 'ps4'),
+        launcher=inputs.load(ROOT/'out/launcher/build-receipt.json', 'launcher'))
     if any(games[key]['backend'] == 'ps2' for key in selection):
-        records['ps2'] = verify_ps2()
-    commit = git(ROOT, 'rev-parse', 'HEAD').decode().strip()
-    if any(record['sourceCommit'] != commit for record in records.values()):
-        raise ValueError('Rebuild all player components at the release commit')
+        records['ps2'] = inputs.load(ROOT/'out/ps2/build-receipt.json', 'ps2', ['espgaluda'])
+    commit = inputs.commit
     audit_source()
     xbox_names = {Path(name).name for key in xbox for name in games[key]['runtimeFiles'] if name.endswith(('.exe', '.dll'))}
     xbox_names |= {str(Path(name).with_suffix('.pdb')) for name in list(xbox_names)}
@@ -558,10 +559,8 @@ def archive(directory, destination, *, include_root=True):
             if folder != directory and not folders and not files:
                 reject_link(folder)
                 output.write(folder, prefix + folder.relative_to(directory).as_posix() + '/')
-    with zipfile.ZipFile(destination) as check:
-        bad = check.testzip()
-        if bad:
-            raise ValueError('ZIP CRC failed: ' + bad)
+    # The delivery acceptance extracts this ZIP once and verifies its inventory.
+    # testzip() here would decompress the whole package a second time.
     with destination.with_suffix(destination.suffix + '.sha256').open('x', encoding='ascii') as stream:
         stream.write(digest(destination) + '  ' + destination.name + '\n')
 
@@ -595,6 +594,7 @@ def verify_certificate(game, certified, commit):
 
 def build(flavor, version, output=None, data=None, futari_dlc=None, *,
           data_games=None, futari_content=None, symbols=False, package_format=3):
+    started = time.perf_counter()
     package_name = version_name(version, flavor, package_format)
     selection = release_games(version)
     if flavor in ('Public', 'Update') and (data or futari_dlc or data_games or futari_content or symbols):
@@ -609,10 +609,12 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     games = catalogue(selection)
     content_ids = selected_items(futari_content, [item['id'] for item in games['futari']['content']], 'Futari DLC') if package_format in (2, 3) else [item['id'] for item in games['futari']['content']]
     commit, receipts, certified = certified_runtime(selection)
+    certified_at = time.perf_counter()
     if has_ps4_extractor(version):
         ps4_extract_tools.verify(ROOT)
     for key in selection:
-        verify_certificate(games[key], certified, commit)
+        backend = games[key]['backend']
+        verify_certificate(games[key], certified, receipts[backend]['sourceCommit'])
     if data and set(data) - set(selection):
         raise ValueError('Unknown Internal data selection')
     # Resolve all mandatory inputs before creating any package output.
@@ -740,6 +742,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         files=sorted(payload, key=lambda item: item['path']),
         gameplayAcceptance='Recorded separately; packaging does not perform gameplay acceptance',
         uploadsPerformed=False)
+    release['buildCommits'] = {key: record['sourceCommit'] for key, record in receipts.items()}
     if flavor == 'Internal':
         release['dataVariants'] = {key: report['dataVariant'] for key, report in reports.items() if games[key].get('variants')}
     if flavor == 'Update':
@@ -755,10 +758,15 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     with (directory / 'SHA256SUMS.txt').open('x', encoding='utf-8', newline='\n') as stream:
         stream.write(sums)
     verify_tree(directory, games)
+    assembled_at = time.perf_counter()
     destination = parent / (package_name + '.zip')
     archive(directory, destination, include_root=package_format == 1 and flavor != 'Update')
+    finished_at = time.perf_counter()
     return dict(archive=str(destination), directory=str(directory), sha256=digest(destination), bytes=destination.stat().st_size,
-                flavor=flavor, sourceCommit=commit, uploaded=False)
+                flavor=flavor, sourceCommit=commit, uploaded=False,
+                timingsSeconds=dict(certify=round(certified_at-started,3),
+                    assembleAndVerify=round(assembled_at-certified_at,3),
+                    zip=round(finished_at-assembled_at,3), total=round(finished_at-started,3)))
 
 
 def main():

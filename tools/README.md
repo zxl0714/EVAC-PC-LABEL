@@ -58,3 +58,30 @@ py -3.12 scripts/ps4_sources.py verify
 PS4 输出分别在 out/ps4-native 和 out/ps4-gpu，收据在 out/ps4/build-receipt.json。它绑定维护源码、383 个上游及已声明本地适配文件、19 个依赖、工具以及六对程序／PDB；已有产物在输入变化后不能继续冒充当前构建。`Build.ps1 -Games ketsui` 无需 ROM，校验后整理配套宿主／GPU／符号到 runtime；首次运行时原生准备本地数据。已接通合集启动器，不再要求用旧开发入口启动。
 
 迁入来源和提交见 [源码来源](../docs/SOURCE_ORIGINS.json)。最初导入 SDK 时的文件快照保存在 [迁入基线](../docs/provenance/sdk-import-baseline.json)，用于追溯，不用于选择工具或恢复依赖。
+
+
+## 本地出包
+
+提交本轮改动后，直接运行：
+
+```powershell
+./scripts/Release.ps1 -Version 0.9.1
+```
+
+默认生成程序包。构建收据保留各组件的实际构建提交，发布清单另外记录本次源码提交
+和 `buildCommits`。文档、打包脚本或其他独立后端变化可以复用未受影响的构建；
+相关源码、共用输入或依赖锁变化时，工具会报告需要重建的组件和文件。
+不再仅为了使所有收据的提交号相同而重跑全部构建。
+
+开发构建完成时核对完整生成源码、依赖和 PDB。组包时检查维护源码及实际复制的
+程序字节，不遍历私有生成目录或重读未入包的 PDB；输入哈希在同次组包中共用。
+复制时计算哈希并核对目标，ZIP 写完后生成 SHA-256。输出中分别列出认证、
+组装校验及压缩耗时，便于直接定位慢在哪一步。
+
+每份最终 ZIP 只做一次真实解压，然后运行以下校验；同一 ZIP 的后续交付复用其
+SHA-256 与验收记录。不要先运行 ZIP 整包 CRC 解压测试再做第二次解压。
+
+```powershell
+Expand-Archive -LiteralPath '<最终 ZIP 路径>' -DestinationPath '<新的验收目录>'
+py -3.12 scripts/release_package.py verify --directory '<新的验收目录>'
+```

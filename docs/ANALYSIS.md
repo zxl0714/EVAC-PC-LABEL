@@ -221,7 +221,7 @@ Present 入口→系统显示事件均值 0.918538 ms。该侧假设采用相同
 计算与原始证据哈希见 `.local/v090/analysis/ps2-latency-estimate-r1.json`；输入来源为
 `late-input-response-r1-analysis/response-review.json`、`pcsx2-pine-r2/response-review.json`、
 `present-wait-fullscreen-r1-summary.json` 和 `futari-historical-present-display-r1.json`。
-CPU 继续使用已采集普通 BOSS 窗口的 0.427／0.249 核，不追加新的性能测量。
+v0.9.1 的 CPU 表复用已有第一关短采样，移植版记 0.27 核（0.2706／0.2724）；PCSX2 保留此前 BOSS 窗口的 0.249 核。两端场景不同，不以该差值宣称同场景 CPU 优势。移植版最新短样本 P95 为 17.318 ms、最大 17.932 ms，证据见本页“当前结果：紧凑表初始化与共享访存指令”。v0.9.0 的普通 BOSS 0.427 核仍在下节保留作历史记录。
 
 ## v090 PS2 closeout
 

@@ -50,9 +50,9 @@ PS2 对比（PCSX2 2.8.2）：
 
 | 游戏 | 移植版延迟/ms | PCSX2 延迟/ms | 移植版 CPU/核 | PCSX2 CPU/核 |
 | --- | ---: | ---: | ---: | ---: |
-| ESPGaluda | 27 | 43 | 0.43 | 0.25 |
+| ESPGaluda | 27 | 43 | 0.27 | 0.25 |
 
-延迟为阶段预算估算：平均取样等待 8.33 ms；移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。CPU 为普通 BOSS 短场景实测。移植版出帧间隔 P95 18.06 ms，最大 19.88 ms。[方法与数据](docs/ANALYSIS.md#v090-ps2-latency-estimate)。
+延迟为阶段预算估算：平均取样等待 8.33 ms；移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。移植版 CPU 使用 v0.9.1 第一关短场景的已有采样，PCSX2 使用此前的 BOSS 场景。移植版出帧间隔 P95 17.32 ms，最大 17.93 ms。[方法与数据](docs/ANALYSIS.md#v090-ps2-latency-estimate)。
 
 ## 开始游玩
 

@@ -50,9 +50,9 @@ PS2 comparison (PCSX2 2.8.2):
 
 | Game | Port latency/ms | PCSX2 latency/ms | Port CPU/cores | PCSX2 CPU/cores |
 | --- | ---: | ---: | ---: | ---: |
-| ESPGaluda | 27 | 43 | 0.43 | 0.25 |
+| ESPGaluda | 27 | 43 | 0.27 | 0.25 |
 
-Latency is a stage-budget estimate: an 8.33 ms average sampling wait; a measured 16.87 ms response in the port and two confirmed game updates in PCSX2; presentation allowances from the same PC's Vulkan IMMEDIATE microbenchmark and historical D3D12 independent-flip capture. CPU figures are ordinary boss-scene samples. The port's P95 frame interval was 18.06 ms, with a 19.88 ms maximum. [Method and data (Chinese)](docs/ANALYSIS.md#v090-ps2-latency-estimate).
+Latency is a stage-budget estimate: an 8.33 ms average sampling wait; a measured 16.87 ms response in the port and two confirmed game updates in PCSX2; presentation allowances from the same PC's Vulkan IMMEDIATE microbenchmark and historical D3D12 independent-flip capture. The port CPU figure uses the existing v0.9.1 Stage 1 sample; PCSX2 uses the earlier boss scene. The port's P95 frame interval was 17.32 ms, with a 17.93 ms maximum. [Method and data (Chinese)](docs/ANALYSIS.md#v090-ps2-latency-estimate).
 
 ## Getting started
 

@@ -10,6 +10,20 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+ACTIVE Nov03: optimize packaging flow; reuse component build certificates across
+docs/unrelated-engine commits. New scripts/package_receipt.py validates scoped
+maintained inputs and original build origin; no generated tree/tool/PDB recheck
+at packaging. Actual copied bytes still checked, release.json records buildCommits.
+Copy hashing streamed; remove archive.testzip because final extraction is done once.
+Baseline certified_runtime took15.606s; pending actual new flow measurement/package.
+Update G1 CPU docs from existing .2706/.2724core samples only, no new gameplay.
+README CN/EN now .27 vs PCSX2 .25; states Stage1 vs older BOSS scenes.
+Current regression logs .local/v091/package-{receipt-,}tests.log. No runtime edits,
+no game tests repeated, no push/release/upload. Previous c69a402 program ZIP
+154417102bytes SHA7c66f6054ad2fc683eb53e108797c2c5ce588d07fbd19c4b5dfb9a06e628fe3b
+accepted and all6Superplays naturally completed in superplay-v091-r1; PID79384
+closed normally, queue completed1269176/1269176. Retain existing release.
+
 COMPLETE current request: both compact dispatch initialization and shared
 integer memory instructions implemented and accepted at source a92795a.
 EXE 164559872 -> 118738944 bytes (-27.84%); PDB 573820928 -> 489811968.

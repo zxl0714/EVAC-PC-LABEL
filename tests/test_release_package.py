@@ -397,6 +397,22 @@ class ReleaseTests(unittest.TestCase):
             release.copy_checked(source, self.root / 'never-created', 'runtime', [], expected)
         self.assertFalse((self.root / 'never-created').exists())
 
+    def test_package_keeps_component_build_origin_across_release_commits(self):
+        def check(root, games, commit, inspect):
+            newer, receipts, certified = release.certified_runtime.return_value
+            origin = 'a' * 40
+            for record in receipts.values():
+                record['sourceCommit'] = origin
+            for game in games.values():
+                file = root/game['runtimeFiles'][1]
+                file.write_text(file.read_text().replace(commit, origin))
+            result = release.build('Public', '0.4', root/'releases/reused')
+            record = json.loads((Path(result['directory'])/'release.json').read_text())
+            self.assertEqual(record['sourceCommit'], newer)
+            self.assertTrue(all(value == origin for value in record['buildCommits'].values()))
+            release.verify_tree(Path(result['directory']), games)
+        self.check_build_flavors('0.4', check)
+
     def test_complete_data_and_separate_dlc(self):
         source = self.root / 'data'; (source / 'dlc').mkdir(parents=True)
         (source / 'main.bin').write_bytes(b'abc'); (source / 'dlc/old.bin').write_bytes(b'old')
@@ -910,7 +926,7 @@ class ReleaseTests(unittest.TestCase):
         commit=release.git(root,'rev-parse','HEAD').decode().strip()
         identity=dict(path='main.bin',bytes=3,sha256=hashlib.sha256(b'abc').hexdigest())
         selection = release.release_games(version)
-        games={key:dict(id=key,files=[identity],content=[],runtimeFiles=[
+        games={key:dict(id=key,backend='ps4' if key in ('ketsui','daioujou','esprade','feveron','garegga') else 'xbox360',files=[identity],content=[],runtimeFiles=[
             'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
         if 'espgaluda' in games:
@@ -944,7 +960,7 @@ class ReleaseTests(unittest.TestCase):
         def inspected(executable,key,data=None):
             return dict(dataDirectory=str(root/'game-data'/key),contentDirectory=str(root/'dlc'),
                         discImage=str(root/'game-data'/key/'original.iso'))
-        receipts={key:dict(sourceSnapshot=dict(sha256='fixture')) for key in ('launcher','ps4','xbox360')}
+        receipts={key:dict(sourceCommit=commit,sourceSnapshot=dict(sha256='fixture')) for key in ('launcher','ps4','xbox360','ps2')}
         with patch.object(release,'ROOT',root),patch.object(release,'catalogue',return_value=games), \
                 patch.object(release,'certified_runtime',return_value=(commit,receipts,certified)), \
                 patch.object(release,'redist_directory',return_value=crt),patch.object(release,'license_files',return_value=[]), \
