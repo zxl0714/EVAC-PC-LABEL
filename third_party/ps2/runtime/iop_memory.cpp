@@ -2,6 +2,7 @@
 #include "../../../backends/ps2/audio_trace.h"
 #include "../../../backends/ps2/spu_device.h"
 #include "../../../backends/ps2/pcm_queue.h"
+#include "../../../backends/ps2/pcm_queue_trace.h"
 #include "../../../backends/ps2/pcm_playout.h"
 
 #include <algorithm>
@@ -31,6 +32,7 @@ namespace ps2x::iop::detail
     public:
         cave::ps2::SpuDevice spu;
         cave::ps2::PcmQueue queue;
+        cave::ps2::PcmQueueTrace queueTrace;
         cave::ps2::PcmPlayout playout; // Audio-consumer thread only.
         std::array<uint16_t, 0x8000> writtenRegisters{};
         struct Dma { uint64_t bytes = 0; uint32_t address = 0; bool toSpu = false; bool decrement = false; };
@@ -384,7 +386,9 @@ namespace ps2x::iop::detail
             m_audio->frames += AudioState::QuantumFrames;
             m_audio->nonzero += std::count_if(m_audio->samples.begin(), m_audio->samples.end(),
                                              [](int16_t sample) { return sample != 0; });
-            m_audio->dropped += AudioState::QuantumFrames - m_audio->queue.Write(m_audio->samples);
+            const auto written=m_audio->queue.Write(m_audio->samples);
+            m_audio->dropped += AudioState::QuantumFrames-written;
+            m_audio->queueTrace.Record(0,AudioState::QuantumFrames,written);
             serviceSpuDma(0);
             serviceSpuDma(1);
             if (cave::ps2::audio_trace::enabled && m_audio->frames % 96000u == 0u)
@@ -402,6 +406,7 @@ namespace ps2x::iop::detail
         if (!stereo || !frames) return 0;
         auto output = std::span<int16_t>(static_cast<int16_t *>(stereo), frames * 2u);
         const auto read = m_audio->queue.Read(output);
+        m_audio->queueTrace.Record(1,frames,read);
         std::fill(output.begin() + read * 2u, output.end(), int16_t{});
         m_audio->playout.Apply(output,read);
         m_audio->readFrames.fetch_add(read, std::memory_order_relaxed);

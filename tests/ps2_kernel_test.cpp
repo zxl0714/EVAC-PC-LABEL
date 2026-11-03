@@ -9,6 +9,35 @@
 #include <stdexcept>
 #include <vector>
 
+#include <algorithm>
+
+// Inspect the actual event queue without a ROM or wall-clock sleep. A stalled
+// guest must retain the same ordering in cycle and host time.
+struct EeSchedulerClockTest {
+  static void Run(PS2Runtime& runtime) {
+    auto require=[](bool value,const char* message){if(!value)throw std::runtime_error(message);};
+    constexpr uint32_t callback=0x7ff000;
+    require(runtime.registerFunction(callback,+[](uint8_t*,R5900Context*,PS2Runtime*){}),"Cannot register clock fixture");
+    auto& scheduler=runtime.eeScheduler();R5900Context context{};context.pc=callback;
+    scheduler.reset(runtime.memory().getRDRAM(),context);
+    scheduler.m_hostClockOrigin-=std::chrono::seconds(2);
+    scheduler.m_deadlines.clear();
+    const uint64_t fieldCycles=(16667ull*EeScheduler::kEeClockHz+999999)/1000000;
+    scheduler.scheduleEvent(fieldCycles,{EeEventType::VBlankStart,0,0});
+    require(scheduler.setAlarm(1,callback,0,0,0)>0 && scheduler.setAlarm(100,callback,0,0,0)>0,
+            "Clock fixture alarms rejected");
+    auto events=scheduler.m_deadlines;
+    std::sort(events.begin(),events.end(),[](const auto& a,const auto& b){return a.deadlineCycle<b.deadlineCycle;});
+    require(events.size()==3 && events[0].hostDeadline<events[1].hostDeadline &&
+            events[1].hostDeadline<events[2].hostDeadline,"Alarm host deadline inverted guest event order");
+    require(events[2].hostDeadline<std::chrono::steady_clock::now(),"Guest stall restarted an alarm from host now");
+    const auto previousOrigin=scheduler.m_hostClockOrigin;
+    scheduler.reset(runtime.memory().getRDRAM(),context);
+    require(scheduler.m_hostClockOrigin>previousOrigin && scheduler.m_deadlines.size()==1,
+            "Reset retained old guest clock or events");
+  }
+};
+
 namespace {
 void Require(bool value,const char* message) {
   if(!value)throw std::runtime_error(message);
@@ -76,6 +105,7 @@ int main(int argc,char** argv) {
     PS2Runtime runtime;
     if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
+    EeSchedulerClockTest::Run(runtime);
     DmaLongChain();
     EeTimerArithmetic(runtime.memory());
     EeTimerDeferredEquivalence();

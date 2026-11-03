@@ -36,8 +36,6 @@ namespace
     constexpr uint32_t WEF_OR = 0x01u;
     constexpr uint32_t WEF_CLEAR = 0x10u;
     constexpr uint32_t WEF_CLEAR_ALL = 0x20u;
-    constexpr auto kVBlankPeriod = std::chrono::microseconds(16667);
-    constexpr auto kVBlankDuration = std::chrono::microseconds(500);
     constexpr uint64_t kAlarmTickMicroseconds = 64u;
     constexpr uint32_t kDebugPublishDispatchInterval = 4096u;
 
@@ -120,6 +118,7 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
     m_insideInterrupt = false;
     m_pendingEeTimerInterrupts = 0u;
     m_eeCycle = 0u;
+    m_hostClockOrigin = std::chrono::steady_clock::now();
     m_sliceEndCycle = kDefaultTimeSliceCycles;
     m_stopRequested.store(false, std::memory_order_release);
     m_checkpointPending.store(false, std::memory_order_release);
@@ -156,7 +155,6 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
     m_threads.emplace(main.id, std::move(main));
     m_readyQueues[0].push_back(kMainThreadId);
     scheduleEvent(m_eeCycle + kVBlankPeriodCycles,
-                  std::chrono::steady_clock::now() + kVBlankPeriod,
                   EeEvent{EeEventType::VBlankStart, 0, 0});
     publishSnapshot();
 }
@@ -1092,7 +1090,6 @@ int EeScheduler::setAlarm(uint16_t ticks,
     m_alarms.emplace(id, EeAlarm{id, ticks, handler, argument, gp, sp});
     const uint64_t tickCount = ticks == 0u ? 1u : static_cast<uint64_t>(ticks);
     scheduleEvent(m_eeCycle + tickCount * kAlarmTickCycles,
-                  std::chrono::steady_clock::now() + std::chrono::microseconds(tickCount * kAlarmTickMicroseconds),
                   EeEvent{EeEventType::Alarm, static_cast<uint32_t>(id), 0});
     return id;
 }
@@ -1798,10 +1795,8 @@ void EeScheduler::processDueDeadlines()
         if(!m_runtime.gs().queueVBlankFrame(m_vsyncTick+1u))return false;
         cave::ps2::frame_trace::Vblank(m_vsyncTick+1u,scheduled.hostDeadline);
         scheduleEvent(scheduled.deadlineCycle+kVBlankDurationCycles,
-                      scheduled.hostDeadline+kVBlankDuration,
                       EeEvent{EeEventType::VBlankEnd,0,m_vsyncTick+1u});
         scheduleEvent(scheduled.deadlineCycle+kVBlankPeriodCycles,
-                      scheduled.hostDeadline+kVBlankPeriod,
                       EeEvent{EeEventType::VBlankStart,0,0});
         processEvent(scheduled.event);return true;
     };
@@ -1833,9 +1828,11 @@ void EeScheduler::processDueDeadlines()
 
             if (now < pacingDeadline)
             {
+                const auto waitStarted=std::chrono::steady_clock::now();
                 m_deadlineWait->Until(lock, pacingDeadline, [this]()
                                      { return !m_events.empty() ||
                                               m_stopRequested.load(std::memory_order_acquire); },m_eventCv);
+                cave::ps2::frame_trace::WaitReturned(waitStarted,pacingDeadline);
                 if (!m_events.empty() || m_stopRequested.load(std::memory_order_acquire))
                 {
                     updateNextDeadline();
@@ -2060,7 +2057,7 @@ void EeScheduler::waitForEvent()
     }
     if (hasTimerDeadline)
     {
-        const auto timerHostDeadline = std::chrono::steady_clock::now() + eeCyclesToHostDuration(timerCycles);
+        const auto timerHostDeadline = m_hostClockOrigin + eeCyclesToHostDuration(m_eeCycle + timerCycles);
         if (timerHostDeadline < hostDeadline)
         {
             deadlineCycle = m_eeCycle + timerCycles;
@@ -2068,9 +2065,11 @@ void EeScheduler::waitForEvent()
         }
     }
 
+    const auto waitStarted=std::chrono::steady_clock::now();
     const bool signaled = m_deadlineWait->Until(lock, hostDeadline, [this]()
                                                { return !m_events.empty() ||
                                                         m_stopRequested.load(std::memory_order_acquire); },m_eventCv);
+    cave::ps2::frame_trace::WaitReturned(waitStarted,hostDeadline);
     if (!signaled)
     {
         const uint64_t elapsed = deadlineCycle > m_eeCycle ? deadlineCycle - m_eeCycle : 0u;
@@ -2087,11 +2086,13 @@ void EeScheduler::waitForEvent()
 }
 
 void EeScheduler::scheduleEvent(uint64_t deadlineCycle,
-                                std::chrono::steady_clock::time_point hostDeadline,
                                 EeEvent event)
 {
     {
         std::lock_guard lock(m_eventMutex);
+        // All guest deadlines use one cycle/host mapping. Anchoring an alarm
+        // to host now can invert its order against VBlank after a guest stall.
+        const auto hostDeadline=m_hostClockOrigin+eeCyclesToHostDuration(deadlineCycle);
         m_deadlines.push_back(ScheduledEvent{deadlineCycle, hostDeadline, event, ++m_eventSequence});
         updateNextDeadline();
     }

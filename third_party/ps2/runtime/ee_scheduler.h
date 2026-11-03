@@ -365,6 +365,7 @@ public:
     void publishSnapshot();
 
 private:
+    friend struct EeSchedulerClockTest;
     struct ScheduledEvent
     {
         uint64_t deadlineCycle = 0;
@@ -394,7 +395,7 @@ private:
     static int waitObjectId(const EeWaitState &wait);
     void writeGuestU32(uint32_t address, uint32_t value);
     void waitForEvent();
-    void scheduleEvent(uint64_t deadlineCycle, std::chrono::steady_clock::time_point hostDeadline, EeEvent event);
+    void scheduleEvent(uint64_t deadlineCycle, EeEvent event);
     void updateNextDeadline();
     [[nodiscard]] bool hasReadyAtOrAbovePriority(int priority) const;
     void renewTimeSlice();
@@ -430,6 +431,7 @@ private:
     bool m_insideInterrupt = false;
     uint32_t m_pendingEeTimerInterrupts = 0;
     uint64_t m_eeCycle = 0;
+    std::chrono::steady_clock::time_point m_hostClockOrigin{};
     uint64_t m_sliceEndCycle = kDefaultTimeSliceCycles;
     std::thread::id m_executorThread{};
     std::atomic<uint64_t> m_executorGeneration{0};

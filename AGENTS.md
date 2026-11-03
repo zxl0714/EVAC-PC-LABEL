@@ -10,22 +10,22 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov03 G1 audio investigation. Ibara/package and G2 remain HOLD by user.
-Clock fix: third_party/ps2/runtime/iop_emulator.cpp repays callback slice overrun,
-checks spent budget before unsigned subtraction/idle advance, resets debt.
-Authored timer+ready-thread micro:131072requested ->34852697old vs131072fixed;
-quanta8/128/4096 and reset-during-debt pass. Native19checks PASS.
-Actual G1 Arcade stage1 run v092-clock-fix-r1 compiled/tested/closed. About38s:
-original091 drops3840 vs current092candidate448, both no new underflows.
-Other092IOP changes present: do not call live pair sole-variable causality.
-Remaining drops and player44.1k output remain unresolved; local48k. Prior339
-onset equals native416; first50ms PCM bit-identical090/091, not a091regression.
-Evidence .local/v092/g1-version-compare/clock-investigation.json and children.
-New G1 EXE only in out/ps2-tools/bin; runtime/ps2 remains pre-clock35f3188.
-Joint PS2 receipt now STALE; refresh before packaging once Ibara work resumes.
-Do not rebuild/regenerate games merely for this documentation checkpoint.
-Ketsui storage fix passed42nativecases/fresh-profilemainmenu; remoteFSunknown.
-All test/game processes closed. No ZIP/push/tag/upload/release. No subagents.
+ACTIVE Nov03 latest user says "先出个包给我": STOP extra tests, package current binaries.
+Ibara shared clock fix built both G1/Ibara; actual native kernel+IOP memory checks pass.
+One guest-cycle origin now maps alarms/VBlank/EE timer deadlines. Old alarm host-now
+anchor inverted deadline order: requested waits1.1s, kernel overshoot<.5ms. r49/r50
+same automatic DEMO sequence2701frames max1138.003->18.159ms, zero>19ms in new.
+Audio no active underflows in new window; teardown callbacks must be excluded.
+Normal keyboard r52 PID37692 closed normally, ArcadeNormal entered. Log play-r52;
+CPU/loopback sessions20374/73940 may need final read. Prior native-pad 16Start script
+DID NOT prove player entry: last screenshots were demo. MEMORY corrected; don't repeat.
+Existing program ZIP delivered: releases/v0.9.2-checkpoint-62f241f/EVAC-PC-LABEL-v0.9.2-win-x64.zip
+158518223bytes SHA37c74d0b5328a210c226057b0fc3ce3b7a232c96b4f5849c8726759b94bb0682.
+One extraction197files verified .local/v092/package-checkpoint-acceptance. Preserve it.
+Now commit current sources, refresh joint PS2 receipt/stage, build fresh program ZIP,
+one extraction/inventory and give link. No more gameplay, upload, push or release.
+G1 final shared-clock actual short regression and Ibara final performance remain open.
+Ketsui storage native42/freshmainmenu passed. G2 HOLD. No subagents. Never Task Manager.
 
 Historical in-turn notes below (superseded where conflicting):
 ACTIVE Nov03 v0.9.2 Ibara plus three newly authorized player reports.
