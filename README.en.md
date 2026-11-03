@@ -4,7 +4,7 @@
 
 Bringing classic bullet-hell shooters to Windows PC.
 
-EVAC PC LABEL is not a general-purpose emulator, but an unofficial collection of classic shooter PC ports. The main game code of the Xbox 360 and PS2 titles is statically recompiled, while the PS4 games are adapted with a dedicated runtime. The collection provides a unified launcher, shared configuration, saves, replays, and community leaderboards. Install game data only for the titles you want to play.
+EVAC PC LABEL is an unofficial project that ports classic shoot 'em ups to PC and brings them together in one collection, not a general-purpose emulator. The main game code of the Xbox 360 and PS2 titles is statically recompiled, while the PS4 games are adapted with a dedicated runtime. The collection provides a unified launcher, shared configuration, saves, replays, and community leaderboards. Install game data only for the titles you want to play.
 
 [Getting started](#getting-started) · [Game data guide](docs/GAME_DATA.en.md) · [Changelog (Chinese)](docs/CHANGELOG.md) · [Development guide (Chinese)](FOR_AGENT.md)
 
