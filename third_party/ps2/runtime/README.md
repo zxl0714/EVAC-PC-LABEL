@@ -39,6 +39,20 @@ retain their upstream behaviour. `ps2_memory_access_contract` checks reads and
 writes of all widths, RAM aliases, boundary wrapping, scratchpad, adjacent bytes,
 address evaluation and preserved guest state.
 
+Thirteen dynamic integer load/store instructions also share address calculation
+and register writeback. The generated call packs the source register, target
+register and signed offset into one argument. Each instruction helper inlines
+its access body; ordinary READ/WRITE callers still use the outlined access
+functions. Generated PC and delay-slot tracking stays at the original caller.
+
+Generated dispatch arrays are zero-initialized and populated before `main`
+from run descriptions by `backends/ps2/function_table.*`. This keeps the large
+dense arrays in BSS while normal dispatch and module extensions still use the
+same writable pointer arrays. `scripts/ps2_function_table.py` creates build
+views without editing original generated sources; build certification verifies
+each view. The native contract checks holes, indirect calls, separate banks
+and invalid ranges.
+
 `iop_emulator.cpp` supplies the IRX startup `argc`/`argv` interface, including the
 module path and a null table terminator. `iop_sysclib.cpp`, adapted from
 `ps2xIOP/src/emulator/imports/iop_sysclib.cpp` at the same revision, implements

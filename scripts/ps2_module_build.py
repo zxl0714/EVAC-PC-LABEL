@@ -6,7 +6,7 @@ import re
 from ps2_translation_units import make_units, write_changed
 
 
-def prepare(manifest, metadata, output):
+def prepare(manifest, metadata, output, table_root=None):
     manifest,metadata,output=Path(manifest).resolve(),Path(metadata).resolve(),Path(output).resolve()
     spec=json.loads(manifest.read_text(encoding='utf-8'))
     declarations=json.loads(metadata.read_text(encoding='utf-8'))
@@ -38,7 +38,8 @@ def prepare(manifest, metadata, output):
         # New banks can scope their entry names in the whole target, including
         # its PCH. This avoids reading every generated body to find references.
         # Existing banks retain source-specific aliases and their cached objects.
-        units=make_units(directory,output/f'module-{tag}',symbols=() if global_roots else roots)
+        units=make_units(directory,output/f'module-{tag}',symbols=() if global_roots else roots,
+                         table_root=table_root)
         configured.append(dict(number=number,tag=tag,prefix=prefix,directory=directory,
                                units=Path(units['manifest']),rootUsers=units['symbolUsers'],module=original,
                                globalRoots=roots if global_roots else []))
@@ -97,5 +98,6 @@ if __name__=='__main__':
     parser.add_argument('manifest',type=Path)
     parser.add_argument('--metadata',required=True,type=Path)
     parser.add_argument('--output',required=True,type=Path)
+    parser.add_argument('--table-root',type=Path)
     args=parser.parse_args()
-    print(json.dumps(prepare(args.manifest,args.metadata,args.output)))
+    print(json.dumps(prepare(args.manifest,args.metadata,args.output,args.table_root)))

@@ -6,6 +6,14 @@
 from the same revision's `ps2xRecomp/src/lib/fpu_translator.cpp`. Other tool
 sources are restored through `tools/ps2-source.lock.json`.
 
+`instruction_translator.cpp` adapts the same revision's file to share integer
+load/store operand handling in the native runtime. Resolved constant addresses
+and explicitly identified hardware accesses keep their specialized generation.
+`ps2_memory_instruction_contract` compiles the actual translator output and
+compares it with the previous expressions across registers, signed offsets,
+RAM aliases and wrapping, and scratchpad accesses. Its `--bench` mode compares
+the two instruction sequences with identical results.
+
 The local VCALLMSR implementation reads the CMSAR0 control register. The upstream
 implementation indexed `vi[27]` although that array contains only 16 integer
 registers. The reference register mapping and instruction behaviour are in

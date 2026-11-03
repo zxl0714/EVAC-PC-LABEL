@@ -5,6 +5,7 @@ if(PS2_IBARA_GENERATED)
     message(FATAL_ERROR "Missing generated Ibara function table")
   endif()
   file(GLOB IBARA_GENERATED_SOURCES CONFIGURE_DEPENDS "${PS2_IBARA_GENERATED}/*.cpp")
+  ps2_use_table_view("${PS2_IBARA_GENERATED}" IBARA_GENERATED_SOURCES)
   add_executable(ps2_ibara_probe
     "${COLLECTION_ROOT}/backends/ps2/probe_main.cpp"
     "${COLLECTION_ROOT}/games/ibara/sdk_bindings.cpp" ${IBARA_GENERATED_SOURCES})

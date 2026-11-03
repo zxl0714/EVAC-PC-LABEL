@@ -10,41 +10,74 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov03 user steered v0.9.1 follow-up away from compact function-table
-storage, toward simpler reduction of generated native CODE (aim >50% further).
-Do not finish table implementation or package the prior candidate as new work.
-Table-only uncommitted work safely archived .local/v091/easy-size-r2/shelved-table-work
-(tracked.patch plus all original files); production restored to 18afd44 helper-only.
-Actual helper-only EXE335778816/PDB1494974464; full build succeeded. No ROM changed.
-Private easy-size-r2 compile experiments: sharedREAD baseline1026637codebytes;
-sharedREAD+WRITE noinline457828(-55.4%); register memcpy gains negligible; Oz579075.
-Expanded same-source samples from boot/stage06/ARCADE/ARRANGE also reduce code
-3870729->1759762(-54.54%). Register memcpy and Oz rejected (not helpful combined).
-All outlined memory microbench RAM7.91->12.65ms/10million mixed operations,
-scratch44.93->44.62ms; this tight loop permits inline forwarding and does NOT
-predict whole-game CPU. Cold-wrapping-only reduces sample ~12%, not selected.
-Production candidate now shares all ten READ/WRITE helpers out of line, retaining
-constant FAST operations and original tables. Extended memory contract tests.
-User confirmed keep checks and complete this shared-helper round before more
-optimization. Native checks17 passed (memory fixture setup corrected to initialize
-wrapped RAM directly rather than through unmapped physical runtime addresses);
-90 PS2 Python checks passed. Next freeze code, full build once and actual short
-CPU/frame regression. Reconsider if game performance materially worsens.
-No >50% whole-EXE claim until actual link. Keep prior packages.
-Do not claim >50% whole-EXE gain before final link; no publication authorized.
+ACTIVE: user authorized compact table initialization and shared memory
+instructions together, then measure the full EXE. Estimate 120–125 MB remains
+unverified. No release/upload/package before this candidate is accepted.
+Implementation is ready: compact BSS table initialization; 13 shared dynamic
+integer memory instructions, with access bodies inlined inside these helpers.
+Original READ/WRITE callers remain out of line; constant FAST paths unchanged.
+Checks: 19 native + 96 Python passed; 2,340 instruction comparisons passed.
+After flattening: RAM bench 3.318->4.077 ms, scratch 12.395->14.869 ms per
+2.4 million operations. Actual game CPU must decide acceptance, not code size.
+Fresh inputs .local/v091/espgaluda-r3 generated successfully in 102.9 seconds.
+Next: full build Jobs=2, size measurement, short ARCADE/ARRANGE + CPU regression.
+Preserved old EXE/PDB/SDL3 in .local/v091/easy-size-r5/baseline. Evidence goes
+under easy-size-r5. No subagents. The earlier table restriction is superseded.
 
-Earlier follow-up work:
-Preserve accepted b8a94c9 ZIP and v0.9.0; no automatic publication. Initial micro
-bench .local/v091/easy-size-r1: same large ARCADE function+module07, shared named
-READ helpers reduce compiled code1,427,317->1,026,637bytes(-28.07%), compile12.43
-->7.98s. -Os alone negligible (0.007%); rejected. Original macro generated unique
-capturing lambdas for each READ. Wrapper now uses identical address dispatch and
-width with shared inline functions, pinned upstream header copied under a new
-name. No generated game C++ changes. Added native width/alias/wrap/scratchpad/
-state/evaluate-once contract. Native-check build running; next focused source
-checks, freeze code then complete game rebuild, original callback probes and
-short gameplay/frame/CPU comparison. If full EXE gain meaningful, revise local
-v091 program package once; use one extraction and keep prior candidate.
+ACTIVE Nov03 user requests ANOTHER simple substantial reduction from164.6MB,
+not final delivery yet. The local candidate below is accepted but NOT published;
+do not repeat its build/tests/package. No current running builds or game windows.
+No subagents authorized. Scope now: inspect remaining .text105319936,
+.rdata20027904,.data37042688, microbench before any new full rebuild.
+Keep semantic checks; user explicitly confirmed not deleting them. Prior custom
+compact table proposal remains shelved; prefer simpler generator/runtime changes.
+Nov03 follow-up assessed; no verified simple second halving. No further production
+change/build/package this turn. r3 float sharing saves0.03% sample code+rdata;
+word-indexed resume switch saves3.2% combined but grows code. Both not adopted.
+r4 instruction-level memory sharing: same4 sampleTUs code1759762->1530447(-13.0%),
+rdata unchanged436704; combined-10.4%. 12helpers/21216 rewritten sample operations;
+private prototype ONLY, not semantically/performance accepted or fullEXE result.
+Flattening nested helper calls slightly worse1537737. Evidence
+.local/v091/easy-size-r3/{result,range-audit}.json and easy-size-r4/{inputs,result}.json.
+Link /OPT:REF /OPT:ICF already enabled.18base maps overlap221288/18391836bytes(1.2%);
+13extra maps sum616740bytes, so missed nested entries not a large remaining source.
+If continuing, next plausible candidate is instruction-level memory sharing:
+validate original/helper states + CPU before generator integration/full rebuild.
+Do not present a sample13% reduction as the EXE reduction or promise another50%.
+
+Accepted shared-memory candidate source59618f6831bb6bc846931dc57ccef599cc140923.
+EXE164559872/PDB573820928; previous helper-only335778816/1494974464 (-51.0%EXE),
+first compacted delivery365986816/1973559296 (-55.0%EXE). Text276538368->105319936;
+.data remains37042688; no table compression or check removal. Ten READ/WRITE
+helpers noinline, FAST constant-address accesses unchanged. All game inputs same
+.local/v091/espgaluda-r2. Full build663.45s Jobs2 successful, all backends certified.
+Program-only ZIP releases/v0.9.1-local-59618f6/EVAC-PC-LABEL-v0.9.1-win-x64.zip,
+156184959bytes SHAda7a4633137b9b91d8e6297f5e513dabc6cf1d9dca2f694d528eb068c5faa86f.
+One actual extraction accepted .local/v091/package-acceptance-59618f6/acceptance.json,
+197actualfiles(195inventory+2metadata),noROM/source/PDB, testedPS2SHA
+1d2cda9a4195852e30f567ba5bd27598e47b42551089c6069e3b6ade8e7c4006.
+Archive remains valid across this docs-only checkpoint; no recertification.
+
+Native17 checks passed (RAM write fixture setup corrected to initialize wrapped
+RAM directly rather than through unmapped physical runtime stores), Python90pass.
+Original boot12 entries/4bodies x5states +8empty callbacks PASS; mode8bodies x3PASS.
+Actual short ARCADE/ARRANGE Stage1, shots, movement, Kakusei,pause/resume/menu return
+passed; PID54956 closed normally with AltF4. No further gameplay needed unless
+new code changes. Same diagnostic Arcade10sec600frames: old.365704cores->new.268785;
+median16.683->16.646ms,p9517.544->17.369,max20.433->18.410,no new>19ms.
+This is a SHORT regression, not README ordinaryCPU/latency remeasurement.
+Runs .local/v090/latency/easy-base-r1 and easy-shared-r1 (both closed), same copied
+profiles; latter inputtrace200000 overflow132258, allframe samples present.
+Evidence .local/v091/easy-size-r2/acceptance.json,final-size.json; startup use FULL
+prepared runtime path below, not generation-only disc. Main-menu recipe in MEMORY.
+
+Private microbench .local/v091/easy-size-r2: same-source code1026637->457828,
+extra boot/stage06/ARCADE/ARRANGE samples3870729->1759762. Tight RAM loop slows
+7.91->12.65ms per10millionmixedoperations (inline forwarding disappears), scratch
+44.93->44.62; real-game short CPU improved so accepted. Oz combined grew code;
+register memcpy negligible; cold-wrap-only~12% reduction. Do not redo these.
+Table-only work preserved .local/v091/easy-size-r2/shelved-table-work,tracked.patch
+plus alloriginalfiles; not present in production. No automatic push/release/upload.
 
 Previous accepted local delivery (before this newly authorized follow-up):
 

@@ -14,6 +14,7 @@ from ps2_game import generate_all
 from ps2_codegen import tree_identity
 from ps2_gs_sources import digests as gs_digests
 from ps2_input_order import POLICY as INPUT_ORDER_POLICY, verify as verify_input_order
+from ps2_function_table import verify as verify_function_table
 from ps4_sources import locked_dependencies, verify_checkout
 from toolchain import tool_path, tool_snapshot
 
@@ -93,6 +94,9 @@ def snapshot(refresh=False):
     state = dict(files=files, dependencies=dependencies, tools=tool_snapshot(ROOT), flags=flags,
                  generated=generation(values,refresh=refresh), graphics=declared, buildType='Release', game='espgaluda',
                  inputOrder=verify_input_order(values['PS2_GAME_GENERATED'],BUILD/'espgaluda-input-order'))
+    generated_root = Path(values['PS2_GAME_GENERATED']).parent.parent
+    state['functionTables'] = [verify_function_table(path/'register_functions.cpp', BUILD/'function-tables')
+                               for path in sorted(generated_root.glob('module-*/base-generated'))]
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
 

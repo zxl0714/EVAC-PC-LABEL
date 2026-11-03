@@ -48,6 +48,12 @@ ELF and original generated files stay unchanged. `ps2_compact_contract` builds
 and executes authored baseline/compact programs to compare entries, calls,
 yield/resume, likely branches, delay slots and loops without game data.
 
+The build also represents generated function tables as runs, then fills the
+original dense pointer arrays before gameplay. This reduces stored zero slots
+and repeated pointers without changing lookup. `ps2_function_table.py` prepares
+these immutable-input build views for ESPGaluda and Ibara; the build receipt
+verifies the view against every original table entry.
+
 ## Analysis entries
 
 Use Ghidra's Emotion Engine processor and the pinned upstream function exporter.

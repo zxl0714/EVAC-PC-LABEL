@@ -12,7 +12,7 @@ def write_changed(path, text):
     path.write_text(text, encoding='utf-8', newline='\n')
 
 
-def make_units(generated, output, batch_size=256, symbols=()):
+def make_units(generated, output, batch_size=256, symbols=(), table_root=None):
     generated, output = Path(generated).resolve(), Path(output).resolve()
     if not 1 <= batch_size <= 1024 or generated == output:
         raise ValueError('Invalid translation unit output or batch size')
@@ -28,6 +28,10 @@ def make_units(generated, output, batch_size=256, symbols=()):
             stat=entry.stat(follow_symlinks=False)
             facts[entry.name]=[entry.name,stat.st_size,stat.st_mtime_ns]
     sources = sorted(generated/name for name in facts)
+    table_view = None
+    if table_root is not None:
+        from ps2_function_table import prepare
+        table_view = prepare(generated/'register_functions.cpp', table_root)
     output.mkdir(parents=True, exist_ok=True)
     units = []
     symbol_users = {symbol: [] for symbol in symbols}
@@ -45,7 +49,8 @@ def make_units(generated, output, batch_size=256, symbols=()):
     for index, start in enumerate(range(0, len(sources), batch_size)):
         unit = output/f'batch_{index:04}.cpp'
         text = '// Generated PS2 compilation batch. Original bodies remain unchanged.\n'
-        text += ''.join(f'#include "{path.as_posix()}"\n' for path in sources[start:start+batch_size])
+        text += ''.join(f'#include "{(table_view if table_view is not None and path.name == "register_functions.cpp" else path).as_posix()}"\n'
+                        for path in sources[start:start+batch_size])
         write_changed(unit, text)
         units.append(unit)
         if symbol_pattern:

@@ -67,6 +67,8 @@ list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/vu_translation_h
 list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/vu_translation_helpers.cpp")
 list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/fpu_translator.cpp")
 list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/fpu_translator.cpp")
+list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/instruction_translator.cpp")
+list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/instruction_translator.cpp")
 add_library(ps2_recomp_lib STATIC ${RECOMP_SOURCES})
 target_compile_definitions(ps2_recomp_lib PUBLIC LIBDWARF_STATIC)
 target_include_directories(ps2_recomp_lib PUBLIC
@@ -104,6 +106,10 @@ add_executable(ps2_module_contract "${COLLECTION_ROOT}/tests/ps2_modules_test.cp
   "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp")
 target_include_directories(ps2_module_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
 add_test(NAME ps2_module_contract COMMAND ps2_module_contract)
+add_executable(ps2_function_table_contract "${COLLECTION_ROOT}/tests/ps2_function_table_test.cpp"
+  "${COLLECTION_ROOT}/backends/ps2/function_table.cpp")
+target_include_directories(ps2_function_table_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
+add_test(NAME ps2_function_table_contract COMMAND ps2_function_table_contract)
 add_executable(ps2_iso_contract "${COLLECTION_ROOT}/tests/ps2_iso_test.cpp"
   "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp")
 target_include_directories(ps2_iso_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
@@ -208,6 +214,7 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/ps2_vfs.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
     "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/function_table.cpp"
     "${COLLECTION_ROOT}/backends/ps2/native_host.cpp"
     "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vif1_interpreter.cpp"
@@ -270,6 +277,17 @@ if(PS2_BUILD_RUNTIME)
   add_executable(ps2_memory_access_contract "${COLLECTION_ROOT}/tests/ps2_memory_access_test.cpp")
   target_link_libraries(ps2_memory_access_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_memory_access_contract COMMAND ps2_memory_access_contract)
+  add_executable(ps2_generate_memory_fixture "${COLLECTION_ROOT}/tests/ps2_generate_memory_fixture.cpp")
+  target_link_libraries(ps2_generate_memory_fixture PRIVATE ps2_recomp_lib)
+  add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/ps2_memory_fixture.h"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_BINARY_DIR}/include"
+    COMMAND ps2_generate_memory_fixture "${CMAKE_BINARY_DIR}/include/ps2_memory_fixture.h"
+    DEPENDS ps2_generate_memory_fixture VERBATIM)
+  add_executable(ps2_memory_instruction_contract "${COLLECTION_ROOT}/tests/ps2_memory_instruction_test.cpp"
+    "${CMAKE_BINARY_DIR}/include/ps2_memory_fixture.h")
+  target_include_directories(ps2_memory_instruction_contract PRIVATE "${CMAKE_BINARY_DIR}/include")
+  target_link_libraries(ps2_memory_instruction_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_memory_instruction_contract COMMAND ps2_memory_instruction_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   option(PS2_GAME_SYMBOLS "Link full PDBs for generated game hosts" ON)
@@ -277,9 +295,30 @@ if(PS2_BUILD_RUNTIME)
   set(PS2_ARRANGE_GENERATED "" CACHE PATH "Private generated ESPGaluda ARRANGE module")
   set(PS2_STAGE_MODULES_MANIFEST "" CACHE FILEPATH "Private stage module build manifest")
   set(PS2_MODE_EXTRAS_MANIFEST "" CACHE FILEPATH "Verified additional mode entry build manifest")
+  function(ps2_use_table_view generated sources)
+    execute_process(COMMAND py -3.12 "${COLLECTION_ROOT}/scripts/ps2_function_table.py"
+      "${generated}/register_functions.cpp" --output "${CMAKE_BINARY_DIR}/function-tables"
+      RESULT_VARIABLE tableResult OUTPUT_VARIABLE tableSource ERROR_VARIABLE tableError)
+    if(NOT tableResult EQUAL 0)
+      message(FATAL_ERROR "Invalid PS2 function-table view: ${tableError}")
+    endif()
+    string(STRIP "${tableSource}" tableSource)
+    set(updated ${${sources}})
+    list(FIND updated "${generated}/register_functions.cpp" tableIndex)
+    if(tableIndex LESS 0)
+      message(FATAL_ERROR "Missing PS2 function table in source list")
+    endif()
+    list(REMOVE_AT updated ${tableIndex})
+    list(INSERT updated ${tableIndex} "${tableSource}")
+    set(${sources} ${updated} PARENT_SCOPE)
+    set(${sources}_TABLE_SOURCE "${tableSource}" PARENT_SCOPE)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+      "${generated}/register_functions.cpp" "${COLLECTION_ROOT}/scripts/ps2_function_table.py")
+  endfunction()
   unset(PS2_EXPERIMENTAL_LATE_INPUT CACHE)
   if(PS2_GAME_GENERATED)
     file(GLOB GENERATED_SOURCES CONFIGURE_DEPENDS "${PS2_GAME_GENERATED}/*.cpp")
+    ps2_use_table_view("${PS2_GAME_GENERATED}" GENERATED_SOURCES)
     if(NOT EXISTS "${PS2_GAME_GENERATED}/register_functions.cpp")
       message(FATAL_ERROR "Missing generated function table")
     endif()
@@ -333,6 +372,10 @@ if(PS2_BUILD_RUNTIME)
           message(FATAL_ERROR "Missing ESPGaluda ${module} function table")
         endif()
         file(GLOB moduleSources CONFIGURE_DEPENDS "${moduleDir}/*.cpp")
+        ps2_use_table_view("${moduleDir}" moduleSources)
+        if(module STREQUAL "arrange")
+          set(arrangeTableSource "${moduleSources_TABLE_SOURCE}")
+        endif()
         add_library(ps2_espgaluda_${module} OBJECT ${moduleSources})
         target_include_directories(ps2_espgaluda_${module} PRIVATE "${moduleDir}")
         target_link_libraries(ps2_espgaluda_${module} PRIVATE ps2_runtime)
@@ -355,7 +398,7 @@ if(PS2_BUILD_RUNTIME)
       file(STRINGS "${PS2_ARCADE_GENERATED}/ps2_recompiled_functions.h" arcadeRoots REGEX "^void root_")
       file(STRINGS "${PS2_ARRANGE_GENERATED}/ps2_recompiled_functions.h" arrangeRoots REGEX "^void root_")
       set(arrangeAliases)
-      set(arrangeAliasSources "${PS2_ARRANGE_GENERATED}/register_functions.cpp")
+      set(arrangeAliasSources "${arrangeTableSource}")
       foreach(declaration IN LISTS arrangeRoots)
         if(declaration IN_LIST arcadeRoots)
           string(REGEX MATCH "^void ([A-Za-z_0-9]+)\\(" rootMatch "${declaration}")
@@ -377,7 +420,7 @@ if(PS2_BUILD_RUNTIME)
         set(stageBuildDir "${CMAKE_BINARY_DIR}/espgaluda-stages")
         execute_process(COMMAND py -3.12 "${COLLECTION_ROOT}/scripts/ps2_module_build.py"
           "${PS2_STAGE_MODULES_MANIFEST}" --metadata "${COLLECTION_ROOT}/games/espgaluda/modules.json"
-          --output "${stageBuildDir}" RESULT_VARIABLE stageResult
+          --output "${stageBuildDir}" --table-root "${CMAKE_BINARY_DIR}/function-tables" RESULT_VARIABLE stageResult
           OUTPUT_VARIABLE stageOutput ERROR_VARIABLE stageErrors)
         if(NOT stageResult EQUAL 0)
           message(FATAL_ERROR "Invalid ESPGaluda stage input: ${stageErrors}")
@@ -385,6 +428,7 @@ if(PS2_BUILD_RUNTIME)
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
           "${PS2_STAGE_MODULES_MANIFEST}" "${COLLECTION_ROOT}/games/espgaluda/modules.json"
           "${COLLECTION_ROOT}/scripts/ps2_module_build.py"
+          "${COLLECTION_ROOT}/scripts/ps2_function_table.py"
           "${COLLECTION_ROOT}/scripts/ps2_translation_units.py")
         include("${stageBuildDir}/modules.cmake")
       endif()
