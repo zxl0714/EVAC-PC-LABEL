@@ -78,6 +78,9 @@
 - G1 冷启动测试存档已加载提示：诊断 b 确认，等 3 秒，Start 连发两次（每次200 ms，间隔2秒），
   已验证可到主菜单。截图确认 ARCADE 高亮后再 b 两次进入；不要在片头期间盲发模式确认。
 
+- PS2 独立调试 CLI 的 --config 只接受旧键名 [keyboard]（cross/circle/options 等），
+  不能直接传合集完整 INI；按实际键位转换一份私有输入快照，或用确认过的默认键位。
+
 - WASAPI 回录不能把 maxInputChannels 当成当前声道数：XMOS 曾返回8，实际双声道可用，
   直接开8会报 Invalid device。先用 is_format_supported 验证双声道，已验证 float32＋1024帧。
   先确认录音已打开，再触发事件；失败空 WAV 不算采到。波形跳变先与源PCM对齐，

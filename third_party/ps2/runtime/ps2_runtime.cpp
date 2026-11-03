@@ -18,6 +18,7 @@
 #include "ps2x/iop/iop_subsystem.h"
 #include "diagnostic_input.h"
 #include "audio_trace.h"
+#include "frame_trace.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -608,6 +609,7 @@ bool PS2Runtime::canBindIopRpc(uint32_t sid) const noexcept
 
 ps2x::iop::RpcResult PS2Runtime::handleIopRpc(uint8_t *rdram, R5900Context *ctx, ps2x::iop::RpcRequest request)
 {
+    cave::ps2::frame_trace::SlowScope slow("iop-rpc",(uint64_t(request.sid)<<32u)|request.function);
     cave::ps2::audio_trace::Rpc(request.sid,request.function,request.send.size,request.receive.size);
     auto scope = m_iopHost->enterCall(ctx, rdram);
     request.callToken = scope.token();
@@ -622,6 +624,7 @@ void PS2Runtime::notifyIopSifTransfer(uint8_t *rdram, const ps2x::iop::SifTransf
 
 void PS2Runtime::advanceIopEeCycles(uint64_t eeCycles) noexcept
 {
+    cave::ps2::frame_trace::SlowScope slow("iop-slice",eeCycles);
     m_iopSubsystem->runEeCycles(eeCycles);
 }
 

@@ -10,6 +10,48 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+COMPLETE Nov03 manual G1 Arrange audio regression r3; user reports "明显正常了".
+Game27228 and recorder124304 exited; no game/build running. Evidence:
+.local/v092/g1-arrange-audio-r3/audio-analysis.json, queue-frame-analysis.json,
+music-reference-timeline.json, actual-output-alignment.json. Source179.172s/output180.23s.
+Active play: zero consumer underruns; stage/BOSS tracks18/24 retain exact cursor
+progression in matched windows. Retained last87s producer trace has ONE32frame
+(.667ms) overflow at164.501s, confirmed by actual output alignment; keep separate.
+Whole-run dropped12640 includes startup; do not report it as gameplay loss.
+No465ms stall reproduced; stage21..167s has6frames>20ms,max25.148ms. Do not claim all
+frame pacing fixed. User confirms sound substantially normal, no further retest needed.
+Actual loopback vs source has stable frequency-shaped filter; not a raw-PCM identity.
+Alignment159ms is RECORDING ORIGIN DIFFERENCE, not sound latency.
+Implemented: cumulative requestedCycles includes external synchronous IOP RPC/module
+costs, eliminating their extra hardware time. Authored no-ROM test old37442250cycles/
+48704samples per1s ->exact36864000/48000; full native IOP contract passed incl DMA,
+critical section,timers,worker debt,reset. Game SHA:
+ccd7fc49547db6c1e2fc6e35735b13250be70742190ec43ba02cf260d4e44cab.
+G1 build .local/v092/g1-audio-clock-build.log; buffer2048/volume/DSP unchanged.
+Diagnostics: capture1..600s(default90), opt-in frame slow scopes>2ms in fixed4096ring,
+saved only at exit to frame-times.csv.slow.csv. No ordinary per-event disk output.
+Frozen package/staging unchanged; PS2 receipt stale if future packaging requested.
+Do not rebuild/repackage/retest merely to checkpoint this analysis. Ibara shared
+clock regression remains for later, G2 HOLD. No publication authorized.
+
+Authoritative baseline .local/v092/g1-arrange-audio-r2, manual Arrange Black181s:
+- 54720frames/1.14s discarded in source26..180s; actual output has many small cuts.
+- output~119.2s producer stops465.873ms, previousGPUwait2.082/present.615ms,
+  pacing alreadylate449ms, exact blocker unknown. Music source also pauses53.333ms
+  and138.667ms (10/26*256frames). Need verify these after shared-clock correction.
+- ADX track18 then24 reference independently decoded; C++ reference bitexact to
+  PyAV/FFmpeg firstsecond. Clean source corr.9999976/gain.893. SFX on BOTH cores;
+  core1-minus-BGM residual is NOT automatically corruption. SFX fidelity still open.
+- analysis/evidence audio-analysis.json, native-music-cursor-timeline.json,
+  references/track-*.f32 in r2. Reuse; do not rediscover codecs/redownload libraries.
+Bundled Python has numpy2.3.5; PyAV19.0.2 .local/v092/audio-tools. Loopback helper
+.local/v092/record-loopback.py now polls available packets; no hang on silent exit.
+Native diagnostic --config only accepts old [keyboard] cross/circle/options names;
+use input.snapshot.ini, NOT full collection INI. r1 failed early, zero data.
+G2 HOLD, Ibara paused, no subagents, never Task Manager, no publication authorized.
+
+Previous completed package checkpoint follows:
+
 COMPLETE Nov03 latest request: fresh program ZIP delivered; stop extra tests.
 Frozen source cc7adb0558c8c9df4d2bc2cd75222eee098a356a. Current program ZIP:
 releases/v0.9.2-local-cc7adb0/EVAC-PC-LABEL-v0.9.2-win-x64.zip,158522226bytes,

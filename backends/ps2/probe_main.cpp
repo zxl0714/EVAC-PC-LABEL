@@ -576,7 +576,7 @@ int main(int argc,char** argv) {
     bool traceBoot=false,traceAudio=false,musicCycle=false;
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
-    size_t inputTraceEvents=200000;
+    size_t inputTraceEvents=200000,audioCaptureSeconds=90;
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
@@ -586,6 +586,10 @@ int main(int argc,char** argv) {
       else if(option=="--trace-audio")traceAudio=true;
       else if(option=="--music-cycle")musicCycle=traceAudio=true;
       else if(option=="--capture-audio" && i+1<argc)audioCapture=std::filesystem::absolute(argv[++i]);
+      else if(option=="--capture-audio-seconds" && i+1<argc) {
+        audioCaptureSeconds=std::stoull(argv[++i]);
+        if(audioCaptureSeconds<1 || audioCaptureSeconds>600)throw std::runtime_error("Audio capture duration must be 1..600 seconds");
+      }
       else if(option=="--input-trace" && i+1<argc)inputTrace=std::filesystem::absolute(argv[++i]);
       else if(option=="--input-trace-events" && i+1<argc) {
         inputTraceEvents=std::stoull(argv[++i]);
@@ -627,7 +631,7 @@ int main(int argc,char** argv) {
     cave::ps2::input_trace::Scope inputTraceScope(inputTrace,inputTraceEvents);
     cave::ps2::audio_trace::Configure(traceAudio);
     cave::ps2::frame_trace::Configure(!frameTimes.empty());
-    cave::ps2::audio_capture::Configure(audioCapture);
+    cave::ps2::audio_capture::Configure(audioCapture,audioCaptureSeconds);
     // IOP services may initialize memory-card roots during construction.
     PS2Runtime::IoPaths configured;
     configured.elfPath=elf;configured.elfDirectory=elf.parent_path();

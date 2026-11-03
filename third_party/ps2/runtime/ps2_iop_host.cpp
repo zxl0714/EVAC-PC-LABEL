@@ -19,6 +19,7 @@
 #include <utility>
 #include <fstream>
 #include "../../../backends/ps2/iso_disc.h"
+#include "../../../backends/ps2/frame_trace.h"
 
 #if !defined(_WIN32)
 #include <sys/types.h>
@@ -419,6 +420,7 @@ bool PS2IopHostAdapter::readHostFile(uint64_t handle,
                                      size_t size,
                                      size_t &bytesRead)
 {
+    cave::ps2::frame_trace::SlowScope slow("disc-read",size);
     bytesRead = 0u;
     if (!destination && size != 0u)
     {

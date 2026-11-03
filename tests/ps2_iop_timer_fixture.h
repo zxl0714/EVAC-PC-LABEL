@@ -58,6 +58,9 @@ void IopClockBudgetContract(bool benchmark=false) {
         ps2x::iop::detail::IopEmulator emulator(host);
         Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0,"Clock fixture load failed");
         Require(emulator.threadCount()==1,"Clock fixture worker was not created");
+        // The module entry used IOP time outside a regular EE slice. Credit
+        // that startup before testing timer/worker interleaving alone.
+        emulator.runEeCycles(emulator.cycles()*8u);
         constexpr uint64_t eeCycles=1048576;
         const auto before=emulator.cycles();
         for(uint64_t i=0;i<eeCycles/quantum;++i)emulator.runEeCycles(quantum);

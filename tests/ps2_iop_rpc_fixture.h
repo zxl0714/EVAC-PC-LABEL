@@ -58,3 +58,44 @@ void IopRpcClientContract() {
     Require(memory.read32(reply) == 0x1234, "Old RPC completion crossed an IOP reset");
     std::cout << "IOP RPC clients: local dispatch, EE binding, payload/reply, async state, reset: PASS\n";
 }
+
+// External EE RPCs execute IOP instructions too. Repeated calls must consume
+// the same clock budget as scheduled workers, rather than creating extra PCM.
+void IopRpcClockContract(bool benchmark=false) {
+    auto host=DelayedThreadImage();
+    std::fill(host.image.begin()+0x100,host.image.end(),uint8_t{});
+    const uint32_t entry[]{
+        0x27bdffe0,0xafbf001c,0x3c040001,0x34840400, // server data
+        0x24051234,0x3c060001,0x34c60100,0x3c070001,0x34e70500,
+        0xafa00010,0xafa00014,0xafa00018,0x0c004085,0, // RegisterRpc
+        0x8fbf001c,0x00001021,0x27bd0020,0x03e00008,0
+    };
+    std::memcpy(host.image.data()+0x100,entry,sizeof(entry));
+    const uint32_t body[]{0x24080100,0x2508ffff,0x1500fffe,0, // bounded CPU work
+        0x03e00008,0x00a01021}; // reply = a1
+    std::memcpy(host.image.data()+0x200,body,sizeof(body));
+    const uint32_t imports[]{0x41e00000,0,0x101,0x63666973,0x0000646d,
+        0x03e00008,0x24000011,0,0};
+    std::memcpy(host.image.data()+0x300,imports,sizeof(imports));
+    ps2x::iop::detail::IopEmulator emulator(host);
+    Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0 && emulator.hasRpcServer(0x1234),
+            "RPC clock fixture did not register its server");
+    // Settle startup before measuring a full second at 48 kHz.
+    emulator.runEeCycles(8u*491520u);
+    std::array<int16_t,4096> pcm{};
+    emulator.readPcm(pcm.data(),pcm.size()/2);
+    const auto before=emulator.cycles();
+    ps2x::iop::RpcRequest request{};request.sid=0x1234;
+    size_t samples=0;
+    for(unsigned i=0;i<750;++i) {
+        Require(emulator.handleRpc(request).handled,"RPC clock fixture call failed");
+        emulator.runEeCycles(8u*49152u);
+        samples+=emulator.readPcm(pcm.data(),pcm.size()/2);
+    }
+    const auto elapsed=emulator.cycles()-before;
+    std::cout<<"IOP external RPC clock: cycles="<<elapsed<<" expected=36864000 PCM="<<samples<<" expected=48000\n";
+    if(!benchmark)Require(elapsed==36864000 && samples==48000,
+                         "External RPC work created extra IOP time and PCM");
+    emulator.reset();emulator.runEeCycles(8192);
+    Require(emulator.cycles()==1024,"Reset retained external RPC clock budget");
+}

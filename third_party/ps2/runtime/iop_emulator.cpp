@@ -134,7 +134,7 @@ namespace ps2x::iop::detail
             nextModuleId = 1;
             moduleCursor = kModuleLoadBase;
             totalCycles = 0;
-            cycleDebt = 0;
+            requestedCycles = 0;
             idleUntil = 0;
             totalInstructions = 0;
             profile.Reset();
@@ -638,13 +638,14 @@ namespace ps2x::iop::detail
 
         void runCycles(uint64_t cycles) noexcept
         {
-            // Guest callbacks are atomic and may finish beyond this slice.
-            // Charge their excess to later EE slices instead of running the
-            // sound hardware faster after every callback.
-            if(cycles<=cycleDebt) {cycleDebt-=cycles;return;}
-            cycles-=cycleDebt;
-            cycleDebt=0;
-            const uint64_t target = totalCycles + cycles;
+            // EE slices, synchronous RPCs, module entries and interrupt
+            // callbacks all share one IOP clock. A call outside runCycles can
+            // already have advanced it: repay that work before running more.
+            // A relative slice/debt only sees callbacks inside this method
+            // and silently adds every external RPC's cost to the audio rate.
+            requestedCycles += cycles;
+            const uint64_t target = requestedCycles;
+            if(totalCycles>=target)return;
             try
             {
                 // No ready thread and no event can change that state before
@@ -695,7 +696,6 @@ namespace ps2x::iop::detail
             {
                 // Runtime scheduling must never throw through EeScheduler::accountCycles().
             }
-            cycleDebt=totalCycles>target?totalCycles-target:0;
         }
 
         ModuleLoadResult loadImage(std::string path, std::span<const uint8_t> image, const void *arguments, uint32_t argumentSize)
@@ -830,7 +830,7 @@ namespace ps2x::iop::detail
         uint32_t nextModuleId = 1;
         uint32_t moduleCursor = kModuleLoadBase;
         uint64_t totalCycles = 0;
-        uint64_t cycleDebt = 0;
+        uint64_t requestedCycles = 0;
         uint64_t idleUntil = 0;
         uint64_t nextTimerCycle = UINT64_MAX;
         uint64_t totalInstructions = 0;

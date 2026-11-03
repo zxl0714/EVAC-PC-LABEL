@@ -196,12 +196,14 @@ int main(int argc,char** argv) {
         if(argc==2 && std::string_view(argv[1])=="--bench-idle") { IopIdleContract(true); return 0; }
         if(argc==2 && std::string_view(argv[1])=="--bench-dispatch") { IopDispatchBench(); return 0; }
         if(argc==2 && std::string_view(argv[1])=="--bench-clock") { IopClockBudgetContract(true); return 0; }
+        if(argc==2 && std::string_view(argv[1])=="--bench-rpc-clock") { IopRpcClockContract(true); return 0; }
         AudioBridge();
         ReadyElectionInvalidation();
         IopMailboxContract();
         IopFixedPoolContract();
         IopThreadArgumentsContract();
         IopRpcClientContract();
+        IopRpcClockContract();
         SysclibCharacterFlags();
         NopRetirement();
         AudioInsideGuestCall();

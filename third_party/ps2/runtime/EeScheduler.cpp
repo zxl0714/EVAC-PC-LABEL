@@ -301,6 +301,7 @@ void EeScheduler::run()
 
         try
         {
+            cave::ps2::frame_trace::SlowScope slow("ee-dispatch",context.pc);
             m_insideInterrupt = !running->invocations.empty() && running->invocations.back().kind == GuestInvocationKind::Interrupt;
             m_guestExecuting.store(true, std::memory_order_release);
             function(m_rdram, &context, &m_runtime);
