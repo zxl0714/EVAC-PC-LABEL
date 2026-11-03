@@ -12,8 +12,8 @@ another historical narrative or one-off input script.
 
 COMPLETE Nov04: v0.9.3 PROGRAM ZIP built and extracted once, all195files verified.
 User confirmed all3 manual checks passed: Ketsui launch/play/restart, ESPGaluda
-short play, launcher log upload. Release notes now under joint review; no GitHub
-publication/upload requested. Stop extra tests and do not rebuild this package.
+short play, launcher log upload. v0.9.3 published on GitHub as Latest at tag
+edecda2; GitHub ZIP digest matches the verified local ZIP. Stop extra tests.
 Package: releases/v0.9.3-local-38c854e/EVAC-PC-LABEL-v0.9.3-win-x64.zip
 154519952bytes; SHA256 870a149d1ed263dc2af23c3a7271677403ec3db032283150e8dbf06fa87d5cdd.
 Frozen package source62e28b0, runtime builds38c854e; later checkpoint docs do not
