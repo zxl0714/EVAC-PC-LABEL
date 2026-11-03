@@ -2,6 +2,7 @@
 #include "../../../backends/ps2/audio_trace.h"
 #include "../../../backends/ps2/spu_device.h"
 #include "../../../backends/ps2/pcm_queue.h"
+#include "../../../backends/ps2/pcm_playout.h"
 
 #include <algorithm>
 #include <cstring>
@@ -30,6 +31,7 @@ namespace ps2x::iop::detail
     public:
         cave::ps2::SpuDevice spu;
         cave::ps2::PcmQueue queue;
+        cave::ps2::PcmPlayout playout; // Audio-consumer thread only.
         std::array<uint16_t, 0x8000> writtenRegisters{};
         struct Dma { uint64_t bytes = 0; uint32_t address = 0; bool toSpu = false; bool decrement = false; };
         std::array<Dma, 2> dma{};
@@ -37,7 +39,7 @@ namespace ps2x::iop::detail
         static constexpr size_t QuantumFrames = 64;
         uint64_t nextCycle = CyclesPerFrame * QuantumFrames;
         uint64_t frames = 0, nonzero = 0, dropped = 0;
-        std::atomic<uint64_t> readFrames{}, underruns{};
+        std::atomic<uint64_t> readFrames{}, underruns{}, silentFrames{};
         std::array<int16_t, QuantumFrames * 2> samples{};
     };
 
@@ -47,7 +49,15 @@ namespace ps2x::iop::detail
         reset();
     }
 
-    IopMemory::~IopMemory() = default;
+    IopMemory::~IopMemory()
+    {
+        // One bounded exit record also covers reports from ordinary play.
+        std::cerr << "[ps2-audio-summary] produced_frames=" << m_audio->frames
+            << " nonzero_samples=" << m_audio->nonzero << " dropped_frames=" << m_audio->dropped
+            << " read_frames=" << m_audio->readFrames.load(std::memory_order_relaxed)
+            << " underrun_callbacks=" << m_audio->underruns.load(std::memory_order_relaxed)
+            << " missing_frames=" << m_audio->silentFrames.load(std::memory_order_relaxed) << '\n';
+    }
 
     void IopMemory::reset()
     {
@@ -69,6 +79,7 @@ namespace ps2x::iop::detail
         m_audio->frames = m_audio->nonzero = m_audio->dropped = 0;
         m_audio->readFrames.store(0, std::memory_order_relaxed);
         m_audio->underruns.store(0, std::memory_order_relaxed);
+        m_audio->silentFrames.store(0, std::memory_order_relaxed);
     }
 
     uint32_t IopMemory::physicalAddress(uint32_t address) noexcept
@@ -392,8 +403,12 @@ namespace ps2x::iop::detail
         auto output = std::span<int16_t>(static_cast<int16_t *>(stereo), frames * 2u);
         const auto read = m_audio->queue.Read(output);
         std::fill(output.begin() + read * 2u, output.end(), int16_t{});
+        m_audio->playout.Apply(output,read);
         m_audio->readFrames.fetch_add(read, std::memory_order_relaxed);
-        if (read < frames) m_audio->underruns.fetch_add(1, std::memory_order_relaxed);
+        if (read < frames) {
+            m_audio->underruns.fetch_add(1, std::memory_order_relaxed);
+            m_audio->silentFrames.fetch_add(frames - read, std::memory_order_relaxed);
+        }
         return read;
     }
 

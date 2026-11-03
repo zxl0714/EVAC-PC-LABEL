@@ -1,5 +1,6 @@
 #include "spu_device.h"
 #include "pcm_queue.h"
+#include "pcm_playout.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -150,6 +151,32 @@ void Benchmark() {
         std::cout<<voices<<",480000,"<<elapsed<<','<<peak<<','<<checksum<<'\n';
     }
 }
+void PcmPlayoutContract() {
+    cave::ps2::PcmPlayout playout;
+    std::array<int16_t,256> block;
+    for(size_t i=0;i<block.size();i+=2){block[i]=12000;block[i+1]=-6000;}
+    const auto normal=block;
+    playout.Apply(block,128);
+    Require(block==normal,"Ordinary PCM changed without an underrun");
+    block.fill(0);playout.Apply(block,0);
+    Require(block[0]>11000 && block[0]<12000 && block[1]<-5000,
+            "Empty callback cut the last stereo sample abruptly");
+    Require(block[126]==0 && block[127]==0 && block.back()==0,"Underrun ramp did not reach silence");
+    block.fill(0);playout.Apply(block,0);
+    Require(std::all_of(block.begin(),block.end(),[](auto x){return x==0;}),"Repeated underrun replayed old audio");
+    block=normal;playout.Apply(block,128);
+    Require(block[0]>0 && block[0]<200 && block[1]<0 && block[1]>-100,
+            "Recovery did not fade stereo samples in");
+    Require(block[126]==12000 && block[127]==-6000 && block[128]==12000,"Recovery ramp extended into steady PCM");
+    block=normal;std::fill(block.begin()+128,block.end(),0);playout.Apply(block,64);
+    Require(block[0]>11000 && block[126]==0 && block[127]==0 && block[128]==0,
+            "Partial callback did not fade its valid tail");
+    std::array<int16_t,32> shortBlock;shortBlock.fill(12000);playout.Apply(shortBlock,16);
+    Require(shortBlock[0]<200 && shortBlock.back()==3000,"Recovery progress was not preserved for short blocks");
+    block=normal;playout.Apply(block,128);
+    Require(block[0]>3000 && block[0]<3300 && block[96]==12000,"Split recovery ramp lost its position");
+    block=normal;playout.Apply(block,128);Require(block==normal,"Steady PCM did not become bit exact again");
+}
 void PcmQueueContract() {
     cave::ps2::PcmQueue queue;
     std::vector<int16_t> full(queue.CapacityFrames*2,0x1234),output(full.size());
@@ -195,7 +222,7 @@ void PcmQueueContract() {
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench")Benchmark();
-        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();PcmQueueContract();}
+        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();PcmQueueContract();PcmPlayoutContract();}
         else throw std::invalid_argument("Expected no argument, or --bench");
         return 0;
     }

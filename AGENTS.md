@@ -10,27 +10,56 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov03 v0.9.2 Ibara integration; stop after the program ZIP, before formal release.
-Workspace work/v090-resume. Original ISO/oldZIP/C:/evac-pc-label untouched. No subagents.
-Ibara actual ARCADE NORMAL, ARRANGE, practice Stage1 BOSS and Gallery verified.
-X confirms, Z backs/shoots, X bombs, Enter pauses. See MEMORY for timing recipes.
-Original menu transitions squash text: wait1.5s; do not reopen that false defect.
-Real retained fixes: original GS packet/env/double-buffer routines, raw GIF/VIF
-transport, IOP mailboxes/pools/import completion/disc services/SIF DMA completion,
-newlib memalign pairing. r7 generation fresh and strict,189 SDK stubs,clean edges.
-Removed temporary MC polling diagnostics. SAVE investigation found two native
-libmc defects: fd must start/reuse0; directory mode1 must advance, maxent-1 counts.
-New MemoryCard fixture passed read/write/reuse/count/pagination/EOF/errors.
-Actual save before directory fix wrote all3 files then failed its directory check.
-Next: final rebuild with .local/v092/ibara-r7/generated; SAVE + restart readback,
-short real-game audio/perf and G1 shared-runtime regression. No endless mode retests.
-Fresh r43 PID31604 closed normally; no game running. Audio ring files saved there.
-Catalogue/version/docs now enabled0.9.2; build not certified/staged, no ZIP yet.
-Package tests54pass/1skip, Ibara helpers3pass earlier; source audit in progress.
-Server reports accepts ibara, deployed/healthOK; do not redeploy unnecessarily.
-Final source commit, joint PS2 receipt/stage and launcher build needed. Reuse other
-engine receipts if inputs permit; package default programonly,no ROM/source/PDB.
-Preserve baseline newline style; diff-check with core.whitespace=cr-at-eol.
+ACTIVE Nov03 v0.9.2 Ibara plus three newly authorized player reports.
+Stop after a program-only ZIP, before formal publication. No subagents authorized.
+Current source759fc76; uncommitted PCM de-click output+tests in working tree.
+Ibara ARCADE/ARRANGE/practice Stage1BOSS/Gallery/controls passed. Actual SAVE and
+cold AUTO LOAD/ON readback PASSED with r7 in play-r44. save-success.png evidence.
+Native libmc fd0/reuse and directory pagination/count fixes authored tests passed.
+Original menu squashing is animation, not broken fonts. Never ship deinterlace hack.
+Raw GIF and original GS packet/env/doublebuffer constructors retained. Strict r7
+189 SDK stubs/clean edges. Final codegen tool changed during build; equivalence
+refresh for ALL G1 modules and Ibara now DONE via maintained scripts, source trees
+unchanged. No need re-generate or recompile all game bodies again.
+PS2 build completed both EXEs but receipt finish failed before fresh tool proofs;
+final NativeOnly certificate/stage pending (after commit). Latest PCM games relink
+.local/v092/build-audio-playout-games.log completed. No PS2 game running.
+Ibara r44PID12532 normal exit; audio mixed and loopback saved; 10s CPU sample was
+an idle/attract interval, NOT player CPU; do not put it in README. Frame log capped.
+Source suite986 ran: 7errors from helper missing authored fixture metadata and1old
+catalogue-state expectation. Fixed; corresponding38tests allpassed. Package54/1skip,
+Ibara3 tests passed. Source audit2933files noROM passed before PCM additions.
+Player reports downloaded privately .local/v092/server-reports, same nickname dmc:
+- Ketsui20261102-35d112730e824d36 v090 infinite loading. FileAttributeTagInfo fails
+  before save initialization, then libSceSaveDataDialog repeats5057times. GPU2060SUPER
+  supportsVulkan1.4; not CPU/Vulkan-too-old. Replaced guard with basic handle query
+  retaining dir/reparse checks; native failure now printsWin32code. Compiled/staged,
+  real save-store selftest42cases PASSED in ps4-save-contract-r2.log. Filesystem type
+  not logged; FAT/exFAT is plausible, not proven. Need small Ketsui actual boot check.
+- G2 20261102-5533ca6910934d59 v090 explosions visual glitch. IMPORTANT log identifies
+  dat12=Xbox360 mode,1V,RTX2060SUPER, clean user exit/noGPUerror. User has no more
+  scene/image info. Current running isolated G2 PID66312, root.local/v092/g2-play/
+  collection,window18486086,CUA g2Game. Fresh SYSTEMDATA created through3dialogs;
+  last action Z confirms creation. Next inspect actual menu, choose Xbox360/dat12,
+  representative explosions. No claimed fix yet; do not blind-disable1V or backend.
+- G1 20261103-20d7de17560c4f4f v091 stage-start crackles. Player hadvsync=true,
+  4koutput, early58ms shadercompile. Local g1-audio-r1 PID87160 CLOSED, copiedprofile,
+  actual Arcade first stage thenGameOver. No extra trace; normal-output counters:
+  10143552produced,34432dropped,55underruncallbacks/25120missingframes in~211s.
+  30sec actual WASAPI loopback captured, continuous/nonzero98.4%; source90sec ring.
+  Native readPcm cuts missing blocks directly to/from0. Added PcmPlayout64frame
+  (1.33ms) edge ramps ONLY on underflow/recovery, normal PCM bitexact/noqueue delay.
+  Native tests cover empty/partial/repeated underflow/stereo/split recovery passed.
+  Exit summary remains defaultonce to help future reports; no percallback disk logs.
+  Need short actual output sanity on final host; do not claim underlying stall gone.
+SDK and xbox360 built/staged successfully (logs build-sdk-final,build-xbox-final-r2).
+Launcher latest built/staged. PS4 newstorage build/stage done. Future packaging can
+reuse unrelated components; only joint PS2 receipt/stage and required actual checks.
+Serverreports whitelist ibara deployed/healthOK. NoZIP,externalpush/tag/upload yet.
+Goal still incomplete. Pending G2 investigation, final PS2 ordinary ISO launch + short
+G1 audio/shared regression, Ketsui boot, nativechecks, docs/release notes/package.
+Do not scan .local/v090 recursively: it contains530k generated files. Use known paths.
+Tools private record-loopback.py reused via PyAudioWPatch in.local/v090/audio-tools.
 
 Previous completed release checkpoint follows:
 
