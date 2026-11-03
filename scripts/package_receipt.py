@@ -57,6 +57,25 @@ class PackageInputs:
     def git(self, *args):
         return subprocess.check_output(['git', '-C', str(self.root), *args])
 
+    def xbox_catalogue_equivalent(self, origin, expected):
+        # Ibara is PS2-only. Its availability flags do not affect any Xbox
+        # executable; every other byte-level catalogue value must still match.
+        try:
+            old_bytes = self.git('show', origin + ':games/catalogue.json')
+            if hashlib.sha256(old_bytes).hexdigest() != expected:
+                return False
+            before = json.loads(old_bytes)
+            after = json.loads((self.root / 'games/catalogue.json').read_text(encoding='utf-8'))
+            for document in (before, after):
+                games = [game for game in document['games'] if game['id'] == 'ibara']
+                if len(games) != 1 or games[0]['backend'] != 'ps2':
+                    return False
+                games[0].pop('integrated')
+                games[0].pop('comingSoon')
+            return before == after
+        except (ValueError, KeyError, TypeError, subprocess.CalledProcessError):
+            return False
+
     def load(self, path, backend, games=None):
         reject_link(path)
         record = json.loads(Path(path).read_text(encoding='utf-8'))
@@ -85,13 +104,19 @@ class PackageInputs:
         files = source['files']
         if not isinstance(files, dict) or not files:
             raise ValueError('Missing maintained build inputs: ' + backend)
-        changed = [name for name in self.changes[origin] if relevant(backend, name, files)]
+        equivalent_catalogue = (backend == 'xbox360' and 'games/catalogue.json' in files and
+                                'games/catalogue.json' in self.changes[origin] and
+                                self.xbox_catalogue_equivalent(origin, files['games/catalogue.json']))
+        changed = [name for name in self.changes[origin] if relevant(backend, name, files)
+                   and not (equivalent_catalogue and name == 'games/catalogue.json')]
         if changed:
             raise ValueError('Rebuild ' + backend + ': changed input ' + changed[0])
         # This catches a build made from uncommitted input, and local edits to
         # a tracked submodule dependency, without reading generated trees/PDBs.
         for name, expected in files.items():
             relative(name)
+            if equivalent_catalogue and name == 'games/catalogue.json':
+                continue
             if not relevant(backend, name, files):
                 continue
             file = self.root / name

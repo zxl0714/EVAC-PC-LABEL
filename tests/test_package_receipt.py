@@ -115,3 +115,16 @@ class PackageReceiptTests(unittest.TestCase):
         self.write('common/shared.h', 'dirty')
         with self.assertRaisesRegex(ValueError, 'Commit source'):
             PackageInputs(self.root)
+
+    def test_xbox_catalogue_reuse_only_allows_ibara_availability_changes(self):
+        catalog = {'games': [dict(id='ibara', backend='ps2', integrated=True, comingSoon=False),
+                             dict(id='futari', backend='xbox360', integrated=True, comingSoon=False)]}
+        self.write('games/catalogue.json', json.dumps(catalog)); self.save()
+        origin = self.git('rev-parse', 'HEAD').strip().decode()
+        expected = hashlib.sha256((self.root/'games/catalogue.json').read_bytes()).hexdigest()
+        catalog['games'][0].update(integrated=False, comingSoon=True)
+        self.write('games/catalogue.json', json.dumps(catalog)); self.save()
+        self.assertTrue(PackageInputs(self.root).xbox_catalogue_equivalent(origin, expected))
+        catalog['games'][1]['integrated'] = False
+        self.write('games/catalogue.json', json.dumps(catalog)); self.save()
+        self.assertFalse(PackageInputs(self.root).xbox_catalogue_equivalent(origin, expected))
