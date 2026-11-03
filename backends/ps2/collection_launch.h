@@ -1,12 +1,17 @@
 #pragma once
 #include "native_host.h"
+#include "common/ps2_prepare.h"
 #include <filesystem>
 #include <memory>
 
 namespace cave::ps2 {
+struct CollectionGame {
+    std::string_view id, disc_sha256;
+    std::span<const Ps2PreparedFile> files;
+};
 class CollectionLaunch {
 public:
-    static std::unique_ptr<CollectionLaunch> Parse(int argc,char** argv);
+    static std::unique_ptr<CollectionLaunch> Parse(int argc,char** argv,const CollectionGame& game);
     ~CollectionLaunch();
     const std::filesystem::path& Elf() const;
     const std::filesystem::path& Disc() const;

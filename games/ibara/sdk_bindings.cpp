@@ -9,6 +9,8 @@
 #include <stdexcept>
 namespace {
 void BindSdk(PS2Runtime& runtime) {
+  if(!cave::ps2::BindSdkHandler(runtime,0x001474c8u,"sceGsGetGParam"))
+    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsGetGParam");
   if(!cave::ps2::BindSdkHandler(runtime,0x00146c48u,"sceDmaGetChan"))
     throw std::runtime_error("Cannot bind Ibara SDK handler: sceDmaGetChan");
   if(!cave::ps2::BindSdkHandler(runtime,0x00146c70u,"sceDmaReset"))
@@ -29,30 +31,10 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsResetGraph");
   if(!cave::ps2::BindSdkHandler(runtime,0x001474d8u,"sceGsResetPath"))
     throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsResetPath");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001475f0u,"sceGsSetDefDispEnv"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSetDefDispEnv");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00147968u,"sceGsPutDispEnv"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsPutDispEnv");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00147a28u,"sceGszbufaddr"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGszbufaddr");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00147af0u,"sceGsSetDefDrawEnv"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSetDefDrawEnv");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00147cd8u,"sceGsSetDefClear"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSetDefClear");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00147de0u,"sceGsPutDrawEnv"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsPutDrawEnv");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00147ec8u,"sceGsSetDefDBuff"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSetDefDBuff");
-  if(!cave::ps2::BindSdkHandler(runtime,0x00148160u,"sceGsSwapDBuff"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSwapDBuff");
   if(!cave::ps2::BindSdkHandler(runtime,0x001481c0u,"sceGsSyncV"))
     throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSyncV");
   if(!cave::ps2::BindSdkHandler(runtime,0x00148258u,"sceGsSyncPath"))
     throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSyncPath");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001485d0u,"sceGsSetDefLoadImage"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSetDefLoadImage");
-  if(!cave::ps2::BindSdkHandler(runtime,0x001487b8u,"sceGsSetDefStoreImage"))
-    throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSetDefStoreImage");
   if(!cave::ps2::BindSdkHandler(runtime,0x001488f8u,"sceGsSyncVCallback"))
     throw std::runtime_error("Cannot bind Ibara SDK handler: sceGsSyncVCallback");
   if(!cave::ps2::BindSdkHandler(runtime,0x00148aa0u,"SetGsCrt"))
@@ -401,7 +383,13 @@ void BindSdk(PS2Runtime& runtime) {
     throw std::runtime_error("Cannot bind Ibara SDK handler: __malloc_lock");
   if(!cave::ps2::BindSdkHandler(runtime,0x0015b0d8u,"__malloc_unlock"))
     throw std::runtime_error("Cannot bind Ibara SDK handler: __malloc_unlock");
-  std::cerr<<"[ps2-bindings] Ibara SDK: 196 handlers\n";
+  // Both aligned-allocation entry points must use the same host allocator as
+  // _malloc_r/_free_r; the guest implementation edits newlib chunk headers.
+  if(!cave::ps2::BindSdkHandler(runtime,0x00159fe0u,"memalign"))
+    throw std::runtime_error("Cannot bind Ibara SDK handler: memalign");
+  if(!cave::ps2::BindSdkHandler(runtime,0x0015a048u,"_memalign_r"))
+    throw std::runtime_error("Cannot bind Ibara SDK handler: _memalign_r");
+  std::cerr<<"[ps2-bindings] Ibara SDK ready\n";
 }
 }
 PS2_REGISTER_GAME_OVERRIDE("Ibara SLPM-66301 SDK","",0x00100008u,0xf9085060u,BindSdk)

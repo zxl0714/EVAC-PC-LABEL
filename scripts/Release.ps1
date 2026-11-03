@@ -2,11 +2,11 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Internal','Public')][string]$Flavor='Public',
-    [string]$Version='0.9.1',
+    [string]$Version='0.9.2',
     [string]$OutputDirectory,
     [hashtable]$DataDirectories=@{},
     [string]$FutariDlcDirectory,
-    [ValidateSet('all','futari','espgaluda2','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga','espgaluda')][string[]]$DataGames,
+    [ValidateSet('all','futari','espgaluda2','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga','espgaluda','ibara')][string[]]$DataGames,
     [ValidateSet('all','black-label','ver101')][string[]]$FutariContent,
     [switch]$Symbols
 )

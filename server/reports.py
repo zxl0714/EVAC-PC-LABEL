@@ -13,7 +13,7 @@ import zipfile
 MAX_ZIP = 32 * 1024 * 1024
 MAX_TEXT = 128 * 1024 * 1024
 GAMES = {'futari', 'espgaluda2', 'sdoj', 'guwange', 'ketsui', 'daioujou',
-         'esprade', 'feveron', 'garegga', 'espgaluda'}
+         'esprade', 'feveron', 'garegga', 'espgaluda', 'ibara'}
 EXTENSIONS = {'.json', '.jsonl', '.log', '.txt', '.csv', '.ini'}
 
 

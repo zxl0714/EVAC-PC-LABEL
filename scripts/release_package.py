@@ -27,7 +27,8 @@ V07_GAMES = (*V06_GAMES, 'guwange')
 V08_GAMES = (*V07_GAMES, 'feveron')
 V083_GAMES = (*V08_GAMES, 'garegga')
 V09_GAMES = (*V083_GAMES, 'espgaluda')
-PLACEMENT_GAMES = (*V09_GAMES, 'ibara')
+V092_GAMES = (*V09_GAMES, 'ibara')
+PLACEMENT_GAMES = V092_GAMES
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
@@ -78,7 +79,8 @@ def release_games(version):
         parts=version.split('-',1)[0].split('.')
         return V083_GAMES if len(parts)>2 and int(parts[2])>=3 else V08_GAMES
     if (major, minor) == (0, 9):
-        return V09_GAMES
+        parts=version.split('-',1)[0].split('.')
+        return V092_GAMES if len(parts)>2 and int(parts[2])>=2 else V09_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -225,7 +227,8 @@ def certified_runtime(selection=GAMES):
         ps4=inputs.load(ROOT/'out/ps4/build-receipt.json', 'ps4'),
         launcher=inputs.load(ROOT/'out/launcher/build-receipt.json', 'launcher'))
     if any(games[key]['backend'] == 'ps2' for key in selection):
-        records['ps2'] = inputs.load(ROOT/'out/ps2/build-receipt.json', 'ps2', ['espgaluda'])
+        ps2_games = [key for key in ('espgaluda', 'ibara') if key in selection]
+        records['ps2'] = inputs.load(ROOT/'out/ps2/build-receipt.json', 'ps2', ps2_games)
     commit = inputs.commit
     audit_source()
     xbox_names = {Path(name).name for key in xbox for name in games[key]['runtimeFiles'] if name.endswith(('.exe', '.dll'))}
@@ -233,7 +236,7 @@ def certified_runtime(selection=GAMES):
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
         launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb'})
-    selected['ps2'] = {'espgaluda.exe', 'espgaluda.pdb', 'SDL3.dll', 'SDL3.pdb'}
+    selected['ps2'] = {'SDL3.dll', 'SDL3.pdb'} | {game+suffix for game in ('espgaluda','ibara') if game in selection for suffix in ('.exe','.pdb')}
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:
@@ -778,7 +781,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V09_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V092_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()

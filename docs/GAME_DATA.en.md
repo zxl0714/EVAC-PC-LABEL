@@ -292,3 +292,17 @@ Use one of the supported versions listed above. The scan checks required files a
 ### Do I need to set up game data again after updating?
 
 Extracting a program update over the existing collection keeps its game data. If you move the collection, either move `game-data/` too or select the existing external folders again. Keep the entire `user-data/` folder for settings, saves, and replays. If an older installation still has `config.ini` at the root, keep it as well; the launcher moves it into `user-data/` automatically.
+
+### 鋳薔薇 — Ibara (ibara)
+
+PS2 Japanese release SLPM-66301, original ISO image.
+
+```text
+game-data/ibara/
+  README.txt
+  Ibara (Japan).iso
+```
+
+Any ISO filename is accepted. Extract ZIP archives first, then place the ISO here.
+Click **Refresh** and launch. **Game data…** can select an external folder.
+Saves and settings are stored in `user-data/ibara/`.

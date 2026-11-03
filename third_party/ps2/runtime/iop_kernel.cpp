@@ -4,6 +4,8 @@
 #include "emulator/iop_emulator_const.h"
 
 #include <algorithm>
+#include <sstream>
+#include "../../../backends/ps2/audio_trace.h"
 
 namespace ps2x::iop::detail
 {
@@ -31,9 +33,16 @@ namespace ps2x::iop::detail
         m_threads.clear();
         m_semaphores.clear();
         m_eventFlags.clear();
+        m_mailboxes.clear();
+        for (const auto &[id, pool] : m_fixedPools)
+            (void)m_memory.freeAllocation(pool.base);
+        m_fixedPools.clear();
         m_nextThreadId = 1;
         m_nextSemaphoreId = 1;
         m_nextEventFlagId = 1;
+        m_nextMailboxId = 1;
+        m_nextFixedPoolId = 1;
+        m_nextWaitOrder = 1;
         m_currentThread = nullptr;
     }
 
@@ -95,14 +104,33 @@ namespace ps2x::iop::detail
                 return true;
             }
             IopThread &thread = it->second;
+            const uint32_t argumentSize = ordinal == 7 ? cpu.gpr[5] : 0u;
+            std::vector<uint8_t> arguments(argumentSize <= thread.stackSize - 32u ? argumentSize : 0u);
+            if (argumentSize && (arguments.size() != argumentSize ||
+                !m_memory.readRam(cpu.gpr[6], arguments.data(), arguments.size())))
+            {
+                setV0(-403);
+                return true;
+            }
             thread.cpu = {};
             thread.cpu.pc = thread.entry;
             thread.cpu.gpr[4] = cpu.gpr[5];
             thread.cpu.gpr[5] = ordinal == 7 ? cpu.gpr[6] : 0u;
             thread.cpu.gpr[28] = cpu.gpr[28];
             thread.cpu.gpr[29] = alignUp(thread.stackBase + thread.stackSize, 16u) - 16u;
+            if (ordinal == 7)
+            {
+                const uint32_t argumentAddress = (thread.cpu.gpr[29] - argumentSize) & ~15u;
+                if (argumentSize) (void)m_memory.writeRam(argumentAddress, arguments.data(), arguments.size());
+                thread.cpu.gpr[5] = argumentAddress;
+                thread.cpu.gpr[29] = argumentAddress - 16u;
+            }
             thread.cpu.gpr[31] = kThreadReturnSentinel;
             thread.state = IopThreadState::Ready;
+            if (cave::ps2::audio_trace::enabled)
+                std::osyncstream(std::cerr) << "[ps2-iop-start-thread] id=" << id << " ordinal=" << ordinal
+                    << " entry=0x" << std::hex << thread.entry << " args=0x" << thread.cpu.gpr[4]
+                    << ",0x" << thread.cpu.gpr[5] << std::dec << '\n';
             setV0(0);
             return true;
         }
@@ -168,9 +196,14 @@ namespace ps2x::iop::detail
             if (it->second.state == IopThreadState::Sleep ||
                 it->second.state == IopThreadState::Delay ||
                 it->second.state == IopThreadState::Semaphore ||
-                it->second.state == IopThreadState::EventFlag)
+                it->second.state == IopThreadState::EventFlag ||
+                it->second.state == IopThreadState::Mailbox ||
+                it->second.state == IopThreadState::FixedPool)
             {
                 it->second.state = IopThreadState::Ready;
+                it->second.waitId = 0;
+                it->second.waitResultAddress = 0;
+                it->second.cpu.gpr[2] = static_cast<uint32_t>(-418);
             }
             setV0(0);
             return true;
@@ -326,6 +359,8 @@ namespace ps2x::iop::detail
         case IopThreadState::Delay:
         case IopThreadState::Semaphore:
         case IopThreadState::EventFlag:
+        case IopThreadState::Mailbox:
+        case IopThreadState::FixedPool:
             status = 0x04u;
             break;
         case IopThreadState::Suspended:
@@ -348,6 +383,8 @@ namespace ps2x::iop::detail
         m_memory.write32(outputAddress + 36u, thread.state == IopThreadState::Sleep ? 1u : thread.state == IopThreadState::Delay   ? 2u
                                                                                        : thread.state == IopThreadState::Semaphore ? 3u
                                                                                        : thread.state == IopThreadState::EventFlag ? 4u
+                                                                                       : thread.state == IopThreadState::Mailbox ? 5u
+                                                                                       : thread.state == IopThreadState::FixedPool ? 7u
                                                                                                                                    : 0u);
         m_memory.write32(outputAddress + 40u, static_cast<uint32_t>(thread.waitId));
         m_memory.write32(outputAddress + 44u, static_cast<uint32_t>(thread.wakeupCount));
@@ -658,6 +695,237 @@ namespace ps2x::iop::detail
         default:
             return false;
         }
+    }
+
+    bool IopKernel::dispatchMailboxImport(uint16_t ordinal, IopCpuState &cpu)
+    {
+        // PS2SDK thmsgbx ABI: receive/poll take (void **message, int mailbox).
+        if (ordinal < 4u || ordinal == 10u || ordinal > 12u)
+            return false;
+        m_readyCacheValid = false;
+        const auto result = [&](int value) { cpu.gpr[2] = static_cast<uint32_t>(value); };
+        if (ordinal == 4u)
+        {
+            const uint32_t attr = m_memory.read32(cpu.gpr[4]);
+            if (attr & ~5u)
+            {
+                result(-401);
+                return true;
+            }
+            const int id = static_cast<int>(m_nextMailboxId++);
+            m_mailboxes.emplace(id, Mailbox{attr, m_memory.read32(cpu.gpr[4] + 4u), {}});
+            result(id);
+            return true;
+        }
+        const bool receive = ordinal == 8u || ordinal == 9u;
+        const int id = static_cast<int>(cpu.gpr[receive ? 5 : 4]);
+        auto found = m_mailboxes.find(id);
+        if (found == m_mailboxes.end())
+        {
+            result(-410);
+            return true;
+        }
+        Mailbox &mailbox = found->second;
+        if (ordinal == 5u)
+        {
+            for (auto &[tid, thread] : m_threads)
+                if (thread.state == IopThreadState::Mailbox && thread.waitId == id)
+                {
+                    thread.state = IopThreadState::Ready;
+                    thread.waitId = 0;
+                    thread.waitResultAddress = 0;
+                    thread.cpu.gpr[2] = static_cast<uint32_t>(-425);
+                }
+            m_mailboxes.erase(found);
+        }
+        else if (ordinal == 6u || ordinal == 7u)
+        {
+            const uint32_t message = cpu.gpr[5];
+            IopThread *waiter = nullptr;
+            for (auto &[tid, thread] : m_threads)
+                if (thread.state == IopThreadState::Mailbox && thread.waitId == id)
+                {
+                    const bool samePriority = waiter && thread.priority == waiter->priority;
+                    if (!waiter || ((mailbox.attr & 1u) && thread.priority < waiter->priority) ||
+                        ((!(mailbox.attr & 1u) || samePriority) && thread.waitOrder < waiter->waitOrder))
+                        waiter = &thread;
+                }
+            if (waiter)
+            {
+                m_memory.write32(waiter->waitResultAddress, message);
+                waiter->waitResultAddress = 0;
+                waiter->waitId = 0;
+                waiter->state = IopThreadState::Ready;
+                waiter->cpu.gpr[2] = 0;
+            }
+            else
+            {
+                auto position = mailbox.messages.end();
+                if (mailbox.attr & 4u)
+                    position = std::find_if(mailbox.messages.begin(), mailbox.messages.end(),
+                        [&](uint32_t queued) { return m_memory.read8(message + 4u) < m_memory.read8(queued + 4u); });
+                mailbox.messages.insert(position, message);
+                // Kernel owns the packet link while it is in the mailbox.
+                for (size_t i = 0; i < mailbox.messages.size(); ++i)
+                    m_memory.write32(mailbox.messages[i], mailbox.messages[(i + 1u) % mailbox.messages.size()]);
+            }
+        }
+        else if (receive)
+        {
+            if (!mailbox.messages.empty())
+            {
+                m_memory.write32(cpu.gpr[4], mailbox.messages.front());
+                mailbox.messages.erase(mailbox.messages.begin());
+                if (!mailbox.messages.empty())
+                    m_memory.write32(mailbox.messages.back(), mailbox.messages.front());
+            }
+            else if (ordinal == 9u)
+            {
+                result(-424);
+                return true;
+            }
+            else if (!m_currentThread)
+            {
+                result(-100);
+                return true;
+            }
+            else
+            {
+                m_currentThread->state = IopThreadState::Mailbox;
+                m_currentThread->waitId = id;
+                m_currentThread->waitResultAddress = cpu.gpr[4];
+                m_currentThread->waitOrder = m_nextWaitOrder++;
+                cpu.yielded = true;
+            }
+        }
+        else // ReferMbxStatus / iReferMbxStatus
+        {
+            uint32_t waiting = 0;
+            for (const auto &[tid, thread] : m_threads)
+                waiting += thread.state == IopThreadState::Mailbox && thread.waitId == id;
+            const uint32_t output = cpu.gpr[5];
+            m_memory.write32(output, mailbox.attr);
+            m_memory.write32(output + 4u, mailbox.option);
+            m_memory.write32(output + 8u, waiting);
+            m_memory.write32(output + 12u, static_cast<uint32_t>(mailbox.messages.size()));
+            m_memory.write32(output + 16u, mailbox.messages.empty() ? 0u : mailbox.messages.front());
+            m_memory.write32(output + 20u, 0u);
+            m_memory.write32(output + 24u, 0u);
+        }
+        result(0);
+        return true;
+    }
+
+    bool IopKernel::dispatchFixedPoolImport(uint16_t ordinal, IopCpuState &cpu)
+    {
+        if (ordinal < 4u || ordinal == 10u || ordinal > 12u)
+            return false;
+        m_readyCacheValid = false;
+        const auto result = [&](int32_t value) { cpu.gpr[2] = static_cast<uint32_t>(value); };
+        if (ordinal == 4u)
+        {
+            FixedPool pool;
+            const uint32_t descriptor = cpu.gpr[4];
+            pool.attr = m_memory.read32(descriptor);
+            pool.option = m_memory.read32(descriptor + 4u);
+            pool.blockSize = m_memory.read32(descriptor + 8u);
+            const uint32_t blocks = m_memory.read32(descriptor + 12u);
+            if (pool.attr & ~0x201u) { result(-401); return true; }
+            if (!pool.blockSize || pool.blockSize > 0x1f0000u || !blocks ||
+                uint64_t(alignUp(pool.blockSize, 4u)) * blocks > 0x1f0000u)
+            { result(-403); return true; }
+            pool.stride = alignUp(pool.blockSize, 4u);
+            pool.base = m_memory.allocate(pool.stride * blocks, 4u);
+            if (!pool.base) { result(-400); return true; }
+            pool.allocated.resize(blocks);
+            const int id = static_cast<int>(m_nextFixedPoolId++);
+            m_fixedPools.emplace(id, std::move(pool));
+            result(id);
+            return true;
+        }
+        const int id = static_cast<int>(cpu.gpr[4]);
+        auto found = m_fixedPools.find(id);
+        if (found == m_fixedPools.end()) { result(-411); return true; }
+        FixedPool &pool = found->second;
+        if (ordinal == 5u)
+        {
+            for (auto &[tid, thread] : m_threads)
+                if (thread.state == IopThreadState::FixedPool && thread.waitId == id)
+                {
+                    thread.state = IopThreadState::Ready;
+                    thread.waitId = 0;
+                    thread.cpu.gpr[2] = static_cast<uint32_t>(-425);
+                }
+            (void)m_memory.freeAllocation(pool.base);
+            m_fixedPools.erase(found);
+        }
+        else if (ordinal >= 6u && ordinal <= 8u)
+        {
+            const auto free = std::find(pool.allocated.begin(), pool.allocated.end(), false);
+            if (free != pool.allocated.end())
+            {
+                const uint32_t address = pool.base + uint32_t(free - pool.allocated.begin()) * pool.stride;
+                *free = true;
+                result(static_cast<int32_t>(address));
+                return true;
+            }
+            if (ordinal != 6u) { result(-426); return true; }
+            if (!m_currentThread) { result(-100); return true; }
+            m_currentThread->state = IopThreadState::FixedPool;
+            m_currentThread->waitId = id;
+            m_currentThread->waitOrder = m_nextWaitOrder++;
+            cpu.yielded = true;
+        }
+        else if (ordinal == 9u)
+        {
+            const uint32_t address = cpu.gpr[5];
+            const uint32_t offset = address - pool.base;
+            if (address < pool.base || offset % pool.stride || offset / pool.stride >= pool.allocated.size() ||
+                !pool.allocated[offset / pool.stride])
+            { result(-438); return true; }
+            IopThread *waiter = nullptr;
+            for (auto &[tid, thread] : m_threads)
+                if (thread.state == IopThreadState::FixedPool && thread.waitId == id &&
+                    (!waiter || ((pool.attr & 1u) && thread.priority < waiter->priority) ||
+                     ((!(pool.attr & 1u) || thread.priority == waiter->priority) && thread.waitOrder < waiter->waitOrder)))
+                    waiter = &thread;
+            if (waiter)
+            {
+                waiter->state = IopThreadState::Ready;
+                waiter->waitId = 0;
+                waiter->cpu.gpr[2] = address;
+            }
+            else pool.allocated[offset / pool.stride] = false;
+        }
+        else
+        {
+            const uint32_t output = cpu.gpr[5];
+            uint32_t waiters = 0;
+            for (const auto &[tid, thread] : m_threads)
+                waiters += thread.state == IopThreadState::FixedPool && thread.waitId == id;
+            m_memory.write32(output, pool.attr);
+            m_memory.write32(output + 4u, pool.option);
+            m_memory.write32(output + 8u, pool.blockSize);
+            m_memory.write32(output + 12u, static_cast<uint32_t>(pool.allocated.size()));
+            m_memory.write32(output + 16u, static_cast<uint32_t>(std::count(pool.allocated.begin(), pool.allocated.end(), false)));
+            m_memory.write32(output + 20u, waiters);
+            for (unsigned offset = 24u; offset < 40u; offset += 4u) m_memory.write32(output + offset, 0);
+        }
+        result(0);
+        return true;
+    }
+
+    std::string IopKernel::debugState() const
+    {
+        std::ostringstream out;
+        for (const auto &[id, thread] : m_threads)
+            out << "[ps2-iop-thread] id=" << id << " state=" << int(thread.state)
+                << " priority=" << thread.priority << " wait=" << thread.waitId
+                << " entry=0x" << std::hex << thread.entry << std::dec
+                << " pc=0x" << std::hex << thread.cpu.pc << " ra=0x" << thread.cpu.gpr[31]
+                << " s0=0x" << thread.cpu.gpr[16] << " s1=0x" << thread.cpu.gpr[17]
+                << " v0=0x" << thread.cpu.gpr[2] << std::dec << '\n';
+        return out.str();
     }
 
     void IopKernel::sleepCurrent(IopCpuState &cpu)

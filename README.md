@@ -58,7 +58,7 @@ PS2 对比（PCSX2 2.8.2）：
 
 ### 运行环境
 
-使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳、空战之路、ESPGaluda 需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
+使用 Windows x64，并安装显卡厂商的正式驱动。虫姬二、G2、最大往生、狱门山需要 Direct3D 12；绊地狱、大往生、ESP Ra.De.、弹铳、空战之路、ESPGaluda、Ibara 需要显卡驱动支持 Vulkan 1.3。程序运行库随玩家包附带。
 
 PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 
@@ -85,12 +85,13 @@ PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 | 弾銃フィーバロン | 弹铳／Dangun Feveron | PS4，美版 CUSA06735，01.00 本体 |
 | バトルガレッガ Rev.2016 | 空战之路／Battle Garegga | PS4，韩版 CUSA10207，01.00 本体 |
 | エスプガルーダ | ESPGaluda | PS2，日版 SLPS-25352，原始 ISO |
+| 鋳薔薇 | Ibara | PS2，日版 SLPM-66301，原始 ISO |
 
 ### ISO／PKG／XBLA 怎么解包
 
 - **Xbox 360 ISO**：下载 [extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，使用 `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`。提取后应能直接看到 `default.xex`。
 - **PS4 PKG**：双击程序包中的 `tools/Extract-PS4.exe`，选择本体 PKG 和新输出目录，点击“Extract”。完成后点击“Open game files”，把里面的全部内容复制到对应的 `game-data/<游戏>/`。更新 PKG 用同一个工具另行解包，再把提取的全部内容覆盖进本体目录，替换同名文件。
-- **PS2 ISO**：将原始镜像直接放入 `game-data/espgaluda/`，保留原文件名，启动器会自动准备。
+- **PS2 ISO**：将原始镜像直接放入 `game-data/espgaluda/` 或 `game-data/ibara/`，保留原文件名，启动器会自动准备。
 
 保留整个 `tools/` 文件夹，解包依赖已随包提供。工具会提取游戏资源和 `sce_sys` 元数据；“Open game files”直接进入 `uroot/`，复制其中内容即可。详细步骤及脚本高级用法见[解包说明](docs/GAME_DATA.md#iso-和-pkg-解包)。
 
@@ -112,6 +113,7 @@ PS4 游戏会按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 | 弹铳 | `game-data/feveron/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | 空战之路 | `game-data/garegga/` | `eboot.bin`、各 `.prx` 及完整资源 |
 | ESPGaluda | `game-data/espgaluda/` | 原始 `.iso` 镜像 |
+| Ibara | `game-data/ibara/` | 原始 `.iso` 镜像 |
 
 只向需要的游戏目录放入完整文件，保留内部层级；其他目录留空即可。绊地狱可直接使用本体；安装 01.02 时，将更新目录内的内容覆盖到同一游戏根目录，详见[数据指南](docs/GAME_DATA.md)。
 
@@ -153,6 +155,8 @@ Xbox 360 ISO／PS4 PKG 需先提取为游戏文件；PS2 ISO 直接放入对应�
 | 上／North | Y | △ | V |
 
 射击、炸弹、换人等具体动作由各游戏内的按键设置决定。手柄和摇杆通过 SDL 接入，可使用其支持的 XInput、PlayStation 等设备。
+
+Ibara 菜单用 `X` 确认、`Z` 返回；游戏中默认 `Z` 射击、`X` 炸弹、`Enter` 暂停。
 
 空战之路默认：`V` 投币，`Enter` 开始，`C / S` 射击，`Z / A` 武器，`X` 阵型，`Backspace` 暂停菜单。快速存档按游戏模式分别保存。
 

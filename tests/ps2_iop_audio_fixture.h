@@ -10,7 +10,7 @@
 
 namespace {
 // Only the authored ELF image is visible to this host. No game/BIOS files.
-class AudioFixtureHost final : public ps2x::iop::IopHost {
+class AudioFixtureHost : public ps2x::iop::IopHost {
 public:
     std::vector<uint8_t> image;
     bool readGuest(uint32_t a,void* out,size_t n) const override {
@@ -78,6 +78,69 @@ void AudioInsideGuestCall() {
     emulator.reset();
     Require(emulator.readPcm(pcm.data(),256)==0,"IOP emulator reset retained PCM from an old module");
     std::cout<<"IOP guest-call DMA wait and PCM clock: PASS\n";
+}
+
+void IopImportLoadDelay() {
+    AudioFixtureHost host;host.image.resize(0x1100);
+    const uint8_t ident[]{0x7f,'E','L','F',1,1,1};
+    std::memcpy(host.image.data(),ident,sizeof(ident));
+    Put16(host.image,16,2);Put16(host.image,18,8);Put32(host.image,20,1);
+    Put32(host.image,24,0x10000);Put32(host.image,28,52);
+    Put16(host.image,40,52);Put16(host.image,42,32);Put16(host.image,44,1);Put16(host.image,46,40);
+    Put32(host.image,52,1);Put32(host.image,56,0x100);Put32(host.image,60,0x10000);
+    Put32(host.image,64,0x10000);Put32(host.image,68,0x1000);Put32(host.image,72,0x1000);
+    Put32(host.image,76,7);Put32(host.image,80,0x100);
+    const uint32_t code[]{0x27bdfff0,0xafbf0000,0x3c080001,0x35080400,
+        0x3c040001,0x34840420,0x0c004085,0x8d040000,
+        0x8fbf0000,0x27bd0010,0x03e00008,0};
+    std::memcpy(host.image.data()+0x100,code,sizeof(code));
+    Put32(host.image,0x300,0x41e00000);Put32(host.image,0x308,0x101);
+    std::memcpy(host.image.data()+0x30c,"sysclib",8);
+    Put32(host.image,0x314,0x03e00008);Put32(host.image,0x318,0x2400001b);
+    Put32(host.image,0x500,0x10440);std::memcpy(host.image.data()+0x540,"correct",8);
+    ps2x::iop::detail::IopEmulator emulator(host);
+    const auto loaded=emulator.loadModuleBuffer(0,nullptr,0);
+    Require(loaded.moduleId>0 && loaded.startResult==7,
+            "IOP native import observed the old argument before a JAL delay-slot load retired");
+    std::cout<<"IOP import veneer: caller delay-slot load reaches native strlen argument: PASS\n";
+}
+
+void IopSifDmaCompletion() {
+    class Host : public AudioFixtureHost {
+    public:
+        bool writeGuest(uint32_t a,const void* data,size_t n) override {
+            if(a>image.size() || n>image.size()-a)return false;
+            std::memcpy(image.data()+a,data,n);return true;
+        }
+    } host;
+    host.image.resize(0x1100);
+    const uint8_t ident[]{0x7f,'E','L','F',1,1,1};
+    std::memcpy(host.image.data(),ident,sizeof(ident));
+    Put16(host.image,16,2);Put16(host.image,18,8);Put32(host.image,20,1);
+    Put32(host.image,24,0x10000);Put32(host.image,28,52);
+    Put16(host.image,40,52);Put16(host.image,42,32);Put16(host.image,44,1);Put16(host.image,46,40);
+    Put32(host.image,52,1);Put32(host.image,56,0x100);Put32(host.image,60,0x10000);
+    Put32(host.image,64,0x10000);Put32(host.image,68,0x1000);Put32(host.image,72,0x1000);
+    Put32(host.image,76,7);Put32(host.image,80,0x100);
+    const uint32_t code[]{0x27bdfff0,0xafbf0000,
+        0x3c040001,0x34840400,0x24050001,0x3c060001,0x34c60200,
+        0x3c070001,0x34e70440,0x0c0040c5,0,
+        0x3c080001,0x35080440,0x8d090000,0,0x1120fffd,0,
+        0x2402002a,0x8fbf0000,0x27bd0010,0x03e00008,0};
+    std::memcpy(host.image.data()+0x100,code,sizeof(code));
+    const uint32_t callback[]{0x24080001,0xac880000,0x03e00008,0};
+    std::memcpy(host.image.data()+0x300,callback,sizeof(callback));
+    Put32(host.image,0x400,0x41e00000);Put32(host.image,0x408,0x101);
+    std::memcpy(host.image.data()+0x40c,"sifman",7);
+    Put32(host.image,0x414,0x03e00008);Put32(host.image,0x418,0x24000020);
+    Put32(host.image,0x500,0x10420);Put32(host.image,0x504,0x800);Put32(host.image,0x508,16);
+    Put32(host.image,0x520,0xdecafbad);
+    ps2x::iop::detail::IopEmulator emulator(host);
+    const auto result=emulator.loadModuleBuffer(0,nullptr,0);
+    Require(result.moduleId>0 && result.startResult==42,"SIF DMA interrupt callback never completed");
+    uint32_t copied{};std::memcpy(&copied,host.image.data()+0x800,4);
+    Require(copied==0xdecafbad,"SIF completion ran without copying its payload to EE");
+    std::cout<<"IOP SIF DMA: EE payload and completion callback: PASS\n";
 }
 
 void IopModuleArguments() {

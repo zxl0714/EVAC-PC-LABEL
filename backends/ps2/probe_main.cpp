@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <vector>
+#include <fstream>
 #include <chrono>
 #include <cmath>
 #include "frame_trace.h"
@@ -18,6 +19,11 @@
 #include "diagnostic_input.h"
 #include "audio_trace.h"
 #include "input_trace.h"
+#ifdef EVAC_PS2_IBARA
+#include "games/ibara/disc_files.h"
+#else
+#include "games/espgaluda/disc_files.h"
+#endif
 
 #ifdef EVAC_PS2_ESPGALUDA_MODULES
 extern const uint32_t g_ps2ArcadeFunctionTableBase, g_ps2ArcadeFunctionTableSlotCount;
@@ -27,6 +33,73 @@ extern PS2Runtime::RecompiledFunction g_ps2ArrangeFunctionTable[];
 #endif
 
 namespace {
+#ifdef EVAC_PS2_IBARA
+int ProbeIbaraTextGrid(const char* elf,const char* snapshot,bool sprites=false) {
+  PS2Runtime runtime;
+  if(!runtime.memory().initialize() || !runtime.loadELF(elf))
+    throw std::runtime_error("Cannot initialize original Ibara text-grid probe");
+  auto* ram=runtime.memory().getRDRAM();
+  std::ifstream input(snapshot,std::ios::binary);
+  if(!input.read(reinterpret_cast<char*>(ram),PS2_RAM_SIZE) || input.peek()!=std::char_traits<char>::eof())
+    throw std::runtime_error("Expected one complete EE RAM snapshot");
+  const auto word=[&](uint32_t address){uint32_t v;std::memcpy(&v,ram+address,4);return v;};
+  struct Call {float x,y;uint32_t u,v,color;};
+  std::vector<Call> expected;
+  for(unsigned row=0;row<41;++row)for(unsigned column=0;column<32;++column) {
+    const auto cell=word(0x3469b0+(row*32+column)*4);
+    if((cell&0xf0000000u)!=0xf0000000u && (!(cell&0x3ffu) || (cell&0x3ffu)==0x20u))continue;
+    uint32_t u,v,color;
+    if((cell&0xf0000000u)==0xf0000000u) {
+      const auto origin=word(0x44b160+((cell&0x3c00u)>>10)*4);
+      u=(origin>>16)+248-((cell&0x3e0u)>>2);v=origin+(cell&31u)*8;color=0x808080;
+    }else if((cell&0x3000000u)==0x3000000u) {
+      u=0x338-((cell&0x3e0u)>>2);v=(cell&31u)*8+0x100;color=(cell&0xfcfcfc00u)>>8;
+    }else {
+      const auto origin=word(0x338cb0);
+      u=(origin>>16)+248-((cell&0x3e0u)>>2);v=(origin&65535)+(cell&31u)*8;color=(cell&0xfcfcfc00u)>>8;
+    }
+    expected.push_back({float(int32_t(word(0x338d08)-word(0x338d2c))+int(row*8)),
+        float(int32_t(word(0x338d10)-word(0x338d30))+int(column*8)),u,v,color});
+  }
+  static std::vector<Call>* calls;calls=&expected;
+  static size_t count;count=0;
+  static PS2Runtime::RecompiledFunction original;original=sprites?runtime.lookupFunction(0x110b70):nullptr;
+  runtime.replaceFunction(0x110b70,[](uint8_t* memory,R5900Context* ctx,PS2Runtime* state) {
+    if(count>=calls->size())throw std::runtime_error("Text-grid emitted an extra sprite");
+    const auto& e=(*calls)[count++];
+    const auto reg=[&](unsigned index){return uint32_t(_mm_cvtsi128_si32(ctx->r[index]));};
+    if(ctx->f[12]!=e.x || ctx->f[13]!=e.y || ctx->f[14]!=8 || ctx->f[15]!=8 || reg(5)!=e.u || reg(6)!=e.v || reg(7)!=e.color) {
+      std::cerr<<"[ibara-text-grid] sprite="<<count<<" actual="<<ctx->f[12]<<','<<ctx->f[13]<<','<<ctx->f[14]<<','<<ctx->f[15]
+        <<','<<reg(5)<<','<<reg(6)<<','<<reg(7)<<" expected="<<e.x<<','<<e.y<<",8,8,"<<e.u<<','<<e.v<<','<<e.color<<'\n';
+      throw std::runtime_error("Original text-grid coordinate mismatch");
+    }
+    if(original) {
+      const auto word=[&](uint32_t a){uint32_t v;std::memcpy(&v,memory+a,4);return v;};
+      const auto object=word(0x3421b0+word(0x338afc)*4);
+      original(memory,ctx,state);
+      const auto coordinates=word(object+0x44);
+      std::array<float,4> actual{};std::memcpy(actual.data(),memory+coordinates+16,16);
+      const std::array<float,4> expected{float(e.v&255)/256.f,(256.f-float(e.u&255)-8.f)/256.f,
+          (float(e.v&255)+8.f)/256.f,(256.f-float(e.u&255))/256.f};
+      if(actual!=expected) {
+        std::cerr<<"[ibara-text-uv] object="<<std::hex<<object<<" coordinates="<<coordinates<<std::dec<<" actual=";
+        for(auto x:actual)std::cerr<<x<<',';std::cerr<<" expected=";for(auto x:expected)std::cerr<<x<<',';std::cerr<<'\n';
+        throw std::runtime_error("Original sprite texture-coordinate mismatch");
+      }
+    }else ctx->pc=reg(31);
+  });
+  static bool completed;completed=false;
+  runtime.replaceFunction(0x100010,[](uint8_t*,R5900Context*,PS2Runtime* state){completed=true;state->eeScheduler().requestStop();});
+  R5900Context context{};context.pc=0x112670;
+  context.r[4]=context.r[5]=_mm_cvtsi32_si128(7);
+  context.r[28]=_mm_cvtsi32_si128(0x33fcf0);context.r[29]=_mm_cvtsi32_si128(0x1fff000);context.r[31]=_mm_cvtsi32_si128(0x100010);
+  runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+  runtime.eeScheduler().reset(ram,context);runtime.eeScheduler().run();
+  if(!completed || count!=expected.size())throw std::runtime_error("Original text-grid probe did not complete");
+  std::cout<<"Original Ibara text grid: "<<count<<" sprite coordinates passed\n";
+  return 0;
+}
+#endif
 #ifdef EVAC_PS2_ESPGALUDA_MODULES
 int ProbeBootTransformCallbacks(const char* disc) {
   PS2Runtime runtime;
@@ -121,9 +194,11 @@ int ProbeArcadeResetCallbacks(const char* disc) {
 #ifdef EVAC_PS2_IBARA
 constexpr bool IsIbara=true;
 constexpr const char* WindowTitle="EVAC PC LABEL | Ibara";
+const cave::ps2::CollectionGame CollectionDefinition{"ibara","6e58b52aa5c03d45e413e8473be52a39205095e34a1bd58dae6bd852eb4fb1db",cave::ibara::DiscFiles};
 #else
 constexpr bool IsIbara=false;
 constexpr const char* WindowTitle="EVAC PC LABEL | ESPGaluda";
+const cave::ps2::CollectionGame CollectionDefinition{"espgaluda","d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f",cave::espgaluda::DiscFiles};
 #endif
 int ProbeIopHeapLifecycle(const char* elf) {
   PS2Runtime runtime;
@@ -405,6 +480,12 @@ template<uint32_t Address> struct Observe {
                <<" ra=0x"<<_mm_cvtsi128_si32(context->r[31])
                <<" sp=0x"<<_mm_cvtsi128_si32(context->r[29]);
       for(unsigned reg=4;reg<=11;++reg)line<<" a"<<(reg-4)<<"=0x"<<_mm_cvtsi128_si32(context->r[reg]);
+      if constexpr(IsIbara && (Address==0x1be620u || Address==0x1aa6d0u)) {
+        const auto path=uint32_t(_mm_cvtsi128_si32(context->r[Address==0x1be620u?6:5]))&0x1fffffffu;
+        line<<" source=";
+        for(unsigned i=0;path+i<PS2_RAM_SIZE && i<128 && memory[path+i];++i)
+          line<<char(memory[path+i]>=32 && memory[path+i]<127?memory[path+i]:'?');
+      }
       if(indexCopy) {
         line<<" sp=0x"<<_mm_cvtsi128_si32(context->r[29]);
         for(unsigned reg=16;reg<=23;++reg)line<<" s"<<(reg-16)<<"=0x"<<_mm_cvtsi128_si32(context->r[reg]);
@@ -468,7 +549,11 @@ int main(int argc,char** argv) {
   std::filesystem::path frameTimes;
   std::unique_ptr<cave::ps2::CollectionLaunch> collection;
   try {
-    collection=cave::ps2::CollectionLaunch::Parse(argc,argv);
+    collection=cave::ps2::CollectionLaunch::Parse(argc,argv,CollectionDefinition);
+#ifdef EVAC_PS2_IBARA
+    if(argc==4 && (std::string_view(argv[1])=="--probe-text-grid" || std::string_view(argv[1])=="--probe-text-sprites"))
+      return ProbeIbaraTextGrid(argv[2],argv[3],std::string_view(argv[1])=="--probe-text-sprites");
+#endif
 #ifdef EVAC_PS2_ESPGALUDA_MODULES
     if(argc==3 && std::string_view(argv[1])=="--probe-boot-transform-callbacks")
       return ProbeBootTransformCallbacks(argv[2]);
@@ -575,7 +660,7 @@ int main(int argc,char** argv) {
                  <<" cycle="<<snapshot.eeCycle<<" running="<<snapshot.runningThreadId;
         for(const auto& thread:snapshot.threads)
           std::cerr<<" thread="<<thread.id<<" pc=0x"<<std::hex<<thread.pc
-                   <<" ra=0x"<<thread.ra<<std::dec<<" status="<<int(thread.status)
+                   <<" ra=0x"<<thread.ra<<" sp=0x"<<thread.sp<<std::dec<<" status="<<int(thread.status)
                    <<" wait="<<int(thread.waitReason)<<" waitId="<<thread.waitId
                    <<" invocations="<<thread.invocationDepth;
         std::cerr<<'\n';
@@ -597,6 +682,16 @@ int main(int argc,char** argv) {
       AudioRingWatch::Bind(runtime);
     }
     if(traceAudio && !IsIbara)MusicCycle::Bind(runtime,musicCycle);
+    if(traceBoot && IsIbara) {
+      Observe<0x1be620u>::Bind(runtime);
+      Observe<0x148b80u>::Bind(runtime);
+      Observe<0x148be0u>::Bind(runtime);
+      Observe<0x1bd230u>::Bind(runtime);
+      Observe<0x1aaa70u>::Bind(runtime);
+      Observe<0x1aaa90u>::Bind(runtime);
+      Observe<0x1aa6d0u>::Bind(runtime);
+      Observe<0x1bcd20u>::Bind(runtime);
+    }
     if(traceBoot && !IsIbara) {
       Observe<0x27e6c0u>::Bind(runtime);
       Observe<0x27ed68u>::Bind(runtime);

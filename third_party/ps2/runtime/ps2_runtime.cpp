@@ -2435,7 +2435,11 @@ void PS2Runtime::run()
         ThreadNaming::SetCurrentThreadName("GameThread");
         try
         {
-            m_gs.setCommandBackend(m_nativeHost->CreateBackend());
+            auto backend = m_nativeHost->CreateBackend();
+            // The GPU backend owns GIF continuation state. CPU-reference
+            // IMAGE repair must not insert a second tag into that raw stream.
+            m_memory.setRawGifTransfers(bool(backend));
+            m_gs.setCommandBackend(std::move(backend));
             m_eeScheduler->reset(m_memory.getRDRAM(), m_cpuContext);
             m_eeScheduler->run();
             std::cerr<<"[ps2-exit-ee] trace="<<formatDispatchHistory()<<std::endl;

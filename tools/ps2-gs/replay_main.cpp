@@ -31,7 +31,7 @@ int wmain(int argc,wchar_t** argv) {
         if(argc<2)throw std::invalid_argument("Usage: ps2_gs_replay trace.evacgs [--seconds 1] [--warmup 1] [--iterations 1] [--trace-limit-mib 1024]");
         double seconds=1;unsigned warmup=1,minimum=1;
         uint64_t traceMib=1024;
-        std::filesystem::path inspectPath;
+        std::filesystem::path inspectPath,vramPath;
         for(int i=2;i<argc;i+=2) {
             if(i+1>=argc)throw std::invalid_argument("Missing replay option value");
             const std::wstring option(argv[i]);
@@ -40,6 +40,7 @@ int wmain(int argc,wchar_t** argv) {
             else if(option==L"--iterations")minimum=std::stoul(argv[i+1]);
             else if(option==L"--trace-limit-mib")traceMib=std::stoull(argv[i+1]);
             else if(option==L"--inspect-state")inspectPath=argv[i+1];
+            else if(option==L"--dump-vram")vramPath=argv[i+1];
             else throw std::invalid_argument("Unknown replay option");
         }
         if(!(seconds>=0 && seconds<=30) || warmup>10 || !minimum || minimum>10000)throw std::invalid_argument("Replay options out of range");
@@ -48,6 +49,7 @@ int wmain(int argc,wchar_t** argv) {
         if(inspect && (seconds!=0 || warmup!=0 || minimum!=1))
             throw std::invalid_argument("State inspection requires --seconds 0 --warmup 0 --iterations 1");
         if(inspect && std::filesystem::exists(inspectPath))throw std::invalid_argument("State output already exists");
+        if(!vramPath.empty() && std::filesystem::exists(vramPath))throw std::invalid_argument("VRAM output already exists");
         cave::ps2::GsTraceWorkload workload{std::filesystem::path(argv[1]),traceMib*1024ull*1024u};
         const auto source=workload.Stats();if(!source.frames)throw std::runtime_error("Trace contains no complete fields");
         // A microbench warms only the pipelines used by its workload. PGS's
@@ -77,6 +79,13 @@ int wmain(int argc,wchar_t** argv) {
         const double cpu=CpuMilliseconds()-cpuStart;
         const double wall=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
         if(inspect){states.flush();if(!states)throw std::runtime_error("Cannot write inspected states");}
+        if(!vramPath.empty()) {
+            std::vector<uint8_t> bytes(cave::ps2::GsDevice::VramBytes);
+            device.ReadbackVram(0,bytes);
+            std::ofstream output(vramPath,std::ios::binary);
+            output.write(reinterpret_cast<const char*>(bytes.data()),std::streamsize(bytes.size()));
+            if(!output)throw std::runtime_error("Cannot write VRAM output");
+        }
         const auto fields=iterations*source.frames;
         std::cout<<std::fixed<<std::setprecision(6)
             <<"{\"gpu\":"<<Quoted(device.GpuName())<<",\"iterations\":"<<iterations<<",\"fields\":"<<fields

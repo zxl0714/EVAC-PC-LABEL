@@ -294,3 +294,16 @@ PS2 将原始 ISO 放到对应游戏目录。Xbox 360 ISO／PS4 PKG 按上面的
 **更新程序时要重新放游戏吗？**
 
 在原合集目录覆盖更新会继续使用原有游戏数据。若换了安装位置，可保留原数据目录并重新选择；配置、存档和录像整体转移 `user-data/`。旧版根目录的 `config.ini` 若尚未迁移，也需一并保留，启动器会自动迁入新位置。
+
+### 鋳薔薇 / Ibara（ibara）
+
+PS2 日版 SLPM-66301，原始 ISO 镜像。
+
+```text
+game-data/ibara/
+  README.txt
+  Ibara (Japan).iso
+```
+
+ISO 文件名不限。ZIP 先解压得到 ISO，再放入此目录；点击“刷新”后启动。
+也可通过“游戏数据…”选择外部目录。存档和设置位于 `user-data/ibara/`。

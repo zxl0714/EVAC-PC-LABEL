@@ -1,5 +1,6 @@
 #include "runtime/gs/gs_frontend.h"
 #include "gs_command_backend.h"
+#include "audio_trace.h"
 #include "runtime/gs/gs_cpu_backend.h"
 #include "ps2_log.h"
 #include "runtime/ps2_memory.h"
@@ -1716,6 +1717,12 @@ uint32_t GS::pollCompletedEvents()
     m_privRegs->siglblid=ids;
     const uint32_t status=(completed.signal?1u:0u)|(completed.finish?2u:0u);
     m_privRegs->csr.fetch_or(status,std::memory_order_release);
+    if(cave::ps2::audio_trace::enabled) {
+        static unsigned logged=0;
+        if(++logged<=32)std::cerr<<"[ps2-gs-status] signal="<<completed.signal<<" finish="<<completed.finish
+          <<" payload="<<std::hex<<completed.signalPayload<<" csr="<<m_privRegs->csr.load()
+          <<" imr="<<m_privRegs->imr<<std::dec<<'\n';
+    }
     return status&~uint32_t(m_privRegs->imr>>8);
 }
 
@@ -1723,6 +1730,11 @@ uint32_t GS::afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous)
 {
     std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
     if (!m_commandBackend || !m_privRegs) return 0;
+    if(cave::ps2::audio_trace::enabled && (offset==0x1000u || offset==0x1010u)) {
+        static unsigned logged=0;
+        if(++logged<=64)std::cerr<<"[ps2-gs-priv-write] offset="<<std::hex<<offset<<" value="<<value
+          <<" csr="<<m_privRegs->csr.load()<<" imr="<<m_privRegs->imr<<std::dec<<'\n';
+    }
     if (offset==0x1000u)
     {
         if (value&0x200u)

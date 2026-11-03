@@ -2,6 +2,7 @@
 import json
 import shutil
 import uuid
+from pathlib import Path
 
 from project import ROOT, digest, reject_link, write_json_new
 from ps2_build_receipt import verify
@@ -32,8 +33,11 @@ def _stage_verified(receipt):
         if digest(target) != item['sha256']:
             raise ValueError('PS2 runtime copy failed verification')
         outputs.append(dict(path=target.relative_to(ROOT).as_posix(), bytes=item['bytes'], sha256=item['sha256']))
-    write_manifest('espgaluda', receipt, outputs)
-    return dict(games=['espgaluda'], stagedFiles=len(outputs) + 2, gameDataIncluded=False)
+    games = receipt.get('games', ['espgaluda'])
+    for game in games:
+        selected = [item for item in outputs if Path(item['path']).stem in (game, 'SDL3')]
+        write_manifest(game, receipt, selected)
+    return dict(games=games, stagedFiles=len(outputs) + 2*len(games), gameDataIncluded=False)
 
 
 if __name__ == '__main__':

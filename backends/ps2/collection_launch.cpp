@@ -2,7 +2,6 @@
 #include "common/launch.h"
 #include "common/ps2_prepare.h"
 #include "common/settings.h"
-#include "games/espgaluda/disc_files.h"
 #include <Windows.h>
 #include <DbgHelp.h>
 #include <array>
@@ -55,6 +54,7 @@ class CollectionLaunch::Impl {
 public:
     LaunchSpec spec;
     Settings settings;
+    std::string game;
     fs::path report,elf,disc,data,timings;
     std::unique_ptr<GameSession> session;
     HANDLE profileLock=INVALID_HANDLE_VALUE;
@@ -67,7 +67,7 @@ public:
 };
 CollectionLaunch::CollectionLaunch(std::unique_ptr<Impl> value):impl(std::move(value)){}
 CollectionLaunch::~CollectionLaunch()=default;
-std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv) {
+std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv,const CollectionGame& game) {
     bool requested=false;
     for(int i=1;i<argc;++i)if(std::string_view(argv[i]).starts_with("--collection_root"))requested=true;
     if(!requested)return {};
@@ -81,18 +81,19 @@ std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv) 
         Require(std::find(names.begin(),names.end(),key)!=names.end() && !value.empty() && options.emplace(key,value).second,
                 "Unknown or repeated PS2 launch argument");
     }
-    Require(options.at("--game_id")=="espgaluda" && options.at("--launch_contract")=="1","Unsupported PS2 game or contract");
+    Require(options.at("--game_id")==game.id && options.at("--launch_contract")=="1","Unsupported PS2 game or contract");
     const auto requestedRoot=FromUtf8(options.at("--collection_root"));
     const auto requestedData=FromUtf8(options.at("--game_data_root"));
     const auto requestedProfile=FromUtf8(options.at("--user_data_root"));
     Require(requestedRoot.is_absolute() && requestedData.is_absolute() && requestedProfile.is_absolute(),"PS2 collection paths must be absolute");
     const auto root=fs::canonical(requestedRoot);
-    Require(Resolve(root,requestedProfile.parent_path())==Resolve(root,root/"user-data/espgaluda"),"PS2 profile must stay under user-data/espgaluda");
+    Require(Resolve(root,requestedProfile.parent_path())==Resolve(root,root/"user-data"/game.id),"PS2 profile must stay under its game directory");
     const auto snapshot=Ini::ReadText(EnsureConfig(root));
     const auto ini=Ini::Parse(snapshot);
     auto value=std::make_unique<Impl>();
-    value->settings=ResolveSettings(ini,"espgaluda");
-    value->spec=PrepareLaunch(FindGame("espgaluda"),root,ini,Utf8(requestedProfile.filename()),requestedData);
+    value->game=game.id;
+    value->settings=ResolveSettings(ini,game.id);
+    value->spec=PrepareLaunch(FindGame(game.id),root,ini,Utf8(requestedProfile.filename()),requestedData);
     Require(value->spec.paths.profile==Resolve(root,requestedProfile),"PS2 profile differs from launch contract");
     const auto& paths=value->spec.paths;
     value->session=std::make_unique<GameSession>(root);
@@ -108,12 +109,12 @@ std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv) 
     Require(fs::create_directory(value->report),"PS2 run log already exists");
     WriteNew(value->report/"config.snapshot.ini",snapshot);
     Redirect(stdout,value->report/"stdout.log");Redirect(stderr,value->report/"stderr.log");
-    WriteNew(value->report/"run.ini","[run]\ngame=espgaluda\ncontract=1\npid="+std::to_string(GetCurrentProcessId())+
+    WriteNew(value->report/"run.ini","[run]\ngame="+value->game+"\ncontract=1\npid="+std::to_string(GetCurrentProcessId())+
         "\ndata="+Utf8(paths.data)+"\nprofile="+Utf8(paths.profile)+"\n");
-    const auto inspection=Inspect(FindGame("espgaluda"),root,paths.data,CheckLevel::Programs);
+    const auto inspection=Inspect(FindGame(game.id),root,paths.data,CheckLevel::Programs);
     Require(inspection.data_state==DataState::Unverified && !inspection.disc_image.empty(),"Supported PS2 ISO is missing");
     value->disc=inspection.disc_image;
-    value->data=PreparePs2Disc(paths,value->disc,"d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f",cave::espgaluda::DiscFiles);
+    value->data=PreparePs2Disc(paths,value->disc,game.disc_sha256,game.files);
     value->elf=value->data/"boot.elf";
     value->timings=value->report/"frame-times.csv";
     crashText=(value->report/"crash.txt").native();crashDump=(value->report/"crash.dmp").native();
@@ -129,13 +130,13 @@ NativeHostOptions CollectionLaunch::HostOptions()const {
     NativeHostOptions result;
     result.width=impl->settings.window_width;result.height=impl->settings.window_height;
     result.fullscreen=impl->settings.fullscreen;result.vsync=impl->settings.vsync;
-    result.gameId="espgaluda";result.keyboardConfig=impl->report/"config.snapshot.ini";
+    result.gameId=impl->game;result.keyboardConfig=impl->report/"config.snapshot.ini";
     result.gamepadEnabled=impl->settings.gamepad_enabled;result.deadzone=float(impl->settings.deadzone);
     result.volume=float(impl->settings.volume);return result;
 }
 void CollectionLaunch::Complete(int code) {
     if(impl->completed)return;
-    WriteNew(impl->report/"exit.ini","[exit]\ngame=espgaluda\ncode="+std::to_string(code)+
+    WriteNew(impl->report/"exit.ini","[exit]\ngame="+impl->game+"\ncode="+std::to_string(code)+
         "\nreason="+(code?"exception":"normal_exit")+"\n");impl->completed=true;
 }
 }

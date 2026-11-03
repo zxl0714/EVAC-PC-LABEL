@@ -21,6 +21,20 @@ from toolchain import tool_path, tool_snapshot
 BUILD = ROOT / 'out/ps2-tools'
 RECEIPT = ROOT / 'out/ps2/build-receipt.json'
 OUTPUTS = ('espgaluda.exe', 'espgaluda.pdb', 'SDL3.dll', 'SDL3.pdb')
+GAME_KEYS = {'espgaluda': 'PS2_GAME_GENERATED', 'ibara': 'PS2_IBARA_GENERATED'}
+
+
+def configured_games(values):
+    games = [game for game, key in GAME_KEYS.items() if values.get(key)]
+    if not games:
+        raise ValueError('PS2 certification requires a configured game')
+    return games
+
+
+def output_names(games):
+    if games not in (['espgaluda'], ['ibara'], ['espgaluda', 'ibara']):
+        raise ValueError('Invalid PS2 game selection')
+    return tuple(name for game in games for name in (game+'.exe', game+'.pdb')) + ('SDL3.dll', 'SDL3.pdb')
 
 
 def configuration(build=BUILD):
@@ -34,7 +48,7 @@ def configuration(build=BUILD):
         raise ValueError('PS2 certification requires the Release runtime with full game symbols and ThinLTO')
     if values.get('PS2_EXPERIMENTAL_LATE_INPUT') == 'ON':
         raise ValueError('Reconfigure the PS2 build to replace its retired experimental input policy')
-    if values.get('PS2_ESPGALUDA_INPUT_ORDER') != INPUT_ORDER_POLICY:
+    if (not values.get('PS2_IBARA_GENERATED') or values.get('PS2_GAME_GENERATED')) and values.get('PS2_ESPGALUDA_INPUT_ORDER') != INPUT_ORDER_POLICY:
         raise ValueError('PS2 certification requires the reviewed ESPGaluda input order')
     for key, tool in (('CMAKE_C_COMPILER', 'clang-cl'), ('CMAKE_CXX_COMPILER', 'clang-cl'),
                       ('CMAKE_MAKE_PROGRAM', 'ninja')):
@@ -43,7 +57,7 @@ def configuration(build=BUILD):
     return values
 
 
-def generation(values, refresh=False):
+def espgaluda_generation(values, refresh=False):
     output = Path(values['PS2_GAME_GENERATED']).parent.parent
     identities = {}
     inputs = generate_all(output, source_identities=identities, refresh=refresh)
@@ -57,6 +71,22 @@ def generation(values, refresh=False):
         raise ValueError('PS2 build requires all reviewed base and extension modules')
     return dict(plan=digest(output / 'plan.json'), stages=digest(Path(inputs['stages'])),
                 extras=digest(Path(inputs['extras'])), sources=[identities[str(p)] for p in directories])
+
+
+def generation(values, refresh=False):
+    games = configured_games(values)
+    result = {}
+    if 'espgaluda' in games:
+        result['espgaluda'] = espgaluda_generation(values, refresh)
+    if 'ibara' in games:
+        from ps2_ibara import generate_all as generate_ibara
+        output = Path(values['PS2_IBARA_GENERATED']).parent
+        identities = {}
+        generated = generate_ibara(output, refresh=refresh, source_identities=identities)
+        if Path(generated['ibara']).resolve() != Path(values['PS2_IBARA_GENERATED']).resolve():
+            raise ValueError('PS2 build mixes different Ibara inputs')
+        result['ibara'] = dict(plan=digest(output/'plan.json'), sources=[identities[str(output/'generated')]])
+    return result
 
 
 def snapshot(refresh=False):
@@ -75,8 +105,8 @@ def snapshot(refresh=False):
     for raw in sorted(set(names)):
         name = raw.decode('utf-8')
         if name and (name in explicit or name.startswith(('backends/ps2/', 'third_party/ps2/',
-                'tools/ps2/', 'tools/ps2-gs/', 'common/', 'games/espgaluda/', 'backends/ps4/input/'))
-                or name.startswith(('scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda',
+                'tools/ps2/', 'tools/ps2-gs/', 'common/', 'games/espgaluda/', 'games/ibara/', 'backends/ps4/input/'))
+                or name.startswith(('scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara',
                                     'tests/ps2_', 'tests/test_ps2_'))
                 or name in ('backends/ps4/community/protocol.cpp','backends/ps4/community/protocol.h',
                             'backends/ps4/config/ini_sections.h')
@@ -91,19 +121,23 @@ def snapshot(refresh=False):
         raise ValueError('PS2 graphics build view differs from its pinned sources')
     flags={key:values.get(key,'') for key in ('CMAKE_C_FLAGS_RELEASE','CMAKE_CXX_FLAGS_RELEASE',
                                              'CMAKE_EXE_LINKER_FLAGS','CMAKE_SHARED_LINKER_FLAGS')}
+    games = configured_games(values)
     state = dict(files=files, dependencies=dependencies, tools=tool_snapshot(ROOT), flags=flags,
-                 generated=generation(values,refresh=refresh), graphics=declared, buildType='Release', game='espgaluda',
-                 inputOrder=verify_input_order(values['PS2_GAME_GENERATED'],BUILD/'espgaluda-input-order'))
-    generated_root = Path(values['PS2_GAME_GENERATED']).parent.parent
-    state['functionTables'] = [verify_function_table(path/'register_functions.cpp', BUILD/'function-tables')
-                               for path in sorted(generated_root.glob('module-*/base-generated'))]
+                 generated=generation(values,refresh=refresh), graphics=declared, buildType='Release', games=games)
+    if 'espgaluda' in games:
+        state['inputOrder'] = verify_input_order(values['PS2_GAME_GENERATED'],BUILD/'espgaluda-input-order')
+        generated_root = Path(values['PS2_GAME_GENERATED']).parent.parent
+        state['functionTables'] = [verify_function_table(path/'register_functions.cpp', BUILD/'function-tables')
+                                   for path in sorted(generated_root.glob('module-*/base-generated'))]
+    if 'ibara' in games:
+        state['ibaraFunctionTable'] = verify_function_table(Path(values['PS2_IBARA_GENERATED'])/'register_functions.cpp', BUILD/'function-tables')
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
 
 
 def completed_outputs():
     outputs = []
-    for stem, suffix in (('espgaluda', '.exe'), ('SDL3', '.dll')):
+    for stem, suffix in [(game, '.exe') for game in configured_games(configuration())] + [('SDL3', '.dll')]:
         binary, symbols = BUILD / 'bin' / (stem + suffix), BUILD / 'bin' / (stem + '.pdb')
         pe = subprocess.check_output([str(tool_path('readobj', ROOT)), '--coff-debug-directory', str(binary)]).decode()
         pdb = subprocess.check_output([str(tool_path('pdbutil', ROOT)), 'dump', '-summary', str(symbols)]).decode()
@@ -119,11 +153,11 @@ def completed_outputs():
 
 def verify():
     record = json.loads(RECEIPT.read_text(encoding='utf-8'))
-    if record.get('format') != 1 or record.get('backend') != 'ps2' or record.get('games') != ['espgaluda']:
+    if record.get('format') != 1 or record.get('backend') != 'ps2' or record.get('games') not in (['espgaluda'], ['ibara'], ['espgaluda', 'ibara']):
         raise ValueError('Invalid PS2 build receipt identity')
     if record['sourceSnapshot'] != snapshot():
         raise ValueError('PS2 inputs changed; rebuild before staging')
-    expected = {'out/ps2-tools/bin/' + name for name in OUTPUTS}
+    expected = {'out/ps2-tools/bin/' + name for name in output_names(record['games'])}
     if len(record['outputs']) != len(expected) or {item['path'] for item in record['outputs']} != expected:
         raise ValueError('Incomplete PS2 build receipt')
     for item in record['outputs']:
@@ -144,14 +178,14 @@ def verify_package():
     commit = subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD']).decode().strip()
     dirty = subprocess.check_output(['git','-C',str(ROOT),'status','--porcelain'])
     if (record.get('format') != 1 or record.get('backend') != 'ps2' or
-            record.get('games') != ['espgaluda'] or record.get('sourceCommit') != commit or
+            record.get('games') not in (['espgaluda'], ['ibara'], ['espgaluda', 'ibara']) or record.get('sourceCommit') != commit or
             record.get('sourceDirty') is not False or dirty):
         raise ValueError('PS2 package requires its certified clean source commit')
     source = dict(record['sourceSnapshot'])
     declared = source.pop('sha256', None)
     if declared != hashlib.sha256(json.dumps(source,sort_keys=True).encode()).hexdigest():
         raise ValueError('PS2 source certificate is inconsistent')
-    expected = {'out/ps2-tools/bin/' + name for name in OUTPUTS}
+    expected = {'out/ps2-tools/bin/' + name for name in output_names(record['games'])}
     if len(record['outputs']) != len(expected) or {item['path'] for item in record['outputs']} != expected:
         raise ValueError('Incomplete PS2 build receipt')
     for item in record['outputs']:
@@ -186,7 +220,7 @@ def main():
         after = snapshot()
         if before != after:
             raise ValueError('PS2 inputs changed during build')
-        record = dict(format=1, backend='ps2', games=['espgaluda'], sourceSnapshot=after,
+        record = dict(format=1, backend='ps2', games=after.get('games', ['espgaluda']), sourceSnapshot=after,
             outputs=completed_outputs(), sourceCommit=subprocess.check_output(
                 ['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).decode().strip(),
             sourceDirty=bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'])))
@@ -197,7 +231,7 @@ def main():
         if args.stage:
             from stage_ps2 import _stage_verified
             print(json.dumps(_stage_verified(record),indent=2))
-    print('PS2 runtime receipt verified; two matching binary/PDB pairs.')
+    print('PS2 runtime receipt verified; matching player binaries and private symbols.')
 
 
 if __name__ == '__main__':

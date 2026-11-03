@@ -1,6 +1,8 @@
 #pragma once
 
 #include "ps2x/iop/iop_host.h"
+#include "iop_ee_rpc.h"
+#include "iop_disc_host.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -12,7 +14,7 @@ namespace ps2x::iop { class IopSubsystem; }
 class PS2Runtime;
 struct R5900Context;
 
-class PS2IopHostAdapter final : public ps2x::iop::IopHost
+class PS2IopHostAdapter final : public ps2x::iop::IopHost, public cave::ps2::EeRpcHost, public cave::ps2::IopDiscHost
 {
 public:
     class CallScope
@@ -87,6 +89,10 @@ public:
                              uint32_t a3,
                              uint32_t *resultAddress) override;
     bool sendSifCommand(uint32_t commandId, const void *packet, size_t packetSize) override;
+    bool FindDiscFile(std::string_view path,uint32_t& lba,uint32_t& size) const override;
+    uint32_t FindEeRpc(uint32_t sid) const override;
+    bool QueueEeRpc(uint32_t server, uint32_t function, std::span<const uint8_t> request,
+                    uint32_t receiveSize, std::function<void(std::span<const uint8_t>)> complete) override;
 
     void log(ps2x::iop::LogLevel level, std::string_view message) override;
 
@@ -107,6 +113,7 @@ private:
     {
         std::FILE *stream = nullptr;
         uint64_t size = 0u;
+        uint64_t base = 0u;
     };
     mutable std::mutex m_hostFileMutex;
     std::unordered_map<uint64_t, HostFile> m_hostFiles;

@@ -67,6 +67,7 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 #include "ps2_gs_sdk_fixture.h"
 #include "ps2_timer_fixture.h"
 #include "ps2_dma_chain_fixture.h"
+#include "ps2_memcard_fixture.h"
 int main(int argc,char** argv) {
   try {
     if(argc==5 && std::string_view(argv[1])=="--replay-dma") {
@@ -219,6 +220,15 @@ int main(int argc,char** argv) {
     const std::array<PS2Runtime::RecompiledFunction,2> table{ModuleEntry,nullptr};
     runtime.registerStaticModule({16,0x200000,64,16,16,0x200040,table});
     Require(runtime.registerFunction(0x100000,BootEntry),"Boot function registration failed");
+    descriptor[1]=0x100000;
+    const auto started=create(127);
+    SET_GPR_U32(&context,4,started);SET_GPR_U32(&context,5,0x12345678u);
+    ps2_syscalls::StartThread(memory.data(),&context,&runtime);
+    Require(Result(context)==started && scheduler.thread(started)->arg==0x12345678u,
+            "EE StartThread must return its thread ID on success");
+    SET_GPR_U32(&context,4,started);
+    ps2_syscalls::StartThread(memory.data(),&context,&runtime);
+    Require(Result(context)==-414,"Starting an active EE thread lost its error result");
     Require(runtime.hasFunction(0x100000) && !runtime.hasFunction(0x200040),
             "Unloaded bank affected boot lookup");
     const std::array<uint32_t,6> moduleHeader{0x336f574d,16,0x200000,64,16,16};
@@ -238,6 +248,7 @@ int main(int argc,char** argv) {
               0x200044,0x200048,PS2Runtime::GuestBranchKind::DirectCall,"JAL") &&
             context.pc==0x200048 && runtime.lookupFunction(0x200040)==OtherModuleEntry,
             "Native caller continued after its guest code bank was replaced");
+    MemoryCardHandles(runtime);
     VifImageContinuation(runtime.memory());
     GsMmioCompletions(runtime.memory());
     GsSdkDisplay(runtime);

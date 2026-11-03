@@ -10,7 +10,10 @@ function Invoke-CertifiedEspgaludaBuild {
     Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_recomp','--parallel',"$Jobs")
     $taskReceiptState=Join-Path $CollectionRoot ('.local/build-inputs/ps2-'+[guid]::NewGuid().ToString('N')+'.json')
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskReceiptState)
-    Invoke-Checked $cmake @('--build',$taskBuild,'--target','ps2_espgaluda_probe','--parallel',"$Jobs")
+    $taskTargets=@('--build',$taskBuild,'--target','ps2_espgaluda_probe')
+    if(Select-String -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt') -Pattern '^PS2_IBARA_GENERATED:PATH=.+'){$taskTargets+='ps2_ibara_probe'}
+    $taskTargets+=@('--parallel',"$Jobs")
+    Invoke-Checked $cmake $taskTargets
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskReceiptState,'--stage')
 }
 if($NativeOnly) {

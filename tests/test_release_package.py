@@ -683,6 +683,30 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual((root/'game-data/espgaluda/original.iso').read_bytes(),b'abc')
         self.check_build_flavors('0.9.0',check)
 
+    def test_v092_adds_ibara_with_shared_ps2_runtime_and_separate_data(self):
+        self.assertEqual(release.release_games('0.9.1'),release.V09_GAMES)
+        self.assertEqual(release.release_games('0.9.2'),release.V092_GAMES)
+        def check(root,games,commit,inspect):
+            public=release.build('Public','0.9.2',root/'releases/program')
+            inspect.assert_not_called()
+            directory=Path(public['directory'])
+            record=release.verify_tree(directory,games)
+            self.assertEqual(record['games'],list(release.V092_GAMES))
+            self.assertEqual(record['dataGames'],[])
+            for game in ('espgaluda','ibara'):
+                self.assertTrue((directory/('runtime/ps2/'+game+'.exe')).is_file())
+                self.assertTrue((directory/('runtime/games/'+game+'/runtime-manifest.ini')).is_file())
+                self.assertEqual({p.name for p in (directory/'game-data'/game).iterdir()},{'README.txt'})
+            self.assertEqual(len(list((directory/'runtime/ps2').glob('SDL3.dll'))),1)
+            self.assertFalse((directory/'source').exists())
+            self.assertFalse(list(directory.rglob('*.pdb')))
+            internal=release.build('Internal','0.9.2',root/'releases/internal',data_games=['ibara'])
+            installed=Path(internal['directory'])
+            self.assertTrue((installed/'game-data/ibara/disc.iso').is_file())
+            self.assertFalse((installed/'game-data/espgaluda/disc.iso').exists())
+            self.assertFalse((installed/'game-data/ibara/inner-boot').exists())
+        self.check_build_flavors('0.9.2',check)
+
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
         (base/'asset.bin').write_bytes(b'abc')
@@ -929,11 +953,12 @@ class ReleaseTests(unittest.TestCase):
         games={key:dict(id=key,backend='ps4' if key in ('ketsui','daioujou','esprade','feveron','garegga') else 'xbox360',files=[identity],content=[],runtimeFiles=[
             'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
-        if 'espgaluda' in games:
-            games['espgaluda'].update(backend='ps2', files=[dict(identity,path='inner-boot',program=True),
+        for ps2_game in ('espgaluda','ibara'):
+            if ps2_game not in games:continue
+            games[ps2_game].update(backend='ps2', files=[dict(identity,path='inner-boot',program=True),
                                                          dict(identity,path='disc.iso',program=False)])
-            games['espgaluda']['runtimeFiles'][0]='runtime/ps2/espgaluda.exe'
-            games['espgaluda']['runtimeFiles'].append('runtime/ps2/SDL3.dll')
+            games[ps2_game]['runtimeFiles'][0]='runtime/ps2/'+ps2_game+'.exe'
+            games[ps2_game]['runtimeFiles'].append('runtime/ps2/SDL3.dll')
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
         for name in release.runtime_names(games,True,selection,version):
@@ -950,7 +975,7 @@ class ReleaseTests(unittest.TestCase):
             (root/game['runtimeFiles'][1]).write_text('[runtime]\ncontract=1\ngame='+key+'\nsource_commit='+commit+
                 '\n[files]\n'+file_lines,encoding='utf-8')
             data=root/'game-data'/key;data.mkdir(parents=True);(data/'main.bin').write_bytes(b'abc')
-            if key=='espgaluda':(data/'original.iso').write_bytes(b'abc')
+            if key in ('espgaluda','ibara'):(data/'original.iso').write_bytes(b'abc')
             if key in ('daioujou', 'esprade', 'feveron'):
                 (data/'Project.gp4').write_bytes(b'authored packaging-only file')
         (root/'dlc').mkdir();(root/'dlc/fixture-dlc.bin').write_bytes(b'abc')

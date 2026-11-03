@@ -17,7 +17,7 @@ from project import digest, reject_link
 # build inputs; don't silently bless a new build system or a new shared source.
 PACKAGING = {'scripts/release_package.py', 'scripts/package_receipt.py'}
 ISOLATED_PS2 = ('backends/ps2/', 'third_party/ps2/', 'tools/ps2/', 'tools/ps2-gs/',
-                'scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'games/espgaluda/')
+                'scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara', 'games/espgaluda/', 'games/ibara/')
 ISOLATED_PS4 = ('backends/ps4/', 'third_party/ps4/', 'scripts/ps4/', 'scripts/ps4_',
                 'scripts/Build-Ps4', 'tools/ps4', 'games/ketsui/', 'games/daioujou/',
                 'games/esprade/', 'games/feveron/', 'games/garegga/')

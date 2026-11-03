@@ -203,13 +203,17 @@
       "name": "Ibara",
       "nameJapanese": "鋳薔薇",
       "backend": "ps2",
-      "integrated": false,
-      "comingSoon": true,
+      "integrated": true,
+      "comingSoon": false,
       "communitySupported": false,
       "dataDirectory": "game-data/ibara",
-      "dataManifest": "",
+      "dataManifest": "ibara/data.json",
       "executable": "runtime/ps2/ibara.exe",
-      "runtimeFiles": []
+      "runtimeFiles": [
+        "runtime/ps2/ibara.exe",
+        "runtime/ps2/SDL3.dll",
+        "runtime/games/ibara/runtime-manifest.ini"
+      ]
     }
   ]
 }

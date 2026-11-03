@@ -166,9 +166,15 @@ if(PS2_BUILD_RUNTIME)
     "${IOP_SOURCE_VIEW}/emulator/core/iop_kernel.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.h"
     "${IOP_SOURCE_VIEW}/emulator/iop_emulator.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_rpc.h"
+    "${IOP_SOURCE_VIEW}/emulator/services/iop_rpc.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_ioman.h"
+    "${IOP_SOURCE_VIEW}/emulator/imports/iop_ioman.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
     "${IOP_SOURCE_VIEW}/ps2x/iop/iop_subsystem.h" COPYONLY)
   get_target_property(IOP_SOURCES ps2_iop SOURCES)
+  list(REMOVE_ITEM IOP_SOURCES "src/emulator/services/iop_rpc.cpp")
+  list(REMOVE_ITEM IOP_SOURCES "src/emulator/imports/iop_ioman.cpp" "src/emulator/imports/iop_cdvd.cpp")
   list(REMOVE_ITEM IOP_SOURCES "src/emulator/core/iop_memory.cpp" "src/emulator/services/iop_module_loader.cpp"
     "src/emulator/iop_emulator.cpp" "src/iop_subsystem.cpp" "src/emulator/imports/iop_sysclib.cpp"
     "src/emulator/core/iop_cpu.cpp" "src/emulator/core/iop_kernel.cpp")
@@ -178,6 +184,9 @@ if(PS2_BUILD_RUNTIME)
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_cpu.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_kernel.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_rpc.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_ioman.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_cdvd.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/iop_sysclib.cpp")
@@ -199,6 +208,8 @@ if(PS2_BUILD_RUNTIME)
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/GS.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/CD.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/CD.cpp")
+  list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/MemoryCard.cpp")
+  list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/MemoryCard.cpp")
   add_library(ps2_runtime STATIC
     "${RUNTIME}/src/lib/game_overrides.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_gif_arbiter.cpp"
@@ -231,7 +242,7 @@ if(PS2_BUILD_RUNTIME)
   target_include_directories(ps2_runtime PRIVATE "${COLLECTION_ROOT}")
   target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop ps2_gs_device ps2_shared_input PRIVATE cave_common)
   add_library(ps2_collection STATIC "${COLLECTION_ROOT}/backends/ps2/collection_launch.cpp")
-  target_include_directories(ps2_collection PRIVATE "${COLLECTION_ROOT}")
+  target_include_directories(ps2_collection PUBLIC "${COLLECTION_ROOT}")
   target_link_libraries(ps2_collection PRIVATE cave_common dbghelp)
 
   add_executable(ps2_native_host_probe "${COLLECTION_ROOT}/tests/ps2_native_host_probe.cpp"

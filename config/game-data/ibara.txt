@@ -1,2 +1,15 @@
 鋳薔薇 / Ibara
-Coming Soon
+PlayStation 2 / Japan / SLPM-66301
+
+game-data/
+  ibara/
+    README.txt
+    Ibara (Japan).iso
+
+将日版 ISO 放到这里，文件名不限。
+ZIP 先解压得到 ISO。在启动器点击“刷新”，选择游戏并启动。
+也可以通过“游戏数据…”选择 ISO 所在的外部目录。
+
+Place the Japanese ISO here. Any filename is accepted.
+Extract ZIP archives to obtain the ISO. Click Refresh, select the game, then launch.
+Game Data... can also select an external folder containing the ISO.

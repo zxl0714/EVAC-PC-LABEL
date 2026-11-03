@@ -68,7 +68,8 @@ def audit_source(root=ROOT):
     art={entry['path'] for entry in [*artwork(root),*artwork(root,'covers')]}
     brand={entry['path'] for entry in branding(root)}
     from ps2_game import analysis_sources
-    analysis=analysis_sources(root)
+    from ps2_ibara import analysis_sources as ibara_analysis_sources
+    analysis={**analysis_sources(root), **ibara_analysis_sources(root)}
     count, total = 0, 0
     for name in names:
         if not name.isascii():

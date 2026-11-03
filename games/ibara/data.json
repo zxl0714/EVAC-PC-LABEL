@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "game": "ibara",
+  "titleId": "SLPM-66301",
+  "version": "1.02",
+  "layout": "iso",
+  "files": [
+    {
+      "path": "SLPM_663.01",
+      "bytes": 2329648,
+      "sha256": "263d3079dee66af82815219351553075340a4d9f42aceaa7bb8ef2bfb812ffac",
+      "program": true
+    },
+    {
+      "path": "disc.iso",
+      "bytes": 3932848128,
+      "sha256": "6e58b52aa5c03d45e413e8473be52a39205095e34a1bd58dae6bd852eb4fb1db",
+      "program": false
+    }
+  ]
+}

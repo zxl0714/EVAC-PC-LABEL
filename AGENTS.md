@@ -10,6 +10,30 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+ACTIVE Nov03 v0.9.2 Ibara integration; stop after the program ZIP, before formal release.
+Workspace work/v090-resume. Original ISO/oldZIP/C:/evac-pc-label untouched. No subagents.
+Ibara actual ARCADE NORMAL, ARRANGE, practice Stage1 BOSS and Gallery verified.
+X confirms, Z backs/shoots, X bombs, Enter pauses. See MEMORY for timing recipes.
+Original menu transitions squash text: wait1.5s; do not reopen that false defect.
+Real retained fixes: original GS packet/env/double-buffer routines, raw GIF/VIF
+transport, IOP mailboxes/pools/import completion/disc services/SIF DMA completion,
+newlib memalign pairing. r7 generation fresh and strict,189 SDK stubs,clean edges.
+Removed temporary MC polling diagnostics. SAVE investigation found two native
+libmc defects: fd must start/reuse0; directory mode1 must advance, maxent-1 counts.
+New MemoryCard fixture passed read/write/reuse/count/pagination/EOF/errors.
+Actual save before directory fix wrote all3 files then failed its directory check.
+Next: final rebuild with .local/v092/ibara-r7/generated; SAVE + restart readback,
+short real-game audio/perf and G1 shared-runtime regression. No endless mode retests.
+Fresh r43 PID31604 closed normally; no game running. Audio ring files saved there.
+Catalogue/version/docs now enabled0.9.2; build not certified/staged, no ZIP yet.
+Package tests54pass/1skip, Ibara helpers3pass earlier; source audit in progress.
+Server reports accepts ibara, deployed/healthOK; do not redeploy unnecessarily.
+Final source commit, joint PS2 receipt/stage and launcher build needed. Reuse other
+engine receipts if inputs permit; package default programonly,no ROM/source/PDB.
+Preserve baseline newline style; diff-check with core.whitespace=cr-at-eol.
+
+Previous completed release checkpoint follows:
+
 COMPLETE Nov03 v0.9.1 formally published as GitHub Latest at12:16 CST.
 Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.1, ID432271446.
 main and annotated tag pushed through786dd6fd36ee4b86c36667db38ddae3b57d6ad4a.

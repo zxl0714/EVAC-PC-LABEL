@@ -1,6 +1,6 @@
 # PS2 development
 
-ESPGaluda uses the collection's pinned LLVM, CMake and Ninja toolchain. Restore
+ESPGaluda and Ibara use the collection's pinned LLVM, CMake and Ninja toolchain. Restore
 the workspace tools with `scripts/Prepare-Tools.ps1`, then build from an original
 SLPS-25352 ISO:
 
@@ -14,6 +14,17 @@ build entry also accepts an ISO path:
 ```powershell
 ./scripts/Build-Espgaluda.ps1 -DataDirectory 'E:\MyGames\Espgaluda (Japan).iso'
 ```
+
+Build Ibara from a Japanese SLPM-66301 ISO:
+
+```powershell
+./scripts/Build.ps1 -Games ibara -DataDirectory 'E:\MyGames\Ibara'
+./scripts/Build-Ibara.ps1 -NativeOnly
+```
+
+Both games share the runtime and build graph. Building either game preserves
+the other game's configured inputs; native-only builds refresh both executables
+when shared runtime code changes.
 
 The first build restores the locked PS2 sources, builds the analysis tools,
 prepares the original program and overlays, generates native C++, and builds
@@ -44,10 +55,12 @@ debugging; player packages omit them. The certificate is
 | `games/espgaluda/modules.json` | Original overlay identities and callback tables |
 | `games/espgaluda/analysis/` | Reviewed function maps and generation options |
 | `games/espgaluda/sdk_bindings.cpp` | Native bindings for the original SDK entry points |
+| `games/ibara/analysis/`, `games/ibara/sdk_bindings.cpp` | Reviewed SLPM-66301 function map, generation settings and SDK bindings |
 | `third_party/ps2/runtime/` | Adapted EE, IOP, memory, timing and SDK implementations |
 | `backends/ps2/` | Native window, Vulkan graphics, audio, input and collection integration |
 | `tools/ps2/` | Shared runtime and game CMake targets |
 | `.local/ps2/espgaluda/` | Fingerprinted ISO analysis and generated build inputs |
+| `.local/ps2/ibara/` | Fingerprinted Ibara analysis and generated build inputs |
 | `out/ps2-tools/` | Compiled tools, runtime libraries, EXE and matching PDB |
 | `scripts/ps2_build_receipt.py`, `scripts/stage_ps2.py` | Build certification and player runtime staging |
 | `scripts/ps2_input_order.py` | Reviewed main-loop input order and generated-body identity checks |

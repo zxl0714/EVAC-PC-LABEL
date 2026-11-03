@@ -94,6 +94,7 @@ namespace ps2x::iop::detail
             uint32_t function = 0u;
             uint32_t gp = 0u;
             uint32_t argument = 0u;
+            bool interrupt = false;
         };
 
         explicit Impl(IopHost &hostRef)
@@ -108,7 +109,7 @@ namespace ps2x::iop::detail
               heaplib(memory),
               intrman(memory),
               timrman(),
-              ioman(memory),
+              ioman(memory, host),
               cpuCore(memory),
               imports(memory),
               loadcore(memory, imports)
@@ -139,6 +140,7 @@ namespace ps2x::iop::detail
             eeCycleCarry = 0;
             activeCpu = nullptr;
             lastError.clear();
+            missingImportCounts.clear();
             servicingDmaInterrupts = false;
             servicingGuestCallbacks = false;
             servicingAudioInterrupt = audioIrqDelivered = false;
@@ -291,9 +293,13 @@ namespace ps2x::iop::detail
                            ? ImportDisposition::Handled
                            : ImportDisposition::Missing;
             }
+            if (iequals(call.library, "thmsgbx") && kernel.dispatchMailboxImport(call.ordinal, cpu))
+                return ImportDisposition::Handled;
+            if (iequals(call.library, "thfpool") && kernel.dispatchFixedPoolImport(call.ordinal, cpu))
+                return ImportDisposition::Handled;
             if (iequals(call.library, "sifcmd"))
             {
-                return rpc.dispatchSifCmdImport(call.ordinal, cpu)
+                return rpc.dispatchSifCmdImport(call.ordinal, cpu, *this)
                            ? ImportDisposition::Handled
                            : ImportDisposition::Missing;
             }
@@ -325,6 +331,16 @@ namespace ps2x::iop::detail
                 return ImportDisposition::Handled;
             if (iequals(call.library, "sifman"))
             {
+                // ps2sdk sifman ordinal 32: complete the IOP -> EE copy first,
+                // then deliver its interrupt callback after CpuResumeIntr.
+                if (call.ordinal == 32u) {
+                    const auto callback = cpu.gpr[6], argument = cpu.gpr[7], gp = cpu.gpr[28];
+                    (void)rpc.dispatchSifManImport(7u, cpu);
+                    if (cpu.gpr[2] && callback)
+                        pendingGuestCallbacks.emplace(totalCycles + 32u,
+                            ScheduledGuestCallback{callback, gp, argument, true});
+                    return ImportDisposition::Handled;
+                }
                 return rpc.dispatchSifManImport(call.ordinal, cpu)
                            ? ImportDisposition::Handled
                            : ImportDisposition::Missing;
@@ -360,10 +376,16 @@ namespace ps2x::iop::detail
                 return ImportDisposition::JumpToGuest;
             }
 
-            std::ostringstream out;
-            out << "[IOP] unhandled import " << call.library << ':' << call.ordinal
-                << " version=0x" << std::hex << call.version << " pc=0x" << cpu.pc;
-            log(LogLevel::Warning, out.str());
+            const auto key = std::string(call.library) + ':' + std::to_string(call.ordinal) + ':' + std::to_string(call.version);
+            const auto count = ++missingImportCounts[key];
+            if ((count & (count - 1u)) == 0u)
+            {
+                std::ostringstream out;
+                out << "[IOP] unhandled import " << call.library << ':' << call.ordinal
+                    << " version=0x" << std::hex << call.version << " pc=0x" << cpu.pc
+                    << std::dec << " occurrences=" << count;
+                log(LogLevel::Warning, out.str());
+            }
             setV0(0);
             return ImportDisposition::Missing;
         }
@@ -392,12 +414,24 @@ namespace ps2x::iop::detail
             const auto import = instruction == 0x03E00008u ? imports.decode(cpu.pc) : std::nullopt;
             if (import)
             {
+                // The intercepted veneer is JR RA + its ordinal delay slot.
+                // A load in the caller's JAL delay slot retires during JR,
+                // before the imported routine observes its arguments.
+                const uint32_t returnAddress = cpu.gpr[31];
+                if (cpu.pendingLoad)
+                {
+                    if (cpu.pendingLoadReg != 0u) cpu.gpr[cpu.pendingLoadReg] = cpu.pendingLoadValue;
+                    cpu.pendingLoad = false;
+                }
+                cpu.gpr[0] = 0;
+                cpu.yielded = false;
+                cpu.exception = false;
                 const ImportDisposition disposition = dispatchImport(*import, cpu);
                 ++totalInstructions;
                 ++totalCycles;
                 if (disposition == ImportDisposition::JumpToGuest)
                     return true;
-                cpu.pc = cpu.gpr[31];
+                cpu.pc = returnAddress;
                 cpu.branchPending = false;
                 return !cpu.stopped;
             }
@@ -493,6 +527,13 @@ namespace ps2x::iop::detail
             }
             cpu.gpr[31] = kCallReturnSentinel;
             runCpu(cpu, budget);
+            if (cave::ps2::audio_trace::enabled && cpu.pc != kCallReturnSentinel)
+            {
+                std::osyncstream line(std::cerr);
+                line << "[ps2-iop-call-incomplete] entry=0x" << std::hex << address << " pc=0x" << cpu.pc
+                    << " v0=0x" << cpu.gpr[2] << " a0=0x" << cpu.gpr[4]
+                    << std::dec << " yielded=" << cpu.yielded << " stopped=" << cpu.stopped << '\n';
+            }
             return cpu.gpr[2];
         }
 
@@ -562,6 +603,7 @@ namespace ps2x::iop::detail
             {
                 if (it->first > totalCycles)
                     break;
+                if (it->second.interrupt && !memory.interruptControl()) { ++it; continue; }
                 callbacks.push_back(it->second);
                 it = pendingGuestCallbacks.erase(it);
             }
@@ -783,6 +825,7 @@ namespace ps2x::iop::detail
         uint64_t eeCycleCarry = 0;
         CpuState *activeCpu = nullptr;
         std::string lastError;
+        std::map<std::string, uint64_t> missingImportCounts;
         bool servicingAudioInterrupt = false;
         bool audioIrqDelivered = false;
         bool servicingDmaInterrupts = false;
@@ -838,6 +881,27 @@ namespace ps2x::iop::detail
     RpcResult IopEmulator::handleRpc(const RpcRequest &request)
     {
         m_impl->idleUntil = 0;
+        bool tracePacket = false;
+        if (cave::ps2::audio_trace::enabled)
+        {
+            const auto key = "rpc:" + std::to_string(request.sid) + ':' + std::to_string(request.function);
+            tracePacket = ++m_impl->missingImportCounts[key] <= 8u;
+            if (tracePacket)
+            {
+                std::array<uint32_t, 8> words{};
+                m_impl->host.readGuest(request.send.address, words.data(), std::min<size_t>(request.send.size, sizeof(words)));
+                std::osyncstream line(std::cerr);
+                line << "[ps2-iop-rpc-request] sid=0x" << std::hex << request.sid << " fn=0x" << request.function << " words=";
+                for (auto word : words) line << word << ',';
+                line << std::dec << '\n';
+                if (request.function == 3u)
+                {
+                    line << "[ps2-iop-rpc-object-before] words=" << std::hex;
+                    for (unsigned i=0; i<20u; ++i) line << m_impl->memory.read32(words[0]+i*4u) << ',';
+                    line << std::dec << '\n';
+                }
+            }
+        }
         const bool traceTransfer = cave::ps2::audio_trace::enabled &&
             request.sid == 0x80000701u && request.function == 0x80d0u;
         if (traceTransfer)
@@ -851,6 +915,16 @@ namespace ps2x::iop::detail
             line << std::dec << '\n';
         }
         auto result = m_impl->rpc.handleRpc(request, *m_impl);
+        if (tracePacket)
+        {
+            std::array<uint32_t, 8> words{};
+            m_impl->host.readGuest(request.receive.address, words.data(), std::min<size_t>(request.receive.size, sizeof(words)));
+            std::osyncstream line(std::cerr);
+            line << "[ps2-iop-rpc-result] sid=0x" << std::hex << request.sid << " fn=0x" << request.function << " words=";
+            for (auto word : words) line << word << ',';
+            line << std::dec << " handled=" << result.handled << '\n';
+            if (request.function == 6u || (request.sid == 0x209904u && request.function == 15u)) line << m_impl->kernel.debugState();
+        }
         if (traceTransfer)
         {
             std::array<uint32_t, 4> words{};

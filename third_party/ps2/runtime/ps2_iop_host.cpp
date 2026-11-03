@@ -17,6 +17,8 @@
 #include <iostream>
 #include <limits>
 #include <utility>
+#include <fstream>
+#include "../../../backends/ps2/iso_disc.h"
 
 #if !defined(_WIN32)
 #include <sys/types.h>
@@ -356,13 +358,32 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
 #else
     std::FILE *stream = std::fopen(hostPath.string().c_str(), "rb");
 #endif
+    std::error_code error;
+    uint64_t size = stream ? std::filesystem::file_size(hostPath, error) : 0u;
+    uint64_t base = 0u;
     if (!stream)
     {
-        return 0u;
+        const auto &paths = PS2Runtime::getIoPaths();
+        const auto relative = hostPath.lexically_normal().lexically_relative(paths.cdRoot.lexically_normal());
+        if (paths.cdImage.empty() || relative.empty() || relative.is_absolute() ||
+            std::find(relative.begin(), relative.end(), "..") != relative.end()) return 0u;
+        const auto imageSize = std::filesystem::file_size(paths.cdImage, error);
+        if (error) return 0u;
+        if (relative == ".") size = imageSize;
+        else
+        {
+            std::ifstream image(paths.cdImage, std::ios::binary);
+            const auto file = cave::ps2::FindIsoFile(image, imageSize, relative.generic_string());
+            if (!file) return 0u;
+            base = uint64_t(file->lba) * 2048u; size = file->size;
+        }
+#if defined(_WIN32)
+        stream = ::_wfopen(paths.cdImage.c_str(), L"rb");
+#else
+        stream = std::fopen(paths.cdImage.string().c_str(), "rb");
+#endif
+        if (!stream) return 0u;
     }
-
-    std::error_code error;
-    const uint64_t size = std::filesystem::file_size(hostPath, error);
     if (error)
     {
         std::fclose(stream);
@@ -375,7 +396,7 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
     {
         handle = m_nextHostFileHandle++;
     }
-    m_hostFiles.emplace(handle, HostFile{stream, size});
+    m_hostFiles.emplace(handle, HostFile{stream, size, base});
     return handle;
 }
 
@@ -411,6 +432,8 @@ bool PS2IopHostAdapter::readHostFile(uint64_t handle,
         return false;
     }
 
+    size = size_t(std::min<uint64_t>(size, it->second.size - std::min(offset, it->second.size)));
+    offset += it->second.base;
 #if defined(_WIN32)
     if (offset > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) ||
         _fseeki64(it->second.stream, static_cast<int64_t>(offset), SEEK_SET) != 0)
@@ -562,6 +585,58 @@ bool PS2IopHostAdapter::sendSifCommand(uint32_t commandId,
                                          commandId,
                                          packet,
                                          packetSize);
+}
+
+bool PS2IopHostAdapter::FindDiscFile(std::string_view path,uint32_t& lba,uint32_t& size) const
+{
+    const auto& imagePath=PS2Runtime::getIoPaths().cdImage;
+    std::error_code error;
+    const auto imageSize=std::filesystem::file_size(imagePath,error);
+    if(error)return false;
+    std::ifstream image(imagePath,std::ios::binary);
+    const auto file=cave::ps2::FindIsoFile(image,imageSize,path);
+    if(!file)return false;
+    lba=file->lba;size=file->size;return true;
+}
+
+uint32_t PS2IopHostAdapter::FindEeRpc(uint32_t sid) const
+{
+    std::lock_guard lock(g_rpc_mutex);
+    const auto found = g_rpc_servers.find(sid);
+    return found == g_rpc_servers.end() ? 0u : found->second.sd_ptr;
+}
+
+bool PS2IopHostAdapter::QueueEeRpc(uint32_t server, uint32_t function, std::span<const uint8_t> request,
+                                  uint32_t receiveSize, std::function<void(std::span<const uint8_t>)> complete)
+{
+    t_SifRpcServerData descriptor{};
+    if (!server || !readGuest(server, &descriptor, sizeof(descriptor)) || !hasGuestFunction(descriptor.func))
+        return false;
+    const uint32_t packet = allocateGuest(std::max<uint32_t>(16u, uint32_t(request.size())), 64u);
+    if (!packet) return false;
+    if (!request.empty() && !writeGuest(packet, request.data(), request.size())) { freeGuest(packet); return false; }
+    auto &scheduler = m_runtime.eeScheduler();
+    GuestInvocation invocation{};
+    invocation.kind = GuestInvocationKind::RpcCallback;
+    if (const auto *context = scheduler.currentContext()) invocation.context = *context;
+    invocation.context.pc = descriptor.func;
+    SET_GPR_U32(&invocation.context, 4, function);
+    SET_GPR_U32(&invocation.context, 5, packet);
+    SET_GPR_U32(&invocation.context, 6, uint32_t(request.size()));
+    SET_GPR_U32(&invocation.context, 7, 0u);
+    SET_GPR_U32(&invocation.context, 29, 0u);
+    SET_GPR_U32(&invocation.context, 31, 0u);
+    invocation.onComplete = [this, packet, receiveSize, complete = std::move(complete)]
+        (const R5900Context &returned, R5900Context &) {
+        std::vector<uint8_t> reply(receiveSize);
+        const uint32_t address = uint32_t(_mm_cvtsi128_si32(returned.r[2]));
+        if (receiveSize && !readGuest(address, reply.data(), reply.size()))
+            throw std::runtime_error("EE RPC returned an invalid response buffer");
+        freeGuest(packet);
+        complete(reply);
+    };
+    scheduler.queueInvocation(std::move(invocation));
+    return true;
 }
 
 void PS2IopHostAdapter::log(ps2x::iop::LogLevel level, std::string_view message)

@@ -28,6 +28,21 @@ try {
     Invoke-Checked 'py' $restore
     $cmake=Get-CollectionTool 'cmake'
     $build=Join-Path $CollectionRoot $(if($RuntimeChecks){'out/ps2-native-check'}else{'out/ps2-tools'})
+    # Retain the other configured PS2 game when extending an existing graph.
+    if(-not $ToolsOnly -and -not $RuntimeChecks -and (Test-Path -LiteralPath (Join-Path $build 'CMakeCache.txt'))) {
+        $taskPrevious=@{}
+        foreach($line in Get-Content -LiteralPath (Join-Path $build 'CMakeCache.txt')) {
+            if($line -match '^([^/#][^:]*):[^=]+=(.*)$'){$taskPrevious[$Matches[1]]=$Matches[2]}
+        }
+        if($IbaraGenerated -and -not $ProbeGenerated) {
+            $ProbeGenerated=$taskPrevious['PS2_GAME_GENERATED']
+            $ArcadeGenerated=$taskPrevious['PS2_ARCADE_GENERATED']
+            $ArrangeGenerated=$taskPrevious['PS2_ARRANGE_GENERATED']
+            $StageModulesManifest=$taskPrevious['PS2_STAGE_MODULES_MANIFEST']
+            $ModeExtrasManifest=$taskPrevious['PS2_MODE_EXTRAS_MANIFEST']
+        }
+        if($ProbeGenerated -and -not $IbaraGenerated){$IbaraGenerated=$taskPrevious['PS2_IBARA_GENERATED']}
+    }
     $gsSource=''
     if (-not $ToolsOnly) {
         $gsSource=& py -3.12 (Join-Path $PSScriptRoot 'ps2_gs_sources.py') --output $build
@@ -53,7 +68,7 @@ try {
     $configure+=@('-DPS2_MODE_EXTRAS_MANIFEST='+$(if ($ModeExtrasManifest) {[IO.Path]::GetFullPath($ModeExtrasManifest).Replace('\','/')} else {''}))
     Invoke-CollectionConfigure $cmake $configure $build
     $taskReceiptState=$null
-    if($ProbeGenerated -and $StageModulesManifest -and $ModeExtrasManifest -and -not $IbaraGenerated -and -not $FastGameLink) {
+    if(($IbaraGenerated -or ($ProbeGenerated -and $StageModulesManifest -and $ModeExtrasManifest)) -and -not $FastGameLink) {
         $taskReceiptState=Join-Path $CollectionRoot ('.local/build-inputs/ps2-'+[guid]::NewGuid().ToString('N')+'.json')
         Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskReceiptState)
     }

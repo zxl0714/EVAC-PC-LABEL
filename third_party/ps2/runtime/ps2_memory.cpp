@@ -332,6 +332,8 @@ bool PS2Memory::initialize(size_t ramSize)
     m_codeRegions.clear();
     m_path3Masked = false;
     m_path3MaskedFifo.clear();
+    m_vif1PendingCommandData.clear();
+    m_vif1PendingDirectQwc = 0u;
     m_vif1PendingPath2ImageQwc = 0u;
     m_vif1PendingPath2DirectHl = false;
     resetEeTimers();
@@ -1232,7 +1234,9 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
             {
                 const bool wasPath3Masked = m_path3Masked;
                 std::memset(&vif1_regs, 0, sizeof(vif1_regs));
-                m_vif1PendingPath2ImageQwc = 0u;
+                m_vif1PendingCommandData.clear();
+    m_vif1PendingDirectQwc = 0u;
+    m_vif1PendingPath2ImageQwc = 0u;
                 m_vif1PendingPath2DirectHl = false;
                 m_path3Masked = false;
                 if (wasPath3Masked)
