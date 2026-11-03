@@ -10,19 +10,23 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov03: optimize packaging flow; reuse component build certificates across
-docs/unrelated-engine commits. New scripts/package_receipt.py validates scoped
-maintained inputs and original build origin; no generated tree/tool/PDB recheck
-at packaging. Actual copied bytes still checked, release.json records buildCommits.
-Copy hashing streamed; remove archive.testzip because final extraction is done once.
-Baseline certified_runtime took15.606s; pending actual new flow measurement/package.
-Update G1 CPU docs from existing .2706/.2724core samples only, no new gameplay.
-README CN/EN now .27 vs PCSX2 .25; states Stage1 vs older BOSS scenes.
-Current regression logs .local/v091/package-{receipt-,}tests.log. No runtime edits,
-no game tests repeated, no push/release/upload. Previous c69a402 program ZIP
-154417102bytes SHA7c66f6054ad2fc683eb53e108797c2c5ce588d07fbd19c4b5dfb9a06e628fe3b
-accepted and all6Superplays naturally completed in superplay-v091-r1; PID79384
-closed normally, queue completed1269176/1269176. Retain existing release.
+COMPLETE packaging optimization at source794e0bf (Nov03). No runtime rebuild.
+New package_receipt validates component maintained source + ancestry, preserving
+actual buildCommits fromc69a402; skips generated/tool/PDB reads during packaging.
+Tests59pass/1skip (7receipt +53package); relevant changes/add/delete/shared source
+reject reuse, docs/unrelated engine allowed, dirty build/input and invalid paths reject.
+Old certify15.606s -> new4.180s. Actual package22.810s=certify3.783+assemble5.517+
+zip13.510; single real extract+inventory3.129s. No testzip/repeated extraction.
+G1 CPU updated README CN/EN and current PS2 docs to.27core from EXISTING.2706/.2724
+Stage1 samples; PCSX2.25 retains older boss scene. No new CPU/gameplay collection.
+Package releases/v0.9.1-local-794e0bf/EVAC-PC-LABEL-v0.9.1-win-x64.zip,
+154417175bytes SHA719944dfb4a4797b1c838e2626c509797813332233d3fa8624f1e7cfbe1b1049.
+Accepted .local/v091/package-acceptance-794e0bf/extracted,195inventoryfiles,
+PS2 hash078f21867663a91f9799caf002695f7fcdd1a48ecfaa43e424926d193bc16bf1.
+All6Superplays completed using previousc69a402 package SAME EXE; no repeat needed.
+Last testPID79384 closed, queue1269176/1269176. No active build/game.
+This checkpoint is DOCS ONLY; do not recompile, recertify, repackage or reextract.
+No push/tag/upload/release authorized in this turn; prior packages preserved.
 
 COMPLETE current request: both compact dispatch initialization and shared
 integer memory instructions implemented and accepted at source a92795a.
