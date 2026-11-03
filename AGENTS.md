@@ -10,7 +10,15 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov03 latest user says "先出个包给我": STOP extra tests, package current binaries.
+COMPLETE Nov03 latest request: fresh program ZIP delivered; stop extra tests.
+Frozen source cc7adb0558c8c9df4d2bc2cd75222eee098a356a. Current program ZIP:
+releases/v0.9.2-local-cc7adb0/EVAC-PC-LABEL-v0.9.2-win-x64.zip,158522226bytes,
+SHA6087c85459dd0964de3e75d5b2f7d4a3ba1e4f46a679438dad04110954e133d5.
+One extraction197files VERIFIED .local/v092/package-acceptance-cc7adb0.
+Acceptance receipt next to ZIP. No ROM/PDB/source; no upload/push/release.
+Joint PS2 certificate/staging refreshed. Ibara EXEfe4a85ff7cb5809196a529ed6e4d5bc4;
+G1 EXEdd6288366286397074f4f1b74979d00a. Build/package complete; never repeat for docs.
+The checkpoint below records unfinished gameplay work for a later continuation.
 Ibara shared clock fix built both G1/Ibara; actual native kernel+IOP memory checks pass.
 One guest-cycle origin now maps alarms/VBlank/EE timer deadlines. Old alarm host-now
 anchor inverted deadline order: requested waits1.1s, kernel overshoot<.5ms. r49/r50
