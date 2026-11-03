@@ -10,6 +10,20 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+COMPLETE Nov03 v0.9.1 formally published as GitHub Latest at12:16 CST.
+Release https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.1, ID432271446.
+main and annotated tag pushed through786dd6fd36ee4b86c36667db38ddae3b57d6ad4a.
+Release notes CN/EN use approved ONE item: ESPGaluda EXE~80%smaller, CPU.37->.27
+cores(~27%). No internal build/packaging notes in public release summary.
+Accepted programZIP remains releases/v0.9.1-local-794e0bf/EVAC-PC-LABEL-v0.9.1-win-x64.zip,
+154417175bytes SHA719944dfb4a4797b1c838e2626c509797813332233d3fa8624f1e7cfbe1b1049;
+GitHub asset704248433 matches size/digest. Checksum asset704249023 downloaded,
+contentmatches localsha. Public API /releases/latest confirms v0.9.1, draftfalse,
+prereleasefalse. Evidence .local/v091-release-published.{json,jpg}.
+ZIP source794e0bf; components origin c69a402; later commits are docs only.
+No recompile/repack/reextract for docs checkpoint; accepted6Superplays still apply.
+No OSS/internal-ROM upload or QQ message in this turn. No active builds/games.
+
 COMPLETE packaging optimization at source794e0bf (Nov03). No runtime rebuild.
 New package_receipt validates component maintained source + ancestry, preserving
 actual buildCommits fromc69a402; skips generated/tool/PDB reads during packaging.
