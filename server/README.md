@@ -228,3 +228,14 @@ scp root@8.222.80.54:/var/lib/cave-reports/<report-id>.zip .
 
 每份压缩包最大 32 MiB，展开后的文本最大 128 MiB；总归档容量 4 GiB。
 `report.json` 包含游戏、版本、昵称、运行记录名及留言；归档中的 `logs/` 保留原目录结构。
+
+### 报告管理页面
+
+`https://xiaolu.life/cave/reports/` 展示留言、游戏、版本和 ZIP 下载，支持搜索及按游戏筛选。
+页面和机器接口由 HTTPS Basic Auth 保护，凭据单独保存，不放入仓库；现有匿名上传接口不变。
+分页 JSON 接口为 `/cave/reports/api/reports?limit=50&offset=0`，可选 `game` 和 `q`。
+返回的 `download_url` 是相同站点下的 ZIP 路径，使用相同认证。只读服务运行在
+`127.0.0.1:18094`，由独立的 `cave-report-dashboard` 单元启动，并经 nginx 认证后代理；
+原上传服务及其数据目录保持不变。systemd 和 nginx 配置模板位于 `server/deploy/`，
+其中 nginx 的密码文件需单独配置并仅赋予 nginx 读取权限。服务器管理员可通过 SSH 从
+`/root/.evac-report-dashboard-credentials` 取得本机凭据。

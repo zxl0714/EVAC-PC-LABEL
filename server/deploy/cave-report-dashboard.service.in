@@ -1,0 +1,18 @@
+[Unit]
+Description=EVAC PC LABEL private report dashboard
+After=network.target
+
+[Service]
+User=cave-reports
+Group=cave-reports
+WorkingDirectory=/opt/cave-reports
+ExecStart=/usr/bin/python3 -B /opt/cave-reports/report_dashboard.py --directory /var/lib/cave-reports
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
