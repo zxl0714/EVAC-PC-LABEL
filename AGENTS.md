@@ -10,7 +10,30 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE user-authorized v0.9.1 follow-up: look for easy, measurable PS2 size wins.
+ACTIVE Nov03 user steered v0.9.1 follow-up away from compact function-table
+storage, toward simpler reduction of generated native CODE (aim >50% further).
+Do not finish table implementation or package the prior candidate as new work.
+Table-only uncommitted work safely archived .local/v091/easy-size-r2/shelved-table-work
+(tracked.patch plus all original files); production restored to 18afd44 helper-only.
+Actual helper-only EXE335778816/PDB1494974464; full build succeeded. No ROM changed.
+Private easy-size-r2 compile experiments: sharedREAD baseline1026637codebytes;
+sharedREAD+WRITE noinline457828(-55.4%); register memcpy gains negligible; Oz579075.
+Expanded same-source samples from boot/stage06/ARCADE/ARRANGE also reduce code
+3870729->1759762(-54.54%). Register memcpy and Oz rejected (not helpful combined).
+All outlined memory microbench RAM7.91->12.65ms/10million mixed operations,
+scratch44.93->44.62ms; this tight loop permits inline forwarding and does NOT
+predict whole-game CPU. Cold-wrapping-only reduces sample ~12%, not selected.
+Production candidate now shares all ten READ/WRITE helpers out of line, retaining
+constant FAST operations and original tables. Extended memory contract tests.
+User confirmed keep checks and complete this shared-helper round before more
+optimization. Native checks17 passed (memory fixture setup corrected to initialize
+wrapped RAM directly rather than through unmapped physical runtime addresses);
+90 PS2 Python checks passed. Next freeze code, full build once and actual short
+CPU/frame regression. Reconsider if game performance materially worsens.
+No >50% whole-EXE claim until actual link. Keep prior packages.
+Do not claim >50% whole-EXE gain before final link; no publication authorized.
+
+Earlier follow-up work:
 Preserve accepted b8a94c9 ZIP and v0.9.0; no automatic publication. Initial micro
 bench .local/v091/easy-size-r1: same large ARCADE function+module07, shared named
 READ helpers reduce compiled code1,427,317->1,026,637bytes(-28.07%), compile12.43

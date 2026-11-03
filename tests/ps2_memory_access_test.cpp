@@ -31,6 +31,36 @@ void CheckReads(uint8_t* rdram, R5900Context* ctx, PS2Runtime* runtime,
     Require(READ32((++evaluations, address)) == scalar(4) && evaluations == 1,
             "Load address was evaluated more than once");
 }
+
+void CheckWrites(uint8_t* rdram, R5900Context* ctx, PS2Runtime* runtime, uint32_t address) {
+    const std::array<uint64_t,2> source{0xf1e2d3c4b5a69788ull,0x192a3b4c5d6e7f80ull};
+    const auto wide=_mm_loadu_si128(reinterpret_cast<const __m128i*>(source.data()));
+    for(const unsigned width:{1u,2u,4u,8u,16u}) {
+        for(unsigned i=0;i<24;++i) {
+            const uint32_t byteAddress=address-4+i;
+            if(PS2Runtime::isSpecialAddress(byteAddress))runtime->Store8(rdram,ctx,byteAddress,0xcc);
+            else rdram[byteAddress&PS2_RAM_MASK]=0xcc;
+        }
+        unsigned evaluations{};
+        switch(width) {
+            case 1: WRITE8((++evaluations,address),uint8_t(source[0]));break;
+            case 2: WRITE16((++evaluations,address),uint16_t(source[0]));break;
+            case 4: WRITE32((++evaluations,address),uint32_t(source[0]));break;
+            case 8: WRITE64((++evaluations,address),source[0]);break;
+            case 16: WRITE128((++evaluations,address),wide);break;
+        }
+        Require(evaluations==1,"Store address evaluated more than once");
+        std::array<uint8_t,16> bytes{};
+        std::memcpy(bytes.data(),source.data(),bytes.size());
+        for(unsigned i=0;i<24;++i) {
+            const uint8_t expected=i>=4 && i<4+width?bytes[i-4]:0xcc;
+            if(READ8(address-4+i)!=expected) {
+                throw std::runtime_error("Store/guard mismatch at address="+std::to_string(address)+
+                    " width="+std::to_string(width)+" byte="+std::to_string(i));
+            }
+        }
+    }
+}
 }
 
 int main() {
@@ -54,6 +84,7 @@ int main() {
                 rdram[(address + i) & PS2_RAM_MASK] = expected[i];
             }
             CheckReads(rdram, ctx, runtime, address, expected);
+            CheckWrites(rdram, ctx, runtime, address);
         }
         std::array<uint8_t, 16> scratch{};
         for (unsigned i = 0; i < scratch.size(); ++i) {
@@ -61,11 +92,12 @@ int main() {
             runtime->Store8(rdram, ctx, 0x70000010u + i, scratch[i]);
         }
         CheckReads(rdram, ctx, runtime, 0x70000010u, scratch);
+        CheckWrites(rdram, ctx, runtime, 0x70000010u);
         Require(ctx->pc == original.pc && ctx->in_delay_slot == original.in_delay_slot &&
                 ctx->branch_pc == original.branch_pc &&
                 std::memcmp(ctx->r, original.r, sizeof(original.r)) == 0,
-                "Loads changed guest register or branch state");
-        std::cout << "PS2 shared reads: 5 widths, RAM aliases/wrap, scratchpad, address evaluation and guest state passed\n";
+                "Memory access changed guest register or branch state");
+        std::cout << "PS2 shared memory access: 5 widths, RAM aliases/wrap, scratchpad, adjacent bytes, address evaluation and guest state passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
