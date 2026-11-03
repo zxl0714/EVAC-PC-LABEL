@@ -3,7 +3,7 @@
 // Authored IRX: start a periodic timer after an empty idle interval. Its callback
 // records delivery and stops when a host-visible flag is set. No game code/data.
 namespace {
-void IopScheduledTimerContract() {
+AudioFixtureHost ScheduledTimerImage(bool busy=false) {
     auto host=DelayedThreadImage();
     std::fill(host.image.begin()+0x100,host.image.end(),uint8_t{});
     const auto jal=[](uint32_t pc){return 0x0c000000u|(pc>>2u);};
@@ -30,6 +30,57 @@ void IopScheduledTimerContract() {
         0x03e00008,0x24000004,0x03e00008,0x24000016,
         0x03e00008,0x24000014,0x03e00008,0x24000017,0,0};
     std::memcpy(host.image.data()+0x300,imports,sizeof(imports));
+    if(busy) {
+        // A scheduled worker remains ready while the timer callback consumes
+        // cycles. This catches clock drift hidden by the idle fast-forward path.
+        std::vector<uint32_t> body(std::begin(entry),std::end(entry)-6);
+        const uint32_t spawn[]{0x3c040001,0x34840500,jal(0x10714),0,
+            0x00402021,0x00002821,jal(0x1071c),0};
+        body.insert(body.end(),std::begin(spawn),std::end(spawn));
+        body.insert(body.end(),std::end(entry)-6,std::end(entry));
+        Require(body.size()*4<0x180,"Clock fixture entry overlaps callback");
+        std::memcpy(host.image.data()+0x100,body.data(),body.size()*4);
+        const uint32_t descriptor[]{0,0,0x10600,0x400,10};
+        std::memcpy(host.image.data()+0x600,descriptor,sizeof(descriptor));
+        const uint32_t worker[]{0x08004180,0}; // j 0x10600; nop
+        std::memcpy(host.image.data()+0x700,worker,sizeof(worker));
+        const uint32_t threadApi[]{0x41e00000,0,0x101,0x61626874,0x6573,
+            0x03e00008,0x24000004,0x03e00008,0x24000006,0,0};
+        std::memcpy(host.image.data()+0x800,threadApi,sizeof(threadApi));
+    }
+    return host;
+}
+void IopClockBudgetContract(bool benchmark=false) {
+    std::cout<<"ee_quantum,requested_iop_cycles,actual_iop_cycles,callbacks\n";
+    bool bounded=true;
+    for(const uint32_t quantum:{8u,128u,4096u}) {
+        auto host=ScheduledTimerImage(true);
+        ps2x::iop::detail::IopEmulator emulator(host);
+        Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0,"Clock fixture load failed");
+        Require(emulator.threadCount()==1,"Clock fixture worker was not created");
+        constexpr uint64_t eeCycles=1048576;
+        const auto before=emulator.cycles();
+        for(uint64_t i=0;i<eeCycles/quantum;++i)emulator.runEeCycles(quantum);
+        const auto actual=emulator.cycles()-before;
+        uint32_t count{};Require(emulator.readMemory(0x10400,&count,4),"Clock callback count unavailable");
+        std::cout<<quantum<<','<<eeCycles/8<<','<<actual<<','<<count<<'\n';
+        bounded &= actual>=eeCycles/8 && actual<=eeCycles/8+32 && count>0;
+        // Reset during an unfinished callback budget, not only at a slice
+        // boundary where the debt happens to be zero.
+        const auto epoch=emulator.cycles();bool ahead=false;
+        for(uint64_t i=1;i<=256 && !ahead;++i) {
+            emulator.runEeCycles(8);
+            ahead=emulator.cycles()>epoch+i;
+        }
+        Require(ahead,"Clock fixture never crossed an atomic callback");
+        emulator.reset();emulator.runEeCycles(8192);
+        Require(emulator.cycles()==1024,"Reset retained callback clock debt");
+    }
+    if(!benchmark)Require(bounded,"Timer callback costs accumulated outside the EE clock budget");
+}
+void IopScheduledTimerContract() {
+    const auto jal=[](uint32_t pc){return 0x0c000000u|(pc>>2u);};
+    auto host=ScheduledTimerImage();
     const auto initialImage=host.image;
     for(const uint32_t quantum:{8u,128u}) {
         host.image=initialImage;

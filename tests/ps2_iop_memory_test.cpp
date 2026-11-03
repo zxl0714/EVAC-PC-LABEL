@@ -195,6 +195,7 @@ int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench-idle") { IopIdleContract(true); return 0; }
         if(argc==2 && std::string_view(argv[1])=="--bench-dispatch") { IopDispatchBench(); return 0; }
+        if(argc==2 && std::string_view(argv[1])=="--bench-clock") { IopClockBudgetContract(true); return 0; }
         AudioBridge();
         ReadyElectionInvalidation();
         IopMailboxContract();
@@ -211,6 +212,7 @@ int main(int argc,char** argv) {
         IopModuleArguments();
         IopIdleContract();
         IopScheduledTimerContract();
+        IopClockBudgetContract();
         IopMemory memory;
         const auto capacity=IopMemory::HeapLimit-IopMemory::HeapBase;
         const auto first=memory.allocate(262144,64);

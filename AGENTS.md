@@ -10,29 +10,22 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE Nov03 paused Ibara/package goal by explicit user instruction; G2 also HOLD.
-Do not resume/retest either until asked. Ibara source+builds+proofs preserved.
-Other-bug investigation checkpoint: .local/v092/bug-investigation-checkpoint.json.
-Ketsui save attribute query fix759fc76:42native storage cases PASS, fresh-profile
-actual boot reached main menu (PNG saved), storage initialized true/no init error.
-Run .local/v092/ketsui-storage-play/collection/logs/ketsui/run-20261103T110411689Z-78524.
-Normal AltF4 exit27/window_close_requested is known preexisting shutdown policy.
-FileAttributeTagInfo was exact failing API in player report; FAT/exFAT plausible,
-filesystem NOT logged. Do not claim remote environment verified.
-G1 PCM edge ramps35f3188:17native PS2 tests +2source audio checks passed, source
-boundary audit2934files/noROM. Actual g1-audio-r2 Arcade first stage+30sec WASAPI
-capture done and closed; no new crash. Device output nonzero98.64%,peak25510.
-R1/R2 occurred at different timing; DO NOT claim lower underrun count or causal
-before/after rate. Captures show original fade/silence around stage transition.
-Counters include initialization/loading/exit; not all underruns are audible.
-Fix smooths hard sample->zero edges only; source stall/audio-feedback resolution
-NOT confirmed. Original player report lacks PCM, so keep feedback confirmation open.
-All game/test processes closed. No current build, no ZIP or push/tag/upload/release.
-Joint PS2 EXE/PDB receipt/stage PASSED35f3188. Tool equivalence proofs fresh forG1
-and Ibara; no regeneration/rebuild for this docs-only checkpoint.
-Ibara r7 actual SAVE/cold readback passed. Formal ISO-to-collection entry reached
-attract but final normal-entry graphics/audio/frame acceptance remains incomplete.
-Original ISO/oldZIP/C:/evac-pc-label preserved. No subagents authorized.
+ACTIVE Nov03 G1 audio investigation. Ibara/package and G2 remain HOLD by user.
+Clock fix: third_party/ps2/runtime/iop_emulator.cpp repays callback slice overrun,
+checks spent budget before unsigned subtraction/idle advance, resets debt.
+Authored timer+ready-thread micro:131072requested ->34852697old vs131072fixed;
+quanta8/128/4096 and reset-during-debt pass. Native19checks PASS.
+Actual G1 Arcade stage1 run v092-clock-fix-r1 compiled/tested/closed. About38s:
+original091 drops3840 vs current092candidate448, both no new underflows.
+Other092IOP changes present: do not call live pair sole-variable causality.
+Remaining drops and player44.1k output remain unresolved; local48k. Prior339
+onset equals native416; first50ms PCM bit-identical090/091, not a091regression.
+Evidence .local/v092/g1-version-compare/clock-investigation.json and children.
+New G1 EXE only in out/ps2-tools/bin; runtime/ps2 remains pre-clock35f3188.
+Joint PS2 receipt now STALE; refresh before packaging once Ibara work resumes.
+Do not rebuild/regenerate games merely for this documentation checkpoint.
+Ketsui storage fix passed42nativecases/fresh-profilemainmenu; remoteFSunknown.
+All test/game processes closed. No ZIP/push/tag/upload/release. No subagents.
 
 Historical in-turn notes below (superseded where conflicting):
 ACTIVE Nov03 v0.9.2 Ibara plus three newly authorized player reports.
