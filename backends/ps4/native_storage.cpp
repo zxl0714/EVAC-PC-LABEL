@@ -572,7 +572,7 @@ bool SaveCrashFixture(const std::filesystem::path& directory, std::string_view p
     const auto target_phase = fresh_slot ? phase.substr(4) : recover_only ? phase.substr(8) : phase;
     if (phase != "seed" && phase != "inspect" && phase != "inspect_fresh" && phase != "partial" && phase != "closed" &&
         phase != "ready" && phase != "previous_moved" && phase != "published" && phase != "flush_error" && phase != "prepare_flush_error" &&
-        phase != "prepare_retry" && phase != "publication_retry" && phase != "cleanup_pending" && phase != "complete" &&
+        phase != "prepare_retry" && phase != "publication_retry" && phase != "cleanup_pending" && phase != "complete" && phase != "recreate" &&
         !(fresh_slot && (target_phase == "partial" || target_phase == "closed" || target_phase == "ready" || target_phase == "published")) &&
         !(recover_only && (target_phase == "previous_moved" || target_phase == "published"))) {
         throw std::runtime_error("Unknown authored save crash-fixture phase");
@@ -634,7 +634,7 @@ bool SaveCrashFixture(const std::filesystem::path& directory, std::string_view p
         return true;
     }
     const bool seed = phase == "seed";
-    auto mount = store.MountSlot(fresh_slot ? "Fresh" : "Fixture", true, seed || fresh_slot, seed || fresh_slot, 96, created);
+    auto mount = store.MountSlot(fresh_slot ? "Fresh" : "Fixture", true, seed || fresh_slot || phase == "recreate", seed || fresh_slot, 96, created);
     store.SetParams(mount, {seed ? "Original" : "Updated", "Authored", "No game data", seed ? 1u : 2u, 0});
     const std::array<std::byte, 8> icon{std::byte{137}, std::byte{'P'}, std::byte{'N'}, std::byte{'G'}, std::byte{13}, std::byte{10}, std::byte{26}, seed ? std::byte{10} : std::byte{11}};
     store.SaveIcon(mount, icon);

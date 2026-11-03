@@ -1,6 +1,7 @@
 #include "log_upload.h"
 #include "common/launch.h"
 #include "common/settings.h"
+#include "common/crash_details.h"
 #include <winhttp.h>
 #include <commctrl.h>
 #include <objbase.h>
@@ -10,6 +11,8 @@
 #include <array>
 #include <fstream>
 #include <set>
+#include <map>
+#include <mutex>
 #include <thread>
 
 namespace cave::launcher::reports {
@@ -52,6 +55,19 @@ struct Internet {
 void Check(BOOL okay){if(!okay)throw std::runtime_error("Network request failed ("+std::to_string(GetLastError())+")");}
 }
 
+void RecordRuntimeFailure(const fs::path& root, std::string_view game) {
+  const auto diagnostic = RuntimeDiagnostic(FindGame(game), root);
+  static std::mutex gate; static std::map<fs::path, std::string> recorded;
+  std::lock_guard lock(gate);
+  const auto base = DataChild(root, "logs/" + std::string(game));
+  if (recorded[base] == diagnostic) return;
+  SYSTEMTIME now{}; GetSystemTime(&now); wchar_t name[96]{};
+  swprintf_s(name,L"run-%04u%02u%02uT%02u%02u%02u%03uZ-%lu-launcher",
+      now.wYear,now.wMonth,now.wDay,now.wHour,now.wMinute,now.wSecond,now.wMilliseconds,GetCurrentProcessId());
+  const auto directory = base / name; fs::create_directories(directory);
+  Write(directory/L"runtime-check.txt", diagnostic);
+  recorded[base] = diagnostic;
+}
 std::vector<Session> Recent(const fs::path& root) {
   const auto logs=DataChild(root,"logs");std::vector<Session> result;
   if(!fs::exists(logs))return result;
@@ -84,17 +100,36 @@ fs::path Package(const fs::path& root,const Session& session,std::string_view me
   wchar_t id[40]{};StringFromGUID2(guid,id,40);
   const auto output=DataChild(root,"user-data/reports/"+Utf8(std::wstring_view(id+1,36)));
   const auto stage=output/L"files";fs::create_directories(stage/L"logs");
-  uint64_t bytes=0;unsigned count=0;
+  uint64_t bytes=0;unsigned count=0;std::vector<fs::path> dumps;
   for(auto it=fs::recursive_directory_iterator(session.directory);it!=fs::recursive_directory_iterator();++it) {
     if(!Plain(it->path())){if(it->is_directory())it.disable_recursion_pending();continue;}
     if(it.depth()>3){it.disable_recursion_pending();continue;}
-    if(!it->is_regular_file() || !TextFile(it->path()))continue;
+    if(!it->is_regular_file())continue;
+    if(it->path().extension()==L".dmp") {if(dumps.size()<16)dumps.push_back(it->path());continue;}
+    if(!TextFile(it->path()))continue;
     bytes+=it->file_size();
     if(bytes>Limit || ++count>250)throw std::runtime_error("Log session exceeds 128 MiB or 250 text files");
     const auto target=stage/L"logs"/it->path().lexically_relative(session.directory);
     fs::create_directories(target.parent_path());fs::copy_file(it->path(),target);
   }
+  unsigned summaryIndex=0;
+  for(const auto& dump:dumps) {
+    std::string text;
+    try{text=SummarizeCrashDump(dump);}
+    catch(const std::exception& error){text="source=existing_minidump\nsummary_error="+std::string(error.what())+"\n";}
+    // Include metadata from old crashes in the existing upload flow. Original
+    // dumps stay on disk; a damaged dump must not suppress the other logs.
+    bytes+=text.size();
+    if(bytes>Limit || ++count>250)throw std::runtime_error("Log session exceeds 128 MiB or 250 text files");
+    fs::path target;
+    do {target=stage/L"logs"/(L"auto-crash-"+std::to_wstring(++summaryIndex)+L".txt");} while(fs::exists(target));
+    Write(target,"dump="+Utf8(dump.lexically_relative(session.directory))+"\n"+text);
+  }
   if(!count)throw std::runtime_error("This session has no text logs");
+  const auto runtime = "Runtime files checked at upload time:\n" + RuntimeDiagnostic(FindGame(session.game),root);
+  bytes += runtime.size(); ++count;
+  if(bytes>Limit || count>250)throw std::runtime_error("Report exceeds the upload size limit");
+  Write(stage/L"logs"/L"runtime-at-upload.txt",runtime);
   const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(root)));
   Json meta{{"schema",1},{"game",session.game},{"run",Utf8(session.directory.filename())},
             {"nickname",settings.nickname},{"message",message},{"files",count},{"bytes",bytes}};

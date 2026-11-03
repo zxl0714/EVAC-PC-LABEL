@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.9.2
+EVAC PC LABEL v0.9.3
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
@@ -19,12 +19,10 @@ Windows x64；360 使用 Direct3D 12，PS4／PS2 使用 Vulkan 1.3。
   game-data/feveron/     美版 CUSA06735，01.00 本体
   game-data/garegga/     韩版 CUSA10207，01.00 本体
   game-data/espgaluda/   PS2 日版 SLPS-25352，原始 ISO
-  game-data/ibara/       PS2 日版 SLPM-66301，原始 ISO
 
 360 目录直接包含 default.xex，PS4 目录直接包含 eboot.bin，保留全部资源与层级。
 PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
   game-data/espgaluda/Espgaluda (Japan).iso
-  game-data/ibara/Ibara (Japan).iso
 
 解包
 ZIP／RAR 用常规工具解压。PS2 的 ISO 解压出来后直接放入对应目录。
@@ -48,7 +46,6 @@ CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
 方向键移动，Enter 为 Start，Backspace 为 Select／Touchpad。
 A／S 为 L1／R1，Q／W 为 L2／R2。支持 SDL 手柄与摇杆。
 ESPGaluda ARCADE 默认 C 射击，V 觉圣，X 护罩，Z 连射；按键可在游戏的 BUTTON CONFIG 中调整。
-Ibara 菜单 X 确认、Z 返回；游戏中 Z 射击、X 炸弹、Enter 暂停。
 狱门山 Arrange：方向键移动，I/J/K/L 控制式神，W 召唤，X 炸弹。
 F11／Alt+Enter 切换全屏；Alt+F4 退出；F8 标记日志时间。
 
@@ -63,6 +60,7 @@ PS2 ESPGaluda 使用原作本地成绩与记忆卡。
 反馈
 退出游戏后点击“上传日志”，选择游玩记录，选填留言并上传。
 反馈问题时提供上传成功后显示的报告编号。
+游戏无法启动时也可以上传日志；提示运行组件不可用时，点击“详情”查看具体文件和处理方法。
 源码与构建入口见 SOURCE.txt，组件许可证见 licenses/。
 性能对比：https://github.com/zxl0714/EVAC-PC-LABEL#readme
 
@@ -80,8 +78,7 @@ Keep all resources and subfolders.
 
 Place each original Japanese PS2 ISO in its folder:
   game-data/espgaluda/Espgaluda (Japan).iso
-  game-data/ibara/Ibara (Japan).iso
-Use SLPS-25352 for ESPGaluda and SLPM-66301 for Ibara.
+Use SLPS-25352 for ESPGaluda.
 The filename is your choice. First launch prepares the runtime cache automatically.
 
 Extraction
@@ -102,7 +99,6 @@ Arrow keys move; Enter is Start; Backspace is Select/Touchpad.
 Z / X / C / V map to A / B / X / Y on Xbox and Cross / Circle / Square / Triangle on PS4/PS2.
 A / S are L1 / R1; Q / W are L2 / R2. SDL controllers and arcade sticks are supported.
 ESPGaluda ARCADE defaults: C shot, V Kakusei, X barrier, Z rapid fire. Edit them in the game's BUTTON CONFIG.
-Ibara menus: X confirms, Z goes back. During play: Z shoots, X bombs, Enter pauses.
 Guwange Arrange: arrows move, I/J/K/L aim the shikigami, W summons, X bombs.
 F11 or Alt+Enter toggles fullscreen; Alt+F4 exits; F8 marks the log timestamp.
 
@@ -114,5 +110,6 @@ PS2 ESPGaluda uses the original local scores and memory cards.
 Feedback
 After closing the game, click Upload logs, select a session, add an optional message,
 and upload. Include the report ID when reporting an issue.
+Startup failures can also be uploaded. Click Details for missing or inaccessible runtime files and recovery steps.
 Source and build instructions: SOURCE.txt. Component licenses: licenses/.
 Performance comparisons: https://github.com/zxl0714/EVAC-PC-LABEL#readme

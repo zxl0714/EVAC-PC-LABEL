@@ -1,5 +1,6 @@
 #include "save_store.h"
 #include <windows.h>
+#include <bcrypt.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -300,12 +301,38 @@ void RemovePlainTree(const fs::path& path, unsigned depth = 0) {
     }
     if (!RemoveDirectoryW(path.c_str())) { WinFail("Cannot remove retired save transaction directory"); }
 }
-struct TransactionRecord { std::string name; bool prepared{}, had_original{}; DirectoryId original{}, next{}, container{}; };
+// File indices are not durable generation IDs (notably across FAT directory
+// renames). Keep a random generation in the existing PSF metadata instead.
+DirectoryId Generation(const fs::path& path, bool create = false, bool renew = false) {
+    auto metadata = [&] {
+        try { return Metadata(path); }
+        catch (const Failure& error) {
+            if (error.error == Error::NotFound) { Fail(Error::Corrupt, "Save generation metadata is missing"); }
+            throw;
+        }
+    }();
+    const auto existing = metadata.Binary("EVAC_SAVE_GENERATION");
+    DirectoryId id{};
+    if (!renew && existing && existing->size() == sizeof(id)) {
+        std::memcpy(&id, existing->data(), sizeof(id)); return id;
+    }
+    if (!create) { Fail(Error::Corrupt, "Save generation metadata is missing"); }
+    if (BCryptGenRandom(nullptr, reinterpret_cast<PUCHAR>(&id), sizeof(id), BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0) {
+        Fail(Error::Io, "Cannot create save generation");
+    }
+    metadata.SetBinary("EVAC_SAVE_GENERATION", std::as_bytes(std::span(&id, 1)));
+    AtomicWrite(path / "sce_sys" / "param.sfo", metadata.Serialize());
+    return id;
+}
+struct TransactionRecord { std::string name; bool prepared{}, had_original{}; DirectoryId original{}, next{}, container{}; std::uint32_t version{2}; };
+DirectoryId SaveIdentity(const fs::path& path, const TransactionRecord& record) {
+    return record.version == 1 ? Identity(path) : Generation(path);
+}
 std::array<std::byte, 160> EncodeRecord(const TransactionRecord& record) {
     std::array<std::byte, 160> bytes{};
     std::memcpy(bytes.data(), "KTSAVTX1", 8);
     const auto put = [&](std::size_t at, std::uint32_t value) { for (unsigned i = 0; i < 4; ++i) { bytes[at + i] = static_cast<std::byte>(value >> (8 * i)); } };
-    put(8, 1); put(12, record.prepared ? 1 : 0); put(48, record.had_original ? 1 : 0);
+    put(8, record.version); put(12, record.prepared ? 1 : 0); put(48, record.had_original ? 1 : 0);
     std::memcpy(bytes.data() + 16, record.name.data(), record.name.size());
     for (const auto& [offset, id] : {std::pair{56u, record.original}, std::pair{80u, record.next}, std::pair{104u, record.container}}) { put(offset, id.volume); put(offset + 4, id.high); put(offset + 8, id.low); }
     const auto digest = kt::content::ReadPatchHash(std::span(bytes).first(128));
@@ -318,11 +345,11 @@ TransactionRecord ReadRecord(const fs::path& path, std::string_view key) {
         !ReadFile(file.value, bytes.data(), static_cast<DWORD>(bytes.size()), &received, nullptr) || received != bytes.size()) { Fail(Error::Corrupt, "Invalid save transaction record size"); }
     const auto get = [&](std::size_t at) { std::uint32_t value{}; for (unsigned i = 0; i < 4; ++i) { value |= std::to_integer<std::uint32_t>(bytes[at + i]) << (8 * i); } return value; };
     const auto digest = kt::content::ReadPatchHash(std::span(bytes).first(128));
-    if (std::memcmp(bytes.data(), "KTSAVTX1", 8) || get(8) != 1 || get(12) > 1 || get(48) > 1 ||
+    if (std::memcmp(bytes.data(), "KTSAVTX1", 8) || (get(8) != 1 && get(8) != 2) || get(12) > 1 || get(48) > 1 ||
         !std::equal(digest.begin(), digest.end(), bytes.begin() + 128)) { Fail(Error::Corrupt, "Invalid save transaction record"); }
     const auto* text = reinterpret_cast<const char*>(bytes.data() + 16); const auto end = std::find(text, text + 32, '\0');
     if (end == text + 32) { Fail(Error::Corrupt, "Unterminated save transaction slot"); }
-    TransactionRecord result; result.name.assign(text, end); result.prepared = get(12) != 0; result.had_original = get(48) != 0;
+    TransactionRecord result; result.version = get(8); result.name.assign(text, end); result.prepared = get(12) != 0; result.had_original = get(48) != 0;
     std::string actual_key;
     try { actual_key = SlotKey(result.name); } catch (const Failure&) { Fail(Error::Corrupt, "Invalid save transaction slot namespace"); }
     if (actual_key != key) { Fail(Error::Corrupt, "Save transaction slot identity differs"); }
@@ -341,17 +368,17 @@ void FinishPrepared(const fs::path& root, const fs::path& transaction, const Tra
     if (Identity(transaction_guard.value) != record.container) { Fail(Error::Corrupt, "Save transaction container identity changed"); }
     const auto target = root / record.name, work = transaction / "work", previous = transaction / "previous";
     const bool target_exists = Exists(target), work_exists = Exists(work), previous_exists = Exists(previous);
-    if (target_exists && Identity(target) == record.next) {
-        if (work_exists || (previous_exists && (!record.had_original || Identity(previous) != record.original))) { Fail(Error::Corrupt, "Conflicting published save transaction identities"); }
+    if (target_exists && SaveIdentity(target, record) == record.next) {
+        if (work_exists || (previous_exists && (!record.had_original || SaveIdentity(previous, record) != record.original))) { Fail(Error::Corrupt, "Conflicting published save transaction identities"); }
         return;
     }
-    if (!work_exists || Identity(work) != record.next) { Fail(Error::Corrupt, "Prepared save transaction work is missing or changed"); }
+    if (!work_exists || SaveIdentity(work, record) != record.next) { Fail(Error::Corrupt, "Prepared save transaction work is missing or changed"); }
     if (record.had_original) {
         if (target_exists) {
-            if (previous_exists || Identity(target) != record.original) { Fail(Error::Corrupt, "Original save transaction identity changed"); }
+            if (previous_exists || SaveIdentity(target, record) != record.original) { Fail(Error::Corrupt, "Original save transaction identity changed"); }
             MoveDirectory(target, previous);
             if (checkpoint) { checkpoint("previous_moved"); }
-        } else if (!previous_exists || Identity(previous) != record.original) { Fail(Error::Corrupt, "Original save transaction backup is missing"); }
+        } else if (!previous_exists || SaveIdentity(previous, record) != record.original) { Fail(Error::Corrupt, "Original save transaction backup is missing"); }
     } else if (target_exists || previous_exists) { Fail(Error::Corrupt, "New save transaction collides with existing data"); }
     MoveDirectory(work, target);
     if (checkpoint) { checkpoint("published"); }
@@ -359,9 +386,9 @@ void FinishPrepared(const fs::path& root, const fs::path& transaction, const Tra
 void CleanupPrepared(const fs::path& root, const fs::path& transaction, const TransactionRecord& record) {
     auto transaction_guard = DirectoryGuard(transaction);
     if (Identity(transaction_guard.value) != record.container) { Fail(Error::Corrupt, "Save transaction cleanup container identity changed"); }
-    if (Identity(root / record.name) != record.next || Exists(transaction / "work")) { Fail(Error::Corrupt, "Save transaction is not published"); }
+    if (SaveIdentity(root / record.name, record) != record.next || Exists(transaction / "work")) { Fail(Error::Corrupt, "Save transaction is not published"); }
     if (Exists(transaction / "previous")) {
-        if (!record.had_original || Identity(transaction / "previous") != record.original) { Fail(Error::Corrupt, "Retired save directory identity changed"); }
+        if (!record.had_original || SaveIdentity(transaction / "previous", record) != record.original) { Fail(Error::Corrupt, "Retired save directory identity changed"); }
         RemovePlainTree(transaction / "previous");
     }
     // Delete only our own known record and atomic-write scratch files; unknown
@@ -376,6 +403,33 @@ void CleanupPrepared(const fs::path& root, const fs::path& transaction, const Tr
     transaction_guard.Reset();
     if (!RemoveDirectoryW(transaction.c_str())) { WinFail("Cannot remove completed save transaction container"); }
 }
+bool ReadableSave(const fs::path& path, std::string_view name) {
+    if (!Exists(path)) { return false; }
+    try {
+        const auto metadata = Metadata(path);
+        if (metadata.Text("SAVEDATA_DIRECTORY").value_or("") != name) { return false; }
+        (void)DescribePath(path, std::string(name)); return true;
+    } catch (const Failure& error) {
+        if (error.error == Error::Corrupt || error.error == Error::NotFound) { return false; }
+        throw; // Access/IO failures do not mean a save is corrupt.
+    }
+}
+void PreserveConflictingTransaction(const fs::path& root, const fs::path& transaction,
+                                   const TransactionRecord& record) {
+    const auto recovery = root / ".kt-recovery";
+    PlainDirectory(recovery); auto recovery_guard = DirectoryGuard(recovery);
+    const auto target = root / record.name, previous = transaction / "previous";
+    const bool keep = ReadableSave(target, record.name);
+    const bool restore = !keep && record.had_original && ReadableSave(previous, record.name);
+    if (!keep && Exists(target)) {
+        { auto guard = DirectoryGuard(target); }
+        MoveDirectory(target, recovery / (fs::path(record.name).wstring() + L"-" + Unique(L"unreadable-")));
+    }
+    if (restore) { MoveDirectory(previous, target); }
+    MoveDirectory(transaction, recovery / (fs::path(record.name).wstring() + L"-" + Unique(L"conflict-")));
+    std::printf("{\"event\":\"native_save_transaction_recovered\",\"directory\":\"%s\",\"action\":\"%s\",\"recovery_directory\":\".kt-recovery\"}\n",
+        record.name.c_str(), keep ? "retain_readable_save_preserve_conflict" : restore ? "restore_previous_preserve_conflict" : "preserve_conflict_allow_new_save");
+}
 void RecoverSlot(const fs::path& root, std::string_view key, const std::function<void(std::string_view)>& checkpoint = {}) {
     const auto base = root / ".kt-transactions", transaction = base / std::string(key);
     if (!Exists(transaction)) { return; }
@@ -386,11 +440,19 @@ void RecoverSlot(const fs::path& root, std::string_view key, const std::function
         const auto record = ReadRecord(state_path, key);
         if (Identity(transaction_guard.value) != record.container) { Fail(Error::Corrupt, "Save transaction recovery container identity changed"); }
         if (record.prepared) {
-            FinishPrepared(root, transaction, record, checkpoint); transaction_guard.Reset(); CleanupPrepared(root, transaction, record);
+            try { FinishPrepared(root, transaction, record, checkpoint); }
+            catch (const Failure& error) {
+                if (error.error != Error::Corrupt) { throw; }
+                std::printf("{\"event\":\"native_save_recovery_conflict\",\"directory\":\"%s\",\"record_version\":%u,\"target_exists\":%s,\"work_exists\":%s,\"previous_exists\":%s}\n",
+                    record.name.c_str(),record.version,Exists(root/record.name)?"true":"false",Exists(transaction/"work")?"true":"false",Exists(transaction/"previous")?"true":"false");
+                std::fprintf(stderr, "Save recovery conflict for %s: %s; preserving files in .kt-recovery\n", record.name.c_str(), error.what());
+                transaction_guard.Reset(); PreserveConflictingTransaction(root, transaction, record); return;
+            }
+            transaction_guard.Reset(); CleanupPrepared(root, transaction, record);
             std::printf("{\"event\":\"native_save_transaction_recovered\",\"directory\":\"%s\",\"action\":\"finish_prepared_commit\"}\n", record.name.c_str()); return;
         }
         const auto target = root / record.name;
-        if (record.had_original ? (!Exists(target) || Identity(target) != record.original) : Exists(target)) { Fail(Error::Corrupt, "Uncommitted save original identity changed"); }
+        if (record.had_original ? (!Exists(target) || SaveIdentity(target, record) != record.original) : Exists(target)) { Fail(Error::Corrupt, "Uncommitted save original identity changed"); }
     }
     if (Exists(transaction / "previous")) { Fail(Error::Corrupt, "Unprepared save has a retired original"); }
     const auto recovery = root / ".kt-recovery"; PlainDirectory(recovery); auto recovery_guard = DirectoryGuard(recovery);
@@ -430,9 +492,8 @@ std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_
     transaction->directory_guard = DirectoryGuard(transaction->directory);
     auto& record = transaction->record; record.name = std::string(name); record.had_original = exists; record.container = Identity(transaction->directory_guard.value);
     try {
-        if (exists) { record.original = Identity(root / record.name); }
+        if (exists) { record.original = Generation(root / record.name, true); }
         if (!CreateDirectoryW(transaction->work.c_str(), nullptr)) { WinFail("Cannot create save work directory"); }
-        record.next = Identity(transaction->work); AtomicWrite(transaction->directory / "state.bin", EncodeRecord(record));
         if (exists) { CopyBudget budget{0, blocks * kBlock, 0}; CloneTree(root / record.name, transaction->work, budget); transaction->copied_bytes = budget.bytes; }
         else {
             if (!CreateDirectoryW((transaction->work / "sce_sys").c_str(), nullptr)) { WinFail("Cannot create save work metadata directory"); }
@@ -441,6 +502,8 @@ std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_
             std::array<std::byte, 8> quota{}; for (unsigned i = 0; i < 8; ++i) { quota[i] = static_cast<std::byte>(blocks >> (i * 8)); }
             metadata.SetBinary("SAVEDATA_BLOCKS", quota); AtomicWrite(transaction->work / "sce_sys" / "param.sfo", metadata.Serialize());
         }
+        record.next = Generation(transaction->work, true, true);
+        AtomicWrite(transaction->directory / "state.bin", EncodeRecord(record));
         transaction->stage_us = ClockUs() - began; return transaction;
     } catch (...) {
         // A failed mount was never published to the caller. Retire only this
@@ -533,6 +596,11 @@ void File::Flush() {
 Store::Store(const fs::path& root, std::function<void(std::string_view)> checkpoint) : impl_(std::make_shared<Impl>()) {
     if (!root.is_absolute()) { Fail(Error::Invalid, "Save store root must be absolute"); }
     impl_->guards = GuardParents(root.lexically_normal()); impl_->root = fs::canonical(root);
+    wchar_t volume[MAX_PATH]{}, filesystem[MAX_PATH]{}; DWORD flags{};
+    if (GetVolumePathNameW(root.c_str(), volume, MAX_PATH) && GetVolumeInformationW(volume, nullptr, 0, nullptr, nullptr, &flags, filesystem, MAX_PATH)) {
+        char name[256]{}; WideCharToMultiByte(CP_UTF8, 0, filesystem, -1, name, sizeof(name), nullptr, nullptr);
+        std::printf("{\"event\":\"native_save_filesystem\",\"filesystem\":\"%s\",\"flags\":%lu}\n", name, flags);
+    }
     impl_->checkpoint = std::move(checkpoint); RecoverAll(impl_->root, impl_->checkpoint);
 }
 void Store::CreateRoot(const fs::path& root) {

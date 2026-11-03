@@ -685,6 +685,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_v092_defers_ibara(self):
         self.assertEqual(release.release_games('0.9.2'), release.V09_GAMES)
+        self.assertEqual(release.release_games('0.9.3'), release.V09_GAMES)
         self.assertNotIn('ibara', release.release_games('0.9.2'))
         def check(root, games, commit, inspect):
             public = release.build('Public', '0.9.2', root/'releases/public')

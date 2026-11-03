@@ -62,6 +62,9 @@ struct Inspection {
   std::vector<std::string> candidate_roots;
   std::string variant, version, layout;
 };
+struct RuntimeIssue { std::string path, kind; uint32_t error{}; };
+std::vector<RuntimeIssue> InspectRuntime(const Game& game, const fs::path& root);
+std::string RuntimeDiagnostic(const Game& game, const fs::path& root);
 Inspection Inspect(const Game& game, const fs::path& collection_root,
                    const fs::path& data_dir, CheckLevel level);
 struct ContentInspection {

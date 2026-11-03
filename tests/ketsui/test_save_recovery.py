@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import queue
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -10,8 +11,8 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / 'out/native/KetsuiNativeProbe.exe'
+ROOT = Path(__file__).resolve().parents[2]
+EXE = ROOT / 'out/ps4-native/KetsuiNativeProbe.exe'
 
 
 @unittest.skipUnless(os.name == 'nt' and EXE.is_file(), 'Build the native Windows probe first')
@@ -201,10 +202,77 @@ class SaveRecoveryTests(unittest.TestCase):
             sentinel.write_bytes(b'Unrelated authored directory, do not adopt')
             result = subprocess.run([str(EXE), '--save-crash-fixture', directory, 'inspect'],
                                     capture_output=True, text=True, timeout=10, cwd=ROOT)
-            self.assertEqual(result.returncode, 2)
+            self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(self.hashes(root / 'Fixture'), before)
-            self.assertEqual(sentinel.read_bytes(), b'Unrelated authored directory, do not adopt')
+            preserved = next((root / '.kt-recovery').iterdir()) / 'work/unrelated.bin'
+            self.assertEqual(preserved.read_bytes(), b'Unrelated authored directory, do not adopt')
             self.assertEqual((root / '.kt-authored-held-work/data.bin').read_bytes(), b'B' * 65536)
+
+    def test_generation_survives_directory_copy_with_new_native_id(self):
+        with tempfile.TemporaryDirectory(prefix='kt-save-generation-') as directory:
+            self.invoke(directory, 'seed')
+            with self.parked_writer(directory, 'ready'):
+                pass
+            root = self.save_root(directory)
+            work = root / '.kt-transactions/fixture/work'
+            held = root / '.kt-authored-held-work'
+            work.rename(held)
+            shutil.copytree(held, work)
+            self.assertTrue(self.invoke(directory, 'inspect')[-1]['new_payload'])
+
+    def test_missing_work_preserves_current_save_and_clears_retry_loop(self):
+        with tempfile.TemporaryDirectory(prefix='kt-save-missing-work-') as directory:
+            self.invoke(directory, 'seed')
+            with self.parked_writer(directory, 'ready'):
+                pass
+            root = self.save_root(directory)
+            (root / '.kt-transactions/fixture/work').rename(root / '.kt-authored-held-work')
+            self.assertTrue(self.invoke(directory, 'inspect')[-1]['old_payload'])
+            self.assertTrue(self.invoke(directory, 'inspect')[-1]['old_payload'])
+            self.assertEqual(list((root / '.kt-transactions').iterdir()), [])
+            self.assertEqual(len(list((root / '.kt-recovery').iterdir())), 1)
+
+    def test_legacy_published_record_with_changed_file_id_keeps_new_save(self):
+        with tempfile.TemporaryDirectory(prefix='kt-save-legacy-') as directory:
+            self.invoke(directory, 'seed')
+            with self.parked_writer(directory, 'published'):
+                pass
+            root = self.save_root(directory)
+            record_path = root / '.kt-transactions/fixture/state.bin'
+            record = bytearray(record_path.read_bytes())
+            record[8:12] = (1).to_bytes(4, 'little')
+            record[80:92] = b'\x11' * 12  # Published directory acquired a different native ID.
+            record[128:] = hashlib.sha256(record[:128]).digest()
+            record_path.write_bytes(record)
+            before = self.hashes(root / 'Fixture')
+            self.assertTrue(self.invoke(directory, 'inspect')[-1]['new_payload'])
+            self.assertEqual(self.hashes(root / 'Fixture'), before)
+            preserved = next((root / '.kt-recovery').iterdir())
+            self.assertEqual((preserved / 'previous/data.bin').read_bytes(), b'A' * 65536)
+
+    def test_unusable_work_restores_previous_generation(self):
+        with tempfile.TemporaryDirectory(prefix='kt-save-restore-') as directory:
+            self.invoke(directory, 'seed')
+            with self.parked_writer(directory, 'previous_moved'):
+                pass
+            root = self.save_root(directory)
+            (root / '.kt-transactions/fixture/work').rename(root / '.kt-authored-held-work')
+            self.assertTrue(self.invoke(directory, 'inspect')[-1]['old_payload'])
+            self.assertEqual(list((root / '.kt-transactions').iterdir()), [])
+
+    def test_no_readable_generation_is_backed_up_before_recreation(self):
+        with tempfile.TemporaryDirectory(prefix='kt-save-recreate-') as directory:
+            self.invoke(directory, 'seed')
+            with self.parked_writer(directory, 'ready'):
+                pass
+            root = self.save_root(directory)
+            (root / '.kt-transactions/fixture/work').rename(root / '.kt-authored-held-work')
+            (root / 'Fixture/sce_sys/param.sfo').write_bytes(b'authored broken metadata')
+            self.invoke(directory, 'recreate')
+            self.assertTrue(self.invoke(directory, 'inspect')[-1]['new_payload'])
+            backups = list((root / '.kt-recovery').iterdir())
+            self.assertEqual(len(backups), 2)
+            self.assertTrue(any((p / 'data.bin').is_file() and (p / 'data.bin').read_bytes() == b'A' * 65536 for p in backups))
 
     def test_changed_transaction_container_is_not_cleaned_or_adopted(self):
         with tempfile.TemporaryDirectory(prefix='kt-save-bad-container-') as directory:

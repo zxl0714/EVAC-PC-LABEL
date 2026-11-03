@@ -122,6 +122,33 @@ std::span<const DataFile> DataFiles(const Game& game,std::string_view variant) {
   for(const auto& item:game.variants)if(item.id==variant)return item.files;
   throw std::runtime_error("Unknown game-data variant");
 }
+std::vector<RuntimeIssue> InspectRuntime(const Game& game, const fs::path& root) {
+  std::vector<RuntimeIssue> result;
+  for (auto relative : game.runtime_files) {
+    const auto path = DataChild(root, relative);
+    const auto attributes = GetFileAttributesW(path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+      const auto error = GetLastError();
+      result.push_back({std::string(relative), error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? "missing" : "unreadable", error});
+    } else if (attributes & FILE_ATTRIBUTE_DIRECTORY) {
+      result.push_back({std::string(relative), "not_file", ERROR_DIRECTORY});
+    } else {
+      const auto file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+          nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+      if (file == INVALID_HANDLE_VALUE) result.push_back({std::string(relative), "unreadable", GetLastError()});
+      else CloseHandle(file);
+    }
+  }
+  return result;
+}
+std::string RuntimeDiagnostic(const Game& game, const fs::path& root) {
+  std::string result = "game=" + std::string(game.id) + "\ncollection=" + Utf8(fs::absolute(root)) + "\n";
+  const auto issues = InspectRuntime(game, root);
+  if (issues.empty()) result += "runtime_files=readable\n";
+  for (const auto& issue : issues)
+    result += issue.kind + " | Windows=" + std::to_string(issue.error) + " | " + Utf8(DataChild(root, issue.path)) + "\n";
+  return result;
+}
 Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level) {
   Inspection result;
   result.game = game.id;
@@ -189,8 +216,7 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
     else if (level == CheckLevel::Full) result.data_state = DataState::Verified;
     else result.data_state = DataState::Unverified;
     }
-    for (auto relative : game.runtime_files)
-      if (!fs::is_regular_file(DataChild(paths.root, relative))) result.missing_runtime.emplace_back(relative);
+    for (const auto& issue : InspectRuntime(game, paths.root)) result.missing_runtime.push_back(issue.path);
     if (!game.integrated) { result.state = "not_integrated"; result.reason = "Collection backend not integrated"; }
     else if (result.data_state != DataState::Verified && result.data_state != DataState::Unverified)
       result.state = Name(result.data_state);

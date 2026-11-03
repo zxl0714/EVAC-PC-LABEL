@@ -1,7 +1,9 @@
 import io
 import json
+import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -14,6 +16,25 @@ from server import reports
 
 
 class LogReportTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('EVAC_REPORT_TEST_EXE'), 'requires compiled report fixture')
+    def test_launcher_automatically_summarizes_old_dumps(self):
+        result = subprocess.run([os.environ['EVAC_REPORT_TEST_EXE'], '--fixture'],
+            capture_output=True, check=True, timeout=45, creationflags=subprocess.CREATE_NO_WINDOW)
+        archive_path = Path(result.stdout.decode('utf-8').strip())
+        body = archive_path.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(body)) as archive:
+            names = archive.namelist()
+            summaries = [archive.read(n).decode('utf-8') for n in names if '/auto-crash-' in n]
+            self.assertEqual(len(summaries), 2)
+            self.assertTrue(any('fault_module=authored-driver.dll+0x1234' in s for s in summaries))
+            self.assertTrue(any('summary_error=' in s for s in summaries))
+            self.assertFalse(any(n.endswith(('.dmp', '.bin')) for n in names))
+            self.assertIn('Missing statically compiled', archive.read('./logs/stderr.log').decode())
+            runtime=archive.read('./logs/runtime-at-upload.txt').decode()
+            self.assertIn('Windows=', runtime)
+            self.assertIn('runtime', runtime)
+        self.assertEqual(reports.inspect(body)['game'], 'espgaluda')
+
     def archive(self, extra=None, **metadata):
         data = io.BytesIO()
         with zipfile.ZipFile(data, 'w', compression=zipfile.ZIP_DEFLATED) as archive:

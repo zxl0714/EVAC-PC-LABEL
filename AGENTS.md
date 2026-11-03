@@ -10,6 +10,48 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+ACTIVE GOAL Nov04: quickly implement v0.9.3, minimum tests, deliver PROGRAM ZIP
+then user manual playtest. No GitHub publication/upload requested.
+Four fixes implemented; 19 tests/ketsui/test_save_recovery.py passed, save-store
+selftest42 passed, cave_common_tests765 passed, crash parser passed, reports HTTP/
+ZIP4 passed, release package tests54 passed(1old internal-fixture skip).
+Evidence .local/v093/save-tests.log, save-contract.log, package-tests.log.
+Source freeze/build/package next; do not start Ibara work or repeated gameplay.
+Storage v2 records use random PSF EVAC_SAVE_GENERATION, v1 retained for recovery;
+conflicts archive under .kt-recovery, prefer readable target/previous, otherwise
+allow new slot after preserving old files. Explicit corrupt record/container
+validation still retained. Common runtime inspector distinguishes missing vs
+sharing/access errors; launcher records uploadable startup failures. PS4 validation
+now opt-in KETSUI_VULKAN_VALIDATE=1. PS2 Release has no VULKAN_DEBUG definition.
+
+Nov04 v0.9.3 scope: prioritize player-reported problems. User explicitly deferred
+Ibara support, rendering/performance investigation AND its launcher artwork.
+Keep existing Ibara work; leave Coming Soon. No Ibara work or extra gameplay
+acceptance is a gate for this release. Plan: docs/IMPLEMENTATION_PLAN.md.
+Order: Ketsui save recovery -> opt-in PS4 Vulkan validation -> crash diagnostics
+completion -> missing-runtime-file feedback -> targeted regression/program package.
+No publication requested in this scope discussion.
+
+Latest Ketsui report .local/v092/server-reports/20261103-29f6eb1977fa4562 (dmc,v092):
+storage init fails "Prepared save transaction work is missing or changed"; 165
+SaveDataDialog module loads. Filesystem unknown; do not assume FAT/exFAT or delete
+player saves. NativeResidentGpu is constructed with literal true in native_probe.cpp;
+remote stderr confirms Khronos validation enabled. Local vulkaninfo does NOT list
+that layer, and local ketsui-storage-play run78524 has an empty enabled-layer list.
+233.313ms frame298 occurs during ketsui_01000.prx loading, not proven gameplay stutter:
+223.821ms before graphics submission; submission9.492ms, actual present backend.426ms.
+Do not attribute all slowdown to validation without a controlled comparison.
+
+Uncommitted diagnostics implementation: common/crash_details.* parses existing dumps
+into bounded text summaries during ordinary launcher upload; common/windows_fault_text.h
+enriches PS2 crash text. crash/report tests, server integration and launcher build passed;
+PS2 collection library compiled, game EXE not relinked/staged. Preserve these changes.
+Intel Arc B390 ESPGaluda AV remains unresolved: old uploaded ZIPs omit dumps/module
+tables; new automatic diagnostics avoid asking the user to mediate a standalone tool.
+Only targeted tests remain; do not repeat already-passed unrelated gameplay.
+
+### Previous report checkpoint
+
 Nov03 G2 remote graphics report review COMPLETE; root cause remains OPEN.
 User reopened log/code investigation, superseding G2 HOLD below. Do not launch
 more local games just to repeat the non-reproduction. No runtime changes/build/package.

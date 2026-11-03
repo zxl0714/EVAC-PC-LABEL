@@ -257,6 +257,8 @@ If a PS4 game reports an unsupported Vulkan version, update the graphics driver 
 
 After closing the game, click **Upload logs** at the bottom of the launcher. It selects your latest session; you can choose another run. Optionally describe the mode, character, and what happened, then click **Upload**.
 
+You can also upload logs when a game cannot start. If the runtime is unavailable, click **Details** to see the affected files and how to restore them.
+
 Include the report ID when reporting the issue. **Open local logs** opens the selected session folder.
 
 ## Development

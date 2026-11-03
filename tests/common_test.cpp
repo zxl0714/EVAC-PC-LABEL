@@ -558,7 +558,15 @@ int main() {
     Require(inspect().state == "incomplete_data", "Missing resource state");
     Write(fixture.data / "res/asset.bin");
     Require(inspect().state == "missing_runtime", "Missing runtime state");
+    auto runtimeIssues=InspectRuntime(game,fixture.root);
+    Require(runtimeIssues.size()==1 && runtimeIssues.front().kind=="missing" && runtimeIssues.front().error!=0,"Missing runtime detail");
     Write(fixture.root / "runtime/fake.exe");
+    const auto blockedRuntime=CreateFileW((fixture.root/L"runtime/fake.exe").c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,0,nullptr);
+    Require(blockedRuntime!=INVALID_HANDLE_VALUE,"Cannot set authored sharing lock");
+    runtimeIssues=InspectRuntime(game,fixture.root);
+    CloseHandle(blockedRuntime);
+    Require(runtimeIssues.size()==1 && runtimeIssues.front().kind=="unreadable" && runtimeIssues.front().error==ERROR_SHARING_VIOLATION,"Inaccessible runtime was called missing");
+    Require(InspectRuntime(game,fixture.root).empty(),"Restored file remained unavailable");
     Require(inspect(CheckLevel::Quick).state == "needs_verification" && inspect(CheckLevel::Quick).hashes_checked == 0,
             "Quick scan must not claim verified");
     Require(inspect(CheckLevel::Programs).data_state == DataState::Unverified && inspect(CheckLevel::Programs).hashes_checked == 1,

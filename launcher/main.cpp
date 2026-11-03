@@ -199,6 +199,9 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
         rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick);
+        if(!rows[index].inspection.missing_runtime.empty()) {
+          try {cave::launcher::reports::RecordRuntimeFailure(root,game.id);} catch (...) {}
+        }
         const auto content=ini.ContentDirectory(game,rows[index].inspection.data_dir);
         if(index==selected && !game.content.empty()) {
           rows[index].content_source=content.empty()?fs::path{}:Resolve(root,content);
@@ -225,7 +228,7 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="nested_data") return T(L"解压目录层级不正确");
   if (state=="unknown_layout") return T(L"请检查游戏数据目录");
   if (state=="unsupported_version") return T(L"数据版本不支持");
-  if (state=="missing_runtime") return T(L"缺少运行组件");
+  if (state=="missing_runtime") return T(L"运行组件不可用 · 点击详情");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
   if (state=="invalid_path") return T(L"数据路径不可用");
   if (state=="not_integrated") return T(L"正在接入");
@@ -597,6 +600,14 @@ class App {
     const auto& row=rows[selected];
     std::wstring body=Wide(Catalogue()[selected].DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
     if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
+    if(!row.inspection.missing_runtime.empty()) {
+      body+=L"\n\n"+std::wstring(T(L"无法读取以下运行组件："));
+      for(const auto& issue:InspectRuntime(Catalogue()[selected],options.root)) {
+        const auto* kind=issue.kind=="missing"?T(L"文件不存在"):issue.kind=="not_file"?T(L"路径是文件夹"):T(L"文件无法访问");
+        body+=L"\n"+DataChild(options.root,issue.path).native()+L"\n  "+kind+L" (Windows "+std::to_wstring(issue.error)+L")";
+      }
+      body+=L"\n\n"+std::wstring(T(L"请重新解压程序包并替换同名文件，然后点击刷新。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。"));
+    }
     if(!row.content.empty()) {
       body+=L"\n\n"+std::wstring(T(L"DLC 查找目录："))+(row.content_source.empty()?T(L"已禁用"):row.content_source.native());
       for(const auto& item:row.content) {

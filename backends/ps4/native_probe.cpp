@@ -22,6 +22,7 @@
 #include "native_gpu.h"
 #include "native_offline_bench.h"
 #include "native_resident_gpu.h"
+#include "common/windows_fault_text.h"
 #include "native_trophy.h"
 #include "memory/write_tracker.h"
 #include "memory/tracked_texture.h"
@@ -587,6 +588,7 @@ LONG WINAPI Unhandled(EXCEPTION_POINTERS* exception) {
         TerminateProcess(GetCurrentProcess(), 22);
         return EXCEPTION_EXECUTE_HANDLER;
     }
+    cave::WriteWindowsFaultText(GetStdHandle(STD_ERROR_HANDLE), exception);
     PrintFaultContext(*exception->ContextRecord);
     const auto rip = exception->ContextRecord->Rip;
     const auto* runtime = ImageAt(rip);
@@ -2037,8 +2039,11 @@ int NativeCommand(int argc, wchar_t** argv) {
             if (root.filename() == L"user-data") { root = root.parent_path(); }
             pipeline_cache = root / L"cache" / L"ps4" / cave::FromUtf8(collection->game);
         }
+        wchar_t validation_setting[8]{};
+        const bool gpu_validation = GetEnvironmentVariableW(L"KETSUI_VULKAN_VALIDATE", validation_setting, 8) == 1 && validation_setting[0] == L'1';
+        std::printf("{\"event\":\"native_gpu_validation_configuration\",\"requested\":%s}\n", gpu_validation ? "true" : "false");
         const auto resident_gpu = gpu_runtime
-            ? std::make_unique<NativeResidentGpu>(gpu_runtime, true, pipeline_cache) : nullptr;
+            ? std::make_unique<NativeResidentGpu>(gpu_runtime, gpu_validation, pipeline_cache) : nullptr;
         Runtime runtime;
         active_runtime = &runtime;
         SetUnhandledExceptionFilter(Unhandled);

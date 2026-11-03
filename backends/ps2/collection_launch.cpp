@@ -2,6 +2,7 @@
 #include "common/launch.h"
 #include "common/ps2_prepare.h"
 #include "common/settings.h"
+#include "common/windows_fault_text.h"
 #include <Windows.h>
 #include <DbgHelp.h>
 #include <array>
@@ -19,17 +20,20 @@ std::wstring crashText,crashDump;
 LONG WINAPI Crash(EXCEPTION_POINTERS* exception) {
     const auto file=CreateFileW(crashText.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
     if(file!=INVALID_HANDLE_VALUE) {
-        char line[200]{};
-        const auto count=std::snprintf(line,sizeof(line),"exception=0x%08lx\naddress=%p\nthread=%lu\n",
-            exception->ExceptionRecord->ExceptionCode,exception->ExceptionRecord->ExceptionAddress,GetCurrentThreadId());
-        DWORD written{};if(count>0)WriteFile(file,line,DWORD(count),&written,nullptr);CloseHandle(file);
+        WriteWindowsFaultText(file,exception);FlushFileBuffers(file);
     }
     const auto dump=CreateFileW(crashDump.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+    bool dumpOkay=false;DWORD dumpError=dump==INVALID_HANDLE_VALUE?GetLastError():0;
     if(dump!=INVALID_HANDLE_VALUE) {
         MINIDUMP_EXCEPTION_INFORMATION info{GetCurrentThreadId(),exception,FALSE};
-        MiniDumpWriteDump(GetCurrentProcess(),GetCurrentProcessId(),dump,
-            MINIDUMP_TYPE(MiniDumpWithThreadInfo|MiniDumpWithUnloadedModules|MiniDumpWithProcessThreadData),&info,nullptr,nullptr);
+        dumpOkay=MiniDumpWriteDump(GetCurrentProcess(),GetCurrentProcessId(),dump,
+            MINIDUMP_TYPE(MiniDumpWithThreadInfo|MiniDumpWithUnloadedModules|MiniDumpWithProcessThreadData),&info,nullptr,nullptr)!=FALSE;
+        if(!dumpOkay)dumpError=GetLastError();
         CloseHandle(dump);
+    }
+    if(file!=INVALID_HANDLE_VALUE) {
+        char line[100]{};const auto n=std::snprintf(line,sizeof(line),"dump_ok=%u\ndump_error=%lu\n",unsigned(dumpOkay),dumpError);
+        DWORD written{};if(n>0)WriteFile(file,line,DWORD(n),&written,nullptr);CloseHandle(file);
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
