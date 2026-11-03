@@ -10,6 +10,21 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+ACTIVE user-authorized v0.9.1 follow-up: look for easy, measurable PS2 size wins.
+Preserve accepted b8a94c9 ZIP and v0.9.0; no automatic publication. Initial micro
+bench .local/v091/easy-size-r1: same large ARCADE function+module07, shared named
+READ helpers reduce compiled code1,427,317->1,026,637bytes(-28.07%), compile12.43
+->7.98s. -Os alone negligible (0.007%); rejected. Original macro generated unique
+capturing lambdas for each READ. Wrapper now uses identical address dispatch and
+width with shared inline functions, pinned upstream header copied under a new
+name. No generated game C++ changes. Added native width/alias/wrap/scratchpad/
+state/evaluate-once contract. Native-check build running; next focused source
+checks, freeze code then complete game rebuild, original callback probes and
+short gameplay/frame/CPU comparison. If full EXE gain meaningful, revise local
+v091 program package once; use one extraction and keep prior candidate.
+
+Previous accepted local delivery (before this newly authorized follow-up):
+
 COMPLETE v0.9.1 LOCAL DELIVERY Nov03. Stop before publication; no push, tag,
 GitHub release, upload, Internal package or group announcement performed.
 Frozen source/build/package commit b8a94c99455d6bde48c7fa0369aab7e6458baa99.

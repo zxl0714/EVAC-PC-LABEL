@@ -16,7 +16,12 @@ set(PS2_RUNTIME_INCLUDE "${CMAKE_BINARY_DIR}/runtime-include")
 # would violate the native ABI.
 file(COPY "${UPSTREAM}/ps2xRuntime/include/" DESTINATION "${PS2_RUNTIME_INCLUDE}"
   PATTERN "ps2_runtime.h" EXCLUDE PATTERN "ps2_memory.h" EXCLUDE
+  PATTERN "ps2_runtime_macros.h" EXCLUDE
   PATTERN "gs_frontend.h" EXCLUDE PATTERN "ps2_gif_arbiter.h" EXCLUDE PATTERN "ee_scheduler.h" EXCLUDE)
+configure_file("${UPSTREAM}/ps2xRuntime/include/ps2_runtime_macros.h"
+  "${PS2_RUNTIME_INCLUDE}/ps2_upstream_runtime_macros.h" COPYONLY)
+configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime_macros.h"
+  "${PS2_RUNTIME_INCLUDE}/ps2_runtime_macros.h" COPYONLY)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.h"
   "${PS2_RUNTIME_INCLUDE}/ps2_runtime.h" COPYONLY)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
@@ -261,6 +266,10 @@ if(PS2_BUILD_RUNTIME)
   target_include_directories(ps2_compact_contract PRIVATE "${compactFixture}")
   target_link_libraries(ps2_compact_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_compact_contract COMMAND ps2_compact_contract)
+
+  add_executable(ps2_memory_access_contract "${COLLECTION_ROOT}/tests/ps2_memory_access_test.cpp")
+  target_link_libraries(ps2_memory_access_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_memory_access_contract COMMAND ps2_memory_access_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   option(PS2_GAME_SYMBOLS "Link full PDBs for generated game hosts" ON)

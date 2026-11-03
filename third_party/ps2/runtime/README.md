@@ -30,6 +30,15 @@ continuing. The headless kernel regression exercises this transfer.
 CMake stages one complete runtime include tree with the adapted header. Both
 direct and quoted sibling includes therefore use the same class layout.
 
+`ps2_runtime_macros.h` wraps the pinned upstream macro header, staged as
+`ps2_upstream_runtime_macros.h`. Its five memory-read macros use shared named
+inline functions instead of a different capturing lambda at every generated
+load. Address evaluation remains once per load; special-address dispatch, RAM
+wrapping, scratchpad handling and load widths retain their upstream behaviour.
+The compiler can inline a helper or share its out-of-line body across functions
+and modules. `ps2_memory_access_contract` checks the five widths, RAM aliases,
+boundary wrapping, scratchpad, address evaluation and preserved guest state.
+
 `iop_emulator.cpp` supplies the IRX startup `argc`/`argv` interface, including the
 module path and a null table terminator. `iop_sysclib.cpp`, adapted from
 `ps2xIOP/src/emulator/imports/iop_sysclib.cpp` at the same revision, implements
