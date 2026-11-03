@@ -10,13 +10,18 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-ACTIVE GOAL Nov04: quickly implement v0.9.3, minimum tests, deliver PROGRAM ZIP
-then user manual playtest. No GitHub publication/upload requested.
+COMPLETE Nov04: v0.9.3 PROGRAM ZIP built and extracted once, all195files verified.
+User manual playtest next; no GitHub publication/upload requested. Stop extra tests.
+Package: releases/v0.9.3-local-38c854e/EVAC-PC-LABEL-v0.9.3-win-x64.zip
+154519952bytes; SHA256 870a149d1ed263dc2af23c3a7271677403ec3db032283150e8dbf06fa87d5cdd.
+Frozen package source62e28b0, runtime builds38c854e; later checkpoint docs do not
+require rebuilding. Acceptance .local/v093/package-acceptance-62e28b0 and ZIP-side
+.acceptance.json. No ROM/source/PDB included. Ibara remains Coming Soon.
 Four fixes implemented; 19 tests/ketsui/test_save_recovery.py passed, save-store
 selftest42 passed, cave_common_tests765 passed, crash parser passed, reports HTTP/
 ZIP4 passed, release package tests54 passed(1old internal-fixture skip).
 Evidence .local/v093/save-tests.log, save-contract.log, package-tests.log.
-Source freeze/build/package next; do not start Ibara work or repeated gameplay.
+All component builds and packaging complete; do not start Ibara or repeated gameplay.
 Storage v2 records use random PSF EVAC_SAVE_GENERATION, v1 retained for recovery;
 conflicts archive under .kt-recovery, prefer readable target/previous, otherwise
 allow new slot after preserving old files. Explicit corrupt record/container
