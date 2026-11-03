@@ -683,29 +683,16 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual((root/'game-data/espgaluda/original.iso').read_bytes(),b'abc')
         self.check_build_flavors('0.9.0',check)
 
-    def test_v092_adds_ibara_with_shared_ps2_runtime_and_separate_data(self):
-        self.assertEqual(release.release_games('0.9.1'),release.V09_GAMES)
-        self.assertEqual(release.release_games('0.9.2'),release.V092_GAMES)
-        def check(root,games,commit,inspect):
-            public=release.build('Public','0.9.2',root/'releases/program')
-            inspect.assert_not_called()
-            directory=Path(public['directory'])
-            record=release.verify_tree(directory,games)
-            self.assertEqual(record['games'],list(release.V092_GAMES))
-            self.assertEqual(record['dataGames'],[])
-            for game in ('espgaluda','ibara'):
-                self.assertTrue((directory/('runtime/ps2/'+game+'.exe')).is_file())
-                self.assertTrue((directory/('runtime/games/'+game+'/runtime-manifest.ini')).is_file())
-                self.assertEqual({p.name for p in (directory/'game-data'/game).iterdir()},{'README.txt'})
-            self.assertEqual(len(list((directory/'runtime/ps2').glob('SDL3.dll'))),1)
-            self.assertFalse((directory/'source').exists())
+    def test_v092_defers_ibara(self):
+        self.assertEqual(release.release_games('0.9.2'), release.V09_GAMES)
+        self.assertNotIn('ibara', release.release_games('0.9.2'))
+        def check(root, games, commit, inspect):
+            public = release.build('Public', '0.9.2', root/'releases/public')
+            directory = Path(public['directory'])
+            self.assertTrue((directory/'runtime/ps2/espgaluda.exe').is_file())
+            self.assertFalse((directory/'runtime/ps2/ibara.exe').exists())
             self.assertFalse(list(directory.rglob('*.pdb')))
-            internal=release.build('Internal','0.9.2',root/'releases/internal',data_games=['ibara'])
-            installed=Path(internal['directory'])
-            self.assertTrue((installed/'game-data/ibara/disc.iso').is_file())
-            self.assertFalse((installed/'game-data/espgaluda/disc.iso').exists())
-            self.assertFalse((installed/'game-data/ibara/inner-boot').exists())
-        self.check_build_flavors('0.9.2',check)
+        self.check_build_flavors('0.9.2', check)
 
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)

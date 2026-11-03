@@ -64,7 +64,9 @@ class PackageInputs:
         if (type(record.get('format')) is not int or record['format'] != 1 or
                 kind != ('host' if backend == 'xbox360' else backend) or
                 record.get('sourceDirty') is True or
-                (games is not None and record.get('games') != list(games))):
+                (games is not None and (not isinstance(record.get('games'), list) or
+                 (not set(games).issubset(record['games']) if backend == 'ps2'
+                  else record['games'] != list(games))))):
             raise ValueError('Invalid completed build receipt: ' + backend)
         source = dict(record['sourceSnapshot'])
         claimed = source.pop('sha256')

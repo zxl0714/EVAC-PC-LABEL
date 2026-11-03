@@ -80,7 +80,7 @@ def release_games(version):
         return V083_GAMES if len(parts)>2 and int(parts[2])>=3 else V08_GAMES
     if (major, minor) == (0, 9):
         parts=version.split('-',1)[0].split('.')
-        return V092_GAMES if len(parts)>2 and int(parts[2])>=2 else V09_GAMES
+        return V092_GAMES if len(parts)>2 and int(parts[2])>=3 else V09_GAMES
     raise ValueError('No game-set profile for this release version')
 
 

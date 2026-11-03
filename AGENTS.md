@@ -10,6 +10,24 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Nov03 G2 remote graphics report review COMPLETE; root cause remains OPEN.
+User reopened log/code investigation, superseding G2 HOLD below. Do not launch
+more local games just to repeat the non-reproduction. No runtime changes/build/package.
+Report .local/v092/server-reports/20261102-5533ca6910934d59: v090, dat12 Xbox360,
+RTX2060SUPER,1V. All8XEX hashes supported; rexruntime/rexgpu and7moduleDLL hashes
+match local g2-play run66312; hostEXE differs, do not call whole builds identical.
+Logged D3D12 feature list exactly matches localRTX4080. No device loss/OOM/shader
+failure. Companion Ketsui report logs NVIDIA621.1.0.0; not direct G2 driver evidence.
+One G2_FENCE_WAIT bounded_wait_failed at21:58:03.661,waits3781; nearby present96.061ms.
+WaitOnAddress cap50ms, no GetLastError recorded. Original predicate/watchdog retained;
+fallback disables sleeping, DOES NOT skip GPU completion checks. 1V did not fall back.
+No screenshot, bad-frame trace, texture hashes or known event timestamp in report.
+Next useful remote test: same scene1V/2V; if still bad, isolate native RGBA8 resolve
+and RTV/ROV one at a time. Those are candidates, not proven causes. Evidence summary
+.local/v092/g2-report-review.json; plan updated. G1 music report closed as fixed based
+on clock regression/manual confirmation; remote reporter has not retested new EXE.
+No push/publication authorized. Older checkpoints below retained as evidence.
+
 COMPLETE Nov03 manual G1 Arrange audio regression r3; user reports "明显正常了".
 Game27228 and recorder124304 exited; no game/build running. Evidence:
 .local/v092/g1-arrange-audio-r3/audio-analysis.json, queue-frame-analysis.json,

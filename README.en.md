@@ -58,7 +58,7 @@ Latency is a stage-budget estimate: an 8.33 ms average sampling wait; a measured
 
 ### System requirements
 
-Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, Battle Garegga, ESPGaluda, and Ibara require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
+Use Windows x64 with your GPU vendor's graphics drivers. Futari, G2, SDOJ, and Guwange require Direct3D 12; Ketsui, DaiOuJou, ESP Ra.De., Dangun Feveron, Battle Garegga, and ESPGaluda require a graphics driver supporting Vulkan 1.3. Application runtime libraries are included in the player package.
 
 PS4 games automatically adapt BMI1, LZCNT and MOVBE instructions to the available CPU features.
 
@@ -85,13 +85,12 @@ Prepare only the games you want:
 | 弾銃フィーバロン | Dangun Feveron | PS4, US CUSA06735, version 01.00 base game |
 | バトルガレッガ Rev.2016 | Battle Garegga Rev.2016 | PS4, Korean CUSA10207, version 01.00 base game |
 | エスプガルーダ | ESPGaluda | PS2, Japanese SLPS-25352, original ISO |
-| 鋳薔薇 | Ibara | PS2, Japanese SLPM-66301, original ISO |
 
 ### Extracting ISO / PKG / XBLA files
 
 - **Xbox 360 ISO**: download a [Windows Release build of extract-xiso](https://github.com/XboxDev/extract-xiso/releases), then run `extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"`. The output should contain `default.xex` directly.
 - **PS4 PKG**: double-click `tools/Extract-PS4.exe` in the program package. Select the base PKG and a new output folder, then click **Extract**. When finished, click **Open game files** and copy all contents into `game-data/<game>/`. Extract an update PKG separately with the same tool, then overlay all its extracted contents onto the base, replacing matching files.
-- **PS2 ISO**: place the original image in `game-data/espgaluda/` or `game-data/ibara/`, keeping its filename. The launcher prepares it automatically.
+- **PS2 ISO**: place the original image in `game-data/espgaluda/`, keeping its filename. The launcher prepares it automatically.
 
 Keep the entire `tools/` folder; extraction dependencies are included. The tool extracts game resources and `sce_sys` metadata. **Open game files** opens `uroot/` directly, so copy its contents. See the [extraction guide](docs/GAME_DATA.en.md#extract-iso-pkg-and-xbla-packages) for details and advanced script usage.
 
@@ -113,7 +112,6 @@ The complete program package creates the folders below, each with a bilingual `R
 | Dangun Feveron | `game-data/feveron/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | Battle Garegga | `game-data/garegga/` | `eboot.bin`, the `.prx` modules, and the remaining resources |
 | ESPGaluda | `game-data/espgaluda/` | The original `.iso` image |
-| Ibara | `game-data/ibara/` | The original `.iso` image |
 
 Install only the games you want and preserve all game files and their internal folder structure. Leave other folders empty. Ketsui works with the base game alone; to apply 01.02, copy the update folder's contents over the same game root. See the [data guide](docs/GAME_DATA.en.md).
 
@@ -161,7 +159,6 @@ Close leaderboard player cards with `CLOSE`, Enter or Esc.
 
 Actions such as shooting, bombing, and switching characters depend on each game's own control settings. Controllers and arcade sticks are handled through SDL, including the XInput and PlayStation devices it supports.
 
-In Ibara menus, `X` confirms and `Z` goes back. During play, the defaults are `Z` to shoot, `X` for bombs and `Enter` to pause.
 
 Battle Garegga defaults: `V` for Credit, `Enter` for Start, `C / S` for Shot, `Z / A` for Weapon, `X` for Formation, and `Backspace` for the pause menu. Quick-save slots are separate for each game mode.
 
