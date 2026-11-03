@@ -42,9 +42,12 @@ Handle DirectoryGuard(const fs::path& directory) {
     Handle handle(CreateFileW(directory.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
     if (handle.value == INVALID_HANDLE_VALUE) { WinFail("Cannot guard save directory"); }
-    FILE_ATTRIBUTE_TAG_INFO info{};
-    if (!GetFileInformationByHandleEx(handle.value, FileAttributeTagInfo, &info, sizeof(info))) { WinFail("Cannot inspect save directory"); }
-    if (!(info.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) || (info.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) { Fail(Error::Invalid, "Save directory is not a plain directory"); }
+    // FileAttributeTagInfo is unavailable on some FAT/exFAT-backed volumes.
+    // The basic handle query exposes both attributes we need, without following
+    // a reparse point or depending on a filesystem's tag-information support.
+    BY_HANDLE_FILE_INFORMATION info{};
+    if (!GetFileInformationByHandle(handle.value, &info)) { WinFail("Cannot inspect save directory"); }
+    if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) { Fail(Error::Invalid, "Save directory is not a plain directory"); }
     return handle;
 }
 std::vector<Handle> GuardParents(const fs::path& path) {

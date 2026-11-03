@@ -20,8 +20,8 @@ class CatalogueTests(unittest.TestCase):
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
         self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara'])
-        self.assertEqual([g['comingSoon'] for g in games], [False] * 10 + [True])
-        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda'])
+        self.assertEqual([g['comingSoon'] for g in games], [False] * 11)
+        self.assertEqual([g['id'] for g in games if g['integrated']], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara'])
         feveron=next(g for g in games if g['id']=='feveron')
         self.assertTrue(feveron['communitySupported'])
         self.assertEqual(feveron['runtimeFiles'], ['runtime/ps4/feveron.exe', 'runtime/ps4/KetsuiGpuRuntime.dll',

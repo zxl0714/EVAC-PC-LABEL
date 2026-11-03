@@ -214,6 +214,10 @@ __declspec(noinline) int InitializeHost(void* reserved, const void* caller) {
         initialized = true;
         std::printf("{\"event\":\"native_storage_initialized\",\"profile\":\"1000\",\"title\":\"%s\",\"mounts\":0}\n",storage_title.c_str());
         return 0;
+    } catch (const kt::save::Failure& error) {
+        std::fprintf(stderr, "Native storage initialization failed: %s (Win32=%lu)\n", error.what(),
+                     static_cast<unsigned long>(error.native_error));
+        return kInternal;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Native storage initialization failed: %s\n", error.what());
         return kInternal;

@@ -30,6 +30,8 @@ def metadata(path=METADATA):
 
 def analysis_sources(root=ROOT):
     path = Path(root) / 'games/ibara/analysis/manifest.json'
+    if not path.exists():
+        return {}
     spec = metadata(path)
     return {(path.parent / spec['map']).relative_to(root).as_posix(): read_map(path.parent, spec)}
 
