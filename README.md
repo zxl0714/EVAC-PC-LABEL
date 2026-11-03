@@ -2,9 +2,9 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-将 Xbox 360 和 PS2 游戏的主要程序通过静态重编译移植到 Windows PC，并以专用运行时适配 PS4 游戏。
+将经典弹幕射击游戏带到 Windows PC。
 
-EVAC PC LABEL 是经典射击游戏的非官方 PC 移植合集，提供统一启动器、共享配置、存档、录像和社区排行榜。游戏数据按需安装。
+EVAC PC LABEL 是经典射击游戏的非官方 PC 移植合集：Xbox 360 和 PS2 游戏的主要程序通过静态重编译移植，PS4 游戏通过专用运行时适配。合集提供统一启动器、共享配置、存档、录像和社区排行榜，游戏数据按需安装。
 
 [开始游玩](#开始游玩) · [游戏数据指南](docs/GAME_DATA.md) · [更新记录](docs/CHANGELOG.md) · [开发与构建](FOR_AGENT.md)
 
