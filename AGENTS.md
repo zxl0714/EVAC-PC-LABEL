@@ -10,6 +10,31 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+ACTIVE Nov03 paused Ibara/package goal by explicit user instruction; G2 also HOLD.
+Do not resume/retest either until asked. Ibara source+builds+proofs preserved.
+Other-bug investigation checkpoint: .local/v092/bug-investigation-checkpoint.json.
+Ketsui save attribute query fix759fc76:42native storage cases PASS, fresh-profile
+actual boot reached main menu (PNG saved), storage initialized true/no init error.
+Run .local/v092/ketsui-storage-play/collection/logs/ketsui/run-20261103T110411689Z-78524.
+Normal AltF4 exit27/window_close_requested is known preexisting shutdown policy.
+FileAttributeTagInfo was exact failing API in player report; FAT/exFAT plausible,
+filesystem NOT logged. Do not claim remote environment verified.
+G1 PCM edge ramps35f3188:17native PS2 tests +2source audio checks passed, source
+boundary audit2934files/noROM. Actual g1-audio-r2 Arcade first stage+30sec WASAPI
+capture done and closed; no new crash. Device output nonzero98.64%,peak25510.
+R1/R2 occurred at different timing; DO NOT claim lower underrun count or causal
+before/after rate. Captures show original fade/silence around stage transition.
+Counters include initialization/loading/exit; not all underruns are audible.
+Fix smooths hard sample->zero edges only; source stall/audio-feedback resolution
+NOT confirmed. Original player report lacks PCM, so keep feedback confirmation open.
+All game/test processes closed. No current build, no ZIP or push/tag/upload/release.
+Joint PS2 EXE/PDB receipt/stage PASSED35f3188. Tool equivalence proofs fresh forG1
+and Ibara; no regeneration/rebuild for this docs-only checkpoint.
+Ibara r7 actual SAVE/cold readback passed. Formal ISO-to-collection entry reached
+attract but final normal-entry graphics/audio/frame acceptance remains incomplete.
+Original ISO/oldZIP/C:/evac-pc-label preserved. No subagents authorized.
+
+Historical in-turn notes below (superseded where conflicting):
 ACTIVE Nov03 v0.9.2 Ibara plus three newly authorized player reports.
 Stop after a program-only ZIP, before formal publication. No subagents authorized.
 Current source759fc76; uncommitted PCM de-click output+tests in working tree.
