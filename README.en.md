@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-Bringing classic bullet-hell shooters to Windows PC.
+Bringing Xbox 360 and PS2 games to Windows PC through static recompilation of their main game code, and adapting PS4 games with a dedicated runtime.
 
 EVAC PC LABEL is an unofficial collection of classic shooter PC ports with a unified launcher, shared configuration, saves, replays, and community leaderboards. Install game data only for the titles you want to play.
 

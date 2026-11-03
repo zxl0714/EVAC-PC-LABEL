@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-将经典弹幕射击游戏带到 Windows PC。
+将 Xbox 360 和 PS2 游戏的主要程序通过静态重编译移植到 Windows PC，并以专用运行时适配 PS4 游戏。
 
 EVAC PC LABEL 是经典射击游戏的非官方 PC 移植合集，提供统一启动器、共享配置、存档、录像和社区排行榜。游戏数据按需安装。
 
