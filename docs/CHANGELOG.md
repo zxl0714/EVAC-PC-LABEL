@@ -2,13 +2,11 @@
 
 ## v0.9.1
 
-- 精简 PS2《ESPGaluda》的生成代码，缩小程序体积。
-- 优化 PS2 构建与打包校验流程。
+- 优化 PS2《ESPGaluda》，EXE 体积减少约 **80%**，CPU 占用从约 **0.37 核降至 0.27 核**，降低约 **27%**。
 
 ### English
 
-- Reduced generated code size in the PS2 version of ESPGaluda.
-- Streamlined PS2 builds and package verification.
+- Optimized the PS2 version of ESPGaluda: the EXE is approximately **80% smaller**, and CPU usage dropped from around **0.37 to 0.27 cores**, a reduction of about **27%**.
 
 ## v0.9.0
 
