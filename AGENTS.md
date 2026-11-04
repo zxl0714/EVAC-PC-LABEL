@@ -13,10 +13,12 @@ another historical narrative or one-off input script.
 v0.9.4 implements the four Xbox 360 titles' shared backend selection, SDL3 audio
 for PS2 and playable Ibara. Scope and measured outcomes are in the v0.9.4 section
 of docs/IMPLEMENTATION_PLAN.md. Local acceptance evidence is under .local/v094.
-Local v0.9.4 program ZIP accepted at source 6d22530, after one extraction and
+Local v0.9.4 program ZIP accepted at source d6211ad, after one extraction and
 verification of 197 payload files for all 11 games. Artifact and SHA-256:
-`releases/v0.9.4-local-6d22530/EVAC-PC-LABEL-v0.9.4-win-x64.zip`,
-`e6392b82896405de6f0796faea191ab3f98cd458a1f585248e0b6c3b080c4c0d`.
+`releases/v0.9.4-local-d6211ad/EVAC-PC-LABEL-v0.9.4-win-x64.zip`,
+`6c0725af0fc02da861aba89219823515f9fe71e239052328b9a180f17dcebb13`.
+The extracted launcher rendered Ibara's full-width banner with its complete
+rose wordmark; the two-card preview is beside the ZIP in `launcher-ibara.png`.
 The ZIP-side acceptance record identifies the extracted binary. The final Ibara
 EXE differs from the verified PORTTOWN run only in its PE link timestamps
 (.local/v094/ibara-package-equivalence.json). Reuse this ZIP for publication.
