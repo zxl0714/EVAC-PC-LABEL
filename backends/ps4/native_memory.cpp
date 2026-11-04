@@ -75,7 +75,9 @@ struct Mapping {
     std::uint64_t pins{};
     std::array<std::uint64_t, 6> required{};
     kt::memory::WriteTracker::View watched{};
-    std::map<std::uint64_t, unsigned> gpu_permissions{};
+    // One entry per mapped host page, allocated only on the first restriction.
+    // A default-permission range can span thousands of untouched pages.
+    std::vector<std::uint8_t> gpu_permissions{};
 };
 
 class DirectMemory {
@@ -538,22 +540,26 @@ public:
         }
         for (const auto& part : parts) {
             auto& mapping = *part.mapping; auto& allocation = allocations_.at(mapping.allocation);
+            if (permissions == 3) { continue; }
+            if (mapping.gpu_permissions.empty()) { mapping.gpu_permissions.resize(mapping.size / kHostPage, 3); }
             for (auto page = part.offset; page < part.offset + part.bytes; page += kHostPage) {
                 allocation.guards.try_emplace(mapping.physical + page);
-                mapping.gpu_permissions.try_emplace(page, 3);
             }
         }
         for (const auto& part : parts) {
             auto& mapping = *part.mapping; auto& allocation = allocations_.at(mapping.allocation);
+            if (mapping.gpu_permissions.empty()) { continue; }
+            bool changed = false;
             for (auto page = part.offset; page < part.offset + part.bytes; page += kHostPage) {
-                auto& old = mapping.gpu_permissions.at(page);
+                auto& old = mapping.gpu_permissions[page / kHostPage];
+                if (old == permissions) { continue; }
+                changed = true;
                 auto& guard = allocation.guards.at(mapping.physical + page);
                 guard.read -= !(old & 1); guard.write -= !(old & 2);
                 guard.read += !(permissions & 1); guard.write += !(permissions & 2);
-                old = permissions;
-                if (permissions == 3) { mapping.gpu_permissions.erase(page); }
+                old = static_cast<std::uint8_t>(permissions);
             }
-            ApplyGuardsLocked(mapping.allocation, mapping.physical + part.offset, part.bytes);
+            if (changed) { ApplyGuardsLocked(mapping.allocation, mapping.physical + part.offset, part.bytes); }
         }
         return true;
     }
@@ -701,8 +707,10 @@ private:
     }
     void RemoveGuardsLocked(Mapping& mapping) {
         auto& allocation = allocations_.at(mapping.allocation);
-        for (const auto& [offset, permissions] : mapping.gpu_permissions) {
-            auto& guard = allocation.guards.at(mapping.physical + offset);
+        for (std::size_t page = 0; page < mapping.gpu_permissions.size(); ++page) {
+            const auto permissions = mapping.gpu_permissions[page];
+            if (permissions == 3) { continue; }
+            auto& guard = allocation.guards.at(mapping.physical + page * kHostPage);
             guard.read -= !(permissions & 1); guard.write -= !(permissions & 2);
         }
         mapping.gpu_permissions.clear();

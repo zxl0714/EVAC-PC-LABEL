@@ -270,6 +270,17 @@ CacheResults TestNativeMemoryCaches(const Vulkan::Instance &instance) {
             a.allocation_identity == b.allocation_identity &&
             NativeMemoryAliases(a.address, a.bytes).size() == 2,
         "native_metadata_preserves_physical_alias_identity");
+  // Cache eviction may release a large range with just one guarded page.
+  check(ProtectNativeGpuMemory(a.address, buffer_bytes, 3) &&
+            ProtectNativeGpuMemory(a.address + 0x1000, 0x1000, 1) &&
+            ProtectNativeGpuMemory(b.address + 0x1000, 0x1000, 0) &&
+            ProtectNativeGpuMemory(a.address, buffer_bytes, 3) &&
+            Protection(cpu + 0x1000) == PAGE_NOACCESS &&
+            ProtectNativeGpuMemory(b.address, buffer_bytes, 3) &&
+            ProtectNativeGpuMemory(b.address, buffer_bytes, 3) &&
+            Protection(cpu + 0x1000) == PAGE_READWRITE &&
+            Protection(alias + 0x1000) == PAGE_READWRITE,
+        "releasing_mixed_pages_preserves_independent_alias_restrictions");
   const auto snapshot_at = [&](u64 address) {
     std::vector<u8> output(buffer_bytes);
     session.worker.Sync([&] {
