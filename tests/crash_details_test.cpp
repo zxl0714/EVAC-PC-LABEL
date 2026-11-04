@@ -1,6 +1,7 @@
 #include "common/crash_details.h"
 #include "common/windows_fault_text.h"
 #include "crash_dump_fixture.h"
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -27,12 +28,17 @@ int wmain(int argc,wchar_t** argv) {
         EXCEPTION_RECORD record{};record.ExceptionCode=EXCEPTION_ACCESS_VIOLATION;
         record.ExceptionAddress=reinterpret_cast<void*>(&wmain);record.NumberParameters=2;record.ExceptionInformation[0]=8;
         CONTEXT context{};RtlCaptureContext(&context);EXCEPTION_POINTERS fault{&record,&context};
+        std::array<uintptr_t,128> stack{};
+        stack[1]=reinterpret_cast<uintptr_t>(&wmain);stack[2]=reinterpret_cast<uintptr_t>(stack.data());
+        context.Rsp=reinterpret_cast<uintptr_t>(stack.data());
         const auto report=root/L"crash.txt";
         auto file=CreateFileW(report.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
         Require(file!=INVALID_HANDLE_VALUE,"Cannot create fault report");cave::WriteWindowsFaultText(file,&fault);CloseHandle(file);
         std::ifstream input(report);const std::string text{std::istreambuf_iterator<char>(input),{}};input.close();
         Require(text.find("fault_module=cave_crash_tests.exe")!=text.npos,"Live module lookup failed");
         Require(text.find("fault_module_rva=0x")!=text.npos && text.find("access=execute")!=text.npos,"Incomplete live fault report");
+        Require(text.find("stack_candidate[1]=cave_crash_tests.exe+0x")!=text.npos &&
+                text.find("stack_candidate[2]")==text.npos,"Expected only executable stack candidates");
         fs::remove_all(root);std::cout<<"Crash metadata and dump parser: PASS\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
 }

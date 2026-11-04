@@ -38,6 +38,27 @@ inline void WriteWindowsFaultText(HANDLE file,const EXCEPTION_POINTERS* fault) n
         const auto& c=*fault->ContextRecord;
         std::snprintf(line,sizeof(line),"rip=0x%llx\nrsp=0x%llx\nrbp=0x%llx\nrax=0x%llx\nrcx=0x%llx\nrdx=0x%llx\n",
             c.Rip,c.Rsp,c.Rbp,c.Rax,c.Rcx,c.Rdx);write(line);
+        // Keep module-relative leads even if the subsequent minidump is truncated.
+        // A stack word pointing at code is a candidate, not an unwound frame.
+        uintptr_t words[128]{};
+        SIZE_T received{};
+        if (!c.Rsp || !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<const void*>(c.Rsp),
+                                         words, sizeof(words), &received)) return;
+        unsigned emitted=0;
+        for (size_t i=0;i<received/sizeof(words[0]) && emitted<16;++i) {
+            const auto pc=words[i];
+            MEMORY_BASIC_INFORMATION code{};
+            if (!pc || !VirtualQuery(reinterpret_cast<const void*>(pc),&code,sizeof(code)) ||
+                code.Type!=MEM_IMAGE || code.State!=MEM_COMMIT ||
+                !(code.Protect&(PAGE_EXECUTE|PAGE_EXECUTE_READ|PAGE_EXECUTE_READWRITE|PAGE_EXECUTE_WRITECOPY))) continue;
+            if (!K32GetMappedFileNameW(GetCurrentProcess(),code.AllocationBase,path,4096)) continue;
+            path[4095]=0;
+            const auto* leaf=std::wcsrchr(path,L'\\');
+            if (!WideCharToMultiByte(CP_UTF8,0,leaf?leaf+1:path,-1,name,sizeof(name),nullptr,nullptr)) continue;
+            std::snprintf(line,sizeof(line),"stack_candidate[%zu]=%s+0x%llx\n",i,name,
+                static_cast<unsigned long long>(pc-reinterpret_cast<uintptr_t>(code.AllocationBase)));
+            write(line);++emitted;
+        }
     }
 }
 }
