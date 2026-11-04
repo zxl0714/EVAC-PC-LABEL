@@ -112,8 +112,6 @@ public:
     // Zero snapshots the current privileged tick/field (standalone probes).
     // A supplied next tick can be offered before committing the EE VBlank.
     bool queueVBlankFrame(uint64_t nextTick=0);
-    // The EE producer sets this for titles that draw a full game frame at a fixed field origin.
-    void setFixedFieldDrawing(bool enabled) { m_fixedFieldDrawing=enabled; }
     uint32_t pollCompletedEvents();
     uint32_t afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous);
 
@@ -192,7 +190,6 @@ private:
     uint8_t *m_localMemoryStorage = nullptr;
     uint32_t m_localMemorySize = 0u;
     struct GSRegisters *m_privRegs = nullptr;
-    bool m_fixedFieldDrawing = false;
     mutable std::recursive_mutex m_stateMutex;
     mutable std::mutex m_backendLifetimeMutex;
     mutable std::mutex m_presentationMutex;

@@ -131,7 +131,6 @@ void GS::init(uint8_t *vram, uint32_t vramSize, GSRegisters *privRegs)
 void GS::reset()
 {
     std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
-    m_fixedFieldDrawing=false;
     if (m_commandBackend) m_commandBackend->Reset();
     std::memset(m_ctx, 0, sizeof(m_ctx));
     m_prim = {};
@@ -1765,7 +1764,6 @@ bool GS::queueVBlankFrame(uint64_t nextTick)
         frame.dispfb2=m_privRegs->dispfb2;frame.display2=m_privRegs->display2;
         frame.extbuf=m_privRegs->extbuf;frame.extdata=m_privRegs->extdata;frame.extwrite=m_privRegs->extwrite;
         frame.bgcolor=m_privRegs->bgcolor;
-        frame.fixedFieldDrawing=m_fixedFieldDrawing;
         frame.vsyncTick=nextTick?nextTick:m_privRegs->vsyncTick.load(std::memory_order_acquire);
         frame.field=nextTick?uint32_t(nextTick&1u):uint32_t((m_privRegs->csr.load(std::memory_order_acquire)>>13)&1u);
         return m_commandBackend->TryFrame(frame);

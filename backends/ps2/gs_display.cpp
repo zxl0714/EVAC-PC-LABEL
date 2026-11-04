@@ -173,7 +173,7 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
-bool GsDisplay::Present(const GsFrame& request,bool smoothReconstructedFields) {
+bool GsDisplay::Present(const GsFrame& request) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
@@ -201,7 +201,7 @@ bool GsDisplay::Present(const GsFrame& request,bool smoothReconstructedFields) {
     if(trace)trace->acquired=frame_trace::Stamp();
     auto& device=impl->wsi.get_device();
     const auto& destination=device.get_swapchain_view().get_image();
-    const bool smooth=smoothReconstructedFields && !request.fixedFieldDrawing && (request.smode2&3u)==3u;
+    const bool smooth=!request.fixedFieldDrawing && (request.smode2&3u)==3u;
     const bool blit=impl->transfer==GsPresentTransfer::Automatic &&
         (destination.get_create_info().usage&VK_IMAGE_USAGE_TRANSFER_DST_BIT) &&
         device.image_format_is_supported(destination.get_create_info().format,VK_FORMAT_FEATURE_2_BLIT_DST_BIT) &&

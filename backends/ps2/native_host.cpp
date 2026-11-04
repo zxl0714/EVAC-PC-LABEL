@@ -192,7 +192,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
-        if(!display.Present(frame,impl->options.smoothReconstructedFields))throw GsWindowClosed();
+        if(!display.Present(frame))throw GsWindowClosed();
         ++impl->frames;if(onFrame)onFrame();
     },[&]{display.WaitPreviousFrame();});
     std::atomic<bool> finished=false;std::exception_ptr executionFailure,ownerFailure;

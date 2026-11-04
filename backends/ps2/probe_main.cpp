@@ -35,19 +35,6 @@ extern PS2Runtime::RecompiledFunction g_ps2ArrangeFunctionTable[];
 
 namespace {
 #ifdef EVAC_PS2_IBARA
-PS2Runtime::RecompiledFunction ibaraSignalSema{};
-void IbaraSignalVBlank(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
-  if (getRegU32(ctx,31)==0x1b2a84) {
-    // Scene 5 draws the scrolling playfield (also in attract mode). Its
-    // 224-line sprites need a stable origin. The boot artwork and menus
-    // instead contribute different texture rows on the two fields.
-    const bool fixedField=runtime->memory().read32(0x338b08)==5 &&
-                          (runtime->memory().gs().smode2 & 3u)==3u;
-    runtime->gs().setFixedFieldDrawing(fixedField);
-    if (fixedField) runtime->memory().write32(getRegU32(ctx,28)-0x6a8c,0);
-  }
-  ibaraSignalSema(memory,ctx,runtime);
-}
 int ProbeIbaraTextGrid(const char* elf,const char* snapshot,bool sprites=false) {
   PS2Runtime runtime;
   if(!runtime.memory().initialize() || !runtime.loadELF(elf))
@@ -594,7 +581,6 @@ int main(int argc,char** argv) {
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
-    hostOptions.smoothReconstructedFields=CollectionDefinition.id=="ibara";
     for(int i=collection?argc:5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
@@ -698,9 +684,6 @@ int main(int argc,char** argv) {
 #ifdef EVAC_PS2_IBARA
     if (!std::getenv("EVAC_PS2_TEST_ORIGINAL_PAD_TIMING"))
       cave::ibara::InputTiming::Bind(runtime);
-    ibaraSignalSema=runtime.lookupFunction(0x148ed0);
-    if (!ibaraSignalSema || !runtime.replaceFunction(0x148ed0,&IbaraSignalVBlank))
-      throw std::runtime_error("Cannot bind Ibara field rendering");
 #endif
     auto paths=PS2Runtime::getIoPaths();
     paths.elfPath=elf;paths.elfDirectory=elf.parent_path();
