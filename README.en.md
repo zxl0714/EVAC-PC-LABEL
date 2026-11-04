@@ -46,7 +46,7 @@ Representative workloads; lower is better. Latency is in milliseconds and CPU us
 | Game | Port latency | PCSX2 latency | Port CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 27 | 43 | 0.27 | 0.25 |
-| Ibara | 30 | 43 | 0.36 | 0.27 |
+| Ibara | 32 | 43 | 0.36 | 0.27 |
 
 Latency estimates include average sampling wait, game response and presentation, excluding device input, display scanout and panel response. CPU measurements use an i7-13700KF / RTX 4080. The two ESPGaluda CPU samples cover different scenes. [Test conditions and methods →](docs/PERFORMANCE.en.md)
 

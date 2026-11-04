@@ -13,23 +13,14 @@ another historical narrative or one-off input script.
 v0.9.4 implements the four Xbox 360 titles' shared backend selection, SDL3 audio
 for PS2 and playable Ibara. Scope and measured outcomes are in the v0.9.4 section
 of docs/IMPLEMENTATION_PLAN.md. Local acceptance evidence is under .local/v094.
-Latest source 2557f68: Ibara no longer overwrites the game's field origin in
-scene 5. Boot, menus, demo and live play use the GS interlace flags. Historical
-single-field traces remain readable. Offline comparison inputs are under
-.local/v094/logo-review/stage-adaptive and .local/v094/response/pcsx2/base*.png.
-Wait for the user to release the desktop before the new build's short PORTTOWN
-visual/response check, GPU regression and final ZIP. No need to recapture PCSX2.
-Player log triage and offline checks: .local/v094/player-reports/triage.md.
-
-Previous local v0.9.4 program ZIP accepted at source b7212f2. One extraction verified
-197 payload files for 11 games. Artifact and SHA-256:
-`releases/v0.9.4-local-b7212f2/EVAC-PC-LABEL-v0.9.4-win-x64.zip`,
-`fa10e8a9dae1d0f6a0f9f34164ed0509161279af68946afb532857d345f945ef`.
-The ZIP-side acceptance record identifies the Ibara EXE. Its CAVE logo was
-captured from the game window and compared with PCSX2 2.8.2 (same ISO, Auto).
-See ibara-cave-pcsx2.png beside the ZIP. The first stage retains its fixed
-field origin and scrolling water. The 30-field PORTTOWN capture is in
-.local/v094/logo-review/stage-final. Prior banner acceptance still applies.
+The live PORTTOWN check confirms the scrolling background and stable HUD. Boot,
+menus, demo and live play all use the GS interlace flags. PCSX2 comparison frames
+and the 12 matched player-input responses are indexed in docs/ANALYSIS.md.
+Ketsui reached Stage 1 with the direct-memory fix on the local Vulkan GPU. For
+player crash reports, see .local/v094/player-reports/triage.md. Intel B390 and
+the original Ketsui machine still need field confirmation.
+The current deliverable is the local program ZIP. Use its .acceptance.json
+to identify the source commit, archive digest and verified player binary.
 Guwange and SaiDaiOuJou reached stage 1 on Vulkan. The AMD 1002:1638 selection
 and D3D12 fallback were tested with an adapter fixture; the reporting hardware
 still needs a player retest. Ibara attract was checked with an empty memory card.
