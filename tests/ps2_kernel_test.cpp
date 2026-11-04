@@ -177,7 +177,8 @@ void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBla
   Require(!scheduler.m_deferredVBlank && sink->frames.size()==1 && sink->frames[0].vsyncTick==1 &&
           sink->frames[0].field==1 && sink->frames[0].dispfb2==(waitForFlip && flipDuringBlank?0x1446u:0x1400u),
           "Wrong framebuffer, field parity or duplicate after scanout retry");
-  Require(scheduler.m_deadlines.size()==1 && scheduler.m_deadlines.front().deadlineCycle==2*start,
+  Require(scheduler.m_deadlines.size()==2 && std::any_of(scheduler.m_deadlines.begin(),scheduler.m_deadlines.end(),
+              [start](const auto& event){return event.event.type==EeEventType::VBlankStart && event.deadlineCycle==2*start;}),
           "Changing scanout shifted the next VBlank");
 }
 int main(int argc,char** argv) {
