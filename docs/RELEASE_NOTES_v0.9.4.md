@@ -1,15 +1,15 @@
 # EVAC PC LABEL v0.9.4
 
-- 新增 PS2《铸蔷薇》，可游玩 Arcade、Arrange 和练习模式，也可浏览画廊。
+- 新增 PS2《铸蔷薇》，支持 Arcade、Arrange、练习模式和画廊。平均输入延迟估算约 32 ms，同机 PCSX2 约 43 ms。
 - 修复《虫姬二》在 Arcade 模式使用 Reco（Normal）时的多处关内崩溃。
-- PS2 游戏改用 SDL3 输出音频，改善 44.1 kHz 设备的播放兼容性，减少关卡加载后声音滞后的情况。
-- 修正绊地狱运行时的显存映射保护，处理一处玩家报告的崩溃。
-- 四款 Xbox 360 游戏在部分 AMD Radeon 核显（设备 ID `1002:1638`）上优先使用 Vulkan。初始化失败时自动切回 Direct3D 12。
+- 修复《ESPGaluda》在部分音频设备上加载关卡后声音滞后的问题。PS2 游戏现可兼容更多播放设备。
+- 修复《绊地狱》回收纹理时可能触发的一处崩溃。
+- 部分 AMD Radeon 核显运行 Xbox 360 游戏时可能在启动后崩溃。四款 Xbox 360 游戏现已在这些设备上优先使用 Vulkan，以避开这处 Direct3D 12 故障。
 
 ## English
 
-- Added the PS2 version of Ibara, including Arcade, Arrange, Practice, and Gallery.
+- Added the PS2 version of Ibara with Arcade, Arrange, Practice, and Gallery. Estimated average input latency was about 32 ms for the port and 43 ms for PCSX2 on the same PC.
 - Fixed several in-stage crashes when playing Reco (Normal) in Mushihimesama Futari Arcade mode.
-- PS2 games now use SDL3 audio, improving playback on 44.1 kHz devices and reducing audio lag after stage loads.
-- Fixed a GPU memory-mapping issue linked to a reported Ketsui crash.
-- All four Xbox 360 games now prefer Vulkan on AMD Radeon integrated GPUs with device ID `1002:1638`, with automatic Direct3D 12 fallback if initialization fails.
+- Fixed an issue where ESPGaluda's audio could lag after a stage loaded on some audio devices. PS2 games now support a wider range of playback devices.
+- Fixed a crash that could occur when Ketsui freed textures.
+- Xbox 360 games could crash shortly after launch on some AMD Radeon integrated GPUs. All four titles now prefer Vulkan on those devices to avoid the Direct3D 12 failure.
