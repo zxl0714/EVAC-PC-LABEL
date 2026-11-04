@@ -149,10 +149,19 @@ void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBla
   const auto start=scheduler.m_deadlines.front().deadlineCycle;
   scheduler.m_deadlines.clear();
   scheduler.scheduleEvent(start,{EeEventType::VBlankStart,0,0});
+  const auto oldOrigin=scheduler.m_hostClockOrigin;
+  scheduler.scheduleEvent(5*start,{EeEventType::ExternalWake,0,0});
+  const auto oldWake=scheduler.m_deadlines.back().hostDeadline;
   runtime->memory().gs().pmode=2;
   runtime->memory().gs().dispfb2=0x1400;
   scheduler.m_eeCycle=start;
   scheduler.processDueDeadlines();
+  const auto shift=scheduler.m_hostClockOrigin-oldOrigin;
+  auto wake=std::find_if(scheduler.m_deadlines.begin(),scheduler.m_deadlines.end(),
+      [](const auto& entry){return entry.event.type==EeEventType::ExternalWake;});
+  Require(shift>std::chrono::milliseconds(900) && wake!=scheduler.m_deadlines.end() &&
+          wake->deadlineCycle==5*start && wake->hostDeadline-oldWake==shift,
+          "A host stall must rebase all future deadlines without skipping guest time");
   Require(scheduler.currentVSyncTick()==1 && sink->frames.size()==(waitForFlip?0u:1u),"Wrong start-of-blank latch");
   if(flipDuringBlank)runtime->memory().gs().dispfb2=0x1446;
   scheduler.processPendingEvents();

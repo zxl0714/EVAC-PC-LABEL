@@ -1835,6 +1835,17 @@ void EeScheduler::processDueDeadlines()
         if (finishField && (start || m_pendingScanoutTick) && !m_runtime.gs().queueVBlankFrame(tick))
             return false;
         if (start) {
+            // A blocking disc read or a suspended process can leave many fields
+            // overdue. Resume at the current EE cycle instead of presenting a
+            // burst of past fields. Keep alarms and pad wakeups on the same clock.
+            const auto guestNow = m_hostClockOrigin + eeCyclesToHostDuration(m_eeCycle);
+            const auto lag = std::chrono::steady_clock::now() - guestNow;
+            if (lag >= eeCyclesToHostDuration(2 * kVBlankPeriodCycles)) {
+                std::lock_guard lock(m_eventMutex);
+                m_hostClockOrigin += lag;
+                for (auto& event : m_deadlines)
+                    event.hostDeadline += lag;
+            }
             if (m_scanoutAfterDisplayFlip) {
                 m_previousDispfb2 = m_runtime.memory().gs().dispfb2;
                 m_pendingScanoutTick = tick;
