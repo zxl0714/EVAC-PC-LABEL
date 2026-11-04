@@ -82,6 +82,12 @@ def audit_source(root=ROOT):
             raise ValueError(f'Local data in source selection: {name}')
         path = root / name
         reject_link(path)
+        if name == 'docs/images/launcher.png':
+            if digest(path) != 'bab9f1f210961207ae0cdb7df8688f6f448788077c99abd57439667ce337d136':
+                raise ValueError('README launcher screenshot differs from the reviewed image')
+            count += 1
+            total += path.stat().st_size
+            continue
         if name in art or name in brand:
             count+=1
             total+=path.stat().st_size
