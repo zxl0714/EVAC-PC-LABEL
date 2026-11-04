@@ -25,5 +25,21 @@ class FutariCallbacks(unittest.TestCase):
             self.assertEqual(functions[address]['end'], address + 8)
 
 
+    def test_reco_normal_and_abnormal_share_reviewed_callback_bodies(self):
+        def functions(variant):
+            path = ROOT / 'games/futari/recomp' / f'reco-{variant}-overrides.toml'
+            entries = tomllib.loads(path.read_text())['functions']
+            return {int(start, 0): entry['end'] - int(start, 0) for start, entry in entries.items()}
+
+        normal, abnormal = functions('normal'), functions('abnormal')
+        # These five early entries have identical addresses in the reviewed pair.
+        # The six later bodies have moved by eight bytes in Reco Abnormal.
+        early = (0x8809ECA0, 0x8809F7A8, 0x880A4DB0, 0x880B1020, 0x880B9C98)
+        later = (0x8816AD28, 0x8817D190, 0x881B0038, 0x881B5C28, 0x881C2FD0, 0x881E4E80)
+        for normal_address, delta in [(a, 0) for a in early] + [(a, 8) for a in later]:
+            with self.subTest(normal=hex(normal_address)):
+                self.assertEqual(normal[normal_address], abnormal[normal_address + delta])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,7 @@
 #include <rex/system/function_dispatcher.h>
 #include <rex/ppc/context.h>
 #include <Windows.h>
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -9,9 +10,15 @@ namespace {
 struct Registrar:rex::runtime::IModuleRegistrar {
   PPCFunc* callback{};
   PPCFunc* stageTwo{};
+  PPCFunc* stageThree{};
+  static constexpr std::array<uint32_t,7> AddedEntries{
+      0x8809eca0,0x8809f7a8,0x880a4db0,0x880b1020,0x880b9c98,0x8816ad28,0x881c2fd0};
+  std::array<bool,AddedEntries.size()> added{};
   PPCFunc* zero{};
   PPCFunc* tail{};
   bool SetFunction(uint32_t address,PPCFunc* function) override {
+    for(size_t i=0;i<AddedEntries.size();++i)if(address==AddedEntries[i])added[i]=function!=nullptr;
+    if(address==0x881c2fd0)stageThree=function;
     if(address==0x881b0038)callback=function;
     if(address==0x881b5c28)stageTwo=function;
     if(address==0x881e4e80)zero=function;
@@ -36,6 +43,7 @@ int wmain(int argc,wchar_t** argv) {
     const auto registration=reinterpret_cast<void(*)(rex::runtime::IModuleRegistrar*)>(GetProcAddress(module,"ReXModule_Register"));
     if(!registration)throw std::runtime_error("No module registration export");
     Registrar registrar;registration(&registrar);
+    for(bool registered:registrar.added)Require(registered);
     if(!registrar.callback)throw std::runtime_error("Missing original object-release callback 0x881B0038");
     if(!registrar.stageTwo)throw std::runtime_error("Missing Stage 2 Reco callback 0x881B5C28");
     if(!registrar.zero || !registrar.tail)throw std::runtime_error("Missing reviewed leaf callback counterpart");
@@ -69,9 +77,17 @@ int wmain(int argc,wchar_t** argv) {
       Require(Read(base,Queue-104)==count+unsigned(queued));
       Require(Read(base,Queue+count*4)==(queued?Pending:0xdeadc0de));
       Require(Read(base,Pending+8)==(queued?0:0xa5a5a5a5));
+      Write(base,State+296,scenario==3?0:Pending);
+      Write(base,Queue-104,count);Write(base,Queue+count*4,0xdeadc0de);
+      Write(base,Pending+8,0xa5a5a5a5);Write(base,0x88568ba8,1);Write(base,0x88568bd4,1);
+      context.r3.u64=Object;registrar.stageThree(context,base);
+      Require(Read(base,0x88568ba8)==0 && Read(base,0x88568bd4)==0);
+      Require(Read(base,Queue-104)==count+unsigned(queued));
+      Require(Read(base,Queue+count*4)==(queued?Pending:0xdeadc0de));
+      Require(Read(base,Pending+8)==(queued?0:0xa5a5a5a5));
       context.r3.u64=0x12345678;registrar.zero(context,base);Require(context.r3.u64==0);
     }
     VirtualFree(base,0,MEM_RELEASE);FreeLibrary(module);
-    std::cout<<"Futari stored object-release callback: 4 original-body cases: PASS\n";return 0;
+    std::cout<<"Futari Reco Normal dispatch entries and original release callbacks: PASS\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

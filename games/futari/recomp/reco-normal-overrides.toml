@@ -1,12 +1,18 @@
 [functions]
-# Stored object-release callback; the same callback is already declared in
-# the other seven character modules.
+# Addresses assigned to object or service callback slots by this module.
+0x8809ECA0 = { end = 0x8809ECA8 }
+0x8809F7A8 = { end = 0x8809F7B0 }
+0x880B9C98 = { end = 0x880B9CA0 }
+0x8816AD28 = { end = 0x8816AD70 }
 0x881B0038 = { end = 0x881B00B8 }
-# Reco Normal stage 2 dispatches this object callback indirectly.
 0x881B5C28 = { end = 0x881B5C78 }
-# Byte-identical counterparts of the reviewed Reco Abnormal leaf callbacks.
-0x8817D190 = { end = 0x8817D198 }
+0x881C2FD0 = { end = 0x881C3028 }
 0x881E4E80 = { end = 0x881E4E88 }
+
+# Tail-call entries in the original static dispatch records.
+0x880A4DB0 = { end = 0x880A4DB8 }
+0x880B1020 = { end = 0x880B1028 }
+0x8817D190 = { end = 0x8817D198 }
 
 # The original PPC code branches through a ten-entry state-machine table at
 # 0x880EC87C. Automatic analysis found only the first two entries, so preserve
