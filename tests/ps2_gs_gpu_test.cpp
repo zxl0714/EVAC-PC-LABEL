@@ -1,4 +1,5 @@
 #include "gs_device.h"
+#include "field_blit.h"
 #include "gs_device_sink.h"
 #include "gs_completion_mailbox.h"
 #include "gs_command_queue.h"
@@ -21,6 +22,21 @@ int main() {
     try {
         using cave::ps2::GsDevice;
         using cave::ps2::GsGifPath;
+        // Repeat the same game field on consecutive vblanks. The GS draw
+        // geometry, rather than the presentation counter, identifies its rows.
+        std::array<uint64_t,8> quad{0,0,320u<<16,224u<<20,(320u<<16)|240u,(224u<<20)|336u,240,336};
+        const std::span bytes(reinterpret_cast<const uint8_t*>(quad.data()),sizeof(quad));
+        for(unsigned phase:{1u,1u,0u,0u,1u}) {
+            for(unsigned corner=0;corner<4;++corner) {
+                auto& xyz=quad[2*corner+1];
+                xyz=(xyz&~(8ull<<16))|((phase?0ull:8ull)<<16);
+            }
+            if(cave::ps2::FieldBlitPhase(bytes,0,0,224)!=phase)
+                throw std::runtime_error("Half-line display blit lost its source phase");
+        }
+        if(cave::ps2::FieldBlitPhase(bytes.subspan(16),0,0,224) ||
+           cave::ps2::FieldBlitPhase(bytes,0,0,200))
+            throw std::runtime_error("Partial blit classified as a display field");
         GsDevice gs;
         std::vector<uint8_t> vram(GsDevice::VramBytes);
         GS frontend;

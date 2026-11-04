@@ -22,6 +22,15 @@ public:
     uint64_t commandGeneration=0,activeGeneration=1;
     Vulkan::Fence fieldFence;
     Vulkan::ImageHandle lastField;
+    bool trackFieldBlits=false;
+    struct BlitField { uint64_t generation=0; unsigned phase=0; };
+    std::array<BlitField,512> blitFields{};
+    uint64_t scanoutGeneration=1;
+    Vulkan::ImageHandle fieldHistory[2][2];
+    Vulkan::Program* fieldProgram=nullptr;
+    void ObserveFieldBlit(unsigned path,std::span<const uint8_t> packet);
+    Vulkan::ImageHandle ReconstructField(Vulkan::ImageHandle field,unsigned phase,VkImageLayout layout,
+                                         VkPipelineStageFlags2 stage,VkAccessFlags2 access);
     explicit Impl(Vulkan::Device* borrowed=nullptr);
     ~Impl();
     void CheckOwner() const;

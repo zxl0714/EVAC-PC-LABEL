@@ -2,6 +2,7 @@
 // Opt-in diagnostic: copy a bounded scanout ROI on the existing submission.
 // The normal frame fence owns completion. Map and serialize only after drain.
 #include "input_trace.h"
+#include "gs_scanout.h"
 #include "device.hpp"
 #include "command_buffer.hpp"
 #include <cstdlib>
@@ -12,7 +13,12 @@ namespace cave::ps2::pixel_trace {
 inline std::atomic<bool> armed=false;
 inline void Arm() noexcept { if(input_trace::Enabled())armed.store(true,std::memory_order_relaxed); }
 class Capture {
-    struct Row {uint64_t field;int64_t copied;};
+    struct Row {
+        uint64_t field;
+        int64_t copied;
+        uint64_t dispfb,display;
+        uint32_t crtPhase,imagePhase;
+    };
     std::filesystem::path prefix;
     unsigned x{},y{},width{},height{},capacity{},fullWidth{},fullHeight{},format{};
     size_t stride{};
@@ -49,7 +55,8 @@ public:
         rows.reserve(capacity);armed.store(false,std::memory_order_relaxed);
     }
     void Copy(Vulkan::Device& device,Vulkan::CommandBuffer& command,const Vulkan::Image& source,
-              uint64_t field,bool transferSource) {
+              const GsFrame& request,uint32_t imagePhase,bool transferSource) {
+        const auto field=request.vsyncTick;
         if(prefix.empty() || failed || rows.size()==capacity)return;
         if(firstField ? field<firstField : !armed.load(std::memory_order_relaxed))return;
         if(!buffer) {
@@ -76,7 +83,8 @@ public:
         command.copy_image_to_buffer(*buffer,source,1,&copy);
         command.buffer_barrier(*buffer,VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT,
                                VK_PIPELINE_STAGE_2_HOST_BIT,VK_ACCESS_2_HOST_READ_BIT);
-        rows.push_back({field,input_trace::Stamp()});
+        rows.push_back({field,input_trace::Stamp(),request.dispfb2,request.display2,
+                        request.field,imagePhase});
     }
     void Submitted(uint64_t field) noexcept {submittedField=field;}
     // Caller has waited for the final existing frame fence before this call.
@@ -96,10 +104,15 @@ public:
             bytes.write(static_cast<const char*>(mapped),std::streamsize(rows.size()*stride));
             device.unmap_host_buffer(*buffer,Vulkan::MEMORY_ACCESS_READ_BIT);
         }
-        table<<"# version=1 full_width="<<fullWidth<<" full_height="<<fullHeight<<" x="<<x<<" y="<<y
+        table<<"# version=2 full_width="<<fullWidth<<" full_height="<<fullHeight<<" x="<<x<<" y="<<y
              <<" width="<<width<<" height="<<height<<" format="<<format<<" stride="<<stride
-             <<" capacity="<<capacity<<" captured="<<rows.size()<<" failed="<<failed<<'\n'<<"index,field,copy_qpc_us\n";
-        for(size_t i=0;i<rows.size();++i)table<<i<<','<<rows[i].field<<','<<rows[i].copied<<'\n';
+             <<" capacity="<<capacity<<" captured="<<rows.size()<<" failed="<<failed<<'\n'
+             <<"index,field,copy_qpc_us,dispfb2,display2,phase,image_phase\n";
+        for(size_t i=0;i<rows.size();++i) {
+            const auto& row=rows[i];
+            table<<i<<','<<row.field<<','<<row.copied<<','<<row.dispfb<<','<<row.display<<','
+                 <<row.crtPhase<<','<<row.imagePhase<<'\n';
+        }
         bytes.flush();table.flush();
         if(!bytes || !table)throw std::runtime_error("Cannot write PS2 pixel trace");
         saved=true;buffer.reset();

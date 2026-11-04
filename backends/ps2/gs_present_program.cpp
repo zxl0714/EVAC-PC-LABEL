@@ -10,4 +10,9 @@ Vulkan::Program* CreateGsPresentProgram(Vulkan::Device& device) {
     const ParallelGS::Shaders<> shaders(device,layout,0);
     return device.request_program(shaders.quad,shaders.blit_circuit);
 }
+Vulkan::Program* CreateGsFieldProgram(Vulkan::Device& device) {
+    Vulkan::ResourceLayout layout;
+    const ParallelGS::Shaders<> shaders(device,layout,0);
+    return device.request_program(shaders.quad,shaders.weave);
+}
 }

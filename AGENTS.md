@@ -13,8 +13,8 @@ another historical narrative or one-off input script.
 v0.9.4 implements the four Xbox 360 titles' shared backend selection, SDL3 audio
 for PS2 and playable Ibara. Scope and measured outcomes are in the v0.9.4 section
 of docs/IMPLEMENTATION_PLAN.md. Local acceptance evidence is under .local/v094.
-The live PORTTOWN check confirms the scrolling background and stable HUD. Boot,
-menus, demo and live play all use the GS interlace flags. PCSX2 comparison frames
+PORTTOWN now tags the displayed page with the final blit’s half-line position.
+The 2,048-field HUD check includes repeated pages; see docs/ANALYSIS.md. PCSX2 comparison frames
 and the 12 matched player-input responses are indexed in docs/ANALYSIS.md.
 Ketsui reached Stage 1 with the direct-memory fix on the local Vulkan GPU. For
 player crash reports, see .local/v094/player-reports/triage.md. Intel B390 and

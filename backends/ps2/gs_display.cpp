@@ -224,7 +224,8 @@ bool GsDisplay::Present(const GsFrame& request) {
         command->image_barrier(*source.image,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,sourceLayout,
             VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,VK_ACCESS_2_MEMORY_WRITE_BIT|VK_ACCESS_2_MEMORY_READ_BIT,
             sourceStage,sourceAccess);
-    if(source.image)impl->pixels.Copy(device,*command,*source.image,request.vsyncTick,blit);
+    if(source.image)
+        impl->pixels.Copy(device,*command,*source.image,request,source.interlace_phase,blit);
     const auto width=destination.get_width(),height=destination.get_height();
     unsigned targetWidth=width,targetHeight=width*3u/4u;
     if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}

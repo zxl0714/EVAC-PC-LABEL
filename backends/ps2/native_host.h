@@ -15,6 +15,7 @@ struct NativeHostOptions {
     uint64_t captureBytes=512ull*1024u*1024u;
     std::string gameId;
     bool gamepadEnabled=true;
+    bool trackFieldBlits=false;
     float deadzone=0.20f,volume=1.0f;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL

@@ -642,6 +642,7 @@ int main(int argc,char** argv) {
     // Ibara switches DISPFB in response to the start-of-blank interrupt.
     // Latch the buffer it selected for the upcoming visible field.
     runtime.eeScheduler().setScanoutAfterDisplayFlip(CollectionDefinition.id=="ibara");
+    hostOptions.trackFieldBlits=IsIbara;
     runtime.nativeHost().Configure(std::move(hostOptions));
     struct Progress {
       uint64_t frames{},limit{};

@@ -39,6 +39,7 @@ public:
     void UploadImage(const std::array<uint64_t,4>& setup,std::span<const uint8_t> bytes);
     void WriteVram(size_t offset,std::span<const uint8_t> bytes);
     void ReadTransferFifo(std::span<uint8_t> bytes);
+    void EnableFieldBlitTracking();
     void Flush();
     void Reset();
     // Headless rendering uses the same GS scanout as the window path. WaitField
