@@ -183,8 +183,8 @@ void CoverLayoutChecks() {
       Require(app.selected==1,"Cover Up did not preserve its column");
     }
     app.Select(Catalogue().size()-1);frame.Settle();
-    Require(app.rows[app.selected].inspection.state=="coming_soon" && !CanPlay(app.rows[app.selected].inspection),
-            "Ibara must remain Coming Soon and cannot be launched");
+    Require(Catalogue()[app.selected].id=="ibara" && app.rows[app.selected].inspection.state=="missing_data" &&
+            !CanPlay(app.rows[app.selected].inspection), "Ibara should ask for a disc when its folder is empty");
   }
   const auto saved=Ini::Load(ConfigPath(fixture.root));
   Require(cave::launcher::CoverLayout(saved),"Normal close changed the internal cover setting");
@@ -484,7 +484,12 @@ void MainChecks() {
     Require(ResolveSettings(Ini::Load(ConfigPath(fixture.root)),"futari").fullscreen,"UI save changed game-specific override");
     Require(Ini::ReadText(ConfigPath(fixture.root)).find("key=preserved\r\n")!=std::string::npos,"UI save lost unknown text");
     frame.Click(app.layout.config());Require(opened_paths.back()==fixture.root/"user-data/config.ini","Config button opened the wrong file");
-    frame.Click(app.layout.logs());Require(opened_paths.back()==fixture.root/"logs","Log button opened the wrong directory");
+    static fs::path reports_root;
+    app.show_reports=[](HWND,const fs::path& root,Language lang,std::string_view preferred){
+      Require(lang==Language::Japanese && preferred.empty(),"Unexpected upload dialog language or filter");
+      reports_root=root;
+    };
+    frame.Click(app.layout.logs());Require(reports_root==fixture.root,"Upload logs opened for the wrong collection");
     const auto text=Ini::ReadText(ConfigPath(fixture.root));frame.Click(app.layout.refresh());frame.Settle();
     Require(language==Language::Japanese && ControlText(app.nickname_control)==L"Draft-友人" && Ini::ReadText(ConfigPath(fixture.root))==text,"Refresh changed saved preferences");
     const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(cave::launcher::kArtwork[3].resource),RT_RCDATA);
@@ -499,7 +504,7 @@ void MainChecks() {
     {Frame frame(fixture.root);frame.Click(frame.app.layout.language_choice(index));}
     Restart(fixture.root,index==1?L"en":L"zh",L"Draft-友人");
   }
-  Require(unexpected_dialogs==0 && opened_paths.size()==2,"Unexpected shell or dialog side effects");
+  Require(unexpected_dialogs==0 && opened_paths.size()==1,"Unexpected shell or dialog side effects");
   SelectionChecks();
   CoverLayoutChecks();
   NicknameWarningChecks();

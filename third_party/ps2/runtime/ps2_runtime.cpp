@@ -552,6 +552,7 @@ PS2Runtime::~PS2Runtime()
 #else
         if (IsAudioDeviceReady())
         {
+            m_audioBackend.stopAll();
             CloseAudioDevice();
             m_audioBackend.setAudioReady(false);
         }
@@ -686,6 +687,9 @@ bool PS2Runtime::syncCoreSubsystems()
     }
 
     m_gs.init(gsVram, static_cast<uint32_t>(PS2_GS_VRAM_SIZE), &m_memory.gs());
+    m_memory.setGsFifoReader([this](uint8_t* dst, uint32_t bytes) {
+        return m_gs.consumeLocalToHostBytes(dst, bytes);
+    });
     m_memory.setGsAccessCallback([this](uint32_t offset,uint64_t written,uint64_t previous,bool afterWrite)
     {
         // GUI/debug readers must not consume events or dispatch IRQs on behalf
@@ -765,9 +769,6 @@ bool PS2Runtime::initialize(const char *title)
             return false;
         }
         nativeHost().Initialize(title);
-        InitAudioDevice();
-        m_audioBackend.setAudioReady(IsAudioDeviceReady());
-        m_iopHost->startAudio(*m_iopSubsystem);
         if (m_debugUiInitCallback)
         {
             m_debugUiInitCallback(*this, m_debugUiUserData);
@@ -2434,6 +2435,7 @@ void PS2Runtime::run()
 
     RUNTIME_LOG("Starting execution at address 0x" << std::hex << m_cpuContext.pc << std::dec);
 
+    m_iopHost->startAudio(*m_iopSubsystem, m_nativeHost->Volume());
     m_nativeHost->Run(*this, [&]() {
         ThreadNaming::SetCurrentThreadName("GameThread");
         try
@@ -2482,6 +2484,11 @@ void PS2Runtime::run()
         if (m_debugUiInitialized && m_debugUiDrawCallback)
             m_debugUiDrawCallback(*this, m_debugUiUserData);
     });
+    m_iopHost->stopAudio();
+    // Both game threads and the device callback are stopped. Writing a large
+    // test timeline here cannot manufacture a final audio underrun.
+    try { cave::ps2::input_trace::Save(); }
+    catch (const std::exception &error) { std::cerr << "[ps2-input-trace] " << error.what() << '\n'; }
     if (m_debugUiInitialized && m_debugUiShutdownCallback)
     {
         m_debugUiShutdownCallback(*this, m_debugUiUserData);

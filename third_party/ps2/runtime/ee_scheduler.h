@@ -338,6 +338,9 @@ public:
     void dispatchIrq(bool dmac, uint32_t cause);
     void setVSyncFlag(uint32_t flagAddress, uint32_t tickAddress);
     [[nodiscard]] uint64_t currentVSyncTick() const noexcept;
+    int64_t microsecondsBeforeVBlank() const;
+    void deferBeforeVBlank(uint32_t reserveUs, std::function<void(R5900Context &)> completion);
+    void setScanoutAfterDisplayFlip(bool enabled) noexcept { m_scanoutAfterDisplayFlip = enabled; }
     uint32_t setGsVSyncCallback(uint32_t callback, uint32_t gp, uint32_t sp);
 
     [[noreturn]] void waitVSync(uint64_t afterTick, int fixedResult = -1, std::function<void(R5900Context &)> completion = {});
@@ -388,6 +391,7 @@ private:
     void requestPreemptionIfHigher(const GuestThread &readyThread, bool interruptSafe);
     void applyPendingPreemption();
     void processPendingEvents();
+    void scanoutFlippedBuffer();
     void processDueDeadlines();
     void processEvent(const EeEvent &event);
     void finishEventWaiters(EeEventFlag &flag, bool interruptSafe);
@@ -447,6 +451,9 @@ private:
     std::deque<EeEvent> m_events;
     std::vector<ScheduledEvent> m_deadlines;
     std::optional<ScheduledEvent> m_deferredVBlank;
+    bool m_scanoutAfterDisplayFlip = false;
+    uint64_t m_pendingScanoutTick = 0;
+    uint64_t m_previousDispfb2 = 0;
     std::deque<GuestInvocation> m_pendingInvocations;
     uint64_t m_eventSequence = 0;
     uint64_t m_invocationSequence = 0;

@@ -120,7 +120,7 @@ void GsDevice::Reset(){
     impl->gs.flush();impl->gs.reset_context_state();
 }
 ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImageLayout layout,
-                                                VkPipelineStageFlags2 stage,VkAccessFlags2 access) {
+                                                VkPipelineStageFlags2 stage,VkAccessFlags2 access,bool currentField) {
     CheckOwner();
     auto& registers=gs.get_priv_register_state();
     using namespace ParallelGS;
@@ -149,6 +149,7 @@ ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImage
     // each frame's 30 Hz flicker effects instead of weaving alternating shadow
     // fields together. The renderer keeps normal interlaced FRAME mode intact.
     info.force_progressive=(request.smode2&3u)==1u;
+    info.skip_deinterlace=currentField;
     // The renderer's vsync consumes completed GS command batches. It does not
     // flush GSInterface's pending draw/transfer tracker on behalf of callers.
     gs.flush();

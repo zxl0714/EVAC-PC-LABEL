@@ -10,6 +10,8 @@
  */
 
 #include <cstdlib>
+#include <cstring>
+#include <rex/ui/d3d12/adapter_info.h>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -38,6 +40,37 @@ REXCVAR_DEFINE_INT32(d3d12_queue_priority, 1, "UI/D3D12",
     .range(0, 2);
 
 namespace rex::ui::d3d12 {
+
+static IDXGIAdapter1* SelectAdapter(IDXGIFactory1* factory, PFN_D3D12_CREATE_DEVICE create_device) {
+  const int choice = REXCVAR_GET(d3d12_adapter);
+  for (UINT index = 0; ; ++index) {
+    Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+    if (factory->EnumAdapters1(index, &adapter) != S_OK) return nullptr;
+    DXGI_ADAPTER_DESC1 desc{};
+    if (FAILED(adapter->GetDesc1(&desc))) continue;
+    const bool software = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0;
+    if (choice >= 0 ? index != UINT(choice) : software != (choice == -2)) continue;
+    if (SUCCEEDED(create_device(adapter.Get(), D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device),
+                                nullptr))) return adapter.Detach();
+  }
+}
+
+std::optional<AdapterInfo> QuerySelectedAdapter() {
+  Microsoft::WRL::ComPtr<IDXGIFactory1> factory;
+  if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) return std::nullopt;
+  HMODULE library = LoadLibraryExW(L"d3d12.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+  if (!library) return std::nullopt;
+  auto create_device = reinterpret_cast<PFN_D3D12_CREATE_DEVICE>(GetProcAddress(library, "D3D12CreateDevice"));
+  Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+  if (create_device) adapter.Attach(SelectAdapter(factory.Get(), create_device));
+  FreeLibrary(library);
+  DXGI_ADAPTER_DESC1 desc{};
+  if (!adapter || FAILED(adapter->GetDesc1(&desc))) return std::nullopt;
+  AdapterInfo result{desc.VendorId, desc.DeviceId, 0};
+  static_assert(sizeof(result.luid) == sizeof(desc.AdapterLuid));
+  std::memcpy(&result.luid, &desc.AdapterLuid, sizeof(result.luid));
+  return result;
+}
 
 bool D3D12Provider::IsD3D12APIAvailable() {
   HMODULE library_d3d12 = LoadLibraryW(L"D3D12.dll");
@@ -251,32 +284,7 @@ bool D3D12Provider::Initialize() {
   }
 
   // Choose the adapter.
-  uint32_t adapter_index = 0;
-  IDXGIAdapter1* adapter = nullptr;
-  while (dxgi_factory->EnumAdapters1(adapter_index, &adapter) == S_OK) {
-    DXGI_ADAPTER_DESC1 adapter_desc;
-    if (SUCCEEDED(adapter->GetDesc1(&adapter_desc))) {
-      if (SUCCEEDED(pfn_d3d12_create_device_(adapter, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device),
-                                             nullptr))) {
-        if (REXCVAR_GET(d3d12_adapter) >= 0) {
-          if (adapter_index == REXCVAR_GET(d3d12_adapter)) {
-            break;
-          }
-        } else if (REXCVAR_GET(d3d12_adapter) == -2) {
-          if (adapter_desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-            break;
-          }
-        } else {
-          if (!(adapter_desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-            break;
-          }
-        }
-      }
-    }
-    adapter->Release();
-    adapter = nullptr;
-    ++adapter_index;
-  }
+  IDXGIAdapter1* adapter = SelectAdapter(dxgi_factory, pfn_d3d12_create_device_);
   if (adapter == nullptr) {
     REXLOG_ERROR(
         "Failed to get an adapter supporting Direct3D 12 with the feature "
@@ -292,6 +300,11 @@ bool D3D12Provider::Initialize() {
     return false;
   }
   adapter_vendor_id_ = GpuVendorID(adapter_desc.VendorId);
+  LARGE_INTEGER driver{};
+  if (SUCCEEDED(adapter->CheckInterfaceSupport(__uuidof(IDXGIDevice), &driver))) {
+    REXGPU_INFO("D3D12 driver={}.{}.{}.{}", HIWORD(driver.HighPart), LOWORD(driver.HighPart),
+                HIWORD(driver.LowPart), LOWORD(driver.LowPart));
+  }
   int adapter_name_mb_size =
       WideCharToMultiByte(CP_UTF8, 0, adapter_desc.Description, -1, nullptr, 0, nullptr, nullptr);
   if (adapter_name_mb_size != 0) {

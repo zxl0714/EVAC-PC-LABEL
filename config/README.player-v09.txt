@@ -1,9 +1,9 @@
-EVAC PC LABEL v0.9.3
+EVAC PC LABEL v0.9.4
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
 更新时关闭游戏和启动器，解压替换同名文件，保留 user-data/。
-Windows x64；360 使用 Direct3D 12，PS4／PS2 使用 Vulkan 1.3。
+Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vulkan 1.3。
 
 游戏数据
 只需准备想玩的作品，放到对应目录，或在启动器点击“游戏数据…”选择目录。
@@ -19,6 +19,7 @@ Windows x64；360 使用 Direct3D 12，PS4／PS2 使用 Vulkan 1.3。
   game-data/feveron/     美版 CUSA06735，01.00 本体
   game-data/garegga/     韩版 CUSA10207，01.00 本体
   game-data/espgaluda/   PS2 日版 SLPS-25352，原始 ISO
+  game-data/ibara/       铸蔷薇，PS2 日版 SLPM-66301，原始 ISO
 
 360 目录直接包含 default.xex，PS4 目录直接包含 eboot.bin，保留全部资源与层级。
 PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
@@ -55,7 +56,7 @@ F11／Alt+Enter 切换全屏；Alt+F4 退出；F8 标记日志时间。
   enabled = true
   endpoint = https://xiaolu.life/cave/api/v1
   nickname = Player
-PS2 ESPGaluda 使用原作本地成绩与记忆卡。
+PS2 游戏使用原作本地成绩与记忆卡。
 
 反馈
 退出游戏后点击“上传日志”，选择游玩记录，选填留言并上传。
@@ -68,7 +69,7 @@ English
 
 Run EVAC PC LABEL.exe, select a game, and click Launch game.
 To update, close the games and launcher, replace the program files, and keep user-data/.
-Windows x64; Xbox 360 uses Direct3D 12, PS4 and PS2 use Vulkan 1.3.
+Windows x64. Xbox 360 selects Direct3D 12 or Vulkan automatically. PS4 and PS2 use Vulkan 1.3.
 
 Game data
 Place each game's files in its game-data folder listed above, or choose an external
@@ -78,7 +79,8 @@ Keep all resources and subfolders.
 
 Place each original Japanese PS2 ISO in its folder:
   game-data/espgaluda/Espgaluda (Japan).iso
-Use SLPS-25352 for ESPGaluda.
+  game-data/ibara/Ibara (Japan).iso
+Use SLPS-25352 for ESPGaluda and SLPM-66301 for Ibara.
 The filename is your choice. First launch prepares the runtime cache automatically.
 
 Extraction
@@ -105,7 +107,7 @@ F11 or Alt+Enter toggles fullscreen; Alt+F4 exits; F8 marks the log timestamp.
 Community
 Use the original game's leaderboard and replay menus. Set a nickname in the launcher;
 the default is Player. The [community] settings above control the connection.
-PS2 ESPGaluda uses the original local scores and memory cards.
+PS2 games use their original local scores and memory cards.
 
 Feedback
 After closing the game, click Upload logs, select a session, add an optional message,

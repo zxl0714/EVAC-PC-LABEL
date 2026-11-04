@@ -39,14 +39,16 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 | 大往生 | 17 | 55 | 0.26 | 0.34 |
 | ESP Ra.De. | 20 | 46 | 0.38 | 0.62 |
 | 弹铳 | 19 | 46 | 0.27 | 0.66 |
+| 空战之路 | 17 | 46 | 0.36 | 0.62 |
 
 **PS2**
 
 | 游戏 | 移植版延迟 | PCSX2 延迟 | 移植版 CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 27 | 43 | 0.27 | 0.25 |
+| 铸蔷薇 | 30 | 43 | 0.36 | 0.27 |
 
-延迟为估算，包含平均取样等待、游戏响应及呈现，不含设备输入和显示器扫描、面板响应。CPU 实测于 i7-13700KF／RTX 4080；PS2 两侧 CPU 采样场景不同。[测试条件与计算方法 →](docs/PERFORMANCE.md)
+延迟为估算，包含平均取样等待、游戏响应及呈现，不含设备输入和显示器扫描、面板响应。CPU 实测于 i7-13700KF／RTX 4080。仅 ESPGaluda 的两侧 CPU 采样场景不同。[测试条件与计算方法 →](docs/PERFORMANCE.md)
 
 ## 支持游戏
 
@@ -54,7 +56,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 | --- | --- |
 | Xbox 360 | [虫姬二](docs/GAME_DATA.md#futari) · [ESPGaluda II](docs/GAME_DATA.md#espgaluda2) · [最大往生](docs/GAME_DATA.md#sdoj) · [狱门山](docs/GAME_DATA.md#guwange) |
 | PS4 | [绊地狱](docs/GAME_DATA.md#ketsui) · [大往生](docs/GAME_DATA.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.md#esprade) · [弹铳](docs/GAME_DATA.md#feveron) · [空战之路](docs/GAME_DATA.md#garegga) |
-| PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) · [铸蔷薇](docs/GAME_DATA.md#ibara) |
 
 点击游戏名查看支持的版本、解包方法和目录示例。只需准备想玩的游戏数据。
 

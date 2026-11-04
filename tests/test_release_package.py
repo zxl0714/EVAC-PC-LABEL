@@ -695,6 +695,17 @@ class ReleaseTests(unittest.TestCase):
             self.assertFalse(list(directory.rglob('*.pdb')))
         self.check_build_flavors('0.9.2', check)
 
+    def test_v094_ships_ibara(self):
+        self.assertEqual(release.release_games('0.9.4'), (*release.V09_GAMES, 'ibara'))
+        def check(root, games, commit, inspect):
+            public = release.build('Public', '0.9.4', root/'releases/public')
+            with zipfile.ZipFile(public['archive']) as archive:
+                files = set(archive.namelist())
+                self.assertTrue({'runtime/ps2/ibara.exe', 'runtime/ps2/SDL3.dll',
+                                 'runtime/games/ibara/runtime-manifest.ini', 'game-data/ibara/README.txt'} <= files)
+                self.assertFalse(any(p.lower().endswith(('.iso', '.pdb')) for p in files))
+        self.check_build_flavors('0.9.4', check)
+
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)
         (base/'asset.bin').write_bytes(b'abc')

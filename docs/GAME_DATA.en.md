@@ -293,6 +293,18 @@ Any ISO filename is accepted. `Espgaluda (Japan).iso` is an example; keep the fi
 
 Click **Refresh**, select the game, then launch it. **Game data…** can also select an external folder containing the ISO. The launcher prepares the runtime cache automatically; saves and settings are stored in `user-data/espgaluda/`.
 
+<a id="ibara"></a>
+
+### 鋳薔薇 — Ibara (ibara)
+
+Place the Japanese PS2 ISO (SLPM-66301) in `game-data/ibara/`. Keep its original filename. Click **Refresh**, select **Ibara**, then launch.
+
+```text
+game-data/ibara/
+  README.txt
+  Ibara (Japan).iso
+```
+
 ## Troubleshooting
 
 ### I only have an ISO, PKG, or ZIP

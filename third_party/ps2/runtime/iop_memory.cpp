@@ -41,8 +41,22 @@ namespace ps2x::iop::detail
         static constexpr size_t QuantumFrames = 64;
         uint64_t nextCycle = CyclesPerFrame * QuantumFrames;
         uint64_t frames = 0, nonzero = 0, dropped = 0;
-        std::atomic<uint64_t> readFrames{}, underruns{}, silentFrames{};
+        std::atomic<uint64_t> readFrames{}, underruns{}, silentFrames{}, lateFrames{};
         std::array<int16_t, QuantumFrames * 2> samples{};
+        uint64_t windowStart = 0, previousDrops = 0, previousMissing = 0;
+        bool audible = false;
+
+        void finishWindow(const char *phase)
+        {
+            const uint64_t missing = silentFrames.load(std::memory_order_relaxed);
+            std::osyncstream(std::cerr) << "[ps2-audio-window] phase=" << phase
+                << " first_source_frame=" << windowStart << " end_source_frame=" << frames
+                << " dropped_frames=" << dropped - previousDrops
+                << " missing_frames=" << missing - previousMissing << '\n';
+            windowStart = frames;
+            previousDrops = dropped;
+            previousMissing = missing;
+        }
     };
 
     IopMemory::IopMemory()
@@ -53,10 +67,13 @@ namespace ps2x::iop::detail
 
     IopMemory::~IopMemory()
     {
+        if (m_audio->frames != m_audio->windowStart)
+            m_audio->finishWindow(m_audio->audible ? "active-end" : "startup-end");
         // One bounded exit record also covers reports from ordinary play.
         std::cerr << "[ps2-audio-summary] produced_frames=" << m_audio->frames
             << " nonzero_samples=" << m_audio->nonzero << " dropped_frames=" << m_audio->dropped
             << " read_frames=" << m_audio->readFrames.load(std::memory_order_relaxed)
+            << " late_frames=" << m_audio->lateFrames.load(std::memory_order_relaxed)
             << " underrun_callbacks=" << m_audio->underruns.load(std::memory_order_relaxed)
             << " missing_frames=" << m_audio->silentFrames.load(std::memory_order_relaxed) << '\n';
     }
@@ -79,9 +96,12 @@ namespace ps2x::iop::detail
         m_audio->dma = {};
         m_audio->nextCycle = AudioState::CyclesPerFrame * AudioState::QuantumFrames;
         m_audio->frames = m_audio->nonzero = m_audio->dropped = 0;
+        m_audio->windowStart = m_audio->previousDrops = m_audio->previousMissing = 0;
+        m_audio->audible = false;
         m_audio->readFrames.store(0, std::memory_order_relaxed);
         m_audio->underruns.store(0, std::memory_order_relaxed);
         m_audio->silentFrames.store(0, std::memory_order_relaxed);
+        m_audio->lateFrames.store(0, std::memory_order_relaxed);
     }
 
     uint32_t IopMemory::physicalAddress(uint32_t address) noexcept
@@ -388,6 +408,12 @@ namespace ps2x::iop::detail
                                              [](int16_t sample) { return sample != 0; });
             const auto written=m_audio->queue.Write(m_audio->samples);
             m_audio->dropped += AudioState::QuantumFrames-written;
+            if (!m_audio->audible && m_audio->nonzero) {
+                m_audio->finishWindow("startup");
+                m_audio->audible = true;
+            } else if (m_audio->audible && m_audio->frames - m_audio->windowStart >= 480000) {
+                m_audio->finishWindow("active");
+            }
             m_audio->queueTrace.Record(0,AudioState::QuantumFrames,written);
             serviceSpuDma(0);
             serviceSpuDma(1);
@@ -405,10 +431,12 @@ namespace ps2x::iop::detail
     {
         if (!stereo || !frames) return 0;
         auto output = std::span<int16_t>(static_cast<int16_t *>(stereo), frames * 2u);
-        const auto read = m_audio->queue.Read(output);
-        m_audio->queueTrace.Record(1,frames,read);
+        size_t late=0;
+        const auto read = m_audio->queue.Read(output,&late);
+        m_audio->queueTrace.Record(1,frames,read,late);
+        if(late)m_audio->lateFrames.fetch_add(late,std::memory_order_relaxed);
         std::fill(output.begin() + read * 2u, output.end(), int16_t{});
-        m_audio->playout.Apply(output,read);
+        m_audio->playout.Apply(output,read,late!=0);
         m_audio->readFrames.fetch_add(read, std::memory_order_relaxed);
         if (read < frames) {
             m_audio->underruns.fetch_add(1, std::memory_order_relaxed);

@@ -39,14 +39,16 @@ Representative workloads; lower is better. Latency is in milliseconds and CPU us
 | DaiOuJou | 17 | 55 | 0.26 | 0.34 |
 | ESP Ra.De. | 20 | 46 | 0.38 | 0.62 |
 | Dangun Feveron | 19 | 46 | 0.27 | 0.66 |
+| Battle Garegga | 17 | 46 | 0.36 | 0.62 |
 
 **PS2**
 
 | Game | Port latency | PCSX2 latency | Port CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 27 | 43 | 0.27 | 0.25 |
+| Ibara | 30 | 43 | 0.36 | 0.27 |
 
-Latency estimates include average sampling wait, game response and presentation, excluding device input, display scanout and panel response. CPU measurements use an i7-13700KF / RTX 4080; PS2 CPU samples come from different scenes. [Test conditions and methods →](docs/PERFORMANCE.en.md)
+Latency estimates include average sampling wait, game response and presentation, excluding device input, display scanout and panel response. CPU measurements use an i7-13700KF / RTX 4080. The two ESPGaluda CPU samples cover different scenes. [Test conditions and methods →](docs/PERFORMANCE.en.md)
 
 ## Supported games
 
@@ -54,7 +56,7 @@ Latency estimates include average sampling wait, game response and presentation,
 | --- | --- |
 | Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) · [Guwange](docs/GAME_DATA.en.md#guwange) |
 | PS4 | [Ketsui Deathtiny](docs/GAME_DATA.en.md#ketsui) · [DaiOuJou Re:Incarnation](docs/GAME_DATA.en.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.en.md#esprade) · [Dangun Feveron](docs/GAME_DATA.en.md#feveron) · [Battle Garegga Rev.2016](docs/GAME_DATA.en.md#garegga) |
-| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) |
 
 Select a title for supported versions, extraction steps and folder examples. Prepare data only for the games you want to play.
 

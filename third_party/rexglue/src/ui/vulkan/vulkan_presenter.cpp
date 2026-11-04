@@ -1371,9 +1371,33 @@ VkSwapchainKHR VulkanPresenter::PaintContext::CreateSwapchainForVulkanSurface(
   }
   swapchain_create_info.clipped = VK_TRUE;
   swapchain_create_info.oldSwapchain = old_swapchain;
+#if REX_PLATFORM_WIN32
+  // Establish the window's flip path before requesting a tearing mode. Some
+  // drivers otherwise render the guest image but leave the window capture black.
+  VkSwapchainKHR initial_fifo = VK_NULL_HANDLE;
+  if (!old_swapchain && swapchain_create_info.presentMode != VK_PRESENT_MODE_FIFO_KHR) {
+    auto initial_info = swapchain_create_info;
+    initial_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    if (dfn.vkCreateSwapchainKHR(device, &initial_info, nullptr, &initial_fifo) == VK_SUCCESS) {
+      swapchain_create_info.oldSwapchain = initial_fifo;
+    }
+  }
+#endif
   VkSwapchainKHR swapchain;
-  if (dfn.vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain) != VK_SUCCESS) {
-    REXLOG_ERROR("VulkanPresenter: Failed to create a swapchain");
+  auto result = dfn.vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain);
+#if REX_PLATFORM_WIN32
+  if (initial_fifo) {
+    dfn.vkDestroySwapchainKHR(device, initial_fifo, nullptr);
+    if (result != VK_SUCCESS) {
+      // The replacement attempt retired initial_fifo even if it failed.
+      swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
+      swapchain_create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+      result = dfn.vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain);
+    }
+  }
+#endif
+  if (result != VK_SUCCESS) {
+    REXLOG_ERROR("VulkanPresenter: Failed to create a swapchain ({})", int32_t(result));
     return VK_NULL_HANDLE;
   }
   REXLOG_INFO(

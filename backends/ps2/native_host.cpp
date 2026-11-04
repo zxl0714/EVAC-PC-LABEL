@@ -24,10 +24,6 @@
 #include <mutex>
 #include <thread>
 
-// Audio entrypoints only: raylib's drawing typedefs share names with Win32 GDI.
-extern "C" bool IsAudioDeviceReady(void);
-extern "C" void SetMasterVolume(float volume);
-
 namespace cave::ps2 {
 namespace {
 using namespace std::chrono_literals;
@@ -150,6 +146,7 @@ public:
 };
 NativeHost::NativeHost():impl(std::make_unique<Impl>()){}
 NativeHost::~NativeHost()=default;
+float NativeHost::Volume() const {return impl->options.volume;}
 void NativeHost::Configure(NativeHostOptions options) {
     if(impl->display)throw std::logic_error("Configure the PS2 host before initialization");
     if(options.width<320 || options.width>7680 || options.height<240 || options.height>4320)
@@ -192,11 +189,10 @@ std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
 void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {
     if(!impl->display || impl->queue->GetStats().closed)throw std::logic_error("PS2 host is not ready");
     auto& display=*impl->display;auto mailbox=display.Device().Completions();
-    if(IsAudioDeviceReady())SetMasterVolume(impl->options.volume);
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
-        if(!display.Present(frame))throw GsWindowClosed();
+        if(!display.Present(frame,impl->options.currentFieldScanout))throw GsWindowClosed();
         ++impl->frames;if(onFrame)onFrame();
     },[&]{display.WaitPreviousFrame();});
     std::atomic<bool> finished=false;std::exception_ptr executionFailure,ownerFailure;
@@ -221,10 +217,6 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     }catch(...){ownerFailure=std::current_exception();}
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
     impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
-    // All event producers have joined. Preserve the input timeline before
-    // later graphics/audio teardown, which is outside the measured session.
-    try{input_trace::Save();}
-    catch(const std::exception& error){std::cerr<<"[ps2-input-trace] "<<error.what()<<'\n';}
     const auto stats=impl->queue->GetStats();
     std::cerr<<"[ps2-host] frames="<<impl->frames<<" readbacks="<<display.Device().ReadbackRequests()
         <<" queue_peak_bytes="<<stats.highWaterBytes<<" queue_peak_commands="<<stats.highWaterCommands<<'\n';

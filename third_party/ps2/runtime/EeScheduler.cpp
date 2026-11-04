@@ -128,6 +128,7 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
         m_events.clear();
         m_deadlines.clear();
         m_deferredVBlank.reset();
+        m_pendingScanoutTick = 0;
         m_pendingInvocations.clear();
     }
     m_eventSequence = 0;
@@ -1323,6 +1324,28 @@ uint64_t EeScheduler::currentVSyncTick() const noexcept
     return m_vsyncTick;
 }
 
+int64_t EeScheduler::microsecondsBeforeVBlank() const
+{
+    const auto next = eeCyclesToHostDuration((m_vsyncTick + 1) * kVBlankPeriodCycles);
+    const auto elapsed = std::max(eeCyclesToHostDuration(m_eeCycle),
+        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - m_hostClockOrigin));
+    return std::chrono::duration_cast<std::chrono::microseconds>(next - elapsed).count();
+}
+
+void EeScheduler::deferBeforeVBlank(uint32_t reserveUs, std::function<void(R5900Context &)> completion)
+{
+    // Advance the guest clocks and service IRQs, audio and other threads while
+    // the caller waits. A late caller runs inline and never waits an extra field.
+    if (microsecondsBeforeVBlank() <= reserveUs + 250ll) {
+        completion(*currentContext());
+        return;
+    }
+    constexpr uint32_t inputWake = 2; // distinct from MPEG's external wait
+    const auto deadline = (m_vsyncTick + 1) * kVBlankPeriodCycles - microsecondsToEeCycles(reserveUs);
+    scheduleEvent(deadline, EeEvent{EeEventType::ExternalWake, inputWake, deadline});
+    waitExternal(EeWaitReason::External, inputWake, deadline, std::move(completion));
+}
+
 uint32_t EeScheduler::setGsVSyncCallback(uint32_t callback, uint32_t gp, uint32_t sp)
 {
     assertExecutor();
@@ -1757,6 +1780,7 @@ void EeScheduler::applyPendingPreemption()
 void EeScheduler::processPendingEvents()
 {
     assertExecutor();
+    if (m_pendingScanoutTick) scanoutFlippedBuffer();
     if(m_runtime.gs().pollCompletedEvents())dispatchIrq(false,0u);
     processDueDeadlines();
     const uint32_t timerInterrupts = m_pendingEeTimerInterrupts;
@@ -1788,22 +1812,50 @@ void EeScheduler::processPendingEvents()
     applyPendingPreemption();
 }
 
+void EeScheduler::scanoutFlippedBuffer()
+{
+    // Ibara's blank handler flips the second display circuit between two
+    // completed buffers. Sample at a guest scheduling boundary after that
+    // write. Mode changes and fields without a flip use the end of blank.
+    const auto& regs = m_runtime.memory().gs();
+    const auto changed = regs.dispfb2 ^ m_previousDispfb2;
+    if ((regs.pmode & 3u) == 2u && changed && !(changed & ~0x1ffull) &&
+        m_runtime.gs().queueVBlankFrame(m_pendingScanoutTick))
+        m_pendingScanoutTick = 0;
+}
+
 void EeScheduler::processDueDeadlines()
 {
-    const auto startVBlank=[this](const ScheduledEvent& scheduled) {
+    const auto dispatchVBlank=[this](const ScheduledEvent& scheduled) {
+        const bool start = scheduled.event.type == EeEventType::VBlankStart;
+        const bool finishField = m_scanoutAfterDisplayFlip ? !start : start;
+        const uint64_t tick = start ? m_vsyncTick + 1 : scheduled.event.value;
         // A queued field may be behind a GS SIGNAL waiting for an EE IRQ/CSR
         // acknowledgement. Never wait here on its host future or capacity.
-        if(!m_runtime.gs().queueVBlankFrame(m_vsyncTick+1u))return false;
-        cave::ps2::frame_trace::Vblank(m_vsyncTick+1u,scheduled.hostDeadline);
-        scheduleEvent(scheduled.deadlineCycle+kVBlankDurationCycles,
-                      EeEvent{EeEventType::VBlankEnd,0,m_vsyncTick+1u});
-        scheduleEvent(scheduled.deadlineCycle+kVBlankPeriodCycles,
-                      EeEvent{EeEventType::VBlankStart,0,0});
-        processEvent(scheduled.event);return true;
+        if (finishField && (start || m_pendingScanoutTick) && !m_runtime.gs().queueVBlankFrame(tick))
+            return false;
+        if (start) {
+            if (m_scanoutAfterDisplayFlip) {
+                m_previousDispfb2 = m_runtime.memory().gs().dispfb2;
+                m_pendingScanoutTick = tick;
+            }
+            cave::ps2::frame_trace::Vblank(tick, scheduled.hostDeadline);
+            scheduleEvent(scheduled.deadlineCycle + kVBlankDurationCycles,
+                          EeEvent{EeEventType::VBlankEnd, 0, tick});
+        }
+        // Schedule the next field only once this field has a place in the GS
+        // queue. Anchor it to the original deadline even after a retry.
+        if (finishField) {
+            m_pendingScanoutTick = 0;
+            const auto startCycle = start ? scheduled.deadlineCycle : scheduled.deadlineCycle - kVBlankDurationCycles;
+            scheduleEvent(startCycle + kVBlankPeriodCycles, EeEvent{EeEventType::VBlankStart, 0, 0});
+        }
+        processEvent(scheduled.event);
+        return true;
     };
     // Keep the original deadline/tick. The host posts a GS event when the one
     // outstanding field completes, waking an otherwise idle dispatcher.
-    if(m_deferredVBlank && startVBlank(*m_deferredVBlank))m_deferredVBlank.reset();
+    if(m_deferredVBlank && dispatchVBlank(*m_deferredVBlank))m_deferredVBlank.reset();
     for (;;)
     {
         std::vector<ScheduledEvent> due;
@@ -1876,9 +1928,9 @@ void EeScheduler::processDueDeadlines()
 
         for (ScheduledEvent &scheduled : due)
         {
-            if (scheduled.event.type == EeEventType::VBlankStart)
+            if (scheduled.event.type == EeEventType::VBlankStart || scheduled.event.type == EeEventType::VBlankEnd)
             {
-                if(!startVBlank(scheduled))m_deferredVBlank=scheduled;
+                if(!dispatchVBlank(scheduled))m_deferredVBlank=scheduled;
                 continue;
             }
             processEvent(scheduled.event);

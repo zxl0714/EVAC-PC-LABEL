@@ -44,7 +44,7 @@ public:
 
     explicit PS2IopHostAdapter(PS2Runtime &runtime);
     ~PS2IopHostAdapter() override;
-    void startAudio(ps2x::iop::IopSubsystem &iop);
+    void startAudio(ps2x::iop::IopSubsystem &iop, float gain);
     void stopAudio();
 
     [[nodiscard]] CallScope enterCall(R5900Context *context,
@@ -103,6 +103,7 @@ private:
 
     class AudioOutput;
     std::unique_ptr<AudioOutput> m_audioOutput;
+    bool m_legacyAudioAttempted = false;
     PS2Runtime &m_runtime;
     std::recursive_mutex m_callMutex;
     R5900Context *m_activeContext = nullptr;
@@ -114,6 +115,7 @@ private:
         std::FILE *stream = nullptr;
         uint64_t size = 0u;
         uint64_t base = 0u;
+        uint64_t position = 0u;
     };
     mutable std::mutex m_hostFileMutex;
     std::unordered_map<uint64_t, HostFile> m_hostFiles;

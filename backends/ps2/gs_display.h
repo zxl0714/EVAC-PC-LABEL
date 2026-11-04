@@ -27,7 +27,7 @@ public:
     // Gate commands for the next game frame, rather than waiting only after
     // those commands have already been sent to the GPU.
     void WaitPreviousFrame();
-    bool Present(const GsFrame& request);
+    bool Present(const GsFrame& request,bool currentFieldScanout=false);
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

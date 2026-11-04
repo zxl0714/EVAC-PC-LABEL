@@ -12,6 +12,7 @@
 #include <rex/system/xmemory.h>
 #include <rex/system/xam/user_profile.h>
 #include <rex/ui/keybinds.h>
+#include <rex/ui/d3d12/adapter_info.h>
 #include <cstdio>
 #include <stdexcept>
 
@@ -22,6 +23,8 @@ REXCVAR_DEFINE_STRING(collection_root,"","Collection","Collection/package root")
 REXCVAR_DEFINE_STRING(game_id,"","Collection","Selected game ID; must match the compiled program")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(launch_contract,"1","Collection","Collection launch contract version")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(xbox360_gpu,"auto","Host","Xbox 360 graphics backend: auto, d3d12, or vulkan")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(host_timer_precision,true,"Host","Request a scoped 1 ms Windows timer period while running")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
@@ -113,8 +116,39 @@ void CollectionApp::OnPostInitLogging() {
         game_,cave::Utf8(run_->directory),run_->settings.community_enabled?"configured":"disabled");
 }
 void CollectionApp::OnPreSetup(rex::RuntimeConfig& config) {
-    config.gpu_plugin="xenos";config.graphics=rex::system::LoadGpuPlugin(config.gpu_plugin);
-    if (!config.graphics) throw std::runtime_error("Cannot load the Xenos GPU plugin");
+    const auto backend=REXCVAR_GET(xbox360_gpu);
+    if (backend!="auto" && backend!="d3d12" && backend!="vulkan")
+        throw std::runtime_error("xbox360_gpu must be auto, d3d12, or vulkan");
+    config.gpu_plugin="xenos";
+    std::string selected=backend;
+    if (backend=="auto") {
+        selected="d3d12";
+        if (const auto adapter=rex::ui::d3d12::QuerySelectedAdapter()) {
+            REXLOG_INFO("Xenos DXGI selection vendor={:04X} device={:04X} luid={:016X}",
+                        adapter->vendor,adapter->device,adapter->luid);
+            if (adapter->vendor==0x1002 && adapter->device==0x1638 && adapter->luid) {
+                selected="vulkan";
+                Flag("vulkan_adapter_luid",std::to_string(adapter->luid));
+            }
+        }
+    }
+    REXLOG_INFO("Xenos graphics backend requested={} selected={}",backend,selected);
+    config.graphics=rex::system::LoadGpuPlugin(config.gpu_plugin,selected);
+    if (selected=="vulkan" && run_->settings.vsync) {
+        Flag("vulkan_allow_present_mode_immediate","false");
+        Flag("vulkan_allow_present_mode_mailbox","false");
+        Flag("vulkan_allow_present_mode_fifo_relaxed","false");
+    }
+    if (backend=="auto" && selected=="vulkan") {
+        // The SDK's presentation setup is idempotent. Try the device/presenter
+        // before binding the guest MMIO or starting any command processor.
+        if (!config.graphics || XFAILED(config.graphics->SetupPresentation(&app_context()))) {
+            REXLOG_WARN("Xenos Vulkan initialization failed; retrying D3D12 on the selected DXGI adapter");
+            config.graphics.reset();
+            config.graphics=rex::system::LoadGpuPlugin(config.gpu_plugin,"d3d12");
+        }
+    }
+    if (!config.graphics) throw std::runtime_error("Cannot load the Xenos GPU plugin for "+backend);
     Flag("vsync",run_->settings.vsync?"true":"false");
     const auto settings=run_->settings;
     config.input_factory=[settings](bool tools) {return CreateConfiguredInput(settings,tools);};

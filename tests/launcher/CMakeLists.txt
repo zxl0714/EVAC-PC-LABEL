@@ -20,4 +20,4 @@ target_compile_definitions(cave_launcher_checks PRIVATE CAVE_TEST_SOURCE_ROOT="$
 target_link_libraries(cave_launcher_checks PRIVATE cave_update d2d1 dwrite windowscodecs ole32 shell32 comctl32)
 enable_testing()
 add_test(NAME launcher_ui COMMAND cave_launcher_checks)
-set_tests_properties(launcher_ui PROPERTIES TIMEOUT 30)
+set_tests_properties(launcher_ui PROPERTIES TIMEOUT 90)

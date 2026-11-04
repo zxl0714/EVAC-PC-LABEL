@@ -27,8 +27,8 @@ V07_GAMES = (*V06_GAMES, 'guwange')
 V08_GAMES = (*V07_GAMES, 'feveron')
 V083_GAMES = (*V08_GAMES, 'garegga')
 V09_GAMES = (*V083_GAMES, 'espgaluda')
-V092_GAMES = (*V09_GAMES, 'ibara')
-PLACEMENT_GAMES = V092_GAMES
+V094_GAMES = (*V09_GAMES, 'ibara')
+PLACEMENT_GAMES = V094_GAMES
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
@@ -79,7 +79,8 @@ def release_games(version):
         parts=version.split('-',1)[0].split('.')
         return V083_GAMES if len(parts)>2 and int(parts[2])>=3 else V08_GAMES
     if (major, minor) == (0, 9):
-        return V09_GAMES  # Ibara remains Coming Soon through v0.9.3.
+        parts = version.split('-', 1)[0].split('.')
+        return V094_GAMES if len(parts) > 2 and int(parts[2]) >= 4 else V09_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -780,7 +781,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V092_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V094_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     args = parser.parse_args()

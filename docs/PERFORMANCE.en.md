@@ -18,10 +18,12 @@ The ports default to NEO (PS4 Pro) mode with low-latency presentation; shadPS4 v
 
 See the [settings guide](SETTINGS.en.md#neo-mode) to configure or disable NEO. PS4 games automatically adapt BMI1, LZCNT and MOVBE instructions to the available CPU features.
 
-Battle Garegga, SUPER EASY Stage 1: 60.01 FPS, 0.25 CPU cores, and a 17.06 ms P95 frame interval in a short sample. [Measurements (Chinese)](ANALYSIS.md#v083-battle-garegga).
+Both Battle Garegga runs used Silver Sword in Arcade Stage 1, Valley. During alternating turns, the time from the game reading a direction to submitting the first visible movement averaged 5.70 ms in the port and 33.09 ms in shadPS4. [Measurements (Chinese)](ANALYSIS.md#v094-garegga-and-ibara)
 
 ## PS2 / PCSX2
 
-The comparison uses PCSX2 2.8.2. CPU samples come from different scenes and describe their respective workloads.
+The comparison uses PCSX2 2.8.2 with D3D12 at native resolution and VSync off.
 
-Latency is a stage-budget estimate: an 8.33 ms average sampling wait; a measured 16.87 ms response in the port and two confirmed game updates in PCSX2; presentation allowances from the same PC's Vulkan IMMEDIATE microbenchmark and historical D3D12 independent-flip capture. The port CPU figure uses the existing v0.9.1 Stage 1 sample; PCSX2 uses the earlier boss scene. The port's P95 frame interval was 17.32 ms, with a 17.93 ms maximum. [Method and data (Chinese)](ANALYSIS.md#v090-ps2-latency-estimate).
+For ESPGaluda, the estimate combines an average sampling wait of 8.33 ms, a game response of 16.87 ms in the port or two updates in PCSX2, and presentation time from the same PC's Vulkan IMMEDIATE microbenchmark or D3D12 independent-flip capture. The port CPU figure uses the existing v0.9.1 Stage 1 sample; PCSX2 uses the earlier boss scene. The port's P95 frame interval was 17.32 ms, with a 17.93 ms maximum. [Method and data (Chinese)](ANALYSIS.md#v090-ps2-latency-estimate).
+
+Both Ibara runs used Arcade Normal Stage 1, Porttown. The port moves idle time ahead of the input read. The first visible movement was presented an average of 19.97 ms after that read. In PCSX2, a right-input run first diverged from a neutral run two updates after the read, or 33.33 ms at 60 Hz. Including average sampling wait and presentation time, the expected totals are 30 and 43 ms. [Measurements (Chinese)](ANALYSIS.md#v094-garegga-and-ibara)

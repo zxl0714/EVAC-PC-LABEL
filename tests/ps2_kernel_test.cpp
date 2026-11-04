@@ -14,6 +14,7 @@
 // Inspect the actual event queue without a ROM or wall-clock sleep. A stalled
 // guest must retain the same ordering in cycle and host time.
 struct EeSchedulerClockTest {
+  static void CheckDisplayFlip(bool waitForFlip, bool flipDuringBlank);
   static void Run(PS2Runtime& runtime) {
     auto require=[](bool value,const char* message){if(!value)throw std::runtime_error(message);};
     constexpr uint32_t callback=0x7ff000;
@@ -35,6 +36,32 @@ struct EeSchedulerClockTest {
     scheduler.reset(runtime.memory().getRDRAM(),context);
     require(scheduler.m_hostClockOrigin>previousOrigin && scheduler.m_deadlines.size()==1,
             "Reset retained old guest clock or events");
+
+    scheduler.makeRunning(*scheduler.selectReady());
+    scheduler.m_hostClockOrigin += std::chrono::seconds(1);
+    unsigned reads = 0;
+    auto read = [&](R5900Context& resumed) {
+      require(resumed.pc == callback, "Timed pad read lost its guest continuation");
+      ++reads;
+    };
+    try {
+      scheduler.deferBeforeVBlank(3000, read);
+    } catch (const EeDispatcherTransfer&) {}
+    require(reads == 0 && !scheduler.currentThread() && scheduler.m_deadlines.size() == 2,
+            "Early read must yield the EE thread until its sampling deadline");
+    auto wake = scheduler.m_deadlines.back();
+    require(wake.deadlineCycle < fieldCycles && wake.event.type == EeEventType::ExternalWake,
+            "Timed read scheduled past the current field");
+    scheduler.m_hostClockOrigin -= std::chrono::seconds(2);
+    scheduler.m_eeCycle = wake.deadlineCycle;
+    scheduler.processEvent(wake.event);
+    auto* ready = scheduler.selectReady();
+    require(ready && ready->resumeCompletion, "Timed input did not wake its caller");
+    scheduler.makeRunning(*ready);
+    std::move(ready->resumeCompletion)(ready->activeContext());
+    scheduler.deferBeforeVBlank(3000, read);
+    require(reads == 2 && scheduler.m_deadlines.size() == 2,
+            "A missed sampling deadline must read immediately");
   }
 };
 
@@ -97,6 +124,53 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 #include "ps2_timer_fixture.h"
 #include "ps2_dma_chain_fixture.h"
 #include "ps2_memcard_fixture.h"
+
+void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBlank) {
+  auto runtime=std::make_unique<PS2Runtime>();
+  Require(runtime->memory().initialize() && runtime->syncCoreSubsystems(),"Cannot initialize scanout fixture");
+  struct Sink final : GsMmioBackend {
+    bool busy=false;
+    std::vector<cave::ps2::GsFrame> frames;
+    bool TryFrame(const cave::ps2::GsFrame& frame) override {
+      if(busy)return false;
+      frames.push_back(frame);
+      return true;
+    }
+  };
+  auto backend=std::make_unique<Sink>();
+  auto* sink=backend.get();
+  runtime->gs().setCommandBackend(std::move(backend));
+  auto& scheduler=runtime->eeScheduler();
+  scheduler.setScanoutAfterDisplayFlip(waitForFlip);
+  scheduler.reset(runtime->memory().getRDRAM(),{});
+  scheduler.m_hostClockOrigin-=std::chrono::seconds(1);
+  // No guest executes here. Advance the two edges separately and flip DISPFB
+  // between them, just as a game responding to the start interrupt would.
+  const auto start=scheduler.m_deadlines.front().deadlineCycle;
+  scheduler.m_deadlines.clear();
+  scheduler.scheduleEvent(start,{EeEventType::VBlankStart,0,0});
+  runtime->memory().gs().pmode=2;
+  runtime->memory().gs().dispfb2=0x1400;
+  scheduler.m_eeCycle=start;
+  scheduler.processDueDeadlines();
+  Require(scheduler.currentVSyncTick()==1 && sink->frames.size()==(waitForFlip?0u:1u),"Wrong start-of-blank latch");
+  if(flipDuringBlank)runtime->memory().gs().dispfb2=0x1446;
+  scheduler.processPendingEvents();
+  Require(sink->frames.size()==(!waitForFlip || flipDuringBlank?1u:0u),"Did not use the completed display flip");
+  sink->busy=true;
+  const auto end=std::min_element(scheduler.m_deadlines.begin(),scheduler.m_deadlines.end(),
+      [](const auto& a,const auto& b){return a.deadlineCycle<b.deadlineCycle;});
+  scheduler.m_eeCycle=end->deadlineCycle;
+  scheduler.processDueDeadlines();
+  Require(scheduler.m_deferredVBlank.has_value()==(waitForFlip && !flipDuringBlank),"Busy field was lost or deferred twice");
+  sink->busy=false;
+  scheduler.processDueDeadlines();
+  Require(!scheduler.m_deferredVBlank && sink->frames.size()==1 && sink->frames[0].vsyncTick==1 &&
+          sink->frames[0].field==1 && sink->frames[0].dispfb2==(waitForFlip && flipDuringBlank?0x1446u:0x1400u),
+          "Wrong framebuffer, field parity or duplicate after scanout retry");
+  Require(scheduler.m_deadlines.size()==1 && scheduler.m_deadlines.front().deadlineCycle==2*start,
+          "Changing scanout shifted the next VBlank");
+}
 int main(int argc,char** argv) {
   try {
     if(argc==5 && std::string_view(argv[1])=="--replay-dma") {
@@ -106,6 +180,9 @@ int main(int argc,char** argv) {
     if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
     EeSchedulerClockTest::Run(runtime);
+    EeSchedulerClockTest::CheckDisplayFlip(false,true);
+    EeSchedulerClockTest::CheckDisplayFlip(true,true);
+    EeSchedulerClockTest::CheckDisplayFlip(true,false);
     DmaLongChain();
     EeTimerArithmetic(runtime.memory());
     EeTimerDeferredEquivalence();

@@ -1,10 +1,12 @@
 #include "ps2_iop_host.h"
 
 #include "ps2_runtime.h"
+#include "native_host.h"
 #include "ps2_stubs.h"
 #include "ps2x/iop/iop_subsystem.h"
 #include "raylib.h"
-#include <atomic>
+#include "sdl_pcm_feed.h"
+#include <SDL3/SDL_init.h>
 #include <stdexcept>
 #include "Kernel/Stubs/SIF.h"
 #include "runtime/ps2_memory.h"
@@ -28,42 +30,47 @@
 class PS2IopHostAdapter::AudioOutput
 {
 public:
-    explicit AudioOutput(ps2x::iop::IopSubsystem &source) : iop(source)
+    explicit AudioOutput(ps2x::iop::IopSubsystem &source) : feed{&source,
+        [](void *state, int16_t *pcm, size_t frames) {
+            static_cast<ps2x::iop::IopSubsystem *>(state)->readPcm(pcm, frames);
+        }} {}
+    bool Open(float gain)
     {
-        if (active.load(std::memory_order_acquire))
-            throw std::logic_error("Another PS2 audio stream is active");
-        SetAudioStreamBufferSizeDefault(256);
-        stream = LoadAudioStream(48000, 16, 2);
-        if (!IsAudioStreamValid(stream)) throw std::runtime_error("Cannot create PS2 PCM stream");
-        active.store(this, std::memory_order_release);
-        SetAudioStreamCallback(stream, Pull);
-        PlayAudioStream(stream);
+        initialized = SDL_InitSubSystem(SDL_INIT_AUDIO);
+        if (!initialized) return false;
+        constexpr SDL_AudioSpec source{SDL_AUDIO_S16, 2, 48000};
+        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &source,
+                                           cave::ps2::SdlPcmFeed::Pull, &feed);
+        if (!stream || !SDL_SetAudioStreamGain(stream, gain) || !feed.Prime(stream)) return false;
+        SDL_AudioSpec device{};
+        int period = 0;
+        if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(stream), &device, &period))
+            std::cerr << "[ps2-audio-device] backend=SDL3 driver=" << SDL_GetCurrentAudioDriver()
+                      << " source_hz=48000 device_hz=" << device.freq << " channels=" << device.channels
+                      << " period_frames=" << period << '\n';
+        return SDL_ResumeAudioStreamDevice(stream);
     }
     ~AudioOutput()
     {
-        // Stop/unload take raylib's device lock, draining any active callback
-        // before the IOP and queue can be destroyed.
-        StopAudioStream(stream);
-        UnloadAudioStream(stream);
-        active.store(nullptr, std::memory_order_release);
-    }
-    static void Pull(void *buffer, unsigned frames)
-    {
-        if (auto *output = active.load(std::memory_order_acquire))
-            output->iop.readPcm(buffer, frames);
-        else
-            std::memset(buffer, 0, size_t(frames) * 4u);
+        // Destroying the default-device stream unbinds and closes the logical
+        // device, synchronizing with its last callback before iop is released.
+        SDL_DestroyAudioStream(stream);
+        if (initialized) SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        std::cerr << "[ps2-audio-device-summary] callbacks=" << feed.callbacks
+                  << " largest_request_frames=" << feed.largestRequest << " put_failures=" << feed.putFailures << '\n';
     }
 private:
-    ps2x::iop::IopSubsystem &iop;
-    AudioStream stream{};
-    inline static std::atomic<AudioOutput *> active{};
+    cave::ps2::SdlPcmFeed feed;
+    SDL_AudioStream *stream = nullptr;
+    bool initialized = false;
 };
 
-void PS2IopHostAdapter::startAudio(ps2x::iop::IopSubsystem &iop)
+void PS2IopHostAdapter::startAudio(ps2x::iop::IopSubsystem &iop, float gain)
 {
     stopAudio();
-    if (IsAudioDeviceReady()) m_audioOutput = std::make_unique<AudioOutput>(iop);
+    auto output = std::make_unique<AudioOutput>(iop);
+    if (output->Open(gain)) m_audioOutput = std::move(output);
+    else std::cerr << "[ps2-audio-device] unavailable: " << SDL_GetError() << '\n';
 }
 void PS2IopHostAdapter::stopAudio() { m_audioOutput.reset(); }
 
@@ -299,6 +306,14 @@ void PS2IopHostAdapter::audioCommand(uint32_t sid,
                                      ps2x::iop::GuestBuffer send,
                                      ps2x::iop::GuestBuffer receive)
 {
+    // This upstream HLE service plays decoded VAG clips through raylib.
+    // Titles running their original IOP sound module use the SDL PCM stream.
+    if (!m_legacyAudioAttempted) {
+        m_legacyAudioAttempted = true;
+        InitAudioDevice();
+        m_runtime.audioBackend().setAudioReady(IsAudioDeviceReady());
+        if (IsAudioDeviceReady()) SetMasterVolume(m_runtime.nativeHost().Volume());
+    }
     uint8_t *sendPointer = nullptr;
     uint8_t *receivePointer = nullptr;
     if (send.address && !guestRange(send.address, send.size, sendPointer))
@@ -354,8 +369,9 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
     }
 
     const std::filesystem::path hostPath{std::string(path)};
+    const auto &paths = PS2Runtime::getIoPaths();
 #if defined(_WIN32)
-    std::FILE *stream = ::_wfopen(hostPath.c_str(), L"rb");
+    std::FILE *stream = ::_wfopen(hostPath.c_str(), hostPath == paths.cdImage ? L"rbS" : L"rb");
 #else
     std::FILE *stream = std::fopen(hostPath.string().c_str(), "rb");
 #endif
@@ -364,7 +380,6 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
     uint64_t base = 0u;
     if (!stream)
     {
-        const auto &paths = PS2Runtime::getIoPaths();
         const auto relative = hostPath.lexically_normal().lexically_relative(paths.cdRoot.lexically_normal());
         if (paths.cdImage.empty() || relative.empty() || relative.is_absolute() ||
             std::find(relative.begin(), relative.end(), "..") != relative.end()) return 0u;
@@ -379,7 +394,7 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
             base = uint64_t(file->lba) * 2048u; size = file->size;
         }
 #if defined(_WIN32)
-        stream = ::_wfopen(paths.cdImage.c_str(), L"rb");
+        stream = ::_wfopen(paths.cdImage.c_str(), L"rbS");
 #else
         stream = std::fopen(paths.cdImage.string().c_str(), "rb");
 #endif
@@ -436,22 +451,28 @@ bool PS2IopHostAdapter::readHostFile(uint64_t handle,
 
     size = size_t(std::min<uint64_t>(size, it->second.size - std::min(offset, it->second.size)));
     offset += it->second.base;
-#if defined(_WIN32)
-    if (offset > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) ||
-        _fseeki64(it->second.stream, static_cast<int64_t>(offset), SEEK_SET) != 0)
-#else
-    if (offset > static_cast<uint64_t>(std::numeric_limits<off_t>::max()) ||
-        fseeko(it->second.stream, static_cast<off_t>(offset), SEEK_SET) != 0)
-#endif
+    if (it->second.position != offset)
     {
-        return false;
+#if defined(_WIN32)
+        if (offset > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) ||
+            _fseeki64(it->second.stream, static_cast<int64_t>(offset), SEEK_SET) != 0)
+#else
+        if (offset > static_cast<uint64_t>(std::numeric_limits<off_t>::max()) ||
+            fseeko(it->second.stream, static_cast<off_t>(offset), SEEK_SET) != 0)
+#endif
+        {
+            it->second.position = UINT64_MAX;
+            return false;
+        }
     }
 
     bytesRead = size == 0u
                     ? 0u
                     : std::fread(destination, 1u, size, it->second.stream);
+    it->second.position = offset + bytesRead;
     if (bytesRead < size && std::ferror(it->second.stream))
     {
+        it->second.position = UINT64_MAX;
         std::clearerr(it->second.stream);
         return false;
     }

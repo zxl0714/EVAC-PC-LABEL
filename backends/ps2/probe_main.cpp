@@ -21,6 +21,7 @@
 #include "input_trace.h"
 #ifdef EVAC_PS2_IBARA
 #include "games/ibara/disc_files.h"
+#include "games/ibara/input_timing.h"
 #else
 #include "games/espgaluda/disc_files.h"
 #endif
@@ -34,6 +35,15 @@ extern PS2Runtime::RecompiledFunction g_ps2ArrangeFunctionTable[];
 
 namespace {
 #ifdef EVAC_PS2_IBARA
+PS2Runtime::RecompiledFunction ibaraSignalSema{};
+void IbaraSignalVBlank(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
+  // The VBlank handler keeps two field flags. The drawing routines use this
+  // copy for both XYOFFSET and parity-specific sprite/texture coordinates.
+  // Each field is shown at the same progressive origin on the PC.
+  if (getRegU32(ctx,31)==0x1b2a84 && (runtime->memory().gs().smode2 & 3u)==3u)
+    runtime->memory().write32(getRegU32(ctx,28)-0x6a8c,0);
+  ibaraSignalSema(memory,ctx,runtime);
+}
 int ProbeIbaraTextGrid(const char* elf,const char* snapshot,bool sprites=false) {
   PS2Runtime runtime;
   if(!runtime.memory().initialize() || !runtime.loadELF(elf))
@@ -580,6 +590,7 @@ int main(int argc,char** argv) {
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
+    hostOptions.currentFieldScanout=CollectionDefinition.id=="ibara";
     for(int i=collection?argc:5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
@@ -638,6 +649,9 @@ int main(int argc,char** argv) {
     configured.hostRoot=data;configured.cdRoot=data;configured.cdImage=iso;configured.mcRoot=profile/"mc0";
     PS2Runtime::setIoPaths(configured);
     PS2Runtime runtime;
+    // Ibara switches DISPFB in response to the start-of-blank interrupt.
+    // Latch the buffer it selected for the upcoming visible field.
+    runtime.eeScheduler().setScanoutAfterDisplayFlip(CollectionDefinition.id=="ibara");
     runtime.nativeHost().Configure(std::move(hostOptions));
     struct Progress {
       uint64_t frames{},limit{};
@@ -677,6 +691,13 @@ int main(int argc,char** argv) {
     runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
     if(!runtime.initialize(WindowTitle))throw std::runtime_error("PS2 host initialization failed");
     if(!runtime.loadELF(elf.string()))throw std::runtime_error("Boot ELF loading failed");
+#ifdef EVAC_PS2_IBARA
+    if (!std::getenv("EVAC_PS2_TEST_ORIGINAL_PAD_TIMING"))
+      cave::ibara::InputTiming::Bind(runtime);
+    ibaraSignalSema=runtime.lookupFunction(0x148ed0);
+    if (!ibaraSignalSema || !runtime.replaceFunction(0x148ed0,&IbaraSignalVBlank))
+      throw std::runtime_error("Cannot bind Ibara field rendering");
+#endif
     auto paths=PS2Runtime::getIoPaths();
     paths.elfPath=elf;paths.elfDirectory=elf.parent_path();
     paths.hostRoot=data;paths.cdRoot=data;paths.cdImage=iso;paths.mcRoot=profile/"mc0";

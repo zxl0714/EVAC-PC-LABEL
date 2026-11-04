@@ -127,6 +127,7 @@
       "sha256": "1960588247fb7f7d7b59bc48d8cf87f1aa07e6d7ed4aba3f6f666ec95b5b8e98",
       "resource": 111,
       "focusY": 0.5,
+      "fit": "contain",
       "kicker": "PS2 · 2006",
       "sourcePage": "https://www.cave.co.jp/en/business/ibara/",
       "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACibara_780x353.png",

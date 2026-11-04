@@ -68,5 +68,23 @@ void VifImageContinuation(PS2Memory& memory) {
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(vectors.data()+4),16);
     Require(!std::memcmp(memory.getVU1Data()+256,vectors.data(),32),"Split VIF UNPACK upload was discarded");
 
+    // Ibara reads an offscreen surface through VIF1, then samples the copy.
+    // Check both DMA direction and an EE-visible completion before reuse.
+    constexpr uint32_t receiver=0x20000,channel=0x10009000;
+    memory.setGsFifoReader([&](uint8_t* dst,uint32_t count) {
+        Require(count==image.size(),"Reverse VIF1 DMA requested the wrong byte count");
+        std::memcpy(dst,image.data(),count);
+        return count;
+    });
+    memory.writeIORegister(0x10003c00,1u<<23);
+    memory.writeIORegister(channel+0x10,receiver);
+    memory.writeIORegister(channel+0x20,2);
+    memory.writeIORegister(channel,0x100);
+    Require(!std::memcmp(memory.getRDRAM()+receiver,image.data(),image.size()) &&
+            memory.readIORegister(channel+0x10)==receiver+image.size() &&
+            memory.readIORegister(channel+0x20)==0 && !(memory.readIORegister(channel)&0x100) &&
+            (memory.readIORegister(0x1000e010)&2),"GS pixels or completion lost in reverse VIF1 DMA");
+    memory.writeIORegister(0x10003c00,0);
+    memory.setGsFifoReader({});
 }
 }

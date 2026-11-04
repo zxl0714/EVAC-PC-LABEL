@@ -19,6 +19,7 @@ class Capture {
     std::vector<Row> rows;
     Vulkan::BufferHandle buffer;
     uint64_t submittedField{};
+    uint64_t firstField{};
     bool saved=false,failed=false;
     void Fail(const char* message) {
         failed=true;std::cerr<<"[ps2-pixel-trace] "<<message<<'\n';
@@ -36,6 +37,12 @@ public:
            uint64_t(width)*height*capacity>32u*1024u*1024u)
             throw std::runtime_error("Invalid PS2 diagnostic pixel region");
         prefix=std::filesystem::absolute(path);
+        if(const auto* start=_wgetenv(L"EVAC_PS2_PIXEL_START_FIELD");start && *start) {
+            wchar_t* end{};
+            firstField=std::wcstoull(start,&end,10);
+            if(*end || !firstField || *start==L'-')
+                throw std::runtime_error("Invalid PS2 diagnostic pixel start field");
+        }
         if(std::filesystem::exists(prefix.wstring()+L".bin") || std::filesystem::exists(prefix.wstring()+L".csv"))
             throw std::runtime_error("PS2 pixel output already exists");
         stride=size_t(width)*height*4u;
@@ -43,7 +50,8 @@ public:
     }
     void Copy(Vulkan::Device& device,Vulkan::CommandBuffer& command,const Vulkan::Image& source,
               uint64_t field,bool transferSource) {
-        if(prefix.empty() || failed || !armed.load(std::memory_order_relaxed) || rows.size()==capacity)return;
+        if(prefix.empty() || failed || rows.size()==capacity)return;
+        if(firstField ? field<firstField : !armed.load(std::memory_order_relaxed))return;
         if(!buffer) {
             fullWidth=source.get_width();fullHeight=source.get_height();format=source.get_create_info().format;
             if(!width){width=fullWidth;height=fullHeight;stride=size_t(width)*height*4u;}

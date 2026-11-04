@@ -1318,6 +1318,30 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                 return true;
             }
 
+            // VIF1 in reverse FIFO mode transfers GS pixels into EE memory.
+            // Never feed those destination bytes back into the VIF parser.
+            if (channelBase == 0x10009000u && (value & 0xDu) == 0u &&
+                (m_ioRegisters[0x10003C00u] & (1u << 23)))
+            {
+                const bool scratch = (madr >> 31u) != 0;
+                const uint32_t size = scratch ? PS2_SCRATCHPAD_SIZE : PS2_RAM_SIZE;
+                auto* base = scratch ? m_scratchpad : m_rdram;
+                const uint32_t bytes = (qwc & 0xffffu) * 16u;
+                uint32_t pos = madr & (size - 16u);
+                for (uint32_t remaining = bytes; remaining;) {
+                    const uint32_t count = std::min(remaining, size - pos);
+                    if (!m_gsFifoReader || m_gsFifoReader(base + pos, count) != count)
+                        throw std::runtime_error("Incomplete GS to VIF1 DMA read");
+                    if (!scratch) markModified(pos, count);
+                    remaining -= count;
+                    pos = 0;
+                }
+                m_ioRegisters[channelBase + 0x10] = (madr & 0x80000000u) | ((madr + bytes) & 0x7ffffff0u);
+                m_ioRegisters[channelBase + 0x20] = 0;
+                completeDmacChannel(channelBase, 1u);
+                return true;
+            }
+
             if ((channelBase == 0x1000A000u || channelBase == 0x10009000u || channelBase == 0x10008000u) && (m_gsVRAM || channelBase == 0x10008000u))
             {
                 auto enqueueTransfer = [&](uint32_t srcAddr, uint32_t qwCount)

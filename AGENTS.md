@@ -10,6 +10,17 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+v0.9.4 implements the four Xbox 360 titles' shared backend selection, SDL3 audio
+for PS2 and playable Ibara. Scope and measured outcomes are in the v0.9.4 section
+of docs/IMPLEMENTATION_PLAN.md. Local acceptance evidence is under .local/v094.
+Guwange and SaiDaiOuJou reached stage 1 on Vulkan. The AMD 1002:1638 selection
+and D3D12 fallback were tested with an adapter fixture; the reporting hardware
+still needs a player retest. Ibara attract was checked with an empty memory card.
+For audio recovery use g1-buffer-replay.json (one event stream, before/after)
+and g1-recovery/ (live). The historical release below was v0.9.3.
+
+## v0.9.3 release history
+
 COMPLETE Nov04: v0.9.3 PROGRAM ZIP built and extracted once, all195files verified.
 User confirmed all3 manual checks passed: Ketsui launch/play/restart, ESPGaluda
 short play, launcher log upload. v0.9.3 published on GitHub as Latest at tag

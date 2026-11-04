@@ -471,7 +471,8 @@ class Renderer {
       const std::array stops{D2D1_GRADIENT_STOP{0,D2D1::ColorF(color,1)},D2D1_GRADIENT_STOP{.14f,D2D1::ColorF(color,.96f)},
           D2D1_GRADIENT_STOP{.35f,D2D1::ColorF(color,.47f)},D2D1_GRADIENT_STOP{.63f,D2D1::ColorF(color,0)},D2D1_GRADIENT_STOP{1,D2D1::ColorF(color,0)}};
       ComPtr<ID2D1GradientStopCollection> colors;Check(target->CreateGradientStopCollection(stops.data(),UINT32(stops.size()),&colors),"Create card gradient");
-      ComPtr<ID2D1LinearGradientBrush> gradient;Check(target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties({art.left,art.top},{art.right,art.top}),colors.Get(),&gradient),"Create card mask");
+      const float fade_right=contain?art_left+size.width*scale*.35f:art.right;
+      ComPtr<ID2D1LinearGradientBrush> gradient;Check(target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties({art_left,art.top},{fade_right,art.top}),colors.Get(),&gradient),"Create card mask");
       target->FillRectangle(art,gradient.Get());
       if (selected==index) {ComPtr<ID2D1SolidColorBrush> accent;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&accent),"Create selection accent");target->FillRectangle({rectangle.left,rectangle.top,rectangle.left+4,rectangle.bottom},accent.Get());}
       target->PopLayer();target->DrawRoundedRectangle(round,border.Get(),selected==index?2.f:1.f);
@@ -859,7 +860,7 @@ class App {
       const auto exited_game=active_game;
       child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
       if(*code && !requested_close && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
-        cave::launcher::reports::Show(hwnd,options.root,language,exited_game);
+        show_reports(hwnd,options.root,language,exited_game);
     }
   }
   void Choose(bool copy=false) {
@@ -941,7 +942,7 @@ class App {
       if(IsWindowEnabled(nickname_control)){focus=2;SetFocus(nickname_control);}return;
     }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
-    if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))cave::launcher::reports::Show(hwnd,options.root,language);return;}
+    if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))show_reports(hwnd,options.root,language,{});return;}
     for(size_t index=0;index<3;++index)
       if(Inside(layout.language_choice(index),x,y)) {SelectLanguage(index);return;}
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
@@ -1062,6 +1063,7 @@ class App {
   std::string active_game;
   update::State update_state;
   std::function<update::Result()> update_fetch=update::Fetch;
+  decltype(&cave::launcher::reports::Show) show_reports=cave::launcher::reports::Show;
   std::optional<update::Request> update_request;
   bool update_auto{},update_dialog{};
 };

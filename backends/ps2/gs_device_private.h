@@ -29,7 +29,7 @@ public:
     void BeginOperation();
     void CompleteMarker();
     ParallelGS::ScanoutResult Scanout(const GsFrame& frame,VkImageLayout layout,
-                                      VkPipelineStageFlags2 stage,VkAccessFlags2 access);
+                                      VkPipelineStageFlags2 stage,VkAccessFlags2 access,bool currentField=false);
     bool on_signal(uint64_t payload) override;
     bool on_finish(uint64_t payload) override;
     bool on_label(uint64_t payload) override;

@@ -295,6 +295,18 @@ game-data/espgaluda/
 
 点击“刷新”，选择游戏并启动。也可通过“游戏数据…”选择 ISO 所在的外部目录。启动器会自动准备运行缓存；存档和设置位于 `user-data/espgaluda/`。
 
+<a id="ibara"></a>
+
+### 鋳薔薇 / Ibara（ibara）
+
+将 PS2 日版（SLPM-66301）的 ISO 放进 `game-data/ibara/`，保留原文件名。在启动器点“刷新”，选中「鋳薔薇」即可启动。
+
+```text
+game-data/ibara/
+  README.txt
+  Ibara (Japan).iso
+```
+
 ## 无法识别时怎么检查
 
 **只有 ISO、PKG 或 ZIP 文件，能直接选吗？**

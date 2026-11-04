@@ -173,7 +173,7 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
-bool GsDisplay::Present(const GsFrame& request) {
+bool GsDisplay::Present(const GsFrame& request,bool currentFieldScanout) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
@@ -209,12 +209,22 @@ bool GsDisplay::Present(const GsFrame& request) {
         std::cerr<<"[ps2-gs-present] transfer="<<(blit?"gpu-blit":"gpu-sampled")<<'\n';
         impl->loggedTransfer=int(blit);
     }
-    auto source=state.Scanout(request,
-        blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-        blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    // Ibara draws a complete 224-line picture for each interlaced FRAME
+    // field. Scaling the current field keeps moving sprites and the title
+    // together instead of weaving in lines from an earlier game state.
+    const bool currentField=currentFieldScanout && (request.smode2&3u)==3u;
+    const auto sourceLayout=blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const auto sourceStage=blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    const auto sourceAccess=blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    auto source=state.Scanout(request,currentField?VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL:sourceLayout,
+        currentField?VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT:sourceStage,
+        currentField?VK_ACCESS_2_SHADER_SAMPLED_READ_BIT:sourceAccess,currentField);
     if(trace)trace->scanned=frame_trace::Stamp();
     auto command=device.request_command_buffer();
+    if(currentField && source.image)
+        command->image_barrier(*source.image,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,sourceLayout,
+            VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,VK_ACCESS_2_MEMORY_WRITE_BIT|VK_ACCESS_2_MEMORY_READ_BIT,
+            sourceStage,sourceAccess);
     if(source.image)impl->pixels.Copy(device,*command,*source.image,request.vsyncTick,blit);
     const auto width=destination.get_width(),height=destination.get_height();
     unsigned targetWidth=width,targetHeight=width*3u/4u;

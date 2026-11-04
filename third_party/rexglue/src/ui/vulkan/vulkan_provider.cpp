@@ -10,6 +10,7 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 #include <rex/cvar.h>
@@ -23,6 +24,8 @@ REXCVAR_DEFINE_BOOL(vulkan_validation_enabled, false, "UI/Vulkan",
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_INT32(vulkan_device, -1, "UI/Vulkan", "Vulkan device index (-1 for auto selection)")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_UINT64(vulkan_adapter_luid, 0, "UI/Vulkan", "Match this Windows adapter LUID when nonzero")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_BOOL(vulkan_prefer_geometry_shader, true, "UI/Vulkan",
@@ -63,6 +66,30 @@ std::unique_ptr<VulkanProvider> VulkanProvider::Create(const bool with_gpu_emula
   }
 
   const VulkanInstance::Functions& ifn = provider->vulkan_instance_->functions();
+  const uint64_t luid = REXCVAR_GET(vulkan_adapter_luid);
+  if (luid) {
+    // The Vulkan and DXGI enumeration orders can differ on hybrid systems.
+    // Restrict all selection and capability checks to the exact DXGI device.
+    if (provider->vulkan_instance_->api_version() < VK_API_VERSION_1_1 ||
+        !ifn.vkGetPhysicalDeviceProperties2) {
+      REXLOG_WARN("Cannot match DXGI adapter LUID {:016X} on this Vulkan instance", luid);
+      return nullptr;
+    }
+    std::erase_if(physical_devices, [&](VkPhysicalDevice physical) {
+      VkPhysicalDeviceProperties properties{};
+      ifn.vkGetPhysicalDeviceProperties(physical, &properties);
+      if (properties.apiVersion < VK_API_VERSION_1_1) return true;
+      VkPhysicalDeviceIDProperties id{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES};
+      VkPhysicalDeviceProperties2 query{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &id};
+      ifn.vkGetPhysicalDeviceProperties2(physical, &query);
+      static_assert(sizeof(luid) == sizeof(id.deviceLUID));
+      return !id.deviceLUIDValid || std::memcmp(id.deviceLUID, &luid, sizeof(luid)) != 0;
+    });
+    if (physical_devices.empty()) {
+      REXLOG_WARN("No Vulkan device matches selected DXGI adapter LUID {:016X}", luid);
+      return nullptr;
+    }
+  }
 
   REXLOG_WARN(
       "Available Vulkan physical devices (use the 'vulkan_device' "

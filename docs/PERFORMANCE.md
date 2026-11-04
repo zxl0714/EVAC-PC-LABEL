@@ -18,10 +18,12 @@
 
 NEO 的设置和关闭方法见[设置指南](SETTINGS.md#neo-模式)。PS4 游戏按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
 
-空战之路 SUPER EASY 第一关短场景：60.01 FPS，CPU 0.25 核，出帧间隔 P95 17.06 ms。[测量记录](ANALYSIS.md#v083-battle-garegga)。
+空战之路两边均使用 ARCADE 第一关 VALLEY 的 Silver Sword。连续变向时，从游戏读到方向到提交首张可见位移画面，移植版平均 5.70 ms，shadPS4 平均 33.09 ms。[测量记录](ANALYSIS.md#v094-garegga-and-ibara)
 
 ## PS2 / PCSX2
 
-对照版本为 PCSX2 2.8.2。两侧 CPU 使用不同场景的已有采样，应作为各自工作负载的参考。
+对照版本为 PCSX2 2.8.2，使用 D3D12、原始分辨率并关闭垂直同步。
 
-延迟为阶段预算估算：平均取样等待 8.33 ms；移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。移植版 CPU 使用 v0.9.1 第一关短场景的已有采样，PCSX2 使用此前的 BOSS 场景。移植版出帧间隔 P95 17.32 ms，最大 17.93 ms。[方法与数据](ANALYSIS.md#v090-ps2-latency-estimate)。
+ESPGaluda 的平均取样等待为 8.33 ms，移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。移植版 CPU 使用 v0.9.1 第一关短场景的已有采样，PCSX2 使用此前的 BOSS 场景。移植版出帧间隔 P95 17.32 ms，最大 17.93 ms。[方法与数据](ANALYSIS.md#v090-ps2-latency-estimate)。
+
+铸蔷薇两边均为 ARCADE NORMAL 第一关 PORTTOWN。移植版把帧内空闲时间移到读键之前，读到方向至首张机体位移画面平均 19.97 ms。PCSX2 从同一存档分别保持中立和按右，第二次更新出现位移，按 60 Hz 折算为 33.33 ms。计入平均取样等待和呈现后段，两侧总延迟期望约为 30 和 43 ms。[测量记录](ANALYSIS.md#v094-garegga-and-ibara)
