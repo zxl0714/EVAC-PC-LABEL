@@ -173,7 +173,7 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
-bool GsDisplay::Present(const GsFrame& request,bool currentFieldScanout) {
+bool GsDisplay::Present(const GsFrame& request) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
@@ -209,10 +209,7 @@ bool GsDisplay::Present(const GsFrame& request,bool currentFieldScanout) {
         std::cerr<<"[ps2-gs-present] transfer="<<(blit?"gpu-blit":"gpu-sampled")<<'\n';
         impl->loggedTransfer=int(blit);
     }
-    // Ibara draws a complete 224-line picture for each interlaced FRAME
-    // field. Scaling the current field keeps moving sprites and the title
-    // together instead of weaving in lines from an earlier game state.
-    const bool currentField=currentFieldScanout && (request.smode2&3u)==3u;
+    const bool currentField=request.fixedFieldDrawing && (request.smode2&3u)==3u;
     const auto sourceLayout=blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     const auto sourceStage=blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     const auto sourceAccess=blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;

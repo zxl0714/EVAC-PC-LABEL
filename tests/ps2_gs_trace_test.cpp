@@ -52,6 +52,7 @@ void RoundTrip(const std::filesystem::path& path) {
     frame.pmode=1;frame.smode1=2;frame.smode2=3;frame.srfsh=4;frame.synch1=5;frame.synch2=6;frame.syncv=7;
     frame.dispfb1=8;frame.display1=9;frame.dispfb2=10;frame.display2=11;
     frame.extbuf=12;frame.extdata=13;frame.extwrite=14;frame.bgcolor=15;frame.vsyncTick=16;frame.field=1;
+    frame.fixedFieldDrawing=true;
     recorder.Frame(frame);recorder.Reset();recorder.Finish();
     Consumer replay;const auto stats=ReplayGsTrace(path,replay);
     Require(stats.finished && stats.commands==10 && stats.frames==1 && stats.bytes==std::filesystem::file_size(path),"Trace counters or end record changed");
@@ -62,7 +63,7 @@ void RoundTrip(const std::filesystem::path& path) {
     const std::array actual{f.pmode,f.smode1,f.smode2,f.srfsh,f.synch1,f.synch2,f.syncv,f.dispfb1,f.display1,f.dispfb2,f.display2,
         f.extbuf,f.extdata,f.extwrite,f.bgcolor,f.vsyncTick};
     for(size_t i=0;i<actual.size();++i)Require(actual[i]==i+1,"Privileged field snapshot changed");
-    Require(f.field==1 && recorder.Stats().commands==stats.commands,"Field parity or capture counters changed");
+    Require(f.field==1 && f.fixedFieldDrawing && recorder.Stats().commands==stats.commands,"Field mode, parity or capture counters changed");
     auto bytes=Load(path);const std::array<uint8_t,16> expected{'E','V','A','C','G','S','0','1',1,0,0,0,0,0,0,0};
     Require(std::equal(expected.begin(),expected.end(),bytes.begin()),"Trace header is not explicit versioned little endian");
     bool rejected=false;try{GsRecordingBackend overwrite(std::make_unique<Consumer>(),path);}catch(const std::runtime_error&){rejected=true;}

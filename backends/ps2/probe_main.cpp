@@ -37,11 +37,15 @@ namespace {
 #ifdef EVAC_PS2_IBARA
 PS2Runtime::RecompiledFunction ibaraSignalSema{};
 void IbaraSignalVBlank(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
-  // The VBlank handler keeps two field flags. The drawing routines use this
-  // copy for both XYOFFSET and parity-specific sprite/texture coordinates.
-  // Each field is shown at the same progressive origin on the PC.
-  if (getRegU32(ctx,31)==0x1b2a84 && (runtime->memory().gs().smode2 & 3u)==3u)
-    runtime->memory().write32(getRegU32(ctx,28)-0x6a8c,0);
+  if (getRegU32(ctx,31)==0x1b2a84) {
+    // Scene 5 draws the scrolling playfield (also in attract mode). Its
+    // 224-line sprites need a stable origin. The boot artwork and menus
+    // instead contribute different texture rows on the two fields.
+    const bool fixedField=runtime->memory().read32(0x338b08)==5 &&
+                          (runtime->memory().gs().smode2 & 3u)==3u;
+    runtime->gs().setFixedFieldDrawing(fixedField);
+    if (fixedField) runtime->memory().write32(getRegU32(ctx,28)-0x6a8c,0);
+  }
   ibaraSignalSema(memory,ctx,runtime);
 }
 int ProbeIbaraTextGrid(const char* elf,const char* snapshot,bool sprites=false) {
@@ -590,7 +594,6 @@ int main(int argc,char** argv) {
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
-    hostOptions.currentFieldScanout=CollectionDefinition.id=="ibara";
     for(int i=collection?argc:5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;

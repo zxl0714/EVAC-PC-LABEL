@@ -159,7 +159,8 @@ ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImage
 bool GsDevice::RenderField(const GsFrame& frame) {
     impl->CheckOwner();WaitField();
     auto result=impl->Scanout(frame,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+        frame.fixedFieldDrawing && (frame.smode2&3u)==3u);
     impl->lastField=std::move(result.image);
     auto command=impl->device->request_command_buffer();impl->device->submit(command,&impl->fieldFence);
     return bool(impl->lastField);

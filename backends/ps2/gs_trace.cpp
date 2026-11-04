@@ -76,6 +76,7 @@ public:
     void RecordFrame(const GsFrame& request) {
         if(stats.finished)return;
         Blob record;auto copy=request;for(auto* value:Fields(copy))U64(record,*value);U32(record,request.field);
+        if(request.fixedFieldDrawing)U32(record,1);
         if(Record(Op::Frame,record)) {
             ++stats.frames;
             if(std::fflush(file.get()))throw std::runtime_error("Cannot flush GS field capture");
@@ -184,6 +185,10 @@ public:
             case Op::Frame:
                 for(auto* value:Fields(command.frame))*value=data.U64();command.frame.field=data.U32();
                 if(command.frame.field>1)throw std::runtime_error("Invalid GS trace field parity");
+                if(!data.bytes.empty()) {
+                    if(data.U32()!=1)throw std::runtime_error("Invalid GS trace scanout mode");
+                    command.frame.fixedFieldDrawing=true;
+                }
                 ++stats.frames;break;
             case Op::Fifo:
                 command.code=data.U32();command.actual=data.U32();

@@ -16,7 +16,6 @@ struct NativeHostOptions {
     std::string gameId;
     bool gamepadEnabled=true;
     float deadzone=0.20f,volume=1.0f;
-    bool currentFieldScanout=false;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL
 // physical devices. Runtime/generated-code headers only forward-declare it.
