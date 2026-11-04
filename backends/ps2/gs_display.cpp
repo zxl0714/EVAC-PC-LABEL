@@ -173,7 +173,7 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
-bool GsDisplay::Present(const GsFrame& request) {
+bool GsDisplay::Present(const GsFrame& request,bool smoothReconstructedFields) {
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
@@ -201,10 +201,12 @@ bool GsDisplay::Present(const GsFrame& request) {
     if(trace)trace->acquired=frame_trace::Stamp();
     auto& device=impl->wsi.get_device();
     const auto& destination=device.get_swapchain_view().get_image();
+    const bool smooth=smoothReconstructedFields && !request.fixedFieldDrawing && (request.smode2&3u)==3u;
     const bool blit=impl->transfer==GsPresentTransfer::Automatic &&
         (destination.get_create_info().usage&VK_IMAGE_USAGE_TRANSFER_DST_BIT) &&
         device.image_format_is_supported(destination.get_create_info().format,VK_FORMAT_FEATURE_2_BLIT_DST_BIT) &&
-        device.image_format_is_supported(VK_FORMAT_R8G8B8A8_UNORM,VK_FORMAT_FEATURE_2_BLIT_SRC_BIT);
+        device.image_format_is_supported(VK_FORMAT_R8G8B8A8_UNORM,VK_FORMAT_FEATURE_2_BLIT_SRC_BIT |
+            (smooth?VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_FILTER_LINEAR_BIT:0));
     if(impl->loggedTransfer!=int(blit)) {
         std::cerr<<"[ps2-gs-present] transfer="<<(blit?"gpu-blit":"gpu-sampled")<<'\n';
         impl->loggedTransfer=int(blit);
@@ -239,7 +241,8 @@ bool GsDisplay::Present(const GsFrame& request) {
                 VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT,
                 VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT);
             const VkOffset3D sourceExtent{int32_t(source.image->get_width()),int32_t(source.image->get_height()),1};
-            command->blit_image(destination,*source.image,offset,extent,{0,0,0},sourceExtent,0,0,0,0,1,VK_FILTER_NEAREST);
+            command->blit_image(destination,*source.image,offset,extent,{0,0,0},sourceExtent,0,0,0,0,1,
+                                smooth?VK_FILTER_LINEAR:VK_FILTER_NEAREST);
         }
         command->image_barrier(destination,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT,VK_PIPELINE_STAGE_2_NONE,0);
@@ -254,7 +257,8 @@ bool GsDisplay::Present(const GsFrame& request) {
         if(source.image) {
             if(!impl->presentProgram)impl->presentProgram=CreateGsPresentProgram(device);
             command->set_program(impl->presentProgram);
-            command->set_texture(0,0,source.image->get_view(),Vulkan::StockSampler::NearestClamp);
+            command->set_texture(0,0,source.image->get_view(),
+                                 smooth?Vulkan::StockSampler::LinearClamp:Vulkan::StockSampler::NearestClamp);
             const VkViewport viewport{float(offset.x),float(offset.y),float(extent.x),float(extent.y),0,1};
             command->set_viewport(viewport);command->draw(3);
         }

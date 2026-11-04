@@ -594,6 +594,7 @@ int main(int argc,char** argv) {
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
+    hostOptions.smoothReconstructedFields=CollectionDefinition.id=="ibara";
     for(int i=collection?argc:5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
