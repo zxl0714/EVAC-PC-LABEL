@@ -8,10 +8,12 @@
 namespace {
 struct Registrar:rex::runtime::IModuleRegistrar {
   PPCFunc* callback{};
+  PPCFunc* stageTwo{};
   PPCFunc* zero{};
   PPCFunc* tail{};
   bool SetFunction(uint32_t address,PPCFunc* function) override {
     if(address==0x881b0038)callback=function;
+    if(address==0x881b5c28)stageTwo=function;
     if(address==0x881e4e80)zero=function;
     if(address==0x8817d190)tail=function;
     return true;
@@ -35,10 +37,11 @@ int wmain(int argc,wchar_t** argv) {
     if(!registration)throw std::runtime_error("No module registration export");
     Registrar registrar;registration(&registrar);
     if(!registrar.callback)throw std::runtime_error("Missing original object-release callback 0x881B0038");
+    if(!registrar.stageTwo)throw std::runtime_error("Missing Stage 2 Reco callback 0x881B5C28");
     if(!registrar.zero || !registrar.tail)throw std::runtime_error("Missing reviewed leaf callback counterpart");
     auto* base=static_cast<uint8_t*>(VirtualAlloc(nullptr,0x100000000ull,MEM_RESERVE,PAGE_READWRITE));
     if(!base)throw std::runtime_error("Cannot reserve guest address space");
-    for(uint32_t address:{0x10000u,0x20000u,0x30000u,0x883e0000u})
+    for(uint32_t address:{0x10000u,0x20000u,0x30000u,0x883e0000u,0x88560000u})
       if(!VirtualAlloc(base+address,0x10000,MEM_COMMIT,PAGE_READWRITE))throw std::runtime_error("Cannot commit fixture page");
     constexpr uint32_t Object=0x10000,State=0x20000,Pending=0x30000,Queue=0x883e0240;
     for(unsigned scenario=0;scenario<4;++scenario) {
@@ -58,6 +61,14 @@ int wmain(int argc,wchar_t** argv) {
       Require(Read(base,Queue-104)==count+unsigned(queued));
       Require(Read(base,Pending+8)==(queued?0:0xa5a5a5a5));
       if(queued)Require(Read(base,Queue+count*4)==Pending);
+      Write(base,State+180,scenario==3?0:Pending);
+      Write(base,Queue-104,count);Write(base,Queue+count*4,0xdeadc0de);
+      Write(base,Pending+8,0xa5a5a5a5);Write(base,0x88568bd4,1);
+      context.r3.u64=Object;registrar.stageTwo(context,base);
+      Require(Read(base,0x88568bd4)==0);
+      Require(Read(base,Queue-104)==count+unsigned(queued));
+      Require(Read(base,Queue+count*4)==(queued?Pending:0xdeadc0de));
+      Require(Read(base,Pending+8)==(queued?0:0xa5a5a5a5));
       context.r3.u64=0x12345678;registrar.zero(context,base);Require(context.r3.u64==0);
     }
     VirtualFree(base,0,MEM_RELEASE);FreeLibrary(module);

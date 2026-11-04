@@ -20,6 +20,7 @@ class FutariCallbacks(unittest.TestCase):
                 self.assertEqual(functions[address]['end'], address + 128)
         normal = tomllib.loads((ROOT / 'games/futari/recomp/reco-normal-overrides.toml').read_text())
         functions = {int(key, 0): value for key, value in normal['functions'].items()}
+        self.assertEqual(functions[0x881B5C28]['end'], 0x881B5C78)
         for address in (0x8817D190, 0x881E4E80):
             self.assertEqual(functions[address]['end'], address + 8)
 

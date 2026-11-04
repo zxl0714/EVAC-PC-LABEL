@@ -2,6 +2,8 @@
 # Stored object-release callback; the same callback is already declared in
 # the other seven character modules.
 0x881B0038 = { end = 0x881B00B8 }
+# Reco Normal stage 2 dispatches this object callback indirectly.
+0x881B5C28 = { end = 0x881B5C78 }
 # Byte-identical counterparts of the reviewed Reco Abnormal leaf callbacks.
 0x8817D190 = { end = 0x8817D198 }
 0x881E4E80 = { end = 0x881E4E88 }
