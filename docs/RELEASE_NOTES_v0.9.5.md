@@ -4,7 +4,8 @@
 - **虫姬二如何获得最低延迟。** 在游戏内依次选择 **Option → Screen Setting → “Maniac” Menu Mode → Extra Setting → FrameDelay → 0V(Tearing)**。
 - **输入设备响应更快。** 三个平台都在游戏读键时刷新手柄和摇杆状态，让刚上报的按键和方向赶上当前帧。
 - **PS4 输入延迟优化。** 五款游戏都能在 GPU 复制画面的同时准备显示。以绊地狱为例，从读到方向到提交首张位移画面，平均从 **5.27 ms 降到 3.97 ms**。
-- **PS2 输入延迟优化。** ESPGaluda 和铸蔷薇在绘图前更晚读键，画面就绪后更早提交，平均延迟均约 **18 ms**。窗口缩放统一由 GPU 着色器完成。
+- **PS2 输入延迟优化。** ESPGaluda 和铸蔷薇在绘图前更晚读键，画面就绪后更早提交，平均延迟均约 **18 ms**。
+- **PS2 画面输出。** 此前优先在复制画面到窗口时缩放。现在两款游戏都和 Xbox 360 一样，在所有显卡上用 GPU 着色器将完成的画面按原比例绘制到窗口。
 - **NVIDIA Reflex。** 全部 11 款游戏默认在支持的 NVIDIA 显卡上启用 Reflex，缩短输入到画面响应的等待。
 - **AMD Anti-Lag 2。** 我们缺少 Radeon 实机验证稳定性，因此默认关闭。可在 `user-data/config.ini` 的 `[display]` 下设 `amd_anti_lag = true`，重启游戏后试用。欢迎通过启动器的「上传日志」反馈显卡型号、驱动版本和手感。
 - **PS2 崩溃日志。** 遇到崩溃时点击「上传日志」，报告会附上调用栈和崩溃前的绘图步骤。
@@ -43,7 +44,8 @@
 - **Lowest latency in Futari.** In the game, select **Option → Screen Setting → “Maniac” Menu Mode → Extra Setting → FrameDelay → 0V(Tearing)**.
 - **Faster controller response.** All three runtimes refresh gamepad and arcade-stick input when the game reads the controls, so a newly reported button press or direction can reach the current frame.
 - **PS4 input latency.** All five games can prepare the next frame for display while the GPU copies the image. In Ketsui, the average time from reading the stick to submitting the first frame showing movement fell from **5.27 ms to 3.97 ms**.
-- **PS2 input latency.** ESPGaluda and Ibara read input closer to drawing and submit the finished image sooner. Both average about **18 ms** of estimated latency and use a shader to fit the image to the window at its original aspect ratio.
+- **PS2 input latency.** ESPGaluda and Ibara read input closer to drawing and submit the finished image sooner. Estimated latency averages about **18 ms** for both games.
+- **PS2 rendering.** The renderer previously used a scaled copy when available. Both games now follow the Xbox 360 ports and use a shader on every GPU to draw the finished frame to the window at its original aspect ratio.
 - **NVIDIA Reflex.** All 11 games enable Reflex by default on supported NVIDIA GPUs to reduce input-to-display latency.
 - **AMD Anti-Lag 2.** We don’t have Radeon hardware to verify stability, so Anti-Lag 2 is off by default. To try it, set `amd_anti_lag = true` under `[display]` in `user-data/config.ini` and restart the game. Use **Upload logs** to share your GPU model, driver version and how it felt.
 - **PS2 crash reports.** After a crash, use **Upload logs** to send the call stack and the rendering steps leading up to it.
