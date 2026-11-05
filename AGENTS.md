@@ -29,7 +29,7 @@ All runtime/launcher builds succeeded; packaging tests 55 passed (1 expected ski
 One extraction verified all 197 files and 11 games' runtime inventory, with no
 ROM/source/PDB or player config included. Evidence: ZIP-side .acceptance.json and
 .local/v095/package-acceptance-8b8549d. Local delivery only; no push/upload/release.
-Nov05 Guwange follow-up implementation and validation COMPLETE; package pending.
+Nov05 Guwange follow-up implementation, validation and local package COMPLETE.
 0V now rotates the native core boundary to before the original input/replay callback,
 executes one update to the next callback, and removes the fixed post-input Sleep(3).
 Original sprite buffers and bank selection retained; Arcade/Blue/Arrange only.
@@ -42,8 +42,13 @@ Same-process modes and saved Arcade replay2780 naturally finished; files unchang
 33 Python + core phase regression passed. All production builds complete.
 Important: initial final-r1 observer replaced core Begin/End hooks and was INVALID.
 prepare_guwange_native.py now chains those production callbacks. Final r2 verified active.
-Ready to commit locally and produce ONE fresh Public program ZIP, then extract once
-using .local/v095/accept-package.py. No ROM/source/PDB. Keep old frozen ZIP unchanged.
+Frozen source e053eebab56de16a81ad99943a9047bfc160fe8c (implementation0101fc5).
+Program ZIP releases/v0.9.5-local-e053eeb/EVAC-PC-LABEL-v0.9.5-win-x64.zip,
+160067075 bytes, SHA256 c1c439c85dc86dfb9c4aa205a564fa54bfca55e8874cf404f7e4b20bcf64e293.
+Final incremental build/receipt refreshed after commit; generated game code reused.
+Packaging31s; ONE extraction validated197files/11games/noROM/source/PDB/playerconfig.
+ZIP-side .acceptance.json and .local/v095/package-acceptance-e053eeb verified.
+Old frozen ZIP unchanged. No further tests/rebuilds for this documentation checkpoint.
 Physical controller A/B remains explicitly deferred. No push/upload/release requested.
 
 ### Previous v0.9.4 checkpoint
