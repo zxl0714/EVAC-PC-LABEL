@@ -12,7 +12,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
   <a href="docs/GAME_DATA.en.md">Game data</a> ·
   <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
-  <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases">Release notes</a>
+  <a href="docs/RELEASE_NOTES_v0.9.5.md#english">v0.9.5 release notes</a>
 </p>
 
 <p align="center">
@@ -21,11 +21,11 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
 
 ## Latency and performance
 
-Lower values are better. Port latency was measured with Reflex enabled on all three platforms. Latency is in milliseconds and CPU usage is in equivalent logical cores.
+Test PC: i7-13700KF and RTX 4080. Latency is an estimated average in milliseconds. CPU usage is in equivalent logical cores. All three platforms use the defaults under `[display]` in `user-data/config.ini`: `vsync = false` and `reflex = auto`. Supported NVIDIA GPUs enable Reflex automatically.
 
 **Xbox 360**
 
-The Xbox 360 ports use 0V. Xenia uses the original game settings.
+Select 0V in Futari’s in-game menu. ESPGaluda II, SaiDaiOuJou and Guwange default to 0V (`frame_delay = 0`). Xenia uses the original timing. [Futari’s 0V menu path](docs/SETTINGS.en.md#futari-guwange-and-nvidia-reflex)
 
 | Game | Port latency | Xenia latency | Port CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -34,7 +34,7 @@ The Xbox 360 ports use 0V. Xenia uses the original game settings.
 | DoDonPachi SaiDaiOuJou | 13 | 69 | 0.37 | 3.48 |
 | Guwange | 13 | 66 | 0.29 | 3.13 |
 
-**PS4**
+**PS4** · All five games use the default NEO mode (`neo = true`).
 
 | Game | Port latency | shadPS4 latency | Port CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -51,7 +51,7 @@ The Xbox 360 ports use 0V. Xenia uses the original game settings.
 | ESPGaluda | 18 | 43 | 0.28 | 0.25 |
 | Ibara | 18 | 43 | 0.38 | 0.27 |
 
-Latency estimates include average sampling wait, game response and presentation, excluding device input, display scanout and panel response. CPU measurements use an i7-13700KF / RTX 4080. The two ESPGaluda CPU samples cover different scenes. [Test conditions and methods →](docs/PERFORMANCE.en.md)
+Latency runs from input reaching the PC to the Windows display event. Device reporting and monitor response add time. [Test conditions and methods →](docs/PERFORMANCE.en.md)
 
 ## Supported games
 
@@ -65,7 +65,7 @@ Select a title for supported versions, extraction steps and folder examples. Pre
 
 ## Getting started
 
-Windows x64. Xbox 360 titles require Direct3D 12; PS4 and PS2 titles require Vulkan 1.3. Install your GPU vendor's graphics drivers.
+Windows x64. Xbox 360 games automatically select Direct3D 12 or Vulkan. PS4 and PS2 games require Vulkan 1.3.
 
 1. **Download and extract** the [latest program package](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest). SHA-256 checksums are provided on the release page. Supply your own game data.
 2. **Open `EVAC PC LABEL.exe`**, select a game, and choose **Game data… → Choose data folder…**. Select extracted game files for Xbox 360 / PS4, or the folder containing the original ISO for PS2.
@@ -78,11 +78,14 @@ Extract PS4 PKGs with the included `tools/Extract-PS4.exe`. For Xbox 360 ISOs, X
 Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. Use **Config file** for keyboard, controller, audio and online settings.
 
 - **Controls:** arrow keys for movement, `Z / X / C / V` for the four controller face buttons, and `Enter` for Start. [All controls and special modes →](docs/SETTINGS.en.md#launcher-and-controls)
+- **Radeon users** can try Anti-Lag 2 by setting `amd_anti_lag = true` under `[display]`. The standard package defaults to off. [Settings](docs/SETTINGS.en.md#amd-radeon-anti-lag-2)
 - **Low-latency settings:** [NEO](docs/SETTINGS.en.md#neo-mode) · [SDOJ Frame Delay](docs/SETTINGS.en.md#sdoj-frame-delay) · [G2 Frame Delay](docs/SETTINGS.en.md#g2-frame-delay)
 - **Community leaderboards:** enabled by default, with no registration. Change `Player` to your own nickname before playing. [Rankings and replays →](docs/SETTINGS.en.md#community-leaderboards)
 - **Updates and backups:** close the games and launcher before replacing program files. Keep the entire `user-data/` folder for settings, saves and replays. [Details →](docs/SETTINGS.en.md#updating-and-backups)
 
 ## Troubleshooting
+
+If ESPGaluda or Ibara crashes at startup on Intel Arc B390, update the Intel graphics driver and try again. The update includes the Vulkan driver. [Intel driver download](https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html)
 
 After closing the game, click **Upload logs**, select the affected session, and briefly describe the problem. Include the resulting report ID in a [GitHub issue](https://github.com/zxl0714/EVAC-PC-LABEL/issues), with screenshots for visual problems.
 

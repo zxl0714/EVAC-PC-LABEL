@@ -12,7 +12,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
   <a href="docs/GAME_DATA.md">游戏数据</a> ·
   <a href="docs/SETTINGS.md">设置与操作</a> ·
-  <a href="docs/CHANGELOG.md">更新记录</a>
+  <a href="docs/RELEASE_NOTES_v0.9.5.md">v0.9.5 更新说明</a>
 </p>
 
 <p align="center">
@@ -21,11 +21,11 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 
 ## 延迟与性能
 
-代表场景对比，数值越低越好。三种平台的移植版均开启 Reflex 测量延迟。延迟单位为毫秒，CPU 单位为等效逻辑核。
+测试机为 i7-13700KF／RTX 4080。延迟为平均估算值（毫秒），CPU 为等效逻辑核数。三种平台都使用 `user-data/config.ini` 的 `[display]` 默认设置：`vsync = false`、`reflex = auto`。支持的 NVIDIA 显卡会自动启用 Reflex。
 
 **Xbox 360**
 
-移植版使用 0V，Xenia 使用原作档位。
+虫姬二在游戏内选 0V，ESPGaluda II、最大往生和狱门山默认使用 0V（`frame_delay = 0`）。Xenia 使用原作档位。[虫姬二的 0V 菜单路径](docs/SETTINGS.md#虫姬二狱门山与-nvidia-reflex)
 
 | 游戏 | 移植版延迟 | Xenia 延迟 | 移植版 CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -34,7 +34,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 | 最大往生 | 13 | 69 | 0.37 | 3.48 |
 | 狱门山 | 13 | 66 | 0.29 | 3.13 |
 
-**PS4**
+**PS4** · 五款游戏均使用默认 NEO 模式（`neo = true`）。
 
 | 游戏 | 移植版延迟 | shadPS4 延迟 | 移植版 CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -51,7 +51,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 | ESPGaluda | 18 | 43 | 0.28 | 0.25 |
 | 铸蔷薇 | 18 | 43 | 0.38 | 0.27 |
 
-延迟为估算，包含平均取样等待、游戏响应及呈现，不含设备输入和显示器扫描、面板响应。CPU 实测于 i7-13700KF／RTX 4080。仅 ESPGaluda 的两侧 CPU 采样场景不同。[测试条件与计算方法 →](docs/PERFORMANCE.md)
+延迟从输入到达电脑算到 Windows 显示事件。设备上报和显示器响应另计。[测试条件与计算方法 →](docs/PERFORMANCE.md)
 
 ## 支持游戏
 
@@ -65,7 +65,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 
 ## 开始游玩
 
-Windows x64。Xbox 360 作品需要 Direct3D 12；PS4、PS2 作品需要 Vulkan 1.3。请安装显卡厂商的正式驱动。
+Windows x64。Xbox 360 游戏自动选择 Direct3D 12 或 Vulkan。PS4 和 PS2 游戏需要 Vulkan 1.3。
 
 1. **下载并解压**[最新程序包](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest)，发布页提供 SHA-256 校验文件。游戏数据自行准备。
 2. **打开 `EVAC PC LABEL.exe`**，选中游戏，点击“游戏数据…”→“选择数据目录…”。Xbox 360、PS4 选择已解包的游戏目录；PS2 选择原始 ISO 所在目录。
@@ -78,11 +78,14 @@ PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和
 在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。键盘、手柄、音量和联网设置通过底部“配置文件”编辑。
 
 - **操作**：方向键移动，`Z / X / C / V` 对应手柄四个主按钮，`Enter` 为 Start。[完整按键与特殊模式 →](docs/SETTINGS.md#配置与操作)
+- **Radeon 玩家**可在 `[display]` 下设 `amd_anti_lag = true` 试用 Anti-Lag 2，标准包默认关闭。[设置说明](docs/SETTINGS.md#amd-radeon-anti-lag-2)
 - **低延迟设置**：[NEO](docs/SETTINGS.md#neo-模式) · [最大往生 Frame Delay](docs/SETTINGS.md#最大往生-frame-delay) · [G2 Frame Delay](docs/SETTINGS.md#g2-frame-delay)
 - **社区排行榜**：默认联网，无须注册。先把默认昵称 `Player` 改为自己的名字。[排行榜与录像 →](docs/SETTINGS.md#社区排行榜)
 - **更新与备份**：关闭游戏和启动器后覆盖程序文件，保留整个 `user-data/`，其中包含配置、存档和录像。[详细说明 →](docs/SETTINGS.md#更新与备份)
 
 ## 遇到问题
+
+Intel Arc B390 若在启动 ESPGaluda 或铸蔷薇时崩溃，请更新 Intel 显卡驱动后重试，Vulkan 驱动也会随之更新。[Intel 驱动下载](https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html)
 
 退出游戏后，点击启动器底部“上传日志”，选择对应的一局并简单描述问题。上传成功后，向 [Issues](https://github.com/zxl0714/EVAC-PC-LABEL/issues) 提供报告编号；如有画面异常，可附截图。
 

@@ -50,7 +50,9 @@ frame_delay = 3
 [game.guwange]
 frame_delay = 2
 
-虫姬二在游戏内的 Frame Delay 菜单选择档位。新档默认 1V (Fast)，也可选择 0V (Tearing)。
+虫姬二新档默认 1V(Fast)。要开启 0V，在游戏内选 Option → Screen Setting → “Maniac” Menu Mode → Extra Setting → FrameDelay → 0V(Tearing)。
+低延迟显示使用 [display] 下的 vsync = false 和 reflex = auto。兼容的 NVIDIA 显卡会自动启用 Reflex。PS4 默认使用 NEO 模式。
+Radeon 玩家可在 [display] 下设 amd_anti_lag = true 试用 Anti-Lag 2，标准包默认关闭。
 
   键盘          Xbox 360   PS4／PS2
   Z             A          ×
@@ -72,6 +74,7 @@ F11／Alt+Enter 切换全屏；Alt+F4 退出；F8 标记日志时间。
 PS2 游戏使用原作本地成绩与记忆卡。
 
 反馈
+Intel Arc B390 启动 ESPGaluda 或铸蔷薇时若仍崩溃，先更新 Intel 显卡驱动（包含 Vulkan 驱动）后重试。
 退出游戏后点击“上传日志”，选择游玩记录，选填留言并上传。
 反馈问题时提供上传成功后显示的报告编号。
 游戏无法启动时也可以上传日志；提示运行组件不可用时，点击“详情”查看具体文件和处理方法。
@@ -121,7 +124,9 @@ frame_delay = 3
 [game.guwange]
 frame_delay = 2
 
-Futari uses the in-game Frame Delay menu. New saves start at 1V (Fast); select 0V (Tearing) there if desired.
+Futari starts at 1V(Fast). For 0V, select Option → Screen Setting → “Maniac” Menu Mode → Extra Setting → FrameDelay → 0V(Tearing).
+For low latency, use vsync = false and reflex = auto under [display]. Supported NVIDIA GPUs enable Reflex automatically. PS4 games default to NEO mode.
+Radeon users can try Anti-Lag 2 by setting amd_anti_lag = true under [display]. The standard package defaults to off.
 
 Arrow keys move; Enter is Start; Backspace is Select/Touchpad.
 Z / X / C / V map to A / B / X / Y on Xbox and Cross / Circle / Square / Triangle on PS4/PS2.
@@ -136,6 +141,7 @@ the default is Player. The [community] settings above control the connection.
 PS2 games use their original local scores and memory cards.
 
 Feedback
+If ESPGaluda or Ibara crashes at startup on Intel Arc B390, update the Intel graphics driver (which includes the Vulkan driver) and try again.
 After closing the game, click Upload logs, select a session, add an optional message,
 and upload. Include the report ID when reporting an issue.
 Startup failures can also be uploaded. Click Details for missing or inaccessible runtime files and recovery steps.

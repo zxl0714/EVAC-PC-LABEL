@@ -50,7 +50,7 @@
 - **AMD Anti-Lag 2.** We don’t have Radeon hardware to verify stability, so Anti-Lag 2 is off by default. To try it, set `amd_anti_lag = true` under `[display]` in `user-data/config.ini` and restart the game. Use **Upload logs** to share your GPU model, driver version and how it felt.
 - **PS2 crash reports.** After a crash, use **Upload logs** to send the call stack and the rendering steps leading up to it.
 
-[Restore original Xbox 360 timing](https://github.com/zxl0714/EVAC-PC-LABEL/blob/v0.9.5/config/README.player-v09.txt#L113-L124)
+[Restore original Xbox 360 timing](https://github.com/zxl0714/EVAC-PC-LABEL/blob/v0.9.5/config/README.player-v09.txt#L116-L127)
 
 ## Latest input latency and CPU usage
 
