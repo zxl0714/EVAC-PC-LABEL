@@ -50,3 +50,9 @@ registers = ["context", "memory"]
 address = 0x82208ACC
 name = "GuwangeRenderWorkChanged"
 registers = ["context", "memory"]
+[[midasm_hook]]
+address = 0x8219DFF8
+name = "GuwangeSkipCoreSleep"
+registers = ["context", "memory"]
+jump_address_on_true = 0x8219DFFC
+

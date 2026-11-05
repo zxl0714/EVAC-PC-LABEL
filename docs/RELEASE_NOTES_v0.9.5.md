@@ -11,7 +11,7 @@
 | 虫姬二 | 10 | 36 | 0.07 | 1.28 |
 | ESPGaluda II | 12 | 51 | 0.35 | 1.43 |
 | 最大往生 | 13 | 69 | 0.37 | 3.48 |
-| 狱门山 | 45 | 66 | 0.21 | 3.13 |
+| 狱门山 | 13 | 66 | 0.29 | 3.13 |
 
 ## English
 
@@ -26,4 +26,4 @@ Estimated average latency in ms and CPU usage in equivalent logical cores. The p
 | Mushihimesama Futari | 10 | 36 | 0.07 | 1.28 |
 | ESPGaluda II | 12 | 51 | 0.35 | 1.43 |
 | DoDonPachi SaiDaiOuJou | 13 | 69 | 0.37 | 3.48 |
-| Guwange | 45 | 66 | 0.21 | 3.13 |
+| Guwange | 13 | 66 | 0.29 | 3.13 |

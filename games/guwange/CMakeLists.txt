@@ -57,6 +57,10 @@ add_executable(guwange_render_queue_tests "${CMAKE_SOURCE_DIR}/tests/guwange/ren
 target_include_directories(guwange_render_queue_tests PRIVATE "${CMAKE_SOURCE_DIR}")
 add_test(NAME guwange_render_queue COMMAND guwange_render_queue_tests)
 
+add_executable(guwange_core_phase_tests "${CMAKE_SOURCE_DIR}/tests/guwange/core_phase_test.cpp")
+target_include_directories(guwange_core_phase_tests PRIVATE "${CMAKE_SOURCE_DIR}")
+add_test(NAME guwange_core_phase COMMAND guwange_core_phase_tests)
+
 add_executable(guwange_input_tests "${CMAKE_SOURCE_DIR}/tests/xbox360/input_test.cpp")
 target_link_libraries(guwange_input_tests PRIVATE cave_xbox360_input)
 add_test(NAME guwange_input COMMAND guwange_input_tests)

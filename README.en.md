@@ -32,7 +32,7 @@ The ports use 0V with Reflex enabled. Xenia uses the original game settings.
 | Mushihimesama Futari | 10 | 36 | 0.07 | 1.28 |
 | ESPGaluda II | 12 | 51 | 0.35 | 1.43 |
 | DoDonPachi SaiDaiOuJou | 13 | 69 | 0.37 | 3.48 |
-| Guwange | 45 | 66 | 0.21 | 3.13 |
+| Guwange | 13 | 66 | 0.29 | 3.13 |
 
 **PS4**
 

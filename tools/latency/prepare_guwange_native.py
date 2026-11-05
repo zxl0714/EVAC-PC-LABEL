@@ -50,7 +50,12 @@ def main():
             declarations.append(f"[[midasm_hook]]\naddress = 0x{site['address']:08X}\nname = \"{name}\"\nregisters = [\"context\", \"memory\"]\n")
             values = [f'ctx.r{r}.u64' if r < 32 else 'ctx.lr' if r == 32 else 'ctx.ctr.u64'
                       for r in site['registers']]
-            bodies.append(f'void {name}(PPCContext& ctx, std::uint8_t*) {{\n' +
+            # rexglue uses one hook per PC. Preserve the production phase hooks
+            # when observing the same two core boundaries.
+            phase = {30: 'GuwangeCoreBegin', 31: 'GuwangeCoreEnd'}.get(site['id'])
+            phase_call = f'  {phase}(ctx, base);\n' if phase else ''
+            bodies.append((f'extern void {phase}(PPCContext&, std::uint8_t*);\n' if phase else '') +
+                f'void {name}(PPCContext& ctx, std::uint8_t* base) {{\n' + phase_call +
                 f"  FutariProbeRecord(10, {site['id']}, 0x{site['address']:08X}, " + ', '.join(values) + ');\n' +
                 ('  FutariProbeSwap(ctx.r3.u32);\n' if site['id'] == 19 else '') + '}\n')
         declaration = destination / (module + '-probe.toml')

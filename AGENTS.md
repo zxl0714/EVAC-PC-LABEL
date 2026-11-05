@@ -29,7 +29,22 @@ All runtime/launcher builds succeeded; packaging tests 55 passed (1 expected ski
 One extraction verified all 197 files and 11 games' runtime inventory, with no
 ROM/source/PDB or player config included. Evidence: ZIP-side .acceptance.json and
 .local/v095/package-acceptance-8b8549d. Local delivery only; no push/upload/release.
-Stop further tests/builds. Physical controller A/B remains explicitly deferred.
+Nov05 Guwange follow-up implementation and validation COMPLETE; package pending.
+0V now rotates the native core boundary to before the original input/replay callback,
+executes one update to the next callback, and removes the fixed post-input Sleep(3).
+Original sprite buffers and bank selection retained; Arcade/Blue/Arrange only.
+Final .local/v095/guwange-final-r2: 20 exact chains,18 visible responses at owned+0,
+API->response4.128ms; expected8.333+4.128+historical.919=13.38ms. Two occluded excluded.
+212 captured images: mean16.662ms,P9518.280,max19.365. Normal CPU final-r1=.2905cores
+(old .2062). Ordinary near-sample windows max19.924; earlier21.189, do not claim no tails.
+Same-process modes and saved Arcade replay2780 naturally finished; files unchanged:
+.local/v095/guwange-final-saved/guwange-zero/{mode,replay}-validation.json.
+33 Python + core phase regression passed. All production builds complete.
+Important: initial final-r1 observer replaced core Begin/End hooks and was INVALID.
+prepare_guwange_native.py now chains those production callbacks. Final r2 verified active.
+Ready to commit locally and produce ONE fresh Public program ZIP, then extract once
+using .local/v095/accept-package.py. No ROM/source/PDB. Keep old frozen ZIP unchanged.
+Physical controller A/B remains explicitly deferred. No push/upload/release requested.
 
 ### Previous v0.9.4 checkpoint
 

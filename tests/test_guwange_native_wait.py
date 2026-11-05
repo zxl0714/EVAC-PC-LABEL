@@ -25,6 +25,7 @@ class GuwangeWaitContracts(unittest.TestCase):
             0x821F7810: 'GuwangeRenderWorkChanged',
             0x821EBB88: 'GuwangeRenderWorkChanged',
             0x82208ACC: 'GuwangeRenderWorkChanged',
+            0x8219DFF8: 'GuwangeSkipCoreSleep',
         })
         self.assertTrue(all(h['registers'] == ['context', 'memory'] for h in hooks['midasm_hook']))
 

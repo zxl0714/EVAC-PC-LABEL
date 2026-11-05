@@ -63,6 +63,12 @@ std::uint32_t Load(std::uint8_t* base,std::uint32_t address) {
     return __builtin_bswap32(*reinterpret_cast<volatile std::uint32_t*>(base+address));
 }
 }
+extern "C" __declspec(dllexport) bool GuwangeCoreLowLatency() {
+    return post_swap_wait && enabled.load(std::memory_order_acquire);
+}
+// The outer completion callback still paces at 60 Hz. This fixed 3 ms sleep
+// occurs after polling input and only ages the sample before core execution.
+bool GuwangeSkipCoreSleep(PPCContext&,std::uint8_t*) { return GuwangeCoreLowLatency(); }
 namespace guwange::performance {
 void StartNativeWait(bool wait_after_swap) {
     post_swap_wait = wait_after_swap;

@@ -1,0 +1,22 @@
+# Original XBLA base-image callback boundary; native PC stays at the deferred entry.
+
+[[midasm_hook]]
+address = 0x88020000
+name = "GuwangeCoreBegin"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x882CE4C0
+name = "GuwangeCoreInput"
+registers = ["context", "memory"]
+return_on_true = true
+
+[[midasm_hook]]
+address = 0x882D07FC
+name = "GuwangeCoreYield"
+registers = ["context", "memory"]
+
+[[midasm_hook]]
+address = 0x88020224
+name = "GuwangeCoreEnd"
+registers = ["context", "memory"]

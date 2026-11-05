@@ -85,7 +85,7 @@ frame_delay = 1
 
 ## 虫姬二、狱门山与 NVIDIA Reflex
 
-虫姬二可在游戏内的 Frame Delay 设置中选择 **0V (Tearing)**。狱门山在 `[game.guwange]` 下设置 `frame_delay = 0`，设回 `original` 使用原作时序。
+虫姬二可在游戏内的 Frame Delay 设置中选择 **0V (Tearing)**。狱门山在 `[game.guwange]` 下设置 `frame_delay = 0`，普通、Blue 和 Arrange 单人模式可减少两帧输入延迟；设回 `original` 使用原作时序。
 
 四款 Xbox 360 游戏默认在支持的 NVIDIA 显卡上自动启用 Reflex。要关闭，在 `[display]` 下设置 `reflex = off`，重启游戏后生效。设回 `auto` 恢复自动探测。
 

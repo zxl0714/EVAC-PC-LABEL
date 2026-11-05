@@ -85,7 +85,7 @@ frame_delay = 1
 
 ## Futari, Guwange and NVIDIA Reflex
 
-In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. For Guwange, set `frame_delay = 0` under `[game.guwange]`. Use `original` to restore the original timing.
+In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. For Guwange, set `frame_delay = 0` under `[game.guwange]` to remove two buffered response frames in Arcade, Blue and Arrange single-player modes. Use `original` to restore the original timing.
 
 All four Xbox 360 titles automatically enable Reflex on supported NVIDIA hardware. To turn it off, set `reflex = off` under `[display]` and restart the game. Set it back to `auto` to enable detection.
 
