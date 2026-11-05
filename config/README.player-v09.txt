@@ -39,6 +39,12 @@ CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
 启动按钮上方选择全屏或窗口分辨率。底部“配置文件”打开 user-data/config.ini。
 备份、换目录时保留整个 user-data/，包含配置、存档和录像。
 
+ESPGaluda II、最大往生和狱门山默认使用 0V。要恢复原作时序，在对应区段修改 frame_delay 后重启：
+  [game.espgaluda2]  frame_delay = 2
+  [game.sdoj]        frame_delay = 3
+  [game.guwange]     frame_delay = original
+虫姬二在游戏内的 Frame Delay 菜单选择档位。新档默认 1V (Fast)，也可选择 0V (Tearing)。
+
   键盘          Xbox 360   PS4／PS2
   Z             A          ×
   X             B          ○
@@ -96,6 +102,12 @@ Settings and controls
 CN / EN / JP selects the UI language. Edit your leaderboard nickname in the header.
 Choose fullscreen or a window size above Launch game. Config opens user-data/config.ini.
 Keep the whole user-data/ folder when updating or moving your installation.
+
+ESPGaluda II, SaiDaiOuJou and Guwange default to 0V. To restore original timing, change frame_delay in the matching section and restart:
+  [game.espgaluda2]  frame_delay = 2
+  [game.sdoj]        frame_delay = 3
+  [game.guwange]     frame_delay = original
+Futari uses the in-game Frame Delay menu. New saves start at 1V (Fast); select 0V (Tearing) there if desired.
 
 Arrow keys move; Enter is Start; Backspace is Select/Touchpad.
 Z / X / C / V map to A / B / X / Y on Xbox and Cross / Circle / Square / Triangle on PS4/PS2.

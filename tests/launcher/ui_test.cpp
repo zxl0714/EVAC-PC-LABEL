@@ -353,10 +353,10 @@ void ColdReadback(const fs::path& root,std::wstring_view expected_language,std::
           frame.app.SelectedDisplay().height==720,"Cold display selection readback");
   Require(ControlText(frame.app.save_control)==T(L"保存"),"Cold localized controls");
   Require(Ini::ReadText(ConfigPath(root))==before,"Readback changed configuration");
-  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==1,
-          "Cold startup did not resolve SDOJ's default 1V");
-  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"espgaluda2").g2_frame_delay==1,
-          "Cold startup did not resolve G2's default 1V");
+  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"sdoj").sdoj_frame_delay==0,
+          "Cold startup did not resolve SDOJ's default 0V");
+  Require(ResolveSettings(Ini::Load(ConfigPath(root)),"espgaluda2").g2_frame_delay==0,
+          "Cold startup did not resolve G2's default 0V");
 }
 void Restart(const fs::path& root,std::wstring_view code,std::wstring_view nickname,std::wstring_view game) {
   std::wstring executable(32768,L'\0');

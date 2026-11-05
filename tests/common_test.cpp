@@ -213,8 +213,8 @@ void SettingsChecks(Fixture& fixture) {
         Reject([&] {ParseSettings(text,"guwange");},"Invalid/conflicting right-stick binding accepted");
     Require(ResolveSharedSettings(Ini::Parse(DefaultConfig())).keyboard_right_stick[0].keys.empty(),
             "Shared preferences unexpectedly enable title axes");
-    Require(ParseSettings("", "sdoj").sdoj_frame_delay == 1, "Missing Frame Delay defaults to the low-latency path");
-    Require(ParseSettings(DefaultConfig(), "sdoj").sdoj_frame_delay == 1,
+    Require(ParseSettings("", "sdoj").sdoj_frame_delay == 0, "Missing Frame Delay defaults to the low-latency path");
+    Require(ParseSettings(DefaultConfig(), "sdoj").sdoj_frame_delay == 0,
             "Frame Delay template differs from the built-in default");
     for (unsigned mode : {0u, 1u, 2u, 3u})
         Require(ParseSettings("[game.sdoj]\nframe_delay="+std::to_string(mode), "sdoj").sdoj_frame_delay == mode,
@@ -222,22 +222,24 @@ void SettingsChecks(Fixture& fixture) {
     for (const auto* value : {"4", "-1", "2V", "balanced", "2.0", "2junk", ""})
         Reject([&] { ParseSettings(std::string("[game.sdoj]\nframe_delay=")+value, "sdoj"); },
                "Invalid SDOJ frame delay accepted");
-    Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 1,
+    Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 0,
             "Another game interpreted SDOJ frame delay");
-    Require(!ParseSettings(DefaultConfig(), "guwange").guwange_post_swap_wait, "Guwange preserves native pacing by default");
+    Require(ParseSettings(DefaultConfig(), "guwange").guwange_post_swap_wait, "Guwange defaults to 0V");
     Require(ParseSettings("[game.guwange]\nframe_delay=0", "guwange").guwange_post_swap_wait, "Guwange accepts 0V");
+    Require(ParseSettings("", "guwange").guwange_post_swap_wait, "Missing Guwange setting defaults to 0V");
+    Require(!ParseSettings("[game.guwange]\nframe_delay=original", "guwange").guwange_post_swap_wait, "Preserve explicit Guwange original timing");
     Reject([&] { ParseSettings("[game.guwange]\nframe_delay=1", "guwange"); }, "Unsupported Guwange delay accepted");
-    Require(ParseSettings("", "espgaluda2").g2_frame_delay == 1, "G2 missing Frame Delay selects low latency");
-    Require(ParseSettings(DefaultConfig(), "espgaluda2").g2_frame_delay == 1, "G2 default template");
+    Require(ParseSettings("", "espgaluda2").g2_frame_delay == 0, "G2 missing Frame Delay selects low latency");
+    Require(ParseSettings(DefaultConfig(), "espgaluda2").g2_frame_delay == 0, "G2 default template");
     for (unsigned mode : {0u, 1u, 2u})
         Require(ParseSettings("[game.espgaluda2]\nframe_delay="+std::to_string(mode), "espgaluda2").g2_frame_delay == mode,
                 "G2 frame delay integer selection");
     for (const auto* value : {"3", "-1", "1V", "low", "1.0", "1junk", ""})
         Reject([&] {ParseSettings(std::string("[game.espgaluda2]\nframe_delay=")+value,"espgaluda2");},
                "Invalid G2 frame delay accepted");
-    Require(ParseSettings("[game.espgaluda2]\nframe_delay=bad", "futari").g2_frame_delay == 1,
+    Require(ParseSettings("[game.espgaluda2]\nframe_delay=bad", "futari").g2_frame_delay == 0,
             "Another game interpreted G2 frame delay");
-    Require(ResolveSharedSettings(Ini::Parse("[game.espgaluda2]\nframe_delay=bad")).g2_frame_delay == 1,
+    Require(ResolveSharedSettings(Ini::Parse("[game.espgaluda2]\nframe_delay=bad")).g2_frame_delay == 0,
             "Shared preferences interpreted G2 frame delay");
     auto parse=[](std::string_view text) { return ParseSettings(text,"espgaluda2"); };
     const auto defaults=parse("");
@@ -281,8 +283,8 @@ void SettingsChecks(Fixture& fixture) {
             !ValidUtf8("\xF4\x90\x80\x80") && !ValidUtf8("\xE2\x82") && ValidUtf8("\xF0\x9F\x8E\xAE"),"UTF-8 bounds");
     const auto path=EnsureConfig(fixture.root);
     Require(path==fixture.root/"user-data/config.ini" && LoadSettings(path,"espgaluda2").nickname=="Player","First-launch configuration");
-    Require(LoadSettings(path,"sdoj").sdoj_frame_delay==1,"New configuration did not select 1V");
-    Require(LoadSettings(path,"espgaluda2").g2_frame_delay==1,"New G2 configuration did not select 1V");
+    Require(LoadSettings(path,"sdoj").sdoj_frame_delay==0,"New configuration did not select 0V");
+    Require(LoadSettings(path,"espgaluda2").g2_frame_delay==0,"New G2 configuration did not select 0V");
     Write(path,"; preserve comments and future fields\n[future]\nextra=unchanged\n[community]\nnickname=友人\n");
     const auto hash=Sha256(path);
     EnsureConfig(fixture.root);
@@ -299,8 +301,8 @@ void MigrationChecks() {
     Require(EnsureConfig(fixture.root)==current && !fs::exists(legacy),"Legacy config was not moved");
     Require(Ini::ReadText(current)==before,"Migration changed original config bytes");
     const auto ini=Ini::Load(current);
-    Require(ResolveSettings(ini,"sdoj").sdoj_frame_delay==1,"Legacy config without Frame Delay did not select 1V");
-    Require(ResolveSettings(ini,"espgaluda2").g2_frame_delay==1,"Legacy G2 config without Frame Delay did not select 1V");
+    Require(ResolveSettings(ini,"sdoj").sdoj_frame_delay==0,"Legacy config without Frame Delay did not select 0V");
+    Require(ResolveSettings(ini,"espgaluda2").g2_frame_delay==0,"Legacy G2 config without Frame Delay did not select 0V");
     Require(ResolveSettings(ini,"futari").nickname=="友人" && ResolveSettings(ini,"futari").fullscreen &&
             ResolveSettings(ini,"futari").keyboard[4].keys[0]==96 &&
             Paths(fixture.root,"futari",ini.DataDirectory(FindGame("futari"))).data==fixture.root/"game-data/futari",

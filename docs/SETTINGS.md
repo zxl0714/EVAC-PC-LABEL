@@ -60,13 +60,13 @@ neo = false
 ```ini
 [game.sdoj]
 data_dir = game-data/sdoj
-frame_delay = 1
+frame_delay = 0
 ```
 
 | 值 | 档位 |
 | --- | --- |
-| 0 | 提交画面后等待下一次 VBlank |
-| 1 | 低延迟，默认值 |
+| 0 | 提交画面后等待下一次 VBlank（默认） |
+| 1 | 低延迟 |
 | 2 | 平衡 |
 | 3 | 原始路径 |
 
@@ -78,10 +78,10 @@ frame_delay = 1
 
 ```ini
 [game.espgaluda2]
-frame_delay = 1
+frame_delay = 0
 ```
 
-`1` 为默认低延迟路径，`0` 将等待移到提交画面之后，`2` 为原始路径。已有显式设置保持不变；修改后重启游戏生效。
+默认 `0` 将等待移到提交画面之后，`1` 为低延迟路径，`2` 为原作时序。已有显式设置保持不变；修改后重启游戏生效。
 
 ## AMD Radeon Anti-Lag 2
 
@@ -91,7 +91,7 @@ Xbox 360、PS4 和 PS2 游戏共用一个开关。在 `user-data/config.ini` 的
 
 ## 虫姬二、狱门山与 NVIDIA Reflex
 
-虫姬二可在游戏内的 Frame Delay 设置中选择 **0V (Tearing)**。狱门山在 `[game.guwange]` 下设置 `frame_delay = 0`，普通、Blue 和 Arrange 单人模式可减少两帧输入延迟；设回 `original` 使用原作时序。
+虫姬二可在游戏内的 Frame Delay 设置中选择 **0V (Tearing)**。狱门山默认使用 `0V`，在 `[game.guwange]` 下配置 `frame_delay`，普通、Blue 和 Arrange 单人模式可减少两帧输入延迟；设回 `original` 使用原作时序。
 
 Xbox 360、PS4 和 PS2 游戏默认在支持的 NVIDIA 显卡上自动启用 Reflex。要关闭，在 `[display]` 下设置 `reflex = off`，重启游戏后生效。设回 `auto` 恢复自动探测。
 

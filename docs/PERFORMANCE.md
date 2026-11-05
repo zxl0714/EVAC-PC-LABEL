@@ -8,7 +8,7 @@
 
 ## Xbox 360 / Xenia
 
-移植版使用可选 0V，RTX 4080 上 Reflex 已启用。Xenia 分别使用虫姬二 1V、G2 2V、最大往生 3V 和狱门山的原作时序。虫姬二在 Xenia 上也能选原生 0V。[0V 与 Reflex 设置](SETTINGS.md#虫姬二狱门山与-nvidia-reflex)。
+移植版均按 0V 测试（虫姬二在游戏内选取），RTX 4080 上 Reflex 已启用。Xenia 分别使用虫姬二 1V、G2 2V、最大往生 3V 和狱门山的原作时序。虫姬二在 Xenia 上也能选原生 0V。[0V 与 Reflex 设置](SETTINGS.md#虫姬二狱门山与-nvidia-reflex)。
 
 估算包含 60 Hz 平均取样等待（8.33 ms）、取样到首张实际位移画面，以及同机历史 Present 到 Windows 显示事件的平均值（移植版独立翻转 0.92 ms，Xenia 桌面合成 11.18 ms）。呈现模式和排队情况会影响最后一项。狱门山移植版 0V 在读取输入的同一轮更新中就能看到位移。
 

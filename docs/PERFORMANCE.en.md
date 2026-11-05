@@ -8,7 +8,7 @@ Latency includes waiting for the game to sample input, the game's response, and 
 
 ## Xbox 360 / Xenia
 
-The port figures use optional 0V with Reflex enabled on the RTX 4080. Xenia uses the original timing: 1V in Futari, 2V in G2, 3V in SDOJ and the original frame loop in Guwange. Futari also offers 0V in its own settings on Xenia. [Configure 0V and Reflex](SETTINGS.en.md#futari-guwange-and-nvidia-reflex).
+The port figures use 0V (selected in-game for Futari) with Reflex enabled on the RTX 4080. Xenia uses the original timing: 1V in Futari, 2V in G2, 3V in SDOJ and the original frame loop in Guwange. Futari also offers 0V in its own settings on Xenia. [Configure 0V and Reflex](SETTINGS.en.md#futari-guwange-and-nvidia-reflex).
 
 The estimate adds the average wait for a 60 Hz input read (8.33 ms), the time until the first image showing movement, and the historical mean from Present to the Windows display event on this PC (0.92 ms in independent flip for the ports, 11.18 ms in desktop composition for Xenia). Display mode and queue depth affect the last term. At 0V, the Guwange port shows movement in the same update that reads the input.
 

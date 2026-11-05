@@ -30,9 +30,9 @@ struct Settings {
     bool xbox360_reflex{true}, amd_anti_lag{};
     unsigned window_width{1280}, window_height{720};
     double deadzone{0.20}, volume{1.0};
-    unsigned sdoj_frame_delay{1};
-    unsigned g2_frame_delay{1};
-    bool guwange_post_swap_wait{};
+    unsigned sdoj_frame_delay{0};
+    unsigned g2_frame_delay{0};
+    bool guwange_post_swap_wait{true};
     bool neo{true};
     std::string log_level{"info"}, endpoint{"https://xiaolu.life/cave/api/v1"}, nickname{"Player"};
     std::array<Binding,16> keyboard;

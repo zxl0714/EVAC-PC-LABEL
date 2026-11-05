@@ -1,5 +1,6 @@
 get_filename_component(CAVE_COMMON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CAVE_COMMON_ROOT}/config/default.ini")
 file(READ "${CAVE_COMMON_ROOT}/config/default.ini" CAVE_DEFAULT_INI)
 configure_file(default_config.h.in "${CMAKE_BINARY_DIR}/include/default_config.h" @ONLY)
 set(CATALOGUE "${CAVE_COMMON_ROOT}/games/catalogue.json")

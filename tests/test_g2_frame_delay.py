@@ -45,11 +45,11 @@ class G2FrameDelayTests(unittest.TestCase):
         self.assertIn('ctx.fpscr.setcsr(csr)', source)
 
     def test_low_latency_default_and_template_agree(self):
-        self.assertIn('unsigned g2_frame_delay{1};', (ROOT / 'common/settings.h').read_text())
+        self.assertIn('unsigned g2_frame_delay{0};', (ROOT / 'common/settings.h').read_text())
         import configparser
         config = configparser.ConfigParser()
         config.read(ROOT / 'config/default.ini', encoding='utf-8')
-        self.assertEqual(config['game.espgaluda2']['frame_delay'], '1')
+        self.assertEqual(config['game.espgaluda2']['frame_delay'], '0')
 
 
 if __name__ == '__main__':

@@ -60,13 +60,13 @@ Set the following under `[game.sdoj]` in `user-data/config.ini`:
 ```ini
 [game.sdoj]
 data_dir = game-data/sdoj
-frame_delay = 1
+frame_delay = 0
 ```
 
 | Value | Timing policy |
 | --- | --- |
-| 0 | Present before waiting for the next VBlank |
-| 1 | Low latency; default |
+| 0 | Present before waiting for the next VBlank (default) |
+| 1 | Low latency |
 | 2 | Balanced |
 | 3 | Original path |
 
@@ -78,10 +78,10 @@ Set the following in `user-data/config.ini`:
 
 ```ini
 [game.espgaluda2]
-frame_delay = 1
+frame_delay = 0
 ```
 
-`0` presents before waiting for the next VBlank. `1` is the default low-latency setting and `2` uses the original timing. Existing explicit settings are preserved. Restart the game after changing it.
+The default, `0`, presents before waiting for the next VBlank. Choose `1` for the low-latency path or `2` for original timing. Existing explicit settings are preserved. Restart the game after changing it.
 
 ## AMD Radeon Anti-Lag 2
 
@@ -91,7 +91,7 @@ The runtime checks the active GPU and driver. Look for `AMD_ANTI_LAG` in the run
 
 ## Futari, Guwange and NVIDIA Reflex
 
-In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. For Guwange, set `frame_delay = 0` under `[game.guwange]` to remove two buffered response frames in Arcade, Blue and Arrange single-player modes. Use `original` to restore the original timing.
+In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. Guwange defaults to `frame_delay = 0` under `[game.guwange]`, removing two buffered response frames in Arcade, Blue and Arrange single-player modes. Use `original` to restore the original timing.
 
 Xbox 360, PS4 and PS2 titles automatically enable Reflex on supported NVIDIA hardware. To turn it off, set `reflex = off` under `[display]` and restart the game. Set it back to `auto` to enable detection.
 
