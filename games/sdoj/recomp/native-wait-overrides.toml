@@ -1,8 +1,21 @@
 # Disc-base default module only. Original code and callback stores remain.
 [[midasm_hook]]
 address = 0x8219D9B4
-name = "SdojWaitCallback"
+name = "SdojBeginFrameWait"
 registers = ["context", "memory"]
+jump_address_on_true = 0x8219DA9C
+# Issue the original swap once, then return to the original VBlank and GPU
+# throttle. After the throttle, continue straight to buffer rotation.
+[[midasm_hook]]
+address = 0x8219DA9C
+name = "SdojSwapAlreadyIssued"
+registers = ["context", "memory"]
+jump_address_on_true = 0x8219DAB8
+[[midasm_hook]]
+address = 0x8219DAB8
+name = "SdojResumeFrameWait"
+registers = ["context", "memory"]
+jump_address_on_true = 0x8219D9B4
 [[midasm_hook]]
 address = 0x8219DA84
 name = "SdojWaitCallback"

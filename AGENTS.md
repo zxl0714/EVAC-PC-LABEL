@@ -10,6 +10,23 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+v0.9.5 is the Xbox 360 input-latency update. See the v0.9.5 sections of
+docs/IMPLEMENTATION_PLAN.md and docs/ANALYSIS.md. The isolated input, image and
+CPU captures are under .local/v095. Use the matching scene, frame-delay setting
+and actual Reflex status when comparing runs. USB polling-rate changes are deferred.
+
+Nov05 software checkpoint: all four titles' 0V/Reflex/input implementation and
+saved-replay checks are complete. See .local/v095/saved-roundtrip.json and
+saved-replay-validation.json. SDOJ's Xbox 360 core now initializes its new tilemaps
+like its Arcade core. Final delta tests passed 99 Python and 9 CTest cases.
+The controlled input and normal SDL-loop checks passed. On Nov05 the user
+chose software delivery now and physical controller A/B later. The deferred
+device comparison is tracked separately in IMPLEMENTATION_PLAN.md.
+Deliver the local v0.9.5 program ZIP using the completed tests and incremental
+builds. Reuse the completed gameplay/CPU/latency measurements.
+
+### Previous v0.9.4 checkpoint
+
 v0.9.4 implements the four Xbox 360 titles' shared backend selection, SDL3 audio
 for PS2 and playable Ibara. Scope and measured outcomes are in the v0.9.4 section
 of docs/IMPLEMENTATION_PLAN.md. Local acceptance evidence is under .local/v094.

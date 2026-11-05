@@ -16,6 +16,7 @@ class GuwangeWaitContracts(unittest.TestCase):
         self.assertEqual(set(hooks), {'midasm_hook'})
         self.assertEqual({h['address']: h['name'] for h in hooks['midasm_hook']}, {
             0x8221C030: 'GuwangePollCaller', 0x821F74AC: 'GuwangeWaitCallback',
+            0x821F74DC: 'GuwangeFinishSwap',
             0x821F6A30: 'GuwangeCallbackChanged', 0x821E96B4: 'GuwangeWaitPending',
             0x821F7504: 'GuwangePendingChanged',
             0x821F6E78: 'GuwangeWaitRenderQueue',
@@ -61,7 +62,7 @@ class GuwangeWaitContracts(unittest.TestCase):
         self.assertIn('std::array<std::uint32_t, 16>', code)
         self.assertIn('if (count == seen.size()) return;', code)
         host = (ROOT / 'games/guwange/host.cpp').read_text()
-        self.assertIn('performance::StartNativeWait()', host)
+        self.assertIn('performance::StartNativeWait(run().settings.guwange_post_swap_wait)', host)
         body = host.split('void OnGameStop()', 1)[1]
         self.assertLess(body.index('performance::StopNativeWait()'), body.index('if ('))
 

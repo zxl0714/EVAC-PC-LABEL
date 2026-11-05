@@ -27,10 +27,12 @@ inline constexpr std::array<DisplaySelection,5> kWindowSelections{{
     {false,2560,1440},{false,3840,2160}}};
 struct Settings {
     bool fullscreen{}, vsync{}, gamepad_enabled{true}, community_enabled{true};
+    bool xbox360_reflex{true};
     unsigned window_width{1280}, window_height{720};
     double deadzone{0.20}, volume{1.0};
     unsigned sdoj_frame_delay{1};
     unsigned g2_frame_delay{1};
+    bool guwange_post_swap_wait{};
     bool neo{true};
     std::string log_level{"info"}, endpoint{"https://xiaolu.life/cave/api/v1"}, nickname{"Player"};
     std::array<Binding,16> keyboard;

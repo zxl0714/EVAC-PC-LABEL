@@ -6,6 +6,7 @@
 #include "native_wait.h"
 #include "render_queue.h"
 #include "backends/xbox360/performance/word_wait.h"
+#include "backends/xbox360/performance/post_swap_wait.h"
 #include "backends/xbox360/performance/signal_wait.h"
 
 REXCVAR_DEFINE_BOOL(guwange_host_frame_wait, true, "Guwange",
@@ -20,9 +21,13 @@ REXCVAR_DEFINE_BOOL(guwange_poll_callers, false, "Diagnostics",
     "Log bounded distinct native Sleep(0) call sites per thread")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
+REX_EXTERN(sub_8221C030);
 namespace {
 constexpr std::uint32_t kCallbackFlag=0x82C0D578, kPendingCount=0x82C0D938;
 std::atomic<bool> enabled{};
+bool post_swap_wait{};
+thread_local bool callback_deferred{};
+thread_local std::uint64_t post_swap_frames{};
 cave::xbox360::performance::SignalWait queue_wait;
 std::atomic<bool> queue_enabled{};
 std::atomic<std::uint64_t> queue_waits{},queue_timeouts{},queue_notifications{};
@@ -59,14 +64,15 @@ std::uint32_t Load(std::uint8_t* base,std::uint32_t address) {
 }
 }
 namespace guwange::performance {
-void StartNativeWait() {
+void StartNativeWait(bool wait_after_swap) {
+    post_swap_wait = wait_after_swap;
     callback.Start();pending.Start();
     queue_waits=0;queue_timeouts=0;queue_notifications=0;
     queue_enabled=REXCVAR_GET(guwange_host_queue_wait);
     queue_wait.Start(queue_enabled.load());
     REXLOG_INFO("GUWANGE_QUEUE_WAIT enabled={} native_queues=unchanged",queue_enabled.load());
     enabled.store(REXCVAR_GET(guwange_host_frame_wait),std::memory_order_release);
-    REXLOG_INFO("GUWANGE_FRAME_WAIT enabled={} native_predicates=unchanged native_policy=unchanged",enabled.load());
+    REXLOG_INFO("GUWANGE_FRAME_WAIT enabled={} callback_after_swap={}",enabled.load(), post_swap_wait && enabled.load());
 }
 void StopNativeWait() {
     enabled.store(false,std::memory_order_release);
@@ -77,7 +83,23 @@ void StopNativeWait() {
 }
 }
 // Before original Sleep(0), after flag set; all native code remains.
-void GuwangeWaitCallback(PPCContext&,std::uint8_t* base) { callback.Park(base,kCallbackFlag,"callback"); }
+bool GuwangeWaitCallback(PPCContext&,std::uint8_t* base) {
+    if (enabled.load(std::memory_order_acquire) && post_swap_wait) {
+        callback_deferred = true;
+        return true;
+    }
+    callback.Park(base,kCallbackFlag,"callback");
+    return false;
+}
+void GuwangeFinishSwap(PPCContext& ctx, std::uint8_t* base) {
+    if (!callback_deferred) return;
+    callback_deferred = false;
+    cave::xbox360::performance::FinishPostSwapWait(ctx, base, kCallbackFlag,
+        [&] { callback.Park(base,kCallbackFlag,"callback"); }, sub_8221C030,
+        [] { return enabled.load(std::memory_order_acquire); });
+    if (++post_swap_frames % 600 == 1)
+        REXLOG_INFO("GUWANGE_FRAME_DELAY callback_after_swap_frames={}", post_swap_frames);
+}
 // Immediately after the original completion store.
 void GuwangeCallbackChanged(PPCContext&,std::uint8_t* base) { callback.Changed(base,kCallbackFlag); }
 void GuwangeWaitPending(PPCContext& ctx,std::uint8_t* base) {

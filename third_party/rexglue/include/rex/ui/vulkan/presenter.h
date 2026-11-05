@@ -353,7 +353,7 @@ class VulkanPresenter final : public Presenter {
         const VulkanDevice* vulkan_device, VkSurfaceKHR surface, uint32_t width, uint32_t height,
         VkSwapchainKHR old_swapchain, uint32_t& present_queue_family_out,
         VkFormat& image_format_out, VkExtent2D& image_extent_out, bool& is_fifo_out,
-        bool& ui_surface_unusable_out);
+        bool& reflex_out, bool& ui_surface_unusable_out);
 
     // Destroys the swapchain and its derivatives, nulls `swapchain` and returns
     // the original swapchain object, if it existed, for use as oldSwapchain if
@@ -414,6 +414,7 @@ class VulkanPresenter final : public Presenter {
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     VkExtent2D swapchain_extent = {};
     bool swapchain_is_fifo = false;
+    bool swapchain_reflex = false;
     std::vector<VkImage> swapchain_images;
     std::vector<SwapchainFramebuffer> swapchain_framebuffers;
   };
@@ -480,6 +481,16 @@ class VulkanPresenter final : public Presenter {
   // DisconnectPaintingFromSurfaceFromUIThreadImpl) by the thread doing it, as
   // well as by presenter initialization and shutdown.
   PaintContext paint_context_;
+  void PaceGuestInput() override;
+  void ConnectReflex();
+  void DisconnectReflex();
+  std::mutex reflex_mutex_;
+  VkSwapchainKHR reflex_swapchain_{};
+  VkSemaphore reflex_semaphore_{};
+  uint64_t reflex_signal_{}, reflex_pending_{};
+  PFN_vkSetLatencySleepModeNV set_sleep_mode_{};
+  PFN_vkLatencySleepNV latency_sleep_{};
+  PFN_vkWaitSemaphores wait_semaphores_{};
 
 #if defined(REX_HAS_FIDELITYFX_RUNTIME) && REX_HAS_FIDELITYFX_RUNTIME
   void* temporal_upscaler_context_ = nullptr;

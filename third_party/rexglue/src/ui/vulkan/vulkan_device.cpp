@@ -21,6 +21,7 @@
 #include <rex/platform.h>
 #include <rex/string.h>
 #include <rex/ui/vulkan/device.h>
+#include <rex/ui/flags.h>
 
 REXCVAR_DEFINE_BOOL(vulkan_require_fragment_stores_and_atomics, true, "UI/Vulkan",
                     "Deprecated and ignored for parity; fragmentStoresAndAtomics is always "
@@ -247,6 +248,7 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
 #undef XE_UI_VULKAN_LOCAL_PROMOTED_EXTENSION
 
   std::vector<const char*> enabled_extensions;
+  bool present_id_available = false, low_latency_available = false;
   {
     uint32_t supported_extension_count = 0;
     const VkResult get_supported_extension_count_result = ifn.vkEnumerateDeviceExtensionProperties(
@@ -266,6 +268,9 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
       }
       assert_true(supported_extension_count == supported_extensions.size());
       for (const VkExtensionProperties& supported_extension : supported_extensions) {
+        const std::string_view name(supported_extension.extensionName);
+        present_id_available |= name == VK_KHR_PRESENT_ID_EXTENSION_NAME;
+        low_latency_available |= name == VK_NV_LOW_LATENCY_2_EXTENSION_NAME;
         const auto requested_extension_it =
             requested_extensions.find(supported_extension.extensionName);
         if (requested_extension_it == requested_extensions.cend()) {
@@ -738,8 +743,34 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
 
   // Create the device.
 
-  const VkResult device_create_result =
+  const auto base_extension_count = enabled_extensions.size();
+  VkPhysicalDevicePresentIdFeaturesKHR present_id{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR};
+  if (with_swapchain && properties.vendorID == 0x10DE && REXCVAR_GET(xbox360_reflex) &&
+      properties.apiVersion >= VK_API_VERSION_1_2 && get_physical_device_properties2_supported &&
+      features_1_2.supported.timelineSemaphore && present_id_available && low_latency_available) {
+    VkPhysicalDeviceFeatures2 supported{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &present_id};
+    ifn.vkGetPhysicalDeviceFeatures2(physical_device, &supported);
+    if (present_id.presentId) {
+      features_1_2.enabled.timelineSemaphore = VK_TRUE;
+      present_id.pNext = const_cast<void*>(device_create_info.pNext);
+      device_create_info.pNext = &present_id;
+      enabled_extensions.push_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+      enabled_extensions.push_back(VK_NV_LOW_LATENCY_2_EXTENSION_NAME);
+      device_create_info.enabledExtensionCount = uint32_t(enabled_extensions.size());
+      device_create_info.ppEnabledExtensionNames = enabled_extensions.data();
+      device->extensions_.ext_NV_low_latency2 = true;
+    }
+  }
+  VkResult device_create_result =
       ifn.vkCreateDevice(physical_device, &device_create_info, nullptr, &device->device_);
+  if (device_create_result != VK_SUCCESS && device->extensions_.ext_NV_low_latency2) {
+    REXLOG_INFO("REFLEX backend=vulkan active=false reason=device_creation result={}", int(device_create_result));
+    device->extensions_.ext_NV_low_latency2 = false;
+    device_create_info.pNext = present_id.pNext;
+    features_1_2.enabled.timelineSemaphore = VK_FALSE;
+    device_create_info.enabledExtensionCount = uint32_t(base_extension_count);
+    device_create_result = ifn.vkCreateDevice(physical_device, &device_create_info, nullptr, &device->device_);
+  }
   if (device_create_result != VK_SUCCESS) {
     REXLOG_ERROR(
         "Failed to create a Vulkan logical device from the physical device "

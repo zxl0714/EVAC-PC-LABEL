@@ -18,6 +18,7 @@
 #include <rex/runtime.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xtypes.h>
+#include <rex/ui/presenter.h>
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
@@ -111,8 +112,11 @@ u32 XamInputGetState_entry(u32 user_index, u32 flags, ppc_ptr_t<X_INPUT_STATE> i
     actual_user_index = 0;
   }
 
-  auto* is = input_system();
-  return is->GetState(actual_user_index, input_state);
+  if (actual_user_index == 0 && input_state) {
+    if (auto* graphics = REX_KERNEL_STATE()->emulator()->graphics_system())
+      if (auto* presenter = graphics->presenter()) presenter->BeforeGuestInput();
+  }
+  return input_system()->GetState(actual_user_index, input_state);
 }
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/microsoft.directx_sdk.reference.xinputsetstate(v=vs.85).aspx

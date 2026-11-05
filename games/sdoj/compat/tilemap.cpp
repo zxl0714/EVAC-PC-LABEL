@@ -3,7 +3,7 @@
 #include <rex/memory.h>
 #include <stdexcept>
 
-// Disc CA022100 only, immediately after 88051C30 allocates 32768 bytes and
+// Both disc gameplay modules call this just after allocating a 32 KiB map and
 // before the new pointer is stored. No existing map, native index or register
 // is changed. This compatibility fix is independent of Frame Delay policy.
 void SdojInitializeTilemap(PPCContext& ctx,std::uint8_t* base) {

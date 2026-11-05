@@ -40,7 +40,7 @@ private:
         test_community_->Stop();test_community_.reset();
     }
     void OnGamePreSetup(rex::RuntimeConfig&) override {
-        guwange::performance::StartNativeWait();
+        guwange::performance::StartNativeWait(run().settings.guwange_post_swap_wait);
         // The base game's UI emits type-0 texture fetch constants. Reuse the
         // existing Xenos compatibility path, scoped to this executable.
         if (!rex::cvar::SetFlagByName("gpu_allow_invalid_fetch_constants", "true"))

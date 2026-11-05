@@ -15,12 +15,12 @@ REXCVAR_DEFINE_BOOL(sdoj_frame_delay_trace, false, "Diagnostics", "Trace bounded
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 namespace sdoj::latency {
 void Configure(unsigned mode) {
-    if (mode < 1 || mode > 3) throw std::runtime_error("SDOJ Frame Delay must be 3, 2 or 1");
+    if (mode > 3) throw std::runtime_error("SDOJ Frame Delay must be 0, 1, 2 or 3");
     timeouts.store(0, std::memory_order_relaxed);
     requested.store(mode, std::memory_order_relaxed);
     running.store(true, std::memory_order_release);
     REXLOG_INFO("SDOJ_FRAME_DELAY requested={} effective_policy={} policy={} restart_to_change=true",
-        mode, mode, mode == 3 ? "original" : mode == 2 ? "balanced" : "low");
+        mode, mode, mode == 3 ? "original" : mode == 2 ? "balanced" : mode == 1 ? "low" : "low_post_swap");
 }
 void Stop() {
     running.store(false, std::memory_order_release);
@@ -35,9 +35,13 @@ void Stop() {
 extern "C" __declspec(dllexport) unsigned SdojFrameDelayPolicy() {
     if (!running.load(std::memory_order_acquire)) return 3;
     const auto mode = requested.load(std::memory_order_relaxed);
-    return mode == 1 && timeouts.load(std::memory_order_acquire) >= 3 ? 2 : mode;
+    if (mode <= 1) return timeouts.load(std::memory_order_acquire) >= 3 ? 2 : 1;
+    return mode;
 }
 extern "C" __declspec(dllexport) unsigned SdojFrameDelayRequested() { return requested.load(); }
+bool sdoj::latency::WaitAfterSwap() {
+    return requested.load(std::memory_order_relaxed) == 0 && SdojFrameDelayPolicy() == 1;
+}
 extern "C" __declspec(dllexport) bool SdojFrameDelayTrace() { return REXCVAR_GET(sdoj_frame_delay_trace); }
 extern "C" __declspec(dllexport) void SdojFrameDelayTimeout() {
     const auto total = timeouts.fetch_add(1, std::memory_order_acq_rel) + 1;
@@ -47,7 +51,7 @@ extern "C" __declspec(dllexport) void SdojFrameDelayTimeout() {
 void SdojDelayAdvance(PPCContext& ctx, std::uint8_t* base) {
     // Keep forwarding after a process-wide downgrade until an already-started
     // module request has drained. Otherwise its writer would remain suppressed.
-    if (!running.load(std::memory_order_acquire) || requested.load(std::memory_order_relaxed)!=1) return;
+    if (!running.load(std::memory_order_acquire) || requested.load(std::memory_order_relaxed)>1) return;
     std::uint32_t selection;
     std::memcpy(&selection, base + ctx.r31.u32 + 152, sizeof(selection));
     const auto module = GetModuleHandleW(__builtin_bswap32(selection) == 2 ? L"sdoj_CA022110.dll" : L"sdoj_CA022100.dll");

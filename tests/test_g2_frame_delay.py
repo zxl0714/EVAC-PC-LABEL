@@ -14,6 +14,7 @@ class G2FrameDelayTests(unittest.TestCase):
             dict(address=0x8217064C, name='G2CompletedVblank', registers=['context', 'memory']),
             dict(address=0x821713A4, name='G2PresentCpuWait', registers=['context', 'memory'],
                  jump_address_on_true=0x821713A8),
+            dict(address=0x82171424, name='G2PaceAfterSwap', registers=['context', 'memory']),
         ])
         # No whole-function replacement and no extra overlays modified.
         manifest = tomllib.loads((folder / 'espgaluda2.toml').read_text())
@@ -33,12 +34,14 @@ class G2FrameDelayTests(unittest.TestCase):
 
     def test_low_latency_preserves_native_completion_and_original_fallback(self):
         source = (ROOT / 'games/espgaluda2/latency/host.cpp').read_text()
-        self.assertIn('enabled.store(mode==1', source)
+        self.assertIn('enabled.store(mode<2', source)
         self.assertIn('Result::advanced', source)
         self.assertIn('RestorePolicy(base,device);', source)
         self.assertIn('actual=2 action=retain_original_until_restart', source)
         self.assertIn('sub_82174B30(ctx,base)', source)
-        self.assertLess(source.index('Drain(ctx,base,device)'), source.index('gate.Wait(device'))
+        self.assertLess(source.index('Drain(ctx,base,device)'), source.index('!wait_after_swap && !WaitForVblank'))
+        self.assertIn('wait_after_swap=mode==0', source)
+        self.assertIn('WaitForVblank(base,ctx.r31.u32)', source.split('void G2PaceAfterSwap', 1)[1])
         self.assertIn('ctx.fpscr.setcsr(csr)', source)
 
     def test_low_latency_default_and_template_agree(self):

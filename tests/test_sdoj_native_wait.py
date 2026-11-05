@@ -13,8 +13,12 @@ class NativeWaitContracts(unittest.TestCase):
         hooks=tomllib.loads((ROOT/'games/sdoj/recomp/native-wait-overrides.toml').read_text())
         self.assertEqual(set(hooks),{'midasm_hook'})
         self.assertEqual({h['address'] for h in hooks['midasm_hook']},
-            {0x8219D9B4,0x8219DA84,0x8219CD08,0x8215298C,0x8219DB18,0x82215758})
+            {0x8219D9B4,0x8219DAB8,0x8219DA9C,0x8219DA84,0x8219CD08,0x8215298C,0x8219DB18,0x82215758})
         self.assertTrue(all(h['registers']==['context','memory'] for h in hooks['midasm_hook']))
+        jumps = {h['address']: h['jump_address_on_true'] for h in hooks['midasm_hook']
+                 if 'jump_address_on_true' in h}
+        self.assertEqual(jumps, {0x8219D9B4: 0x8219DA9C, 0x8219DA9C: 0x8219DAB8,
+                                 0x8219DAB8: 0x8219D9B4})
 
     def test_original_flag_count_and_type_guard(self):
         code=(ROOT/'games/sdoj/performance/native_wait.cpp').read_text()
@@ -31,6 +35,13 @@ class NativeWaitContracts(unittest.TestCase):
         host=(ROOT/'games/sdoj/host.cpp').read_text()
         self.assertIn('performance::StartNativeWait()',host)
         self.assertLess(host.index('performance::StopNativeWait()'),host.index('sdoj::latency::Stop()'))
+
+    def test_early_swap_reenters_the_original_wait_exactly_once(self):
+        code = (ROOT/'games/sdoj/performance/native_wait.cpp').read_text()
+        self.assertIn('swap_phase == SwapPhase::original', code)
+        self.assertIn('swap_phase != SwapPhase::issuing_early', code)
+        self.assertIn('swap_phase != SwapPhase::waiting_after_swap', code)
+        self.assertEqual(code.count('swap_phase = SwapPhase::original;'), 1)
 
     def test_diagnostic_disabled_and_bounded(self):
         code=(ROOT/'games/sdoj/performance/native_wait.cpp').read_text()

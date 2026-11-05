@@ -132,6 +132,11 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             }
         } else if (category=="display" && key=="fullscreen") result.fullscreen=boolean();
         else if (category=="display" && key=="vsync") result.vsync=boolean();
+        else if (category=="display" && key=="reflex") {
+            const auto mode = Lower(value);
+            if (mode != "auto" && mode != "off") Error(line,section,key,"expected auto or off");
+            result.xbox360_reflex = mode == "auto";
+        }
         else if (category=="display" && (key=="window_width" || key=="window_height")) {
             unsigned dimension{};
             const auto parsed=std::from_chars(value.data(),value.data()+value.size(),dimension);
@@ -174,15 +179,20 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
         const auto& value = entry->text;
         const auto parsed = std::from_chars(value.data(), value.data()+value.size(), result.sdoj_frame_delay);
         if (parsed.ec != std::errc{} || parsed.ptr != value.data()+value.size() ||
-            result.sdoj_frame_delay < 1 || result.sdoj_frame_delay > 3)
-            Error(entry->line, "game.sdoj", "frame_delay", "expected 3 (original), 2 (balanced) or 1 (low latency)");
+            result.sdoj_frame_delay > 3)
+            Error(entry->line, "game.sdoj", "frame_delay", "expected 0, 1, 2 or 3");
     }
     if (game_id == "espgaluda2") if (const auto* entry = ini.Get("game.espgaluda2", "frame_delay")) {
         const auto& value = entry->text;
         const auto parsed = std::from_chars(value.data(), value.data()+value.size(), result.g2_frame_delay);
         if (parsed.ec != std::errc{} || parsed.ptr != value.data()+value.size() ||
-            result.g2_frame_delay < 1 || result.g2_frame_delay > 2)
-            Error(entry->line, "game.espgaluda2", "frame_delay", "expected 2 (original) or 1 (experimental low latency)");
+            result.g2_frame_delay > 2)
+            Error(entry->line, "game.espgaluda2", "frame_delay", "expected 0, 1 or 2");
+    }
+    if (game_id == "guwange") if (const auto* entry = ini.Get("game.guwange", "frame_delay")) {
+        if (entry->text != "original" && entry->text != "0")
+            Error(entry->line, "game.guwange", "frame_delay", "expected original or 0");
+        result.guwange_post_swap_wait = entry->text == "0";
     }
     if (game_id=="ketsui" || game_id=="daioujou" || game_id=="esprade" || game_id=="feveron" || game_id=="garegga") {
         const auto section="game."+std::string(game_id);

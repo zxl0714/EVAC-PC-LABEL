@@ -18,6 +18,7 @@
 #include <rex/math.h>
 #include <rex/graphics/frame_timing.h>
 #include <rex/ui/d3d12/d3d12_provider.h>
+#include <rex/ui/d3d12/d3d12_reflex.h>
 #include <rex/ui/d3d12/d3d12_submission_tracker.h>
 #include <rex/ui/presenter.h>
 #include <rex/ui/surface.h>
@@ -275,6 +276,10 @@ class D3D12Presenter final : public Presenter {
 #endif
 
   const D3D12Provider& provider_;
+  D3D12Reflex reflex_;
+  void PaceGuestInput() override {
+    if (!reflex_.Pace(provider_.GetDevice())) EnableInputPacing(false);
+  }
 
   // Whether DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING is supported by DXGI (depends in
   // particular on the Windows 10 version and hardware support), primarily for

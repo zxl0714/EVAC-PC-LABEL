@@ -14,6 +14,7 @@ namespace {
 using espgaluda2::latency::VblankGate;
 VblankGate gate;
 std::atomic<bool> enabled{};
+bool wait_after_swap{};
 // These fields belong only to the native game's presentation thread.
 std::uint32_t selected_device{},saved_flags{},saved_interval{};
 std::uint64_t frames{};
@@ -47,15 +48,28 @@ void RestorePolicy(std::uint8_t* base,std::uint32_t device) {
     Write(base,device+13804,saved_interval);
     selected_device=0;
 }
+bool WaitForVblank(std::uint8_t* base,std::uint32_t device) {
+    const auto result=gate.Wait(device,std::chrono::milliseconds(150));
+    if(result==VblankGate::Result::advanced) return true;
+    enabled.store(false,std::memory_order_release);
+    RestorePolicy(base,device);
+    if(result==VblankGate::Result::stopped)
+        REXLOG_INFO("G2_FRAME_DELAY action=shutdown_wait_cancelled low_frames={}",frames);
+    else
+        REXLOG_WARN("G2_FRAME_DELAY wait_result={} actual=2 action=retain_original_until_restart",
+            static_cast<unsigned>(result));
+    return false;
+}
 }
 namespace espgaluda2::latency {
 void Configure(unsigned mode) {
-    if(mode!=1 && mode!=2) throw std::runtime_error("G2 Frame Delay must be 2 or 1");
+    if(mode>2) throw std::runtime_error("G2 Frame Delay must be 0, 1 or 2");
     selected_device=0; frames=0;
+    wait_after_swap=mode==0;
     gate.Start();
-    enabled.store(mode==1,std::memory_order_release);
+    enabled.store(mode<2,std::memory_order_release);
     REXLOG_INFO("G2_FRAME_DELAY requested={} policy={} experimental={} restart_to_change=true",
-        mode,mode==1?"cpu_vblank_immediate_swap":"original",mode==1);
+        mode,mode==0?"immediate_swap_then_cpu_vblank":mode==1?"cpu_vblank_immediate_swap":"original",mode<2);
 }
 void Stop() {enabled.store(false,std::memory_order_release);gate.Stop();}
 }
@@ -80,18 +94,8 @@ bool G2PresentCpuWait(PPCContext& ctx,std::uint8_t* base) {
         REXLOG_INFO("G2_FRAME_DELAY device={:08X} native_flags={:08X} native_interval={:08X}",
             device,saved_flags,saved_interval);
     }
-    const auto result=gate.Wait(device,std::chrono::milliseconds(150));
-    if(result!=VblankGate::Result::advanced) {
-        enabled.store(false,std::memory_order_release);
-        RestorePolicy(base,device);
-        if(result==VblankGate::Result::stopped)
-            REXLOG_INFO("G2_FRAME_DELAY action=shutdown_wait_cancelled low_frames={}",frames);
-        else
-            REXLOG_WARN("G2_FRAME_DELAY wait_result={} actual=2 action=retain_original_until_restart",
-                static_cast<unsigned>(result));
-        return false;
-    }
-    // Match Futari 1V's native flags. Keep all unrelated D3D behavior bits.
+    if(!wait_after_swap && !WaitForVblank(base,device)) return false;
+    // Both low-latency modes use immediate swaps; only the wait moves.
     Write(base,device+24192,(Read(base,device+24192)|4u)&~1u);
     Write(base,device+13804,0x80000000u);
     if(++frames%300==0) {
@@ -103,4 +107,9 @@ bool G2PresentCpuWait(PPCContext& ctx,std::uint8_t* base) {
     // Skip only the queued one-VBlank synchronization call. Native resolve,
     // state restoration, swap, buffer retirement and rendering remain intact.
     return true;
+}
+
+void G2PaceAfterSwap(PPCContext& ctx,std::uint8_t* base) {
+    if(enabled.load(std::memory_order_acquire) && wait_after_swap && selected_device==ctx.r31.u32)
+        WaitForVblank(base,ctx.r31.u32);
 }

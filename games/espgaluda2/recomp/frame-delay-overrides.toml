@@ -12,3 +12,10 @@ address = 0x821713A4
 name = "G2PresentCpuWait"
 registers = ["context", "memory"]
 jump_address_on_true = 0x821713A8
+
+# Return site of the verified swap call at 0x82171420. r31 is still the
+# device, and r3 carries the original return value through this hook.
+[[midasm_hook]]
+address = 0x82171424
+name = "G2PaceAfterSwap"
+registers = ["context", "memory"]

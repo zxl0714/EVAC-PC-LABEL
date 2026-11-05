@@ -8,6 +8,11 @@ registers = ["context", "memory"]
 address = 0x821F74AC
 name = "GuwangeWaitCallback"
 registers = ["context", "memory"]
+jump_address_on_true = 0x821F74C0
+[[midasm_hook]]
+address = 0x821F74DC
+name = "GuwangeFinishSwap"
+registers = ["context", "memory"]
 [[midasm_hook]]
 address = 0x821F6A30
 name = "GuwangeCallbackChanged"

@@ -53,6 +53,14 @@ class G2LatencyTests(unittest.TestCase):
         self.assertEqual(r['samples'][0]['mapped_buttons'],8)
         self.assertGreater(r['samples'][0]['times']['game_input_to_present_begin_us'],0)
 
+    def test_immediate_swap_requires_the_selected_policy_to_distinguish_0v_and_1v(self):
+        trace = fixture()
+        next(r for r in trace['records'] if r['kind'] == 10 and r['a'] == 7)['c'] |= 4
+        for policy in (0, 1, None):
+            with self.subTest(policy=policy):
+                self.assertEqual(analyze(trace, 101, 101, immediate_mode=policy)
+                                 ['samples'][0]['frame_delay'], policy)
+
     def test_changed_direction_must_reach_original_core(self):
         trace = fixture()
         next(r for r in trace['records'] if r['kind']==10 and r['a']==11)['c']=4

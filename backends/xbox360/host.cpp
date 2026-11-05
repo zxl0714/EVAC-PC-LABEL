@@ -150,6 +150,7 @@ void CollectionApp::OnPreSetup(rex::RuntimeConfig& config) {
     }
     if (!config.graphics) throw std::runtime_error("Cannot load the Xenos GPU plugin for "+backend);
     Flag("vsync",run_->settings.vsync?"true":"false");
+    Flag("xbox360_reflex",run_->settings.xbox360_reflex?"true":"false");
     const auto settings=run_->settings;
     config.input_factory=[settings](bool tools) {return CreateConfiguredInput(settings,tools);};
     OnGamePreSetup(config);

@@ -27,6 +27,8 @@
 #include <ffx_api/ffx_upscale.h>
 #endif
 
+REXCVAR_DEFINE_BOOL(xbox360_reflex, true, "UI/Presenter", "Use NVIDIA Reflex when supported by the rendering device")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(host_present_from_non_ui_thread, true, "UI/Presenter",
                     "Allow presentation from non-UI thread");
 REXCVAR_DEFINE_BOOL(output_latency_trace, false, "Diagnostics",

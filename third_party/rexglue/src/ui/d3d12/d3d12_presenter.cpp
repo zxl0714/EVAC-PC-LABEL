@@ -23,6 +23,7 @@
 #include <rex/ui/d3d12/d3d12_provider.h>
 #include <rex/ui/d3d12/d3d12_util.h>
 #include <rex/ui/surface_win.h>
+#include <rex/ui/flags.h>
 
 #if defined(REX_HAS_FIDELITYFX_RUNTIME) && REX_HAS_FIDELITYFX_RUNTIME
 #include <ffx_api/dx12/ffx_api_dx12.h>
@@ -52,6 +53,8 @@ namespace shaders {
 }  // namespace shaders
 
 D3D12Presenter::~D3D12Presenter() {
+  EnableInputPacing(false);
+  reflex_.Close(provider_.GetDevice());
   // Await completion of the usage of everything before destroying anything.
   // From most likely the latest to most likely the earliest to be signaled, so
   // just one sleep will likely be needed.
@@ -478,6 +481,9 @@ D3D12Presenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_sur
         provider_.OffsetRTVDescriptor(rtv_heap_start, PaintContext::kRTVIndexSwapChainBuffer0 + i));
   }
 
+  reflex_.Connect(device, provider_.GetAdapterVendorID() == GraphicsProvider::GpuVendorID::kNvidia,
+                  REXCVAR_GET(xbox360_reflex));
+  EnableInputPacing(reflex_.active());
   is_vsync_implicit_out = false;
   return SurfacePaintConnectResult::kSuccess;
 }
@@ -1162,6 +1168,7 @@ Presenter::PaintResult D3D12Presenter::PaintAndPresentImpl(bool execute_ui_drawe
       0, DXGI_PRESENT_RESTART |
              (paint_context_.swap_chain_allows_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0));
   const auto present_end_us = graphics::FrameTiming::NowMicros();
+  if (present_result == S_OK && diagnostic_guest_drawn) GuestFramePresented();
   if (guest_output_properties.diagnostic_frame && current_paint_submission <= 131072 &&
       REXCVAR_GET(output_latency_trace)) {
     REXLOG_INFO("OUTPUT_LATENCY phase=present frame={} packet={:08X} paint={} begin_us={} t_us={} hr={:08X} guest_drawn={} not_scanout",

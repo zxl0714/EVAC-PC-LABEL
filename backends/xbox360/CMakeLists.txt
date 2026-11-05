@@ -3,6 +3,19 @@ add_library(cave_xbox360_input STATIC input/configured_input.cpp input/input_sta
 target_include_directories(cave_xbox360_input PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(cave_xbox360_input PUBLIC cave_common rex::runtime)
 
+if(WIN32)
+    add_executable(cave_gamepad_sample_test "${CMAKE_SOURCE_DIR}/tests/xbox360/gamepad_sample_test.cpp")
+    target_link_libraries(cave_gamepad_sample_test PRIVATE rex::runtime)
+    # The test and SDK statically link SDL. Use SDL's dynamic API to share
+    # the test's virtual joystick with the actual runtime DLL.
+    target_link_options(cave_gamepad_sample_test PRIVATE "LINKER:/EXPORT:SDL_DYNAPI_entry")
+    add_custom_command(TARGET cave_gamepad_sample_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:cave_gamepad_sample_test>
+                $<TARGET_FILE_DIR:cave_gamepad_sample_test> COMMAND_EXPAND_LISTS VERBATIM)
+    add_test(NAME xbox360_gamepad_sample COMMAND cave_gamepad_sample_test)
+    set_tests_properties(xbox360_gamepad_sample PROPERTIES TIMEOUT 30)
+endif()
+
 add_library(cave_community_http STATIC ${CMAKE_SOURCE_DIR}/common/community/http_client.cpp)
 target_include_directories(cave_community_http PUBLIC "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/common"
     "${CMAKE_SOURCE_DIR}/third_party/rexglue/thirdparty/inja/third_party/include")

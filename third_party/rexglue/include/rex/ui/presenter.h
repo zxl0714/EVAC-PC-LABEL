@@ -327,6 +327,17 @@ class Presenter {
   Presenter& operator=(const Presenter& presenter) = delete;
   virtual ~Presenter();
 
+  // One pacing opportunity per successfully presented game image.
+  void GuestFramePresented() {
+    if (reflex_enabled_.load(std::memory_order_acquire))
+      reflex_due_.store(true, std::memory_order_release);
+  }
+  void BeforeGuestInput() {
+    if (reflex_due_.load(std::memory_order_relaxed) &&
+        reflex_due_.exchange(false, std::memory_order_acq_rel))
+      PaceGuestInput();
+  }
+
   virtual Surface::TypeFlags GetSupportedSurfaceTypes() const = 0;
 
   // For calling from the Window for the Presenter attached to it.
@@ -722,6 +733,13 @@ class Presenter {
   //
   // Call via PaintAndPresent.
   virtual PaintResult PaintAndPresentImpl(bool execute_ui_drawers) = 0;
+
+  virtual void PaceGuestInput() {}
+  void EnableInputPacing(bool enabled) {
+    reflex_enabled_.store(enabled, std::memory_order_release);
+    if (!enabled) reflex_due_.store(false, std::memory_order_release);
+  }
+  std::atomic<bool> reflex_enabled_{false}, reflex_due_{false};
 
   // For calling from the painting implementations if requested.
   void ExecuteUIDrawersFromUIThread(UIDrawContext& ui_draw_context);

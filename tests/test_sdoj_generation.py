@@ -83,10 +83,8 @@ class SdojGenerationTests(unittest.TestCase):
         for module, address in (('CA022100', '0x880943E8'), ('CA022110', '0x880952F0')):
             filename = module + '-functions.toml'
             manifest = next(item for item in self.manifest['modules'] if item['guest_path'] == module + '.bin')
-            expected = [filename, module + '-input-diagnostics.toml', module + '-audio-diagnostics.toml']
-            if module == 'CA022100':
-                expected.append(module + '-compat.toml')
-            expected.append(module + '-frame-delay.toml')
+            expected = [filename, module + '-input-diagnostics.toml', module + '-audio-diagnostics.toml',
+                        module + '-compat.toml', module + '-frame-delay.toml']
             self.assertEqual(manifest['includes'], expected)
             callbacks = tomllib.loads((ROOT / 'games/sdoj/recomp' / filename).read_text(encoding='utf-8'))['functions']
             self.assertEqual(set(callbacks), {address})
@@ -208,12 +206,13 @@ class SdojGenerationTests(unittest.TestCase):
         self.assertIn('extern "C" __declspec(dllexport) void SdojCoreInputEvent', host)
         self.assertNotIn('REX_STORE_', bridge)
 
-    def test_tilemap_initialization_is_normal_core_only_and_after_allocation(self):
-        normal, arrange = self.manifest['modules']
-        self.assertIn('CA022100-compat.toml', normal['includes'])
-        self.assertNotIn('CA022100-compat.toml', arrange['includes'])
-        hooks = tomllib.loads((ROOT / 'games/sdoj/recomp/CA022100-compat.toml').read_text(encoding='utf-8'))['midasm_hook']
-        self.assertEqual(hooks, [dict(address=0x88051C34, name='SdojInitializeTilemap', registers=['context', 'memory'])])
+    def test_tilemap_initialization_uses_each_modules_own_allocation_return(self):
+        for module, address in zip(self.manifest['modules'], (0x88051C34, 0x88051BB4), strict=True):
+            name = Path(module['guest_path']).stem + '-compat.toml'
+            self.assertEqual([f for f in module['includes'] if f.endswith('-compat.toml')], [name])
+            hooks = tomllib.loads((ROOT/'games/sdoj/recomp'/name).read_text())['midasm_hook']
+            self.assertEqual(hooks, [dict(address=address, name='SdojInitializeTilemap',
+                                          registers=['context', 'memory'])])
         source = (ROOT / 'games/sdoj/compat/tilemap.cpp').read_text(encoding='utf-8')
         self.assertIn('const auto address=ctx.r3.u32;', source)
         self.assertIn('QueryRangeAccess(address,address+bytes-1)', source)

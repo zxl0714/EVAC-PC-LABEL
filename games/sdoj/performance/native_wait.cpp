@@ -1,5 +1,6 @@
 #include "native_wait.h"
 #include "word_wait.h"
+#include "../latency/frame_delay.h"
 #include <rex/ppc.h>
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -23,6 +24,9 @@ extern "C" __declspec(dllexport) bool SdojNativeTickWaitEnabled() {
 namespace {
 constexpr std::uint32_t kCallbackFlag = 0x8279C770;
 std::atomic<bool> enabled{};
+enum class SwapPhase { original, issuing_early, waiting_after_swap };
+thread_local SwapPhase swap_phase{};
+thread_local std::uint64_t early_swaps{};
 std::atomic<void*> waiting_word{};
 std::atomic<void*> pending_word{};
 std::atomic<std::uint64_t> waits{}, notifications{};
@@ -63,6 +67,31 @@ void SdojWaitCallback(PPCContext&, std::uint8_t* base) {
     waits.fetch_add(1, std::memory_order_relaxed);
     if (!callback_wait.Wait(address, stored) && callback_timeouts.fetch_add(1) == 0)
         REXLOG_WARN("SDOJ_CALLBACK_WAIT fallback=original_poll reason=bounded_wait_failed recovery=next_original_producer");
+}
+bool SdojBeginFrameWait(PPCContext& ctx, std::uint8_t* base) {
+    if (swap_phase == SwapPhase::original && enabled.load(std::memory_order_acquire) &&
+        sdoj::latency::WaitAfterSwap()) {
+        // Queue the swap behind this frame's draws. The original callback,
+        // GPU drain and budget checks still run before releasing its buffers.
+        swap_phase = SwapPhase::issuing_early;
+        return true;
+    }
+    SdojWaitCallback(ctx, base);
+    return false;
+}
+
+bool SdojResumeFrameWait(PPCContext&, std::uint8_t*) {
+    if (swap_phase != SwapPhase::issuing_early) return false;
+    swap_phase = SwapPhase::waiting_after_swap;
+    if (++early_swaps % 600 == 1)
+        REXLOG_INFO("SDOJ_FRAME_DELAY callback_after_swap_frames={}", early_swaps);
+    return true;
+}
+
+bool SdojSwapAlreadyIssued(PPCContext&, std::uint8_t*) {
+    if (swap_phase != SwapPhase::waiting_after_swap) return false;
+    swap_phase = SwapPhase::original;
+    return true;
 }
 // Immediately AFTER the original callback's store of zero.
 void SdojCallbackChanged(PPCContext&, std::uint8_t* base) {

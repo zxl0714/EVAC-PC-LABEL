@@ -8,9 +8,11 @@ Latency includes waiting for the game to sample input, the game's response, and 
 
 ## Xbox 360 / Xenia
 
-All three ports use their default 1V setting. Xenia retains the games' original 1V, 2V and 3V settings, respectively. G2 can return to 2V through its [Frame Delay setting](SETTINGS.en.md#g2-frame-delay).
+The port figures use optional 0V with Reflex enabled on the RTX 4080. Xenia uses the original timing: 1V in Futari, 2V in G2, 3V in SDOJ and the original frame loop in Guwange. Futari also offers 0V in its own settings on Xenia. [Configure 0V and Reflex](SETTINGS.en.md#futari-guwange-and-nvidia-reflex).
 
-Latency combines game-internal measurements, an average 8.3 ms sampling wait and historical same-PC presentation data, assuming independent flip for the ports and desktop composition for Xenia. Device input, display scanout and panel response are excluded. CPU figures are equivalent logical cores from replay workloads on an i7-13700KF / RTX 4080; one core equals 1,000 CPU ms/s. [Method and data (Chinese)](ANALYSIS.md#360-统一条件比较).
+The estimate adds the average wait for a 60 Hz input read (8.33 ms), the time until the first image showing movement, and the historical mean from Present to the Windows display event on this PC (0.92 ms in independent flip for the ports, 11.18 ms in desktop composition for Xenia). Display mode and queue depth affect the last term. In Guwange the character starts moving two game updates after the sampled update’s output; this offset was checked visually and applied to each captured input.
+
+CPU and latency are captured separately. CPU sampling uses process time with the image and event probes disabled. The Reflex comparison uses the same scene and 0V setting for both runs. [Stage timings and sample counts](ANALYSIS.md#v095--xbox-360-低延迟).
 
 ## PS4 / shadPS4
 

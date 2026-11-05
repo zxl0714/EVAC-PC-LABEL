@@ -174,6 +174,11 @@ X_RESULT SDLInputDriver::GetState(uint32_t user_index, X_INPUT_STATE* out_state)
   auto is_active = this->is_active();
 
   if (is_active) {
+    // A guest poll can run before the UI thread pumps events. Update only the
+    // gamepads here; window events still belong to the UI thread.
+    if (!attached_window_->app_context().IsInUIThread()) {
+      SDL_UpdateGamepads();
+    }
     QueueControllerUpdate();
   }
 
@@ -402,11 +407,12 @@ void SDLInputDriver::HandleEvent(const SDL_Event& event) {
 
 std::unique_lock<std::mutex> SDLInputDriver::DrainAndLock() {
   std::vector<SDL_Event> events;
+  // Apply batches in dequeue order even when two guest threads read input.
+  std::unique_lock<std::mutex> guard(controllers_mutex_);
   {
     std::lock_guard<std::mutex> guard(event_queue_mutex_);
     events.swap(pending_events_);
   }
-  std::unique_lock<std::mutex> guard(controllers_mutex_);
   for (const auto& event : events) {
     ProcessEventLocked(event);
   }

@@ -18,7 +18,7 @@ ORDER = (1, 2, 4, 11, 12, 13, 14, 5, 16, 17, 15, 8, 9, 6, 7)
 LOW32 = 0xffffffff
 
 
-def analyze(trace, first=101, last=160):
+def analyze(trace, first=101, last=160, *, immediate_mode=1):
     if not trace['complete']:
         raise ValueError('Complete trace required')
     summary = summarize_trace(trace)
@@ -99,7 +99,7 @@ def analyze(trace, first=101, last=160):
             result = dict(command=source['a'], source_seq=source['seq'], sample_seq=sample['seq'],
                 buttons=source['b'], mapped_buttons=s[11]['c'] & LOW32,
                 actual_device_flags=s[7]['c'] & LOW32,
-                frame_delay=1 if s[7]['c'] & 5 == 4 else 2 if s[7]['c'] & 5 == 0 else None,
+                frame_delay=immediate_mode if s[7]['c'] & 5 == 4 else 2 if s[7]['c'] & 5 == 0 else None,
                 points={k: r['seq'] for k, r in points.items()},
                 times={f'{a}_to_{b}_us': (points[b]['qpc']-points[a]['qpc'])*1e6/frequency for a,b in pairs},
                 original_sites={k: r['seq'] for k, r in s.items()}, output=output)
@@ -133,13 +133,19 @@ def main():
     trace = read_trace(a.trace.read_text(encoding='utf-8'))
     original_trace = trace
     paths = [a.trace]
+    immediate_mode = None  # The device flags are identical for 0V and 1V.
     if a.logs:
         if not a.clock:
             p.error('--logs requires --clock')
-        trace = merge_output(trace, [f.read_text(encoding='utf-8') for f in a.logs],
+        texts = [f.read_text(encoding='utf-8') for f in a.logs]
+        modes = {mode for mode in (0, 1) if any(
+            f'G2_FRAME_DELAY requested={mode} ' in text for text in texts)}
+        if len(modes) == 1:
+            immediate_mode = modes.pop()
+        trace = merge_output(trace, texts,
                              json.loads(a.clock.read_text(encoding='utf-8')))
         paths += [a.clock, *a.logs]
-    report = analyze(trace, a.first_command, a.last_command)
+    report = analyze(trace, a.first_command, a.last_command, immediate_mode=immediate_mode)
     if a.logs:
         report['native_capture'] = {k:original_trace[k] for k in ('pid','committed','complete','overflow','incomplete')}
     else:

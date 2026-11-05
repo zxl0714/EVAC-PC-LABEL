@@ -1,0 +1,6 @@
+# Xbox 360 mode: immediately after the 32 KiB tilemap allocation and before
+# its pointer is stored in the layer descriptor.
+[[midasm_hook]]
+address = 0x88051BB4
+name = "SdojInitializeTilemap"
+registers = ["context", "memory"]

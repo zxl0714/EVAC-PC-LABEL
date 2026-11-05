@@ -65,6 +65,7 @@ frame_delay = 1
 
 | Value | Timing policy |
 | --- | --- |
+| 0 | Present before waiting for the next VBlank |
 | 1 | Low latency; default |
 | 2 | Balanced |
 | 3 | Original path |
@@ -80,7 +81,13 @@ Set the following in `user-data/config.ini`:
 frame_delay = 1
 ```
 
-`1` is the default low-latency path; `2` selects the original path. Existing explicit settings are preserved. Restart the game after changing it.
+`0` presents before waiting for the next VBlank. `1` is the default low-latency setting and `2` uses the original timing. Existing explicit settings are preserved. Restart the game after changing it.
+
+## Futari, Guwange and NVIDIA Reflex
+
+In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. For Guwange, set `frame_delay = 0` under `[game.guwange]`. Use `original` to restore the original timing.
+
+All four Xbox 360 titles automatically enable Reflex on supported NVIDIA hardware. To turn it off, set `reflex = off` under `[display]` and restart the game. Set it back to `auto` to enable detection.
 
 ## Community leaderboards
 

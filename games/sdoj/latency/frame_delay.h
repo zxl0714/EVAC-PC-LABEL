@@ -2,4 +2,5 @@
 namespace sdoj::latency {
 void Configure(unsigned frame_delay);
 void Stop();
+bool WaitAfterSwap();
 }

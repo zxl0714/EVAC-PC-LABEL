@@ -25,11 +25,14 @@ Representative workloads; lower is better. Latency is in milliseconds and CPU us
 
 **Xbox 360**
 
+The ports use 0V with Reflex enabled. Xenia uses the original game settings.
+
 | Game | Port latency | Xenia latency | Port CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
-| Mushihimesama Futari | 26 | 36 | 0.08 | 1.26 |
-| ESPGaluda II | 26 | 51 | 0.38 | 1.37 |
-| DoDonPachi SaiDaiOuJou | 26 | 69 | 0.43 | 3.46 |
+| Mushihimesama Futari | 10 | 36 | 0.07 | 1.28 |
+| ESPGaluda II | 12 | 51 | 0.35 | 1.43 |
+| DoDonPachi SaiDaiOuJou | 13 | 69 | 0.37 | 3.48 |
+| Guwange | 45 | 66 | 0.21 | 3.13 |
 
 **PS4**
 

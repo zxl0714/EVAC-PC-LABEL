@@ -55,6 +55,7 @@ if(REXGLUE_USE_D3D12)
         d3d12/d3d12_descriptor_heap_pool.cpp
         d3d12/d3d12_immediate_drawer.cpp
         d3d12/d3d12_presenter.cpp
+        d3d12/d3d12_reflex.cpp
         d3d12/d3d12_provider.cpp
         d3d12/d3d12_submission_tracker.cpp
         d3d12/d3d12_upload_buffer_pool.cpp

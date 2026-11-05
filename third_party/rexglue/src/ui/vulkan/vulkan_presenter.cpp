@@ -187,6 +187,7 @@ bool VulkanPresenter::PaintContext::Submission::Initialize() {
 }
 
 VulkanPresenter::~VulkanPresenter() {
+  DisconnectReflex();
   // Destroy the swapchain after its images are not used for drawing anymore.
   // This is a confusing part in Vulkan, as vkQueuePresentKHR doesn't signal a
   // fence clearly indicating when it's safe to destroy a swapchain, so we
@@ -736,6 +737,7 @@ VulkanPresenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_su
                                                                  uint32_t new_surface_height,
                                                                  bool was_paintable,
                                                                  bool& is_vsync_implicit_out) {
+  DisconnectReflex();
   const VulkanInstance* const vulkan_instance = vulkan_device_->vulkan_instance();
   const VulkanInstance::Functions& ifn = vulkan_instance->functions();
   const VkInstance instance = vulkan_instance->instance();
@@ -758,7 +760,7 @@ VulkanPresenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_su
     paint_context_.swapchain = PaintContext::CreateSwapchainForVulkanSurface(
         vulkan_device_, paint_context_.vulkan_surface, new_surface_width, new_surface_height,
         old_swapchain, paint_context_.present_queue_family, new_swapchain_format,
-        paint_context_.swapchain_extent, paint_context_.swapchain_is_fifo, surface_unusable);
+        paint_context_.swapchain_extent, paint_context_.swapchain_is_fifo, paint_context_.swapchain_reflex, surface_unusable);
     // Destroy the old swapchain that may be retired now.
     if (old_swapchain != VK_NULL_HANDLE) {
       dfn.vkDestroySwapchainKHR(device, old_swapchain, nullptr);
@@ -839,7 +841,7 @@ VulkanPresenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_su
     paint_context_.swapchain = PaintContext::CreateSwapchainForVulkanSurface(
         vulkan_device_, paint_context_.vulkan_surface, new_surface_width, new_surface_height,
         VK_NULL_HANDLE, paint_context_.present_queue_family, new_swapchain_format,
-        paint_context_.swapchain_extent, paint_context_.swapchain_is_fifo, surface_unusable);
+        paint_context_.swapchain_extent, paint_context_.swapchain_is_fifo, paint_context_.swapchain_reflex, surface_unusable);
     if (paint_context_.swapchain == VK_NULL_HANDLE) {
       // Failed to create the swapchain for the new Vulkan surface - destroy the
       // Vulkan surface.
@@ -1002,12 +1004,91 @@ VulkanPresenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_su
     paint_context_.swapchain_framebuffers.emplace_back(image_view, framebuffer);
   }
 
+  ConnectReflex();
   is_vsync_implicit_out = paint_context_.swapchain_is_fifo;
   return SurfacePaintConnectResult::kSuccess;
 }
 
 void VulkanPresenter::DisconnectPaintingFromSurfaceFromUIThreadImpl() {
+  DisconnectReflex();
   paint_context_.DestroySwapchainAndVulkanSurface();
+}
+
+void VulkanPresenter::ConnectReflex() {
+  std::lock_guard lock(reflex_mutex_);
+  if (!paint_context_.swapchain_reflex) {
+    REXLOG_INFO("REFLEX backend=vulkan active=false reason=configuration_or_capability");
+    return;
+  }
+  const auto device = vulkan_device_->device();
+  const auto get = vulkan_device_->vulkan_instance()->functions().vkGetDeviceProcAddr;
+  set_sleep_mode_ = reinterpret_cast<PFN_vkSetLatencySleepModeNV>(get(device, "vkSetLatencySleepModeNV"));
+  latency_sleep_ = reinterpret_cast<PFN_vkLatencySleepNV>(get(device, "vkLatencySleepNV"));
+  wait_semaphores_ = reinterpret_cast<PFN_vkWaitSemaphores>(get(device, "vkWaitSemaphores"));
+  if (!set_sleep_mode_ || !latency_sleep_ || !wait_semaphores_) {
+    REXLOG_INFO("REFLEX backend=vulkan active=false reason=missing_command");
+    return;
+  }
+  VkSemaphoreTypeCreateInfo timeline{VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
+  timeline.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+  VkSemaphoreCreateInfo info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, &timeline};
+  auto result = vulkan_device_->functions().vkCreateSemaphore(device, &info, nullptr, &reflex_semaphore_);
+  if (result == VK_SUCCESS) {
+    VkLatencySleepModeInfoNV mode{VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV};
+    mode.lowLatencyMode = VK_TRUE;
+    result = set_sleep_mode_(device, paint_context_.swapchain, &mode);
+    if (result == VK_SUCCESS) reflex_swapchain_ = paint_context_.swapchain;
+  }
+  EnableInputPacing(reflex_swapchain_ != VK_NULL_HANDLE);
+  REXLOG_INFO("REFLEX backend=vulkan requested=auto active={} result={}", reflex_swapchain_ != VK_NULL_HANDLE, int(result));
+}
+
+void VulkanPresenter::DisconnectReflex() {
+  EnableInputPacing(false);
+  std::lock_guard lock(reflex_mutex_);
+  const auto device = vulkan_device_->device();
+  if (reflex_pending_) {
+    VkSemaphoreWaitInfo wait{VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
+    wait.semaphoreCount = 1;
+    wait.pSemaphores = &reflex_semaphore_;
+    wait.pValues = &reflex_pending_;
+    wait_semaphores_(device, &wait, UINT64_MAX);
+    reflex_pending_ = 0;
+  }
+  // The retiring swapchain owns its sleep mode. Some Windows drivers
+  // dereference a null sleep-mode pointer during swapchain replacement.
+  if (reflex_semaphore_) vulkan_device_->functions().vkDestroySemaphore(device, reflex_semaphore_, nullptr);
+  reflex_swapchain_ = VK_NULL_HANDLE;
+  reflex_semaphore_ = VK_NULL_HANDLE;
+  reflex_signal_ = 0;
+}
+
+void VulkanPresenter::PaceGuestInput() {
+  std::lock_guard lock(reflex_mutex_);
+  if (!reflex_swapchain_ || reflex_pending_) return;
+  const auto device = vulkan_device_->device();
+  VkLatencySleepInfoNV sleep{VK_STRUCTURE_TYPE_LATENCY_SLEEP_INFO_NV};
+  sleep.signalSemaphore = reflex_semaphore_;
+  sleep.value = ++reflex_signal_;
+  auto result = latency_sleep_(device, reflex_swapchain_, &sleep);
+  if (result == VK_SUCCESS) {
+    reflex_pending_ = sleep.value;
+    VkSemaphoreWaitInfo wait{VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
+    wait.semaphoreCount = 1;
+    wait.pSemaphores = &reflex_semaphore_;
+    wait.pValues = &reflex_pending_;
+    result = wait_semaphores_(device, &wait, 50000000);
+    if (result == VK_SUCCESS) reflex_pending_ = 0;
+  }
+  if (result != VK_SUCCESS) {
+    EnableInputPacing(false);
+    VkLatencySleepModeInfoNV disabled{VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV};
+    set_sleep_mode_(device, reflex_swapchain_, &disabled);
+    reflex_swapchain_ = VK_NULL_HANDLE;
+    REXLOG_INFO("REFLEX backend=vulkan active=false reason=sleep result={}", int(result));
+  } else if (reflex_signal_ == 120) {
+    REXLOG_INFO("REFLEX backend=vulkan sampled_frames=120 timeline_completed=true");
+  }
 }
 
 bool VulkanPresenter::RefreshGuestOutputImpl(
@@ -1075,8 +1156,9 @@ bool VulkanPresenter::RefreshGuestOutputImpl(
 VkSwapchainKHR VulkanPresenter::PaintContext::CreateSwapchainForVulkanSurface(
     const VulkanDevice* vulkan_device, VkSurfaceKHR surface, uint32_t width, uint32_t height,
     VkSwapchainKHR old_swapchain, uint32_t& present_queue_family_out, VkFormat& image_format_out,
-    VkExtent2D& image_extent_out, bool& is_fifo_out, bool& ui_surface_unusable_out) {
+    VkExtent2D& image_extent_out, bool& is_fifo_out, bool& reflex_out, bool& ui_surface_unusable_out) {
   ui_surface_unusable_out = false;
+  reflex_out = false;
 
   const VulkanInstance::Functions& ifn = vulkan_device->vulkan_instance()->functions();
   const VkPhysicalDevice physical_device = vulkan_device->physical_device();
@@ -1383,8 +1465,21 @@ VkSwapchainKHR VulkanPresenter::PaintContext::CreateSwapchainForVulkanSurface(
     }
   }
 #endif
+  VkSwapchainLatencyCreateInfoNV latency{VK_STRUCTURE_TYPE_SWAPCHAIN_LATENCY_CREATE_INFO_NV};
+  if (vulkan_device->extensions().ext_NV_low_latency2) {
+    latency.latencyModeEnable = VK_TRUE;
+    latency.pNext = swapchain_create_info.pNext;
+    swapchain_create_info.pNext = &latency;
+    reflex_out = true;
+  }
   VkSwapchainKHR swapchain;
   auto result = dfn.vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain);
+  if (result != VK_SUCCESS && reflex_out) {
+    swapchain_create_info.pNext = latency.pNext;
+    swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
+    reflex_out = false;
+    result = dfn.vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain);
+  }
 #if REX_PLATFORM_WIN32
   if (initial_fifo) {
     dfn.vkDestroySwapchainKHR(device, initial_fifo, nullptr);
@@ -2226,12 +2321,20 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
   present_info.pSwapchains = &paint_context_.swapchain;
   present_info.pImageIndices = &swapchain_image_index;
   present_info.pResults = nullptr;
+  VkPresentIdKHR present_id{VK_STRUCTURE_TYPE_PRESENT_ID_KHR};
+  if (paint_context_.swapchain_reflex) {
+    present_id.swapchainCount = 1;
+    present_id.pPresentIds = &current_paint_submission_index;
+    present_info.pNext = &present_id;
+  }
   VkResult present_result;
   {
     const VulkanDevice::Queue::Acquisition queue_acquisition =
         vulkan_device_->AcquireQueue(paint_context_.present_queue_family, 0);
     present_result = dfn.vkQueuePresentKHR(queue_acquisition.queue(), &present_info);
   }
+  if ((present_result == VK_SUCCESS || present_result == VK_SUBOPTIMAL_KHR) && guest_output_image)
+    GuestFramePresented();
   switch (present_result) {
     case VK_SUCCESS:
       return PaintResult::kPresented;

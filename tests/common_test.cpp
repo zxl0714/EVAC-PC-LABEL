@@ -204,20 +204,23 @@ void SettingsChecks(Fixture& fixture) {
     Require(ParseSettings("", "sdoj").sdoj_frame_delay == 1, "Missing Frame Delay defaults to the low-latency path");
     Require(ParseSettings(DefaultConfig(), "sdoj").sdoj_frame_delay == 1,
             "Frame Delay template differs from the built-in default");
-    for (unsigned mode : {1u, 2u, 3u})
+    for (unsigned mode : {0u, 1u, 2u, 3u})
         Require(ParseSettings("[game.sdoj]\nframe_delay="+std::to_string(mode), "sdoj").sdoj_frame_delay == mode,
                 "SDOJ frame delay integer selection");
-    for (const auto* value : {"0", "4", "-1", "2V", "balanced", "2.0", "2junk", ""})
+    for (const auto* value : {"4", "-1", "2V", "balanced", "2.0", "2junk", ""})
         Reject([&] { ParseSettings(std::string("[game.sdoj]\nframe_delay=")+value, "sdoj"); },
                "Invalid SDOJ frame delay accepted");
     Require(ParseSettings("[game.sdoj]\nframe_delay=bad", "futari").sdoj_frame_delay == 1,
             "Another game interpreted SDOJ frame delay");
+    Require(!ParseSettings(DefaultConfig(), "guwange").guwange_post_swap_wait, "Guwange preserves native pacing by default");
+    Require(ParseSettings("[game.guwange]\nframe_delay=0", "guwange").guwange_post_swap_wait, "Guwange accepts 0V");
+    Reject([&] { ParseSettings("[game.guwange]\nframe_delay=1", "guwange"); }, "Unsupported Guwange delay accepted");
     Require(ParseSettings("", "espgaluda2").g2_frame_delay == 1, "G2 missing Frame Delay selects low latency");
     Require(ParseSettings(DefaultConfig(), "espgaluda2").g2_frame_delay == 1, "G2 default template");
-    for (unsigned mode : {1u, 2u})
+    for (unsigned mode : {0u, 1u, 2u})
         Require(ParseSettings("[game.espgaluda2]\nframe_delay="+std::to_string(mode), "espgaluda2").g2_frame_delay == mode,
                 "G2 frame delay integer selection");
-    for (const auto* value : {"0", "3", "-1", "1V", "low", "1.0", "1junk", ""})
+    for (const auto* value : {"3", "-1", "1V", "low", "1.0", "1junk", ""})
         Reject([&] {ParseSettings(std::string("[game.espgaluda2]\nframe_delay=")+value,"espgaluda2");},
                "Invalid G2 frame delay accepted");
     Require(ParseSettings("[game.espgaluda2]\nframe_delay=bad", "futari").g2_frame_delay == 1,
@@ -295,7 +298,7 @@ void MigrationChecks() {
             "Legacy config overwrote new configuration");
     Write(current,"[collection]\nconfig_version=99\n");
     Reject([&]{Ini::Load(ConfigPath(fixture.root));},"Invalid current configuration fell back to legacy");
-    for (unsigned mode : {1u,2u,3u}) {
+    for (unsigned mode : {0u,1u,2u,3u}) {
         Fixture explicit_mode;
         const auto old=explicit_mode.root/"config.ini";
         const std::string text="; preserve explicit preference\r\n[game.sdoj]\r\nframe_delay = "+std::to_string(mode)+"\r\n";
@@ -304,7 +307,7 @@ void MigrationChecks() {
         Require(Ini::ReadText(migrated)==text && LoadSettings(migrated,"sdoj").sdoj_frame_delay==mode,
                 "Migration replaced an explicit Frame Delay preference");
     }
-    for (unsigned mode : {1u,2u}) {
+    for (unsigned mode : {0u,1u,2u}) {
         Fixture explicit_g2;
         const std::string text="; preserve explicit G2 preference\r\n[game.espgaluda2]\r\nframe_delay = "+std::to_string(mode)+"\r\n";
         Write(explicit_g2.root/"config.ini",text);
