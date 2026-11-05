@@ -85,8 +85,6 @@ Choose fullscreen or a window resolution, edit your leaderboard nickname, and sw
 
 ## Troubleshooting
 
-If ESPGaluda or Ibara crashes at startup on Intel Arc B390, update the Intel graphics driver and try again. The update includes the Vulkan driver. [Intel driver download](https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html)
-
 After closing the game, click **Upload logs**, select the affected session, and briefly describe the problem. Include the resulting report ID in a [GitHub issue](https://github.com/zxl0714/EVAC-PC-LABEL/issues), with screenshots for visual problems.
 
 Logs can also be uploaded when a game cannot start. **Details** shows missing data or runtime components and how to restore them. [Game data and version checks →](docs/GAME_DATA.en.md#troubleshooting)

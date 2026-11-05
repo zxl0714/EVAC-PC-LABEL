@@ -74,7 +74,6 @@ F11／Alt+Enter 切换全屏；Alt+F4 退出；F8 标记日志时间。
 PS2 游戏使用原作本地成绩与记忆卡。
 
 反馈
-Intel Arc B390 启动 ESPGaluda 或铸蔷薇时若仍崩溃，先更新 Intel 显卡驱动（包含 Vulkan 驱动）后重试。
 退出游戏后点击“上传日志”，选择游玩记录，选填留言并上传。
 反馈问题时提供上传成功后显示的报告编号。
 游戏无法启动时也可以上传日志；提示运行组件不可用时，点击“详情”查看具体文件和处理方法。
@@ -141,7 +140,6 @@ the default is Player. The [community] settings above control the connection.
 PS2 games use their original local scores and memory cards.
 
 Feedback
-If ESPGaluda or Ibara crashes at startup on Intel Arc B390, update the Intel graphics driver (which includes the Vulkan driver) and try again.
 After closing the game, click Upload logs, select a session, add an optional message,
 and upload. Include the report ID when reporting an issue.
 Startup failures can also be uploaded. Click Details for missing or inaccessible runtime files and recovery steps.

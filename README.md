@@ -85,8 +85,6 @@ PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和
 
 ## 遇到问题
 
-Intel Arc B390 若在启动 ESPGaluda 或铸蔷薇时崩溃，请更新 Intel 显卡驱动后重试，Vulkan 驱动也会随之更新。[Intel 驱动下载](https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html)
-
 退出游戏后，点击启动器底部“上传日志”，选择对应的一局并简单描述问题。上传成功后，向 [Issues](https://github.com/zxl0714/EVAC-PC-LABEL/issues) 提供报告编号；如有画面异常，可附截图。
 
 无法启动时也能上传日志。“详情”会显示缺少的数据或运行组件及处理方法。[数据识别与版本检查 →](docs/GAME_DATA.md#无法识别时怎么检查)
