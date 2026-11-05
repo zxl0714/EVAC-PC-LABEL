@@ -1324,12 +1324,16 @@ uint64_t EeScheduler::currentVSyncTick() const noexcept
     return m_vsyncTick;
 }
 
+std::chrono::steady_clock::time_point EeScheduler::nextVBlankDeadline() const
+{
+    return m_hostClockOrigin + eeCyclesToHostDuration((m_vsyncTick + 1) * kVBlankPeriodCycles);
+}
+
 int64_t EeScheduler::microsecondsBeforeVBlank() const
 {
-    const auto next = eeCyclesToHostDuration((m_vsyncTick + 1) * kVBlankPeriodCycles);
-    const auto elapsed = std::max(eeCyclesToHostDuration(m_eeCycle),
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - m_hostClockOrigin));
-    return std::chrono::duration_cast<std::chrono::microseconds>(next - elapsed).count();
+    const auto now = std::max(m_hostClockOrigin + eeCyclesToHostDuration(m_eeCycle),
+                              std::chrono::steady_clock::now());
+    return std::chrono::duration_cast<std::chrono::microseconds>(nextVBlankDeadline() - now).count();
 }
 
 void EeScheduler::deferBeforeVBlank(uint32_t reserveUs, std::function<void(R5900Context &)> completion)

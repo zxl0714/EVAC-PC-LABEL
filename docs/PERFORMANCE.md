@@ -10,22 +10,20 @@
 
 移植版使用可选 0V，RTX 4080 上 Reflex 已启用。Xenia 分别使用虫姬二 1V、G2 2V、最大往生 3V 和狱门山的原作时序。虫姬二在 Xenia 上也能选原生 0V。[0V 与 Reflex 设置](SETTINGS.md#虫姬二狱门山与-nvidia-reflex)。
 
-估算包含 60 Hz 平均取样等待（8.33 ms）、取样到首张实际位移画面，以及同机历史 Present 到 Windows 显示事件的平均值（移植版独立翻转 0.92 ms，Xenia 桌面合成 11.18 ms）。呈现模式和排队情况会影响最后一项。狱门山的角色在输入所属画面的两次更新后开始移动，先核对实际画面，再按各次采样的两帧间隔估算。
+估算包含 60 Hz 平均取样等待（8.33 ms）、取样到首张实际位移画面，以及同机历史 Present 到 Windows 显示事件的平均值（移植版独立翻转 0.92 ms，Xenia 桌面合成 11.18 ms）。呈现模式和排队情况会影响最后一项。狱门山移植版 0V 在读取输入的同一轮更新中就能看到位移。
 
 CPU 与延迟分别采集，统计 CPU 时关闭逐帧图像和事件追踪。Reflex 开关对照固定同一场景和 0V 设置。[内部时序和样本数](ANALYSIS.md#v095--xbox-360-低延迟)。
 
 ## PS4 / shadPS4
 
-移植版默认启用 NEO（PS4 Pro）模式与低延迟呈现；shadPS4 v0.20.0 为普通模式、默认 FIFO。延迟估算包含平均采样等待与同机呈现预算，CPU 为第一关短场景的实测等效核数。[比较方法与数据](ANALYSIS.md#v082-neo-对照)。
+移植版使用 NEO、Vulkan Immediate 和自动启用的 Reflex。平均延迟取 60 Hz 的平均取样等待（8.33 ms），加上游戏读到方向至首张机体位移画面的呈现完成通知。每款游戏按自己的画面与 Vulkan Present ID 配对，完成通知包含驱动及线程唤醒时间。CPU 另在第一关移动、射击时测量，使用正式图形后端。
 
-NEO 的设置和关闭方法见[设置指南](SETTINGS.md#neo-模式)。PS4 游戏按 CPU 能力自动兼容 BMI1、LZCNT 和 MOVBE 指令。
-
-空战之路两边均使用 ARCADE 第一关 VALLEY 的 Silver Sword。连续变向时，从游戏读到方向到提交首张可见位移画面，移植版平均 5.70 ms，shadPS4 平均 33.09 ms。[测量记录](ANALYSIS.md#v094-garegga-and-ibara)
+shadPS4 v0.20.0 使用普通模式和默认 FIFO，沿用同机原有对照。空战之路两边均使用 ARCADE 第一关 VALLEY 的 Silver Sword。[样本与分段耗时](ANALYSIS.md#v095-ps4) · [NEO 与 Reflex 设置](SETTINGS.md#neo-模式)
 
 ## PS2 / PCSX2
 
 对照版本为 PCSX2 2.8.2，使用 D3D12、原始分辨率并关闭垂直同步。
 
-ESPGaluda 的平均取样等待为 8.33 ms，移植版响应实测 16.87 ms，PCSX2 按已确认的两次游戏更新推算；呈现后段分别复用同机 Vulkan IMMEDIATE 小基准与 D3D12 独立翻转记录。移植版 CPU 使用 v0.9.1 第一关短场景的已有采样，PCSX2 使用此前的 BOSS 场景。移植版出帧间隔 P95 17.32 ms，最大 17.93 ms。[方法与数据](ANALYSIS.md#v090-ps2-latency-estimate)。
+RTX 4080 自动启用 Reflex，两作各确认 12 次关内变向。从游戏读到方向到首张位移画面提交返回，ESPGaluda 平均 7.86 ms，铸蔷薇平均 8.29 ms。加上平均取样等待 8.33 ms 和同机 Vulkan Immediate 的历史呈现预算 1.33 ms，合计约 17.53 和 17.96 ms。PCSX2 两作都在第二次更新出现位移，沿用两次 60 Hz 更新与 D3D12 独立翻转的估算，约 43 ms。[测量分解](ANALYSIS.md#v095-ps2)
 
-铸蔷薇两边均为 ARCADE NORMAL 第一关 PORTTOWN。移植版把帧内空闲时间移到读键之前，读到方向至首张机体位移画面平均 22.02 ms（12 次变向）。PCSX2 从同一存档分别保持中立和按右，第二次更新出现位移，按 60 Hz 折算为 33.33 ms。计入平均取样等待和呈现后段，两侧总延迟期望约为 32 和 43 ms。[测量记录](ANALYSIS.md#v094-garegga-and-ibara)
+CPU 在关闭逐帧采集后单独测量。ESPGaluda 移植版为 Arcade 第一关 Ageha，PCSX2 为 BOSS 场景。铸蔷薇两侧均为 Arcade Normal 第一关 PORTTOWN。

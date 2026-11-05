@@ -113,7 +113,9 @@ struct Capture {
   void Ready(unsigned token, std::uint64_t ready) {
     if (!token) return;
     std::lock_guard lock(mutex);
-    if (token > count || closed || !frames[token - 1].completed || !ready) { failed = true; return; }
+    // Publication can precede GPU-copy completion: the window consumer waits
+    // on its timeline. Flush still requires the copy fence before CPU readback.
+    if (token > count || closed || frames[token - 1].ready || !ready) { failed = true; return; }
     frames[token - 1].ready = ready;
   }
   void Presented(unsigned token, std::uint64_t begin, std::uint64_t end, std::uint32_t result) {

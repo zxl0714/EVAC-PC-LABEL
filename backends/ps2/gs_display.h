@@ -15,7 +15,7 @@ enum class GsPresentTransfer {Automatic,Sampled};
 class GsDisplay {
 public:
     GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,
-              GsPresentTransfer transfer=GsPresentTransfer::Automatic);
+              GsPresentTransfer transfer=GsPresentTransfer::Automatic,bool reflex=true,bool amdAntiLag=false);
     ~GsDisplay();
     GsDisplay(const GsDisplay&)=delete;
     GsDisplay& operator=(const GsDisplay&)=delete;
@@ -27,7 +27,9 @@ public:
     // Gate commands for the next game frame, rather than waiting only after
     // those commands have already been sent to the GPU.
     void WaitPreviousFrame();
-    bool Present(const GsFrame& request);
+    void BeforeInput(uint64_t responseField,unsigned budgetUs);
+    void SimulationReady(uint64_t responseField);
+    bool Present(const GsFrame& request,bool repeatCompletedImage=false);
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

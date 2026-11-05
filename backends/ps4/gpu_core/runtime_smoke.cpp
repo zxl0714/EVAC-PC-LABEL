@@ -127,7 +127,8 @@ struct NativeSession {
     }
   }
   NativeSession(const RuntimeApi &api_, bool validation, void *window = nullptr, bool vsync = true,
-                bool shared_present_queue = false,const std::filesystem::path& pipeline_cache = {})
+                bool shared_present_queue = false,const std::filesystem::path& pipeline_cache = {},
+                bool reflex = false, bool amd_anti_lag = false)
       : api{api_} {
     const HostSettings settings{.validation_core = validation,
                                 .validation_sync = validation,
@@ -135,6 +136,8 @@ struct NativeSession {
                                     std::filesystem::current_path(),
                                 .presentation_support = window != nullptr,
                                 .vsync = vsync,
+                                .reflex = reflex,
+                                .amd_anti_lag = amd_anti_lag,
                                 .diagnostic_shared_present_queue = shared_present_queue,
                                 .pipeline_cache_directory = pipeline_cache};
     worker.Sync([&] {
@@ -293,7 +296,7 @@ unsigned CheckPixels(NativeSession &session, bool green) {
 } // namespace
 int main(int argc, char **argv) {
   try {
-    bool validation = false, presentation = false, interactive = false, vsync = true, shared_present_queue = false, compatibility = false;
+    bool validation = false, presentation = false, interactive = false, vsync = true, shared_present_queue = false, compatibility = false, reflex = false, amd_anti_lag = false;
     std::filesystem::path pipeline_cache;
     for (int i = 1; i < argc; ++i) {
       const std::string_view argument{argv[i]};
@@ -305,6 +308,10 @@ int main(int argc, char **argv) {
         interactive = true;
       } else if (argument == "--no-vsync") {
         vsync = false;
+      } else if (argument == "--amd-anti-lag") {
+        amd_anti_lag = true;
+      } else if (argument == "--reflex") {
+        reflex = true;
       } else if (argument == "--shared-present-queue") {
         shared_present_queue = true;
       } else if (argument == "--present-compat") {
@@ -338,7 +345,7 @@ int main(int argc, char **argv) {
     u64 resident_read_bytes = 0, resident_write_bytes = 0;
     {
       NativeSession session{library.api, validation,
-                            window ? window->Handle() : nullptr, vsync, shared_present_queue,pipeline_cache};
+                            window ? window->Handle() : nullptr, vsync, shared_present_queue,pipeline_cache,reflex,amd_anti_lag};
       Allocation allocation;
       if (window) {
         auto write_lease =
@@ -422,6 +429,8 @@ int main(int argc, char **argv) {
         session.worker.Sync([&] { session.Call(library.api.pause_presentation(session.context,true,&error),error); });
         const auto present = [&](const kt::diagnostics::PresentationPacing* pacing = nullptr,
                                  std::span<const std::uint8_t> expected_snapshot = {}) {
+          // Input polling is on a guest thread, separate from the GPU owner.
+          session.Call(library.api.pace_input(session.context, &error), error);
           RuntimePresentResult result;
           for (unsigned retry = 0; retry < 9; ++retry) {
             u64 paced_draw_tick{};

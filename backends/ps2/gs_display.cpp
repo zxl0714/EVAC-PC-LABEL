@@ -8,6 +8,8 @@
 #include "thread_id.hpp"
 #include "timer.hpp"
 #include "gs_pixel_trace.h"
+#include "reflex.h"
+#include "../../common/deadline_wait.h"
 #include <algorithm>
 #include <chrono>
 #include <iostream>
@@ -25,7 +27,13 @@ public:
     std::function<void(unsigned,bool)> keyHandler;
     std::exception_ptr inputFailure;
     std::chrono::steady_clock::time_point nextMessagePoll{};
-    NativeWindow(unsigned width,unsigned height,const std::wstring& title) {
+    Reflex reflex;
+    const bool amdRequested;
+    PFN_vkAntiLagUpdateAMD amdUpdate{};
+    VkDevice amdDevice{};
+    std::atomic<uint64_t> amdField{};
+    NativeWindow(unsigned width,unsigned height,const std::wstring& title,bool enable,bool amd)
+        :reflex(enable),amdRequested(amd) {
         WNDCLASSW info{};
         info.lpfnWndProc=Procedure;info.hInstance=GetModuleHandleW(nullptr);
         info.lpszClassName=L"EVAC.PS2.Vulkan";info.hCursor=LoadCursorW(nullptr,MAKEINTRESOURCEW(32512));
@@ -39,6 +47,29 @@ public:
         if(!handle)throw std::runtime_error("Cannot create PS2 Vulkan window");
     }
     ~NativeWindow() override{if(handle)DestroyWindow(handle);}
+    void event_device_created(Vulkan::Device* gpu) override {
+        if (!amdRequested) return;
+        if (gpu->get_gpu_properties().vendorID==0x1002 && gpu->get_device_features().anti_lag_features.antiLag) {
+            amdDevice=gpu->get_device();
+            amdUpdate=gpu->get_device_table().vkAntiLagUpdateAMD;
+        }
+        std::fprintf(stderr,"AMD_ANTI_LAG backend=ps2-vulkan requested=true active=%s\n",amdUpdate?"true":"false");
+    }
+    void BeforeRead(uint64_t field,unsigned budgetUs) {
+        if (!amdUpdate) { reflex.BeforeRead(field,budgetUs); return; }
+        if (field && amdField.compare_exchange_strong(field,0)) {
+            VkAntiLagDataAMD input{VK_STRUCTURE_TYPE_ANTI_LAG_DATA_AMD};
+            input.mode=VK_ANTI_LAG_MODE_ON_AMD;
+            amdUpdate(amdDevice,&input);
+        }
+    }
+    void event_swapchain_created(Vulkan::Device* gpu,VkSwapchainKHR swapchain,unsigned,unsigned,float,size_t,
+                                 VkFormat,VkColorSpaceKHR,VkSurfaceTransformFlagBitsKHR) override {
+        if(gpu)reflex.Connect(gpu->get_device(),gpu->get_device_table(),swapchain,
+            gpu->get_gpu_properties().vendorID==0x10de && gpu->get_device_features().supports_low_latency2_nv);
+    }
+    void event_swapchain_destroyed() override {amdField=0;reflex.Disconnect();}
+    void event_device_destroyed() override {amdUpdate=nullptr;amdDevice=VK_NULL_HANDLE;reflex.ReleaseDevice();}
     VkSurfaceKHR create_surface(VkInstance instance,VkPhysicalDevice) override {
         VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
         info.hinstance=GetModuleHandleW(nullptr);info.hwnd=handle;
@@ -114,6 +145,11 @@ public:
     Vulkan::WSI wsi;
     std::unique_ptr<GsDevice> gs;
     Vulkan::Fence pending;
+    ParallelGS::ScanoutResult lastReadyImage{};
+    VkImageLayout lastReadyLayout=VK_IMAGE_LAYOUT_UNDEFINED;
+    cave::DeadlineWait presentTimer;
+    std::mutex presentMutex;
+    std::condition_variable presentWake;
     uint64_t frames=0;
     int64_t tracedGpuWait=0;
     GsPresentTransfer transfer=GsPresentTransfer::Automatic;
@@ -121,15 +157,16 @@ public:
     int loggedTransfer=-1;
     uint64_t lastFeedback=0;
     pixel_trace::Capture pixels;
-    Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync):window(width,height,title) {
+    Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd)
+        :window(width,height,title,reflex,amd) {
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
         wsi.set_platform(&window);
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
         wsi.set_present_mode(vsync?Vulkan::PresentMode::SyncToVBlank:Vulkan::PresentMode::UnlockedForceTearing);
         wsi.set_present_low_latency_mode(true);
-        const auto* feedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
-        if(input_trace::Enabled() && feedback && std::wcscmp(feedback,L"1")==0)
+        const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
+        if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
         wsi.set_extra_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT);
         if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
@@ -142,12 +179,13 @@ public:
         try{pixels.Save(wsi.get_device());}
         catch(const std::exception& error){std::cerr<<"[ps2-pixel-trace] "<<error.what()<<'\n';}
         const auto readbacks=gs?gs->ReadbackRequests():0;
+        lastReadyImage.image.reset();
         gs.reset(); // GS must die before WSI's device and the native surface.
         std::cerr<<"[ps2-gs-present] frames="<<frames<<" readbacks="<<readbacks<<'\n';
     }
 };
-GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,GsPresentTransfer transfer)
-    :impl(std::make_unique<Impl>(width,height,title,vsync)) {
+GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,GsPresentTransfer transfer,bool reflex,bool amd)
+    :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd)) {
     impl->transfer=transfer;
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
     impl->gs->SetWaitPump([this]{
@@ -157,6 +195,8 @@ GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bo
 }
 GsDisplay::~GsDisplay()=default;
 GsDevice& GsDisplay::Device(){return *impl->gs;}
+void GsDisplay::BeforeInput(uint64_t field,unsigned budgetUs){impl->window.BeforeRead(field,budgetUs);}
+void GsDisplay::SimulationReady(uint64_t field){impl->window.reflex.SimulationReady(field);}
 bool GsDisplay::Alive(){
     impl->window.poll_input();
     if(impl->window.inputFailure)std::rethrow_exception(impl->window.inputFailure);
@@ -173,12 +213,13 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
-bool GsDisplay::Present(const GsFrame& request) {
+bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
+    impl->window.reflex.BeginOutput();
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
     auto* trace=frame_trace::Get(request.vsyncTick);
-    if(trace)trace->presentStart=frame_trace::Stamp();
+    if(trace){trace->presentStart=frame_trace::Stamp();trace->presentedReady=request.Prepared();trace->repeated=repeatCompletedImage;}
     WaitPreviousFrame();
     if(trace){trace->gpuWait=impl->tracedGpuWait;impl->tracedGpuWait=0;}
     // Texture uploads can retain Granite command buffers between GS packets.
@@ -215,12 +256,19 @@ bool GsDisplay::Present(const GsFrame& request) {
     const auto sourceLayout=blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     const auto sourceStage=blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     const auto sourceAccess=blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
-    auto source=state.Scanout(request,currentField?VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL:sourceLayout,
+    const bool reuse=repeatCompletedImage && impl->lastReadyImage.image && impl->lastReadyLayout==sourceLayout;
+    auto source=reuse?impl->lastReadyImage:state.ScanoutFlushed(request,currentField?VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL:sourceLayout,
         currentField?VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT:sourceStage,
         currentField?VK_ACCESS_2_SHADER_SAMPLED_READ_BIT:sourceAccess,currentField);
+    // A held display page can span two CRT fields. Reuse its completed pixels
+    // without running the deinterlacer twice on the same source field.
+    if(state.trackFieldBlits && request.Prepared()) {
+        impl->lastReadyImage=source;
+        impl->lastReadyLayout=sourceLayout;
+    } else impl->lastReadyImage.image.reset();
     if(trace)trace->scanned=frame_trace::Stamp();
     auto command=device.request_command_buffer();
-    if(currentField && source.image)
+    if(currentField && source.image && !reuse)
         command->image_barrier(*source.image,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,sourceLayout,
             VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,VK_ACCESS_2_MEMORY_WRITE_BIT|VK_ACCESS_2_MEMORY_READ_BIT,
             sourceStage,sourceAccess);
@@ -271,10 +319,21 @@ bool GsDisplay::Present(const GsFrame& request) {
     impl->pixels.Submitted(request.vsyncTick);
     input_trace::Record(input_trace::Kind::Submit,request.vsyncTick);
     if(trace)trace->submitted=frame_trace::Stamp();
+    if(request.Prepared()) {
+        // Pace ready frames on the existing guest clock. If drawing ran late,
+        // present immediately rather than slipping to another display slot.
+        const auto now=std::chrono::steady_clock::now();
+        if(request.presentAfter>now && request.presentAfter-now<std::chrono::milliseconds(17)) {
+            std::unique_lock lock(impl->presentMutex);
+            impl->presentTimer.Until(lock,request.presentAfter,[]{return false;},impl->presentWake);
+        }
+    }
     if(!impl->wsi.end_frame())return false;
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,
                                                  impl->wsi.get_last_submitted_present_id());
     if(trace)trace->presented=frame_trace::Stamp();
+    if(impl->window.amdUpdate)impl->window.amdField.store(request.vsyncTick+1);
+    impl->window.reflex.AfterPresent(impl->wsi.get_last_submitted_present_id(),request.vsyncTick);
     ++impl->frames;
     return true;
 }

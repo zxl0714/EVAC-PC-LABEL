@@ -14,6 +14,16 @@ import release_package as release
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_amd_edition_preset_matches_inventory_and_never_writes_player_config(self):
+        for enabled in (True, False):
+            record = {'amdAntiLagDefault': enabled}
+            preset = release.amd_preset_bytes(enabled)
+            item = {'path': release.AMD_PRESET, 'role': 'config', 'sha256': hashlib.sha256(preset).hexdigest()}
+            release.validate_windows_item(item, record, {}, (), {}, set())
+            with self.assertRaises(ValueError):
+                release.validate_windows_item(item, {'amdAntiLagDefault': not enabled}, {}, (), {}, set())
+            self.assertEqual(release.AMD_PRESET, 'runtime/display-defaults.ini')
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='cave-authored-package-')
         self.root = Path(self.temporary.name)
@@ -705,6 +715,18 @@ class ReleaseTests(unittest.TestCase):
                                  'runtime/games/ibara/runtime-manifest.ini', 'game-data/ibara/README.txt'} <= files)
                 self.assertFalse(any(p.lower().endswith(('.iso', '.pdb')) for p in files))
         self.check_build_flavors('0.9.4', check)
+
+    def test_v095_amd_and_standard_program_packages(self):
+        def check(root, games, commit, inspect):
+            for enabled in (False, True):
+                output = root/'releases'/('amd' if enabled else 'standard')
+                built = release.build('Public', '0.9.5', output, amd_anti_lag=enabled)
+                with zipfile.ZipFile(built['archive']) as archive:
+                    self.assertEqual(archive.read(release.AMD_PRESET), release.amd_preset_bytes(enabled))
+                    self.assertEqual(json.loads(archive.read('release.json'))['amdAntiLagDefault'], enabled)
+                    self.assertNotIn('user-data/config.ini', archive.namelist())
+                    self.assertEqual('-amd-anti-lag2' in Path(built['archive']).name, enabled)
+        self.check_build_flavors('0.9.5', check)
 
     def test_dlc_source_layout_does_not_change_packaged_paths(self):
         dlc = self.root/'dlc'; base = dlc/'00000002/package'; base.mkdir(parents=True)

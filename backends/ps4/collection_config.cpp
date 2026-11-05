@@ -35,6 +35,8 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::strin
     if (!kt::community::ValidNicknameBytes(result.community.nickname)) throw std::runtime_error("Invalid community nickname");
     result.display = {FromUtf8("EVAC PC LABEL — " + std::string(title.DisplayName())).wstring(),
         result.shared.fullscreen, result.shared.vsync, result.shared.window_width, result.shared.window_height};
+    result.display.amd_anti_lag = result.shared.amd_anti_lag;
+    result.display.reflex = result.shared.xbox360_reflex;
     return result;
 }
 CollectionConfiguration LoadCollectionConfiguration(const fs::path& path,std::string_view game) {

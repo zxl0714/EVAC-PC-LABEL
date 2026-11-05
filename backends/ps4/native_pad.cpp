@@ -5,6 +5,7 @@
 #include "native_time.h"
 #include "native_user.h"
 #include "native_video.h"
+#include "native_resident_gpu.h"
 #include <windows.h>
 #include <algorithm>
 #include <array>
@@ -53,9 +54,8 @@ struct Keyboard {
     void* owner{};
     bool focused{};
     std::array<bool, 256> keys{};
-    // Preserve a real down edge until the game consumes a report, even when
-    // Windows delivers down/up between two 60 Hz samples. Held keys still use
-    // their physical state; focus/port loss drops unconsumed edges.
+    // Dirty notification requests a fresh sample. It does not extend a press;
+    // button state below follows real down/up, like the Xbox 360 input path.
     std::uint32_t pending{};
     unsigned diagnostic_tap_ms{};
     unsigned diagnostic_circle_hold_ms{};
@@ -91,7 +91,7 @@ struct Keyboard {
     void Acknowledge() { pending = 0; }
     std::uint32_t Buttons(std::uint64_t now = GetTickCount64()) const {
         if (!focused) { return 0; }
-        std::uint32_t result = pending;
+        std::uint32_t result = 0;
         for (unsigned key = 0; key < keys.size(); ++key) {
             if (keys[key] || pulse_until[key] > now) { result |= Binding(key); }
         }
@@ -149,7 +149,7 @@ struct PadState {
         { std::lock_guard lock(mutex); stopping = true; condition.notify_all(); }
         if (sampler.joinable()) { sampler.join(); }
     }
-    void Sample() { // mutex held; never calls the window or its state mutex
+    void Sample(bool changes_only = false) { // mutex held; never calls the window or its state mutex
         PadData output{};
         int selected = keyboard.owner ? -1 : -2;
         if (!synthetic_input) physical=gamepad.Poll();
@@ -171,6 +171,17 @@ struct PadState {
             if (keys & 0x200) { output.r2 = 255; }
         }
         output.timestamp = NativeProcessMicroseconds();
+        // A history read refreshes SDL too: a release or stick movement can
+        // arrive between the periodic sampler and the game's read. Keep an
+        // unchanged poll from manufacturing a new history report.
+        const auto& previous = history.latest;
+        if (changes_only && output.buttons == previous.buttons &&
+            output.left_x == previous.left_x && output.left_y == previous.left_y &&
+            output.right_x == previous.right_x && output.right_y == previous.right_y &&
+            output.l2 == previous.l2 && output.r2 == previous.r2 &&
+            output.connected == previous.connected && output.connected_count == previous.connected_count) {
+            return;
+        }
         history.Push(output);
     }
 };
@@ -232,19 +243,11 @@ int Close(int handle) {
 }
 int ReadReports(PadState& state, PadData* output, int count, bool latest) { // mutex held
     const bool edge = state.keyboard.pending != 0 || state.gamepad.HasPending();
-    if (edge) { state.Sample(); }
-    const auto pending=state.keyboard.pending | state.physical.pending;
+    state.Sample(!edge && count > 1);
     const auto reports = state.history.Read(output, latest ? 1 : count);
-    // A bounded read may stop before the newly sampled edge (e.g. 64 queued
-    // reports with the game's capacity of 63). Retire the latch only after a
-    // returned report actually contains every pending button.
-    if (reports && edge &&
-        (output[reports - 1].buttons & pending) == pending) {
+    if (edge) {
         state.keyboard.Acknowledge();
         state.gamepad.Acknowledge(state.physical);
-        // Publish release/continued hold now, so the next single-state read
-        // cannot replay the latch left in the sampler's latest report.
-        state.Sample();
     }
     if (reports && output[reports - 1].buttons != state.last_read_buttons) {
         state.last_read_buttons = output[reports - 1].buttons;
@@ -257,6 +260,9 @@ int ReadReports(PadState& state, PadData* output, int count, bool latest) { // m
     return latest ? 0 : reports;
 }
 int Read(int handle, PadData* output, int count, bool latest) {
+    // Sleep before taking the pad lock/sampling, so Windows/SDL can keep
+    // collecting fresh input while the driver paces this frame.
+    if (auto* gpu = CurrentNativeResidentGpu()) gpu->PaceInput();
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (!state.initialized) { return kNotInitialized; }
     if (!handle || handle != state.handle) { return kHandle; }
@@ -458,7 +464,7 @@ bool PadSelfTest() {
     diagnostic.Key(&owner, 'V', true, 1200); diagnostic.Focus(&owner, false); diagnostic.Focus(&owner, true);
     check(diagnostic.Buttons(1201) == 0, "diagnostic_taps_cannot_survive_focus_loss");
     keyboard.Key(&owner, VK_RETURN, true); keyboard.Key(&owner, VK_RETURN, false);
-    check(keyboard.Buttons() == 8, "short_keyboard_press_survives_between_samples");
+    check(keyboard.Buttons() == 0, "released_short_keyboard_press_is_not_synthesized");
     keyboard.Acknowledge();
     check(keyboard.Buttons() == 0, "acknowledge_releases_completed_tap");
     keyboard.Key(&owner, 'Z', true); keyboard.Acknowledge(); keyboard.Key(&owner, 'Z', true);
@@ -524,12 +530,12 @@ bool PadSelfTest() {
     { std::lock_guard lock(state.mutex); check(invalid_read == kArgument && state.keyboard.pending == 8,
         "invalid_report_does_not_consume_keyboard_edge"); }
     const auto edge_read = Read(edge_handle, output.data(), 1, true);
-    { std::lock_guard lock(state.mutex); check(edge_read == 0 && (output[0].buttons & 8) && !state.keyboard.pending && !state.keyboard.Buttons(),
-        "single_report_delivers_and_acknowledges_short_press"); }
+    { std::lock_guard lock(state.mutex); check(edge_read == 0 && !(output[0].buttons & 8) && !state.keyboard.pending && !state.keyboard.Buttons(),
+        "single_report_returns_current_state_and_clears_dirty_notification"); }
     NativePadWindowKey(&owner, 'X', true); NativePadWindowKey(&owner, 'X', false);
     const auto multi_read = Read(edge_handle, output.data(), 64, false);
-    { std::lock_guard lock(state.mutex); check(multi_read > 0 && (output[multi_read - 1].buttons & 0x2000) && !state.keyboard.pending,
-        "multi_report_read_includes_and_acknowledges_short_press"); }
+    { std::lock_guard lock(state.mutex); check(multi_read > 0 && !(output[multi_read - 1].buttons & 0x2000) && !state.keyboard.pending,
+        "multi_report_does_not_invent_a_sample_for_released_press"); }
     for (const int capacity : {2, 63}) {
         std::lock_guard lock(state.mutex);
         state.keyboard.Focus(&owner, false); state.keyboard.Focus(&owner, true);
@@ -538,18 +544,28 @@ bool PadSelfTest() {
         for (int i = 0; i < 64; ++i) { state.history.Push(neutral); }
         state.keyboard.Key(&owner, 'V', true); state.keyboard.Key(&owner, 'V', false);
         const auto first_read = ReadReports(state, output.data(), capacity, false);
-        bool retained = first_read == capacity && !(output[first_read - 1].buttons & 0x1000) &&
-                        state.keyboard.pending == 0x1000;
-        int delivered = 0;
-        for (int attempt = 0; state.keyboard.pending && attempt < 64; ++attempt) {
-            const auto number = ReadReports(state, output.data(), capacity, false);
-            if (number && (output[number - 1].buttons & 0x1000) && !state.keyboard.pending) { ++delivered; }
+        bool all_neutral = first_read == capacity && !state.keyboard.pending;
+        for (int attempt=0;attempt<64;++attempt) {
+            const auto number=ReadReports(state,output.data(),capacity,false);
+            for(int i=0;i<number;++i) all_neutral &= !(output[i].buttons & 0x1000);
         }
-        const bool acknowledged = !state.keyboard.pending;
+        check(all_neutral, "bounded_history_never_synthesizes_a_missed_short_press");
+    }
+    {
+        std::lock_guard lock(state.mutex);
+        state.physical.device = 1;
+        state.physical.buttons = 0x4000;
+        state.physical.left_x = 32;
+        state.Sample();
         ReadReports(state, output.data(), 1, true);
-        check(retained && delivered == 1 && acknowledged && !(output[0].buttons & 0x1000),
-              capacity == 63 ? "full_history_capacity63_does_not_acknowledge_undelivered_edge" :
-                               "full_history_capacity2_retains_edge_until_returned");
+        state.physical.buttons = 0;
+        state.physical.left_x = 128;
+        const auto changed = ReadReports(state, output.data(), 63, false);
+        check(changed == 1 && output[0].buttons == 0 && output[0].left_x == 128,
+              "history_sees_release_and_stick_return_before_next_periodic_sample");
+        check(ReadReports(state, output.data(), 63, false) == 0,
+              "unchanged_history_read_does_not_create_reports");
+        state.physical = {};
     }
     NativePadWindowKey(&owner, VK_LBUTTON, true);
     Read(edge_handle, output.data(), 1, true);
@@ -572,7 +588,7 @@ bool PadSelfTest() {
     Read(edge_handle, output.data(), 1, true);
     check(configured_first && configured_still_held && !(output[0].buttons & 0x8000), "configured_mapping_reaches_real_pad_reports");
     NativePadDetachWindow(&owner); NativePadAttachWindow(&owner); NativePadWindowFocus(&owner, true);
-    NativePadWindowKey(&owner, VK_SPACE, true); NativePadWindowKey(&owner, VK_SPACE, false);
+    NativePadWindowKey(&owner, VK_SPACE, true);
     Read(edge_handle, output.data(), 1, true);
     bool late_rejected = false;
     try { SetKeyboardBindings(kt::input::DefaultKeyboardBindings()); } catch (const std::runtime_error&) { late_rejected = true; }

@@ -69,9 +69,12 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
         }
         return 0;
     }''')
-    text = replace_one(text, '        history.Push(output);', '''        if (evac_latency::test_pad) {
+    text = replace_one(text, '        const auto& previous = history.latest;', '''        if (evac_latency::test_pad) {
             RefreshProbe();
             output.buttons = probe_latch.Buttons();
+        }
+        const auto& previous = history.latest;''')
+    text = replace_one(text, '        history.Push(output);', '''        if (evac_latency::test_pad) {
             probe_sources[probe_next] = {output.timestamp, probe_latch.Source(), output.buttons};
             probe_next = (probe_next + 1) % probe_sources.size();
         }
@@ -80,9 +83,6 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
         '    const bool edge = state.keyboard.pending != 0 || state.gamepad.HasPending();',
         '''    state.RefreshProbe();
     const bool edge = state.keyboard.pending != 0 || state.gamepad.HasPending() || state.probe_latch.pending;''')
-    text = replace_one(text,
-        '    const auto pending=state.keyboard.pending | state.physical.pending;',
-        '    const auto pending=state.keyboard.pending | state.physical.pending | state.probe_latch.pending;')
     text = replace_one(text, '        state.gamepad.Acknowledge(state.physical);',
         '        state.gamepad.Acknowledge(state.physical);\n        state.probe_latch.Acknowledge();')
     text = replace_one(text, 'int Read(int handle, PadData* output, int count, bool latest) {',
@@ -135,7 +135,7 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
     frame.latency_prepare = probe_prepare;
     frame.latency_ready = 0;
     frame.latency_address = display.address;''')
-    text = replace_one(text, '      frame.sequence = ++presents;', '''      frame.sequence = ++presents;
+    text = replace_one(text, '        frame.sequence = ++presents;', '''        frame.sequence = ++presents;
       frame.latency_ready = Ps4ProbeHostRecord(21, frame.latency_prepare,
           reinterpret_cast<std::uintptr_t>(&frame), frame.latency_address,
           reinterpret_cast<std::uintptr_t>(static_cast<VkImage>(frame.snapshot->image)), frame.copy_tick, 1);''')

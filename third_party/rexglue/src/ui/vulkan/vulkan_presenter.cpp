@@ -1016,6 +1016,13 @@ void VulkanPresenter::DisconnectPaintingFromSurfaceFromUIThreadImpl() {
 
 void VulkanPresenter::ConnectReflex() {
   std::lock_guard lock(reflex_mutex_);
+  if (vulkan_device_->extensions().ext_AMD_anti_lag) {
+    const auto get = vulkan_device_->vulkan_instance()->functions().vkGetDeviceProcAddr;
+    amd_anti_lag_update_ = reinterpret_cast<PFN_vkAntiLagUpdateAMD>(get(vulkan_device_->device(), "vkAntiLagUpdateAMD"));
+  }
+  if (REXCVAR_GET(amd_anti_lag))
+    REXLOG_INFO("AMD_ANTI_LAG backend=vulkan requested=true active={}", amd_anti_lag_update_ != nullptr);
+  if (amd_anti_lag_update_) { EnableInputPacing(true); return; }
   if (!paint_context_.swapchain_reflex) {
     REXLOG_INFO("REFLEX backend=vulkan active=false reason=configuration_or_capability");
     return;
@@ -1047,6 +1054,12 @@ void VulkanPresenter::DisconnectReflex() {
   EnableInputPacing(false);
   std::lock_guard lock(reflex_mutex_);
   const auto device = vulkan_device_->device();
+  if (amd_anti_lag_update_) {
+    VkAntiLagDataAMD off{VK_STRUCTURE_TYPE_ANTI_LAG_DATA_AMD};
+    off.mode = VK_ANTI_LAG_MODE_OFF_AMD;
+    amd_anti_lag_update_(device, &off);
+    amd_anti_lag_update_ = nullptr;
+  }
   if (reflex_pending_) {
     VkSemaphoreWaitInfo wait{VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
     wait.semaphoreCount = 1;
@@ -1065,6 +1078,13 @@ void VulkanPresenter::DisconnectReflex() {
 
 void VulkanPresenter::PaceGuestInput() {
   std::lock_guard lock(reflex_mutex_);
+  if (amd_anti_lag_update_) {
+    // Input-only mode: the driver pairs presentation implicitly.
+    VkAntiLagDataAMD input{VK_STRUCTURE_TYPE_ANTI_LAG_DATA_AMD};
+    input.mode = VK_ANTI_LAG_MODE_ON_AMD;
+    amd_anti_lag_update_(vulkan_device_->device(), &input);
+    return;
+  }
   if (!reflex_swapchain_ || reflex_pending_) return;
   const auto device = vulkan_device_->device();
   VkLatencySleepInfoNV sleep{VK_STRUCTURE_TYPE_LATENCY_SLEEP_INFO_NV};

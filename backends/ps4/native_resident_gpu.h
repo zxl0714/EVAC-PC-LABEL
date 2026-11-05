@@ -19,6 +19,7 @@ public:
     void Run(std::function<void()> operation);
     void SetWindow(void* window);
     void Drain();
+    void PaceInput();
     void FinishGuest();
     // Submit recorded draws without waiting; the later present fence still
     // covers them on the same queue. No flip/event/guest-memory completion.

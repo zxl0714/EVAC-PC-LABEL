@@ -132,6 +132,7 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             }
         } else if (category=="display" && key=="fullscreen") result.fullscreen=boolean();
         else if (category=="display" && key=="vsync") result.vsync=boolean();
+        else if (category=="display" && key=="amd_anti_lag") result.amd_anti_lag=boolean();
         else if (category=="display" && key=="reflex") {
             const auto mode = Lower(value);
             if (mode != "auto" && mode != "off") Error(line,section,key,"expected auto or off");
@@ -267,6 +268,16 @@ Settings ParseSettings(std::string_view text, std::string_view game_id) {
 }
 Settings LoadSettings(const fs::path& path, std::string_view game_id) {
     return ResolveSettings(Ini::Load(path),game_id);
+}
+// Edition defaults only fill an absent setting in the per-run snapshot.
+std::string WithPackageDisplayDefaults(const fs::path& root, std::string snapshot) {
+    const auto preset=root/"runtime"/"display-defaults.ini";
+    if (!fs::is_regular_file(preset) || Ini::Parse(snapshot).Get("display","amd_anti_lag")) return snapshot;
+    const auto defaults=Ini::Load(preset);
+    const auto* value=defaults.Get("display","amd_anti_lag");
+    if (!value || Lower(value->text)!="true") return snapshot;
+    const std::array edits{IniEdit{"display","amd_anti_lag","true"}};
+    return EditIni(snapshot,edits);
 }
 std::string_view DefaultConfig() { return kDefaultConfig; }
 namespace {

@@ -41,6 +41,7 @@ void GsDevice::Impl::CheckRange(size_t offset,size_t bytes) const {
         throw std::out_of_range("GS VRAM range exceeds 4 MiB");
 }
 void GsDevice::Impl::BeginOperation() {
+    ++workSerial;
     activeGeneration=commandGeneration?commandGeneration:completions->Generation();
 }
 void GsDevice::Impl::CompleteMarker() {
@@ -75,6 +76,13 @@ void GsDevice::SetCommandGeneration(uint64_t generation){impl->CheckOwner();impl
 void GsDevice::SetWaitPump(std::function<void()> pump){impl->CheckOwner();impl->waitPump=std::move(pump);}
 Vulkan::Program* CreateGsFieldProgram(Vulkan::Device& device);
 void GsDevice::EnableFieldBlitTracking(){impl->CheckOwner();impl->trackFieldBlits=true;}
+bool GsDevice::IsReadyPage(uint64_t displayBuffer) const {
+    return !impl->trackFieldBlits || (impl->completedBlitPage==(displayBuffer&511u) &&
+        impl->blitFields[impl->completedBlitPage].generation==impl->scanoutGeneration);
+}
+uint64_t GsDevice::ScanoutRevision(uint64_t displayBuffer) const {
+    return impl->trackFieldBlits?impl->blitFields[displayBuffer&511u].revision:impl->workSerial;
+}
 
 // Ibara's final pass scales its game texture into a display page with a
 // textured four-corner fan. Its half-line raster placement identifies the
@@ -89,7 +97,10 @@ void GsDevice::Impl::ObserveFieldBlit(unsigned path,std::span<const uint8_t> pac
     if(ctx.scissor.desc.SCAY0)return;
     const auto phase=FieldBlitPhase(packet,ctx.xyoffset.desc.OFX,ctx.xyoffset.desc.OFY,
                                     int(ctx.scissor.desc.SCAY1)+1);
-    if(phase)blitFields[ctx.frame.desc.FBP]={scanoutGeneration,*phase};
+    if(phase){
+        completedBlitPage=ctx.frame.desc.FBP;
+        blitFields[completedBlitPage]={scanoutGeneration,*phase,workSerial};
+    }
 }
 
 Vulkan::ImageHandle GsDevice::Impl::ReconstructField(Vulkan::ImageHandle field,unsigned phase,
@@ -160,6 +171,7 @@ void GsDevice::UploadImage(const std::array<uint64_t,4>& setup,std::span<const u
 void GsDevice::WriteVram(size_t offset,std::span<const uint8_t> bytes) {
     impl->CheckRange(offset,bytes.size());
     if(bytes.empty())return;
+    ++impl->workSerial;
     if(impl->trackFieldBlits)impl->blitFields={};
     std::memcpy(impl->gs.map_vram_write(offset,bytes.size()),bytes.data(),bytes.size());
     impl->gs.end_vram_write(offset,bytes.size());
@@ -179,12 +191,13 @@ void GsDevice::ReadTransferFifo(std::span<uint8_t> bytes) {
 }
 void GsDevice::Flush(){impl->CheckOwner();impl->gs.flush();}
 void GsDevice::Reset(){
+    ++impl->workSerial;
     impl->CheckOwner();impl->completions->Reset();impl->commandGeneration=0;
     impl->gs.flush();impl->gs.reset_context_state();
     impl->blitFields={};
     for(auto& lane:impl->fieldHistory)for(auto& field:lane)field.reset();
 }
-ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImageLayout layout,
+ParallelGS::ScanoutResult GsDevice::Impl::ScanoutFlushed(const GsFrame& request,VkImageLayout layout,
                                                 VkPipelineStageFlags2 stage,VkAccessFlags2 access,bool currentField) {
     CheckOwner();
     auto& registers=gs.get_priv_register_state();
@@ -215,9 +228,6 @@ ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImage
     // fields together. The renderer keeps normal interlaced FRAME mode intact.
     info.force_progressive=(request.smode2&3u)==1u;
     info.skip_deinterlace=currentField;
-    // The renderer's vsync consumes completed GS command batches. It does not
-    // flush GSInterface's pending draw/transfer tracker on behalf of callers.
-    gs.flush();
     if(!trackFieldBlits)return gs.vsync(info);
     const auto tagged=blitFields[registers.dispfb2.FBP];
     // A field may wait behind the front page or be held across a missed flip.
@@ -249,7 +259,8 @@ ParallelGS::ScanoutResult GsDevice::Impl::Scanout(const GsFrame& request,VkImage
 
 bool GsDevice::RenderField(const GsFrame& frame) {
     impl->CheckOwner();WaitField();
-    auto result=impl->Scanout(frame,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    impl->gs.flush();
+    auto result=impl->ScanoutFlushed(frame,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
         frame.fixedFieldDrawing && (frame.smode2&3u)==3u);
     impl->lastField=std::move(result.image);

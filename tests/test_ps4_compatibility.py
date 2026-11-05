@@ -63,7 +63,7 @@ class CompatibilityWiringTests(unittest.TestCase):
         presenter=self.text('third_party/ps4/gpu_core/host/presenter.cpp')
         create=presenter.split('void CreateChain(',1)[1].split('RuntimePresentResult Prepare(',1)[0]
         self.assertIn('CreateWindowSwapchain(create_info,window_chain_established,',create)
-        self.assertIn('device.createSwapchainKHRUnique(info)',create)
+        self.assertIn('device.createSwapchainKHRUnique(effective)',create)
         self.assertIn('temporary_presents=0',create)
         bootstrap=self.text('backends/ps4/graphics/swapchain_bootstrap.h')
         self.assertIn('info.oldSwapchain=*bootstrap',bootstrap)

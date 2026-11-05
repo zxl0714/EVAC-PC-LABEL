@@ -138,7 +138,8 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         Require(Resolve(root,requested_profile.parent_path())==profile_parent,"Profile must be under the selected game's user-data directory");
         const auto profile=Utf8(requested_profile.filename());
         const auto config=EnsureConfig(root);
-        const auto snapshot=Ini::ReadText(config);
+        const auto user_snapshot=Ini::ReadText(config);
+        const auto snapshot=WithPackageDisplayDefaults(root,user_snapshot);
         const auto ini=Ini::Parse(snapshot);
         const auto configuration=ResolveCollectionConfiguration(ini,game);
         Require(!diagnostic_unpaced || (!configuration.shared.community_enabled && !configuration.shared.vsync && profile.starts_with("benchmark-")),
@@ -175,7 +176,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         const Json prepared_event{{"event","collection_prepared"},{"cacheHit",prepared.cache.reused},
             {"recipeSha256",prepared.cache.key},{"directory",Utf8(prepared.cache.directory)}};
         std::puts(prepared_event.dump().c_str());
-        Require(Ini::ReadText(config)==snapshot,"config.ini changed during startup; restart with the saved configuration");
+        Require(Ini::ReadText(config)==user_snapshot,"config.ini changed during startup; restart with the saved configuration");
         std::vector<std::wstring> arguments{argv[0],prepared.executable.native(),L"--enter",
             L"--module-dir",prepared.modules.native(),L"--app-dir",spec.paths.data.native(),
             L"--user-dir",spec.paths.profile.native(),L"--allocation-timing",L"counts",

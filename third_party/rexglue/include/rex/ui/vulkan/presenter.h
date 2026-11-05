@@ -485,6 +485,7 @@ class VulkanPresenter final : public Presenter {
   void ConnectReflex();
   void DisconnectReflex();
   std::mutex reflex_mutex_;
+  PFN_vkAntiLagUpdateAMD amd_anti_lag_update_{};
   VkSwapchainKHR reflex_swapchain_{};
   VkSemaphore reflex_semaphore_{};
   uint64_t reflex_signal_{}, reflex_pending_{};

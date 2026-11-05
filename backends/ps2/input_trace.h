@@ -11,7 +11,7 @@
 
 namespace cave::ps2::input_trace {
 enum class Kind : uint8_t { HostKey,PadRead,VBlank,DisplayWrite,FrameQueue,PresentStart,
-                            Submit,PresentEnd,Feedback,ClockLink,GsCommand };
+                            Submit,PresentEnd,Feedback,ClockLink,GsCommand,ReadyQueue };
 struct Event { int64_t qpcUs{};uint64_t frame{},a{},b{},c{};Kind kind{}; };
 struct Storage {
     std::filesystem::path path;
@@ -46,7 +46,7 @@ inline const char* Name(Kind kind) noexcept {
     case Kind::FrameQueue:return "frame_queue";case Kind::PresentStart:return "present_start";
     case Kind::Submit:return "submit";case Kind::PresentEnd:return "present_end";
     case Kind::Feedback:return "feedback_unknown_stage";case Kind::ClockLink:return "clock_link";
-    case Kind::GsCommand:return "gs_command";
+    case Kind::GsCommand:return "gs_command";case Kind::ReadyQueue:return "ready_queue";
     }
     return "unknown";
 }

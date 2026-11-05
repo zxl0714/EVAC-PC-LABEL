@@ -43,6 +43,8 @@ void ConfigureHost(HostSettings supplied) {
 std::uint32_t ValidationErrors() { return validation_errors.load(); }
 std::uint32_t OverlaySubmissions() { return overlay_submissions.load(); }
 bool IsNeoMode() { return settings.neo; }
+bool AmdAntiLagRequested() { return settings.amd_anti_lag; }
+bool ReflexRequested() { return settings.reflex; }
 bool HasPresentationSupport() { return settings.native_window != nullptr || settings.presentation_support; }
 const std::filesystem::path& PipelineCacheDirectory() { return settings.pipeline_cache_directory; }
 void TimingLog(const char* format, ...) noexcept {

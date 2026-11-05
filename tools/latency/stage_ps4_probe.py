@@ -7,9 +7,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 PRIVATE = ROOT / '.local/input-latency-v080-r1'
-GAMES = ('ketsui', 'daioujou', 'esprade', 'feveron')
+GAMES = ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga')
 DATA = {game: ROOT / 'game-data' / game for game in GAMES}
 DATA['feveron'] = ROOT / '.local/v080-feveron-base-r1/uroot'
+DATA['garegga'] = ROOT / '.local/v083/base-kr-r1/uroot'
 sys.path.insert(0, str(ROOT / 'scripts'))
 from project import digest, write_json_new
 

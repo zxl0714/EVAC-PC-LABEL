@@ -15,6 +15,7 @@
 
 // Presenter
 REXCVAR_DECLARE(bool, xbox360_reflex);
+REXCVAR_DECLARE(bool, amd_anti_lag);
 REXCVAR_DECLARE(bool, present_render_pass_clear);
 REXCVAR_DECLARE(bool, present_letterbox);
 REXCVAR_DECLARE(int32_t, present_safe_area_x);

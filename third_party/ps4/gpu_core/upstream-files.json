@@ -1024,13 +1024,13 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
-      "sha256": "c0e46ba3a0639148305a280f067b25823c5f865dc2d8190f91fde969fa6d571d",
-      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; negotiate paired EXT/KHR present fences when available, otherwise use per-image reacquisition. Use a second same-family presentation queue when available, retaining the shared-queue fallback. Log GPU and driver identity before device creation. Reject an unsupported device API through a recoverable startup error before querying Vulkan 1.3 formats."
+      "sha256": "3d35fa8224fec342c4b5b653e2c106cf7cf0b51c3e3dc070c83e68183c8e8037",
+      "description": "Destroy the device before the validation messenger. Enable required 16-bit uniform/storage access; negotiate paired EXT/KHR present fences when available, otherwise use per-image reacquisition. Use a second same-family presentation queue when available, retaining the shared-queue fallback. Log GPU and driver identity before device creation. Reject an unsupported device API through a recoverable startup error before querying Vulkan 1.3 formats. Negotiate optional NVIDIA Reflex and retry device creation without it when necessary. Negotiate optional AMD Anti-Lag separately from Reflex."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.h",
-      "sha256": "3ed7afd02abfb0525d93852fbadcef946b48785bac3669749f1e8867b227dcec",
-      "description": "Expose whether tracked presentation fences were enabled on this device. Support paired EXT/KHR maintenance1 negotiation (issue #1)."
+      "sha256": "7095a5d7f04b4450d6607f836c8e04f21372c8e6c0ced95cd27234de19a7793a",
+      "description": "Expose whether tracked presentation fences were enabled on this device. Support paired EXT/KHR maintenance1 negotiation (issue #1). Expose the negotiated NVIDIA Reflex capability to the presenter. Negotiate optional AMD Anti-Lag separately from Reflex."
     },
     {
       "path": "src/shader_recompiler/ir/passes/srt.h",

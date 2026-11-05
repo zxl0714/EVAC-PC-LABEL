@@ -338,6 +338,7 @@ public:
     void dispatchIrq(bool dmac, uint32_t cause);
     void setVSyncFlag(uint32_t flagAddress, uint32_t tickAddress);
     [[nodiscard]] uint64_t currentVSyncTick() const noexcept;
+    std::chrono::steady_clock::time_point nextVBlankDeadline() const;
     int64_t microsecondsBeforeVBlank() const;
     void deferBeforeVBlank(uint32_t reserveUs, std::function<void(R5900Context &)> completion);
     void setScanoutAfterDisplayFlip(bool enabled) noexcept { m_scanoutAfterDisplayFlip = enabled; }

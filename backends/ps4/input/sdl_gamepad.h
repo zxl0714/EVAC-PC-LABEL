@@ -9,7 +9,9 @@ struct GamepadSnapshot {
     std::array<std::uint64_t, 32> edges{};
     std::uint8_t left_x=128, left_y=128, right_x=128, right_y=128, l2{}, r2{};
 };
-// Initialize/destroy on the host main thread. Poll on the existing pad sampler.
+// Initialize/destroy on the host main thread. Poll under the pad mutex, on the
+// sampler or at a game read. Buttons are current state; pending is only dirty
+// notification and is never merged into the returned button/trigger state.
 // SDL owns physical-device discovery only, never our window/keyboard/audio.
 class SdlGamepad {
 public:

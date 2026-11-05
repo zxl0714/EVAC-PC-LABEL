@@ -24,6 +24,7 @@
 #include <rex/ui/d3d12/d3d12_util.h>
 #include <rex/ui/surface_win.h>
 #include <rex/ui/flags.h>
+#include "../../../thirdparty/amd-anti-lag2/ffx_antilag2_dx12.h"
 
 #if defined(REX_HAS_FIDELITYFX_RUNTIME) && REX_HAS_FIDELITYFX_RUNTIME
 #include <ffx_api/dx12/ffx_api_dx12.h>
@@ -52,8 +53,35 @@ namespace shaders {
 #include "ui/shaders/bytecode/d3d12_5_1/guest_output_triangle_strip_rect_vs.h"
 }  // namespace shaders
 
+struct D3D12Presenter::AmdPacing {
+  AMD::AntiLag2DX12::Context context{};
+  bool active{};
+  ~AmdPacing() {
+    if (context.m_pAntiLagAPI) {
+      AMD::AntiLag2DX12::Update(&context, false, 0);
+      AMD::AntiLag2DX12::DeInitialize(&context);
+    }
+  }
+};
+
+void D3D12Presenter::PaceGuestInput() {
+  if (provider_.GetAdapterVendorID() == GraphicsProvider::GpuVendorID::kAMD) {
+    std::lock_guard lock(amd_pacing_mutex_);
+    if (amd_pacing_ && amd_pacing_->active &&
+        FAILED(AMD::AntiLag2DX12::Update(&amd_pacing_->context, true, 0))) {
+      amd_pacing_->active = false;
+      AMD::AntiLag2DX12::Update(&amd_pacing_->context, false, 0);
+      EnableInputPacing(false);
+      REXLOG_INFO("AMD_ANTI_LAG backend=d3d12 active=false reason=driver_update");
+    }
+  } else if (!reflex_.Pace(provider_.GetDevice())) {
+    EnableInputPacing(false);
+  }
+}
+
 D3D12Presenter::~D3D12Presenter() {
   EnableInputPacing(false);
+  { std::lock_guard lock(amd_pacing_mutex_); amd_pacing_.reset(); }
   reflex_.Close(provider_.GetDevice());
   // Await completion of the usage of everything before destroying anything.
   // From most likely the latest to most likely the earliest to be signaled, so
@@ -483,7 +511,19 @@ D3D12Presenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_sur
 
   reflex_.Connect(device, provider_.GetAdapterVendorID() == GraphicsProvider::GpuVendorID::kNvidia,
                   REXCVAR_GET(xbox360_reflex));
-  EnableInputPacing(reflex_.active());
+  if (REXCVAR_GET(amd_anti_lag) && provider_.GetAdapterVendorID() == GraphicsProvider::GpuVendorID::kAMD) {
+    std::lock_guard lock(amd_pacing_mutex_);
+    if (!amd_pacing_) {
+      amd_pacing_ = std::make_shared<AmdPacing>();
+      const auto result = AMD::AntiLag2DX12::Initialize(&amd_pacing_->context, device);
+      amd_pacing_->active = result == S_OK;
+      REXLOG_INFO("AMD_ANTI_LAG backend=d3d12 requested=true active={} hr={}", amd_pacing_->active, static_cast<long>(result));
+    }
+    EnableInputPacing(amd_pacing_->active);
+  } else {
+    if (REXCVAR_GET(amd_anti_lag)) REXLOG_INFO("AMD_ANTI_LAG backend=d3d12 active=false reason=adapter");
+    EnableInputPacing(reflex_.active());
+  }
   is_vsync_implicit_out = false;
   return SurfacePaintConnectResult::kSuccess;
 }

@@ -29,5 +29,7 @@ public:
   RuntimePresentationStats Stats();
   void PauseForDiagnostics(bool paused);
   void Drain();
+  void PaceInput();
+  void BeginRendering();
 };
 } // namespace Ketsui::GpuCore

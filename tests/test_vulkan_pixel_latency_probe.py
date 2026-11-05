@@ -89,6 +89,18 @@ class VulkanPixelProbeTests(unittest.TestCase):
     def test_private_generator_fails_on_changed_anchor(self):
         with self.assertRaises(ValueError): instrument_presenter('wrong source')
 
+    def test_full_contiguous_prefix_can_be_analyzed_after_capacity_overflow(self):
+        meta = Path(str(self.prefix)+'.csv')
+        full = self.text.replace('capacity=3', 'capacity=1').replace('overflow=0', 'overflow=2')
+        meta.write_text(full)
+        with self.assertRaises(ValueError):
+            read_capture(self.prefix, self.trace)
+        capture = read_capture(self.prefix, self.trace, allow_bounded_prefix=True)
+        self.assertEqual((len(capture['frames']), capture['footer']['overflow']), (1, 2))
+        meta.write_text(full.replace('capacity=1', 'capacity=2'))
+        with self.assertRaises(ValueError):
+            read_capture(self.prefix, self.trace, allow_bounded_prefix=True)
+
     def test_readback_contains_no_submit_wait_or_gameplay_file_write(self):
         text=(ROOT/'tools/latency/vulkan_pixel_probe.h').read_text()
         prepare=text[text.index('  unsigned Prepare('):text.index('  void Completed(')]
@@ -97,7 +109,7 @@ class VulkanPixelProbeTests(unittest.TestCase):
             self.assertNotIn(forbidden,prepare)
         generator=(ROOT/'tools/latency/prepare_ps4_vulkan_pixels.py').read_text()
         self.assertIn('latency_pixels.Flush();',generator)
-        self.assertIn('frame.copy_pending = false;',generator)
+        self.assertIn('result.guest_copy_completed = true;',generator)
 
 
 if __name__=='__main__': unittest.main()

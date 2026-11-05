@@ -24,6 +24,7 @@
 #include "games/ibara/input_timing.h"
 #else
 #include "games/espgaluda/disc_files.h"
+#include "games/espgaluda/input_timing.h"
 #endif
 
 #ifdef EVAC_PS2_ESPGALUDA_MODULES
@@ -597,6 +598,7 @@ int main(int argc,char** argv) {
         if(!inputTraceEvents || inputTraceEvents>1000000)throw std::runtime_error("Input trace events must be 1..1000000");
       }
       else if(option=="--coarse-timer")hostOptions.timerPrecision=false;
+      else if(option=="--reflex-off")hostOptions.reflex=false;
       else if(option=="--frame-times" && i+1<argc) {
         frameTimes=std::filesystem::absolute(argv[++i]);
         if(std::filesystem::exists(frameTimes))throw std::runtime_error("Frame timing output already exists");
@@ -682,10 +684,14 @@ int main(int argc,char** argv) {
     runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
     if(!runtime.initialize(WindowTitle))throw std::runtime_error("PS2 host initialization failed");
     if(!runtime.loadELF(elf.string()))throw std::runtime_error("Boot ELF loading failed");
+    if (!std::getenv("EVAC_PS2_TEST_ORIGINAL_PAD_TIMING")) {
 #ifdef EVAC_PS2_IBARA
-    if (!std::getenv("EVAC_PS2_TEST_ORIGINAL_PAD_TIMING"))
       cave::ibara::InputTiming::Bind(runtime);
+      cave::ibara::DisplayWorker::Bind(runtime);
+#else
+      cave::espgaluda::InputTiming::Bind(runtime);
 #endif
+    }
     auto paths=PS2Runtime::getIoPaths();
     paths.elfPath=elf;paths.elfDirectory=elf.parent_path();
     paths.hostRoot=data;paths.cdRoot=data;paths.cdImage=iso;paths.mcRoot=profile/"mc0";

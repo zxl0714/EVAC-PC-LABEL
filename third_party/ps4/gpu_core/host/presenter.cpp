@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "presenter.h"
+#include "reflex.h"
 #include "cache_memory.h"
 #include "core/libraries/videoout/buffer.h"
 #include "diagnostics/monotonic_clock.h"
@@ -60,6 +61,10 @@ struct Presenter::Impl {
   Vulkan::Runtime &runtime;
   VideoCore::TextureCache &cache;
   Surface surface;
+  Reflex reflex;
+  std::mutex amd_input_mutex;
+  uint64_t amd_sampled{};
+  bool chain_reflex{};
   vk::UniqueSwapchainKHR chain;
   vk::SwapchainKHR replacement_old{};
   vk::Extent2D extent{};
@@ -89,13 +94,14 @@ struct Presenter::Impl {
     vk::UniqueImageView snapshot_view;
     vk::Extent2D snapshot_extent{};
     vk::Format snapshot_format{};
-    bool snapshot_initialized{}, copy_pending{};
+    bool snapshot_initialized{}, copy_pending{}, reader_done{};
     u64 copy_tick{}, sequence{};
+    u64 reflex_frame{};
     SnapshotState state = SnapshotState::Free; // guarded by handoff_mutex
   };
   struct FrameResources {
     vk::UniqueFence acquired, completed, presented;
-    vk::UniqueSemaphore ready;
+    vk::UniqueSemaphore ready, acquired_semaphore;
     vk::UniqueCommandPool pool;
     vk::UniqueCommandBuffer command;
     bool gpu_pending{}, present_pending{};
@@ -128,7 +134,7 @@ struct Presenter::Impl {
       : instance{instance_},
         window{static_cast<HWND>(window_.GetWindowInfo().render_surface)},
         scheduler{scheduler_}, runtime{runtime_}, cache{cache_},
-        surface{instance.GetInstance(), window_}, vsync{vsync_},
+        surface{instance.GetInstance(), window_}, reflex{instance.GetDevice()}, vsync{vsync_},
         copy_timeline{scheduler.GetWorkSemaphore()->Handle()},
         output_queue{shared_present_queue ? instance.GetGraphicsQueue()
                                           : instance.GetPresentQueue()} {
@@ -149,6 +155,7 @@ struct Presenter::Impl {
           Checked(device.createFenceUnique({}), "Create presentation fence");
       frame.ready =
           Checked(device.createSemaphoreUnique({}), "Create present semaphore");
+      frame.acquired_semaphore = Checked(device.createSemaphoreUnique({}), "Create acquire semaphore");
       frame.pool = Checked(
           device.createCommandPoolUnique(
               {.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -217,6 +224,7 @@ struct Presenter::Impl {
       // error.
       std::terminate();
     }
+    reflex.Disconnect();
     views.clear();
     chain.reset();
   }
@@ -479,6 +487,7 @@ struct Presenter::Impl {
                        "Create presentation pipeline");
   }
   void RetireChain() {
+    reflex.Disconnect();
     for (auto &frame : frames)
       Retire(frame);
     views.clear();
@@ -541,7 +550,10 @@ struct Presenter::Impl {
       count = std::min(count, caps.maxImageCount);
     }
     const auto device = instance.GetDevice();
+    const vk::SwapchainLatencyCreateInfoNV low_latency{.latencyModeEnable = true};
+    chain_reflex = instance.HasReflex();
     const vk::SwapchainCreateInfoKHR create_info{
+                         .pNext = chain_reflex ? &low_latency : nullptr,
                          .surface = surface.value,
                          .minImageCount = count,
                          .imageFormat = selected->format,
@@ -558,10 +570,19 @@ struct Presenter::Impl {
     const bool bootstrap=!window_chain_established && create_info.presentMode!=vk::PresentModeKHR::eFifo;
     chain=cave::ps4::CreateWindowSwapchain(create_info,window_chain_established,
         vk::PresentModeKHR::eFifo,[&](const auto& info) {
-            return Checked(device.createSwapchainKHRUnique(info),"Create tracked swapchain");
+            auto effective = info;
+            if (!chain_reflex) effective.pNext = nullptr;
+            auto result = device.createSwapchainKHRUnique(effective);
+            if (result.result != vk::Result::eSuccess && chain_reflex) {
+              chain_reflex = false;
+              auto plain = info; plain.pNext = nullptr;
+              result = device.createSwapchainKHRUnique(plain);
+            }
+            return Checked(std::move(result),"Create tracked swapchain");
         });
     if(bootstrap) std::fprintf(stderr,"gpu_runtime_swapchain_bootstrap: initial=Fifo selected=%s temporary_presents=0\n",
                                vk::to_string(create_info.presentMode).c_str());
+    reflex.Connect(*chain, chain_reflex);
     images =
         Checked(device.getSwapchainImagesKHR(*chain), "Get swapchain images");
     Require(images.size() <= MaxChainImages, "Swapchain image count exceeds resource bound");
@@ -654,6 +675,8 @@ struct Presenter::Impl {
     Vulkan::SubmitInfo copy_submit{};
     copy_submit.AddSignal(*frame.copied);
     scheduler.Flush(copy_submit);
+    frame.reflex_frame = reflex.CurrentFrame();
+    reflex.Mark(frame.reflex_frame, vk::LatencyMarkerNV::eRendersubmitEnd);
     frame.copy_pending = true;
     const auto submitted_at = kt::diagnostics::MonotonicMicroseconds();
     result.status = RuntimePresentStatus::Prepared;
@@ -693,7 +716,8 @@ struct Presenter::Impl {
       const auto retired_at = kt::diagnostics::MonotonicMicroseconds();
       u32 index{};
       const auto acquire = device.acquireNextImageKHR(
-          *chain, 1'000'000'000ull, {}, *frame.acquired, &index);
+          *chain, 1'000'000'000ull, instance.HasPresentFences() ? *frame.acquired_semaphore : vk::Semaphore{},
+          instance.HasPresentFences() ? vk::Fence{} : *frame.acquired, &index);
       if (acquire == vk::Result::eErrorOutOfDateKHR) {
         RetireChain();
         continue;
@@ -701,8 +725,8 @@ struct Presenter::Impl {
       Check(acquire == vk::Result::eSuboptimalKHR ? vk::Result::eSuccess
                                                   : acquire,
             "Acquire swapchain image");
-      Check(device.waitForFences(*frame.acquired, true, 5'000'000'000ull),
-            "Wait swapchain acquire");
+      if (!instance.HasPresentFences())
+        Check(device.waitForFences(*frame.acquired, true, 5'000'000'000ull), "Wait swapchain acquire");
       const auto acquired_at = kt::diagnostics::MonotonicMicroseconds();
       Require(index < images.size(), "Acquired swapchain index is invalid");
       if (!instance.HasPresentFences() && image_presents[index].pending) {
@@ -796,8 +820,11 @@ struct Presenter::Impl {
           .semaphore = instance.HasPresentFences() ? *frame.ready : *image_presents[index].ready,
           .stageMask = vk::PipelineStageFlagBits2::eAllCommands};
       const vk::CommandBufferSubmitInfo commands{.commandBuffer = command};
-      const vk::SubmitInfo2 submit{.waitSemaphoreInfoCount = 1,
-                                   .pWaitSemaphoreInfos = &wait,
+      const std::array waits{wait, vk::SemaphoreSubmitInfo{
+          .semaphore = *frame.acquired_semaphore,
+          .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput}};
+      const vk::SubmitInfo2 submit{.waitSemaphoreInfoCount = instance.HasPresentFences() ? 2u : 1u,
+                                   .pWaitSemaphoreInfos = waits.data(),
                                    .commandBufferInfoCount = 1,
                                    .pCommandBufferInfos = &commands,
                                    .signalSemaphoreInfoCount = 1,
@@ -816,17 +843,23 @@ struct Presenter::Impl {
       const vk::SwapchainPresentFenceInfoEXT completion{.swapchainCount = 1,
                                                         .pFences = &fence};
       const auto semaphore = instance.HasPresentFences() ? *frame.ready : *image_presents[index].ready;
+      const std::uint64_t present_id = snapshot.sequence;
+      const vk::PresentIdKHR reflex_id{.pNext = instance.HasPresentFences() ? &completion : nullptr,
+          .swapchainCount = 1, .pPresentIds = &present_id};
       vk::Result status;
       {
         std::unique_lock lock(Vulkan::Scheduler::submit_mutex, std::defer_lock);
         if (!stats.independent_queue)
           lock.lock();
-        status = output_queue.presentKHR({.pNext = instance.HasPresentFences() ? &completion : nullptr,
+        reflex.Mark(snapshot.reflex_frame, vk::LatencyMarkerNV::ePresentStart);
+        status = output_queue.presentKHR({.pNext = chain_reflex ? static_cast<const void*>(&reflex_id) :
+                                              (instance.HasPresentFences() ? &completion : nullptr),
                                           .waitSemaphoreCount = 1,
                                           .pWaitSemaphores = &semaphore,
                                           .swapchainCount = 1,
                                           .pSwapchains = &handle,
                                           .pImageIndices = &index});
+        reflex.Mark(snapshot.reflex_frame, vk::LatencyMarkerNV::ePresentEnd);
       }
       if (status == vk::Result::eSuccess ||
           status == vk::Result::eSuboptimalKHR ||
@@ -896,7 +929,7 @@ struct Presenter::Impl {
           lock.unlock();
           const bool shown = PresentSnapshot(index);
           lock.lock();
-          snapshots[index].state = SnapshotState::Free;
+          cave::ps4::FinishSnapshotRead(snapshots[index]);
           stats.active_images = 0;
           if (!shown)
             ++stats.skipped;
@@ -923,33 +956,42 @@ struct Presenter::Impl {
     pending.reset();
     auto &frame = snapshots[frame_index];
     const auto paced_at = kt::diagnostics::MonotonicMicroseconds();
-    Check(instance.GetDevice().waitForFences(*frame.copied, true,
-                                             5'000'000'000ull),
-          "Wait guest snapshot");
-    frame.copy_pending = false;
-    result.guest_copy_completed = true;
-    const auto copied_at = kt::diagnostics::MonotonicMicroseconds();
+    // The output queue already waits on copy_timeline. Publish the submitted
+    // image now, overlapping its acquisition/command recording with the copy.
+    // Guest buffers still cannot be reused until the producer fence below.
     {
       std::lock_guard lock(handoff_mutex);
       if (presentation_error)
         std::rethrow_exception(presentation_error);
-      if (!pacing_accepted) {
-        frame.state = SnapshotState::Free;
-        result.status = RuntimePresentStatus::Cancelled;
-        result.tick = 0;
-        return result;
+      frame.reader_done = false;
+      if (pacing_accepted) {
+        if (ready_snapshot) {
+          snapshots[*ready_snapshot].state = SnapshotState::Free;
+          ++stats.replaced;
+        }
+        frame.sequence = ++presents;
+        frame.state = SnapshotState::Ready;
+        ready_snapshot = frame_index;
+        stats.accepted = presents;
+        stats.ready_images = 1;
       }
-      if (ready_snapshot) {
-        snapshots[*ready_snapshot].state = SnapshotState::Free;
-        ++stats.replaced;
-      }
-      frame.sequence = ++presents;
-      frame.state = SnapshotState::Ready;
-      ready_snapshot = frame_index;
-      stats.accepted = presents;
-      stats.ready_images = 1;
     }
     handoff_changed.notify_all();
+    Check(instance.GetDevice().waitForFences(*frame.copied, true,
+                                             5'000'000'000ull),
+          "Wait guest snapshot");
+    {
+      std::lock_guard lock(handoff_mutex);
+      cave::ps4::FinishSnapshotCopy(frame, pacing_accepted);
+    }
+    result.guest_copy_completed = true;
+    const auto copied_at = kt::diagnostics::MonotonicMicroseconds();
+    if (!pacing_accepted) {
+      result.status = RuntimePresentStatus::Cancelled;
+      result.tick = 0;
+      return result;
+    }
+    reflex.NextFrame();
     result.status = RuntimePresentStatus::Completed;
     result.completed_presents = presents;
     const auto completed_at = kt::diagnostics::MonotonicMicroseconds();
@@ -1004,4 +1046,17 @@ void Presenter::PauseForDiagnostics(bool paused) {
   impl->PauseForDiagnostics(paused);
 }
 void Presenter::Drain() { impl->Drain(); }
+void Presenter::PaceInput() {
+  if (!impl->instance.HasAmdAntiLag()) {
+    impl->reflex.Pace();
+    return;
+  }
+  std::lock_guard lock(impl->amd_input_mutex);
+  const auto frame = impl->reflex.CurrentFrame();
+  if (frame == impl->amd_sampled) return;
+  impl->amd_sampled = frame;
+  const vk::AntiLagDataAMD input{.mode = vk::AntiLagModeAMD::eOn};
+  impl->instance.GetDevice().antiLagUpdateAMD(input);
+}
+void Presenter::BeginRendering() { impl->reflex.BeginRendering(); }
 } // namespace Ketsui::GpuCore

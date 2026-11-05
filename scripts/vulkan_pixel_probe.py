@@ -9,7 +9,7 @@ from latency_probe import read_trace
 from pixel_probe import fields
 
 
-def read_capture(prefix, trace):
+def read_capture(prefix, trace, *, allow_bounded_prefix=False):
     metadata = Path(str(prefix) + '.csv').read_text(encoding='ascii').splitlines()
     if len(metadata) < 3 or not metadata[0].startswith('# evac_vk_pixels_v1 ') or not metadata[-1].startswith('# end '):
         raise ValueError('Missing Vulkan pixel header/footer')
@@ -17,7 +17,11 @@ def read_capture(prefix, trace):
     required = {'frequency','pid','width','height','x','y','roi_width','roi_height','format','pitch','stride','capacity'}
     if header.keys() != required or footer.keys() != {'captured','valid','overflow','failed','bytes_ok'}:
         raise ValueError('Unexpected Vulkan pixel metadata')
-    if footer['failed'] or footer['overflow'] or not footer['bytes_ok'] or footer['captured'] != footer['valid']:
+    # A full, contiguous prefix remains usable when later frames hit capacity.
+    # Callers opting in must bound their response analysis to retained frames;
+    # the original overflow count stays visible in the returned evidence.
+    bounded = allow_bounded_prefix and footer['valid'] == header['capacity']
+    if footer['failed'] or (footer['overflow'] and not bounded) or not footer['bytes_ok'] or footer['captured'] != footer['valid']:
         raise ValueError('Incomplete or overflowing Vulkan pixel capture')
     if not trace['complete'] or (header['frequency'],header['pid']) != (trace['frequency'],trace['pid']):
         raise ValueError('Vulkan pixel trace clock/process identity differs')

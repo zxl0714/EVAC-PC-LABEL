@@ -54,6 +54,18 @@ void Presentation() {
 void SnapshotHandoff() {
     using namespace cave::ps4;
     using S=SnapshotOwnership;
+    struct PendingSlot { S state{S::Presenting}; bool copy_pending{true}, reader_done{}; };
+    for (const bool reader_first : {false, true}) {
+        PendingSlot slot;
+        if (reader_first) FinishSnapshotRead(slot); else FinishSnapshotCopy(slot, true);
+        Check(slot.state == S::Presenting, "first completion cannot recycle a snapshot still owned by the other party");
+        if (reader_first) FinishSnapshotCopy(slot, true); else FinishSnapshotRead(slot);
+        Check(slot.state == S::Free && !slot.copy_pending && slot.reader_done,
+              "either completion order releases the slot only after both parties finish");
+    }
+    PendingSlot cancelled; cancelled.state=S::Writing;
+    FinishSnapshotCopy(cancelled, false);
+    Check(cancelled.state==S::Free && !cancelled.copy_pending, "cancelled copy retires without an output reader");
     struct Slot {S state;};
     for(std::uint32_t active_index=0;active_index<3;++active_index)
       for(std::uint32_t ready_index=0;ready_index<3;++ready_index) {

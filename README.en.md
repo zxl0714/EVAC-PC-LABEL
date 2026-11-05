@@ -21,11 +21,11 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
 
 ## Latency and performance
 
-Representative workloads; lower is better. Latency is in milliseconds and CPU usage is in equivalent logical cores.
+Lower values are better. Port latency was measured with Reflex enabled on all three platforms. Latency is in milliseconds and CPU usage is in equivalent logical cores.
 
 **Xbox 360**
 
-The ports use 0V with Reflex enabled. Xenia uses the original game settings.
+The Xbox 360 ports use 0V. Xenia uses the original game settings.
 
 | Game | Port latency | Xenia latency | Port CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -38,18 +38,18 @@ The ports use 0V with Reflex enabled. Xenia uses the original game settings.
 
 | Game | Port latency | shadPS4 latency | Port CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
-| Ketsui | 17 | 55 | 0.25 | 0.62 |
-| DaiOuJou | 17 | 55 | 0.26 | 0.34 |
-| ESP Ra.De. | 20 | 46 | 0.38 | 0.62 |
-| Dangun Feveron | 19 | 46 | 0.27 | 0.66 |
-| Battle Garegga | 17 | 46 | 0.36 | 0.62 |
+| Ketsui | 16 | 55 | 0.32 | 0.62 |
+| DaiOuJou | 15 | 55 | 0.30 | 0.34 |
+| ESP Ra.De. | 20 | 46 | 0.43 | 0.62 |
+| Dangun Feveron | 17 | 46 | 0.36 | 0.66 |
+| Battle Garegga | 16 | 46 | 0.35 | 0.62 |
 
 **PS2**
 
 | Game | Port latency | PCSX2 latency | Port CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
-| ESPGaluda | 27 | 43 | 0.27 | 0.25 |
-| Ibara | 32 | 43 | 0.36 | 0.27 |
+| ESPGaluda | 18 | 43 | 0.28 | 0.25 |
+| Ibara | 18 | 43 | 0.38 | 0.27 |
 
 Latency estimates include average sampling wait, game response and presentation, excluding device input, display scanout and panel response. CPU measurements use an i7-13700KF / RTX 4080. The two ESPGaluda CPU samples cover different scenes. [Test conditions and methods →](docs/PERFORMANCE.en.md)
 

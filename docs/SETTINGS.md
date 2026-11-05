@@ -83,11 +83,17 @@ frame_delay = 1
 
 `1` 为默认低延迟路径，`0` 将等待移到提交画面之后，`2` 为原始路径。已有显式设置保持不变；修改后重启游戏生效。
 
+## AMD Radeon Anti-Lag 2
+
+Xbox 360、PS4 和 PS2 游戏共用一个开关。在 `user-data/config.ini` 的 `[display]` 下写入 `amd_anti_lag = true` 并重启游戏。设为 `false` 即可关闭。未填写时，标准程序包默认关闭，文件名带 `-amd-anti-lag2` 的测试包默认开启。已有配置中的显式选择优先。
+
+运行时按实际渲染显卡和驱动能力启用。运行日志里的 `AMD_ANTI_LAG` 记录探测结果。NVIDIA 显卡继续使用独立的 `reflex` 设置。
+
 ## 虫姬二、狱门山与 NVIDIA Reflex
 
 虫姬二可在游戏内的 Frame Delay 设置中选择 **0V (Tearing)**。狱门山在 `[game.guwange]` 下设置 `frame_delay = 0`，普通、Blue 和 Arrange 单人模式可减少两帧输入延迟；设回 `original` 使用原作时序。
 
-四款 Xbox 360 游戏默认在支持的 NVIDIA 显卡上自动启用 Reflex。要关闭，在 `[display]` 下设置 `reflex = off`，重启游戏后生效。设回 `auto` 恢复自动探测。
+Xbox 360、PS4 和 PS2 游戏默认在支持的 NVIDIA 显卡上自动启用 Reflex。要关闭，在 `[display]` 下设置 `reflex = off`，重启游戏后生效。设回 `auto` 恢复自动探测。
 
 ## 社区排行榜
 

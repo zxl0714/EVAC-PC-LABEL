@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 
 namespace Ketsui::GpuCore {
@@ -34,6 +35,7 @@ struct Session {
   AmdGpu::Liverpool command;
   std::unique_ptr<Vulkan::Rasterizer> rasterizer;
   std::unique_ptr<Presenter> presenter;
+  std::mutex input_presenter_mutex;
   std::unique_ptr<TimingQueries> timing;
   bool vsync = true;
   bool shared_present_queue = false;
@@ -207,6 +209,7 @@ bool Draw(void *context, bool indexed, std::uint32_t offset,
   return Guard(error, [&] {
     auto &session = Get(context);
     ProgramScope scope{session.programs};
+    if (session.presenter) session.presenter->BeginRendering();
     session.timing->Begin();
     session.rasterizer->Draw(indexed, offset);
   });
@@ -325,12 +328,23 @@ RuntimeRegisterLayout Layout() noexcept {
           REG_WORD(max_index_size),    REG_WORD(draw_initiator)};
 #undef REG_WORD
 }
+bool PaceInput(void* context, RuntimeError* error) noexcept {
+  return Guard(error, [&] {
+    Require(context != nullptr, "GPU runtime context is null");
+    // Unlike draw/resource operations this entry intentionally runs on the
+    // input caller. It only accesses the separately synchronized presenter.
+    auto& session = *static_cast<Session*>(context);
+    std::lock_guard lock(session.input_presenter_mutex);
+    if (session.presenter) session.presenter->PaceInput();
+  });
+}
 bool SetWindow(void *context, void *window, RuntimeError *error) noexcept {
   return Guard(error, [&] {
     auto &session = Get(context);
     Require(
         !window || IsWindow(static_cast<HWND>(window)),
         "Window binding requires a live HWND and presentation-enabled device");
+    std::lock_guard lock(session.input_presenter_mutex);
     session.Drain();
     session.presenter.reset();
     if(!window)session.rasterizer->GetPipelineCache().SaveDiskCache();
@@ -387,6 +401,7 @@ KetsuiGpuRuntimeGetApi(std::uint32_t version, std::uint32_t bytes,
              ReadPresentSnapshot,
              PresentationStats,
              PausePresentation,
-             FinishGuest};
+             FinishGuest,
+             PaceInput};
   return true;
 }

@@ -67,6 +67,8 @@ public:
         return queue_family_index;
     }
     bool HasPresentFences() const { return present_fences; }
+    bool HasAmdAntiLag() const { return amd_anti_lag; }
+    bool HasReflex() const { return reflex; }
 
     vk::Queue GetGraphicsQueue() const {
         return graphics_queue;
@@ -547,6 +549,7 @@ private:
     bool supports_memory_budget{};
     bool supports_block_texel_view{};
     bool present_fences{};
+    bool reflex{}, amd_anti_lag{};
     u64 total_memory_budget{};
     std::vector<size_t> valid_heaps;
 };

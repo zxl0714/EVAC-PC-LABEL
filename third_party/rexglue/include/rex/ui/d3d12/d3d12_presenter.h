@@ -277,9 +277,10 @@ class D3D12Presenter final : public Presenter {
 
   const D3D12Provider& provider_;
   D3D12Reflex reflex_;
-  void PaceGuestInput() override {
-    if (!reflex_.Pace(provider_.GetDevice())) EnableInputPacing(false);
-  }
+  struct AmdPacing;
+  std::shared_ptr<AmdPacing> amd_pacing_;
+  std::mutex amd_pacing_mutex_;
+  void PaceGuestInput() override;
 
   // Whether DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING is supported by DXGI (depends in
   // particular on the Windows 10 version and hardware support), primarily for

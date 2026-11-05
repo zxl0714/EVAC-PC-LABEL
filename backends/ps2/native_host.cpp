@@ -8,6 +8,7 @@
 #include "gs_completion_mailbox.h"
 #include "gs_device_sink.h"
 #include "gs_trace.h"
+#include "ready_scanout.h"
 #include "../ps4/input/keyboard_config.h"
 #include "../ps4/input/sdl_gamepad.h"
 #include "ps2_runtime.h"
@@ -16,6 +17,7 @@
 #include "../../common/windows_timer_resolution.h"
 #include "common/settings.h"
 #include "frame_trace.h"
+#include <optional>
 #include "input_trace.h"
 #include "../../tools/latency/test_pad.h"
 #include <atomic>
@@ -51,8 +53,7 @@ class Input final : public HostPadSource {
     kt::input::KeyboardBindings bindings{};
     std::array<bool,256> keys{};
     std::array<std::chrono::steady_clock::time_point,16> until{};
-    uint16_t held=0,pending=0;
-    kt::input::GamepadSnapshot controller{};
+    uint16_t held=0;
     std::mutex mutex;
     bool focused=false;
 public:
@@ -77,7 +78,6 @@ public:
         const auto mask=Ps2Buttons(bindings[key]);
         input_trace::Record(input_trace::Kind::HostKey,0,key,mask,down);
         if(down) {
-            pending|=mask;
             const auto duration=DiagnosticTapMilliseconds();
             if(duration && mask) {
                 const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(duration);
@@ -88,16 +88,16 @@ public:
         held=0;
         for(unsigned i=0;i<keys.size();++i)if(keys[i])held|=Ps2Buttons(bindings[i]);
     }
-    void Poll(bool focus) {
-        gamepad.Focus(focus);
-        auto snapshot=gamepad.Poll();
+    void Focus(bool focus) {
         std::lock_guard lock(mutex);
-        if(!focus){keys.fill(false);held=0;pending=0;until.fill({});}
-        focused=focus;controller=snapshot;
+        if(focused==focus)return;
+        if(!focus){keys.fill(false);held=0;until.fill({});}
+        focused=focus;
+        gamepad.Focus(focus);
     }
     HostPadState Read(unsigned port) override {
         if(port)return {};
-        kt::input::GamepadSnapshot delivered;HostPadState state;
+        HostPadState state;
         if(evac_latency::test_pad) {
             const auto sample=evac_latency::ReadTestPad();
             constexpr std::array<uint16_t,16> masks{
@@ -105,18 +105,16 @@ public:
             for(unsigned i=0;i<masks.size();++i)if(sample.buttons&(1u<<i))state.buttons|=masks[i];
             return state;
         }
-        {
-            std::lock_guard lock(mutex);
-            if(!focused)return {};
-            state.buttons=held|pending;
+        std::lock_guard lock(mutex);
+        if(!focused)return {};
+        const auto current=gamepad.Poll();
+        state.buttons=held|Ps2Buttons(current.buttons);
+        state.axes={current.right_x,current.right_y,current.left_x,current.left_y};
+        if(DiagnosticTapMilliseconds()){
             const auto now=std::chrono::steady_clock::now();
             for(unsigned i=0;i<16;++i)if(now<until[i])state.buttons|=uint16_t(1u<<i);
-            pending=0;
-            delivered=controller;
-            state.buttons|=Ps2Buttons(delivered.buttons|delivered.pending);
-            state.axes={delivered.right_x,delivered.right_y,delivered.left_x,delivered.left_y};
         }
-        gamepad.Acknowledge(delivered);
+        if(current.pending)gamepad.Acknowledge(current);
         return state;
     }
 };
@@ -137,10 +135,11 @@ public:
     std::function<void()> onFrame;
     std::chrono::steady_clock::time_point nextInput{};
     uint64_t frames=0;
+    uint64_t lastOffered=0;
     void Poll() {
         const auto now=std::chrono::steady_clock::now();
         if(now<nextInput)return;
-        nextInput=now+2ms;input->Poll(display->Focused());
+        nextInput=now+2ms;input->Focus(display->Focused());
     }
     ~Impl(){if(queue)queue->Close();if(input)SetHostPadSource({});}
 };
@@ -168,7 +167,8 @@ void NativeHost::Initialize(const char* title) {
     if(impl->options.timerPrecision)impl->timerResolution.Enable();
     std::cerr<<"[ps2-host] timer_resolution_ms="<<(impl->timerResolution.Active()?1:0)<<'\n';
     auto input=std::make_shared<Input>(impl->options);
-    auto display=std::make_unique<GsDisplay>(impl->options.width,impl->options.height,Wide(title),impl->options.vsync);
+    auto display=std::make_unique<GsDisplay>(impl->options.width,impl->options.height,Wide(title),impl->options.vsync,
+        GsPresentTransfer::Automatic,impl->options.reflex,impl->options.amdAntiLag);
     if(impl->options.trackFieldBlits)display->Device().EnableFieldBlitTracking();
     auto queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display->Device().Completions());
     display->SetKeyHandler([weak=std::weak_ptr<Input>(input)](unsigned key,bool down){
@@ -187,13 +187,58 @@ std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
         std::move(backend),impl->options.capture,impl->options.captureBytes,18000);
     return backend;
 }
+void NativeHost::BeforeInput(uint64_t field,unsigned budgetUs){impl->display->BeforeInput(field,budgetUs);}
+void NativeHost::OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs) {
+    const auto& clock=runtime.eeScheduler();
+    const auto tick=clock.currentVSyncTick()+1;
+    // Both FIFO and early presentation use this same game-side completion.
+    impl->display->SimulationReady(tick);
+    if(impl->options.vsync || !impl->options.capture.empty())return;
+    const auto deadline=clock.nextVBlankDeadline();
+    if(tick==impl->lastOffered || deadline-std::chrono::steady_clock::now()<1ms)return;
+    auto frame=GsFrame::Snapshot(runtime.memory().gs(),tick,unsigned(tick&1));
+    frame.dispfb2=display2Buffer;
+    frame.presentAfter=deadline-std::chrono::microseconds(leadUs);
+    if(impl->queue->TryFrame(frame))impl->lastOffered=tick;
+}
 void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {
     if(!impl->display || impl->queue->GetStats().closed)throw std::logic_error("PS2 host is not ready");
     auto& display=*impl->display;auto mailbox=display.Device().Completions();
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
+    std::optional<GsFrame> prepared;
+    std::optional<GsFrame> repeat;
+    std::optional<uint64_t> previousPage;
+    bool presentedRepeat=false;
+    uint64_t preparedSerial=0,confirmed=0,held=0,corrected=0,repeated=0;
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
-        if(!display.Present(frame))throw GsWindowClosed();
+        if(frame.Prepared()) {
+            if(prepared || !display.Device().IsReadyPage(frame.dispfb2))return;
+            repeat.reset();
+            if(!display.Present(frame))throw GsWindowClosed();
+            presentedRepeat=false;
+            prepared=frame;
+            preparedSerial=display.Device().ScanoutRevision(frame.dispfb2);
+            return;
+        }
+        repeat.reset();
+        auto result=ReadyResult::Correct;
+        if(prepared) {
+            result=ConfirmReadyFrame(*prepared,frame,previousPage,
+                preparedSerial==display.Device().ScanoutRevision(prepared->dispfb2),
+                impl->options.trackFieldBlits && !presentedRepeat);
+            if(result==ReadyResult::Confirmed)++confirmed;
+            else if(result==ReadyResult::Held) {
+                ++held;
+                repeat=prepared;
+                ++repeat->vsyncTick;repeat->field^=1u;
+                repeat->presentAfter+=16667us;
+            }
+            else ++corrected;
+        }
+        if(result==ReadyResult::Correct && !display.Present(frame))throw GsWindowClosed();
+        previousPage=frame.dispfb2;
+        prepared.reset();
         ++impl->frames;if(onFrame)onFrame();
     },[&]{display.WaitPreviousFrame();});
     std::atomic<bool> finished=false;std::exception_ptr executionFailure,ownerFailure;
@@ -209,7 +254,23 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     try {
         while(!runtime.isStopRequested() && !finished.load(std::memory_order_acquire)) {
             if(!display.Alive())break;
-            impl->Poll();impl->queue->ConsumeOne(sink,2ms);
+            impl->Poll();
+            auto timeout=2ms;
+            if(repeat) {
+                const auto remaining=repeat->presentAfter-std::chrono::steady_clock::now();
+                if(remaining < -4ms || preparedSerial!=display.Device().ScanoutRevision(repeat->dispfb2)) {
+                    repeat.reset();
+                } else if(remaining<=1ms) {
+                    if(!display.Present(*repeat,true))throw GsWindowClosed();
+                    prepared=repeat;
+                    // A real worker completion can cover one held field. A
+                    // repeat can never extend that lease into another one.
+                    presentedRepeat=true;
+                    repeat.reset();
+                    ++repeated;
+                } else timeout=std::min(timeout,std::chrono::duration_cast<std::chrono::milliseconds>(remaining));
+            }
+            impl->queue->ConsumeOne(sink,timeout);
         }
     }catch(const GsQueueClosed&) {
     }catch(const GsWindowClosed&) {
@@ -217,6 +278,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         // be blocked on a full queue, initial upload, frame or SIGNAL.
     }catch(...){ownerFailure=std::current_exception();}
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
+    std::cerr<<"[ps2-ready-frame] confirmed="<<confirmed<<" held="<<held<<" repeated="<<repeated<<" corrected="<<corrected<<'\n';
     impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
     const auto stats=impl->queue->GetStats();
     std::cerr<<"[ps2-host] frames="<<impl->frames<<" readbacks="<<display.Device().ReadbackRequests()

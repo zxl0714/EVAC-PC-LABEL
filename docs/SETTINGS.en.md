@@ -83,11 +83,17 @@ frame_delay = 1
 
 `0` presents before waiting for the next VBlank. `1` is the default low-latency setting and `2` uses the original timing. Existing explicit settings are preserved. Restart the game after changing it.
 
+## AMD Radeon Anti-Lag 2
+
+For Xbox 360, PS4 and PS2 games, set `amd_anti_lag = true` under `[display]` in `user-data/config.ini` and restart the game. Set it to `false` to turn it off. The standard package defaults to off and the `-amd-anti-lag2` test package defaults to on. An explicit setting takes precedence.
+
+The runtime checks the active GPU and driver. Look for `AMD_ANTI_LAG` in the run log for the detection result. NVIDIA GPUs use the separate `reflex` setting.
+
 ## Futari, Guwange and NVIDIA Reflex
 
 In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. For Guwange, set `frame_delay = 0` under `[game.guwange]` to remove two buffered response frames in Arcade, Blue and Arrange single-player modes. Use `original` to restore the original timing.
 
-All four Xbox 360 titles automatically enable Reflex on supported NVIDIA hardware. To turn it off, set `reflex = off` under `[display]` and restart the game. Set it back to `auto` to enable detection.
+Xbox 360, PS4 and PS2 titles automatically enable Reflex on supported NVIDIA hardware. To turn it off, set `reflex = off` under `[display]` and restart the game. Set it back to `auto` to enable detection.
 
 ## Community leaderboards
 

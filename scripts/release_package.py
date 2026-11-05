@@ -318,6 +318,13 @@ def source_clone(destination, commit):
     audit_source(destination)
 
 
+AMD_PRESET = 'runtime/display-defaults.ini'
+
+
+def amd_preset_bytes(enabled):
+    return b'[display]\namd_anti_lag=' + (b'true' if enabled else b'false') + b'\n'
+
+
 def license_files(selection=GAMES):
     paths = {ROOT / 'third_party/rexglue/LICENSE', ROOT / 'third_party/ps4/THIRD_PARTY_NOTICES.txt'}
     paths.add(ROOT / 'third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/LICENSE.MIT')
@@ -425,6 +432,10 @@ def windows_policy(record, games, selection):
 
 def validate_windows_item(item, record, games, selection, required, runtime):
     name = item['path']
+    if name == AMD_PRESET and type(record.get("amdAntiLagDefault")) is bool:
+        if item["role"] != "config" or item["sha256"] != hashlib.sha256(amd_preset_bytes(record["amdAntiLagDefault"])).hexdigest():
+            raise ValueError("Invalid AMD edition preset")
+        return
     if name in required:
         identity = required[name]
         if item['role'] != 'game-data' or any(item[key] != identity[key] for key in ('bytes', 'sha256')):
@@ -496,6 +507,8 @@ def verify_tree(directory, games=None):
         if item['role'] in ('config', 'documentation', 'license') and SECRET.search(file.read_bytes()):
             raise ValueError('Credential marker in package text')
         expected[name] = item
+    if 'amdAntiLagDefault' in release and (type(release['amdAntiLagDefault']) is not bool or AMD_PRESET not in expected):
+        raise ValueError('Missing AMD edition preset')
     actual = {path.relative_to(directory).as_posix() for path in tree_files(directory)}
     if actual != set(expected) | META:
         raise ValueError('Package has missing or unlisted files')
@@ -596,9 +609,14 @@ def verify_certificate(game, certified, commit):
 
 
 def build(flavor, version, output=None, data=None, futari_dlc=None, *,
-          data_games=None, futari_content=None, symbols=False, package_format=3):
+          data_games=None, futari_content=None, symbols=False, package_format=3, amd_anti_lag=False):
     started = time.perf_counter()
     package_name = version_name(version, flavor, package_format)
+    supports_preset = package_format == 3 and tuple(map(int, version.split("-")[0].split("."))) >= (0, 9, 5)
+    if amd_anti_lag:
+        if not supports_preset or flavor != "Public":
+            raise ValueError("The AMD preset requires a v0.9.5 or newer program package")
+        package_name += "-amd-anti-lag2"
     selection = release_games(version)
     if flavor in ('Public', 'Update') and (data or futari_dlc or data_games or futari_content or symbols):
         raise ValueError(flavor + ' does not accept ROM or source inclusion options')
@@ -664,6 +682,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     for file in crt:
         for subdir in ('', 'runtime/xbox360', 'runtime/ps4', 'runtime/launcher', *(['runtime/ps2'] if 'espgaluda' in selection else [])):
             copy_checked(file, directory / subdir / file.name, 'redist', entries)
+    if supports_preset:
+        text_new(directory / AMD_PRESET, amd_preset_bytes(amd_anti_lag).decode('ascii'), 'config', entries)
     if flavor != 'Update' and package_format == 1:
         copy_checked(ROOT / 'config/default.ini', directory / config_name(version), 'config', entries)
     if flavor != 'Update':
@@ -755,6 +775,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
                        sourceUrl=REPOSITORY_URL + '/tree/' + commit, preservedPaths=list(PROGRAM_PRESERVED),
                        dataGames=included if flavor == 'Internal' else [],
                        futariContent=content_ids if flavor == 'Internal' else [], symbolsIncluded=include_symbols)
+    if supports_preset:
+        release['amdAntiLagDefault'] = amd_anti_lag
     write_json_new(directory / 'release.json', release)
     sums = ''.join(item['sha256'] + '  ' + item['path'] + '\n' for item in release['files'])
     sums += digest(directory / 'release.json') + '  release.json\n'
@@ -784,6 +806,7 @@ def main():
     parser.add_argument('--data-game', action='append', choices=['all', *V094_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
+    parser.add_argument('--amd-anti-lag', action='store_true')
     args = parser.parse_args()
     if args.action == 'verify':
         if not args.directory:
@@ -800,7 +823,7 @@ def main():
                 parser.error('--data-dir requires unique game=path values')
             data[key] = Path(path)
         print(json.dumps(build(args.flavor, args.version, args.output, data, args.futari_dlc,
-                               data_games=args.data_game, futari_content=args.futari_content, symbols=args.symbols), indent=2))
+                               data_games=args.data_game, futari_content=args.futari_content, symbols=args.symbols, amd_anti_lag=args.amd_anti_lag), indent=2))
 
 
 if __name__ == '__main__':

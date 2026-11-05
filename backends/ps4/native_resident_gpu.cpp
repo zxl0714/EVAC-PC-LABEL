@@ -95,6 +95,8 @@ struct NativeResidentGpu::Impl {
                 .neo = GetNativeProfile().neo,
                 .log_directory = path.parent_path(), .presentation_support = true,
                 .vsync = GetNativeDisplaySettings().vsync,
+                .reflex = GetNativeDisplaySettings().reflex,
+                .amd_anti_lag = GetNativeDisplaySettings().amd_anti_lag,
                 .diagnostic_sink = [](const char* data, std::size_t bytes) noexcept { return WriteNativeLog({data, bytes}); },
                 .pipeline_cache_directory = pipeline_cache};
             worker.Sync([&] {
@@ -132,6 +134,10 @@ NativeResidentGpu* CurrentNativeResidentGpu() { return active; }
 void NativeResidentGpu::Run(std::function<void()> operation) { impl->worker.Sync(std::move(operation)); }
 void NativeResidentGpu::SetWindow(void* window) {
     Run([&] { RuntimeError error; Check(impl->api.set_window(impl->context, window, &error), error); });
+}
+void NativeResidentGpu::PaceInput() {
+    RuntimeError error;
+    Check(impl->api.pace_input(impl->context, &error), error);
 }
 void NativeResidentGpu::Drain() {
     const auto began = kt::diagnostics::TimingTraceEnabled() ? kt::diagnostics::MonotonicMicroseconds() : 0;

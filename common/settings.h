@@ -27,7 +27,7 @@ inline constexpr std::array<DisplaySelection,5> kWindowSelections{{
     {false,2560,1440},{false,3840,2160}}};
 struct Settings {
     bool fullscreen{}, vsync{}, gamepad_enabled{true}, community_enabled{true};
-    bool xbox360_reflex{true};
+    bool xbox360_reflex{true}, amd_anti_lag{};
     unsigned window_width{1280}, window_height{720};
     double deadzone{0.20}, volume{1.0};
     unsigned sdoj_frame_delay{1};
@@ -39,6 +39,7 @@ struct Settings {
     // Opt-in per-title axes: Guwange Xbox 360 mode independently moves Shikigami.
     std::array<Binding,4> keyboard_right_stick;
 };
+std::string WithPackageDisplayDefaults(const fs::path& root, std::string snapshot);
 Settings ResolveSettings(const Ini& ini, std::string_view game_id);
 // Public defaults only; do not accidentally edit a selected game's override.
 Settings ResolveSharedSettings(const Ini& ini);

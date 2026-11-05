@@ -8,7 +8,7 @@
 namespace Ketsui::GpuCore {
 // This SDK is built as one clang-cl/MSVC-runtime pair. Shader, Vulkan and
 // register-layout classes never cross the DLL boundary.
-inline constexpr std::uint32_t RuntimeApiVersion = 14;
+inline constexpr std::uint32_t RuntimeApiVersion = 16;
 // Resource slots are not a measurement of displayed or queued screen frames.
 inline constexpr std::uint32_t PresentResourceSlots = 2;
 inline constexpr std::uint32_t PresentSnapshotSlots = 3;
@@ -87,6 +87,8 @@ struct RuntimeApi {
   // Guest memory barriers retire guest GPU work/callbacks, never WSI resources.
   // Full drain remains required for window replacement and teardown.
   bool (*finish_guest)(void *, RuntimeError *) noexcept;
+  // Thread-safe, directly on the input caller; no GPU-worker round trip.
+  bool (*pace_input)(void *, RuntimeError *) noexcept;
 };
 using GetRuntimeApi = bool (*)(std::uint32_t, std::uint32_t,
                                RuntimeApi *) noexcept;

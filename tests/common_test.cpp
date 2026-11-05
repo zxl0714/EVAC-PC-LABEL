@@ -175,6 +175,18 @@ void DataVariantChecks(Fixture& fixture) {
   Reject([&] {DataFiles(game,"unknown");},"unknown variant used as primary manifest");
 }
 void SettingsChecks(Fixture& fixture) {
+    const auto install = fixture.temporary/"amd-edition";
+    fs::create_directories(install/"runtime");
+    const std::string legacy = "[community]\nnickname=Player\n";
+    Require(WithPackageDisplayDefaults(install,legacy)==legacy,"Missing release preset changed settings");
+    std::ofstream(install/"runtime/display-defaults.ini") << "[display]\namd_anti_lag=true\n";
+    for (const auto& game : Catalogue()) {
+        Require(!ParseSettings(DefaultConfig(),game.id).amd_anti_lag,"AMD pacing default must be off");
+        Require(ParseSettings(WithPackageDisplayDefaults(install,legacy),game.id).amd_anti_lag,"AMD preset not applied");
+        const std::string off="[display]\namd_anti_lag=false\n";
+        Require(WithPackageDisplayDefaults(install,off)==off,"Explicit AMD opt-out lost");
+    }
+    Reject([] { ParseSettings("[display]\namd_anti_lag=invalid\n","futari"); },"Invalid AMD setting accepted");
     for (const auto id:{"ketsui","daioujou","esprade","feveron"}) {
         Require(ParseSettings("",id).neo && ParseSettings(DefaultConfig(),id).neo,"NEO defaults differ from template");
         const auto section="[game."+std::string(id)+"]\nneo=";

@@ -79,7 +79,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     run.root=fs::canonical(requestedRoot);
     const auto& identity=cave::FindGame(build.game);
     auto configuration=cave::ConfigPath(run.root);
-    const auto snapshot=fs::exists(configuration)?cave::Ini::ReadText(configuration):std::string(cave::DefaultConfig());
+    const auto user_snapshot=fs::exists(configuration)?cave::Ini::ReadText(configuration):std::string(cave::DefaultConfig());
+    const auto snapshot=cave::WithPackageDisplayDefaults(run.root,user_snapshot);
     const auto ini=cave::Ini::Parse(snapshot);
     run.settings=cave::ResolveSettings(ini,build.game);
     const bool community_requested=run.settings.community_enabled;
@@ -105,7 +106,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         inputs.push_back({{"path",name},{"sha256",hash},{"bytes",fs::file_size(path)}});
     }
     configuration=cave::EnsureConfig(run.root);
-    if (cave::Ini::ReadText(configuration)!=snapshot)
+    if (cave::Ini::ReadText(configuration)!=user_snapshot)
         throw std::runtime_error("config.ini changed during startup; restart with the saved configuration");
     if (run.settings.community_enabled) {
         if (!cave::community::ValidEndpoint(run.settings.endpoint))

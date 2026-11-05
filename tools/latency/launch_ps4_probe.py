@@ -27,7 +27,7 @@ def checked_pixel_region(text):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture',type=Path,required=True)
-    parser.add_argument('--game',choices=('ketsui','daioujou','esprade','feveron'),required=True)
+    parser.add_argument('--game',choices=('ketsui','daioujou','esprade','feveron','garegga'),required=True)
     parser.add_argument('--label',required=True)
     parser.add_argument('--seed-profile',type=Path)
     parser.add_argument('--pixel-region',help='x,y,width,height,capacity; private bounded ROI')

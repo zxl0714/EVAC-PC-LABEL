@@ -92,7 +92,7 @@ std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv,c
     Require(requestedRoot.is_absolute() && requestedData.is_absolute() && requestedProfile.is_absolute(),"PS2 collection paths must be absolute");
     const auto root=fs::canonical(requestedRoot);
     Require(Resolve(root,requestedProfile.parent_path())==Resolve(root,root/"user-data"/game.id),"PS2 profile must stay under its game directory");
-    const auto snapshot=Ini::ReadText(EnsureConfig(root));
+    const auto snapshot=WithPackageDisplayDefaults(root,Ini::ReadText(EnsureConfig(root)));
     const auto ini=Ini::Parse(snapshot);
     auto value=std::make_unique<Impl>();
     value->game=game.id;
@@ -134,6 +134,8 @@ NativeHostOptions CollectionLaunch::HostOptions()const {
     NativeHostOptions result;
     result.width=impl->settings.window_width;result.height=impl->settings.window_height;
     result.fullscreen=impl->settings.fullscreen;result.vsync=impl->settings.vsync;
+    result.amdAntiLag=impl->settings.amd_anti_lag;
+    result.reflex=impl->settings.xbox360_reflex;
     result.gameId=impl->game;result.keyboardConfig=impl->report/"config.snapshot.ini";
     result.gamepadEnabled=impl->settings.gamepad_enabled;result.deadzone=float(impl->settings.deadzone);
     result.volume=float(impl->settings.volume);return result;

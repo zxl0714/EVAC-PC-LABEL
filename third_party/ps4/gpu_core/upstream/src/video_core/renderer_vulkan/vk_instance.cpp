@@ -224,7 +224,7 @@ bool Instance::CreateDevice() {
         vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
         vk::PhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR,
         vk::PhysicalDeviceImage2DViewOf3DFeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR,
-        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT>();
+        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT, vk::PhysicalDevicePresentIdFeaturesKHR, vk::PhysicalDeviceAntiLagFeaturesAMD>();
     features = feature_chain.get().features;
 
     const vk::StructureChain properties_chain = physical_device.getProperties2<
@@ -288,6 +288,20 @@ bool Instance::CreateDevice() {
     ASSERT_MSG(robustness2_features.nullDescriptor,
                "Required Vulkan feature unavailable: nullDescriptor");
 
+    // Reflex is optional. Never make it a startup requirement on other GPUs.
+    const auto has = [&](const char* name) { return std::ranges::find(available_extensions, name) != available_extensions.end(); };
+    reflex = Ketsui::GpuCore::HasPresentationSupport() && Ketsui::GpuCore::ReflexRequested() &&
+        properties.vendorID == 0x10de && has(VK_NV_LOW_LATENCY_2_EXTENSION_NAME) &&
+        has(VK_KHR_PRESENT_ID_EXTENSION_NAME) &&
+        feature_chain.get<vk::PhysicalDevicePresentIdFeaturesKHR>().presentId;
+    amd_anti_lag = Ketsui::GpuCore::HasPresentationSupport() && Ketsui::GpuCore::AmdAntiLagRequested() &&
+        properties.vendorID == 0x1002 && has(VK_AMD_ANTI_LAG_EXTENSION_NAME) &&
+        feature_chain.get<vk::PhysicalDeviceAntiLagFeaturesAMD>().antiLag;
+    if (amd_anti_lag) add_extension(VK_AMD_ANTI_LAG_EXTENSION_NAME);
+    if (reflex) {
+        add_extension(VK_NV_LOW_LATENCY_2_EXTENSION_NAME);
+        add_extension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+    }
     // Optional
     maintenance_5 = add_extension(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
     maintenance_6 = add_extension(VK_KHR_MAINTENANCE_6_EXTENSION_NAME);
@@ -488,6 +502,8 @@ bool Instance::CreateDevice() {
         vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT{
             .swapchainMaintenance1 = true,
         },
+        vk::PhysicalDevicePresentIdFeaturesKHR{.presentId = true},
+        vk::PhysicalDeviceAntiLagFeaturesAMD{.antiLag = true},
         // Extensions
         vk::PhysicalDeviceCustomBorderColorFeaturesEXT{
             .customBorderColors = true,
@@ -623,7 +639,33 @@ bool Instance::CreateDevice() {
         device_chain.unlink<vk::PhysicalDeviceShaderClockFeaturesKHR>();
     }
 
+    if (!amd_anti_lag) device_chain.unlink<vk::PhysicalDeviceAntiLagFeaturesAMD>();
+    if (!reflex) device_chain.unlink<vk::PhysicalDevicePresentIdFeaturesKHR>();
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());
+    if (device_result != vk::Result::eSuccess && amd_anti_lag) {
+        LOG_WARNING(Render_Vulkan, "AMD Anti-Lag device creation failed ({}), retrying without it", vk::to_string(device_result));
+        amd_anti_lag = false;
+        device_chain.unlink<vk::PhysicalDeviceAntiLagFeaturesAMD>();
+        enabled_extensions.erase(std::remove_if(enabled_extensions.begin(), enabled_extensions.end(), [](const char* name) {
+            return std::string_view{name} == VK_AMD_ANTI_LAG_EXTENSION_NAME;
+        }), enabled_extensions.end());
+        device_chain.get().enabledExtensionCount = static_cast<u32>(enabled_extensions.size());
+        device_chain.get().ppEnabledExtensionNames = enabled_extensions.data();
+        auto retry = physical_device.createDeviceUnique(device_chain.get());
+        device_result = retry.result; dev = std::move(retry.value);
+    }
+    if (device_result != vk::Result::eSuccess && reflex) {
+        LOG_WARNING(Render_Vulkan, "Reflex device creation failed ({}), retrying without Reflex", vk::to_string(device_result));
+        reflex = false;
+        device_chain.unlink<vk::PhysicalDevicePresentIdFeaturesKHR>();
+        enabled_extensions.erase(std::remove_if(enabled_extensions.begin(), enabled_extensions.end(), [](const char* name) {
+            return std::string_view{name} == VK_NV_LOW_LATENCY_2_EXTENSION_NAME ||
+                   std::string_view{name} == VK_KHR_PRESENT_ID_EXTENSION_NAME;
+        }), enabled_extensions.end());
+        device_chain.get().enabledExtensionCount = static_cast<u32>(enabled_extensions.size());
+        auto retry = physical_device.createDeviceUnique(device_chain.get());
+        device_result = retry.result; dev = std::move(retry.value);
+    }
     if (device_result != vk::Result::eSuccess) {
         LOG_CRITICAL(Render_Vulkan, "Failed to create device: {}", vk::to_string(device_result));
         return false;
@@ -631,6 +673,9 @@ bool Instance::CreateDevice() {
     device = std::move(dev);
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(*device);
+    amd_anti_lag = amd_anti_lag && VULKAN_HPP_DEFAULT_DISPATCHER.vkAntiLagUpdateAMD;
+    if (Ketsui::GpuCore::AmdAntiLagRequested())
+        std::fprintf(stderr, "AMD_ANTI_LAG backend=ps4-vulkan requested=true active=%s\n", amd_anti_lag ? "true" : "false");
 
     graphics_queue = device->getQueue(queue_family_index, 0);
     present_queue = device->getQueue(queue_family_index, queue_count > 1 ? 1 : 0);

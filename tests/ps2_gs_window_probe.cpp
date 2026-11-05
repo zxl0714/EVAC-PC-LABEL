@@ -17,7 +17,8 @@ int main(int argc,char** argv) {
         const bool vsync=argc>=3 && std::string(argv[2])=="fifo";
         const auto transfer=argc>=4 && std::string(argv[3])=="shader"?
             cave::ps2::GsPresentTransfer::Sampled:cave::ps2::GsPresentTransfer::Automatic;
-        cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,transfer);
+        const std::string reflexTest=argc>=5?argv[4]:"";
+        cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,transfer,reflexTest!="off",reflexTest=="amd");
         auto& gs=display.Device();
         cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,gs.Completions());
         unsigned frames=0;
@@ -25,6 +26,7 @@ int main(int argc,char** argv) {
         cave::ps2::GsDeviceSink sink(gs,[&](const cave::ps2::GsFrame& request){
             if(!display.Present(request)){closed=true;return;}
             ++frames;
+            if(reflexTest=="resize" && (frames==40 || frames==80))display.ToggleFullscreen();
         },[&]{display.WaitPreviousFrame();});
         auto producer=std::async(std::launch::async,[&]{
             std::vector<uint8_t> empty(cave::ps2::GsDevice::VramBytes);
@@ -46,13 +48,15 @@ int main(int argc,char** argv) {
             const std::array<uint64_t,4> upload{(uint64_t(0x100)<<32)|(uint64_t(1)<<48),
                                               0,16|(uint64_t(16)<<32),0};
             for(unsigned field=0;field<limit;++field) {
+                display.BeforeInput(field,500);
+                display.BeforeInput(field,500); // a repeated guest read consumes the ticket only once
                 // Transfers may retain a recorded command buffer until PGS
                 // flush. Cross that real boundary before each WSI begin.
                 queue.Image(upload,texture);
                 queue.Register(GS_REG_RGBAQ,0x3f800000ff604020ull);
                 queue.Register(GS_REG_XYZ2,0);
                 queue.Register(GS_REG_XYZ2,uint64_t(640*16)|(uint64_t(224*16)<<16));
-                request.vsyncTick=field;queue.Frame(request);
+                request.vsyncTick=field;display.SimulationReady(field);queue.Frame(request);
                 // Authored test cadence only; real game timing stays with EE.
                 std::this_thread::sleep_until(start+(field+1)*16ms);
             }

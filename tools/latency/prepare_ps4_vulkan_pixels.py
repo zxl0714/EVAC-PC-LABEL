@@ -35,9 +35,8 @@ def instrument_presenter(text):
         '        size, source_format, frame.latency_prepare, evac_vk_pixels::HostCommand());')
     text = replace_one(text, '    RecordSnapshot(frame, display, desc);',
         '    frame.latency_prepare = probe_prepare;\n    RecordSnapshot(frame, display, desc);')
-    text = replace_one(text, '    frame.copy_pending = false;\n    result.guest_copy_completed = true;',
-        '    frame.copy_pending = false;\n    latency_pixels.Completed(frame.latency_pixel_token);\n'
-        '    result.guest_copy_completed = true;')
+    text = replace_one(text, '    result.guest_copy_completed = true;',
+        '    latency_pixels.Completed(frame.latency_pixel_token);\n    result.guest_copy_completed = true;')
     text = replace_one(text, 'reinterpret_cast<std::uintptr_t>(static_cast<VkImage>(frame.snapshot->image)), frame.copy_tick, 1);',
         'reinterpret_cast<std::uintptr_t>(static_cast<VkImage>(frame.snapshot->image)), frame.copy_tick, 1);\n'
         '      latency_pixels.Ready(frame.latency_pixel_token, frame.latency_ready);')

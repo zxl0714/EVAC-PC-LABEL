@@ -1757,16 +1757,9 @@ bool GS::queueVBlankFrame(uint64_t nextTick)
     {
         // Full privileged state belongs to this field, not to the eventual
         // time the window owner happens to consume the command.
-        cave::ps2::GsFrame frame{};
-        frame.pmode=m_privRegs->pmode;frame.smode1=m_privRegs->smode1;frame.smode2=m_privRegs->smode2;
-        frame.srfsh=m_privRegs->srfsh;frame.synch1=m_privRegs->synch1;frame.synch2=m_privRegs->synch2;
-        frame.syncv=m_privRegs->syncv;frame.dispfb1=m_privRegs->dispfb1;frame.display1=m_privRegs->display1;
-        frame.dispfb2=m_privRegs->dispfb2;frame.display2=m_privRegs->display2;
-        frame.extbuf=m_privRegs->extbuf;frame.extdata=m_privRegs->extdata;frame.extwrite=m_privRegs->extwrite;
-        frame.bgcolor=m_privRegs->bgcolor;
-        frame.vsyncTick=nextTick?nextTick:m_privRegs->vsyncTick.load(std::memory_order_acquire);
-        frame.field=nextTick?uint32_t(nextTick&1u):uint32_t((m_privRegs->csr.load(std::memory_order_acquire)>>13)&1u);
-        return m_commandBackend->TryFrame(frame);
+        const auto tick=nextTick?nextTick:m_privRegs->vsyncTick.load(std::memory_order_acquire);
+        const auto field=nextTick?uint32_t(nextTick&1u):uint32_t((m_privRegs->csr.load(std::memory_order_acquire)>>13)&1u);
+        return m_commandBackend->TryFrame(cave::ps2::GsFrame::Snapshot(*m_privRegs,tick,field));
     }
     return true;
 }

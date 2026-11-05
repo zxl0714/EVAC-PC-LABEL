@@ -8,6 +8,7 @@ param(
     [string]$FutariDlcDirectory,
     [ValidateSet('all','futari','espgaluda2','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga','espgaluda','ibara')][string[]]$DataGames,
     [ValidateSet('all','black-label','ver101')][string[]]$FutariContent,
+    [switch]$AmdAntiLag,
     [switch]$Symbols
 )
 $ErrorActionPreference='Stop'
@@ -21,6 +22,7 @@ try {
     if ($FutariDlcDirectory) { $releaseArgs+=@('--futari-dlc',$FutariDlcDirectory) }
     foreach ($game in $DataGames) { $releaseArgs+=@('--data-game',$game) }
     foreach ($content in $FutariContent) { $releaseArgs+=@('--futari-content',$content) }
+    if ($AmdAntiLag) { $releaseArgs+='--amd-anti-lag' }
     if ($Symbols) { $releaseArgs+='--symbols' }
     & py @releaseArgs
     if ($LASTEXITCODE -ne 0) { throw "Release packaging failed: $LASTEXITCODE" }

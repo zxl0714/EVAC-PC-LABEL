@@ -16,6 +16,7 @@ struct NativeHostOptions {
     std::string gameId;
     bool gamepadEnabled=true;
     bool trackFieldBlits=false;
+    bool reflex=true, amdAntiLag=false;
     float deadzone=0.20f,volume=1.0f;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL
@@ -27,6 +28,8 @@ public:
     void Configure(NativeHostOptions options);
     float Volume() const;
     void Initialize(const char* title);
+    void OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs);
+    void BeforeInput(uint64_t responseField,unsigned budgetUs);
     std::unique_ptr<GsCommandBackend> CreateBackend();
     void Run(PS2Runtime& runtime,const std::function<void()>& execute,
              const std::function<void()>& onFrame);

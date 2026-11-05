@@ -23,6 +23,8 @@ struct HostSettings {
   void *native_window = nullptr;
   bool presentation_support = false;
   bool vsync = true;
+  bool reflex = false;
+  bool amd_anti_lag = false;
   bool diagnostic_shared_present_queue = false;
   bool (*diagnostic_sink)(const char*, std::size_t) noexcept = nullptr;
   std::filesystem::path pipeline_cache_directory;
@@ -33,6 +35,8 @@ std::uint32_t ValidationErrors();
 std::uint32_t OverlaySubmissions();
 bool IsNeoMode();
 bool HasPresentationSupport();
+bool ReflexRequested();
+bool AmdAntiLagRequested();
 const std::filesystem::path& PipelineCacheDirectory();
 void TimingLog(const char* format, ...) noexcept;
 

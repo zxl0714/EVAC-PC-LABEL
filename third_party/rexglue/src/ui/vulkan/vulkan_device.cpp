@@ -248,7 +248,7 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
 #undef XE_UI_VULKAN_LOCAL_PROMOTED_EXTENSION
 
   std::vector<const char*> enabled_extensions;
-  bool present_id_available = false, low_latency_available = false;
+  bool present_id_available = false, low_latency_available = false, anti_lag_available = false;
   {
     uint32_t supported_extension_count = 0;
     const VkResult get_supported_extension_count_result = ifn.vkEnumerateDeviceExtensionProperties(
@@ -270,6 +270,7 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
       for (const VkExtensionProperties& supported_extension : supported_extensions) {
         const std::string_view name(supported_extension.extensionName);
         present_id_available |= name == VK_KHR_PRESENT_ID_EXTENSION_NAME;
+        anti_lag_available |= name == VK_AMD_ANTI_LAG_EXTENSION_NAME;
         low_latency_available |= name == VK_NV_LOW_LATENCY_2_EXTENSION_NAME;
         const auto requested_extension_it =
             requested_extensions.find(supported_extension.extensionName);
@@ -761,8 +762,29 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
       device->extensions_.ext_NV_low_latency2 = true;
     }
   }
+  VkPhysicalDeviceAntiLagFeaturesAMD anti_lag{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ANTI_LAG_FEATURES_AMD};
+  if (with_swapchain && REXCVAR_GET(amd_anti_lag) && properties.vendorID == 0x1002 &&
+      get_physical_device_properties2_supported && anti_lag_available) {
+    VkPhysicalDeviceFeatures2 supported{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &anti_lag};
+    ifn.vkGetPhysicalDeviceFeatures2(physical_device, &supported);
+    if (anti_lag.antiLag) {
+      anti_lag.pNext = const_cast<void*>(device_create_info.pNext);
+      device_create_info.pNext = &anti_lag;
+      enabled_extensions.push_back(VK_AMD_ANTI_LAG_EXTENSION_NAME);
+      device_create_info.enabledExtensionCount = uint32_t(enabled_extensions.size());
+      device_create_info.ppEnabledExtensionNames = enabled_extensions.data();
+      device->extensions_.ext_AMD_anti_lag = true;
+    }
+  }
   VkResult device_create_result =
       ifn.vkCreateDevice(physical_device, &device_create_info, nullptr, &device->device_);
+  if (device_create_result != VK_SUCCESS && device->extensions_.ext_AMD_anti_lag) {
+    REXLOG_INFO("AMD_ANTI_LAG backend=vulkan active=false reason=device_creation result={}", int(device_create_result));
+    device->extensions_.ext_AMD_anti_lag = false;
+    device_create_info.pNext = anti_lag.pNext;
+    device_create_info.enabledExtensionCount = uint32_t(base_extension_count);
+    device_create_result = ifn.vkCreateDevice(physical_device, &device_create_info, nullptr, &device->device_);
+  }
   if (device_create_result != VK_SUCCESS && device->extensions_.ext_NV_low_latency2) {
     REXLOG_INFO("REFLEX backend=vulkan active=false reason=device_creation result={}", int(device_create_result));
     device->extensions_.ext_NV_low_latency2 = false;

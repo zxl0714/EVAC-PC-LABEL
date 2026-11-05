@@ -11,6 +11,8 @@
 
 namespace cave::ps2::frame_trace {
 struct Field {
+    int64_t readyEnqueued=0;
+    bool presentedReady=false,repeated=false;
     int64_t deadline=0,vblank=0,enqueued=0,presentStart=0,flushed=0,acquired=0,
         scanned=0,submitted=0,presented=0,gpuWait=0,waitRequested=0,waitElapsed=0,waitLate=0;
 };
@@ -59,7 +61,7 @@ inline void Save(const std::filesystem::path& path) {
            <<row.vblank-row.deadline<<','<<row.presented-row.presentStart<<','<<row.gpuWait<<','
            <<row.flushed-row.presentStart<<','<<row.acquired-row.flushed<<','
            <<row.scanned-row.acquired<<','<<row.submitted-row.scanned<<','
-           <<row.presented-row.submitted<<','<<row.presentStart-row.enqueued<<','<<row.presented<<','<<row.waitRequested<<','<<row.waitElapsed<<','<<row.waitLate<<'\n';
+           <<row.presented-row.submitted<<','<<(row.repeated?0:row.presentStart-(row.presentedReady?row.readyEnqueued:row.enqueued))<<','<<row.presented<<','<<row.waitRequested<<','<<row.waitElapsed<<','<<row.waitLate<<'\n';
         previous=row.presented;
     }
     if(!out)throw std::runtime_error("Frame timing output failed");

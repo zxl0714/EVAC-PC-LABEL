@@ -223,8 +223,12 @@ bool GsCommandQueue::TryFrame(const GsFrame& request) {
     impl->commands.push_back(std::move(command));
     auto& stats=impl->stats;++stats.commands;++stats.submitted;stats.frameOutstanding=true;
     stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
-    if(auto* row=frame_trace::Get(request.vsyncTick))row->enqueued=frame_trace::Stamp();
-    input_trace::Record(input_trace::Kind::FrameQueue,request.vsyncTick,request.dispfb1,request.dispfb2,request.field);
+    if(auto* row=frame_trace::Get(request.vsyncTick)) {
+        auto& enqueued=request.Prepared()?row->readyEnqueued:row->enqueued;
+        enqueued=frame_trace::Stamp();
+    }
+    input_trace::Record(request.Prepared()?input_trace::Kind::ReadyQueue:input_trace::Kind::FrameQueue,
+                        request.vsyncTick,request.dispfb1,request.dispfb2,request.field);
     lock.unlock();if(wakeReader)impl->readable.notify_one();return true;
 }
 }

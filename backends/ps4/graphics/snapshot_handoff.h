@@ -7,8 +7,21 @@
 namespace cave::ps4 {
 enum class SnapshotOwnership { Free, Writing, Ready, Presenting };
 
-// Caller holds the ownership mutex. Only a complete, published snapshot may
-// replace the active image, before any commands reference its pixels.
+// Both callers hold the ownership mutex. The copy producer and the output
+// reader can finish in either order after early publication.
+template<class Slot>
+void FinishSnapshotCopy(Slot& slot, bool accepted) {
+    slot.copy_pending = false;
+    if (slot.reader_done || !accepted) slot.state = SnapshotOwnership::Free;
+}
+template<class Slot>
+void FinishSnapshotRead(Slot& slot) {
+    slot.reader_done = true;
+    if (!slot.copy_pending) slot.state = SnapshotOwnership::Free;
+}
+
+// Caller holds the ownership mutex. A published snapshot may replace the
+// active image before command recording. GPU readers wait for its copy tick.
 template<class Slots>
 bool LatchNewestSnapshot(Slots& slots, std::optional<std::uint32_t>& ready, std::uint32_t& active) {
     if(!ready)return false;
@@ -22,8 +35,8 @@ bool LatchNewestSnapshot(Slots& slots, std::optional<std::uint32_t>& ready, std:
     return true;
 }
 
-// Publishing waits for the guest->owned-image copy. Guest flip completion is
-// still paced afterwards: no extra game update, fake vblank or removed fence.
+// Complete publishes the image, then waits for the guest copy before pacing
+// the guest flip. The output queue independently waits on the copy timeline.
 template<class Publish,class Pace>
 bool PublishThenPace(Publish&& publish,Pace&& pace) {
     std::forward<Publish>(publish)();

@@ -1,5 +1,6 @@
 #include "runtime/gs/gs_frontend.h"
 #include "gs_command_backend.h"
+#include "ready_scanout.h"
 #include "runtime/ps2_memory.h"
 #include <algorithm>
 #include <array>
@@ -92,4 +93,27 @@ void ArbiterPaths() {
     Require(received==expected && arbiter.empty(),"Arbitration lost paths, stable order or DIRECTHL exception");
 }
 }
-int main(){try{RawRouting();ArbiterPaths();std::cout<<"GS raw routing, shortcuts, producer frame, no readback, handoff and arbitration: PASS\n";return 0;}catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}}
+void ReadyDisplayHandoff() {
+    using namespace cave::ps2;
+    GsFrame ready{};
+    ready.pmode=2;ready.dispfb2=0x1446;ready.display2=1234;ready.vsyncTick=20;
+    auto actual=ready;
+    ready.presentAfter=std::chrono::steady_clock::now();
+    Require(ConfirmReadyFrame(ready,actual,0x1400,true,false)==ReadyResult::Confirmed,
+            "A completed single-buffer draw must only present once");
+    Require(ConfirmReadyFrame(ready,actual,0x1400,false,true)==ReadyResult::Correct,
+            "A reset or an overwritten draw must invalidate early output");
+    actual.dispfb2=0x1400;
+    Require(ConfirmReadyFrame(ready,actual,0x1400,true,true)==ReadyResult::Held,
+            "A repeated front page must not replace newer completed output");
+    Require(ConfirmReadyFrame(ready,actual,0x1500,true,true)==ReadyResult::Correct &&
+            ConfirmReadyFrame(ready,actual,0x1400,true,false)==ReadyResult::Correct,
+            "An unrelated page or single-buffer title cannot use the held-page rule");
+    ++actual.vsyncTick;
+    Require(ConfirmReadyFrame(ready,actual,0x1400,true,true)==ReadyResult::Correct,
+            "A handoff must match its own field");
+    --actual.vsyncTick;++actual.display2;
+    Require(ConfirmReadyFrame(ready,actual,0x1400,true,true)==ReadyResult::Correct,
+            "A display mode or geometry change must use the game's new descriptor");
+}
+int main(){try{RawRouting();ArbiterPaths();ReadyDisplayHandoff();std::cout<<"GS raw routing, producer frame, ready display handoff and arbitration: PASS\n";return 0;}catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}}

@@ -184,7 +184,6 @@ GamepadSnapshot SdlGamepad::Poll() {
     out.device=self.device;
     if (!self.focused) return out;
     out.pending=self.pending; out.edges=self.edges;
-    out.buttons=self.pending;
     for (unsigned button=0;button<SDL_GAMEPAD_BUTTON_COUNT;++button)
         if (SDL_GetGamepadButton(self.gamepad,static_cast<SDL_GamepadButton>(button))) out.buttons|=Mask(button);
     const auto stick = [&](SDL_GamepadAxis x, SDL_GamepadAxis y) {
@@ -199,8 +198,6 @@ GamepadSnapshot SdlGamepad::Poll() {
     out.r2=Trigger(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER));
     if (out.l2>30) out.buttons|=0x100;
     if (out.r2>30) out.buttons|=0x200;
-    if ((out.pending&0x100) && out.l2<=30) out.l2=255;
-    if ((out.pending&0x200) && out.r2<=30) out.r2=255;
     return out;
 }
 void SdlGamepad::Acknowledge(const GamepadSnapshot& delivered) {
@@ -284,7 +281,7 @@ bool SdlGamepadSelfTest() {
     SDL_SetJoystickVirtualButton(joystick,SDL_GAMEPAD_BUTTON_SOUTH,true); backend.Poll();
     SDL_SetJoystickVirtualButton(joystick,SDL_GAMEPAD_BUTTON_SOUTH,false);
     const auto short_press=backend.Poll();
-    check((short_press.buttons&0x4000) && (short_press.pending&0x4000),"short_down_up_retained_until_game_acknowledges");
+    check(!(short_press.buttons&0x4000) && (short_press.pending&0x4000),"released_short_press_is_dirty_but_not_held");
     backend.Acknowledge(short_press);
     check(!(backend.Poll().buttons&0x4000),"acknowledged_short_press_not_replayed");
     SDL_SetJoystickVirtualButton(joystick,SDL_GAMEPAD_BUTTON_SOUTH,true); backend.Poll();

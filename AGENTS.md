@@ -10,6 +10,20 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+The v0.9.5 latency follow-up is complete for all five PS4 titles and both PS2
+titles. See [PS4 measurements](docs/ANALYSIS.md#v095-ps4) and
+[PS2 measurements](docs/ANALYSIS.md#v095-ps2) for capture boundaries and samples.
+The PS4 present-ID comparison is in `.local/v095/ps4-comparison-r6.json`.
+For the PS2 Reflex A/B, use `.local/v095/ps2-reflex-ab/` and its matching
+`v095-ab-{g1,ib}-*` captures. Compare matched movement and frame-time tails.
+Scripted input phases differ between runs. The preceding ready-frame captures are `v095-g1-ready-certified` and
+`v095-ib-ready-certified` under `.local/v095`. The R4 runs are their
+baseline. The private Ibara full-frame comparison is in
+`v095-ib-whole-frame/equivalence.json`. For CPU use the ordinary Stage 1 runs referenced in the
+analysis, with image and guest trace capture disabled. Both production build
+receipts passed. The earlier e053eeb ZIP predates these PS4 and PS2 changes.
+Preserved baseline binaries and test recipes are under `.local/input-latency-v080-r1`.
+
 v0.9.5 is the Xbox 360 input-latency update. See the v0.9.5 sections of
 docs/IMPLEMENTATION_PLAN.md and docs/ANALYSIS.md. The isolated input, image and
 CPU captures are under .local/v095. Use the matching scene, frame-delay setting

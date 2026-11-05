@@ -53,7 +53,9 @@ def prepare(fixture, destination):
     latency_wait=std::make_unique<evac_latency::VulkanPresentWait>(device,*chain,wait_path);
     images =
         Checked(device.getSwapchainImagesKHR(*chain), "Get swapchain images");''')
-    text = replace_one(text, '        status = output_queue.presentKHR({.pNext = instance.HasPresentFences() ? &completion : nullptr,', '''        const auto latency_wait_extra=latency_wait->Before(instance.HasPresentFences()?&completion:nullptr);
+    present_chain = ('        status = output_queue.presentKHR({.pNext = chain_reflex ? static_cast<const void*>(&reflex_id) :\n'
+                     '                                              (instance.HasPresentFences() ? &completion : nullptr),')
+    text = replace_one(text, present_chain, '''        const auto latency_wait_extra=latency_wait->Before(instance.HasPresentFences()?&completion:nullptr);
         LARGE_INTEGER latency_wait_begin{};QueryPerformanceCounter(&latency_wait_begin);
         status = output_queue.presentKHR({.pNext = latency_wait_extra,''')
     text = replace_one(text, '        const auto probe_end = Ps4ProbeHostRecord(23, probe_begin, snapshot.latency_ready, static_cast<unsigned>(status));', '''        LARGE_INTEGER latency_wait_end{};QueryPerformanceCounter(&latency_wait_end);
@@ -63,19 +65,23 @@ def prepare(fixture, destination):
 
     source = ROOT/'third_party/ps4/gpu_core/upstream/src/video_core/renderer_vulkan/vk_instance.cpp'
     text = source.read_text()
-    text = replace_one(text, '    // Required\n', '''    // Private observer only; production source is unchanged.
+    text = replace_one(text, '    // Optional\n', '''    // The observer needs present IDs even when Reflex is off.
     const auto wait_features=physical_device.getFeatures2<vk::PhysicalDeviceFeatures2,
         vk::PhysicalDevicePresentIdFeaturesKHR,vk::PhysicalDevicePresentWaitFeaturesKHR>();
     if (!wait_features.get<vk::PhysicalDevicePresentIdFeaturesKHR>().presentId ||
         !wait_features.get<vk::PhysicalDevicePresentWaitFeaturesKHR>().presentWait ||
-        !add_extension(VK_KHR_PRESENT_ID_EXTENSION_NAME) ||
+        (!reflex && !add_extension(VK_KHR_PRESENT_ID_EXTENSION_NAME)) ||
         !add_extension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME)) return false;
-    // Required
+    // Optional
 ''')
+    # The existing presentId feature and extension must survive either Reflex
+    # branch, including the ordinary-device retry in this private build.
+    text = replace_one(text, '    if (!reflex) device_chain.unlink<vk::PhysicalDevicePresentIdFeaturesKHR>();\n', '')
+    text = replace_one(text, '        device_chain.unlink<vk::PhysicalDevicePresentIdFeaturesKHR>();\n', '')
+    text = replace_one(text, ' ||\n                   std::string_view{name} == VK_KHR_PRESENT_ID_EXTENSION_NAME;', ';')
     text = replace_one(text, '    auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());', '''    vk::PhysicalDevicePresentWaitFeaturesKHR private_wait{
         .pNext=const_cast<void*>(device_chain.get().pNext),.presentWait=true};
-    vk::PhysicalDevicePresentIdFeaturesKHR private_id{.pNext=&private_wait,.presentId=true};
-    device_chain.get().pNext=&private_id;
+    device_chain.get().pNext=&private_wait;
     auto [device_result, dev] = physical_device.createDeviceUnique(device_chain.get());''')
     save(source, text)
     source = ROOT/'tools/latency/vulkan_present_wait.h'

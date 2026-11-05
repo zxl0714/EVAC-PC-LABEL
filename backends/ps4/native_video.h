@@ -54,6 +54,7 @@ struct NativeDisplaySettings {
     std::wstring title = L"Ketsui PC - development preview | Alt+Enter / F11: fullscreen";
     bool fullscreen{}, vsync{true};
     unsigned window_width{1280}, window_height{720};
+    bool reflex{}, amd_anti_lag{};
 };
 void ConfigureNativeDisplay(NativeDisplaySettings settings);
 NativeDisplaySettings GetNativeDisplaySettings();
