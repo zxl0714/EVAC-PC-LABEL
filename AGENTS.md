@@ -22,8 +22,14 @@ like its Arcade core. Final delta tests passed 99 Python and 9 CTest cases.
 The controlled input and normal SDL-loop checks passed. On Nov05 the user
 chose software delivery now and physical controller A/B later. The deferred
 device comparison is tracked separately in IMPLEMENTATION_PLAN.md.
-Deliver the local v0.9.5 program ZIP using the completed tests and incremental
-builds. Reuse the completed gameplay/CPU/latency measurements.
+Nov05 local software delivery COMPLETE: source 8b8549d5a58fe24d58e8c2dc350eb623cc7e0a11.
+Program ZIP releases/v0.9.5-local-8b8549d/EVAC-PC-LABEL-v0.9.5-win-x64.zip,
+160062615 bytes; SHA256 f68f197fe99c66a3ea9754f83b8cecc00a685e9168e157f38363676cbeba6bd2.
+All runtime/launcher builds succeeded; packaging tests 55 passed (1 expected skip).
+One extraction verified all 197 files and 11 games' runtime inventory, with no
+ROM/source/PDB or player config included. Evidence: ZIP-side .acceptance.json and
+.local/v095/package-acceptance-8b8549d. Local delivery only; no push/upload/release.
+Stop further tests/builds. Physical controller A/B remains explicitly deferred.
 
 ### Previous v0.9.4 checkpoint
 
