@@ -15,10 +15,9 @@ int main(int argc,char** argv) {
         const unsigned limit=argc>=2?unsigned(std::stoul(argv[1])):120;
         if(!limit || limit>3600)throw std::invalid_argument("Frame limit must be 1..3600");
         const bool vsync=argc>=3 && std::string(argv[2])=="fifo";
-        const auto transfer=argc>=4 && std::string(argv[3])=="shader"?
-            cave::ps2::GsPresentTransfer::Sampled:cave::ps2::GsPresentTransfer::Automatic;
-        const std::string reflexTest=argc>=5?argv[4]:"";
-        cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,transfer,reflexTest!="off",reflexTest=="amd");
+        // Older scripts pass their display test option in the fourth argument.
+        const std::string reflexTest=argc>=5?argv[4]:argc>=4?argv[3]:"";
+        cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,reflexTest!="off",reflexTest=="amd");
         auto& gs=display.Device();
         cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,gs.Completions());
         unsigned frames=0;

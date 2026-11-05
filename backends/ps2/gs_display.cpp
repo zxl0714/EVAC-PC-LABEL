@@ -1,6 +1,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #include <Windows.h>
 #include "gs_display.h"
+#include "gs_crash_trace.h"
 #include "frame_trace.h"
 #include "gs_device_private.h"
 #include "wsi.hpp"
@@ -12,10 +13,12 @@
 #include "../../common/deadline_wait.h"
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 
 namespace cave::ps2 {
+using gs_crash::Stage;
 Vulkan::Program* CreateGsPresentProgram(Vulkan::Device& device);
 namespace {
 class NativeWindow final : public Vulkan::WSIPlatform {
@@ -146,15 +149,14 @@ public:
     std::unique_ptr<GsDevice> gs;
     Vulkan::Fence pending;
     ParallelGS::ScanoutResult lastReadyImage{};
-    VkImageLayout lastReadyLayout=VK_IMAGE_LAYOUT_UNDEFINED;
     cave::DeadlineWait presentTimer;
     std::mutex presentMutex;
     std::condition_variable presentWake;
     uint64_t frames=0;
     int64_t tracedGpuWait=0;
-    GsPresentTransfer transfer=GsPresentTransfer::Automatic;
     Vulkan::Program* presentProgram=nullptr;
-    int loggedTransfer=-1;
+    uint64_t pendingFrame=0;
+    void Mark(Stage stage) const {gs_crash::Mark(stage,frames);}
     uint64_t lastFeedback=0;
     pixel_trace::Capture pixels;
     Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd)
@@ -168,7 +170,6 @@ public:
         const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
         if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
-        wsi.set_extra_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT);
         if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
         // are independent of the one outstanding game-frame fence below.
@@ -184,9 +185,13 @@ public:
         std::cerr<<"[ps2-gs-present] frames="<<frames<<" readbacks="<<readbacks<<'\n';
     }
 };
-GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,GsPresentTransfer transfer,bool reflex,bool amd)
+GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd)
     :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd)) {
-    impl->transfer=transfer;
+    const auto& gpu=impl->wsi.get_device().get_gpu_properties();
+    gs_crash::Start();
+    impl->Mark(Stage::Init);
+    std::fprintf(stderr,"[ps2-gs-present] transfer=gpu-sampled gpu=%s device=%04x driver_raw=%u render_thread=%lu\n",
+                 gpu.deviceName,gpu.deviceID,gpu.driverVersion,GetCurrentThreadId());
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
     impl->gs->SetWaitPump([this]{
         if(!Alive())throw GsWindowClosed();
@@ -209,7 +214,11 @@ void GsDisplay::WaitPreviousFrame() {
     impl->gs->impl->CheckOwner();
     if(impl->pending){
         const auto start=frame_trace::rows?frame_trace::Stamp():0;
-        impl->pending->wait();impl->pending.reset();
+        gs_crash::Mark(Stage::WaitFence,impl->pendingFrame);
+        impl->pending->wait();
+        // wait() also returns on device errors. Only record a confirmed signal.
+        gs_crash::Mark(impl->pending->wait_timeout(0)?Stage::FenceSignaled:Stage::FenceUnconfirmed,impl->pendingFrame);
+        impl->pending.reset();
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
@@ -226,8 +235,10 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     // WSI begins a new allocation context and waits for all recorded buffers
     // to be submitted. Drain PGS before that boundary, rather than waiting on
     // our own pending upload inside begin_frame(). No device-wide idle wait.
+    impl->Mark(Stage::FlushGs);
     impl->gs->Flush();
     if(trace)trace->flushed=frame_trace::Stamp();
+    impl->Mark(Stage::Acquire);
     if(!Alive() || !impl->wsi.begin_frame())return false;
     if(input_trace::Enabled()) {
         Vulkan::PresentationStats stats{};
@@ -243,79 +254,48 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     auto& device=impl->wsi.get_device();
     const auto& destination=device.get_swapchain_view().get_image();
     const bool smooth=!request.fixedFieldDrawing && (request.smode2&3u)==3u;
-    const bool blit=impl->transfer==GsPresentTransfer::Automatic &&
-        (destination.get_create_info().usage&VK_IMAGE_USAGE_TRANSFER_DST_BIT) &&
-        device.image_format_is_supported(destination.get_create_info().format,VK_FORMAT_FEATURE_2_BLIT_DST_BIT) &&
-        device.image_format_is_supported(VK_FORMAT_R8G8B8A8_UNORM,VK_FORMAT_FEATURE_2_BLIT_SRC_BIT |
-            (smooth?VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_FILTER_LINEAR_BIT:0));
-    if(impl->loggedTransfer!=int(blit)) {
-        std::cerr<<"[ps2-gs-present] transfer="<<(blit?"gpu-blit":"gpu-sampled")<<'\n';
-        impl->loggedTransfer=int(blit);
-    }
     const bool currentField=request.fixedFieldDrawing && (request.smode2&3u)==3u;
-    const auto sourceLayout=blit?VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    const auto sourceStage=blit?VK_PIPELINE_STAGE_2_BLIT_BIT:VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    const auto sourceAccess=blit?VK_ACCESS_2_TRANSFER_READ_BIT:VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
-    const bool reuse=repeatCompletedImage && impl->lastReadyImage.image && impl->lastReadyLayout==sourceLayout;
-    auto source=reuse?impl->lastReadyImage:state.ScanoutFlushed(request,currentField?VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL:sourceLayout,
-        currentField?VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT:sourceStage,
-        currentField?VK_ACCESS_2_SHADER_SAMPLED_READ_BIT:sourceAccess,currentField);
+    const bool reuse=repeatCompletedImage && impl->lastReadyImage.image;
+    impl->Mark(reuse?Stage::ReuseImage:Stage::Scanout);
+    auto source=reuse?impl->lastReadyImage:state.ScanoutFlushed(request,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,currentField);
+    impl->Mark(source.image?Stage::SourceImage:Stage::EmptyImage);
     // A held display page can span two CRT fields. Reuse its completed pixels
     // without running the deinterlacer twice on the same source field.
-    if(state.trackFieldBlits && request.Prepared()) {
-        impl->lastReadyImage=source;
-        impl->lastReadyLayout=sourceLayout;
-    } else impl->lastReadyImage.image.reset();
+    if(state.trackFieldBlits && request.Prepared())impl->lastReadyImage=source;
+    else impl->lastReadyImage.image.reset();
     if(trace)trace->scanned=frame_trace::Stamp();
     auto command=device.request_command_buffer();
-    if(currentField && source.image && !reuse)
-        command->image_barrier(*source.image,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,sourceLayout,
-            VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,VK_ACCESS_2_MEMORY_WRITE_BIT|VK_ACCESS_2_MEMORY_READ_BIT,
-            sourceStage,sourceAccess);
     if(source.image)
-        impl->pixels.Copy(device,*command,*source.image,request,source.interlace_phase,blit);
-    const auto width=destination.get_width(),height=destination.get_height();
-    unsigned targetWidth=width,targetHeight=width*3u/4u;
-    if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
-    const VkOffset3D offset{int32_t((width-targetWidth)/2u),int32_t((height-targetHeight)/2u),0};
-    const VkOffset3D extent{int32_t(targetWidth),int32_t(targetHeight),1};
-    if(blit) {
-        command->swapchain_touch_in_stages(VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-        command->image_barrier(destination,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_PIPELINE_STAGE_2_NONE,0,VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT);
-        VkClearValue black{};
-        command->clear_image(destination,black);
-        if(source.image) {
-            command->image_barrier(destination,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT);
-            const VkOffset3D sourceExtent{int32_t(source.image->get_width()),int32_t(source.image->get_height()),1};
-            command->blit_image(destination,*source.image,offset,extent,{0,0,0},sourceExtent,0,0,0,0,1,
-                                smooth?VK_FILTER_LINEAR:VK_FILTER_NEAREST);
-        }
-        command->image_barrier(destination,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT,VK_PIPELINE_STAGE_2_NONE,0);
-    }else {
-        command->swapchain_touch_in_stages(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-        command->image_barrier(destination,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_2_NONE,0,VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
-        Vulkan::RenderPassInfo pass{};
-        pass.num_color_attachments=1;pass.color_attachments[0]=&device.get_swapchain_view();
-        pass.clear_attachments=1;pass.store_attachments=1;
-        command->begin_render_pass(pass);command->set_opaque_sprite_state();
-        if(source.image) {
-            if(!impl->presentProgram)impl->presentProgram=CreateGsPresentProgram(device);
-            command->set_program(impl->presentProgram);
-            command->set_texture(0,0,source.image->get_view(),
-                                 smooth?Vulkan::StockSampler::LinearClamp:Vulkan::StockSampler::NearestClamp);
-            const VkViewport viewport{float(offset.x),float(offset.y),float(extent.x),float(extent.y),0,1};
-            command->set_viewport(viewport);command->draw(3);
-        }
-        command->end_render_pass();
-        command->image_barrier(destination,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,VK_PIPELINE_STAGE_2_NONE,0);
+        impl->pixels.Copy(device,*command,*source.image,request,source.interlace_phase);
+    // Granite's swapchain render pass discards on clear, waits on acquire
+    // at color output and transitions its attachment to PRESENT on exit.
+    Vulkan::RenderPassInfo pass{};
+    pass.num_color_attachments=1;pass.color_attachments[0]=&device.get_swapchain_view();
+    pass.clear_attachments=1;pass.store_attachments=1;
+    impl->Mark(Stage::BeginPass);
+    command->begin_render_pass(pass);command->set_opaque_sprite_state();
+    if(source.image) {
+        impl->Mark(Stage::BindProgram);
+        if(!impl->presentProgram)impl->presentProgram=CreateGsPresentProgram(device);
+        command->set_program(impl->presentProgram);
+        command->set_texture(0,0,source.image->get_view(),
+                             smooth?Vulkan::StockSampler::LinearClamp:Vulkan::StockSampler::NearestClamp);
+        const auto width=destination.get_width(),height=destination.get_height();
+        unsigned targetWidth=width,targetHeight=width*3u/4u;
+        if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
+        const VkViewport viewport{float((width-targetWidth)/2u),float((height-targetHeight)/2u),
+                                  float(targetWidth),float(targetHeight),0,1};
+        command->set_viewport(viewport);
+        impl->Mark(Stage::Draw);
+        command->draw(3);
     }
+    impl->Mark(Stage::EndPass);
+    command->end_render_pass();
+    impl->Mark(Stage::Submit);
     device.submit(command,&impl->pending);
+    impl->pendingFrame=impl->frames;
+    impl->Mark(Stage::Submitted);
     impl->pixels.Submitted(request.vsyncTick);
     input_trace::Record(input_trace::Kind::Submit,request.vsyncTick);
     if(trace)trace->submitted=frame_trace::Stamp();
@@ -328,13 +308,16 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
             impl->presentTimer.Until(lock,request.presentAfter,[]{return false;},impl->presentWake);
         }
     }
+    impl->Mark(Stage::Present);
     if(!impl->wsi.end_frame())return false;
+    impl->Mark(Stage::Presented);
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,
                                                  impl->wsi.get_last_submitted_present_id());
     if(trace)trace->presented=frame_trace::Stamp();
     if(impl->window.amdUpdate)impl->window.amdField.store(request.vsyncTick+1);
     impl->window.reflex.AfterPresent(impl->wsi.get_last_submitted_present_id(),request.vsyncTick);
     ++impl->frames;
+    impl->Mark(Stage::BetweenFrames);
     return true;
 }
 }

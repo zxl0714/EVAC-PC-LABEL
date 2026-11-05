@@ -1,4 +1,5 @@
 #include "gs_device_private.h"
+#include "gs_crash_trace.h"
 #include "field_blit.h"
 #include "gs_interface.hpp"
 #include "context.hpp"
@@ -12,6 +13,7 @@
 
 namespace cave::ps2 {
 GsDevice::Impl::Impl(Vulkan::Device* borrowed) : device(borrowed ? borrowed : &ownedDevice) {
+    traceGif=borrowed && gs_crash::owner.load()==GetCurrentThreadId();
     Util::register_thread_index(0);
     if(!borrowed) {
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
@@ -148,7 +150,9 @@ void GsDevice::GifTransfer(GsGifPath path,std::span<const uint8_t> payload) {
     const auto id=static_cast<uint32_t>(path);
     if(id<1 || id>3 || payload.size()%16)
         throw std::invalid_argument("GS GIF paths are 1..3 and transfers use 16-byte units");
+    if(impl->traceGif)gs_crash::activeGif.store((uint64_t(payload.size())<<2)|id,std::memory_order_release);
     impl->BeginOperation();impl->gs.gif_transfer(id,payload.data(),payload.size());
+    if(impl->traceGif)gs_crash::activeGif.store(0,std::memory_order_release);
     if(impl->trackFieldBlits && path==GsGifPath::Path2)impl->ObserveFieldBlit(id,payload);
 }
 void GsDevice::WriteRegister(uint32_t address,uint64_t value) {

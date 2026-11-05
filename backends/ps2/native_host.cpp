@@ -168,7 +168,7 @@ void NativeHost::Initialize(const char* title) {
     std::cerr<<"[ps2-host] timer_resolution_ms="<<(impl->timerResolution.Active()?1:0)<<'\n';
     auto input=std::make_shared<Input>(impl->options);
     auto display=std::make_unique<GsDisplay>(impl->options.width,impl->options.height,Wide(title),impl->options.vsync,
-        GsPresentTransfer::Automatic,impl->options.reflex,impl->options.amdAntiLag);
+        impl->options.reflex,impl->options.amdAntiLag);
     if(impl->options.trackFieldBlits)display->Device().EnableFieldBlitTracking();
     auto queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display->Device().Completions());
     display->SetKeyHandler([weak=std::weak_ptr<Input>(input)](unsigned key,bool down){

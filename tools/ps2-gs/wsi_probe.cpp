@@ -42,8 +42,7 @@ int main(int argc,char** argv) {
         const auto dpi=reinterpret_cast<SetDpiContext>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext"));
         if(!dpi || !dpi(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))SetProcessDPIAware();
         cave::ScopedTimerResolution precision;precision.Enable();
-        cave::ps2::GsDisplay display(1280,720,L"EVAC PC LABEL | private WSI comparison",false,
-                                    cave::ps2::GsPresentTransfer::Sampled);
+        cave::ps2::GsDisplay display(1280,720,L"EVAC PC LABEL | private WSI comparison",false);
         if(fullscreen)display.ToggleFullscreen();
         auto& gs=display.Device();
         std::vector<uint8_t> empty(cave::ps2::GsDevice::VramBytes);gs.WriteVram(0,empty);

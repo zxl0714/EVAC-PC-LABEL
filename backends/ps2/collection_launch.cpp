@@ -1,4 +1,6 @@
 #include "collection_launch.h"
+#include "gs_crash_trace.h"
+#include "crash_unwind.h"
 #include "common/launch.h"
 #include "common/ps2_prepare.h"
 #include "common/settings.h"
@@ -20,6 +22,7 @@ std::wstring crashText,crashDump;
 LONG WINAPI Crash(EXCEPTION_POINTERS* exception) {
     const auto file=CreateFileW(crashText.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
     if(file!=INVALID_HANDLE_VALUE) {
+        gs_crash::Write(file);
         WriteWindowsFaultText(file,exception);FlushFileBuffers(file);
     }
     const auto dump=CreateFileW(crashDump.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
@@ -33,7 +36,10 @@ LONG WINAPI Crash(EXCEPTION_POINTERS* exception) {
     }
     if(file!=INVALID_HANDLE_VALUE) {
         char line[100]{};const auto n=std::snprintf(line,sizeof(line),"dump_ok=%u\ndump_error=%lu\n",unsigned(dumpOkay),dumpError);
-        DWORD written{};if(n>0)WriteFile(file,line,DWORD(n),&written,nullptr);CloseHandle(file);
+        DWORD written{};if(n>0)WriteFile(file,line,DWORD(n),&written,nullptr);
+        if(gs_crash::owner.load() && exception && exception->ContextRecord)
+            WriteFaultingCallstack(file,*exception->ContextRecord);
+        CloseHandle(file);
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }

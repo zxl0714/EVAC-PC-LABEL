@@ -91,7 +91,7 @@ Xbox 360、PS4 和 PS2 游戏共用一个开关。在 `user-data/config.ini` 的
 
 ## 虫姬二、狱门山与 NVIDIA Reflex
 
-虫姬二可在游戏内的 Frame Delay 设置中选择 **0V (Tearing)**。狱门山默认使用 `0V`，在 `[game.guwange]` 下配置 `frame_delay`，普通、Blue 和 Arrange 单人模式可减少两帧输入延迟；设回 `original` 使用原作时序。
+虫姬二在游戏内依次选 **Option → Screen Setting → “Maniac” Menu Mode → Extra Setting → FrameDelay → 0V(Tearing)**，选 **EXIT** 保存。如果已经显示 **Screen Setting (Maniac)**，直接进入 **Extra Setting**。狱门山默认使用 `0V`，在 `[game.guwange]` 下配置 `frame_delay`，普通、Blue 和 Arrange 单人模式可减少两帧输入延迟；设为 `2` 可恢复原作时序。
 
 Xbox 360、PS4 和 PS2 游戏默认在支持的 NVIDIA 显卡上自动启用 Reflex。要关闭，在 `[display]` 下设置 `reflex = off`，重启游戏后生效。设回 `auto` 恢复自动探测。
 

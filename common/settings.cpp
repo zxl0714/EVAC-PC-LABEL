@@ -191,8 +191,8 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             Error(entry->line, "game.espgaluda2", "frame_delay", "expected 0, 1 or 2");
     }
     if (game_id == "guwange") if (const auto* entry = ini.Get("game.guwange", "frame_delay")) {
-        if (entry->text != "original" && entry->text != "0")
-            Error(entry->line, "game.guwange", "frame_delay", "expected original or 0");
+        if (entry->text != "2" && entry->text != "0" && entry->text != "original")
+            Error(entry->line, "game.guwange", "frame_delay", "expected 0 or 2");
         result.guwange_post_swap_wait = entry->text == "0";
     }
     if (game_id=="ketsui" || game_id=="daioujou" || game_id=="esprade" || game_id=="feveron" || game_id=="garegga") {

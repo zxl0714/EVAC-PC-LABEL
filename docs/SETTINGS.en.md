@@ -91,7 +91,7 @@ The runtime checks the active GPU and driver. Look for `AMD_ANTI_LAG` in the run
 
 ## Futari, Guwange and NVIDIA Reflex
 
-In Futari, choose **0V (Tearing)** in the in-game Frame Delay settings. Guwange defaults to `frame_delay = 0` under `[game.guwange]`, removing two buffered response frames in Arcade, Blue and Arrange single-player modes. Use `original` to restore the original timing.
+In Futari, go to **Option → Screen Setting → “Maniac” Menu Mode → Extra Setting → FrameDelay → 0V(Tearing)**, then choose **EXIT** to save. If the screen already says **Screen Setting (Maniac)**, go straight to **Extra Setting**. Guwange defaults to `frame_delay = 0` under `[game.guwange]`, removing two buffered response frames in Arcade, Blue and Arrange single-player modes. Set it to `2` to restore the original timing.
 
 Xbox 360, PS4 and PS2 titles automatically enable Reflex on supported NVIDIA hardware. To turn it off, set `reflex = off` under `[display]` and restart the game. Set it back to `auto` to enable detection.
 

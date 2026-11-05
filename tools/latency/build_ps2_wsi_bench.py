@@ -27,12 +27,6 @@ def main():
                if line.startswith('PS2_GS_SOURCE:'))
     source=Path(next(iter(cache.values())))
     reject_link(source)
-    display=(ROOT/'backends/ps2/gs_display.cpp').read_text()
-    before='wsi.set_extra_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT);'
-    if display.count(before)!=1:raise ValueError('Production WSI setup changed')
-    # Both variants use the same sampled presentation path. DXGI rejects extra
-    # swapchain usage, so merely enabling interop would silently compare Vulkan twice.
-    display=display.replace(before,'wsi.set_extra_usage_flags(0);')
     includes=list(dict.fromkeys(value[2:] for cfg in (graphic,wsi)
                                for value in words(cfg['INCLUDES']) if value.startswith('-I')))
     defines=list(dict.fromkeys(value[2:] for cfg in (graphic,wsi)
@@ -42,7 +36,7 @@ def main():
     for name in ('wsi.cpp','wsi_dxgi.cpp'):
         src=source/'Granite/vulkan'/name;reject_link(src);shutil.copyfile(src,out/name)
         identities[str(out/name)]=digest(out/name)
-    (out/'gs_display.cpp').write_text(display,encoding='utf8',newline='\n')
+    shutil.copyfile(ROOT/'backends/ps2/gs_display.cpp',out/'gs_display.cpp')
     shutil.copyfile(ROOT/'tools/ps2-gs/wsi_probe.cpp',out/'probe.cpp')
     # The copied probe's relative common-header include is replaced explicitly.
     probe=(out/'probe.cpp').read_text().replace('"../../common/windows_timer_resolution.h"',

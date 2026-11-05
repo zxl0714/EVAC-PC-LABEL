@@ -227,6 +227,7 @@ void SettingsChecks(Fixture& fixture) {
     Require(ParseSettings(DefaultConfig(), "guwange").guwange_post_swap_wait, "Guwange defaults to 0V");
     Require(ParseSettings("[game.guwange]\nframe_delay=0", "guwange").guwange_post_swap_wait, "Guwange accepts 0V");
     Require(ParseSettings("", "guwange").guwange_post_swap_wait, "Missing Guwange setting defaults to 0V");
+    Require(!ParseSettings("[game.guwange]\nframe_delay=2", "guwange").guwange_post_swap_wait, "Guwange 2 restores original timing");
     Require(!ParseSettings("[game.guwange]\nframe_delay=original", "guwange").guwange_post_swap_wait, "Preserve explicit Guwange original timing");
     Reject([&] { ParseSettings("[game.guwange]\nframe_delay=1", "guwange"); }, "Unsupported Guwange delay accepted");
     Require(ParseSettings("", "espgaluda2").g2_frame_delay == 0, "G2 missing Frame Delay selects low latency");

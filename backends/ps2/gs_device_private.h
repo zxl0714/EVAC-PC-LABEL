@@ -23,6 +23,7 @@ public:
     Vulkan::Fence fieldFence;
     Vulkan::ImageHandle lastField;
     bool trackFieldBlits=false;
+    bool traceGif=false;
     struct BlitField { uint64_t generation=0; unsigned phase=0; uint64_t revision=0; };
     std::array<BlitField,512> blitFields{};
     uint64_t scanoutGeneration=1;

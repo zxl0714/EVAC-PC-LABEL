@@ -55,7 +55,7 @@ public:
         rows.reserve(capacity);armed.store(false,std::memory_order_relaxed);
     }
     void Copy(Vulkan::Device& device,Vulkan::CommandBuffer& command,const Vulkan::Image& source,
-              const GsFrame& request,uint32_t imagePhase,bool transferSource) {
+              const GsFrame& request,uint32_t imagePhase) {
         const auto field=request.vsyncTick;
         if(prefix.empty() || failed || rows.size()==capacity)return;
         if(firstField ? field<firstField : !armed.load(std::memory_order_relaxed))return;
@@ -63,7 +63,7 @@ public:
             fullWidth=source.get_width();fullHeight=source.get_height();format=source.get_create_info().format;
             if(!width){width=fullWidth;height=fullHeight;stride=size_t(width)*height*4u;}
         }
-        if(!transferSource || (source.get_create_info().format!=VK_FORMAT_R8G8B8A8_UNORM &&
+        if(!(source.get_create_info().usage&VK_IMAGE_USAGE_TRANSFER_SRC_BIT) || (source.get_create_info().format!=VK_FORMAT_R8G8B8A8_UNORM &&
                               source.get_create_info().format!=VK_FORMAT_B8G8R8A8_UNORM) ||
            uint64_t(x)+width>source.get_width() || uint64_t(y)+height>source.get_height() ||
            uint64_t(width)*height*capacity>32u*1024u*1024u) {
@@ -80,7 +80,15 @@ public:
         }
         const VkBufferImageCopy copy{VkDeviceSize(rows.size()*stride),0,0,{VK_IMAGE_ASPECT_COLOR_BIT,0,0,1},
                                      {int32_t(x),int32_t(y),0},{width,height,1}};
+        // The renderer produces a sampled image. Only a requested diagnostic
+        // capture needs a transfer, on this submission before the window draw.
+        command.image_barrier(source,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                              VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,VK_ACCESS_2_MEMORY_READ_BIT|VK_ACCESS_2_MEMORY_WRITE_BIT,
+                              VK_PIPELINE_STAGE_2_COPY_BIT,VK_ACCESS_2_TRANSFER_READ_BIT);
         command.copy_image_to_buffer(*buffer,source,1,&copy);
+        command.image_barrier(source,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+                              VK_PIPELINE_STAGE_2_COPY_BIT,VK_ACCESS_2_TRANSFER_READ_BIT,
+                              VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
         command.buffer_barrier(*buffer,VK_PIPELINE_STAGE_2_TRANSFER_BIT,VK_ACCESS_2_TRANSFER_WRITE_BIT,
                                VK_PIPELINE_STAGE_2_HOST_BIT,VK_ACCESS_2_HOST_READ_BIT);
         rows.push_back({field,input_trace::Stamp(),request.dispfb2,request.display2,
