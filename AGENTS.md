@@ -28,8 +28,11 @@ One extraction verified all 199 files / 11 runtime inventories. Both extracted
 PS2 EXEs completed 240 presented frames and exited 0 on local NVIDIA hardware.
 Evidence .local/v096/intel-c03a4bf-smoke/result.json and ZIP-side .acceptance.json.
 Unchanged component builds reused, old ZIP preserved. No ROM/source/PDB in ZIP.
-No push/upload/publication. Stop work here; this result-only checkpoint does not
-require another build or ZIP. B390 field confirmation remains outstanding.
+Published Nov06 as GitHub Latest v0.9.6 at tag 84f7a6b. Main and tag pushed;
+the published ZIP digest matches the accepted package above. ZIP and SHA-256
+file attached. Issues #9 and #10 received brief release replies and are closed
+as completed. Release: https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.6
+No further build/package checks needed. B390 field confirmation remains outstanding.
 
 v0.9.6 implementation and representative startup checks are complete. Issue #9
 removes package-specific license.info sidecars from all PS4 validation manifests;
