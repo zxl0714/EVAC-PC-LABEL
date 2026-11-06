@@ -24,8 +24,13 @@ ps2-build-final.log; the earlier build had repeated diagnostics and is supersede
 The latest remote Intel report still lacks a confirmed outcome; diagnostics are
 complete, but do not claim a reproduced or resolved driver crash. Build receipts,
 11 native tests, five final delta tests, 23 PS4 cache checks and packaging tests
-pass. Remaining: one public/program ZIP, one extraction, local acceptance receipt.
-Stop before push, upload or publication; no internal ROM package.
+pass. Local delivery COMPLETE: source 6257ab5f2c4a3a2de548eb44a74bc5b4021d6a8f,
+releases/v0.9.6-local-6257ab5/EVAC-PC-LABEL-v0.9.6-win-x64.zip,
+160268591 bytes, SHA256 8b5efdc4f95536bb9d9e0fa632133ee9188f5ffc821f4ee2f8117ff948c535a3.
+One extraction verified all 199 files and 11 runtime inventories; no ROM, source,
+PDB or player config. ZIP-side .acceptance.json is authoritative. Packaging took
+44 seconds; no internal package, push, upload or release. This result-only
+documentation update does not require another build/package. Stop here.
 
 The v0.9.5 latency follow-up is complete for all five PS4 titles and both PS2
 titles. See [PS4 measurements](docs/ANALYSIS.md#v095-ps4) and
