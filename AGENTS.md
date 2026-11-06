@@ -20,9 +20,16 @@ sets, push descriptors, native heap plus existing GPU test pass (4 total).
 Evidence .local/v096/descriptor-fallback-*; docs/ANALYSIS.md. This is a proven
 code defect, NOT a confirmed B390 field fix. Latest player report omits selected
 strategy and final outcome. New startup line will report those feature choices.
-User has now requested the fix. Rebuild/certify both PS2 games and make one new
-v0.9.6 program ZIP after the targeted GPU tests. Reuse unchanged component
-receipts; preserve the old frozen ZIP below. No upload or publication requested.
+User-requested fix delivery COMPLETE: source c03a4bf5fa040edfe20cc6bda5bdc3e0bbe68c7f.
+Both PS2 games rebuilt/certified; 4 targeted GPU tests pass. New program ZIP:
+releases/v0.9.6-local-c03a4bf/EVAC-PC-LABEL-v0.9.6-win-x64.zip,
+160269051 bytes, SHA256 7355bdeee778f6d29f9178a89687273f849c8433a164c134e932fae0b8e97a42.
+One extraction verified all 199 files / 11 runtime inventories. Both extracted
+PS2 EXEs completed 240 presented frames and exited 0 on local NVIDIA hardware.
+Evidence .local/v096/intel-c03a4bf-smoke/result.json and ZIP-side .acceptance.json.
+Unchanged component builds reused, old ZIP preserved. No ROM/source/PDB in ZIP.
+No push/upload/publication. Stop work here; this result-only checkpoint does not
+require another build or ZIP. B390 field confirmation remains outstanding.
 
 v0.9.6 implementation and representative startup checks are complete. Issue #9
 removes package-specific license.info sidecars from all PS4 validation manifests;

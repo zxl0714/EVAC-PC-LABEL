@@ -2,7 +2,7 @@
 
 ## v0.9.6：数据校验与玩家反馈
 
-Intel PS2 后续调查已确认并修正 Granite descriptor buffer 回退判断不一致；两条 descriptor sets 路径、正常路径及既有 GPU 回归共 4 项通过。详见 [PS2 分析](ANALYSIS.md#v096-startup)。B390 玩家现场尚未复测；下面的冻结程序包不含此后续修复，后续交付需重建运行时并重新出包。
+Intel PS2 后续调查已确认并修正 Granite descriptor buffer 回退判断不一致；两条 descriptor sets 路径、正常路径及既有 GPU 回归共 4 项通过。详见 [PS2 分析](ANALYSIS.md#v096-startup)。两款 PS2 已重新编译，包内程序各完成 240 帧启动检查并正常退出；B390 玩家现场尚未复测。
 
 代码、构建、代表性启动验收及本地程序包已完成，停在正式发布之前。
 
@@ -17,7 +17,7 @@ Intel PS2 后续调查已确认并修正 Granite descriptor buffer 回退判断�
 
 PS2 日志新增从光盘准备、宿主初始化、GS／渲染器／图元缓冲初始化到首帧提交的 11 个事件，正常游玩不重复输出。上传报告增加 PID 与创建时间匹配后的进程状态。ESPGaluda、G2、空战之路均已实际出画，启动器列表识别与刷新通过。Intel 玩家报告的结果仍未知，后续用新日志确认，不把新增诊断写成已修复驱动崩溃。
 
-交付：`releases/v0.9.6-local-6257ab5/EVAC-PC-LABEL-v0.9.6-win-x64.zip`，约 160 MB，源提交 `6257ab5`。一次解压验收通过全部 199 个文件及 11 款运行时清单；程序包不含 ROM、源码、PDB 或玩家配置。验收凭据为 ZIP 同目录的 `.acceptance.json`，尚未推送、上传或发布。
+最新交付：`releases/v0.9.6-local-c03a4bf/EVAC-PC-LABEL-v0.9.6-win-x64.zip`，160,269,051 字节，源提交 `c03a4bf`，包含 PS2 descriptor 回退修复。一次解压验收通过全部 199 个文件及 11 款运行时清单；程序包不含 ROM、源码、PDB 或玩家配置。验收凭据为 ZIP 同目录的 `.acceptance.json`。旧 `v0.9.6-local-6257ab5` 包保留，尚未推送、上传或发布。
 
 ## v0.9.5
 

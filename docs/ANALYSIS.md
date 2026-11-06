@@ -12,7 +12,7 @@
 
 回归在本机 Vulkan 设备上构造“descriptor buffer 功能存在、渲染器选择 descriptor sets”的条件。旧代码稳定留下空更新模板；测试在调用驱动前报告失败，避免故意触发驱动崩溃。修正后的普通 descriptor sets、push descriptors、原生 descriptor heap 三路均通过模板／图像视图／GS 初始化和 4,096 像素读回检查，原有 GS GPU 回归也通过，共 4 项。证据为 `.local/v096/descriptor-fallback-before.log`、`descriptor-fallback-fixed-tests.log` 与 `tests/ps2_descriptor_fallback_test.cpp`。
 
-这是已证实的代码缺陷及本机修复结果；B390 玩家现场仍待复测。先前冻结的 `v0.9.6-local-6257ab5` ZIP 未包含此后续修复，未被覆盖。
+这是已证实的代码缺陷及本机修复结果；B390 玩家现场仍待复测。修复已编入源提交 `c03a4bf` 对应的 `releases/v0.9.6-local-c03a4bf/EVAC-PC-LABEL-v0.9.6-win-x64.zip`。包内 ESPGaluda、铸蔷薇 EXE 各完成 240 帧呈现并正常退出；记录为 `.local/v096/intel-c03a4bf-smoke/result.json`。一次解压核对 199 个文件及 11 款运行时清单，旧包保持原样。
 
 ## v0.9.6 · 启动校验
 
