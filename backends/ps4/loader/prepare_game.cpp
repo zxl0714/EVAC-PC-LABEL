@@ -4,6 +4,7 @@
 #include "backends/ps4/content/resource_prepare.h"
 #include "common/ini.h"
 #include "common/settings.h"
+#include "common/verification_cache.h"
 #include <Windows.h>
 #include <array>
 #include <cstdio>
@@ -13,12 +14,12 @@
 namespace cave::ps4 {
 namespace {
 using Json=nlohmann::json;
-Inspection CheckData(const fs::path& root,const fs::path& data,std::string_view id) {
+Inspection CheckData(const fs::path& root,const fs::path& data,std::string_view id,VerificationCache& verification) {
     auto game=FindGame(id);
     // Preparation verifies inputs independently of the player-facing capability
     // gate. A prepared image is not proof that an unfinished title is playable.
     game.coming_soon=false;
-    const auto inspected=Inspect(game,root,data,CheckLevel::Full);
+    const auto inspected=Inspect(game,root,data,CheckLevel::Full,&verification);
     if (inspected.data_state!=DataState::Verified) throw std::runtime_error(std::string(id)+" data is not the complete supported version: "+
         (inspected.problems.empty()?inspected.reason:inspected.problems.front()));
     return inspected;
@@ -32,12 +33,13 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     const bool ketsui=game=="ketsui";
     const bool esprade=game=="esprade";
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
-    ValidateOutputs(Paths(root,game,data));const auto inspected=CheckData(root,data,game);
+    ValidateOutputs(Paths(root,game,data));VerificationCache verification(root);
+    const auto inspected=CheckData(root,data,game,verification);
     const auto policy=PlanPs4Data(game,inspected.version,inspected.layout);
     std::array<wchar_t,32768> executable{};
     const auto length=GetModuleFileNameW(nullptr,executable.data(),static_cast<DWORD>(executable.size()));
     if (!length || length>=executable.size()) throw std::runtime_error("Cannot determine preparation program identity");
-    const fs::path producer(executable.data());const auto producer_hash=Sha256(producer);
+    const fs::path producer(executable.data());const auto producer_hash=verification.Digest(producer);
     auto inputs=Json::array();
     for (const auto& file:DataFiles(FindGame(game),inspected.variant)) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
     Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
@@ -65,8 +67,8 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             const auto metadata=fixes.report.dump(2)+'\n';
             WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
         }
-        if(CheckData(root,data,game).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
-        if (Sha256(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
+        if(CheckData(root,data,game,verification).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
+        if (verification.Digest(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
     return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{}};
 }

@@ -4,6 +4,8 @@
 #include "native_async_log.h"
 #include "loader/prepared_cache.h"
 #include "common/launch.h"
+#include "common/verification_cache.h"
+#include <chrono>
 #include <Windows.h>
 #include <algorithm>
 #include <array>
@@ -154,15 +156,17 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         const auto report=spec.paths.logs/name;Require(fs::create_directory(report),"Run log directory already exists");
         active_game=game;active_report=report;
         WriteNew(report/"config.snapshot.ini",snapshot);
+        WriteNew(report/"verification.txt",spec.verification+'\n');
         Redirect(stdout,report/"stdout.jsonl");Redirect(stderr,report/"stderr.txt");
         SYSTEM_INFO machine{};GetNativeSystemInfo(&machine);
         const auto manifest=Ini::Load(root/"runtime/games"/game/"runtime-manifest.ini");
         const auto commit=manifest.Get("runtime","source_commit");
+        VerificationCache verification(root);
         const Json metadata{{"schema",1},{"game",game},{"launchContract",1},{"pid",GetCurrentProcessId()},
             {"processCreated",CreationTime()},{"sourceCommit",commit?commit->text:"unknown"},
             {"root",Utf8(root)},{"data",Utf8(spec.paths.data)},{"profile",Utf8(spec.paths.profile)},
-            {"executable",Utf8(spec.executable)},{"executableSha256",Sha256(spec.executable)},
-            {"gpuSha256",Sha256(root/"runtime/ps4/KetsuiGpuRuntime.dll")},
+            {"executable",Utf8(spec.executable)},{"executableSha256",verification.Digest(spec.executable)},
+            {"gpuSha256",verification.Digest(root/"runtime/ps4/KetsuiGpuRuntime.dll")},
             {"logicalProcessors",machine.dwNumberOfProcessors},{"configSnapshot","config.snapshot.ini"},
             {"diagnosticInputTapMs",diagnostic_tap},
             {"diagnosticUnpacedPresentation",diagnostic_unpaced},
@@ -171,9 +175,11 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
                 {"endpoint",configuration.community.endpoint},{"nickname",configuration.community.nickname}}}};
         WriteNew(report/"run.json",metadata.dump(2)+'\n');
         std::puts(Json{{"event","collection_run_begin"},{"game",game},{"launch_contract",1}}.dump().c_str());
+        const auto preparation_begin=std::chrono::steady_clock::now();
         const auto prepared=PreparePs4Game(root,spec.paths.data,game);
+        const auto preparation_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-preparation_begin).count();
         WriteNew(report/"preparation.json",prepared.cache.receipt.dump(2)+'\n');
-        const Json prepared_event{{"event","collection_prepared"},{"cacheHit",prepared.cache.reused},
+        const Json prepared_event{{"event","collection_prepared"},{"cacheHit",prepared.cache.reused},{"elapsedMs",preparation_ms},
             {"recipeSha256",prepared.cache.key},{"directory",Utf8(prepared.cache.directory)}};
         std::puts(prepared_event.dump().c_str());
         Require(Ini::ReadText(config)==user_snapshot,"config.ini changed during startup; restart with the saved configuration");

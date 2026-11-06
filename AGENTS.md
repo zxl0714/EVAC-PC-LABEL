@@ -10,6 +10,23 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+v0.9.6 implementation and representative startup checks are complete. Issue #9
+removes package-specific license.info sidecars from all PS4 validation manifests;
+Garegga CUSA10207 reached its title with changed metadata in an isolated copy.
+Issue #10 caches file digests under user-data/cache using file identity/change time;
+current manifest rules remain authoritative. Mutation, replacement, corruption,
+concurrency, relocation and runtime-update tests pass. ESPGaluda updated-runtime
+launch reused game data (5.847 ms, no ISO reread), and final startup emitted exactly
+11 bounded milestones through first present. Garegga, ESPGaluda and G2 rendered;
+launcher refresh completed in 82.34 ms without reading hash inputs.
+Evidence: .local/v096, docs/ANALYSIS.md#v096-startup. Final PS2 build is
+ps2-build-final.log; the earlier build had repeated diagnostics and is superseded.
+The latest remote Intel report still lacks a confirmed outcome; diagnostics are
+complete, but do not claim a reproduced or resolved driver crash. Build receipts,
+11 native tests, five final delta tests, 23 PS4 cache checks and packaging tests
+pass. Remaining: one public/program ZIP, one extraction, local acceptance receipt.
+Stop before push, upload or publication; no internal ROM package.
+
 The v0.9.5 latency follow-up is complete for all five PS4 titles and both PS2
 titles. See [PS4 measurements](docs/ANALYSIS.md#v095-ps4) and
 [PS2 measurements](docs/ANALYSIS.md#v095-ps2) for capture boundaries and samples.

@@ -32,7 +32,7 @@ class CatalogueTests(unittest.TestCase):
         game=next(g for g in catalogue.load(self.path) if g['id']=='garegga')
         manifest=catalogue.read_json(self.root/'games/garegga/data.json')
         self.assertEqual((manifest['titleId'],manifest['version'],manifest['layout']),('CUSA10207','01.00','base'))
-        self.assertEqual(len(game['files']),47)
+        self.assertEqual(len(game['files']),46)
         programs={f['path'] for f in game['files'] if f['program'] and '/' not in f['path']}
         self.assertEqual(programs,{'eboot.bin','emu_integration.prx','emu_integration_01100.prx',
             *('garegga_'+version+'.prx' for version in ('01000','01010','01020','01030','01040'))})
@@ -43,7 +43,7 @@ class CatalogueTests(unittest.TestCase):
         manifest = catalogue.read_json(self.root / 'games/feveron/data.json')
         self.assertEqual((manifest['titleId'], manifest['version'], manifest['layout']),
                          ('CUSA06735', '01.00', 'base'))
-        self.assertEqual(len(game['files']), 46)
+        self.assertEqual(len(game['files']), 44)
         self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
                          [('base-us', '01.00', 'base')])
         programs = {f['path'] for f in game['files'] if f['program'] and '/' not in f['path']}
@@ -58,7 +58,7 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(manifest['layout'], 'merged-patch')
         self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
                          [('update-104', '01.04', 'merged-patch')])
-        self.assertEqual(len(game['files']), 48)
+        self.assertEqual(len(game['files']), 47)
         self.assertTrue(game['integrated'] and game['communitySupported'])
         self.assertFalse(game['comingSoon'])
         self.assertEqual(game['runtimeFiles'], ['runtime/ps4/esprade.exe', 'runtime/ps4/KetsuiGpuRuntime.dll',
@@ -88,8 +88,8 @@ class CatalogueTests(unittest.TestCase):
     def test_ketsui_base_and_merged_update_have_separate_complete_manifests(self):
         game = next(game for game in catalogue.load(self.path) if game['id'] == 'ketsui')
         self.assertEqual([(v['id'], v['version'], v['layout'], len(v['files'])) for v in game['variants']],
-                         [('update-102', '01.02', 'merged-patch', 47), ('base', '01.00', 'base', 41),
-                          ('base-self', '01.00', 'base', 41)])
+                         [('update-102', '01.02', 'merged-patch', 46), ('base', '01.00', 'base', 40),
+                          ('base-self', '01.00', 'base', 40)])
         self.assertEqual(game['files'], game['variants'][0]['files'])
         for variant in game['variants']:
             files = {item['path']: item for item in variant['files']}
@@ -146,8 +146,8 @@ class CatalogueTests(unittest.TestCase):
         manifest=catalogue.read_json(self.root/'games/daioujou/data.json')
         self.assertEqual((game['backend'],manifest['titleId'],manifest['version']),('ps4','CUSA32997','01.04'))
         self.assertEqual(manifest['layout'],'merged-patch')
-        self.assertEqual(len(game['files']),60)
-        self.assertEqual(sum(f['bytes'] for f in game['files']),1116174744)
+        self.assertEqual(len(game['files']),59)
+        self.assertEqual(sum(f['bytes'] for f in game['files']),1116174232)
         self.assertNotIn('Project.gp4',{f['path'] for f in game['files']})
         self.assertFalse(game['comingSoon'])
         self.assertTrue(game['integrated'])

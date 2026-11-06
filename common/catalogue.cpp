@@ -1,4 +1,5 @@
 #include "common/catalogue.h"
+#include "common/verification_cache.h"
 #include "common/paths.h"
 #include "common/stfs.h"
 #include "common/ps2_data.h"
@@ -103,7 +104,7 @@ std::vector<std::string> NestedRoots(const fs::path& root,std::string_view entry
   return finish();
 }
 }
-const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes) {
+const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes,VerificationCache* cache) {
   if(game.variants.empty())return nullptr;
   const auto path=DataChild(data,game.variants.front().entry);
   if(!fs::is_regular_file(path))return nullptr;
@@ -112,7 +113,7 @@ const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uin
   for(const auto& variant:game.variants) {
     const auto entry=std::find_if(variant.files.begin(),variant.files.end(),[&](const auto& file) {return file.path==variant.entry;});
     if(entry==variant.files.end() || entry->bytes!=bytes)continue;
-    if(digest.empty()) {digest=Sha256(path);if(hashes)++*hashes;}
+    if(digest.empty()) {digest=FileDigest(path,cache);if(hashes)++*hashes;}
     if(digest==entry->sha256 && fs::file_size(path)==bytes)return &variant;
   }
   return nullptr;
@@ -149,7 +150,7 @@ std::string RuntimeDiagnostic(const Game& game, const fs::path& root) {
     result += issue.kind + " | Windows=" + std::to_string(issue.error) + " | " + Utf8(DataChild(root, issue.path)) + "\n";
   return result;
 }
-Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level) {
+Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level,VerificationCache* cache) {
   Inspection result;
   result.game = game.id;
   if (game.coming_soon) { result.state = "coming_soon"; result.reason = "Coming Soon"; return result; }
@@ -162,9 +163,9 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       result.reason = "Backend and data manifest not integrated";
       return result;
     }
-    if(game.backend=="ps2")InspectPs2Disc(game,paths.data,level,result);
+    if(game.backend=="ps2")InspectPs2Disc(game,paths.data,level,result,cache);
     else {
-    const auto* variant=IdentifyDataVariant(game,paths.data,&result.hashes_checked);
+    const auto* variant=IdentifyDataVariant(game,paths.data,&result.hashes_checked,cache);
     const auto files=variant?variant->files:game.files;
     const auto forbidden=variant?variant->forbidden_files:game.forbidden_files;
     if(variant) {result.variant=variant->id;result.version=variant->version;result.layout=variant->layout;}
@@ -195,7 +196,7 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       }
       if (level == CheckLevel::Full || (level == CheckLevel::Programs && expected.program)) {
         ++result.hashes_checked;
-        if (Sha256(file) != expected.sha256 || fs::file_size(file) != before) {
+        if (FileDigest(file,cache) != expected.sha256 || fs::file_size(file) != before) {
           incomplete = true; unsupported |= expected.program;
           result.problems.push_back("sha256: " + std::string(expected.path));
         }
@@ -235,7 +236,7 @@ fs::path ContentRelativePath(const ContentPackage& package, const DataFile& file
   if (!file.path.starts_with(prefix)) throw std::runtime_error("Content manifest file is outside its package");
   return FromUtf8(file.path.substr(prefix.size()));
 }
-std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& requested, CheckLevel level) {
+std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& requested, CheckLevel level,VerificationCache* cache) {
   std::vector<ContentInspection> results;
   for (const auto& package : game.content) {
     ContentInspection result;
@@ -303,7 +304,7 @@ std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& 
           if(fs::file_size(file)!=expected.bytes) {candidate.problems.push_back("size: "+Utf8(file));continue;}
           if(level==CheckLevel::Full) {
             ++candidate.hashes_checked;
-            if(Sha256(file)!=expected.sha256 || fs::file_size(file)!=expected.bytes)candidate.problems.push_back("sha256: "+Utf8(file));
+            if(FileDigest(file,cache)!=expected.sha256 || fs::file_size(file)!=expected.bytes)candidate.problems.push_back("sha256: "+Utf8(file));
           }
         }
         unsigned entries=0;

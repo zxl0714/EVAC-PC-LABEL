@@ -69,7 +69,7 @@ Windows x64。Xbox 360 游戏自动选择 Direct3D 12 或 Vulkan。PS4 和 PS2 �
 
 1. **下载并解压**[最新程序包](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest)，发布页提供 SHA-256 校验文件。游戏数据自行准备。
 2. **打开 `EVAC PC LABEL.exe`**，选中游戏，点击“游戏数据…”→“选择数据目录…”。Xbox 360、PS4 选择已解包的游戏目录；PS2 选择原始 ISO 所在目录。
-3. **点击“启动游戏”**。首次启动会校验数据并自动准备运行文件。
+3. **点击“启动游戏”**。首次启动会校验数据并自动准备运行文件；后续启动和更新会复用未变化文件的校验结果。
 
 PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和 DLC 的处理方法见[游戏数据指南](docs/GAME_DATA.md)。备用启动入口为 `Launch.bat`。
 

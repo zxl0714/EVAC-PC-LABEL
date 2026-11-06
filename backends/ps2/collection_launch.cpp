@@ -1,8 +1,10 @@
 #include "collection_launch.h"
+#include "startup_trace.h"
 #include "gs_crash_trace.h"
 #include "crash_unwind.h"
 #include "common/launch.h"
 #include "common/ps2_prepare.h"
+#include "common/verification_cache.h"
 #include "common/settings.h"
 #include "common/windows_fault_text.h"
 #include <Windows.h>
@@ -118,17 +120,25 @@ std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv,c
     value->report=paths.logs/name;
     Require(fs::create_directory(value->report),"PS2 run log already exists");
     WriteNew(value->report/"config.snapshot.ini",snapshot);
+    WriteNew(value->report/"verification.txt",value->spec.verification+'\n');
     Redirect(stdout,value->report/"stdout.log");Redirect(stderr,value->report/"stderr.log");
+    FILETIME created{},exited{},kernel{},user{};
+    Require(GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user)!=FALSE,"Cannot record PS2 process identity");
+    const auto creation=(uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime;
     WriteNew(value->report/"run.ini","[run]\ngame="+value->game+"\ncontract=1\npid="+std::to_string(GetCurrentProcessId())+
+        "\nprocess_created="+std::to_string(creation)+
         "\ndata="+Utf8(paths.data)+"\nprofile="+Utf8(paths.profile)+"\n");
-    const auto inspection=Inspect(FindGame(game.id),root,paths.data,CheckLevel::Programs);
+    crashText=(value->report/"crash.txt").native();crashDump=(value->report/"crash.dmp").native();
+    value->previousFilter=SetUnhandledExceptionFilter(Crash);value->filterInstalled=true;
+    StartupTrace("disc-prepare-begin");
+    VerificationCache verification(root);
+    const auto inspection=Inspect(FindGame(game.id),root,paths.data,CheckLevel::Programs,&verification);
     Require(inspection.data_state==DataState::Unverified && !inspection.disc_image.empty(),"Supported PS2 ISO is missing");
     value->disc=inspection.disc_image;
     value->data=PreparePs2Disc(paths,value->disc,game.disc_sha256,game.files);
+    StartupTrace("disc-prepare-complete");
     value->elf=value->data/"boot.elf";
     value->timings=value->report/"frame-times.csv";
-    crashText=(value->report/"crash.txt").native();crashDump=(value->report/"crash.dmp").native();
-    value->previousFilter=SetUnhandledExceptionFilter(Crash);value->filterInstalled=true;
     return std::unique_ptr<CollectionLaunch>(new CollectionLaunch(std::move(value)));
 }
 const fs::path& CollectionLaunch::Elf()const{return impl->elf;}

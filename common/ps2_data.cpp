@@ -1,4 +1,5 @@
 #include "common/ps2_data.h"
+#include "common/verification_cache.h"
 #include "common/paths.h"
 #include "backends/ps2/iso_disc.h"
 #include <Windows.h>
@@ -7,7 +8,7 @@
 #include <stdexcept>
 
 namespace cave {
-void InspectPs2Disc(const Game& game,const fs::path& directory,CheckLevel level,Inspection& result) {
+void InspectPs2Disc(const Game& game,const fs::path& directory,CheckLevel level,Inspection& result,VerificationCache* cache) {
   const DataFile *boot=nullptr,*disc=nullptr;
   for(const auto& file:game.files) {
     if(file.program && !boot)boot=&file;
@@ -47,7 +48,7 @@ void InspectPs2Disc(const Game& game,const fs::path& directory,CheckLevel level,
         rejected.push_back("different boot program: "+Utf8(image.filename()));continue;
       }
       ++result.hashes_checked;
-      if(Sha256Range(image,uint64_t(entry->lba)*2048,entry->size)!=boot->sha256 ||
+      if(FileDigestRange(image,uint64_t(entry->lba)*2048,entry->size,cache)!=boot->sha256 ||
          fs::file_size(image)!=size || fs::last_write_time(image)!=modified) {
         rejected.push_back("unrecognized boot program: "+Utf8(image.filename()));continue;
       }
@@ -76,7 +77,7 @@ void InspectPs2Disc(const Game& game,const fs::path& directory,CheckLevel level,
   }
   if(level==CheckLevel::Full) {
     ++result.hashes_checked;
-    if(Sha256(result.disc_image)!=disc->sha256 || fs::file_size(result.disc_image)!=size ||
+    if(FileDigest(result.disc_image,cache)!=disc->sha256 || fs::file_size(result.disc_image)!=size ||
        fs::last_write_time(result.disc_image)!=modified) {
       result.data_state=DataState::Incomplete;
       result.reason="The game ISO checksum differs from the supported disc";return;

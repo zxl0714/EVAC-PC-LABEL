@@ -27,6 +27,25 @@ int wmain(int argc,wchar_t** argv) {
     fs::last_write_time(older,fs::last_write_time(latest)-std::chrono::hours(24));
     const auto runs=launcher::reports::Recent(root);
     if(runs.size()!=2 || runs.front().game!="espgaluda")throw std::runtime_error("Newest session not selected across games");
+    {
+      const auto& session=runs.front();
+      if(launcher::reports::ProcessAtUpload(session).find("identity_unavailable")==std::string::npos)
+        throw std::runtime_error("Old log without process identity was treated as running");
+      FILETIME created{},exited{},kernel{},user{};
+      if(!GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user))throw std::runtime_error("Process fixture failed");
+      const auto stamp=(uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime;
+      auto metadata=[&](uint64_t creation){std::ofstream(session.directory/L"run.ini")<<"[run]\npid="<<GetCurrentProcessId()<<"\nprocess_created="<<creation<<"\n";};
+      metadata(stamp);
+      if(launcher::reports::ProcessAtUpload(session).find("process_state=running")==std::string::npos)
+        throw std::runtime_error("Active process state missing");
+      metadata(stamp+1);
+      if(launcher::reports::ProcessAtUpload(session).find("pid_reused")==std::string::npos)
+        throw std::runtime_error("Unrelated process with reused PID accepted");
+      {std::ofstream(session.directory/L"run.ini")<<"broken metadata";}
+      if(launcher::reports::ProcessAtUpload(session).find("metadata_unreadable")==std::string::npos)
+        throw std::runtime_error("Malformed optional metadata blocked reporting");
+      metadata(stamp);
+    }
     const auto zip=launcher::reports::Package(root,runs.front(),"最终 BOSS 崩溃");
     if(!fs::is_regular_file(zip) || fs::file_size(zip)==0)throw std::runtime_error("No report ZIP");
     if(fs::exists(latest/L"auto-crash-1.txt"))throw std::runtime_error("Upload modified original session");

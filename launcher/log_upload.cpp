@@ -90,6 +90,38 @@ std::vector<Session> Recent(const fs::path& root) {
   return result;
 }
 
+std::string ProcessAtUpload(const Session& session) {
+  try {
+    uint64_t pid{},expected{};
+    const auto iniPath=session.directory/L"run.ini",jsonPath=session.directory/L"run.json";
+    if(fs::is_regular_file(iniPath) && Plain(iniPath)) {
+      const auto ini=Ini::Load(iniPath);
+      if(const auto value=ini.Get("run","pid"))pid=std::stoull(value->text);
+      if(const auto value=ini.Get("run","process_created"))expected=std::stoull(value->text);
+    } else if(fs::is_regular_file(jsonPath) && Plain(jsonPath)) {
+      const auto metadata=Json::parse(Read(jsonPath,1024*1024));
+      pid=metadata.value("pid",uint64_t{});expected=metadata.value("processCreated",uint64_t{});
+    }
+    auto text="pid="+std::to_string(pid)+"\nprocess_created="+std::to_string(expected)+"\n";
+    if(!pid || pid>MAXDWORD || !expected)return text+"process_state=identity_unavailable\n";
+    const auto process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,DWORD(pid));
+    if(!process) {
+      const auto error=GetLastError();
+      return text+"process_state="+(error==ERROR_INVALID_PARAMETER?"not_found":"query_failed")+
+          "\nwindows_error="+std::to_string(error)+"\n";
+    }
+    FILETIME created{},exited{},kernel{},user{};DWORD code{};
+    const bool readable=GetProcessTimes(process,&created,&exited,&kernel,&user) && GetExitCodeProcess(process,&code);
+    const auto wait=WaitForSingleObject(process,0);CloseHandle(process);
+    if(!readable)return text+"process_state=query_failed\n";
+    const auto actual=(uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime;
+    if(actual!=expected)return text+"process_state=pid_reused\n";
+    if(wait==WAIT_TIMEOUT)return text+"process_state=running\n";
+    if(wait==WAIT_OBJECT_0)return text+"process_state=exited\nexit_code="+std::to_string(code)+"\n";
+    return text+"process_state=query_failed\n";
+  }catch(const std::exception&){return "process_state=metadata_unreadable\n";}
+}
+
 fs::path Package(const fs::path& root,const Session& session,std::string_view message) {
   if(message.size()>8000 || !ValidUtf8(message))throw std::runtime_error("Message is too long");
   // Resolve a known run beneath logs; never walk game data or linked folders.
@@ -130,6 +162,10 @@ fs::path Package(const fs::path& root,const Session& session,std::string_view me
   bytes += runtime.size(); ++count;
   if(bytes>Limit || count>250)throw std::runtime_error("Report exceeds the upload size limit");
   Write(stage/L"logs"/L"runtime-at-upload.txt",runtime);
+  const auto process_state=ProcessAtUpload(session);
+  bytes+=process_state.size();++count;
+  if(bytes>Limit || count>250)throw std::runtime_error("Report exceeds the upload size limit");
+  Write(stage/L"logs"/L"process-at-upload.txt",process_state);
   const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(root)));
   Json meta{{"schema",1},{"game",session.game},{"run",Utf8(session.directory.filename())},
             {"nickname",settings.nickname},{"message",message},{"files",count},{"bytes",bytes}};

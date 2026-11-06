@@ -8,6 +8,7 @@
 
 namespace cave {
 namespace fs = std::filesystem;
+class VerificationCache;
 struct DataFile {
   std::string_view path;
   uint64_t bytes;
@@ -41,7 +42,7 @@ std::span<const Game> Catalogue();
 const Game& FindGame(std::string_view id);
 // Select only by the actual root program's size and SHA-256. Full inspection
 // must still validate the remaining programs, resources and forbidden files.
-const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr);
+const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr,VerificationCache* cache=nullptr);
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant);
 std::string Sha256(const fs::path& file);
 std::string Sha256Range(const fs::path& file,uint64_t offset,uint64_t bytes);
@@ -66,7 +67,7 @@ struct RuntimeIssue { std::string path, kind; uint32_t error{}; };
 std::vector<RuntimeIssue> InspectRuntime(const Game& game, const fs::path& root);
 std::string RuntimeDiagnostic(const Game& game, const fs::path& root);
 Inspection Inspect(const Game& game, const fs::path& collection_root,
-                   const fs::path& data_dir, CheckLevel level);
+                   const fs::path& data_dir, CheckLevel level,VerificationCache* cache=nullptr);
 struct ContentInspection {
   std::string id, name;
   DataState state{DataState::Missing};
@@ -80,5 +81,5 @@ fs::path ContentRelativePath(const ContentPackage& package, const DataFile& file
 // Optional packages are independent of base-game readiness. Only a Full result
 // with state Verified may be exposed to the guest content manager.
 std::vector<ContentInspection> InspectContent(const Game& game, const fs::path& source,
-                                              CheckLevel level);
+                                              CheckLevel level,VerificationCache* cache=nullptr);
 }  // namespace cave

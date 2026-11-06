@@ -133,6 +133,8 @@ To update, close the games and launcher, then extract over the existing folder a
 - `game-data/`: the game files you provide. When moving the installation, either move them too or select their existing location again.
 - `logs/`: run logs. Keep the logs from any session in which you encounter a problem.
 
+Verification results are cached in `user-data/cache/`. Keep this folder to reduce startup waits after updates. Changed files are checked again automatically.
+
 An older root-level `config.ini` is automatically migrated to `user-data/config.ini`; an existing configuration at the new location takes precedence. Relative data paths are resolved from the collection's root folder.
 
 ## Logs and startup problems

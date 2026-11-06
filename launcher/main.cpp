@@ -1,4 +1,5 @@
 #include "common/catalogue.h"
+#include "common/verification_cache.h"
 #include "common/ini.h"
 #include "common/launch.h"
 #include "common/data_import.h"
@@ -184,6 +185,8 @@ Options Arguments() {
 }
 struct Row {Inspection inspection;fs::path content_source;std::vector<ContentInspection> content;};
 std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
+  const auto started=std::chrono::steady_clock::now();
+  VerificationCache cache(root);
   std::vector<Row> rows(Catalogue().size());
   for(size_t index=0;index<rows.size();++index) {
     rows[index].inspection.game=Catalogue()[index].id;
@@ -198,7 +201,7 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
       const auto& game=Catalogue()[index];
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
-        rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick);
+        rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick,&cache);
         if(!rows[index].inspection.missing_runtime.empty()) {
           try {cave::launcher::reports::RecordRuntimeFailure(root,game.id);} catch (...) {}
         }
@@ -217,6 +220,8 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
       result.state=Catalogue()[index].coming_soon?"coming_soon":"invalid_config";result.reason=error.what();
     }
   }
+  Log(root,"data-list-inspection ms="+std::to_string(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count())+
+      " cache_hits="+std::to_string(cache.hits)+" bytes="+std::to_string(cache.bytes_read));
   return rows;
 }
 std::wstring Status(const Inspection& inspection) {
@@ -820,7 +825,10 @@ class App {
             [task,window](uint64_t done,uint64_t total){task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);},
             [task]{return task->cancelled.load();});
         task->rows=InspectRows(root,task->selected);
-        if (task->starting) task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
+        if (task->starting) {
+          task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
+          Log(root,"launch-verification "+task->launch->verification);
+        }
       } catch(const std::exception& error) {task->error=error.what();}
       if(task->alive) PostMessageW(window,kWorkDone,0,0);
     });

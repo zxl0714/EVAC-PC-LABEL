@@ -11,6 +11,7 @@ struct LaunchSpec {
   GamePaths paths;
   fs::path executable,configuration;
   std::vector<std::wstring> arguments;
+  std::string verification;
 };
 LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,
                          std::string_view profile="default",const fs::path& data_override={});

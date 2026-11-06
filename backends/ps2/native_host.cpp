@@ -2,6 +2,7 @@
 #define NOMINMAX
 #endif
 #include "native_host.h"
+#include "startup_trace.h"
 #include "host_input.h"
 #include "gs_display.h"
 #include "gs_command_queue.h"
@@ -153,6 +154,7 @@ void NativeHost::Configure(NativeHostOptions options) {
     impl->options=std::move(options);
 }
 void NativeHost::Initialize(const char* title) {
+    StartupTrace("host-init-begin");
     if(impl->display)throw std::logic_error("PS2 host is already initialized");
     // Window presets are physical client pixels, as in the other runtimes.
     // Set this before SDL or Vulkan creates any native window; desktop bitmap
@@ -178,6 +180,7 @@ void NativeHost::Initialize(const char* title) {
     if(impl->options.fullscreen)display->ToggleFullscreen();
     impl->display=std::move(display);impl->queue=std::move(queue);impl->input=std::move(input);
     SetHostPadSource(impl->input);
+    StartupTrace("host-init-complete");
     std::cerr<<"[ps2-host] gpu="<<impl->display->Device().GpuName()<<" input=SDL3 window=Vulkan\n";
 }
 std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {

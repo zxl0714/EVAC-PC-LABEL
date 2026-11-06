@@ -1,6 +1,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #include <Windows.h>
 #include "gs_display.h"
+#include "startup_trace.h"
 #include "gs_crash_trace.h"
 #include "frame_trace.h"
 #include "gs_device_private.h"
@@ -311,6 +312,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->Mark(Stage::Present);
     if(!impl->wsi.end_frame())return false;
     impl->Mark(Stage::Presented);
+    if(impl->frames==0)StartupTrace("first-present-returned");
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,
                                                  impl->wsi.get_last_submitted_present_id());
     if(trace)trace->presented=frame_trace::Stamp();

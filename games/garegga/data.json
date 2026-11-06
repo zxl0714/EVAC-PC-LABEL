@@ -193,12 +193,6 @@
       "program": false
     },
     {
-      "path": "sce_sys/license.info",
-      "bytes": 512,
-      "sha256": "f2e8e377258f00fff7d39e31b45d0c7ac6ae99e06b7aabb5e93fc4faaa77a897",
-      "program": false
-    },
-    {
       "path": "sce_sys/npbind.dat",
       "bytes": 532,
       "sha256": "224787b1cc6d77608eb6fc03b6839c66d16b9e1c8efa20154fce3aa22aaac14f",

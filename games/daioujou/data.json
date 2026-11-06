@@ -247,12 +247,6 @@
       "program": false
     },
     {
-      "path": "sce_sys/license.info.encrypted",
-      "bytes": 512,
-      "sha256": "909533bc6960fc9f177c31090cfb5b82413d9e686975b8e2d7bcbdd78a345444",
-      "program": false
-    },
-    {
       "path": "sce_sys/npbind.dat",
       "bytes": 532,
       "sha256": "0481539a72f69df4a6e2c21ae21f5c89e9b6e91f3c5bf8e77dd2c667f1788f2c",
@@ -525,12 +519,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/license.info.encrypted",
-          "bytes": 512,
-          "sha256": "909533bc6960fc9f177c31090cfb5b82413d9e686975b8e2d7bcbdd78a345444",
-          "program": false
-        },
-        {
           "path": "sce_sys/npbind.dat",
           "bytes": 532,
           "sha256": "0481539a72f69df4a6e2c21ae21f5c89e9b6e91f3c5bf8e77dd2c667f1788f2c",
@@ -642,12 +630,6 @@
           "path": "sce_sys/license.dat",
           "bytes": 1024,
           "sha256": "1d7a0f800627c571661c6d315766eacb109ab80f66c53c7842ed13c3f05b4cd4",
-          "program": false
-        },
-        {
-          "path": "sce_sys/license.info",
-          "bytes": 512,
-          "sha256": "49a9a057c57bdfeb48041b414521bdb4bdf37acec026ff90630091d8b94647c3",
           "program": false
         }
       ],

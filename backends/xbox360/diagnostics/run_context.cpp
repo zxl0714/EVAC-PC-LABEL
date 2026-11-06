@@ -1,4 +1,5 @@
 #include "run_context.h"
+#include "common/verification_cache.h"
 #include "community/http_client.h"
 #include <windows.h>
 #include <bcrypt.h>
@@ -90,7 +91,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     cave::ValidateOutputs(run.paths);
     const auto& game=run.paths.data;
     run.profile=run.paths.profile;
-    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full);
+    cave::VerificationCache verification(run.root);
+    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full,&verification);
     if (inspection.data_state!=cave::DataState::Verified)
         throw std::runtime_error(run.game+" data check failed: "+std::string(cave::Name(inspection.data_state))+": "+
             (inspection.problems.empty()?inspection.reason:inspection.problems.front()));
@@ -101,7 +103,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         const auto path=cave::DataChild(game,name);
         if (fs::file_size(path)!=item.at("bytes").get<std::uint64_t>())
             throw std::runtime_error("Unsupported XEX size: "+name);
-        const auto hash=Sha256File(path);
+        const auto hash=verification.Digest(path);
         if (hash!=item.at("sha256").get<std::string>()) throw std::runtime_error("Unsupported or modified XEX: "+name);
         inputs.push_back({{"path",name},{"sha256",hash},{"bytes",fs::file_size(path)}});
     }
@@ -123,7 +125,7 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
             run.content_source=source;
         }
     }
-    run.content=cave::InspectContent(identity,run.content_source,cave::CheckLevel::Full);
+    run.content=cave::InspectContent(identity,run.content_source,cave::CheckLevel::Full,&verification);
     run.source_build=std::string(build.commit)+(build.dirty=="true"?"+dirty":"");
     run.game_session=std::make_shared<cave::GameSession>(run.root);
     fs::create_directories(run.profile);
@@ -132,12 +134,16 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     if (lock==INVALID_HANDLE_VALUE) throw std::runtime_error("Profile is already in use or cannot be locked");
     run.profile_lock=std::shared_ptr<void>(lock,[](void* handle) {CloseHandle(handle);});
     run.directory=NewReportDirectory(run.root,build.game,L"run",game);
+    FILETIME created{},exited{},kernel{},user{};
+    const bool have_creation=GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user)!=FALSE;
+    const auto creation=have_creation?((uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime):0;
     LARGE_INTEGER frequency{};QueryPerformanceFrequency(&frequency);
     Json record{{"format",1},{"game",build.game},{"launchContract",1},
         {"displayName",identity.name},{"sourceCommit",build.commit},{"sourceDirty",build.dirty=="true"},
         {"root",PathUtf8(run.root)},{"profile",PathUtf8(run.profile)},{"qpcFrequency",frequency.QuadPart},
         {"dataDirectory",PathUtf8(game)},{"contentSource",PathUtf8(run.content_source)},{"cacheDirectory",PathUtf8(run.paths.cache)},
-        {"pid",GetCurrentProcessId()},{"processCodePage",GetACP()},
+        {"pid",GetCurrentProcessId()},{"processCreated",creation},{"processCodePage",GetACP()},
+        {"verification",{{"cacheHits",verification.hits},{"reads",verification.reads},{"bytes",verification.bytes_read}}},
         {"gameInputs",inputs},{"configSha256",Sha256Text(snapshot)},
         {"communityRequested",community_requested},{"communitySupported",identity.community_supported},
         {"communityEnabled",run.settings.community_enabled},{"keyboardMouseCapture",false},{"binaries",Json::array()}};
@@ -157,9 +163,10 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         const auto executablePath=(relative.parent_path()=="runtime/xbox360")?binaryRoot/relative.filename():run.root/relative;
         for (const auto& path:std::array{executablePath,fs::path(executablePath).replace_extension(".pdb")}) {
             if (fs::is_regular_file(path)) record["binaries"].push_back({{"path",PathUtf8(path)},
-                {"bytes",fs::file_size(path)},{"sha256",Sha256File(path)}});
+                {"bytes",fs::file_size(path)},{"sha256",verification.Digest(path)}});
         }
     }
+    record["verification"]={{"cacheHits",verification.hits},{"reads",verification.reads},{"bytes",verification.bytes_read}};
     WriteNew(run.directory/"run.json",record.dump(2)+'\n');
     WriteNew(run.directory/"config.ini",snapshot);
     return run;

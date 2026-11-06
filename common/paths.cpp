@@ -89,7 +89,7 @@ GamePaths Paths(const fs::path& root, std::string_view game, const fs::path& dat
           Resolve(base, fs::path("logs") / id), Resolve(base, fs::path("cache") / id / "contract-1")};
 }
 void ValidateOutputs(const GamePaths& paths) {
-  const std::array outputs{paths.prepared, paths.profile, paths.logs, paths.cache};
+  const std::array outputs{paths.prepared, paths.profile, paths.logs, paths.cache,Resolve(paths.root,"user-data/cache")};
   for (const auto& output : outputs) {
     if (!Within(output, paths.root) || output == paths.root)
       throw std::runtime_error("Writable path redirects outside collection root");

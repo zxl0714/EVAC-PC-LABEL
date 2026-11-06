@@ -99,6 +99,13 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   Write(certificate,manifest);
   auto ini=Ini::Load(ConfigPath(fixture.root));
   auto spec=PrepareLaunch(game,fixture.root,ini,"launch-test");
+  const auto cached=PrepareLaunch(game,fixture.root,ini,"launch-test");
+  Require(cached.verification.find("reads=0 bytes=0")!=std::string::npos,"Repeated launch reread unchanged game/runtime bytes");
+  Write(fixture.root/runtime[0],"updated runtime");
+  Write(certificate,"[runtime]\ncontract=1\ngame=espgaluda2\n[files]\nruntime/fake.exe="+Sha256(fixture.root/runtime[0])+"\n");
+  const auto updated=PrepareLaunch(game,fixture.root,ini,"launch-test");
+  Require(updated.verification.find("reads=1 bytes=15")!=std::string::npos,"Runtime update invalidated unchanged game data or reused old runtime");
+  Write(fixture.root/runtime[0],"synthetic; never executed");Write(certificate,manifest);
   Require(spec.arguments.size()==5 && spec.configuration==fixture.root/"user-data/config.ini","Launch contract/config identity");
   Require(spec.paths.data==fixture.data && spec.paths.profile==fixture.root/"user-data/espgaluda2/launch-test","Resolved launch paths");
   Require(spec.arguments[0]==L"--collection_root="+fixture.root.native() && spec.arguments[2]==L"--launch_contract=1","Launch contract arguments");

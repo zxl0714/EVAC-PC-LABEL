@@ -1,5 +1,6 @@
 #include "gs_device_private.h"
 #include "gs_crash_trace.h"
+#include "startup_trace.h"
 #include "field_blit.h"
 #include "gs_interface.hpp"
 #include "context.hpp"
@@ -25,7 +26,9 @@ GsDevice::Impl::Impl(Vulkan::Device* borrowed) : device(borrowed ? borrowed : &o
     if(device->get_gpu_properties().deviceType==VK_PHYSICAL_DEVICE_TYPE_CPU)
         throw std::runtime_error("PS2 graphics requires a hardware Vulkan device");
     ParallelGS::GSOptions options{};
+    StartupTrace("gs-init-begin");
     if(!gs.init(device,options))throw std::runtime_error("GPU lacks required paraLLEl-GS capabilities");
+    StartupTrace("gs-init-complete");
     gs.set_signal_interface(this);
     gpu=device->get_gpu_properties().deviceName;
 }

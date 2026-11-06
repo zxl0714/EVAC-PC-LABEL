@@ -1,4 +1,5 @@
 #include "common/ps2_prepare.h"
+#include "common/verification_cache.h"
 #include "backends/ps2/iso_disc.h"
 #include <Windows.h>
 #include <algorithm>
@@ -11,6 +12,7 @@ namespace cave {
 fs::path PreparePs2Disc(const GamePaths& paths,const fs::path& image,std::string_view identity,
                         std::span<const Ps2PreparedFile> files) {
   ValidateOutputs(paths);
+  VerificationCache verification(paths.root);
   if(identity.size()!=64 || identity.find_first_not_of("0123456789abcdef")!=identity.npos ||
      files.empty() || files.size()>128)throw std::runtime_error("Invalid prepared disc metadata");
   std::set<fs::path> names;
@@ -27,7 +29,7 @@ fs::path PreparePs2Disc(const GamePaths& paths,const fs::path& image,std::string
     std::set<fs::path> expected;
     for(const auto& file:files) {
       const auto path=DataChild(root,file.path);
-      if(!fs::is_regular_file(path) || fs::file_size(path)!=file.bytes || Sha256(path)!=file.sha256)return false;
+      if(!fs::is_regular_file(path) || fs::file_size(path)!=file.bytes || verification.Digest(path)!=file.sha256)return false;
       expected.insert(FromUtf8(file.path));
     }
     size_t count=0;

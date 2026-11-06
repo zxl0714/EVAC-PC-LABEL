@@ -1,4 +1,7 @@
 #include "common/launch.h"
+#include "common/verification_cache.h"
+#include <chrono>
+#include <cstdio>
 #include "common/settings.h"
 #include "common/config_update.h"
 #include <Windows.h>
@@ -18,7 +21,7 @@ std::wstring SessionName(const fs::path& requested) {
   // Preserve this existing game-session namespace across the product rename.
   return L"Local\\CavePCCollection.Game.v1."+CollectionIdentity(requested);
 }
-void VerifyRuntime(const Game& game,const fs::path& root) {
+void VerifyRuntime(const Game& game,const fs::path& root,VerificationCache& cache) {
   const auto certificate="runtime/games/"+std::string(game.id)+"/runtime-manifest.ini";
   const auto ini=Ini::Load(DataChild(root,certificate));
   const auto identity=ini.Get("runtime","game"), contract=ini.Get("runtime","contract");
@@ -30,7 +33,7 @@ void VerifyRuntime(const Game& game,const fs::path& root) {
     if (name==certificate) continue;
     ++expected_count;
     const auto entry=ini.Get("files",name);
-    if (!entry || entry->text.size()!=64 || Sha256(DataChild(root,name))!=entry->text)
+    if (!entry || entry->text.size()!=64 || cache.Digest(DataChild(root,name))!=entry->text)
       throw std::runtime_error("Runtime component differs from its verified build: "+std::string(name));
   }
   if (actual_count!=expected_count) throw std::runtime_error("Runtime manifest has unexpected components");
@@ -58,14 +61,23 @@ LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,st
   result.game=game.id;
   result.paths=Paths(root,game.id,override_data.empty()?ini.DataDirectory(game):override_data,profile);
   ValidateOutputs(result.paths);
-  const auto inspection=Inspect(game,result.paths.root,result.paths.data,CheckLevel::Full);
+  VerificationCache cache(result.paths.root);
+  const auto started=std::chrono::steady_clock::now();
+  const auto inspection=Inspect(game,result.paths.root,result.paths.data,CheckLevel::Full,&cache);
+  const auto data_done=std::chrono::steady_clock::now();
   if (inspection.state!="ready") {
     auto reason=inspection.reason;
     if (!inspection.problems.empty()) reason+=" / "+inspection.problems.front();
     if (!inspection.missing_runtime.empty()) reason+=" / "+inspection.missing_runtime.front();
     throw std::runtime_error(reason);
   }
-  VerifyRuntime(game,result.paths.root);
+  VerifyRuntime(game,result.paths.root,cache);
+  const auto runtime_done=std::chrono::steady_clock::now();
+  char measurement[320]{};
+  std::snprintf(measurement,sizeof(measurement),"game=%.*s data_ms=%.3f runtime_ms=%.3f cache_hits=%llu reads=%llu bytes=%llu",
+      int(game.id.size()),game.id.data(),std::chrono::duration<double,std::milli>(data_done-started).count(),
+      std::chrono::duration<double,std::milli>(runtime_done-data_done).count(),cache.hits,cache.reads,cache.bytes_read);
+  result.verification=measurement;
   result.configuration=ConfigPath(result.paths.root);
   result.executable=DataChild(result.paths.root,game.executable);
   result.arguments={L"--collection_root="+result.paths.root.native(),L"--game_id="+FromUtf8(game.id).native(),L"--launch_contract=1",
