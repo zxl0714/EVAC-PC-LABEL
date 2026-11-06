@@ -2,6 +2,18 @@
 
 <a id="v096-startup"></a>
 
+### PS2：descriptor buffer 回退缺陷
+
+已在当前固定版本的 Granite 中确认一处功能选择不一致：`context.cpp` 会根据描述符大小、容量和 `combinedImageSamplerDescriptorSingleArray` 决定是否实际采用 descriptor buffer；但 `shader.cpp` 与 `memory_allocator.cpp` 仍检查原始 `descriptorBuffer` 功能位。功能位为真而实际选择为假时，前者漏建旧路径需要的 `VkDescriptorUpdateTemplate`，后者进入未初始化的 descriptor buffer 分配器。`descriptor_set.cpp` 的 push descriptor 选择也使用了同一个错误条件。
+
+空模板随后会被传给 `vkUpdateDescriptorSetWithTemplate`。初始化中的另一个可达点是 `GSRenderer::init` 输出内存预算后，`GSInterface::set_super_sampling_rate` 创建 1×1 phase LUT 图像，进入错误的图像描述符分支。这与最新报告停止输出的位置相符，但报告未记录最终功能选择，不能据此还原玩家的确切调用栈。
+
+[Granite PR #157](https://github.com/Themaister/Granite/pull/157) 针对同一缺陷；[PCSX2 Reliquary #42](https://github.com/DiscoStarslayer/pcsx2-reliquary/issues/42) 记录了 Intel Arc B580 启动崩溃及对应修复。当前项目将上述三处统一为 `supports_descriptor_buffer`，不按显卡型号禁用功能。构建时生成替换源文件，保持固定依赖源码视图不变。启动日志记录功能位、实际选择、combined layout 属性和 heap 选择。
+
+回归在本机 Vulkan 设备上构造“descriptor buffer 功能存在、渲染器选择 descriptor sets”的条件。旧代码稳定留下空更新模板；测试在调用驱动前报告失败，避免故意触发驱动崩溃。修正后的普通 descriptor sets、push descriptors、原生 descriptor heap 三路均通过模板／图像视图／GS 初始化和 4,096 像素读回检查，原有 GS GPU 回归也通过，共 4 项。证据为 `.local/v096/descriptor-fallback-before.log`、`descriptor-fallback-fixed-tests.log` 与 `tests/ps2_descriptor_fallback_test.cpp`。
+
+这是已证实的代码缺陷及本机修复结果；B390 玩家现场仍待复测。先前冻结的 `v0.9.6-local-6257ab5` ZIP 未包含此后续修复，未被覆盖。
+
 ## v0.9.6 · 启动校验
 
 校验缓存位于 `user-data/cache/verification-v1.txt`。NTFS／ReFS 文件的卷和文件标识、创建／修改／变更时间、大小、读取区间共同决定摘要能否复用；每次启动仍将摘要与当前版本清单比较。其他文件系统保持重新计算。缓存丢失或损坏后自动重算，游戏数据目录不写入缓存。

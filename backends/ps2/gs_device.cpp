@@ -26,6 +26,12 @@ GsDevice::Impl::Impl(Vulkan::Device* borrowed) : device(borrowed ? borrowed : &o
     if(device->get_gpu_properties().deviceType==VK_PHYSICAL_DEVICE_TYPE_CPU)
         throw std::runtime_error("PS2 graphics requires a hardware Vulkan device");
     ParallelGS::GSOptions options{};
+    const auto& features = device->get_device_features();
+    std::fprintf(stderr, "[ps2-gs-descriptors] buffer_feature=%u buffer_selected=%u combined_single_array=%u heap=%u\n",
+        unsigned(features.descriptor_buffer_features.descriptorBuffer),
+        unsigned(features.supports_descriptor_buffer),
+        unsigned(features.descriptor_buffer_properties.combinedImageSamplerDescriptorSingleArray),
+        unsigned(features.descriptor_heap_features.descriptorHeap));
     StartupTrace("gs-init-begin");
     if(!gs.init(device,options))throw std::runtime_error("GPU lacks required paraLLEl-GS capabilities");
     StartupTrace("gs-init-complete");

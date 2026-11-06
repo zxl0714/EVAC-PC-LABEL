@@ -10,6 +10,20 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Nov06 follow-up to the Intel PS2 investigation: a concrete Granite descriptor
+fallback bug is fixed in the working tree (tools/ps2-gs/CMakeLists.txt generated
+source adapters; upstream PR #157). Raw descriptorBuffer=true with selected
+supports_descriptor_buffer=false skipped update templates and entered an
+uninitialized image-descriptor allocator. Three predicates now use the selected
+strategy. New headless test proves the old NULL template failure; descriptor
+sets, push descriptors, native heap plus existing GPU test pass (4 total).
+Evidence .local/v096/descriptor-fallback-*; docs/ANALYSIS.md. This is a proven
+code defect, NOT a confirmed B390 field fix. Latest player report omits selected
+strategy and final outcome. New startup line will report those feature choices.
+User has now requested the fix. Rebuild/certify both PS2 games and make one new
+v0.9.6 program ZIP after the targeted GPU tests. Reuse unchanged component
+receipts; preserve the old frozen ZIP below. No upload or publication requested.
+
 v0.9.6 implementation and representative startup checks are complete. Issue #9
 removes package-specific license.info sidecars from all PS4 validation manifests;
 Garegga CUSA10207 reached its title with changed metadata in an isolated copy.
