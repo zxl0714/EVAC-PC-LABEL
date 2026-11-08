@@ -252,23 +252,24 @@ struct Layout {
   float width{},height{},scroll{};
   bool covers=false;
   bool narrow() const {return width<800;}
-  float margin() const {return std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
-  float header() const {return cave::launcher::kHeaderHeight;}
+  float margin() const {return covers?cave::launcher::CoverMargin(width):std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
+  float header() const {return covers?cave::launcher::kCoverHeaderHeight:cave::launcher::kHeaderHeight;}
   float footer() const {return height-cave::launcher::kFooterHeight;}
   float row_height() const {
-    if(covers)return cover_width()*4.f/3.f+65.f;
+    if(covers)return cave::launcher::CoverHeight(cover_width());
     const auto count=float(Catalogue().size());
     return std::clamp((viewport_height()-cave::launcher::kCardGap*(count-1))/count,
                       float(cave::launcher::kMinimumCardHeight),180.f);
   }
   float viewport_height() const {return std::max(0.f,footer()-header());}
-  size_t columns() const {return covers?std::clamp(size_t(std::max(0.f,width-2*margin()+18)/194.f),size_t(1),size_t(6)):1;}
-  float cover_width() const {return std::max(1.f,(width-2*margin()-18.f*float(columns()-1))/float(columns()));}
-  float content_height() const {return float((Catalogue().size()+columns()-1)/columns())*(row_height()+12)-12;}
+  size_t columns() const {return covers?cave::launcher::CoverColumns(width):1;}
+  float cover_width() const {return cave::launcher::CoverWidth(width);}
+  float row_gap() const {return covers?cave::launcher::kCoverRowGap:cave::launcher::kCardGap;}
+  float content_height() const {return float((Catalogue().size()+columns()-1)/columns())*(row_height()+row_gap())-row_gap();}
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
   D2D1_RECT_F card(size_t index) const {
-    const auto top=header()+float(index/columns())*(row_height()+12)-scroll;
-    const auto left=margin()+(covers?float(index%columns())*(cover_width()+18):0);
+    const auto top=header()+float(index/columns())*(row_height()+row_gap())-scroll;
+    const auto left=margin()+(covers?float(index%columns())*(cover_width()+cave::launcher::kCoverColumnGap):0);
     return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
   }
   D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
@@ -288,7 +289,7 @@ struct Layout {
   D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
-void FitInitialWindow(HWND window) {
+void FitInitialWindow(HWND window,bool covers,std::optional<cave::launcher::WindowSize> saved={}) {
   MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
   if(!GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor))
     throw std::runtime_error("Cannot read launcher monitor work area");
@@ -296,10 +297,25 @@ void FitInitialWindow(HWND window) {
   RECT frame{};
   if(!AdjustWindowRectExForDpi(&frame,WS_OVERLAPPEDWINDOW|WS_VSCROLL,FALSE,0,dpi))
     throw std::runtime_error("Cannot size launcher window frame");
+  // AdjustWindowRectExForDpi excludes scrollbars; include ours in the initial grid width.
+  const auto scrollbar=GetSystemMetricsForDpi(SM_CXVSCROLL,dpi);
+  frame.right+=scrollbar;
   RECT current{};GetWindowRect(window,&current);
   const auto& work=monitor.rcWork;
-  const auto size=cave::launcher::InitialWindowSize(current.right-current.left,
+  auto size=saved?cave::launcher::RestoreWindowSize(*saved,work.right-work.left,
+      work.bottom-work.top,dpi):
+      covers?cave::launcher::InitialCoverWindowSize(work.right-work.left,
+      work.bottom-work.top,dpi,frame.right-frame.left,frame.bottom-frame.top,Catalogue().size()):
+      cave::launcher::InitialWindowSize(current.right-current.left,
       work.right-work.left,work.bottom-work.top,dpi,frame.bottom-frame.top,Catalogue().size());
+  if(covers && !saved) {
+    const auto scale=float(dpi)/96;
+    Layout planned{(size.width-frame.right+frame.left)/scale,(size.height-frame.bottom+frame.top)/scale};
+    planned.covers=true;
+    // A fitting library hides the native scrollbar. Keep its resulting client width
+    // equal to the width used to calculate the card heights.
+    if(planned.max_scroll()==0)size.width-=scrollbar;
+  }
   SetWindowPos(window,nullptr,work.left+(work.right-work.left-size.width)/2,
       work.top+(work.bottom-work.top-size.height)/2,size.width,size.height,SWP_NOZORDER|SWP_NOACTIVATE);
 }
@@ -436,7 +452,8 @@ class Renderer {
       ComPtr<ID2D1RoundedRectangleGeometry> clip;Check(factory->CreateRoundedRectangleGeometry(round,&clip),"Create card clip");
       target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
       if(layout.covers) {
-        const D2D1_RECT_F art{rectangle.left+7,rectangle.top+7,rectangle.right-7,rectangle.bottom-63};
+        const auto inset=cave::launcher::kCoverInset;
+        const D2D1_RECT_F art{rectangle.left+inset,rectangle.top+inset,rectangle.right-inset,rectangle.bottom-74};
         auto bitmap=Image(target,index,muted,true);const auto size=bitmap->GetSize();
         const auto& artwork=cave::launcher::kCoverArtwork[index];
         const float scale=artwork.contain?std::min((art.right-art.left)/size.width,(art.bottom-art.top)/size.height):
@@ -454,10 +471,10 @@ class Renderer {
           target->FillRectangle(label,shade.Get());
           Text(target,T(L"敬请期待"),{label.left+10,label.top+6,label.right-10,label.bottom},11,0x647168);
         }
-        const auto left=rectangle.left+10;
-        Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-57,rectangle.right-10,rectangle.bottom-20},
+        const auto left=rectangle.left+12;
+        Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
             13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
-        Text(target,Wide(game.name),{left,rectangle.bottom-19,rectangle.right-10,rectangle.bottom-4},10,0x748179);
+        Text(target,Wide(game.name),{left,rectangle.bottom-24,rectangle.right-12,rectangle.bottom-10},10,0x748179);
         target->PopLayer();
         target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
         continue;
@@ -542,6 +559,7 @@ class App {
     const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
     selected=cave::launcher::InitialSelection(ini,options.selection);
     layout.covers=cave::launcher::CoverLayout(ini);
+    saved_window_size=cave::launcher::ReadWindowSize(ini,layout.covers);
     language=options.language.value_or(cave::launcher::ReadLanguage(ini));
     message=T(L"正在检测游戏数据…");
   }
@@ -631,7 +649,7 @@ class App {
     MessageBoxW(hwnd,body.c_str(),T(L"游戏数据详情"),MB_OK|MB_ICONINFORMATION);
   }
   void PersistSelection() noexcept {
-    try {cave::launcher::SaveSelection(options.root,selected);}
+    try {cave::launcher::SaveSelection(options.root,selected,layout.covers,normal_window_size);}
     catch(const std::exception& error) {Log(options.root,error.what());}
     catch(...) {Log(options.root,"selected-game-save-failed");}
   }
@@ -903,7 +921,7 @@ class App {
     DestroyMenu(menu);if(selection)Choose(selection==2);
   }
   void EnsureVisible() {
-    const auto top=float(selected/layout.columns())*(layout.row_height()+12),bottom=top+layout.row_height();
+    const auto top=float(selected/layout.columns())*(layout.row_height()+layout.row_gap()),bottom=top+layout.row_height();
     if(top<layout.scroll)layout.scroll=top;
     if(bottom>layout.scroll+layout.viewport_height())layout.scroll=bottom-layout.viewport_height();
     Scroll(0);
@@ -973,9 +991,24 @@ class App {
       if(message==cave::launcher::ActivationMessage()) {app->Activate();return 1;}
       switch(message) {
         case WM_CREATE:app->CreatePreferences();app->Refresh();app->StartUpdates();return 0;
-        case WM_GETMINMAXINFO:{auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};return 0;}
+        case WM_GETMINMAXINFO:{
+          auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;
+          info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};
+          if(app->layout.covers) {
+            MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+            if(GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor)) {
+              info->ptMinTrackSize.x=std::min(info->ptMinTrackSize.x,(monitor.rcWork.right-monitor.rcWork.left)*9/10);
+              info->ptMinTrackSize.y=std::min(info->ptMinTrackSize.y,(monitor.rcWork.bottom-monitor.rcWork.top)*9/10);
+            }
+          }
+          return 0;}
         case WM_SIZE:{if(first==SIZE_MINIMIZED)return 0;
           const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
+          if(first==SIZE_RESTORED && !IsZoomed(window) && LOWORD(second) && HIWORD(second)) {
+            RECT bounds{};
+            if(GetWindowRect(window,&bounds))app->normal_window_size=cave::launcher::WindowSize{
+              int(std::lround((bounds.right-bounds.left)/scale)),int(std::lround((bounds.bottom-bounds.top)/scale))};
+          }
           app->PositionPreferences();app->EnsureVisible();return 0;}
         case WM_DPICHANGED:{const auto rectangle=reinterpret_cast<RECT*>(second);SetWindowPos(window,nullptr,rectangle->left,rectangle->top,rectangle->right-rectangle->left,rectangle->bottom-rectangle->top,SWP_NOACTIVATE|SWP_NOZORDER);return 0;}
         case WM_ERASEBKGND:return 1;
@@ -1056,6 +1089,7 @@ class App {
   std::wstring override_hint;
   Renderer renderer;
   Layout layout;
+  std::optional<cave::launcher::WindowSize> saved_window_size,normal_window_size;
   std::vector<Row> rows;
   size_t selected{};
   int hover{-1};
@@ -1131,7 +1165,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
         rectangle.right-rectangle.left,rectangle.bottom-rectangle.top,nullptr,nullptr,instance,&app);
     if(!window)throw std::runtime_error("Cannot create launcher window");
     instance_guard.Publish(window);
-    FitInitialWindow(window);
+    FitInitialWindow(window,app.layout.covers,app.saved_window_size);
     ShowWindow(window,show);UpdateWindow(window);
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}
     return 0;

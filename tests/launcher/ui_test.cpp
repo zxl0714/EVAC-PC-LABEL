@@ -191,6 +191,55 @@ void CoverLayoutChecks() {
   Require(saved.Get("collection","selected_game")->text==Catalogue().back().id,
           "Cover selection was not retained at close");
 }
+void WindowSizeChecks() {
+  Fixture fixture;
+  Write(fixture.root/"user-data/config.ini","[collection]\ncheck_for_updates=false\n");
+  for(const auto covers:{false,true}) {
+    const auto before=Ini::ReadText(ConfigPath(fixture.root));
+    const std::array edits{IniEdit{"collection","launcher_layout",covers?"covers":"banner"}};
+    UpdateConfig(fixture.root,before,edits);
+    cave::launcher::WindowSize expected{};
+    {
+      Frame frame(fixture.root);auto& app=frame.app;
+      SetWindowPos(app.hwnd,nullptr,0,0,covers?1250:1150,covers?850:800,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+      expected=*app.normal_window_size;
+      App::Window(app.hwnd,WM_SIZE,SIZE_MAXIMIZED,MAKELPARAM(1800,1000));
+      App::Window(app.hwnd,WM_SIZE,SIZE_MINIMIZED,0);
+      Require(app.normal_window_size->width==expected.width && app.normal_window_size->height==expected.height,
+              "Maximize/minimize replaced the remembered normal size");
+    }
+    const auto saved=cave::launcher::ReadWindowSize(Ini::Load(ConfigPath(fixture.root)),covers);
+    Require(saved && saved->width==expected.width && saved->height==expected.height,"Normal close did not save window size");
+    {
+      Frame frame(fixture.root);auto& app=frame.app;
+      FitInitialWindow(app.hwnd,app.layout.covers,app.saved_window_size);
+      RECT bounds{};GetWindowRect(app.hwnd,&bounds);const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+      Require(std::abs((bounds.right-bounds.left)/scale-expected.width)<=1 &&
+              std::abs((bounds.bottom-bounds.top)/scale-expected.height)<=1,
+              "Restart did not restore the normal window dimensions");
+    }
+  }
+  const auto saved=Ini::Load(ConfigPath(fixture.root));
+  Require(cave::launcher::ReadWindowSize(saved,true)->width!=cave::launcher::ReadWindowSize(saved,false)->width,
+          "Switching layout overwrote the other layout's dimensions");
+  {
+    Frame frame(fixture.root);auto& app=frame.app;
+    app.Select(Catalogue().size()-1);frame.Settle();
+    FitInitialWindow(app.hwnd,true);frame.Settle();
+    ShowWindow(app.hwnd,SW_SHOWNOACTIVATE);UpdateWindow(app.hwnd);
+    MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);GetMonitorInfoW(MonitorFromWindow(app.hwnd,MONITOR_DEFAULTTONEAREST),&monitor);
+    const auto dpi=GetDpiForWindow(app.hwnd);const auto scale=float(dpi)/96;
+    RECT border{};AdjustWindowRectExForDpi(&border,WS_OVERLAPPEDWINDOW,FALSE,0,dpi);
+    const auto full_height=(cave::launcher::kCoverHeaderHeight+cave::launcher::kFooterHeight+
+        3*cave::launcher::CoverHeight(cave::launcher::kCoverPreferredWidth)+2*cave::launcher::kCoverRowGap)*scale+border.bottom-border.top;
+    if(full_height<=monitor.rcWork.bottom-monitor.rcWork.top-24*scale) {
+      std::cout<<"Full library: client="<<app.layout.width<<"x"<<app.layout.height
+               <<" content="<<app.layout.content_height()<<" viewport="<<app.layout.viewport_height()<<"\n";
+      Require(app.layout.max_scroll()==0,"Full-library initial size leaves a small scroll range");
+      Require(!(GetWindowLongPtrW(app.hwnd,GWL_STYLE)&WS_VSCROLL),"A fitting library retains a scrollbar");
+    }
+  }
+}
 void SelectionChecks() {
   Fixture fixture;
   const auto ini="\xef\xbb\xbf; keep selected-game fixture\r\n[collection]\r\nconfig_version=1\r\nlanguage=en\r\nselected_game=daioujou\r\n[community]\r\nnickname=Baseline\r\n[future]\r\nvalue=untouched\r\n";
@@ -506,6 +555,7 @@ void MainChecks() {
   }
   Require(unexpected_dialogs==0 && opened_paths.size()==1,"Unexpected shell or dialog side effects");
   SelectionChecks();
+  WindowSizeChecks();
   CoverLayoutChecks();
   NicknameWarningChecks();
   NicknameAlignmentChecks();
@@ -526,9 +576,11 @@ int wmain(int count,wchar_t** arguments) {
     else if(count==5 && std::wstring_view(arguments[1])==L"--instance-host")InstanceHost(arguments[2],arguments[3],arguments[4]);
     else if(count==4 && std::wstring_view(arguments[1])==L"--instance-probe")InstanceProbe(arguments[2],arguments[3]);
     else if(count==3 && std::wstring_view(arguments[1])==L"--visual-checks")VisualChecks(arguments[2]);
+    else if(count==3 && std::wstring_view(arguments[1])==L"--cover-sizing-previews")VisualChecks(arguments[2],true);
+    else if(count==2 && std::wstring_view(arguments[1])==L"--window-size-checks")WindowSizeChecks();
     else if(count==1)MainChecks();
     else throw std::runtime_error("Unexpected launcher test arguments");
-    std::cout<<checks<<" launcher integration checks passed; hidden fixture windows only.\n";
+    std::cout<<checks<<" launcher integration checks passed.\n";
     return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

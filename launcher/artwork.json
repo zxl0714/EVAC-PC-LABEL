@@ -190,13 +190,13 @@
     {
       "game": "daioujou",
       "path": "launcher/assets/covers/daioujou.jpg",
-      "sha256": "e77ec8287a604fd57c71dca4ce7c9780f0af648db894e59a76e4e71e94c15a88",
+      "sha256": "d947f3cd67f95ccd9bb61a50f8184bf7156e0a562cff79865ee6dfefa48873b0",
       "resource": 305,
       "focusY": 0.5,
-      "fit": "cover",
+      "fit": "contain",
       "kicker": "PS4 · 2023",
-      "sourcePage": "https://m2stg.com/daioujou/",
-      "sourceUrl": "https://m2stg.com/daioujou/assets/img/bg_key.jpg",
+      "sourcePage": "https://jumpichiban.com/products/dodonpachi-dai-ou-jo-rinne-tensei-blissful-death-re-incarnation-famitsu-dx-pack-3d-crystal-set-ps4-version",
+      "sourceUrl": "https://jumpichiban.com/cdn/shop/files/81s7ND90-WL._AC_SL1500.jpg?v=1738181182&width=1176",
       "copyright": "©2002 CAVE Interactive CO., LTD. / ©2023 M2 Co., Ltd.",
       "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
     },

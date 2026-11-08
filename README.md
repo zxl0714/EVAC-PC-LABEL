@@ -12,7 +12,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
   <a href="docs/GAME_DATA.md">游戏数据</a> ·
   <a href="docs/SETTINGS.md">设置与操作</a> ·
-  <a href="docs/RELEASE_NOTES_v0.9.5.md">v0.9.5 更新说明</a>
+  <a href="docs/RELEASE_NOTES_v0.9.7.md">v0.9.7 更新说明</a>
 </p>
 
 <p align="center">
@@ -75,7 +75,7 @@ PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和
 
 ## 配置与存档
 
-在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。键盘、手柄、音量和联网设置通过底部“配置文件”编辑。
+在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。启动器关闭时会记住窗口大小。键盘、手柄、音量和联网设置通过底部“配置文件”编辑。
 
 - **操作**：方向键移动，`Z / X / C / V` 对应手柄四个主按钮，`Enter` 为 Start。[完整按键与特殊模式 →](docs/SETTINGS.md#配置与操作)
 - **Radeon 玩家**可在 `[display]` 下设 `amd_anti_lag = true` 试用 Anti-Lag 2，标准包默认关闭。[设置说明](docs/SETTINGS.md#amd-radeon-anti-lag-2)

@@ -10,6 +10,60 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Nov09 active goal: complete v0.9.7 through a LOCAL PROGRAM ZIP. No publication,
+upload or push. Scope: DaiOuJou low-address loader fix, existing cover-grid UI
+refinement (hidden covers option; banner stays default), window-size persistence,
+bilingual docs and concise release notes. Freeze source, incrementally build and
+certify changed components, run one DaiOuJou startup/menu check when the user
+hands the desktop back, then assemble and extract the program ZIP once.
+An asynchronous question is pending about whether gameplay has finished; continue
+non-UI work meanwhile. Preserve current player installations and game data.
+
+Nov09 v0.9.7 DaiOuJou startup fix implemented and compiled locally. User is
+playing another game: no computer use, game launches, staging into player trees,
+or gameplay verification until they hand the computer back. New report
+20261107-8172a0dc73014b69 exits 20 after low-address image reservation fails.
+The loader now preserves its old candidate order, then scans actual free regions
+below signed 2 GiB; reservation diagnostics include image, sizes, candidate errors
+and free-region information. Offline regression reproduces the old failure and
+passes 105 checks, including a 146,098,004-byte image in an offset hole, exhaustion
+and reuse. Three targeted native CTests plus four build-receipt tests pass.
+Real local DaiOuJou 01.00 core/integration/eboot binding census passes without
+calling entry points or initializers; its ELF input hashes differ from the player's
+SELF variant. Output: out/ps4-native/KetsuiNativeProbe.exe, not staged or packaged.
+Remaining: one actual startup/menu check after user finishes playing. Evidence
+.local/v097/, docs/ANALYSIS.md#v097-image-reservation. Preserve concurrent UI edits.
+
+Host test incident: an abandoned VirtualAlloc2 range-search experiment hung in
+Windows kernel time during its pressure test. Ps4ImageMemoryTests.exe PID 37868
+(started Nov08 23:58:57 local) has termination requested, exit code 0xffffffff,
+unsignaled process handle, and Idle priority (last checked Nov09). Stop-Process
+and taskkill did not complete termination. It is NOT the current implementation
+or test target (Ps4ImageReservationTests), which uses bounded VirtualQuery +
+VirtualAlloc and completes in 0.03 s. Do not retry that experiment or reboot while
+the user is playing. PowerShell/process enumeration subsequently stalled; cancelled
+all our pending shell sessions. Final build used existing pinned tools plus verified
+MSVC/SDK include/lib paths via .local/v097/build-checks.cmd, one low-priority job.
+Native commands and Python still work. No player executable/config/data was changed.
+
+Nov07 launcher cover-grid refinement is complete locally. Default four columns
+(11 games: 4+4+3), wider spacing, all rows initially shown when the work area permits,
+and complete DaiOuJou PS4 box art. Window dimensions persist independently for
+banner/covers on normal close; maximize/minimize preserve the normal dimensions.
+Tests: 834 common checks, 4588 launcher checks before the final outer-size storage
+refinement, then 22 targeted window-save/restart/full-library checks; 10 artwork tests pass.
+Native previews (24) and live four-column window inspected.
+The full-library preview also verified all three rows without a scrollbar; initial
+outer width now excludes the scrollbar when the calculated grid fits vertically.
+See docs/LAUNCHER_COVERS_PLAN.md and .local/ui-covers-20261107/previews-complete/.
+Local preview executable: .local/ui-covers-20261107/player-fixed/EVAC PC LABEL.exe.
+This fixture has isolated config, absolute project data paths and hardlinked runtime
+files. The previous player/ fixture's runtime junction escaped the component root,
+incorrectly producing invalid_path for every game; do not reuse it. Quick inspection
+now finds seven games and reports missing data for Feveron, Garegga, ESPGaluda and
+Ibara; the live preview correctly dims those four covers. No game binaries changed.
+Default public layout is still banner. No package/push/release requested.
+
 Nov06 follow-up to the Intel PS2 investigation: a concrete Granite descriptor
 fallback bug is fixed in the working tree (tools/ps2-gs/CMakeLists.txt generated
 source adapters; upstream PR #157). Raw descriptorBuffer=true with selected

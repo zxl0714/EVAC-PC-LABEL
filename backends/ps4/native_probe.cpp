@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include "loader/preparation_policy.h"
+#include "loader/image_memory.h"
 #include "cpu/compatibility.h"
 #include "cpu/function_ranges.h"
 #include "guest_heap.h"
@@ -85,7 +86,7 @@
 namespace {
 
 constexpr std::uint64_t kPage = 4096;
-constexpr std::uint64_t kMaximumImage = 512ull * 1024 * 1024;
+constexpr std::uint64_t kMaximumImage = cave::ps4::kMaximumImageBytes;
 constexpr std::uint64_t kThunkBytes = 128;
 static_assert(sizeof(std::atomic<std::uint64_t>) == 8 && std::atomic<std::uint64_t>::is_always_lock_free);
 const unsigned char kNoThrowTag = 0;
@@ -755,20 +756,23 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
             throw std::runtime_error("Invalid no-TLS module metadata");
         }
     }
-    // Preserve the original seven choices first. Titles with more resident
-    // core revisions can then use the gaps, still wholly below signed 2 GiB.
-    const auto image_bytes=Align(header.image_size,65536);
-    for (unsigned pass=0;pass<2 && !runtime.image;++pass) {
-        for (std::uintptr_t preferred=pass?0x08000000:0x10000000;
-             preferred<=0x78000000;preferred+=0x10000000) {
-            if (image_bytes>0x80000000ull-preferred) continue;
-            runtime.image=static_cast<unsigned char*>(VirtualAlloc(reinterpret_cast<void*>(preferred),
-                static_cast<SIZE_T>(image_bytes),MEM_RESERVE,PAGE_NOACCESS));
-            if (runtime.image) break;
-        }
+    const auto reservation = cave::ps4::ReserveImageMemory(header.image_size);
+    runtime.image = reservation.address;
+    std::printf("{\"event\":\"native_image_reservation\",\"image\":%s,\"requested_bytes\":%llu,"
+                "\"reserved_bytes\":%zu,\"address\":\"%p\",\"range_search\":%s,\"win32_error\":%lu,"
+                "\"regions_queried\":%u,\"largest_free_region\":%zu,\"attempts\":[",
+                Quoted(runtime.image_name).c_str(), header.image_size, reservation.bytes,
+                static_cast<void*>(runtime.image), reservation.searched_range ? "true" : "false", reservation.error,
+                reservation.regions_queried, reservation.largest_free_region);
+    for (unsigned i = 0; i < reservation.attempt_count; ++i) {
+        const auto& attempt = reservation.preferred_attempts[i];
+        std::printf("%s{\"address\":\"0x%llx\",\"win32_error\":%lu}", i ? "," : "",
+                    static_cast<unsigned long long>(attempt.address), attempt.error);
     }
+    std::puts("]}");
     if (!runtime.image) {
-        throw std::runtime_error("Cannot reserve low-address game image");
+        throw std::runtime_error("Cannot reserve low-address game image: " + runtime.image_name +
+            " (bytes=" + std::to_string(reservation.bytes) + ", win32=" + std::to_string(reservation.error) + ")");
     }
     std::uint64_t previous_end = 0;
     for (std::uint64_t i = 0; i < header.segments; ++i) {

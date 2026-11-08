@@ -12,7 +12,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
   <a href="docs/GAME_DATA.en.md">Game data</a> ·
   <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
-  <a href="docs/RELEASE_NOTES_v0.9.5.md#english">v0.9.5 release notes</a>
+  <a href="docs/RELEASE_NOTES_v0.9.7.md#english">v0.9.7 release notes</a>
 </p>
 
 <p align="center">
@@ -75,7 +75,7 @@ Extract PS4 PKGs with the included `tools/Extract-PS4.exe`. For Xbox 360 ISOs, X
 
 ## Settings and saves
 
-Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. Use **Config file** for keyboard, controller, audio and online settings.
+Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. The launcher remembers its window size when closed. Use **Config file** for keyboard, controller, audio and online settings.
 
 - **Controls:** arrow keys for movement, `Z / X / C / V` for the four controller face buttons, and `Enter` for Start. [All controls and special modes →](docs/SETTINGS.en.md#launcher-and-controls)
 - **Radeon users** can try Anti-Lag 2 by setting `amd_anti_lag = true` under `[display]`. The standard package defaults to off. [Settings](docs/SETTINGS.en.md#amd-radeon-anti-lag-2)

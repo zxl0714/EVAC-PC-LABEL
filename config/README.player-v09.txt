@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.9.6
+EVAC PC LABEL v0.9.7
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
@@ -36,6 +36,7 @@ XBLA：打开 tools/Extract-XBLA.exe，选择内容包并提取，把结果放�
 
 配置与操作
 CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
+启动器关闭时会记住窗口大小。
 启动按钮上方选择全屏或窗口分辨率。底部“配置文件”打开 user-data/config.ini。
 备份、换目录时保留整个 user-data/，包含配置、存档和录像。
 
@@ -109,6 +110,7 @@ For Futari's original DLC packages, follow game-data/futari/README.txt; launch e
 
 Settings and controls
 CN / EN / JP selects the UI language. Edit your leaderboard nickname in the header.
+The launcher remembers its window size when closed.
 Choose fullscreen or a window size above Launch game. Config opens user-data/config.ini.
 Keep the whole user-data/ folder when updating or moving your installation.
 

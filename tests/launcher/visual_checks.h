@@ -10,13 +10,25 @@ void SaveVisual(Renderer& renderer,IWICBitmap* bitmap,const fs::path& path,UINT 
   WICPixelFormatGUID format=GUID_WICPixelFormat32bppBGRA;Check(frame->SetPixelFormat(&format),"Set visual pixels");
   Check(frame->WriteSource(bitmap,nullptr),"Write visual pixels");Check(frame->Commit(),"Commit visual frame");Check(encoder->Commit(),"Commit visual image");
 }
-void VisualChecks(const fs::path& output) {
+void VisualChecks(const fs::path& output,bool initial_covers=false) {
   Require(!fs::exists(output) && fs::create_directory(output),"Visual output must be a fresh directory");
   const auto previous=language;
+  std::vector<std::array<UINT,3>> sizes{{1080u,900u,96u},{720u,520u,144u}};
+  if(initial_covers) {
+    sizes.clear();
+    for(const auto monitor:std::array{std::array{1920u,1040u,96u},std::array{1920u,1030u,120u},
+                                     std::array{1920u,1020u,144u},std::array{2560u,1380u,144u}}) {
+      const auto dpi=monitor[2];const auto scale=float(dpi)/96;
+      const auto frame_width=int(34*scale),frame_height=int(40*scale);
+      const auto window=cave::launcher::InitialCoverWindowSize(monitor[0],monitor[1],dpi,frame_width,frame_height,Catalogue().size());
+      sizes.push_back({UINT((window.width-frame_width)/scale),UINT((window.height-frame_height)/scale),dpi});
+    }
+  }
   for(const auto current:{Language::Chinese,Language::English,Language::Japanese}) {
     language=current;
-    for(const auto dimensions:std::array{std::array{1080u,900u,96u},std::array{720u,520u,144u}}) {
+    for(const auto dimensions:sizes) {
       for(const auto covers:{false,true}) {
+      if(initial_covers && !covers)continue;
       for(const auto selected:{std::size_t(4),Catalogue().size()-1}) {
       const auto dpi=dimensions[2];const auto scale=float(dpi)/96;
       const auto width=UINT(dimensions[0]*scale),height=UINT(dimensions[1]*scale);
@@ -27,7 +39,7 @@ void VisualChecks(const fs::path& output) {
       target->SetDpi(float(dpi),float(dpi));
       Layout layout{float(dimensions[0]),float(dimensions[1]),0};
       layout.covers=covers;
-      layout.scroll=std::clamp(float(selected/layout.columns())*(layout.row_height()+12)+layout.row_height()-layout.viewport_height(),0.f,layout.max_scroll());
+      layout.scroll=std::clamp(float(selected/layout.columns())*(layout.row_height()+layout.row_gap())+layout.row_height()-layout.viewport_height(),0.f,layout.max_scroll());
       std::vector<Row> rows(Catalogue().size());
       for(size_t index=0;index<rows.size();++index) {
         rows[index].inspection.state=Catalogue()[index].coming_soon?"coming_soon":"ready";
@@ -40,7 +52,7 @@ void VisualChecks(const fs::path& output) {
       target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,L"",{},true);
       Check(target->EndDraw(),"Render production visual layout");
       const auto prefix=std::string(covers?"covers-":"")+(selected==4?"":"last-");
-      const auto path=output/(prefix+std::string(cave::launcher::LanguageCode(current))+"-"+std::to_string(dimensions[0])+"-"+std::to_string(dpi)+"dpi.png");
+      const auto path=output/(prefix+std::string(cave::launcher::LanguageCode(current))+"-"+std::to_string(dimensions[0])+"x"+std::to_string(dimensions[1])+"-"+std::to_string(dpi)+"dpi.png");
       SaveVisual(renderer,bitmap.Get(),path,width,height);
       std::vector<BYTE> pixels(std::size_t(width)*height*4);
       Check(bitmap->CopyPixels(nullptr,width*4,UINT(pixels.size()),pixels.data()),"Read visual pixels");

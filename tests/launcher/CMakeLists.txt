@@ -6,7 +6,7 @@ get_filename_component(CAVE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
 add_subdirectory("${CAVE_ROOT}/common" "${CMAKE_BINARY_DIR}/common")
 add_subdirectory("${CAVE_ROOT}/launcher" "${CMAKE_BINARY_DIR}/launcher")
-file(GLOB ART CONFIGURE_DEPENDS "${CAVE_ROOT}/launcher/assets/*")
+file(GLOB_RECURSE ART CONFIGURE_DEPENDS "${CAVE_ROOT}/launcher/assets/*")
 file(GLOB BRAND CONFIGURE_DEPENDS "${CAVE_ROOT}/launcher/branding/*")
 list(APPEND ART ${BRAND})
 add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc"
