@@ -10,6 +10,13 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Nov09: the user now authorizes formal v0.9.7 publication to GitHub. Freeze the
+updated README screenshot and bilingual release notes, make unconfigured launcher
+layout default to covers (explicit banner remains supported), run the affected
+launcher checks, rebuild/certify only affected inputs, package Public once, push
+main and v0.9.7, and publish ZIP + SHA-256 as Latest. Reuse prior game acceptance.
+No Internal package, ROM upload or group announcement is requested.
+
 v0.9.7 local program package is COMPLETE. Stop here; no push, upload or
 publication is authorized. Final ZIP:
 releases/v0.9.7-local-f178e7c-r2/EVAC-PC-LABEL-v0.9.7-win-x64.zip

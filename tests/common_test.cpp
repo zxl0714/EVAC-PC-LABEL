@@ -494,8 +494,8 @@ void ContentChecks(Fixture& fixture) {
 }  // namespace
 int main() {
   try {
-    Require(!launcher::CoverLayout(Ini::Parse("")),"Default launcher layout must stay banner");
-    Require(launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=covers\n")),"Internal cover layout was not selected");
+    Require(launcher::CoverLayout(Ini::Parse("")),"Default launcher layout must use covers");
+    Require(launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=covers\n")),"Cover layout was not selected");
     Require(!launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=banner\n")),"Banner layout was not retained");
     Reject([] {launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=unknown\n"));},"Unknown launcher layout accepted");
     for(const auto value:{"", "-40", "9999999999999999", "1000px"}) {

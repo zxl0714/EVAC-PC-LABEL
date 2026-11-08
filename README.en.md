@@ -16,7 +16,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
 </p>
 
 <p align="center">
-  <a href="docs/images/launcher.png"><img src="docs/images/launcher.png" width="360" alt="EVAC PC LABEL launcher with game library, nickname, display settings and launch button"></a>
+  <a href="docs/images/launcher.png"><img src="docs/images/launcher.png" width="640" alt="EVAC PC LABEL launcher showing eleven games in a cover grid"></a>
 </p>
 
 ## Latency and performance
