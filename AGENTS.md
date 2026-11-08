@@ -10,44 +10,42 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-Nov09: the user now authorizes formal v0.9.7 publication to GitHub. Freeze the
-updated README screenshot and bilingual release notes, make unconfigured launcher
-layout default to covers (explicit banner remains supported), run the affected
-launcher checks, rebuild/certify only affected inputs, package Public once, push
-main and v0.9.7, and publish ZIP + SHA-256 as Latest. Reuse prior game acceptance.
-No Internal package, ROM upload or group announcement is requested.
+v0.9.7 formally published Nov09 01:02 Asia/Shanghai as GitHub Latest.
+https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.7
+Release ID 438387785; frozen source/tag aa1d1bdcbbe523d13961778360bf2bdd844896bc.
+Main and tag pushed. Public program ZIP + SHA-256 only; no Internal package,
+ROM upload or group announcement. Final package:
+releases/v0.9.7-release-aa1d1bd/EVAC-PC-LABEL-v0.9.7-win-x64.zip
+160,315,843 bytes; SHA-256
+43b27f7f09f5c96502ff850faa7ec7004b4eab7c7a56f0665ac463af413bc796.
+GitHub API confirms published/not-prerelease, Latest, exact bilingual notes,
+both uploaded assets' sizes and SHA-256. Evidence .local/v097/publication.json
+and published-v097.jpg. Do not repeat completed build/package/game checks.
 
-v0.9.7 local program package is COMPLETE. Stop here; no push, upload or
-publication is authorized. Final ZIP:
-releases/v0.9.7-local-f178e7c-r2/EVAC-PC-LABEL-v0.9.7-win-x64.zip
-160,315,779 bytes; SHA-256
-63ea63b21c361d6d3f14dfa459c1ce463f21e107f99c6a8dbf45416965dd0562.
-Frozen package source: f178e7c6536f7b82352afcc984cd19174084eab3.
-One extraction acceptance passed: 199 files, all 11 runtime sets present,
-no ROM/source/PDB/player configuration. ZIP-side .acceptance.json records it.
-Do not recreate, re-extract or rerun completed tests without a new change.
+The launcher now defaults to covers when launcher_layout is absent; explicit
+banner remains supported. This supersedes earlier internal-only/banner-default
+notes. Both READMEs use the user's new cover-grid screenshot, displayed at 640px.
+Release notes include the short INI example for reverting to banner.
+Final launcher: 834 common checks and 22 window-size integration checks passed.
+All components certified; game runtime builds unchanged/no-op. One extraction
+acceptance: 199 files, all 11 runtime sets present, no ROM/source/PDB or player
+configuration. ZIP-side .acceptance.json records acceptance. Earlier local-r2
+archive is superseded by the published package; preserve it as prior evidence.
 
 DaiOuJou 01.00 reached title and DIRECT MENU with the corrected allocator;
 core module loaded. Alt+F4 exited with existing shutdown code 27, not allocation
 error 20. The original reporter's machine remains unverified. Allocator passed
-105 checks plus the three targeted native CTests. Launcher passed 22 window-size,
-834 common and 10 artwork checks; live banner/covers inspected, missing data gray
-and launch disabled. Package tests: 57 (one expected skip), product 5, receipt 8.
-Evidence: .local/v097/acceptance-evidence.json, daioujou-startup/, screenshots/.
-All test windows are closed; fixture config restored, player installation untouched.
-
-All four components were certified and staged. PS2 incremental build was a no-op.
-The initial packaging attempt rejected a launcher checksum mismatch; relinking
-from the same inputs restored the output and its receipt. Executable code and
-artwork were identical; differing non-metadata bytes were in .reloc. Do not
-assert a cause for that file change. The incomplete first staging directory is
-not a deliverable. Final r2 ZIP passed the normal strict hash checks.
+105 checks plus three targeted native CTests. Earlier live banner/covers and
+missing-data checks remain valid. Evidence .local/v097/acceptance-evidence.json,
+daioujou-startup/ and screenshots/. All test windows closed; fixture config
+restored, player installation untouched.
 
 Desktop/PowerShell recovered after the user's restart. The abandoned
 VirtualAlloc2 test PID is gone; do not rerun that experiment. The shipped
 allocator uses bounded VirtualQuery + VirtualAlloc and the current test is
-Ps4ImageReservationTests. The user has already authorized short desktop checks,
-which are finished.
+Ps4ImageReservationTests. The preliminary launcher checksum mismatch was fixed
+by relinking before certification; shipped .text/artwork unchanged. Do not
+assert a cause for that file change. Final package passed strict checks.
 
 Nov07 launcher cover-grid refinement is complete locally. Default four columns
 (11 games: 4+4+3), wider spacing, all rows initially shown when the work area permits,
