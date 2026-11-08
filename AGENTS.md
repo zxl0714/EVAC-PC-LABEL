@@ -10,6 +10,22 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Nov09 v0.9.7 final checks complete; local packaging remains. Desktop recovered
+after the user's restart; old stuck test PID is gone. User authorized short UI
+checks. Source 02b8790 launcher and PS4 runtime were built/certified. DaiOuJou
+01.00 reached title and DIRECT MENU; core module loaded successfully. After
+Alt+F4 the process exited with existing shutdown code 27 (not allocation error20).
+Evidence .local/v097/daioujou-startup/ and screenshots/daioujou-menu.png.
+Final launcher: 22 window-size checks, 834 common checks, 10 artwork checks;
+live covers and banner screenshots in .local/v097/screenshots/. Four missing
+data games correctly gray; selected missing Ibara cannot launch. Test windows
+closed, preview fixture config restored. No player's installation was changed.
+Package tests after reboot: 57 (1 expected skip), product5, package-receipt8 pass.
+The cancelled pre-reboot package-test run is superseded, not counted as passed.
+Remaining: incremental Xbox/PS2 certification for version metadata (no codegen
+or SDK rebuild), stage, create Public v0.9.7 ZIP and one extraction acceptance.
+Use .local/v097/accept-package.py. Do not publish, upload or push.
+
 Nov09 active goal: complete v0.9.7 through a LOCAL PROGRAM ZIP. No publication,
 upload or push. Scope: DaiOuJou low-address loader fix, existing cover-grid UI
 refinement (hidden covers option; banner stays default), window-size persistence,

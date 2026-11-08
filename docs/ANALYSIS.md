@@ -29,7 +29,12 @@
 共享宿主编译完成；本地 01.00 的 eboot、core 和 integration 通过实际装载器的
 binding census，`game_entry_reached=false`、`module_initializers_called=false`。
 这些本地 ELF 输入与报告中的 SELF 文件哈希不同，不能视为原玩家现场复现。
-用户正在玩其他游戏，本轮未启动游戏窗口、未替换现用程序；实际菜单验收待后续进行。
+随后用户交还电脑，本地 01.00 的独立测试配置已到达标题及 DIRECT MENU。
+实际运行日志确认 eboot、integration 以及 146,098,004 字节核心模块成功装载，
+未发生 `native_module_load_failure`。窗口关闭后进程退出，仍记录既有的未运行
+guest finalizer 的退出码 27；这与报告的装载失败退出码 20 不同，本轮未改变退出语义。
+测试配置、存档及日志独立，现用玩家目录未改动。截图和日志位于
+`.local/v097/screenshots/daioujou-menu.png` 与 `.local/v097/daioujou-startup/`。
 证据保存在 `.local/v097/`。一次被弃用的 `VirtualAlloc2` 实验在地址空间压力测试中
 未能退出，进程持续消耗内核时间；未捕获足以确定具体停滞阶段的输出。
 当前实现与已通过的测试均使用有界查询／分配路径。
