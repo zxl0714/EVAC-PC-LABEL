@@ -10,7 +10,7 @@ namespace cave::launcher::controls {
 namespace {
 constexpr wchar_t kClass[]=L"EvacInputSettings";
 constexpr int kPreferredHeight=736;
-enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset,ResetPage};
+enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset};
 constexpr std::array<std::string_view,21> kPadKeys{
     "dpup","dpdown","dpleft","dpright","a","b","x","y","start","back",
     "leftshoulder","rightshoulder","lefttrigger","righttrigger","leftstick","rightstick",
@@ -40,7 +40,7 @@ struct Draft {
 };
 
 struct Dialog {
-    HWND window{},list{},device_control{},status{},save{},bind{},clear{},reset{},reset_page{};
+    HWND window{},list{},device_control{},status{},save{},bind{},clear{},reset{};
     fs::path root;
     const Game& game;
     Language language;
@@ -119,8 +119,7 @@ struct Dialog {
     int SelectedRow() const {return ListView_GetNextItem(list,-1,LVNI_SELECTED);}
     void EnableActions() {
         const bool available=!controller || !guid.empty();
-        for(auto control:{bind,clear,reset})EnableWindow(control,available && SelectedRow()>=0);
-        EnableWindow(reset_page,available);
+        for(auto control:{bind,clear})EnableWindow(control,available && SelectedRow()>=0);
         EnableWindow(save,!draft.changes.empty());
     }
     void Refresh(int selection=0) {
@@ -155,6 +154,8 @@ struct Dialog {
         ListView_SetItemState(list,row,LVIS_SELECTED|LVIS_FOCUSED,LVIS_SELECTED|LVIS_FOCUSED);
         ListView_EnsureVisible(list,row,FALSE);
         SendMessageW(list,WM_SETREDRAW,TRUE,0);InvalidateRect(list,nullptr,FALSE);
+        SetWindowTextW(reset,game_only?T(L"恢复共用设置",L"Use shared bindings",L"共通設定に戻す"):
+                                      T(L"恢复默认",L"Reset to defaults",L"初期設定に戻す"));
         EnableActions();IdleStatus();
     }
     void SelectDevice(SDL_JoystickID id) {
@@ -203,12 +204,13 @@ struct Dialog {
         }
         Refresh();
     }
-    void ApplyKeyboard(unsigned row,std::span<const IniEdit> edits) {
+    void ApplyBindings(int row,std::span<const IniEdit> edits) {
         auto old=draft.changes;
         try {
             for(const auto& edit:edits)draft.Put(edit.section,edit.key,edit.value,edit.erase);
-            if(!game_only) {
-                const auto preview=draft.Preview();
+            const auto preview=draft.Preview();
+            if(game_only) (void)ResolveSettings(preview,game.id);
+            else {
                 (void)ResolveSharedSettings(preview);
                 for(const auto& title:Catalogue()) {
                     try {(void)ResolveSettings(preview,title.id);}
@@ -217,29 +219,28 @@ struct Dialog {
                     }
                 }
             }
-            Refresh(int(row));
+            Refresh(row);
         }
-        catch(...) {draft.changes=std::move(old);Refresh(int(row));throw;}
+        catch(...) {draft.changes=std::move(old);Refresh(row);throw;}
     }
-    void SetKeyboard(unsigned row,std::string value,bool erase=false) {
-        const std::array edits{IniEdit{Section("keyboard"),std::string(Key(row)),std::move(value),erase}};
-        ApplyKeyboard(row,edits);
+    void ResetBindings(int row) {
+        const auto keyboard=Section("keyboard"), controllers=Section("controller");
+        const auto preview=draft.Preview();
+        std::vector<IniEdit> edits;
+        for(const auto& [address,value]:preview.Values())
+            if(address.first==keyboard || address.first==controllers)
+                edits.push_back({address.first,address.second,{},true});
+        ApplyBindings(row,edits);
     }
     void MoveStatus(const std::wstring& key,unsigned row,const std::wstring& released) {
         Status(key+L"  →  "+Label(row)+T(L"  ·  原位置 ",L"  ·  Moved from ",L"  ·  移動元 ")+released);
     }
-    PadMap InheritedPad() const {
-        if(!game_only)return defaults;
-        const auto shared=ControllerMappings(draft.Preview());
-        const auto found=shared.find(guid);
-        return found==shared.end()?defaults:ParsePadMap(found->second);
-    }
-    void SetPad(unsigned row,std::string source,bool restoring=false) {
+    void SetPad(unsigned row,std::string source) {
         if(guid.empty())return;
         auto map=pad;
         const auto target=std::string(kPadKeys[row]);
         std::wstring released;
-        if(!restoring && !source.empty())for(unsigned i=0;i<kPadKeys.size();++i) {
+        if(!source.empty())for(unsigned i=0;i<kPadKeys.size();++i) {
             if(i==row)continue;
             const auto other=map.find(std::string(kPadKeys[i]));
             if(other!=map.end() && other->second==source) {
@@ -280,7 +281,7 @@ struct Dialog {
                 released=Label(i);
                 break;
             }
-            ApplyKeyboard(row,edits);
+            ApplyBindings(int(row),edits);
             if(!released.empty())MoveStatus(FromUtf8(name).native(),row,released);
         }
         catch(const std::exception& error){Status(FromUtf8(error.what()).native());}
@@ -318,19 +319,16 @@ struct Dialog {
         case Scope:if(action==CBN_SELCHANGE){capture=-1;game_only=SendDlgItemMessageW(window,Scope,CB_GETCURSEL,0,0)==1;Refresh();}break;
         case Devices:if(action==CBN_SELCHANGE){const auto i=SendMessageW(device_control,CB_GETCURSEL,0,0);if(i>=0 && std::size_t(i)<devices.size())SelectDevice(devices[i].id);}break;
         case Bind:Begin();break;
-        case Clear:if(row>=0){capture=-1;if(controller)SetPad(row,{});else SetKeyboard(row,"none");}break;
-        case Reset:if(row>=0){capture=-1;if(controller){const auto map=InheritedPad();const auto found=map.find(std::string(kPadKeys[row]));SetPad(row,found==map.end()?std::string{}:found->second,true);}else SetKeyboard(row,{},true);}break;
-        case ResetPage:
+        case Clear:
+            if(row<0)break;
             capture=-1;
-            if(!controller) {
-                const auto section=Section("keyboard");
-                std::vector<IniEdit> edits;
-                for(unsigned n=0;n<(ExtraKeys()?20u:16u);++n)edits.push_back({section,std::string(Key(n)),{},true});
-                ApplyKeyboard(unsigned(std::max(0,row)),edits);
-                break;
+            if(controller)SetPad(row,{});
+            else {
+                const std::array edits{IniEdit{Section("keyboard"),std::string(Key(row)),"none"}};
+                ApplyBindings(row,edits);
             }
-            if(!guid.empty())draft.Put(Section("controller"),guid,{},true);
-            Refresh(row);break;
+            break;
+        case Reset:capture=-1;ResetBindings(row);break;
         case IDOK:if(!draft.changes.empty()){draft.Save(root);saved=true;DestroyWindow(window);}break;
         case IDCANCEL:DestroyWindow(window);break;
         }
@@ -420,8 +418,7 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     for(int n=0;n<3;++n){LVCOLUMNW column{};column.mask=LVCF_TEXT|LVCF_WIDTH;column.pszText=const_cast<wchar_t*>(titles[n]);column.cx=scale(column_widths[n]);SendMessageW(dialog.list,LVM_INSERTCOLUMNW,n,reinterpret_cast<LPARAM>(&column));}
     dialog.bind=add(L"BUTTON",t(L"改键",L"Bind",L"変更"),WS_TABSTOP,20,height-120,78,28,Bind);
     dialog.clear=add(L"BUTTON",t(L"清除",L"Clear",L"解除"),WS_TABSTOP,105,height-120,74,28,Clear);
-    dialog.reset=add(L"BUTTON",t(L"恢复此项",L"Reset binding",L"項目を復元"),WS_TABSTOP,186,height-120,110,28,Reset);
-    dialog.reset_page=add(L"BUTTON",t(L"恢复本页",L"Reset page",L"ページを復元"),WS_TABSTOP,303,height-120,104,28,ResetPage);
+    dialog.reset=add(L"BUTTON",L"",WS_TABSTOP,186,height-120,166,28,Reset);
     dialog.status=add(L"STATIC",L"",SS_PATHELLIPSIS,20,height-81,556,25,0);
     add(L"BUTTON",t(L"取消",L"Cancel",L"キャンセル"),WS_TABSTOP,385,height-42,90,29,IDCANCEL);
     dialog.save=add(L"BUTTON",t(L"保存",L"Save",L"保存"),WS_TABSTOP|BS_DEFPUSHBUTTON,486,height-42,90,29,IDOK);
