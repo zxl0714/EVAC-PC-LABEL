@@ -9,7 +9,7 @@
 namespace cave::launcher::controls {
 namespace {
 constexpr wchar_t kClass[]=L"EvacInputSettings";
-constexpr int kPreferredHeight=640;
+constexpr int kPreferredHeight=736;
 enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset,ResetPage};
 constexpr std::array<std::string_view,21> kPadKeys{
     "dpup","dpdown","dpleft","dpright","a","b","x","y","start","back",
