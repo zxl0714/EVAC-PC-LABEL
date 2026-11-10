@@ -42,7 +42,7 @@
    199 个清单文件、11 款运行时齐全。解压包启动器通过三语输入设置及恢复操作检查。
    包位于 `releases/v0.9.8-local-ebdc811/`，验收记录与 SHA-256 同目录。
 
-2026-11-10 完成本地出包。
+2026-11-10 发布 [v0.9.8](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.8) 并设为 Latest。GitHub 上两份附件的 SHA-256 与本地验收文件一致。
 绘图问题详见 [调用链与离线验证](ANALYSIS.md#g2-render-static-audit)。
 
 ## v0.9.7：启动器整理与启动兼容性

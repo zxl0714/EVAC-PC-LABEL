@@ -10,12 +10,12 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-Nov10 v0.9.8 revised local delivery complete. Frozen source ebdc8110d34d57b99513c0ba827768b3410edcdd.
+Nov10 v0.9.8 published on GitHub as Latest. Frozen source ebdc8110d34d57b99513c0ba827768b3410edcdd.
 Program ZIP: releases/v0.9.8-local-ebdc811/EVAC-PC-LABEL-v0.9.8-win-x64.zip.
 160,428,551 bytes; SHA-256 56071728967189888ec141b53a834207c62fa22cb7578b0f27bb83af69e82a11.
 One extraction verified 199 manifest entries, all 11 game runtimes, and the
 packaged launcher Controls workflow. No ROM, source, PDB or player config.
-See the adjacent .acceptance.json. No release/upload requested.
+See the adjacent .acceptance.json and .local/v098/publication.json. GitHub reports matching SHA-256 digests for both uploaded assets.
 See docs/IMPLEMENTATION_PLAN.md and docs/INPUT_SETTINGS_DESIGN.md. G2 now skips
 only the queued wait after the original predicate reset and keeps the native
 epilogue. Generated code and local gate tests cover 0V, 1V, 2V, unrelated callers
