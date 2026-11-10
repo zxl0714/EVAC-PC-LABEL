@@ -10,7 +10,12 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-Nov10 active goal: implement all v0.9.8 items and produce the local Public ZIP.
+Nov10 v0.9.8 local delivery complete. Frozen source 7888f4ac2112d3847454ea1e213d9b8ace37d67d.
+Program ZIP: releases/v0.9.8-local-7888f4a/EVAC-PC-LABEL-v0.9.8-win-x64.zip.
+160,424,329 bytes; SHA-256 b50503cf98751e7191c8fd25d742d30eafb3e38b116a1f3f164a9da7948228c2.
+One extraction verified 199 manifest entries, all 11 game runtimes, and the
+packaged launcher Controls workflow. No ROM, source, PDB or player config.
+See the adjacent .acceptance.json. No release/upload requested.
 See docs/IMPLEMENTATION_PLAN.md and docs/INPUT_SETTINGS_DESIGN.md. G2 now skips
 only the queued wait after the original predicate reset and keeps the native
 epilogue. Generated code and local gate tests cover 0V, 1V, 2V, unrelated callers
@@ -18,9 +23,10 @@ and timeout fallback. The shared D3D12 HRESULT fix passed four offline cases and
 the SDK was rebuilt. The new Controls dialog edits shared/per-game keyboard and
 SDL controller mappings; actual Win32 save, reopen and inherit flows passed on
 an isolated desktop. The packaged SDL3 DLL passed a virtual button/hat/axis
-mapping probe. Test and acceptance evidence is under .local/v098/. Complete
-representative gameplay and final component build receipts before assembling
-and extracting the program ZIP once. No release/upload requested.
+mapping probe. 4,628 launcher checks, PS4 configuration checks and the PS2 pad
+contract passed. G2 Black Label at 0V reached stage 1 on D3D12 and closed normally.
+The tested G2 executable and SDK DLLs match the ZIP. Evidence is under
+.local/v098/, including g2-0-8b44d74a/logs/espgaluda2/run-20261110T112051680Z-19448.
 
 Nov10 launcher report: after first config creation and normal close, reopening
 loses the title bar. Reproduced on the released v0.9.7 EXE in an isolated desktop
