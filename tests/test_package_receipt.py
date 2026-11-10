@@ -43,7 +43,7 @@ class PackageReceiptTests(unittest.TestCase):
     def receipt(self, backend='ps2'):
         files = ('backends/ps2/runtime.cpp', 'backends/ps4/input/pad.cpp', 'common/shared.h')
         if backend == 'xbox360':
-            files += ('README.md',)
+            files += ('README.md', 'launcher/main.cpp')
         source = dict(files={name:hashlib.sha256((self.root/name).read_bytes()).hexdigest() for name in files},
                       generated={'private': 'unchanged build evidence'}, tools={'private': 'build tool identity'})
         source['sha256'] = hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
@@ -85,8 +85,10 @@ class PackageReceiptTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source differs'):
             PackageInputs(self.root).load(self.record, 'ps2')
 
-    def test_historical_host_whole_repository_scope_excludes_ps2_only_changes(self):
+    def test_historical_host_whole_repository_scope_excludes_launcher_and_ps2_changes(self):
         self.receipt('xbox360')
+        self.write('launcher/main.cpp', 'new launcher UI');self.save()
+        PackageInputs(self.root).load(self.record, 'xbox360')
         self.write('backends/ps2/runtime.cpp', 'new PS2 implementation');self.save()
         PackageInputs(self.root).load(self.record, 'xbox360')
         self.write('common/shared.h', 'shared implementation');self.save()

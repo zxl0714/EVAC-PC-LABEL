@@ -27,9 +27,10 @@ def relevant(backend, name, files):
     if name.endswith('.md') or name.startswith(('docs/', 'tests/', 'server/')) or name in PACKAGING:
         return False
     if backend == 'xbox360':
-        # Historical host certificates listed the whole repository. Exclude
-        # the independent engines, but retain their shared game-data metadata.
-        if name.startswith(ISOLATED_PS2 + ISOLATED_PS4) and not name.endswith('/data.json'):
+        # Historical host certificates listed the whole repository. The release
+        # takes its launcher from a separate receipt and keeps shared data metadata.
+        if name.startswith('launcher/') or (
+                name.startswith(ISOLATED_PS2 + ISOLATED_PS4) and not name.endswith('/data.json')):
             return False
         return True
     # Existing scoped receipts also include shared PS4 input/community sources
