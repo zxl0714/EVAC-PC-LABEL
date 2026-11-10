@@ -1,5 +1,76 @@
 # 分析与诊断工具
 
+<a id="g2-render-static-audit"></a>
+
+## G2 第一关花屏：静态核查（2026-11-09）
+
+本轮只做静态分析和无窗口的局部执行验证，未修改游戏运行时代码。
+新反馈尚无对应截图、模式、版本或日志；已有的同类报告
+`20261102-5533ca6910934d59` 是 v0.9.0、dat12 / Xbox 360 模式、1V、RTX 2060 SUPER。
+该旧报告的 XEX 和 GPU DLL 已核对，没有设备丢失、显存不足或着色器编译失败记录。
+不能据此判断新反馈与旧报告同因，也不能把显卡型号当作原因。
+
+### 已确认的调用差异：低延迟分支跳过了 resolve 前的条件绘图复位
+
+`games/espgaluda2/recomp/frame-delay-overrides.toml` 在 `0x821713A4`
+用 `G2PresentCpuWait` 跳过整个 `sub_821708B0`。这并不是只有等待的函数：
+
+1. 原调用在 resolve 前执行 `sub_82179580(device, 0)`。它将 `device+12892`
+   的条件执行标志清零，复位 `+12884/+12888/+10932/+10936` 等状态，
+   并发出 `PM4_SET_BIN_MASK_LO`。此外还包含前后统计调用及 `+10941` 标志更新。
+2. 随后的原生 resolve `sub_8216DAF8` 会读取 `device+12892`，将其 OR 到
+   `PM4_DRAW_INDX_2` 命令头 `0xC0003600` 上。
+3. `CommandProcessor::ExecutePacketType3` 在命令头 bit 0 为 1 且
+   `(bin_select_ & bin_mask_) == 0` 时跳过命令。因而残留的条件绘图状态可以让
+   应执行的 resolve draw 被跳过。后续 swap 内也可能调用复位函数，但它发生在
+   此次 resolve 之后，不能补回这次复制。
+
+局部验证直接提取本地生成代码中的 `sub_82179580` 和上述 resolve 命令头生成片段，
+用原函数先产生启用条件绘图的状态，再比较是否执行原来的复位调用：
+
+```text
+skipped_prepare=c0003601 original=c0003600 skipped_executes=false original_executes=true
+```
+
+证据保存在 `.local/g2-static-20261109/probe.py`、`probe.cpp` 和 `probe.exe`；
+提取的游戏代码仅保存在本地。这个结果证明了状态差异和可导致漏画的条件，
+不是实际第一关已复现花屏；仍需确认报告现场是否进入了该条件。
+目前 0V 和旧 1V 使用同一个跳过分支，2V 保留原调用。
+
+建议修正方向：收窄跳过范围，只改变排队等待，保留原函数的条件绘图复位及
+其他前后准备工作。回归重点是带残留条件绘图状态的 resolve、正常 0V/1V/2V
+调用顺序与超时回退，不需要重新遍历全部游戏模式。
+
+### 其他 Xbox 360 游戏的同类路径
+
+对照四作的钩子位置及实现，这个整段跳过的调用缺口目前只发现于 G2：
+
+- 虫姬二使用游戏原生 0V/1V，`counter-wait-overrides.toml` 只在原计数器循环
+  中加入休眠，未跳过原生绘图准备、完成判断或 swap。
+- 最大往生通过 `Publish` 提前调用完整原生 swap，`SdojDelayLateSwap` 仅在
+  已有成功调用凭据时避免重复调用；宿主 0V 将等待移到 swap 后，仍返回原
+  GPU 节流及缓冲轮换流程。没有 G2 这处把准备函数当纯等待省略的改法。
+- 狱门山的 `GuwangeWaitCallback` 将回调标志的 Sleep(0)/比较循环移到 swap 后；
+  原生 swap 调用仍保留。另一个跳过点只省去核心输入后固定的 3 ms sleep。
+
+这是针对同一调用缺口的静态对照，不是对其余游戏所有渲染路径的全面正确性证明。
+下面另述的 D3D12 fence 返回值错误属于共享后端，四作选择 D3D12 时均包含该代码；
+它与 G2 专属的条件绘图问题应分别处理。
+
+### 其他已核对路径
+
+- `G2WaitGpuFence` 在等待失败后关闭睡眠优化，仍回到原来的完成条件循环；
+  旧报告的 50 ms `bounded_wait_failed` 不等于 D3D12 设备超时，也没有直接放行未完成资源。
+- `G2PresentCpuWait` 保留 `sub_82174B30` 原生完成检查，保存并恢复 PPC 上下文和 FPSCR。
+  这只能说明游戏侧的完成条件仍在；不能把它等同于宿主显卡的物理 fence。
+- 单遍 RGBA8 resolve 的源格式、单采样、完整 owner、范围、目标 UAV 屏障、
+  源资源状态转换、纹理失效与一次性描述符回收路径未发现明显遗漏。
+  这不等于排除了所有驱动相关问题。
+- 另发现 D3D12 `CheckSubmissionFence` 的独立返回值判断错误：
+  `SUCCEEDED(Signal(...) && SUCCEEDED(SetEventOnCompletion(...)))` 将布尔值交给
+  `SUCCEEDED`，成功的 `S_OK == 0` 还会短路事件注册。它更可能造成错误等待／卡死，
+  现有报告没有证据把它和花屏关联；应独立修正并测试成功及失败返回值。
+
 <a id="v097-image-reservation"></a>
 
 ## v0.9.7：大往生低地址模块分配失败

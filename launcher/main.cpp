@@ -13,6 +13,7 @@
 #include "launcher/single_instance.h"
 #include "launcher/update_check.h"
 #include "launcher/log_upload.h"
+#include "launcher/input_settings.h"
 #include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
@@ -42,6 +43,7 @@ using namespace cave;
 namespace {
 constexpr UINT kWorkDone=WM_APP+1;
 constexpr UINT kCopyProgress=WM_APP+2;
+constexpr UINT kUpdateScrollBar=WM_APP+3;
 constexpr UINT_PTR kChildTimer=1;
 constexpr UINT_PTR kUpdateTimer=2;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
@@ -273,22 +275,40 @@ struct Layout {
     return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
   }
   D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
-  D2D1_RECT_F config() const {return {margin()+185,height-45,margin()+283,height-14};}
-  D2D1_RECT_F logs() const {return {margin()+293,height-45,margin()+393,height-14};}
+  D2D1_RECT_F controls() const {return {margin()+158,height-45,margin()+235,height-14};}
+  D2D1_RECT_F config() const {return {margin()+242,height-45,margin()+319,height-14};}
+  D2D1_RECT_F logs() const {return {margin()+326,height-45,margin()+415,height-14};}
   D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
     const auto left=width-margin()-112+float(index)*40;
     return {left,16,left+32,44};
   }
-  D2D1_RECT_F data() const {return {margin(),height-45,margin()+100,height-14};}
-  D2D1_RECT_F refresh() const {return {margin()+110,height-45,margin()+175,height-14};}
-  D2D1_RECT_F detail() const {return {margin()+403,height-45,margin()+468,height-14};}
+  D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
+  D2D1_RECT_F refresh() const {return {margin()+92,height-45,margin()+151,height-14};}
+  D2D1_RECT_F detail() const {return {margin()+422,height-45,margin()+479,height-14};}
+  D2D1_RECT_F focus_button(int slot) const {
+    switch(slot) {
+    case 4:return config(); case 5:return logs(); case 6:return data();
+    case 7:return refresh(); case 8:return play(); case 13:return controls();
+    default:return detail();
+    }
+  }
   D2D1_RECT_F fullscreen() const {const auto r=play();return {r.left,r.top-33,r.right,r.top-5};}
   D2D1_RECT_F nickname() const {const auto right=width-margin();return {right-263,66,right-73,96};}
   D2D1_RECT_F nickname_label() const {const auto r=nickname();return {r.left-80,r.top+7,r.left-6,r.bottom};}
   D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
+RECT FitToWorkArea(RECT bounds) {
+  MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+  if(!GetMonitorInfoW(MonitorFromRect(&bounds,MONITOR_DEFAULTTONEAREST),&monitor))return bounds;
+  const auto& work=monitor.rcWork;
+  const auto width=std::min(bounds.right-bounds.left,work.right-work.left);
+  const auto height=std::min(bounds.bottom-bounds.top,work.bottom-work.top);
+  const auto left=std::clamp(bounds.left,work.left,work.right-width);
+  const auto top=std::clamp(bounds.top,work.top,work.bottom-height);
+  return {left,top,left+width,top+height};
+}
 void FitInitialWindow(HWND window,bool covers,std::optional<cave::launcher::WindowSize> saved={}) {
   MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
   if(!GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor))
@@ -520,10 +540,11 @@ class Renderer {
     Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!CanPlay(inspection));
     Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
     Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
+    Button(target,layout.controls(),T(L"输入设置"),false,busy||running);
     Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"上传日志"),false,busy||running);
     Button(target,layout.detail(),T(L"详情"),false,busy||running||Catalogue()[selected].coming_soon);
-    if (focus>=4 && focus<10) {
-      const auto rectangle=focus==4?layout.config():(focus==5?layout.logs():(focus==6?layout.data():(focus==7?layout.refresh():(focus==8?layout.play():layout.detail()))));
+    if ((focus>=4 && focus<10) || focus==13) {
+      const auto rectangle=layout.focus_button(focus);
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
     }
@@ -810,8 +831,8 @@ class App {
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
-        for(int step=0;step<13;++step) {
-          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?12:1))%13;
+        for(int step=0;step<14;++step) {
+          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?13:1))%14;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
@@ -928,9 +949,24 @@ class App {
   }
   void Scroll(float delta) {
     layout.scroll=std::clamp(layout.scroll+delta,0.f,layout.max_scroll());
+    // Changing a standard scrollbar can recalculate the window frame. Run
+    // after WM_SIZE has returned so it cannot interrupt that calculation.
+    if(!scrollbar_pending)scrollbar_pending=PostMessageW(hwnd,kUpdateScrollBar,0,0)!=FALSE;
+    InvalidateGameList();
+  }
+  void UpdateScrollBar() {
+    scrollbar_pending=false;
+    if(IsIconic(hwnd))return;
     SCROLLINFO info{sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS,0,std::max(0,int(std::ceil(layout.content_height()))-1),
                     UINT(std::ceil(layout.viewport_height())),int(layout.scroll),0};
-    SetScrollInfo(hwnd,SB_VERT,&info,TRUE);InvalidateGameList();
+    if(layout.covers && UINT(info.nMax+1)<=info.nPage && (GetWindowLongPtrW(hwnd,GWL_STYLE)&WS_VSCROLL)) {
+      auto wider=layout;
+      const auto dpi=GetDpiForWindow(hwnd);
+      wider.width+=GetSystemMetricsForDpi(SM_CXVSCROLL,dpi)*96.f/dpi;
+      // Removing the bar can make the wider covers tall enough to need it again.
+      if(std::ceil(wider.content_height())>info.nPage)info.fMask|=SIF_DISABLENOSCROLL;
+    }
+    SetScrollInfo(hwnd,SB_VERT,&info,TRUE);
   }
   void InvalidateGameList() {
     const auto scale=float(GetDpiForWindow(hwnd))/96;
@@ -968,6 +1004,13 @@ class App {
       if(IsWindowEnabled(nickname_control)){focus=2;SetFocus(nickname_control);}return;
     }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
+    if(Inside(layout.controls(),x,y)) {
+      if(!busy && !child && show_controls(hwnd,options.root,Catalogue()[selected],language)) {
+        preferences_text=Ini::ReadText(ConfigPath(options.root));
+        Log(options.root,"input-settings-updated");
+      }
+      return;
+    }
     if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))show_reports(hwnd,options.root,language,{});return;}
     for(size_t index=0;index<3;++index)
       if(Inside(layout.language_choice(index),x,y)) {SelectLanguage(index);return;}
@@ -994,12 +1037,11 @@ class App {
         case WM_GETMINMAXINFO:{
           auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;
           info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};
-          if(app->layout.covers) {
-            MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
-            if(GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor)) {
-              info->ptMinTrackSize.x=std::min(info->ptMinTrackSize.x,(monitor.rcWork.right-monitor.rcWork.left)*9/10);
-              info->ptMinTrackSize.y=std::min(info->ptMinTrackSize.y,(monitor.rcWork.bottom-monitor.rcWork.top)*9/10);
-            }
+          MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+          if(GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor)) {
+            const auto limit=app->layout.covers?9:10;
+            info->ptMinTrackSize.x=std::min(info->ptMinTrackSize.x,(monitor.rcWork.right-monitor.rcWork.left)*limit/10);
+            info->ptMinTrackSize.y=std::min(info->ptMinTrackSize.y,(monitor.rcWork.bottom-monitor.rcWork.top)*limit/10);
           }
           return 0;}
         case WM_SIZE:{if(first==SIZE_MINIMIZED)return 0;
@@ -1010,7 +1052,12 @@ class App {
               int(std::lround((bounds.right-bounds.left)/scale)),int(std::lround((bounds.bottom-bounds.top)/scale))};
           }
           app->PositionPreferences();app->EnsureVisible();return 0;}
-        case WM_DPICHANGED:{const auto rectangle=reinterpret_cast<RECT*>(second);SetWindowPos(window,nullptr,rectangle->left,rectangle->top,rectangle->right-rectangle->left,rectangle->bottom-rectangle->top,SWP_NOACTIVATE|SWP_NOZORDER);return 0;}
+        case WM_DPICHANGED:{
+          auto bounds=*reinterpret_cast<const RECT*>(second);
+          if(!IsZoomed(window) && !IsIconic(window))bounds=FitToWorkArea(bounds);
+          SetWindowPos(window,nullptr,bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top,
+                       SWP_NOACTIVATE|SWP_NOZORDER);
+          return 0;}
         case WM_ERASEBKGND:return 1;
         case WM_PAINT:app->Paint();return 0;
         case WM_LBUTTONUP:{const auto scale=float(GetDpiForWindow(window))/96;app->Click(GET_X_LPARAM(second)/scale,GET_Y_LPARAM(second)/scale);return 0;}
@@ -1018,6 +1065,7 @@ class App {
           int hover=-1;if(y>=app->layout.header() && y<app->layout.footer())for(size_t index=0;index<app->rows.size();++index)if(Inside(app->layout.card(index),x,y))hover=int(index);
           if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}
         case WM_MOUSEWHEEL:app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
+        case kUpdateScrollBar:app->UpdateScrollBar();return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
         case WM_KEYDOWN:
@@ -1035,8 +1083,8 @@ class App {
           else if(first==VK_END)app->Select(app->rows.size()-1);
           else if(first==VK_RETURN || first==VK_SPACE) {
             if(app->focus>=4) {
-              if(app->focus>=10) {app->SelectLanguage(size_t(app->focus-10));return 0;}
-              const auto rectangle=app->focus==4?app->layout.config():(app->focus==5?app->layout.logs():(app->focus==6?app->layout.data():(app->focus==7?app->layout.refresh():(app->focus==8?app->layout.play():app->layout.detail()))));
+              if(app->focus>=10 && app->focus<=12) {app->SelectLanguage(size_t(app->focus-10));return 0;}
+              const auto rectangle=app->layout.focus_button(app->focus);
               app->Click((rectangle.left+rectangle.right)/2,(rectangle.top+rectangle.bottom)/2);
             } else app->LaunchSelected();
           }
@@ -1090,6 +1138,7 @@ class App {
   Renderer renderer;
   Layout layout;
   std::optional<cave::launcher::WindowSize> saved_window_size,normal_window_size;
+  bool scrollbar_pending{};
   std::vector<Row> rows;
   size_t selected{};
   int hover{-1};
@@ -1106,6 +1155,7 @@ class App {
   update::State update_state;
   std::function<update::Result()> update_fetch=update::Fetch;
   decltype(&cave::launcher::reports::Show) show_reports=cave::launcher::reports::Show;
+  decltype(&cave::launcher::controls::Show) show_controls=cave::launcher::controls::Show;
   std::optional<update::Request> update_request;
   bool update_auto{},update_dialog{};
 };

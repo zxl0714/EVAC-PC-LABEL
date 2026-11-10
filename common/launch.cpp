@@ -1,4 +1,5 @@
 #include "common/launch.h"
+#include "common/controller_bindings.h"
 #include "common/verification_cache.h"
 #include <chrono>
 #include <cstdio>
@@ -20,6 +21,33 @@ namespace {
 std::wstring SessionName(const fs::path& requested) {
   // Preserve this existing game-session namespace across the product rename.
   return L"Local\\CavePCCollection.Game.v1."+CollectionIdentity(requested);
+}
+std::wstring GameEnvironment(std::string_view controller_mapping_hint) {
+  if(controller_mapping_hint.empty())return {};
+  struct Environment {
+    wchar_t* data=GetEnvironmentStringsW();
+    ~Environment(){if(data)FreeEnvironmentStringsW(data);}
+  } environment;
+  if(!environment.data)WinError("Read launch environment");
+  constexpr std::wstring_view name=L"SDL_GAMECONTROLLERCONFIG=";
+  std::wstring mapping(name);
+  std::vector<std::wstring_view> entries;
+  for(auto* next=environment.data;*next;) {
+    const std::wstring_view entry(next);
+    if(entry.size()>=name.size() && CompareStringOrdinal(entry.data(),int(name.size()),name.data(),int(name.size()),TRUE)==CSTR_EQUAL) {
+      if(entry.size()>name.size()) {mapping.append(entry.substr(name.size()));mapping+=L'\n';}
+    } else entries.push_back(entry);
+    next+=entry.size()+1;
+  }
+  mapping+=FromUtf8(controller_mapping_hint).native();
+  entries.push_back(mapping);
+  std::sort(entries.begin(),entries.end(),[](auto a,auto b) {
+    return CompareStringOrdinal(a.data(),int(a.size()),b.data(),int(b.size()),TRUE)==CSTR_LESS_THAN;
+  });
+  std::wstring block;
+  for(auto entry:entries){block.append(entry);block+=L'\0';}
+  block+=L'\0';
+  return block;
 }
 void VerifyRuntime(const Game& game,const fs::path& root,VerificationCache& cache) {
   const auto certificate="runtime/games/"+std::string(game.id)+"/runtime-manifest.ini";
@@ -59,6 +87,7 @@ LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,st
   (void)ResolveSettings(ini,game.id);
   LaunchSpec result;
   result.game=game.id;
+  result.controller_mapping_hint=ControllerMappingHint(ini,game.id);
   result.paths=Paths(root,game.id,override_data.empty()?ini.DataDirectory(game):override_data,profile);
   ValidateOutputs(result.paths);
   VerificationCache cache(result.paths.root);
@@ -160,8 +189,9 @@ ChildProcess StartGame(const LaunchSpec& spec) {
   for (const auto& argument:spec.arguments) command+=L" "+QuoteArgument(argument);
   if (command.size()>=32767) throw std::runtime_error("Game command line is too long");
   STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION process{};
-  if (!CreateProcessW(spec.executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,
-                      nullptr,spec.paths.root.c_str(),&startup,&process)) WinError("Start selected game");
+  auto environment=GameEnvironment(spec.controller_mapping_hint);
+  if (!CreateProcessW(spec.executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW|CREATE_UNICODE_ENVIRONMENT,
+                      environment.empty()?nullptr:environment.data(),spec.paths.root.c_str(),&startup,&process)) WinError("Start selected game");
   CloseHandle(process.hThread);
   return ChildProcess(process.hProcess,process.dwProcessId);
 }

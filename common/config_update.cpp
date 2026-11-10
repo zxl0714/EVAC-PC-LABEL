@@ -30,13 +30,18 @@ std::string EditIni(std::string_view before, std::span<const IniEdit> changes) {
     if (const auto old=ini.Get(change.section,change.key)) {
       size_t start=0;
       for (size_t number=1;number<old->line;++number) start=after.find('\n',start)+1;
-      auto end=after.find('\n',start); if(end==after.npos) end=after.size();
+      auto end=after.find('\n',start);
+      if(change.erase) {
+        after.erase(start,(end==after.npos?after.size():end+1)-start);
+        continue;
+      }
+      if(end==after.npos) end=after.size();
       if(end>start && after[end-1]=='\r') --end;
       start=after.find('=',start)+1;
       while(start<end && (after[start]==' ' || after[start]=='\t')) ++start;
       while(end>start && (after[end-1]==' ' || after[end-1]=='\t')) --end;
       after.replace(start,end-start,change.value);
-    } else {
+    } else if(!change.erase) {
       size_t start=0,insert=std::string::npos;
       while(start<after.size()) {
         auto end=after.find('\n',start);if(end==after.npos)end=after.size();

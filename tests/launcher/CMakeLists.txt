@@ -14,8 +14,8 @@ add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINAR
     "${CAVE_ROOT}" "${CMAKE_BINARY_DIR}/include"
   DEPENDS ${ART} "${CAVE_ROOT}/launcher/artwork.json" "${CAVE_ROOT}/launcher/branding.json" "${CAVE_ROOT}/scripts/generate_artwork.py" VERBATIM)
 set_source_files_properties("${CMAKE_BINARY_DIR}/include/artwork.rc" PROPERTIES OBJECT_DEPENDS "${ART}")
-add_executable(cave_launcher_checks ui_test.cpp "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc")
-target_include_directories(cave_launcher_checks PRIVATE "${CMAKE_BINARY_DIR}/include")
+add_executable(cave_launcher_checks ui_test.cpp "${CAVE_ROOT}/launcher/input_settings.cpp" "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc")
+target_include_directories(cave_launcher_checks PRIVATE "${CMAKE_BINARY_DIR}/include" "${CAVE_ROOT}/third_party/rexglue/thirdparty/sdl3/include")
 target_compile_definitions(cave_launcher_checks PRIVATE CAVE_TEST_SOURCE_ROOT="${CAVE_ROOT}")
 target_link_libraries(cave_launcher_checks PRIVATE cave_update d2d1 dwrite windowscodecs ole32 shell32 comctl32)
 enable_testing()

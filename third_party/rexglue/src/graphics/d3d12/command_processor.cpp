@@ -3208,9 +3208,9 @@ void D3D12CommandProcessor::CheckSubmissionFence(uint64_t await_submission) {
     if (queue_operations_done_since_submission_signal_) {
       UINT64 fence_value = ++queue_operations_since_submission_fence_last_;
       ID3D12CommandQueue* direct_queue = GetD3D12Provider().GetDirectQueue();
-      if (SUCCEEDED(direct_queue->Signal(queue_operations_since_submission_fence_, fence_value) &&
-                    SUCCEEDED(queue_operations_since_submission_fence_->SetEventOnCompletion(
-                        fence_value, fence_completion_event_)))) {
+      if (SUCCEEDED(direct_queue->Signal(queue_operations_since_submission_fence_, fence_value)) &&
+          SUCCEEDED(queue_operations_since_submission_fence_->SetEventOnCompletion(
+              fence_value, fence_completion_event_))) {
         PROFILE_CMD_BUFFER_STALL();
         WaitForSingleObject(fence_completion_event_, INFINITE);
         queue_operations_done_since_submission_signal_ = false;

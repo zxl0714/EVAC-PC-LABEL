@@ -52,6 +52,7 @@ void SaveSharedPreferences(const fs::path& root, std::string_view before, Displa
 Settings ParseSettings(std::string_view text, std::string_view game_id);
 Settings LoadSettings(const fs::path& path, std::string_view game_id);
 std::uint16_t KeyCode(std::string_view name);
+std::string KeyName(std::uint16_t code);
 bool ValidUtf8(std::string_view value);
 std::string_view DefaultConfig();
 // Read-only lookup: user-data/config.ini wins; accept the legacy root file.

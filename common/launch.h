@@ -12,6 +12,7 @@ struct LaunchSpec {
   fs::path executable,configuration;
   std::vector<std::wstring> arguments;
   std::string verification;
+  std::string controller_mapping_hint;
 };
 LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,
                          std::string_view profile="default",const fs::path& data_override={});

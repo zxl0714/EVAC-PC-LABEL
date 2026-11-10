@@ -5,13 +5,13 @@ address = 0x8217064C
 name = "G2CompletedVblank"
 registers = ["context", "memory"]
 
-# Optional CPU-side pacing replaces just the standard Present sync call.
-# Returning false preserves that original call and every following instruction.
+# After native predicate reset, replace only the commands that queue the wait.
+# The hook checks the saved return address to keep other callers on the native path.
 [[midasm_hook]]
-address = 0x821713A4
-name = "G2PresentCpuWait"
+address = 0x821708D8
+name = "G2SkipQueuedVblank"
 registers = ["context", "memory"]
-jump_address_on_true = 0x821713A8
+jump_address_on_true = 0x82170A58
 
 # Return site of the verified swap call at 0x82171420. r31 is still the
 # device, and r3 carries the original return value through this hook.

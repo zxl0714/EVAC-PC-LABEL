@@ -12,8 +12,8 @@ class G2FrameDelayTests(unittest.TestCase):
         hooks = tomllib.loads((folder / 'frame-delay-overrides.toml').read_text())['midasm_hook']
         self.assertEqual(hooks, [
             dict(address=0x8217064C, name='G2CompletedVblank', registers=['context', 'memory']),
-            dict(address=0x821713A4, name='G2PresentCpuWait', registers=['context', 'memory'],
-                 jump_address_on_true=0x821713A8),
+            dict(address=0x821708D8, name='G2SkipQueuedVblank', registers=['context', 'memory'],
+                 jump_address_on_true=0x82170A58),
             dict(address=0x82171424, name='G2PaceAfterSwap', registers=['context', 'memory']),
         ])
         # No whole-function replacement and no extra overlays modified.

@@ -59,6 +59,7 @@ static int WINAPI FixtureDialog(HWND,LPCWSTR,LPCWSTR,UINT) {
 #define GetForegroundWindow FixtureGetForeground
 #define IsWindowVisible FixtureVisible
 #include "../../launcher/main.cpp"
+#include "launcher/input_devices.h"
 #undef IsWindowVisible
 #undef GetForegroundWindow
 #undef InvalidateRect
@@ -109,7 +110,15 @@ struct Frame {
         0,0,1080,900,nullptr,nullptr,GetModuleHandleW(nullptr),&app)!=nullptr,"Create hidden production launcher window");
     Settle();Require(app.preferences_available,"Load quick settings");
   }
-  void Settle() {for(unsigned n=0;n<8 && (app.worker.joinable() || app.work);++n) {if(app.worker.joinable())app.worker.join();if(app.work)app.Complete();}}
+  void Settle() {
+    for(unsigned n=0;n<8 && (app.worker.joinable() || app.work);++n) {if(app.worker.joinable())app.worker.join();if(app.work)app.Complete();}
+    MSG message{};
+    for(unsigned n=0;IsWindow(app.hwnd) && PeekMessageW(&message,app.hwnd,kUpdateScrollBar,kUpdateScrollBar,PM_REMOVE);) {
+      if(message.message==WM_QUIT)continue;
+      if(++n>8)throw std::runtime_error("Launcher scrollbar visibility did not settle");
+      DispatchMessageW(&message);
+    }
+  }
   ~Frame() {Settle();if(app.hwnd && IsWindow(app.hwnd))DestroyWindow(app.hwnd);}
   void Click(D2D1_RECT_F rectangle) {
     const auto scale=float(GetDpiForWindow(app.hwnd))/96;
@@ -217,6 +226,21 @@ void WindowSizeChecks() {
       Require(std::abs((bounds.right-bounds.left)/scale-expected.width)<=1 &&
               std::abs((bounds.bottom-bounds.top)/scale-expected.height)<=1,
               "Restart did not restore the normal window dimensions");
+
+      MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+      Require(GetMonitorInfoW(MonitorFromWindow(app.hwnd,MONITOR_DEFAULTTONEAREST),&monitor),"Read fixture monitor");
+      const auto& work=monitor.rcWork;
+      const auto original=bounds;
+      // A window scaled for a denser display can extend beyond its work area.
+      RECT suggested{work.left,work.top-80,work.right+80,work.bottom};
+      const auto dpi=GetDpiForWindow(app.hwnd);
+      SendMessageW(app.hwnd,WM_DPICHANGED,MAKELONG(dpi,dpi),reinterpret_cast<LPARAM>(&suggested));
+      GetWindowRect(app.hwnd,&bounds);
+      Require(bounds.left>=work.left && bounds.top>=work.top && bounds.right<=work.right && bounds.bottom<=work.bottom,
+              "DPI change moved launcher window controls outside the work area");
+      SendMessageW(app.hwnd,WM_DPICHANGED,MAKELONG(dpi,dpi),reinterpret_cast<LPARAM>(&original));
+      GetWindowRect(app.hwnd,&bounds);
+      Require(EqualRect(&bounds,&original),"DPI change modified a window that already fit the work area");
     }
   }
   const auto saved=Ini::Load(ConfigPath(fixture.root));
@@ -226,7 +250,7 @@ void WindowSizeChecks() {
     Frame frame(fixture.root);auto& app=frame.app;
     app.Select(Catalogue().size()-1);frame.Settle();
     FitInitialWindow(app.hwnd,true);frame.Settle();
-    ShowWindow(app.hwnd,SW_SHOWNOACTIVATE);UpdateWindow(app.hwnd);
+    ShowWindow(app.hwnd,SW_SHOWNOACTIVATE);frame.Settle();UpdateWindow(app.hwnd);
     MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);GetMonitorInfoW(MonitorFromWindow(app.hwnd,MONITOR_DEFAULTTONEAREST),&monitor);
     const auto dpi=GetDpiForWindow(app.hwnd);const auto scale=float(dpi)/96;
     RECT border{};AdjustWindowRectExForDpi(&border,WS_OVERLAPPEDWINDOW,FALSE,0,dpi);
@@ -239,10 +263,21 @@ void WindowSizeChecks() {
       Require(!(GetWindowLongPtrW(app.hwnd,GWL_STYLE)&WS_VSCROLL),"A fitting library retains a scrollbar");
     }
   }
+  {
+    Frame frame(fixture.root);auto& app=frame.app;
+    Require(app.saved_window_size.has_value(),"First launch did not save its cover grid size");
+    FitInitialWindow(app.hwnd,app.layout.covers,app.saved_window_size);frame.Settle();
+    RECT bounds{},client{};
+    Require(GetWindowRect(app.hwnd,&bounds) && GetClientRect(app.hwnd,&client) &&
+            bounds.right-bounds.left>client.right && bounds.bottom-bounds.top>client.bottom,
+            "Reopening the saved cover grid collapsed the native window frame");
+    SendMessageW(app.hwnd,WM_SYSCOMMAND,SC_CLOSE,0);
+    Require(!IsWindow(app.hwnd),"Restored launcher did not accept the native close command");
+  }
 }
 void SelectionChecks() {
   Fixture fixture;
-  const auto ini="\xef\xbb\xbf; keep selected-game fixture\r\n[collection]\r\nconfig_version=1\r\nlanguage=en\r\nselected_game=daioujou\r\n[community]\r\nnickname=Baseline\r\n[future]\r\nvalue=untouched\r\n";
+  const auto ini="\xef\xbb\xbf; keep selected-game fixture\r\n[collection]\r\nconfig_version=1\r\nlanguage=en\r\nlauncher_layout=banner\r\nselected_game=daioujou\r\n[community]\r\nnickname=Baseline\r\n[future]\r\nvalue=untouched\r\n";
   Write(fixture.root/"user-data/config.ini",ini);
   {
     Frame frame(fixture.root);auto& app=frame.app;
@@ -373,7 +408,10 @@ void PreferenceRepaintChecks() {
     paint_requests.clear();
     if(hover) {
       const auto card=app.layout.card(1);
-      App::Window(app.hwnd,WM_MOUSEMOVE,0,MAKELPARAM(int((card.left+20)*scale),int((card.top+20)*scale)));
+      const auto top=std::max(card.top,app.layout.header());
+      const auto bottom=std::min(card.bottom,app.layout.footer());
+      Require(bottom>top,"Hover fixture card is outside the viewport");
+      App::Window(app.hwnd,WM_MOUSEMOVE,0,MAKELPARAM(int((card.left+20)*scale),int((top+bottom)/2*scale)));
       Require(app.hover==1,"Hover fixture did not reach its visible game card");
     }
     else app.Scroll(90);
@@ -389,6 +427,17 @@ void PreferenceRepaintChecks() {
     Require(parent_requests>0,"Game-list interaction did not request a repaint");
   }
   Require(unexpected_dialogs==0,"Repaint checks opened a dialog");
+}
+void InputBindingChecks() {
+  using namespace cave::launcher::controls;
+  const PadSnapshot idle{{0,0},{0,0},{0}},pressed{{0,1},{0,0},{0}},hat{{0,0},{0,0},{8}},axis{{0,0},{-23000,0},{0}};
+  Require(CapturePad(idle,pressed,idle,false,false)=="b1" && CapturePad(pressed,pressed,idle,false,false).empty(),
+          "Controller capture must accept new button presses, not buttons already held");
+  Require(CapturePad(idle,hat,idle,false,false)=="h0.8" && PadSourceActive("h0.8",hat,false),"Arcade stick hat capture failed");
+  Require(CapturePad(idle,axis,idle,false,false)=="-a0" && CapturePad(idle,axis,idle,true,false)=="a0~" &&
+          PadSourceActive("-a0",axis,false),"Controller axis polarity was lost");
+  const auto map=ParsePadMap("a:b1,dpleft:h0.8,rightx:a0~,platform:Windows,crc:0000,");
+  Require(map.size()==3 && ParsePadMap(SerializePadMap(map))==map,"Controller mapping lost button, hat or axis bindings");
 }
 #include "instance_checks.h"
 #include "visual_checks.h"
@@ -479,7 +528,7 @@ void MainChecks() {
             "Logo is not a transparent foreground cutout");
   }
   Fixture fixture;
-  const std::string before="\xef\xbb\xbf; preserve comment\r\n[collection]\r\nconfig_version=1\r\nlanguage=zh\r\n"
+  const std::string before="\xef\xbb\xbf; preserve comment\r\n[collection]\r\nconfig_version=1\r\nlanguage=zh\r\nlauncher_layout=banner\r\n"
       "[display]\r\nfullscreen=true\r\n[community]\r\nnickname=Baseline\r\n"
       "[game.futari.display]\r\nfullscreen=true\r\n[future]\r\nkey=preserved\r\n";
   Write(fixture.root/"config.ini",before);
@@ -494,7 +543,7 @@ void MainChecks() {
       Require(app.layout.header()-brand.bottom==14,"Header retains a removed helper-row reservation");
       Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
               brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
-      const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};
+      const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.controls(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};
       for(size_t index=0;index<controls.size();++index) {
         const auto r=controls[index];
         Require(r.top>=app.layout.footer() && r.bottom<=app.layout.height && r.left>=0 && r.right<=app.layout.width,"Utility control is outside bottom row");
@@ -533,6 +582,14 @@ void MainChecks() {
     Require(ResolveSettings(Ini::Load(ConfigPath(fixture.root)),"futari").fullscreen,"UI save changed game-specific override");
     Require(Ini::ReadText(ConfigPath(fixture.root)).find("key=preserved\r\n")!=std::string::npos,"UI save lost unknown text");
     frame.Click(app.layout.config());Require(opened_paths.back()==fixture.root/"user-data/config.ini","Config button opened the wrong file");
+    static unsigned controls_opened{};
+    app.show_controls=[](HWND,const fs::path&,const Game& game,Language lang) {
+      Require(game.id=="futari" && lang==Language::Japanese,"Controls opened with the wrong game or language");
+      ++controls_opened;return false;
+    };
+    frame.Click(app.layout.controls());
+    app.focus=13;App::Window(app.hwnd,WM_KEYDOWN,VK_RETURN,0);
+    Require(controls_opened==2,"Controls are not accessible by both mouse and keyboard");
     static fs::path reports_root;
     app.show_reports=[](HWND,const fs::path& root,Language lang,std::string_view preferred){
       Require(lang==Language::Japanese && preferred.empty(),"Unexpected upload dialog language or filter");
@@ -560,6 +617,7 @@ void MainChecks() {
   NicknameWarningChecks();
   NicknameAlignmentChecks();
   PreferenceRepaintChecks();
+  InputBindingChecks();
   DisplayDropdownChecks();
   InstanceChecks();
   UpdateChecks();

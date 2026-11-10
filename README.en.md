@@ -75,7 +75,7 @@ Extract PS4 PKGs with the included `tools/Extract-PS4.exe`. For Xbox 360 ISOs, X
 
 ## Settings and saves
 
-Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. The launcher remembers its window size when closed. Use **Config file** for keyboard, controller, audio and online settings.
+Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. Use **Controls** to remap your keyboard, gamepad or arcade stick for all games or just the selected game. Audio and online settings are under **Config file**.
 
 - **Controls:** arrow keys for movement, `Z / X / C / V` for the four controller face buttons, and `Enter` for Start. [All controls and special modes →](docs/SETTINGS.en.md#launcher-and-controls)
 - **Radeon users** can try Anti-Lag 2 by setting `amd_anti_lag = true` under `[display]`. The standard package defaults to off. [Settings](docs/SETTINGS.en.md#amd-radeon-anti-lag-2)

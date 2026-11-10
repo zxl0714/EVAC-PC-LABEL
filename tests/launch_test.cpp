@@ -1,4 +1,6 @@
 #include "common/launch.h"
+#include "common/config_update.h"
+#include "common/controller_bindings.h"
 #include "common/data_import.h"
 #include "common/settings.h"
 #include <Windows.h>
@@ -56,6 +58,9 @@ int Child(int count,wchar_t** arguments) {
     const auto text=Utf8(arguments[index]);output<<text.size()<<':'<<text<<'\n';
   }
   output.close();if(!output)return 3;
+  wchar_t mapping[4096]{};
+  const auto length=GetEnvironmentVariableW(L"SDL_GAMECONTROLLERCONFIG",mapping,DWORD(std::size(mapping)));
+  if(length && length<std::size(mapping))Write(fs::path(arguments[5]).native()+L".mapping",Utf8(std::wstring_view(mapping,length)));
   HANDLE ready=OpenEventW(EVENT_MODIFY_STATE,FALSE,arguments[3]);
   HANDLE release=OpenEventW(SYNCHRONIZE,FALSE,arguments[4]);
   if(!ready || !release)return 4;
@@ -87,6 +92,11 @@ void ConfigChecks(Fixture& fixture) {
   SetDataDirectory(fixture.root,game,fixture.data);
   for(const auto& item:fs::directory_iterator(config.parent_path()))
     Require(!item.path().filename().native().starts_with(L"config.ini.pending-"),"Configuration temporary leaked");
+  const auto keyboard="; keep\r\n[keyboard]\r\nsouth = J\r\n[game.espgaluda2.keyboard]\r\nsouth = H\r\n; keep the comment";
+  const std::array erase{IniEdit{"game.espgaluda2.keyboard","south",{},true}};
+  const auto restored=EditIni(keyboard,erase);
+  Require(restored=="; keep\r\n[keyboard]\r\nsouth = J\r\n[game.espgaluda2.keyboard]\r\n; keep the comment" &&
+          ResolveSettings(Ini::Parse(restored),"espgaluda2").keyboard[4].text=="J","Reset did not restore a live shared key binding");
 }
 void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   constexpr std::string_view hash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -122,6 +132,16 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   const auto helper=fixture.root/FromUtf8("工具 空格/child helper.exe");
   fs::create_directories(helper.parent_path());fs::copy_file(executable,helper);
   const std::vector<std::wstring> payload{L"",L"simple",L"two words",L"中文 路径",L"\"quoted\"",L"trailing\\",L"before\\\"quote",L"& | ; < > %PATH%",L"a\tb"};
+  const std::string guid="0123456789abcdef0123456789abcdef";
+  const auto remap=Ini::Parse(Ini::ReadText(ConfigPath(fixture.root))+"\n[controller]\n"+guid+"=a:b1,\n[game.espgaluda2.controller]\n"+guid+"=a:b2,dpup:h0.1,\n");
+  for(const auto backend:{"xbox360","ps4"}) {
+    game.backend=backend;
+    spec=PrepareLaunch(game,fixture.root,remap,"launch-test");
+    Require(spec.controller_mapping_hint==guid+",EVAC Controller,a:b2,dpup:h0.1,","Launcher did not resolve a per-game controller override");
+  }
+  game.backend="xbox360";
+  for(const auto title:{"ketsui","espgaluda"})
+    Require(ControllerMappingHint(remap,title)==guid+",EVAC Controller,a:b1,","Controller mapping did not inherit for the other game");
   for(const auto code:{0UL,27UL,37UL,259UL}) {
     const auto name=L"Local\\CaveCollection.Test."+fixture.nonce+std::to_wstring(code);
     const auto ready_name=name+L".ready",release_name=name+L".release";
@@ -139,6 +159,7 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
     std::string expected=Utf8(fixture.root)+"\n";
     for(const auto& text:payload){const auto utf8=Utf8(text);expected+=std::to_string(utf8.size())+":"+utf8+"\n";}
     Require(Ini::ReadText(output)==expected,"Command quoting, Unicode or working directory changed");
+    Require(Ini::ReadText(output.native()+L".mapping").ends_with(spec.controller_mapping_hint),"Game child did not receive the SDL controller mapping");
     SetEvent(release.value);child.Wait();Require(child.ExitCode()==code,"Child exit code changed");
     Require(!child.RequestedWindowClose(fixture.root,"ketsui",code),"Non-close exit accepted as requested close");
     Require(!child.RequestedWindowClose(fixture.root,"daioujou",code),"Non-close DaiOuJou exit accepted as requested close");

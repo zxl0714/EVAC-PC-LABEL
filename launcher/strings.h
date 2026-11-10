@@ -67,6 +67,7 @@ inline constexpr std::array kTranslations{
   Translation{L"正在检测…",L"確認中…",L"Checking…"},
   Translation{L"熟悉的弹幕，新的入口。",L"いつもの弾幕を、新しい入口から。",L"Familiar bullet patterns. A new way in."},
   Translation{L"配置文件",L"設定ファイル",L"Config file"},
+  Translation{L"输入设置",L"入力設定",L"Controls"},
   Translation{L"日志",L"ログ",L"Logs"},
   Translation{L"启动时全屏",L"全画面で起動",L"Start fullscreen"},
   Translation{L"全屏",L"フルスクリーン",L"Fullscreen"},

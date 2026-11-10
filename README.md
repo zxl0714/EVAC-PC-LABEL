@@ -75,7 +75,7 @@ PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和
 
 ## 配置与存档
 
-在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。启动器关闭时会记住窗口大小。键盘、手柄、音量和联网设置通过底部“配置文件”编辑。
+在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。底部「输入设置」可以修改键盘、手柄和摇杆绑定，支持共同设置和单游戏设置。音量和联网选项在「配置文件」中。
 
 - **操作**：方向键移动，`Z / X / C / V` 对应手柄四个主按钮，`Enter` 为 Start。[完整按键与特殊模式 →](docs/SETTINGS.md#配置与操作)
 - **Radeon 玩家**可在 `[display]` 下设 `amd_anti_lag = true` 试用 Anti-Lag 2，标准包默认关闭。[设置说明](docs/SETTINGS.md#amd-radeon-anti-lag-2)

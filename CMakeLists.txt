@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(EVACPCLabel VERSION 0.9.7 LANGUAGES CXX)
+project(EVACPCLabel VERSION 0.9.8 LANGUAGES CXX)
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "EVAC PC LABEL requires Windows x64")
 endif()
@@ -56,9 +56,9 @@ if(CAVE_BUILD_LAUNCHER)
   # RC does not report RCDATA dependencies to Ninja. Recompile the embedded
   # resource when source image bytes change, even if the RC text is identical.
   set_source_files_properties("${CMAKE_BINARY_DIR}/include/artwork.rc" PROPERTIES OBJECT_DEPENDS "${LAUNCHER_ART}")
-  add_executable(cave_launcher WIN32 launcher/main.cpp "${CMAKE_BINARY_DIR}/include/artwork.rc" "${CMAKE_BINARY_DIR}/include/artwork.h")
+  add_executable(cave_launcher WIN32 launcher/main.cpp launcher/input_settings.cpp "${CMAKE_BINARY_DIR}/include/artwork.rc" "${CMAKE_BINARY_DIR}/include/artwork.h")
   set_target_properties(cave_launcher PROPERTIES OUTPUT_NAME "EVAC PC LABEL")
-  target_include_directories(cave_launcher PRIVATE "${CMAKE_BINARY_DIR}/include")
+  target_include_directories(cave_launcher PRIVATE "${CMAKE_BINARY_DIR}/include" "${CMAKE_SOURCE_DIR}/third_party/rexglue/thirdparty/sdl3/include")
   target_link_libraries(cave_launcher PRIVATE cave_update d2d1 dwrite windowscodecs ole32 shell32 comctl32)
   target_link_options(cave_launcher PRIVATE "LINKER:/MANIFEST:EMBED" "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/common/windows.manifest")
   add_test(NAME launcher_preview COMMAND "${Python3_EXECUTABLE}"

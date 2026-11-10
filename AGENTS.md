@@ -10,6 +10,28 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Nov10 active goal: implement all v0.9.8 items and produce the local Public ZIP.
+See docs/IMPLEMENTATION_PLAN.md and docs/INPUT_SETTINGS_DESIGN.md. G2 now skips
+only the queued wait after the original predicate reset and keeps the native
+epilogue. Generated code and local gate tests cover 0V, 1V, 2V, unrelated callers
+and timeout fallback. The shared D3D12 HRESULT fix passed four offline cases and
+the SDK was rebuilt. The new Controls dialog edits shared/per-game keyboard and
+SDL controller mappings; actual Win32 save, reopen and inherit flows passed on
+an isolated desktop. The packaged SDL3 DLL passed a virtual button/hat/axis
+mapping probe. Test and acceptance evidence is under .local/v098/. Complete
+representative gameplay and final component build receipts before assembling
+and extracting the program ZIP once. No release/upload requested.
+
+Nov10 launcher report: after first config creation and normal close, reopening
+loses the title bar. Reproduced on the released v0.9.7 EXE in an isolated desktop
+at 150% DPI. Saved cover size 927x1273 reopened with client equal to the whole
+1391x1910 window despite WS_CAPTION. Deferring native scrollbar updates until
+after WM_SIZE and stabilizing the near-fit scrollbar case preserves the frame.
+Fixed EXE passed the same cold create/close/reopen sequence, a near-fit size and
+4,604 launcher checks. The v0.9.7 workaround `launcher_layout = banner` under
+`[collection]` also passed. Evidence .local/launcher-reopen-20261110/.
+The independent WM_DPICHANGED work-area clamp remains in the working tree.
+
 v0.9.7 formally published Nov09 01:02 Asia/Shanghai as GitHub Latest.
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.7
 Release ID 438387785; frozen source/tag aa1d1bdcbbe523d13961778360bf2bdd844896bc.

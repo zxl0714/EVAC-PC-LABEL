@@ -93,6 +93,14 @@ std::uint16_t KeyCode(std::string_view name) {
     auto it = KeyNames().find(Lower(name));
     return it == KeyNames().end() ? 0 : it->second;
 }
+std::string KeyName(std::uint16_t code) {
+    for(const auto& [name,value]:KeyNames()) if(value==code) {
+        auto result=name;
+        if(result.front()>='a' && result.front()<='z') result.front()-='a'-'A';
+        return result;
+    }
+    return {};
+}
 
 static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
     Settings result;

@@ -78,11 +78,14 @@ void G2CompletedVblank(PPCContext& ctx,std::uint8_t*) {
     if(enabled.load(std::memory_order_acquire)) gate.Publish(ctx.r31.u32);
 }
 
-bool G2PresentCpuWait(PPCContext& ctx,std::uint8_t* base) {
+bool G2SkipQueuedVblank(PPCContext& ctx,std::uint8_t* base) {
+    // sub_821708B0 saved the caller LR at old r1-8 before allocating 128 bytes.
+    // Other uses of this function retain their original command stream.
+    if(Read(base,ctx.r1.u32+120)!=0x821713A8u) return false;
     const auto device=ctx.r31.u32;
     if(!enabled.load(std::memory_order_acquire)) {
         RestorePolicy(base,device);
-        return false; // Fall through to the untouched native 2V call.
+        return false; // Queue the original GPU wait.
     }
     const auto started=std::chrono::steady_clock::now();
     Drain(ctx,base,device);
@@ -104,8 +107,8 @@ bool G2PresentCpuWait(PPCContext& ctx,std::uint8_t* base) {
             std::chrono::duration_cast<std::chrono::microseconds>(drained-started).count(),
             std::chrono::duration_cast<std::chrono::microseconds>(now-drained).count());
     }
-    // Skip only the queued one-VBlank synchronization call. Native resolve,
-    // state restoration, swap, buffer retirement and rendering remain intact.
+    // The native predicate reset ran already. Continue through the native
+    // profiling exit and state update before returning to resolve and swap.
     return true;
 }
 

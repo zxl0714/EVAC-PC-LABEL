@@ -8,7 +8,9 @@ Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×216
 
 The launcher remembers its window size when closed and fits it within the available screen area when the display resolution or scaling changes.
 
-The **Config file** action at the bottom opens `user-data/config.ini`. Edit audio, keyboard, controller, and online settings there. Save the file, click **Refresh** in the launcher, and start the game for the changes to take effect. See the [default configuration template](../config/default.ini) for available options.
+Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Use **All games** or the selected game to choose the scope. **More buttons** shows shoulders, axes and other inputs. Reset individual keyboard bindings to inherit shared settings, or select **Reset page** to restore shared settings for the selected controller. Changes apply the next time you start a game.
+
+**Config file** opens `user-data/config.ini` for audio, deadzone and online settings. Click **Refresh** after editing the file. See the [default configuration template](../config/default.ini) for available options.
 
 In `[display]`, `vsync = false` enables low-latency presentation while preserving the original game timing; tearing is possible. Set it to `true` for vertical synchronization. Updates preserve your configuration, so an existing `true` value can be changed here.
 
