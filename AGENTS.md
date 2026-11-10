@@ -10,9 +10,9 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-Nov10 v0.9.8 local delivery complete. Frozen source 7888f4ac2112d3847454ea1e213d9b8ace37d67d.
-Program ZIP: releases/v0.9.8-local-7888f4a/EVAC-PC-LABEL-v0.9.8-win-x64.zip.
-160,424,329 bytes; SHA-256 b50503cf98751e7191c8fd25d742d30eafb3e38b116a1f3f164a9da7948228c2.
+Nov10 v0.9.8 revised local delivery complete. Frozen source e882c86d8e9a4dd46b310a8d0ef6db1c2651a1ad.
+Program ZIP: releases/v0.9.8-local-e882c86/EVAC-PC-LABEL-v0.9.8-win-x64.zip.
+160,429,060 bytes; SHA-256 1b52e1dec98d9becf550ea01e9ead07c553f1d20c6bbfd940898dce5deca991f.
 One extraction verified 199 manifest entries, all 11 game runtimes, and the
 packaged launcher Controls workflow. No ROM, source, PDB or player config.
 See the adjacent .acceptance.json. No release/upload requested.
@@ -22,7 +22,10 @@ epilogue. Generated code and local gate tests cover 0V, 1V, 2V, unrelated caller
 and timeout fallback. The shared D3D12 HRESULT fix passed four offline cases and
 the SDK was rebuilt. The new Controls dialog edits shared/per-game keyboard and
 SDL controller mappings; actual Win32 save, reopen and inherit flows passed on
-an isolated desktop. The packaged SDL3 DLL passed a virtual button/hat/axis
+an isolated desktop. The revised dialog lists all bindings and moves an assigned
+key to its new row. W to Up, inherited bindings, alternate keys, and the full
+21-row controller viewport passed in .local/v098/key-move-5b45ebbc/. The tested
+launcher matches the extracted EXE. The packaged SDL3 DLL passed a virtual button/hat/axis
 mapping probe. 4,628 launcher checks, PS4 configuration checks and the PS2 pad
 contract passed. G2 Black Label at 0V reached stage 1 on D3D12 and closed normally.
 The tested G2 executable and SDK DLLs match the ZIP. Evidence is under
