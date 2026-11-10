@@ -8,7 +8,7 @@ Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×216
 
 The launcher remembers its window size when closed and fits it within the available screen area when the display resolution or scaling changes.
 
-Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Use **All games** or the selected game to choose the scope. **More buttons** shows shoulders, axes and other inputs. Reset individual keyboard bindings to inherit shared settings, or select **Reset page** to restore shared settings for the selected controller. Changes apply the next time you start a game.
+Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Use **All games** or the selected game to choose the scope. Assigning an input that is already in use moves it to the new binding. Reset individual keyboard bindings to inherit shared settings, or select **Reset page** to restore shared settings for the selected controller. Changes apply the next time you start a game.
 
 **Config file** opens `user-data/config.ini` for audio, deadzone and online settings. Click **Refresh** after editing the file. See the [default configuration template](../config/default.ini) for available options.
 
@@ -17,7 +17,7 @@ In `[display]`, `vsync = false` enables low-latency presentation while preservin
 | Default keyboard input | Function |
 | --- | --- |
 | Arrow keys | Directional input |
-| Z / X / C / V | Bottom / right / left / top controller face button |
+| Z / X / C / V | A / ×, B / ○, X / □, Y / △ |
 | Enter / Backspace | Start / Select (Touchpad for PS4) |
 | A / S, Q / W | L1 / R1, L2 / R2 |
 | F11 or Alt+Enter | Toggle fullscreen |

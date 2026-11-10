@@ -9,7 +9,8 @@
 namespace cave::launcher::controls {
 namespace {
 constexpr wchar_t kClass[]=L"EvacInputSettings";
-enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset,ResetPage,More};
+constexpr int kPreferredHeight=640;
+enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset,ResetPage};
 constexpr std::array<std::string_view,21> kPadKeys{
     "dpup","dpdown","dpleft","dpright","a","b","x","y","start","back",
     "leftshoulder","rightshoulder","lefttrigger","righttrigger","leftstick","rightstick",
@@ -44,7 +45,7 @@ struct Dialog {
     const Game& game;
     Language language;
     Draft draft;
-    bool game_only{},controller{},advanced{},saved{};
+    bool game_only{},controller{},saved{};
     int capture=-1;
     std::array<Binding,20> keys;
     PadMap defaults,pad;
@@ -54,7 +55,7 @@ struct Dialog {
     std::string guid,last_guid,device_error;
     PadSnapshot previous,baseline;
     ULONGLONG scan_at{};
-    int dpi=96,height=510;
+    int dpi=96,height{};
 
     Dialog(const fs::path& path,const Game& title,Language lang):root(path),game(title),language(lang),draft(root){}
     const wchar_t* T(const wchar_t* zh,const wchar_t* en,const wchar_t* ja) const {
@@ -65,7 +66,6 @@ struct Dialog {
     }
     bool ExtraKeys() const {return game_only && game.id=="guwange";}
     unsigned RowCount() const {
-        if(!advanced)return 10;
         if(controller)return !game_only || game.backend=="ps4"?21:20;
         return ExtraKeys()?20:16;
     }
@@ -73,14 +73,13 @@ struct Dialog {
     std::string_view Key(unsigned row) const {return row<16?kButtons[row]:kRightStickButtons[row-16];}
     std::wstring Label(unsigned row) const {
         switch(row) {
-        case 0:return T(L"方向上",L"D-pad up",L"方向キー 上");
-        case 1:return T(L"方向下",L"D-pad down",L"方向キー 下");
-        case 2:return T(L"方向左",L"D-pad left",L"方向キー 左");
-        case 3:return T(L"方向右",L"D-pad right",L"方向キー 右");
+        case 0:return T(L"方向上",L"Up",L"上");
+        case 1:return T(L"方向下",L"Down",L"下");
+        case 2:return T(L"方向左",L"Left",L"左");
+        case 3:return T(L"方向右",L"Right",L"右");
         case 4:case 5:case 6:case 7: {
             constexpr std::array xbox{L"A",L"B",L"X",L"Y"},playstation{L"×",L"○",L"□",L"△"};
-            const std::array common{T(L"下方按钮",L"Bottom button",L"下ボタン"),T(L"右方按钮",L"Right button",L"右ボタン"),
-                T(L"左方按钮",L"Left button",L"左ボタン"),T(L"上方按钮",L"Top button",L"上ボタン")};
+            constexpr std::array common{L"A / ×",L"B / ○",L"X / □",L"Y / △"};
             return game_only?(game.backend=="xbox360"?xbox:playstation)[row-4]:common[row-4];
         }
         case 8:return game_only && game.backend=="ps4"?L"Options":L"Start";
@@ -204,11 +203,30 @@ struct Dialog {
         }
         Refresh();
     }
-    void SetKeyboard(unsigned row,std::string value,bool erase=false) {
+    void ApplyKeyboard(unsigned row,std::span<const IniEdit> edits) {
         auto old=draft.changes;
-        draft.Put(Section("keyboard"),Key(row),std::move(value),erase);
-        try {Refresh(int(row));}
+        try {
+            for(const auto& edit:edits)draft.Put(edit.section,edit.key,edit.value,edit.erase);
+            if(!game_only) {
+                const auto preview=draft.Preview();
+                (void)ResolveSharedSettings(preview);
+                for(const auto& title:Catalogue()) {
+                    try {(void)ResolveSettings(preview,title.id);}
+                    catch(const std::exception& error) {
+                        throw std::runtime_error(std::string(title.DisplayName())+" · "+error.what());
+                    }
+                }
+            }
+            Refresh(int(row));
+        }
         catch(...) {draft.changes=std::move(old);Refresh(int(row));throw;}
+    }
+    void SetKeyboard(unsigned row,std::string value,bool erase=false) {
+        const std::array edits{IniEdit{Section("keyboard"),std::string(Key(row)),std::move(value),erase}};
+        ApplyKeyboard(row,edits);
+    }
+    void MoveStatus(const std::wstring& key,unsigned row,const std::wstring& released) {
+        Status(key+L"  →  "+Label(row)+T(L"  ·  原位置 ",L"  ·  Moved from ",L"  ·  移動元 ")+released);
     }
     PadMap InheritedPad() const {
         if(!game_only)return defaults;
@@ -220,18 +238,21 @@ struct Dialog {
         if(guid.empty())return;
         auto map=pad;
         const auto target=std::string(kPadKeys[row]);
+        std::wstring released;
         if(!restoring && !source.empty())for(unsigned i=0;i<kPadKeys.size();++i) {
             if(i==row)continue;
             const auto other=map.find(std::string(kPadKeys[i]));
             if(other!=map.end() && other->second==source) {
-                Status(std::wstring(T(L"已绑定到 ",L"Already bound to ",L"割り当て済み "))+Label(i));
-                return;
+                if(!released.empty())released+=L" / ";
+                released+=Label(i);
+                map.erase(other);
             }
         }
-        if(source.empty())map.erase(target);else map[target]=std::move(source);
+        if(source.empty())map.erase(target);else map[target]=source;
         if(map==pad)return;
         draft.Put(Section("controller"),guid,SerializePadMap(map));
         Refresh(int(row));
+        if(!released.empty())MoveStatus(PadLabel(source),row,released);
     }
     void Begin() {
         capture=SelectedRow();if(capture<0 || (controller && guid.empty())){capture=-1;return;}
@@ -243,8 +264,25 @@ struct Dialog {
         if(code==VK_ESCAPE) {capture=-1;IdleStatus();return;}
         const auto name=KeyName(static_cast<std::uint16_t>(code));
         if(name.empty()){Status(T(L"此键不可绑定",L"This key cannot be bound",L"このキーは割り当てできません"));return;}
-        const auto row=std::exchange(capture,-1);
-        try {SetKeyboard(unsigned(row),name);}
+        const auto row=unsigned(std::exchange(capture,-1));
+        try {
+            const auto section=Section("keyboard");
+            std::vector<IniEdit> edits{{section,std::string(Key(row)),name}};
+            std::wstring released;
+            for(unsigned i=0;i<keys.size();++i) {
+                if(i==row || std::ranges::find(keys[i].keys,code)==keys[i].keys.end())continue;
+                std::string remaining;
+                for(const auto key:keys[i].keys)if(key!=code) {
+                    if(!remaining.empty())remaining+=", ";
+                    remaining+=KeyName(key);
+                }
+                edits.push_back({section,std::string(Key(i)),remaining.empty()?"none":std::move(remaining)});
+                released=Label(i);
+                break;
+            }
+            ApplyKeyboard(row,edits);
+            if(!released.empty())MoveStatus(FromUtf8(name).native(),row,released);
+        }
         catch(const std::exception& error){Status(FromUtf8(error.what()).native());}
     }
     void Tick() {
@@ -284,10 +322,15 @@ struct Dialog {
         case Reset:if(row>=0){capture=-1;if(controller){const auto map=InheritedPad();const auto found=map.find(std::string(kPadKeys[row]));SetPad(row,found==map.end()?std::string{}:found->second,true);}else SetKeyboard(row,{},true);}break;
         case ResetPage:
             capture=-1;
-            if(controller && !guid.empty())draft.Put(Section("controller"),guid,{},true);
-            if(!controller)for(unsigned n=0;n<(ExtraKeys()?20u:16u);++n)draft.Put(Section("keyboard"),Key(n),{},true);
+            if(!controller) {
+                const auto section=Section("keyboard");
+                std::vector<IniEdit> edits;
+                for(unsigned n=0;n<(ExtraKeys()?20u:16u);++n)edits.push_back({section,std::string(Key(n)),{},true});
+                ApplyKeyboard(unsigned(std::max(0,row)),edits);
+                break;
+            }
+            if(!guid.empty())draft.Put(Section("controller"),guid,{},true);
             Refresh(row);break;
-        case More:capture=-1;advanced=IsDlgButtonChecked(window,More)==BST_CHECKED;Refresh(row);break;
         case IDOK:if(!draft.changes.empty()){draft.Save(root);saved=true;DestroyWindow(window);}break;
         case IDCANCEL:DestroyWindow(window);break;
         }
@@ -340,7 +383,7 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     const auto work=monitor.rcWork;
     RECT parent{};GetWindowRect(owner,&parent);
     const auto t=[&](auto zh,auto en,auto ja){return dialog.T(zh,en,ja);};
-    const int height=std::clamp(MulDiv(work.bottom-work.top,96,int(dpi))-52,272,510);
+    const int height=std::clamp(MulDiv(work.bottom-work.top,96,int(dpi))-52,272,kPreferredHeight);
     dialog.height=height;
     constexpr DWORD style=WS_CAPTION|WS_SYSMENU,extended=WS_EX_DLGMODALFRAME|WS_EX_CONTROLPARENT;
     RECT outer{0,0,scale(596),scale(height)};AdjustWindowRectExForDpi(&outer,style,FALSE,extended,dpi);
@@ -379,7 +422,6 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     dialog.clear=add(L"BUTTON",t(L"清除",L"Clear",L"解除"),WS_TABSTOP,105,height-120,74,28,Clear);
     dialog.reset=add(L"BUTTON",t(L"恢复此项",L"Reset binding",L"項目を復元"),WS_TABSTOP,186,height-120,110,28,Reset);
     dialog.reset_page=add(L"BUTTON",t(L"恢复本页",L"Reset page",L"ページを復元"),WS_TABSTOP,303,height-120,104,28,ResetPage);
-    add(L"BUTTON",t(L"更多按键",L"More buttons",L"詳細ボタン"),WS_TABSTOP|BS_AUTOCHECKBOX,441,height-120,135,28,More);
     dialog.status=add(L"STATIC",L"",SS_PATHELLIPSIS,20,height-81,556,25,0);
     add(L"BUTTON",t(L"取消",L"Cancel",L"キャンセル"),WS_TABSTOP,385,height-42,90,29,IDCANCEL);
     dialog.save=add(L"BUTTON",t(L"保存",L"Save",L"保存"),WS_TABSTOP|BS_DEFPUSHBUTTON,486,height-42,90,29,IDOK);
