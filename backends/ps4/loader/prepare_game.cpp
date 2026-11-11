@@ -6,6 +6,7 @@
 #include "common/settings.h"
 #include "common/verification_cache.h"
 #include <Windows.h>
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <stdexcept>
@@ -41,7 +42,15 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     if (!length || length>=executable.size()) throw std::runtime_error("Cannot determine preparation program identity");
     const fs::path producer(executable.data());const auto producer_hash=verification.Digest(producer);
     auto inputs=Json::array();
-    for (const auto& file:DataFiles(FindGame(game),inspected.variant)) inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
+    const auto manifest=DataFiles(FindGame(game),inspected.variant);
+    for (const auto& file:manifest) {
+        if (!file.program) {
+            inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
+            continue;
+        }
+        const auto path=DataChild(data,file.path);
+        inputs.push_back({{"path",file.path},{"bytes",fs::file_size(path)},{"sha256",verification.Digest(path)}});
+    }
     Json recipe{{"format",1},{"game",game},{"preparationContract",1},{"producerSha256",producer_hash},
         {"inputs",std::move(inputs)},{"libcRetContract",true},{"mergedApp",policy.merged_app},
         {"dataVariant",inspected.variant},{"dataVersion",inspected.version},
@@ -54,10 +63,23 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
     if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
-        const auto libc=ReadPreparationInput(DataChild(data,"sce_module/libc.prx"));
+        const auto read_program=[&](std::string_view name) {
+            const auto& inventory=recipe.at("inputs");
+            const auto item=std::ranges::find_if(inventory,[&](const Json& row){
+                return row.at("path").get_ref<const std::string&>()==name;
+            });
+            auto source=ReadPreparationInput(DataChild(data,name));
+            if (item==inventory.end() || item->at("bytes")!=source.size() || item->at("sha256")!=PreparationHash(source))
+                throw std::runtime_error("PS4 program changed during preparation: "+std::string(name));
+            return source;
+        };
+        const auto libc=read_program("sce_module/libc.prx");
         for (std::size_t i=0;i<programs.size();++i) {
-            const auto source=ReadPreparationInput(DataChild(data,programs[i]));
-            const auto prepared=PrepareElf(source,i!=0,libc);WritePreparedRelative(stage,files[i],prepared.bytes);
+            const auto source=read_program(programs[i]);
+            const auto expected=std::ranges::find(manifest,programs[i],&DataFile::path);
+            if (expected==manifest.end() || !expected->program)throw std::runtime_error("Missing verified PS4 program identity");
+            const auto prepared=PrepareElf(source,i!=0,libc,&*expected);
+            WritePreparedRelative(stage,files[i],prepared.bytes);
         }
         if (policy.read_fixes) {
             const auto fixes=ketsui?PrepareReadFixes(data,true,true):

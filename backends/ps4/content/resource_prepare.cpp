@@ -4,7 +4,7 @@
 #include "common/paths.h"
 #include "common/settings.h"
 #include "backends/ps4/ketsui_version.h"
-#include "backends/ps4/loader/plain_self.h"
+#include "common/ps4_program.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <zlib.h>
@@ -22,9 +22,6 @@ namespace {
 using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t kPatchLimit = 262144;
-constexpr std::string_view kDaioujouExecutableHash = "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f";
-constexpr std::string_view kDaioujouBaseExecutableHash = "8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79";
-constexpr std::string_view kEspradeExecutableHash = "bf8e98b1d9bf22f8ef0f5343c7673af4da428ed2021d2c8e6c124e0371c384d0";
 constexpr std::string_view kFeveronExecutableHash = "119851e0b62f06d6eb44ba9227fe989c0e9a2f53bf66558852f4881c8d99ee0b";
 constexpr std::string_view kGareggaExecutableHash = "4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984";
 enum class ResourceTitle { Ketsui, Daioujou, Esprade, Feveron, Garegga };
@@ -236,18 +233,16 @@ ResourceBytes ReadRange(const fs::path& path,std::uint64_t file_size,std::uint64
     ResourceBytes bytes(static_cast<std::size_t>(size));
     Require(bool(source.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(size))),"Truncated resource archive read"); return bytes;
 }
-ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,ResourceTitle title=ResourceTitle::Ketsui) {
-    const auto source=Hash(executable);
-    const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade,feveron=title==ResourceTitle::Feveron,garegga=title==ResourceTitle::Garegga;
-    const auto* version=title==ResourceTitle::Ketsui?FindKetsuiVersion(source):nullptr;
-    Require(garegga?source==kGareggaExecutableHash:feveron?source==kFeveronExecutableHash:esprade?source==kEspradeExecutableHash:daioujou?
-        (source==kDaioujouExecutableHash || source==kDaioujouBaseExecutableHash):version!=nullptr,
-        garegga?"Game fixes require the verified CUSA10207 1.00 executable":
-        feveron?"Game fixes require the verified CUSA06735 1.00 executable":
-        esprade?"Game fixes require the verified CUSA15155 1.04 executable":
-        daioujou?"Game fixes require a verified CUSA32997 executable":"Game fixes require a verified CUSA09062 executable");
-    // Check the original identity before interpreting its decoded program.
-    const auto load=garegga?0xf3:feveron?0xf2:daioujou?(source==kDaioujouBaseExecutableHash?0xde:0xdd):esprade?0xd3:version->archive_seed_load;
+ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,std::string_view source,
+                         ResourceTitle title=ResourceTitle::Ketsui,const DataVariant* variant=nullptr) {
+    const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade;
+    const bool feveron=title==ResourceTitle::Feveron,garegga=title==ResourceTitle::Garegga;
+    const auto* ketsui=title==ResourceTitle::Ketsui?FindKetsuiVersion(source):nullptr;
+    Require(garegga?source==kGareggaExecutableHash:feveron?source==kFeveronExecutableHash:
+        (esprade || daioujou)?variant!=nullptr:ketsui!=nullptr,
+        "Game fixes require a verified PS4 executable");
+    const auto load=garegga?0xf3:feveron?0xf2:daioujou?(variant->layout=="base"?0xde:0xdd):
+        esprade?(variant->layout=="base"?0xd2:0xd3):ketsui->archive_seed_load;
     return ReadArchiveSeed(executable,load,daioujou);
 }
 }
@@ -442,8 +437,10 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     community_replay|=community_offline;
     const auto root=fs::canonical(data);
     const auto executable=DataChild(root,"eboot.bin");
-    const auto raw_executable=ReadFile(executable,512*1024*1024),key=ArchiveKey(raw_executable);
-    const auto* version=FindKetsuiVersion(Hash(raw_executable));Require(version,"Unsupported Ketsui resource version");
+    const auto raw_executable=ReadFile(executable,512*1024*1024);
+    const auto raw_hash=Hash(raw_executable);
+    const auto key=ArchiveKey(raw_executable,raw_hash);
+    const auto* version=FindKetsuiVersion(raw_hash);Require(version,"Unsupported Ketsui resource version");
     const bool updated=version->version=="01.02";
     std::vector<std::pair<fs::path,std::string>> indices;
     auto index=[&](std::string_view path,std::string_view name) {
@@ -501,9 +498,16 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
     const bool esprade=resource_title==ResourceTitle::Esprade,feveron=resource_title==ResourceTitle::Feveron,garegga=resource_title==ResourceTitle::Garegga;
     const auto title=garegga?"CUSA10207":feveron?"CUSA06735":esprade?"CUSA15155":"CUSA32997";
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
-    const auto original=ReadFile(executable,512*1024*1024),key=ArchiveKey(original,resource_title);
+    const auto original=ReadFile(executable,512*1024*1024);
     const auto expected_executable=Hash(original);
-    const bool base=garegga || feveron || (!esprade && expected_executable==kDaioujouBaseExecutableHash);
+    const DataVariant* variant{};
+    if (!garegga && !feveron) {
+        const auto& game=FindGame(esprade?"esprade":"daioujou");
+        variant=MatchRootProgram(game,original.size(),expected_executable);
+        if (!variant)variant=MatchRootProgram(game,original.size(),{},ProgramFingerprint(original));
+    }
+    const auto key=ArchiveKey(original,expected_executable,resource_title,variant);
+    const bool base=garegga || feveron || variant->layout=="base";
     const auto version=base?"01.00":"01.04";
     const auto index_path=DataChild(root,"ps4data_info.psb.m");
     const auto index_raw=ReadFile(index_path,kResourceLimit);

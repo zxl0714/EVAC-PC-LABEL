@@ -22,37 +22,43 @@
       "path": "daioujou_01000.prx",
       "bytes": 60168084,
       "sha256": "bbf74a56a0dd05d4f509ec22fd167b53fbc898dc8d079c1692f8dfe8c0901a86",
-      "program": true
+      "program": true,
+      "programFingerprint": "f2463b51c5010a866412cd327d893aec6db0d40fa8811535226c8b4e5313ba02"
     },
     {
       "path": "daioujou_01010.prx",
       "bytes": 60215876,
       "sha256": "acc3e5d06dcbdd32b4a95c9f7f3a2e0f5cc091cd19c36faae9e69940319b400b",
-      "program": true
+      "program": true,
+      "programFingerprint": "2431e95019e36564925346852fcf4d655fec4dd079ecbb4b0916f2336af1592f"
     },
     {
       "path": "daioujou_01020.prx",
       "bytes": 60232260,
       "sha256": "c4e53ea4499f9bdcdfc006927cf59c00b680c020b44773cce35fe5b200be79fd",
-      "program": true
+      "program": true,
+      "programFingerprint": "ae9c0e2090ea4e836bb55c67a4f4b85d5cb997bea0799a046387c85e0b44b646"
     },
     {
       "path": "daioujou_01030.prx",
       "bytes": 63378052,
       "sha256": "b81bbc8caf8b785e7376a82be03b90df17e399b5ced5e276d4b449f8ccd13669",
-      "program": true
+      "program": true,
+      "programFingerprint": "4f832ed464ffb7c937e5af8ba152bb44de7dd44933852a1a22aba6960db99079"
     },
     {
       "path": "eboot.bin",
       "bytes": 3259695,
       "sha256": "365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
-      "program": true
+      "program": true,
+      "programFingerprint": "8b5a58ef135deeddd52844b6072cb02e32992186599344ea3d0cf7bbe60924e3"
     },
     {
       "path": "emu_integration_01700.prx",
       "bytes": 1335734,
       "sha256": "4cbe6272da509352f21b1ac7bb6efd1cb6cfae77d45fb22a05d7bb1b880886df",
-      "program": true
+      "program": true,
+      "programFingerprint": "8f1e76a23e079099a230155fdb4ba70491f00d0788acfcdc6a419b0b1bcf83a2"
     },
     {
       "path": "playgo-chunk.dat",
@@ -100,73 +106,85 @@
       "path": "sce_module/libSceAudioLatencyEstimation.prx",
       "bytes": 22442,
       "sha256": "0489f313cf1242574087714365f1c316f9d6c18a1f4c305054487b9b940bc7d7",
-      "program": true
+      "program": true,
+      "programFingerprint": "771f04fa0481f83890949b994ca17bd55779bdd35eeb55b97b295a6b30fa30d2"
     },
     {
       "path": "sce_module/libSceFace.prx",
       "bytes": 302128,
       "sha256": "6ad7ba84f3e91d182f1f32cdf75d9c589746c617d53c7e6edf4f69a8c64f5ab6",
-      "program": true
+      "program": true,
+      "programFingerprint": "175b63964048c18474165c15be35dfb677007045e107766572b2ab526fc048fd"
     },
     {
       "path": "sce_module/libSceFaceTracker.prx",
       "bytes": 2611551,
       "sha256": "63b51f741e2065bb0039f9e1467aa11d691c3602edfd454557cab7aa54896b06",
-      "program": true
+      "program": true,
+      "programFingerprint": "b96ff77d53cab87cc8e610fbc11d660bfca9975490845590d8ee593279576340"
     },
     {
       "path": "sce_module/libSceFios2.prx",
       "bytes": 457105,
       "sha256": "dc8f9b45b60da1b493b326d549ce99d63f5f9bffc67973d3245965e02b7b12ec",
-      "program": true
+      "program": true,
+      "programFingerprint": "7442e0baa00d08fa8c725839fc02f33d0028634429c05d667d0bf478a10c78c7"
     },
     {
       "path": "sce_module/libSceFontGsm.prx",
       "bytes": 251547,
       "sha256": "74a88a886cde05bb1df56026c7ebefee5945a42ceb076061349654a9aa859300",
-      "program": true
+      "program": true,
+      "programFingerprint": "3d658a7b8eb726c8392e4f28d9db6bcb673a6edd67dbc001ab0f09df7117927c"
     },
     {
       "path": "sce_module/libSceHand.prx",
       "bytes": 23976,
       "sha256": "29aa343715dd77548dbc3c15831a548f1ba2b6e9f40f51364771c0eda3522e62",
-      "program": true
+      "program": true,
+      "programFingerprint": "83fdf0e6e8f52cd29c9920454314752011142128c84c2f456c10a46f4ba6b97b"
     },
     {
       "path": "sce_module/libSceHandTracker.prx",
       "bytes": 54503,
       "sha256": "75d0c337630313c33f4d10cb61cee94fe40a778a3bc4a7443477d1236957ed92",
-      "program": true
+      "program": true,
+      "programFingerprint": "e51c13078de0dabca00f2bce742ec7bc8e6aa59173d5606c5c423007d0a7e7bc"
     },
     {
       "path": "sce_module/libSceHeadTracker.prx",
       "bytes": 1348767,
       "sha256": "3cf68698e2729e748c5de5ebea70733a7ea35de3c3ca3baecb909f6fa0e9941d",
-      "program": true
+      "program": true,
+      "programFingerprint": "8f0b49aa2e0fc2bcfcf22b0fdddec0e87a508599da4fe6cf6f52ccda6c3c53b0"
     },
     {
       "path": "sce_module/libSceJobManager.prx",
       "bytes": 68406,
       "sha256": "273890680290395b6354e950f3e8b9ccd3fc7c6b63d08fee70ddda8e9e5f4dda",
-      "program": true
+      "program": true,
+      "programFingerprint": "606207c15e49bafa9c49534ef9e86b08f36f67616ba23ccefbbc3a2320e07fd7"
     },
     {
       "path": "sce_module/libSceNpToolkit2.prx",
       "bytes": 834190,
       "sha256": "f67200768542e42751aafdba22f966aa741b130fdebb16ba7a7b36a5c8e3b351",
-      "program": true
+      "program": true,
+      "programFingerprint": "8640e6ed7e27221d3cbfe7145f1180dc693b46a416faf9ef7eae8620fa78c769"
     },
     {
       "path": "sce_module/libSceS3DConversion.prx",
       "bytes": 352641,
       "sha256": "716a2bd47a1ac427dd4119063146c40e7459b687c3a13fec8f6bdaf6e9e0529b",
-      "program": true
+      "program": true,
+      "programFingerprint": "bd5a8d7dd9f560c8669b99e61e072c59f5881609789c5f67814d013ed3ec2305"
     },
     {
       "path": "sce_module/libc.prx",
       "bytes": 1374546,
       "sha256": "e36b841adabe2cb0c81d9bb42d1fb8bcea9a317f32a4e5bc4c538368d292bd04",
-      "program": true
+      "program": true,
+      "programFingerprint": "8ea6aeea3ec79c8662691d3cd9db87af1d834ab7294f44cfcb691128950588aa"
     },
     {
       "path": "sce_sys/.digests",
@@ -378,19 +396,22 @@
           "path": "daioujou_01000.prx",
           "bytes": 60245460,
           "sha256": "f3553e993e278871283dd233220d0cca518e5fe1f370623f42775ad939712c6c",
-          "program": true
+          "program": true,
+          "programFingerprint": "f2463b51c5010a866412cd327d893aec6db0d40fa8811535226c8b4e5313ba02"
         },
         {
           "path": "eboot.bin",
           "bytes": 3233055,
           "sha256": "8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79",
-          "program": true
+          "program": true,
+          "programFingerprint": "978aaf154f03958a95d7cd517c3c4792fc6d8a77ab227b820045668a784ee9e9"
         },
         {
           "path": "emu_integration_01700.prx",
           "bytes": 1305110,
           "sha256": "f3c1d664f82e38f40ffa13561d8a8d2504c21d556722c8783db6c827aab5fbfc",
-          "program": true
+          "program": true,
+          "programFingerprint": "8f1e76a23e079099a230155fdb4ba70491f00d0788acfcdc6a419b0b1bcf83a2"
         },
         {
           "path": "ps4data_body.bin",
@@ -414,73 +435,85 @@
           "path": "sce_module/libSceAudioLatencyEstimation.prx",
           "bytes": 22442,
           "sha256": "0489f313cf1242574087714365f1c316f9d6c18a1f4c305054487b9b940bc7d7",
-          "program": true
+          "program": true,
+          "programFingerprint": "771f04fa0481f83890949b994ca17bd55779bdd35eeb55b97b295a6b30fa30d2"
         },
         {
           "path": "sce_module/libSceFace.prx",
           "bytes": 302128,
           "sha256": "6ad7ba84f3e91d182f1f32cdf75d9c589746c617d53c7e6edf4f69a8c64f5ab6",
-          "program": true
+          "program": true,
+          "programFingerprint": "175b63964048c18474165c15be35dfb677007045e107766572b2ab526fc048fd"
         },
         {
           "path": "sce_module/libSceFaceTracker.prx",
           "bytes": 2611551,
           "sha256": "63b51f741e2065bb0039f9e1467aa11d691c3602edfd454557cab7aa54896b06",
-          "program": true
+          "program": true,
+          "programFingerprint": "b96ff77d53cab87cc8e610fbc11d660bfca9975490845590d8ee593279576340"
         },
         {
           "path": "sce_module/libSceFios2.prx",
           "bytes": 457105,
           "sha256": "dc8f9b45b60da1b493b326d549ce99d63f5f9bffc67973d3245965e02b7b12ec",
-          "program": true
+          "program": true,
+          "programFingerprint": "7442e0baa00d08fa8c725839fc02f33d0028634429c05d667d0bf478a10c78c7"
         },
         {
           "path": "sce_module/libSceFontGsm.prx",
           "bytes": 251547,
           "sha256": "74a88a886cde05bb1df56026c7ebefee5945a42ceb076061349654a9aa859300",
-          "program": true
+          "program": true,
+          "programFingerprint": "3d658a7b8eb726c8392e4f28d9db6bcb673a6edd67dbc001ab0f09df7117927c"
         },
         {
           "path": "sce_module/libSceHand.prx",
           "bytes": 23976,
           "sha256": "29aa343715dd77548dbc3c15831a548f1ba2b6e9f40f51364771c0eda3522e62",
-          "program": true
+          "program": true,
+          "programFingerprint": "83fdf0e6e8f52cd29c9920454314752011142128c84c2f456c10a46f4ba6b97b"
         },
         {
           "path": "sce_module/libSceHandTracker.prx",
           "bytes": 54503,
           "sha256": "75d0c337630313c33f4d10cb61cee94fe40a778a3bc4a7443477d1236957ed92",
-          "program": true
+          "program": true,
+          "programFingerprint": "e51c13078de0dabca00f2bce742ec7bc8e6aa59173d5606c5c423007d0a7e7bc"
         },
         {
           "path": "sce_module/libSceHeadTracker.prx",
           "bytes": 1348767,
           "sha256": "3cf68698e2729e748c5de5ebea70733a7ea35de3c3ca3baecb909f6fa0e9941d",
-          "program": true
+          "program": true,
+          "programFingerprint": "8f0b49aa2e0fc2bcfcf22b0fdddec0e87a508599da4fe6cf6f52ccda6c3c53b0"
         },
         {
           "path": "sce_module/libSceJobManager.prx",
           "bytes": 68406,
           "sha256": "273890680290395b6354e950f3e8b9ccd3fc7c6b63d08fee70ddda8e9e5f4dda",
-          "program": true
+          "program": true,
+          "programFingerprint": "606207c15e49bafa9c49534ef9e86b08f36f67616ba23ccefbbc3a2320e07fd7"
         },
         {
           "path": "sce_module/libSceNpToolkit2.prx",
           "bytes": 834190,
           "sha256": "f67200768542e42751aafdba22f966aa741b130fdebb16ba7a7b36a5c8e3b351",
-          "program": true
+          "program": true,
+          "programFingerprint": "8640e6ed7e27221d3cbfe7145f1180dc693b46a416faf9ef7eae8620fa78c769"
         },
         {
           "path": "sce_module/libSceS3DConversion.prx",
           "bytes": 352641,
           "sha256": "716a2bd47a1ac427dd4119063146c40e7459b687c3a13fec8f6bdaf6e9e0529b",
-          "program": true
+          "program": true,
+          "programFingerprint": "bd5a8d7dd9f560c8669b99e61e072c59f5881609789c5f67814d013ed3ec2305"
         },
         {
           "path": "sce_module/libc.prx",
           "bytes": 1374546,
           "sha256": "e36b841adabe2cb0c81d9bb42d1fb8bcea9a317f32a4e5bc4c538368d292bd04",
-          "program": true
+          "program": true,
+          "programFingerprint": "8ea6aeea3ec79c8662691d3cd9db87af1d834ab7294f44cfcb691128950588aa"
         },
         {
           "path": "sce_sys/.image_key.encrypted",

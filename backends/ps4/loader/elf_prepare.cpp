@@ -1,6 +1,6 @@
 // Native equivalent of scripts/ps4/{native_elf,prepare_native}.py.
 #include "elf_prepare.h"
-#include "plain_self.h"
+#include "common/ps4_program.h"
 #include "esprade_latency.h"
 #include "common/settings.h"
 #include <Windows.h>
@@ -209,7 +209,8 @@ void VerifyLibc(std::span<const std::uint8_t> source) {
 }
 }
 
-PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::span<const std::uint8_t> libc) {
+PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::span<const std::uint8_t> libc,
+                       const DataFile* expected) {
     // Decode the executable view while retaining the original file identity.
     // Module loading compares this digest with the selected content file.
     auto plain=PlainSelfElf(source);
@@ -253,11 +254,16 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
     for (std::uint64_t value:{elf.image_size,elf.entry,static_cast<std::uint64_t>(elf.segments.size()),
             static_cast<std::uint64_t>(elf.relocations.size()),static_cast<std::uint64_t>(imports.size()),elf.procparam,std::uint64_t(!libc.empty())|2ull}) writer.Value(value);
     const auto sha=Hash(source); writer.Raw(sha);
-    if (module && EspradeLatencyModule(sha)) {
+    const bool patch_raw=module && EspradeLatencyModule(sha);
+    std::string_view patch_equivalent;
+    if (module && !patch_raw && expected && EspradeLatencyModule(expected->sha256) &&
+        !expected->program_fingerprint.empty() && ProgramFingerprint(plain)==expected->program_fingerprint)
+        patch_equivalent=expected->sha256;
+    if (patch_raw || !patch_equivalent.empty()) {
         bool applied{};
         for (const auto& segment:elf.segments) if (segment.flags&1) {
             applied|=ApplyEspradeLatency(std::span<std::uint8_t>(plain).subspan(
-                static_cast<std::size_t>(segment.offset),static_cast<std::size_t>(segment.file_size)),segment.address,sha);
+                static_cast<std::size_t>(segment.offset),static_cast<std::size_t>(segment.file_size)),segment.address,sha,patch_equivalent);
         }
         Require(applied,"ESP Ra.De. low-latency selector is outside executable bytes");
     }

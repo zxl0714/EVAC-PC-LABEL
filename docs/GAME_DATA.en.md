@@ -53,6 +53,8 @@ If you already have `default.xex` or `eboot.bin` alongside the complete game res
 
 Use a new output folder for each extraction. Game files are inside its `uroot/`; **Open game files** opens that folder directly. Dependencies are included in `tools/pkgtool/`. Keep the entire `tools/` folder.
 
+For a decrypted PS4 dump, place the files in `game-data/<game>/` or select the folder containing `eboot.bin` and `sce_sys/param.sfo` in the launcher. For a raw disc ISO, first export the decrypted game files from your console.
+
 The PKG passcode defaults to 32 zeros. Change it only if your PKG uses another passcode; this is separate from a ZIP/RAR password. Errors appear in the window, with detailed output in `extract.log` in the new output folder. Input PKGs remain unchanged.
 
 #### Advanced: script usage
@@ -219,7 +221,7 @@ Select the folder containing `eboot.bin` and the complete game modules and resou
 
 ### エスプレイドΨ — ESP Ra.De. Psi (esprade)
 
-Supported: **CUSA15155, complete base version 01.00 with update 01.04 overlaid**.
+**CUSA15155** supports both the 01.00 base game and the merged 01.04 update.
 
 ```text
 game-data/esprade/
@@ -227,12 +229,12 @@ game-data/esprade/
   emu_integration_01500.prx
   esprade_01000.prx
   ps4data_body.bin
-  ps4data_patch_body.bin
+  ps4data_info.psb.m
   sce_module/
   ...
 ```
 
-Extract the base PKG, then copy all extracted update files over the base-game files. Place the merged contents in `game-data/esprade/`, or select that merged folder in the launcher. Keep `eboot.bin` directly inside the selected folder, along with all modules, resources, and internal folders.
+Place the complete base game in `game-data/esprade/` or select its folder in the launcher. For version 01.04, copy all extracted update files into the same folder, replacing matching files and keeping the remaining base files and folders.
 
 Saves, downloaded replays, and settings are stored in `user-data/esprade/`.
 

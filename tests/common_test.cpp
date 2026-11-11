@@ -1,6 +1,7 @@
 #include "common/catalogue.h"
 #include "common/ini.h"
 #include "common/paths.h"
+#include "common/ps4_program.h"
 #include "common/settings.h"
 #include "common/window_geometry.h"
 #include "common/config_update.h"
@@ -11,6 +12,7 @@
 #include "launcher/preferences.h"
 #include <Windows.h>
 #include <bcrypt.h>
+#include <algorithm>
 #include <array>
 #include <fstream>
 #include <iostream>
@@ -173,6 +175,76 @@ void DataVariantChecks(Fixture& fixture) {
   Write(source/"CUSA09062-app/eboot.bin");Write(source/"CUSA09062-patch/eboot.bin","def");
   Require(inspect().state=="unsupported_version" && inspect().candidate_roots.empty(),"legacy dual-root data is rejected instead of silently selected or nested-imported");
   Reject([&] {DataFiles(game,"unknown");},"unknown variant used as primary manifest");
+}
+void Ps4ProgramChecks(Fixture& fixture) {
+  const auto set=[](std::vector<uint8_t>& bytes,size_t offset,uint64_t value,unsigned length) {
+    for(unsigned index=0;index<length;++index)bytes[offset+index]=uint8_t(value>>(8*index));
+  };
+  std::vector<uint8_t> elf(264);
+  const std::array<uint8_t,7> magic{0x7f,'E','L','F',2,1,1};
+  std::ranges::copy(magic,elf.begin());
+  set(elf,16,0xfe10,2);set(elf,18,62,2);set(elf,20,1,4);
+  set(elf,24,0x10000,8);set(elf,32,64,8);set(elf,52,64,2);set(elf,54,56,2);set(elf,56,1,2);
+  set(elf,64,1,4);set(elf,68,5,4);set(elf,72,256,8);set(elf,80,0x10000,8);
+  set(elf,96,8,8);set(elf,104,8,8);set(elf,112,0x1000,8);
+  elf[256]=0xc3;
+  std::vector<uint8_t> self(216);
+  const std::array<uint8_t,10> self_header{0x4f,0x15,0x3d,0x1d,0,1,1,0x12,1,1};
+  std::ranges::copy(self_header,self.begin());
+  set(self,12,192,2);set(self,14,16,2);set(self,16,self.size(),8);set(self,24,1,2);
+  set(self,32,0x800,8);set(self,40,208,8);set(self,48,8,8);set(self,56,8,8);
+  std::copy_n(elf.begin(),120,self.begin()+64);
+  std::copy_n(elf.begin()+256,8,self.begin()+208);
+  const auto fingerprint=ps4::ProgramFingerprint(elf);
+  Require(!fingerprint.empty() && ps4::ProgramFingerprint(self)==fingerprint && ps4::PlainSelfElf(self)==elf,
+          "Plain SELF and ELF did not share the same program identity");
+  auto sectioned=elf;
+  set(sectioned,40,sectioned.size(),8);set(sectioned,58,64,2);set(sectioned,60,1,2);
+  sectioned.resize(328);
+  Require(ps4::ProgramFingerprint(sectioned)==fingerprint,"ELF section metadata affected program identity");
+  auto changed=elf;changed[256]^=1;
+  Require(ps4::ProgramFingerprint(changed)!=fingerprint,"Changed machine code retained a known identity");
+  auto malformed=self;set(malformed,32,0x802,8);
+  Require(ps4::ProgramFingerprint(malformed).empty(),"Encrypted SELF obtained a program identity");
+  malformed=elf;set(malformed,72,0x7fffffff,8);
+  Require(ps4::ProgramFingerprint(malformed).empty(),"Out-of-range segment obtained a program identity");
+
+  const auto source=fixture.temporary/"ps4-programs";
+  auto write_program=[&](std::string_view name,const auto& bytes) {
+    Write(DataChild(source,name),{reinterpret_cast<const char*>(bytes.data()),bytes.size()});
+  };
+  write_program("eboot.bin",self);
+  const auto container_hash=Sha256(source/"eboot.bin");
+  Write(source/"assets.bin","abc");
+  const auto asset_hash=Sha256(source/"assets.bin");
+  const std::array files{
+    DataFile{"eboot.bin",self.size(),container_hash,true,fingerprint},
+    DataFile{"core.prx",self.size(),container_hash,true,fingerprint},
+    DataFile{"assets.bin",3,asset_hash,false}};
+  const std::array variants{DataVariant{"base","01.00","base","eboot.bin",files,{}}};
+  Game game{"program-fixture","Fixture","ps4","game-data/program-fixture","runtime/fixture.exe",true,false,files,{}};
+  game.variants=variants;
+  const auto inspect=[&](CheckLevel level=CheckLevel::Full){return Inspect(game,fixture.root,source,level);};
+  write_program("core.prx",self);
+  Require(inspect().data_state==DataState::Verified,"Known raw containers ceased to verify");
+  write_program("eboot.bin",sectioned);write_program("core.prx",elf);
+  Require(inspect(CheckLevel::Quick).data_state==DataState::Unverified && inspect().data_state==DataState::Verified,
+          "Known program with different container did not verify");
+  write_program("core.prx",changed);
+  Require(inspect().data_state==DataState::Unsupported,"Mixed or modified PRX accepted");
+  fs::remove(source/"core.prx");
+  Require(inspect().data_state==DataState::Incomplete,"Missing PRX accepted");
+  write_program("core.prx",elf);Write(source/"assets.bin","def");
+  Require(inspect().data_state==DataState::Incomplete,"Alternate program identity bypassed resource verification");
+  write_program("eboot.bin",changed);
+  Require(inspect(CheckLevel::Quick).data_state==DataState::Unsupported,"Unknown root ELF accepted");
+  const auto iso=fixture.temporary/"ps4-disc/sample.ISO";
+  Write(iso,"authored fixture");
+  for(const auto& path:{iso,iso.parent_path()}) {
+    const auto report=Inspect(game,fixture.root,path,CheckLevel::Quick);
+    Require(report.data_state==DataState::RawDisc && report.disc_image==iso &&
+            report.reason.find("decrypted game folder")!=std::string::npos,"PS4 raw disc did not direct player to decrypted folder");
+  }
 }
 void SettingsChecks(Fixture& fixture) {
     const auto install = fixture.temporary/"amd-edition";
@@ -669,6 +741,7 @@ int main() {
     ContentChecks(fixture);
     NestedRootChecks(fixture);
     DataVariantChecks(fixture);
+    Ps4ProgramChecks(fixture);
     std::cout << checks << " native checks passed; fixture programs were not executed.\n";
     return 0;
   } catch (const std::exception& error) {

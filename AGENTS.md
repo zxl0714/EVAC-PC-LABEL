@@ -27,10 +27,14 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   menu scripts were inspected locally. The game uses separate archived WAVs
   for its existing sets and a shared title-profile BGM count. The import UI,
   fourth menu item, artwork and playback integration are pending.
-- Issue #11: the local shadPS4 archive's entry hash matches the known 01.04.
-  A local comparison captured raw and decoded hashes for DaiOuJou 01.00,
-  01.04 and ESP Ra.De. 01.04. See .local/v099/ps4-wrapper-identities.json.
-  Equivalent-executable acceptance and raw-disc diagnostics are pending.
+- Issue #11: DaiOuJou and ESP Ra.De. 01.00 and 01.04 accept known decrypted
+  program fingerprints in addition to exact original hashes. ESP Ra.De.
+  01.00 has its own manifest, seed location and core preparation. The four
+  original sets and 64 rewrapped program files passed full inspection,
+  preparation, module binding and content validation. Both ESP Ra.De.
+  variants retain the same prepared low-latency code. A raw ISO points to
+  the decrypted game folder. Evidence .local/v099/ps4-equivalent-b9f39918/.
+  Live play and the reporter's own dump are pending.
 - Input scope labels use All games / Current game. Japanese Save now uses
   セーブ. The resolution control ignores transient and duplicate selection
   notifications and commits an accepted choice. The library persists order and

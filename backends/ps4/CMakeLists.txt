@@ -65,8 +65,7 @@ add_library(KetsuiZlib STATIC "${CAVE_PS4_DEPS}/zlib/adler32.c" "${CAVE_PS4_DEPS
 target_include_directories(KetsuiZlib SYSTEM PUBLIC "${CAVE_PS4_DEPS}/zlib")
 
 target_compile_definitions(KetsuiZlib PUBLIC Z_PREFIX)
-# Plain SELF decoding is shared by executable and resource preparation.
-add_library(KetsuiResourcePreparation STATIC content/resource_prepare.cpp loader/plain_self.cpp)
+add_library(KetsuiResourcePreparation STATIC content/resource_prepare.cpp)
 target_compile_features(KetsuiResourcePreparation PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiResourcePreparation PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiResourcePreparation PRIVATE /W4 /WX /EHsc)

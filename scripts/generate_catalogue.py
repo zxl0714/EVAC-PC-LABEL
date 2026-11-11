@@ -35,6 +35,9 @@ def data_files(items):
         if (name.casefold() in seen or type(item['bytes']) is not int or not 0 <= item['bytes'] <= 2**63-1
                 or not re.fullmatch('[0-9a-f]{64}', item['sha256']) or type(item['program']) is not bool):
             raise ValueError('Invalid variant file identity')
+        fingerprint = item.get('programFingerprint')
+        if 'programFingerprint' in item and (not item['program'] or not isinstance(fingerprint, str) or not re.fullmatch('[0-9a-f]{64}', fingerprint)):
+            raise ValueError('Invalid PS4 program fingerprint')
         seen.add(name.casefold())
     return seen
 
@@ -50,7 +53,7 @@ def data_variants(manifest):
     variants = [dict(id=manifest['variantId'], version=manifest['version'], layout=manifest['layout'],
                      entry=manifest['entry'], files=manifest['files'], forbiddenFiles=manifest.get('forbiddenFiles', [])),
                 *alternatives]
-    ids, identities = set(), set()
+    ids, identities, fingerprints = set(), set(), set()
     for variant in variants:
         if (not isinstance(variant, dict) or not isinstance(variant.get('id'), str) or not re.fullmatch('[a-z][a-z0-9-]{0,31}', variant['id'])
                 or variant['id'] in ids or not isinstance(variant.get('version'), str) or not re.fullmatch('[0-9]{2}\\.[0-9]{2}', variant['version'])
@@ -63,6 +66,13 @@ def data_variants(manifest):
         if len(entries) != 1 or entries[0]['sha256'] in identities:
             raise ValueError('Data variants require distinct root programs')
         identities.add(entries[0]['sha256'])
+        fingerprint = entries[0].get('programFingerprint')
+        if fingerprint:
+            if fingerprint in fingerprints:
+                raise ValueError('Data variants require distinct root program fingerprints')
+            fingerprints.add(fingerprint)
+        if variant['entry'] != 'eboot.bin' and any('programFingerprint' in item for item in variant['files']):
+            raise ValueError('Program fingerprints require PS4 input')
         forbidden = variant.get('forbiddenFiles', [])
         if not isinstance(forbidden, list) or len(forbidden) > 128:
             raise ValueError('Invalid variant forbidden files')
@@ -126,14 +136,9 @@ def load(path):
             manifest = read_json(source)
             if manifest['format'] != 1 or manifest['game'] != game['id'] or not manifest['files']:
                 raise ValueError('Invalid data manifest identity')
-            seen = set()
-            for item in manifest['files']:
-                name = relative(item['path'])
-                if name.casefold() in seen or type(item['bytes']) is not int or not 0 <= item['bytes'] <= 2**63-1:
-                    raise ValueError('Duplicate data path or invalid size')
-                seen.add(name.casefold())
-                if not re.fullmatch('[0-9a-f]{64}', item['sha256']) or type(item['program']) is not bool:
-                    raise ValueError('Invalid hash or program flag')
+            seen = data_files(manifest['files'])
+            if game['backend'] != 'ps4' and any('programFingerprint' in item for item in manifest['files']):
+                raise ValueError('Program fingerprints require PS4 input')
             game['files'] = manifest['files']
             if game['backend'] == 'ps2':
                 programs = [item for item in game['files'] if item['program']]
@@ -194,18 +199,23 @@ def load(path):
 
 def generate(games):
     quoted = lambda value: json.dumps(value, ensure_ascii=False)
+    def file_row(file):
+        fields = [quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), str(file['program']).lower()]
+        if 'programFingerprint' in file:
+            fields.append(quoted(file['programFingerprint']))
+        return '{' + ','.join(fields) + '},'
     lines = ['// Generated from authored metadata, never from game program bodies.',
              '#pragma once', '#include <array>', '#include "common/catalogue.h"', 'namespace cave::detail {']
     for game in games:
         key = game['id'].replace('-', '_')
         lines.append(f'inline constexpr std::array<DataFile,{len(game["files"])}> files_{key}{{{{')
         for file in game['files']:
-            lines.append('{' + ','.join([quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), str(file['program']).lower()]) + '},')
+            lines.append(file_row(file))
         lines.append('}};')
         for index, variant in enumerate(game['variants']):
             lines.append(f'inline constexpr std::array<DataFile,{len(variant["files"])}> variant_files_{key}_{index}{{{{')
             for file in variant['files']:
-                lines.append('{' + ','.join([quoted(file['path']), str(file['bytes'])+'ull', quoted(file['sha256']), str(file['program']).lower()]) + '},')
+                lines.append(file_row(file))
             lines.append('}};')
             lines.append(f'inline constexpr std::array<std::string_view,{len(variant["forbiddenFiles"])}> variant_forbidden_{key}_{index}{{{{')
             lines.extend(quoted(name) + ',' for name in variant['forbiddenFiles'])

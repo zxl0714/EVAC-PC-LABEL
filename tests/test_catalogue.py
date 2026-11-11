@@ -57,8 +57,9 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual((game['backend'], manifest['titleId'], manifest['version']), ('ps4', 'CUSA15155', '01.04'))
         self.assertEqual(manifest['layout'], 'merged-patch')
         self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
-                         [('update-104', '01.04', 'merged-patch')])
+                         [('update-104', '01.04', 'merged-patch'), ('base-self', '01.00', 'base')])
         self.assertEqual(len(game['files']), 47)
+        self.assertIn('esprade_01030.prx', game['variants'][1]['forbiddenFiles'])
         self.assertTrue(game['integrated'] and game['communitySupported'])
         self.assertFalse(game['comingSoon'])
         self.assertEqual(game['runtimeFiles'], ['runtime/ps4/esprade.exe', 'runtime/ps4/KetsuiGpuRuntime.dll',
@@ -140,6 +141,25 @@ class CatalogueTests(unittest.TestCase):
         for raw in cases:
             with self.subTest(raw=raw.get('variantId')), self.assertRaises(ValueError):
                 catalogue.data_variants(raw)
+
+    def test_ps4_fingerprints_only_identify_known_programs(self):
+        raw = catalogue.read_json(self.root / 'games/daioujou/data.json')
+        variants = catalogue.data_variants(raw)
+        entry = lambda variant: next(f for f in variant['files'] if f['path'] == 'eboot.bin')
+        self.assertEqual(len({entry(v)['programFingerprint'] for v in variants}), len(variants))
+        for value in (None, 'not a SHA-256'):
+            modified = copy.deepcopy(raw)
+            entry(modified)['programFingerprint'] = value
+            with self.assertRaises(ValueError):
+                catalogue.data_variants(modified)
+        modified = copy.deepcopy(raw)
+        entry(modified['alternatives'][0])['programFingerprint'] = entry(modified)['programFingerprint']
+        with self.assertRaises(ValueError):
+            catalogue.data_variants(modified)
+        modified = copy.deepcopy(raw)
+        next(f for f in modified['files'] if not f['program'])['programFingerprint'] = 'a'*64
+        with self.assertRaises(ValueError):
+            catalogue.data_variants(modified)
 
     def test_daioujou_candidate_uses_own_data_and_shared_ps4_runtime(self):
         game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')

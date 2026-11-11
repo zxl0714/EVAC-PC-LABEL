@@ -54,6 +54,7 @@ inline constexpr std::array kTranslations{
   Translation{L"未找到游戏数据",L"ゲームデータがありません",L"Game data not found"},
   Translation{L"游戏数据不完整",L"ゲームデータが不足しています",L"Game data is incomplete"},
   Translation{L"解压目录层级不正确",L"データフォルダーの階層を確認",L"Nested game-data folder"},
+  Translation{L"请选择已解密的 PS4 游戏目录",L"復号済みの PS4 ゲームフォルダーを選択",L"Select the decrypted PS4 game folder"},
   Translation{L"请检查游戏数据目录",L"ゲームデータのフォルダーを確認",L"Check game data folder"},
   Translation{L"数据版本不支持",L"未対応のデータバージョン",L"Unsupported data version"},
   Translation{L"缺少运行组件",L"実行ファイルが不足しています",L"Runtime files are missing"},

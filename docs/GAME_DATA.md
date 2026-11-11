@@ -55,6 +55,8 @@
 
 本体和更新分别使用新输出目录。实际游戏文件在输出目录的 `uroot/` 中；“Open game files”会直接打开这一层。所需组件在 `tools/pkgtool/`，保留整个 `tools/` 文件夹。
 
+从 PS4 导出的已解密数据可以直接放入对应的 `game-data/<游戏>/`，或在启动器选择包含 `eboot.bin` 和 `sce_sys/param.sfo` 的目录。持有原始光盘 ISO 时，请先从主机导出已解密的游戏文件。
+
 PKG passcode 通常保留默认的 32 个零；只有 PKG 使用其他 passcode 时才修改，它与 ZIP／RAR 的解压密码不同。解包失败时，窗口显示原因，详细输出在新目录的 `extract.log`。原始 PKG 保持不变。
 
 #### 高级用法：脚本
@@ -221,7 +223,7 @@ game-data/daioujou/
 
 ### エスプレイドΨ（esprade）
 
-支持 **CUSA15155／01.00 本体覆盖 01.04 更新后的完整数据**：
+支持 **CUSA15155 的 01.00 本体和 01.04 合并更新版**。
 
 ```text
 game-data/esprade/
@@ -229,12 +231,12 @@ game-data/esprade/
   emu_integration_01500.prx
   esprade_01000.prx
   ps4data_body.bin
-  ps4data_patch_body.bin
+  ps4data_info.psb.m
   sce_module/
   ...
 ```
 
-将本体 PKG 提取到一个新目录，再将 01.04 更新中提取的全部内容覆盖到同一目录。把合并结果放进 `game-data/esprade/`，或在启动器直接选择这份合并目录。`eboot.bin` 应直接位于所选目录下，不要再套一层本体／更新目录。单独的更新包不能运行；保留其余模块、资源和内部层级。
+把本体的完整内容放进 `game-data/esprade/`，或在启动器选择本体目录。使用 01.04 时，将提取后的更新文件覆盖到同一目录，保留其余本体文件和内部层级。
 
 PS4 作品首次启动时自动生成 `prepared/` 下的运行文件，原始游戏数据不变；这些生成物无须手工放进游戏数据目录。ESP Ra.De. 的存档、下载录像与设置位于 `user-data/esprade/`。
 

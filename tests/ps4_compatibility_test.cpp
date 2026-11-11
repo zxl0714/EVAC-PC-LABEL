@@ -189,7 +189,10 @@ void Policies() {
     Reject([]{PlanPs4Data("daioujou","01.04","base");},"invalid update/base combination");
     Reject([]{PlanPs4Data("daioujou","01.00","merged-patch");},"mixed DOJ data is not base");
     Reject([]{PlanPs4Data("daioujou","01.01","base");},"unknown DOJ version");
-    Reject([]{PlanPs4Data("esprade","01.00","base");},"no accidental ESP base support");
+    const auto esp_base=PlanPs4Data("esprade","01.00","base");
+    Check(esp_base.programs==std::vector<std::string>{"eboot.bin","emu_integration_01500.prx","esprade_01000.prx"} &&
+          !esp_base.merged_app && esp_base.local_replay,"ESP Ra.De. base uses only the original core");
+    Reject([]{PlanPs4Data("esprade","01.00","merged-patch");},"mixed ESP Ra.De. data is not base");
     const auto feveron=PlanPs4Data("feveron","01.00","base");
     Check(feveron.programs==std::vector<std::string>{"eboot.bin","emu_integration_01200.prx","dfeveron_01000.prx","dfeveron_01010.prx"},
         "Feveron base includes both shipped core revisions");

@@ -3,6 +3,7 @@
 #include "common/paths.h"
 #include "common/stfs.h"
 #include "common/ps2_data.h"
+#include "common/ps4_program.h"
 #include "catalogue_generated.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -62,6 +63,7 @@ std::string_view Name(DataState state) {
     case DataState::Unknown: return "unknown_layout";
     case DataState::Invalid: return "invalid_path";
     case DataState::Nested: return "nested_data";
+    case DataState::RawDisc: return "raw_disc_image";
   }
   return "unknown";
 }
@@ -103,20 +105,54 @@ std::vector<std::string> NestedRoots(const fs::path& root,std::string_view entry
   }
   return finish();
 }
+bool IsIsoFile(const fs::path& path) {
+  const auto extension=path.extension().native();
+  return extension.size()==4 && CompareStringOrdinal(extension.data(),4,L".iso",4,TRUE)==CSTR_EQUAL &&
+         fs::is_regular_file(path);
+}
+void ReportPs4Disc(Inspection& result,const fs::path& path) {
+  result.data_state=DataState::RawDisc;
+  result.disc_image=path;
+  result.reason="PS4 ISO detected. Select the decrypted game folder containing eboot.bin and sce_sys/param.sfo.";
+  result.problems.insert(result.problems.begin(),"disc image: "+Utf8(path.filename()));
+}
+const DataFile* RootProgram(const DataVariant& variant) {
+  const auto entry=std::ranges::find(variant.files,variant.entry,&DataFile::path);
+  return entry==variant.files.end() || !entry->program?nullptr:&*entry;
+}
+}
+const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_view sha256,
+                                    std::string_view fingerprint) {
+  for(const auto& variant:game.variants) {
+    const auto* entry=RootProgram(variant);
+    if(entry && ((!sha256.empty() && bytes==entry->bytes && sha256==entry->sha256) ||
+                 (game.backend=="ps4" && !fingerprint.empty() && fingerprint==entry->program_fingerprint)))
+      return &variant;
+  }
+  return nullptr;
 }
 const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes,VerificationCache* cache) {
   if(game.variants.empty())return nullptr;
   const auto path=DataChild(data,game.variants.front().entry);
   if(!fs::is_regular_file(path))return nullptr;
   const auto bytes=fs::file_size(path);
-  std::string digest;
+  bool same_size=false,known_fingerprint=false;
   for(const auto& variant:game.variants) {
-    const auto entry=std::find_if(variant.files.begin(),variant.files.end(),[&](const auto& file) {return file.path==variant.entry;});
-    if(entry==variant.files.end() || entry->bytes!=bytes)continue;
-    if(digest.empty()) {digest=FileDigest(path,cache);if(hashes)++*hashes;}
-    if(digest==entry->sha256 && fs::file_size(path)==bytes)return &variant;
+    if(const auto* entry=RootProgram(variant)) {
+      same_size|=entry->bytes==bytes;
+      known_fingerprint|=!entry->program_fingerprint.empty();
+    }
   }
-  return nullptr;
+  const DataVariant* match{};
+  if(same_size) {
+    match=MatchRootProgram(game,bytes,FileDigest(path,cache));
+    if(hashes)++*hashes;
+  }
+  if(!match && game.backend=="ps4" && known_fingerprint) {
+    match=MatchRootProgram(game,bytes,{},ps4::ProgramFingerprint(path));
+    if(hashes)++*hashes;
+  }
+  return match && fs::file_size(path)==bytes?match:nullptr;
 }
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant) {
   if(game.variants.empty() && variant.empty())return game.files;
@@ -164,6 +200,7 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       return result;
     }
     if(game.backend=="ps2")InspectPs2Disc(game,paths.data,level,result,cache);
+    else if(game.backend=="ps4" && IsIsoFile(paths.data))ReportPs4Disc(result,paths.data);
     else {
     const auto* variant=IdentifyDataVariant(game,paths.data,&result.hashes_checked,cache);
     const auto files=variant?variant->files:game.files;
@@ -189,17 +226,20 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       }
       ++present;
       const auto before = fs::file_size(file);
-      if (before != expected.bytes) {
-        incomplete = true; unsupported |= expected.program;
-        result.problems.push_back("size: " + std::string(expected.path));
-        continue;
-      }
-      if (level == CheckLevel::Full || (level == CheckLevel::Programs && expected.program)) {
+      const bool same_size=before==expected.bytes;
+      const bool check_hash=level==CheckLevel::Full || (level==CheckLevel::Programs && expected.program);
+      bool matches=same_size;
+      if(same_size && check_hash) {
         ++result.hashes_checked;
-        if (FileDigest(file,cache) != expected.sha256 || fs::file_size(file) != before) {
-          incomplete = true; unsupported |= expected.program;
-          result.problems.push_back("sha256: " + std::string(expected.path));
-        }
+        matches=FileDigest(file,cache)==expected.sha256;
+      }
+      if(!matches && game.backend=="ps4" && !expected.program_fingerprint.empty()) {
+        ++result.hashes_checked;
+        matches=ps4::ProgramFingerprint(file)==expected.program_fingerprint;
+      }
+      if(!matches || ((check_hash || !same_size) && fs::file_size(file)!=before)) {
+        incomplete=true;unsupported|=expected.program;
+        result.problems.push_back(std::string(same_size?"sha256: ":"size: ")+std::string(expected.path));
       }
     }
     const auto entry=RootEntry(game);
@@ -216,6 +256,11 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
     else if (incomplete) result.data_state = DataState::Incomplete;
     else if (level == CheckLevel::Full) result.data_state = DataState::Verified;
     else result.data_state = DataState::Unverified;
+    if (result.data_state==DataState::Missing && game.backend=="ps4" && fs::is_directory(paths.data)) {
+      for (const auto& item:fs::directory_iterator(paths.data)) {
+        if (IsIsoFile(item.path())) {ReportPs4Disc(result,item.path());break;}
+      }
+    }
     }
     for (const auto& issue : InspectRuntime(game, paths.root)) result.missing_runtime.push_back(issue.path);
     if (!game.integrated) { result.state = "not_integrated"; result.reason = "Collection backend not integrated"; }

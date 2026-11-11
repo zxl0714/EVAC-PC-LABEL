@@ -14,6 +14,7 @@ struct DataFile {
   uint64_t bytes;
   std::string_view sha256;
   bool program;
+  std::string_view program_fingerprint{};
 };
 struct ContentPackage {
   std::string_view id, name, directory, package_name;
@@ -40,8 +41,10 @@ struct Game {
 };
 std::span<const Game> Catalogue();
 const Game& FindGame(std::string_view id);
-// Select only by the actual root program's size and SHA-256. Full inspection
-// must still validate the remaining programs, resources and forbidden files.
+// The root program identifies the version. Full inspection also validates
+// its companion programs, resources and forbidden files.
+const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_view sha256,
+                                   std::string_view program_fingerprint={});
 const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr,VerificationCache* cache=nullptr);
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant);
 std::string Sha256(const fs::path& file);
@@ -50,7 +53,7 @@ std::string Utf8(const fs::path& path);
 fs::path FromUtf8(std::string_view text);
 
 enum class CheckLevel { Quick, Programs, Full };
-enum class DataState { Missing, Incomplete, Unsupported, Unverified, Verified, Unknown, Invalid, Nested };
+enum class DataState { Missing, Incomplete, Unsupported, Unverified, Verified, Unknown, Invalid, Nested, RawDisc };
 std::string_view Name(DataState state);
 struct Inspection {
   std::string game, state, reason;

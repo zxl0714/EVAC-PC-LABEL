@@ -248,6 +248,7 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="missing_data") return T(L"未找到游戏数据");
   if (state=="incomplete_data") return T(L"游戏数据不完整");
   if (state=="nested_data") return T(L"解压目录层级不正确");
+  if (state=="raw_disc_image") return T(L"请选择已解密的 PS4 游戏目录");
   if (state=="unknown_layout") return T(L"请检查游戏数据目录");
   if (state=="unsupported_version") return T(L"数据版本不支持");
   if (state=="missing_runtime") return T(L"运行组件不可用 · 点击详情");
