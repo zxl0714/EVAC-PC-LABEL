@@ -406,8 +406,8 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     CheckRadioButton(hwnd,Keyboard,Controller,Keyboard);
     const auto scope=add(L"COMBOBOX",L"",WS_GROUP|WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,309,14,267,180,Scope);
     SendMessageW(scope,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(t(L"所有游戏",L"All games",L"すべてのゲーム")));
-    const auto game_name=FromUtf8(game.DisplayName()).native();
-    SendMessageW(scope,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(game_name.c_str()));SendMessageW(scope,CB_SETCURSEL,0,0);
+    SendMessageW(scope,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(t(L"当前游戏",L"Current game",L"現在のゲーム")));
+    SendMessageW(scope,CB_SETCURSEL,0,0);
     dialog.device_control=add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,20,47,556,180,Devices);
     ShowWindow(dialog.device_control,SW_HIDE);
     dialog.list=add(WC_LISTVIEWW,L"",WS_TABSTOP|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS,20,82,556,height-212,Bindings,WS_EX_CLIENTEDGE);
@@ -421,7 +421,7 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     dialog.reset=add(L"BUTTON",L"",WS_TABSTOP,186,height-120,166,28,Reset);
     dialog.status=add(L"STATIC",L"",SS_PATHELLIPSIS,20,height-81,556,25,0);
     add(L"BUTTON",t(L"取消",L"Cancel",L"キャンセル"),WS_TABSTOP,385,height-42,90,29,IDCANCEL);
-    dialog.save=add(L"BUTTON",t(L"保存",L"Save",L"保存"),WS_TABSTOP|BS_DEFPUSHBUTTON,486,height-42,90,29,IDOK);
+    dialog.save=add(L"BUTTON",t(L"保存",L"Save",L"セーブ"),WS_TABSTOP|BS_DEFPUSHBUTTON,486,height-42,90,29,IDOK);
     dialog.ChangeMode(false);
     EnableWindow(owner,FALSE);cleanup.modal=true;
     ShowWindow(hwnd,SW_SHOW);SetFocus(dialog.list);SetTimer(hwnd,1,40,nullptr);

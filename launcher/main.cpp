@@ -8,6 +8,7 @@
 #include "launcher/window_size.h"
 #include "launcher/strings.h"
 #include "launcher/preferences.h"
+#include "launcher/game_library.h"
 #include "launcher/data_state.h"
 #include "launcher/nickname.h"
 #include "launcher/single_instance.h"
@@ -36,6 +37,7 @@
 #include <string>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 
 using Microsoft::WRL::ComPtr;
 using namespace cave;
@@ -253,13 +255,14 @@ std::string Details(const Inspection& inspection) {
 struct Layout {
   float width{},height{},scroll{};
   bool covers=false;
+  size_t game_count=Catalogue().size();
   bool narrow() const {return width<800;}
   float margin() const {return covers?cave::launcher::CoverMargin(width):std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
   float header() const {return covers?cave::launcher::kCoverHeaderHeight:cave::launcher::kHeaderHeight;}
   float footer() const {return height-cave::launcher::kFooterHeight;}
   float row_height() const {
     if(covers)return cave::launcher::CoverHeight(cover_width());
-    const auto count=float(Catalogue().size());
+    const auto count=float(std::max(size_t{1},game_count));
     return std::clamp((viewport_height()-cave::launcher::kCardGap*(count-1))/count,
                       float(cave::launcher::kMinimumCardHeight),180.f);
   }
@@ -267,7 +270,9 @@ struct Layout {
   size_t columns() const {return covers?cave::launcher::CoverColumns(width):1;}
   float cover_width() const {return cave::launcher::CoverWidth(width);}
   float row_gap() const {return covers?cave::launcher::kCoverRowGap:cave::launcher::kCardGap;}
-  float content_height() const {return float((Catalogue().size()+columns()-1)/columns())*(row_height()+row_gap())-row_gap();}
+  float content_height() const {
+    return game_count?float((game_count+columns()-1)/columns())*(row_height()+row_gap())-row_gap():0.f;
+  }
   float max_scroll() const {return std::max(0.f,content_height()-viewport_height());}
   D2D1_RECT_F card(size_t index) const {
     const auto top=header()+float(index/columns())*(row_height()+row_gap())-scroll;
@@ -283,13 +288,17 @@ struct Layout {
     const auto left=width-margin()-112+float(index)*40;
     return {left,16,left+32,44};
   }
+  D2D1_RECT_F hidden_games() const {
+    const auto left=language_choice(0).left-36;
+    return {left,16,left+28,44};
+  }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+92,height-45,margin()+151,height-14};}
   D2D1_RECT_F detail() const {return {margin()+422,height-45,margin()+479,height-14};}
   D2D1_RECT_F focus_button(int slot) const {
     switch(slot) {
     case 4:return config(); case 5:return logs(); case 6:return data();
-    case 7:return refresh(); case 8:return play(); case 13:return controls();
+    case 7:return refresh(); case 8:return play(); case 13:return controls(); case 14:return hidden_games();
     default:return detail();
     }
   }
@@ -420,7 +429,7 @@ class Renderer {
   }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
-            std::wstring_view override_hint={}) {
+            std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     const auto brand=Logo(target);const auto brand_size=brand->GetSize();
@@ -444,6 +453,16 @@ class Renderer {
       if(index+1<language_choices.size())
         Text(target,L"/",{rectangle.right,rectangle.top+4,rectangle.right+10,rectangle.bottom},12,0xb7bfb5,DWRITE_TEXT_ALIGNMENT_CENTER);
     }
+    if(library) {
+      const auto eye=layout.hidden_games();
+      const D2D1_POINT_2F center{(eye.left+eye.right)/2,(eye.top+eye.bottom)/2};
+      ComPtr<ID2D1SolidColorBrush> brush;
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(library->show_hidden?0x2f5b42:0x7d8881),&brush),"Create visibility icon");
+      target->DrawEllipse(D2D1::Ellipse(center,8.f,5.f),brush.Get(),1.35f);
+      target->FillEllipse(D2D1::Ellipse(center,2.2f,2.2f),brush.Get());
+      if(!library->show_hidden)
+        target->DrawLine({center.x-8,center.y+7},{center.x+8,center.y-7},brush.Get(),1.35f);
+    }
     {
       const auto r=layout.nickname();
       ComPtr<ID2D1SolidColorBrush> fill,border;
@@ -459,11 +478,13 @@ class Renderer {
     }
     Text(target,T(L"排行榜昵称"),layout.nickname_label(),10,0x627368);
     target->PushAxisAlignedClip({0,layout.header()-2,layout.width,layout.footer()},D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-    for (size_t index=0;index<rows.size();++index) {
-      const auto rectangle=layout.card(index);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
+    for (size_t position=0;position<layout.game_count;++position) {
+      const auto index=library?library->visible[position]:position;
+      const auto rectangle=layout.card(position);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
       const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
       const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
-      const bool muted=soon||missing;
+      const bool hidden=library&&library->Hidden(index);
+      const bool muted=soon||missing||hidden;
       const auto color=muted?0xf6f7f4:0xffffff;
       ComPtr<ID2D1SolidColorBrush> background,border;
       Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&background),"Create card fill");
@@ -482,14 +503,14 @@ class Renderer {
         const float y=art.top-((size.height*scale)-(art.bottom-art.top))*artwork.focus_y;
         target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
         target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
-            soon?.26f:(missing?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+            soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
         target->PopAxisAlignedClip();
-        if(soon) {
+        if(soon || hidden) {
           ComPtr<ID2D1SolidColorBrush> shade;
           Check(target->CreateSolidColorBrush(D2D1::ColorF(0xf3f4f0,.87f),&shade),"Create future-cover label");
           const D2D1_RECT_F label{art.left,art.bottom-29,art.right,art.bottom};
           target->FillRectangle(label,shade.Get());
-          Text(target,T(L"敬请期待"),{label.left+10,label.top+6,label.right-10,label.bottom},11,0x647168);
+          Text(target,T(hidden?L"已隐藏":L"敬请期待"),{label.left+10,label.top+6,label.right-10,label.bottom},11,0x647168);
         }
         const auto left=rectangle.left+12;
         Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
@@ -508,7 +529,7 @@ class Renderer {
       const float y=rectangle.top-(size.height*scale-layout.row_height())*cave::launcher::kArtwork[index].focus_y;
       const float art_left=contain?art.right-size.width*scale:art.left;
       target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-      target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:(missing?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+      target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
       target->PopAxisAlignedClip();
       const std::array stops{D2D1_GRADIENT_STOP{0,D2D1::ColorF(color,1)},D2D1_GRADIENT_STOP{.14f,D2D1::ColorF(color,.96f)},
           D2D1_GRADIENT_STOP{.35f,D2D1::ColorF(color,.47f)},D2D1_GRADIENT_STOP{.63f,D2D1::ColorF(color,0)},D2D1_GRADIENT_STOP{1,D2D1::ColorF(color,0)}};
@@ -521,7 +542,7 @@ class Renderer {
       const float left=rectangle.left+(layout.narrow()?20:25);
       const float block_height=layout.row_height()<100.f?65.f:83.f;
       const float text_top=rectangle.top+(layout.row_height()-block_height)/2;
-      Text(target,soon?T(layout.row_height()<100.f?L"敬请期待":L"后续作品"):Wide(cave::launcher::kArtwork[index].kicker),{left,text_top,rectangle.right-16,text_top+14},10,soon?0x9ca59e:0x829087);
+      Text(target,hidden?T(L"已隐藏"):soon?T(layout.row_height()<100.f?L"敬请期待":L"后续作品"):Wide(cave::launcher::kArtwork[index].kicker),{left,text_top,rectangle.right-16,text_top+14},10,muted?0x9ca59e:0x829087);
       const auto title=Wide(game.DisplayName());
       const auto title_size=layout.narrow()?(title.size()>19?16.f:18.f):(title.size()>24?18.f:20.f);
       Text(target,title,{left,text_top+16,rectangle.right-16,text_top+43},title_size,muted?0x647168:0x23312d);
@@ -533,17 +554,19 @@ class Renderer {
       }
     }
     target->PopAxisAlignedClip();
+    const bool has_games=layout.game_count!=0;
     const auto& inspection=rows[selected].inspection;
-    Text(target,Wide(Catalogue()[selected].DisplayName()),{margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
-    const auto status=running?T(L"请先退出正在运行的游戏"):(busy?T(L"正在读取／校验所选游戏…"):Status(inspection));
+    Text(target,has_games?Wide(Catalogue()[selected].DisplayName()):T(L"没有显示的游戏"),
+        {margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
+    const auto status=running?T(L"请先退出正在运行的游戏"):busy?T(L"正在读取／校验所选游戏…"):has_games?Status(inspection):L"";
     Text(target,status,{margin,layout.height-80,layout.play().left-18,layout.height-64},11,CanPlay(inspection)?0x356c4b:0x90754f);
-    Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!CanPlay(inspection));
-    Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||Catalogue()[selected].coming_soon);
+    Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!has_games||!CanPlay(inspection));
+    Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
     Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
-    Button(target,layout.controls(),T(L"输入设置"),false,busy||running);
+    Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games);
     Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"上传日志"),false,busy||running);
-    Button(target,layout.detail(),T(L"详情"),false,busy||running||Catalogue()[selected].coming_soon);
-    if ((focus>=4 && focus<10) || focus==13) {
+    Button(target,layout.detail(),T(L"详情"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
+    if ((focus>=4 && focus<10) || focus==13 || focus==14) {
       const auto rectangle=layout.focus_button(focus);
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
@@ -579,6 +602,13 @@ class App {
   explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
     const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
     selected=cave::launcher::InitialSelection(ini,options.selection);
+    library=cave::launcher::GameLibrary(ini);
+    if(!options.selection.empty() && library.Hidden(selected)) {
+      library.show_hidden=true;
+      library.Rebuild();
+    }
+    if(library.Hidden(selected) && !library.show_hidden && !library.visible.empty())selected=library.visible.front();
+    layout.game_count=library.visible.size();
     layout.covers=cave::launcher::CoverLayout(ini);
     saved_window_size=cave::launcher::ReadWindowSize(ini,layout.covers);
     language=options.language.value_or(cave::launcher::ReadLanguage(ini));
@@ -641,7 +671,7 @@ class App {
     if(update_auto && !update_request && update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
   }
   void ShowDetails() {
-    if(busy || child || Catalogue()[selected].coming_soon)return;
+    if(busy || child || library.visible.empty() || Catalogue()[selected].coming_soon)return;
     const auto& row=rows[selected];
     std::wstring body=Wide(Catalogue()[selected].DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
     if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
@@ -746,14 +776,23 @@ class App {
     }
     SendMessageW(fullscreen_control,CB_SETCURSEL,WPARAM(selected),0);
   }
-  DisplaySelection SelectedDisplay() const {
+  std::optional<DisplaySelection> CurrentDisplay() const {
     const auto index=SendMessageW(fullscreen_control,CB_GETCURSEL,0,0);
-    if(index<0 || size_t(index)>=display_choices.size())throw std::runtime_error("Choose a display mode");
+    if(index<0 || size_t(index)>=display_choices.size())return {};
     return display_choices[size_t(index)];
   }
+  DisplaySelection SelectedDisplay() const {
+    const auto current=CurrentDisplay();
+    if(!current)throw std::runtime_error("Choose a display mode");
+    return *current;
+  }
   void DisplayChanged() {
-    if(loading_preferences)return;
-    SaveSharedDisplay(options.root,preferences_text,SelectedDisplay());
+    if(loading_preferences || !preferences_available)return;
+    const auto selection=CurrentDisplay();
+    if(!selection)return;
+    const auto saved=ResolveSharedSettings(Ini::Parse(preferences_text));
+    if(*selection==DisplaySelection{saved.fullscreen,saved.window_width,saved.window_height})return;
+    SaveSharedDisplay(options.root,preferences_text,*selection);
     preferences_text=Ini::ReadText(ConfigPath(options.root));
     const auto count=GetWindowTextLengthW(nickname_control);
     std::wstring name(size_t(count)+1,L'\0');GetWindowTextW(nickname_control,name.data(),int(name.size()));name.resize(count);
@@ -776,7 +815,9 @@ class App {
     loading_preferences=false;EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
   }
   void UpdateOverrideHint(const Ini& ini) {
-    override_hint.clear();const auto section="game."+std::string(Catalogue()[selected].id);
+    override_hint.clear();
+    if(library.visible.empty())return;
+    const auto section="game."+std::string(Catalogue()[selected].id);
     if(ini.Get(section+".display","fullscreen") || ini.Get(section+".display","window_width") ||
        ini.Get(section+".display","window_height") || ini.Get(section+".community","nickname"))
       override_hint=T(L"此游戏有独立的显示／昵称设置，请在配置文件中调整");
@@ -805,12 +846,13 @@ class App {
   }
   void Select(size_t index) {
     if(work && (work->starting||work->copying))return;
+    if(std::ranges::find(library.visible,index)==library.visible.end())return;
     selected=index;focus=0;SetFocus(hwnd);EnsureVisible();
     try {UpdateOverrideHint(Ini::Load(ConfigPath(options.root)));}catch(...){override_hint.clear();}
     if(!busy&&!child)Refresh();
   }
   void LaunchSelected() {
-    if(busy||child||!CanPlay(rows[selected].inspection))return;
+    if(busy||child||library.visible.empty()||!CanPlay(rows[selected].inspection))return;
     if(SavePreferences())Refresh(true);
   }
   void SelectLanguage(size_t index) {
@@ -831,10 +873,12 @@ class App {
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
-        for(int step=0;step<14;++step) {
-          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?13:1))%14;
+        constexpr int slots=15;
+        for(int step=0;step<slots;++step) {
+          slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?slots-1:1))%slots;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
+          if((slot==6 || slot==8 || slot==9 || slot==13) && library.visible.empty())continue;
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
@@ -932,7 +976,7 @@ class App {
     ReloadPreferences();Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
   }
   void DataMenu() {
-    if(busy||child||Catalogue()[selected].coming_soon)return;
+    if(busy||child||library.visible.empty()||Catalogue()[selected].coming_soon)return;
     const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create data menu");
     AppendMenuW(menu,MF_STRING,1,T(L"选择数据目录…"));
     AppendMenuW(menu,Catalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,T(L"复制到合集…"));
@@ -941,10 +985,84 @@ class App {
     const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_LEFTALIGN|TPM_BOTTOMALIGN,anchor.x,anchor.y,0,hwnd,nullptr);
     DestroyMenu(menu);if(selection)Choose(selection==2);
   }
+  std::optional<size_t> VisiblePosition() const {
+    const auto found=std::ranges::find(library.visible,selected);
+    if(found==library.visible.end())return {};
+    return size_t(found-library.visible.begin());
+  }
+  std::optional<size_t> GameAt(float x,float y) const {
+    if(y<layout.header() || y>=layout.footer())return {};
+    for(size_t position=0;position<library.visible.size();++position)
+      if(Inside(layout.card(position),x,y))return library.visible[position];
+    return {};
+  }
+  void RefreshLibraryView() {
+    layout.game_count=library.visible.size();
+    hover=-1;
+    if(library.visible.empty())override_hint.clear();
+    if(!VisiblePosition() && !library.visible.empty())Select(library.visible.front());
+    else EnsureVisible();
+    InvalidateRect(hwnd,nullptr,FALSE);
+  }
+  void SaveLibrary(cave::launcher::GameLibrary next,bool order_changed) {
+    const auto& indexes=order_changed?next.order:next.hidden;
+    const std::array edits{IniEdit{"collection",order_changed?"game_order":"hidden_games",
+                                  cave::launcher::GameLibrary::Encode(indexes),indexes.empty()}};
+    const auto before=Ini::ReadText(EnsureConfig(options.root));
+    UpdateConfig(options.root,before,edits);
+    preferences_text=Ini::ReadText(ConfigPath(options.root));
+    library=std::move(next);
+    RefreshLibraryView();
+  }
+  void MoveGame(size_t from,size_t to) {
+    if(busy || child || from==to)return;
+    auto next=library;
+    next.Move(from,to);
+    SaveLibrary(std::move(next),true);
+  }
+  void ToggleGameHidden(size_t index) {
+    if(busy || child)return;
+    auto next=library;
+    next.SetHidden(index,!next.Hidden(index));
+    SaveLibrary(std::move(next),false);
+  }
+  void ToggleHiddenGames() {
+    if(busy || child)return;
+    library.show_hidden=!library.show_hidden;
+    library.Rebuild();
+    RefreshLibraryView();
+  }
+  void GameContextMenu(POINT screen) {
+    if(busy || child)return;
+    std::optional<size_t> game;
+    if(screen.x==-1 && screen.y==-1) {
+      const auto position=VisiblePosition();
+      if(!position)return;
+      game=selected;
+      const auto rectangle=layout.card(*position);
+      const auto scale=float(GetDpiForWindow(hwnd))/96;
+      screen={LONG(rectangle.left*scale),LONG(rectangle.top*scale)};
+      ClientToScreen(hwnd,&screen);
+    } else {
+      auto client=screen;
+      ScreenToClient(hwnd,&client);
+      const auto scale=float(GetDpiForWindow(hwnd))/96;
+      game=GameAt(client.x/scale,client.y/scale);
+    }
+    if(!game)return;
+    const auto menu=CreatePopupMenu();
+    if(!menu)throw std::runtime_error("Cannot create game menu");
+    AppendMenuW(menu,MF_STRING,1,T(library.Hidden(*game)?L"取消隐藏":L"隐藏游戏"));
+    const auto action=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_RIGHTBUTTON,screen.x,screen.y,0,hwnd,nullptr);
+    DestroyMenu(menu);
+    if(action==1)ToggleGameHidden(*game);
+  }
   void EnsureVisible() {
-    const auto top=float(selected/layout.columns())*(layout.row_height()+layout.row_gap()),bottom=top+layout.row_height();
-    if(top<layout.scroll)layout.scroll=top;
-    if(bottom>layout.scroll+layout.viewport_height())layout.scroll=bottom-layout.viewport_height();
+    if(const auto position=VisiblePosition()) {
+      const auto top=float(*position/layout.columns())*(layout.row_height()+layout.row_gap()),bottom=top+layout.row_height();
+      if(top<layout.scroll)layout.scroll=top;
+      if(bottom>layout.scroll+layout.viewport_height())layout.scroll=bottom-layout.viewport_height();
+    }
     Scroll(0);
   }
   void Scroll(float delta) {
@@ -987,7 +1105,7 @@ class App {
       }
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint);
+      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint,&library);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -1005,12 +1123,13 @@ class App {
     }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.controls(),x,y)) {
-      if(!busy && !child && show_controls(hwnd,options.root,Catalogue()[selected],language)) {
+      if(!busy && !child && !library.visible.empty() && show_controls(hwnd,options.root,Catalogue()[selected],language)) {
         preferences_text=Ini::ReadText(ConfigPath(options.root));
         Log(options.root,"input-settings-updated");
       }
       return;
     }
+    if(Inside(layout.hidden_games(),x,y)){ToggleHiddenGames();return;}
     if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))show_reports(hwnd,options.root,language,{});return;}
     for(size_t index=0;index<3;++index)
       if(Inside(layout.language_choice(index),x,y)) {SelectLanguage(index);return;}
@@ -1021,10 +1140,7 @@ class App {
       ShowDetails();
       return;
     }
-    if(y<layout.header() || y>layout.footer())return;
-    for(size_t index=0;index<rows.size();++index) if(Inside(layout.card(index),x,y)) {
-      Select(index);return;
-    }
+    if(const auto game=GameAt(x,y))Select(*game);
   }
   static LRESULT CALLBACK Window(HWND window,UINT message,WPARAM first,LPARAM second) {
     App* app=reinterpret_cast<App*>(GetWindowLongPtrW(window,GWLP_USERDATA));
@@ -1060,27 +1176,63 @@ class App {
           return 0;}
         case WM_ERASEBKGND:return 1;
         case WM_PAINT:app->Paint();return 0;
-        case WM_LBUTTONUP:{const auto scale=float(GetDpiForWindow(window))/96;app->Click(GET_X_LPARAM(second)/scale,GET_Y_LPARAM(second)/scale);return 0;}
+        case WM_LBUTTONDOWN:{
+          const auto scale=float(GetDpiForWindow(window))/96;
+          const POINT point{GET_X_LPARAM(second),GET_Y_LPARAM(second)};
+          if(!app->busy && !app->child) {
+            if(const auto game=app->GameAt(point.x/scale,point.y/scale)) {
+              app->card_press=CardPress{*game,point};
+              SetCapture(window);
+            }
+          }
+          return 0;}
+        case WM_LBUTTONUP:{
+          const auto scale=float(GetDpiForWindow(window))/96;
+          const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
+          const auto press=std::exchange(app->card_press,std::nullopt);
+          if(GetCapture()==window)ReleaseCapture();
+          if(press && press->dragged) {
+            if(const auto target=app->GameAt(x,y))app->MoveGame(press->game,*target);
+          } else app->Click(x,y);
+          return 0;}
+        case WM_CAPTURECHANGED:app->card_press.reset();return 0;
+        case WM_CONTEXTMENU:
+          if(reinterpret_cast<HWND>(first)==window) {
+            app->GameContextMenu({GET_X_LPARAM(second),GET_Y_LPARAM(second)});
+            return 0;
+          }
+          break;
         case WM_MOUSEMOVE:{const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
-          int hover=-1;if(y>=app->layout.header() && y<app->layout.footer())for(size_t index=0;index<app->rows.size();++index)if(Inside(app->layout.card(index),x,y))hover=int(index);
+          if(auto& press=app->card_press;press && !press->dragged) {
+            const auto dpi=GetDpiForWindow(window);
+            press->dragged=std::abs(GET_X_LPARAM(second)-press->origin.x)>GetSystemMetricsForDpi(SM_CXDRAG,dpi) ||
+                           std::abs(GET_Y_LPARAM(second)-press->origin.y)>GetSystemMetricsForDpi(SM_CYDRAG,dpi);
+          }
+          const auto game=app->GameAt(x,y);
+          const auto hover=game?int(*game):-1;
           if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}
         case WM_MOUSEWHEEL:app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
         case kUpdateScrollBar:app->UpdateScrollBar();return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
-        case WM_KEYDOWN:
+        case WM_KEYDOWN:{
+          const auto position=app->VisiblePosition();
+          const auto& visible=app->library.visible;
           if(first==VK_UP || first==VK_NUMPAD8) {
             const auto step=app->layout.columns();
-            if(app->selected>=step)app->Select(app->selected-step);
+            if(position && *position>=step)app->Select(visible[*position-step]);
           }
           else if(first==VK_DOWN || first==VK_NUMPAD2) {
-            const auto next=std::min(app->selected+app->layout.columns(),app->rows.size()-1);
-            if(next!=app->selected)app->Select(next);
+            if(position) {
+              const auto next=std::min(*position+app->layout.columns(),visible.size()-1);
+              if(next!=*position)app->Select(visible[next]);
+            }
           }
-          else if(app->layout.covers && first==VK_LEFT && app->selected)app->Select(app->selected-1);
-          else if(app->layout.covers && first==VK_RIGHT && app->selected+1<app->rows.size())app->Select(app->selected+1);
-          else if(first==VK_HOME)app->Select(0);
-          else if(first==VK_END)app->Select(app->rows.size()-1);
+          else if(app->layout.covers && first==VK_LEFT && position && *position)app->Select(visible[*position-1]);
+          else if(app->layout.covers && first==VK_RIGHT && position && *position+1<visible.size())app->Select(visible[*position+1]);
+          else if(first==VK_HOME && !visible.empty())app->Select(visible.front());
+          else if(first==VK_END && !visible.empty())app->Select(visible.back());
+          else if(first==VK_APPS || (first==VK_F10 && (GetKeyState(VK_SHIFT)&0x8000)))app->GameContextMenu({-1,-1});
           else if(first==VK_RETURN || first==VK_SPACE) {
             if(app->focus>=4) {
               if(app->focus>=10 && app->focus<=12) {app->SelectLanguage(size_t(app->focus-10));return 0;}
@@ -1091,9 +1243,16 @@ class App {
           else if(first==VK_F5)app->ManualRefresh();
           else if(first==VK_PRIOR)app->Scroll(-app->layout.viewport_height());
           else if(first==VK_NEXT)app->Scroll(app->layout.viewport_height());
-          return 0;
+          return 0;}
         case WM_COMMAND:
-          if(LOWORD(first)==kFullscreenControl && HIWORD(first)==CBN_SELCHANGE){app->DisplayChanged();return 0;}
+          if(LOWORD(first)==kFullscreenControl) {
+            const auto notification=HIWORD(first);
+            if(notification==CBN_SELENDOK ||
+               (notification==CBN_SELCHANGE && !SendMessageW(app->fullscreen_control,CB_GETDROPPEDSTATE,0,0))) {
+              app->DisplayChanged();
+              return 0;
+            }
+          }
           if(LOWORD(first)==kSaveControl && HIWORD(first)==BN_CLICKED) {if(app->SavePreferences())app->Refresh();return 0;}
           if(LOWORD(first)==kNicknameControl && HIWORD(first)==EN_CHANGE) {
             if(!app->loading_preferences){app->preferences_dirty=true;app->EnablePreferences();InvalidateRect(window,nullptr,FALSE);}return 0;
@@ -1137,6 +1296,9 @@ class App {
   std::wstring override_hint;
   Renderer renderer;
   Layout layout;
+  cave::launcher::GameLibrary library;
+  struct CardPress { size_t game; POINT origin; bool dragged{}; };
+  std::optional<CardPress> card_press;
   std::optional<cave::launcher::WindowSize> saved_window_size,normal_window_size;
   bool scrollbar_pending{};
   std::vector<Row> rows;
@@ -1177,7 +1339,8 @@ void Preview(const Options& options) {
   layout.covers=cave::launcher::CoverLayout(Ini::Load(EnsureConfig(options.root)));
   layout.scroll=std::clamp(layout.card(selected).bottom-layout.footer(),0.f,layout.max_scroll());
   const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
-  target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true);Check(target->EndDraw(),"Render preview");
+  const cave::launcher::GameLibrary library(Ini::Parse(""));
+  target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library);Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
   if(!options.preview.parent_path().empty())fs::create_directories(options.preview.parent_path());
   Check(stream->InitializeFromFilename(options.preview.c_str(),GENERIC_WRITE),"Open preview file");

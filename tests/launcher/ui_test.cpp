@@ -379,9 +379,22 @@ void DisplayDropdownChecks() {
             "Display selector must be a real accessible keyboard-operable dropdown");
     SetWindowTextW(app.nickname_control,L"Unsaved nickname");
     const auto old_name=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).nickname;
+    RECT bounds{};
+    Require(GetWindowRect(app.hwnd,&bounds) &&
+            SetWindowPos(app.hwnd,nullptr,bounds.left+22,bounds.top+30,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE),
+            "Move launcher fixture before opening the resolution list");
+    const auto before_open=Ini::ReadText(ConfigPath(fixture.root));
+    const auto error_count=unexpected_dialogs;
+    const auto old_choice=SendMessageW(app.fullscreen_control,CB_GETCURSEL,0,0);
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,WPARAM(-1),0);
+    App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kFullscreenControl,CBN_SELCHANGE),0);
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,old_choice,0);
+    App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kFullscreenControl,CBN_SELCHANGE),0);
+    Require(unexpected_dialogs==error_count && Ini::ReadText(ConfigPath(fixture.root))==before_open,
+            "Transient or unchanged dropdown selection changed config or opened an error");
     for(size_t index=0;index<app.display_choices.size();++index) {
       SendMessageW(app.fullscreen_control,CB_SETCURSEL,index,0);
-      App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kFullscreenControl,CBN_SELCHANGE),0);
+      App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kFullscreenControl,index%2?CBN_SELCHANGE:CBN_SELENDOK),0);
       const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root)));
       const auto expected=app.display_choices[index];
       Require(settings.fullscreen==expected.fullscreen && settings.window_width==expected.width &&
@@ -394,6 +407,59 @@ void DisplayDropdownChecks() {
   const auto before=Ini::ReadText(ConfigPath(fixture.root));
   SaveSharedDisplay(fixture.root,before,{false,1234,696});
   {Frame frame(fixture.root);Require(frame.app.SelectedDisplay()==DisplaySelection{false,1234,696},"Custom INI resolution silently replaced by a preset");}
+}
+void GameLibraryChecks() {
+  Fixture fixture;
+  const auto drag=[](App& app,size_t from,size_t to) {
+    const auto point=[&](size_t position) {
+      const auto card=app.layout.card(position);
+      const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+      return MAKELPARAM(int((card.left+30)*scale),int((card.top+30)*scale));
+    };
+    App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,point(from));
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,point(to));
+    App::Window(app.hwnd,WM_LBUTTONUP,0,point(to));
+  };
+  {
+    Frame frame(fixture.root);auto& app=frame.app;
+    app.layout.width=1080;app.layout.height=900;
+    drag(app,0,2);
+    Require(app.library.order[0]==1 && app.library.order[1]==2 && app.library.order[2]==0,
+            "Dragging a cover did not move the game to the drop position");
+    Require(app.selected==0,"Dragging changed the selected game");
+    app.rows[0].inspection.state="ready";
+    app.ToggleGameHidden(0);frame.Settle();
+    Require(app.library.Hidden(0) && app.selected==1 && app.layout.game_count+1==Catalogue().size(),
+            "Hiding the selected installed game did not choose a visible game");
+    app.ToggleGameHidden(2);
+    Require(app.library.Hidden(2) && app.layout.game_count+2==Catalogue().size(),
+            "A game without data could not be hidden");
+    frame.Click(app.layout.hidden_games());
+    Require(app.library.show_hidden && app.layout.game_count==Catalogue().size(),"Eye button did not reveal hidden games");
+    app.ToggleGameHidden(2);
+    Require(!app.library.Hidden(2),"A revealed game could not be restored");
+  }
+  {
+    const auto before=Ini::ReadText(ConfigPath(fixture.root));
+    const std::array edits{IniEdit{"collection","launcher_layout","banner"}};
+    UpdateConfig(fixture.root,before,edits);
+    Frame frame(fixture.root);auto& app=frame.app;
+    app.layout.width=1080;app.layout.height=900;
+    Require(!app.layout.covers && app.library.order[2]==0 && app.library.Hidden(0) &&
+            !app.library.show_hidden && app.library.visible[0]==1 && app.library.visible[1]==2,
+            "Banner layout did not reopen with shared order and hidden IDs");
+    drag(app,1,0);
+    App::Window(app.hwnd,WM_KEYDOWN,VK_HOME,0);frame.Settle();
+    Require(app.library.visible.front()==2 && app.selected==2,"Banner reordering did not update keyboard navigation");
+    auto next=app.library;
+    for(const auto game:next.order)next.SetHidden(game,true);
+    app.SaveLibrary(std::move(next),false);
+    Require(app.library.visible.empty() && app.layout.game_count==0 && app.layout.content_height()==0,
+            "Hiding all games left cards or scrolling in the empty library");
+    App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);
+    frame.Click(app.layout.hidden_games());
+    Require(app.library.show_hidden && app.layout.game_count==Catalogue().size(),"The eye button could not restore an empty library view");
+  }
 }
 void PreferenceRepaintChecks() {
   Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
@@ -619,6 +685,7 @@ void MainChecks() {
   PreferenceRepaintChecks();
   InputBindingChecks();
   DisplayDropdownChecks();
+  GameLibraryChecks();
   InstanceChecks();
   UpdateChecks();
 }

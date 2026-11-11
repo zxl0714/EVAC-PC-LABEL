@@ -181,6 +181,7 @@ struct Header {
     std::array<char, 8> magic;
     std::uint64_t image_size, entry, segments, relocations, imports, procparam, capabilities;
     std::array<std::uint8_t, 32> source_sha256;
+    bool operator==(const Header&) const = default;
 };
 static_assert(sizeof(Header) == 96);
 
@@ -210,6 +211,16 @@ struct ExitCallback {
     void* dso{};
 };
 
+struct ReleaseImageAddress {
+    void operator()(unsigned char* address) const noexcept { VirtualFree(address, 0, MEM_RELEASE); }
+};
+
+struct StartupImage {
+    std::string name;
+    Header header;
+    std::unique_ptr<unsigned char, ReleaseImageAddress> address;
+};
+
 struct Runtime {
     std::unique_ptr<cave::ps4::cpu::Image> cpu;
     GuestHeap heap;
@@ -231,6 +242,7 @@ struct Runtime {
     std::vector<Export> exports;
     std::string image_name = "eboot.bin";
     int module_handle{}, start_result{};
+    std::vector<StartupImage> startup_images;
     std::vector<std::unique_ptr<Runtime>> modules;
     ~Runtime() {
         if (image) { VirtualFree(image, 0, MEM_RELEASE); }
@@ -739,30 +751,24 @@ void RebindImports(Runtime& runtime) {
     }
 }
 
-void Load(Runtime& runtime, Reader& reader, bool module = false) {
-    runtime.header = reader.Value<Header>();
-    runtime.is_module = module;
-    const auto& header = runtime.header;
+Header ReadImageHeader(Reader& reader, bool module) {
+    const auto header = reader.Value<Header>();
     if (std::memcmp(header.magic.data(), module ? "KTMODULE" : "KTPROBE1", 8) || (header.capabilities & ~3ull) ||
         !header.image_size || header.image_size > kMaximumImage || header.entry >= header.image_size ||
         !header.segments || header.segments > 32 || header.imports > 10000 ||
         header.relocations > 1000000 || header.procparam >= header.image_size) {
         throw std::runtime_error("Invalid native probe header");
     }
-    if (module) {
-        runtime.module_info = reader.Value<ModuleMetadata>();
-        const auto& info = runtime.module_info;
-        if (header.entry || header.procparam || !(info.flags & 1) || (info.flags & ~3ull) || info.exports > 10000) {
-            throw std::runtime_error("Invalid no-TLS module metadata");
-        }
-    }
+    return header;
+}
+
+unsigned char* ReserveImageAddress(const Header& header, const std::string& name, bool startup) {
     const auto reservation = cave::ps4::ReserveImageMemory(header.image_size);
-    runtime.image = reservation.address;
     std::printf("{\"event\":\"native_image_reservation\",\"image\":%s,\"requested_bytes\":%llu,"
-                "\"reserved_bytes\":%zu,\"address\":\"%p\",\"range_search\":%s,\"win32_error\":%lu,"
+                "\"reserved_bytes\":%zu,\"address\":\"%p\",\"startup\":%s,\"range_search\":%s,\"win32_error\":%lu,"
                 "\"regions_queried\":%u,\"largest_free_region\":%zu,\"attempts\":[",
-                Quoted(runtime.image_name).c_str(), header.image_size, reservation.bytes,
-                static_cast<void*>(runtime.image), reservation.searched_range ? "true" : "false", reservation.error,
+                Quoted(name).c_str(), header.image_size, reservation.bytes, static_cast<void*>(reservation.address),
+                startup ? "true" : "false", reservation.searched_range ? "true" : "false", reservation.error,
                 reservation.regions_queried, reservation.largest_free_region);
     for (unsigned i = 0; i < reservation.attempt_count; ++i) {
         const auto& attempt = reservation.preferred_attempts[i];
@@ -770,9 +776,35 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
                     static_cast<unsigned long long>(attempt.address), attempt.error);
     }
     std::puts("]}");
-    if (!runtime.image) {
-        throw std::runtime_error("Cannot reserve low-address game image: " + runtime.image_name +
+    if (!reservation.address && !startup) {
+        throw std::runtime_error("Cannot reserve low-address game image: " + name +
             " (bytes=" + std::to_string(reservation.bytes) + ", win32=" + std::to_string(reservation.error) + ")");
+    }
+    return reservation.address;
+}
+
+void Load(Runtime& runtime, Reader& reader, bool module = false) {
+    runtime.header = ReadImageHeader(reader, module);
+    runtime.is_module = module;
+    const auto& header = runtime.header;
+    if (module) {
+        runtime.module_info = reader.Value<ModuleMetadata>();
+        const auto& info = runtime.module_info;
+        if (header.entry || header.procparam || !(info.flags & 1) || (info.flags & ~3ull) || info.exports > 10000) {
+            throw std::runtime_error("Invalid no-TLS module metadata");
+        }
+    }
+    for (auto& image : active_runtime->startup_images) {
+        if (_stricmp(image.name.c_str(), runtime.image_name.c_str())) continue;
+        if (image.header == header) runtime.image = image.address.release();
+        else image.address.reset();
+        break;
+    }
+    if (runtime.image) {
+        std::printf("{\"event\":\"native_startup_image_claimed\",\"image\":%s,\"address\":\"%p\"}\n",
+                    Quoted(runtime.image_name).c_str(), static_cast<void*>(runtime.image));
+    } else {
+        runtime.image = ReserveImageAddress(header, runtime.image_name, false);
     }
     std::uint64_t previous_end = 0;
     for (std::uint64_t i = 0; i < header.segments; ++i) {
@@ -1119,6 +1151,32 @@ void CheckModulePath(const std::filesystem::path& path) {
         cursor = parent;
     }
 }
+std::vector<StartupImage> ReserveStartupImages(const std::filesystem::path& executable) {
+    Reader main(executable);
+    std::vector<StartupImage> images;
+    images.push_back({"eboot.bin", ReadImageHeader(main, false), {}});
+    for (const auto& entry : std::filesystem::directory_iterator(module_directory)) {
+        const auto& path = entry.path();
+        if (path.extension() != L".ktmodule") continue;
+        CheckModulePath(path);
+        std::string name;
+        if (!entry.is_regular_file() || images.size() > module_images.size() ||
+            !ModulePath(("/app0/" + path.stem().string()).c_str(), name)) {
+            throw std::runtime_error("Invalid prepared startup module");
+        }
+        Reader reader(path);
+        images.push_back({std::move(name), ReadImageHeader(reader, true), {}});
+    }
+    // Keep the main image available, then reserve the largest module spans
+    // before smaller allocations can divide the remaining low address space.
+    std::sort(images.begin() + 1, images.end(), [](const StartupImage& a, const StartupImage& b) {
+        if (a.header.image_size != b.header.image_size) return a.header.image_size > b.header.image_size;
+        return a.name < b.name;
+    });
+    for (auto& image : images) image.address.reset(ReserveImageAddress(image.header, image.name, true));
+    return images;
+}
+
 void VerifyModuleSource(const Runtime& module) {
     if (!NativeContentConfigured()) { return; }
     auto source = OpenNativeContentFile("/app0/" + module.image_name);
@@ -1948,6 +2006,15 @@ int NativeCommand(int argc, wchar_t** argv) {
             background.owns=StartNativeAsyncLog();
             if (!background.owns) throw std::runtime_error("Background diagnostic log already started");
         }
+        if (modules_path) {
+            module_directory = modules_path;
+            if (!module_directory.is_absolute() || !std::filesystem::is_directory(module_directory)) { throw std::runtime_error("Module directory must be an existing absolute path"); }
+            CheckModulePath(module_directory);
+        }
+        // Hold the verified prepared images' address ranges before input,
+        // Vulkan and guest heaps initialize.
+        auto startup_images = collection_config && modules_path
+            ? ReserveStartupImages(argv[1]) : std::vector<StartupImage>{};
         if (allocation_timing && !ConfigureNativeAllocationTiming(std::wstring(allocation_timing) == L"full")) {
             throw std::runtime_error("Allocation timing must be configured before execution");
         }
@@ -2030,11 +2097,6 @@ int NativeCommand(int argc, wchar_t** argv) {
         if (texture_validation) { ConfigureNativeTextureTracking(std::wstring(texture_validation) == L"tracked"); }
         if (attachment_validation) { ConfigureNativeAttachmentReuse(std::wstring(attachment_validation) == L"reuse"); }
         if (user_directory) { ConfigureNativeStorage(user_directory,app_path ? NativeContentTitleId() : "CUSA09062"); }
-        if (modules_path) {
-            module_directory = modules_path;
-            if (!module_directory.is_absolute() || !std::filesystem::is_directory(module_directory)) { throw std::runtime_error("Module directory must be an existing absolute path"); }
-            CheckModulePath(module_directory);
-        }
         InitializeNativeTime();
         // Keep generated driver data beside the collection's other caches.
         std::filesystem::path pipeline_cache;
@@ -2049,6 +2111,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         const auto resident_gpu = gpu_runtime
             ? std::make_unique<NativeResidentGpu>(gpu_runtime, gpu_validation, pipeline_cache) : nullptr;
         Runtime runtime;
+        runtime.startup_images = std::move(startup_images);
         active_runtime = &runtime;
         SetUnhandledExceptionFilter(Unhandled);
         AddVectoredExceptionHandler(0, ProbeFault);

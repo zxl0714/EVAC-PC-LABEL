@@ -10,6 +10,35 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+v0.9.9 is active. The six work items and remaining acceptance checks are at
+the top of docs/IMPLEMENTATION_PLAN.md.
+
+- PS4 startup reserves the main image and prepared module address ranges
+  before Vulkan initialization. The native build and three targeted CTests
+  passed, including 132 reservation checks. Isolated DaiOuJou 01.00, 01.04
+  and Ketsui 01.02 runs opened a window and claimed their early reservations
+  for the main image and integration module. The loader also mapped all
+  prepared modules in its nonexecuting binding census. Direct Menu and Stage 1
+  still need live checks. Evidence .local/v099/ps4-startup-verification/
+  and .local/v099/ps4-ketsui-merged-verification/.
+- The Xbox 360 ISO extracted and its XACT banks list 14 X Arrange cues.
+  A stereo 48 kHz Stage 1 WAV and the original loop points are in
+  .local/v099/daioujou-x360-source/. PS4 01.00 and 01.04 resource indexes and
+  menu scripts were inspected locally. The game uses separate archived WAVs
+  for its existing sets and a shared title-profile BGM count. The import UI,
+  fourth menu item, artwork and playback integration are pending.
+- Issue #11: the local shadPS4 archive's entry hash matches the known 01.04.
+  A local comparison captured raw and decoded hashes for DaiOuJou 01.00,
+  01.04 and ESP Ra.De. 01.04. See .local/v099/ps4-wrapper-identities.json.
+  Equivalent-executable acceptance and raw-disc diagnostics are pending.
+- Input scope labels use All games / Current game. Japanese Save now uses
+  セーブ. The resolution control ignores transient and duplicate selection
+  notifications and commits an accepted choice. The library persists order and
+  hidden IDs across cover and banner layouts. Dragging, hiding with or without
+  data, the eye toggle, keyboard navigation and the all-hidden case passed
+  the 4,652 launcher checks. Live first-open reproduction and update download
+  and installation are pending.
+
 Nov10 v0.9.8 published on GitHub as Latest. Frozen source ebdc8110d34d57b99513c0ba827768b3410edcdd.
 Program ZIP: releases/v0.9.8-local-ebdc811/EVAC-PC-LABEL-v0.9.8-win-x64.zip.
 160,428,551 bytes; SHA-256 56071728967189888ec141b53a834207c62fa22cb7578b0f27bb83af69e82a11.

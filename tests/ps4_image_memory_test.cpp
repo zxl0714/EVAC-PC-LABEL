@@ -129,6 +129,31 @@ void ExhaustedAddressRange() {
     std::printf("exhausted_range attempts=%u range_search=%u error=%lu\n",
                 result.attempt_count, unsigned(result.searched_range), result.error);
 }
+void HoldImageAcrossStartupAllocations() {
+    Reservations images;
+    constexpr std::uint64_t core_bytes = 146098004;
+    const auto main = cave::ps4::ReserveImageMemory(4 * 1024 * 1024);
+    images.Keep(main.address);
+    const auto core = cave::ps4::ReserveImageMemory(core_bytes);
+    images.Keep(core.address);
+    Check(main.address && core.address, "Cannot reserve startup image addresses");
+
+    Reservations occupied;
+    FillFreeLowRanges(occupied);
+    const auto late = cave::ps4::ReserveImageMemory(core_bytes);
+    images.Keep(late.address);
+    Check(!late.address && late.searched_range && late.largest_free_region < core.bytes,
+          "Late reservation should fail after low address space fills");
+    MEMORY_BASIC_INFORMATION info{};
+    Check(VirtualQuery(core.address, &info, sizeof(info)) && info.State == MEM_RESERVE &&
+          info.AllocationBase == core.address && info.RegionSize >= core.bytes,
+          "Startup reservation was lost or prematurely committed");
+    auto* page = static_cast<unsigned char*>(VirtualAlloc(core.address + core.bytes - 4096, 4096,
+                                                           MEM_COMMIT, PAGE_READWRITE));
+    Check(page == core.address + core.bytes - 4096, "Loader cannot commit the reserved core");
+    page[0] = 0x53;
+    Check(page[0] == 0x53, "Committed core page is not writable");
+}
 }
 int main() {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -141,6 +166,8 @@ int main() {
         OffsetGameSizedGap();
         std::puts("exhausted_range_begin");
         ExhaustedAddressRange();
+        std::puts("startup_reservation_begin");
+        HoldImageAcrossStartupAllocations();
         std::puts("reuse_begin");
         OrdinaryAndInvalidRequests(); // Releasing reservations permits reuse.
         std::printf("%u image reservation checks passed\n", checks);
