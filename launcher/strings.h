@@ -128,6 +128,13 @@ inline constexpr std::array kTranslations{
   Translation{L"选择数据目录…",L"データフォルダーを選択…",L"Choose data folder…"},
   Translation{L"复制到合集…",L"コレクションにコピー…",L"Copy into collection…"},
   Translation{L"正在复制并校验数据… ",L"データをコピー・検証中… ",L"Copying and verifying data… "},
+  Translation{L"导入 X Arrange BGM…",L"X Arrange BGM をインポート…",L"Import X Arrange BGM…"},
+  Translation{L"选择大往生 Black Label Extra 的 Xbox 360 ISO",L"大往生ブラックレーベル EXTRA の Xbox 360 ISO を選択",L"Select the DaiOuJou Black Label Extra Xbox 360 ISO"},
+  Translation{L"正在校验 X Arrange 音频库…",L"X Arrange の音源を確認中…",L"Verifying X Arrange music…"},
+  Translation{L"正在导入 X Arrange BGM… ",L"X Arrange BGM をインポート中… ",L"Importing X Arrange BGM… "},
+  Translation{L"正在取消导入…",L"インポートをキャンセル中…",L"Cancelling import…"},
+  Translation{L"X Arrange BGM 已导入",L"X Arrange BGM をインポートしました",L"X Arrange BGM imported"},
+  Translation{L"X Arrange BGM 导入失败",L"X Arrange BGM のインポートに失敗しました",L"X Arrange BGM import failed"},
   Translation{L"正在取消复制，请稍候…",L"コピーを中止しています…",L"Cancelling copy, please wait…"},
   Translation{L"正在检测游戏数据…",L"ゲームデータを確認中…",L"Checking game data…"},
   Translation{L" 部作品 · 按需安装游戏数据",L" タイトル · 必要なゲームだけインストール",L" titles · install only the data you need"}

@@ -3,6 +3,7 @@
 #include "common/ini.h"
 #include "common/launch.h"
 #include "common/data_import.h"
+#include "common/daioujou_music.h"
 #include "common/settings.h"
 #include "artwork.h"
 #include "launcher/window_size.h"
@@ -619,7 +620,7 @@ struct Work {
   std::optional<LaunchSpec> launch;
   std::optional<CopyResult> copy_result;
   std::string error;
-  bool starting{},copying{};
+  bool starting{},copying{},importing_arrange{};
   size_t selected{};
 };
 class App {
@@ -962,17 +963,22 @@ class App {
     }catch(const std::exception& error){Log(options.root,error.what());Error(hwnd,error.what());return true;}
     return false;
   }
-  void Refresh(bool launch=false,const fs::path& copy_source={}) {
+  void Refresh(bool launch=false,const fs::path& copy_source={},const fs::path& arrange_source={}) {
     if (busy || child) return;
     if (worker.joinable()) worker.join();
-    busy=true;EnablePreferences();work=std::make_shared<Work>();work->starting=launch;work->copying=!copy_source.empty();work->selected=selected;
+    busy=true;EnablePreferences();work=std::make_shared<Work>();work->starting=launch;
+    work->importing_arrange=!arrange_source.empty();work->copying=!copy_source.empty()||work->importing_arrange;
+    work->selected=selected;
     const auto task=work;const auto root=options.root;const auto id=std::string(Catalogue()[selected].id);const auto profile=options.profile;
     const auto window=hwnd;const auto data=options.data;
-    worker=std::thread([task,root,id,profile,window,data,copy_source] {
+    worker=std::thread([task,root,id,profile,window,data,copy_source,arrange_source] {
       try {
-        if(task->copying) task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,
-            [task,window](uint64_t done,uint64_t total){task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);},
-            [task]{return task->cancelled.load();});
+        const auto progress=[task,window](uint64_t done,uint64_t total){
+          task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);
+        };
+        const auto cancelled=[task]{return task->cancelled.load();};
+        if(task->importing_arrange)daioujou::ImportArrangeMusic(root,arrange_source,progress,cancelled);
+        else if(task->copying)task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,progress,cancelled);
         task->rows=InspectRows(root,task->selected);
         if (task->starting) {
           task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
@@ -996,12 +1002,19 @@ class App {
         active_game=work->launch->game;
         message=T(L"正在运行：")+Wide(FindGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
         Log(options.root,"launch game="+work->launch->game+" pid="+std::to_string(child->pid()));
+      } else if(work->importing_arrange) {
+        message=T(L"X Arrange BGM 已导入");
+        Log(options.root,"x-arrange-import-complete cues="+std::to_string(daioujou::ArrangeCues().size()));
       } else if(work->copy_result) {
         message=T(L"数据已复制并逐文件校验，配置已更新");
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
         if(!work->copy_result->guide_backup.empty())Log(options.root,"placement-guide-backup="+Utf8(work->copy_result->guide_backup));
       } else {message.clear();}
-    }catch(const std::exception& error){message=work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");Log(options.root,error.what());Error(hwnd,error.what());}
+    }catch(const std::exception& error){
+      message=work->importing_arrange?T(L"X Arrange BGM 导入失败"):
+          work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");
+      Log(options.root,error.what());Error(hwnd,error.what());
+    }
     const bool copied=work->copying;work.reset();
     if(copied)ReloadPreferences();EnablePreferences();
     if(selection_changed&&!child)Refresh();
@@ -1041,15 +1054,41 @@ class App {
     SetDataDirectory(options.root,Catalogue()[selected],path);
     ReloadPreferences();Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
   }
+  void ChooseArrangeMusic() {
+    if(busy||child||GameIsRunning(options.root))return;
+    ComPtr<IFileOpenDialog> dialog;
+    Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create Xbox 360 ISO picker");
+    DWORD flags{};
+    Check(dialog->GetOptions(&flags),"Read ISO picker options");
+    Check(dialog->SetOptions(flags|FOS_FILEMUSTEXIST|FOS_FORCEFILESYSTEM),"Configure ISO picker");
+    const COMDLG_FILTERSPEC filter{L"Xbox 360 ISO",L"*.iso"};
+    Check(dialog->SetFileTypes(1,&filter),"Set ISO filter");
+    Check(dialog->SetTitle(T(L"选择大往生 Black Label Extra 的 Xbox 360 ISO")),"Set ISO picker title");
+    const auto result=dialog->Show(hwnd);
+    if(result==HRESULT_FROM_WIN32(ERROR_CANCELLED))return;
+    Check(result,"Select Xbox 360 ISO");
+    ComPtr<IShellItem> item;
+    Check(dialog->GetResult(&item),"Read selected ISO");
+    PWSTR value{};
+    Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected ISO path");
+    const fs::path path(value);
+    CoTaskMemFree(value);
+    if(!SavePreferences())return;
+    message=T(L"正在校验 X Arrange 音频库…");
+    Refresh(false,{},path);
+  }
   void DataMenu() {
     if(busy||child||library.visible.empty()||Catalogue()[selected].coming_soon)return;
     const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create data menu");
     AppendMenuW(menu,MF_STRING,1,T(L"选择数据目录…"));
     AppendMenuW(menu,Catalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,T(L"复制到合集…"));
+    if(Catalogue()[selected].id=="daioujou")AppendMenuW(menu,MF_STRING,3,T(L"导入 X Arrange BGM…"));
     const auto rectangle=layout.data();const auto scale=float(GetDpiForWindow(hwnd))/96;
     POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.top*scale)};ClientToScreen(hwnd,&anchor);
     const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_LEFTALIGN|TPM_BOTTOMALIGN,anchor.x,anchor.y,0,hwnd,nullptr);
-    DestroyMenu(menu);if(selection)Choose(selection==2);
+    DestroyMenu(menu);
+    if(selection==3)ChooseArrangeMusic();
+    else if(selection)Choose(selection==2);
   }
   std::optional<size_t> VisiblePosition() const {
     const auto found=std::ranges::find(library.visible,selected);
@@ -1338,12 +1377,13 @@ class App {
         case kCopyProgress:
           if(app->work && app->work->copying && !app->close_requested) {
             const auto total=app->work->total.load(),copied=app->work->copied.load();
-            app->message=T(L"正在复制并校验数据… ")+std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
+            app->message=(app->work->importing_arrange?T(L"正在导入 X Arrange BGM… "):T(L"正在复制并校验数据… "))+
+                std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
             InvalidateRect(window,nullptr,FALSE);
           }return 0;
         case WM_TIMER:if(first==kUpdateTimer)app->UpdateTick();else if(first==kChildTimer)app->ChildTick();return 0;
         case WM_CLOSE:
-          if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=T(L"正在取消复制，请稍候…");InvalidateRect(window,nullptr,FALSE);return 0;}
+          if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=app->work->importing_arrange?T(L"正在取消导入…"):T(L"正在取消复制，请稍候…");InvalidateRect(window,nullptr,FALSE);return 0;}
           if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
         case WM_DESTROY:if(app->work)app->work->alive=false;app->PersistSelection();
           if(app->form_font)DeleteObject(app->form_font);if(app->form_background)DeleteObject(app->form_background);

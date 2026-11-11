@@ -21,12 +21,13 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   prepared modules in its nonexecuting binding census. Direct Menu and Stage 1
   still need live checks. Evidence .local/v099/ps4-startup-verification/
   and .local/v099/ps4-ketsui-merged-verification/.
-- The Xbox 360 ISO extracted and its XACT banks list 14 X Arrange cues.
-  A stereo 48 kHz Stage 1 WAV and the original loop points are in
-  .local/v099/daioujou-x360-source/. PS4 01.00 and 01.04 resource indexes and
-  menu scripts were inspected locally. The game uses separate archived WAVs
-  for its existing sets and a shared title-profile BGM count. The import UI,
-  fourth menu item, artwork and playback integration are pending.
+- The DaiOuJou data menu can import X Arrange from the Xbox 360 ISO.
+  The importer reads the two banks from XDVDFS, verifies their identities,
+  and saves 14 WAVs under user-data/daioujou/x-arrange. The real ISO import,
+  cancellation, 14 PCM comparisons and 13 loop-point comparisons passed.
+  Evidence .local/v099/arrange-import-38c72c27/. Both PS4 versions use the
+  title PCM table for wave definitions and the core x-bgm attribute for
+  routing. The fourth menu item, artwork and playback are pending.
 - Issue #11: DaiOuJou and ESP Ra.De. 01.00 and 01.04 accept known decrypted
   program fingerprints in addition to exact original hashes. ESP Ra.De.
   01.00 has its own manifest, seed location and core preparation. The four
