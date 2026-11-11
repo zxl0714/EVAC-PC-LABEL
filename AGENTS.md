@@ -76,6 +76,32 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   WinHTTP, verified, updated an isolated v0.9.7 installation, and restarted
   its launcher. The config, save and game-data sentinels were preserved.
   Evidence .local/v099/updater-real-aeed1f71/update-test-result.json.
+- Issue #16: new report 20261111-03898aa46c2f4131 in .local/reports-20261112/
+  has a PS4 pad on slot 1 and an XInput pad on slot 0. Its actual crash is
+  futari.exe+0x723d93, symbolicated with the exact matching EXE/PDB to the
+  QoS worker sub_821911D0 reading a null system pointer. The constructor
+  starts this worker before publishing global+76. Separately, slot 1's
+  title Start can enter a signin flow unsupported by the slot-0-only profile
+  and UI-off-only signin stub. The slot-1 SDL fixture reproduced the title
+  hang with signin_step=3, requested_user=1 and ui_visible=0. The fix claims
+  that physical controller as logical slot 0 at 0x82190AD4, BEFORE the native
+  input-manager store and return to the profile selector. Do not move it to
+  the later profile entry: that leaves the menu reading the old slot.
+  Fixed slot-1 run 36296 entered menus, Arrange Stage 1 and controller pause;
+  profile and input indices both read back as 0. The ordinary production
+  EXE also entered TOP MENU with keyboard Enter and loaded Ver1.5 with Z
+  (run 25460). QoS now starts suspended and resumes after the system
+  publication; actual suspend_count=1. Four targeted CTests pass, including
+  the actual generated title selector's four slots/idle, primary routing,
+  SDL event sample and QoS publication. Evidence in
+  .local/v099/futari-start/{slot1,slot1-fixed,keyboard-fixed}/.
+  Both test processes closed. The InputSystem object layout changed: rebuild
+  all four Xbox 360 hosts against the installed SDK before packaging; do not
+  copy only the new DLL into an older player installation.
+  The SDL GetKeystroke refresh/remap/release fix has four failures reproduced
+  before, zero after. Futari's sole
+  keystroke caller requests keyboard flags=2, so do not label that fix as
+  the title fix. See docs/ANALYSIS.md#futari-start-report-20261112.
 
 Nov10 v0.9.8 published on GitHub as Latest. Frozen source ebdc8110d34d57b99513c0ba827768b3410edcdd.
 Program ZIP: releases/v0.9.8-local-ebdc811/EVAC-PC-LABEL-v0.9.8-win-x64.zip.

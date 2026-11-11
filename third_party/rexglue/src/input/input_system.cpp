@@ -36,6 +36,9 @@ namespace rex::input {
 namespace {
 std::atomic<uint64_t> guest_input_frame{};
 std::atomic<uint64_t> guest_vblank_deadline{};
+uint32_t RoutedUser(uint32_t user, uint32_t primary) {
+  return user == 0 ? primary : user == primary ? 0 : user;
+}
 }
 uint64_t GuestInputFrame() { return guest_input_frame.load(std::memory_order_relaxed); }
 void AdvanceGuestInputFrame() { guest_input_frame.fetch_add(1, std::memory_order_relaxed); }
@@ -73,13 +76,29 @@ void InputSystem::SetActiveCallback(std::function<bool()> callback) {
   }
 }
 
+bool InputSystem::SelectPrimaryController(uint32_t user_index) {
+  if (user_index >= merged_states_.size()) return false;
+  std::lock_guard lock(state_mutex_);
+  const auto selected = RoutedUser(user_index, primary_controller_);
+  if (selected == primary_controller_) return true;
+  merged_states_[0].connected = false;
+  merged_states_[primary_controller_].connected = false;
+  merged_states_[selected].connected = false;
+  REXLOG_INFO("Input: controller slot {} claims local profile; physical {} -> {}",
+              user_index, primary_controller_, selected);
+  primary_controller_ = selected;
+  return true;
+}
+
 X_RESULT InputSystem::GetCapabilities(uint32_t user_index, uint32_t flags,
                                       X_INPUT_CAPABILITIES* out_caps) {
   SCOPE_profile_cpu_f("hid");
 
+  std::lock_guard state_lock(state_mutex_);
   bool any_connected = false;
   for (auto& driver : drivers_) {
-    X_RESULT result = driver->GetCapabilities(user_index, flags, out_caps);
+    const auto source = driver->IsKeyboardEmulation() ? user_index : RoutedUser(user_index, primary_controller_);
+    X_RESULT result = driver->GetCapabilities(source, flags, out_caps);
     if (result != X_ERROR_DEVICE_NOT_CONNECTED) {
       any_connected = true;
     }
@@ -107,7 +126,8 @@ X_RESULT InputSystem::GetState(uint32_t user_index, X_INPUT_STATE* out_state) {
 
   for (auto& driver : drivers_) {
     X_INPUT_STATE state = {};
-    X_RESULT result = driver->GetState(user_index, &state);
+    const auto source = driver->IsKeyboardEmulation() ? user_index : RoutedUser(user_index, primary_controller_);
+    X_RESULT result = driver->GetState(source, &state);
     if (result == X_ERROR_SUCCESS && !driver->IsKeyboardEmulation()) {
       RemapPhysicalGamepad(state.gamepad);
     }
@@ -161,9 +181,11 @@ X_RESULT InputSystem::GetState(uint32_t user_index, X_INPUT_STATE* out_state) {
 X_RESULT InputSystem::SetState(uint32_t user_index, X_INPUT_VIBRATION* vibration) {
   SCOPE_profile_cpu_f("hid");
 
+  std::lock_guard state_lock(state_mutex_);
   bool any_connected = false;
   for (auto& driver : drivers_) {
-    X_RESULT result = driver->SetState(user_index, vibration);
+    const auto source = driver->IsKeyboardEmulation() ? user_index : RoutedUser(user_index, primary_controller_);
+    X_RESULT result = driver->SetState(source, vibration);
     if (result != X_ERROR_DEVICE_NOT_CONNECTED) {
       any_connected = true;
     }
@@ -178,14 +200,18 @@ X_RESULT InputSystem::GetKeystroke(uint32_t user_index, uint32_t flags,
                                    X_INPUT_KEYSTROKE* out_keystroke) {
   SCOPE_profile_cpu_f("hid");
 
+  std::lock_guard state_lock(state_mutex_);
   bool any_connected = false;
   for (auto& driver : drivers_) {
-    X_RESULT result = driver->GetKeystroke(user_index, flags, out_keystroke);
+    const auto source = driver->IsKeyboardEmulation() ? user_index : RoutedUser(user_index, primary_controller_);
+    X_RESULT result = driver->GetKeystroke(source, flags, out_keystroke);
     if (result != X_ERROR_DEVICE_NOT_CONNECTED) {
       any_connected = true;
     }
     // An idle device must not hide a keystroke from another connected driver.
     if (result == X_ERROR_SUCCESS) {
+      if (!driver->IsKeyboardEmulation() && out_keystroke)
+        out_keystroke->user_index = static_cast<uint8_t>(RoutedUser(out_keystroke->user_index, primary_controller_));
       return result;
     }
   }

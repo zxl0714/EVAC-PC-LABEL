@@ -7,7 +7,9 @@
 #include <thread>
 
 #include <rex/input/sdl/sdl_input_driver.h>
+#include <rex/cvar.h>
 #include <rex/logging.h>
+#include <rex/ui/virtual_key.h>
 #include <rex/ui/windowed_app_context.h>
 
 namespace {
@@ -35,9 +37,9 @@ int main() {
     SDL_VirtualJoystickDesc desc{};
     SDL_INIT_INTERFACE(&desc);
     desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
-    desc.nbuttons = 1;
+    desc.nbuttons = 2;
     desc.naxes = 2;
-    desc.button_mask = 1u << SDL_GAMEPAD_BUTTON_SOUTH;
+    desc.button_mask = (1u << SDL_GAMEPAD_BUTTON_SOUTH) | (1u << SDL_GAMEPAD_BUTTON_START);
     desc.axis_mask = (1u << SDL_GAMEPAD_AXIS_LEFTX) | (1u << SDL_GAMEPAD_AXIS_LEFTY);
     desc.name = "Guest input sampling fixture";
     auto id = SDL_AttachVirtualJoystick(&desc);
@@ -79,6 +81,49 @@ int main() {
             ++recovery_failures;
         }
     }
+    // Games use both the snapshot and keystroke APIs. A guest thread must
+    // see the same freshly sampled, remapped Start through either API.
+    unsigned keystroke_failures = 0;
+    const auto read_stroke = [&] (rex::input::X_INPUT_KEYSTROKE& stroke) {
+        X_RESULT result{};
+        std::thread guest([&] { result = driver.GetKeystroke(slot, 0, &stroke); });
+        guest.join();
+        return result;
+    };
+    const auto expect_stroke = [&](const char* label, unsigned flags) {
+        rex::input::X_INPUT_KEYSTROKE stroke{};
+        const auto result = read_stroke(stroke);
+        if (result != X_ERROR_SUCCESS ||
+            stroke.virtual_key != uint16_t(rex::ui::VirtualKey::kXInputPadStart) ||
+            stroke.flags != flags || stroke.user_index != slot) {
+            ++keystroke_failures;
+            std::fprintf(stderr, "%s: result=%u key=%04x flags=%u user=%u\n", label,
+                         result, uint16_t(stroke.virtual_key), uint16_t(stroke.flags), stroke.user_index);
+        }
+    };
+    const auto settle = [&] {
+        context.ExecutePendingFunctionsFromUIThread();
+        rex::input::X_INPUT_KEYSTROKE stroke{};
+        for (unsigned i = 0; i < 40 && read_stroke(stroke) == X_ERROR_SUCCESS; ++i) {}
+    };
+    SDL_SetJoystickVirtualButton(stick, 1, true);
+    expect_stroke("default Start down before UI pump", rex::input::X_INPUT_KEYSTROKE_KEYDOWN);
+    settle();
+    std::this_thread::sleep_for(std::chrono::milliseconds(450));
+    SDL_SetJoystickVirtualButton(stick, 1, false);
+    // A release must take precedence over a repeat that became due meanwhile.
+    expect_stroke("Start release after repeat delay", rex::input::X_INPUT_KEYSTROKE_KEYUP);
+    settle();
+    rex::cvar::SetFlagByName("pad_start", "A");
+    rex::cvar::SetFlagByName("pad_a", "NONE");
+    SDL_SetJoystickVirtualButton(stick, 0, true);
+    expect_stroke("remapped Start down", rex::input::X_INPUT_KEYSTROKE_KEYDOWN);
+    settle();
+    SDL_SetJoystickVirtualButton(stick, 0, false);
+    expect_stroke("remapped Start up", rex::input::X_INPUT_KEYSTROKE_KEYUP);
+    settle();
+    rex::cvar::SetFlagByName("pad_start", "START");
+    rex::cvar::SetFlagByName("pad_a", "A");
     SDL_CloseJoystick(stick);
     SDL_DetachVirtualJoystick(id);
     const bool removed = driver.GetState(slot, &state) == X_ERROR_DEVICE_NOT_CONNECTED;
@@ -87,5 +132,6 @@ int main() {
     std::sort(sample_us.begin(), sample_us.end());
     std::printf("guest samples=64 stale=%u after_ui_stale=%u detached=%d read_p50_us=%.1f read_p95_us=%.1f\n",
                 misses, recovery_failures, removed, sample_us[32], sample_us[60]);
-    return misses || recovery_failures || !removed;
+    std::printf("keystroke_failures=%u\n", keystroke_failures);
+    return misses || recovery_failures || !removed || keystroke_failures;
 }

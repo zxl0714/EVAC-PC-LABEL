@@ -1,5 +1,91 @@
 # 分析与诊断工具
 
+<a id="futari-start-report-20261112"></a>
+
+## 虫姬二手柄 Start 与启动崩溃（2026-11-12）
+
+服务器新增报告 `20261111-03898aa46c2f4131`，合集 v0.9.8，接收时间为
+北京时间 11 月 12 日 00:24。原始 ZIP 和元数据保存在
+`.local/reports-20261112/`。本次报告没有留言及输入轨迹，不能直接将其崩溃
+等同于 Issue #16 描述的“按 Start 后标题不动、音乐继续”。
+
+### 日志确认的事实
+
+- SDL 将 PS4 Controller 分到 index 1，将另一只 XInput Controller 分到
+  index 0。配置修改了键盘绑定，没有物理手柄重绑定。
+- 运行约六秒后退出，异常为 `0xC0000005`，读取地址 `0x10000004c`。
+  故障位置为 `futari.exe+0x723d93`。本地 EXE 的 SHA-256 与报告一致：
+  `0bec1c5389116490f54b4bfc52cbcd6c64f3e163b2b416dd012bb4d580587547`。
+- 匹配的 PDB 将故障定位到 `sub_821911D0`，生成文件第 44156 行：
+  `global = [0x821F8588]; system = [global+76]; profile = [system+76]`。
+  `system` 为零，第三次读取访问 guest 地址 `0x4c`。这是原作 QoS 网络
+  状态工作线程，不在 SDL 输入或 GPU 驱动中。
+
+### 调用链核对
+
+1. `sub_82191640` 在构造过程中创建 QoS 线程（调用点 `0x821916EC`），
+   外层 `sub_8218A218` 要等 `sub_82191820` 构造返回才把 system 写到
+   `global+76`（`0x8218A254`）。存在先运行线程、后发布对象的时间窗口，
+   与本次空指针吻合。应针对对象就绪同步验证，不以固定延时掩盖。
+2. SDK 只让 index 0 的用户处于登录状态。原作 `sub_82190F80` 收到其他
+   用户的开始请求后会进入登录流程；`sub_82191000` 先等 UI 打开再等关闭。
+   当前 `XamShowSigninUI` 只发送关闭及 index 0 登录通知。这是手柄位于
+   index 1 时标题卡住的明确代码线索，但本报告没有按键和登录状态轨迹，
+   尚不能确认玩家当时走到了这里。
+3. 另行发现的 SDL 按键事件缺少刷新、重绑定及重复键抢先问题已用虚拟设备
+   在修复前复现四项失败，修复后通过。虫姬二默认模块唯一的
+   `XamInputGetKeystrokeEx` 调用使用键盘标志 `2`，因此不能将这个共享
+   事件接口缺陷当成 Issue #16 的已确认根因。标题手柄输入应追 `GetState`
+   到用户选择／登录的路径。
+
+验证分别覆盖启动对象发布顺序，以及选定手柄后的输入和账号一致性。
+
+### 已复现的标题停留
+
+独立测试目录 `.local/v099/futari-start/slot1/` 使用原游戏程序和 SDL 虚拟
+手柄，将设备设在 index 1。一次 200 ms 的 Start 已在 `GetState(1)` 中记录为
+`buttons=0010`，松开后回到零，但游戏始终停在标题。读取当时原作状态：
+
+```text
+active_user = -1
+requested_user = 1
+signin_step = 3
+ui_visible = 0
+signin_states = [1, 0, 0, 0]
+```
+
+这确认了 Start 已送达，而游戏在等待无法出现的登录窗口。复现使用的共享
+运行时已包含 keystroke 修复，因而也排除了“只修事件重绑定便能解决标题”的判断。
+证据为该目录的运行日志及 `baseline-state.json`。
+
+修正采用虫姬二原有的控制器选择入口：玩家按 Start 选定手柄时，将这只手柄
+关联到现有本地账号的 slot 0，随后运行原作的账号和存档流程。共享输入层负责
+一致地重定向状态、按键事件、能力查询和震动；键盘仍在 slot 0，其他手柄保持
+独立。其他游戏没有调用此选择入口，沿用原有编号。
+
+QoS 启动修正单独处理：在原 CreateThread 调用处加入挂起标志，等原作
+`owner->system` 写入完成后恢复该对象自己的线程，不添加固定启动延时。
+
+### 修复后验证
+
+- 选择钩子位于 `sub_82190A90` 的 `0x82190AD4`，在写入 input manager 的
+  `+36` 及返回账号选择之前执行。只在后续 `sub_82190F80` 改账号会让菜单
+  仍读旧手柄槽位，因此没有保留该初版位置。
+- `.local/v099/futari-start/slot1-fixed/` 的运行 `36296` 用 index 1 的 SDL
+  虚拟手柄按 Start 进入 TOP MENU，方向、确认通过模式菜单，进入 Arrange
+  第一关后 Start 正常打开暂停菜单。`fixed-state.json` 记录
+  `active_user=0, input_user=0, signin_step=1`；截图为 `controller-gameplay.png`。
+- 同目录的启动日志记录 QoS 在 system 发布后恢复，`suspend_count=1`。
+  线程顺序测试另外验证发布前不会执行、发布后读取到完整对象，不靠重复启动碰概率。
+- `.local/v099/futari-start/keyboard-fixed/` 使用普通生产 EXE，没有虚拟设备，
+  Enter 已进入 TOP MENU，Z 可确认模式。键盘和既有本地存档账号保持一致。
+- `input`、`xbox360_gamepad_sample`、`futari_qos_startup`、
+  `futari_title_selector` 四项 CTest 通过。最后一项实际编译当前生成的原作
+  选择函数，覆盖四个 Start 槽位和未按键，检查输入管理器与返回账号两份索引；
+  共享输入测试另行覆盖换回设备、断开重连、震动和按键事件的路由。
+
+本机复现与修复验证完成；原报告者的实体设备仍待新版反馈。
+
 <a id="g2-render-static-audit"></a>
 
 ## G2 第一关花屏：静态核查（2026-11-09）

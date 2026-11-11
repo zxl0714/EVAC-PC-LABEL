@@ -32,17 +32,65 @@ public:
     explicit StateDriver(bool keyboard):InputDriver(nullptr,0),keyboard_(keyboard) {connected[0]=true;}
     rex::X_STATUS Setup() override {return 0;}
     bool IsKeyboardEmulation() const override {return keyboard_;}
-    rex::X_RESULT GetCapabilities(uint32_t,uint32_t,rex::input::X_INPUT_CAPABILITIES*) override {return X_ERROR_DEVICE_NOT_CONNECTED;}
+    rex::X_RESULT GetCapabilities(uint32_t user,uint32_t,rex::input::X_INPUT_CAPABILITIES* output) override {
+        if(user>=connected.size() || !connected[user]) return X_ERROR_DEVICE_NOT_CONNECTED;
+        *output={};output->sub_type=static_cast<uint8_t>(user+1);return 0;
+    }
     rex::X_RESULT GetState(uint32_t user,rex::input::X_INPUT_STATE* output) override {
         if(user>=connected.size() || !connected[user]) return X_ERROR_DEVICE_NOT_CONNECTED;
         *output=states[user];return 0;
     }
-    rex::X_RESULT SetState(uint32_t,rex::input::X_INPUT_VIBRATION*) override {return 0;}
-    rex::X_RESULT GetKeystroke(uint32_t,uint32_t,rex::input::X_INPUT_KEYSTROKE*) override {return X_ERROR_EMPTY;}
+    rex::X_RESULT SetState(uint32_t user,rex::input::X_INPUT_VIBRATION*) override {
+        if(user>=connected.size() || !connected[user]) return X_ERROR_DEVICE_NOT_CONNECTED;
+        last_vibration=user;return 0;
+    }
+    rex::X_RESULT GetKeystroke(uint32_t user,uint32_t,rex::input::X_INPUT_KEYSTROKE* output) override {
+        if(user>=connected.size() || !connected[user]) return X_ERROR_DEVICE_NOT_CONNECTED;
+        if(!stroke_pending[user])return X_ERROR_EMPTY;
+        *output={};output->user_index=static_cast<uint8_t>(user);output->virtual_key=0x5814;
+        stroke_pending[user]=false;return 0;
+    }
     std::array<rex::input::X_INPUT_STATE,4> states{};
     std::array<bool,4> connected{};
+    std::array<bool,4> stroke_pending{};
+    uint32_t last_vibration=~0u;
 private:bool keyboard_;
 };
+void TestPrimaryController() {
+    rex::input::InputSystem input(nullptr);
+    auto pad=std::make_unique<StateDriver>(false);
+    auto keyboard=std::make_unique<StateDriver>(true);
+    auto* physical=pad.get();auto* keys=keyboard.get();
+    physical->connected={true,true,true,false};
+    for(unsigned i=0;i<3;++i)physical->states[i].gamepad.buttons=0x1000u<<i;
+    keys->states[0].gamepad.buttons=1;
+    input.AddDriver(std::move(pad));input.AddDriver(std::move(keyboard));
+    rex::input::X_INPUT_STATE state{};
+    Require(input.GetState(0,&state)==0 && state.gamepad.buttons==0x1001,"Original primary input");
+    const auto old_packet=state.packet_number;
+    Require(input.SelectPrimaryController(1),"Select player 2 controller");
+    Require(input.GetState(0,&state)==0 && state.gamepad.buttons==0x2001 && state.packet_number!=old_packet,
+            "Selected pad and keyboard did not join the local profile");
+    Require(input.GetState(1,&state)==0 && state.gamepad.buttons==0x1000,"Previous primary was lost or duplicated");
+    Require(input.GetState(2,&state)==0 && state.gamepad.buttons==0x4000,"Unrelated slot changed");
+    rex::input::X_INPUT_CAPABILITIES caps{};
+    Require(input.GetCapabilities(0,0,&caps)==0 && caps.sub_type==2,"Capabilities did not follow selected pad");
+    rex::input::X_INPUT_VIBRATION vibration{};
+    Require(input.SetState(0,&vibration)==0 && physical->last_vibration==1,"Vibration went to the wrong pad");
+    physical->stroke_pending[1]=true;
+    rex::input::X_INPUT_KEYSTROKE stroke{};
+    Require(input.GetKeystroke(0,0,&stroke)==0 && stroke.user_index==0,"Keystroke kept the physical slot");
+    Require(input.SelectPrimaryController(0),"Reselect current primary");
+    Require(input.GetState(0,&state)==0 && state.gamepad.buttons==0x2001,"Reselect reset routing");
+    Require(input.SelectPrimaryController(1),"Select previous primary by its current guest slot");
+    Require(input.GetState(0,&state)==0 && state.gamepad.buttons==0x1001,"Switching back routed the wrong pad");
+    Require(input.SelectPrimaryController(2),"Select third pad");
+    Require(!input.SelectPrimaryController(4) && !input.SelectPrimaryController(~0u),"Invalid user changed routing");
+    physical->connected[2]=false;
+    Require(input.GetState(0,&state)==0 && state.gamepad.buttons==1,"Detached pad left buttons held or moved keyboard");
+    physical->connected[2]=true;
+    Require(input.GetState(0,&state)==0 && state.gamepad.buttons==0x4001,"Selected pad did not reconnect");
+}
 void TestMergedPackets() {
     rex::input::InputSystem input(nullptr);
     auto pad=std::make_unique<StateDriver>(false);
@@ -239,6 +287,7 @@ int main() {
         Require(merged.GetKeystroke(0,0,&stroke)==0 && static_cast<uint16_t>(stroke.virtual_key)==0x5800,
                 "Idle driver suppressed another controller's keystroke");
         TestMergedPackets();
+        TestPrimaryController();
         std::cout<<"Input regressions passed; no SDL gamepad, audio or window initialized\n";
         return 0;
     } catch (const std::exception& error) {std::cerr<<error.what()<<'\n'; return 2;}

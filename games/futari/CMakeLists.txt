@@ -2,6 +2,11 @@
 option(CAVE_BUILD_GAME "Build selected games using locally generated code" ON)
 cave_game_metadata(futari)
 
+add_executable(futari_qos_startup_tests ${CMAKE_SOURCE_DIR}/tests/futari/qos-startup-test.cpp)
+target_include_directories(futari_qos_startup_tests PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME futari_qos_startup COMMAND futari_qos_startup_tests)
+set_tests_properties(futari_qos_startup PROPERTIES TIMEOUT 10)
+
 add_executable(futari_counter_wait_tests ${CMAKE_SOURCE_DIR}/tests/futari/counter-wait-test.cpp)
 target_include_directories(futari_counter_wait_tests PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(futari_counter_wait_tests PRIVATE synchronization)
@@ -83,7 +88,8 @@ if(CAVE_BUILD_GAME)
         message(FATAL_ERROR "Run scripts/Generate.ps1 -Game futari first")
     endif()
     include("${CMAKE_SOURCE_DIR}/generated/futari/default/sources.cmake")
-    add_executable(futari WIN32 host.cpp performance/counter_wait.cpp compat/module_switch_compat.cpp diagnostics/futari_diagnostics.cpp
+    add_executable(futari WIN32 host.cpp performance/counter_wait.cpp compat/module_switch_compat.cpp
+        compat/qos_startup.cpp compat/controller_selection.cpp diagnostics/futari_diagnostics.cpp
         diagnostics/storage_diagnostics.cpp community/community_guest_hooks.cpp
         audio/audio_diagnostics.cpp audio/audio_guest_trace.cpp audio/audio_guest_hooks.cpp audio/audio_wait_policy.cpp
         ${GENERATED_SOURCES})
@@ -99,6 +105,16 @@ if(CAVE_BUILD_GAME)
     add_dependencies(futari futari_crash_writer)
     rexglue_configure_target(futari GPU_PLUGINS xenos)
     include(overlays.cmake)
+    set(title_selector "${CMAKE_CURRENT_BINARY_DIR}/title-selector.cpp")
+    add_custom_command(OUTPUT "${title_selector}"
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/futari/extract-title-selector.py"
+            "${CMAKE_SOURCE_DIR}/generated/futari/default/futari_recomp.10.cpp" "${title_selector}"
+        DEPENDS "${CMAKE_SOURCE_DIR}/tests/futari/extract-title-selector.py"
+            "${CMAKE_SOURCE_DIR}/generated/futari/default/futari_recomp.10.cpp" VERBATIM)
+    add_executable(futari_title_selector_tests ${CMAKE_SOURCE_DIR}/tests/futari/title-selector-test.cpp "${title_selector}")
+    target_include_directories(futari_title_selector_tests PRIVATE "${CMAKE_SOURCE_DIR}/generated/futari/default")
+    target_link_libraries(futari_title_selector_tests PRIVATE rex::runtime)
+    add_test(NAME futari_title_selector COMMAND futari_title_selector_tests)
     add_executable(futari_callback_release_tests ${CMAKE_SOURCE_DIR}/tests/futari/callback-release-test.cpp)
     target_link_libraries(futari_callback_release_tests PRIVATE rex::runtime)
     add_dependencies(futari_callback_release_tests futari_reco_normal)

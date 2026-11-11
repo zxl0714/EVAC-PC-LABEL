@@ -39,6 +39,11 @@ class InputSystem : public system::IInputSystem {
   void AttachWindow(rex::ui::Window* window);
   void SetActiveCallback(std::function<bool()> callback);
 
+  // Move the controller currently exposed at this guest slot to the local
+  // profile's slot 0. The keyboard remains on slot 0; other pads stay distinct.
+  // Titles opt in when the player selects the controller on their start screen.
+  bool SelectPrimaryController(uint32_t user_index);
+
   X_RESULT GetCapabilities(uint32_t user_index, uint32_t flags, X_INPUT_CAPABILITIES* out_caps);
   X_RESULT GetState(uint32_t user_index, X_INPUT_STATE* out_state);
   X_RESULT SetState(uint32_t user_index, X_INPUT_VIBRATION* vibration);
@@ -54,6 +59,7 @@ class InputSystem : public system::IInputSystem {
     bool connected = false;
   };
   std::mutex state_mutex_;
+  uint32_t primary_controller_ = 0;
   std::array<MergedState, 4> merged_states_{};
 };
 

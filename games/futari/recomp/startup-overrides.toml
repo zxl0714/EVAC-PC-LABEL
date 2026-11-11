@@ -1,0 +1,20 @@
+# The QoS worker dereferences global->system. The native constructor creates
+# the worker before returning the system to its owner. Start it suspended,
+# then resume immediately after the original owner->system store.
+[[midasm_hook]]
+address = 0x821916EC
+name = "FutariQosCreateSuspended"
+registers = ["r7"]
+
+[[midasm_hook]]
+address = 0x8218A258
+name = "FutariQosResumeAfterPublish"
+registers = ["context", "memory"]
+
+# The title commits the Start controller to input_manager+36 and returns it
+# to the profile selector. Claim the PC's local profile before BOTH copies
+# are made, so menus and gameplay keep reading the chosen controller.
+[[midasm_hook]]
+address = 0x82190AD4
+name = "FutariSelectLocalController"
+registers = ["r11"]

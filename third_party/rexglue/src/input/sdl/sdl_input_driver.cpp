@@ -16,6 +16,7 @@
 #include <rex/chrono/clock.h>
 #include <rex/cvar.h>
 #include <rex/input/flags.h>
+#include <rex/input/gamepad_mapping.h>
 #include <rex/input/sdl/sdl_input_driver.h>
 #include <rex/logging.h>
 #include <rex/ui/virtual_key.h>
@@ -293,6 +294,10 @@ X_RESULT SDLInputDriver::GetKeystroke(uint32_t users, uint32_t flags,
   auto is_active = this->is_active();
 
   if (is_active) {
+    // Match GetState: guest reads must not wait for the UI's next event pump.
+    if (attached_window_ && !attached_window_->app_context().IsInUIThread()) {
+      SDL_UpdateGamepads();
+    }
     QueueControllerUpdate();
   }
 
@@ -312,10 +317,10 @@ X_RESULT SDLInputDriver::GetKeystroke(uint32_t users, uint32_t flags,
     // If input is not active (e.g. due to a dialog overlay), force buttons to
     // "unpressed". The algorithm will automatically send UP events when
     // `is_active()` goes low and DOWN events when it goes high again.
+    auto gamepad = controller->state.gamepad;
+    RemapPhysicalGamepad(gamepad);
     const uint64_t curr_butts =
-        is_active
-            ? (controller->state.gamepad.buttons | AnalogToKeyfield(controller->state.gamepad))
-            : uint64_t(0);
+        is_active ? (gamepad.buttons | AnalogToKeyfield(gamepad)) : uint64_t(0);
     KeystrokeState& last = keystroke_states_.at(user_index);
 
     // Handle repeating
@@ -325,7 +330,7 @@ X_RESULT SDLInputDriver::GetKeystroke(uint32_t users, uint32_t flags,
         (last.repeat_time + HID_SDL_REPEAT_DELAY < guest_now)) {
       last.repeat_state = RepeatState::Repeating;
     }
-    if (last.repeat_state == RepeatState::Repeating &&
+    if (curr_butts == last.buttons && last.repeat_state == RepeatState::Repeating &&
         (last.repeat_time + HID_SDL_REPEAT_RATE < guest_now)) {
       last.repeat_time = guest_now;
       rex::ui::VirtualKey vk = kVkLookup.at(last.repeat_butt_idx);
