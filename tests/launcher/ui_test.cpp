@@ -162,6 +162,42 @@ void UpdateChecks() {
   Require(app.update_auto && !app.update_request,"Refresh ignored enabled setting or bypassed cache");
   update_responses.push_back(IDCANCEL);app.UpdateTick();
   Require(update_notices.size()==before+3,"Reenabled reminder missing");
+
+  app.packaged_update=true;
+  app.update_state.latest->program=update::ProgramAsset{
+    "https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v9.2/EVAC-PC-LABEL-v9.2-win-x64.zip",
+    std::string(64,'a'),123};
+  app.download_program=[](const fs::path&,const update::Release&){throw std::runtime_error("offline fixture");};
+  app.UpdateTick();
+  Require(app.program_download.has_value() && !app.ProgramReady(),"Unverified download activated the red dot");
+  const auto settle_download=[&] {
+    for(unsigned n=0;n<200 && app.program_download;++n) {
+      Sleep(5);
+      app.UpdateTick();
+    }
+    Require(!app.program_download,"Program download fixture did not finish");
+  };
+  settle_download();
+  Require(!app.ProgramReady() && update_notices.size()==before+3,"Failed download opened an update prompt");
+  app.UpdateTick();
+  Require(!app.program_download,"Failed download immediately retried");
+  app.program_retry={};
+  app.download_program=[](const fs::path&,const update::Release&){};
+  app.UpdateTick();settle_download();
+  Require(app.ProgramReady() && update_notices.size()==before+3,"Verified update required a modal announcement");
+  app.child.emplace();frame.Click(app.layout.update_badge());app.child.reset();
+  Require(update_notices.size()==before+3,"Update opened during play");
+  update_responses.push_back(IDCANCEL);frame.Click(app.layout.update_badge());
+  Require(app.ProgramReady() && update_notices.back().ends_with(L"v9.2"),"Update badge did not open the matching release");
+  static std::wstring requested_update;
+  requested_update.clear();
+  app.start_update_worker=[](const fs::path& root,std::wstring_view action){
+    if(!fs::is_regular_file(ConfigPath(root)))throw std::runtime_error("Incorrect update root");
+    requested_update=action;
+  };
+  update_responses.push_back(IDYES);frame.Click(app.layout.update_badge());
+  Require(app.close_requested && requested_update==L"v9.2" &&
+          update::Load(fixture.root).latest->program==app.update_state.latest->program,"Restart lost the verified release asset");
   update_foreground=nullptr;
 }
 void CoverLayoutChecks() {

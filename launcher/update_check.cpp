@@ -14,6 +14,11 @@ namespace cave::launcher::update {
 namespace {
 using Json=nlohmann::json;
 constexpr size_t kResponseLimit=128*1024,kCacheLimit=256*1024,kNotesLimit=12000;
+constexpr std::string_view kProgramPrefix="https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/";
+constexpr uint64_t kMaxDownload=1024ull*1024*1024;
+std::string ProgramName(std::string_view tag) {
+  return "EVAC-PC-LABEL-"+std::string(tag)+"-win-x64.zip";
+}
 std::string Notes(std::string value) {
   if(value.size()>kNotesLimit) {
     size_t end=kNotesLimit;
@@ -67,6 +72,15 @@ std::optional<Version> ParseVersion(std::string_view value) {
 bool Trusted(const Release& release) {
   return ParseVersion(release.tag).has_value() && release.url==std::string(kReleasePrefix)+release.tag;
 }
+bool ValidSha256(std::string_view text) {
+  return text.size()==64 && text.find_first_not_of("0123456789abcdef")==text.npos;
+}
+bool TrustedProgram(const Release& release) {
+  if(!Trusted(release) || !release.program)return false;
+  const auto& asset=*release.program;
+  return asset.bytes && asset.bytes<=kMaxDownload && ValidSha256(asset.sha256) &&
+         asset.url==std::string(kProgramPrefix)+release.tag+"/"+ProgramName(release.tag);
+}
 bool Newer(std::string_view local,const Release& release) {
   const auto current=ParseVersion(local),remote=ParseVersion(release.tag);
   return current && remote && Trusted(release) && *remote>*current;
@@ -78,6 +92,20 @@ std::optional<Release> ParseRelease(std::string_view body) {
   Release release{json.at("tag_name").get<std::string>(),json.at("html_url").get<std::string>(),{}};
   if(!Trusted(release))throw std::runtime_error("Unexpected release version or page");
   if(json.contains("body") && !json.at("body").is_null())release.notes=Notes(json.at("body").get<std::string>());
+  if(const auto assets=json.find("assets");assets!=json.end() && assets->is_array()) {
+    const auto name=ProgramName(release.tag);
+    for(const auto& asset:*assets) {
+      if(!asset.is_object() || asset.value("name",std::string{})!=name || asset.value("state",std::string{})!="uploaded")continue;
+      const auto digest=asset.find("digest"),size=asset.find("size"),url=asset.find("browser_download_url");
+      if(digest==asset.end() || !digest->is_string() || size==asset.end() || !size->is_number_unsigned() ||
+         url==asset.end() || !url->is_string())continue;
+      const auto& value=digest->get_ref<const std::string&>();
+      if(!value.starts_with("sha256:"))continue;
+      release.program=ProgramAsset{url->get<std::string>(),value.substr(7),size->get<uint64_t>()};
+      if(TrustedProgram(release))break;
+      release.program.reset();
+    }
+  }
   return release;
 }
 bool Enabled(const Ini& ini) {
@@ -110,6 +138,11 @@ State Load(const fs::path& root) noexcept {
       const auto& item=json.at("latest");
       Release release{item.at("tag").get<std::string>(),item.at("url").get<std::string>(),Notes(item.at("notes").get<std::string>())};
       if(!Trusted(release))return {};
+      if(const auto program=item.find("program");program!=item.end()) {
+        release.program=ProgramAsset{program->at("url").get<std::string>(),program->at("sha256").get<std::string>(),
+                                     program->at("bytes").get<uint64_t>()};
+        if(!TrustedProgram(release))release.program.reset();
+      }
       result.latest=std::move(release);
     }
     const auto& notified=json.at("notified");if(!notified.is_array() || notified.size()>1024)return {};
@@ -122,6 +155,10 @@ void Save(const fs::path& root,const State& state) {
   if(state.latest) {
     if(!Trusted(*state.latest))throw std::runtime_error("Untrusted update cache page");
     json["latest"]={{"tag",state.latest->tag},{"url",state.latest->url},{"notes",Notes(state.latest->notes)}};
+    if(TrustedProgram(*state.latest)) {
+      const auto& asset=*state.latest->program;
+      json["latest"]["program"]={{"url",asset.url},{"sha256",asset.sha256},{"bytes",asset.bytes}};
+    }
   }
   const auto bytes=json.dump(2);if(bytes.size()>kCacheLimit || state.notified.size()>1024)throw std::runtime_error("Update cache too large");
   const auto path=CacheFile(root);fs::create_directories(path.parent_path());
@@ -133,6 +170,14 @@ void Save(const fs::path& root,const State& state) {
   if(!okay || !MoveFileExW(pending.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)) {
     DeleteFileW(pending.c_str());throw std::runtime_error("Cannot save update cache");
   }
+}
+fs::path UpdateStorage(const fs::path& root) {
+  const auto directory=CacheFile(root).parent_path()/"updates";
+  const auto flags=GetFileAttributesW(directory.c_str());
+  if(flags!=INVALID_FILE_ATTRIBUTES &&
+     (!(flags&FILE_ATTRIBUTE_DIRECTORY) || (flags&FILE_ATTRIBUTE_REPARSE_POINT)))
+    throw std::runtime_error("Update storage must be a local directory");
+  return directory;
 }
 Result Fetch() {
   try {

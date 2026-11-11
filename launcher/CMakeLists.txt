@@ -1,4 +1,4 @@
-add_library(cave_update STATIC update_check.cpp log_upload.cpp)
+add_library(cave_update STATIC update_check.cpp program_update.cpp log_upload.cpp)
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/rexglue/thirdparty/inja/third_party/include/nlohmann/json.hpp")
   message(FATAL_ERROR "Restore launcher JSON dependency: git submodule update --init -- third_party/rexglue/thirdparty/inja")
 endif()

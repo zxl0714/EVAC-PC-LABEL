@@ -36,8 +36,12 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   notifications and commits an accepted choice. The library persists order and
   hidden IDs across cover and banner layouts. Dragging, hiding with or without
   data, the eye toggle, keyboard navigation and the all-hidden case passed
-  the 4,652 launcher checks. Live first-open reproduction and update download
-  and installation are pending.
+  the launcher checks. Actual first-open reproduction is pending.
+- The launcher updater passed 69 release/installation checks and the launcher
+  UI suite passed 4,664 checks. A published v0.9.8 ZIP downloaded through
+  WinHTTP, verified, updated an isolated v0.9.7 installation, and restarted
+  its launcher. The config, save and game-data sentinels were preserved.
+  Evidence .local/v099/updater-real-aeed1f71/update-test-result.json.
 
 Nov10 v0.9.8 published on GitHub as Latest. Frozen source ebdc8110d34d57b99513c0ba827768b3410edcdd.
 Program ZIP: releases/v0.9.8-local-ebdc811/EVAC-PC-LABEL-v0.9.8-win-x64.zip.

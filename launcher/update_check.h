@@ -12,8 +12,18 @@ inline constexpr std::string_view kApi="https://api.github.com/repos/zxl0714/EVA
 inline constexpr std::string_view kReleasePrefix="https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/";
 using Version=std::array<uint32_t,4>;
 std::optional<Version> ParseVersion(std::string_view value);
-struct Release {std::string tag,url,notes;};
+struct ProgramAsset {
+  std::string url,sha256;
+  uint64_t bytes{};
+  bool operator==(const ProgramAsset&) const=default;
+};
+struct Release {
+  std::string tag,url,notes;
+  std::optional<ProgramAsset> program{};
+};
 bool Trusted(const Release& release);
+bool ValidSha256(std::string_view text);
+bool TrustedProgram(const Release& release);
 bool Newer(std::string_view local,const Release& release);
 std::optional<Release> ParseRelease(std::string_view json);
 struct State {
@@ -27,6 +37,7 @@ bool Due(const State& state,int64_t now);
 bool ShouldNotify(const State& state,std::string_view local);
 State Load(const fs::path& root) noexcept;
 void Save(const fs::path& root,const State& state);
+fs::path UpdateStorage(const fs::path& root);
 struct Result {bool okay{};std::optional<Release> release;std::string error;};
 Result Fetch();
 void Apply(State& state,const Result& result,int64_t now);

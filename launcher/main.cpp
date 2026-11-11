@@ -13,6 +13,7 @@
 #include "launcher/nickname.h"
 #include "launcher/single_instance.h"
 #include "launcher/update_check.h"
+#include "launcher/program_update.h"
 #include "launcher/log_upload.h"
 #include "launcher/input_settings.h"
 #include "common/config_update.h"
@@ -159,6 +160,8 @@ struct Options {
   fs::path root,data,preview;
   std::string game,profile="default",selection;
   std::optional<Language> language;
+  std::wstring update_action;
+  unsigned long update_parent{};
 };
 Options Arguments() {
   Options options;options.root=DefaultRoot();
@@ -176,11 +179,21 @@ Options Arguments() {
       else if (key==L"--data-dir") options.data=value;
       else if (key==L"--render-preview") options.preview=value;
       else if (key==L"--language") options.language=cave::launcher::ParseLanguage(Utf8(value));
+      else if (key==L"--apply-update") options.update_action=value;
+      else if (key==L"--update-parent") {
+        const std::wstring_view pid=value;
+        if(pid.empty() || pid.find_first_not_of(L"0123456789")!=pid.npos)
+          throw std::runtime_error("Invalid update parent process");
+        options.update_parent=std::stoul(value);
+      }
       else throw std::runtime_error("Unknown launcher option");
     }
   } catch (...) {LocalFree(arguments);throw;}
   LocalFree(arguments);
   options.root=fs::canonical(options.root);
+  if(options.update_action.empty()!=(!options.update_parent) ||
+     (!options.update_action.empty() && (!options.game.empty() || !options.preview.empty())))
+    throw std::runtime_error("Invalid update worker options");
   if (!options.data.empty() && options.game.empty()) throw std::runtime_error("--data-dir requires --game");
   if (!options.game.empty()) (void)FindGame(options.game);
   if (!options.selection.empty()) (void)FindGame(options.selection);
@@ -292,13 +305,17 @@ struct Layout {
     const auto left=language_choice(0).left-36;
     return {left,16,left+28,44};
   }
+  D2D1_RECT_F update_badge() const {
+    const auto right=hidden_games().left-6;
+    return {right-24,16,right,44};
+  }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
   D2D1_RECT_F refresh() const {return {margin()+92,height-45,margin()+151,height-14};}
   D2D1_RECT_F detail() const {return {margin()+422,height-45,margin()+479,height-14};}
   D2D1_RECT_F focus_button(int slot) const {
     switch(slot) {
     case 4:return config(); case 5:return logs(); case 6:return data();
-    case 7:return refresh(); case 8:return play(); case 13:return controls(); case 14:return hidden_games();
+    case 7:return refresh(); case 8:return play(); case 13:return controls(); case 14:return hidden_games(); case 15:return update_badge();
     default:return detail();
     }
   }
@@ -429,7 +446,7 @@ class Renderer {
   }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
-            std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr) {
+            std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr,bool update_ready=false) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     const auto brand=Logo(target);const auto brand_size=brand->GetSize();
@@ -462,6 +479,13 @@ class Renderer {
       target->FillEllipse(D2D1::Ellipse(center,2.2f,2.2f),brush.Get());
       if(!library->show_hidden)
         target->DrawLine({center.x-8,center.y+7},{center.x+8,center.y-7},brush.Get(),1.35f);
+    }
+    if(update_ready) {
+      const auto badge=layout.update_badge();
+      const D2D1_POINT_2F center{(badge.left+badge.right)/2,(badge.top+badge.bottom)/2};
+      ComPtr<ID2D1SolidColorBrush> brush;
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(0xb93836),&brush),"Create update indicator");
+      target->FillEllipse(D2D1::Ellipse(center,4.5f,4.5f),brush.Get());
     }
     {
       const auto r=layout.nickname();
@@ -566,7 +590,7 @@ class Renderer {
     Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games);
     Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"上传日志"),false,busy||running);
     Button(target,layout.detail(),T(L"详情"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
-    if ((focus>=4 && focus<10) || focus==13 || focus==14) {
+    if ((focus>=4 && focus<10) || focus==13 || focus==14 || (focus==15 && update_ready)) {
       const auto rectangle=layout.focus_button(focus);
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
       target->DrawRoundedRectangle(D2D1::RoundedRect({rectangle.left-3,rectangle.top-3,rectangle.right+3,rectangle.bottom+3},10,10),brush.Get(),2);
@@ -628,29 +652,47 @@ class App {
     }catch(const std::exception& error){Log(options.root,error.what());}
   }
   void StartUpdates() {
+    packaged_update=update::PackagedInstallation(options.root,cave::launcher::kProductVersion);
     update_state=update::Load(options.root);RefreshUpdates();
     SetTimer(hwnd,kUpdateTimer,500,nullptr);
   }
   bool HasUpdate() const {return update_state.latest && update::Newer(cave::launcher::kProductVersion,*update_state.latest);}
+  bool ProgramReady() const {
+    return update_auto && HasUpdate() && ready_program && ready_program->tag==update_state.latest->tag &&
+           ready_program->program==update_state.latest->program;
+  }
   void ShowUpdate() {
-    if(update_dialog || child || busy || !HasUpdate())return;
+    if(update_dialog || child || busy || close_requested || !HasUpdate())return;
+    const bool ready=ProgramReady();
+    if(ready && GameIsRunning(options.root))return;
     update_dialog=true;struct Guard{bool& value;~Guard(){value=false;}} guard{update_dialog};
     const auto release=*update_state.latest;
-    const auto title=std::wstring(T(L"发现新版本 "))+Wide(release.tag);
-    auto notes=release.notes.empty()?std::wstring(T(L"发布页提供更新说明和下载。")):Wide(release.notes);
+    const auto title=std::wstring(ready?T(L"可更新到 "):T(L"发现新版本 "))+Wide(release.tag);
+    auto notes=release.notes.empty()
+        ?std::wstring(ready?T(L"重启启动器以安装更新。"):T(L"发布页提供更新说明和下载。"))
+        :Wide(release.notes);
     size_t cut=0,lines=0;
     for(;cut<notes.size() && cut<800 && lines<12;++cut)if(notes[cut]==L'\n')++lines;
     if(cut<notes.size()) {
       if(cut && notes[cut-1]>=0xd800 && notes[cut-1]<=0xdbff)--cut;
       notes.resize(cut);notes+=L"\n…";
     }
-    const TASKDIALOG_BUTTON buttons[]{{IDYES,T(L"打开发布页")},{IDCANCEL,T(L"关闭")}};
+    const TASKDIALOG_BUTTON buttons[]{{IDYES,ready?T(L"重启并更新"):T(L"打开发布页")},{IDCANCEL,T(L"关闭")}};
     TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);dialog.hwndParent=hwnd;
     dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
     dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=title.c_str();dialog.pszContent=notes.c_str();
     dialog.cButtons=UINT(std::size(buttons));dialog.pButtons=buttons;dialog.nDefaultButton=IDCANCEL;
     dialog.cxWidth=420;int result=IDCANCEL;
     Check(TaskDialogIndirect(&dialog,&result,nullptr,nullptr),"Show update notice");
+    if(ready) {
+      if(result==IDYES && !GameIsRunning(options.root) && SavePreferences()) {
+        update::Save(options.root,update_state);
+        start_update_worker(options.root,Wide(release.tag));
+        close_requested=true;
+        PostMessageW(hwnd,WM_CLOSE,0,0);
+      }
+      return;
+    }
     // Only a successfully displayed dialog counts as a reminder. Fetching,
     // caching and deferring while a game runs never mark the release as shown.
     update_state.notified.insert(release.tag);SaveUpdateState();
@@ -662,13 +704,34 @@ class App {
       if(auto result=update_request->Poll()) {
         update_request.reset();update::Apply(update_state,*result,update::Now());SaveUpdateState();
         if(!result->okay)Log(options.root,"update-check: "+result->error);
+        InvalidateRect(hwnd,nullptr,FALSE);
       }
+    }
+    if(program_download) {
+      if(auto result=program_download->Poll()) {
+        program_download.reset();
+        if(result->okay)ready_program=std::move(result->release);
+        else {
+          program_retry=std::chrono::steady_clock::now()+std::chrono::minutes(5);
+          Log(options.root,"program-update: "+result->error);
+        }
+        InvalidateRect(hwnd,nullptr,FALSE);
+      }
+    }
+    const bool downloadable=packaged_update && HasUpdate() && update::TrustedProgram(*update_state.latest);
+    if(update_auto && downloadable && !ProgramReady() && !program_download && !close_requested &&
+       !child && !busy && std::chrono::steady_clock::now()>=program_retry) {
+      program_download.emplace([root=options.root,release=*update_state.latest,download=download_program]{
+        download(root,release);
+        return update::Result{true,release,{}};
+      });
     }
     // Do not interrupt a running game, another application, minimization or an
     // in-progress nickname edit. Leave the reminder pending until the launcher
     // is in use again.
     if(child || busy || close_requested || preferences_dirty || !IsWindowVisible(hwnd) || IsIconic(hwnd) || GetForegroundWindow()!=hwnd)return;
-    if(update_auto && !update_request && update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
+    if(update_auto && !downloadable && !update_request &&
+       update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
   }
   void ShowDetails() {
     if(busy || child || library.visible.empty() || Catalogue()[selected].coming_soon)return;
@@ -852,6 +915,7 @@ class App {
     if(!busy&&!child)Refresh();
   }
   void LaunchSelected() {
+    if(close_requested)return;
     if(busy||child||library.visible.empty()||!CanPlay(rows[selected].inspection))return;
     if(SavePreferences())Refresh(true);
   }
@@ -873,7 +937,7 @@ class App {
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
-        constexpr int slots=15;
+        constexpr int slots=16;
         for(int step=0;step<slots;++step) {
           slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?slots-1:1))%slots;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
@@ -884,6 +948,7 @@ class App {
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
           if(slot==9 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
+          if(slot==15 && !ProgramReady())continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
         }
         return true;
@@ -1105,7 +1170,7 @@ class App {
       }
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint,&library);
+      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint,&library,ProgramReady());
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -1129,6 +1194,7 @@ class App {
       }
       return;
     }
+    if(ProgramReady() && Inside(layout.update_badge(),x,y)){ShowUpdate();return;}
     if(Inside(layout.hidden_games(),x,y)){ToggleHiddenGames();return;}
     if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))show_reports(hwnd,options.root,language,{});return;}
     for(size_t index=0;index<3;++index)
@@ -1318,8 +1384,12 @@ class App {
   std::function<update::Result()> update_fetch=update::Fetch;
   decltype(&cave::launcher::reports::Show) show_reports=cave::launcher::reports::Show;
   decltype(&cave::launcher::controls::Show) show_controls=cave::launcher::controls::Show;
-  std::optional<update::Request> update_request;
-  bool update_auto{},update_dialog{};
+  std::optional<update::Request> update_request,program_download;
+  std::optional<update::Release> ready_program;
+  std::chrono::steady_clock::time_point program_retry{};
+  decltype(&update::DownloadProgram) download_program=update::DownloadProgram;
+  decltype(&update::StartProgramWorker) start_update_worker=update::StartProgramWorker;
+  bool update_auto{},update_dialog{},packaged_update{};
 };
 void Preview(const Options& options) {
   if(fs::exists(options.preview))throw std::runtime_error("Preserve the existing launcher preview");
@@ -1360,13 +1430,17 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     auto options=Arguments();
     render_preview=!options.preview.empty();
     if(render_preview){Preview(options);return 0;}
+    if(!options.update_action.empty())return update::RunProgramWorker(options.root,options.update_action,options.update_parent);
+    const auto recovery=update::RecoveryPending(options.root);
     if(!options.game.empty()) {
+      if(recovery)throw std::runtime_error("Open the launcher to finish update recovery.");
       EnsureConfig(options.root);
       auto spec=PrepareLaunch(FindGame(options.game),options.root,Ini::Load(ConfigPath(options.root)),options.profile,options.data);
       auto child=StartGame(spec);child.Wait();const auto code=child.ExitCode().value_or(1);return int(code);
     }
     cave::launcher::LauncherInstance instance_guard(options.root);
     if(!instance_guard.ActivateOrAcquire())return 0;
+    if(recovery){update::StartProgramWorker(options.root,L"recover");return 0;}
     App app(std::move(options));
     WNDCLASSEXW definition{};definition.cbSize=sizeof(definition);definition.style=CS_HREDRAW|CS_VREDRAW;definition.lpfnWndProc=App::Window;definition.hInstance=instance;
     definition.hCursor=LoadCursorW(nullptr,IDC_ARROW);
