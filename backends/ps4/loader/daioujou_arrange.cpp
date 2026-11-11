@@ -9,6 +9,7 @@ namespace {
 using Json = nlohmann::json;
 constexpr std::string_view kOutput = "arrange/";
 constexpr std::string_view kTitlePcm = "1100/config/title_pcm.psb.m";
+constexpr std::string_view kCommonUi = "1100/motion/title_ui_common.psb.m";
 constexpr std::uint64_t kIndexLimit = 4 * 1024 * 1024;
 constexpr std::uint64_t kWaveLimit = 64 * 1024 * 1024;
 
@@ -42,13 +43,13 @@ public:
             "Invalid DaiOuJou archive index");
     }
 
-    ResourceBytes Read(std::string_view name) const {
+    ResourceBytes Read(std::string_view name, std::uint64_t packed_limit = kIndexLimit) const {
         const auto& entry = index_.at("file_info").at(std::string(name));
         Require(entry.is_array() && entry.size() == 2, "Invalid DaiOuJou archive entry");
         const auto offset = Unsigned(entry[0]);
         const auto length = Unsigned(entry[1]);
         Require(offset <= body_size_ && length > 0 && length <= body_size_ - offset &&
-            length <= kIndexLimit, "DaiOuJou metadata lies outside the archive");
+            length <= packed_limit, "DaiOuJou resource lies outside the archive");
         ResourceBytes packed(static_cast<std::size_t>(length));
         std::ifstream input(body_, std::ios::binary);
         input.seekg(static_cast<std::streamoff>(offset));
@@ -83,6 +84,55 @@ private:
     ResourceBytes tail_;
 };
 
+void ReplaceExpected(std::string& script, std::string_view before, std::string_view after, unsigned count) {
+    std::size_t start{};
+    for (unsigned i = 0; i < count; ++i) {
+        const auto at = script.find(before, start);
+        Require(at != script.npos, "DaiOuJou BGM selection script differs from the verified layout");
+        script.replace(at, before.size(), after);
+        start = at + after.size();
+    }
+    Require(script.find(before, start) == script.npos, "Unexpected duplicate DaiOuJou BGM selection");
+}
+
+void AddArrangeMenu(ArchiveLayer& layer, bool update) {
+    constexpr std::string_view profile_path = "1100/config/title_prof.psb.m";
+    auto profile = ParseResourceIndex(layer.Read(profile_path));
+    auto& settings = profile.at("root");
+    auto& choices = settings.at("bgmmode_num");
+    auto& pause_icons = settings.at("pause_menu_bgm_set_variable_list_bgmset");
+    Require(choices == 3 && pause_icons == Json::array({0, 1, 3}), "Unexpected DaiOuJou BGM menu profile");
+    choices = 4;
+    pause_icons.push_back(2);
+    layer.Add(profile_path, WritePlainPsb(profile, 0), true);
+
+    constexpr std::string_view direct_path = "1100/script/title_mode_direct_menu.nut.m";
+    const auto original = layer.Read(direct_path);
+    std::string direct(original.begin(), original.end());
+    ReplaceExpected(direct, "[0,1,3,3]", "[0,1,3,2]", 2);
+    constexpr std::string_view selected = "m_bgm_mode[_gamemode] = _bgmMode;";
+    constexpr std::string_view save =
+        "m_bgm_mode[_gamemode] = _bgmMode;\n"
+        "        ::g_systemdata.get_value(SystemDataValueIndex.SETTING_SOUND).set_bgm_set_mode(_gamemode, _bgmMode);\n"
+        "        ::g_systemdata.CheckValueChangeAutosave(SystemDataValueIndex.SETTING_SOUND);\n"
+        "        this._check_autosave();";
+    ReplaceExpected(direct, selected, save, 2);
+    layer.Add(direct_path, {reinterpret_cast<const std::uint8_t*>(direct.data()), direct.size()}, true);
+
+    const auto add_motion = [&](std::string_view path, DaioujouArrangeMotion kind) {
+        auto motion = layer.Read(path);
+        ApplyDaioujouArrangeMotion(motion, kind, update);
+        layer.Add(path, motion, true);
+    };
+    if (!update) add_motion("1100/motion/title_ui_direct_ac.psb.m", DaioujouArrangeMotion::Direct);
+    add_motion("1100/motion/title_pause_menu.psb.m", DaioujouArrangeMotion::Pause);
+    add_motion("1100/motion/title_ui_option.psb.m", DaioujouArrangeMotion::Options);
+
+    auto common = layer.Read(kCommonUi, 8 * 1024 * 1024);
+    ApplyDaioujouArrangeArtwork(common, update);
+    layer.Add(kCommonUi, common, true);
+}
+
 void AddPcmDefinitions(ArchiveLayer& layer, const Json& definitions) {
     auto pcm = ParseResourceIndex(layer.Read(kTitlePcm));
     auto& waves = pcm.at("pcm_wav_definition");
@@ -112,7 +162,7 @@ void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
     const auto key = ReadArchiveSeed(executable, merged ? 0xdd : 0xde, true);
     auto definitions = Json::array();
     ArchiveLayer base(data, kBase, key);
-    std::size_t reserve{};
+    std::size_t reserve = 12 * 1024 * 1024;
     for (const auto& track : tracks) reserve += track.at("bytes").get<std::size_t>() + 16 * 1024;
     base.Reserve(reserve);
     for (unsigned i = 0; i < kDaioujouArrangeTrackNames.size(); ++i) {
@@ -127,10 +177,12 @@ void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
             {"no", kDaioujouArrangeFirstPcm + i}, {"stream", false}});
     }
     AddPcmDefinitions(base, definitions);
+    AddArrangeMenu(base, false);
     base.Write(stage);
     if (merged) {
         ArchiveLayer update(data, kUpdate, key);
         AddPcmDefinitions(update, definitions);
+        AddArrangeMenu(update, true);
         update.Write(stage);
     }
 }

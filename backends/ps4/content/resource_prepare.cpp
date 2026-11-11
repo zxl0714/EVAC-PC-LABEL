@@ -21,7 +21,9 @@ namespace cave::ps4 {
 namespace {
 using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
-constexpr std::size_t kArchiveWaveLimit = 64 * 1024 * 1024;
+constexpr std::size_t ResourceLimit(std::string_view name) {
+    return name.ends_with(".wav.m") || name == "title_ui_common.psb.m" ? 64 * 1024 * 1024 : kResourceLimit;
+}
 constexpr std::size_t kPatchLimit = 262144;
 constexpr std::string_view kFeveronExecutableHash = "119851e0b62f06d6eb44ba9227fe989c0e9a2f53bf66558852f4881c8d99ee0b";
 constexpr std::string_view kGareggaExecutableHash = "4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984";
@@ -292,7 +294,7 @@ ResourceBytes ArchiveMask(std::span<const std::uint8_t> seed,std::string_view na
     return mask;
 }
 ResourceBytes UnwrapResource(std::span<const std::uint8_t> source,std::span<const std::uint8_t> seed,std::string_view name) {
-    const auto limit=name.ends_with(".wav.m")?kArchiveWaveLimit:kResourceLimit;
+    const auto limit=ResourceLimit(name);
     Require(source.size()<=limit,"Oversized archive resource");
     if (source.size()<4 || Text(source.first(4))!=std::string("mdf\0",4)) return {source.begin(),source.end()};
     Require(source.size()>=8,"Truncated MDF header");
@@ -314,7 +316,7 @@ ResourceBytes UnwrapResource(std::span<const std::uint8_t> source,std::span<cons
 namespace {
 ResourceBytes PackMdf(std::span<const std::uint8_t> source,std::span<const std::uint8_t> seed,
                       std::string_view name,std::size_t extent,int level) {
-    const auto limit=name.ends_with(".wav.m")?kArchiveWaveLimit:kResourceLimit;
+    const auto limit=ResourceLimit(name);
     Require(source.size()<=limit,"Invalid MDF source extent");
     const auto capacity=compressBound(static_cast<uLong>(source.size()));
     ResourceBytes output(8+capacity);
