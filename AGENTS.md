@@ -52,7 +52,13 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   not sample-exact output or all-event playback. Evidence in
   .local/v099/arrange-live/01.04/gadget-audio/. 01.00 entered Stage 1 in
   .local/v099/arrange-live/01.00/gadget-base/. Both test processes closed.
-  Volume, long-loop and missing-import saved-mode fallback still need acceptance.
+  Volume and loop acceptance passed in short-loop-live/audio-acceptance.json.
+  Only a private fixture changes the selection track loop end to 4 seconds;
+  the production PCM and 13 source loop points remain exact. Nine actual
+  player loop cycles were captured. The 65%/70% output amplitude ratio is
+  0.9289 (expected 0.9286). The saved fourth-choice profile falls back to
+  ARCADE with the original archive; missing-import-saved-mode/acceptance.json.
+  All music test windows closed. No further music gameplay repetition needed.
   The Direct Menu compact frame scales to 132x28. The new badge follows the
   original musical note, graded dot texture, border, and typography. Its
   magenta palette is distinct from the three original in-game choices.
@@ -101,7 +107,11 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   .local/v099/futari-start/{slot1,slot1-fixed,keyboard-fixed}/.
   Both test processes closed. The InputSystem object layout changed: rebuild
   all four Xbox 360 hosts against the installed SDK before packaging; do not
-  copy only the new DLL into an older player installation.
+  copy only the new DLL into an older player installation. All four hosts were
+  rebuilt and staged at 23b5527; PS4 and PS2 receipts were also refreshed.
+  The first package attempt correctly rejected the old PS2 common input;
+  Build-Ps2 finished its existing full graph incrementally (46 targets),
+  with matching private symbols and both game runtimes staged.
   The SDL GetKeystroke refresh/remap/release fix has four failures reproduced
   before, zero after. Futari's sole
   keystroke caller requests keyboard flags=2, so do not label that fix as
