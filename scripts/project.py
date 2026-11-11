@@ -15,6 +15,12 @@ TEXT = {'.py', '.ps1', '.md', '.txt', '.json', '.ini', '.cpp', '.h', '.hpp', '.c
         '.psm1', '.psd1', '.html', '.rc', '.java'}
 SECRET = re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|'
                     rb'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}')
+RUNTIME_ARTWORK = {
+    'backends/ps4/artwork/x-arrange-184x40.png':
+        '63d2b6995a805c840f2f6c93d4ce30ca8a7009b9c36cfbe213192f8a2a3c8777',
+    'backends/ps4/artwork/x-arrange-264x56.png':
+        'deb4bb75632dd6f6c02e304ff049284642361074d133d6a7b1f54b155a2c489f',
+}
 
 
 def digest(path):
@@ -82,6 +88,12 @@ def audit_source(root=ROOT):
             raise ValueError(f'Local data in source selection: {name}')
         path = root / name
         reject_link(path)
+        if name in RUNTIME_ARTWORK:
+            if digest(path) != RUNTIME_ARTWORK[name]:
+                raise ValueError(f'Runtime artwork differs from the reviewed image: {name}')
+            count += 1
+            total += path.stat().st_size
+            continue
         if name == 'docs/images/launcher.png':
             if digest(path) != 'eeb1d684791155508359bdbe465ea342481b8cfc07251ee24a9d1f01c57708bc':
                 raise ValueError('README launcher screenshot differs from the reviewed image')

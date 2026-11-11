@@ -45,6 +45,26 @@ class SourceBoundaryTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     project.audit_source(root)
 
+    def test_runtime_artwork_requires_reviewed_path_and_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.audit_fixture(root)
+            for name in project.RUNTIME_ARTWORK:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                original = (project.ROOT / name).read_bytes()
+                path.write_bytes(original)
+                self.assertEqual(project.audit_source(root)['files'], 2)
+                path.write_bytes(original + b'changed')
+                with self.assertRaisesRegex(ValueError, 'Runtime artwork differs'):
+                    project.audit_source(root)
+                path.unlink()
+                other = path.with_name('unreviewed.png')
+                other.write_bytes(original)
+                with self.assertRaisesRegex(ValueError, 'Unexpected source file'):
+                    project.audit_source(root)
+                other.unlink()
+
     def test_authored_paths_are_ascii_but_checkout_path_can_be_unicode(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)/'项目'
