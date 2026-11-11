@@ -10,7 +10,7 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.9.9 is active. The six work items and remaining acceptance checks are at
+v0.9.9 is active. The eight work items and remaining acceptance checks are at
 the top of docs/IMPLEMENTATION_PLAN.md.
 
 - PS4 startup reserves the main image and prepared module address ranges
@@ -25,9 +25,12 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   The importer reads the two banks from XDVDFS, verifies their identities,
   and saves 14 WAVs under user-data/daioujou/x-arrange. The real ISO import,
   cancellation, 14 PCM comparisons and 13 loop-point comparisons passed.
-  Evidence .local/v099/arrange-import-38c72c27/. Both PS4 versions use the
-  title PCM table for wave definitions and the core x-bgm attribute for
-  routing. The fourth menu item, artwork and playback are pending.
+  Evidence .local/v099/arrange-import-38c72c27/. Prepared PS4 archives for
+  01.00 and 01.04 mount successfully. The 14 appended WAVs decode byte-for-byte,
+  the existing PCM rows and other index entries are preserved, and native
+  reads across the original/extension boundary pass. Evidence
+  .local/v099/arrange-archive-validation/. Native x-bgm routing, fourth menu
+  item, artwork and live playback remain pending.
 - Issue #11: DaiOuJou and ESP Ra.De. 01.00 and 01.04 accept known decrypted
   program fingerprints in addition to exact original hashes. ESP Ra.De.
   01.00 has its own manifest, seed location and core preparation. The four
