@@ -145,7 +145,8 @@ int KT_SYSV ContentUnmount(const MountPoint* point) { return Unmount(point, __bu
 int KT_SYSV ContentKey(unsigned service, const Label* label, void* output) { return Key(service, label, output, __builtin_return_address(0)); }
 }
 
-void ConfigureNativeContent(const std::filesystem::path& app, const std::filesystem::path& patch, const std::filesystem::path& addons, const std::filesystem::path& user_directory, const std::filesystem::path& read_patches,bool merged_patch) {
+void ConfigureNativeContent(const std::filesystem::path& app, const std::filesystem::path& patch, const std::filesystem::path& addons, const std::filesystem::path& user_directory, const std::filesystem::path& read_patches,bool merged_patch,
+                            const std::filesystem::path& arrange_archive) {
     if (!user_directory.empty()) {
         const auto user = std::filesystem::weakly_canonical(user_directory);
         const auto under = [](const auto& child, const auto& parent) {
@@ -161,7 +162,7 @@ void ConfigureNativeContent(const std::filesystem::path& app, const std::filesys
             if (under(user, root) || under(root, user)) { throw std::runtime_error("User data and original content directories must be separate"); }
         }
     }
-    auto candidate = std::make_shared<kt::content::ContentView>(app, patch, addons, read_patches,merged_patch);
+    auto candidate = std::make_shared<kt::content::ContentView>(app, patch, addons, read_patches,merged_patch,arrange_archive);
     std::lock_guard lock(state.mutex);
     if (state.view || state.references) { throw std::runtime_error("Content configuration is immutable after setup"); }
     state.view = std::move(candidate);

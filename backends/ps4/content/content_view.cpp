@@ -106,15 +106,21 @@ std::size_t ReadOnlyFile::ReadAt(std::uint64_t offset, std::span<std::byte> outp
     std::unique_lock lock(mutex_);
     if (info_.directory) { Invalid("Cannot read content directory as a file"); }
     if (offset >= info_.size || output.empty()) { return 0; }
-    LARGE_INTEGER position{}; position.QuadPart = static_cast<LONGLONG>(offset);
-    if (!SetFilePointerEx(handle_, position, nullptr, FILE_BEGIN)) { Invalid("Content seek failed"); }
     const auto wanted = static_cast<std::size_t>((std::min)(info_.size - offset, static_cast<std::uint64_t>(output.size())));
+    const auto original = offset < original_size_ ?
+        static_cast<std::size_t>((std::min)(original_size_ - offset, static_cast<std::uint64_t>(wanted))) : 0;
+    if (original) {
+        LARGE_INTEGER position{}; position.QuadPart = static_cast<LONGLONG>(offset);
+        if (!SetFilePointerEx(handle_, position, nullptr, FILE_BEGIN)) { Invalid("Content seek failed"); }
+    }
     std::size_t total = 0;
-    while (total < wanted) {
-        const auto chunk = static_cast<DWORD>((std::min)(wanted - total, std::size_t{1} << 30)); DWORD received{};
+    while (total < original) {
+        const auto chunk = static_cast<DWORD>((std::min)(original - total, std::size_t{1} << 30)); DWORD received{};
         if (!ReadFile(handle_, output.data() + total, chunk, &received, nullptr)) { Invalid("Content read failed"); }
         total += received; if (received != chunk) { break; }
     }
+    if (total == original && total < wanted && archive_tail_)
+        total += archive_tail_->ReadAt(offset + total - original_size_, output.subspan(total, wanted - total));
     struct Applied { std::uint64_t offset,bytes; };
     std::array<Applied,16> applied; std::size_t applied_count{}; unsigned bit=1;
     if (read_patches_.size()>applied.size()) { Invalid("Too many content read overlays"); }
@@ -154,7 +160,16 @@ void ReadOnlyFile::InstallReadPatches(std::shared_ptr<const ReadPatchSet> patche
     }
     read_patches_ = std::move(selected);
 }
-ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::path& addons, const fs::path& read_patches,bool merged_patch)
+void ReadOnlyFile::AppendArchive(std::unique_ptr<ReadOnlyFile> tail) {
+    if (!tail || archive_tail_ || info_.directory || tail->Info().directory || !tail->Size() ||
+        tail->Size() > 512ull*1024*1024 || original_size_ > INT64_MAX-tail->Size())
+        Invalid("Invalid X Arrange archive extension");
+    info_.size += tail->Size();
+    info_.allocation += tail->Info().allocation;
+    archive_tail_ = std::move(tail);
+}
+ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::path& addons,
+                         const fs::path& read_patches,bool merged_patch,const fs::path& arrange_archive)
     : app_(Root(app)), metadata_(ReadSfo(app_)) {
     title_ = Required(metadata_, "TITLE_ID"); content_ = Required(metadata_, "CONTENT_ID"); Identity(title_, content_);
     if (merged_patch) {
@@ -203,6 +218,22 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
             addons_.push_back(std::move(item));
         }
     }
+    if (!arrange_archive.empty()) {
+        const auto version = Required(metadata_, "APP_VER");
+        if (title_ != "CUSA32997" || (version != "01.00" && version != "01.04") ||
+            (version == "01.04") != merged_patch || !patch_.empty())
+            Invalid("X Arrange archive does not match the selected DaiOuJou version");
+        arrange_archive_ = Root(arrange_archive);
+        arrange_merged_ = merged_patch;
+        for (const auto* path : {"ps4data_info.psb.m", "ps4data_body.bin"}) {
+            if (!OpenApp0(path)) Invalid("Missing X Arrange base archive file");
+        }
+        if (merged_patch) {
+            for (const auto* path : {"ps4data_patch_info.psb.m", "ps4data_patch_body.bin"}) {
+                if (!OpenApp0(path)) Invalid("Missing X Arrange update archive file");
+            }
+        }
+    }
     if (!read_patches.empty()) {
         auto prepared = std::make_shared<ReadPatchSet>(ReadPatchSet::Load(read_patches));
         if (prepared->title != title_ || metadata_.Text("APP_VER") != prepared->version) { Invalid("Read overlay application identity differs"); }
@@ -219,6 +250,14 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
 }
 std::unique_ptr<ReadOnlyFile> ContentView::OpenApp0(std::string_view path, bool allow_directory) const {
     const auto relative = path.empty() && allow_directory ? fs::path{} : Relative(path);
+    const bool arrange = !arrange_archive_.empty();
+    const bool arrange_update = arrange && arrange_merged_;
+    if ((arrange && path == "ps4data_info.psb.m") ||
+        (arrange_update && path == "ps4data_patch_info.psb.m")) {
+        auto index=Open(arrange_archive_,relative);
+        if (!index || index->Size()<8 || index->Size()>4*1024*1024)Invalid("Invalid X Arrange archive index");
+        return index;
+    }
     std::unique_ptr<ReadOnlyFile> file;
     if (!patch_.empty()) { file = Open(patch_, relative, allow_directory); }
     if (!file) { file = Open(app_, relative, allow_directory); }
@@ -226,6 +265,9 @@ std::unique_ptr<ReadOnlyFile> ContentView::OpenApp0(std::string_view path, bool 
         const auto name = relative.generic_u8string();
         file->InstallReadPatches(read_patches_, {reinterpret_cast<const char*>(name.data()), name.size()});
     }
+    if (file && ((arrange && path == "ps4data_body.bin") ||
+                 (arrange_update && path == "ps4data_patch_body.bin")))
+        file->AppendArchive(Open(arrange_archive_, relative));
     return file;
 }
 std::unique_ptr<ReadOnlyFile> ContentView::OpenAddon(std::size_t index, std::string_view path, bool allow_directory) const {

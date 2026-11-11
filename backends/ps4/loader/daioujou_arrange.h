@@ -1,0 +1,17 @@
+#pragma once
+#include "prepared_cache.h"
+#include <array>
+
+namespace cave::ps4 {
+inline constexpr unsigned kDaioujouArrangeFirstPcm = 0x187;
+inline constexpr std::array<std::string_view, 14> kDaioujouArrangeTrackNames{
+    "ddo_arr_psel", "ddo_arr_govr", "ddo_arr_sclr", "ddo_arr_name",
+    "ddo_arr_stg1", "ddo_arr_boss", "ddo_arr_stg2", "ddo_arr_stg3",
+    "ddo_arr_stg4", "ddo_arr_stg5", "ddo_arr_lbs1", "ddo_arr_lbs3",
+    "ddo_arr_aendg_full", "ddo_arr_aendg_short",
+};
+void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged);
+void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
+    const fs::path& stage, const nlohmann::json& tracks,
+    std::span<const std::uint8_t> executable, bool merged);
+}

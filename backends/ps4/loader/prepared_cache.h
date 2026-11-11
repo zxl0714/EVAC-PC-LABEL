@@ -19,7 +19,7 @@ PreparedCache EnsurePreparedCache(const fs::path& root,const fs::path& data,
 void WritePreparedRelative(const fs::path& stage,std::string_view name,std::span<const std::uint8_t> bytes);
 struct PreparedGame {
     PreparedCache cache;
-    fs::path executable,modules,read_fixes;
+    fs::path executable,modules,read_fixes,arrange_archive;
 };
 PreparedGame PrepareKetsuiGame(const fs::path& root,const fs::path& data);
 PreparedGame PreparePs4Game(const fs::path& root,const fs::path& data,std::string_view game);

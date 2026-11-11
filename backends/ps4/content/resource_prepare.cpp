@@ -21,6 +21,7 @@ namespace cave::ps4 {
 namespace {
 using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
+constexpr std::size_t kArchiveWaveLimit = 64 * 1024 * 1024;
 constexpr std::size_t kPatchLimit = 262144;
 constexpr std::string_view kFeveronExecutableHash = "119851e0b62f06d6eb44ba9227fe989c0e9a2f53bf66558852f4881c8d99ee0b";
 constexpr std::string_view kGareggaExecutableHash = "4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984";
@@ -291,10 +292,11 @@ ResourceBytes ArchiveMask(std::span<const std::uint8_t> seed,std::string_view na
     return mask;
 }
 ResourceBytes UnwrapResource(std::span<const std::uint8_t> source,std::span<const std::uint8_t> seed,std::string_view name) {
-    Require(source.size()<=kResourceLimit,"Oversized archive resource");
+    const auto limit=name.ends_with(".wav.m")?kArchiveWaveLimit:kResourceLimit;
+    Require(source.size()<=limit,"Oversized archive resource");
     if (source.size()<4 || Text(source.first(4))!=std::string("mdf\0",4)) return {source.begin(),source.end()};
     Require(source.size()>=8,"Truncated MDF header");
-    const auto expected=Number(source,4,4); Require(expected<=kResourceLimit,"Oversized MDF output");
+    const auto expected=Number(source,4,4); Require(expected<=limit,"Oversized MDF output");
     const auto mask=ArchiveMask(seed,name); ResourceBytes encoded(source.begin()+8,source.end());
     for (std::size_t i=0;i<encoded.size();++i) encoded[i]^=mask[i%64];
     ResourceBytes output(static_cast<std::size_t>(expected)+1);
@@ -309,16 +311,36 @@ ResourceBytes UnwrapResource(std::span<const std::uint8_t> source,std::span<cons
         "Invalid MDF output extent or trailing data");
     output.resize(static_cast<std::size_t>(expected)); return output;
 }
+namespace {
+ResourceBytes PackMdf(std::span<const std::uint8_t> source,std::span<const std::uint8_t> seed,
+                      std::string_view name,std::size_t extent,int level) {
+    const auto limit=name.ends_with(".wav.m")?kArchiveWaveLimit:kResourceLimit;
+    Require(source.size()<=limit,"Invalid MDF source extent");
+    const auto capacity=compressBound(static_cast<uLong>(source.size()));
+    ResourceBytes output(8+capacity);
+    auto size=static_cast<uLongf>(capacity);
+    Require(compress2(output.data()+8,&size,source.data(),static_cast<uLong>(source.size()),level)==Z_OK,
+        "Cannot pack archive resource");
+    const auto packed=static_cast<std::size_t>(size)+8;
+    if (!extent)extent=packed;
+    Require(packed<=extent && extent<=limit,"Fixed-size resource overlay does not fit the original extent");
+    output.resize(packed);output.resize(extent);
+    const auto mask=ArchiveMask(seed,name);
+    output[0]='m';output[1]='d';output[2]='f';
+    for (unsigned i=0;i<4;++i)output[4+i]=static_cast<std::uint8_t>(source.size()>>(8*i));
+    for (std::size_t i=8;i<output.size();++i)output[i]^=mask[(i-8)%64];
+    return output;
+}
+}
+ResourceBytes PackArchiveResource(std::span<const std::uint8_t> source,std::span<const std::uint8_t> seed,
+                                  std::string_view name,bool compressed) {
+    return PackMdf(source,seed,name,0,compressed?Z_BEST_COMPRESSION:Z_NO_COMPRESSION);
+}
 ResourceBytes WrapResource(std::span<const std::uint8_t> source,std::span<const std::uint8_t> seed,std::string_view name,std::size_t extent) {
     Require(source.size()<=kResourceLimit && extent>=8 && extent<=kResourceLimit,"Invalid fixed resource extent");
-    ResourceBytes payload(compressBound(static_cast<uLong>(source.size())));
-    auto size=static_cast<uLongf>(payload.size());
-    Require(compress2(payload.data(),&size,source.data(),static_cast<uLong>(source.size()),9)==Z_OK && size<=extent-8,
-        "Fixed-size resource overlay does not fit the original extent");
-    payload.resize(static_cast<std::size_t>(size)); payload.resize(extent-8); const auto mask=ArchiveMask(seed,name);
-    ResourceBytes output{'m','d','f',0}; Append(output,source.size(),4);
-    for (std::size_t i=0;i<payload.size();++i) output.push_back(payload[i]^mask[i%64]);
-    Require(UnwrapResource(output,seed,name)==ResourceBytes(source.begin(),source.end()),"Prepared resource failed its decode roundtrip"); return output;
+    auto output=PackMdf(source,seed,name,extent,Z_BEST_COMPRESSION);
+    Require(UnwrapResource(output,seed,name)==ResourceBytes(source.begin(),source.end()),"Prepared resource failed its decode roundtrip");
+    return output;
 }
 Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(source).Root(); }
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {

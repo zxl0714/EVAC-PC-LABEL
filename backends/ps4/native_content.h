@@ -2,7 +2,8 @@
 #include "content/content_view.h"
 
 enum class ContentModuleAction { Load, Unload, IsLoaded };
-void ConfigureNativeContent(const std::filesystem::path& app, const std::filesystem::path& patch = {}, const std::filesystem::path& addons = {}, const std::filesystem::path& user_directory = {}, const std::filesystem::path& read_patches = {}, bool merged_patch = false);
+void ConfigureNativeContent(const std::filesystem::path& app, const std::filesystem::path& patch = {}, const std::filesystem::path& addons = {}, const std::filesystem::path& user_directory = {}, const std::filesystem::path& read_patches = {}, bool merged_patch = false,
+                            const std::filesystem::path& arrange_archive = {});
 bool NativeContentConfigured();
 std::string NativeContentTitleId();
 int ContentModule(ContentModuleAction action, const void* caller = nullptr);

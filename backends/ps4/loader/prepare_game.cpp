@@ -1,7 +1,9 @@
 #include "prepared_cache.h"
 #include "preparation_policy.h"
 #include "elf_prepare.h"
+#include "daioujou_arrange.h"
 #include "backends/ps4/content/resource_prepare.h"
+#include "common/daioujou_music.h"
 #include "common/ini.h"
 #include "common/settings.h"
 #include "common/verification_cache.h"
@@ -59,9 +61,21 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         {"communityOffline",policy.community_offline}};
     if (esprade) recipe["lowLatencyPredictionFrames"]=2;
     const auto& programs=policy.programs;
+    fs::path arrange_music;
+    if (game=="daioujou" && daioujou::HasArrangeMusic(root)) {
+        arrange_music=daioujou::ArrangeMusicDirectory(root);
+        auto tracks=Json::object();
+        for (const auto& cue:daioujou::ArrangeCues()) {
+            const auto name=std::string(cue.name)+".wav";
+            const auto track=DataChild(arrange_music,name);
+            tracks[name]={{"bytes",fs::file_size(track)},{"sha256",verification.Digest(track)}};
+        }
+        recipe["daioujouArrange"]=std::move(tracks);
+    }
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
     if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
+    if (!arrange_music.empty()) AddDaioujouArrangeFiles(files,policy.merged_app);
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
         const auto read_program=[&](std::string_view name) {
             const auto& inventory=recipe.at("inputs");
@@ -89,10 +103,16 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             const auto metadata=fixes.report.dump(2)+'\n';
             WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
         }
+        if (!arrange_music.empty()) {
+            PrepareDaioujouArrangeArchive(data,arrange_music,stage,recipe.at("daioujouArrange"),
+                read_program("eboot.bin"),policy.merged_app);
+        }
         if(CheckData(root,data,game,verification).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
         if (verification.Digest(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
-    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{}};
+    return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",
+        policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{},
+        arrange_music.empty()?fs::path{}:cache.directory/"arrange"};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {
@@ -113,6 +133,7 @@ int PrepareGameCommand(int argc,wchar_t** argv) {
             {"cacheMissReason",prepared.cache.miss_reason},{"recipeSha256",prepared.cache.key},
             {"directory",Utf8(prepared.cache.directory)},{"executable",Utf8(prepared.executable)},
             {"modules",Utf8(prepared.modules)},{"readFixes",Utf8(prepared.read_fixes)},
+            {"arrangeArchive",Utf8(prepared.arrange_archive)},
             {"sourceValidated",true},{"preparedOutputsVerified",true},{"guestExecution",false}};
         std::puts(result.dump().c_str());return 0;
     } catch (const std::exception& error) {std::fprintf(stderr,"Game preparation: %s\n",error.what());return 2;}

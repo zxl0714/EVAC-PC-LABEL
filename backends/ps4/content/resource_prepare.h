@@ -12,9 +12,12 @@ ResourceBytes ReadArchiveSeed(std::span<const std::uint8_t> source, std::uint64_
 ResourceBytes ArchiveMask(std::span<const std::uint8_t> seed, std::string_view name);
 ResourceBytes UnwrapResource(std::span<const std::uint8_t> source,
                             std::span<const std::uint8_t> seed, std::string_view name);
+ResourceBytes PackArchiveResource(std::span<const std::uint8_t> source,
+                                  std::span<const std::uint8_t> seed,std::string_view name,bool compressed);
 ResourceBytes WrapResource(std::span<const std::uint8_t> source,
                           std::span<const std::uint8_t> seed, std::string_view name, std::size_t extent);
 nlohmann::json ParseResourceIndex(std::span<const std::uint8_t> source);
+ResourceBytes WritePlainPsb(const nlohmann::json& value,std::uint32_t header_length);
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source, ResourceFix fix);
 ResourceBytes EncodeReadFixes(const kt::content::ReadPatchSet& patches);
 struct PreparedReadFixes { ResourceBytes bytes; nlohmann::json report; };

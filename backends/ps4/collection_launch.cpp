@@ -196,6 +196,8 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
             // disabled. The ranking peer fallback separately checks readiness.
             arguments.insert(arguments.end(),{L"--read-patches",prepared.read_fixes.native()});
         }
+        if (!prepared.arrange_archive.empty())
+            arguments.insert(arguments.end(),{L"--arrange-archive",prepared.arrange_archive.native()});
         cave::ps4::AppendVersionArguments(arguments,prepared.cache.receipt.at("recipe").at("mergedApp").get<bool>(),
             prepared.cache.receipt.at("recipe").value("communityOffline",false));
         // Development-only bridge to the existing pad diagnostic. Never save

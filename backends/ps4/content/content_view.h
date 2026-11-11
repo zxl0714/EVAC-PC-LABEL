@@ -18,7 +18,7 @@ struct NodeInfo {
 };
 class ReadOnlyFile {
 public:
-    ReadOnlyFile(void* handle, const NodeInfo& info) : handle_(handle), info_(info) {}
+    ReadOnlyFile(void* handle, const NodeInfo& info) : handle_(handle), info_(info), original_size_(info.size) {}
     ~ReadOnlyFile();
     ReadOnlyFile(const ReadOnlyFile&) = delete;
     ReadOnlyFile& operator=(const ReadOnlyFile&) = delete;
@@ -26,10 +26,13 @@ public:
     const NodeInfo& Info() const { return info_; }
     std::size_t ReadAt(std::uint64_t offset, std::span<std::byte> output);
     void InstallReadPatches(std::shared_ptr<const ReadPatchSet> patches, std::string_view relative);
+    void AppendArchive(std::unique_ptr<ReadOnlyFile> tail);
     void Hold(std::shared_ptr<void> lease) { lease_ = std::move(lease); }
 private:
     void* handle_;
     NodeInfo info_;
+    std::uint64_t original_size_{};
+    std::unique_ptr<ReadOnlyFile> archive_tail_;
     std::mutex mutex_;
     std::shared_ptr<void> lease_;
     std::vector<ReadPatch> read_patches_;
@@ -45,7 +48,8 @@ struct Addon {
 class ContentView {
 public:
     ContentView(const std::filesystem::path& app, const std::filesystem::path& patch = {}, const std::filesystem::path& addons = {},
-                const std::filesystem::path& read_patches = {}, bool merged_patch = false);
+                const std::filesystem::path& read_patches = {}, bool merged_patch = false,
+                const std::filesystem::path& arrange_archive = {});
     const Sfo& Metadata() const { return metadata_; }
     const std::string& TitleId() const { return title_; }
     const std::string& ContentId() const { return content_; }
@@ -55,10 +59,11 @@ public:
     std::unique_ptr<ReadOnlyFile> OpenAddon(std::size_t index, std::string_view relative, bool allow_directory = false) const;
     bool EntitlementKey(std::size_t index, std::array<std::byte, 16>& output) const;
 private:
-    std::filesystem::path app_, patch_;
+    std::filesystem::path app_, patch_, arrange_archive_;
     Sfo metadata_;
     std::string title_, content_;
     std::vector<Addon> addons_;
     std::shared_ptr<const ReadPatchSet> read_patches_;
+    bool arrange_merged_{};
 };
 }

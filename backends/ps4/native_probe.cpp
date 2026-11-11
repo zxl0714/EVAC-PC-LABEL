@@ -1910,6 +1910,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     const wchar_t* merged_app = nullptr;
     const wchar_t* addons_path = nullptr;
     const wchar_t* read_patches_path = nullptr;
+    const wchar_t* arrange_archive = nullptr;
     const wchar_t* mouse_left_button = nullptr;
     const wchar_t* texture_validation = nullptr;
     const wchar_t* attachment_validation = nullptr;
@@ -1937,6 +1938,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         else if (std::wstring(argv[i]) == L"--merged-app" && !merged_app) { merged_app = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--addon-dir" && !addons_path) { addons_path = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--read-patches" && !read_patches_path) { read_patches_path = argv[i + 1]; }
+        else if (std::wstring(argv[i]) == L"--arrange-archive" && !arrange_archive) { arrange_archive = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--mouse-left-pad-button" && !mouse_left_button) { mouse_left_button = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--texture-validation" && !texture_validation) { texture_validation = argv[i + 1]; }
         else if (std::wstring(argv[i]) == L"--attachment-validation" && !attachment_validation) { attachment_validation = argv[i + 1]; }
@@ -1960,7 +1962,7 @@ int NativeCommand(int argc, wchar_t** argv) {
     if ((patch_path || addons_path) && !app_path) { valid_arguments = false; }
     if (merged_app && (!app_path || patch_path || std::wstring_view(merged_app)!=L"on" ||
         (std::wstring_view(argv[2])!=L"--enter" && std::wstring_view(argv[2])!=L"--validate"))) {valid_arguments=false;}
-    if (read_patches_path && (!app_path || (std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate"))) { valid_arguments = false; }
+    if ((read_patches_path || arrange_archive) && (!app_path || (std::wstring(argv[2]) != L"--enter" && std::wstring(argv[2]) != L"--validate"))) { valid_arguments = false; }
     if (mouse_left_button && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (gpu_runtime && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
     if (diagnostic_tap && std::wstring(argv[2]) != L"--enter") { valid_arguments = false; }
@@ -2044,7 +2046,11 @@ int NativeCommand(int argc, wchar_t** argv) {
         std::printf("{\"event\":\"native_cpu_features\",\"bmi1\":%s,\"bmi2\":%s,\"lzcnt\":%s,\"avx\":%s,\"f16c\":%s,\"sse41\":%s,\"ssse3\":%s,\"movbe\":%s,\"compatibility_test\":%s}\n",
             cpu_features.bmi1?"true":"false",cpu_features.bmi2?"true":"false",cpu_features.lzcnt?"true":"false",
             cpu_features.avx?"true":"false",cpu_features.f16c?"true":"false",cpu_features.sse41?"true":"false",cpu_features.ssse3?"true":"false",cpu_features.movbe?"true":"false",cpu_compatibility_test?"true":"false");
-        if (app_path) { ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"", user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",merged_app!=nullptr); }
+        if (app_path) {
+            ConfigureNativeContent(app_path, patch_path ? patch_path : L"", addons_path ? addons_path : L"",
+                user_directory ? user_directory : L"", read_patches_path ? read_patches_path : L"",
+                merged_app!=nullptr,arrange_archive ? arrange_archive : L"");
+        }
         if (community_provider) {
             auto config = collection ? collection->community : kt::community::LoadConfig(input_config);
             // Explicit development loopback can exercise a title before the

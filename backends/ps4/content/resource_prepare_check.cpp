@@ -44,6 +44,7 @@ Json Run(const Json& item) {
     }
     const auto source=Unhex(item.value("source",std::string{}));
     if (op=="psb") return ParseResourceIndex(source);
+    if (op=="psb-write")return Hex(WritePlainPsb(item.at("value"),item.value("headerLength",40u)));
     if (op=="fix") {
         const auto kind=item.at("kind").get<std::string>();
         const auto fix=kind=="music" ? ResourceFix::MusicAutosave : kind=="batch" ? ResourceFix::ReplayBatch :
