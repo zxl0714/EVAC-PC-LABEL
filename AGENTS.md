@@ -64,7 +64,9 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   preparation, module binding and content validation. Both ESP Ra.De.
   variants retain the same prepared low-latency code. A raw ISO points to
   the decrypted game folder. Evidence .local/v099/ps4-equivalent-b9f39918/.
-  Live play and the reporter's own dump are pending.
+  Rewrapped ESP Ra.De. 01.00 and 01.04 passed live menus, credit, player
+  selection and Stage 1, then closed normally. Evidence is in each variant's
+  live/acceptance.json and stage1.png. The reporter's own dump remains unverified.
 - Input scope labels use All games / Current game. Japanese Save now uses
   セーブ. The resolution control ignores transient and duplicate selection
   notifications and commits an accepted choice. The library persists order and

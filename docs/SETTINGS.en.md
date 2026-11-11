@@ -8,7 +8,9 @@ Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×216
 
 The launcher remembers its window size when closed and fits it within the available screen area when the display resolution or scaling changes.
 
-Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Use **All games** or the selected game to choose the scope. Assigning an input that is already in use moves it to the new binding. **Reset to defaults** restores all shared keyboard and controller bindings. **Use shared bindings** removes all overrides for the selected game. Changes apply the next time you start a game.
+Drag game cards to reorder the library, or right-click to hide a game. Use the eye icon to show hidden games and restore them. Cover and banner layouts share the same order and hidden games.
+
+Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Choose **All games** or **Current game** for the scope. Assigning an input that is already in use moves it to the new binding. **Reset to defaults** restores all shared keyboard and controller bindings. **Use shared bindings** removes all overrides for the selected game. Changes apply the next time you start a game.
 
 **Config file** opens `user-data/config.ini` for audio, deadzone and online settings. Click **Refresh** after editing the file. See the [default configuration template](../config/default.ini) for available options.
 
@@ -43,6 +45,10 @@ Face-button reference:
 | North | Y | △ | V |
 
 Keep the whole `user-data/` folder when backing up or moving the collection. It contains configuration, saves, and replays. Wait for saving to finish before closing after changing in-game settings.
+
+## DaiOuJou X Arrange music
+
+Select DaiOuJou in the launcher, open **Game data… → Import X Arrange BGM…**, and choose the Xbox 360 ISO of *DoDonPachi Dai-Ou-Jou Black Label Extra*. After importing, select **X Arrange(Xbox 360)** in the game's BGM SET menu. Imported music is stored in `user-data/daioujou/x-arrange/`.
 
 ## NEO mode
 

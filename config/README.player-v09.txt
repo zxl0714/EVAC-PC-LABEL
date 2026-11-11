@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.9.8
+EVAC PC LABEL v0.9.9
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
@@ -14,7 +14,7 @@ Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vu
   game-data/ketsui/      CUSA09062，01.00 本体或完整覆盖 01.02 更新
   game-data/sdoj/        最大往生，Xbox 360 原版
   game-data/daioujou/    CUSA32997，01.00 本体或完整覆盖 01.04 更新
-  game-data/esprade/     CUSA15155，01.00 本体完整覆盖 01.04 更新
+  game-data/esprade/     CUSA15155，01.00 本体或完整覆盖 01.04 更新
   game-data/guwange/     XBLA，58410A78，本体 0.0.0.4
   game-data/feveron/     美版 CUSA06735，01.00 本体
   game-data/garegga/     韩版 CUSA10207，01.00 本体
@@ -35,9 +35,13 @@ XBLA：打开 tools/Extract-XBLA.exe，选择内容包并提取，把结果放�
 完成后用 Open game files 打开目录，将内容放入对应的 game-data 游戏目录。
 虫姬二 DLC 原始包放置方法见 game-data/futari/README.txt，启动时自动提取。
 
+大往生 X Arrange 音乐
+选中大往生，在“游戏数据…”中导入 Xbox 360 版 Black Label Extra 的 ISO，
+再到游戏内 BGM SET 选择 X Arrange(Xbox 360)。
+
 配置与操作
 CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
-启动器关闭时会记住窗口大小。
+启动器关闭时会记住窗口大小。拖动卡片调整顺序，右键隐藏游戏，眼睛图标显示隐藏项。
 启动按钮上方选择全屏或窗口分辨率。底部“配置文件”打开 user-data/config.ini。
 底部“输入设置”可修改键盘、手柄和摇杆绑定。选择所有游戏或当前游戏，双击一项后按键，保存后下次启动生效。
 备份、换目录时保留整个 user-data/，包含配置、存档和录像。
@@ -84,6 +88,10 @@ PS2 游戏使用原作本地成绩与记忆卡。
 性能对比：https://github.com/zxl0714/EVAC-PC-LABEL#readme
 
 English
+
+Drag cards to reorder games; right-click to hide them. Use the eye icon to show hidden games.
+For DaiOuJou X Arrange music, select DaiOuJou, open Game data… and import the Xbox 360
+Black Label Extra ISO, then choose X Arrange(Xbox 360) in the game's BGM SET menu.
 
 Run EVAC PC LABEL.exe, select a game, and click Launch game.
 To update, close the games and launcher, replace the program files, and keep user-data/.

@@ -12,7 +12,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
   <a href="docs/GAME_DATA.en.md">Game data</a> ·
   <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
-  <a href="docs/RELEASE_NOTES_v0.9.7.md#english">v0.9.7 release notes</a>
+  <a href="docs/RELEASE_NOTES_v0.9.9.md#english">v0.9.9 release notes</a>
 </p>
 
 <p align="center">
@@ -71,7 +71,7 @@ Windows x64. Xbox 360 games automatically select Direct3D 12 or Vulkan. PS4 and 
 2. **Open `EVAC PC LABEL.exe`**, select a game, and choose **Game data… → Choose data folder…**. Select extracted game files for Xbox 360 / PS4, or the folder containing the original ISO for PS2.
 3. **Click Launch game.** The launcher verifies the data and prepares runtime files on first launch. Later launches and updates reuse verification results for unchanged files.
 
-Extract PS4 PKGs with the included `tools/Extract-PS4.exe`. For Xbox 360 ISOs, XBLA packages and DLC, see the [game data guide](docs/GAME_DATA.en.md). `Launch.bat` is an alternative launch entry.
+Extract Xbox 360 ISOs with `tools/Extract-Xbox360.exe` and PS4 PKGs with `tools/Extract-PS4.exe`. For folder examples, XBLA packages and DLC, see the [game data guide](docs/GAME_DATA.en.md). `Launch.bat` is an alternative launch entry.
 
 ## Settings and saves
 
@@ -81,7 +81,7 @@ Choose fullscreen or a window resolution, edit your leaderboard nickname, and sw
 - **Radeon users** can try Anti-Lag 2 by setting `amd_anti_lag = true` under `[display]`. The standard package defaults to off. [Settings](docs/SETTINGS.en.md#amd-radeon-anti-lag-2)
 - **Low-latency settings:** [NEO](docs/SETTINGS.en.md#neo-mode) · [SDOJ Frame Delay](docs/SETTINGS.en.md#sdoj-frame-delay) · [G2 Frame Delay](docs/SETTINGS.en.md#g2-frame-delay)
 - **Community leaderboards:** enabled by default, with no registration. Change `Player` to your own nickname before playing. [Rankings and replays →](docs/SETTINGS.en.md#community-leaderboards)
-- **Updates and backups:** close the games and launcher before replacing program files. Keep the entire `user-data/` folder for settings, saves and replays. [Details →](docs/SETTINGS.en.md#updating-and-backups)
+- **Updates and backups:** click the red dot when an update is ready to restart and install it, or replace the program files manually. Back up the entire `user-data/` folder for settings, saves and replays. [Details →](docs/SETTINGS.en.md#updating-and-backups)
 
 ## Troubleshooting
 

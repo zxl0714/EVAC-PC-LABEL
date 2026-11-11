@@ -12,7 +12,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
   <a href="docs/GAME_DATA.md">游戏数据</a> ·
   <a href="docs/SETTINGS.md">设置与操作</a> ·
-  <a href="docs/RELEASE_NOTES_v0.9.7.md">v0.9.7 更新说明</a>
+  <a href="docs/RELEASE_NOTES_v0.9.9.md">v0.9.9 更新说明</a>
 </p>
 
 <p align="center">
@@ -71,7 +71,7 @@ Windows x64。Xbox 360 游戏自动选择 Direct3D 12 或 Vulkan。PS4 和 PS2 �
 2. **打开 `EVAC PC LABEL.exe`**，选中游戏，点击“游戏数据…”→“选择数据目录…”。Xbox 360、PS4 选择已解包的游戏目录；PS2 选择原始 ISO 所在目录。
 3. **点击“启动游戏”**。首次启动会校验数据并自动准备运行文件；后续启动和更新会复用未变化文件的校验结果。
 
-PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和 DLC 的处理方法见[游戏数据指南](docs/GAME_DATA.md)。备用启动入口为 `Launch.bat`。
+Xbox 360 ISO 可用随包的 `tools/Extract-Xbox360.exe` 提取，PS4 PKG 使用 `tools/Extract-PS4.exe`。各平台的目录示例与 DLC 处理方法见[游戏数据指南](docs/GAME_DATA.md)。备用启动入口为 `Launch.bat`。
 
 ## 配置与存档
 
@@ -81,7 +81,7 @@ PS4 PKG 可用随包的 `tools/Extract-PS4.exe` 提取；Xbox 360 ISO、XBLA 和
 - **Radeon 玩家**可在 `[display]` 下设 `amd_anti_lag = true` 试用 Anti-Lag 2，标准包默认关闭。[设置说明](docs/SETTINGS.md#amd-radeon-anti-lag-2)
 - **低延迟设置**：[NEO](docs/SETTINGS.md#neo-模式) · [最大往生 Frame Delay](docs/SETTINGS.md#最大往生-frame-delay) · [G2 Frame Delay](docs/SETTINGS.md#g2-frame-delay)
 - **社区排行榜**：默认联网，无须注册。先把默认昵称 `Player` 改为自己的名字。[排行榜与录像 →](docs/SETTINGS.md#社区排行榜)
-- **更新与备份**：关闭游戏和启动器后覆盖程序文件，保留整个 `user-data/`，其中包含配置、存档和录像。[详细说明 →](docs/SETTINGS.md#更新与备份)
+- **更新与备份**：更新下载完成后，点击右上角红点重启更新；也可手动覆盖程序包。备份时保留整个 `user-data/`，其中包含配置、存档和录像。[详细说明 →](docs/SETTINGS.md#更新与备份)
 
 ## 遇到问题
 

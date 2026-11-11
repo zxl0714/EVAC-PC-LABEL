@@ -21,6 +21,9 @@ ps4data_patch_body.bin、ps4data_patch_info.psb.m 等更新文件。保留其余
 放好后，在启动器点击“刷新”，选择游戏并启动。
 两版均支持社区排行榜和录像；01.00 只能播放本版或更早的录像。
 
+X Arrange(Xbox 360) 音乐：选中大往生，在“游戏数据…”菜单导入 Xbox 360 版
+Black Label Extra 的 ISO，然后在游戏内 BGM SET 选择曲集。
+
 Extract the complete 01.00 base PKG here.
 Double-click tools/Extract-PS4.exe in the collection folder, select the PKG and
 a new output folder, then click Extract. Extract base and update separately;
@@ -31,3 +34,6 @@ ps4data_patch_body.bin and ps4data_patch_info.psb.m. Keep the rest of the base g
 Click Refresh in the launcher, select the game, then start it.
 Both versions support community rankings and replays. Version 01.00 cannot play
 replays recorded by a newer game version.
+
+For X Arrange(Xbox 360) music, select DaiOuJou, open Game data… and import the
+Xbox 360 Black Label Extra ISO. Select the set in the game's BGM SET menu.
