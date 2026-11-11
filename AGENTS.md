@@ -29,8 +29,15 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   01.00 and 01.04 mount successfully. The 14 appended WAVs decode byte-for-byte,
   the existing PCM rows and other index entries are preserved, and native
   reads across the original/extension boundary pass. Evidence
-  .local/v099/arrange-archive-validation/. Native x-bgm routing, fourth menu
-  item, artwork and live playback remain pending.
+  .local/v099/arrange-archive-validation/. The four core versions now route
+  x-bgm=3 through the original play/fade functions and the new PCM table.
+  590 native branch checks and both module binding censuses passed. Incomplete
+  imports select the original archive and cores. The fourth menu item, artwork
+  and live playback remain pending. The unused common UI badges bgm_03 and
+  bgm_03_l use 184x40 and 264x56 atlas regions respectively. The local base
+  and update PSB v4 decodes identify both slots and verify 8x8 Morton layout.
+  Direct Menu selector/custom can use visual index 2. Its compact indicator
+  hides that index and needs a visible X Arrange badge.
 - Issue #11: DaiOuJou and ESP Ra.De. 01.00 and 01.04 accept known decrypted
   program fingerprints in addition to exact original hashes. ESP Ra.De.
   01.00 has its own manifest, seed location and core preparation. The four

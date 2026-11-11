@@ -1,5 +1,6 @@
 // Native equivalent of scripts/ps4/{native_elf,prepare_native}.py.
 #include "elf_prepare.h"
+#include "daioujou_arrange.h"
 #include "common/ps4_program.h"
 #include "esprade_latency.h"
 #include "common/settings.h"
@@ -210,7 +211,7 @@ void VerifyLibc(std::span<const std::uint8_t> source) {
 }
 
 PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::span<const std::uint8_t> libc,
-                       const DataFile* expected) {
+                       const DataFile* expected, bool daioujou_arrange) {
     // Decode the executable view while retaining the original file identity.
     // Module loading compares this digest with the selected content file.
     auto plain=PlainSelfElf(source);
@@ -248,12 +249,33 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
         }
     }
     Require(imports.size()<=10000 && exports.size()<=10000,"Prepared ELF import/export limit exceeded");
+    const auto sha=Hash(source);
+    std::vector<std::uint8_t> extension;
+    std::uint64_t extension_address{}, image_size=elf.image_size;
+    if (daioujou_arrange) {
+        Require(module && expected && !expected->program_fingerprint.empty() &&
+            ProgramFingerprint(plain)==expected->program_fingerprint,
+            "X Arrange requires a verified DaiOuJou core");
+        const auto text=std::ranges::find(elf.segments,0ull,&Header::address);
+        const auto data=std::ranges::find(elf.segments,0x400000ull,&Header::address);
+        Require(text!=elf.segments.end() && (text->flags&1) &&
+            data!=elf.segments.end() && (data->flags&2) && elf.segments.size()<32,
+            "X Arrange does not match the verified DaiOuJou core layout");
+        constexpr std::uint64_t page=4096;
+        extension_address=(elf.image_size+page-1)&~(page-1);
+        extension=PrepareDaioujouArrangeAudio(expected->path,
+            std::span<std::uint8_t>(plain).subspan(text->offset,text->file_size),
+            elf.Slice(data->offset,data->file_size),elf.image_size,extension_address);
+        image_size=extension_address+extension.size();
+        Require(image_size<=kLimit,"X Arrange extends beyond the supported image size");
+    }
+    const auto segments=elf.segments.size()+!extension.empty();
     Writer writer;
     const std::string_view magic=module?"KTMODULE":"KTPROBE1";
     writer.Raw({reinterpret_cast<const std::uint8_t*>(magic.data()),magic.size()});
-    for (std::uint64_t value:{elf.image_size,elf.entry,static_cast<std::uint64_t>(elf.segments.size()),
+    for (std::uint64_t value:{image_size,elf.entry,static_cast<std::uint64_t>(segments),
             static_cast<std::uint64_t>(elf.relocations.size()),static_cast<std::uint64_t>(imports.size()),elf.procparam,std::uint64_t(!libc.empty())|2ull}) writer.Value(value);
-    const auto sha=Hash(source); writer.Raw(sha);
+    writer.Raw(sha);
     const bool patch_raw=module && EspradeLatencyModule(sha);
     std::string_view patch_equivalent;
     if (module && !patch_raw && expected && EspradeLatencyModule(expected->sha256) &&
@@ -271,6 +293,11 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
     for (const auto& segment:elf.segments) {
         for (std::uint64_t value:{segment.address,segment.memory_size,std::uint64_t{segment.flags},segment.file_size}) writer.Value(value);
         writer.Raw(elf.Slice(segment.offset,segment.file_size));
+    }
+    if (!extension.empty()) {
+        const auto size=static_cast<std::uint64_t>(extension.size());
+        for (std::uint64_t value:{extension_address,size,std::uint64_t{5},size}) writer.Value(value);
+        writer.Raw(extension);
     }
     for (const auto& identity:imports) { writer.Name(identity); writer.Value(std::uint32_t{elf.symbols[identity.index].type}); }
     for (const auto& identity:exports) {
@@ -293,6 +320,6 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
         writer.Value(relocation.address);writer.Value(kind);writer.Value(value);writer.Value(relocation.addend);
     }
     writer.Value(elf.unwind_address);writer.Value(elf.unwind_size);
-    return {std::move(writer.bytes),sha,elf.image_size,imports.size(),exports.size(),elf.relocations.size(),elf.segments.size()};
+    return {std::move(writer.bytes),sha,image_size,imports.size(),exports.size(),elf.relocations.size(),segments};
 }
 }

@@ -10,6 +10,9 @@ inline constexpr std::array<std::string_view, 14> kDaioujouArrangeTrackNames{
     "ddo_arr_stg4", "ddo_arr_stg5", "ddo_arr_lbs1", "ddo_arr_lbs3",
     "ddo_arr_aendg_full", "ddo_arr_aendg_short",
 };
+std::vector<std::uint8_t> PrepareDaioujouArrangeAudio(std::string_view module,
+    std::span<std::uint8_t> text, std::span<const std::uint8_t> data,
+    std::uint64_t original_image_size, std::uint64_t extension_address);
 void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged);
 void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
     const fs::path& stage, const nlohmann::json& tracks,

@@ -14,6 +14,7 @@ struct PreparedElf {
 // Pure preparation: never maps executable memory, executes an input, accesses
 // the network or changes a source. Output contains local derived game data.
 PreparedElf PrepareElf(std::span<const std::uint8_t> source, bool module,
-                       std::span<const std::uint8_t> libc = {},const DataFile* expected=nullptr);
+                       std::span<const std::uint8_t> libc = {}, const DataFile* expected = nullptr,
+                       bool daioujou_arrange = false);
 int PrepareElfCommand(int argc, wchar_t** argv);
 }

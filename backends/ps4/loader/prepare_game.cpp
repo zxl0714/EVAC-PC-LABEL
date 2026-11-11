@@ -92,7 +92,8 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             const auto source=read_program(programs[i]);
             const auto expected=std::ranges::find(manifest,programs[i],&DataFile::path);
             if (expected==manifest.end() || !expected->program)throw std::runtime_error("Missing verified PS4 program identity");
-            const auto prepared=PrepareElf(source,i!=0,libc,&*expected);
+            const bool arrange_core=!arrange_music.empty() && programs[i].starts_with("daioujou_");
+            const auto prepared=PrepareElf(source,i!=0,libc,&*expected,arrange_core);
             WritePreparedRelative(stage,files[i],prepared.bytes);
         }
         if (policy.read_fixes) {
