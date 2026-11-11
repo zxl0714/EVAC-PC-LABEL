@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <stdexcept>
 
 namespace cave::ps4 {
@@ -12,9 +13,7 @@ struct MotionFrame {
     unsigned existing_badge;
 };
 
-constexpr MotionFrame kDirect{
-    "5efa4c72cc172075ed212650c8b489d17ddd5b4a020de165de3d60889c8d1898",
-    0x3dbf, 0x3dc1, 0};
+constexpr std::string_view kDirectSha = "5efa4c72cc172075ed212650c8b489d17ddd5b4a020de165de3d60889c8d1898";
 constexpr std::array kPause{
     MotionFrame{"7f162f754bbc267f03ec0d1c1d570fccd73cf499f1b8a893e9e41c6021fbf4d9", 0x1ceb, 0, 83},
     MotionFrame{"b41bd58e33a67f95c928df20dc871efed7ef0568e7c7375072176897ca0e2fa6", 0x1d01, 0, 79},
@@ -79,11 +78,39 @@ unsigned AppendBadgeName(std::vector<std::uint8_t>& motion) {
     SetNumber(motion, 40, 4, MotionHeaderChecksum(motion));
     return count;
 }
+
+void SetDirectMenuBadge(std::vector<std::uint8_t>& motion) {
+    Require(PreparationHash(motion) == kDirectSha,
+        "DaiOuJou Direct Menu animation differs from its verified source");
+    const auto badge = AppendBadgeName(motion);
+
+    // The unused frame's content occupies 40 bytes. Reuse the following
+    // frame's identical motion and source values, leaving room for zx/zy.
+    // The old 132x28 badges and the scaled X Arrange badge share their origin.
+    constexpr std::size_t content = 0x3dae;
+    constexpr std::size_t values = content + 19;
+    constexpr std::size_t next_motion = 0x3dfa, next_source = 0x3e06;
+    constexpr std::array<std::uint8_t, 35> compact{
+        33, 13, 6, 13, 100, 115, 132, 156, 172, 173, // icon, mask, motion, src, zx, zy
+        13, 6, 13, 0, 2, next_motion - values, next_source - values, 6, 11,
+        21, 0,               // bgm_03 string index
+        7, 0x60, 0, 0x08,   // source, zx and zy
+        30, 0, 0, 0, 0,     // zx
+        30, 0, 0, 0, 0,     // zy
+    };
+    std::ranges::copy(compact, motion.begin() + content);
+    SetNumber(motion, values + 1, 1, badge);
+    SetNumber(motion, values + 7, 4, std::bit_cast<unsigned>(132.0f / 184.0f));
+    SetNumber(motion, values + 12, 4, std::bit_cast<unsigned>(28.0f / 40.0f));
+}
 }
 
 void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArrangeMotion kind, bool update) {
-    const auto& frame = kind == DaioujouArrangeMotion::Direct ? kDirect :
-        kind == DaioujouArrangeMotion::Pause ? kPause[update] : kOptions[update];
+    if (kind == DaioujouArrangeMotion::Direct) {
+        SetDirectMenuBadge(motion);
+        return;
+    }
+    const auto& frame = kind == DaioujouArrangeMotion::Pause ? kPause[update] : kOptions[update];
     Require(PreparationHash(motion) == frame.sha256,
         "DaiOuJou BGM menu animation differs from its verified source");
     const auto width = Number(motion, frame.icon, 1) - 20;

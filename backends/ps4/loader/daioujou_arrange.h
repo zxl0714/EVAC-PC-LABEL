@@ -16,6 +16,7 @@ std::vector<std::uint8_t> PrepareDaioujouArrangeAudio(std::string_view module,
 enum class DaioujouArrangeMotion { Direct, Pause, Options };
 void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArrangeMotion kind, bool update);
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update);
+void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update);
 void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged);
 void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
     const fs::path& stage, const nlohmann::json& tracks,

@@ -267,6 +267,9 @@ Triangle=投币、Options=开始、Touchpad=暂停。菜单确认用 Circle（�
 此前投币失败时，日志显示 V 已作为 Triangle 交给 PadRead；不要再猜投币键。
 已在大往生 1.00 确认 `--diagnostic-tap-ms 200` 后，V 投币、Enter 开始和 X 选人正常。
 见 `.local/v084/play-base100-r5`；该脉冲只用于自动化，不能带入普通性能测量。
+大往生直达菜单的 BGM SET 用 Square（C），右键依次切换，Circle（X）确认。进入
+街机后先等操作说明出现并用 X 关闭，再等原版画面提示可投币；先发 V，确认信用点后发
+Enter。暂停用 Touchpad（Backspace），RETURN TO GAME 用 X。
 
 临时测试映射要避开宿主保留键；F3 曾被配置校验拒绝。L3／R3 可临时用
 Numpad0／Numpad1，Computer Use 对应 KP_0／KP_1。

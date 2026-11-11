@@ -119,6 +119,18 @@ void AddArrangeMenu(ArchiveLayer& layer, bool update) {
     ReplaceExpected(direct, selected, save, 2);
     layer.Add(direct_path, {reinterpret_cast<const std::uint8_t*>(direct.data()), direct.size()}, true);
 
+    constexpr std::string_view gadget_path = "1100/script/title_gadget_score.nut.m";
+    const auto gadget_source = layer.Read(gadget_path);
+    std::string gadget(gadget_source.begin(), gadget_source.end());
+    ReplaceExpected(gadget, "c_bgm_num = 3;", "c_bgm_num = 4;", 1);
+    ReplaceExpected(gadget, "local _table = [0,1,3];", "local _table = [0,1,3,2];", 1);
+    layer.Add(gadget_path, {reinterpret_cast<const std::uint8_t*>(gadget.data()), gadget.size()}, true);
+
+    constexpr std::string_view gadget_motion_path = "1100/motion/title_gadget.psb.m";
+    auto gadget_motion = layer.Read(gadget_motion_path, 16 * 1024 * 1024);
+    ApplyDaioujouArrangeGadgetArtwork(gadget_motion, update);
+    layer.Add(gadget_motion_path, gadget_motion, true);
+
     const auto add_motion = [&](std::string_view path, DaioujouArrangeMotion kind) {
         auto motion = layer.Read(path);
         ApplyDaioujouArrangeMotion(motion, kind, update);
@@ -162,7 +174,7 @@ void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
     const auto key = ReadArchiveSeed(executable, merged ? 0xdd : 0xde, true);
     auto definitions = Json::array();
     ArchiveLayer base(data, kBase, key);
-    std::size_t reserve = 12 * 1024 * 1024;
+    std::size_t reserve = 28 * 1024 * 1024;
     for (const auto& track : tracks) reserve += track.at("bytes").get<std::size_t>() + 16 * 1024;
     base.Reserve(reserve);
     for (unsigned i = 0; i < kDaioujouArrangeTrackNames.size(); ++i) {

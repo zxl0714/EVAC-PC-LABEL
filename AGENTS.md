@@ -19,8 +19,9 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   and Ketsui 01.02 runs opened a window and claimed their early reservations
   for the main image and integration module. The loader also mapped all
   prepared modules in its nonexecuting binding census. Direct Menu and Stage 1
-  still need live checks. Evidence .local/v099/ps4-startup-verification/
-  and .local/v099/ps4-ketsui-merged-verification/.
+  passed on both 01.00 and 01.04. The reporter's machine remains unverified. Evidence
+  .local/v099/ps4-startup-verification/, .local/v099/ps4-ketsui-merged-verification/
+  and .local/v099/arrange-live/01.04/.
 - The DaiOuJou data menu can import X Arrange from the Xbox 360 ISO.
   The importer reads the two banks from XDVDFS, verifies their identities,
   and saves 14 WAVs under user-data/daioujou/x-arrange. The real ISO import,
@@ -39,8 +40,23 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   passed native mounting and exact comparisons of the new atlas pixels,
   unchanged atlas data, and eight modified motion frames across the layers.
   Evidence .local/v099/arrange-archive-validation/artwork-validation.json.
-  Live menu appearance, in-game audio, pause/resume, and restart persistence
-  are still pending.
+  01.04 showed the choice and pause badge, persisted the choice after exit
+  and restart, entered Stage 1 and resumed from pause. Both versions now show
+  X Arrange and the correct song title in the lower-right gadget. The gadget
+  formerly clamped mode 3 to SuperSweep. Its derived script accepts the fourth
+  choice, and the dormant label uses the authored caption. Both archives passed
+  checks of the exact changed regions and preserved metadata. A bounded WASAPI
+  loopback capture on 01.04 identifies the imported selection and Stage 1 music
+  (matched waveform correlations 0.70 / 0.61 over five seconds after 0.1% timing
+  adjustment, versus under 0.10 for unrelated tracks). This proves track identity,
+  not sample-exact output or all-event playback. Evidence in
+  .local/v099/arrange-live/01.04/gadget-audio/. 01.00 entered Stage 1 in
+  .local/v099/arrange-live/01.00/gadget-base/. Both test processes closed.
+  Volume, long-loop and missing-import saved-mode fallback still need acceptance.
+  The Direct Menu compact frame scales to 132x28. The new badge follows the
+  original musical note, graded dot texture, border, and typography. Its
+  magenta palette is distinct from the three original in-game choices.
+  Final color was verified in both games. 279 PS4 compatibility checks pass.
 - Issue #11: DaiOuJou and ESP Ra.De. 01.00 and 01.04 accept known decrypted
   program fingerprints in addition to exact original hashes. ESP Ra.De.
   01.00 has its own manifest, seed location and core preparation. The four
