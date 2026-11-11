@@ -10,8 +10,21 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.9.9 is active. The eight work items and remaining acceptance checks are at
-the top of docs/IMPLEMENTATION_PLAN.md.
+v0.9.9 local delivery is complete. All eight work items and acceptance checks
+at the top of docs/IMPLEMENTATION_PLAN.md are complete. Stop before publication.
+Frozen source: 3a0f0d4468f7eeb744988d6c635eb60fbb971dbf.
+Program ZIP: releases/v0.9.9-local-3a0f0d4/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
+161,154,439 bytes; SHA-256
+22daf6545a711ff7a0e53ab61fd6e86a6b872171625edd4ddae8952a81161a83.
+Adjacent .acceptance.json records the one-extraction acceptance: production
+cached-update worker installed it over the isolated v0.9.8 tree, all 200 files
+verified, config/save/game-data sentinels preserved, launcher restarted visibly
+and closed normally. Evidence .local/v099/final-package-3a0f0d4/.
+This candidate used a local cache; actual GitHub download was already verified
+with v0.9.8. No new upload, push, release or issue response has been made.
+SDK, all four Xbox 360 hosts, PS4 and PS2 were incrementally rebuilt/certified
+at the frozen source; these graphs had no further compilation work. Do not
+repeat completed gameplay, music, packaging or extraction checks.
 
 - PS4 startup reserves the main image and prepared module address ranges
   before Vulkan initialization. The native build and three targeted CTests
