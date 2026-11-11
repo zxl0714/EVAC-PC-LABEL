@@ -1,0 +1,18 @@
+add_library(xbox360_extract_core STATIC extract.cpp)
+target_include_directories(xbox360_extract_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(xbox360_extract_core PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+if(MSVC)
+  target_compile_options(xbox360_extract_core PUBLIC /utf-8)
+endif()
+target_link_libraries(xbox360_extract_core PUBLIC ole32)
+add_executable(xbox360_extract WIN32 main.cpp)
+set_target_properties(xbox360_extract PROPERTIES OUTPUT_NAME "Extract-Xbox360")
+target_link_libraries(xbox360_extract PRIVATE xbox360_extract_core comctl32 shell32 uuid)
+add_executable(xbox360_extract_cancel_test ../../tests/xbox360_extract_cancel.cpp)
+target_link_libraries(xbox360_extract_cancel_test PRIVATE xbox360_extract_core)
+target_link_options(xbox360_extract PRIVATE "LINKER:/MANIFEST:EMBED"
+  "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/common/windows.manifest"
+  "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/tools/ps4-extract/windows.manifest")
+foreach(target xbox360_extract_core xbox360_extract xbox360_extract_cancel_test)
+  set_property(TARGET ${target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endforeach()

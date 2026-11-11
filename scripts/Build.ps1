@@ -73,7 +73,7 @@ try {
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'launcher_receipt.py'),'begin','--state',$launcherState)
     Invoke-CollectionConfigure $cmake $configure $build
     $targets=@('--build',$build,'--parallel',"$Jobs")
-    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect','ps4_extract','xbla_extract') }
+    if ($LauncherOnly) { $targets+=@('--target','cave_launcher','cave_inspect','ps4_extract','xbla_extract','xbox360_extract') }
     Invoke-Checked $cmake $targets
     if (-not $SkipLauncherStage) { foreach ($extension in @('exe','pdb')) {
         $launcherSource=Join-Path $build "bin/EVAC PC LABEL.$extension"

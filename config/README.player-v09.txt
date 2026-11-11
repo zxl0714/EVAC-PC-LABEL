@@ -31,7 +31,8 @@ PS4：打开 tools/Extract-PS4.exe，选择 PKG 与新的输出目录，点击 E
 完成后点击 Open game files，将里面的内容复制到对应 game-data 目录。
 更新 PKG 单独解包，再把全部内容覆盖到本体目录，替换同名文件。
 XBLA：打开 tools/Extract-XBLA.exe，选择内容包并提取，把结果放入 game-data/guwange/。
-360 ISO：使用 https://github.com/XboxDev/extract-xiso/releases 提取。
+360 ISO：打开 tools/Extract-Xbox360.exe，Browse… 选择 ISO，Extract 开始提取，
+完成后用 Open game files 打开目录，将内容放入对应的 game-data 游戏目录。
 虫姬二 DLC 原始包放置方法见 game-data/futari/README.txt，启动时自动提取。
 
 配置与操作
@@ -106,7 +107,8 @@ PS4: run tools/Extract-PS4.exe, select a PKG and a new output folder, and click 
 Use Open game files to locate the files to copy into the game's data folder.
 Extract update PKGs separately, then copy all extracted files over the base game.
 XBLA: use tools/Extract-XBLA.exe and copy the extracted files into game-data/guwange/.
-Xbox 360 ISO: use the extract-xiso Windows release linked above.
+Xbox 360 ISO: open tools/Extract-Xbox360.exe, Browse… to the ISO, then Extract.
+Use Open game files and copy the contents into the corresponding game-data folder.
 For Futari's original DLC packages, follow game-data/futari/README.txt; launch extracts them.
 
 Settings and controls

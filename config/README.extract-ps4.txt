@@ -1,5 +1,15 @@
 Game extraction tools / 游戏解包工具
 
+Xbox 360 ISO / Xbox 360 光盘镜像
+--------------------------------
+Open Extract-Xbox360.exe, click Browse… to select the ISO, and click Extract.
+Use Open game files when complete. Copy the contents into the corresponding
+game-data folder, or select the extracted folder in the launcher.
+
+双击 Extract-Xbox360.exe，Browse… 选择 ISO，Extract 开始提取。
+完成后 Open game files 打开目录，将内容复制到对应的 game-data 游戏目录，
+或在启动器选择提取出的目录。
+
 XBLA ------------------------------------------------------------------------
 双击 Extract-XBLA.exe，点击 Select package...，选择 ZIP/RAR 内的内容包
 （通常是没有扩展名的长文件名），再选择输出位置。工具新建 xbla-extracted

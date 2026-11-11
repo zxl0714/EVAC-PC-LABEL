@@ -16,6 +16,15 @@ py -3.12 scripts/ps4_extract_tools.py prepare
 正式打包按 v0.7.6 配置自动收集这些组件。脚本高级入口仍是
 `scripts/Extract-Ps4Pkg.ps1`，会默认找到项目内的固定 PkgTool。
 
+## Xbox 360 ISO 玩家解包工具
+
+`tools/xbox360-extract/` 提供独立 Win32 界面和 XDVDFS 提取核心，不依赖
+外部命令行程序。`Build.ps1 -LauncherOnly` 构建 `out/common/bin/Extract-Xbox360.exe`，
+正式包放在 `tools/`。选择 ISO 和输出位置即可提取，支持进度、取消和打开结果目录。
+
+原生机制回归：`py -3.12 -m unittest tests.test_xbox360_extract_native`；
+先构建 `xbox360_extract` 和 `xbox360_extract_cancel_test`。
+
 ## 构建工具链
 
 在合集根目录准备工具和 SDK 依赖：

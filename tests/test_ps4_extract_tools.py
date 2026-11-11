@@ -102,10 +102,10 @@ class ExtractToolTests(unittest.TestCase):
                 self.assertIn('tools/Extract-PS4.exe', text)
         self.assertIn('extract.log', (ROOT/'config/README.extract-ps4.txt').read_text(encoding='utf-8'))
 
-    def test_launcher_receipt_requires_and_verifies_all_four_pairs(self):
+    def test_launcher_receipt_requires_and_verifies_all_output_pairs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); state = root/'receipt.json'; outputs = []
-            for name in (receipt.NAME, 'cave_inspect', 'Extract-PS4', 'Extract-XBLA'):
+            for name in receipt.OUTPUT_NAMES:
                 for extension in ('.exe', '.pdb'):
                     file = root/'out/common/bin'/(name + extension)
                     file.parent.mkdir(parents=True, exist_ok=True)
@@ -116,7 +116,7 @@ class ExtractToolTests(unittest.TestCase):
             state.write_text(json.dumps(record))
             with patch.object(receipt, 'ROOT', root), patch.object(receipt, 'RECEIPT', state), \
                  patch.object(receipt, 'snapshot', return_value={'fixture': True}):
-                self.assertEqual(len(receipt.verify()['outputs']), 8)
+                self.assertEqual(len(receipt.verify()['outputs']), 2*len(receipt.OUTPUT_NAMES))
                 state.write_text(json.dumps(dict(record, outputs=outputs[:4])))
                 with self.assertRaisesRegex(ValueError, 'Incomplete'):
                     receipt.verify()

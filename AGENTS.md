@@ -70,7 +70,9 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   notifications and commits an accepted choice. The library persists order and
   hidden IDs across cover and banner layouts. Dragging, hiding with or without
   data, the eye toggle, keyboard navigation and the all-hidden case passed
-  the launcher checks. Actual first-open reproduction is pending.
+  the launcher checks. The dragged-window first-open check passed: six resolutions visible and
+  1920x1080 selection persisted. All/Current game scope saves and reopen
+  inheritance passed in EN/CN/JP. Evidence .local/v099/ui-final/acceptance.json.
 - The launcher updater passed 69 release/installation checks and the launcher
   UI suite passed 4,664 checks. A published v0.9.8 ZIP downloaded through
   WinHTTP, verified, updated an isolated v0.9.7 installation, and restarted
@@ -102,6 +104,13 @@ the top of docs/IMPLEMENTATION_PLAN.md.
   before, zero after. Futari's sole
   keystroke caller requests keyboard flags=2, so do not label that fix as
   the title fix. See docs/ANALYSIS.md#futari-start-report-20261112.
+
+- Xbox 360 ISO extraction now has a standalone English GUI, progress, cancel
+  and open-result workflow. Four native fixture tests, seven receipt tests and
+  58 packaging tests pass (one Windows symlink privilege skip). A real Futari
+  ISO completed in the GUI and full inspection verified 52 hashes. Evidence
+  .local/v099/iso-extraction/. The source ISO is unchanged. The new binary
+  Extract-Xbox360.exe is included from v0.9.9 onward.
 
 Nov10 v0.9.8 published on GitHub as Latest. Frozen source ebdc8110d34d57b99513c0ba827768b3410edcdd.
 Program ZIP: releases/v0.9.8-local-ebdc811/EVAC-PC-LABEL-v0.9.8-win-x64.zip.

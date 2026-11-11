@@ -92,6 +92,16 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn('tools/Extract-XBLA.exe', zipped.namelist())
         self.check_build_flavors('0.8.0', check)
 
+    def test_v099_includes_native_iso_extractor(self):
+        self.assertNotIn('tools/Extract-Xbox360.exe', release.runtime_names(self.games, version='0.9.8', selection=release.V03_GAMES))
+        def check(root, games, commit, inspect):
+            result = release.build('Public', '0.9.9', root/'releases/iso-extractor')
+            record = release.verify_tree(Path(result['directory']), games)
+            self.assertIn('tools/Extract-Xbox360.exe', {item['path'] for item in record['files']})
+            with zipfile.ZipFile(result['archive']) as zipped:
+                self.assertIn('tools/Extract-Xbox360.exe', zipped.namelist())
+        self.check_build_flavors('0.9.9', check)
+
     def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
         primary, base = [{'path': 'updated-fixture'}], [{'path': 'base-fixture'}]
         game = dict(files=primary, variants=[dict(id='update-102', files=primary), dict(id='base', files=base)])

@@ -32,16 +32,11 @@ If the files are inside `game-data/futari/extracted-folder/`, select that folder
 
 If you already have `default.xex` or `eboot.bin` alongside the complete game resources, continue to the game's section below.
 
-### Xbox 360 ISO: extract-xiso
+### Xbox 360: Extract Xbox 360
 
-1. Download and unpack a [Windows Release of XboxDev/extract-xiso](https://github.com/XboxDev/extract-xiso/releases).
-2. Open PowerShell in the tool's folder and substitute your input file and output folder:
-
-```powershell
-.\extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"
-```
-
-3. Select `D:\GameExtract\futari` in the launcher, or copy all its contents into `game-data/futari/`. Use the same process for G2 and SDOJ with their respective folders.
+1. Open `tools/Extract-Xbox360.exe` from the program package.
+2. Click **Browse…**, select the ISO, and click **Extract**. Use **Location…** to choose where the new output folder is created.
+3. Click **Open game files** when complete. Select that folder in the launcher, or copy its contents into `game-data/futari/`, `game-data/espgaluda2/`, or `game-data/sdoj/` for the corresponding game.
 
 ### PS4 PKG: Extract PS4
 

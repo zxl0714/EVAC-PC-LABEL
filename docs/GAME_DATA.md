@@ -34,16 +34,11 @@
 
 已经有 `default.xex`／`eboot.bin` 和完整资源目录时，无须再次解包。ZIP／RAR 用常规解压软件完整展开；若得到 ISO／PKG，再按下面处理。
 
-### Xbox 360：extract-xiso
+### Xbox 360：Extract Xbox 360
 
-1. 下载 [XboxDev/extract-xiso 的 Windows Release](https://github.com/XboxDev/extract-xiso/releases)，完整解压工具 ZIP，使用其中的 `extract-xiso.exe`。
-2. 在工具所在目录打开 PowerShell，替换命令中的输入文件和新输出目录：
-
-```powershell
-.\extract-xiso.exe -x -d "D:\GameExtract\futari" "D:\Games\futari.iso"
-```
-
-3. 在启动器选择 `D:\GameExtract\futari`，或将里面全部内容复制到 `game-data/futari/`。G2／最大往生同理，使用各自的目录。原 ISO 保留；只提取文件，不需要重建或改写镜像。
+1. 双击程序包中的 `tools/Extract-Xbox360.exe`。
+2. 点击 **Browse…** 选择 ISO，再点 **Extract**。需要更改新文件夹的位置时，点击 **Location…**。
+3. 完成后点击 **Open game files**。在启动器选择这个目录，或按游戏将里面的内容复制到 `game-data/futari/`、`game-data/espgaluda2/`、`game-data/sdoj/`。
 
 ### PS4：Extract PS4
 

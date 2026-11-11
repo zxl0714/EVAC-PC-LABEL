@@ -146,6 +146,10 @@ def has_xbla_extractor(version):
     return tuple(map(int, (version or '0.0').split('-', 1)[0].split('.'))) >= (0, 8)
 
 
+def has_xbox360_extractor(version):
+    return tuple(map(int, (version or '0.0').split('-', 1)[0].split('.'))) >= (0, 9, 9)
+
+
 def extractor_sources(version):
     return ps4_extract_tools.player_sources(ROOT) if has_ps4_extractor(version) else {}
 
@@ -162,6 +166,8 @@ def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=No
         names.add('tools/Extract-PS4.exe')
     if has_xbla_extractor(version):
         names.add('tools/Extract-XBLA.exe')
+    if has_xbox360_extractor(version):
+        names.add('tools/Extract-Xbox360.exe')
     # Historical packages refreshed old shortcuts. Format 3 ships only the
     # current launcher name, including when matching symbols are selected.
     if renamed(version) and (flavor == 'Update' or package_format == 2):
@@ -235,7 +241,7 @@ def certified_runtime(selection=GAMES):
     xbox_names |= {str(Path(name).with_suffix('.pdb')) for name in list(xbox_names)}
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
-        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb'})
+        launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb', 'Extract-Xbox360.exe', 'Extract-Xbox360.pdb'})
     selected['ps2'] = {'SDL3.dll', 'SDL3.pdb'} | {game+suffix for game in ('espgaluda','ibara') if game in selection for suffix in ('.exe','.pdb')}
     certified = {}
     for backend, record in records.items():
@@ -676,7 +682,7 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         source_name = certified_name(path)
         item = certified[source_name]
         certified_launcher = path in {launcher(version), LEGACY_LAUNCHER}
-        if not certified_launcher and path not in ('runtime/launcher/cave_inspect.exe', 'tools/Extract-PS4.exe', 'tools/Extract-XBLA.exe') and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
+        if not certified_launcher and path not in ('runtime/launcher/cave_inspect.exe', 'tools/Extract-PS4.exe', 'tools/Extract-XBLA.exe', 'tools/Extract-Xbox360.exe') and not path.endswith('.pdb') and digest(ROOT / path) != item['sha256']:
             raise ValueError('Staged player component differs from certified build: ' + path)
         copy_checked(item['source'], target, 'runtime', entries, item)
     for file in crt:
