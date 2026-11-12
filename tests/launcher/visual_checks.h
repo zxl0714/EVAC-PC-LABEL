@@ -10,6 +10,51 @@ void SaveVisual(Renderer& renderer,IWICBitmap* bitmap,const fs::path& path,UINT 
   WICPixelFormatGUID format=GUID_WICPixelFormat32bppBGRA;Check(frame->SetPixelFormat(&format),"Set visual pixels");
   Check(frame->WriteSource(bitmap,nullptr),"Write visual pixels");Check(frame->Commit(),"Commit visual frame");Check(encoder->Commit(),"Commit visual image");
 }
+void DragVisualChecks(const fs::path& output) {
+  Require(!fs::exists(output) && fs::create_directory(output),"Drag visual output must be fresh");
+  Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
+  for(const bool covers:{true,false}) {
+    app.layout={1080,900,0,covers};
+    for(auto& row:app.rows) {row.inspection.state="ready";row.inspection.data_state=DataState::Verified;}
+    Renderer renderer;ComPtr<IWICBitmap> bitmap;
+    Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create drag bitmap");
+    ComPtr<ID2D1RenderTarget> target;
+    Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create drag target");
+    target->SetDpi(96,96);
+    const auto render=[&] {
+      const auto drag=app.DragPreview();
+      target->BeginDraw();
+      renderer.Draw(target.Get(),app.layout,app.rows,app.selected,app.hover,false,L"",{},true,0,{},&app.library,false,drag?&*drag:nullptr);
+      Check(target->EndDraw(),"Render drag feedback");
+      std::vector<BYTE> pixels(1080*900*4);
+      Check(bitmap->CopyPixels(nullptr,1080*4,UINT(pixels.size()),pixels.data()),"Read drag pixels");
+      return pixels;
+    };
+    const auto normal=render();
+    const auto source=app.layout.card(0),destination=app.layout.card(1);
+    const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+    const auto point=[&](float x,float y){return MAKELPARAM(int(x*scale),int(y*scale));};
+    App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,point(source.left+30,source.top+30));
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,point(destination.left+45,destination.top+45));
+    const auto held=render();
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,point(destination.left+63,destination.top+57));
+    const auto moved=render();
+    unsigned changed{},followed{},outside_changed{};
+    for(unsigned y=0;y<900;++y)for(unsigned x=0;x<1080;++x) {
+      const auto p=(y*1080+x)*4;
+      const bool different=std::memcmp(normal.data()+p,moved.data()+p,4)!=0;
+      if(y<unsigned(app.layout.header()-2) || y>=unsigned(app.layout.footer()))
+        outside_changed+=different;
+      changed+=different;followed+=std::memcmp(held.data()+p,moved.data()+p,4)!=0;
+    }
+    Require(!outside_changed,"Dragging painted over fixed header/footer controls");
+    Require(changed>1000 && followed>1000,"Floating card pixels did not follow pointer movement");
+    SaveVisual(renderer,bitmap.Get(),output/(covers?"covers-drag.png":"banner-drag.png"),1080,900);
+    App::Window(app.hwnd,WM_KEYDOWN,VK_ESCAPE,0);
+    const auto cancelled=render();
+    Require(normal==cancelled,"Cancelled drag left stale pixels");
+  }
+}
 void VisualChecks(const fs::path& output,bool initial_covers=false) {
   Require(!fs::exists(output) && fs::create_directory(output),"Visual output must be a fresh directory");
   const auto previous=language;

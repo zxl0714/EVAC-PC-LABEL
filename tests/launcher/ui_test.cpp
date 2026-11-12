@@ -453,8 +453,25 @@ void GameLibraryChecks() {
       return MAKELPARAM(int((card.left+30)*scale),int((card.top+30)*scale));
     };
     App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,point(from));
+    Require(!app.DragPreview(),"A click began a drag before the pointer moved");
+    const auto start=app.card_press->origin;
+    const auto same_card=MAKELPARAM(start.x+20,start.y+12);
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,same_card);
+    const auto first=app.DragPreview();
+    Require(first.has_value(),"Moving within the source card did not show a drag preview");
+    paint_requests.clear();
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(start.x+25,start.y+16));
+    const auto moved=app.DragPreview();
+    const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+    Require(moved && std::abs(moved->rectangle.left-first->rectangle.left-5/scale)<.01f &&
+            std::abs(moved->rectangle.top-first->rectangle.top-4/scale)<.01f,
+            "The moving card did not preserve its pointer offset at this DPI");
+    Require(std::ranges::any_of(paint_requests,[&](const auto& request){return request.window==app.hwnd;}),
+            "Dragging within one card did not request a repaint");
     App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,point(to));
+    Require(app.DragPreview() && app.DragPreview()->insertion,"Dragging to a new slot has no insertion marker");
     App::Window(app.hwnd,WM_LBUTTONUP,0,point(to));
+    Require(!app.DragPreview(),"Drop left a floating card behind");
   };
   {
     Frame frame(fixture.root);auto& app=frame.app;
@@ -495,6 +512,34 @@ void GameLibraryChecks() {
     App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);
     frame.Click(app.layout.hidden_games());
     Require(app.library.show_hidden && app.layout.game_count==Catalogue().size(),"The eye button could not restore an empty library view");
+  }
+}
+void DragCancelChecks() {
+  Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
+  for(const bool covers:{true,false}) {
+    app.layout.covers=covers;app.layout.width=1080;app.layout.height=900;app.layout.scroll=0;
+    const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+    const auto source=app.layout.card(0),destination=app.layout.card(1);
+    const auto at=[&](D2D1_RECT_F r){return MAKELPARAM(int((r.left+30)*scale),int((r.top+30)*scale));};
+    const auto saved=Ini::ReadText(ConfigPath(fixture.root));
+    const auto selected=app.selected;
+    for(const auto cancel:{WM_CANCELMODE,WM_CAPTURECHANGED,WM_KEYDOWN}) {
+      App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,at(source));
+      App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,at(destination));
+      App::Window(app.hwnd,cancel,cancel==WM_KEYDOWN?VK_ESCAPE:0,0);
+      Require(!app.card_press && !app.DragPreview(),"Cancelled drag kept its floating card");
+      App::Window(app.hwnd,WM_LBUTTONUP,0,at(destination));
+      Require(app.selected==selected && Ini::ReadText(ConfigPath(fixture.root))==saved,
+              "Cancelling a drag changed selection or saved order");
+    }
+    App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,at(source));
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(-20,-20));
+    Require(app.DragPreview() && !app.DragPreview()->insertion,"Outside drop has an insertion target");
+    App::Window(app.hwnd,WM_LBUTTONUP,0,MAKELPARAM(-20,-20));
+    Require(!app.card_press && Ini::ReadText(ConfigPath(fixture.root))==saved,"Outside drop changed saved order");
+    const auto gap_x=covers?destination.left-2:destination.left+30;
+    const auto gap_y=covers?destination.top+30:destination.top-2;
+    Require(app.DropGameAt(gap_x,gap_y)==app.library.visible[1],"Card gap is not a valid nearby drop target");
   }
 }
 void PreferenceRepaintChecks() {
@@ -722,6 +767,7 @@ void MainChecks() {
   InputBindingChecks();
   DisplayDropdownChecks();
   GameLibraryChecks();
+  DragCancelChecks();
   InstanceChecks();
   UpdateChecks();
 }
@@ -737,6 +783,7 @@ int wmain(int count,wchar_t** arguments) {
     else if(count==5 && std::wstring_view(arguments[1])==L"--instance-host")InstanceHost(arguments[2],arguments[3],arguments[4]);
     else if(count==4 && std::wstring_view(arguments[1])==L"--instance-probe")InstanceProbe(arguments[2],arguments[3]);
     else if(count==3 && std::wstring_view(arguments[1])==L"--visual-checks")VisualChecks(arguments[2]);
+    else if(count==3 && std::wstring_view(arguments[1])==L"--drag-previews")DragVisualChecks(arguments[2]);
     else if(count==3 && std::wstring_view(arguments[1])==L"--cover-sizing-previews")VisualChecks(arguments[2],true);
     else if(count==2 && std::wstring_view(arguments[1])==L"--window-size-checks")WindowSizeChecks();
     else if(count==1)MainChecks();

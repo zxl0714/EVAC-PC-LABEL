@@ -327,6 +327,11 @@ struct Layout {
   D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
+struct CardDrag {
+  size_t game{};
+  D2D1_RECT_F rectangle{};
+  std::optional<D2D1_RECT_F> insertion;
+};
 RECT FitToWorkArea(RECT bounds) {
   MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
   if(!GetMonitorInfoW(MonitorFromRect(&bounds,MONITOR_DEFAULTTONEAREST),&monitor))return bounds;
@@ -446,9 +451,83 @@ class Renderer {
     } else Check(target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&bitmap),"Upload artwork");
     return bitmap;
   }
+  void Card(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,
+            size_t index,D2D1_RECT_F rectangle,size_t selected,int hover,bool hidden) {
+    const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
+    const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
+    const bool muted=soon||missing||hidden;
+    const auto color=muted?0xf6f7f4:0xffffff;
+    ComPtr<ID2D1SolidColorBrush> background,border;
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&background),"Create card fill");
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(selected==index?0x37644c:(hover==int(index)?0xa0b1a3:0xdee3db)),&border),"Create card border");
+    auto round=D2D1::RoundedRect(rectangle,13,13);target->FillRoundedRectangle(round,background.Get());
+    ComPtr<ID2D1RoundedRectangleGeometry> clip;Check(factory->CreateRoundedRectangleGeometry(round,&clip),"Create card clip");
+    target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
+    if(layout.covers) {
+      const auto inset=cave::launcher::kCoverInset;
+      const D2D1_RECT_F art{rectangle.left+inset,rectangle.top+inset,rectangle.right-inset,rectangle.bottom-74};
+      auto bitmap=Image(target,index,muted,true);const auto size=bitmap->GetSize();
+      const auto& artwork=cave::launcher::kCoverArtwork[index];
+      const float scale=artwork.contain?std::min((art.right-art.left)/size.width,(art.bottom-art.top)/size.height):
+                                        std::max((art.right-art.left)/size.width,(art.bottom-art.top)/size.height);
+      const float x=art.left-((size.width*scale)-(art.right-art.left))*.5f;
+      const float y=art.top-((size.height*scale)-(art.bottom-art.top))*artwork.focus_y;
+      target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+      target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
+          soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+      target->PopAxisAlignedClip();
+      if(soon || hidden) {
+        ComPtr<ID2D1SolidColorBrush> shade;
+        Check(target->CreateSolidColorBrush(D2D1::ColorF(0xf3f4f0,.87f),&shade),"Create future-cover label");
+        const D2D1_RECT_F label{art.left,art.bottom-29,art.right,art.bottom};
+        target->FillRectangle(label,shade.Get());
+        Text(target,T(hidden?L"已隐藏":L"敬请期待"),{label.left+10,label.top+6,label.right-10,label.bottom},11,0x647168);
+      }
+      const auto left=rectangle.left+12;
+      Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
+          13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
+      Text(target,Wide(game.name),{left,rectangle.bottom-24,rectangle.right-12,rectangle.bottom-10},10,0x748179);
+      target->PopLayer();
+      target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
+      return;
+    }
+    const float art_width=(rectangle.right-rectangle.left)*(layout.narrow()?.61f:.66f);
+    const D2D1_RECT_F art{rectangle.right-art_width,rectangle.top,rectangle.right,rectangle.bottom};
+    auto bitmap=Image(target,index,muted);const auto size=bitmap->GetSize();
+    const bool contain=cave::launcher::kArtwork[index].contain;
+    const auto scale=contain?std::min(art_width/size.width,layout.row_height()/size.height):
+                             std::max(art_width/size.width,layout.row_height()/size.height);
+    const float y=rectangle.top-(size.height*scale-layout.row_height())*cave::launcher::kArtwork[index].focus_y;
+    const float art_left=contain?art.right-size.width*scale:art.left;
+    target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+    target->PopAxisAlignedClip();
+    const std::array stops{D2D1_GRADIENT_STOP{0,D2D1::ColorF(color,1)},D2D1_GRADIENT_STOP{.14f,D2D1::ColorF(color,.96f)},
+        D2D1_GRADIENT_STOP{.35f,D2D1::ColorF(color,.47f)},D2D1_GRADIENT_STOP{.63f,D2D1::ColorF(color,0)},D2D1_GRADIENT_STOP{1,D2D1::ColorF(color,0)}};
+    ComPtr<ID2D1GradientStopCollection> colors;Check(target->CreateGradientStopCollection(stops.data(),UINT32(stops.size()),&colors),"Create card gradient");
+    const float fade_right=contain?art_left+size.width*scale*.35f:art.right;
+    ComPtr<ID2D1LinearGradientBrush> gradient;Check(target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties({art_left,art.top},{fade_right,art.top}),colors.Get(),&gradient),"Create card mask");
+    target->FillRectangle(art,gradient.Get());
+    if (selected==index) {ComPtr<ID2D1SolidColorBrush> accent;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&accent),"Create selection accent");target->FillRectangle({rectangle.left,rectangle.top,rectangle.left+4,rectangle.bottom},accent.Get());}
+    target->PopLayer();target->DrawRoundedRectangle(round,border.Get(),selected==index?2.f:1.f);
+    const float left=rectangle.left+(layout.narrow()?20:25);
+    const float block_height=layout.row_height()<100.f?65.f:83.f;
+    const float text_top=rectangle.top+(layout.row_height()-block_height)/2;
+    Text(target,hidden?T(L"已隐藏"):soon?T(layout.row_height()<100.f?L"敬请期待":L"后续作品"):Wide(cave::launcher::kArtwork[index].kicker),{left,text_top,rectangle.right-16,text_top+14},10,muted?0x9ca59e:0x829087);
+    const auto title=Wide(game.DisplayName());
+    const auto title_size=layout.narrow()?(title.size()>19?16.f:18.f):(title.size()>24?18.f:20.f);
+    Text(target,title,{left,text_top+16,rectangle.right-16,text_top+43},title_size,muted?0x647168:0x23312d);
+    Text(target,Wide(game.name),{left,text_top+43,rectangle.right-16,text_top+60},11,muted?0x8c978f:0x748179);
+    if(layout.row_height()>=100.f) {
+      const float label_top=text_top+65;
+      if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
+      else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
+    }
+  }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
-            std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr,bool update_ready=false) {
+            std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr,bool update_ready=false,
+            const CardDrag* drag=nullptr) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     const auto brand=Logo(target);const auto brand_size=brand->GetSize();
@@ -507,77 +586,29 @@ class Renderer {
     for (size_t position=0;position<layout.game_count;++position) {
       const auto index=library?library->visible[position]:position;
       const auto rectangle=layout.card(position);if(rectangle.bottom<layout.header() || rectangle.top>layout.footer())continue;
-      const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
-      const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
-      const bool hidden=library&&library->Hidden(index);
-      const bool muted=soon||missing||hidden;
-      const auto color=muted?0xf6f7f4:0xffffff;
-      ComPtr<ID2D1SolidColorBrush> background,border;
-      Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&background),"Create card fill");
-      Check(target->CreateSolidColorBrush(D2D1::ColorF(selected==index?0x37644c:(hover==int(index)?0xa0b1a3:0xdee3db)),&border),"Create card border");
-      auto round=D2D1::RoundedRect(rectangle,13,13);target->FillRoundedRectangle(round,background.Get());
-      ComPtr<ID2D1RoundedRectangleGeometry> clip;Check(factory->CreateRoundedRectangleGeometry(round,&clip),"Create card clip");
-      target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(),clip.Get()),nullptr);
-      if(layout.covers) {
-        const auto inset=cave::launcher::kCoverInset;
-        const D2D1_RECT_F art{rectangle.left+inset,rectangle.top+inset,rectangle.right-inset,rectangle.bottom-74};
-        auto bitmap=Image(target,index,muted,true);const auto size=bitmap->GetSize();
-        const auto& artwork=cave::launcher::kCoverArtwork[index];
-        const float scale=artwork.contain?std::min((art.right-art.left)/size.width,(art.bottom-art.top)/size.height):
-                                          std::max((art.right-art.left)/size.width,(art.bottom-art.top)/size.height);
-        const float x=art.left-((size.width*scale)-(art.right-art.left))*.5f;
-        const float y=art.top-((size.height*scale)-(art.bottom-art.top))*artwork.focus_y;
-        target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-        target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
-            soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
-        target->PopAxisAlignedClip();
-        if(soon || hidden) {
-          ComPtr<ID2D1SolidColorBrush> shade;
-          Check(target->CreateSolidColorBrush(D2D1::ColorF(0xf3f4f0,.87f),&shade),"Create future-cover label");
-          const D2D1_RECT_F label{art.left,art.bottom-29,art.right,art.bottom};
-          target->FillRectangle(label,shade.Get());
-          Text(target,T(hidden?L"已隐藏":L"敬请期待"),{label.left+10,label.top+6,label.right-10,label.bottom},11,0x647168);
-        }
-        const auto left=rectangle.left+12;
-        Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
-            13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
-        Text(target,Wide(game.name),{left,rectangle.bottom-24,rectangle.right-12,rectangle.bottom-10},10,0x748179);
-        target->PopLayer();
-        target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
+      if(drag && drag->game==index) {
+        ComPtr<ID2D1SolidColorBrush> fill,border;
+        Check(target->CreateSolidColorBrush(D2D1::ColorF(0xe7ece5),&fill),"Create drag placeholder");
+        Check(target->CreateSolidColorBrush(D2D1::ColorF(0xb4c3b5),&border),"Create drag placeholder border");
+        const auto round=D2D1::RoundedRect(rectangle,13,13);
+        target->FillRoundedRectangle(round,fill.Get());target->DrawRoundedRectangle(round,border.Get());
         continue;
       }
-      const float art_width=(rectangle.right-rectangle.left)*(layout.narrow()?.61f:.66f);
-      const D2D1_RECT_F art{rectangle.right-art_width,rectangle.top,rectangle.right,rectangle.bottom};
-      auto bitmap=Image(target,index,muted);const auto size=bitmap->GetSize();
-      const bool contain=cave::launcher::kArtwork[index].contain;
-      const auto scale=contain?std::min(art_width/size.width,layout.row_height()/size.height):
-                               std::max(art_width/size.width,layout.row_height()/size.height);
-      const float y=rectangle.top-(size.height*scale-layout.row_height())*cave::launcher::kArtwork[index].focus_y;
-      const float art_left=contain?art.right-size.width*scale:art.left;
-      target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-      target->DrawBitmap(bitmap,{art_left,y,art_left+size.width*scale,y+size.height*scale},soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
-      target->PopAxisAlignedClip();
-      const std::array stops{D2D1_GRADIENT_STOP{0,D2D1::ColorF(color,1)},D2D1_GRADIENT_STOP{.14f,D2D1::ColorF(color,.96f)},
-          D2D1_GRADIENT_STOP{.35f,D2D1::ColorF(color,.47f)},D2D1_GRADIENT_STOP{.63f,D2D1::ColorF(color,0)},D2D1_GRADIENT_STOP{1,D2D1::ColorF(color,0)}};
-      ComPtr<ID2D1GradientStopCollection> colors;Check(target->CreateGradientStopCollection(stops.data(),UINT32(stops.size()),&colors),"Create card gradient");
-      const float fade_right=contain?art_left+size.width*scale*.35f:art.right;
-      ComPtr<ID2D1LinearGradientBrush> gradient;Check(target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties({art_left,art.top},{fade_right,art.top}),colors.Get(),&gradient),"Create card mask");
-      target->FillRectangle(art,gradient.Get());
-      if (selected==index) {ComPtr<ID2D1SolidColorBrush> accent;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&accent),"Create selection accent");target->FillRectangle({rectangle.left,rectangle.top,rectangle.left+4,rectangle.bottom},accent.Get());}
-      target->PopLayer();target->DrawRoundedRectangle(round,border.Get(),selected==index?2.f:1.f);
-      const float left=rectangle.left+(layout.narrow()?20:25);
-      const float block_height=layout.row_height()<100.f?65.f:83.f;
-      const float text_top=rectangle.top+(layout.row_height()-block_height)/2;
-      Text(target,hidden?T(L"已隐藏"):soon?T(layout.row_height()<100.f?L"敬请期待":L"后续作品"):Wide(cave::launcher::kArtwork[index].kicker),{left,text_top,rectangle.right-16,text_top+14},10,muted?0x9ca59e:0x829087);
-      const auto title=Wide(game.DisplayName());
-      const auto title_size=layout.narrow()?(title.size()>19?16.f:18.f):(title.size()>24?18.f:20.f);
-      Text(target,title,{left,text_top+16,rectangle.right-16,text_top+43},title_size,muted?0x647168:0x23312d);
-      Text(target,Wide(game.name),{left,text_top+43,rectangle.right-16,text_top+60},11,muted?0x8c978f:0x748179);
-      if(layout.row_height()>=100.f) {
-        const float label_top=text_top+65;
-        if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
-        else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
-      }
+      Card(target,layout,rows,index,rectangle,selected,hover,library&&library->Hidden(index));
+    }
+    if(drag) {
+      ComPtr<ID2D1SolidColorBrush> shadow,accent;
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(0x23312d,.12f),&shadow),"Create drag shadow");
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&accent),"Create drop marker");
+      if(drag->insertion)target->FillRoundedRectangle(D2D1::RoundedRect(*drag->insertion,2,2),accent.Get());
+      // Paint the moving card last, in the same logical coordinates as the
+      // pointer. Keep its grab point fixed instead of snapping it to a slot.
+      const auto r=drag->rectangle;
+      target->FillRoundedRectangle(D2D1::RoundedRect({r.left-3,r.top+3,r.right+3,r.bottom+9},16,16),shadow.Get());
+      auto layer=D2D1::LayerParameters();layer.opacity=.94f;
+      target->PushLayer(layer,nullptr);
+      Card(target,layout,rows,drag->game,r,drag->game,-1,library&&library->Hidden(drag->game));
+      target->PopLayer();
     }
     target->PopAxisAlignedClip();
     const bool has_games=layout.game_count!=0;
@@ -936,6 +967,7 @@ class App {
   bool Input(MSG& input) {
     if(input.message!=WM_KEYDOWN || (input.hwnd!=hwnd && !IsChild(hwnd,input.hwnd)))return false;
     try {
+      if(card_press) {if(input.wParam==VK_ESCAPE)CancelCardDrag();return true;}
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
@@ -1101,6 +1133,46 @@ class App {
       if(Inside(layout.card(position),x,y))return library.visible[position];
     return {};
   }
+  std::optional<size_t> DropGameAt(float x,float y) const {
+    if(library.visible.empty() || x<layout.margin() || x>=layout.width-layout.margin() ||
+       y<layout.header() || y>=layout.footer())return {};
+    const auto row=size_t(std::max(0.f,y-layout.header()+layout.scroll+layout.row_gap()/2)/
+                          (layout.row_height()+layout.row_gap()));
+    const auto column=layout.covers?std::min(layout.columns()-1,size_t(
+        (x-layout.margin()+cave::launcher::kCoverColumnGap/2)/
+        (layout.cover_width()+cave::launcher::kCoverColumnGap))):0;
+    return library.visible[std::min(row*layout.columns()+column,library.visible.size()-1)];
+  }
+  std::optional<CardDrag> DragPreview() const {
+    if(!card_press || !card_press->dragged)return {};
+    const auto& press=*card_press;
+    const auto scale=float(GetDpiForWindow(hwnd))/96;
+    const auto x=press.current.x/scale,y=press.current.y/scale;
+    const auto source=std::ranges::find(library.visible,press.game);
+    if(source==library.visible.end())return {};
+    const auto bounds=layout.card(size_t(source-library.visible.begin()));
+    const auto left=x-press.grab.x,top=y-press.grab.y;
+    CardDrag preview{press.game,{left,top,left+bounds.right-bounds.left,top+bounds.bottom-bounds.top},{}};
+    if(const auto game=DropGameAt(x,y);game && *game!=press.game) {
+      const auto target=std::ranges::find(library.visible,*game);
+      const auto rectangle=layout.card(size_t(target-library.visible.begin()));
+      const bool after=target>source;
+      if(layout.covers) {
+        const auto edge=after?rectangle.right+6:rectangle.left-6;
+        preview.insertion=D2D1_RECT_F{edge-2,rectangle.top+8,edge+2,rectangle.bottom-8};
+      } else {
+        const auto edge=after?rectangle.bottom+layout.row_gap()/2:rectangle.top-layout.row_gap()/2;
+        preview.insertion=D2D1_RECT_F{rectangle.left+8,edge-2,rectangle.right-8,edge+2};
+      }
+    }
+    return preview;
+  }
+  void CancelCardDrag() {
+    if(!card_press)return;
+    ignore_card_release=true;card_press.reset();hover=-1;
+    if(GetCapture()==hwnd)ReleaseCapture();
+    InvalidateGameList();
+  }
   void RefreshLibraryView() {
     layout.game_count=library.visible.size();
     hover=-1;
@@ -1210,7 +1282,8 @@ class App {
       }
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint,&library,ProgramReady());
+      const auto drag=DragPreview();
+      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint,&library,ProgramReady(),drag?&*drag:nullptr);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -1285,23 +1358,30 @@ class App {
         case WM_LBUTTONDOWN:{
           const auto scale=float(GetDpiForWindow(window))/96;
           const POINT point{GET_X_LPARAM(second),GET_Y_LPARAM(second)};
+          app->ignore_card_release=false;
           if(!app->busy && !app->child) {
             if(const auto game=app->GameAt(point.x/scale,point.y/scale)) {
-              app->card_press=CardPress{*game,point};
+              const auto position=std::ranges::find(app->library.visible,*game)-app->library.visible.begin();
+              const auto bounds=app->layout.card(size_t(position));
+              app->card_press=CardPress{*game,point,point,{point.x/scale-bounds.left,point.y/scale-bounds.top}};
+              app->focus=0;SetFocus(window);
               SetCapture(window);
             }
           }
           return 0;}
         case WM_LBUTTONUP:{
+          if(std::exchange(app->ignore_card_release,false))return 0;
           const auto scale=float(GetDpiForWindow(window))/96;
           const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
           const auto press=std::exchange(app->card_press,std::nullopt);
           if(GetCapture()==window)ReleaseCapture();
           if(press && press->dragged) {
-            if(const auto target=app->GameAt(x,y))app->MoveGame(press->game,*target);
+            app->InvalidateGameList();
+            if(const auto target=app->DropGameAt(x,y))app->MoveGame(press->game,*target);
           } else app->Click(x,y);
           return 0;}
-        case WM_CAPTURECHANGED:app->card_press.reset();return 0;
+        case WM_CAPTURECHANGED:case WM_CANCELMODE:app->CancelCardDrag();return 0;
+        case WM_ACTIVATEAPP:if(!first)app->CancelCardDrag();break;
         case WM_CONTEXTMENU:
           if(reinterpret_cast<HWND>(first)==window) {
             app->GameContextMenu({GET_X_LPARAM(second),GET_Y_LPARAM(second)});
@@ -1309,10 +1389,16 @@ class App {
           }
           break;
         case WM_MOUSEMOVE:{const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
-          if(auto& press=app->card_press;press && !press->dragged) {
+          if(auto& press=app->card_press;press) {
+            press->current={GET_X_LPARAM(second),GET_Y_LPARAM(second)};
             const auto dpi=GetDpiForWindow(window);
-            press->dragged=std::abs(GET_X_LPARAM(second)-press->origin.x)>GetSystemMetricsForDpi(SM_CXDRAG,dpi) ||
+            press->dragged=press->dragged || std::abs(GET_X_LPARAM(second)-press->origin.x)>GetSystemMetricsForDpi(SM_CXDRAG,dpi) ||
                            std::abs(GET_Y_LPARAM(second)-press->origin.y)>GetSystemMetricsForDpi(SM_CYDRAG,dpi);
+            if(press->dragged) {
+              app->hover=-1;app->InvalidateGameList();
+              SetCursor(LoadCursorW(nullptr,app->DropGameAt(x,y)?IDC_SIZEALL:IDC_NO));
+              return 0;
+            }
           }
           const auto game=app->GameAt(x,y);
           const auto hover=game?int(*game):-1;
@@ -1322,6 +1408,7 @@ class App {
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
         case WM_KEYDOWN:{
+          if(app->card_press) {if(first==VK_ESCAPE)app->CancelCardDrag();return 0;}
           const auto position=app->VisiblePosition();
           const auto& visible=app->library.visible;
           if(first==VK_UP || first==VK_NUMPAD8) {
@@ -1404,8 +1491,9 @@ class App {
   Renderer renderer;
   Layout layout;
   cave::launcher::GameLibrary library;
-  struct CardPress { size_t game; POINT origin; bool dragged{}; };
+  struct CardPress { size_t game; POINT origin,current; D2D1_POINT_2F grab; bool dragged{}; };
   std::optional<CardPress> card_press;
+  bool ignore_card_release{};
   std::optional<cave::launcher::WindowSize> saved_window_size,normal_window_size;
   bool scrollbar_pending{};
   std::vector<Row> rows;
