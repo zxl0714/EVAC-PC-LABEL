@@ -1,4 +1,5 @@
 #include "daioujou_arrange.h"
+#include "common/daioujou_music.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include <algorithm>
 #include <fstream>
@@ -11,7 +12,6 @@ constexpr std::string_view kOutput = "arrange/";
 constexpr std::string_view kTitlePcm = "1100/config/title_pcm.psb.m";
 constexpr std::string_view kCommonUi = "1100/motion/title_ui_common.psb.m";
 constexpr std::uint64_t kIndexLimit = 4 * 1024 * 1024;
-constexpr std::uint64_t kWaveLimit = 64 * 1024 * 1024;
 
 struct ArchiveNames {
     const char* index;
@@ -169,25 +169,25 @@ void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged) {
     }
 }
 
-void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
-    const fs::path& stage, const Json& tracks, std::span<const std::uint8_t> executable, bool merged) {
+void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable, bool merged,VerificationCache* verification) {
     const auto key = ReadArchiveSeed(executable, merged ? 0xdd : 0xde, true);
     auto definitions = Json::array();
     ArchiveLayer base(data, kBase, key);
     std::size_t reserve = 28 * 1024 * 1024;
-    for (const auto& track : tracks) reserve += track.at("bytes").get<std::size_t>() + 16 * 1024;
+    for (const auto& cue : daioujou::ArrangeCues()) reserve += 4ull*cue.samples + 16 * 1024;
     base.Reserve(reserve);
-    for (unsigned i = 0; i < kDaioujouArrangeTrackNames.size(); ++i) {
-        const auto filename = std::string(kDaioujouArrangeTrackNames[i]) + ".wav";
-        const auto wave = ReadPreparationInput(DataChild(music, filename), kWaveLimit);
-        const auto& expected = tracks.at(filename);
-        Require(expected.at("bytes") == wave.size() && expected.at("sha256") == PreparationHash(wave),
-            "X Arrange music changed during preparation");
+    daioujou::ReadArrangeWaves(data,[&](std::string_view name,std::span<const std::uint8_t> wave) {
+        const auto track=std::ranges::find(kDaioujouArrangeTrackNames,name);
+        Require(track!=kDaioujouArrangeTrackNames.end(),"Unknown X Arrange PCM track");
+        const auto i=static_cast<unsigned>(track-kDaioujouArrangeTrackNames.begin());
+        const auto filename = std::string(name) + ".wav";
         const auto resource = "1100/wav/evac_" + filename;
         base.Add(resource + ".m", wave, false);
         definitions.push_back({{"delay", 0}, {"filename", resource},
             {"no", kDaioujouArrangeFirstPcm + i}, {"stream", false}});
-    }
+    },verification);
+    std::sort(definitions.begin(),definitions.end(),[](const Json& a,const Json& b){return a.at("no")<b.at("no");});
     AddPcmDefinitions(base, definitions);
     AddArrangeMenu(base, false);
     base.Write(stage);

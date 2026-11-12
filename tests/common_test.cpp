@@ -2,6 +2,9 @@
 #include "common/ini.h"
 #include "common/paths.h"
 #include "common/ps4_program.h"
+#include "common/daioujou_music.h"
+#include "common/verification_cache.h"
+#include "launcher/arrange_status.h"
 #include "common/settings.h"
 #include "common/window_geometry.h"
 #include "common/config_update.h"
@@ -131,6 +134,34 @@ void NestedRootChecks(Fixture& fixture) {
     Require(inspect(too_deep).state=="missing_data" && inspect(too_deep).candidate_roots.empty(),
             "hint search is restricted to two wrapper levels");
   }
+}
+void ArrangePlacementChecks(Fixture& fixture) {
+  using namespace cave::daioujou;
+  const auto data=fixture.temporary/FromUtf8("外部 大往生 数据");
+  VerificationCache cache(fixture.root);
+  const auto inspect=[&](CheckLevel level=CheckLevel::Quick){return InspectArrangeMusic(data,level,&cache);};
+  Require(inspect().state==ArrangeState::Absent,"Absent optional music must be silent");
+  Write(data/"x-arrange/README.txt","Optional music guide");
+  Require(inspect().state==ArrangeState::Absent,"Placement guide must not enable music");
+  const auto banks=ArrangeBanks();
+  Write(data/"x-arrange"/banks[0].name,std::string(static_cast<size_t>(banks[0].bytes),'x'));
+  const auto missing=inspect();
+  Require(missing.state==ArrangeState::Missing && missing.file==banks[1].name,"Report the missing bank filename");
+  for(const auto language:{launcher::Language::Chinese,launcher::Language::English,launcher::Language::Japanese})
+    Require(launcher::ArrangeWarning(missing,language).find(FromUtf8(banks[1].name).native())!=std::wstring::npos,
+            "Music warning needs a filename in every language");
+  Write(data/"x-arrange"/banks[1].name,"wrong wave bank");
+  const auto invalid=inspect();
+  Require(invalid.state==ArrangeState::Invalid && invalid.file==banks[1].name,"Report a wrong bank without affecting base readiness");
+  Require(cache.reads==0,"Quick library checks must not hash music banks");
+  Require(inspect(CheckLevel::Full).state==ArrangeState::Invalid && cache.reads==1,"Full checks reject same-size invalid bank content");
+  unsigned emitted{};
+  Reject([&]{ReadArrangeWaves(data,[&](auto,auto){++emitted;},&cache);},"Invalid banks must never emit playable music");
+  Require(emitted==0,"Invalid source emitted music");
+  fs::remove(data/"x-arrange"/banks[0].name);fs::remove(data/"x-arrange"/banks[1].name);
+  Write(fixture.root/"user-data/daioujou/x-arrange/ddo_arr_stg1.wav","old imported music");
+  Require(inspect(CheckLevel::Full).state==ArrangeState::Absent,"Removing sources must disable music despite an old import");
+  Require(launcher::ArrangeWarning(inspect(),launcher::Language::English).empty(),"Absent music should have no warning");
 }
 void DataVariantChecks(Fixture& fixture) {
   const auto source=fixture.temporary/"version-fixture";
@@ -760,6 +791,7 @@ int main() {
     NestedRootChecks(fixture);
     DataVariantChecks(fixture);
     Ps4ProgramChecks(fixture);
+    ArrangePlacementChecks(fixture);
     std::cout << checks << " native checks passed; fixture programs were not executed.\n";
     return 0;
   } catch (const std::exception& error) {

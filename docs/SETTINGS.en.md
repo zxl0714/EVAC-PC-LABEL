@@ -48,7 +48,7 @@ Keep the whole `user-data/` folder when backing up or moving the collection. It 
 
 ## DaiOuJou X Arrange music
 
-Select DaiOuJou in the launcher, open **Game data… → Import X Arrange BGM…**, and choose the Xbox 360 ISO of *DoDonPachi Dai-Ou-Jou Black Label Extra*. After importing, select **X Arrange(Xbox 360)** in the game's BGM SET menu. Imported music is stored in `user-data/daioujou/x-arrange/`.
+Place the two music banks from the extracted Xbox 360 Black Label Extra game in `x-arrange/` inside your DaiOuJou data folder. They are detected on launch; select **X Arrange(Xbox 360)** in the game's BGM SET menu. See [file placement](GAME_DATA.en.md#daioujou).
 
 ## NEO mode
 

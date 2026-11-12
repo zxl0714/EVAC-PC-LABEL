@@ -124,8 +124,11 @@ def placement_sources(version, name=PLACEMENT_NAME):
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
     placement = PLACEMENT_GAMES if 'espgaluda' in games else V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
-    return {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
-            for key in placement}
+    result = {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
+              for key in placement}
+    if tuple(map(int, version.split('-', 1)[0].split('.'))) >= (0, 9, 9):
+        result['game-data/daioujou/x-arrange/' + name] = ROOT / 'config/game-data/daioujou-x-arrange.txt'
+    return result
 
 
 def extraction_sources(version):

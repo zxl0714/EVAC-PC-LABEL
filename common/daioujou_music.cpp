@@ -1,13 +1,9 @@
 #include "common/daioujou_music.h"
-#include "common/ini.h"
-#include "common/launch.h"
-#include "common/settings.h"
+#include "common/verification_cache.h"
 #include <Windows.h>
 #include <algorithm>
 #include <array>
 #include <fstream>
-#include <optional>
-#include <set>
 #include <stdexcept>
 
 namespace cave::daioujou {
@@ -28,9 +24,10 @@ constexpr std::array kCues{
   ArrangeCue{"ddo_arr_stg4",10533067,32737,10500309},
   ArrangeCue{"ddo_arr_stg5",7365956,2425013,4940923},
 };
-constexpr std::string_view kSoundHash="6513daa1a4db3aacfa4b32cba6d862d40f5365bf507eee47c6a2413176ada5fc";
-constexpr std::string_view kWaveHash="c89d558adb9fced6b868ddcb19e73d554feb98988f129ae17915de8fa434b6f0";
-constexpr uint64_t kSector=2048;
+constexpr std::array kBanks{
+  ArrangeBank{"ddo_bgm_SoundBank.xsb",2737,"6513daa1a4db3aacfa4b32cba6d862d40f5365bf507eee47c6a2413176ada5fc"},
+  ArrangeBank{"ddo_bgm_WaveBank.xwb",736970752,"c89d558adb9fced6b868ddcb19e73d554feb98988f129ae17915de8fa434b6f0"},
+};
 struct Extent {uint64_t offset{},bytes{};};
 
 void Require(bool valid,const char* message) {if(!valid)throw std::runtime_error(message);}
@@ -43,72 +40,31 @@ uint32_t ReadNumber(std::span<const unsigned char> data,size_t at,unsigned size,
 bool Magic(std::span<const unsigned char> data,std::string_view magic) {
   return data.size()>=magic.size() && std::equal(magic.begin(),magic.end(),data.begin());
 }
-bool AsciiEqual(std::span<const unsigned char> data,std::string_view value) {
-  const auto lower=[](int c){return c>='A' && c<='Z'?c+('a'-'A'):c;};
-  return data.size()==value.size() && std::ranges::equal(data,value,[&](auto a,auto b){return lower(a)==lower(b);});
-}
-class Disc {
+// A write/delete-denying handle stays open through validation and reading.
+class BankLock {
  public:
-  explicit Disc(const fs::path& path):size_(fs::file_size(path)),input_(path,std::ios::binary) {
-    Require(bool(input_),"Cannot open the Xbox 360 ISO");
-    for(const uint64_t partition:{0ull,0xfd90000ull,0x2080000ull,0x18300000ull}) {
-      const auto volume_at=partition+32*kSector;
-      if(volume_at+kSector>size_)continue;
-      std::array<unsigned char,kSector> volume{};
-      Read(volume_at,volume);
-      constexpr std::string_view signature="MICROSOFT*XBOX*MEDIA";
-      if(!Magic(volume,signature) || !Magic(std::span(volume).last(signature.size()),signature))continue;
-      partition_=partition;
-      root_=AtSector(ReadNumber(volume,20,4),ReadNumber(volume,24,4));
-      return;
-    }
-    throw std::runtime_error("Select the Xbox 360 Black Label Extra game ISO.");
+  explicit BankLock(const fs::path& path):handle_(CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,
+      nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr)) {
+    Require(handle_!=INVALID_HANDLE_VALUE,"Cannot read X Arrange music bank");
   }
-  std::array<Extent,2> Banks() {
-    const auto directory=Find(Find(root_,"dat",true),"sound",true);
-    return {Find(directory,"ddo_bgm_SoundBank.xsb",false),Find(directory,"ddo_bgm_WaveBank.xwb",false)};
+  ~BankLock(){CloseHandle(handle_);}
+  BankLock(const BankLock&)=delete;
+ private: HANDLE handle_;
+};
+class WaveBank {
+ public:
+  explicit WaveBank(const fs::path& path):input_(path,std::ios::binary) {
+    Require(bool(input_),"Cannot open X Arrange wave bank");
   }
   void Read(uint64_t at,std::span<unsigned char> bytes) {
-    Require(at<=size_ && bytes.size()<=size_-at,"Xbox 360 ISO extent exceeds the file");
+    Require(at<=kBanks[1].bytes && bytes.size()<=kBanks[1].bytes-at,"Invalid X Arrange bank extent");
     input_.seekg(static_cast<std::streamoff>(at));
-    if(!input_.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size())))
-      throw std::runtime_error("Cannot read the Xbox 360 ISO");
+    Require(bool(input_.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))),
+            "Cannot read X Arrange wave bank");
   }
- private:
-  Extent AtSector(uint32_t sector,uint32_t size) const {
-    const auto start=partition_+kSector*sector;
-    Require(start<=size_ && size<=size_-start,"Invalid Xbox 360 disc directory extent");
-    return {start,size};
-  }
-  Extent Find(Extent directory,std::string_view name,bool folder) {
-    Require(directory.bytes>=14 && directory.bytes<=4*1024*1024,"Invalid Xbox 360 disc directory");
-    std::vector<unsigned char> table(static_cast<size_t>(directory.bytes));
-    Read(directory.offset,table);
-    std::vector<size_t> pending{0};
-    std::set<size_t> visited;
-    std::optional<Extent> result;
-    while(!pending.empty()) {
-      const auto at=pending.back();
-      pending.pop_back();
-      Require(at<=table.size()-14 && visited.insert(at).second,"Invalid Xbox 360 disc directory tree");
-      const auto name_bytes=table[at+13];
-      Require(name_bytes && name_bytes<=table.size()-at-14,"Invalid Xbox 360 disc filename");
-      if(AsciiEqual(std::span(table).subspan(at+14,name_bytes),name)) {
-        Require(!result && bool(table[at+12]&0x10)==folder,"Ambiguous Xbox 360 disc path");
-        result=AtSector(ReadNumber(table,at+4,4),ReadNumber(table,at+8,4));
-      }
-      for(const auto link:{ReadNumber(table,at,2),ReadNumber(table,at+2,2)})
-        if(link)pending.push_back(size_t(link)*4);
-    }
-    Require(result.has_value(),"The disc does not contain the Black Label Extra music banks");
-    return *result;
-  }
-  uint64_t size_,partition_{};
-  std::ifstream input_;
-  Extent root_;
+ private: std::ifstream input_;
 };
 
-std::string WaveName(const ArrangeCue& cue){return std::string(cue.name)+".wav";}
 void Append(std::vector<unsigned char>& bytes,std::string_view value) {
   bytes.insert(bytes.end(),value.begin(),value.end());
 }
@@ -140,19 +96,7 @@ void CheckNoLink(const fs::path& path) {
   Require(flags==INVALID_FILE_ATTRIBUTES || !(flags&FILE_ATTRIBUTE_REPARSE_POINT),
           "X Arrange music directory contains a linked path");
 }
-bool HasWave(const fs::path& path,const ArrangeCue& cue) {
-  CheckNoLink(path);
-  const auto header=WaveHeader(cue),loop=WaveLoop(cue);
-  if(!fs::is_regular_file(path) || fs::file_size(path)!=header.size()+4ull*cue.samples+loop.size())return false;
-  std::ifstream input(path,std::ios::binary);
-  std::vector<unsigned char> buffer(header.size());
-  if(!input.read(reinterpret_cast<char*>(buffer.data()),static_cast<std::streamsize>(buffer.size())) || buffer!=header)return false;
-  if(loop.empty())return true;
-  input.seekg(-static_cast<std::streamoff>(loop.size()),std::ios::end);
-  buffer.resize(loop.size());
-  return bool(input.read(reinterpret_cast<char*>(buffer.data()),static_cast<std::streamsize>(buffer.size()))) && buffer==loop;
-}
-std::array<Extent,kCues.size()> ReadWaveBank(Disc& disc,Extent bank) {
+std::array<Extent,kCues.size()> ReadWaveBank(WaveBank& disc,Extent bank) {
   std::array<unsigned char,52> header{};
   Require(bank.bytes>=header.size(),"Invalid X Arrange wave bank");
   disc.Read(bank.offset,header);
@@ -182,97 +126,58 @@ std::array<Extent,kCues.size()> ReadWaveBank(Disc& disc,Extent bank) {
   }
   return result;
 }
-struct Staging {
-  fs::path path;
-  ~Staging() {
-    for(const auto& cue:kCues)DeleteFileW((path/WaveName(cue)).c_str());
-    RemoveDirectoryW(path.c_str());
-  }
-};
 }
 std::span<const ArrangeCue> ArrangeCues(){return kCues;}
-fs::path ArrangeMusicDirectory(const fs::path& collection) {
-  auto path=fs::canonical(collection);
-  for(const auto* part:{"user-data","daioujou","x-arrange"}) {
-    path/=part;
-    CheckNoLink(path);
-  }
-  return path;
-}
-bool HasArrangeMusic(const fs::path& collection) {
+std::span<const ArrangeBank> ArrangeBanks(){return kBanks;}
+ArrangeStatus InspectArrangeMusic(const fs::path& data,CheckLevel level,VerificationCache* cache) {
+  ArrangeStatus result;
   try {
-    const auto directory=ArrangeMusicDirectory(collection);
-    return std::ranges::all_of(kCues,[&](const auto& cue){return HasWave(directory/WaveName(cue),cue);});
-  } catch(const std::exception&) {return false;}
+    const auto directory=DataChild(data,"x-arrange");
+    if(!fs::exists(directory))return result;
+    CheckNoLink(directory);
+    Require(fs::is_directory(directory),"X Arrange path must be a directory");
+    bool present=false;
+    for(const auto& bank:kBanks)present|=fs::exists(directory/bank.name);
+    if(!present)return result; // A pre-created folder with only README is optional.
+    for(const auto& bank:kBanks) {
+      result.file=std::string(bank.name);
+      const auto path=DataChild(directory,bank.name);
+      if(!fs::exists(path)) {result.state=ArrangeState::Missing;return result;}
+      CheckNoLink(path);
+      if(!fs::is_regular_file(path) || fs::file_size(path)!=bank.bytes) {
+        result.state=ArrangeState::Invalid;return result;
+      }
+      if(level!=CheckLevel::Quick) {
+        BankLock locked(path);
+        if(FileDigest(path,cache)!=bank.sha256) {result.state=ArrangeState::Invalid;return result;}
+      }
+    }
+    result.state=ArrangeState::Ready;result.file.clear();
+  } catch(const std::exception& error) {result.state=ArrangeState::Invalid;result.detail=error.what();}
+  return result;
 }
-void ImportArrangeMusic(const fs::path& collection,const fs::path& requested_iso,
-                        const std::function<void(uint64_t,uint64_t)>& progress,
-                        const std::function<bool()>& cancelled) {
-  const auto root=fs::canonical(collection),iso=fs::canonical(requested_iso),directory=ArrangeMusicDirectory(root);
-  Require(fs::is_regular_file(iso) && !Within(iso,directory),"Select an Xbox 360 game ISO outside the music folder");
-  const auto ini=Ini::Load(ConfigPath(root));
-  const auto overlaps=[&](const fs::path& path){return Within(directory,path) || Within(path,directory);};
-  for(const auto& game:Catalogue()) {
-    const auto data=Resolve(root,ini.DataDirectory(game));
-    const auto dlc=ini.ContentDirectory(game,data);
-    Require(!overlaps(data) && (dlc.empty() || !overlaps(Resolve(root,dlc))),
-            "X Arrange music folder overlaps configured game data");
-  }
-  GameSession session(root);
-  const auto check=[&]{if(cancelled && cancelled())throw std::runtime_error("X Arrange music import cancelled");};
-  check();
-  // Keep the verified source stable through hashing and PCM export.
-  const auto locked=CreateFileW(iso.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
-  Require(locked!=INVALID_HANDLE_VALUE,"Cannot lock the Xbox 360 ISO for reading");
-  struct Unlock {HANDLE handle;~Unlock(){CloseHandle(handle);}} unlock{locked};
-  Disc disc(iso);
-  const auto banks=disc.Banks();
-  Require(banks[0].bytes==2737 && banks[1].bytes==736970752 &&
-          Sha256Range(iso,banks[0].offset,banks[0].bytes)==kSoundHash &&
-          Sha256Range(iso,banks[1].offset,banks[1].bytes)==kWaveHash,
-          "Select the supported Japanese Black Label Extra Xbox 360 ISO.");
-  const auto tracks=ReadWaveBank(disc,banks[1]);
-  uint64_t total=0,done=0;
-  for(const auto& track:tracks)total+=track.bytes;
-  if(progress)progress(done,total);
-  check();
-  fs::create_directories(directory);
-  const auto stage=directory/("import-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
-  Require(fs::create_directory(stage),"Cannot create the X Arrange music staging folder");
-  Staging cleanup{stage};
-  std::vector<unsigned char> buffer(512*1024);
+void ReadArrangeWaves(const fs::path& data,
+    const std::function<void(std::string_view,std::span<const uint8_t>)>& consume,VerificationCache* cache) {
+  const auto directory=DataChild(data,"x-arrange");
+  CheckNoLink(directory);
+  const auto sound=DataChild(directory,kBanks[0].name),wave=DataChild(directory,kBanks[1].name);
+  CheckNoLink(sound);CheckNoLink(wave);
+  BankLock sound_lock(sound),wave_lock(wave);
+  const auto inspected=InspectArrangeMusic(data,CheckLevel::Full,cache);
+  Require(inspected.state==ArrangeState::Ready,"X Arrange music banks changed during preparation");
+  WaveBank input(wave);
+  const auto tracks=ReadWaveBank(input,{0,kBanks[1].bytes});
   for(size_t index=0;index<kCues.size();++index) {
     const auto& cue=kCues[index];
-    const auto path=stage/WaveName(cue);
-    std::ofstream output(path,std::ios::binary);
-    const auto write=[&](std::span<const unsigned char> bytes) {
-      if(bytes.empty())return;
-      output.write(reinterpret_cast<const char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()));
-      Require(bool(output),"Cannot write the X Arrange music files");
-    };
-    write(WaveHeader(cue));
-    for(uint64_t offset=0;offset<tracks[index].bytes;) {
-      check();
-      const auto count=static_cast<size_t>((std::min)(uint64_t(buffer.size()),tracks[index].bytes-offset));
-      const auto chunk=std::span(buffer).first(count);
-      disc.Read(tracks[index].offset+offset,chunk);
-      for(size_t byte=0;byte<count;byte+=2)std::swap(chunk[byte],chunk[byte+1]);
-      write(chunk);
-      offset+=count;done+=count;
-    }
-    if(progress)progress(done,total);
-    write(WaveLoop(cue));
-    output.close();
-    Require(bool(output) && HasWave(path,cue),"Incomplete X Arrange music file");
+    auto bytes=WaveHeader(cue);
+    const auto header_size=bytes.size();
+    bytes.resize(header_size+static_cast<size_t>(tracks[index].bytes));
+    auto pcm=std::span(bytes).subspan(header_size);
+    input.Read(tracks[index].offset,pcm);
+    for(size_t byte=0;byte<pcm.size();byte+=2)std::swap(pcm[byte],pcm[byte+1]);
+    const auto loop=WaveLoop(cue);
+    bytes.insert(bytes.end(),loop.begin(),loop.end());
+    consume(cue.name,bytes);
   }
-  check();
-  for(const auto& cue:kCues) {
-    const auto name=WaveName(cue);
-    const auto target=directory/name;
-    CheckNoLink(target);
-    Require(MoveFileExW((stage/name).c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE,
-            "Cannot install the imported X Arrange music");
-  }
-  Require(HasArrangeMusic(root),"Installed X Arrange music is incomplete");
 }
 }

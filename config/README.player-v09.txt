@@ -36,8 +36,9 @@ XBLA：打开 tools/Extract-XBLA.exe，选择内容包并提取，把结果放�
 虫姬二 DLC 原始包放置方法见 game-data/futari/README.txt，启动时自动提取。
 
 大往生 X Arrange 音乐
-选中大往生，在“游戏数据…”中导入 Xbox 360 版 Black Label Extra 的 ISO，
-再到游戏内 BGM SET 选择 X Arrange(Xbox 360)。
+用 tools/Extract-Xbox360.exe 解开 Xbox 360 版 Black Label Extra 的 ISO。
+把 dat/sound/ 中的 ddo_bgm_SoundBank.xsb 和 ddo_bgm_WaveBank.xwb
+复制到 game-data/daioujou/x-arrange/，启动后在 BGM SET 选择 X Arrange(Xbox 360)。
 
 配置与操作
 CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
@@ -90,8 +91,10 @@ PS2 游戏使用原作本地成绩与记忆卡。
 English
 
 Drag cards to reorder games; right-click to hide them. Use the eye icon to show hidden games.
-For DaiOuJou X Arrange music, select DaiOuJou, open Game data… and import the Xbox 360
-Black Label Extra ISO, then choose X Arrange(Xbox 360) in the game's BGM SET menu.
+For DaiOuJou X Arrange music, extract the Xbox 360 Black Label Extra ISO with
+tools/Extract-Xbox360.exe. Copy ddo_bgm_SoundBank.xsb and ddo_bgm_WaveBank.xwb
+from dat/sound/ to game-data/daioujou/x-arrange/. Launch the game and choose
+X Arrange(Xbox 360) in BGM SET.
 
 Run EVAC PC LABEL.exe, select a game, and click Launch game.
 To update, close the games and launcher, replace the program files, and keep user-data/.

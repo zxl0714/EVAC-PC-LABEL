@@ -212,6 +212,22 @@ game-data/daioujou/
 
 Select the folder containing `eboot.bin` and the complete game modules and resources. Apply the update over the base game's files before selecting the folder.
 
+### DaiOuJou: X Arrange music
+
+Extract the Xbox 360 Black Label Extra ISO with `tools/Extract-Xbox360.exe`. Copy the two files from `dat/sound/` into:
+
+```text
+game-data/daioujou/
+├── eboot.bin
+├── …
+└── x-arrange/
+    ├── ddo_bgm_SoundBank.xsb
+    └── ddo_bgm_WaveBank.xwb
+```
+
+Launch DaiOuJou and choose **X Arrange(Xbox 360)** in **BGM SET**. The music is detected automatically. For an external game folder, place `x-arrange` beside `eboot.bin`.
+
+
 <a id="esprade"></a>
 
 ### エスプレイドΨ — ESP Ra.De. Psi (esprade)

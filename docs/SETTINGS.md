@@ -48,7 +48,7 @@
 
 ## 大往生 X Arrange 音乐
 
-在启动器选中大往生，点击「游戏数据…」中的「导入 X Arrange BGM…」，选择 Xbox 360 版《DoDonPachi Dai-Ou-Jou Black Label Extra》的 ISO。导入后，在游戏内 BGM SET 选择 **X Arrange(Xbox 360)**。音乐保存在 `user-data/daioujou/x-arrange/`。
+将 Xbox 360 版 Black Label Extra 解包后的两个音频库放进大往生数据目录的 `x-arrange/`，启动时自动识别，再到游戏内 BGM SET 选择 **X Arrange(Xbox 360)**。见[文件放置方式](GAME_DATA.md#daioujou)。
 
 ## NEO 模式
 

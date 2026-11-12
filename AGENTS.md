@@ -10,6 +10,17 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+Active follow-up: replace the dedicated X Arrange ISO-import UI with automatic
+bank detection in game-data/daioujou/x-arrange (or external PS4 root). The only
+inputs are ddo_bgm_SoundBank.xsb and ddo_bgm_WaveBank.xwb from dat/sound of the
+Xbox 360 ISO. No input => silent original BGM; invalid/incomplete => filename
+warning and base-game launch; removal => hide option despite old WAV/cache.
+Generate directly into the prepared archive, not user-data WAVs. Update bilingual
+guides and the local v0.9.9 Public ZIP only; no push/upload/publication. Previous
+music/menu/loop acceptance below is retained for unchanged output. Current changes
+are not yet a certified package. Supersedes the dedicated importer workflow below.
+
+Previous delivery (retained):
 v0.9.9 local delivery is complete. All eight work items and acceptance checks
 at the top of docs/IMPLEMENTATION_PLAN.md are complete. Stop before publication.
 Frozen source: 14b2067f337de85efef994516c3579891033a86b.

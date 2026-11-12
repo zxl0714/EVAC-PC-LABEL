@@ -1,6 +1,6 @@
 # EVAC PC LABEL v0.9.9
 
-- 大往生新增 **X Arrange(Xbox 360)** 曲集。在启动器选中大往生，点击「游戏数据…」导入 Xbox 360 版镜像，再到游戏内 BGM SET 选择。
+- 大往生新增 **X Arrange(Xbox 360)** 曲集。将 Xbox 360 版解包后的音频库放入 `game-data/daioujou/x-arrange/`，启动时自动识别，再到游戏内 BGM SET 选择。[放置说明](GAME_DATA.md#daioujou)
 - 游戏库支持拖动排序和右键隐藏游戏；点击眼睛图标可显示隐藏项。
 - 启动器可后台下载更新，右上角出现红点后，点击即可重启更新。
 - 新增 **Extract Xbox 360** 图形解包工具，选择 ISO 即可提取游戏文件。
@@ -11,7 +11,7 @@
 
 ## English
 
-- Added **X Arrange(Xbox 360)** music for DaiOuJou. Select DaiOuJou in the launcher, import the Xbox 360 ISO from **Game data…**, then choose the set in the game's BGM SET menu.
+- Added **X Arrange(Xbox 360)** music for DaiOuJou. Place the music banks from the extracted Xbox 360 game in `game-data/daioujou/x-arrange/`; they are detected on launch. Select the set in the game's BGM SET menu. [File placement](GAME_DATA.en.md#daioujou)
 - Drag games to reorder the library, or right-click to hide them. Use the eye icon to show hidden games.
 - Updates download in the background. Click the red dot in the upper-right corner to restart and update.
 - Added **Extract Xbox 360**, a graphical tool for extracting game ISOs.

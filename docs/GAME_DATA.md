@@ -214,6 +214,18 @@ game-data/daioujou/
 
 选择直接包含 `eboot.bin` 的目录，保留全部游戏模块和资源。单独的补丁目录不等于完整合并数据。
 
+**X Arrange(Xbox 360) 音乐（可选）**
+
+用 `tools/Extract-Xbox360.exe` 解开 Xbox 360 版《DoDonPachi Dai-Ou-Jou Black Label Extra》的 ISO，将解包目录 `dat/sound/` 中的这两个文件复制到：
+
+```text
+game-data/daioujou/x-arrange/
+  ddo_bgm_SoundBank.xsb
+  ddo_bgm_WaveBank.xwb
+```
+
+启动时自动识别，在游戏内 **BGM SET** 选择 **X Arrange(Xbox 360)**。使用自定义数据目录时，`x-arrange/` 同样放在 `eboot.bin` 旁边。未放入文件时，游戏保留原有曲集。
+
 <a id="esprade"></a>
 
 ### エスプレイドΨ（esprade）

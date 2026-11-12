@@ -245,6 +245,24 @@ void CopyChecks() {
   Reject([&]{CopyDataToCollection(overlap.root,game,overlap.root);},"Copy accepted source containing target");
   game.coming_soon=true;Reject([&]{CopyDataToCollection(overlap.root,game,overlap.data);},"Coming Soon copy was accepted");
 }
+void ArrangeGuideCopyChecks() {
+  auto game=SyntheticCopyGame();game.id="daioujou";game.data_dir="game-data/daioujou";
+  for(const bool extra_file:{false,true}) {
+    Fixture fixture;Write(fixture.data/"main.bin","abc");
+    const auto target=fixture.root/"game-data/daioujou";
+    Write(target/"README.txt","Game guide");Write(target/"x-arrange/README.txt","Music guide");
+    if(extra_file) {
+      Write(target/"x-arrange/ddo_bgm_WaveBank.xwb","Existing music");
+      Reject([&]{CopyDataToCollection(fixture.root,game,fixture.data);},"Pre-created guide exception must not overwrite music");
+      Require(Ini::ReadText(target/"x-arrange/ddo_bgm_WaveBank.xwb")=="Existing music","Existing music changed");
+    } else {
+      const auto result=CopyDataToCollection(fixture.root,game,fixture.data);
+      Require(Ini::ReadText(target/"x-arrange/README.txt")=="Music guide" && Ini::ReadText(target/"main.bin")=="abc",
+              "Pre-created music guide must allow normal game installation");
+      Require(Ini::ReadText(result.guide_backup/"x-arrange/README.txt")=="Music guide","Original nested guide backup missing");
+    }
+  }
+}
 void PlacementGuideCopyChecks() {
   const auto game=SyntheticCopyGame();
   const fs::path guide=L"README.txt";
@@ -290,7 +308,7 @@ int wmain(int count,wchar_t** arguments) {
       std::cout<<result.files<<" synthetic files copied\n";return 0;
     }
     if(count!=1)throw std::runtime_error("Unknown synthetic test mode");
-    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();PlacementGuideCopyChecks();
+    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();PlacementGuideCopyChecks();ArrangeGuideCopyChecks();
     std::cout<<checks<<" launch/config/process/data-copy checks passed; only synthetic helper processes executed.\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

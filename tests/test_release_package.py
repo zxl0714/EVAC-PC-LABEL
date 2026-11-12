@@ -94,12 +94,17 @@ class ReleaseTests(unittest.TestCase):
 
     def test_v099_includes_native_iso_extractor(self):
         self.assertNotIn('tools/Extract-Xbox360.exe', release.runtime_names(self.games, version='0.9.8', selection=release.V03_GAMES))
+        guide = 'game-data/daioujou/x-arrange/README.txt'
+        self.assertNotIn(guide, release.placement_sources('0.9.8'))
         def check(root, games, commit, inspect):
             result = release.build('Public', '0.9.9', root/'releases/iso-extractor')
             record = release.verify_tree(Path(result['directory']), games)
             self.assertIn('tools/Extract-Xbox360.exe', {item['path'] for item in record['files']})
+            self.assertIn(guide, {item['path'] for item in record['files']})
             with zipfile.ZipFile(result['archive']) as zipped:
                 self.assertIn('tools/Extract-Xbox360.exe', zipped.namelist())
+                self.assertIn(b'ddo_bgm_WaveBank.xwb', zipped.read(guide))
+                self.assertEqual([name for name in zipped.namelist() if name.startswith('game-data/daioujou/x-arrange/')], [guide])
         self.check_build_flavors('0.9.9', check)
 
     def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
@@ -969,6 +974,7 @@ class ReleaseTests(unittest.TestCase):
                 text[name] = 'authored extraction instructions/license\n'
         for key in release.PLACEMENT_GAMES:
             text['config/game-data/'+key+'.txt']=(release.ROOT/'config/game-data'/ (key+'.txt')).read_text(encoding='utf-8')
+        text['config/game-data/daioujou-x-arrange.txt']=(release.ROOT/'config/game-data/daioujou-x-arrange.txt').read_text(encoding='utf-8')
         for name, value in text.items():
             target=root/name; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(value,encoding='utf-8',newline='\n')
         for args in (('init','-b','main'),('config','user.name','Fixture'),('config','user.email','fixture@example.invalid'),

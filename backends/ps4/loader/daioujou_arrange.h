@@ -18,7 +18,6 @@ void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArran
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update);
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update);
 void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged);
-void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& music,
-    const fs::path& stage, const nlohmann::json& tracks,
-    std::span<const std::uint8_t> executable, bool merged);
+void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable, bool merged,VerificationCache* verification=nullptr);
 }

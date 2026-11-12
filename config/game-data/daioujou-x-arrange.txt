@@ -1,0 +1,13 @@
+X Arrange(Xbox 360)
+
+用 tools/Extract-Xbox360.exe 解开大往生 Black Label Extra 的 Xbox 360 ISO。
+从解包目录的 dat/sound/ 复制下面两个文件到本目录：
+
+ddo_bgm_SoundBank.xsb
+ddo_bgm_WaveBank.xwb
+
+启动大往生，在游戏内 BGM SET 选择 X Arrange(Xbox 360)。
+
+Extract the Xbox 360 Black Label Extra ISO with tools/Extract-Xbox360.exe.
+Copy the two files listed above from dat/sound/ into this folder.
+Launch DaiOuJou and select X Arrange(Xbox 360) in the game's BGM SET menu.

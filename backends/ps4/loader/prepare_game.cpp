@@ -61,21 +61,21 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         {"communityOffline",policy.community_offline}};
     if (esprade) recipe["lowLatencyPredictionFrames"]=2;
     const auto& programs=policy.programs;
-    fs::path arrange_music;
-    if (game=="daioujou" && daioujou::HasArrangeMusic(root)) {
-        arrange_music=daioujou::ArrangeMusicDirectory(root);
-        auto tracks=Json::object();
-        for (const auto& cue:daioujou::ArrangeCues()) {
-            const auto name=std::string(cue.name)+".wav";
-            const auto track=DataChild(arrange_music,name);
-            tracks[name]={{"bytes",fs::file_size(track)},{"sha256",verification.Digest(track)}};
-        }
-        recipe["daioujouArrange"]=std::move(tracks);
+    const auto music=game=="daioujou"?daioujou::InspectArrangeMusic(data,CheckLevel::Full,&verification):daioujou::ArrangeStatus{};
+    const bool arrange_music=music.state==daioujou::ArrangeState::Ready;
+    if (arrange_music) {
+        auto banks=Json::object();
+        for (const auto& bank:daioujou::ArrangeBanks())
+            banks[bank.name]={{"bytes",bank.bytes},{"sha256",bank.sha256}};
+        recipe["daioujouArrangeBanks"]=std::move(banks);
+    } else if(music.Problem()) {
+        std::puts(Json{{"event","daioujou_arrange_unavailable"},{"file",music.file},
+            {"reason",music.state==daioujou::ArrangeState::Missing?"missing":"invalid"},{"detail",music.detail}}.dump().c_str());
     }
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
     if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
-    if (!arrange_music.empty()) AddDaioujouArrangeFiles(files,policy.merged_app);
+    if (arrange_music) AddDaioujouArrangeFiles(files,policy.merged_app);
     auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
         const auto read_program=[&](std::string_view name) {
             const auto& inventory=recipe.at("inputs");
@@ -92,7 +92,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             const auto source=read_program(programs[i]);
             const auto expected=std::ranges::find(manifest,programs[i],&DataFile::path);
             if (expected==manifest.end() || !expected->program)throw std::runtime_error("Missing verified PS4 program identity");
-            const bool arrange_core=!arrange_music.empty() && programs[i].starts_with("daioujou_");
+            const bool arrange_core=arrange_music && programs[i].starts_with("daioujou_");
             const auto prepared=PrepareElf(source,i!=0,libc,&*expected,arrange_core);
             WritePreparedRelative(stage,files[i],prepared.bytes);
         }
@@ -104,16 +104,15 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             const auto metadata=fixes.report.dump(2)+'\n';
             WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
         }
-        if (!arrange_music.empty()) {
-            PrepareDaioujouArrangeArchive(data,arrange_music,stage,recipe.at("daioujouArrange"),
-                read_program("eboot.bin"),policy.merged_app);
+        if (arrange_music) {
+            PrepareDaioujouArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,&verification);
         }
         if(CheckData(root,data,game,verification).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
         if (verification.Digest(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
     });
     return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",
         policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{},
-        arrange_music.empty()?fs::path{}:cache.directory/"arrange"};
+        arrange_music?cache.directory/"arrange":fs::path{}};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {
