@@ -10,6 +10,22 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+User expanded v0.9.9 PS4 equivalent decrypted-export support to all five games.
+The remaining three manifests now have program fingerprints. Ketsui exact
+package hashes retain priority; equivalent roots use param.sfo to distinguish
+the two known 01.00 packages. Prepared main images preserve actual source SHA
+and separately carry the verified patch identity for Ketsui community hooks
+and Garegga linked-module startup. No actual game data is changed.
+900 common checks, 283 PS4 compatibility checks and 24 catalogue tests pass.
+.local/v099/ps4-all-equivalence-r1/result.json verifies six original sets and
+101 rewrapped programs: same prepared payloads/resource overlays, loader
+binding and original data preserved. This is nonexecuting validation; the
+original base-self package was not reverified, its previously documented
+decoded identity is inherited. Next: frozen-source incremental certified
+builds, two bounded startup checks for the changed patch-selection consumers,
+and one new local program ZIP/extraction. No push/upload/publication.
+The prior complete ZIP below is retained until the revised one is delivered.
+
 v0.9.9 local delivery is complete. All eight work items and acceptance checks
 at the top of docs/IMPLEMENTATION_PLAN.md are complete. Stop before publication.
 Frozen source: 1af2bddac82592b000602fc1e8350685e4dd744f.

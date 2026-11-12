@@ -238,6 +238,24 @@ void Ps4ProgramChecks(Fixture& fixture) {
   Require(inspect().data_state==DataState::Incomplete,"Alternate program identity bypassed resource verification");
   write_program("eboot.bin",changed);
   Require(inspect(CheckLevel::Quick).data_state==DataState::Unsupported,"Unknown root ELF accepted");
+  // Two registered packages can contain identical programs but different SFOs.
+  // Rewrapping must select by those metadata, never by catalogue order.
+  Write(source/"sce_sys/param.sfo","pkg-a");const auto metadata_a=Sha256(source/"sce_sys/param.sfo");
+  Write(source/"sce_sys/param.sfo","pkg-b");const auto metadata_b=Sha256(source/"sce_sys/param.sfo");
+  write_program("eboot.bin",elf);const auto elf_hash=Sha256(source/"eboot.bin");
+  const std::array alias_a{files[0],DataFile{"sce_sys/param.sfo",5,metadata_a,false}};
+  const std::array alias_b{DataFile{"eboot.bin",elf.size(),elf_hash,true,fingerprint},DataFile{"sce_sys/param.sfo",5,metadata_b,false}};
+  const std::array aliases{DataVariant{"package-a","01.00","base","eboot.bin",alias_a,{}},
+                          DataVariant{"package-b","01.00","base","eboot.bin",alias_b,{}}};
+  game.variants=aliases;
+  Require(MatchRootProgram(game,elf.size(),elf_hash,fingerprint)==&aliases[1],"Exact root identity lost to ambiguous fingerprint");
+  Require(!MatchRootProgram(game,sectioned.size(),{},fingerprint),"Ambiguous package selected by list order");
+  write_program("eboot.bin",sectioned);
+  Require(inspect().variant=="package-b" && inspect().data_state==DataState::Verified,"Rewrapped second package not selected by metadata");
+  Write(source/"sce_sys/param.sfo","pkg-a");
+  Require(inspect().variant=="package-a" && inspect().data_state==DataState::Verified,"Rewrapped first package not selected by metadata");
+  Write(source/"sce_sys/param.sfo","pkg-x");
+  Require(inspect().data_state==DataState::Unsupported,"Unrecognized package metadata guessed");
   const auto iso=fixture.temporary/"ps4-disc/sample.ISO";
   Write(iso,"authored fixture");
   for(const auto& path:{iso,iso.parent_path()}) {

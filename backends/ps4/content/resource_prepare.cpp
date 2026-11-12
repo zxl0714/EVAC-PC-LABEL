@@ -26,8 +26,6 @@ constexpr std::size_t ResourceLimit(std::string_view name) {
     return name.ends_with(".wav.m") || name == "title_ui_common.psb.m" ? 64 * 1024 * 1024 : kResourceLimit;
 }
 constexpr std::size_t kPatchLimit = 262144;
-constexpr std::string_view kFeveronExecutableHash = "119851e0b62f06d6eb44ba9227fe989c0e9a2f53bf66558852f4881c8d99ee0b";
-constexpr std::string_view kGareggaExecutableHash = "4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984";
 enum class ResourceTitle { Ketsui, Daioujou, Esprade, Feveron, Garegga };
 void Require(bool okay, const char* message) { if (!okay) throw std::runtime_error(message); }
 std::string Hex(std::span<const std::byte> bytes) {
@@ -237,14 +235,23 @@ ResourceBytes ReadRange(const fs::path& path,std::uint64_t file_size,std::uint64
     ResourceBytes bytes(static_cast<std::size_t>(size));
     Require(bool(source.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(size))),"Truncated resource archive read"); return bytes;
 }
-ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,std::string_view source,
+std::string_view RootContract(const DataVariant& variant) {
+    const auto entry=std::ranges::find(variant.files,variant.entry,&DataFile::path);
+    Require(entry!=variant.files.end() && entry->program,"Missing root program contract");
+    return entry->sha256;
+}
+ResourceBytes ArchiveKey(std::span<const std::uint8_t> executable,
                          ResourceTitle title=ResourceTitle::Ketsui,const DataVariant* variant=nullptr) {
     const bool daioujou=title==ResourceTitle::Daioujou,esprade=title==ResourceTitle::Esprade;
     const bool feveron=title==ResourceTitle::Feveron,garegga=title==ResourceTitle::Garegga;
-    const auto* ketsui=title==ResourceTitle::Ketsui?FindKetsuiVersion(source):nullptr;
-    Require(garegga?source==kGareggaExecutableHash:feveron?source==kFeveronExecutableHash:
-        (esprade || daioujou)?variant!=nullptr:ketsui!=nullptr,
-        "Game fixes require a verified PS4 executable");
+    Require(variant,"Game fixes require a verified PS4 executable");
+    const auto entry=std::ranges::find(variant->files,variant->entry,&DataFile::path);
+    Require(entry!=variant->files.end() &&
+        ((entry->bytes==executable.size() && Hash(executable)==entry->sha256) ||
+         (!entry->program_fingerprint.empty() && ProgramFingerprint(executable)==entry->program_fingerprint)),
+        "Resource executable differs from its selected program contract");
+    const auto* ketsui=title==ResourceTitle::Ketsui?FindKetsuiVersion(RootContract(*variant)):nullptr;
+    Require(title!=ResourceTitle::Ketsui || ketsui,"Unsupported Ketsui resource version");
     const auto load=garegga?0xf3:feveron?0xf2:daioujou?(variant->layout=="base"?0xde:0xdd):
         esprade?(variant->layout=="base"?0xd2:0xd3):ketsui->archive_seed_load;
     return ReadArchiveSeed(executable,load,daioujou);
@@ -464,8 +471,9 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     const auto executable=DataChild(root,"eboot.bin");
     const auto raw_executable=ReadFile(executable,512*1024*1024);
     const auto raw_hash=Hash(raw_executable);
-    const auto key=ArchiveKey(raw_executable,raw_hash);
-    const auto* version=FindKetsuiVersion(raw_hash);Require(version,"Unsupported Ketsui resource version");
+    const auto* variant=IdentifyDataVariant(FindGame("ketsui"),root);
+    const auto key=ArchiveKey(raw_executable,ResourceTitle::Ketsui,variant);
+    const auto* version=FindKetsuiVersion(RootContract(*variant));Require(version,"Unsupported Ketsui resource version");
     const bool updated=version->version=="01.02";
     std::vector<std::pair<fs::path,std::string>> indices;
     auto index=[&](std::string_view path,std::string_view name) {
@@ -475,7 +483,7 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     const auto base=index("ps4data_info.psb.m","ps4data_info.psb.m");
     kt::content::ReadPatchSet patches{"CUSA09062",std::string(version->version),{}};
     Json report{{"format",1},{"fix","direct-menu-music-autosave"},{"title_id","CUSA09062"},{"app_version",version->version},
-        {"executable_sha256",version->source},{"original_files_modified",false}};
+        {"executable_sha256",raw_hash},{"original_files_modified",false}};
     auto fix=[&](const Json& file_index,std::string_view resource,std::string_view archive,std::string_view path,
                  std::string_view expected,ResourceFix transform) {
         const auto& extent=file_index.at("file_info").at(std::string(resource));
@@ -509,7 +517,7 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
         report["community_local_rounds"]=std::move(offline);
     }
     auto output=EncodeReadFixes(patches);
-    Require(Hash(ReadFile(executable,512*1024*1024))==version->source,"Game executable changed during fix preparation");
+    Require(Hash(ReadFile(executable,512*1024*1024))==raw_hash,"Game executable changed during fix preparation");
     for (const auto& [file,hash]:indices) Require(Hash(ReadFile(file,kResourceLimit))==hash,"Resource index changed during preparation");
     for (const auto& patch:patches.entries) {
         const auto file=DataChild(root,patch.path);
@@ -525,13 +533,9 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
     const auto original=ReadFile(executable,512*1024*1024);
     const auto expected_executable=Hash(original);
-    const DataVariant* variant{};
-    if (!garegga && !feveron) {
-        const auto& game=FindGame(esprade?"esprade":"daioujou");
-        variant=MatchRootProgram(game,original.size(),expected_executable);
-        if (!variant)variant=MatchRootProgram(game,original.size(),{},ProgramFingerprint(original));
-    }
-    const auto key=ArchiveKey(original,expected_executable,resource_title,variant);
+    const auto& game=FindGame(garegga?"garegga":feveron?"feveron":esprade?"esprade":"daioujou");
+    const auto* variant=IdentifyDataVariant(game,root);
+    const auto key=ArchiveKey(original,resource_title,variant);
     const bool base=garegga || feveron || variant->layout=="base";
     const auto version=base?"01.00":"01.04";
     const auto index_path=DataChild(root,"ps4data_info.psb.m");

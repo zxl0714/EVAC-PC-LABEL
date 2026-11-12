@@ -28,49 +28,57 @@
       "path": "eboot.bin",
       "bytes": 3180460,
       "sha256": "4cc896223d6a5d852978be63916142b7022134e9b0b48c4d85a66513d50bc984",
-      "program": true
+      "program": true,
+      "programFingerprint": "5fde0341cba1f1fafa037ff71894f78165ea41bd6e390040b3509f4b6264f746"
     },
     {
       "path": "emu_integration.prx",
       "bytes": 795081,
       "sha256": "22a4c74c75d2a2e4f68e00a2c83567d2718637e015cf17b778cd04c0c674f28f",
-      "program": true
+      "program": true,
+      "programFingerprint": "57c53bb912ecdc322e41cf77a4877fc1b0fdddb995ebac548cf3530388a51164"
     },
     {
       "path": "emu_integration_01100.prx",
       "bytes": 796909,
       "sha256": "3d07f6da167e0e771b4d8c3b5dfa9400df4fc4951c84e745012091aeef8c8980",
-      "program": true
+      "program": true,
+      "programFingerprint": "ae9cb8ed29f1747dca3b23775f73457f430706ac8fae7077bd3cd624d3a65f40"
     },
     {
       "path": "garegga_01000.prx",
       "bytes": 10955403,
       "sha256": "8f82d601b44644bb15d0584e2ec52cd7ce1e98933d15a8365b7fd7aae2d61dd6",
-      "program": true
+      "program": true,
+      "programFingerprint": "969595e7a2667edc959fd1dd090d1652119435953131826a3ea5bc68d7105727"
     },
     {
       "path": "garegga_01010.prx",
       "bytes": 10956171,
       "sha256": "aa154664eae3347f5d349aca195ead0bd010c90973f70afa98ef31ab877679a3",
-      "program": true
+      "program": true,
+      "programFingerprint": "e3758c88b80f786851ce07bdb76b00fa0174141a710b2edcb0c652085bc0b8ba"
     },
     {
       "path": "garegga_01020.prx",
       "bytes": 10956491,
       "sha256": "5169398cf61d7e3cbbd6af7b0f7fa49f7b342a1ccde924b7505ca5216688ca30",
-      "program": true
+      "program": true,
+      "programFingerprint": "f63053dca58023c0cb8651e245e4aacc5fdc3197f12738e77823cc6abff6391b"
     },
     {
       "path": "garegga_01030.prx",
       "bytes": 10956491,
       "sha256": "7fe46dab183d559dc08f69b86b8291537de1401b2256412909db8268c798945c",
-      "program": true
+      "program": true,
+      "programFingerprint": "10053fe1541834922ebf1de24ab510b52269b0c0c48f9d6d1aaa56a9941d9805"
     },
     {
       "path": "garegga_01040.prx",
       "bytes": 10960939,
       "sha256": "8bfc5ce51e06499fda887f547cb2b99cc766f0f451ad28a2228c8ad66dddb849",
-      "program": true
+      "program": true,
+      "programFingerprint": "cca74c7bd085a19c605828b24ac8192508059a95e12c82063a0cd6e1f6672c3f"
     },
     {
       "path": "ps4data_body.bin",
@@ -94,73 +102,85 @@
       "path": "sce_module/libc.prx",
       "bytes": 995570,
       "sha256": "8b74027bcbe0d7b3eb33f8f1954b2e186dc9cb912c9848d5e0ce7a43842757aa",
-      "program": true
+      "program": true,
+      "programFingerprint": "50504861000befee0b30460f6e58a9c41d654a5679a90264539066b840fd0d99"
     },
     {
       "path": "sce_module/libSceAudioLatencyEstimation.prx",
       "bytes": 22446,
       "sha256": "3318e9910dd9d5443d83335d2161a629a9d9834b7cb508e43ea130847c44250c",
-      "program": true
+      "program": true,
+      "programFingerprint": "8ff4424b6a64a60283cf6241a727978d05cdf2a02491ebf03d8b82a636dc4382"
     },
     {
       "path": "sce_module/libSceFace.prx",
       "bytes": 298178,
       "sha256": "ab266df087a164aef096b7472bbb9c6eaa9a4c643d93a6d568852f58eb9341a3",
-      "program": true
+      "program": true,
+      "programFingerprint": "de8818c57be2e134ed11aaf5d8448994c437698a01929efcb49f7cad280934ea"
     },
     {
       "path": "sce_module/libSceFaceTracker.prx",
       "bytes": 2608418,
       "sha256": "bfc92d9ee8033f21c7a736251a588f8da643b6f051250fbb2242ea01ef2a7052",
-      "program": true
+      "program": true,
+      "programFingerprint": "47d94c481325a49c6a780ca98075b030dc223de8976944745a0018443e5c220e"
     },
     {
       "path": "sce_module/libSceFios2.prx",
       "bytes": 442545,
       "sha256": "eec72d117ac6ef5f2d25057331aaf6dddbacfa39572fb6dbc58c1cf14c3ad90c",
-      "program": true
+      "program": true,
+      "programFingerprint": "745f9f5ff41f9ac5f4277e52196c27bf7158075fcf0409ba820659487c54bb32"
     },
     {
       "path": "sce_module/libSceHand.prx",
       "bytes": 25034,
       "sha256": "55c4d6426dfb253f4c97ac71d84c835f44113b34f2c5927159b5523343c5d3cf",
-      "program": true
+      "program": true,
+      "programFingerprint": "611546bb50e25f57b1e74b7b710701b51d463da529279829b6d866db260619e8"
     },
     {
       "path": "sce_module/libSceHandTracker.prx",
       "bytes": 52626,
       "sha256": "3e8e40aa64bf1cf19f9e14fdf47be6ac5bd63e7674c199fc741a9c55d04fa541",
-      "program": true
+      "program": true,
+      "programFingerprint": "5ca5507aa280506d01bc51c25ca0f566b4e229335cfa472c369644f9ffec2035"
     },
     {
       "path": "sce_module/libSceHeadTracker.prx",
       "bytes": 1343351,
       "sha256": "226353bf06498724e80c6070e4593b3c1929f0f9af50490ee8764dc3f0b5b09c",
-      "program": true
+      "program": true,
+      "programFingerprint": "f1e49d59384db5637454e51bde67e68522a73e518a52cc6123995e3149c9ce2a"
     },
     {
       "path": "sce_module/libSceJobManager.prx",
       "bytes": 31290,
       "sha256": "c1eae24949be6638a0932fbbb9940dff6dcb1e3c5c96f8db7cd4e6527c88c4e5",
-      "program": true
+      "program": true,
+      "programFingerprint": "bc0e664e224feb9423ff5e9edd3eb0b2f7c96350e6bd61c8b0c12225d75cec64"
     },
     {
       "path": "sce_module/libSceNpToolkit.prx",
       "bytes": 812957,
       "sha256": "295a8d2ae98fdaf775f0daf29c76c74d3879337e635948f8ad94aaf605226715",
-      "program": true
+      "program": true,
+      "programFingerprint": "268e10e40392beff751a8a5264d41af60df4f1ccd9e1685d083661ae2a6a77e6"
     },
     {
       "path": "sce_module/libSceS3DConversion.prx",
       "bytes": 310746,
       "sha256": "76e3e167256d3f9e305efd6a0e131131bd56a8ea6e2392cc336dace9166f24e2",
-      "program": true
+      "program": true,
+      "programFingerprint": "ee860dc486be8740ea97a2b06129ac03497609bcc8458ef471fcdcacc23610d2"
     },
     {
       "path": "sce_module/libSceSmart.prx",
       "bytes": 1409042,
       "sha256": "c3f3fbf194d8cfa8ad085efae3fa83edc22f912758036781fc4ad1679116e43b",
-      "program": true
+      "program": true,
+      "programFingerprint": "77c28f5179c3fc0c0af5204423ad9b9b7a7326e6fb22c01effa0daa1a23961d8"
     },
     {
       "path": "sce_sys/about/right.sprx",

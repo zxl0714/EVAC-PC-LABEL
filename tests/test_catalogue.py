@@ -161,6 +161,32 @@ class CatalogueTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             catalogue.data_variants(modified)
 
+    def test_every_supported_ps4_program_has_a_wrapper_independent_identity(self):
+        games = [g for g in catalogue.load(self.path) if g['backend'] == 'ps4']
+        self.assertEqual(len(games), 5)
+        for game in games:
+            for variant in game['variants']:
+                for item in variant['files']:
+                    with self.subTest(game=game['id'], variant=variant['id'], path=item['path']):
+                        self.assertEqual(bool(item.get('programFingerprint')), item['program'])
+
+    def test_equivalent_ketsui_packages_require_distinct_metadata_and_identical_code(self):
+        raw = catalogue.read_json(self.root / 'games/ketsui/data.json')
+        variants = catalogue.data_variants(raw)
+        entry = lambda v: next(f for f in v['files'] if f['path'] == 'eboot.bin')
+        self.assertEqual(entry(variants[1])['programFingerprint'], entry(variants[2])['programFingerprint'])
+        for field in ('metadata', 'code', 'version'):
+            changed = copy.deepcopy(raw)
+            base, alias = changed['alternatives']
+            if field == 'metadata':
+                next(f for f in alias['files'] if f['path'] == 'sce_sys/param.sfo')['sha256'] = next(f for f in base['files'] if f['path'] == 'sce_sys/param.sfo')['sha256']
+            elif field == 'code':
+                next(f for f in alias['files'] if f['program'] and f['path'] != 'eboot.bin')['programFingerprint'] = '0'*64
+            else:
+                alias['version'] = '01.02'
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                catalogue.data_variants(changed)
+
     def test_daioujou_candidate_uses_own_data_and_shared_ps4_runtime(self):
         game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')
         manifest=catalogue.read_json(self.root/'games/daioujou/data.json')

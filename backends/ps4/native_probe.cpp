@@ -231,6 +231,7 @@ struct Runtime {
     std::vector<Relocation> import_relocations;
     std::uint64_t* stack_guard{};
     Header header{};
+    std::array<std::uint8_t,32> contract_sha256{};
     std::vector<Segment> segments;
     std::vector<Import> imports;
     std::mutex exit_mutex;
@@ -753,7 +754,8 @@ void RebindImports(Runtime& runtime) {
 
 Header ReadImageHeader(Reader& reader, bool module) {
     const auto header = reader.Value<Header>();
-    if (std::memcmp(header.magic.data(), module ? "KTMODULE" : "KTPROBE1", 8) || (header.capabilities & ~3ull) ||
+    if (std::memcmp(header.magic.data(), module ? "KTMODULE" : "KTPROBE1", 8) || (header.capabilities & ~7ull) ||
+        (module && (header.capabilities & 4)) ||
         !header.image_size || header.image_size > kMaximumImage || header.entry >= header.image_size ||
         !header.segments || header.segments > 32 || header.imports > 10000 ||
         header.relocations > 1000000 || header.procparam >= header.image_size) {
@@ -1082,6 +1084,7 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
     }
     std::uint64_t unwind_address{},unwind_size{};
     if(header.capabilities&2){unwind_address=reader.Value<std::uint64_t>();unwind_size=reader.Value<std::uint64_t>();}
+    runtime.contract_sha256=(header.capabilities&4)?reader.Value<std::array<std::uint8_t,32>>():header.source_sha256;
     reader.End();
     runtime.cpu=std::make_unique<cave::ps4::cpu::Image>();
     std::size_t cpu_function_ranges{};
@@ -1099,8 +1102,8 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
         Quoted(runtime.image_name).c_str(),cpu_function_ranges,cpu_stats.trampolines,cpu_stats.short_traps,
         cpu_stats.converted[0],cpu_stats.converted[1],cpu_stats.converted[2],cpu_stats.converted[3],cpu_stats.converted[4],cpu_stats.converted[5],cpu_stats.converted[6],cpu_stats.converted[7]);
     if (!runtime.is_module) {
-        InstallNativeCommunityRoundAudit(runtime.image, static_cast<std::size_t>(header.image_size), header.source_sha256);
-        InstallNativeCommunityRounds(runtime.image, static_cast<std::size_t>(header.image_size), header.source_sha256);
+        InstallNativeCommunityRoundAudit(runtime.image, static_cast<std::size_t>(header.image_size), runtime.contract_sha256);
+        InstallNativeCommunityRounds(runtime.image, static_cast<std::size_t>(header.image_size), runtime.contract_sha256);
     }
     for (const auto& segment : runtime.segments) {
         DWORD previous;
@@ -1122,6 +1125,8 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
     for (const auto byte : header.source_sha256) {
         std::printf("%02x", byte);
     }
+    std::printf("\",\"contract_sha256\":\"");
+    for (const auto byte : runtime.contract_sha256)std::printf("%02x",byte);
     std::puts("\"}");
 }
 
@@ -1320,7 +1325,7 @@ void StartLinkedOriginalModules(Runtime& runtime) {
     constexpr std::array<std::uint8_t,32> garegga{
         0x4c,0xc8,0x96,0x22,0x3d,0x6a,0x5d,0x85,0x29,0x78,0xbe,0x63,0x91,0x61,0x42,0xb7,
         0x02,0x21,0x34,0xe9,0xb0,0xb4,0x8c,0x4d,0x85,0xa6,0x65,0x13,0xd5,0x0b,0xc9,0x84};
-    if (runtime.header.source_sha256!=garegga) return;
+    if (runtime.contract_sha256!=garegga) return;
     // CUSA10207 01.00 links these six original PRXs in DT_NEEDED. Unlike
     // later titles it does not load them via sceKernelLoadStartModule.
     // Integration is their only game-module dependency, so start it first.

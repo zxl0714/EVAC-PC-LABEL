@@ -123,13 +123,19 @@ const DataFile* RootProgram(const DataVariant& variant) {
 }
 const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_view sha256,
                                     std::string_view fingerprint) {
+  const DataVariant* match{};
+  if(!sha256.empty())for(const auto& variant:game.variants) {
+    const auto* entry=RootProgram(variant);
+    if(entry && bytes==entry->bytes && sha256==entry->sha256)return &variant;
+  }
   for(const auto& variant:game.variants) {
     const auto* entry=RootProgram(variant);
-    if(entry && ((!sha256.empty() && bytes==entry->bytes && sha256==entry->sha256) ||
-                 (game.backend=="ps4" && !fingerprint.empty() && fingerprint==entry->program_fingerprint)))
-      return &variant;
+    if(entry && game.backend=="ps4" && !fingerprint.empty() && fingerprint==entry->program_fingerprint) {
+      if(match)return nullptr; // Same program in two packages: use package metadata below.
+      match=&variant;
+    }
   }
-  return nullptr;
+  return match;
 }
 const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes,VerificationCache* cache) {
   if(game.variants.empty())return nullptr;
@@ -149,8 +155,21 @@ const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uin
     if(hashes)++*hashes;
   }
   if(!match && game.backend=="ps4" && known_fingerprint) {
-    match=MatchRootProgram(game,bytes,{},ps4::ProgramFingerprint(path));
+    const auto fingerprint=ps4::ProgramFingerprint(path);
+    match=MatchRootProgram(game,bytes,{},fingerprint);
     if(hashes)++*hashes;
+    if(!match && !fingerprint.empty()) {
+      const auto metadata=DataChild(data,"sce_sys/param.sfo");
+      std::string metadata_hash;
+      for(const auto& variant:game.variants) {
+        const auto* entry=RootProgram(variant);
+        if(!entry || entry->program_fingerprint!=fingerprint)continue;
+        const auto sfo=std::ranges::find(variant.files,std::string_view{"sce_sys/param.sfo"},&DataFile::path);
+        if(sfo==variant.files.end() || !fs::is_regular_file(metadata) || fs::file_size(metadata)!=sfo->bytes)continue;
+        if(metadata_hash.empty()) {metadata_hash=FileDigest(metadata,cache);if(hashes)++*hashes;}
+        if(metadata_hash==sfo->sha256) {if(match)return nullptr;match=&variant;}
+      }
+    }
   }
   return match && fs::file_size(path)==bytes?match:nullptr;
 }

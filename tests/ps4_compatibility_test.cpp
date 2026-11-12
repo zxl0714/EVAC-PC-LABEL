@@ -4,6 +4,7 @@
 #include "backends/ps4/graphics/swapchain_bootstrap.h"
 #include "backends/ps4/loader/preparation_policy.h"
 #include "backends/ps4/loader/esprade_latency.h"
+#include "backends/ps4/loader/program_identity.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "backends/ps4/ketsui_version.h"
 #include "common/catalogue.h"
@@ -297,6 +298,15 @@ void EspradeLatency() {
 
 int main() {
     try {
+        const std::array<std::uint8_t,32> source{};
+        const std::string raw(64,'0'),known(64,'1'),fingerprint(64,'2');
+        cave::DataFile expected{"eboot.bin",100,known,true,fingerprint};
+        Check(cave::ps4::ProgramContract(source,nullptr,{})==source,"unregistered preparation preserves actual digest");
+        auto contract=cave::ps4::ProgramContract(source,&expected,fingerprint);
+        Check(std::ranges::all_of(contract,[](auto b){return b==0x11;}),"equivalent program selects verified patch identity");
+        Reject([&]{cave::ps4::ProgramContract(source,&expected,raw);},"modified program cannot claim patch identity");
+        expected.sha256=raw;
+        Check(cave::ps4::ProgramContract(source,&expected,{})==source,"original files preserve existing contract");
         Presentation();SnapshotHandoff();SwapchainBootstrap();DeviceRequirements();Policies();Seeds();EspradeLatency();
         std::printf("%u PS4 compatibility checks passed (no ROM or GPU required)\n",checks);return 0;
     } catch (const std::exception& error) {

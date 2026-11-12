@@ -3,6 +3,7 @@
 #include "daioujou_arrange.h"
 #include "common/ps4_program.h"
 #include "esprade_latency.h"
+#include "program_identity.h"
 #include "common/settings.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -250,6 +251,9 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
     }
     Require(imports.size()<=10000 && exports.size()<=10000,"Prepared ELF import/export limit exceeded");
     const auto sha=Hash(source);
+    const auto contract=module?sha:ProgramContract(sha,expected,
+        expected && !expected->program_fingerprint.empty()?ProgramFingerprint(plain):std::string{});
+    const bool distinct_contract=contract!=sha;
     std::vector<std::uint8_t> extension;
     std::uint64_t extension_address{}, image_size=elf.image_size;
     if (daioujou_arrange) {
@@ -274,7 +278,7 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
     const std::string_view magic=module?"KTMODULE":"KTPROBE1";
     writer.Raw({reinterpret_cast<const std::uint8_t*>(magic.data()),magic.size()});
     for (std::uint64_t value:{image_size,elf.entry,static_cast<std::uint64_t>(segments),
-            static_cast<std::uint64_t>(elf.relocations.size()),static_cast<std::uint64_t>(imports.size()),elf.procparam,std::uint64_t(!libc.empty())|2ull}) writer.Value(value);
+            static_cast<std::uint64_t>(elf.relocations.size()),static_cast<std::uint64_t>(imports.size()),elf.procparam,std::uint64_t(!libc.empty())|2ull|(distinct_contract?4ull:0ull)}) writer.Value(value);
     writer.Raw(sha);
     const bool patch_raw=module && EspradeLatencyModule(sha);
     std::string_view patch_equivalent;
@@ -320,6 +324,7 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
         writer.Value(relocation.address);writer.Value(kind);writer.Value(value);writer.Value(relocation.addend);
     }
     writer.Value(elf.unwind_address);writer.Value(elf.unwind_size);
+    if(distinct_contract)writer.Raw(contract);
     return {std::move(writer.bytes),sha,image_size,imports.size(),exports.size(),elf.relocations.size(),segments};
 }
 }

@@ -53,7 +53,7 @@ def data_variants(manifest):
     variants = [dict(id=manifest['variantId'], version=manifest['version'], layout=manifest['layout'],
                      entry=manifest['entry'], files=manifest['files'], forbiddenFiles=manifest.get('forbiddenFiles', [])),
                 *alternatives]
-    ids, identities, fingerprints = set(), set(), set()
+    ids, identities, fingerprints = set(), set(), {}
     for variant in variants:
         if (not isinstance(variant, dict) or not isinstance(variant.get('id'), str) or not re.fullmatch('[a-z][a-z0-9-]{0,31}', variant['id'])
                 or variant['id'] in ids or not isinstance(variant.get('version'), str) or not re.fullmatch('[0-9]{2}\\.[0-9]{2}', variant['version'])
@@ -69,8 +69,14 @@ def data_variants(manifest):
         fingerprint = entries[0].get('programFingerprint')
         if fingerprint:
             if fingerprint in fingerprints:
-                raise ValueError('Data variants require distinct root program fingerprints')
-            fingerprints.add(fingerprint)
+                programs = lambda value: {f['path']: f.get('programFingerprint') for f in value['files'] if f['program']}
+                sfo = lambda value: next((f['sha256'] for f in value['files'] if f['path'] == 'sce_sys/param.sfo' and not f['program']), None)
+                if any(any(variant[key] != previous[key] for key in ('version', 'layout', 'entry'))
+                        or programs(variant) != programs(previous) or None in programs(variant).values()
+                        or not sfo(variant) or not sfo(previous) or sfo(variant) == sfo(previous)
+                        for previous in fingerprints[fingerprint]):
+                    raise ValueError('Equivalent root programs require matching code and distinct package metadata')
+            fingerprints.setdefault(fingerprint, []).append(variant)
         if variant['entry'] != 'eboot.bin' and any('programFingerprint' in item for item in variant['files']):
             raise ValueError('Program fingerprints require PS4 input')
         forbidden = variant.get('forbiddenFiles', [])
