@@ -10,43 +10,41 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-User expanded v0.9.9 PS4 equivalent decrypted-export support to all five games.
-The remaining three manifests now have program fingerprints. Ketsui exact
-package hashes retain priority; equivalent roots use param.sfo to distinguish
-the two known 01.00 packages. Prepared main images preserve actual source SHA
-and separately carry the verified patch identity for Ketsui community hooks
-and Garegga linked-module startup. No actual game data is changed.
-900 common checks, 283 PS4 compatibility checks and 24 catalogue tests pass.
-.local/v099/ps4-all-equivalence-r1/result.json verifies six original sets and
-101 rewrapped programs: same prepared payloads/resource overlays, loader
-binding and original data preserved. This is nonexecuting validation; the
-original base-self package was not reverified, its previously documented
-decoded identity is inherited. Next: frozen-source incremental certified
-builds, two bounded startup checks for the changed patch-selection consumers,
-and one new local program ZIP/extraction. No push/upload/publication.
-The prior complete ZIP below is retained until the revised one is delivered.
-
 v0.9.9 local delivery is complete. All eight work items and acceptance checks
 at the top of docs/IMPLEMENTATION_PLAN.md are complete. Stop before publication.
-Frozen source: 1af2bddac82592b000602fc1e8350685e4dd744f.
-Program ZIP: releases/v0.9.9-local-1af2bdd/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
-161,156,522 bytes; SHA-256
-3918e890ba5169b95fb42e94c5be4362e9c931e02b501744e494181463f57dee.
-This supersedes the retained 3a0f0d4 ZIP with launcher drag feedback: the held
+Frozen source: 14b2067f337de85efef994516c3579891033a86b.
+Program ZIP: releases/v0.9.9-local-14b2067/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
+161,202,971 bytes; SHA-256
+1d802399c0930d582a2e549d0229ef1c916f4efef06dc08bf566f466b88fdf06.
+All five PS4 games now accept equivalent decrypted exports. Ketsui exact
+package hashes retain priority; equivalent roots use param.sfo to distinguish
+the two known 01.00 packages. Prepared main images preserve actual source SHA
+and separately carry verified patch identity for Ketsui community hooks and
+Garegga linked-module startup. No actual game data is changed.
+900 common, 283 PS4 compatibility, 24 catalogue, 48 preparer and 127 resource
+checks pass. .local/v099/ps4-all-equivalence-r1/result.json verifies six original
+sets and 101 rewrapped programs: identical prepared payloads/resource overlays,
+loader binding and original data preserved. The original base-self package
+was not reverified; its previously documented decoded identity is inherited.
+.local/v099/ps4-all-startup-9cdd027/result.json records actual rewrapped Ketsui
+01.02 community-hook installation/window/module start and Garegga's six
+linked-module starts/window. Both test processes closed. Shared catalogue
+inputs were rebuilt incrementally for launcher and all runtime components.
+Adjacent .acceptance.json records one extraction and all 200 file checks,
+including all five PS4 EXEs matching the tested native binary. Extraction:
+.local/v099/ps4-all-package-14b2067/. Prior local ZIPs are retained.
+
+This also retains launcher drag feedback from 1af2bdd: the held
 card follows the pointer in cover and banner layouts, with a source placeholder
 and insertion marker. Escape, capture loss and dropping outside cancel safely.
 4,698 launcher checks and 12 production-renderer visual checks passed; header
 and footer stay unchanged and cancellation restores the original pixels.
-Evidence .local/v099/drag-feedback-preview-r2/. Adjacent .acceptance.json records
-one ZIP extraction and verification of all 200 files, including the exact tested
-launcher binary. Extraction: .local/v099/drag-package-1af2bdd/.
+Evidence .local/v099/drag-feedback-preview-r2/.
 Unchanged update-worker acceptance is retained in
 .local/v099/final-package-3a0f0d4/: cached update from v0.9.8 preserved config,
 save and game-data sentinels and restarted visibly. Actual GitHub download was
 already verified with v0.9.8. No new upload, push, release or issue response.
-Only the launcher needed rebuilding; unchanged game runtime receipts were
-reused by component certification. Do not repeat completed gameplay, music,
-packaging or extraction checks.
+Do not repeat completed gameplay, music, packaging or extraction checks.
 
 - PS4 startup reserves the main image and prepared module address ranges
   before Vulkan initialization. The native build and three targeted CTests
