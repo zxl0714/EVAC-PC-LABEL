@@ -10,6 +10,21 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+The user's requested expanded v0.9.9 regression is complete on the unchanged
+9dae94d program ZIP. Evidence: .local/v099/expanded-regression-9dae94d/acceptance.json.
+16 targeted native CTest groups pass, including 4,698 launcher integration checks;
+134 Python tests have zero failures/errors and one Windows symlink privilege skip.
+The extracted package passed actual reorder/hide/restart, moved-window resolution,
+external-data launch, and extractor empty/invalid-input checks. Packaged DaiOuJou
+01.04 loaded X Arrange from the two banks, read its saved selection and entered
+Stage 1. After removing both test bank links, the same profile restarted as ARCADE,
+with no arrange outputs prepared. Links restored, all owned windows closed.
+Both game runs have WM_CLOSE/presentation cleanup and the already-known exit 27;
+no new fatal event/dump. Do not claim new audio/performance or physical-device
+measurements. Live binding keyboard capture was not counted because automation
+focused the disabled parent; current/all save/reset is covered by the integration
+suite and prior ui-final acceptance. No new production fix, package, push or upload.
+
 X Arrange placement follow-up is complete and locally packaged. Stop before
 publication. Frozen source: 9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33.
 Program ZIP: releases/v0.9.9-local-9dae94d/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
