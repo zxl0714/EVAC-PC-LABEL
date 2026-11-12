@@ -10,6 +10,17 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+v0.9.9 is formally published as Latest:
+https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.
+Release ID 443143602, published 2026-11-12T15:35:28Z. The annotated tag points
+to frozen runtime source 9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33; main also
+contains the subsequent acceptance and publication documentation. Both uploaded
+assets match local size and SHA-256. Publication evidence:
+.local/v099/publication.json and .local/v099/release-published.jpg.
+Do not rebuild, repackage or repeat acceptance for this completed release.
+
+### Pre-publication acceptance (retained)
+
 The user's requested expanded v0.9.9 regression is complete on the unchanged
 9dae94d program ZIP. Evidence: .local/v099/expanded-regression-9dae94d/acceptance.json.
 16 targeted native CTest groups pass, including 4,698 launcher integration checks;
@@ -23,10 +34,11 @@ Both game runs have WM_CLOSE/presentation cleanup and the already-known exit 27;
 no new fatal event/dump. Do not claim new audio/performance or physical-device
 measurements. Live binding keyboard capture was not counted because automation
 focused the disabled parent; current/all save/reset is covered by the integration
-suite and prior ui-final acceptance. No new production fix, package, push or upload.
+suite and prior ui-final acceptance. This regression required no new production
+fix or replacement package.
 
-X Arrange placement follow-up is complete and locally packaged. Stop before
-publication. Frozen source: 9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33.
+X Arrange placement follow-up is complete and included in the published package.
+Frozen source: 9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33.
 Program ZIP: releases/v0.9.9-local-9dae94d/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
 161,230,619 bytes; SHA-256
 1172289f98e736ba9a4d9794f74a2c8da71eabd29573c22bc8bcc4f5033d3495.
@@ -48,12 +60,12 @@ fixture and CN/EN/JP localization checks pass. All components incrementally buil
 and staged. One actual extraction verified all 201 files and 11 runtimes, no data,
 source or PDB. Adjacent .acceptance.json records results; extracted directory is
 .local/v099/arrange-banks-package-9dae94d. Existing music playback, launcher and
-updater acceptance is inherited. No game windows, build jobs, uploads or pushes.
+updater acceptance is inherited. No game windows or build jobs remain.
 This closing documentation commit does not require another build or package.
 
 Previous delivery (retained):
-v0.9.9 local delivery is complete. All eight work items and acceptance checks
-at the top of docs/IMPLEMENTATION_PLAN.md are complete. Stop before publication.
+The superseded v0.9.9 local delivery completed all eight work items and acceptance
+checks at the top of docs/IMPLEMENTATION_PLAN.md; it was not published.
 Frozen source: 14b2067f337de85efef994516c3579891033a86b.
 Program ZIP: releases/v0.9.9-local-14b2067/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
 161,202,971 bytes; SHA-256

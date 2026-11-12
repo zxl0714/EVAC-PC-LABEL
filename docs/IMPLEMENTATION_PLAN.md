@@ -49,7 +49,9 @@
 
 实施顺序：先修大往生载入退出，然后验证 #11 的样本和 #14 的一曲原型，确定可用范围，再完成导入、换曲和启动器。出包前做受影响路径的短回归，程序包解压验收一次。
 
-本地交付已完成：`releases/v0.9.9-local-9dae94d/EVAC-PC-LABEL-v0.9.9-win-x64.zip`，161,230,619 字节，SHA-256 `1172289f98e736ba9a4d9794f74a2c8da71eabd29573c22bc8bcc4f5033d3495`。包含 11 款运行时、启动器和提取工具，不含游戏数据、源码及 PDB。源提交 `9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33`；相邻 `.acceptance.json` 记录一次解压、201 项文件校验和五份 PS4 EXE 与最终构建一致。补齐五款 PS4 的解密导出格式兼容，并将大往生 X Arrange 改为直接放置音频库后自动识别，取代保留的 `14b2067` 包。01.00／01.04 的 14 首音乐及菜单资源与已验收输出逐字节一致，缺文件、错误文件、移走后回退和重新放回均通过；证据在 `.local/v099/arrange-placement-r1/`。受影响组件已增量构建，复用未改变的游玩、界面及更新器验收。停在本地交付，未上传、推送或正式发布。
+正式交付已完成：[v0.9.9](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9) 于 2026-11-12 发布为 Latest，Release ID `443143602`。程序包 `releases/v0.9.9-local-9dae94d/EVAC-PC-LABEL-v0.9.9-win-x64.zip`，161,230,619 字节，SHA-256 `1172289f98e736ba9a4d9794f74a2c8da71eabd29573c22bc8bcc4f5033d3495`。包含 11 款运行时、启动器和提取工具，不含游戏数据、源码及 PDB。标签固定于源提交 `9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33`，main 同步验收与发布文档；程序 ZIP 和校验文件的远端大小及摘要均与本地一致，记录在 `.local/v099/publication.json`。
+
+相邻 `.acceptance.json` 记录一次解压、201 项文件校验和五份 PS4 EXE 与最终构建一致。补齐五款 PS4 的解密导出格式兼容，并将大往生 X Arrange 改为直接放置音频库后自动识别，取代保留的 `14b2067` 包。01.00／01.04 的 14 首音乐及菜单资源与已验收输出逐字节一致，缺文件、错误文件、移走后回退和重新放回均通过；证据在 `.local/v099/arrange-placement-r1/`。扩大回归完成 16 组原生 CTest 及 134 项 Python 测试（1 项 Windows 符号链接权限跳过），实际程序包验证了游戏库、分辨率、解包工具，以及大往生 X Arrange 的进关、保存读回和移除回退；记录在 `.local/v099/expanded-regression-9dae94d/acceptance.json`。正式发布复用该验收包，未重新编译或打包。
 
 ## v0.9.8：绘图修复与输入配置体验
 
