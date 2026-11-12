@@ -12,19 +12,25 @@ another historical narrative or one-off input script.
 
 v0.9.9 local delivery is complete. All eight work items and acceptance checks
 at the top of docs/IMPLEMENTATION_PLAN.md are complete. Stop before publication.
-Frozen source: 3a0f0d4468f7eeb744988d6c635eb60fbb971dbf.
-Program ZIP: releases/v0.9.9-local-3a0f0d4/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
-161,154,439 bytes; SHA-256
-22daf6545a711ff7a0e53ab61fd6e86a6b872171625edd4ddae8952a81161a83.
-Adjacent .acceptance.json records the one-extraction acceptance: production
-cached-update worker installed it over the isolated v0.9.8 tree, all 200 files
-verified, config/save/game-data sentinels preserved, launcher restarted visibly
-and closed normally. Evidence .local/v099/final-package-3a0f0d4/.
-This candidate used a local cache; actual GitHub download was already verified
-with v0.9.8. No new upload, push, release or issue response has been made.
-SDK, all four Xbox 360 hosts, PS4 and PS2 were incrementally rebuilt/certified
-at the frozen source; these graphs had no further compilation work. Do not
-repeat completed gameplay, music, packaging or extraction checks.
+Frozen source: 1af2bddac82592b000602fc1e8350685e4dd744f.
+Program ZIP: releases/v0.9.9-local-1af2bdd/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
+161,156,522 bytes; SHA-256
+3918e890ba5169b95fb42e94c5be4362e9c931e02b501744e494181463f57dee.
+This supersedes the retained 3a0f0d4 ZIP with launcher drag feedback: the held
+card follows the pointer in cover and banner layouts, with a source placeholder
+and insertion marker. Escape, capture loss and dropping outside cancel safely.
+4,698 launcher checks and 12 production-renderer visual checks passed; header
+and footer stay unchanged and cancellation restores the original pixels.
+Evidence .local/v099/drag-feedback-preview-r2/. Adjacent .acceptance.json records
+one ZIP extraction and verification of all 200 files, including the exact tested
+launcher binary. Extraction: .local/v099/drag-package-1af2bdd/.
+Unchanged update-worker acceptance is retained in
+.local/v099/final-package-3a0f0d4/: cached update from v0.9.8 preserved config,
+save and game-data sentinels and restarted visibly. Actual GitHub download was
+already verified with v0.9.8. No new upload, push, release or issue response.
+Only the launcher needed rebuilding; unchanged game runtime receipts were
+reused by component certification. Do not repeat completed gameplay, music,
+packaging or extraction checks.
 
 - PS4 startup reserves the main image and prepared module address ranges
   before Vulkan initialization. The native build and three targeted CTests
