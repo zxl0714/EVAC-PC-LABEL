@@ -10,15 +10,31 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-Active follow-up: replace the dedicated X Arrange ISO-import UI with automatic
-bank detection in game-data/daioujou/x-arrange (or external PS4 root). The only
-inputs are ddo_bgm_SoundBank.xsb and ddo_bgm_WaveBank.xwb from dat/sound of the
-Xbox 360 ISO. No input => silent original BGM; invalid/incomplete => filename
-warning and base-game launch; removal => hide option despite old WAV/cache.
-Generate directly into the prepared archive, not user-data WAVs. Update bilingual
-guides and the local v0.9.9 Public ZIP only; no push/upload/publication. Previous
-music/menu/loop acceptance below is retained for unchanged output. Current changes
-are not yet a certified package. Supersedes the dedicated importer workflow below.
+X Arrange placement follow-up is complete and locally packaged. Stop before
+publication. Frozen source: 9dae94db9bf7eeeac2f05d4db41c6b8d1d168f33.
+Program ZIP: releases/v0.9.9-local-9dae94d/EVAC-PC-LABEL-v0.9.9-win-x64.zip.
+161,230,619 bytes; SHA-256
+1172289f98e736ba9a4d9794f74a2c8da71eabd29573c22bc8bcc4f5033d3495.
+The two original banks ddo_bgm_SoundBank.xsb / ddo_bgm_WaveBank.xwb now go in
+x-arrange beside the selected PS4 eboot.bin (including external folders). No
+input => silent original BGM; invalid/incomplete => filename warning and base
+launch; removal hides the option despite legacy WAVs and prepared caches.
+The launcher no longer has a dedicated music-import entry. Prepared archives
+read banks directly; the program ZIP pre-creates x-arrange/README.txt. Copy into
+collection accepts/preserves that nested placement guide. Bilingual guides updated.
+01.00/01.04 real-bank checks cover all 14 WAVs and unchanged menu/art resources,
+native mounting, cache reuse, missing/invalid/removed/restored banks, and old WAVs.
+Evidence .local/v099/arrange-placement-r1/. Final certified preparation outputs
+match those tested byte-for-byte (7/12 files). The existing cache keeps only an
+active pointer: restoring banks after a fallback rebuilds matching content, rather
+than reusing a previous inactive generation. Do not repeat the test expecting a hit.
+898 common, 168 launch/copy and 283 PS4 compatibility checks pass; the v099 package
+fixture and CN/EN/JP localization checks pass. All components incrementally built
+and staged. One actual extraction verified all 201 files and 11 runtimes, no data,
+source or PDB. Adjacent .acceptance.json records results; extracted directory is
+.local/v099/arrange-banks-package-9dae94d. Existing music playback, launcher and
+updater acceptance is inherited. No game windows, build jobs, uploads or pushes.
+This closing documentation commit does not require another build or package.
 
 Previous delivery (retained):
 v0.9.9 local delivery is complete. All eight work items and acceptance checks
