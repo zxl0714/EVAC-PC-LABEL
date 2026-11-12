@@ -23,7 +23,7 @@ def path_checks(executable, directory):
         ('other-dlc-overlap', 'configured DLC data'),
         ('relative-component', 'relative components'), ('wrong-extension', '.ktfix'),
         ('duplicate-option', 'repeated resource preparation'), ('empty-option', 'Missing resource'),
-        ('invalid-sibling', 'verified CUSA09062'), ('unsupported-executable', 'verified CUSA09062')]:
+        ('invalid-sibling', 'verified PS4 executable'), ('unsupported-executable', 'verified PS4 executable')]:
         root = directory / ('collection-' + name)
         root.mkdir()
         data = root / 'data'
