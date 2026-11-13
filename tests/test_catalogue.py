@@ -90,7 +90,10 @@ class CatalogueTests(unittest.TestCase):
         game = next(game for game in catalogue.load(self.path) if game['id'] == 'ketsui')
         self.assertEqual([(v['id'], v['version'], v['layout'], len(v['files'])) for v in game['variants']],
                          [('update-102', '01.02', 'merged-patch', 46), ('base', '01.00', 'base', 40),
-                          ('base-self', '01.00', 'base', 40)])
+                          ('base-self', '01.00', 'base', 40), ('update-103', '01.03', 'merged-patch', 44),
+                          ('base-pkg-extracted', '01.00', 'base', 40),
+                          ('update-103-pkg-extracted', '01.03', 'merged-patch', 44),
+                          ('base-store-dump', '01.00', 'base', 39)])
         self.assertEqual(game['files'], game['variants'][0]['files'])
         for variant in game['variants']:
             files = {item['path']: item for item in variant['files']}
@@ -101,7 +104,7 @@ class CatalogueTests(unittest.TestCase):
         base = game['variants'][1]
         self.assertIn('ps4data_patch_body.bin', base['forbiddenFiles'])
         self.assertIn('ps4data_patch_info.psb.m', base['forbiddenFiles'])
-        self.assertIn('std::array<DataVariant,3>', catalogue.generate(catalogue.load(self.path)))
+        self.assertIn('std::array<DataVariant,7>', catalogue.generate(catalogue.load(self.path)))
 
     def test_issue_1_plain_self_manifests_keep_exact_versions_and_reject_mixed_updates(self):
         games = {game['id']: game for game in catalogue.load(self.path)}
@@ -146,7 +149,7 @@ class CatalogueTests(unittest.TestCase):
         raw = catalogue.read_json(self.root / 'games/daioujou/data.json')
         variants = catalogue.data_variants(raw)
         entry = lambda variant: next(f for f in variant['files'] if f['path'] == 'eboot.bin')
-        self.assertEqual(len({entry(v)['programFingerprint'] for v in variants}), len(variants))
+        self.assertEqual(len({entry(v)['programFingerprint'] for v in variants}), 2)
         for value in (None, 'not a SHA-256'):
             modified = copy.deepcopy(raw)
             entry(modified)['programFingerprint'] = value
@@ -177,9 +180,10 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(entry(variants[1])['programFingerprint'], entry(variants[2])['programFingerprint'])
         for field in ('metadata', 'code', 'version'):
             changed = copy.deepcopy(raw)
-            base, alias = changed['alternatives']
+            base, alias = changed['alternatives'][:2]
             if field == 'metadata':
-                next(f for f in alias['files'] if f['path'] == 'sce_sys/param.sfo')['sha256'] = next(f for f in base['files'] if f['path'] == 'sce_sys/param.sfo')['sha256']
+                for name in ('sce_sys/param.sfo', 'sce_sys/playgo-chunk.sha', 'sce_sys/about/right.sprx'):
+                    next(f for f in alias['files'] if f['path'] == name)['sha256'] = next(f for f in base['files'] if f['path'] == name)['sha256']
             elif field == 'code':
                 next(f for f in alias['files'] if f['program'] and f['path'] != 'eboot.bin')['programFingerprint'] = '0'*64
             else:
@@ -187,13 +191,77 @@ class CatalogueTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 catalogue.data_variants(changed)
 
+    def test_extracted_pkg_variants_keep_canonical_programs_and_game_resources(self):
+        for game, updated in (('daioujou', 'update-104'), ('ketsui', 'update-103')):
+            raw = catalogue.read_json(self.root / 'games' / game / 'data.json')
+            variants = {v['id']: v for v in catalogue.data_variants(raw)}
+            for original, extracted in (('base-self', 'base-pkg-extracted'),
+                                        (updated, updated + '-pkg-extracted')):
+                with self.subTest(game=game, variant=extracted):
+                    source = variants[original]
+                    alias = variants[extracted]
+                    self.assertEqual((alias['version'], alias['layout'], alias['forbiddenFiles']),
+                                     (source['version'], source['layout'], source['forbiddenFiles']))
+                    metadata = lambda f: f['path'].startswith('sce_sys/') or f['path'].startswith('sce_discmap')
+                    self.assertEqual([f for f in source['files'] if not metadata(f)],
+                                     [f for f in alias['files'] if not metadata(f)])
+                    self.assertNotEqual(
+                        [(f['path'], f['sha256']) for f in source['files'] if metadata(f)],
+                        [(f['path'], f['sha256']) for f in alias['files'] if metadata(f)])
+                    self.assertFalse(
+                        {f['path'] for f in alias['files']} &
+                        {'sce_sys/.digests', 'sce_sys/.entry_keys', 'sce_sys/.entry_names',
+                         'sce_sys/.general_digests', 'sce_sys/.metas', 'sce_sys/target-deltainfo.dat'})
+                    for name in ('sce_sys/param.sfo', 'sce_sys/playgo-chunk.sha'):
+                        self.assertTrue(any(f['path'] == name for f in alias['files']))
+
+    def test_shared_canonical_roots_require_unambiguous_verified_package_metadata(self):
+        original = catalogue.read_json(self.root / 'games/daioujou/data.json')
+        for change in ('metadata', 'code', 'root', 'layout'):
+            raw = copy.deepcopy(original)
+            source = raw
+            alias = next(v for v in raw['alternatives'] if v['id'] == 'update-104-pkg-extracted')
+            if change == 'metadata':
+                for name in ('sce_sys/param.sfo', 'sce_sys/playgo-chunk.sha', 'sce_sys/about/right.sprx'):
+                    next(f for f in alias['files'] if f['path'] == name)['sha256'] = next(f for f in source['files'] if f['path'] == name)['sha256']
+            elif change == 'code':
+                next(f for f in alias['files'] if f['path'] == 'daioujou_01000.prx')['programFingerprint'] = '0' * 64
+            elif change == 'root':
+                next(f for f in alias['files'] if f['path'] == 'eboot.bin')['programFingerprint'] = '0' * 64
+            else:
+                alias['layout'] = 'base'
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                catalogue.data_variants(raw)
+
+    def test_pre_extraction_store_base_variants_preserve_canonical_code_and_resources(self):
+        for game, original, count in (('daioujou', 'base-self', 42), ('ketsui', 'base', 39)):
+            raw = catalogue.read_json(self.root / 'games' / game / 'data.json')
+            variants = {v['id']: v for v in catalogue.data_variants(raw)}
+            source, alias = variants[original], variants['base-store-dump']
+            with self.subTest(game=game):
+                self.assertEqual((alias['version'], alias['layout'], alias['forbiddenFiles']),
+                                 (source['version'], source['layout'], source['forbiddenFiles']))
+                self.assertEqual(len(alias['files']), count)
+                self.assertNotIn('sce_sys/license.dat', {f['path'] for f in alias['files']})
+                metadata = lambda f: f['path'].startswith('sce_sys/') or f['path'].startswith('sce_discmap')
+                self.assertEqual([f for f in source['files'] if not metadata(f)],
+                                 [f for f in alias['files'] if not metadata(f)])
+                for name in ('sce_sys/param.sfo', 'sce_sys/playgo-chunk.sha', 'sce_sys/about/right.sprx'):
+                    self.assertTrue(any(f['path'] == name for f in alias['files']))
+                if game == 'ketsui':
+                    for name in ('sce_sys/param.sfo', 'sce_sys/playgo-chunk.sha'):
+                        get_hash = lambda v: next(f['sha256'] for f in v['files'] if f['path'] == name)
+                        self.assertEqual(get_hash(source), get_hash(alias))
+                    get_rights = lambda v: next(f['sha256'] for f in v['files'] if f['path'] == 'sce_sys/about/right.sprx')
+                    self.assertNotEqual(get_rights(source), get_rights(alias))
+
     def test_daioujou_candidate_uses_own_data_and_shared_ps4_runtime(self):
         game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')
         manifest=catalogue.read_json(self.root/'games/daioujou/data.json')
         self.assertEqual((game['backend'],manifest['titleId'],manifest['version']),('ps4','CUSA32997','01.04'))
         self.assertEqual(manifest['layout'],'merged-patch')
-        self.assertEqual(len(game['files']),59)
-        self.assertEqual(sum(f['bytes'] for f in game['files']),1116174232)
+        self.assertEqual(len(game['files']),56)
+        self.assertEqual(sum(f['bytes'] for f in game['files']),1112238161)
         self.assertNotIn('Project.gp4',{f['path'] for f in game['files']})
         self.assertFalse(game['comingSoon'])
         self.assertTrue(game['integrated'])

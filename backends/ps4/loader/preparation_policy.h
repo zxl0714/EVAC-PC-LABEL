@@ -15,7 +15,7 @@ inline PreparationPolicy PlanPs4Data(std::string_view game, std::string_view ver
                                     std::string_view layout) {
     PreparationPolicy result;
     if (game == "ketsui" && ((version == "01.00" && layout == "base") ||
-                             (version == "01.02" && layout == "merged-patch"))) {
+                             ((version == "01.02" || version == "01.03") && layout == "merged-patch"))) {
         result.programs = {"eboot.bin", "emu_integration_01400.prx", "ketsui_01000.prx"};
         result.merged_app = layout == "merged-patch";
     } else if (game == "daioujou" && version == "01.00" && layout == "base") {

@@ -163,10 +163,12 @@ def cases():
     helper = GameFixTests()
     for newline, label in [(b'\n', 'lf'), (b'\r\n', 'crlf')]:
         scripts = dict(music=(b'// remove me' + newline + b'm_bgm_mode[_gamemode] = _bgmMode;' + newline) * 2,
-                       batch=helper.authored_ranking_batch(newline), offline=helper.authored_post_game(newline))
+                       batch=helper.authored_ranking_batch(newline), modern_batch=helper.authored_modern_ranking_batch(newline),
+                       offline=helper.authored_post_game(newline))
         for kind, body in scripts.items():
-            add('fix-' + kind + '-' + label, 'fix', body, kind=kind)
-            add('fix-' + kind + '-duplicate-' + label, 'fix', body + body, kind=kind)
+            operation = 'batch' if kind == 'modern_batch' else kind
+            add('fix-' + kind + '-' + label, 'fix', body, kind=operation)
+            add('fix-' + kind + '-duplicate-' + label, 'fix', body + body, kind=operation)
         add('fix-offline-comments-' + label, 'fix', b'// outside' + newline + scripts['offline'].replace(
             b'    if (checkRegistRanking()) {', b'    // remove' + newline + b'    if (checkRegistRanking()) { // inline'), kind='offline')
         peer = newline.join((b'// outside', b'function is_blocked_id(_id_h,_id_l) {',

@@ -16,6 +16,7 @@ from ps4.native_elf import Elf
 MAGIC = b'KTFIX01\0'
 MAX_FILE = 4 * 1024 * 1024
 EBOOT_SHA256 = 'a32b4b798cc09d8b3f756acde33d679dbb7fec1a54eec50cc179f3f3694ac073'
+UPDATE103_EBOOT_SHA256 = '7ab773375a6c71853b0777f25edb5c4cf40c4b93cdbfb872392206d41c3b96df'
 BASE_EBOOT_SHA256 = '22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f'
 DIRECT_MENU_SHA256 = '83ba95c0ff110a17f9e641addc59e61b89c05431e57a91235eb15c872045f672'
 DIRECT_MENU = '5000/script/title_mode_direct_menu.nut.m'
@@ -40,7 +41,7 @@ def read_virtual(elf, address, size):
 
 def archive_key(executable):
     source = digest(executable)
-    if source not in (EBOOT_SHA256, BASE_EBOOT_SHA256):
+    if source not in (EBOOT_SHA256, BASE_EBOOT_SHA256, UPDATE103_EBOOT_SHA256):
         raise ValueError('Game fixes require a verified CUSA09062 executable')
     load = 0xd2 if source == BASE_EBOOT_SHA256 else 0xd3
     elf = Elf(executable)
@@ -192,7 +193,8 @@ def fix_direct_menu(raw):
 
 def fix_ranking_replay_batch(raw):
     newline = b'\r\n' if b'\r\n' in raw else b'\n'
-    begin = b'function RankingManager::_recordEntryBody('
+    modern = raw.count(b'function RankingManagerBase::_recordEntryBody(') == 1
+    begin = b'function RankingManagerBase::_recordEntryBody(' if modern else b'function RankingManager::_recordEntryBody('
     end = b'function friend_ranking_sort_func('
     if raw.count(begin) != 1 or raw.count(end) != 1:
         raise ValueError('Expected one ranking submission batch boundary')
@@ -201,7 +203,14 @@ def fix_ranking_replay_batch(raw):
         raise ValueError('Invalid ranking submission batch order')
     body = raw[start:stop]
     score = b'  local result = this._recordScore(_boardIdArray, _entryInfo);'
-    failure = newline.join((b'          if ( !this.isSucceeded(result) ) ', b'            break;'))
+    prefix = b''
+    if modern:
+        if body.count(score) != 1:
+            raise ValueError('Ranking batch differs from the verified control flow')
+        at = body.index(score)
+        prefix, body = body[:at], body[at:]
+    failure = (b'        if ( !this.isSucceeded(result) ) break;' if modern else
+               newline.join((b'          if ( !this.isSucceeded(result) ) ', b'            break;')))
     returned = b'  return result;'
     if any(body.count(anchor) != 1 for anchor in (score, failure, returned)):
         raise ValueError('Ranking batch differs from the verified control flow')
@@ -210,7 +219,7 @@ def fix_ranking_replay_batch(raw):
         b'          if ( !this.isSucceeded(result) && first_transfer_error == null )',
         b'            first_transfer_error = result;')))
     body = body.replace(returned, b'  return first_transfer_error != null ? first_transfer_error : result;')
-    fixed = raw[:start] + body + raw[stop:]
+    fixed = raw[:start] + prefix + body + raw[stop:]
     return b''.join(line for line in fixed.splitlines(keepends=True) if not line.lstrip().startswith(b'//'))
 
 
@@ -280,8 +289,9 @@ def prepare_music_fix(game_data, *, community_replay=False, community_offline=Fa
     executable = (root / 'eboot.bin').read_bytes()
     key = archive_key(executable)
     source_hash = digest(executable)
-    updated = source_hash == EBOOT_SHA256
-    version = '01.02' if updated else '01.00'
+    update103 = source_hash == UPDATE103_EBOOT_SHA256
+    updated = source_hash in (EBOOT_SHA256, UPDATE103_EBOOT_SHA256)
+    version = '01.03' if update103 else '01.02' if updated else '01.00'
     index_name = 'ps4data_info.psb.m'
     index = Psb(unwrap((root / index_name).read_bytes(), key, index_name)).root
     offset, size = index['file_info'][DIRECT_MENU]
@@ -332,7 +342,8 @@ def prepare_music_fix(game_data, *, community_replay=False, community_offline=Fa
             source.seek(title_offset)
             title_packed = source.read(title_size)
         title_script = unwrap(title_packed, key, Path(TITLE_STANDALONE).name)
-        title_hash = TITLE_STANDALONE_SHA256 if updated else BASE_TITLE_STANDALONE_SHA256
+        title_hash = ('395c82f79f1d5557c42531c7647b3bf55f067e17fb530dab24f94ad83b536269' if update103 else
+                      TITLE_STANDALONE_SHA256 if updated else BASE_TITLE_STANDALONE_SHA256)
         if digest(title_script) != title_hash:
             raise ValueError('Title submission script differs from the verified version')
         title_fixed = fix_community_local_round_gate(title_script)
@@ -342,6 +353,33 @@ def prepare_music_fix(game_data, *, community_replay=False, community_offline=Fa
         offline_report = dict(resource=TITLE_STANDALONE, layer='patch' if updated else 'base', offset=title_offset, bytes=title_size,
                               original_script_sha256=title_hash, fixed_script_sha256=digest(title_fixed),
                               scope='eligible-post-game-submission', requires_native_rounds=True)
+    patch_reports = {}
+    if update103:
+        patch_index_name = 'ps4data_patch_info.psb.m'
+        patch_index = Psb(unwrap((root / patch_index_name).read_bytes(), key, patch_index_name)).root['file_info']
+        archive = 'ps4data_patch_body.bin'
+        patch_size = (root / archive).stat().st_size
+        operations = [(DIRECT_MENU, '054ead29b630f1547da37789fd84bdef964f73dfb9aab53ab7f71ced6497cf76',
+                       fix_direct_menu, 'patch_music_autosave')]
+        if community_replay:
+            operations.append((RANKING_MANAGER, 'c80518d21c0185c34bd06e8fd2ecae5735c2d11a11cbf2aeaa31b3575eec98f1',
+                               fix_ranking_replay_batch, 'patch_community_replay_batch'))
+        for resource, expected, transform, label in operations:
+            at, extent = patch_index[resource]
+            if type(at) is not int or type(extent) is not int or not 0 <= at <= patch_size or not 1 <= extent <= 262144 or extent > patch_size - at:
+                raise ValueError('Patched resource exceeds original archive')
+            with (root / archive).open('rb') as source:
+                source.seek(at)
+                original = source.read(extent)
+            decoded = unwrap(original, key, Path(resource).name)
+            if digest(decoded) != expected:
+                raise ValueError('Patched resource differs from the verified input')
+            fixed_patch = transform(decoded)
+            patches.append(dict(path=archive, file_size=patch_size, offset=at,
+                                expected_sha256=digest(original),
+                                replacement=wrap_fixed(fixed_patch, key, Path(resource).name, extent)))
+            patch_reports[label] = dict(resource=resource, offset=at, bytes=extent,
+                                       original_script_sha256=expected, fixed_script_sha256=digest(fixed_patch))
     output = encode_read_patches('CUSA09062', version, patches)
     if digest((root / 'eboot.bin').read_bytes()) != source_hash or body.stat().st_size != original_size:
         raise ValueError('Game input changed during fix preparation')
@@ -362,4 +400,5 @@ def prepare_music_fix(game_data, *, community_replay=False, community_offline=Fa
         report['community_replay_batch'] = community_report
     if offline_report is not None:
         report['community_local_rounds'] = offline_report
+    report.update(patch_reports)
     return output, report
