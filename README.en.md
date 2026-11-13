@@ -73,6 +73,16 @@ Windows x64. Xbox 360 games automatically select Direct3D 12 or Vulkan. PS4 and 
 
 Extract Xbox 360 ISOs with `tools/Extract-Xbox360.exe` and PS4 PKGs with `tools/Extract-PS4.exe`. For folder examples, XBLA packages and DLC, see the [game data guide](docs/GAME_DATA.en.md). `Launch.bat` is an alternative launch entry.
 
+### Command-line launch
+
+Use this command in PowerShell from the collection folder to launch Mushihimesama Futari directly.
+
+```powershell
+& '.\EVAC PC LABEL.exe' --game futari
+```
+
+Change the game ID to launch another title. Games use the same data and saves as when launched from the app. [Game IDs and optional arguments](docs/CLI.en.md)
+
 ## Settings and saves
 
 Choose fullscreen or a window resolution, edit your leaderboard nickname, and switch languages with `CN / EN / JP` in the launcher. Use **Controls** to remap your keyboard, gamepad or arcade stick for all games or just the selected game. Audio and online settings are under **Config file**.

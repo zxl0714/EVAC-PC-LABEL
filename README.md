@@ -73,6 +73,16 @@ Windows x64。Xbox 360 游戏自动选择 Direct3D 12 或 Vulkan。PS4 和 PS2 �
 
 Xbox 360 ISO 可用随包的 `tools/Extract-Xbox360.exe` 提取，PS4 PKG 使用 `tools/Extract-PS4.exe`。各平台的目录示例与 DLC 处理方法见[游戏数据指南](docs/GAME_DATA.md)。备用启动入口为 `Launch.bat`。
 
+### 命令行启动
+
+在合集目录打开 PowerShell，即可用命令直接启动虫姬二。
+
+```powershell
+& '.\EVAC PC LABEL.exe' --game futari
+```
+
+换个游戏 ID 就能启动其他游戏，数据和存档与启动器共用。[游戏 ID 和可选参数](docs/CLI.md)
+
 ## 配置与存档
 
 在启动器中选择窗口分辨率或全屏，设置排行榜昵称，用 `CN / EN / JP` 切换语言。底部「输入设置」可以修改键盘、手柄和摇杆绑定，支持共同设置和单游戏设置。音量和联网选项在「配置文件」中。
