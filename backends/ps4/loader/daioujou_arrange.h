@@ -17,7 +17,11 @@ enum class DaioujouArrangeMotion { Direct, Pause, Options };
 void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArrangeMotion kind, bool update);
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update);
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update);
-void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged);
+void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion);
+void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion);
+void AddArrangeFiles(std::vector<std::string>& files, bool merged);
 void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,
     std::span<const std::uint8_t> executable, bool merged,VerificationCache* verification=nullptr);
+void PrepareKetsuiArrangeArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable, bool merged, const nlohmann::json& tracks);
 }

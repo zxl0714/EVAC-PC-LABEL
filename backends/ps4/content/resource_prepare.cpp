@@ -23,7 +23,8 @@ using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t ResourceLimit(std::string_view name) {
     if (name == "title_gadget.psb.m") return 80 * 1024 * 1024;
-    return name.ends_with(".wav.m") || name == "title_ui_common.psb.m" ? 64 * 1024 * 1024 : kResourceLimit;
+    return name.ends_with(".wav.m") || name == "title_ui_common.psb.m"
+        ? 64 * 1024 * 1024 : kResourceLimit;
 }
 constexpr std::size_t kPatchLimit = 262144;
 enum class ResourceTitle { Ketsui, Daioujou, Esprade, Feveron, Garegga };

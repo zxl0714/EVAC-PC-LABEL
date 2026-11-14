@@ -139,6 +139,44 @@ void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update) {
     PaintBadge(atlas, *factory.Get(), artwork::kArrangeLarge, large);
 }
 
+void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion) {
+    const auto hash = PreparationHash(motion);
+    constexpr std::string_view base = "177ec25d0257bdbd15e1513baeaf49113f19934551fde5c8f13a4f6db1de6ab8";
+    constexpr std::string_view update = "12e263ab3772106f6f4627dfd74cd12e5eab7e7a75c86a67222c6ca351dd04b3";
+    if (hash != base && hash != update) throw std::runtime_error("Ketsui common UI differs from the verified atlas");
+    auto atlas = motion.subspan(hash == base ? 0x284a0 : 0x28500, 4096u * 2048u * 4u);
+    const BadgeRegion large = hash == base ? BadgeRegion{2312, 1089, 331, 58} : BadgeRegion{1336, 1108, 331, 58};
+    constexpr BadgeRegion compact{3897, 562, 188, 44};
+
+    ComApartment apartment;
+    ComPtr<IWICImagingFactory> factory;
+    Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
+    const auto paint = [&](BadgeRegion region, std::span<const std::uint8_t> png, unsigned width, unsigned height) {
+        const auto caption = DecodeBadge(*factory.Get(), png, {0, 0, width, height});
+        // Keep the original outer frame and left-edge artwork. Recover the
+        // undisturbed fill from the blank strip below the original lettering.
+        const auto left = region.width / 6;
+        const auto right = region.width * 9 / 10;
+        const auto top = region.height / 6;
+        const auto bottom = region.height * 5 / 6;
+        for (unsigned y = top; y < bottom; ++y) {
+            for (unsigned x = left; x < right; ++x) {
+                auto* pixel = atlas.data() + AtlasPixel(region.x + x, region.y + y);
+                const auto* background = atlas.data() + AtlasPixel(region.x + x, region.y + bottom + y % 2);
+                const auto sx = x * width / region.width;
+                const auto sy = y * height / region.height;
+                const auto* ink = caption.data() + (sy * width + sx) * 4;
+                const auto alpha = ink[3];
+                for (unsigned channel = 0; channel < 3; ++channel) {
+                    pixel[channel] = static_cast<std::uint8_t>((background[channel] * (255 - alpha) + ink[channel] * alpha + 127) / 255);
+                }
+            }
+        }
+    };
+    paint(large, artwork::kArrangeLarge, 264, 56);
+    paint(compact, artwork::kArrangeMedium, 184, 40);
+}
+
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update) {
     constexpr std::string_view base_hash = "829d61051eea451a90a8998689e16b2a7c0c2a85d4530fd0dda93b6eaacbc258";
     constexpr std::string_view update_hash = "f522e1c2f11e290efbff3492c3b68e7928c9dedc5b3848989cc2851a73625bce";
@@ -171,6 +209,43 @@ void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool upda
             std::fill_n(pixel, 4, 0);
             if (x >= 44 && x < 126)
                 std::copy_n(label.data() + (y * 82 + x - 44) * 4, 4, pixel);
+        }
+    }
+}
+
+void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion) {
+    constexpr std::array<std::string_view, 2> hashes{
+        "da4a128f7cbe3f15ee0ee8c6ef5d1556a08e3d709030086fb0f3ce85234f5540",
+        "50780f166d1fca05c17461c9ba3bd562b02e2781495ba0da849ff198d113215e",
+    };
+    if (std::ranges::find(hashes, PreparationHash(motion)) == hashes.end())
+        throw std::runtime_error("Ketsui music gadget differs from the verified atlas");
+
+    ComApartment apartment;
+    ComPtr<IWICImagingFactory> factory;
+    Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
+    auto caption = DecodeBadge(*factory.Get(), artwork::kArrangeLarge, {0, 0, 264, 56});
+    ComPtr<IWICBitmap> bitmap;
+    Check(factory->CreateBitmapFromMemory(264, 56, GUID_WICPixelFormat32bppRGBA, 264 * 4,
+        static_cast<UINT>(caption.size()), caption.data(), bitmap.GetAddressOf()));
+    ComPtr<IWICBitmapClipper> clip;
+    Check(factory->CreateBitmapClipper(clip.GetAddressOf()));
+    const WICRect lines{98, 4, 159, 48};
+    Check(clip->Initialize(bitmap.Get(), &lines));
+    ComPtr<IWICBitmapScaler> scaler;
+    Check(factory->CreateBitmapScaler(scaler.GetAddressOf()));
+    constexpr unsigned width = 84, height = 13;
+    Check(scaler->Initialize(clip.Get(), width, height, WICBitmapInterpolationModeFant));
+    std::array<BYTE, width * height * 4> label{};
+    Check(scaler->CopyPixels(nullptr, width * 4, static_cast<UINT>(label.size()), label.data()));
+    auto atlas = motion.subspan(628928 + 1024u * 1024u * 4u, 4096u * 4096u * 4u);
+    constexpr BadgeRegion region{298, 2690, 160, 13};
+    for (unsigned y = 0; y < region.height; ++y) {
+        for (unsigned x = 0; x < region.width; ++x) {
+            auto* pixel = atlas.data() + AtlasPixel(region.x + x, region.y + y);
+            std::fill_n(pixel, 4, 0);
+            const auto left = region.width - width;
+            if (x >= left) std::copy_n(label.data() + (y * width + x - left) * 4, 4, pixel);
         }
     }
 }

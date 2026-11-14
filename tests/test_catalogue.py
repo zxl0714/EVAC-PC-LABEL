@@ -32,7 +32,7 @@ class CatalogueTests(unittest.TestCase):
         game=next(g for g in catalogue.load(self.path) if g['id']=='garegga')
         manifest=catalogue.read_json(self.root/'games/garegga/data.json')
         self.assertEqual((manifest['titleId'],manifest['version'],manifest['layout']),('CUSA10207','01.00','base'))
-        self.assertEqual(len(game['files']),46)
+        self.assertEqual(len(game['files']),40)
         programs={f['path'] for f in game['files'] if f['program'] and '/' not in f['path']}
         self.assertEqual(programs,{'eboot.bin','emu_integration.prx','emu_integration_01100.prx',
             *('garegga_'+version+'.prx' for version in ('01000','01010','01020','01030','01040'))})
@@ -43,7 +43,7 @@ class CatalogueTests(unittest.TestCase):
         manifest = catalogue.read_json(self.root / 'games/feveron/data.json')
         self.assertEqual((manifest['titleId'], manifest['version'], manifest['layout']),
                          ('CUSA06735', '01.00', 'base'))
-        self.assertEqual(len(game['files']), 44)
+        self.assertEqual(len(game['files']), 38)
         self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
                          [('base-us', '01.00', 'base')])
         programs = {f['path'] for f in game['files'] if f['program'] and '/' not in f['path']}
@@ -58,7 +58,10 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(manifest['layout'], 'merged-patch')
         self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
                          [('update-104', '01.04', 'merged-patch'), ('base-self', '01.00', 'base')])
-        self.assertEqual(len(game['files']), 47)
+        self.assertEqual(len(game['files']), 40)
+        for variant in game['variants']:
+            self.assertNotIn('sce_module/libSceAudioLatencyEstimation.prx',
+                             {item['path'] for item in variant['files']})
         self.assertIn('esprade_01030.prx', game['variants'][1]['forbiddenFiles'])
         self.assertTrue(game['integrated'] and game['communitySupported'])
         self.assertFalse(game['comingSoon'])
@@ -89,11 +92,11 @@ class CatalogueTests(unittest.TestCase):
     def test_ketsui_base_and_merged_update_have_separate_complete_manifests(self):
         game = next(game for game in catalogue.load(self.path) if game['id'] == 'ketsui')
         self.assertEqual([(v['id'], v['version'], v['layout'], len(v['files'])) for v in game['variants']],
-                         [('update-102', '01.02', 'merged-patch', 44), ('base', '01.00', 'base', 38),
-                          ('base-self', '01.00', 'base', 38), ('update-103', '01.03', 'merged-patch', 42),
-                          ('base-pkg-extracted', '01.00', 'base', 38),
-                          ('update-103-pkg-extracted', '01.03', 'merged-patch', 42),
-                          ('base-store-dump', '01.00', 'base', 37)])
+                         [('update-102', '01.02', 'merged-patch', 40), ('base', '01.00', 'base', 34),
+                          ('base-self', '01.00', 'base', 34), ('update-103', '01.03', 'merged-patch', 38),
+                          ('base-pkg-extracted', '01.00', 'base', 34),
+                          ('update-103-pkg-extracted', '01.03', 'merged-patch', 38),
+                          ('base-store-dump', '01.00', 'base', 33)])
         self.assertEqual(game['files'], game['variants'][0]['files'])
         for variant in game['variants']:
             files = {item['path']: item for item in variant['files']}
@@ -234,7 +237,7 @@ class CatalogueTests(unittest.TestCase):
                 catalogue.data_variants(raw)
 
     def test_pre_extraction_store_base_variants_preserve_canonical_code_and_resources(self):
-        for game, original, count in (('daioujou', 'base-self', 40), ('ketsui', 'base', 37)):
+        for game, original, count in (('daioujou', 'base-self', 36), ('ketsui', 'base', 33)):
             raw = catalogue.read_json(self.root / 'games' / game / 'data.json')
             variants = {v['id']: v for v in catalogue.data_variants(raw)}
             source, alias = variants[original], variants['base-store-dump']
@@ -255,22 +258,23 @@ class CatalogueTests(unittest.TestCase):
                     get_rights = lambda v: next(f['sha256'] for f in v['files'] if f['path'] == 'sce_sys/about/right.sprx')
                     self.assertNotEqual(get_rights(source), get_rights(alias))
 
-    def test_ps_store_compatible_manifests_do_not_require_system_artwork(self):
+    def test_ps4_manifests_do_not_require_system_artwork(self):
+        artwork = {f'sce_sys/{stem}.{ext}' for stem in ('icon0', 'pic0', 'pic1') for ext in ('png', 'dds')}
         for game in catalogue.load(self.path):
-            if game['id'] not in ('daioujou', 'ketsui'):
+            if game['backend'] != 'ps4':
                 continue
             for variant in game['variants']:
                 with self.subTest(game=game['id'], variant=variant['id']):
                     paths = {item['path'] for item in variant['files']}
-                    self.assertTrue(paths.isdisjoint({'sce_sys/icon0.dds', 'sce_sys/pic0.dds'}))
+                    self.assertTrue(paths.isdisjoint(artwork))
 
     def test_daioujou_candidate_uses_own_data_and_shared_ps4_runtime(self):
         game=next(g for g in catalogue.load(self.path) if g['id']=='daioujou')
         manifest=catalogue.read_json(self.root/'games/daioujou/data.json')
         self.assertEqual((game['backend'],manifest['titleId'],manifest['version']),('ps4','CUSA32997','01.04'))
         self.assertEqual(manifest['layout'],'merged-patch')
-        self.assertEqual(len(game['files']),54)
-        self.assertEqual(sum(f['bytes'] for f in game['files']),1111070033)
+        self.assertEqual(len(game['files']),50)
+        self.assertEqual(sum(f['bytes'] for f in game['files']),1103200136)
         self.assertNotIn('Project.gp4',{f['path'] for f in game['files']})
         self.assertFalse(game['comingSoon'])
         self.assertTrue(game['integrated'])

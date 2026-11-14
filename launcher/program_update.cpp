@@ -68,15 +68,19 @@ fs::path LocalPath(const fs::path& base,std::string_view relative) {
   }
   return path;
 }
-bool GameGuide(std::string_view name) {
-  return std::ranges::any_of(Catalogue(),[&](const Game& game) {
-    return name=="game-data/"+std::string(game.id)+"/README.txt";
-  });
+std::optional<fs::path> GameGuideRoot(std::string_view name) {
+  if(name=="game-data/daioujou/x-arrange/README.txt")return fs::path("game-data/daioujou");
+  if(name=="game-data/ketsui/x-arrange/README.txt")return fs::path("game-data/ketsui");
+  for(const auto& game:Catalogue()) {
+    const auto directory="game-data/"+std::string(game.id);
+    if(name==directory+"/README.txt")return FromUtf8(directory);
+  }
+  return std::nullopt;
 }
 bool Managed(std::string_view name,std::string_view role) {
   if(role!="runtime" && role!="redist" && role!="documentation" && role!="license" && role!="config")return false;
   if(name.starts_with("runtime/") || name.starts_with("tools/") || name.starts_with("licenses/"))return true;
-  if(name.starts_with("game-data/"))return role=="documentation" && GameGuide(name);
+  if(name.starts_with("game-data/"))return role=="documentation" && GameGuideRoot(name).has_value();
   if(name==kLauncher)return role=="runtime";
   if(name=="Launch.bat" || name=="README.txt" || name=="SOURCE.txt")return role=="documentation";
   return role=="redist" && name.find('/')==name.npos && name.ends_with(".dll");
@@ -259,9 +263,10 @@ std::vector<fs::path> DataDirectories(const fs::path& root) {
 }
 void CheckGameFiles(const fs::path& root,const fs::path& target,std::string_view name,
                     const std::vector<fs::path>& directories) {
+  const auto guide=GameGuideRoot(name);
   for(const auto& data:directories) {
     if(!Within(target,data) && !Within(data,target))continue;
-    const auto canonical_guide=GameGuide(name) && data==target.parent_path() && Within(data,root/"game-data");
+    const auto canonical_guide=guide && data==root/(*guide);
     Require(canonical_guide,"Program update overlaps configured game data");
   }
 }

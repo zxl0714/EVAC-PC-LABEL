@@ -229,12 +229,6 @@
       "program": false
     },
     {
-      "path": "sce_sys/icon0.png",
-      "bytes": 578115,
-      "sha256": "0399c520bab8aa11cf320bb9b4f1a4a0443d9ae8b17bf3048e33159e1573cd4a",
-      "program": false
-    },
-    {
       "path": "sce_sys/keystone",
       "bytes": 96,
       "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
@@ -274,24 +268,6 @@
       "path": "sce_sys/param.sfo",
       "bytes": 1904,
       "sha256": "ce40028abaae0fbdc58791106e35b28b2f5bef1798b757a95da9dfb105581f71",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic0.png",
-      "bytes": 4068941,
-      "sha256": "11374ab1d8383796a4416d81686ae7209bfd39de1469a087ca9911f47ae1ee98",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic1.dds",
-      "bytes": 1036928,
-      "sha256": "cfc7211d267368a0ceb6555d45659498088069797264573b33d7ce2a427e0a07",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic1.png",
-      "bytes": 2185913,
-      "sha256": "8c57645ffebcbec4b3af88af646057098821a3de834efbffe855ca32f1affbfc",
       "program": false
     },
     {
@@ -498,12 +474,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.png",
-          "bytes": 578115,
-          "sha256": "0399c520bab8aa11cf320bb9b4f1a4a0443d9ae8b17bf3048e33159e1573cd4a",
-          "program": false
-        },
-        {
           "path": "sce_sys/keystone",
           "bytes": 96,
           "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
@@ -543,24 +513,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "7befad6ddc323a26a65fbb5868b45c58789386c67346481b55cc71e961f69d17",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.png",
-          "bytes": 4068941,
-          "sha256": "11374ab1d8383796a4416d81686ae7209bfd39de1469a087ca9911f47ae1ee98",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.dds",
-          "bytes": 1036928,
-          "sha256": "cfc7211d267368a0ceb6555d45659498088069797264573b33d7ce2a427e0a07",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.png",
-          "bytes": 2185913,
-          "sha256": "8c57645ffebcbec4b3af88af646057098821a3de834efbffe855ca32f1affbfc",
           "program": false
         },
         {
@@ -778,12 +730,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.png",
-          "bytes": 578115,
-          "sha256": "0399c520bab8aa11cf320bb9b4f1a4a0443d9ae8b17bf3048e33159e1573cd4a",
-          "program": false
-        },
-        {
           "path": "sce_sys/keystone",
           "bytes": 96,
           "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
@@ -823,24 +769,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "7befad6ddc323a26a65fbb5868b45c58789386c67346481b55cc71e961f69d17",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.png",
-          "bytes": 4068941,
-          "sha256": "11374ab1d8383796a4416d81686ae7209bfd39de1469a087ca9911f47ae1ee98",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.dds",
-          "bytes": 1036928,
-          "sha256": "cfc7211d267368a0ceb6555d45659498088069797264573b33d7ce2a427e0a07",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.png",
-          "bytes": 2185913,
-          "sha256": "8c57645ffebcbec4b3af88af646057098821a3de834efbffe855ca32f1affbfc",
           "program": false
         },
         {
@@ -1109,12 +1037,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.png",
-          "bytes": 578115,
-          "sha256": "0399c520bab8aa11cf320bb9b4f1a4a0443d9ae8b17bf3048e33159e1573cd4a",
-          "program": false
-        },
-        {
           "path": "sce_sys/keystone",
           "bytes": 96,
           "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
@@ -1154,24 +1076,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "8197c27352532f6aea0a97f79d82f871f6dcd9be9a8a1d83d8ab2c7d64acf0af",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.png",
-          "bytes": 4068941,
-          "sha256": "11374ab1d8383796a4416d81686ae7209bfd39de1469a087ca9911f47ae1ee98",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.dds",
-          "bytes": 1036928,
-          "sha256": "cfc7211d267368a0ceb6555d45659498088069797264573b33d7ce2a427e0a07",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.png",
-          "bytes": 2185913,
-          "sha256": "8c57645ffebcbec4b3af88af646057098821a3de834efbffe855ca32f1affbfc",
           "program": false
         },
         {
@@ -1373,12 +1277,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.png",
-          "bytes": 578115,
-          "sha256": "0399c520bab8aa11cf320bb9b4f1a4a0443d9ae8b17bf3048e33159e1573cd4a",
-          "program": false
-        },
-        {
           "path": "sce_sys/keystone",
           "bytes": 96,
           "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
@@ -1418,24 +1316,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "35167e425b0415ac2ade8459c68903923be6dba2776a168dfab9f040629b5ec6",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.png",
-          "bytes": 4068941,
-          "sha256": "11374ab1d8383796a4416d81686ae7209bfd39de1469a087ca9911f47ae1ee98",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.dds",
-          "bytes": 1036928,
-          "sha256": "cfc7211d267368a0ceb6555d45659498088069797264573b33d7ce2a427e0a07",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic1.png",
-          "bytes": 2185913,
-          "sha256": "8c57645ffebcbec4b3af88af646057098821a3de834efbffe855ca32f1affbfc",
           "program": false
         },
         {

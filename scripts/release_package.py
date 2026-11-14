@@ -126,8 +126,11 @@ def placement_sources(version, name=PLACEMENT_NAME):
     placement = PLACEMENT_GAMES if 'espgaluda' in games else V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
     result = {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
               for key in placement}
-    if tuple(map(int, version.split('-', 1)[0].split('.'))) >= (0, 9, 9):
+    parts = tuple(map(int, version.split('-', 1)[0].split('.')))
+    if parts >= (0, 9, 9):
         result['game-data/daioujou/x-arrange/' + name] = ROOT / 'config/game-data/daioujou-x-arrange.txt'
+    if parts >= (0, 9, 10):
+        result['game-data/ketsui/x-arrange/' + name] = ROOT / 'config/game-data/ketsui-x-arrange.txt'
     return result
 
 

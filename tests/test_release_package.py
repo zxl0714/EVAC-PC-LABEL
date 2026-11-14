@@ -107,6 +107,18 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual([name for name in zipped.namelist() if name.startswith('game-data/daioujou/x-arrange/')], [guide])
         self.check_build_flavors('0.9.9', check)
 
+    def test_v0910_places_ketsui_arrange_guide(self):
+        guide = 'game-data/ketsui/x-arrange/README.txt'
+        self.assertNotIn(guide, release.placement_sources('0.9.9'))
+        def check(root, games, commit, inspect):
+            result = release.build('Public', '0.9.10', root/'releases/ketsui-arrange')
+            record = release.verify_tree(Path(result['directory']), games)
+            self.assertIn(guide, {item['path'] for item in record['files']})
+            with zipfile.ZipFile(result['archive']) as zipped:
+                self.assertIn(b'kkj_arr_*.xma', zipped.read(guide))
+                self.assertEqual([name for name in zipped.namelist() if name.startswith('game-data/ketsui/x-arrange/')], [guide])
+        self.check_build_flavors('0.9.10', check)
+
     def test_internal_data_uses_the_verified_variant_without_default_fallback(self):
         primary, base = [{'path': 'updated-fixture'}], [{'path': 'base-fixture'}]
         game = dict(files=primary, variants=[dict(id='update-102', files=primary), dict(id='base', files=base)])
@@ -975,6 +987,7 @@ class ReleaseTests(unittest.TestCase):
         for key in release.PLACEMENT_GAMES:
             text['config/game-data/'+key+'.txt']=(release.ROOT/'config/game-data'/ (key+'.txt')).read_text(encoding='utf-8')
         text['config/game-data/daioujou-x-arrange.txt']=(release.ROOT/'config/game-data/daioujou-x-arrange.txt').read_text(encoding='utf-8')
+        text['config/game-data/ketsui-x-arrange.txt']=(release.ROOT/'config/game-data/ketsui-x-arrange.txt').read_text(encoding='utf-8')
         for name, value in text.items():
             target=root/name; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(value,encoding='utf-8',newline='\n')
         for args in (('init','-b','main'),('config','user.name','Fixture'),('config','user.email','fixture@example.invalid'),

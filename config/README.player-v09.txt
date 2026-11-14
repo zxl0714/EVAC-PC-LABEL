@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.9.9
+EVAC PC LABEL v0.9.10
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
@@ -39,6 +39,10 @@ XBLA：打开 tools/Extract-XBLA.exe，选择内容包并提取，把结果放�
 用 tools/Extract-Xbox360.exe 解开 Xbox 360 版 Black Label Extra 的 ISO。
 把 dat/sound/ 中的 ddo_bgm_SoundBank.xsb 和 ddo_bgm_WaveBank.xwb
 复制到 game-data/daioujou/x-arrange/，启动后在 BGM SET 选择 X Arrange(Xbox 360)。
+
+绊地狱 X Arrange 音乐
+用同一工具解包 Xbox 360 版绊地狱 Extra 的 ISO。把 Data/sd/MOD/ 下的全部 13 个
+kkj_arr_*.xma 复制到 game-data/ketsui/x-arrange/，在 BGM SET 选择 X Arrange (Xbox 360)。
 
 配置与操作
 CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
@@ -95,6 +99,10 @@ For DaiOuJou X Arrange music, extract the Xbox 360 Black Label Extra ISO with
 tools/Extract-Xbox360.exe. Copy ddo_bgm_SoundBank.xsb and ddo_bgm_WaveBank.xwb
 from dat/sound/ to game-data/daioujou/x-arrange/. Launch the game and choose
 X Arrange(Xbox 360) in BGM SET.
+
+For Ketsui X Arrange, extract the Xbox 360 Ketsui Extra ISO with the same tool.
+Copy all 13 kkj_arr_*.xma files from Data/sd/MOD/ to game-data/ketsui/x-arrange/,
+then choose X Arrange (Xbox 360) in BGM SET.
 
 Run EVAC PC LABEL.exe, select a game, and click Launch game.
 To update, close the games and launcher, replace the program files, and keep user-data/.

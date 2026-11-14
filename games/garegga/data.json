@@ -189,18 +189,6 @@
       "program": false
     },
     {
-      "path": "sce_sys/icon0.dds",
-      "bytes": 131200,
-      "sha256": "55a469e666e56fbbc4fc3baa72274e9ba4907a14a55aceb68fceba937b1d83d3",
-      "program": false
-    },
-    {
-      "path": "sce_sys/icon0.png",
-      "bytes": 450856,
-      "sha256": "1a26ba91eed8faf2d4a640e9e9402ec38008c0c060a2732799b9456761b53bf7",
-      "program": false
-    },
-    {
       "path": "sce_sys/keystone",
       "bytes": 96,
       "sha256": "d09eb8ab5f3b700164fc8ad85c54c2acbad71244e942aeedf7e3e7eb56408aac",
@@ -228,30 +216,6 @@
       "path": "sce_sys/param.sfo",
       "bytes": 1832,
       "sha256": "df5d881edd9642d3bdce7696c314e79ade0ff1734a9fb281d4f6a166a14c408b",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic0.dds",
-      "bytes": 1036928,
-      "sha256": "e62ad5441fbf058f5aa2e56e768769fb569fa2852fe01c30bdc15ea6cea570e5",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic0.png",
-      "bytes": 2266656,
-      "sha256": "668036e004cde7513ee503e0ca8f4b81783072caf0257176a62b92d7d4fb8cbe",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic1.dds",
-      "bytes": 1036928,
-      "sha256": "6586782177580a9f1ef6d937073e55e10018d20b77fb7e39ec2362ff5df2ee98",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic1.png",
-      "bytes": 3126049,
-      "sha256": "66fbe66a40ca13e0cc368b503da7e63f65d201bb1711a794f1227ccd43ad97ca",
       "program": false
     },
     {

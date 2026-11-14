@@ -84,12 +84,22 @@ endforeach()
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/daioujou_arrange_artwork_data.h"
     CONTENT "${arrange_artwork}}\n")
 add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp
-    loader/daioujou_arrange.cpp loader/daioujou_arrange_audio.cpp loader/daioujou_arrange_artwork.cpp loader/daioujou_arrange_motion.cpp)
+    loader/daioujou_arrange.cpp loader/daioujou_arrange_audio.cpp loader/daioujou_arrange_artwork.cpp loader/daioujou_arrange_motion.cpp
+    loader/ketsui_arrange_music.cpp loader/ketsui_arrange_audio.cpp)
 target_include_directories(KetsuiPreparedInputs PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+target_include_directories(KetsuiPreparedInputs SYSTEM PRIVATE "${CAVE_PS4_ROOT}/third_party/rexglue/thirdparty/FFmpeg")
 target_compile_features(KetsuiPreparedInputs PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiPreparedInputs PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiPreparedInputs PRIVATE /W4 /WX /EHsc)
 target_link_libraries(KetsuiPreparedInputs PUBLIC cave_common KetsuiResourcePreparation PRIVATE KetsuiContent bcrypt ole32 windowscodecs)
+# The same pinned XMA codec as the Xbox 360 runtime, with no runtime DLL dependency.
+foreach(codec libavcodec libavutil)
+    set(archive "${CAVE_PS4_ROOT}/.deps/sdk-install/lib/${codec}.lib")
+    if(NOT EXISTS "${archive}")
+        message(FATAL_ERROR "Run scripts/Build-Sdk.ps1 to build the shared XMA decoder")
+    endif()
+    target_link_libraries(KetsuiPreparedInputs PRIVATE "${archive}")
+endforeach()
 # Differential-test driver, not part of the player launch or Public package.
 add_executable(KetsuiResourcePrepareCheck content/resource_prepare_check.cpp)
 target_compile_features(KetsuiResourcePrepareCheck PRIVATE cxx_std_20)

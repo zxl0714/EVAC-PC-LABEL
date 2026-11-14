@@ -31,3 +31,5 @@
 0x8210E770 = {}
 0x8210E778 = {}
 0x8210E780 = {}
+# The resident storage vtable points at this tail branch, outside the preceding body.
+0x82199E18 = { end = 0x82199E1C }

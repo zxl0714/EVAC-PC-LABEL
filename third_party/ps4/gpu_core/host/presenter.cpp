@@ -685,7 +685,7 @@ struct Presenter::Impl {
     return result;
   }
   bool PresentSnapshot(u32& snapshot_index) {
-    for (unsigned retry = 0; retry < 9; ++retry) {
+    for (unsigned retry = 0; retry < 2; ++retry) {
       const auto began = kt::diagnostics::MonotonicMicroseconds();
       RECT client{};
       if (!IsWindow(window) || !GetClientRect(window, &client) ||
@@ -907,8 +907,7 @@ struct Presenter::Impl {
       }
       return true;
     }
-    throw std::runtime_error(
-        "Swapchain remained out of date after eight recreations");
+    return false;
   }
   void RunPresentation() noexcept {
     try {
@@ -927,6 +926,8 @@ struct Presenter::Impl {
           stats.ready_images = 0;
           stats.active_images = 1;
           lock.unlock();
+          // A resize can invalidate a swapchain again during recreation.
+          // Release this snapshot and rebuild for the next guest frame.
           const bool shown = PresentSnapshot(index);
           lock.lock();
           cave::ps4::FinishSnapshotRead(snapshots[index]);

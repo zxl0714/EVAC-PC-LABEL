@@ -704,9 +704,8 @@ class App {
     update_dialog=true;struct Guard{bool& value;~Guard(){value=false;}} guard{update_dialog};
     const auto release=*update_state.latest;
     const auto title=std::wstring(ready?T(L"可更新到 "):T(L"发现新版本 "))+Wide(release.tag);
-    auto notes=release.notes.empty()
-        ?std::wstring(ready?T(L"重启启动器以安装更新。"):T(L"发布页提供更新说明和下载。"))
-        :Wide(release.notes);
+    const auto instruction=ready?T(L"重启启动器以安装更新。"):T(L"发布页提供更新说明和下载。");
+    auto notes=Wide(release.notes);
     size_t cut=0,lines=0;
     for(;cut<notes.size() && cut<800 && lines<12;++cut)if(notes[cut]==L'\n')++lines;
     if(cut<notes.size()) {
@@ -716,7 +715,12 @@ class App {
     const TASKDIALOG_BUTTON buttons[]{{IDYES,ready?T(L"重启并更新"):T(L"打开发布页")},{IDCANCEL,T(L"关闭")}};
     TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);dialog.hwndParent=hwnd;
     dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
-    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=title.c_str();dialog.pszContent=notes.c_str();
+    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=title.c_str();dialog.pszContent=instruction;
+    if(!notes.empty()) {
+      dialog.pszExpandedInformation=notes.c_str();
+      dialog.pszExpandedControlText=T(L"收起更新说明");
+      dialog.pszCollapsedControlText=T(L"查看更新说明");
+    }
     dialog.cButtons=UINT(std::size(buttons));dialog.pButtons=buttons;dialog.nDefaultButton=IDCANCEL;
     dialog.cxWidth=420;int result=IDCANCEL;
     Check(TaskDialogIndirect(&dialog,&result,nullptr,nullptr),"Show update notice");
@@ -746,8 +750,12 @@ class App {
     if(program_download) {
       if(auto result=program_download->Poll()) {
         program_download.reset();
-        if(result->okay)ready_program=std::move(result->release);
+        if(result->okay) {
+          ready_program=std::move(result->release);
+          download_failed_tag.clear();
+        }
         else {
+          download_failed_tag=result->release ? result->release->tag : std::string{};
           program_retry=std::chrono::steady_clock::now()+std::chrono::minutes(5);
           Log(options.root,"program-update: "+result->error);
         }
@@ -758,15 +766,18 @@ class App {
     if(update_auto && downloadable && !ProgramReady() && !program_download && !close_requested &&
        !child && !busy && std::chrono::steady_clock::now()>=program_retry) {
       program_download.emplace([root=options.root,release=*update_state.latest,download=download_program]{
-        download(root,release);
-        return update::Result{true,release,{}};
+        try {
+          download(root,release);
+          return update::Result{true,release,{}};
+        }catch(const std::exception& error) {return update::Result{false,release,error.what()};}
       });
     }
     // Do not interrupt a running game, another application, minimization or an
     // in-progress nickname edit. Leave the reminder pending until the launcher
     // is in use again.
     if(child || busy || close_requested || preferences_dirty || !IsWindowVisible(hwnd) || IsIconic(hwnd) || GetForegroundWindow()!=hwnd)return;
-    if(update_auto && !downloadable && !update_request &&
+    const bool download_failed=downloadable && download_failed_tag==update_state.latest->tag;
+    if(update_auto && (!downloadable || download_failed) && !update_request &&
        update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
   }
   void ShowDetails() {
@@ -1493,6 +1504,7 @@ class App {
   decltype(&cave::launcher::reports::Show) show_reports=cave::launcher::reports::Show;
   decltype(&cave::launcher::controls::Show) show_controls=cave::launcher::controls::Show;
   std::optional<update::Request> update_request,program_download;
+  std::string download_failed_tag;
   std::optional<update::Release> ready_program;
   std::chrono::steady_clock::time_point program_retry{};
   decltype(&update::DownloadProgram) download_program=update::DownloadProgram;
@@ -1538,7 +1550,18 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     auto options=Arguments();
     render_preview=!options.preview.empty();
     if(render_preview){Preview(options);return 0;}
-    if(!options.update_action.empty())return update::RunProgramWorker(options.root,options.update_action,options.update_parent);
+    if(!options.update_action.empty()) {
+      try {
+        language=cave::launcher::ReadLanguage(Ini::Load(ConfigPath(options.root)));
+      }catch(...){language=Language::English;}
+      try {return update::RunProgramWorker(options.root,options.update_action,options.update_parent);}
+      catch(const std::exception& error) {
+        Log(options.root,"program-update-install: "+std::string(error.what()));
+        MessageBoxW(nullptr,T(L"更新未完成。请关闭正在使用合集文件的程序，然后重新打开启动器。"),
+                    kWindowTitle,MB_OK|MB_ICONWARNING);
+        return 2;
+      }
+    }
     const auto recovery=update::RecoveryPending(options.root);
     if(!options.game.empty()) {
       if(recovery)throw std::runtime_error("Open the launcher to finish update recovery.");

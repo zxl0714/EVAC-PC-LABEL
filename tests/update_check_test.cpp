@@ -28,7 +28,9 @@ void Write(const fs::path& path,std::string_view text) {
 void Package(const fs::path& root,std::string_view version,std::string_view value) {
   const std::pair<std::string_view,std::string_view> files[]{
     {"runtime/first.bin","runtime"},{"runtime/second.bin","runtime"},{"EVAC PC LABEL.exe","runtime"},
-    {"game-data/futari/README.txt","documentation"}};
+    {"game-data/futari/README.txt","documentation"},
+    {"game-data/daioujou/x-arrange/README.txt","documentation"},
+    {"game-data/ketsui/x-arrange/README.txt","documentation"}};
   std::string manifest=R"({"format":3,"flavor":"Public","platform":"win-x64","archiveLayout":"flat","sourceIncluded":false,"dataGames":[],"futariContent":[],"symbolsIncluded":false,"version":")";
   manifest+=std::string(version)+R"(","files":[)";
   std::string sums;
@@ -64,6 +66,7 @@ void ProgramInstall(const fs::path& parent) {
   const auto config=EnsureConfig(installed);
   const auto config_before=Sha256(config);
   Write(installed/"game-data/futari/game.bin","game data");
+  Write(installed/"game-data/ketsui/x-arrange/music.xma","player music");
   Write(installed/"user-data/futari/default/save.bin","player save");
   Write(installed/"runtime/custom.dll","custom file");
   auto release=Release("v0.9.9");
@@ -111,6 +114,10 @@ void ProgramInstall(const fs::path& parent) {
   Require(Sha256(config)==config_before && Ini::ReadText(installed/"game-data/futari/game.bin")=="game data" &&
           Ini::ReadText(installed/"user-data/futari/default/save.bin")=="player save" &&
           Ini::ReadText(installed/"runtime/custom.dll")=="custom file","Update modified player or unmanaged files");
+  Require(Ini::ReadText(installed/"game-data/daioujou/x-arrange/README.txt")=="new" &&
+          Ini::ReadText(installed/"game-data/ketsui/x-arrange/README.txt")=="new" &&
+          Ini::ReadText(installed/"game-data/ketsui/x-arrange/music.xma")=="player music",
+          "Nested placement guides did not update alongside player music");
 }
 }
 int main(int argc,char** argv) {

@@ -7,6 +7,11 @@ $ps4PreviousPriority = $ps4BuildProcess.PriorityClass
 try {
     $ps4BuildProcess.PriorityClass = 'BelowNormal'
     Initialize-CollectionBuildEnvironment
+    $codecPath = Join-Path $CollectionRoot '.deps/sdk-install/lib'
+    if (!(Test-Path -LiteralPath (Join-Path $codecPath 'libavcodec.lib')) -or
+        !(Test-Path -LiteralPath (Join-Path $codecPath 'libavutil.lib'))) {
+        & (Join-Path $PSScriptRoot 'Build-Sdk.ps1') -Jobs $Jobs
+    }
     $ps4Compiler = Get-CollectionTool 'clang-cl'
     $ps4State = Join-Path $CollectionRoot ('.local/build-inputs/ps4-' + [guid]::NewGuid().ToString('N') + '.json')
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps4_build_receipt.py'),'begin','--state',$ps4State)

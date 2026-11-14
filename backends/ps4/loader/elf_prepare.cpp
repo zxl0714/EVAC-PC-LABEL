@@ -1,6 +1,7 @@
 // Native equivalent of scripts/ps4/{native_elf,prepare_native}.py.
 #include "elf_prepare.h"
 #include "daioujou_arrange.h"
+#include "ketsui_arrange_audio.h"
 #include "common/ps4_program.h"
 #include "esprade_latency.h"
 #include "program_identity.h"
@@ -212,7 +213,7 @@ void VerifyLibc(std::span<const std::uint8_t> source) {
 }
 
 PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::span<const std::uint8_t> libc,
-                       const DataFile* expected, bool daioujou_arrange) {
+                       const DataFile* expected, ArrangeAudio arrange) {
     // Decode the executable view while retaining the original file identity.
     // Module loading compares this digest with the selected content file.
     auto plain=PlainSelfElf(source);
@@ -256,20 +257,29 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
     const bool distinct_contract=contract!=sha;
     std::vector<std::uint8_t> extension;
     std::uint64_t extension_address{}, image_size=elf.image_size;
-    if (daioujou_arrange) {
+    if (arrange != ArrangeAudio::None) {
         Require(module && expected && !expected->program_fingerprint.empty() &&
             ProgramFingerprint(plain)==expected->program_fingerprint,
-            "X Arrange requires a verified DaiOuJou core");
+            "X Arrange requires a verified game core");
         const auto text=std::ranges::find(elf.segments,0ull,&Header::address);
-        const auto data=std::ranges::find(elf.segments,0x400000ull,&Header::address);
+        const auto data_address = arrange == ArrangeAudio::Ketsui ? 0x50000ull : 0x400000ull;
+        const auto data=std::ranges::find(elf.segments,data_address,&Header::address);
         Require(text!=elf.segments.end() && (text->flags&1) &&
             data!=elf.segments.end() && (data->flags&2) && elf.segments.size()<32,
-            "X Arrange does not match the verified DaiOuJou core layout");
+            "X Arrange does not match the verified core layout");
         constexpr std::uint64_t page=4096;
         extension_address=(elf.image_size+page-1)&~(page-1);
-        extension=PrepareDaioujouArrangeAudio(expected->path,
-            std::span<std::uint8_t>(plain).subspan(text->offset,text->file_size),
-            elf.Slice(data->offset,data->file_size),elf.image_size,extension_address);
+        const auto code = std::span<std::uint8_t>(plain).subspan(text->offset, text->file_size);
+        const auto tables = elf.Slice(data->offset, data->file_size);
+        if (arrange == ArrangeAudio::Ketsui) {
+            const auto attributes=std::ranges::find(elf.segments,0x4c000ull,&Header::address);
+            Require(attributes!=elf.segments.end() && attributes->file_size>=0x30,
+                "Ketsui BGM attribute table is missing");
+            auto range=std::span<std::uint8_t>(plain).subspan(attributes->offset,attributes->file_size);
+            extension=PrepareKetsuiArrangeAudio(expected->program_fingerprint,code,range,tables,extension_address);
+        } else {
+            extension=PrepareDaioujouArrangeAudio(expected->path,code,tables,elf.image_size,extension_address);
+        }
         image_size=extension_address+extension.size();
         Require(image_size<=kLimit,"X Arrange extends beyond the supported image size");
     }

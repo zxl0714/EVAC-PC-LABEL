@@ -1,0 +1,9 @@
+X Arrange (Xbox 360)
+
+用 tools/Extract-Xbox360.exe 解包绊地狱 Extra 的 Xbox 360 ISO。
+从解包目录 Data/sd/MOD/ 把全部 13 个 kkj_arr_*.xma 文件复制到本目录。
+启动绊地狱，在 BGM SET 中选择 X Arrange (Xbox 360)。适用于 PS4 01.00 和 01.02。
+
+Extract the Xbox 360 Ketsui Extra ISO with tools/Extract-Xbox360.exe.
+Copy all 13 kkj_arr_*.xma files from Data/sd/MOD/ into this folder.
+Launch Ketsui and select X Arrange (Xbox 360) in BGM SET. For PS4 versions 01.00 and 01.02.

@@ -1,4 +1,6 @@
 #include "daioujou_arrange.h"
+#include "ketsui_arrange_audio.h"
+#include "ketsui_arrange_music.h"
 #include "common/daioujou_music.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include <algorithm>
@@ -39,9 +41,10 @@ public:
         : names_(names), key_(key), body_(DataChild(data, names.body)),
           body_size_(fs::file_size(body_)), index_(ParseResourceIndex(UnwrapResource(
               ReadPreparationInput(DataChild(data, names.index), kIndexLimit), key, names.index))) {
-        Require(index_.at("id") == "archive" && index_.at("file_info").is_object(),
-            "Invalid DaiOuJou archive index");
+        Require(index_.at("id") == "archive" && index_.at("file_info").is_object(), "Invalid PS4 archive index");
     }
+
+    bool Has(std::string_view name) const { return index_.at("file_info").contains(std::string(name)); }
 
     ResourceBytes Read(std::string_view name, std::uint64_t packed_limit = kIndexLimit) const {
         const auto& entry = index_.at("file_info").at(std::string(name));
@@ -145,10 +148,10 @@ void AddArrangeMenu(ArchiveLayer& layer, bool update) {
     layer.Add(kCommonUi, common, true);
 }
 
-void AddPcmDefinitions(ArchiveLayer& layer, const Json& definitions) {
-    auto pcm = ParseResourceIndex(layer.Read(kTitlePcm));
+void AddPcmDefinitions(ArchiveLayer& layer, std::string_view path, const Json& definitions) {
+    auto pcm = ParseResourceIndex(layer.Read(path));
     auto& waves = pcm.at("pcm_wav_definition");
-    Require(waves.is_array() && waves.size() == 30, "Unexpected DaiOuJou PCM definitions");
+    Require(waves.is_array(), "Unexpected PCM definitions");
     for (const auto& definition : definitions) {
         const auto collision = std::ranges::any_of(waves, [&](const Json& wave) {
             return wave.at("no") == definition.at("no") || wave.at("filename") == definition.at("filename");
@@ -156,11 +159,75 @@ void AddPcmDefinitions(ArchiveLayer& layer, const Json& definitions) {
         Require(!collision, "X Arrange PCM definition collides with an original track");
         waves.push_back(definition);
     }
-    layer.Add(kTitlePcm, WritePlainPsb(pcm, 0), true);
+    layer.Add(path, WritePlainPsb(pcm, 0), true);
+}
+
+void AddKetsuiArrangeMenu(ArchiveLayer& layer) {
+    constexpr std::string_view profile_path = "5000/config/title_prof.psb.m";
+    if (layer.Has(profile_path)) {
+        auto profile = ParseResourceIndex(layer.Read(profile_path));
+        auto& modes = profile.at("root").at("bgmmode_num");
+        Require(modes == 5, "Unexpected Ketsui BGM mode count");
+        modes = 6;
+        layer.Add(profile_path, WritePlainPsb(profile, 0), true);
+    }
+    constexpr std::array<std::string_view, 5> settings{
+        "5000/config/title_setting_game.psb.m",
+        "5000/config/title_setting_game_debug.psb.m",
+        "5000/config/title_setting_game_menu.psb.m",
+        "5000/config/title_setting_game_setting.psb.m",
+        "5000/config/title_setting_system_setting.psb.m",
+    };
+    for (const auto path : settings) {
+        if (!layer.Has(path)) continue;
+        auto config = ParseResourceIndex(layer.Read(path));
+        auto& choices = config.at("param").at("bgmMode").at("subitem").at("form");
+        Require(choices == Json::array({"a", "b", "c", "d", "e"}), "Unexpected Ketsui gameplay BGM settings");
+        choices.push_back("x-arrange");
+        layer.Add(path, WritePlainPsb(config, 0), true);
+    }
+    constexpr std::string_view ui_path = "5000/motion/title_ui_common.psb.m";
+    if (layer.Has(ui_path)) {
+        auto ui = layer.Read(ui_path);
+        ApplyKetsuiArrangeArtwork(ui);
+        layer.Add(ui_path, ui, true);
+    }
+    constexpr std::string_view direct_path = "5000/script/title_mode_direct_menu.nut.m";
+    if (layer.Has(direct_path)) {
+        // This is the same save transform used for the regular direct menu.
+        const auto menu = FixResourceScript(layer.Read(direct_path), ResourceFix::MusicAutosave);
+        layer.Add(direct_path, menu, true);
+    }
+    constexpr std::string_view gadget_path = "5000/script/title_gadget_music_info.nut.m";
+    if (layer.Has(gadget_path)) {
+        const auto data = layer.Read(gadget_path);
+        std::string gadget(data.begin(), data.end());
+        ReplaceExpected(gadget, "c_bgm_num = 5;", "c_bgm_num = 6;", 1);
+        ReplaceExpected(gadget, "[0,0,3,1,2,3]", "[0,0,3,1,2,0]", 1);
+        layer.Add(gadget_path, {reinterpret_cast<const std::uint8_t*>(gadget.data()), gadget.size()}, true);
+    }
+    constexpr std::string_view gadget_motion_path = "5000/motion/title_gadget.psb.m";
+    if (layer.Has(gadget_motion_path)) {
+        auto motion = layer.Read(gadget_motion_path, 24 * 1024 * 1024);
+        ApplyKetsuiArrangeGadgetArtwork(motion);
+        layer.Add(gadget_motion_path, motion, true);
+    }
+    constexpr std::string_view gallery_path = "5000/script/title_mode_sound_gallery.nut.m";
+    if (layer.Has(gallery_path)) {
+        const auto data = layer.Read(gallery_path);
+        std::string gallery(data.begin(), data.end());
+        ReplaceExpected(gallery, "\"matsumoto\",\"virt\"]", "\"matsumoto\",\"virt\",\"x-arrange\"]", 1);
+        ReplaceExpected(gallery, "[1,20,60,80,40,100]", "[1,20,60,80,40,20]", 1);
+        constexpr std::string_view duration = "local _limit_time = _table[_bgmset][c_bgm_table[m_bgmIndex]];";
+        ReplaceExpected(gallery, duration,
+            "local _cue = c_bgm_table[m_bgmIndex];\n"
+            "    local _limit_time = _bgmset == 5 ? (_cue == 11 ? 315 + 30 : 0) : _table[_bgmset][_cue];", 1);
+        layer.Add(gallery_path, {reinterpret_cast<const std::uint8_t*>(gallery.data()), gallery.size()}, true);
+    }
 }
 }
 
-void AddDaioujouArrangeFiles(std::vector<std::string>& files, bool merged) {
+void AddArrangeFiles(std::vector<std::string>& files, bool merged) {
     files.emplace_back(std::string(kOutput) + kBase.index);
     files.emplace_back(std::string(kOutput) + kBase.body);
     if (merged) {
@@ -188,13 +255,38 @@ void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,
             {"no", kDaioujouArrangeFirstPcm + i}, {"stream", false}});
     },verification);
     std::sort(definitions.begin(),definitions.end(),[](const Json& a,const Json& b){return a.at("no")<b.at("no");});
-    AddPcmDefinitions(base, definitions);
+    AddPcmDefinitions(base, kTitlePcm, definitions);
     AddArrangeMenu(base, false);
     base.Write(stage);
     if (merged) {
         ArchiveLayer update(data, kUpdate, key);
-        AddPcmDefinitions(update, definitions);
+        AddPcmDefinitions(update, kTitlePcm, definitions);
         AddArrangeMenu(update, true);
+        update.Write(stage);
+    }
+}
+
+void PrepareKetsuiArrangeArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable, bool merged, const Json& tracks) {
+    auto definitions = Json::array();
+    const auto key = ReadArchiveSeed(executable, merged ? 0xd3 : 0xd2);
+    ArchiveLayer base(data, kBase, key);
+    base.Reserve(300 * 1024 * 1024);
+    for (unsigned cue = 0; cue < kKetsuiArrangeCueCount; ++cue) {
+        const auto name = "5000/wav/evac_ketsui_arr_" + std::to_string(cue) + ".wav";
+        const auto wave = DecodeKetsuiArrangeTrack(data, cue, tracks.at(cue).get_ref<const std::string&>());
+        base.Add(name + ".m", wave, false);
+        definitions.push_back({{"delay", 0}, {"filename", name},
+            {"no", kKetsuiArrangeFirstPcm + cue}, {"stream", false}});
+    }
+    constexpr std::string_view pcm = "5000/config/title_pcm.psb.m";
+    AddPcmDefinitions(base, pcm, definitions);
+    AddKetsuiArrangeMenu(base);
+    base.Write(stage);
+    if (merged) {
+        ArchiveLayer update(data, kUpdate, key);
+        if (update.Has(pcm)) AddPcmDefinitions(update, pcm, definitions);
+        AddKetsuiArrangeMenu(update);
         update.Write(stage);
     }
 }

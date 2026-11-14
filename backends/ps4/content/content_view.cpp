@@ -220,9 +220,9 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
     }
     if (!arrange_archive.empty()) {
         const auto version = Required(metadata_, "APP_VER");
-        if (title_ != "CUSA32997" || (version != "01.00" && version != "01.04") ||
-            (version == "01.04") != merged_patch || !patch_.empty())
-            Invalid("X Arrange archive does not match the selected DaiOuJou version");
+        const bool supported = (title_ == "CUSA32997" && version == (merged_patch ? "01.04" : "01.00")) ||
+            (title_ == "CUSA09062" && (merged_patch ? (version == "01.02" || version == "01.03") : version == "01.00"));
+        if (!supported || !patch_.empty()) Invalid("X Arrange archive does not match the selected game version");
         arrange_archive_ = Root(arrange_archive);
         arrange_merged_ = merged_patch;
         for (const auto* path : {"ps4data_info.psb.m", "ps4data_body.bin"}) {

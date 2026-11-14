@@ -2,6 +2,8 @@
 #include "preparation_policy.h"
 #include "elf_prepare.h"
 #include "daioujou_arrange.h"
+#include "ketsui_arrange_audio.h"
+#include "ketsui_arrange_music.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include "common/daioujou_music.h"
 #include "common/ini.h"
@@ -62,8 +64,8 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     if (esprade) recipe["lowLatencyPredictionFrames"]=2;
     const auto& programs=policy.programs;
     const auto music=game=="daioujou"?daioujou::InspectArrangeMusic(data,CheckLevel::Full,&verification):daioujou::ArrangeStatus{};
-    const bool arrange_music=music.state==daioujou::ArrangeState::Ready;
-    if (arrange_music) {
+    const bool daioujou_arrange=music.state==daioujou::ArrangeState::Ready;
+    if (daioujou_arrange) {
         auto banks=Json::object();
         for (const auto& bank:daioujou::ArrangeBanks())
             banks[bank.name]={{"bytes",bank.bytes},{"sha256",bank.sha256}};
@@ -72,47 +74,80 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         std::puts(Json{{"event","daioujou_arrange_unavailable"},{"file",music.file},
             {"reason",music.state==daioujou::ArrangeState::Missing?"missing":"invalid"},{"detail",music.detail}}.dump().c_str());
     }
+    if (ketsui) {
+        try {
+            auto tracks=FindKetsuiArrangeTracks(data,verification);
+            if (!tracks.is_null()) {
+                const auto core=std::ranges::find(manifest,"ketsui_01000.prx",&DataFile::path);
+                if (core==manifest.end() || !HasKetsuiArrangeAudio(core->program_fingerprint)) {
+                    throw std::runtime_error("X Arrange is unavailable for this Ketsui core");
+                }
+                recipe["ketsuiArrangeTracks"]=std::move(tracks);
+            }
+        } catch (const std::exception& error) {
+            std::puts(Json{{"event","ketsui_arrange_unavailable"},{"detail",error.what()}}.dump().c_str());
+        }
+    }
     std::vector<std::string> files{"eboot.ktprobe"};
     for (std::size_t i=1;i<programs.size();++i) files.push_back("modules/"+programs[i]+".ktmodule");
     if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
-    if (arrange_music) AddDaioujouArrangeFiles(files,policy.merged_app);
-    auto cache=EnsurePreparedCache(root,data,recipe,files,[&](const fs::path& stage) {
-        const auto read_program=[&](std::string_view name) {
-            const auto& inventory=recipe.at("inputs");
-            const auto item=std::ranges::find_if(inventory,[&](const Json& row){
-                return row.at("path").get_ref<const std::string&>()==name;
-            });
-            auto source=ReadPreparationInput(DataChild(data,name));
-            if (item==inventory.end() || item->at("bytes")!=source.size() || item->at("sha256")!=PreparationHash(source))
-                throw std::runtime_error("PS4 program changed during preparation: "+std::string(name));
-            return source;
-        };
-        const auto libc=read_program("sce_module/libc.prx");
-        for (std::size_t i=0;i<programs.size();++i) {
-            const auto source=read_program(programs[i]);
-            const auto expected=std::ranges::find(manifest,programs[i],&DataFile::path);
-            if (expected==manifest.end() || !expected->program)throw std::runtime_error("Missing verified PS4 program identity");
-            const bool arrange_core=arrange_music && programs[i].starts_with("daioujou_");
-            const auto prepared=PrepareElf(source,i!=0,libc,&*expected,arrange_core);
-            WritePreparedRelative(stage,files[i],prepared.bytes);
+    const auto prepare=[&](bool ketsui_arrange) {
+        auto outputs=files;
+        if (daioujou_arrange || ketsui_arrange) AddArrangeFiles(outputs,policy.merged_app);
+        return EnsurePreparedCache(root,data,recipe,outputs,[&](const fs::path& stage) {
+            const auto read_program=[&](std::string_view name) {
+                const auto& inventory=recipe.at("inputs");
+                const auto item=std::ranges::find_if(inventory,[&](const Json& row){
+                    return row.at("path").get_ref<const std::string&>()==name;
+                });
+                auto source=ReadPreparationInput(DataChild(data,name));
+                if (item==inventory.end() || item->at("bytes")!=source.size() || item->at("sha256")!=PreparationHash(source))
+                    throw std::runtime_error("PS4 program changed during preparation: "+std::string(name));
+                return source;
+            };
+            const auto libc=read_program("sce_module/libc.prx");
+            for (std::size_t i=0;i<programs.size();++i) {
+                const auto source=read_program(programs[i]);
+                const auto expected=std::ranges::find(manifest,programs[i],&DataFile::path);
+                if (expected==manifest.end() || !expected->program)throw std::runtime_error("Missing verified PS4 program identity");
+                const auto arrange_core=ketsui_arrange && programs[i]=="ketsui_01000.prx" ? ArrangeAudio::Ketsui :
+                    daioujou_arrange && programs[i].starts_with("daioujou_") ? ArrangeAudio::Daioujou : ArrangeAudio::None;
+                const auto prepared=PrepareElf(source,i!=0,libc,&*expected,arrange_core);
+                WritePreparedRelative(stage,outputs[i],prepared.bytes);
+            }
+            if (policy.read_fixes) {
+                const auto fixes=ketsui?PrepareReadFixes(data,true,true):
+                    esprade?PrepareEspradeReadFixes(data):game=="feveron"?PrepareFeveronReadFixes(data):
+                    game=="garegga"?PrepareGareggaReadFixes(data):PrepareDaioujouReadFixes(data);
+                WritePreparedRelative(stage,outputs[programs.size()],fixes.bytes);
+                const auto metadata=fixes.report.dump(2)+'\n';
+                WritePreparedRelative(stage,outputs[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
+            }
+            if (daioujou_arrange) {
+                PrepareDaioujouArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,&verification);
+            }
+            if (ketsui_arrange) {
+                PrepareKetsuiArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,recipe.at("ketsuiArrangeTracks"));
+            }
+            if(CheckData(root,data,game,verification).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
+            if (verification.Digest(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
+        });
+    };
+    auto ketsui_arrange=recipe.contains("ketsuiArrangeTracks");
+    auto cache=[&] {
+        if (ketsui_arrange) {
+            try { return prepare(true); }
+            catch (const std::exception& error) {
+                std::puts(Json{{"event","ketsui_arrange_unavailable"},{"detail",error.what()}}.dump().c_str());
+                recipe.erase("ketsuiArrangeTracks");
+                ketsui_arrange=false;
+            }
         }
-        if (policy.read_fixes) {
-            const auto fixes=ketsui?PrepareReadFixes(data,true,true):
-                esprade?PrepareEspradeReadFixes(data):game=="feveron"?PrepareFeveronReadFixes(data):
-                game=="garegga"?PrepareGareggaReadFixes(data):PrepareDaioujouReadFixes(data);
-            WritePreparedRelative(stage,files[programs.size()],fixes.bytes);
-            const auto metadata=fixes.report.dump(2)+'\n';
-            WritePreparedRelative(stage,files[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
-        }
-        if (arrange_music) {
-            PrepareDaioujouArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,&verification);
-        }
-        if(CheckData(root,data,game,verification).variant!=inspected.variant)throw std::runtime_error("Game-data version changed during preparation");
-        if (verification.Digest(producer)!=producer_hash) throw std::runtime_error("Preparation program changed while preparing data");
-    });
+        return prepare(false);
+    }();
     return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",
         policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{},
-        arrange_music?cache.directory/"arrange":fs::path{}};
+        (daioujou_arrange || ketsui_arrange)?cache.directory/"arrange":fs::path{}};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {

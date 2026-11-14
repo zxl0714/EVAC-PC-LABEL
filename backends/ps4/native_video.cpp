@@ -728,9 +728,12 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         unsigned retries{}, zero_extent_polls{};
         kt::diagnostics::BackendPresentTiming backend_timing;
         const auto began = GetTickCount64();
+        ULONGLONG stable_since{};
+        std::pair<unsigned, unsigned> retry_extent{};
         for (;;) {
             if (state.active->quit_requested.load()) { return unavailable("window_close_requested_during_present", NativeVideoResult::CloseRequested); }
-            const auto result = !state.active->width.load() || !state.active->height.load()
+            const auto extent = std::pair{state.active->width.load(), state.active->height.load()};
+            const auto result = !extent.first || !extent.second
                 ? kt::gfx::PresentStatus::ZeroExtent
                 : resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout, &backend_timing, &pacing)
                            : state.graphics->Present(buffer.surface->id, pixels);
@@ -739,9 +742,20 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
                 return unavailable("pacing_cancelled", state.active->quit_requested.load() ? NativeVideoResult::CloseRequested : NativeVideoResult::Unavailable);
             }
             if (result == kt::gfx::PresentStatus::OutOfDate) {
-                if (++retries > 8) { throw std::runtime_error("Swapchain remained out of date after eight recreations"); }
-                Sleep(1);
+                ++retries;
+                const auto now = GetTickCount64();
+                if (!stable_since || extent != retry_extent) {
+                    stable_since = now;
+                    retry_extent = extent;
+                }
+                if (now - stable_since >= 2000) {
+                    throw std::runtime_error("Swapchain remained out of date at an unchanged window size");
+                }
+                const auto wait = WaitForSingleObject(state.active->quit, 16);
+                if (wait == WAIT_OBJECT_0) { return unavailable("window_close_requested_during_resize", NativeVideoResult::CloseRequested); }
+                if (wait != WAIT_TIMEOUT) { throw std::runtime_error("Window resize/close wait failed"); }
             } else {
+                stable_since = 0;
                 if (!zero_extent_polls++) { std::puts("{\"event\":\"native_video_present_wait\",\"reason\":\"zero_surface_extent\",\"buffer_label_held\":true}"); }
                 // The UI thread remains live; restore or close wakes this wait.
                 // No label release, flip event, or game-frame success is issued.

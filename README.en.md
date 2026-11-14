@@ -12,7 +12,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
   <a href="docs/GAME_DATA.en.md">Game data</a> ·
   <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
-  <a href="docs/RELEASE_NOTES_v0.9.9.md#english">v0.9.9 release notes</a>
+  <a href="docs/RELEASE_NOTES_v0.9.10.md#english">v0.9.10 release notes</a>
 </p>
 
 <p align="center">

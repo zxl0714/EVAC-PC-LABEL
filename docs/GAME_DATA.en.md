@@ -196,6 +196,12 @@ Select the folder containing `eboot.bin` in the launcher. Open **Details** to se
 
 If your extraction has separate `CUSA09062-app/` and `CUSA09062-patch/` folders, copy everything inside `CUSA09062-app/` into a new folder, then overlay the contents of `CUSA09062-patch/` if desired. Select the merged folder. To return to 01.00, extract the complete base game into a new folder. Saves and replays remain in `user-data/ketsui/`.
 
+**X Arrange (Xbox 360) music set (optional, PS4 01.00 and 01.02)**
+
+1. Extract the Xbox 360 Ketsui Extra ISO with `tools/Extract-Xbox360.exe`.
+2. Copy all 13 `kkj_arr_*.xma` files from `Data/sd/MOD/` into `game-data/ketsui/x-arrange/`. For a custom game folder, put `x-arrange/` next to `eboot.bin`.
+3. Launch the game and choose **X Arrange (Xbox 360)** in **BGM SET**.
+
 <a id="daioujou"></a>
 
 ### 怒首領蜂 大往生 臨廻転生 — DoDonPachi DaiOuJou Re:Incarnation (daioujou)

@@ -6,6 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class FutariCallbacks(unittest.TestCase):
+    def test_storage_vtable_tail_branch_has_its_own_entry(self):
+        path = ROOT / 'games/futari/recomp/default-functions.toml'
+        entries = tomllib.loads(path.read_text())['functions']
+        self.assertEqual(entries['0x82199E18']['end'], 0x82199E1C)
+
     def test_every_character_declares_the_stored_release_callback(self):
         addresses = {
             'hirow-abnormal': 0x881AC930, 'hirow-normal': 0x881AC928,

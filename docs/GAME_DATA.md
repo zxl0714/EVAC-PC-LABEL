@@ -198,6 +198,12 @@ game-data/ketsui/
 
 如果本体和更新分别在 `CUSA09062-app/` 和 `CUSA09062-patch/`，先将本体的内容复制到新目录，再覆盖更新的内容。想退回 01.00 时，重新提取完整本体到新目录。存档与录像在 `user-data/ketsui/`。
 
+**X Arrange (Xbox 360) 曲集（可选，PS4 01.00／01.02）**
+
+1. 用 `tools/Extract-Xbox360.exe` 解包 Xbox 360 版绊地狱 Extra 的 ISO。
+2. 将 `Data/sd/MOD/` 下全部 13 个 `kkj_arr_*.xma` 复制到绊地狱的 `x-arrange/`。使用自选数据目录时，将 `x-arrange/` 放在 `eboot.bin` 旁边。
+3. 启动游戏，在 **BGM SET** 选择 **X Arrange (Xbox 360)**。
+
 <a id="daioujou"></a>
 
 ### 怒首領蜂 大往生 臨廻転生（daioujou）

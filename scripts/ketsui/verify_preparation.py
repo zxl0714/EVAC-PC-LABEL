@@ -105,8 +105,13 @@ def main():
     data=args.game_data.resolve()
     original_inventory=inventory(data)
     game=next(game for game in load(ROOT/'games/catalogue.json') if game['id']=='ketsui')
-    variant=next((variant for variant in game['variants'] if variant['id']==original_inventory['variantId']),None)
-    if not variant or original_inventory['files']!=variant['files']:
+    files={item['path']:item for item in original_inventory['files']}
+    def matches(variant):
+        return (variant['version']==original_inventory['version'] and
+                all(files.get(item['path'])=={key:item[key] for key in ('path','bytes','sha256','program')}
+                    for item in variant['files']) and
+                all(not (data/name).exists() for name in variant.get('forbiddenFiles', [])))
+    if not any(matches(variant) for variant in game['variants']):
         raise ValueError('Game data differs from the supported complete inventory')
     directory=private_output(args.output or ROOT/'.local/ketsui-preparation'/
         (datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ-')+uuid.uuid4().hex[:8]),data)

@@ -82,7 +82,12 @@ def snapshot():
             reject_link(path)
             files[name] = digest(path)
     tools = tool_snapshot(ROOT)
-    state = dict(files=files, dependencies=dependencies, tools=tools,
+    audio_codec = {}
+    for name in ('libavcodec.lib', 'libavutil.lib'):
+        path = ROOT / '.deps/sdk-install/lib' / name
+        reject_link(path)
+        audio_codec[name] = digest(path)
+    state = dict(files=files, dependencies=dependencies, tools=tools, sharedXmaCodec=audio_codec,
                  buildType='RelWithDebInfo', gameDataRequired=False)
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
