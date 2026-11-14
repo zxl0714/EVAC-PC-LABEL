@@ -175,12 +175,6 @@
       "program": false
     },
     {
-      "path": "sce_sys/icon0.dds",
-      "bytes": 131200,
-      "sha256": "d058a38f4d96cb264a9fcc3926d9fe3489d2fba32cc25a2d8e59338b5a9d956d",
-      "program": false
-    },
-    {
       "path": "sce_sys/icon0.png",
       "bytes": 473843,
       "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -214,12 +208,6 @@
       "path": "sce_sys/param.sfo",
       "bytes": 1904,
       "sha256": "828a0f69b7b312e79a55afa1aec824fcd19255057ebf7d77e1f34c274dc7b951",
-      "program": false
-    },
-    {
-      "path": "sce_sys/pic0.dds",
-      "bytes": 1036928,
-      "sha256": "88e6ae2332630ed2b8557b67ae86019c7b9e514e92a13aaf406429344fd840d9",
       "program": false
     },
     {
@@ -451,12 +439,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.dds",
-          "bytes": 131200,
-          "sha256": "d058a38f4d96cb264a9fcc3926d9fe3489d2fba32cc25a2d8e59338b5a9d956d",
-          "program": false
-        },
-        {
           "path": "sce_sys/icon0.png",
           "bytes": 473843,
           "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -490,12 +472,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "36db4ffb690b499791299a96b02de509d74f4fa741f998a79a683f1a303161d3",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.dds",
-          "bytes": 1036928,
-          "sha256": "88e6ae2332630ed2b8557b67ae86019c7b9e514e92a13aaf406429344fd840d9",
           "program": false
         },
         {
@@ -724,12 +700,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.dds",
-          "bytes": 131200,
-          "sha256": "d058a38f4d96cb264a9fcc3926d9fe3489d2fba32cc25a2d8e59338b5a9d956d",
-          "program": false
-        },
-        {
           "path": "sce_sys/icon0.png",
           "bytes": 473843,
           "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -763,12 +733,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "c33b34d9b0886803f08bbc56355b39923019ec643ddb62d3c6fdf2834158f020",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.dds",
-          "bytes": 1036928,
-          "sha256": "88e6ae2332630ed2b8557b67ae86019c7b9e514e92a13aaf406429344fd840d9",
           "program": false
         },
         {
@@ -1027,12 +991,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.dds",
-          "bytes": 131200,
-          "sha256": "d058a38f4d96cb264a9fcc3926d9fe3489d2fba32cc25a2d8e59338b5a9d956d",
-          "program": false
-        },
-        {
           "path": "sce_sys/icon0.png",
           "bytes": 473843,
           "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -1060,12 +1018,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "a8c741c3c52278fa14cb7697f365bab6a5101ff12e52f79da32068147f8a3a2f",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.dds",
-          "bytes": 1036928,
-          "sha256": "88e6ae2332630ed2b8557b67ae86019c7b9e514e92a13aaf406429344fd840d9",
           "program": false
         },
         {
@@ -1288,12 +1240,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.dds",
-          "bytes": 131200,
-          "sha256": "1990b5fef2d6d34772daadb75c7bbacc2cdf510ad4ccac5b4dead720ab5e396e",
-          "program": false
-        },
-        {
           "path": "sce_sys/icon0.png",
           "bytes": 473843,
           "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -1327,12 +1273,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "9d30d780ea4c1a595bcbaad4de79fe4c4386f681172575983e10916e9c022c0a",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.dds",
-          "bytes": 1036928,
-          "sha256": "8c48d5f8be15fa5c30eeebad3a9e92da8e8dba1fe9dd84c9be7bd68827b9d04b",
           "program": false
         },
         {
@@ -1591,12 +1531,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.dds",
-          "bytes": 131200,
-          "sha256": "1990b5fef2d6d34772daadb75c7bbacc2cdf510ad4ccac5b4dead720ab5e396e",
-          "program": false
-        },
-        {
           "path": "sce_sys/icon0.png",
           "bytes": 473843,
           "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -1624,12 +1558,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "60543ff32ec1864042032c7aba33f17d0c7acc757c331e06189732eb7fe98066",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.dds",
-          "bytes": 1036928,
-          "sha256": "8c48d5f8be15fa5c30eeebad3a9e92da8e8dba1fe9dd84c9be7bd68827b9d04b",
           "program": false
         },
         {
@@ -1852,12 +1780,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/icon0.dds",
-          "bytes": 131200,
-          "sha256": "d058a38f4d96cb264a9fcc3926d9fe3489d2fba32cc25a2d8e59338b5a9d956d",
-          "program": false
-        },
-        {
           "path": "sce_sys/icon0.png",
           "bytes": 473843,
           "sha256": "aef2ad13aca9a152a72ed4aff09e022de3594129d387a1c98fc3fd097be0644b",
@@ -1885,12 +1807,6 @@
           "path": "sce_sys/param.sfo",
           "bytes": 1868,
           "sha256": "36db4ffb690b499791299a96b02de509d74f4fa741f998a79a683f1a303161d3",
-          "program": false
-        },
-        {
-          "path": "sce_sys/pic0.dds",
-          "bytes": 1036928,
-          "sha256": "88e6ae2332630ed2b8557b67ae86019c7b9e514e92a13aaf406429344fd840d9",
           "program": false
         },
         {

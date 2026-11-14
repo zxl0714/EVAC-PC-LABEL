@@ -40,7 +40,7 @@ folder. Keep the entire tools/ folder; pkgtool/ contains the required dependency
 If extraction fails, check extract.log in the output folder. Input PKGs are unchanged.
 
 Game / 游戏          Base / 本体      Update / 更新
-ketsui               01.00            01.02 optional / 可选
+ketsui               01.00            01.02 / 01.03 optional / 可选
 daioujou             01.00            01.04
 esprade              01.00            01.04 required / 必需
 feveron (US)         01.00            none / 无

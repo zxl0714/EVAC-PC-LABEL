@@ -181,7 +181,7 @@ Keep all 29 files and their internal folders. These four DLLs are original Xbox 
 
 ### ケツイ Deathtiny ～絆地獄たち～ — Ketsui Deathtiny (ketsui)
 
-Supported: **CUSA09062, base version 01.00**, or the **complete base game with update 01.02 overlaid**. Both use a single game folder:
+Use **CUSA09062, base version 01.00**, with optional update **01.02 or 01.03**. Keep everything in one game folder:
 
 ```text
 game-data/ketsui/
@@ -190,9 +190,9 @@ game-data/ketsui/
   ...
 ```
 
-Copy all contents of the base-game folder into `game-data/ketsui/`, with `eboot.bin` directly inside it. To apply 01.02, copy all contents of the update folder over the same game root, replacing matching files and keeping the other base-game files.
+Copy the contents of the base-game folder into `game-data/ketsui/`, with `eboot.bin` directly inside it. To apply an update, copy the contents of the update folder into the same game root and replace matching files.
 
-Select the folder containing `eboot.bin` in the launcher. The scan identifies version 01.00 or 01.02; unknown or mixed versions fail validation.
+Select the folder containing `eboot.bin` in the launcher. Open **Details** to see the detected version.
 
 If your extraction has separate `CUSA09062-app/` and `CUSA09062-patch/` folders, copy everything inside `CUSA09062-app/` into a new folder, then overlay the contents of `CUSA09062-patch/` if desired. Select the merged folder. To return to 01.00, extract the complete base game into a new folder. Saves and replays remain in `user-data/ketsui/`.
 
