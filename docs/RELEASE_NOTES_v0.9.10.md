@@ -13,3 +13,5 @@
 - Fixed a crash when selecting a storage device in Mushihimesama Futari.
 - Fixed a crash that could occur while resizing a PS4 game window.
 - Fixed automatic update detection in the launcher. Players on v0.9.9 can download this release from GitHub to update.
+
+![X Arrange (Xbox 360) in the Ketsui BGM SET menu](images/ketsui-x-arrange.jpg)

@@ -164,6 +164,7 @@ void UpdateChecks() {
   Require(update_notices.size()==before+3,"Reenabled reminder missing");
 
   app.packaged_update=true;
+  app.update_state.notified.erase("v9.2");
   app.update_state.latest->program=update::ProgramAsset{
     "https://github.com/zxl0714/EVAC-PC-LABEL/releases/download/v9.2/EVAC-PC-LABEL-v9.2-win-x64.zip",
     std::string(64,'a'),123};
@@ -177,16 +178,18 @@ void UpdateChecks() {
     }
     Require(!app.program_download,"Program download fixture did not finish");
   };
+  update_responses.push_back(IDCANCEL);
   settle_download();
-  Require(!app.ProgramReady() && update_notices.size()==before+3,"Failed download opened an update prompt");
+  Require(!app.ProgramReady() && update_notices.size()==before+4 && app.update_state.notified.contains("v9.2"),
+          "Failed download did not offer the release page once");
   app.UpdateTick();
   Require(!app.program_download,"Failed download immediately retried");
   app.program_retry={};
   app.download_program=[](const fs::path&,const update::Release&){};
   app.UpdateTick();settle_download();
-  Require(app.ProgramReady() && update_notices.size()==before+3,"Verified update required a modal announcement");
+  Require(app.ProgramReady() && update_notices.size()==before+4,"Verified update required a modal announcement");
   app.child.emplace();frame.Click(app.layout.update_badge());app.child.reset();
-  Require(update_notices.size()==before+3,"Update opened during play");
+  Require(update_notices.size()==before+4,"Update opened during play");
   update_responses.push_back(IDCANCEL);frame.Click(app.layout.update_badge());
   Require(app.ProgramReady() && update_notices.back().ends_with(L"v9.2"),"Update badge did not open the matching release");
   static std::wstring requested_update;

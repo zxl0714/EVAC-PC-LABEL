@@ -81,6 +81,13 @@ foreach(badge IN ITEMS "Medium;184x40" "Large;264x56")
     string(REGEX REPLACE "(..)" "0x\\1," pixels "${pixels}")
     string(APPEND arrange_artwork "inline constexpr std::uint8_t kArrange${name}[]{${pixels}};\n")
 endforeach()
+foreach(extent IN ITEMS 331x58 188x44 160x13)
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/artwork/ketsui-x-arrange-${extent}.png")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
+    file(READ "${source}" pixels HEX)
+    string(REGEX REPLACE "(..)" "0x\\1," pixels "${pixels}")
+    string(APPEND arrange_artwork "inline constexpr std::uint8_t kKetsuiArrange${extent}[]{${pixels}};\n")
+endforeach()
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/daioujou_arrange_artwork_data.h"
     CONTENT "${arrange_artwork}}\n")
 add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp

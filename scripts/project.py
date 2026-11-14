@@ -20,6 +20,18 @@ RUNTIME_ARTWORK = {
         '63d2b6995a805c840f2f6c93d4ce30ca8a7009b9c36cfbe213192f8a2a3c8777',
     'backends/ps4/artwork/x-arrange-264x56.png':
         'deb4bb75632dd6f6c02e304ff049284642361074d133d6a7b1f54b155a2c489f',
+    'backends/ps4/artwork/ketsui-x-arrange-331x58.png':
+        '8f11e487be3c83582d8b9e638033d1bb882c22e26b1ee8a670e763466788e410',
+    'backends/ps4/artwork/ketsui-x-arrange-188x44.png':
+        'ccfa3569bb93764c3c7a9238bad38343c8ccf1096d9a47bbd02effde0dcdcb89',
+    'backends/ps4/artwork/ketsui-x-arrange-160x13.png':
+        'fdc5d0fcace06838325050fcbd875d37300cb9e259d0e63079c35542f118bb9c',
+}
+DOC_SCREENSHOTS = {
+    'docs/images/launcher.png':
+        'eeb1d684791155508359bdbe465ea342481b8cfc07251ee24a9d1f01c57708bc',
+    'docs/images/ketsui-x-arrange.jpg':
+        'ae668038b03ecbc582b68f3a1e710140d393a64f4b62587aa123186869be9ca9',
 }
 
 
@@ -94,9 +106,9 @@ def audit_source(root=ROOT):
             count += 1
             total += path.stat().st_size
             continue
-        if name == 'docs/images/launcher.png':
-            if digest(path) != 'eeb1d684791155508359bdbe465ea342481b8cfc07251ee24a9d1f01c57708bc':
-                raise ValueError('README launcher screenshot differs from the reviewed image')
+        if name in DOC_SCREENSHOTS:
+            if digest(path) != DOC_SCREENSHOTS[name]:
+                raise ValueError(f'Documentation screenshot differs from the reviewed image: {name}')
             count += 1
             total += path.stat().st_size
             continue
