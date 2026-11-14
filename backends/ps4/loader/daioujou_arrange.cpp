@@ -192,6 +192,12 @@ void AddKetsuiArrangeMenu(ArchiveLayer& layer) {
         ApplyKetsuiArrangeArtwork(ui);
         layer.Add(ui_path, ui, true);
     }
+    constexpr std::string_view cards_path = "5000/motion/title_ui_kizuna_ac.psb.m";
+    if (layer.Has(cards_path)) {
+        auto cards = layer.Read(cards_path, 16 * 1024 * 1024);
+        ApplyKetsuiArrangeCardArtwork(cards);
+        layer.Add(cards_path, cards, true);
+    }
     constexpr std::string_view direct_path = "5000/script/title_mode_direct_menu.nut.m";
     if (layer.Has(direct_path)) {
         // This is the same save transform used for the regular direct menu.

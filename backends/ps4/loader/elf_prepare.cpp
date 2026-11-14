@@ -262,8 +262,9 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
             ProgramFingerprint(plain)==expected->program_fingerprint,
             "X Arrange requires a verified game core");
         const auto text=std::ranges::find(elf.segments,0ull,&Header::address);
-        const auto data_address = arrange == ArrangeAudio::Ketsui ? 0x50000ull : 0x400000ull;
-        const auto data=std::ranges::find(elf.segments,data_address,&Header::address);
+        const auto data=std::ranges::find_if(elf.segments,[&](const Header& segment) {
+            return arrange == ArrangeAudio::Ketsui ? segment.flags==6 : segment.address==0x400000;
+        });
         Require(text!=elf.segments.end() && (text->flags&1) &&
             data!=elf.segments.end() && (data->flags&2) && elf.segments.size()<32,
             "X Arrange does not match the verified core layout");
@@ -272,11 +273,17 @@ PreparedElf PrepareElf(std::span<const std::uint8_t> source,bool module,std::spa
         const auto code = std::span<std::uint8_t>(plain).subspan(text->offset, text->file_size);
         const auto tables = elf.Slice(data->offset, data->file_size);
         if (arrange == ArrangeAudio::Ketsui) {
-            const auto attributes=std::ranges::find(elf.segments,0x4c000ull,&Header::address);
-            Require(attributes!=elf.segments.end() && attributes->file_size>=0x30,
-                "Ketsui BGM attribute table is missing");
+            const auto read_only=[](const Header& segment) { return segment.flags==4; };
+            const auto attributes=std::ranges::find_if(elf.segments,read_only);
+            Require(elf.segments.size()==3 && std::ranges::count_if(elf.segments,read_only)==1 &&
+                attributes!=elf.segments.end(), "Ketsui BGM attribute segment is ambiguous");
+            std::vector<KetsuiAudioRelocation> relative;
+            for (const auto& item:elf.relocations) {
+                if (item.type==8 && item.symbol==0 && item.addend>=0)
+                    relative.push_back({item.address,static_cast<std::uint64_t>(item.addend)});
+            }
             auto range=std::span<std::uint8_t>(plain).subspan(attributes->offset,attributes->file_size);
-            extension=PrepareKetsuiArrangeAudio(expected->program_fingerprint,code,range,tables,extension_address);
+            extension=PrepareKetsuiArrangeAudio(code,range,attributes->address,tables,data->address,relative,extension_address);
         } else {
             extension=PrepareDaioujouArrangeAudio(expected->path,code,tables,elf.image_size,extension_address);
         }

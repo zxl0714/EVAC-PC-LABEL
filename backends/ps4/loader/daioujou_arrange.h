@@ -18,6 +18,7 @@ void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArran
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update);
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update);
 void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion);
+void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion);
 void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion);
 void AddArrangeFiles(std::vector<std::string>& files, bool merged);
 void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,

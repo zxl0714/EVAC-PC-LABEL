@@ -79,7 +79,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             auto tracks=FindKetsuiArrangeTracks(data,verification);
             if (!tracks.is_null()) {
                 const auto core=std::ranges::find(manifest,"ketsui_01000.prx",&DataFile::path);
-                if (core==manifest.end() || !HasKetsuiArrangeAudio(core->program_fingerprint)) {
+                if (core==manifest.end() || core->program_fingerprint.empty()) {
                     throw std::runtime_error("X Arrange is unavailable for this Ketsui core");
                 }
                 recipe["ketsuiArrangeTracks"]=std::move(tracks);

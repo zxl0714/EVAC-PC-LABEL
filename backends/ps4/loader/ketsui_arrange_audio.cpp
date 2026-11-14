@@ -8,16 +8,6 @@
 namespace cave::ps4 {
 namespace {
 using Bytes = std::span<std::uint8_t>;
-struct Sites {
-    std::string_view fingerprint;
-    std::size_t setter, direct_play, direct_info, event_play, event_fade;
-};
-constexpr std::array kSites{
-    Sites{"944428bba1318003014d95bcdb4743c08f6a8e803f6648f6b7b0354780df61bd",
-        0x6db0, 0x20dd0, 0x20e40, 0x28c9c, 0x28d13},
-    Sites{"d12e8fd86939f736e652492798def72d340730c0ad0add994f6dc0ff0c51b825",
-        0x6dc0, 0x20f60, 0x20fd0, 0x28f5c, 0x28fd3},
-};
 constexpr std::size_t kStubSize = 48;
 constexpr std::size_t kRowSize = 12;
 
@@ -32,6 +22,7 @@ void Expect(Bytes bytes, std::size_t at, std::initializer_list<std::uint8_t> exp
 }
 
 std::uint32_t Read32(std::span<const std::uint8_t> bytes, std::size_t at) {
+    Require(at <= bytes.size() && 4 <= bytes.size() - at, "Truncated Ketsui BGM table");
     std::uint32_t value{};
     for (unsigned i = 0; i < 4; ++i) value |= std::uint32_t(bytes[at + i]) << (8 * i);
     return value;
@@ -41,12 +32,44 @@ void Write32(Bytes bytes, std::size_t at, std::uint32_t value) {
     for (unsigned i = 0; i < 4; ++i) bytes[at + i] = static_cast<std::uint8_t>(value >> (8 * i));
 }
 
-std::uint64_t Target(Bytes code, std::size_t operand, bool short_branch) {
+std::uint64_t Address(Bytes code, std::size_t operand, bool short_branch = false) {
     const auto offset = short_branch ? std::bit_cast<std::int8_t>(code[operand]) :
         std::bit_cast<std::int32_t>(Read32(code, operand));
     const auto address = static_cast<std::int64_t>(operand) + (short_branch ? 1 : 4) + offset;
-    Require(address >= 0 && static_cast<std::uint64_t>(address) < code.size(), "Ketsui BGM branch leaves the original text");
+    Require(address >= 0, "Ketsui BGM target is outside the image");
     return static_cast<std::uint64_t>(address);
+}
+
+std::uint64_t Target(Bytes code, std::size_t operand, bool short_branch) {
+    const auto address = Address(code, operand, short_branch);
+    Require(address < code.size(), "Ketsui BGM branch leaves the original text");
+    return address;
+}
+
+std::size_t FindSite(Bytes code, std::initializer_list<int> signature, const char* error) {
+    const auto equal=[](std::uint8_t byte, int expected) { return expected < 0 || byte == expected; };
+    const auto site=std::search(code.begin(),code.end(),signature.begin(),signature.end(),equal);
+    Require(site!=code.end() && std::search(site+1,code.end(),signature.begin(),signature.end(),equal)==code.end(),error);
+    return static_cast<std::size_t>(site-code.begin());
+}
+
+std::size_t FindAttribute(Bytes text, Bytes attributes, std::uint64_t start,
+                          std::span<const KetsuiAudioRelocation> relative, std::size_t setter) {
+    const auto name=FindSite(text,{'x','-','b','g','m',0},"Ketsui x-bgm attribute name is missing or ambiguous");
+    const auto entry=std::ranges::find(relative,name,&KetsuiAudioRelocation::target);
+    Require(entry!=relative.end() && std::find_if(entry+1,relative.end(),[&](const auto& x){return x.target==name;})==relative.end() &&
+        entry->address>=start && entry->address-start<=attributes.size() &&
+        24<=attributes.size()-(entry->address-start), "Ketsui x-bgm attribute record is missing or ambiguous");
+    const auto record=static_cast<std::size_t>(entry->address-start);
+    Expect(attributes,record+4,{0,0,0,0,0,0,0,0,4,0,0,0});
+    Require(Read32(attributes,record)==name, "Unexpected Ketsui x-bgm attribute name pointer");
+    const auto handler=std::ranges::find(relative,entry->address+16,&KetsuiAudioRelocation::address);
+    Require(handler!=relative.end() && handler->target<=text.size() && 5<=text.size()-handler->target &&
+        handler->target==Read32(attributes,record+16) && Read32(attributes,record+20)==0,
+        "Ketsui x-bgm handler does not match the attribute record");
+    Expect(text,handler->target,{0xe9});
+    Require(Target(text,handler->target+1,false)==setter,"Ketsui x-bgm handler does not dispatch to the located setter");
+    return record+12;
 }
 
 void Relative(Bytes bytes, std::size_t at, std::uint64_t origin, std::uint64_t destination) {
@@ -117,22 +140,32 @@ void PatchFade(Bytes text, Bytes stub, std::uint64_t origin, std::uint64_t table
 }
 }
 
-bool HasKetsuiArrangeAudio(std::string_view fingerprint) {
-    return std::ranges::find(kSites, fingerprint, &Sites::fingerprint) != kSites.end();
-}
-
 std::vector<std::uint8_t> PrepareKetsuiArrangeAudio(
-    std::string_view fingerprint, Bytes text, Bytes attributes, std::span<const std::uint8_t> data,
-    std::uint64_t extension_address) {
-    const auto sites = std::ranges::find(kSites, fingerprint, &Sites::fingerprint);
-    Require(sites != kSites.end(), "Unsupported Ketsui X Arrange core");
-    const auto at = sites->setter;
-    // The generic attribute dispatcher clamps x-bgm before calling its setter.
-    Expect(attributes, 0x20, {0,0,0,0,4,0,0,0,0xd0,0x68,0,0,0,0,0,0});
-    const auto name=Read32(attributes,0x18);
-    Expect(text,name,{'x','-','b','g','m',0});
-    attributes[0x24]=5;
-    Expect(text, at, {0x48, 0x85, 0xff, 0x74, 0x17, 0x83, 0xfe, 0x04, 0x77, 0x12, 0x89, 0xf0, 0x48, 0x8d, 0x0d});
+    Bytes text, Bytes attributes, std::uint64_t attributes_address,
+    std::span<const std::uint8_t> data, std::uint64_t data_address,
+    std::span<const KetsuiAudioRelocation> relative, std::uint64_t extension_address) {
+    // Verify unique instruction sequences, then verify the relationships between
+    // the attribute, switch cases and cue table before changing the prepared image.
+    constexpr int u=-1;
+    const auto at=FindSite(text,{0x48,0x85,0xff,0x74,0x17,0x83,0xfe,4,0x77,0x12,0x89,0xf0,
+        0x48,0x8d,0x0d,u,u,u,u,0x8b,4,0x81,0x89,5,u,u,u,u,0xc3},"Ketsui BGM setter is missing or ambiguous");
+    const auto limit=FindAttribute(text,attributes,attributes_address,relative,at);
+    const auto play=FindSite(text,{0xff,0xca,0x83,0xfa,3,0x77,0x19,0x48,0x8d,5,u,u,u,u,0x48,0x63,0x14,0x90,
+        0x48,1,0xc2,0xff,0xe2,0x48,0x8d,0x15,u,u,u,u,0xeb,0x1f},"Ketsui direct BGM playback is missing or ambiguous");
+    const auto info=FindSite(text,{0xff,0xcf,0x83,0xff,3,0x77,0x19,0x48,0x8d,5,u,u,u,u,0x48,0x63,0x0c,0xb8,
+        0x48,1,0xc1,0xff,0xe1,0x48,0x8d,0x15,u,u,u,u,0xeb,0x1e},"Ketsui direct BGM query is missing or ambiguous");
+    const auto event=FindSite(text,{0xff,0xcb,0x83,0xfb,3,0x0f,0x87,u,u,u,u,0x48,0x8d,0x0d,u,u,u,u,0x48,
+        0x63,0x14,0x99,0x48,1,0xca,0xff,0xe2,0x48,0x8d,0x15,u,u,u,u,0xe9,u,u,u,u},"Ketsui event BGM playback is missing or ambiguous");
+    const auto fade=FindSite(text,{0xff,0xcb,0x45,0x31,0xf6,0x83,0xfb,3,0x77,0x19,0x48,0x63,0xcb,0x48,0x8d,
+        0x15,u,u,u,u,0x89,0xc0,0x48,0x8b,0x0c,0xca,0x48,0x8d,4,0x40,0x44,0x8b,0x74,0x81,8},"Ketsui event BGM fade is missing or ambiguous");
+    const auto stereo=Address(text,play+26);
+    Require(Address(text,info+26)==stereo && Address(text,event+30)==stereo && stereo>=data_address,
+        "Ketsui playback paths disagree about the stereo cue table");
+    Require(Target(text,play+31,true)==play+0x3f && Target(text,info+31,true)==info+0x3e &&
+        Target(text,event+35,false)==event+0x173,"Ketsui BGM playback paths disagree about the row reader");
+    const auto fade_table=Address(text,fade+16);
+    const auto fade_entry=std::ranges::find(relative,fade_table,&KetsuiAudioRelocation::address);
+    Require(fade_entry!=relative.end() && fade_entry->target==stereo,"Ketsui fade path does not use the stereo cue table");
     const auto previous_modes = Target(text, at + 15, false);
     Require(previous_modes + 20 <= text.size(), "Ketsui BGM mode table is incomplete");
     for (unsigned i = 0; i < 5; ++i) {
@@ -141,8 +174,9 @@ std::vector<std::uint8_t> PrepareKetsuiArrangeAudio(
 
     constexpr auto pcm_offset = 4 * kStubSize;
     constexpr auto modes_offset = pcm_offset + kKetsuiArrangeCueCount * kRowSize;
-    constexpr auto stereo_offset = 0x7c570 - 0x50000;
-    Require(data.size() >= stereo_offset + kKetsuiArrangeCueCount * kRowSize, "Ketsui BGM table is incomplete");
+    const auto stereo_offset = stereo-data_address;
+    Require(stereo_offset<=data.size() && kKetsuiArrangeCueCount*kRowSize<=data.size()-stereo_offset,
+        "Ketsui BGM table is incomplete");
     std::vector<std::uint8_t> extension(modes_offset + 24, 0x90);
     Bytes output = extension;
     for (unsigned cue = 0; cue < kKetsuiArrangeCueCount; ++cue) {
@@ -153,16 +187,16 @@ std::vector<std::uint8_t> PrepareKetsuiArrangeAudio(
     }
     std::ranges::copy(text.subspan(previous_modes, 20), output.subspan(modes_offset).begin());
     Write32(output, modes_offset + 20, 5);
+    attributes[limit]=5;
     text[at + 7] = 5;
     Relative(text, at + 15, 0, extension_address + modes_offset);
     const auto table = extension_address + pcm_offset;
-    PatchPlay(text, output.first(kStubSize), extension_address, table, sites->direct_play,
-        sites->direct_play + 0x3f, 0xca, 0xf9, false);
+    PatchPlay(text, output.first(kStubSize), extension_address, table, play, play+0x3f, 0xca, 0xf9, false);
     PatchPlay(text, output.subspan(kStubSize, kStubSize), extension_address + kStubSize, table,
-        sites->direct_info, sites->direct_info + 0x3e, 0xcf, 0xfe, false);
+        info, info+0x3e, 0xcf, 0xfe, false);
     PatchPlay(text, output.subspan(2 * kStubSize, kStubSize), extension_address + 2 * kStubSize, table,
-        sites->event_play, sites->event_play + 0x173, 0xcb, 0xf8, true);
-    PatchFade(text, output.subspan(3 * kStubSize, kStubSize), extension_address + 3 * kStubSize, table, sites->event_fade);
+        event, event+0x173, 0xcb, 0xf8, true);
+    PatchFade(text, output.subspan(3 * kStubSize, kStubSize), extension_address + 3 * kStubSize, table, fade);
     return extension;
 }
 }

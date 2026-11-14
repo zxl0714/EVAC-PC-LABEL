@@ -21,17 +21,19 @@ RUNTIME_ARTWORK = {
     'backends/ps4/artwork/x-arrange-264x56.png':
         'deb4bb75632dd6f6c02e304ff049284642361074d133d6a7b1f54b155a2c489f',
     'backends/ps4/artwork/ketsui-x-arrange-331x58.png':
-        '8f11e487be3c83582d8b9e638033d1bb882c22e26b1ee8a670e763466788e410',
+        '2eecbbd06a0e2cb380656e4dcc75cc2414a762df7c6f46593db8b92158640875',
     'backends/ps4/artwork/ketsui-x-arrange-188x44.png':
-        'ccfa3569bb93764c3c7a9238bad38343c8ccf1096d9a47bbd02effde0dcdcb89',
+        '99167cbc17ef480708f9d79d7013ce285a4159e846dbff53e8cf534b5f3e3c58',
+    'backends/ps4/artwork/ketsui-x-arrange-171x18.png':
+        '6d1e0d7edeb2a08a018ae16edcfde84c72f93a1ac0aad61accf2fb9f5f470dc3',
     'backends/ps4/artwork/ketsui-x-arrange-160x13.png':
-        'fdc5d0fcace06838325050fcbd875d37300cb9e259d0e63079c35542f118bb9c',
+        '9fa80d7621b6e2a8b39af564047084ff5516ef47dd373a50a76e010735b7329b',
 }
 DOC_SCREENSHOTS = {
     'docs/images/launcher.png':
         'eeb1d684791155508359bdbe465ea342481b8cfc07251ee24a9d1f01c57708bc',
     'docs/images/ketsui-x-arrange.jpg':
-        'ae668038b03ecbc582b68f3a1e710140d393a64f4b62587aa123186869be9ca9',
+        'c92de91289b8fdcb3ffb3b295561c219362dec19021b0b71674859f307c525f4',
 }
 
 

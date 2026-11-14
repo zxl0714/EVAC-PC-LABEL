@@ -119,6 +119,40 @@ void PaintBadge(std::span<std::uint8_t> atlas, IWICImagingFactory& factory,
         }
     }
 }
+
+void PaintKetsuiBadge(std::span<std::uint8_t> atlas, IWICImagingFactory& factory,
+                      std::span<const std::uint8_t> png, BadgeRegion region, bool card) {
+    const auto caption = DecodeBadge(factory, png, region);
+    const auto pixel_at = [&](unsigned x, unsigned y) {
+        return atlas.data() + AtlasPixel(region.x + x, region.y + y);
+    };
+    // Rebuild the fill across the entire colored plate. The original alpha
+    // defines its beveled outline and the left BGM SET label stays intact.
+    const unsigned start = card ? 42 : 1, end = region.width - 1;
+    for (unsigned x = start; x < end; ++x) {
+        const unsigned column = (x - start) * 32 / (end - start);
+        const unsigned right_edge = (std::min)(end - x, (end - start) / 4);
+        const unsigned left_edge = (std::min)(x - start, (end - start) / 4);
+        const unsigned edge = (std::min)(left_edge, right_edge) * 48 / ((end - start) / 4);
+        constexpr std::array bars{1u, 4u, 9u, 5u, 12u, 7u, 3u, 8u, 15u, 9u, 6u, 3u, 10u, 5u, 13u, 6u,
+            4u, 8u, 5u, 11u, 7u, 14u, 8u, 4u, 8u, 11u, 5u, 8u, 16u, 10u, 4u, 2u};
+        for (unsigned y = 1; y + 1 < region.height; ++y) {
+            auto* pixel = pixel_at(x, y);
+            const auto* ink = caption.data() + (y * region.width + x) * 4;
+            if (!pixel[3]) continue;
+            const unsigned level = y * 64 / region.height;
+            const unsigned light = (std::min)(level, (64u - level) * 2);
+            const unsigned ridge = (std::min)(y, region.height - 1 - y);
+            const unsigned pattern = ((x - start) * 64 / (end - start)) % 2 == 0 &&
+                56u - bars[column] <= level && level <= 57u ? 12u : 0u;
+            const unsigned tone = (26 + edge + light + pattern) * (std::min)(ridge, 5u) / 5;
+            const std::array background{12u + tone * 3 / 4, 16u + tone, 4u + tone / 5};
+            const unsigned alpha = ink[3];
+            for (unsigned channel = 0; channel < 3; ++channel)
+                pixel[channel] = static_cast<std::uint8_t>((background[channel] * (255 - alpha) + ink[2 - channel] * alpha + 127) / 255);
+        }
+    }
+}
 }
 
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update) {
@@ -151,31 +185,20 @@ void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion) {
     ComApartment apartment;
     ComPtr<IWICImagingFactory> factory;
     Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
-    const auto paint = [&](BadgeRegion region, std::span<const std::uint8_t> png) {
-        const auto caption = DecodeBadge(*factory.Get(), png, region);
-        // Retain the edges and equalizer, and give the caption a quieter fill.
-        const auto left = region.width / 6;
-        const auto right = region.width - 3;
-        const auto top = 4u;
-        const auto bottom = region.height - 4;
-        for (unsigned y = top; y < bottom; ++y) {
-            for (unsigned x = left; x < right; ++x) {
-                auto* pixel = atlas.data() + AtlasPixel(region.x + x, region.y + y);
-                const auto* ink = caption.data() + (y * region.width + x) * 4;
-                const auto alpha = ink[3];
-                const auto mix = (std::min)({255u,(x-left)*34u,(right-x)*42u,(y-top)*47u,(bottom-y)*47u});
-                const auto glow = (right-x)*34u/(right-left);
-                const auto sheen = (bottom-y)*12u/(bottom-top);
-                const std::array background{46u+glow+sheen,5u+glow/6+sheen/2,43u+glow+sheen};
-                for (unsigned channel = 0; channel < 3; ++channel) {
-                    const auto backdrop = (background[channel]*mix + pixel[channel]*(255-mix) + 127)/255;
-                    pixel[channel] = static_cast<std::uint8_t>((backdrop*(255-alpha) + ink[2-channel]*alpha + 127)/255);
-                }
-            }
-        }
-    };
-    paint(large, artwork::kKetsuiArrange331x58);
-    paint(compact, artwork::kKetsuiArrange188x44);
+    PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange331x58, large, false);
+    PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange188x44, compact, false);
+}
+
+void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion) {
+    constexpr std::string_view hash = "3c7e52af38d78acc3e4abc19a4245b22a44311365cf2d2721c346f6403e10f63";
+    if (PreparationHash(motion) != hash) throw std::runtime_error("Ketsui Direct Menu differs from the verified atlas");
+
+    ComApartment apartment;
+    ComPtr<IWICImagingFactory> factory;
+    Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
+    auto atlas = motion.subspan(352256, 4096u * 4096u * 4u);
+    // Direct Menu mode 5 uses icon 0024 exclusively.
+    PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange171x18, {2177, 2678, 171, 18}, true);
 }
 
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update) {
