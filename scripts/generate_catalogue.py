@@ -53,7 +53,7 @@ def data_variants(manifest):
     variants = [dict(id=manifest['variantId'], version=manifest['version'], layout=manifest['layout'],
                      entry=manifest['entry'], files=manifest['files'], forbiddenFiles=manifest.get('forbiddenFiles', [])),
                 *alternatives]
-    ids, identities, fingerprints = set(), set(), {}
+    ids, identities, fingerprints = set(), {}, {}
     for variant in variants:
         if (not isinstance(variant, dict) or not isinstance(variant.get('id'), str) or not re.fullmatch('[a-z][a-z0-9-]{0,31}', variant['id'])
                 or variant['id'] in ids or not isinstance(variant.get('version'), str) or not re.fullmatch('[0-9]{2}\\.[0-9]{2}', variant['version'])
@@ -63,17 +63,22 @@ def data_variants(manifest):
         ids.add(variant['id'])
         seen = data_files(variant['files'])
         entries = [item for item in variant['files'] if item['path'] == variant['entry'] and item['program']]
-        if len(entries) != 1 or entries[0]['sha256'] in identities:
-            raise ValueError('Data variants require distinct root programs')
-        identities.add(entries[0]['sha256'])
+        if len(entries) != 1:
+            raise ValueError('Data variants require one root program')
         fingerprint = entries[0].get('programFingerprint')
+        previous_fingerprint = identities.get(entries[0]['sha256'])
+        if entries[0]['sha256'] in identities and (not fingerprint or fingerprint != previous_fingerprint):
+            raise ValueError('Shared root hashes require identical program fingerprints')
+        identities[entries[0]['sha256']] = fingerprint
         if fingerprint:
             if fingerprint in fingerprints:
                 programs = lambda value: {f['path']: f.get('programFingerprint') for f in value['files'] if f['program']}
-                sfo = lambda value: next((f['sha256'] for f in value['files'] if f['path'] == 'sce_sys/param.sfo' and not f['program']), None)
+                metadata = lambda value, path: next((f['sha256'] for f in value['files'] if f['path'] == path and not f['program']), None)
+                identity = lambda value: tuple(metadata(value, path) for path in
+                    ('sce_sys/param.sfo', 'sce_sys/playgo-chunk.sha', 'sce_sys/about/right.sprx'))
                 if any(any(variant[key] != previous[key] for key in ('version', 'layout', 'entry'))
                         or programs(variant) != programs(previous) or None in programs(variant).values()
-                        or not sfo(variant) or not sfo(previous) or sfo(variant) == sfo(previous)
+                        or not identity(variant)[0] or not identity(previous)[0] or identity(variant) == identity(previous)
                         for previous in fingerprints[fingerprint]):
                     raise ValueError('Equivalent root programs require matching code and distinct package metadata')
             fingerprints.setdefault(fingerprint, []).append(variant)

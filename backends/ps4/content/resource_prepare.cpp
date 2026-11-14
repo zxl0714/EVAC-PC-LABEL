@@ -413,13 +413,22 @@ ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix
         return Bytes(Compact(raw));
     }
     if (fix==ResourceFix::ReplayBatch) {
-        auto [start,stop,body]=Method(raw,"function RankingManager::_recordEntryBody(","function friend_ranking_sort_func(");
+        const bool modern=Count(raw,"function RankingManagerBase::_recordEntryBody(")==1;
+        auto [start,stop,body]=Method(raw,modern?"function RankingManagerBase::_recordEntryBody(":
+            "function RankingManager::_recordEntryBody(","function friend_ranking_sort_func(");
         constexpr std::string_view score="  local result = this._recordScore(_boardIdArray, _entryInfo);";
+        std::string prefix;
+        if(modern) {
+            Require(Count(body,score)==1,"Ranking batch differs from the verified control flow");
+            const auto at=body.find(score);
+            prefix=body.substr(0,at);body.erase(0,at);
+        }
         Replace(body,score,std::string(score)+newline+"  local first_transfer_error = null;",1);
-        Replace(body,"          if ( !this.isSucceeded(result) ) "+newline+"            break;",
+        Replace(body,modern?"        if ( !this.isSucceeded(result) ) break;":
+            "          if ( !this.isSucceeded(result) ) "+newline+"            break;",
             "          if ( !this.isSucceeded(result) && first_transfer_error == null )"+newline+"            first_transfer_error = result;",1);
         Replace(body,"  return result;","  return first_transfer_error != null ? first_transfer_error : result;",1);
-        raw.replace(start,stop-start,body); return Bytes(Compact(raw));
+        raw.replace(start,stop-start,prefix+body); return Bytes(Compact(raw));
     }
     Require(fix==ResourceFix::LocalRoundGate,"Unknown resource fix");
     auto [start,stop,body]=Method(raw,"  function checkRankingAndRegistRanking() {","  function checkRegistRanking() {");
@@ -474,7 +483,7 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     const auto* variant=IdentifyDataVariant(FindGame("ketsui"),root);
     const auto key=ArchiveKey(raw_executable,ResourceTitle::Ketsui,variant);
     const auto* version=FindKetsuiVersion(RootContract(*variant));Require(version,"Unsupported Ketsui resource version");
-    const bool updated=version->version=="01.02";
+    const bool updated=variant->layout=="merged-patch", update103=version->version=="01.03";
     std::vector<std::pair<fs::path,std::string>> indices;
     auto index=[&](std::string_view path,std::string_view name) {
         const auto file=DataChild(root,path); const auto bytes=ReadFile(file,kResourceLimit);
@@ -507,10 +516,20 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     report["original_packed_sha256"]=Hex(patches.entries.front().original_sha256);
     if (community_replay) report["community_replay_batch"]=fix(base,"system/script/ranking_manager.nut.m",
         "ps4data_body.bin","ps4data_body.bin","8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43",ResourceFix::ReplayBatch);
+    if (update103) {
+        const auto patch=index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m");
+        report["patch_music_autosave"]=fix(patch,"5000/script/title_mode_direct_menu.nut.m",
+            "ps4data_patch_body.bin","ps4data_patch_body.bin",
+            "054ead29b630f1547da37789fd84bdef964f73dfb9aab53ab7f71ced6497cf76",ResourceFix::MusicAutosave);
+        if(community_replay) report["patch_community_replay_batch"]=fix(patch,"system/script/ranking_manager.nut.m",
+            "ps4data_patch_body.bin","ps4data_patch_body.bin",
+            "c80518d21c0185c34bd06e8fd2ecae5735c2d11a11cbf2aeaa31b3575eec98f1",ResourceFix::ReplayBatch);
+    }
     if (community_offline) {
         const auto patch=updated?index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m"):base;
         const auto archive=updated?"ps4data_patch_body.bin":"ps4data_body.bin";
         auto offline=fix(patch,"5000/script/title_standalone.nut.m",archive,archive,
+            update103?"395c82f79f1d5557c42531c7647b3bf55f067e17fb530dab24f94ad83b536269":
             updated?"889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d":
                     "63b6a45d85e49936665e82e24f188e64fca4e60bc9bc850e71979ca2b9ef6bc8",ResourceFix::LocalRoundGate);
         offline.update(Json{{"layer",updated?"patch":"base"},{"scope","eligible-post-game-submission"},{"requires_native_rounds",true}});

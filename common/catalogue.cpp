@@ -10,6 +10,7 @@
 #include <array>
 #include <algorithm>
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -126,8 +127,12 @@ const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_
   const DataVariant* match{};
   if(!sha256.empty())for(const auto& variant:game.variants) {
     const auto* entry=RootProgram(variant);
-    if(entry && bytes==entry->bytes && sha256==entry->sha256)return &variant;
+    if(entry && bytes==entry->bytes && sha256==entry->sha256) {
+      if(match)return nullptr;
+      match=&variant;
+    }
   }
+  if(match)return match;
   for(const auto& variant:game.variants) {
     const auto* entry=RootProgram(variant);
     if(entry && game.backend=="ps4" && !fingerprint.empty() && fingerprint==entry->program_fingerprint) {
@@ -159,15 +164,24 @@ const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uin
     match=MatchRootProgram(game,bytes,{},fingerprint);
     if(hashes)++*hashes;
     if(!match && !fingerprint.empty()) {
-      const auto metadata=DataChild(data,"sce_sys/param.sfo");
-      std::string metadata_hash;
+      std::map<std::string_view,std::string> metadata_hashes;
       for(const auto& variant:game.variants) {
         const auto* entry=RootProgram(variant);
         if(!entry || entry->program_fingerprint!=fingerprint)continue;
-        const auto sfo=std::ranges::find(variant.files,std::string_view{"sce_sys/param.sfo"},&DataFile::path);
-        if(sfo==variant.files.end() || !fs::is_regular_file(metadata) || fs::file_size(metadata)!=sfo->bytes)continue;
-        if(metadata_hash.empty()) {metadata_hash=FileDigest(metadata,cache);if(hashes)++*hashes;}
-        if(metadata_hash==sfo->sha256) {if(match)return nullptr;match=&variant;}
+        bool matches=true;
+        for(const std::string_view name:{"sce_sys/param.sfo","sce_sys/playgo-chunk.sha","sce_sys/about/right.sprx"}) {
+          const auto expected=std::ranges::find(variant.files,name,&DataFile::path);
+          if(expected==variant.files.end()) {
+            if(name=="sce_sys/param.sfo")matches=false;
+            continue;
+          }
+          const auto metadata=DataChild(data,name);
+          if(!fs::is_regular_file(metadata) || fs::file_size(metadata)!=expected->bytes) {matches=false;break;}
+          auto& digest=metadata_hashes[name];
+          if(digest.empty()) {digest=FileDigest(metadata,cache);if(hashes)++*hashes;}
+          if(digest!=expected->sha256) {matches=false;break;}
+        }
+        if(matches) {if(match)return nullptr;match=&variant;}
       }
     }
   }

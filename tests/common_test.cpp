@@ -287,6 +287,52 @@ void Ps4ProgramChecks(Fixture& fixture) {
   Require(inspect().variant=="package-a" && inspect().data_state==DataState::Verified,"Rewrapped first package not selected by metadata");
   Write(source/"sce_sys/param.sfo","pkg-x");
   Require(inspect().data_state==DataState::Unsupported,"Unrecognized package metadata guessed");
+  Write(source/"sce_sys/param.sfo","pkg-a");
+  Write(source/"sce_sys/playgo-chunk.sha","sha-a");const auto chunks_a=Sha256(source/"sce_sys/playgo-chunk.sha");
+  Write(source/"sce_sys/playgo-chunk.sha","sha-b");const auto chunks_b=Sha256(source/"sce_sys/playgo-chunk.sha");
+  const std::array shared_a{files[0],alias_a[1],files[2],DataFile{"sce_sys/playgo-chunk.sha",5,chunks_a,false}};
+  const std::array shared_b{files[0],alias_a[1],files[2],DataFile{"sce_sys/playgo-chunk.sha",5,chunks_b,false}};
+  const std::array shared{DataVariant{"original","01.00","base","eboot.bin",shared_a,{}},
+                         DataVariant{"pkg-extracted","01.00","base","eboot.bin",shared_b,{}}};
+  game.variants=shared;
+  Write(source/"assets.bin","abc");write_program("eboot.bin",self);
+  Require(!MatchRootProgram(game,self.size(),container_hash),"Shared canonical root guessed a package by catalogue order");
+  Require(inspect().variant=="pkg-extracted" && inspect().data_state==DataState::Verified,
+          "Same root and SFO did not select regenerated PlayGo metadata");
+  Write(source/"sce_sys/playgo-chunk.sha","sha-a");
+  Require(inspect().variant=="original" && inspect().data_state==DataState::Verified,"Original package identity regressed");
+  write_program("eboot.bin",sectioned);
+  Write(source/"sce_sys/playgo-chunk.sha","sha-b");
+  Require(inspect().variant=="pkg-extracted" && inspect().data_state==DataState::Verified,
+          "Equivalent wrapper lost the canonical program contract");
+  Write(source/"assets.bin","def");
+  Require(inspect().data_state==DataState::Incomplete,"Extracted metadata bypassed game resource validation");
+  Write(source/"assets.bin","abc");
+  Write(source/"sce_sys/playgo-chunk.sha","sha-x");
+  Require(inspect(CheckLevel::Quick).data_state==DataState::Unsupported,"Unknown regenerated metadata was accepted");
+  fs::remove(source/"sce_sys/playgo-chunk.sha");
+  Require(inspect().data_state==DataState::Unsupported,"Missing package discriminator was accepted");
+  Write(source/"sce_sys/playgo-chunk.sha","sha-b");write_program("eboot.bin",changed);
+  Require(inspect().data_state==DataState::Unsupported,"Extracted metadata accepted changed game code");
+  Write(source/"sce_sys/playgo-chunk.sha","sha-a");write_program("eboot.bin",self);
+  Write(source/"sce_sys/about/right.sprx","right-a");const auto rights_a=Sha256(source/"sce_sys/about/right.sprx");
+  Write(source/"sce_sys/about/right.sprx","right-b");const auto rights_b=Sha256(source/"sce_sys/about/right.sprx");
+  const std::array rights_original{shared_a[0],shared_a[1],shared_a[2],shared_a[3],
+                                 DataFile{"sce_sys/about/right.sprx",7,rights_a,false}};
+  const std::array rights_dump{shared_a[0],shared_a[1],shared_a[2],shared_a[3],
+                             DataFile{"sce_sys/about/right.sprx",7,rights_b,false}};
+  const std::array rights_variants{DataVariant{"original","01.00","base","eboot.bin",rights_original,{}},
+                                  DataVariant{"base-store-dump","01.00","base","eboot.bin",rights_dump,{}}};
+  game.variants=rights_variants;
+  Require(inspect().variant=="base-store-dump" && inspect().data_state==DataState::Verified,
+          "Identical programs, SFO and PlayGo failed to select original store-dump metadata");
+  Write(source/"sce_sys/about/right.sprx","right-a");
+  Require(inspect().variant=="original" && inspect().data_state==DataState::Verified,
+          "Store-dump alternative displaced the original package");
+  Write(source/"sce_sys/about/right.sprx","right-x");
+  Require(inspect().data_state==DataState::Unsupported,"Unknown rights metadata selected a package");
+  fs::remove(source/"sce_sys/about/right.sprx");
+  Require(inspect().data_state==DataState::Unsupported,"Missing rights discriminator selected a package");
   const auto iso=fixture.temporary/"ps4-disc/sample.ISO";
   Write(iso,"authored fixture");
   for(const auto& path:{iso,iso.parent_path()}) {

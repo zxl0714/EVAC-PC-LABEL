@@ -11,7 +11,7 @@ Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vu
 
   game-data/futari/      虫姬二 Ver.1.5；Black Label／Ver.1.01 DLC 可选
   game-data/espgaluda2/  ESPGaluda II Black Label
-  game-data/ketsui/      CUSA09062，01.00 本体或完整覆盖 01.02 更新
+  game-data/ketsui/      CUSA09062，01.00 本体，可覆盖 01.02 或 01.03 更新
   game-data/sdoj/        最大往生，Xbox 360 原版
   game-data/daioujou/    CUSA32997，01.00 本体或完整覆盖 01.04 更新
   game-data/esprade/     CUSA15155，01.00 本体或完整覆盖 01.04 更新

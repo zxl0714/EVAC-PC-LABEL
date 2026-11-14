@@ -19,7 +19,7 @@ struct KetsuiVersion {
     std::uint32_t replay_data_version;
     std::array<std::size_t,3> JobSlots() const { return {score_table+0x40,score_table,score_table+8}; }
 };
-inline constexpr std::array<KetsuiVersion,3> kKetsuiVersions{{
+inline constexpr std::array<KetsuiVersion,4> kKetsuiVersions{{
     {"01.00","22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f",
      0xd2,0x1e4a20,0x2d8e88,0x2d8f68,{0x1e7330,0x1e8d30,0x1e8d40},
      {0x2d8e68,0x2d8e70},{0x1e40a0,0x1e4410},
@@ -33,7 +33,13 @@ inline constexpr std::array<KetsuiVersion,3> kKetsuiVersions{{
     {"01.00","9113b52b4b61c71cf557a74f9d9e3dc29af91f572c245cdec5ba09c7e1b0a8ed",
      0xd2,0x1e4a20,0x2d8e88,0x2d8f68,{0x1e7330,0x1e8d30,0x1e8d40},
      {0x2d8e68,0x2d8e70},{0x1e40a0,0x1e4410},
-     0x1b0d10,0x1b2e30,0x1b4000,0x1b0f40,0x1fdad0,0x791ac8,0x791acc,0x2e0f38,0x10000}
+     0x1b0d10,0x1b2e30,0x1b4000,0x1b0f40,0x1fdad0,0x791ac8,0x791acc,0x2e0f38,0x10000},
+    // 01.03 has new code, not a wrapper of 01.02. Function landmarks,
+    // relocation targets and context accesses were verified independently.
+    {"01.03","7ab773375a6c71853b0777f25edb5c4cf40c4b93cdbfb872392206d41c3b96df",
+     0xd3,0x1e5220,0x2d8ed8,0x2d8fb8,{0x1e7b30,0x1e9530,0x1e9540},
+     {0x2d8eb8,0x2d8ec0},{0x1e48a0,0x1e4c10},
+     0x1b1650,0x1b3770,0x1b4940,0x1b1880,0x1fe2e0,0x791ac8,0x791acc,0x2e0f38,0x10001}
 }};
 inline const KetsuiVersion* FindKetsuiVersion(std::string_view source) {
     for(const auto& version:kKetsuiVersions)if(version.source==source)return &version;

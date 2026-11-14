@@ -104,6 +104,30 @@ class GameFixTests(unittest.TestCase):
             with self.subTest(changed=changed[:60]), self.assertRaises(ValueError):
                 fix_ranking_replay_batch(changed)
 
+    def authored_modern_ranking_batch(self, newline=b'\n'):
+        source = self.authored_ranking_batch(newline).replace(
+            b'RankingManager::_recordEntryBody', b'RankingManagerBase::_recordEntryBody')
+        prefix = newline.join((b'  if (System.getSpec() == "nx") {',
+            b'    local result = authored_other_platform();',
+            b'    if ( !this.isSucceeded(result) ) break;',
+            b'    return result;', b'  }', b''))
+        source = source.replace(b'  local result = this._recordScore', prefix + b'  local result = this._recordScore')
+        return source.replace(newline.join((b'          if ( !this.isSucceeded(result) ) ', b'            break;')),
+                              b'        if ( !this.isSucceeded(result) ) break;')
+
+    def test_modern_replay_batch_preserves_other_platform_and_keeps_first_ps4_error(self):
+        for newline in (b'\n', b'\r\n'):
+            source = self.authored_modern_ranking_batch(newline)
+            fixed = fix_ranking_replay_batch(source)
+            begin = source.index(b'  if (System.getSpec() == "nx")')
+            end = source.index(b'  local result = this._recordScore')
+            self.assertIn(source[begin:end], fixed)
+            self.assertEqual(fixed.count(b'break;'), 1)
+            self.assertEqual(fixed.count(b'first_transfer_error = result;'), 1)
+            self.assertIn(b'return first_transfer_error != null ? first_transfer_error : result;', fixed)
+            with self.assertRaises(ValueError):
+                fix_ranking_replay_batch(fixed)
+
     def test_overlay_binary_has_scope_source_and_payload_hashes(self):
         entry = self.entry()
         result = encode_read_patches('CUSA00001', '01.02', [entry])

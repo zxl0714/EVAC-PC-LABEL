@@ -183,10 +183,13 @@ void Policies() {
         arguments.clear();AppendVersionArguments(arguments,updated.merged_app,updated.community_offline);
         Check(arguments==std::vector<std::wstring>{L"--merged-app",L"on"},"01.04 never forced offline");
     }
-    for (bool updated:{false,true}) {
-        const auto ketsui=PlanPs4Data("ketsui",updated?"01.02":"01.00",updated?"merged-patch":"base");
-        Check(ketsui.programs.size()==3&&ketsui.read_fixes&&!ketsui.community_offline&&ketsui.merged_app==updated,"Ketsui base/update recipe");
+    for (std::string_view version:{"01.00","01.02","01.03"}) {
+        const bool updated=version!="01.00";
+        const auto ketsui=PlanPs4Data("ketsui",version,updated?"merged-patch":"base");
+        Check(ketsui.programs==std::vector<std::string>{"eboot.bin","emu_integration_01400.prx","ketsui_01000.prx"} &&
+            ketsui.read_fixes&&!ketsui.community_offline&&ketsui.merged_app==updated,"Ketsui base/update recipe");
     }
+    Reject([]{PlanPs4Data("ketsui","01.03","base");},"Ketsui 01.03 requires merged update data");
     Reject([]{PlanPs4Data("daioujou","01.04","base");},"invalid update/base combination");
     Reject([]{PlanPs4Data("daioujou","01.00","merged-patch");},"mixed DOJ data is not base");
     Reject([]{PlanPs4Data("daioujou","01.01","base");},"unknown DOJ version");
