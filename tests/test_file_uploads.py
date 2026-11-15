@@ -94,6 +94,27 @@ class FileUploadsTest(unittest.TestCase):
                     self.assertIn('filename*=UTF-8', response.headers['Content-Disposition'])
                 with urlopen(admin + '/cave/reports/') as response:
                     self.assertIn('&lt;script&gt;', response.read().decode())
+                log_id = '20261103-0000000000000000'
+                log = Path(temporary) / log_id
+                log.with_suffix('.json').write_text(json.dumps(dict(
+                    id=log_id, received='2026-11-03T00:00:00+00:00', game='esprade', message='A log report')))
+                log.with_suffix('.zip').write_bytes(b'ZIP')
+                with urlopen(admin + '/cave/reports/uploads/') as response:
+                    page = response.read().decode()
+                self.assertIn('解析用.pk3', page)
+                self.assertIn('10 bytes', page)
+                self.assertIn('&lt;script&gt;', page)
+                self.assertNotIn('<script>', page)
+                self.assertNotIn('A log report', page)
+                self.assertIn(f'href="{item["download_url"]}"', page)
+                with urlopen(admin + '/cave/reports/uploads/?game=ketsui') as response:
+                    self.assertIn('No matching files.', response.read().decode())
+                for kind, ids in (('file', [identifier]), ('log', [log_id]), ('', [identifier, log_id])):
+                    with urlopen(admin + '/cave/reports/api/reports?' + urlencode({'kind': kind})) as response:
+                        self.assertCountEqual([item['id'] for item in json.load(response)['reports']], ids)
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(admin + '/cave/reports/api/reports?kind=unknown')
+                self.assertEqual(error.exception.code, 400)
                 with self.assertRaises(HTTPError) as error:
                     request('GET', '/' + identifier)
                 self.assertEqual(error.exception.code, 404)

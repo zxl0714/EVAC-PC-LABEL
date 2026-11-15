@@ -323,12 +323,17 @@ struct Layout {
     default:return detail();
     }
   }
+  int footer_button_at(float x,float y) const;
   D2D1_RECT_F fullscreen() const {const auto r=play();return {r.left,r.top-33,r.right,r.top-5};}
   D2D1_RECT_F nickname() const {const auto right=width-margin();return {right-263,66,right-73,96};}
   D2D1_RECT_F nickname_label() const {const auto r=nickname();return {r.left-80,r.top+7,r.left-6,r.bottom};}
   D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
+int Layout::footer_button_at(float x,float y) const {
+  for(int slot:{6,7,13,4,5,9,8})if(Inside(focus_button(slot),x,y))return slot;
+  return -1;
+}
 struct CardDrag {
   size_t game{};
   D2D1_RECT_F rectangle{};
@@ -396,12 +401,16 @@ class Renderer {
     ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&brush),"Create text brush");
     target->DrawText(value.data(),UINT32(value.size()),format.Get(),rectangle,brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
   }
-  void Button(ID2D1RenderTarget* target,D2D1_RECT_F rectangle,std::wstring_view text,bool play=false,bool disabled=false) {
+  void Button(ID2D1RenderTarget* target,D2D1_RECT_F rectangle,std::wstring_view text,bool play=false,bool disabled=false,bool hovered=false) {
     play=play&&!disabled;
-    const auto background=play?0x2f5b42:(disabled?0xe7ebe5:0xffffff);
+    hovered=hovered&&!disabled;
+    auto background=disabled?0xe7ebe5:0xffffff;
+    auto outline=0xd9dfd6;
+    if(play)background=outline=hovered?0x3c7152:0x2f5b42;
+    else if(hovered) {background=0xeaf2eb;outline=0x82a18a;}
     ComPtr<ID2D1SolidColorBrush> fill,border;
     Check(target->CreateSolidColorBrush(D2D1::ColorF(background),&fill),"Create button fill");
-    Check(target->CreateSolidColorBrush(D2D1::ColorF(play?0x2f5b42:0xd9dfd6),&border),"Create button border");
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(outline),&border),"Create button border");
     const auto rounded=D2D1::RoundedRect(rectangle,8,8);target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
@@ -529,7 +538,7 @@ class Renderer {
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
             std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr,bool update_ready=false,
-            const CardDrag* drag=nullptr) {
+            const CardDrag* drag=nullptr,int button_hover=-1) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     const auto brand=Logo(target);const auto brand_size=brand->GetSize();
@@ -619,12 +628,16 @@ class Renderer {
         {margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
     const auto status=running?T(L"请先退出正在运行的游戏"):busy?T(L"正在读取／校验所选游戏…"):has_games?Status(inspection):L"";
     Text(target,status,{margin,layout.height-80,layout.play().left-18,layout.height-64},11,CanPlay(inspection)?0x356c4b:0x90754f);
-    Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!has_games||!CanPlay(inspection));
-    Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
-    Button(target,layout.file_upload(),T(L"上传文件"),false,busy||running||!has_games);
-    Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games);
-    Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"上传日志"),false,busy||running);
-    Button(target,layout.detail(),T(L"详情"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
+    Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,
+        busy||running||!has_games||!CanPlay(inspection),button_hover==8);
+    Button(target,layout.data(),T(L"游戏数据…"),false,
+        busy||running||!has_games||Catalogue()[selected].coming_soon,button_hover==6);
+    Button(target,layout.file_upload(),T(L"上传文件"),false,busy||running||!has_games,button_hover==7);
+    Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games,button_hover==13);
+    Button(target,layout.config(),T(L"配置文件"),false,false,button_hover==4);
+    Button(target,layout.logs(),T(L"上传日志"),false,busy||running,button_hover==5);
+    Button(target,layout.detail(),T(L"详情"),false,
+        busy||running||!has_games||Catalogue()[selected].coming_soon,button_hover==9);
     if ((focus>=4 && focus<10) || focus==13 || focus==14 || (focus==15 && update_ready)) {
       const auto rectangle=layout.focus_button(focus);
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
@@ -1259,6 +1272,17 @@ class App {
                     LONG(std::ceil(layout.footer()*scale))};
     InvalidateRect(hwnd,&area,FALSE);
   }
+  void SetButtonHover(int slot) {
+    if(slot==button_hover)return;
+    const auto scale=float(GetDpiForWindow(hwnd))/96;
+    for(int changed:{std::exchange(button_hover,slot),slot}) {
+      if(changed<0)continue;
+      const auto r=layout.focus_button(changed);
+      const RECT area{LONG(std::floor(r.left*scale))-1,LONG(std::floor(r.top*scale))-1,
+                      LONG(std::ceil(r.right*scale))+1,LONG(std::ceil(r.bottom*scale))+1};
+      InvalidateRect(hwnd,&area,FALSE);
+    }
+  }
   void Paint() {
     PAINTSTRUCT paint{};BeginPaint(hwnd,&paint);
     try {
@@ -1273,7 +1297,8 @@ class App {
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
       const auto drag=DragPreview();
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,override_hint,&library,ProgramReady(),drag?&*drag:nullptr);
+      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,
+          override_hint,&library,ProgramReady(),drag?&*drag:nullptr,button_hover);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -1333,7 +1358,7 @@ class App {
             info->ptMinTrackSize.y=std::min(info->ptMinTrackSize.y,(monitor.rcWork.bottom-monitor.rcWork.top)*limit/10);
           }
           return 0;}
-        case WM_SIZE:{if(first==SIZE_MINIMIZED)return 0;
+        case WM_SIZE:{app->SetButtonHover(-1);if(first==SIZE_MINIMIZED)return 0;
           const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
           if(first==SIZE_RESTORED && !IsZoomed(window) && LOWORD(second) && HIWORD(second)) {
             RECT bounds{};
@@ -1375,7 +1400,7 @@ class App {
           } else app->Click(x,y);
           return 0;}
         case WM_CAPTURECHANGED:case WM_CANCELMODE:app->CancelCardDrag();return 0;
-        case WM_ACTIVATEAPP:if(!first)app->CancelCardDrag();break;
+        case WM_ACTIVATEAPP:if(!first){app->CancelCardDrag();app->SetButtonHover(-1);}break;
         case WM_CONTEXTMENU:
           if(reinterpret_cast<HWND>(first)==window) {
             app->GameContextMenu({GET_X_LPARAM(second),GET_Y_LPARAM(second)});
@@ -1383,20 +1408,31 @@ class App {
           }
           break;
         case WM_MOUSEMOVE:{const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
+          if(!app->tracking_mouse_leave) {
+            TRACKMOUSEEVENT tracking{sizeof(tracking),TME_LEAVE,window,0};
+            app->tracking_mouse_leave=TrackMouseEvent(&tracking)!=FALSE;
+          }
           if(auto& press=app->card_press;press) {
             press->current={GET_X_LPARAM(second),GET_Y_LPARAM(second)};
             const auto dpi=GetDpiForWindow(window);
             press->dragged=press->dragged || std::abs(GET_X_LPARAM(second)-press->origin.x)>GetSystemMetricsForDpi(SM_CXDRAG,dpi) ||
                            std::abs(GET_Y_LPARAM(second)-press->origin.y)>GetSystemMetricsForDpi(SM_CYDRAG,dpi);
             if(press->dragged) {
+              app->SetButtonHover(-1);
               app->hover=-1;app->InvalidateGameList();
               SetCursor(LoadCursorW(nullptr,app->DropGameAt(x,y)?IDC_SIZEALL:IDC_NO));
               return 0;
             }
           }
+          app->SetButtonHover(app->layout.footer_button_at(x,y));
           const auto game=app->GameAt(x,y);
           const auto hover=game?int(*game):-1;
           if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}
+        case WM_MOUSELEAVE:
+          app->tracking_mouse_leave=false;
+          app->SetButtonHover(-1);
+          if(app->hover!=-1){app->hover=-1;app->InvalidateGameList();}
+          return 0;
         case WM_MOUSEWHEEL:app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
         case kUpdateScrollBar:app->UpdateScrollBar();return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
@@ -1493,6 +1529,8 @@ class App {
   std::vector<Row> rows;
   size_t selected{};
   int hover{-1};
+  int button_hover{-1};
+  bool tracking_mouse_leave{};
   int focus{};
   bool busy{};
   bool paint_recorded{};

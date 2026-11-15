@@ -234,7 +234,7 @@ scp root@8.222.80.54:/var/lib/cave-reports/<report-id>.zip .
 `https://xiaolu.life/cave/reports/` 展示留言、游戏、版本和 ZIP 下载，支持搜索及按游戏筛选。
 页面和机器接口由 HTTPS Basic Auth 保护，凭据单独保存，不放入仓库；现有匿名上传接口不变。
 分页 JSON 接口为 `/cave/reports/api/reports?limit=50&offset=0`，可选 `game` 和 `q`。
-返回的 `download_url` 是相同站点下的 ZIP 路径，使用相同认证。只读服务运行在
+返回的 `download_url` 是相同站点下的下载路径，使用相同认证。只读服务运行在
 `127.0.0.1:18094`，由独立的 `cave-report-dashboard` 单元启动，并经 nginx 认证后代理；
 原上传服务及其数据目录保持不变。systemd 和 nginx 配置模板位于 `server/deploy/`，
 其中 nginx 的密码文件需单独配置并仅赋予 nginx 读取权限。服务器管理员可通过 SSH 从
@@ -244,6 +244,7 @@ scp root@8.222.80.54:/var/lib/cave-reports/<report-id>.zip .
 
 启动器的文件上传向 `/cave/api/v1/file-reports` 发送 16 MiB 分片，单文件上限 16 GiB。
 报告服务把分片转存到 OSS 的 `player-file-reports/`，完成后确认对象大小和私有权限才返回报告编号。
-管理页面可凭编号或留言搜索并下载原文件。JSON 接口的文件报告有 `kind: "file"` 和 `name` 字段。
+`/cave/reports/uploads/` 列出已上传的文件，可按文件名、编号或留言搜索，点击文件名下载。
+自动化工具可用相同认证访问 `/cave/reports/api/reports?kind=file`，响应包含 `name`、`bytes`、`message`、`download_url` 等字段。
 
 在 `/opt/cave-reports/venv` 安装 `server/requirements-file-uploads.txt` 的依赖，并将 `file_uploads.py` 连同两个报告服务脚本部署到 `/opt/cave-reports/`。将两个 `*-oss.conf.in` 安装为对应服务的 `10-oss.conf` drop-in。OSS 凭据文件 `/etc/evac/credentials/oss-upload` 由 root 以 0600 管理，JSON 字段为 `accessKeyID` 和 `accessKeySecret`。nginx 通过 `cave-live-locations.conf.in` 代理分片上传，并通过 `cave-report-dashboard.nginx.conf.in` 流式返回文件下载。

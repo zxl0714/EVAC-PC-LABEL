@@ -578,6 +578,65 @@ void PreferenceRepaintChecks() {
   }
   Require(unexpected_dialogs==0,"Repaint checks opened a dialog");
 }
+void FooterHoverChecks() {
+  Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
+  RECT client{};GetClientRect(app.hwnd,&client);
+  App::Window(app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(client.right,client.bottom));
+  const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+  const auto move=[&](int slot) {
+    const auto r=app.layout.focus_button(slot);
+    App::Window(app.hwnd,WM_MOUSEMOVE,0,MAKELPARAM(int((r.left+r.right)/2*scale),int((r.top+r.bottom)/2*scale)));
+  };
+  const auto check_repaint=[&](size_t index,int slot) {
+    const auto r=app.layout.focus_button(slot);
+    const auto& request=paint_requests.at(index);
+    Require(request.window==app.hwnd && !request.whole && !request.erase &&
+            request.area.left==LONG(std::floor(r.left*scale))-1 && request.area.top==LONG(std::floor(r.top*scale))-1 &&
+            request.area.right==LONG(std::ceil(r.right*scale))+1 && request.area.bottom==LONG(std::ceil(r.bottom*scale))+1,
+            "Footer hover repainted outside its button");
+  };
+  app.focus=5;
+  paint_requests.clear();
+  move(6);
+  Require(app.button_hover==6 && paint_requests.size()==1,"Entering a footer button did not set hover");
+  check_repaint(0,6);
+  move(6);
+  Require(paint_requests.size()==1,"Moving inside the same button repainted it");
+  for(int slot:{7,13,4,5,9,8}) {
+    const auto previous=app.button_hover;
+    paint_requests.clear();
+    move(slot);
+    Require(app.button_hover==slot && paint_requests.size()==2,"Moving between footer buttons did not transfer hover");
+    check_repaint(0,previous);
+    check_repaint(1,slot);
+  }
+  paint_requests.clear();
+  App::Window(app.hwnd,WM_MOUSELEAVE,0,0);
+  Require(app.button_hover==-1 && app.focus==5 && paint_requests.size()==1,"Leaving the window did not clear hover independently of keyboard focus");
+  check_repaint(0,8);
+
+  app.layout={1080,900,0,true};
+  auto& inspection=app.rows[app.selected].inspection;
+  inspection.state="ready";inspection.data_state=DataState::Verified;
+  ComPtr<IWICBitmap> bitmap;
+  Check(app.renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create hover bitmap");
+  ComPtr<ID2D1RenderTarget> target;
+  Check(app.renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create hover target");
+  target->SetDpi(96,96);
+  const auto pixel=[&](int slot,int hovered,bool busy) {
+    target->BeginDraw();
+    app.renderer.Draw(target.Get(),app.layout,app.rows,app.selected,-1,busy,L"",{},false,0,{},&app.library,false,nullptr,hovered);
+    Check(target->EndDraw(),"Render button hover");
+    const auto r=app.layout.focus_button(slot);
+    WICRect sample{INT(r.left)+9,INT(r.top)+6,1,1};
+    std::array<BYTE,4> bgra{};
+    Check(bitmap->CopyPixels(&sample,4,4,bgra.data()),"Read hover color");
+    return bgra;
+  };
+  Require(pixel(4,-1,false)!=pixel(4,4,false),"Hovered secondary button did not change color");
+  Require(pixel(8,-1,false)!=pixel(8,8,false),"Hovered launch button did not change color");
+  Require(pixel(8,-1,true)==pixel(8,8,true),"Disabled launch button changed color on hover");
+}
 void InputBindingChecks() {
   using namespace cave::launcher::controls;
   const PadSnapshot idle{{0,0},{0,0},{0}},pressed{{0,1},{0,0},{0}},hat{{0,0},{0,0},{8}},axis{{0,0},{-23000,0},{0}};
@@ -775,6 +834,7 @@ void MainChecks() {
   NicknameWarningChecks();
   NicknameAlignmentChecks();
   PreferenceRepaintChecks();
+  FooterHoverChecks();
   InputBindingChecks();
   DisplayDropdownChecks();
   GameLibraryChecks();
