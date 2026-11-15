@@ -7426,8 +7426,11 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             events = [json.loads(line) for line in result.stdout.splitlines()]
             cases = [event for event in events if event['event'] == 'save_store_self_test_case']
-            self.assertEqual(len(cases), 42)
+            self.assertEqual(len(cases), 46)
             self.assertTrue(all(event['passed'] for event in cases))
+            self.assertEqual(
+                [(event['previous_blocks'], event['blocks']) for event in events if event['event'] == 'native_save_quota_grown'],
+                [(96, 97)])
 
     def test_save_sysv_mount_metadata_file_io_unmount_and_second_process_readback(self):
         with tempfile.TemporaryDirectory(prefix='kt-save-sysv-') as directory:

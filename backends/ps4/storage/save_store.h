@@ -19,6 +19,7 @@ struct Failure : std::runtime_error {
 struct Params { std::string title, subtitle, detail; std::uint32_t user{}; std::int64_t modified{}; };
 struct Entry { std::string name; Params params; std::uint64_t blocks{}, free_blocks{}; };
 enum class SortKey { Name, User, Blocks, Modified, Free = 5 };
+enum class QuotaPolicy { Fixed, GrowSaveData };
 struct OpenOptions { bool read{}, write{}, create{}, truncate{}, exclusive{}, append{}, sync{}, directory{}; };
 class Store;
 class Mount {
@@ -55,7 +56,7 @@ public:
     static void CreateRoot(const std::filesystem::path& root);
     bool HasMounts() const;
     std::shared_ptr<Mount> MountSlot(std::string_view name, bool writable, bool create, bool exclusive,
-                                   std::uint64_t blocks, bool& created);
+                                   std::uint64_t blocks, bool& created, QuotaPolicy quota = QuotaPolicy::Fixed);
     void Unmount(const std::shared_ptr<Mount>& mount);
     std::vector<Entry> Search(std::string_view pattern, SortKey key, bool descending) const;
     Entry Describe(const std::shared_ptr<Mount>& mount) const;

@@ -25,6 +25,11 @@ inline const wchar_t* LanguageLabel(Language language) {
 struct Translation {std::wstring_view key; const wchar_t* japanese; const wchar_t* english;};
 inline constexpr std::array kTranslations{
   Translation{L"上传日志",L"ログを送信",L"Upload logs"},
+  Translation{L"上传文件",L"ファイル送信",L"Upload file"},
+  Translation{L"选择文件…",L"ファイルを選択…",L"Choose file…"},
+  Translation{L"正在上传…",L"送信中…",L"Uploading…"},
+  Translation{L"正在取消上传…",L"送信を中止中…",L"Cancelling upload…"},
+  Translation{L"复制编号",L"番号をコピー",L"Copy ID"},
   Translation{L"游玩记录",L"プレイ記録",L"Play session"},
   Translation{L"问题描述（选填）",L"問題の説明（任意）",L"Describe the issue (optional)"},
   Translation{L"查看本地日志",L"ローカルログ",L"Open local logs"},
@@ -66,7 +71,7 @@ inline constexpr std::array kTranslations{
   Translation{L"文件不存在",L"ファイルがありません",L"File not found"},
   Translation{L"路径是文件夹",L"ファイルではなくフォルダーです",L"Expected a file, found a folder"},
   Translation{L"文件无法访问",L"ファイルにアクセスできません",L"File cannot be accessed"},
-  Translation{L"请重新解压程序包并替换同名文件，然后点击刷新。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。",L"プログラムパッケージを再展開して上書きし、再読込してください。ファイルが存在する場合はアクセス権や使用中のアプリを確認してください。解決しない場合はログを送信できます。",L"Extract the program package again, replace existing files, then click Refresh. If a file exists but cannot be read, check its permissions or whether another app is using it. You can upload logs if the problem continues."},
+  Translation{L"请重新解压程序包并替换同名文件，然后按 F5。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。",L"プログラムパッケージを再展開して上書きし、F5 キーを押してください。ファイルが存在する場合はアクセス権や使用中のアプリを確認してください。解決しない場合はログを送信できます。",L"Extract the program package again, replace existing files, then press F5. If a file exists but cannot be read, check its permissions or whether another app is using it. You can upload logs if the problem continues."},
   Translation{L"配置有误 · 请检查 config.ini",L"設定エラー · config.ini を確認",L"Configuration error · check config.ini"},
   Translation{L"数据路径不可用",L"データの場所を利用できません",L"Data path is unavailable"},
   Translation{L"正在接入",L"対応作業中",L"Integration in progress"},

@@ -3,7 +3,7 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/rexglue/thirdparty/inj
   message(FATAL_ERROR "Restore launcher JSON dependency: git submodule update --init -- third_party/rexglue/thirdparty/inja")
 endif()
 target_include_directories(cave_update PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/rexglue/thirdparty/inja/third_party/include")
-target_link_libraries(cave_update PUBLIC cave_common winhttp ole32 shell32)
+target_link_libraries(cave_update PUBLIC cave_common winhttp ole32 shell32 comdlg32)
 add_executable(cave_update_tests ../tests/update_check_test.cpp)
 target_link_libraries(cave_update_tests PRIVATE cave_update)
 add_test(NAME update_check COMMAND cave_update_tests)

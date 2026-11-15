@@ -191,6 +191,24 @@ public:
         strings_=Array(header_[2]).first;
     }
     Json Root() { return Value(header_[7],0); }
+    std::uint64_t StatePackCountPosition() const {
+        const auto member=[&](std::uint64_t at,std::string_view key) {
+            Require(Number(raw_,at,1)==33,"Expected a PSB object");
+            const auto [names,next]=Array(at+1);
+            const auto [offsets,base]=Array(next);
+            Require(names.size()==offsets.size(),"Invalid PSB object key extent");
+            for (std::size_t i=0;i<names.size();++i) {
+                Require(names[i]<names_.size(),"Invalid PSB member name");
+                if (names_[names[i]]==key) return Relative(base,offsets[i]);
+            }
+            throw std::runtime_error("Missing state pack member");
+        };
+        const auto array=member(member(header_[7],"root"),"_00_data");
+        Require(Number(raw_,array,1)==32,"Expected a state pack array definition");
+        const auto [entries,base]=Array(array+1);
+        Require(entries.size()==3,"Invalid state pack array definition");
+        return Relative(base,entries[2]);
+    }
 };
 
 std::size_t Count(std::string_view text,std::string_view anchor) {
@@ -357,6 +375,13 @@ Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(sourc
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {
     Require(source.size()<=kResourceLimit,"Oversized resource script");
     auto raw=Text(source); const std::string newline=raw.find("\r\n")!=raw.npos ? "\r\n" : "\n";
+    if (fix==ResourceFix::DaioujouTitleMusic) {
+        // 01.00 contains only a 107 ms title cue. Use a complete track from
+        // the same game data until the official title music in 01.04 is available.
+        Replace(raw,"::g_menu_sound.setup_bgm(\"bgm_daioujou_title\");",
+                    "::g_menu_sound.setup_bgm(\"bgm_daioujou_staffroll\");",1);
+        return Bytes(Compact(raw));
+    }
     if (fix==ResourceFix::FeveronLocalReplay || fix==ResourceFix::GareggaLocalReplay) {
         // This older viewer already uses stored author names and has no ID
         // mapper. Only its two download-cache tab gates need adaptation.
@@ -475,6 +500,78 @@ ResourceBytes EncodeReadFixes(const kt::content::ReadPatchSet& patches) {
     }
     Require(result.size()<=4*1024*1024,"Oversized read-overlay file"); return result;
 }
+namespace {
+enum class QuickSlotResource { Constants, Backup, Pause, Pack };
+
+ResourceBytes ExpandQuickSlots(std::span<const std::uint8_t> source,QuickSlotResource resource) {
+    if (resource==QuickSlotResource::Pack) {
+        Psb psb(source);
+        Require(psb.Root().at("root").at("_00_data")==Json::array({16,"struct_statedata_root",30}),
+                "Unexpected quick save pack definition");
+        const auto at=psb.StatePackCountPosition();
+        Require(Number(source,at,1)==5 && Number(source,at+1,1)==30,"Unexpected quick save count encoding");
+        ResourceBytes output(source.begin(),source.end());
+        output[at+1]=99;
+        return output;
+    }
+    auto raw=Text(source);
+    if (resource==QuickSlotResource::Constants) {
+        Replace(raw,"const STATE_SEGMENT_SIZE = 30;","const STATE_SEGMENT_SIZE = 99;",1);
+    } else if (resource==QuickSlotResource::Backup) {
+        // Tag the remembered menu position so a legacy mode*30+slot stays readable.
+        Replace(raw,"_auto_access_file_id + _id*STATE_SEGMENT_SIZE",
+                    "1000 + _auto_access_file_id + _id*STATE_SEGMENT_SIZE",1);
+    } else {
+        const auto anchor=Count(raw,"this.init_param(m_itemKey, _config_file);") ?
+            "this.init_param(m_itemKey, _config_file);" : "this.init_param(m_itemKey, \"config/pause_main.psb\");";
+        const std::string newline=raw.find("\r\n")!=raw.npos?"\r\n":"\n";
+        Replace(raw,anchor,std::string(anchor)+newline+
+            "    m_param.StateSave.subitem.form[1] = STATE_SEGMENT_SIZE - 1;"+newline+
+            "    m_param.StateLoad.subitem.form[1] = STATE_SEGMENT_SIZE - 1;",1);
+        Replace(raw,"if (sub_index / STATE_SEGMENT_SIZE == m_game_mode) {",
+            "local stride = sub_index >= 1000 ? STATE_SEGMENT_SIZE : 30;"+newline+
+            "      if (sub_index >= 1000) sub_index -= 1000;"+newline+
+            "      if (sub_index / stride == m_game_mode) {",1);
+        Replace(raw,"sub_index % STATE_SEGMENT_SIZE","sub_index % stride",2);
+    }
+    return Bytes(Compact(raw));
+}
+
+Json AddQuickSlotFixes(kt::content::ReadPatchSet& patches,const fs::path& root,std::span<const std::uint8_t> key,
+                      const Json& base,const Json& update,std::string_view title_directory) {
+    Json resources=Json::array();
+    const auto add=[&](std::string_view resource,QuickSlotResource transform) {
+        const auto name=std::string(resource);
+        const bool patched=!update.is_null() && update.at("file_info").contains(name);
+        const auto& extent=(patched?update:base).at("file_info").at(name);
+        Require(extent.is_array() && extent.size()==2,"Invalid quick save resource entry");
+        for (const auto& n:extent) Require(n.is_number_integer() &&
+            (n.is_number_unsigned()?n.get<std::uint64_t>()<=INT64_MAX:n.get<std::int64_t>()>=0),
+            "Invalid quick save resource extent");
+        const auto offset=extent[0].get<std::uint64_t>(),size=extent[1].get<std::uint64_t>();
+        const auto archive=patched?"ps4data_patch_body.bin":"ps4data_body.bin";
+        const auto path=DataChild(root,archive);
+        const auto file_size=fs::file_size(path);
+        const auto packed=ReadRange(path,file_size,offset,size);
+        const auto filename=resource.substr(resource.rfind('/')+1);
+        const auto source=UnwrapResource(packed,key,filename);
+        const auto fixed=ExpandQuickSlots(source,transform);
+        const auto encoded=WrapResource(fixed,key,filename,static_cast<std::size_t>(size));
+        const auto replacement=ByteSpan(encoded);
+        patches.entries.push_back({archive,file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),
+                                   {replacement.begin(),replacement.end()}});
+        resources.push_back({{"resource",resource},{"archive",archive},{"offset",offset},{"bytes",size}});
+    };
+    add("system/script/const.nut.m",QuickSlotResource::Constants);
+    add("system/script/backup_statedata.nut.m",QuickSlotResource::Backup);
+    add("system/script/pause_main.nut.m",QuickSlotResource::Pause);
+    add("system/config/struct_statedata_pack.psb.m",QuickSlotResource::Pack);
+    if (!title_directory.empty())
+        add(std::string(title_directory)+"/config/title_struct_statedata_pack.psb.m",QuickSlotResource::Pack);
+    return resources;
+}
+}
+
 PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bool community_offline) {
     community_replay|=community_offline;
     const auto root=fs::canonical(data);
@@ -491,6 +588,7 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
         indices.emplace_back(file,Hash(bytes)); return ParseResourceIndex(UnwrapResource(bytes,key,name));
     };
     const auto base=index("ps4data_info.psb.m","ps4data_info.psb.m");
+    const auto patch=updated?index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m"):Json{};
     kt::content::ReadPatchSet patches{"CUSA09062",std::string(version->version),{}};
     Json report{{"format",1},{"fix","direct-menu-music-autosave"},{"title_id","CUSA09062"},{"app_version",version->version},
         {"executable_sha256",raw_hash},{"original_files_modified",false}};
@@ -518,7 +616,6 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     if (community_replay) report["community_replay_batch"]=fix(base,"system/script/ranking_manager.nut.m",
         "ps4data_body.bin","ps4data_body.bin","8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43",ResourceFix::ReplayBatch);
     if (update103) {
-        const auto patch=index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m");
         report["patch_music_autosave"]=fix(patch,"5000/script/title_mode_direct_menu.nut.m",
             "ps4data_patch_body.bin","ps4data_patch_body.bin",
             "054ead29b630f1547da37789fd84bdef964f73dfb9aab53ab7f71ced6497cf76",ResourceFix::MusicAutosave);
@@ -527,15 +624,15 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
             "c80518d21c0185c34bd06e8fd2ecae5735c2d11a11cbf2aeaa31b3575eec98f1",ResourceFix::ReplayBatch);
     }
     if (community_offline) {
-        const auto patch=updated?index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m"):base;
         const auto archive=updated?"ps4data_patch_body.bin":"ps4data_body.bin";
-        auto offline=fix(patch,"5000/script/title_standalone.nut.m",archive,archive,
+        auto offline=fix(updated?patch:base,"5000/script/title_standalone.nut.m",archive,archive,
             update103?"395c82f79f1d5557c42531c7647b3bf55f067e17fb530dab24f94ad83b536269":
             updated?"889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d":
                     "63b6a45d85e49936665e82e24f188e64fca4e60bc9bc850e71979ca2b9ef6bc8",ResourceFix::LocalRoundGate);
         offline.update(Json{{"layer",updated?"patch":"base"},{"scope","eligible-post-game-submission"},{"requires_native_rounds",true}});
         report["community_local_rounds"]=std::move(offline);
     }
+    report["quick_save_resources"]=AddQuickSlotFixes(patches,root,key,base,patch,"5000");
     auto output=EncodeReadFixes(patches);
     Require(Hash(ReadFile(executable,512*1024*1024))==raw_hash,"Game executable changed during fix preparation");
     for (const auto& [file,hash]:indices) Require(Hash(ReadFile(file,kResourceLimit))==hash,"Resource index changed during preparation");
@@ -603,14 +700,25 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
             ResourceFix::CommunityReplayPeer,"initialized-community-provider");
         fix("1100/script/title_replay_view.nut.m","31fb632273f6521ac2eb483e5e1040466a3630f2c4b4e685a0ed29d23334ec88",
             ResourceFix::CommunityLocalReplay,"local-community-replay-cache");
+        if (base) {
+            fix("1100/script/title_mode_title.nut.m","9ac52e0cb370e7eee290b499cdd3d3d3150ef64fec2d694f973a9e34ef75b75a",
+                ResourceFix::DaioujouTitleMusic,"base-title-music");
+        }
+    }
+    if (esprade || feveron || garegga) {
+        auto quick_saves=AddQuickSlotFixes(patches,root,key,index,patch_index,esprade?"102":"");
+        for (auto& resource:quick_saves) {
+            resource["scope"]="quick-save-slots";
+            resources.push_back(std::move(resource));
+        }
     }
     auto output=EncodeReadFixes(patches);
     Require(Hash(ReadFile(executable,512*1024*1024))==expected_executable &&
         Hash(ReadFile(index_path,kResourceLimit))==Hash(index_raw) &&
         (base || Hash(ReadFile(patch_index_path,kResourceLimit))==Hash(patch_index_raw)),"Community resources changed during preparation");
     for (const auto& patch:patches.entries) Require(kt::content::ReadPatchHash(ByteSpan(
-        ReadRange(body,file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
-        "Original replay resource changed during preparation");
+        ReadRange(DataChild(root,patch.path),patch.file_size,patch.offset,patch.replacement.size())))==patch.original_sha256,
+        "Original resource changed during preparation");
     Json report{{"format",1},{"fix",garegga?"garegga-community-replays":feveron?"feveron-community-replays":esprade?"esprade-community-replays":"daioujou-community-replays"},{"title_id",title},{"app_version",version},
         {"executable_sha256",expected_executable},{"resources",std::move(resources)},
         {"original_files_modified",false},{"local_cache_requires_network",false},{"read_overlay_sha256",Hash(output)}};

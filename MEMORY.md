@@ -224,6 +224,11 @@ Xbox 360 存档录像的 v0.9.5 测试副本、菜单步骤和结束证据集中
 L1=Add Credit（键盘 A），Triangle=Bomber（V），Circle=Full-Auto（X），Square=Shot（C），
 R2=Restart（W）。不能套用大往生的 V 投币；默认 Player2 配置也不证明 Player1 配置。
 此规则仅针对该私有复制存档，普通用户可能是 Default；实际测试先核对原生菜单。
+
+ESP Ra.De. 01.04 的私有复制存档也用了 Player1 Custom，Controller Setting 确认
+R2=Credit（W），Square=Shot（C）。右侧 Player2 的 Triangle=Credit 不适用于这份 Player1 存档。
+空战之路韩版这份存档的控制信息为 L1=Coin（A）、Square=Shot（C），菜单用 Circle（X）确认。
+弹铳美版的菜单确认是 Cross（Z）。投币、开始后以 Square（C）完成选机与其后选择，进入实战才启用 Quick Save。
 Sky 动作后若截图仍旧，先 `include_screenshot=false, include_text=true` 刷新，再等约200ms
 抓图；两个 include 都是false会被接口拒绝，发生后先重新观察，不重复发送按键。
 

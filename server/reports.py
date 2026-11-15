@@ -10,6 +10,11 @@ import threading
 import uuid
 import zipfile
 
+if __package__:
+    from . import file_uploads
+else:
+    import file_uploads
+
 MAX_ZIP = 32 * 1024 * 1024
 MAX_TEXT = 128 * 1024 * 1024
 GAMES = {'futari', 'espgaluda2', 'sdoj', 'guwange', 'ketsui', 'daioujou',
@@ -92,6 +97,9 @@ class Handler(BaseHTTPRequestHandler):
                    {'service': 'evac-reports'} if self.path.endswith('/health') else {'error': 'not found'})
 
     def do_POST(self):
+        if self.path == file_uploads.ROUTE or self.path.startswith(file_uploads.ROUTE + '/'):
+            self.file_request('POST')
+            return
         if self.path != '/cave/api/v1/reports':
             self.reply(404, {'error': 'not found'})
             return
@@ -112,11 +120,34 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             self.reply(503, {'error': 'Report storage unavailable'})
 
+    def do_PUT(self):
+        self.file_request('PUT')
 
-def serve(directory, port=18093):
+    def do_DELETE(self):
+        self.file_request('DELETE')
+
+    def file_request(self, method):
+        files = self.server.file_uploads
+        if files is None or not (self.path == file_uploads.ROUTE or self.path.startswith(file_uploads.ROUTE + '/')):
+            self.reply(404, {'error': 'not found'})
+            return
+        try:
+            value = files.route(self, method)
+        except file_uploads.UploadError as error:
+            self.reply(error.status, {'error': str(error)})
+        except (ValueError, UnicodeError, TypeError):
+            self.reply(400, {'error': 'Invalid upload request'})
+        except (OSError, files.storage.oss_error):
+            self.reply(503, {'error': 'File storage unavailable. Retry the upload.'})
+        else:
+            self.reply(201 if 'id' in value else 200, value)
+
+
+def serve(directory, port=18093, storage=None):
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     server.directory = Path(directory)
     server.store_lock = threading.Lock()
+    server.file_uploads = file_uploads.Uploads(directory, storage, GAMES) if storage is not None else None
     return server
 
 
@@ -125,9 +156,11 @@ if __name__ == '__main__':
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--port', type=int, default=18093)
     parser.add_argument('--list', action='store_true')
+    file_uploads.add_oss_arguments(parser)
     args = parser.parse_args()
     if args.list:
         for path in sorted(args.directory.glob('*.json'), reverse=True):
             print(path.read_text(encoding='utf-8'))
     else:
-        serve(args.directory, args.port).serve_forever()
+        storage = file_uploads.oss_from_args(args) if args.oss_bucket else None
+        serve(args.directory, args.port, storage).serve_forever()

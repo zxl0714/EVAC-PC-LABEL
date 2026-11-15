@@ -4,12 +4,18 @@
 #include "common/crash_details.h"
 #include <winhttp.h>
 #include <commctrl.h>
+#include <commdlg.h>
 #include <objbase.h>
 #include <shellapi.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
+#include <cstring>
+#include <cwctype>
 #include <fstream>
+#include <memory>
 #include <set>
 #include <map>
 #include <mutex>
@@ -19,6 +25,7 @@ namespace cave::launcher::reports {
 namespace {
 using Json=nlohmann::json;
 constexpr uint64_t Limit=128ull*1024*1024,ZipLimit=32ull*1024*1024;
+constexpr uint64_t FileLimit=16ull*1024*1024*1024;
 bool Plain(const fs::path& path) {
   const auto flags=GetFileAttributesW(path.c_str());
   return flags!=INVALID_FILE_ATTRIBUTES && !(flags&FILE_ATTRIBUTE_REPARSE_POINT);
@@ -52,7 +59,78 @@ struct Internet {
   HINTERNET value{};
   ~Internet(){if(value)WinHttpCloseHandle(value);}
 };
-void Check(BOOL okay){if(!okay)throw std::runtime_error("Network request failed ("+std::to_string(GetLastError())+")");}
+struct RequestError:std::runtime_error {
+  RequestError(std::string message,bool canRetry):std::runtime_error(std::move(message)),retryable(canRetry){}
+  bool retryable;
+};
+void Check(BOOL okay){if(!okay)throw RequestError("Network request failed ("+std::to_string(GetLastError())+")",true);}
+
+class ReportClient {
+public:
+  ReportClient(std::string endpoint,std::string_view route) {
+    while(endpoint.ends_with('/'))endpoint.pop_back();
+    const auto address=FromUtf8(endpoint+std::string(route)).wstring();
+    URL_COMPONENTS url{};url.dwStructSize=sizeof(url);
+    url.dwHostNameLength=url.dwUrlPathLength=url.dwExtraInfoLength=DWORD(-1);
+    url.dwUserNameLength=url.dwPasswordLength=DWORD(-1);
+    if(!WinHttpCrackUrl(address.c_str(),DWORD(address.size()),0,&url) ||
+       (url.nScheme!=INTERNET_SCHEME_HTTPS && url.nScheme!=INTERNET_SCHEME_HTTP) || url.dwExtraInfoLength || url.dwUserNameLength)
+      throw std::runtime_error("Invalid report server address");
+    const std::wstring host(url.lpszHostName,url.dwHostNameLength);
+    path_.assign(url.lpszUrlPath,url.dwUrlPathLength);
+    https_=url.nScheme==INTERNET_SCHEME_HTTPS;
+    if(!https_ && host!=L"127.0.0.1" && host!=L"localhost")throw std::runtime_error("Report server requires HTTPS");
+    session_.value=WinHttpOpen(L"EVAC-PC-LABEL-reports/1",WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,nullptr,nullptr,0);
+    Check(session_.value!=nullptr);
+    const auto timeout=route=="/file-reports"?120000:30000;
+    Check(WinHttpSetTimeouts(session_.value,5000,5000,timeout,timeout));
+    connection_.value=WinHttpConnect(session_.value,host.c_str(),url.nPort,0);
+    Check(connection_.value!=nullptr);
+  }
+
+  Json Request(const wchar_t* method,std::wstring_view suffix,std::wstring_view headers,std::string_view body,DWORD expected) {
+    const auto path=path_+std::wstring(suffix);
+    Internet request{WinHttpOpenRequest(connection_.value,method,path.c_str(),nullptr,WINHTTP_NO_REFERER,
+                                       WINHTTP_DEFAULT_ACCEPT_TYPES,https_?WINHTTP_FLAG_SECURE:0)};
+    Check(request.value!=nullptr);
+    DWORD redirects=WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
+    Check(WinHttpSetOption(request.value,WINHTTP_OPTION_REDIRECT_POLICY,&redirects,sizeof(redirects)));
+    DWORD autologon=WINHTTP_AUTOLOGON_SECURITY_LEVEL_HIGH;
+    Check(WinHttpSetOption(request.value,WINHTTP_OPTION_AUTOLOGON_POLICY,&autologon,sizeof(autologon)));
+    const auto len=DWORD(body.size());
+    Check(WinHttpSendRequest(request.value,headers.data(),DWORD(headers.size()),
+                             len?const_cast<char*>(body.data()):nullptr,len,len,0));
+    Check(WinHttpReceiveResponse(request.value,nullptr));
+    DWORD status{},size=sizeof(status);
+    Check(WinHttpQueryHeaders(request.value,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,nullptr,&status,&size,nullptr));
+    if(status!=expected)throw RequestError("Upload failed (HTTP "+std::to_string(status)+")",status==429 || status>=500);
+    std::string response;std::array<char,4096> buffer{};
+    for(DWORD read{};;) {
+      Check(WinHttpReadData(request.value,buffer.data(),DWORD(buffer.size()),&read));
+      if(!read)break;
+      response.append(buffer.data(),read);
+      if(response.size()>16384)throw std::runtime_error("Invalid report response");
+    }
+    return Json::parse(response);
+  }
+
+private:
+  Internet session_,connection_;
+  std::wstring path_;
+  bool https_{};
+};
+
+std::string Receipt(const Json& response) {
+  const auto id=response.at("id").get<std::string>();
+  if(id.empty() || id.size()>80 || id.find_first_not_of("0123456789abcdefghijklmnopqrstuvwxyz-")!=std::string::npos)
+    throw std::runtime_error("Invalid report ID");
+  return id;
+}
+
+std::string Version(const fs::path& root) {
+  try {return Json::parse(Read(root/L"release.json",128*1024)).at("version").get<std::string>();}
+  catch(const std::exception&){return "development";}
+}
 }
 
 void RecordRuntimeFailure(const fs::path& root, std::string_view game) {
@@ -168,8 +246,7 @@ fs::path Package(const fs::path& root,const Session& session,std::string_view me
   Write(stage/L"logs"/L"process-at-upload.txt",process_state);
   const auto settings=ResolveSharedSettings(Ini::Load(ConfigPath(root)));
   Json meta{{"schema",1},{"game",session.game},{"run",Utf8(session.directory.filename())},
-            {"nickname",settings.nickname},{"message",message},{"files",count},{"bytes",bytes}};
-  try {meta["version"]=Json::parse(Read(root/L"release.json",128*1024)).at("version");}catch(...){meta["version"]="development";}
+            {"nickname",settings.nickname},{"message",message},{"files",count},{"bytes",bytes},{"version",Version(root)}};
   Write(stage/L"report.json",meta.dump(2));
   const auto archive=output/L"report.zip";
   std::array<wchar_t,MAX_PATH> system{};if(!GetSystemDirectoryW(system.data(),DWORD(system.size())))throw std::runtime_error("Cannot locate Windows tar");
@@ -188,58 +265,138 @@ fs::path Package(const fs::path& root,const Session& session,std::string_view me
 }
 
 std::string Upload(std::string endpoint,const fs::path& archive) {
-  while(endpoint.ends_with('/'))endpoint.pop_back();
-  const auto address=FromUtf8(endpoint+"/reports").wstring();URL_COMPONENTS url{};url.dwStructSize=sizeof(url);
-  url.dwHostNameLength=url.dwUrlPathLength=url.dwExtraInfoLength=DWORD(-1);
-  url.dwUserNameLength=url.dwPasswordLength=DWORD(-1);
-  if(!WinHttpCrackUrl(address.c_str(),DWORD(address.size()),0,&url) ||
-     (url.nScheme!=INTERNET_SCHEME_HTTPS && url.nScheme!=INTERNET_SCHEME_HTTP) || url.dwExtraInfoLength || url.dwUserNameLength)
-    throw std::runtime_error("Invalid report server address");
-  const std::wstring host(url.lpszHostName,url.dwHostNameLength),path(url.lpszUrlPath,url.dwUrlPathLength);
-  if(url.nScheme==INTERNET_SCHEME_HTTP && host!=L"127.0.0.1" && host!=L"localhost")throw std::runtime_error("Report server requires HTTPS");
+  ReportClient client(std::move(endpoint),"/reports");
   const auto body=Read(archive,ZipLimit);
-  Internet session{WinHttpOpen(L"EVAC-PC-LABEL-reports/1",WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,nullptr,nullptr,0)};
-  if(!session.value)Check(FALSE);
-  Check(WinHttpSetTimeouts(session.value,5000,5000,30000,30000));
-  Internet connection{WinHttpConnect(session.value,host.c_str(),url.nPort,0)};
-  Internet request{WinHttpOpenRequest(connection.value,L"POST",path.c_str(),nullptr,WINHTTP_NO_REFERER,WINHTTP_DEFAULT_ACCEPT_TYPES,
-                                    url.nScheme==INTERNET_SCHEME_HTTPS?WINHTTP_FLAG_SECURE:0)};
-  if(!connection.value || !request.value)Check(FALSE);
-  DWORD redirects=WINHTTP_OPTION_REDIRECT_POLICY_NEVER;Check(WinHttpSetOption(request.value,WINHTTP_OPTION_REDIRECT_POLICY,&redirects,sizeof(redirects)));
-  DWORD autologon=WINHTTP_AUTOLOGON_SECURITY_LEVEL_HIGH;Check(WinHttpSetOption(request.value,WINHTTP_OPTION_AUTOLOGON_POLICY,&autologon,sizeof(autologon)));
-  Check(WinHttpSendRequest(request.value,L"Content-Type: application/zip\r\n",DWORD(-1),const_cast<char*>(body.data()),DWORD(body.size()),DWORD(body.size()),0));
-  Check(WinHttpReceiveResponse(request.value,nullptr));DWORD status{},size=sizeof(status);
-  Check(WinHttpQueryHeaders(request.value,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,nullptr,&status,&size,nullptr));
-  std::string response;std::array<char,4096> buffer{};DWORD read{};
-  while(WinHttpReadData(request.value,buffer.data(),DWORD(buffer.size()),&read) && read) {
-    response.append(buffer.data(),read);if(response.size()>16384)throw std::runtime_error("Invalid report response");
-  }
-  if(status!=201)throw std::runtime_error("Upload failed (HTTP "+std::to_string(status)+")");
-  const auto id=Json::parse(response).at("id").get<std::string>();
-  if(id.empty() || id.size()>80 || id.find_first_not_of("0123456789abcdefghijklmnopqrstuvwxyz-")!=std::string::npos)
-    throw std::runtime_error("Invalid report ID");
-  return id;
+  return Receipt(client.Request(L"POST",L"",L"Content-Type: application/zip\r\n",body,201));
 }
 
 namespace {
-constexpr UINT Finished=WM_APP+41;
+constexpr UINT Finished=WM_APP+41,Progress=WM_APP+42;
+
+struct FileUpload {
+  fs::path file;
+  fs::file_time_type modified;
+  std::wstring authorization;
+  std::string endpoint,metadata;
+  uint64_t bytes{},sent{},partSize{};
+
+  FileUpload(const fs::path& root,std::string_view game,const fs::path& path,std::string_view note)
+      :file(path),modified(fs::last_write_time(path)),bytes(fs::file_size(path)) {
+    if(!bytes || bytes>FileLimit)throw std::runtime_error("Select a file between 1 byte and 16 GiB");
+    if(note.size()>8000 || !ValidUtf8(note))throw std::runtime_error("Message is too long");
+    metadata=Json{{"game",game},{"version",Version(root)},{"name",Utf8(file.filename())},{"message",note},{"bytes",bytes}}.dump();
+    endpoint=ResolveSharedSettings(Ini::Load(ConfigPath(root))).endpoint;
+    GUID guid{};
+    if(FAILED(CoCreateGuid(&guid)))throw std::runtime_error("Cannot create upload ID");
+    wchar_t token[40]{};StringFromGUID2(guid,token,40);
+    authorization=L"Authorization: Bearer ";
+    for(const auto ch:std::wstring_view(token+1,36))if(ch!=L'-')authorization+=static_cast<wchar_t>(towlower(ch));
+    authorization+=L"\r\n";
+  }
+
+  std::string Run(const std::atomic_bool& cancel,const std::function<void(uint64_t,uint64_t)>& progress) {
+    ReportClient client(endpoint,"/file-reports");
+    const auto request=[&](const wchar_t* method,std::wstring_view suffix,std::wstring_view type,std::string_view body,DWORD status) {
+      for(unsigned attempt=0;;++attempt) {
+        if(cancel.load())return Json{};
+        try {return client.Request(method,suffix,authorization+std::wstring(type),body,status);}
+        catch(const RequestError& error) {
+          if(!error.retryable || attempt==2)throw;
+          std::this_thread::sleep_for(std::chrono::milliseconds(500*(attempt+1)));
+        }
+      }
+    };
+    const auto finishCancelled=[&] {
+      try {client.Request(L"DELETE",L"",authorization,{},200);}catch(const std::exception&){}
+      return std::string{};
+    };
+    if(fs::file_size(file)!=bytes || fs::last_write_time(file)!=modified)throw std::runtime_error("The selected file changed. Select it again.");
+    std::ifstream input(file,std::ios::binary);
+    if(!input)throw std::runtime_error("Cannot read the selected file");
+    if(!partSize) {
+      const auto reply=request(L"POST",L"",L"Content-Type: application/json\r\n",metadata,200);
+      if(cancel.load())return finishCancelled();
+      const auto requested=reply.at("part_size").get<uint64_t>();
+      if(requested<1024*1024 || requested>32*1024*1024)throw std::runtime_error("Invalid upload part size");
+      partSize=requested;
+    }
+    input.seekg(std::streamoff(sent));
+    std::string body(static_cast<size_t>(partSize),'\0');
+    progress(sent,bytes);
+    while(sent<bytes && !cancel.load()) {
+      const auto read=static_cast<size_t>((std::min)(partSize,bytes-sent));
+      if(!input.read(body.data(),static_cast<std::streamsize>(read)))throw std::runtime_error("Cannot read the selected file");
+      const auto part=sent/partSize+1;
+      const auto reply=request(L"PUT",L"/"+std::to_wstring(part),L"Content-Type: application/octet-stream\r\n",std::string_view(body).substr(0,read),200);
+      if(cancel.load())break;
+      if(reply.at("part").get<uint64_t>()!=part)throw std::runtime_error("Invalid upload part receipt");
+      sent+=read;
+      progress(sent,bytes);
+    }
+    if(cancel.load())return finishCancelled();
+    const auto reply=request(L"POST",L"/complete",L"",{},201);
+    if(cancel.load() && reply.is_null())return finishCancelled();
+    return Receipt(reply);
+  }
+};
 struct Dialog {
   HWND hwnd{},combo{},edit{},status{},send{},close{};fs::path root;
+  HWND browse{};fs::path selectedFile;std::string game;
   Language language;std::vector<Session> sessions;std::thread worker;
+  std::unique_ptr<FileUpload> fileUpload;std::atomic_bool cancel{false};
   std::string result,error;bool uploading=false,succeeded=false;
   const wchar_t* T(std::wstring_view key)const{return Translate(language,key);}
+  bool Files() const{return !game.empty();}
+  const wchar_t* Title() const{return T(Files()?L"上传文件":L"上传日志");}
+  void Browse() {
+    std::array<wchar_t,32768> name{};
+    auto directory=Resolve(root,Ini::Load(ConfigPath(root)).DataDirectory(FindGame(game))).wstring();
+    OPENFILENAMEW picker{};
+    picker.lStructSize=sizeof(picker);picker.hwndOwner=hwnd;
+    picker.lpstrFile=name.data();picker.nMaxFile=DWORD(name.size());picker.lpstrInitialDir=directory.c_str();
+    picker.Flags=OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST|OFN_NOCHANGEDIR;
+    if(!GetOpenFileNameW(&picker))return;
+    selectedFile=fs::path(name.data());fileUpload.reset();
+    SetWindowTextW(combo,selectedFile.c_str());SetWindowTextW(status,L"");
+    EnableWindow(edit,TRUE);EnableWindow(send,TRUE);
+  }
+  void CopyReceipt() {
+    const auto id=FromUtf8(result).wstring();
+    if(!OpenClipboard(hwnd))throw std::runtime_error("Cannot open clipboard");
+    const auto bytes=(id.size()+1)*sizeof(wchar_t);
+    const auto storage=GlobalAlloc(GMEM_MOVEABLE,bytes);
+    const auto data=storage?GlobalLock(storage):nullptr;
+    if(data){std::memcpy(data,id.c_str(),bytes);GlobalUnlock(storage);}
+    const bool copied=data && EmptyClipboard() && SetClipboardData(CF_UNICODETEXT,storage);
+    CloseClipboard();
+    if(!copied){if(storage)GlobalFree(storage);throw std::runtime_error("Cannot copy report ID");}
+  }
   void Start() {
-    const auto selected=SendMessageW(combo,CB_GETCURSEL,0,0);if(selected<0)return;
+    const auto selected=Files()?0:SendMessageW(combo,CB_GETCURSEL,0,0);
+    if(selected<0 || (Files() && selectedFile.empty()))return;
     std::wstring message(GetWindowTextLengthW(edit)+1,L'\0');GetWindowTextW(edit,message.data(),int(message.size()));message.resize(wcslen(message.c_str()));
+    if(Files() && !fileUpload)fileUpload=std::make_unique<FileUpload>(root,game,selectedFile,Utf8(message));
     if(worker.joinable())worker.join();uploading=true;
-    EnableWindow(send,FALSE);EnableWindow(close,FALSE);EnableWindow(combo,FALSE);EnableWindow(edit,FALSE);
-    SetWindowTextW(status,T(L"正在打包并上传…"));
+    EnableWindow(send,FALSE);EnableWindow(close,Files());EnableWindow(combo,FALSE);EnableWindow(edit,FALSE);
+    if(browse)EnableWindow(browse,FALSE);
+    SetWindowTextW(status,T(Files()?L"正在上传…":L"正在打包并上传…"));
     worker=std::thread([this,selected,message=std::move(message)] {
-      try {const auto archive=Package(root,sessions.at(size_t(selected)),Utf8(message));
-        result=Upload(ResolveSharedSettings(Ini::Load(ConfigPath(root))).endpoint,archive);
+      try {
+        if(Files())result=fileUpload->Run(cancel,[this](uint64_t sent,uint64_t total){PostMessageW(hwnd,Progress,WPARAM(sent*100/total),0);});
+        else {
+          const auto archive=Package(root,sessions.at(size_t(selected)),Utf8(message));
+          result=Upload(ResolveSharedSettings(Ini::Load(ConfigPath(root))).endpoint,archive);
+        }
       }catch(const std::exception& e){error=e.what();}
       PostMessageW(hwnd,Finished,0,0);
     });
+  }
+  void Close() {
+    if(!uploading)DestroyWindow(hwnd);
+    else if(Files()) {
+      cancel.store(true);EnableWindow(close,FALSE);
+      SetWindowTextW(status,T(L"正在取消上传…"));
+    }
   }
   static LRESULT CALLBACK Proc(HWND window,UINT message,WPARAM w,LPARAM l) {
     auto* self=reinterpret_cast<Dialog*>(GetWindowLongPtrW(window,GWLP_USERDATA));
@@ -247,38 +404,59 @@ struct Dialog {
     if(!self)return DefWindowProcW(window,message,w,l);
     if(message==WM_CTLCOLORSTATIC){SetBkMode(reinterpret_cast<HDC>(w),TRANSPARENT);return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_WINDOW));}
     if(message==WM_COMMAND) {
-      if(LOWORD(w)==IDOK){if(self->succeeded)DestroyWindow(window);else self->Start();return 0;}
-      if(LOWORD(w)==IDCANCEL){if(!self->uploading)DestroyWindow(window);return 0;}
-      if(LOWORD(w)==103){const auto i=SendMessageW(self->combo,CB_GETCURSEL,0,0);if(i>=0)ShellExecuteW(window,L"open",self->sessions[size_t(i)].directory.c_str(),nullptr,nullptr,SW_SHOWNORMAL);return 0;}
+      try {
+        if(LOWORD(w)==IDOK) {
+          if(self->succeeded) {if(self->Files())self->CopyReceipt();else DestroyWindow(window);}
+          else self->Start();
+          return 0;
+        }
+        if(LOWORD(w)==IDCANCEL){self->Close();return 0;}
+        if(LOWORD(w)==103) {
+          if(self->Files())self->Browse();
+          else {const auto i=SendMessageW(self->combo,CB_GETCURSEL,0,0);if(i>=0)ShellExecuteW(window,L"open",self->sessions[size_t(i)].directory.c_str(),nullptr,nullptr,SW_SHOWNORMAL);}
+          return 0;
+        }
+      } catch(const std::exception& error){MessageBoxW(window,FromUtf8(error.what()).c_str(),self->Title(),MB_OK|MB_ICONWARNING);return 0;}
+    }
+    if(message==Progress) {
+      if(!self->cancel.load())SetWindowTextW(self->status,(std::wstring(self->T(L"正在上传…"))+L" "+std::to_wstring(w)+L"%").c_str());
+      return 0;
     }
     if(message==Finished) {
       if(self->worker.joinable())self->worker.join();self->uploading=false;
+      if(self->cancel.load() && self->result.empty()){DestroyWindow(window);return 0;}
       EnableWindow(self->close,TRUE);EnableWindow(self->send,TRUE);
       if(self->error.empty()) {
-        self->succeeded=true;SetWindowTextW(self->send,self->T(L"关闭"));
+        self->succeeded=true;SetWindowTextW(self->send,self->T(self->Files()?L"复制编号":L"关闭"));
+        if(self->Files())SetWindowTextW(self->close,self->T(L"关闭"));
         SetWindowTextW(self->status,(std::wstring(self->T(L"已上传，编号："))+FromUtf8(self->result).wstring()).c_str());
       } else {
-        EnableWindow(self->combo,TRUE);EnableWindow(self->edit,TRUE);
+        EnableWindow(self->combo,TRUE);EnableWindow(self->edit,!self->Files());
+        if(self->browse)EnableWindow(self->browse,TRUE);
         SetWindowTextW(self->status,self->T(L"上传失败，可重试"));
-        MessageBoxW(window,FromUtf8(self->error).c_str(),self->T(L"上传日志"),MB_OK|MB_ICONWARNING);self->error.clear();
+        MessageBoxW(window,FromUtf8(self->error).c_str(),self->Title(),MB_OK|MB_ICONWARNING);self->error.clear();
       }
       return 0;
     }
-    if(message==WM_CLOSE){if(!self->uploading)DestroyWindow(window);return 0;}
+    if(message==WM_CLOSE){self->Close();return 0;}
     return DefWindowProcW(window,message,w,l);
   }
 };
 }
 
-void Show(HWND owner,const fs::path& root,Language language,std::string_view preferred_game) {
-  Dialog dialog;dialog.root=root;dialog.language=language;dialog.sessions=Recent(root);
-  if(dialog.sessions.empty()){MessageBoxW(owner,dialog.T(L"还没有游玩日志"),dialog.T(L"上传日志"),MB_OK);return;}
+static void ShowDialog(HWND owner,const fs::path& root,Language language,std::string_view game,bool files) {
+  Dialog dialog;dialog.root=root;dialog.language=language;
+  if(files)dialog.game=game;
+  else {
+    dialog.sessions=Recent(root);
+    if(dialog.sessions.empty()){MessageBoxW(owner,dialog.T(L"还没有游玩日志"),dialog.Title(),MB_OK);return;}
+  }
   const auto instance=GetModuleHandleW(nullptr);
   WNDCLASSW wc{};wc.lpfnWndProc=Dialog::Proc;wc.hInstance=instance;wc.lpszClassName=L"EvacReportDialog";
   wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1);RegisterClassW(&wc);
   const UINT dpi=GetDpiForWindow(owner);const auto scale=[&](int x){return MulDiv(x,int(dpi),96);};
   RECT parent{};GetWindowRect(owner,&parent);
-  const auto window=CreateWindowExW(WS_EX_DLGMODALFRAME,wc.lpszClassName,dialog.T(L"上传日志"),
+  const auto window=CreateWindowExW(WS_EX_DLGMODALFRAME,wc.lpszClassName,dialog.Title(),
       WS_CAPTION|WS_SYSMENU,parent.left+scale(35),parent.top+scale(80),scale(570),scale(350),owner,nullptr,instance,&dialog);
   if(!window)throw std::runtime_error("Cannot create upload dialog");
   const auto font=CreateFontW(-scale(14),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,0,0,L"Segoe UI");
@@ -287,23 +465,31 @@ void Show(HWND owner,const fs::path& root,Language language,std::string_view pre
        WS_CHILD|WS_VISIBLE|style,scale(x),scale(y),scale(width),scale(height),window,reinterpret_cast<HMENU>(INT_PTR(id)),instance,nullptr);
     SendMessageW(control,WM_SETFONT,WPARAM(font),TRUE);return control;
   };
-  add(L"STATIC",dialog.T(L"游玩记录"),0,20,16,500,20,0);
-  dialog.combo=add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,20,40,514,220,101);
-  size_t initial=0;
-  for(size_t i=0;i<dialog.sessions.size();++i) {
-    const auto& s=dialog.sessions[i];const auto label=SessionLabel(s);
-    SendMessageW(dialog.combo,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label.c_str()));
-    if(!preferred_game.empty() && s.game==preferred_game){initial=i;preferred_game={};}
+  if(files) {
+    const auto label=FromUtf8(FindGame(game).DisplayName()).wstring();
+    add(L"STATIC",label.c_str(),0,20,16,500,20,0);
+    dialog.combo=add(L"EDIT",L"",ES_READONLY|ES_AUTOHSCROLL,20,40,406,28,101);
+    dialog.browse=add(L"BUTTON",dialog.T(L"选择文件…"),WS_TABSTOP,434,40,100,28,103);
+  } else {
+    add(L"STATIC",dialog.T(L"游玩记录"),0,20,16,500,20,0);
+    dialog.combo=add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,20,40,514,220,101);
+    size_t initial=0;
+    for(size_t i=0;i<dialog.sessions.size();++i) {
+      const auto& s=dialog.sessions[i];const auto label=SessionLabel(s);
+      SendMessageW(dialog.combo,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label.c_str()));
+      if(!game.empty() && s.game==game){initial=i;game={};}
+    }
+    SendMessageW(dialog.combo,CB_SETCURSEL,initial,0);
+    add(L"BUTTON",dialog.T(L"查看本地日志"),WS_TABSTOP,20,263,136,32,103);
   }
-  SendMessageW(dialog.combo,CB_SETCURSEL,initial,0);
   add(L"STATIC",dialog.T(L"问题描述（选填）"),0,20,80,500,20,0);
   dialog.edit=add(L"EDIT",L"",WS_TABSTOP|ES_MULTILINE|ES_AUTOVSCROLL|WS_VSCROLL,20,106,514,104,102);
   SendMessageW(dialog.edit,EM_SETLIMITTEXT,2000,0);
   dialog.status=add(L"EDIT",L"",ES_READONLY|ES_AUTOHSCROLL,20,220,514,25,0);
-  add(L"BUTTON",dialog.T(L"查看本地日志"),WS_TABSTOP,20,263,136,32,103);
   dialog.close=add(L"BUTTON",dialog.T(L"取消"),WS_TABSTOP,342,263,90,32,IDCANCEL);
   dialog.send=add(L"BUTTON",dialog.T(L"上传"),WS_TABSTOP|BS_DEFPUSHBUTTON,444,263,90,32,IDOK);
-  EnableWindow(owner,FALSE);ShowWindow(window,SW_SHOW);SetFocus(dialog.edit);
+  if(files)EnableWindow(dialog.send,FALSE);
+  EnableWindow(owner,FALSE);ShowWindow(window,SW_SHOW);SetFocus(files?dialog.browse:dialog.edit);
   MSG message{};int quit=0;
   while(IsWindow(window) && (quit=GetMessageW(&message,nullptr,0,0))>0) {
     if(!IsDialogMessageW(window,&message)){TranslateMessage(&message);DispatchMessageW(&message);}
@@ -312,5 +498,16 @@ void Show(HWND owner,const fs::path& root,Language language,std::string_view pre
   if(IsWindow(window))DestroyWindow(window);
   DeleteObject(font);EnableWindow(owner,TRUE);SetForegroundWindow(owner);
   if(quit==0)PostQuitMessage(int(message.wParam));
+}
+void Show(HWND owner,const fs::path& root,Language language,std::string_view preferred_game) {
+  ShowDialog(owner,root,language,preferred_game,false);
+}
+std::string UploadFile(const fs::path& root,std::string_view game,const fs::path& path,std::string_view message,
+                       const std::function<void(uint64_t,uint64_t)>& progress) {
+  FileUpload upload(root,game,path,message);
+  return upload.Run(std::atomic_bool{false},progress);
+}
+void ShowFile(HWND owner,const fs::path& root,Language language,std::string_view game) {
+  ShowDialog(owner,root,language,game,true);
 }
 }

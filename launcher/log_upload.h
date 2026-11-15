@@ -11,5 +11,8 @@ void RecordRuntimeFailure(const fs::path& root, std::string_view game);
 std::string ProcessAtUpload(const Session& session);
 fs::path Package(const fs::path& root,const Session& session,std::string_view message);
 std::string Upload(std::string endpoint,const fs::path& archive);
+std::string UploadFile(const fs::path& root,std::string_view game,const fs::path& path,std::string_view message,
+                       const std::function<void(uint64_t,uint64_t)>& progress);
 void Show(HWND owner,const fs::path& root,Language language,std::string_view preferred_game={});
+void ShowFile(HWND owner,const fs::path& root,Language language,std::string_view game);
 }

@@ -1,0 +1,4 @@
+[Service]
+LoadCredential=oss-upload:/etc/evac/credentials/oss-upload
+ExecStart=
+ExecStart=/opt/cave-reports/venv/bin/python -B /opt/cave-reports/report_dashboard.py --directory /var/lib/cave-reports --oss-bucket xiaoluoss

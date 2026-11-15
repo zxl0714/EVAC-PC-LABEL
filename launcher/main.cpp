@@ -297,9 +297,9 @@ struct Layout {
     return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
   }
   D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
-  D2D1_RECT_F controls() const {return {margin()+158,height-45,margin()+235,height-14};}
-  D2D1_RECT_F config() const {return {margin()+242,height-45,margin()+319,height-14};}
-  D2D1_RECT_F logs() const {return {margin()+326,height-45,margin()+415,height-14};}
+  D2D1_RECT_F controls() const {return {margin()+174,height-45,margin()+244,height-14};}
+  D2D1_RECT_F config() const {return {margin()+251,height-45,margin()+328,height-14};}
+  D2D1_RECT_F logs() const {return {margin()+335,height-45,margin()+415,height-14};}
   D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
     const auto left=width-margin()-112+float(index)*40;
@@ -314,12 +314,12 @@ struct Layout {
     return {right-24,16,right,44};
   }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
-  D2D1_RECT_F refresh() const {return {margin()+92,height-45,margin()+151,height-14};}
+  D2D1_RECT_F file_upload() const {return {margin()+92,height-45,margin()+167,height-14};}
   D2D1_RECT_F detail() const {return {margin()+422,height-45,margin()+479,height-14};}
   D2D1_RECT_F focus_button(int slot) const {
     switch(slot) {
     case 4:return config(); case 5:return logs(); case 6:return data();
-    case 7:return refresh(); case 8:return play(); case 13:return controls(); case 14:return hidden_games(); case 15:return update_badge();
+    case 7:return file_upload(); case 8:return play(); case 13:return controls(); case 14:return hidden_games(); case 15:return update_badge();
     default:return detail();
     }
   }
@@ -621,7 +621,7 @@ class Renderer {
     Text(target,status,{margin,layout.height-80,layout.play().left-18,layout.height-64},11,CanPlay(inspection)?0x356c4b:0x90754f);
     Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,busy||running||!has_games||!CanPlay(inspection));
     Button(target,layout.data(),T(L"游戏数据…"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
-    Button(target,layout.refresh(),T(L"刷新"),false,busy||running);
+    Button(target,layout.file_upload(),T(L"上传文件"),false,busy||running||!has_games);
     Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games);
     Button(target,layout.config(),T(L"配置文件"));Button(target,layout.logs(),T(L"上传日志"),false,busy||running);
     Button(target,layout.detail(),T(L"详情"),false,busy||running||!has_games||Catalogue()[selected].coming_soon);
@@ -1303,7 +1303,11 @@ class App {
     for(size_t index=0;index<3;++index)
       if(Inside(layout.language_choice(index),x,y)) {SelectLanguage(index);return;}
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
-    if(Inside(layout.refresh(),x,y)) {ManualRefresh();return;}
+    if(Inside(layout.file_upload(),x,y)) {
+      if(!busy&&!child&&!library.visible.empty()&&!GameIsRunning(options.root))
+        show_file_upload(hwnd,options.root,language,Catalogue()[selected].id);
+      return;
+    }
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
     if(Inside(layout.detail(),x,y)) {
       ShowDetails();
@@ -1502,6 +1506,7 @@ class App {
   update::State update_state;
   std::function<update::Result()> update_fetch=update::Fetch;
   decltype(&cave::launcher::reports::Show) show_reports=cave::launcher::reports::Show;
+  decltype(&cave::launcher::reports::ShowFile) show_file_upload=cave::launcher::reports::ShowFile;
   decltype(&cave::launcher::controls::Show) show_controls=cave::launcher::controls::Show;
   std::optional<update::Request> update_request,program_download;
   std::string download_failed_tag;

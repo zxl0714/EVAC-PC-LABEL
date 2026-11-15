@@ -99,6 +99,8 @@ Xbox 360 ISO 可用随包的 `tools/Extract-Xbox360.exe` 提取，PS4 PKG 使用
 
 无法启动时也能上传日志。“详情”会显示缺少的数据或运行组件及处理方法。[数据识别与版本检查 →](docs/GAME_DATA.md#无法识别时怎么检查)
 
+需要补交文件时，选中对应游戏，点击“上传文件”。上传时可附留言，完成后可复制报告编号。
+
 ## 开发与致谢
 
 [开发与构建](FOR_AGENT.md) · [贡献约定](AGENTS.md) · [实施计划](docs/IMPLEMENTATION_PLAN.md)

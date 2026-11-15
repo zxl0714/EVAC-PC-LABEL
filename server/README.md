@@ -239,3 +239,11 @@ scp root@8.222.80.54:/var/lib/cave-reports/<report-id>.zip .
 原上传服务及其数据目录保持不变。systemd 和 nginx 配置模板位于 `server/deploy/`，
 其中 nginx 的密码文件需单独配置并仅赋予 nginx 读取权限。服务器管理员可通过 SSH 从
 `/root/.evac-report-dashboard-credentials` 取得本机凭据。
+
+### 玩家文件
+
+启动器的文件上传向 `/cave/api/v1/file-reports` 发送 16 MiB 分片，单文件上限 16 GiB。
+报告服务把分片转存到 OSS 的 `player-file-reports/`，完成后确认对象大小和私有权限才返回报告编号。
+管理页面可凭编号或留言搜索并下载原文件。JSON 接口的文件报告有 `kind: "file"` 和 `name` 字段。
+
+在 `/opt/cave-reports/venv` 安装 `server/requirements-file-uploads.txt` 的依赖，并将 `file_uploads.py` 连同两个报告服务脚本部署到 `/opt/cave-reports/`。将两个 `*-oss.conf.in` 安装为对应服务的 `10-oss.conf` drop-in。OSS 凭据文件 `/etc/evac/credentials/oss-upload` 由 root 以 0600 管理，JSON 字段为 `accessKeyID` 和 `accessKeySecret`。nginx 通过 `cave-live-locations.conf.in` 代理分片上传，并通过 `cave-report-dashboard.nginx.conf.in` 流式返回文件下载。

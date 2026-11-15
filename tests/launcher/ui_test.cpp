@@ -693,7 +693,7 @@ void MainChecks() {
       Require(app.layout.header()-brand.bottom==14,"Header retains a removed helper-row reservation");
       Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
               brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
-      const std::array controls{app.layout.data(),app.layout.refresh(),app.layout.controls(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};
+      const std::array controls{app.layout.data(),app.layout.file_upload(),app.layout.controls(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};
       for(size_t index=0;index<controls.size();++index) {
         const auto r=controls[index];
         Require(r.top>=app.layout.footer() && r.bottom<=app.layout.height && r.left>=0 && r.right<=app.layout.width,"Utility control is outside bottom row");
@@ -746,7 +746,15 @@ void MainChecks() {
       reports_root=root;
     };
     frame.Click(app.layout.logs());Require(reports_root==fixture.root,"Upload logs opened for the wrong collection");
-    const auto text=Ini::ReadText(ConfigPath(fixture.root));frame.Click(app.layout.refresh());frame.Settle();
+    static fs::path file_upload_root;
+    app.show_file_upload=[](HWND,const fs::path& root,Language lang,std::string_view game){
+      Require(lang==Language::Japanese && game=="futari","Upload file opened with the wrong game or language");
+      file_upload_root=root;
+    };
+    frame.Click(app.layout.file_upload());
+    Require(file_upload_root==fixture.root,"Upload file opened for the wrong collection");
+    const auto text=Ini::ReadText(ConfigPath(fixture.root));
+    App::Window(app.hwnd,WM_KEYDOWN,VK_F5,0);frame.Settle();
     Require(language==Language::Japanese && ControlText(app.nickname_control)==L"Draft-友人" && Ini::ReadText(ConfigPath(fixture.root))==text,"Refresh changed saved preferences");
     const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(cave::launcher::kArtwork[3].resource),RT_RCDATA);
     Require(resource!=nullptr,"Missing SDOJ resource");

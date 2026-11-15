@@ -8,10 +8,15 @@ using namespace cave;
 int wmain(int argc,wchar_t** argv) {
   try {
     for(auto language:{launcher::Language::Chinese,launcher::Language::Japanese,launcher::Language::English})
-      for(auto key:{L"上传日志",L"游玩记录",L"问题描述（选填）",L"查看本地日志",L"取消",L"上传",L"关闭",L"正在打包并上传…",L"已上传，编号：",L"上传失败，可重试",L"还没有游玩日志",L"现在上传日志？",L"运行组件不可用 · 点击详情",L"无法读取以下运行组件：",L"文件不存在",L"路径是文件夹",L"文件无法访问",L"请重新解压程序包并替换同名文件，然后点击刷新。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。"})
+      for(auto key:{L"上传日志",L"游玩记录",L"问题描述（选填）",L"查看本地日志",L"取消",L"上传",L"关闭",L"正在打包并上传…",L"已上传，编号：",L"上传失败，可重试",L"还没有游玩日志",L"现在上传日志？",L"运行组件不可用 · 点击详情",L"无法读取以下运行组件：",L"文件不存在",L"路径是文件夹",L"文件无法访问",L"请重新解压程序包并替换同名文件，然后按 F5。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。"})
         (void)launcher::Translate(language,key);
     if(argc==4 && std::wstring_view(argv[1])==L"--upload") {
       std::cout<<launcher::reports::Upload(Utf8(argv[3]),fs::path(argv[2]))<<'\n';return 0;
+    }
+    if(argc==6 && std::wstring_view(argv[1])==L"--upload-file") {
+      const auto id=launcher::reports::UploadFile(fs::path(argv[2]),Utf8(argv[3]),fs::path(argv[4]),Utf8(argv[5]),
+        [](uint64_t sent,uint64_t total){std::cerr<<sent<<'/'<<total<<'\n';});
+      std::cout<<id<<'\n';return 0;
     }
     const auto root=fs::temp_directory_path()/(L"evac-report-测试-"+std::to_wstring(GetCurrentProcessId()));
     fs::create_directories(root/L"user-data");

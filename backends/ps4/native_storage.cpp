@@ -247,7 +247,14 @@ __declspec(noinline) int MountHost(const MountRequest* request, MountResult* res
         if (!DirectoryToken(directory, name) || !(input.mode & 3) || (input.mode & 3) == 3 || input.mode & ~0x3fu) { return kParameter; }
         if (input.mode != 1 && input.mode != 2 && input.mode != 6 && input.mode != 34) { UnsupportedApi("sceSaveDataMount2_mode", input.mode, caller); }
         const auto free = std::find(mounts.begin(), mounts.end(), nullptr); if (free == mounts.end()) { return static_cast<int>(0x809f000cu); }
-        bool created{}; auto mount = save_store->MountSlot(name, (input.mode & 2) != 0, (input.mode & 36) != 0, (input.mode & 4) != 0, input.blocks, created);
+        // Existing M2 saves reuse the original directory and allocation when
+        // the game expands the packed quick-save array.
+        const bool expanded_slots = storage_title == "CUSA09062" || storage_title == "CUSA15155" ||
+            storage_title == "CUSA06735" || storage_title == "CUSA10207";
+        const auto quota = expanded_slots ? kt::save::QuotaPolicy::GrowSaveData : kt::save::QuotaPolicy::Fixed;
+        bool created{};
+        auto mount = save_store->MountSlot(name, (input.mode & 2) != 0, (input.mode & 36) != 0,
+                                           (input.mode & 4) != 0, input.blocks, created, quota);
         MountResult completed{}; const auto slot = static_cast<unsigned>(free - mounts.begin());
         std::snprintf(completed.point, sizeof(completed.point), "/savedata%u", slot); completed.status = created ? 1 : 0;
         *free = std::move(mount); std::memcpy(result, &completed, sizeof(completed));
@@ -561,6 +568,37 @@ bool SaveStoreSelfTest(const std::filesystem::path& directory) {
     check("deletion_is_recoverable_and_removed_slot_is_not_enumerated", !fs::exists(root / "SlotA") && fs::is_directory(root / ".trash") && store.Search("Slot%", kt::save::SortKey::Name, false).size() == 1);
     bool recovered = false; for (const auto& item : fs::directory_iterator(root / ".trash")) { recovered |= fs::is_regular_file(item.path() / "data.bin") && fs::file_size(item.path() / "data.bin") == payload.size() * 2; }
     check("recovery_directory_retains_payload_and_metadata", recovered);
+
+    // An existing quick-save pack consumes an extra block when its payload
+    // alone reaches the old quota and the icon and parameters still need space.
+    const DirectoryName quick_name{"0013-0000"};
+    constexpr std::uint64_t old_quota_bytes = 96 * 32768;
+    auto quick = store.MountSlot(quick_name.value, true, true, true, 96, created);
+    auto pack = store.Open(quick, "SAVEDATA.BIN", {.write = true, .create = true});
+    (void)pack->WriteAt(0, payload, end);
+    pack.reset();
+    store.SaveIcon(quick, icon);
+    store.Unmount(quick);
+
+    request.directory = &quick_name;
+    request.mode = 2;
+    check("quick_save_existing_pack_remounts_writable", Mount2(&request, &mounted) == 0 && mounted.status == 0);
+    std::memcpy(point.value, mounted.point, sizeof(point.value));
+    pack = OpenNativeSaveFile("/savedata0/SAVEDATA.BIN", {.read = true, .write = true});
+    check("quick_save_growth_accounts_for_live_payload_and_metadata",
+          pack->WriteAt(old_quota_bytes - 1, std::span(payload).last(1), end) == 1 && end == old_quota_bytes &&
+          fs::file_size(root / quick_name.value / "SAVEDATA.BIN") == payload.size());
+    pack.reset();
+    check("quick_save_growth_publishes_atomically", Unmount(&point) == 0);
+    quick = store.MountSlot(quick_name.value, false, false, false, 0, created);
+    pack = store.Open(quick, "SAVEDATA.BIN", {.read = true});
+    check("quick_save_growth_reopens_old_bytes_and_new_tail",
+          store.Describe(quick).blocks == 97 && pack->ReadAt(0, readback) == readback.size() &&
+          std::equal(payload.begin(), payload.end(), readback.begin()) &&
+          pack->ReadAt(old_quota_bytes - 1, readback) == 1 && readback[0] == payload.back());
+    pack.reset();
+    store.Unmount(quick);
+
     check("store_terminates_after_all_mounts_and_files_close", Terminate() == 0 && DirectorySearch(&condition, &result) == kNotInitialized);
     std::printf("{\"event\":\"save_store_self_test\",\"cases\":%u,\"passed\":%s}\n", cases, passed ? "true" : "false"); return passed;
 }

@@ -99,6 +99,8 @@ After closing the game, click **Upload logs**, select the affected session, and 
 
 Logs can also be uploaded when a game cannot start. **Details** shows missing data or runtime components and how to restore them. [Game data and version checks →](docs/GAME_DATA.en.md#troubleshooting)
 
+To share a file for troubleshooting, select the game and click **Upload file**. You can add a note and copy the report ID when the upload finishes.
+
 ## Development and credits
 
 [Build guide (Chinese)](FOR_AGENT.md) · [Contributor instructions](AGENTS.md) · [Implementation plan (Chinese)](docs/IMPLEMENTATION_PLAN.md)

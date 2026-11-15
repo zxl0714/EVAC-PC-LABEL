@@ -14,6 +14,7 @@ namespace kt::save {
 namespace {
 namespace fs = std::filesystem;
 constexpr std::uint64_t kBlock = 32768;
+constexpr std::uint64_t kMaximumBlocks = 32768;
 std::uint64_t ClockUs() { return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()); }
 [[noreturn]] void Fail(Error code, const char* message) { throw Failure(code, message); }
 [[noreturn]] void WinFail(const char* message) {
@@ -130,7 +131,11 @@ std::uint64_t Used(const fs::path& root) {
         if (attr == INVALID_FILE_ATTRIBUTES) { WinFail("Cannot inspect save usage"); }
         if (attr & FILE_ATTRIBUTE_REPARSE_POINT) { Fail(Error::Invalid, "Linked save entries are not supported"); }
         if (!(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-            const auto size = item.file_size(); if (size > (1ull << 30) || bytes > (1ull << 30) - size) { Fail(Error::NoSpace, "Save slot exceeds supported quota"); } bytes += size;
+            // Directory entries can report the old size until a writer closes.
+            const auto size = Node(ReadHandle(item.path()).value).size;
+            constexpr auto maximum = kMaximumBlocks * kBlock;
+            if (size > maximum || bytes > maximum - size) { Fail(Error::NoSpace, "Save slot exceeds supported quota"); }
+            bytes += size;
         }
     }
     return bytes;
@@ -148,7 +153,12 @@ std::uint64_t Blocks(const kt::content::Sfo& metadata) {
     const auto value = metadata.Binary("SAVEDATA_BLOCKS");
     if (!value || value->size() != 8) { Fail(Error::Corrupt, "Save quota metadata is missing"); }
     std::uint64_t result{}; for (unsigned i = 0; i < 8; ++i) { result |= std::uint64_t{std::to_integer<unsigned>((*value)[i])} << (i * 8); }
-    if (result < 96 || result > 32768) { Fail(Error::Corrupt, "Invalid save quota"); } return result;
+    if (result < 96 || result > kMaximumBlocks) { Fail(Error::Corrupt, "Invalid save quota"); } return result;
+}
+void SetBlocks(kt::content::Sfo& metadata, std::uint64_t blocks) {
+    std::array<std::byte, 8> quota{};
+    for (unsigned i = 0; i < quota.size(); ++i) { quota[i] = static_cast<std::byte>(blocks >> (i * 8)); }
+    metadata.SetBinary("SAVEDATA_BLOCKS", quota);
 }
 std::wstring Unique(const wchar_t* prefix) {
     static std::atomic<unsigned> serial{};
@@ -170,8 +180,9 @@ void AtomicWrite(const fs::path& destination, std::span<const std::byte> bytes) 
         if (!MoveFileExW(temporary.c_str(), destination.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) { WinFail("Cannot commit save transaction"); }
     } catch (...) { file.Reset(); DeleteFileW(temporary.c_str()); throw; }
 }
-Entry DescribePath(const fs::path& path, const std::string& name) {
-    const auto metadata = Metadata(path); Entry result; result.name = name; result.blocks = Blocks(metadata);
+Entry DescribePath(const fs::path& path, const std::string& name, std::uint64_t staged_blocks = 0) {
+    const auto metadata = Metadata(path); Entry result; result.name = name;
+    result.blocks = (std::max)(Blocks(metadata), staged_blocks);
     result.params.title = metadata.Text("MAINTITLE").value_or(""); result.params.subtitle = metadata.Text("SUBTITLE").value_or("");
     result.params.detail = metadata.Text("DETAIL").value_or(""); result.params.user = static_cast<std::uint32_t>(metadata.Integer("SAVEDATA_LIST_PARAM").value_or(0));
     if (result.params.title.size() >= 128 || result.params.subtitle.size() >= 128 || result.params.detail.size() >= 1024) { Fail(Error::Corrupt, "Invalid save description bounds"); }
@@ -499,8 +510,7 @@ std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_
             if (!CreateDirectoryW((transaction->work / "sce_sys").c_str(), nullptr)) { WinFail("Cannot create save work metadata directory"); }
             kt::content::Sfo metadata; metadata.SetText("MAINTITLE", "Ketsui Deathtiny"); metadata.SetText("SUBTITLE", ""); metadata.SetText("DETAIL", "");
             metadata.SetText("TITLE_ID", "CUSA09062"); metadata.SetText("SAVEDATA_DIRECTORY", name); metadata.SetInteger("SAVEDATA_LIST_PARAM", 0);
-            std::array<std::byte, 8> quota{}; for (unsigned i = 0; i < 8; ++i) { quota[i] = static_cast<std::byte>(blocks >> (i * 8)); }
-            metadata.SetBinary("SAVEDATA_BLOCKS", quota); AtomicWrite(transaction->work / "sce_sys" / "param.sfo", metadata.Serialize());
+            SetBlocks(metadata, blocks); AtomicWrite(transaction->work / "sce_sys" / "param.sfo", metadata.Serialize());
         }
         record.next = Generation(transaction->work, true, true);
         AtomicWrite(transaction->directory / "state.bin", EncodeRecord(record));
@@ -526,11 +536,12 @@ struct Store::Impl {
 struct Mount::Impl {
     std::shared_ptr<Store::Impl> store; Handle lease; std::string name; fs::path path;
     std::unique_ptr<Transaction> transaction; Handle guard;
-    std::uint64_t blocks{}; unsigned open_files{}; bool readonly{}, active{}, dirty{}, failed{}, committing{};
+    QuotaPolicy quota{QuotaPolicy::Fixed};
+    std::uint64_t blocks{}, persisted_blocks{}; unsigned open_files{}; bool readonly{}, active{}, dirty{}, failed{}, committing{};
 };
 struct File::Impl {
     std::shared_ptr<Mount> mount; Handle handle; std::vector<Handle> guards;
-    OpenOptions options; bool dirty{};
+    OpenOptions options; bool grow_quota{}, dirty{};
 };
 Mount::Mount(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 Mount::~Mount() = default;
@@ -567,10 +578,12 @@ std::size_t File::WriteAt(std::uint64_t offset, std::span<const std::byte> input
     if (info.links != 1) { Fail(Error::Permission, "Hard-linked save files are not writable"); }
     if (input.empty()) { end = offset; return 0; }
     if (impl_->options.append) { offset = info.size; }
-    const auto quota = mount.blocks * kBlock;
-    if (offset > quota || input.size() > quota - offset) { Fail(Error::NoSpace, "Save write exceeds quota"); }
-    const auto next_size = (std::max)(info.size, offset + input.size()); const auto used = Used(mount.path);
-    if (used > quota || next_size - info.size > quota - used) { Fail(Error::NoSpace, "Save slot is full"); }
+    const auto limit = (impl_->grow_quota ? kMaximumBlocks : mount.blocks) * kBlock;
+    if (offset > limit || input.size() > limit - offset) { Fail(Error::NoSpace, "Save write exceeds quota"); }
+    const auto next_size = (std::max)(info.size, offset + input.size());
+    const auto used = Used(mount.path);
+    const auto growth = next_size - info.size;
+    if (used > limit || growth > limit - used) { Fail(Error::NoSpace, "Save slot is full"); }
     LARGE_INTEGER position{}; position.QuadPart = static_cast<LONGLONG>(offset);
     if (!SetFilePointerEx(impl_->handle.value, position, nullptr, FILE_BEGIN)) { WinFail("Cannot seek save output"); }
     std::size_t total{};
@@ -581,6 +594,7 @@ std::size_t File::WriteAt(std::uint64_t offset, std::span<const std::byte> input
         total += written; impl_->dirty = mount.dirty = true;
     }
     if (impl_->options.sync && !FlushFileBuffers(impl_->handle.value)) { mount.failed = true; WinFail("Cannot synchronize save output"); }
+    mount.blocks = (std::max)(mount.blocks, (used + growth + kBlock - 1) / kBlock);
     end = offset + total; return total;
 }
 void File::Flush() {
@@ -620,9 +634,10 @@ bool Store::HasMounts() const {
     for (const auto& [name, weak] : impl_->mounts) { (void)name; if (const auto mount = weak.lock(); mount && mount->impl_->active) { return true; } }
     return false;
 }
-std::shared_ptr<Mount> Store::MountSlot(std::string_view name, bool writable, bool create, bool exclusive, std::uint64_t blocks, bool& created) {
+std::shared_ptr<Mount> Store::MountSlot(std::string_view name, bool writable, bool create, bool exclusive, std::uint64_t blocks,
+                                       bool& created, QuotaPolicy quota) {
     SlotName(name); std::lock_guard lock(impl_->gate); created = false;
-    if ((create && !writable) || (create && (blocks < 96 || blocks > 32768))) { Fail(Error::Invalid, "Invalid save creation options"); }
+    if ((create && !writable) || (create && (blocks < 96 || blocks > kMaximumBlocks))) { Fail(Error::Invalid, "Invalid save creation options"); }
     for (const auto& [other, weak] : impl_->mounts) { if (const auto mount = weak.lock(); mount && mount->impl_->active) {
         if (other == name || CompareStringOrdinal(fs::path(other).c_str(), -1, fs::path(name).c_str(), -1, TRUE) == CSTR_EQUAL) { Fail(Error::Busy, "Save slot is already mounted"); }
     } }
@@ -634,11 +649,13 @@ std::shared_ptr<Mount> Store::MountSlot(std::string_view name, bool writable, bo
     if (!exists && !create) { Fail(Error::NotFound, "Save slot is absent"); }
     auto state = std::make_unique<Mount::Impl>(); state->store = impl_; state->name = std::string(name);
     state->lease = std::move(lease); state->path = path;
+    state->quota = quota;
     if (exists) {
         auto guard = DirectoryGuard(path);
         try { state->blocks = Blocks(Metadata(path)); }
         catch (const Failure& error) { if (error.error == Error::NotFound) { Fail(Error::Corrupt, "Existing save has no committed metadata"); } throw; }
     } else { state->blocks = blocks; }
+    state->persisted_blocks = state->blocks;
     if (writable) {
         state->transaction = BeginTransaction(impl_->root, name, exists, state->blocks);
         state->path = state->transaction->work;
@@ -666,9 +683,19 @@ void Store::Unmount(const std::shared_ptr<Mount>& mount) {
         state.committing = true;
         if (state.dirty) {
             if (!transaction.record.prepared) {
-                const auto metadata = Metadata(state.path);
-                if (Blocks(metadata) != state.blocks) { Fail(Error::Corrupt, "Staged save quota metadata changed"); }
-                TouchMetadata(state.path / "sce_sys" / "param.sfo");
+                auto metadata = Metadata(state.path);
+                if (Blocks(metadata) != state.persisted_blocks) { Fail(Error::Corrupt, "Staged save quota metadata changed"); }
+                const auto param = state.path / "sce_sys" / "param.sfo";
+                if (state.blocks != state.persisted_blocks) {
+                    // Publish the grown allocation with the payload in a single transaction.
+                    SetBlocks(metadata, state.blocks);
+                    AtomicWrite(param, metadata.Serialize());
+                    std::printf("{\"event\":\"native_save_quota_grown\",\"directory\":\"%s\",\"previous_blocks\":%llu,\"blocks\":%llu}\n",
+                        state.name.c_str(), static_cast<unsigned long long>(state.persisted_blocks), static_cast<unsigned long long>(state.blocks));
+                    state.persisted_blocks = state.blocks;
+                } else {
+                    TouchMetadata(param);
+                }
                 CopyBudget budget{0, state.blocks * kBlock, 0}; ValidateStagedTree(state.path, budget, impl_->checkpoint);
                 auto prepared = transaction.record; prepared.prepared = true;
                 AtomicWrite(transaction.directory / "state.bin", EncodeRecord(prepared));
@@ -708,15 +735,20 @@ std::vector<Entry> Store::Search(std::string_view pattern, SortKey key, bool des
         SlotName(name); if (!Match(name, pattern)) { continue; }
         if (!fs::exists(item.path() / "sce_sys" / "param.sfo")) { continue; }
         auto path = item.path();
+        std::uint64_t staged_blocks{};
         for (const auto& [mounted_name, weak] : impl_->mounts) {
-            if (SlotKey(mounted_name) == SlotKey(name)) { if (const auto mount = weak.lock(); mount && mount->impl_->active) { path = mount->impl_->path; } }
+            if (SlotKey(mounted_name) != SlotKey(name)) { continue; }
+            if (const auto mount = weak.lock(); mount && mount->impl_->active) {
+                path = mount->impl_->path;
+                staged_blocks = mount->impl_->blocks;
+            }
         }
-        result.push_back(DescribePath(path, name)); listed.push_back(SlotKey(name)); if (result.size() > 4096) { Fail(Error::Io, "Too many save slots"); }
+        result.push_back(DescribePath(path, name, staged_blocks)); listed.push_back(SlotKey(name)); if (result.size() > 4096) { Fail(Error::Io, "Too many save slots"); }
     }
     for (const auto& [name, weak] : impl_->mounts) {
         if (const auto mount = weak.lock(); mount && mount->impl_->active && Match(name, pattern) &&
             std::find(listed.begin(), listed.end(), SlotKey(name)) == listed.end()) {
-            result.push_back(DescribePath(mount->impl_->path, name)); if (result.size() > 4096) { Fail(Error::Io, "Too many save slots"); }
+            result.push_back(DescribePath(mount->impl_->path, name, mount->impl_->blocks)); if (result.size() > 4096) { Fail(Error::Io, "Too many save slots"); }
         }
     }
     const auto less = [&](const Entry& a, const Entry& b) {
@@ -734,7 +766,7 @@ std::vector<Entry> Store::Search(std::string_view pattern, SortKey key, bool des
 Entry Store::Describe(const std::shared_ptr<Mount>& mount) const {
     std::lock_guard lock(impl_->gate);
     if (!mount || mount->impl_->store != impl_ || !mount->impl_->active) { Fail(Error::NotMounted, "Save mount is not active"); }
-    return DescribePath(mount->impl_->path, mount->impl_->name);
+    return DescribePath(mount->impl_->path, mount->impl_->name, mount->impl_->blocks);
 }
 void Store::SetParams(const std::shared_ptr<Mount>& mount, const Params& params) {
     std::lock_guard lock(impl_->gate);
@@ -771,6 +803,8 @@ std::unique_ptr<File> Store::Open(const std::shared_ptr<Mount>& mount, std::stri
     const auto slot = mount->impl_->path; const auto path = part.empty() ? slot : slot / part;
     auto file = std::unique_ptr<File>(new File(nullptr));
     auto state = std::make_unique<File::Impl>(); state->mount = mount; state->options = options;
+    state->grow_quota = options.write && mount->impl_->quota == QuotaPolicy::GrowSaveData &&
+        CompareStringOrdinal(part.c_str(), -1, L"SAVEDATA.BIN", -1, TRUE) == CSTR_EQUAL;
     state->guards = GuardParents(part.empty() ? slot : path.parent_path());
     // Inspect the opened identity before any destructive truncation. A hard
     // link placed in a profile must not turn an unrelated file into save data.
