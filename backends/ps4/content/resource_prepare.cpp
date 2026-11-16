@@ -23,7 +23,7 @@ using Json = nlohmann::json;
 constexpr std::size_t kResourceLimit = 32 * 1024 * 1024;
 constexpr std::size_t ResourceLimit(std::string_view name) {
     if (name == "title_gadget.psb.m" || name == "title_ui_kizuna_ac.psb.m") return 80 * 1024 * 1024;
-    return name.ends_with(".wav.m") || name == "title_ui_common.psb.m"
+    return name.ends_with(".wav.m") || name == "title_ui_common.psb.m" || name == "title_ui_option.psb.m"
         ? 64 * 1024 * 1024 : kResourceLimit;
 }
 constexpr std::size_t kPatchLimit = 262144;
@@ -375,6 +375,18 @@ Json ParseResourceIndex(std::span<const std::uint8_t> source) { return Psb(sourc
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source,ResourceFix fix) {
     Require(source.size()<=kResourceLimit,"Oversized resource script");
     auto raw=Text(source); const std::string newline=raw.find("\r\n")!=raw.npos ? "\r\n" : "\n";
+    if (fix==ResourceFix::GareggaEnglishDefault) {
+        // The Korean package overrides the console language for game text.
+        // Its shipped English tables become the fallback in this build.
+        Replace(raw,"::set_item_string_default_language(\"kor\");",
+                    "::set_item_string_default_language(LANGUAGE_TAG_ENGLISH);",1);
+        return Bytes(Compact(raw));
+    }
+    if (fix==ResourceFix::GareggaEnglishLookup) {
+        Replace(raw,"local langTag = ::SystemEtc.getLanguageTag();",
+                    "local langTag = LANGUAGE_TAG_ENGLISH;",1);
+        return Bytes(Compact(raw));
+    }
     if (fix==ResourceFix::DaioujouTitleMusic) {
         // 01.00 contains only a 107 ms title cue. Use a complete track from
         // the same game data until the official title music in 01.04 is available.
@@ -687,6 +699,10 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
             {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}});
     };
     if (garegga) {
+        fix("system/script/game_content.nut.m","474db7db50615d103c891b6961847858d2f3a1125212508a4f00d9c3728d4ff6",
+            ResourceFix::GareggaEnglishDefault,"english-menu-language");
+        fix("system/script/utils.nut.m","77a7b8cb5c28768ff5e43f8ee20a9f25d1bd6fd8cd0756e70d6d46acda076d2d",
+            ResourceFix::GareggaEnglishLookup,"english-menu-language");
         fix("2000/script/title_replay_view.nut.m","b795cd406bd1dc1003225b96e3941e6a73492c8ba2d09c0cbf90a6e6851a1df9",
             ResourceFix::GareggaLocalReplay,"local-community-replay-cache");
     } else if (feveron) {

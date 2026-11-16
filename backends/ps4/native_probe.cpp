@@ -4,6 +4,7 @@
 #include "loader/image_memory.h"
 #include "cpu/compatibility.h"
 #include "cpu/function_ranges.h"
+#include "daioujou_death_label.h"
 #include "guest_heap.h"
 #include "native_debug.h"
 #include "native_sync.h"
@@ -1104,6 +1105,8 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
     if (!runtime.is_module) {
         InstallNativeCommunityRoundAudit(runtime.image, static_cast<std::size_t>(header.image_size), runtime.contract_sha256);
         InstallNativeCommunityRounds(runtime.image, static_cast<std::size_t>(header.image_size), runtime.contract_sha256);
+        cave::ps4::DaioujouDeathLabel::InstallBinding(
+            {runtime.image, static_cast<std::size_t>(header.image_size)}, runtime.contract_sha256);
     }
     for (const auto& segment : runtime.segments) {
         DWORD previous;
@@ -1693,6 +1696,17 @@ int NativeCommand(int argc, wchar_t** argv) {
     }
     if (argc == 2 && std::wstring(argv[1]) == L"--display-clock-self-test") {
         return DisplayClockSelfTest() ? 0 : 1;
+    }
+    if ((argc == 7 || argc == 8) && std::wstring_view(argv[1]) == L"--death-label-window-check") {
+        try {
+            cave::DeathLabelHost request;
+            request.disc = argv[4]; request.prepared = argv[5]; request.profile = argv[6];
+            ConfigureNativeDiagnosticTaps(200);
+            return DeathLabelWindowCheck(argv[2],argv[3],request,argc == 8 && std::wstring_view(argv[7]) == L"--fullscreen");
+        } catch (const std::exception& error) {
+            std::fprintf(stderr,"Death Label window check: %s\n",error.what());
+            return 1;
+        }
     }
     if (argc == 2 && std::wstring(argv[1]) == L"--video-demo") {
         return VideoDemo();

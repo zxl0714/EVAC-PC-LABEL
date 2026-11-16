@@ -7,6 +7,8 @@ EVAC PC LABEL 使用统一启动器和公共配置，按游戏隔离适配、存
 
 先读 [README](README.md) 和 [AGENTS.md](AGENTS.md)。实现计划、实际覆盖和技术分析分别在 [实施计划](docs/IMPLEMENTATION_PLAN.md)、[验收矩阵](docs/TEST_MATRIX.md) 与 [分析入口](docs/ANALYSIS.md)。调查过程留在这些文档中，本文件介绍如何接手开发。
 
+新增游戏功能或 ROM 样本时，记录项目新增、解锁和扩展功能的实测结果。[ROM 功能兼容性矩阵](docs/ROM_COMPATIBILITY.md)
+
 ## 目录
 
 | 目录或文件 | 用途 |

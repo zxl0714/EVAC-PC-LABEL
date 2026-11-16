@@ -275,6 +275,16 @@ namespace cave::ps2 { class NativeHost; }
 class PS2Runtime
 {
 public:
+    using RecompiledFunction = cave::ps2::Function;
+    struct RecompiledProgram
+    {
+        uint32_t base;
+        std::span<RecompiledFunction> functions;
+    };
+    // Resolves a disc path to a verified executable prepared for this title.
+    // An empty result means the guest receives a LoadExecPS2 error.
+    using DiscExecutable = std::string_view (*)(std::string_view);
+
     struct IoPaths
     {
         std::filesystem::path elfPath;
@@ -286,6 +296,7 @@ public:
     };
 
     PS2Runtime();
+    PS2Runtime(RecompiledProgram program, cave::ps2::NativeHost& host, DiscExecutable resolveExecutable);
     ~PS2Runtime();
 
     cave::ps2::NativeHost& nativeHost();
@@ -293,6 +304,7 @@ public:
     bool syncCoreSubsystems();
     bool loadELF(const std::string &elfPath);
     void run();
+    std::string_view requestedExecutable() const { return m_requestedExecutable; }
 
     [[nodiscard]] ps2x::iop::ModuleLoadResult loadIopModule(std::string_view path, const void *arguments = nullptr, uint32_t argumentSize = 0);
     [[nodiscard]] ps2x::iop::ModuleLoadResult loadIopModuleBuffer(uint32_t guestAddress, const void *arguments = nullptr, uint32_t argumentSize = 0);
@@ -311,7 +323,6 @@ public:
                              DebugUiCallback shutdownCallback,
                              void *userData);
 
-    using RecompiledFunction = void (*)(uint8_t *, R5900Context *, PS2Runtime *);
     void registerStaticModule(const cave::ps2::StaticModule &module);
 
     enum class GuestBranchKind
@@ -493,6 +504,14 @@ private:
     friend class EeScheduler;
 
 private:
+    bool generatedFunctionTableSlot(uint32_t address, uint32_t &slot) const;
+    bool tryLoadExecPS2(uint8_t* rdram, R5900Context* ctx);
+    PS2Runtime(RecompiledProgram program, cave::ps2::NativeHost* host, DiscExecutable resolveExecutable);
+
+    RecompiledProgram m_program;
+    cave::ps2::NativeHost* m_externalNativeHost;
+    DiscExecutable m_resolveExecutable;
+    std::string_view m_requestedExecutable;
     PS2Memory m_memory;
     cave::ps2::StaticModules m_staticModules;
     GifArbiter m_gifArbiter;

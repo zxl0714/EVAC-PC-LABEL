@@ -8,7 +8,7 @@ import re
 import struct
 
 SECTOR = 2048
-TARGETS = {'SLPS-25352': 'espgaluda', 'SLPM-66301': 'ibara'}
+TARGETS = {'SLPS-25233': 'daioujou-ps2', 'SLPS-25352': 'espgaluda', 'SLPM-66301': 'ibara'}
 
 
 @dataclass(frozen=True)

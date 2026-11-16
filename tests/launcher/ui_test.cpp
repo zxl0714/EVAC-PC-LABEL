@@ -231,8 +231,9 @@ void CoverLayoutChecks() {
       Require(app.selected==1,"Cover Up did not preserve its column");
     }
     app.Select(Catalogue().size()-1);frame.Settle();
-    Require(Catalogue()[app.selected].id=="ibara" && app.rows[app.selected].inspection.state=="missing_data" &&
-            !CanPlay(app.rows[app.selected].inspection), "Ibara should ask for a disc when its folder is empty");
+    Require(Catalogue()[app.selected].id=="daioujou-ps2" &&
+            app.rows[app.selected].inspection.state=="missing_data" &&
+            !CanPlay(app.rows[app.selected].inspection), "PS2 DaiOuJou should ask for a disc when its folder is empty");
   }
   const auto saved=Ini::Load(ConfigPath(fixture.root));
   Require(cave::launcher::CoverLayout(saved),"Normal close changed the internal cover setting");

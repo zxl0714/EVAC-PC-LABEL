@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "game": "daioujou-ps2",
+  "titleId": "SLPS-25233",
+  "version": "1.10",
+  "layout": "iso",
+  "files": [
+    {
+      "path": "SLPS_252.33",
+      "bytes": 1630404,
+      "sha256": "3c326c8a93138303a193fb2a698cebcea361c3a657210afcb85ff6830cd32c18",
+      "program": true
+    },
+    {
+      "path": "disc.iso",
+      "bytes": 1615036416,
+      "sha256": "387751e8dbfdc0012e493e82e99fa9e979d9a71ecbe258d376813932891574d6",
+      "program": false
+    }
+  ]
+}

@@ -18,18 +18,28 @@ class Reflex {
     VkSwapchainKHR chain{};
     VkSemaphore semaphore{};
     uint64_t signal{},pending{},presentId{},field{};
-    bool active{};
+    bool active{},rearm{};
     std::atomic<bool> open{},sampled{},ended{};
     uint64_t reads{},timeouts{},busy{},issued{};
     unsigned consecutiveMisses{},consecutiveBusy{};
-    VkResult waitError=VK_SUCCESS;
+    VkResult waitError=VK_SUCCESS,driverFailure=VK_SUCCESS;
 
     void Disable(VkResult reason) {
         open=false;
+        if(active) {
+            const VkLatencySleepModeInfoNV off{VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV};
+            api->vkSetLatencySleepModeNV(device,chain,&off);
+        }
         active=false;
-        const VkLatencySleepModeInfoNV off{VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV};
-        api->vkSetLatencySleepModeNV(device,chain,&off);
+        driverFailure=reason;
         std::fprintf(stderr,"[ps2-reflex] active=false reason=driver result=%d\n",int(reason));
+    }
+    void Enable() {
+        VkLatencySleepModeInfoNV mode{VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV};
+        mode.lowLatencyMode=VK_TRUE;
+        driverFailure=api->vkSetLatencySleepModeNV(device,chain,&mode);
+        active=driverFailure==VK_SUCCESS;
+        std::fprintf(stderr,"[ps2-reflex] active=%s result=%d\n",active?"true":"false",int(driverFailure));
     }
     void Marker(VkLatencyMarkerNV marker) const {
         VkSetLatencyMarkerInfoNV m{VK_STRUCTURE_TYPE_SET_LATENCY_MARKER_INFO_NV};
@@ -56,22 +66,22 @@ public:
         }
         // A slow signal may outlive a window resize. Keep its device semaphore
         // alive and use regular pacing on the new chain while it is in flight.
-        if(pending && Retire(pending,0)!=VK_SUCCESS) {
-            std::fprintf(stderr,"[ps2-reflex] active=false reason=retiring_sleep\n");return;
-        }
-        pending=0;
         chain=swapchain;
+        if(pending) {
+            const auto result=Retire(pending,0);
+            if(result==VK_TIMEOUT) {
+                rearm=true;
+                std::fprintf(stderr,"[ps2-reflex] waiting for previous swapchain sleep\n");
+                return;
+            }
+            if(result!=VK_SUCCESS){Disable(result);return;}
+            pending=0;
+        }
         VkSemaphoreTypeCreateInfo type{VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
         type.semaphoreType=VK_SEMAPHORE_TYPE_TIMELINE;
         VkSemaphoreCreateInfo create{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,&type};
-        auto result=semaphore?VK_SUCCESS:api->vkCreateSemaphore(device,&create,nullptr,&semaphore);
-        if(result==VK_SUCCESS) {
-            VkLatencySleepModeInfoNV mode{VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV};
-            mode.lowLatencyMode=VK_TRUE;
-            result=api->vkSetLatencySleepModeNV(device,chain,&mode);
-        }
-        active=result==VK_SUCCESS;
-        std::fprintf(stderr,"[ps2-reflex] active=%s result=%d\n",active?"true":"false",int(result));
+        const auto result=semaphore?VK_SUCCESS:api->vkCreateSemaphore(device,&create,nullptr,&semaphore);
+        if(result==VK_SUCCESS)Enable();else Disable(result);
     }
     void Disconnect() {
         std::unique_lock lock(lifetime);
@@ -84,9 +94,9 @@ public:
         if(pending && Retire(pending,0)==VK_SUCCESS)pending=0;
         std::fprintf(stderr,"[ps2-reflex] issued=%llu sampled=%llu deadline_misses=%llu busy=%llu\n",
             (unsigned long long)issued,(unsigned long long)reads,(unsigned long long)timeouts,(unsigned long long)busy);
-        chain=VK_NULL_HANDLE;active=false;
+        chain=VK_NULL_HANDLE;active=rearm=false;
         presentId=field=reads=timeouts=busy=issued=consecutiveMisses=consecutiveBusy=0;
-        waitError=VK_SUCCESS;
+        waitError=driverFailure=VK_SUCCESS;
     }
     void ReleaseDevice() {
         std::unique_lock lock(lifetime);
@@ -101,9 +111,28 @@ public:
         semaphore=VK_NULL_HANDLE;pending=signal=0;
     }
     void BeginOutput() {open.store(false,std::memory_order_release);}
+    void ResetForProgram() {
+        std::unique_lock lock(lifetime);
+        open=false;
+        // Guest fields start over, while the swapchain and its timeline survive.
+        // Let an in-flight driver sleep retire before admitting the next one.
+        rearm=chain && (rearm || active || driverFailure==VK_TIMEOUT) && waitError==VK_SUCCESS;
+        if(rearm)consecutiveMisses=consecutiveBusy=0;
+    }
     void AfterPresent(uint64_t submittedId,uint64_t guestField) {
         std::unique_lock lock(lifetime);
-        if(!active || !submittedId || submittedId+1==presentId)return;
+        if(!submittedId || submittedId+1==presentId)return;
+        if(rearm) {
+            if(pending) {
+                const auto result=Retire(pending,0);
+                if(result==VK_TIMEOUT)return;
+                if(result!=VK_SUCCESS){rearm=false;Disable(result);return;}
+                pending=0;
+            }
+            rearm=false;
+            if(!active)Enable();
+        }
+        if(!active)return;
         if(waitError!=VK_SUCCESS || consecutiveMisses>=8) {
             Disable(waitError==VK_SUCCESS?VK_TIMEOUT:waitError);return;
         }

@@ -4,6 +4,8 @@
 #include <memory>
 
 namespace cave::ps2 {
+inline uint16_t Ps2Buttons(uint32_t bits) {return uint16_t(bits)|((bits&0x100000)?1u:0u);}
+
 struct HostPadState {
     uint16_t buttons=0; // Active-high PS2 button bits.
     std::array<uint8_t,4> axes{128,128,128,128}; // RX, RY, LX, LY.

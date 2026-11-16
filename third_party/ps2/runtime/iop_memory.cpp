@@ -343,9 +343,15 @@ namespace ps2x::iop::detail
         const uint32_t blockCount = ((value >> 9u) & 3u) == 0u ? 1u :
             ((blockControl >> 16u) ? (blockControl >> 16u) : 0x10000u);
         const uint64_t transferWords = static_cast<uint64_t>(wordsPerBlock) * blockCount;
-        const uint32_t tsaBase=0x1F9001A8u+(secondCore?0x400u:0u);
-        cave::ps2::audio_trace::Dma(secondCore?1u:0u,readHardware32(address-8u),transferWords,value,
-            (uint32_t(read16(tsaBase))<<17u)|(uint32_t(read16(tsaBase+2u))<<1u));
+        if(cave::ps2::audio_trace::enabled)
+        {
+            // TSA_LO has no readback in this backend. Trace what the guest
+            // programmed before DMA advances the address.
+            const auto index=(0x1A8u+(secondCore?0x400u:0u))/2u;
+            const auto& regs=m_audio->writtenRegisters;
+            cave::ps2::audio_trace::Dma(secondCore?1u:0u,readHardware32(address-8u),transferWords,value,
+                (uint32_t(regs[index])<<17u)|(uint32_t(regs[index+1])<<1u));
+        }
         auto &dma = m_audio->dma[secondCore ? 1u : 0u];
         dma = {transferWords * 4u, readHardware32(address - 8u) & (RamSize - 4u),
                (value & 1u) != 0u, (value & 2u) != 0u};

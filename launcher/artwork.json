@@ -132,6 +132,19 @@
       "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACibara_780x353.png",
       "copyright": "©CAVE Interactive CO., LTD.",
       "usage": "Wide banner pairing CAVE's character illustration with the rose wordmark from https://www.cave.co.jp/gameonline/ibara/imgs/idx_title.gif."
+    },
+    {
+      "game": "daioujou-ps2",
+      "path": "launcher/assets/daioujou-ps2.jpg",
+      "sha256": "2720e0a5f90bbb567de9462572e842af6b09d2c9feec50bb1ce7932b23b49a85",
+      "resource": 112,
+      "focusY": 0.5,
+      "fit": "contain",
+      "kicker": "PS2 · 2003",
+      "sourcePage": "https://www.arika.co.jp/product/ddd_hp/ddd_index.html",
+      "sourceUrl": "https://www.arika.co.jp/product/ddd_hp/ddd_title.jpg",
+      "copyright": "©2002 CAVE CO., LTD. / ARIKA CO., LTD.",
+      "usage": "Title artwork from Arika's PlayStation 2 product page."
     }
   ],
   "covers": [
@@ -277,6 +290,19 @@
       "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/Sony_-_PlayStation_2/master/Named_Boxarts/Ibara%20%28Japan%29.png",
       "copyright": "©CAVE Interactive CO., LTD. / TAITO",
       "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+    },
+    {
+      "game": "daioujou-ps2",
+      "path": "launcher/assets/covers/daioujou-ps2.png",
+      "sha256": "4402c9d8251124443df975ecaf4883993ba176651b0aa30e72a144269d139567",
+      "resource": 312,
+      "focusY": 0.5,
+      "fit": "contain",
+      "kicker": "PS2 · 2003",
+      "sourcePage": "https://github.com/libretro-thumbnails/Sony_-_PlayStation_2",
+      "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/Sony_-_PlayStation_2/master/Named_Boxarts/DoDonPachi%20Dai-Ou-Jou%20%28Japan%29.png",
+      "copyright": "©2002 CAVE CO., LTD. / ARIKA CO., LTD.",
+      "usage": "Japanese PlayStation 2 cover scan."
     }
   ]
 }

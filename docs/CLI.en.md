@@ -33,6 +33,7 @@ In Command Prompt (CMD), use this form.
 | PS4 | Battle Garegga Rev.2016 | `garegga` |
 | PS2 | ESPGaluda | `espgaluda` |
 | PS2 | Ibara | `ibara` |
+| PS2 | DaiOuJou (PS2) | `daioujou-ps2` |
 
 ## Optional arguments
 

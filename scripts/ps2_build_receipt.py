@@ -11,6 +11,7 @@ from analysis_paths import private_output
 from build_receipt import signature
 from project import ROOT, digest, reject_link, write_json_new
 from ps2_game import generate_all
+from ps2_daioujou import GAME as DAIOUJOU, generate_all as generate_daioujou
 from ps2_codegen import tree_identity
 from ps2_gs_sources import digests as gs_digests
 from ps2_input_order import POLICY as INPUT_ORDER_POLICY, verify as verify_input_order
@@ -21,20 +22,33 @@ from toolchain import tool_path, tool_snapshot
 BUILD = ROOT / 'out/ps2-tools'
 RECEIPT = ROOT / 'out/ps2/build-receipt.json'
 OUTPUTS = ('espgaluda.exe', 'espgaluda.pdb', 'SDL3.dll', 'SDL3.pdb')
-GAME_KEYS = {'espgaluda': 'PS2_GAME_GENERATED', 'ibara': 'PS2_IBARA_GENERATED'}
+DAIOUJOU_KEYS = {'boot': 'PS2_DAIOUJOU_GENERATED', 'death': 'PS2_DAIOUJOU_DEATH_GENERATED',
+                 'gallery': 'PS2_DAIOUJOU_GALLERY_GENERATED'}
+GAME_KEYS = {'espgaluda': 'PS2_GAME_GENERATED', 'ibara': 'PS2_IBARA_GENERATED', DAIOUJOU: DAIOUJOU_KEYS['boot']}
 
 
 def configured_games(values):
+    programs = [values.get(key) for key in DAIOUJOU_KEYS.values()]
+    if any(programs) and not all(programs):
+        raise ValueError('PS2 certification requires all three DaiOuJou programs')
     games = [game for game, key in GAME_KEYS.items() if values.get(key)]
     if not games:
         raise ValueError('PS2 certification requires a configured game')
     return games
 
 
-def output_names(games):
-    if games not in (['espgaluda'], ['ibara'], ['espgaluda', 'ibara']):
+def binary_outputs(games):
+    if not games or games != [game for game in GAME_KEYS if game in games]:
         raise ValueError('Invalid PS2 game selection')
-    return tuple(name for game in games for name in (game+'.exe', game+'.pdb')) + ('SDL3.dll', 'SDL3.pdb')
+    binaries = [game+'.exe' for game in games]
+    if DAIOUJOU in games:
+        binaries.append(DAIOUJOU+'-runtime.dll')
+    return (*binaries, 'SDL3.dll')
+
+
+def output_names(games):
+    return tuple(part for binary in binary_outputs(games)
+                 for part in (binary, str(Path(binary).with_suffix('.pdb'))))
 
 
 def configuration(build=BUILD):
@@ -48,7 +62,7 @@ def configuration(build=BUILD):
         raise ValueError('PS2 certification requires the Release runtime with full game symbols and ThinLTO')
     if values.get('PS2_EXPERIMENTAL_LATE_INPUT') == 'ON':
         raise ValueError('Reconfigure the PS2 build to replace its retired experimental input policy')
-    if (not values.get('PS2_IBARA_GENERATED') or values.get('PS2_GAME_GENERATED')) and values.get('PS2_ESPGALUDA_INPUT_ORDER') != INPUT_ORDER_POLICY:
+    if values.get('PS2_GAME_GENERATED') and values.get('PS2_ESPGALUDA_INPUT_ORDER') != INPUT_ORDER_POLICY:
         raise ValueError('PS2 certification requires the reviewed ESPGaluda input order')
     for key, tool in (('CMAKE_C_COMPILER', 'clang-cl'), ('CMAKE_CXX_COMPILER', 'clang-cl'),
                       ('CMAKE_MAKE_PROGRAM', 'ninja')):
@@ -86,6 +100,13 @@ def generation(values, refresh=False):
         if Path(generated['ibara']).resolve() != Path(values['PS2_IBARA_GENERATED']).resolve():
             raise ValueError('PS2 build mixes different Ibara inputs')
         result['ibara'] = dict(plan=digest(output/'plan.json'), sources=[identities[str(output/'generated')]])
+    if DAIOUJOU in games:
+        output = Path(values[DAIOUJOU_KEYS['boot']]).parent.parent
+        identities = {}
+        programs = generate_daioujou(output, refresh=refresh, source_identities=identities)
+        if any(Path(values[key]).resolve() != Path(programs[name]).resolve() for name, key in DAIOUJOU_KEYS.items()):
+            raise ValueError('PS2 build mixes different DaiOuJou disc program inputs')
+        result[DAIOUJOU] = dict(plan=digest(output/'plan.json'), programs=identities)
     return result
 
 
@@ -105,9 +126,9 @@ def snapshot(refresh=False):
     for raw in sorted(set(names)):
         name = raw.decode('utf-8')
         if name and (name in explicit or name.startswith(('backends/ps2/', 'third_party/ps2/',
-                'tools/ps2/', 'tools/ps2-gs/', 'common/', 'games/espgaluda/', 'games/ibara/', 'backends/ps4/input/'))
+                'tools/ps2/', 'tools/ps2-gs/', 'common/', 'games/espgaluda/', 'games/ibara/', 'games/daioujou-ps2/', 'backends/ps4/input/'))
                 or name.startswith(('scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara',
-                                    'tests/ps2_', 'tests/test_ps2_'))
+                                    'scripts/Build-DaioujouPs2', 'tests/ps2_', 'tests/test_ps2_'))
                 or name in ('backends/ps4/community/protocol.cpp','backends/ps4/community/protocol.h',
                             'backends/ps4/config/ini_sections.h')
                 or (name.startswith('games/') and name.endswith('/data.json'))):
@@ -131,19 +152,23 @@ def snapshot(refresh=False):
                                    for path in sorted(generated_root.glob('module-*/base-generated'))]
     if 'ibara' in games:
         state['ibaraFunctionTable'] = verify_function_table(Path(values['PS2_IBARA_GENERATED'])/'register_functions.cpp', BUILD/'function-tables')
+    if DAIOUJOU in games:
+        state['daioujouFunctionTables'] = {name: verify_function_table(Path(values[key])/'register_functions.cpp', BUILD/'function-tables')
+                                           for name, key in DAIOUJOU_KEYS.items()}
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
 
 
 def completed_outputs():
     outputs = []
-    for stem, suffix in [(game, '.exe') for game in configured_games(configuration())] + [('SDL3', '.dll')]:
-        binary, symbols = BUILD / 'bin' / (stem + suffix), BUILD / 'bin' / (stem + '.pdb')
+    for name in binary_outputs(configured_games(configuration())):
+        binary = BUILD / 'bin' / name
+        symbols = binary.with_suffix('.pdb')
         pe = subprocess.check_output([str(tool_path('readobj', ROOT)), '--coff-debug-directory', str(binary)]).decode()
         pdb = subprocess.check_output([str(tool_path('pdbutil', ROOT)), 'dump', '-summary', str(symbols)]).decode()
         identity = signature(pe)
         if identity != signature(pdb, pdb=True):
-            raise ValueError('PS2 binary/PDB identity differs: ' + stem)
+            raise ValueError('PS2 binary/PDB identity differs: ' + binary.stem)
         for path in (binary, symbols):
             reject_link(path)
             outputs.append(dict(path=path.relative_to(ROOT).as_posix(), bytes=path.stat().st_size,
@@ -153,11 +178,11 @@ def completed_outputs():
 
 def verify():
     record = json.loads(RECEIPT.read_text(encoding='utf-8'))
-    if record.get('format') != 1 or record.get('backend') != 'ps2' or record.get('games') not in (['espgaluda'], ['ibara'], ['espgaluda', 'ibara']):
+    if record.get('format') != 1 or record.get('backend') != 'ps2':
         raise ValueError('Invalid PS2 build receipt identity')
+    expected = {'out/ps2-tools/bin/' + name for name in output_names(record.get('games'))}
     if record['sourceSnapshot'] != snapshot():
         raise ValueError('PS2 inputs changed; rebuild before staging')
-    expected = {'out/ps2-tools/bin/' + name for name in output_names(record['games'])}
     if len(record['outputs']) != len(expected) or {item['path'] for item in record['outputs']} != expected:
         raise ValueError('Incomplete PS2 build receipt')
     for item in record['outputs']:
@@ -178,14 +203,14 @@ def verify_package():
     commit = subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD']).decode().strip()
     dirty = subprocess.check_output(['git','-C',str(ROOT),'status','--porcelain'])
     if (record.get('format') != 1 or record.get('backend') != 'ps2' or
-            record.get('games') not in (['espgaluda'], ['ibara'], ['espgaluda', 'ibara']) or record.get('sourceCommit') != commit or
+            record.get('sourceCommit') != commit or
             record.get('sourceDirty') is not False or dirty):
         raise ValueError('PS2 package requires its certified clean source commit')
     source = dict(record['sourceSnapshot'])
     declared = source.pop('sha256', None)
     if declared != hashlib.sha256(json.dumps(source,sort_keys=True).encode()).hexdigest():
         raise ValueError('PS2 source certificate is inconsistent')
-    expected = {'out/ps2-tools/bin/' + name for name in output_names(record['games'])}
+    expected = {'out/ps2-tools/bin/' + name for name in output_names(record.get('games'))}
     if len(record['outputs']) != len(expected) or {item['path'] for item in record['outputs']} != expected:
         raise ValueError('Incomplete PS2 build receipt')
     for item in record['outputs']:

@@ -28,7 +28,8 @@ V08_GAMES = (*V07_GAMES, 'feveron')
 V083_GAMES = (*V08_GAMES, 'garegga')
 V09_GAMES = (*V083_GAMES, 'espgaluda')
 V094_GAMES = (*V09_GAMES, 'ibara')
-PLACEMENT_GAMES = V094_GAMES
+V010_GAMES = (*V094_GAMES, 'daioujou-ps2')
+PLACEMENT_GAMES = V010_GAMES
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
@@ -81,6 +82,8 @@ def release_games(version):
     if (major, minor) == (0, 9):
         parts = version.split('-', 1)[0].split('.')
         return V094_GAMES if len(parts) > 2 and int(parts[2]) >= 4 else V09_GAMES
+    if (major, minor) == (0, 10):
+        return V010_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -123,7 +126,9 @@ def placement_sources(version, name=PLACEMENT_NAME):
     games = release_games(version)
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
-    placement = PLACEMENT_GAMES if 'espgaluda' in games else V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games else V07_GAMES if 'guwange' in games else V06_GAMES
+    placement = (V010_GAMES if 'daioujou-ps2' in games else V094_GAMES if 'espgaluda' in games
+                 else V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games
+                 else V07_GAMES if 'guwange' in games else V06_GAMES)
     result = {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
               for key in placement}
     parts = tuple(map(int, version.split('-', 1)[0].split('.')))
@@ -238,8 +243,8 @@ def certified_runtime(selection=GAMES):
         xbox360=inputs.load(ROOT/'out/xbox360/bin/build-receipt.json', 'xbox360', xbox),
         ps4=inputs.load(ROOT/'out/ps4/build-receipt.json', 'ps4'),
         launcher=inputs.load(ROOT/'out/launcher/build-receipt.json', 'launcher'))
-    if any(games[key]['backend'] == 'ps2' for key in selection):
-        ps2_games = [key for key in ('espgaluda', 'ibara') if key in selection]
+    ps2_games = [key for key in selection if games[key]['backend'] == 'ps2']
+    if ps2_games:
         records['ps2'] = inputs.load(ROOT/'out/ps2/build-receipt.json', 'ps2', ps2_games)
     commit = inputs.commit
     audit_source()
@@ -248,7 +253,9 @@ def certified_runtime(selection=GAMES):
     selected = dict(xbox360=xbox_names,
         ps4={'KetsuiNativeProbe.exe', 'KetsuiNativeProbe.pdb', 'KetsuiGpuRuntime.dll', 'KetsuiGpuRuntime.pdb'},
         launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb', 'Extract-Xbox360.exe', 'Extract-Xbox360.pdb'})
-    selected['ps2'] = {'SDL3.dll', 'SDL3.pdb'} | {game+suffix for game in ('espgaluda','ibara') if game in selection for suffix in ('.exe','.pdb')}
+    ps2_names = {Path(name).name for game in ps2_games for name in games[game]['runtimeFiles']
+                 if name.endswith(('.exe', '.dll'))}
+    selected['ps2'] = ps2_names | {str(Path(name).with_suffix('.pdb')) for name in ps2_names}
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:

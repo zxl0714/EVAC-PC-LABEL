@@ -16,6 +16,7 @@ if($NativeOnly) {
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskState)
     $taskTargets=@('--build',$taskBuild,'--target','ps2_ibara_probe')
     if(Select-String -LiteralPath $taskCache -Pattern '^PS2_GAME_GENERATED:PATH=.+'){$taskTargets+='ps2_espgaluda_probe'}
+    if(Select-String -LiteralPath $taskCache -Pattern '^PS2_DAIOUJOU_GENERATED:PATH=.+'){$taskTargets+='ps2_daioujou_probe'}
     $taskTargets+=@('--parallel',"$Jobs")
     Invoke-Checked $cmake $taskTargets
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskState,'--stage')

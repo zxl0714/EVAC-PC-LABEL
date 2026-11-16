@@ -1818,7 +1818,7 @@ void EeScheduler::processPendingEvents()
 
 void EeScheduler::scanoutFlippedBuffer()
 {
-    // Ibara's blank handler flips the second display circuit between two
+    // The guest's blank handler flips the second display circuit between two
     // completed buffers. Sample at a guest scheduling boundary after that
     // write. Mode changes and fields without a flip use the end of blank.
     const auto& regs = m_runtime.memory().gs();

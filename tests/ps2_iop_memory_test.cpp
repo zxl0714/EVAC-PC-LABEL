@@ -211,6 +211,7 @@ int main(int argc,char** argv) {
         IopSifDmaCompletion();
         IopIsoSearchContract();
         AudioDmaCriticalSection();
+        AudioDmaEventWait();
         IopModuleArguments();
         IopIdleContract();
         IopScheduledTimerContract();

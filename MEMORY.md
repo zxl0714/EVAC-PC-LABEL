@@ -31,6 +31,11 @@
 - PS2 画廊逐层返回需等过场完成（约 1.5 秒）；连发两次返回会漏掉第二次。
   诊断手柄 a/b/x/y 是 Cross/Circle/Square/Triangle，不能直接按 PS2 原始位值理解。
   已有帧日志只保留前 36,000 帧、输入事件也有容量上限，超出后不冒充完整记录。
+- PS2 大往生用新档时以 Circle 确认记忆卡提示，标题画面 Start 进主菜单。主菜单从
+  Arcade 往下两项选 Death Label，切换提示默认“否”，按左再用 Circle 确认。Death Label
+  菜单从 Game Start 往下四项是 EXIT，返回提示也需按左再确认。主菜单往下三项是 GALLERY，
+  画廊缩略图界面用 Cross 退出，左＋Circle 确认。主菜单往下六项是 SAVE/LOAD，首次 SAVE
+  的两次确认均默认“否”，每次都须左＋Circle。
 - 出包后写交付检查点并冻结源码提交与 ZIP；仅记录结果的文档提交不触发重建、重打包。
 - 发布构建先冻结并提交代码。未提交源码下完成的构建记录不能直接用于正式组包；
   需要在干净提交上执行增量构建并重新认证，不手改收据，也不重生成未变化的游戏代码。
@@ -227,7 +232,13 @@ R2=Restart（W）。不能套用大往生的 V 投币；默认 Player2 配置也
 
 ESP Ra.De. 01.04 的私有复制存档也用了 Player1 Custom，Controller Setting 确认
 R2=Credit（W），Square=Shot（C）。右侧 Player2 的 Triangle=Credit 不适用于这份 Player1 存档。
+ESP Ra.De. 01.00 Itemzflow 的 Default 档为 Triangle=Credit（V）、Square=Shot（C）。
+暂停菜单进入 Ranking Viewer 后用 Circle（X）选择 Arcade，榜单中同键下载录像和确认保存。
 空战之路韩版这份存档的控制信息为 L1=Coin（A）、Square=Shot（C），菜单用 Circle（X）确认。
+空战之路进入综合榜后光标在机体筛选，先向下选成绩，再按 Circle（X）下载，确认后保存。
+PS4 验收脚本用 S（R1）切换设置页，页签转场后再按下一次。暂停菜单的槽位有上下限，在 Quick Save／Quick Load 按住 Right 约 16 秒可到 99。先看当前高亮行，读取或保存出现确认框后再长按 X 约 1.6 秒。
+进程内测试手柄每个脉冲最多 2 秒，切换槽位可用十三次 `right:2`。`right:16` 仅用于键盘。`quit` 可单独发送或置于命令行末尾。
+PS4 像素夹具沿用 `EVAC_LATENCY_PIXEL_REGION=550,660,800,300,360` 可覆盖 ESP Ra.De. 和空战之路的机体区域。宽×高×容量超出一亿时探针在创建文件前拒绝该设置。启动器夹具需为调试 EXE 和 GPU DLL 生成对应游戏的运行时清单。
 弹铳美版的菜单确认是 Cross（Z）。投币、开始后以 Square（C）完成选机与其后选择，进入实战才启用 Quick Save。
 Sky 动作后若截图仍旧，先 `include_screenshot=false, include_text=true` 刷新，再等约200ms
 抓图；两个 include 都是false会被接口拒绝，发生后先重新观察，不重复发送按键。
@@ -241,6 +252,8 @@ C=Square、V=Triangle，Enter=Start，Backspace=Select。旧 CPU 宿主的 C 确
 当前合集宿主已实际确认正常短按可走完整菜单，保持默认 `--diagnostic-tap-ms 0`。
 `launch_ps2_probe.py` 默认开启独占的进程内测试手柄，实际键盘不会交给游戏；
 这一入口用 `test_pad_client.py` 操作，检查真实键盘必须加 `--normal`。不要混用两条输入路径。
+独立启动 PS2 大往生进行手柄诊断时，`--input-trace`、`EVAC_LATENCY_TRACE` 和
+`EVAC_LATENCY_TEST_PAD` 需要一起设置。菜单复测优先重放 `pad.csv` 中实际收到的输入。
 `test_pad_client.py --repeat` 在客户端逐次等待后发送，会持续占用该 exec session；
 等同一 session 完成再发其他输入，不能把首个 OK 当成整串脉冲已经结束。
 输入 CSV 默认仅保留 200000 条事件；长时间菜单操作会用尽容量。测量前重开短局，
@@ -283,15 +296,38 @@ Triangle=投币、Options=开始、Touchpad=暂停。菜单确认用 Circle（�
 街机后先等操作说明出现并用 X 关闭，再等原版画面提示可投币；先发 V，确认信用点后发
 Enter。暂停用 Touchpad（Backspace），RETURN TO GAME 用 X。
 
+大往生 AC-CHALLENGE 实测路线为直达菜单右一格，Round 1 第一关中 Boss，难度 1。
+挑战设置最下行右两格选自定义资源，C 打开资源页。01.04 可用六枚炸弹；01.00 可预设
+Hyper Active、等级 5。与中 Boss 对准后 C 激光加 Z 炸弹已实际拿到铜牌。结果页下两次
+选 AC-CHALLENGE MENU，返回后 Z 查看积分。成绩回归使用独立本机服务。
+
+验证 PS4 大往生嵌入 Death Label 时，用现有 PS4 验收脚本走合集启动器，保持同一窗口句柄。
+从标题画面进入 DIRECT MENU 后，光标在左上默认项时往下三次、往右两次选中 Death Label。
+PS2 启动后先用 X 确认记忆卡提示，再等原版标题。Enter 打开 Death Label 菜单，等高亮稳定
+后再发方向键。回到 PS4 后以 DIRECT MENU 的实际画面和 `daioujou_death_label_return`
+双重确认。游戏测试副本沿用 `.local/v0911/ps4-acceptance-run.py`。
+
 临时测试映射要避开宿主保留键；F3 曾被配置校验拒绝。L3／R3 可临时用
 Numpad0／Numpad1，Computer Use 对应 KP_0／KP_1。
 
 绊地狱离线诊断局：片头 Enter → 约 2 秒后标题 Enter → Direct Menu 的 X 确认。
 关闭联网时，主菜单和模式加载可能各出现“PSN 已退出／网络错误”两张提示，分别 X 关闭。
 街机核心中 V 投币 → Enter 开始 → X 选机；200 ms 诊断脉冲已实际进第一关并射击。
+在演示中看到 `native_pad_read_buttons=4096` 只能确认运行时收到了 Triangle。进玩家局前以
+街机画面的信用点和选机界面为准；暂停 → Option Setting → Controller → V 可检查手柄分配，
+需要时按左分配到 1P。
+01.00 ELF 曾用 `.local/v04-ketsui-desktop-r1/user-data/ketsui/base` 的副本、关闭宿主手柄，
+前台短按 V → 确认信用点 → Enter → X 进入玩家局。进关后可用验收脚本快速暂停和写档。
+用本机 Python 绊地狱服务时，配置地址的路径为 `/ketsui/api/v1`。CUSTOM 已用两版旧档副本
+实测。暂停时 Enter 可打开直达菜单，从 ARCADE 下移一格选 CUSTOM。玩家局自然结束后，
+若有增加信用点提示先 X 关闭，再 Backspace → 上三次打开 Ranking Viewer。过滤器第二行
+从 ARCADE OVERALL 右移五次到 CUSTOM，第三行切换机体；榜单上 X 下载并自动存入空槽。
 
 PCSX2 2.8.2 对照环境：Vulkan IMMEDIATE 的 WGC 画面会停在初始空白，F8 原生
 截图有正常游戏内容；D3D12（Renderer=15）可被正常捕获。用独立渲染窗／-nogui。
+PS2 大往生从 FREE PLAY 标题用 Start 打开主菜单；演示中的第一次 Start 可先回到标题。
+主菜单选 ARCADE MODE，再选 GAME START、机体和人偶，四次均用 Circle 确认。
+需要停在具体场景时用 F10 暂停，Space 恢复。有效实测入口见 `pcsx2-arcade-compare-r2/`。
 自动短按可能完全漏掉，使用 PCSX2 自带 Pad1 MacroN/ MacroNBinds/ MacroNToggle=true/
 MacroNFrequency=0 保持游戏按键，映射 F12=Start、F13=Down、F14=Circle、F15=Cross、
 F16=Up、F17=Left、F18=Right、F19=Square、F20=Triangle。每个宏必须成对触发：

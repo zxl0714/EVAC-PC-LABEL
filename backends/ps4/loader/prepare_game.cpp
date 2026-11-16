@@ -33,10 +33,12 @@ Inspection CheckData(const fs::path& root,const fs::path& data,std::string_view 
 PreparedGame PrepareKetsuiGame(const fs::path& requested_root,const fs::path& requested_data) {
     return PreparePs4Game(requested_root,requested_data,"ketsui");
 }
-PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& requested_data,std::string_view game) {
+PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& requested_data,std::string_view game,bool death_label) {
     if (game!="ketsui" && game!="daioujou" && game!="esprade" && game!="feveron" && game!="garegga") throw std::runtime_error("Unsupported PS4 preparation game");
     const bool ketsui=game=="ketsui";
     const bool esprade=game=="esprade";
+    const bool garegga=game=="garegga";
+    const bool daioujou=game=="daioujou";
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
     ValidateOutputs(Paths(root,game,data));VerificationCache verification(root);
     const auto inspected=CheckData(root,data,game,verification);
@@ -62,9 +64,12 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         {"communityReplayPeerFallback",policy.replay_peer},{"communityLocalReplay",policy.local_replay},
         {"communityOffline",policy.community_offline}};
     if (esprade) recipe["lowLatencyPredictionFrames"]=2;
+    if (garegga) recipe["gareggaEnglishMenu"]=true;
     const auto& programs=policy.programs;
-    const auto music=game=="daioujou"?daioujou::InspectArrangeMusic(data,CheckLevel::Full,&verification):daioujou::ArrangeStatus{};
+    const auto music=daioujou?daioujou::InspectArrangeMusic(data,CheckLevel::Full,&verification):daioujou::ArrangeStatus{};
     const bool daioujou_arrange=music.state==daioujou::ArrangeState::Ready;
+    const bool daioujou_overlay=daioujou_arrange || (daioujou && death_label);
+    if (daioujou && death_label) recipe["daioujouDeathLabelMenu"]=true;
     if (daioujou_arrange) {
         auto banks=Json::object();
         for (const auto& bank:daioujou::ArrangeBanks())
@@ -93,7 +98,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
     const auto prepare=[&](bool ketsui_arrange) {
         auto outputs=files;
-        if (daioujou_arrange || ketsui_arrange) AddArrangeFiles(outputs,policy.merged_app);
+        if (daioujou_overlay || ketsui_arrange || garegga) AddArrangeFiles(outputs,policy.merged_app);
         return EnsurePreparedCache(root,data,recipe,outputs,[&](const fs::path& stage) {
             const auto read_program=[&](std::string_view name) {
                 const auto& inventory=recipe.at("inputs");
@@ -123,9 +128,11 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
                 const auto metadata=fixes.report.dump(2)+'\n';
                 WritePreparedRelative(stage,outputs[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
             }
-            if (daioujou_arrange) {
-                PrepareDaioujouArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,&verification);
+            if (daioujou_overlay) {
+                PrepareDaioujouArchive(data,stage,read_program("eboot.bin"),policy.merged_app,
+                    daioujou_arrange,death_label,&verification);
             }
+            if (garegga) PrepareGareggaArchive(data,stage,read_program("eboot.bin"));
             if (ketsui_arrange) {
                 PrepareKetsuiArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,recipe.at("ketsuiArrangeTracks"));
             }
@@ -147,7 +154,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     }();
     return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",
         policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{},
-        (daioujou_arrange || ketsui_arrange)?cache.directory/"arrange":fs::path{}};
+        (daioujou_overlay || ketsui_arrange || garegga)?cache.directory/"arrange":fs::path{}};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {

@@ -68,8 +68,10 @@ template<class Game> struct FrameInputTiming {
         sampleTick = 0;
         sampled = false;
         reserveUs = fullFieldUs;
-        readPad = runtime.lookupFunction(Game::pad);
-        waitForField = runtime.lookupFunction(Game::wait);
+        // Disc programs can be reloaded with the same compiled function table.
+        // Retain the original handlers when the table is already patched.
+        if (auto pad = runtime.lookupFunction(Game::pad); pad != &Read) readPad = pad;
+        if (auto wait = runtime.lookupFunction(Game::wait); wait != &Wait) waitForField = wait;
         if (!readPad || !waitForField || !runtime.replaceFunction(Game::pad, &Read) ||
             !runtime.replaceFunction(Game::wait, &Wait))
             throw std::runtime_error("Cannot bind PS2 frame input");

@@ -19,7 +19,7 @@ class CatalogueTests(unittest.TestCase):
 
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
-        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara'])
+        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara', 'daioujou-ps2'])
         self.assertFalse(any(g['comingSoon'] for g in games))
         self.assertTrue(all(g['integrated'] for g in games))
         feveron=next(g for g in games if g['id']=='feveron')
@@ -32,7 +32,8 @@ class CatalogueTests(unittest.TestCase):
         game=next(g for g in catalogue.load(self.path) if g['id']=='garegga')
         manifest=catalogue.read_json(self.root/'games/garegga/data.json')
         self.assertEqual((manifest['titleId'],manifest['version'],manifest['layout']),('CUSA10207','01.00','base'))
-        self.assertEqual(len(game['files']),40)
+        self.assertEqual(len(game['files']),39)
+        self.assertNotIn('sce_sys/npbind.dat', {entry['path'] for entry in game['files']})
         programs={f['path'] for f in game['files'] if f['program'] and '/' not in f['path']}
         self.assertEqual(programs,{'eboot.bin','emu_integration.prx','emu_integration_01100.prx',
             *('garegga_'+version+'.prx' for version in ('01000','01010','01020','01030','01040'))})
@@ -57,7 +58,12 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual((game['backend'], manifest['titleId'], manifest['version']), ('ps4', 'CUSA15155', '01.04'))
         self.assertEqual(manifest['layout'], 'merged-patch')
         self.assertEqual([(v['id'], v['version'], v['layout']) for v in game['variants']],
-                         [('update-104', '01.04', 'merged-patch'), ('base-self', '01.00', 'base')])
+                         [('update-104', '01.04', 'merged-patch'), ('base-self', '01.00', 'base'),
+                          ('base-itemzflow', '01.00', 'base'), ('update-104-itemzflow', '01.04', 'merged-patch')])
+        def fingerprints(index):
+            return {f['path']: f['programFingerprint'] for f in game['variants'][index]['files'] if f['program']}
+        for original, exported in ((0, 3), (1, 2)):
+            self.assertEqual(fingerprints(original), fingerprints(exported))
         self.assertEqual(len(game['files']), 40)
         for variant in game['variants']:
             self.assertNotIn('sce_module/libSceAudioLatencyEstimation.prx',

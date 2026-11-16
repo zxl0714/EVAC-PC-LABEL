@@ -7,6 +7,7 @@
 #include <span>
 #include <string>
 #include "graphics/display_layout.h"
+#include "common/death_label_host.h"
 #include "diagnostics/present_timing.h"
 namespace kt::gfx { class VulkanDevice; }
 class NativeResidentGpu;
@@ -43,6 +44,9 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned buffer, unsigned mo
 // idempotent process-closing barrier, not guest-thread or GPU-context teardown.
 bool CompleteNativePresentationShutdown(int handle);
 
+// The guest's window and display clock stay owned by PS4 throughout the session.
+cave::DeathLabelResult RunNativeVideoDeathLabel(cave::DeathLabelHost request, cave::RunDeathLabel run);
+
 struct NativeVideoLabelReference { std::uint64_t address{}; std::shared_ptr<void> owner; };
 // The lease only pins memory during command construction. Submission must
 // validate the live port again before executing any label wait/write.
@@ -63,3 +67,4 @@ NativeDisplaySettings GetNativeDisplaySettings();
 void ConfigureNativeUnpacedPresentation(bool enabled);
 bool GraphicsSelfTest(bool interactive = false);
 int VideoDemo();
+int DeathLabelWindowCheck(const wchar_t* gpu, const wchar_t* library, cave::DeathLabelHost request, bool fullscreen);

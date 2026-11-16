@@ -35,6 +35,16 @@ class Ps2ReceiptTests(unittest.TestCase):
         self.assertEqual(receipt.tree_identity(source)['files'],3)
         with self.assertRaises(ValueError):receipt.tree_identity(self.root/'empty')
 
+    def test_daioujou_certificate_requires_all_disc_programs(self):
+        values = {key: name for name, key in receipt.DAIOUJOU_KEYS.items()}
+        self.assertEqual(receipt.configured_games(values), ['daioujou-ps2'])
+        self.assertEqual(receipt.output_names(['daioujou-ps2']),
+                         ('daioujou-ps2.exe', 'daioujou-ps2.pdb', 'daioujou-ps2-runtime.dll',
+                          'daioujou-ps2-runtime.pdb', 'SDL3.dll', 'SDL3.pdb'))
+        for key in values:
+            with self.subTest(missing=key), self.assertRaisesRegex(ValueError, 'all three DaiOuJou'):
+                receipt.configured_games({k: v for k, v in values.items() if k != key})
+
     def test_package_reuses_certificate_but_checks_actual_payload_bytes(self):
         source=dict(files={'authored.cpp':'original-source-identity'},game='espgaluda')
         source['sha256']=hashlib.sha256(json.dumps(source,sort_keys=True).encode()).hexdigest()
@@ -69,7 +79,8 @@ class Ps2ReceiptTests(unittest.TestCase):
         tools={name:self.root/name for name in ('clang-cl','ninja')}
         values=dict(CMAKE_C_COMPILER=str(tools['clang-cl']),CMAKE_CXX_COMPILER=str(tools['clang-cl']),
                     CMAKE_MAKE_PROGRAM=str(tools['ninja']),CMAKE_BUILD_TYPE='Release',
-                    PS2_GAME_SYMBOLS='ON',PS2_RUNTIME_THINLTO='ON',PS2_ESPGALUDA_INPUT_ORDER='late-v1')
+                    PS2_GAME_GENERATED='espgaluda/generated', PS2_GAME_SYMBOLS='ON',
+                    PS2_RUNTIME_THINLTO='ON',PS2_ESPGALUDA_INPUT_ORDER='late-v1')
         def save(changes=None):
             state=dict(values,**(changes or {}))
             (self.root/'CMakeCache.txt').write_text(''.join(k+':STRING='+v+'\n' for k,v in state.items()))

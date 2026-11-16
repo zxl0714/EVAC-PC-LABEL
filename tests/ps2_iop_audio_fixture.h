@@ -263,6 +263,39 @@ void AudioDmaCriticalSection() {
     std::cout<<"IOP SPU DMA critical section: defer, resume, exactly one completion: PASS\n";
 }
 
+void AudioDmaEventWait() {
+    auto host=DelayedThreadImage();
+    std::fill(host.image.begin()+0x100,host.image.end(),uint8_t{});
+    const auto jal=[](uint32_t pc){return 0x0c000000u|(pc>>2u);};
+    const uint32_t main[]{
+        0x27bdffe0,0xafbf001c,
+        0x3c040001,0x34840400,jal(0x10254),0, // CreateEventFlag
+        0x00408021, // s0 = event ID
+        0x24040024,0x24050001,0x3c060001,0x34c60180,0x02003821,jal(0x10214),0,
+        0x24040024,jal(0x1021c),0, // EnableIntr(SPU DMA)
+        0x3c081f90,0x34098020,0xa509019a, // SPU2 voice write DMA
+        0x3c0a1f80,0x3c0b0001,0x356b0500,0xad4b10c0, // MADR
+        0x3c0b0001,0x356b0200,0xad4b10c4, // BCR = 1 * 512 words
+        0x3c0b0100,0x356b0201,0xad4b10c8, // CHCR = start RAM -> SPU
+        0x02002021,0x24050001,0x00003021,0x00003821,jal(0x10264),0, // WaitEventFlag
+        0x8fbf001c,0x27bd0020,0x03e00008,0
+    };
+    std::memcpy(host.image.data()+0x100,main,sizeof(main));
+    const uint32_t handler[]{0x08004097,0x24050001}; // iSetEventFlag(a0, 1)
+    std::memcpy(host.image.data()+0x280,handler,sizeof(handler));
+    const uint32_t intrman[]{0x41e00000,0,0x101,0x72746e69,0x006e616d,
+        0x03e00008,0x24000004,0x03e00008,0x24000006,0,0};
+    std::memcpy(host.image.data()+0x300,intrman,sizeof(intrman));
+    const uint32_t thevent[]{0x41e00000,0,0x101,0x76656874,0x00746e65,
+        0x03e00008,0x24000004,0x03e00008,0x24000007,0x03e00008,0x2400000a,0,0};
+    std::memcpy(host.image.data()+0x340,thevent,sizeof(thevent));
+    ps2x::iop::detail::IopEmulator emulator(host);
+    const auto loaded=emulator.loadModuleBuffer(0,nullptr,0);
+    Require(loaded.moduleId>0 && loaded.startResult==0,
+            "Synchronous IOP guest did not wait for its sound DMA event");
+    Require(emulator.cycles()>=1024,"Sound DMA interrupt was delivered before its guest deadline");
+}
+
 void IopDispatchBench() {
     for(const uint32_t quantum: {8u,128u}) {
         auto host=DelayedThreadImage();

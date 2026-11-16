@@ -222,6 +222,8 @@ game-data/daioujou/
 
 选择直接包含 `eboot.bin` 的目录，保留全部游戏模块和资源。单独的补丁目录不等于完整合并数据。
 
+安装 [PS2 版大往生镜像](#daioujou-ps2)后，可在 PS4 版的 **DIRECT MENU** 选择 **DEATH LABEL**。
+
 **X Arrange(Xbox 360) 音乐（可选）**
 
 用 `tools/Extract-Xbox360.exe` 解开 Xbox 360 版《DoDonPachi Dai-Ou-Jou Black Label Extra》的 ISO，将解包目录 `dat/sound/` 中的这两个文件复制到：
@@ -253,6 +255,8 @@ game-data/esprade/
 
 把本体的完整内容放进 `game-data/esprade/`，或在启动器选择本体目录。使用 01.04 时，将提取后的更新文件覆盖到同一目录，保留其余本体文件和内部层级。
 
+Itemzflow 分开导出的 `CUSA15155/` 和 `CUSA15155-patch/` 也按这个方式放置。手里已经是合并好的 01.04 时，直接选包含 `eboot.bin` 的目录。
+
 PS4 作品首次启动时自动生成 `prepared/` 下的运行文件，原始游戏数据不变；这些生成物无须手工放进游戏数据目录。ESP Ra.De. 的存档、下载录像与设置位于 `user-data/esprade/`。
 
 <a id="feveron"></a>
@@ -280,7 +284,7 @@ game-data/feveron/
 
 ### バトルガレッガ Rev.2016（garegga）
 
-支持 **韩版 CUSA10207／01.00 本体**：
+支持 **韩版 CUSA10207／01.00 本体**，游戏菜单显示英文。
 
 ```text
 game-data/garegga/
@@ -292,7 +296,7 @@ game-data/garegga/
   sce_sys/
 ```
 
-用 `tools/Extract-PS4.exe` 提取本体 PKG，点击“Open game files”，将全部内容复制到 `game-data/garegga/`，或在启动器直接选择提取目录。存档、录像和设置位于 `user-data/garegga/`。
+用 `tools/Extract-PS4.exe` 提取本体 PKG。已有主机导出数据时，使用解包后的目录。把包含 `eboot.bin` 的目录选为游戏数据目录，或将该目录的内容复制到 `game-data/garegga/`。存档、录像和设置位于 `user-data/garegga/`。
 
 ## PS2 游戏
 
@@ -322,6 +326,17 @@ game-data/espgaluda/
 game-data/ibara/
   README.txt
   Ibara (Japan).iso
+```
+
+<a id="daioujou-ps2"></a>
+
+### 怒首領蜂 大往生 (PS2)（daioujou-ps2）
+
+将 PS2 日版（SLPS-25233）的 ISO 放到下方目录，在启动器选择「怒首領蜂 大往生 (PS2)」。
+
+```text
+game-data/daioujou-ps2/
+  DoDonPachi Dai-Ou-Jou (Japan).iso
 ```
 
 ## 无法识别时怎么检查

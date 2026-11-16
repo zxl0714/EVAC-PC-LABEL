@@ -92,13 +92,13 @@ file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/daioujou_arrange_artwork_data
     CONTENT "${arrange_artwork}}\n")
 add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp
     loader/daioujou_arrange.cpp loader/daioujou_arrange_audio.cpp loader/daioujou_arrange_artwork.cpp loader/daioujou_arrange_motion.cpp
-    loader/ketsui_arrange_music.cpp loader/ketsui_arrange_audio.cpp)
+    loader/ketsui_arrange_music.cpp loader/ketsui_arrange_audio.cpp loader/garegga_english.cpp)
 target_include_directories(KetsuiPreparedInputs PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_include_directories(KetsuiPreparedInputs SYSTEM PRIVATE "${CAVE_PS4_ROOT}/third_party/rexglue/thirdparty/FFmpeg")
 target_compile_features(KetsuiPreparedInputs PUBLIC cxx_std_20)
 target_compile_definitions(KetsuiPreparedInputs PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(KetsuiPreparedInputs PRIVATE /W4 /WX /EHsc)
-target_link_libraries(KetsuiPreparedInputs PUBLIC cave_common KetsuiResourcePreparation PRIVATE KetsuiContent bcrypt ole32 windowscodecs)
+target_link_libraries(KetsuiPreparedInputs PUBLIC cave_common KetsuiResourcePreparation PRIVATE KetsuiContent bcrypt ole32 windowscodecs gdi32)
 # The same pinned XMA codec as the Xbox 360 runtime, with no runtime DLL dependency.
 foreach(codec libavcodec libavutil)
     set(archive "${CAVE_PS4_ROOT}/.deps/sdk-install/lib/${codec}.lib")
@@ -180,6 +180,7 @@ add_executable(KetsuiNativeProbe
     native_async_log_tests.cpp
     collection_config.cpp
     collection_launch.cpp
+    daioujou_death_label.cpp
     loader/prepare_cli.cpp
     guest_heap.cpp
     native_debug.cpp

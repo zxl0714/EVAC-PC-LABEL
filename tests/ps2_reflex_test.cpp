@@ -8,7 +8,7 @@ void Check(bool condition) {
 }
 struct Driver {
     unsigned enabled{}, disabled{}, created{}, destroyed{}, sleeps{};
-    uint64_t ready{}, submitted{}, lastWait{};
+    uint64_t ready{}, submitted{}, lastWait{}, expectedPresent{32};
     VkResult sleepResult = VK_SUCCESS;
     std::vector<VkLatencyMarkerNV> markers;
 } driver;
@@ -50,7 +50,7 @@ VKAPI_ATTR VkResult VKAPI_CALL Wait(VkDevice, const VkSemaphoreWaitInfo* info, u
     return *info->pValues <= driver.ready ? VK_SUCCESS : VK_TIMEOUT;
 }
 VKAPI_ATTR void VKAPI_CALL Mark(VkDevice, VkSwapchainKHR, const VkSetLatencyMarkerInfoNV* info) {
-    Check(info->presentID == 32);
+    Check(info->presentID == driver.expectedPresent);
     driver.markers.push_back(info->marker);
 }
 }
@@ -91,27 +91,45 @@ int main() {
     reflex.AfterPresent(32, 91);
     reflex.Disconnect();
     reflex.Connect(device, api, chain, true);
+    reflex.AfterPresent(1, 1);
     Check(!driver.destroyed && driver.enabled == 1 && driver.lastWait == 0);
     driver.ready = driver.submitted;
-    reflex.Disconnect();
-    reflex.Connect(device, api, chain, true);
-    Check(driver.created == 1 && driver.enabled == 2);
+    reflex.AfterPresent(2, 2);
+    Check(driver.created == 1 && driver.enabled == 2 && driver.sleeps == 3);
+    driver.ready = driver.submitted;
     // A driver that repeatedly misses the read deadline yields to regular pacing.
-    for (unsigned i = 1; i <= 8; ++i) {
+    for (unsigned i = 3; i <= 10; ++i) {
         reflex.AfterPresent(i, i);
         reflex.BeforeRead(i + 1, 100);
         Check(driver.lastWait == 100000);
         reflex.BeginOutput();
         driver.ready = driver.submitted;
     }
-    reflex.AfterPresent(9, 9);
-    Check(driver.disabled == 2 && driver.sleeps == 10);
-    reflex.Disconnect();
-    reflex.Connect(device, api, chain, true);
+    reflex.AfterPresent(11, 11);
+    Check(driver.disabled == 2 && driver.sleeps == 11);
+    reflex.ResetForProgram();
+    Check(driver.enabled == 2);
+    reflex.AfterPresent(12, 2);
+    Check(driver.enabled == 3 && driver.sleeps == 12);
+
+    reflex.ResetForProgram();
+    reflex.BeforeRead(3, 100);
+    reflex.AfterPresent(13, 1);
+    Check(driver.markers.size() == 3 && driver.sleeps == 12 && driver.lastWait == 0);
+    driver.ready = driver.submitted;
+    reflex.AfterPresent(14, 2);
+    driver.ready = driver.submitted;
+    driver.expectedPresent = 15;
+    reflex.BeforeRead(3, 100);
+    Check(driver.enabled == 3 && driver.sleeps == 13 && driver.markers.size() == 5);
+
+    // A hard driver failure must stay off across a program restart.
     driver.sleepResult = VK_ERROR_UNKNOWN;
-    reflex.AfterPresent(1, 1);
-    reflex.AfterPresent(2, 2);
-    Check(driver.sleeps == 11 && driver.disabled == 3);
+    reflex.BeginOutput();
+    reflex.AfterPresent(15, 3);
+    reflex.ResetForProgram();
+    reflex.AfterPresent(16, 1);
+    Check(driver.sleeps == 14 && driver.enabled == 3 && driver.disabled == 3);
     reflex.Disconnect();
     reflex.ReleaseDevice();
     Check(driver.created == 1 && driver.destroyed == 1);

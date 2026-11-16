@@ -14,7 +14,7 @@ public: GsWindowClosed():std::runtime_error("PS2 graphics window closed"){}
 class GsDisplay {
 public:
     GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,
-              bool reflex=true,bool amdAntiLag=false);
+              bool reflex=true,bool amdAntiLag=false,void* existingWindow=nullptr,void* closeEvent=nullptr);
     ~GsDisplay();
     GsDisplay(const GsDisplay&)=delete;
     GsDisplay& operator=(const GsDisplay&)=delete;
@@ -23,6 +23,7 @@ public:
     bool Focused() const;
     void SetKeyHandler(std::function<void(unsigned,bool)> handler);
     void ToggleFullscreen();
+    void ResetForProgram();
     // Gate commands for the next game frame, rather than waiting only after
     // those commands have already been sent to the GPU.
     void WaitPreviousFrame();

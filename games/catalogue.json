@@ -214,6 +214,24 @@
         "runtime/ps2/SDL3.dll",
         "runtime/games/ibara/runtime-manifest.ini"
       ]
+    },
+    {
+      "id": "daioujou-ps2",
+      "name": "DoDonPachi DaiOuJou (PS2)",
+      "nameJapanese": "怒首領蜂 大往生 (PS2)",
+      "backend": "ps2",
+      "integrated": true,
+      "comingSoon": false,
+      "communitySupported": false,
+      "dataDirectory": "game-data/daioujou-ps2",
+      "dataManifest": "daioujou-ps2/data.json",
+      "executable": "runtime/ps2/daioujou-ps2.exe",
+      "runtimeFiles": [
+        "runtime/ps2/daioujou-ps2.exe",
+        "runtime/ps2/daioujou-ps2-runtime.dll",
+        "runtime/ps2/SDL3.dll",
+        "runtime/games/daioujou-ps2/runtime-manifest.ini"
+      ]
     }
   ]
 }

@@ -287,6 +287,21 @@ int KT_SYSV PadReadState(int handle, PadData* output) { return Read(handle, outp
 int KT_SYSV PadInformation(int handle, ControllerInformation* output) { return Information(handle, output); }
 }
 
+void ReadNativePadForPs2(void*, unsigned port, std::uint32_t* buttons, std::uint8_t* axes) noexcept {
+    if (port) return;
+    try {
+        auto& state = State();
+        std::lock_guard lock(state.mutex);
+        PadData input;
+        ReadReports(state,&input,1,true);
+        *buttons=input.buttons;
+        axes[0]=input.right_x; axes[1]=input.right_y;
+        axes[2]=input.left_x; axes[3]=input.left_y;
+    } catch (...) {
+        // A failed device report is neutral for this sample.
+    }
+}
+
 void NativePadAttachWindow(void* window) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (!window || state.keyboard.owner) { UnsupportedApi("native_pad_window_owner", reinterpret_cast<std::uintptr_t>(window), nullptr); }

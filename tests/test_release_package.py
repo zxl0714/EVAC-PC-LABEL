@@ -743,6 +743,21 @@ class ReleaseTests(unittest.TestCase):
                 self.assertFalse(any(p.lower().endswith(('.iso', '.pdb')) for p in files))
         self.check_build_flavors('0.9.4', check)
 
+    def test_v0100_ships_the_distinct_ps2_daioujou_runtime(self):
+        placement = 'game-data/daioujou-ps2/README.txt'
+        self.assertNotIn(placement, release.placement_sources('0.9.11'))
+        self.assertIn(placement, release.placement_sources('0.10.0'))
+        def check(root, games, commit, inspect):
+            public = release.build('Public', '0.10.0', root/'releases/public')
+            inspect.assert_not_called()
+            with zipfile.ZipFile(public['archive']) as archive:
+                files = set(archive.namelist())
+                self.assertTrue({placement, 'runtime/ps2/daioujou-ps2.exe', 'runtime/ps4/daioujou.exe',
+                                 'runtime/ps2/daioujou-ps2-runtime.dll',
+                                 'runtime/games/daioujou-ps2/runtime-manifest.ini'} <= files)
+                self.assertFalse(any(path.lower().endswith(('.iso', '.pdb')) for path in files))
+        self.check_build_flavors('0.10.0', check)
+
     def test_v095_amd_and_standard_program_packages(self):
         def check(root, games, commit, inspect):
             for enabled in (False, True):
@@ -1003,12 +1018,15 @@ class ReleaseTests(unittest.TestCase):
         games={key:dict(id=key,backend='ps4' if key in ('ketsui','daioujou','esprade','feveron','garegga') else 'xbox360',files=[identity],content=[],runtimeFiles=[
             'runtime/'+('ps4' if key in ('ketsui', 'daioujou', 'esprade', 'feveron', 'garegga') else 'xbox360')+'/'+key+'.exe',
             'runtime/games/'+key+'/runtime-manifest.ini']) for key in selection}
-        for ps2_game in ('espgaluda','ibara'):
+        ps2_games = ('espgaluda', 'ibara', 'daioujou-ps2')
+        for ps2_game in ps2_games:
             if ps2_game not in games:continue
             games[ps2_game].update(backend='ps2', files=[dict(identity,path='inner-boot',program=True),
                                                          dict(identity,path='disc.iso',program=False)])
             games[ps2_game]['runtimeFiles'][0]='runtime/ps2/'+ps2_game+'.exe'
             games[ps2_game]['runtimeFiles'].append('runtime/ps2/SDL3.dll')
+        if 'daioujou-ps2' in games:
+            games['daioujou-ps2']['runtimeFiles'].append('runtime/ps2/daioujou-ps2-runtime.dll')
         games['futari']['content']=[dict(id='fixture-dlc',files=[dict(identity,path='fixture-dlc.bin')])]
         certified={}
         for name in release.runtime_names(games,True,selection,version):
@@ -1025,7 +1043,7 @@ class ReleaseTests(unittest.TestCase):
             (root/game['runtimeFiles'][1]).write_text('[runtime]\ncontract=1\ngame='+key+'\nsource_commit='+commit+
                 '\n[files]\n'+file_lines,encoding='utf-8')
             data=root/'game-data'/key;data.mkdir(parents=True);(data/'main.bin').write_bytes(b'abc')
-            if key in ('espgaluda','ibara'):(data/'original.iso').write_bytes(b'abc')
+            if key in ps2_games:(data/'original.iso').write_bytes(b'abc')
             if key in ('daioujou', 'esprade', 'feveron'):
                 (data/'Project.gp4').write_bytes(b'authored packaging-only file')
         (root/'dlc').mkdir();(root/'dlc/fixture-dlc.bin').write_bytes(b'abc')

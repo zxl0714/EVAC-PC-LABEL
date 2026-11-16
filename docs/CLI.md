@@ -33,6 +33,7 @@
 | PS4 | 空战之路 | `garegga` |
 | PS2 | ESPGaluda | `espgaluda` |
 | PS2 | 铸蔷薇 | `ibara` |
+| PS2 | 大往生 (PS2) | `daioujou-ps2` |
 
 ## 可选参数
 

@@ -12,6 +12,7 @@ function Invoke-CertifiedEspgaludaBuild {
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'begin','--state',$taskReceiptState)
     $taskTargets=@('--build',$taskBuild,'--target','ps2_espgaluda_probe')
     if(Select-String -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt') -Pattern '^PS2_IBARA_GENERATED:PATH=.+'){$taskTargets+='ps2_ibara_probe'}
+    if(Select-String -LiteralPath (Join-Path $taskBuild 'CMakeCache.txt') -Pattern '^PS2_DAIOUJOU_GENERATED:PATH=.+'){$taskTargets+='ps2_daioujou_probe'}
     $taskTargets+=@('--parallel',"$Jobs")
     Invoke-Checked $cmake $taskTargets
     Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskReceiptState,'--stage')

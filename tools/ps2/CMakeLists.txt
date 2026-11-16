@@ -461,7 +461,7 @@ if(PS2_BUILD_RUNTIME)
       endif()
     endif()
   endif()
-  include("${CMAKE_CURRENT_LIST_DIR}/Ibara.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/NativeTitle.cmake")
 endif()
 
 if(PS2_BUILD_RUNTIME AND PS2_RUNTIME_THINLTO)

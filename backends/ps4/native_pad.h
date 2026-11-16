@@ -13,6 +13,7 @@ void NativePadWindowKey(void* window, unsigned key, bool down);
 // Optional physical input binding; configured before the window/pad starts.
 bool ConfigureNativePadMouseLeft(std::wstring_view button);
 bool NativePadMouseLeftMapped();
+void ReadNativePadForPs2(void*, unsigned port, std::uint32_t* buttons, std::uint8_t* axes) noexcept;
 // Read/validate fully before publishing; only before pad/window initialization.
 void ConfigureNativePadKeyboard(const std::filesystem::path& path);
 void ConfigureNativePadSettings(const kt::input::KeyboardBindings& bindings, bool gamepad, double deadzone);

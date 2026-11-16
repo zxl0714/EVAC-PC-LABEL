@@ -1,5 +1,31 @@
 # EVAC PC LABEL 实施计划
 
+## v0.10.0 PS2 大往生、Death Label 与韩版空战之路英文界面
+
+1. [x] **接入 PS2 日版大往生。** 本地镜像位于 `E:/Game-Share/roms/original/daioujou/ps2-japan/DoDonPachi Dai-Ou-Jou (Japan).iso`，已读取 `SYSTEM.CNF`，启动程序为 `SLPS_252.33`。用现有 PS2 重编译工具链、运行时和 ISO 加载流程接入，在启动器单独列出 PS2 版，使用 `game-data/daioujou-ps2/` 接收原始 ISO。单独保存 PS2 存档，补中英文放置说明。先验收原版菜单、Arcade、Death Label、音画和存读，再按现有口径检查帧时间、输入延迟及 CPU 开销。
+   - Arcade 调试版已从原始 ISO 进入玩家第一关。补齐两组原版关卡脚本回调后，r7 在 4,680 场上限正常退出，录到了关内画面、计分变化和音频输出。现场位于 `.local/v0100/daioujou-ps2-analysis-r1/r7-arcade-player-r1/`。
+   - 三个原版程序已链接进同一个调试版。实测从原版菜单切到 Death Label，选机后进入实战并输出音频。另从 Death Label 的 EXIT 确认返回原版主程序，两次切换均保持原窗口。记录见 `.local/v0100/daioujou-ps2-analysis-r1/` 下的 `program-menu-switch-r2/` 和 `program-death-return-r2/`。PS2 内核、GS 队列和传输回归通过。
+   - 画廊的两个菜单回调已补齐，实测可浏览缩略图并打开原图，也可在原窗口从主菜单进画廊并退出返回。记录见 `program-gallery-direct-r6/` 和 `program-gallery-roundtrip-r1/`。
+   - 三套程序已纳入项目的 PS2 生成与构建链，从原始 ISO 生成并通过静态跳转校验。启动器 `--game daioujou-ps2` 实测识别外部 ISO、完成数据准备、显示原版画面并正常退出，记录见 `player-launch-r1/`。发包流程已加入独立运行时及双语放置说明，程序包清单测试通过。
+   - 实测在游戏内将 AUTO SAVE 由 OFF 改为 ON 并保存到独立记忆卡。关闭进程后用同一测试档重启，菜单读回 ON。记录见 `save-write-r1/` 和 `save-reload-r1/`，后者的 `scanout.png` 为读回画面。
+   - Arcade 和 Death Label 改为在原版 GS 翻页后取图，并把手柄取样推迟到预留绘制时间之前。Arcade 七次配对变向中，读键到首张位移提交从 34.08 ms 降到 7.47 ms。优化版关内 242 个帧间隔最长 17.36 ms。已复验 Death Label 菜单往返时 Reflex 继续取样，无等待超时。与 PCSX2 在同关同机体对照，延迟估算为 17.13／25.92 ms，CPU 为 0.26／0.54 核。见 [前后对比](ANALYSIS.md#ps2-daioujou-timing)。
+2. [ ] **在 PS4 大往生主菜单接入 Death Label。** 等 PS2 版能独立游玩后，先验证直进 Death Label 和识别结算结束，再做 PS4 菜单入口。仅在验证到可用的 PS2 数据时显示。玩家选中后，在同一个游戏窗口内交接画面、输入和音频，直接进入 PS2 原版 Death Label。Game Over 或通关结算结束后回到原来的 PS4 主菜单。从 PS4 01.00、01.04 验证进出流程、连续重进、全屏下的切换及 PS2 启动失败后的返回。
+   - PS2 的独立测试入口从准备目录直接进入 `DEATH.ELF`。实际玩家局在完整显示 Game Over 后由原版主循环报告完成。未开局时从 EXIT 返回单独报告主动退出。记录见 [Death Label 实机](TEST_MATRIX.md#v0100-ps2-death-label)。
+   - PS2 大往生独立启动与嵌入共用一个 DLL。PS4 运行时实测释放并收回同一窗口的呈现，PS2 关内画面、输入和音频已验证。启动数据缺失时恢复 PS4 呈现，全屏窗口关闭时两端正常退出。
+   - PS4 01.00 明文 SELF 与 01.04 合并补丁均带 X Arrange 曲包实测。由启动器进入直达菜单，选 Death Label 后在同窗口游玩至自然 Game Over，返回原选择位置。01.04 返回后可以再次进入。未安装 PS2 数据的 01.04 正常出帧和关闭。01.04 无曲包新档另通过 3840×2160 全屏下的实战和 Game Over 往返。通关流程待验。见 [菜单实测](TEST_MATRIX.md#v0100-ps2-death-label)。
+3. [x] **给韩版空战之路增加英语界面（[#21](https://github.com/zxl0714/EVAC-PC-LABEL/issues/21)）。** 针对当前支持的韩版 `CUSA10207` 盘点文字资源，先检查已有语言和字体，再补缺少的英文。优先覆盖主菜单、暂停、设置、练习、存读档提示和常用 Gadget 文字。术语参照 [M2 英文手册](https://m2stg.com/en/battle-garegga/ps4/manual/index.php)。翻译随程序应用到玩家现有数据，检查英文长度、换行、字体和菜单操作。
+   - 韩版两份样本的 39 个清单文件逐项一致。准备阶段在本地缓存生成英文图层。两份数据均从启动器实测英文暂停、设置和存档提示，玩家导出另验收排行、资料室、录像及回放侧栏，旧 PKG 另验收屏幕和 Gadget 设置。见 [实测记录](TEST_MATRIX.md#v0100-韩版空战之路英文界面)。
+4. [x] **兼容收到的 PS4 玩家转储（[#11](https://github.com/zxl0714/EVAC-PC-LABEL/issues/11)、[#21](https://github.com/zxl0714/EVAC-PC-LABEL/issues/21)）。** 用 ROM 库中的原样数据验收以下四个样本：
+   - **空战之路 CUSA10207 · 韩版 01.00 玩家导出。** `extracted/garegga/01.00-kr-issue21/` 来自 `CUSA10207.7z` 内的 ZArchive。现有检查器识别为 `base-kr`，完整校验复现 `sce_sys/npbind.dat` 的 SHA-256 不匹配。确认该文件在启动中的用途，按用途修正校验，并用旧 PKG 提取版作对照。英语界面完成后，两份韩版样本都要验证。
+   - **ESP Ra.De. Ψ CUSA15155 · 01.00 Itemzflow 本体、01.04 Itemzflow 本体＋补丁。** 两个样本都来自 `extracted/esprade/esprade_game_patch.zip`。分别验证本体可独立使用、按现有覆盖流程应用补丁后识别为 01.04。
+   - **ESP Ra.De. Ψ CUSA15155 · 01.04 玩家合并导出。** 样本来自 `extracted/esprade/esprade104.zip`。对照库内 01.04，确认启动所需的程序、模块和资源，并验证合并目录可直接选择。
+   - 四个样本逐一走启动器数据选择、完整校验、运行时准备和实际游玩。同步更新中英文放置说明。分别验证 99 槽、低延迟和社区排行榜与录像，将实测结果填回 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
+   - 四份玩家样本均通过完整校验、原生准备、启动器进关、第 99 槽、低延迟、成绩及录像收发。空战之路另通过英文界面验收。两份 ESP Ra.De. 01.04 跨样本完成第 99 槽写入和读回，并复用同程序、资源及准备产物的实测。见 [功能验收](TEST_MATRIX.md#v0100-rom-功能兼容性)。
+5. [x] **验收 ROM 功能兼容性矩阵中所有具备条件的待验收项。** 逐格核对 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md) 中的 `?`，覆盖旧有样本、本版收到的玩家转储和本版新增的游戏内功能。先测已有样本和已实现的功能，Death Label 与韩版空战之路英文界面接入后补测各自的样本。按 ROM 样本合并测试流程，复用同一样本、同一功能且仍适用的实测记录，包括第 4 项的结果。
+   - DLC 看游戏内可选，X Arrange 和 VIRT ARRANGE 核对曲集选择及播放，99 槽验证第 99 槽重启读回，低延迟沿用现有测量口径，社区功能验证游戏内成绩与录像收发，含绊地狱 CUSTOM 三榜和大往生 AC-CHALLENGE。每格记录实际验证的功能。
+   - 实测通过填 `✓` 并附记录。确认不兼容填 `X`，记下样本和复现条件，修复后重测。发版前清完具备条件的 `?`，逐项注明剩余项目缺少的 ROM、素材或测试环境。
+   - 四份新玩家转储的矩阵项已验收，PS2 大往生两种模式的低延迟、狱门山 Arrange 键盘独立控制也已录入。ESP Ra.De. 01.00 ELF 本体已补齐第 99 槽、低延迟和社区功能。绊地狱两版均通过 VIRT ARRANGE、低延迟、第 99 槽及 CUSTOM 三榜的成绩和录像收发。PS4 大往生已补齐 01.00 低延迟、01.04 第 99 槽，以及两版 AC-CHALLENGE 的实际奖牌积分提交和读回。共 66 项通过，53 项缺少对应样本，缺样本列见各游戏表下的记录。
+
 ## v0.9.11 兼容性、练习存档与文件上传
 
 1. [x] **大往生 01.00 标题画面 BGM（[#20](https://github.com/zxl0714/EVAC-PC-LABEL/issues/20)）。** 报告 `20261114-ac31f9a234964787` 来自 v0.9.9，数据为 `base-self` 01.00，准备阶段识别到 X Arrange 音频文件。

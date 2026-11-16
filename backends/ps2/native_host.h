@@ -8,6 +8,7 @@
 class PS2Runtime;
 namespace cave::ps2 {
 class GsCommandBackend;
+class HostPadSource;
 struct NativeHostOptions {
     unsigned width=1280,height=720;
     bool fullscreen=false,vsync=false,timerPrecision=true;
@@ -18,6 +19,9 @@ struct NativeHostOptions {
     bool trackFieldBlits=false;
     bool reflex=true, amdAntiLag=false;
     float deadzone=0.20f,volume=1.0f;
+    void* existingWindow{};
+    void* closeEvent{};
+    std::shared_ptr<HostPadSource> existingPad;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL
 // physical devices. Runtime/generated-code headers only forward-declare it.
@@ -28,8 +32,10 @@ public:
     void Configure(NativeHostOptions options);
     float Volume() const;
     void Initialize(const char* title);
+    bool Alive();
     void OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs);
     void BeforeInput(uint64_t responseField,unsigned budgetUs);
+    void SimulationReady(uint64_t responseField);
     std::unique_ptr<GsCommandBackend> CreateBackend();
     void Run(PS2Runtime& runtime,const std::function<void()>& execute,
              const std::function<void()>& onFrame);

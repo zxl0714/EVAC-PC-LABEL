@@ -30,7 +30,6 @@
 namespace cave::ps2 {
 namespace {
 using namespace std::chrono_literals;
-uint16_t Ps2Buttons(uint32_t bits) {return uint16_t(bits)|((bits&0x100000)?1u:0u);}
 class SharedQueue final : public GsCommandBackend {
     std::shared_ptr<GsCommandQueue> queue;
 public:
@@ -138,11 +137,12 @@ public:
     uint64_t frames=0;
     uint64_t lastOffered=0;
     void Poll() {
+        if(!input)return;
         const auto now=std::chrono::steady_clock::now();
         if(now<nextInput)return;
         nextInput=now+2ms;input->Focus(display->Focused());
     }
-    ~Impl(){if(queue)queue->Close();if(input)SetHostPadSource({});}
+    ~Impl(){if(queue)queue->Close();if(input || options.existingPad)SetHostPadSource({});}
 };
 NativeHost::NativeHost():impl(std::make_unique<Impl>()){}
 NativeHost::~NativeHost()=default;
@@ -151,6 +151,8 @@ void NativeHost::Configure(NativeHostOptions options) {
     if(impl->display)throw std::logic_error("Configure the PS2 host before initialization");
     if(options.width<320 || options.width>7680 || options.height<240 || options.height>4320)
         throw std::invalid_argument("Invalid PS2 host window size");
+    if(bool(options.existingWindow)!=bool(options.closeEvent) || bool(options.existingWindow)!=bool(options.existingPad))
+        throw std::invalid_argument("Borrowed PS2 input and window must be configured together");
     impl->options=std::move(options);
 }
 void NativeHost::Initialize(const char* title) {
@@ -159,30 +161,33 @@ void NativeHost::Initialize(const char* title) {
     // Window presets are physical client pixels, as in the other runtimes.
     // Set this before SDL or Vulkan creates any native window; desktop bitmap
     // scaling would otherwise enlarge 1280x720 to 1920x1080 at 150% DPI.
-    using SetDpiContext=BOOL(WINAPI*)(DPI_AWARENESS_CONTEXT);
-    if(const auto setDpi=reinterpret_cast<SetDpiContext>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext")))
-        setDpi(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    else SetProcessDPIAware();
+    if(!impl->options.existingWindow) {
+        using SetDpiContext=BOOL(WINAPI*)(DPI_AWARENESS_CONTEXT);
+        if(const auto setDpi=reinterpret_cast<SetDpiContext>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext")))
+            setDpi(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        else SetProcessDPIAware();
+    }
     // EE deadlines and the 2 ms input wake use timed condition variables.
     // The default Windows timer quantum can round both to about 15.6 ms.
     // Scope the request to this interactive host, including failed startup.
     if(impl->options.timerPrecision)impl->timerResolution.Enable();
     std::cerr<<"[ps2-host] timer_resolution_ms="<<(impl->timerResolution.Active()?1:0)<<'\n';
-    auto input=std::make_shared<Input>(impl->options);
+    auto input=impl->options.existingPad?nullptr:std::make_shared<Input>(impl->options);
     auto display=std::make_unique<GsDisplay>(impl->options.width,impl->options.height,Wide(title),impl->options.vsync,
-        impl->options.reflex,impl->options.amdAntiLag);
+        impl->options.reflex,impl->options.amdAntiLag,impl->options.existingWindow,impl->options.closeEvent);
     if(impl->options.trackFieldBlits)display->Device().EnableFieldBlitTracking();
     auto queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display->Device().Completions());
     display->SetKeyHandler([weak=std::weak_ptr<Input>(input)](unsigned key,bool down){
         if(key==VK_F8 && down)std::cerr<<"[ps2-marker] qpc_us="<<frame_trace::Stamp()<<'\n';
         if(auto owner=weak.lock())owner->Key(key,down);
     });
-    if(impl->options.fullscreen)display->ToggleFullscreen();
+    if(impl->options.fullscreen && !impl->options.existingWindow)display->ToggleFullscreen();
     impl->display=std::move(display);impl->queue=std::move(queue);impl->input=std::move(input);
-    SetHostPadSource(impl->input);
+    SetHostPadSource(impl->options.existingPad?impl->options.existingPad:impl->input);
     StartupTrace("host-init-complete");
     std::cerr<<"[ps2-host] gpu="<<impl->display->Device().GpuName()<<" input=SDL3 window=Vulkan\n";
 }
+bool NativeHost::Alive() {return impl->display && impl->display->Alive();}
 std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
     if(!impl->queue)throw std::logic_error("Initialize PS2 host before creating the producer");
     std::unique_ptr<GsCommandBackend> backend=std::make_unique<SharedQueue>(impl->queue);
@@ -191,11 +196,12 @@ std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
     return backend;
 }
 void NativeHost::BeforeInput(uint64_t field,unsigned budgetUs){impl->display->BeforeInput(field,budgetUs);}
+void NativeHost::SimulationReady(uint64_t field){impl->display->SimulationReady(field);}
 void NativeHost::OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs) {
     const auto& clock=runtime.eeScheduler();
     const auto tick=clock.currentVSyncTick()+1;
     // Both FIFO and early presentation use this same game-side completion.
-    impl->display->SimulationReady(tick);
+    SimulationReady(tick);
     if(impl->options.vsync || !impl->options.capture.empty())return;
     const auto deadline=clock.nextVBlankDeadline();
     if(tick==impl->lastOffered || deadline-std::chrono::steady_clock::now()<1ms)return;
@@ -205,8 +211,15 @@ void NativeHost::OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,uns
     if(impl->queue->TryFrame(frame))impl->lastOffered=tick;
 }
 void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {
-    if(!impl->display || impl->queue->GetStats().closed)throw std::logic_error("PS2 host is not ready");
-    auto& display=*impl->display;auto mailbox=display.Device().Completions();
+    if(!impl->display)throw std::logic_error("PS2 host is not ready");
+    auto& display=*impl->display;
+    if(impl->queue->GetStats().closed) {
+        display.ResetForProgram();
+        impl->queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display.Device().Completions());
+        impl->lastOffered=0;
+        SetHostPadSource(impl->options.existingPad?impl->options.existingPad:impl->input);
+    }
+    auto mailbox=display.Device().Completions();
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     std::optional<GsFrame> prepared;

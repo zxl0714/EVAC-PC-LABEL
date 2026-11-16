@@ -29,4 +29,13 @@ inline bool BindSdkHandler(PS2Runtime& runtime,uint32_t address,std::string_view
   const auto handler=SdkHandler(name);
   return handler && runtime.replaceFunction(address,handler);
 }
+
+inline void SearchSingleLayer(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {
+  // sceCdLayerSearchFile shares the single-layer file result and first two arguments.
+  if(_mm_cvtsi128_si32(context->r[6])!=0) {
+    context->r[2]=_mm_setzero_si128();
+    return;
+  }
+  ps2_stubs::sceCdSearchFile(memory,context,runtime);
+}
 }

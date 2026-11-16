@@ -6,3 +6,4 @@ std::uint64_t ResolveAudioImport(std::string_view identifier, std::string_view l
 bool AudioSelfTest();
 // PC master gain is separate from guest per-port/per-channel volume.
 void ConfigureNativeAudioVolume(double volume);
+void SilenceNativeAudio(bool silent) noexcept;

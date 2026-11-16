@@ -27,3 +27,5 @@ shadPS4 v0.20.0 使用普通模式和默认 FIFO，沿用同机原有对照。�
 这组 PS2 数据采于 v0.9.5 统一窗口缩放方式之前。RTX 4080 自动启用 Reflex，两作各确认 12 次关内变向。从游戏读到方向到首张位移画面提交返回，ESPGaluda 平均 7.86 ms，铸蔷薇平均 8.29 ms。加上平均取样等待 8.33 ms 和同机 Vulkan Immediate 的历史呈现预算 1.33 ms，合计约 17.53 和 17.96 ms。PCSX2 两作都在第二次更新出现位移，沿用两次 60 Hz 更新与 D3D12 独立翻转的估算，约 43 ms。[测量分解](ANALYSIS.md#v095-ps2)
 
 CPU 在关闭逐帧采集后单独测量。ESPGaluda 移植版为 Arcade 第一关 Ageha，PCSX2 为 BOSS 场景。铸蔷薇两侧均为 Arcade Normal 第一关 PORTTOWN。
+
+PS2 大往生两侧均用日版 ISO，在 Arcade 第一关使用 Type-A／Shotia。移植版读键到首张位移提交平均 7.47 ms，PCSX2 逐帧确认在读键后的下一次更新出现位移。按相同的平均取样等待和各自的历史呈现预算，估算为 17.13 和 25.92 ms。约四秒的关内 CPU 窗口分别为 0.26 和 0.54 核。[大往生测量分解](ANALYSIS.md#ps2-daioujou-timing)

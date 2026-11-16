@@ -489,6 +489,18 @@ static void UploadFrame(Texture2D &tex, PS2Runtime *rt, uint32_t &outWidth, uint
 }
 
 PS2Runtime::PS2Runtime()
+    : PS2Runtime({g_ps2RecompiledFunctionTableBase,
+                  {g_ps2RecompiledFunctionTable, g_ps2RecompiledFunctionTableSlotCount}}, nullptr, nullptr)
+{
+}
+
+PS2Runtime::PS2Runtime(RecompiledProgram program, cave::ps2::NativeHost& host, DiscExecutable resolveExecutable)
+    : PS2Runtime(program, &host, resolveExecutable)
+{
+}
+
+PS2Runtime::PS2Runtime(RecompiledProgram program, cave::ps2::NativeHost* host, DiscExecutable resolveExecutable)
+    : m_program(program), m_externalNativeHost(host), m_resolveExecutable(resolveExecutable)
 {
     m_iopHost = std::make_unique<PS2IopHostAdapter>(*this);
     m_iopSubsystem = std::make_unique<ps2x::iop::IopSubsystem>(*m_iopHost);
@@ -749,6 +761,7 @@ bool PS2Runtime::syncCoreSubsystems()
 
 cave::ps2::NativeHost& PS2Runtime::nativeHost()
 {
+    if (m_externalNativeHost) return *m_externalNativeHost;
     if (!m_nativeHost) m_nativeHost = std::make_unique<cave::ps2::NativeHost>();
     return *m_nativeHost;
 }
@@ -768,7 +781,7 @@ bool PS2Runtime::initialize(const char *title)
             std::cerr << "Failed to bind runtime core subsystems" << std::endl;
             return false;
         }
-        nativeHost().Initialize(title);
+        if (!m_externalNativeHost) nativeHost().Initialize(title);
         if (m_debugUiInitCallback)
         {
             m_debugUiInitCallback(*this, m_debugUiUserData);
@@ -1101,24 +1114,11 @@ void PS2Runtime::configureIoPathsFromElf(const std::string &elfPath)
     setIoPaths(paths);
 }
 
-namespace
+bool PS2Runtime::generatedFunctionTableSlot(uint32_t address, uint32_t &slot) const
 {
-    bool generatedFunctionTableSlot(uint32_t address, uint32_t &slot)
-    {
-        if ((address & 3u) != 0u || g_ps2RecompiledFunctionTableSlotCount == 0u)
-        {
-            return false;
-        }
-
-        if (address < g_ps2RecompiledFunctionTableBase || address >= g_ps2RecompiledFunctionTableEnd)
-        {
-            return false;
-        }
-
-        const uint32_t offset = address - g_ps2RecompiledFunctionTableBase;
-        slot = offset >> 2;
-        return slot < g_ps2RecompiledFunctionTableSlotCount;
-    }
+    if ((address & 3u) != 0u || address < m_program.base) return false;
+    slot = (address - m_program.base) >> 2;
+    return slot < m_program.functions.size();
 }
 
 bool PS2Runtime::replaceFunction(uint32_t address, RecompiledFunction func)
@@ -1127,13 +1127,13 @@ bool PS2Runtime::replaceFunction(uint32_t address, RecompiledFunction func)
     if (!generatedFunctionTableSlot(address, slot))
     {
         std::cerr << "[function-table] cannot replace guest PC 0x" << std::hex << address
-                  << ": outside generated dense table [0x" << g_ps2RecompiledFunctionTableBase
-                  << ", 0x" << g_ps2RecompiledFunctionTableEnd << ")"
+                  << ": outside generated dense table [0x" << m_program.base
+                  << ", 0x" << m_program.base + 4 * m_program.functions.size() << ")"
                   << std::dec << std::endl;
         return false;
     }
 
-    g_ps2RecompiledFunctionTable[slot] = func;
+    m_program.functions[slot] = func;
     return true;
 }
 
@@ -1159,7 +1159,7 @@ bool PS2Runtime::hasFunction(uint32_t address) const
         return true;
     }
     uint32_t slot = 0u;
-    return generatedFunctionTableSlot(address, slot) && g_ps2RecompiledFunctionTable[slot] != nullptr;
+    return generatedFunctionTableSlot(address, slot) && m_program.functions[slot] != nullptr;
 }
 
 const char *describeGuestBranchKind(PS2Runtime::GuestBranchKind kind)
@@ -1193,7 +1193,7 @@ PS2Runtime::RecompiledFunction PS2Runtime::lookupFunction(uint32_t address)
     uint32_t slot = 0u;
     if (generatedFunctionTableSlot(address, slot))
     {
-        RecompiledFunction fn = g_ps2RecompiledFunctionTable[slot];
+        RecompiledFunction fn = m_program.functions[slot];
         if (fn != nullptr)
         {
             return fn;
@@ -1201,8 +1201,8 @@ PS2Runtime::RecompiledFunction PS2Runtime::lookupFunction(uint32_t address)
     }
 
     std::cerr << "Error: No exact recompiled function for guest PC 0x" << std::hex << address
-              << " tableBase=0x" << g_ps2RecompiledFunctionTableBase
-              << " tableEnd=0x" << g_ps2RecompiledFunctionTableEnd
+              << " tableBase=0x" << m_program.base
+              << " tableEnd=0x" << m_program.base + 4 * m_program.functions.size()
               << " codeRegion=" << (m_memory.isCodeAddress(address) ? "yes" : "no")
               << " trace=" << formatDispatchHistory()
               << std::dec << std::endl;
@@ -1442,7 +1442,7 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
     {
         uint32_t slot = 0u;
         if (generatedFunctionTableSlot(targetPc, slot))
-            targetFn = g_ps2RecompiledFunctionTable[slot];
+            targetFn = m_program.functions[slot];
     }
     if (targetFn == nullptr)
     {
@@ -1532,6 +1532,29 @@ void PS2Runtime::handleSyscall(uint8_t *rdram, R5900Context *ctx)
     handleSyscall(rdram, ctx, 0);
 }
 
+bool PS2Runtime::tryLoadExecPS2(uint8_t* rdram, R5900Context* ctx)
+{
+    if (!m_resolveExecutable) return false;
+    const uint32_t address = getRegU32(ctx, 4) & 0x1fffffffu;
+    // The verified disc transitions use argc=0. Only those three known
+    // disc programs may be selected from the prepared directory.
+    if (address && address < PS2_RAM_SIZE && getRegU32(ctx, 5) == 0u)
+    {
+        const auto path = reinterpret_cast<const char*>(rdram + address);
+        const auto end = static_cast<const char*>(std::memchr(path, 0, std::min(64u, PS2_RAM_SIZE - address)));
+        if (end) m_requestedExecutable = m_resolveExecutable({path, static_cast<size_t>(end - path)});
+        if (!m_requestedExecutable.empty())
+        {
+            std::cerr << "[ps2-load-exec] next=" << m_requestedExecutable << '\n';
+            requestStop();
+            return true;
+        }
+    }
+    std::cerr << "[ps2-load-exec] unavailable disc executable or unsupported arguments\n";
+    ctx->r[2] = _mm_set1_epi32(-1);
+    return true;
+}
+
 void PS2Runtime::handleSyscall(uint8_t *rdram, R5900Context *ctx, uint32_t encodedSyscallId)
 {
     if (ctx->in_delay_slot)
@@ -1544,7 +1567,8 @@ void PS2Runtime::handleSyscall(uint8_t *rdram, R5900Context *ctx, uint32_t encod
                                    ? encodedSyscallId
                                    : getRegU32(ctx, 3); // $v1 / $3 is the EE kernel syscall number
 
-    if (ps2_syscalls::dispatchNumericSyscall(syscallId, rdram, ctx, this))
+    if ((syscallId == 0x06u && tryLoadExecPS2(rdram, ctx)) ||
+        ps2_syscalls::dispatchNumericSyscall(syscallId, rdram, ctx, this))
     {
         return;
     }
@@ -2435,12 +2459,13 @@ void PS2Runtime::run()
 
     RUNTIME_LOG("Starting execution at address 0x" << std::hex << m_cpuContext.pc << std::dec);
 
-    m_iopHost->startAudio(*m_iopSubsystem, m_nativeHost->Volume());
-    m_nativeHost->Run(*this, [&]() {
+    auto& host = nativeHost();
+    m_iopHost->startAudio(*m_iopSubsystem, host.Volume());
+    host.Run(*this, [&]() {
         ThreadNaming::SetCurrentThreadName("GameThread");
         try
         {
-            auto backend = m_nativeHost->CreateBackend();
+            auto backend = host.CreateBackend();
             // The GPU backend owns GIF continuation state. CPU-reference
             // IMAGE repair must not insert a second tag into that raw stream.
             m_memory.setRawGifTransfers(bool(backend));
@@ -2487,7 +2512,7 @@ void PS2Runtime::run()
     m_iopHost->stopAudio();
     // Both game threads and the device callback are stopped. Writing a large
     // test timeline here cannot manufacture a final audio underrun.
-    try { cave::ps2::input_trace::Save(); }
+    try { if (m_requestedExecutable.empty()) cave::ps2::input_trace::Save(); }
     catch (const std::exception &error) { std::cerr << "[ps2-input-trace] " << error.what() << '\n'; }
     if (m_debugUiInitialized && m_debugUiShutdownCallback)
     {

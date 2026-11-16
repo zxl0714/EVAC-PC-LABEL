@@ -9,6 +9,7 @@
 #include "native_display_clock.h"
 #include "native_equeue.h"
 #include "native_pad.h"
+#include "native_audio.h"
 #include "graphics/display_layout.h"
 #include "graphics/vulkan_device.h"
 #include "graphics/shader_compiler.h"
@@ -21,6 +22,7 @@
 #include <atomic>
 #include <array>
 #include <cstddef>
+#include <condition_variable>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -128,6 +130,8 @@ struct WindowJob {
 struct VideoState {
     NativeDisplaySettings display;
     std::mutex mutex;
+    std::condition_variable window_returned;
+    bool window_borrowed{};
     std::shared_ptr<WindowJob> active;
     // Retain only the last port's label metadata, not its HWND, clock or OS
     // handles. Already-built commands may still carry those label addresses.
@@ -362,6 +366,7 @@ int Open(int user, int bus, int index, const void* parameter, bool visible, cons
 
 int CloseLocked(VideoState& state, int handle, const void* caller) {
     if (!state.active || handle != state.handle) { return kHandle; }
+    if (state.window_borrowed) { return kBusy; }
     const auto job = state.active;
     if (job->clock) { job->clock->Stop(); } // cancel waits/remove subscriptions before GPU and HWND teardown
     if (auto* resident = CurrentNativeResidentGpu()) { resident->SetWindow(nullptr); }
@@ -640,7 +645,9 @@ NativeVideoLabelReference AcquireNativeVideoBufferLabel(int handle, unsigned ind
     return {reinterpret_cast<std::uint64_t>(&state.active->buffer_labels[index]), state.active};
 }
 bool CompleteNativePresentationShutdown(int handle) {
-    auto& state = State(); std::lock_guard lock(state.mutex);
+    auto& state = State(); std::unique_lock lock(state.mutex);
+    if (state.active && handle == state.handle && state.active->quit_requested.load())
+        state.window_returned.wait(lock,[&] { return !state.window_borrowed; });
     if (!state.active) {
         if (!handle && !state.closed) { return true; } // terminal-log fixture: no output ever existed
         if (!state.closed || state.closed_handle != handle || !state.closed->quit_requested.load()) { return false; }
@@ -660,6 +667,43 @@ bool CompleteNativePresentationShutdown(int handle) {
                 "\"resident_gpu_context_destroyed\":false,\"legacy_device_destroyed\":%s}\n", handle, legacy_device ? "true" : "false");
     return true;
 }
+cave::DeathLabelResult RunNativeVideoDeathLabel(cave::DeathLabelHost request, cave::RunDeathLabel run) {
+    using cave::DeathLabelResult;
+    auto& state = State();
+    std::shared_ptr<WindowJob> job;
+    {
+        std::lock_guard lock(state.mutex);
+        auto* resident = CurrentNativeResidentGpu();
+        if (!run || !resident || !state.active || state.window_borrowed || state.stopping_handle)
+            return DeathLabelResult::Failed;
+        job = state.active;
+        if (job->quit_requested.load()) return DeathLabelResult::Closed;
+        request.window = job->window.load();
+        request.closeEvent = job->quit;
+        request.vsync = job->display.vsync;
+        request.reflex = job->display.reflex;
+        request.amdAntiLag = job->display.amd_anti_lag;
+        if (!request.readPad) request.readPad = ReadNativePadForPs2;
+        resident->SetWindow(nullptr); // drains and releases the existing swapchain
+        job->renderer_active.store(true);
+        state.window_borrowed = true;
+        SilenceNativeAudio(true);
+    }
+    auto result = run(&request);
+    {
+        std::lock_guard lock(state.mutex);
+        SilenceNativeAudio(false);
+        state.window_borrowed = false;
+        state.window_returned.notify_all();
+        if (job->quit_requested.load()) {
+            result = DeathLabelResult::Closed;
+        } else {
+            CurrentNativeResidentGpu()->SetWindow(job->window.load());
+        }
+    }
+    return result;
+}
+
 NativeVideoResult WithNativeVideoGpu(int handle, unsigned index, const std::function<void(NativeVideoGpuContext&)>& execute) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     auto* resident = CurrentNativeResidentGpu();
@@ -733,10 +777,15 @@ NativeVideoResult PresentNativeVideoGpu(int handle, unsigned index, unsigned mod
         for (;;) {
             if (state.active->quit_requested.load()) { return unavailable("window_close_requested_during_present", NativeVideoResult::CloseRequested); }
             const auto extent = std::pair{state.active->width.load(), state.active->height.load()};
-            const auto result = !extent.first || !extent.second
-                ? kt::gfx::PresentStatus::ZeroExtent
-                : resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout, &backend_timing, &pacing)
-                           : state.graphics->Present(buffer.surface->id, pixels);
+            auto result = kt::gfx::PresentStatus::ZeroExtent;
+            if (state.window_borrowed) {
+                // Finish guest work and its flip event while PS2 owns scanout.
+                resident->Drain();
+                result = pacing.wait(pacing.context) ? kt::gfx::PresentStatus::Completed : kt::gfx::PresentStatus::Cancelled;
+            } else if (extent.first && extent.second) {
+                result = resident ? resident->Present(reinterpret_cast<std::uint64_t>(buffer.memory.address), layout, &backend_timing, &pacing)
+                                  : state.graphics->Present(buffer.surface->id, pixels);
+            }
             if (result == kt::gfx::PresentStatus::Completed) { break; }
             if (result == kt::gfx::PresentStatus::Cancelled) {
                 return unavailable("pacing_cancelled", state.active->quit_requested.load() ? NativeVideoResult::CloseRequested : NativeVideoResult::Unavailable);
@@ -1011,6 +1060,42 @@ bool GraphicsSelfTest(bool interactive) {
     }
     std::printf("{\"event\":\"graphics_self_test\",\"passed\":%s}\n", passed ? "true" : "false");
     return passed;
+}
+
+int DeathLabelWindowCheck(const wchar_t* gpu, const wchar_t* library, cave::DeathLabelHost request, bool fullscreen) {
+    const auto path = std::filesystem::absolute(library);
+    const auto module = LoadLibraryExW(path.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    if (!module) throw std::runtime_error("Cannot load the PS2 test runtime DLL");
+    const std::unique_ptr<std::remove_pointer_t<HMODULE>,decltype(&FreeLibrary)> lifetime(module,FreeLibrary);
+    const auto entry = reinterpret_cast<cave::RunDeathLabel>(GetProcAddress(module,cave::DeathLabelEntry));
+    if (!entry) throw std::runtime_error("Cannot find the Death Label runtime entry");
+    NativeDisplaySettings display;
+    display.title = L"EVAC PC LABEL | DaiOuJou Death Label window check";
+    display.fullscreen = fullscreen;
+    display.vsync = false;
+    ConfigureNativeDisplay(std::move(display));
+    NativeResidentGpu resident(gpu,false);
+    const auto handle = VideoOpen(0xff,0,0,nullptr);
+    if (handle <= 0) return 1;
+    HWND window{};
+    {
+        auto& state=State(); std::lock_guard lock(state.mutex);
+        window=state.active->window.load();
+    }
+    std::printf("{\"event\":\"death_label_window_check_before\",\"window\":%llu,\"fullscreen\":%s}\n",
+        static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(window)),fullscreen ? "true" : "false");
+    std::fflush(stdout);
+    cave::DeathLabelResult result;
+    try {
+        result=RunNativeVideoDeathLabel(request,entry);
+    } catch (...) {
+        VideoClose(handle);
+        throw;
+    }
+    std::printf("{\"event\":\"death_label_window_check_after\",\"result\":%d,\"window_alive\":%s}\n",
+        static_cast<int>(result),IsWindow(window) ? "true" : "false");
+    if (VideoClose(handle) != 0) return 1;
+    return result == cave::DeathLabelResult::Failed ? 2 : 0;
 }
 
 int VideoDemo() {

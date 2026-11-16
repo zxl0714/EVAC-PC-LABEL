@@ -20,9 +20,12 @@ void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool upda
 void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion);
 void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion);
 void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion);
+void PrepareGareggaArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable);
 void AddArrangeFiles(std::vector<std::string>& files, bool merged);
-void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,
-    std::span<const std::uint8_t> executable, bool merged,VerificationCache* verification=nullptr);
+void PrepareDaioujouArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable, bool merged, bool arrange, bool death_label,
+    VerificationCache* verification);
 void PrepareKetsuiArrangeArchive(const fs::path& data, const fs::path& stage,
     std::span<const std::uint8_t> executable, bool merged, const nlohmann::json& tracks);
 }

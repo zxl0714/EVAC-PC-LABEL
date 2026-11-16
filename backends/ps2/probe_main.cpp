@@ -22,6 +22,9 @@
 #ifdef EVAC_PS2_IBARA
 #include "games/ibara/disc_files.h"
 #include "games/ibara/input_timing.h"
+#elif defined(EVAC_PS2_DAIOUJOU)
+#include "games/daioujou-ps2/disc_files.h"
+#include "games/daioujou-ps2/disc_program.h"
 #else
 #include "games/espgaluda/disc_files.h"
 #include "games/espgaluda/input_timing.h"
@@ -197,11 +200,16 @@ int ProbeArcadeResetCallbacks(const char* disc) {
 constexpr bool IsIbara=true;
 constexpr const char* WindowTitle="EVAC PC LABEL | Ibara";
 const cave::ps2::CollectionGame CollectionDefinition{"ibara","6e58b52aa5c03d45e413e8473be52a39205095e34a1bd58dae6bd852eb4fb1db",cave::ibara::DiscFiles};
+#elif defined(EVAC_PS2_DAIOUJOU)
+constexpr bool IsIbara=false;
+constexpr const char* WindowTitle="EVAC PC LABEL | DoDonPachi DaiOuJou (PS2)";
+const cave::ps2::CollectionGame CollectionDefinition{"daioujou-ps2",cave::daioujou_ps2::DiscSha256,cave::daioujou_ps2::DiscFiles};
 #else
 constexpr bool IsIbara=false;
 constexpr const char* WindowTitle="EVAC PC LABEL | ESPGaluda";
 const cave::ps2::CollectionGame CollectionDefinition{"espgaluda","d1547e943a26df22bbf5471e6cc89c57a2208b757d406ae0b41bf90bd3c51a0f",cave::espgaluda::DiscFiles};
 #endif
+const bool IsEspgaluda=CollectionDefinition.id=="espgaluda";
 int ProbeIopHeapLifecycle(const char* elf) {
   PS2Runtime runtime;
   if(!runtime.memory().initialize() || !runtime.loadELF(elf))
@@ -547,7 +555,11 @@ template<uint32_t Address> struct Observe {
 };
 }
 
+#ifdef EVAC_PS2_DAIOUJOU
+extern "C" __declspec(dllexport) int EvacDaioujouMain(int argc,char** argv) {
+#else
 int main(int argc,char** argv) {
+#endif
   std::filesystem::path frameTimes;
   std::unique_ptr<cave::ps2::CollectionLaunch> collection;
   try {
@@ -563,28 +575,36 @@ int main(int argc,char** argv) {
       return ProbeArcadeResetCallbacks(argv[2]);
 #endif
     if(argc==3 && std::string_view(argv[1])=="--probe-iop-heap") {
-      if(IsIbara)throw std::runtime_error("The IOP heap entry probe requires the ESPGaluda host");
+      if(!IsEspgaluda)throw std::runtime_error("The IOP heap entry probe requires the ESPGaluda host");
       return ProbeIopHeapLifecycle(argv[2]);
     }
     if(argc==3 && std::string_view(argv[1])=="--probe-adx-coefficients") {
-      if(IsIbara)throw std::runtime_error("The ADX coefficient probe requires the ESPGaluda host");
+      if(!IsEspgaluda)throw std::runtime_error("The ADX coefficient probe requires the ESPGaluda host");
       return ProbeAdxCoefficients(argv[2]);
     }
     if(argc==3 && std::string_view(argv[1])=="--probe-disc-index") {
-      if(IsIbara)throw std::runtime_error("The disc-index probe requires the ESPGaluda host");
+      if(!IsEspgaluda)throw std::runtime_error("The disc-index probe requires the ESPGaluda host");
       return ProbeDiscIndex(argv[2]);
     }
     if(!collection && argc<5)throw std::runtime_error("Expected: boot.elf disc.iso extracted-disc-root test-profile [--trace-boot] [--frames count]");
     bool traceBoot=false,traceAudio=false,musicCycle=false;
+#ifdef EVAC_PS2_DAIOUJOU
+    bool deathLabelSession=false;
+#endif
     uint64_t frameLimit{};
     uint32_t diagnosticTapMs{};
     size_t inputTraceEvents=200000,audioCaptureSeconds=90;
+    uint64_t inputTraceStartField=0;
     std::filesystem::path audioCapture,inputTrace;
     cave::ps2::NativeHostOptions hostOptions;
+    hostOptions.gameId=CollectionDefinition.id;
     if(collection){hostOptions=collection->HostOptions();frameTimes=collection->FrameTimes();}
     for(int i=collection?argc:5;i<argc;++i) {
       const std::string_view option=argv[i];
       if(option=="--trace-boot")traceBoot=true;
+#ifdef EVAC_PS2_DAIOUJOU
+      else if(option=="--death-label-session")deathLabelSession=true;
+#endif
       else if(option=="--trace-audio")traceAudio=true;
       else if(option=="--music-cycle")musicCycle=traceAudio=true;
       else if(option=="--capture-audio" && i+1<argc)audioCapture=std::filesystem::absolute(argv[++i]);
@@ -596,6 +616,10 @@ int main(int argc,char** argv) {
       else if(option=="--input-trace-events" && i+1<argc) {
         inputTraceEvents=std::stoull(argv[++i]);
         if(!inputTraceEvents || inputTraceEvents>1000000)throw std::runtime_error("Input trace events must be 1..1000000");
+      }
+      else if(option=="--input-trace-start-field" && i+1<argc) {
+        inputTraceStartField=std::stoull(argv[++i]);
+        if(!inputTraceStartField || inputTraceStartField>36000)throw std::runtime_error("Input trace start field must be 1..36000");
       }
       else if(option=="--coarse-timer")hostOptions.timerPrecision=false;
       else if(option=="--reflex-off")hostOptions.reflex=false;
@@ -631,7 +655,8 @@ int main(int argc,char** argv) {
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
     cave::ps2::ConfigureDiagnosticInput(diagnosticTapMs);
-    cave::ps2::input_trace::Scope inputTraceScope(inputTrace,inputTraceEvents);
+    if(inputTraceStartField && inputTrace.empty())throw std::runtime_error("Input trace start field requires an input trace path");
+    cave::ps2::input_trace::Scope inputTraceScope(inputTrace,inputTraceEvents,inputTraceStartField);
     cave::ps2::audio_trace::Configure(traceAudio);
     cave::ps2::frame_trace::Configure(!frameTimes.empty());
     cave::ps2::audio_capture::Configure(audioCapture,audioCaptureSeconds);
@@ -639,20 +664,15 @@ int main(int argc,char** argv) {
     PS2Runtime::IoPaths configured;
     configured.elfPath=elf;configured.elfDirectory=elf.parent_path();
     configured.hostRoot=data;configured.cdRoot=data;configured.cdImage=iso;configured.mcRoot=profile/"mc0";
-    PS2Runtime::setIoPaths(configured);
-    PS2Runtime runtime;
-    // Ibara switches DISPFB in response to the start-of-blank interrupt.
-    // Latch the buffer it selected for the upcoming visible field.
-    runtime.eeScheduler().setScanoutAfterDisplayFlip(CollectionDefinition.id=="ibara");
-    hostOptions.trackFieldBlits=IsIbara;
-    runtime.nativeHost().Configure(std::move(hostOptions));
     struct Progress {
       uint64_t frames{},limit{};
       std::chrono::steady_clock::time_point started{};
       bool trace=false;
     } progress{0,frameLimit};
     progress.trace=traceBoot;
-    runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
+    const auto configureRuntime=[&](PS2Runtime& runtime) {
+      runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+      runtime.setDebugUiCallbacks([](PS2Runtime&,void*){},
       [](PS2Runtime& state,void* user) {
         auto& progress=*static_cast<Progress*>(user);
         const auto count=++progress.frames;
@@ -681,7 +701,39 @@ int main(int argc,char** argv) {
                  <<" rpcServers="<<iop.emulatorRpcServers<<'\n';
         for(const auto& diagnostic:iop.diagnostics)std::cerr<<"[ps2-iop] "<<diagnostic<<'\n';
       },[](PS2Runtime&,void*){},&progress);
-    runtime.setMissingFunctionPolicy(PS2Runtime::MissingFunctionPolicy::Stop);
+    };
+#ifdef EVAC_PS2_DAIOUJOU
+    if(deathLabelSession) {
+      configured.elfPath=data/"death.elf";
+      configured.elfDirectory=data;
+    }
+    cave::ps2::NativeHost host;
+    host.Configure(std::move(hostOptions));
+    host.Initialize(WindowTitle);
+    std::string_view next;
+    do {
+      const auto result=cave::daioujou_ps2::RunDiscProgram(configured,host,deathLabelSession,
+          !_wgetenv(L"EVAC_PS2_TEST_ORIGINAL_PAD_TIMING"),configureRuntime);
+      next=result.next;
+      if(deathLabelSession) {
+        const char* outcome=result.completed?"completed":next=="boot.elf"?"exit":"interrupted";
+        std::cerr<<"[ps2-death-label] outcome="<<outcome<<" fields="<<progress.frames<<'\n';
+        break;
+      }
+      if(!next.empty()) {
+        configured.elfPath=data/next;
+        configured.elfDirectory=configured.elfPath.parent_path();
+      }
+    } while(!next.empty() && (!frameLimit || progress.frames<frameLimit) && host.Alive());
+#else
+    PS2Runtime::setIoPaths(configured);
+    PS2Runtime runtime;
+    // Ibara switches DISPFB in response to the start-of-blank interrupt.
+    // Latch the buffer it selected for the upcoming visible field.
+    runtime.eeScheduler().setScanoutAfterDisplayFlip(IsIbara);
+    hostOptions.trackFieldBlits=IsIbara;
+    runtime.nativeHost().Configure(std::move(hostOptions));
+    configureRuntime(runtime);
     if(!runtime.initialize(WindowTitle))throw std::runtime_error("PS2 host initialization failed");
     if(!runtime.loadELF(elf.string()))throw std::runtime_error("Boot ELF loading failed");
     if (!std::getenv("EVAC_PS2_TEST_ORIGINAL_PAD_TIMING")) {
@@ -697,10 +749,10 @@ int main(int argc,char** argv) {
     paths.hostRoot=data;paths.cdRoot=data;paths.cdImage=iso;paths.mcRoot=profile/"mc0";
     PS2Runtime::setIoPaths(paths);
     if(musicCycle) {
-      if(IsIbara)throw std::runtime_error("The original music lifecycle diagnostic requires the ESPGaluda host");
+      if(!IsEspgaluda)throw std::runtime_error("The original music lifecycle diagnostic requires the ESPGaluda host");
       AudioRingWatch::Bind(runtime);
     }
-    if(traceAudio && !IsIbara)MusicCycle::Bind(runtime,musicCycle);
+    if(traceAudio && IsEspgaluda)MusicCycle::Bind(runtime,musicCycle);
     if(traceBoot && IsIbara) {
       Observe<0x1be620u>::Bind(runtime);
       Observe<0x148b80u>::Bind(runtime);
@@ -711,7 +763,7 @@ int main(int argc,char** argv) {
       Observe<0x1aa6d0u>::Bind(runtime);
       Observe<0x1bcd20u>::Bind(runtime);
     }
-    if(traceBoot && !IsIbara) {
+    if(traceBoot && IsEspgaluda) {
       Observe<0x27e6c0u>::Bind(runtime);
       Observe<0x27ed68u>::Bind(runtime);
       Observe<0x27f310u>::Bind(runtime);
@@ -730,8 +782,8 @@ int main(int argc,char** argv) {
       Observe<0x127480u>::Bind(runtime);
       Observe<0x124600u>::Bind(runtime);
     }
-    if(traceAudio && !traceBoot && !IsIbara)Observe<0x27e6c0u>::Bind(runtime);
-    if(traceAudio && !IsIbara) {
+    if(traceAudio && !traceBoot && IsEspgaluda)Observe<0x27e6c0u>::Bind(runtime);
+    if(traceAudio && IsEspgaluda) {
       Observe<0x124a40u>::Bind(runtime);
       Observe<0x124dc0u>::Bind(runtime);
       Observe<0x124ff0u>::Bind(runtime);
@@ -741,6 +793,7 @@ int main(int argc,char** argv) {
       Observe<0x27d738u>::Bind(runtime);
     }
     runtime.run();
+#endif
     cave::ps2::audio_capture::Save();
     if(!frameTimes.empty())cave::ps2::frame_trace::Save(frameTimes);
     if(collection)collection->Complete(0);

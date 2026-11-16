@@ -44,7 +44,8 @@ CollectionConfiguration LoadCollectionConfiguration(const fs::path& path,std::st
     return ResolveCollectionConfiguration(Ini::Load(path),game);
 }
 void ApplyCollectionConfiguration(const CollectionConfiguration& config) {
-    ConfigureNativeProfile(config.shared.neo);
+    // CUSA10207 contains English assets selected by the game's PS4 language query.
+    ConfigureNativeProfile(config.shared.neo, config.game == "garegga" ? NativeLanguage::English : NativeLanguage::Japanese);
     ConfigureNativePadSettings(config.keyboard, config.shared.gamepad_enabled, config.shared.deadzone);
     ConfigureNativeAudioVolume(config.shared.volume);
     ConfigureNativeDisplay(config.display);
@@ -82,6 +83,16 @@ bool CollectionConfigurationSelfTest() {
           "neo_default_reaches_real_system_query_and_output");
     ApplyCollectionConfiguration(base);
     check(query && query()==0,"base_query_restored");
+    const auto language_query=reinterpret_cast<int(__attribute__((sysv_abi))*)(int,int*)>(
+        ResolveSystemStatusImport("fZo48un7LK4","libSceSystemService","libSceSystemService"));
+    const auto garegga=ResolveCollectionConfiguration(Ini::Parse(DefaultConfig()),"garegga");
+    ApplyCollectionConfiguration(garegga);
+    int language=-1;
+    check(language_query && language_query(1,&language)==0 && language==static_cast<int>(NativeLanguage::English),
+        "garegga_requests_the_english_system_language");
+    ApplyCollectionConfiguration(base);
+    check(language_query && language_query(1,&language)==0 && language==static_cast<int>(NativeLanguage::Japanese),
+        "other_titles_keep_the_original_system_language");
     const auto daioujou=ResolveCollectionConfiguration(Ini::Parse(
         "[display]\nfullscreen=true\n[game.daioujou.display]\nfullscreen=false\n"
         "[game.ketsui.keyboard]\nunknown=invalid\n"),"daioujou");

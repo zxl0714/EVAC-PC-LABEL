@@ -33,13 +33,13 @@ class ArtworkTests(unittest.TestCase):
     def test_catalogue_sources_and_reproducible_generation(self):
         entries = generate_artwork.artwork(self.root)
         self.assertEqual([entry['game'] for entry in entries],
-                         ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara'])
+                         ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara', 'daioujou-ps2'])
         destination = self.root / 'out'
         generate_artwork.generate(self.root, destination)
         before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()}
         generate_artwork.generate(self.root, destination)
         self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()})
-        self.assertIn('std::array<Artwork,11>', (destination / 'artwork.h').read_text())
+        self.assertIn('std::array<Artwork,12>', (destination / 'artwork.h').read_text())
 
     def test_cover_resources_preserve_each_title_and_have_separate_assets(self):
         banners=generate_artwork.artwork(self.root)

@@ -126,7 +126,7 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         impl->activeReply=command.reply;
     }
     std::vector<uint8_t> answer;
-    const auto tracedStart=input_trace::Enabled()?input_trace::Stamp():0;
+    const auto tracedStart=input_trace::Recording(command.field)?input_trace::Stamp():0;
     try {
         consumer.BeginCommand(command.generation);
         switch(command.kind) {

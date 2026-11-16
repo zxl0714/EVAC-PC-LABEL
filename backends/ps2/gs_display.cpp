@@ -25,6 +25,9 @@ namespace {
 class NativeWindow final : public Vulkan::WSIPlatform {
 public:
     HWND handle{};
+    HANDLE closeEvent{};
+    SIZE lastExtent{};
+    bool borrowed=false;
     bool closed=false;
     bool fullscreen=false;
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
@@ -36,8 +39,15 @@ public:
     PFN_vkAntiLagUpdateAMD amdUpdate{};
     VkDevice amdDevice{};
     std::atomic<uint64_t> amdField{};
-    NativeWindow(unsigned width,unsigned height,const std::wstring& title,bool enable,bool amd)
-        :reflex(enable),amdRequested(amd) {
+    NativeWindow(unsigned width,unsigned height,const std::wstring& title,bool enable,bool amd,HWND existing,HANDLE quit)
+        :handle(existing),closeEvent(quit),borrowed(existing != nullptr),reflex(enable),amdRequested(amd) {
+        if(borrowed) {
+            DWORD process{};
+            if(!closeEvent || !GetWindowThreadProcessId(handle,&process) || process!=GetCurrentProcessId())
+                throw std::invalid_argument("Cannot borrow PS2 game window");
+            lastExtent={LONG(get_surface_width()),LONG(get_surface_height())};
+            return;
+        }
         WNDCLASSW info{};
         info.lpfnWndProc=Procedure;info.hInstance=GetModuleHandleW(nullptr);
         info.lpszClassName=L"EVAC.PS2.Vulkan";info.hCursor=LoadCursorW(nullptr,MAKEINTRESOURCEW(32512));
@@ -50,7 +60,7 @@ public:
             nullptr,nullptr,info.hInstance,this);
         if(!handle)throw std::runtime_error("Cannot create PS2 Vulkan window");
     }
-    ~NativeWindow() override{if(handle)DestroyWindow(handle);}
+    ~NativeWindow() override{if(handle && !borrowed)DestroyWindow(handle);}
     void event_device_created(Vulkan::Device* gpu) override {
         if (!amdRequested) return;
         if (gpu->get_gpu_properties().vendorID==0x1002 && gpu->get_device_features().anti_lag_features.antiLag) {
@@ -76,7 +86,7 @@ public:
     void event_device_destroyed() override {amdUpdate=nullptr;amdDevice=VK_NULL_HANDLE;reflex.ReleaseDevice();}
     VkSurfaceKHR create_surface(VkInstance instance,VkPhysicalDevice) override {
         VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-        info.hinstance=GetModuleHandleW(nullptr);info.hwnd=handle;
+        info.hinstance=reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(handle,GWLP_HINSTANCE));info.hwnd=handle;
         VkSurfaceKHR surface{};
         if(vkCreateWin32SurfaceKHR(instance,&info,nullptr,&surface)!=VK_SUCCESS)
             throw std::runtime_error("Cannot create Vulkan window surface");
@@ -95,6 +105,16 @@ public:
         const auto now=std::chrono::steady_clock::now();
         if(now<nextMessagePoll)return;
         nextMessagePoll=now+std::chrono::microseconds(500);
+        if(borrowed) {
+            RECT area{};
+            if(WaitForSingleObject(closeEvent,0)!=WAIT_TIMEOUT || !GetClientRect(handle,&area)) {
+                closed=true;
+            } else if(lastExtent.cx!=area.right || lastExtent.cy!=area.bottom) {
+                lastExtent={area.right,area.bottom};
+                resize=true;
+            }
+            return;
+        }
         MSG message{};
         while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)) {
             if(message.message==WM_QUIT){closed=true;continue;}
@@ -160,8 +180,8 @@ public:
     void Mark(Stage stage) const {gs_crash::Mark(stage,frames);}
     uint64_t lastFeedback=0;
     pixel_trace::Capture pixels;
-    Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd)
-        :window(width,height,title,reflex,amd) {
+    Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,HWND existing,HANDLE quit)
+        :window(width,height,title,reflex,amd,existing,quit) {
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
         wsi.set_platform(&window);
@@ -186,8 +206,10 @@ public:
         std::cerr<<"[ps2-gs-present] frames="<<frames<<" readbacks="<<readbacks<<'\n';
     }
 };
-GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd)
-    :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd)) {
+GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,
+                     void* existingWindow,void* closeEvent)
+    :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd,
+         static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent))) {
     const auto& gpu=impl->wsi.get_device().get_gpu_properties();
     gs_crash::Start();
     impl->Mark(Stage::Init);
@@ -197,7 +219,7 @@ GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bo
     impl->gs->SetWaitPump([this]{
         if(!Alive())throw GsWindowClosed();
     });
-    ShowWindow(impl->window.handle,SW_SHOWNORMAL);
+    if(!impl->window.borrowed)ShowWindow(impl->window.handle,SW_SHOWNORMAL);
 }
 GsDisplay::~GsDisplay()=default;
 GsDevice& GsDisplay::Device(){return *impl->gs;}
@@ -211,6 +233,15 @@ bool GsDisplay::Alive(){
 bool GsDisplay::Focused() const{return GetForegroundWindow()==impl->window.handle;}
 void GsDisplay::SetKeyHandler(std::function<void(unsigned,bool)> handler){impl->window.keyHandler=std::move(handler);}
 void GsDisplay::ToggleFullscreen(){impl->window.ToggleFullscreen();}
+void GsDisplay::ResetForProgram() {
+    WaitPreviousFrame();
+    impl->window.reflex.ResetForProgram();
+    impl->window.amdField=0;
+    impl->lastReadyImage.image.reset();
+    impl->tracedGpuWait=0;
+    impl->gs.reset();
+    impl->gs.reset(new GsDevice(impl->wsi.get_device()));
+}
 void GsDisplay::WaitPreviousFrame() {
     impl->gs->impl->CheckOwner();
     if(impl->pending){

@@ -2,6 +2,49 @@
 
 实施顺序和每阶段要求见 [实施计划](IMPLEMENTATION_PLAN.md)。源码及机制测试与真实游玩分开记录；只有满足对应阶段全部条件才标记完成。
 
+项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
+
+## v0.10.0 PS2 Death Label
+
+- `death-natural-trace-r1/scanout.png` 录到 PS2 玩家局，`death-natural-trace-r2/scanout.png` 录到自然 Game Over，输入记录确认开局后未再按键。原版运行先退出关内状态，完整显示结算画面后才重新打开根菜单。
+- `death-session-complete-r1/` 从 `boot.elf` 的测试启动参数改走 `DEATH.ELF`，在第 3,060 场录到 Game Over，在第 3,154 场报告 `completed`，进程正常退出。`death-session-exit-r1/` 在未开局时确认 EXIT，原版请求回主程序，测试入口报告 `exit` 并正常结束。两次都只有一个活动的客体程序。
+- PS4 运行时的窗口验证入口使用同一个 HWND 完成 PS4 Vulkan → PS2 → PS4 Vulkan。`ps4-window-handoff-r1/game-over/` 记录 PS4 键盘事件、PS2 玩家局、音频输出及自然 Game Over。PS4 交换链重新绑定后窗口仍有效。`missing-data/` 确认 PS2 启动失败能恢复呈现，`fullscreen-close/` 确认全屏下关闭窗口能结束 PS2 并清理窗口。`standalone-shared-library-r1/` 确认独立入口启动原版主程序，呈现 180 场并退出。
+- 证据均在 `.local/v0100/daioujou-ps2-analysis-r1/`。高分登记和通关结算、原 PS4 游戏的菜单进入及连续往返待验。
+- PS4 大往生 01.00／01.04 从合集启动契约实测，PS2 ISO 与运行时验证完成后都成功注册了 Squirrel 入口。无 PS2 数据的 01.04 继续出帧且未注册入口。三次均正常关闭，见 `.local/v0100/daioujou-ps4-death-menu/binding-check-r2/`。四组 PS4 原生 CTest 通过。
+- 从启动器以 PS4 01.00 明文 SELF 数据及 X Arrange 曲包启动，直达菜单同时显示原曲集选项与 DEATH LABEL。选中后在同一 HWND 内完成 PS2 玩家局、自然 Game Over，并返回直达菜单。截图和进程记录位于 `.local/v0911/live-acceptance/daioujou/v0100-death-menu-gameover-r1/`，合集日志的 `daioujou_death_label_return` 为 `Completed`。另一次从该入口切换后关闭窗口，报告 `Closed`，正常退出。
+- 01.04 合并补丁与 X Arrange 曲包也通过实际玩家局、Game Over、同窗口返回，并从原选项再次启动 PS2。第二次启动时关闭窗口正常退出，证据为同级 `v0100-death-menu-gameover-104-r1/`。用带曲包的既有测试存档切回无曲包数据时停在暂停菜单，需用无曲包存档单独核对。
+- 01.04 合并补丁无 X Arrange 的独立新档，全屏以 3840×2160 从直达菜单进入 Death Label。玩家局自然 Game Over 后，同一进程和窗口以原尺寸返回直达菜单，光标仍在 Death Label。启动配置的 `fullscreen=true` 及返回事件 `Completed` 已核对，见 `.local/v0911/live-acceptance/daioujou/v0100-death-stock-fullscreen-r1/` 和对应启动器报告 `run-20261116T005636118Z-45444/`。
+
+## v0.10.0 韩版空战之路英文界面
+
+- #21 玩家导出的 CUSA10207 01.00 通过启动器的数据校验、原生准备、启动和菜单操作。测试关闭社区服务，游戏显示离线提示，能够确认并继续，退出码为 27。记录位于 `.local/v0100/garegga-english-launch-r1/logs/garegga/`。
+- 暂停说明由游戏随光标切换动效图层，联网通知也来自图集。英文图层通过本地准备缓存加载。玩家导出经正常启动器实测 PlayStation Network 提示、暂停说明、Game Settings 选项及底部提示，另实测第 99 槽英文读档说明和确认框。记录位于 .local/v0911/live-acceptance/garegga/v0100-english-atlas-r1/ 至 r3/。
+- PKG 提取与玩家导出的 39 个清单文件逐项 SHA-256 一致，SFO 与 discmap 同样一致，两份 npbind.dat 不同。比对记录位于 .local/v0100/garegga-english-launch-r1/rom-pair-identity.json。
+- 玩家导出在关内往第 99 槽写入，暂停菜单显示新的存档时间。关闭进程后另用原 PKG 提取目录启动，读取同一测试档第 99 槽，回到第一关。玩家导出版本实拍了排行榜、Archive Room、Replay Theater 和英语回放侧栏。PKG 提取版实拍了 Game Settings、Screen、M2 Gadgets 与存读档提示，从关内 Restart 的 After Load 选项重回存档位置。两个运行目录是 .local/v0911/live-acceptance/garegga/ 下的 v0100-english-atlas-r3/ 和 v0100-english-atlas-pkg/。
+
+## v0.10.0 ROM 功能兼容性
+
+- **大往生 01.00 明文 SELF 与 01.04 合并补丁，AC-CHALLENGE 成绩。** 两版分别从新档进入 Round 1 的 Stage 1 Mid Boss，在等级 1 的原版挑战中取得铜牌，各由游戏提交 1 点累计奖牌积分至独立本机服务的 99 号榜。提交和读榜均返回 HTTP 200。游戏界面读回 Do104 和 Do100 的 1 分记录，SQLite 确认两条成绩获接收，未产生录像附件，符合原榜单定义。两次退出均记录正常诊断退出码 27。截图、日志见 `.local/v0911/live-acceptance/daioujou/v0100-ac-challenge-104-r2/` 和 `v0100-ac-challenge-100-r1/`，核对结果见 `.local/v0100/daioujou-feature-acceptance/challenge-medal-verified.json`。
+- **大往生 01.00 明文 SELF，低延迟。** 匹配原始数据、X Arrange 曲包和 01.00 第 99 槽，新进程实测读回原 Arcade 关内画面。五次可配对的交替变向在读键后的第一张提交出现对应位移，读键返回至 Immediate Present 开始为 3.83–4.53 ms，均值 4.19 ms。180 幅快照及 68,674 条事件完整导出。截图见 `.local/v0911/live-acceptance/daioujou/v0100-ps4-100-latency-r1/`，逐帧证据见 `.local/v0100/daioujou-feature-acceptance/ps4-100-functional-response.json`。
+- **大往生 01.04 合并补丁，第 99 槽。** 从旧 01.04 独立测试档的第 1 槽进入 Arcade，射击得到 14,940 分，实测写入第 99 槽并提交 `0016-0003`。关闭后用同一份 01.04 数据从正常启动器重启，读回相同的 14,940 分和关内画面。写入和恢复截图分别见 `.local/v0911/live-acceptance/daioujou/v0100-ps4-104-slot-write-r2/` 和 `v0100-ps4-104-slot-cold-r1/`。
+- **ESP Ra.De. Ψ 01.00 ELF 本体，社区排行榜与录像。** 新档 Yusuke 玩家局 440 分自然结束，向独立本机服务提交 Arcade 综合及角色榜成绩和录像，均返回 HTTP 200。综合榜显示 `CompatElf100`、440 分和录像图标。游戏取回 75,391 字节录像，并提交存档 `0018-0000`，退出码 27。记录见 `.local/v0911/live-acceptance/esprade/v0100-elf-base-online-r1/`。
+- **同一 01.00 ELF 本体，第 99 槽与低延迟。** 上述玩家局写入第 99 槽，从启动器重启并读取后恢复 440 分及同一关内画面。三次可配对变向均在读键后的第一张提交看到机体位移，读键返回到 Immediate Present 开始为 6.27、6.37、6.79 ms，均值 6.47 ms。启动和截图见 `.local/v0911/live-acceptance/esprade/v0100-elf-base-probe-r2/`，像素和输入事件配对见 `.local/v0100/esprade-pixel-acceptance/elf-base-functional-response.json`。启动器验收过程退出码为 27，测试驱动因同一行末尾的 `quit` 报错，游戏正常关闭且两份原始采样完整导出。
+- **ESP Ra.De. Ψ 01.00 Itemzflow 本体，社区排行榜与录像。** Yusuke 玩家局 1,820 分自然结束。游戏向独立本机服务提交 Arcade 综合与角色榜的成绩和录像，各返回两次 HTTP 200。游戏内综合榜显示 `CompatBase` 和 1,820 分，直接下载 75,390 字节录像并确认保存，存档目录 `0018-0000` 提交成功。截图、请求及原生保存日志见 `.local/v0911/live-acceptance/esprade/v0100-itemzflow-base-online-r1/`。
+- **同一 01.00 Itemzflow 本体，第 99 槽与低延迟。** 正常启动器冷启动读回同一局第 99 槽的 1,820 分和画面。四次可判定的交替变向在读键后的第一张提交出现 ±9 像素位移，读键返回至 Immediate Present 开始为 5.54、5.63、7.46、8.82 ms，均值 6.86 ms。存档截图见 `.local/v0911/live-acceptance/esprade/v0100-itemzflow-base-probe-r3/`，逐帧配对见 `.local/v0100/esprade-pixel-acceptance/base-functional-response.json`。
+- **ESP Ra.De. Ψ 01.04 玩家转储。** Itemzflow 本体覆盖补丁版用正常启动器进入 Arcade，玩家局获得 540 分并写入第 99 槽。另一份玩家合并导出由启动器冷启动，复制该测试档并在游戏内查到原时间和 540 分，读取后恢复对应关内。两份启动收据的 39 个校验输入、8 个准备产物逐项一致。证据在 `.local/v0911/live-acceptance/esprade/v0100-itemzflow-patch-r2/` 和 `v0100-player-merged-probe-r1/`。
+- **上述两份 01.04 的低延迟。** 在玩家合并导出载入的同一关内收集合成变向、原生手柄读取、Vulkan 快照与呈现事件。两次可判定的变向各在第一次后续提交出现位移，读键返回至该次 Immediate Present 开始分别为 6.02、6.53 ms。证据见 `.local/v0100/esprade-pixel-acceptance/merged-functional-response.json`。Itemzflow 合并版实际使用相同的程序、资源及显示配置，复用这份结果。
+- **上述两份 01.04 的社区排行榜与录像。** Itemzflow 版玩家局 1,070 分自然结束，Arcade 综合和角色榜的成绩与录像上传各返回两次 HTTP 200。游戏综合榜显示 `CompatPatch` 及 1,070 分，下载该记录的 74,930 字节版本 0x10022 录像并写入存档 `0018-0000`。玩家合并导出复用清单输入及准备产物逐项一致的 Itemzflow 版结果。原始记录见 `.local/v0911/live-acceptance/esprade/v0100-itemzflow-patch-online-r1/`。
+- **空战之路韩版 01.00 玩家导出，社区排行榜与录像。** Arcade 玩家局自然结束后，本机社区收到 1,080 分及录像。使用同一 ROM 和英文图层再次启动，游戏综合榜显示 `CompatGaregga` 和 1,080 分，下载该记录的 12,594 字节录像并写入存档 `0017-0000`。两次证据见 `.local/v0911/live-acceptance/garegga/v0100-issue21-online-r1/` 和 `v0100-issue21-probe-r1/`。
+- **同一空战之路玩家导出，低延迟。** 从启动器冷读第 99 槽进入 Arcade Silver Sword 玩家局。五次可配对变向都在读键后的第一张提交出现机体位移，读键返回至 Immediate Present 开始为 4.24–4.42 ms，均值 4.31 ms。证据见 `.local/v0100/garegga-pixel-acceptance/player-r3-functional-response.json`，对应启动记录为 `v0100-issue21-probe-r3/`。
+- **PS2 大往生 · 日版 SLPS-25233，低延迟取样与提前呈现。** Arcade 沿用前后对照，Death Label 另以真实第一关和测试手柄逐帧确认 10 次变向，读键到首张位移的 Present 返回平均 4.11 ms。244 个帧间隔最长 17.44 ms。完整读键、像素与逐帧配对见 `.local/v0100/daioujou-ps2-analysis-r1/death-performance-r1/`。
+- **绊地狱 01.02 · 合并补丁，VIRT ARRANGE。** 用 ROM 库的 `ketsui/01.02-stock` 和独立新档进入 BGM SET。截图 `24-picset3.png` 显示 VIRT ARRANGE 可选，`59-picvirtstage2.png` 显示玩家局内曲名及曲集。扬声器回录与原版曲集的 `virt_arr_0x01` 片段在同一时间偏移下多次匹配，归一化相关峰值 0.892。关闭窗口正常退出。证据见 `.local/v0911/live-acceptance/ketsui/v0100-virt-arrange-fresh/`。本轮复用 `quota-restart` 的存档副本时停在加载画面，记录见同级 `v0100-virt-arrange-r2/`，原因待定位。
+- **绊地狱 01.00 · ELF 本体，IKD 2007 SPECIAL。** 用 ROM 库的 `ketsui/01.00-stock` 完成完整校验和准备。原生内容日志记录两项 DLC，直达菜单选择 IKD 2007 SPECIAL 后显示 `2007/09/22 CAVEMATSURI VER.`，该模式的演示正常出帧，设置页显示 `IKD 2007 SPECIAL`。截图 `7-picikd.png`、`19-picikdboot.png` 和 `35-picoptions.png` 在 `.local/v0911/live-acceptance/ketsui/v0100-base-features-r2/`。
+- **绊地狱 01.00 · ELF 本体，VIRT ARRANGE。** 使用既有 01.00 测试档副本，关闭宿主手柄，前台键盘投币并进入 Arcade 玩家局。音乐栏显示 VIRT ARRANGE / INTERCEPTION。扬声器录音和原曲 `virt_arr_0x01` 在相同时间偏移反复匹配，归一化相关峰值 0.854。截图、回录及对齐结果见 `.local/v0911/live-acceptance/ketsui/v0100-elf-foreground-r1/`。测试档和输入路径同时变化，旧新档投币现象的具体成因待查。
+- **同一绊地狱 01.00 ELF 本体，第 99 槽与低延迟。** Arcade Type-A 玩家局写入第 99 槽，存档事务 `0013-0000` 成功提交。用同一数据重启，读回该槽时间及玩家局画面。三次变向均在读键后的第一张提交出现机头和机身同向位移，读键返回至 Immediate Present 开始为 3.42–3.74 ms，均值 3.53 ms。存读截图见 `.local/v0911/live-acceptance/ketsui/v0100-elf-foreground-r1/` 和 `v0100-elf-100-slot-and-pixel-r2/`。逐帧结果见 `.local/v0100/ketsui-feature-acceptance/elf-100-functional-response.json`。
+- **绊地狱 01.00 · ELF 本体，CUSTOM 三榜成绩与录像。** 独立本机服务收到 Type-A 2,944 分和 Type-B 2,080 分，两局均自然结束且未续关。游戏读回综合／Type-A／Type-B 的 60／61／62 号榜，分别下载原生 mode 3 录像，三次下载校验及 `0019-0000` 存档提交均成功。本机 SQLite 中的三份已上榜录像通过 SHA-256 校验，综合榜保留较高的 Type-A 成绩。实测截图与日志见 `.local/v0911/live-acceptance/ketsui/v0100-custom-100-r1/`，核对结果见 `.local/v0100/ketsui-feature-acceptance/custom-100-verified.json`。使用既有 01.00 档副本及前台键盘投币。
+- **绊地狱 01.02 · 合并补丁，CUSTOM 三榜成绩与录像。** Type-A 1,420 分和 Type-B 800 分两局均自然结束且未续关。独立本机服务收到对应的三榜成绩和录像，游戏从三榜分别读回、下载并保存录像，`0019-0000` 三次提交成功。录像为 mode 3、数据版本 `0x10001`，数据库有效载荷 SHA-256 校验通过。实测截图与日志见 `.local/v0911/live-acceptance/ketsui/v0100-custom-102-r2/`，核对结果见 `.local/v0100/ketsui-feature-acceptance/custom-102-verified.json`。使用既有 01.02 档副本及前台键盘投币。
+- **PS4 样本识别。** 用当前随包提取工具从 ROM 库的原始大往生 01.00 PKG 提取，完整校验识别为 `base-self`，记录在 `.local/v0100/daioujou-extract-candidate-r1/`。同版本的 `base-pkg-extracted` 清单是另一种元数据组合，现有 PKG 的结果记入 `base-self` 列。
+
 ## v0.9.9 扩大回归
 
 - 对冻结的 `9dae94d` 程序包补测，ZIP SHA-256 未变，复用已解压目录。

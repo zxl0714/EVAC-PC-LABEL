@@ -1,4 +1,5 @@
 #include "native_audio.h"
+#include <atomic>
 #include "native_diagnostics.h"
 #include "native_time.h"
 #include "native_user.h"
@@ -24,6 +25,7 @@ constexpr int kNotOpened = Error(1), kPort = Error(3), kPointer = Error(4), kFul
 constexpr int kFormat = Error(7), kRate = Error(8), kVolume = Error(9), kType = Error(10), kMemory = Error(13);
 constexpr int kAlready = Error(14), kNotInit = Error(15), kResource = Error(17), kFlag = Error(19), kArgument = Error(21);
 using Engine = kt::audio::WasapiEngine;
+std::atomic<bool> host_silent{};
 struct AudioPort { std::shared_ptr<kt::audio::Port> host; unsigned frames, channels; };
 struct AudioState {
     std::mutex mutex;
@@ -89,7 +91,9 @@ int Open(int user, int type, int index, unsigned frames, unsigned rate, unsigned
 int Output(int handle, const void* data, const void* caller) {
     return Api(caller, [&] {
         AudioPort port; const auto found = Find(handle, port); if (found) { return found; }
-        const auto result = Engine::Submit(port.host, data);
+        static constexpr std::array<float,2048*8> silence{};
+        const auto* samples = data && host_silent.load(std::memory_order_relaxed) ? silence.data() : data;
+        const auto result = Engine::Submit(port.host, samples);
         if (FAILED(result)) { return HostResult(result); }
         return data ? static_cast<int>(port.frames * port.channels) : 0;
     });
@@ -127,6 +131,7 @@ int KT_SYSV AudioVolume(int handle, unsigned flags, const int* volume) { return 
 int KT_SYSV AudioClose(int handle) { return Close(handle, __builtin_return_address(0)); }
 }
 
+void SilenceNativeAudio(bool silent) noexcept { host_silent.store(silent,std::memory_order_relaxed); }
 void ConfigureNativeAudioVolume(double volume) {
     if (!std::isfinite(volume) || volume < 0 || volume > 1) throw std::runtime_error("Invalid master audio volume");
     std::lock_guard lock(state.mutex);

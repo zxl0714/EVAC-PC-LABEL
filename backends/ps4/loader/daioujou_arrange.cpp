@@ -1,4 +1,5 @@
 #include "daioujou_arrange.h"
+#include "garegga_english.h"
 #include "ketsui_arrange_audio.h"
 #include "ketsui_arrange_music.h"
 #include "common/daioujou_music.h"
@@ -91,11 +92,63 @@ void ReplaceExpected(std::string& script, std::string_view before, std::string_v
     std::size_t start{};
     for (unsigned i = 0; i < count; ++i) {
         const auto at = script.find(before, start);
-        Require(at != script.npos, "DaiOuJou BGM selection script differs from the verified layout");
+        Require(at != script.npos, "DaiOuJou menu script differs from the verified layout");
         script.replace(at, before.size(), after);
         start = at + after.size();
     }
-    Require(script.find(before, start) == script.npos, "Unexpected duplicate DaiOuJou BGM selection");
+    Require(script.find(before, start) == script.npos, "Unexpected duplicate DaiOuJou menu anchor");
+}
+
+void AddDeathLabelMenu(std::string& direct) {
+    ReplaceExpected(direct, "  m_motion_custom = null;", R"nut(  m_motion_custom = null;
+  m_death_label = null;)nut", 1);
+    ReplaceExpected(direct, R"nut(    ["_exec_GameMode"   ,"_exec_GameMode"   ,"_exec_StageSelect"],)nut",
+        R"nut(    ["_exec_GameMode"   ,"_exec_GameMode"   ,"_exec_DeathLabel"],)nut", 1);
+    ReplaceExpected(direct, "    m_count = 0;", R"nut(    m_count = 0;
+
+    if (m_back_disable && ("evac_run_death_label" in getroottable())) {
+      c_cursor_width = [3,2,3,3,1];
+      local fontPath = conv_path("font/title_m2shot_font.psb");
+      local font = Resource();
+      font.load(fontPath);
+      while (font.loading) wait(0);
+      m_death_label = Indicator(m_layerBase, font.find(fontPath));
+      m_death_label.print("DEATH LABEL");
+      m_death_label.setCoord(309 - m_death_label.width / 2, 202 - m_death_label.height / 2);
+      m_death_label.visible = true;
+    }
+    if (m_x >= c_cursor_width[m_y]) m_x = c_cursor_width[m_y] - 1;
+)nut", 1);
+    ReplaceExpected(direct, "        this[c_exec_func[m_y][m_x]]();", R"nut(        if (m_death_label != null) m_death_label.visible = false;
+        this[c_exec_func[m_y][m_x]]();
+        if (m_death_label != null) m_death_label.visible = true;)nut", 1);
+    ReplaceExpected(direct, "          _exec_bgmset(_gamemode);", R"nut(          if (m_death_label != null) m_death_label.visible = false;
+          _exec_bgmset(_gamemode);
+          if (m_death_label != null) m_death_label.visible = true;)nut", 1);
+    ReplaceExpected(direct, "  function _exec_Manual() {", R"nut(  function _exec_DeathLabel() {
+    ::g_menu_sound.on_decide();
+    ::evac_run_death_label();
+  }
+
+  function _exec_Manual() {)nut", 1);
+}
+
+void AddDaioujouDirectMenu(ArchiveLayer& layer, bool arrange, bool death_label) {
+    constexpr std::string_view direct_path = "1100/script/title_mode_direct_menu.nut.m";
+    const auto original = layer.Read(direct_path);
+    std::string direct(original.begin(), original.end());
+    if (arrange) {
+        ReplaceExpected(direct, "[0,1,3,3]", "[0,1,3,2]", 2);
+        constexpr std::string_view selected = "m_bgm_mode[_gamemode] = _bgmMode;";
+        constexpr std::string_view save =
+            "m_bgm_mode[_gamemode] = _bgmMode;\n"
+            "        ::g_systemdata.get_value(SystemDataValueIndex.SETTING_SOUND).set_bgm_set_mode(_gamemode, _bgmMode);\n"
+            "        ::g_systemdata.CheckValueChangeAutosave(SystemDataValueIndex.SETTING_SOUND);\n"
+            "        this._check_autosave();";
+        ReplaceExpected(direct, selected, save, 2);
+    }
+    if (death_label) AddDeathLabelMenu(direct);
+    layer.Add(direct_path, {reinterpret_cast<const std::uint8_t*>(direct.data()), direct.size()}, true);
 }
 
 void AddArrangeMenu(ArchiveLayer& layer, bool update) {
@@ -108,19 +161,6 @@ void AddArrangeMenu(ArchiveLayer& layer, bool update) {
     choices = 4;
     pause_icons.push_back(2);
     layer.Add(profile_path, WritePlainPsb(profile, 0), true);
-
-    constexpr std::string_view direct_path = "1100/script/title_mode_direct_menu.nut.m";
-    const auto original = layer.Read(direct_path);
-    std::string direct(original.begin(), original.end());
-    ReplaceExpected(direct, "[0,1,3,3]", "[0,1,3,2]", 2);
-    constexpr std::string_view selected = "m_bgm_mode[_gamemode] = _bgmMode;";
-    constexpr std::string_view save =
-        "m_bgm_mode[_gamemode] = _bgmMode;\n"
-        "        ::g_systemdata.get_value(SystemDataValueIndex.SETTING_SOUND).set_bgm_set_mode(_gamemode, _bgmMode);\n"
-        "        ::g_systemdata.CheckValueChangeAutosave(SystemDataValueIndex.SETTING_SOUND);\n"
-        "        this._check_autosave();";
-    ReplaceExpected(direct, selected, save, 2);
-    layer.Add(direct_path, {reinterpret_cast<const std::uint8_t*>(direct.data()), direct.size()}, true);
 
     constexpr std::string_view gadget_path = "1100/script/title_gadget_score.nut.m";
     const auto gadget_source = layer.Read(gadget_path);
@@ -233,6 +273,24 @@ void AddKetsuiArrangeMenu(ArchiveLayer& layer) {
 }
 }
 
+void PrepareGareggaArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable) {
+    const auto key = ReadArchiveSeed(executable, 0xf3);
+    ArchiveLayer layer(data, kBase, key);
+    auto atlases = GareggaEnglishAtlases();
+    while (!atlases.empty()) {
+        const auto& first = atlases.front();
+        auto motion = layer.Read(first.path, 8 * 1024 * 1024);
+        Require(PreparationHash(motion) == first.sha256, "Unexpected Garegga Korean motion atlas");
+        do {
+            ApplyGareggaEnglish(motion, atlases.front());
+            atlases = atlases.subspan(1);
+        } while (!atlases.empty() && atlases.front().path == first.path);
+        layer.Add(first.path, motion, true);
+    }
+    layer.Write(stage);
+}
+
 void AddArrangeFiles(std::vector<std::string>& files, bool merged) {
     files.emplace_back(std::string(kOutput) + kBase.index);
     files.emplace_back(std::string(kOutput) + kBase.body);
@@ -242,32 +300,38 @@ void AddArrangeFiles(std::vector<std::string>& files, bool merged) {
     }
 }
 
-void PrepareDaioujouArrangeArchive(const fs::path& data, const fs::path& stage,
-    std::span<const std::uint8_t> executable, bool merged,VerificationCache* verification) {
+void PrepareDaioujouArchive(const fs::path& data, const fs::path& stage,
+    std::span<const std::uint8_t> executable, bool merged, bool arrange, bool death_label,
+    VerificationCache* verification) {
     const auto key = ReadArchiveSeed(executable, merged ? 0xdd : 0xde, true);
     auto definitions = Json::array();
     ArchiveLayer base(data, kBase, key);
-    std::size_t reserve = 28 * 1024 * 1024;
-    for (const auto& cue : daioujou::ArrangeCues()) reserve += 4ull*cue.samples + 16 * 1024;
-    base.Reserve(reserve);
-    daioujou::ReadArrangeWaves(data,[&](std::string_view name,std::span<const std::uint8_t> wave) {
-        const auto track=std::ranges::find(kDaioujouArrangeTrackNames,name);
-        Require(track!=kDaioujouArrangeTrackNames.end(),"Unknown X Arrange PCM track");
-        const auto i=static_cast<unsigned>(track-kDaioujouArrangeTrackNames.begin());
-        const auto filename = std::string(name) + ".wav";
-        const auto resource = "1100/wav/evac_" + filename;
-        base.Add(resource + ".m", wave, false);
-        definitions.push_back({{"delay", 0}, {"filename", resource},
-            {"no", kDaioujouArrangeFirstPcm + i}, {"stream", false}});
-    },verification);
-    std::sort(definitions.begin(),definitions.end(),[](const Json& a,const Json& b){return a.at("no")<b.at("no");});
-    AddPcmDefinitions(base, kTitlePcm, definitions);
-    AddArrangeMenu(base, false);
+    if (arrange) {
+        std::size_t reserve = 28 * 1024 * 1024;
+        for (const auto& cue : daioujou::ArrangeCues()) reserve += 4ull*cue.samples + 16 * 1024;
+        base.Reserve(reserve);
+        daioujou::ReadArrangeWaves(data,[&](std::string_view name,std::span<const std::uint8_t> wave) {
+            const auto track=std::ranges::find(kDaioujouArrangeTrackNames,name);
+            Require(track!=kDaioujouArrangeTrackNames.end(),"Unknown X Arrange PCM track");
+            const auto i=static_cast<unsigned>(track-kDaioujouArrangeTrackNames.begin());
+            const auto resource = "1100/wav/evac_" + std::string(name) + ".wav";
+            base.Add(resource + ".m", wave, false);
+            definitions.push_back({{"delay", 0}, {"filename", resource},
+                {"no", kDaioujouArrangeFirstPcm + i}, {"stream", false}});
+        },verification);
+        std::sort(definitions.begin(),definitions.end(),[](const Json& a,const Json& b){return a.at("no")<b.at("no");});
+        AddPcmDefinitions(base, kTitlePcm, definitions);
+        AddArrangeMenu(base, false);
+    }
+    AddDaioujouDirectMenu(base, arrange, death_label);
     base.Write(stage);
     if (merged) {
         ArchiveLayer update(data, kUpdate, key);
-        AddPcmDefinitions(update, kTitlePcm, definitions);
-        AddArrangeMenu(update, true);
+        if (arrange) {
+            AddPcmDefinitions(update, kTitlePcm, definitions);
+            AddArrangeMenu(update, true);
+        }
+        AddDaioujouDirectMenu(update, arrange, death_label);
         update.Write(stage);
     }
 }

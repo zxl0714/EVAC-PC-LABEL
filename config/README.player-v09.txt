@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.9.10
+EVAC PC LABEL
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
@@ -17,13 +17,17 @@ Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vu
   game-data/esprade/     CUSA15155，01.00 本体或完整覆盖 01.04 更新
   game-data/guwange/     XBLA，58410A78，本体 0.0.0.4
   game-data/feveron/     美版 CUSA06735，01.00 本体
-  game-data/garegga/     韩版 CUSA10207，01.00 本体
+  game-data/garegga/     韩版 CUSA10207，01.00 本体，菜单为英文
   game-data/espgaluda/   PS2 日版 SLPS-25352，原始 ISO
   game-data/ibara/       铸蔷薇，PS2 日版 SLPM-66301，原始 ISO
+  game-data/daioujou-ps2/ 大往生，PS2 日版 SLPS-25233，原始 ISO
 
 360 目录直接包含 default.xex，PS4 目录直接包含 eboot.bin，保留全部资源与层级。
 PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
   game-data/espgaluda/Espgaluda (Japan).iso
+  game-data/daioujou-ps2/DoDonPachi Dai-Ou-Jou (Japan).iso
+
+同时安装两版大往生后，可从 PS4 版的 DIRECT MENU 进入 PS2 的 DEATH LABEL。
 
 解包
 ZIP／RAR 用常规工具解压。PS2 的 ISO 解压出来后直接放入对应目录。
@@ -117,8 +121,12 @@ Keep all resources and subfolders.
 Place each original Japanese PS2 ISO in its folder:
   game-data/espgaluda/Espgaluda (Japan).iso
   game-data/ibara/Ibara (Japan).iso
-Use SLPS-25352 for ESPGaluda and SLPM-66301 for Ibara.
+  game-data/daioujou-ps2/DoDonPachi Dai-Ou-Jou (Japan).iso
+Use SLPS-25352 for ESPGaluda, SLPM-66301 for Ibara, and SLPS-25233 for DaiOuJou.
 The filename is your choice. First launch prepares the runtime cache automatically.
+
+With both editions of DaiOuJou installed, select DEATH LABEL in the PS4 edition's
+DIRECT MENU to play the PS2 mode. The Korean Battle Garegga release uses English menus.
 
 Extraction
 Unpack ZIP/RAR normally. PS2 ISO images are ready to use.

@@ -17,24 +17,29 @@ struct Storage {
     std::filesystem::path path;
     std::unique_ptr<Event[]> events;
     const size_t capacity;
+    const uint64_t firstField;
     std::atomic<size_t> count{};
     std::atomic<uint64_t> frame{};
     bool saved=false;
-    Storage(const std::filesystem::path& file,size_t limit):path(file),events(new Event[limit]),capacity(limit){}
+    Storage(const std::filesystem::path& file,size_t limit,uint64_t first)
+        :path(file),events(new Event[limit]),capacity(limit),firstField(first){}
 };
 // Configuration precedes worker creation. Serialization/destruction follows
 // their join. Each writer reserves a distinct row; no frame-time file IO.
 inline std::unique_ptr<Storage> storage;
 inline bool Enabled() noexcept{return bool(storage);}
 inline uint64_t CurrentField() noexcept{return storage?storage->frame.load(std::memory_order_relaxed):0;}
+inline bool Recording(uint64_t field) noexcept{return storage && field>=storage->firstField;}
 inline int64_t Stamp() noexcept {
     return std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 inline void Record(Kind kind,uint64_t frame=0,uint64_t a=0,uint64_t b=0,uint64_t c=0) noexcept {
     if(!storage)return;
+    if(!frame)frame=CurrentField();
+    if(frame<storage->firstField)return;
     const auto slot=storage->count.fetch_add(1,std::memory_order_relaxed);
-    if(slot<storage->capacity)storage->events[slot]={Stamp(),frame?frame:storage->frame.load(std::memory_order_relaxed),a,b,c,kind};
+    if(slot<storage->capacity)storage->events[slot]={Stamp(),frame,a,b,c,kind};
 }
 inline void Tick(uint64_t frame) noexcept {
     if(storage){storage->frame.store(frame,std::memory_order_relaxed);Record(Kind::VBlank,frame);}
@@ -65,12 +70,12 @@ inline void Save() {
 }
 class Scope {
 public:
-    explicit Scope(const std::filesystem::path& path,size_t capacity=200000) {
+    explicit Scope(const std::filesystem::path& path,size_t capacity=200000,uint64_t firstField=0) {
         if(storage)throw std::logic_error("Input trace already configured");
         if(path.empty())return;
         if(!capacity || capacity>1000000 || std::filesystem::exists(path))
             throw std::invalid_argument("Invalid input trace destination or capacity");
-        storage=std::make_unique<Storage>(path,capacity);
+        storage=std::make_unique<Storage>(path,capacity,firstField);
     }
     ~Scope() {
         try{Save();}catch(const std::exception& error){std::cerr<<"[ps2-input-trace] "<<error.what()<<'\n';}

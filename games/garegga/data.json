@@ -201,12 +201,6 @@
       "program": false
     },
     {
-      "path": "sce_sys/npbind.dat",
-      "bytes": 532,
-      "sha256": "224787b1cc6d77608eb6fc03b6839c66d16b9e1c8efa20154fce3aa22aaac14f",
-      "program": false
-    },
-    {
       "path": "sce_sys/nptitle.dat",
       "bytes": 160,
       "sha256": "5fa31f50210bd384c8421d7f7a6c16851a7cc05d64dacfd73f66a5c09f91099f",

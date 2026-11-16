@@ -50,6 +50,7 @@ Select 0V in Futari’s in-game menu. ESPGaluda II, SaiDaiOuJou and Guwange defa
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 18 | 43 | 0.28 | 0.25 |
 | Ibara | 18 | 43 | 0.38 | 0.27 |
+| DaiOuJou (PS2) | 17 | 26 | 0.26 | 0.54 |
 
 Latency runs from input reaching the PC to the Windows display event. Device reporting and monitor response add time. [Test conditions and methods →](docs/PERFORMANCE.en.md)
 
@@ -59,7 +60,7 @@ Latency runs from input reaching the PC to the Windows display event. Device rep
 | --- | --- |
 | Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) · [Guwange](docs/GAME_DATA.en.md#guwange) |
 | PS4 | [Ketsui Deathtiny](docs/GAME_DATA.en.md#ketsui) · [DaiOuJou Re:Incarnation](docs/GAME_DATA.en.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.en.md#esprade) · [Dangun Feveron](docs/GAME_DATA.en.md#feveron) · [Battle Garegga Rev.2016](docs/GAME_DATA.en.md#garegga) |
-| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) · [DaiOuJou (PS2)](docs/GAME_DATA.en.md#daioujou-ps2) |
 
 Select a title for supported versions, extraction steps and folder examples. Prepare data only for the games you want to play.
 

@@ -10,6 +10,115 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+v0.10.0 is in development. The active scope and order are in
+`docs/IMPLEMENTATION_PLAN.md`. Start with the standalone PS2 DaiOuJou port.
+Its verified SLPS-25233 disc contains three EE programs at the same entry
+address: the main program, `DEATH.ELF`, and `GALLERY.ELF`. The scope includes
+switching the active compiled program, as well as the later PS4 menu handoff.
+
+Private development data and evidence live in `.local/v0100/daioujou-ps2-analysis-r1/`.
+The `prepared-disc/` inventory matches the 11 disc files in the tracked header.
+`*-map.csv` are the raw R5900 analysis maps. `generate-reviewed.py` removes
+confirmed data entries and seeds the short mode callbacks from the four-entry
+callback tables, including `0x18dde0` and `0x18de00` in the main image. No
+generated code or extracted disc bytes belong in a source commit. The r2 native
+probe builds in `out/ps2-tools` as `ps2_daioujou_probe`. Its boot first stalled
+in `sceCdLayerSearchFile`; the shared single-layer adapter advanced through the
+stall. `boot-smoke-r3/` recorded 780 presented fields. `arcade-input-r1/` shows
+the first unregistered actual target at `0x18dde0` during the later transition.
+The r3 codegen includes both boot callbacks and the equivalent Death Label
+entries. Its `boot-visual-r3/` ran 2,750 fields, but scanout is nearly black.
+`boot-interactive-r3/` proves Circle advances the memory-card prompt even when
+its textures are corrupt. The r4 boot generator keeps the disc's GS SDK routines
+except SyncV/SyncPath and otherwise uses the r3 map and bindings. In
+`boot-stock-gs-r4/` the memory-card warning renders correctly. In
+`r4-after-memory-card/` the original arcade warning renders after Circle. The
+same-disc PCSX2 reference is in `pcsx2-reference/arcade-demo.png`.
+`r4-dma-wait-stage/` reaches the Arcade loading scene and confirms streamed
+disc reads, SPU DMA and nonzero PCM after the synchronous IOP RPC wait fix.
+`r4-arcade-player-r2/` continues the same menu sequence and captures the fault
+at JALR 0x129030 targeting 0x1298d0, after 4,151 presented fields. The private
+reviewed generator adds nine contiguous callback bodies identified by their
+JR RA and delay slots, and preserves original GS routines except SyncV/SyncPath.
+`boot-native-r6/` generates 6,077 functions and the native host links in
+`out/ps2-tools`. `r6-arcade-player-r1/scanout.png` shows the actual Arcade
+Stage 1 player with score. The subsequent stage script goes through
+JALR 0x12a44c to an unregistered handler at 0x12e920 on field 4,225. The
+reviewed r7 generation adds twelve handlers from gaps in that dispatcher
+region. `r7-arcade-player-r1/` completes 4,680 presented fields and exits
+on the probe's frame limit without a missing target. `stage-movement.png`
+shows the live player, bullets and rising score past both previous faults.
+Use this baseline for standalone selection and return work. The boot menu
+calls LoadExecPS2 at 0x2125bc with `cdrom0:\GALLERY.ELF;1` and at 0x2125e0
+with `cdrom0:\DEATH.ELF;1`. Death Label and Gallery have return paths to
+SLPS_252.33. `program-menu-switch-r2/` records the original menu loading
+Death Label, entering a player run with nonzero audio, and exiting on the
+5,700-field limit. `program-death-return-r2/` records Death Label's EXIT
+loading the main executable and reaching its memory-card screen. Each
+transition retains the same window and opens a fresh GS producer, mailbox and
+EE/IOP session. The PS2 kernel, GS queue and GS transport contracts pass.
+`program-gallery-r1/` reached Gallery through the original menu and identified
+the absent callback at 0x121080. The five-entry table at 0x129150 also referenced
+0x11f630, so the reviewed r6 generation compiles both complete bodies.
+`program-gallery-direct-r6/` shows the thumbnails and an opened illustration.
+`program-gallery-roundtrip-r1/` verifies Boot → Gallery → Boot in the same
+window and normal exit. The three reviewed maps are now in
+`games/daioujou-ps2/analysis/`. They preserve the SDK-copied kernel bodies in
+the disc image, exclude them from EE title translation, and reunite a split
+branch with its delay slot. All three programs pass static-edge validation.
+`scripts/ps2_daioujou.py` extracts the original three ELFs and regenerates
+the native objects. `Build.ps1 -Games daioujou-ps2` selects the title, and the
+v0.10.0 package profile includes its distinct runtime and placement guide.
+`player-launch-r1/` uses the regular launcher CLI and verifies the external
+ISO, prepares the disc, presents the original title, and exits normally.
+`save-write-r1/` saves AUTO SAVE ON into the isolated PS2 memory card.
+`save-reload-r1/scanout.png` shows ON after opening the same card in a new
+process. Launch, ISO and release-inventory regressions pass.
+`arcade-performance-comparison.json` pairs seven actual motion samples.
+Latching the post-flip display page and moving input later reduces matched
+pad-to-Present from 34.08 to 7.47 ms. The optimized four-second window used
+0.26 logical cores and had 242 intervals with max 17.36 ms. Across stay-in-Arcade
+the optimized run records 4788 Reflex samples and no waits missed.
+`late-input-menu-roundtrip-r1/` confirms the optimized host retains its window
+and native input scheduling through Boot → Death Label → Boot.
+`reflex-menu-roundtrip-r4/` repeats the actual 14 accepted inputs from that
+trace after the Reflex fix. It includes 6,542 samples, zero wait timeouts and
+1,049 fields after returning to Boot. The PCSX2 same-scene comparison and
+full certified release build remain open.
+
+Standalone hosted-mode testing now starts `DEATH.ELF` directly and reports a
+separate completion or explicit exit. `death-session-complete-r1/` shows Game
+Over at field 3060 and returns after the original menu reopens at field 3154.
+`death-session-exit-r1/` returns via the original EXIT request without playing.
+`games/daioujou-ps2/death_label_session.h` observes the gameplay-to-root-menu
+transition only in the hosted mode. `daioujou-ps2-runtime.dll` is shared by the
+standalone EXE and the PS4 runtime. `ps4-window-handoff-r1/` verifies the actual
+PS4-owned HWND and resident Vulkan binding through PS2 play/Game Over, failed
+startup, and fullscreen close. The original PS4 guest menu and its supported
+PS2 data gate are still open. The effective 01.00 and 01.04 Direct Menu scripts were inventoried
+under `.local/v0100/daioujou-ps4-death-menu/` to start that integration.
+
+Garegga's CUSA10207 archive inventory is `.local/v0100/garegga-resources.json`.
+The dump contains some existing English strings in title and save data; the
+main menu, options, pause and Gadgets also use motion PSBs that need inspection.
+The current PS4 runtime's system parameter selects Japanese for every title.
+`.local/v0100/garegga-language-inventory.json` confirms three `eng` entries in
+the menu-string PSB and separate motion resources for UI options and Gadgets.
+
+PS4 player-dump checks are in `.local/v0100/ps4-player-dumps/`. Garegga's #21
+dump and old PKG sample pass full validation and native preparation after
+excluding the unused npbind.dat sidecar from the Garegga manifest. The three
+ESP Ra.De. player sample roots also pass both steps. The two 01.04 sources have
+identical required files and share `update-104-itemzflow`. The separate 01.00
+base uses `base-itemzflow`. Native preparation reused the original versions'
+decoded program fingerprints. All four player roots passed the native loader
+validation and direct guest window smoke (`prepare-*/launch-smoke/`), with
+the usual controlled window-close exit 27. Launcher entry, player gameplay
+and feature-matrix checks are open.
+
+The preceding v0.9.11 release remains frozen at `5579c1a`. Its public program ZIP
+was verified on GitHub. The v0.10.0 worktree does not publish a release by itself.
+
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.
 Release ID 443143602, published 2026-11-12T15:35:28Z. The annotated tag points

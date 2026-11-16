@@ -221,16 +221,17 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
     if (!arrange_archive.empty()) {
         const auto version = Required(metadata_, "APP_VER");
         const bool supported = (title_ == "CUSA32997" && version == (merged_patch ? "01.04" : "01.00")) ||
-            (title_ == "CUSA09062" && (merged_patch ? (version == "01.02" || version == "01.03") : version == "01.00"));
-        if (!supported || !patch_.empty()) Invalid("X Arrange archive does not match the selected game version");
+            (title_ == "CUSA09062" && (merged_patch ? (version == "01.02" || version == "01.03") : version == "01.00")) ||
+            (title_ == "CUSA10207" && !merged_patch && version == "01.00");
+        if (!supported || !patch_.empty()) Invalid("Prepared archive does not match the selected game version");
         arrange_archive_ = Root(arrange_archive);
         arrange_merged_ = merged_patch;
         for (const auto* path : {"ps4data_info.psb.m", "ps4data_body.bin"}) {
-            if (!OpenApp0(path)) Invalid("Missing X Arrange base archive file");
+            if (!OpenApp0(path)) Invalid("Missing prepared base archive file");
         }
         if (merged_patch) {
             for (const auto* path : {"ps4data_patch_info.psb.m", "ps4data_patch_body.bin"}) {
-                if (!OpenApp0(path)) Invalid("Missing X Arrange update archive file");
+                if (!OpenApp0(path)) Invalid("Missing prepared update archive file");
             }
         }
     }
@@ -255,7 +256,7 @@ std::unique_ptr<ReadOnlyFile> ContentView::OpenApp0(std::string_view path, bool 
     if ((arrange && path == "ps4data_info.psb.m") ||
         (arrange_update && path == "ps4data_patch_info.psb.m")) {
         auto index=Open(arrange_archive_,relative);
-        if (!index || index->Size()<8 || index->Size()>4*1024*1024)Invalid("Invalid X Arrange archive index");
+        if (!index || index->Size()<8 || index->Size()>4*1024*1024)Invalid("Invalid prepared archive index");
         return index;
     }
     std::unique_ptr<ReadOnlyFile> file;

@@ -1,4 +1,5 @@
 #include "ps2_runtime.h"
+#include "native_host.h"
 #include "sdk_binding.h"
 #include "ps2_syscalls.h"
 #include "ps2_runtime_macros.h"
@@ -75,6 +76,34 @@ int32_t Result(const R5900Context& context) {
 void BootEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
 void ModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
 void OtherModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
+void DiscExecutableSwitch() {
+  constexpr uint32_t entry=0x100008;
+  std::array<PS2Runtime::RecompiledFunction,1> first{BootEntry}, second{ModuleEntry};
+  cave::ps2::NativeHost host;
+  const auto resolve=+[](std::string_view path)->std::string_view {
+    return path=="cdrom0:\\DEATH.ELF;1" ? "death.elf" : std::string_view{};
+  };
+  auto boot=std::make_unique<PS2Runtime>(PS2Runtime::RecompiledProgram{entry,first},host,resolve);
+  auto death=std::make_unique<PS2Runtime>(PS2Runtime::RecompiledProgram{entry,second},host,resolve);
+  Require(boot->lookupFunction(entry)==BootEntry && death->lookupFunction(entry)==ModuleEntry,
+          "Disc programs with the same entry address shared a function table");
+  Require(boot->replaceFunction(entry,OtherModuleEntry) && death->lookupFunction(entry)==ModuleEntry,
+          "A function override leaked into another disc program");
+
+  std::array<uint8_t,128> memory{};
+  constexpr uint32_t pathAddress=4;
+  std::memcpy(memory.data()+pathAddress,"cdrom0:\\DEATH.ELF;1",sizeof("cdrom0:\\DEATH.ELF;1"));
+  R5900Context context{};
+  SET_GPR_U32(&context,4,pathAddress);
+  SET_GPR_U32(&context,5,1);
+  boot->handleSyscall(memory.data(),&context,6);
+  Require(Result(context)==-1 && !boot->isStopRequested() && boot->requestedExecutable().empty(),
+          "LoadExecPS2 accepted unsupported guest arguments");
+  SET_GPR_U32(&context,5,0);
+  boot->handleSyscall(memory.data(),&context,6);
+  Require(boot->isStopRequested() && boot->requestedExecutable()=="death.elf" && !death->isStopRequested(),
+          "LoadExecPS2 did not stop only the requesting executable");
+}
 void YieldAtEntry(uint8_t*,R5900Context* context,PS2Runtime*) {
   context->pc=0x100200;
 }
@@ -365,6 +394,7 @@ int main(int argc,char** argv) {
               0x200044,0x200048,PS2Runtime::GuestBranchKind::DirectCall,"JAL") &&
             context.pc==0x200048 && runtime.lookupFunction(0x200040)==OtherModuleEntry,
             "Native caller continued after its guest code bank was replaced");
+    DiscExecutableSwitch();
     MemoryCardHandles(runtime);
     VifImageContinuation(runtime.memory());
     GsMmioCompletions(runtime.memory());

@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 
 from project import ROOT, digest, reject_link, write_json_new
-from ps2_build_receipt import verify
+from ps2_build_receipt import output_names, verify
 from stage_ps4 import write_manifest
 
 
@@ -35,7 +35,8 @@ def _stage_verified(receipt):
         outputs.append(dict(path=target.relative_to(ROOT).as_posix(), bytes=item['bytes'], sha256=item['sha256']))
     games = receipt.get('games', ['espgaluda'])
     for game in games:
-        selected = [item for item in outputs if Path(item['path']).stem in (game, 'SDL3')]
+        expected = set(output_names([game]))
+        selected = [item for item in outputs if Path(item['path']).name in expected]
         write_manifest(game, receipt, selected)
     return dict(games=games, stagedFiles=len(outputs) + 2*len(games), gameDataIncluded=False)
 

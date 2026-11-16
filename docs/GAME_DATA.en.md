@@ -220,6 +220,8 @@ game-data/daioujou/
 
 Select the folder containing `eboot.bin` and the complete game modules and resources. Apply the update over the base game's files before selecting the folder.
 
+Install the [PS2 DaiOuJou disc image](#daioujou-ps2) to enable **DEATH LABEL** in the PS4 edition’s **DIRECT MENU**.
+
 ### DaiOuJou: X Arrange music
 
 Extract the Xbox 360 Black Label Extra ISO with `tools/Extract-Xbox360.exe`. Copy the two files from `dat/sound/` into:
@@ -255,6 +257,8 @@ game-data/esprade/
 
 Place the complete base game in `game-data/esprade/` or select its folder in the launcher. For version 01.04, copy all extracted update files into the same folder, replacing matching files and keeping the remaining base files and folders.
 
+Use the same layout for separate Itemzflow exports from `CUSA15155/` and `CUSA15155-patch/`. For an already merged 01.04 export, select the folder containing `eboot.bin`.
+
 Saves, downloaded replays, and settings are stored in `user-data/esprade/`.
 
 <a id="feveron"></a>
@@ -282,7 +286,7 @@ Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, th
 
 ### バトルガレッガ Rev.2016 — Battle Garegga Rev.2016 (garegga)
 
-Supported: **Korean CUSA10207, version 01.00 base game**.
+Supports the **Korean CUSA10207 01.00 base game** with English menus.
 
 ```text
 game-data/garegga/
@@ -294,7 +298,7 @@ game-data/garegga/
   sce_sys/
 ```
 
-Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, and copy all contents into `game-data/garegga/`. Alternatively, select that extracted folder directly in the launcher. Saves, replays, and settings are stored in `user-data/garegga/`.
+Extract the base PKG with `tools/Extract-PS4.exe` or use your unpacked console export. Select the folder containing `eboot.bin` in the launcher, or copy its contents into `game-data/garegga/`. Saves, replays, and settings are stored in `user-data/garegga/`.
 
 ## PS2 games
 
@@ -324,6 +328,17 @@ Place the Japanese PS2 ISO (SLPM-66301) in `game-data/ibara/`. Keep its original
 game-data/ibara/
   README.txt
   Ibara (Japan).iso
+```
+
+<a id="daioujou-ps2"></a>
+
+### DoDonPachi DaiOuJou (PS2) (daioujou-ps2)
+
+Place the Japanese PS2 ISO (SLPS-25233) in the folder below and select **DoDonPachi DaiOuJou (PS2)** in the launcher.
+
+```text
+game-data/daioujou-ps2/
+  DoDonPachi Dai-Ou-Jou (Japan).iso
 ```
 
 ## Troubleshooting

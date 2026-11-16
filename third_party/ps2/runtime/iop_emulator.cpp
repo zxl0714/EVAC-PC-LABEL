@@ -290,9 +290,24 @@ namespace ps2x::iop::detail
             }
             if (iequals(call.library, "thevent"))
             {
-                return kernel.dispatchEventImport(call.ordinal, cpu)
-                           ? ImportDisposition::Handled
-                           : ImportDisposition::Missing;
+                if (!kernel.dispatchEventImport(call.ordinal, cpu))
+                    return ImportDisposition::Missing;
+                constexpr uint32_t kEventNotReady = static_cast<uint32_t>(-418);
+                if (call.ordinal == 10u && cpu.gpr[2] == kEventNotReady &&
+                    !servicingDmaInterrupts && memory.interruptControl() && !pendingDmaInterrupts.empty())
+                {
+                    // A synchronous RPC invokes the guest without an IOP
+                    // thread for the kernel to park. Finish DMA already issued
+                    // by the caller so its interrupt can satisfy WaitEventFlag.
+                    uint64_t deadline = totalCycles;
+                    for (const auto& [irq, due] : pendingDmaInterrupts)
+                        deadline = std::max(deadline, due);
+                    totalCycles = deadline;
+                    serviceAudio();
+                    servicePendingDmaInterrupts();
+                    (void)kernel.dispatchEventImport(call.ordinal, cpu);
+                }
+                return ImportDisposition::Handled;
             }
             if (iequals(call.library, "thmsgbx") && kernel.dispatchMailboxImport(call.ordinal, cpu))
                 return ImportDisposition::Handled;

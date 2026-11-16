@@ -4,7 +4,8 @@
 
 namespace cave::ps4 {
 using ResourceBytes = std::vector<std::uint8_t>;
-enum class ResourceFix { MusicAutosave, ReplayBatch, LocalRoundGate, CommunityReplayPeer, CommunityLocalReplay, EspradeLocalReplay, FeveronLocalReplay, GareggaLocalReplay, DaioujouTitleMusic };
+enum class ResourceFix { MusicAutosave, ReplayBatch, LocalRoundGate, CommunityReplayPeer, CommunityLocalReplay,
+    EspradeLocalReplay, FeveronLocalReplay, GareggaLocalReplay, GareggaEnglishDefault, GareggaEnglishLookup, DaioujouTitleMusic };
 // Decode a verified program's file-backed seed. Also used by ROM-free tests.
 ResourceBytes ReadArchiveSeed(std::span<const std::uint8_t> source, std::uint64_t load, bool relative = false);
 // Memory-only codec and checked transforms. The archive seed and script bodies

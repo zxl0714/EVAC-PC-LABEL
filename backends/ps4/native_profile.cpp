@@ -11,6 +11,7 @@
 
 namespace {
 std::atomic<bool> neo_mode{};
+std::atomic<NativeLanguage> system_language{NativeLanguage::Japanese};
 constexpr int kParameter = static_cast<int>(0x80a10003u);
 bool Writable(const void* address, std::size_t bytes) {
     return address && NativeMemoryWritable(address, bytes);
@@ -20,7 +21,7 @@ int KT_SYSV SystemParameter(int id, int* output) {
     // Development application settings, not a guess at the Windows language
     // or a fabricated PS4 system profile. Other parameter IDs are unsupported.
     int value{};
-    if (id == 1) { value = kNativeProfile.language; }
+    if (id == 1) { value = static_cast<int>(system_language.load(std::memory_order_relaxed)); }
     else if (id == 1000) { value = kNativeProfile.enter_button; }
     else { return kParameter; }
     std::memcpy(output, &value, sizeof(value));
@@ -80,7 +81,10 @@ int KT_SYSV DisplaySafeArea(void* output) {
 const NativeProfile& GetNativeProfile() {
     return neo_mode.load(std::memory_order_relaxed) ? kNeoNativeProfile : kNativeProfile;
 }
-void ConfigureNativeProfile(bool neo) { neo_mode.store(neo,std::memory_order_relaxed); }
+void ConfigureNativeProfile(bool neo, NativeLanguage language) {
+    neo_mode.store(neo, std::memory_order_relaxed);
+    system_language.store(language, std::memory_order_relaxed);
+}
 
 std::uint64_t ResolveProfileImport(std::string_view identifier) {
     const auto hash = identifier.substr(0, identifier.find('#'));
