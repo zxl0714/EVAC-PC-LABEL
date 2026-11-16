@@ -7,8 +7,8 @@
       "discPath": "SLPS_252.33",
       "elfSha256": "3c326c8a93138303a193fb2a698cebcea361c3a657210afcb85ff6830cd32c18",
       "map": "boot.csv.gz",
-      "mapSha256": "18dae4c792a05dc03152da87f585c1789a0234f57d83c231f975843460f9bf3b",
-      "rows": 19768,
+      "mapSha256": "0f8e5704803acad38186410e4a32d7b4068d3fbec809f0d808594ace6a0685d1",
+      "rows": 19775,
       "general": {
         "output_worker_threads": 4,
         "single_file_output": false,
