@@ -9,13 +9,14 @@
 - `death-natural-trace-r1/scanout.png` 录到 PS2 玩家局，`death-natural-trace-r2/scanout.png` 录到自然 Game Over，输入记录确认开局后未再按键。原版运行先退出关内状态，完整显示结算画面后才重新打开根菜单。
 - `death-session-complete-r1/` 从 `boot.elf` 的测试启动参数改走 `DEATH.ELF`，在第 3,060 场录到 Game Over，在第 3,154 场报告 `completed`，进程正常退出。`death-session-exit-r1/` 在未开局时确认 EXIT，原版请求回主程序，测试入口报告 `exit` 并正常结束。两次都只有一个活动的客体程序。
 - PS4 运行时的窗口验证入口使用同一个 HWND 完成 PS4 Vulkan → PS2 → PS4 Vulkan。`ps4-window-handoff-r1/game-over/` 记录 PS4 键盘事件、PS2 玩家局、音频输出及自然 Game Over。PS4 交换链重新绑定后窗口仍有效。`missing-data/` 确认 PS2 启动失败能恢复呈现，`fullscreen-close/` 确认全屏下关闭窗口能结束 PS2 并清理窗口。`standalone-shared-library-r1/` 确认独立入口启动原版主程序，呈现 180 场并退出。
-- 上述独立和窗口验证记录在 `.local/v0100/daioujou-ps2-analysis-r1/`。完整通关结算仍待实测。
+- 上述独立和窗口验证记录在 `.local/v0100/daioujou-ps2-analysis-r1/`。
 - PS4 大往生 01.00／01.04 从合集启动契约实测，PS2 ISO 与运行时验证完成后都成功注册了 Squirrel 入口。无 PS2 数据的 01.04 继续出帧且未注册入口。三次均正常关闭，见 `.local/v0100/daioujou-ps4-death-menu/binding-check-r2/`。四组 PS4 原生 CTest 通过。
 - 从启动器以 PS4 01.00 明文 SELF 数据及 X Arrange 曲包启动，直达菜单同时显示原曲集选项与 DEATH LABEL。选中后在同一 HWND 内完成 PS2 玩家局、自然 Game Over，并返回直达菜单。截图和进程记录位于 `.local/v0911/live-acceptance/daioujou/v0100-death-menu-gameover-r1/`，合集日志的 `daioujou_death_label_return` 为 `Completed`。另一次从该入口切换后关闭窗口，报告 `Closed`，正常退出。
 - 01.04 合并补丁与 X Arrange 曲包也通过实际玩家局、Game Over、同窗口返回，并从原选项再次启动 PS2。第二次启动时关闭窗口正常退出，证据为同级 `v0100-death-menu-gameover-104-r1/`。用带曲包的既有测试存档切回无曲包数据时停在暂停菜单，需用无曲包存档单独核对。
 - 01.04 合并补丁无 X Arrange 的独立新档，全屏以 3840×2160 从直达菜单进入 Death Label。玩家局自然 Game Over 后，同一进程和窗口以原尺寸返回直达菜单，光标仍在 Death Label。启动配置的 `fullscreen=true` 及返回事件 `Completed` 已核对，见 `.local/v0911/live-acceptance/daioujou/v0100-death-stock-fullscreen-r1/` 和对应启动器报告 `run-20261116T005636118Z-45444/`。
 - Death Label 共用运行时通过高分登记验收。隔离的测试局在关内注入一次高分，玩家局随后自然 Game Over，原版显示姓名录入，确认三个字符后显示原版密码。确认关闭密码后，嵌入会话报告 `Completed` 并正常退出。对照测试未确认登记，在帧上限时仍为 `interrupted`。记录见 `.local/v0100/daioujou-ps2-analysis-r1/death-results-score-r1/` 和 `death-results-score-r2/`。
-- 通关测试的隔离玩家局在首轮进入弹幕脚本后，于第 2,971 场因回调 `0x128570` 漏编译而崩溃。核对原版脚本初始化表后，Death Label 补齐 29 个回调，Arcade 补齐同类的 7 个间接入口。生成器已注册全部 36 个入口，三套程序通过静态跳转检查。修订版的测试局越过原崩溃点，分别运行到第 15,500 和 18,000 场上限，仍在首轮 Boss 战。测试局使用临时防碰撞和弱化敌方生命值，证据见 `death-results-clear-r2/` 至 `death-results-clear-r4/` 和 `death-callback-registration-r1.json`。完整通关结算仍待实测。
+- 通关测试的隔离玩家局先后触发缺失回调 `0x128570`、`0x2002b0`、`0x11f480`。核对原版的脚本初始化和数据指针表后，补齐 Death Label 的 39 个回调及 Arcade 的 13 个对应入口。三套程序通过静态跳转检查，25 项 PS2 回归通过。现场见 `death-results-clear-r2/`、`death-results-victory-r2/` 和 `run-20261116T051121469Z-48260/`，注册核对见 `death-callback-registration-r1.json` 与 `death-dispatch-callback-registration-r1.json`。
+- PS4 01.04 使用原曲集和隔离存档，从直达菜单启动。测试辅助屏蔽玩家碰撞并放大命中伤害，击破、结算和周目切换均由原版程序执行。测试局完成一、二周目和姓名登记，PS2 共呈现 29,710 场，报告 `Completed`。随后在同一进程和窗口恢复 PS4 呈现，光标停在 Death Label，窗口可正常关闭。截图见 `.local/v0911/live-acceptance/daioujou/v0100-death-clear-104-r5/`，合集日志为 `run-20261116T052030434Z-46216/`。
 
 ## v0.10.0 程序包验收
 
@@ -23,6 +24,7 @@
 - 从解压目录用自带检查工具确认 12 款游戏均提示缺少游戏数据，运行时齐全。另用启动器从外部日版 ISO 启动 PS2 大往生，呈现 169 帧后关闭窗口，退出码 0。过程记录见 `.local/v0100/release-candidate-41a35ee/extracted/logs/daioujou-ps2/run-20261116T035225400Z-12792/`。
 - PS4 四组及 PS2 二十五组原生检查通过。Xbox 360 和启动器的 58 组原生检查通过。全量源码检查仍有两项既有问题，虫姬二旧回调数断言期待 31 而实际为 32，shadPS4 实验探针测试引用较早的模板。虫姬二像素测试在具备 NumPy 的 Python 环境中单独通过。
 - PS2 大往生回调修订后的候选包 `releases/v0100-457e94c/EVAC-PC-LABEL-v0.10.0-win-x64.zip` 对应提交 `457e94c`，SHA-256 `34d4a2febcdb781bf02b3e736d205771e92a40b4360d523fcdd474e0efa7eeec`。校验 ZIP 并解压一次，206 个清单文件及 12 款游戏通过核对。PS2 25 项原生检查通过。用包内启动器加载外部日版 ISO，实际呈现 119 帧并以退出码 0 关闭。ESPGaluda 和铸蔷薇的可执行内容逐节核对一致，差异来自调试记录。证据见 `.local/v0100/release-candidate-457e94c/`。
+- 最终本地候选包 `releases/v0100-3cc2580/EVAC-PC-LABEL-v0.10.0-win-x64.zip` 对应提交 `3cc2580`，SHA-256 `1995285c6b46c484fa5812bb425e000bfe9cedb825c9a80497a99a625c92f757`。一次解包验证 206 个清单文件和 12 款运行时。包内启动器使用外部日版 ISO，呈现 138 帧并正常退出。Xbox 360、PS4 和启动器二进制与上一个已验收的候选包相同，ESPGaluda 和铸蔷薇仅调试记录变化。证据见 `.local/v0100/release-candidate-3cc2580/`。
 
 ## v0.10.0 韩版空战之路英文界面
 

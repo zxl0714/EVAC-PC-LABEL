@@ -10,7 +10,7 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.10.0 is in development. The active scope and order are in
+v0.10.0 implementation and local acceptance are complete. The scope is in
 `docs/IMPLEMENTATION_PLAN.md`. Start with the standalone PS2 DaiOuJou port.
 Its verified SLPS-25233 disc contains three EE programs at the same entry
 address: the main program, `DEATH.ELF`, and `GALLERY.ELF`. The scope includes
@@ -83,8 +83,8 @@ the optimized run records 4788 Reflex samples and no waits missed.
 and native input scheduling through Boot → Death Label → Boot.
 `reflex-menu-roundtrip-r4/` repeats the actual 14 accepted inputs from that
 trace after the Reflex fix. It includes 6,542 samples, zero wait timeouts and
-1,049 fields after returning to Boot. The PCSX2 same-scene comparison and
-full certified release build remain open.
+1,049 fields after returning to Boot. The same-scene PCSX2 comparison and build
+verification are recorded in `docs/ANALYSIS.md` and `docs/TEST_MATRIX.md`.
 
 Standalone hosted-mode testing now starts `DEATH.ELF` directly and reports a
 separate completion or explicit exit. `death-session-complete-r1/` shows Game
@@ -94,8 +94,7 @@ Over at field 3060 and returns after the original menu reopens at field 3154.
 transition only in the hosted mode. `daioujou-ps2-runtime.dll` is shared by the
 standalone EXE and the PS4 runtime. `ps4-window-handoff-r1/` verifies the actual
 PS4-owned HWND and resident Vulkan binding through PS2 play/Game Over, failed
-startup, and fullscreen close. The original PS4 guest menu and its supported
-PS2 data gate are still open. The effective 01.00 and 01.04 Direct Menu scripts were inventoried
+startup, and fullscreen close. The effective 01.00 and 01.04 Direct Menu scripts were inventoried
 under `.local/v0100/daioujou-ps4-death-menu/` to start that integration.
 
 Garegga's CUSA10207 archive inventory is `.local/v0100/garegga-resources.json`.
@@ -113,36 +112,31 @@ identical required files and share `update-104-itemzflow`. The separate 01.00
 base uses `base-itemzflow`. Native preparation reused the original versions'
 decoded program fingerprints. All four player roots passed the native loader
 validation and direct guest window smoke (`prepare-*/launch-smoke/`), with
-the usual controlled window-close exit 27. Launcher entry, player gameplay
-and feature-matrix checks are open.
+the usual controlled window-close exit 27. Launcher gameplay and feature checks
+are recorded in `docs/TEST_MATRIX.md`.
 
 The preceding v0.9.11 release remains frozen at `5579c1a`. Its public program ZIP
 was verified on GitHub. The v0.10.0 worktree does not publish a release by itself.
 
-The v0.10.0 compatibility matrix is accepted for the available inputs. It has
-66 verified cells and 53 cells awaiting distinct ROM samples. See
-`docs/ROM_COMPATIBILITY.md` and its linked evidence. PS4 01.00 and 01.04 now
-complete the actual menu handoff and Game Over round trip, including fullscreen
-and re-entry. The shared Death Label runtime waits through original high-score
-name entry and password confirmation, then completes. Evidence is the isolated
-score-seeded player run `death-results-score-r2` beside the other PS2 runs.
-Full-clear results remain unverified.
+The v0.10.0 compatibility matrix has 66 verified cells and 53 cells awaiting
+distinct ROM samples. See `docs/ROM_COMPATIBILITY.md` and its linked evidence.
+PS4 01.00 and 01.04 passed the actual menu handoff and Game Over round trip,
+including fullscreen and re-entry. The 01.04 assisted clear passed both loops,
+original score entry, and return to the same Direct Menu window. The trace
+reported `Completed` after 29,710 fields. See `docs/TEST_MATRIX.md`.
 
-The assisted clear attempt found a real missing bullet-script callback at
-`0x128570`. The original initializer identifies 29 missing Death Label bodies
-and seven Arcade entry points. The new build registers them all, passes 25 PS2
-contracts and reaches the first boss past the previous failure. Runs ending
-at 15,500 or 18,000 fields still show that boss. Further clear testing needs
-the actual boss damage or encounter-selection state. Keep the isolated input
-and profile, and reuse the existing Game Over and high-score acceptance.
+The assisted route exposed three missing guest targets. The compiled maps now
+include 39 Death Label and 13 Arcade entries identified from the original
+script initializers and data tables. All three disc programs pass static-edge
+validation, and 25 PS2 contracts pass on the final build.
 
-Local candidate `releases/v0100-457e94c/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
-contains 170,930,845 bytes and freezes program source at `457e94c`.
-SHA-256: `34d4a2febcdb781bf02b3e736d205771e92a40b4360d523fcdd474e0efa7eeec`.
+Local candidate `releases/v0100-3cc2580/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
+contains 170,945,254 bytes and freezes program source at `3cc2580`.
+SHA-256: `1995285c6b46c484fa5812bb425e000bfe9cedb825c9a80497a99a625c92f757`.
 One extraction verified all 206 files and all 12 runtime paths. The extracted
 launcher accepted the external Japanese PS2 DaiOuJou ISO and closed normally
-after 119 presented frames. Evidence: `.local/v0100/release-candidate-457e94c/`.
-Reuse this package for acceptance-only documentation edits.
+after 138 presented frames. Evidence: `.local/v0100/release-candidate-3cc2580/`.
+Reuse this local candidate for publication and acceptance-only documentation edits.
 
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.

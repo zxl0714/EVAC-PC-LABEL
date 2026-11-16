@@ -303,6 +303,7 @@ Hyper Active、等级 5。与中 Boss 对准后 C 激光加 Z 炸弹已实际拿
 
 验证 PS4 大往生嵌入 Death Label 时，用现有 PS4 验收脚本走合集启动器，保持同一窗口句柄。
 从标题画面进入 DIRECT MENU 后，光标在左上默认项时往下三次、往右两次选中 Death Label。
+等直达菜单画面稳定再发方向键，确认高亮项后再进游戏。
 PS2 启动后先用 X 确认记忆卡提示，再等原版标题。Enter 打开 Death Label 菜单，等高亮稳定
 后再发方向键。回到 PS4 后以 DIRECT MENU 的实际画面和 `daioujou_death_label_return`
 双重确认。游戏测试副本沿用 `.local/v0911/ps4-acceptance-run.py`。

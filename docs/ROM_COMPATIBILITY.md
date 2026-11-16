@@ -84,7 +84,7 @@ X Arrange 使用玩家自备曲包，01.00 和 01.02 均已实播。两版均实
 | 社区 AC-CHALLENGE 榜 | ✓ | ? | ? | ✓ | ? |
 | 主菜单接入 PS2 Death Label | ✓ | ? | ? | ✓ | ? |
 
-两版均带自备曲包实测 X Arrange，均通过第 99 槽写入和重启读回。01.00 明文 SELF 和 01.04 合并补丁样本均在带曲包时从直达菜单进入 Death Label，玩家局 Game Over 后返回原菜单。两版均在 AC-CHALLENGE 实战获得铜牌，并从游戏内提交和读回 99 号榜的奖牌积分。[曲集](IMPLEMENTATION_PLAN.md#v099-大往生兼容性bgm-与启动器) · [99 槽](TEST_MATRIX.md#v0100-rom-功能兼容性) · [低延迟](ANALYSIS.md#v095--ps4-输入与呈现) · [01.00 社区](TEST_MATRIX.md#v076-大往生-0100-与弹铳预告) · [01.04 社区](TEST_MATRIX.md#较早候选与历史定位) · [Death Label](TEST_MATRIX.md#v0100-ps2-death-label) · [AC-CHALLENGE](TEST_MATRIX.md#v0100-rom-功能兼容性)
+两版均带自备曲包实测 X Arrange，均通过第 99 槽写入和重启读回。01.00 明文 SELF 和 01.04 合并补丁样本均在带曲包时从直达菜单进入 Death Label，玩家局 Game Over 后返回原菜单。01.04 另通过一、二周目通关和原版登记后返回直达菜单。两版均在 AC-CHALLENGE 实战获得铜牌，并从游戏内提交和读回 99 号榜的奖牌积分。[曲集](IMPLEMENTATION_PLAN.md#v099-大往生兼容性bgm-与启动器) · [99 槽](TEST_MATRIX.md#v0100-rom-功能兼容性) · [低延迟](ANALYSIS.md#v095--ps4-输入与呈现) · [01.00 社区](TEST_MATRIX.md#v076-大往生-0100-与弹铳预告) · [01.04 社区](TEST_MATRIX.md#较早候选与历史定位) · [Death Label](TEST_MATRIX.md#v0100-ps2-death-label) · [AC-CHALLENGE](TEST_MATRIX.md#v0100-rom-功能兼容性)
 
 01.00 明文 SELF 带 X Arrange 在读回第 99 槽后实测五次变向，均在读键后的第一张提交画面出现位移。[01.00 低延迟](TEST_MATRIX.md#v0100-rom-功能兼容性)
 
