@@ -16,6 +16,7 @@ std::vector<std::uint8_t> PrepareDaioujouArrangeAudio(std::string_view module,
 enum class DaioujouArrangeMotion { Direct, Pause, Options };
 void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArrangeMotion kind, bool update);
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update);
+std::vector<std::uint8_t> BuildDaioujouDeathLabelArtwork();
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update);
 void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion);
 void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion);

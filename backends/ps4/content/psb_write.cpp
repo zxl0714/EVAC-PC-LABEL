@@ -5,6 +5,7 @@
 #include <limits>
 #include <map>
 #include <stdexcept>
+#include <zlib.h>
 
 namespace cave::ps4 {
 namespace {
@@ -97,14 +98,16 @@ private:
 
 class PlainPsbWriter {
 public:
-    Bytes WriteDocument(const Json& value,std::uint32_t header_length) {
-        Require(value.is_object() && (header_length==0 || header_length==40),"Expected a plain PSB v2 object");
+    Bytes WriteDocument(const Json& value,std::uint32_t header_length,std::span<const std::uint8_t> texture={}) {
+        const bool motion=header_length==56;
+        Require(value.is_object() && (motion || header_length==0 || header_length==40),"Invalid plain PSB object");
+        has_texture_=!texture.empty();
         CollectNames(value,0);
         std::uint32_t key=0;
         for(auto& entry:names_)entry.second=key++;
 
-        Bytes output{'P','S','B',0,2,0,0,0};
-        output.resize(40);
+        Bytes output{'P','S','B',0,static_cast<std::uint8_t>(motion?4:2),0,0,0};
+        output.resize(motion?56:40);
         Write(output,8,header_length);
         Write(output,12,Position(output));
         Names(names_).Encode(output);
@@ -120,9 +123,24 @@ public:
         }
         Write(output,16,Position(output));Array(output,offsets);
         Write(output,20,Position(output));Append(output,strings);
-        Write(output,24,Position(output));Array(output,{});
-        Write(output,28,Position(output));Array(output,{});
+        if(motion) {
+            Write(output,44,Position(output));Array(output,{});
+            Write(output,48,Position(output));Array(output,{});
+            Write(output,52,Position(output));
+        }
+        Write(output,24,Position(output));
+        const std::array chunk_offset{0u};
+        Array(output,has_texture_?std::span<const std::uint32_t>(chunk_offset):std::span<const std::uint32_t>{});
+        Write(output,28,Position(output));
+        const std::array chunk_size{static_cast<std::uint32_t>(texture.size())};
+        Array(output,has_texture_?std::span<const std::uint32_t>(chunk_size):std::span<const std::uint32_t>{});
+        if(motion)output.resize((output.size()+31)&~std::size_t{31});
         Write(output,32,Position(output));
+        Append(output,texture);
+        if(motion) {
+            const auto prefix=adler32(1,output.data()+8,32);
+            Write(output,40,adler32(prefix,output.data()+44,12));
+        }
         return output;
     }
 private:
@@ -131,7 +149,10 @@ private:
         if(value.is_array()) {
             for(const auto& item:value)CollectNames(item,depth+1);
         } else if(value.is_object()) {
-            Require(!value.contains("resource_index"),"Resource references require an existing PSB chunk table");
+            if(value.contains("resource_index")) {
+                Require(has_texture_ && value.size()==1 && value["resource_index"]==0,"Invalid PSB texture reference");
+                return;
+            }
             for(auto item=value.begin();item!=value.end();++item) {
                 const auto& name=item.key();
                 Require(!name.empty() && name.size()<=4096 && name.find('\0')==name.npos,"Invalid PSB output name");
@@ -175,6 +196,7 @@ private:
             Put(bytes,item->second,width);
             return bytes;
         }
+        if(value.is_object() && value.contains("resource_index"))return {25,0};
 
         Require(value.is_array() || value.is_object(),"Unsupported PSB output value");
         Bytes bytes{static_cast<std::uint8_t>(value.is_object()?33:32)},children;
@@ -189,12 +211,18 @@ private:
         Append(bytes,children);
         return bytes;
     }
+    bool has_texture_{};
     unsigned nodes_{};
     std::map<std::string,std::uint32_t> names_,string_indexes_;
     std::vector<std::string> strings_;
 };
 }
 ResourceBytes WritePlainPsb(const nlohmann::json& value,std::uint32_t header_length) {
+    Require(header_length==0 || header_length==40,"Expected a plain PSB v2 object");
     return PlainPsbWriter().WriteDocument(value,header_length);
+}
+ResourceBytes WriteMotionPsb(const nlohmann::json& value,std::span<const std::uint8_t> texture) {
+    Require(!texture.empty() && texture.size()<=kLimit,"Invalid PSB texture size");
+    return PlainPsbWriter().WriteDocument(value,56,texture);
 }
 }

@@ -14,7 +14,8 @@ struct DiscProgramResult {
 
 inline DiscProgramResult RunDiscProgram(const PS2Runtime::IoPaths& paths, cave::ps2::NativeHost& host,
                                         bool hosted, bool inputTiming,
-                                        const std::function<void(PS2Runtime&)>& configure = {}) {
+                                        const std::function<void(PS2Runtime&)>& configure = {},
+                                        const DeathLabelActions* actions = nullptr) {
     PS2Runtime::setIoPaths(paths);
     const auto name = paths.elfPath.filename().string();
     PS2Runtime runtime(ProgramTable(name),host,ResolveDiscExecutable);
@@ -24,7 +25,7 @@ inline DiscProgramResult RunDiscProgram(const PS2Runtime::IoPaths& paths, cave::
         throw std::runtime_error("Cannot load DaiOuJou PS2 program: " + name);
     if (inputTiming) BindInputTiming(runtime,name);
     std::optional<DeathLabelSession> session;
-    if (hosted) session.emplace(runtime);
+    if (hosted) session.emplace(runtime,actions);
     std::cerr<<"[ps2-disc-program] active="<<name<<'\n';
     runtime.run();
     return {runtime.requestedExecutable(),session && session->Completed()};

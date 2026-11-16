@@ -28,6 +28,8 @@ RUNTIME_ARTWORK = {
         '6d1e0d7edeb2a08a018ae16edcfde84c72f93a1ac0aad61accf2fb9f5f470dc3',
     'backends/ps4/artwork/ketsui-x-arrange-160x13.png':
         '9fa80d7621b6e2a8b39af564047084ff5516ef47dd373a50a76e010735b7329b',
+    'backends/ps4/artwork/daioujou-death-label.png':
+        '860e21e294431c18e2c7d99852261f50ff5a41a1fd1e676139cac17641d52540',
 }
 DOC_SCREENSHOTS = {
     'docs/images/launcher.png':

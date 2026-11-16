@@ -2,9 +2,16 @@
 #include <cstdint>
 
 namespace cave {
-inline constexpr unsigned DeathLabelHostVersion = 1;
+inline constexpr unsigned DeathLabelHostVersion = 2;
 
 enum class DeathLabelResult : int { Failed, Completed, Exit, Closed };
+
+struct DeathLabelActions {
+    // Active-high pad bits after the PS4 host has applied device bindings.
+    std::uint16_t shot{};
+    std::uint16_t bomb{};
+    std::uint16_t rapid{};
+};
 
 // The caller owns the window, its message pump, and all pointers until return.
 // 'prepared' and 'disc' come from the collection's verified PS2 data preparation.
@@ -21,6 +28,7 @@ struct DeathLabelHost {
     bool vsync{};
     bool reflex = true;
     bool amdAntiLag{};
+    const DeathLabelActions* actions{};
 };
 
 using RunDeathLabel = DeathLabelResult (*)(const DeathLabelHost*) noexcept;

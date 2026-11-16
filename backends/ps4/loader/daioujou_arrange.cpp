@@ -101,6 +101,7 @@ void ReplaceExpected(std::string& script, std::string_view before, std::string_v
 
 void AddDeathLabelMenu(std::string& direct) {
     ReplaceExpected(direct, "  m_motion_custom = null;", R"nut(  m_motion_custom = null;
+  m_death_art = null;
   m_death_label = null;)nut", 1);
     ReplaceExpected(direct, R"nut(    ["_exec_GameMode"   ,"_exec_GameMode"   ,"_exec_StageSelect"],)nut",
         R"nut(    ["_exec_GameMode"   ,"_exec_GameMode"   ,"_exec_DeathLabel"],)nut", 1);
@@ -108,26 +109,65 @@ void AddDeathLabelMenu(std::string& direct) {
 
     if (m_back_disable && ("evac_run_death_label" in getroottable())) {
       c_cursor_width = [3,2,3,3,1];
+      local artPath = conv_path("motion/title_evac_death_label.psb");
       local fontPath = conv_path("font/title_m2shot_font.psb");
-      local font = Resource();
-      font.load(fontPath);
-      while (font.loading) wait(0);
-      m_death_label = Indicator(m_layerBase, font.find(fontPath));
+      local resources = Resource();
+      resources.load(artPath, fontPath);
+      while (resources.loading) wait(0);
+      local motion = resources.find(artPath);
+      if (motion != null) {
+        m_layerBase.registerMotionResource(motion);
+        m_death_art = Motion(m_layerBase);
+        m_death_art.chara = "evac_death_label";
+        m_death_art.motion = "stand";
+        m_death_art.setCoord(309, 202);
+      }
+      m_death_label = Indicator(m_layerBase, resources.find(fontPath));
+      if (m_death_art != null) {
+        m_death_label.setFontScale(1.15);
+        m_death_label.setFontScaleX(0.96);
+        m_death_label.setFontColor(0xdccfbfff);
+      }
       m_death_label.print("DEATH LABEL");
-      m_death_label.setCoord(309 - m_death_label.width / 2, 202 - m_death_label.height / 2);
-      m_death_label.visible = true;
+      if (m_death_art != null) {
+        m_death_label.setCoord(180, 168);
+      } else {
+        m_death_label.setCoord(309 - m_death_label.width / 2, 202 - m_death_label.height / 2);
+      }
+      _showDeathLabel(true);
     }
     if (m_x >= c_cursor_width[m_y]) m_x = c_cursor_width[m_y] - 1;
 )nut", 1);
-    ReplaceExpected(direct, "        this[c_exec_func[m_y][m_x]]();", R"nut(        if (m_death_label != null) m_death_label.visible = false;
+    ReplaceExpected(direct, "        this[c_exec_func[m_y][m_x]]();", R"nut(        _showDeathLabel(false);
         this[c_exec_func[m_y][m_x]]();
-        if (m_death_label != null) m_death_label.visible = true;)nut", 1);
-    ReplaceExpected(direct, "          _exec_bgmset(_gamemode);", R"nut(          if (m_death_label != null) m_death_label.visible = false;
+        _showDeathLabel(true);)nut", 1);
+    ReplaceExpected(direct, "          _exec_bgmset(_gamemode);", R"nut(          _showDeathLabel(false);
           _exec_bgmset(_gamemode);
-          if (m_death_label != null) m_death_label.visible = true;)nut", 1);
-    ReplaceExpected(direct, "  function _exec_Manual() {", R"nut(  function _exec_DeathLabel() {
+          _showDeathLabel(true);)nut", 1);
+    ReplaceExpected(direct, "  function _exec_Manual() {", R"nut(  function _showDeathLabel(visible) {
+    if (m_death_label != null) m_death_label.visible = visible;
+    if (m_death_art != null) m_death_art.visible = visible;
+  }
+
+  function _exec_DeathLabel() {
     ::g_menu_sound.on_decide();
-    ::evac_run_death_label();
+    local assignments = array(PlatFormButtonId.NUM, 0);
+    ::g_systemdata.get_value(SystemDataValueIndex.SETTING_PAD).get_emu_key_unit(0, assignments);
+    local shot = 0, bomb = 0, rapid = 0;
+    // Translate the original P1 assignments to the pad bits sent to PS2.
+    foreach (button in [
+        [PlatFormButtonId.BUTTON_CIRCLE, 0x2000], [PlatFormButtonId.BUTTON_CROSS, 0x4000],
+        [PlatFormButtonId.BUTTON_TRIANGLE, 0x1000], [PlatFormButtonId.BUTTON_SQUARE, 0x8000],
+        [PlatFormButtonId.BUTTON_R1, 0x0800], [PlatFormButtonId.BUTTON_R2, 0x0200],
+        [PlatFormButtonId.BUTTON_R3, 0x0004], [PlatFormButtonId.BUTTON_L1, 0x0400],
+        [PlatFormButtonId.BUTTON_L2, 0x0100], [PlatFormButtonId.BUTTON_L3, 0x0002],
+        [PlatFormButtonId.BUTTON_START, 0x0008], [PlatFormButtonId.BUTTON_SELECT, 0x0001]]) {
+      local mask = assignments[button[0]];
+      if (mask & M2EpiPadFlag.BUTTON_A) shot = shot | button[1];
+      if (mask & M2EpiPadFlag.BUTTON_B) bomb = bomb | button[1];
+      if (mask & M2EpiPadFlag.BUTTON_C) rapid = rapid | button[1];
+    }
+    ::evac_run_death_label(shot, bomb, rapid);
   }
 
   function _exec_Manual() {)nut", 1);
@@ -323,6 +363,8 @@ void PrepareDaioujouArchive(const fs::path& data, const fs::path& stage,
         AddPcmDefinitions(base, kTitlePcm, definitions);
         AddArrangeMenu(base, false);
     }
+    if (death_label)
+        base.Add("1100/motion/title_evac_death_label.psb.m", BuildDaioujouDeathLabelArtwork(), false);
     AddDaioujouDirectMenu(base, arrange, death_label);
     base.Write(stage);
     if (merged) {

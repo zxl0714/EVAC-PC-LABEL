@@ -88,6 +88,11 @@ foreach(extent IN ITEMS 331x58 188x44 171x18 160x13)
     string(REGEX REPLACE "(..)" "0x\\1," pixels "${pixels}")
     string(APPEND arrange_artwork "inline constexpr std::uint8_t kKetsuiArrange${extent}[]{${pixels}};\n")
 endforeach()
+set(death_label_card "${CMAKE_CURRENT_SOURCE_DIR}/artwork/daioujou-death-label.png")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${death_label_card}")
+file(READ "${death_label_card}" pixels HEX)
+string(REGEX REPLACE "(..)" "0x\\1," pixels "${pixels}")
+string(APPEND arrange_artwork "inline constexpr std::uint8_t kDaioujouDeathLabel[]{${pixels}};\n")
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/daioujou_arrange_artwork_data.h"
     CONTENT "${arrange_artwork}}\n")
 add_library(KetsuiPreparedInputs STATIC loader/elf_prepare.cpp loader/preparation_io.cpp loader/prepared_cache.cpp loader/prepare_game.cpp

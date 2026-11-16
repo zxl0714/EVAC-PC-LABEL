@@ -24,16 +24,17 @@ struct SquirrelApi {
     int(KT_SYSV* newSlot)(Vm, int, unsigned){};
     int(KT_SYSV* getTop)(Vm){};
     void(KT_SYSV* pop)(Vm,int){};
+    int(KT_SYSV* getInteger)(Vm,int,int*){};
 };
 struct SquirrelLayout {
     std::string_view contract;
-    std::size_t registration, strings, pushString, newClosure, newSlot, getTop, pop;
+    std::size_t registration, strings, pushString, newClosure, newSlot, getTop, pop, getInteger;
 };
 constexpr std::array layouts{
     SquirrelLayout{"8256abd9bbe18ff68c5196d0104b84b94254fb355fcb0ca3df2c20b03802df79",
-        0xb2960, 0xbddb0, 0x5ccd0, 0x5de20, 0x5f7e0, 0x5d4d0, 0x5f740},
+        0xb2960, 0xbddb0, 0x5ccd0, 0x5de20, 0x5f7e0, 0x5d4d0, 0x5f740, 0x5ee90},
     SquirrelLayout{"365b5db9be3808ecfffe8e9ddd28ac1b740a0326cd0d16fb0c63af22a76a3c2f",
-        0xb2bf0, 0xbe040, 0x5cf60, 0x5e0b0, 0x5fa70, 0x5d760, 0x5f9d0},
+        0xb2bf0, 0xbe040, 0x5cf60, 0x5e0b0, 0x5fa70, 0x5d760, 0x5f9d0, 0x5f120},
 };
 SquirrelApi squirrel;
 DaioujouDeathLabel* active{};
@@ -46,10 +47,22 @@ bool Matches(std::span<const std::uint8_t,32> digest, std::string_view hex) {
     return true;
 }
 
-int KT_SYSV RunFromMenu(Vm) {
+int KT_SYSV RunFromMenu(Vm vm) {
     auto result = DeathLabelResult::Failed;
     try {
-        result = active->Run();
+        DeathLabelActions actions;
+        const std::array masks{&actions.shot, &actions.bomb, &actions.rapid};
+        if (squirrel.getTop(vm) != int(masks.size()) + 1)
+            throw std::runtime_error("Invalid Death Label action mapping");
+        for (std::size_t i = 0; i < masks.size(); ++i) {
+            int mask{};
+            if (squirrel.getInteger(vm, int(i) + 2, &mask) < 0 || mask < 0 || mask > 0xffff)
+                throw std::runtime_error("Invalid Death Label pad mask");
+            *masks[i] = static_cast<std::uint16_t>(mask);
+        }
+        std::printf("{\"event\":\"daioujou_death_label_controls\",\"shot\":%u,\"bomb\":%u,\"rapid\":%u}\n",
+            unsigned(actions.shot), unsigned(actions.bomb), unsigned(actions.rapid));
+        result = active->Run(actions);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Death Label presentation: %s\n", error.what());
     }
@@ -108,12 +121,13 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
     }
 }
 
-DeathLabelResult DaioujouDeathLabel::Run() const {
+DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions) const {
     DeathLabelHost host;
     host.prepared = prepared_.c_str();
     host.disc = disc_.c_str();
     host.profile = profile_.c_str();
     host.volume = volume_;
+    host.actions = &actions;
     return RunNativeVideoDeathLabel(host, entry_);
 }
 
@@ -157,6 +171,7 @@ void DaioujouDeathLabel::InstallBinding(std::span<std::uint8_t> image, std::span
         reinterpret_cast<decltype(squirrel.newSlot)>(image.data() + layout->newSlot),
         reinterpret_cast<decltype(squirrel.getTop)>(image.data() + layout->getTop),
         reinterpret_cast<decltype(squirrel.pop)>(image.data() + layout->pop),
+        reinterpret_cast<decltype(squirrel.getInteger)>(image.data() + layout->getInteger),
     };
     std::memcpy(code + 1, &offset, sizeof(offset));
     active->thunk_ = thunk.release();

@@ -61,7 +61,7 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         options.volume=request->volume;
         host.Configure(std::move(options));
         host.Initialize("DoDonPachi DaiOuJou | Death Label");
-        const auto result = cave::daioujou_ps2::RunDiscProgram(paths,host,true,true);
+        const auto result = cave::daioujou_ps2::RunDiscProgram(paths,host,true,true,{},request->actions);
         if (result.completed) return DeathLabelResult::Completed;
         if (result.next=="boot.elf") return DeathLabelResult::Exit;
         return host.Alive()?DeathLabelResult::Failed:DeathLabelResult::Closed;

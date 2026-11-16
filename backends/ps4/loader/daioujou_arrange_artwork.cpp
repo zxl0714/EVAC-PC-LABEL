@@ -1,5 +1,6 @@
 #include "daioujou_arrange.h"
 #include "daioujou_arrange_artwork_data.h"
+#include "backends/ps4/content/resource_prepare.h"
 
 #include <Windows.h>
 #include <wincodec.h>
@@ -14,7 +15,7 @@ namespace {
 using Microsoft::WRL::ComPtr;
 
 void Check(HRESULT result) {
-    if (FAILED(result)) throw std::runtime_error("Cannot decode the X Arrange badge");
+    if (FAILED(result)) throw std::runtime_error("Cannot decode PS4 menu artwork");
 }
 
 class ComApartment {
@@ -43,7 +44,7 @@ std::vector<std::uint8_t> DecodeBadge(IWICImagingFactory& factory, std::span<con
     Check(decoder->GetFrame(0, frame.GetAddressOf()));
     unsigned width{}, height{};
     Check(frame->GetSize(&width, &height));
-    if (width != badge.width || height != badge.height) throw std::runtime_error("Unexpected X Arrange badge dimensions");
+    if (width != badge.width || height != badge.height) throw std::runtime_error("Unexpected PS4 menu artwork dimensions");
     ComPtr<IWICFormatConverter> converter;
     Check(factory.CreateFormatConverter(converter.GetAddressOf()));
     Check(converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone,
@@ -53,14 +54,14 @@ std::vector<std::uint8_t> DecodeBadge(IWICImagingFactory& factory, std::span<con
     return rgba;
 }
 
-// The common UI atlas is 4096x2048 RGBA, stored as 8x8 Morton-ordered tiles.
-std::size_t AtlasPixel(unsigned x, unsigned y) {
+// PS4 UI atlases store pixels as 8x8 Morton-ordered tiles.
+std::size_t AtlasPixel(unsigned x, unsigned y, unsigned tiles_per_row = 512) {
     unsigned inside{};
     for (unsigned i = 0; i < 3; ++i) {
         inside |= ((x >> i) & 1) << (i * 2);
         inside |= ((y >> i) & 1) << (i * 2 + 1);
     }
-    return ((y / 8 * 512 + x / 8) * 64 + inside) * 4;
+    return ((y / 8 * tiles_per_row + x / 8) * 64 + inside) * 4;
 }
 
 void PaintBadge(std::span<std::uint8_t> atlas, IWICImagingFactory& factory,
@@ -153,6 +154,57 @@ void PaintKetsuiBadge(std::span<std::uint8_t> atlas, IWICImagingFactory& factory
         }
     }
 }
+}
+
+std::vector<std::uint8_t> BuildDaioujouDeathLabelArtwork() {
+    constexpr unsigned width = 296, height = 104, atlas_width = 512, atlas_height = 128;
+    ComApartment apartment;
+    ComPtr<IWICImagingFactory> factory;
+    Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
+    const auto rgba = DecodeBadge(*factory.Get(), artwork::kDaioujouDeathLabel, {0, 0, width, height});
+    // Native red cards use a one-pixel frame and four-pixel color accent.
+    constexpr std::array<std::uint8_t, 4> frame{155, 141, 137, 255};
+    constexpr std::array<std::uint8_t, 4> accent{210, 56, 56, 255};
+    std::vector<std::uint8_t> atlas(atlas_width * atlas_height * 4);
+    for (unsigned y = 0; y < height; ++y) {
+        for (unsigned x = 0; x < width; ++x) {
+            const auto* pixel = rgba.data() + (y * width + x) * 4;
+            if (x == 0 || x + 1 == width || y == 0 || y + 1 == height) pixel = frame.data();
+            else if (x <= 4) pixel = accent.data();
+            auto* output = atlas.data() + AtlasPixel(x, y, atlas_width / 8);
+            output[0] = pixel[2];
+            output[1] = pixel[1];
+            output[2] = pixel[0];
+            output[3] = pixel[3];
+        }
+    }
+
+    // One static sprite with the same origin and dimensions as the original mode cards.
+    const auto motion = nlohmann::json::parse(R"json({
+        "id":"motion","spec":"ps4","version":3.03,"label":"evac_death_label",
+        "screenSize":{"height":1024,"width":1280,"originX":0,"originY":0},
+        "easing":[],"metadata":null,
+        "object":{"evac_death_label":{"metadata":null,"type":0,"motion":{"stand":{
+            "bounds":{"bottom":0,"left":0,"right":0,"top":0},
+            "lastTime":1,"loopTime":-1,"metadata":null,
+            "layer":[{
+                "children":[],"coordinate":0,"exportSelf":1,"label":"card","type":0,
+                "groundCorrection":0,"inheritMask":33556476,"joinTarget":1,"meshCombine":0,
+                "meshTransform":0,"metadata":null,"objTriPriority":2,"parameterize":null,
+                "stencilType":0,"transformOrder":[0,3,2,1],
+                "frameList":[{"content":{"icon":"card","mask":0,"src":"tex#000"},"time":0,"type":2},
+                             {"time":1,"type":0}]
+            }],
+            "layerIndexMap":{"card":0},"parameter":[],"parameterize":null,
+            "priority":[{"content":[0],"time":0,"type":1},{"content":null,"time":1,"type":1}],
+            "referenceModelFileList":[],"referenceProjectFileList":[],"tag":[],"type":0,"variable":[]
+        }}}},
+        "source":{"tex#000":{"icon":{"card":{"attr":2,"height":104,"left":0.0,"metadata":null,
+            "originX":148,"originY":52,"top":0.0,"width":296}},
+            "metadata":null,"texture":{"height":128,"pixel":{"resource_index":0},"type":"RGBA8_SW","width":512},
+            "type":0}}
+    })json");
+    return WriteMotionPsb(motion, atlas);
 }
 
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update) {

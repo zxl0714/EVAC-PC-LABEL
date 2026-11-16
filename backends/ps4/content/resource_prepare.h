@@ -19,6 +19,7 @@ ResourceBytes WrapResource(std::span<const std::uint8_t> source,
                           std::span<const std::uint8_t> seed, std::string_view name, std::size_t extent);
 nlohmann::json ParseResourceIndex(std::span<const std::uint8_t> source);
 ResourceBytes WritePlainPsb(const nlohmann::json& value,std::uint32_t header_length);
+ResourceBytes WriteMotionPsb(const nlohmann::json& value,std::span<const std::uint8_t> texture);
 ResourceBytes FixResourceScript(std::span<const std::uint8_t> source, ResourceFix fix);
 ResourceBytes EncodeReadFixes(const kt::content::ReadPatchSet& patches);
 struct PreparedReadFixes { ResourceBytes bytes; nlohmann::json report; };
