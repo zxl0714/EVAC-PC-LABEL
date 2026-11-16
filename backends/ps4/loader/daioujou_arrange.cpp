@@ -377,6 +377,9 @@ void PrepareDaioujouArchive(const fs::path& data, const fs::path& stage,
     const auto key = ReadArchiveSeed(executable, merged ? 0xdd : 0xde, true);
     auto definitions = Json::array();
     ArchiveLayer base(data, kBase, key);
+    // The hosted mode uses the original atlas. The X Arrange overlay replaces
+    // its index entry with a resource in the new body.
+    if (death_label && !merged) WriteDeathLabelGadgets(stage,base,false);
     if (arrange) {
         std::size_t reserve = 28 * 1024 * 1024;
         for (const auto& cue : daioujou::ArrangeCues()) reserve += 4ull*cue.samples + 16 * 1024;
@@ -396,7 +399,6 @@ void PrepareDaioujouArchive(const fs::path& data, const fs::path& stage,
     }
     if (death_label) {
         base.Add("1100/motion/title_evac_death_label.psb.m", BuildDaioujouDeathLabelArtwork(), false);
-        if (!merged) WriteDeathLabelGadgets(stage,base,false);
     }
     AddDaioujouDirectMenu(base, arrange, death_label);
     base.Write(stage);
