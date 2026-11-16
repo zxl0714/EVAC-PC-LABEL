@@ -8,8 +8,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / 'out/common/bin/cave_inspect.exe'
-GAMES = ('futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara')
 CATALOGUE = json.loads((ROOT / 'games/catalogue.json').read_text(encoding='utf-8'))['games']
+GAMES = tuple(game['id'] for game in CATALOGUE)
 
 
 @unittest.skipUnless(EXE.is_file(), 'Build common native targets first')

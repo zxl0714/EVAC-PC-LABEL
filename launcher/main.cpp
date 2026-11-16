@@ -804,7 +804,7 @@ class App {
         const auto* kind=issue.kind=="missing"?T(L"文件不存在"):issue.kind=="not_file"?T(L"路径是文件夹"):T(L"文件无法访问");
         body+=L"\n"+DataChild(options.root,issue.path).native()+L"\n  "+kind+L" (Windows "+std::to_wstring(issue.error)+L")";
       }
-      body+=L"\n\n"+std::wstring(T(L"请重新解压程序包并替换同名文件，然后点击刷新。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。"));
+      body+=L"\n\n"+std::wstring(T(L"请重新解压程序包并替换同名文件，然后按 F5。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。"));
     }
     if(!row.content.empty()) {
       body+=L"\n\n"+std::wstring(T(L"DLC 查找目录："))+(row.content_source.empty()?T(L"已禁用"):row.content_source.native());

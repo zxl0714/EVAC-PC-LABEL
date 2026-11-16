@@ -15,11 +15,19 @@ void RegisterEspgaludaStaticModules(PS2Runtime& runtime);
 // String and math routines retain the original implementations.
 // Upstream TODO services retain their original statically recompiled bodies.
 namespace {
+void SearchSingleLayer(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {
+  // This DVD has one layer. Its layer-search API uses the same file result
+  // layout and first two arguments as sceCdSearchFile.
+  if(_mm_cvtsi128_si32(context->r[6])!=0) {
+    context->r[2]=_mm_setzero_si128();return;
+  }
+  ps2_stubs::sceCdSearchFile(memory,context,runtime);
+}
 void BindSdk(PS2Runtime& runtime) {
 #ifdef EVAC_PS2_ESPGALUDA_MODULES
   RegisterEspgaludaStaticModules(runtime);
 #endif
-  if(!runtime.replaceFunction(0x00112090u,&cave::ps2::SdkEntry<&cave::ps2::SearchSingleLayer>))
+  if(!runtime.replaceFunction(0x00112090u,&cave::ps2::SdkEntry<&SearchSingleLayer>))
     throw std::runtime_error("Cannot bind ESPGaluda single-layer disc search");
   if(!cave::ps2::BindSdkHandler(runtime,0x001009a8u,"sceGsResetGraph"))
     throw std::runtime_error("Cannot bind ESPGaluda SDK handler: sceGsResetGraph");
