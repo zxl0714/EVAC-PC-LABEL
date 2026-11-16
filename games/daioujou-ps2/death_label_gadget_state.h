@@ -21,7 +21,8 @@ struct DeathLabelGadgetState {
     };
 
     std::uint64_t score{},stageScore{};
-    unsigned round{},stage{},clearedStages{},doll{},ship{},stock{},bombs{},bombCapacity{};
+    unsigned round{},stage{},doll{},ship{},stock{},bombs{},bombCapacity{};
+    std::array<unsigned,2> clearedStages{};
     unsigned shotLevel{},laserLevel{},invincibleFrames{},misses{},bombsFired{};
     unsigned hypers{},hyperCharge{},hyperGain{},hyperTime{},hyperDuration{};
     unsigned bulletSpeed{},bulletInterval{},hyperRank{},combo{},comboTime{},comboCapacity{};
@@ -75,7 +76,11 @@ public:
         const unsigned round = memory[Gp - 0x5830] != 0;
         const unsigned stage = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x5348),4);
         const bool newRound = !state_.playing || state_.round != round;
-        if (newRound) state_ = {};
+        if (newRound) {
+            const auto clears = state_.clearedStages;
+            state_ = {};
+            state_.clearedStages = clears;
+        }
         const bool newStage = newRound || stage > state_.stage;
         if (newStage) ResetFight();
         state_.playing = true;
@@ -225,7 +230,7 @@ private:
         const auto hitbox = phase >= 2 ? 112u : phase == 1 ? 110u : encounter.hitbox;
         const auto capacity = phase >= 2 ? 0x4d000u : phase == 1 ? 0x2a000u : encounter.capacity;
         const bool inCombat = collidable(hitbox) || (phase >= 2 && collidable(116));
-        if (bossStart_ || inCombat) {
+        if (!state_.bossDefeated && (bossStart_ || inCombat)) {
             const auto root = EnemyPool + encounter.root * EnemyStride;
             constexpr unsigned ControllerPool = 0x690f50, ControllerStride = 0x50, ControllerCount = 48;
             for (unsigned i = 0; i < ControllerCount; ++i) {
@@ -241,14 +246,11 @@ private:
                 break;
             }
         }
-        const bool cleared = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
-        if (bossStart_ && cleared) {
-            state_.bossHp = 0;
-            state_.bossDefeated = true;
-        }
         if (state_.bossDefeated && (stage < 4 || form == State::BossForm::TwinHibachi))
-            state_.clearedStages |= 1u << stage;
-        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && state_.bossHp != 0;
+            state_.clearedStages[state_.round] |= 1u << stage;
+        // The original sets this stop flag on Game Over as well as after a clear.
+        const bool stopped = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
+        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && !state_.bossDefeated && !stopped;
         if (state_.bossActive) state_.bossFrames = clock - *bossStart_;
         // Use the same scroll-to-map conversion as the original PS2 HUD.
         constexpr std::array<unsigned,5> mapScale{440,601,851,471,388};

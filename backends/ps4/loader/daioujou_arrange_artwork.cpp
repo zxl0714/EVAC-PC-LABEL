@@ -306,7 +306,7 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         123,124,701,697,698,656,
         672,669,670,668,
         320,321,732,707,765,766,
-        702,713,141,140,145,137,138,147,146,139,128,56,108,107,92,
+        702,713,141,140,145,137,138,147,146,139,128,56,108,107,92,176,
     };
     constexpr std::array<unsigned,SpriteCount> patch{
         77,122,121,120,90,567,288,866,864,
@@ -318,7 +318,7 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         123,124,860,856,857,815,
         831,828,829,827,
         343,344,891,866,925,926,
-        861,872,141,140,145,137,138,147,146,139,128,56,108,107,92,
+        861,872,141,140,145,137,138,147,146,139,128,56,108,107,92,178,
     };
     const auto offset=GadgetTextureOffset(update);
     // The descriptor table in this PSB v3 asset uses the v2 object encoding.

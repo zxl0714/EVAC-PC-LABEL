@@ -230,11 +230,23 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     std::optional<uint64_t> previousPage;
     bool presentedRepeat=false;
     uint64_t preparedSerial=0,confirmed=0,held=0,corrected=0,repeated=0;
+    const auto* firstVisibleField=impl->options.firstVisibleField;
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
+        if(firstVisibleField) {
+            const auto first=firstVisibleField->load(std::memory_order_acquire);
+            if(!first || frame.vsyncTick<first)return;
+        }
+        const auto present=[&] {
+            if(!display.Present(frame))throw GsWindowClosed();
+            if(firstVisibleField) {
+                std::cerr<<"[ps2-host-first-present] field="<<frame.vsyncTick<<'\n';
+                firstVisibleField=nullptr;
+            }
+        };
         if(frame.Prepared()) {
             if(prepared || !display.Device().IsReadyPage(frame.dispfb2))return;
             repeat.reset();
-            if(!display.Present(frame))throw GsWindowClosed();
+            present();
             presentedRepeat=false;
             prepared=frame;
             preparedSerial=display.Device().ScanoutRevision(frame.dispfb2);
@@ -255,7 +267,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
             }
             else ++corrected;
         }
-        if(result==ReadyResult::Correct && !display.Present(frame))throw GsWindowClosed();
+        if(result==ReadyResult::Correct)present();
         previousPage=frame.dispfb2;
         prepared.reset();
         ++impl->frames;if(onFrame)onFrame();

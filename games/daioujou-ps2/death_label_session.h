@@ -1,6 +1,9 @@
 #pragma once
 #include "common/death_label_host.h"
 #include "ps2_runtime.h"
+#include "runtime/ee_scheduler.h"
+#include <atomic>
+#include <iostream>
 #include <functional>
 #include <stdexcept>
 #include <utility>
@@ -15,9 +18,10 @@ public:
     using ObserveFrame = std::function<void(const uint8_t*,bool,bool)>;
 
     explicit DeathLabelSession(PS2Runtime& runtime, const DeathLabelActions* actions = nullptr,
-                               ObserveFrame observe = {})
+                               ObserveFrame observe = {}, std::atomic_uint64_t* firstVisibleField = nullptr)
         : runtime_(runtime), original_(runtime.lookupFunction(FrameEntry)),
-          initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions), observe_(std::move(observe)) {
+          initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions), observe_(std::move(observe)),
+          firstVisibleField_(firstVisibleField) {
         if (active_ || !original_ || !initOptions_ || !runtime_.replaceFunction(FrameEntry, &Frame))
             throw std::runtime_error("Cannot start hosted Death Label");
         if (!runtime_.replaceFunction(InitOptionsEntry, &InitOptions)) {
@@ -60,6 +64,9 @@ private:
     static constexpr uint32_t FrameEntry = 0x1afd60, FrameReturn = 0x1e65e8;
     static constexpr uint32_t GuestGp = 0x2965f0;
     static constexpr uint32_t Playing = GuestGp - 0x5cb0;
+    static constexpr uint32_t Scene = GuestGp - 0x54a8;
+    static constexpr uint8_t FighterSelectScene = 19;
+    static constexpr uint64_t StartupFieldLimit = 60 * 60;
     static constexpr uint32_t Menu = GuestGp - 0x59b0;
     static constexpr uint32_t MenuPage = GuestGp - 0x5920;
     static constexpr uint32_t InitOptionsEntry = 0x238160, MapDisplay = GuestGp - 0x5d88;
@@ -118,6 +125,21 @@ private:
         if (getRegU32(ctx,31) == FrameReturn && getRegU32(ctx,28) == GuestGp) {
             const bool playing = memory[Playing] != 0;
             const auto menu = memory[Menu];
+            if (session.firstVisibleField_) {
+                const auto tick=runtime->eeScheduler().currentVSyncTick();
+                // The scene switches once the root menu has faded out. Let
+                // the selection draw reach the GS display page before showing it.
+                if (session.directStart_ && menu == 0 && memory[Scene] == FighterSelectScene) {
+                    session.firstVisibleField_->store(tick+2,std::memory_order_release);
+                    session.firstVisibleField_ = nullptr;
+                    std::cerr<<"[ps2-death-label-entry] fighter_select_field="<<tick+2<<'\n';
+                } else if (tick >= StartupFieldLimit) {
+                    // The player cannot act on a startup screen that the host hides.
+                    std::cerr<<"[ps2-death-label-entry] fighter selection did not open\n";
+                    runtime->requestStop();
+                    return;
+                }
+            }
             if (session.observe_) session.observe_(memory,playing,menu != 0);
             session.played_ |= playing && menu == 0;
             if ((session.played_ || session.directStart_) && !playing && menu == 1 && memory[MenuPage] == 0) {
@@ -137,6 +159,7 @@ private:
     PS2Runtime::RecompiledFunction consumeInput_{};
     PS2Runtime::RecompiledFunction rootMenu_{};
     ObserveFrame observe_;
+    std::atomic_uint64_t* firstVisibleField_{};
     bool played_{}, directStart_{}, completed_{};
 };
 

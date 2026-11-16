@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -41,6 +42,8 @@ struct NativeHostOptions {
     void* existingWindow{};
     void* closeEvent{};
     std::shared_ptr<HostPadSource> existingPad;
+    // Zero waits for the guest to finish the first screen for this window.
+    const std::atomic_uint64_t* firstVisibleField{};
     GsPresentation presentation;
     std::shared_ptr<GsOverlay> overlay;
 };

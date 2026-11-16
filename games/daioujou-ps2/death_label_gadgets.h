@@ -148,7 +148,7 @@ private:
             draw(RoundPanel,68,544);
             centered(state.round ? Round2 : Round1,113,612,0.5f);
             for (unsigned i = 0; i < 5; ++i) {
-                const bool reached = i == state.stage || (state.clearedStages & (1u << i));
+                const bool reached = i == state.stage || (state.clearedStages[state.round] & (1u << i));
                 centered(static_cast<Sprite>(Stage1+i),174+27.0f*i,580,reached ? 1.0f : 0.62f);
             }
             const float stageProgress = (state.stage+state.stagePosition/368.0f)/5;
@@ -169,6 +169,18 @@ private:
             number(state.bulletSpeed,Small0,221,718,16);
             number(state.bulletInterval,Small0,221,761,16);
             number(state.hyperRank,Small0,281,741,16);
+            draw(BattlePanel,68,800);
+            centered(Round1,196,848,0.56f);
+            centered(Round2,265,848,0.56f);
+            for (unsigned i = 0; i < 5; ++i) {
+                const auto y = 880.0f + 33.0f*i;
+                centered(StageLabel,106,y,0.57f);
+                centered(static_cast<Sprite>(Stage1+i),145,y,0.64f);
+                for (unsigned round = 0; round < state.clearedStages.size(); ++round) {
+                    const auto cleared = state.clearedStages[round] & (1u << i);
+                    place(cleared ? PowerSegment : HyperBack,177+69.0f*round,y-4,38,8);
+                }
+            }
             draw(ComboPanel,324,672);
             number(state.combo,Small0,437,721,16,1.0f);
             number(state.comboTime,Small0,537,722,14,0.86f);

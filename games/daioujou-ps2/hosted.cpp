@@ -37,9 +37,11 @@ cave::ps2::GsPresentation PresentationFor(const cave::DeathLabelScreen& screen) 
 
 class HostedPad final : public cave::ps2::HostPadSource {
 public:
-    explicit HostedPad(const cave::DeathLabelHost& host) : host_(host) {}
+    HostedPad(const cave::DeathLabelHost& host,const std::atomic_uint64_t* firstVisibleField)
+        : host_(host),firstVisibleField_(firstVisibleField) {}
     cave::ps2::HostPadState Read(unsigned port) override {
         cave::ps2::HostPadState state;
+        if(firstVisibleField_ && !firstVisibleField_->load(std::memory_order_acquire)) return state;
         uint32_t buttons{};
         host_.readPad(host_.padContext,port,&buttons,state.axes.data());
         state.buttons=cave::ps2::Ps2Buttons(buttons);
@@ -47,6 +49,7 @@ public:
     }
 private:
     const cave::DeathLabelHost& host_;
+    const std::atomic_uint64_t* firstVisibleField_;
 };
 }
 
@@ -82,11 +85,14 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         cave::daioujou_ps2::DeathLabelGadgets gadgets(request->screen);
         cave::daioujou_ps2::DeathLabelSession::ObserveFrame observe;
         cave::daioujou_ps2::DeathLabelGadgetFeed* feed{};
+        std::atomic_uint64_t firstVisibleField{};
+        auto* firstField=request->actions ? &firstVisibleField : nullptr;
         cave::ps2::NativeHost host;
         cave::ps2::NativeHostOptions options;
         options.existingWindow=request->window;
         options.closeEvent=request->closeEvent;
-        options.existingPad=std::make_shared<HostedPad>(*request);
+        options.existingPad=std::make_shared<HostedPad>(*request,firstField);
+        options.firstVisibleField=firstField;
         options.vsync=request->vsync;
         options.reflex=request->reflex;
         options.amdAntiLag=request->amdAntiLag;
@@ -106,7 +112,7 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         host.Configure(std::move(options));
         host.Initialize("DoDonPachi DaiOuJou | Death Label");
         const auto result = cave::daioujou_ps2::RunDiscProgram(paths,host,true,true,{},request->actions,
-            std::move(observe),feed);
+            std::move(observe),feed,firstField);
         if (result.completed) return DeathLabelResult::Completed;
         if (result.next=="boot.elf") return DeathLabelResult::Exit;
         return host.Alive()?DeathLabelResult::Failed:DeathLabelResult::Closed;
