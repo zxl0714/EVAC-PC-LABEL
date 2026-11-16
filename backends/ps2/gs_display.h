@@ -7,6 +7,7 @@
 
 namespace cave::ps2 {
 struct GsPresentation;
+struct GsOverlay;
 class GsWindowClosed : public std::runtime_error {
 public: GsWindowClosed():std::runtime_error("PS2 graphics window closed"){}
 };
@@ -15,7 +16,8 @@ public: GsWindowClosed():std::runtime_error("PS2 graphics window closed"){}
 class GsDisplay {
 public:
     GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,
-              bool reflex,bool amdAntiLag,void* existingWindow,void* closeEvent,const GsPresentation& presentation);
+              bool reflex,bool amdAntiLag,void* existingWindow,void* closeEvent,
+              const GsPresentation& presentation,std::shared_ptr<GsOverlay> overlay);
     ~GsDisplay();
     GsDisplay(const GsDisplay&)=delete;
     GsDisplay& operator=(const GsDisplay&)=delete;

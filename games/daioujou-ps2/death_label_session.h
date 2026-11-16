@@ -1,6 +1,7 @@
 #pragma once
 #include "common/death_label_host.h"
 #include "ps2_runtime.h"
+#include <functional>
 #include <stdexcept>
 
 namespace cave::daioujou_ps2 {
@@ -10,9 +11,12 @@ namespace cave::daioujou_ps2 {
 // using the original LoadExecPS2 request, which the caller can route home.
 class DeathLabelSession {
 public:
-    explicit DeathLabelSession(PS2Runtime& runtime, const DeathLabelActions* actions = nullptr)
+    using ObserveFrame = std::function<void(const uint8_t*,bool,bool)>;
+
+    explicit DeathLabelSession(PS2Runtime& runtime, const DeathLabelActions* actions = nullptr,
+                               ObserveFrame observe = {})
         : runtime_(runtime), original_(runtime.lookupFunction(FrameEntry)),
-          initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions) {
+          initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions), observe_(std::move(observe)) {
         if (active_ || !original_ || !initOptions_ || !runtime_.replaceFunction(FrameEntry, &Frame))
             throw std::runtime_error("Cannot start hosted Death Label");
         if (!runtime_.replaceFunction(InitOptionsEntry, &InitOptions)) {
@@ -83,6 +87,7 @@ private:
         if (getRegU32(ctx,31) == FrameReturn && getRegU32(ctx,28) == GuestGp) {
             const bool playing = memory[Playing] != 0;
             const auto menu = memory[Menu];
+            if (session.observe_) session.observe_(memory,playing,menu != 0);
             session.played_ |= playing && menu == 0;
             if (session.played_ && !playing && menu == 1 && memory[MenuPage] == 0) {
                 session.completed_ = true;
@@ -99,6 +104,7 @@ private:
     PS2Runtime::RecompiledFunction initOptions_;
     const DeathLabelActions* actions_{};
     PS2Runtime::RecompiledFunction consumeInput_{};
+    ObserveFrame observe_;
     bool played_{}, completed_{};
 };
 

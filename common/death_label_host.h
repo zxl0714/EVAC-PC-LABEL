@@ -2,7 +2,7 @@
 #include <cstdint>
 
 namespace cave {
-inline constexpr unsigned DeathLabelHostVersion = 3;
+inline constexpr unsigned DeathLabelHostVersion = 4;
 
 enum class DeathLabelResult : int { Failed, Completed, Exit, Closed };
 
@@ -20,6 +20,7 @@ struct DeathLabelScreen {
     int offsetX{};
     int offsetY{};
     unsigned quarterTurns{}; // Clockwise from the upright game image.
+    bool gadgets = true;
 };
 
 // The caller owns the window, its message pump, and all pointers until return.
@@ -31,6 +32,7 @@ struct DeathLabelHost {
     const wchar_t* prepared{};
     const wchar_t* disc{};
     const wchar_t* profile{};
+    const wchar_t* gadgetSprites{};
     void* padContext{};
     void (*readPad)(void*, unsigned, std::uint32_t*, std::uint8_t*) noexcept{};
     float volume = 1.0f;

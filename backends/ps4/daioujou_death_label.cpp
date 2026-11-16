@@ -52,7 +52,7 @@ int KT_SYSV RunFromMenu(Vm vm) {
     try {
         DeathLabelActions actions;
         const std::array masks{&actions.shot, &actions.bomb, &actions.rapid};
-        std::array<int,5> screen{};
+        std::array<int,6> screen{};
         if (squirrel.getTop(vm) != int(masks.size() + screen.size()) + 1)
             throw std::runtime_error("Invalid Death Label menu arguments");
         for (std::size_t i = 0; i < masks.size(); ++i) {
@@ -65,7 +65,7 @@ int KT_SYSV RunFromMenu(Vm vm) {
             if (squirrel.getInteger(vm, int(i + masks.size()) + 2, &screen[i]) < 0)
                 throw std::runtime_error("Invalid Death Label screen setting");
         }
-        const DeathLabelScreen layout{screen[0], screen[1], screen[2], screen[3], unsigned(screen[4])};
+        const DeathLabelScreen layout{screen[0], screen[1], screen[2], screen[3], unsigned(screen[4]), screen[5] != 0};
         std::printf("{\"event\":\"daioujou_death_label_controls\",\"shot\":%u,\"bomb\":%u,\"rapid\":%u}\n",
             unsigned(actions.shot), unsigned(actions.bomb), unsigned(actions.rapid));
         std::printf("{\"event\":\"daioujou_death_label_screen\",\"width\":%d,\"height\":%d,"
@@ -135,6 +135,7 @@ DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const
     host.prepared = prepared_.c_str();
     host.disc = disc_.c_str();
     host.profile = profile_.c_str();
+    host.gadgetSprites = gadget_sprites_.empty() ? nullptr : gadget_sprites_.c_str();
     host.volume = volume_;
     host.actions = &actions;
     host.screen = screen;

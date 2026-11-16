@@ -50,6 +50,22 @@ function(ps2_add_disc_program target prefix generated)
     "${generated}/ps2_recompiled_functions.h" "${generated}/ps2_recompiled_stubs.h")
   file(GLOB program_sources CONFIGURE_DEPENDS "${generated}/*.cpp")
   ps2_use_table_view("${generated}" program_sources)
+  if(prefix STREQUAL "ps2_daioujou_death")
+    # Observe the original collision writes in this one program, without
+    # adding a test to the memory path shared by all PS2 games.
+    set(damage_source "${generated}/FUN_0023aae0_0x23aae0.cpp")
+    set(damage_observer "${COLLECTION_ROOT}/games/daioujou-ps2/wire_gadget_damage.py")
+    set(observed_damage "${CMAKE_CURRENT_BINARY_DIR}/death_label_damage.cpp")
+    add_custom_command(OUTPUT "${observed_damage}"
+      COMMAND py -3.12 "${damage_observer}" "${damage_source}" "${observed_damage}"
+      DEPENDS "${damage_source}" "${damage_observer}" VERBATIM)
+    list(FIND program_sources "${damage_source}" damage_index)
+    if(damage_index LESS 0)
+      message(FATAL_ERROR "Missing reviewed Death Label collision code")
+    endif()
+    list(INSERT program_sources ${damage_index} "${observed_damage}")
+    list(REMOVE_ITEM program_sources "${damage_source}")
+  endif()
   add_library(${prefix} OBJECT ${program_sources})
   target_include_directories(${prefix} PRIVATE "${generated}")
   target_link_libraries(${prefix} PRIVATE ps2_runtime)

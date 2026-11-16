@@ -1,6 +1,7 @@
 #include "collection_launch.h"
 #include "loader/preparation_policy.h"
 #include "collection_config.h"
+#include "common/death_label_gadgets.h"
 #include "daioujou_death_label.h"
 #include "native_async_log.h"
 #include "loader/prepared_cache.h"
@@ -180,6 +181,10 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         DaioujouDeathLabel death_label;
         const bool death_label_ready=game=="daioujou" && death_label.Prepare(root,ini,profile);
         const auto prepared=PreparePs4Game(root,spec.paths.data,game,death_label_ready);
+        if (death_label_ready) {
+            auto sprites=prepared.cache.directory/cave::death_label::GadgetCachePath;
+            if (fs::file_size(sprites)) death_label.SetGadgetSprites(std::move(sprites));
+        }
         const auto preparation_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-preparation_begin).count();
         WriteNew(report/"preparation.json",prepared.cache.receipt.dump(2)+'\n');
         const Json prepared_event{{"event","collection_prepared"},{"cacheHit",prepared.cache.reused},{"elapsedMs",preparation_ms},

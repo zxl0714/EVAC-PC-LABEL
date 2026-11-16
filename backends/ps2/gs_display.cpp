@@ -177,14 +177,18 @@ public:
     uint64_t frames=0;
     int64_t tracedGpuWait=0;
     Vulkan::Program* presentProgram=nullptr;
+    Vulkan::Program* overlayProgram=nullptr;
     uint64_t pendingFrame=0;
     void Mark(Stage stage) const {gs_crash::Mark(stage,frames);}
     uint64_t lastFeedback=0;
     pixel_trace::Capture pixels;
     const GsPresentation presentation;
+    std::shared_ptr<GsOverlay> overlay;
+    std::vector<Vulkan::ImageHandle> overlayImages;
+    std::vector<GsOverlay::Quad> overlayQuads;
     Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,HWND existing,HANDLE quit,
-         const GsPresentation& layout)
-        :window(width,height,title,reflex,amd,existing,quit),presentation(layout) {
+         const GsPresentation& layout,std::shared_ptr<GsOverlay> art)
+        :window(width,height,title,reflex,amd,existing,quit),presentation(layout),overlay(std::move(art)) {
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
         wsi.set_platform(&window);
@@ -197,7 +201,21 @@ public:
         if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
         // are independent of the one outstanding game-frame fence below.
-        wsi.get_device().init_frame_contexts(GsDevice::AllocationContexts);
+        auto& device=wsi.get_device();
+        device.init_frame_contexts(GsDevice::AllocationContexts);
+        if(overlay) {
+            for(const auto& sprite:overlay->images) {
+                const auto info=Vulkan::ImageCreateInfo::immutable_2d_image(
+                    sprite.width,sprite.height,VK_FORMAT_B8G8R8A8_UNORM);
+                Vulkan::ImageInitialData initial{};
+                initial.data=sprite.pixels.data();
+                auto texture=device.create_image(info,&initial);
+                if(!texture)throw std::runtime_error("Cannot upload a PS2 overlay image");
+                overlayImages.push_back(std::move(texture));
+            }
+            overlay->images.clear();
+            overlayQuads.reserve(96);
+        }
     }
     ~Impl() {
         if(pending)pending->wait();
@@ -210,9 +228,9 @@ public:
     }
 };
 GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,
-                     void* existingWindow,void* closeEvent,const GsPresentation& presentation)
+                     void* existingWindow,void* closeEvent,const GsPresentation& presentation,std::shared_ptr<GsOverlay> overlay)
     :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd,
-         static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent),presentation)) {
+         static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent),presentation,std::move(overlay))) {
     const auto& gpu=impl->wsi.get_device().get_gpu_properties();
     gs_crash::Start();
     impl->Mark(Stage::Init);
@@ -322,10 +340,12 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
         VkViewport viewport{float((width-targetWidth)/2u),float((height-targetHeight)/2u),
                            float(targetWidth),float(targetHeight),0,1};
+        float canvasX=0,canvasY=0,canvasWidth=float(width),canvasHeight=float(height);
         if(layout.canvasAspect>0) {
-            const float canvasWidth=std::min(float(width),float(height)*layout.canvasAspect);
-            const float canvasHeight=canvasWidth/layout.canvasAspect;
-            const float canvasX=(float(width)-canvasWidth)*0.5f,canvasY=(float(height)-canvasHeight)*0.5f;
+            canvasWidth=std::min(float(width),float(height)*layout.canvasAspect);
+            canvasHeight=canvasWidth/layout.canvasAspect;
+            canvasX=(float(width)-canvasWidth)*0.5f;
+            canvasY=(float(height)-canvasHeight)*0.5f;
             viewport={canvasX+layout.x*canvasWidth,canvasY+layout.y*canvasHeight,
                       layout.width*canvasWidth,layout.height*canvasHeight,0,1};
             command->set_scissor({{int32_t(canvasX),int32_t(canvasY)},{uint32_t(canvasWidth),uint32_t(canvasHeight)}});
@@ -333,6 +353,36 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         command->set_viewport(viewport);
         impl->Mark(Stage::Draw);
         command->draw(3,1,layout.quarterTurns*3);
+        if(impl->overlay) {
+            auto& quads=impl->overlayQuads;
+            quads.clear();
+            impl->overlay->quads(quads);
+            if(layout.quarterTurns && !quads.empty()) {
+                if(!impl->overlayProgram)impl->overlayProgram=CreateGsPresentProgram(device,false);
+                command->set_program(impl->overlayProgram);
+            }
+            command->set_transparent_sprite_state();
+            for(const auto& quad:quads) {
+                const float x=canvasX+quad.x*canvasWidth,y=canvasY+quad.y*canvasHeight;
+                const float w=quad.width*canvasWidth,h=quad.height*canvasHeight;
+                const auto left = std::clamp(int32_t(x),0,int32_t(width));
+                const auto top = std::clamp(int32_t(y+h*(1-quad.verticalFill)),0,int32_t(height));
+                const auto right = std::clamp(int32_t(x+w*quad.fill+0.5f),left,int32_t(width));
+                const auto bottom = std::clamp(int32_t(y+h+0.5f),top,int32_t(height));
+                if (right == left || bottom == top) continue;
+                command->set_scissor({{left,top},{uint32_t(right-left),uint32_t(bottom-top)}});
+                const auto [sourceX,sourceY,sourceWidth,sourceHeight] = quad.scanout;
+                if (sourceWidth > 0 && sourceHeight > 0) {
+                    const float imageWidth = w/sourceWidth,imageHeight = h/sourceHeight;
+                    command->set_viewport({x-sourceX*imageWidth,y-sourceY*imageHeight,imageWidth,imageHeight,0,1});
+                    command->set_texture(0,0,source.image->get_view(),Vulkan::StockSampler::NearestClamp);
+                } else {
+                    command->set_viewport({x,y,w,h,0,1});
+                    command->set_texture(0,0,impl->overlayImages[quad.image]->get_view(),Vulkan::StockSampler::LinearClamp);
+                }
+                command->draw(3);
+            }
+        }
     }
     impl->Mark(Stage::EndPass);
     command->end_render_pass();

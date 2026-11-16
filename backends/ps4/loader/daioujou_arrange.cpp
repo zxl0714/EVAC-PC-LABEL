@@ -3,8 +3,10 @@
 #include "ketsui_arrange_audio.h"
 #include "ketsui_arrange_music.h"
 #include "common/daioujou_music.h"
+#include "common/death_label_gadgets.h"
 #include "backends/ps4/content/resource_prepare.h"
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <stdexcept>
 
@@ -87,6 +89,17 @@ private:
     Json index_;
     ResourceBytes tail_;
 };
+
+void WriteDeathLabelGadgets(const fs::path& stage,const ArchiveLayer& layer,bool update) {
+    ResourceBytes sprites;
+    try {
+        sprites = ExportDeathLabelGadgetSprites(layer.Read("1100/motion/title_gadget.psb.m",16*1024*1024),update);
+    } catch (const std::exception& error) {
+        // A replacement Gadget atlas must not prevent the original game from launching.
+        std::fprintf(stderr,"Death Label Gadget artwork unavailable: %s\n",error.what());
+    }
+    WritePreparedRelative(stage,death_label::GadgetCachePath,sprites);
+}
 
 void ReplaceExpected(std::string& script, std::string_view before, std::string_view after, unsigned count) {
     std::size_t start{};
@@ -179,8 +192,9 @@ void AddDeathLabelMenu(std::string& direct) {
     }
     local rotation = screen.get_rot_mode();
     local turns = rotation == RotateMode.ROT_L ? 3 : (rotation == RotateMode.ROT_R ? 1 : 0);
+    local gadgets = ::g_systemdata.get_value(SystemDataValueIndex.SETTING_GADGET).get_trigger();
     ::evac_run_death_label(shot, bomb, rapid, (width + 0.5).tointeger(),
-      (height + 0.5).tointeger(), screen.get_pos_x(), screen.get_pos_y(), turns);
+      (height + 0.5).tointeger(), screen.get_pos_x(), screen.get_pos_y(), turns, gadgets ? 1 : 0);
   }
 
   function _exec_Manual() {)nut", 1);
@@ -376,12 +390,15 @@ void PrepareDaioujouArchive(const fs::path& data, const fs::path& stage,
         AddPcmDefinitions(base, kTitlePcm, definitions);
         AddArrangeMenu(base, false);
     }
-    if (death_label)
+    if (death_label) {
         base.Add("1100/motion/title_evac_death_label.psb.m", BuildDaioujouDeathLabelArtwork(), false);
+        if (!merged) WriteDeathLabelGadgets(stage,base,false);
+    }
     AddDaioujouDirectMenu(base, arrange, death_label);
     base.Write(stage);
     if (merged) {
         ArchiveLayer update(data, kUpdate, key);
+        if (death_label) WriteDeathLabelGadgets(stage,update,true);
         if (arrange) {
             AddPcmDefinitions(update, kTitlePcm, definitions);
             AddArrangeMenu(update, true);

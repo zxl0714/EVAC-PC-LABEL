@@ -18,6 +18,7 @@ void ApplyDaioujouArrangeMotion(std::vector<std::uint8_t>& motion, DaioujouArran
 void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update);
 std::vector<std::uint8_t> BuildDaioujouDeathLabelArtwork();
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update);
+std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uint8_t> motion, bool update);
 void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion);
 void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion);
 void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion);

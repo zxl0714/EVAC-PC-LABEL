@@ -2,6 +2,7 @@
 #include "preparation_policy.h"
 #include "elf_prepare.h"
 #include "daioujou_arrange.h"
+#include "common/death_label_gadgets.h"
 #include "ketsui_arrange_audio.h"
 #include "ketsui_arrange_music.h"
 #include "backends/ps4/content/resource_prepare.h"
@@ -99,6 +100,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     const auto prepare=[&](bool ketsui_arrange) {
         auto outputs=files;
         if (daioujou_overlay || ketsui_arrange || garegga) AddArrangeFiles(outputs,policy.merged_app);
+        if (daioujou && death_label) outputs.emplace_back(cave::death_label::GadgetCachePath);
         return EnsurePreparedCache(root,data,recipe,outputs,[&](const fs::path& stage) {
             const auto read_program=[&](std::string_view name) {
                 const auto& inventory=recipe.at("inputs");

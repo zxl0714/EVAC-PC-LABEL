@@ -1,6 +1,7 @@
 #include "daioujou_arrange.h"
 #include "daioujou_arrange_artwork_data.h"
 #include "backends/ps4/content/resource_prepare.h"
+#include "common/death_label_gadgets.h"
 
 #include <Windows.h>
 #include <wincodec.h>
@@ -8,11 +9,15 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <stdexcept>
 
 namespace cave::ps4 {
 namespace {
 using Microsoft::WRL::ComPtr;
+constexpr std::string_view gadgetBaseHash = "829d61051eea451a90a8998689e16b2a7c0c2a85d4530fd0dda93b6eaacbc258";
+constexpr std::string_view gadgetUpdateHash = "f522e1c2f11e290efbff3492c3b68e7928c9dedc5b3848989cc2851a73625bce";
+constexpr std::size_t GadgetTextureOffset(bool update) { return update ? 0x9e860 : 0x92fc0; }
 
 void Check(HRESULT result) {
     if (FAILED(result)) throw std::runtime_error("Cannot decode PS4 menu artwork");
@@ -254,9 +259,7 @@ void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion) {
 }
 
 void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool update) {
-    constexpr std::string_view base_hash = "829d61051eea451a90a8998689e16b2a7c0c2a85d4530fd0dda93b6eaacbc258";
-    constexpr std::string_view update_hash = "f522e1c2f11e290efbff3492c3b68e7928c9dedc5b3848989cc2851a73625bce";
-    if (PreparationHash(motion) != (update ? update_hash : base_hash))
+    if (PreparationHash(motion) != (update ? gadgetUpdateHash : gadgetBaseHash))
         throw std::runtime_error("DaiOuJou music gadget differs from the verified atlas");
 
     ComApartment apartment;
@@ -277,7 +280,7 @@ void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool upda
     std::array<BYTE, 82 * 17 * 4> label{};
     Check(scaler->CopyPixels(nullptr, 82 * 4, static_cast<UINT>(label.size()), label.data()));
 
-    auto atlas = motion.subspan(update ? 0x9e860 : 0x92fc0, 4096u * 4096u * 4u);
+    auto atlas = motion.subspan(GadgetTextureOffset(update), 4096u * 4096u * 4u);
     const unsigned left = update ? 3137 : 2592, top = update ? 2642 : 2212;
     for (unsigned y = 0; y < 17; ++y) {
         for (unsigned x = 0; x < 170; ++x) {
@@ -287,6 +290,75 @@ void ApplyDaioujouArrangeGadgetArtwork(std::span<std::uint8_t> motion, bool upda
                 std::copy_n(label.data() + (y * 82 + x - 44) * 4, 4, pixel);
         }
     }
+}
+
+std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uint8_t> motion, bool update) {
+    using namespace death_label;
+    if (PreparationHash(motion) != (update ? gadgetUpdateHash : gadgetBaseHash))
+        throw std::runtime_error("Unexpected DaiOuJou Death Label Gadget atlas");
+    constexpr std::array<unsigned,SpriteCount> base{
+        77,122,121,120,90,542,265,707,705,
+        310,312,314,316,319,733,735,737,739,742,
+        87,84,93,119,94,95,96,97,98,99,
+        266,267,268,269,270,271,272,273,148,150,536,152,
+        826,837,839,840,841,842,843,844,845,827,763,767,768,769,770,771,772,773,774,764,
+        159,558,574,570,571,
+        123,124,701,697,698,656,
+        672,669,670,668,
+        320,321,732,707,765,766,
+    };
+    constexpr std::array<unsigned,SpriteCount> patch{
+        77,122,121,120,90,567,288,866,864,
+        333,335,337,339,342,892,894,896,898,901,
+        87,84,93,119,94,95,96,97,98,99,
+        289,290,291,292,293,294,295,296,148,150,561,152,
+        986,997,999,1000,1001,1002,1003,1004,1005,987,923,927,928,929,930,931,932,933,934,924,
+        159,583,600,596,597,
+        123,124,860,856,857,815,
+        831,828,829,827,
+        343,344,891,866,925,926,
+    };
+    const auto offset=GadgetTextureOffset(update);
+    // The descriptor table in this PSB v3 asset uses the v2 object encoding.
+    std::vector<std::uint8_t> metadata(motion.begin(),motion.begin()+offset);
+    metadata[4]=2;
+    const auto document=ParseResourceIndex(metadata);
+    const auto& icons=document.at("source").at("tex").at("icon");
+    const auto atlas=motion.subspan(offset,4096u*4096u*4u);
+    std::vector<std::uint8_t> bytes;
+    const auto append=[&](std::uint32_t value) {
+        for(unsigned bit=0;bit<32;bit+=8)bytes.push_back(static_cast<std::uint8_t>(value>>bit));
+    };
+    append(GadgetMagic);
+    append(SpriteCount);
+    const auto& ids = update ? patch : base;
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        char key[5];
+        std::snprintf(key,sizeof key,"%04u",ids[i]);
+        const auto& icon=icons.at(key);
+        auto x=icon.at("left").get<unsigned>(),y=icon.at("top").get<unsigned>();
+        auto width=icon.at("width").get<unsigned>();
+        auto height=icon.at("height").get<unsigned>();
+        if (i == BossPanel) height = std::min(height,55u);
+        if (i == RoundPanel) width = 90;
+        if (i == TimeCaption) {
+            x+=7;
+            y+=66;
+            width=46;
+            height=15;
+        }
+        if(!width || !height || width>4096 || height>4096 || x>4096-width || y>4096-height ||
+           std::uint64_t{width}*height*4+bytes.size()>GadgetPixelBudget)
+            throw std::runtime_error("Invalid Death Label Gadget sprite bounds");
+        append(width);
+        append(height);
+        std::size_t destination = bytes.size();
+        bytes.resize(destination + std::size_t{width} * height * 4);
+        for (unsigned row = 0; row < height; ++row)
+            for (unsigned column = 0; column < width; ++column, destination += 4)
+                std::copy_n(atlas.data() + AtlasPixel(x + column,y + row),4,bytes.data() + destination);
+    }
+    return bytes;
 }
 
 void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion) {

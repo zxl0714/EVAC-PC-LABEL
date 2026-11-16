@@ -1,9 +1,11 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 class PS2Runtime;
 namespace cave::ps2 {
@@ -14,6 +16,18 @@ struct GsPresentation {
     float canvasAspect{};
     float x{}, y{}, width{}, height{};
     unsigned quarterTurns{};
+};
+struct GsOverlay {
+    struct Image { unsigned width{},height{}; std::vector<std::uint8_t> pixels; };
+    struct Quad {
+        unsigned image{};
+        float x{},y{},width{},height{},fill=1;
+        // An optional normalized source rectangle in the already-rendered GS image.
+        std::array<float,4> scanout{};
+        float verticalFill = 1;
+    };
+    std::vector<Image> images;
+    std::function<void(std::vector<Quad>&)> quads;
 };
 struct NativeHostOptions {
     unsigned width=1280,height=720;
@@ -29,6 +43,7 @@ struct NativeHostOptions {
     void* closeEvent{};
     std::shared_ptr<HostPadSource> existingPad;
     GsPresentation presentation;
+    std::shared_ptr<GsOverlay> overlay;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL
 // physical devices. Runtime/generated-code headers only forward-declare it.
