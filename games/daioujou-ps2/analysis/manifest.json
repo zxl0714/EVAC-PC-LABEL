@@ -152,8 +152,8 @@
       "discPath": "DEATH.ELF",
       "elfSha256": "c44c4368d2eb80329c614e3954017c443454886dc50a93cc898320be8b251cbf",
       "map": "death.csv.gz",
-      "mapSha256": "82ecf36c863d9fbc77495a06053f378da8e982ca0918b87e84dff135405ef327",
-      "rows": 19967,
+      "mapSha256": "b3542c3b9d707460bba85ddbb48ac2494d355f6dbc898db0c095d97bf087630b",
+      "rows": 19996,
       "general": {
         "output_worker_threads": 4,
         "single_file_output": false,
