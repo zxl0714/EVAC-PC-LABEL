@@ -656,7 +656,7 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     report["read_overlay_sha256"]=Hash(output); return {std::move(output),std::move(report)};
 }
 namespace {
-PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle resource_title) {
+PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle resource_title,bool garegga_english=false) {
     const bool esprade=resource_title==ResourceTitle::Esprade,feveron=resource_title==ResourceTitle::Feveron,garegga=resource_title==ResourceTitle::Garegga;
     const auto title=garegga?"CUSA10207":feveron?"CUSA06735":esprade?"CUSA15155":"CUSA32997";
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
@@ -699,10 +699,12 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
             {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}});
     };
     if (garegga) {
-        fix("system/script/game_content.nut.m","474db7db50615d103c891b6961847858d2f3a1125212508a4f00d9c3728d4ff6",
-            ResourceFix::GareggaEnglishDefault,"english-menu-language");
-        fix("system/script/utils.nut.m","77a7b8cb5c28768ff5e43f8ee20a9f25d1bd6fd8cd0756e70d6d46acda076d2d",
-            ResourceFix::GareggaEnglishLookup,"english-menu-language");
+        if (garegga_english) {
+            fix("system/script/game_content.nut.m","474db7db50615d103c891b6961847858d2f3a1125212508a4f00d9c3728d4ff6",
+                ResourceFix::GareggaEnglishDefault,"english-menu-language");
+            fix("system/script/utils.nut.m","77a7b8cb5c28768ff5e43f8ee20a9f25d1bd6fd8cd0756e70d6d46acda076d2d",
+                ResourceFix::GareggaEnglishLookup,"english-menu-language");
+        }
         fix("2000/script/title_replay_view.nut.m","b795cd406bd1dc1003225b96e3941e6a73492c8ba2d09c0cbf90a6e6851a1df9",
             ResourceFix::GareggaLocalReplay,"local-community-replay-cache");
     } else if (feveron) {
@@ -744,5 +746,7 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
 PreparedReadFixes PrepareDaioujouReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Daioujou); }
 PreparedReadFixes PrepareEspradeReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Esprade); }
 PreparedReadFixes PrepareFeveronReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Feveron); }
-PreparedReadFixes PrepareGareggaReadFixes(const fs::path& data) { return PrepareCommunityReadFixes(data,ResourceTitle::Garegga); }
+PreparedReadFixes PrepareGareggaReadFixes(const fs::path& data,bool english_translation) {
+    return PrepareCommunityReadFixes(data,ResourceTitle::Garegga,english_translation);
+}
 }

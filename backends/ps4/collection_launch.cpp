@@ -118,7 +118,7 @@ void RecordCollectionWindowClose() noexcept {
             "guest_finalizers_run = false\nhost_cleanup_complete = false\n");
     } catch (...) { /* Preserve the original shutdown path even if disk is full. */ }
 }
-int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
+int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**,const CollectionConfiguration*)) {
     try {
         const auto diagnostic_tap=DiagnosticTap();
         const auto diagnostic_unpaced=DiagnosticUnpaced();
@@ -180,7 +180,8 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         const auto preparation_begin=std::chrono::steady_clock::now();
         DaioujouDeathLabel death_label;
         const bool death_label_ready=game=="daioujou" && death_label.Prepare(root,ini,profile);
-        const auto prepared=PreparePs4Game(root,spec.paths.data,game,death_label_ready);
+        const auto prepared=PreparePs4Game(root,spec.paths.data,game,
+            {.death_label=death_label_ready,.garegga_english_translation=configuration.garegga_english_translation});
         if (death_label_ready) {
             auto sprites=prepared.cache.directory/cave::death_label::GadgetCachePath;
             if (fs::file_size(sprites)) death_label.SetGadgetSprites(std::move(sprites));
@@ -214,7 +215,7 @@ int RunCollection(int argc,wchar_t** argv,int (*command)(int,wchar_t**)) {
         if (diagnostic_unpaced) {arguments.insert(arguments.end(),{L"--diagnostic-unpaced",L"on"});}
         std::vector<wchar_t*> pointers;for (auto& argument:arguments) pointers.push_back(argument.data());
         Require(StartNativeAsyncLog(),"Could not start background diagnostics");
-        const auto result=command(static_cast<int>(pointers.size()),pointers.data());
+        const auto result=command(static_cast<int>(pointers.size()),pointers.data(),&configuration);
         (void)StopNativeAsyncLog();
         PrintNativeAsyncLogDiagnostics();
         WriteNew(report/"result.json",Json{{"event","collection_run_return"},{"exitCode",result}}.dump(2)+'\n');

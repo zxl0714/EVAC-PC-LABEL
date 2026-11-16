@@ -2,6 +2,7 @@
 #include "preparation_policy.h"
 #include "elf_prepare.h"
 #include "daioujou_arrange.h"
+#include "garegga_english.h"
 #include "common/death_label_gadgets.h"
 #include "ketsui_arrange_audio.h"
 #include "ketsui_arrange_music.h"
@@ -34,12 +35,14 @@ Inspection CheckData(const fs::path& root,const fs::path& data,std::string_view 
 PreparedGame PrepareKetsuiGame(const fs::path& requested_root,const fs::path& requested_data) {
     return PreparePs4Game(requested_root,requested_data,"ketsui");
 }
-PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& requested_data,std::string_view game,bool death_label) {
+PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& requested_data,std::string_view game,Ps4PreparationOptions options) {
     if (game!="ketsui" && game!="daioujou" && game!="esprade" && game!="feveron" && game!="garegga") throw std::runtime_error("Unsupported PS4 preparation game");
     const bool ketsui=game=="ketsui";
     const bool esprade=game=="esprade";
     const bool garegga=game=="garegga";
     const bool daioujou=game=="daioujou";
+    const bool garegga_english=garegga && options.garegga_english_translation;
+    const bool death_label=daioujou && options.death_label;
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
     ValidateOutputs(Paths(root,game,data));VerificationCache verification(root);
     const auto inspected=CheckData(root,data,game,verification);
@@ -65,12 +68,12 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
         {"communityReplayPeerFallback",policy.replay_peer},{"communityLocalReplay",policy.local_replay},
         {"communityOffline",policy.community_offline}};
     if (esprade) recipe["lowLatencyPredictionFrames"]=2;
-    if (garegga) recipe["gareggaEnglishMenu"]=true;
+    if (garegga) recipe["gareggaEnglishMenu"]=garegga_english;
     const auto& programs=policy.programs;
     const auto music=daioujou?daioujou::InspectArrangeMusic(data,CheckLevel::Full,&verification):daioujou::ArrangeStatus{};
     const bool daioujou_arrange=music.state==daioujou::ArrangeState::Ready;
-    const bool daioujou_overlay=daioujou_arrange || (daioujou && death_label);
-    if (daioujou && death_label) recipe["daioujouDeathLabelMenu"]=true;
+    const bool daioujou_overlay=daioujou_arrange || death_label;
+    if (death_label) recipe["daioujouDeathLabelMenu"]=true;
     if (daioujou_arrange) {
         auto banks=Json::object();
         for (const auto& bank:daioujou::ArrangeBanks())
@@ -99,8 +102,8 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     if (policy.read_fixes) {files.push_back("game-fixes.ktfix");files.push_back("game-fixes.json");}
     const auto prepare=[&](bool ketsui_arrange) {
         auto outputs=files;
-        if (daioujou_overlay || ketsui_arrange || garegga) AddArrangeFiles(outputs,policy.merged_app);
-        if (daioujou && death_label) outputs.emplace_back(cave::death_label::GadgetCachePath);
+        if (daioujou_overlay || ketsui_arrange || garegga_english) AddArrangeFiles(outputs,policy.merged_app);
+        if (death_label) outputs.emplace_back(cave::death_label::GadgetCachePath);
         return EnsurePreparedCache(root,data,recipe,outputs,[&](const fs::path& stage) {
             const auto read_program=[&](std::string_view name) {
                 const auto& inventory=recipe.at("inputs");
@@ -125,7 +128,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
             if (policy.read_fixes) {
                 const auto fixes=ketsui?PrepareReadFixes(data,true,true):
                     esprade?PrepareEspradeReadFixes(data):game=="feveron"?PrepareFeveronReadFixes(data):
-                    game=="garegga"?PrepareGareggaReadFixes(data):PrepareDaioujouReadFixes(data);
+                    garegga?PrepareGareggaReadFixes(data,garegga_english):PrepareDaioujouReadFixes(data);
                 WritePreparedRelative(stage,outputs[programs.size()],fixes.bytes);
                 const auto metadata=fixes.report.dump(2)+'\n';
                 WritePreparedRelative(stage,outputs[programs.size()+1],{reinterpret_cast<const std::uint8_t*>(metadata.data()),metadata.size()});
@@ -134,7 +137,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
                 PrepareDaioujouArchive(data,stage,read_program("eboot.bin"),policy.merged_app,
                     daioujou_arrange,death_label,&verification);
             }
-            if (garegga) PrepareGareggaArchive(data,stage,read_program("eboot.bin"));
+            if (garegga_english) PrepareGareggaArchive(data,stage,read_program("eboot.bin"));
             if (ketsui_arrange) {
                 PrepareKetsuiArrangeArchive(data,stage,read_program("eboot.bin"),policy.merged_app,recipe.at("ketsuiArrangeTracks"));
             }
@@ -156,7 +159,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     }();
     return {cache,cache.directory/"eboot.ktprobe",cache.directory/"modules",
         policy.read_fixes?cache.directory/"game-fixes.ktfix":fs::path{},
-        (daioujou_overlay || ketsui_arrange || garegga)?cache.directory/"arrange":fs::path{}};
+        (daioujou_overlay || ketsui_arrange || garegga_english)?cache.directory/"arrange":fs::path{}};
 }
 int PrepareGameCommand(int argc,wchar_t** argv) {
     try {
@@ -171,8 +174,13 @@ int PrepareGameCommand(int argc,wchar_t** argv) {
         }
         if (root.empty() || !root.is_absolute()) throw std::runtime_error("Game preparation requires an absolute collection root");
         root=fs::canonical(root);
-        if (data.empty()) data=Resolve(root,Ini::Load(ConfigPath(root)).DataDirectory(FindGame(game)));
-        const auto prepared=PreparePs4Game(root,data,game);
+        Ps4PreparationOptions options;
+        if (data.empty() || game=="garegga") {
+            const auto ini=Ini::Load(ConfigPath(root));
+            if (data.empty()) data=Resolve(root,ini.DataDirectory(FindGame(game)));
+            if (game=="garegga") options.garegga_english_translation=GareggaEnglishTranslationEnabled(ini);
+        }
+        const auto prepared=PreparePs4Game(root,data,game,options);
         const Json result{{"event","game_data_prepared"},{"game",game},{"cacheHit",prepared.cache.reused},
             {"cacheMissReason",prepared.cache.miss_reason},{"recipeSha256",prepared.cache.key},
             {"directory",Utf8(prepared.cache.directory)},{"executable",Utf8(prepared.executable)},

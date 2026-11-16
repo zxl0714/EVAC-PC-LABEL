@@ -4,6 +4,7 @@
 #include "native_profile.h"
 #include "audio/wasapi_engine.h"
 #include "graphics/present_mode.h"
+#include "loader/garegga_english.h"
 #include <array>
 #include <cstdio>
 #include <stdexcept>
@@ -16,6 +17,7 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::strin
     result.game=game;
     result.community_supported=title.community_supported;
     result.shared = ResolveSettings(ini, game);
+    if (game == "garegga") result.garegga_english_translation = GareggaEnglishTranslationEnabled(ini);
     // Same positions as cave::kButtons. Select is PS4 Touchpad, also used by
     // SDL Back/Touchpad in this title; Options is the Start position.
     constexpr std::array<std::uint32_t,16> masks{
@@ -44,8 +46,10 @@ CollectionConfiguration LoadCollectionConfiguration(const fs::path& path,std::st
     return ResolveCollectionConfiguration(Ini::Load(path),game);
 }
 void ApplyCollectionConfiguration(const CollectionConfiguration& config) {
-    // CUSA10207 contains English assets selected by the game's PS4 language query.
-    ConfigureNativeProfile(config.shared.neo, config.game == "garegga" ? NativeLanguage::English : NativeLanguage::Japanese);
+    auto language = NativeLanguage::Japanese;
+    if (config.game == "garegga")
+        language = config.garegga_english_translation ? NativeLanguage::English : NativeLanguage::Korean;
+    ConfigureNativeProfile(config.shared.neo, language);
     ConfigureNativePadSettings(config.keyboard, config.shared.gamepad_enabled, config.shared.deadzone);
     ConfigureNativeAudioVolume(config.shared.volume);
     ConfigureNativeDisplay(config.display);
@@ -56,13 +60,14 @@ void ReportCollectionConfiguration(const CollectionConfiguration& config) {
     Json keyboard=Json::object();
     for (std::size_t n=0; n<kButtons.size(); ++n) keyboard[std::string(kButtons[n])] = config.shared.keyboard[n].keys;
     const auto title=fs::path(config.display.title).u8string();
-    const auto report=Json{{"event","collection_configuration"},{"game",config.game},
+    auto report=Json{{"event","collection_configuration"},{"game",config.game},
         {"neo",config.shared.neo},{"fullscreen",config.display.fullscreen},{"window_width",config.display.window_width},
         {"window_height",config.display.window_height},{"vsync",config.display.vsync},{"volume",config.shared.volume},
         {"gamepad",{{"enabled",config.shared.gamepad_enabled},{"deadzone",config.shared.deadzone}}},
         {"community",{{"requested",config.shared.community_enabled},{"supported",config.community_supported},
             {"enabled",config.community.enabled},{"endpoint",config.community.endpoint},{"nickname",config.community.nickname}}},
         {"title",std::string(title.begin(),title.end())},{"keyboard",std::move(keyboard)}};
+    if (config.game == "garegga") report["english_translation"] = config.garegga_english_translation;
     std::puts(report.dump().c_str());
 }
 bool CollectionConfigurationSelfTest() {
@@ -90,6 +95,11 @@ bool CollectionConfigurationSelfTest() {
     int language=-1;
     check(language_query && language_query(1,&language)==0 && language==static_cast<int>(NativeLanguage::English),
         "garegga_requests_the_english_system_language");
+    const auto garegga_original=ResolveCollectionConfiguration(
+        Ini::Parse("[game.garegga]\nenglish_translation=False\n"),"garegga");
+    ApplyCollectionConfiguration(garegga_original);
+    check(!garegga_original.garegga_english_translation && language_query &&
+        language_query(1,&language)==0 && language==9,"garegga_translation_opt_out_requests_korean");
     ApplyCollectionConfiguration(base);
     check(language_query && language_query(1,&language)==0 && language==static_cast<int>(NativeLanguage::Japanese),
         "other_titles_keep_the_original_system_language");

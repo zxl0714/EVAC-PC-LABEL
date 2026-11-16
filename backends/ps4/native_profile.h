@@ -12,7 +12,7 @@ struct NativeProfile {
     std::int32_t enter_button;
 };
 
-enum class NativeLanguage : std::int32_t { Japanese = 0, English = 1 };
+enum class NativeLanguage : std::int32_t { Japanese = 0, English = 1, Korean = 9 };
 
 // Startup assets plus the two movie arenas exceed the previous 4-GiB bound.
 // This is a finite PC development budget, not a host-RAM/console-model probe.

@@ -21,7 +21,11 @@ struct PreparedGame {
     PreparedCache cache;
     fs::path executable,modules,read_fixes,arrange_archive;
 };
+struct Ps4PreparationOptions {
+    bool death_label{};
+    bool garegga_english_translation{true};
+};
 PreparedGame PrepareKetsuiGame(const fs::path& root,const fs::path& data);
-PreparedGame PreparePs4Game(const fs::path& root,const fs::path& data,std::string_view game,bool death_label=false);
+PreparedGame PreparePs4Game(const fs::path& root,const fs::path& data,std::string_view game,Ps4PreparationOptions options={});
 int PrepareGameCommand(int argc,wchar_t** argv);
 }

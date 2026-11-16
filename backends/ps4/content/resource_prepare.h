@@ -29,6 +29,6 @@ PreparedReadFixes PrepareReadFixes(const std::filesystem::path& data,
 PreparedReadFixes PrepareDaioujouReadFixes(const std::filesystem::path& data);
 PreparedReadFixes PrepareEspradeReadFixes(const std::filesystem::path& data);
 PreparedReadFixes PrepareFeveronReadFixes(const std::filesystem::path& data);
-PreparedReadFixes PrepareGareggaReadFixes(const std::filesystem::path& data);
+PreparedReadFixes PrepareGareggaReadFixes(const std::filesystem::path& data,bool english_translation=true);
 int PrepareReadFixesCommand(int argc, wchar_t** argv);
 }

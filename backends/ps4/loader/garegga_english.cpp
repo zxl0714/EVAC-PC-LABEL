@@ -1,8 +1,10 @@
 #include "garegga_english.h"
 #include "garegga_english_data.h"
+#include "common/ini.h"
 
 #include <Windows.h>
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <stdexcept>
 #include <vector>
@@ -127,6 +129,19 @@ std::size_t AtlasPixel(unsigned x, unsigned y, unsigned width) {
 
 std::span<const GareggaAtlas> GareggaEnglishAtlases() {
     return garegga::kEnglishAtlases;
+}
+
+bool GareggaEnglishTranslationEnabled(const Ini& ini) {
+    const auto* entry = ini.Get("game.garegga", "english_translation");
+    if (!entry) return true;
+    auto value = entry->text;
+    std::ranges::transform(value, value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    if (value == "true") return true;
+    if (value == "false") return false;
+    throw std::runtime_error("config.ini line " + std::to_string(entry->line) +
+        " [game.garegga].english_translation: expected true or false");
 }
 
 void ApplyGareggaEnglish(std::span<std::uint8_t> motion, const GareggaAtlas& atlas) {

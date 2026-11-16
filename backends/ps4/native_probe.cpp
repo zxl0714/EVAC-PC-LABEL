@@ -1496,7 +1496,7 @@ bool EmitNativeHostOperation(const char* name, const char* category, std::uint64
     return false;
 }
 
-int NativeCommand(int argc, wchar_t** argv) {
+int NativeCommand(int argc, wchar_t** argv, const cave::ps4::CollectionConfiguration* resolved_configuration=nullptr) {
     if (argc==2 && std::wstring_view(argv[1])==L"--math-self-test") return MathSelfTest()?0:1;
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-elf") return cave::ps4::PrepareElfCommand(argc,argv);
     if (argc>=2 && std::wstring(argv[1])==L"--prepare-fixes") return cave::ps4::PrepareReadFixesCommand(argc,argv);
@@ -2041,7 +2041,7 @@ int NativeCommand(int argc, wchar_t** argv) {
         }
         std::optional<cave::ps4::CollectionConfiguration> collection;
         if (collection_config) {
-            collection=cave::ps4::LoadCollectionConfiguration(collection_config,
+            collection=resolved_configuration ? *resolved_configuration : cave::ps4::LoadCollectionConfiguration(collection_config,
                 collection_game ? cave::Utf8(std::filesystem::path(collection_game)) : "ketsui");
             cave::ps4::ApplyCollectionConfiguration(*collection);
         } else if (std::wstring(argv[2]) == L"--enter") { LoadKeyboardConfiguration(input_config); }

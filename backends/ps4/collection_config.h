@@ -8,6 +8,7 @@ namespace cave::ps4 {
 struct CollectionConfiguration {
     std::string game{"ketsui"};
     bool community_supported{};
+    bool garegga_english_translation{true};
     Settings shared;
     kt::input::KeyboardBindings keyboard{};
     kt::community::Config community;

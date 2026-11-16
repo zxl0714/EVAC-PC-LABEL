@@ -4,6 +4,8 @@
 #include <span>
 #include <string_view>
 
+namespace cave { class Ini; }
+
 namespace cave::ps4 {
 struct GareggaCaption {
     unsigned x, y, width, height;
@@ -20,4 +22,5 @@ struct GareggaAtlas {
 
 std::span<const GareggaAtlas> GareggaEnglishAtlases();
 void ApplyGareggaEnglish(std::span<std::uint8_t> motion, const GareggaAtlas& atlas);
+bool GareggaEnglishTranslationEnabled(const Ini& ini);
 }
