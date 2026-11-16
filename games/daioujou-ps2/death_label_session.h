@@ -44,9 +44,15 @@ public:
                 throw std::runtime_error("Cannot bind hosted Death Label entry");
             }
         }
+        if (firstVisibleField_) {
+            const auto sound = runtime_.lookupFunction(MenuConfirmSoundEntry);
+            if (sound && runtime_.replaceFunction(MenuConfirmSoundEntry, &PlayConfirmSound))
+                confirmSound_ = sound;
+        }
         active_ = this;
     }
     ~DeathLabelSession() {
+        if (confirmSound_) runtime_.replaceFunction(MenuConfirmSoundEntry, confirmSound_);
         if (rootMenu_) runtime_.replaceFunction(RootMenuEntry, rootMenu_);
         if (consumeInput_) runtime_.replaceFunction(ConsumeInputEntry, consumeInput_);
         runtime_.replaceFunction(InitOptionsEntry, initOptions_);
@@ -76,6 +82,7 @@ private:
     static constexpr uint32_t PlayerOnePad = 0x61ad3c, ArcadeInput = 0x290818;
     static constexpr uint32_t RootMenuEntry = 0x1b57d0, RootMenuReturn = 0x1b570c;
     static constexpr uint32_t MenuCursor = GuestGp - 0x5950;
+    static constexpr uint32_t MenuConfirmSoundEntry = 0x18e490, RootConfirmSoundReturn = 0x1b5870;
     static constexpr uint32_t PlayerOneMenuButtons = 0x61acf0, MenuConfirmEdge = 0x61acf8;
 
     static void StartFromRootMenu(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
@@ -95,6 +102,19 @@ private:
             return;
         }
         session.rootMenu_(memory,ctx,runtime);
+    }
+
+    static void PlayConfirmSound(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
+        const auto& session = *active_;
+        const auto caller = getRegU32(ctx,31);
+        if (session.firstVisibleField_ && !session.directStart_ && caller == RootConfirmSoundReturn &&
+            getRegU32(ctx,28) == GuestGp && memory[Menu] == 1 && memory[MenuPage] == 0 &&
+            memory[MenuCursor] == 1) {
+            // The hosted entry confirms Game Start behind the loading screen.
+            ctx->pc = caller;
+            return;
+        }
+        session.confirmSound_(memory,ctx,runtime);
     }
 
     static void InitOptions(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
@@ -122,7 +142,7 @@ private:
         session.consumeInput_(memory,ctx,runtime);
     }
 
-    static void ShortenStartupPresentation(uint8_t* memory, uint32_t caller) {
+    void ShortenStartupPresentation(uint8_t* memory, uint32_t caller) const {
         constexpr uint32_t LogoState = GuestGp - 0x5840, LogoOpacity = GuestGp - 0x5848;
         if (caller == BootFrameReturn) {
             // State 3 is the logo fade after the disc loader has finished.
@@ -176,13 +196,25 @@ private:
             for (unsigned i = 0; i < 6; ++i) writeWord(FirstSlideTimer + i * SlideStride, 0);
             if (memory[MenuFade] == 1) writeWord(MenuOpacity, 124);
         }
+
+        constexpr uint32_t ScreenFade = GuestGp - 0x5a8c, ScreenOpacity = GuestGp - 0x5a98;
+        constexpr uint32_t ScreenFadeStep = GuestGp - 0x5a94;
+        if (directStart_ && memory[Menu] == 4 && memory[ScreenFade] == 3) {
+            int16_t step;
+            std::memcpy(&step, memory + ScreenFadeStep, sizeof step);
+            // Finish the fade to black before the original mode switch.
+            if (step == 8) {
+                constexpr uint16_t opaque = 128;
+                std::memcpy(memory + ScreenOpacity, &opaque, sizeof opaque);
+            }
+        }
     }
 
     static void Frame(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
         auto& session = *active_;
         const auto caller = getRegU32(ctx,28) == GuestGp ? getRegU32(ctx,31) : 0;
         if (session.firstVisibleField_ && (caller == BootFrameReturn || caller == FrameReturn))
-            ShortenStartupPresentation(memory, caller);
+            session.ShortenStartupPresentation(memory, caller);
         if (caller == FrameReturn) {
             const bool playing = memory[Playing] != 0;
             const auto menu = memory[Menu];
@@ -219,6 +251,7 @@ private:
     const DeathLabelActions* actions_{};
     PS2Runtime::RecompiledFunction consumeInput_{};
     PS2Runtime::RecompiledFunction rootMenu_{};
+    PS2Runtime::RecompiledFunction confirmSound_{};
     ObserveFrame observe_;
     std::atomic_uint64_t* firstVisibleField_{};
     bool played_{}, directStart_{}, completed_{};
