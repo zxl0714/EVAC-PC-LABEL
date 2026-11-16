@@ -122,7 +122,7 @@ void AddDeathLabelMenu(std::string& direct) {
         R"nut(    ["_exec_GameMode"   ,"_exec_GameMode"   ,"_exec_DeathLabel"],)nut", 1);
     ReplaceExpected(direct, "    m_count = 0;", R"nut(    m_count = 0;
 
-    if (m_back_disable && ("evac_run_death_label" in getroottable())) {
+    if ("evac_run_death_label" in getroottable()) {
       c_cursor_width = [3,2,3,3,1];
       local artPath = conv_path("motion/title_evac_death_label.psb");
       local fontPath = conv_path("font/title_m2shot_font.psb");
@@ -195,8 +195,10 @@ void AddDeathLabelMenu(std::string& direct) {
     local rotation = screen.get_rot_mode();
     local turns = rotation == RotateMode.ROT_L ? 3 : (rotation == RotateMode.ROT_R ? 1 : 0);
     local gadgets = ::g_systemdata.get_value(SystemDataValueIndex.SETTING_GADGET).get_trigger();
+    local sound = ::g_systemdata.get_value(SystemDataValueIndex.SETTING_GAME);
     ::evac_run_death_label(shot, bomb, rapid, (width + 0.5).tointeger(),
-      (height + 0.5).tointeger(), screen.get_pos_x(), screen.get_pos_y(), turns, gadgets ? 1 : 0);
+      (height + 0.5).tointeger(), screen.get_pos_x(), screen.get_pos_y(), turns, gadgets ? 1 : 0,
+      sound.get_index("VolumeBGM"), sound.get_index("VolumeSE"));
   }
 
   function _exec_Manual() {)nut", 1);

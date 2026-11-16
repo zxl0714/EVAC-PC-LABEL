@@ -2460,6 +2460,7 @@ void PS2Runtime::run()
     RUNTIME_LOG("Starting execution at address 0x" << std::hex << m_cpuContext.pc << std::dec);
 
     auto& host = nativeHost();
+    m_iopSubsystem->setAudioVolumes(host.StreamVolume(), host.VoiceVolume());
     m_iopHost->startAudio(*m_iopSubsystem, host.Volume());
     host.Run(*this, [&]() {
         ThreadNaming::SetCurrentThreadName("GameThread");

@@ -433,6 +433,11 @@ namespace ps2x::iop::detail
 
     uint64_t IopMemory::nextAudioCycle() const noexcept { return m_audio->nextCycle; }
     bool IopMemory::audioIrqPending() const noexcept { return m_audio->spu.IrqPending(); }
+    void IopMemory::setAudioVolumes(unsigned stream, unsigned voices) noexcept
+    {
+        m_audio->spu.SetVolumes(stream, voices);
+    }
+
     size_t IopMemory::readPcm(void *stereo, size_t frames) noexcept
     {
         if (!stereo || !frames) return 0;

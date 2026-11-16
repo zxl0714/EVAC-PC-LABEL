@@ -2,7 +2,7 @@
 #include <cstdint>
 
 namespace cave {
-inline constexpr unsigned DeathLabelHostVersion = 4;
+inline constexpr unsigned DeathLabelHostVersion = 5;
 
 enum class DeathLabelResult : int { Failed, Completed, Exit, Closed };
 
@@ -23,6 +23,11 @@ struct DeathLabelScreen {
     bool gadgets = true;
 };
 
+struct DeathLabelAudio {
+    unsigned music = 100;
+    unsigned effects = 100;
+};
+
 // The caller owns the window, its message pump, and all pointers until return.
 // 'prepared' and 'disc' come from the collection's verified PS2 data preparation.
 struct DeathLabelHost {
@@ -41,6 +46,7 @@ struct DeathLabelHost {
     bool amdAntiLag{};
     const DeathLabelActions* actions{};
     DeathLabelScreen screen{};
+    DeathLabelAudio audio{};
 };
 
 using RunDeathLabel = DeathLabelResult (*)(const DeathLabelHost*) noexcept;

@@ -14,7 +14,8 @@ public:
 
     bool Prepare(const fs::path& root, const Ini& ini, std::string_view profile);
     void SetGadgetSprites(fs::path path) { gadget_sprites_ = std::move(path); }
-    DeathLabelResult Run(const DeathLabelActions& actions, const DeathLabelScreen& screen) const;
+    DeathLabelResult Run(const DeathLabelActions& actions, const DeathLabelScreen& screen,
+                         const DeathLabelAudio& audio) const;
     static void InstallBinding(std::span<std::uint8_t> image, std::span<const std::uint8_t,32> identity);
 
 private:

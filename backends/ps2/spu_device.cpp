@@ -18,6 +18,7 @@ public:
     Iop::CSpuBase core1{ram.data(),uint32_t(ram.size()),&cache,&irq,1};
     Iop::CSpu2 registers{core0,core1};
     std::array<int16_t,MaxRenderFrames*2> core1Samples{};
+    int32_t streamGain=32768,voiceGain=32768;
     unsigned tracedVoices=0;
     std::array<int64_t,2> lastStreamTrace{-1000,-1000};
 };
@@ -29,6 +30,10 @@ void SpuDevice::Reset() {
     impl->core0.Reset();impl->core1.Reset();impl->registers.Reset();
     impl->core0.SetDestinationSamplingRate(SampleRate);
     impl->core1.SetDestinationSamplingRate(SampleRate);
+}
+void SpuDevice::SetVolumes(unsigned stream, unsigned voices) noexcept {
+    impl->streamGain=int32_t(std::min(stream,100u)*32768u/100u);
+    impl->voiceGain=int32_t(std::min(voices,100u)*32768u/100u);
 }
 uint16_t SpuDevice::Read16(uint32_t address) const {
     if(address<0x1f900000u || address>0x1f90fffeu || (address&1u))
@@ -96,11 +101,11 @@ size_t SpuDevice::Transfer(unsigned core,std::span<uint8_t> bytes,bool toSpu) {
 void SpuDevice::Render(std::span<int16_t> stereo) {
     if(stereo.size()%2 || stereo.size()>MaxRenderFrames*2)
         throw std::invalid_argument("Invalid SPU2 stereo render span");
-    impl->core0.Render(stereo.data(),unsigned(stereo.size()));
+    impl->core0.Render(stereo.data(),unsigned(stereo.size()),impl->streamGain,impl->voiceGain);
     audio_capture::Append(0,stereo);
     // Preserve Play!'s core enable and core-to-core AVOL routing.
     if(impl->core1.IsEnabled()) {
-        impl->core1.Render(impl->core1Samples.data(),unsigned(stereo.size()));
+        impl->core1.Render(impl->core1Samples.data(),unsigned(stereo.size()),impl->streamGain,impl->voiceGain);
         audio_capture::Append(1,std::span<const int16_t>(impl->core1Samples.data(),stereo.size()));
         for(size_t i=0;i<stereo.size();++i) {
             const auto volume=(i&1u)?impl->core1.m_extInputVolR:impl->core1.m_extInputVolL;

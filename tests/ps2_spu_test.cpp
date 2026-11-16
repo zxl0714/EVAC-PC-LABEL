@@ -121,6 +121,34 @@ void AutoDmaBackpressure() {
     }
     std::cout<<"AutoDMA input backpressure and resume, both cores: PASS\n";
 }
+void IndependentAudioVolumes() {
+    const auto render = [](unsigned streamVolume,unsigned voiceVolume) {
+        SpuDevice spu;
+        spu.SetVolumes(streamVolume,voiceVolume);
+        std::vector<uint8_t> voice(16,0x77);
+        voice[0]=4;voice[1]=3;
+        Write(spu,0,0x19a,0x8020);
+        SetAddress(spu,0,0x1a8,0x5000);
+        TransferAll(spu,0,voice,true);
+        Write(spu,0,0,0x3fff);Write(spu,0,2,0x3fff);
+        Write(spu,0,4,0x1000);Write(spu,0,6,0x000f);Write(spu,0,8,0x1fc0);
+        SetAddress(spu,0,0x1c0,0x5000);SetAddress(spu,0,0x1c4,0x5000);
+        Write(spu,0,0x1a0,1);
+        std::array<int16_t,512> pcm{};
+        for(unsigned block=0;block<16;++block)spu.Render(pcm);
+        Write(spu,0,0x1b0,1);
+        std::vector<uint8_t> stream(1024,0x08);
+        TransferAll(spu,0,stream,true);
+        spu.Render(pcm);
+        Require(spu.Read16(Address(0,0))==0x3fff,"Host voice gain changed a guest register");
+        return pcm;
+    };
+    const auto music=render(100,0),effects=render(0,100),both=render(100,100),muted=render(0,0);
+    const auto anySound=[](const auto& pcm){return std::any_of(pcm.begin(),pcm.end(),[](int16_t x){return x!=0;});};
+    Require(anySound(music) && anySound(effects) && !anySound(muted),"SPU2 stream and voice mutes were not independent");
+    for(size_t i=0;i<both.size();++i)
+        Require(both[i]==music[i]+effects[i],"Independent SPU2 inputs did not sum to the unscaled mix");
+}
 void Benchmark() {
     std::cout<<"voices,frames,elapsed_ms,peak,checksum\n";
     for(const unsigned voices:{1u,24u,48u}) {
@@ -222,7 +250,7 @@ void PcmQueueContract() {
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench")Benchmark();
-        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();PcmQueueContract();PcmPlayoutContract();}
+        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();IndependentAudioVolumes();PcmQueueContract();PcmPlayoutContract();}
         else throw std::invalid_argument("Expected no argument, or --bench");
         return 0;
     }

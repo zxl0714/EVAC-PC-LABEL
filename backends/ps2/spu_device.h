@@ -16,6 +16,8 @@ public:
     SpuDevice(const SpuDevice&)=delete;
     SpuDevice& operator=(const SpuDevice&)=delete;
     void Reset();
+    // Host gains as percentages; guest registers retain their original values.
+    void SetVolumes(unsigned stream, unsigned voices) noexcept;
     uint16_t Read16(uint32_t address) const;
     void Write16(uint32_t address,uint16_t value);
     // Returns transferred bytes. A block-mode stream can apply backpressure.

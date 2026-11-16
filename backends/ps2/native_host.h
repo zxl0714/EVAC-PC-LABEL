@@ -37,6 +37,7 @@ struct NativeHostOptions {
     bool trackFieldBlits=false;
     bool reflex=true, amdAntiLag=false;
     float deadzone=0.20f,volume=1.0f;
+    unsigned streamVolume=100,voiceVolume=100;
     void* existingWindow{};
     void* closeEvent{};
     std::shared_ptr<HostPadSource> existingPad;
@@ -51,6 +52,8 @@ public:
     ~NativeHost();
     void Configure(NativeHostOptions options);
     float Volume() const;
+    unsigned StreamVolume() const;
+    unsigned VoiceVolume() const;
     void Initialize(const char* title);
     bool Alive();
     void OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs);

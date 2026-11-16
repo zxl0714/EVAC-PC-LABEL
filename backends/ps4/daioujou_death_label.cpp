@@ -53,7 +53,8 @@ int KT_SYSV RunFromMenu(Vm vm) {
         DeathLabelActions actions;
         const std::array masks{&actions.shot, &actions.bomb, &actions.rapid};
         std::array<int,6> screen{};
-        if (squirrel.getTop(vm) != int(masks.size() + screen.size()) + 1)
+        std::array<int,2> volumes{};
+        if (squirrel.getTop(vm) != int(masks.size() + screen.size() + volumes.size()) + 1)
             throw std::runtime_error("Invalid Death Label menu arguments");
         for (std::size_t i = 0; i < masks.size(); ++i) {
             int mask{};
@@ -65,13 +66,19 @@ int KT_SYSV RunFromMenu(Vm vm) {
             if (squirrel.getInteger(vm, int(i + masks.size()) + 2, &screen[i]) < 0)
                 throw std::runtime_error("Invalid Death Label screen setting");
         }
+        for (std::size_t i = 0; i < volumes.size(); ++i) {
+            if (squirrel.getInteger(vm, int(i + masks.size() + screen.size()) + 2, &volumes[i]) < 0 ||
+                volumes[i] < 0 || volumes[i] > 100)
+                throw std::runtime_error("Invalid Death Label volume setting");
+        }
         const DeathLabelScreen layout{screen[0], screen[1], screen[2], screen[3], unsigned(screen[4]), screen[5] != 0};
+        const DeathLabelAudio audio{unsigned(volumes[0]), unsigned(volumes[1])};
         std::printf("{\"event\":\"daioujou_death_label_controls\",\"shot\":%u,\"bomb\":%u,\"rapid\":%u}\n",
             unsigned(actions.shot), unsigned(actions.bomb), unsigned(actions.rapid));
         std::printf("{\"event\":\"daioujou_death_label_screen\",\"width\":%d,\"height\":%d,"
             "\"x\":%d,\"y\":%d,\"turns\":%u}\n", layout.width, layout.height,
             layout.offsetX, layout.offsetY, layout.quarterTurns);
-        result = active->Run(actions, layout);
+        result = active->Run(actions, layout, audio);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Death Label presentation: %s\n", error.what());
     }
@@ -130,7 +137,8 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
     }
 }
 
-DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const DeathLabelScreen& screen) const {
+DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const DeathLabelScreen& screen,
+                                        const DeathLabelAudio& audio) const {
     DeathLabelHost host;
     host.prepared = prepared_.c_str();
     host.disc = disc_.c_str();
@@ -139,6 +147,9 @@ DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const
     host.volume = volume_;
     host.actions = &actions;
     host.screen = screen;
+    host.audio = audio;
+    std::printf("{\"event\":\"daioujou_death_label_audio\",\"music\":%u,\"effects\":%u,\"master\":%g}\n",
+        audio.music, audio.effects, volume_);
     return RunNativeVideoDeathLabel(host, entry_);
 }
 

@@ -59,6 +59,7 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         if (!lease || !request || request->version != cave::DeathLabelHostVersion || !request->window ||
             !request->closeEvent || !request->prepared || !request->disc || !request->profile ||
             !request->readPad || !std::isfinite(request->volume) || request->volume < 0 || request->volume > 1 ||
+            request->audio.music > 100 || request->audio.effects > 100 ||
             !ValidScreen(request->screen))
             return DeathLabelResult::Failed;
         const auto prepared = fs::canonical(request->prepared);
@@ -90,6 +91,8 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         options.reflex=request->reflex;
         options.amdAntiLag=request->amdAntiLag;
         options.volume=request->volume;
+        options.streamVolume=request->audio.music;
+        options.voiceVolume=request->audio.effects;
         options.presentation=PresentationFor(request->screen);
         if (request->gadgetSprites && request->screen.gadgets) {
             try {

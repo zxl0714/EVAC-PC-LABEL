@@ -27,6 +27,7 @@ namespace ps2x::iop
         [[nodiscard]] ModuleLoadResult loadModuleBuffer(uint32_t guestAddress, const void *arguments = nullptr, uint32_t argumentSize = 0);
         [[nodiscard]] bool stopModule(int32_t moduleId, int32_t *result = nullptr);
         void runEeCycles(uint64_t eeCycles) noexcept;
+        void setAudioVolumes(unsigned stream, unsigned voices) noexcept;
         size_t readPcm(void *stereo, size_t frames) noexcept;
 
         [[nodiscard]] RpcAbi selectRpcAbi(const RpcAbiRequest &request) const;

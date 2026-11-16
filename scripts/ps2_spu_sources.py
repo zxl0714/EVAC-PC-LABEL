@@ -28,11 +28,36 @@ def adapt(name, text):
         text = strip_state_methods(text)
         for header in ('RegisterStateCollectionFile', 'RegisterStateUtils', 'RegisterStateFile'):
             text = text.replace(f'#include "../states/{header}.h"\n', '')
+        start = text.index('void CSpuBase::Render(')
+        end = text.index('\nuint32 CSpuBase::GetAdsrDelta', start)
+        render = text[start:end]
+        # Scale the streamed PCM and ADPCM voices before saturation. The guest
+        # volume registers, envelopes and reverb routing keep their own values.
+        for original, replacement in (
+            ('unsigned int sampleCount)', 'unsigned int sampleCount, int32 streamGain, int32 voiceGain)'),
+            ('\t\t\tif(inputSample == 0) continue;',
+             '\t\t\tif(voiceGain != 0x8000) inputSample = (inputSample * voiceGain) / 0x8000;\n'
+             '\t\t\tif(inputSample == 0) continue;'),
+            ('\t\t\tm_blockReader.GetSamples(blockSamples);',
+             '\t\t\tm_blockReader.GetSamples(blockSamples);\n'
+             '\t\t\tif(streamGain != 0x8000)\n\t\t\t{\n'
+             '\t\t\t\tblockSamples[0] = (blockSamples[0] * streamGain) / 0x8000;\n'
+             '\t\t\t\tblockSamples[1] = (blockSamples[1] * streamGain) / 0x8000;\n\t\t\t}'),
+        ):
+            if render.count(original) != 1:
+                raise ValueError('Pinned DSP volume hook differs')
+            render = render.replace(original, replacement)
+        text = text[:start] + render + text[end:]
     elif name == 'Iop_SpuBase.h':
         text = text.replace('#include "zip/ZipArchiveWriter.h"\n', '')
         text = text.replace('#include "zip/ZipArchiveReader.h"\n', '')
         text = text.replace('#include <map>\n', '#include <map>\n#include <vector>\n#include <memory>\n')
         text = re.sub(r'^\s*void (?:LoadState|SaveState)\([^\n]*\)(?: const)?;\n', '', text, flags=re.M)
+        declaration = 'void Render(int16*, unsigned int);'
+        if text.count(declaration) != 1:
+            raise ValueError('Pinned DSP render declaration differs')
+        text = text.replace(declaration,
+            'void Render(int16*, unsigned int, int32 streamGain = 0x8000, int32 voiceGain = 0x8000);')
     elif name == 'Log.h':
         # Retain the upstream no-op logging branch; no frontend/file-system
         # dependency or logging singleton is needed by this release DSP target.

@@ -147,6 +147,8 @@ public:
 NativeHost::NativeHost():impl(std::make_unique<Impl>()){}
 NativeHost::~NativeHost()=default;
 float NativeHost::Volume() const {return impl->options.volume;}
+unsigned NativeHost::StreamVolume() const {return impl->options.streamVolume;}
+unsigned NativeHost::VoiceVolume() const {return impl->options.voiceVolume;}
 void NativeHost::Configure(NativeHostOptions options) {
     if(impl->display)throw std::logic_error("Configure the PS2 host before initialization");
     if(options.width<320 || options.width>7680 || options.height<240 || options.height>4320)
