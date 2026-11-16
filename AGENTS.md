@@ -137,16 +137,16 @@ One extraction verified 206 files and 12 games. The revised Death Label card
 and PS4 player-one control inheritance passed gameplay checks on 01.00 and 01.04.
 Evidence is in `.local/v0100/release-candidate-8423e0e/` and `docs/TEST_MATRIX.md`.
 
-The current local player ZIP is
-`releases/v0100-5d5e424/EVAC-PC-LABEL-v0.10.0-win-x64.zip`, source `5d5e424`,
-SHA-256 `f94e974871f2f63fe8aa86ff0efb225e0464bef15055c97b156abbf9ed51eb5e`.
-Extraction verified 208 entries and both DaiOuJou binaries. The isolated
-borrowed-window test used the production PS2 DLL and reached fighter selection
-in 3.05 seconds cold and 0.157 seconds after Game Over, with the same guest
-allocation and one actual bomb counted in each run. The full PS4 UI stays
-available for player acceptance. The Gadget check replayed 5,193 captured
-fields and kept Deaths at zero through all ten bonus stock reductions.
-Evidence is in `.local/v0100/warm-death-label/hidden-final/`.
+The verified v0.10.0 player ZIP is
+`releases/v0100-89c2936/EVAC-PC-LABEL-v0.10.0-win-x64.zip`, source `89c2936`,
+SHA-256 `af145d0eaa72d8703b7416d120cb1ff51e49022c6027f182a2d85c625332839e`.
+One extraction verified 208 entries and all 12 games. PS4 DaiOuJou 01.00 and
+01.04 both entered Death Label Stage 1 and returned from Game Over to Direct
+Menu with X Arrange present and absent. Garegga showed English by default and
+Korean after disabling translation. Evidence is in `.local/v0100/final-89c2936/`.
+The Gadget check covered 5,193 recorded fields and all nine stage handoffs,
+including the second loop. The earlier warm session and bomb counter evidence
+is in `.local/v0100/warm-death-label/hidden-final/`.
 
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.

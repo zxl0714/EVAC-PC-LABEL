@@ -21,6 +21,7 @@
 
 ## v0.10.0 程序包验收
 
+- 正式程序包源码为 `89c2936`，SHA-256 为 `af145d0eaa72d8703b7416d120cb1ff51e49022c6027f182a2d85c625332839e`。解压一次核对全部 208 个条目和 12 款游戏。包内启动器实测 PS4《大往生》01.00 明文 SELF、01.04 合并补丁各两组，分别带和不带 X Arrange。四组都从主菜单进入 Death Label 第一关，Game Over 后返回同一窗口的主菜单。两周目的通关记录另覆盖 9 次关卡交接，命和雷奖励结算完成后仪表盘才切换。证据见 `.local/v0100/final-89c2936/`。
 - 候选包 `releases/v0100-00ab99e/EVAC-PC-LABEL-v0.10.0-win-x64.zip`，构建源码为 `00ab99e`。校验 ZIP 的 SHA-256 后解压一次，206 个清单文件全部通过校验。程序包包含 12 款游戏的运行时和数据目录说明。
 - 从解压目录用自带检查工具确认 12 款游戏均提示缺少游戏数据，运行时齐全。另用启动器从外部日版 ISO 启动 PS2 大往生，呈现 169 帧后关闭窗口，退出码 0。过程记录见 `.local/v0100/release-candidate-41a35ee/extracted/logs/daioujou-ps2/run-20261116T035225400Z-12792/`。
 - PS4 四组及 PS2 二十五组原生检查通过。Xbox 360 和启动器的 58 组原生检查通过。全量源码检查仍有两项既有问题，虫姬二旧回调数断言期待 31 而实际为 32，shadPS4 实验探针测试引用较早的模板。虫姬二像素测试在具备 NumPy 的 Python 环境中单独通过。
@@ -30,6 +31,7 @@
 
 ## v0.10.0 韩版空战之路英文界面
 
+- 正式程序包分别实测默认设置和 `english_translation = false`，同一处联网提示显示英文和韩文。两种设置使用各自的准备缓存，社区录像和即时存档相关的五处修改均通过比对。证据见 `.local/v0100/final-89c2936/garegga-preparation/` 与 `.local/v0911/live-acceptance/garegga/v0100-final-89c2936-english/`、`v0100-final-89c2936-korean/`。
 - #21 玩家导出的 CUSA10207 01.00 通过启动器的数据校验、原生准备、启动和菜单操作。测试关闭社区服务，游戏显示离线提示，能够确认并继续，退出码为 27。记录位于 `.local/v0100/garegga-english-launch-r1/logs/garegga/`。
 - 暂停说明由游戏随光标切换动效图层，联网通知也来自图集。英文图层通过本地准备缓存加载。玩家导出经正常启动器实测 PlayStation Network 提示、暂停说明、Game Settings 选项及底部提示，另实测第 99 槽英文读档说明和确认框。记录位于 .local/v0911/live-acceptance/garegga/v0100-english-atlas-r1/ 至 r3/。
 - PKG 提取与玩家导出的 39 个清单文件逐项 SHA-256 一致，SFO 与 discmap 同样一致，两份 npbind.dat 不同。比对记录位于 .local/v0100/garegga-english-launch-r1/rom-pair-identity.json。
