@@ -89,28 +89,32 @@ public:
         }
         const unsigned round = memory[Gp - 0x5830] != 0;
         const unsigned stage = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x5348),4);
-        const bool newRound = !state_.playing || state_.round != round;
+        const bool gameplayStopped = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
+        // The guest writes the next stage before paying out the clear bonuses.
+        // Advance the whole overlay when the guest starts gameplay again.
+        const bool newRound = !state_.playing || (!gameplayStopped && state_.round != round);
         if (newRound) {
             const auto clears = state_.clearedStages;
             state_ = {};
             state_.clearedStages = clears;
         }
-        const bool newStage = newRound || stage > state_.stage;
-        if (newStage) ResetFight();
-        state_.playing = true;
-        state_.round = round;
-        // The stage index wraps before the loop results have finished.
-        state_.stage = std::max(stage,state_.stage);
+        const bool newStage = newRound || (!gameplayStopped && stage > state_.stage);
         const auto score = std::uint64_t{Read<std::uint16_t>(memory,Gp - 0x5508)} << 32 |
             Read<std::uint32_t>(memory,Gp - 0x54fc);
         state_.score = DecimalScore(score) * 10 + Read<std::uint16_t>(memory,Gp - 0x5514) % 10;
-        if (newStage) stageStartScore_ = state_.score;
+        if (newStage) {
+            state_.round = round;
+            state_.stage = stage;
+            stageStartScore_ = state_.score;
+            ResetFight();
+        }
+        state_.playing = true;
         state_.stageScore = state_.score - std::min(state_.score,stageStartScore_);
         // The fighter select table stores A/B as 0/2 and the dolls as 2/4/6.
         const auto doll = Read<std::uint16_t>(memory,Gp - 0x5334);
         state_.doll = doll == 4 ? 1 : doll == 6 ? 2 : 0;
         state_.ship = Read<std::uint16_t>(memory,Gp - 0x532c) == 2;
-        state_.misses = misses_[round];
+        state_.misses = misses_[state_.round];
         state_.stock = std::clamp<int>(Read<std::int16_t>(memory,Gp - 0x53a0),0,20);
         state_.bombCapacity = memory[Player + 0x24];
         state_.bombs = std::min<unsigned>(memory[Player + 0x25],state_.bombCapacity);
@@ -136,7 +140,7 @@ public:
         state_.comboTime = Read<std::uint16_t>(memory,Gp - 0x559c);
         state_.comboCapacity = Read<std::uint16_t>(memory,Gp - 0x5588);
         state_.music = music_;
-        if (stage == state_.stage) AdvanceBoss(memory);
+        if (round == state_.round && stage == state_.stage) AdvanceBoss(memory,gameplayStopped);
         else state_.bossActive = false;
         AdvanceDamage();
         return state_;
@@ -222,7 +226,7 @@ private:
         bossStart_.reset();
     }
 
-    void AdvanceBoss(const std::uint8_t* memory) {
+    void AdvanceBoss(const std::uint8_t* memory, bool gameplayStopped) {
         const auto stage = state_.stage;
         // Stage five spawns slot 100 for Huang Liu, then 110 for its jet
         // form, and 112 and 116 together for the two Hibachis.
@@ -269,9 +273,8 @@ private:
         }
         if (state_.bossDefeated && (stage < 4 || form == State::BossForm::TwinHibachi))
             state_.clearedStages[state_.round] |= 1u << stage;
-        // The original sets this stop flag on Game Over as well as after a clear.
-        const bool stopped = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
-        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && !state_.bossDefeated && !stopped;
+        // The guest stops gameplay on Game Over as well as after a clear.
+        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && !state_.bossDefeated && !gameplayStopped;
         if (state_.bossActive) state_.bossFrames = clock - *bossStart_;
     }
 
