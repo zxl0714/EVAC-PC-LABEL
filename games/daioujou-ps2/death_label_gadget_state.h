@@ -194,7 +194,6 @@ private:
         state_.bossHp = state_.bossMaxHp = 0;
         state_.bossDefeated = false;
         bossStart_.reset();
-        bossPartMaxHp_ = {};
     }
 
     void AdvanceBoss(const std::uint8_t* memory) {
@@ -210,39 +209,56 @@ private:
             state_.bossHp = state_.bossMaxHp = 0;
             state_.bossDefeated = false;
             bossStart_.reset();
-            bossPartMaxHp_ = {};
         }
         const auto clock = Read<std::uint32_t>(memory,Gp - 0x53a8);
-        // Use the main body's hit points. Auxiliary guns and wings can be
-        // destroyed separately. Both Hibachis contribute to the last bar.
-        constexpr std::array<unsigned,5> mainBody{101,100,100,101,100};
-        const std::array<unsigned,2> slots{
-            phase >= 2 ? 112u : phase == 1 ? 110u : mainBody[stage],
-            phase >= 2 ? 116u : 0u
+        // The original boss scripts consume damage from the hitboxes and
+        // refill them. Read the signed total on the owning boss controller.
+        struct Encounter { unsigned script,root,hitbox,capacity; };
+        constexpr std::array<Encounter,5> encounters{{
+            {0x08,101,101,0x16c00}, {0x0b,100,100,0x2bdc0}, {0x09,100,100,0x40c00},
+            {0x0c,100,101,0x46000}, {0x12,100,100,0x3f000}
+        }};
+        const auto& encounter = encounters[stage];
+        const auto collidable = [&](unsigned slot) {
+            return (Read<std::uint16_t>(memory,EnemyPool + slot * EnemyStride) & 0xa000) == 0xa000;
         };
-        unsigned hp = 0;
-        unsigned capacity = 0;
-        for (std::size_t i = 0; i < slots.size() && slots[i]; ++i) {
-            const auto actor = EnemyPool + slots[i] * EnemyStride;
-            const auto flags = Read<std::uint16_t>(memory,actor);
-            const auto current = std::max(0,int(Read<std::int16_t>(memory,actor + HealthOffset)));
-            if ((flags & 0xa000) == 0xa000)
-                bossPartMaxHp_[i] = std::max(bossPartMaxHp_[i],unsigned(current));
-            if (flags & 0x8000) hp += std::min(bossPartMaxHp_[i],unsigned(current));
-            capacity += bossPartMaxHp_[i];
+        const auto hitbox = phase >= 2 ? 112u : phase == 1 ? 110u : encounter.hitbox;
+        const auto capacity = phase >= 2 ? 0x4d000u : phase == 1 ? 0x2a000u : encounter.capacity;
+        const bool inCombat = collidable(hitbox) || (phase >= 2 && collidable(116));
+        if (bossStart_ || inCombat) {
+            const auto root = EnemyPool + encounter.root * EnemyStride;
+            constexpr unsigned ControllerPool = 0x690f50, ControllerStride = 0x50, ControllerCount = 48;
+            for (unsigned i = 0; i < ControllerCount; ++i) {
+                const auto controller = ControllerPool + i * ControllerStride;
+                if (!(Read<std::uint16_t>(memory,controller) & 0x8000) ||
+                    Read<std::uint16_t>(memory,controller + 4) != encounter.script ||
+                    ReadControllerWord(memory,controller + 6) != root) continue;
+                const auto hp = static_cast<std::int32_t>(ReadControllerWord(memory,controller + 0x16));
+                if (!bossStart_) bossStart_ = clock;
+                state_.bossMaxHp = capacity;
+                state_.bossHp = std::clamp(hp,0,static_cast<std::int32_t>(capacity));
+                state_.bossDefeated = hp <= 0;
+                break;
+            }
         }
         const bool cleared = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
-        if (!bossStart_ && capacity) bossStart_ = clock;
-        state_.bossMaxHp = capacity;
-        state_.bossHp = cleared ? 0u : hp;
-        state_.bossDefeated = cleared && bossStart_.has_value();
-        if (state_.bossDefeated) state_.clearedStages |= 1u << stage;
-        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && !cleared && hp != 0;
+        if (bossStart_ && cleared) {
+            state_.bossHp = 0;
+            state_.bossDefeated = true;
+        }
+        if (state_.bossDefeated && (stage < 4 || form == State::BossForm::TwinHibachi))
+            state_.clearedStages |= 1u << stage;
+        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && state_.bossHp != 0;
         if (state_.bossActive) state_.bossFrames = clock - *bossStart_;
         // Use the same scroll-to-map conversion as the original PS2 HUD.
         constexpr std::array<unsigned,5> mapScale{440,601,851,471,388};
         const auto scroll = Read<std::uint32_t>(memory,Gp - 0x5a9c);
         state_.stagePosition = std::min<std::uint64_t>(368,std::uint64_t{scroll}*mapScale[stage]/1000);
+    }
+
+    static std::uint32_t ReadControllerWord(const std::uint8_t* memory,std::uint32_t address) {
+        return std::uint32_t{Read<std::uint16_t>(memory,address)} << 16 |
+            Read<std::uint16_t>(memory,address + 2);
     }
 
     void AdvanceDamage() {
@@ -268,7 +284,6 @@ private:
     State state_{};
     State::Music music_{};
     std::optional<unsigned> bossStart_;
-    std::array<unsigned,2> bossPartMaxHp_{};
     std::uint64_t stageStartScore_{};
     std::int16_t previousStock_{};
     std::array<std::uint32_t,2> previousBombTimers_{};
