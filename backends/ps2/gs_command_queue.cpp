@@ -13,7 +13,7 @@
 namespace cave::ps2 {
 namespace {
 constexpr size_t VramBytes=4u*1024u*1024u;
-enum class Kind { Initialize,Reset,Gif,Register,Image,Fifo,Snapshot,WriteVram,Frame };
+enum class Kind { Initialize,Reset,Gif,Register,Image,Fifo,Snapshot,WriteVram,Frame,ConsumerTask };
 struct Reply {
     std::atomic<bool> settled=false;
     std::promise<std::vector<uint8_t>> result;
@@ -36,6 +36,7 @@ struct Command {
     GsFrame frame{};
     std::vector<uint8_t> bytes;
     std::shared_ptr<Reply> reply;
+    std::function<void()> task;
 };
 }
 class GsCommandQueue::Impl {
@@ -113,6 +114,12 @@ GsCommandQueue::Stats GsCommandQueue::GetStats() const {
 void GsCommandQueue::SetFrameNotifier(std::function<void()> notify) {
     std::lock_guard lock(impl->mutex);impl->frameNotifier=std::move(notify);
 }
+void GsCommandQueue::RunOnConsumer(std::function<void()> task) {
+    Command command;
+    command.kind=Kind::ConsumerTask;
+    command.task=std::move(task);
+    impl->Request(std::move(command));
+}
 bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::milliseconds timeout) {
     Command command;
     {
@@ -147,6 +154,7 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
             break;
         case Kind::WriteVram:consumer.WriteVram(command.offset,command.bytes);break;
         case Kind::Frame:consumer.Frame(command.frame);break;
+        case Kind::ConsumerTask:command.task();break;
         }
     }catch(...) {
         auto error=std::current_exception();

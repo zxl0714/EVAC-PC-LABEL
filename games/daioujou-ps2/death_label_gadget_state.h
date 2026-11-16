@@ -41,20 +41,33 @@ public:
     DeathLabelGadgetFeed() = default;
     DeathLabelGadgetFeed(const DeathLabelGadgetFeed&) = delete;
     DeathLabelGadgetFeed& operator=(const DeathLabelGadgetFeed&) = delete;
+    void ResetRun() {
+        state_ = {};
+        music_ = {};
+        misses_ = {};
+        stageStartScore_ = 0;
+        ResetFight();
+    }
     class Binding {
     public:
         Binding(DeathLabelGadgetFeed& feed, PS2Runtime& runtime)
-            : runtime_(runtime), original_(runtime.lookupFunction(SoundCommand)) {
-            if (active_ || !original_ || original_ == &Sound ||
-                !runtime_.replaceFunction(SoundCommand, &Sound))
+            : runtime_(runtime), sound_(runtime.lookupFunction(SoundCommand)),
+              miss_(runtime.lookupFunction(PlayerMiss)) {
+            if (active_ || !sound_ || !miss_ || !runtime_.replaceFunction(SoundCommand, &Sound))
                 throw std::runtime_error("Cannot bind Death Label Gadget audio");
-            feed.musicDispatch_ = original_;
+            if (!runtime_.replaceFunction(PlayerMiss, &Miss)) {
+                runtime_.replaceFunction(SoundCommand, sound_);
+                throw std::runtime_error("Cannot bind Death Label Gadget player deaths");
+            }
+            feed.musicDispatch_ = sound_;
+            feed.missDispatch_ = miss_;
             active_ = &feed;
         }
         ~Binding() {
             // The generated program's function table is shared by subsequent
             // runtime instances. Restore it before either owner is destroyed.
-            runtime_.replaceFunction(SoundCommand, original_);
+            runtime_.replaceFunction(PlayerMiss, miss_);
+            runtime_.replaceFunction(SoundCommand, sound_);
             active_ = nullptr;
         }
         Binding(const Binding&) = delete;
@@ -62,7 +75,7 @@ public:
 
     private:
         PS2Runtime& runtime_;
-        PS2Runtime::RecompiledFunction original_;
+        PS2Runtime::RecompiledFunction sound_, miss_;
     };
 
     State Observe(const std::uint8_t* memory, bool playing, bool paused) {
@@ -96,18 +109,13 @@ public:
         const auto doll = Read<std::uint16_t>(memory,Gp - 0x5334);
         state_.doll = doll == 4 ? 1 : doll == 6 ? 2 : 0;
         state_.ship = Read<std::uint16_t>(memory,Gp - 0x532c) == 2;
-        const auto stock = Read<std::int16_t>(memory,Gp - 0x53a0);
-        if (!newStage && stock < previousStock_) ++state_.misses;
-        previousStock_ = stock;
-        state_.stock = std::clamp<int>(stock,0,20);
+        state_.misses = misses_[round];
+        state_.stock = std::clamp<int>(Read<std::int16_t>(memory,Gp - 0x53a0),0,20);
         state_.bombCapacity = memory[Player + 0x24];
         state_.bombs = std::min<unsigned>(memory[Player + 0x25],state_.bombCapacity);
-        const std::array bombTimers{
-            Read<std::uint32_t>(memory,Gp - 0x56e0), Read<std::uint32_t>(memory,Gp - 0x56e4)
-        };
-        for (std::size_t i = 0; i != bombTimers.size(); ++i)
-            if (!newStage && bombTimers[i] && !previousBombTimers_[i]) ++state_.bombsFired;
-        previousBombTimers_ = bombTimers;
+        // The original increments this counter only when it spends a bomb
+        // in combat. The shared effect timers also run during a Hyper.
+        state_.bombsFired = Read<std::uint16_t>(memory,Gp - 0x6004);
         // The firing tables use even indices 0..8 for their five power levels.
         state_.shotLevel = std::min(5u,memory[Player + 0x20] / 2u + 1);
         state_.laserLevel = std::min(5u,memory[Player + 0x22] / 2u + 1);
@@ -159,6 +167,8 @@ private:
     static constexpr std::uint32_t EnemyPool = 0x68f330, EnemyStride = 0x20, HealthOffset = 0x18;
     static constexpr std::uint32_t EnemyPoolEnd = EnemyPool + EnemyStride * 200;
     static constexpr std::uint32_t SoundCommand = 0x235b00;
+    static constexpr std::uint32_t PlayerMiss = 0x134150, PlayerEventReturn = 0x134108;
+    static constexpr std::uint32_t PlayerOneEvent = 0x691f00;
 
     template <typename T> static T Read(const std::uint8_t* memory,std::uint32_t address) {
         T value{};
@@ -187,6 +197,16 @@ private:
         if (command == 6 && caller == 0x234864) feed.music_ = State::Music::StageClear;
         if (command == 8 && caller == 0x199258) feed.music_ = State::Music::NameEntry;
         if (command == 0xc && caller == 0x14f8bc) feed.music_ = State::Music::GameOver;
+    }
+
+    static void Miss(std::uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
+        auto& feed = *active_;
+        // Event 1 is the game's actual life loss, including the last ship.
+        // Stage bonuses temporarily spend from the same stock through a different path.
+        if (getRegU32(context,31) == PlayerEventReturn && getRegU32(context,28) == Gp &&
+            memory[Gp - 0x5cb0] && Read<std::uint32_t>(memory,Gp - 0x5bc8) == PlayerOneEvent)
+            ++feed.misses_[memory[Gp - 0x5830] != 0];
+        feed.missDispatch_(memory,context,runtime);
     }
 
     void ResetFight() {
@@ -279,12 +299,12 @@ private:
     // the feed goes out of scope.
     static inline DeathLabelGadgetFeed* active_{};
     PS2Runtime::RecompiledFunction musicDispatch_{};
+    PS2Runtime::RecompiledFunction missDispatch_{};
     State state_{};
     State::Music music_{};
     std::optional<unsigned> bossStart_;
     std::uint64_t stageStartScore_{};
-    std::int16_t previousStock_{};
-    std::array<std::uint32_t,2> previousBombTimers_{};
+    std::array<unsigned,2> misses_{};
     std::array<unsigned,4> hits_{};
     std::array<State::Damage,2> damage_{};
     std::array<std::array<State::Damage,2>,10> history_{};

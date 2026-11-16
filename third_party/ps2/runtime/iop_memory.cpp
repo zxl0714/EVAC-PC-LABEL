@@ -438,6 +438,13 @@ namespace ps2x::iop::detail
         m_audio->spu.SetVolumes(stream, voices);
     }
 
+    void IopMemory::discardAudio() noexcept
+    {
+        // Called with the playback device stopped and the guest parked.
+        m_audio->queue.DiscardFromProducer();
+        m_audio->playout = {};
+    }
+
     size_t IopMemory::readPcm(void *stereo, size_t frames) noexcept
     {
         if (!stereo || !frames) return 0;

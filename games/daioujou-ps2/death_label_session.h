@@ -1,4 +1,5 @@
 #pragma once
+#include "backends/ps2/native_host.h"
 #include "common/death_label_host.h"
 #include "ps2_runtime.h"
 #include "runtime/ee_scheduler.h"
@@ -11,9 +12,8 @@
 
 namespace cave::daioujou_ps2 {
 
-// A hosted session runs the original Death Label program until it finishes
-// the results sequence and reopens its top-level menu. Explicit EXIT keeps
-// using the original LoadExecPS2 request, which the caller can route home.
+// Return the window once the original Death Label results reach the root
+// menu. Explicit EXIT still uses the original LoadExecPS2 request.
 class DeathLabelSession {
 public:
     using ObserveFrame = std::function<void(const uint8_t*,bool,bool)>;
@@ -22,7 +22,7 @@ public:
                                ObserveFrame observe = {}, std::atomic_uint64_t* firstVisibleField = nullptr)
         : runtime_(runtime), original_(runtime.lookupFunction(FrameEntry)),
           initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions), observe_(std::move(observe)),
-          firstVisibleField_(firstVisibleField) {
+          firstVisibleField_(firstVisibleField), awaitingSelect_(firstVisibleField != nullptr) {
         if (active_ || !original_ || !initOptions_ || !runtime_.replaceFunction(FrameEntry, &Frame))
             throw std::runtime_error("Cannot start hosted Death Label");
         if (!runtime_.replaceFunction(InitOptionsEntry, &InitOptions)) {
@@ -107,7 +107,7 @@ private:
     static void PlayConfirmSound(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
         const auto& session = *active_;
         const auto caller = getRegU32(ctx,31);
-        if (session.firstVisibleField_ && !session.directStart_ && caller == RootConfirmSoundReturn &&
+        if (session.awaitingSelect_ && !session.directStart_ && caller == RootConfirmSoundReturn &&
             getRegU32(ctx,28) == GuestGp && memory[Menu] == 1 && memory[MenuPage] == 0 &&
             memory[MenuCursor] == 1) {
             // The hosted entry confirms Game Start behind the loading screen.
@@ -210,23 +210,33 @@ private:
         }
     }
 
+    bool RestartAtMenu(PS2Runtime& runtime, uint64_t tick) {
+        if (!firstVisibleField_) return false;
+        firstVisibleField_->store(0,std::memory_order_release);
+        if (!runtime.nativeHost().ParkAtMenu()) return false;
+        played_ = directStart_ = false;
+        awaitingSelect_ = true;
+        entryTick_ = tick;
+        return true;
+    }
+
     static void Frame(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
         auto& session = *active_;
         const auto caller = getRegU32(ctx,28) == GuestGp ? getRegU32(ctx,31) : 0;
-        if (session.firstVisibleField_ && (caller == BootFrameReturn || caller == FrameReturn))
+        if (session.awaitingSelect_ && (caller == BootFrameReturn || caller == FrameReturn))
             session.ShortenStartupPresentation(memory, caller);
         if (caller == FrameReturn) {
             const bool playing = memory[Playing] != 0;
             const auto menu = memory[Menu];
-            if (session.firstVisibleField_) {
-                const auto tick=runtime->eeScheduler().currentVSyncTick();
+            const auto tick=runtime->eeScheduler().currentVSyncTick();
+            if (session.awaitingSelect_) {
                 // The scene switches once the root menu has faded out. Let
                 // the selection draw reach the GS display page before showing it.
                 if (session.directStart_ && menu == 0 && memory[Scene] == FighterSelectScene) {
                     session.firstVisibleField_->store(tick+2,std::memory_order_release);
-                    session.firstVisibleField_ = nullptr;
+                    session.awaitingSelect_ = false;
                     std::cerr<<"[ps2-death-label-entry] fighter_select_field="<<tick+2<<'\n';
-                } else if (tick >= StartupFieldLimit) {
+                } else if (tick - session.entryTick_ >= StartupFieldLimit) {
                     // The player cannot act on a startup screen that the host hides.
                     std::cerr<<"[ps2-death-label-entry] fighter selection did not open\n";
                     runtime->requestStop();
@@ -236,9 +246,11 @@ private:
             if (session.observe_) session.observe_(memory,playing,menu != 0);
             session.played_ |= playing && menu == 0;
             if ((session.played_ || session.directStart_) && !playing && menu == 1 && memory[MenuPage] == 0) {
-                session.completed_ = true;
-                runtime->requestStop();
-                return;
+                if (!session.played_ || !session.RestartAtMenu(*runtime,tick)) {
+                    session.completed_ = true;
+                    runtime->requestStop();
+                    return;
+                }
             }
         }
         session.original_(memory,ctx,runtime);
@@ -255,6 +267,8 @@ private:
     ObserveFrame observe_;
     std::atomic_uint64_t* firstVisibleField_{};
     bool played_{}, directStart_{}, completed_{};
+    bool awaitingSelect_{};
+    uint64_t entryTick_{};
 };
 
 }

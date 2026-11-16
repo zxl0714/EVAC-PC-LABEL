@@ -263,6 +263,18 @@ void GsDisplay::ResetForProgram() {
     impl->gs.reset();
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
 }
+void GsDisplay::ReleaseBorrowedSurface() {
+    WaitPreviousFrame();
+    impl->gs->Flush();
+    impl->wsi.deinit_surface_and_swapchain();
+    impl->lastReadyImage.image.reset();
+    impl->lastFeedback=0;
+}
+void GsDisplay::RestoreBorrowedSurface() {
+    if(!Alive())throw GsWindowClosed();
+    if(!impl->wsi.init_surface_swapchain())
+        throw std::runtime_error("Cannot restore PS2 Vulkan presentation");
+}
 void GsDisplay::WaitPreviousFrame() {
     impl->gs->impl->CheckOwner();
     if(impl->pending){

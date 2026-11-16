@@ -33,6 +33,8 @@ public:
     Stats GetStats() const;
     // Installed before the producer starts; called outside the queue lock.
     void SetFrameNotifier(std::function<void()> notify);
+    // Complete prior GS work before running a synchronous window-owner task.
+    void RunOnConsumer(std::function<void()> task);
     GsCompletions CollectCompletions() override;
     void AcknowledgeSignal() override;
     void AcknowledgeStatus(uint32_t mask) override;

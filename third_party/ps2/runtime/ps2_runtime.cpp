@@ -2509,6 +2509,13 @@ void PS2Runtime::run()
     }, [&]() {
         if (m_debugUiInitialized && m_debugUiDrawCallback)
             m_debugUiDrawCallback(*this, m_debugUiUserData);
+    }, [&](bool active) {
+        if (active) {
+            m_iopHost->startAudio(*m_iopSubsystem, host.Volume());
+        } else {
+            m_iopHost->stopAudio();
+            m_iopSubsystem->discardAudio();
+        }
     });
     m_iopHost->stopAudio();
     // Both game threads and the device callback are stopped. Writing a large

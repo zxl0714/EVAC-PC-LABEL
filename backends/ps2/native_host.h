@@ -44,6 +44,9 @@ struct NativeHostOptions {
     std::shared_ptr<HostPadSource> existingPad;
     // Zero waits for the guest to finish the first screen for this window.
     const std::atomic_uint64_t* firstVisibleField{};
+    // Runs on the window owner with the borrowed surface detached. True
+    // grants the surface back, false ends the cached session.
+    std::function<bool()> waitForBorrowedWindow;
     GsPresentation presentation;
     std::shared_ptr<GsOverlay> overlay;
 };
@@ -59,12 +62,13 @@ public:
     unsigned VoiceVolume() const;
     void Initialize(const char* title);
     bool Alive();
+    bool ParkAtMenu();
     void OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs);
     void BeforeInput(uint64_t responseField,unsigned budgetUs);
     void SimulationReady(uint64_t responseField);
     std::unique_ptr<GsCommandBackend> CreateBackend();
     void Run(PS2Runtime& runtime,const std::function<void()>& execute,
-             const std::function<void()>& onFrame);
+             const std::function<void()>& onFrame,const std::function<void(bool)>& setAudioActive);
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

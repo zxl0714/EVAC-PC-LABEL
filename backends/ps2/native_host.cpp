@@ -132,7 +132,7 @@ public:
     std::unique_ptr<GsDisplay> display;
     std::shared_ptr<GsCommandQueue> queue;
     std::shared_ptr<Input> input;
-    std::function<void()> onFrame;
+    std::function<bool()> parkAtMenu;
     std::chrono::steady_clock::time_point nextInput{};
     uint64_t frames=0;
     uint64_t lastOffered=0;
@@ -155,6 +155,8 @@ void NativeHost::Configure(NativeHostOptions options) {
         throw std::invalid_argument("Invalid PS2 host window size");
     if(bool(options.existingWindow)!=bool(options.closeEvent) || bool(options.existingWindow)!=bool(options.existingPad))
         throw std::invalid_argument("Borrowed PS2 input and window must be configured together");
+    if(options.waitForBorrowedWindow && (!options.existingWindow || !options.firstVisibleField))
+        throw std::invalid_argument("Parking requires a borrowed PS2 window and entry frame");
     impl->options=std::move(options);
 }
 void NativeHost::Initialize(const char* title) {
@@ -192,6 +194,7 @@ void NativeHost::Initialize(const char* title) {
     std::cerr<<"[ps2-host] gpu="<<impl->display->Device().GpuName()<<" input=SDL3 window=Vulkan\n";
 }
 bool NativeHost::Alive() {return impl->display && impl->display->Alive();}
+bool NativeHost::ParkAtMenu() {return impl->parkAtMenu && impl->parkAtMenu();}
 std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
     if(!impl->queue)throw std::logic_error("Initialize PS2 host before creating the producer");
     std::unique_ptr<GsCommandBackend> backend=std::make_unique<SharedQueue>(impl->queue);
@@ -214,7 +217,8 @@ void NativeHost::OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,uns
     frame.presentAfter=deadline-std::chrono::microseconds(leadUs);
     if(impl->queue->TryFrame(frame))impl->lastOffered=tick;
 }
-void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame) {
+void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,const std::function<void()>& onFrame,
+                     const std::function<void(bool)>& setAudioActive) {
     if(!impl->display)throw std::logic_error("PS2 host is not ready");
     auto& display=*impl->display;
     if(impl->queue->GetStats().closed) {
@@ -232,16 +236,18 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     bool presentedRepeat=false;
     uint64_t preparedSerial=0,confirmed=0,held=0,corrected=0,repeated=0;
     const auto* firstVisibleField=impl->options.firstVisibleField;
+    bool hasPresented=false, resuming=false;
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
-        if(firstVisibleField) {
+        if(firstVisibleField && !hasPresented) {
             const auto first=firstVisibleField->load(std::memory_order_acquire);
             if(!first || frame.vsyncTick<first)return;
         }
         const auto present=[&] {
             if(!display.Present(frame))throw GsWindowClosed();
-            if(firstVisibleField) {
+            if(firstVisibleField && !hasPresented) {
                 std::cerr<<"[ps2-host-first-present] field="<<frame.vsyncTick<<'\n';
-                firstVisibleField=nullptr;
+                if(resuming)StartupTrace("first-resumed-present");
+                hasPresented=true;
             }
         };
         if(frame.Prepared()) {
@@ -279,6 +285,30 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         if(!display.Alive())throw GsWindowClosed();
         impl->Poll();
     });
+    if(impl->options.waitForBorrowedWindow) {
+        impl->parkAtMenu=[&] {
+            const auto began=std::chrono::steady_clock::now();
+            bool resume=false;
+            impl->queue->RunOnConsumer([&] {
+                repeat.reset();
+                prepared.reset();
+                previousPage.reset();
+                display.ReleaseBorrowedSurface();
+                setAudioActive(false);
+                StartupTrace("session-parked");
+                if(!impl->options.waitForBorrowedWindow())return;
+                StartupTrace("resume-begin");
+                display.RestoreBorrowedSurface();
+                display.PresentLoadingFrame();
+                setAudioActive(true);
+                hasPresented=false;
+                resuming=true;
+                resume=true;
+            });
+            if(resume)runtime.eeScheduler().RebaseAfterPause(std::chrono::steady_clock::now()-began);
+            return resume;
+        };
+    }
     std::thread producer([&]{
         try{execute();}catch(...){executionFailure=std::current_exception();}
         finished.store(true,std::memory_order_release);
@@ -310,6 +340,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         // be blocked on a full queue, initial upload, frame or SIGNAL.
     }catch(...){ownerFailure=std::current_exception();}
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
+    impl->parkAtMenu={};
     std::cerr<<"[ps2-ready-frame] confirmed="<<confirmed<<" held="<<held<<" repeated="<<repeated<<" corrected="<<corrected<<'\n';
     impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
     const auto stats=impl->queue->GetStats();

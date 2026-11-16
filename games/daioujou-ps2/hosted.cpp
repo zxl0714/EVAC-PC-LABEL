@@ -4,9 +4,11 @@
 #include "death_label_gadgets.h"
 #include <Windows.h>
 #include <cmath>
+#include <condition_variable>
 #include <filesystem>
 #include <iostream>
 #include <mutex>
+#include <thread>
 
 void cave::daioujou_ps2::ObserveDeathLabelDamage(const std::uint8_t* memory, const R5900Context* context,
                                                 DeathLabelAttack attack, std::uint32_t operands) {
@@ -14,6 +16,10 @@ void cave::daioujou_ps2::ObserveDeathLabelDamage(const std::uint8_t* memory, con
 }
 
 namespace {
+using cave::DeathLabelHost;
+using cave::DeathLabelResult;
+namespace fs = std::filesystem;
+
 bool ValidScreen(const cave::DeathLabelScreen& screen) {
     return screen.width>0 && screen.width<=4096 && screen.height>0 && screen.height<=4096 &&
         screen.offsetX>=-1920 && screen.offsetX<=1920 && screen.offsetY>=-1080 && screen.offsetY<=1080 &&
@@ -51,20 +57,19 @@ private:
     const cave::DeathLabelHost& host_;
     const std::atomic_uint64_t* firstVisibleField_;
 };
+
+bool ValidRequest(const DeathLabelHost* request) {
+    return request && request->version == cave::DeathLabelHostVersion && request->window &&
+        request->closeEvent && request->prepared && request->disc && request->profile &&
+        request->readPad && std::isfinite(request->volume) && request->volume >= 0 && request->volume <= 1 &&
+        request->audio.music <= 100 && request->audio.effects <= 100 && ValidScreen(request->screen);
 }
 
-extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const cave::DeathLabelHost* request) noexcept {
-    using cave::DeathLabelResult;
-    namespace fs = std::filesystem;
+DeathLabelResult RunHosted(const DeathLabelHost* request, const std::function<bool()>& waitForWindow = {}) noexcept {
     try {
         static std::mutex session;
         std::unique_lock lease(session,std::try_to_lock);
-        if (!lease || !request || request->version != cave::DeathLabelHostVersion || !request->window ||
-            !request->closeEvent || !request->prepared || !request->disc || !request->profile ||
-            !request->readPad || !std::isfinite(request->volume) || request->volume < 0 || request->volume > 1 ||
-            request->audio.music > 100 || request->audio.effects > 100 ||
-            !ValidScreen(request->screen))
-            return DeathLabelResult::Failed;
+        if (!lease) return DeathLabelResult::Failed;
         const auto prepared = fs::canonical(request->prepared);
         const auto disc = fs::canonical(request->disc);
         const fs::path profile(request->profile);
@@ -93,6 +98,13 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         options.closeEvent=request->closeEvent;
         options.existingPad=std::make_shared<HostedPad>(*request,firstField);
         options.firstVisibleField=firstField;
+        if (waitForWindow) {
+            options.waitForBorrowedWindow=[&] {
+                if (!waitForWindow()) return false;
+                gadgets.ResetRun();
+                return true;
+            };
+        }
         options.vsync=request->vsync;
         options.reflex=request->reflex;
         options.amdAntiLag=request->amdAntiLag;
@@ -122,4 +134,104 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
     } catch (...) {
         return DeathLabelResult::Failed;
     }
+}
+
+// The renderer and guest keep the same owner threads across menu handoffs.
+// Copy the request before the PS4 caller can leave the stack frame.
+class HostedSession final {
+public:
+    explicit HostedSession(const DeathLabelHost& request)
+        : prepared_(request.prepared),disc_(request.disc),profile_(request.profile),
+          sprites_(request.gadgetSprites ? request.gadgetSprites : L""),
+          actions_(*request.actions),request_(request) {
+        request_.prepared=prepared_.c_str();
+        request_.disc=disc_.c_str();
+        request_.profile=profile_.c_str();
+        request_.gadgetSprites=sprites_.empty() ? nullptr : sprites_.c_str();
+        request_.actions=&actions_;
+        request_.session=nullptr;
+    }
+    ~HostedSession() {
+        if (!owner_.joinable()) return;
+        {
+            std::lock_guard lock(mutex_);
+            if (phase_ != Phase::Finished) phase_=Phase::Stopping;
+        }
+        changed_.notify_all();
+        owner_.join();
+    }
+    bool Matches(const DeathLabelHost& request) const {
+        return request.window == request_.window && request.closeEvent == request_.closeEvent &&
+            request.readPad == request_.readPad && request.padContext == request_.padContext &&
+            request.volume == request_.volume && request.audio == request_.audio &&
+            request.screen == request_.screen && *request.actions == actions_ &&
+            request.vsync == request_.vsync && request.reflex == request_.reflex &&
+            request.amdAntiLag == request_.amdAntiLag && prepared_ == request.prepared &&
+            disc_ == request.disc && profile_ == request.profile &&
+            sprites_ == (request.gadgetSprites ? request.gadgetSprites : L"");
+    }
+    DeathLabelResult Enter() {
+        std::unique_lock lock(mutex_);
+        phase_=Phase::Running;
+        if (!owner_.joinable()) owner_=std::thread([this] { Run(); });
+        else changed_.notify_all();
+        changed_.wait(lock,[&] { return phase_ != Phase::Running; });
+        return phase_ == Phase::Parked ? DeathLabelResult::Completed : result_;
+    }
+    bool Parked() {
+        std::lock_guard lock(mutex_);
+        return phase_ == Phase::Parked;
+    }
+
+private:
+    enum class Phase { Running, Parked, Stopping, Finished };
+    bool WaitForWindow() {
+        std::unique_lock lock(mutex_);
+        phase_=Phase::Parked;
+        changed_.notify_all();
+        changed_.wait(lock,[&] { return phase_ != Phase::Parked; });
+        return phase_ == Phase::Running;
+    }
+    void Run() {
+        const auto result=RunHosted(&request_,[this] { return WaitForWindow(); });
+        {
+            std::lock_guard lock(mutex_);
+            result_=result;
+            phase_=Phase::Finished;
+        }
+        changed_.notify_all();
+    }
+
+    const fs::path prepared_,disc_,profile_,sprites_;
+    const cave::DeathLabelActions actions_;
+    DeathLabelHost request_;
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    Phase phase_{};
+    DeathLabelResult result_{DeathLabelResult::Failed};
+    std::thread owner_;
+};
+}
+
+extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const cave::DeathLabelHost* request) noexcept {
+    try {
+        if (!ValidRequest(request)) return DeathLabelResult::Failed;
+        if (!request->session || !request->actions) return RunHosted(request);
+        auto& slot=*request->session;
+        std::unique_ptr<HostedSession> session(static_cast<HostedSession*>(std::exchange(slot,nullptr)));
+        if (session && !session->Matches(*request)) session.reset();
+        if (!session) session=std::make_unique<HostedSession>(*request);
+        const auto result=session->Enter();
+        if (session->Parked()) slot=session.release();
+        return result;
+    } catch (const std::exception& error) {
+        std::cerr<<"[ps2-death-label] "<<error.what()<<'\n';
+        return DeathLabelResult::Failed;
+    } catch (...) {
+        return DeathLabelResult::Failed;
+    }
+}
+
+extern "C" __declspec(dllexport) void EvacReleaseDeathLabel(void* session) noexcept {
+    delete static_cast<HostedSession*>(session);
 }

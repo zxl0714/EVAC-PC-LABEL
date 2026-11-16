@@ -108,6 +108,7 @@ DaioujouDeathLabel::~DaioujouDeathLabel() {
         squirrel = {};
     }
     if (thunk_) VirtualFree(thunk_, 0, MEM_RELEASE);
+    if (session_) release_(session_);
     if (library_) FreeLibrary(static_cast<HMODULE>(library_));
 }
 
@@ -127,7 +128,8 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
         library_ = LoadLibraryExW(dll.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
         if (!library_) throw std::runtime_error("Cannot load the PS2 DaiOuJou runtime");
         entry_ = reinterpret_cast<RunDeathLabel>(GetProcAddress(static_cast<HMODULE>(library_), DeathLabelEntry));
-        if (!entry_) throw std::runtime_error("PS2 DaiOuJou runtime has no Death Label entry");
+        release_ = reinterpret_cast<ReleaseDeathLabel>(GetProcAddress(static_cast<HMODULE>(library_), DeathLabelRelease));
+        if (!entry_ || !release_) throw std::runtime_error("PS2 DaiOuJou runtime has an incompatible Death Label ABI");
         active = this;
         std::puts("{\"event\":\"daioujou_death_label_data_ready\"}");
         return true;
@@ -138,7 +140,7 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
 }
 
 DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const DeathLabelScreen& screen,
-                                        const DeathLabelAudio& audio) const {
+                                        const DeathLabelAudio& audio) {
     DeathLabelHost host;
     host.prepared = prepared_.c_str();
     host.disc = disc_.c_str();
@@ -148,6 +150,7 @@ DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const
     host.actions = &actions;
     host.screen = screen;
     host.audio = audio;
+    host.session = &session_;
     std::printf("{\"event\":\"daioujou_death_label_audio\",\"music\":%u,\"effects\":%u,\"master\":%g}\n",
         audio.music, audio.effects, volume_);
     return RunNativeVideoDeathLabel(host, entry_);

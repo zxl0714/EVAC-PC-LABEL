@@ -1324,6 +1324,16 @@ uint64_t EeScheduler::currentVSyncTick() const noexcept
     return m_vsyncTick;
 }
 
+void EeScheduler::RebaseAfterPause(std::chrono::steady_clock::duration pause)
+{
+    std::lock_guard lock(m_eventMutex);
+    m_hostClockOrigin += pause;
+    for (auto &event : m_deadlines)
+        event.hostDeadline += pause;
+    if (m_deferredVBlank)
+        m_deferredVBlank->hostDeadline += pause;
+}
+
 std::chrono::steady_clock::time_point EeScheduler::nextVBlankDeadline() const
 {
     return m_hostClockOrigin + eeCyclesToHostDuration((m_vsyncTick + 1) * kVBlankPeriodCycles);

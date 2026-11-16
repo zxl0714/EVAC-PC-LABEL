@@ -27,6 +27,8 @@ public:
     void SetKeyHandler(std::function<void(unsigned,bool)> handler);
     void ToggleFullscreen();
     void ResetForProgram();
+    void ReleaseBorrowedSurface();
+    void RestoreBorrowedSurface();
     // Gate commands for the next game frame, rather than waiting only after
     // those commands have already been sent to the GPU.
     void WaitPreviousFrame();

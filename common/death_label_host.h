@@ -2,7 +2,7 @@
 #include <cstdint>
 
 namespace cave {
-inline constexpr unsigned DeathLabelHostVersion = 5;
+inline constexpr unsigned DeathLabelHostVersion = 6;
 
 enum class DeathLabelResult : int { Failed, Completed, Exit, Closed };
 
@@ -11,6 +11,7 @@ struct DeathLabelActions {
     std::uint16_t shot{};
     std::uint16_t bomb{};
     std::uint16_t rapid{};
+    bool operator==(const DeathLabelActions&) const = default;
 };
 
 struct DeathLabelScreen {
@@ -21,11 +22,13 @@ struct DeathLabelScreen {
     int offsetY{};
     unsigned quarterTurns{}; // Clockwise from the upright game image.
     bool gadgets = true;
+    bool operator==(const DeathLabelScreen&) const = default;
 };
 
 struct DeathLabelAudio {
     unsigned music = 100;
     unsigned effects = 100;
+    bool operator==(const DeathLabelAudio&) const = default;
 };
 
 // The caller owns the window, its message pump, and all pointers until return.
@@ -47,8 +50,13 @@ struct DeathLabelHost {
     const DeathLabelActions* actions{};
     DeathLabelScreen screen{};
     DeathLabelAudio audio{};
+    // Optional caller-owned slot for one parked session. Release it before
+    // unloading the runtime, while no window handoff is in progress.
+    void** session{};
 };
 
 using RunDeathLabel = DeathLabelResult (*)(const DeathLabelHost*) noexcept;
+using ReleaseDeathLabel = void (*)(void*) noexcept;
 inline constexpr const char* DeathLabelEntry = "EvacRunDeathLabel";
+inline constexpr const char* DeathLabelRelease = "EvacReleaseDeathLabel";
 }

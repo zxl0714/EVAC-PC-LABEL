@@ -906,6 +906,11 @@ namespace ps2x::iop::detail
         m_impl->memory.setAudioVolumes(stream, voices);
     }
 
+    void IopEmulator::discardAudio() noexcept
+    {
+        m_impl->memory.discardAudio();
+    }
+
     size_t IopEmulator::readPcm(void *stereo, size_t frames) noexcept
     {
         return m_impl->memory.readPcm(stereo, frames);

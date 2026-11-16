@@ -62,6 +62,12 @@ public:
         state_ = state;
     }
 
+    void ResetRun() {
+        feed_.ResetRun();
+        std::lock_guard lock(mutex_);
+        state_ = {};
+    }
+
 private:
     void Draw(std::vector<Overlay::Quad>& quads) {
         using namespace death_label;

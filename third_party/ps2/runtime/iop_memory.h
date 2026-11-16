@@ -90,6 +90,7 @@ namespace ps2x::iop::detail
         [[nodiscard]] uint64_t nextAudioCycle() const noexcept;
         [[nodiscard]] bool audioIrqPending() const noexcept;
         void setAudioVolumes(unsigned stream, unsigned voices) noexcept;
+        void discardAudio() noexcept;
         size_t readPcm(void *stereo, size_t frames) noexcept;
         [[nodiscard]] std::span<const uint8_t> ram() const noexcept { return m_ram; }
 
