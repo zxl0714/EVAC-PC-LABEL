@@ -123,7 +123,10 @@ The v0.10.0 compatibility matrix is accepted for the available inputs. It has
 66 verified cells and 53 cells awaiting distinct ROM samples. See
 `docs/ROM_COMPATIBILITY.md` and its linked evidence. PS4 01.00 and 01.04 now
 complete the actual menu handoff and Game Over round trip, including fullscreen
-and re-entry. Full-clear results and high score entry remain unverified.
+and re-entry. The shared Death Label runtime waits through original high-score
+name entry and password confirmation, then completes. Evidence is the isolated
+score-seeded player run `death-results-score-r2` beside the other PS2 runs.
+Full-clear results remain unverified.
 
 Local candidate `releases/v0100-00ab99e/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
 contains 170,940,838 bytes and freezes program source at `00ab99e`.

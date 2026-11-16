@@ -9,11 +9,12 @@
 - `death-natural-trace-r1/scanout.png` 录到 PS2 玩家局，`death-natural-trace-r2/scanout.png` 录到自然 Game Over，输入记录确认开局后未再按键。原版运行先退出关内状态，完整显示结算画面后才重新打开根菜单。
 - `death-session-complete-r1/` 从 `boot.elf` 的测试启动参数改走 `DEATH.ELF`，在第 3,060 场录到 Game Over，在第 3,154 场报告 `completed`，进程正常退出。`death-session-exit-r1/` 在未开局时确认 EXIT，原版请求回主程序，测试入口报告 `exit` 并正常结束。两次都只有一个活动的客体程序。
 - PS4 运行时的窗口验证入口使用同一个 HWND 完成 PS4 Vulkan → PS2 → PS4 Vulkan。`ps4-window-handoff-r1/game-over/` 记录 PS4 键盘事件、PS2 玩家局、音频输出及自然 Game Over。PS4 交换链重新绑定后窗口仍有效。`missing-data/` 确认 PS2 启动失败能恢复呈现，`fullscreen-close/` 确认全屏下关闭窗口能结束 PS2 并清理窗口。`standalone-shared-library-r1/` 确认独立入口启动原版主程序，呈现 180 场并退出。
-- 上述独立和窗口验证记录在 `.local/v0100/daioujou-ps2-analysis-r1/`。高分登记和完整通关结算仍待实测。
+- 上述独立和窗口验证记录在 `.local/v0100/daioujou-ps2-analysis-r1/`。完整通关结算仍待实测。
 - PS4 大往生 01.00／01.04 从合集启动契约实测，PS2 ISO 与运行时验证完成后都成功注册了 Squirrel 入口。无 PS2 数据的 01.04 继续出帧且未注册入口。三次均正常关闭，见 `.local/v0100/daioujou-ps4-death-menu/binding-check-r2/`。四组 PS4 原生 CTest 通过。
 - 从启动器以 PS4 01.00 明文 SELF 数据及 X Arrange 曲包启动，直达菜单同时显示原曲集选项与 DEATH LABEL。选中后在同一 HWND 内完成 PS2 玩家局、自然 Game Over，并返回直达菜单。截图和进程记录位于 `.local/v0911/live-acceptance/daioujou/v0100-death-menu-gameover-r1/`，合集日志的 `daioujou_death_label_return` 为 `Completed`。另一次从该入口切换后关闭窗口，报告 `Closed`，正常退出。
 - 01.04 合并补丁与 X Arrange 曲包也通过实际玩家局、Game Over、同窗口返回，并从原选项再次启动 PS2。第二次启动时关闭窗口正常退出，证据为同级 `v0100-death-menu-gameover-104-r1/`。用带曲包的既有测试存档切回无曲包数据时停在暂停菜单，需用无曲包存档单独核对。
 - 01.04 合并补丁无 X Arrange 的独立新档，全屏以 3840×2160 从直达菜单进入 Death Label。玩家局自然 Game Over 后，同一进程和窗口以原尺寸返回直达菜单，光标仍在 Death Label。启动配置的 `fullscreen=true` 及返回事件 `Completed` 已核对，见 `.local/v0911/live-acceptance/daioujou/v0100-death-stock-fullscreen-r1/` 和对应启动器报告 `run-20261116T005636118Z-45444/`。
+- Death Label 共用运行时通过高分登记验收。隔离的测试局在关内注入一次高分，玩家局随后自然 Game Over，原版显示姓名录入，确认三个字符后显示原版密码。确认关闭密码后，嵌入会话报告 `Completed` 并正常退出。对照测试未确认登记，在帧上限时仍为 `interrupted`。记录见 `.local/v0100/daioujou-ps2-analysis-r1/death-results-score-r1/` 和 `death-results-score-r2/`。
 
 ## v0.10.0 程序包验收
 
