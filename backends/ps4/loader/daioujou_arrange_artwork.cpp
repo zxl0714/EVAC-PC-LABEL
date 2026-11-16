@@ -345,7 +345,7 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
             x+=7;
             y+=66;
             width=46;
-            height=15;
+            height=21;
         }
         if(!width || !height || width>4096 || height>4096 || x>4096-width || y>4096-height ||
            std::uint64_t{width}*height*4+bytes.size()>GadgetPixelBudget)
@@ -357,6 +357,21 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         for (unsigned row = 0; row < height; ++row)
             for (unsigned column = 0; column < width; ++column, destination += 4)
                 std::copy_n(atlas.data() + AtlasPixel(x + column,y + row),4,bytes.data() + destination);
+        if (i == ComboPanel && update) {
+            // 01.04 moved the boss-hit caption off the panel and into its own layer.
+            const auto& caption=icons.at("0594");
+            const auto cx=caption.at("left").get<unsigned>(),cy=caption.at("top").get<unsigned>();
+            const auto cw=caption.at("width").get<unsigned>(),ch=caption.at("height").get<unsigned>();
+            auto* panel=bytes.data()+bytes.size()-std::size_t{width}*height*4;
+            for (unsigned row=0; row<ch; ++row) {
+                for (unsigned column=0; column<cw; ++column) {
+                    const auto* ink=atlas.data()+AtlasPixel(cx+column,cy+row);
+                    auto* pixel=panel+((36+row)*width+10+column)*4;
+                    for (unsigned c=0; c<3; ++c)
+                        pixel[c]=static_cast<std::uint8_t>((ink[c]*ink[3]+pixel[c]*(255-ink[3])+127)/255);
+                }
+            }
+        }
     }
     return bytes;
 }
