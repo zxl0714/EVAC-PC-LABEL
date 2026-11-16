@@ -3,6 +3,7 @@
 #include "ps2_runtime.h"
 #include "runtime/ee_scheduler.h"
 #include <atomic>
+#include <cstring>
 #include <iostream>
 #include <functional>
 #include <stdexcept>
@@ -62,6 +63,7 @@ private:
     // processing the previous field; its earlier startup calls use a
     // different return address. Menu state 1 / page 0 is the root menu.
     static constexpr uint32_t FrameEntry = 0x1afd60, FrameReturn = 0x1e65e8;
+    static constexpr uint32_t BootFrameReturn = 0x1e64dc;
     static constexpr uint32_t GuestGp = 0x2965f0;
     static constexpr uint32_t Playing = GuestGp - 0x5cb0;
     static constexpr uint32_t Scene = GuestGp - 0x54a8;
@@ -120,9 +122,64 @@ private:
         session.consumeInput_(memory,ctx,runtime);
     }
 
+    static void ShortenStartupPresentation(uint8_t* memory, uint32_t caller) {
+        constexpr uint32_t LogoState = GuestGp - 0x5840, LogoOpacity = GuestGp - 0x5848;
+        if (caller == BootFrameReturn) {
+            // State 3 is the logo fade after the disc loader has finished.
+            if (memory[LogoState] == 3) {
+                constexpr uint16_t lastFadeStep = 8;
+                std::memcpy(memory + LogoOpacity, &lastFadeStep, sizeof lastFadeStep);
+            }
+            return;
+        }
+
+        const auto readWord = [memory](uint32_t address) {
+            uint32_t value;
+            std::memcpy(&value, memory + address, sizeof value);
+            return value;
+        };
+        const auto writeWord = [memory](uint32_t address, uint32_t value) {
+            std::memcpy(memory + address, &value, sizeof value);
+        };
+        constexpr uint32_t CardOperation = GuestGp - 0x5ab8, CardDialog = GuestGp - 0x5ac0;
+        constexpr uint32_t CardMode = GuestGp - 0x5adc, CardStep = GuestGp - 0x5ae8;
+        constexpr uint32_t CardCheckHold = GuestGp - 0x5af4, CardLoadHold = GuestGp - 0x5ae0;
+        constexpr uint32_t CardLoadResultStep = GuestGp - 0x5ac4;
+        constexpr uint32_t CardFinishing = GuestGp - 0x5ad0, CardOpacity = GuestGp - 0x5ac8;
+        if (readWord(CardDialog) == 1) {
+            const auto operation = readWord(CardOperation);
+            const auto mode = memory[CardMode], step = memory[CardStep];
+            // Keep the original GetInfo, open, read and completion checks.
+            // These counters only hold the checking and result messages on screen.
+            if (operation == 3 && mode == 50 && step == 1)
+                memory[CardCheckHold] = 1;
+            if (operation == 4 && mode == 21 && (step == 1 || step == 66))
+                memory[CardLoadHold] = 1;
+            if (operation == 4 && mode == 23) {
+                const auto resultStep = readWord(CardLoadResultStep);
+                if (resultStep == 1 || resultStep == 7) memory[CardCheckHold] = 1;
+            }
+            if ((operation == 3 || operation == 4) && readWord(CardFinishing) == 1)
+                writeWord(CardOpacity, 0);
+        }
+
+        constexpr uint32_t RootMenuPhase = GuestGp - 0x5928;
+        constexpr uint32_t MenuFade = GuestGp - 0x595c, MenuOpacity = GuestGp - 0x58ec;
+        if (memory[Menu] == 1 && memory[MenuPage] == 0 && memory[RootMenuPhase] == 1) {
+            // Group zero has six opening slides. The guest snaps each item to
+            // its actual destination on expiry before enabling root confirmation.
+            constexpr uint32_t FirstSlideTimer = 0x620190 + 0x28, SlideStride = 0x38;
+            for (unsigned i = 0; i < 6; ++i) writeWord(FirstSlideTimer + i * SlideStride, 0);
+            if (memory[MenuFade] == 1) writeWord(MenuOpacity, 124);
+        }
+    }
+
     static void Frame(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
         auto& session = *active_;
-        if (getRegU32(ctx,31) == FrameReturn && getRegU32(ctx,28) == GuestGp) {
+        const auto caller = getRegU32(ctx,28) == GuestGp ? getRegU32(ctx,31) : 0;
+        if (session.firstVisibleField_ && (caller == BootFrameReturn || caller == FrameReturn))
+            ShortenStartupPresentation(memory, caller);
+        if (caller == FrameReturn) {
             const bool playing = memory[Playing] != 0;
             const auto menu = memory[Menu];
             if (session.firstVisibleField_) {
