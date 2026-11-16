@@ -119,6 +119,21 @@ and feature-matrix checks are open.
 The preceding v0.9.11 release remains frozen at `5579c1a`. Its public program ZIP
 was verified on GitHub. The v0.10.0 worktree does not publish a release by itself.
 
+The v0.10.0 compatibility matrix is accepted for the available inputs. It has
+66 verified cells and 53 cells awaiting distinct ROM samples. See
+`docs/ROM_COMPATIBILITY.md` and its linked evidence. PS4 01.00 and 01.04 now
+complete the actual menu handoff and Game Over round trip, including fullscreen
+and re-entry. Full-clear results and high score entry remain unverified.
+
+Local candidate `releases/v0100-00ab99e/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
+contains 170,940,838 bytes and freezes program source at `00ab99e`.
+SHA-256: `c6732cb326e59a61e0f9df9b5b2061eca0a21a99251a8b0fd2e224c420e290af`.
+One extraction verified all 206 files and all 12 runtime paths. The extracted
+launcher accepted the external Japanese PS2 DaiOuJou ISO and the game closed
+normally after presenting 169 frames. Package logs are at
+`.local/v0100/release-candidate-41a35ee/`. No source build, extraction or package
+needs to be repeated for acceptance-only documentation edits.
+
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.
 Release ID 443143602, published 2026-11-12T15:35:28Z. The annotated tag points
