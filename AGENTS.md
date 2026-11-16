@@ -128,14 +128,21 @@ name entry and password confirmation, then completes. Evidence is the isolated
 score-seeded player run `death-results-score-r2` beside the other PS2 runs.
 Full-clear results remain unverified.
 
-Local candidate `releases/v0100-00ab99e/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
-contains 170,940,838 bytes and freezes program source at `00ab99e`.
-SHA-256: `c6732cb326e59a61e0f9df9b5b2061eca0a21a99251a8b0fd2e224c420e290af`.
+The assisted clear attempt found a real missing bullet-script callback at
+`0x128570`. The original initializer identifies 29 missing Death Label bodies
+and seven Arcade entry points. The new build registers them all, passes 25 PS2
+contracts and reaches the first boss past the previous failure. Runs ending
+at 15,500 or 18,000 fields still show that boss. Further clear testing needs
+the actual boss damage or encounter-selection state. Keep the isolated input
+and profile, and reuse the existing Game Over and high-score acceptance.
+
+Local candidate `releases/v0100-457e94c/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
+contains 170,930,845 bytes and freezes program source at `457e94c`.
+SHA-256: `34d4a2febcdb781bf02b3e736d205771e92a40b4360d523fcdd474e0efa7eeec`.
 One extraction verified all 206 files and all 12 runtime paths. The extracted
-launcher accepted the external Japanese PS2 DaiOuJou ISO and the game closed
-normally after presenting 169 frames. Package logs are at
-`.local/v0100/release-candidate-41a35ee/`. No source build, extraction or package
-needs to be repeated for acceptance-only documentation edits.
+launcher accepted the external Japanese PS2 DaiOuJou ISO and closed normally
+after 119 presented frames. Evidence: `.local/v0100/release-candidate-457e94c/`.
+Reuse this package for acceptance-only documentation edits.
 
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.
