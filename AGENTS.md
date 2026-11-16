@@ -130,13 +130,12 @@ include 39 Death Label and 13 Arcade entries identified from the original
 script initializers and data tables. All three disc programs pass static-edge
 validation, and 25 PS2 contracts pass on the final build.
 
-Local candidate `releases/v0100-3cc2580/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
-contains 170,945,254 bytes and freezes program source at `3cc2580`.
-SHA-256: `1995285c6b46c484fa5812bb425e000bfe9cedb825c9a80497a99a625c92f757`.
-One extraction verified all 206 files and all 12 runtime paths. The extracted
-launcher accepted the external Japanese PS2 DaiOuJou ISO and closed normally
-after 138 presented frames. Evidence: `.local/v0100/release-candidate-3cc2580/`.
-Reuse this local candidate for publication and acceptance-only documentation edits.
+Local candidate `releases/v0100-8423e0e/EVAC-PC-LABEL-v0.10.0-win-x64.zip`
+contains 171,264,178 bytes and freezes program source at `8423e0e`.
+SHA-256 `b6c028ecb37249d44211ac7b93d716f88db0ebdf4f13802c53933744024cb4de`.
+One extraction verified 206 files and 12 games. The revised Death Label card
+and PS4 player-one control inheritance passed gameplay checks on 01.00 and 01.04.
+Evidence is in `.local/v0100/release-candidate-8423e0e/` and `docs/TEST_MATRIX.md`.
 
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.

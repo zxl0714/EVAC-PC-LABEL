@@ -17,6 +17,7 @@
 - Death Label 共用运行时通过高分登记验收。隔离的测试局在关内注入一次高分，玩家局随后自然 Game Over，原版显示姓名录入，确认三个字符后显示原版密码。确认关闭密码后，嵌入会话报告 `Completed` 并正常退出。对照测试未确认登记，在帧上限时仍为 `interrupted`。记录见 `.local/v0100/daioujou-ps2-analysis-r1/death-results-score-r1/` 和 `death-results-score-r2/`。
 - 通关测试的隔离玩家局先后触发缺失回调 `0x128570`、`0x2002b0`、`0x11f480`。核对原版的脚本初始化和数据指针表后，补齐 Death Label 的 39 个回调及 Arcade 的 13 个对应入口。三套程序通过静态跳转检查，25 项 PS2 回归通过。现场见 `death-results-clear-r2/`、`death-results-victory-r2/` 和 `run-20261116T051121469Z-48260/`，注册核对见 `death-callback-registration-r1.json` 与 `death-dispatch-callback-registration-r1.json`。
 - PS4 01.04 使用原曲集和隔离存档，从直达菜单启动。测试辅助屏蔽玩家碰撞并放大命中伤害，击破、结算和周目切换均由原版程序执行。测试局完成一、二周目和姓名登记，PS2 共呈现 29,710 场，报告 `Completed`。随后在同一进程和窗口恢复 PS4 呈现，光标停在 Death Label，窗口可正常关闭。截图见 `.local/v0911/live-acceptance/daioujou/v0100-death-clear-104-r5/`，合集日志为 `run-20261116T052030434Z-46216/`。
+- 新卡片与操作继承在 01.00 明文 SELF 加 X Arrange、01.04 合并补丁原曲集上复验，均从直达菜单进入玩家实战。01.04 用 PS4 自定义 A 左移、W 炸弹，机体位移且炸弹库存减少。01.00 用 PS4 的 R1 射击和 Circle 连射，实拍激光和连射弹。1080p 实拍中新卡片的左描边和红条与原版卡片像素对齐。记录见 `.local/v0911/live-acceptance/daioujou/v0100-release-controls-100/` 和 `v0100-release-controls-104/`。
 
 ## v0.10.0 程序包验收
 
@@ -24,7 +25,8 @@
 - 从解压目录用自带检查工具确认 12 款游戏均提示缺少游戏数据，运行时齐全。另用启动器从外部日版 ISO 启动 PS2 大往生，呈现 169 帧后关闭窗口，退出码 0。过程记录见 `.local/v0100/release-candidate-41a35ee/extracted/logs/daioujou-ps2/run-20261116T035225400Z-12792/`。
 - PS4 四组及 PS2 二十五组原生检查通过。Xbox 360 和启动器的 58 组原生检查通过。全量源码检查仍有两项既有问题，虫姬二旧回调数断言期待 31 而实际为 32，shadPS4 实验探针测试引用较早的模板。虫姬二像素测试在具备 NumPy 的 Python 环境中单独通过。
 - PS2 大往生回调修订后的候选包 `releases/v0100-457e94c/EVAC-PC-LABEL-v0.10.0-win-x64.zip` 对应提交 `457e94c`，SHA-256 `34d4a2febcdb781bf02b3e736d205771e92a40b4360d523fcdd474e0efa7eeec`。校验 ZIP 并解压一次，206 个清单文件及 12 款游戏通过核对。PS2 25 项原生检查通过。用包内启动器加载外部日版 ISO，实际呈现 119 帧并以退出码 0 关闭。ESPGaluda 和铸蔷薇的可执行内容逐节核对一致，差异来自调试记录。证据见 `.local/v0100/release-candidate-457e94c/`。
-- 最终本地候选包 `releases/v0100-3cc2580/EVAC-PC-LABEL-v0.10.0-win-x64.zip` 对应提交 `3cc2580`，SHA-256 `1995285c6b46c484fa5812bb425e000bfe9cedb825c9a80497a99a625c92f757`。一次解包验证 206 个清单文件和 12 款运行时。包内启动器使用外部日版 ISO，呈现 138 帧并正常退出。Xbox 360、PS4 和启动器二进制与上一个已验收的候选包相同，ESPGaluda 和铸蔷薇仅调试记录变化。证据见 `.local/v0100/release-candidate-3cc2580/`。
+- 候选包 `releases/v0100-3cc2580/EVAC-PC-LABEL-v0.10.0-win-x64.zip` 对应提交 `3cc2580`，SHA-256 `1995285c6b46c484fa5812bb425e000bfe9cedb825c9a80497a99a625c92f757`。一次解包验证 206 个清单文件和 12 款运行时。包内启动器使用外部日版 ISO，呈现 138 帧并正常退出。Xbox 360、PS4 和启动器二进制与上一个已验收的候选包相同，ESPGaluda 和铸蔷薇仅调试记录变化。证据见 `.local/v0100/release-candidate-3cc2580/`。
+- 当前候选包 `releases/v0100-8423e0e/EVAC-PC-LABEL-v0.10.0-win-x64.zip` 对应提交 `8423e0e`，SHA-256 `b6c028ecb37249d44211ac7b93d716f88db0ebdf4f13802c53933744024cb4de`。检查 206 个清单文件和 12 款运行时，解包的大往生 PS4 与嵌入 PS2 运行时均与实测文件逐字节一致。证据见 `.local/v0100/release-candidate-8423e0e/`。
 
 ## v0.10.0 韩版空战之路英文界面
 
