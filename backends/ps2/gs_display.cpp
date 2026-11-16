@@ -275,6 +275,17 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
+void GsDisplay::PresentLoadingFrame() {
+    if(!Alive() || IsIconic(impl->window.handle) || !impl->wsi.begin_frame())return;
+    auto& device=impl->wsi.get_device();
+    auto pass=device.get_swapchain_render_pass(Vulkan::SwapchainRenderPass::ColorOnly);
+    pass.clear_color[0].float32[3]=1.0f;
+    auto command=device.request_command_buffer();
+    command->begin_render_pass(pass);
+    command->end_render_pass();
+    device.submit(command);
+    if(impl->wsi.end_frame())StartupTrace("loading-frame-presented");
+}
 bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->window.reflex.BeginOutput();
     auto& state=*impl->gs->impl;

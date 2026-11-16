@@ -32,6 +32,7 @@ public:
     void WaitPreviousFrame();
     void BeforeInput(uint64_t responseField,unsigned budgetUs);
     void SimulationReady(uint64_t responseField);
+    void PresentLoadingFrame();
     bool Present(const GsFrame& request,bool repeatCompletedImage=false);
 private:
     class Impl;
