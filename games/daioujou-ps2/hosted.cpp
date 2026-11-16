@@ -47,15 +47,28 @@ public:
         : host_(host),firstVisibleField_(firstVisibleField) {}
     cave::ps2::HostPadState Read(unsigned port) override {
         cave::ps2::HostPadState state;
-        if(firstVisibleField_ && !firstVisibleField_->load(std::memory_order_acquire)) return state;
+        const auto entry=firstVisibleField_ ? firstVisibleField_->load(std::memory_order_acquire) : 0;
+        if(firstVisibleField_ && !entry) return state;
         uint32_t buttons{};
         host_.readPad(host_.padContext,port,&buttons,state.axes.data());
         state.buttons=cave::ps2::Ps2Buttons(buttons);
+        if(entry && port < input_.size()) {
+            auto& input=input_[port];
+            // A warm entry can finish while the PS4 menu confirmation is held.
+            if(input.entry != entry) input={entry,state.buttons};
+            input.held &= state.buttons;
+            state.buttons &= ~input.held;
+        }
         return state;
     }
 private:
+    struct EntryInput {
+        uint64_t entry{};
+        uint16_t held{};
+    };
     const cave::DeathLabelHost& host_;
     const std::atomic_uint64_t* firstVisibleField_;
+    std::array<EntryInput,2> input_{};
 };
 
 bool ValidRequest(const DeathLabelHost* request) {

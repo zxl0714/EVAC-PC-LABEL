@@ -53,7 +53,8 @@ public:
         Binding(DeathLabelGadgetFeed& feed, PS2Runtime& runtime)
             : runtime_(runtime), sound_(runtime.lookupFunction(SoundCommand)),
               miss_(runtime.lookupFunction(PlayerMiss)) {
-            if (active_ || !sound_ || !miss_ || !runtime_.replaceFunction(SoundCommand, &Sound))
+            if (active_ || !sound_ || sound_ == &Sound || !miss_ || miss_ == &Miss ||
+                !runtime_.replaceFunction(SoundCommand, &Sound))
                 throw std::runtime_error("Cannot bind Death Label Gadget audio");
             if (!runtime_.replaceFunction(PlayerMiss, &Miss)) {
                 runtime_.replaceFunction(SoundCommand, sound_);
