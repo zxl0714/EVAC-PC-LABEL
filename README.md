@@ -16,7 +16,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 </p>
 
 <p align="center">
-  <a href="docs/images/launcher.png"><img src="docs/images/launcher.png" width="640" alt="EVAC PC LABEL 启动器：十一款游戏的封面网格"></a>
+  <a href="docs/images/launcher.png"><img src="docs/images/launcher.png" width="640" alt="EVAC PC LABEL 启动器的十二款游戏封面"></a>
 </p>
 
 ## 延迟与性能

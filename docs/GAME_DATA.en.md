@@ -286,7 +286,7 @@ Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, th
 
 ### バトルガレッガ Rev.2016 — Battle Garegga Rev.2016 (garegga)
 
-Supports the **Korean CUSA10207 01.00 base game** with English menus.
+Supports the **Korean CUSA10207 01.00 base game**, with English menus by default. To switch back to Korean, set `english_translation = false` under `[game.garegga]` in `user-data/config.ini` and restart the game.
 
 ```text
 game-data/garegga/

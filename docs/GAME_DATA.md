@@ -284,7 +284,7 @@ game-data/feveron/
 
 ### バトルガレッガ Rev.2016（garegga）
 
-支持 **韩版 CUSA10207／01.00 本体**，游戏菜单显示英文。
+支持 **韩版 CUSA10207／01.00 本体**，游戏菜单默认显示英文。要切回韩文，在 `user-data/config.ini` 的 `[game.garegga]` 下设置 `english_translation = false`，然后重启游戏。
 
 ```text
 game-data/garegga/

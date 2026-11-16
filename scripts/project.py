@@ -33,9 +33,13 @@ RUNTIME_ARTWORK = {
 }
 DOC_SCREENSHOTS = {
     'docs/images/launcher.png':
-        'eeb1d684791155508359bdbe465ea342481b8cfc07251ee24a9d1f01c57708bc',
+        '3e619da84787ccb1078065c7a5077510f7bc531018d98d2561147b8f4f9bfaf5',
     'docs/images/ketsui-x-arrange.jpg':
         'c92de91289b8fdcb3ffb3b295561c219362dec19021b0b71674859f307c525f4',
+    'docs/images/daioujou-death-label-menu.png':
+        'd608819448f7986fa43f9367dbe57fbabc3a76865707e49f93c14aecef812bcc',
+    'docs/images/daioujou-death-label-gameplay.png':
+        '7ca642c277cacdf56f1750d76dfa19830e24a820bb43ce37098feb49f1ae405d',
 }
 
 
