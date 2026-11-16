@@ -7,8 +7,8 @@
       "discPath": "SLPS_252.33",
       "elfSha256": "3c326c8a93138303a193fb2a698cebcea361c3a657210afcb85ff6830cd32c18",
       "map": "boot.csv.gz",
-      "mapSha256": "0f8e5704803acad38186410e4a32d7b4068d3fbec809f0d808594ace6a0685d1",
-      "rows": 19775,
+      "mapSha256": "3709f170c5c8e1e767171b9c57939962cef88126cad1690846ff4aee482596da",
+      "rows": 19778,
       "general": {
         "output_worker_threads": 4,
         "single_file_output": false,
@@ -152,8 +152,8 @@
       "discPath": "DEATH.ELF",
       "elfSha256": "c44c4368d2eb80329c614e3954017c443454886dc50a93cc898320be8b251cbf",
       "map": "death.csv.gz",
-      "mapSha256": "b3542c3b9d707460bba85ddbb48ac2494d355f6dbc898db0c095d97bf087630b",
-      "rows": 19996,
+      "mapSha256": "157f5d1b221afca4725ceff51a73597198320188bd3f3a308f8c61f1059b7058",
+      "rows": 20003,
       "general": {
         "output_worker_threads": 4,
         "single_file_output": false,
