@@ -137,6 +137,17 @@ One extraction verified 206 files and 12 games. The revised Death Label card
 and PS4 player-one control inheritance passed gameplay checks on 01.00 and 01.04.
 Evidence is in `.local/v0100/release-candidate-8423e0e/` and `docs/TEST_MATRIX.md`.
 
+The current local player ZIP is
+`releases/v0100-5d5e424/EVAC-PC-LABEL-v0.10.0-win-x64.zip`, source `5d5e424`,
+SHA-256 `f94e974871f2f63fe8aa86ff0efb225e0464bef15055c97b156abbf9ed51eb5e`.
+Extraction verified 208 entries and both DaiOuJou binaries. The isolated
+borrowed-window test used the production PS2 DLL and reached fighter selection
+in 3.05 seconds cold and 0.157 seconds after Game Over, with the same guest
+allocation and one actual bomb counted in each run. The full PS4 UI stays
+available for player acceptance. The Gadget check replayed 5,193 captured
+fields and kept Deaths at zero through all ten bonus stock reductions.
+Evidence is in `.local/v0100/warm-death-label/hidden-final/`.
+
 v0.9.9 is formally published as Latest:
 https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.9.9.
 Release ID 443143602, published 2026-11-12T15:35:28Z. The annotated tag points
