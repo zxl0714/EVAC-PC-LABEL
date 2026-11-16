@@ -153,8 +153,12 @@ private:
             // These counters only hold the checking and result messages on screen.
             if (operation == 3 && mode == 50 && step == 1)
                 memory[CardCheckHold] = 1;
-            if (operation == 4 && mode == 21 && (step == 1 || step == 66))
-                memory[CardLoadHold] = 1;
+            if (operation == 4 && mode == 21) {
+                // The first wait tests zero before decrementing. The result
+                // wait decrements first and advances when it reaches zero.
+                if (step == 1) memory[CardLoadHold] = 0;
+                if (step == 66) memory[CardLoadHold] = 1;
+            }
             if (operation == 4 && mode == 23) {
                 const auto resultStep = readWord(CardLoadResultStep);
                 if (resultStep == 1 || resultStep == 7) memory[CardCheckHold] = 1;
