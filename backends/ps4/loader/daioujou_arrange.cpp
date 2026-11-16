@@ -167,7 +167,20 @@ void AddDeathLabelMenu(std::string& direct) {
       if (mask & M2EpiPadFlag.BUTTON_B) bomb = bomb | button[1];
       if (mask & M2EpiPadFlag.BUTTON_C) rapid = rapid | button[1];
     }
-    ::evac_run_death_label(shot, bomb, rapid);
+    // Use the effective playfield, including the size preset and manual offsets.
+    local emu = ::g_emu_task;
+    local screen = ::g_systemdata.get_value(SystemDataValueIndex.SETTING_SCREEN);
+    local width = emu.getWidth() * emu.scaleX;
+    local height = emu.getHeight() * emu.scaleY;
+    if (abs(emu.getRotZdegree()) == 90) {
+      local swapped = width;
+      width = height;
+      height = swapped;
+    }
+    local rotation = screen.get_rot_mode();
+    local turns = rotation == RotateMode.ROT_L ? 3 : (rotation == RotateMode.ROT_R ? 1 : 0);
+    ::evac_run_death_label(shot, bomb, rapid, (width + 0.5).tointeger(),
+      (height + 0.5).tointeger(), screen.get_pos_x(), screen.get_pos_y(), turns);
   }
 
   function _exec_Manual() {)nut", 1);

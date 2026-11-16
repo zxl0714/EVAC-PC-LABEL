@@ -13,7 +13,7 @@ public:
     DaioujouDeathLabel& operator=(const DaioujouDeathLabel&) = delete;
 
     bool Prepare(const fs::path& root, const Ini& ini, std::string_view profile);
-    DeathLabelResult Run(const DeathLabelActions& actions) const;
+    DeathLabelResult Run(const DeathLabelActions& actions, const DeathLabelScreen& screen) const;
     static void InstallBinding(std::span<std::uint8_t> image, std::span<const std::uint8_t,32> identity);
 
 private:

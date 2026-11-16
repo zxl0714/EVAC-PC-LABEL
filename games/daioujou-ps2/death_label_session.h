@@ -11,12 +11,18 @@ namespace cave::daioujou_ps2 {
 class DeathLabelSession {
 public:
     explicit DeathLabelSession(PS2Runtime& runtime, const DeathLabelActions* actions = nullptr)
-        : runtime_(runtime), original_(runtime.lookupFunction(FrameEntry)), actions_(actions) {
-        if (active_ || !original_ || !runtime_.replaceFunction(FrameEntry, &Frame))
+        : runtime_(runtime), original_(runtime.lookupFunction(FrameEntry)),
+          initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions) {
+        if (active_ || !original_ || !initOptions_ || !runtime_.replaceFunction(FrameEntry, &Frame))
             throw std::runtime_error("Cannot start hosted Death Label");
+        if (!runtime_.replaceFunction(InitOptionsEntry, &InitOptions)) {
+            runtime_.replaceFunction(FrameEntry, original_);
+            throw std::runtime_error("Cannot set hosted Death Label defaults");
+        }
         if (actions_) {
             consumeInput_ = runtime_.lookupFunction(ConsumeInputEntry);
             if (!consumeInput_ || !runtime_.replaceFunction(ConsumeInputEntry, &ConsumeInput)) {
+                runtime_.replaceFunction(InitOptionsEntry, initOptions_);
                 runtime_.replaceFunction(FrameEntry, original_);
                 throw std::runtime_error("Cannot bind hosted Death Label controls");
             }
@@ -25,6 +31,7 @@ public:
     }
     ~DeathLabelSession() {
         if (consumeInput_) runtime_.replaceFunction(ConsumeInputEntry, consumeInput_);
+        runtime_.replaceFunction(InitOptionsEntry, initOptions_);
         runtime_.replaceFunction(FrameEntry, original_);
         active_ = nullptr;
     }
@@ -42,8 +49,16 @@ private:
     static constexpr uint32_t Playing = GuestGp - 0x5cb0;
     static constexpr uint32_t Menu = GuestGp - 0x59b0;
     static constexpr uint32_t MenuPage = GuestGp - 0x5920;
+    static constexpr uint32_t InitOptionsEntry = 0x238160, MapDisplay = GuestGp - 0x5d88;
     static constexpr uint32_t ConsumeInputEntry = 0x16b450, ConsumeInputReturn = 0x1afd98;
     static constexpr uint32_t PlayerOnePad = 0x61ad3c, ArcadeInput = 0x290818;
+
+    static void InitOptions(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
+        active_->initOptions_(memory,ctx,runtime);
+        // The original option remains editable in the pause menu and saved
+        // settings are still applied by the memory-card loader.
+        memory[MapDisplay] = 0;
+    }
 
     static void ConsumeInput(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
         const auto& session = *active_;
@@ -81,6 +96,7 @@ private:
     static inline DeathLabelSession* active_{};
     PS2Runtime& runtime_;
     PS2Runtime::RecompiledFunction original_;
+    PS2Runtime::RecompiledFunction initOptions_;
     const DeathLabelActions* actions_{};
     PS2Runtime::RecompiledFunction consumeInput_{};
     bool played_{}, completed_{};

@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 namespace cave::ps2 {
+struct GsPresentation;
 class GsWindowClosed : public std::runtime_error {
 public: GsWindowClosed():std::runtime_error("PS2 graphics window closed"){}
 };
@@ -14,7 +15,7 @@ public: GsWindowClosed():std::runtime_error("PS2 graphics window closed"){}
 class GsDisplay {
 public:
     GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,
-              bool reflex=true,bool amdAntiLag=false,void* existingWindow=nullptr,void* closeEvent=nullptr);
+              bool reflex,bool amdAntiLag,void* existingWindow,void* closeEvent,const GsPresentation& presentation);
     ~GsDisplay();
     GsDisplay(const GsDisplay&)=delete;
     GsDisplay& operator=(const GsDisplay&)=delete;

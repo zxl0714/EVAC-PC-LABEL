@@ -52,17 +52,26 @@ int KT_SYSV RunFromMenu(Vm vm) {
     try {
         DeathLabelActions actions;
         const std::array masks{&actions.shot, &actions.bomb, &actions.rapid};
-        if (squirrel.getTop(vm) != int(masks.size()) + 1)
-            throw std::runtime_error("Invalid Death Label action mapping");
+        std::array<int,5> screen{};
+        if (squirrel.getTop(vm) != int(masks.size() + screen.size()) + 1)
+            throw std::runtime_error("Invalid Death Label menu arguments");
         for (std::size_t i = 0; i < masks.size(); ++i) {
             int mask{};
             if (squirrel.getInteger(vm, int(i) + 2, &mask) < 0 || mask < 0 || mask > 0xffff)
                 throw std::runtime_error("Invalid Death Label pad mask");
             *masks[i] = static_cast<std::uint16_t>(mask);
         }
+        for (std::size_t i = 0; i < screen.size(); ++i) {
+            if (squirrel.getInteger(vm, int(i + masks.size()) + 2, &screen[i]) < 0)
+                throw std::runtime_error("Invalid Death Label screen setting");
+        }
+        const DeathLabelScreen layout{screen[0], screen[1], screen[2], screen[3], unsigned(screen[4])};
         std::printf("{\"event\":\"daioujou_death_label_controls\",\"shot\":%u,\"bomb\":%u,\"rapid\":%u}\n",
             unsigned(actions.shot), unsigned(actions.bomb), unsigned(actions.rapid));
-        result = active->Run(actions);
+        std::printf("{\"event\":\"daioujou_death_label_screen\",\"width\":%d,\"height\":%d,"
+            "\"x\":%d,\"y\":%d,\"turns\":%u}\n", layout.width, layout.height,
+            layout.offsetX, layout.offsetY, layout.quarterTurns);
+        result = active->Run(actions, layout);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Death Label presentation: %s\n", error.what());
     }
@@ -121,13 +130,14 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
     }
 }
 
-DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions) const {
+DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const DeathLabelScreen& screen) const {
     DeathLabelHost host;
     host.prepared = prepared_.c_str();
     host.disc = disc_.c_str();
     host.profile = profile_.c_str();
     host.volume = volume_;
     host.actions = &actions;
+    host.screen = screen;
     return RunNativeVideoDeathLabel(host, entry_);
 }
 

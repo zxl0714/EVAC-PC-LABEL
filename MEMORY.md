@@ -305,7 +305,8 @@ Hyper Active、等级 5。与中 Boss 对准后 C 激光加 Z 炸弹已实际拿
 从标题画面进入 DIRECT MENU 后，光标在左上默认项时往下三次、往右两次选中 Death Label。
 等直达菜单画面稳定再发方向键，确认高亮项后再进游戏。
 PS2 启动后先用 X 确认记忆卡提示，再等原版标题。Enter 打开 Death Label 菜单，等高亮稳定
-后再发方向键。回到 PS4 后以 DIRECT MENU 的实际画面和 `daioujou_death_label_return`
+后再发方向键。实战 Enter 暂停，暂停菜单方向键用约 35 ms 脉冲，避免跨过最后一项。选
+QUIT 后按左选「はい」再按 X。回到 PS4 后以 DIRECT MENU 的实际画面和 `daioujou_death_label_return`
 双重确认。游戏测试副本沿用 `.local/v0911/ps4-acceptance-run.py`。
 
 临时测试映射要避开宿主保留键；F3 曾被配置校验拒绝。L3／R3 可临时用

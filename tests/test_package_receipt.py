@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
-from package_receipt import PackageInputs
+from package_receipt import PackageInputs, relevant
 
 
 class PackageReceiptTests(unittest.TestCase):
@@ -100,6 +100,12 @@ class PackageReceiptTests(unittest.TestCase):
         self.write('backends/ps4/input/pad.cpp', 'new pad');self.save()
         with self.assertRaisesRegex(ValueError, 'Rebuild ps2'):
             PackageInputs(self.root).load(self.record, 'ps2')
+
+    def test_death_label_abi_only_requires_ps2_and_ps4_rebuilds(self):
+        header = 'common/death_label_host.h'
+        for backend in ('ps2', 'ps4', 'xbox360', 'launcher'):
+            with self.subTest(backend=backend):
+                self.assertEqual(relevant(backend, header, {header}), backend in ('ps2', 'ps4'))
 
     def test_inconsistent_receipt_and_output_traversal_are_rejected(self):
         record = self.receipt()

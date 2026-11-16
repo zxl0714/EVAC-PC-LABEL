@@ -2,7 +2,7 @@
 #include <cstdint>
 
 namespace cave {
-inline constexpr unsigned DeathLabelHostVersion = 2;
+inline constexpr unsigned DeathLabelHostVersion = 3;
 
 enum class DeathLabelResult : int { Failed, Completed, Exit, Closed };
 
@@ -11,6 +11,15 @@ struct DeathLabelActions {
     std::uint16_t shot{};
     std::uint16_t bomb{};
     std::uint16_t rapid{};
+};
+
+struct DeathLabelScreen {
+    // Playfield size and center offset in the PS4 title's 1920 × 1080 frame.
+    int width = 672;
+    int height = 896;
+    int offsetX{};
+    int offsetY{};
+    unsigned quarterTurns{}; // Clockwise from the upright game image.
 };
 
 // The caller owns the window, its message pump, and all pointers until return.
@@ -29,6 +38,7 @@ struct DeathLabelHost {
     bool reflex = true;
     bool amdAntiLag{};
     const DeathLabelActions* actions{};
+    DeathLabelScreen screen{};
 };
 
 using RunDeathLabel = DeathLabelResult (*)(const DeathLabelHost*) noexcept;

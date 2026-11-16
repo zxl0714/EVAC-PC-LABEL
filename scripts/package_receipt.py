@@ -27,6 +27,8 @@ ISOLATED_PS4 = ('backends/ps4/', 'third_party/ps4/', 'scripts/ps4/', 'scripts/ps
 def relevant(backend, name, files):
     if name.endswith('.md') or name.startswith(('docs/', 'tests/', 'server/')) or name in PACKAGING:
         return False
+    if name == 'common/death_label_host.h':
+        return backend in ('ps2', 'ps4')
     if backend == 'xbox360':
         # Historical host certificates listed the whole repository. The release
         # takes its launcher from a separate receipt and keeps shared data metadata.

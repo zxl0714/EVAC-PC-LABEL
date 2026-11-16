@@ -9,6 +9,12 @@ class PS2Runtime;
 namespace cave::ps2 {
 class GsCommandBackend;
 class HostPadSource;
+struct GsPresentation {
+    // Normalized destination of the full GS scanout in an aspect-fitted canvas.
+    float canvasAspect{};
+    float x{}, y{}, width{}, height{};
+    unsigned quarterTurns{};
+};
 struct NativeHostOptions {
     unsigned width=1280,height=720;
     bool fullscreen=false,vsync=false,timerPrecision=true;
@@ -22,6 +28,7 @@ struct NativeHostOptions {
     void* existingWindow{};
     void* closeEvent{};
     std::shared_ptr<HostPadSource> existingPad;
+    GsPresentation presentation;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL
 // physical devices. Runtime/generated-code headers only forward-declare it.

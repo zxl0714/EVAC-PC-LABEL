@@ -1,6 +1,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #include <Windows.h>
 #include "gs_display.h"
+#include "native_host.h"
 #include "startup_trace.h"
 #include "gs_crash_trace.h"
 #include "frame_trace.h"
@@ -20,7 +21,7 @@
 
 namespace cave::ps2 {
 using gs_crash::Stage;
-Vulkan::Program* CreateGsPresentProgram(Vulkan::Device& device);
+Vulkan::Program* CreateGsPresentProgram(Vulkan::Device& device,bool rotate);
 namespace {
 class NativeWindow final : public Vulkan::WSIPlatform {
 public:
@@ -180,8 +181,10 @@ public:
     void Mark(Stage stage) const {gs_crash::Mark(stage,frames);}
     uint64_t lastFeedback=0;
     pixel_trace::Capture pixels;
-    Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,HWND existing,HANDLE quit)
-        :window(width,height,title,reflex,amd,existing,quit) {
+    const GsPresentation presentation;
+    Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,HWND existing,HANDLE quit,
+         const GsPresentation& layout)
+        :window(width,height,title,reflex,amd,existing,quit),presentation(layout) {
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
         wsi.set_platform(&window);
@@ -207,9 +210,9 @@ public:
     }
 };
 GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,
-                     void* existingWindow,void* closeEvent)
+                     void* existingWindow,void* closeEvent,const GsPresentation& presentation)
     :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd,
-         static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent))) {
+         static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent),presentation)) {
     const auto& gpu=impl->wsi.get_device().get_gpu_properties();
     gs_crash::Start();
     impl->Mark(Stage::Init);
@@ -309,18 +312,27 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     command->begin_render_pass(pass);command->set_opaque_sprite_state();
     if(source.image) {
         impl->Mark(Stage::BindProgram);
-        if(!impl->presentProgram)impl->presentProgram=CreateGsPresentProgram(device);
+        const auto& layout=impl->presentation;
+        if(!impl->presentProgram)impl->presentProgram=CreateGsPresentProgram(device,layout.quarterTurns!=0);
         command->set_program(impl->presentProgram);
         command->set_texture(0,0,source.image->get_view(),
                              smooth?Vulkan::StockSampler::LinearClamp:Vulkan::StockSampler::NearestClamp);
         const auto width=destination.get_width(),height=destination.get_height();
         unsigned targetWidth=width,targetHeight=width*3u/4u;
         if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
-        const VkViewport viewport{float((width-targetWidth)/2u),float((height-targetHeight)/2u),
-                                  float(targetWidth),float(targetHeight),0,1};
+        VkViewport viewport{float((width-targetWidth)/2u),float((height-targetHeight)/2u),
+                           float(targetWidth),float(targetHeight),0,1};
+        if(layout.canvasAspect>0) {
+            const float canvasWidth=std::min(float(width),float(height)*layout.canvasAspect);
+            const float canvasHeight=canvasWidth/layout.canvasAspect;
+            const float canvasX=(float(width)-canvasWidth)*0.5f,canvasY=(float(height)-canvasHeight)*0.5f;
+            viewport={canvasX+layout.x*canvasWidth,canvasY+layout.y*canvasHeight,
+                      layout.width*canvasWidth,layout.height*canvasHeight,0,1};
+            command->set_scissor({{int32_t(canvasX),int32_t(canvasY)},{uint32_t(canvasWidth),uint32_t(canvasHeight)}});
+        }
         command->set_viewport(viewport);
         impl->Mark(Stage::Draw);
-        command->draw(3);
+        command->draw(3,1,layout.quarterTurns*3);
     }
     impl->Mark(Stage::EndPass);
     command->end_render_pass();
