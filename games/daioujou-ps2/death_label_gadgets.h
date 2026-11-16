@@ -146,17 +146,14 @@ private:
                 centered(static_cast<Sprite>(HyperStock0 + state.hypers),495,507);
             }
             draw(RoundPanel,68,544);
-            centered(state.round ? Round2 : Round1,113,612,0.5f);
+            centered(state.round ? Round2 : Round1,114,615,0.5f);
+            centered(StageLabel,179,582,0.45f);
             for (unsigned i = 0; i < 5; ++i) {
                 const bool reached = i == state.stage || (state.clearedStages[state.round] & (1u << i));
-                centered(static_cast<Sprite>(Stage1+i),174+27.0f*i,580,reached ? 1.0f : 0.62f);
+                centered(static_cast<Sprite>(Stage1+i),184+30.0f*i,608,reached ? 0.7f : 0.5f);
             }
-            const float stageProgress = (state.stage+state.stagePosition/368.0f)/5;
-            place(HyperFill,169,603,135,5,stageProgress);
-            centered(state.ship ? StockB : StockA,179,632,0.7f);
-            number(state.misses,Small0,227,622,17);
-            centered(BombIcon,253,633,0.65f);
-            number(state.bombsFired,Small0,303,622,17);
+            number(state.misses,Small0,228,631,17);
+            number(state.bombsFired,Small0,306,631,17);
             draw(DamagePanel,324,544);
             const auto damage = [&](const DeathLabelGadgetState::Damage& strike,float y) {
                 const unsigned average = strike.hits ? strike.total/strike.hits : 0;
@@ -165,32 +162,32 @@ private:
             };
             damage(state.laser,593);
             damage(state.aura,637);
-            draw(RankPanel,68,672);
-            number(state.bulletSpeed,Small0,221,718,16);
-            number(state.bulletInterval,Small0,221,761,16);
-            number(state.hyperRank,Small0,281,741,16);
-            draw(BattlePanel,68,800);
-            centered(Round1,196,848,0.56f);
-            centered(Round2,265,848,0.56f);
+            draw(BattlePanel,68,672);
+            centered(Round1,196,729,0.68f);
+            centered(Round2,265,729,0.68f);
             for (unsigned i = 0; i < 5; ++i) {
-                const auto y = 880.0f + 33.0f*i;
-                centered(StageLabel,106,y,0.57f);
-                centered(static_cast<Sprite>(Stage1+i),145,y,0.64f);
+                const auto y = 780.0f + 54.0f*i;
+                centered(StageLabel,106,y,0.65f);
+                centered(static_cast<Sprite>(Stage1+i),145,y,0.70f);
                 for (unsigned round = 0; round < state.clearedStages.size(); ++round) {
                     const auto cleared = state.clearedStages[round] & (1u << i);
                     place(cleared ? PowerSegment : HyperBack,177+69.0f*round,y-4,38,8);
                 }
             }
-            draw(ComboPanel,324,672);
-            number(state.combo,Small0,437,721,16,1.0f);
-            number(state.comboTime,Small0,537,722,14,0.86f);
-            draw(ComboFrame,490,763);
+            draw(RankPanel,324,672);
+            number(state.bulletSpeed,Small0,477,718,16);
+            number(state.bulletInterval,Small0,477,761,16);
+            number(state.hyperRank,Small0,537,741,16);
+            draw(ComboPanel,324,800);
+            number(state.combo,Small0,437,849,16,1.0f);
+            number(state.comboTime,Small0,537,850,14,0.86f);
+            draw(ComboFrame,490,891);
             if (state.comboCapacity != 0) {
                 const auto fill = std::min(1.0f,float(state.comboTime)/state.comboCapacity);
-                place(ComboFill,492,765,44,140,1,fill);
+                place(ComboFill,492,893,44,140,1,fill);
             }
             for (unsigned i = 0; i < state.hitDetail.size(); ++i)
-                number(std::min(9999u,state.hitDetail[i]),Small0,477,770+34.0f*i,15);
+                number(std::min(9999u,state.hitDetail[i]),Small0,477,898+34.0f*i,15);
         }
         scale = std::min(1.0f,(1836 - right)/504);
         anchor = 1852 - 504*scale;

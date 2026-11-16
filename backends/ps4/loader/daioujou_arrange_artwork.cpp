@@ -342,7 +342,6 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         auto width=icon.at("width").get<unsigned>();
         auto height=icon.at("height").get<unsigned>();
         if (i == BossPanel) height = std::min(height,55u);
-        if (i == RoundPanel) width = 90;
         if (i == TimeCaption) {
             x+=7;
             y+=66;
@@ -356,13 +355,18 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
             width=118;
             height=21;
         }
-        if(!width || !height || width>4096 || height>4096 || x>4096-width || y>4096-height ||
-           std::uint64_t{width}*height*4+bytes.size()>GadgetPixelBudget)
+        constexpr unsigned gridRows = 8;
+        const unsigned extension = i == BattlePanel ? 128 : 0;
+        const unsigned outputHeight = height + extension;
+        if(!width || !height || width>4096 || height>4096-extension || x>4096-width || y>4096-height ||
+           (extension && height<2*gridRows) ||
+           std::uint64_t{width}*outputHeight*4+bytes.size()>GadgetPixelBudget)
             throw std::runtime_error("Invalid Death Label Gadget sprite bounds");
         append(width);
-        append(height);
-        std::size_t destination = bytes.size();
-        bytes.resize(destination + std::size_t{width} * height * 4);
+        append(outputHeight);
+        const auto spriteStart = bytes.size();
+        auto destination = spriteStart;
+        bytes.resize(destination + std::size_t{width} * outputHeight * 4);
         // Colors from the original gauge motions, in atlas byte order.
         std::array<std::uint8_t,3> tint{};
         switch (i) {
@@ -372,10 +376,49 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         case HyperTimerEmpty: tint={83,82,83}; break;
         default: break;
         }
-        for (unsigned row = 0; row < height; ++row) {
+        for (unsigned row = 0; row < outputHeight; ++row) {
+            unsigned sourceRow = row;
+            if (extension && row >= height-gridRows) {
+                // Extend the blank grid just above the original lower border.
+                // Keep the header, caption and border at their native scale.
+                sourceRow = row >= outputHeight-gridRows ? row-extension :
+                    height-2*gridRows+(row-(height-gridRows))%gridRows;
+            }
             for (unsigned column = 0; column < width; ++column, destination += 4) {
-                std::copy_n(atlas.data() + AtlasPixel(x + column,y + row),4,bytes.data() + destination);
+                std::copy_n(atlas.data() + AtlasPixel(x + column,y + sourceRow),4,bytes.data() + destination);
                 if (tint[2]) std::copy(tint.begin(),tint.end(),bytes.data() + destination);
+            }
+        }
+        if (i == RoundPanel) {
+            // The boss rush uses the original frame with stage and run counters.
+            // Recover the grid under the baked captions from panels with the same background.
+            const std::array names{update ? "0274" : "0251",update ? "0275" : "0252","0159"};
+            std::array<std::array<unsigned,2>,names.size()> backgrounds{};
+            for (std::size_t index = 0; index < backgrounds.size(); ++index) {
+                const auto& background = icons.at(names[index]);
+                backgrounds[index] = {background.at("left").get<unsigned>(),
+                                      background.at("top").get<unsigned>()};
+            }
+            const auto brightness = [](const std::uint8_t* pixel) {
+                return pixel[0] + pixel[1] + pixel[2];
+            };
+            const auto restoreGrid = [&](unsigned left,unsigned top,unsigned right,unsigned bottom) {
+                for (unsigned row = top; row < bottom; ++row) {
+                    for (unsigned column = left; column < right; ++column) {
+                        auto* pixel = bytes.data() + spriteStart + (row * width + column) * 4;
+                        const std::uint8_t* grid = pixel;
+                        for (const auto& [bx,by] : backgrounds) {
+                            const auto* candidate = atlas.data() + AtlasPixel(bx + column,by + row);
+                            if (brightness(candidate) < brightness(grid)) grid = candidate;
+                        }
+                        if (grid != pixel) std::copy_n(grid,4,pixel);
+                    }
+                }
+            };
+            restoreGrid(92,30,242,79);
+            if (!update) {
+                restoreGrid(92,98,124,110);
+                restoreGrid(170,103,197,113);
             }
         }
         if (i == ComboPanel && update) {

@@ -26,7 +26,7 @@ struct DeathLabelGadgetState {
     unsigned shotLevel{},laserLevel{},invincibleFrames{},misses{},bombsFired{};
     unsigned hypers{},hyperCharge{},hyperGain{},hyperTime{},hyperDuration{};
     unsigned bulletSpeed{},bulletInterval{},hyperRank{},combo{},comboTime{},comboCapacity{};
-    unsigned bossFrames{},bossHp{},bossMaxHp{},stagePosition{};
+    unsigned bossFrames{},bossHp{},bossMaxHp{};
     std::array<unsigned,4> hitDetail{};
     Damage laser,aura;
     Music music{};
@@ -252,10 +252,6 @@ private:
         const bool stopped = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
         state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && !state_.bossDefeated && !stopped;
         if (state_.bossActive) state_.bossFrames = clock - *bossStart_;
-        // Use the same scroll-to-map conversion as the original PS2 HUD.
-        constexpr std::array<unsigned,5> mapScale{440,601,851,471,388};
-        const auto scroll = Read<std::uint32_t>(memory,Gp - 0x5a9c);
-        state_.stagePosition = std::min<std::uint64_t>(368,std::uint64_t{scroll}*mapScale[stage]/1000);
     }
 
     static std::uint32_t ReadControllerWord(const std::uint8_t* memory,std::uint32_t address) {
