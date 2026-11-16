@@ -54,7 +54,7 @@ public:
         return overlay;
     }
 
-    void Bind(PS2Runtime& runtime) { feed_.Bind(runtime); }
+    DeathLabelGadgetFeed& Feed() { return feed_; }
 
     void Observe(const std::uint8_t* memory, bool playing, bool menu) {
         auto state = feed_.Observe(memory,playing,menu);
@@ -73,9 +73,9 @@ private:
         if (!state.playing) return;
         float scale=1, anchor=68, origin=68;
         const auto place = [&](Sprite sprite,float x,float y,float w,float h,float fill = 1,
-                               std::array<float,4> scanout = {},float verticalFill = 1) {
+                               float verticalFill = 1) {
             quads.push_back({sprite,(anchor+(x-origin)*scale)/1920,(32+(y-32)*scale)/1080,
-                w*scale/1920,h*scale/1080,fill,scanout,verticalFill});
+                w*scale/1920,h*scale/1080,fill,verticalFill});
         };
         const auto draw = [&](Sprite sprite,float x,float y,float scale = 1) {
             const auto [w,h] = sizes_[sprite];
@@ -101,9 +101,14 @@ private:
         scale = std::min(1.0f,(left - 84)/504);
         if (scale >= 0.4f) {
             constexpr std::array dolls{ShotiaPanel,LeinyanPanel,ExyPanel};
+            constexpr std::array dollNames{ShotiaName,LeinyanName,ExyName};
             draw(ScorePanel,68,32);
-            number(state.score,Big0,548,86,42);
+            number(state.score,Big0,548,80,42);
+            draw(ScoreDetails,88,185);
+            number(state.stageScore,Small0,546,182,18);
             draw(dolls[state.doll],68,288);
+            centered(state.ship ? FighterBName : FighterAName,82,379);
+            centered(dollNames[state.doll],102,379);
             centered(state.ship ? ShipB : ShipA,166,468);
             centered(state.ship ? StockB : StockA,227,350);
             number(state.stock,Small0,289,340,17);
@@ -111,27 +116,52 @@ private:
             number(state.bombs,Small0,253,398,17);
             centered(Slash,262,410);
             number(state.bombCapacity,Small0,288,398,17);
+            const auto weaponPower = [&](Sprite label,float y,unsigned level) {
+                draw(label,200,y);
+                for (unsigned i = 0; i < level; ++i) draw(PowerSegment,244+11.0f*i,y+23);
+            };
+            weaponPower(ShotLevel,425,state.shotLevel);
+            weaponPower(LaserLevel,478,state.laserLevel);
+            if (state.invincibleFrames) centered(Invincible,137,519);
             draw(HyperPanel,324,288);
-            if (state.hyperCharge != 0)
-                place(HyperFill,333,372,230,22,state.hyperCharge/2400.0f);
             draw(HyperBack,333,371);
-            number(state.hyperCharge*100/2400,Small0,555,340,17);
+            if (state.hyperCharge != 0)
+                place(HyperFill,337,373,224,20,state.hyperCharge/2400.0f);
+            number(state.hyperCharge*100/2400,Small0,538,340,17);
+            centered(HyperPercent,550,352);
+            if (state.hyperGain) {
+                const auto permille = state.hyperGain*1000/2400;
+                number(permille/10,Small0,519,429,15);
+                centered(TimeDecimal,522,444,0.8f);
+                number(permille%10,Small0,540,429,15);
+                centered(HyperPercent,550,440);
+            }
             centered(state.hyperActive ? HyperActive : HyperStandby,452,502);
-            if (state.hyperActive)
-                number((state.hyperTime + 59)/60,Small0,445,493,17);
-            else
+            if (state.hyperActive) {
+                place(HyperTimerEmpty,467,478,84,42);
+                if (state.hyperDuration)
+                    place(HyperTimerFill,469,479,80,40,float(state.hyperTime)/state.hyperDuration);
+                number((state.hyperTime + 59)/60,Small0,522,499,17);
+            } else {
                 centered(static_cast<Sprite>(HyperStock0 + state.hypers),495,507);
+            }
             draw(RoundPanel,68,544);
             centered(state.round ? Round2 : Round1,113,612,0.5f);
-            for (unsigned i = 0; i < 5; ++i)
-                centered(static_cast<Sprite>(Stage1+i),174+27.0f*i,594,i == state.stage ? 1.0f : 0.62f);
+            for (unsigned i = 0; i < 5; ++i) {
+                const bool reached = i == state.stage || (state.clearedStages & (1u << i));
+                centered(static_cast<Sprite>(Stage1+i),174+27.0f*i,580,reached ? 1.0f : 0.62f);
+            }
             const float stageProgress = (state.stage+state.stagePosition/368.0f)/5;
-            place(HyperFill,169,621,135,5,stageProgress);
+            place(HyperFill,169,603,135,5,stageProgress);
+            centered(state.ship ? StockB : StockA,179,632,0.7f);
+            number(state.misses,Small0,227,622,17);
+            centered(BombIcon,253,633,0.65f);
+            number(state.bombsFired,Small0,303,622,17);
             draw(DamagePanel,324,544);
             const auto damage = [&](const DeathLabelGadgetState::Damage& strike,float y) {
                 const unsigned average = strike.hits ? strike.total/strike.hits : 0;
                 number(std::min(9999u,average),Small0,419,y,15);
-                number(std::min(99u,strike.hits),Small0,499,y,15);
+                number(std::min(99u,strike.multiHit),Small0,499,y,15);
             };
             damage(state.laser,593);
             damage(state.aura,637);
@@ -145,7 +175,7 @@ private:
             draw(ComboFrame,490,763);
             if (state.comboCapacity != 0) {
                 const auto fill = std::min(1.0f,float(state.comboTime)/state.comboCapacity);
-                place(ComboFill,492,765,44,140,1,{},fill);
+                place(ComboFill,492,765,44,140,1,fill);
             }
             for (unsigned i = 0; i < state.hitDetail.size(); ++i)
                 number(std::min(9999u,state.hitDetail[i]),Small0,477,770+34.0f*i,15);
@@ -171,10 +201,14 @@ private:
                 centered(names[state.stage],1600,612);
             }
             draw(BossPanel,1365,657);
-            // Mirror the PS2 HUD's actual boss meter. It includes refill and
-            // scripted transitions, which are not represented by actor HP.
-            if (state.showHealth)
-                place(BossPanel,1374,688,450,13,1,{194.0f/960,33.0f/720,554.0f/960,9.0f/720});
+            if (state.bossMaxHp) {
+                if (state.bossHp)
+                    place(BossHealthFill,1367,679,466,28,float(state.bossHp)/state.bossMaxHp);
+                number(state.bossHp,Small0,1703,648,15);
+                centered(Slash,1717,657,0.8f);
+                number(state.bossMaxHp,Small0,1824,648,15);
+            }
+            if (state.bossDefeated) centered(BossDefeated,1600,786,0.85f);
             if (state.bossActive || state.bossFrames != 0) {
                 const auto centiseconds=std::uint64_t{state.bossFrames}*1001/600;
                 draw(TimeCaption,1372,725);

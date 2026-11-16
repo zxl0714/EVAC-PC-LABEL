@@ -6,6 +6,7 @@
 #include <array>
 #include <cstring>
 #include <optional>
+#include <stdexcept>
 #include <utility>
 
 namespace cave::daioujou_ps2 {
@@ -16,18 +17,20 @@ struct DeathLabelGadgetState {
     enum class Music { None, Boss, StageClear, NameEntry, GameOver };
     enum class BossForm { Main, Jet, TwinHibachi };
     struct Damage {
-        unsigned total{},hits{};
+        unsigned total{},hits{},multiHit{};
     };
 
-    std::uint64_t score{};
-    unsigned round{},stage{},doll{},ship{},stock{},bombs{},bombCapacity{},hypers{},hyperCharge{},hyperTime{};
+    std::uint64_t score{},stageScore{};
+    unsigned round{},stage{},clearedStages{},doll{},ship{},stock{},bombs{},bombCapacity{};
+    unsigned shotLevel{},laserLevel{},invincibleFrames{},misses{},bombsFired{};
+    unsigned hypers{},hyperCharge{},hyperGain{},hyperTime{},hyperDuration{};
     unsigned bulletSpeed{},bulletInterval{},hyperRank{},combo{},comboTime{},comboCapacity{};
-    unsigned bossFrames{},stagePosition{};
+    unsigned bossFrames{},bossHp{},bossMaxHp{},stagePosition{};
     std::array<unsigned,4> hitDetail{};
     Damage laser,aura;
     Music music{};
     BossForm form{};
-    bool playing{},hyperActive{},showHealth{},bossActive{};
+    bool playing{},hyperActive{},bossActive{},bossDefeated{};
 };
 
 class DeathLabelGadgetFeed {
@@ -37,23 +40,33 @@ public:
     DeathLabelGadgetFeed() = default;
     DeathLabelGadgetFeed(const DeathLabelGadgetFeed&) = delete;
     DeathLabelGadgetFeed& operator=(const DeathLabelGadgetFeed&) = delete;
-    ~DeathLabelGadgetFeed() {
-        if (active_ == this) active_ = nullptr;
-    }
+    class Binding {
+    public:
+        Binding(DeathLabelGadgetFeed& feed, PS2Runtime& runtime)
+            : runtime_(runtime), original_(runtime.lookupFunction(SoundCommand)) {
+            if (active_ || !original_ || original_ == &Sound ||
+                !runtime_.replaceFunction(SoundCommand, &Sound))
+                throw std::runtime_error("Cannot bind Death Label Gadget audio");
+            feed.musicDispatch_ = original_;
+            active_ = &feed;
+        }
+        ~Binding() {
+            // The generated program's function table is shared by subsequent
+            // runtime instances. Restore it before either owner is destroyed.
+            runtime_.replaceFunction(SoundCommand, original_);
+            active_ = nullptr;
+        }
+        Binding(const Binding&) = delete;
+        Binding& operator=(const Binding&) = delete;
 
-    void Bind(PS2Runtime& runtime) {
-        musicDispatch_ = runtime.lookupFunction(SoundCommand);
-        if (musicDispatch_ && runtime.replaceFunction(SoundCommand,&Sound)) active_ = this;
-    }
+    private:
+        PS2Runtime& runtime_;
+        PS2Runtime::RecompiledFunction original_;
+    };
 
     State Observe(const std::uint8_t* memory, bool playing, bool paused) {
-        if (paused) {
-            auto frozen = state_;
-            frozen.showHealth = false;
-            return frozen;
-        }
+        if (paused) return state_;
         if (!playing) {
-            state_.showHealth = false;
             state_.bossActive = false;
             state_.music = music_;
             damage_ = {};
@@ -61,10 +74,10 @@ public:
         }
         const unsigned round = memory[Gp - 0x5830] != 0;
         const unsigned stage = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x5348),4);
-        if (!state_.playing || state_.round != round) {
-            state_ = {};
-        }
-        if (!state_.playing || stage > state_.stage) ResetFight();
+        const bool newRound = !state_.playing || state_.round != round;
+        if (newRound) state_ = {};
+        const bool newStage = newRound || stage > state_.stage;
+        if (newStage) ResetFight();
         state_.playing = true;
         state_.round = round;
         // The stage index wraps before the loop results have finished.
@@ -72,14 +85,35 @@ public:
         const auto score = std::uint64_t{Read<std::uint16_t>(memory,Gp - 0x5508)} << 32 |
             Read<std::uint32_t>(memory,Gp - 0x54fc);
         state_.score = DecimalScore(score) * 10 + Read<std::uint16_t>(memory,Gp - 0x5514) % 10;
-        state_.doll = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x5334),2);
-        state_.ship = Read<std::uint16_t>(memory,Gp - 0x532c) & 1u;
-        state_.stock = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x53a0),20);
-        state_.bombCapacity = memory[Player + 0x25];
-        state_.bombs = std::min<unsigned>(memory[Player + 0x24],state_.bombCapacity);
+        if (newStage) stageStartScore_ = state_.score;
+        state_.stageScore = state_.score - std::min(state_.score,stageStartScore_);
+        // The fighter select table stores A/B as 0/2 and the dolls as 2/4/6.
+        const auto doll = Read<std::uint16_t>(memory,Gp - 0x5334);
+        state_.doll = doll == 4 ? 1 : doll == 6 ? 2 : 0;
+        state_.ship = Read<std::uint16_t>(memory,Gp - 0x532c) == 2;
+        const auto stock = Read<std::int16_t>(memory,Gp - 0x53a0);
+        if (!newStage && stock < previousStock_) ++state_.misses;
+        previousStock_ = stock;
+        state_.stock = std::clamp<int>(stock,0,20);
+        state_.bombCapacity = memory[Player + 0x24];
+        state_.bombs = std::min<unsigned>(memory[Player + 0x25],state_.bombCapacity);
+        const std::array bombTimers{
+            Read<std::uint32_t>(memory,Gp - 0x56e0), Read<std::uint32_t>(memory,Gp - 0x56e4)
+        };
+        for (std::size_t i = 0; i != bombTimers.size(); ++i)
+            if (!newStage && bombTimers[i] && !previousBombTimers_[i]) ++state_.bombsFired;
+        previousBombTimers_ = bombTimers;
+        // The firing tables use even indices 0..8 for their five power levels.
+        state_.shotLevel = std::min(5u,memory[Player + 0x20] / 2u + 1);
+        state_.laserLevel = std::min(5u,memory[Player + 0x22] / 2u + 1);
+        state_.invincibleFrames = memory[Player + 0x3f];
+        const auto previousCharge = state_.hyperCharge;
         state_.hyperCharge = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x5680),2400);
+        if (newStage) state_.hyperGain = 0;
+        else if (state_.hyperCharge > previousCharge) state_.hyperGain = state_.hyperCharge - previousCharge;
         state_.hyperActive = Read<std::uint16_t>(memory,Gp - 0x5668) != 0;
         state_.hyperTime = std::max(0,int(Read<std::int16_t>(memory,Gp - 0x5670))) / 2;
+        state_.hyperDuration = state_.hyperActive ? std::max(state_.hyperDuration,state_.hyperTime) : 0;
         state_.hypers = std::min<unsigned>(Read<std::uint16_t>(memory,Gp - 0x56a4),5);
         state_.hyperRank = Read<std::uint16_t>(memory,Gp - 0x5678);
         state_.bulletSpeed = memory[Gp - 0x5380];
@@ -89,7 +123,7 @@ public:
         state_.comboCapacity = Read<std::uint16_t>(memory,Gp - 0x5588);
         state_.music = music_;
         if (stage == state_.stage) AdvanceBoss(memory);
-        else state_.showHealth = state_.bossActive = false;
+        else state_.bossActive = false;
         AdvanceDamage();
         return state_;
     }
@@ -157,7 +191,10 @@ private:
         historyIndex_ = 0;
         state_.form = State::BossForm::Main;
         state_.bossFrames = 0;
+        state_.bossHp = state_.bossMaxHp = 0;
+        state_.bossDefeated = false;
         bossStart_.reset();
+        bossPartMaxHp_ = {};
     }
 
     void AdvanceBoss(const std::uint8_t* memory) {
@@ -170,29 +207,38 @@ private:
         if (state_.form != form) {
             state_.form = form;
             state_.bossFrames = 0;
+            state_.bossHp = state_.bossMaxHp = 0;
+            state_.bossDefeated = false;
             bossStart_.reset();
+            bossPartMaxHp_ = {};
         }
         const auto clock = Read<std::uint32_t>(memory,Gp - 0x53a8);
-        if (!bossStart_) {
-            const auto collidable = [&](unsigned slot) {
-                return (Read<std::uint16_t>(memory,EnemyPool + slot * EnemyStride) & 0xa000) == 0xa000;
-            };
-            if (stage == 4) {
-                if (phase >= 2 ? collidable(112) || collidable(116) : collidable(phase == 1 ? 110 : 100))
-                    bossStart_ = clock;
-            } else {
-                for (unsigned slot = 100; slot < 150; ++slot) {
-                    if (!collidable(slot)) continue;
-                    bossStart_ = clock;
-                    break;
-                }
-            }
+        // Use the main body's hit points. Auxiliary guns and wings can be
+        // destroyed separately. Both Hibachis contribute to the last bar.
+        constexpr std::array<unsigned,5> mainBody{101,100,100,101,100};
+        const std::array<unsigned,2> slots{
+            phase >= 2 ? 112u : phase == 1 ? 110u : mainBody[stage],
+            phase >= 2 ? 116u : 0u
+        };
+        unsigned hp = 0;
+        unsigned capacity = 0;
+        for (std::size_t i = 0; i < slots.size() && slots[i]; ++i) {
+            const auto actor = EnemyPool + slots[i] * EnemyStride;
+            const auto flags = Read<std::uint16_t>(memory,actor);
+            const auto current = std::max(0,int(Read<std::int16_t>(memory,actor + HealthOffset)));
+            if ((flags & 0xa000) == 0xa000)
+                bossPartMaxHp_[i] = std::max(bossPartMaxHp_[i],unsigned(current));
+            if (flags & 0x8000) hp += std::min(bossPartMaxHp_[i],unsigned(current));
+            capacity += bossPartMaxHp_[i];
         }
-        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ &&
-                            !Read<std::uint16_t>(memory,Gp - 0x53c4);
+        const bool cleared = Read<std::uint16_t>(memory,Gp - 0x53c4) != 0;
+        if (!bossStart_ && capacity) bossStart_ = clock;
+        state_.bossMaxHp = capacity;
+        state_.bossHp = cleared ? 0u : hp;
+        state_.bossDefeated = cleared && bossStart_.has_value();
+        if (state_.bossDefeated) state_.clearedStages |= 1u << stage;
+        state_.bossActive = bossStart_.has_value() && clock >= *bossStart_ && !cleared && hp != 0;
         if (state_.bossActive) state_.bossFrames = clock - *bossStart_;
-        const auto monitor = Read<std::uint32_t>(memory,Gp - 0x6530);
-        state_.showHealth = state_.bossActive && (monitor == 2 || monitor == 3);
         // Use the same scroll-to-map conversion as the original PS2 HUD.
         constexpr std::array<unsigned,5> mapScale{440,601,851,471,388};
         const auto scroll = Read<std::uint32_t>(memory,Gp - 0x5a9c);
@@ -207,8 +253,10 @@ private:
         for (const auto& field : history_) {
             state_.laser.total += field[0].total;
             state_.laser.hits += field[0].hits;
+            state_.laser.multiHit = std::max(state_.laser.multiHit,field[0].hits);
             state_.aura.total += field[1].total;
             state_.aura.hits += field[1].hits;
+            state_.aura.multiHit = std::max(state_.aura.multiHit,field[1].hits);
         }
         state_.hitDetail = hits_;
     }
@@ -220,6 +268,10 @@ private:
     State state_{};
     State::Music music_{};
     std::optional<unsigned> bossStart_;
+    std::array<unsigned,2> bossPartMaxHp_{};
+    std::uint64_t stageStartScore_{};
+    std::int16_t previousStock_{};
+    std::array<std::uint32_t,2> previousBombTimers_{};
     std::array<unsigned,4> hits_{};
     std::array<State::Damage,2> damage_{};
     std::array<std::array<State::Damage,2>,10> history_{};

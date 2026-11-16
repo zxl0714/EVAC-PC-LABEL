@@ -22,8 +22,6 @@ struct GsOverlay {
     struct Quad {
         unsigned image{};
         float x{},y{},width{},height{},fill=1;
-        // An optional normalized source rectangle in the already-rendered GS image.
-        std::array<float,4> scanout{};
         float verticalFill = 1;
     };
     std::vector<Image> images;

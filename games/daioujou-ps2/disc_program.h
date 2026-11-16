@@ -1,4 +1,5 @@
 #pragma once
+#include "death_label_gadget_state.h"
 #include "death_label_session.h"
 #include "input_timing.h"
 #include "programs.h"
@@ -16,7 +17,8 @@ inline DiscProgramResult RunDiscProgram(const PS2Runtime::IoPaths& paths, cave::
                                         bool hosted, bool inputTiming,
                                         const std::function<void(PS2Runtime&)>& configure = {},
                                         const DeathLabelActions* actions = nullptr,
-                                        DeathLabelSession::ObserveFrame observe = {}) {
+                                        DeathLabelSession::ObserveFrame observe = {},
+                                        DeathLabelGadgetFeed* feed = nullptr) {
     PS2Runtime::setIoPaths(paths);
     const auto name = paths.elfPath.filename().string();
     PS2Runtime runtime(ProgramTable(name),host,ResolveDiscExecutable);
@@ -25,6 +27,8 @@ inline DiscProgramResult RunDiscProgram(const PS2Runtime::IoPaths& paths, cave::
     if (!runtime.initialize() || !runtime.loadELF(paths.elfPath.string()))
         throw std::runtime_error("Cannot load DaiOuJou PS2 program: " + name);
     if (inputTiming) BindInputTiming(runtime,name);
+    std::optional<DeathLabelGadgetFeed::Binding> gadgetBinding;
+    if (feed) gadgetBinding.emplace(*feed, runtime);
     std::optional<DeathLabelSession> session;
     if (hosted) session.emplace(runtime,actions,std::move(observe));
     std::cerr<<"[ps2-disc-program] active="<<name<<'\n';

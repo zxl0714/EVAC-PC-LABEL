@@ -3,6 +3,7 @@
 #include "ps2_runtime.h"
 #include <functional>
 #include <stdexcept>
+#include <utility>
 
 namespace cave::daioujou_ps2 {
 
@@ -30,10 +31,18 @@ public:
                 runtime_.replaceFunction(FrameEntry, original_);
                 throw std::runtime_error("Cannot bind hosted Death Label controls");
             }
+            rootMenu_ = runtime_.lookupFunction(RootMenuEntry);
+            if (!rootMenu_ || !runtime_.replaceFunction(RootMenuEntry, &StartFromRootMenu)) {
+                runtime_.replaceFunction(ConsumeInputEntry, consumeInput_);
+                runtime_.replaceFunction(InitOptionsEntry, initOptions_);
+                runtime_.replaceFunction(FrameEntry, original_);
+                throw std::runtime_error("Cannot bind hosted Death Label entry");
+            }
         }
         active_ = this;
     }
     ~DeathLabelSession() {
+        if (rootMenu_) runtime_.replaceFunction(RootMenuEntry, rootMenu_);
         if (consumeInput_) runtime_.replaceFunction(ConsumeInputEntry, consumeInput_);
         runtime_.replaceFunction(InitOptionsEntry, initOptions_);
         runtime_.replaceFunction(FrameEntry, original_);
@@ -56,6 +65,28 @@ private:
     static constexpr uint32_t InitOptionsEntry = 0x238160, MapDisplay = GuestGp - 0x5d88;
     static constexpr uint32_t ConsumeInputEntry = 0x16b450, ConsumeInputReturn = 0x1afd98;
     static constexpr uint32_t PlayerOnePad = 0x61ad3c, ArcadeInput = 0x290818;
+    static constexpr uint32_t RootMenuEntry = 0x1b57d0, RootMenuReturn = 0x1b570c;
+    static constexpr uint32_t MenuCursor = GuestGp - 0x5950;
+    static constexpr uint32_t PlayerOneMenuButtons = 0x61acf0, MenuConfirmEdge = 0x61acf8;
+
+    static void StartFromRootMenu(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
+        auto& session = *active_;
+        if (!session.directStart_ && getRegU32(ctx,31) == RootMenuReturn &&
+            getRegU32(ctx,28) == GuestGp && memory[Menu] == 1 && memory[MenuPage] == 0) {
+            // Start through the original confirmation path. This initializes
+            // the stage and fighter-select screens with the loaded options.
+            memory[MenuCursor] = 1;
+            constexpr uint8_t confirm = 0x20;
+            const auto held = std::exchange(memory[PlayerOneMenuButtons], confirm);
+            const auto pressed = std::exchange(memory[MenuConfirmEdge], confirm);
+            session.rootMenu_(memory,ctx,runtime);
+            memory[MenuConfirmEdge] = pressed;
+            memory[PlayerOneMenuButtons] = held;
+            session.directStart_ = memory[Menu] == 4;
+            return;
+        }
+        session.rootMenu_(memory,ctx,runtime);
+    }
 
     static void InitOptions(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
         active_->initOptions_(memory,ctx,runtime);
@@ -89,7 +120,7 @@ private:
             const auto menu = memory[Menu];
             if (session.observe_) session.observe_(memory,playing,menu != 0);
             session.played_ |= playing && menu == 0;
-            if (session.played_ && !playing && menu == 1 && memory[MenuPage] == 0) {
+            if ((session.played_ || session.directStart_) && !playing && menu == 1 && memory[MenuPage] == 0) {
                 session.completed_ = true;
                 runtime->requestStop();
                 return;
@@ -104,8 +135,9 @@ private:
     PS2Runtime::RecompiledFunction initOptions_;
     const DeathLabelActions* actions_{};
     PS2Runtime::RecompiledFunction consumeInput_{};
+    PS2Runtime::RecompiledFunction rootMenu_{};
     ObserveFrame observe_;
-    bool played_{}, completed_{};
+    bool played_{}, directStart_{}, completed_{};
 };
 
 }

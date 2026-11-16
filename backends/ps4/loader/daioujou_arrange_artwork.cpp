@@ -306,6 +306,7 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         123,124,701,697,698,656,
         672,669,670,668,
         320,321,732,707,765,766,
+        702,713,141,140,145,137,138,147,146,139,128,56,108,107,92,
     };
     constexpr std::array<unsigned,SpriteCount> patch{
         77,122,121,120,90,567,288,866,864,
@@ -317,6 +318,7 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         123,124,860,856,857,815,
         831,828,829,827,
         343,344,891,866,925,926,
+        861,872,141,140,145,137,138,147,146,139,128,56,108,107,92,
     };
     const auto offset=GadgetTextureOffset(update);
     // The descriptor table in this PSB v3 asset uses the v2 object encoding.
@@ -347,6 +349,13 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
             width=46;
             height=21;
         }
+        if (i == ScoreDetails) {
+            // Preserve the original Total Get Point caption for the stage subtotal.
+            x+=185;
+            y+=55;
+            width=118;
+            height=21;
+        }
         if(!width || !height || width>4096 || height>4096 || x>4096-width || y>4096-height ||
            std::uint64_t{width}*height*4+bytes.size()>GadgetPixelBudget)
             throw std::runtime_error("Invalid Death Label Gadget sprite bounds");
@@ -354,9 +363,21 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
         append(height);
         std::size_t destination = bytes.size();
         bytes.resize(destination + std::size_t{width} * height * 4);
-        for (unsigned row = 0; row < height; ++row)
-            for (unsigned column = 0; column < width; ++column, destination += 4)
+        // Colors from the original gauge motions, in atlas byte order.
+        std::array<std::uint8_t,3> tint{};
+        switch (i) {
+        case BossHealthFill:
+        case HyperTimerFill: tint={57,57,207}; break;
+        case PowerSegment: tint={43,133,232}; break;
+        case HyperTimerEmpty: tint={83,82,83}; break;
+        default: break;
+        }
+        for (unsigned row = 0; row < height; ++row) {
+            for (unsigned column = 0; column < width; ++column, destination += 4) {
                 std::copy_n(atlas.data() + AtlasPixel(x + column,y + row),4,bytes.data() + destination);
+                if (tint[2]) std::copy(tint.begin(),tint.end(),bytes.data() + destination);
+            }
+        }
         if (i == ComboPanel && update) {
             // 01.04 moved the boss-hit caption off the panel and into its own layer.
             const auto& caption=icons.at("0594");

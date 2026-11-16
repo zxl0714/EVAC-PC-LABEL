@@ -80,7 +80,7 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         paths.mcRoot=profile/"mc0";
         cave::daioujou_ps2::DeathLabelGadgets gadgets(request->screen);
         cave::daioujou_ps2::DeathLabelSession::ObserveFrame observe;
-        std::function<void(PS2Runtime&)> configure;
+        cave::daioujou_ps2::DeathLabelGadgetFeed* feed{};
         cave::ps2::NativeHost host;
         cave::ps2::NativeHostOptions options;
         options.existingWindow=request->window;
@@ -94,7 +94,7 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         if (request->gadgetSprites && request->screen.gadgets) {
             try {
                 options.overlay=gadgets.Load(request->gadgetSprites);
-                configure=[&gadgets](PS2Runtime& runtime) { gadgets.Bind(runtime); };
+                feed=&gadgets.Feed();
                 observe=[&gadgets](const auto* memory,bool playing,bool menu) { gadgets.Observe(memory,playing,menu); };
             } catch (const std::exception& error) {
                 std::cerr<<"[ps2-death-label-gadgets] "<<error.what()<<'\n';
@@ -102,7 +102,8 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
         }
         host.Configure(std::move(options));
         host.Initialize("DoDonPachi DaiOuJou | Death Label");
-        const auto result = cave::daioujou_ps2::RunDiscProgram(paths,host,true,true,configure,request->actions,std::move(observe));
+        const auto result = cave::daioujou_ps2::RunDiscProgram(paths,host,true,true,{},request->actions,
+            std::move(observe),feed);
         if (result.completed) return DeathLabelResult::Completed;
         if (result.next=="boot.elf") return DeathLabelResult::Exit;
         return host.Alive()?DeathLabelResult::Failed:DeathLabelResult::Closed;

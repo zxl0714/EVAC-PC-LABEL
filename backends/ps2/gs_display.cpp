@@ -371,15 +371,8 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
                 const auto bottom = std::clamp(int32_t(y+h+0.5f),top,int32_t(height));
                 if (right == left || bottom == top) continue;
                 command->set_scissor({{left,top},{uint32_t(right-left),uint32_t(bottom-top)}});
-                const auto [sourceX,sourceY,sourceWidth,sourceHeight] = quad.scanout;
-                if (sourceWidth > 0 && sourceHeight > 0) {
-                    const float imageWidth = w/sourceWidth,imageHeight = h/sourceHeight;
-                    command->set_viewport({x-sourceX*imageWidth,y-sourceY*imageHeight,imageWidth,imageHeight,0,1});
-                    command->set_texture(0,0,source.image->get_view(),Vulkan::StockSampler::NearestClamp);
-                } else {
-                    command->set_viewport({x,y,w,h,0,1});
-                    command->set_texture(0,0,impl->overlayImages[quad.image]->get_view(),Vulkan::StockSampler::LinearClamp);
-                }
+                command->set_viewport({x,y,w,h,0,1});
+                command->set_texture(0,0,impl->overlayImages[quad.image]->get_view(),Vulkan::StockSampler::LinearClamp);
                 command->draw(3);
             }
         }

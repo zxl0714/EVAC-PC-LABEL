@@ -54,8 +54,9 @@ public:
         Require(entry.is_array() && entry.size() == 2, "Invalid DaiOuJou archive entry");
         const auto offset = Unsigned(entry[0]);
         const auto length = Unsigned(entry[1]);
-        Require(offset <= body_size_ && length > 0 && length <= body_size_ - offset &&
-            length <= packed_limit, "DaiOuJou resource lies outside the archive");
+        Require(offset <= body_size_ && length > 0 && length <= body_size_ - offset,
+            "DaiOuJou resource lies outside the archive");
+        Require(length <= packed_limit, "DaiOuJou resource exceeds its size limit");
         ResourceBytes packed(static_cast<std::size_t>(length));
         std::ifstream input(body_, std::ios::binary);
         input.seekg(static_cast<std::streamoff>(offset));
@@ -93,7 +94,8 @@ private:
 void WriteDeathLabelGadgets(const fs::path& stage,const ArchiveLayer& layer,bool update) {
     ResourceBytes sprites;
     try {
-        sprites = ExportDeathLabelGadgetSprites(layer.Read("1100/motion/title_gadget.psb.m",16*1024*1024),update);
+        sprites = ExportDeathLabelGadgetSprites(
+            layer.Read("1100/motion/title_gadget.psb.m", kGadgetAtlasResourceLimit), update);
     } catch (const std::exception& error) {
         // A replacement Gadget atlas must not prevent the original game from launching.
         std::fprintf(stderr,"Death Label Gadget artwork unavailable: %s\n",error.what());
@@ -237,7 +239,7 @@ void AddArrangeMenu(ArchiveLayer& layer, bool update) {
     layer.Add(gadget_path, {reinterpret_cast<const std::uint8_t*>(gadget.data()), gadget.size()}, true);
 
     constexpr std::string_view gadget_motion_path = "1100/motion/title_gadget.psb.m";
-    auto gadget_motion = layer.Read(gadget_motion_path, 16 * 1024 * 1024);
+    auto gadget_motion = layer.Read(gadget_motion_path, kGadgetAtlasResourceLimit);
     ApplyDaioujouArrangeGadgetArtwork(gadget_motion, update);
     layer.Add(gadget_motion_path, gadget_motion, true);
 

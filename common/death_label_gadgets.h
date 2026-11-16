@@ -6,7 +6,7 @@ namespace cave::death_label {
 
 // Local cache format. Pixels come from the player's own PS4 title_gadget
 // atlas. The PS2 host consumes the same indexed sprites for either PS4 build.
-inline constexpr std::uint32_t GadgetMagic = 0x34474c44; // DLG4
+inline constexpr std::uint32_t GadgetMagic = 0x35474c44; // DLG5
 inline constexpr std::uint32_t GadgetPixelBudget = 16 * 1024 * 1024;
 inline constexpr char GadgetCachePath[] = "arrange/death-label.gadgets";
 enum Sprite : std::uint32_t {
@@ -24,6 +24,9 @@ enum Sprite : std::uint32_t {
     StockA, StockB, MusicPanel, MusicIcon, MusicNote, MusicTitle,
     MusicBoss, MusicClear, MusicEntry, MusicGameOver,
     Stage5Jet, Hibachi, HibachiName, TimeCaption, TimeColon, TimeDecimal,
+    BossHealthFill, BossDefeated, ShotLevel, LaserLevel, PowerSegment,
+    FighterAName, FighterBName, ShotiaName, LeinyanName, ExyName,
+    Invincible, ScoreDetails, HyperTimerEmpty, HyperTimerFill, HyperPercent,
     SpriteCount,
 };
 

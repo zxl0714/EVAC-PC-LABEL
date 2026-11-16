@@ -4,6 +4,7 @@
 
 namespace cave::ps4 {
 using ResourceBytes = std::vector<std::uint8_t>;
+inline constexpr std::size_t kGadgetAtlasResourceLimit = 80 * 1024 * 1024;
 enum class ResourceFix { MusicAutosave, ReplayBatch, LocalRoundGate, CommunityReplayPeer, CommunityLocalReplay,
     EspradeLocalReplay, FeveronLocalReplay, GareggaLocalReplay, GareggaEnglishDefault, GareggaEnglishLookup, DaioujouTitleMusic };
 // Decode a verified program's file-backed seed. Also used by ROM-free tests.
