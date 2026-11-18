@@ -17,7 +17,7 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 3. [x] **让启动器封面与游戏平台对应。** 初代《ESPGaluda》使用 PS2 封面，《ESPGaluda II》使用 Xbox 360 封面。十二张封面均有发行版自带的平台标识。按平台横向对比后，换用更清晰的《狱门山》Xbox 360 封面并对齐同组尺寸，裁去 PS4《大往生》的盒边，换用《弹铳》的正面封面，七张低清素材以 FSRCNN 放大两倍。[#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
 4. [x] **向 Granite 提交 Win32 Vulkan 交换链修复 PR。** 包含三项独立提交，分别修正 Win32 交换链能力查询、关闭 present fence 时的销毁顺序及呈现失效恢复。[Granite #159](https://github.com/Themaister/Granite/pull/159)
    - RTX 4080 上的 Win32 示例实际提交画面，并通过注入驱动返回值覆盖尺寸变化和失去独占模式。FIFO、Immediate、能力查询和关闭 present fence 的对比均验证通过，修复后没有 Vulkan 校验错误。Intel 描述符回退跟进已有上游 PR。[Granite #157](https://github.com/Themaister/Granite/pull/157)
-5. [x] **v0.10.2 手动更新。** 发布说明注明从 GitHub Releases 下载程序包并解压覆盖原目录。本地用正式 v0.10.1 验证手动覆盖保留了存档、配置、游戏数据和自行安装的第三方程序。
+5. [x] **v0.10.2 手动更新。** 包内说明提供解压覆盖原目录的操作。本地用正式 v0.10.1 验证手动覆盖保留了存档、配置、游戏数据和自行安装的第三方程序。
    - 从 v0.10.2 起，自动更新按发布包清单创建所需目录。新增顶层目录、子目录和游戏目录都沿用同一规则，无需逐个登记。保留路径和文件完整性校验，更新时保留玩家已有的存档、配置、游戏数据和自行安装的第三方程序。
    - 用后续版本的测试包验收自动升级，覆盖新建游戏运行时和数据说明目录、更新 `external/SDOJ-Recomp/README.txt`，以及保留玩家自行解压的 SDOJ-Recomp 文件。
 6. [x] **调研 DonPachi Recomp 的外部启动。** 上游 v0.9.0 提供独立 Windows EXE，支持通过 `--rom` 指定原始 ZIP，通过 `--settings` 指定配置路径。用本地 `donpachi.zip` 短测启动，确认上游正常生成美版游戏数据缓存。可沿用 SDOJ-Recomp 的可选入口方式，由玩家安装上游发布包并提供自己的 ROM。本版完成调研和询问，实际接入留待后续版本，待作者回复。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游请求](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3)
