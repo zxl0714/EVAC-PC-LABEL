@@ -34,6 +34,7 @@
 
 - `releases/v0101-big-picture-07a3840/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `07a3840`，184,288,097 字节，SHA-256 为 `eed0d15fd07b5d600f704f7825940c7c2b095e1ef08d09ade18748d692896d1a`。实际解压核验 209 个清单文件。包内启动器与大屏实测构建相同，PS4《大往生》和嵌入 PS2 运行时与上一候选包逐字节一致。证据见 `.local/v0101/package-07a3840/verify.log`。
 - 用解压后的候选包，在 RTX 4080、610.88 驱动上复测最新 Death Label 闪退报告的设置。PS4《大往生》01.04 原曲，4K 窗口、VSync 开启，PS2 实际创建 3569×2008 的 `FIFO_RELAXED` 双缓冲交换链，走 descriptor buffer，呈现加载帧和选机画面，并正常关闭。RTX 3060 Ti 和 572.16 驱动的现场结果仍未知。记录见 `.local/v0101/package-07a3840/death-label-vsync.json`。
+- 后续候选包 `releases/v0101-footer-and-death-label-ee6b87e/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `ee6b87e`，184,289,192 字节，SHA-256 为 `c38f5edad6277efec3835191c02555f5bef263346621916901885d333d9c895a`，解压核验 209 个清单文件。大屏入口位于底部操作栏，685 DIP 客户区检查了按钮间距，启动器 4,814 项集成检查、预览及 PS2 六项定向回归通过。用这份包内程序在 RTX 4080 上按报告设置启动 Death Label，日志确认使用标准 FIFO、描述符集及三张交换链图像，未启用高级呈现扩展或 PS2 Reflex。正常到选机及关内，Game Over 返回 PS4 菜单后再次进入选机，关闭正常。证据见 `.local/v0101/package-ee6b87e/`。
 
 ## v0.10.0 PS2 Death Label
 
