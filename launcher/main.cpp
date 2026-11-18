@@ -1630,7 +1630,15 @@ class App {
         return 1;
       }
       switch(message) {
-        case WM_CREATE:app->CreatePreferences();app->Refresh();app->StartUpdates();app->StartMenuController();return 0;
+        case WM_CREATE:{
+          const auto caption=std::wstring(kWindowTitle)+L" v"+Wide(cave::launcher::kProductVersion);
+          SetWindowTextW(window,caption.c_str());
+          app->CreatePreferences();
+          app->Refresh();
+          app->StartUpdates();
+          app->StartMenuController();
+          return 0;
+        }
         case WM_GETMINMAXINFO:{
           if(app->BigPicture())break;
           auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;
