@@ -640,26 +640,20 @@ class Renderer {
     }
     for(size_t position=view.First();position<view.Last();++position) {
       const size_t index=library.visible[position];
-      const auto bounds=view.Card(position);
       const bool selected=position==view.selected;
       const auto& game=Catalogue()[index];
       const bool available=CanPlay(rows[index].inspection) || (game.id=="sdoj" && sdoj_external);
-      const float inset=5*scale;
-      fill(bounds,panel,6*scale);
       const auto artwork=Image(target,index,!available,true);
       const auto source=CoverSource(artwork,cave::launcher::kCoverArtwork[index]);
-      const float width=source.right-source.left,height=source.bottom-source.top;
-      const auto fit=std::min((bounds.right-bounds.left-2*inset)/width,
-                              (bounds.bottom-bounds.top-2*inset)/height);
-      if(fit>0) {
-        const auto horizontal=(bounds.left+bounds.right-width*fit)/2;
-        const auto vertical=bounds.top+inset;
-        target->DrawBitmap(artwork,{horizontal,vertical,horizontal+width*fit,vertical+height*fit},
-            available?1.f:0.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
-      }
+      const auto cover=view.Cover(position,(source.right-source.left)/(source.bottom-source.top));
+      if(cover.bottom<=cover.top)continue;
+      const auto padding=view.CoverPadding();
+      const D2D1_RECT_F frame{cover.left-padding,cover.top-padding,cover.right+padding,cover.bottom+padding};
+      fill(frame,panel,6*scale);
+      target->DrawBitmap(artwork,cover,available?1.f:0.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
       if(!cave::launcher::kCoverArtwork[index].platform_mark)
-        PlatformTag(target,game,bounds.left+9*scale,bounds.top+9*scale,scale);
-      if(selected)outline(bounds,accent,3);
+        PlatformTag(target,game,cover.left+4*scale,cover.top+4*scale,scale);
+      if(selected)outline(frame,accent,3);
     }
 
     const float footer=view.height-119*scale;

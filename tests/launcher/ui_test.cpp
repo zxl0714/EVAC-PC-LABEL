@@ -840,6 +840,10 @@ void MainChecks() {
         const auto card=view.Card(i);
         Require(card.left>=0 && card.right<=view.width && card.top>=0 &&
             card.bottom<=view.height-119*view.Scale(),"Big Picture cover overlaps the window or controls");
+        const auto narrow=view.Cover(i,0.70f),wide=view.Cover(i,0.806f);
+        Require(std::abs(narrow.top-wide.top)<0.01f && std::abs(narrow.bottom-wide.bottom)<0.01f &&
+            narrow.left>wide.left && narrow.right<wide.right,
+            "Big Picture covers with different proportions must share top and bottom edges");
       }
       Require(view.Move(MenuKey::Left)==5 && view.Move(MenuKey::Right)==7 &&
           view.Move(MenuKey::Up)==6-view.Columns() && view.Move(MenuKey::Down)==6+view.Columns(),

@@ -8,6 +8,7 @@ namespace cave::launcher {
 enum class MenuKey { None, Up, Down, Left, Right, Confirm, Back };
 
 struct BigPictureLayout {
+    static constexpr float kCoverSlotAspect = 0.82f;
     float width{}, height{};
     size_t count{}, selected{};
 
@@ -15,6 +16,7 @@ struct BigPictureLayout {
     float Scale() const { return std::clamp(std::min(width, height) / 620.f, 0.73f, 2.f); }
     float Margin() const { return 30 * Scale(); }
     float Gap() const { return 17 * Scale(); }
+    float CoverPadding() const { return 4 * Scale(); }
     size_t Columns() const {
         return Portrait() ? 2 : width / std::max(1.f, height) < 1.48f ? 3 : 4;
     }
@@ -27,17 +29,27 @@ struct BigPictureLayout {
     float CardHeight() const {
         const auto available = (height - 220 * Scale() - Gap() * (RowCount() - 1)) / RowCount();
         const auto column = (width - 2 * Margin() - Gap() * (Columns() - 1)) / Columns();
-        return std::max(1.f, std::min(available, column / 0.7f));
+        return std::max(1.f, std::min(available, column / kCoverSlotAspect));
     }
     D2D1_RECT_F Card(size_t position) const {
         const auto height = CardHeight();
-        const auto width = height * 0.7f;
+        const auto width = height * kCoverSlotAspect;
         const auto step = position - First();
         const auto left = (this->width - (width + Gap()) * Columns() + Gap()) / 2 +
                           (width + Gap()) * (step % Columns());
         const auto grid_height = RowCount() * height + (RowCount() - 1) * Gap();
         const auto spare = std::max(0.f, this->height - 220 * Scale() - grid_height);
         const auto top = 88 * Scale() + spare / 2 + (height + Gap()) * (step / Columns());
+        return {left, top, left + width, top + height};
+    }
+    D2D1_RECT_F Cover(size_t position, float aspect) const {
+        const auto slot = Card(position);
+        const auto padding = CoverPadding();
+        const auto height = std::max(0.f, std::min(slot.bottom - slot.top - 2 * padding,
+                                                  (slot.right - slot.left - 2 * padding) / aspect));
+        const auto width = height * aspect;
+        const auto left = (slot.left + slot.right - width) / 2;
+        const auto top = (slot.top + slot.bottom - height) / 2;
         return {left, top, left + width, top + height};
     }
     D2D1_RECT_F DesktopButton() const {
