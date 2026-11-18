@@ -37,6 +37,7 @@
 #include <memory>
 #include <map>
 #include <mutex>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <stdexcept>
@@ -274,7 +275,7 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="unknown_layout") return T(L"请检查游戏数据目录");
   if (state=="unsupported_version") return T(L"数据版本不支持");
   if (state=="title_update_failed") return T(L"无法解包游戏更新 · 点击详情");
-  if (state=="missing_runtime") return T(L"运行组件不可用 · 点击详情");
+  if (state=="missing_runtime") return T(L"运行组件不可用");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
   if (state=="invalid_path") return T(L"数据路径不可用");
   if (state=="not_integrated") return T(L"正在接入");
@@ -317,9 +318,21 @@ struct Layout {
     return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
   }
   D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
-  D2D1_RECT_F controls() const {return {margin()+174,height-45,margin()+244,height-14};}
-  D2D1_RECT_F config() const {return {margin()+251,height-45,margin()+328,height-14};}
-  D2D1_RECT_F logs() const {return {margin()+335,height-45,margin()+415,height-14};}
+  D2D1_RECT_F utility_button(size_t index) const {
+    constexpr std::array widths{85.f,75.f,70.f,77.f,80.f,98.f};
+    constexpr float gap=7.f;
+    constexpr float total=std::accumulate(widths.begin(),widths.end(),0.f);
+    const auto available=play().left-margin()-gap*widths.size();
+    const auto scale=std::clamp(available/total,0.f,1.f);
+    const auto left=margin()+gap*index+scale*std::accumulate(widths.begin(),widths.begin()+index,0.f);
+    return {left,height-45,left+scale*widths[index],height-14};
+  }
+  D2D1_RECT_F data() const {return utility_button(0);}
+  D2D1_RECT_F file_upload() const {return utility_button(1);}
+  D2D1_RECT_F controls() const {return utility_button(2);}
+  D2D1_RECT_F config() const {return utility_button(3);}
+  D2D1_RECT_F logs() const {return utility_button(4);}
+  D2D1_RECT_F big_picture_button() const {return utility_button(5);}
   D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
     const auto left=width-margin()-112+float(index)*40;
@@ -333,19 +346,11 @@ struct Layout {
     const auto right=hidden_games().left-6;
     return {right-24,16,right,44};
   }
-  D2D1_RECT_F big_picture_button() const {
-    const auto left=brand().right+16;
-    return {left,42,left+116,72};
-  }
-  D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
-  D2D1_RECT_F file_upload() const {return {margin()+92,height-45,margin()+167,height-14};}
-  D2D1_RECT_F detail() const {return {margin()+422,height-45,margin()+479,height-14};}
   D2D1_RECT_F focus_button(int slot) const {
     switch(slot) {
     case 4:return config(); case 5:return logs(); case 6:return data();
     case 7:return file_upload(); case 8:return play(); case 13:return controls(); case 14:return hidden_games(); case 15:return update_badge();
-    case 16:return big_picture_button();
-    default:return detail();
+    default:return big_picture_button();
     }
   }
   int footer_button_at(float x,float y) const;
@@ -655,8 +660,6 @@ class Renderer {
     const auto brand_scale=std::min((brand_box.right-brand_box.left)/brand_size.width,(brand_box.bottom-brand_box.top)/brand_size.height);
     target->DrawBitmap(brand,{brand_box.left,brand_box.top,brand_box.left+brand_size.width*brand_scale,brand_box.top+brand_size.height*brand_scale},
         1.f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
-    const auto big_picture=layout.big_picture_button();
-    Button(target,big_picture,T(L"大屏模式"),false,busy||running,focus==16||button_hover==16);
     const std::array language_codes{L"CN",L"EN",L"JP"};
     const std::array language_choices{Language::Chinese,Language::English,Language::Japanese};
     for(size_t index=0;index<language_choices.size();++index) {
@@ -747,8 +750,7 @@ class Renderer {
     Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games,button_hover==13);
     Button(target,layout.config(),T(L"配置文件"),false,false,button_hover==4);
     Button(target,layout.logs(),T(L"上传日志"),false,busy||running,button_hover==5);
-    Button(target,layout.detail(),T(L"详情"),false,
-        busy||running||!has_games||Catalogue()[selected].coming_soon,button_hover==9);
+    Button(target,layout.big_picture_button(),T(L"大屏模式"),false,busy||running,button_hover==9);
     if ((focus>=4 && focus<10) || focus==13 || focus==14 || (focus==15 && update_ready)) {
       const auto rectangle=layout.focus_button(focus);
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
@@ -905,10 +907,10 @@ class App {
     if(update_auto && (!downloadable || download_failed) && !update_request &&
        update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
   }
-  void ShowDetails() {
-    if(busy || child || library.visible.empty() || Catalogue()[selected].coming_soon)return;
-    const auto& game=Catalogue()[selected];
-    const auto& row=rows[selected];
+  void ShowDetails(size_t index) {
+    const auto& game=Catalogue()[index];
+    if(busy || child || game.coming_soon)return;
+    const auto& row=rows[index];
     std::wstring body=Wide(game.DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
     if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
     if(!row.inspection.missing_runtime.empty()) {
@@ -1262,16 +1264,16 @@ class App {
       if(input.wParam==VK_TAB) {
         const auto current=GetFocus();
         int slot=current==fullscreen_control?1:(current==nickname_control?2:(current==save_control?3:focus));
-        constexpr int slots=17;
+        constexpr int slots=16;
         for(int step=0;step<slots;++step) {
           slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?slots-1:1))%slots;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
-          if((slot==6 || slot==8 || slot==9 || slot==13) && library.visible.empty())continue;
+          if((slot==6 || slot==8 || slot==13) && library.visible.empty())continue;
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
-          if(slot==9 && (busy||child||Catalogue()[selected].coming_soon))continue;
+          if(slot==9 && (busy||child))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
           if(slot==15 && !ProgramReady())continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
@@ -1504,10 +1506,12 @@ class App {
     if(!game)return;
     const auto menu=CreatePopupMenu();
     if(!menu)throw std::runtime_error("Cannot create game menu");
+    AppendMenuW(menu,MF_STRING|(Catalogue()[*game].coming_soon?MF_GRAYED:0),2,T(L"游戏数据详情"));
     AppendMenuW(menu,MF_STRING,1,T(library.Hidden(*game)?L"取消隐藏":L"隐藏游戏"));
     const auto action=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_RIGHTBUTTON,screen.x,screen.y,0,hwnd,nullptr);
     DestroyMenu(menu);
     if(action==1)ToggleGameHidden(*game);
+    else if(action==2)ShowDetails(*game);
   }
   void EnsureVisible() {
     if(BigPicture()){InvalidateRect(hwnd,nullptr,FALSE);return;}
@@ -1586,7 +1590,7 @@ class App {
   void Click(float x,float y) {
     focus=0;SetFocus(hwnd);
     InvalidateRect(hwnd,nullptr,FALSE);
-    if(Inside(layout.big_picture_button(),x,y)){SetBigPicture(true);return;}
+    if(Inside(layout.big_picture_button(),x,y)){if(!busy&&!child)SetBigPicture(true);return;}
     if(Inside(layout.nickname(),x,y)) {
       if(IsWindowEnabled(nickname_control)){focus=2;SetFocus(nickname_control);}return;
     }
@@ -1610,10 +1614,6 @@ class App {
       return;
     }
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
-    if(Inside(layout.detail(),x,y)) {
-      ShowDetails();
-      return;
-    }
     if(const auto game=GameAt(x,y))Select(*game);
   }
   static LRESULT CALLBACK Window(HWND window,UINT message,WPARAM first,LPARAM second) {
@@ -1715,7 +1715,7 @@ class App {
               return 0;
             }
           }
-          app->SetButtonHover(Inside(app->layout.big_picture_button(),x,y)?16:app->layout.footer_button_at(x,y));
+          app->SetButtonHover(app->layout.footer_button_at(x,y));
           const auto game=app->GameAt(x,y);
           const auto hover=game?int(*game):-1;
           if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}

@@ -745,7 +745,7 @@ void MainChecks() {
   {
     Frame frame(fixture.root);auto& app=frame.app;
     Require(!fs::exists(fixture.root/"config.ini") && Ini::ReadText(ConfigPath(fixture.root))==before,"Real app startup did not preserve migration bytes");
-    for(const auto dimensions:std::array{std::pair{720.f,520.f},std::pair{1080.f,900.f}}) {
+    for(const auto dimensions:std::array{std::pair{685.f,520.f},std::pair{720.f,520.f},std::pair{1080.f,900.f}}) {
       app.layout.width=dimensions.first;app.layout.height=dimensions.second;
       const auto brand=app.layout.brand();
       Require(app.layout.nickname().bottom==brand.bottom && app.layout.save().bottom==brand.bottom,
@@ -753,7 +753,7 @@ void MainChecks() {
       Require(app.layout.header()-brand.bottom==14,"Header retains a removed helper-row reservation");
       Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
               brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
-      const std::array controls{app.layout.data(),app.layout.file_upload(),app.layout.controls(),app.layout.config(),app.layout.logs(),app.layout.detail(),app.layout.play()};
+      const std::array controls{app.layout.data(),app.layout.file_upload(),app.layout.controls(),app.layout.config(),app.layout.logs(),app.layout.big_picture_button(),app.layout.play()};
       for(size_t index=0;index<controls.size();++index) {
         const auto r=controls[index];
         Require(r.top>=app.layout.footer() && r.bottom<=app.layout.height && r.left>=0 && r.right<=app.layout.width,"Utility control is outside bottom row");

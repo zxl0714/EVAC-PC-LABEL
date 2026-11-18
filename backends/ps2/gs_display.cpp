@@ -196,14 +196,20 @@ public:
         wsi.set_platform(&window);
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
         wsi.set_present_mode(vsync?Vulkan::PresentMode::SyncToVBlank:Vulkan::PresentMode::UnlockedForceTearing);
-        wsi.set_present_low_latency_mode(true);
+        const bool compatibleVsync=window.borrowed && vsync;
+        wsi.set_present_low_latency_mode(!compatibleVsync);
         const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
         if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
-        // Hosted Death Label reports reached the descriptor-heap pipeline path
-        // while switching a PS4 window to the PS2 renderer. Use the standard
-        // descriptor path for the borrowed swapchain.
-        const auto disable = window.borrowed ? Vulkan::ContextCreationFlags(Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT) : 0;
+        Vulkan::ContextCreationFlags disable=0;
+        if(window.borrowed)disable|=Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT;
+        if(compatibleVsync) {
+            // Keep the PS4 window handoff on FIFO. Skip the extra swapchain
+            // extensions and the large descriptor-buffer allocation during it.
+            disable|=Vulkan::CONTEXT_CREATION_ENABLE_ADVANCED_WSI_BIT |
+                     Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_BUFFER_BIT;
+            std::fputs("[ps2-wsi] hosted VSync uses FIFO and descriptor sets\n",stderr);
+        }
         if(!wsi.init_context_from_platform(1,{},0,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
             throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
