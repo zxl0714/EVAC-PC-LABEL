@@ -30,6 +30,11 @@
 - 后续把解包移到启动器。打开启动器，即使选中别的游戏，也能在最大往生数据目录生成三件补丁。重开复用同一套文件。命令行从带空格和中文的目录补齐缺件并启动 TU 1.01，游戏正常呈现。直接运行 TU 版 EXE 时，只有原始更新包会提示用启动器。新拆出的三件补丁和上游 v1.51.4 已验样本逐字节一致。记录见 `.local/v0101/sdoj-tu-launcher/`。
 - 自动解包版候选包 `releases/v0101-tu-auto-extract/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `52f748f`，182,916,016 字节，SHA-256 为 `999fd66cc7afef5e49ec4b189e02ccd21555ed56c592a716b58ca361f29cca12`。解压一次核验 209 个清单文件。从包内启动器使用仅含原始 TU 的光盘目录，生成三件补丁并启动 1.01，游戏出帧后正常退出。记录见 `.local/v0101/package-52f748f/`。
 
+## v0.10.1 大屏候选包
+
+- `releases/v0101-big-picture-07a3840/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `07a3840`，184,288,097 字节，SHA-256 为 `eed0d15fd07b5d600f704f7825940c7c2b095e1ef08d09ade18748d692896d1a`。实际解压核验 209 个清单文件。包内启动器与大屏实测构建相同，PS4《大往生》和嵌入 PS2 运行时与上一候选包逐字节一致。证据见 `.local/v0101/package-07a3840/verify.log`。
+- 用解压后的候选包，在 RTX 4080、610.88 驱动上复测最新 Death Label 闪退报告的设置。PS4《大往生》01.04 原曲，4K 窗口、VSync 开启，PS2 实际创建 3569×2008 的 `FIFO_RELAXED` 双缓冲交换链，走 descriptor buffer，呈现加载帧和选机画面，并正常关闭。RTX 3060 Ti 和 572.16 驱动的现场结果仍未知。记录见 `.local/v0101/package-07a3840/death-label-vsync.json`。
+
 ## v0.10.0 PS2 Death Label
 
 - `death-natural-trace-r1/scanout.png` 录到 PS2 玩家局，`death-natural-trace-r2/scanout.png` 录到自然 Game Over，输入记录确认开局后未再按键。原版运行先退出关内状态，完整显示结算画面后才重新打开根菜单。
