@@ -1385,7 +1385,7 @@ class App {
         task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
           const auto ini=Ini::Load(ConfigPath(root));
-          task->launch=task->external?cave::launcher::PrepareSdojRecomp(root,ini,data):
+          task->launch=task->external?cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem()):
                                       PrepareLaunch(FindGame(id),root,ini,profile,data);
           Log(root,"launch-verification "+task->launch->verification);
           if(id=="daioujou") {

@@ -33,7 +33,8 @@ inline std::string RecompKey(const Binding& binding) {
   }
 }
 
-inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs::path& data_override) {
+inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs::path& data_override,
+                                    unsigned display_dpi) {
   const auto& game=FindGame("sdoj");
   LaunchSpec launch;
   launch.game=game.id;
@@ -43,9 +44,12 @@ inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs
   launch.controller_mapping_hint=ControllerMappingHint(ini,game.id);
 
   const auto settings=ResolveSettings(ini,game.id);
+  // The upstream SDL window accepts logical units while EVAC stores pixels.
+  const auto dpi=display_dpi?display_dpi:96u;
+  const auto logical=[dpi](unsigned pixels) {return (pixels*96u+dpi/2)/dpi;};
   launch.arguments={settings.fullscreen?L"--fullscreen=true":L"--fullscreen=false",
-                    L"--window_width="+std::to_wstring(settings.window_width),
-                    L"--window_height="+std::to_wstring(settings.window_height)};
+                    L"--window_width="+std::to_wstring(logical(settings.window_width)),
+                    L"--window_height="+std::to_wstring(logical(settings.window_height))};
   constexpr std::array keys{L"up",L"down",L"left",L"right",L"shot",L"bomb",L"rapid_shot",L"extra"};
   for(size_t index=0;index<keys.size();++index) {
     const auto key=RecompKey(settings.keyboard[index]);
