@@ -1,4 +1,6 @@
 #include "daioujou_death_label.h"
+#include "backends/ps2/crash_unwind.h"
+#include <atomic>
 #include "loader/image_memory.h"
 #include "native_video.h"
 #include "common/settings.h"
@@ -15,6 +17,7 @@
 
 namespace cave::ps4 {
 namespace {
+std::atomic<WriteDeathLabelGraphicsTrace> borrowed_graphics_trace{};
 using Vm = void*;
 using Closure = int(KT_SYSV*)(Vm);
 struct SquirrelApi {
@@ -129,6 +132,7 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
         if (!library_) throw std::runtime_error("Cannot load the PS2 DaiOuJou runtime");
         entry_ = reinterpret_cast<RunDeathLabel>(GetProcAddress(static_cast<HMODULE>(library_), DeathLabelEntry));
         release_ = reinterpret_cast<ReleaseDeathLabel>(GetProcAddress(static_cast<HMODULE>(library_), DeathLabelRelease));
+        graphics_trace_ = reinterpret_cast<WriteDeathLabelGraphicsTrace>(GetProcAddress(static_cast<HMODULE>(library_), DeathLabelGraphicsTrace));
         if (!entry_ || !release_) throw std::runtime_error("PS2 DaiOuJou runtime has an incompatible Death Label ABI");
         active = this;
         std::puts("{\"event\":\"daioujou_death_label_data_ready\"}");
@@ -153,7 +157,20 @@ DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const
     host.session = &session_;
     std::printf("{\"event\":\"daioujou_death_label_audio\",\"music\":%u,\"effects\":%u,\"master\":%g}\n",
         audio.music, audio.effects, volume_);
+    struct TraceLease {
+        explicit TraceLease(WriteDeathLabelGraphicsTrace write) {
+            borrowed_graphics_trace.store(write, std::memory_order_release);
+        }
+        ~TraceLease() { borrowed_graphics_trace.store(nullptr, std::memory_order_release); }
+    } trace_lease(graphics_trace_);
     return RunNativeVideoDeathLabel(host, entry_);
+}
+
+void DaioujouDeathLabel::WriteGraphicsCrashTrace(void* file, const CONTEXT& fault) noexcept {
+    if (const auto write = borrowed_graphics_trace.load(std::memory_order_acquire)) {
+        write(file);
+        cave::ps2::WriteFaultingCallstack(static_cast<HANDLE>(file), fault);
+    }
 }
 
 void DaioujouDeathLabel::InstallBinding(std::span<std::uint8_t> image, std::span<const std::uint8_t,32> identity) {

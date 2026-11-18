@@ -2,6 +2,7 @@
   "format": 1,
   "game": "ketsui",
   "titleId": "CUSA09062",
+  "contentId": "JP0092-CUSA09062_00-KETSUIDEATHTINY0",
   "version": "01.02",
   "source": {
     "repository": "https://github.com/zxl0714/Ketsui-PC",
@@ -919,12 +920,6 @@
           "program": false
         },
         {
-          "path": "sce_sys/keystone",
-          "bytes": 96,
-          "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
-          "program": false
-        },
-        {
           "path": "sce_sys/npbind.dat",
           "bytes": 532,
           "sha256": "3d03bdb43e543d78f1cbca101b01a1a53af9caef0880b98b4afb87b5b0b0013d",
@@ -1408,12 +1403,6 @@
           "path": "sce_sys/changeinfo/changeinfo.xml",
           "bytes": 1910,
           "sha256": "907609567fcc209cd4267678609229b12b4f5b41f5e961788b55e4a4f1c3cc81",
-          "program": false
-        },
-        {
-          "path": "sce_sys/keystone",
-          "bytes": 96,
-          "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
           "program": false
         },
         {

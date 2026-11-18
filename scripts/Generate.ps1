@@ -3,7 +3,8 @@
 param(
     [ValidateSet('espgaluda2','futari','sdoj','guwange')][string]$Game='espgaluda2',
     [Parameter(Mandatory)][string]$DataDirectory,
-    [switch]$Regenerate
+    [switch]$Regenerate,
+    [string]$TitleUpdate
 )
 $ErrorActionPreference='Stop'
 $taskProcess=Get-Process -Id $PID
@@ -12,6 +13,7 @@ try {
     $taskProcess.PriorityClass='BelowNormal'
     $arguments=@('-3.12',(Join-Path $PSScriptRoot 'generate_game.py'),'--game',$Game,'--data-dir',$DataDirectory)
     if ($Regenerate) { $arguments+='--regenerate' }
+    if ($TitleUpdate) { $arguments+=@('--title-update',$TitleUpdate) }
     & py @arguments
     if ($LASTEXITCODE -ne 0) { throw "Game code generation failed: $LASTEXITCODE" }
 } finally { $taskProcess.PriorityClass=$previousPriority }

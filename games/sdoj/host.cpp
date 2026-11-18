@@ -8,6 +8,7 @@
 #include <rex/cvar.h>
 #include <rex/ui/window.h>
 #include <rex/system/kernel_state.h>
+#include "guest_layout.h"
 #include <rex/system/xam/user_profile.h>
 #include <stdexcept>
 
@@ -20,7 +21,9 @@ class SdojApp final : public cave::xbox360::CollectionApp {
 public:
     using CollectionApp::CollectionApp;
     static std::unique_ptr<rex::ui::WindowedApp> Create(rex::ui::WindowedAppContext& context) {
-        return std::unique_ptr<SdojApp>(new SdojApp(context,"sdoj",PPCImageConfig,sdoj::kBuildIdentity));
+        auto build = sdoj::kBuildIdentity;
+        if constexpr (sdoj::kTitleUpdate) build.data_variant = "disc-tu101";
+        return std::unique_ptr<SdojApp>(new SdojApp(context,"sdoj",PPCImageConfig,build));
     }
 private:
     void OnGameSetup() override {

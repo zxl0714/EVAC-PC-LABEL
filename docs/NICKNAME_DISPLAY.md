@@ -35,12 +35,13 @@ ranking viewer:
 | ESP Ra.De. CUSA15155 01.04 | `system/font/m2shot_font.psb.m` | 829 | `26e49ecf2a9ff437a1da94c7f15097641987785a725ce3dda12035c5957412ca` |
 | Dangun Feveron US CUSA06735 01.00 | `system/font/m2shot_font.psb.m` | 799 | `bc526fdfe2467dc57c27b18b880fc57187775a1a953f04e4c8baa56be65302e2` |
 | Battle Garegga KR CUSA10207 01.00 | `system/font/m2shot_font.psb.m` | 780 | `3b49fd2b86434263b8c0d00426e1d83207467ba3931fc88b395578879860996e` |
+| Battle Garegga JP CUSA05429 01.07 | `system/font/m2shot_font.psb.m` | 785 | `63ddbe942b469d815d9c586184b2c2f2436b2774cf5d1f0b2b8c9a250d4a3802` |
 
 Feveron's font adds 46 codepoints and omits eight from the existing common set.
 Its check applies both differences; the other games' coverage is unchanged.
-Garegga adds 32 codepoints and omits 13 from the common set. Its accepted
-community adapter participates in shared nickname warnings, including missing
-ASCII symbols, unsupported Unicode and the native 16-byte name limit.
+Garegga's Korean font adds 32 codepoints and omits 13 from the common set.
+The Japanese font includes all 780 Korean glyphs plus five more. The launcher
+checks the shared coverage because both releases use the same leaderboards.
 
 Ketsui's two supported versions differ. When its root program identifies a known
 variant, the launcher uses that version. Without identifiable local data it

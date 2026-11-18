@@ -3,6 +3,7 @@
 #include "disc_program.h"
 #include "death_label_gadgets.h"
 #include <Windows.h>
+#include "backends/ps2/gs_crash_trace.h"
 #include <cmath>
 #include <condition_variable>
 #include <filesystem>
@@ -243,6 +244,10 @@ extern "C" __declspec(dllexport) cave::DeathLabelResult EvacRunDeathLabel(const 
     } catch (...) {
         return DeathLabelResult::Failed;
     }
+}
+
+extern "C" __declspec(dllexport) void EvacWriteDeathLabelGraphicsTrace(void* file) noexcept {
+    cave::ps2::gs_crash::Write(static_cast<HANDLE>(file));
 }
 
 extern "C" __declspec(dllexport) void EvacReleaseDeathLabel(void* session) noexcept {

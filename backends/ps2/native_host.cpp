@@ -243,17 +243,18 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
             if(!first || frame.vsyncTick<first)return;
         }
         const auto present=[&] {
-            if(!display.Present(frame))throw GsWindowClosed();
+            if(!display.Present(frame))return false;
             if(firstVisibleField && !hasPresented) {
                 std::cerr<<"[ps2-host-first-present] field="<<frame.vsyncTick<<'\n';
                 if(resuming)StartupTrace("first-resumed-present");
                 hasPresented=true;
             }
+            return true;
         };
         if(frame.Prepared()) {
             if(prepared || !display.Device().IsReadyPage(frame.dispfb2))return;
             repeat.reset();
-            present();
+            if(!present())return;
             presentedRepeat=false;
             prepared=frame;
             preparedSerial=display.Device().ScanoutRevision(frame.dispfb2);
@@ -323,13 +324,13 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
                 if(remaining < -4ms || preparedSerial!=display.Device().ScanoutRevision(repeat->dispfb2)) {
                     repeat.reset();
                 } else if(remaining<=1ms) {
-                    if(!display.Present(*repeat,true))throw GsWindowClosed();
-                    prepared=repeat;
-                    // A real worker completion can cover one held field. A
-                    // repeat can never extend that lease into another one.
-                    presentedRepeat=true;
+                    if(display.Present(*repeat,true)) {
+                        prepared=repeat;
+                        // A repeat can never extend its own lease into another field.
+                        presentedRepeat=true;
+                        ++repeated;
+                    }
                     repeat.reset();
-                    ++repeated;
                 } else timeout=std::min(timeout,std::chrono::duration_cast<std::chrono::milliseconds>(remaining));
             }
             impl->queue->ConsumeOne(sink,timeout);

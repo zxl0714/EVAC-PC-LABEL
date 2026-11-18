@@ -231,30 +231,39 @@ void ApplyDaioujouArrangeArtwork(std::span<std::uint8_t> motion, bool update) {
 }
 
 void ApplyKetsuiArrangeArtwork(std::span<std::uint8_t> motion) {
-    const auto hash = PreparationHash(motion);
-    constexpr std::string_view base = "177ec25d0257bdbd15e1513baeaf49113f19934551fde5c8f13a4f6db1de6ab8";
-    constexpr std::string_view update = "12e263ab3772106f6f4627dfd74cd12e5eab7e7a75c86a67222c6ca351dd04b3";
-    if (hash != base && hash != update) throw std::runtime_error("Ketsui common UI differs from the verified atlas");
-    auto atlas = motion.subspan(hash == base ? 0x284a0 : 0x28500, 4096u * 2048u * 4u);
-    const BadgeRegion large = hash == base ? BadgeRegion{2312, 1089, 331, 58} : BadgeRegion{1336, 1108, 331, 58};
+    struct Layout { std::string_view hash; std::size_t offset; BadgeRegion large; };
+    // Each release places the mode_10 badge at a different position.
+    constexpr std::array layouts{
+        Layout{"177ec25d0257bdbd15e1513baeaf49113f19934551fde5c8f13a4f6db1de6ab8", 0x284a0, {2312, 1089, 331, 58}},
+        Layout{"12e263ab3772106f6f4627dfd74cd12e5eab7e7a75c86a67222c6ca351dd04b3", 0x28500, {1336, 1108, 331, 58}},
+        Layout{"2a56d3653c8241934732310c26cbbcc925fe8e6ab812fdcd9f11ac0f183fb35b", 0x291e0, {1, 1124, 331, 58}},
+    };
+    const auto layout = std::ranges::find(layouts, PreparationHash(motion), &Layout::hash);
+    if (layout == layouts.end()) throw std::runtime_error("Ketsui common UI differs from the verified atlas");
+    auto atlas = motion.subspan(layout->offset, 4096u * 2048u * 4u);
     constexpr BadgeRegion compact{3897, 562, 188, 44};
 
     ComApartment apartment;
     ComPtr<IWICImagingFactory> factory;
     Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
-    PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange331x58, large, false);
+    PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange331x58, layout->large, false);
     PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange188x44, compact, false);
 }
 
 void ApplyKetsuiArrangeCardArtwork(std::span<std::uint8_t> motion) {
-    constexpr std::string_view hash = "3c7e52af38d78acc3e4abc19a4245b22a44311365cf2d2721c346f6403e10f63";
-    if (PreparationHash(motion) != hash) throw std::runtime_error("Ketsui Direct Menu differs from the verified atlas");
+    struct Layout { std::string_view hash; std::size_t offset; };
+    constexpr std::array layouts{
+        Layout{"3c7e52af38d78acc3e4abc19a4245b22a44311365cf2d2721c346f6403e10f63", 0x56000},
+        Layout{"7a7b1a1dee375d8dd021ea5851a2e7ccd7fcf87679e12f0b0bdf4d8d6ad47e48", 0x570c0},
+    };
+    const auto layout = std::ranges::find(layouts, PreparationHash(motion), &Layout::hash);
+    if (layout == layouts.end()) throw std::runtime_error("Ketsui Direct Menu differs from the verified atlas");
 
     ComApartment apartment;
     ComPtr<IWICImagingFactory> factory;
     Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
-    auto atlas = motion.subspan(352256, 4096u * 4096u * 4u);
-    // Direct Menu mode 5 uses icon 0024 exclusively.
+    auto atlas = motion.subspan(layout->offset, 4096u * 4096u * 4u);
+    // Mode 5 keeps its badge position, but the icon is renumbered in 01.03.
     PaintKetsuiBadge(atlas, *factory.Get(), artwork::kKetsuiArrange171x18, {2177, 2678, 171, 18}, true);
 }
 
@@ -441,22 +450,25 @@ std::vector<std::uint8_t> ExportDeathLabelGadgetSprites(std::span<const std::uin
 }
 
 void ApplyKetsuiArrangeGadgetArtwork(std::span<std::uint8_t> motion) {
-    constexpr std::array<std::string_view, 2> hashes{
-        "da4a128f7cbe3f15ee0ee8c6ef5d1556a08e3d709030086fb0f3ce85234f5540",
-        "50780f166d1fca05c17461c9ba3bd562b02e2781495ba0da849ff198d113215e",
+    struct Layout { std::string_view hash; std::size_t offset; unsigned width; BadgeRegion badge; };
+    constexpr std::array layouts{
+        Layout{"da4a128f7cbe3f15ee0ee8c6ef5d1556a08e3d709030086fb0f3ce85234f5540", 0x4998c0, 4096, {298, 2690, 160, 13}},
+        Layout{"50780f166d1fca05c17461c9ba3bd562b02e2781495ba0da849ff198d113215e", 0x4998c0, 4096, {298, 2690, 160, 13}},
+        Layout{"cc1d84468b15ef3411d83bf5cfb4f641954c9b40e095e70fb5c9a2224136dd93", 0xa1720, 1024, {733, 191, 160, 13}},
     };
-    if (std::ranges::find(hashes, PreparationHash(motion)) == hashes.end())
+    const auto layout = std::ranges::find(layouts, PreparationHash(motion), &Layout::hash);
+    if (layout == layouts.end())
         throw std::runtime_error("Ketsui music gadget differs from the verified atlas");
 
     ComApartment apartment;
     ComPtr<IWICImagingFactory> factory;
     Check(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf())));
-    auto atlas = motion.subspan(628928 + 1024u * 1024u * 4u, 4096u * 4096u * 4u);
-    constexpr BadgeRegion region{298, 2690, 160, 13};
+    auto atlas = motion.subspan(layout->offset, layout->width * layout->width * 4u);
+    const auto region = layout->badge;
     const auto label = DecodeBadge(*factory.Get(), artwork::kKetsuiArrange160x13, region);
     for (unsigned y = 0; y < region.height; ++y) {
         for (unsigned x = 0; x < region.width; ++x) {
-            auto* pixel = atlas.data() + AtlasPixel(region.x + x, region.y + y);
+            auto* pixel = atlas.data() + AtlasPixel(region.x + x, region.y + y, layout->width / 8);
             const auto* ink = label.data() + (y * region.width + x) * 4;
             std::copy_n(ink, 4, pixel);
             std::swap(pixel[0],pixel[2]);

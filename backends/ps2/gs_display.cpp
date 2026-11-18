@@ -31,6 +31,7 @@ public:
     bool borrowed=false;
     bool closed=false;
     bool fullscreen=false;
+    bool swapchainReady=false;
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
     std::function<void(unsigned,bool)> keyHandler;
     std::exception_ptr inputFailure;
@@ -80,10 +81,11 @@ public:
     }
     void event_swapchain_created(Vulkan::Device* gpu,VkSwapchainKHR swapchain,unsigned,unsigned,float,size_t,
                                  VkFormat,VkColorSpaceKHR,VkSurfaceTransformFlagBitsKHR) override {
+        swapchainReady=swapchain!=VK_NULL_HANDLE;
         if(gpu)reflex.Connect(gpu->get_device(),gpu->get_device_table(),swapchain,
             gpu->get_gpu_properties().vendorID==0x10de && gpu->get_device_features().supports_low_latency2_nv);
     }
-    void event_swapchain_destroyed() override {amdField=0;reflex.Disconnect();}
+    void event_swapchain_destroyed() override {swapchainReady=false;amdField=0;reflex.Disconnect();}
     void event_device_destroyed() override {amdUpdate=nullptr;amdDevice=VK_NULL_HANDLE;reflex.ReleaseDevice();}
     VkSurfaceKHR create_surface(VkInstance instance,VkPhysicalDevice) override {
         VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
@@ -189,16 +191,29 @@ public:
     Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,HWND existing,HANDLE quit,
          const GsPresentation& layout,std::shared_ptr<GsOverlay> art)
         :window(width,height,title,reflex,amd,existing,quit),presentation(layout),overlay(std::move(art)) {
+        gs_crash::Start();
+        Mark(Stage::Init);
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
         wsi.set_platform(&window);
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
         wsi.set_present_mode(vsync?Vulkan::PresentMode::SyncToVBlank:Vulkan::PresentMode::UnlockedForceTearing);
-        wsi.set_present_low_latency_mode(true);
+        const bool compatibleVsync=window.borrowed && vsync;
+        wsi.set_present_low_latency_mode(!compatibleVsync);
         const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
         if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
-        if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
+        Vulkan::ContextCreationFlags disable=0;
+        if(window.borrowed)disable|=Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT;
+        if(compatibleVsync) {
+            // Keep the PS4 window handoff on FIFO. Skip the extra swapchain
+            // extensions and the large descriptor-buffer allocation during it.
+            disable|=Vulkan::CONTEXT_CREATION_ENABLE_ADVANCED_WSI_BIT |
+                     Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_BUFFER_BIT;
+            std::fputs("[ps2-wsi] hosted VSync uses FIFO and descriptor sets\n",stderr);
+        }
+        if(!wsi.init_context_from_platform(1,{},0,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
+            throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
         // are independent of the one outstanding game-frame fence below.
         auto& device=wsi.get_device();
@@ -232,10 +247,8 @@ GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bo
     :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd,
          static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent),presentation,std::move(overlay))) {
     const auto& gpu=impl->wsi.get_device().get_gpu_properties();
-    gs_crash::Start();
-    impl->Mark(Stage::Init);
-    std::fprintf(stderr,"[ps2-gs-present] transfer=gpu-sampled gpu=%s device=%04x driver_raw=%u render_thread=%lu\n",
-                 gpu.deviceName,gpu.deviceID,gpu.driverVersion,GetCurrentThreadId());
+    std::fprintf(stderr,"[ps2-gs-present] transfer=gpu-sampled gpu=%s device=%04x driver_raw=%u render_thread=%lu hosted=%s\n",
+                 gpu.deviceName,gpu.deviceID,gpu.driverVersion,GetCurrentThreadId(),impl->window.borrowed?"true":"false");
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
     impl->gs->SetWaitPump([this]{
         if(!Alive())throw GsWindowClosed();
@@ -287,8 +300,23 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
+void GsDisplay::BeginWindowFrame() {
+    if(!Alive())throw GsWindowClosed();
+    if(!impl->wsi.begin_frame()) {
+        if(!Alive())throw GsWindowClosed();
+        throw std::runtime_error("Cannot acquire a PS2 Vulkan frame");
+    }
+}
+bool GsDisplay::EndWindowFrame() {
+    if(!impl->wsi.end_frame()) {
+        if(!Alive())throw GsWindowClosed();
+        throw std::runtime_error("Cannot present a PS2 Vulkan frame");
+    }
+    return impl->window.swapchainReady;
+}
 void GsDisplay::PresentLoadingFrame() {
-    if(!Alive() || IsIconic(impl->window.handle) || !impl->wsi.begin_frame())return;
+    if(IsIconic(impl->window.handle))return;
+    BeginWindowFrame();
     auto& device=impl->wsi.get_device();
     auto pass=device.get_swapchain_render_pass(Vulkan::SwapchainRenderPass::ColorOnly);
     pass.clear_color[0].float32[3]=1.0f;
@@ -296,7 +324,7 @@ void GsDisplay::PresentLoadingFrame() {
     command->begin_render_pass(pass);
     command->end_render_pass();
     device.submit(command);
-    if(impl->wsi.end_frame())StartupTrace("loading-frame-presented");
+    if(EndWindowFrame())StartupTrace("loading-frame-presented");
 }
 bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->window.reflex.BeginOutput();
@@ -315,7 +343,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->gs->Flush();
     if(trace)trace->flushed=frame_trace::Stamp();
     impl->Mark(Stage::Acquire);
-    if(!Alive() || !impl->wsi.begin_frame())return false;
+    BeginWindowFrame();
     if(input_trace::Enabled()) {
         Vulkan::PresentationStats stats{};
         if(impl->wsi.get_presentation_stats(stats) && stats.feedback_present_id!=impl->lastFeedback) {
@@ -377,6 +405,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         impl->Mark(Stage::Draw);
         command->draw(3,1,layout.quarterTurns*3);
         if(impl->overlay) {
+            impl->Mark(Stage::BeginOverlay);
             auto& quads=impl->overlayQuads;
             quads.clear();
             impl->overlay->quads(quads);
@@ -419,7 +448,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         }
     }
     impl->Mark(Stage::Present);
-    if(!impl->wsi.end_frame())return false;
+    if(!EndWindowFrame())return false;
     impl->Mark(Stage::Presented);
     if(impl->frames==0)StartupTrace("first-present-returned");
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,

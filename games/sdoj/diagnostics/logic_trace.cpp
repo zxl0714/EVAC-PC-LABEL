@@ -61,8 +61,8 @@ constexpr CoreState CoreStateAddresses(unsigned module) {
     // Disc CA022100: 88080124, 8807F030, 88080694.
     // Disc CA022110: 88080F14, 8807FE08, 8808146C.
     // These are three independently reviewed addresses, not a common offset.
-    return module==1 ? CoreState{0x886ACB48,0x886ACC30,0x886B4798}
-                     : CoreState{0x886B6600,0x886B66E8,0x886BCCC0};
+    return module==1 ? CoreState{sdoj::OverlayData(0x886ACB48),sdoj::OverlayData(0x886ACC30),sdoj::OverlayData(0x886B4798)}
+                     : CoreState{sdoj::OverlayData(0x886B6600),sdoj::OverlayData(0x886B66E8),sdoj::OverlayData(0x886BCCC0)};
 }
 bool SelectedContent(std::uint64_t logic) {
     const auto first=REXCVAR_GET(sdoj_logic_content_from);

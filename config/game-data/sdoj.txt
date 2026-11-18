@@ -16,10 +16,15 @@ game-data/
    └─ ...
 
 将原版光盘的完整解包文件放到以上位置，保留全部 CA*.bin 及其余资源。
-使用未加音乐补丁的原版数据，不叠加 default.xexp 或 .binp 文件。
-放好后，在启动器点击“刷新”，选择游戏并启动。
+要使用光盘版 TU 1.01，请将更新包解压，把以下文件放到 default.xex 同一目录：
+TU_11LK1V7_000000G000000.0000000000084
+打开启动器后，它会把 default.xexp、CA022100.binp 和 CA022110.binp 解到同一目录。
+首次解包需要该目录可写。之后启动器和游戏直接使用这三个补丁，也可以手动放齐后启动。
 
-Place the complete extracted original disc files here, including every CA*.bin
-and all remaining resources. Use the unmodified disc data without music patches,
-default.xexp or .binp files.
-Click Refresh in the launcher, select the game, then start it.
+Place the complete extracted Xbox 360 disc files here. To use disc TU 1.01,
+unzip the update and put this file next to default.xex:
+TU_11LK1V7_000000G000000.0000000000084
+When the launcher opens, it extracts default.xexp, CA022100.binp and CA022110.binp
+into the same folder. The folder must be writable for the first extraction.
+The launcher and game then use those three patches directly. You can also place
+all three extracted patches there yourself.

@@ -82,6 +82,9 @@ class CatalogueTests(unittest.TestCase):
         self.assertTrue(game['integrated'])
         self.assertTrue(game['communitySupported'])
         self.assertEqual(game['executable'], 'runtime/xbox360/sdoj.exe')
+        update = game['titleUpdate']
+        self.assertEqual((update['id'], update['version'], update['titleId']), ('disc-tu101', '1.01', '435A07E7'))
+        self.assertIn(update['executable'], game['runtimeFiles'])
         self.assertEqual(len(game['files']), 114)
         self.assertEqual(sum(item['bytes'] for item in game['files']), 3274143397)
         self.assertEqual({item['path'] for item in game['files'] if item['program']},
@@ -99,15 +102,20 @@ class CatalogueTests(unittest.TestCase):
         game = next(game for game in catalogue.load(self.path) if game['id'] == 'ketsui')
         self.assertEqual([(v['id'], v['version'], v['layout'], len(v['files'])) for v in game['variants']],
                          [('update-102', '01.02', 'merged-patch', 40), ('base', '01.00', 'base', 34),
-                          ('base-self', '01.00', 'base', 34), ('update-103', '01.03', 'merged-patch', 38),
+                          ('base-self', '01.00', 'base', 34), ('update-103', '01.03', 'merged-patch', 37),
                           ('base-pkg-extracted', '01.00', 'base', 34),
-                          ('update-103-pkg-extracted', '01.03', 'merged-patch', 38),
+                          ('update-103-pkg-extracted', '01.03', 'merged-patch', 37),
                           ('base-store-dump', '01.00', 'base', 33)])
         self.assertEqual(game['files'], game['variants'][0]['files'])
         for variant in game['variants']:
             files = {item['path']: item for item in variant['files']}
             self.assertIn('eboot.bin', files)
             self.assertIn('sce_module/libc.prx', files)
+            if variant['version'] == '01.03':
+                self.assertNotIn('sce_module/libSceAudioLatencyEstimation.prx',
+                                 {file['path'] for file in catalogue.ps4_required_files(variant['files'])})
+                self.assertNotIn('sce_sys/keystone', files)
+                self.assertIn('ps4data_patch_body.bin', files)
             self.assertFalse(any(name.startswith('CUSA09062-') for name in files))
             self.assertTrue({'CUSA09062-app', 'CUSA09062-patch'}.issubset(variant['forbiddenFiles']))
         base = game['variants'][1]
@@ -181,13 +189,19 @@ class CatalogueTests(unittest.TestCase):
                 for item in variant['files']:
                     with self.subTest(game=game['id'], variant=variant['id'], path=item['path']):
                         self.assertEqual(bool(item.get('programFingerprint')), item['program'])
+                required = catalogue.ps4_required_files(variant['files'])
+                names = {item['path'] for item in required}
+                self.assertIn('eboot.bin', names)
+                self.assertIn('sce_module/libc.prx', names)
+                self.assertEqual({name for name in names if name.startswith('sce_sys/')}, {'sce_sys/param.sfo'})
+                self.assertFalse(names & {'sce_discmap.plt', 'sce_discmap_patch.plt'})
 
     def test_equivalent_ketsui_packages_require_distinct_metadata_and_identical_code(self):
         raw = catalogue.read_json(self.root / 'games/ketsui/data.json')
         variants = catalogue.data_variants(raw)
         entry = lambda v: next(f for f in v['files'] if f['path'] == 'eboot.bin')
         self.assertEqual(entry(variants[1])['programFingerprint'], entry(variants[2])['programFingerprint'])
-        for field in ('metadata', 'code', 'version'):
+        for field in ('metadata', 'code', 'version', 'resources'):
             changed = copy.deepcopy(raw)
             base, alias = changed['alternatives'][:2]
             if field == 'metadata':
@@ -195,6 +209,8 @@ class CatalogueTests(unittest.TestCase):
                     next(f for f in alias['files'] if f['path'] == name)['sha256'] = next(f for f in base['files'] if f['path'] == name)['sha256']
             elif field == 'code':
                 next(f for f in alias['files'] if f['program'] and f['path'] != 'eboot.bin')['programFingerprint'] = '0'*64
+            elif field == 'resources':
+                next(f for f in alias['files'] if f['path'] == 'ps4data_info.psb.m')['sha256'] = '0'*64
             else:
                 alias['version'] = '01.02'
             with self.subTest(field=field), self.assertRaises(ValueError):

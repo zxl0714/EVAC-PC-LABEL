@@ -9,6 +9,7 @@
 namespace cave::xbox360 {
 struct BuildIdentity {
     std::string_view game, commit, dirty, program_metadata;
+    std::string_view data_variant{};
 };
 struct RunContext {
     std::filesystem::path root, profile, directory, content_source;

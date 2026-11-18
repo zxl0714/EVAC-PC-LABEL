@@ -7,7 +7,8 @@ param(
     [switch]$LauncherOnly,
     [switch]$SkipLauncherStage,
     [string]$DataDirectory,
-    [hashtable]$DataDirectories=@{}
+    [hashtable]$DataDirectories=@{},
+    [string]$SdojTitleUpdate
 )
 . (Join-Path $PSScriptRoot 'Build-Common.ps1')
 $taskProcess = Get-Process -Id $PID
@@ -51,7 +52,9 @@ try {
                     if ($LASTEXITCODE -ne 0) { throw "Could not resolve $game build data" }
                     $resolvedData
                 }
-                & (Join-Path $PSScriptRoot 'Generate.ps1') -Game $game -DataDirectory $inputDirectory
+                $generationOptions=@{}
+                if ($game -eq 'sdoj' -and $SdojTitleUpdate) { $generationOptions.TitleUpdate=$SdojTitleUpdate }
+                & (Join-Path $PSScriptRoot 'Generate.ps1') -Game $game -DataDirectory $inputDirectory @generationOptions
             }
             $receiptState=Join-Path $CollectionRoot ('.local/build-inputs/host-' + [guid]::NewGuid().ToString('N') + '.json')
             Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'build_receipt.py'),'begin','host','--state',$receiptState,'--games',($selected -join ','))

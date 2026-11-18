@@ -658,15 +658,17 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
 namespace {
 PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle resource_title,bool garegga_english=false) {
     const bool esprade=resource_title==ResourceTitle::Esprade,feveron=resource_title==ResourceTitle::Feveron,garegga=resource_title==ResourceTitle::Garegga;
-    const auto title=garegga?"CUSA10207":feveron?"CUSA06735":esprade?"CUSA15155":"CUSA32997";
     const auto root=fs::canonical(data),executable=DataChild(root,"eboot.bin");
     const auto original=ReadFile(executable,512*1024*1024);
     const auto expected_executable=Hash(original);
     const auto& game=FindGame(garegga?"garegga":feveron?"feveron":esprade?"esprade":"daioujou");
     const auto* variant=IdentifyDataVariant(game,root);
     const auto key=ArchiveKey(original,resource_title,variant);
-    const bool base=garegga || feveron || variant->layout=="base";
-    const auto version=base?"01.00":"01.04";
+    const bool garegga_japanese=garegga && variant->version=="01.07";
+    const auto title=garegga?(garegga_japanese?"CUSA05429":"CUSA10207"):
+        feveron?"CUSA06735":esprade?"CUSA15155":"CUSA32997";
+    const bool base=variant->layout=="base";
+    const std::string version(variant->version);
     const auto index_path=DataChild(root,"ps4data_info.psb.m");
     const auto index_raw=ReadFile(index_path,kResourceLimit);
     const auto index=ParseResourceIndex(UnwrapResource(index_raw,key,"ps4data_info.psb.m"));
@@ -678,25 +680,30 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
         patch_index_raw=ReadFile(patch_index_path,kResourceLimit);
         patch_index=ParseResourceIndex(UnwrapResource(patch_index_raw,key,"ps4data_patch_info.psb.m"));
     }
-    const auto body=DataChild(root,"ps4data_body.bin");const auto file_size=fs::file_size(body);
     kt::content::ReadPatchSet patches{title,version,{}};
     auto resources=Json::array();
     const auto fix=[&](std::string_view resource,std::string_view expected,ResourceFix transform,std::string_view scope) {
-        Require(base || !patch_index.at("file_info").contains(std::string(resource)),"Unexpected patched community replay script");
-        const auto& extent=index.at("file_info").at(std::string(resource));
+        const auto resource_key=std::string(resource);
+        const bool patched=!base && patch_index.at("file_info").contains(resource_key);
+        Require(!patched || garegga_japanese,"Unexpected patched community replay script");
+        const auto& extent=(patched?patch_index:index).at("file_info").at(resource_key);
+        const auto archive=patched?"ps4data_patch_body.bin":"ps4data_body.bin";
+        const auto body=DataChild(root,archive);
+        const auto file_size=fs::file_size(body);
         Require(extent.is_array() && extent.size()==2,"Invalid community replay resource entry");
         for (const auto& n:extent) Require(n.is_number_integer() && !n.is_boolean() &&
             (n.is_number_unsigned()?n.get<std::uint64_t>()<=INT64_MAX:n.get<std::int64_t>()>=0),"Invalid resource index integer");
         const auto offset=extent[0].get<std::uint64_t>(),size=extent[1].get<std::uint64_t>();
         const auto name=resource.substr(resource.rfind('/')+1);
         const auto packed=ReadRange(body,file_size,offset,size),script=UnwrapResource(packed,key,name);
-        Require(Hash(script)==expected,"Community replay script differs from the verified input");
+        const auto original_hash=Hash(script);
+        Require(original_hash==expected,"Community replay script differs from the verified input");
         const auto fixed=FixResourceScript(script,transform),replacement=WrapResource(fixed,key,name,static_cast<std::size_t>(size));
-        kt::content::ReadPatch patch{"ps4data_body.bin",file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),{}};
+        kt::content::ReadPatch patch{archive,file_size,offset,kt::content::ReadPatchHash(ByteSpan(packed)),{}};
         const auto bytes=ByteSpan(replacement);patch.replacement.assign(bytes.begin(),bytes.end());
         patches.entries.push_back(std::move(patch));
         resources.push_back({{"resource",resource},{"scope",scope},{"offset",offset},{"bytes",size},
-            {"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}});
+            {"original_script_sha256",original_hash},{"fixed_script_sha256",Hash(fixed)}});
     };
     if (garegga) {
         if (garegga_english) {
@@ -705,7 +712,9 @@ PreparedReadFixes PrepareCommunityReadFixes(const fs::path& data,ResourceTitle r
             fix("system/script/utils.nut.m","77a7b8cb5c28768ff5e43f8ee20a9f25d1bd6fd8cd0756e70d6d46acda076d2d",
                 ResourceFix::GareggaEnglishLookup,"english-menu-language");
         }
-        fix("2000/script/title_replay_view.nut.m","b795cd406bd1dc1003225b96e3941e6a73492c8ba2d09c0cbf90a6e6851a1df9",
+        fix("2000/script/title_replay_view.nut.m",garegga_japanese?
+            "63f443586a2b8d28d0606431efcbd03ba44fbf6d6e06e935ba3b71784152d5fd":
+            "b795cd406bd1dc1003225b96e3941e6a73492c8ba2d09c0cbf90a6e6851a1df9",
             ResourceFix::GareggaLocalReplay,"local-community-replay-cache");
     } else if (feveron) {
         fix("1000/script/title_replay_view.nut.m","e92989ac1e051ae219697a8ebb959b3869b5e1734de709848f8641de71242d5d",

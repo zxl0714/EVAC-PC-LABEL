@@ -4,6 +4,45 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
+## v0.10.1 玩家转储与 Death Label
+
+- 在 PS4《大往生》01.04 的 Death Label 第一关，用上一份候选包复现了全屏切换时提前返回主菜单。修复包在 RTX 4080 上往返于 3840×2160 全屏和 3569×2008 窗口，关闭和开启垂直同步分别连续切换 16 次。两局都从 0 分继续打到 300 分，直到 Game Over 才正常返回。Immediate 实际触发了 `VK_ERROR_OUT_OF_DATE_KHR` 并成功恢复。另有回归覆盖丢失独占全屏和不可恢复的呈现错误。记录见 `.local/v0101/v0101-dl-toggle-{before,fixed-public,fixed-fifo}.json` 和 `dl-toggle-contracts.log`。
+- 全屏修复测试包由 `42f398d` 构建，ZIP 为 `releases/v0101-dl-fullscreen-42f398d/EVAC-PC-LABEL-v0.10.1-win-x64.zip`。解压后校验了 209 个清单文件，包内 Death Label 运行库与实测文件一致。SHA-256 为 `c56eb6b107f9f8adcc83883f310079fb755762fbe0b21dd4e055d6ef974eae4b`。
+- 用户在两台电脑上测试 v0.10.0，均未复现进入 Death Label 时的闪退，未记录两台电脑的显卡及驱动版本。原报告来自 RTX 3060 Ti、572.16 驱动。
+- PS2 交换链回归给同一 Win32 窗口设置独占策略和目标显示器，再为三个呈现模式提供不同的图像数量限制。修正前的代码在查询时丢失窗口参数、查询格式时带入备用模式，并在四次创建失败后各尝试了一次独占切换。修正后请求 7 张图像会按共同上限收敛到 3 张，四次失败均直接返回错误。主模式或备用模式单独限制上限的用例均通过。证据见 `.local/v0101/ps2-wsi-fix-before.log`、`ps2-wsi-fix-contract.log` 和 `ps2-wsi-final-contracts.log`。
+- RTX 4080 的真实 Win32 窗口在 PS2 呈现加载帧后立即交还宿主，Vulkan 校验层捕获了销毁在用交换链的 `VUID-vkDestroySwapchainKHR-swapchain-01282`。修正后，同一窗口以 Immediate 和 FIFO 分别完成交还、重建及 36 帧呈现，均通过校验。独立窗口的 FIFO Relaxed 路径完成 100 帧，中途切换全屏再切回窗口。日志见 `.local/v0101/ps2-wsi-fix-immediate-hosted.log`、`ps2-wsi-final-handoff.log` 和 `ps2-wsi-final-resize.log`。
+- 用重编的 PS2 运行时从启动器打开 PS4《大往生》01.04 原曲版。960×720、VSync 关闭时，从直达菜单进入 Death Label 实战，Game Over 返回主菜单，再次进入选机并呈现。按玩家的 4K 窗口、VSync 开启设置另测，实际客户区为 3569×2008，使用标准 FIFO、三张图像，成功选机并进关。两次均在 RTX 4080 上完成。记录见 `.local/v0101/ps2-wsi-fix-game.json` 和 `ps2-wsi-final-game-4k.json`。
+- Windows 候选包 `releases/v0101-ps2-wsi-de61e4b/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `de61e4b`，184,291,727 字节，SHA-256 为 `9e4ae9c1c23b05cfbb7870043e7b69555befd09447f8a7844c0e5db3601338a6`。实际解压核验 209 个清单文件。包内嵌入式 PS2 运行时的机器码与上面的实测构建一致，PS4、Xbox 360 和启动器沿用上一候选包的二进制。证据见 `.local/v0101/package-eba5801/verify.log`。
+- 《绊地狱》01.03 两份玩家转储的 26 个校验输入逐项一致。ZIP 转储从启动器进入 IKD 2007 SPECIAL 第一关并写入第 99 槽，关闭进程后换用 RAR 转储读取，恢复机体与关卡。两份内置 DLC 均在日志登记，BGM 设置中可选择 VIRT ARRANGE。诊断截图见 `.local/v0911/live-acceptance/ketsui/v0101-103-slots-save/` 和 `v0101-103-slots-read/`。自备曲包的 13 首音轨均通过准备验证，从直达菜单选中 X Arrange 后实际进关，音乐仪表盘显示 X Arrange。冷启动后直达菜单仍显示正确的短标签。见同级 `v0101-103-x-arrange/` 和 `v0101-103-x-arrange-card/`。01.03 另用本机社区服务完成 CUSTOM Type-A 557 分、Type-B 4,357 分两局，综合及两种机体榜的成绩上传、读榜和录像收发均成功，下载录像通过版本及内容校验后写入游戏存档。见 `.local/v0101/ketsui-103-loopback/confirmed.json`。
+- 《空战之路》日版 01.07（CUSA05429）用玩家合并转储从启动器进入 Arcade 第一关。第 99 槽写入后重启，读回 STAGE 1、1 号机和 700 分，恢复关内画面。见 `.local/v0911/live-acceptance/garegga/v0101-jp107-slots-save/` 和 `v0101-jp107-slots-read/`。另从 Arcade 局自然结束后自动保存 320 分录像，从 Replay Theater 完整播放 1:03.81 后返回原列表。收据记录槽 `0017-0000` 提交，呈现日志确认 Immediate。见同级 `v0101-jp107-replay/`。
+- 《空战之路》日版 01.07 与韩版 01.00 使用独立的游戏存档和同一个本机社区测试库。日版原生运行 Arcade 玩家局结束，将 1,250 分及录像上传到综合榜和机体榜。韩版在游戏内查到该成绩，下载录像并完整播放 1:04.23 后返回列表。日版从 Super Easy 综合榜下载已有的韩版 100 分录像，完整播放 1:21.26 后返回列表。两次回放均显示了原记录的最终分数。测试证据见 `.local/v0911/live-acceptance/garegga/` 下的 `v0101-jp107-community-r1/` 和 `v0101-kr-jp-replay-r1/`。
+- 首帧位移验证使用独立的像素和读键诊断构建。《空战之路》01.07 的 Arcade 7 次可配对变向全部在第一张后续提交出现位移，读键返回至 Immediate Present 入口为 3.91–4.66 ms，平均 4.34 ms。《绊地狱》01.03 的 IKD 2007 SPECIAL 首关有 4 次经机体像素确认的变向，均在第一张后续提交出现位移，3.53–3.89 ms，平均 3.77 ms。两次测量各去掉第一笔无前帧记录的输入，后者另去掉 3 笔受遮挡、死亡或复活影响的输入。记录见 `.local/v0101/jp107-functional-response.json` 与 `.local/v0101/ketsui103-visual-response.json`。
+- 《大往生》在 RTX 4080 上从启动器验证 01.04＋X Arrange 的 960×720 和 2560×1440 窗口及 3840×2160 全屏、01.04 原曲 3840×2160 全屏、01.00 原曲窗口。4K＋X Arrange 沿用报告中的 RTX 4080 和 610.88 驱动，日志记录两次选机，关闭窗口正常退出。各组进入 Death Label、开始实战、自然 Game Over 返回直达菜单，再次选中后能进入。嵌入路径使用常规描述符，报告可记录 PS2 图形阶段。测试参数与运行日志路径见 `.local/v0101/daioujou-*.json`。独立 PS2 会话仍启用 descriptor heap，完成原版选机和 Game Over，正常报告会话完成（3,119 场）。PS2 25 项 CTest 通过。现场驱动异常仍需在玩家设备复验。
+- RTX 3060 Laptop 的正式版日志确认加载帧已呈现，同一 PS2 渲染线程随后在选机启动后、首张游戏画面记录呈现完成前遇到访问冲突。指令为 `mov eax,[rdx+0x148]`，`rdx=0`。正式 DLL 的两个栈扫描候选地址 `0x125bc57`、`0x11be614` 与带符号的候选 DLL 对照，分别对应 `Vulkan::Program::add_pipeline`、`Vulkan::CommandBuffer::build_graphics_pipeline`。两个成功编译的图形管线哈希也已记录，崩溃发生的具体 API 未确认。代码对照见 `.local/v0101/rtx3060-crash-code-comparison.json`。
+- RTX 4080 旧候选版的上传进程状态记录退出码 `0xc0000005`。第二次进入初始化了新的 PS2 渲染器并返回首个 Present，之后无故障指令或栈记录。修订版相同配置重进时仅出现一次 PS2 描述符选择，日志依次记录挂起、恢复和首张恢复后的画面。
+- 普通描述符集、推送描述符、原生 descriptor heap 及崩溃报告四项 PS2 回归通过，三条描述符路径各验证 4,096 个实际 GPU 像素。PS4 宿主重建及 4 项 CTest 通过。嵌入式崩溃处理复用 PS2 已测试的 Windows 栈展开，并先保留现有异常和原始栈记录。本轮按日志、源码和本地软件结果验收。
+- 数据识别用五款 PS4 游戏的八份原始数据构造对照。规范化程序段相同，改写外层格式、调整 SFO 标题文字并移除非必需随包模块后，八份均通过完整校验。逐份改错 `APP_VER` 被判定为版本不支持，损坏关键资源索引被判定为数据不完整。记录见 `.local/v0101/ps4-dump-identity-final/result.json`。再分别转换两份本轮样本的所有程序包装，原始与变体的准备产物及资源补丁等价，绑定检查通过。见 `.local/v0101/final-prepare-equivalence/result.json`。
+- 五款 PS4 游戏的 10 个已适配地区与版本用实际数据构造导出对照。重新封装主程序，改写 SFO 的包编号，将合并更新标为本体类别，移除 PlayGo、权利文件和其他非必需随包文件。10 个对照均通过完整校验、准备和运行时挂载。另有四份原始导出通过完整校验。改为未适配的 01.05 报版本不支持，移除关键资源索引报数据不完整。《ESP Ra.De. Ψ》01.04 Itemzflow 对照实际呈现 21 帧并正常关闭。见 `.local/v0101/same-version-ps4-exports.json` 与 `.local/v0101/itemzflow-ready-launch.json`。
+- 启动器大屏验证 16:9、4:3 与竖屏。SDL3 同时接入虚拟映射手柄和普通街机摇杆，摇杆保持方向时，手柄仍可用十字键移动焦点。摇杆断开重连后可继续确认和返回。共用数据校验改动完成后重编，`launcher_ui` 集成测试通过。按键实测从候选启动器大屏启动《狱门山》，收到首批游戏出帧后关闭窗口，大屏恢复原焦点，可选择其他游戏并退出。本版软件验收完成。实体手柄和街机摇杆留待后续补测。
+- 普通启动器与大屏共用 SDL3 导航。虚拟手柄和街机摇杆通过封面跨行与滚动、经典列表、缺数据拦截、失焦后松开再响应，以及大屏与桌面切换。用虚拟街机摇杆从普通封面网格选中并启动《狱门山》，游戏出帧后正常关闭。启动器保留选择，持续按住确认键时没有再次启动，松开后继续导航。记录见 `.local/v0101/desktop-sdl-launch-r1/`。
+- 实际点击标志旁的大屏入口，再从大屏启动 PS4《大往生》01.04 窗口。确认前台窗口先归游戏，游戏按正常关闭路径以 27 退出后前台回到大屏。通过大屏菜单退出，重开自动恢复大屏。按 F11 切回桌面后关闭，配置保存桌面模式及当前游戏。记录见 `.local/v0101/launcher-polish/smoke-r2-result.log`。
+- 《虫姬二》两份后续上传为同一份 277,135,360 字节的 Black Label LIVE DLC。用已知 Ver.1.5 本体和其中一份原始 DLC 作完整校验，52 项本体输入和 4 项 DLC 输入全部通过，现有自动解包入口可识别该包。见 `.local/v0101/futari-20261117-dlc-check/verification.json`。
+
+## v0.10.1 最大往生 TU 1.01
+
+- 候选包 `releases/v0101-sdoj-tu101-verified/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 由 `e76d2e7` 构建，182,842,591 字节，SHA-256 为 `64d0b826211928a316bb4cf5c02af14d90786618f5c7136ab8cc6d576721b950`。一次解包验证 209 个清单文件，最大往生的 10 个运行文件与实测副本一致。
+- 用包内启动器加载光盘本体和附原始 LIVE 更新的光盘目录。两种数据分别走 `sdoj.exe` 和 `sdoj_tu101.exe` 并正常出帧、关闭。TU 日志确认挂载更新后应用 XEX 补丁。包内检查工具另外验证了两种长度的解包补丁，并正确判定补丁缺失及哈希错误。证据见 `.local/v0101/sdoj-tu101/final-extracted/logs/sdoj/` 和 `final-edition-inspector.json`。
+- 在 TU 1.01 的 Xbox 360 Score Attack 实际取得 31,946 分。从旧光盘档读回 2 金币和 5 个录像槽，局后写入第 6 槽并取得 2 金币。游戏通过本机测试服务提交成绩和录像，读回榜单并下载录像到第 7 槽。下载的 79,298 字节与服务保存的 SHA-256 一致。重启后读回 4 金币，完整播放第 7 槽后返回录像列表。
+- 修正 TU 1.01 玩法选择偏移后，Xbox 360 由重播实测、Arcade HD 由当局选机进关实测，两个模块的 0V 输入、驱动和新帧交接均有非零记录，测试中无等待超时。本轮使用逻辑手柄与运行时帧交接日志。证据见 `.local/v0101/sdoj-tu101/live-tu101-r2/`、`live-tu101-split-fixed/`。定向 CTest 11 项、SDOJ Python 99 项及目录检查 28 项通过。
+- 后续把解包移到启动器。打开启动器，即使选中别的游戏，也能在最大往生数据目录生成三件补丁。重开复用同一套文件。命令行从带空格和中文的目录补齐缺件并启动 TU 1.01，游戏正常呈现。直接运行 TU 版 EXE 时，只有原始更新包会提示用启动器。新拆出的三件补丁和上游 v1.51.4 已验样本逐字节一致。记录见 `.local/v0101/sdoj-tu-launcher/`。
+- 自动解包版候选包 `releases/v0101-tu-auto-extract/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `52f748f`，182,916,016 字节，SHA-256 为 `999fd66cc7afef5e49ec4b189e02ccd21555ed56c592a716b58ca361f29cca12`。解压一次核验 209 个清单文件。从包内启动器使用仅含原始 TU 的光盘目录，生成三件补丁并启动 1.01，游戏出帧后正常退出。记录见 `.local/v0101/package-52f748f/`。
+
+## v0.10.1 大屏候选包
+
+- `releases/v0101-big-picture-07a3840/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `07a3840`，184,288,097 字节，SHA-256 为 `eed0d15fd07b5d600f704f7825940c7c2b095e1ef08d09ade18748d692896d1a`。实际解压核验 209 个清单文件。包内启动器与大屏实测构建相同，PS4《大往生》和嵌入 PS2 运行时与上一候选包逐字节一致。证据见 `.local/v0101/package-07a3840/verify.log`。
+- 用解压后的候选包，在 RTX 4080、610.88 驱动上复测最新 Death Label 闪退报告的设置。PS4《大往生》01.04 原曲，4K 窗口、VSync 开启，PS2 实际创建 3569×2008 的 `FIFO_RELAXED` 双缓冲交换链，走 descriptor buffer，呈现加载帧和选机画面，并正常关闭。RTX 3060 Ti 和 572.16 驱动的现场结果仍未知。记录见 `.local/v0101/package-07a3840/death-label-vsync.json`。
+- 后续候选包 `releases/v0101-footer-and-death-label-ee6b87e/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 对应 `ee6b87e`，184,289,192 字节，SHA-256 为 `c38f5edad6277efec3835191c02555f5bef263346621916901885d333d9c895a`，解压核验 209 个清单文件。大屏入口位于底部操作栏，685 DIP 客户区检查了按钮间距，启动器 4,814 项集成检查、预览及 PS2 六项定向回归通过。用这份包内程序在 RTX 4080 上按报告设置启动 Death Label，日志确认使用标准 FIFO、描述符集及三张交换链图像，未启用高级呈现扩展或 PS2 Reflex。正常到选机及关内，Game Over 返回 PS4 菜单后再次进入选机，关闭正常。证据见 `.local/v0101/package-ee6b87e/`。
+
 ## v0.10.0 PS2 Death Label
 
 - `death-natural-trace-r1/scanout.png` 录到 PS2 玩家局，`death-natural-trace-r2/scanout.png` 录到自然 Game Over，输入记录确认开局后未再按键。原版运行先退出关内状态，完整显示结算画面后才重新打开根菜单。

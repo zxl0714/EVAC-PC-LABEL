@@ -18,6 +18,7 @@
 #include "launcher/program_update.h"
 #include "launcher/log_upload.h"
 #include "launcher/input_settings.h"
+#include "launcher/big_picture.h"
 #include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
@@ -36,6 +37,7 @@
 #include <memory>
 #include <map>
 #include <mutex>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <stdexcept>
@@ -44,6 +46,8 @@
 
 using Microsoft::WRL::ComPtr;
 using namespace cave;
+using cave::launcher::BigPictureLayout;
+using cave::launcher::MenuKey;
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 namespace {
 constexpr UINT kWorkDone=WM_APP+1;
@@ -51,14 +55,10 @@ constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT kUpdateScrollBar=WM_APP+3;
 constexpr UINT_PTR kChildTimer=1;
 constexpr UINT_PTR kUpdateTimer=2;
+constexpr UINT_PTR kMenuControllerTimer=3;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr wchar_t kWindowClass[]=L"EVACPCLabel.Launcher.v1";
 constexpr wchar_t kWindowTitle[]=L"EVAC PC LABEL";
-std::wstring LauncherCaption() {
-  std::wstring caption=kWindowTitle;caption+=L" v";
-  for(const char* c=cave::launcher::kProductVersion;*c;++c)caption+=wchar_t(static_cast<unsigned char>(*c));
-  return caption;
-}
 HICON BrandIcon(HINSTANCE instance,int size) {
   const auto icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(cave::launcher::kAppIconResource),
       IMAGE_ICON,size,size,LR_SHARED));
@@ -143,6 +143,19 @@ void OpenPath(HWND window,const fs::path& path) {
   if (reinterpret_cast<INT_PTR>(ShellExecuteW(window,L"open",path.c_str(),nullptr,nullptr,SW_SHOWNORMAL))<=32)
     throw std::runtime_error("Cannot open the selected file or directory");
 }
+HWND VisibleGameWindow(DWORD pid) {
+  struct Search { DWORD pid; HWND result; } search{pid,nullptr};
+  EnumWindows([](HWND window,LPARAM parameter)->BOOL {
+    auto& search=*reinterpret_cast<Search*>(parameter);
+    DWORD owner{};
+    GetWindowThreadProcessId(window,&owner);
+    if(owner!=search.pid || !IsWindowVisible(window) || IsIconic(window) || GetWindow(window,GW_OWNER) ||
+        (GetWindowLongPtrW(window,GWL_EXSTYLE)&(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE)))return TRUE;
+    search.result=window;
+    return FALSE;
+  },reinterpret_cast<LPARAM>(&search));
+  return search.result;
+}
 fs::path LogDirectory(const fs::path& root) {
   const auto directory=DataChild(root,"logs");
   const auto ini=Ini::Load(ConfigPath(root));
@@ -169,6 +182,7 @@ struct Options {
   std::optional<Language> language;
   std::wstring update_action;
   unsigned long update_parent{};
+  bool big_picture{};
 };
 Options Arguments() {
   Options options;options.root=DefaultRoot();
@@ -177,6 +191,7 @@ Options Arguments() {
   try {
     for (int index=1;index<count;++index) {
       const std::wstring_view key=arguments[index];
+      if (key==L"--big-picture") {options.big_picture=true;continue;}
       if (++index>=count) throw std::runtime_error("Expected a value after launcher option");
       const auto value=arguments[index];
       if (key==L"--root") options.root=value;
@@ -201,14 +216,16 @@ Options Arguments() {
   if(options.update_action.empty()!=(!options.update_parent) ||
      (!options.update_action.empty() && (!options.game.empty() || !options.preview.empty())))
     throw std::runtime_error("Invalid update worker options");
+  if (options.big_picture && (!options.game.empty() || !options.update_action.empty()))
+    throw std::runtime_error("--big-picture opens the graphical launcher");
   if (!options.data.empty() && options.game.empty()) throw std::runtime_error("--data-dir requires --game");
   if (!options.game.empty()) (void)FindGame(options.game);
   if (!options.selection.empty()) (void)FindGame(options.selection);
   if (!options.game.empty() && !options.selection.empty())throw std::runtime_error("Use --game to launch directly, or --select to open the launcher");
   return options;
 }
-struct Row {Inspection inspection;fs::path content_source;std::vector<ContentInspection> content;daioujou::ArrangeStatus arrange;};
-std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
+struct Row {Inspection inspection;daioujou::ArrangeStatus arrange;};
+std::vector<Row> InspectRows(const fs::path& root,size_t selected,bool prepare_title_updates) {
   const auto started=std::chrono::steady_clock::now();
   VerificationCache cache(root);
   std::vector<Row> rows(Catalogue().size());
@@ -225,16 +242,14 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
       const auto& game=Catalogue()[index];
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
-        rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick,&cache);
+        const auto data=ini.DataDirectory(game);
+        rows[index].inspection=prepare_title_updates
+            ? InspectLaunchData(game,root,data,CheckLevel::Quick,cache)
+            : Inspect(game,root,data,CheckLevel::Quick,&cache);
         if(!rows[index].inspection.missing_runtime.empty()) {
           try {cave::launcher::reports::RecordRuntimeFailure(root,game.id);} catch (...) {}
         }
         if(game.id=="daioujou")rows[index].arrange=daioujou::InspectArrangeMusic(rows[index].inspection.data_dir,CheckLevel::Quick);
-        const auto content=ini.ContentDirectory(game,rows[index].inspection.data_dir);
-        if(index==selected && !game.content.empty()) {
-          rows[index].content_source=content.empty()?fs::path{}:Resolve(root,content);
-          rows[index].content=InspectContent(game,rows[index].content_source,CheckLevel::Quick);
-        }
       } catch (const std::exception& error) {
         rows[index].inspection.game=game.id;rows[index].inspection.state="invalid_config";rows[index].inspection.reason=error.what();
       }
@@ -259,7 +274,8 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="raw_disc_image") return T(L"请选择已解密的 PS4 游戏目录");
   if (state=="unknown_layout") return T(L"请检查游戏数据目录");
   if (state=="unsupported_version") return T(L"数据版本不支持");
-  if (state=="missing_runtime") return T(L"运行组件不可用 · 点击详情");
+  if (state=="title_update_failed") return T(L"无法解包游戏更新 · 点击详情");
+  if (state=="missing_runtime") return T(L"运行组件不可用");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
   if (state=="invalid_path") return T(L"数据路径不可用");
   if (state=="not_integrated") return T(L"正在接入");
@@ -301,10 +317,25 @@ struct Layout {
     const auto left=margin()+(covers?float(index%columns())*(cover_width()+cave::launcher::kCoverColumnGap):0);
     return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
   }
-  D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
-  D2D1_RECT_F controls() const {return {margin()+174,height-45,margin()+244,height-14};}
-  D2D1_RECT_F config() const {return {margin()+251,height-45,margin()+328,height-14};}
-  D2D1_RECT_F logs() const {return {margin()+335,height-45,margin()+415,height-14};}
+  D2D1_RECT_F play() const {
+    const auto right=width-margin();
+    return {right-(narrow()?150.f:176.f),height-64,right,height-14};
+  }
+  D2D1_RECT_F utility_button(size_t index) const {
+    constexpr std::array widths{85.f,75.f,70.f,77.f,80.f,98.f};
+    constexpr float total=std::accumulate(widths.begin(),widths.end(),0.f);
+    const float gap=narrow()?5.f:7.f;
+    const auto available=play().left-margin()-gap*widths.size();
+    const auto scale=std::clamp(available/total,0.f,1.f);
+    const auto left=margin()+gap*index+scale*std::accumulate(widths.begin(),widths.begin()+index,0.f);
+    return {left,height-45,left+scale*widths[index],height-14};
+  }
+  D2D1_RECT_F data() const {return utility_button(0);}
+  D2D1_RECT_F file_upload() const {return utility_button(1);}
+  D2D1_RECT_F controls() const {return utility_button(2);}
+  D2D1_RECT_F config() const {return utility_button(3);}
+  D2D1_RECT_F logs() const {return utility_button(4);}
+  D2D1_RECT_F big_picture_button() const {return utility_button(5);}
   D2D1_RECT_F brand() const {return {margin(),16,margin()+216,96};}
   D2D1_RECT_F language_choice(size_t index) const {
     const auto left=width-margin()-112+float(index)*40;
@@ -318,14 +349,11 @@ struct Layout {
     const auto right=hidden_games().left-6;
     return {right-24,16,right,44};
   }
-  D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
-  D2D1_RECT_F file_upload() const {return {margin()+92,height-45,margin()+167,height-14};}
-  D2D1_RECT_F detail() const {return {margin()+422,height-45,margin()+479,height-14};}
   D2D1_RECT_F focus_button(int slot) const {
     switch(slot) {
     case 4:return config(); case 5:return logs(); case 6:return data();
     case 7:return file_upload(); case 8:return play(); case 13:return controls(); case 14:return hidden_games(); case 15:return update_badge();
-    default:return detail();
+    default:return big_picture_button();
     }
   }
   int footer_button_at(float x,float y) const;
@@ -540,6 +568,90 @@ class Renderer {
       else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
     }
   }
+  void DrawBigPicture(ID2D1RenderTarget* target, const BigPictureLayout& view,
+                      const std::vector<Row>& rows, const cave::launcher::GameLibrary& library,
+                      std::wstring_view message, bool busy, bool menu, size_t menu_selection) {
+    constexpr UINT32 background=0x141520, panel=0x202332, text=0xf7f5ff, secondary=0xbfc1d1, accent=0xcfacff;
+    const float scale=view.Scale(), margin=view.Margin();
+    target->Clear(D2D1::ColorF(background));
+    const auto fill=[&](D2D1_RECT_F area, UINT32 color, float radius=0) {
+      ComPtr<ID2D1SolidColorBrush> brush;
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&brush),"Create big picture brush");
+      if(radius>0)target->FillRoundedRectangle(D2D1::RoundedRect(area,radius,radius),brush.Get());
+      else target->FillRectangle(area,brush.Get());
+    };
+    const auto outline=[&](D2D1_RECT_F area, UINT32 color, float weight) {
+      ComPtr<ID2D1SolidColorBrush> brush;
+      Check(target->CreateSolidColorBrush(D2D1::ColorF(color),&brush),"Create big picture focus brush");
+      target->DrawRoundedRectangle(D2D1::RoundedRect(area,6*scale,6*scale),brush.Get(),weight*scale);
+    };
+    const auto label=[&](std::wstring_view value, D2D1_RECT_F area, float size, UINT32 color,
+                         DWRITE_TEXT_ALIGNMENT align=DWRITE_TEXT_ALIGNMENT_LEADING, bool wrap=false) {
+      Text(target,value,area,std::round(size*scale),color,align,wrap);
+    };
+    const auto desktop=view.DesktopButton();
+    fill(desktop,panel,7*scale);
+    label(T(L"桌面模式"),{desktop.left,desktop.top+7*scale,desktop.right,desktop.bottom},15,text,DWRITE_TEXT_ALIGNMENT_CENTER);
+    label(kWindowTitle,{margin,19*scale,desktop.left-12*scale,59*scale},28,text);
+
+    if(view.count) {
+      label(std::to_wstring(view.Page()+1)+L" / "+std::to_wstring(view.PageCount()),
+          {margin,62*scale,view.width-margin,86*scale},14,secondary,DWRITE_TEXT_ALIGNMENT_TRAILING);
+    }
+    for(size_t position=view.First();position<view.Last();++position) {
+      const size_t index=library.visible[position];
+      const auto bounds=view.Card(position);
+      const bool selected=position==view.selected;
+      const bool available=CanPlay(rows[index].inspection);
+      const float inset=5*scale;
+      fill(bounds,panel,6*scale);
+      const auto artwork=Image(target,index,!available,true);
+      const auto image=artwork->GetSize();
+      const auto fit=std::min((bounds.right-bounds.left-2*inset)/image.width,
+                              (bounds.bottom-bounds.top-2*inset)/image.height);
+      if(fit>0) {
+        const auto horizontal=(bounds.left+bounds.right-image.width*fit)/2;
+        const auto vertical=(bounds.top+bounds.bottom-image.height*fit)/2;
+        target->DrawBitmap(artwork,{horizontal,vertical,horizontal+image.width*fit,vertical+image.height*fit},
+            available?1.f:0.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+      }
+      if(selected)outline(bounds,accent,3);
+    }
+
+    const float footer=view.height-119*scale;
+    fill({0,footer,view.width,view.height},panel);
+    if(view.count) {
+      const auto index=library.visible[view.selected];
+      const auto& inspection=rows[index].inspection;
+      label(Wide(Catalogue()[index].DisplayName()),{margin,footer+8*scale,view.width-margin,footer+48*scale},24,text);
+      const auto caption=message.empty() ? std::wstring(Status(inspection)) : std::wstring(message);
+      label(caption,{margin,footer+46*scale,view.width-margin,footer+78*scale},15,secondary);
+    } else {
+      label(T(L"没有可显示的游戏"),{margin,footer+11*scale,view.width-margin,footer+54*scale},22,text);
+    }
+    const float control_top=footer+86*scale;
+    const float control_width=(view.width-2*margin)/3;
+    auto controls=[&](size_t item,const wchar_t* value) {
+      const auto left=margin+item*control_width;
+      label(value,{left,control_top,left+control_width,view.height},15,secondary,DWRITE_TEXT_ALIGNMENT_CENTER);
+    };
+    controls(0,T(L"方向键　选择"));
+    if(view.count && !busy && CanPlay(rows[library.visible[view.selected]].inspection))
+      controls(1,T(L"A / Enter　启动"));
+    controls(2,T(L"B / Esc　返回"));
+
+    if(!menu)return;
+    ComPtr<ID2D1SolidColorBrush> veil;
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(background,0.86f),&veil),"Create big picture menu backdrop");
+    target->FillRectangle({0,0,view.width,view.height},veil.Get());
+    const std::array actions{T(L"桌面模式"),T(L"退出启动器")};
+    for(size_t item=0;item<actions.size();++item) {
+      const auto bounds=view.MenuItem(item);
+      fill(bounds,panel,7*scale);
+      if(item==menu_selection)outline(bounds,accent,2);
+      label(actions[item],{bounds.left,bounds.top+9*scale,bounds.right,bounds.bottom},18,text,DWRITE_TEXT_ALIGNMENT_CENTER);
+    }
+  }
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
             std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr,bool update_ready=false,
@@ -641,8 +753,7 @@ class Renderer {
     Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games,button_hover==13);
     Button(target,layout.config(),T(L"配置文件"),false,false,button_hover==4);
     Button(target,layout.logs(),T(L"上传日志"),false,busy||running,button_hover==5);
-    Button(target,layout.detail(),T(L"详情"),false,
-        busy||running||!has_games||Catalogue()[selected].coming_soon,button_hover==9);
+    Button(target,layout.big_picture_button(),T(L"大屏模式"),false,busy||running,button_hover==9);
     if ((focus>=4 && focus<10) || focus==13 || focus==14 || (focus==15 && update_ready)) {
       const auto rectangle=layout.focus_button(focus);
       ComPtr<ID2D1SolidColorBrush> brush;Check(target->CreateSolidColorBrush(D2D1::ColorF(0x37644c),&brush),"Create focus indicator");
@@ -688,6 +799,7 @@ class App {
     if(library.Hidden(selected) && !library.show_hidden && !library.visible.empty())selected=library.visible.front();
     layout.game_count=library.visible.size();
     layout.covers=cave::launcher::CoverLayout(ini);
+    options.big_picture=options.big_picture||cave::launcher::ReadBigPicture(ini);
     saved_window_size=cave::launcher::ReadWindowSize(ini,layout.covers);
     language=options.language.value_or(cave::launcher::ReadLanguage(ini));
     message=T(L"正在检测游戏数据…");
@@ -793,27 +905,30 @@ class App {
     // Do not interrupt a running game, another application, minimization or an
     // in-progress nickname edit. Leave the reminder pending until the launcher
     // is in use again.
-    if(child || busy || close_requested || preferences_dirty || !IsWindowVisible(hwnd) || IsIconic(hwnd) || GetForegroundWindow()!=hwnd)return;
+    if(BigPicture() || child || busy || close_requested || preferences_dirty || !IsWindowVisible(hwnd) || IsIconic(hwnd) || GetForegroundWindow()!=hwnd)return;
     const bool download_failed=downloadable && download_failed_tag==update_state.latest->tag;
     if(update_auto && (!downloadable || download_failed) && !update_request &&
        update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
   }
-  void ShowDetails() {
-    if(busy || child || library.visible.empty() || Catalogue()[selected].coming_soon)return;
-    const auto& row=rows[selected];
-    std::wstring body=Wide(Catalogue()[selected].DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
+  void ShowDetails(size_t index) {
+    const auto& game=Catalogue()[index];
+    if(busy || child || game.coming_soon)return;
+    const auto& row=rows[index];
+    std::wstring body=Wide(game.DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
     if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
     if(!row.inspection.missing_runtime.empty()) {
       body+=L"\n\n"+std::wstring(T(L"无法读取以下运行组件："));
-      for(const auto& issue:InspectRuntime(Catalogue()[selected],options.root)) {
+      for(const auto& issue:InspectRuntime(game,options.root)) {
         const auto* kind=issue.kind=="missing"?T(L"文件不存在"):issue.kind=="not_file"?T(L"路径是文件夹"):T(L"文件无法访问");
         body+=L"\n"+DataChild(options.root,issue.path).native()+L"\n  "+kind+L" (Windows "+std::to_wstring(issue.error)+L")";
       }
       body+=L"\n\n"+std::wstring(T(L"请重新解压程序包并替换同名文件，然后按 F5。若文件存在但无法访问，请检查文件权限或占用。仍有问题可点击上传日志。"));
     }
-    if(!row.content.empty()) {
-      body+=L"\n\n"+std::wstring(T(L"DLC 查找目录："))+(row.content_source.empty()?T(L"已禁用"):row.content_source.native());
-      for(const auto& item:row.content) {
+    if(!game.content.empty()) {
+      const auto configured=Ini::Load(ConfigPath(options.root)).ContentDirectory(game,row.inspection.data_dir);
+      const auto source=configured.empty()?fs::path{}:Resolve(options.root,configured);
+      body+=L"\n\n"+std::wstring(T(L"DLC 查找目录："))+(source.empty()?T(L"已禁用"):source.native());
+      for(const auto& item:InspectContent(game,source,CheckLevel::Quick)) {
         const auto* status=item.state==DataState::Verified?T(L"已就绪"):
           item.state==DataState::Unverified?T(L"数据已找到 · 启动时校验"):
           item.state==DataState::Missing?T(L"未安装"):
@@ -830,7 +945,7 @@ class App {
     MessageBoxW(hwnd,body.c_str(),T(L"游戏数据详情"),MB_OK|MB_ICONINFORMATION);
   }
   void PersistSelection() noexcept {
-    try {cave::launcher::SaveSelection(options.root,selected,layout.covers,normal_window_size);}
+    try {cave::launcher::SaveSelection(options.root,selected,layout.covers,normal_window_size,BigPicture());}
     catch(const std::exception& error) {Log(options.root,error.what());}
     catch(...) {Log(options.root,"selected-game-save-failed");}
   }
@@ -974,12 +1089,30 @@ class App {
         T(L"刷新配置"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
     ReloadPreferences();RefreshUpdates();Refresh();
   }
-  void Select(size_t index) {
+  void Select(size_t index,bool refresh_data=true) {
     if(work && (work->starting||work->copying))return;
     if(std::ranges::find(library.visible,index)==library.visible.end())return;
     selected=index;focus=0;SetFocus(hwnd);EnsureVisible();
     try {UpdateOverrideHint(Ini::Load(ConfigPath(options.root)));}catch(...){override_hint.clear();}
-    if(!busy&&!child)Refresh();
+    if(refresh_data && !busy && !child)Refresh();
+    else InvalidateRect(hwnd,nullptr,FALSE);
+  }
+  void MoveDesktopSelection(MenuKey key,bool refresh_data=true) {
+    const auto position=VisiblePosition();
+    if(!position)return;
+    const auto columns=layout.columns();
+    const auto last=library.visible.size()-1;
+    auto next=*position;
+    switch(key) {
+      case MenuKey::Up: if(next>=columns)next-=columns;break;
+      case MenuKey::Down: next=std::min(next+columns,last);break;
+      case MenuKey::Left: if(layout.covers && next>0)--next;break;
+      case MenuKey::Right: if(layout.covers && next<last)++next;break;
+      default: return;
+    }
+    if(next==*position)return;
+    if(!refresh_data && !busy)message.clear();
+    Select(library.visible[next],refresh_data);
   }
   void LaunchSelected() {
     if(close_requested)return;
@@ -998,7 +1131,136 @@ class App {
     UpdateOverrideHint(Ini::Parse(preferences_text));message.clear();
     InvalidateRect(hwnd,nullptr,FALSE);
   }
+  bool BigPicture() const { return desktop_window.has_value(); }
+  BigPictureLayout BigView() const {
+    return {layout.width,layout.height,library.visible.size(),VisiblePosition().value_or(0)};
+  }
+  void FitBigPicture() {
+    MONITORINFO monitor{};
+    monitor.cbSize=sizeof(monitor);
+    if(!GetMonitorInfoW(MonitorFromWindow(hwnd,MONITOR_DEFAULTTONEAREST),&monitor))return;
+    const auto area=monitor.rcMonitor;
+    SetWindowPos(hwnd,HWND_TOP,area.left,area.top,area.right-area.left,area.bottom-area.top,
+                 SWP_NOACTIVATE|SWP_FRAMECHANGED);
+  }
+  void SetBigPicture(bool enabled) {
+    const auto style=GetWindowLongPtrW(hwnd,GWL_STYLE);
+    if(BigPicture()==enabled || child || (work && (work->starting || work->copying)))return;
+    menu_open=false;
+    if(enabled) {
+      WINDOWPLACEMENT old{};
+      old.length=sizeof(old);
+      if(!GetWindowPlacement(hwnd,&old))return;
+      CancelCardDrag();
+      if(IsZoomed(hwnd))ShowWindow(hwnd,SW_RESTORE);
+      desktop_window=old;
+      desktop_style=style & ~(WS_MINIMIZE|WS_MAXIMIZE);
+      SetWindowLongPtrW(hwnd,GWL_STYLE,WS_POPUP|WS_CLIPCHILDREN|(style&WS_VISIBLE));
+      FitBigPicture();
+    } else {
+      const auto placement=*std::exchange(desktop_window,std::nullopt);
+      SetWindowLongPtrW(hwnd,GWL_STYLE,desktop_style|WS_VISIBLE);
+      SetWindowPos(hwnd,nullptr,0,0,0,0,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED);
+      SetWindowPlacement(hwnd,&placement);
+    }
+    for(auto control:{fullscreen_control,nickname_control,save_control})
+      ShowWindow(control,enabled?SW_HIDE:SW_SHOWNA);
+    if(menu_controller)menu_controller->Reset();
+    focus=0;
+    SetFocus(hwnd);
+    EnsureVisible();
+  }
+  void ChooseBigPictureGame(size_t position) {
+    if(position>=library.visible.size() || child || (work && (work->starting || work->copying)))return;
+    if(selected==library.visible[position])return;
+    if(!busy)message.clear();
+    Select(library.visible[position],false);
+  }
+  void BigPictureAction(MenuKey key) {
+    if(key==MenuKey::None || child || close_requested || (work && (work->starting || work->copying)))return;
+    if(menu_open) {
+      switch(key) {
+        case MenuKey::Up: case MenuKey::Left: menu_selection=0;break;
+        case MenuKey::Down: case MenuKey::Right: menu_selection=1;break;
+        case MenuKey::Back: menu_open=false;break;
+        case MenuKey::Confirm:
+          if(menu_selection==0)SetBigPicture(false);
+          else PostMessageW(hwnd,WM_CLOSE,0,0);
+          break;
+        default: break;
+      }
+      InvalidateRect(hwnd,nullptr,FALSE);
+    } else if(key==MenuKey::Back) {
+      menu_open=true;
+      menu_selection=0;
+      InvalidateRect(hwnd,nullptr,FALSE);
+    } else if(key==MenuKey::Confirm) {
+      LaunchSelected();
+    } else {
+      ChooseBigPictureGame(BigView().Move(key));
+    }
+  }
+  void StartMenuController() {
+    try {
+      menu_controller=std::make_unique<cave::launcher::MenuController>(options.root);
+      if(!SetTimer(hwnd,kMenuControllerTimer,16,nullptr))
+        throw std::runtime_error("Cannot start launcher controller timer");
+    } catch(const std::exception& error) {
+      menu_controller.reset();
+      Log(options.root,"launcher-controller: "+std::string(error.what()));
+    }
+  }
+  void MenuControllerTick() {
+    if(!menu_controller)return;
+    if(child || close_requested || (work && (work->starting || work->copying)) ||
+       GetForegroundWindow()!=hwnd || !IsWindowEnabled(hwnd) || GetCapture() ||
+       (!BigPicture() && SendMessageW(fullscreen_control,CB_GETDROPPEDSTATE,0,0))) {
+      menu_controller->Reset();
+      return;
+    }
+    const auto key=menu_controller->Poll();
+    if(key==MenuKey::None)return;
+    if(BigPicture())BigPictureAction(key);
+    else if(key==MenuKey::Confirm)LaunchSelected();
+    else MoveDesktopSelection(key,false);
+  }
+  void BigPictureKeyboard(WPARAM key, bool repeated) {
+    switch(key) {
+      case VK_UP:case VK_NUMPAD8:BigPictureAction(MenuKey::Up);break;
+      case VK_DOWN:case VK_NUMPAD2:BigPictureAction(MenuKey::Down);break;
+      case VK_LEFT:case VK_NUMPAD4:BigPictureAction(MenuKey::Left);break;
+      case VK_RIGHT:case VK_NUMPAD6:BigPictureAction(MenuKey::Right);break;
+      case VK_RETURN:case VK_SPACE:if(!repeated)BigPictureAction(MenuKey::Confirm);break;
+      case VK_ESCAPE:if(!repeated)BigPictureAction(MenuKey::Back);break;
+      case VK_HOME:ChooseBigPictureGame(0);break;
+      case VK_END:if(!library.visible.empty())ChooseBigPictureGame(library.visible.size()-1);break;
+      case VK_F5:ManualRefresh();break;
+      case VK_F11:if(!repeated)SetBigPicture(false);break;
+    }
+  }
+  void BigPictureClick(float x,float y) {
+    if(child || (work && (work->starting || work->copying)))return;
+    const auto view=BigView();
+    if(menu_open) {
+      for(size_t item=0;item<2;++item) {
+        if(!Inside(view.MenuItem(item),x,y))continue;
+        menu_selection=item;
+        BigPictureAction(MenuKey::Confirm);
+        break;
+      }
+    } else if(Inside(view.DesktopButton(),x,y)) {
+      SetBigPicture(false);
+    } else {
+      for(size_t position=view.First();position<view.Last();++position) {
+        if(!Inside(view.Card(position),x,y))continue;
+        if(position==view.selected)LaunchSelected();
+        else ChooseBigPictureGame(position);
+        break;
+      }
+    }
+  }
   bool Input(MSG& input) {
+    if(BigPicture())return false;
     if(input.message!=WM_KEYDOWN || (input.hwnd!=hwnd && !IsChild(hwnd,input.hwnd)))return false;
     try {
       if(card_press) {if(input.wParam==VK_ESCAPE)CancelCardDrag();return true;}
@@ -1010,11 +1272,11 @@ class App {
           slot=(slot+((GetKeyState(VK_SHIFT)&0x8000)?slots-1:1))%slots;
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
-          if((slot==6 || slot==8 || slot==9 || slot==13) && library.visible.empty())continue;
+          if((slot==6 || slot==8 || slot==13) && library.visible.empty())continue;
           if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
           if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
-          if(slot==9 && (busy||child||Catalogue()[selected].coming_soon))continue;
+          if(slot==9 && (busy||child))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
           if(slot==15 && !ProgramReady())continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
@@ -1044,7 +1306,7 @@ class App {
         };
         const auto cancelled=[task]{return task->cancelled.load();};
         if(task->copying)task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,progress,cancelled);
-        task->rows=InspectRows(root,task->selected);
+        task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
           task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
           Log(root,"launch-verification "+task->launch->verification);
@@ -1068,6 +1330,8 @@ class App {
       if(!work->error.empty())throw std::runtime_error(work->error);
       if(work->launch) {
         child.emplace(StartGame(*work->launch));
+        game_focus_pending=BigPicture();
+        if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
         message=T(L"正在运行：")+Wide(FindGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
         Log(options.root,"launch game="+work->launch->game+" pid="+std::to_string(child->pid()));
@@ -1078,7 +1342,8 @@ class App {
       } else {message.clear();}
     }catch(const std::exception& error){
       message=work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");
-      Log(options.root,error.what());Error(hwnd,error.what());
+      Log(options.root,error.what());
+      if(!BigPicture())Error(hwnd,error.what());
     }
     const bool copied=work->copying;work.reset();
     if(copied)ReloadPreferences();EnablePreferences();
@@ -1089,13 +1354,20 @@ class App {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
       const bool requested_close=child->RequestedWindowClose(options.root,active_game,*code);
+      const bool failed=*code && !requested_close;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
-      message=requested_close?T(L"游戏已关闭（退出清理限制已记入日志）"):(*code?T(L"游戏异常退出，请查看该游戏的日志"):T(L"游戏已退出"));
+      message=failed?T(L"游戏异常退出，请查看该游戏的日志"):L"";
       const auto exited_game=active_game;
-      child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
-      if(*code && !requested_close && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
+      child.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
+      if(menu_controller)menu_controller->Reset();
+      ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
+      if(!BigPicture() && failed && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
         show_reports(hwnd,options.root,language,exited_game);
+    } else if(game_focus_pending) {
+      // Leave the launcher behind the game so Windows can return focus when the game closes.
+      if(const auto game=VisibleGameWindow(child->pid());game)
+        game_focus_pending=GetForegroundWindow()==hwnd && !SetForegroundWindow(game);
     }
   }
   void Choose(bool copy=false) {
@@ -1103,7 +1375,7 @@ class App {
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
     Check(dialog->SetOptions(flags|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure directory picker");
-    dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏原始数据目录（不会移动或修改文件）"));
+    dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏数据目录"));
     const auto result=dialog->Show(hwnd);if(result==HRESULT_FROM_WIN32(ERROR_CANCELLED))return;Check(result,"Select game data directory");
     ComPtr<IShellItem> item;Check(dialog->GetResult(&item),"Read selected directory");
     PWSTR value{};Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected directory path");
@@ -1237,12 +1509,15 @@ class App {
     if(!game)return;
     const auto menu=CreatePopupMenu();
     if(!menu)throw std::runtime_error("Cannot create game menu");
+    AppendMenuW(menu,MF_STRING|(Catalogue()[*game].coming_soon?MF_GRAYED:0),2,T(L"游戏数据详情"));
     AppendMenuW(menu,MF_STRING,1,T(library.Hidden(*game)?L"取消隐藏":L"隐藏游戏"));
     const auto action=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_RIGHTBUTTON,screen.x,screen.y,0,hwnd,nullptr);
     DestroyMenu(menu);
     if(action==1)ToggleGameHidden(*game);
+    else if(action==2)ShowDetails(*game);
   }
   void EnsureVisible() {
+    if(BigPicture()){InvalidateRect(hwnd,nullptr,FALSE);return;}
     if(const auto position=VisiblePosition()) {
       const auto top=float(*position/layout.columns())*(layout.row_height()+layout.row_gap()),bottom=top+layout.row_height();
       if(top<layout.scroll)layout.scroll=top;
@@ -1259,7 +1534,7 @@ class App {
   }
   void UpdateScrollBar() {
     scrollbar_pending=false;
-    if(IsIconic(hwnd))return;
+    if(BigPicture() || IsIconic(hwnd))return;
     SCROLLINFO info{sizeof(info),SIF_RANGE|SIF_PAGE|SIF_POS,0,std::max(0,int(std::ceil(layout.content_height()))-1),
                     UINT(std::ceil(layout.viewport_height())),int(layout.scroll),0};
     if(layout.covers && UINT(info.nMax+1)<=info.nPage && (GetWindowLongPtrW(hwnd,GWL_STYLE)&WS_VSCROLL)) {
@@ -1302,7 +1577,9 @@ class App {
       Check(surface->BindDC(paint.hdc,&rectangle),"Bind launcher paint surface");
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
       const auto drag=DragPreview();
-      surface->BeginDraw();renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,
+      surface->BeginDraw();
+      if(BigPicture())renderer.DrawBigPicture(surface.Get(),BigView(),rows,library,message,busy,menu_open,menu_selection);
+      else renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,
           override_hint,&library,ProgramReady(),drag?&*drag:nullptr,button_hover);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
@@ -1316,6 +1593,7 @@ class App {
   void Click(float x,float y) {
     focus=0;SetFocus(hwnd);
     InvalidateRect(hwnd,nullptr,FALSE);
+    if(Inside(layout.big_picture_button(),x,y)){if(!busy&&!child)SetBigPicture(true);return;}
     if(Inside(layout.nickname(),x,y)) {
       if(IsWindowEnabled(nickname_control)){focus=2;SetFocus(nickname_control);}return;
     }
@@ -1339,10 +1617,6 @@ class App {
       return;
     }
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
-    if(Inside(layout.detail(),x,y)) {
-      ShowDetails();
-      return;
-    }
     if(const auto game=GameAt(x,y))Select(*game);
   }
   static LRESULT CALLBACK Window(HWND window,UINT message,WPARAM first,LPARAM second) {
@@ -1350,10 +1624,23 @@ class App {
     if(message==WM_NCCREATE) {app=static_cast<App*>(reinterpret_cast<CREATESTRUCTW*>(second)->lpCreateParams);app->hwnd=window;SetWindowLongPtrW(window,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(app));}
     if(!app)return DefWindowProcW(window,message,first,second);
     try {
-      if(message==cave::launcher::ActivationMessage()) {app->Activate();return 1;}
+      if(message==cave::launcher::ActivationMessage()) {
+        app->Activate();
+        if(first)app->SetBigPicture(true);
+        return 1;
+      }
       switch(message) {
-        case WM_CREATE:SetWindowTextW(window,LauncherCaption().c_str());app->CreatePreferences();app->Refresh();app->StartUpdates();return 0;
+        case WM_CREATE:{
+          const auto caption=std::wstring(kWindowTitle)+L" v"+Wide(cave::launcher::kProductVersion);
+          SetWindowTextW(window,caption.c_str());
+          app->CreatePreferences();
+          app->Refresh();
+          app->StartUpdates();
+          app->StartMenuController();
+          return 0;
+        }
         case WM_GETMINMAXINFO:{
+          if(app->BigPicture())break;
           auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;
           info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};
           MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
@@ -1365,21 +1652,27 @@ class App {
           return 0;}
         case WM_SIZE:{app->SetButtonHover(-1);if(first==SIZE_MINIMIZED)return 0;
           const auto scale=float(GetDpiForWindow(window))/96;app->layout.width=LOWORD(second)/scale;app->layout.height=HIWORD(second)/scale;
-          if(first==SIZE_RESTORED && !IsZoomed(window) && LOWORD(second) && HIWORD(second)) {
+          if(!app->BigPicture() && first==SIZE_RESTORED && !IsZoomed(window) && LOWORD(second) && HIWORD(second)) {
             RECT bounds{};
             if(GetWindowRect(window,&bounds))app->normal_window_size=cave::launcher::WindowSize{
               int(std::lround((bounds.right-bounds.left)/scale)),int(std::lround((bounds.bottom-bounds.top)/scale))};
           }
-          app->PositionPreferences();app->EnsureVisible();return 0;}
+          if(!app->BigPicture())app->PositionPreferences();
+          app->EnsureVisible();return 0;}
         case WM_DPICHANGED:{
+          if(app->BigPicture()){app->FitBigPicture();return 0;}
           auto bounds=*reinterpret_cast<const RECT*>(second);
           if(!IsZoomed(window) && !IsIconic(window))bounds=FitToWorkArea(bounds);
           SetWindowPos(window,nullptr,bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top,
                        SWP_NOACTIVATE|SWP_NOZORDER);
           return 0;}
+        case WM_DISPLAYCHANGE:
+          if(app->BigPicture())app->FitBigPicture();
+          break;
         case WM_ERASEBKGND:return 1;
         case WM_PAINT:app->Paint();return 0;
         case WM_LBUTTONDOWN:{
+          if(app->BigPicture())return 0;
           const auto scale=float(GetDpiForWindow(window))/96;
           const POINT point{GET_X_LPARAM(second),GET_Y_LPARAM(second)};
           app->ignore_card_release=false;
@@ -1397,6 +1690,7 @@ class App {
           if(std::exchange(app->ignore_card_release,false))return 0;
           const auto scale=float(GetDpiForWindow(window))/96;
           const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
+          if(app->BigPicture()){app->BigPictureClick(x,y);return 0;}
           const auto press=std::exchange(app->card_press,std::nullopt);
           if(GetCapture()==window)ReleaseCapture();
           if(press && press->dragged) {
@@ -1407,12 +1701,15 @@ class App {
         case WM_CAPTURECHANGED:case WM_CANCELMODE:app->CancelCardDrag();return 0;
         case WM_ACTIVATEAPP:if(!first){app->CancelCardDrag();app->SetButtonHover(-1);}break;
         case WM_CONTEXTMENU:
+          if(app->BigPicture())return 0;
           if(reinterpret_cast<HWND>(first)==window) {
             app->GameContextMenu({GET_X_LPARAM(second),GET_Y_LPARAM(second)});
             return 0;
           }
           break;
-        case WM_MOUSEMOVE:{const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
+        case WM_MOUSEMOVE:{
+          if(app->BigPicture())return 0;
+          const auto scale=float(GetDpiForWindow(window))/96;const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
           if(!app->tracking_mouse_leave) {
             TRACKMOUSEEVENT tracking{sizeof(tracking),TME_LEAVE,window,0};
             app->tracking_mouse_leave=TrackMouseEvent(&tracking)!=FALSE;
@@ -1438,26 +1735,21 @@ class App {
           app->SetButtonHover(-1);
           if(app->hover!=-1){app->hover=-1;app->InvalidateGameList();}
           return 0;
-        case WM_MOUSEWHEEL:app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
+        case WM_MOUSEWHEEL:
+          if(app->BigPicture()){app->BigPictureAction(GET_WHEEL_DELTA_WPARAM(first)<0?MenuKey::Right:MenuKey::Left);return 0;}
+          app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
         case kUpdateScrollBar:app->UpdateScrollBar();return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
           switch(LOWORD(first)){case SB_THUMBTRACK:value=float(info.nTrackPos);break;case SB_LINEUP:value-=30;break;case SB_LINEDOWN:value+=30;break;case SB_PAGEUP:value-=app->layout.viewport_height();break;case SB_PAGEDOWN:value+=app->layout.viewport_height();break;}app->Scroll(value-app->layout.scroll);return 0;}
         case WM_KEYDOWN:{
+          if(app->BigPicture()){app->BigPictureKeyboard(first,(second&(1L<<30))!=0);return 0;}
+          if(first==VK_F11 && !(second&(1L<<30))){app->SetBigPicture(true);return 0;}
           if(app->card_press) {if(first==VK_ESCAPE)app->CancelCardDrag();return 0;}
-          const auto position=app->VisiblePosition();
           const auto& visible=app->library.visible;
-          if(first==VK_UP || first==VK_NUMPAD8) {
-            const auto step=app->layout.columns();
-            if(position && *position>=step)app->Select(visible[*position-step]);
-          }
-          else if(first==VK_DOWN || first==VK_NUMPAD2) {
-            if(position) {
-              const auto next=std::min(*position+app->layout.columns(),visible.size()-1);
-              if(next!=*position)app->Select(visible[next]);
-            }
-          }
-          else if(app->layout.covers && first==VK_LEFT && position && *position)app->Select(visible[*position-1]);
-          else if(app->layout.covers && first==VK_RIGHT && position && *position+1<visible.size())app->Select(visible[*position+1]);
+          if(first==VK_UP || first==VK_NUMPAD8)app->MoveDesktopSelection(MenuKey::Up);
+          else if(first==VK_DOWN || first==VK_NUMPAD2)app->MoveDesktopSelection(MenuKey::Down);
+          else if(first==VK_LEFT)app->MoveDesktopSelection(MenuKey::Left);
+          else if(first==VK_RIGHT)app->MoveDesktopSelection(MenuKey::Right);
           else if(first==VK_HOME && !visible.empty())app->Select(visible.front());
           else if(first==VK_END && !visible.empty())app->Select(visible.back());
           else if(first==VK_APPS || (first==VK_F10 && (GetKeyState(VK_SHIFT)&0x8000)))app->GameContextMenu({-1,-1});
@@ -1503,7 +1795,11 @@ class App {
                 std::to_wstring(total?uint64_t(double(copied)/double(total)*100):0)+L"%";
             InvalidateRect(window,nullptr,FALSE);
           }return 0;
-        case WM_TIMER:if(first==kUpdateTimer)app->UpdateTick();else if(first==kChildTimer)app->ChildTick();return 0;
+        case WM_TIMER:
+          if(first==kUpdateTimer)app->UpdateTick();
+          else if(first==kChildTimer)app->ChildTick();
+          else if(first==kMenuControllerTimer)app->MenuControllerTick();
+          return 0;
         case WM_CLOSE:
           if(app->work && app->work->copying) {app->close_requested=true;app->work->cancelled=true;app->message=T(L"正在取消复制，请稍候…");InvalidateRect(window,nullptr,FALSE);return 0;}
           if(app->child){ShowWindow(window,SW_HIDE);return 0;}DestroyWindow(window);return 0;
@@ -1516,6 +1812,12 @@ class App {
   }
   Options options;
   HWND hwnd{};
+  std::optional<WINDOWPLACEMENT> desktop_window;
+  LONG_PTR desktop_style{};
+  bool game_focus_pending{};
+  std::unique_ptr<cave::launcher::MenuController> menu_controller;
+  bool menu_open{};
+  size_t menu_selection{};
   HWND fullscreen_control{},nickname_control{},save_control{};
   std::vector<DisplaySelection> display_choices;
   HFONT form_font{};
@@ -1568,7 +1870,7 @@ void Preview(const Options& options) {
   size_t selected=1;
   if(!options.selection.empty())for(size_t index=0;index<Catalogue().size();++index)
     if(Catalogue()[index].id==options.selection)selected=index;
-  auto rows=InspectRows(options.root,selected);
+  auto rows=InspectRows(options.root,selected,false);
   if(options.selection.empty()) {
     rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
     rows[0].inspection.data_state=DataState::Missing;rows[1].inspection.data_state=DataState::Verified;
@@ -1578,7 +1880,11 @@ void Preview(const Options& options) {
   layout.scroll=std::clamp(layout.card(selected).bottom-layout.footer(),0.f,layout.max_scroll());
   const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
   const cave::launcher::GameLibrary library(Ini::Parse(""));
-  target->BeginDraw();renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library);Check(target->EndDraw(),"Render preview");
+  target->BeginDraw();
+  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),selected},
+      rows,library,{},false,false,0);
+  else renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library);
+  Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
   if(!options.preview.parent_path().empty())fs::create_directories(options.preview.parent_path());
   Check(stream->InitializeFromFilename(options.preview.c_str(),GENERIC_WRITE),"Open preview file");
@@ -1618,7 +1924,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
       auto child=StartGame(spec);child.Wait();const auto code=child.ExitCode().value_or(1);return int(code);
     }
     cave::launcher::LauncherInstance instance_guard(options.root);
-    if(!instance_guard.ActivateOrAcquire())return 0;
+    if(!instance_guard.ActivateOrAcquire(options.big_picture))return 0;
     if(recovery){update::StartProgramWorker(options.root,L"recover");return 0;}
     App app(std::move(options));
     WNDCLASSEXW definition{};definition.cbSize=sizeof(definition);definition.style=CS_HREDRAW|CS_VREDRAW;definition.lpfnWndProc=App::Window;definition.hInstance=instance;
@@ -1632,7 +1938,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     if(!window)throw std::runtime_error("Cannot create launcher window");
     instance_guard.Publish(window);
     FitInitialWindow(window,app.layout.covers,app.saved_window_size);
-    ShowWindow(window,show);UpdateWindow(window);
+    if(app.options.big_picture)app.SetBigPicture(true);
+    ShowWindow(window,app.BigPicture()?SW_SHOWNORMAL:show);UpdateWindow(window);
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}
     return 0;
   }catch(const std::exception& error){

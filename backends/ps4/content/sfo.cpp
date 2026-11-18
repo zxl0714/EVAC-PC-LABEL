@@ -134,6 +134,19 @@ std::vector<std::byte> Sfo::Serialize() const {
     return bytes;
 }
 void Sfo::Overlay(const Sfo& patch) { for (const auto& [key, value] : patch.values_) { values_.insert_or_assign(key, value); } }
+bool ValidContentIdentity(std::string_view title, std::string_view content) {
+    if (title.size() != 9 || !title.starts_with("CUSA") || !std::all_of(title.begin() + 4, title.end(),
+        [](char c) { return c >= '0' && c <= '9'; })) { return false; }
+    if (content.size() != 36 || content[6] != '-' || content.substr(7, 9) != title ||
+        content[16] != '_' || content[19] != '-') { return false; }
+    for (std::size_t i = 0; i < content.size(); ++i) {
+        if (i == 6 || i == 16 || i == 19) { continue; }
+        const char c = content[i];
+        if (!(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '_') { return false; }
+    }
+    return true;
+}
+
 bool SfoSelfTest() {
     bool passed = true;
     const auto check = [&](const char* name, bool result) {

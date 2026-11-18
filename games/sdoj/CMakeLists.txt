@@ -41,34 +41,43 @@ add_executable(sdoj_crash_writer "${CMAKE_SOURCE_DIR}/backends/xbox360/diagnosti
 target_link_libraries(sdoj_crash_writer PRIVATE dbghelp psapi)
 
 if(CAVE_BUILD_GAME)
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/generated/sdoj/generation.json")
-        message(FATAL_ERROR "Generate the supported SDOJ programs first")
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/generated/sdoj/generation.json" OR
+       NOT EXISTS "${CMAKE_SOURCE_DIR}/generated/sdoj/tu101/default/sources.cmake")
+        message(FATAL_ERROR "Generate SDOJ with the original disc data and its TU 1.01 first")
     endif()
-    include("${CMAKE_SOURCE_DIR}/generated/sdoj/default/sources.cmake")
-    add_executable(sdoj WIN32 host.cpp latency/host.cpp community/guest_hooks.cpp diagnostics/input_trace.cpp diagnostics/render_trace.cpp diagnostics/latency_trace.cpp diagnostics/logic_trace.cpp diagnostics/test_pad.cpp diagnostics/audio_trace.cpp ${GENERATED_SOURCES})
-    target_include_directories(sdoj PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/generated/sdoj/default" "${CAVE_GAME_METADATA_DIR}")
-    target_compile_options(sdoj PRIVATE -fno-char8_t)
-    target_sources(sdoj PRIVATE performance/native_wait.cpp)
-    target_link_libraries(sdoj PRIVATE synchronization)
-    target_link_libraries(sdoj PRIVATE cave_xbox360_host sdoj_community)
-    target_link_options(sdoj PRIVATE "LINKER:/MANIFEST:EMBED"
-        "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
-    add_dependencies(sdoj sdoj_crash_writer)
-    rexglue_configure_target(sdoj GPU_PLUGINS xenos)
-    # Both XEX-bearing .bin modules occupy 0x88000000; never combine their maps.
-    foreach(module CA022100 CA022110)
-        include("${CMAKE_SOURCE_DIR}/generated/sdoj/${module}/sources.cmake")
-        add_library(sdoj_${module} SHARED latency/module.cpp diagnostics/input_module_trace.cpp diagnostics/audio_module_trace.cpp diagnostics/logic_module_trace.cpp ${GENERATED_SOURCES})
-        target_sources(sdoj_${module} PRIVATE compat/tilemap.cpp)
-        if(module STREQUAL "CA022100")
-            target_compile_definitions(sdoj_${module} PRIVATE SDOJ_MODULE_ID=1)
-        else()
-            target_compile_definitions(sdoj_${module} PRIVATE SDOJ_MODULE_ID=2)
-        endif()
-        target_include_directories(sdoj_${module} PRIVATE "${CMAKE_SOURCE_DIR}/generated/sdoj/${module}")
-        target_compile_options(sdoj_${module} PRIVATE -fno-char8_t)
-        target_link_libraries(sdoj_${module} PRIVATE rex::runtime)
-        target_link_libraries(sdoj_${module} PRIVATE synchronization)
-        rexglue_configure_module_target(sdoj_${module} HOST sdoj)
-    endforeach()
+
+    function(add_sdoj_edition target generated update)
+        include("${generated}/default/sources.cmake")
+        add_executable(${target} WIN32 host.cpp latency/host.cpp community/guest_hooks.cpp
+            diagnostics/input_trace.cpp diagnostics/render_trace.cpp diagnostics/latency_trace.cpp
+            diagnostics/logic_trace.cpp diagnostics/test_pad.cpp diagnostics/audio_trace.cpp
+            performance/native_wait.cpp ${GENERATED_SOURCES})
+        target_include_directories(${target} PRIVATE "${CMAKE_SOURCE_DIR}" "${generated}/default" "${CAVE_GAME_METADATA_DIR}")
+        target_compile_definitions(${target} PRIVATE $<$<BOOL:${update}>:SDOJ_TITLE_UPDATE=1>)
+        target_compile_options(${target} PRIVATE -fno-char8_t)
+        target_link_libraries(${target} PRIVATE cave_xbox360_host sdoj_community synchronization)
+        target_link_options(${target} PRIVATE "LINKER:/MANIFEST:EMBED"
+            "LINKER:/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/backends/xbox360/platform/windows.manifest")
+        add_dependencies(${target} sdoj_crash_writer)
+        rexglue_configure_target(${target} GPU_PLUGINS xenos)
+
+        # Both XEX-bearing .bin modules occupy 0x88000000.
+        set(module_id 0)
+        foreach(module IN ITEMS CA022100 CA022110)
+            math(EXPR module_id "${module_id}+1")
+            include("${generated}/${module}/sources.cmake")
+            set(overlay ${target}_${module})
+            add_library(${overlay} SHARED latency/module.cpp compat/tilemap.cpp
+                diagnostics/input_module_trace.cpp diagnostics/audio_module_trace.cpp
+                diagnostics/logic_module_trace.cpp ${GENERATED_SOURCES})
+            target_compile_definitions(${overlay} PRIVATE SDOJ_MODULE_ID=${module_id} $<$<BOOL:${update}>:SDOJ_TITLE_UPDATE=1>)
+            target_include_directories(${overlay} PRIVATE "${generated}/${module}")
+            target_compile_options(${overlay} PRIVATE -fno-char8_t)
+            target_link_libraries(${overlay} PRIVATE rex::runtime synchronization)
+            rexglue_configure_module_target(${overlay} HOST ${target})
+        endforeach()
+    endfunction()
+
+    add_sdoj_edition(sdoj "${CMAKE_SOURCE_DIR}/generated/sdoj" 0)
+    add_sdoj_edition(sdoj_tu101 "${CMAKE_SOURCE_DIR}/generated/sdoj/tu101" 1)
 endif()

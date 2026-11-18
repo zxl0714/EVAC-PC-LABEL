@@ -4,6 +4,8 @@
 #include "common/launch.h"
 #include <span>
 
+struct _CONTEXT;
+
 namespace cave::ps4 {
 class DaioujouDeathLabel final {
 public:
@@ -16,6 +18,7 @@ public:
     void SetGadgetSprites(fs::path path) { gadget_sprites_ = std::move(path); }
     DeathLabelResult Run(const DeathLabelActions& actions, const DeathLabelScreen& screen,
                          const DeathLabelAudio& audio);
+    static void WriteGraphicsCrashTrace(void* file, const _CONTEXT& fault) noexcept;
     static void InstallBinding(std::span<std::uint8_t> image, std::span<const std::uint8_t,32> identity);
 
 private:
@@ -25,6 +28,7 @@ private:
     void* session_{};
     RunDeathLabel entry_{};
     ReleaseDeathLabel release_{};
+    WriteDeathLabelGraphicsTrace graphics_trace_{};
     float volume_{};
 };
 }

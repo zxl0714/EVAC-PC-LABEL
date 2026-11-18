@@ -208,7 +208,7 @@ systemctl start cave-g2-backup.service
 
 ## Battle Garegga
 
-`server/games/garegga.py` 对应 CUSA10207 01.00，使用独立的 18092 端口、数据库和 `garegga-current` 版本指针。ARCADE、SUPER EASY、PREMIUM、CUSTOM 各有综合与八种机体榜，共 36 个。保留原生成绩、机体变体和录像格式，综合前 100 名、机体前 10 名可以分享录像。
+`server/games/garegga.py` 服务于韩版 CUSA10207 01.00 和日版 CUSA05429 01.07。两版客户端沿用 CUSA10207 01.00 的协议标识，共用同一数据库。服务使用独立的 18092 端口和 `garegga-current` 版本指针。ARCADE、SUPER EASY、PREMIUM、CUSTOM 各有综合与八种机体榜，共 36 个。保留原生成绩、机体变体和录像格式，综合前 100 名、机体前 10 名可以分享录像。
 
 部署使用干净提交的 `server/` 源码归档，先在服务器临时数据库运行本作、备份及部署测试，再安装三个 `cave-garegga` 单元。只追加本作 nginx 路由，校验后 reload；核对原八款服务 PID 和版本指针不变。启用每日备份并核对首份快照的完整性和 CUSA10207 身份。正式榜单只使用实际游玩产生的记录验收。
 

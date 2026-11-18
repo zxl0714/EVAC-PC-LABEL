@@ -3,11 +3,45 @@
   "game": "sdoj",
   "variant": "disc-base",
   "titleUpdateApplied": false,
-  "forbiddenFiles": [
-    "default.xexp",
-    "CA022100.binp",
-    "CA022110.binp"
-  ],
+  "titleUpdate": {
+    "id": "disc-tu101",
+    "version": "1.01",
+    "titleId": "435A07E7",
+    "executable": "runtime/xbox360/sdoj_tu101.exe",
+    "container": {
+      "path": "TU_11LK1V7_000000G000000.0000000000084",
+      "bytes": 598016,
+      "sha256": "0a893048c761ba6cf8ed14637f326726bc616b5183ca1ee52de02fc12b46b215",
+      "program": true
+    },
+    "patches": [
+      {
+        "path": "CA022100.binp",
+        "bytes": 126976,
+        "sha256": "830ee751922483115f735f442a23b0ab203468de17e509da6ed08b25be25dc4f",
+        "program": true,
+        "offset": 53248
+      },
+      {
+        "path": "CA022110.binp",
+        "bytes": 118784,
+        "sha256": "b0fd71b07a0dfae8e834a08a2ef7bd064b44492a7b50854b2c9245ab48266c00",
+        "program": true,
+        "offset": 180224
+      },
+      {
+        "path": "default.xexp",
+        "bytes": 296960,
+        "sha256": "2a1886f4e707cf9ec16d43ea5a5b5f6ff5b9d419219c3bd55fa3f0ce91262999",
+        "program": true,
+        "offset": 299008,
+        "padded": {
+          "bytes": 299008,
+          "sha256": "79c6958470749931040ba2b68aed268a64cdaeed03f788eeaffdabd45ba7ebbb"
+        }
+      }
+    ]
+  },
   "files": [
     {
       "path": "AvatarAssetPack",

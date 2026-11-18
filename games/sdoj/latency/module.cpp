@@ -1,6 +1,7 @@
 #include "handoff.h"
 #include "low_handoff.h"
 #include "native_prefix.h"
+#include "../guest_layout.h"
 #include "guest_call.h"
 #include "render_metrics.h"
 #include "../performance/tick_wait.h"
@@ -33,11 +34,17 @@ void SdojLatencyArrangeRenderEnd();
 namespace {
 using namespace sdoj::latency;
 constexpr unsigned Module = SDOJ_MODULE_ID;
-constexpr std::uint32_t Offset = Module == 1 ? 0 : 0x8528;
-constexpr std::uint32_t Callback = Module == 1 ? 0x88051350 : 0x880512C8;
-constexpr std::uint32_t WaitReturn = Module == 1 ? 0x88052180 : 0x88052134;
-constexpr std::uint32_t ResourceWaitReturn = Module == 1 ? 0x8806F384 : 0x8806FDBC;
-constexpr std::uint32_t SwapReturn = Module == 1 ? 0x88051398 : 0x88051310;
+constexpr std::uint32_t Offset = sdoj::OverlayData(Module == 1 ? 0 : 0x8528);
+constexpr std::uint32_t Callback = Module == 1
+    ? (sdoj::kTitleUpdate ? 0x88051390 : 0x88051350)
+    : (sdoj::kTitleUpdate ? 0x88051308 : 0x880512C8);
+constexpr std::uint32_t WaitReturn = Module == 1
+    ? (sdoj::kTitleUpdate ? 0x880521CC : 0x88052180)
+    : (sdoj::kTitleUpdate ? 0x88052190 : 0x88052134);
+constexpr std::uint32_t ResourceWaitReturn = Module == 1
+    ? (sdoj::kTitleUpdate ? 0x8806F3D4 : 0x8806F384)
+    : (sdoj::kTitleUpdate ? 0x8806FE14 : 0x8806FDBC);
+constexpr std::uint32_t SwapReturn = Callback + 0x48;
 std::mutex gate;
 sdoj::performance::TickWait native_tick_wait;
 std::atomic<unsigned> native_tick_timeouts{};
@@ -92,7 +99,7 @@ std::uint32_t Word(const std::uint8_t* base, std::uint32_t address) {
 }
 NativeState Snapshot(const std::uint8_t* base) {
     NativeState state;
-    state.frame = Word(base, 0x82633548);
+    state.frame = Word(base, sdoj::kFrameCounter);
     state.renderer = Word(base, 0x888791D8 + Offset);
     state.callback = Word(base, 0x886B41F4 + Offset);
     state.serial = Word(base, 0x886F4CD0 + Offset);
@@ -270,7 +277,7 @@ void SdojDelayRenderMetrics(PPCContext& ctx, std::uint8_t* base) {
             if(!render_metrics.Capture(wrapper_metrics->logic,values))
                 throw std::runtime_error("SDOJ Frame Delay: inconsistent completed render metrics");
             if(wrapper_metrics->parser!=values && ++metrics_native_changes<=8) {
-                const auto control=Word(base,0x888791DC);
+                const auto control=Word(base,0x888791DC+Offset);
                 REXLOG_INFO("SDOJ_METRICS_FINALIZED logic={} frame={} calls={} parser={},{} stored={},{} control720={}",
                     wrapper_metrics->logic,native.frame,native.calls,wrapper_metrics->parser[0],wrapper_metrics->parser[1],
                     values[0],values[1],control ? Word(base,control+720) : 0);
@@ -333,7 +340,7 @@ void SdojDelayReadEnd(PPCContext&, std::uint8_t* base) {
             if(handoff.active()) {
                 // Remember the accepted batch before later callbacks wake
                 // the worker. Values remain provisional until native stores.
-                const auto renderer=Word(base,0x888791D8);
+                const auto renderer=Word(base,0x888791D8+Offset);
                 if(!renderer || wrapper_metrics)
                     throw std::runtime_error("SDOJ Frame Delay: unmatched render metrics wrapper");
                 wrapper_metrics=WrapperMetrics{render_metrics.EndRead(),renderer,
@@ -395,13 +402,12 @@ bool SdojDelayLateSwap(PPCContext& ctx, std::uint8_t* base) {
 // These hooks split only after the native callee's prologue and before its
 // parser. Native epilogues restore that callee's actual linkage/FPR save area.
 // The five live-through values are copied from the original prefix, not rebuilt
-// with a different action mapper. r30's prefix-local stack pointer is dead at
-// the cut: 880451DC loads the controller before the tail can use it.
+// with a different action mapper. The tail reloads r30 from the controller.
 bool SdojDelayInputStart(PPCContext& ctx, std::uint8_t* base) {
     if (input_only || policy != 1) return false;
     std::lock_guard lock(gate);
     if (!low.HasPrefix()) return false;
-    if (!low.ConsumePrefix(Word(base,0x82633548),ctx.r3.u32) || !prefix_result.captured)
+    if (!low.ConsumePrefix(Word(base,sdoj::kFrameCounter),ctx.r3.u32) || !prefix_result.captured)
         throw std::runtime_error("SDOJ Frame Delay: input-prefix receipt mismatch");
     if (!prefix_result.Restore<Module>(ctx,base,ctx.r3.u32))
         throw std::runtime_error("SDOJ Frame Delay: frozen input ports changed before draw");
@@ -417,7 +423,7 @@ bool SdojDelayDriverBegin(PPCContext& ctx, std::uint8_t* base) {
     if (early_driver || policy != 1) return false;
     std::lock_guard lock(gate);
     if (low.HasDriver()) {
-        if (!low.ConsumeDriver(Word(base,0x82633548),Word(base,0x886B41EC+Offset)))
+        if (!low.ConsumeDriver(Word(base,sdoj::kFrameCounter),Word(base,0x886B41EC+Offset)))
             throw std::runtime_error("SDOJ Frame Delay: native wake receipt mismatch");
         ++driver_receipts; ctx.r31.u64=1; return true;
     }

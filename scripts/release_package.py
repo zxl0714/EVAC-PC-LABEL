@@ -17,6 +17,7 @@ from generate_catalogue import load, relative
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from package_receipt import PackageInputs
 import ps4_extract_tools
+from sdoj_title_update import patch_inputs
 from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
 
 LEGACY_GAMES = ('futari', 'espgaluda2', 'ketsui')
@@ -96,6 +97,9 @@ def catalogue(selection=GAMES):
 
 
 def selected_data_files(game, variant=None):
+    update = game.get('titleUpdate')
+    if update and variant == update['id']:
+        return game['files'] + update['patches']
     if not game.get('variants'):
         if variant:
             raise ValueError('Unexpected data variant')
@@ -437,7 +441,8 @@ def windows_policy(record, games, selection):
         raise ValueError('Invalid Windows package/source identity')
     variants = record.get('dataVariants', {})
     expected_variants = {key for key in data_games if games[key].get('variants')}
-    if not isinstance(variants, dict) or set(variants) != expected_variants:
+    optional_variants = {key for key in data_games if games[key].get('titleUpdate')}
+    if not isinstance(variants, dict) or not expected_variants <= set(variants) <= expected_variants | optional_variants:
         raise ValueError('Data variants differ from the selected games')
     required = {}
     for key in data_games:
@@ -764,8 +769,21 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
                 continue
             excluded = {'dlc'} if key == 'futari' else set()
             if placement_sources(version):excluded.update((PLACEMENT_NAME.casefold(), LEGACY_PLACEMENT_NAME.casefold()))
-            copy_data(Path(report['dataDirectory']), directory / 'game-data' / key, entries, selected_data_files(games[key], report.get('dataVariant')),
-                      excluded, manifest_only=package_format in (2, 3) or key in MANIFEST_ONLY_DATA)
+            source = Path(report['dataDirectory'])
+            destination = directory / 'game-data' / key
+            variant = report.get('dataVariant')
+            update = games[key].get('titleUpdate')
+            if update and variant == update['id']:
+                patches = patch_inputs(source, update)
+                copy_data(source, destination, entries, games[key]['files'], excluded, manifest_only=True)
+                for expected in update['patches']:
+                    target = destination / expected['path']
+                    with target.open('xb') as stream:
+                        stream.write(patches[expected['path']])
+                    entries.append(dict(path=target, bytes=expected['bytes'], sha256=expected['sha256'], role='game-data'))
+            else:
+                copy_data(source, destination, entries, selected_data_files(games[key], variant),
+                          excluded, manifest_only=package_format in (2, 3) or key in MANIFEST_ONLY_DATA)
         if dlc:
             for package in packages:
                 for file in package['files']:
@@ -786,7 +804,8 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
         uploadsPerformed=False)
     release['buildCommits'] = {key: record['sourceCommit'] for key, record in receipts.items()}
     if flavor == 'Internal':
-        release['dataVariants'] = {key: report['dataVariant'] for key, report in reports.items() if games[key].get('variants')}
+        release['dataVariants'] = {key: report['dataVariant'] for key, report in reports.items()
+                                   if games[key].get('variants') or games[key].get('titleUpdate') and report['dataVariant']}
     if flavor == 'Update':
         release.update(baseVersion=UPDATE_BASES[version], preservedPaths=list(UPDATE_PRESERVED))
     if package_format in (2, 3):

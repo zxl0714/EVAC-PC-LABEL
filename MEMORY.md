@@ -235,6 +235,7 @@ R2=Credit（W），Square=Shot（C）。右侧 Player2 的 Triangle=Credit 不�
 ESP Ra.De. 01.00 Itemzflow 的 Default 档为 Triangle=Credit（V）、Square=Shot（C）。
 暂停菜单进入 Ranking Viewer 后用 Circle（X）选择 Arcade，榜单中同键下载录像和确认保存。
 空战之路韩版这份存档的控制信息为 L1=Coin（A）、Square=Shot（C），菜单用 Circle（X）确认。
+空战之路日版 01.07 的新档确认 Triangle=Coin（V）、Square=Shot（C）、Options=Start。回放经暂停菜单的 Materials Room → Replay Theater → My Replay，Circle（X）确认。默认暂停行往上两次到 Materials Room，第一次往上会选中 Mode Setting。
 空战之路进入综合榜后光标在机体筛选，先向下选成绩，再按 Circle（X）下载，确认后保存。
 PS4 验收脚本用 S（R1）切换设置页，页签转场后再按下一次。暂停菜单的槽位有上下限，在 Quick Save／Quick Load 按住 Right 约 16 秒可到 99。先看当前高亮行，读取或保存出现确认框后再长按 X 约 1.6 秒。
 进程内测试手柄每个脉冲最多 2 秒，切换槽位可用十三次 `right:2`。`right:16` 仅用于键盘。`quit` 可单独发送或置于命令行末尾。

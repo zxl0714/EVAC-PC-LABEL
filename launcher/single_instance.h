@@ -26,7 +26,7 @@ class LauncherInstance final {
   }
   // True means this process owns startup. False means an existing GUI has
   // acknowledged activation. An abandoned owner can be replaced safely.
-  bool ActivateOrAcquire() {
+  bool ActivateOrAcquire(bool big_picture=false) {
     if(owns_)return true;
     const auto deadline=GetTickCount64()+5000;
     for(;;) {
@@ -38,7 +38,7 @@ class LauncherInstance final {
         DWORD process{};GetWindowThreadProcessId(window,&process);
         if(process)AllowSetForegroundWindow(process);
         DWORD_PTR acknowledged{};
-        if(SendMessageTimeoutW(window,ActivationMessage(),0,0,SMTO_ABORTIFHUNG|SMTO_BLOCK,1500,&acknowledged) && acknowledged==1)
+        if(SendMessageTimeoutW(window,ActivationMessage(),big_picture,0,SMTO_ABORTIFHUNG|SMTO_BLOCK,1500,&acknowledged) && acknowledged==1)
           return false;
         // Do not kill a busy GUI or start another one beside it.
         if(IsWindow(window))throw std::runtime_error("The existing launcher is not responding. Please wait and try again.");

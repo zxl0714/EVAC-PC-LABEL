@@ -2,6 +2,7 @@
 #include "common/ini.h"
 #include "common/paths.h"
 #include "common/ps4_program.h"
+#include "backends/ps4/content/sfo.h"
 #include "common/daioujou_music.h"
 #include "common/verification_cache.h"
 #include "launcher/arrange_status.h"
@@ -269,15 +270,62 @@ void Ps4ProgramChecks(Fixture& fixture) {
   Require(inspect().data_state==DataState::Incomplete,"Alternate program identity bypassed resource verification");
   write_program("eboot.bin",changed);
   Require(inspect(CheckLevel::Quick).data_state==DataState::Unsupported,"Unknown root ELF accepted");
-  // Two registered packages can contain identical programs but different SFOs.
-  // Rewrapping must select by those metadata, never by catalogue order.
+  {
+    kt::content::Sfo metadata;
+    metadata.SetText("TITLE_ID","CUSA12345");
+    metadata.SetText("CONTENT_ID","JP0000-CUSA12345_00-TESTAPP000000000");
+    metadata.SetText("APP_VER","01.00");
+    metadata.SetText("CATEGORY","gd");
+    metadata.SetInteger("APP_TYPE",1);
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    const auto sfo_hash=Sha256(source/"sce_sys/param.sfo");
+    const std::array semantic_files{files[0],files[1],files[2],
+        DataFile{"sce_sys/param.sfo",metadata.Serialize().size(),sfo_hash,false}};
+    const std::array source_a{semantic_files.back(), DataFile{"sce_sys/playgo-chunk.sha",5,"source-a",false}};
+    const std::array source_b{semantic_files.back(), DataFile{"sce_sys/about/right.sprx",5,"source-b",false}};
+    const std::array semantic_variants{
+        DataVariant{"base","01.00","base","eboot.bin",semantic_files,{},
+          "CUSA12345",source_a},
+        DataVariant{"repack","01.00","base","eboot.bin",semantic_files,{},
+          "CUSA12345",source_b}};
+    game.variants=semantic_variants;
+    write_program("eboot.bin",sectioned);
+    Write(source/"assets.bin","abc");
+    metadata.SetText("TITLE","Equivalent dump with a replaced display title");
+    metadata.SetText("CONTENT_ID","JP2222-CUSA12345_00-EXPORT0000000000");
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    Write(source/"sce_sys/playgo-chunk.sha","unknown export");
+    Require(inspect().data_state==DataState::Verified && inspect().variant=="base",
+            "Known version without an exact export signature did not verify");
+    fs::remove(source/"sce_sys/playgo-chunk.sha");
+    Require(inspect().data_state==DataState::Verified,"Missing PlayGo export metadata blocked a known version");
+    metadata.SetText("APP_VER","01.05");
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    Require(inspect().data_state==DataState::Unsupported,"Wrong PS4 application version verified");
+    metadata.SetText("APP_VER","01.00");
+    metadata.SetText("TITLE_ID","CUSA12346");
+    metadata.SetText("CONTENT_ID","JP2222-CUSA12346_00-EXPORT0000000000");
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    Require(inspect().data_state==DataState::Unsupported,"Wrong PS4 regional title verified");
+    metadata.SetText("TITLE_ID","CUSA12345");
+    metadata.SetText("CONTENT_ID","JP2222-CUSA12345_00-EXPORT0000000000");
+    metadata.SetInteger("APP_TYPE",2);
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    Require(inspect().data_state==DataState::Unsupported,"Wrong PS4 application type verified");
+    Write(source/"sce_sys/param.sfo","broken");
+    Require(inspect().data_state==DataState::Incomplete,"Damaged SFO was treated as a different game version");
+    fs::remove(source/"sce_sys/param.sfo");
+    Require(inspect().data_state==DataState::Incomplete,"Missing SFO was treated as a different game version");
+    game.variants=variants;
+  }
+  // Keep identifying the sources of already registered exports.
   Write(source/"sce_sys/param.sfo","pkg-a");const auto metadata_a=Sha256(source/"sce_sys/param.sfo");
   Write(source/"sce_sys/param.sfo","pkg-b");const auto metadata_b=Sha256(source/"sce_sys/param.sfo");
   write_program("eboot.bin",elf);const auto elf_hash=Sha256(source/"eboot.bin");
   const std::array alias_a{files[0],DataFile{"sce_sys/param.sfo",5,metadata_a,false}};
   const std::array alias_b{DataFile{"eboot.bin",elf.size(),elf_hash,true,fingerprint},DataFile{"sce_sys/param.sfo",5,metadata_b,false}};
-  const std::array aliases{DataVariant{"package-a","01.00","base","eboot.bin",alias_a,{}},
-                          DataVariant{"package-b","01.00","base","eboot.bin",alias_b,{}}};
+  const std::array aliases{DataVariant{"package-a","01.00","base","eboot.bin",alias_a,{},{},std::span(alias_a).last(1)},
+                          DataVariant{"package-b","01.00","base","eboot.bin",alias_b,{},{},std::span(alias_b).last(1)}};
   game.variants=aliases;
   Require(MatchRootProgram(game,elf.size(),elf_hash,fingerprint)==&aliases[1],"Exact root identity lost to ambiguous fingerprint");
   Require(!MatchRootProgram(game,sectioned.size(),{},fingerprint),"Ambiguous package selected by list order");
@@ -292,8 +340,10 @@ void Ps4ProgramChecks(Fixture& fixture) {
   Write(source/"sce_sys/playgo-chunk.sha","sha-b");const auto chunks_b=Sha256(source/"sce_sys/playgo-chunk.sha");
   const std::array shared_a{files[0],alias_a[1],files[2],DataFile{"sce_sys/playgo-chunk.sha",5,chunks_a,false}};
   const std::array shared_b{files[0],alias_a[1],files[2],DataFile{"sce_sys/playgo-chunk.sha",5,chunks_b,false}};
-  const std::array shared{DataVariant{"original","01.00","base","eboot.bin",shared_a,{}},
-                         DataVariant{"pkg-extracted","01.00","base","eboot.bin",shared_b,{}}};
+  const std::array export_a{shared_a[1], shared_a[3]};
+  const std::array export_b{shared_b[1], shared_b[3]};
+  const std::array shared{DataVariant{"original","01.00","base","eboot.bin",shared_a,{},{},export_a},
+                         DataVariant{"pkg-extracted","01.00","base","eboot.bin",shared_b,{},{},export_b}};
   game.variants=shared;
   Write(source/"assets.bin","abc");write_program("eboot.bin",self);
   Require(!MatchRootProgram(game,self.size(),container_hash),"Shared canonical root guessed a package by catalogue order");
@@ -321,8 +371,11 @@ void Ps4ProgramChecks(Fixture& fixture) {
                                  DataFile{"sce_sys/about/right.sprx",7,rights_a,false}};
   const std::array rights_dump{shared_a[0],shared_a[1],shared_a[2],shared_a[3],
                              DataFile{"sce_sys/about/right.sprx",7,rights_b,false}};
-  const std::array rights_variants{DataVariant{"original","01.00","base","eboot.bin",rights_original,{}},
-                                  DataVariant{"base-store-dump","01.00","base","eboot.bin",rights_dump,{}}};
+  const std::array rights_export_a{rights_original[1],rights_original[3],rights_original[4]};
+  const std::array rights_export_b{rights_dump[1],rights_dump[3],rights_dump[4]};
+  const std::array rights_variants{
+      DataVariant{"original","01.00","base","eboot.bin",rights_original,{},{},rights_export_a},
+      DataVariant{"base-store-dump","01.00","base","eboot.bin",rights_dump,{},{},rights_export_b}};
   game.variants=rights_variants;
   Require(inspect().variant=="base-store-dump" && inspect().data_state==DataState::Verified,
           "Identical programs, SFO and PlayGo failed to select original store-dump metadata");

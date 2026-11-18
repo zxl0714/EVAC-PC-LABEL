@@ -11,6 +11,7 @@ import tomllib
 from build_receipt import verify_sdk
 from generate_catalogue import load, relative
 from project import ROOT, digest, reject_link, write_json_new
+from sdoj_title_update import TITLE_UPDATE, patch_inputs, stage_programs, title_update_configs
 
 SUPPORTED_GAMES = ('espgaluda2', 'futari', 'sdoj', 'guwange')
 
@@ -88,7 +89,7 @@ def execution_manifest(game, records, data, generated, source):
     return '\n'.join(lines)
 
 
-def registry_source(records, game_id):
+def registry_source(records, game_id, library_prefix=None):
     if game_id not in SUPPORTED_GAMES:
         raise ValueError('Unsupported registry game')
     lines = ['// Generated module registry metadata; no translated program bodies.',
@@ -96,10 +97,11 @@ def registry_source(records, game_id):
              '#include "common/catalogue.h"',
              'void RegisterRecompiledModules(rex::system::KernelState* kernel_state) {',
              f'  const auto root=rex::filesystem::GetExecutableFolder().parent_path()/"games/{game_id}";']
+    library_prefix = library_prefix or game_id
     for name, item in records.items():
         if name != 'default':
             guest = relative(item['guest_path'])
-            lines += ['  {', f'    const auto library=cave::Utf8(root/"{game_id}_{name}.dll");',
+            lines += ['  {', f'    const auto library=cave::Utf8(root/"{library_prefix}_{name}.dll");',
                       f'    kernel_state->RegisterRecompiledModule("{Path(guest).name}","{guest}",library.c_str());', '  }']
     return '\n'.join(lines + ['}', ''])
 
@@ -117,7 +119,7 @@ def verify_generated_branches(generated, records):
         raise ValueError('Unresolved generated branches; fix source declarations: ' + ', '.join(failures[:16]))
 
 
-def generate(game_id, data, regenerate=False):
+def generate(game_id, data, regenerate=False, title_update=None):
     game = next(game for game in load(ROOT / 'games/catalogue.json') if game['id'] == game_id)
     if game_id not in SUPPORTED_GAMES:
         raise ValueError('Unsupported game generator')
@@ -127,7 +129,14 @@ def generate(game_id, data, regenerate=False):
     if generated.is_relative_to(data) or data.is_relative_to(generated):
         raise ValueError('Generated outputs must stay separate from game inputs')
     verify_sdk()
-    before = verify_data(game, data)
+    base_inputs = verify_data(game, data)
+    update = game['titleUpdate']
+    if title_update is not None and not update:
+        raise ValueError('This game does not declare a title update')
+    patches = patch_inputs(data, update, title_update) if update else {}
+    before = base_inputs + [
+        {key: entry[key] for key in ('path', 'bytes', 'sha256')} for entry in update['patches']
+    ] if update else base_inputs
     source = ROOT / 'games' / game_id / 'recomp'
     manifest = source / (game_id + '.toml')
     records = targets(tomllib.loads(manifest.read_text(encoding='utf-8')), game)
@@ -135,6 +144,8 @@ def generate(game_id, data, regenerate=False):
     inputs = [Path(__file__).resolve(), executable, executable.parent / 'rexruntime.dll',
               ROOT / 'games/catalogue.json', ROOT / 'games' / game_id / 'data.json',
               *sorted(source.glob('*.toml'))]
+    if update:
+        inputs.append(Path(__file__).resolve().with_name('sdoj_title_update.py'))
     hashes = {path.relative_to(ROOT).as_posix(): digest(path) for path in inputs}
     stamp_path = generated / 'generation.json'
     if not regenerate and stamp_path.exists():
@@ -148,13 +159,20 @@ def generate(game_id, data, regenerate=False):
     report = ROOT / '.local/codegen' / game_id / stamp
     reject_link(report)
     report.mkdir(parents=True, exist_ok=False)
+
+    base_data = stage_programs(records, data, report / 'base-data', {}) if update else data
+    editions = [(base_data, generated, source, records, game_id)]
+    if update:
+        configs = report / 'tu101-configs'
+        translated = title_update_configs(records, source, configs)
+        patched_data = stage_programs(records, data, report / 'tu101-data', patches)
+        editions.append((patched_data, generated / TITLE_UPDATE, configs, translated, game_id + '_' + TITLE_UPDATE))
+
     if stamp_path.exists():
         stamp_path.rename(report / 'previous-generation.json')
-    execution = report / 'execution.toml'
-    execution.write_text(execution_manifest(game, records, data, generated, source), encoding='utf-8', newline='\n')
+    folders = [directory / name for _, directory, _, declared, _ in editions for name in declared]
     old_outputs = {}
-    for name in records:
-        folder = generated / name
+    for folder in folders:
         reject_link(folder)
         if folder.is_dir():
             for path in folder.iterdir():
@@ -163,28 +181,32 @@ def generate(game_id, data, regenerate=False):
                     old_outputs[path] = (digest(path), path.stat().st_atime_ns, path.stat().st_mtime_ns)
     results = []
     try:
-        for name in records:
-            if name == 'default':
-                continue
-            print(f'Generating {game_id}: default + {name}; one overlay per process', flush=True)
-            with (report / (name + '.log')).open('xb') as log:
-                result = subprocess.run([str(executable), 'codegen', str(execution), '--target', name],
-                    cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, timeout=600)
-            results.append(dict(module=name, returnCode=result.returncode))
-            if result.returncode:
-                raise RuntimeError(f'Generation failed for {name}; see {report}')
-        for name in records:
-            if not (generated / name / 'sources.cmake').is_file():
-                raise ValueError('Incomplete generated target: ' + name)
-        verify_generated_branches(generated, records)
-        # Only registry metadata is consolidated after the isolated codegen runs.
-        # Translated guest function bodies are never patched by this script.
-        (generated / 'default/module_registry.cpp').write_text(registry_source(records, game_id), encoding='utf-8', newline='\n')
-        (generated / 'default/dll_targets.cmake').write_text(
-            f'# Targets are maintained in games/{game_id}/overlays.cmake.\n', encoding='utf-8')
+        for edition_data, directory, config_source, declared, prefix in editions:
+            execution = report / (prefix + '.toml')
+            execution.write_text(execution_manifest(game, declared, edition_data, directory, config_source),
+                                 encoding='utf-8', newline='\n')
+            for name in declared:
+                if name == 'default':
+                    continue
+                print(f'Generating {prefix}: default + {name}; one overlay per process', flush=True)
+                with (report / (prefix + '-' + name + '.log')).open('xb') as log:
+                    result = subprocess.run([str(executable), 'codegen', str(execution), '--target', name],
+                        cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, timeout=600)
+                results.append(dict(edition=prefix, module=name, returnCode=result.returncode))
+                if result.returncode:
+                    raise RuntimeError(f'Generation failed for {prefix}/{name}; see {report}')
+            for name in declared:
+                if not (directory / name / 'sources.cmake').is_file():
+                    raise ValueError('Incomplete generated target: ' + name)
+            verify_generated_branches(directory, declared)
+            # Consolidate metadata from the isolated runs without modifying translated bodies.
+            (directory / 'default/module_registry.cpp').write_text(
+                registry_source(declared, game_id, prefix), encoding='utf-8', newline='\n')
+            (directory / 'default/dll_targets.cmake').write_text(
+                f'# Targets are maintained in games/{game_id}.\n', encoding='utf-8')
         outputs = []
-        for name in records:
-            for path in sorted((generated / name).iterdir()):
+        for folder in folders:
+            for path in sorted(folder.iterdir()):
                 reject_link(path)
                 if path.is_file() and path.suffix in ('.cpp', '.h', '.cmake'):
                     current_hash = digest(path)
@@ -196,18 +218,22 @@ def generate(game_id, data, regenerate=False):
             raise ValueError('Generation inputs changed while generating')
         verify_sdk()
     finally:
-        unchanged = before == verify_data(game, data)
+        unchanged = base_inputs == verify_data(game, data)
+        if update:
+            unchanged = unchanged and patches == patch_inputs(data, update, title_update)
         write_json_new(report / 'run.json', dict(format=1, game=game_id, inputs=hashes, modules=results,
             gameDataUnchanged=unchanged, guestExecution=False))
+    if not unchanged:
+        raise ValueError('Game inputs changed while generating')
     write_json_new(stamp_path, dict(format=1, game=game_id, inputs=hashes, gameInputs=before,
         modules=list(records), outputs=outputs, gameDataUnchanged=True, guestExecution=False))
     print(json.dumps(dict(modules=len(records), generatedFiles=len(outputs), report=str(report)), indent=2))
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--game', choices=SUPPORTED_GAMES, required=True)
     parser.add_argument('--data-dir', type=Path, required=True)
     parser.add_argument('--regenerate', action='store_true')
+    parser.add_argument('--title-update', type=Path, help='Separate verified disc TU 1.01 file for SDOJ')
     args = parser.parse_args()
-    generate(args.game, args.data_dir, args.regenerate)
+    generate(args.game, args.data_dir, args.regenerate, args.title_update)

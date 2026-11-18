@@ -3,8 +3,8 @@
 #include <memory>
 
 namespace cave {
-// Bounded, read-only LIVE/PIRS reader. Extraction is a separate operation
-// into a new cache directory; inspection never writes to the player's source.
+inline constexpr std::uint32_t kStfsTitleUpdate = 0xB0000;
+// Bounded, read-only LIVE/PIRS reader. Extraction writes to a new directory.
 struct StfsFile {
   std::string path, sha256;
   uint32_t bytes{};

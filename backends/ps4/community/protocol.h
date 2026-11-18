@@ -28,6 +28,7 @@ struct TitleProtocol {
 };
 // Transport identity only. Native board/record compatibility is a separate gate.
 const TitleProtocol& ProtocolFor(std::string_view game);
+bool SupportsContentTitle(std::string_view game, std::string_view title_id);
 struct Endpoint {
     std::wstring host, path;
     std::uint16_t port{};

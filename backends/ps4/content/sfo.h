@@ -24,5 +24,6 @@ public:
 private:
     std::map<std::string, SfoValue, std::less<>> values_;
 };
+bool ValidContentIdentity(std::string_view title_id, std::string_view content_id);
 bool SfoSelfTest();
 }

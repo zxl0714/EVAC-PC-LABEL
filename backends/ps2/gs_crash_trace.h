@@ -9,12 +9,12 @@ namespace cave::ps2::gs_crash {
 enum class Stage : uint8_t {
     Init, BetweenFrames, WaitFence, FenceSignaled, FenceUnconfirmed, FlushGs, Acquire,
     Scanout, ReuseImage, EmptyImage, SourceImage, BeginPass, BindProgram,
-    Draw, EndPass, Submit, Submitted, Present, Presented, Count
+    Draw, BeginOverlay, EndPass, Submit, Submitted, Present, Presented, Count
 };
 inline constexpr auto names=std::to_array<const char*>({
     "init-gs","between-frames","wait-output-fence","output-fence-signaled","output-fence-unconfirmed",
     "flush-gs","acquire-swapchain","scanout","reuse-image","empty-image","source-image",
-    "begin-pass","bind-program","draw","end-pass","submit","submit-returned",
+    "begin-pass","bind-program","draw","begin-overlay","end-pass","submit","submit-returned",
     "present","present-returned"});
 static_assert(names.size()==static_cast<size_t>(Stage::Count));
 static_assert(std::atomic<uint64_t>::is_always_lock_free);

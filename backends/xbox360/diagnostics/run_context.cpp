@@ -92,10 +92,13 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     const auto& game=run.paths.data;
     run.profile=run.paths.profile;
     cave::VerificationCache verification(run.root);
-    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full,&verification);
+    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full,&verification,
+        cave::TitleUpdateInput::PatchesOnly);
     if (inspection.data_state!=cave::DataState::Verified)
         throw std::runtime_error(run.game+" data check failed: "+std::string(cave::Name(inspection.data_state))+": "+
             (inspection.problems.empty()?inspection.reason:inspection.problems.front()));
+    if (identity.title_update && inspection.variant != build.data_variant)
+        throw std::runtime_error("This executable does not match the selected title update; launch it from EVAC PC LABEL");
     const auto metadata=Json::parse(build.program_metadata);
     Json inputs=Json::array();
     for (const auto& item:metadata.at("xex")) {
@@ -144,7 +147,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
         {"dataDirectory",PathUtf8(game)},{"contentSource",PathUtf8(run.content_source)},{"cacheDirectory",PathUtf8(run.paths.cache)},
         {"pid",GetCurrentProcessId()},{"processCreated",creation},{"processCodePage",GetACP()},
         {"verification",{{"cacheHits",verification.hits},{"reads",verification.reads},{"bytes",verification.bytes_read}}},
-        {"gameInputs",inputs},{"configSha256",Sha256Text(snapshot)},
+        {"gameInputs",inputs},{"dataVariant",inspection.variant},{"dataVersion",inspection.version},
+        {"configSha256",Sha256Text(snapshot)},
         {"communityRequested",community_requested},{"communitySupported",identity.community_supported},
         {"communityEnabled",run.settings.community_enabled},{"keyboardMouseCapture",false},{"binaries",Json::array()}};
     record["optionalContent"]=Json::array();

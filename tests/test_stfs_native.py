@@ -11,6 +11,33 @@ EXE = ROOT / 'out/common/bin/cave_stfs_tests.exe'
 
 @unittest.skipUnless(EXE.is_file(), 'Build cave_stfs_tests first')
 class NativeStfsTests(unittest.TestCase):
+    def test_launcher_prepares_title_update_once(self):
+        package, patch, put, rehash, table, entry = fixture(dlc=True)
+        put(0x344, 0xB0000)
+        package[table:table+64] = package[entry:entry+64]
+        package[entry:entry+64] = bytes(64)
+        name = b'default.xexp'
+        package[table:table+40] = name.ljust(40, b'\0')
+        package[table+40] = len(name)
+        put(table+50, 65535, 2)
+        rehash(0)
+        padded = patch + bytes(16)
+        with tempfile.TemporaryDirectory(prefix='evac-native-tu-') as temporary:
+            root = Path(temporary) / 'collection'
+            root.mkdir()
+            data = Path(temporary) / 'game-data'
+            data.mkdir()
+            source = data / 'title-update'
+            source.write_bytes(package)
+            (source.parent / 'default.xex').write_bytes(b'abc')
+            result = subprocess.run([str(EXE), '--title-update', str(source), str(root), str(len(patch)),
+                                     hashlib.sha256(patch).hexdigest(), hashlib.sha256(padded).hexdigest()],
+                                    capture_output=True, timeout=25)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
+            self.assertEqual(source.read_bytes(), package)
+            self.assertEqual((source.parent / 'default.xexp').read_bytes(), padded)
+            self.assertEqual(list(source.parent.glob('.tu-*')), [])
+
     def check(self, data, expected, success=True):
         with tempfile.TemporaryDirectory(prefix='evac-native-dlc-') as temporary:
             root = Path(temporary)

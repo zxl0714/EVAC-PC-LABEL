@@ -2,6 +2,7 @@
 #include "render_trace_policy.h"
 #include "logic_trace.h"
 #include <rex/ppc.h>
+#include "../guest_layout.h"
 #include <rex/cvar.h>
 #include <rex/runtime.h>
 #include <rex/memory.h>
@@ -122,14 +123,14 @@ extern "C" __declspec(dllexport) void SdojLatencyEvent(
     const auto current0 = Value(block + 12), current1 = Value(block + 172);
     const auto consumed0 = Value(block), consumed1 = Value(block + 160);
     // In each independently reviewed layout, command cursor immediately
-    // precedes active_writer. 0x82633548 is this disc's engine-frame counter.
+    // precedes active_writer. Use the engine-frame counter for this edition.
     const auto cursor = Value(addresses[2] - 4);
-    const auto engine_frame = Value(0x82633548);
+    const auto engine_frame = Value(sdoj::kFrameCounter);
     const auto swap_after = Word(addresses[1]);
     const auto snapshot = state;
     const auto now = Now(), epoch = rex::input::GuestInputFrame();
     const auto iteration = host_iteration.load(std::memory_order_relaxed);
-    const std::uint32_t render_object = module == 1 ? 0x885F1A70u : 0x885F97F8u;
+    const std::uint32_t render_object = sdoj::OverlayData(module == 1 ? 0x885F1A70u : 0x885F97F8u);
     const auto draw_list = phase == 7 ? Value(render_object + 900) : 0;
     if (phase == 7) {
         render_source_iteration.store(iteration, std::memory_order_relaxed);
@@ -183,7 +184,7 @@ void SdojLatencyHostBegin() {
     const auto serial = sequence.fetch_add(1, std::memory_order_relaxed) + 1;
     if (serial <= MaxRecords) REXLOG_INFO(
         "SDOJ_LATENCY seq={} t_us={} thread={} phase=host_begin host_iteration={} engine_frame={} epoch={} rejected={} limit={} no_guest_writes not_scanout_latency",
-        serial, Now(), GetCurrentThreadId(), iteration, Value(0x82633548),
+        serial, Now(), GetCurrentThreadId(), iteration, Value(sdoj::kFrameCounter),
         rex::input::GuestInputFrame(), rejected.load(), MaxRecords);
 }
 void SdojLatencyHostEnd() {
@@ -192,7 +193,7 @@ void SdojLatencyHostEnd() {
     const auto serial = sequence.fetch_add(1, std::memory_order_relaxed) + 1;
     if (serial <= MaxRecords) REXLOG_INFO(
         "SDOJ_LATENCY seq={} t_us={} thread={} phase=host_end host_iteration={} engine_frame={} epoch={} rejected={} limit={} no_guest_writes not_scanout_latency",
-        serial, Now(), GetCurrentThreadId(), host_iteration.load(), Value(0x82633548),
+        serial, Now(), GetCurrentThreadId(), host_iteration.load(), Value(sdoj::kFrameCounter),
         rex::input::GuestInputFrame(), rejected.load(), MaxRecords);
 }
 
@@ -207,7 +208,7 @@ void SdojLatencySubmit(PPCRegister& buffer) {
     const auto iteration = host_iteration.load();
     const auto source = render_source_iteration.load() == iteration ? render_source_sequence.load() : 0;
     REXLOG_INFO("SDOJ_LATENCY seq={} t_us={} thread={} phase=guest_submit host_iteration={} engine_frame={} epoch={} render_source_seq={} native_dequeue_seq={} argument={:08X} packet={:08X} valid={} output_trace_enabled={} rejected={} limit={} no_guest_writes not_scanout_latency",
-        serial, Now(), GetCurrentThreadId(), iteration, Value(0x82633548), rex::input::GuestInputFrame(),
+        serial, Now(), GetCurrentThreadId(), iteration, Value(sdoj::kFrameCounter), rex::input::GuestInputFrame(),
         source, native_dequeue_sequence, buffer.u32, valid ? physical + 28 : 0, valid,
         REXCVAR_GET(output_latency_trace), rejected.load(), MaxRecords);
 }
@@ -231,7 +232,7 @@ void NativeQueue(bool enqueue, std::uint32_t queue, std::uint32_t slot,
     if (!enqueue) native_dequeue_sequence = valid && *kind == 1 ? serial : 0;
     REXLOG_INFO("SDOJ_LATENCY seq={} t_us={} thread={} phase={} host_iteration={} engine_frame={} epoch={} render_source_seq={} queue={:08X} slot={:08X} kind={} frame_arg={:08X} capacity={} read={} write={} valid={} rejected={} limit={} no_guest_writes not_scanout_latency",
         serial, Now(), GetCurrentThreadId(), enqueue ? "native_enqueue" : "native_dequeue",
-        iteration, Value(0x82633548), rex::input::GuestInputFrame(), source, queue, slot,
+        iteration, Value(sdoj::kFrameCounter), rex::input::GuestInputFrame(), source, queue, slot,
         kind.value_or(0), argument.value_or(0), capacity.value_or(0), read.value_or(0), write.value_or(0),
         valid, rejected.load(), MaxRecords);
 }
@@ -255,12 +256,12 @@ void NativeWait(const char* phase) {
     if (!REXCVAR_GET(sdoj_latency_trace) || !module_observed.load()) return;
     const auto serial = sequence.fetch_add(1, std::memory_order_relaxed) + 1;
     if (serial > MaxRecords) return;
-    // Original callback sub_8219CCF0 clears 0x8279C770. The begin hook is
+    // The original callback clears the frame-wait flag. The begin hook is
     // immediately BEFORE the original store of one; it does not set the flag.
     REXLOG_INFO("SDOJ_LATENCY seq={} t_us={} thread={} phase={} host_iteration={} engine_frame={} epoch={} native_dequeue_seq={} wait_flag={} rejected={} limit={} no_guest_writes not_scanout_latency",
         serial, Now(), GetCurrentThreadId(), phase, host_iteration.load(),
-        Value(0x82633548), rex::input::GuestInputFrame(), native_dequeue_sequence,
-        Value(0x8279C770), rejected.load(), MaxRecords);
+        Value(sdoj::kFrameCounter), rex::input::GuestInputFrame(), native_dequeue_sequence,
+        Value(sdoj::kCallbackFlag), rejected.load(), MaxRecords);
 }
 }
 void SdojLatencyNativeWaitBegin() { NativeWait("native_wait_begin"); }
