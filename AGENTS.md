@@ -10,8 +10,8 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.10.1 is active. The planned work and live status are under v0.10.1
-in docs/IMPLEMENTATION_PLAN.md. Verified results are in the first
+v0.10.2 planning is tracked in docs/IMPLEMENTATION_PLAN.md.
+v0.10.1 has been released. Its verified results are in the first
 section of docs/TEST_MATRIX.md, with private evidence in .local/v0101/ and
 .local/reports-20261118/. Big Picture software acceptance is complete and
 physical controllers are deferred. Death Label was accepted on log/code
