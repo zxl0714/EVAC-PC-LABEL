@@ -20,7 +20,7 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 5. [x] **v0.10.2 手动更新。** 包内说明提供解压覆盖原目录的操作。本地用正式 v0.10.1 验证手动覆盖保留了存档、配置、游戏数据和自行安装的第三方程序。
    - 从 v0.10.2 起，自动更新按发布包清单创建所需目录。新增顶层目录、子目录和游戏目录都沿用同一规则，无需逐个登记。保留路径和文件完整性校验，更新时保留玩家已有的存档、配置、游戏数据和自行安装的第三方程序。
    - 用后续版本的测试包验收自动升级，覆盖新建游戏运行时和数据说明目录、更新 `external/SDOJ-Recomp/README.txt`，以及保留玩家自行解压的 SDOJ-Recomp 文件。
-6. [x] **调研 DonPachi Recomp 的外部启动。** 上游 v0.9.0 提供独立 Windows EXE，支持通过 `--rom` 指定原始 ZIP，通过 `--settings` 指定配置路径。用本地 `donpachi.zip` 短测启动，确认上游正常生成美版游戏数据缓存。可沿用 SDOJ-Recomp 的可选入口方式，由玩家安装上游发布包并提供自己的 ROM。本版完成调研和询问，实际接入留待后续版本，待作者回复。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游请求](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3)
+6. [x] **调研 DonPachi Recomp 的外部启动。** 获取了上游 v0.9.0 源码和正式 Windows 程序。用 EVAC 大屏的临时入口启动正式 EXE，传入本地 `donpachi.zip`、独立设置及 EEPROM 路径。首次生成美版缓存并展示标题和自动演示，关闭游戏以退出码 0 返回大屏，随后能切回桌面。正式入口待上游回复后推进。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游请求](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3)
 
 7. [x] **大屏封面对齐。** 封面按同一高度显示并保留原比例，水平居中，选中框紧贴实际图面，适度拉开四列间距。用多种窗口比例校验封面边界，并在本机 4K 大屏检查了彩色实图。
 
