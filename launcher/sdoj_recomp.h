@@ -1,0 +1,66 @@
+#pragma once
+#include "common/controller_bindings.h"
+#include "common/launch.h"
+#include "common/settings.h"
+#include "common/verification_cache.h"
+#include <array>
+#include <stdexcept>
+
+namespace cave::launcher {
+inline constexpr auto kSdojRecompDirectory="external/SDOJ-Recomp";
+inline constexpr auto kSdojRecompRelease=L"https://github.com/eandis/SDOJ-Recomp/releases/latest";
+
+inline bool ReadSdojRecomp(const Ini& ini) {
+  const auto choice=ini.Get("game.sdoj","eandis");
+  return choice && choice->text=="true";
+}
+
+inline fs::path SdojRecompExecutable(const fs::path& root) {
+  return DataChild(root,std::string(kSdojRecompDirectory)+"/DoDonPachi SaiDaiOuJou.exe");
+}
+
+inline std::string RecompKey(const Binding& binding) {
+  if(binding.keys.empty())return {};
+  switch(binding.keys.front()) {
+    case 0x0D:return "Return";
+    case 0x1B:return "Escape";
+    case 0xBA:return "Semicolon";
+    case 0xBB:return "Plus";
+    case 0xDB:return "LBracket";
+    case 0xDD:return "RBracket";
+    case 0xDE:return "Quote";
+    default:return KeyName(binding.keys.front());
+  }
+}
+
+inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs::path& data_override) {
+  const auto& game=FindGame("sdoj");
+  LaunchSpec launch;
+  launch.game=game.id;
+  launch.executable=SdojRecompExecutable(root);
+  if(!fs::is_regular_file(launch.executable))throw std::runtime_error("SDOJ-Recomp executable is missing");
+  launch.paths=Paths(root,game.id,data_override.empty()?ini.DataDirectory(game):data_override);
+  launch.controller_mapping_hint=ControllerMappingHint(ini,game.id);
+
+  const auto settings=ResolveSettings(ini,game.id);
+  launch.arguments={settings.fullscreen?L"--fullscreen=true":L"--fullscreen=false",
+                    L"--window_width="+std::to_wstring(settings.window_width),
+                    L"--window_height="+std::to_wstring(settings.window_height)};
+  constexpr std::array keys{L"up",L"down",L"left",L"right",L"shot",L"bomb",L"rapid_shot",L"extra"};
+  for(size_t index=0;index<keys.size();++index) {
+    const auto key=RecompKey(settings.keyboard[index]);
+    launch.arguments.push_back(std::wstring(L"--keyboard_p1_")+keys[index]+L"="+FromUtf8(key).native());
+  }
+
+  // Explicitly sharing data is safe for the optical TU that both players support.
+  // Otherwise upstream uses its own prepared data and first-run setup, including GoD.
+  if(fs::is_regular_file(launch.paths.data/"default.xex")) {
+    VerificationCache cache(root);
+    const auto data=InspectLaunchData(game,root,launch.paths.data,CheckLevel::Programs,cache);
+    if(data.variant==game.title_update->id &&
+       (data.data_state==DataState::Verified || data.data_state==DataState::Unverified))
+      launch.arguments.push_back(L"--game_data_root="+data.data_dir.native());
+  }
+  return launch;
+}
+}  // namespace cave::launcher

@@ -56,7 +56,12 @@ def version_name(version, flavor, package_format=1):
     if package_format in (2, 3):
         if flavor not in ('Public', 'Internal') or not renamed(version):
             raise ValueError('Windows packages require v0.4 or later and Public/Internal flavor')
-        return slug(version) + '-v' + version + '-win-x64' + ('-internal' if flavor == 'Internal' else '')
+        name = slug(version) + '-v' + version + '-win-x64'
+        if flavor == 'Internal':
+            return name + '-internal'
+        # Older launchers match the standard asset name before they see the
+        # manifest. This one-time upgrade must lead to the release page.
+        return name + '-manual' if version == '0.10.2' else name
     if package_format != 1:
         raise ValueError('Unsupported package format')
     if flavor == 'Update' and version not in UPDATE_BASES:
@@ -140,6 +145,9 @@ def placement_sources(version, name=PLACEMENT_NAME):
         result['game-data/daioujou/x-arrange/' + name] = ROOT / 'config/game-data/daioujou-x-arrange.txt'
     if parts >= (0, 9, 10):
         result['game-data/ketsui/x-arrange/' + name] = ROOT / 'config/game-data/ketsui-x-arrange.txt'
+    if parts >= (0, 10, 2):
+        guide = 'external/SDOJ-Recomp/README.txt'
+        result[guide] = ROOT / guide
     return result
 
 

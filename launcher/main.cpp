@@ -19,6 +19,7 @@
 #include "launcher/log_upload.h"
 #include "launcher/input_settings.h"
 #include "launcher/big_picture.h"
+#include "launcher/sdoj_recomp.h"
 #include "common/config_update.h"
 #include <Windows.h>
 #include <windowsx.h>
@@ -363,6 +364,13 @@ struct Layout {
   D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
+D2D1_RECT_F SdojSwitchBounds(D2D1_RECT_F card) {
+  return {card.right-69,card.bottom-29,card.right-10,card.bottom-8};
+}
+const wchar_t* Platform(const Game& game) {
+  if(game.backend=="xbox360")return L"Xbox 360";
+  return game.backend=="ps2"?L"PS2":L"PS4";
+}
 int Layout::footer_button_at(float x,float y) const {
   for(int slot:{6,7,13,4,5,9,8})if(Inside(focus_button(slot),x,y))return slot;
   return -1;
@@ -447,6 +455,25 @@ class Renderer {
     const auto rounded=D2D1::RoundedRect(rectangle,8,8);target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
+  void PlatformTag(ID2D1RenderTarget* target,const Game& game,float x,float y,float scale=1.f) {
+    const auto width=(game.backend=="xbox360"?62.f:35.f)*scale;
+    const auto r=D2D1::RoundedRect({x,y,x+width,y+18*scale},4*scale,4*scale);
+    ComPtr<ID2D1SolidColorBrush> fill;
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(0x23312d,.92f),&fill),"Create platform background");
+    target->FillRoundedRectangle(r,fill.Get());
+    Text(target,Platform(game),{x,y+2*scale,x+width,y+18*scale},10*scale,0xffffff,DWRITE_TEXT_ALIGNMENT_CENTER);
+  }
+  void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F card,bool enabled,bool hovered) {
+    const auto r=SdojSwitchBounds(card);
+    const auto rounded=D2D1::RoundedRect(r,7,7);
+    ComPtr<ID2D1SolidColorBrush> fill,border;
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(enabled?(hovered?0x3d7153:0x2f5b42):
+        (hovered?0xeaf2eb:0xf6f8f5)),&fill),"Create eandis switch fill");
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(enabled?0x37644c:(hovered?0x82a18a:0xd4ded4)),&border),"Create eandis switch border");
+    target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
+    Text(target,enabled?L"✓ eandis":L"eandis",{r.left,r.top+3,r.right,r.bottom},10,
+        enabled?0xffffff:0x526959,DWRITE_TEXT_ALIGNMENT_CENTER);
+  }
   ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false,bool cover=false) {
     SelectTarget(target);
     auto& bitmap=cover?(grey?grey_covers[index]:covers[index]):(grey?grey_bitmaps[index]:bitmaps[index]);
@@ -496,8 +523,10 @@ class Renderer {
     return bitmap;
   }
   void Card(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,
-            size_t index,D2D1_RECT_F rectangle,size_t selected,int hover,bool hidden) {
+            size_t index,D2D1_RECT_F rectangle,size_t selected,int hover,bool hidden,
+            bool sdoj_external=false,bool sdoj_hover=false) {
     const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
+    const bool sdoj=game.id=="sdoj";
     const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
     const bool muted=soon||missing||hidden;
     const auto color=muted?0xf6f7f4:0xffffff;
@@ -520,6 +549,7 @@ class Renderer {
       target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
           soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
       target->PopAxisAlignedClip();
+      PlatformTag(target,game,art.left+5,art.top+5);
       if(soon || hidden) {
         ComPtr<ID2D1SolidColorBrush> shade;
         Check(target->CreateSolidColorBrush(D2D1::ColorF(0xf3f4f0,.87f),&shade),"Create future-cover label");
@@ -530,7 +560,9 @@ class Renderer {
       const auto left=rectangle.left+12;
       Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
           13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
-      Text(target,Wide(game.name),{left,rectangle.bottom-24,rectangle.right-12,rectangle.bottom-10},10,0x748179);
+      const auto right=sdoj?SdojSwitchBounds(rectangle).left-5:rectangle.right-12;
+      Text(target,Wide(game.name),{left,rectangle.bottom-24,right,rectangle.bottom-10},sdoj?9.f:10.f,0x748179);
+      if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover);
       target->PopLayer();
       target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
       return;
@@ -567,10 +599,11 @@ class Renderer {
       if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
       else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
     }
+    if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover);
   }
   void DrawBigPicture(ID2D1RenderTarget* target, const BigPictureLayout& view,
                       const std::vector<Row>& rows, const cave::launcher::GameLibrary& library,
-                      std::wstring_view message, bool busy, bool menu, size_t menu_selection) {
+                      std::wstring_view message, bool busy, bool menu, size_t menu_selection,bool sdoj_external=false) {
     constexpr UINT32 background=0x141520, panel=0x202332, text=0xf7f5ff, secondary=0xbfc1d1, accent=0xcfacff;
     const float scale=view.Scale(), margin=view.Margin();
     target->Clear(D2D1::ColorF(background));
@@ -602,7 +635,8 @@ class Renderer {
       const size_t index=library.visible[position];
       const auto bounds=view.Card(position);
       const bool selected=position==view.selected;
-      const bool available=CanPlay(rows[index].inspection);
+      const auto& game=Catalogue()[index];
+      const bool available=CanPlay(rows[index].inspection) || (game.id=="sdoj" && sdoj_external);
       const float inset=5*scale;
       fill(bounds,panel,6*scale);
       const auto artwork=Image(target,index,!available,true);
@@ -615,16 +649,23 @@ class Renderer {
         target->DrawBitmap(artwork,{horizontal,vertical,horizontal+image.width*fit,vertical+image.height*fit},
             available?1.f:0.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
       }
+      PlatformTag(target,game,bounds.left+9*scale,bounds.top+9*scale,scale);
       if(selected)outline(bounds,accent,3);
     }
 
     const float footer=view.height-119*scale;
     fill({0,footer,view.width,view.height},panel);
+    bool play=false;
     if(view.count) {
       const auto index=library.visible[view.selected];
       const auto& inspection=rows[index].inspection;
-      label(Wide(Catalogue()[index].DisplayName()),{margin,footer+8*scale,view.width-margin,footer+48*scale},24,text);
-      const auto caption=message.empty() ? std::wstring(Status(inspection)) : std::wstring(message);
+      const auto& game=Catalogue()[index];
+      const bool sdoj=game.id=="sdoj",external=sdoj&&sdoj_external;
+      play=external||CanPlay(inspection);
+      auto title=Wide(game.DisplayName());
+      if(sdoj)title+=external?L"   ·   SDOJ-Recomp (eandis)":L"   ·   EVAC";
+      label(title,{margin,footer+8*scale,view.width-margin,footer+48*scale},24,text);
+      const auto caption=message.empty() ? (external?L"SDOJ-Recomp":std::wstring(Status(inspection))) : std::wstring(message);
       label(caption,{margin,footer+46*scale,view.width-margin,footer+78*scale},15,secondary);
     } else {
       label(T(L"没有可显示的游戏"),{margin,footer+11*scale,view.width-margin,footer+54*scale},22,text);
@@ -636,7 +677,7 @@ class Renderer {
       label(value,{left,control_top,left+control_width,view.height},15,secondary,DWRITE_TEXT_ALIGNMENT_CENTER);
     };
     controls(0,T(L"方向键　选择"));
-    if(view.count && !busy && CanPlay(rows[library.visible[view.selected]].inspection))
+    if(play && !busy)
       controls(1,T(L"A / Enter　启动"));
     controls(2,T(L"B / Esc　返回"));
 
@@ -655,7 +696,7 @@ class Renderer {
   void Draw(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,size_t selected,int hover,bool busy,
             std::wstring_view message,std::string_view running_game={},bool preview=false,int focus=0,
             std::wstring_view override_hint={},const cave::launcher::GameLibrary* library=nullptr,bool update_ready=false,
-            const CardDrag* drag=nullptr,int button_hover=-1) {
+            const CardDrag* drag=nullptr,int button_hover=-1,bool sdoj_external=false,bool sdoj_hover=false) {
     const bool running=!running_game.empty();
     const auto margin=layout.margin();target->Clear(D2D1::ColorF(0xf3f4f0));
     const auto brand=Logo(target);const auto brand_size=brand->GetSize();
@@ -722,7 +763,7 @@ class Renderer {
         target->FillRoundedRectangle(round,fill.Get());target->DrawRoundedRectangle(round,border.Get());
         continue;
       }
-      Card(target,layout,rows,index,rectangle,selected,hover,library&&library->Hidden(index));
+      Card(target,layout,rows,index,rectangle,selected,hover,library&&library->Hidden(index),sdoj_external,sdoj_hover);
     }
     if(drag) {
       ComPtr<ID2D1SolidColorBrush> shadow,accent;
@@ -735,18 +776,20 @@ class Renderer {
       target->FillRoundedRectangle(D2D1::RoundedRect({r.left-3,r.top+3,r.right+3,r.bottom+9},16,16),shadow.Get());
       auto layer=D2D1::LayerParameters();layer.opacity=.94f;
       target->PushLayer(layer,nullptr);
-      Card(target,layout,rows,drag->game,r,drag->game,-1,library&&library->Hidden(drag->game));
+      Card(target,layout,rows,drag->game,r,drag->game,-1,library&&library->Hidden(drag->game),sdoj_external);
       target->PopLayer();
     }
     target->PopAxisAlignedClip();
     const bool has_games=layout.game_count!=0;
     const auto& inspection=rows[selected].inspection;
+    const bool external=has_games && Catalogue()[selected].id=="sdoj" && sdoj_external;
     Text(target,has_games?Wide(Catalogue()[selected].DisplayName()):T(L"没有显示的游戏"),
         {margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
-    const auto status=running?T(L"请先退出正在运行的游戏"):busy?T(L"正在读取／校验所选游戏…"):has_games?Status(inspection):L"";
+    const auto status=running?T(L"请先退出正在运行的游戏"):busy?T(L"正在读取／校验所选游戏…"):
+        external?L"SDOJ-Recomp (eandis)":has_games?Status(inspection):L"";
     Text(target,status,{margin,layout.height-80,layout.play().left-18,layout.height-64},11,CanPlay(inspection)?0x356c4b:0x90754f);
     Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,
-        busy||running||!has_games||!CanPlay(inspection),button_hover==8);
+        busy||running||!has_games||(!external&&!CanPlay(inspection)),button_hover==8);
     Button(target,layout.data(),T(L"游戏数据…"),false,
         busy||running||!has_games||Catalogue()[selected].coming_soon,button_hover==6);
     Button(target,layout.file_upload(),T(L"上传文件"),false,busy||running||!has_games,button_hover==7);
@@ -783,13 +826,14 @@ struct Work {
   std::optional<LaunchSpec> launch;
   std::optional<CopyResult> copy_result;
   std::string error;
-  bool starting{},copying{};
+  bool starting{},copying{},external{};
   size_t selected{};
 };
 class App {
  public:
   explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
     const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
+    sdoj_external=cave::launcher::ReadSdojRecomp(ini);
     selected=cave::launcher::InitialSelection(ini,options.selection);
     library=cave::launcher::GameLibrary(ini);
     if(!options.selection.empty() && library.Hidden(selected)) {
@@ -1049,6 +1093,7 @@ class App {
     try {
       preferences_text=Ini::ReadText(EnsureConfig(options.root));
       const auto ini=Ini::Parse(preferences_text);const auto settings=ResolveSharedSettings(ini);
+      sdoj_external=cave::launcher::ReadSdojRecomp(ini);
       language=options.language.value_or(cave::launcher::ReadLanguage(ini));
       PopulateDisplay(settings);SetWindowTextW(save_control,T(L"保存"));
       SetWindowTextW(nickname_control,Wide(settings.nickname).c_str());
@@ -1116,8 +1161,38 @@ class App {
   }
   void LaunchSelected() {
     if(close_requested)return;
-    if(busy||child||library.visible.empty()||!CanPlay(rows[selected].inspection))return;
+    if(busy||child||library.visible.empty())return;
+    if(ExternalSelected()) {
+      if(!fs::is_regular_file(cave::launcher::SdojRecompExecutable(options.root))) {ShowSdojSetup();return;}
+    } else if(!CanPlay(rows[selected].inspection))return;
     if(SavePreferences())Refresh(true);
+  }
+  bool ExternalSelected() const {return sdoj_external && Catalogue()[selected].id=="sdoj";}
+  void ShowSdojSetup() {
+    const auto directory=(options.root/cave::launcher::kSdojRecompDirectory).make_preferred().native();
+    const auto content=std::wstring(T(L"从 eandis 的官方发布页下载 Windows x64 ZIP，然后完整解压到："))+
+        L"\n\n"+directory+L"\n\nDoDonPachi SaiDaiOuJou.exe";
+    TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);
+    dialog.hwndParent=hwnd;dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
+    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=T(L"安装 SDOJ-Recomp");
+    dialog.pszContent=content.c_str();dialog.dwCommonButtons=TDCBF_CLOSE_BUTTON;
+    const TASKDIALOG_BUTTON buttons[]{{IDYES,T(L"打开官方发布页")}};
+    dialog.cButtons=UINT(std::size(buttons));dialog.pButtons=buttons;dialog.nDefaultButton=IDCLOSE;
+    int choice{};
+    Check(TaskDialogIndirect(&dialog,&choice,nullptr,nullptr),"Show SDOJ-Recomp setup");
+    if(choice==IDYES)OpenPath(hwnd,cave::launcher::kSdojRecompRelease);
+  }
+  void ToggleSdoj() {
+    if(busy||child)return;
+    if(!sdoj_external && !fs::is_regular_file(cave::launcher::SdojRecompExecutable(options.root))) {
+      ShowSdojSetup();return;
+    }
+    const auto before=Ini::ReadText(EnsureConfig(options.root));
+    const std::array changes{IniEdit{"game.sdoj","eandis",sdoj_external?"false":"true"}};
+    UpdateConfig(options.root,before,changes);
+    preferences_text=Ini::ReadText(ConfigPath(options.root));
+    sdoj_external=!sdoj_external;
+    message.clear();InvalidateRect(hwnd,nullptr,FALSE);
   }
   void SelectLanguage(size_t index) {
     if(busy||child||!preferences_available)return;
@@ -1296,6 +1371,7 @@ class App {
     if (worker.joinable()) worker.join();
     busy=true;EnablePreferences();work=std::make_shared<Work>();work->starting=launch;
     work->copying=!copy_source.empty();
+    work->external=launch&&ExternalSelected();
     work->selected=selected;
     const auto task=work;const auto root=options.root;const auto id=std::string(Catalogue()[selected].id);const auto profile=options.profile;
     const auto window=hwnd;const auto data=options.data;
@@ -1308,7 +1384,9 @@ class App {
         if(task->copying)task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,progress,cancelled);
         task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
-          task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
+          const auto ini=Ini::Load(ConfigPath(root));
+          task->launch=task->external?cave::launcher::PrepareSdojRecomp(root,ini,data):
+                                      PrepareLaunch(FindGame(id),root,ini,profile,data);
           Log(root,"launch-verification "+task->launch->verification);
           if(id=="daioujou") {
             VerificationCache cache(root);
@@ -1329,18 +1407,20 @@ class App {
     try {
       if(!work->error.empty())throw std::runtime_error(work->error);
       if(work->launch) {
-        child.emplace(StartGame(*work->launch));
+        if(work->external)external_session.emplace(options.root);
+        child.emplace(StartGame(*work->launch,work->external?work->launch->executable.parent_path():fs::path{}));
         game_focus_pending=BigPicture();
         if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
         message=T(L"正在运行：")+Wide(FindGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
-        Log(options.root,"launch game="+work->launch->game+" pid="+std::to_string(child->pid()));
+        Log(options.root,"launch game="+work->launch->game+(work->external?" engine=eandis":"")+" pid="+std::to_string(child->pid()));
       } else if(work->copy_result) {
         message=T(L"数据已复制并逐文件校验，配置已更新");
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
         if(!work->copy_result->guide_backup.empty())Log(options.root,"placement-guide-backup="+Utf8(work->copy_result->guide_backup));
       } else {message.clear();}
     }catch(const std::exception& error){
+      if(!child)external_session.reset();
       message=work->copying?T(L"数据复制未完成，请查看详细信息"):T(L"无法启动，请检查数据和运行组件");
       Log(options.root,error.what());
       if(!BigPicture())Error(hwnd,error.what());
@@ -1353,16 +1433,17 @@ class App {
   void ChildTick() {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
-      const bool requested_close=child->RequestedWindowClose(options.root,active_game,*code);
+      const bool external=bool(external_session);
+      const bool requested_close=!external && child->RequestedWindowClose(options.root,active_game,*code);
       const bool failed=*code && !requested_close;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
-      message=failed?T(L"游戏异常退出，请查看该游戏的日志"):L"";
+      message=failed?(external?T(L"SDOJ-Recomp 已退出，请查看其目录内的日志"):T(L"游戏异常退出，请查看该游戏的日志")):L"";
       const auto exited_game=active_game;
-      child.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
+      child.reset();external_session.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
       if(menu_controller)menu_controller->Reset();
       ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
-      if(!BigPicture() && failed && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
+      if(!external && !BigPicture() && failed && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
         show_reports(hwnd,options.root,language,exited_game);
     } else if(game_focus_pending) {
       // Leave the launcher behind the game so Windows can return focus when the game closes.
@@ -1412,6 +1493,13 @@ class App {
     for(size_t position=0;position<library.visible.size();++position)
       if(Inside(layout.card(position),x,y))return library.visible[position];
     return {};
+  }
+  bool SdojSwitchAt(float x,float y) const {
+    if(y<layout.header() || y>=layout.footer())return false;
+    for(size_t position=0;position<library.visible.size();++position) {
+      if(Catalogue()[library.visible[position]].id=="sdoj")return Inside(SdojSwitchBounds(layout.card(position)),x,y);
+    }
+    return false;
   }
   std::optional<size_t> DropGameAt(float x,float y) const {
     if(library.visible.empty() || x<layout.margin() || x>=layout.width-layout.margin() ||
@@ -1578,9 +1666,9 @@ class App {
       const float dpi=float(GetDpiForWindow(hwnd));surface->SetDpi(dpi,dpi);
       const auto drag=DragPreview();
       surface->BeginDraw();
-      if(BigPicture())renderer.DrawBigPicture(surface.Get(),BigView(),rows,library,message,busy,menu_open,menu_selection);
+      if(BigPicture())renderer.DrawBigPicture(surface.Get(),BigView(),rows,library,message,busy,menu_open,menu_selection,sdoj_external);
       else renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,
-          override_hint,&library,ProgramReady(),drag?&*drag:nullptr,button_hover);
+          override_hint,&library,ProgramReady(),drag?&*drag:nullptr,button_hover,sdoj_external,sdoj_hover);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -1676,6 +1764,8 @@ class App {
           const auto scale=float(GetDpiForWindow(window))/96;
           const POINT point{GET_X_LPARAM(second),GET_Y_LPARAM(second)};
           app->ignore_card_release=false;
+          app->sdoj_switch_pressed=app->SdojSwitchAt(point.x/scale,point.y/scale);
+          if(app->sdoj_switch_pressed){SetCapture(window);return 0;}
           if(!app->busy && !app->child) {
             if(const auto game=app->GameAt(point.x/scale,point.y/scale)) {
               const auto position=std::ranges::find(app->library.visible,*game)-app->library.visible.begin();
@@ -1691,6 +1781,11 @@ class App {
           const auto scale=float(GetDpiForWindow(window))/96;
           const float x=GET_X_LPARAM(second)/scale,y=GET_Y_LPARAM(second)/scale;
           if(app->BigPicture()){app->BigPictureClick(x,y);return 0;}
+          if(std::exchange(app->sdoj_switch_pressed,false)) {
+            if(GetCapture()==window)ReleaseCapture();
+            if(app->SdojSwitchAt(x,y))app->ToggleSdoj();
+            return 0;
+          }
           const auto press=std::exchange(app->card_press,std::nullopt);
           if(GetCapture()==window)ReleaseCapture();
           if(press && press->dragged) {
@@ -1698,7 +1793,7 @@ class App {
             if(const auto target=app->DropGameAt(x,y))app->MoveGame(press->game,*target);
           } else app->Click(x,y);
           return 0;}
-        case WM_CAPTURECHANGED:case WM_CANCELMODE:app->CancelCardDrag();return 0;
+        case WM_CAPTURECHANGED:case WM_CANCELMODE:app->sdoj_switch_pressed=false;app->CancelCardDrag();return 0;
         case WM_ACTIVATEAPP:if(!first){app->CancelCardDrag();app->SetButtonHover(-1);}break;
         case WM_CONTEXTMENU:
           if(app->BigPicture())return 0;
@@ -1727,12 +1822,15 @@ class App {
             }
           }
           app->SetButtonHover(app->layout.footer_button_at(x,y));
+          const bool switch_hover=app->SdojSwitchAt(x,y) && !app->busy && !app->child;
+          if(switch_hover!=app->sdoj_hover){app->sdoj_hover=switch_hover;app->InvalidateGameList();}
           const auto game=app->GameAt(x,y);
           const auto hover=game?int(*game):-1;
           if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}
         case WM_MOUSELEAVE:
           app->tracking_mouse_leave=false;
           app->SetButtonHover(-1);
+          if(std::exchange(app->sdoj_hover,false))app->InvalidateGameList();
           if(app->hover!=-1){app->hover=-1;app->InvalidateGameList();}
           return 0;
         case WM_MOUSEWHEEL:
@@ -1831,6 +1929,7 @@ class App {
   struct CardPress { size_t game; POINT origin,current; D2D1_POINT_2F grab; bool dragged{}; };
   std::optional<CardPress> card_press;
   bool ignore_card_release{};
+  bool sdoj_external{},sdoj_hover{},sdoj_switch_pressed{};
   std::optional<cave::launcher::WindowSize> saved_window_size,normal_window_size;
   bool scrollbar_pending{};
   std::vector<Row> rows;
@@ -1847,6 +1946,7 @@ class App {
   std::shared_ptr<Work> work;
   std::thread worker;
   std::optional<ChildProcess> child;
+  std::optional<GameSession> external_session;
   std::string active_game;
   update::State update_state;
   std::function<update::Result()> update_fetch=update::Fetch;

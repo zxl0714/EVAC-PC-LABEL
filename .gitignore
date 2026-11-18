@@ -21,5 +21,7 @@
 /tools/apps/
 /tools/downloads/
 /tools/state/
+/external/SDOJ-Recomp/*
+!/external/SDOJ-Recomp/README.txt
 __pycache__/
 *.pyc

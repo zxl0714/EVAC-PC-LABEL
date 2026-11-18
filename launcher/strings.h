@@ -24,6 +24,10 @@ inline const wchar_t* LanguageLabel(Language language) {
 }
 struct Translation {std::wstring_view key; const wchar_t* japanese; const wchar_t* english;};
 inline constexpr std::array kTranslations{
+  Translation{L"安装 SDOJ-Recomp",L"SDOJ-Recomp をセットアップ",L"Set up SDOJ-Recomp"},
+  Translation{L"打开官方发布页",L"公式リリースページを開く",L"Open official releases"},
+  Translation{L"从 eandis 的官方发布页下载 Windows x64 ZIP，然后完整解压到：",L"eandis の公式リリースから Windows x64 ZIP をダウンロードし、すべてのファイルを次のフォルダーに展開してください。",L"Download the Windows x64 ZIP from eandis's official releases and extract all its files to this folder:"},
+  Translation{L"SDOJ-Recomp 已退出，请查看其目录内的日志",L"SDOJ-Recomp が終了しました。インストール先のログを確認してください。",L"SDOJ-Recomp exited. Check the log in its installation folder."},
   Translation{L"大屏模式",L"大画面モード",L"Big Picture"},
   Translation{L"桌面模式",L"デスクトップモード",L"Desktop mode"},
   Translation{L"退出启动器",L"ランチャーを終了",L"Exit launcher"},

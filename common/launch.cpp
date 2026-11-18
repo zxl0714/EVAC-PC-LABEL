@@ -280,15 +280,16 @@ bool ChildProcess::RequestedWindowClose(const fs::path& root,std::string_view ga
   return false;
 }
 void ChildProcess::Wait() const {if (handle_ && WaitForSingleObject(handle_,INFINITE)==WAIT_FAILED) WinError("Wait for game process");}
-ChildProcess StartGame(const LaunchSpec& spec) {
+ChildProcess StartGame(const LaunchSpec& spec,const fs::path& working_directory) {
   if (GameIsRunning(spec.paths.root)) throw std::runtime_error("A game is already running from this collection");
   std::wstring command=QuoteArgument(spec.executable.native());
   for (const auto& argument:spec.arguments) command+=L" "+QuoteArgument(argument);
   if (command.size()>=32767) throw std::runtime_error("Game command line is too long");
   STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION process{};
   auto environment=GameEnvironment(spec.controller_mapping_hint);
+  const auto& directory=working_directory.empty()?spec.paths.root:working_directory;
   if (!CreateProcessW(spec.executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW|CREATE_UNICODE_ENVIRONMENT,
-                      environment.empty()?nullptr:environment.data(),spec.paths.root.c_str(),&startup,&process)) WinError("Start selected game");
+                      environment.empty()?nullptr:environment.data(),directory.c_str(),&startup,&process)) WinError("Start selected game");
   CloseHandle(process.hThread);
   return ChildProcess(process.hProcess,process.dwProcessId);
 }

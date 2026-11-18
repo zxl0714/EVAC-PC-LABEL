@@ -26,11 +26,17 @@ void Write(const fs::path& path,std::string_view text) {
   if(!(file<<text))throw std::runtime_error("Cannot write update fixture");
 }
 void Package(const fs::path& root,std::string_view version,std::string_view value) {
-  const std::pair<std::string_view,std::string_view> files[]{
+  std::vector<std::pair<std::string_view,std::string_view>> files{
     {"runtime/first.bin","runtime"},{"runtime/second.bin","runtime"},{"EVAC PC LABEL.exe","runtime"},
     {"game-data/futari/README.txt","documentation"},
     {"game-data/daioujou/x-arrange/README.txt","documentation"},
-    {"game-data/ketsui/x-arrange/README.txt","documentation"}};
+    {"game-data/ketsui/x-arrange/README.txt","documentation"},
+    {"external/SDOJ-Recomp/README.txt","documentation"}};
+  if(version=="0.10.3") {
+    files.emplace_back("new-component/windows/support.dll","runtime");
+    files.emplace_back("runtime/new-game/game.exe","runtime");
+    files.emplace_back("game-data/new-game/README.txt","documentation");
+  }
   std::string manifest=R"({"format":3,"flavor":"Public","platform":"win-x64","archiveLayout":"flat","sourceIncluded":false,"dataGames":[],"futariContent":[],"symbolsIncluded":false,"version":")";
   manifest+=std::string(version)+R"(","files":[)";
   std::string sums;
@@ -62,14 +68,15 @@ void Zip(const fs::path& archive,const fs::path& content) {
 }
 void ProgramInstall(const fs::path& parent) {
   const auto installed=parent/"installed",incoming=parent/"incoming";
-  Package(installed,"0.9.8","old");Package(incoming,"0.9.9","new");
+  Package(installed,"0.10.2","old");Package(incoming,"0.10.3","new");
   const auto config=EnsureConfig(installed);
   const auto config_before=Sha256(config);
   Write(installed/"game-data/futari/game.bin","game data");
   Write(installed/"game-data/ketsui/x-arrange/music.xma","player music");
   Write(installed/"user-data/futari/default/save.bin","player save");
   Write(installed/"runtime/custom.dll","custom file");
-  auto release=Release("v0.9.9");
+  Write(installed/"external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe","player program");
+  auto release=Release("v0.10.3");
   const auto zip=parent/"program.zip";
   Zip(zip,incoming);
   release.program=update::ProgramAsset{AssetUrl(release.tag),Sha256(zip),fs::file_size(zip)};
@@ -77,7 +84,7 @@ void ProgramInstall(const fs::path& parent) {
   fs::create_directories(cache);
   const auto cached=cache/(release.tag+"-"+release.program->sha256+".zip");
   fs::copy_file(zip,cached);
-  Require(update::PackagedInstallation(installed,"0.9.8") && !update::PackagedInstallation(installed,"0.9.9"),"Installed program identity");
+  Require(update::PackagedInstallation(installed,"0.10.2") && !update::PackagedInstallation(installed,"0.10.3"),"Installed program identity");
   update::DownloadProgram(installed,release);
   Require(Sha256(cached)==release.program->sha256,"Verified cache was replaced");
   {
@@ -109,7 +116,7 @@ void ProgramInstall(const fs::path& parent) {
   update::RecoverProgram(installed);
   Require(!update::RecoveryPending(installed) && Ini::ReadText(first)=="old","Interrupted installation did not restore the old file");
   update::InstallProgram(installed,release);
-  Require(update::PackagedInstallation(installed,"0.9.9") && !update::RecoveryPending(installed) &&
+  Require(update::PackagedInstallation(installed,"0.10.3") && !update::RecoveryPending(installed) &&
           Ini::ReadText(first)=="new" && Ini::ReadText(installed/"EVAC PC LABEL.exe")=="new","Retry did not install the updated program");
   Require(Sha256(config)==config_before && Ini::ReadText(installed/"game-data/futari/game.bin")=="game data" &&
           Ini::ReadText(installed/"user-data/futari/default/save.bin")=="player save" &&
@@ -118,6 +125,13 @@ void ProgramInstall(const fs::path& parent) {
           Ini::ReadText(installed/"game-data/ketsui/x-arrange/README.txt")=="new" &&
           Ini::ReadText(installed/"game-data/ketsui/x-arrange/music.xma")=="player music",
           "Nested placement guides did not update alongside player music");
+  Require(Ini::ReadText(installed/"new-component/windows/support.dll")=="new" &&
+          Ini::ReadText(installed/"runtime/new-game/game.exe")=="new" &&
+          Ini::ReadText(installed/"game-data/new-game/README.txt")=="new",
+          "Update did not create roots and data guides for a new game");
+  Require(Ini::ReadText(installed/"external/SDOJ-Recomp/README.txt")=="new" &&
+          Ini::ReadText(installed/"external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe")=="player program",
+          "Update did not preserve the external installation alongside its updated guide");
 }
 }
 int main(int argc,char** argv) {

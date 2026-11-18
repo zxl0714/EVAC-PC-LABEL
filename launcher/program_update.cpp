@@ -49,8 +49,13 @@ bool SafePart(std::string_view part) {
      part.find_first_of("\\:\"<>|?*")!=part.npos ||
      std::ranges::any_of(part,[](unsigned char c){return c<32 || c==127;}))return false;
   const auto base=Lower(std::string(part.substr(0,part.find('.'))));
-  if(base=="con" || base=="prn" || base=="aux" || base=="nul")return false;
-  return !(base.size()==4 && (base.starts_with("com") || base.starts_with("lpt")) && base.back()>='0' && base.back()<='9');
+  if(base=="con" || base=="prn" || base=="aux" || base=="nul" || base=="conin$" || base=="conout$")return false;
+  if(base.starts_with("com") || base.starts_with("lpt")) {
+    const auto suffix=std::string_view(base).substr(3);
+    if((suffix.size()==1 && suffix.front()>='0' && suffix.front()<='9') ||
+       suffix=="\xc2\xb9" || suffix=="\xc2\xb2" || suffix=="\xc2\xb3")return false;
+  }
+  return true;
 }
 fs::path LocalPath(const fs::path& base,std::string_view relative) {
   Require(!relative.empty() && relative.size()<=350,"Invalid update file path");
@@ -69,22 +74,28 @@ fs::path LocalPath(const fs::path& base,std::string_view relative) {
   return path;
 }
 std::optional<fs::path> GameGuideRoot(std::string_view name) {
-  if(name=="game-data/daioujou/x-arrange/README.txt")return fs::path("game-data/daioujou");
-  if(name=="game-data/ketsui/x-arrange/README.txt")return fs::path("game-data/ketsui");
-  for(const auto& game:Catalogue()) {
-    const auto directory="game-data/"+std::string(game.id);
-    if(name==directory+"/README.txt")return FromUtf8(directory);
-  }
-  return std::nullopt;
+  constexpr std::string_view prefix="game-data/";
+  const auto path=Lower(std::string(name));
+  if(!path.starts_with(prefix) || !path.ends_with("/readme.txt"))return {};
+  const auto end=path.find('/',prefix.size());
+  if(end==path.npos || end==prefix.size())return {};
+  return FromUtf8(name.substr(0,end));
 }
 bool Managed(std::string_view name,std::string_view role) {
   if(role!="runtime" && role!="redist" && role!="documentation" && role!="license" && role!="config")return false;
-  if(name.starts_with("runtime/") || name.starts_with("tools/") || name.starts_with("licenses/"))return true;
-  if(name.starts_with("game-data/"))return role=="documentation" && GameGuideRoot(name).has_value();
-  if(name==kLauncher)return role=="runtime";
-  if(name=="Launch.bat" || name=="README.txt" || name=="SOURCE.txt")return role=="documentation";
-  return role=="redist" && name.find('/')==name.npos && name.ends_with(".dll");
+  const auto top=Lower(std::string(name.substr(0,name.find('/'))));
+  if(top=="game-data")return role=="documentation" && GameGuideRoot(name).has_value();
+  if(top=="user-data" || top=="prepared" || top=="cache" || top=="logs" || top=="source" ||
+     top=="config.ini" || top=="release.json" || top=="sha256sums.txt")return false;
+  if(top=="evac pc label.exe")return name==kLauncher && role=="runtime";
+  return true;
 }
+// Windows compares path names case-insensitively, including non-ASCII names.
+struct PathNameLess {
+  bool operator()(const std::wstring& a,const std::wstring& b) const {
+    return CompareStringOrdinal(a.c_str(),-1,b.c_str(),-1,TRUE)==CSTR_LESS_THAN;
+  }
+};
 Json ReadJson(const fs::path& path) {
   Require(fs::is_regular_file(path) && fs::file_size(path)<=kMetadataLimit,"Invalid update metadata file");
   std::ifstream input(path,std::ios::binary);
@@ -117,14 +128,14 @@ Manifest ReadManifest(const fs::path& root) {
   Require(ParseVersion(manifest.version).has_value(),"Invalid package version");
   const auto& files=data.at("files");
   Require(files.is_array() && !files.empty() && files.size()<=kFileLimit,"Invalid package file inventory");
-  std::set<std::string> names;
+  std::set<std::wstring,PathNameLess> names;
   uint64_t total{};
   for(const auto& row:files) {
     PackageFile entry{row.at("path").get<std::string>(),row.at("sha256").get<std::string>(),
                       row.at("role").get<std::string>(),row.at("bytes").get<uint64_t>()};
     Require(row.at("bytes").is_number_unsigned() && entry.bytes<=kExpandedLimit-total &&
             ValidSha256(entry.sha256) && Managed(entry.name,entry.role) &&
-            names.insert(Lower(entry.name)).second,"Invalid or unmanaged package file");
+            names.insert(FromUtf8(entry.name).native()).second,"Invalid or unmanaged package file");
     (void)LocalPath(root,entry.name);
     total+=entry.bytes;
     manifest.files.push_back(std::move(entry));
@@ -266,7 +277,7 @@ void CheckGameFiles(const fs::path& root,const fs::path& target,std::string_view
   const auto guide=GameGuideRoot(name);
   for(const auto& data:directories) {
     if(!Within(target,data) && !Within(data,target))continue;
-    const auto canonical_guide=guide && data==root/(*guide);
+    const auto canonical_guide=guide && Within(data,root/(*guide)) && Within(root/(*guide),data);
     Require(canonical_guide,"Program update overlaps configured game data");
   }
 }
@@ -340,8 +351,8 @@ void InstallProgram(const fs::path& root,const Release& release) {
   Extract(archive,incoming);
   const auto files=VerifyPackage(incoming,release.tag);
   const auto directories=DataDirectories(root);
-  std::set<std::string> owned{Lower(kManifest),Lower(kSums)};
-  for(const auto& file:current.files)owned.insert(Lower(file.name));
+  std::set<std::wstring,PathNameLess> owned{FromUtf8(kManifest).native(),FromUtf8(kSums).native()};
+  for(const auto& file:current.files)owned.insert(FromUtf8(file.name).native());
   auto changes=Json::array();
   for(const auto& file:files) {
     const auto target=LocalPath(root,file.name);
@@ -350,8 +361,8 @@ void InstallProgram(const fs::path& root,const Release& release) {
     if(fs::exists(target)) {
       Require(fs::is_regular_file(target),"Program update destination is not a file");
       before=Sha256(target);
+      if(!owned.contains(FromUtf8(file.name).native()))throw std::runtime_error("Program update would overwrite "+file.name);
       if(before==file.sha256)continue;
-      if(!owned.contains(Lower(file.name)))throw std::runtime_error("Program update would overwrite "+file.name);
       const auto original=LocalPath(backup,file.name);
       fs::create_directories(original.parent_path());
       fs::copy_file(target,original);

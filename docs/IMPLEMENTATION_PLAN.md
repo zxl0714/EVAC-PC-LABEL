@@ -9,6 +9,18 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 ## v0.10.2
 
 1. [x] **启动器标题栏显示版本号。** 与自动更新和 EXE 属性共用版本号。已通过 Clang 构建、启动器界面、预览和大屏手柄测试。出包时核对标题栏、EXE 属性和包清单的版本号。[#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
+2. [ ] **在启动器接入 eandis 的 SDOJ-Recomp。** 《最大往生》默认使用 EVAC 版。桌面封面卡右下角放一个 `eandis` 开关，开关与卡片选择、拖动各自响应。启动器记住桌面设置。大屏选中《最大往生》时在底栏显示当前启动方式，按确认键直接启动对应版本。两版各自管理存档。[#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15) · [上游作者回复](https://github.com/eandis/SDOJ-Recomp/issues/24)
+   - 开关沿用封面卡的圆角、字重和绿色强调色。关闭用浅色描边，开启用绿色和勾选标记，悬停时有清楚的反馈。预览默认四列和窄窗口下的效果，确认开关和游戏名之间留有足够间距。
+   - 尝试开启时检查安装目录下的 `external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe`。找到 EXE 后开启，并在启动区显示当前将启动 SDOJ-Recomp。缺少 EXE 时保持关闭，提示从 [eandis 官方发布页](https://github.com/eandis/SDOJ-Recomp/releases/latest)下载 Windows x64 ZIP，并显示本机的完整解压路径。正式程序包随目录附带下载和解压说明。
+   - 启动 eandis 版时，尽量沿用 EVAC 的窗口分辨率、全屏设置和《最大往生》的键盘、手柄及摇杆绑定。通过上游支持的启动参数或配置项映射，保留玩家已有的其他 eandis 设置。上游已提供全屏和键盘改键，窗口尺寸及手柄、摇杆绑定按实际支持范围接入。用同一套 EVAC 设置验证桌面和大屏启动后的画面及操作。[上游设置说明](https://github.com/eandis/SDOJ-Recomp#settings)
+   - 以上游 v1.51.4 为首个验收版本，优先复用已验证的光盘 TU 1.01 解包数据，对齐上游的 `game_data` 目录。GoD 按上游对应版本和补丁单独验证。覆盖首次配置、缺数据提示、实际进关、退出回到启动器和切回 EVAC 版。共享榜单与录像沿上游讨论单独跟进。[上游数据说明](https://github.com/eandis/SDOJ-Recomp#first-launch)
+3. [ ] **让启动器封面与游戏平台对应。** 逐项核对 issue 列出的封面。初代《ESPGaluda》对应 PS2，《ESPGaluda II》对应 Xbox 360。优先采用来源明确、对应发行版的封面，桌面和大屏卡片均依据游戏清单显示 PS2、PS4 或 Xbox 360 标签。验收两种界面下的平台识别、封面清晰度和裁切。[#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
+4. [ ] **向 Granite 提交 Win32 Vulkan 交换链修复 PR。** 对照上游最新代码，把窗口能力查询与交换链创建参数不一致、禁用 present fence 后过早销毁交换链、全屏切换导致呈现失效时的恢复这几项修复整理成可独立审阅的提交。[Granite WSI](https://github.com/Themaister/Granite/blob/master/vulkan/wsi.cpp)
+   - 用最小 Win32 Vulkan 示例复现，附修复前后结果和校验层日志。覆盖交换链创建、全屏往返和销毁，并验证 FIFO 与 Immediate。Intel 描述符回退跟进已开放的上游 PR。[Granite #157](https://github.com/Themaister/Granite/pull/157)
+5. [ ] **v0.10.2 手动更新。** 旧版更新器会拒收新增的 `external/SDOJ-Recomp/README.txt`。发布说明注明从 GitHub Releases 下载程序包并解压覆盖原目录，出包时验证覆盖后保留存档、配置和游戏数据。
+   - 从 v0.10.2 起，自动更新按发布包清单创建所需目录。新增顶层目录、子目录和游戏目录都沿用同一规则，无需逐个登记。保留路径和文件完整性校验，更新时保留玩家已有的存档、配置、游戏数据和自行安装的第三方程序。
+   - 用后续版本的测试包验收自动升级，覆盖新建游戏运行时和数据说明目录、更新 `external/SDOJ-Recomp/README.txt`，以及保留玩家自行解压的 SDOJ-Recomp 文件。
+6. [x] **调研 DonPachi Recomp 的外部启动。** 上游 v0.9.0 提供独立 Windows EXE，支持通过 `--rom` 指定原始 ZIP，通过 `--settings` 指定配置路径。用本地 `donpachi.zip` 短测启动，确认上游正常生成美版游戏数据缓存。可沿用 SDOJ-Recomp 的可选入口方式，由玩家安装上游发布包并提供自己的 ROM。本版完成调研和询问，实际接入留待后续版本，待作者回复。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游请求](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3)
 
 ## v0.10.1 Death Label 稳定性、数据兼容与启动器大屏
 

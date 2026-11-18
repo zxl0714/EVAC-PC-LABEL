@@ -150,29 +150,29 @@
   "covers": [
     {
       "game": "futari",
-      "path": "launcher/assets/covers/futari.png",
-      "sha256": "0a5f92175cd1703ebe581d4425305bf8a86b11facf9e4f1118f074ee297179f4",
+      "path": "launcher/assets/covers/futari.jpg",
+      "sha256": "e091d2b8393ac8f982396044777b9bb4a111c5d863bf0ac4f6e038b1f38eced8",
       "resource": 301,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "XBOX 360 · 2009",
-      "sourcePage": "https://github.com/libretro-thumbnails/FBNeo_-_Arcade_Games",
-      "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/FBNeo_-_Arcade_Games/master/Named_Boxarts/Mushihime-Sama%20Futari%20Ver%201.5%20%282006_12_8%20MASTER%20VER%201.54%29.png",
+      "sourcePage": "https://gamesdb.launchbox-app.com/games/images/23064-mushihimesama-futari-ver-15",
+      "sourceUrl": "https://images.launchbox-app.com/9d0567f2-d400-4302-ba79-726fc74d1e64.jpg",
       "copyright": "©2006,2009 CAVE CO., LTD.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Japanese Xbox 360 retail front cover. Source image embedded without editing."
     },
     {
       "game": "espgaluda2",
-      "path": "launcher/assets/covers/espgaluda2.png",
-      "sha256": "262dee939ed3526148d585b7860c54778bd903f4ed6e95a3b48b42f1a6c6793d",
+      "path": "launcher/assets/covers/espgaluda2.jpg",
+      "sha256": "ae63cbf4cb2d85fb34ec668a5a6af58908b9f15a6d8f902d11191370fc4fbfaa",
       "resource": 302,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "XBOX 360 · 2010",
-      "sourcePage": "https://github.com/libretro-thumbnails/FBNeo_-_Arcade_Games",
-      "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/FBNeo_-_Arcade_Games/master/Named_Boxarts/Espgaluda%20II%20%282005_11_14%20MASTER%20VER%2C%20original%20CV1000-B%20PCB%29.png",
+      "sourcePage": "https://gamesdb.launchbox-app.com/games/images/23067-espgaluda-ii-black-label",
+      "sourceUrl": "https://images.launchbox-app.com/9270e846-1575-4cf5-a1bc-3d42fdae3822.jpg",
       "copyright": "©2005–2010 CAVE CO., LTD.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Japanese Xbox 360 retail front cover. Source image embedded without editing."
     },
     {
       "game": "ketsui",
@@ -215,55 +215,55 @@
     },
     {
       "game": "esprade",
-      "path": "launcher/assets/covers/esprade.png",
-      "sha256": "943033aa227143077e8e0ff1a495c4f982461eaccf29914487a2b5271e728127",
+      "path": "launcher/assets/covers/esprade.jpg",
+      "sha256": "afad6e203fa084f0d0f2a9d23dfaf22b3e2d6eb9ed3e02003360d4922bc33815",
       "resource": 306,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2019",
-      "sourcePage": "https://m2stg.com/esprade/",
-      "sourceUrl": "https://m2stg.com/esprade/assets/img/mainimage_pc.png",
+      "sourcePage": "https://store.playstation.com/ja-jp/product/JP0092-CUSA15155_00-ESPRADE000000000",
+      "sourceUrl": "https://image.api.playstation.com/vulcan/img/cfn/11307xUizqtd06jQ6WWK8TA3S2VSoD5bsknuZJYEvDmN6BO4ZV3c78CcUoDaC7icO-7m_xNcA7l9lcZef3uuEaoXJMYvMJQn.png",
       "copyright": "©ATLUS / SEGA / CAVE / M2 Co., Ltd.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Official PlayStation Store art for the Japanese PS4 release. Source image embedded without editing."
     },
     {
       "game": "guwange",
       "path": "launcher/assets/covers/guwange.png",
-      "sha256": "d2dea86dcfb0c303870f099bf091ad48bd776eae015d399f7f55cbe40486e908",
+      "sha256": "967aa7c4059560e05f9cbf467ea777109b7d848a5980426bfdbf39a6949f16ac",
       "resource": 307,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "XBOX 360 · 2010",
-      "sourcePage": "https://github.com/libretro-thumbnails/FBNeo_-_Arcade_Games",
-      "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/FBNeo_-_Arcade_Games/master/Named_Boxarts/Guwange%20%28Japan%2C%201999%206_24%20Master%20Ver%2016_55%29.png",
+      "sourcePage": "https://www.xbox.com/en-US/games/store/guwange/C5488TNPSQ0F",
+      "sourceUrl": "https://store-images.s-microsoft.com/image/apps.31382.67007166134090962.4bc25d58-3f47-44c4-baad-b9f02825675c.48e57f7d-43e5-4e5f-9efb-c46f3c4f1717",
       "copyright": "©CAVE Interactive CO., LTD. / ATLUS",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Official Xbox storefront artwork. Source image embedded without editing."
     },
     {
       "game": "feveron",
-      "path": "launcher/assets/covers/feveron.png",
-      "sha256": "043ad9cac8288b80576a21d50a24cdbabbafbb33d37c4ef7590e17742ace33bd",
+      "path": "launcher/assets/covers/feveron.jpg",
+      "sha256": "3c4a8d72566651b84308340ef8cc8367a7e51c538a863012598ba614edff8b68",
       "resource": 308,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2017",
-      "sourcePage": "https://github.com/libretro-thumbnails/FBNeo_-_Arcade_Games",
-      "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/FBNeo_-_Arcade_Games/master/Named_Boxarts/Dangun%20Feveron%20%28Japan%2C%2098_09_17%20VER.%29.png",
+      "sourcePage": "https://store.playstation.com/ja-jp/product/JP0092-CUSA05337_00-DANGUNFEVERONPS4",
+      "sourceUrl": "https://image.api.playstation.com/cdn/JP0092/CUSA05337_00/tQsp7XTfHFpWZkLkWJ4fOSnH7TKdqJYM.png",
       "copyright": "©1998 CAVE Interactive CO., LTD. / ©2017 M2 Co., Ltd.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Official PlayStation Store art for the Japanese PS4 release. Source image embedded without editing."
     },
     {
       "game": "garegga",
-      "path": "launcher/assets/covers/garegga.png",
-      "sha256": "b291a80b0d23d71b9d746298d87725d59c406a0557af44dc941a5dc66f138581",
+      "path": "launcher/assets/covers/garegga.jpg",
+      "sha256": "6216a0952a2b2f65139688cea527846c1f09091a020bef964a4f13df689ee611",
       "resource": 309,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2016",
-      "sourcePage": "https://github.com/libretro-thumbnails/FBNeo_-_Arcade_Games",
-      "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/FBNeo_-_Arcade_Games/master/Named_Boxarts/Battle%20Garegga%20%28Europe%20_%20USA%20_%20Japan%20_%20Asia%29%20%28Sat%20Feb%203%201996%29.png",
+      "sourcePage": "https://store.playstation.com/ja-jp/product/JP0092-CUSA05429_00-BATTLEGAREGGAPS4",
+      "sourceUrl": "https://image.api.playstation.com/cdn/JP0092/CUSA05429_00/23tmLvvZbsrLw4dfq9ozihRe10Cfris3.png",
       "copyright": "©1996 EIGHTING / ©2016 M2 Co., Ltd.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Official PlayStation Store art for the Japanese PS4 release. Source image embedded without editing."
     },
     {
       "game": "espgaluda",

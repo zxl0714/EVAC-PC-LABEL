@@ -49,5 +49,5 @@ class ChildProcess final {
   void* handle_{};
   unsigned long pid_{};
 };
-ChildProcess StartGame(const LaunchSpec& spec);
+ChildProcess StartGame(const LaunchSpec& spec,const fs::path& working_directory={});
 }  // namespace cave

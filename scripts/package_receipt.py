@@ -15,7 +15,7 @@ from project import digest, reject_link
 
 # These files do not contribute to player machine code. Unknown changes remain
 # build inputs; don't silently bless a new build system or a new shared source.
-PACKAGING = {'scripts/release_package.py', 'scripts/package_receipt.py'}
+PACKAGING = {'scripts/release_package.py', 'scripts/package_receipt.py', 'external/SDOJ-Recomp/README.txt'}
 ISOLATED_PS2 = ('backends/ps2/', 'third_party/ps2/', 'tools/ps2/', 'tools/ps2-gs/',
                 'scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara', 'scripts/Build-DaioujouPs2',
                 'games/espgaluda/', 'games/ibara/', 'games/daioujou-ps2/')
