@@ -142,6 +142,19 @@ void OpenPath(HWND window,const fs::path& path) {
   if (reinterpret_cast<INT_PTR>(ShellExecuteW(window,L"open",path.c_str(),nullptr,nullptr,SW_SHOWNORMAL))<=32)
     throw std::runtime_error("Cannot open the selected file or directory");
 }
+HWND VisibleGameWindow(DWORD pid) {
+  struct Search { DWORD pid; HWND result; } search{pid,nullptr};
+  EnumWindows([](HWND window,LPARAM parameter)->BOOL {
+    auto& search=*reinterpret_cast<Search*>(parameter);
+    DWORD owner{};
+    GetWindowThreadProcessId(window,&owner);
+    if(owner!=search.pid || !IsWindowVisible(window) || IsIconic(window) || GetWindow(window,GW_OWNER) ||
+        (GetWindowLongPtrW(window,GWL_EXSTYLE)&(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE)))return TRUE;
+    search.result=window;
+    return FALSE;
+  },reinterpret_cast<LPARAM>(&search));
+  return search.result;
+}
 fs::path LogDirectory(const fs::path& root) {
   const auto directory=DataChild(root,"logs");
   const auto ini=Ini::Load(ConfigPath(root));
@@ -321,8 +334,8 @@ struct Layout {
     return {right-24,16,right,44};
   }
   D2D1_RECT_F big_picture_button() const {
-    const auto right=update_badge().left-9;
-    return {right-99,16,right,44};
+    const auto left=brand().right+16;
+    return {left,42,left+116,72};
   }
   D2D1_RECT_F data() const {return {margin(),height-45,margin()+85,height-14};}
   D2D1_RECT_F file_upload() const {return {margin()+92,height-45,margin()+167,height-14};}
@@ -643,7 +656,7 @@ class Renderer {
     target->DrawBitmap(brand,{brand_box.left,brand_box.top,brand_box.left+brand_size.width*brand_scale,brand_box.top+brand_size.height*brand_scale},
         1.f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
     const auto big_picture=layout.big_picture_button();
-    Button(target,big_picture,T(L"大屏模式"),false,busy||running,focus==16);
+    Button(target,big_picture,T(L"大屏模式"),false,busy||running,focus==16||button_hover==16);
     const std::array language_codes{L"CN",L"EN",L"JP"};
     const std::array language_choices{Language::Chinese,Language::English,Language::Japanese};
     for(size_t index=0;index<language_choices.size();++index) {
@@ -781,6 +794,7 @@ class App {
     if(library.Hidden(selected) && !library.show_hidden && !library.visible.empty())selected=library.visible.front();
     layout.game_count=library.visible.size();
     layout.covers=cave::launcher::CoverLayout(ini);
+    options.big_picture=options.big_picture||cave::launcher::ReadBigPicture(ini);
     saved_window_size=cave::launcher::ReadWindowSize(ini,layout.covers);
     language=options.language.value_or(cave::launcher::ReadLanguage(ini));
     message=T(L"正在检测游戏数据…");
@@ -926,7 +940,7 @@ class App {
     MessageBoxW(hwnd,body.c_str(),T(L"游戏数据详情"),MB_OK|MB_ICONINFORMATION);
   }
   void PersistSelection() noexcept {
-    try {cave::launcher::SaveSelection(options.root,selected,layout.covers,normal_window_size);}
+    try {cave::launcher::SaveSelection(options.root,selected,layout.covers,normal_window_size,BigPicture());}
     catch(const std::exception& error) {Log(options.root,error.what());}
     catch(...) {Log(options.root,"selected-game-save-failed");}
   }
@@ -1311,7 +1325,8 @@ class App {
       if(!work->error.empty())throw std::runtime_error(work->error);
       if(work->launch) {
         child.emplace(StartGame(*work->launch));
-        if(BigPicture())ShowWindow(hwnd,SW_HIDE);
+        game_focus_pending=BigPicture();
+        if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
         message=T(L"正在运行：")+Wide(FindGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
         Log(options.root,"launch game="+work->launch->game+" pid="+std::to_string(child->pid()));
@@ -1334,15 +1349,20 @@ class App {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
       const bool requested_close=child->RequestedWindowClose(options.root,active_game,*code);
+      const bool failed=*code && !requested_close;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
-      message=requested_close?T(L"游戏已关闭（退出清理限制已记入日志）"):(*code?T(L"游戏异常退出，请查看该游戏的日志"):T(L"游戏已退出"));
+      message=failed?T(L"游戏异常退出，请查看该游戏的日志"):L"";
       const auto exited_game=active_game;
-      child.reset();active_game.clear();KillTimer(hwnd,kChildTimer);
+      child.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
       if(menu_controller)menu_controller->Reset();
       ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
-      if(!BigPicture() && *code && !requested_close && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
+      if(!BigPicture() && failed && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
         show_reports(hwnd,options.root,language,exited_game);
+    } else if(game_focus_pending) {
+      // Leave the launcher behind the game so Windows can return focus when the game closes.
+      if(const auto game=VisibleGameWindow(child->pid());game)
+        game_focus_pending=GetForegroundWindow()==hwnd && !SetForegroundWindow(game);
     }
   }
   void Choose(bool copy=false) {
@@ -1695,7 +1715,7 @@ class App {
               return 0;
             }
           }
-          app->SetButtonHover(app->layout.footer_button_at(x,y));
+          app->SetButtonHover(Inside(app->layout.big_picture_button(),x,y)?16:app->layout.footer_button_at(x,y));
           const auto game=app->GameAt(x,y);
           const auto hover=game?int(*game):-1;
           if(hover!=app->hover){app->hover=hover;app->InvalidateGameList();}return 0;}
@@ -1783,6 +1803,7 @@ class App {
   HWND hwnd{};
   std::optional<WINDOWPLACEMENT> desktop_window;
   LONG_PTR desktop_style{};
+  bool game_focus_pending{};
   std::unique_ptr<cave::launcher::MenuController> menu_controller;
   bool menu_open{};
   size_t menu_selection{};

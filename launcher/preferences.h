@@ -14,6 +14,10 @@ inline bool CoverLayout(const Ini& ini) {
   if(value->text=="banner")return false;
   throw std::runtime_error("[collection].launcher_layout must be banner or covers");
 }
+inline bool ReadBigPicture(const Ini& ini) {
+  const auto value=ini.Get("collection","launcher_big_picture");
+  return value && value->text=="true";
+}
 inline std::size_t InitialSelection(const Ini& ini,std::string_view explicit_choice={}) {
   const auto stored=ini.Get("collection","selected_game");
   const auto choice=explicit_choice.empty()?(stored?std::string_view(stored->text):std::string_view{}):explicit_choice;
@@ -39,12 +43,13 @@ inline std::optional<WindowSize> ReadWindowSize(const Ini& ini,bool covers) {
   return size;
 }
 inline void SaveSelection(const fs::path& root,std::size_t selected,bool covers=false,
-                          std::optional<WindowSize> size={}) {
+                          std::optional<WindowSize> size={},bool big_picture=false) {
   if(selected>=Catalogue().size())throw std::runtime_error("Invalid selected game index");
   // Read the latest disk text: closing must not overwrite an editor's changes
   // or implicitly save a dirty nickname/fullscreen field from the UI form.
   const auto before=Ini::ReadText(EnsureConfig(root));
-  std::vector<IniEdit> edits{{"collection","selected_game",std::string(Catalogue()[selected].id)}};
+  std::vector<IniEdit> edits{{"collection","selected_game",std::string(Catalogue()[selected].id)},
+                            {"collection","launcher_big_picture",big_picture?"true":"false"}};
   if(size) {
     edits.push_back({"collection",WindowSizeKey(covers,"width"),std::to_string(size->width)});
     edits.push_back({"collection",WindowSizeKey(covers,"height"),std::to_string(size->height)});
