@@ -54,7 +54,7 @@ void SdojDelayAdvance(PPCContext& ctx, std::uint8_t* base) {
     // module request has drained. Otherwise its writer would remain suppressed.
     if (!running.load(std::memory_order_acquire) || requested.load(std::memory_order_relaxed)>1) return;
     std::uint32_t selection;
-    std::memcpy(&selection, base + ctx.r31.u32 + 152, sizeof(selection));
+    std::memcpy(&selection, base + ctx.r31.u32 + sdoj::kGameplaySelectionOffset, sizeof(selection));
     const auto module = GetModuleHandleW(__builtin_bswap32(selection) == 2 ? sdoj::kArrangeModule : sdoj::kNormalModule);
     using Advance = void (*)(PPCContext&, std::uint8_t*);
     if (module) if (const auto advance = reinterpret_cast<Advance>(GetProcAddress(module, "SdojFrameDelayAdvance"))) advance(ctx, base);

@@ -16,6 +16,7 @@ inline constexpr wchar_t kArrangeModule[] = L"sdoj_CA022110.dll";
 inline constexpr std::uint32_t kFrameCounter = kTitleUpdate ? 0x82633748 : 0x82633548;
 inline constexpr std::uint32_t kCallbackFlag = kTitleUpdate ? 0x8279C970 : 0x8279C770;
 inline constexpr std::uint32_t kPendingFramesCallback = kTitleUpdate ? 0x8219EB18 : 0x8219DE60;
+inline constexpr std::uint32_t kGameplaySelectionOffset = kTitleUpdate ? 0xB8 : 0x98;
 
 // The two gameplay overlays insert 32 bytes before their mutable render and
 // input state. Absolute code positions are mapped separately for each overlay.
