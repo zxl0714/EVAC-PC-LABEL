@@ -235,17 +235,17 @@
     },
     {
       "game": "guwange",
-      "path": "launcher/assets/covers/guwange.png",
-      "sha256": "b0421c735fd8e3c55ce9e37215ffcf8ab73e7fa51415b6854fdcd89b27d02ef3",
+      "path": "launcher/assets/covers/guwange.jpg",
+      "sha256": "95b708c1bed28410ebe5b44b97ee0f0cebbbe3b4166da1c37d2670981ba17c74",
       "resource": 307,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "XBOX 360 · 2010",
-      "sourcePage": "https://www.xbox.com/en-US/games/store/guwange/C5488TNPSQ0F",
-      "sourceUrl": "https://store-images.s-microsoft.com/image/apps.31382.67007166134090962.4bc25d58-3f47-44c4-baad-b9f02825675c.48e57f7d-43e5-4e5f-9efb-c46f3c4f1717",
+      "sourcePage": "https://gamesdb.launchbox-app.com/games/images/105743-guwange",
+      "sourceUrl": "https://images.launchbox-app.com/r2_5dc7c3cf-02cd-407d-b331-84f24a0cf40a.jpg",
       "copyright": "©CAVE Interactive CO., LTD. / ATLUS",
-      "usage": "Official Xbox storefront artwork. The launcher removes the empty footer and trims the sides to match the other Xbox 360 covers. Enlarged with FSRCNN 2x super-resolution.",
-      "trim": [0.018, 0, 0.018, 0.09],
+      "usage": "Xbox 360 front cover with sharper Guwange illustration. Enlarged with FSRCNN 2x super-resolution and trimmed to match the other Xbox 360 covers.",
+      "trim": [0.018, 0, 0.018, 0],
       "platformMark": true
     },
     {

@@ -9,12 +9,12 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 ## v0.10.2
 
 1. [x] **启动器标题栏显示版本号。** 与自动更新和 EXE 属性共用版本号。已通过 Clang 构建、启动器界面、预览和大屏手柄测试。出包时核对标题栏、EXE 属性和包清单的版本号。[#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
-2. [ ] **在启动器接入 eandis 的 SDOJ-Recomp。** 《最大往生》默认使用 EVAC 版。桌面封面卡右下角放一个 `eandis` 开关，开关与卡片选择、拖动各自响应。启动器记住桌面设置。大屏选中《最大往生》时在底栏显示当前启动方式，按确认键直接启动对应版本。两版各自管理存档。[#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15) · [上游作者回复](https://github.com/eandis/SDOJ-Recomp/issues/24)
+2. [ ] **在启动器接入 eandis 的 SDOJ-Recomp。** 《最大往生》默认使用 EVAC 版。桌面封面卡右下角放一个 `eandis` 开关，开关与卡片选择、拖动各自响应。启动器记住桌面设置。大屏选中《最大往生》时仅在启用 SDOJ-Recomp 后注明 eandis，按确认键直接启动对应版本。两版各自管理存档。[#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15) · [上游作者回复](https://github.com/eandis/SDOJ-Recomp/issues/24)
    - 开关沿用封面卡的圆角、字重和绿色强调色。关闭用浅色描边，开启用绿色和勾选标记，悬停时有清楚的反馈。预览默认四列和窄窗口下的效果，确认开关和游戏名之间留有足够间距。
    - 尝试开启时检查安装目录下的 `external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe`。找到 EXE 后开启，并在启动区显示当前将启动 SDOJ-Recomp。缺少 EXE 时保持关闭，提示从 [eandis 官方发布页](https://github.com/eandis/SDOJ-Recomp/releases/latest)下载 Windows x64 ZIP，并显示本机的完整解压路径。正式程序包随目录附带下载和解压说明。
    - 启动 eandis 版时，尽量沿用 EVAC 的窗口分辨率、全屏设置和《最大往生》的键盘、手柄及摇杆绑定。通过上游支持的启动参数或配置项映射，保留玩家已有的其他 eandis 设置。上游已提供全屏和键盘改键，窗口尺寸及手柄、摇杆绑定按实际支持范围接入。用同一套 EVAC 设置验证桌面和大屏启动后的画面及操作。[上游设置说明](https://github.com/eandis/SDOJ-Recomp#settings)
    - 本机用上游 v1.51.4 和光盘 TU 1.01 验证了桌面和大屏启动、缺少程序时的提示、键盘映射参数、150% 缩放下的 1280×720 窗口及退出返回。GoD 交给上游的数据向导，本机缺少对应数据，留待实机验收。共享榜单与录像沿上游讨论单独跟进。[上游数据说明](https://github.com/eandis/SDOJ-Recomp#first-launch)
-3. [x] **让启动器封面与游戏平台对应。** 初代《ESPGaluda》使用 PS2 封面，《ESPGaluda II》使用 Xbox 360 封面。十二张封面均有发行版自带的平台标识。按平台横向对比后，裁去《狱门山》的空白底边和 PS4《大往生》的盒边，换用《弹铳》的正面封面，七张低清素材以 FSRCNN 放大两倍。[#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
+3. [x] **让启动器封面与游戏平台对应。** 初代《ESPGaluda》使用 PS2 封面，《ESPGaluda II》使用 Xbox 360 封面。十二张封面均有发行版自带的平台标识。按平台横向对比后，换用更清晰的《狱门山》Xbox 360 封面并对齐同组尺寸，裁去 PS4《大往生》的盒边，换用《弹铳》的正面封面，七张低清素材以 FSRCNN 放大两倍。[#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
 4. [x] **向 Granite 提交 Win32 Vulkan 交换链修复 PR。** 包含三项独立提交，分别修正 Win32 交换链能力查询、关闭 present fence 时的销毁顺序及呈现失效恢复。[Granite #159](https://github.com/Themaister/Granite/pull/159)
    - RTX 4080 上的 Win32 示例实际提交画面，并通过注入驱动返回值覆盖尺寸变化和失去独占模式。FIFO、Immediate、能力查询和关闭 present fence 的对比均验证通过，修复后没有 Vulkan 校验错误。Intel 描述符回退跟进已有上游 PR。[Granite #157](https://github.com/Themaister/Granite/pull/157)
 5. [ ] **v0.10.2 手动更新。** 旧版更新器会拒收新增的 `external/SDOJ-Recomp/README.txt`。发布说明注明从 GitHub Releases 下载程序包并解压覆盖原目录，出包时验证覆盖后保留存档、配置和游戏数据。

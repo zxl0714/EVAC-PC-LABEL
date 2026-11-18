@@ -672,7 +672,7 @@ class Renderer {
       const bool sdoj=game.id=="sdoj",external=sdoj&&sdoj_external;
       play=external||CanPlay(inspection);
       auto title=Wide(game.DisplayName());
-      if(sdoj)title+=external?L"   ·   SDOJ-Recomp (eandis)":L"   ·   EVAC";
+      if(sdoj && external)title+=L"   ·   SDOJ-Recomp (eandis)";
       label(title,{margin,footer+8*scale,view.width-margin,footer+48*scale},24,text);
       const auto caption=message.empty() ? (external?L"SDOJ-Recomp":std::wstring(Status(inspection))) : std::wstring(message);
       label(caption,{margin,footer+46*scale,view.width-margin,footer+78*scale},15,secondary);
