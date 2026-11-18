@@ -317,11 +317,14 @@ struct Layout {
     const auto left=margin()+(covers?float(index%columns())*(cover_width()+cave::launcher::kCoverColumnGap):0);
     return {left,top,covers?left+cover_width():width-margin(),top+row_height()};
   }
-  D2D1_RECT_F play() const {return {width-margin()-176,height-64,width-margin(),height-14};}
+  D2D1_RECT_F play() const {
+    const auto right=width-margin();
+    return {right-(narrow()?150.f:176.f),height-64,right,height-14};
+  }
   D2D1_RECT_F utility_button(size_t index) const {
     constexpr std::array widths{85.f,75.f,70.f,77.f,80.f,98.f};
-    constexpr float gap=7.f;
     constexpr float total=std::accumulate(widths.begin(),widths.end(),0.f);
+    const float gap=narrow()?5.f:7.f;
     const auto available=play().left-margin()-gap*widths.size();
     const auto scale=std::clamp(available/total,0.f,1.f);
     const auto left=margin()+gap*index+scale*std::accumulate(widths.begin(),widths.begin()+index,0.f);

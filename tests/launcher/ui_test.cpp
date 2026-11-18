@@ -845,6 +845,8 @@ void MainChecks() {
           "Big Picture D-pad layout does not move to the adjacent cover");
     }
     Frame frame(fixture.root,"futari");
+    RECT client{};GetClientRect(frame.app.hwnd,&client);
+    App::Window(frame.app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(client.right,client.bottom));
     frame.Click(frame.app.layout.big_picture_button());
     Require(frame.app.BigPicture() && (GetWindowLongPtrW(frame.app.hwnd,GWL_STYLE)&WS_POPUP),
         "Big Picture entry did not open a full-screen window");
