@@ -58,7 +58,7 @@ target_include_directories(parallel-gs PRIVATE "${COLLECTION_ROOT}")
 # Apply the collection's WSI corrections to a build-local copy of the pinned source.
 # The AMD pacing change keeps the EE input thread in charge of Anti-Lag.
 set(granite_wsi "${PS2_GS_SOURCE}/Granite/vulkan/wsi.cpp")
-set(wsi_patch "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch")
+set(wsi_patch "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch.txt")
 set(wsi_overlay "${CMAKE_CURRENT_BINARY_DIR}/wsi-patch")
 file(MAKE_DIRECTORY "${wsi_overlay}")
 file(READ "${granite_wsi}" granite_wsi_text)
