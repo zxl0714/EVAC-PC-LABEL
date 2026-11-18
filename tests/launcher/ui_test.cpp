@@ -448,6 +448,18 @@ void DisplayDropdownChecks() {
   const auto before=Ini::ReadText(ConfigPath(fixture.root));
   SaveSharedDisplay(fixture.root,before,{false,1234,696});
   {Frame frame(fixture.root);Require(frame.app.SelectedDisplay()==DisplaySelection{false,1234,696},"Custom INI resolution silently replaced by a preset");}
+  {
+    Frame frame(fixture.root);auto& app=frame.app;
+    const auto choice=app.display_choices[1];
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,1,0);
+    App::Window(app.hwnd,WM_COMMAND,MAKEWPARAM(kFullscreenControl,CBN_SELENDOK),0);
+    MSG shortcut{};shortcut.hwnd=app.fullscreen_control;shortcut.message=WM_KEYDOWN;shortcut.wParam=VK_F11;
+    Require(app.Input(shortcut) && app.BigPicture(),"F11 must work while the display selector still owns keyboard input");
+    App::Window(app.hwnd,WM_KEYDOWN,VK_F11,0);
+    Require(!app.BigPicture() && app.SelectedDisplay()==choice,"Returning to desktop changed the selected resolution");
+    Require(app.display_choices.front().fullscreen && SendMessageW(app.fullscreen_control,CB_GETCOUNT,0,0)==LRESULT(app.display_choices.size()),
+            "Fullscreen must remain the first display option after returning to desktop");
+  }
 }
 void GameLibraryChecks() {
   using cave::launcher::GameLibrary;
@@ -527,6 +539,36 @@ void GameLibraryChecks() {
     frame.Click(app.layout.hidden_games());
     Require(app.library.show_hidden && app.layout.game_count==Catalogue().size(),"The eye button could not restore an empty library view");
   }
+}
+void SdojSwitchChecks() {
+  Fixture fixture;
+  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
+  Write(cave::launcher::SdojRecompExecutable(fixture.root),"");
+  {
+    Frame frame(fixture.root,"futari");auto& app=frame.app;
+    app.layout.width=1080;app.layout.height=900;app.layout.scroll=0;
+    const auto game=std::ranges::find_if(app.library.visible,[](size_t index){return Catalogue()[index].id=="sdoj";});
+    Require(game!=app.library.visible.end(),"The SDOJ switch card is missing");
+    const auto position=size_t(game-app.library.visible.begin());
+    const auto click=[&](float offset) {
+      const auto bounds=SdojSwitchBounds(app.layout.card(position));
+      const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+      const auto point=MAKELPARAM(int((bounds.left+bounds.right)/2*scale),int((bounds.top+offset)*scale));
+      App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,point);
+      Require(!app.card_press && app.sdoj_switch_pressed,"The eandis switch must capture its label and track");
+      App::Window(app.hwnd,WM_LBUTTONUP,0,point);
+      Require(Catalogue()[app.selected].id=="futari","Toggling eandis changed the selected game");
+    };
+    app.layout.covers=false;
+    click(21);
+    Require(app.sdoj_external,"The eandis switch track did not enable the runtime");
+    app.layout.covers=true;
+    click(5);
+    Require(!app.sdoj_external,"The eandis switch label did not disable the runtime");
+    click(21);
+  }
+  Frame reopened(fixture.root);
+  Require(reopened.app.sdoj_external,"Reopening the launcher did not restore the eandis switch");
 }
 void DragCancelChecks() {
   Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
@@ -884,6 +926,7 @@ void MainChecks() {
   InputBindingChecks();
   DisplayDropdownChecks();
   GameLibraryChecks();
+  SdojSwitchChecks();
   DragCancelChecks();
   InstanceChecks();
   UpdateChecks();

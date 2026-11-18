@@ -54,6 +54,7 @@ namespace {
 constexpr UINT kWorkDone=WM_APP+1;
 constexpr UINT kCopyProgress=WM_APP+2;
 constexpr UINT kUpdateScrollBar=WM_APP+3;
+constexpr UINT kShowFirstDisplayChoice=WM_APP+4;
 constexpr UINT_PTR kChildTimer=1;
 constexpr UINT_PTR kUpdateTimer=2;
 constexpr UINT_PTR kMenuControllerTimer=3;
@@ -77,6 +78,10 @@ void Check(HRESULT status,const char* operation) {
   if (FAILED(status)) throw std::runtime_error(std::string(operation)+" (HRESULT "+std::to_string(static_cast<unsigned>(status))+")");
 }
 std::wstring Wide(std::string_view text) {return FromUtf8(text).native();}
+const std::wstring& LauncherCaption() {
+  static const auto caption=std::wstring(kWindowTitle)+L" v"+Wide(cave::launcher::kProductVersion);
+  return caption;
+}
 void Error(HWND window,std::string_view message) {
   std::wstring value;
   try {value=Wide(message.size()<16000?message:std::string_view("Error message is too long; check the log."));}
@@ -365,7 +370,7 @@ struct Layout {
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
 D2D1_RECT_F SdojSwitchBounds(D2D1_RECT_F card) {
-  return {card.right-69,card.bottom-29,card.right-10,card.bottom-8};
+  return {card.right-88,card.bottom-36,card.right-10,card.bottom-6};
 }
 const wchar_t* Platform(const Game& game) {
   if(game.backend=="xbox360")return L"Xbox 360";
@@ -468,16 +473,25 @@ class Renderer {
     target->FillRoundedRectangle(r,fill.Get());
     Text(target,Platform(game),{x,y+2*scale,x+width,y+18*scale},10*scale,0xffffff,DWRITE_TEXT_ALIGNMENT_CENTER);
   }
-  void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F card,bool enabled,bool hovered) {
+  void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F card,bool enabled,bool hovered,bool cover) {
     const auto r=SdojSwitchBounds(card);
-    const auto rounded=D2D1::RoundedRect(r,7,7);
-    ComPtr<ID2D1SolidColorBrush> fill,border;
-    Check(target->CreateSolidColorBrush(D2D1::ColorF(enabled?(hovered?0x3d7153:0x2f5b42):
-        (hovered?0xeaf2eb:0xf6f8f5)),&fill),"Create eandis switch fill");
-    Check(target->CreateSolidColorBrush(D2D1::ColorF(enabled?0x37644c:(hovered?0x82a18a:0xd4ded4)),&border),"Create eandis switch border");
-    target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
-    Text(target,enabled?L"✓ eandis":L"eandis",{r.left,r.top+3,r.right,r.bottom},10,
-        enabled?0xffffff:0x526959,DWRITE_TEXT_ALIGNMENT_CENTER);
+    const float center=(r.left+r.right)/2;
+    const D2D1_RECT_F track{center-16,r.top+13,center+16,r.top+29};
+    const auto pill=D2D1::RoundedRect(track,8,8);
+    ComPtr<ID2D1SolidColorBrush> brush;
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(0xffffff),&brush),"Create eandis switch brush");
+    if(!cover) {
+      brush->SetOpacity(.95f);
+      target->FillRoundedRectangle(D2D1::RoundedRect({r.left,r.top-2,r.right,r.bottom+2},6,6),brush.Get());
+      brush->SetOpacity(1.f);
+    }
+    Text(target,L"eandis Recomp",{r.left,r.top,r.right,r.top+13},10,0x495e51,DWRITE_TEXT_ALIGNMENT_CENTER);
+    brush->SetColor(D2D1::ColorF(enabled?(hovered?0x3d7153:0x2f5b42):(hovered?0xd7e4da:0xe0e5e1)));
+    target->FillRoundedRectangle(pill,brush.Get());
+    brush->SetColor(D2D1::ColorF(enabled?0x2f5b42:(hovered?0x6e917a:0x9daaa1)));
+    target->DrawRoundedRectangle(pill,brush.Get());
+    brush->SetColor(D2D1::ColorF(0xffffff));
+    target->FillEllipse(D2D1::Ellipse({center+(enabled?8.f:-8.f),r.top+21},6,6),brush.Get());
   }
   ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false,bool cover=false) {
     SelectTarget(target);
@@ -567,9 +581,9 @@ class Renderer {
       const auto left=rectangle.left+12;
       Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
           13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
-      const auto right=sdoj?SdojSwitchBounds(rectangle).left-5:rectangle.right-12;
-      Text(target,Wide(game.name),{left,rectangle.bottom-24,right,rectangle.bottom-10},sdoj?9.f:10.f,0x748179);
-      if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover);
+      const auto subtitle_top=rectangle.bottom-(sdoj?47.f:24.f);
+      Text(target,Wide(game.name),{left,subtitle_top,rectangle.right-12,subtitle_top+14},10,0x748179);
+      if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover,true);
       target->PopLayer();
       target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
       return;
@@ -606,7 +620,7 @@ class Renderer {
       if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
       else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
     }
-    if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover);
+    if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover,false);
   }
   void DrawBigPicture(ID2D1RenderTarget* target, const BigPictureLayout& view,
                       const std::vector<Row>& rows, const cave::launcher::GameLibrary& library,
@@ -632,7 +646,7 @@ class Renderer {
     const auto desktop=view.DesktopButton();
     fill(desktop,panel,7*scale);
     label(T(L"桌面模式"),{desktop.left,desktop.top+7*scale,desktop.right,desktop.bottom},15,text,DWRITE_TEXT_ALIGNMENT_CENTER);
-    label(kWindowTitle,{margin,19*scale,desktop.left-12*scale,59*scale},28,text);
+    label(LauncherCaption(),{margin,19*scale,desktop.left-12*scale,59*scale},28,text);
 
     if(view.count) {
       label(std::to_wstring(view.Page()+1)+L" / "+std::to_wstring(view.PageCount()),
@@ -1229,6 +1243,7 @@ class App {
       WINDOWPLACEMENT old{};
       old.length=sizeof(old);
       if(!GetWindowPlacement(hwnd,&old))return;
+      SendMessageW(fullscreen_control,CB_SHOWDROPDOWN,FALSE,0);
       CancelCardDrag();
       if(IsZoomed(hwnd))ShowWindow(hwnd,SW_RESTORE);
       desktop_window=old;
@@ -1365,6 +1380,10 @@ class App {
         if(SavePreferences()) {SetFocus(hwnd);focus=0;Refresh();}return true;
       }
       if(input.hwnd==save_control && input.wParam==VK_RETURN) {if(SavePreferences())Refresh();return true;}
+      if(input.hwnd!=hwnd && input.wParam==VK_F11) {
+        SendMessageW(hwnd,input.message,input.wParam,input.lParam);
+        return true;
+      }
       if(input.hwnd!=hwnd && input.wParam==VK_F5) {ManualRefresh();return true;}
     }catch(const std::exception& error){Log(options.root,error.what());Error(hwnd,error.what());return true;}
     return false;
@@ -1722,8 +1741,7 @@ class App {
       }
       switch(message) {
         case WM_CREATE:{
-          const auto caption=std::wstring(kWindowTitle)+L" v"+Wide(cave::launcher::kProductVersion);
-          SetWindowTextW(window,caption.c_str());
+          SetWindowTextW(window,LauncherCaption().c_str());
           app->CreatePreferences();
           app->Refresh();
           app->StartUpdates();
@@ -1868,6 +1886,11 @@ class App {
         case WM_COMMAND:
           if(LOWORD(first)==kFullscreenControl) {
             const auto notification=HIWORD(first);
+            if(notification==CBN_DROPDOWN) {
+              // The native combo positions the selection after this notification.
+              PostMessageW(window,kShowFirstDisplayChoice,0,0);
+              return 0;
+            }
             if(notification==CBN_SELENDOK ||
                (notification==CBN_SELCHANGE && !SendMessageW(app->fullscreen_control,CB_GETDROPPEDSTATE,0,0))) {
               app->DisplayChanged();
@@ -1882,6 +1905,10 @@ class App {
              (LOWORD(first)==kFullscreenControl && HIWORD(first)==CBN_SETFOCUS) || HIWORD(first)==BN_SETFOCUS) {
             app->focus=LOWORD(first)==kFullscreenControl?1:(LOWORD(first)==kNicknameControl?2:3);InvalidateRect(window,nullptr,FALSE);
           }break;
+        case kShowFirstDisplayChoice:
+          if(SendMessageW(app->fullscreen_control,CB_GETDROPPEDSTATE,0,0))
+            SendMessageW(app->fullscreen_control,CB_SETTOPINDEX,0,0);
+          return 0;
         case WM_CTLCOLORLISTBOX:
           SetBkColor(reinterpret_cast<HDC>(first),RGB(255,255,255));SetTextColor(reinterpret_cast<HDC>(first),RGB(35,49,45));
           return reinterpret_cast<LRESULT>(GetStockObject(WHITE_BRUSH));
@@ -1966,7 +1993,9 @@ class App {
 };
 void Preview(const Options& options) {
   if(fs::exists(options.preview))throw std::runtime_error("Preserve the existing launcher preview");
-  language=options.language.value_or(cave::launcher::ReadLanguage(Ini::Load(ConfigPath(options.root))));
+  const auto ini=Ini::Load(EnsureConfig(options.root));
+  language=options.language.value_or(cave::launcher::ReadLanguage(ini));
+  const auto sdoj_external=cave::launcher::ReadSdojRecomp(ini);
   Renderer renderer;
   ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
@@ -1979,15 +2008,16 @@ void Preview(const Options& options) {
     rows[0].inspection.data_state=DataState::Missing;rows[1].inspection.data_state=DataState::Verified;
   }
   Layout layout{1080,900,0};
-  layout.covers=cave::launcher::CoverLayout(Ini::Load(EnsureConfig(options.root)));
+  layout.covers=cave::launcher::CoverLayout(ini);
   const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
   const cave::launcher::GameLibrary library(Ini::Parse(""));
   const auto position=std::size_t(std::ranges::find(library.visible,selected)-library.visible.begin());
   layout.scroll=std::clamp(layout.card(position).bottom-layout.footer(),0.f,layout.max_scroll());
   target->BeginDraw();
   if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),position},
-      rows,library,{},false,false,0);
-  else renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library);
+      rows,library,{},false,false,0,sdoj_external);
+  else renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library,
+      false,nullptr,-1,sdoj_external);
   Check(target->EndDraw(),"Render preview");
   ComPtr<IWICStream> stream;Check(renderer.wic->CreateStream(&stream),"Create preview stream");
   if(!options.preview.parent_path().empty())fs::create_directories(options.preview.parent_path());
