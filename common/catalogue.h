@@ -33,6 +33,10 @@ struct XexTitlePatch {
   DataFile file;
   std::uint64_t padded_bytes{};
   std::string_view padded_sha256{};
+  std::string_view HashForSize(std::uint64_t bytes) const {
+    if (bytes == file.bytes) return file.sha256;
+    return bytes == padded_bytes ? padded_sha256 : std::string_view{};
+  }
 };
 struct XexTitleUpdate {
   std::string_view id, version, executable;
@@ -67,6 +71,7 @@ std::string Utf8(const fs::path& path);
 fs::path FromUtf8(std::string_view text);
 
 enum class CheckLevel { Quick, Programs, Full };
+enum class TitleUpdateInput { ContainerOrPatches, PatchesOnly };
 enum class DataState { Missing, Incomplete, Unsupported, Unverified, Verified, Unknown, Invalid, Nested, RawDisc };
 std::string_view Name(DataState state);
 struct Inspection {
@@ -84,7 +89,8 @@ struct RuntimeIssue { std::string path, kind; uint32_t error{}; };
 std::vector<RuntimeIssue> InspectRuntime(const Game& game, const fs::path& root);
 std::string RuntimeDiagnostic(const Game& game, const fs::path& root);
 Inspection Inspect(const Game& game, const fs::path& collection_root,
-                   const fs::path& data_dir, CheckLevel level,VerificationCache* cache=nullptr);
+                   const fs::path& data_dir, CheckLevel level,VerificationCache* cache=nullptr,
+                   TitleUpdateInput title_update=TitleUpdateInput::ContainerOrPatches);
 struct ContentInspection {
   std::string id, name;
   DataState state{DataState::Missing};

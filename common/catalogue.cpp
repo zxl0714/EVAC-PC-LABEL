@@ -249,7 +249,8 @@ std::string RuntimeDiagnostic(const Game& game, const fs::path& root) {
     result += issue.kind + " | Windows=" + std::to_string(issue.error) + " | " + Utf8(DataChild(root, issue.path)) + "\n";
   return result;
 }
-Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level,VerificationCache* cache) {
+Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::path& data_dir, CheckLevel level,
+                   VerificationCache* cache, TitleUpdateInput title_update) {
   Inspection result;
   result.game = game.id;
   if (game.coming_soon) { result.state = "coming_soon"; result.reason = "Coming Soon"; return result; }
@@ -318,40 +319,38 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
     }
     if (present != 0 && game.title_update) {
       const auto& update = *game.title_update;
-      const auto has_container = fs::exists(DataChild(paths.data, update.container.path));
       const auto has_patches = std::ranges::any_of(update.patches, [&](const XexTitlePatch& patch) {
         return fs::exists(DataChild(paths.data, patch.file.path));
       });
+      const auto has_container = !has_patches && title_update == TitleUpdateInput::ContainerOrPatches &&
+          fs::exists(DataChild(paths.data, update.container.path));
       if (has_container || has_patches) {
         result.variant = update.id;
         result.version = update.version;
         result.layout = "title-update";
-        const auto verify_update_file = [&](const DataFile& expected, std::uint64_t padded_bytes = 0,
-                                            std::string_view padded_sha256 = {}) {
-          const auto path = DataChild(paths.data, expected.path);
+        const auto verify_update_file = [&](const XexTitlePatch& patch) {
+          const auto name = std::string(patch.file.path);
+          const auto path = DataChild(paths.data, name);
           ++result.files_checked;
           if (!fs::is_regular_file(path)) {
             incomplete = true;
-            result.problems.push_back("missing title update file: " + std::string(expected.path));
+            result.problems.push_back("missing title update file: " + name);
             return;
           }
-          const auto bytes = fs::file_size(path);
-          const auto hash = bytes == expected.bytes ? expected.sha256
-              : bytes == padded_bytes ? padded_sha256 : std::string_view{};
+          const auto hash = patch.HashForSize(fs::file_size(path));
           if (hash.empty()) {
             unsupported = true;
-            result.problems.push_back("incorrect title update size: " + std::string(expected.path));
+            result.problems.push_back("incorrect title update size: " + name);
           } else if (level != CheckLevel::Quick) {
             ++result.hashes_checked;
             if (FileDigest(path, cache) != hash) {
               unsupported = true;
-              result.problems.push_back("unrecognized title update: " + std::string(expected.path));
+              result.problems.push_back("unrecognized title update: " + name);
             }
           }
         };
-        if (has_container) verify_update_file(update.container);
-        if (has_patches) for (const auto& patch : update.patches)
-          verify_update_file(patch.file, patch.padded_bytes, patch.padded_sha256);
+        if (has_container) verify_update_file(XexTitlePatch{update.container});
+        if (has_patches) for (const auto& patch : update.patches) verify_update_file(patch);
       }
     }
     const auto entry=RootEntry(game);

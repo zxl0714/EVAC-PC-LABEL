@@ -5,10 +5,12 @@
 #include <cstdio>
 #include "common/settings.h"
 #include "common/config_update.h"
+#include "common/stfs.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <fstream>
 #include <stdexcept>
 #include <utility>
@@ -66,6 +68,81 @@ void VerifyRuntime(const Game& game,const fs::path& root,VerificationCache& cach
   }
   if (actual_count!=expected_count) throw std::runtime_error("Runtime manifest has unexpected components");
 }
+bool PatchMatches(const fs::path& path, const XexTitlePatch& patch, VerificationCache* cache) {
+  if (!fs::is_regular_file(path)) return false;
+  const auto hash = patch.HashForSize(fs::file_size(path));
+  return !hash.empty() && FileDigest(path, cache) == hash;
+}
+void InstallTitleUpdate(const Game& game, const fs::path& data, VerificationCache& cache) {
+  const auto& update = *game.title_update;
+  if (std::ranges::all_of(update.patches, [&](const auto& patch) {
+      return fs::exists(DataChild(data, patch.file.path));
+    })) return;
+  const auto source = DataChild(data, update.container.path);
+  if (!fs::exists(source)) return;
+
+  for (const auto& file : game.files) {
+    if (!file.program) continue;
+    const auto path = DataChild(data, file.path);
+    if (!fs::is_regular_file(path) || fs::file_size(path) != file.bytes || cache.Digest(path) != file.sha256)
+      return;
+  }
+  if (!PatchMatches(source, XexTitlePatch{update.container}, &cache))
+    throw std::runtime_error("Unsupported title update: " + std::string(update.container.path));
+
+  std::vector<const XexTitlePatch*> missing;
+  for (const auto& patch : update.patches) {
+    const auto path = DataChild(data, patch.file.path);
+    if (!fs::exists(path)) missing.push_back(&patch);
+    else if (!PatchMatches(path, patch, &cache))
+      throw std::runtime_error("Existing title update file differs from the supported update: " + std::string(patch.file.path));
+  }
+  if (missing.empty()) return;
+
+  StfsPackage archive(source, true, kStfsTitleUpdate);
+  if (archive.TitleId() != update.title_id || archive.Files().size() != update.patches.size() ||
+      !std::ranges::all_of(update.patches, [&](const auto& patch) {
+        return std::ranges::any_of(archive.Files(), [&](const auto& member) {
+          return member.path == patch.file.path && member.bytes == patch.file.bytes &&
+                 member.sha256 == patch.file.sha256;
+        });
+      })) throw std::runtime_error("Title update contents differ from the supported update");
+
+  static std::atomic_uint64_t sequence{};
+  const auto staging = DataChild(data, ".tu-" + std::to_string(GetCurrentProcessId()) + "-" +
+      std::to_string(GetTickCount64()) + "-" + std::to_string(sequence++));
+  if (!fs::create_directory(staging)) throw std::runtime_error("Cannot create title update staging directory");
+  struct Cleanup {
+    const fs::path& staging;
+    ~Cleanup() {
+      std::error_code error;
+      if (fs::canonical(staging, error) == staging) fs::remove_all(staging, error);
+    }
+  } cleanup{staging};
+  const auto payload = staging / "payload";
+  archive.Extract(payload);
+  for (const auto* patch : missing) {
+    const auto path = DataChild(payload, patch->file.path);
+    if (patch->padded_bytes > patch->file.bytes) {
+      // Match the disc patch layout used by SDOJ-Recomp when preparing the shared data.
+      const std::string padding(patch->padded_bytes - patch->file.bytes, '\0');
+      std::ofstream output(path, std::ios::binary | std::ios::app);
+      output.write(padding.data(), std::streamsize(padding.size()));
+      output.close();
+      if (!output) throw std::runtime_error("Cannot write title update padding");
+    }
+    if (!PatchMatches(path, *patch, nullptr)) throw std::runtime_error("Extracted title update failed verification");
+  }
+  for (const auto* patch : missing) {
+    const auto target = data / FromUtf8(patch->file.path);
+    if (!MoveFileExW(DataChild(payload, patch->file.path).c_str(), target.c_str(), MOVEFILE_WRITE_THROUGH)) {
+      const auto error = GetLastError();
+      if (!PatchMatches(DataChild(data, patch->file.path), *patch, &cache))
+        throw std::runtime_error("Cannot install title update file " + std::string(patch->file.path) +
+            " (Windows error " + std::to_string(error) + ")");
+    }
+  }
+}
 }
 
 std::wstring QuoteArgument(std::wstring_view argument) {
@@ -81,6 +158,24 @@ std::wstring QuoteArgument(std::wstring_view argument) {
   result+=L'\"';
   return result;
 }
+Inspection InspectLaunchData(const Game& game, const fs::path& root, const fs::path& data,
+                             CheckLevel level, VerificationCache& cache) {
+  if (game.title_update) {
+    try {
+      const auto paths = Paths(root, game.id, data);
+      ValidateOutputs(paths);
+      InstallTitleUpdate(game, paths.data, cache);
+    } catch (const std::exception& error) {
+      auto inspection = Inspect(game, root, data, CheckLevel::Quick, &cache);
+      if (inspection.data_state == DataState::Invalid) return inspection;
+      inspection.state = "title_update_failed";
+      inspection.data_state = DataState::Incomplete;
+      inspection.reason = error.what();
+      return inspection;
+    }
+  }
+  return Inspect(game, root, data, level, &cache, TitleUpdateInput::PatchesOnly);
+}
 LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,std::string_view profile,const fs::path& override_data) {
   if (game.coming_soon || !game.integrated) throw std::runtime_error("This game is not integrated yet");
   if (game.backend!="xbox360" && game.backend!="ps4" && game.backend!="ps2") throw std::runtime_error("The selected runtime backend is not integrated yet");
@@ -92,7 +187,7 @@ LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,st
   ValidateOutputs(result.paths);
   VerificationCache cache(result.paths.root);
   const auto started=std::chrono::steady_clock::now();
-  const auto inspection=Inspect(game,result.paths.root,result.paths.data,CheckLevel::Full,&cache);
+  const auto inspection=InspectLaunchData(game,result.paths.root,result.paths.data,CheckLevel::Full,cache);
   const auto data_done=std::chrono::steady_clock::now();
   if (inspection.state!="ready") {
     auto reason=inspection.reason;

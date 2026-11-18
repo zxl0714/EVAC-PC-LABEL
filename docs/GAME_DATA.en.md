@@ -152,7 +152,9 @@ game-data/sdoj/
   ...
 ```
 
-Use the complete extracted Xbox 360 disc. For **TU 1.01**, unzip the update and place `TU_11LK1V7_000000G000000.0000000000084` next to `default.xex`. The launcher selects the updated version automatically. You can also place `default.xexp`, `CA022100.binp`, and `CA022110.binp` from the same disc update in that folder.
+Use the complete extracted Xbox 360 disc. For **TU 1.01**, unzip the update and place `TU_11LK1V7_000000G000000.0000000000084` next to `default.xex`.
+
+When the launcher opens, it extracts `default.xexp`, `CA022100.binp`, and `CA022110.binp` into the same folder. The folder must be writable for the first extraction. The launcher and game then use those three files directly. You can also place the three extracted patches there yourself.
 
 Coins, the shop, and unlockable content follow the original game's progression.
 

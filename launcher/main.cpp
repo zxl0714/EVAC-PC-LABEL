@@ -211,7 +211,7 @@ Options Arguments() {
   return options;
 }
 struct Row {Inspection inspection;daioujou::ArrangeStatus arrange;};
-std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
+std::vector<Row> InspectRows(const fs::path& root,size_t selected,bool prepare_title_updates) {
   const auto started=std::chrono::steady_clock::now();
   VerificationCache cache(root);
   std::vector<Row> rows(Catalogue().size());
@@ -228,7 +228,10 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected) {
       const auto& game=Catalogue()[index];
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
-        rows[index].inspection=Inspect(game,root,ini.DataDirectory(game),CheckLevel::Quick,&cache);
+        const auto data=ini.DataDirectory(game);
+        rows[index].inspection=prepare_title_updates
+            ? InspectLaunchData(game,root,data,CheckLevel::Quick,cache)
+            : Inspect(game,root,data,CheckLevel::Quick,&cache);
         if(!rows[index].inspection.missing_runtime.empty()) {
           try {cave::launcher::reports::RecordRuntimeFailure(root,game.id);} catch (...) {}
         }
@@ -257,6 +260,7 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="raw_disc_image") return T(L"请选择已解密的 PS4 游戏目录");
   if (state=="unknown_layout") return T(L"请检查游戏数据目录");
   if (state=="unsupported_version") return T(L"数据版本不支持");
+  if (state=="title_update_failed") return T(L"无法解包游戏更新 · 点击详情");
   if (state=="missing_runtime") return T(L"运行组件不可用 · 点击详情");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
   if (state=="invalid_path") return T(L"数据路径不可用");
@@ -1283,7 +1287,7 @@ class App {
         };
         const auto cancelled=[task]{return task->cancelled.load();};
         if(task->copying)task->copy_result=CopyDataToCollection(root,FindGame(id),copy_source,progress,cancelled);
-        task->rows=InspectRows(root,task->selected);
+        task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
           task->launch=PrepareLaunch(FindGame(id),root,Ini::Load(ConfigPath(root)),profile,data);
           Log(root,"launch-verification "+task->launch->verification);
@@ -1346,7 +1350,7 @@ class App {
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
     Check(dialog->SetOptions(flags|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure directory picker");
-    dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏原始数据目录（不会移动或修改文件）"));
+    dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏数据目录"));
     const auto result=dialog->Show(hwnd);if(result==HRESULT_FROM_WIN32(ERROR_CANCELLED))return;Check(result,"Select game data directory");
     ComPtr<IShellItem> item;Check(dialog->GetResult(&item),"Read selected directory");
     PWSTR value{};Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected directory path");
@@ -1834,7 +1838,7 @@ void Preview(const Options& options) {
   size_t selected=1;
   if(!options.selection.empty())for(size_t index=0;index<Catalogue().size();++index)
     if(Catalogue()[index].id==options.selection)selected=index;
-  auto rows=InspectRows(options.root,selected);
+  auto rows=InspectRows(options.root,selected,false);
   if(options.selection.empty()) {
     rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
     rows[0].inspection.data_state=DataState::Missing;rows[1].inspection.data_state=DataState::Verified;

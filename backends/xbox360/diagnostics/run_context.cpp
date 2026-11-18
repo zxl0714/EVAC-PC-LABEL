@@ -1,6 +1,4 @@
 #include "run_context.h"
-#include "common/stfs.h"
-#include <algorithm>
 #include "common/verification_cache.h"
 #include "community/http_client.h"
 #include <windows.h>
@@ -65,41 +63,6 @@ fs::path NewReportDirectory(const fs::path& root,std::string_view game,const wch
     if (!fs::create_directory(directory)) throw std::runtime_error("Report directory already exists; refusing overwrite");
     return directory;
 }
-fs::path PrepareTitleUpdate(const cave::XexTitleUpdate& update, const cave::GamePaths& paths) {
-    const auto source = cave::DataChild(paths.data, update.container.path);
-    if (!fs::is_regular_file(source) ||
-        fs::is_regular_file(cave::DataChild(paths.data, update.patches.front().file.path))) return {};
-
-    const auto cache = cave::DataChild(paths.cache, "title-update");
-    const auto target = cave::DataChild(cache, update.container.sha256);
-    const auto valid = [&](const fs::path& folder) {
-        return fs::is_directory(folder) && std::ranges::all_of(update.patches, [&](const cave::XexTitlePatch& patch) {
-            const auto& expected = patch.file;
-            const auto file = cave::DataChild(folder, expected.path);
-            return fs::is_regular_file(file) && fs::file_size(file) == expected.bytes &&
-                   cave::Sha256(file) == expected.sha256;
-        });
-    };
-    if (valid(target)) return target;
-
-    // The collection mutex is held. Publish only a verified, complete set.
-    cave::StfsPackage archive(source, true, cave::kStfsTitleUpdate);
-    if (archive.TitleId() != update.title_id || archive.Files().size() != update.patches.size() ||
-        !std::ranges::all_of(update.patches, [&](const cave::XexTitlePatch& patch) {
-            const auto& expected = patch.file;
-            return std::ranges::any_of(archive.Files(), [&](const cave::StfsFile& member) {
-                return member.path == expected.path && member.bytes == expected.bytes && member.sha256 == expected.sha256;
-            });
-        })) throw std::runtime_error("Title update contents differ from the supported update");
-
-    const auto nonce = std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64());
-    const auto staging = cave::DataChild(cache, "prepare-" + nonce);
-    archive.Extract(staging);
-    if (!valid(staging)) throw std::runtime_error("Title update preparation failed verification");
-    if (fs::exists(target)) fs::rename(target, cave::DataChild(cache, "replaced-" + nonce));
-    fs::rename(staging, target);
-    return target;
-}
 }
 std::string Sha256Text(std::string_view text) {Hash hash;hash.Add(text.data(),text.size());return hash.Finish();}
 std::string Sha256File(const fs::path& file) {
@@ -129,7 +92,8 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     const auto& game=run.paths.data;
     run.profile=run.paths.profile;
     cave::VerificationCache verification(run.root);
-    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full,&verification);
+    const auto inspection=cave::Inspect(identity,run.root,game,cave::CheckLevel::Full,&verification,
+        cave::TitleUpdateInput::PatchesOnly);
     if (inspection.data_state!=cave::DataState::Verified)
         throw std::runtime_error(run.game+" data check failed: "+std::string(cave::Name(inspection.data_state))+": "+
             (inspection.problems.empty()?inspection.reason:inspection.problems.front()));
@@ -167,8 +131,6 @@ RunContext PrepareRun(const fs::path& requestedRoot,const BuildIdentity& build,c
     run.content=cave::InspectContent(identity,run.content_source,cave::CheckLevel::Full,&verification);
     run.source_build=std::string(build.commit)+(build.dirty=="true"?"+dirty":"");
     run.game_session=std::make_shared<cave::GameSession>(run.root);
-    if (identity.title_update && inspection.variant == identity.title_update->id)
-        run.title_update_root = PrepareTitleUpdate(*identity.title_update, run.paths);
     fs::create_directories(run.profile);
     const auto lock=CreateFileW((run.profile/".profile.lock").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,
         nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN|FILE_FLAG_DELETE_ON_CLOSE,nullptr);

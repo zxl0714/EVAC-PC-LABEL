@@ -14,6 +14,9 @@ struct LaunchSpec {
   std::string verification;
   std::string controller_mapping_hint;
 };
+// Prepare optional title updates for a player launch, then inspect the result.
+Inspection InspectLaunchData(const Game& game, const fs::path& root, const fs::path& data,
+                             CheckLevel level, VerificationCache& cache);
 LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,
                          std::string_view profile="default",const fs::path& data_override={});
 void SetDataDirectory(const fs::path& root,const Game& game,const fs::path& data);

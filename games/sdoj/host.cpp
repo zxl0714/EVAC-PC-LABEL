@@ -8,8 +8,6 @@
 #include <rex/cvar.h>
 #include <rex/ui/window.h>
 #include <rex/system/kernel_state.h>
-#include <rex/filesystem/devices/host_path_device.h>
-#include <rex/filesystem/vfs.h>
 #include "guest_layout.h"
 #include <rex/system/xam/user_profile.h>
 #include <stdexcept>
@@ -28,25 +26,6 @@ public:
         return std::unique_ptr<SdojApp>(new SdojApp(context,"sdoj",PPCImageConfig,build));
     }
 private:
-    void OnLoadXexImage(std::string&) override {
-        if (run().title_update_root.empty()) return;
-        constexpr std::string_view mount = R"(\Device\EvacSdojTitleUpdate)";
-        auto* vfs = runtime()->kernel_state()->file_system();
-        auto device = std::make_unique<rex::filesystem::HostPathDevice>(
-            mount, run().title_update_root, true);
-        if (!device->Initialize() || !vfs->RegisterDevice(std::move(device)))
-            throw std::runtime_error("Cannot mount the verified SDOJ title update");
-        const auto main = vfs->ResolvePath(R"(game:\default.xex)");
-        if (!main) throw std::runtime_error("Cannot locate the SDOJ game-data mount");
-        const auto& update = *cave::FindGame("sdoj").title_update;
-        const auto root = main->absolute_path().substr(0, main->absolute_path().find_last_of("\\/") + 1);
-        for (const auto& patch : update.patches) {
-            const auto target = std::string(mount) + "\\" + std::string(patch.file.path);
-            if (!vfs->ResolvePath(target) || !vfs->RegisterSymbolicLink(root + std::string(patch.file.path), target))
-                throw std::runtime_error("Cannot attach an SDOJ title update patch");
-        }
-        REXLOG_INFO("SDOJ mounted verified title update {}", update.version);
-    }
     void OnGameSetup() override {
         const auto test_endpoint=rex::cvar::GetFlagByName("sdoj_community_test_endpoint");
         if(!test_endpoint.empty()) {
