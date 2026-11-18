@@ -1,4 +1,5 @@
 #include "gs_display.h"
+#include "native_host.h"
 #include "gs_device_sink.h"
 #include "gs_command_queue.h"
 #include "runtime/gs/gs_types.h"
@@ -8,6 +9,18 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <Windows.h>
+
+namespace {
+struct HostWindow {
+    HWND window{};
+    HANDLE closeEvent{};
+    ~HostWindow() {
+        if(window)DestroyWindow(window);
+        if(closeEvent)CloseHandle(closeEvent);
+    }
+};
+}
 
 int main(int argc,char** argv) {
     try {
@@ -17,7 +30,20 @@ int main(int argc,char** argv) {
         const bool vsync=argc>=3 && std::string(argv[2])=="fifo";
         // Older scripts pass their display test option in the fourth argument.
         const std::string reflexTest=argc>=5?argv[4]:argc>=4?argv[3]:"";
-        cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,reflexTest!="off",reflexTest=="amd");
+        HostWindow host;
+        if(reflexTest=="hosted") {
+            host.window=CreateWindowExW(0,L"STATIC",L"PS2 host",WS_OVERLAPPEDWINDOW,0,0,640,480,
+                                        nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+            host.closeEvent=CreateEventW(nullptr,TRUE,FALSE,nullptr);
+            if(!host.window || !host.closeEvent)throw std::runtime_error("Cannot create probe host window");
+        }
+        cave::ps2::GsDisplay display(640,480,L"EVAC PC LABEL | PS2 graphics",vsync,reflexTest!="off",reflexTest=="amd",
+                                    host.window,host.closeEvent,{},{});
+        if(host.window) {
+            display.PresentLoadingFrame();
+            display.ReleaseBorrowedSurface();
+            display.RestoreBorrowedSurface();
+        }
         auto& gs=display.Device();
         cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,gs.Completions());
         unsigned frames=0;

@@ -6,6 +6,10 @@
 
 ## v0.10.1 玩家转储与 Death Label
 
+- 用户在两台电脑上测试 v0.10.0，均未复现进入 Death Label 时的闪退，未记录两台电脑的显卡及驱动版本。原报告来自 RTX 3060 Ti、572.16 驱动。
+- PS2 交换链回归给同一 Win32 窗口设置独占策略和目标显示器，再为三个呈现模式提供不同的图像数量限制。修正前的代码在查询时丢失窗口参数、查询格式时带入备用模式，并在四次创建失败后各尝试了一次独占切换。修正后请求 7 张图像会按共同上限收敛到 3 张，四次失败均直接返回错误。主模式或备用模式单独限制上限的用例均通过。证据见 `.local/v0101/ps2-wsi-fix-before.log`、`ps2-wsi-fix-contract.log` 和 `ps2-wsi-final-contracts.log`。
+- RTX 4080 的真实 Win32 窗口在 PS2 呈现加载帧后立即交还宿主，Vulkan 校验层捕获了销毁在用交换链的 `VUID-vkDestroySwapchainKHR-swapchain-01282`。修正后，同一窗口以 Immediate 和 FIFO 分别完成交还、重建及 36 帧呈现，均通过校验。独立窗口的 FIFO Relaxed 路径完成 100 帧，中途切换全屏再切回窗口。日志见 `.local/v0101/ps2-wsi-fix-immediate-hosted.log`、`ps2-wsi-final-handoff.log` 和 `ps2-wsi-final-resize.log`。
+- 用重编的 PS2 运行时从启动器打开 PS4《大往生》01.04 原曲版。960×720、VSync 关闭时，从直达菜单进入 Death Label 实战，Game Over 返回主菜单，再次进入选机并呈现。按玩家的 4K 窗口、VSync 开启设置另测，实际客户区为 3569×2008，使用标准 FIFO、三张图像，成功选机并进关。两次均在 RTX 4080 上完成。记录见 `.local/v0101/ps2-wsi-fix-game.json` 和 `ps2-wsi-final-game-4k.json`。
 - 《绊地狱》01.03 两份玩家转储的 26 个校验输入逐项一致。ZIP 转储从启动器进入 IKD 2007 SPECIAL 第一关并写入第 99 槽，关闭进程后换用 RAR 转储读取，恢复机体与关卡。两份内置 DLC 均在日志登记，BGM 设置中可选择 VIRT ARRANGE。诊断截图见 `.local/v0911/live-acceptance/ketsui/v0101-103-slots-save/` 和 `v0101-103-slots-read/`。自备曲包的 13 首音轨均通过准备验证，从直达菜单选中 X Arrange 后实际进关，音乐仪表盘显示 X Arrange。冷启动后直达菜单仍显示正确的短标签。见同级 `v0101-103-x-arrange/` 和 `v0101-103-x-arrange-card/`。01.03 另用本机社区服务完成 CUSTOM Type-A 557 分、Type-B 4,357 分两局，综合及两种机体榜的成绩上传、读榜和录像收发均成功，下载录像通过版本及内容校验后写入游戏存档。见 `.local/v0101/ketsui-103-loopback/confirmed.json`。
 - 《空战之路》日版 01.07（CUSA05429）用玩家合并转储从启动器进入 Arcade 第一关。第 99 槽写入后重启，读回 STAGE 1、1 号机和 700 分，恢复关内画面。见 `.local/v0911/live-acceptance/garegga/v0101-jp107-slots-save/` 和 `v0101-jp107-slots-read/`。另从 Arcade 局自然结束后自动保存 320 分录像，从 Replay Theater 完整播放 1:03.81 后返回原列表。收据记录槽 `0017-0000` 提交，呈现日志确认 Immediate。见同级 `v0101-jp107-replay/`。
 - 《空战之路》日版 01.07 与韩版 01.00 使用独立的游戏存档和同一个本机社区测试库。日版原生运行 Arcade 玩家局结束，将 1,250 分及录像上传到综合榜和机体榜。韩版在游戏内查到该成绩，下载录像并完整播放 1:04.23 后返回列表。日版从 Super Easy 综合榜下载已有的韩版 100 分录像，完整播放 1:21.26 后返回列表。两次回放均显示了原记录的最终分数。测试证据见 `.local/v0911/live-acceptance/garegga/` 下的 `v0101-jp107-community-r1/` 和 `v0101-kr-jp-replay-r1/`。

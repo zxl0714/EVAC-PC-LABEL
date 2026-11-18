@@ -1,0 +1,228 @@
+--- a/wsi.cpp
++++ b/wsi.cpp
+@@ -505,7 +505,9 @@
+ 	device->set_acquire_semaphore(0, Semaphore{});
+ 	device->consume_release_semaphore();
+ 
+-	if (device->get_device_features().swapchain_maintenance1_features.swapchainMaintenance1)
++	// Present fences can be disabled by a driver workaround even when maintenance1 is enabled.
++	if (device->get_device_features().swapchain_maintenance1_features.swapchainMaintenance1 &&
++	    !device->get_workarounds().broken_present_fence)
+ 	{
+ 		// If we're just resizing, there's no need to block, defer deletions for later.
+ 		if (in_tear_down)
+@@ -530,7 +532,8 @@
+ 	}
+ 	else if (swapchain != VK_NULL_HANDLE)
+ 	{
+-		wait_for_present(present_last_id);
++		if (present_last_id)
++			wait_for_present(present_last_id);
+ 
+ 		device->external_queue_lock();
+ 		table->vkDeviceWaitIdle(device->get_device());
+@@ -643,7 +646,7 @@
+ 		// Avoid conflicting wait cycles when doing reflex style latency limiting.
+ 		effective_latency = std::max<uint32_t>(effective_latency, 2);
+ 	}
+-	else if (device->get_device_features().anti_lag_features.antiLag)
++	else if (low_latency_mode_enable_gpu_submit && device->get_device_features().anti_lag_features.antiLag)
+ 	{
+ 		auto wait_ts = device->write_calibrated_timestamp();
+ 
+@@ -1773,10 +1776,13 @@
+ 				info.pNext = &present_fence;
+ 			}
+ 
+-			present_mode_info.swapchainCount = 1;
+-			present_mode_info.pPresentModes = &active_present_mode;
+-			present_mode_info.pNext = const_cast<void *>(info.pNext);
+-			info.pNext = &present_mode_info;
++			if (!present_mode_compat_group.empty())
++			{
++				present_mode_info.swapchainCount = 1;
++				present_mode_info.pPresentModes = &active_present_mode;
++				present_mode_info.pNext = const_cast<void *>(info.pNext);
++				info.pNext = &present_mode_info;
++			}
+ 		}
+ 
+ 		if (supports_present_timing.feedback && present_feedback_enable)
+@@ -2355,6 +2361,10 @@
+ 			return false;
+ 	}
+ 
++	if (!num_present_modes)
++		return false;
++	present_modes.resize(num_present_modes);
++
+ 	auto swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+ 	bool use_vsync = present_mode == PresentMode::SyncToVBlank;
+ 	if (!use_vsync)
+@@ -2419,6 +2429,9 @@
+ 			return false;
+ 	}
+ 
++	info.present_mode = { VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_KHR,
++	                      const_cast<void *>(info.surface_info.pNext), swapchain_present_mode };
++
+ 	// Make sure we query surface caps tied to the present mode for correct results.
+ 	if (ext.swapchain_maintenance1_features.swapchainMaintenance1 &&
+ 	    ext.supports_surface_capabilities2)
+@@ -2426,23 +2439,20 @@
+ 		VkSurfaceCapabilities2KHR surface_capabilities2 = { VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR };
+ 		VkSurfacePresentModeCompatibilityKHR present_mode_caps =
+ 		    { VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_COMPATIBILITY_KHR };
+-		std::vector<VkPresentModeKHR> present_mode_compat_group;
+-
+-		present_mode_compat_group.resize(32);
++		std::vector<VkPresentModeKHR> present_mode_compat_group(num_present_modes);
+ 		present_mode_caps.presentModeCount = present_mode_compat_group.size();
+ 		present_mode_caps.pPresentModes = present_mode_compat_group.data();
+ 
+-		info.present_mode.pNext = const_cast<void *>(info.surface_info.pNext);
+ 		info.surface_info.pNext = &info.present_mode;
+-		info.present_mode = { VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_KHR };
+-		info.present_mode.presentMode = swapchain_present_mode;
+ 
+ 		surface_capabilities2.pNext = &present_mode_caps;
+ 		if (vkGetPhysicalDeviceSurfaceCapabilities2KHR(gpu, &info.surface_info, &surface_capabilities2) != VK_SUCCESS)
+ 			return false;
+ 		surface_capabilities2.pNext = present_mode_caps.pNext;
+ 
+-		info.surface_capabilities.minImageCount = surface_capabilities2.surfaceCapabilities.minImageCount;
++		auto &limits = info.surface_capabilities;
++		limits.minImageCount = surface_capabilities2.surfaceCapabilities.minImageCount;
++		limits.maxImageCount = surface_capabilities2.surfaceCapabilities.maxImageCount;
+ 		present_mode_compat_group.resize(present_mode_caps.presentModeCount);
+ 		info.present_mode_compat_group.reserve(present_mode_caps.presentModeCount);
+ 		info.present_mode_compat_group.push_back(swapchain_present_mode);
+@@ -2461,22 +2471,32 @@
+ 				continue;
+ 			}
+ 
+-			info.present_mode.presentMode = mode;
+-			if (vkGetPhysicalDeviceSurfaceCapabilities2KHR(gpu, &info.surface_info, &surface_capabilities2) != VK_SUCCESS)
++			VkSurfacePresentModeKHR alternate_mode = { VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_KHR,
++			                                           info.present_mode.pNext, mode };
++			auto alternate_query = info.surface_info;
++			alternate_query.pNext = &alternate_mode;
++			if (vkGetPhysicalDeviceSurfaceCapabilities2KHR(gpu, &alternate_query, &surface_capabilities2) != VK_SUCCESS)
+ 				return false;
+ 
+ 			// Accept the present mode if it does not modify minImageCount.
+ 			// If image count changes, we should probably recreate the swapchain.
+ 			// If we have present wait we're at no risk of adding more latency, so just go ahead.
+-			if (surface_capabilities2.surfaceCapabilities.minImageCount == info.surface_capabilities.minImageCount ||
+-			    device.get_device_features().present_wait_features.presentWait ||
+-			    info.present_wait2.presentWait2Supported)
+-			{
+-				info.present_mode_compat_group.push_back(mode);
+-				info.surface_capabilities.minImageCount =
+-						std::max<uint32_t>(info.surface_capabilities.minImageCount,
+-						                   surface_capabilities2.surfaceCapabilities.minImageCount);
+-			}
++			const auto &candidate = surface_capabilities2.surfaceCapabilities;
++			if (candidate.minImageCount != limits.minImageCount &&
++			    !device.get_device_features().present_wait_features.presentWait && !info.present_wait2.presentWait2Supported)
++				continue;
++
++			// A single image count must fit every mode we advertise. Zero means no upper limit.
++			uint32_t min_count = std::max(limits.minImageCount, candidate.minImageCount);
++			uint32_t max_count = limits.maxImageCount;
++			if (candidate.maxImageCount && (!max_count || candidate.maxImageCount < max_count))
++				max_count = candidate.maxImageCount;
++			if (max_count && min_count > max_count)
++				continue;
++
++			info.present_mode_compat_group.push_back(mode);
++			limits.minImageCount = min_count;
++			limits.maxImageCount = max_count;
+ 		}
+ 	}
+ 
+@@ -2505,6 +2525,7 @@
+ 		if (vkGetPhysicalDeviceSurfaceFormats2KHR(gpu, &info.surface_info, &format_count, formats2.data()) != VK_SUCCESS)
+ 			return false;
+ 
++		formats2.resize(format_count);
+ 		info.formats.reserve(format_count);
+ 		for (auto &f : formats2)
+ 			info.formats.push_back(f.surfaceFormat);
+@@ -2516,6 +2537,7 @@
+ 		info.formats.resize(format_count);
+ 		if (vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, info.formats.data()) != VK_SUCCESS)
+ 			return false;
++		info.formats.resize(format_count);
+ 	}
+ 
+ 	// Ensure that 10-bit formats come before other formats.
+@@ -2535,7 +2557,7 @@
+ 	});
+ 
+ 	// Allow for seamless toggle between presentation modes.
+-	if (ext.swapchain_maintenance1_features.swapchainMaintenance1)
++	if (!info.present_mode_compat_group.empty())
+ 	{
+ 		info.present_modes_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR };
+ 		info.present_modes_info.pNext = const_cast<void *>(info.swapchain_pnext);
+@@ -2543,8 +2565,6 @@
+ 		info.present_modes_info.pPresentModes = info.present_mode_compat_group.data();
+ 		info.swapchain_pnext = &info.present_modes_info;
+ 	}
+-
+-	info.present_mode.presentMode = swapchain_present_mode;
+ 
+ 	if (ext.image_compression_control_swapchain_features.imageCompressionControlSwapchain &&
+ 	    compression.type != VK_IMAGE_COMPRESSION_DEFAULT_EXT)
+@@ -2739,7 +2759,6 @@
+ 		desired_swapchain_images = current_frame_dupe_target_images;
+ 
+ 	desired_swapchain_images = Util::get_environment_uint("GRANITE_VULKAN_SWAPCHAIN_IMAGES", desired_swapchain_images);
+-	LOGI("Targeting %u swapchain images.\n", desired_swapchain_images);
+ 
+ 	if (desired_swapchain_images < caps.minImageCount)
+ 		desired_swapchain_images = caps.minImageCount;
+@@ -2818,9 +2837,10 @@
+ 		     supports_present_timing.relative);
+ 	}
+ 
++	LOGI("Creating swapchain: %ux%u, mode %u, images %u.\n", info.imageExtent.width, info.imageExtent.height,
++	     unsigned(info.presentMode), info.minImageCount);
+ 	auto res = table->vkCreateSwapchainKHR(context->get_device(), &info, nullptr, &swapchain);
+-	if (res < 0)
+-		swapchain = VK_NULL_HANDLE;
++	LOGI("vkCreateSwapchainKHR returned %d.\n", int(res));
+ 
+ 	if (res == VK_SUCCESS && supports_present_timing.feedback)
+ 	{
+@@ -2838,7 +2858,14 @@
+ 	present_last_id = 0;
+ 	device->set_present_id(VK_NULL_HANDLE, 0);
+ 
+-	if (res == VK_SUCCESS && device->get_device_features().supports_low_latency2_nv)
++	if (res != VK_SUCCESS)
++	{
++		LOGE("Failed to create swapchain (code: %d)\n", int(res));
++		swapchain = VK_NULL_HANDLE;
++		return SwapchainError::Error;
++	}
++
++	if (device->get_device_features().supports_low_latency2_nv)
+ 	{
+ 		VkLatencySleepModeInfoNV sleep_mode_info = { VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV };
+ 		sleep_mode_info.lowLatencyBoost = low_latency_mode_enable_gpu_submit;
+@@ -2860,13 +2887,6 @@
+ 			LOGI("Failed to acquire exclusive full-screen. Using borderless windowed.\n");
+ 	}
+ #endif
+-
+-	if (res != VK_SUCCESS)
+-	{
+-		LOGE("Failed to create swapchain (code: %d)\n", int(res));
+-		swapchain = VK_NULL_HANDLE;
+-		return SwapchainError::Error;
+-	}
+ 
+ 	swapchain_width = swapchain_size.width;
+ 	swapchain_height = swapchain_size.height;
