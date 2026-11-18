@@ -1980,11 +1980,12 @@ void Preview(const Options& options) {
   }
   Layout layout{1080,900,0};
   layout.covers=cave::launcher::CoverLayout(Ini::Load(EnsureConfig(options.root)));
-  layout.scroll=std::clamp(layout.card(selected).bottom-layout.footer(),0.f,layout.max_scroll());
   const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
   const cave::launcher::GameLibrary library(Ini::Parse(""));
+  const auto position=std::size_t(std::ranges::find(library.visible,selected)-library.visible.begin());
+  layout.scroll=std::clamp(layout.card(position).bottom-layout.footer(),0.f,layout.max_scroll());
   target->BeginDraw();
-  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),selected},
+  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),position},
       rows,library,{},false,false,0);
   else renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library);
   Check(target->EndDraw(),"Render preview");

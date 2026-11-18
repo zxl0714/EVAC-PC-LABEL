@@ -213,7 +213,7 @@ void CoverLayoutChecks() {
       app.layout.width=dimensions.first;app.layout.height=dimensions.second;
       Require(app.layout.columns()>1,"Representative cover window did not form a grid");
       for(size_t index=0;index<Catalogue().size();++index) {
-        app.Select(index);frame.Settle();
+        app.Select(app.library.visible[index]);frame.Settle();
         const auto card=app.layout.card(index);
         const auto visible=std::min(card.bottom,app.layout.footer())-std::max(card.top,app.layout.header());
         Require(visible>=std::min(card.bottom-card.top,app.layout.viewport_height())-1,
@@ -224,11 +224,11 @@ void CoverLayoutChecks() {
       App::Window(app.hwnd,WM_KEYDOWN,VK_HOME,0);frame.Settle();
       Require(app.selected==0,"Cover Home did not select the first game");
       App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);frame.Settle();
-      Require(app.selected==app.layout.columns(),"Cover Down did not select the next row");
+      Require(app.VisiblePosition()==app.layout.columns(),"Cover Down did not select the next row");
       App::Window(app.hwnd,WM_KEYDOWN,VK_RIGHT,0);frame.Settle();
-      Require(app.selected==app.layout.columns()+1,"Cover Right did not select the next column");
+      Require(app.VisiblePosition()==app.layout.columns()+1,"Cover Right did not select the next column");
       App::Window(app.hwnd,WM_KEYDOWN,VK_UP,0);frame.Settle();
-      Require(app.selected==1,"Cover Up did not preserve its column");
+      Require(app.VisiblePosition()==1,"Cover Up did not preserve its column");
     }
     app.Select(Catalogue().size()-1);frame.Settle();
     Require(Catalogue()[app.selected].id=="daioujou-ps2" &&
@@ -326,12 +326,12 @@ void SelectionChecks() {
     Require(std::string_view(cave::launcher::kProductVersion).find('.')!=std::string_view::npos,"Product version is not a dotted release number");
     const auto scale=float(GetDpiForWindow(app.hwnd))/96;
     App::Window(app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(int(720*scale),int(520*scale)));
-    const auto selected=app.layout.card(app.selected);
+    const auto selected=app.layout.card(app.VisiblePosition().value());
     Require(selected.top>=app.layout.header()-1 && selected.bottom<=app.layout.footer()+1,"Restored selection was not scrolled visible");
     Require(app.rows[app.selected].inspection.state=="missing_data","Missing data erased a valid saved selection");
     SetWindowTextW(app.nickname_control,L"Unsaved draft");
     App::Window(app.hwnd,WM_KEYDOWN,VK_UP,0);frame.Settle();
-    Require(Catalogue()[app.selected].id=="sdoj","Up no longer selects the preceding game");
+    Require(Catalogue()[app.selected].id=="ketsui","Up no longer selects the preceding game");
     App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);frame.Settle();
     Require(Catalogue()[app.selected].id=="daioujou","Down no longer selects the next game");
     app.Select(2);frame.Settle();
@@ -450,7 +450,16 @@ void DisplayDropdownChecks() {
   {Frame frame(fixture.root);Require(frame.app.SelectedDisplay()==DisplaySelection{false,1234,696},"Custom INI resolution silently replaced by a preset");}
 }
 void GameLibraryChecks() {
+  using cave::launcher::GameLibrary;
+  const GameLibrary defaults(Ini::Parse(""));
+  Require(GameLibrary::Encode(defaults.visible)==
+          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2",
+          "The default launcher order must start with Futari and group games by platform");
+  Require(GameLibrary::Encode(GameLibrary(Ini::Parse("[collection]\ngame_order=ketsui,espgaluda2\n")).order)==
+          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2",
+          "An existing custom prefix must take precedence over the default order");
   Fixture fixture;
+  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\ngame_order=futari,espgaluda2,ketsui\n");
   const auto drag=[](App& app,size_t from,size_t to) {
     const auto point=[&](size_t position) {
       const auto card=app.layout.card(position);

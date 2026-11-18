@@ -2,6 +2,7 @@
 #include "common/catalogue.h"
 #include "common/ini.h"
 #include <algorithm>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -15,8 +16,17 @@ struct GameLibrary {
   GameLibrary()=default;
   explicit GameLibrary(const Ini& ini)
       : order(Read(ini,"game_order")),hidden(Read(ini,"hidden_games")) {
-    for(std::size_t index=0;index<Catalogue().size();++index)
+    const auto games=Catalogue();
+    const auto saved_count=order.size();
+    for(std::size_t index=0;index<games.size();++index)
       if(std::ranges::find(order,index)==order.end())order.push_back(index);
+    constexpr std::array<std::string_view,3> platforms{"xbox360","ps4","ps2"};
+    const auto rank=[&](std::size_t index) {
+      if(games[index].id=="futari")return std::size_t{0};
+      return 1+std::size_t(std::ranges::find(platforms,games[index].backend)-platforms.begin());
+    };
+    std::stable_sort(order.begin()+saved_count,order.end(),
+                     [&](std::size_t a,std::size_t b){return rank(a)<rank(b);});
     Rebuild();
   }
 
