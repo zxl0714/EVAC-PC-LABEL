@@ -15,7 +15,7 @@ struct BigPictureLayout {
     bool Portrait() const { return height > width; }
     float Scale() const { return std::clamp(std::min(width, height) / 620.f, 0.73f, 2.f); }
     float Margin() const { return 30 * Scale(); }
-    float Gap() const { return 17 * Scale(); }
+    float Gap() const { return 22 * Scale(); }
     float CoverPadding() const { return 4 * Scale(); }
     size_t Columns() const {
         return Portrait() ? 2 : width / std::max(1.f, height) < 1.48f ? 3 : 4;
