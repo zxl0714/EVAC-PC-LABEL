@@ -371,6 +371,11 @@ const wchar_t* Platform(const Game& game) {
   if(game.backend=="xbox360")return L"Xbox 360";
   return game.backend=="ps2"?L"PS2":L"PS4";
 }
+D2D1_RECT_F CoverSource(ID2D1Bitmap* image,const cave::launcher::Artwork& artwork) {
+  const auto size=image->GetSize();
+  const auto& trim=artwork.trim;
+  return {size.width*trim[0],size.height*trim[1],size.width*(1-trim[2]),size.height*(1-trim[3])};
+}
 int Layout::footer_button_at(float x,float y) const {
   for(int slot:{6,7,13,4,5,9,8})if(Inside(focus_button(slot),x,y))return slot;
   return -1;
@@ -539,17 +544,19 @@ class Renderer {
     if(layout.covers) {
       const auto inset=cave::launcher::kCoverInset;
       const D2D1_RECT_F art{rectangle.left+inset,rectangle.top+inset,rectangle.right-inset,rectangle.bottom-74};
-      auto bitmap=Image(target,index,muted,true);const auto size=bitmap->GetSize();
+      auto bitmap=Image(target,index,muted,true);
       const auto& artwork=cave::launcher::kCoverArtwork[index];
-      const float scale=artwork.contain?std::min((art.right-art.left)/size.width,(art.bottom-art.top)/size.height):
-                                        std::max((art.right-art.left)/size.width,(art.bottom-art.top)/size.height);
-      const float x=art.left-((size.width*scale)-(art.right-art.left))*.5f;
-      const float y=art.top-((size.height*scale)-(art.bottom-art.top))*artwork.focus_y;
+      const auto source=CoverSource(bitmap,artwork);
+      const float width=source.right-source.left,height=source.bottom-source.top;
+      const float scale=artwork.contain?std::min((art.right-art.left)/width,(art.bottom-art.top)/height):
+                                        std::max((art.right-art.left)/width,(art.bottom-art.top)/height);
+      const float x=art.left-((width*scale)-(art.right-art.left))*.5f;
+      const float y=artwork.contain?art.top:art.top-((height*scale)-(art.bottom-art.top))*artwork.focus_y;
       target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-      target->DrawBitmap(bitmap,{x,y,x+size.width*scale,y+size.height*scale},
-          soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+      target->DrawBitmap(bitmap,{x,y,x+width*scale,y+height*scale},
+          soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
       target->PopAxisAlignedClip();
-      PlatformTag(target,game,art.left+5,art.top+5);
+      if(!artwork.platform_mark)PlatformTag(target,game,art.left+5,art.top+5);
       if(soon || hidden) {
         ComPtr<ID2D1SolidColorBrush> shade;
         Check(target->CreateSolidColorBrush(D2D1::ColorF(0xf3f4f0,.87f),&shade),"Create future-cover label");
@@ -640,16 +647,18 @@ class Renderer {
       const float inset=5*scale;
       fill(bounds,panel,6*scale);
       const auto artwork=Image(target,index,!available,true);
-      const auto image=artwork->GetSize();
-      const auto fit=std::min((bounds.right-bounds.left-2*inset)/image.width,
-                              (bounds.bottom-bounds.top-2*inset)/image.height);
+      const auto source=CoverSource(artwork,cave::launcher::kCoverArtwork[index]);
+      const float width=source.right-source.left,height=source.bottom-source.top;
+      const auto fit=std::min((bounds.right-bounds.left-2*inset)/width,
+                              (bounds.bottom-bounds.top-2*inset)/height);
       if(fit>0) {
-        const auto horizontal=(bounds.left+bounds.right-image.width*fit)/2;
-        const auto vertical=(bounds.top+bounds.bottom-image.height*fit)/2;
-        target->DrawBitmap(artwork,{horizontal,vertical,horizontal+image.width*fit,vertical+image.height*fit},
-            available?1.f:0.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+        const auto horizontal=(bounds.left+bounds.right-width*fit)/2;
+        const auto vertical=bounds.top+inset;
+        target->DrawBitmap(artwork,{horizontal,vertical,horizontal+width*fit,vertical+height*fit},
+            available?1.f:0.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
       }
-      PlatformTag(target,game,bounds.left+9*scale,bounds.top+9*scale,scale);
+      if(!cave::launcher::kCoverArtwork[index].platform_mark)
+        PlatformTag(target,game,bounds.left+9*scale,bounds.top+9*scale,scale);
       if(selected)outline(bounds,accent,3);
     }
 

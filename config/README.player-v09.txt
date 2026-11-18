@@ -1,8 +1,8 @@
-EVAC PC LABEL v0.10.0
+EVAC PC LABEL v0.10.2
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击“启动游戏”。
-更新时关闭游戏和启动器，解压替换同名文件，保留 user-data/。
+本版手动更新。关闭游戏和启动器，解压替换同名文件，保留 user-data/。
 Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vulkan 1.3。
 
 游戏数据
@@ -28,6 +28,7 @@ PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
   game-data/daioujou-ps2/DoDonPachi Dai-Ou-Jou (Japan).iso
 
 同时安装两版大往生后，可从 PS4 版的 DIRECT MENU 进入 PS2 的 DEATH LABEL。
+最大往生可选 eandis 版。按 external/SDOJ-Recomp/README.txt 安装，然后开启封面上的 eandis 开关。
 
 解包
 ZIP／RAR 用常规工具解压。PS2 的 ISO 解压出来后直接放入对应目录。

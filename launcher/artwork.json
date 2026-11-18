@@ -32,7 +32,7 @@
       "resource": 103,
       "focusY": 0.3,
       "kicker": "PS4 · 2018",
-      "sourcePage": "https://m2stg.com/ketsui/",
+      "sourcePage": "https://www.pricecharting.com/game/jp-playstation-4/ketsui-deathtiny-kizuna-jigoku-tachi",
       "sourceUrl": "https://m2stg.com/ketsui/assets/img/mainimage_pc_15.png",
       "copyright": "©CAVE Interactive CO., LTD. / M2 Co., Ltd.",
       "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
@@ -159,7 +159,8 @@
       "sourcePage": "https://gamesdb.launchbox-app.com/games/images/23064-mushihimesama-futari-ver-15",
       "sourceUrl": "https://images.launchbox-app.com/9d0567f2-d400-4302-ba79-726fc74d1e64.jpg",
       "copyright": "©2006,2009 CAVE CO., LTD.",
-      "usage": "Japanese Xbox 360 retail front cover. Source image embedded without editing."
+      "usage": "Japanese Xbox 360 retail front cover. Source image embedded without editing.",
+      "platformMark": true
     },
     {
       "game": "espgaluda2",
@@ -172,20 +173,22 @@
       "sourcePage": "https://gamesdb.launchbox-app.com/games/images/23067-espgaluda-ii-black-label",
       "sourceUrl": "https://images.launchbox-app.com/9270e846-1575-4cf5-a1bc-3d42fdae3822.jpg",
       "copyright": "©2005–2010 CAVE CO., LTD.",
-      "usage": "Japanese Xbox 360 retail front cover. Source image embedded without editing."
+      "usage": "Japanese Xbox 360 retail front cover. Source image embedded without editing.",
+      "platformMark": true
     },
     {
       "game": "ketsui",
       "path": "launcher/assets/covers/ketsui.jpg",
-      "sha256": "46cb703a69122c7209fdf5f4f82e77702322d33beffc7790fa9edc166179e154",
+      "sha256": "68729efc7f4925afb41426fe262240b5aebdee73a761dc82815f712ca97939e3",
       "resource": 303,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2018",
-      "sourcePage": "https://m2stg.com/ketsui/",
-      "sourceUrl": "https://m2stg.com/ketsui/assets/img/mainimage_sp.jpg",
+      "sourcePage": "https://www.pricecharting.com/game/jp-playstation-4/ketsui-deathtiny-kizuna-jigoku-tachi",
+      "sourceUrl": "https://storage.googleapis.com/images.pricecharting.com/b162233b844d2eeec7cd00222ffe586ff19579bff732e6b40dac587ad9d37fcf/1600.jpg",
       "copyright": "©CAVE Interactive CO., LTD. / M2 Co., Ltd.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Japanese PS4 retail front cover. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
     },
     {
       "game": "sdoj",
@@ -198,38 +201,42 @@
       "sourcePage": "https://www.zerochan.net/4333609?lang=zh",
       "sourceUrl": "https://static.zerochan.net/Dodonpachi.Saidaioujou.full.4333609.jpg",
       "copyright": "©CAVE Interactive CO., LTD.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset.",
+      "platformMark": true
     },
     {
       "game": "daioujou",
       "path": "launcher/assets/covers/daioujou.jpg",
-      "sha256": "aabd296359ba3fcc94d4c5fc86b77e6bba51cc1570ea2eb2bbf9f841aad3dec3",
+      "sha256": "d947f3cd67f95ccd9bb61a50f8184bf7156e0a562cff79865ee6dfefa48873b0",
       "resource": 305,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2023",
-      "sourcePage": "https://backloggd.com/games/dodonpachi-dai-ou-jou-re-incarnation/",
-      "sourceUrl": "https://images.igdb.com/igdb/image/upload/t_original/cob6ik.jpg",
+      "sourcePage": "https://jumpichiban.com/products/dodonpachi-dai-ou-jo-rinne-tensei-blissful-death-re-incarnation-famitsu-dx-pack-3d-crystal-set-ps4-version",
+      "sourceUrl": "https://jumpichiban.com/cdn/shop/files/81s7ND90-WL._AC_SL1500.jpg?v=1738181182&width=1176",
       "copyright": "©2002 CAVE Interactive CO., LTD. / ©2023 M2 Co., Ltd.",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Japanese PS4 retail front cover. The launcher crops the outer plastic case.",
+      "trim": [0.0034, 0.0294, 0.0315, 0.0214],
+      "platformMark": true
     },
     {
       "game": "esprade",
       "path": "launcher/assets/covers/esprade.jpg",
-      "sha256": "afad6e203fa084f0d0f2a9d23dfaf22b3e2d6eb9ed3e02003360d4922bc33815",
+      "sha256": "c872a9c7f95915fe5da409a5a7b4d9e9c0891a80aed87862850e2907e2f86a62",
       "resource": 306,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2019",
-      "sourcePage": "https://store.playstation.com/ja-jp/product/JP0092-CUSA15155_00-ESPRADE000000000",
-      "sourceUrl": "https://image.api.playstation.com/vulcan/img/cfn/11307xUizqtd06jQ6WWK8TA3S2VSoD5bsknuZJYEvDmN6BO4ZV3c78CcUoDaC7icO-7m_xNcA7l9lcZef3uuEaoXJMYvMJQn.png",
+      "sourcePage": "https://gamesdb.launchbox-app.com/games/images/150892-esp-rade",
+      "sourceUrl": "https://images.launchbox-app.com/1fa5384d-8b03-4b0a-be92-c10a0c9a4515.jpg",
       "copyright": "©ATLUS / SEGA / CAVE / M2 Co., Ltd.",
-      "usage": "Official PlayStation Store art for the Japanese PS4 release. Source image embedded without editing."
+      "usage": "Japanese PS4 retail front cover. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
     },
     {
       "game": "guwange",
       "path": "launcher/assets/covers/guwange.png",
-      "sha256": "967aa7c4059560e05f9cbf467ea777109b7d848a5980426bfdbf39a6949f16ac",
+      "sha256": "b0421c735fd8e3c55ce9e37215ffcf8ab73e7fa51415b6854fdcd89b27d02ef3",
       "resource": 307,
       "focusY": 0.5,
       "fit": "contain",
@@ -237,38 +244,42 @@
       "sourcePage": "https://www.xbox.com/en-US/games/store/guwange/C5488TNPSQ0F",
       "sourceUrl": "https://store-images.s-microsoft.com/image/apps.31382.67007166134090962.4bc25d58-3f47-44c4-baad-b9f02825675c.48e57f7d-43e5-4e5f-9efb-c46f3c4f1717",
       "copyright": "©CAVE Interactive CO., LTD. / ATLUS",
-      "usage": "Official Xbox storefront artwork. Source image embedded without editing."
+      "usage": "Official Xbox storefront artwork. The launcher removes the empty footer and trims the sides to match the other Xbox 360 covers. Enlarged with FSRCNN 2x super-resolution.",
+      "trim": [0.018, 0, 0.018, 0.09],
+      "platformMark": true
     },
     {
       "game": "feveron",
-      "path": "launcher/assets/covers/feveron.jpg",
-      "sha256": "3c4a8d72566651b84308340ef8cc8367a7e51c538a863012598ba614edff8b68",
+      "path": "launcher/assets/covers/feveron.png",
+      "sha256": "fe9ff259d8f7cf3d7102bfb02581d545d058748076bf5a7d7494ee2307be259e",
       "resource": 308,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2017",
-      "sourcePage": "https://store.playstation.com/ja-jp/product/JP0092-CUSA05337_00-DANGUNFEVERONPS4",
-      "sourceUrl": "https://image.api.playstation.com/cdn/JP0092/CUSA05337_00/tQsp7XTfHFpWZkLkWJ4fOSnH7TKdqJYM.png",
+      "sourcePage": "https://limitedrungames.com/products/limited-run-398-dangun-feveron-ps4",
+      "sourceUrl": "https://852b80cc.delivery.rocketcdn.me/wp-content/uploads/2025/07/JapanDangunFeveronCollec1864_f.png",
       "copyright": "©1998 CAVE Interactive CO., LTD. / ©2017 M2 Co., Ltd.",
-      "usage": "Official PlayStation Store art for the Japanese PS4 release. Source image embedded without editing."
+      "usage": "North American Limited Run PS4 retail front cover supplied by the project maintainer. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
     },
     {
       "game": "garegga",
-      "path": "launcher/assets/covers/garegga.jpg",
-      "sha256": "6216a0952a2b2f65139688cea527846c1f09091a020bef964a4f13df689ee611",
+      "path": "launcher/assets/covers/garegga.png",
+      "sha256": "817535774876460f5af39669cdf09844576b583e9f8eb44f42819a88435754c2",
       "resource": 309,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS4 · 2016",
-      "sourcePage": "https://store.playstation.com/ja-jp/product/JP0092-CUSA05429_00-BATTLEGAREGGAPS4",
-      "sourceUrl": "https://image.api.playstation.com/cdn/JP0092/CUSA05429_00/23tmLvvZbsrLw4dfq9ozihRe10Cfris3.png",
+      "sourcePage": "https://gamesdb.launchbox-app.com/games/images/118001-battle-garegga-rev2016",
+      "sourceUrl": "https://images.launchbox-app.com/r2_64e0a935-698f-43ad-9e42-a117ed43e7d0.png",
       "copyright": "©1996 EIGHTING / ©2016 M2 Co., Ltd.",
-      "usage": "Official PlayStation Store art for the Japanese PS4 release. Source image embedded without editing."
+      "usage": "Korean PS4 retail front cover. Source image embedded without editing.",
+      "platformMark": true
     },
     {
       "game": "espgaluda",
-      "path": "launcher/assets/covers/espgaluda.png",
-      "sha256": "a584ff82620ab69a7435a928d53298f8f8d40bbc385922da19a5ffac7bd0cf56",
+      "path": "launcher/assets/covers/espgaluda.jpg",
+      "sha256": "fef196f3ee2b58b42588ecb713e2322ab54ea8770c32a04e2bd51b00d915c80d",
       "resource": 310,
       "focusY": 0.5,
       "fit": "contain",
@@ -276,12 +287,13 @@
       "sourcePage": "https://github.com/libretro-thumbnails/Sony_-_PlayStation_2",
       "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/Sony_-_PlayStation_2/master/Named_Boxarts/Espgaluda%20%28Japan%29.png",
       "copyright": "©CAVE Interactive CO., LTD. / ARIKA",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Japanese PlayStation 2 retail front cover. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
     },
     {
       "game": "ibara",
-      "path": "launcher/assets/covers/ibara.png",
-      "sha256": "48bd6103f9658dddc74a996a4336d5d2e857c597d242e930d1a51cc90a5629b9",
+      "path": "launcher/assets/covers/ibara.jpg",
+      "sha256": "484c063762c99e44c128debf65c3ab7066f1ec411305de773ca7e19769fa3ccc",
       "resource": 311,
       "focusY": 0.5,
       "fit": "contain",
@@ -289,12 +301,13 @@
       "sourcePage": "https://github.com/libretro-thumbnails/Sony_-_PlayStation_2",
       "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/Sony_-_PlayStation_2/master/Named_Boxarts/Ibara%20%28Japan%29.png",
       "copyright": "©CAVE Interactive CO., LTD. / TAITO",
-      "usage": "Preserved promotional illustration or package scan. Downloaded pixels unchanged; the launcher scales and frames this separate cover asset."
+      "usage": "Japanese PlayStation 2 retail front cover. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
     },
     {
       "game": "daioujou-ps2",
-      "path": "launcher/assets/covers/daioujou-ps2.png",
-      "sha256": "4402c9d8251124443df975ecaf4883993ba176651b0aa30e72a144269d139567",
+      "path": "launcher/assets/covers/daioujou-ps2.jpg",
+      "sha256": "7201583225edaf011d1ee9a37759bd285708961d26c16e05cfd0a775c343b7d9",
       "resource": 312,
       "focusY": 0.5,
       "fit": "contain",
@@ -302,7 +315,8 @@
       "sourcePage": "https://github.com/libretro-thumbnails/Sony_-_PlayStation_2",
       "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/Sony_-_PlayStation_2/master/Named_Boxarts/DoDonPachi%20Dai-Ou-Jou%20%28Japan%29.png",
       "copyright": "©2002 CAVE CO., LTD. / ARIKA CO., LTD.",
-      "usage": "Japanese PlayStation 2 cover scan."
+      "usage": "Japanese PlayStation 2 cover scan. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
     }
   ]
 }

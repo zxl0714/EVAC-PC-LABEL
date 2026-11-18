@@ -96,6 +96,12 @@ def artwork(root, kind='assets'):
             raise ValueError('Invalid artwork identity or crop')
         if entry.get('fit', 'cover') not in ('cover', 'contain'):
             raise ValueError('Invalid artwork fit')
+        if type(entry.get('platformMark', False)) is not bool:
+            raise ValueError('Invalid artwork platform mark')
+        trim=entry.get('trim',[0,0,0,0])
+        if (not isinstance(trim,list) or len(trim)!=4 or
+                any(type(part) not in (float,int) or not 0<=part<0.5 for part in trim)):
+            raise ValueError('Invalid artwork trim')
         paths.add(name);resources.add(entry['resource'])
         for part in (path,*path.parents):
             if part.is_symlink() or part.is_junction():
@@ -138,7 +144,7 @@ def generate(root, destination):
     destination.mkdir(parents=True,exist_ok=True)
     quoted=lambda text:json.dumps(text,ensure_ascii=False)
     header=['#pragma once','#include <array>','#include <string_view>','namespace cave::launcher {',
-            'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y; bool contain;};',
+            'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y; bool contain,platform_mark=false; std::array<float,4> trim{};};',
             'inline constexpr std::array<Artwork,'+str(len(entries))+'> kArtwork{{']
     version=windows_version(VERSION)
     numeric_version=','.join(map(str,version))
@@ -165,7 +171,9 @@ def generate(root, destination):
         header+=['inline constexpr std::array<Artwork,'+str(len(covers))+'> kCoverArtwork{{']
         for entry in covers:
             header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
-                          ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')
+                          ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+','+
+                          str(entry.get('platformMark',False)).lower()+',{'+
+                          ','.join('float('+str(part)+')' for part in entry.get('trim',[0,0,0,0]))+'}},')
             resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
         header+=['}};']
     else:
