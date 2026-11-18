@@ -4,6 +4,7 @@
 #include "common/stfs.h"
 #include "common/ps2_data.h"
 #include "common/ps4_program.h"
+#include "backends/ps4/content/sfo.h"
 #include "catalogue_generated.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -121,6 +122,54 @@ const DataFile* RootProgram(const DataVariant& variant) {
   const auto entry=std::ranges::find(variant.files,variant.entry,&DataFile::path);
   return entry==variant.files.end() || !entry->program?nullptr:&*entry;
 }
+std::optional<kt::content::Sfo> ReadAppMetadata(const fs::path& path) {
+  constexpr uintmax_t max_bytes=1024*1024;
+  if(!fs::is_regular_file(path))return {};
+  const auto bytes=fs::file_size(path);
+  if(bytes<20 || bytes>max_bytes)return {};
+  std::ifstream input(path,std::ios::binary);
+  std::vector<std::byte> data(static_cast<size_t>(bytes));
+  if(!input.read(reinterpret_cast<char*>(data.data()),static_cast<std::streamsize>(bytes)))return {};
+  if(input.peek()!=std::char_traits<char>::eof())return {};
+  try {return kt::content::Sfo::Parse(data);}
+  catch(const std::runtime_error&) {return {};}
+}
+bool MatchesAppMetadata(const DataVariant& variant,const kt::content::Sfo& metadata) {
+  const auto category=metadata.Text("CATEGORY");
+  const auto content_id=metadata.Text("CONTENT_ID");
+  return metadata.Text("TITLE_ID")==variant.title_id && metadata.Text("APP_VER")==variant.version &&
+      (category=="gd" || (variant.layout=="merged-patch" && category=="gp")) && metadata.Integer("APP_TYPE")==1 &&
+      content_id && kt::content::ValidContentIdentity(variant.title_id,*content_id);
+}
+const DataVariant* MatchPs4Export(const Game& game,const fs::path& data,std::string_view fingerprint,
+                                 uint32_t* hashes,VerificationCache* cache) {
+  std::map<std::string_view,std::string> metadata_hashes;
+  const auto read_metadata_digest=[&](const DataFile& identity) {
+    auto& digest=metadata_hashes[identity.path];
+    if(!digest.empty())return digest==identity.sha256;
+    try {
+      const auto path=DataChild(data,identity.path);
+      if(!fs::is_regular_file(path) || fs::file_size(path)!=identity.bytes)return false;
+      digest=FileDigest(path,cache);
+      if(hashes)++*hashes;
+      return digest==identity.sha256;
+    } catch(const std::exception&) {return false;} // Optional export provenance.
+  };
+  const DataVariant* version{};
+  const DataVariant* known_export{};
+  bool ambiguous_export=false;
+  for(const auto& variant:game.variants) {
+    const auto* entry=RootProgram(variant);
+    if(!entry || entry->program_fingerprint!=fingerprint)continue;
+    // Generated aliases for one fingerprint share the same application and
+    // runtime inputs. Use the first for an export we have not seen before.
+    if(!version && !variant.title_id.empty())version=&variant;
+    if(variant.export_metadata.empty() || !std::ranges::all_of(variant.export_metadata,read_metadata_digest))continue;
+    ambiguous_export|=known_export!=nullptr;
+    known_export=&variant;
+  }
+  return known_export && !ambiguous_export?known_export:version;
+}
 }
 const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_view sha256,
                                     std::string_view fingerprint) {
@@ -163,32 +212,13 @@ const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uin
     const auto fingerprint=ps4::ProgramFingerprint(path);
     match=MatchRootProgram(game,bytes,{},fingerprint);
     if(hashes)++*hashes;
-    if(!match && !fingerprint.empty()) {
-      std::map<std::string_view,std::string> metadata_hashes;
-      for(const auto& variant:game.variants) {
-        const auto* entry=RootProgram(variant);
-        if(!entry || entry->program_fingerprint!=fingerprint)continue;
-        bool matches=true;
-        for(const std::string_view name:{"sce_sys/param.sfo","sce_sys/playgo-chunk.sha","sce_sys/about/right.sprx"}) {
-          const auto expected=std::ranges::find(variant.files,name,&DataFile::path);
-          if(expected==variant.files.end()) {
-            if(name=="sce_sys/param.sfo")matches=false;
-            continue;
-          }
-          const auto metadata=DataChild(data,name);
-          if(!fs::is_regular_file(metadata) || fs::file_size(metadata)!=expected->bytes) {matches=false;break;}
-          auto& digest=metadata_hashes[name];
-          if(digest.empty()) {digest=FileDigest(metadata,cache);if(hashes)++*hashes;}
-          if(digest!=expected->sha256) {matches=false;break;}
-        }
-        if(matches) {if(match)return nullptr;match=&variant;}
-      }
-    }
+    if(!match && !fingerprint.empty())match=MatchPs4Export(game,data,fingerprint,hashes,cache);
   }
   return match && fs::file_size(path)==bytes?match:nullptr;
 }
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant) {
-  if(game.variants.empty() && variant.empty())return game.files;
+  if(game.variants.empty() && (variant.empty() || (game.title_update && variant == game.title_update->id)))
+    return game.files;
   for(const auto& item:game.variants)if(item.id==variant)return item.files;
   throw std::runtime_error("Unknown game-data variant");
 }
@@ -258,6 +288,17 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
         continue;
       }
       ++present;
+      if(variant && !variant->title_id.empty() && expected.path=="sce_sys/param.sfo") {
+        const auto metadata=ReadAppMetadata(file);
+        if(!metadata) {
+          incomplete=true;
+          result.problems.push_back("unreadable: sce_sys/param.sfo");
+        } else if(!MatchesAppMetadata(*variant,*metadata)) {
+          unsupported=true;
+          result.problems.push_back("application identity: sce_sys/param.sfo");
+        }
+        continue;
+      }
       const auto before = fs::file_size(file);
       const bool same_size=before==expected.bytes;
       const bool check_hash=level==CheckLevel::Full || (level==CheckLevel::Programs && expected.program);
@@ -273,6 +314,44 @@ Inspection Inspect(const Game& game, const fs::path& collection_root, const fs::
       if(!matches || ((check_hash || !same_size) && fs::file_size(file)!=before)) {
         incomplete=true;unsupported|=expected.program;
         result.problems.push_back(std::string(same_size?"sha256: ":"size: ")+std::string(expected.path));
+      }
+    }
+    if (present != 0 && game.title_update) {
+      const auto& update = *game.title_update;
+      const auto has_container = fs::exists(DataChild(paths.data, update.container.path));
+      const auto has_patches = std::ranges::any_of(update.patches, [&](const XexTitlePatch& patch) {
+        return fs::exists(DataChild(paths.data, patch.file.path));
+      });
+      if (has_container || has_patches) {
+        result.variant = update.id;
+        result.version = update.version;
+        result.layout = "title-update";
+        const auto verify_update_file = [&](const DataFile& expected, std::uint64_t padded_bytes = 0,
+                                            std::string_view padded_sha256 = {}) {
+          const auto path = DataChild(paths.data, expected.path);
+          ++result.files_checked;
+          if (!fs::is_regular_file(path)) {
+            incomplete = true;
+            result.problems.push_back("missing title update file: " + std::string(expected.path));
+            return;
+          }
+          const auto bytes = fs::file_size(path);
+          const auto hash = bytes == expected.bytes ? expected.sha256
+              : bytes == padded_bytes ? padded_sha256 : std::string_view{};
+          if (hash.empty()) {
+            unsupported = true;
+            result.problems.push_back("incorrect title update size: " + std::string(expected.path));
+          } else if (level != CheckLevel::Quick) {
+            ++result.hashes_checked;
+            if (FileDigest(path, cache) != hash) {
+              unsupported = true;
+              result.problems.push_back("unrecognized title update: " + std::string(expected.path));
+            }
+          }
+        };
+        if (has_container) verify_update_file(update.container);
+        if (has_patches) for (const auto& patch : update.patches)
+          verify_update_file(patch.file, patch.padded_bytes, patch.padded_sha256);
       }
     }
     const auto entry=RootEntry(game);

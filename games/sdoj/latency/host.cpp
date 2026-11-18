@@ -1,4 +1,5 @@
 #include "frame_delay.h"
+#include "../guest_layout.h"
 #include <rex/ppc.h>
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -27,7 +28,7 @@ void Stop() {
     // Modules may still have an interrupted native swap to settle. Stop new
     // work without unloading a PE or erasing its successful late-call receipt.
     using StopModule = void (*)();
-    for (const auto* name : {L"sdoj_CA022100.dll", L"sdoj_CA022110.dll"})
+    for (const auto* name : {kNormalModule, kArrangeModule})
         if (const auto module = GetModuleHandleW(name))
             if (const auto stop = reinterpret_cast<StopModule>(GetProcAddress(module, "SdojFrameDelayStop"))) stop();
 }
@@ -54,7 +55,7 @@ void SdojDelayAdvance(PPCContext& ctx, std::uint8_t* base) {
     if (!running.load(std::memory_order_acquire) || requested.load(std::memory_order_relaxed)>1) return;
     std::uint32_t selection;
     std::memcpy(&selection, base + ctx.r31.u32 + 152, sizeof(selection));
-    const auto module = GetModuleHandleW(__builtin_bswap32(selection) == 2 ? L"sdoj_CA022110.dll" : L"sdoj_CA022100.dll");
+    const auto module = GetModuleHandleW(__builtin_bswap32(selection) == 2 ? sdoj::kArrangeModule : sdoj::kNormalModule);
     using Advance = void (*)(PPCContext&, std::uint8_t*);
     if (module) if (const auto advance = reinterpret_cast<Advance>(GetProcAddress(module, "SdojFrameDelayAdvance"))) advance(ctx, base);
 }

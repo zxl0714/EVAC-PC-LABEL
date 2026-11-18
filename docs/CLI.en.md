@@ -18,6 +18,18 @@ In Command Prompt (CMD), use this form.
 "EVAC PC LABEL.exe" --game futari
 ```
 
+## Big Picture mode
+
+Select **Big Picture** at the top right of the launcher or press `F11` in the game library. In Big Picture, select **Desktop mode** or press `F11` again to return.
+
+In either mode, use the left stick, D-pad, or arcade stick to select a game and press Confirm to launch it. In Big Picture, press Back to open the exit menu.
+
+On a cabinet, use the following command to open Big Picture directly.
+
+```powershell
+& '.\EVAC PC LABEL.exe' --big-picture
+```
+
 ## Game IDs
 
 | Platform | Game | ID |

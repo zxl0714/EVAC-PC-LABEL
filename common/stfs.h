@@ -3,6 +3,7 @@
 #include <memory>
 
 namespace cave {
+inline constexpr std::uint32_t kStfsTitleUpdate = 0xB0000;
 // Bounded, read-only LIVE/PIRS reader. Extraction is a separate operation
 // into a new cache directory; inspection never writes to the player's source.
 struct StfsFile {

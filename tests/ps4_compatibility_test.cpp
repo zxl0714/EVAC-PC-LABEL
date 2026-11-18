@@ -209,6 +209,9 @@ void Policies() {
         "garegga_01000.prx","garegga_01010.prx","garegga_01020.prx","garegga_01030.prx","garegga_01040.prx"},
         "Garegga includes both integration modules and all five native core revisions");
     Check(garegga.local_replay&&!garegga.replay_peer,"Garegga local viewer keeps its own identity flow");
+    const auto garegga_jp=PlanPs4Data("garegga","01.07","merged-patch");
+    Check(garegga_jp.merged_app && garegga_jp.local_replay && !garegga_jp.community_offline &&
+          garegga_jp.programs == garegga.programs,"Garegga 01.07 honors community configuration");
     Reject([]{PlanPs4Data("garegga","01.01","base");},"Garegga master version is not application version");
     Reject([]{PlanPs4Data("garegga","01.00","merged-patch");},"unsupported Garegga merged data rejected");
     Reject([]{PlanPs4Data("other","01.00","base");},"unknown title");

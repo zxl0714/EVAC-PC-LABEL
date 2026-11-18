@@ -270,5 +270,146 @@
   "forbiddenFiles": [
     "ps4data_patch_info.psb.m",
     "ps4data_patch_body.bin"
+  ],
+  "alternatives": [
+    {
+      "id": "update-107-jp",
+      "titleId": "CUSA05429",
+      "contentId": "JP0092-CUSA05429_00-BATTLEGAREGGAPS4",
+      "version": "01.07",
+      "layout": "merged-patch",
+      "entry": "eboot.bin",
+      "files": [
+        {
+          "path": "2000/movie/title_opening.mp4",
+          "bytes": 12467129,
+          "sha256": "1f9aeea3e28cbbbc7f8d4e0b09c8afa080fbe9228e1aae413945ba6b7830d21c",
+          "program": false
+        },
+        {
+          "path": "2000/movie/title_staff.mp4",
+          "bytes": 28603012,
+          "sha256": "b99f71b7402dcc76e4decc4565a40bcbf09f63a12ebc27bc874f47eb7c274b96",
+          "program": false
+        },
+        {
+          "path": "eboot.bin",
+          "bytes": 3204456,
+          "sha256": "bb5ad85143234a13d53aeece58ad922bdeeaaf70295c75aebd17f6deb2585929",
+          "program": true,
+          "programFingerprint": "814d01608758a4ec46ef4d39f72021ee7ea820a4db7be5daf81415d2e21e9a90"
+        },
+        {
+          "path": "emu_integration.prx",
+          "bytes": 831477,
+          "sha256": "435c5984635c31f98dd8fb46a6d9fb120377717dbf877922d19c7569b95ab416",
+          "program": true,
+          "programFingerprint": "3bc61018a10f163d7adc577ca1c6fd77e01c6207ed4bd8df808ac7fe9a8b53ec"
+        },
+        {
+          "path": "emu_integration_01100.prx",
+          "bytes": 831769,
+          "sha256": "7ef23fa1bf0c0773b2236ade4b68f5f48d1ee567c638b5d0126d1da5b01bff0f",
+          "program": true,
+          "programFingerprint": "59e3f56fcb5ed9b811e5348f58803e5c019ed2d45d7e2049e957ddd3a9514fd7"
+        },
+        {
+          "path": "garegga_01000.prx",
+          "bytes": 10963527,
+          "sha256": "7b52b8378e18f0d1b62598f56e21a20288bb88ae776d49684e1551e4fb4f1499",
+          "program": true,
+          "programFingerprint": "891fdad877bfe82d8e1b72989c90feb8704c4a270b37828eeb5f02c0b3df6356"
+        },
+        {
+          "path": "garegga_01010.prx",
+          "bytes": 10963527,
+          "sha256": "0ee934f12577ea6a96042391115120838c03d1448620919d7d804d77448b7a0b",
+          "program": true,
+          "programFingerprint": "ec9f0f170b293a630c31a52d059217005d15a8abc44ed0cd37ad56648f7e99cf"
+        },
+        {
+          "path": "garegga_01020.prx",
+          "bytes": 10963607,
+          "sha256": "7993da1cd35484df826c08670d52c160156f6849557ebfa44010a05aed929279",
+          "program": true,
+          "programFingerprint": "ccb29ecf671ec2295ca041c2eeecfce56e849c8f360bc6eec4a21ec4b4162af1"
+        },
+        {
+          "path": "garegga_01030.prx",
+          "bytes": 10963607,
+          "sha256": "38f17625b4aaa2a2bb85c2a5fe3aeb5649d7c2a6b8515b412cad42a1807aef0d",
+          "program": true,
+          "programFingerprint": "b0ee7e99f660387d5691282552dd256c2696f3130777376ad6b2a13297ef1bed"
+        },
+        {
+          "path": "garegga_01040.prx",
+          "bytes": 10980391,
+          "sha256": "1518c66787ce2b2af63db6c24075bf7cba90d0f979155c9f7d27e53b35100821",
+          "program": true,
+          "programFingerprint": "b09215aaf842c0b68d315ea6942aa0c7604f1abf9d00beb9fc2318c85095ff0d"
+        },
+        {
+          "path": "ps4data_body.bin",
+          "bytes": 624419859,
+          "sha256": "f39d52379ea6834af4d850380a147cd6906e570a7074b9a1d1093d4b57ecb95d",
+          "program": false
+        },
+        {
+          "path": "ps4data_info.psb.m",
+          "bytes": 23153,
+          "sha256": "6a9c20f3ac6371cfb047dfddf772551829a761082e7e30e91cbe8fd8cb67595c",
+          "program": false
+        },
+        {
+          "path": "ps4data_patch_body.bin",
+          "bytes": 64023066,
+          "sha256": "faf09b201cee61477bae9df3255e6d50665d6a2899d461baeb570a63b73c92e9",
+          "program": false
+        },
+        {
+          "path": "ps4data_patch_info.psb.m",
+          "bytes": 9737,
+          "sha256": "a1b74726ccdf1b894ea9aa146962f65fcc4b0de885d67d15b3643fbb3057c220",
+          "program": false
+        },
+        {
+          "path": "sce_discmap.plt",
+          "bytes": 3288792,
+          "sha256": "116c7c5f2cb4ca3d1b6cab52aa403136b6a15db8f9a7830ac009e0510af9e03e",
+          "program": false
+        },
+        {
+          "path": "sce_discmap_patch.plt",
+          "bytes": 3288792,
+          "sha256": "fa3038b2d05b356ee952cd57a8cf44c5550e50dc0a8fbd9c865bd1f1ba8abd3f",
+          "program": false
+        },
+        {
+          "path": "sce_module/libc.prx",
+          "bytes": 1015242,
+          "sha256": "d88f1cc336985bf02fa128e8f7bbfbc21ac6c7fa1a151ba0c40b300750f2b2dd",
+          "program": true,
+          "programFingerprint": "50504861000befee0b30460f6e58a9c41d654a5679a90264539066b840fd0d99"
+        },
+        {
+          "path": "sce_sys/param.sfo",
+          "bytes": 1840,
+          "sha256": "a86a3236ec150e5ab9708f71f2fba30d70e931df219928e3dc9b96dc9ff7cd55",
+          "program": false
+        },
+        {
+          "path": "sce_sys/trophy/trophy00.trp",
+          "bytes": 3060576,
+          "sha256": "b8eec980beef1fca795421ea531096f2891d11bfdac3f1f3e541830021b94864",
+          "program": false
+        }
+      ],
+      "forbiddenFiles": [
+        "CUSA05429-app",
+        "CUSA05429-patch",
+        "CUSA10207-app",
+        "CUSA10207-patch"
+      ]
+    }
   ]
 }

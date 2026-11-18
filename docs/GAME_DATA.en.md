@@ -32,6 +32,8 @@ If the files are inside `game-data/futari/extracted-folder/`, select that folder
 
 If you already have `default.xex` or `eboot.bin` alongside the complete game resources, continue to the game's section below.
 
+For supported PS4 regions and versions, use a complete game folder exported by your tool of choice. The launcher identifies the game from its program, version, and runtime assets, and accepts both ELF and plaintext SELF.
+
 ### Xbox 360: Extract Xbox 360
 
 1. Open `tools/Extract-Xbox360.exe` from the program package.
@@ -150,7 +152,7 @@ game-data/sdoj/
   ...
 ```
 
-Use the supported original disc data. Music patches and other program updates are not supported. Keep `default.xexp`, `CA022100.binp`, and `CA022110.binp` out of this folder; if updates have already been mixed in, extract the original base game into a new folder.
+Use the complete extracted Xbox 360 disc. For **TU 1.01**, unzip the update and place `TU_11LK1V7_000000G000000.0000000000084` next to `default.xex`. The launcher selects the updated version automatically. You can also place `default.xexp`, `CA022100.binp`, and `CA022110.binp` from the same disc update in that folder.
 
 Coins, the shop, and unlockable content follow the original game's progression.
 
@@ -286,7 +288,9 @@ Extract the base PKG with `tools/Extract-PS4.exe`, click **Open game files**, th
 
 ### バトルガレッガ Rev.2016 — Battle Garegga Rev.2016 (garegga)
 
-Supports the **Korean CUSA10207 01.00 base game**, with English menus by default. To switch back to Korean, set `english_translation = false` under `[game.garegga]` in `user-data/config.ini` and restart the game.
+Supports the **Korean CUSA10207 01.00 base game** and the **Japanese CUSA05429 01.07 merged update**. Both releases share community leaderboards and can download each other's replays.
+
+The Japanese release uses Japanese menus. The Korean release defaults to English menus. To switch back to Korean, set `english_translation = false` under `[game.garegga]` in `user-data/config.ini` and restart the game.
 
 ```text
 game-data/garegga/
@@ -298,7 +302,7 @@ game-data/garegga/
   sce_sys/
 ```
 
-Extract the base PKG with `tools/Extract-PS4.exe` or use your unpacked console export. Select the folder containing `eboot.bin` in the launcher, or copy its contents into `game-data/garegga/`. Saves, replays, and settings are stored in `user-data/garegga/`.
+Extract your PKG with `tools/Extract-PS4.exe` or use your unpacked console export. For the Japanese release, select the base and the 01.07 update together. Select the extracted folder containing `eboot.bin` in the launcher, or copy its contents into `game-data/garegga/`. Saves, replays, and settings are stored in `user-data/garegga/`.
 
 ## PS2 games
 

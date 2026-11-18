@@ -1,4 +1,5 @@
 #pragma once
+#include "../guest_layout.h"
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -10,8 +11,8 @@ struct AudioQueueLayout {
 };
 constexpr AudioQueueLayout AudioQueue(unsigned module) {
     // Independently reviewed disc modules; the second header is four bytes shorter.
-    return module == 1 ? AudioQueueLayout{0x886B1630,0x886B160C,0x886AED34,0x886B161C,0x886B1930}
-         : module == 2 ? AudioQueueLayout{0x886BB0B8,0x886BB098,0x886B87C0,0x886BB0A8,0x886BB3BC}
+    return module == 1 ? AudioQueueLayout{OverlayData(0x886B1630),OverlayData(0x886B160C),OverlayData(0x886AED34),OverlayData(0x886B161C),OverlayData(0x886B1930)}
+         : module == 2 ? AudioQueueLayout{OverlayData(0x886BB0B8),OverlayData(0x886BB098),OverlayData(0x886B87C0),OverlayData(0x886BB0A8),OverlayData(0x886BB3BC)}
          : AudioQueueLayout{};
 }
 inline std::optional<unsigned> AudioSlot(unsigned module, std::uint32_t address) {

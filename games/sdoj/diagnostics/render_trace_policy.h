@@ -1,4 +1,5 @@
 #pragma once
+#include "../guest_layout.h"
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -8,8 +9,10 @@ namespace sdoj::diagnostics {
 // Disc-base 88033070/880331F0, independently reviewed in each overlapping module.
 // countdown, swap serial, active writer, published buffer, published status.
 constexpr std::array<std::uint32_t, 5> RenderAddresses(unsigned module) {
-    if (module == 1) return {0x88879184, 0x886F4CD0, 0x886F4D10, 0x888791A4, 0x888791A8};
-    if (module == 2) return {0x888816AC, 0x886FD1F8, 0x886FD238, 0x888816CC, 0x888816D0};
+    if (module == 1) return {OverlayData(0x88879184), OverlayData(0x886F4CD0), OverlayData(0x886F4D10),
+        OverlayData(0x888791A4), OverlayData(0x888791A8)};
+    if (module == 2) return {OverlayData(0x888816AC), OverlayData(0x886FD1F8), OverlayData(0x886FD238),
+        OverlayData(0x888816CC), OverlayData(0x888816D0)};
     return {};
 }
 inline std::optional<std::uint32_t> RenderWord(std::span<const std::uint8_t> bytes) {

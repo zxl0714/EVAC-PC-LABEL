@@ -21,6 +21,7 @@ def snapshot():
                                    'ls-files', '-z', '--cached', '--others', '--exclude-standard'])
     names = {name.decode() for name in raw.split(b'\0') if name}
     explicit = {'CMakeLists.txt', 'games/catalogue.json', 'config/default.ini', 'tools/packages.lock.json',
+                'backends/ps4/content/sfo.cpp', 'backends/ps4/content/sfo.h',
                 'scripts/Build.ps1', 'scripts/Build-Common.ps1', 'scripts/generate_catalogue.py',
                 'scripts/generate_artwork.py', 'scripts/product.py', 'scripts/launcher_receipt.py', 'scripts/toolchain.py',
                 'tools/ps4-extract.lock.json', 'scripts/ps4_extract_tools.py'}

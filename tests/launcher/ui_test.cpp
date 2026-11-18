@@ -831,6 +831,35 @@ void MainChecks() {
   Require(unexpected_dialogs==0 && opened_paths.size()==1,"Unexpected shell or dialog side effects");
   SelectionChecks();
   WindowSizeChecks();
+  {
+    Fixture fixture;
+    for(const auto extent : {std::pair{1280.f,720.f},std::pair{640.f,480.f},std::pair{480.f,640.f}}) {
+      const BigPictureLayout view{extent.first,extent.second,12,6};
+      for(size_t i=view.First();i<view.Last();++i) {
+        const auto card=view.Card(i);
+        Require(card.left>=0 && card.right<=view.width && card.top>=0 &&
+            card.bottom<=view.height-119*view.Scale(),"Big Picture cover overlaps the window or controls");
+      }
+      Require(view.Move(MenuKey::Left)==5 && view.Move(MenuKey::Right)==7 &&
+          view.Move(MenuKey::Up)==6-view.Columns() && view.Move(MenuKey::Down)==6+view.Columns(),
+          "Big Picture D-pad layout does not move to the adjacent cover");
+    }
+    Frame frame(fixture.root,"futari");
+    frame.Click(frame.app.layout.big_picture_button());
+    Require(frame.app.BigPicture() && (GetWindowLongPtrW(frame.app.hwnd,GWL_STYLE)&WS_POPUP),
+        "Big Picture entry did not open a full-screen window");
+    const auto before=frame.app.VisiblePosition().value();
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RIGHT,0);
+    Require(frame.app.VisiblePosition()==before+1,"Big Picture input did not move game focus");
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RETURN,0);
+    Require(!frame.app.work && !frame.app.child,"Big Picture began launching missing game data");
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_ESCAPE,0);
+    Require(frame.app.menu_open,"Big Picture Back did not open the exit menu");
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RETURN,0);
+    Require(!frame.app.BigPicture() && (GetWindowLongPtrW(frame.app.hwnd,GWL_STYLE)&WS_OVERLAPPEDWINDOW),
+        "Big Picture exit did not restore the desktop layout");
+    Require(frame.app.VisiblePosition()==before+1,"Returning to desktop lost game focus");
+  }
   CoverLayoutChecks();
   NicknameWarningChecks();
   NicknameAlignmentChecks();
@@ -844,6 +873,128 @@ void MainChecks() {
   UpdateChecks();
 }
 }
+void MenuControllerChecks(const fs::path& sdl) {
+  Fixture fixture;
+  Write(ConfigPath(fixture.root),"[collection]\nlauncher_layout=covers\ncheck_for_updates=false\n");
+  const auto target=fixture.root/L"runtime/ps2/SDL3.dll";
+  fs::create_directories(target.parent_path());
+  fs::copy_file(sdl,target);
+  Frame frame(fixture.root,"futari");
+  auto& app=frame.app;
+  const auto tick=[&]{App::Window(app.hwnd,WM_TIMER,kMenuControllerTimer,0);};
+  const auto module=LoadLibraryExW(target.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+  const std::unique_ptr<std::remove_pointer_t<HMODULE>,decltype(&FreeLibrary)> library(module,FreeLibrary);
+  Require(module && app.menu_controller && !app.BigPicture(),"SDL3 menu input did not start in desktop mode");
+  const auto init=reinterpret_cast<decltype(&SDL_InitSubSystem)>(GetProcAddress(module,"SDL_InitSubSystem"));
+  const auto quit=reinterpret_cast<decltype(&SDL_QuitSubSystem)>(GetProcAddress(module,"SDL_QuitSubSystem"));
+  Require(init && quit && init(SDL_INIT_GAMEPAD),"Keep the virtual input subsystem alive for detach");
+  const auto attach=reinterpret_cast<decltype(&SDL_AttachVirtualJoystick)>(GetProcAddress(module,"SDL_AttachVirtualJoystick"));
+  const auto detach=reinterpret_cast<decltype(&SDL_DetachVirtualJoystick)>(GetProcAddress(module,"SDL_DetachVirtualJoystick"));
+  const auto open=reinterpret_cast<decltype(&SDL_OpenJoystick)>(GetProcAddress(module,"SDL_OpenJoystick"));
+  const auto close=reinterpret_cast<decltype(&SDL_CloseJoystick)>(GetProcAddress(module,"SDL_CloseJoystick"));
+  const auto hat=reinterpret_cast<decltype(&SDL_SetJoystickVirtualHat)>(GetProcAddress(module,"SDL_SetJoystickVirtualHat"));
+  const auto button=reinterpret_cast<decltype(&SDL_SetJoystickVirtualButton)>(GetProcAddress(module,"SDL_SetJoystickVirtualButton"));
+  Require(attach && detach && open && close && hat && button,"SDL3 virtual controller functions are missing");
+  SDL_VirtualJoystickDesc descriptor{};
+  descriptor.version=sizeof(descriptor);
+  descriptor.type=SDL_JOYSTICK_TYPE_ARCADE_STICK;
+  descriptor.nbuttons=2;
+  descriptor.nhats=1;
+  descriptor.name="EVAC Test Arcade Stick";
+  update_foreground=app.hwnd;
+  const auto select=[&](const SDL_VirtualJoystickDesc& info) {
+    const auto id=attach(&info);
+    Require(id!=0,"Attach virtual controller");
+    auto* joystick=open(id);
+    Require(joystick!=nullptr,"Open virtual controller");
+    std::this_thread::sleep_for(std::chrono::milliseconds(375));
+    tick();
+    return std::pair{id,joystick};
+  };
+  const auto [first,stick]=select(descriptor);
+  SDL_VirtualJoystickDesc gamepad_descriptor{};
+  gamepad_descriptor.version=sizeof(gamepad_descriptor);
+  gamepad_descriptor.type=SDL_JOYSTICK_TYPE_GAMEPAD;
+  gamepad_descriptor.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;
+  gamepad_descriptor.button_mask=(1u<<SDL_GAMEPAD_BUTTON_COUNT)-1;
+  gamepad_descriptor.name="EVAC Test Gamepad";
+  const auto [gamepad_id,gamepad]=select(gamepad_descriptor);
+  app.layout.width=720;
+  app.layout.height=520;
+  const auto initial=app.VisiblePosition().value();
+  Require(hat(stick,0,SDL_HAT_DOWN),"Press arcade stick Down");
+  tick();
+  const auto second_row=initial+app.layout.columns();
+  Require(app.VisiblePosition()==second_row && app.layout.scroll>0 && !app.work,
+          "Desktop controller did not scroll to the next cover row using the library snapshot");
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true),"Press gamepad Right");
+  tick();
+  Require(app.VisiblePosition()==second_row+1,"Desktop controller did not select the adjacent cover");
+  Require(hat(stick,0,SDL_HAT_CENTERED) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,false),
+          "Release desktop directions");
+  tick();
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_SOUTH,true),"Press gamepad Confirm");
+  tick();
+  Require(!app.work && !app.child,"Desktop controller tried to launch a game with missing data");
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_SOUTH,false),"Release gamepad Confirm");
+  tick();
+
+  app.layout.covers=false;
+  app.EnsureVisible();
+  const auto list_position=app.VisiblePosition();
+  update_foreground=app.nickname_control;
+  Require(hat(stick,0,SDL_HAT_UP),"Hold arcade stick Up while launcher is inactive");
+  tick();
+  update_foreground=app.hwnd;
+  tick();
+  Require(app.VisiblePosition()==list_position,"Held direction moved the list when launcher regained focus");
+  Require(hat(stick,0,SDL_HAT_CENTERED),"Release arcade stick Up");
+  tick();
+  Require(hat(stick,0,SDL_HAT_UP),"Press arcade stick Up in the classic list");
+  tick();
+  Require(app.VisiblePosition()==list_position.value()-1,"Classic list did not move by one row");
+
+  app.child.emplace();
+  app.active_game=Catalogue()[app.selected].id;
+  const auto game=app.selected;
+  tick();
+  App::Window(app.hwnd,WM_TIMER,kChildTimer,0);
+  tick();
+  Require(!app.child && app.selected==game,"Returning from a game lost the selected title");
+  Require(hat(stick,0,SDL_HAT_CENTERED),"Release arcade stick after the game");
+  tick();
+
+  app.SetBigPicture(true);
+  tick();
+  const size_t selection=app.selected;
+  Require(hat(stick,0,SDL_HAT_RIGHT),"Set virtual stick direction");
+  tick();
+  Require(app.selected!=selection,"SDL arcade stick did not move the Big Picture focus");
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true),"Press the second device's D-pad");
+  tick();
+  Require(app.selected==selection,"Second controller did not move focus while the first was held");
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_LEFT,false),"Release the second device's D-pad");
+  close(stick);
+  Require(detach(first),"Detach virtual arcade stick");
+
+  const auto [second,reconnected]=select(descriptor);
+  Require(button(reconnected,1,true),"Set virtual Back button");
+  tick();
+  Require(app.menu_open,"Reconnected SDL controller could not open the exit menu");
+  Require(button(reconnected,1,false),"Release virtual Back button");
+  tick();
+  Require(button(reconnected,0,true),"Set virtual Confirm button");
+  tick();
+  Require(!app.BigPicture() && app.menu_controller && app.selected==selection,
+          "SDL controller did not return to desktop with the current game selected");
+  close(reconnected);
+  Require(detach(second),"Detach reconnected controller");
+  close(gamepad);
+  Require(detach(gamepad_id),"Detach virtual gamepad");
+  quit(SDL_INIT_GAMEPAD);
+  update_foreground=nullptr;
+}
+
 int wmain(int count,wchar_t** arguments) {
   try {
     Check(CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED),"Initialize test COM");
@@ -858,6 +1009,7 @@ int wmain(int count,wchar_t** arguments) {
     else if(count==3 && std::wstring_view(arguments[1])==L"--drag-previews")DragVisualChecks(arguments[2]);
     else if(count==3 && std::wstring_view(arguments[1])==L"--cover-sizing-previews")VisualChecks(arguments[2],true);
     else if(count==2 && std::wstring_view(arguments[1])==L"--window-size-checks")WindowSizeChecks();
+    else if(count==3 && std::wstring_view(arguments[1])==L"--big-picture-sdl-checks")MenuControllerChecks(arguments[2]);
     else if(count==1)MainChecks();
     else throw std::runtime_error("Unexpected launcher test arguments");
     std::cout<<checks<<" launcher integration checks passed.\n";

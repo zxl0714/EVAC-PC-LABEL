@@ -34,6 +34,8 @@
 
 已经有 `default.xex`／`eboot.bin` 和完整资源目录时，无须再次解包。ZIP／RAR 用常规解压软件完整展开；若得到 ISO／PKG，再按下面处理。
 
+PS4 的已支持地区和版本可使用不同工具导出的完整游戏目录。程序可为 ELF 或明文 SELF，启动器按程序内容、游戏版本和运行资源识别。
+
 ### Xbox 360：Extract Xbox 360
 
 1. 双击程序包中的 `tools/Extract-Xbox360.exe`。
@@ -152,7 +154,7 @@ game-data/sdoj/
   ...
 ```
 
-使用受支持的原版光盘解包数据。当前未接入音乐补丁或其他程序更新，不要将 `default.xexp`、`CA022100.binp`、`CA022110.binp` 混入此目录；如已有混合版本，请从保留的原始本体重新提取一份。
+使用完整的 Xbox 360 光盘解包数据。要使用 **TU 1.01**，解压更新 ZIP，将 `TU_11LK1V7_000000G000000.0000000000084` 放在 `default.xex` 同一目录，启动器会自动选用更新版。也可以放入从同一光盘更新解出的 `default.xexp`、`CA022100.binp` 和 `CA022110.binp`。
 
 本体内的金币、商店和游玩解锁内容按原作流程使用，不需要另找 DLC。
 
@@ -284,7 +286,9 @@ game-data/feveron/
 
 ### バトルガレッガ Rev.2016（garegga）
 
-支持 **韩版 CUSA10207／01.00 本体**，游戏菜单默认显示英文。要切回韩文，在 `user-data/config.ini` 的 `[game.garegga]` 下设置 `english_translation = false`，然后重启游戏。
+支持 **韩版 CUSA10207／01.00 本体**和**日版 CUSA05429／01.07 合并补丁**。两版共用社区排行榜，可以互相下载录像。
+
+日版使用日文菜单。韩版菜单默认显示英文。要切回韩文，在 `user-data/config.ini` 的 `[game.garegga]` 下设置 `english_translation = false`，然后重启游戏。
 
 ```text
 game-data/garegga/
@@ -296,7 +300,7 @@ game-data/garegga/
   sce_sys/
 ```
 
-用 `tools/Extract-PS4.exe` 提取本体 PKG。已有主机导出数据时，使用解包后的目录。把包含 `eboot.bin` 的目录选为游戏数据目录，或将该目录的内容复制到 `game-data/garegga/`。存档、录像和设置位于 `user-data/garegga/`。
+用 `tools/Extract-PS4.exe` 提取 PKG，日版同时选择本体和 01.07 补丁。已有主机导出数据时，使用解包后的目录。把包含 `eboot.bin` 的目录选为游戏数据目录，或将该目录的内容复制到 `game-data/garegga/`。存档、录像和设置位于 `user-data/garegga/`。
 
 ## PS2 游戏
 

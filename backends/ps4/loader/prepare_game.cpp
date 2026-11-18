@@ -41,11 +41,11 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     const bool esprade=game=="esprade";
     const bool garegga=game=="garegga";
     const bool daioujou=game=="daioujou";
-    const bool garegga_english=garegga && options.garegga_english_translation;
     const bool death_label=daioujou && options.death_label;
     const auto root=fs::canonical(requested_root),data=fs::canonical(requested_data);
     ValidateOutputs(Paths(root,game,data));VerificationCache verification(root);
     const auto inspected=CheckData(root,data,game,verification);
+    const bool garegga_english=garegga && inspected.version=="01.00" && options.garegga_english_translation;
     const auto policy=PlanPs4Data(game,inspected.version,inspected.layout);
     std::array<wchar_t,32768> executable{};
     const auto length=GetModuleFileNameW(nullptr,executable.data(),static_cast<DWORD>(executable.size()));
@@ -54,7 +54,7 @@ PreparedGame PreparePs4Game(const fs::path& requested_root,const fs::path& reque
     auto inputs=Json::array();
     const auto manifest=DataFiles(FindGame(game),inspected.variant);
     for (const auto& file:manifest) {
-        if (!file.program) {
+        if (!file.program && file.path!="sce_sys/param.sfo") {
             inputs.push_back({{"path",file.path},{"bytes",file.bytes},{"sha256",file.sha256}});
             continue;
         }

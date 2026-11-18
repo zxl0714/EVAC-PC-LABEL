@@ -92,14 +92,6 @@ Sfo ReadSfo(const fs::path& root) {
 std::string Required(const Sfo& sfo, std::string_view key) {
     const auto value = sfo.Text(key); if (!value) { Invalid("Missing or wrongly typed content metadata"); } return *value;
 }
-void Identity(std::string_view title, std::string_view content) {
-    if (title.size() != 9 || !title.starts_with("CUSA") || !std::all_of(title.begin() + 4, title.end(), [](char c) { return c >= '0' && c <= '9'; })) { Invalid("Invalid title ID"); }
-    if (content.size() != 36 || content[6] != '-' || content.substr(7, 9) != title || content[16] != '_' || content[19] != '-') { Invalid("Invalid content ID"); }
-    for (std::size_t i = 0; i < content.size(); ++i) {
-        if (i == 6 || i == 16 || i == 19) { continue; }
-        const auto c = content[i]; if (!(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '_') { Invalid("Invalid content ID character"); }
-    }
-}
 }
 ReadOnlyFile::~ReadOnlyFile() { CloseHandle(handle_); }
 std::size_t ReadOnlyFile::ReadAt(std::uint64_t offset, std::span<std::byte> output) {
@@ -171,13 +163,16 @@ void ReadOnlyFile::AppendArchive(std::unique_ptr<ReadOnlyFile> tail) {
 ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::path& addons,
                          const fs::path& read_patches,bool merged_patch,const fs::path& arrange_archive)
     : app_(Root(app)), metadata_(ReadSfo(app_)) {
-    title_ = Required(metadata_, "TITLE_ID"); content_ = Required(metadata_, "CONTENT_ID"); Identity(title_, content_);
+    title_ = Required(metadata_, "TITLE_ID"); content_ = Required(metadata_, "CONTENT_ID");
+    if (!ValidContentIdentity(title_, content_)) { Invalid("Invalid application identity"); }
+    const auto category = Required(metadata_, "CATEGORY");
     if (merged_patch) {
-        // Explicit layout contract, not automatic acceptance of a patch-only
-        // directory as a complete application. The launcher verifies all data.
-        if (!patch.empty() || Required(metadata_,"CATEGORY")!="gp")
-            Invalid("Merged content requires a single patch-category application root");
-    } else if (Required(metadata_, "CATEGORY") != "gd") { Invalid("The app root must contain a base application"); }
+        // Repacked complete applications can use the base SFO category. The
+        // launcher verifies both archives before requesting a merged launch.
+        if (!patch.empty() || (category != "gp" &&
+            (category != "gd" || !Open(app_, L"ps4data_patch_body.bin") || !Open(app_, L"ps4data_patch_info.psb.m"))))
+            Invalid("Merged content requires a single application root with the game update");
+    } else if (category != "gd") { Invalid("The app root must contain a base application"); }
     if (!patch.empty()) {
         patch_ = Root(patch); const auto metadata = ReadSfo(patch_);
         if (Required(metadata, "CATEGORY") != "gp" || Required(metadata, "TITLE_ID") != title_ || Required(metadata, "CONTENT_ID") != content_) { Invalid("Patch does not belong to this application"); }
@@ -195,8 +190,10 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
         std::sort(paths.begin(), paths.end());
         for (const auto& path : paths) {
             const auto root = Root(path); const auto metadata = ReadSfo(root);
-            const auto title_id = Required(metadata, "TITLE_ID"), content_id = Required(metadata, "CONTENT_ID"); Identity(title_id, content_id);
-            if (title_id != title_ || Required(metadata, "CATEGORY") != "ac") { Invalid("Unsupported or mismatched additional content"); }
+            const auto title_id = Required(metadata, "TITLE_ID"), content_id = Required(metadata, "CONTENT_ID");
+            if (title_id != title_ || !ValidContentIdentity(title_id, content_id) || Required(metadata, "CATEGORY") != "ac") {
+                Invalid("Unsupported or mismatched additional content");
+            }
             const auto label = content_id.substr(20);
             if (std::any_of(addons_.begin(), addons_.end(), [&](const auto& item) { return item.label == label; })) { Invalid("Duplicate additional content label"); }
             addons_.push_back({label, root});
@@ -205,7 +202,7 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
     // This title stores both optional modes in /app0. Its NoExtraData path
     // interprets the 16-byte field as a NUL-terminated local capability name.
     // These runtime labels are not PSN content IDs or network credentials.
-    if (title_ == "CUSA09062" && content_ == "JP0092-CUSA09062_00-KETSUIDEATHTINY0") {
+    if (title_ == "CUSA09062") {
         constexpr std::array labels{"KETSUIBUILTIN001", "KETSUIBUILTIN002"};
         constexpr std::array capabilities{"KETSUI_PS4_DLC1", "KETSUI_PS4_DLC2"};
         static_assert(sizeof("KETSUIBUILTIN001") == 17 && sizeof("KETSUI_PS4_DLC1") == 16);

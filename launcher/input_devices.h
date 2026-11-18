@@ -135,6 +135,10 @@ public:
         joystick_=id?OpenJoystick(id):nullptr;
         return joystick_!=nullptr;
     }
+    using Joystick=std::unique_ptr<SDL_Joystick,decltype(&SDL_CloseJoystick)>;
+    Joystick Open(SDL_JoystickID id) {
+        return Joystick(OpenJoystick(id),CloseJoystick);
+    }
     PadMap Defaults(SDL_JoystickID id) {
         auto mapping=std::unique_ptr<char,decltype(free)>(GetGamepadMappingForID(id),free);
         if(!mapping)return {};
@@ -143,12 +147,13 @@ public:
         const auto second=text.find(',',first+1);if(second==text.npos)return {};
         return ParsePadMap(text.substr(second+1));
     }
-    PadSnapshot Read() {
+    PadSnapshot Read() {return Read(joystick_);}
+    PadSnapshot Read(SDL_Joystick* joystick) {
         PadSnapshot result;
-        if(!joystick_ || !JoystickConnected(joystick_))return result;
-        for(int i=0,n=std::min(256,GetNumJoystickButtons(joystick_));i<n;++i)result.buttons.push_back(GetJoystickButton(joystick_,i));
-        for(int i=0,n=std::min(64,GetNumJoystickAxes(joystick_));i<n;++i)result.axes.push_back(GetJoystickAxis(joystick_,i));
-        for(int i=0,n=std::min(32,GetNumJoystickHats(joystick_));i<n;++i)result.hats.push_back(GetJoystickHat(joystick_,i));
+        if(!joystick || !JoystickConnected(joystick))return result;
+        for(int i=0,n=std::min(256,GetNumJoystickButtons(joystick));i<n;++i)result.buttons.push_back(GetJoystickButton(joystick,i));
+        for(int i=0,n=std::min(64,GetNumJoystickAxes(joystick));i<n;++i)result.axes.push_back(GetJoystickAxis(joystick,i));
+        for(int i=0,n=std::min(32,GetNumJoystickHats(joystick));i<n;++i)result.hats.push_back(GetJoystickHat(joystick,i));
         return result;
     }
 private:

@@ -74,7 +74,7 @@ struct StfsPackage::Impl {
     Need(offset<=size && kBlock<=size-offset,"Truncated package data block");return offset;
   }
   void Load(const fs::path& source,bool verify,uint32_t content_type) {
-    Need(content_type==2 || content_type==0xD0000,"Unsupported content type");
+    Need(content_type==2 || content_type==0xD0000 || content_type==kStfsTitleUpdate,"Unsupported content type");
     NoLinks(source);
     file=CreateFileW(source.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
     Need(file!=INVALID_HANDLE_VALUE,"Cannot read content package");
@@ -85,7 +85,8 @@ struct StfsPackage::Impl {
     Need(!std::memcmp(data,"LIVE",4) || !std::memcmp(data,"PIRS",4),"Expected a LIVE/PIRS content package; unpack ZIP/RAR first");
     auto header=Number(0x340,4);Need(header>=0x400 && header<=1024*1024 && header<=size,"Invalid package header");
     first=(header+4095)&~4095u;
-    Need(Number(0x344,4)==content_type,content_type==2?"Expected DLC content type":"Expected XBLA content type");title=Number(0x360,4);
+    Need(Number(0x344,4)==content_type,content_type==2?"Expected DLC content type":
+         content_type==kStfsTitleUpdate?"Expected title update content type":"Expected XBLA content type");title=Number(0x360,4);
     Need(Number(0x3A9,4)==0 && data[0x379]==0x24 && (data[0x37B]&1),"Unsupported STFS layout");
     blocks=Number(0x395,4);Need(blocks>0 && blocks<kMax/kBlock,"Package block count exceeds limit");(void)Offset(blocks-1);
     std::set<uint32_t> used;

@@ -1,4 +1,5 @@
 #pragma once
+#include "../guest_layout.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -48,7 +49,7 @@ struct InputPass {
 };
 
 constexpr std::uint32_t CoreInputBlock(unsigned module) {
-    return module == 1 ? 0x888752F0u : module == 2 ? 0x8887D818u : 0;
+    return module == 1 ? OverlayData(0x888752F0u) : module == 2 ? OverlayData(0x8887D818u) : 0;
 }
 struct CoreInputSample {
     std::array<std::uint32_t, 2> previous{}, current{};

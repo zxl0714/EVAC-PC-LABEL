@@ -603,7 +603,8 @@ LONG WINAPI Unhandled(EXCEPTION_POINTERS* exception) {
         TerminateProcess(GetCurrentProcess(), 22);
         return EXCEPTION_EXECUTE_HANDLER;
     }
-    cave::WriteWindowsFaultText(GetStdHandle(STD_ERROR_HANDLE), exception);
+    const auto stderr_handle = GetStdHandle(STD_ERROR_HANDLE);
+    cave::WriteWindowsFaultText(stderr_handle, exception);
     PrintFaultContext(*exception->ContextRecord);
     const auto rip = exception->ContextRecord->Rip;
     const auto* runtime = ImageAt(rip);
@@ -660,6 +661,7 @@ LONG WINAPI Unhandled(EXCEPTION_POINTERS* exception) {
         line.Text("}\n");
         line.Flush();
     }
+    cave::ps4::DaioujouDeathLabel::WriteGraphicsCrashTrace(stderr_handle, *exception->ContextRecord);
     TerminateProcess(GetCurrentProcess(), 22);
     return EXCEPTION_EXECUTE_HANDLER;
 }
@@ -1328,8 +1330,12 @@ void StartLinkedOriginalModules(Runtime& runtime) {
     constexpr std::array<std::uint8_t,32> garegga{
         0x4c,0xc8,0x96,0x22,0x3d,0x6a,0x5d,0x85,0x29,0x78,0xbe,0x63,0x91,0x61,0x42,0xb7,
         0x02,0x21,0x34,0xe9,0xb0,0xb4,0x8c,0x4d,0x85,0xa6,0x65,0x13,0xd5,0x0b,0xc9,0x84};
-    if (runtime.contract_sha256!=garegga) return;
-    // CUSA10207 01.00 links these six original PRXs in DT_NEEDED. Unlike
+    constexpr std::array<std::uint8_t,32> garegga_jp{
+        0xbb,0x5a,0xd8,0x51,0x43,0x23,0x4a,0x13,0xd5,0x3a,0xee,0xce,0x58,0xad,0x92,0x2b,
+        0xde,0xea,0xaf,0x70,0x29,0x5c,0x75,0xae,0xbd,0x17,0xf6,0xde,0xb2,0x58,0x59,0x29};
+    const bool japanese = runtime.contract_sha256==garegga_jp;
+    if (runtime.contract_sha256!=garegga && !japanese) return;
+    // Battle Garegga links these six original PRXs in DT_NEEDED. Unlike
     // later titles it does not load them via sceKernelLoadStartModule.
     // Integration is their only game-module dependency, so start it first.
     constexpr const char* linked[]{"emu_integration.prx","garegga_01000.prx",
@@ -1340,7 +1346,7 @@ void StartLinkedOriginalModules(Runtime& runtime) {
         const auto handle=LoadStartModuleImpl(path.c_str(),0,nullptr,0,nullptr,&result,nullptr);
         if (handle<0 || result<0) throw std::runtime_error("Cannot start linked original module: "+path);
     }
-    std::puts("{\"event\":\"native_linked_modules_started\",\"count\":6,\"title_id\":\"CUSA10207\"}");
+    std::printf("{\"event\":\"native_linked_modules_started\",\"count\":6,\"title_id\":\"%s\"}\n",japanese?"CUSA05429":"CUSA10207");
 }
 
 std::string SymbolNid(std::string_view name) {
@@ -2084,7 +2090,8 @@ int NativeCommand(int argc, wchar_t** argv, const cave::ps4::CollectionConfigura
             }
             config.enabled=cave::ps4::CommunityEnabledForData(config.enabled,community_offline!=nullptr);
             const auto endpoint = kt::community::ParseEndpoint(config.endpoint,config.game);
-            if (app_path && NativeContentTitleId()!=kt::community::ProtocolFor(config.game).title_id)
+            const auto content_title = app_path ? NativeContentTitleId() : std::string{};
+            if (app_path && !kt::community::SupportsContentTitle(config.game,content_title))
                 throw std::runtime_error("Community title does not match the configured game content");
             if (!std::filesystem::path(user_directory).is_absolute()) throw std::runtime_error("Community provider requires an absolute user directory");
             if (configured_community) {

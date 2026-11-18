@@ -53,7 +53,7 @@ class SdojGenerationTests(unittest.TestCase):
 
     def test_base_generation_rejects_automatic_patch_companions(self):
         names = ['default.xexp', 'CA022100.binp', 'CA022110.binp']
-        self.assertEqual(self.game['forbiddenFiles'], names)
+        self.assertEqual({item['path'] for item in self.game['titleUpdate']['patches']}, set(names))
         with tempfile.TemporaryDirectory() as directory:
             data = Path(directory)
             fixture = dict(files=[], forbiddenFiles=names)

@@ -57,6 +57,8 @@ struct DeathLabelHost {
 
 using RunDeathLabel = DeathLabelResult (*)(const DeathLabelHost*) noexcept;
 using ReleaseDeathLabel = void (*)(void*) noexcept;
+using WriteDeathLabelGraphicsTrace = void (*)(void*) noexcept;
 inline constexpr const char* DeathLabelEntry = "EvacRunDeathLabel";
 inline constexpr const char* DeathLabelRelease = "EvacReleaseDeathLabel";
+inline constexpr const char* DeathLabelGraphicsTrace = "EvacWriteDeathLabelGraphicsTrace";
 }

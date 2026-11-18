@@ -1,4 +1,5 @@
 #include "native_wait.h"
+#include "../guest_layout.h"
 #include "word_wait.h"
 #include "../latency/frame_delay.h"
 #include <rex/ppc.h>
@@ -22,7 +23,6 @@ extern "C" __declspec(dllexport) bool SdojNativeTickWaitEnabled() {
 }
 
 namespace {
-constexpr std::uint32_t kCallbackFlag = 0x8279C770;
 std::atomic<bool> enabled{};
 enum class SwapPhase { original, issuing_early, waiting_after_swap };
 thread_local SwapPhase swap_phase{};
@@ -41,8 +41,8 @@ void StartNativeWait() {
     callback_timeouts = 0; pending_timeouts = 0;
     callback_wait.Start(); pending_wait.Start();
     enabled.store(REXCVAR_GET(sdoj_host_callback_wait), std::memory_order_release);
-    REXLOG_INFO("SDOJ_CALLBACK_WAIT enabled={} original_flag=8279C770 original_policy=unchanged",
-        enabled.load());
+    REXLOG_INFO("SDOJ_CALLBACK_WAIT enabled={} original_flag={:08X} original_policy=unchanged",
+        enabled.load(), sdoj::kCallbackFlag);
 }
 void StopNativeWait() {
     enabled.store(false, std::memory_order_release);
@@ -58,7 +58,7 @@ void StopNativeWait() {
 // stores nor the native drain, time-budget and frame-delay logic are replaced.
 void SdojWaitCallback(PPCContext&, std::uint8_t* base) {
     if (!enabled.load(std::memory_order_acquire)) return;
-    auto* word = reinterpret_cast<volatile std::uint32_t*>(base + kCallbackFlag);
+    auto* word = reinterpret_cast<volatile std::uint32_t*>(base + sdoj::kCallbackFlag);
     const auto stored = *word;
     if (!stored) return;
     auto* address = const_cast<std::uint32_t*>(word);
@@ -97,17 +97,17 @@ bool SdojSwapAlreadyIssued(PPCContext&, std::uint8_t*) {
 void SdojCallbackChanged(PPCContext&, std::uint8_t* base) {
     if (!enabled.load(std::memory_order_acquire)) return;
     notifications.fetch_add(1, std::memory_order_relaxed);
-    callback_wait.Changed(base + kCallbackFlag);
+    callback_wait.Changed(base + sdoj::kCallbackFlag);
 }
 // The render-thread caller waits on vtable+68. Only the audited implementation
-// (8219DE60: read 8279C774) is eligible; other polymorphic objects stay native.
+// is eligible for the active edition.
 void SdojWaitPendingFrames(PPCContext& ctx, std::uint8_t* base) {
     if (!enabled.load(std::memory_order_acquire)) return;
     const auto load = [base](std::uint32_t address) {
         return __builtin_bswap32(*reinterpret_cast<volatile std::uint32_t*>(base + address));
     };
-    if (load(load(ctx.r27.u32) + 68) != 0x8219DE60) return;
-    auto* word = reinterpret_cast<volatile std::uint32_t*>(base + kCallbackFlag + 4);
+    if (load(load(ctx.r27.u32) + 68) != sdoj::kPendingFramesCallback) return;
+    auto* word = reinterpret_cast<volatile std::uint32_t*>(base + sdoj::kCallbackFlag + 4);
     const auto stored = *word;
     if (!stored) return;
     auto* address = const_cast<std::uint32_t*>(word);
@@ -121,7 +121,7 @@ void SdojWaitPendingFrames(PPCContext& ctx, std::uint8_t* base) {
 void SdojPendingFramesChanged(PPCContext&, std::uint8_t* base) {
     if (!enabled.load(std::memory_order_acquire)) return;
     notifications.fetch_add(1, std::memory_order_relaxed);
-    pending_wait.Changed(base + kCallbackFlag + 4);
+    pending_wait.Changed(base + sdoj::kCallbackFlag + 4);
 }
 void SdojPollCaller(PPCContext& ctx, std::uint8_t*) {
     if (!REXCVAR_GET(sdoj_poll_callers) || ctx.r3.u32 != 0) return;

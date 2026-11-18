@@ -189,6 +189,8 @@ public:
     Impl(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,HWND existing,HANDLE quit,
          const GsPresentation& layout,std::shared_ptr<GsOverlay> art)
         :window(width,height,title,reflex,amd,existing,quit),presentation(layout),overlay(std::move(art)) {
+        gs_crash::Start();
+        Mark(Stage::Init);
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
         Util::register_thread_index(0);
         wsi.set_platform(&window);
@@ -198,7 +200,12 @@ public:
         const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
         if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
-        if(!wsi.init_simple(1,{}))throw std::runtime_error("Cannot initialize Vulkan WSI");
+        // Hosted Death Label reports reached the descriptor-heap pipeline path
+        // while switching a PS4 window to the PS2 renderer. Use the standard
+        // descriptor path for the borrowed swapchain.
+        const auto disable = window.borrowed ? Vulkan::ContextCreationFlags(Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT) : 0;
+        if(!wsi.init_context_from_platform(1,{},0,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
+            throw std::runtime_error("Cannot initialize Vulkan WSI");
         // PGS can flush several times in one game field. Allocation contexts
         // are independent of the one outstanding game-frame fence below.
         auto& device=wsi.get_device();
@@ -232,10 +239,8 @@ GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bo
     :impl(std::make_unique<Impl>(width,height,title,vsync,reflex,amd,
          static_cast<HWND>(existingWindow),static_cast<HANDLE>(closeEvent),presentation,std::move(overlay))) {
     const auto& gpu=impl->wsi.get_device().get_gpu_properties();
-    gs_crash::Start();
-    impl->Mark(Stage::Init);
-    std::fprintf(stderr,"[ps2-gs-present] transfer=gpu-sampled gpu=%s device=%04x driver_raw=%u render_thread=%lu\n",
-                 gpu.deviceName,gpu.deviceID,gpu.driverVersion,GetCurrentThreadId());
+    std::fprintf(stderr,"[ps2-gs-present] transfer=gpu-sampled gpu=%s device=%04x driver_raw=%u render_thread=%lu hosted=%s\n",
+                 gpu.deviceName,gpu.deviceID,gpu.driverVersion,GetCurrentThreadId(),impl->window.borrowed?"true":"false");
     impl->gs.reset(new GsDevice(impl->wsi.get_device()));
     impl->gs->SetWaitPump([this]{
         if(!Alive())throw GsWindowClosed();
@@ -377,6 +382,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         impl->Mark(Stage::Draw);
         command->draw(3,1,layout.quarterTurns*3);
         if(impl->overlay) {
+            impl->Mark(Stage::BeginOverlay);
             auto& quads=impl->overlayQuads;
             quads.clear();
             impl->overlay->quads(quads);

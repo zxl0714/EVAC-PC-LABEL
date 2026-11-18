@@ -250,7 +250,7 @@ __declspec(noinline) int MountHost(const MountRequest* request, MountResult* res
         // Existing M2 saves reuse the original directory and allocation when
         // the game expands the packed quick-save array.
         const bool expanded_slots = storage_title == "CUSA09062" || storage_title == "CUSA15155" ||
-            storage_title == "CUSA06735" || storage_title == "CUSA10207";
+            storage_title == "CUSA06735" || storage_title == "CUSA10207" || storage_title == "CUSA05429";
         const auto quota = expanded_slots ? kt::save::QuotaPolicy::GrowSaveData : kt::save::QuotaPolicy::Fixed;
         bool created{};
         auto mount = save_store->MountSlot(name, (input.mode & 2) != 0, (input.mode & 36) != 0,

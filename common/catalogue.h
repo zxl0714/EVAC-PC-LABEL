@@ -26,6 +26,19 @@ struct DataVariant {
   std::string_view id, version, layout, entry;
   std::span<const DataFile> files;
   std::span<const std::string_view> forbidden_files;
+  std::string_view title_id{};
+  std::span<const DataFile> export_metadata{};
+};
+struct XexTitlePatch {
+  DataFile file;
+  std::uint64_t padded_bytes{};
+  std::string_view padded_sha256{};
+};
+struct XexTitleUpdate {
+  std::string_view id, version, executable;
+  std::uint32_t title_id;
+  DataFile container;
+  std::span<const XexTitlePatch> patches;
 };
 struct Game {
   std::string_view id, name, backend, data_dir, executable;
@@ -37,6 +50,7 @@ struct Game {
   std::span<const std::string_view> forbidden_files{};
   std::string_view name_japanese{};
   std::span<const DataVariant> variants{};
+  const XexTitleUpdate* title_update{};
   std::string_view DisplayName() const { return name_japanese.empty() ? name : name_japanese; }
 };
 std::span<const Game> Catalogue();

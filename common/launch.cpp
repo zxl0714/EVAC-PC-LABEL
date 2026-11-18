@@ -108,7 +108,9 @@ LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,st
       std::chrono::duration<double,std::milli>(runtime_done-data_done).count(),cache.hits,cache.reads,cache.bytes_read);
   result.verification=measurement;
   result.configuration=ConfigPath(result.paths.root);
-  result.executable=DataChild(result.paths.root,game.executable);
+  const auto executable = game.title_update && inspection.variant == game.title_update->id
+      ? game.title_update->executable : game.executable;
+  result.executable=DataChild(result.paths.root,executable);
   result.arguments={L"--collection_root="+result.paths.root.native(),L"--game_id="+FromUtf8(game.id).native(),L"--launch_contract=1",
                     L"--game_data_root="+result.paths.data.native(),L"--user_data_root="+result.paths.profile.native()};
   return result;

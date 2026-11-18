@@ -22,7 +22,10 @@ class NativeWaitContracts(unittest.TestCase):
 
     def test_original_flag_count_and_type_guard(self):
         code=(ROOT/'games/sdoj/performance/native_wait.cpp').read_text()
-        for part in ('0x8279C770','load(load(ctx.r27.u32) + 68) != 0x8219DE60',
+        layout=(ROOT/'games/sdoj/guest_layout.h').read_text()
+        self.assertIn('0x8279C970 : 0x8279C770', layout)
+        self.assertIn('0x8219EB18 : 0x8219DE60', layout)
+        for part in ('load(load(ctx.r27.u32) + 68) != sdoj::kPendingFramesCallback',
                      'callback_wait.Wait(address, stored)', 'pending_wait.Wait(address, stored)',
                      'if (!stored) return;',
                      'reason=bounded_wait_failed','reason=pending_wait_failed'):
@@ -66,8 +69,8 @@ class NativeWaitContracts(unittest.TestCase):
     def test_long_native_completion_recovers_only_at_its_original_producer(self):
         code=(ROOT/'games/sdoj/performance/native_wait.cpp').read_text()
         self.assertNotIn('enabled.exchange(false)',code)
-        self.assertIn('callback_wait.Changed(base + kCallbackFlag)',code)
-        self.assertIn('pending_wait.Changed(base + kCallbackFlag + 4)',code)
+        self.assertIn('callback_wait.Changed(base + sdoj::kCallbackFlag)',code)
+        self.assertIn('pending_wait.Changed(base + sdoj::kCallbackFlag + 4)',code)
         self.assertIn('pending_timeouts.fetch_add(1) == 0',code)
 
 if __name__=='__main__': unittest.main()
