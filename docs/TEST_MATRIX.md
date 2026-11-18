@@ -6,6 +6,8 @@
 
 ## v0.10.1 玩家转储与 Death Label
 
+- 在 PS4《大往生》01.04 的 Death Label 第一关，用上一份候选包复现了全屏切换时提前返回主菜单。修复包在 RTX 4080 上往返于 3840×2160 全屏和 3569×2008 窗口，关闭和开启垂直同步分别连续切换 16 次。两局都从 0 分继续打到 300 分，直到 Game Over 才正常返回。Immediate 实际触发了 `VK_ERROR_OUT_OF_DATE_KHR` 并成功恢复。另有回归覆盖丢失独占全屏和不可恢复的呈现错误。记录见 `.local/v0101/v0101-dl-toggle-{before,fixed-public,fixed-fifo}.json` 和 `dl-toggle-contracts.log`。
+- 全屏修复测试包由 `42f398d` 构建，ZIP 为 `releases/v0101-dl-fullscreen-42f398d/EVAC-PC-LABEL-v0.10.1-win-x64.zip`。解压后校验了 209 个清单文件，包内 Death Label 运行库与实测文件一致。SHA-256 为 `c56eb6b107f9f8adcc83883f310079fb755762fbe0b21dd4e055d6ef974eae4b`。
 - 用户在两台电脑上测试 v0.10.0，均未复现进入 Death Label 时的闪退，未记录两台电脑的显卡及驱动版本。原报告来自 RTX 3060 Ti、572.16 驱动。
 - PS2 交换链回归给同一 Win32 窗口设置独占策略和目标显示器，再为三个呈现模式提供不同的图像数量限制。修正前的代码在查询时丢失窗口参数、查询格式时带入备用模式，并在四次创建失败后各尝试了一次独占切换。修正后请求 7 张图像会按共同上限收敛到 3 张，四次失败均直接返回错误。主模式或备用模式单独限制上限的用例均通过。证据见 `.local/v0101/ps2-wsi-fix-before.log`、`ps2-wsi-fix-contract.log` 和 `ps2-wsi-final-contracts.log`。
 - RTX 4080 的真实 Win32 窗口在 PS2 呈现加载帧后立即交还宿主，Vulkan 校验层捕获了销毁在用交换链的 `VUID-vkDestroySwapchainKHR-swapchain-01282`。修正后，同一窗口以 Immediate 和 FIFO 分别完成交还、重建及 36 帧呈现，均通过校验。独立窗口的 FIFO Relaxed 路径完成 100 帧，中途切换全屏再切回窗口。日志见 `.local/v0101/ps2-wsi-fix-immediate-hosted.log`、`ps2-wsi-final-handoff.log` 和 `ps2-wsi-final-resize.log`。
