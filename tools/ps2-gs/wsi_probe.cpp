@@ -71,7 +71,7 @@ int main(int argc,char** argv) {
             gs.WriteRegister(GS_REG_XYZ2,0);
             gs.WriteRegister(GS_REG_XYZ2,uint64_t(640*16)|(uint64_t(224*16)<<16));
             request.vsyncTick=field;
-            if(!display.Present(request))throw std::runtime_error("Probe window closed before completion");
+            if(!display.Present(request))throw std::runtime_error("Probe window resized during the timing sample");
             const auto now=Clock::now();
             if(field>=warmup && field>warmup)intervals.push_back(std::chrono::duration<double,std::milli>(now-previous).count());
             previous=now;

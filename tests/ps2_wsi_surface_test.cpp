@@ -5,11 +5,14 @@
 #include <array>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string_view>
 
 namespace {
 class Window final : public Vulkan::WSIPlatform {
 public:
+    unsigned swapchains{};
+    bool ready{};
     HWND handle = CreateWindowExW(0, L"STATIC", L"PS2 WSI contract", WS_OVERLAPPEDWINDOW,
                                   0, 0, 640, 480, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
     ~Window() override { if (handle) DestroyWindow(handle); }
@@ -31,6 +34,12 @@ public:
     bool alive(Vulkan::WSI&) override { return true; }
     void poll_input() override {}
     void poll_input_async(Granite::InputTrackerHandler*) override {}
+    void event_swapchain_created(Vulkan::Device*, VkSwapchainKHR, unsigned, unsigned, float, size_t,
+                                 VkFormat, VkColorSpaceKHR, VkSurfaceTransformFlagBitsKHR) override {
+        ++swapchains;
+        ready = true;
+    }
+    void event_swapchain_destroyed() override { ready = false; }
 };
 
 template<class T>
@@ -128,6 +137,42 @@ VKAPI_ATTR VkResult VKAPI_CALL Acquire(VkDevice, VkSwapchainKHR) {
     ++acquireCalls;
     return VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT;
 }
+
+PFN_vkQueuePresentKHR realPresent{};
+VkResult queueResult{}, chainResult{};
+VKAPI_ATTR VkResult VKAPI_CALL Present(VkQueue queue, const VkPresentInfoKHR* info) {
+    // Submit the real waits and fences before simulating the driver's resize result.
+    const VkResult status = realPresent(queue, info);
+    if (status < 0) return status;
+    info->pResults[0] = chainResult;
+    return queueResult;
+}
+
+int CheckPresentResize(Vulkan::WSI& wsi, Window& window) {
+    if (!wsi.init_surface_swapchain()) return 1;
+    auto& gpu = wsi.get_device();
+    auto& dispatch = const_cast<VolkDeviceTable&>(gpu.get_device_table());
+    realPresent = dispatch.vkQueuePresentKHR;
+    dispatch.vkQueuePresentKHR = Present;
+    const auto frame = [&](VkResult overall, VkResult perChain) {
+        if (!wsi.begin_frame()) throw std::runtime_error("Failed to acquire a frame");
+        auto command = gpu.request_command_buffer();
+        command->begin_render_pass(gpu.get_swapchain_render_pass(Vulkan::SwapchainRenderPass::ColorOnly));
+        command->end_render_pass();
+        gpu.submit(command);
+        queueResult = overall;
+        chainResult = perChain;
+        return wsi.end_frame();
+    };
+    Check(frame(VK_ERROR_OUT_OF_DATE_KHR, VK_SUCCESS) && !window.ready, "Resize ended the session");
+    Check(frame(VK_SUCCESS, VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT) && !window.ready,
+          "Losing fullscreen ended the session");
+    Check(frame(VK_SUCCESS, VK_SUCCESS) && window.ready && window.swapchains == 3,
+          "A fresh swapchain did not present the following frame");
+    Check(!frame(VK_ERROR_SURFACE_LOST_KHR, VK_ERROR_SURFACE_LOST_KHR), "Surface loss was reported as a resize");
+    dispatch.vkQueuePresentKHR = realPresent;
+    return valid ? 0 : 1;
+}
 }
 
 int main(int argc, char** argv) {
@@ -141,6 +186,7 @@ int main(int argc, char** argv) {
     wsi.set_present_mode(Vulkan::PresentMode::SyncToVBlank);
     wsi.set_present_low_latency_mode(false);
     if (!wsi.init_context_from_platform(1, {}) || !wsi.init_device()) return 1;
+    if (argc == 2 && std::string_view(argv[1]) == "present-resize") return CheckPresentResize(wsi, window);
     auto& device = wsi.get_device();
     const auto& ext = device.get_device_features();
     if (!ext.supports_full_screen_exclusive || !ext.supports_surface_capabilities2 ||

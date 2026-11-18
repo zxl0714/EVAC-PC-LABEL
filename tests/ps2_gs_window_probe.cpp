@@ -46,10 +46,9 @@ int main(int argc,char** argv) {
         }
         auto& gs=display.Device();
         cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,gs.Completions());
-        unsigned frames=0;
-        bool closed=false;
+        unsigned frames=0,skipped=0;
         cave::ps2::GsDeviceSink sink(gs,[&](const cave::ps2::GsFrame& request){
-            if(!display.Present(request)){closed=true;return;}
+            if(!display.Present(request)){++skipped;return;}
             ++frames;
             if(reflexTest=="resize" && (frames==40 || frames==80))display.ToggleFullscreen();
         },[&]{display.WaitPreviousFrame();});
@@ -87,9 +86,11 @@ int main(int argc,char** argv) {
             }
         });
         struct CloseOnExit {cave::ps2::GsCommandQueue& queue;~CloseOnExit(){queue.Close();}} close{queue};
-        while(!closed && display.Alive() && producer.wait_for(0ms)!=std::future_status::ready)
-            queue.ConsumeOne(sink,5ms);
-        if(closed || !display.Alive()){
+        try {
+            while(display.Alive() && producer.wait_for(0ms)!=std::future_status::ready)
+                queue.ConsumeOne(sink,5ms);
+        }catch(const cave::ps2::GsWindowClosed&){}
+        if(!display.Alive()){
             queue.Close();try{producer.get();}catch(...){}
             std::cout<<"window_closed=1; presented="<<frames<<"; readbacks="<<gs.ReadbackRequests()<<'\n';return 2;
         }
@@ -97,9 +98,9 @@ int main(int argc,char** argv) {
         if(gs.ReadbackRequests())throw std::runtime_error("Presentation read back GPU VRAM");
         const auto stats=queue.GetStats();
         if(stats.commands || stats.frameOutstanding)throw std::runtime_error("Graphics queue did not drain");
-        std::cout<<"GPU="<<gs.GpuName()<<"; presented="<<frames<<"; readbacks="<<gs.ReadbackRequests()
+        std::cout<<"GPU="<<gs.GpuName()<<"; presented="<<frames<<"; skipped="<<skipped<<"; readbacks="<<gs.ReadbackRequests()
                  <<"; queue_high_water_bytes="<<stats.highWaterBytes
                  <<"; queue_high_water_commands="<<stats.highWaterCommands<<'\n';
-        return frames==limit?0:2;
+        return frames && frames+skipped==limit && (!skipped || reflexTest=="resize")?0:2;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

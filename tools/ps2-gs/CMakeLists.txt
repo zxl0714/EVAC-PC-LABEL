@@ -163,6 +163,8 @@ if(WIN32)
   target_link_libraries(ps2_wsi_surface_contract PRIVATE granite-vulkan user32)
   add_test(NAME ps2_wsi_surface_contract COMMAND ps2_wsi_surface_contract)
   add_test(NAME ps2_wsi_surface_primary_bound_contract COMMAND ps2_wsi_surface_contract primary-bounded)
+  add_test(NAME ps2_wsi_present_resize_contract COMMAND ps2_wsi_surface_contract present-resize)
+  set_tests_properties(ps2_wsi_present_resize_contract PROPERTIES TIMEOUT 30 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
   set_tests_properties(ps2_wsi_surface_contract ps2_wsi_surface_primary_bound_contract
     PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77)
   add_executable(ps2_gs_crash_contract "${COLLECTION_ROOT}/tests/ps2_gs_crash_test.cpp")

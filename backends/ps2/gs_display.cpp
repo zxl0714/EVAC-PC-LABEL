@@ -31,6 +31,7 @@ public:
     bool borrowed=false;
     bool closed=false;
     bool fullscreen=false;
+    bool swapchainReady=false;
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
     std::function<void(unsigned,bool)> keyHandler;
     std::exception_ptr inputFailure;
@@ -80,10 +81,11 @@ public:
     }
     void event_swapchain_created(Vulkan::Device* gpu,VkSwapchainKHR swapchain,unsigned,unsigned,float,size_t,
                                  VkFormat,VkColorSpaceKHR,VkSurfaceTransformFlagBitsKHR) override {
+        swapchainReady=swapchain!=VK_NULL_HANDLE;
         if(gpu)reflex.Connect(gpu->get_device(),gpu->get_device_table(),swapchain,
             gpu->get_gpu_properties().vendorID==0x10de && gpu->get_device_features().supports_low_latency2_nv);
     }
-    void event_swapchain_destroyed() override {amdField=0;reflex.Disconnect();}
+    void event_swapchain_destroyed() override {swapchainReady=false;amdField=0;reflex.Disconnect();}
     void event_device_destroyed() override {amdUpdate=nullptr;amdDevice=VK_NULL_HANDLE;reflex.ReleaseDevice();}
     VkSurfaceKHR create_surface(VkInstance instance,VkPhysicalDevice) override {
         VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
@@ -298,8 +300,23 @@ void GsDisplay::WaitPreviousFrame() {
         if(start)impl->tracedGpuWait+=frame_trace::Stamp()-start;
     }
 }
+void GsDisplay::BeginWindowFrame() {
+    if(!Alive())throw GsWindowClosed();
+    if(!impl->wsi.begin_frame()) {
+        if(!Alive())throw GsWindowClosed();
+        throw std::runtime_error("Cannot acquire a PS2 Vulkan frame");
+    }
+}
+bool GsDisplay::EndWindowFrame() {
+    if(!impl->wsi.end_frame()) {
+        if(!Alive())throw GsWindowClosed();
+        throw std::runtime_error("Cannot present a PS2 Vulkan frame");
+    }
+    return impl->window.swapchainReady;
+}
 void GsDisplay::PresentLoadingFrame() {
-    if(!Alive() || IsIconic(impl->window.handle) || !impl->wsi.begin_frame())return;
+    if(IsIconic(impl->window.handle))return;
+    BeginWindowFrame();
     auto& device=impl->wsi.get_device();
     auto pass=device.get_swapchain_render_pass(Vulkan::SwapchainRenderPass::ColorOnly);
     pass.clear_color[0].float32[3]=1.0f;
@@ -307,7 +324,7 @@ void GsDisplay::PresentLoadingFrame() {
     command->begin_render_pass(pass);
     command->end_render_pass();
     device.submit(command);
-    if(impl->wsi.end_frame())StartupTrace("loading-frame-presented");
+    if(EndWindowFrame())StartupTrace("loading-frame-presented");
 }
 bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->window.reflex.BeginOutput();
@@ -326,7 +343,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->gs->Flush();
     if(trace)trace->flushed=frame_trace::Stamp();
     impl->Mark(Stage::Acquire);
-    if(!Alive() || !impl->wsi.begin_frame())return false;
+    BeginWindowFrame();
     if(input_trace::Enabled()) {
         Vulkan::PresentationStats stats{};
         if(impl->wsi.get_presentation_stats(stats) && stats.feedback_present_id!=impl->lastFeedback) {
@@ -431,7 +448,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         }
     }
     impl->Mark(Stage::Present);
-    if(!impl->wsi.end_frame())return false;
+    if(!EndWindowFrame())return false;
     impl->Mark(Stage::Presented);
     if(impl->frames==0)StartupTrace("first-present-returned");
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,

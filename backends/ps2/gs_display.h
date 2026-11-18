@@ -35,8 +35,11 @@ public:
     void BeforeInput(uint64_t responseField,unsigned budgetUs);
     void SimulationReady(uint64_t responseField);
     void PresentLoadingFrame();
+    // False means a resize discarded this frame. Closing the window raises GsWindowClosed.
     bool Present(const GsFrame& request,bool repeatCompletedImage=false);
 private:
+    void BeginWindowFrame();
+    bool EndWindowFrame();
     class Impl;
     std::unique_ptr<Impl> impl;
 };
