@@ -322,7 +322,8 @@ void SelectionChecks() {
   {
     Frame frame(fixture.root);auto& app=frame.app;
     Require(Catalogue()[app.selected].id=="daioujou","Cold GUI did not restore selected ID");
-    Require(ControlText(app.hwnd)==L"EVAC PC LABEL","Production launcher caption differs from product name");
+    Require(ControlText(app.hwnd)==L"EVAC PC LABEL v"+Wide(cave::launcher::kProductVersion),"Production launcher caption lacks the product name and version");
+    Require(std::string_view(cave::launcher::kProductVersion).find('.')!=std::string_view::npos,"Product version is not a dotted release number");
     const auto scale=float(GetDpiForWindow(app.hwnd))/96;
     App::Window(app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(int(720*scale),int(520*scale)));
     const auto selected=app.layout.card(app.selected);

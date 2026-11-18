@@ -54,6 +54,11 @@ constexpr UINT_PTR kUpdateTimer=2;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr wchar_t kWindowClass[]=L"EVACPCLabel.Launcher.v1";
 constexpr wchar_t kWindowTitle[]=L"EVAC PC LABEL";
+std::wstring LauncherCaption() {
+  std::wstring caption=kWindowTitle;caption+=L" v";
+  for(const char* c=cave::launcher::kProductVersion;*c;++c)caption+=wchar_t(static_cast<unsigned char>(*c));
+  return caption;
+}
 HICON BrandIcon(HINSTANCE instance,int size) {
   const auto icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(cave::launcher::kAppIconResource),
       IMAGE_ICON,size,size,LR_SHARED));
@@ -1347,7 +1352,7 @@ class App {
     try {
       if(message==cave::launcher::ActivationMessage()) {app->Activate();return 1;}
       switch(message) {
-        case WM_CREATE:app->CreatePreferences();app->Refresh();app->StartUpdates();return 0;
+        case WM_CREATE:SetWindowTextW(window,LauncherCaption().c_str());app->CreatePreferences();app->Refresh();app->StartUpdates();return 0;
         case WM_GETMINMAXINFO:{
           auto info=reinterpret_cast<MINMAXINFO*>(second);const auto scale=float(GetDpiForWindow(window))/96;
           info->ptMinTrackSize={LONG(720*scale),LONG(520*scale)};
