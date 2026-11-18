@@ -20,6 +20,13 @@
 - 普通启动器与大屏共用 SDL3 导航。虚拟手柄和街机摇杆通过封面跨行与滚动、经典列表、缺数据拦截、失焦后松开再响应，以及大屏与桌面切换。用虚拟街机摇杆从普通封面网格选中并启动《狱门山》，游戏出帧后正常关闭。启动器保留选择，持续按住确认键时没有再次启动，松开后继续导航。记录见 `.local/v0101/desktop-sdl-launch-r1/`。
 - 《虫姬二》两份后续上传为同一份 277,135,360 字节的 Black Label LIVE DLC。用已知 Ver.1.5 本体和其中一份原始 DLC 作完整校验，52 项本体输入和 4 项 DLC 输入全部通过，现有自动解包入口可识别该包。见 `.local/v0101/futari-20261117-dlc-check/verification.json`。
 
+## v0.10.1 最大往生 TU 1.01
+
+- 候选包 `releases/v0101-sdoj-tu101-verified/EVAC-PC-LABEL-v0.10.1-win-x64.zip` 由 `e76d2e7` 构建，182,842,591 字节，SHA-256 为 `64d0b826211928a316bb4cf5c02af14d90786618f5c7136ab8cc6d576721b950`。一次解包验证 209 个清单文件，最大往生的 10 个运行文件与实测副本一致。
+- 用包内启动器加载光盘本体和附原始 LIVE 更新的光盘目录。两种数据分别走 `sdoj.exe` 和 `sdoj_tu101.exe` 并正常出帧、关闭。TU 日志确认挂载更新后应用 XEX 补丁。包内检查工具另外验证了两种长度的解包补丁，并正确判定补丁缺失及哈希错误。证据见 `.local/v0101/sdoj-tu101/final-extracted/logs/sdoj/` 和 `final-edition-inspector.json`。
+- 在 TU 1.01 的 Xbox 360 Score Attack 实际取得 31,946 分。从旧光盘档读回 2 金币和 5 个录像槽，局后写入第 6 槽并取得 2 金币。游戏通过本机测试服务提交成绩和录像，读回榜单并下载录像到第 7 槽。下载的 79,298 字节与服务保存的 SHA-256 一致。重启后读回 4 金币，完整播放第 7 槽后返回录像列表。
+- 修正 TU 1.01 玩法选择偏移后，Xbox 360 由重播实测、Arcade HD 由当局选机进关实测，两个模块的 0V 输入、驱动和新帧交接均有非零记录，测试中无等待超时。本轮使用逻辑手柄与运行时帧交接日志。证据见 `.local/v0101/sdoj-tu101/live-tu101-r2/`、`live-tu101-split-fixed/`。定向 CTest 11 项、SDOJ Python 99 项及目录检查 28 项通过。
+
 ## v0.10.0 PS2 Death Label
 
 - `death-natural-trace-r1/scanout.png` 录到 PS2 玩家局，`death-natural-trace-r2/scanout.png` 录到自然 Game Over，输入记录确认开局后未再按键。原版运行先退出关内状态，完整显示结算画面后才重新打开根菜单。

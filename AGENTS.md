@@ -16,7 +16,8 @@ section of docs/TEST_MATRIX.md, with private evidence in .local/v0101/ and
 .local/reports-20261118/. Big Picture software acceptance is complete and
 physical controllers are deferred. Death Label was accepted on log/code
 analysis and local software regression. The standalone Ketsui executable check
-needs metadata or a full dump. SDOJ disc TU 1.01 support is planned.
+needs metadata or a full dump. SDOJ disc TU 1.01 and its Windows candidate
+passed local acceptance. External SDOJ-Recomp integration is a follow-up.
 The v0.10.0 notes below are the published baseline.
 
 v0.10.0 implementation and local acceptance are complete. The scope is in
