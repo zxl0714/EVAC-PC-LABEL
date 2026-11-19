@@ -6,6 +6,7 @@
 
 ## v0.10.2 启动器与更新
 
+- v0.10.2 已正式发布为 GitHub 最新版，标签指向验收提交 `ab0f008`。公开 API 核对了中英文发布说明及 ZIP 和校验文件的大小、SHA-256。下载的校验文件与本地一致。发布记录见 `.local/v0102/github-release.json`。[GitHub Release v0.10.2](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.2)
 - 本版程序包冻结于 `ab0f008`。实测《最大往生》的单层 eandis 开关，关闭时为浅灰底、滑块在左，开启时为墨绿底、滑块在右。对比两张启动器预览，卡片其余区域逐像素一致。4,852 项启动器检查及 ZIP 解包后的 210 项文件校验通过，覆盖 v0.10.1 保留游戏数据、存档、配置和已安装的 eandis 程序。ZIP SHA-256 为 `25cf3421fd595016f63ea80d6fd2463879820989fdc387da2a0726ff0e87695b`。截图见 `.local/v0102/sdoj-switch-ab0f008/`。
 - 更新候选包冻结于 `e5fab51`。开关改为同一胶囊内的 eandis 标签和拨杆，与英文副标题同行。实窗确认最窄四列下副标题完整，4,852 项启动器界面检查及三语预览通过。包内 210 个文件解包校验通过，覆盖 v0.10.1 保留数据、存档、配置和 eandis 程序。与前一候选包相比，仅启动器和来源说明不同。ZIP SHA-256 为 `6e3c3028692cd9ecb48fe01fa8ef8080e0e47f578df5f82534f55b6f4df1e898`。
 - 从桌面启动器运行 eandis v1.51.4 和光盘 TU 1.01，核对进程实际收到 `--input_backend=sdl`。游戏日志确认实体 Victrix PS4 模式为 1P，用户实测 Start、方向和确认键均正常。虚拟 Xbox 360 手柄可热插拔。证据见 `.local/v0102/eandis-sdl-acceptance/`。
