@@ -39,22 +39,29 @@ inline WindowSize InitialCoverWindowSize(int work_width,int work_height,unsigned
   const auto width_limit=std::max(1,int(static_cast<long long>(work_width)*9/10));
   const auto height_limit=std::max(1,int(static_cast<long long>(work_height)*9/10));
   auto columns=std::size_t(4);
-  const auto desired_width=[&] {
-    const auto client=std::max(720.f,72.f+kCoverPreferredWidth*float(columns)+kCoverColumnGap*float(columns-1));
+  const auto desired_width=[&](std::size_t count) {
+    const auto client=std::max(720.f,72.f+kCoverPreferredWidth*float(count)+kCoverColumnGap*float(count-1));
     return int(std::ceil(client*scale))+frame_width;
   };
-  while(columns>1 && desired_width()>width_limit)--columns;
-  const auto width=std::clamp(desired_width(),1,width_limit);
-  const auto client_width=std::max(1.f,float(width-frame_width)/scale);
-  const auto actual_columns=CoverColumns(client_width);
-  const auto rows=(games+actual_columns-1)/actual_columns;
-  const auto content=float(rows)*CoverHeight(CoverWidth(client_width))+
-                     (rows?float(rows-1)*kCoverRowGap:0.f);
-  const auto client_height=std::max(520.f,kCoverHeaderHeight+kFooterHeight+content);
-  const auto height=int(std::ceil(client_height*scale))+frame_height;
-  // Show the whole library if it fits with a small desktop margin. Otherwise scroll.
+  const auto measure=[&](std::size_t count) {
+    const auto width=std::clamp(desired_width(count),1,width_limit);
+    const auto client=std::max(1.f,float(width-frame_width)/scale);
+    const auto actual=CoverColumns(client);
+    const auto rows=(games+actual-1)/actual;
+    const auto content=float(rows)*CoverHeight(CoverWidth(client))+
+                       (rows?float(rows-1)*kCoverRowGap:0.f);
+    const auto height=std::max(520.f,kCoverHeaderHeight+kFooterHeight+content);
+    return WindowSize{width,int(std::ceil(height*scale))+frame_height};
+  };
+  while(columns>1 && desired_width(columns)>width_limit)--columns;
+  const auto preferred=measure(columns);
   const auto full_limit=std::max(1,work_height-int(std::ceil(24*scale)));
-  return {width,height<=full_limit?height:std::clamp(height,1,height_limit)};
+  if(preferred.height<=full_limit)return preferred;
+  for(auto wider=columns+1;wider<=6 && desired_width(wider)<=width_limit;++wider) {
+    const auto fitted=measure(wider);
+    if(fitted.height<=full_limit)return fitted;
+  }
+  return {preferred.width,std::clamp(preferred.height,1,height_limit)};
 }
 
 // Layout units are 96-DPI pixels; the monitor work area is in physical pixels.

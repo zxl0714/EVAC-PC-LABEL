@@ -134,6 +134,20 @@ class SdojCommunityServerTests(unittest.TestCase):
         self.assertEqual([row['nickname'] for row in self.store.leaderboard(23)['rows']], ['Player', 'Second'])
         self.assertEqual(self.store.estimate(23, 'standard', '101', 'Player')['rank'], 1)
 
+    def test_eandis_rules_keep_score_rank_and_replay_rows_independent(self):
+        self.store.submit(submission(100, name='Another player'))
+        eandis = submission(20000, token='2' * 32)
+        eandis.update(rules='eandis-v1', build='SDOJ-Recomp test')
+        score = self.store.submit(eandis)['id']
+        attachment_id = self.store.attach_replay(attachment(score, recording(20000)))['id']
+        standard = self.store.leaderboard(23)
+        separate = self.store.leaderboard(23, 'eandis-v1')
+        self.assertEqual([(row['score'], row['replay_id']) for row in standard['rows']], [('100', None)])
+        self.assertEqual([(row['score'], row['replay_id']) for row in separate['rows']], [('20000', attachment_id)])
+        self.assertEqual(self.store.estimate(23, 'standard', '99', 'Player')['rank'], 2)
+        self.assertEqual(self.store.estimate(23, 'eandis-v1', '99', 'Player')['rank'], 1)
+        self.assertEqual(base64.b64decode(self.store.replay(attachment_id)['data']), recording(20000))
+
     def test_loopback_http_uses_own_route_and_identity(self):
         server = Server(('127.0.0.1', 0), self.store)
         worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()

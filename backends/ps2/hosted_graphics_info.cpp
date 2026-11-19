@@ -83,6 +83,7 @@ void LogImage(HMODULE module, const char* role, bool loader) noexcept {
                  role, nt.FileHeader.TimeDateStamp, image.size, id);
     if (loader) {
         LogExportRange(image, module, "vkCmdPipelineBarrier");
+        LogExportRange(image, module, "vkCreateSwapchainKHR");
         LogExportRange(image, module, "vkQueuePresentKHR");
     }
 }

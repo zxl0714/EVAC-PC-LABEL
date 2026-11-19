@@ -129,6 +129,7 @@ def match_replay(data, props):
 
 
 class Store:
+    rulesets = ('standard',)
     # Transport/storage is shared; native schemas remain title-specific.
     score_property = 0x20000001
     replay_format = REPLAY_FORMAT
@@ -180,7 +181,7 @@ class Store:
 
     def board(self, view, rules):
         integer(view, 0, 0xffffffff)
-        if view not in self.game.views or rules != 'standard':
+        if view not in self.game.views or rules not in self.rulesets:
             raise ApiError(400, 'unsupported_board')
         return view, rules
 

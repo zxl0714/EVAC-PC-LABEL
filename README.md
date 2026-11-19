@@ -61,6 +61,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 | Xbox 360 | [虫姬二](docs/GAME_DATA.md#futari) · [ESPGaluda II](docs/GAME_DATA.md#espgaluda2) · [最大往生](docs/GAME_DATA.md#sdoj) · [狱门山](docs/GAME_DATA.md#guwange) |
 | PS4 | [绊地狱](docs/GAME_DATA.md#ketsui) · [大往生](docs/GAME_DATA.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.md#esprade) · [弹铳](docs/GAME_DATA.md#feveron) · [空战之路](docs/GAME_DATA.md#garegga) |
 | PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) · [铸蔷薇](docs/GAME_DATA.md#ibara) · [大往生 (PS2)](docs/GAME_DATA.md#daioujou-ps2) |
+| 街机 | [首领蜂](docs/GAME_DATA.md#donpachi) · 通过 CapsLock4284 的 DonPachi Recomp 启动 |
 
 点击游戏名查看支持的版本、解包方法和目录示例。只需准备想玩的游戏数据。
 

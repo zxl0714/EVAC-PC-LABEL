@@ -212,7 +212,7 @@ void CoverLayoutChecks() {
     for(const auto dimensions:std::array{std::pair{720.f,520.f},std::pair{1080.f,900.f},std::pair{1280.f,720.f}}) {
       app.layout.width=dimensions.first;app.layout.height=dimensions.second;
       Require(app.layout.columns()>1,"Representative cover window did not form a grid");
-      for(size_t index=0;index<Catalogue().size();++index) {
+      for(size_t index=0;index<LauncherCatalogue().size();++index) {
         app.Select(app.library.visible[index]);frame.Settle();
         const auto card=app.layout.card(index);
         const auto visible=std::min(card.bottom,app.layout.footer())-std::max(card.top,app.layout.header());
@@ -465,10 +465,10 @@ void GameLibraryChecks() {
   using cave::launcher::GameLibrary;
   const GameLibrary defaults(Ini::Parse(""));
   Require(GameLibrary::Encode(defaults.visible)==
-          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2",
+          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,donpachi",
           "The default launcher order must start with Futari and group games by platform");
   Require(GameLibrary::Encode(GameLibrary(Ini::Parse("[collection]\ngame_order=ketsui,espgaluda2\n")).order)==
-          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2",
+          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,donpachi",
           "An existing custom prefix must take precedence over the default order");
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\ngame_order=futari,espgaluda2,ketsui\n");
@@ -508,13 +508,13 @@ void GameLibraryChecks() {
     Require(app.selected==0,"Dragging changed the selected game");
     app.rows[0].inspection.state="ready";
     app.ToggleGameHidden(0);frame.Settle();
-    Require(app.library.Hidden(0) && app.selected==1 && app.layout.game_count+1==Catalogue().size(),
+    Require(app.library.Hidden(0) && app.selected==1 && app.layout.game_count+1==LauncherCatalogue().size(),
             "Hiding the selected installed game did not choose a visible game");
     app.ToggleGameHidden(2);
-    Require(app.library.Hidden(2) && app.layout.game_count+2==Catalogue().size(),
+    Require(app.library.Hidden(2) && app.layout.game_count+2==LauncherCatalogue().size(),
             "A game without data could not be hidden");
     frame.Click(app.layout.hidden_games());
-    Require(app.library.show_hidden && app.layout.game_count==Catalogue().size(),"Eye button did not reveal hidden games");
+    Require(app.library.show_hidden && app.layout.game_count==LauncherCatalogue().size(),"Eye button did not reveal hidden games");
     app.ToggleGameHidden(2);
     Require(!app.library.Hidden(2),"A revealed game could not be restored");
   }
@@ -537,7 +537,7 @@ void GameLibraryChecks() {
             "Hiding all games left cards or scrolling in the empty library");
     App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);
     frame.Click(app.layout.hidden_games());
-    Require(app.library.show_hidden && app.layout.game_count==Catalogue().size(),"The eye button could not restore an empty library view");
+    Require(app.library.show_hidden && app.layout.game_count==LauncherCatalogue().size(),"The eye button could not restore an empty library view");
   }
 }
 void SdojSwitchChecks() {
@@ -746,7 +746,7 @@ void ArtworkStateChecks() {
   const auto grey=renderer.Image(target.Get(),0,true);
   Require(grey==renderer.Image(target.Get(),0,true),"Grey artwork is decoded once per target");
   Require(grey!=renderer.Image(target.Get(),0,false),"Colour artwork remains available after data import");
-  for(size_t index=0;index<Catalogue().size();++index) {
+  for(size_t index=0;index<LauncherCatalogue().size();++index) {
     const auto cover=renderer.Image(target.Get(),index,false,true);
     const auto missing=renderer.Image(target.Get(),index,true,true);
     Require(cover==renderer.Image(target.Get(),index,false,true) && missing==renderer.Image(target.Get(),index,true,true),

@@ -153,6 +153,11 @@ VKAPI_ATTR VkResult VKAPI_CALL InterruptPresent(VkQueue, const VkPresentInfoKHR*
     std::_Exit(0); // Verify the report survives without returning or running normal cleanup.
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL InterruptCreate(VkDevice, const VkSwapchainCreateInfoKHR*,
+                                              const VkAllocationCallbacks*, VkSwapchainKHR*) {
+    std::_Exit(0);
+}
+
 int CheckPresentResize(Vulkan::WSI& wsi, Window& window, bool interrupt) {
     if (!wsi.init_surface_swapchain()) return 1;
     auto& gpu = wsi.get_device();
@@ -197,6 +202,13 @@ int main(int argc, char** argv) {
     wsi.set_present_low_latency_mode(false);
     if (!wsi.init_context_from_platform(1, {}) || !wsi.init_device()) return 1;
     const std::string_view scenario = argc == 2 ? argv[1] : "";
+    if (scenario == "create-interrupted") {
+        auto& dispatch = const_cast<VolkDeviceTable&>(wsi.get_device().get_device_table());
+        dispatch.vkCreateSwapchainKHR = InterruptCreate;
+        cave::ps2::HostedSwapchainTrace trace(true, "start");
+        wsi.init_surface_swapchain();
+        return 1;
+    }
     if (scenario == "present-resize" || scenario == "present-interrupted")
         return CheckPresentResize(wsi, window, scenario == "present-interrupted");
     auto& device = wsi.get_device();

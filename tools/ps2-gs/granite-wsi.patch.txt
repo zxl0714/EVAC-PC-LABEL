@@ -254,20 +254,24 @@
  
  	if (desired_swapchain_images < caps.minImageCount)
  		desired_swapchain_images = caps.minImageCount;
-@@ -2818,9 +2853,10 @@
+@@ -2818,9 +2853,13 @@
  		     supports_present_timing.relative);
  	}
  
 +	LOGI("Creating swapchain: %ux%u, mode %u, images %u.\n", info.imageExtent.width, info.imageExtent.height,
 +	     unsigned(info.presentMode), info.minImageCount);
- 	auto res = table->vkCreateSwapchainKHR(context->get_device(), &info, nullptr, &swapchain);
+-	auto res = table->vkCreateSwapchainKHR(context->get_device(), &info, nullptr, &swapchain);
 -	if (res < 0)
 -		swapchain = VK_NULL_HANDLE;
++	const auto *trace = cave::ps2::HostedSwapchainTrace::Active();
++	const auto res = trace ? cave::ps2::HostedSwapchainTrace::Create(trace, table->vkCreateSwapchainKHR,
++	                                                                context->get_device(), info, swapchain) :
++	                         table->vkCreateSwapchainKHR(context->get_device(), &info, nullptr, &swapchain);
 +	LOGI("vkCreateSwapchainKHR returned %d.\n", int(res));
  
  	if (res == VK_SUCCESS && supports_present_timing.feedback)
  	{
-@@ -2838,7 +2874,14 @@
+@@ -2838,7 +2877,14 @@
  	present_last_id = 0;
  	device->set_present_id(VK_NULL_HANDLE, 0);
  

@@ -3,6 +3,44 @@
 #include <cstdio>
 
 namespace cave { namespace ps2 {
+struct HostedSwapchainTrace {
+    static const char*& Active() noexcept {
+        static thread_local const char* phase{};
+        return phase;
+    }
+    HostedSwapchainTrace(bool hosted, const char* phase) noexcept : previous(Active()) {
+        if (hosted) Active() = phase;
+    }
+    ~HostedSwapchainTrace() { Active() = previous; }
+    HostedSwapchainTrace(const HostedSwapchainTrace&) = delete;
+
+    static VkResult Create(const char* phase, PFN_vkCreateSwapchainKHR create, VkDevice device,
+                           const VkSwapchainCreateInfoKHR& info, VkSwapchainKHR& swapchain) {
+        int exclusive = -1;
+        unsigned modes = 0;
+        for (auto* p = static_cast<const VkBaseInStructure*>(info.pNext); p; p = p->pNext) {
+            if (p->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR)
+                modes = reinterpret_cast<const VkSwapchainPresentModesCreateInfoKHR*>(p)->presentModeCount;
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+            if (p->sType == VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT)
+                exclusive = int(reinterpret_cast<const VkSurfaceFullScreenExclusiveInfoEXT*>(p)->fullScreenExclusive);
+#endif
+        }
+        std::fprintf(stderr, "[ps2-dl-wsi] vkCreateSwapchainKHR enter phase=%s width=%u height=%u mode=%d "
+            "min_images=%u format=%d sharing=%d flags=0x%x usage=0x%x modes=%u exclusive=%d old=%d\n",
+            phase, info.imageExtent.width, info.imageExtent.height, int(info.presentMode), info.minImageCount,
+            int(info.imageFormat), int(info.imageSharingMode), info.flags, info.imageUsage, modes, exclusive,
+            info.oldSwapchain != VK_NULL_HANDLE);
+        std::fflush(stderr);
+        const VkResult result = create(device, &info, nullptr, &swapchain);
+        std::fprintf(stderr, "[ps2-dl-wsi] vkCreateSwapchainKHR return phase=%s result=%d\n", phase, int(result));
+        std::fflush(stderr);
+        return result;
+    }
+private:
+    const char* previous;
+};
+
 // The window thread arms this only for the loading frame and the first game
 // present on a borrowed swapchain. Ordinary frames go straight to Vulkan.
 struct HostedPresentTrace {

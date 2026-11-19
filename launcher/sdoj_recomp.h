@@ -3,6 +3,7 @@
 #include "common/launch.h"
 #include "common/settings.h"
 #include "common/verification_cache.h"
+#include <Windows.h>
 #include <array>
 #include <stdexcept>
 
@@ -17,6 +18,15 @@ inline bool ReadSdojRecomp(const Ini& ini) {
 
 inline fs::path SdojRecompExecutable(const fs::path& root) {
   return DataChild(root,std::string(kSdojRecompDirectory)+"/DoDonPachi SaiDaiOuJou.exe");
+}
+
+inline bool SupportsSdojCommunity(const fs::path& executable) {
+  const auto image=LoadLibraryExW(executable.c_str(),nullptr,
+                                  LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+  if(!image)return false;
+  const bool supported=FindResourceW(image,L"SDOJ_COMMUNITY_V1",RT_RCDATA)!=nullptr;
+  FreeLibrary(image);
+  return supported;
 }
 
 inline std::string RecompKey(const Binding& binding) {
@@ -56,6 +66,11 @@ inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs
   for(size_t index=0;index<keys.size();++index) {
     const auto key=RecompKey(settings.keyboard[index]);
     launch.arguments.push_back(std::wstring(L"--keyboard_p1_")+keys[index]+L"="+FromUtf8(key).native());
+  }
+  if(SupportsSdojCommunity(launch.executable)) {
+    launch.arguments.push_back(L"--player_name="+FromUtf8(settings.nickname).native());
+    const auto endpoint=settings.community_enabled?settings.endpoint:std::string{};
+    launch.arguments.push_back(L"--community_endpoint="+FromUtf8(endpoint).native());
   }
 
   // Explicitly sharing data is safe for the optical TU that both players support.

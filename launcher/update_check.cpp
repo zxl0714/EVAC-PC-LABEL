@@ -1,4 +1,5 @@
 #include "update_check.h"
+#include "launcher/donpachi_recomp.h"
 #include "common/paths.h"
 #include "common/config_update.h"
 #include "common/settings.h"
@@ -37,7 +38,7 @@ fs::path CacheFile(const fs::path& root) {
       throw std::runtime_error("Update cache cannot use linked paths");
   }
   const auto ini=Ini::Load(ConfigPath(base));
-  for(const auto& game:Catalogue()) {
+  for(const auto& game:LauncherCatalogue()) {
     const auto data=Resolve(base,ini.DataDirectory(game));
     const auto content=ini.ContentDirectory(game,data);
     for(const auto& input:std::array{data,content.empty()?fs::path{}:Resolve(base,content)})

@@ -218,8 +218,11 @@ public:
                      Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_BUFFER_BIT;
             std::fputs("[ps2-wsi] hosted VSync uses FIFO and descriptor sets\n",stderr);
         }
-        if(!wsi.init_context_from_platform(1,{},0,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
-            throw std::runtime_error("Cannot initialize Vulkan WSI");
+        {
+            HostedSwapchainTrace trace(window.borrowed,"start");
+            if(!wsi.init_context_from_platform(1,{},0,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
+                throw std::runtime_error("Cannot initialize Vulkan WSI");
+        }
         // PGS can flush several times in one game field. Allocation contexts
         // are independent of the one outstanding game-frame fence below.
         auto& device=wsi.get_device();
@@ -291,6 +294,7 @@ void GsDisplay::ReleaseBorrowedSurface() {
 }
 void GsDisplay::RestoreBorrowedSurface() {
     if(!Alive())throw GsWindowClosed();
+    HostedSwapchainTrace trace(impl->window.borrowed,"resume");
     if(!impl->wsi.init_surface_swapchain())
         throw std::runtime_error("Cannot restore PS2 Vulkan presentation");
 }
@@ -308,7 +312,14 @@ void GsDisplay::WaitPreviousFrame() {
 }
 void GsDisplay::BeginWindowFrame() {
     if(!Alive())throw GsWindowClosed();
-    if(!impl->wsi.begin_frame()) {
+    const auto begin=[&] {
+        if(impl->window.borrowed && !impl->window.swapchainReady) {
+            HostedSwapchainTrace trace(true,"recreate");
+            return impl->wsi.begin_frame();
+        }
+        return impl->wsi.begin_frame();
+    };
+    if(!begin()) {
         if(!Alive())throw GsWindowClosed();
         throw std::runtime_error("Cannot acquire a PS2 Vulkan frame");
     }

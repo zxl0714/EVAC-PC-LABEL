@@ -47,6 +47,8 @@
 
 using Microsoft::WRL::ComPtr;
 using namespace cave;
+using cave::launcher::LauncherCatalogue;
+using cave::launcher::FindLauncherGame;
 using cave::launcher::BigPictureLayout;
 using cave::launcher::MenuKey;
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -165,7 +167,7 @@ HWND VisibleGameWindow(DWORD pid) {
 fs::path LogDirectory(const fs::path& root) {
   const auto directory=DataChild(root,"logs");
   const auto ini=Ini::Load(ConfigPath(root));
-  for (const auto& game:Catalogue()) {
+  for (const auto& game:LauncherCatalogue()) {
     const auto data=Resolve(root,ini.DataDirectory(game));
     if (Within(directory,data) || Within(data,directory))
       throw std::runtime_error("Launcher logs overlap a read-only game-data directory");
@@ -225,8 +227,8 @@ Options Arguments() {
   if (options.big_picture && (!options.game.empty() || !options.update_action.empty()))
     throw std::runtime_error("--big-picture opens the graphical launcher");
   if (!options.data.empty() && options.game.empty()) throw std::runtime_error("--data-dir requires --game");
-  if (!options.game.empty()) (void)FindGame(options.game);
-  if (!options.selection.empty()) (void)FindGame(options.selection);
+  if (!options.game.empty()) (void)FindLauncherGame(options.game);
+  if (!options.selection.empty()) (void)FindLauncherGame(options.selection);
   if (!options.game.empty() && !options.selection.empty())throw std::runtime_error("Use --game to launch directly, or --select to open the launcher");
   return options;
 }
@@ -234,10 +236,10 @@ struct Row {Inspection inspection;daioujou::ArrangeStatus arrange;};
 std::vector<Row> InspectRows(const fs::path& root,size_t selected,bool prepare_title_updates) {
   const auto started=std::chrono::steady_clock::now();
   VerificationCache cache(root);
-  std::vector<Row> rows(Catalogue().size());
+  std::vector<Row> rows(LauncherCatalogue().size());
   for(size_t index=0;index<rows.size();++index) {
-    rows[index].inspection.game=Catalogue()[index].id;
-    rows[index].inspection.state=Catalogue()[index].coming_soon?"coming_soon":"checking";
+    rows[index].inspection.game=LauncherCatalogue()[index].id;
+    rows[index].inspection.state=LauncherCatalogue()[index].coming_soon?"coming_soon":"checking";
   }
   try {
     const auto ini=Ini::Load(ConfigPath(root));
@@ -245,13 +247,14 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected,bool prepare_t
     // needs a real base-data result; repaint/scroll never touch the filesystem.
     for(size_t step=0;step<rows.size();++step) {
       const auto index=step==0?selected:(step<=selected?step-1:step);
-      const auto& game=Catalogue()[index];
+      const auto& game=LauncherCatalogue()[index];
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
         const auto data=ini.DataDirectory(game);
-        rows[index].inspection=prepare_title_updates
-            ? InspectLaunchData(game,root,data,CheckLevel::Quick,cache)
-            : Inspect(game,root,data,CheckLevel::Quick,&cache);
+        rows[index].inspection=game.id==cave::launcher::kDonPachi.id
+            ? cave::launcher::InspectDonPachi(root,data)
+            : (prepare_title_updates ? InspectLaunchData(game,root,data,CheckLevel::Quick,cache)
+                                     : Inspect(game,root,data,CheckLevel::Quick,&cache));
         if(!rows[index].inspection.missing_runtime.empty()) {
           try {cave::launcher::reports::RecordRuntimeFailure(root,game.id);} catch (...) {}
         }
@@ -262,8 +265,8 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected,bool prepare_t
     }
   } catch (const std::exception& error) {
     for (size_t index=0;index<rows.size();++index) {
-      auto& result=rows[index].inspection;result.game=Catalogue()[index].id;
-      result.state=Catalogue()[index].coming_soon?"coming_soon":"invalid_config";result.reason=error.what();
+      auto& result=rows[index].inspection;result.game=LauncherCatalogue()[index].id;
+      result.state=LauncherCatalogue()[index].coming_soon?"coming_soon":"invalid_config";result.reason=error.what();
     }
   }
   Log(root,"data-list-inspection ms="+std::to_string(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count())+
@@ -282,6 +285,8 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="unsupported_version") return T(L"数据版本不支持");
   if (state=="title_update_failed") return T(L"无法解包游戏更新 · 点击详情");
   if (state=="missing_runtime") return T(L"运行组件不可用");
+  if (state=="donpachi_program_missing") return T(L"请安装 DonPachi Recomp");
+  if (state=="donpachi_rom_missing") return T(L"请放置 donpachi.zip（美版）");
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
   if (state=="invalid_path") return T(L"数据路径不可用");
   if (state=="not_integrated") return T(L"正在接入");
@@ -289,6 +294,9 @@ std::wstring Status(const Inspection& inspection) {
   return T(L"正在检测…");
 }
 bool CanPlay(const Inspection& inspection) {return inspection.state=="ready" || inspection.state=="needs_verification";}
+bool DonPachiNeedsSetup(const Inspection& inspection) {
+  return inspection.state=="donpachi_program_missing" || inspection.state=="donpachi_rom_missing";
+}
 std::string Details(const Inspection& inspection) {
   auto result=inspection.reason.empty()?inspection.state:inspection.reason;
   if(!inspection.version.empty())result+="\n"+inspection.game+" "+inspection.version+" ("+inspection.layout+")";
@@ -299,7 +307,7 @@ std::string Details(const Inspection& inspection) {
 struct Layout {
   float width{},height{},scroll{};
   bool covers=false;
-  size_t game_count=Catalogue().size();
+  size_t game_count=LauncherCatalogue().size();
   bool narrow() const {return width<800;}
   float margin() const {return covers?cave::launcher::CoverMargin(width):std::max(narrow()?21.f:32.f,(width-1120.f)/2);}
   float header() const {return covers?cave::launcher::kCoverHeaderHeight:cave::launcher::kHeaderHeight;}
@@ -378,6 +386,7 @@ D2D1_RECT_F LayoutSdojSwitch(D2D1_RECT_F card,bool cover) {
 }
 const wchar_t* Platform(const Game& game) {
   if(game.backend=="xbox360")return L"Xbox 360";
+  if(game.backend=="arcade")return L"Arcade";
   return game.backend=="ps2"?L"PS2":L"PS4";
 }
 D2D1_RECT_F CoverSource(ID2D1Bitmap* image,const cave::launcher::Artwork& artwork) {
@@ -420,9 +429,9 @@ void FitInitialWindow(HWND window,bool covers,std::optional<cave::launcher::Wind
   auto size=saved?cave::launcher::RestoreWindowSize(*saved,work.right-work.left,
       work.bottom-work.top,dpi):
       covers?cave::launcher::InitialCoverWindowSize(work.right-work.left,
-      work.bottom-work.top,dpi,frame.right-frame.left,frame.bottom-frame.top,Catalogue().size()):
+      work.bottom-work.top,dpi,frame.right-frame.left,frame.bottom-frame.top,LauncherCatalogue().size()):
       cave::launcher::InitialWindowSize(current.right-current.left,
-      work.right-work.left,work.bottom-work.top,dpi,frame.bottom-frame.top,Catalogue().size());
+      work.right-work.left,work.bottom-work.top,dpi,frame.bottom-frame.top,LauncherCatalogue().size());
   if(covers && !saved) {
     const auto scale=float(dpi)/96;
     Layout planned{(size.width-frame.right+frame.left)/scale,(size.height-frame.bottom+frame.top)/scale};
@@ -470,7 +479,7 @@ class Renderer {
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
   }
   void PlatformTag(ID2D1RenderTarget* target,const Game& game,float x,float y,float scale=1.f) {
-    const auto width=(game.backend=="xbox360"?62.f:35.f)*scale;
+    const auto width=(game.backend=="xbox360"?62.f:game.backend=="arcade"?47.f:35.f)*scale;
     const auto r=D2D1::RoundedRect({x,y,x+width,y+18*scale},4*scale,4*scale);
     ComPtr<ID2D1SolidColorBrush> fill;
     Check(target->CreateSolidColorBrush(D2D1::ColorF(0x23312d,.92f),&fill),"Create platform background");
@@ -548,7 +557,7 @@ class Renderer {
   void Card(ID2D1RenderTarget* target,const Layout& layout,const std::vector<Row>& rows,
             size_t index,D2D1_RECT_F rectangle,size_t selected,int hover,bool hidden,
             bool sdoj_external=false,bool sdoj_hover=false) {
-    const auto& game=Catalogue()[index];const bool soon=game.coming_soon;
+    const auto& game=LauncherCatalogue()[index];const bool soon=game.coming_soon;
     const bool sdoj=game.id=="sdoj";
     const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
     const bool muted=soon||missing||hidden;
@@ -661,7 +670,7 @@ class Renderer {
     for(size_t position=view.First();position<view.Last();++position) {
       const size_t index=library.visible[position];
       const bool selected=position==view.selected;
-      const auto& game=Catalogue()[index];
+      const auto& game=LauncherCatalogue()[index];
       const bool available=CanPlay(rows[index].inspection) || (game.id=="sdoj" && sdoj_external);
       const auto artwork=Image(target,index,!available,true);
       const auto source=CoverSource(artwork,cave::launcher::kCoverArtwork[index]);
@@ -678,15 +687,17 @@ class Renderer {
 
     const float footer=view.height-119*scale;
     fill({0,footer,view.width,view.height},panel);
-    bool play=false;
+    bool play=false,setup=false;
     if(view.count) {
       const auto index=library.visible[view.selected];
       const auto& inspection=rows[index].inspection;
-      const auto& game=Catalogue()[index];
+      const auto& game=LauncherCatalogue()[index];
       const bool sdoj=game.id=="sdoj",external=sdoj&&sdoj_external;
       play=external||CanPlay(inspection);
+      setup=DonPachiNeedsSetup(inspection);
       auto title=Wide(game.DisplayName());
       if(sdoj && external)title+=L"   ·   SDOJ-Recomp (eandis)";
+      if(game.id==cave::launcher::kDonPachi.id)title+=L"   ·   DonPachi Recomp";
       label(title,{margin,footer+8*scale,view.width-margin,footer+48*scale},24,text);
       const auto caption=message.empty() ? (external?L"SDOJ-Recomp":std::wstring(Status(inspection))) : std::wstring(message);
       label(caption,{margin,footer+46*scale,view.width-margin,footer+78*scale},15,secondary);
@@ -702,6 +713,8 @@ class Renderer {
     controls(0,T(L"方向键　选择"));
     if(play && !busy)
       controls(1,T(L"A / Enter　启动"));
+    else if(setup && !busy)
+      controls(1,T(L"A / Enter　安装"));
     controls(2,T(L"B / Esc　返回"));
 
     if(!menu)return;
@@ -805,18 +818,20 @@ class Renderer {
     target->PopAxisAlignedClip();
     const bool has_games=layout.game_count!=0;
     const auto& inspection=rows[selected].inspection;
-    const bool external=has_games && Catalogue()[selected].id=="sdoj" && sdoj_external;
-    Text(target,has_games?Wide(Catalogue()[selected].DisplayName()):T(L"没有显示的游戏"),
+    const bool external=has_games && LauncherCatalogue()[selected].id=="sdoj" && sdoj_external;
+    const bool setup=has_games && DonPachiNeedsSetup(inspection);
+    Text(target,has_games?Wide(LauncherCatalogue()[selected].DisplayName()):T(L"没有显示的游戏"),
         {margin,layout.height-105,layout.play().left-18,layout.height-76},18,0x23312d);
     const auto status=running?T(L"请先退出正在运行的游戏"):busy?T(L"正在读取／校验所选游戏…"):
         external?L"SDOJ-Recomp (eandis)":has_games?Status(inspection):L"";
     Text(target,status,{margin,layout.height-80,layout.play().left-18,layout.height-64},11,CanPlay(inspection)?0x356c4b:0x90754f);
-    Button(target,layout.play(),running?T(L"游戏运行中"):T(L"启动游戏"),true,
-        busy||running||!has_games||(!external&&!CanPlay(inspection)),button_hover==8);
+    Button(target,layout.play(),running?T(L"游戏运行中"):setup?T(L"安装首領蜂"):T(L"启动游戏"),true,
+        busy||running||!has_games||(!external&&!setup&&!CanPlay(inspection)),button_hover==8);
     Button(target,layout.data(),T(L"游戏数据…"),false,
-        busy||running||!has_games||Catalogue()[selected].coming_soon,button_hover==6);
+        busy||running||!has_games||LauncherCatalogue()[selected].coming_soon,button_hover==6);
     Button(target,layout.file_upload(),T(L"上传文件"),false,busy||running||!has_games,button_hover==7);
-    Button(target,layout.controls(),T(L"输入设置"),false,busy||running||!has_games,button_hover==13);
+    Button(target,layout.controls(),T(L"输入设置"),false,
+        busy||running||!has_games||LauncherCatalogue()[selected].id==cave::launcher::kDonPachi.id,button_hover==13);
     Button(target,layout.config(),T(L"配置文件"),false,false,button_hover==4);
     Button(target,layout.logs(),T(L"上传日志"),false,busy||running,button_hover==5);
     Button(target,layout.big_picture_button(),T(L"大屏模式"),false,busy||running,button_hover==9);
@@ -854,8 +869,8 @@ struct Work {
 };
 class App {
  public:
-  explicit App(Options settings):options(std::move(settings)),rows(Catalogue().size()) {
-    const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=Catalogue()[i].id;
+  explicit App(Options settings):options(std::move(settings)),rows(LauncherCatalogue().size()) {
+    const auto ini=Ini::Load(EnsureConfig(options.root));for(size_t i=0;i<rows.size();++i) rows[i].inspection.game=LauncherCatalogue()[i].id;
     sdoj_external=cave::launcher::ReadSdojRecomp(ini);
     selected=cave::launcher::InitialSelection(ini,options.selection);
     library=cave::launcher::GameLibrary(ini);
@@ -978,10 +993,11 @@ class App {
        update::ShouldNotify(update_state,cave::launcher::kProductVersion))ShowUpdate();
   }
   void ShowDetails(size_t index) {
-    const auto& game=Catalogue()[index];
+    const auto& game=LauncherCatalogue()[index];
     if(busy || child || game.coming_soon)return;
     const auto& row=rows[index];
     std::wstring body=Wide(game.DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
+    if(game.id==cave::launcher::kDonPachi.id)body+=L"\n"+std::wstring(T(L"街机美版 · 1995"))+L"\nDonPachi Recomp · CapsLock4284";
     if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
     if(!row.inspection.missing_runtime.empty()) {
       body+=L"\n\n"+std::wstring(T(L"无法读取以下运行组件："));
@@ -1070,7 +1086,7 @@ class App {
   }
   void EnablePreferences() {
     const bool enabled=preferences_available&&!busy&&!child;
-    EnableWindow(fullscreen_control,enabled);EnableWindow(nickname_control,enabled);
+    EnableWindow(fullscreen_control,enabled&&!DonPachiSelected());EnableWindow(nickname_control,enabled);
     EnableWindow(save_control,enabled&&preferences_dirty);
   }
   void PopulateDisplay(const Settings& settings) {
@@ -1130,7 +1146,8 @@ class App {
   void UpdateOverrideHint(const Ini& ini) {
     override_hint.clear();
     if(library.visible.empty())return;
-    const auto section="game."+std::string(Catalogue()[selected].id);
+    if(DonPachiSelected()) {override_hint=T(L"画面与按键在首領蜂内设置");return;}
+    const auto section="game."+std::string(LauncherCatalogue()[selected].id);
     if(ini.Get(section+".display","fullscreen") || ini.Get(section+".display","window_width") ||
        ini.Get(section+".display","window_height") || ini.Get(section+".community","nickname"))
       override_hint=T(L"此游戏有独立的显示／昵称设置，请在配置文件中调整");
@@ -1162,6 +1179,7 @@ class App {
     if(std::ranges::find(library.visible,index)==library.visible.end())return;
     selected=index;focus=0;SetFocus(hwnd);EnsureVisible();
     try {UpdateOverrideHint(Ini::Load(ConfigPath(options.root)));}catch(...){override_hint.clear();}
+    EnablePreferences();
     if(refresh_data && !busy && !child)Refresh();
     else InvalidateRect(hwnd,nullptr,FALSE);
   }
@@ -1185,12 +1203,40 @@ class App {
   void LaunchSelected() {
     if(close_requested)return;
     if(busy||child||library.visible.empty())return;
-    if(ExternalSelected()) {
+    if(DonPachiSelected()) {
+      const auto ini=Ini::Load(ConfigPath(options.root));
+      const auto data=options.data.empty()?ini.DataDirectory(cave::launcher::kDonPachi):options.data;
+      rows[selected].inspection=cave::launcher::InspectDonPachi(options.root,data);
+      if(DonPachiNeedsSetup(rows[selected].inspection)){ShowDonPachiSetup();return;}
+    } else if(ExternalSelected()) {
       if(!fs::is_regular_file(cave::launcher::SdojRecompExecutable(options.root))) {ShowSdojSetup();return;}
     } else if(!CanPlay(rows[selected].inspection))return;
     if(SavePreferences())Refresh(true);
   }
-  bool ExternalSelected() const {return sdoj_external && Catalogue()[selected].id=="sdoj";}
+  bool DonPachiSelected() const {return LauncherCatalogue()[selected].id==cave::launcher::kDonPachi.id;}
+  bool ExternalSelected() const {return sdoj_external && LauncherCatalogue()[selected].id=="sdoj";}
+  void ShowDonPachiSetup() {
+    const auto& data=rows[selected].inspection;
+    const bool install=data.state=="donpachi_program_missing";
+    std::wstring content;
+    if(install) {
+      content=T(L"从官方发布页下载 Windows ZIP，完整解压到");
+      content+=L"\n"+DataChild(options.root,"external/DonPachi-Recomp").make_preferred().native()+L"\n\n";
+    }
+    content+=T(L"将美版 donpachi.zip 放到下面的目录，或直接选择 ZIP。");
+    content+=L"\n"+fs::path(data.data_dir).make_preferred().native();
+    const TASKDIALOG_BUTTON buttons[]{{IDOK,T(L"选择 donpachi.zip…")},{IDYES,T(L"打开官方发布页")}};
+    TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);dialog.hwndParent=hwnd;
+    dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
+    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=T(L"安装首領蜂");
+    dialog.pszContent=content.c_str();dialog.dwCommonButtons=TDCBF_CLOSE_BUTTON;
+    dialog.cButtons=install?2:1;dialog.pButtons=buttons;dialog.nDefaultButton=IDCLOSE;
+    int choice{};
+    Check(TaskDialogIndirect(&dialog,&choice,nullptr,nullptr),"Show DonPachi Recomp setup");
+    if(choice==IDYES)OpenPath(hwnd,cave::launcher::kDonPachiRelease);
+    if(choice==IDOK)Choose();
+    InvalidateRect(hwnd,nullptr,FALSE);
+  }
   void ShowSdojSetup() {
     const auto directory=(options.root/cave::launcher::kSdojRecompDirectory).make_preferred().native();
     const auto content=std::wstring(T(L"从 eandis 的官方发布页下载 Windows x64 ZIP，然后完整解压到："))+
@@ -1372,9 +1418,10 @@ class App {
           const auto control=slot==1?fullscreen_control:(slot==2?nickname_control:(slot==3?save_control:hwnd));
           if(!IsWindowEnabled(control))continue;
           if((slot==6 || slot==8 || slot==13) && library.visible.empty())continue;
-          if(slot==6 && (busy||child||Catalogue()[selected].coming_soon))continue;
+          if(slot==6 && (busy||child||LauncherCatalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
-          if(slot==8 && (busy||child||!CanPlay(rows[selected].inspection)))continue;
+          if(slot==8 && (busy||child||(!CanPlay(rows[selected].inspection)&&!DonPachiNeedsSetup(rows[selected].inspection))))continue;
+          if(slot==13 && DonPachiSelected())continue;
           if(slot==9 && (busy||child))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
           if(slot==15 && !ProgramReady())continue;
@@ -1399,9 +1446,9 @@ class App {
     if (worker.joinable()) worker.join();
     busy=true;EnablePreferences();work=std::make_shared<Work>();work->starting=launch;
     work->copying=!copy_source.empty();
-    work->external=launch&&ExternalSelected();
+    work->external=launch&&(ExternalSelected()||DonPachiSelected());
     work->selected=selected;
-    const auto task=work;const auto root=options.root;const auto id=std::string(Catalogue()[selected].id);const auto profile=options.profile;
+    const auto task=work;const auto root=options.root;const auto id=std::string(LauncherCatalogue()[selected].id);const auto profile=options.profile;
     const auto window=hwnd;const auto data=options.data;
     worker=std::thread([task,root,id,profile,window,data,copy_source] {
       try {
@@ -1413,8 +1460,9 @@ class App {
         task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
           const auto ini=Ini::Load(ConfigPath(root));
-          task->launch=task->external?cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem()):
-                                      PrepareLaunch(FindGame(id),root,ini,profile,data);
+          if(id==cave::launcher::kDonPachi.id)task->launch=cave::launcher::PrepareDonPachi(root,ini,profile,data);
+          else if(task->external)task->launch=cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem());
+          else task->launch=PrepareLaunch(FindGame(id),root,ini,profile,data);
           Log(root,"launch-verification "+task->launch->verification);
           if(id=="daioujou") {
             VerificationCache cache(root);
@@ -1440,8 +1488,9 @@ class App {
         game_focus_pending=BigPicture();
         if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
-        message=T(L"正在运行：")+Wide(FindGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
-        Log(options.root,"launch game="+work->launch->game+(work->external?" engine=eandis":"")+" pid="+std::to_string(child->pid()));
+        message=T(L"正在运行：")+Wide(FindLauncherGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
+        const char* engine=!work->external?"":(active_game==cave::launcher::kDonPachi.id?" engine=donpachi":" engine=eandis");
+        Log(options.root,"launch game="+work->launch->game+engine+" pid="+std::to_string(child->pid()));
       } else if(work->copy_result) {
         message=T(L"数据已复制并逐文件校验，配置已更新");
         Log(options.root,"data-copy-complete files="+std::to_string(work->copy_result->files)+" bytes="+std::to_string(work->copy_result->bytes));
@@ -1466,7 +1515,8 @@ class App {
       const bool failed=*code && !requested_close;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
-      message=failed?(external?T(L"SDOJ-Recomp 已退出，请查看其目录内的日志"):T(L"游戏异常退出，请查看该游戏的日志")):L"";
+      if(failed && active_game==cave::launcher::kDonPachi.id)message=T(L"DonPachi Recomp 已退出，请查看其安装目录内的日志");
+      else message=failed?(external?T(L"SDOJ-Recomp 已退出，请查看其目录内的日志"):T(L"游戏异常退出，请查看该游戏的日志")):L"";
       const auto exited_game=active_game;
       child.reset();external_session.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
       if(menu_controller)menu_controller->Reset();
@@ -1480,17 +1530,31 @@ class App {
     }
   }
   void Choose(bool copy=false) {
-    if(busy||child||Catalogue()[selected].coming_soon)return;
+    if(busy||child||LauncherCatalogue()[selected].coming_soon)return;
+    const bool arcade=DonPachiSelected();
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
-    Check(dialog->SetOptions(flags|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure directory picker");
-    dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏数据目录"));
+    Check(dialog->SetOptions(flags|(arcade?FOS_FILEMUSTEXIST:FOS_PICKFOLDERS)|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure game data picker");
+    if(arcade) {
+      const COMDLG_FILTERSPEC filter[]{{L"donpachi.zip",L"donpachi.zip"}};
+      Check(dialog->SetFileTypes(1,filter),"Set DonPachi data filter");
+      dialog->SetTitle(T(L"选择 donpachi.zip…"));
+    } else {
+      dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏数据目录"));
+    }
     const auto result=dialog->Show(hwnd);if(result==HRESULT_FROM_WIN32(ERROR_CANCELLED))return;Check(result,"Select game data directory");
     ComPtr<IShellItem> item;Check(dialog->GetResult(&item),"Read selected directory");
     PWSTR value{};Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected directory path");
     fs::path path(value);CoTaskMemFree(value);
+    if(arcade) {
+      if(_wcsicmp(path.filename().c_str(),L"donpachi.zip")) {
+        MessageBoxW(hwnd,T(L"请放置 donpachi.zip（美版）"),kWindowTitle,MB_OK|MB_ICONWARNING);
+        return;
+      }
+      path=path.parent_path();
+    }
     if(copy) {
-      const auto& game=Catalogue()[selected];
+      const auto& game=LauncherCatalogue()[selected];
       const auto target=DataChild(options.root,game.data_dir);
       const auto prompt=T(L"将完整复制并校验游戏数据。\n\n来源：")+path.native()+T(L"\n目标：")+target.native()+
           (PreservesXArrangeOnImport(game.id)?T(L"\n\n导入会保留目标中的放置说明和 X Arrange 曲包。\n继续吗？"):
@@ -1499,14 +1563,19 @@ class App {
       if(!SavePreferences())return;message=T(L"正在校验源数据…");Refresh(false,path);return;
     }
     if(!SavePreferences())return;
-    SetDataDirectory(options.root,Catalogue()[selected],path);
-    ReloadPreferences();Log(options.root,"data-directory-updated game="+std::string(Catalogue()[selected].id));Refresh();
+    SetDataDirectory(options.root,LauncherCatalogue()[selected],path);
+    ReloadPreferences();Log(options.root,"data-directory-updated game="+std::string(LauncherCatalogue()[selected].id));Refresh();
   }
   void DataMenu() {
-    if(busy||child||library.visible.empty()||Catalogue()[selected].coming_soon)return;
+    if(busy||child||library.visible.empty()||LauncherCatalogue()[selected].coming_soon)return;
+    if(DonPachiSelected()) {
+      if(DonPachiNeedsSetup(rows[selected].inspection))ShowDonPachiSetup();
+      else Choose();
+      return;
+    }
     const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create data menu");
     AppendMenuW(menu,MF_STRING,1,T(L"选择数据目录…"));
-    AppendMenuW(menu,Catalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,T(L"复制到合集…"));
+    AppendMenuW(menu,LauncherCatalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,T(L"复制到合集…"));
     const auto rectangle=layout.data();const auto scale=float(GetDpiForWindow(hwnd))/96;
     POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.top*scale)};ClientToScreen(hwnd,&anchor);
     const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_LEFTALIGN|TPM_BOTTOMALIGN,anchor.x,anchor.y,0,hwnd,nullptr);
@@ -1527,7 +1596,7 @@ class App {
   bool SdojSwitchAt(float x,float y) const {
     if(y<layout.header() || y>=layout.footer())return false;
     for(size_t position=0;position<library.visible.size();++position) {
-      if(Catalogue()[library.visible[position]].id=="sdoj")return Inside(LayoutSdojSwitch(layout.card(position),layout.covers),x,y);
+      if(LauncherCatalogue()[library.visible[position]].id=="sdoj")return Inside(LayoutSdojSwitch(layout.card(position),layout.covers),x,y);
     }
     return false;
   }
@@ -1627,7 +1696,7 @@ class App {
     if(!game)return;
     const auto menu=CreatePopupMenu();
     if(!menu)throw std::runtime_error("Cannot create game menu");
-    AppendMenuW(menu,MF_STRING|(Catalogue()[*game].coming_soon?MF_GRAYED:0),2,T(L"游戏数据详情"));
+    AppendMenuW(menu,MF_STRING|(LauncherCatalogue()[*game].coming_soon?MF_GRAYED:0),2,T(L"游戏数据详情"));
     AppendMenuW(menu,MF_STRING,1,T(library.Hidden(*game)?L"取消隐藏":L"隐藏游戏"));
     const auto action=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_RIGHTBUTTON,screen.x,screen.y,0,hwnd,nullptr);
     DestroyMenu(menu);
@@ -1717,7 +1786,7 @@ class App {
     }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.controls(),x,y)) {
-      if(!busy && !child && !library.visible.empty() && show_controls(hwnd,options.root,Catalogue()[selected],language)) {
+      if(!busy && !child && !library.visible.empty() && !DonPachiSelected() && show_controls(hwnd,options.root,LauncherCatalogue()[selected],language)) {
         preferences_text=Ini::ReadText(ConfigPath(options.root));
         Log(options.root,"input-settings-updated");
       }
@@ -1731,7 +1800,7 @@ class App {
     if(Inside(layout.data(),x,y)) {DataMenu();return;}
     if(Inside(layout.file_upload(),x,y)) {
       if(!busy&&!child&&!library.visible.empty()&&!GameIsRunning(options.root))
-        show_file_upload(hwnd,options.root,language,Catalogue()[selected].id);
+        show_file_upload(hwnd,options.root,language,LauncherCatalogue()[selected].id);
       return;
     }
     if(Inside(layout.play(),x,y)) {LaunchSelected();return;}
@@ -2008,8 +2077,8 @@ void Preview(const Options& options) {
   ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
   size_t selected=1;
-  if(!options.selection.empty())for(size_t index=0;index<Catalogue().size();++index)
-    if(Catalogue()[index].id==options.selection)selected=index;
+  if(!options.selection.empty())for(size_t index=0;index<LauncherCatalogue().size();++index)
+    if(LauncherCatalogue()[index].id==options.selection)selected=index;
   auto rows=InspectRows(options.root,selected,false);
   if(options.selection.empty()) {
     rows[0].inspection.state="missing_data";rows[1].inspection.state="ready";rows[2].inspection.state="not_integrated";
@@ -2017,7 +2086,7 @@ void Preview(const Options& options) {
   }
   Layout layout{1080,900,0};
   layout.covers=cave::launcher::CoverLayout(ini);
-  const auto caption=std::to_wstring(Catalogue().size())+T(L" 部作品 · 按需安装游戏数据");
+  const auto caption=std::to_wstring(LauncherCatalogue().size())+T(L" 部作品 · 按需安装游戏数据");
   const cave::launcher::GameLibrary library(Ini::Parse(""));
   const auto position=std::size_t(std::ranges::find(library.visible,selected)-library.visible.begin());
   layout.scroll=std::clamp(layout.card(position).bottom-layout.footer(),0.f,layout.max_scroll());
@@ -2062,8 +2131,14 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
     if(!options.game.empty()) {
       if(recovery)throw std::runtime_error("Open the launcher to finish update recovery.");
       EnsureConfig(options.root);
-      auto spec=PrepareLaunch(FindGame(options.game),options.root,Ini::Load(ConfigPath(options.root)),options.profile,options.data);
-      auto child=StartGame(spec);child.Wait();const auto code=child.ExitCode().value_or(1);return int(code);
+      const auto ini=Ini::Load(ConfigPath(options.root));
+      const bool arcade=options.game==cave::launcher::kDonPachi.id;
+      const auto spec=arcade?cave::launcher::PrepareDonPachi(options.root,ini,options.profile,options.data):
+                             PrepareLaunch(FindGame(options.game),options.root,ini,options.profile,options.data);
+      std::optional<GameSession> session;
+      if(arcade)session.emplace(options.root);
+      auto child=StartGame(spec,arcade?spec.executable.parent_path():fs::path{});
+      child.Wait();return int(child.ExitCode().value_or(1));
     }
     cave::launcher::LauncherInstance instance_guard(options.root);
     if(!instance_guard.ActivateOrAcquire(options.big_picture))return 0;

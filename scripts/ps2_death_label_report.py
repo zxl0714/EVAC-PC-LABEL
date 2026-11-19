@@ -8,6 +8,7 @@ import zipfile
 
 def summarize(lines):
     images, ranges, calls, frames = {}, {}, {}, []
+    create = []
     render_fault, stage, generation = None, None, None
     for raw in lines:
         line = raw.strip()
@@ -20,10 +21,15 @@ def summarize(lines):
                     ranges.clear()
                     calls.clear()
                     frames.clear()
+                    create.clear()
                     render_fault, stage, generation = None, None, None
                 images[fields["image"]] = message
             elif match := re.fullmatch(r"loader_export=(\w+) begin_rva=0x([0-9a-fA-F]+) end_rva=0x([0-9a-fA-F]+)", message):
                 ranges[match[1]] = (int(match[2], 16), int(match[3], 16))
+            elif message.startswith("vkCreateSwapchainKHR enter "):
+                create = [message]
+            elif message.startswith("vkCreateSwapchainKHR return "):
+                create.append(message)
             elif message.startswith("vkQueuePresentKHR ") and {"generation", "phase"} <= fields.keys():
                 if fields["generation"] != generation:
                     calls.clear()
@@ -44,9 +50,9 @@ def summarize(lines):
             frames.append((int(match[1]), match[2], int(match[3], 16)))
 
     yield from images.values()
-    for pair in calls.values():
+    for pair in (create, *calls.values()):
         yield from pair
-        if len(pair) == 1 and pair[0].startswith("vkQueuePresentKHR enter "):
+        if len(pair) == 1 and " enter " in pair[0]:
             yield "No return was recorded for this call."
     if render_fault:
         yield render_fault

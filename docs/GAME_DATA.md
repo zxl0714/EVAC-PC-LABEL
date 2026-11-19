@@ -304,6 +304,15 @@ game-data/garegga/
 
 用 `tools/Extract-PS4.exe` 提取 PKG，日版同时选择本体和 01.07 补丁。已有主机导出数据时，使用解包后的目录。把包含 `eboot.bin` 的目录选为游戏数据目录，或将该目录的内容复制到 `game-data/garegga/`。存档、录像和设置位于 `user-data/garegga/`。
 
+## 街机游戏
+
+<a id="donpachi"></a>
+### 首领蜂（donpachi）
+
+1. 从 [DonPachi Recomp 官方发布页](https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest)下载 CapsLock4284 提供的 Windows ZIP。把里面的文件解压到 `external/DonPachi-Recomp/`，让 `donpachi.exe` 和目录中的 README 放在一起。
+2. 把美版 `donpachi.zip` 放入 `game-data/donpachi/`，或在《首领蜂》的「游戏数据」处选择这个 ZIP。
+3. 点击「启动游戏」。按键和画面可在游戏内设置。设置与 EEPROM 保存在 `user-data/donpachi/default/`。
+
 ## PS2 游戏
 
 <a id="espgaluda"></a>

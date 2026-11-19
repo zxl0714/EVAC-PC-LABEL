@@ -84,6 +84,12 @@ def artwork(root, kind='assets'):
     if kind=='covers' and not entries:
         return []
     games=[game['id'] for game in load(root/'games/catalogue.json')]
+    external=value.get('externalGames', [])
+    if (not isinstance(external, list) or any(not isinstance(key,str) or
+            not re.fullmatch(r'[a-z0-9-]+',key) or key in games for key in external) or
+            len(set(external))!=len(external)):
+        raise ValueError('Invalid external game artwork')
+    games+=external
     if [entry['game'] for entry in entries]!=games:
         raise ValueError('Each catalogue game needs one authored image in '+kind)
     paths,resources=set(),set()
@@ -115,9 +121,10 @@ def artwork(root, kind='assets'):
             raise ValueError('Artwork is not a JPEG or PNG')
         if not re.fullmatch('[0-9a-f]{64}',entry['sha256']) or hashlib.sha256(data).hexdigest()!=entry['sha256']:
             raise ValueError('Artwork differs from recorded source')
-        for key in ('sourcePage','sourceUrl'):
-            if not entry[key].startswith('https://') or any(c.isspace() for c in entry[key]):
-                raise ValueError('Record an HTTPS artwork origin')
+        if entry.get('original') is not True:
+            for key in ('sourcePage','sourceUrl'):
+                if not entry[key].startswith('https://') or any(c.isspace() for c in entry[key]):
+                    raise ValueError('Record an HTTPS artwork origin')
         for key in ('kicker','copyright','usage'):
             if not entry[key] or any(ord(c)<32 for c in entry[key]):
                 raise ValueError('Missing artwork metadata')

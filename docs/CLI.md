@@ -46,6 +46,7 @@
 | PS2 | ESPGaluda | `espgaluda` |
 | PS2 | 铸蔷薇 | `ibara` |
 | PS2 | 大往生 (PS2) | `daioujou-ps2` |
+| 街机 | 首领蜂 | `donpachi` |
 
 ## 可选参数
 

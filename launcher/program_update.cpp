@@ -1,4 +1,5 @@
 #include "launcher/program_update.h"
+#include "launcher/donpachi_recomp.h"
 #include "launcher/single_instance.h"
 #include "common/catalogue.h"
 #include "common/config_update.h"
@@ -264,7 +265,7 @@ void ResetTransaction(const fs::path& storage) {
 std::vector<fs::path> DataDirectories(const fs::path& root) {
   const auto ini=Ini::Load(ConfigPath(root));
   std::vector<fs::path> directories;
-  for(const auto& game:Catalogue()) {
+  for(const auto& game:LauncherCatalogue()) {
     const auto data=Resolve(root,ini.DataDirectory(game));
     const auto content=ini.ContentDirectory(game,data);
     directories.push_back(data);

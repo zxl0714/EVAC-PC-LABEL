@@ -1,0 +1,18 @@
+DonPachi Recomp · CapsLock4284
+
+从下面的官方发布页下载 Windows ZIP，把其中所有文件解压到本目录。
+这里应能直接看到 donpachi.exe。
+https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest
+
+将美版 donpachi.zip 放入合集的 game-data/donpachi/，或在启动器中选中
+《首领蜂》，点击「游戏数据」并选择 ZIP。
+
+Download the Windows ZIP from the releases page above. Extract all the files
+into this directory so donpachi.exe is next to this README.
+Place the US donpachi.zip in game-data/donpachi/ or select it via Game data in
+the launcher's DonPachi entry.
+
+公式リリースの Windows ZIP をこのフォルダーに展開してください。
+donpachi.exe がこの README と同じ場所にあることを確認してください。
+米国版 donpachi.zip は game-data/donpachi/ に置くか、ランチャーの
+「ゲームデータ」から選択できます。

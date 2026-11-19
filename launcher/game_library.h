@@ -1,5 +1,5 @@
 #pragma once
-#include "common/catalogue.h"
+#include "launcher/donpachi_recomp.h"
 #include "common/ini.h"
 #include <algorithm>
 #include <array>
@@ -16,11 +16,11 @@ struct GameLibrary {
   GameLibrary()=default;
   explicit GameLibrary(const Ini& ini)
       : order(Read(ini,"game_order")),hidden(Read(ini,"hidden_games")) {
-    const auto games=Catalogue();
+    const auto games=LauncherCatalogue();
     const auto saved_count=order.size();
     for(std::size_t index=0;index<games.size();++index)
       if(std::ranges::find(order,index)==order.end())order.push_back(index);
-    constexpr std::array<std::string_view,3> platforms{"xbox360","ps4","ps2"};
+    constexpr std::array<std::string_view,4> platforms{"xbox360","ps4","ps2","arcade"};
     const auto rank=[&](std::size_t index) {
       if(games[index].id=="futari")return std::size_t{0};
       return 1+std::size_t(std::ranges::find(platforms,games[index].backend)-platforms.begin());
@@ -59,7 +59,7 @@ struct GameLibrary {
     std::string text;
     for(const auto index:indexes) {
       if(!text.empty())text+=',';
-      text+=Catalogue()[index].id;
+      text+=LauncherCatalogue()[index].id;
     }
     return text;
   }
@@ -70,7 +70,7 @@ struct GameLibrary {
     if(!value)return {};
     std::string_view list=value->text;
     std::vector<std::size_t> indexes;
-    const auto games=Catalogue();
+    const auto games=LauncherCatalogue();
     while(!list.empty()) {
       const auto comma=list.find(',');
       auto id=list.substr(0,comma);

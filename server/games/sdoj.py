@@ -84,6 +84,7 @@ def match_replay(data, properties):
 
 
 class Store(NativeStore):
+    rulesets = ('standard', 'eandis-v1')
     score_property = 0x20000004
     replay_format = REPLAY_FORMAT
     inspect_record = staticmethod(replay_info)

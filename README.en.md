@@ -61,6 +61,7 @@ Latency runs from input reaching the PC to the Windows display event. Device rep
 | Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) · [Guwange](docs/GAME_DATA.en.md#guwange) |
 | PS4 | [Ketsui Deathtiny](docs/GAME_DATA.en.md#ketsui) · [DaiOuJou Re:Incarnation](docs/GAME_DATA.en.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.en.md#esprade) · [Dangun Feveron](docs/GAME_DATA.en.md#feveron) · [Battle Garegga Rev.2016](docs/GAME_DATA.en.md#garegga) |
 | PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) · [DaiOuJou (PS2)](docs/GAME_DATA.en.md#daioujou-ps2) |
+| Arcade | [DonPachi](docs/GAME_DATA.en.md#donpachi) · launches CapsLock4284's DonPachi Recomp |
 
 Select a title for supported versions, extraction steps and folder examples. Prepare data only for the games you want to play.
 

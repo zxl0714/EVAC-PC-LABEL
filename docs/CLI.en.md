@@ -46,6 +46,7 @@ On a cabinet, use the following command to open Big Picture directly.
 | PS2 | ESPGaluda | `espgaluda` |
 | PS2 | Ibara | `ibara` |
 | PS2 | DaiOuJou (PS2) | `daioujou-ps2` |
+| Arcade | DonPachi | `donpachi` |
 
 ## Optional arguments
 

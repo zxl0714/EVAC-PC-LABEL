@@ -1,4 +1,5 @@
 #include "log_upload.h"
+#include "launcher/donpachi_recomp.h"
 #include "common/launch.h"
 #include "common/settings.h"
 #include "common/crash_details.h"
@@ -350,7 +351,7 @@ struct Dialog {
   const wchar_t* Title() const{return T(Files()?L"上传文件":L"上传日志");}
   void Browse() {
     std::array<wchar_t,32768> name{};
-    auto directory=Resolve(root,Ini::Load(ConfigPath(root)).DataDirectory(FindGame(game))).wstring();
+    auto directory=Resolve(root,Ini::Load(ConfigPath(root)).DataDirectory(FindLauncherGame(game))).wstring();
     OPENFILENAMEW picker{};
     picker.lStructSize=sizeof(picker);picker.hwndOwner=hwnd;
     picker.lpstrFile=name.data();picker.nMaxFile=DWORD(name.size());picker.lpstrInitialDir=directory.c_str();
@@ -466,7 +467,7 @@ static void ShowDialog(HWND owner,const fs::path& root,Language language,std::st
     SendMessageW(control,WM_SETFONT,WPARAM(font),TRUE);return control;
   };
   if(files) {
-    const auto label=FromUtf8(FindGame(game).DisplayName()).wstring();
+    const auto label=FromUtf8(FindLauncherGame(game).DisplayName()).wstring();
     add(L"STATIC",label.c_str(),0,20,16,500,20,0);
     dialog.combo=add(L"EDIT",L"",ES_READONLY|ES_AUTOHSCROLL,20,40,406,28,101);
     dialog.browse=add(L"BUTTON",dialog.T(L"选择文件…"),WS_TABSTOP,434,40,100,28,103);

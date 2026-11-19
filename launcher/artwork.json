@@ -1,5 +1,6 @@
 {
   "format": 1,
+  "externalGames": ["donpachi"],
   "assets": [
     {
       "game": "futari",
@@ -145,6 +146,18 @@
       "sourceUrl": "https://www.arika.co.jp/product/ddd_hp/ddd_title.jpg",
       "copyright": "©2002 CAVE CO., LTD. / ARIKA CO., LTD.",
       "usage": "Title artwork from Arika's PlayStation 2 product page."
+    },
+    {
+      "game": "donpachi",
+      "path": "launcher/assets/donpachi.jpg",
+      "sha256": "9c2d7e0ffeeee79e80bf2c59a18036d29a8246dfab440703db99f5417719a6e7",
+      "resource": 113,
+      "focusY": 0.64,
+      "fit": "cover",
+      "kicker": "ARCADE · 1995",
+      "original": true,
+      "copyright": "EVAC PC LABEL original illustration",
+      "usage": "AI-generated aviation artwork for the DonPachi Recomp launcher entry."
     }
   ],
   "covers": [
@@ -316,6 +329,19 @@
       "sourceUrl": "https://raw.githubusercontent.com/libretro-thumbnails/Sony_-_PlayStation_2/master/Named_Boxarts/DoDonPachi%20Dai-Ou-Jou%20%28Japan%29.png",
       "copyright": "©2002 CAVE CO., LTD. / ARIKA CO., LTD.",
       "usage": "Japanese PlayStation 2 cover scan. Enlarged with FSRCNN 2x super-resolution.",
+      "platformMark": true
+    },
+    {
+      "game": "donpachi",
+      "path": "launcher/assets/covers/donpachi.jpg",
+      "sha256": "e33cf8a37698e3226c129a4de8011b76481fb0840b4978c2a89eec365cb9eab6",
+      "resource": 313,
+      "focusY": 0.5,
+      "fit": "contain",
+      "kicker": "ARCADE · 1995",
+      "original": true,
+      "copyright": "EVAC PC LABEL original illustration",
+      "usage": "Original AI-generated arcade cover for the DonPachi Recomp launcher entry.",
       "platformMark": true
     }
   ]
