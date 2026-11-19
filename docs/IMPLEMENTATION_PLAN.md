@@ -10,7 +10,7 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 
 1. [x] **启动器桌面与大屏标题显示版本号。** 与自动更新和 EXE 属性共用版本号。出包时核对两个标题、EXE 属性和包清单的版本号。[#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
 2. [x] **在启动器接入 eandis 的 SDOJ-Recomp。** 《最大往生》默认使用 EVAC 版。桌面封面卡右下角放一个 `eandis` 开关，开关与卡片选择、拖动各自响应。启动器记住桌面设置。大屏选中《最大往生》时仅在启用 SDOJ-Recomp 后注明 eandis，按确认键直接启动对应版本。两版各自管理存档。[#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15) · [上游作者回复](https://github.com/eandis/SDOJ-Recomp/issues/24)
-   - `eandis` 标签与小拨杆并排放在同一开关内，与英文副标题对齐。关闭时为浅灰描边，开启时为浅绿底，整个开关可点击。
+   - `eandis` 开关与英文副标题对齐，整块胶囊都可点击。开启时为墨绿底白字，滑块在右。关闭时为浅灰底，滑块在左。
    - 尝试开启时检查安装目录下的 `external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe`。找到 EXE 后开启，并在启动区显示当前将启动 SDOJ-Recomp。缺少 EXE 时保持关闭，提示从 [eandis 官方发布页](https://github.com/eandis/SDOJ-Recomp/releases/latest)下载 Windows x64 ZIP，并显示本机的完整解压路径。正式程序包随目录附带下载和解压说明。
    - 启动 eandis 版时，尽量沿用 EVAC 的窗口分辨率、全屏设置和《最大往生》的键盘、手柄及摇杆绑定。通过上游支持的启动参数或配置项映射，保留玩家已有的其他 eandis 设置。上游已提供全屏和键盘改键，窗口尺寸及手柄、摇杆绑定按实际支持范围接入。用同一套 EVAC 设置验证桌面和大屏启动后的画面及操作。[上游设置说明](https://github.com/eandis/SDOJ-Recomp#settings)
    - 外部启动传入 `--input_backend=sdl`，让 Windows 上的 SDL 输入后端接收 HID 摇杆和 Xbox 手柄，并继续传递配置中的 SDL 设备映射。

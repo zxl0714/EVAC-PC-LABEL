@@ -478,26 +478,24 @@ class Renderer {
     Text(target,Platform(game),{x,y+2*scale,x+width,y+18*scale},10*scale,0xffffff,DWRITE_TEXT_ALIGNMENT_CENTER);
   }
   void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F bounds,bool enabled,bool hovered) {
-    const auto fill=enabled?(hovered?0xdcecdf:0xe9f2ea):(hovered?0xf0f5f0:0xfbfdfa);
-    const auto border=enabled?(hovered?0x93b39a:0xb4cbb9):(hovered?0xa8baac:0xd5ded5);
-    const auto pill=D2D1::RoundedRect(bounds,8,8);
+    const auto fill=enabled?(hovered?0x2c513e:0x37644c):(hovered?0xd7ded9:0xe5e9e6);
+    const float height=bounds.bottom-bounds.top;
+    const float radius=height/2;
     ComPtr<ID2D1SolidColorBrush> brush;
     Check(target->CreateSolidColorBrush(D2D1::ColorF(fill),&brush),"Create eandis switch brush");
-    target->FillRoundedRectangle(pill,brush.Get());
-    brush->SetColor(D2D1::ColorF(border));
-    target->DrawRoundedRectangle(pill,brush.Get());
+    target->FillRoundedRectangle(D2D1::RoundedRect(bounds,radius,radius),brush.Get());
 
-    const auto center=bounds.top+8;
-    const D2D1_RECT_F track{bounds.right-16,center-4,bounds.right-3,center+4};
-    brush->SetColor(D2D1::ColorF(enabled?0xbcd7c3:0xe4eae3));
-    target->FillRoundedRectangle(D2D1::RoundedRect(track,4,4),brush.Get());
-    brush->SetColor(D2D1::ColorF(enabled?0x38664a:0x8b998e));
-    target->FillEllipse(D2D1::Ellipse({enabled?track.right-4:track.left+4,center},3,3),brush.Get());
+    const float center_y=bounds.top+radius;
+    const float thumb_x=enabled?bounds.right-radius:bounds.left+radius;
+    const float thumb_radius=radius-2.5f;
+    brush->SetColor(D2D1::ColorF(enabled?0xffffff:0x69766d));
+    target->FillEllipse(D2D1::Ellipse({thumb_x,center_y},thumb_radius,thumb_radius),brush.Get());
 
     const auto font=bounds.right-bounds.left>=50.f?10.f:9.f;
-    const auto text_top=center-font*.61f;
-    Text(target,L"eandis",{bounds.left+3,text_top,track.left-1,bounds.bottom},
-        font,enabled?0x315b40:0x5d6b60,DWRITE_TEXT_ALIGNMENT_CENTER);
+    const float label_left=bounds.left+(enabled?4.f:height);
+    const float label_right=bounds.right-(enabled?height:4.f);
+    Text(target,L"eandis",{label_left,center_y-font*.61f,label_right,bounds.bottom},
+        font,enabled?0xffffff:0x47564c,DWRITE_TEXT_ALIGNMENT_CENTER);
   }
   ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false,bool cover=false) {
     SelectTarget(target);
