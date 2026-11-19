@@ -1,17 +1,25 @@
 # v0.10.2
 
-- 《最大往生》可从启动器打开 eandis 的 SDOJ-Recomp。将官方 Windows ZIP 解压到 `external/SDOJ-Recomp/`，再打开桌面版封面右下角的 `eandis Recomp` 开关。大屏模式沿用这项选择。[#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
-- 启动器换用对应主机版本的封面，默认按 Xbox 360、PS4、PS2 排列。大屏封面等高显示，选中框贴合图面。[#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
-- 自动更新现在可以创建新版本所需的目录，并保留玩家的游戏数据、存档和配置。
-- 启动器的桌面和大屏标题均显示当前版本。[#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
-- 修复 PS4 游戏在双声道设备上音量偏低的问题。[#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
-- 《绊地狱》和 PS4《大往生》已有 X Arrange 曲包时，也能通过启动器导入游戏数据。
+### 《最大往生》接入 eandis 的 SDOJ-Recomp
+
+下载 SDOJ-Recomp 的 Windows ZIP，解压到合集的 `external/SDOJ-Recomp/`。安装后，通过《最大往生》封面右下角的 `eandis` 开关即可切换版本，桌面和大屏均按此设置启动。eandis 版支持通过 SDL 使用手柄和街机摇杆。 [下载 SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp/releases/latest) · [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
+
+两版可共用 Xbox 360 光盘版游戏数据。请将 TU 1.01 更新 ZIP 中的补丁文件放到《最大往生》的游戏数据目录，与 `default.xex` 同级。启动器会自动解包补丁。
+
+- 启动器游戏封面统一换成带主机标识的高清大图。 [#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
+- 提高 PS4 游戏在双声道耳机和音箱上的播放音量。 [#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
+- 启动器的桌面和大屏模式均在标题栏显示版本号。 [#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
+- 修复《绊地狱》和 PS4《大往生》在已有 `x-arrange` 目录时无法导入游戏数据的问题。
 
 ## English
 
-- SaiDaiOuJou can launch eandis’s SDOJ-Recomp. Extract the official Windows ZIP into `external/SDOJ-Recomp/`, then turn on the `eandis Recomp` switch on the desktop game card. Big Picture follows the same selection. [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
-- The launcher uses covers from the original console releases and groups games by Xbox 360, PS4, and PS2 by default. Big Picture aligns covers by height and frames the selected artwork. [#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
-- Automatic updates can now create directories required by new versions while preserving game data, saves, and settings.
-- The desktop and Big Picture launcher titles both show the installed version. [#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
-- Fixed low volume in PS4 games on stereo audio devices. [#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
-- Ketsui and PS4 DaiOuJou game data can now be imported with X Arrange tracks already in place.
+### Launch eandis’s SaiDaiOuJou from EVAC
+
+Download the Windows ZIP for SDOJ-Recomp and extract it to `external/SDOJ-Recomp/` in your EVAC folder. Once installed, use the `eandis` switch at the bottom right of the SaiDaiOuJou game card to select the version. Both desktop and Big Picture use this setting. The eandis version uses SDL for gamepads and arcade sticks. [Download SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp/releases/latest) · [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
+
+Both versions can share the Xbox 360 disc data. Extract the TU 1.01 update ZIP and place the update file next to `default.xex` in the SaiDaiOuJou game data folder. The launcher will unpack the update automatically.
+
+- All launcher covers now use high-resolution artwork with console branding. [#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
+- Increased playback volume for PS4 games on stereo headphones and speakers. [#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
+- The launcher displays the version number in the title bar in both desktop and Big Picture modes. [#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
+- Fixed an issue that prevented game data imports for Ketsui and PS4 DaiOuJou when an `x-arrange` folder was already present.

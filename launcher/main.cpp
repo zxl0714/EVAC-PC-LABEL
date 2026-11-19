@@ -369,17 +369,12 @@ struct Layout {
   D2D1_RECT_F save() const {const auto right=width-margin();return {right-62,66,right,96};}
 };
 bool Inside(D2D1_RECT_F r,float x,float y) {return x>=r.left && x<r.right && y>=r.top && y<r.bottom;}
-struct SdojSwitchLayout {
-  D2D1_RECT_F label,track;
-  bool Contains(float x,float y) const {
-    return Inside(label,x,y) || Inside({track.left-4,track.top,track.right+4,track.bottom+4},x,y);
-  }
-};
-SdojSwitchLayout LayoutSdojSwitch(D2D1_RECT_F card,bool cover) {
-  const auto right=card.right-(cover?12.f:10.f);
-  const auto top=card.bottom-(cover?39.f:36.f);
-  const auto track_right=right-(cover?0.f:23.f);
-  return {{right-78,top,right,top+13},{track_right-32,top+13,track_right,top+29}};
+D2D1_RECT_F LayoutSdojSwitch(D2D1_RECT_F card,bool cover) {
+  const auto right=card.right-(cover?8.f:12.f);
+  const auto top=card.bottom-(cover?25.f:27.f);
+  // Keep room for the complete English title on the narrowest cover card.
+  const auto width=cover?std::clamp((card.right-card.left)-138.f,46.f,52.f):52.f;
+  return {right-width,top,right,top+16};
 }
 const wchar_t* Platform(const Game& game) {
   if(game.backend=="xbox360")return L"Xbox 360";
@@ -482,24 +477,27 @@ class Renderer {
     target->FillRoundedRectangle(r,fill.Get());
     Text(target,Platform(game),{x,y+2*scale,x+width,y+18*scale},10*scale,0xffffff,DWRITE_TEXT_ALIGNMENT_CENTER);
   }
-  void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F card,bool enabled,bool hovered,bool cover) {
-    const auto [label,track]=LayoutSdojSwitch(card,cover);
-    const auto pill=D2D1::RoundedRect(track,8,8);
+  void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F bounds,bool enabled,bool hovered) {
+    const auto fill=enabled?(hovered?0xdcecdf:0xe9f2ea):(hovered?0xf0f5f0:0xfbfdfa);
+    const auto border=enabled?(hovered?0x93b39a:0xb4cbb9):(hovered?0xa8baac:0xd5ded5);
+    const auto pill=D2D1::RoundedRect(bounds,8,8);
     ComPtr<ID2D1SolidColorBrush> brush;
-    Check(target->CreateSolidColorBrush(D2D1::ColorF(0xffffff),&brush),"Create eandis switch brush");
-    if(!cover) {
-      brush->SetOpacity(.95f);
-      target->FillRoundedRectangle(D2D1::RoundedRect({label.left,label.top-2,label.right,track.bottom+3},6,6),brush.Get());
-      brush->SetOpacity(1.f);
-    }
-    Text(target,L"eandis Recomp",label,10,0x495e51,
-        cover?DWRITE_TEXT_ALIGNMENT_TRAILING:DWRITE_TEXT_ALIGNMENT_CENTER);
-    brush->SetColor(D2D1::ColorF(enabled?(hovered?0x3d7153:0x2f5b42):(hovered?0xd7e4da:0xe0e5e1)));
+    Check(target->CreateSolidColorBrush(D2D1::ColorF(fill),&brush),"Create eandis switch brush");
     target->FillRoundedRectangle(pill,brush.Get());
-    brush->SetColor(D2D1::ColorF(enabled?0x2f5b42:(hovered?0x6e917a:0x9daaa1)));
+    brush->SetColor(D2D1::ColorF(border));
     target->DrawRoundedRectangle(pill,brush.Get());
-    brush->SetColor(D2D1::ColorF(0xffffff));
-    target->FillEllipse(D2D1::Ellipse({track.left+(enabled?24.f:8.f),track.top+8},6,6),brush.Get());
+
+    const auto center=bounds.top+8;
+    const D2D1_RECT_F track{bounds.right-16,center-4,bounds.right-3,center+4};
+    brush->SetColor(D2D1::ColorF(enabled?0xbcd7c3:0xe4eae3));
+    target->FillRoundedRectangle(D2D1::RoundedRect(track,4,4),brush.Get());
+    brush->SetColor(D2D1::ColorF(enabled?0x38664a:0x8b998e));
+    target->FillEllipse(D2D1::Ellipse({enabled?track.right-4:track.left+4,center},3,3),brush.Get());
+
+    const auto font=bounds.right-bounds.left>=50.f?10.f:9.f;
+    const auto text_top=center-font*.61f;
+    Text(target,L"eandis",{bounds.left+3,text_top,track.left-1,bounds.bottom},
+        font,enabled?0x315b40:0x5d6b60,DWRITE_TEXT_ALIGNMENT_CENTER);
   }
   ID2D1Bitmap* Image(ID2D1RenderTarget* target,size_t index,bool grey=false,bool cover=false) {
     SelectTarget(target);
@@ -590,8 +588,10 @@ class Renderer {
       Text(target,Wide(game.DisplayName()),{left,rectangle.bottom-64,rectangle.right-12,rectangle.bottom-27},
           13,muted?0x647168:(selected==index?0x2f5b42:0x23312d),DWRITE_TEXT_ALIGNMENT_LEADING,true);
       const auto subtitle_top=rectangle.bottom-24;
-      Text(target,Wide(game.name),{left,subtitle_top,rectangle.right-12,subtitle_top+14},10,0x748179);
-      if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover,true);
+      const auto switch_bounds=LayoutSdojSwitch(rectangle,true);
+      const auto subtitle_right=sdoj?switch_bounds.left-4:rectangle.right-12;
+      Text(target,Wide(game.name),{left,subtitle_top,subtitle_right,subtitle_top+14},10,0x748179);
+      if(sdoj)SdojSwitch(target,switch_bounds,sdoj_external,sdoj_hover);
       target->PopLayer();
       target->DrawRoundedRectangle(round,border.Get(),selected==index?2.5f:1.f);
       return;
@@ -628,7 +628,7 @@ class Renderer {
       if(soon) Text(target,T(L"敬请期待"),{left,label_top,rectangle.right-20,rectangle.bottom-6},10,0x8c978f);
       else if(selected==index) Text(target,T(L"已选择"),{left,label_top,rectangle.right-20,rectangle.bottom-6},11,0x37644c);
     }
-    if(sdoj)SdojSwitch(target,rectangle,sdoj_external,sdoj_hover,false);
+    if(sdoj)SdojSwitch(target,LayoutSdojSwitch(rectangle,false),sdoj_external,sdoj_hover);
   }
   void DrawBigPicture(ID2D1RenderTarget* target, const BigPictureLayout& view,
                       const std::vector<Row>& rows, const cave::launcher::GameLibrary& library,
@@ -1529,7 +1529,7 @@ class App {
   bool SdojSwitchAt(float x,float y) const {
     if(y<layout.header() || y>=layout.footer())return false;
     for(size_t position=0;position<library.visible.size();++position) {
-      if(Catalogue()[library.visible[position]].id=="sdoj")return LayoutSdojSwitch(layout.card(position),layout.covers).Contains(x,y);
+      if(Catalogue()[library.visible[position]].id=="sdoj")return Inside(LayoutSdojSwitch(layout.card(position),layout.covers),x,y);
     }
     return false;
   }

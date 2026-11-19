@@ -47,7 +47,9 @@ inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs
   // The upstream SDL window accepts logical units while EVAC stores pixels.
   const auto dpi=display_dpi?display_dpi:96u;
   const auto logical=[dpi](unsigned pixels) {return (pixels*96u+dpi/2)/dpi;};
-  launch.arguments={settings.fullscreen?L"--fullscreen=true":L"--fullscreen=false",
+  // The Windows release defaults to XInput. SDL also supports HID arcade sticks.
+  launch.arguments={L"--input_backend=sdl",
+                    settings.fullscreen?L"--fullscreen=true":L"--fullscreen=false",
                     L"--window_width="+std::to_wstring(logical(settings.window_width)),
                     L"--window_height="+std::to_wstring(logical(settings.window_height))};
   constexpr std::array keys{L"up",L"down",L"left",L"right",L"shot",L"bomb",L"rapid_shot",L"extra"};

@@ -544,6 +544,9 @@ void SdojSwitchChecks() {
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
   Write(cave::launcher::SdojRecompExecutable(fixture.root),"");
+  const auto launch=cave::launcher::PrepareSdojRecomp(fixture.root,Ini::Load(ConfigPath(fixture.root)),{},96);
+  Require(std::ranges::find(launch.arguments,L"--input_backend=sdl")!=launch.arguments.end(),
+          "The eandis launch must enable SDL support for HID controllers");
   {
     Frame frame(fixture.root,"futari");auto& app=frame.app;
     app.layout.width=880;app.layout.height=900;app.layout.scroll=0;
@@ -559,16 +562,17 @@ void SdojSwitchChecks() {
       Require(Catalogue()[app.selected].id=="futari","Toggling eandis changed the selected game");
     };
     app.layout.covers=false;
-    click(LayoutSdojSwitch(app.layout.card(position),false).track);
-    Require(app.sdoj_external,"The eandis switch track did not enable the runtime");
+    click(LayoutSdojSwitch(app.layout.card(position),false));
+    Require(app.sdoj_external,"The eandis switch did not enable the runtime");
     app.layout.covers=true;
     const auto card=app.layout.card(position);
     const auto cover_switch=LayoutSdojSwitch(card,true);
-    Require(!app.SdojSwitchAt(cover_switch.label.left+12,card.bottom-18),
-            "The eandis label captured a click on the game's English name");
-    click(cover_switch.label);
+    Require(!app.SdojSwitchAt(card.left+112,card.bottom-18),
+            "The eandis switch captured a click on the game's English name");
+    click({cover_switch.left,cover_switch.top,cover_switch.left+29,cover_switch.bottom});
     Require(!app.sdoj_external,"The eandis switch label did not disable the runtime");
-    click(cover_switch.track);
+    click({cover_switch.right-16,cover_switch.top,cover_switch.right,cover_switch.bottom});
+    Require(app.sdoj_external,"The eandis switch track did not enable the runtime");
   }
   Frame reopened(fixture.root);
   Require(reopened.app.sdoj_external,"Reopening the launcher did not restore the eandis switch");
