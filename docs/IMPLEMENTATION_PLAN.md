@@ -9,6 +9,7 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 ## v0.10.3
 
 1. [ ] **在启动器接入 DonPachi Recomp。** 参照 eandis 的外部程序安装和启动流程，给《首领蜂》独立游戏卡片，启动时直接运行上游的 `donpachi.exe`。检查 `external/DonPachi-Recomp/` 下的程序和玩家提供的 `donpachi.zip`，缺哪个就提示对应的放置方法。设置与 EEPROM 放入合集的独立用户目录。验收桌面和大屏启动、焦点恢复、第二次启动和存档保留。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游作者同意](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3#issuecomment-6996708679)
+   - 为《首领蜂》做一张原创竖版封面，沿用网格的 3:4 图片区和平台标识位置。顶栏用石墨灰底、白字 `ARCADE`，和现有主机封面的平台条对齐。卡片显示《首领蜂》与 DonPachi，详情标注街机美版、1995 年和 DonPachi Recomp，安装说明写明所需的美版 `donpachi.zip`。[上游版本说明](https://github.com/CapsLock4284/DonPachi-Recomp/blob/a817ee1a2fddb44d4d0bd772966b05b054f74c05/README.md)
 2. [ ] **处理新收到的日志和文件。** 11 月 19 日收到两条新记录，均来自 v0.10.1。报告后台核对时，v0.10.2 暂无新记录。
    - 《大往生》Death Label 日志 `20261119-75dc0e50af2b4226`。RTX 3060 Laptop 上交换链已创建并返回三张图像，首次取图阶段在 `nvoglv64.dll+0xeb96fe` 发生空指针读取。按报告的 2560×1440、Immediate 和 Reflex 设置，用 v0.10.2 对照，再分别验证呈现模式、Reflex 及独立 PS2 运行。用结果区分宿主交接、交换链和驱动问题。
    - 《虫姬二》文件 `20261119-4d613dbe5f9b4ff8`。56 KiB 的 LIVE 容器，标题 ID 为 `435A07D7`。用现有工具解包后，唯一文件的 SHA-256 与已支持的 Ver.1.01 DLC 清单一致。上传时没有留言。
