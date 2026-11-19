@@ -255,9 +255,11 @@ void ArrangeCopyChecks(std::string_view id,const fs::path& existing_track,const 
     Fixture fixture;Write(fixture.data/"main.bin","abc");
     const auto target=fixture.root/destination;
     fs::create_directories(target/track.parent_path());
+    std::string original_hash;
     if(layout!=Layout::Empty) {
       Write(target/"README.txt","Game guide");
       Write(target/track,music);
+      original_hash=Sha256(target/track);
       Write(target/"X-Arrange/README.txt","Music guide");
     }
     if(layout==Layout::Both) {
@@ -268,9 +270,9 @@ void ArrangeCopyChecks(std::string_view id,const fs::path& existing_track,const 
     Require(fs::is_directory(target/track.parent_path()) && Ini::ReadText(target/"main.bin")=="abc",
             "Import rejected a destination with an X Arrange folder");
     if(layout!=Layout::Empty) {
-      Require(Ini::ReadText(target/track)==music &&
+      Require(Sha256(target/track)==original_hash &&
               Ini::ReadText(target/"X-Arrange/README.txt")=="Music guide" &&
-              Ini::ReadText(result.guide_backup/track)==music,
+              Sha256(result.guide_backup/track)==original_hash,
               "Import did not preserve and verify the original X Arrange files");
     }
     if(layout==Layout::Both)Require(Ini::ReadText(target/"x-arrange"/imported_track)=="Imported track",
