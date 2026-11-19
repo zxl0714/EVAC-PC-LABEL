@@ -1,6 +1,6 @@
 # EVAC PC LABEL v0.10.2
 
-- **《最大往生》接入 eandis 的 SDOJ-Recomp。** 下载 SDOJ-Recomp 的 Windows x64 ZIP，解压到合集的 `external/SDOJ-Recomp/`。安装后，通过《最大往生》封面右下角的 `eandis` 开关即可切换版本，桌面和大屏均按此设置启动。eandis 版支持通过 SDL 使用手柄和街机摇杆。[下载 SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp/releases/latest) · [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
+- **《最大往生》接入 eandis 的 SDOJ-Recomp。** 下载 SDOJ-Recomp 的 Windows x64 ZIP，解压到合集的 `external/SDOJ-Recomp/`。安装后，用《最大往生》封面右下角的 `eandis` 开关切换版本。[下载 SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp/releases/latest) · [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
 
   两版可共用 Xbox 360 光盘版游戏数据。将 TU 1.01 更新 ZIP 中的补丁文件放到《最大往生》的游戏数据目录，与 `default.xex` 同级。启动器会自动解包补丁。
 
@@ -11,7 +11,7 @@
 
 ## English
 
-- **Launch eandis’s SaiDaiOuJou from EVAC.** Download the Windows x64 ZIP for SDOJ-Recomp and extract it to `external/SDOJ-Recomp/` in your EVAC folder. Once installed, use the `eandis` switch at the bottom right of the SaiDaiOuJou game card to select the version. Both desktop and Big Picture use this setting. The eandis version uses SDL for gamepads and arcade sticks. [Download SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp/releases/latest) · [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
+- **Launch eandis’s SaiDaiOuJou from EVAC.** Download the Windows x64 ZIP for SDOJ-Recomp and extract it to `external/SDOJ-Recomp/` in your EVAC folder. Use the `eandis` switch at the bottom right of the SaiDaiOuJou game card to switch versions. [Download SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp/releases/latest) · [#15](https://github.com/zxl0714/EVAC-PC-LABEL/issues/15)
 
   Both versions can share the Xbox 360 disc data. Extract the TU 1.01 update ZIP and place the update file next to `default.xex` in the SaiDaiOuJou game data folder. The launcher will unpack the update automatically.
 
