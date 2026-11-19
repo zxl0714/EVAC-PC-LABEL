@@ -8,11 +8,13 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 
 ## v0.10.3
 
-1. [ ] **在启动器接入 DonPachi Recomp。** 参照 eandis 的外部程序安装和启动流程，给《首领蜂》独立游戏卡片，启动时直接运行上游的 `donpachi.exe`。检查 `external/DonPachi-Recomp/` 下的程序和玩家提供的 `donpachi.zip`，缺哪个就提示对应的放置方法。设置与 EEPROM 放入合集的独立用户目录。验收桌面和大屏启动、焦点恢复、第二次启动和存档保留。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游作者同意](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3#issuecomment-6996708679)
+1. [x] **在启动器接入 DonPachi Recomp。** 参照 eandis 的外部程序安装和启动流程，给《首领蜂》独立游戏卡片，启动时直接运行上游的 `donpachi.exe`。检查 `external/DonPachi-Recomp/` 下的程序和玩家提供的 `donpachi.zip`，缺哪个就提示对应的放置方法。设置与 EEPROM 放入合集的独立用户目录。验收桌面和大屏启动、焦点恢复、第二次启动和存档保留。[#25](https://github.com/zxl0714/EVAC-PC-LABEL/issues/25) · [上游作者同意](https://github.com/CapsLock4284/DonPachi-Recomp/issues/3#issuecomment-6996708679)
    - 为《首领蜂》做一张原创竖版封面，沿用网格的 3:4 图片区和平台标识位置。顶栏用石墨灰底、白字 `ARCADE`，和现有主机封面的平台条对齐。卡片显示《首领蜂》与 DonPachi，详情标注街机美版、1995 年和 DonPachi Recomp，安装说明写明所需的美版 `donpachi.zip`。[上游版本说明](https://github.com/CapsLock4284/DonPachi-Recomp/blob/a817ee1a2fddb44d4d0bd772966b05b054f74c05/README.md)
-2. [ ] **处理新收到的日志和文件。** 11 月 19 日收到两条新记录，均来自 v0.10.1。报告后台核对时，v0.10.2 暂无新记录。
+2. [x] **处理新收到的日志和文件。** 核对 49 份日志、18 份文件。11 月 19 日的三条新日志均来自 v0.10.1，另有一份《虫姬二》文件。11 月 20 日再次核对，日志数量未增加。
    - 《大往生》Death Label 日志 `20261119-75dc0e50af2b4226`。RTX 3060 Laptop 在 2560×1440、Immediate、Reflex 下成功呈现加载黑帧，第一张游戏画面已取图并提交。用 v0.10.1 正式包的符号核对，渲染线程在 `vkQueuePresentKHR` 调用内经过 `RTSSHooks64.dll`，随后在 `nvoglv64.dll+0xeb96fe` 读取地址 `0x148`。11 月 17 日同型号报告的故障地址一致。
    - 正式运行时默认对照同一交换链的加载帧和首张游戏帧，记录实际呈现参数、返回值、RTSS 模块版本，以及玩家本机 Vulkan 加载器和 PS2 运行库的符号标识。维护者用 `py -3.12 scripts/ps2_death_label_report.py <报告.zip>` 直接核对异常线程、最后的图形操作和 RTSS 调用的 Vulkan 函数。重现此调用链时，优先验证该游戏关闭 RTSS 屏显后的结果。玩家继续使用启动器的「上传日志」。
+   - 《大往生》Death Label 日志 `20261119-0e023d5002a3420c`。RTX 3060 Ti 的窗口已选中 FIFO，最后一条记录在创建交换链之前。新版也记录 `vkCreateSwapchainKHR` 的进入、创建参数和返回值。普通上传包已验证能保留两处调用的现场。
+   - 《ESPGaluda》日志 `20261119-059d1951ee0d49de`。本机复现开启 VSync 后约 32 FPS，1080p 和 4K 都主要在等待交换链图像，单帧渲染用时不到 1 ms（中位数）。FIFO 三图像、关闭 Reflex 和跳过显式呈现等待的对照均未改善。关闭 VSync 后 4K 恢复约 60 FPS，继续采用已验证的发布配置。
    - 《虫姬二》文件 `20261119-4d613dbe5f9b4ff8`。56 KiB 的 LIVE 容器，标题 ID 为 `435A07D7`。用现有工具解包后，唯一文件的 SHA-256 与已支持的 Ver.1.01 DLC 清单一致。上传时没有留言。
 3. [ ] **为 eandis 的 SDOJ-Recomp 准备本地社区接入。** 参考 EVAC 《最大往生》的 Xbox Live 桥接，在游戏原有入口接入个人榜单、成绩和录像收发。支持传入玩家名和服务器 API 根地址。单独运行时由用户选择是否配置社区服务器，从 EVAC 启动时遵循合集的社区开关和昵称。
    - 在上游工作副本独立开发，沿用游戏原有的榜单 view 和录像协议。eandis 改了减速规则，现有 `standard` 排行榜保持原有收分条件。先用本机服务器验证独立规则分榜、两版录像互播、无敌等辅助设置下的提交限制，以及联网失败后继续游玩。此次只做本地改动。[上游讨论](https://github.com/eandis/SDOJ-Recomp/issues/24#issuecomment-7003439650) · [eandis 的减速说明](https://github.com/eandis/SDOJ-Recomp#slowdown)

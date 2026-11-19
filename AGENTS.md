@@ -10,7 +10,13 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.10.2 planning is tracked in docs/IMPLEMENTATION_PLAN.md.
+v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The public program
+candidate is frozen at `a15684f` in `releases/v0103-candidate/`. Use the
+matching release DLL and private symbols under `.local/v0103/shipcheck/` for new
+Death Label reports. Analyze the existing upload ZIP directly with
+`py -3.12 scripts/ps2_death_label_report.py <report.zip>`. Current component
+and report acceptance is in the first section of docs/TEST_MATRIX.md.
+
 v0.10.1 has been released. Its verified results are in the first
 section of docs/TEST_MATRIX.md, with private evidence in .local/v0101/ and
 .local/reports-20261118/. Big Picture software acceptance is complete and
