@@ -86,7 +86,7 @@ class PackageInputs:
         except (ValueError, KeyError, TypeError, subprocess.CalledProcessError):
             return False
 
-    def xbox_doc_screenshots_equivalent(self, origin, expected):
+    def doc_screenshots_equivalent(self, origin, expected):
         name = 'scripts/project.py'
 
         def without_doc_screenshots(source):
@@ -135,11 +135,12 @@ class PackageInputs:
         if not isinstance(files, dict) or not files:
             raise ValueError('Missing maintained build inputs: ' + backend)
         equivalent = set()
+        comparisons = [('scripts/project.py', self.doc_screenshots_equivalent)]
         if backend == 'xbox360':
-            for name, compare in (('games/catalogue.json', self.xbox_catalogue_equivalent),
-                                  ('scripts/project.py', self.xbox_doc_screenshots_equivalent)):
-                if name in files and name in self.changes[origin] and compare(origin, files[name]):
-                    equivalent.add(name)
+            comparisons.append(('games/catalogue.json', self.xbox_catalogue_equivalent))
+        for name, compare in comparisons:
+            if name in files and name in self.changes[origin] and compare(origin, files[name]):
+                equivalent.add(name)
         changed = [name for name in self.changes[origin] if relevant(backend, name, files)
                    and name not in equivalent]
         if changed:
