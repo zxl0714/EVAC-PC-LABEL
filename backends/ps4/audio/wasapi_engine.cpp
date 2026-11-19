@@ -25,6 +25,7 @@
 namespace kt::audio {
 namespace {
 std::atomic<std::uint64_t> next_stream_id{1};
+constexpr float kStereoOutputGain = 1.5848932f; // +4 dB for PS4 games on stereo devices.
 struct Handle {
     HANDLE value{};
     explicit Handle(bool manual = false) : value(CreateEventW(nullptr, manual, FALSE, nullptr)) {
@@ -70,10 +71,11 @@ void ApplyGain(float* destination, const std::vector<float>& packet, std::size_t
     constexpr std::array<unsigned, 8> legacy_from_windows{0, 1, 2, 3, 6, 7, 4, 5};
     std::array<unsigned, 8> input_channels;
     std::array<float, 8> gains;
+    const auto master_gain = downmix_stereo ? 1.0f : configuration.master_gain;
     for (unsigned channel = 0; channel < channels; ++channel) {
         const auto gain_channel = channels == 8 ? legacy_from_windows[channel] : channel;
         input_channels[channel] = channels == 8 && !configuration.standard8 ? gain_channel : channel;
-        gains[channel] = (static_cast<float>(volume[gain_channel]) / 32768.0f) * configuration.master_gain;
+        gains[channel] = (static_cast<float>(volume[gain_channel]) / 32768.0f) * master_gain;
     }
     const auto* input = packet.data() + offset * channels;
     const auto output_channels = downmix_stereo ? 2u : channels;
@@ -89,8 +91,10 @@ void ApplyGain(float* destination, const std::vector<float>& packet, std::size_t
             const auto left = surround[0] + center + 0.5f * (surround[4] + surround[6]);
             const auto right = surround[1] + center + 0.5f * (surround[5] + surround[7]);
             // Scale both sides together only if the sum would exceed full scale.
-            const auto peak = (std::max)({1.0f, std::abs(left), std::abs(right)});
-            const auto scale = peak > 1.0f ? 1.0f / peak : 1.0f;
+            const auto peak = (std::max)({1.0f, kStereoOutputGain * std::abs(left), kStereoOutputGain * std::abs(right)});
+            // Apply the player's volume after the peak protection so it remains linear.
+            const auto output_gain = kStereoOutputGain * configuration.master_gain;
+            const auto scale = peak > 1.0f ? output_gain / peak : output_gain;
             destination[0] = left * scale;
             destination[1] = right * scale;
         }
@@ -404,19 +408,25 @@ bool AudioConversionSelfTest() {
     unity.fill(32768);
     std::array<float, 5> stereo{0, 0, 0, 0, 73};
     ApplyGain(stereo.data(), surround, 0, 2, {2, 8, true, false}, unity, true);
-    std::array<float, 2> stereo_legacy{}, stereo_standard{};
+    std::array<float, 2> stereo_legacy{}, stereo_standard{}, stereo_quiet{}, stereo_muted{};
     ApplyGain(stereo_legacy.data(), eight, 0, 1, {1, 8, true, false}, volumes, true);
     ApplyGain(stereo_standard.data(), eight, 0, 1, {1, 8, true, true}, volumes, true);
+    ApplyGain(stereo_quiet.data(), surround, 1, 1, {2, 8, true, false, 0.25f}, unity, true);
+    ApplyGain(stereo_muted.data(), surround, 1, 1, {2, 8, true, false, 0.0f}, unity, true);
     const auto center = eight[2] * 0.70710678f;
+    const auto approximately_equal = [](float a, float b) { return std::abs(a - b) < 1e-6f; };
     return samples[0] == -1 && samples[1] == 32767.0f / 32768 && samples[2] == 0 && samples[3] == 0.5f &&
         floats[0] == -1 && floats[1] == 0.25f && floats[2] == 1 && floats[3] == 0 && scaled[0] == -0.5f &&
         scaled[1] == samples[1] * 0.25f && scaled[2] == 0 && scaled[3] == 0.125f && scaled[4] == 3 &&
         legacy[4] == eight[6] * 0.125f && legacy[6] == eight[4] * 0.5f && legacy[8] == 73 &&
         standard[4] == eight[4] * 0.125f && standard[6] == eight[6] * 0.5f && standard[8] == 73 &&
         master[0] == -0.125f && master[3] == 0.03125f &&
-        stereo[0] == 0.25f && stereo[1] == -0.5f && stereo[2] == 1.0f && stereo[3] == 0.5f && stereo[4] == 73 &&
-        stereo_legacy[0] == center + 0.5f * (legacy[4] + legacy[6]) &&
-        stereo_standard[1] == standard[1] + center + 0.5f * (standard[5] + standard[7]) &&
+        stereo[0] == 0.25f * kStereoOutputGain && stereo[1] == -0.5f * kStereoOutputGain &&
+        approximately_equal(stereo[2], 1.0f) && approximately_equal(stereo[3], 0.5f) && stereo[4] == 73 &&
+        stereo_legacy[0] == kStereoOutputGain * (center + 0.5f * (legacy[4] + legacy[6])) &&
+        stereo_standard[1] == kStereoOutputGain * (standard[1] + center + 0.5f * (standard[5] + standard[7])) &&
+        approximately_equal(stereo_quiet[0], 0.25f) && approximately_equal(stereo_quiet[1], 0.125f) &&
+        stereo_muted[0] == 0 && stereo_muted[1] == 0 &&
         std::all_of(muted.begin(), muted.end(), [](float value) { return value == 0; });
 }
 }
