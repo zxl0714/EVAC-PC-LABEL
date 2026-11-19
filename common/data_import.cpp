@@ -42,7 +42,8 @@ struct PreservedTarget {
 };
 std::optional<PreservedTarget> AvailableTarget(const fs::path& target,const fs::path& root,std::string_view game) {
   if(!fs::exists(target))return {};
-  const auto fail=[game] {throw std::runtime_error(game=="ketsui"?
+  const bool preserves_arrange=PreservesXArrangeOnImport(game);
+  const auto fail=[preserves_arrange] {throw std::runtime_error(preserves_arrange?
       "The import destination must contain only the placement guide or X Arrange folder":
       "The collection data directory is not empty; only a placement guide may be preserved");};
   if(!fs::is_directory(target))fail();
@@ -50,16 +51,15 @@ std::optional<PreservedTarget> AvailableTarget(const fs::path& target,const fs::
   for(const auto& item:fs::recursive_directory_iterator(target)) {
     NoLinks(item.path(),root);
     const auto relative=item.path().lexically_relative(target);
-    const bool arrange_root=SamePath(relative,kArrange);
-    const bool ketsui_arrange=game=="ketsui" && Within(relative,kArrange);
-    if(item.is_directory() && (ketsui_arrange || (game=="daioujou" && arrange_root))) {
+    const bool arrange=preserves_arrange && Within(relative,kArrange);
+    if(item.is_directory() && arrange) {
       preserved.directories.insert(relative);
       continue;
     }
     if(!item.is_regular_file())fail();
     const auto bytes=item.file_size();
-    const bool guide=relative==kGuide || (game=="daioujou" && relative==kArrange/kGuide);
-    if(!(guide && bytes<=1024*1024) && !(ketsui_arrange && !arrange_root))fail();
+    const bool guide=relative==kGuide && bytes<=1024*1024;
+    if(!guide && !(arrange && relative.has_parent_path()))fail();
     preserved.files.emplace(relative,PreservedFile{bytes,Sha256(item.path())});
   }
   if(preserved.files.empty() && preserved.directories.empty())return {};

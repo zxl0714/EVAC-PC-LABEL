@@ -1495,7 +1495,7 @@ class App {
       const auto& game=Catalogue()[selected];
       const auto target=DataChild(options.root,game.data_dir);
       const auto prompt=T(L"将完整复制并校验游戏数据。\n\n来源：")+path.native()+T(L"\n目标：")+target.native()+
-          (game.id=="ketsui"?T(L"\n\n导入会保留目标中的放置说明和 X Arrange 曲包。\n继续吗？"):
+          (PreservesXArrangeOnImport(game.id)?T(L"\n\n导入会保留目标中的放置说明和 X Arrange 曲包。\n继续吗？"):
           T(L"\n\n源文件保持不变。目标须为空或只含放置说明；已有游戏数据不会被覆盖。\n继续吗？"));
       if(MessageBoxW(hwnd,prompt.c_str(),T(L"复制到合集"),MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES)return;
       if(!SavePreferences())return;message=T(L"正在校验源数据…");Refresh(false,path);return;

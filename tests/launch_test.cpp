@@ -245,59 +245,47 @@ void CopyChecks() {
   Reject([&]{CopyDataToCollection(overlap.root,game,overlap.root);},"Copy accepted source containing target");
   game.coming_soon=true;Reject([&]{CopyDataToCollection(overlap.root,game,overlap.data);},"Coming Soon copy was accepted");
 }
-void ArrangeGuideCopyChecks() {
-  auto game=SyntheticCopyGame();game.id="daioujou";game.data_dir="game-data/daioujou";
-  for(const bool extra_file:{false,true}) {
+void ArrangeCopyChecks(std::string_view id,const fs::path& existing_track,const fs::path& imported_track) {
+  const auto destination="game-data/"+std::string(id);
+  auto game=SyntheticCopyGame();game.id=id;game.data_dir=destination;
+  const fs::path track="X-Arrange"/existing_track;
+  const auto music=std::string(1024*1024+1,'m');
+  enum class Layout {Empty,DestinationMusic,Both};
+  for(const auto layout:{Layout::Empty,Layout::DestinationMusic,Layout::Both}) {
     Fixture fixture;Write(fixture.data/"main.bin","abc");
-    const auto target=fixture.root/"game-data/daioujou";
-    Write(target/"README.txt","Game guide");Write(target/"x-arrange/README.txt","Music guide");
-    if(extra_file) {
-      Write(target/"x-arrange/ddo_bgm_WaveBank.xwb","Existing music");
-      Reject([&]{CopyDataToCollection(fixture.root,game,fixture.data);},"Pre-created guide exception must not overwrite music");
-      Require(Ini::ReadText(target/"x-arrange/ddo_bgm_WaveBank.xwb")=="Existing music","Existing music changed");
-    } else {
-      const auto result=CopyDataToCollection(fixture.root,game,fixture.data);
-      Require(Ini::ReadText(target/"x-arrange/README.txt")=="Music guide" && Ini::ReadText(target/"main.bin")=="abc",
-              "Pre-created music guide must allow normal game installation");
-      Require(Ini::ReadText(result.guide_backup/"x-arrange/README.txt")=="Music guide","Original nested guide backup missing");
-    }
-  }
-}
-void KetsuiArrangeCopyChecks() {
-  auto game=SyntheticCopyGame();game.id="ketsui";game.data_dir="game-data/ketsui";
-  const fs::path track="X-Arrange/kkj_arr_stg1.xma";
-  for(const bool has_track:{false,true}) {
-    Fixture fixture;Write(fixture.data/"main.bin","abc");
-    const auto target=fixture.root/"game-data/ketsui";
+    const auto target=fixture.root/destination;
     fs::create_directories(target/track.parent_path());
-    if(has_track) {
+    if(layout!=Layout::Empty) {
       Write(target/"README.txt","Game guide");
-      Write(target/track,"Destination track");
-      Write(target/"X-Arrange/notes/list.txt","Track list");
-      Write(fixture.data/"x-arrange/kkj_arr_stg1.xma","Destination track");
-      Write(fixture.data/"x-arrange/kkj_arr_stg2.xma","Imported track");
+      Write(target/track,music);
+      Write(target/"X-Arrange/README.txt","Music guide");
+    }
+    if(layout==Layout::Both) {
+      Write(fixture.data/"x-arrange"/existing_track,music);
+      Write(fixture.data/"x-arrange"/imported_track,"Imported track");
     }
     const auto result=CopyDataToCollection(fixture.root,game,fixture.data);
     Require(fs::is_directory(target/track.parent_path()) && Ini::ReadText(target/"main.bin")=="abc",
-            "Ketsui import rejected a destination with an X Arrange folder");
-    if(has_track) {
-      Require(Ini::ReadText(target/track)=="Destination track" &&
-              Ini::ReadText(target/"X-Arrange/notes/list.txt")=="Track list" &&
-              Ini::ReadText(target/"x-arrange/kkj_arr_stg2.xma")=="Imported track" &&
-              Ini::ReadText(result.guide_backup/track)=="Destination track",
-              "Ketsui import did not preserve and verify the original X Arrange files");
+            "Import rejected a destination with an X Arrange folder");
+    if(layout!=Layout::Empty) {
+      Require(Ini::ReadText(target/track)==music &&
+              Ini::ReadText(target/"X-Arrange/README.txt")=="Music guide" &&
+              Ini::ReadText(result.guide_backup/track)==music,
+              "Import did not preserve and verify the original X Arrange files");
     }
+    if(layout==Layout::Both)Require(Ini::ReadText(target/"x-arrange"/imported_track)=="Imported track",
+            "Import lost the additional X Arrange file from the source");
   }
   for(const bool conflicting_track:{false,true}) {
     Fixture fixture;Write(fixture.data/"main.bin","abc");
-    const auto target=fixture.root/"game-data/ketsui";
+    const auto target=fixture.root/destination;
     Write(target/track,"Destination track");
     if(conflicting_track)Write(fixture.data/track,"Different track");
     else Write(target/"eboot.bin","Existing game");
     const auto config=EnsureConfig(fixture.root);const auto before=Sha256(config);
-    Reject([&]{CopyDataToCollection(fixture.root,game,fixture.data);},"Ketsui import accepted conflicting data");
+    Reject([&]{CopyDataToCollection(fixture.root,game,fixture.data);},"Import accepted conflicting data");
     Require(Ini::ReadText(target/track)=="Destination track" && !fs::exists(target/"main.bin") &&
-            Sha256(config)==before,"Rejected Ketsui import changed the destination or config");
+            Sha256(config)==before,"Rejected import changed the destination or config");
   }
 }
 void PlacementGuideCopyChecks() {
@@ -345,8 +333,9 @@ int wmain(int count,wchar_t** arguments) {
       std::cout<<result.files<<" synthetic files copied\n";return 0;
     }
     if(count!=1)throw std::runtime_error("Unknown synthetic test mode");
-    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();PlacementGuideCopyChecks();ArrangeGuideCopyChecks();
-    KetsuiArrangeCopyChecks();
+    Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();PlacementGuideCopyChecks();
+    ArrangeCopyChecks("ketsui","kkj_arr_stg1.xma","kkj_arr_stg2.xma");
+    ArrangeCopyChecks("daioujou","ddo_bgm_WaveBank.xwb","ddo_bgm_SoundBank.xsb");
     std::cout<<checks<<" launch/config/process/data-copy checks passed; only synthetic helper processes executed.\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }
