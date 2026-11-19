@@ -30,34 +30,40 @@ void NoLinks(const fs::path& path,const fs::path& root) {
   }
 }
 constexpr auto kGuide=L"README.txt";
-struct GuideFile {
+const fs::path kArrange=L"x-arrange";
+struct PreservedFile {
   uint64_t bytes{};std::string hash;
-  bool operator==(const GuideFile&) const=default;
+  bool operator==(const PreservedFile&) const=default;
 };
-struct Guide {
-  std::map<fs::path,GuideFile> files;
-  bool arrange_directory{};
-  bool operator==(const Guide&) const=default;
+struct PreservedTarget {
+  std::map<fs::path,PreservedFile> files;
+  std::set<fs::path> directories;
+  bool operator==(const PreservedTarget&) const=default;
 };
-std::optional<Guide> AvailableTarget(const fs::path& target,const fs::path& root,std::string_view game) {
+std::optional<PreservedTarget> AvailableTarget(const fs::path& target,const fs::path& root,std::string_view game) {
   if(!fs::exists(target))return {};
-  const auto fail=[] {throw std::runtime_error("The collection data directory is not empty; only a placement guide may be preserved");};
+  const auto fail=[game] {throw std::runtime_error(game=="ketsui"?
+      "The import destination must contain only the placement guide or X Arrange folder":
+      "The collection data directory is not empty; only a placement guide may be preserved");};
   if(!fs::is_directory(target))fail();
-  std::optional<Guide> guide;
+  PreservedTarget preserved;
   for(const auto& item:fs::recursive_directory_iterator(target)) {
     NoLinks(item.path(),root);
     const auto relative=item.path().lexically_relative(target);
-    if(game=="daioujou" && relative=="x-arrange" && item.is_directory()) {
-      if(!guide)guide.emplace();
-      guide->arrange_directory=true;
+    const bool arrange_root=SamePath(relative,kArrange);
+    const bool ketsui_arrange=game=="ketsui" && Within(relative,kArrange);
+    if(item.is_directory() && (ketsui_arrange || (game=="daioujou" && arrange_root))) {
+      preserved.directories.insert(relative);
       continue;
     }
-    if((relative!=kGuide && !(game=="daioujou" && relative=="x-arrange/README.txt")) ||
-       !item.is_regular_file() || item.file_size()>1024*1024)fail();
-    if(!guide)guide.emplace();
-    guide->files.emplace(relative,GuideFile{item.file_size(),Sha256(item.path())});
+    if(!item.is_regular_file())fail();
+    const auto bytes=item.file_size();
+    const bool guide=relative==kGuide || (game=="daioujou" && relative==kArrange/kGuide);
+    if(!(guide && bytes<=1024*1024) && !(ketsui_arrange && !arrange_root))fail();
+    preserved.files.emplace(relative,PreservedFile{bytes,Sha256(item.path())});
   }
-  return guide;
+  if(preserved.files.empty() && preserved.directories.empty())return {};
+  return preserved;
 }
 struct Stage {
   fs::path directory,container,root;
@@ -187,35 +193,37 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
     if(current_files!=entries.size() || current_directories!=expected_directories)
       throw std::runtime_error("Game-data layout changed during copy verification");
   }
-  check();NoLinks(target,root);const auto guide=AvailableTarget(target,root,game.id);
+  check();NoLinks(target,root);const auto existing=AvailableTarget(target,root,game.id);
   fs::path guide_backup;
-  if(guide) {
-    if(guide->arrange_directory)fs::create_directories(stage.directory/"x-arrange");
-    for(const auto& [relative,entry]:guide->files) {
-      const auto original=target/relative,preserved=stage.directory/relative;
+  if(existing) {
+    for(const auto& relative:existing->directories)fs::create_directories(DataChild(stage.directory,Utf8(relative)));
+    for(const auto& [relative,entry]:existing->files) {
+      check();
+      const auto original=DataChild(target,Utf8(relative)),preserved=DataChild(stage.directory,Utf8(relative));
       if(fs::exists(preserved)) {
         if(!fs::is_regular_file(preserved) || fs::file_size(preserved)!=entry.bytes || Sha256(preserved)!=entry.hash)
-          throw std::runtime_error("Source and destination placement guides differ; existing files were preserved");
-      } else if(!fs::copy_file(original,preserved,fs::copy_options::none))throw std::runtime_error("Cannot preserve the placement guide");
+          throw std::runtime_error("Source and destination have different files at "+Utf8(relative)+"; existing files were preserved");
+      } else if(!fs::copy_file(original,preserved,fs::copy_options::none))throw std::runtime_error("Cannot preserve "+Utf8(relative));
       fs::permissions(preserved,fs::perms::owner_write,fs::perm_options::add);
       if(fs::file_size(preserved)!=entry.bytes || Sha256(preserved)!=entry.hash)
-        throw std::runtime_error("Placement guide changed during copy; existing files were preserved");
+        throw std::runtime_error("Destination file changed during copy; existing files were preserved");
     }
-    if(AvailableTarget(target,root,game.id)!=guide)
-      throw std::runtime_error("Placement guide changed during copy; existing files were preserved");
-    // Retain the original guide directory as a recoverable cache backup. The
+    check();
+    if(AvailableTarget(target,root,game.id)!=existing)
+      throw std::runtime_error("Destination changed during copy; existing files were preserved");
+    // Retain the original destination as a recoverable cache backup. The
     // game-data target is still published with one non-overwriting rename.
     const auto parent=root/"cache"/FromUtf8(game.id)/"contract-1"/"import-guides";
     NoLinks(parent,root);
     if(Within(parent,source) || Within(source,parent))throw std::runtime_error("Guide backup overlaps read-only source data");
     fs::create_directories(parent);NoLinks(parent,root);guide_backup=parent/name;NoLinks(guide_backup,root);
-    if(!MoveFileExW(target.c_str(),guide_backup.c_str(),MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot preserve the original placement guide directory");
+    if(!MoveFileExW(target.c_str(),guide_backup.c_str(),MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot preserve the original destination files");
     try {
-      if(AvailableTarget(guide_backup,root,game.id)!=guide)throw std::runtime_error("Placement directory changed during copy");
+      if(AvailableTarget(guide_backup,root,game.id)!=existing)throw std::runtime_error("Destination changed during copy");
       if(!MoveFileExW(stage.directory.c_str(),target.c_str(),MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot publish copied game data");
     } catch(const std::exception& error) {
       if(!MoveFileExW(guide_backup.c_str(),target.c_str(),MOVEFILE_WRITE_THROUGH))
-        throw std::runtime_error(std::string(error.what())+"; original placement directory retained at "+Utf8(guide_backup));
+        throw std::runtime_error(std::string(error.what())+"; original destination retained at "+Utf8(guide_backup));
       throw;
     }
   } else {

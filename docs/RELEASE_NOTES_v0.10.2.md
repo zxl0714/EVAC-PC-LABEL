@@ -5,6 +5,7 @@
 - 自动更新现在可以创建新版本所需的目录，并保留玩家的游戏数据、存档和配置。
 - 启动器的桌面和大屏标题均显示当前版本。[#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
 - 修复 PS4 游戏在双声道设备上音量偏低的问题。[#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
+- 《绊地狱》已有 X Arrange 曲包时，也能通过启动器导入游戏数据。
 
 ## English
 
@@ -13,3 +14,4 @@
 - Automatic updates can now create directories required by new versions while preserving game data, saves, and settings.
 - The desktop and Big Picture launcher titles both show the installed version. [#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
 - Fixed low volume in PS4 games on stereo audio devices. [#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
+- Ketsui game data can now be imported with X Arrange tracks already in place.

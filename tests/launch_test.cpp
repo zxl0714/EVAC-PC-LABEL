@@ -263,6 +263,43 @@ void ArrangeGuideCopyChecks() {
     }
   }
 }
+void KetsuiArrangeCopyChecks() {
+  auto game=SyntheticCopyGame();game.id="ketsui";game.data_dir="game-data/ketsui";
+  const fs::path track="X-Arrange/kkj_arr_stg1.xma";
+  for(const bool has_track:{false,true}) {
+    Fixture fixture;Write(fixture.data/"main.bin","abc");
+    const auto target=fixture.root/"game-data/ketsui";
+    fs::create_directories(target/track.parent_path());
+    if(has_track) {
+      Write(target/"README.txt","Game guide");
+      Write(target/track,"Destination track");
+      Write(target/"X-Arrange/notes/list.txt","Track list");
+      Write(fixture.data/"x-arrange/kkj_arr_stg1.xma","Destination track");
+      Write(fixture.data/"x-arrange/kkj_arr_stg2.xma","Imported track");
+    }
+    const auto result=CopyDataToCollection(fixture.root,game,fixture.data);
+    Require(fs::is_directory(target/track.parent_path()) && Ini::ReadText(target/"main.bin")=="abc",
+            "Ketsui import rejected a destination with an X Arrange folder");
+    if(has_track) {
+      Require(Ini::ReadText(target/track)=="Destination track" &&
+              Ini::ReadText(target/"X-Arrange/notes/list.txt")=="Track list" &&
+              Ini::ReadText(target/"x-arrange/kkj_arr_stg2.xma")=="Imported track" &&
+              Ini::ReadText(result.guide_backup/track)=="Destination track",
+              "Ketsui import did not preserve and verify the original X Arrange files");
+    }
+  }
+  for(const bool conflicting_track:{false,true}) {
+    Fixture fixture;Write(fixture.data/"main.bin","abc");
+    const auto target=fixture.root/"game-data/ketsui";
+    Write(target/track,"Destination track");
+    if(conflicting_track)Write(fixture.data/track,"Different track");
+    else Write(target/"eboot.bin","Existing game");
+    const auto config=EnsureConfig(fixture.root);const auto before=Sha256(config);
+    Reject([&]{CopyDataToCollection(fixture.root,game,fixture.data);},"Ketsui import accepted conflicting data");
+    Require(Ini::ReadText(target/track)=="Destination track" && !fs::exists(target/"main.bin") &&
+            Sha256(config)==before,"Rejected Ketsui import changed the destination or config");
+  }
+}
 void PlacementGuideCopyChecks() {
   const auto game=SyntheticCopyGame();
   const fs::path guide=L"README.txt";
@@ -309,6 +346,7 @@ int wmain(int count,wchar_t** arguments) {
     }
     if(count!=1)throw std::runtime_error("Unknown synthetic test mode");
     Fixture fixture;ConfigChecks(fixture);LaunchChecks(fixture,fs::canonical(arguments[0]));CopyChecks();PlacementGuideCopyChecks();ArrangeGuideCopyChecks();
+    KetsuiArrangeCopyChecks();
     std::cout<<checks<<" launch/config/process/data-copy checks passed; only synthetic helper processes executed.\n";return 0;
   }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

@@ -140,6 +140,7 @@ inline constexpr std::array kTranslations{
   Translation{L"将完整复制并校验游戏数据。\n\n来源：",L"ゲームデータをコピーして検証します。\n\nコピー元：",L"Copy and verify the complete game data.\n\nSource: "},
   Translation{L"\n目标：",L"\nコピー先：",L"\nDestination: "},
   Translation{L"\n\n源文件保持不变。目标须为空或只含放置说明；已有游戏数据不会被覆盖。\n继续吗？",L"\n\n元のファイルは変更しません。コピー先は空、または配置説明のみのフォルダーを選んでください。既存のゲームデータは上書きしません。\n続行しますか？",L"\n\nOriginal files stay unchanged. The destination must be empty or contain only its placement guide; existing game data will not be overwritten.\nContinue?"},
+  Translation{L"\n\n导入会保留目标中的放置说明和 X Arrange 曲包。\n继续吗？",L"\n\nコピー先の配置説明と X Arrange の曲データは保持されます。\n続行しますか？",L"\n\nThe import keeps the placement guide and any X Arrange tracks in the destination.\nContinue?"},
   Translation{L"复制到合集",L"コレクションにコピー",L"Copy to collection"},
   Translation{L"正在校验源数据…",L"元のデータを検証中…",L"Verifying source data…"},
   Translation{L"选择数据目录…",L"データフォルダーを選択…",L"Choose data folder…"},

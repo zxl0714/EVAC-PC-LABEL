@@ -107,6 +107,12 @@ class PackageReceiptTests(unittest.TestCase):
             with self.subTest(backend=backend):
                 self.assertEqual(relevant(backend, header, {header}), backend in ('ps2', 'ps4'))
 
+    def test_data_import_only_requires_launcher_rebuild(self):
+        for name in ('common/data_import.cpp', 'common/data_import.h'):
+            for backend in ('ps2', 'ps4', 'xbox360', 'launcher'):
+                with self.subTest(backend=backend, name=name):
+                    self.assertEqual(relevant(backend, name, {name}), backend == 'launcher')
+
     def test_inconsistent_receipt_and_output_traversal_are_rejected(self):
         record = self.receipt()
         record['sourceSnapshot']['files']['common/shared.h']='changed'

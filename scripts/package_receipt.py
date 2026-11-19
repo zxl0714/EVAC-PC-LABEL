@@ -30,6 +30,9 @@ def relevant(backend, name, files):
         return False
     if name in {'common/death_label_host.h', 'common/death_label_gadgets.h'}:
         return backend in ('ps2', 'ps4')
+    if name in {'common/data_import.cpp', 'common/data_import.h'}:
+        # Only the launcher references the import object from the static library.
+        return backend == 'launcher'
     if backend == 'xbox360':
         # Historical host certificates listed the whole repository. The release
         # takes its launcher from a separate receipt and keeps shared data metadata.
