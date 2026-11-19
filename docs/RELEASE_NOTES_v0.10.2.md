@@ -4,6 +4,7 @@
 - 启动器换用对应主机版本的封面，默认按 Xbox 360、PS4、PS2 排列。大屏封面等高显示，选中框贴合图面。[#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
 - 自动更新现在可以创建新版本所需的目录，并保留玩家的游戏数据、存档和配置。
 - 启动器的桌面和大屏标题均显示当前版本。[#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
+- 修复 PS4 游戏在双声道设备上音量偏低的问题。[#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)
 
 ## English
 
@@ -11,3 +12,4 @@
 - The launcher uses covers from the original console releases and groups games by Xbox 360, PS4, and PS2 by default. Big Picture aligns covers by height and frames the selected artwork. [#27](https://github.com/zxl0714/EVAC-PC-LABEL/issues/27)
 - Automatic updates can now create directories required by new versions while preserving game data, saves, and settings.
 - The desktop and Big Picture launcher titles both show the installed version. [#26](https://github.com/zxl0714/EVAC-PC-LABEL/pull/26)
+- Fixed low volume in PS4 games on stereo audio devices. [#28](https://github.com/zxl0714/EVAC-PC-LABEL/issues/28)

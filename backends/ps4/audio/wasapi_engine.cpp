@@ -63,18 +63,39 @@ std::vector<float> Convert(Configuration configuration, const void* data) {
     return output;
 }
 void ApplyGain(float* destination, const std::vector<float>& packet, std::size_t offset, unsigned frames,
-               Configuration configuration, const std::array<int, 8>& volume) {
+               Configuration configuration, const std::array<int, 8>& volume, bool downmix_stereo = false) {
     const auto channels = configuration.channels;
     // Windows 7.1: FL FR FC LFE BL BR SL SR. The PS4 legacy order and
     // volume bits put SL/SR before BL/BR; Std input is already Windows order.
     constexpr std::array<unsigned, 8> legacy_from_windows{0, 1, 2, 3, 6, 7, 4, 5};
+    std::array<unsigned, 8> input_channels;
+    std::array<float, 8> gains;
+    for (unsigned channel = 0; channel < channels; ++channel) {
+        const auto gain_channel = channels == 8 ? legacy_from_windows[channel] : channel;
+        input_channels[channel] = channels == 8 && !configuration.standard8 ? gain_channel : channel;
+        gains[channel] = (static_cast<float>(volume[gain_channel]) / 32768.0f) * configuration.master_gain;
+    }
+    const auto* input = packet.data() + offset * channels;
+    const auto output_channels = downmix_stereo ? 2u : channels;
     for (unsigned frame = 0; frame < frames; ++frame) {
+        std::array<float, 8> surround;
+        auto* mixed = downmix_stereo ? surround.data() : destination;
         for (unsigned channel = 0; channel < channels; ++channel) {
-            const auto gain_channel = channels == 8 ? legacy_from_windows[channel] : channel;
-            const auto input_channel = channels == 8 && !configuration.standard8 ? gain_channel : channel;
-            destination[frame * channels + channel] = packet[(offset + frame) * channels + input_channel] *
-                (static_cast<float>(volume[gain_channel]) / 32768.0f) * configuration.master_gain;
+            mixed[channel] = input[input_channels[channel]] * gains[channel];
         }
+        if (downmix_stereo) {
+            // Keep front L/R at unity. Fold center and surrounds into stereo; omit LFE.
+            const auto center = surround[2] * 0.70710678f;
+            const auto left = surround[0] + center + 0.5f * (surround[4] + surround[6]);
+            const auto right = surround[1] + center + 0.5f * (surround[5] + surround[7]);
+            // Scale both sides together only if the sum would exceed full scale.
+            const auto peak = (std::max)({1.0f, std::abs(left), std::abs(right)});
+            const auto scale = peak > 1.0f ? 1.0f / peak : 1.0f;
+            destination[0] = left * scale;
+            destination[1] = right * scale;
+        }
+        input += channels;
+        destination += output_channels;
     }
 }
 }
@@ -109,15 +130,21 @@ struct DeviceStream {
     Com<IAudioClient> client;
     Com<IAudioRenderClient> render;
     unsigned capacity{}, target{};
-    bool started{}, starved{}, was_idle = true;
+    bool downmix_stereo{}, started{}, starved{}, was_idle = true;
     std::uint64_t last_pump_clock_us{};
     std::chrono::steady_clock::time_point progress = std::chrono::steady_clock::now();
     DeviceStream(const std::shared_ptr<Port>& value, IMMDevice* device) : port(value) {
         Check(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, reinterpret_cast<void**>(client.Out())));
+        if (port->configuration.channels == 8) {
+            WAVEFORMATEX* mix{};
+            Check(client->GetMixFormat(&mix));
+            downmix_stereo = mix && mix->nChannels == 2;
+            CoTaskMemFree(mix);
+        }
         WAVEFORMATEXTENSIBLE extended{};
         auto& format = extended.Format;
         format.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
-        format.nChannels = static_cast<WORD>(port->configuration.channels);
+        format.nChannels = downmix_stereo ? 2 : static_cast<WORD>(port->configuration.channels);
         format.nSamplesPerSec = 48000;
         format.wBitsPerSample = 32;
         format.nBlockAlign = static_cast<WORD>(format.nChannels * 4);
@@ -142,8 +169,8 @@ struct DeviceStream {
         target = (std::min)(capacity, (std::max)(port->configuration.frames, period_frames * 2));
         Check(client->GetService(__uuidof(IAudioRenderClient), reinterpret_cast<void**>(render.Out())));
         { std::lock_guard lock(port->mutex); port->status.device_capacity = capacity; }
-        NativeLogf("{\"event\":\"native_audio_stream\",\"rate\":48000,\"channels\":%u,\"device_capacity\":%u,\"target_frames\":%u}\n",
-            port->configuration.channels, capacity, target);
+        NativeLogf("{\"event\":\"native_audio_stream\",\"rate\":48000,\"channels\":%u,\"output_channels\":%u,\"device_capacity\":%u,\"target_frames\":%u}\n",
+            port->configuration.channels, unsigned(format.nChannels), capacity, target);
     }
     ~DeviceStream() {
         if (client.value) { (void)client->Stop(); (void)client->Reset(); }
@@ -183,7 +210,7 @@ struct DeviceStream {
         if (!frames) { return; }
         BYTE* buffer{}; Check(render->GetBuffer(frames, &buffer));
         auto* samples = reinterpret_cast<float*>(buffer);
-        ApplyGain(samples, port->packet, port->offset, frames, port->configuration, port->volume);
+        ApplyGain(samples, port->packet, port->offset, frames, port->configuration, port->volume, downmix_stereo);
         Check(render->ReleaseBuffer(frames, 0));
         status.written_frames += frames; status.padding = padding + frames;
         progress = std::chrono::steady_clock::now();
@@ -370,12 +397,26 @@ bool AudioConversionSelfTest() {
     std::array<float, 4> master{}, muted{};
     ApplyGain(master.data(), samples, 0, 2, {2, 2, false, false, 0.25f}, gain);
     ApplyGain(muted.data(), samples, 0, 2, {2, 2, false, false, 0.0f}, gain);
+    const std::vector<float> surround{
+        0.25f, -0.5f, 0, 1, 0, 0, 0, 0,
+        0.75f, 0.875f, 0, 0, 1, 0, 1, 0};
+    std::array<int, 8> unity;
+    unity.fill(32768);
+    std::array<float, 5> stereo{0, 0, 0, 0, 73};
+    ApplyGain(stereo.data(), surround, 0, 2, {2, 8, true, false}, unity, true);
+    std::array<float, 2> stereo_legacy{}, stereo_standard{};
+    ApplyGain(stereo_legacy.data(), eight, 0, 1, {1, 8, true, false}, volumes, true);
+    ApplyGain(stereo_standard.data(), eight, 0, 1, {1, 8, true, true}, volumes, true);
+    const auto center = eight[2] * 0.70710678f;
     return samples[0] == -1 && samples[1] == 32767.0f / 32768 && samples[2] == 0 && samples[3] == 0.5f &&
         floats[0] == -1 && floats[1] == 0.25f && floats[2] == 1 && floats[3] == 0 && scaled[0] == -0.5f &&
         scaled[1] == samples[1] * 0.25f && scaled[2] == 0 && scaled[3] == 0.125f && scaled[4] == 3 &&
         legacy[4] == eight[6] * 0.125f && legacy[6] == eight[4] * 0.5f && legacy[8] == 73 &&
         standard[4] == eight[4] * 0.125f && standard[6] == eight[6] * 0.5f && standard[8] == 73 &&
         master[0] == -0.125f && master[3] == 0.03125f &&
+        stereo[0] == 0.25f && stereo[1] == -0.5f && stereo[2] == 1.0f && stereo[3] == 0.5f && stereo[4] == 73 &&
+        stereo_legacy[0] == center + 0.5f * (legacy[4] + legacy[6]) &&
+        stereo_standard[1] == standard[1] + center + 0.5f * (standard[5] + standard[7]) &&
         std::all_of(muted.begin(), muted.end(), [](float value) { return value == 0; });
 }
 }
