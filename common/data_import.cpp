@@ -138,7 +138,11 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
   if (BCryptGenRandom(nullptr,nonce.data(),ULONG(nonce.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0)
     throw std::runtime_error("Cannot name copy transaction");
   std::wstring name=L".copy-"+FromUtf8(game.id).native()+L"-";
-  for(auto byte:nonce)name+=std::to_wstring(byte)+L"-";
+  constexpr auto hex=L"0123456789abcdef";
+  for(auto byte:nonce) {
+    name.push_back(hex[byte>>4]);
+    name.push_back(hex[byte&15]);
+  }
   NoLinks(container,root);fs::create_directories(container);NoLinks(container,root);
   if (fs::space(container).available<total)throw std::runtime_error("Not enough free space for this game-data copy");
   Stage stage{container/name,container,root};
