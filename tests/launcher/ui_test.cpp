@@ -546,26 +546,29 @@ void SdojSwitchChecks() {
   Write(cave::launcher::SdojRecompExecutable(fixture.root),"");
   {
     Frame frame(fixture.root,"futari");auto& app=frame.app;
-    app.layout.width=1080;app.layout.height=900;app.layout.scroll=0;
+    app.layout.width=880;app.layout.height=900;app.layout.scroll=0;
     const auto game=std::ranges::find_if(app.library.visible,[](size_t index){return Catalogue()[index].id=="sdoj";});
     Require(game!=app.library.visible.end(),"The SDOJ switch card is missing");
     const auto position=size_t(game-app.library.visible.begin());
-    const auto click=[&](float offset) {
-      const auto bounds=SdojSwitchBounds(app.layout.card(position));
+    const auto click=[&](D2D1_RECT_F bounds) {
       const auto scale=float(GetDpiForWindow(app.hwnd))/96;
-      const auto point=MAKELPARAM(int((bounds.left+bounds.right)/2*scale),int((bounds.top+offset)*scale));
+      const auto point=MAKELPARAM(int((bounds.left+bounds.right)/2*scale),int((bounds.top+bounds.bottom)/2*scale));
       App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,point);
       Require(!app.card_press && app.sdoj_switch_pressed,"The eandis switch must capture its label and track");
       App::Window(app.hwnd,WM_LBUTTONUP,0,point);
       Require(Catalogue()[app.selected].id=="futari","Toggling eandis changed the selected game");
     };
     app.layout.covers=false;
-    click(21);
+    click(LayoutSdojSwitch(app.layout.card(position),false).track);
     Require(app.sdoj_external,"The eandis switch track did not enable the runtime");
     app.layout.covers=true;
-    click(5);
+    const auto card=app.layout.card(position);
+    const auto cover_switch=LayoutSdojSwitch(card,true);
+    Require(!app.SdojSwitchAt(cover_switch.label.left+12,card.bottom-18),
+            "The eandis label captured a click on the game's English name");
+    click(cover_switch.label);
     Require(!app.sdoj_external,"The eandis switch label did not disable the runtime");
-    click(21);
+    click(cover_switch.track);
   }
   Frame reopened(fixture.root);
   Require(reopened.app.sdoj_external,"Reopening the launcher did not restore the eandis switch");
