@@ -61,6 +61,9 @@ Xbox 360 存档录像的 v0.9.5 测试副本、菜单步骤和结束证据集中
 `play_state=1`，再固定对齐；两张绘图页的 X 原点相差 384 像素，
 加载差一帧会让后续命令哈希全部不同。保留原始哈希并检查实际坐标，
 不要仅凭哈希差异就反复重跑或调整帧节拍。两套关卡模块均需自己的地图初始化补丁。
+录像文件名按实测映射，`REPLAY_XBxx.DAT` 在 Arcade HD 的 REPLAY 菜单，
+`REPLAY_ARxx.DAT` 在 Xbox 360 的 REPLAY 菜单。eandis 的 Windows 键盘直接读取
+`GetAsyncKeyState`，验游戏菜单时用逻辑 XInput 脉冲，标题的片头和进主菜单各一次 Start。
 
 - 当前 EXE／构建、游戏数据版本、独立测试目录和 PID。
 - **该进程实际读取的配置**：优先看 `config.snapshot.ini`、启动参数和按键绑定日志。
