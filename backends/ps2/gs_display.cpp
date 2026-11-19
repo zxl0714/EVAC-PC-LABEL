@@ -4,6 +4,8 @@
 #include "native_host.h"
 #include "startup_trace.h"
 #include "gs_crash_trace.h"
+#include "hosted_present_trace.h"
+#include "hosted_graphics_info.h"
 #include "frame_trace.h"
 #include "gs_device_private.h"
 #include "wsi.hpp"
@@ -32,6 +34,7 @@ public:
     bool closed=false;
     bool fullscreen=false;
     bool swapchainReady=false;
+    unsigned swapchainGeneration{};
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
     std::function<void(unsigned,bool)> keyHandler;
     std::exception_ptr inputFailure;
@@ -82,6 +85,7 @@ public:
     void event_swapchain_created(Vulkan::Device* gpu,VkSwapchainKHR swapchain,unsigned,unsigned,float,size_t,
                                  VkFormat,VkColorSpaceKHR,VkSurfaceTransformFlagBitsKHR) override {
         swapchainReady=swapchain!=VK_NULL_HANDLE;
+        if (swapchainReady) ++swapchainGeneration;
         if(gpu)reflex.Connect(gpu->get_device(),gpu->get_device_table(),swapchain,
             gpu->get_gpu_properties().vendorID==0x10de && gpu->get_device_features().supports_low_latency2_nv);
     }
@@ -181,6 +185,7 @@ public:
     Vulkan::Program* presentProgram=nullptr;
     Vulkan::Program* overlayProgram=nullptr;
     uint64_t pendingFrame=0;
+    unsigned tracedGameGeneration{};
     void Mark(Stage stage) const {gs_crash::Mark(stage,frames);}
     uint64_t lastFeedback=0;
     pixel_trace::Capture pixels;
@@ -194,6 +199,7 @@ public:
         gs_crash::Start();
         Mark(Stage::Init);
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
+        if(window.borrowed)LogHostedGraphicsImages();
         Util::register_thread_index(0);
         wsi.set_platform(&window);
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
@@ -307,8 +313,19 @@ void GsDisplay::BeginWindowFrame() {
         throw std::runtime_error("Cannot acquire a PS2 Vulkan frame");
     }
 }
-bool GsDisplay::EndWindowFrame() {
-    if(!impl->wsi.end_frame()) {
+bool GsDisplay::EndWindowFrame(bool loading) {
+    const auto generation = impl->window.swapchainGeneration;
+    bool presented;
+    if (impl->window.borrowed && (loading || generation != impl->tracedGameGeneration)) {
+        char rtss[48]{};
+        ReadRtssVersion(rtss);
+        HostedPresentTrace sample(loading ? "loading" : "game", generation, rtss);
+        presented = impl->wsi.end_frame();
+        if (!loading && sample.called) impl->tracedGameGeneration = generation;
+    } else {
+        presented = impl->wsi.end_frame();
+    }
+    if(!presented) {
         if(!Alive())throw GsWindowClosed();
         throw std::runtime_error("Cannot present a PS2 Vulkan frame");
     }
@@ -324,7 +341,7 @@ void GsDisplay::PresentLoadingFrame() {
     command->begin_render_pass(pass);
     command->end_render_pass();
     device.submit(command);
-    if(EndWindowFrame())StartupTrace("loading-frame-presented");
+    if(EndWindowFrame(true))StartupTrace("loading-frame-presented");
 }
 bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->window.reflex.BeginOutput();
@@ -448,7 +465,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         }
     }
     impl->Mark(Stage::Present);
-    if(!EndWindowFrame())return false;
+    if(!EndWindowFrame(false))return false;
     impl->Mark(Stage::Presented);
     if(impl->frames==0)StartupTrace("first-present-returned");
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,

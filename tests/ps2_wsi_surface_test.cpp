@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include "thread_id.hpp"
 #include "wsi.hpp"
+#include "../backends/ps2/hosted_present_trace.h"
 #include <algorithm>
 #include <array>
 #include <cstdlib>
@@ -148,12 +149,16 @@ VKAPI_ATTR VkResult VKAPI_CALL Present(VkQueue queue, const VkPresentInfoKHR* in
     return queueResult;
 }
 
-int CheckPresentResize(Vulkan::WSI& wsi, Window& window) {
+VKAPI_ATTR VkResult VKAPI_CALL InterruptPresent(VkQueue, const VkPresentInfoKHR*) {
+    std::_Exit(0); // Verify the report survives without returning or running normal cleanup.
+}
+
+int CheckPresentResize(Vulkan::WSI& wsi, Window& window, bool interrupt) {
     if (!wsi.init_surface_swapchain()) return 1;
     auto& gpu = wsi.get_device();
     auto& dispatch = const_cast<VolkDeviceTable&>(gpu.get_device_table());
     realPresent = dispatch.vkQueuePresentKHR;
-    dispatch.vkQueuePresentKHR = Present;
+    dispatch.vkQueuePresentKHR = interrupt ? InterruptPresent : Present;
     const auto frame = [&](VkResult overall, VkResult perChain) {
         if (!wsi.begin_frame()) throw std::runtime_error("Failed to acquire a frame");
         auto command = gpu.request_command_buffer();
@@ -162,8 +167,13 @@ int CheckPresentResize(Vulkan::WSI& wsi, Window& window) {
         gpu.submit(command);
         queueResult = overall;
         chainResult = perChain;
+        cave::ps2::HostedPresentTrace sample("game", window.swapchains, "test");
         return wsi.end_frame();
     };
+    if (interrupt) {
+        frame(VK_SUCCESS, VK_SUCCESS);
+        return 1; // The test dispatch must terminate at the actual Vulkan call.
+    }
     Check(frame(VK_ERROR_OUT_OF_DATE_KHR, VK_SUCCESS) && !window.ready, "Resize ended the session");
     Check(frame(VK_SUCCESS, VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT) && !window.ready,
           "Losing fullscreen ended the session");
@@ -186,7 +196,9 @@ int main(int argc, char** argv) {
     wsi.set_present_mode(Vulkan::PresentMode::SyncToVBlank);
     wsi.set_present_low_latency_mode(false);
     if (!wsi.init_context_from_platform(1, {}) || !wsi.init_device()) return 1;
-    if (argc == 2 && std::string_view(argv[1]) == "present-resize") return CheckPresentResize(wsi, window);
+    const std::string_view scenario = argc == 2 ? argv[1] : "";
+    if (scenario == "present-resize" || scenario == "present-interrupted")
+        return CheckPresentResize(wsi, window, scenario == "present-interrupted");
     auto& device = wsi.get_device();
     const auto& ext = device.get_device_features();
     if (!ext.supports_full_screen_exclusive || !ext.supports_surface_capabilities2 ||

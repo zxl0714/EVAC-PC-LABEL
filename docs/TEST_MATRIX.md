@@ -4,6 +4,12 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
+## v0.10.3 Death Label 崩溃诊断
+
+- 玩家报告 `20261119-75dc0e50af2b4226` 的最后一个项目栈帧是 `daioujou-ps2-runtime.dll+0x119577e`。与 v0.10.1 正式包 DLL 匹配的 PDB 将前一条调用指令定位到 `Vulkan::WSI::end_frame` 的 `vkQueuePresentKHR`。加载黑帧已呈现，首张游戏帧提交后，调用经过 RTSS 并在 NVIDIA 驱动内异常退出。现有证据还需与同机关闭 RTSS 的结果对照。
+- 该次报告的 RTSS 栈帧直接调用了 `vulkan-1.dll+0x6a02b` 所在的函数。LunarG 官方 Windows x64 1.4.357.0 的 PDB `9e6bdd6a-bba6-4365-927f-935a1c6fc5f0/1` 将它定位到 `vkCmdPipelineBarrier` 调入下一层后的返回地址。旧报告只有 API 版本，因此保留推断。新版同时记录已加载 DLL 的 PDB 标识和可由 Windows 展开元数据确认的两个相关函数范围。缺少匹配证据时，报告分析保留原始偏移。
+- 本机通过 5 项定向测试。Immediate 和 FIFO 各呈现 36 张游戏帧，每个重建的宿主交换链只记录首张游戏帧，并能与加载帧对照。模拟呈现函数直接终止进程后，进入调用的记录仍在，启动器将该次 `stderr.txt` 原样打进报告 ZIP。证据见 `.local/v0103/dl-wsi-acceptance.json`。
+
 ## v0.10.2 启动器与更新
 
 - v0.10.2 已正式发布为 GitHub 最新版，标签指向验收提交 `ab0f008`。公开 API 核对了中英文发布说明及 ZIP 和校验文件的大小、SHA-256。下载的校验文件与本地一致。发布记录见 `.local/v0102/github-release.json`。[GitHub Release v0.10.2](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.2)

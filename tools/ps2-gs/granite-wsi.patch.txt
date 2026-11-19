@@ -1,6 +1,10 @@
 --- a/wsi.cpp
 +++ b/wsi.cpp
-@@ -505,7 +505,9 @@
+@@ -24,2 +24,3 @@
+ #include "wsi.hpp"
++#include "hosted_present_trace.h"
+ #include "environment.hpp"
+@@ -505,7 +506,9 @@
  	device->set_acquire_semaphore(0, Semaphore{});
  	device->consume_release_semaphore();
  
@@ -11,7 +15,7 @@
  	{
  		// If we're just resizing, there's no need to block, defer deletions for later.
  		if (in_tear_down)
-@@ -530,7 +532,8 @@
+@@ -530,7 +533,8 @@
  	}
  	else if (swapchain != VK_NULL_HANDLE)
  	{
@@ -21,7 +25,7 @@
  
  		device->external_queue_lock();
  		table->vkDeviceWaitIdle(device->get_device());
-@@ -643,7 +646,7 @@
+@@ -643,7 +647,7 @@
  		// Avoid conflicting wait cycles when doing reflex style latency limiting.
  		effective_latency = std::max<uint32_t>(effective_latency, 2);
  	}
@@ -30,7 +34,7 @@
  	{
  		auto wait_ts = device->write_calibrated_timestamp();
  
-@@ -1503,6 +1506,11 @@
+@@ -1503,6 +1507,11 @@
  	return frr_pacer;
  }
  
@@ -42,7 +46,7 @@
  bool WSI::begin_frame()
  {
  	if (frame_is_external)
-@@ -1570,7 +1578,7 @@
+@@ -1570,7 +1579,7 @@
  		                                      fence ? fence->get_fence() : VK_NULL_HANDLE, &swapchain_index);
  		device->register_time_interval("WSI", std::move(acquire_ts), device->write_calibrated_timestamp(), "acquire");
  
@@ -51,7 +55,7 @@
  			fence->wait();
  
  #if defined(ANDROID)
-@@ -1643,7 +1651,7 @@
+@@ -1643,7 +1652,7 @@
  				device->set_present_id(swapchain, next_present_id);
  			}
  		}
@@ -60,7 +64,7 @@
  		{
  			LOGW("Swapchain out of date.\n");
  			VK_ASSERT(swapchain_width != 0);
-@@ -1773,10 +1781,13 @@
+@@ -1773,10 +1782,13 @@
  				info.pNext = &present_fence;
  			}
  
@@ -78,7 +82,16 @@
  		}
  
  		if (supports_present_timing.feedback && present_feedback_enable)
-@@ -1841,7 +1852,7 @@
+@@ -1810,3 +1822,7 @@
+ #else
+-		VkResult overall = table->vkQueuePresentKHR(device->get_current_present_queue(), &info);
++		const auto queue = device->get_current_present_queue();
++		auto *trace = cave::ps2::HostedPresentTrace::Active();
++		VkResult overall = trace ? trace->Present(table->vkQueuePresentKHR, queue, info, swapchain_images.size(),
++		                                         active_present_mode, next_present_id) :
++		                           table->vkQueuePresentKHR(queue, &info);
+ #endif
+@@ -1841,7 +1857,7 @@
  		// The presentID only seems to get updated if QueuePresent returns success.
  		// This makes sense I guess. Record the latest present ID which was successfully presented
  		// so we don't risk deadlock.
@@ -87,7 +100,7 @@
  		    (device->get_device_features().present_id_features.presentId || supports_present_wait2) &&
  		    !dupes_frame)
  		{
-@@ -1881,10 +1892,16 @@
+@@ -1881,10 +1897,16 @@
  
  		if (overall < 0 || result < 0)
  		{
@@ -106,7 +119,7 @@
  		}
  		else
  		{
-@@ -2355,6 +2372,10 @@
+@@ -2355,6 +2377,10 @@
  			return false;
  	}
  
@@ -117,7 +130,7 @@
  	auto swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
  	bool use_vsync = present_mode == PresentMode::SyncToVBlank;
  	if (!use_vsync)
-@@ -2419,6 +2440,9 @@
+@@ -2419,6 +2445,9 @@
  			return false;
  	}
  
@@ -127,7 +140,7 @@
  	// Make sure we query surface caps tied to the present mode for correct results.
  	if (ext.swapchain_maintenance1_features.swapchainMaintenance1 &&
  	    ext.supports_surface_capabilities2)
-@@ -2426,23 +2450,20 @@
+@@ -2426,23 +2455,20 @@
  		VkSurfaceCapabilities2KHR surface_capabilities2 = { VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR };
  		VkSurfacePresentModeCompatibilityKHR present_mode_caps =
  		    { VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_COMPATIBILITY_KHR };
@@ -155,7 +168,7 @@
  		present_mode_compat_group.resize(present_mode_caps.presentModeCount);
  		info.present_mode_compat_group.reserve(present_mode_caps.presentModeCount);
  		info.present_mode_compat_group.push_back(swapchain_present_mode);
-@@ -2461,22 +2482,32 @@
+@@ -2461,22 +2487,32 @@
  				continue;
  			}
  
@@ -199,7 +212,7 @@
  		}
  	}
  
-@@ -2505,6 +2536,7 @@
+@@ -2505,6 +2541,7 @@
  		if (vkGetPhysicalDeviceSurfaceFormats2KHR(gpu, &info.surface_info, &format_count, formats2.data()) != VK_SUCCESS)
  			return false;
  
@@ -207,7 +220,7 @@
  		info.formats.reserve(format_count);
  		for (auto &f : formats2)
  			info.formats.push_back(f.surfaceFormat);
-@@ -2516,6 +2548,7 @@
+@@ -2516,6 +2553,7 @@
  		info.formats.resize(format_count);
  		if (vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, info.formats.data()) != VK_SUCCESS)
  			return false;
@@ -215,7 +228,7 @@
  	}
  
  	// Ensure that 10-bit formats come before other formats.
-@@ -2535,7 +2568,7 @@
+@@ -2535,7 +2573,7 @@
  	});
  
  	// Allow for seamless toggle between presentation modes.
@@ -224,7 +237,7 @@
  	{
  		info.present_modes_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR };
  		info.present_modes_info.pNext = const_cast<void *>(info.swapchain_pnext);
-@@ -2543,8 +2576,6 @@
+@@ -2543,8 +2581,6 @@
  		info.present_modes_info.pPresentModes = info.present_mode_compat_group.data();
  		info.swapchain_pnext = &info.present_modes_info;
  	}
@@ -233,7 +246,7 @@
  
  	if (ext.image_compression_control_swapchain_features.imageCompressionControlSwapchain &&
  	    compression.type != VK_IMAGE_COMPRESSION_DEFAULT_EXT)
-@@ -2739,7 +2770,6 @@
+@@ -2739,7 +2775,6 @@
  		desired_swapchain_images = current_frame_dupe_target_images;
  
  	desired_swapchain_images = Util::get_environment_uint("GRANITE_VULKAN_SWAPCHAIN_IMAGES", desired_swapchain_images);
@@ -241,7 +254,7 @@
  
  	if (desired_swapchain_images < caps.minImageCount)
  		desired_swapchain_images = caps.minImageCount;
-@@ -2818,9 +2848,10 @@
+@@ -2818,9 +2853,10 @@
  		     supports_present_timing.relative);
  	}
  
@@ -254,7 +267,7 @@
  
  	if (res == VK_SUCCESS && supports_present_timing.feedback)
  	{
-@@ -2838,7 +2869,14 @@
+@@ -2838,7 +2874,14 @@
  	present_last_id = 0;
  	device->set_present_id(VK_NULL_HANDLE, 0);
  
@@ -270,7 +283,7 @@
  	{
  		VkLatencySleepModeInfoNV sleep_mode_info = { VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV };
  		sleep_mode_info.lowLatencyBoost = low_latency_mode_enable_gpu_submit;
-@@ -2860,13 +2898,6 @@
+@@ -2860,13 +2903,6 @@
  			LOGI("Failed to acquire exclusive full-screen. Using borderless windowed.\n");
  	}
  #endif

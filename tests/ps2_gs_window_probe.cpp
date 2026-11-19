@@ -43,6 +43,7 @@ int main(int argc,char** argv) {
             display.PresentLoadingFrame();
             display.ReleaseBorrowedSurface();
             display.RestoreBorrowedSurface();
+            display.PresentLoadingFrame();
         }
         auto& gs=display.Device();
         cave::ps2::GsCommandQueue queue(8u*1024u*1024u,2048,gs.Completions());

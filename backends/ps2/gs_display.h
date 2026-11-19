@@ -39,7 +39,7 @@ public:
     bool Present(const GsFrame& request,bool repeatCompletedImage=false);
 private:
     void BeginWindowFrame();
-    bool EndWindowFrame();
+    bool EndWindowFrame(bool loading);
     class Impl;
     std::unique_ptr<Impl> impl;
 };

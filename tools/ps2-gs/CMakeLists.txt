@@ -74,6 +74,8 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${granite_wsi}" 
 get_target_property(granite_sources granite-vulkan SOURCES)
 list(TRANSFORM granite_sources REPLACE "^(.*[/])?wsi[.]cpp$" "${patched_wsi}")
 set_property(TARGET granite-vulkan PROPERTY SOURCES "${granite_sources}")
+set_property(SOURCE "${patched_wsi}" TARGET_DIRECTORY granite-vulkan APPEND PROPERTY
+             INCLUDE_DIRECTORIES "${COLLECTION_ROOT}/backends/ps2")
 # A driver can advertise descriptorBuffer while Granite rejects its layout or
 # capacity. All consumers must follow the selected strategy, not that raw bit.
 # Upstream investigation: https://github.com/Themaister/Granite/pull/157
@@ -123,7 +125,7 @@ if(MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 add_library(ps2_gs_device STATIC "${COLLECTION_ROOT}/backends/ps2/gs_device.cpp")
 target_include_directories(ps2_gs_device PUBLIC "${COLLECTION_ROOT}/backends/ps2")
-target_link_libraries(ps2_gs_device PRIVATE parallel-gs)
+target_link_libraries(ps2_gs_device PRIVATE parallel-gs version)
 set(PS2_RUNTIME "${COLLECTION_ROOT}/.deps/ps2/PS2Recomp/ps2xRuntime")
 set(PS2_GS_HEADERS "${CMAKE_BINARY_DIR}/runtime-include")
 foreach(header gs_frontend ps2_gif_arbiter)
@@ -133,6 +135,7 @@ endforeach()
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.h"
   "${PS2_GS_HEADERS}/runtime/ps2_memory.h" COPYONLY)
 target_sources(ps2_gs_device PRIVATE "${COLLECTION_ROOT}/backends/ps2/gs_device_sink.cpp"
+  "${COLLECTION_ROOT}/backends/ps2/hosted_graphics_info.cpp"
   "${COLLECTION_ROOT}/backends/ps2/gs_display.cpp" "${COLLECTION_ROOT}/backends/ps2/gs_present_program.cpp")
 target_include_directories(ps2_gs_device PUBLIC "${PS2_GS_HEADERS}" "${PS2_RUNTIME}/include")
 add_library(ps2_gs_transport STATIC
@@ -165,6 +168,9 @@ if(WIN32)
   add_test(NAME ps2_wsi_surface_primary_bound_contract COMMAND ps2_wsi_surface_contract primary-bounded)
   add_test(NAME ps2_wsi_present_resize_contract COMMAND ps2_wsi_surface_contract present-resize)
   set_tests_properties(ps2_wsi_present_resize_contract PROPERTIES TIMEOUT 30 FAIL_REGULAR_EXPRESSION "VUID-|Validation Error")
+  add_test(NAME ps2_wsi_present_interrupted_contract COMMAND ps2_wsi_surface_contract present-interrupted)
+  set_tests_properties(ps2_wsi_present_interrupted_contract PROPERTIES TIMEOUT 30
+    PASS_REGULAR_EXPRESSION "vkQueuePresentKHR enter phase=game" FAIL_REGULAR_EXPRESSION "vkQueuePresentKHR return")
   set_tests_properties(ps2_wsi_surface_contract ps2_wsi_surface_primary_bound_contract
     PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77)
   add_executable(ps2_gs_crash_contract "${COLLECTION_ROOT}/tests/ps2_gs_crash_test.cpp")
