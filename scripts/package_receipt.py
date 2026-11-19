@@ -3,6 +3,7 @@
 Packaging checks maintained inputs and the bytes copied into the package. The
 original build keeps its dependency, generation and PE/PDB validation evidence.
 """
+import ast
 import hashlib
 import json
 from pathlib import Path
@@ -85,6 +86,26 @@ class PackageInputs:
         except (ValueError, KeyError, TypeError, subprocess.CalledProcessError):
             return False
 
+    def xbox_doc_screenshots_equivalent(self, origin, expected):
+        name = 'scripts/project.py'
+
+        def without_doc_screenshots(source):
+            tree = ast.parse(source)
+            tree.body = [
+                item for item in tree.body
+                if not (isinstance(item, ast.Assign) and len(item.targets) == 1
+                        and isinstance(item.targets[0], ast.Name)
+                        and item.targets[0].id == 'DOC_SCREENSHOTS')
+            ]
+            return ast.dump(tree)
+
+        try:
+            before = self.git('show', origin + ':' + name)
+            return (hashlib.sha256(before).hexdigest() == expected
+                    and without_doc_screenshots(before) == without_doc_screenshots((self.root / name).read_bytes()))
+        except (SyntaxError, ValueError, subprocess.CalledProcessError):
+            return False
+
     def load(self, path, backend, games=None):
         reject_link(path)
         record = json.loads(Path(path).read_text(encoding='utf-8'))
@@ -113,18 +134,21 @@ class PackageInputs:
         files = source['files']
         if not isinstance(files, dict) or not files:
             raise ValueError('Missing maintained build inputs: ' + backend)
-        equivalent_catalogue = (backend == 'xbox360' and 'games/catalogue.json' in files and
-                                'games/catalogue.json' in self.changes[origin] and
-                                self.xbox_catalogue_equivalent(origin, files['games/catalogue.json']))
+        equivalent = set()
+        if backend == 'xbox360':
+            for name, compare in (('games/catalogue.json', self.xbox_catalogue_equivalent),
+                                  ('scripts/project.py', self.xbox_doc_screenshots_equivalent)):
+                if name in files and name in self.changes[origin] and compare(origin, files[name]):
+                    equivalent.add(name)
         changed = [name for name in self.changes[origin] if relevant(backend, name, files)
-                   and not (equivalent_catalogue and name == 'games/catalogue.json')]
+                   and name not in equivalent]
         if changed:
             raise ValueError('Rebuild ' + backend + ': changed input ' + changed[0])
         # This catches a build made from uncommitted input, and local edits to
         # a tracked submodule dependency, without reading generated trees/PDBs.
         for name, expected in files.items():
             relative(name)
-            if equivalent_catalogue and name == 'games/catalogue.json':
+            if name in equivalent:
                 continue
             if not relevant(backend, name, files):
                 continue
