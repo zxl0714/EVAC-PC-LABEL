@@ -205,9 +205,7 @@ public:
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
         wsi.set_present_mode(vsync?Vulkan::PresentMode::SyncToVBlank:Vulkan::PresentMode::UnlockedForceTearing);
         const bool compatibleVsync=window.borrowed && vsync;
-        // FIFO with three swapchain images avoids waiting an extra refresh to
-        // acquire an image while the compositor is still using the last one.
-        wsi.set_present_low_latency_mode(!vsync);
+        wsi.set_present_low_latency_mode(!compatibleVsync);
         const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
         if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
