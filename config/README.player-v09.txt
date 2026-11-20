@@ -2,7 +2,7 @@ EVAC PC LABEL v0.10.4
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击 Launch game。右上角的 CN 可切换为简体中文。
-本版手动更新。关闭游戏和启动器，解压替换同名文件，保留 user-data/。
+手动更新时，关闭游戏和启动器，解压替换同名文件，保留 user-data/。
 Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vulkan 1.3。
 
 游戏数据

@@ -378,7 +378,7 @@ def license_files(selection=GAMES):
         paths.update((ROOT / 'third_party/ps2').rglob('LICENSE*'))
         paths.add(ROOT / 'third_party/ps2/THIRD_PARTY_NOTICES.txt')
         paths.add(ROOT / '.deps/ps2/raylib/src/external/glfw/LICENSE.md')
-        for dependency in ('ParallelGS', 'GraniteGS', 'VolkGS', 'VulkanHeadersGS', 'SDL', 'raylib'):
+        for dependency in ('PS2VuAot', 'ParallelGS', 'GraniteGS', 'VolkGS', 'VulkanHeadersGS', 'SDL', 'raylib'):
             directory = ROOT / '.deps/ps2' / dependency
             for pattern in ('LICENSE*', 'COPYING*', 'NOTICE*'):
                 paths.update(path for path in directory.glob(pattern) if path.is_file())
