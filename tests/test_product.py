@@ -19,11 +19,11 @@ class ProductTests(unittest.TestCase):
             self.assertIn("'garegga' -in $Games", text)
 
     def test_current_release_docs_and_component_notices(self):
-        for name in ('README.md', 'README.en.md'):
+        for name, upload_label in (('README.md', 'Upload logs'), ('README.zh-CN.md', '上传日志')):
             text = (ROOT / name).read_text(encoding='utf-8')
             self.assertIn(product.REPOSITORY_URL + '/releases/latest', text)
             self.assertIn('SHA-256', text)
-            self.assertIn('Upload logs' if name.endswith('.en.md') else '上传日志', text)
+            self.assertIn(upload_label, text)
             self.assertNotIn('v0.4-win-x64.zip', text)
         player = (ROOT / 'config/README.player-v09.txt').read_text(encoding='utf-8')
         self.assertTrue(player.startswith(product.NAME + ' v' + product.VERSION + '\n'))
@@ -62,21 +62,21 @@ class ProductTests(unittest.TestCase):
         self.assertEqual(release.UPDATE_PRESERVED, ('config.ini','user-data/','game-data/','prepared/','cache/','logs/','source/'))
 
     def test_game_data_guides_have_matching_language_routes(self):
-        for suffix in ('', '.en'):
-            guide = ROOT / ('docs/GAME_DATA' + suffix + '.md')
+        for readme_name, guide_name in (('README.md', 'GAME_DATA.en.md'), ('README.zh-CN.md', 'GAME_DATA.md')):
+            guide = ROOT / 'docs' / guide_name
             text = guide.read_text(encoding='utf-8')
-            readme = (ROOT / ('README' + suffix + '.md')).read_text(encoding='utf-8')
+            readme = (ROOT / readme_name).read_text(encoding='utf-8')
             self.assertIn('docs/' + guide.name, readme)
             self.assertIn('(GAME_DATA.md)', text)
             self.assertIn('(GAME_DATA.en.md)', text)
             self.assertNotIn('.header', text)
             for game in ('futari','espgaluda2','sdoj','guwange','ketsui','daioujou','esprade','feveron','garegga'):
                 self.assertIn('game-data/' + game + '/', text)
-        english = (ROOT / 'README.en.md').read_text(encoding='utf-8')
+        english = (ROOT / 'README.md').read_text(encoding='utf-8')
         self.assertNotIn('docs/GAME_DATA.md', english)
         data_guide = (ROOT / 'docs/GAME_DATA.en.md').read_text(encoding='utf-8')
         self.assertIn('The game extracts the files automatically', data_guide)
-        for relative in ('README.md','README.en.md','docs/GAME_DATA.md','docs/GAME_DATA.en.md',
+        for relative in ('README.md','README.zh-CN.md','docs/GAME_DATA.md','docs/GAME_DATA.en.md',
                          'config/game-data/futari.txt','config/README.player-v08.txt'):
             text = (ROOT / relative).read_text(encoding='utf-8')
             self.assertNotIn('Extract-Dlc.ps1 -InputPackage', text)

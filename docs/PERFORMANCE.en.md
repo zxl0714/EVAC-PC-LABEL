@@ -1,6 +1,6 @@
 # Performance comparison notes
 
-[简体中文](PERFORMANCE.md) | [English](PERFORMANCE.en.md) · [Back to comparison](../README.en.md#latency-and-performance)
+[简体中文](PERFORMANCE.md) | [English](PERFORMANCE.en.md) · [Back to comparison](../README.md#latency-and-performance)
 
 The overview uses representative workloads. Latency is a stage-budget estimate; CPU is measured usage in equivalent logical cores. One core equals 1,000 CPU ms/s. Measurements use an i7-13700KF / RTX 4080.
 

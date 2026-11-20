@@ -4752,8 +4752,9 @@ Loopback server PID 38964 was stopped after confirming its client had exited
 and its exact database/port command line. These CLI tests explicitly use 120 ms
 diagnostic taps; do not label them physical held-input acceptance.
 
-Maintain README.md (Chinese) and README.en.md (English) together, reciprocal
-links and matching actual names/versions/paths. Write for players: no former-name
+Maintain README.md (English) and README.zh-CN.md (Simplified Chinese) together,
+with reciprocal links and matching names, versions and paths. Put English before
+Simplified Chinese in new release notes. Write for players: no former-name
 history, internal diary or repeated defensive explanations. Keep required setup,
 known issues/remedies and license/source information. English UI labels match
 launcher/strings.h. The current public README download is the frozen v0.3.2

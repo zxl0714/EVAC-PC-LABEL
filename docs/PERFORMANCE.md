@@ -1,6 +1,6 @@
 # 性能对比说明
 
-[简体中文](PERFORMANCE.md) | [English](PERFORMANCE.en.md) · [返回性能表](../README.md#延迟与性能)
+[简体中文](PERFORMANCE.md) | [English](PERFORMANCE.en.md) · [返回性能表](../README.zh-CN.md#延迟与性能)
 
 首页数字来自代表场景，延迟是分段估算，CPU 是实测等效逻辑核数。1 核 = 1000 CPU ms/s；测试机器为 i7-13700KF／RTX 4080。
 

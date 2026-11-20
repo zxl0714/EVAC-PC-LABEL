@@ -94,7 +94,7 @@ class ExtractToolTests(unittest.TestCase):
         interface = (ROOT/'tools/ps4-extract/main.cpp').read_text(encoding='utf-8')
         self.assertIn('bool chinese = false;', interface)
         self.assertNotIn('GetUserDefaultUILanguage', interface)
-        for name in ('README.md', 'README.en.md', 'docs/GAME_DATA.md', 'docs/GAME_DATA.en.md',
+        for name in ('README.md', 'README.zh-CN.md', 'docs/GAME_DATA.md', 'docs/GAME_DATA.en.md',
                      'config/README.player-v07.txt', 'config/game-data/ketsui.txt',
                      'config/game-data/daioujou.txt', 'config/game-data/esprade.txt'):
             with self.subTest(name=name):

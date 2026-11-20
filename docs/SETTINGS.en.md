@@ -1,10 +1,10 @@
 # Settings and controls
 
-[简体中文](SETTINGS.md) | [English](SETTINGS.en.md) · [Back to overview](../README.en.md)
+[简体中文](SETTINGS.md) | [English](SETTINGS.en.md) · [Back to overview](../README.md)
 
 ## Launcher and controls
 
-Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×2160 window above the launch button; the launcher remembers your selection. Edit your leaderboard nickname at the top right. Select `CN / EN / JP` to change the launcher's language. If a game cannot display characters in your nickname, saving shows the affected games and the names passed to them. In-game languages depend on the original game.
+Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×2160 window above the launch button. The launcher remembers your selection. Edit your leaderboard nickname at the top right. The launcher defaults to English. Select `CN / EN / JP` to change its language. If a game cannot display characters in your nickname, saving shows the affected games and the names passed to them. In-game languages depend on the original game.
 
 The launcher remembers its window size when closed and fits it within the available screen area when the display resolution or scaling changes.
 

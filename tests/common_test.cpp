@@ -733,12 +733,13 @@ int main() {
     MigrationChecks();
     using launcher::Language;
     Fixture language_fixture;
-    Require(launcher::ReadLanguage(Ini::Parse(""))==Language::Chinese,"Existing INI language default changed");
+    Require(launcher::ReadLanguage(Ini::Parse(""))==Language::English,"Unspecified launcher language must default to English");
+    const auto language_config=EnsureConfig(language_fixture.root);
+    Require(launcher::ReadLanguage(Ini::Load(language_config))==Language::English,"A fresh launcher configuration must use English");
     for(const auto lang:{Language::Chinese,Language::Japanese,Language::English}) {
       Require(launcher::ParseLanguage(launcher::LanguageCode(lang))==lang,"Language code round trip");
       const std::array changes{IniEdit{"collection","language",launcher::LanguageCode(lang)}};
       const auto before=std::string("; retain comment\n[future]\nvalue=keep\n[community]\nnickname=Player\n");
-      const auto language_config=EnsureConfig(language_fixture.root);
       Write(language_config,before);
       UpdateConfig(language_fixture.root,before,changes);
       const auto after=Ini::ReadText(language_config);

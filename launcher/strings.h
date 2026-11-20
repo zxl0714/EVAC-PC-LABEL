@@ -6,6 +6,7 @@
 
 namespace cave::launcher {
 enum class Language { Chinese, Japanese, English };
+inline constexpr auto kDefaultLanguage = Language::English;
 inline Language ParseLanguage(std::string_view value) {
   if(value=="zh")return Language::Chinese;
   if(value=="ja")return Language::Japanese;
@@ -14,7 +15,7 @@ inline Language ParseLanguage(std::string_view value) {
 }
 inline Language ReadLanguage(const Ini& ini) {
   const auto value=ini.Get("collection","language");
-  return value?ParseLanguage(value->text):Language::Chinese;
+  return value?ParseLanguage(value->text):kDefaultLanguage;
 }
 inline const char* LanguageCode(Language language) {
   return language==Language::Chinese?"zh":language==Language::Japanese?"ja":"en";

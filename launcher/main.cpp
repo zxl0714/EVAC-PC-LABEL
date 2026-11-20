@@ -83,7 +83,7 @@ HICON BrandIcon(HINSTANCE instance,int size) {
 }
 using cave::launcher::Language;
 namespace update=cave::launcher::update;
-Language language=Language::Chinese;
+Language language=cave::launcher::kDefaultLanguage;
 const wchar_t* T(std::wstring_view key) {return cave::launcher::Translate(language,key);}
 std::wstring DisplayLabel(DisplaySelection display) {
   return display.fullscreen?T(L"全屏"):std::to_wstring(display.width)+L" × "+std::to_wstring(display.height);
