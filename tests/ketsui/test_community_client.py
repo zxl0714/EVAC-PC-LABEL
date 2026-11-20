@@ -1,4 +1,5 @@
 """Real Windows C++ transport and crash/retry tests using an authored local service."""
+from configparser import ConfigParser
 from contextlib import contextmanager
 import hashlib
 import json
@@ -91,9 +92,13 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(events[-1], {'event': 'community_config_check', 'enabled': False, 'valid': True})
         self.assertEqual(hashlib.sha256(config.read_bytes()).hexdigest(), before)
 
-    def test_root_config_template_checks_network_without_connecting_or_creating_storage(self):
+    def test_default_community_settings_validate_without_connecting_or_creating_storage(self):
         config = self.root / 'config.ini'
-        content = (ROOT / 'config/input.ini').read_bytes()
+        defaults = ConfigParser(interpolation=None)
+        defaults.read(ROOT / 'config/default.ini', encoding='utf-8')
+        community = dict(defaults['community'])
+        community['endpoint'] = community['endpoint'].rstrip('/') + '/games/ketsui'
+        content = ('[community]\n' + ''.join(f'{key} = {value}\n' for key, value in community.items())).encode('utf-8')
         config.write_bytes(content)
         result, events = self.run_native('--community-config-check', config)
         self.assertEqual(events, [{'event': 'community_config_check', 'enabled': True, 'valid': True}])
@@ -127,7 +132,7 @@ class ClientTests(unittest.TestCase):
                 self.assertNotIn('body', record)
 
     def test_worker_validates_replay_envelopes_and_pins_original_entry_after_new_best(self):
-        from test_community_replay import record
+        from tests.ketsui.test_community_replay import record
         counts = {'scores': 0, 'replays': 0}
         class CountWrites(live.Handler):
             def do_POST(self):
@@ -213,7 +218,7 @@ class ClientTests(unittest.TestCase):
 
     def test_development_entry_rejects_public_endpoint_and_missing_explicit_profile_before_startup(self):
         config = self.root / 'shared.ini'
-        original = (ROOT / 'config/input.ini').read_bytes()
+        original = (ROOT / 'config/default.ini').read_bytes()
         config.write_bytes(original)
         source = self.root / 'never-executed.ktprobe'
         source.write_bytes(b'authored invalid image')
@@ -285,7 +290,7 @@ class ClientTests(unittest.TestCase):
         self.assertTrue(all(event.get('passed', True) for event in events))
 
     def test_native_replay_provider_to_real_service_pins_entry_across_new_best(self):
-        from test_community_replay import record
+        from tests.ketsui.test_community_replay import record
         payload = zlib.compress(record())
         path = self.root / '原生 ABI 自造附件'
         path.write_bytes(payload)
