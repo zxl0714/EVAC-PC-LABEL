@@ -11,12 +11,11 @@ another historical narrative or one-off input script.
 ## Current objective
 
 v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The current program
-candidate is frozen at `dfed9b9` in `releases/v0103-dfed9b9/`. It includes
-left/right paging in the 2×2 portrait Big Picture grid, DonPachi fullscreen
-selection, and the remappable Exit game shortcut.
+candidate is frozen at `93b5293` in `releases/v0103-93b5293/`. The launcher
+defaults to English and preserves the language selected in existing configs.
 For new Death Label reports, match the report's runtime to the private symbols
-under `.local/v0103/shipcheck/symbols/`. The `87ba2c8/` subdirectory holds the
-matching DLL and PDB reused by `dfed9b9`. Analyze the upload ZIP with
+under `.local/v0103/shipcheck/symbols/`. The current DLL and PDB are in the
+`93b5293/` subdirectory. Analyze the upload ZIP with
 `py -3.12 scripts/ps2_death_label_report.py <report.zip>`. Current component
 and report acceptance is in the first section of docs/TEST_MATRIX.md.
 
