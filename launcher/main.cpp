@@ -1206,11 +1206,14 @@ class App {
   void UpdateOverrideHint(const Ini& ini) {
     override_hint.clear();
     if(library.visible.empty())return;
+    if(DonPachiSelected()) {
+      override_hint=T(L"按键在首領蜂内设置");
+      return;
+    }
     const auto section="game."+std::string(LauncherCatalogue()[selected].id);
     if(ini.Get(section+".display","fullscreen") || ini.Get(section+".display","window_width") ||
        ini.Get(section+".display","window_height") || ini.Get(section+".community","nickname"))
       override_hint=T(L"此游戏有独立的显示／昵称设置，请在配置文件中调整");
-    else if(DonPachiSelected())override_hint=T(L"按键在首領蜂内设置");
   }
   bool SavePreferences() {
     if(!preferences_dirty)return true;
@@ -1582,7 +1585,7 @@ class App {
           const auto ini=Ini::Load(ConfigPath(root));
           if(id==cave::launcher::kDonPachi.id) {
             task->launch=cave::launcher::PrepareDonPachi(root,ini,profile,data);
-            task->donpachi_fullscreen=ResolveSettings(ini,id).fullscreen;
+            task->donpachi_fullscreen=ResolveSharedSettings(ini).fullscreen;
           }
           else if(task->external)task->launch=cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem());
           else task->launch=PrepareLaunch(FindGame(id),root,ini,profile,data);
@@ -2323,7 +2326,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
       std::optional<GameSession> session;
       if(arcade) {
         session.emplace(options.root);
-        cave::launcher::SetDonPachiFullscreen(spec,ResolveSettings(ini,options.game).fullscreen);
+        cave::launcher::SetDonPachiFullscreen(spec,ResolveSharedSettings(ini).fullscreen);
       }
       auto child=StartGame(spec,arcade?spec.executable.parent_path():fs::path{});
       child.Wait();return int(child.ExitCode().value_or(1));

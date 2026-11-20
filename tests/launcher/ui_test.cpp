@@ -633,12 +633,13 @@ void ExternalLauncherControlsChecks() {
     SendMessageW(app.fullscreen_control,CB_SETCURSEL,0,0);app.DisplayChanged();
     const auto arcade_ini=Ini::Load(ConfigPath(fixture.root));
     const auto arcade=cave::launcher::PrepareDonPachi(fixture.root,arcade_ini,"fullscreen-check");
-    Require(ResolveSettings(arcade_ini,"donpachi").fullscreen,"DonPachi fullscreen preference did not save");
-    cave::launcher::SetDonPachiFullscreen(arcade,true);
+    const auto arcade_display=ResolveSharedSettings(arcade_ini);
+    Require(arcade_display.fullscreen,"DonPachi fullscreen preference did not save");
+    cave::launcher::SetDonPachiFullscreen(arcade,arcade_display.fullscreen);
     Require(Ini::Load(arcade.configuration).Get("window","fullscreen")->text=="true","First launch did not create fullscreen settings");
     Write(arcade.configuration,"[window]\r\nscale = 3\r\nfullscreen = true\r\nfullscreen_type = exclusive\r\n[video]\r\nrenderer = direct3d12\r\n");
     SendMessageW(app.fullscreen_control,CB_SETCURSEL,1,0);app.DisplayChanged();
-    cave::launcher::SetDonPachiFullscreen(arcade,ResolveSettings(Ini::Load(ConfigPath(fixture.root)),"donpachi").fullscreen);
+    cave::launcher::SetDonPachiFullscreen(arcade,ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).fullscreen);
     Require(Ini::ReadText(arcade.configuration)=="[window]\r\nscale = 3\r\nfullscreen = false\r\nfullscreen_type = exclusive\r\n[video]\r\nrenderer = direct3d12\r\n",
             "Changing DonPachi display mode altered upstream settings");
     app.Select(*game,false);
