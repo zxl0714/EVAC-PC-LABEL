@@ -11,9 +11,9 @@ another historical narrative or one-off input script.
 ## Current objective
 
 v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The current program
-candidate is frozen at `cc450eb` in `releases/v0103-cc450eb/` and includes
-the Big Picture game exit shortcuts. The earlier candidates are in
-`releases/v0103-7a07b1a/` and `releases/v0103-candidate/`. Use the matching
+candidate is frozen at `71944c3` in `releases/v0103-71944c3/` and includes
+the Exit game action in Controls. Previous candidates remain in
+`releases/v0103-cc450eb/`, `releases/v0103-7a07b1a/`, and `releases/v0103-candidate/`. Use the matching
 release DLL and private symbols under `.local/v0103/shipcheck/` for new
 Death Label reports. Analyze the existing upload ZIP directly with
 `py -3.12 scripts/ps2_death_label_report.py <report.zip>`. Current component
