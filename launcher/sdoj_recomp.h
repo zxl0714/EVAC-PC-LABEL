@@ -9,6 +9,7 @@
 
 namespace cave::launcher {
 inline constexpr auto kSdojRecompDirectory="external/SDOJ-Recomp";
+inline constexpr auto kSdojRecompProject=L"https://github.com/eandis/SDOJ-Recomp";
 inline constexpr auto kSdojRecompRelease=L"https://github.com/eandis/SDOJ-Recomp/releases/latest";
 
 inline bool ReadSdojRecomp(const Ini& ini) {

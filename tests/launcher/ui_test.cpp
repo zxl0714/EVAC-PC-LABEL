@@ -205,10 +205,10 @@ void UpdateChecks() {
 }
 void CoverLayoutChecks() {
   Fixture fixture;
-  Write(fixture.root/"user-data/config.ini","[collection]\nlanguage=en\nlauncher_layout=covers\nselected_game=espgaluda\ncheck_for_updates=false\n");
+  Write(fixture.root/"user-data/config.ini","[collection]\nlanguage=en\nselected_game=espgaluda\ncheck_for_updates=false\n");
   {
     Frame frame(fixture.root);auto& app=frame.app;
-    Require(app.layout.covers && Catalogue()[app.selected].id=="espgaluda","Cover layout did not restore its selected game");
+    Require(Catalogue()[app.selected].id=="espgaluda","Cover grid did not restore its selected game");
     for(const auto dimensions:std::array{std::pair{720.f,520.f},std::pair{1080.f,900.f},std::pair{1280.f,720.f}}) {
       app.layout.width=dimensions.first;app.layout.height=dimensions.second;
       Require(app.layout.columns()>1,"Representative cover window did not form a grid");
@@ -236,32 +236,30 @@ void CoverLayoutChecks() {
             !CanPlay(app.rows[app.selected].inspection), "PS2 DaiOuJou should ask for a disc when its folder is empty");
   }
   const auto saved=Ini::Load(ConfigPath(fixture.root));
-  Require(cave::launcher::CoverLayout(saved),"Normal close changed the internal cover setting");
   Require(saved.Get("collection","selected_game")->text==Catalogue().back().id,
           "Cover selection was not retained at close");
 }
 void WindowSizeChecks() {
   Fixture fixture;
-  Write(fixture.root/"user-data/config.ini","[collection]\ncheck_for_updates=false\n");
-  for(const auto covers:{false,true}) {
-    const auto before=Ini::ReadText(ConfigPath(fixture.root));
-    const std::array edits{IniEdit{"collection","launcher_layout",covers?"covers":"banner"}};
-    UpdateConfig(fixture.root,before,edits);
+  Write(fixture.root/"user-data/config.ini","[collection]\ncheck_for_updates=false\nlauncher_layout=banner\n"
+        "launcher_banner_width=1150\nlauncher_banner_height=800\n");
+  {
     cave::launcher::WindowSize expected{};
     {
       Frame frame(fixture.root);auto& app=frame.app;
-      SetWindowPos(app.hwnd,nullptr,0,0,covers?1250:1150,covers?850:800,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+      Require(!app.saved_window_size,"Legacy banner dimensions overrode the grid default");
+      SetWindowPos(app.hwnd,nullptr,0,0,1250,850,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
       expected=*app.normal_window_size;
       App::Window(app.hwnd,WM_SIZE,SIZE_MAXIMIZED,MAKELPARAM(1800,1000));
       App::Window(app.hwnd,WM_SIZE,SIZE_MINIMIZED,0);
       Require(app.normal_window_size->width==expected.width && app.normal_window_size->height==expected.height,
               "Maximize/minimize replaced the remembered normal size");
     }
-    const auto saved=cave::launcher::ReadWindowSize(Ini::Load(ConfigPath(fixture.root)),covers);
+    const auto saved=cave::launcher::ReadWindowSize(Ini::Load(ConfigPath(fixture.root)));
     Require(saved && saved->width==expected.width && saved->height==expected.height,"Normal close did not save window size");
     {
       Frame frame(fixture.root);auto& app=frame.app;
-      FitInitialWindow(app.hwnd,app.layout.covers,app.saved_window_size);
+      FitInitialWindow(app.hwnd,app.saved_window_size);
       RECT bounds{};GetWindowRect(app.hwnd,&bounds);const auto scale=float(GetDpiForWindow(app.hwnd))/96;
       Require(std::abs((bounds.right-bounds.left)/scale-expected.width)<=1 &&
               std::abs((bounds.bottom-bounds.top)/scale-expected.height)<=1,
@@ -283,13 +281,10 @@ void WindowSizeChecks() {
       Require(EqualRect(&bounds,&original),"DPI change modified a window that already fit the work area");
     }
   }
-  const auto saved=Ini::Load(ConfigPath(fixture.root));
-  Require(cave::launcher::ReadWindowSize(saved,true)->width!=cave::launcher::ReadWindowSize(saved,false)->width,
-          "Switching layout overwrote the other layout's dimensions");
   {
     Frame frame(fixture.root);auto& app=frame.app;
     app.Select(Catalogue().size()-1);frame.Settle();
-    FitInitialWindow(app.hwnd,true);frame.Settle();
+    FitInitialWindow(app.hwnd);frame.Settle();
     ShowWindow(app.hwnd,SW_SHOWNOACTIVATE);frame.Settle();UpdateWindow(app.hwnd);
     MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);GetMonitorInfoW(MonitorFromWindow(app.hwnd,MONITOR_DEFAULTTONEAREST),&monitor);
     const auto dpi=GetDpiForWindow(app.hwnd);const auto scale=float(dpi)/96;
@@ -306,7 +301,7 @@ void WindowSizeChecks() {
   {
     Frame frame(fixture.root);auto& app=frame.app;
     Require(app.saved_window_size.has_value(),"First launch did not save its cover grid size");
-    FitInitialWindow(app.hwnd,app.layout.covers,app.saved_window_size);frame.Settle();
+    FitInitialWindow(app.hwnd,app.saved_window_size);frame.Settle();
     RECT bounds{},client{};
     Require(GetWindowRect(app.hwnd,&bounds) && GetClientRect(app.hwnd,&client) &&
             bounds.right-bounds.left>client.right && bounds.bottom-bounds.top>client.bottom,
@@ -327,13 +322,15 @@ void SelectionChecks() {
     const auto scale=float(GetDpiForWindow(app.hwnd))/96;
     App::Window(app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(int(720*scale),int(520*scale)));
     const auto selected=app.layout.card(app.VisiblePosition().value());
-    Require(selected.top>=app.layout.header()-1 && selected.bottom<=app.layout.footer()+1,"Restored selection was not scrolled visible");
+    const auto visible=std::min(selected.bottom,app.layout.footer())-std::max(selected.top,app.layout.header());
+    Require(app.layout.columns()>1 && visible>=std::min(selected.bottom-selected.top,app.layout.viewport_height())-1,
+            "Legacy banner config did not restore its selected game in the grid");
     Require(app.rows[app.selected].inspection.state=="missing_data","Missing data erased a valid saved selection");
     SetWindowTextW(app.nickname_control,L"Unsaved draft");
-    App::Window(app.hwnd,WM_KEYDOWN,VK_UP,0);frame.Settle();
-    Require(Catalogue()[app.selected].id=="ketsui","Up no longer selects the preceding game");
-    App::Window(app.hwnd,WM_KEYDOWN,VK_DOWN,0);frame.Settle();
-    Require(Catalogue()[app.selected].id=="daioujou","Down no longer selects the next game");
+    App::Window(app.hwnd,WM_KEYDOWN,VK_LEFT,0);frame.Settle();
+    Require(Catalogue()[app.selected].id=="ketsui","Left no longer selects the preceding game");
+    App::Window(app.hwnd,WM_KEYDOWN,VK_RIGHT,0);frame.Settle();
+    Require(Catalogue()[app.selected].id=="daioujou","Right no longer selects the next game");
     app.Select(2);frame.Settle();
     Require(Ini::Load(ConfigPath(fixture.root)).Get("collection","selected_game")->text=="daioujou","Selecting saved too early instead of at normal close");
     Write(ConfigPath(fixture.root),Ini::ReadText(ConfigPath(fixture.root))+"[editor]\r\nconcurrent=preserved\r\n");
@@ -524,12 +521,12 @@ void GameLibraryChecks() {
     UpdateConfig(fixture.root,before,edits);
     Frame frame(fixture.root);auto& app=frame.app;
     app.layout.width=1080;app.layout.height=900;
-    Require(!app.layout.covers && app.library.order[2]==0 && app.library.Hidden(0) &&
+    Require(app.layout.columns()>1 && app.library.order[2]==0 && app.library.Hidden(0) &&
             !app.library.show_hidden && app.library.visible[0]==1 && app.library.visible[1]==2,
-            "Banner layout did not reopen with shared order and hidden IDs");
+            "A legacy banner config lost its game order or hidden games in the grid");
     drag(app,1,0);
     App::Window(app.hwnd,WM_KEYDOWN,VK_HOME,0);frame.Settle();
-    Require(app.library.visible.front()==2 && app.selected==2,"Banner reordering did not update keyboard navigation");
+    Require(app.library.visible.front()==2 && app.selected==2,"Grid reordering did not update keyboard navigation");
     auto next=app.library;
     for(const auto game:next.order)next.SetHidden(game,true);
     app.SaveLibrary(std::move(next),false);
@@ -540,7 +537,7 @@ void GameLibraryChecks() {
     Require(app.library.show_hidden && app.layout.game_count==LauncherCatalogue().size(),"The eye button could not restore an empty library view");
   }
 }
-void SdojSwitchChecks() {
+void ExternalLauncherControlsChecks() {
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
   Write(cave::launcher::SdojRecompExecutable(fixture.root),"");
@@ -553,57 +550,98 @@ void SdojSwitchChecks() {
     const auto game=std::ranges::find_if(app.library.visible,[](size_t index){return Catalogue()[index].id=="sdoj";});
     Require(game!=app.library.visible.end(),"The SDOJ switch card is missing");
     const auto position=size_t(game-app.library.visible.begin());
-    const auto click=[&](D2D1_RECT_F bounds) {
+    const auto center=[&](D2D1_RECT_F bounds) {
       const auto scale=float(GetDpiForWindow(app.hwnd))/96;
-      const auto point=MAKELPARAM(int((bounds.left+bounds.right)/2*scale),int((bounds.top+bounds.bottom)/2*scale));
+      return MAKELPARAM(int((bounds.left+bounds.right)/2*scale),int((bounds.top+bounds.bottom)/2*scale));
+    };
+    const auto press=[&](D2D1_RECT_F bounds,ExternalHit hit) {
+      const auto point=center(bounds);
       App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,point);
-      Require(!app.card_press && app.sdoj_switch_pressed,"The eandis switch must capture its label and track");
+      Require(!app.card_press && app.external_pressed==hit,"The external control was treated as a card drag");
+      return point;
+    };
+    const auto click=[&](D2D1_RECT_F bounds) {
+      const auto point=press(bounds,{ExternalControl::SdojToggle});
       App::Window(app.hwnd,WM_LBUTTONUP,0,point);
       Require(Catalogue()[app.selected].id=="futari","Toggling eandis changed the selected game");
     };
-    app.layout.covers=false;
-    click(LayoutSdojSwitch(app.layout.card(position),false));
+    const auto click_link=[&](D2D1_RECT_F bounds,ExternalHit hit) {
+      const auto opens=opened_paths.size();
+      const auto selected=app.selected;
+      const auto point=press(bounds,hit);
+      Require(opened_paths.size()==opens,"The project link opened during mouse down");
+      App::Window(app.hwnd,WM_LBUTTONUP,0,point);
+      Require(opened_paths.size()==opens+1 && opened_paths.back()==fs::path(hit.url),
+              "The link did not open its own project page");
+      Require(app.selected==selected,"Clicking a project link changed the selected game");
+    };
+    const auto keyboard_link=[&](std::wstring_view project) {
+      const auto opens=opened_paths.size();
+      app.focus=15;SetFocus(app.hwnd);
+      MSG tab{};
+      tab.hwnd=app.hwnd;tab.message=WM_KEYDOWN;tab.wParam=VK_TAB;
+      Require(app.Input(tab) && app.focus==kProjectLinkFocus,"The footer link is missing from Tab navigation");
+      App::Window(app.hwnd,WM_KEYDOWN,VK_RETURN,0);
+      Require(opened_paths.size()==opens+1 && opened_paths.back()==fs::path(project),"Enter did not activate the footer link");
+    };
+    click(LayoutSdojSwitch(app.layout.card(position)));
     Require(app.sdoj_external,"The eandis switch did not enable the runtime");
-    app.layout.covers=true;
     const auto card=app.layout.card(position);
-    const auto cover_switch=LayoutSdojSwitch(card,true);
-    Require(!app.SdojSwitchAt(card.left+112,card.bottom-18),
+    const auto cover_switch=LayoutSdojSwitch(card);
+    Require(app.ExternalControlAt(card.left+112,card.bottom-18).control==ExternalControl::None,
             "The eandis switch captured a click on the game's English name");
     click({cover_switch.left,cover_switch.top,cover_switch.left+29,cover_switch.bottom});
     Require(!app.sdoj_external,"The eandis switch label did not disable the runtime");
+    const auto icon=LayoutProjectIcon(card);
+    Require(app.ExternalControlAt(icon.left+4,icon.top+4).control==ExternalControl::None,
+            "The icon was still interactive after disabling eandis");
     click({cover_switch.right-16,cover_switch.top,cover_switch.right,cover_switch.bottom});
     Require(app.sdoj_external,"The eandis switch track did not enable the runtime");
+    Require(app.SelectedProjectUrl().empty(),"The footer link leaked onto another game");
+    const std::wstring_view sdoj_project=cave::launcher::kSdojRecompProject;
+    click_link(icon,{ExternalControl::ProjectIcon,sdoj_project});
+    app.Select(*game,false);
+    Require(app.SelectedProjectUrl()==sdoj_project,"The active eandis game did not expose its own footer link");
+    click_link(app.layout.project_link(sdoj_project),{ExternalControl::ProjectLink,sdoj_project});
+    keyboard_link(sdoj_project);
+
+    const auto donpachi=std::ranges::find_if(app.library.visible,[](size_t index){return LauncherCatalogue()[index].id=="donpachi";});
+    Require(donpachi!=app.library.visible.end(),"The DonPachi card is missing");
+    const std::wstring_view donpachi_project=cave::launcher::kDonPachiProject;
+    app.Select(*donpachi,false);
+    Require(DonPachiNeedsSetup(app.rows[*donpachi].inspection) && app.SelectedProjectUrl()==donpachi_project,
+            "The DonPachi project link must be available before installation");
+    click_link(LayoutProjectIcon(app.layout.card(*app.VisiblePosition())),{ExternalControl::ProjectIcon,donpachi_project});
+    click_link(app.layout.project_link(donpachi_project),{ExternalControl::ProjectLink,donpachi_project});
+    keyboard_link(donpachi_project);
   }
   Frame reopened(fixture.root);
   Require(reopened.app.sdoj_external,"Reopening the launcher did not restore the eandis switch");
 }
 void DragCancelChecks() {
   Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
-  for(const bool covers:{true,false}) {
-    app.layout.covers=covers;app.layout.width=1080;app.layout.height=900;app.layout.scroll=0;
-    const auto scale=float(GetDpiForWindow(app.hwnd))/96;
-    const auto source=app.layout.card(0),destination=app.layout.card(1);
-    const auto at=[&](D2D1_RECT_F r){return MAKELPARAM(int((r.left+30)*scale),int((r.top+30)*scale));};
-    const auto saved=Ini::ReadText(ConfigPath(fixture.root));
-    const auto selected=app.selected;
-    for(const auto cancel:{WM_CANCELMODE,WM_CAPTURECHANGED,WM_KEYDOWN}) {
-      App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,at(source));
-      App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,at(destination));
-      App::Window(app.hwnd,cancel,cancel==WM_KEYDOWN?VK_ESCAPE:0,0);
-      Require(!app.card_press && !app.DragPreview(),"Cancelled drag kept its floating card");
-      App::Window(app.hwnd,WM_LBUTTONUP,0,at(destination));
-      Require(app.selected==selected && Ini::ReadText(ConfigPath(fixture.root))==saved,
-              "Cancelling a drag changed selection or saved order");
-    }
+  app.layout.width=1080;app.layout.height=900;app.layout.scroll=0;
+  const auto scale=float(GetDpiForWindow(app.hwnd))/96;
+  const auto source=app.layout.card(0),destination=app.layout.card(1);
+  const auto at=[&](D2D1_RECT_F r){return MAKELPARAM(int((r.left+30)*scale),int((r.top+30)*scale));};
+  const auto saved=Ini::ReadText(ConfigPath(fixture.root));
+  const auto selected=app.selected;
+  for(const auto cancel:{WM_CANCELMODE,WM_CAPTURECHANGED,WM_KEYDOWN}) {
     App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,at(source));
-    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(-20,-20));
-    Require(app.DragPreview() && !app.DragPreview()->insertion,"Outside drop has an insertion target");
-    App::Window(app.hwnd,WM_LBUTTONUP,0,MAKELPARAM(-20,-20));
-    Require(!app.card_press && Ini::ReadText(ConfigPath(fixture.root))==saved,"Outside drop changed saved order");
-    const auto gap_x=covers?destination.left-2:destination.left+30;
-    const auto gap_y=covers?destination.top+30:destination.top-2;
-    Require(app.DropGameAt(gap_x,gap_y)==app.library.visible[1],"Card gap is not a valid nearby drop target");
+    App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,at(destination));
+    App::Window(app.hwnd,cancel,cancel==WM_KEYDOWN?VK_ESCAPE:0,0);
+    Require(!app.card_press && !app.DragPreview(),"Cancelled drag kept its floating card");
+    App::Window(app.hwnd,WM_LBUTTONUP,0,at(destination));
+    Require(app.selected==selected && Ini::ReadText(ConfigPath(fixture.root))==saved,
+            "Cancelling a drag changed selection or saved order");
   }
+  App::Window(app.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,at(source));
+  App::Window(app.hwnd,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(-20,-20));
+  Require(app.DragPreview() && !app.DragPreview()->insertion,"Outside drop has an insertion target");
+  App::Window(app.hwnd,WM_LBUTTONUP,0,MAKELPARAM(-20,-20));
+  Require(!app.card_press && Ini::ReadText(ConfigPath(fixture.root))==saved,"Outside drop changed saved order");
+  Require(app.DropGameAt(destination.left-2,destination.top+30)==app.library.visible[1],
+          "Card gap is not a valid nearby drop target");
 }
 void PreferenceRepaintChecks() {
   Fixture fixture;Frame frame(fixture.root);auto& app=frame.app;
@@ -675,7 +713,7 @@ void FooterHoverChecks() {
   Require(app.button_hover==-1 && app.focus==5 && paint_requests.size()==1,"Leaving the window did not clear hover independently of keyboard focus");
   check_repaint(0,8);
 
-  app.layout={1080,900,0,true};
+  app.layout={1080,900,0};
   auto& inspection=app.rows[app.selected].inspection;
   inspection.state="ready";inspection.data_state=DataState::Verified;
   ComPtr<IWICBitmap> bitmap;
@@ -747,9 +785,9 @@ void ArtworkStateChecks() {
   Require(grey==renderer.Image(target.Get(),0,true),"Grey artwork is decoded once per target");
   Require(grey!=renderer.Image(target.Get(),0,false),"Colour artwork remains available after data import");
   for(size_t index=0;index<LauncherCatalogue().size();++index) {
-    const auto cover=renderer.Image(target.Get(),index,false,true);
-    const auto missing=renderer.Image(target.Get(),index,true,true);
-    Require(cover==renderer.Image(target.Get(),index,false,true) && missing==renderer.Image(target.Get(),index,true,true),
+    const auto cover=renderer.Image(target.Get(),index,false);
+    const auto missing=renderer.Image(target.Get(),index,true);
+    Require(cover==renderer.Image(target.Get(),index,false) && missing==renderer.Image(target.Get(),index,true),
             "Cover repaint must reuse decoded colour and grey images");
     Require(cover!=missing,"Missing-data covers lost their independent colour image");
   }
@@ -809,7 +847,7 @@ void MainChecks() {
       const auto brand=app.layout.brand();
       Require(app.layout.nickname().bottom==brand.bottom && app.layout.save().bottom==brand.bottom,
               "Nickname controls must bottom-align with the logo");
-      Require(app.layout.header()-brand.bottom==14,"Header retains a removed helper-row reservation");
+      Require(app.layout.header()-brand.bottom==24,"Unexpected spacing between the logo and cover grid");
       Require(brand.right<app.layout.language_choice(0).left && brand.bottom<app.layout.fullscreen().top &&
               brand.left>=0 && brand.top>=0,"Logo overlaps the launcher controls");
       const std::array controls{app.layout.data(),app.layout.file_upload(),app.layout.controls(),app.layout.config(),app.layout.logs(),app.layout.big_picture_button(),app.layout.play()};
@@ -875,10 +913,10 @@ void MainChecks() {
     const auto text=Ini::ReadText(ConfigPath(fixture.root));
     App::Window(app.hwnd,WM_KEYDOWN,VK_F5,0);frame.Settle();
     Require(language==Language::Japanese && ControlText(app.nickname_control)==L"Draft-友人" && Ini::ReadText(ConfigPath(fixture.root))==text,"Refresh changed saved preferences");
-    const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(cave::launcher::kArtwork[3].resource),RT_RCDATA);
+    const auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(cave::launcher::kCoverArtwork[3].resource),RT_RCDATA);
     Require(resource!=nullptr,"Missing SDOJ resource");
     const auto count=SizeofResource(nullptr,resource);const auto data=LockResource(LoadResource(nullptr,resource));
-    std::ifstream file(fs::path(CAVE_TEST_SOURCE_ROOT)/"launcher/assets/sdoj.jpg",std::ios::binary);
+    std::ifstream file(fs::path(CAVE_TEST_SOURCE_ROOT)/"launcher/assets/covers/sdoj.jpg",std::ios::binary);
     const std::string source{std::istreambuf_iterator<char>(file),{}};
     Require(data && count==source.size() && std::memcmp(data,source.data(),count)==0,"Embedded SDOJ picture differs from authored asset");
   }
@@ -933,7 +971,7 @@ void MainChecks() {
   InputBindingChecks();
   DisplayDropdownChecks();
   GameLibraryChecks();
-  SdojSwitchChecks();
+  ExternalLauncherControlsChecks();
   DragCancelChecks();
   InstanceChecks();
   UpdateChecks();
@@ -941,7 +979,7 @@ void MainChecks() {
 }
 void MenuControllerChecks(const fs::path& sdl) {
   Fixture fixture;
-  Write(ConfigPath(fixture.root),"[collection]\nlauncher_layout=covers\ncheck_for_updates=false\n");
+  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
   const auto target=fixture.root/L"runtime/ps2/SDL3.dll";
   fs::create_directories(target.parent_path());
   fs::copy_file(sdl,target);
@@ -1005,20 +1043,19 @@ void MenuControllerChecks(const fs::path& sdl) {
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_SOUTH,false),"Release gamepad Confirm");
   tick();
 
-  app.layout.covers=false;
   app.EnsureVisible();
-  const auto list_position=app.VisiblePosition();
+  const auto grid_position=app.VisiblePosition();
   update_foreground=app.nickname_control;
   Require(hat(stick,0,SDL_HAT_UP),"Hold arcade stick Up while launcher is inactive");
   tick();
   update_foreground=app.hwnd;
   tick();
-  Require(app.VisiblePosition()==list_position,"Held direction moved the list when launcher regained focus");
+  Require(app.VisiblePosition()==grid_position,"Held direction moved the grid when launcher regained focus");
   Require(hat(stick,0,SDL_HAT_CENTERED),"Release arcade stick Up");
   tick();
-  Require(hat(stick,0,SDL_HAT_UP),"Press arcade stick Up in the classic list");
+  Require(hat(stick,0,SDL_HAT_UP),"Press arcade stick Up in the grid");
   tick();
-  Require(app.VisiblePosition()==list_position.value()-1,"Classic list did not move by one row");
+  Require(app.VisiblePosition()==grid_position.value()-app.layout.columns(),"The grid did not move by one row");
 
   app.child.emplace();
   app.active_game=Catalogue()[app.selected].id;

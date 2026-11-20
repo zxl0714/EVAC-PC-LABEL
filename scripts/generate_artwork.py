@@ -70,7 +70,7 @@ def branding(root):
     return entries
 
 
-def artwork(root, kind='assets'):
+def artwork(root):
     root=Path(root).resolve()
     manifest=root/'launcher/artwork.json'
     if not manifest.exists():
@@ -78,11 +78,7 @@ def artwork(root, kind='assets'):
     value=read_json(manifest)
     if type(value['format']) is not int or value['format']!=1:
         raise ValueError('Unsupported artwork manifest')
-    if kind not in ('assets','covers'):
-        raise ValueError('Unknown artwork set')
-    entries=value.get(kind,[])
-    if kind=='covers' and not entries:
-        return []
+    entries=value['covers']
     games=[game['id'] for game in load(root/'games/catalogue.json')]
     external=value.get('externalGames', [])
     if (not isinstance(external, list) or any(not isinstance(key,str) or
@@ -91,12 +87,12 @@ def artwork(root, kind='assets'):
         raise ValueError('Invalid external game artwork')
     games+=external
     if [entry['game'] for entry in entries]!=games:
-        raise ValueError('Each catalogue game needs one authored image in '+kind)
+        raise ValueError('Each catalogue game needs one authored cover')
     paths,resources=set(),set()
     for entry in entries:
         name=relative(entry['path'])
         path=root/name
-        if (not name.startswith('launcher/assets/') or path.suffix not in ('.jpg','.png') or
+        if (not name.startswith('launcher/assets/covers/') or path.suffix not in ('.jpg','.png') or
                 name in paths or entry['resource'] in resources or type(entry['resource']) is not int or
                 not 100<=entry['resource']<1000 or type(entry['focusY']) not in (int,float) or not 0<=entry['focusY']<=1):
             raise ValueError('Invalid artwork identity or crop')
@@ -142,17 +138,14 @@ def windows_version(version):
 
 def generate(root, destination):
     entries=artwork(root)
-    covers=artwork(root,'covers')
-    if covers and {e['resource'] for e in covers}&{e['resource'] for e in entries}:
-        raise ValueError('Cover and banner resources must be distinct')
     if not entries:
         raise ValueError('No artwork manifest')
     destination=Path(destination)
     destination.mkdir(parents=True,exist_ok=True)
     quoted=lambda text:json.dumps(text,ensure_ascii=False)
     header=['#pragma once','#include <array>','#include <string_view>','namespace cave::launcher {',
-            'struct Artwork {std::string_view game,kicker; unsigned resource; float focus_y; bool contain,platform_mark=false; std::array<float,4> trim{};};',
-            'inline constexpr std::array<Artwork,'+str(len(entries))+'> kArtwork{{']
+            'struct Artwork {std::string_view game; unsigned resource; float focus_y; bool contain,platform_mark; std::array<float,4> trim;};',
+            'inline constexpr std::array<Artwork,'+str(len(entries))+'> kCoverArtwork{{']
     version=windows_version(VERSION)
     numeric_version=','.join(map(str,version))
     file_version='.'.join(map(str,version))
@@ -170,21 +163,11 @@ def generate(root, destination):
         '    END', '  END', '  BLOCK "VarFileInfo"', '  BEGIN',
         '    VALUE "Translation", 0x0409, 1200', '  END', 'END']
     for entry in entries:
-        header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
-                      ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+'},')
+        trim=','.join('float('+str(part)+')' for part in entry.get('trim',[0,0,0,0]))
+        header.append('{'+quoted(entry['game'])+','+str(entry['resource'])+',float('+str(entry['focusY'])+'),'+
+                      str(entry.get('fit')=='contain').lower()+','+str(entry.get('platformMark',False)).lower()+',{'+trim+'}},')
         resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
     header+=['}};']
-    if covers:
-        header+=['inline constexpr std::array<Artwork,'+str(len(covers))+'> kCoverArtwork{{']
-        for entry in covers:
-            header.append('{'+quoted(entry['game'])+','+quoted(entry['kicker'])+','+str(entry['resource'])+
-                          ',float('+str(entry['focusY'])+'),'+str(entry.get('fit')=='contain').lower()+','+
-                          str(entry.get('platformMark',False)).lower()+',{'+
-                          ','.join('float('+str(part)+')' for part in entry.get('trim',[0,0,0,0]))+'}},')
-            resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
-        header+=['}};']
-    else:
-        header+=['inline constexpr auto kCoverArtwork=kArtwork;']
     brand=branding(root)
     if brand:
         header+=['inline constexpr unsigned kBrandLogoResource=201;',

@@ -3,6 +3,8 @@
 #include "common/launch.h"
 
 namespace cave::launcher {
+inline constexpr auto kDonPachiProject=L"https://github.com/CapsLock4284/DonPachi-Recomp";
+inline constexpr auto kDonPachiProjectName=L"DonPachi Recomp";
 inline constexpr auto kDonPachiRelease=L"https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest";
 inline constexpr Game kDonPachi{
   .id="donpachi", .name="DonPachi", .backend="arcade", .data_dir="game-data/donpachi",

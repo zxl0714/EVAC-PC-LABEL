@@ -123,8 +123,6 @@ inline constexpr std::array kTranslations{
   Translation{L"仍然保存",L"このまま保存",L"Save anyway"},
   Translation{L"隐藏详情",L"詳細を隠す",L"Hide details"},
   Translation{L"查看游戏内显示详情",L"ゲーム内の表示を確認",L"Show in-game display details"},
-  Translation{L"已选择",L"選択中",L"Selected"},
-  Translation{L"后续作品",L"今後の対応作品",L"NEXT IN THE COLLECTION"},
   Translation{L"请先退出正在运行的游戏",L"実行中のゲームを終了してください",L"Close the running game first"},
   Translation{L"正在读取／校验所选游戏…",L"選択したゲームを検証中…",L"Reading / verifying selected game…"},
   Translation{L"游戏运行中",L"ゲーム実行中",L"Game running"},

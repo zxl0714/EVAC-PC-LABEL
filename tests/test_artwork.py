@@ -41,38 +41,32 @@ class ArtworkTests(unittest.TestCase):
         self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()})
         self.assertIn('std::array<Artwork,13>', (destination / 'artwork.h').read_text())
 
-    def test_cover_resources_preserve_each_title_and_have_separate_assets(self):
-        banners=generate_artwork.artwork(self.root)
-        covers=generate_artwork.artwork(self.root,'covers')
-        self.assertEqual([item['game'] for item in covers],[item['game'] for item in banners])
+    def test_only_cover_resources_are_embedded(self):
+        covers=generate_artwork.artwork(self.root)
         self.assertTrue(all(item['path'].startswith('launcher/assets/covers/') for item in covers))
-        self.assertFalse({item['path'] for item in covers}&{item['path'] for item in banners})
-        self.assertFalse({item['resource'] for item in covers}&{item['resource'] for item in banners})
         destination=self.root/'cover-out'
         generate_artwork.generate(self.root,destination)
         self.assertIn('kCoverArtwork',(destination/'artwork.h').read_text())
         resources=(destination/'artwork.rc').read_text(encoding='utf-8')
-        for item in covers:self.assertIn(str(item['resource'])+' RCDATA ',resources)
+        embedded={line.split()[0] for line in resources.splitlines() if ' RCDATA ' in line}
+        self.assertEqual(embedded,{'201'} | {str(item['resource']) for item in covers})
         value=copy.deepcopy(self.manifest);value['covers'].pop()
         self.path.write_text(json.dumps(value),encoding='utf-8')
-        with self.assertRaises(ValueError):generate_artwork.artwork(self.root,'covers')
-        value=copy.deepcopy(self.manifest);value['covers'][0]['resource']=value['assets'][0]['resource']
-        self.path.write_text(json.dumps(value),encoding='utf-8')
-        with self.assertRaises(ValueError):generate_artwork.generate(self.root,destination)
+        with self.assertRaises(ValueError):generate_artwork.artwork(self.root)
 
     def test_invalid_manifest(self):
         for key, value in [('resource', True), ('resource', 99), ('focusY', -1), ('focusY', 1.1),
                            ('sha256', '0' * 64), ('path', '../outside.jpg'), ('sourceUrl', 'http://example.org/a'),
                            ('copyright', ''), ('usage', 'bad\ntext'), ('fit', 'stretch')]:
             with self.subTest(key=key, value=value):
-                self.reject(lambda manifest: manifest['assets'][0].update({key: value}))
+                self.reject(lambda manifest: manifest['covers'][0].update({key: value}))
 
     def test_order_and_resource_identity(self):
-        self.reject(lambda manifest: manifest['assets'].reverse())
-        self.reject(lambda manifest: manifest['assets'][1].update(resource=101))
+        self.reject(lambda manifest: manifest['covers'].reverse())
+        self.reject(lambda manifest: manifest['covers'][1].update(resource=manifest['covers'][0]['resource']))
 
     def test_not_a_generic_binary_audit_exception(self):
-        entry = self.manifest['assets'][0]
+        entry = self.manifest['covers'][0]
         image = self.root / entry['path']
         image.write_bytes(b'MZnot-an-image')
         entry['sha256'] = hashlib.sha256(image.read_bytes()).hexdigest()
@@ -134,7 +128,7 @@ class ArtworkTests(unittest.TestCase):
     def test_branding_rejects_path_and_identity_changes(self):
         path=self.root/'launcher/branding.json'
         original=json.loads(path.read_text(encoding='utf-8'))
-        for update in ({'path':'launcher/assets/sdoj.jpg'},{'sha256':'0'*64},{'name':'unknown'}):
+        for update in ({'path':'launcher/assets/futari.jpg'},{'sha256':'0'*64},{'name':'unknown'}):
             record=copy.deepcopy(original);record['assets'][0].update(update)
             path.write_text(json.dumps(record),encoding='utf-8')
             with self.assertRaises(ValueError):

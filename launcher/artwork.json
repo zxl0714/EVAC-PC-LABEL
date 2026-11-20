@@ -1,165 +1,6 @@
 {
   "format": 1,
   "externalGames": ["donpachi"],
-  "assets": [
-    {
-      "game": "futari",
-      "path": "launcher/assets/futari.jpg",
-      "sha256": "deb7097c249c2b6f77e5fe3cad309eff858af9f8105f541a90c4c2b955a15aaf",
-      "resource": 101,
-      "focusY": 0,
-      "kicker": "XBOX 360 · 2009",
-      "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/mushihime2/",
-      "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/mushihime2/imgs/topimg_02.jpg",
-      "copyright": "©2006,2009 CAVE CO., LTD.",
-      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
-    },
-    {
-      "game": "espgaluda2",
-      "path": "launcher/assets/espgaluda2.jpg",
-      "sha256": "3ea98164208a37b53b38e3aa8684e5c31f22aa09827518e3664fde6c327d69dd",
-      "resource": 102,
-      "focusY": 0.28,
-      "kicker": "XBOX 360 · 2010",
-      "sourcePage": "https://www.cave.co.jp/gameonline/Xbox360/espgaluda2/",
-      "sourceUrl": "https://www.cave.co.jp/gameonline/Xbox360/espgaluda2/character/img/seseri.jpg",
-      "copyright": "©2005–2010 CAVE CO., LTD.",
-      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
-    },
-    {
-      "game": "ketsui",
-      "path": "launcher/assets/ketsui.png",
-      "sha256": "006737cb4eb290839538386d004bc34a8c2b92a020e00596151f06b96c33b48e",
-      "resource": 103,
-      "focusY": 0.3,
-      "kicker": "PS4 · 2018",
-      "sourcePage": "https://www.pricecharting.com/game/jp-playstation-4/ketsui-deathtiny-kizuna-jigoku-tachi",
-      "sourceUrl": "https://m2stg.com/ketsui/assets/img/mainimage_pc_15.png",
-      "copyright": "©CAVE Interactive CO., LTD. / M2 Co., Ltd.",
-      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
-    },
-    {
-      "game": "sdoj",
-      "path": "launcher/assets/sdoj.jpg",
-      "sha256": "aa991b87cd5cb21ff891a051439597b88bcece67f69cf6d9ac3baee68372a61e",
-      "resource": 106,
-      "focusY": 0.1,
-      "kicker": "XBOX 360 · 2013",
-      "sourcePage": "https://www.cave.co.jp/gameonline/saidaioujou/",
-      "sourceUrl": "https://www.cave.co.jp/gameonline/saidaioujou/common/img/toponsaleb.jpg",
-      "copyright": "©CAVE Interactive CO., LTD.",
-      "usage": "Official launch artwork featuring the Element Doll and her craft. Source bytes unchanged; runtime cover crop and shared gradient treatment match the other banners. Native text supplies the Japanese title and English subtitle."
-    },
-    {
-      "game": "daioujou",
-      "path": "launcher/assets/daioujou.jpg",
-      "sha256": "5355e708e0038b9b077fe9d91263acda3d6d19aafdf70ec1cb38f4edfef1c241",
-      "resource": 104,
-      "focusY": 0.5,
-      "kicker": "PS4 · 2023",
-      "sourcePage": "https://m2stg.com/daioujou/",
-      "sourceUrl": "https://m2stg.com/daioujou/assets/img/m2stg_daioujou_social_image.jpg",
-      "copyright": "©2002 CAVE Interactive CO., LTD. / ©2023 M2 Co., Ltd.",
-      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
-    },
-    {
-      "game": "esprade",
-      "path": "launcher/assets/esprade.jpg",
-      "sha256": "b2ae1c30532ea4297abfa1511a7e025bff5b9ed6b8dfc7bda3ddd7736c4177be",
-      "resource": 105,
-      "focusY": 0.43,
-      "kicker": "PS4 · 2019",
-      "sourcePage": "https://m2stg.com/esprade/",
-      "sourceUrl": "https://m2stg.com/esprade/assets/img/m2stg_esp_social_image_1908.jpg",
-      "copyright": "©ATLUS / SEGA / CAVE / M2 Co., Ltd.",
-      "usage": "Promotional artwork, embedded as launcher UI. Source bytes unchanged; runtime crops and overlays supply the banner treatment."
-    },
-    {
-      "game": "guwange",
-      "path": "launcher/assets/guwange.png",
-      "sha256": "8ef5aed24196cf1acc84a4774dac7b72e6963aae5c54ffaf02c749b4af767665",
-      "resource": 107,
-      "focusY": 0.5,
-      "kicker": "XBOX 360 · 2010",
-      "sourcePage": "https://www.cave.co.jp/en/business/guwange/",
-      "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACguwange_780x353.png",
-      "copyright": "©CAVE Interactive CO., LTD. / ATLUS",
-      "usage": "Official promotional artwork. Source bytes unchanged; the shared launcher crop and gradient supply the banner treatment."
-    },
-    {
-      "game": "feveron",
-      "path": "launcher/assets/feveron.jpg",
-      "sha256": "3c58a5dd6a9522b0937ff6d1ab3e9b73ca7cb590f1df60b5ff8674ef1cbd396e",
-      "resource": 108,
-      "focusY": 0.5,
-      "kicker": "PS4 · 2017",
-      "sourcePage": "https://m2stg.com/dangun-feveron/ps4/",
-      "sourceUrl": "https://m2stg.com/dangun-feveron/assets/img/m2stg_df_social_image.jpg",
-      "copyright": "©1998 CAVE Interactive CO., LTD. / ©2017 M2 Co., Ltd.",
-      "usage": "Official promotional artwork. Source bytes unchanged; the launcher supplies the crop, gradient and Coming Soon treatment."
-    },
-    {
-      "game": "garegga",
-      "path": "launcher/assets/garegga.jpg",
-      "sha256": "90e0cfef22a29830ab4bd3811443c6e5b2a7533a6c6ed5b603e2d49bc5241d93",
-      "resource": 109,
-      "focusY": 0.8,
-      "kicker": "PS4 · 2016",
-      "sourcePage": "https://m2stg.com/battle-garegga/ps4/",
-      "sourceUrl": "https://m2stg.com/battle-garegga/assets/img/m2stg_bg_social_image.jpg",
-      "copyright": "©1996 EIGHTING / ©2016 M2 Co., Ltd.",
-      "usage": "Official promotional hangar artwork. Source bytes unchanged; the shared launcher crop and gradient frame the gold aircraft and preserve the native Japanese title and English subtitle."
-    },
-    {
-      "game": "espgaluda",
-      "path": "launcher/assets/espgaluda.png",
-      "sha256": "a86c3fe726f0371c607f43b74b5f6b1cf75f9141f75edc71cfd3bd4f9b497fee",
-      "resource": 110,
-      "focusY": 0.5,
-      "kicker": "PS2 · 2004",
-      "sourcePage": "https://www.cave.co.jp/en/business/espgaluda/",
-      "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACgaluda_780x353.png",
-      "copyright": "©CAVE Interactive CO., LTD.",
-      "usage": "Official promotional artwork. Source bytes unchanged; the shared launcher crop and gradient supply the banner treatment."
-    },
-    {
-      "game": "ibara",
-      "path": "launcher/assets/ibara.png",
-      "sha256": "337d759eec3e85fb3c386701d3a757902281870562053e00107e6cfe41e73e09",
-      "resource": 111,
-      "focusY": 0.5,
-      "kicker": "PS2 · 2006",
-      "sourcePage": "https://www.cave.co.jp/en/business/ibara/",
-      "sourceUrl": "https://www.cave.co.jp/en/wp/wp-content/uploads/ACibara_780x353.png",
-      "copyright": "©CAVE Interactive CO., LTD.",
-      "usage": "Wide banner pairing CAVE's character illustration with the rose wordmark from https://www.cave.co.jp/gameonline/ibara/imgs/idx_title.gif."
-    },
-    {
-      "game": "daioujou-ps2",
-      "path": "launcher/assets/daioujou-ps2.jpg",
-      "sha256": "2720e0a5f90bbb567de9462572e842af6b09d2c9feec50bb1ce7932b23b49a85",
-      "resource": 112,
-      "focusY": 0.5,
-      "fit": "contain",
-      "kicker": "PS2 · 2003",
-      "sourcePage": "https://www.arika.co.jp/product/ddd_hp/ddd_index.html",
-      "sourceUrl": "https://www.arika.co.jp/product/ddd_hp/ddd_title.jpg",
-      "copyright": "©2002 CAVE CO., LTD. / ARIKA CO., LTD.",
-      "usage": "Title artwork from Arika's PlayStation 2 product page."
-    },
-    {
-      "game": "donpachi",
-      "path": "launcher/assets/donpachi.jpg",
-      "sha256": "9c2d7e0ffeeee79e80bf2c59a18036d29a8246dfab440703db99f5417719a6e7",
-      "resource": 113,
-      "focusY": 0.64,
-      "fit": "cover",
-      "kicker": "ARCADE · 1995",
-      "original": true,
-      "copyright": "EVAC PC LABEL original illustration",
-      "usage": "AI-generated aviation artwork for the DonPachi Recomp launcher entry."
-    }
-  ],
   "covers": [
     {
       "game": "futari",
@@ -334,15 +175,16 @@
     {
       "game": "donpachi",
       "path": "launcher/assets/covers/donpachi.jpg",
-      "sha256": "e33cf8a37698e3226c129a4de8011b76481fb0840b4978c2a89eec365cb9eab6",
+      "sha256": "5dcab5b1fc0f0c6be22c11d9e54b19623a93ca5bc2d61f0c91b74944898ab4b9",
       "resource": 313,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "ARCADE · 1995",
-      "original": true,
-      "copyright": "EVAC PC LABEL original illustration",
-      "usage": "Original AI-generated arcade cover for the DonPachi Recomp launcher entry.",
-      "platformMark": true
+      "sourcePage": "https://strategywiki.org/wiki/DonPachi",
+      "sourceUrl": "https://cdn.wikimg.net/en/strategywiki/images/thumb/1/19/DonPachi_arcade_flyer.jpg/800px-DonPachi_arcade_flyer.jpg",
+      "copyright": "©1995 ATLUS / CAVE",
+      "usage": "Original 1995 arcade flyer front. The cover frames the illustration, title and screenshots above the promotional fine print.",
+      "trim": [0, 0, 0, 0.218]
     }
   ]
 }

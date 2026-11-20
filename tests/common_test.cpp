@@ -714,17 +714,15 @@ void ContentChecks(Fixture& fixture) {
 }  // namespace
 int main() {
   try {
-    Require(launcher::CoverLayout(Ini::Parse("")),"Default launcher layout must use covers");
-    Require(launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=covers\n")),"Cover layout was not selected");
-    Require(!launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=banner\n")),"Banner layout was not retained");
-    Reject([] {launcher::CoverLayout(Ini::Parse("[collection]\nlauncher_layout=unknown\n"));},"Unknown launcher layout accepted");
     for(const auto value:{"", "-40", "9999999999999999", "1000px"}) {
       const auto text=std::string("[collection]\nlauncher_covers_width=")+value+"\nlauncher_covers_height=700\n";
-      Require(!launcher::ReadWindowSize(Ini::Parse(text),true),"Invalid remembered width must fall back to automatic sizing");
+      Require(!launcher::ReadWindowSize(Ini::Parse(text)),"Invalid remembered width must fall back to automatic sizing");
     }
     const auto remembered=Ini::Parse("[collection]\nlauncher_covers_width=1000\nlauncher_covers_height=700\nlauncher_banner_width=800\nlauncher_banner_height=900\n");
-    Require(launcher::ReadWindowSize(remembered,true)->width==1000 && launcher::ReadWindowSize(remembered,false)->width==800,
-            "Cover and banner sizes must be independent");
+    const auto grid_size=launcher::ReadWindowSize(remembered);
+    Require(grid_size && grid_size->width==1000 && grid_size->height==700,"Use the saved grid dimensions");
+    Require(!launcher::ReadWindowSize(Ini::Parse("[collection]\nlauncher_banner_width=800\nlauncher_banner_height=900\n")),
+            "A saved banner size must fall back to the automatic grid size");
     const auto scaled_window=launcher::RestoreWindowSize({1000,700},3840,2100,144);
     Require(scaled_window.width==1500 && scaled_window.height==1050,"Saved logical size did not scale with monitor DPI");
     const auto small_screen=launcher::RestoreWindowSize({2000,1800},1280,720,144);
@@ -770,30 +768,12 @@ int main() {
     Require(FindGame("sdoj").community_supported && FindGame("futari").community_supported &&
             FindGame("espgaluda2").community_supported && FindGame("ketsui").community_supported,
             "Integrated titles must advertise their verified community adapters");
-    const auto normal=launcher::InitialWindowSize(1104,1920,1080,96,40,6);
-    Require(normal.width==1104 && normal.height==972,"Launcher leaves ten percent of the work area free");
-    const auto scaled=launcher::InitialWindowSize(1104,2560,2160,144,56,6);
-    Require(scaled.width==1104 && scaled.height==1463,"Launcher height follows 150% DPI");
-    const auto small=launcher::InitialWindowSize(1104,1024,728,144,56,6);
-    Require(small.width==1024 && small.height==655,"Small monitor height cap rounds down");
-    Require(launcher::InitialWindowSize(1104,2560,2160,144,56,7).height>scaled.height,
-            "Launcher grows with the game catalogue");
-    for(const auto dpi:{96u,120u,144u}) {
-      const int work_height=1080-int(40*dpi/96),frame_height=int(32*dpi/96);
-      const auto eight=launcher::InitialWindowSize(1104,1920,work_height,dpi,frame_height,8);
-      Require(eight.height==work_height*9/10,"Eight-card 1080p launcher uses at most 90 percent at 100/125/150 percent DPI");
-      Require(launcher::InitialWindowSize(1104,1920,work_height,dpi,frame_height,30).height==eight.height,
-              "More games do not grow the initial window beyond the cap");
-    }
-    Require(launcher::InitialWindowSize(1104,1920,1080,96,32,1).height==370,
-            "Short catalogues do not expand to fill the height limit");
-    Require(launcher::InitialWindowSize(1104,0,0,0,0,8).height==1,
-            "Empty work area still yields a valid minimum size");
     for(const auto dpi:{96u,120u,144u,192u}) {
       const auto scale=float(dpi)/96;
       const auto frame_width=int(34*scale),frame_height=int(40*scale);
       const auto work_height=1080-int(40*scale);
-      const auto grid=launcher::InitialCoverWindowSize(1920,work_height,dpi,frame_width,frame_height,11);
+      const auto grid=launcher::InitialCoverWindowSize(1920,work_height,dpi,frame_width,frame_height,
+                                                       launcher::LauncherCatalogue().size());
       Require(grid.width<=1728 && grid.height<=work_height*9/10,
               "Cover window exceeds the monitor work-area allowance");
       const auto client_width=float(grid.width-frame_width)/scale;
@@ -805,7 +785,7 @@ int main() {
                         "1080p default clips the second row of cover captions");
     }
     Require(launcher::InitialCoverWindowSize(1920,1040,96,34,40,1).height==594,
-            "Short cover catalogue is sized by rows rather than individual banners");
+            "Single-row cover catalogue has the expected window height");
     Require(launcher::InitialCoverWindowSize(3840,2100,96,34,40,11).height==1276,
             "Large desktops should show all three cover rows");
     Require(launcher::InitialCoverWindowSize(3840,2100,144,51,60,11).height==1914,

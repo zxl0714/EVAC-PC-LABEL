@@ -38,7 +38,8 @@ def relevant(backend, name, files):
     if backend == 'xbox360':
         # Historical host certificates listed the whole repository. The release
         # takes its launcher from a separate receipt and keeps shared data metadata.
-        if name.startswith('launcher/') or name in {'scripts/generate_artwork.py', 'scripts/product.py'} or (
+        if name.startswith('launcher/') or name in {'scripts/generate_artwork.py', 'scripts/launcher_receipt.py',
+                                                    'scripts/product.py'} or (
                 name.startswith(ISOLATED_PS2 + ISOLATED_PS4) and not name.endswith('/data.json')):
             return False
         return True
