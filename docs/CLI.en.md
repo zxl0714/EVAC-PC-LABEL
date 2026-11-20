@@ -26,7 +26,7 @@ In either mode, use the left stick, D-pad, or arcade stick to select a game and 
 
 While playing, press `Esc` or `Start + D-pad Up` to close the game and return to the launcher. When you launch from Big Picture, you return to the same game card.
 
-To change the shortcut, open **Controls → All games** and double-click **Exit game**. Press one key on a keyboard, or hold one input and press another on a controller or arcade stick. Use **Clear** to disable the shortcut.
+To change the shortcut, open **Controls → All games** and double-click **Exit game**. Tap one input for a single bind, or hold one and press another for a combo. This works with keyboards, controllers, and arcade sticks. Use **Clear** to disable the shortcut.
 
 On a cabinet, use the following command to open Big Picture directly.
 

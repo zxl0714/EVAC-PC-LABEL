@@ -815,26 +815,40 @@ void GameExitChecks() {
   Frame frame(fixture.root,"futari");
   auto& app=frame.app;
   const auto defaults=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
-  Require(defaults.keyboard==VK_ESCAPE && defaults.buttons==ExitButtons{"start","dpup"},"Big Picture exit defaults");
+  Require(defaults.keyboard==ExitKeys{VK_ESCAPE} && defaults.buttons==ExitButtons{"start","dpup"},"Game exit defaults");
   Write(config,"[collection]\nbig_picture_exit_key= F12\nbig_picture_exit_buttons= START + Select\n");
+  Require(ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari").keyboard==ExitKeys{VK_F12},"Legacy single exit key");
+  Write(config,"[collection]\ngame_exit_key=Control + F12\nbig_picture_exit_key=Escape\nbig_picture_exit_buttons=START + Select\n");
   const auto custom=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
-  Require(custom.keyboard==VK_F12 && custom.buttons==ExitButtons{"start","back"},"Custom Big Picture exit bindings");
+  Require(custom.keyboard==ExitKeys{VK_CONTROL,VK_F12} && custom.buttons==ExitButtons{"start","back"},"Custom game exit bindings");
   Write(config,"[collection]\ngame_exit_key=none\nbig_picture_exit_key=F12\nbig_picture_exit_buttons=none\n");
   const auto disabled=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
-  Require(!disabled.keyboard && disabled.buttons.empty(),"Big Picture exit shortcuts could not be disabled");
+  Require(disabled.keyboard==ExitKeys{} && disabled.buttons.empty(),"Game exit shortcuts could not be disabled");
   Require(!cave::launcher::ParseExitButtons("Start + Start") && !cave::launcher::ParseExitButtons("Start +"),
           "Big Picture accepted an invalid controller combination");
-  using cave::launcher::CaptureExitChord;
-  using cave::launcher::PadExitChord;
+  using cave::launcher::ExitPadBinding;
+  using cave::launcher::PressedExitPadInputs;
+  using cave::launcher::RecordExitBinding;
+  using cave::launcher::ParseExitPadBinding;
   const cave::launcher::controls::PadSnapshot neutral{{0,0},{0},{0}};
-  Require(!CaptureExitChord(neutral,{{1,0},{0},{0}}) && !CaptureExitChord(neutral,{{0,1},{0},{0}}),
-          "Control capture treated separate presses as a chord");
-  Require(CaptureExitChord(neutral,{{1,1},{0},{0}})==PadExitChord{"b0","b1"},"Two overlapping buttons did not bind");
-  Require(CaptureExitChord(neutral,{{0,1},{-32768},{0}})==PadExitChord{"b1","-a0"} &&
-          CaptureExitChord(neutral,{{1,0},{0},{1}})==PadExitChord{"b0","h0.1"},"Arcade stick or D-pad chord did not bind");
-  Require(!CaptureExitChord({{1,0},{0},{0}},{{1,1},{0},{0}}),"An input held before rebinding entered the chord");
-  Require(cave::launcher::ParseExitChord("b1,+a0")==PadExitChord{"b1","+a0"} &&
-          !cave::launcher::ParseExitChord("b1,b1"),"Stored exit chord did not round-trip");
+  const auto press=[](std::string& first,const std::vector<std::string>& held) {return RecordExitBinding<std::string>(first,held);};
+  std::string first;
+  Require(!press(first,PressedExitPadInputs(neutral,{{1,0},{0},{0}})) &&
+          press(first,PressedExitPadInputs(neutral,{{0,1},{0},{0}}))==ExitPadBinding{"b0"},"Separate presses recorded as a chord");
+  first.clear();
+  Require(!press(first,{"b0"}) && press(first,{"b0","b1"})==ExitPadBinding{"b0","b1"},"Two overlapping buttons did not bind");
+  Require(PressedExitPadInputs(neutral,{{0,1},{-32768},{0}})==std::vector<std::string>{"b1","-a0"} &&
+          PressedExitPadInputs(neutral,{{1,0},{0},{1}})==std::vector<std::string>{"b0","h0.1"},"Arcade stick or D-pad chord did not bind");
+  Require(PressedExitPadInputs({{1,0},{0},{0}},{{1,1},{0},{0}})==std::vector<std::string>{"b1"},"An input held before rebinding entered the chord");
+  Require(ParseExitPadBinding("b1")==ExitPadBinding{"b1"} && ParseExitPadBinding("b1,+a0")==ExitPadBinding{"b1","+a0"} &&
+          !ParseExitPadBinding("b1,b1"),"Stored controller binding did not round-trip");
+  std::uint16_t first_key{};
+  const std::array control{std::uint16_t(VK_CONTROL)};
+  Require(!RecordExitBinding<std::uint16_t>(first_key,control) &&
+          RecordExitBinding<std::uint16_t>(first_key,{})==ExitKeys{VK_CONTROL},"Keyboard tap could not bind a single key");
+  first_key=0;
+  Require(!RecordExitBinding<std::uint16_t>(first_key,control) &&
+          RecordExitBinding<std::uint16_t>(first_key,custom.keyboard)==custom.keyboard,"Keyboard overlap did not record a chord");
 
   const auto create_game=[] {
     const auto window=CreateWindowExW(0,L"STATIC",L"Game exit fixture",WS_OVERLAPPEDWINDOW,
@@ -866,26 +880,29 @@ void GameExitChecks() {
   const auto selected=app.selected;
   app.game_exit_shortcuts=custom;
   app.child.emplace(nullptr,pid+1);
+  app.GameExitKey(VK_LCONTROL,false);
   app.GameExitKey(VK_F12,false);
   check_close(false,"Exit shortcut affected a window from another process");
 
   app.child.emplace(nullptr,pid);
   app.active_game="futari";
   app.GameExitKey(VK_F12,false);
-  check_close(false,"A key held when the game gained focus closed it");
+  check_close(false,"A held keyboard chord closed the game on focus");
   app.GameExitKey(VK_F12,true);
-  app.GameExitKey(VK_ESCAPE,false);
-  check_close(false,"The former exit key still closed the game after rebinding");
-  held_exit_key=VK_F12;
+  app.GameExitKey(VK_LCONTROL,true);
   app.GameExitKey(VK_F12,false);
-  check_close(true,"The configured exit key did not request a normal game window close");
+  app.GameExitKey(VK_ESCAPE,false);
+  check_close(false,"An incomplete chord or former exit key closed the game");
+  held_exit_key=VK_F12;
+  app.GameExitKey(VK_LCONTROL,false);
+  check_close(true,"The full keyboard chord did not request a normal game window close");
   Require(!IsWindow(game),"The game window did not handle WM_CLOSE");
   update_foreground=app.hwnd;
   const auto previous_focus_requests=foreground_requests;
   app.ChildTick();
   Require(!app.child && app.BigPicture() && app.selected==selected && foreground_requests==previous_focus_requests+1,
           "Game exit did not return focus to the same Big Picture card");
-  Require(app.exit_key_awaiting_release==VK_F12,"The exit key was not held until release on return");
+  Require(app.exit_keys_awaiting_release==ExitKeys{0,VK_F12},"The exit key was not held until release on return");
   held_exit_key=0;
   app.MenuControllerTick();
   app.BigPictureKeyboard(VK_ESCAPE,false);
@@ -1205,6 +1222,14 @@ void MenuControllerChecks(const fs::path& sdl) {
   app.menu_controller->ResetGameExit();
   Require(!app.menu_controller->PollGameExit(recorded),"Physical binding inherited an unrelated held direction");
   Require(button(reconnected,0,true) && app.menu_controller->PollGameExit(recorded),"The recorded controller chord did not take effect");
+
+  Write(ConfigPath(fixture.root),"[game_exit_controller]\n"+arcade->guid+"=b1\n");
+  const auto single=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
+  app.menu_controller->ResetGameExit();
+  Require(!app.menu_controller->PollGameExit(single),"Held single controller exit fired before release");
+  Require(button(reconnected,1,false) && !app.menu_controller->PollGameExit(single),"Release of the exit input closed the game");
+  Require(button(reconnected,1,true) && app.menu_controller->PollGameExit(single) && !app.menu_controller->PollGameExit(single),
+          "A single controller input did not exit exactly once");
 
   close(reconnected);
   Require(detach(second),"Detach reconnected controller");

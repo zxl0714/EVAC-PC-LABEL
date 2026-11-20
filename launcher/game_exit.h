@@ -9,12 +9,13 @@ inline constexpr std::string_view kPreviousExitKeySetting="big_picture_exit_key"
 inline constexpr std::string_view kExitButtonsSetting="big_picture_exit_buttons";
 inline constexpr std::string_view kExitControllerSection="game_exit_controller";
 using ExitButtons=std::vector<std::string_view>;
-using PadExitChord=std::array<std::string,2>;
+using ExitKeys=std::array<std::uint16_t,2>;
+using ExitPadBinding=std::array<std::string,2>;
 struct GameExitShortcuts {
-    std::uint16_t keyboard{VK_ESCAPE};
+    ExitKeys keyboard{VK_ESCAPE};
     ExitButtons buttons{"start","dpup"};
     std::map<std::string,controls::PadMap> controller_mappings;
-    std::map<std::string,PadExitChord> controller_chords;
+    std::map<std::string,ExitPadBinding> controller_bindings;
 };
 
 inline const IniValue* ExitKeySetting(const Ini& ini) {
@@ -30,12 +31,34 @@ inline std::string ExitBindingToken(std::string_view value) {
     return token;
 }
 
-inline std::optional<std::uint16_t> ParseExitKey(std::string_view value) {
-    const auto name=ExitBindingToken(value);
-    if(name=="none")return 0;
-    if(name=="esc")return VK_ESCAPE;
-    if(const auto key=KeyCode(name))return key;
-    return {};
+inline std::optional<ExitKeys> ParseExitKeys(std::string_view value) {
+    if(ExitBindingToken(value)=="none")return ExitKeys{};
+    const auto code=[](std::string_view part) {
+        const auto name=ExitBindingToken(part);
+        return name=="esc"?std::uint16_t(VK_ESCAPE):KeyCode(name);
+    };
+    const auto plus=value.find('+');
+    const auto first=code(value.substr(0,plus));
+    if(!first)return {};
+    if(plus==value.npos)return ExitKeys{first};
+    const auto second=code(value.substr(plus+1));
+    if(!second || first==second)return {};
+    return ExitKeys{first,second};
+}
+
+inline std::string ExitKeyText(const ExitKeys& keys) {
+    if(!keys[0])return "none";
+    const auto name=KeyName(keys[0]);
+    return keys[1]?name+" + "+KeyName(keys[1]):name;
+}
+
+inline std::uint16_t ExitVirtualKey(std::uint16_t key) {
+    switch(key) {
+    case VK_LSHIFT:case VK_RSHIFT:return VK_SHIFT;
+    case VK_LCONTROL:case VK_RCONTROL:return VK_CONTROL;
+    case VK_LMENU:case VK_RMENU:return VK_MENU;
+    default:return key;
+    }
 }
 
 inline std::optional<ExitButtons> ParseExitButtons(std::string_view value) {
@@ -73,36 +96,42 @@ inline bool ExitPadSource(std::string_view token) {
         std::string_view("1248").find(result.ptr[1])!=std::string_view::npos;
 }
 
-inline std::optional<PadExitChord> ParseExitChord(std::string_view value) {
-    if(ExitBindingToken(value)=="none")return PadExitChord{};
+inline std::optional<ExitPadBinding> ParseExitPadBinding(std::string_view value) {
+    if(ExitBindingToken(value)=="none")return ExitPadBinding{};
     const auto comma=value.find(',');
-    if(comma==value.npos)return {};
-    PadExitChord chord{ExitBindingToken(value.substr(0,comma)),ExitBindingToken(value.substr(comma+1))};
-    if(chord[0]==chord[1] || !std::ranges::all_of(chord,ExitPadSource))return {};
-    return chord;
+    auto first=ExitBindingToken(value.substr(0,comma));
+    if(!ExitPadSource(first))return {};
+    if(comma==value.npos)return ExitPadBinding{std::move(first)};
+    auto second=ExitBindingToken(value.substr(comma+1));
+    if(first==second || !ExitPadSource(second))return {};
+    return ExitPadBinding{std::move(first),std::move(second)};
 }
 
-inline std::optional<PadExitChord> CaptureExitChord(const controls::PadSnapshot& baseline,
-                                                  const controls::PadSnapshot& state) {
-    PadExitChord chord;
-    std::size_t count{};
-    const auto add=[&](std::string source) {
-        if(count<chord.size())chord[count]=std::move(source);
-        ++count;
-    };
+template<class Input>
+std::optional<std::array<Input,2>> RecordExitBinding(Input& first,std::span<const Input> pressed) {
+    if(first!=Input{} && std::ranges::find(pressed,first)==pressed.end())return std::array<Input,2>{first};
+    if(pressed.empty())return {};
+    if(first==Input{})first=pressed.front();
+    if(const auto second=std::ranges::find_if(pressed,[&](const auto& key){return key!=first;});second!=pressed.end())
+        return std::array<Input,2>{first,*second};
+    return {};
+}
+
+inline std::vector<std::string> PressedExitPadInputs(const controls::PadSnapshot& baseline,
+                                                     const controls::PadSnapshot& state) {
+    std::vector<std::string> pressed;
     for(std::size_t i=0;i<std::min(baseline.buttons.size(),state.buttons.size());++i)
-        if(state.buttons[i] && !baseline.buttons[i])add("b"+std::to_string(i));
+        if(state.buttons[i] && !baseline.buttons[i])pressed.push_back("b"+std::to_string(i));
     for(std::size_t i=0;i<std::min(baseline.hats.size(),state.hats.size());++i) {
         const auto direction=state.hats[i];
         if((direction==1 || direction==2 || direction==4 || direction==8) && !(baseline.hats[i]&direction))
-            add("h"+std::to_string(i)+'.'+std::to_string(direction));
+            pressed.push_back("h"+std::to_string(i)+'.'+std::to_string(direction));
     }
     for(std::size_t i=0;i<std::min(baseline.axes.size(),state.axes.size());++i) {
         const auto value=state.axes[i];
         if(std::abs(value)>15000 && std::abs(value-baseline.axes[i])>15000)
-            add(std::string(value>0?"+a":"-a")+std::to_string(i));
+            pressed.push_back(std::string(value>0?"+a":"-a")+std::to_string(i));
     }
-    if(count==chord.size())return chord;
-    return {};
+    return pressed;
 }
 }

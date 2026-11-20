@@ -53,6 +53,7 @@ using cave::launcher::LauncherCatalogue;
 using cave::launcher::FindLauncherGame;
 using cave::launcher::BigPictureLayout;
 using cave::launcher::GameExitShortcuts;
+using cave::launcher::ExitKeys;
 using cave::launcher::MenuKey;
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 namespace {
@@ -206,9 +207,9 @@ void Log(const fs::path& root,std::string_view message) {
 GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std::string_view game) {
   GameExitShortcuts shortcuts;
   if(const auto entry=cave::launcher::ExitKeySetting(ini)) {
-    const auto key=cave::launcher::ParseExitKey(entry->text);
-    shortcuts.keyboard=key.value_or(0);
-    if(!key)Log(root,"Invalid [collection].game_exit_key; keyboard exit disabled");
+    const auto keys=cave::launcher::ParseExitKeys(entry->text);
+    shortcuts.keyboard=keys.value_or(ExitKeys{});
+    if(!keys)Log(root,"Invalid [collection].game_exit_key; keyboard exit disabled");
   }
   if(const auto entry=ini.Get("collection",cave::launcher::kExitButtonsSetting)) {
     auto buttons=cave::launcher::ParseExitButtons(entry->text);
@@ -226,8 +227,8 @@ GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std:
   }
   for(const auto& [address,entry]:ini.Values()) {
     if(address.first!=cave::launcher::kExitControllerSection)continue;
-    const auto chord=cave::launcher::ParseExitChord(entry.text);
-    if(ControllerGuid(address.second) && chord)shortcuts.controller_chords.emplace(address.second,*chord);
+    const auto binding=cave::launcher::ParseExitPadBinding(entry.text);
+    if(ControllerGuid(address.second) && binding)shortcuts.controller_bindings.emplace(address.second,*binding);
     else Log(root,"Invalid game exit controller binding at config.ini line "+std::to_string(entry.line));
   }
   return shortcuts;
@@ -1477,9 +1478,14 @@ class App {
     else Log(options.root,"Cannot change game exit keyboard registration (Windows error "+std::to_string(GetLastError())+")");
   }
   void GameExitKey(std::uint16_t key,bool released) {
-    if(!game_exit_shortcuts || !game_exit_shortcuts->keyboard || key!=game_exit_shortcuts->keyboard)return;
-    const bool was_down=std::exchange(exit_key_down,!released);
-    if(!released && !was_down) {
+    if(!game_exit_shortcuts || !key)return;
+    const auto& keys=game_exit_shortcuts->keyboard;
+    const auto bound=std::ranges::find(keys,cave::launcher::ExitVirtualKey(key));
+    if(bound==keys.end())return;
+    const auto pressed=[&]{return exit_keys_down[0] && (!keys[1] || exit_keys_down[1]);};
+    const bool was_down=pressed();
+    exit_keys_down[bound-keys.begin()]=!released;
+    if(!was_down && pressed()) {
       if(const auto game=FocusedGameExitWindow())RequestGameExit(game,"keyboard");
     }
   }
@@ -1492,7 +1498,7 @@ class App {
   }
   void GameExitTick() {
     if(!menu_controller || !game_exit_shortcuts ||
-        (game_exit_shortcuts->buttons.empty() && game_exit_shortcuts->controller_chords.empty()))return;
+        (game_exit_shortcuts->buttons.empty() && game_exit_shortcuts->controller_bindings.empty()))return;
     const auto game=FocusedGameExitWindow();
     if(game!=game_exit_window) {
       ResetGameExit();
@@ -1502,7 +1508,7 @@ class App {
   }
   void MenuControllerTick() {
     if(child) {GameExitTick();return;}
-    if(exit_key_awaiting_release && !KeyHeld(exit_key_awaiting_release))exit_key_awaiting_release=0;
+    for(auto& key:exit_keys_awaiting_release)if(key && !KeyHeld(key))key=0;
     if(!menu_controller)return;
     if(close_requested || (work && (work->starting || work->copying)) ||
        GetForegroundWindow()!=hwnd || !IsWindowEnabled(hwnd) || GetCapture() ||
@@ -1517,7 +1523,7 @@ class App {
     else MoveDesktopSelection(key,false);
   }
   void BigPictureKeyboard(WPARAM key, bool repeated) {
-    if(key==exit_key_awaiting_release)return;
+    if(key && std::ranges::find(exit_keys_awaiting_release,key)!=exit_keys_awaiting_release.end())return;
     switch(key) {
       case VK_UP:case VK_NUMPAD8:BigPictureAction(MenuKey::Up);break;
       case VK_DOWN:case VK_NUMPAD2:BigPictureAction(MenuKey::Down);break;
@@ -1613,7 +1619,7 @@ class App {
           else if(task->external)task->launch=cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem());
           else task->launch=PrepareLaunch(FindGame(id),root,ini,profile,data);
           auto shortcuts=ReadGameExitShortcuts(ini,root,id);
-          if(shortcuts.keyboard || !shortcuts.buttons.empty() || !shortcuts.controller_chords.empty())
+          if(shortcuts.keyboard[0] || !shortcuts.buttons.empty() || !shortcuts.controller_bindings.empty())
             task->game_exit_shortcuts=std::move(shortcuts);
           Log(root,"launch-verification "+task->launch->verification);
           if(id=="daioujou") {
@@ -1640,8 +1646,9 @@ class App {
         game_exit_shortcuts=std::move(work->game_exit_shortcuts);
         if(game_exit_shortcuts) {
           ResetGameExit();
-          exit_key_down=KeyHeld(game_exit_shortcuts->keyboard);
-          SetGameExitKeyboard(game_exit_shortcuts->keyboard!=0);
+          const auto& keys=game_exit_shortcuts->keyboard;
+          std::ranges::transform(keys,exit_keys_down.begin(),KeyHeld);
+          SetGameExitKeyboard(keys[0]!=0);
         }
         game_focus_pending=BigPicture();
         if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
@@ -1677,8 +1684,8 @@ class App {
       else message=failed?(external?T(L"SDOJ-Recomp 已退出，请查看其目录内的日志"):T(L"游戏异常退出，请查看该游戏的日志")):L"";
       const auto exited_game=active_game;
       if(game_exit_shortcuts) {
-        const auto key=game_exit_shortcuts->keyboard;
-        exit_key_awaiting_release=KeyHeld(key)?key:0;
+        std::ranges::transform(game_exit_shortcuts->keyboard,exit_keys_awaiting_release.begin(),
+            [](std::uint16_t key){return KeyHeld(key)?key:0;});
         SetGameExitKeyboard(false);
         game_exit_shortcuts.reset();
         ResetGameExit();
@@ -2221,8 +2228,9 @@ class App {
   std::unique_ptr<cave::launcher::MenuController> menu_controller;
   std::optional<GameExitShortcuts> game_exit_shortcuts;
   HWND game_exit_window{};
-  bool game_exit_keyboard{},exit_key_down{};
-  std::uint16_t exit_key_awaiting_release{};
+  bool game_exit_keyboard{};
+  std::array<bool,2> exit_keys_down{};
+  ExitKeys exit_keys_awaiting_release{};
   bool menu_open{};
   size_t menu_selection{};
   HWND fullscreen_control{},nickname_control{},save_control{};

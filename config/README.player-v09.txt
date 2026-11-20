@@ -57,7 +57,7 @@ CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
 启动按钮上方选择全屏或窗口分辨率。底部“配置文件”打开 user-data/config.ini。
 底部“输入设置”可修改键盘、手柄和摇杆绑定。选择所有游戏或当前游戏，双击一项后按键，保存后下次启动生效。
 在游戏里按 Esc 或 Start + 十字键上，即可退出并返回启动器。
-在「输入设置 → 所有游戏 → 退出游戏」可改键。录入手柄或摇杆组合时，按住一个键再按另一个。
+在「输入设置 → 所有游戏 → 退出游戏」可改键。按一下录入单键，按住一个再按另一个录入组合键。
 备份、换目录时保留整个 user-data/，包含配置、存档和录像。
 
 ESPGaluda II、最大往生和狱门山默认使用 0V。要恢复原作时序，在对应区段修改 frame_delay 后重启：
@@ -149,7 +149,7 @@ The launcher remembers its window size when closed.
 Choose fullscreen or a window size above Launch game. Config opens user-data/config.ini.
 Open Controls to remap your keyboard, gamepad or arcade stick. Choose a scope, double-click a binding and press an input. Changes apply the next time you start a game.
 In a game, press Esc or Start + D-pad Up to exit and return to the launcher.
-Remap it under Controls, All games, Exit game. For a controller combo, hold one input and press another.
+Remap it under Controls, All games, Exit game. Tap one input for a single bind, or hold one and press another for a combo.
 Keep the whole user-data/ folder when updating or moving your installation.
 
 ESPGaluda II, SaiDaiOuJou and Guwange default to 0V. To restore original timing, change frame_delay in the matching section and restart:

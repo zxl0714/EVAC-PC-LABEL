@@ -50,6 +50,8 @@ struct Dialog {
     SDL_JoystickID selected_device{};
     std::string guid,last_guid,device_error;
     PadSnapshot previous,baseline;
+    std::uint16_t first_exit_key{};
+    std::string first_exit_pad;
     ULONGLONG scan_at{};
     int dpi=96,height{};
 
@@ -112,18 +114,21 @@ struct Dialog {
     std::wstring ExitBindingLabel(const Ini& ini) const {
         if(!controller) {
             const auto* entry=ExitKeySetting(ini);
-            const auto key=entry?ParseExitKey(entry->text).value_or(0):VK_ESCAPE;
-            return key?FromUtf8(KeyName(key)).native():L"—";
+            const auto keys=entry?ParseExitKeys(entry->text).value_or(ExitKeys{}):ExitKeys{VK_ESCAPE};
+            return keys[0]?FromUtf8(ExitKeyText(keys)).native():L"—";
         }
+        if(guid.empty())return L"—";
         if(const auto* entry=ini.Get(kExitControllerSection,guid)) {
-            const auto chord=ParseExitChord(entry->text);
-            if(!chord || chord->front().empty())return L"—";
-            return PadLabel((*chord)[0])+L" + "+PadLabel((*chord)[1]);
+            const auto binding=ParseExitPadBinding(entry->text);
+            if(!binding || binding->front().empty())return L"—";
+            const auto label=PadLabel((*binding)[0]);
+            return (*binding)[1].empty()?label:label+L" + "+PadLabel((*binding)[1]);
         }
         const auto* entry=ini.Get("collection",kExitButtonsSetting);
         const auto buttons=entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):GameExitShortcuts{}.buttons;
         std::wstring label;
         for(const auto button:buttons) {
+            if(!pad.contains(std::string(button)))return L"—";
             if(!label.empty())label+=L" + ";
             label+=Label(unsigned(std::ranges::find(kPadKeys,button)-kPadKeys.begin()));
         }
@@ -287,8 +292,10 @@ struct Dialog {
         capture=SelectedRow();if(capture<0 || (controller && guid.empty())){capture=-1;return;}
         if(controller){input->Update();baseline=previous=input->Read();}
         if(ExitRow(capture)) {
-            Status(controller?T(L"按住一个键，再按另一个键",L"Hold one input, then press another",L"1つ押したまま、もう1つ押してください"):
-                T(L"按下用于退出游戏的键",L"Press a key to exit the game",L"ゲーム終了に使うキーを押してください"));
+            first_exit_key=0;
+            first_exit_pad.clear();
+            Status(T(L"按一下录入单键，按住一个再按另一个录入组合键",
+                L"Tap one input, or hold one and press another",L"1つ押して離すか、押したまま別の入力を押してください"));
             return;
         }
         Status(controller && Analog(capture)?Label(capture)+T(L"，请按箭头拨动",L" · Move in the shown direction",L" · 矢印の方向に操作"):
@@ -299,12 +306,23 @@ struct Dialog {
         else draft.Put("collection",kExitKeySetting,std::move(value));
         Refresh(row);
     }
+    void InputExitKey(std::uint16_t key,bool released) {
+        key=ExitVirtualKey(key);
+        if(released && key!=first_exit_key)return;
+        if(KeyName(key).empty()) {
+            Status(T(L"此键不可绑定",L"This key cannot be bound",L"このキーは割り当てできません"));
+            return;
+        }
+        const ExitKeys held{first_exit_key?first_exit_key:key,key};
+        const auto pressed=released?std::span<const std::uint16_t>{}:std::span<const std::uint16_t>{held};
+        if(const auto binding=RecordExitBinding(first_exit_key,pressed))
+            SetExitBinding(std::exchange(capture,-1),ExitKeyText(*binding));
+    }
     void InputKey(unsigned code) {
         const auto name=KeyName(static_cast<std::uint16_t>(code));
         if(name.empty()){Status(T(L"此键不可绑定",L"This key cannot be bound",L"このキーは割り当てできません"));return;}
         const auto row=unsigned(std::exchange(capture,-1));
         try {
-            if(ExitRow(row)){SetExitBinding(row,name);return;}
             const auto section=Section("keyboard");
             std::vector<IniEdit> edits{{section,std::string(Key(row)),name}};
             std::wstring released;
@@ -334,8 +352,9 @@ struct Dialog {
         if(GetForegroundWindow()==window) {
             if(capture>=0) {
                 if(ExitRow(capture)) {
-                    if(const auto chord=CaptureExitChord(baseline,state))
-                        SetExitBinding(std::exchange(capture,-1),(*chord)[0]+','+(*chord)[1]);
+                    const auto pressed=PressedExitPadInputs(baseline,state);
+                    if(const auto binding=RecordExitBinding<std::string>(first_exit_pad,pressed))
+                        SetExitBinding(std::exchange(capture,-1),(*binding)[1].empty()?(*binding)[0]:(*binding)[0]+','+(*binding)[1]);
                 } else {
                     const auto source=CapturePad(previous,state,baseline,Analog(capture),capture==12 || capture==13);
                     if(!source.empty())SetPad(unsigned(std::exchange(capture,-1)),source);
@@ -379,8 +398,14 @@ struct Dialog {
     }
     bool Filter(const MSG& message) {
         if(message.hwnd!=window && !IsChild(window,message.hwnd))return false;
-        if(message.message!=WM_KEYDOWN && message.message!=WM_SYSKEYDOWN)return false;
-        if(capture>=0 && message.wParam==VK_ESCAPE && (controller || !ExitRow(capture))) {
+        const bool pressed=message.message==WM_KEYDOWN || message.message==WM_SYSKEYDOWN;
+        const bool released=message.message==WM_KEYUP || message.message==WM_SYSKEYUP;
+        if(capture>=0 && !controller && ExitRow(capture) && (pressed || released)) {
+            if(released || !(message.lParam&(1LL<<30)))InputExitKey(std::uint16_t(message.wParam),released);
+            return true;
+        }
+        if(!pressed)return false;
+        if(capture>=0 && message.wParam==VK_ESCAPE) {
             capture=-1;IdleStatus();return true;
         }
         if(capture>=0 && !controller && (message.message==WM_KEYDOWN || message.wParam==VK_MENU)) {

@@ -123,10 +123,11 @@ private:
 
     bool ExitPressed(const Pad& pad,const GameExitShortcuts& shortcuts) {
         const auto input=devices_.Read(pad.joystick.get());
-        if(const auto chord=shortcuts.controller_chords.find(pad.guid); chord!=shortcuts.controller_chords.end())
-            return std::ranges::all_of(chord->second,[&](const auto& source) {
-                return controls::PadSourceActive(source,input,false);
-            });
+        if(const auto binding=shortcuts.controller_bindings.find(pad.guid); binding!=shortcuts.controller_bindings.end()) {
+            const auto& sources=binding->second;
+            return controls::PadSourceActive(sources[0],input,false) &&
+                   (sources[1].empty() || controls::PadSourceActive(sources[1],input,false));
+        }
         const auto mapping=shortcuts.controller_mappings.find(pad.guid);
         const auto& map=mapping==shortcuts.controller_mappings.end()?pad.map:mapping->second;
         return !shortcuts.buttons.empty() && std::ranges::all_of(shortcuts.buttons,[&](std::string_view name) {
