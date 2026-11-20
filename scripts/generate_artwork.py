@@ -144,7 +144,7 @@ def generate(root, destination):
     destination.mkdir(parents=True,exist_ok=True)
     quoted=lambda text:json.dumps(text,ensure_ascii=False)
     header=['#pragma once','#include <array>','#include <string_view>','namespace cave::launcher {',
-            'struct Artwork {std::string_view game; unsigned resource; float focus_y; bool contain,platform_mark; std::array<float,4> trim;};',
+            'struct Artwork {std::string_view game; unsigned resource; float focus_y; bool contain; std::array<float,4> trim;};',
             'inline constexpr std::array<Artwork,'+str(len(entries))+'> kCoverArtwork{{']
     version=windows_version(VERSION)
     numeric_version=','.join(map(str,version))
@@ -165,7 +165,7 @@ def generate(root, destination):
     for entry in entries:
         trim=','.join('float('+str(part)+')' for part in entry.get('trim',[0,0,0,0]))
         header.append('{'+quoted(entry['game'])+','+str(entry['resource'])+',float('+str(entry['focusY'])+'),'+
-                      str(entry.get('fit')=='contain').lower()+','+str(entry.get('platformMark',False)).lower()+',{'+trim+'}},')
+                      str(entry.get('fit')=='contain').lower()+',{'+trim+'}},')
         resources.append(str(entry['resource'])+' RCDATA '+quoted((Path(root)/entry['path']).resolve().as_posix()))
     header+=['}};']
     brand=branding(root)

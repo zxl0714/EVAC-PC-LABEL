@@ -309,9 +309,9 @@ game-data/garegga/
 <a id="donpachi"></a>
 ### 首领蜂（donpachi）
 
-1. 从 [DonPachi Recomp 官方发布页](https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest)下载 CapsLock4284 提供的 Windows ZIP。把里面的文件解压到 `external/DonPachi-Recomp/`，让 `donpachi.exe` 和目录中的 README 放在一起。
+1. 下载 CapsLock4284 提供的 Windows ZIP，解压到 `external/DonPachi-Recomp/`。解压后，`donpachi.exe` 和 `EVAC-Setup.txt` 在同一层。[DonPachi Recomp 官方发布页](https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest)
 2. 把美版 `donpachi.zip` 放入 `game-data/donpachi/`，或在《首领蜂》的「游戏数据」处选择这个 ZIP。
-3. 点击「启动游戏」。按键和画面可在游戏内设置。设置与 EEPROM 保存在 `user-data/donpachi/default/`。
+3. 在启动器选择全屏或窗口模式后点击「启动游戏」。按键和窗口缩放可在游戏内调整，设置与 EEPROM 保存在 `user-data/donpachi/default/`。
 
 ## PS2 游戏
 

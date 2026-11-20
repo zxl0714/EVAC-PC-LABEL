@@ -48,6 +48,15 @@ class ReleaseTests(unittest.TestCase):
             release.validate_windows_item(dict(item, role='runtime'), record, self.games,
                                           release.V03_GAMES, {}, set())
 
+    def test_external_setup_guides_use_evac_names(self):
+        old = release.placement_sources('0.10.2')
+        self.assertIn('external/SDOJ-Recomp/README.txt', old)
+        guides = release.placement_sources('0.10.3')
+        names = {name for name in guides if name.startswith('external/')}
+        self.assertEqual(names, {'external/SDOJ-Recomp/EVAC-Setup.txt', 'external/DonPachi-Recomp/EVAC-Setup.txt'})
+        for name in names:
+            self.assertTrue(guides[name].is_file())
+
     def test_v061_player_package_contains_extract_helper(self):
         def check(root, games, commit, inspect):
             result = release.build('Public', '0.6.1', root/'releases/public')

@@ -13,5 +13,5 @@ Installation
    https://github.com/eandis/SDOJ-Recomp/releases/latest
    The standard Windows ZIP is named like sdoj.recomp.1.51.4.win-amd64.zip.
 2. Extract the entire ZIP into this folder and keep its directory structure.
-   DoDonPachi SaiDaiOuJou.exe should be next to this README.
+   DoDonPachi SaiDaiOuJou.exe should be next to this guide.
    Keep the DLLs and tools folder in their original locations.

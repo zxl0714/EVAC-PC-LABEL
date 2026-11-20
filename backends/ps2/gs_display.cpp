@@ -15,6 +15,7 @@
 #include "gs_pixel_trace.h"
 #include "reflex.h"
 #include "../../common/deadline_wait.h"
+#include "../../common/windows_fullscreen_cursor.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -33,6 +34,7 @@ public:
     bool borrowed=false;
     bool closed=false;
     bool fullscreen=false;
+    cave::FullscreenCursor cursor;
     bool swapchainReady=false;
     unsigned swapchainGeneration{};
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
@@ -137,6 +139,8 @@ public:
             SetWindowLongPtrW(handle,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));
         }
         if(self) {
+            if(self->cursor.Handle(handle,message,wparam,lparam,self->fullscreen))
+                return message==WM_SETCURSOR?TRUE:0;
             if(message==WM_CLOSE){self->closed=true;return 0;}
             if(message==WM_SIZE)self->resize=true;
             if(message==WM_ERASEBKGND)return 1;
@@ -167,6 +171,7 @@ public:
             SetWindowPos(handle,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_FRAMECHANGED);
         }
         fullscreen=!fullscreen;
+        cursor.FullscreenChanged(handle,fullscreen);
     }
 };
 }

@@ -30,13 +30,14 @@ void Package(const fs::path& root,std::string_view version,std::string_view valu
     {"runtime/first.bin","runtime"},{"runtime/second.bin","runtime"},{"EVAC PC LABEL.exe","runtime"},
     {"game-data/futari/README.txt","documentation"},
     {"game-data/daioujou/x-arrange/README.txt","documentation"},
-    {"game-data/ketsui/x-arrange/README.txt","documentation"},
-    {"external/SDOJ-Recomp/README.txt","documentation"}};
+    {"game-data/ketsui/x-arrange/README.txt","documentation"}};
   if(version=="0.10.3") {
+    files.emplace_back("external/SDOJ-Recomp/EVAC-Setup.txt","documentation");
+    files.emplace_back("external/DonPachi-Recomp/EVAC-Setup.txt","documentation");
     files.emplace_back("new-component/windows/support.dll","runtime");
     files.emplace_back("runtime/new-game/game.exe","runtime");
     files.emplace_back("game-data/new-game/README.txt","documentation");
-  }
+  } else files.emplace_back("external/SDOJ-Recomp/README.txt","documentation");
   std::string manifest=R"({"format":3,"flavor":"Public","platform":"win-x64","archiveLayout":"flat","sourceIncluded":false,"dataGames":[],"futariContent":[],"symbolsIncluded":false,"version":")";
   manifest+=std::string(version)+R"(","files":[)";
   std::string sums;
@@ -76,6 +77,7 @@ void ProgramInstall(const fs::path& parent) {
   Write(installed/"user-data/futari/default/save.bin","player save");
   Write(installed/"runtime/custom.dll","custom file");
   Write(installed/"external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe","player program");
+  Write(installed/"external/DonPachi-Recomp/README.txt","upstream DonPachi guide");
   auto release=Release("v0.10.3");
   const auto zip=parent/"program.zip";
   Zip(zip,incoming);
@@ -129,9 +131,11 @@ void ProgramInstall(const fs::path& parent) {
           Ini::ReadText(installed/"runtime/new-game/game.exe")=="new" &&
           Ini::ReadText(installed/"game-data/new-game/README.txt")=="new",
           "Update did not create roots and data guides for a new game");
-  Require(Ini::ReadText(installed/"external/SDOJ-Recomp/README.txt")=="new" &&
-          Ini::ReadText(installed/"external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe")=="player program",
-          "Update did not preserve the external installation alongside its updated guide");
+  Require(Ini::ReadText(installed/"external/SDOJ-Recomp/EVAC-Setup.txt")=="new" &&
+          Ini::ReadText(installed/"external/DonPachi-Recomp/EVAC-Setup.txt")=="new" &&
+          Ini::ReadText(installed/"external/SDOJ-Recomp/DoDonPachi SaiDaiOuJou.exe")=="player program" &&
+          Ini::ReadText(installed/"external/DonPachi-Recomp/README.txt")=="upstream DonPachi guide",
+          "Update did not install EVAC guides alongside the external program and upstream guide");
 }
 }
 int main(int argc,char** argv) {

@@ -60,12 +60,13 @@ std::string EditIni(std::string_view before, std::span<const IniEdit> changes) {
   (void)Ini::Parse(after);
   return after;
 }
-void UpdateConfig(const fs::path& root, std::string_view before, std::span<const IniEdit> changes) {
-  const auto config=EnsureConfig(root);
-  const auto after=EditIni(before,changes);
-  if(Ini::ReadText(config)!=before)
+void UpdateIniFile(const fs::path& config, std::optional<std::string_view> before, std::span<const IniEdit> changes) {
+  const auto original=before.value_or(std::string_view{});
+  const auto after=EditIni(original,changes);
+  const auto unchanged=[&] {return before?Ini::ReadText(config)==*before:!fs::exists(config);};
+  if(!unchanged())
     throw std::runtime_error("config.ini has changed. Refresh the launcher before saving again.");
-  if(after==before)return;
+  if(after==original)return;
   std::array<unsigned char,16> nonce{};
   if(BCryptGenRandom(nullptr,nonce.data(),ULONG(nonce.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0)
     throw std::runtime_error("Cannot create configuration transaction");
@@ -81,12 +82,16 @@ void UpdateConfig(const fs::path& root, std::string_view before, std::span<const
   DWORD written{};
   const bool okay=WriteFile(file,after.data(),DWORD(after.size()),&written,nullptr) && written==after.size() && FlushFileBuffers(file);
   CloseHandle(file);
-  if(!okay || Ini::ReadText(config)!=before) {
+  if(!okay || !unchanged()) {
     throw std::runtime_error("Cannot save config.ini, or it changed while saving. Refresh and retry.");
   }
-  if(!MoveFileExW(temporary.c_str(),config.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)) {
+  const DWORD flags=MOVEFILE_WRITE_THROUGH|(before?MOVEFILE_REPLACE_EXISTING:0);
+  if(!MoveFileExW(temporary.c_str(),config.c_str(),flags)) {
     throw std::runtime_error("Cannot replace config.ini");
   }
   pending.path.clear();
+}
+void UpdateConfig(const fs::path& root, std::string_view before, std::span<const IniEdit> changes) {
+  UpdateIniFile(EnsureConfig(root),before,changes);
 }
 }  // namespace cave

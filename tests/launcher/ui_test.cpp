@@ -288,7 +288,13 @@ void WindowSizeChecks() {
   {
     Frame frame(fixture.root);auto& app=frame.app;
     app.Select(Catalogue().size()-1);frame.Settle();
-    FitInitialWindow(app.hwnd);frame.Settle();
+    const auto games=app.layout.game_count;
+    app.layout.game_count=Catalogue().size();
+    FitInitialWindow(app.hwnd,{},app.layout.game_count);frame.Settle();
+    Require(app.normal_window_size.has_value(),"Save a pre-arcade default window size");
+    const auto previous=app.normal_window_size;
+    app.layout.game_count=games;
+    FitInitialWindow(app.hwnd,previous,games);frame.Settle();
     ShowWindow(app.hwnd,SW_SHOWNOACTIVATE);frame.Settle();UpdateWindow(app.hwnd);
     MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);GetMonitorInfoW(MonitorFromWindow(app.hwnd,MONITOR_DEFAULTTONEAREST),&monitor);
     const auto dpi=GetDpiForWindow(app.hwnd);const auto scale=float(dpi)/96;
@@ -300,6 +306,7 @@ void WindowSizeChecks() {
                <<" content="<<app.layout.content_height()<<" viewport="<<app.layout.viewport_height()<<"\n";
       Require(app.layout.max_scroll()==0,"Full-library initial size leaves a small scroll range");
       Require(!(GetWindowLongPtrW(app.hwnd,GWL_STYLE)&WS_VSCROLL),"A fitting library retains a scrollbar");
+      Require(app.layout.card(games-1).bottom<=app.layout.footer(),"Saved default dimensions clipped the new arcade card");
     }
   }
   {
@@ -615,9 +622,27 @@ void ExternalLauncherControlsChecks() {
     app.Select(*donpachi,false);
     Require(DonPachiNeedsSetup(app.rows[*donpachi].inspection) && app.SelectedProjectUrl()==donpachi_project,
             "The DonPachi project link must be available before installation");
+    Require(IsWindowEnabled(app.fullscreen_control) && app.display_choices.size()==2 && app.display_choices[0].fullscreen,
+            "DonPachi must be selectable in both its display modes");
     click_link(LayoutProjectIcon(app.layout.card(*app.VisiblePosition())),{ExternalControl::ProjectIcon,donpachi_project});
     click_link(app.layout.project_link(donpachi_project),{ExternalControl::ProjectLink,donpachi_project});
     keyboard_link(donpachi_project);
+
+    Write(DataChild(fixture.root,cave::launcher::kDonPachi.executable),"fixture engine");
+    Write(fixture.root/"game-data/donpachi/donpachi.zip","fixture ROM");
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,0,0);app.DisplayChanged();
+    const auto arcade_ini=Ini::Load(ConfigPath(fixture.root));
+    const auto arcade=cave::launcher::PrepareDonPachi(fixture.root,arcade_ini,"fullscreen-check");
+    Require(ResolveSettings(arcade_ini,"donpachi").fullscreen,"DonPachi fullscreen preference did not save");
+    cave::launcher::SetDonPachiFullscreen(arcade,true);
+    Require(Ini::Load(arcade.configuration).Get("window","fullscreen")->text=="true","First launch did not create fullscreen settings");
+    Write(arcade.configuration,"[window]\r\nscale = 3\r\nfullscreen = true\r\nfullscreen_type = exclusive\r\n[video]\r\nrenderer = direct3d12\r\n");
+    SendMessageW(app.fullscreen_control,CB_SETCURSEL,1,0);app.DisplayChanged();
+    cave::launcher::SetDonPachiFullscreen(arcade,ResolveSettings(Ini::Load(ConfigPath(fixture.root)),"donpachi").fullscreen);
+    Require(Ini::ReadText(arcade.configuration)=="[window]\r\nscale = 3\r\nfullscreen = false\r\nfullscreen_type = exclusive\r\n[video]\r\nrenderer = direct3d12\r\n",
+            "Changing DonPachi display mode altered upstream settings");
+    app.Select(*game,false);
+    Require(app.display_choices.size()>2,"Returning to an integrated game lost its window presets");
   }
   Frame reopened(fixture.root);
   Require(reopened.app.sdoj_external,"Reopening the launcher did not restore the eandis switch");

@@ -6,6 +6,8 @@ namespace cave {
 struct IniEdit { std::string section, key, value; bool erase{}; };
 // Preserve all other text, including BOM, comments, case and line endings.
 std::string EditIni(std::string_view before, std::span<const IniEdit> changes);
+// A missing expected value means the destination must not exist yet.
+void UpdateIniFile(const fs::path& path, std::optional<std::string_view> before, std::span<const IniEdit> changes);
 // Refuse an editor's intervening changes; replace the complete file atomically.
 void UpdateConfig(const fs::path& root, std::string_view before, std::span<const IniEdit> changes);
 }  // namespace cave

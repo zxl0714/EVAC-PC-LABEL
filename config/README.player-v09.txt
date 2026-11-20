@@ -28,8 +28,8 @@ PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
   game-data/daioujou-ps2/DoDonPachi Dai-Ou-Jou (Japan).iso
 
 同时安装两版大往生后，可从 PS4 版的 DIRECT MENU 进入 PS2 的 DEATH LABEL。
-最大往生可选 eandis 版。按 external/SDOJ-Recomp/README.txt 安装，然后开启封面上的 eandis 开关。
-首领蜂通过 DonPachi Recomp 启动。按 external/DonPachi-Recomp/README.txt 安装程序，
+最大往生可选 eandis 版。按 external/SDOJ-Recomp/EVAC-Setup.txt 安装，然后开启封面上的 eandis 开关。
+首领蜂通过 DonPachi Recomp 启动。按 external/DonPachi-Recomp/EVAC-Setup.txt 安装程序，
 再把美版 donpachi.zip 放入 game-data/donpachi/，或在启动器中选择 ZIP。
 
 解包

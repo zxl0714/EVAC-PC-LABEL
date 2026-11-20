@@ -1,5 +1,6 @@
 #include "native_video.h"
 #include "common/window_geometry.h"
+#include "common/windows_fullscreen_cursor.h"
 #include "native_async_log.h"
 #include "native_diagnostics.h"
 #include "native_host_timing.h"
@@ -108,6 +109,7 @@ struct DisplayGroup {
 
 struct WindowJob {
     NativeDisplaySettings display;
+    cave::FullscreenCursor cursor;
     std::array<std::atomic<std::uint64_t>, 16> buffer_labels{};
     std::shared_ptr<NativeDisplayClock> clock;
     HANDLE ready{}, quit{}, thread{};
@@ -171,6 +173,7 @@ bool ToggleFullscreen(HWND window, WindowJob& job) {
              SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOZORDER)) { return false; }
         job.fullscreen.store(false);
     }
+    job.cursor.FullscreenChanged(window, job.fullscreen.load());
     ++job.toggles;
     std::printf("{\"event\":\"native_video_fullscreen\",\"enabled\":%s,\"client_width\":%u,\"client_height\":%u}\n",
                 job.fullscreen.load() ? "true" : "false", job.width.load(), job.height.load());
@@ -185,6 +188,8 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
         NativePadAttachWindow(window);
     }
     if (!job) { return DefWindowProcW(window, message, wparam, lparam); }
+    if (job->cursor.Handle(window, message, wparam, lparam, job->fullscreen.load()))
+        return message == WM_SETCURSOR ? TRUE : 0;
     if (message == WM_SETFOCUS || message == WM_KILLFOCUS) {
         NativePadWindowFocus(window, message == WM_SETFOCUS);
         if (message == WM_KILLFOCUS && GetCapture() == window) { ReleaseCapture(); }

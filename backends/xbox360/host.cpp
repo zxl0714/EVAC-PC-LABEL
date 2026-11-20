@@ -3,6 +3,7 @@
 #include "input/configured_input.h"
 #include "common/catalogue.h"
 #include "common/window_geometry.h"
+#include "common/windows_fullscreen_cursor.h"
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/system/gpu_plugin.h>
@@ -48,13 +49,18 @@ fs::path FindRoot() {
 }
 class Shortcuts final : public rex::ui::WindowInputListener {
 public:
-    explicit Shortcuts(rex::ui::Window* window):window_(window) {window_->AddInputListener(this,128);}
+    explicit Shortcuts(rex::ui::Window* window):window_(window) {
+        window_->AddInputListener(this,128);
+        window_->SetCursorAutoHideDelayMs(kFullscreenCursorIdleMs);
+        ApplyCursorVisibility();
+    }
     ~Shortcuts() override {window_->RemoveInputListener(this);}
     void OnKeyDown(rex::ui::KeyEvent& event) override {
         if (event.is_handled() || event.prev_state()) return;
         using Key=rex::ui::VirtualKey;
         if (event.virtual_key()==Key::kF11 || (event.virtual_key()==Key::kReturn && event.is_alt_pressed())) {
             window_->SetFullscreen(!window_->IsFullscreen());
+            ApplyCursorVisibility();
             REXLOG_INFO("DISPLAY fullscreen={} persistence=this-run-only",window_->IsFullscreen());
             event.set_handled(true);
         } else if (event.virtual_key()==Key::kF8) {
@@ -63,7 +69,12 @@ public:
             rex::FlushLogging();event.set_handled(true);
         }
     }
-private:rex::ui::Window* window_;
+private:
+    void ApplyCursorVisibility() {
+        using Visibility=rex::ui::Window::CursorVisibility;
+        window_->SetCursorVisibility(window_->IsFullscreen()?Visibility::kAutoHidden:Visibility::kVisible);
+    }
+    rex::ui::Window* window_;
 };
 }
 CollectionApp::CollectionApp(rex::ui::WindowedAppContext& context,std::string_view game,

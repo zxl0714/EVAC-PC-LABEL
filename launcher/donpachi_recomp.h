@@ -1,6 +1,8 @@
 #pragma once
 #include "common/catalogue.h"
+#include "common/config_update.h"
 #include "common/launch.h"
+#include <array>
 
 namespace cave::launcher {
 inline constexpr auto kDonPachiProject=L"https://github.com/CapsLock4284/DonPachi-Recomp";
@@ -54,9 +56,18 @@ inline LaunchSpec PrepareDonPachi(const fs::path& root,const Ini& ini,
   ValidateOutputs(launch.paths);
   fs::create_directories(launch.paths.profile);
   launch.executable=DataChild(root,kDonPachi.executable);
+  launch.configuration=DataChild(launch.paths.profile,"donpachi.ini");
   launch.arguments={L"--usa",L"--rom",DataChild(launch.paths.data,"donpachi.zip").native(),
-                    L"--settings",DataChild(launch.paths.profile,"donpachi.ini").native(),
+                    L"--settings",launch.configuration.native(),
                     L"--eeprom",DataChild(launch.paths.profile,"donpachi.eeprom").native()};
   return launch;
+}
+inline void SetDonPachiFullscreen(const LaunchSpec& launch,bool fullscreen) {
+  // DonPachi Recomp reads its display mode from the profile's settings file.
+  const auto& settings=launch.configuration;
+  std::optional<std::string> before;
+  if(fs::exists(settings))before=Ini::ReadText(settings);
+  const std::array edits{IniEdit{"window","fullscreen",fullscreen?"true":"false"}};
+  UpdateIniFile(settings,before?std::optional<std::string_view>(*before):std::nullopt,edits);
 }
 }

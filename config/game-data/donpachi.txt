@@ -1,11 +1,11 @@
 首领蜂 · DonPachi · 首領蜂
 
 把美版 donpachi.zip 原样放入本目录。程序请参照
-external/DonPachi-Recomp/README.txt 安装。画面和按键可在游戏中设置。
+external/DonPachi-Recomp/EVAC-Setup.txt 安装。按键可在游戏中设置。
 
-Place your US donpachi.zip here. Follow external/DonPachi-Recomp/README.txt
-to install the program. Change display and controls from the game.
+Place your US donpachi.zip here. Follow external/DonPachi-Recomp/EVAC-Setup.txt
+to install the program. Choose fullscreen or windowed mode in the launcher.
 
 米国版 donpachi.zip をこのフォルダーに置いてください。
-プログラムの導入方法は external/DonPachi-Recomp/README.txt を
+プログラムの導入方法は external/DonPachi-Recomp/EVAC-Setup.txt を
 参照してください。表示と操作はゲーム内で設定できます。

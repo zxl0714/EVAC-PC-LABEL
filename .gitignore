@@ -22,6 +22,8 @@
 /tools/downloads/
 /tools/state/
 /external/SDOJ-Recomp/*
-!/external/SDOJ-Recomp/README.txt
+!/external/SDOJ-Recomp/EVAC-Setup.txt
+/external/DonPachi-Recomp/*
+!/external/DonPachi-Recomp/EVAC-Setup.txt
 __pycache__/
 *.pyc

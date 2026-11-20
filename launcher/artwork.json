@@ -174,8 +174,8 @@
     },
     {
       "game": "donpachi",
-      "path": "launcher/assets/covers/donpachi.jpg",
-      "sha256": "5dcab5b1fc0f0c6be22c11d9e54b19623a93ca5bc2d61f0c91b74944898ab4b9",
+      "path": "launcher/assets/covers/donpachi.png",
+      "sha256": "d80c0984d5f9547bdf1e2304d82099c676816b3b4c9887bc909e57141f97f3cd",
       "resource": 313,
       "focusY": 0.5,
       "fit": "contain",
@@ -183,8 +183,8 @@
       "sourcePage": "https://strategywiki.org/wiki/DonPachi",
       "sourceUrl": "https://cdn.wikimg.net/en/strategywiki/images/thumb/1/19/DonPachi_arcade_flyer.jpg/800px-DonPachi_arcade_flyer.jpg",
       "copyright": "©1995 ATLUS / CAVE",
-      "usage": "Original 1995 arcade flyer front. The cover frames the illustration, title and screenshots above the promotional fine print.",
-      "trim": [0, 0, 0, 0.218]
+      "usage": "Original 1995 arcade flyer front, composed with the EVAC arcade platform strip.",
+      "platformMark": true
     }
   ]
 }

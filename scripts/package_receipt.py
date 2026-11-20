@@ -18,7 +18,8 @@ from project import digest, reject_link
 # build inputs; don't silently bless a new build system or a new shared source.
 PACKAGING = {'scripts/Release.ps1', 'scripts/release_package.py', 'scripts/package_receipt.py',
              'config/README.player-v09.txt', 'external/SDOJ-Recomp/README.txt',
-             'external/DonPachi-Recomp/README.txt', 'config/game-data/donpachi.txt'}
+             'external/DonPachi-Recomp/README.txt', 'external/SDOJ-Recomp/EVAC-Setup.txt',
+             'external/DonPachi-Recomp/EVAC-Setup.txt', 'config/game-data/donpachi.txt'}
 ISOLATED_PS2 = ('backends/ps2/', 'third_party/ps2/', 'tools/ps2/', 'tools/ps2-gs/',
                 'scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara', 'scripts/Build-DaioujouPs2',
                 'games/espgaluda/', 'games/ibara/', 'games/daioujou-ps2/')

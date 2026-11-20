@@ -146,10 +146,11 @@ def placement_sources(version, name=PLACEMENT_NAME):
     if parts >= (0, 9, 10):
         result['game-data/ketsui/x-arrange/' + name] = ROOT / 'config/game-data/ketsui-x-arrange.txt'
     if parts >= (0, 10, 2):
-        guide = 'external/SDOJ-Recomp/README.txt'
-        result[guide] = ROOT / guide
+        guide = 'external/SDOJ-Recomp/EVAC-Setup.txt'
+        destination = guide if parts >= (0, 10, 3) else 'external/SDOJ-Recomp/README.txt'
+        result[destination] = ROOT / guide
     if parts >= (0, 10, 3):
-        guide = 'external/DonPachi-Recomp/README.txt'
+        guide = 'external/DonPachi-Recomp/EVAC-Setup.txt'
         result[guide] = ROOT / guide
         result['game-data/donpachi/' + name] = ROOT / 'config/game-data/donpachi.txt'
     return result

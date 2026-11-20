@@ -443,11 +443,6 @@ D2D1_RECT_F LayoutProjectIcon(D2D1_RECT_F card) {
   const auto top=card.bottom-66.f;
   return {left,top,left+22,top+22};
 }
-const wchar_t* Platform(const Game& game) {
-  if(game.backend=="xbox360")return L"XBOX 360";
-  if(game.backend=="arcade")return L"ARCADE";
-  return game.backend=="ps2"?L"PS2":L"PS4";
-}
 D2D1_RECT_F ArtworkSource(ID2D1Bitmap* image,const cave::launcher::Artwork& artwork) {
   const auto size=image->GetSize();
   const auto& trim=artwork.trim;
@@ -472,7 +467,8 @@ RECT FitToWorkArea(RECT bounds) {
   const auto top=std::clamp(bounds.top,work.top,work.bottom-height);
   return {left,top,left+width,top+height};
 }
-void FitInitialWindow(HWND window,std::optional<cave::launcher::WindowSize> saved={}) {
+void FitInitialWindow(HWND window,std::optional<cave::launcher::WindowSize> saved={},
+                      std::size_t games=LauncherCatalogue().size()) {
   MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
   if(!GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor))
     throw std::runtime_error("Cannot read launcher monitor work area");
@@ -484,16 +480,27 @@ void FitInitialWindow(HWND window,std::optional<cave::launcher::WindowSize> save
   const auto scrollbar=GetSystemMetricsForDpi(SM_CXVSCROLL,dpi);
   frame.right+=scrollbar;
   const auto& work=monitor.rcWork;
-  auto size=saved?cave::launcher::RestoreWindowSize(*saved,work.right-work.left,
-      work.bottom-work.top,dpi):
-      cave::launcher::InitialCoverWindowSize(work.right-work.left,
-      work.bottom-work.top,dpi,frame.right-frame.left,frame.bottom-frame.top,LauncherCatalogue().size());
-  if(!saved) {
-    const auto scale=float(dpi)/96;
-    Layout planned{(size.width-frame.right+frame.left)/scale,(size.height-frame.bottom+frame.top)/scale};
+  const auto scale=float(dpi)/96;
+  const auto automatic=[&](std::size_t count) {
+    auto size=cave::launcher::InitialCoverWindowSize(work.right-work.left,work.bottom-work.top,dpi,
+        frame.right-frame.left,frame.bottom-frame.top,count);
+    const Layout planned{(size.width-frame.right+frame.left)/scale,(size.height-frame.bottom+frame.top)/scale,0.f,count};
     // A fitting library hides the native scrollbar. Keep its resulting client width
     // equal to the width used to calculate the card heights.
     if(planned.max_scroll()==0)size.width-=scrollbar;
+    return size;
+  };
+  auto size=automatic(games);
+  if(saved) {
+    bool old_default=false;
+    // Launcher versions before the arcade entry persisted their automatic grid bounds in DIPs.
+    if(games>Catalogue().size()) {
+      const auto previous=automatic(Catalogue().size());
+      old_default=std::abs(std::lround(previous.width/scale)-saved->width)<=2 &&
+                  std::abs(std::lround(previous.height/scale)-saved->height)<=2;
+    }
+    if(!old_default)
+      size=cave::launcher::RestoreWindowSize(*saved,work.right-work.left,work.bottom-work.top,dpi);
   }
   SetWindowPos(window,nullptr,work.left+(work.right-work.left-size.width)/2,
       work.top+(work.bottom-work.top-size.height)/2,size.width,size.height,SWP_NOZORDER|SWP_NOACTIVATE);
@@ -540,51 +547,6 @@ class Renderer {
     Check(target->CreateSolidColorBrush(D2D1::ColorF(outline),&border),"Create button border");
     const auto rounded=D2D1::RoundedRect(rectangle,8,8);target->FillRoundedRectangle(rounded,fill.Get());target->DrawRoundedRectangle(rounded,border.Get());
     Text(target,text,{rectangle.left+6,rectangle.top+(rectangle.bottom-rectangle.top-16)/2,rectangle.right-6,rectangle.bottom},12,play?0xffffff:(disabled?0x78857b:0x495a50),DWRITE_TEXT_ALIGNMENT_CENTER);
-  }
-  void DrawCoverArt(ID2D1RenderTarget* target,const Game& game,ID2D1Bitmap* bitmap,
-                    D2D1_RECT_F source,D2D1_RECT_F cover,float opacity,bool platform_mark) {
-    if(cover.right<=cover.left || cover.bottom<=cover.top)return;
-    if(!platform_mark) {
-      const auto width=cover.right-cover.left;
-      const auto band_height=width*.132f;
-      const D2D1_RECT_F band{cover.left,cover.top,cover.right,cover.top+band_height};
-      const D2D1_RECT_F body{cover.left,band.bottom,cover.right,cover.bottom};
-      const D2D1_GRADIENT_STOP stops[]{{0.f,D2D1::ColorF(0x21232d)},{1.f,D2D1::ColorF(0x3a3044)}};
-      ComPtr<ID2D1GradientStopCollection> colors;
-      Check(target->CreateGradientStopCollection(stops,2,&colors),"Create platform strip colors");
-      ComPtr<ID2D1LinearGradientBrush> gradient;
-      Check(target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
-          {band.left,band.top},{band.right,band.top}),colors.Get(),&gradient),"Create platform strip gradient");
-      target->FillRectangle(band,gradient.Get());
-
-      ComPtr<ID2D1SolidColorBrush> brush;
-      Check(target->CreateSolidColorBrush(D2D1::ColorF(0x08090b),&brush),"Create cover background brush");
-      target->FillRectangle(body,brush.Get());
-      brush->SetColor(D2D1::ColorF(0xaf8659));
-      target->FillRectangle({band.left,band.bottom-band_height*.045f,band.right,band.bottom},brush.Get());
-
-      auto text_left=band.left+band_height*.44f;
-      if(game.backend=="arcade") {
-        const auto x=text_left+band_height*.26f,y=band.top+band_height*.46f;
-        brush->SetColor(D2D1::ColorF(0xedc086));
-        target->DrawLine({x-band_height*.07f,y-band_height*.13f},{x+band_height*.06f,y+band_height*.21f},
-            brush.Get(),band_height*.06f);
-        target->FillEllipse(D2D1::Ellipse({x-band_height*.1f,y-band_height*.18f},band_height*.105f,band_height*.105f),brush.Get());
-        target->FillRoundedRectangle(D2D1::RoundedRect(
-            {x-band_height*.25f,y+band_height*.19f,x+band_height*.26f,y+band_height*.30f},
-            band_height*.035f,band_height*.035f),brush.Get());
-        text_left+=band_height*.76f;
-      }
-      const auto font=band_height*.59f;
-      Text(target,Platform(game),{text_left,band.top+(band_height-font*1.3f)/2,band.right,band.bottom},font,0xf8f9fa);
-
-      const auto source_width=source.right-source.left,source_height=source.bottom-source.top;
-      const auto scale=std::min(width/source_width,(body.bottom-body.top)/source_height);
-      const auto image_width=source_width*scale,image_height=source_height*scale;
-      const auto x=body.left+(width-image_width)/2,y=(body.top+body.bottom-image_height)/2;
-      cover={x,y,x+image_width,y+image_height};
-    }
-    target->DrawBitmap(bitmap,cover,opacity,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
   }
   void SdojSwitch(ID2D1RenderTarget* target,D2D1_RECT_F bounds,bool enabled,bool hovered) {
     const auto fill=enabled?(hovered?0x2c513e:0x37644c):(hovered?0xd7ded9:0xe5e9e6);
@@ -690,17 +652,14 @@ class Renderer {
     auto bitmap=Image(target,index,muted);
     const auto& artwork=cave::launcher::kCoverArtwork[index];
     const auto source=ArtworkSource(bitmap,artwork);
-    auto cover=art;
-    if(artwork.platform_mark) {
-      const float width=source.right-source.left,height=source.bottom-source.top;
-      const float scale=artwork.contain?std::min((art.right-art.left)/width,(art.bottom-art.top)/height):
-                                        std::max((art.right-art.left)/width,(art.bottom-art.top)/height);
-      const float x=art.left-((width*scale)-(art.right-art.left))*.5f;
-      const float y=artwork.contain?art.top:art.top-((height*scale)-(art.bottom-art.top))*artwork.focus_y;
-      cover={x,y,x+width*scale,y+height*scale};
-    }
+    const float width=source.right-source.left,height=source.bottom-source.top;
+    const float scale=artwork.contain?std::min((art.right-art.left)/width,(art.bottom-art.top)/height):
+                                      std::max((art.right-art.left)/width,(art.bottom-art.top)/height);
+    const float x=art.left-((width*scale)-(art.right-art.left))*.5f;
+    const float y=artwork.contain?art.top:art.top-((height*scale)-(art.bottom-art.top))*artwork.focus_y;
+    const D2D1_RECT_F cover{x,y,x+width*scale,y+height*scale};
     target->PushAxisAlignedClip(art,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-    DrawCoverArt(target,game,bitmap,source,cover,soon?.26f:(muted?.55f:1.f),artwork.platform_mark);
+    target->DrawBitmap(bitmap,cover,soon?.26f:(muted?.55f:1.f),D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
     target->PopAxisAlignedClip();
     if(soon || hidden) {
       ComPtr<ID2D1SolidColorBrush> shade;
@@ -760,13 +719,13 @@ class Renderer {
       const auto bitmap=Image(target,index,!available);
       const auto& artwork=cave::launcher::kCoverArtwork[index];
       const auto source=ArtworkSource(bitmap,artwork);
-      const auto aspect=artwork.platform_mark?(source.right-source.left)/(source.bottom-source.top):3.f/4.f;
+      const auto aspect=(source.right-source.left)/(source.bottom-source.top);
       const auto cover=view.Cover(position,aspect);
       if(cover.bottom<=cover.top)continue;
       const auto padding=view.CoverPadding();
       const D2D1_RECT_F frame{cover.left-padding,cover.top-padding,cover.right+padding,cover.bottom+padding};
       fill(frame,panel,6*scale);
-      DrawCoverArt(target,game,bitmap,source,cover,available?1.f:.57f,artwork.platform_mark);
+      target->DrawBitmap(bitmap,cover,available?1.f:.57f,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,source);
       if(selected)outline(frame,accent,3);
     }
 
@@ -957,6 +916,7 @@ struct Work {
   std::atomic<uint64_t> copied{},total{};
   std::vector<Row> rows;
   std::optional<LaunchSpec> launch;
+  std::optional<bool> donpachi_fullscreen;
   std::optional<GameExitShortcuts> game_exit_shortcuts;
   std::optional<CopyResult> copy_result;
   std::string error;
@@ -1181,19 +1141,22 @@ class App {
   }
   void EnablePreferences() {
     const bool enabled=preferences_available&&!busy&&!child;
-    EnableWindow(fullscreen_control,enabled&&!DonPachiSelected());EnableWindow(nickname_control,enabled);
+    if(preferences_available && (display_choices.size()==2)!=DonPachiSelected())
+      PopulateDisplay(ResolveSharedSettings(Ini::Parse(preferences_text)));
+    EnableWindow(fullscreen_control,enabled);EnableWindow(nickname_control,enabled);
     EnableWindow(save_control,enabled&&preferences_dirty);
   }
   void PopulateDisplay(const Settings& settings) {
     display_choices={{true,settings.window_width,settings.window_height}};
-    display_choices.insert(display_choices.end(),kWindowSelections.begin(),kWindowSelections.end());
     const DisplaySelection current{false,settings.window_width,settings.window_height};
+    const bool arcade=DonPachiSelected();
+    if(!arcade)display_choices.insert(display_choices.end(),kWindowSelections.begin(),kWindowSelections.end());
     auto found=std::find(display_choices.begin()+1,display_choices.end(),current);
     if(found==display_choices.end()){display_choices.push_back(current);found=display_choices.end()-1;}
     const auto selected=settings.fullscreen?0:std::distance(display_choices.begin(),found);
     SendMessageW(fullscreen_control,CB_RESETCONTENT,0,0);
     for(const auto& choice:display_choices) {
-      const auto label=DisplayLabel(choice);
+      const auto label=arcade&&!choice.fullscreen?std::wstring(T(L"窗口模式")):DisplayLabel(choice);
       if(SendMessageW(fullscreen_control,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label.c_str()))<0)
         throw std::runtime_error("Cannot populate display choices");
     }
@@ -1241,11 +1204,11 @@ class App {
   void UpdateOverrideHint(const Ini& ini) {
     override_hint.clear();
     if(library.visible.empty())return;
-    if(DonPachiSelected()) {override_hint=T(L"画面与按键在首領蜂内设置");return;}
     const auto section="game."+std::string(LauncherCatalogue()[selected].id);
     if(ini.Get(section+".display","fullscreen") || ini.Get(section+".display","window_width") ||
        ini.Get(section+".display","window_height") || ini.Get(section+".community","nickname"))
       override_hint=T(L"此游戏有独立的显示／昵称设置，请在配置文件中调整");
+    else if(DonPachiSelected())override_hint=T(L"按键在首領蜂内设置");
   }
   bool SavePreferences() {
     if(!preferences_dirty)return true;
@@ -1615,7 +1578,10 @@ class App {
         task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
           const auto ini=Ini::Load(ConfigPath(root));
-          if(id==cave::launcher::kDonPachi.id)task->launch=cave::launcher::PrepareDonPachi(root,ini,profile,data);
+          if(id==cave::launcher::kDonPachi.id) {
+            task->launch=cave::launcher::PrepareDonPachi(root,ini,profile,data);
+            task->donpachi_fullscreen=ResolveSettings(ini,id).fullscreen;
+          }
           else if(task->external)task->launch=cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem());
           else task->launch=PrepareLaunch(FindGame(id),root,ini,profile,data);
           auto shortcuts=ReadGameExitShortcuts(ini,root,id);
@@ -1642,6 +1608,7 @@ class App {
       if(!work->error.empty())throw std::runtime_error(work->error);
       if(work->launch) {
         if(work->external)external_session.emplace(options.root);
+        if(work->donpachi_fullscreen)cave::launcher::SetDonPachiFullscreen(*work->launch,*work->donpachi_fullscreen);
         child.emplace(StartGame(*work->launch,work->external?work->launch->executable.parent_path():fs::path{}));
         game_exit_shortcuts=std::move(work->game_exit_shortcuts);
         if(game_exit_shortcuts) {
@@ -2346,7 +2313,10 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
       const auto spec=arcade?cave::launcher::PrepareDonPachi(options.root,ini,options.profile,options.data):
                              PrepareLaunch(FindGame(options.game),options.root,ini,options.profile,options.data);
       std::optional<GameSession> session;
-      if(arcade)session.emplace(options.root);
+      if(arcade) {
+        session.emplace(options.root);
+        cave::launcher::SetDonPachiFullscreen(spec,ResolveSettings(ini,options.game).fullscreen);
+      }
       auto child=StartGame(spec,arcade?spec.executable.parent_path():fs::path{});
       child.Wait();return int(child.ExitCode().value_or(1));
     }
@@ -2364,7 +2334,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
         rectangle.right-rectangle.left,rectangle.bottom-rectangle.top,nullptr,nullptr,instance,&app);
     if(!window)throw std::runtime_error("Cannot create launcher window");
     instance_guard.Publish(window);
-    FitInitialWindow(window,app.saved_window_size);
+    FitInitialWindow(window,app.saved_window_size,app.layout.game_count);
     if(app.options.big_picture)app.SetBigPicture(true);
     ShowWindow(window,app.BigPicture()?SW_SHOWNORMAL:show);UpdateWindow(window);
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0){if(app.Input(message))continue;TranslateMessage(&message);DispatchMessageW(&message);}

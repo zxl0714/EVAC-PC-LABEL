@@ -311,9 +311,9 @@ Extract your PKG with `tools/Extract-PS4.exe` or use your unpacked console expor
 <a id="donpachi"></a>
 ### DonPachi (donpachi)
 
-1. Download the Windows ZIP from [CapsLock4284's DonPachi Recomp releases](https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest). Extract its contents to `external/DonPachi-Recomp/` so `donpachi.exe` is next to the README.
+1. Download the Windows ZIP and extract it to `external/DonPachi-Recomp/` so `donpachi.exe` is next to `EVAC-Setup.txt`. [CapsLock4284's DonPachi Recomp releases](https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest)
 2. Place the US `donpachi.zip` in `game-data/donpachi/`, or select the ZIP via DonPachi's **Game data** button.
-3. Select **Launch game**. Change display and controls in the game. The settings and EEPROM are saved in `user-data/donpachi/default/`.
+3. Choose fullscreen or windowed mode in the launcher, then select **Launch game**. Controls and window scale are available in the game. Settings and EEPROM are saved in `user-data/donpachi/default/`.
 
 ## PS2 games
 
