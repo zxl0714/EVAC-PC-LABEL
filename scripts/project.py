@@ -33,7 +33,7 @@ RUNTIME_ARTWORK = {
 }
 DOC_SCREENSHOTS = {
     'docs/images/launcher.png':
-        '209d85dffe094d6fd5fd2314e0ffe043386e47a7119c4ebded656a82878aa915',
+        '3fb8f5d2d3ddd310beed4f980d627f025055ceb3f3846b565562fb3153139582',
     'docs/images/ketsui-x-arrange.jpg':
         'c92de91289b8fdcb3ffb3b295561c219362dec19021b0b71674859f307c525f4',
     'docs/images/daioujou-death-label-menu.png':
