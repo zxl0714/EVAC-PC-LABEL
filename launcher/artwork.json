@@ -173,6 +173,19 @@
       "platformMark": true
     },
     {
+      "game": "rtype-final",
+      "path": "launcher/assets/covers/rtype-final.png",
+      "sha256": "df6ecebbe7bcfb2b9edc0a81d45cbd02556cdbc980f062743578a38a4309e3ca",
+      "resource": 314,
+      "focusY": 0.5,
+      "fit": "contain",
+      "kicker": "PS2 · USA",
+      "original": true,
+      "copyright": "Original artwork prepared for EVAC PC LABEL",
+      "usage": "ImageGen illustration with an original spacecraft and a PlayStation 2 platform strip.",
+      "platformMark": true
+    },
+    {
       "game": "donpachi",
       "path": "launcher/assets/covers/donpachi.png",
       "sha256": "d80c0984d5f9547bdf1e2304d82099c676816b3b4c9887bc909e57141f97f3cd",

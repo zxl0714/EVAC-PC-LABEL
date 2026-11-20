@@ -12,7 +12,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
   <a href="docs/GAME_DATA.md">游戏数据</a> ·
   <a href="docs/SETTINGS.md">设置与操作</a> ·
-  <a href="docs/RELEASE_NOTES_v0.10.3.md#简体中文">v0.10.3 更新说明</a>
+  <a href="docs/RELEASE_NOTES_v0.10.4.md#简体中文">v0.10.4 更新说明</a>
 </p>
 
 <p align="center">
@@ -60,7 +60,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 | --- | --- |
 | Xbox 360 | [虫姬二](docs/GAME_DATA.md#futari) · [ESPGaluda II](docs/GAME_DATA.md#espgaluda2) · [最大往生](docs/GAME_DATA.md#sdoj) · [狱门山](docs/GAME_DATA.md#guwange) |
 | PS4 | [绊地狱](docs/GAME_DATA.md#ketsui) · [大往生](docs/GAME_DATA.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.md#esprade) · [弹铳](docs/GAME_DATA.md#feveron) · [空战之路](docs/GAME_DATA.md#garegga) |
-| PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) · [铸蔷薇](docs/GAME_DATA.md#ibara) · [大往生 (PS2)](docs/GAME_DATA.md#daioujou-ps2) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) · [铸蔷薇](docs/GAME_DATA.md#ibara) · [大往生 (PS2)](docs/GAME_DATA.md#daioujou-ps2) · [R-Type Final](docs/GAME_DATA.md#rtype-final) |
 | 街机 | [首领蜂](docs/GAME_DATA.md#donpachi) |
 
 点击游戏名查看支持的版本、解包方法和目录示例。只需准备想玩的游戏数据。

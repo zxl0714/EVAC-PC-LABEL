@@ -4,6 +4,16 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
+## v0.10.4 PS2 验收
+
+- 《ESPGaluda》在 RTX 4080、144 Hz 屏幕开启 VSync，使用 Vulkan MAILBOX 从练习菜单进入一面。连续移动、射击的 9.43 秒内呈现 567 帧，平均 60.00 FPS，帧间隔中位数 16.70 ms，P95 为 17.23 ms，最长 17.85 ms。关内的音频统计窗口没有缺失采样。参见 `.local/v0104/espgaluda-mailbox-stage-verified/stage-result.json`。
+- 《R-Type Final》实测从原始美版 ISO 解码片头、创建飞行员、选择机体和写入记忆卡。关闭进程后冷启动，同一份存档读回飞行员 A。补齐关内对象回调后，首关实际移动、开火并获得 200 分，窗口正常退出。记录见 `.local/v0104/r-type-final/boot-banks-r23-stage1/`。首关速度和音频仍在优化。
+- 《R-Type Final》美版原始归档与 ISO 已入库。启动器完整校验了两个哈希。从独立测试安装分别用桌面和命令行启动，桌面设定的数据目录指向 `E:/Game-Share/roms/game-data/rtype-final/ps2-usa/`。命令行等到游戏退出后返回 0，桌面启动按 Esc 后回到原卡片。SIMD 构建实测首关 9.07 秒内呈现 127 帧，约 14.0 FPS，音频仍有缺失采样。实战计时和线程采样见 `.local/v0104/r-type-final/boot-banks-r26-stage1/`。
+- 《大往生》Death Label 使用真实游戏数据，在同进程宿主窗口复测 `3591×2020`。FIFO 和 Immediate 都建立 8 位 SDR 交换链，创建时均没有传入独占全屏参数。两种模式都成功呈现加载黑帧和首张游戏画面，宿主请求关闭后正常返回。证据见 `.local/v0104/dl-swapchain-3591-result.json`。本机为 RTX 4080，玩家 RTX 3060 Ti 驱动环境待验证。
+- 本轮 VU1 构建的 32 项 PS2 测试全部通过。《ESPGaluda》复测第一关 6.58 秒内呈现 395 帧，平均 60.00 FPS，P95 为 17.29 ms，最长 18.59 ms。关内音频窗口没有缺失采样。用 ROM 库的原始 ISO 启动《铸蔷薇》和 PS2 版《大往生》，均呈现有背景的自动演示。测试记录见 `.local/v0104/legacy-ps2-r27-ctest.log` 和 `.local/v0104/espgaluda-stage-legacy-r27/`。
+- 《R-Type Final》后段实战测得 9.06 秒内呈现 115 帧，约 12.6 FPS。取样中 VU1 的执行、寄存器等待和写回仍占主要时间。记录见 `.local/v0104/r-type-final/boot-banks-r27-stage1/`。
+- 《R-Type Final》的 VU1 预编译试验版从原始启动 ELF 识别出 29 段微程序，并实测匹配到关内实际上传的内容。首关移动射击的 9.06 秒内呈现 272 帧，约 30.0 FPS。后一段重负载场景测得约 24.4 FPS。实测得分超过 1,000 分，结束一局后能回到主菜单。关内音频仍有缺失采样。见 `.local/v0104/r-type-final/boot-banks-aot-r1-stage1/`。[预编译实现](https://github.com/TheBozos/PS2Recomp/tree/03113132ca7409423d1f86695f1a7930fa46b2a2)
+
 ## v0.10.3 Death Label 崩溃诊断
 
 - 玩家报告 `20261119-75dc0e50af2b4226` 的最后一个项目栈帧是 `daioujou-ps2-runtime.dll+0x119577e`。与 v0.10.1 正式包 DLL 匹配的 PDB 将前一条调用指令定位到 `Vulkan::WSI::end_frame` 的 `vkQueuePresentKHR`。加载黑帧已呈现，首张游戏帧提交后，调用经过 RTSS 并在 NVIDIA 驱动内异常退出。现有证据还需与同机关闭 RTSS 的结果对照。

@@ -107,7 +107,9 @@ def audit_source(root=ROOT):
     from ps2_game import analysis_sources
     from ps2_ibara import analysis_sources as ibara_analysis_sources
     from ps2_daioujou import analysis_sources as daioujou_analysis_sources
-    analysis={**analysis_sources(root), **ibara_analysis_sources(root), **daioujou_analysis_sources(root)}
+    from ps2_rtype import analysis_sources as rtype_analysis_sources
+    analysis={**analysis_sources(root), **ibara_analysis_sources(root),
+              **daioujou_analysis_sources(root), **rtype_analysis_sources(root)}
     count, total = 0, 0
     for name in names:
         if not name.isascii():

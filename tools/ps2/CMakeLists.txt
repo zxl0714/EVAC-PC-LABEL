@@ -10,12 +10,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 get_filename_component(COLLECTION_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(DEPS "${COLLECTION_ROOT}/.deps/ps2")
 set(UPSTREAM "${DEPS}/PS2Recomp")
+set(VU_SOURCE "${DEPS}/PS2VuAot")
 set(PS2_RUNTIME_INCLUDE "${CMAKE_BINARY_DIR}/runtime-include")
 # All runtime headers come from one view, including quoted sibling includes in
 # the SDK headers. Mixing the upstream class layout with the adapted layout
 # would violate the native ABI.
 file(COPY "${UPSTREAM}/ps2xRuntime/include/" DESTINATION "${PS2_RUNTIME_INCLUDE}"
-  PATTERN "ps2_runtime.h" EXCLUDE PATTERN "ps2_memory.h" EXCLUDE
+  PATTERN "ps2_runtime.h" EXCLUDE PATTERN "ps2_memory.h" EXCLUDE PATTERN "ps2_vfs.h" EXCLUDE
+  PATTERN "ps2_vu1.h" EXCLUDE
   PATTERN "ps2_runtime_macros.h" EXCLUDE
   PATTERN "gs_frontend.h" EXCLUDE PATTERN "ps2_gif_arbiter.h" EXCLUDE PATTERN "ee_scheduler.h" EXCLUDE)
 configure_file("${UPSTREAM}/ps2xRuntime/include/ps2_runtime_macros.h"
@@ -30,6 +32,9 @@ configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ee_scheduler.h"
   "${PS2_RUNTIME_INCLUDE}/runtime/ee_scheduler.h" COPYONLY)
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.h"
   "${PS2_RUNTIME_INCLUDE}/runtime/ps2_memory.h" COPYONLY)
+configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vfs.h"
+  "${PS2_RUNTIME_INCLUDE}/runtime/ps2_vfs.h" COPYONLY)
+include("${CMAKE_CURRENT_LIST_DIR}/Vu.cmake")
 foreach(header gs_frontend ps2_gif_arbiter)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/${header}.h"
     "${PS2_RUNTIME_INCLUDE}/runtime/gs/${header}.h" COPYONLY)
@@ -70,6 +75,8 @@ list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/fpu_transl
 list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/instruction_translator.cpp")
 list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/instruction_translator.cpp")
 add_library(ps2_recomp_lib STATIC ${RECOMP_SOURCES})
+add_executable(ps2_vu_aot "${VU_SOURCE}/ps2xRecomp/src/vu_aot/ps2_vu_aot.cpp")
+target_include_directories(ps2_vu_aot PRIVATE "${VU_SOURCE}/ps2xRuntime/include")
 target_compile_definitions(ps2_recomp_lib PUBLIC LIBDWARF_STATIC)
 target_include_directories(ps2_recomp_lib PUBLIC
   "${UPSTREAM}/ps2xRecomp/include" "${DEPS}/elfio"
@@ -158,7 +165,8 @@ if(PS2_BUILD_RUNTIME)
   set(IOP_SOURCE_VIEW "${CMAKE_BINARY_DIR}/iop-source")
   file(COPY "${UPSTREAM}/ps2xIOP/src/" DESTINATION "${IOP_SOURCE_VIEW}"
     PATTERN "iop_memory.h" EXCLUDE PATTERN "iop_memory.cpp" EXCLUDE
-    PATTERN "iop_module_loader.cpp" EXCLUDE PATTERN "iop_emulator.cpp" EXCLUDE
+    PATTERN "iop_module_loader.h" EXCLUDE PATTERN "iop_module_loader.cpp" EXCLUDE
+    PATTERN "iop_emulator.cpp" EXCLUDE
     PATTERN "iop_emulator.h" EXCLUDE PATTERN "iop_subsystem.cpp" EXCLUDE
     PATTERN "iop_sysclib.cpp" EXCLUDE PATTERN "iop_cpu.h" EXCLUDE
     PATTERN "iop_cpu.cpp" EXCLUDE PATTERN "iop_kernel.cpp" EXCLUDE PATTERN "iop_kernel.h" EXCLUDE)
@@ -168,6 +176,8 @@ if(PS2_BUILD_RUNTIME)
     "${IOP_SOURCE_VIEW}/emulator/core/iop_cpu.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_kernel.h"
     "${IOP_SOURCE_VIEW}/emulator/core/iop_kernel.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_module_loader.h"
+    "${IOP_SOURCE_VIEW}/emulator/services/iop_module_loader.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_emulator.h"
     "${IOP_SOURCE_VIEW}/emulator/iop_emulator.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_rpc.h"
@@ -226,17 +236,16 @@ if(PS2_BUILD_RUNTIME)
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"
-    "${RUNTIME}/src/lib/ps2_vfs.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vfs.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
     "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp"
     "${COLLECTION_ROOT}/backends/ps2/function_table.cpp"
     "${COLLECTION_ROOT}/backends/ps2/native_host.cpp"
     "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vif1_interpreter.cpp"
-    "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vu1_core.cpp"
-    "${RUNTIME}/src/lib/vu/ps2_vu1_upper.cpp"
-    "${RUNTIME}/src/lib/vu/ps2_vu1_lower.cpp"
+    "${PS2_VU_CORE}"
     "${RUNTIME}/src/lib/games_database.cpp" ${KERNEL_SOURCES})
+  set_source_files_properties("${PS2_VU_CORE}" PROPERTIES COMPILE_OPTIONS "/clang:-msse4.1")
   target_include_directories(ps2_runtime PUBLIC "${PS2_RUNTIME_INCLUDE}"
     "${COLLECTION_ROOT}/backends/ps2"
     "${RUNTIME}/src/lib/Kernel" PRIVATE "${RUNTIME}/src/lib"

@@ -195,6 +195,7 @@ namespace ps2x::iop::detail
             currentLsn = 0u;
             lastError = kCdvdErrorNone;
             streamFlag = 0u;
+            stream = {};
             lastReadTimeout = 0u;
             interruptEventFlagId = 0;
             virtualIsoBuilt = false;
@@ -339,6 +340,78 @@ namespace ps2x::iop::detail
                 }
             }
 
+            case 56: // sceCdStInit
+            {
+                const uint64_t bytes = uint64_t(a0) * kSectorSize;
+                if (a1 == 0u || a1 > a0 || a2 == 0u || bytes > IopMemory::RamSize ||
+                    !memory.ownsRamRange(a2, static_cast<size_t>(bytes)))
+                {
+                    cpu.gpr[2] = 0u;
+                    return true;
+                }
+                // The host can read from the image on demand without copying
+                // into the hardware's intermediate ring buffer.
+                stream = {};
+                stream.capacity = (a0 / a1) * a1;
+                cpu.gpr[2] = 1u;
+                return true;
+            }
+
+            case 57: // sceCdStRead
+            {
+                const uint32_t count = std::min(a0, streamAvailable());
+                uint32_t read = 0u;
+                lastError = kCdvdErrorNone;
+                if (count != 0u && readSectors(stream.lsn, count, a1))
+                {
+                    stream.lsn += count;
+                    read = count;
+                }
+                const uint32_t error = cpu.gpr[7];
+                if (error != 0u && memory.ownsRamRange(error, sizeof(uint32_t)))
+                    memory.write32(error, lastError);
+                cpu.gpr[2] = read;
+                return true;
+            }
+
+            case 58: // sceCdStSeek
+            case 77: // sceCdStSeekF
+                cpu.gpr[2] = stream.active && a0 < stream.end ? 1u : 0u;
+                if (cpu.gpr[2] != 0u)
+                    stream.lsn = a0;
+                return true;
+
+            case 59: // sceCdStStart
+            {
+                const uint32_t end = stream.capacity ? discSectors() : 0u;
+                cpu.gpr[2] = a0 < end ? 1u : 0u;
+                if (cpu.gpr[2] != 0u)
+                {
+                    stream.lsn = a0;
+                    stream.end = end;
+                    stream.active = true;
+                    stream.paused = false;
+                }
+                return true;
+            }
+
+            case 60: // sceCdStStat
+                cpu.gpr[2] = streamAvailable();
+                return true;
+
+            case 61: // sceCdStStop
+                stream.active = false;
+                stream.paused = false;
+                cpu.gpr[2] = 1u;
+                return true;
+
+            case 67: // sceCdStPause
+            case 68: // sceCdStResume
+                cpu.gpr[2] = stream.active ? 1u : 0u;
+                if (stream.active)
+                    stream.paused = ordinal == 67;
+                return true;
+
             case 75: // sceCdMmode
                 mediaMode = a0;
                 cpu.gpr[2] = 1u;
@@ -357,6 +430,28 @@ namespace ps2x::iop::detail
         }
 
     private:
+        uint32_t streamAvailable() const
+        {
+            return stream.active && !stream.paused ?
+                std::min(stream.capacity, stream.end - stream.lsn) : 0u;
+        }
+
+        uint32_t discSectors()
+        {
+            const std::string imagePath = host.hostPath(HostPathKind::CdImage);
+            if (!imagePath.empty())
+            {
+                if (imageHandle == 0u)
+                    imageHandle = host.openHostFile(imagePath);
+                uint64_t bytes = 0u;
+                if (imageHandle != 0u && host.hostFileSize(imageHandle, bytes))
+                    return static_cast<uint32_t>(std::min<uint64_t>(
+                        bytes / kSectorSize, std::numeric_limits<uint32_t>::max()));
+                return 0u;
+            }
+            return buildVirtualIso() ? volumeSectors : 0u;
+        }
+
         int ensureInterruptEventFlag()
         {
             if (interruptEventFlagId == 0)
@@ -730,6 +825,14 @@ namespace ps2x::iop::detail
         uint32_t currentLsn = 0u;
         uint32_t lastError = kCdvdErrorNone;
         uint32_t streamFlag = 0u;
+        struct
+        {
+            uint32_t capacity = 0u;
+            uint32_t lsn = 0u;
+            uint32_t end = 0u;
+            bool active = false;
+            bool paused = false;
+        } stream;
         uint32_t lastReadTimeout = 0u;
         int interruptEventFlagId = 0;
         uint64_t imageHandle = 0u;

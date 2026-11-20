@@ -354,6 +354,17 @@ game-data/daioujou-ps2/
   DoDonPachi Dai-Ou-Jou (Japan).iso
 ```
 
+<a id="rtype-final"></a>
+
+### R-Type Final（rtype-final）
+
+将 PS2 美版原始 ISO（SLUS-20780，1.01）放到下方目录，也可以在启动器的「游戏数据…」选择 ISO 所在目录。若 ISO 在 ZIP 或 7z 里，先解压出 ISO。
+
+```text
+game-data/rtype-final/
+  R-Type Final (USA).iso
+```
+
 ## 无法识别时怎么检查
 
 **只有 ISO、PKG 或 ZIP 文件，能直接选吗？**

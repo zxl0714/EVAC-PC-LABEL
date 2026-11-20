@@ -25,6 +25,8 @@
 #elif defined(EVAC_PS2_DAIOUJOU)
 #include "games/daioujou-ps2/disc_files.h"
 #include "games/daioujou-ps2/disc_program.h"
+#elif defined(EVAC_PS2_RTYPE_FINAL)
+#include "games/rtype-final/disc_files.h"
 #else
 #include "games/espgaluda/disc_files.h"
 #include "games/espgaluda/input_timing.h"
@@ -35,6 +37,9 @@ extern const uint32_t g_ps2ArcadeFunctionTableBase, g_ps2ArcadeFunctionTableSlot
 extern PS2Runtime::RecompiledFunction g_ps2ArcadeFunctionTable[];
 extern const uint32_t g_ps2ArrangeFunctionTableBase, g_ps2ArrangeFunctionTableSlotCount;
 extern PS2Runtime::RecompiledFunction g_ps2ArrangeFunctionTable[];
+#endif
+#ifdef EVAC_PS2_RTYPE_FINAL_BANKS
+void RegisterRTypeFinalStaticModules(PS2Runtime& runtime);
 #endif
 
 namespace {
@@ -204,6 +209,11 @@ const cave::ps2::CollectionGame CollectionDefinition{"ibara","6e58b52aa5c03d45e4
 constexpr bool IsIbara=false;
 constexpr const char* WindowTitle="EVAC PC LABEL | DoDonPachi DaiOuJou (PS2)";
 const cave::ps2::CollectionGame CollectionDefinition{"daioujou-ps2",cave::daioujou_ps2::DiscSha256,cave::daioujou_ps2::DiscFiles};
+#elif defined(EVAC_PS2_RTYPE_FINAL)
+constexpr bool IsIbara = false;
+constexpr const char* WindowTitle = "EVAC PC LABEL | R-Type Final";
+const cave::ps2::CollectionGame CollectionDefinition{
+    "rtype-final", cave::rtype_final::DiscSha256, cave::rtype_final::DiscFiles};
 #else
 constexpr bool IsIbara=false;
 constexpr const char* WindowTitle="EVAC PC LABEL | ESPGaluda";
@@ -482,7 +492,13 @@ template<uint32_t Address> struct Observe {
     const bool indexCopy=Address==0x118048u && source>=0x646980 && source<0x647980;
     const bool soundEntry=Address==0x124a40u || Address==0x124dc0u || Address==0x124ff0u ||
       Address==0x285ab0u || Address==0x27f3e0u || Address==0x27d6e0u || Address==0x27d738u;
-    const bool log=++calls<=((soundEntry || Address==0x27e6c0u || Address==0x107be8u || Address==0x1043a0u || Address==0x127480u)?128u:4u) || (Address==0x27f310u && state!=lastState);
+    constexpr bool rtypeDiscEntry=Address==0x11c910u || Address==0x11cf50u ||
+        Address==0x130d50u || Address==0x12ef40u;
+    constexpr bool rtypeMovieIrq=Address==0x155630u || Address==0x1555e0u;
+    const unsigned limit=(soundEntry || Address==0x27e6c0u || Address==0x107be8u ||
+        Address==0x1043a0u || Address==0x127480u)?128u:rtypeDiscEntry?24u:4u;
+    const bool log=++calls<=limit || (rtypeMovieIrq && calls%120u==0u) ||
+        (Address==0x27f310u && state!=lastState);
     lastState=state;
     if(log) {
       std::ostringstream line;
@@ -495,6 +511,39 @@ template<uint32_t Address> struct Observe {
         line<<" source=";
         for(unsigned i=0;path+i<PS2_RAM_SIZE && i<128 && memory[path+i];++i)
           line<<char(memory[path+i]>=32 && memory[path+i]<127?memory[path+i]:'?');
+      }
+      if constexpr(Address==0x11fde0u) {
+        uint32_t header{};
+        line<<" iop_elf="<<(runtime->readIopMemory(argument,&header,sizeof(header)) && header==0x464c457fu);
+      }
+      if constexpr(rtypeMovieIrq) {
+        auto& mem=runtime->memory();
+        line<<" irq_calls="<<calls<<" field="<<((mem.gs().csr.load()>>13u)&1u)
+            <<" smode2="<<mem.gs().smode2<<" gif_chcr="<<mem.readIORegister(0x1000a000u)
+            <<" gif_stat="<<mem.readIORegister(0x10003020u)
+            <<" running="<<mem.read32(0x2c70e0u)<<" fields="<<mem.read32(0x2c70e8u)
+            <<" upload="<<mem.read32(0x2c70f0u)<<" busy="<<mem.read32(0x2c7100u);
+        const uint32_t queue=mem.read32(0x2c7180u)+0x1381ccu;
+        const uint32_t next=mem.read32(queue+8u),count=mem.read32(queue+12u),capacity=mem.read32(queue+16u);
+        line<<" queue="<<count<<'/'<<capacity;
+        if(count!=0u && count<=capacity && capacity<=8u) {
+          const uint32_t front=(next+capacity-count)%capacity;
+          const uint32_t descriptor=mem.read32(queue+4u)+front*0x26180u;
+          line<<" front="<<mem.read32(descriptor);
+        }
+      }
+      if constexpr(Address==0x11c910u || Address==0x130d50u || Address==0x12ef40u) {
+        const auto printString=[&](const char* name,uint32_t address) {
+          const auto offset=address&0x1fffffffu;
+          if(!offset || offset>=PS2_RAM_SIZE-96)return;
+          line<<name;
+          for(unsigned i=0;i<96 && memory[offset+i];++i) {
+            const auto value=memory[offset+i];
+            line<<(value>=32 && value<127?char(value):'?');
+          }
+        };
+        if constexpr(Address!=0x130d50u)printString(" text=",argument);
+        if constexpr(Address!=0x11c910u)printString(" name=",source);
       }
       if(indexCopy) {
         line<<" sp=0x"<<_mm_cvtsi128_si32(context->r[29]);
@@ -736,11 +785,14 @@ int main(int argc,char** argv) {
     configureRuntime(runtime);
     if(!runtime.initialize(WindowTitle))throw std::runtime_error("PS2 host initialization failed");
     if(!runtime.loadELF(elf.string()))throw std::runtime_error("Boot ELF loading failed");
+#ifdef EVAC_PS2_RTYPE_FINAL_BANKS
+    RegisterRTypeFinalStaticModules(runtime);
+#endif
     if (!std::getenv("EVAC_PS2_TEST_ORIGINAL_PAD_TIMING")) {
 #ifdef EVAC_PS2_IBARA
       cave::ibara::InputTiming::Bind(runtime);
       cave::ibara::DisplayWorker::Bind(runtime);
-#else
+#elif !defined(EVAC_PS2_RTYPE_FINAL)
       cave::espgaluda::InputTiming::Bind(runtime);
 #endif
     }
@@ -782,6 +834,24 @@ int main(int argc,char** argv) {
       Observe<0x127480u>::Bind(runtime);
       Observe<0x124600u>::Bind(runtime);
     }
+#ifdef EVAC_PS2_RTYPE_FINAL
+    if(traceBoot) {
+      Observe<0x11c910u>::Bind(runtime);
+      Observe<0x11cf50u>::Bind(runtime);
+      Observe<0x11fde0u>::Bind(runtime);
+      Observe<0x123688u>::Bind(runtime);
+      Observe<0x1243e8u>::Bind(runtime);
+      Observe<0x12ef40u>::Bind(runtime);
+      Observe<0x130d50u>::Bind(runtime);
+      Observe<0x116830u>::Bind(runtime);
+      Observe<0x116a68u>::Bind(runtime);
+      Observe<0x115c08u>::Bind(runtime);
+      Observe<0x155630u>::Bind(runtime);
+      Observe<0x1555e0u>::Bind(runtime);
+      Observe<0x159a10u>::Bind(runtime);
+      Observe<0x155590u>::Bind(runtime);
+    }
+#endif
     if(traceAudio && !traceBoot && IsEspgaluda)Observe<0x27e6c0u>::Bind(runtime);
     if(traceAudio && IsEspgaluda) {
       Observe<0x124a40u>::Bind(runtime);

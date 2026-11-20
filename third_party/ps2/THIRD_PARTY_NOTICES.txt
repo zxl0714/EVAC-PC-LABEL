@@ -6,6 +6,11 @@ GNU General Public License version 3. Maintained changes are under
 third_party/ps2/runtime/ and third_party/ps2/recomp/ in the corresponding source.
 License: runtime/LICENSE and recomp/LICENSE in this directory.
 
+PS2Recomp VU1 compiler and runtime, The Bozos fork
+https://github.com/TheBozos/PS2Recomp/tree/03113132ca7409423d1f86695f1a7930fa46b2a2
+GNU General Public License version 3. Source revision and local changes are
+recorded in tools/ps2-source.lock.json and tools/ps2/vu-runtime.patch.txt.
+
 Play! SPU and Play! Framework
 https://github.com/jpd002/Play-
 https://github.com/jpd002/Play--Framework
@@ -32,6 +37,12 @@ https://github.com/libsdl-org/SDL
 https://github.com/raysan5/raylib
 License texts are included under licenses/.deps/ps2/SDL/ and raylib/.
 raylib's bundled dependency notices are retained in its corresponding source.
+
+FFmpeg 7.1.3
+The R-Type Final runtime uses the FFmpeg MPEG-2 decoder under the GNU
+Lesser General Public License version 2.1 or later.
+The release includes the corresponding source, build options and license in
+licenses/ffmpeg/. Upstream project at https://ffmpeg.org/.
 
 Exact dependency revisions: licenses/ps2-sources.json.
 Corresponding maintained source and build instructions: SOURCE.txt and

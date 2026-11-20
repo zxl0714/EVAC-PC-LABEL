@@ -25,6 +25,7 @@ namespace ps2x::iop
 
         [[nodiscard]] ModuleLoadResult loadModule(std::string_view path, const void *arguments = nullptr, uint32_t argumentSize = 0);
         [[nodiscard]] ModuleLoadResult loadModuleBuffer(uint32_t guestAddress, const void *arguments = nullptr, uint32_t argumentSize = 0);
+        [[nodiscard]] ModuleLoadResult loadModuleFromIopRam(uint32_t address, const void *arguments, uint32_t argumentSize);
         [[nodiscard]] bool stopModule(int32_t moduleId, int32_t *result = nullptr);
         void runEeCycles(uint64_t eeCycles) noexcept;
         void setAudioVolumes(unsigned stream, unsigned voices) noexcept;

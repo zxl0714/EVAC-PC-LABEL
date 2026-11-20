@@ -78,6 +78,65 @@ function(ps2_add_disc_program target prefix generated)
   target_sources(${target} PRIVATE $<TARGET_OBJECTS:${prefix}>)
 endfunction()
 
+set(PS2_RTYPE_FINAL_GENERATED "" CACHE PATH "Private generated R-Type Final native code")
+set(PS2_RTYPE_FINAL_BANKS "" CACHE FILEPATH "Private R-Type Final code bank manifest")
+set(PS2_RTYPE_FINAL_VU "" CACHE PATH "Private R-Type Final VU1 sources")
+set(PS2_RTYPE_FINAL_FFMPEG "" CACHE PATH "Windows FFmpeg SDK for R-Type Final movie playback")
+if(PS2_RTYPE_FINAL_GENERATED)
+  if(NOT PS2_RTYPE_FINAL_BANKS OR NOT PS2_RTYPE_FINAL_VU OR NOT PS2_RTYPE_FINAL_FFMPEG)
+    message(FATAL_ERROR "R-Type Final requires the reviewed banks, VU1 sources and movie decoder SDK")
+  endif()
+  add_executable(ps2_rtype_final_probe)
+  ps2_configure_native_title(ps2_rtype_final_probe rtype-final "${PS2_RTYPE_FINAL_GENERATED}"
+    EVAC_PS2_RTYPE_FINAL "${COLLECTION_ROOT}/games/rtype-final/sdk_bindings.cpp")
+  set(bank_directory "${CMAKE_CURRENT_BINARY_DIR}/rtype-final-banks")
+  set(bank_script "${COLLECTION_ROOT}/scripts/ps2_rtype_banks.py")
+  execute_process(COMMAND py -3.12 "${bank_script}" "${PS2_RTYPE_FINAL_BANKS}" "${bank_directory}"
+    RESULT_VARIABLE bank_result ERROR_VARIABLE bank_error)
+  if(NOT bank_result EQUAL 0)
+    message(FATAL_ERROR "Invalid R-Type Final code banks: ${bank_error}")
+  endif()
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${bank_script}" "${PS2_RTYPE_FINAL_BANKS}")
+  include("${bank_directory}/modules.cmake")
+  target_compile_definitions(ps2_rtype_final_probe PRIVATE EVAC_PS2_RTYPE_FINAL_BANKS=1)
+
+  file(GLOB rtype_vu_sources CONFIGURE_DEPENDS "${PS2_RTYPE_FINAL_VU}/*.cpp")
+  if(NOT rtype_vu_sources)
+    message(FATAL_ERROR "No compiled VU1 microprograms for R-Type Final")
+  endif()
+  add_library(ps2_rtype_final_vu OBJECT ${rtype_vu_sources})
+  target_link_libraries(ps2_rtype_final_vu PRIVATE ps2_runtime)
+  target_compile_options(ps2_rtype_final_vu PRIVATE /clang:-O3 /clang:-msse4.1 /clang:-g0)
+  target_sources(ps2_rtype_final_probe PRIVATE $<TARGET_OBJECTS:ps2_rtype_final_vu>)
+
+  # The original MPEG SDK calls delegate decoding to the host. Only R-Type
+  # Final links FFmpeg. Its MPEG implementation resolves the runtime's
+  # references before the disabled implementation in the static archive.
+  add_library(ps2_rtype_final_movie OBJECT "${RUNTIME}/src/lib/Kernel/Stubs/MPEG.cpp")
+  target_link_libraries(ps2_rtype_final_movie PRIVATE ps2_runtime)
+  target_include_directories(ps2_rtype_final_movie PRIVATE
+    "${RUNTIME}/src/lib" "${PS2_RTYPE_FINAL_FFMPEG}/include")
+  target_compile_definitions(ps2_rtype_final_movie PRIVATE PS2X_HAS_FFMPEG=1)
+  target_sources(ps2_rtype_final_probe PRIVATE $<TARGET_OBJECTS:ps2_rtype_final_movie>)
+  set_source_files_properties("${COLLECTION_ROOT}/games/rtype-final/sdk_bindings.cpp"
+    PROPERTIES COMPILE_DEFINITIONS EVAC_PS2_RTYPE_FINAL_MOVIES=1 SKIP_PRECOMPILE_HEADERS ON)
+  foreach(codec avcodec avutil swscale)
+    target_link_libraries(ps2_rtype_final_probe PRIVATE "${PS2_RTYPE_FINAL_FFMPEG}/bin/${codec}.lib")
+  endforeach()
+  set(decoder_sources "")
+  set(decoder_outputs "")
+  foreach(dll avcodec-61.dll avutil-59.dll swscale-8.dll)
+    list(APPEND decoder_sources "${PS2_RTYPE_FINAL_FFMPEG}/bin/${dll}")
+    list(APPEND decoder_outputs "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${dll}")
+  endforeach()
+  add_custom_command(OUTPUT ${decoder_outputs}
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${decoder_sources} "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    DEPENDS ${decoder_sources} VERBATIM)
+  add_custom_target(ps2_rtype_final_movie_runtime DEPENDS ${decoder_outputs})
+  add_dependencies(ps2_rtype_final_probe ps2_rtype_final_movie_runtime)
+endif()
+
 if(PS2_DAIOUJOU_GENERATED)
   if(NOT PS2_DAIOUJOU_DEATH_GENERATED OR NOT PS2_DAIOUJOU_GALLERY_GENERATED)
     message(FATAL_ERROR "DaiOuJou PS2 requires the main, Death Label and Gallery programs")

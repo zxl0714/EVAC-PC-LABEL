@@ -206,6 +206,7 @@ int main(int argc,char** argv) {
         IopRpcClockContract();
         SysclibCharacterFlags();
         NopRetirement();
+        IopTransferredModuleContract();
         AudioInsideGuestCall();
         IopImportLoadDelay();
         IopSifDmaCompletion();

@@ -208,7 +208,7 @@ def validate_sdk_lifecycles(general, source):
     return checked
 
 
-def validate_static_edges(generated, elf):
+def validate_static_edges(generated, elf, external_entries=()):
     """Reject missing constant branches and reachable translated-block tails.
 
     A plain generated C++ tail can follow an unconditional JR/ERET return, so
@@ -240,6 +240,7 @@ def validate_static_edges(generated, elf):
     linked = table_entries(generated/'register_functions.cpp')
     if not linked:
         raise ValueError('Static-edge validation requires a generated function table')
+    available = set(linked).union(external_entries)
     missing = []; bodies = edges = tails = 0
     for source in generated.glob('*.cpp'):
         if source.name == 'register_functions.cpp':
@@ -266,7 +267,7 @@ def validate_static_edges(generated, elf):
                 targets.add(address)
                 tails += 1
         edges += len(targets)
-        missing.extend(f'{source.stem}:0x{target:x}' for target in sorted(targets-linked.keys()))
+        missing.extend(f'{source.stem}:0x{target:x}' for target in sorted(targets-available))
     if missing:
         raise ValueError('Missing statically compiled guest edges: '+', '.join(missing[:24]))
     return dict(bodies=bodies, constantEdges=edges, reachableTails=tails)

@@ -37,6 +37,22 @@ public:
     void log(ps2x::iop::LogLevel,std::string_view) override{}
 };
 
+void IopTransferredModuleContract() {
+    AudioFixtureHost host;
+    ps2x::iop::detail::IopEmulator emulator(host);
+    const auto image = ModuleFixture();
+    const auto address = emulator.allocateMemory(static_cast<uint32_t>(image.size()));
+    Require(address && emulator.writeMemory(address, image.data(), image.size()),
+            "Cannot transfer the authored module into IOP RAM");
+    Require(emulator.loadModuleBuffer(address, nullptr, 0).moduleId < 0,
+            "EE buffer lookup accepted an image stored only in IOP RAM");
+    const auto loaded = emulator.loadModuleFromIopRam(address, nullptr, 0);
+    Require(loaded.moduleId > 0 && loaded.startResult == 0,
+            "Transferred IOP module did not load and run its entry");
+    Require(emulator.loadModuleFromIopRam(0xfffffffc, nullptr, 0).moduleId < 0,
+            "Transferred IOP module reader accepted an out-of-range buffer");
+}
+
 void AudioInsideGuestCall() {
     AudioFixtureHost host;
     host.image.resize(0x1100);

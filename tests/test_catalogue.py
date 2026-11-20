@@ -19,7 +19,8 @@ class CatalogueTests(unittest.TestCase):
 
     def test_real_catalogue_order_and_states(self):
         games = catalogue.load(self.path)
-        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara', 'daioujou-ps2'])
+        self.assertEqual([g['id'] for g in games], ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou',
+            'esprade', 'guwange', 'feveron', 'garegga', 'espgaluda', 'ibara', 'daioujou-ps2', 'rtype-final'])
         self.assertFalse(any(g['comingSoon'] for g in games))
         self.assertTrue(all(g['integrated'] for g in games))
         feveron=next(g for g in games if g['id']=='feveron')

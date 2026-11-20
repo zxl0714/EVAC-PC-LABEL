@@ -235,6 +235,26 @@
         "runtime/ps2/SDL3.dll",
         "runtime/games/daioujou-ps2/runtime-manifest.ini"
       ]
+    },
+    {
+      "id": "rtype-final",
+      "name": "R-Type Final",
+      "nameJapanese": "R-TYPE FINAL",
+      "backend": "ps2",
+      "integrated": true,
+      "comingSoon": false,
+      "communitySupported": false,
+      "dataDirectory": "game-data/rtype-final",
+      "dataManifest": "rtype-final/data.json",
+      "executable": "runtime/ps2/rtype-final.exe",
+      "runtimeFiles": [
+        "runtime/ps2/rtype-final.exe",
+        "runtime/ps2/SDL3.dll",
+        "runtime/ps2/avcodec-61.dll",
+        "runtime/ps2/avutil-59.dll",
+        "runtime/ps2/swscale-8.dll",
+        "runtime/games/rtype-final/runtime-manifest.ini"
+      ]
     }
   ]
 }

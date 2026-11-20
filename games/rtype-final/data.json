@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "game": "rtype-final",
+  "titleId": "SLUS-20780",
+  "version": "1.01",
+  "layout": "iso",
+  "files": [
+    {
+      "path": "SLUS_207.80",
+      "bytes": 1665312,
+      "sha256": "9a058df5aeb11ee54d0e726731f7096cbf823538671c1afaa765111ee1106a1a",
+      "program": true
+    },
+    {
+      "path": "disc.iso",
+      "bytes": 3374415872,
+      "sha256": "3744ef0624bd342455e5de3116b23aa8a413d21c786b3c7da493cab20547cded",
+      "program": false
+    }
+  ]
+}

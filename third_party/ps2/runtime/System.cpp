@@ -1,6 +1,7 @@
 #include "Common.h"
 #include "System.h"
 #include "crt_mode.h"
+#include "sdk_binding.h"
 #include <array>
 #include <cstring>
 #include <string>
@@ -281,18 +282,25 @@ namespace ps2_syscalls
         SifLoadModule(rdram, ctx, runtime);
     }
 
-    void sceSifLoadModuleBuffer(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    static void loadSifModuleBuffer(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, bool transferred)
     {
-        const uint32_t bufferAddr = getRegU32(ctx, 4);   // $a0
-        const uint32_t argumentSize = getRegU32(ctx, 5); // $a1
-        const uint32_t argumentAddr = getRegU32(ctx, 6); // $a2
-        if (!rdram || bufferAddr == 0u)
+        const uint32_t bufferAddr = getRegU32(ctx, 4);
+        const uint32_t argumentSize = getRegU32(ctx, 5);
+        const uint32_t argumentAddr = getRegU32(ctx, 6);
+        if (!rdram || !bufferAddr || !runtime)
         {
             setReturnS32(ctx, -1);
             return;
         }
 
-        const std::string moduleTag = makeSifModuleBufferTag(rdram, bufferAddr);
+        const uint32_t resultAddr = transferred ? getRegU32(ctx, 7) : 0u;
+        uint8_t *startResult = resultAddr && !(resultAddr & 3u) ? getMemPtr(rdram, resultAddr) : nullptr;
+        if (resultAddr && !startResult)
+        {
+            setReturnS32(ctx, -1);
+            return;
+        }
+
         std::vector<uint8_t> arguments;
         constexpr uint32_t kMaxIopModuleArguments = 64u * 1024u;
         if (!copyGuestBytesBounded(rdram, argumentAddr, argumentSize, kMaxIopModuleArguments, arguments))
@@ -301,22 +309,33 @@ namespace ps2_syscalls
             return;
         }
 
-        if (!runtime)
-        {
-            setReturnS32(ctx, -1);
-            return;
-        }
-
-        const auto loaded = runtime->loadIopModuleBuffer(bufferAddr, arguments.empty() ? nullptr : arguments.data(), static_cast<uint32_t>(arguments.size()));
+        const auto eeTag = transferred ? std::string{} : makeSifModuleBufferTag(rdram, bufferAddr);
+        const auto loaded = transferred
+            ? runtime->loadIopModuleFromIopRam(bufferAddr, arguments.data(), argumentSize)
+            : runtime->loadIopModuleBuffer(bufferAddr, arguments.data(), argumentSize);
         if (!loaded.handled || loaded.moduleId <= 0)
         {
             setReturnS32(ctx, -1);
             return;
         }
 
+        if (startResult)
+            std::memcpy(startResult, &loaded.startResult, sizeof(loaded.startResult));
+        const auto moduleTag = transferred ? "iopbuf:module-" + std::to_string(loaded.moduleId) : eeTag;
         trackSifModuleLoadExternal(moduleTag, loaded.moduleId);
         logSifModuleAction("load-buffer-emulated", loaded.moduleId, moduleTag, 1u);
         setReturnS32(ctx, loaded.moduleId);
+    }
+
+    void sceSifLoadModuleBuffer(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        loadSifModuleBuffer(rdram, ctx, runtime, false);
+    }
+
+    void sceSifLoadModuleFromIopRam(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        // The internal client receives the destination of an EE-to-IOP DMA.
+        loadSifModuleBuffer(rdram, ctx, runtime, true);
     }
 
     void TODO(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, uint32_t encodedSyscallId)

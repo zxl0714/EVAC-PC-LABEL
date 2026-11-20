@@ -25,6 +25,7 @@
 #include <fstream>
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <chrono>
@@ -106,6 +107,9 @@ namespace
     constexpr uint32_t EXCEPTION_VECTOR_GENERAL = 0x80000080u;
     constexpr uint32_t EXCEPTION_VECTOR_TLB_REFILL = 0x80000000u;
     constexpr uint32_t EXCEPTION_VECTOR_BOOT = 0xBFC00200u;
+    // VIF launches a microprogram to completion. Bound malformed loops while
+    // giving long geometry batches enough cycles to publish their full output.
+    constexpr uint32_t kVu1ProgramCycleLimit = 1u << 20;
 
     struct DispatchHistory
     {
@@ -604,6 +608,12 @@ ps2x::iop::ModuleLoadResult PS2Runtime::loadIopModuleBuffer(uint32_t guestAddres
     return m_iopSubsystem->loadModuleBuffer(guestAddress, arguments, argumentSize);
 }
 
+ps2x::iop::ModuleLoadResult PS2Runtime::loadIopModuleFromIopRam(uint32_t address, const void *arguments, uint32_t argumentSize)
+{
+    auto scope = m_iopHost->enterCall(nullptr, m_memory.getRDRAM());
+    return m_iopSubsystem->loadModuleFromIopRam(address, arguments, argumentSize);
+}
+
 bool PS2Runtime::stopIopModule(int32_t moduleId, int32_t *result)
 {
     auto scope = m_iopHost->enterCall(nullptr, m_memory.getRDRAM());
@@ -727,7 +737,7 @@ bool PS2Runtime::syncCoreSubsystems()
                                          (cpuContext->vu0_fbrst & (1u << 11)) != 0u;
                                      m_vu1.execute(m_memory.getVU1Code(), PS2_VU1_CODE_SIZE,
                                                    m_memory.getVU1Data(), PS2_VU1_DATA_SIZE,
-                                                   m_gs, &m_memory, startPC, top, itop, 65536);
+                                                   m_gs, &m_memory, startPC, top, itop, kVu1ProgramCycleLimit);
                                      cpuContext->vu0_vpu_stat =
                                          (cpuContext->vu0_vpu_stat & ~0x0600u) |
                                          (m_vu1.state().stoppedByD ? 0x0200u : 0u) |
@@ -745,7 +755,7 @@ bool PS2Runtime::syncCoreSubsystems()
                                          (cpuContext->vu0_fbrst & (1u << 11)) != 0u;
                                      m_vu1.resume(m_memory.getVU1Code(), PS2_VU1_CODE_SIZE,
                                                   m_memory.getVU1Data(), PS2_VU1_DATA_SIZE,
-                                                  m_gs, &m_memory, top, itop, 65536);
+                                                  m_gs, &m_memory, top, itop, kVu1ProgramCycleLimit);
                                      cpuContext->vu0_vpu_stat =
                                          (cpuContext->vu0_vpu_stat & ~0x0600u) |
                                          (m_vu1.state().stoppedByD ? 0x0200u : 0u) |
@@ -806,6 +816,7 @@ bool PS2Runtime::loadELF(const std::string &elfPath)
 {
     m_staticModules.clear();
     configureIoPathsFromElf(elfPath);
+    m_vfs.mountDiscImage(getIoPaths().cdImage);
 
     std::ifstream file(elfPath, std::ios::binary);
     if (!file)

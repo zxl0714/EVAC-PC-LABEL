@@ -4,6 +4,10 @@
 #include "ps2_stubs.h"
 #include "ps2_syscalls.h"
 
+namespace ps2_syscalls {
+void sceSifLoadModuleFromIopRam(uint8_t* memory, R5900Context* context, PS2Runtime* runtime);
+}
+
 namespace cave::ps2 {
 template<PS2Runtime::RecompiledFunction Handler>
 void SdkEntry(uint8_t* memory,R5900Context* context,PS2Runtime* runtime) {

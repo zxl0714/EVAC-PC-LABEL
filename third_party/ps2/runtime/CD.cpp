@@ -1,6 +1,7 @@
 #include "Kernel/Stubs/Common.h"
 #include "iso_disc.h"
 #include <fstream>
+#include <map>
 #include "Kernel/Stubs/CD.h"
 #include "Kernel/Stubs/MPEG.h"
 #include "runtime/ee_scheduler.h"
@@ -32,6 +33,17 @@ namespace ps2_stubs
 
         uint32_t g_cdStReadTraceCount = 0u;
         CdStreamTimingState g_cdStreamTiming;
+        std::filesystem::path g_searchedIso;
+        std::map<uint32_t, uint32_t> g_isoFileEndByLbn;
+
+        void selectIsoExtents(const std::filesystem::path &image)
+        {
+            if (g_searchedIso != image)
+            {
+                g_searchedIso = image;
+                g_isoFileEndByLbn.clear();
+            }
+        }
 
         uint64_t currentCdStreamTick(PS2Runtime *runtime)
         {
@@ -167,6 +179,14 @@ namespace ps2_stubs
         {
             g_cdStreamingLbn = lbn;
             g_cdStreamingEndLbn = cdStreamingEndLbnForStart(lbn);
+            selectIsoExtents(getCdImagePath());
+            const auto after = g_isoFileEndByLbn.upper_bound(lbn);
+            if (after != g_isoFileEndByLbn.begin())
+            {
+                const auto extent = std::prev(after);
+                if (lbn < extent->second)
+                    g_cdStreamingEndLbn = extent->second;
+            }
             resetCdStreamProduction(runtime);
         }
     }
@@ -611,6 +631,7 @@ namespace ps2_stubs
         CdFileEntry entry;
         bool found = false;
         const auto imagePath = getCdImagePath();
+        selectIsoExtents(imagePath);
         if (!imagePath.empty())
         {
             try
@@ -624,6 +645,7 @@ namespace ps2_stubs
                         entry.baseLbn = file->lba;
                         entry.sizeBytes = file->size;
                         entry.sectors = sectorsForBytes(file->size);
+                        g_isoFileEndByLbn.insert_or_assign(entry.baseLbn, entry.baseLbn + entry.sectors);
                         found = true;
                     }
                 }
@@ -676,8 +698,11 @@ namespace ps2_stubs
             return;
         }
 
-        g_cdStreamingLbn = resolvedEntry.baseLbn;
-        g_cdStreamingEndLbn = resolvedEntry.baseLbn + resolvedEntry.sectors;
+        if (!g_cdStreamTiming.active)
+        {
+            g_cdStreamingLbn = resolvedEntry.baseLbn;
+            g_cdStreamingEndLbn = resolvedEntry.baseLbn + resolvedEntry.sectors;
+        }
         if (shouldTrace)
         {
             RUNTIME_LOG("[sceCdSearchFile:ok] path=\"" << sanitizeForLog(path)

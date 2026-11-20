@@ -12,10 +12,12 @@ from build_receipt import signature
 from project import ROOT, digest, reject_link, write_json_new
 from ps2_game import generate_all
 from ps2_daioujou import GAME as DAIOUJOU, generate_all as generate_daioujou
+from ps2_rtype import GAME as RTYPE, generate_all as generate_rtype
 from ps2_codegen import tree_identity
 from ps2_gs_sources import digests as gs_digests
 from ps2_input_order import POLICY as INPUT_ORDER_POLICY, verify as verify_input_order
 from ps2_function_table import verify as verify_function_table
+from ps2_movie import DLLS as MOVIE_DLLS, verify as verify_movie_sdk
 from ps4_sources import locked_dependencies, verify_checkout
 from toolchain import tool_path, tool_snapshot
 
@@ -24,13 +26,18 @@ RECEIPT = ROOT / 'out/ps2/build-receipt.json'
 OUTPUTS = ('espgaluda.exe', 'espgaluda.pdb', 'SDL3.dll', 'SDL3.pdb')
 DAIOUJOU_KEYS = {'boot': 'PS2_DAIOUJOU_GENERATED', 'death': 'PS2_DAIOUJOU_DEATH_GENERATED',
                  'gallery': 'PS2_DAIOUJOU_GALLERY_GENERATED'}
-GAME_KEYS = {'espgaluda': 'PS2_GAME_GENERATED', 'ibara': 'PS2_IBARA_GENERATED', DAIOUJOU: DAIOUJOU_KEYS['boot']}
+RTYPE_KEYS = {'boot': 'PS2_RTYPE_FINAL_GENERATED', 'banks': 'PS2_RTYPE_FINAL_BANKS', 'vu': 'PS2_RTYPE_FINAL_VU'}
+GAME_KEYS = {'espgaluda': 'PS2_GAME_GENERATED', 'ibara': 'PS2_IBARA_GENERATED', DAIOUJOU: DAIOUJOU_KEYS['boot'],
+             RTYPE: RTYPE_KEYS['boot']}
 
 
 def configured_games(values):
     programs = [values.get(key) for key in DAIOUJOU_KEYS.values()]
     if any(programs) and not all(programs):
         raise ValueError('PS2 certification requires all three DaiOuJou programs')
+    rtype = [values.get(key) for key in RTYPE_KEYS.values()]
+    if any(rtype) and not all(rtype):
+        raise ValueError('PS2 certification requires the R-Type Final boot program, all banks and VU1 sources')
     games = [game for game, key in GAME_KEYS.items() if values.get(key)]
     if not games:
         raise ValueError('PS2 certification requires a configured game')
@@ -47,8 +54,9 @@ def binary_outputs(games):
 
 
 def output_names(games):
-    return tuple(part for binary in binary_outputs(games)
-                 for part in (binary, str(Path(binary).with_suffix('.pdb'))))
+    native = tuple(part for binary in binary_outputs(games)
+                   for part in (binary, str(Path(binary).with_suffix('.pdb'))))
+    return (*native, *MOVIE_DLLS) if RTYPE in games else native
 
 
 def configuration(build=BUILD):
@@ -107,6 +115,15 @@ def generation(values, refresh=False):
         if any(Path(values[key]).resolve() != Path(programs[name]).resolve() for name, key in DAIOUJOU_KEYS.items()):
             raise ValueError('PS2 build mixes different DaiOuJou disc program inputs')
         result[DAIOUJOU] = dict(plan=digest(output/'plan.json'), programs=identities)
+    if RTYPE in games:
+        output = Path(values[RTYPE_KEYS['boot']]).parent.parent
+        identities = {}
+        programs = generate_rtype(output, refresh=refresh, source_identities=identities)
+        if any(Path(values[key]).resolve() != Path(programs[name]).resolve() for name, key in RTYPE_KEYS.items()):
+            raise ValueError('PS2 build mixes different R-Type Final disc program inputs')
+        result[RTYPE] = dict(plan=digest(output/'plan.json'), banks=digest(Path(programs['banks'])),
+                             staticEdges=digest(output/'static-edges.json'), programs=identities,
+                             vu=digest(Path(programs['vu']).parent/'receipt.json'))
     return result
 
 
@@ -126,9 +143,9 @@ def snapshot(refresh=False):
     for raw in sorted(set(names)):
         name = raw.decode('utf-8')
         if name and (name in explicit or name.startswith(('backends/ps2/', 'third_party/ps2/',
-                'tools/ps2/', 'tools/ps2-gs/', 'common/', 'games/espgaluda/', 'games/ibara/', 'games/daioujou-ps2/', 'backends/ps4/input/'))
+                'tools/ps2/', 'tools/ps2-gs/', 'common/', 'games/espgaluda/', 'games/ibara/', 'games/daioujou-ps2/', 'games/rtype-final/', 'backends/ps4/input/'))
                 or name.startswith(('scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara',
-                                    'scripts/Build-DaioujouPs2', 'tests/ps2_', 'tests/test_ps2_'))
+                                    'scripts/Build-DaioujouPs2', 'scripts/Build-RTypeFinal', 'tests/ps2_', 'tests/test_ps2_'))
                 or name in ('backends/ps4/community/protocol.cpp','backends/ps4/community/protocol.h',
                             'backends/ps4/config/ini_sections.h')
                 or (name.startswith('games/') and name.endswith('/data.json'))):
@@ -155,13 +172,21 @@ def snapshot(refresh=False):
     if DAIOUJOU in games:
         state['daioujouFunctionTables'] = {name: verify_function_table(Path(values[key])/'register_functions.cpp', BUILD/'function-tables')
                                            for name, key in DAIOUJOU_KEYS.items()}
+    if RTYPE in games:
+        output = Path(values[RTYPE_KEYS['boot']]).parent.parent
+        state['rtypeFunctionTables'] = {
+            name: verify_function_table(output/name/'generated/register_functions.cpp', BUILD/'function-tables')
+            for name in state['generated'][RTYPE]['programs']}
+        state['movieDecoder'] = verify_movie_sdk(values['PS2_RTYPE_FINAL_FFMPEG'])
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state
 
 
 def completed_outputs():
+    values = configuration()
+    games = configured_games(values)
     outputs = []
-    for name in binary_outputs(configured_games(configuration())):
+    for name in binary_outputs(games):
         binary = BUILD / 'bin' / name
         symbols = binary.with_suffix('.pdb')
         pe = subprocess.check_output([str(tool_path('readobj', ROOT)), '--coff-debug-directory', str(binary)]).decode()
@@ -173,6 +198,15 @@ def completed_outputs():
             reject_link(path)
             outputs.append(dict(path=path.relative_to(ROOT).as_posix(), bytes=path.stat().st_size,
                                 sha256=digest(path), symbols=identity))
+    if RTYPE in games:
+        movie_files = verify_movie_sdk(values['PS2_RTYPE_FINAL_FFMPEG'])['files']
+        for name in MOVIE_DLLS:
+            path = BUILD / 'bin' / name
+            reject_link(path)
+            if digest(path) != movie_files['bin/' + name]:
+                raise ValueError('PS2 movie decoder differs from the linked SDK: ' + name)
+            outputs.append(dict(path=path.relative_to(ROOT).as_posix(), bytes=path.stat().st_size,
+                                sha256=movie_files['bin/' + name]))
     return outputs
 
 

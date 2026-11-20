@@ -16,6 +16,7 @@ import zipfile
 from generate_catalogue import load, relative
 from project import ROOT, SECRET, audit_source, digest, reject_link, write_json_new
 from package_receipt import PackageInputs
+import ps2_movie
 import ps4_extract_tools
 from sdoj_title_update import patch_inputs
 from product import NAME, VERSION, LAUNCHER, LEGACY_LAUNCHER, REMOTE, REPOSITORY_URL, launcher, renamed, slug
@@ -30,7 +31,8 @@ V083_GAMES = (*V08_GAMES, 'garegga')
 V09_GAMES = (*V083_GAMES, 'espgaluda')
 V094_GAMES = (*V09_GAMES, 'ibara')
 V010_GAMES = (*V094_GAMES, 'daioujou-ps2')
-PLACEMENT_GAMES = V010_GAMES
+V0104_GAMES = (*V010_GAMES, 'rtype-final')
+PLACEMENT_GAMES = V0104_GAMES
 PLACEMENT_NAME = 'README.txt'
 LEGACY_PLACEMENT_NAME = '放置说明.txt'  # Read-only verification of frozen releases.
 DEFAULT_VERSION = VERSION
@@ -89,7 +91,8 @@ def release_games(version):
         parts = version.split('-', 1)[0].split('.')
         return V094_GAMES if len(parts) > 2 and int(parts[2]) >= 4 else V09_GAMES
     if (major, minor) == (0, 10):
-        return V010_GAMES
+        parts = version.split('-', 1)[0].split('.')
+        return V0104_GAMES if len(parts) > 2 and int(parts[2]) >= 4 else V010_GAMES
     raise ValueError('No game-set profile for this release version')
 
 
@@ -135,7 +138,8 @@ def placement_sources(version, name=PLACEMENT_NAME):
     games = release_games(version)
     # Old v0.4/v0.6 packages included the six established placement folders.
     # Adding a title must not invalidate their frozen inventories.
-    placement = (V010_GAMES if 'daioujou-ps2' in games else V094_GAMES if 'espgaluda' in games
+    placement = (V0104_GAMES if 'rtype-final' in games else V010_GAMES if 'daioujou-ps2' in games
+                 else V094_GAMES if 'espgaluda' in games
                  else V083_GAMES if 'garegga' in games else V08_GAMES if 'feveron' in games
                  else V07_GAMES if 'guwange' in games else V06_GAMES)
     result = {'game-data/' + key + '/' + name: ROOT / 'config/game-data' / (key + '.txt')
@@ -204,7 +208,7 @@ def runtime_names(games, symbols=False, selection=GAMES, version=None, flavor=No
         names.update(games[key]['runtimeFiles'])
     if symbols:
         names.update(str(Path(name).with_suffix('.pdb')).replace('\\', '/') for name in list(names)
-                     if name.endswith(('.exe', '.dll')))
+                     if name.endswith(('.exe', '.dll')) and Path(name).name not in ps2_movie.DLLS)
     return names
 
 
@@ -272,7 +276,8 @@ def certified_runtime(selection=GAMES):
         launcher={LAUNCHER, NAME + '.pdb', 'cave_inspect.exe', 'cave_inspect.pdb', 'Extract-PS4.exe', 'Extract-PS4.pdb', 'Extract-XBLA.exe', 'Extract-XBLA.pdb', 'Extract-Xbox360.exe', 'Extract-Xbox360.pdb'})
     ps2_names = {Path(name).name for game in ps2_games for name in games[game]['runtimeFiles']
                  if name.endswith(('.exe', '.dll'))}
-    selected['ps2'] = ps2_names | {str(Path(name).with_suffix('.pdb')) for name in ps2_names}
+    selected['ps2'] = ps2_names | {str(Path(name).with_suffix('.pdb')) for name in ps2_names
+                                   if name not in ps2_movie.DLLS}
     certified = {}
     for backend, record in records.items():
         for item in record['outputs']:
@@ -745,6 +750,12 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     text_new(directory / batch_name(version), bat.replace(LAUNCHER, launcher(version)), 'documentation', entries)
     for file in license_files(selection):
         copy_checked(file, directory / 'licenses' / file.relative_to(ROOT), 'license', entries)
+    if 'rtype-final' in selection:
+        ffmpeg_source = ps2_movie.source_archive()
+        ffmpeg_license_dir = directory / 'licenses/ffmpeg'
+        copy_checked(ffmpeg_source, ffmpeg_license_dir / ffmpeg_source.name, 'license', entries)
+        text_new(ffmpeg_license_dir / 'COPYING.LGPLv2.1', ps2_movie.license_text(ffmpeg_source), 'license', entries)
+        text_new(ffmpeg_license_dir / 'SOURCE.txt', ps2_movie.source_notice(), 'license', entries)
     copy_checked(ROOT / 'launcher/artwork.json', directory / 'licenses/artwork-sources.json', 'license', entries)
     for source, license_name in (('tools/sdk-source.lock.json', 'sdk-sources.json'),
                          ('tools/ps4-source.lock.json', 'ps4-sources.json'),

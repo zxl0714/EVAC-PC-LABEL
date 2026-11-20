@@ -1,0 +1,91 @@
+diff --git a/ps2xRuntime/include/runtime/ps2_vu1_inline.h b/ps2xRuntime/include/runtime/ps2_vu1_inline.h
+index 0798ba6..45975f9 100644
+--- a/ps2xRuntime/include/runtime/ps2_vu1_inline.h
++++ b/ps2xRuntime/include/runtime/ps2_vu1_inline.h
+@@ -168,26 +168,15 @@ namespace ps2_vu1_detail
+         return vuAdd(a, -b);
+     }
+ 
+-    // vuAdd on four lanes: with AVX2 the same operand alignment, then one SSE add under the
+-    // interpreter's round-toward-zero mode; without it, lane by lane.
++    // Align the smaller operands on four lanes and round the sum toward zero.
+     PS2X_VU_INLINE __m128 vuAdd4(__m128 a, __m128 b)
+     {
+-#if !defined(__AVX2__)
+-        alignas(16) float la[4];
+-        alignas(16) float lb[4];
+-        _mm_store_ps(la, a);
+-        _mm_store_ps(lb, b);
+-        for (int c = 0; c < 4; ++c)
+-            la[c] = vuAdd(la[c], lb[c]);
+-        return _mm_load_ps(la);
+-#else
+         // Per operand, the mask that keeps its bits: ~0 << (other exponent - own), all ones when it is the larger
+         // or equal one, only the sign 24 or more steps below, all ones when either exponent is 0 (no alignment).
+         // Built so the chain from the operands to the add is short: compiled loops chain FMACs through it.
+         const __m128i ia = _mm_castps_si128(a);
+         const __m128i ib = _mm_castps_si128(b);
+         const __m128i zero = _mm_setzero_si128();
+-        const __m128i allOnes = _mm_cmpeq_epi32(zero, zero);
+         const __m128i ea = _mm_srli_epi32(_mm_slli_epi32(ia, 1), 24);
+         const __m128i eb = _mm_srli_epi32(_mm_slli_epi32(ib, 1), 24);
+         const __m128i aBelow = _mm_sub_epi32(eb, ea); // > 0: a is the smaller one, by that many steps
+@@ -195,16 +184,24 @@ namespace ps2_vu1_detail
+         const __m128i kept = _mm_or_si128(_mm_cmpeq_epi32(_mm_min_epi32(ea, eb), zero),
+                                           _mm_set1_epi32(static_cast<int>(0x80000000u)));
+         const __m128i farLimit = _mm_set1_epi32(23);
+-        const __m128i maskA = _mm_or_si128(_mm_andnot_si128(_mm_cmpgt_epi32(aBelow, farLimit),
+-                                                            _mm_sllv_epi32(allOnes, _mm_max_epi32(aBelow, zero))),
+-                                           kept);
+-        const __m128i maskB = _mm_or_si128(_mm_andnot_si128(_mm_cmpgt_epi32(bBelow, farLimit),
+-                                                            _mm_sllv_epi32(allOnes, _mm_max_epi32(bBelow, zero))),
+-                                           kept);
++        const auto alignMask = [&](const __m128i difference) {
++            const auto distance = _mm_max_epi32(difference, zero);
++#if defined(__AVX2__)
++            const auto lowBits = _mm_sllv_epi32(_mm_cmpeq_epi32(zero, zero), distance);
++#else
++            // For a shift of 0 to 23, exponent bits encode an exact power of
++            // two. Its negation is the mask left by shifting an all-ones lane.
++            const auto exponent = _mm_add_epi32(_mm_min_epi32(distance, farLimit), _mm_set1_epi32(127));
++            const auto power = _mm_cvttps_epi32(_mm_castsi128_ps(_mm_slli_epi32(exponent, 23)));
++            const auto lowBits = _mm_sub_epi32(zero, power);
++#endif
++            return _mm_or_si128(_mm_andnot_si128(_mm_cmpgt_epi32(difference, farLimit), lowBits), kept);
++        };
++        const __m128i maskA = alignMask(aBelow);
++        const __m128i maskB = alignMask(bBelow);
+         const __m128i newA = _mm_and_si128(ia, maskA);
+         const __m128i newB = _mm_and_si128(ib, maskB);
+         return _mm_add_ps(_mm_castsi128_ps(newA), _mm_castsi128_ps(newB));
+-#endif
+     }
+ 
+     PS2X_VU_INLINE __m128 negate4(__m128 value)
+diff --git a/ps2xRuntime/include/runtime/ps2_vu1_jit.h b/ps2xRuntime/include/runtime/ps2_vu1_jit.h
+index 4bcf1a5..71ea079 100644
+--- a/ps2xRuntime/include/runtime/ps2_vu1_jit.h
++++ b/ps2xRuntime/include/runtime/ps2_vu1_jit.h
+@@ -11,7 +11,7 @@
+ 
+ #include <bit>
+ 
+-#if defined(__AVX2__)
++#if defined(__AVX2__) || defined(__SSE4_1__)
+ #define PS2X_VU1_JIT 1
+ #else
+ #define PS2X_VU1_JIT 0
+diff --git a/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp b/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp
+index 39385c0..71b38be 100644
+--- a/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp
++++ b/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp
+@@ -1179,6 +1179,9 @@ void VU1Interpreter::run(uint8_t *vuCode, uint32_t codeSize,
+                          uint8_t *vuData, uint32_t dataSize,
+                          GS &gs, PS2Memory *memory, uint32_t maxCycles, bool runToCompletion)
+ {
++    // Standalone callers may replace their buffer between runs.
++    if (memory == nullptr)
++        invalidateDecodedCode();
+     m_activeVuData = vuData;
+     m_activeVuDataSize = dataSize;
+     m_activeGs = &gs;

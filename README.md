@@ -12,7 +12,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
   <a href="docs/GAME_DATA.en.md">Game data</a> ·
   <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
-  <a href="docs/RELEASE_NOTES_v0.10.3.md#english">v0.10.3 release notes</a>
+  <a href="docs/RELEASE_NOTES_v0.10.4.md#english">v0.10.4 release notes</a>
 </p>
 
 <p align="center">
@@ -60,7 +60,7 @@ Latency runs from input reaching the PC to the Windows display event. Device rep
 | --- | --- |
 | Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) · [Guwange](docs/GAME_DATA.en.md#guwange) |
 | PS4 | [Ketsui Deathtiny](docs/GAME_DATA.en.md#ketsui) · [DaiOuJou Re:Incarnation](docs/GAME_DATA.en.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.en.md#esprade) · [Dangun Feveron](docs/GAME_DATA.en.md#feveron) · [Battle Garegga Rev.2016](docs/GAME_DATA.en.md#garegga) |
-| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) · [DaiOuJou (PS2)](docs/GAME_DATA.en.md#daioujou-ps2) |
+| PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) · [DaiOuJou (PS2)](docs/GAME_DATA.en.md#daioujou-ps2) · [R-Type Final](docs/GAME_DATA.en.md#rtype-final) |
 | Arcade | [DonPachi](docs/GAME_DATA.en.md#donpachi) |
 
 Select a title for supported versions, extraction steps and folder examples. Prepare data only for the games you want to play.

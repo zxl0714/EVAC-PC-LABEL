@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.10.3
+EVAC PC LABEL v0.10.4
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击 Launch game。右上角的 CN 可切换为简体中文。
@@ -21,6 +21,7 @@ Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vu
   game-data/espgaluda/   PS2 日版 SLPS-25352，原始 ISO
   game-data/ibara/       铸蔷薇，PS2 日版 SLPM-66301，原始 ISO
   game-data/daioujou-ps2/ 大往生，PS2 日版 SLPS-25233，原始 ISO
+  game-data/rtype-final/ R-Type Final，PS2 美版 SLUS-20780，原始 ISO
 
 360 目录直接包含 default.xex，PS4 目录直接包含 eboot.bin，保留全部资源与层级。
 PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：

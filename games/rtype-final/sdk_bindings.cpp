@@ -1,0 +1,101 @@
+#include "game_overrides.h"
+#include "backends/ps2/sdk_binding.h"
+#include "ps2_runtime_macros.h"
+#include "runtime/ee_scheduler.h"
+#include <stdexcept>
+
+namespace {
+void WaitGraphicsField(uint8_t*, R5900Context*, PS2Runtime* runtime) {
+    // The disc's sceGsSyncV reads the interlace flag from its SDK GS parameters.
+    // The movie requests the opposite field before it starts uploading frames.
+    constexpr uint32_t gsParameters = 0x00218970u;
+    const bool interlaced = runtime->memory().read16(gsParameters) == 1u;
+    auto& scheduler = runtime->eeScheduler();
+    if (interlaced) {
+        scheduler.waitVSync(scheduler.currentVSyncTick(), -1, [](R5900Context& resumed) {
+            // The scheduler's parity result denotes the field that just ended.
+            SET_GPR_U32(&resumed, 2, getRegU32(&resumed, 2) ^ 1u);
+        });
+    }
+    scheduler.waitVSync(scheduler.currentVSyncTick(), 1);
+}
+
+#ifdef EVAC_PS2_RTYPE_FINAL_MOVIES
+void DemuxMovie(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
+    const auto available = getRegU32(context, 6);
+    ps2_stubs::sceMpegDemuxPssRing(memory, context, runtime);
+    if (available != 0u && getRegU32(context, 2) == 0u) {
+        // A full decoded-frame queue can progress after the next video field.
+        auto& scheduler = runtime->eeScheduler();
+        scheduler.waitVSync(scheduler.currentVSyncTick(), 0);
+    }
+}
+
+void RotateMovieWorker(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
+    constexpr uint32_t retryFullMovieQueue = 0x00159338u;
+    if (getRegU32(context, 31) == retryFullMovieQueue) {
+        // The display interrupt releases the picture buffer on a video field.
+        auto& scheduler = runtime->eeScheduler();
+        scheduler.waitVSync(scheduler.currentVSyncTick(), 0);
+    }
+    // Other callers keep the original movie helper's thread priority.
+    constexpr uint32_t movieSettings = 0x002c7150u;
+    const auto config = runtime->memory().read32(movieSettings);
+    SET_GPR_U32(context, 4, runtime->memory().read16(config));
+    ps2_syscalls::RotateThreadReadyQueue(memory, context, runtime);
+}
+
+void RegisterMovieStream(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
+    constexpr uint32_t videoStream = 0u;
+    if (getRegU32(context, 5) == videoStream) {
+        // The host decoder receives the video payload directly from the demuxer.
+        // The original video callback would also fill the unused hardware IPU ring.
+        SET_GPR_U32(context, 2, 0u);
+        return;
+    }
+    ps2_stubs::sceMpegAddStrCallback(memory, context, runtime);
+}
+#endif
+
+void BindSdkServices(PS2Runtime& runtime) {
+    constexpr struct {uint32_t address;const char* name;} services[] = {
+        {0x00124128u, "sceCdDiskReady"},
+        {0x00124810u, "sceCdStInit"},
+        {0x00124840u, "sceCdStStart"},
+        {0x00124878u, "sceCdStSeekF"},
+        {0x001248a8u, "sceCdStSeek"},
+        {0x001248d8u, "sceCdStStop"},
+        {0x00124910u, "sceCdStRead"},
+        {0x00124a98u, "sceCdStPause"},
+        {0x00124ae8u, "sceCdStResume"},
+        {0x00124b40u, "sceCdStStat"},
+#ifdef EVAC_PS2_RTYPE_FINAL_MOVIES
+        {0x00116a40u, "sceMpegAddBs"},
+        {0x00116a68u, "sceMpegGetPicture"},
+        {0x00116b60u, "sceMpegGetDecodeMode"},
+        {0x00116b80u, "sceMpegIsEnd"},
+        {0x00116c48u, "sceMpegAddCallback"},
+        {0x00117278u, "sceMpegFlush"},
+#endif
+    };
+    for (const auto& service : services) {
+        if (!cave::ps2::BindSdkHandler(runtime, service.address, service.name)) {
+            throw std::runtime_error(std::string("Cannot bind R-Type Final SDK service ") + service.name);
+        }
+    }
+#ifdef EVAC_PS2_RTYPE_FINAL_MOVIES
+    if (!runtime.replaceFunction(0x00115c08u, &cave::ps2::SdkEntry<&DemuxMovie>) ||
+        !runtime.replaceFunction(0x00115f20u, &cave::ps2::SdkEntry<&RegisterMovieStream>) ||
+        !runtime.replaceFunction(0x00156ec0u, &cave::ps2::SdkEntry<&RotateMovieWorker>)) {
+        throw std::runtime_error("Cannot bind R-Type Final movie stream services");
+    }
+#endif
+    if (!runtime.replaceFunction(0x0010e348u, &cave::ps2::SdkEntry<&WaitGraphicsField>) ||
+        !runtime.replaceFunction(0x00123688u, &cave::ps2::SdkEntry<&cave::ps2::SearchSingleLayer>) ||
+        !runtime.replaceFunction(0x0011fde0u, &cave::ps2::SdkEntry<&ps2_syscalls::sceSifLoadModuleFromIopRam>)) {
+        throw std::runtime_error("Cannot bind R-Type Final SDK services");
+    }
+}
+}
+
+PS2_REGISTER_GAME_OVERRIDE("R-Type Final SLUS-20780 SDK services", "", 0x00100008u, 0x35daf325u, BindSdkServices)

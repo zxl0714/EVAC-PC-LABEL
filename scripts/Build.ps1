@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,8)][int]$Jobs=2,
-    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga','espgaluda','ibara','daioujou-ps2')][string[]]$Games=@(),
+    [ValidateSet('espgaluda2','futari','ketsui','sdoj','daioujou','esprade','guwange','feveron','garegga','espgaluda','ibara','daioujou-ps2','rtype-final')][string[]]$Games=@(),
     [switch]$NativeOnly,
     [switch]$LauncherOnly,
     [switch]$SkipLauncherStage,
@@ -21,7 +21,7 @@ try {
     if ($NativeOnly -and -not $Games.Count) { throw '-NativeOnly requires -Games' }
     if ($LauncherOnly -and $Games.Count) { throw '-LauncherOnly cannot be combined with -Games' }
     if ($DataDirectory -and $Games.Count -ne 1) { throw '-DataDirectory requires exactly one game; use -DataDirectories for multiple games' }
-    $taskPs2Builders=[ordered]@{espgaluda='Build-Espgaluda.ps1';ibara='Build-Ibara.ps1';'daioujou-ps2'='Build-DaioujouPs2.ps1'}
+    $taskPs2Builders=[ordered]@{espgaluda='Build-Espgaluda.ps1';ibara='Build-Ibara.ps1';'daioujou-ps2'='Build-DaioujouPs2.ps1';'rtype-final'='Build-RTypeFinal.ps1'}
     foreach($taskPs2Game in $taskPs2Builders.Keys) {
         if($taskPs2Game -notin $Games){continue}
         $ps2Data=if($DataDirectory){$DataDirectory}elseif($DataDirectories.ContainsKey($taskPs2Game)){$DataDirectories[$taskPs2Game]}else{Join-Path $CollectionRoot ('game-data/'+$taskPs2Game)}

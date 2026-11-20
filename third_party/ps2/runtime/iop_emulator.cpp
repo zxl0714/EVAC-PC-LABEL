@@ -797,13 +797,15 @@ namespace ps2x::iop::detail
             return loadImage(std::string(path), image, arguments, argumentSize);
         }
 
-        ModuleLoadResult loadModuleBuffer(uint32_t guestAddress, const void *arguments, uint32_t argumentSize)
+        ModuleLoadResult loadModuleBuffer(uint32_t address, const void *arguments, uint32_t argumentSize, bool transferred)
         {
             std::vector<uint8_t> image;
-            if (!IopModuleLoader::readElfFromGuest(host, guestAddress, image))
+            const bool read = transferred ? IopModuleLoader::readElfFromIopRam(memory, address, image)
+                                          : IopModuleLoader::readElfFromGuest(host, address, image);
+            if (!read)
                 return {true, -1, -1};
             std::ostringstream tag;
-            tag << "buffer@0x" << std::hex << guestAddress;
+            tag << (transferred ? "iop-buffer@0x" : "buffer@0x") << std::hex << address;
             return loadImage(tag.str(), image, arguments, argumentSize);
         }
 
@@ -883,7 +885,12 @@ namespace ps2x::iop::detail
 
     ModuleLoadResult IopEmulator::loadModuleBuffer(uint32_t guestAddress, const void *arguments, uint32_t argumentSize)
     {
-        return m_impl->loadModuleBuffer(guestAddress, arguments, argumentSize);
+        return m_impl->loadModuleBuffer(guestAddress, arguments, argumentSize, false);
+    }
+
+    ModuleLoadResult IopEmulator::loadModuleFromIopRam(uint32_t address, const void *arguments, uint32_t argumentSize)
+    {
+        return m_impl->loadModuleBuffer(address, arguments, argumentSize, true);
     }
 
     bool IopEmulator::stopModule(int32_t moduleId, int32_t *result)

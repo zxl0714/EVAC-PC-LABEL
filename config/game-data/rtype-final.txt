@@ -1,0 +1,13 @@
+R-Type Final
+PlayStation 2 / USA / SLUS-20780 / 1.01
+
+game-data/
+  rtype-final/
+    README.txt
+    R-Type Final (USA).iso
+
+将美版 ISO 放入此目录。若镜像在 ZIP 或 7z 内，先解压出 ISO。
+如果镜像存放在其他位置，可在启动器用“游戏数据…”选择它所在的目录。
+
+Place the US ISO in this folder. If you have a ZIP or 7z archive, extract the ISO first.
+Use Game data... in the launcher to choose the folder if you keep the ISO elsewhere.

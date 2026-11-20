@@ -4,9 +4,12 @@
 #include "ps2_syscalls.h"
 #include "ps2_runtime_macros.h"
 #include "runtime/ee_scheduler.h"
+#include "ps2_iso_fixture.h"
 #include <array>
 #include <cstring>
+#include <fstream>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -73,6 +76,46 @@ void Require(bool value,const char* message) {
 int32_t Result(const R5900Context& context) {
   return static_cast<int32_t>(getRegU32(&context,2));
 }
+void VuMicrocodeUpdates(PS2Runtime& runtime) {
+  constexpr uint32_t lowerNop=0x8000033c, upperNop=0x000002ff, end=0x40000000;
+  constexpr uint32_t operands=(8u<<21)|(2u<<16)|(1u<<11)|(3u<<6);
+  std::array<uint32_t,6> code{lowerNop,operands|0x28u,lowerNop,upperNop|end,lowerNop,upperNop};
+  std::array<uint8_t,16> data{};
+  auto vu=std::make_unique<VU1Interpreter>();
+  auto* bytes=reinterpret_cast<uint8_t*>(code.data());
+  const auto size=static_cast<uint32_t>(sizeof(code));
+  vu->state().vf[1][0]=3.0f;
+  vu->state().vf[2][0]=1.0f;
+  vu->execute(bytes,size,data.data(),data.size(),runtime.gs(),nullptr,0,0,0,1);
+  Require(vu->state().vf[3][0]==0.0f,"VU register became visible before writeback");
+  vu->resume(bytes,size,data.data(),data.size(),runtime.gs());
+  Require(vu->state().vf[3][0]==4.0f,"VU resume lost a pending write");
+  code[1]=operands|0x2cu;
+  vu->execute(bytes,size,data.data(),data.size(),runtime.gs());
+  Require(vu->state().vf[3][0]==2.0f && vu->state().vf[3][1]==0.0f,
+          "VU decode retained a replaced instruction or changed inactive lanes");
+  vu->state().vf[1][0]=1.0f;
+  vu->state().vf[2][0]=3.0f;
+  vu->execute(bytes,size,data.data(),data.size(),runtime.gs());
+  Require(vu->state().vf[3][0]==-2.0f && (vu->state().mac&0x0080u)!=0,
+          "VU normal negative result lost its MAC sign flag");
+  code[1]=operands|0x28u;
+  const auto largest=std::numeric_limits<float>::max();
+  vu->state().vf[1][0]=largest;
+  vu->state().vf[2][0]=largest;
+  vu->execute(bytes,size,data.data(),data.size(),runtime.gs());
+  Require(vu->state().vf[3][0]==largest && (vu->state().mac&0x8000u)!=0,
+          "VU overflow did not saturate and set the MAC overflow flag");
+  constexpr uint32_t inputs=(8u<<21)|(2u<<16)|(1u<<11);
+  std::array<uint32_t,8> accumulate{lowerNop,inputs|0x2beu,lowerNop,operands|0x29u,
+                                    lowerNop,upperNop|end,lowerNop,upperNop};
+  vu->state().vf[1][0]=-3.0f;
+  vu->state().vf[2][0]=2.0f;
+  vu->execute(reinterpret_cast<uint8_t*>(accumulate.data()),sizeof(accumulate),
+              data.data(),data.size(),runtime.gs());
+  Require(vu->state().acc[0]==-6.0f && vu->state().vf[3][0]==-12.0f && (vu->state().mac&0x0080u)!=0,
+          "VU multiply-accumulate lost the forwarded accumulator or its flag");
+}
 void BootEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
 void ModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
 void OtherModuleEntry(uint8_t*,R5900Context*,PS2Runtime*) {}
@@ -138,6 +181,37 @@ void ExplicitIoRoots(PS2Runtime& runtime) {
   Require(after.hostRoot==requested.hostRoot && after.cdRoot==requested.cdRoot && after.mcRoot==requested.mcRoot,
           "ELF loading replaced explicit read-only data or profile roots");
   PS2Runtime::setIoPaths(before);
+}
+void DiscFileIo(const PS2Runtime& runtime) {
+  const auto temporary=std::filesystem::temp_directory_path()/
+      ("evac-disc-fixture-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  struct RemoveImage {
+    std::filesystem::path path;
+    ~RemoveImage() {std::error_code error;std::filesystem::remove(path,error);}
+  } cleanup{temporary};
+  const auto bytes=ps2_iso_fixture::Image();
+  std::ofstream image(temporary,std::ios::binary);
+  Require(bool(image.write(bytes.data(),bytes.size())),"Cannot create authored disc fixture");
+  image.close();
+
+  PS2Vfs files;
+  files.mountDiscImage(temporary);
+  auto unpacked=temporary;
+  unpacked += ".unpacked";
+  const PS2VfsMounts mounts{unpacked,unpacked,unpacked};
+  const auto& rom=runtime.romDevice();
+  constexpr auto path="cdrom0:\\DATA\\BANK.;1";
+  const auto fd=files.open(path,PS2_FIO_O_RDONLY,mounts,rom);
+  PS2VfsStat info;
+  Require(fd>=3 && files.stat(path,mounts,rom,info) && info.size==8 && info.readOnly,
+          "Missing extracted resource was not resolved in the mounted disc");
+  std::array<char,16> buffer{};
+  Require(files.seek(fd,-3,SEEK_END)==5 && files.read(fd,buffer.data(),buffer.size())==3 &&
+          std::string_view(buffer.data(),3)=="re!" && files.read(fd,buffer.data(),1)==0,
+          "Disc descriptor read past its extent or returned the wrong offset");
+  Require(files.seek(fd,1,SEEK_CUR)==-1 && files.write(fd,buffer.data(),1)==-1 &&
+          files.close(fd)==0 && files.open(path,PS2_FIO_O_RDWR,mounts,rom)==-1,
+          "Disc descriptor did not enforce extent boundaries and read-only access");
 }
 void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
   const uint32_t other=17;
@@ -226,6 +300,7 @@ int main(int argc,char** argv) {
     EeTimerArithmetic(runtime.memory());
     EeTimerDeferredEquivalence();
     ExplicitIoRoots(runtime);
+    DiscFileIo(runtime);
     std::vector<uint8_t> memory(PS2_RAM_SIZE);
     R5900Context context{};
     context.pc=0x100000;
@@ -323,6 +398,7 @@ int main(int argc,char** argv) {
     Require(callbackTop>=0x90000+0x4000-16 && callbackTop<0x100000,
             "Callback stack aliases the game heap or main stack");
     Require(runtime.memory().initialize(),"Headless memory initialization failed");
+    VuMicrocodeUpdates(runtime);
     IopHeapLifecycle(runtime);
     runtime.configureGuestHeap(0x400000,0x410000);
     const auto arena=runtime.guestMalloc(0xf000);
