@@ -10,9 +10,10 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The public program
-candidate is frozen at `a15684f` in `releases/v0103-candidate/`. Use the
-matching release DLL and private symbols under `.local/v0103/shipcheck/` for new
+v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The current program
+candidate is frozen at `7a07b1a` in `releases/v0103-7a07b1a/`. The earlier
+`a15684f` candidate is in `releases/v0103-candidate/`. Use the matching
+release DLL and private symbols under `.local/v0103/shipcheck/` for new
 Death Label reports. Analyze the existing upload ZIP directly with
 `py -3.12 scripts/ps2_death_label_report.py <report.zip>`. Current component
 and report acceptance is in the first section of docs/TEST_MATRIX.md.
