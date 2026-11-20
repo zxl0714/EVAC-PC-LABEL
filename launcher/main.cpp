@@ -754,7 +754,7 @@ class Renderer {
       const auto left=margin+item*control_width;
       label(value,{left,control_top,left+control_width,view.height},15,secondary,DWRITE_TEXT_ALIGNMENT_CENTER);
     };
-    controls(0,T(view.Portrait()?L"↑ / ↓　选择":L"方向键　选择"));
+    controls(0,T(L"方向键　选择"));
     if(play && !busy)
       controls(1,T(L"A / Enter　启动"));
     else if(setup && !busy)
@@ -2262,8 +2262,11 @@ void Preview(const Options& options) {
   const auto ini=Ini::Load(EnsureConfig(options.root));
   language=options.language.value_or(cave::launcher::ReadLanguage(ini));
   const auto sdoj_external=cave::launcher::ReadSdojRecomp(ini);
+  const auto big_picture_mode=cave::launcher::ReadBigPictureMode(ini);
+  const bool portrait=options.big_picture && big_picture_mode==cave::launcher::BigPictureMode::Vertical;
+  const UINT width=portrait?720:1080, height=portrait?1280:900;
   Renderer renderer;
-  ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(1080,900,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
+  ComPtr<IWICBitmap> bitmap;Check(renderer.wic->CreateBitmap(width,height,GUID_WICPixelFormat32bppPBGRA,WICBitmapCacheOnLoad,&bitmap),"Create preview bitmap");
   ComPtr<ID2D1RenderTarget> target;Check(renderer.factory->CreateWicBitmapRenderTarget(bitmap.Get(),D2D1::RenderTargetProperties(),&target),"Create preview surface");
   size_t selected=1;
   if(!options.selection.empty())for(size_t index=0;index<LauncherCatalogue().size();++index)
@@ -2279,7 +2282,7 @@ void Preview(const Options& options) {
   const auto position=std::size_t(std::ranges::find(library.visible,selected)-library.visible.begin());
   layout.scroll=std::clamp(layout.card(position).bottom-layout.footer(),0.f,layout.max_scroll());
   target->BeginDraw();
-  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),position,cave::launcher::ReadBigPictureMode(ini)},
+  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{float(width),float(height),library.visible.size(),position,big_picture_mode},
       rows,library,{},false,false,0,sdoj_external);
   else renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library,
       false,nullptr,-1,sdoj_external);
@@ -2290,7 +2293,7 @@ void Preview(const Options& options) {
   ComPtr<IWICBitmapEncoder> encoder;Check(renderer.wic->CreateEncoder(GUID_ContainerFormatPng,nullptr,&encoder),"Create preview encoder");
   Check(encoder->Initialize(stream.Get(),WICBitmapEncoderNoCache),"Initialize preview encoder");
   ComPtr<IWICBitmapFrameEncode> frame;Check(encoder->CreateNewFrame(&frame,nullptr),"Create preview frame");Check(frame->Initialize(nullptr),"Initialize preview frame");
-  Check(frame->SetSize(1080,900),"Set preview size");WICPixelFormatGUID format=GUID_WICPixelFormat32bppBGRA;Check(frame->SetPixelFormat(&format),"Set preview format");
+  Check(frame->SetSize(width,height),"Set preview size");WICPixelFormatGUID format=GUID_WICPixelFormat32bppBGRA;Check(frame->SetPixelFormat(&format),"Set preview format");
   Check(frame->WriteSource(bitmap.Get(),nullptr),"Write preview");Check(frame->Commit(),"Commit preview frame");Check(encoder->Commit(),"Commit preview");
 }
 }

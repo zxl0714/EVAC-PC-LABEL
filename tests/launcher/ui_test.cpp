@@ -1073,10 +1073,14 @@ void MainChecks() {
             narrow.left>wide.left && narrow.right<wide.right,
             "Big Picture covers with different proportions must share top and bottom edges");
       }
-      if(view.Portrait())
-        Require(view.PageSize()==1 && view.Move(MenuKey::Up)==5 && view.Move(MenuKey::Down)==7 && view.Move(MenuKey::Right)==6,
-                "A vertical display must show one cover and browse it with Up/Down");
-      else
+      if(view.Portrait()) {
+        const auto first=view.Card(view.First()),right=view.Card(view.First()+1),below=view.Card(view.First()+2);
+        Require(view.PageSize()==4 && first.right<right.left && first.bottom<below.top && first.left==below.left,
+                "Portrait Big Picture did not show a two-by-two grid");
+        Require(view.Move(MenuKey::Up)==4 && view.Move(MenuKey::Down)==8 &&
+                view.Move(MenuKey::Left)==6 && view.Move(MenuKey::Right)==7,
+                "Portrait Big Picture did not navigate rows, columns, and the following page");
+      } else
         Require(view.Move(MenuKey::Left)==5 && view.Move(MenuKey::Right)==7 &&
                 view.Move(MenuKey::Up)==6-view.Columns() && view.Move(MenuKey::Down)==6+view.Columns(),
                 "Horizontal Big Picture did not keep its existing navigation");
@@ -1093,8 +1097,8 @@ void MainChecks() {
     Require(frame.app.VisiblePosition()==before+1,"Big Picture input did not move game focus");
     frame.app.big_picture_mode=cave::launcher::ReadBigPictureMode(Ini::Parse("[collection]\nbig_picture_layout=vertical\n"));
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_DOWN,0);
-    Require(frame.app.BigView().PageSize()==1 && frame.app.VisiblePosition()==before+2,
-            "Vertical Big Picture did not select the next cover with Down");
+    Require(frame.app.BigView().PageSize()==4 && frame.app.VisiblePosition()==before+3,
+            "Portrait Big Picture did not select the next row with Down");
     App::Window(frame.app.hwnd,WM_MOUSEWHEEL,MAKEWPARAM(0,WHEEL_DELTA),0);
     Require(frame.app.VisiblePosition()==before+1,"Vertical Big Picture did not follow the mouse wheel");
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RETURN,0);

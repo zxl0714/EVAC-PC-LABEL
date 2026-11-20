@@ -24,7 +24,7 @@ Select **Big Picture** at the bottom of the launcher or press `F11` in the game 
 
 In either mode, use the left stick, D-pad, or arcade stick to select a game and press Confirm to launch it. In Big Picture, press Back to open the exit menu.
 
-Big Picture shows one cover at a time on portrait monitors. Press Up or Down, or scroll, to switch games. Under `[collection]` in `user-data/config.ini`, set `big_picture_layout` to `vertical` or `horizontal` to choose a layout, or `auto` to follow the monitor.
+Big Picture uses a 2×2 cover grid on portrait monitors. Move left or right to select a game, or move up or down with the direction keys or mouse wheel. Under `[collection]` in `user-data/config.ini`, set `big_picture_layout` to `vertical` or `horizontal` to choose a layout, or `auto` to follow the monitor.
 
 While playing, press `Esc` or `Start + D-pad Up` to close the game and return to the launcher. When you launch from Big Picture, you return to the same game card.
 

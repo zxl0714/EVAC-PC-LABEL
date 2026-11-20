@@ -5,7 +5,7 @@
 - 启动器移除了横幅布局，只保留网格布局和大屏模式。
 - 新增退出游戏快捷键。在游戏中按 `Esc`（键盘）或 `Start + 十字键上`（手柄或摇杆），即可退出并返回启动器。快捷键可在「输入设置」中修改。[#29](https://github.com/zxl0714/EVAC-PC-LABEL/issues/29)
 - 全屏时自动隐藏鼠标指针。[#31](https://github.com/zxl0714/EVAC-PC-LABEL/issues/31)
-- 大屏模式适配竖屏机台，一屏显示一张大封面，用上下方向键切换游戏。[#30](https://github.com/zxl0714/EVAC-PC-LABEL/issues/30)
+- 大屏模式适配竖屏机台，使用 2×2 封面网格。[#30](https://github.com/zxl0714/EVAC-PC-LABEL/issues/30)
 
 ## English
 
@@ -14,4 +14,4 @@
 - Removed the banner layout from the launcher. The cover grid and Big Picture mode are available.
 - Added an in-game exit shortcut. Press `Esc` on a keyboard or `Start + D-pad Up` on a controller or arcade stick to return to the launcher. You can remap the shortcut under **Controls**. [#29](https://github.com/zxl0714/EVAC-PC-LABEL/issues/29)
 - The mouse cursor automatically hides in fullscreen. [#31](https://github.com/zxl0714/EVAC-PC-LABEL/issues/31)
-- Big Picture adapts to portrait displays with one large cover at a time. Press Up or Down to switch games. [#30](https://github.com/zxl0714/EVAC-PC-LABEL/issues/30)
+- Big Picture uses a 2×2 cover grid on portrait displays. [#30](https://github.com/zxl0714/EVAC-PC-LABEL/issues/30)

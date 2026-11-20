@@ -24,7 +24,7 @@
 
 普通窗口和大屏都可用手柄十字键、左摇杆或街机摇杆选游戏，按确认键启动。大屏里按返回键打开退出菜单。
 
-大屏在竖屏显示器上自动使用单封面布局，按 `↑`、`↓` 或用鼠标滚轮切换游戏。在 `user-data/config.ini` 的 `[collection]` 中将 `big_picture_layout` 设为 `vertical` 或 `horizontal` 可以固定布局，`auto` 恢复自动识别。
+大屏在竖屏显示器上自动使用 2×2 封面网格。左右选择，上下或鼠标滚轮换行。在 `user-data/config.ini` 的 `[collection]` 中将 `big_picture_layout` 设为 `vertical` 或 `horizontal` 可以固定布局，`auto` 恢复自动识别。
 
 在游戏里按 `Esc` 或 `Start + 十字键上` 即可退出并返回启动器。从大屏启动时，会回到原来选中的游戏。
 

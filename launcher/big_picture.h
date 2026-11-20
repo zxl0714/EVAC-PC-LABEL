@@ -28,25 +28,29 @@ struct BigPictureLayout {
     float Gap() const { return 22 * Scale(); }
     float CoverPadding() const { return 4 * Scale(); }
     size_t Columns() const {
-        return Portrait() ? 1 : width / std::max(1.f, height) < 1.48f ? 3 : 4;
+        return Portrait() ? 2 : width / std::max(1.f, height) < 1.48f ? 3 : 4;
     }
-    size_t PageSize() const { return Columns(); }
+    size_t Rows() const { return Portrait() ? 2 : 1; }
+    size_t PageSize() const { return Columns() * Rows(); }
     size_t Page() const { return selected / PageSize(); }
     size_t PageCount() const { return (count + PageSize() - 1) / PageSize(); }
     size_t First() const { return Page() * PageSize(); }
     size_t Last() const { return std::min(count, First() + PageSize()); }
     float CardHeight() const {
-        const auto available = height - 220 * Scale();
+        const auto row = (height - 220 * Scale() - Gap() * (Rows() - 1)) / Rows();
         const auto column = (width - 2 * Margin() - Gap() * (Columns() - 1)) / Columns();
-        return std::max(1.f, std::min(available, column / kCoverSlotAspect));
+        return std::max(1.f, std::min(row, column / kCoverSlotAspect));
     }
     D2D1_RECT_F Card(size_t position) const {
         const auto height = CardHeight();
         const auto width = height * kCoverSlotAspect;
         const auto step = position - First();
-        const auto left = (this->width - (width + Gap()) * Columns() + Gap()) / 2 + (width + Gap()) * step;
-        const auto spare = std::max(0.f, this->height - 220 * Scale() - height);
-        const auto top = 88 * Scale() + spare / 2;
+        const auto gap = Gap();
+        const auto grid_width = (width + gap) * Columns() - gap;
+        const auto grid_height = (height + gap) * Rows() - gap;
+        const auto left = (this->width - grid_width) / 2 + (width + gap) * (step % Columns());
+        const auto spare = std::max(0.f, this->height - 220 * Scale() - grid_height);
+        const auto top = 88 * Scale() + spare / 2 + (height + gap) * (step / Columns());
         return {left, top, left + width, top + height};
     }
     D2D1_RECT_F Cover(size_t position, float aspect) const {
@@ -70,16 +74,12 @@ struct BigPictureLayout {
     }
     size_t Move(MenuKey key) const {
         if (!count) return 0;
-        if (Portrait()) {
-            if (key==MenuKey::Up && selected) return selected-1;
-            if (key==MenuKey::Down) return std::min(selected+1,count-1);
-            return selected;
-        }
-        if (key == MenuKey::Left && selected) return selected - 1;
-        if (key == MenuKey::Right) return std::min(selected + 1, count - 1);
-        if (key == MenuKey::Up && selected >= Columns()) return selected - Columns();
-        if (key == MenuKey::Down && (selected / Columns() + 1) * Columns() < count)
-            return std::min(selected + Columns(), count - 1);
+        const auto columns = Columns(), column = selected % columns;
+        if (key == MenuKey::Left && selected && (!Portrait() || column > 0)) return selected - 1;
+        if (key == MenuKey::Right && (!Portrait() || column + 1 < columns)) return std::min(selected + 1, count - 1);
+        if (key == MenuKey::Up && selected >= columns) return selected - columns;
+        if (key == MenuKey::Down && (selected / columns + 1) * columns < count)
+            return std::min(selected + columns, count - 1);
         return selected;
     }
 };
