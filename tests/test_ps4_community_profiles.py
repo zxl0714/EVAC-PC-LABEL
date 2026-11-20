@@ -141,7 +141,7 @@ class Ps4CommunityProfiles(unittest.TestCase):
                 for server in servers:
                     profile = server.store
                     connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
-                    connection.request('GET', profile.api + '/health')
+                    connection.request('GET', profile.api + '/health', headers={'User-Agent': 'CavePs4Community/1'})
                     response = connection.getresponse()
                     body = json.loads(response.read())
                     self.assertEqual(response.status, 200)

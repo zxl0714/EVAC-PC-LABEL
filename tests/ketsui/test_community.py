@@ -308,7 +308,7 @@ class HttpTests(unittest.TestCase):
     def test_actual_http_health_boards_score_rank_personal_and_replay(self):
         status, health, _ = self.request('GET', '/health')
         self.assertEqual(status, 200)
-        self.assertEqual((health['title_id'], health['game_version']), ('CUSA09062', '1.02'))
+        self.assertEqual(health, {'status': 'ok'})
         self.assertEqual(len(self.request('GET', '/boards')[1]['boards']), 22)
         request = score('小鹿', '9007199254740993')
         status, receipt, _ = self.request('POST', '/scores', request)
@@ -326,6 +326,13 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(payload, base64.b64decode(upload['payload_base64']))
         self.assertEqual(headers['X-Replay-SHA256'], upload['sha256'])
         self.assertEqual(headers['X-Replay-Format'], live.REPLAY_FORMAT)
+
+    def test_released_ps4_client_can_still_read_health(self):
+        status, health, _ = self.request('GET', '/health', headers={'User-Agent': 'CavePs4Community/1'})
+        self.assertEqual(status, 200)
+        self.assertEqual(health, {'status': 'ok', 'protocol': 1, 'title_id': 'CUSA09062',
+                                  'game_version': '1.02', 'features': ['scores', 'leaderboards', 'replays'],
+                                  'max_replay_bytes': live.MAX_REPLAY})
 
     def test_identity_normalizes_without_registering_or_creating_player_rows(self):
         status, identity, _ = self.request('POST', '/identity', {'nickname': '  Ａlice  '})

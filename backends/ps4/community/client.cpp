@@ -94,7 +94,7 @@ public:
             Require(Path(path), "Invalid community request path");
             const auto encoded = body.is_null() ? std::string{} : body.dump();
             Require(encoded.size() <= kBodyLimit, "Community request body too large");
-            Internet session{WinHttpOpen(L"CavePs4Community/1", endpoint_.secure ? WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY : WINHTTP_ACCESS_TYPE_NO_PROXY,
+            Internet session{WinHttpOpen(L"EVAC-PC-LABEL", endpoint_.secure ? WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY : WINHTTP_ACCESS_TYPE_NO_PROXY,
                                          WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0)};
             if (!session.value) { return Failed(Error::Network, GetLastError()); }
             if (!WinHttpSetTimeouts(session.value, 2000, 2000, 3000, 3000)) { return Failed(Error::Network, GetLastError()); }
