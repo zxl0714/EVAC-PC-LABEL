@@ -26,7 +26,7 @@ class FutariLocalServiceTests(unittest.TestCase):
                 self.assertTrue(info['localOnly'])
                 self.assertEqual(json.loads((folder / 'service.json').read_text()), info)
                 with urlopen(info['endpoint'] + '/games/futari/health', timeout=3) as response:
-                    self.assertEqual(json.load(response)['title_id'], '435A07D7')
+                    self.assertEqual(json.load(response), {'status': 'ok'})
                 with self.assertRaises(HTTPError) as wrong:
                     urlopen(info['endpoint'] + '/games/espgaluda2/health', timeout=3)
                 self.assertEqual(wrong.exception.code, 404)

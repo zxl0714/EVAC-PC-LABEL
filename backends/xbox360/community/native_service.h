@@ -8,7 +8,7 @@ namespace cave::community {
 inline constexpr uint64_t kNativeCommunityLocalXuid=0xB13EBABEBABEBABEull;
 std::string NativeLegacyName(std::string_view nickname);
 struct NativeSchema {
-  std::string_view game,title,replay_namespace,replay_format;
+  std::string_view game,replay_namespace,replay_format;
   uint32_t replay_header=0,replay_max=0;
   bool (*valid_view)(uint32_t)=nullptr;
   nlohmann::json (*encode_score)(const rex::system::xam::CommunityWrite&)=nullptr;

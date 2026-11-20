@@ -174,7 +174,7 @@ class Store:
     def submit(self, body):
         if not isinstance(body, dict):
             raise ApiError(400, "invalid_object")
-        if body.get("title_id") != TITLE_ID or body.get("protocol") != PROTOCOL:
+        if body.get("protocol") != PROTOCOL:
             raise ApiError(409, "incompatible_client")
         sub = identifier(body.get("submission"))
         name = nickname(body.get("nickname"))
@@ -269,7 +269,7 @@ class Store:
     def upload_replay(self, body):
         if not isinstance(body, dict):
             raise ApiError(400, "invalid_object")
-        if body.get("title_id") != TITLE_ID or body.get("protocol") != PROTOCOL:
+        if body.get("protocol") != PROTOCOL:
             raise ApiError(409, "incompatible_client")
         sid, name = identifier(body.get("score_id")), nickname(body.get("nickname"))
         fmt = text(body.get("format"), 64)
@@ -414,8 +414,7 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.loads(raw)
             store = self.server.store
             if not post and route == "/health":
-                result = {"status": "ok", "protocol": PROTOCOL, "title_id": TITLE_ID,
-                          "features": ["scores", "leaderboards", "replays"], "max_replay_bytes": MAX_REPLAY}
+                result = {"status": "ok"}
             elif not post and route == "/boards":
                 result = store.boards()
             elif not post and route == "/leaderboard":

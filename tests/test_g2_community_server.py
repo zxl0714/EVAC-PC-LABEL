@@ -15,7 +15,7 @@ from server.games.espgaluda2 import ApiError, Game, Server, Store, REPLAY_FORMAT
 
 
 def submission(name='Player', score=9007199254740993, view=71, token='1' * 32):
-    return dict(protocol=1, title_id='435A07D8', submission=token, nickname=name,
+    return dict(protocol=1, submission=token, nickname=name,
                 view=view, rules='standard', score=str(score), build='authored-test',
                 columns=[dict(id=0x20000001, type=2, value=str(score)),
                          dict(id=0x20000002, type=2, value='9007199254740001'),
@@ -33,7 +33,7 @@ def replay_fixture(score=999):
 
 def replay_body(score_id, record=None):
     record = replay_fixture() if record is None else record
-    return dict(protocol=1, title_id='435A07D8', score_id=score_id, nickname='Player',
+    return dict(protocol=1, score_id=score_id, nickname='Player',
                 format=REPLAY_FORMAT, sha256=hashlib.sha256(record).hexdigest(),
                 data=base64.b64encode(record).decode('ascii'))
 
@@ -73,7 +73,7 @@ class CommunityServerTests(unittest.TestCase):
     def test_idempotent_submission_and_conflict(self):
         body = submission()
         first = self.store.submit(body)
-        second = self.store.submit(copy.deepcopy(body))
+        second = self.store.submit(dict(body, title_id='old-client-field'))
         self.assertEqual(first['id'], second['id'])
         self.assertTrue(second['duplicate'])
         body['nickname'] = 'SomeoneElse'
@@ -111,8 +111,8 @@ class CommunityServerTests(unittest.TestCase):
         self.assertEqual(self.store.leaderboard(71, names=['Player'])['rows'], [])
         self.assertEqual(self.store.boards()['boards'], [])
 
-    def test_wrong_title_protocol_views_and_rules_rejected(self):
-        for key, value, status in [('title_id', '435A07D7', 409), ('protocol', True, 409),
+    def test_wrong_protocol_views_and_rules_rejected(self):
+        for key, value, status in [('protocol', 2, 409), ('protocol', True, 409),
                                    ('view', 0, 400), ('view', 85, 400), ('rules', 'modified', 400)]:
             body = submission()
             body[key] = value
@@ -150,7 +150,7 @@ class CommunityServerTests(unittest.TestCase):
         self.assertIsNone(self.store.leaderboard(71)['rows'][0]['replay_id'])
         attached = self.store.attach_replay(replay_body(first))
         self.assertEqual(self.store.attach_replay(replay_body(second))['id'], attached['id'])
-        self.assertTrue(self.store.attach_replay(replay_body(first))['duplicate'])
+        self.assertTrue(self.store.attach_replay(dict(replay_body(first), title_id='old-client-field'))['duplicate'])
         row = self.store.leaderboard(71)['rows'][0]
         self.assertEqual((row['replay_size'], row['replay_format'], row['replay_id']), (136, REPLAY_FORMAT, attached['id']))
         response = Store(self.path).replay(attached['id'])
@@ -159,10 +159,10 @@ class CommunityServerTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM replays').fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM attachments').fetchone()[0], 2)
 
-    def test_replay_wrong_run_owner_size_and_title(self):
+    def test_replay_wrong_run_owner_size_and_protocol(self):
         score_id = self.replay_score()
         self.reject_replay(replay_body('0' * 32), 404)
-        for key, value, status in [('nickname', 'Other', 409), ('title_id', '435A07D7', 409),
+        for key, value, status in [('nickname', 'Other', 409), ('protocol', 2, 409),
                                    ('format', 'futari-xstorage-v1', 400), ('sha256', '0' * 64, 400)]:
             body = replay_body(score_id)
             body[key] = value
@@ -224,8 +224,8 @@ class CommunityServerTests(unittest.TestCase):
             self.assertEqual(prefix, '/cave/api/v1/games/espgaluda2')
             status, body = request(prefix + '/health')
             self.assertEqual(status, 200)
-            self.assertEqual(body['title_id'], '435A07D8')
-            self.assertIn('replays', body['features'])
+            self.assertEqual(body, {'status': 'ok'})
+            self.assertEqual(request(prefix + '/boards')[1]['title_id'], '435A07D8')
             self.assertEqual(request('/futari/api/v1/health')[0], 404)
             self.assertEqual(request('/cave/api/v1/games/ketsui/health')[0], 404)
             self.assertEqual(request(prefix + '/leaderboard?view=71&view=72')[0], 400)

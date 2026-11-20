@@ -38,7 +38,7 @@ class LiveTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def score(self, name="测试水母-A7K2", score=1234, view=7, rules="standard"):
-        return {"protocol": 1, "title_id": live.TITLE_ID, "submission": uuid.uuid4().hex,
+        return {"protocol": 1, "submission": uuid.uuid4().hex,
                 "nickname": name, "view": view, "rules": rules, "score": str(score),
                 "columns": [{"id": 1, "type": 2, "value": str(score)}], "build": "test-build"}
 
@@ -64,6 +64,7 @@ class LiveTests(unittest.TestCase):
             results = list(pool.map(lambda _: self.store.submit(score), range(16)))
         self.assertEqual(len({r["id"] for r in results}), 1)
         self.assertEqual(sum(not r["duplicate"] for r in results), 1)
+        self.assertEqual(self.store.submit(dict(score, title_id="legacy"))["id"], results[0]["id"])
         score["score"] = "999"
         with self.assertRaises(live.ApiError) as ctx:
             self.store.submit(score)
@@ -88,12 +89,13 @@ class LiveTests(unittest.TestCase):
         struct.pack_into(">II", payload, 0, len(payload), 0x09100800)
         live.validate_shared_replay(payload, "futari-xstorage-v1")
         sid = self.store.submit(self.score())["id"]
-        replay = {"protocol": 1, "title_id": live.TITLE_ID, "score_id": sid,
+        replay = {"protocol": 1, "score_id": sid,
                   "nickname": "测试水母-A7K2", "format": "futari-xstorage-v1",
                   "build": "test-build", "mode": "view-7",
                   "sha256": hashlib.sha256(payload).hexdigest(),
                   "payload": base64.b64encode(payload).decode()}
         rid = self.store.upload_replay(replay)["id"]
+        self.assertEqual(self.store.upload_replay(dict(replay, title_id="legacy"))["id"], rid)
         self.assertEqual(base64.b64decode(self.store.replay(rid)["payload"]), payload)
         row = self.store.leaderboard(7, "standard")["rows"][0]
         self.assertEqual(row["replay_size"], len(payload))
@@ -197,7 +199,7 @@ class LiveTests(unittest.TestCase):
                           headers=headers or {"Content-Type": "application/json"})
             return urlopen(req, timeout=3)
         try:
-            self.assertEqual(json.load(request("/health"))["protocol"], 1)
+            self.assertEqual(json.load(request("/health")), {"status": "ok"})
             score = self.score()
             sid = json.load(request("/scores", json.dumps(score).encode()))["id"]
             self.assertEqual(json.load(request("/leaderboard?view=7"))["rows"][0]["id"], sid)

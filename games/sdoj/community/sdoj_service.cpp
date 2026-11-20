@@ -61,7 +61,7 @@ void MatchReplay(const Json& properties,std::span<const uint8_t> record) {
   if(p.contains(0x10008011))Check(!p.at(0x10008011) || p.at(0x10008011)==int64_t(record.size()));
 }
 cave::community::NativeSchema Schema() {
-  return {.game="sdoj",.title="435A07E7",.replay_namespace="sdoj-replay",
+  return {.game="sdoj",.replay_namespace="sdoj-replay",
       .replay_format=kReplayFormat,.replay_header=kReplayHeaderBytes,.replay_max=kReplayMaxBytes,
       .valid_view=View,.encode_score=EncodeCommunityScore,
       .decode_columns=[](uint32_t,const Json& p,uint32_t bytes){return DecodeCommunityColumns(p,bytes);},

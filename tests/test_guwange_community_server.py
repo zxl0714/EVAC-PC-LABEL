@@ -40,13 +40,13 @@ def submission(view=1, character=0, score=12345, stage=0, token='1' * 32, name='
              (0x10000001, 1, 0), (0x10000003, 1, 0),
              (0x20000002, 2, str(packed_score_time(0x01dd63a69b501600))),
              (0x10000005, 1, 0), (0x10008011, 1, 0)]
-    return dict(protocol=1, title_id=GUWANGE.title, submission=token, nickname=name,
+    return dict(protocol=1, submission=token, nickname=name,
                 view=view, rules='standard', score=str(score), build='authored-test',
                 columns=[dict(id=key, type=kind, value=value) for key, kind, value in props])
 
 
 def attachment(score_id, data):
-    return dict(protocol=1, title_id=GUWANGE.title, score_id=score_id, nickname='Player',
+    return dict(protocol=1, score_id=score_id, nickname='Player',
                 format=REPLAY_FORMAT, data=base64.b64encode(data).decode(), sha256=hashlib.sha256(data).hexdigest())
 
 
@@ -130,7 +130,7 @@ class GuwangeCommunityServerTests(unittest.TestCase):
         bad = submission(); bad['columns'][0]['type'] = 1; bodies.append(bad)
         bad = submission(); bad['columns'][3]['value'] = 1; bodies.append(bad)
         bad = submission(); bad['columns'][-1]['value'] = 1024; bodies.append(bad)
-        bad = submission(); bad['title_id'] = '435A07D8'; bodies.append(bad)
+        bad = submission(); bad['protocol'] = 2; bodies.append(bad)
         bodies.append(submission(score=0x80000000))
         for bad in bodies:
             with self.subTest(bad=bad), self.assertRaises(ApiError): self.store.submit(bad)
@@ -154,7 +154,7 @@ class GuwangeCommunityServerTests(unittest.TestCase):
                 connection.request('GET', f'/cave/api/v1/games/{game}/health')
                 response = connection.getresponse(); body = json.loads(response.read())
                 self.assertEqual(response.status, status)
-                if status == 200: self.assertEqual(body['title_id'], GUWANGE.title)
+                if status == 200: self.assertEqual(body, {'status': 'ok'})
                 connection.close()
         finally:
             server.shutdown(); server.server_close(); worker.join()

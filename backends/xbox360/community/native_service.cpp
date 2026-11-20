@@ -85,7 +85,7 @@ uint32_t Error(const cave::community::HttpResult& result) {
 NativeSchema ValidateSchema(NativeSchema schema) {
   Require(!schema.game.empty() && schema.game.size()<=32 &&
       schema.game.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-")==schema.game.npos &&
-      !schema.title.empty() && !schema.replay_namespace.empty() && !schema.replay_format.empty() &&
+      !schema.replay_namespace.empty() && !schema.replay_format.empty() &&
       schema.replay_header>0 && schema.replay_max>schema.replay_header &&
       schema.replay_max<=kReplayEncodingLimit && schema.valid_view && schema.encode_score &&
       schema.decode_columns && schema.column_type && schema.native_name && schema.run_key && schema.match_replay);
@@ -144,7 +144,7 @@ cave::community::HttpResult NativeService::Http(std::string path, Json body, Clo
   auto request = client_.Request(std::move(path), std::move(body));
   if (request.wait_until(deadline) != std::future_status::ready) return {0, kTimeout, {}};
   auto result = request.get();
-  if (result && (result.body.value("protocol", 0) != 1 || result.body.value("title_id", "") != std::string(schema_.title)))
+  if (result && result.body.value("protocol", 0) != 1)
     return {result.status, kInvalid, {}};
   return result;
 }
@@ -257,7 +257,7 @@ uint32_t NativeService::WriteNow(const std::vector<CommunityWrite>& views, Clock
     uploads_.erase(view.view);
     Require(ids.insert(view.view).second);
     auto body = schema_.encode_score(view);
-    body.update({{"protocol", 1}, {"title_id", std::string(schema_.title)}, {"submission", Reference()},
+    body.update({{"protocol", 1}, {"submission", Reference()},
                  {"nickname", nickname_}, {"build", build_}});
     submissions.push_back(std::move(body));
   }
@@ -313,7 +313,7 @@ CommunityReplayResult NativeService::ReplayNow(const CommunityReplay& request,Cl
     REXLOG_INFO("Native replay upload: view={} bytes={}",request.view,request.record.size());
     schema_.match_replay(request.view,reference.properties,request.record);
     const auto hash=ReplaySha256(request.record);
-    auto reply=Http("/replays",{{"protocol",1},{"title_id",std::string(schema_.title)},{"score_id",reference.id},
+    auto reply=Http("/replays",{{"protocol",1},{"score_id",reference.id},
         {"nickname",nickname_},{"format",std::string(schema_.replay_format)},{"sha256",hash},{"data",ReplayBase64(request.record)}},deadline);
     if(auto error=Error(reply))return {error,{}};
     Require(ValidReference(reply.body.at("id")) && reply.body.at("score_id")==reference.id &&

@@ -148,7 +148,7 @@ void MatchNativeRecording(const Json& properties,std::span<const uint8_t> record
   MatchReplay(properties,InspectReplay(record),record.size());
 }
 cave::community::NativeSchema Schema() {
-  return {.game="espgaluda2",.title="435A07D8",.replay_namespace="espgaluda2-replay",
+  return {.game="espgaluda2",.replay_namespace="espgaluda2-replay",
       .replay_format=kReplayFormat,.replay_header=kReplayHeaderBytes,.replay_max=kReplayMaxBytes,
       .valid_view=View,.encode_score=EncodeCommunityScore,
       .decode_columns=[](uint32_t,const Json& p,uint32_t bytes){return DecodeCommunityColumns(p,bytes);},

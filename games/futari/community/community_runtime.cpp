@@ -291,7 +291,7 @@ uint32_t FutariCommunity::WriteNow(const std::vector<CommunityWrite>& views,Cloc
       else return kInvalidData;
       columns.push_back({{"id",col.id&0xffff},{"type",col.type},{"value",value}});
     }
-    nlohmann::json submission={{"protocol",1},{"title_id","435A07D7"},{"submission",RandomReference()},
+    nlohmann::json submission={{"protocol",1},{"submission",RandomReference()},
       {"nickname",nickname_},{"view",view.view},{"rules","standard"},{"score",std::to_string(score->integer)},
       {"columns",std::move(columns)},{"build",build_}};
     auto staged=staged_replays_.find(view.view);
@@ -378,7 +378,7 @@ CommunityReplayResult FutariCommunity::ReplayNow(const CommunityReplay& request,
     // the original 104-byte header and compressed stream without converting it.
     FutariValidateStorageReplay(request.record);
     const auto& payload=request.record;
-    nlohmann::json body={{"protocol",1},{"title_id","435A07D7"},
+    nlohmann::json body={{"protocol",1},
       {"nickname",nickname_},{"format","futari-xstorage-v1"},{"build",build_},
       {"mode",mode},{"sha256",Hash(payload)},{"payload",Base64(payload)},{"origin",JournalOrigin()}};
     if(found==accepted_scores_.end()) {
@@ -407,7 +407,7 @@ CommunityReplayResult FutariCommunity::ReplayNow(const CommunityReplay& request,
   auto reply=Http("/replays/"+reference.replay,nullptr,deadline);
   if(auto error=ResultError(reply))return {error,{}};
   const auto& body=reply.body;
-  if(body.at("protocol")!=1 || body.at("title_id")!="435A07D7" || body.at("id")!=reference.replay
+  if(body.at("protocol")!=1 || body.at("id")!=reference.replay
       || body.at("score_id")!=reference.score || body.at("build")!=reference.build
       || body.at("mode")!=mode || body.at("format")!="futari-xstorage-v1")return {kInvalidData,{}};
   auto payload=Unbase64(body.at("payload").get<std::string>());
@@ -475,7 +475,7 @@ void FutariCommunity::ArchiveUnboundReplays() {
         || !IsReference(entry.path().stem().string()) || entry.file_size()>12*1024*1024
         || referenced.contains(entry.path().stem().string()))continue;
     std::ifstream file(entry.path());auto body=nlohmann::json::parse(file,nullptr,false);file.close();
-    if(!body.is_object() || !JournalMatches(body) || body.value("protocol",0)!=1 || body.value("title_id","")!="435A07D7"
+    if(!body.is_object() || !JournalMatches(body) || body.value("protocol",0)!=1
         || body.value("format","")!="futari-xstorage-v1" || body.contains("score_id"))continue;
     std::filesystem::create_directories(archive);
     auto target=archive/entry.path().filename();
@@ -499,7 +499,7 @@ void FutariCommunity::RetryOne() {
     if(!entry.is_regular_file()||entry.is_symlink()||entry.path().extension()!=".json"||!IsReference(entry.path().stem().string())
         || entry.file_size()>12*1024*1024)continue;
     std::ifstream file(entry.path());auto body=nlohmann::json::parse(file,nullptr,false);file.close();
-    if(!body.is_object()||!JournalMatches(body)||body.value("protocol",0)!=1||body.value("title_id","")!="435A07D7"
+    if(!body.is_object()||!JournalMatches(body)||body.value("protocol",0)!=1
         || !IsReference(body.value("score_id","")))continue;
     SendReplay(body,entry.path(),Clock::now()+std::chrono::seconds(8));return;
   }

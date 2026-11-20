@@ -624,7 +624,7 @@ int main(int argc, char** argv) {
     FutariLiveClient client(argv[1]);
     auto health = client.Request("/health").get();
     Check(bool(health), "health failed");
-    Check(health.body.value("protocol", 0) == 1, "protocol mismatch");
+    Check(health.body.value("status", "") == "ok", "unexpected health status");
     auto missing = client.Request("/missing").get();
     Check(missing.status == 404 && missing.body.value("error", "") == "not_found", "HTTP error not returned");
     auto invalid = client.Request("/scores", nlohmann::json::object()).get();

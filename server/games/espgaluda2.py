@@ -188,7 +188,7 @@ class Store:
     def submit(self, body):
         if not isinstance(body, dict):
             raise ApiError(400, 'invalid_object')
-        if body.get('title_id') != self.game.title or type(body.get('protocol')) is not int or body['protocol'] != PROTOCOL:
+        if type(body.get('protocol')) is not int or body['protocol'] != PROTOCOL:
             raise ApiError(409, 'incompatible_client')
         sub = body.get('submission')
         if not isinstance(sub, str) or not re.fullmatch('[0-9a-f]{32}', sub):
@@ -269,7 +269,7 @@ class Store:
     def attach_replay(self, body):
         if not isinstance(body, dict):
             raise ApiError(400, 'invalid_object')
-        if body.get('title_id') != self.game.title or type(body.get('protocol')) is not int or body['protocol'] != PROTOCOL:
+        if type(body.get('protocol')) is not int or body['protocol'] != PROTOCOL:
             raise ApiError(409, 'incompatible_client')
         score_id, name = reference(body.get('score_id')), nickname(body.get('nickname'))
         if body.get('format') != self.replay_format:
@@ -367,8 +367,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
         pass
 
-    def reply(self, status, body):
-        body.update(protocol=PROTOCOL, title_id=self.server.store.game.title)
+    def reply(self, status, body, *, include_identity=True):
+        if include_identity:
+            body.update(protocol=PROTOCOL, title_id=self.server.store.game.title)
         data = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -421,7 +422,7 @@ class Handler(BaseHTTPRequestHandler):
                     body = json.loads(raw)
                 store = self.server.store
                 if not post and route == '/health':
-                    result = dict(status='ok', features=['scores', 'leaderboards', 'estimate', 'replays'])
+                    result = dict(status='ok')
                 elif not post and route == '/boards':
                     result = store.boards()
                 elif not post and route == '/leaderboard':
@@ -437,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
                     result = store.replay(route.rsplit('/', 1)[1])
                 else:
                     raise ApiError(404, 'not_found')
-                self.reply(200, result)
+                self.reply(200, result, include_identity=route != '/health')
                 LOG.info('request=%s route=%s status=200 ms=%d', request_id, route, (time.monotonic()-started)*1000)
             except ApiError as error:
                 self.reply(error.status, dict(error=error.code, request=request_id))

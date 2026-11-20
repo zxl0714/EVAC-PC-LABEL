@@ -61,7 +61,7 @@ std::string RunKey(const Json& props) {
       std::to_string(p.at(0x10000008))+"/"+std::to_string(p.at(0x10000006));
 }
 cave::community::NativeSchema Schema() {
-  return {.game="guwange",.title="58410A78",.replay_namespace="guwange-replay",
+  return {.game="guwange",.replay_namespace="guwange-replay",
       .replay_format=kReplayFormat,.replay_header=kReplayHeaderBytes,.replay_max=kReplayMaxBytes,
       .valid_view=ValidView,.encode_score=EncodeCommunityScore,.decode_columns=DecodeCommunityColumns,
       .column_type=[](uint16_t){return uint32_t(1);},.native_name=cave::community::NativeLegacyName,

@@ -41,14 +41,14 @@ def submission(score=12345, view=23, name='Player', token='1' * 32):
     columns = [(0x20000004, 2, str(score)), (0x20000002, 2, str(TIMESTAMP)),
                (0x10000007, 1, VIEW_CHARACTER_TYPE[view]), (0x10000006, 1, 0),
                (0x10000005, 1, 0), (0x10000001, 1, 0), (0x10008011, 1, 0)]
-    return dict(protocol=1, title_id=SDOJ.title, submission=token, nickname=name,
+    return dict(protocol=1, submission=token, nickname=name,
                 view=view, rules='standard', score=str(score), build='authored-test',
                 columns=[dict(id=key, type=typ, value=value) for key, typ, value in columns])
 
 
 def attachment(score_id, data=None):
     data = recording() if data is None else data
-    return dict(protocol=1, title_id=SDOJ.title, score_id=score_id, nickname='Player',
+    return dict(protocol=1, score_id=score_id, nickname='Player',
                 format=REPLAY_FORMAT, data=base64.b64encode(data).decode(), sha256=hashlib.sha256(data).hexdigest())
 
 
@@ -79,8 +79,6 @@ class SdojCommunityServerTests(unittest.TestCase):
         self.assertEqual(filetime(TIMESTAMP), 0x01dd5fb4b546a200)
 
     def test_schema_does_not_accept_g2_score_or_cross_game_database(self):
-        bad = submission(); bad['title_id'] = '435A07D8'
-        with self.assertRaises(ApiError): self.store.submit(bad)
         bad = submission(); bad['columns'][0]['id'] = 0x20000001
         with self.assertRaises(ApiError): self.store.submit(bad)
         with self.assertRaises(RuntimeError): G2Store(self.path)
@@ -155,7 +153,7 @@ class SdojCommunityServerTests(unittest.TestCase):
             connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=3)
             connection.request('GET', '/cave/api/v1/games/sdoj/health')
             response = connection.getresponse(); body = json.loads(response.read())
-            self.assertEqual(response.status, 200); self.assertEqual(body['title_id'], '435A07E7')
+            self.assertEqual(response.status, 200); self.assertEqual(body, {'status': 'ok'})
             connection.close()
             connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=3)
             connection.request('GET', '/cave/api/v1/games/espgaluda2/health')
