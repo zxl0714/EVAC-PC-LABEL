@@ -75,8 +75,15 @@ struct BigPictureLayout {
     size_t Move(MenuKey key) const {
         if (!count) return 0;
         const auto columns = Columns(), column = selected % columns;
-        if (key == MenuKey::Left && selected && (!Portrait() || column > 0)) return selected - 1;
-        if (key == MenuKey::Right && (!Portrait() || column + 1 < columns)) return std::min(selected + 1, count - 1);
+        const bool portrait = Portrait();
+        if (key == MenuKey::Left && selected) {
+            if (!portrait || column > 0) return selected - 1;
+            if (Page() > 0) return selected - PageSize() + columns - 1;
+        }
+        if (key == MenuKey::Right) {
+            if (!portrait || column + 1 < columns) return std::min(selected + 1, count - 1);
+            if (Last() < count) return std::min(selected - column + PageSize(), count - 1);
+        }
         if (key == MenuKey::Up && selected >= columns) return selected - columns;
         if (key == MenuKey::Down && (selected / columns + 1) * columns < count)
             return std::min(selected + columns, count - 1);

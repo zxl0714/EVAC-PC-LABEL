@@ -1078,13 +1078,17 @@ void MainChecks() {
         Require(view.PageSize()==4 && first.right<right.left && first.bottom<below.top && first.left==below.left,
                 "Portrait Big Picture did not show a two-by-two grid");
         Require(view.Move(MenuKey::Up)==4 && view.Move(MenuKey::Down)==8 &&
-                view.Move(MenuKey::Left)==6 && view.Move(MenuKey::Right)==7,
-                "Portrait Big Picture did not navigate rows, columns, and the following page");
+                view.Move(MenuKey::Left)==3 && view.Move(MenuKey::Right)==7,
+                "Portrait Big Picture did not navigate rows, columns, and adjacent pages");
       } else
         Require(view.Move(MenuKey::Left)==5 && view.Move(MenuKey::Right)==7 &&
                 view.Move(MenuKey::Up)==6-view.Columns() && view.Move(MenuKey::Down)==6+view.Columns(),
                 "Horizontal Big Picture did not keep its existing navigation");
     }
+    const BigPictureLayout first_page{480,640,13,2}, before_last_page{480,640,13,11}, last_page{480,640,13,12};
+    Require(first_page.Move(MenuKey::Left)==2 && before_last_page.Move(MenuKey::Right)==12 &&
+            last_page.Move(MenuKey::Right)==12 && last_page.Move(MenuKey::Left)==9,
+            "Portrait paging must stop at the library ends and select an available game on an incomplete page");
     Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\nbig_picture_layout=horizontal\n");
     Frame frame(fixture.root,"futari");
     RECT client{};GetClientRect(frame.app.hwnd,&client);
@@ -1096,6 +1100,12 @@ void MainChecks() {
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RIGHT,0);
     Require(frame.app.VisiblePosition()==before+1,"Big Picture input did not move game focus");
     frame.app.big_picture_mode=cave::launcher::ReadBigPictureMode(Ini::Parse("[collection]\nbig_picture_layout=vertical\n"));
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RIGHT,0);
+    Require(frame.app.BigView().Page()==1 && frame.app.VisiblePosition()==before+4,
+            "Right from the right column did not select the same row on the next portrait page");
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_LEFT,0);
+    Require(frame.app.BigView().Page()==0 && frame.app.VisiblePosition()==before+1,
+            "Left from the left column did not select the same row on the previous portrait page");
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_DOWN,0);
     Require(frame.app.BigView().PageSize()==4 && frame.app.VisiblePosition()==before+3,
             "Portrait Big Picture did not select the next row with Down");
