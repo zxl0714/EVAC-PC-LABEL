@@ -11,12 +11,12 @@ another historical narrative or one-off input script.
 ## Current objective
 
 v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The current program
-candidate is frozen at `0e66723` in `releases/v0103-0e66723/`. The Exit game
-action in Controls accepts single inputs and pairs for both device types.
-Previous candidates remain in `releases/v0103-71944c3/`, `releases/v0103-cc450eb/`,
-`releases/v0103-7a07b1a/`, and `releases/v0103-candidate/`. Use the matching
-release DLL and private symbols under `.local/v0103/shipcheck/` for new
-Death Label reports. Analyze the existing upload ZIP directly with
+candidate is frozen at `87ba2c8` in `releases/v0103-87ba2c8/`. It includes the
+2×2 portrait Big Picture grid, DonPachi fullscreen selection, and the remappable
+Exit game shortcut. Earlier candidates remain in their original directories.
+For new Death Label reports, match the report's runtime to the private symbols
+under `.local/v0103/shipcheck/symbols/`. The `87ba2c8/` subdirectory holds the
+matching DLL and PDB for the current candidate. Analyze the upload ZIP with
 `py -3.12 scripts/ps2_death_label_report.py <report.zip>`. Current component
 and report acceptance is in the first section of docs/TEST_MATRIX.md.
 
