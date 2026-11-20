@@ -87,23 +87,25 @@ class PackageInputs:
         except (ValueError, KeyError, TypeError, subprocess.CalledProcessError):
             return False
 
-    def doc_screenshots_equivalent(self, origin, expected):
+    def project_helpers_equivalent(self, origin, expected):
         name = 'scripts/project.py'
 
-        def without_doc_screenshots(source):
+        def build_helpers(source):
             tree = ast.parse(source)
+            # Packaging runs the current source audit separately.
             tree.body = [
                 item for item in tree.body
                 if not (isinstance(item, ast.Assign) and len(item.targets) == 1
                         and isinstance(item.targets[0], ast.Name)
                         and item.targets[0].id == 'DOC_SCREENSHOTS')
+                and not (isinstance(item, ast.FunctionDef) and item.name == 'audit_source')
             ]
             return ast.dump(tree)
 
         try:
             before = self.git('show', origin + ':' + name)
             return (hashlib.sha256(before).hexdigest() == expected
-                    and without_doc_screenshots(before) == without_doc_screenshots((self.root / name).read_bytes()))
+                    and build_helpers(before) == build_helpers((self.root / name).read_bytes()))
         except (SyntaxError, ValueError, subprocess.CalledProcessError):
             return False
 
@@ -136,7 +138,7 @@ class PackageInputs:
         if not isinstance(files, dict) or not files:
             raise ValueError('Missing maintained build inputs: ' + backend)
         equivalent = set()
-        comparisons = [('scripts/project.py', self.doc_screenshots_equivalent)]
+        comparisons = [('scripts/project.py', self.project_helpers_equivalent)]
         if backend == 'xbox360':
             comparisons.append(('games/catalogue.json', self.xbox_catalogue_equivalent))
         for name, compare in comparisons:

@@ -113,6 +113,19 @@ class PackageReceiptTests(unittest.TestCase):
                 with self.subTest(backend=backend, name=name):
                     self.assertEqual(relevant(backend, name, {name}), backend == 'launcher')
 
+    def test_project_source_audit_can_change_without_changing_build_helpers(self):
+        name = 'scripts/project.py'
+        before = 'DOC_SCREENSHOTS = {}\ndef audit_source(): return 1\ndef digest(path): return path\n'
+        self.write(name, before)
+        self.save()
+        inputs = PackageInputs(self.root)
+        expected = hashlib.sha256((self.root/name).read_bytes()).hexdigest()
+        after = before.replace('return 1', 'return 2').replace('{}', '{"cover.png": "hash"}')
+        self.write(name, after)
+        self.assertTrue(inputs.project_helpers_equivalent(inputs.commit, expected))
+        self.write(name, after.replace('return path', 'return ""'))
+        self.assertFalse(inputs.project_helpers_equivalent(inputs.commit, expected))
+
     def test_inconsistent_receipt_and_output_traversal_are_rejected(self):
         record = self.receipt()
         record['sourceSnapshot']['files']['common/shared.h']='changed'

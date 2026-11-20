@@ -40,6 +40,17 @@ DOC_SCREENSHOTS = {
         'd608819448f7986fa43f9367dbe57fbabc3a76865707e49f93c14aecef812bcc',
     'docs/images/daioujou-death-label-gameplay.png':
         '7ca642c277cacdf56f1750d76dfa19830e24a820bb43ce37098feb49f1ae405d',
+    # Images for the historical launcher design mockup.
+    'launcher/assets/futari.jpg':
+        'deb7097c249c2b6f77e5fe3cad309eff858af9f8105f541a90c4c2b955a15aaf',
+    'launcher/assets/espgaluda2.jpg':
+        '3ea98164208a37b53b38e3aa8684e5c31f22aa09827518e3664fde6c327d69dd',
+    'launcher/assets/ketsui.png':
+        '006737cb4eb290839538386d004bc34a8c2b92a020e00596151f06b96c33b48e',
+    'launcher/assets/daioujou.jpg':
+        '5355e708e0038b9b077fe9d91263acda3d6d19aafdf70ec1cb38f4edfef1c241',
+    'launcher/assets/esprade.jpg':
+        'b2ae1c30532ea4297abfa1511a7e025bff5b9ed6b8dfc7bda3ddd7736c4177be',
 }
 
 
@@ -91,7 +102,7 @@ def audit_source(root=ROOT):
     if actual_links != expected_links:
         raise ValueError('SDK dependency index differs from its source lock')
     from generate_artwork import artwork, branding
-    art={entry['path'] for entry in [*artwork(root),*artwork(root,'covers')]}
+    art={entry['path'] for entry in artwork(root)}
     brand={entry['path'] for entry in branding(root)}
     from ps2_game import analysis_sources
     from ps2_ibara import analysis_sources as ibara_analysis_sources
