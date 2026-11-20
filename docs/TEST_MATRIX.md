@@ -13,6 +13,7 @@
 
 ## v0.10.3 启动器与其他报告
 
+- v0.10.3 已在 GitHub 正式发布为最新版，标签指向验收提交 `93b5293`。公开 API 核对了英文在前的发布说明、程序 ZIP 和校验文件的大小及 SHA-256。程序下载地址返回成功，下载的校验文件与本地一致。发布记录见 `.local/v0103/github-release.json`。[GitHub Release v0.10.3](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.3)
 - 英文默认语言候选包冻结于 `93b5293`，路径为 `releases/v0103-93b5293/`，178,758,214 字节，SHA-256 为 `823f7e8e0677b61eb528c36947fb3a0f49097442bbc8826bc8949fb3f8e2e1aa`。ZIP 内 212 个清单文件校验通过，包内 README 为 v0.10.3。空目录首启生成 `language = en`，软件回归验证了缺省语言和已有语言选择，README 链接及两种语言的发布说明检查通过。Death Label 运行库及符号归档于 `.local/v0103/shipcheck/symbols/93b5293/`，PDB 标识为 `0df479e1-268e-046d-4c4c-44205044422e/1`。
 - 竖屏左右翻页候选包冻结于 `dfed9b9`，路径为 `releases/v0103-dfed9b9/`，178,758,221 字节，SHA-256 为 `31f7b7c2fd56dac2bd79a14e4913c5f649563c0d5ac2c7df7c84cd3587b2987c`。212 个清单文件校验通过。启动器回归测试覆盖左右翻页、首尾边界和只有一款游戏的末页，59 项 SDL 检查通过。该包复用了 `87ba2c8` 对应的 Death Label 运行库和私有符号。
 - 竖屏大屏及《首领蜂》全屏候选包冻结于 `87ba2c8`，路径为 `releases/v0103-87ba2c8/`，178,757,854 字节。ZIP 的 SHA-256 为 `9ce0ed4490db00f47398a3c0acf66f5c4ee2ac75ff93c12db022d419b9f410c3`，212 个清单文件校验通过，两份外部程序放置说明为 `EVAC-Setup.txt`。启动器回归、59 项 SDL 检查和 72 项更新检查通过。

@@ -10,9 +10,11 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.10.3 is tracked in docs/IMPLEMENTATION_PLAN.md. The current program
-candidate is frozen at `93b5293` in `releases/v0103-93b5293/`. The launcher
-defaults to English and preserves the language selected in existing configs.
+v0.10.3 is the latest [GitHub release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.3).
+Its tag points to `93b5293`, and the verified program package is in
+`releases/v0103-93b5293/`. The launcher defaults to English and preserves the
+language selected in existing configs. Release verification is recorded in
+`.local/v0103/github-release.json` and `docs/TEST_MATRIX.md`.
 For new Death Label reports, match the report's runtime to the private symbols
 under `.local/v0103/shipcheck/symbols/`. The current DLL and PDB are in the
 `93b5293/` subdirectory. Analyze the upload ZIP with
