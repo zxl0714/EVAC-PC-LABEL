@@ -13,6 +13,12 @@
 - 本轮 VU1 构建的 32 项 PS2 测试全部通过。《ESPGaluda》复测第一关 6.58 秒内呈现 395 帧，平均 60.00 FPS，P95 为 17.29 ms，最长 18.59 ms。关内音频窗口没有缺失采样。用 ROM 库的原始 ISO 启动《铸蔷薇》和 PS2 版《大往生》，均呈现有背景的自动演示。测试记录见 `.local/v0104/legacy-ps2-r27-ctest.log` 和 `.local/v0104/espgaluda-stage-legacy-r27/`。
 - 《R-Type Final》后段实战测得 9.06 秒内呈现 115 帧，约 12.6 FPS。取样中 VU1 的执行、寄存器等待和写回仍占主要时间。记录见 `.local/v0104/r-type-final/boot-banks-r27-stage1/`。
 - 《R-Type Final》的 VU1 预编译从原始启动 ELF 识别出 29 段微程序，并实测匹配到关内实际上传的内容。SSE4.1 试验版在首关的 9.06 秒内呈现 540 帧，约 59.54 FPS，P95 为 18.39 ms。继续游玩时发现活动代码库 4 缺少 `0x5d4ff0`。核对 198 条对象描述记录，补齐 100 个回调与关联入口。25 个程序的静态跳转检查通过，生成器会逐个验证各代码库的对象回调。刻意移除活动代码库中的该入口时，校验能发现缺失。见 `.local/v0104/r-type-final/boot-banks-aot-r4-sse4/` 和 `.local/v0104/r-type-final/descriptor-verification.txt`。[预编译实现](https://github.com/TheBozos/PS2Recomp/tree/03113132ca7409423d1f86695f1a7930fa46b2a2)
+- 正式构建的《R-Type Final》到达首关 Boss，续关后回到同一关内检查点。7 分 21 秒共呈现 26,000 帧，正常到达测试上限并退出。首关移动射击采样 59.76 FPS、P95 17.52 ms，重场景采样 57.85 FPS、P95 20.76 ms。较重和加载时段仍可见音频欠载。实测 Reflex 发出 26,000 次等待，零次超时。证据见 `.local/v0104/r-type-final/boot-banks-production-stage/`。
+- 正式 PS2 构建通过 32 项 CTest。《ESPGaluda》VSync 首关采样 59.997 FPS，P95 17.34 ms。《铸蔷薇》和 PS2 版《大往生》实测演示背景正常，退出码均为 0。用正式宿主 DLL 复查 Death Label 的 3591×2020 窗口，FIFO 和 Immediate 均得到 8 位 SDR 交换链，呈现加载帧和游戏帧后正常关闭。证据见 `.local/v0104/production-ps2-ctest.log`、`.local/v0104/espgaluda-stage-production/` 和 `.local/v0104/dl-smoke-final/`。
+
+## v0.10.4 社区服务
+
+- 逐款从公开 HTTPS 检查健康响应和一个实际榜单。九款均为 200，普通健康请求只得到 `status=ok`。两代 PS4 客户端的健康握手仍能取到原本的协议字段。86 项服务器单测、19 项 PS4 原生联网回归和 4 项 PS4 运行时测试通过。证据见 `.local/v0104/route-api/ps4-health-public.json` 与 `.local/v0104/production-ps4-community-tests.log`。
 
 ## v0.10.3 Death Label 崩溃诊断
 

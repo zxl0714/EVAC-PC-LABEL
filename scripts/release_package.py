@@ -865,7 +865,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--data-dir', action='append', default=[])
     parser.add_argument('--futari-dlc', type=Path)
-    parser.add_argument('--data-game', action='append', choices=['all', *V094_GAMES])
+    parser.add_argument('--data-game', action='append', choices=['all', *V0104_GAMES])
     parser.add_argument('--futari-content', action='append', choices=['all', 'black-label', 'ver101'])
     parser.add_argument('--symbols', action='store_true')
     parser.add_argument('--amd-anti-lag', action='store_true')

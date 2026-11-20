@@ -473,10 +473,10 @@ void GameLibraryChecks() {
   using cave::launcher::GameLibrary;
   const GameLibrary defaults(Ini::Parse(""));
   Require(GameLibrary::Encode(defaults.visible)==
-          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,donpachi",
+          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,rtype-final,donpachi",
           "The default launcher order must start with Futari and group games by platform");
   Require(GameLibrary::Encode(GameLibrary(Ini::Parse("[collection]\ngame_order=ketsui,espgaluda2\n")).order)==
-          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,donpachi",
+          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,rtype-final,donpachi",
           "An existing custom prefix must take precedence over the default order");
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\ngame_order=futari,espgaluda2,ketsui\n");
