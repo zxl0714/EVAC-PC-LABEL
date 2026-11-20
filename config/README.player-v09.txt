@@ -56,6 +56,8 @@ CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
 启动器关闭时会记住窗口大小。拖动卡片调整顺序，右键隐藏游戏，眼睛图标显示隐藏项。
 启动按钮上方选择全屏或窗口分辨率。底部“配置文件”打开 user-data/config.ini。
 底部“输入设置”可修改键盘、手柄和摇杆绑定。选择所有游戏或当前游戏，双击一项后按键，保存后下次启动生效。
+从大屏启动的游戏中，按住 Esc 或 Start + 十字键上约一秒，可退出并返回大屏。
+在 [collection] 修改 big_picture_exit_key 和 big_picture_exit_buttons 可自定义快捷键，设为 none 可关闭。
 备份、换目录时保留整个 user-data/，包含配置、存档和录像。
 
 ESPGaluda II、最大往生和狱门山默认使用 0V。要恢复原作时序，在对应区段修改 frame_delay 后重启：
@@ -146,6 +148,8 @@ CN / EN / JP selects the UI language. Edit your leaderboard nickname in the head
 The launcher remembers its window size when closed.
 Choose fullscreen or a window size above Launch game. Config opens user-data/config.ini.
 Open Controls to remap your keyboard, gamepad or arcade stick. Choose a scope, double-click a binding and press an input. Changes apply the next time you start a game.
+In games launched from Big Picture, hold Esc or Start + D-pad Up for about one second to exit and return.
+Use big_picture_exit_key and big_picture_exit_buttons under [collection] to change the shortcuts, or set either to none to disable it.
 Keep the whole user-data/ folder when updating or moving your installation.
 
 ESPGaluda II, SaiDaiOuJou and Guwange default to 0V. To restore original timing, change frame_delay in the matching section and restart:

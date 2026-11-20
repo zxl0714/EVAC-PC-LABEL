@@ -11,10 +11,6 @@ namespace {
 constexpr wchar_t kClass[]=L"EvacInputSettings";
 constexpr int kPreferredHeight=736;
 enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset};
-constexpr std::array<std::string_view,21> kPadKeys{
-    "dpup","dpdown","dpleft","dpright","a","b","x","y","start","back",
-    "leftshoulder","rightshoulder","lefttrigger","righttrigger","leftstick","rightstick",
-    "leftx","lefty","rightx","righty","touchpad"};
 
 struct Draft {
     std::string before;

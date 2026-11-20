@@ -24,6 +24,16 @@ Select **Big Picture** at the bottom of the launcher or press `F11` in the game 
 
 In either mode, use the left stick, D-pad, or arcade stick to select a game and press Confirm to launch it. In Big Picture, press Back to open the exit menu.
 
+After launching a game from Big Picture, hold `Esc` or `Start` and D-pad `Up` for about one second to exit the game and return. To change the shortcuts, edit `[collection]` in `user-data/config.ini`.
+
+```ini
+[collection]
+big_picture_exit_key = Escape
+big_picture_exit_buttons = Start + Up
+```
+
+You can assign a different keyboard key, such as `F12`. The controller shortcut uses the game's bindings and requires at least two buttons on the same device, such as `Start + Select`. Use **Controls** in the launcher to bind those inputs on an arcade stick. Set either shortcut to `none` to turn it off.
+
 On a cabinet, use the following command to open Big Picture directly.
 
 ```powershell

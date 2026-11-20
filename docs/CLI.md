@@ -24,6 +24,16 @@
 
 普通窗口和大屏都可用手柄十字键、左摇杆或街机摇杆选游戏，按确认键启动。大屏里按返回键打开退出菜单。
 
+从大屏启动游戏后，长按 `Esc` 或同时按住 `Start` 和十字键 `↑` 约一秒，即可退出游戏并返回大屏。这两项可在 `user-data/config.ini` 的 `[collection]` 中修改。
+
+```ini
+[collection]
+big_picture_exit_key = Escape
+big_picture_exit_buttons = Start + Up
+```
+
+键盘可改用 `F12` 等按键。手柄组合使用游戏的按键绑定，一次在同一设备上按住至少两个键，例如 `Start + Select`。街机摇杆可到启动器的「输入设置」绑定对应按键。任一项设为 `none` 即可关闭。
+
 机台可以用以下命令直接打开大屏。
 
 ```powershell

@@ -21,6 +21,7 @@
 #include "launcher/big_picture.h"
 #include "launcher/sdoj_recomp.h"
 #include "common/config_update.h"
+#include "common/controller_bindings.h"
 #include <Windows.h>
 #include <windowsx.h>
 #include <d2d1.h>
@@ -50,6 +51,8 @@ using namespace cave;
 using cave::launcher::LauncherCatalogue;
 using cave::launcher::FindLauncherGame;
 using cave::launcher::BigPictureLayout;
+using cave::launcher::GameExitShortcuts;
+using cave::launcher::HoldToExit;
 using cave::launcher::MenuKey;
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 namespace {
@@ -60,6 +63,7 @@ constexpr UINT kShowFirstDisplayChoice=WM_APP+4;
 constexpr UINT_PTR kChildTimer=1;
 constexpr UINT_PTR kUpdateTimer=2;
 constexpr UINT_PTR kMenuControllerTimer=3;
+constexpr UINT kMenuPollInterval=16,kGameExitPollInterval=40;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
 constexpr int kProjectLinkFocus=16;
 enum class ExternalControl { None, SdojToggle, ProjectIcon, ProjectLink };
@@ -163,14 +167,17 @@ void OpenPath(HWND window,const fs::path& path) {
   if (reinterpret_cast<INT_PTR>(ShellExecuteW(window,L"open",path.c_str(),nullptr,nullptr,SW_SHOWNORMAL))<=32)
     throw std::runtime_error("Cannot open the selected file or directory");
 }
+bool IsGameWindow(HWND window,DWORD pid) {
+  DWORD owner{};
+  return window && pid && GetWindowThreadProcessId(window,&owner) && owner==pid &&
+      IsWindowVisible(window) && !IsIconic(window) && !GetWindow(window,GW_OWNER) &&
+      !(GetWindowLongPtrW(window,GWL_EXSTYLE)&(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE));
+}
 HWND VisibleGameWindow(DWORD pid) {
   struct Search { DWORD pid; HWND result; } search{pid,nullptr};
   EnumWindows([](HWND window,LPARAM parameter)->BOOL {
     auto& search=*reinterpret_cast<Search*>(parameter);
-    DWORD owner{};
-    GetWindowThreadProcessId(window,&owner);
-    if(owner!=search.pid || !IsWindowVisible(window) || IsIconic(window) || GetWindow(window,GW_OWNER) ||
-        (GetWindowLongPtrW(window,GWL_EXSTYLE)&(WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE)))return TRUE;
+    if(!IsGameWindow(window,search.pid))return TRUE;
     search.result=window;
     return FALSE;
   },reinterpret_cast<LPARAM>(&search));
@@ -195,6 +202,32 @@ void Log(const fs::path& root,std::string_view message) {
     stream<<now.wYear<<'-'<<now.wMonth<<'-'<<now.wDay<<'T'<<now.wHour<<':'<<now.wMinute<<':'<<now.wSecond
           <<"Z "<<message<<'\n';
   } catch (...) {}
+}
+GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std::string_view game) {
+  GameExitShortcuts shortcuts;
+  if(const auto entry=ini.Get("collection","big_picture_exit_key")) {
+    const auto key=cave::launcher::ParseExitKey(entry->text);
+    shortcuts.keyboard=key.value_or(0);
+    if(!key)Log(root,"Invalid [collection].big_picture_exit_key; keyboard exit disabled");
+  }
+  if(const auto entry=ini.Get("collection","big_picture_exit_buttons")) {
+    auto buttons=cave::launcher::ParseExitButtons(entry->text);
+    if(buttons)shortcuts.buttons=std::move(*buttons);
+    else {
+      shortcuts.buttons.clear();
+      Log(root,"Invalid [collection].big_picture_exit_buttons; controller exit disabled");
+    }
+  }
+  if(!shortcuts.buttons.empty()) {
+    try {
+      for(const auto& [guid,source]:ControllerMappings(ini,game))
+        shortcuts.controller_mappings.emplace(guid,cave::launcher::controls::ParsePadMap(source));
+    }catch(const std::exception& error) {Log(root,error.what());}
+  }
+  return shortcuts;
+}
+bool KeyHeld(std::uint16_t key) {
+  return key && (GetAsyncKeyState(key)&0x8000);
 }
 struct Options {
   fs::path root,data,preview;
@@ -917,6 +950,7 @@ struct Work {
   std::atomic<uint64_t> copied{},total{};
   std::vector<Row> rows;
   std::optional<LaunchSpec> launch;
+  std::optional<GameExitShortcuts> game_exit_shortcuts;
   std::optional<CopyResult> copy_result;
   std::string error;
   bool starting{},copying{},external{};
@@ -1404,18 +1438,43 @@ class App {
     }
   }
   void StartMenuController() {
+    if(!SetTimer(hwnd,kMenuControllerTimer,kMenuPollInterval,nullptr)) {
+      Log(options.root,"Cannot start launcher controller timer");
+      return;
+    }
     try {
       menu_controller=std::make_unique<cave::launcher::MenuController>(options.root);
-      if(!SetTimer(hwnd,kMenuControllerTimer,16,nullptr))
-        throw std::runtime_error("Cannot start launcher controller timer");
     } catch(const std::exception& error) {
-      menu_controller.reset();
       Log(options.root,"launcher-controller: "+std::string(error.what()));
     }
   }
+  void ResetGameExit() {
+    game_exit_window=nullptr;
+    exit_key_hold.Reset();
+    if(menu_controller)menu_controller->ResetGameExit();
+  }
+  void GameExitTick(HoldToExit::Clock::time_point now) {
+    if(!game_exit_shortcuts || !child || !BigPicture())return;
+    const auto foreground=GetForegroundWindow();
+    const auto game=IsGameWindow(foreground,child->pid())?foreground:nullptr;
+    if(game!=game_exit_window) {
+      ResetGameExit();
+      game_exit_window=game;
+    }
+    if(!game)return;
+    const bool keyboard=exit_key_hold.Poll(KeyHeld(game_exit_shortcuts->keyboard),now);
+    const bool controller=menu_controller && menu_controller->PollGameExit(*game_exit_shortcuts,now);
+    if(keyboard || controller) {
+      if(PostMessageW(game,WM_CLOSE,0,0))
+        Log(options.root,"big-picture-close game="+active_game+" pid="+std::to_string(child->pid()));
+      ResetGameExit();
+    }
+  }
   void MenuControllerTick() {
+    if(child) {GameExitTick(HoldToExit::Clock::now());return;}
+    if(exit_key_awaiting_release && !KeyHeld(exit_key_awaiting_release))exit_key_awaiting_release=0;
     if(!menu_controller)return;
-    if(child || close_requested || (work && (work->starting || work->copying)) ||
+    if(close_requested || (work && (work->starting || work->copying)) ||
        GetForegroundWindow()!=hwnd || !IsWindowEnabled(hwnd) || GetCapture() ||
        (!BigPicture() && SendMessageW(fullscreen_control,CB_GETDROPPEDSTATE,0,0))) {
       menu_controller->Reset();
@@ -1428,6 +1487,7 @@ class App {
     else MoveDesktopSelection(key,false);
   }
   void BigPictureKeyboard(WPARAM key, bool repeated) {
+    if(key==exit_key_awaiting_release)return;
     switch(key) {
       case VK_UP:case VK_NUMPAD8:BigPictureAction(MenuKey::Up);break;
       case VK_DOWN:case VK_NUMPAD2:BigPictureAction(MenuKey::Down);break;
@@ -1508,8 +1568,8 @@ class App {
     work->external=launch&&(ExternalSelected()||DonPachiSelected());
     work->selected=selected;
     const auto task=work;const auto root=options.root;const auto id=std::string(LauncherCatalogue()[selected].id);const auto profile=options.profile;
-    const auto window=hwnd;const auto data=options.data;
-    worker=std::thread([task,root,id,profile,window,data,copy_source] {
+    const auto window=hwnd;const auto data=options.data;const bool big_picture=launch&&BigPicture();
+    worker=std::thread([task,root,id,profile,window,data,copy_source,big_picture] {
       try {
         const auto progress=[task,window](uint64_t done,uint64_t total){
           task->copied=done;task->total=total;if(task->alive)PostMessageW(window,kCopyProgress,0,0);
@@ -1522,6 +1582,10 @@ class App {
           if(id==cave::launcher::kDonPachi.id)task->launch=cave::launcher::PrepareDonPachi(root,ini,profile,data);
           else if(task->external)task->launch=cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem());
           else task->launch=PrepareLaunch(FindGame(id),root,ini,profile,data);
+          if(big_picture) {
+            auto shortcuts=ReadGameExitShortcuts(ini,root,id);
+            if(shortcuts.keyboard || !shortcuts.buttons.empty())task->game_exit_shortcuts=std::move(shortcuts);
+          }
           Log(root,"launch-verification "+task->launch->verification);
           if(id=="daioujou") {
             VerificationCache cache(root);
@@ -1544,6 +1608,11 @@ class App {
       if(work->launch) {
         if(work->external)external_session.emplace(options.root);
         child.emplace(StartGame(*work->launch,work->external?work->launch->executable.parent_path():fs::path{}));
+        game_exit_shortcuts=std::move(work->game_exit_shortcuts);
+        if(game_exit_shortcuts) {
+          ResetGameExit();
+          SetTimer(hwnd,kMenuControllerTimer,kGameExitPollInterval,nullptr);
+        }
         game_focus_pending=BigPicture();
         if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
@@ -1577,6 +1646,13 @@ class App {
       if(failed && active_game==cave::launcher::kDonPachi.id)message=T(L"DonPachi Recomp 已退出，请查看其安装目录内的日志");
       else message=failed?(external?T(L"SDOJ-Recomp 已退出，请查看其目录内的日志"):T(L"游戏异常退出，请查看该游戏的日志")):L"";
       const auto exited_game=active_game;
+      if(game_exit_shortcuts) {
+        const auto key=game_exit_shortcuts->keyboard;
+        exit_key_awaiting_release=KeyHeld(key)?key:0;
+        game_exit_shortcuts.reset();
+        ResetGameExit();
+        SetTimer(hwnd,kMenuControllerTimer,kMenuPollInterval,nullptr);
+      }
       child.reset();external_session.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
       if(menu_controller)menu_controller->Reset();
       ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
@@ -2110,6 +2186,10 @@ class App {
   LONG_PTR desktop_style{};
   bool game_focus_pending{};
   std::unique_ptr<cave::launcher::MenuController> menu_controller;
+  std::optional<GameExitShortcuts> game_exit_shortcuts;
+  HWND game_exit_window{};
+  HoldToExit exit_key_hold;
+  std::uint16_t exit_key_awaiting_release{};
   bool menu_open{};
   size_t menu_selection{};
   HWND fullscreen_control{},nickname_control{},save_control{};

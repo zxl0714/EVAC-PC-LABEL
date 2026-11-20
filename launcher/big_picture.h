@@ -1,5 +1,5 @@
 #pragma once
-#include "launcher/input_devices.h"
+#include "launcher/game_exit.h"
 #include <d2d1.h>
 #include <chrono>
 #include <optional>
@@ -82,14 +82,29 @@ public:
             pad.wait_for_release = true;
         }
     }
-    MenuKey Poll() {
-        using namespace std::chrono;
-        const auto now = steady_clock::now();
-        devices_.Update();
-        if (now >= next_scan_) {
-            next_scan_ = now + milliseconds(350);
-            ScanDevices();
+    void ResetGameExit() {
+        for(auto& pad:pads_)pad.exit_hold.Reset();
+    }
+    bool PollGameExit(const GameExitShortcuts& shortcuts,HoldToExit::Clock::time_point now) {
+        if(shortcuts.buttons.empty())return false;
+        UpdatePads(now);
+        bool requested=false;
+        for(auto& pad:pads_) {
+            const auto mapping=shortcuts.controller_mappings.find(pad.guid);
+            const auto& map=mapping==shortcuts.controller_mappings.end()?pad.map:mapping->second;
+            const auto input=devices_.Read(pad.joystick.get());
+            const bool pressed=std::ranges::all_of(shortcuts.buttons,[&](std::string_view name) {
+                const auto source=map.find(std::string(name));
+                return source!=map.end() && controls::PadSourceActive(source->second,input,
+                    name=="lefttrigger" || name=="righttrigger");
+            });
+            if(pad.exit_hold.Poll(pressed,now))requested=true;
         }
+        return requested;
+    }
+    MenuKey Poll() {
+        const auto now=Clock::now();
+        UpdatePads(now);
         auto action = MenuKey::None;
         for (auto& pad : pads_) {
             const auto key = ReadKey(pad.map, devices_.Read(pad.joystick.get()));
@@ -105,10 +120,20 @@ private:
         SDL_JoystickID id;
         controls::InputDevices::Joystick joystick;
         controls::PadMap map;
+        std::string guid;
+        HoldToExit exit_hold;
         Clock::time_point next_repeat{};
         MenuKey previous{MenuKey::None};
         bool wait_for_release{true};
     };
+
+    void UpdatePads(Clock::time_point now) {
+        devices_.Update();
+        if(now>=next_scan_) {
+            next_scan_=now+std::chrono::milliseconds(350);
+            ScanDevices();
+        }
+    }
 
     static MenuKey PollKey(Pad& pad, MenuKey key, Clock::time_point now) {
         using namespace std::chrono;
@@ -138,7 +163,7 @@ private:
         for (const auto& device : available) {
             if (std::ranges::find(pads_, device.id, &Pad::id) != pads_.end()) continue;
             if (auto joystick = devices_.Open(device.id))
-                pads_.push_back({device.id, std::move(joystick), devices_.Defaults(device.id)});
+                pads_.push_back({device.id,std::move(joystick),devices_.Defaults(device.id),device.guid,{}});
         }
     }
 

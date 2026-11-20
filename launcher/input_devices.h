@@ -5,6 +5,7 @@
 #include <SDL3/SDL_main.h>
 #include <Windows.h>
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstdlib>
 #include <map>
@@ -15,6 +16,10 @@
 
 namespace cave::launcher::controls {
 using PadMap=std::map<std::string,std::string>;
+inline constexpr std::array<std::string_view,21> kPadKeys{
+    "dpup","dpdown","dpleft","dpright","a","b","x","y","start","back",
+    "leftshoulder","rightshoulder","lefttrigger","righttrigger","leftstick","rightstick",
+    "leftx","lefty","rightx","righty","touchpad"};
 
 inline PadMap ParsePadMap(std::string_view text) {
     PadMap map;
