@@ -107,6 +107,8 @@ Xbox 360 ISO 可用随包的 `tools/Extract-Xbox360.exe` 提取，PS4 PKG 使用
 
 [开发与构建](FOR_AGENT.md) · [贡献约定](AGENTS.md) · [实施计划](docs/IMPLEMENTATION_PLAN.md)
 
+在做游戏重编译移植？[接入 EVAC-PC-LABEL 社区 HTTP API（英文）](docs/COMMUNITY_INTEGRATION.md)。
+
 项目基于 ReXGlue／Xenia 相关组件、shadPS4 派生图形组件、PS2Recomp／paraLLEl-GS、SDL 等开源工作。[源码来源](docs/SOURCE_ORIGINS.json) · [ReXGlue 许可](third_party/rexglue/LICENSE) · [PS4 组件声明](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 组件声明](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [素材来源](launcher/artwork.json)
 
 各组件保留各自许可证。发行包的 `licenses/` 包含许可证，`SOURCE.txt` 提供对应源码与构建说明。

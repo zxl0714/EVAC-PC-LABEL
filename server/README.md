@@ -11,6 +11,8 @@ nickname = Player
 
 客户端在 API 根地址后追加游戏路径。HTTP 使用整数或十进制字符串传递 64 位成绩，不使用浮点数。各游戏的原生成绩、录像格式和数据库独立管理。
 
+外部项目可直接查阅[九款游戏的 HTTP 接入文档](../docs/COMMUNITY_INTEGRATION.md)。四款 Xbox 360 的正式服务已应用 `c2973f6` 的协议改动。成绩和录像通过 URL 选择游戏，旧请求里的 `title_id` 会被忽略。`GET /health` 返回 `{"status":"ok"}`。五款 PS4 服务仍向已发布的客户端提供其握手所用的字段。
+
 | 路径 | 本机上游 | 数据库 |
 | --- | --- | --- |
 | `/cave/api/v1/games/espgaluda2/` | `127.0.0.1:18086` | `/var/lib/cave-community/espgaluda2/community.sqlite3` |
@@ -108,7 +110,7 @@ python3 -B -m server.games.sdoj --database /path/to/new/sdoj.sqlite3 --port 1808
 
 ## Guwange 开发适配（v0.7）
 
-`server/games/guwange.py` 对应 XBLA 本体 0.0.0.4，Title ID `58410A78`。普通、Blue、Arrange 分别使用 1–4、5–8、9–12 号榜；每组依次为综合、Shishin、Gensuke、Kosame。保留原生分数及游戏自身的提交资格，不提供在线合作。
+`server/games/guwange.py` 对应 XBLA 本体 0.0.0.4。Arcade、Blue、Arrange 分别使用 1–4、5–8、9–12 号榜。每组依次为综合、Shishin、Kosame、Gensuke，与原作 Xbox 排行榜定义一致。成绩沿用游戏原有的提交资格。
 
 ```sh
 python3 -B -m server.games.guwange --database /path/to/new/guwange.sqlite3 --port 18090
@@ -148,7 +150,7 @@ python3 -B -m unittest discover -s tests -p 'test_feveron_community.py' -v
 2. 将 `current` 指向新版本。安装 `cave-g2.service.in`、`cave-g2-backup.service.in`、`cave-g2-backup.timer.in` 到 `/etc/systemd/system/`，并安装 nginx 片段为 `/etc/nginx/snippets/cave-live-locations.conf`。
 3. 在既有 `xiaolu.life` 的 HTTPS server 块内加入 `include /etc/nginx/snippets/cave-live-locations.conf;`。先保存该站点配置的独立备份，不改原有 location、TLS 或其他域名配置。片段复用该站点已经定义的 `futari_requests`、`ketsui_requests` 限流区。
 4. `systemctl daemon-reload` 后启动 `cave-g2.service`，先从本机检查 G2 `/health`。确认服务正常后执行 `nginx -t`，成功才 reload nginx。
-5. 通过 HTTPS 分别检查三款合集 `/health`，以及两条旧入口。对照 Title ID：G2 为 `435A07D8`，虫姬二为 `435A07D7`，绊地狱为 `CUSA09062`；旧入口仍应返回原服务。
+5. 通过 HTTPS 分别检查三款合集和两条旧入口的 `/health` 返回 `status=ok`，再从对应的榜单接口读取一页验证路由。
 6. 启用 G2 服务和备份定时器，运行一次备份，并核对数据库身份及快照完整性。上线后再用游戏实际验证榜单、成绩和适用录像，不以健康检查代替游戏内验收。
 
 更新时先创建、测试新版本目录，再切换 `current` 并仅重启 G2 服务。保留旧版本；不重建数据库，不重启虫姬二或绊地狱。失败时切回旧链接并重启 G2；首次部署若 nginx 校验失败，恢复站点备份，不 reload 无效配置。
@@ -187,7 +189,7 @@ SDOJ 使用单独的 `sdoj-current` 链接、`cave-sdoj.service`、18087 端口�
 
 1. 记录现有六款服务的 PID、版本指针及 nginx 片段哈希，确认 18090、Guwange 三个单元、版本指针和数据目录没有已有安装。已有安装应走更新流程，不能覆盖当作首次部署。
 2. 解压到新的只读发行目录，核验文件身份，在服务器 Python 上运行上述三组测试；测试仅使用临时数据库。建立 `guwange-current` 指针，安装三个 `cave-guwange*.in` 模板，去掉 `.in` 后缀。执行 `systemd-analyze verify` 和 `daemon-reload`，只启动 `cave-guwange.service`。
-3. 确认仅监听 `127.0.0.1:18090`，本机 `/cave/api/v1/games/guwange/health` 返回 `58410A78`。独立备份 nginx 片段，只追加 Guwange location；`nginx -t` 成功才 reload。检查七款合集入口、两条旧入口和未知游戏 404，核对原六款 PID 与版本指针不变。
+3. 确认仅监听 `127.0.0.1:18090`，本机 `/cave/api/v1/games/guwange/health` 返回 `{"status":"ok"}`。独立备份 nginx 片段，只追加 Guwange location；`nginx -t` 成功才 reload。检查七款合集入口、两条旧入口和未知游戏 404，核对原六款 PID 与版本指针不变。
 4. 启用服务和每日备份 timer，运行一次 `cave-guwange-backup.service`，核对快照的 `identity`、SQLite 完整性及外键。保留最新七份一致性快照。最后使用真实游玩记录完成正式 HTTPS 的提交、读榜、录像收发和回放；不提交自造成绩。
 
 后续更新只切换 `guwange-current` 并重启本作。回滚切回旧指针，不覆盖工作数据库；首次安装失败时停止本作、恢复并校验 nginx 片段，保留数据库现场。

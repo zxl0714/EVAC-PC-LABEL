@@ -107,6 +107,8 @@ To share a file for troubleshooting, select the game and click **Upload file**. 
 
 [Build guide (Chinese)](FOR_AGENT.md) · [Contributor instructions](AGENTS.md) · [Implementation plan (Chinese)](docs/IMPLEMENTATION_PLAN.md)
 
+Building a recomp? [Connect it to EVAC-PC-LABEL through the community HTTP API](docs/COMMUNITY_INTEGRATION.md).
+
 Built on ReXGlue/Xenia-related components, graphics components derived from shadPS4, PS2Recomp/paraLLEl-GS, SDL and other open-source work. [Source origins](docs/SOURCE_ORIGINS.json) · [ReXGlue license](third_party/rexglue/LICENSE) · [PS4 notices](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 notices](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [Artwork sources](launcher/artwork.json)
 
 Components retain their respective licenses. Release packages include `licenses/` and `SOURCE.txt` with corresponding source and build information.
