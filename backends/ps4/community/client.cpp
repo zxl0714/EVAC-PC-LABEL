@@ -289,9 +289,7 @@ struct Client::Impl {
     bool Handshake() {
         try {
             const auto health = http.Perform("/health", nullptr);
-            Require(bool(health) && health.body.at("protocol").is_number_integer() && health.body.at("protocol") == 1 &&
-                    health.body.at("title_id").get<std::string>() == ProtocolFor(config.game).title_id &&
-                    health.body.at("game_version").get<std::string>() == ProtocolFor(config.game).version, "Community protocol unavailable");
+            Require(bool(health) && health.body.value("status", "") == "ok", "Community service unavailable");
             const auto response = http.Perform("/identity", Json{{"nickname", config.nickname}});
             Require(bool(response), "Community nickname unavailable");
             const auto name = response.body.at("nickname").get<std::string>();

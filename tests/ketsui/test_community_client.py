@@ -180,6 +180,7 @@ class ClientTests(unittest.TestCase):
                 if self.path == live.API + '/health':
                     entered.set()
                     release.wait(10)
+                    return self.reply(200, {'status': 'ok'})
                 super().do_GET()
         with self.service(HeldHealth) as (_, config):
             process = subprocess.Popen([str(EXE), '--np-community-smoke', str(config), str(self.root / 'community-state')],
