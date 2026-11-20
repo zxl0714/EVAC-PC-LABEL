@@ -208,15 +208,31 @@ public:
         Util::register_thread_index(0);
         wsi.set_platform(&window);
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
-        wsi.set_present_mode(vsync?Vulkan::PresentMode::SyncToVBlank:Vulkan::PresentMode::UnlockedForceTearing);
-        const bool compatibleVsync=window.borrowed && vsync;
-        wsi.set_present_low_latency_mode(!compatibleVsync);
+        if(window.borrowed) {
+            // Keep the host window on a conventional 8-bit SDR swapchain.
+            // Granite falls back to the advertised UNORM formats if needed.
+            wsi.set_custom_backbuffer_format({VK_FORMAT_B8G8R8A8_UNORM,VK_COLOR_SPACE_SRGB_NONLINEAR_KHR});
+        }
+        const bool hostedVsync=window.borrowed && vsync;
+        if (vsync) {
+            // Standalone windows can present the latest completed image at
+            // vblank without the queue wait of FIFO. Granite falls back to FIFO.
+            wsi.set_present_mode(hostedVsync ? Vulkan::PresentMode::SyncToVBlank
+                                            : Vulkan::PresentMode::UnlockedNoTearing);
+        } else {
+            wsi.set_present_mode(Vulkan::PresentMode::UnlockedForceTearing);
+        }
+        wsi.set_present_low_latency_mode(!vsync);
         const auto* timingFeedback=_wgetenv(L"EVAC_PS2_PRESENT_FEEDBACK");
         if(input_trace::Enabled() && timingFeedback && std::wcscmp(timingFeedback,L"1")==0)
             wsi.set_enable_timing_feedback(true);
         Vulkan::ContextCreationFlags disable=0;
-        if(window.borrowed)disable|=Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT;
-        if(compatibleVsync) {
+        if(window.borrowed) {
+            disable|=Vulkan::CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT;
+        }
+        const Vulkan::ContextCreationFlags extra=window.borrowed
+            ? Vulkan::CONTEXT_CREATION_DISABLE_FULL_SCREEN_EXCLUSIVE_BIT : 0;
+        if(hostedVsync) {
             // Keep the PS4 window handoff on FIFO. Skip the extra swapchain
             // extensions and the large descriptor-buffer allocation during it.
             disable|=Vulkan::CONTEXT_CREATION_ENABLE_ADVANCED_WSI_BIT |
@@ -225,7 +241,7 @@ public:
         }
         {
             HostedSwapchainTrace trace(window.borrowed,"start");
-            if(!wsi.init_context_from_platform(1,{},0,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
+            if(!wsi.init_context_from_platform(1,{},extra,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
                 throw std::runtime_error("Cannot initialize Vulkan WSI");
         }
         // PGS can flush several times in one game field. Allocation contexts

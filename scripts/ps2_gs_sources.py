@@ -2,8 +2,10 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
+import subprocess
 
 from project import ROOT, reject_link
 from ps4_sources import git, locked_dependencies, verify_checkout
@@ -12,6 +14,7 @@ NAMES = ('ParallelGS', 'GraniteGS', 'VolkGS', 'VulkanHeadersGS')
 PLACEMENTS = {'ParallelGS': '', 'GraniteGS': 'Granite',
               'VolkGS': 'Granite/third_party/volk',
               'VulkanHeadersGS': 'Granite/third_party/khronos/vulkan-headers'}
+GRANITE_PATCH = Path('tools/ps2-gs/granite-wsi.patch.txt')
 
 
 def digests(view):
@@ -39,8 +42,13 @@ def prepare(output, root=ROOT):
     ):
         if git(inputs[parent], 'rev-parse', 'HEAD:' + path) != lock[child]['revision']:
             raise ValueError(f'Inconsistent GS dependency pin: {parent}/{path}')
-    receipt = {'format': 2, 'revisions': {name: lock[name]['revision'] for name in NAMES}}
-    view = output / ('source-v2-' + '-'.join(receipt['revisions'][n][:10] for n in NAMES))
+    patch = root / GRANITE_PATCH
+    reject_link(patch)
+    changes = patch.read_bytes()
+    receipt = {'format': 3, 'revisions': {name: lock[name]['revision'] for name in NAMES},
+               'patchSha256': hashlib.sha256(changes).hexdigest()}
+    view = output / ('source-v3-' + '-'.join(receipt['revisions'][n][:10] for n in NAMES)
+                     + '-' + receipt['patchSha256'][:10])
     stamp = view / 'collection-source.json'
     reject_link(view)
     if stamp.exists():
@@ -56,6 +64,9 @@ def prepare(output, root=ROOT):
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(inputs[name], destination, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('.git'))
+    subprocess.run(['git', 'apply', '--no-index', '--whitespace=error'], input=changes,
+                   cwd=view / 'Granite/vulkan', check=True,
+                   env={**os.environ, 'GIT_CEILING_DIRECTORIES': str(view.parent)})
     receipt['files'] = digests(view)
     stamp.write_text(json.dumps(receipt, indent=2), encoding='utf-8')
     return view

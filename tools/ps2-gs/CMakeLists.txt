@@ -8,6 +8,13 @@ get_filename_component(COLLECTION_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUT
 if(NOT IS_DIRECTORY "${PS2_GS_SOURCE}/gs" OR NOT EXISTS "${PS2_GS_SOURCE}/collection-source.json")
   message(FATAL_ERROR "Prepare pinned sources using scripts/ps2_gs_sources.py")
 endif()
+file(READ "${PS2_GS_SOURCE}/collection-source.json" gs_source_receipt)
+file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch.txt" wsi_patch_sha)
+string(JSON applied_wsi_patch_sha ERROR_VARIABLE receipt_error GET "${gs_source_receipt}" patchSha256)
+if(receipt_error OR NOT applied_wsi_patch_sha STREQUAL wsi_patch_sha)
+  message(FATAL_ERROR "Refresh the pinned GS source view using scripts/ps2_gs_sources.py")
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch.txt")
 # Standalone GPU renderer only. No emulator CPUs, frontend, audio, runtime GLSL
 # compiler, downloaded SDK, or another project's game-specific patches.
 set(PARALLEL_GS_STANDALONE ON CACHE BOOL "" FORCE)
@@ -55,26 +62,8 @@ get_target_property(gs_sources parallel-gs SOURCES)
 list(TRANSFORM gs_sources REPLACE "^(.*[/])?gs_interface[.]cpp$" "${patched_gs_interface}")
 set_property(TARGET parallel-gs PROPERTY SOURCES "${gs_sources}")
 target_include_directories(parallel-gs PRIVATE "${COLLECTION_ROOT}")
-# Apply the collection's WSI corrections to a build-local copy of the pinned source.
-# The AMD pacing change keeps the EE input thread in charge of Anti-Lag.
-set(granite_wsi "${PS2_GS_SOURCE}/Granite/vulkan/wsi.cpp")
-set(wsi_patch "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch.txt")
-set(wsi_overlay "${CMAKE_CURRENT_BINARY_DIR}/wsi-patch")
-file(MAKE_DIRECTORY "${wsi_overlay}")
-file(READ "${granite_wsi}" granite_wsi_text)
-file(WRITE "${wsi_overlay}/wsi.cpp" "${granite_wsi_text}")
-find_package(Git REQUIRED)
-execute_process(
-  COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${CMAKE_CURRENT_BINARY_DIR}"
-          "${GIT_EXECUTABLE}" apply --no-index --whitespace=error "${wsi_patch}"
-  WORKING_DIRECTORY "${wsi_overlay}" COMMAND_ERROR_IS_FATAL ANY)
-set(patched_wsi "${CMAKE_CURRENT_BINARY_DIR}/collection-wsi.cpp")
-file(COPY_FILE "${wsi_overlay}/wsi.cpp" "${patched_wsi}" ONLY_IF_DIFFERENT)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${granite_wsi}" "${wsi_patch}")
-get_target_property(granite_sources granite-vulkan SOURCES)
-list(TRANSFORM granite_sources REPLACE "^(.*[/])?wsi[.]cpp$" "${patched_wsi}")
-set_property(TARGET granite-vulkan PROPERTY SOURCES "${granite_sources}")
-set_property(SOURCE "${patched_wsi}" TARGET_DIRECTORY granite-vulkan APPEND PROPERTY
+# The pinned source view includes the collection's WSI fixes and diagnostics.
+set_property(SOURCE "${PS2_GS_SOURCE}/Granite/vulkan/wsi.cpp" TARGET_DIRECTORY granite-vulkan APPEND PROPERTY
              INCLUDE_DIRECTORIES "${COLLECTION_ROOT}/backends/ps2")
 # A driver can advertise descriptorBuffer while Granite rejects its layout or
 # capacity. All consumers must follow the selected strategy, not that raw bit.

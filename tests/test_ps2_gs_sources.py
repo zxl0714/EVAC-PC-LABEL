@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -19,6 +20,13 @@ class GsSourcesTest(unittest.TestCase):
             (path / '.git').mkdir()
             (path / '.git/private').write_text('not copied', encoding='utf-8')
             lock.append({'name': name, 'revision': str(index) * 40, 'url': 'unused'})
+        source_patch = root / gs.GRANITE_PATCH
+        source_patch.parent.mkdir(parents=True)
+        source_patch.write_text('--- a/wsi.cpp\n+++ b/wsi.cpp\n'
+                                '@@ -1 +1 @@\n-GraniteGS\n+Patched GraniteGS\n', encoding='utf-8')
+        wsi_dir = root / '.deps/ps2/GraniteGS/vulkan'
+        wsi_dir.mkdir()
+        (wsi_dir / 'wsi.cpp').write_text('GraniteGS\n', encoding='utf-8')
         return lock
 
     def prepare(self, root, output, lock, mismatch=False):
@@ -42,7 +50,12 @@ class GsSourcesTest(unittest.TestCase):
             self.assertTrue((view / 'Granite/third_party/volk/VolkGS.cpp').exists())
             self.assertEqual(view, self.prepare(root, root / 'build', lock))
             receipt = json.loads((view / 'collection-source.json').read_text(encoding='utf-8'))
-            self.assertEqual(len(receipt['files']), 4)
+            self.assertEqual(receipt['patchSha256'],
+                             hashlib.sha256((root / gs.GRANITE_PATCH).read_bytes()).hexdigest())
+            self.assertEqual((view / 'Granite/vulkan/wsi.cpp').read_text(encoding='utf-8'), 'Patched GraniteGS\n')
+            self.assertEqual((root / '.deps/ps2/GraniteGS/vulkan/wsi.cpp').read_text(encoding='utf-8'),
+                             'GraniteGS\n')
+            self.assertEqual(len(receipt['files']), 5)
             (view / 'ParallelGS.cpp').write_text('modified', encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'differs'):
                 self.prepare(root, root / 'build', lock)
