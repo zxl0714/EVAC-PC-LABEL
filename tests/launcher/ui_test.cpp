@@ -808,7 +808,6 @@ void ArtworkStateChecks() {
   Require(maximum-minimum>40,"Grey artwork must preserve image detail");
 }
 void GameExitChecks() {
-  using namespace std::chrono_literals;
   using cave::launcher::ExitButtons;
   Fixture fixture;
   const auto config=ConfigPath(fixture.root);
@@ -820,17 +819,31 @@ void GameExitChecks() {
   Write(config,"[collection]\nbig_picture_exit_key= F12\nbig_picture_exit_buttons= START + Select\n");
   const auto custom=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
   Require(custom.keyboard==VK_F12 && custom.buttons==ExitButtons{"start","back"},"Custom Big Picture exit bindings");
-  Write(config,"[collection]\nbig_picture_exit_key=none\nbig_picture_exit_buttons=none\n");
+  Write(config,"[collection]\ngame_exit_key=none\nbig_picture_exit_key=F12\nbig_picture_exit_buttons=none\n");
   const auto disabled=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
   Require(!disabled.keyboard && disabled.buttons.empty(),"Big Picture exit shortcuts could not be disabled");
   Require(!cave::launcher::ParseExitButtons("Start + Start") && !cave::launcher::ParseExitButtons("Start +"),
           "Big Picture accepted an invalid controller combination");
+  using cave::launcher::CaptureExitChord;
+  using cave::launcher::PadExitChord;
+  const cave::launcher::controls::PadSnapshot neutral{{0,0},{0},{0}};
+  Require(!CaptureExitChord(neutral,{{1,0},{0},{0}}) && !CaptureExitChord(neutral,{{0,1},{0},{0}}),
+          "Control capture treated separate presses as a chord");
+  Require(CaptureExitChord(neutral,{{1,1},{0},{0}})==PadExitChord{"b0","b1"},"Two overlapping buttons did not bind");
+  Require(CaptureExitChord(neutral,{{0,1},{-32768},{0}})==PadExitChord{"b1","-a0"} &&
+          CaptureExitChord(neutral,{{1,0},{0},{1}})==PadExitChord{"b0","h0.1"},"Arcade stick or D-pad chord did not bind");
+  Require(!CaptureExitChord({{1,0},{0},{0}},{{1,1},{0},{0}}),"An input held before rebinding entered the chord");
+  Require(cave::launcher::ParseExitChord("b1,+a0")==PadExitChord{"b1","+a0"} &&
+          !cave::launcher::ParseExitChord("b1,b1"),"Stored exit chord did not round-trip");
 
-  const auto game=CreateWindowExW(0,L"STATIC",L"Game exit fixture",WS_OVERLAPPEDWINDOW,
-                                 0,0,200,200,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
-  Require(game!=nullptr,"Create hidden game window");
+  const auto create_game=[] {
+    const auto window=CreateWindowExW(0,L"STATIC",L"Game exit fixture",WS_OVERLAPPEDWINDOW,
+                                      0,0,200,200,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+    Require(window!=nullptr,"Create hidden game window");
+    return window;
+  };
+  auto game=create_game();
   const auto pid=GetCurrentProcessId();
-  const auto start=HoldToExit::Clock::now();
   const auto check_close=[&](bool expected,const char* reason) {
     MSG message{};
     const bool found=PeekMessageW(&message,game,WM_CLOSE,WM_CLOSE,PM_REMOVE) && message.message==WM_CLOSE;
@@ -838,51 +851,41 @@ void GameExitChecks() {
     if(found)DispatchMessageW(&message);
   };
   update_foreground=game;
-  held_exit_key=VK_ESCAPE;
   app.game_exit_shortcuts=defaults;
   app.child.emplace(nullptr,pid);
-  app.GameExitTick(start);
-  app.GameExitTick(start+2s);
-  check_close(false,"Desktop game received a Big Picture exit shortcut");
+  app.active_game="futari";
+  app.GameExitKey(VK_ESCAPE,false);
+  check_close(true,"Desktop-launched game did not close from a single key press");
+  app.GameExitKey(VK_ESCAPE,true);
+  app.ChildTick();
+  Require(!app.child && !app.BigPicture(),"Desktop game exit changed the launcher mode");
 
-  app.child.reset();
+  game=create_game();
+  update_foreground=game;
   app.SetBigPicture(true);
   const auto selected=app.selected;
+  app.game_exit_shortcuts=custom;
   app.child.emplace(nullptr,pid+1);
-  app.GameExitTick(start+3s);
-  app.GameExitTick(start+5s);
+  app.GameExitKey(VK_F12,false);
   check_close(false,"Exit shortcut affected a window from another process");
 
   app.child.emplace(nullptr,pid);
   app.active_game="futari";
-  app.GameExitTick(start+6s);
-  app.GameExitTick(start+8s);
+  app.GameExitKey(VK_F12,false);
   check_close(false,"A key held when the game gained focus closed it");
-  held_exit_key=0;
-  app.GameExitTick(start+9s);
-  held_exit_key=VK_ESCAPE;
-  app.GameExitTick(start+10s);
-  app.GameExitTick(start+10999ms);
-  check_close(false,"A short key press closed the game");
-  update_foreground=HWND_MESSAGE;
-  app.GameExitTick(start+11s);
-  update_foreground=game;
-  app.GameExitTick(start+12s);
-  check_close(false,"A shortcut completed across focus loss");
-  held_exit_key=0;
-  app.GameExitTick(start+13s);
-  held_exit_key=VK_ESCAPE;
-  app.GameExitTick(start+14s);
-  app.GameExitTick(start+15s);
-  check_close(true,"Holding Esc did not request a normal game window close");
+  app.GameExitKey(VK_F12,true);
+  app.GameExitKey(VK_ESCAPE,false);
+  check_close(false,"The former exit key still closed the game after rebinding");
+  held_exit_key=VK_F12;
+  app.GameExitKey(VK_F12,false);
+  check_close(true,"The configured exit key did not request a normal game window close");
   Require(!IsWindow(game),"The game window did not handle WM_CLOSE");
   update_foreground=app.hwnd;
   const auto previous_focus_requests=foreground_requests;
   app.ChildTick();
   Require(!app.child && app.BigPicture() && app.selected==selected && foreground_requests==previous_focus_requests+1,
           "Game exit did not return focus to the same Big Picture card");
-  app.BigPictureKeyboard(VK_ESCAPE,true);
-  Require(!app.menu_open,"Held Esc leaked into the Big Picture menu");
+  Require(app.exit_key_awaiting_release==VK_F12,"The exit key was not held until release on return");
   held_exit_key=0;
   app.MenuControllerTick();
   app.BigPictureKeyboard(VK_ESCAPE,false);
@@ -1065,7 +1068,6 @@ void MainChecks() {
 }
 }
 void MenuControllerChecks(const fs::path& sdl) {
-  using namespace std::chrono_literals;
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
   const auto target=fixture.root/L"runtime/ps2/SDL3.dll";
@@ -1186,19 +1188,23 @@ void MenuControllerChecks(const fs::path& sdl) {
       "[game.futari.controller]\n"+arcade->guid+"=start:b1,dpup:h0.1,\n");
   const auto shortcuts=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
   Require(button(reconnected,0,false),"Release arcade stick Confirm");
-  const auto start=HoldToExit::Clock::now();
-  const auto poll=[&](auto offset){return app.menu_controller->PollGameExit(shortcuts,start+offset);};
-  Require(!poll(0ms),"Idle controllers requested an exit");
+  const auto poll=[&]{return app.menu_controller->PollGameExit(shortcuts);};
+  Require(!poll(),"Idle controllers requested an exit");
   Require(hat(reconnected,0,SDL_HAT_UP) && button(gamepad,SDL_GAMEPAD_BUTTON_START,true),"Hold one half of the exit shortcut on each controller");
-  Require(!poll(100ms) && !poll(1200ms),"Two controllers combined into one exit shortcut");
+  Require(!poll(),"Two controllers combined into one exit shortcut");
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,true),"Complete the exit shortcut on the gamepad");
-  Require(!poll(1300ms) && !poll(2299ms) && poll(2300ms) && !poll(3500ms),
-          "Gamepad shortcut did not require a one-second hold and release before repeating");
+  Require(poll() && !poll(),"Gamepad shortcut did not trigger immediately or repeated while held");
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_START,false) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,false),"Release gamepad exit buttons");
   Require(button(reconnected,0,true),"Hold the globally mapped arcade Start button");
-  Require(!poll(3600ms) && !poll(4700ms),"Arcade shortcut ignored the per-game mapping");
+  Require(!poll(),"Arcade shortcut ignored the per-game mapping");
   Require(button(reconnected,0,false) && button(reconnected,1,true),"Hold the game's arcade Start button");
-  Require(!poll(4800ms) && poll(5800ms),"Remapped arcade stick could not request an exit");
+  Require(poll(),"Remapped arcade stick could not request an exit");
+
+  Write(ConfigPath(fixture.root),"[game_exit_controller]\n"+arcade->guid+"=b0,b1\n");
+  const auto recorded=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
+  app.menu_controller->ResetGameExit();
+  Require(!app.menu_controller->PollGameExit(recorded),"Physical binding inherited an unrelated held direction");
+  Require(button(reconnected,0,true) && app.menu_controller->PollGameExit(recorded),"The recorded controller chord did not take effect");
 
   close(reconnected);
   Require(detach(second),"Detach reconnected controller");

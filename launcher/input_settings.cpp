@@ -1,5 +1,5 @@
 #include "launcher/input_settings.h"
-#include "launcher/input_devices.h"
+#include "launcher/game_exit.h"
 #include "common/config_update.h"
 #include "common/controller_bindings.h"
 #include "common/settings.h"
@@ -61,13 +61,16 @@ struct Dialog {
         return game_only?"game."+std::string(game.id)+"."+std::string(category):std::string(category);
     }
     bool ExtraKeys() const {return game_only && game.id=="guwange";}
-    unsigned RowCount() const {
+    unsigned GameRowCount() const {
         if(controller)return !game_only || game.backend=="ps4"?21:20;
         return ExtraKeys()?20:16;
     }
+    unsigned RowCount() const {return GameRowCount()+!game_only;}
+    bool ExitRow(unsigned row) const {return !game_only && row==GameRowCount();}
     static bool Analog(unsigned row){return row>=16 && row<20;}
     std::string_view Key(unsigned row) const {return row<16?kButtons[row]:kRightStickButtons[row-16];}
     std::wstring Label(unsigned row) const {
+        if(ExitRow(row))return T(L"退出游戏",L"Exit game",L"ゲーム終了");
         switch(row) {
         case 0:return T(L"方向上",L"Up",L"上");
         case 1:return T(L"方向下",L"Down",L"下");
@@ -106,6 +109,26 @@ struct Dialog {
         if(value.front()=='h')return std::wstring(T(L"方向帽 ",L"Hat ",L"ハット "))+FromUtf8(value.substr(1)).native();
         return FromUtf8(value).native();
     }
+    std::wstring ExitBindingLabel(const Ini& ini) const {
+        if(!controller) {
+            const auto* entry=ExitKeySetting(ini);
+            const auto key=entry?ParseExitKey(entry->text).value_or(0):VK_ESCAPE;
+            return key?FromUtf8(KeyName(key)).native():L"—";
+        }
+        if(const auto* entry=ini.Get(kExitControllerSection,guid)) {
+            const auto chord=ParseExitChord(entry->text);
+            if(!chord || chord->front().empty())return L"—";
+            return PadLabel((*chord)[0])+L" + "+PadLabel((*chord)[1]);
+        }
+        const auto* entry=ini.Get("collection",kExitButtonsSetting);
+        const auto buttons=entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):GameExitShortcuts{}.buttons;
+        std::wstring label;
+        for(const auto button:buttons) {
+            if(!label.empty())label+=L" + ";
+            label+=Label(unsigned(std::ranges::find(kPadKeys,button)-kPadKeys.begin()));
+        }
+        return label.empty()?L"—":label;
+    }
     void Status(std::wstring_view text) {SetWindowTextW(status,std::wstring(text).c_str());}
     void IdleStatus() {
         if(controller && !device_error.empty())Status(T(L"无法读取手柄设备",L"Controller input is unavailable",L"コントローラーを読み取れません"));
@@ -137,13 +160,18 @@ struct Dialog {
             auto title=Label(row);
             LVITEMW item{};item.mask=LVIF_TEXT;item.iItem=int(row);item.pszText=title.data();
             SendMessageW(list,LVM_INSERTITEMW,0,reinterpret_cast<LPARAM>(&item));
-            const auto found=controller?pad.find(std::string(kPadKeys[row])):pad.end();
-            auto value=controller?PadLabel(found==pad.end()?std::string_view{}:found->second):
-                keys[row].keys.empty()?std::wstring(L"—"):FromUtf8(keys[row].text).native();
+            std::wstring value;
+            if(ExitRow(row))value=ExitBindingLabel(ini);
+            else if(controller) {
+                const auto found=pad.find(std::string(kPadKeys[row]));
+                value=PadLabel(found==pad.end()?std::string_view{}:found->second);
+            } else value=keys[row].keys.empty()?L"—":FromUtf8(keys[row].text).native();
             item.iSubItem=1;item.pszText=value.data();SendMessageW(list,LVM_SETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
-            const auto* override_value=controller?ini.Get(Section("controller"),guid):ini.Get(Section("keyboard"),Key(row));
-            std::wstring source=game_only?(override_value?T(L"本游戏",L"This game",L"このゲーム"):
-                T(L"继承",L"Inherited",L"共通設定")):L"";
+            std::wstring source;
+            if(game_only) {
+                const auto* override_value=controller?ini.Get(Section("controller"),guid):ini.Get(Section("keyboard"),Key(row));
+                source=override_value?T(L"本游戏",L"This game",L"このゲーム"):T(L"继承",L"Inherited",L"共通設定");
+            }
             item.iSubItem=2;item.pszText=source.data();SendMessageW(list,LVM_SETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
         }
         const auto row=std::clamp(selection,0,int(RowCount())-1);
@@ -223,9 +251,13 @@ struct Dialog {
         const auto keyboard=Section("keyboard"), controllers=Section("controller");
         const auto preview=draft.Preview();
         std::vector<IniEdit> edits;
-        for(const auto& [address,value]:preview.Values())
-            if(address.first==keyboard || address.first==controllers)
+        for(const auto& [address,value]:preview.Values()) {
+            const auto& [section,key]=address;
+            const bool exit_binding=section==kExitControllerSection || (section=="collection" &&
+                (key==kExitKeySetting || key==kPreviousExitKeySetting || key==kExitButtonsSetting));
+            if(section==keyboard || section==controllers || (!game_only && exit_binding))
                 edits.push_back({address.first,address.second,{},true});
+        }
         ApplyBindings(row,edits);
     }
     void MoveStatus(const std::wstring& key,unsigned row,const std::wstring& released) {
@@ -254,15 +286,25 @@ struct Dialog {
     void Begin() {
         capture=SelectedRow();if(capture<0 || (controller && guid.empty())){capture=-1;return;}
         if(controller){input->Update();baseline=previous=input->Read();}
+        if(ExitRow(capture)) {
+            Status(controller?T(L"按住一个键，再按另一个键",L"Hold one input, then press another",L"1つ押したまま、もう1つ押してください"):
+                T(L"按下用于退出游戏的键",L"Press a key to exit the game",L"ゲーム終了に使うキーを押してください"));
+            return;
+        }
         Status(controller && Analog(capture)?Label(capture)+T(L"，请按箭头拨动",L" · Move in the shown direction",L" · 矢印の方向に操作"):
             std::wstring(T(L"按下要绑定的键 · Esc 取消",L"Press an input · Esc cancels",L"入力してください · Esc で取消")));
     }
+    void SetExitBinding(int row,std::string value) {
+        if(controller)draft.Put(std::string(kExitControllerSection),guid,std::move(value));
+        else draft.Put("collection",kExitKeySetting,std::move(value));
+        Refresh(row);
+    }
     void InputKey(unsigned code) {
-        if(code==VK_ESCAPE) {capture=-1;IdleStatus();return;}
         const auto name=KeyName(static_cast<std::uint16_t>(code));
         if(name.empty()){Status(T(L"此键不可绑定",L"This key cannot be bound",L"このキーは割り当てできません"));return;}
         const auto row=unsigned(std::exchange(capture,-1));
         try {
+            if(ExitRow(row)){SetExitBinding(row,name);return;}
             const auto section=Section("keyboard");
             std::vector<IniEdit> edits{{section,std::string(Key(row)),name}};
             std::wstring released;
@@ -291,8 +333,13 @@ struct Dialog {
         auto state=input->Read();
         if(GetForegroundWindow()==window) {
             if(capture>=0) {
-                const auto source=CapturePad(previous,state,baseline,Analog(capture),capture==12 || capture==13);
-                if(!source.empty())SetPad(unsigned(std::exchange(capture,-1)),source);
+                if(ExitRow(capture)) {
+                    if(const auto chord=CaptureExitChord(baseline,state))
+                        SetExitBinding(std::exchange(capture,-1),(*chord)[0]+','+(*chord)[1]);
+                } else {
+                    const auto source=CapturePad(previous,state,baseline,Analog(capture),capture==12 || capture==13);
+                    if(!source.empty())SetPad(unsigned(std::exchange(capture,-1)),source);
+                }
             } else {
                 bool matched=false;
                 for(unsigned row=0;row<kPadKeys.size();++row) {
@@ -318,7 +365,8 @@ struct Dialog {
         case Clear:
             if(row<0)break;
             capture=-1;
-            if(controller)SetPad(row,{});
+            if(ExitRow(row))SetExitBinding(row,"none");
+            else if(controller)SetPad(row,{});
             else {
                 const std::array edits{IniEdit{Section("keyboard"),std::string(Key(row)),"none"}};
                 ApplyBindings(row,edits);
@@ -332,13 +380,15 @@ struct Dialog {
     bool Filter(const MSG& message) {
         if(message.hwnd!=window && !IsChild(window,message.hwnd))return false;
         if(message.message!=WM_KEYDOWN && message.message!=WM_SYSKEYDOWN)return false;
-        if(capture>=0 && message.wParam==VK_ESCAPE){capture=-1;IdleStatus();return true;}
+        if(capture>=0 && message.wParam==VK_ESCAPE && (controller || !ExitRow(capture))) {
+            capture=-1;IdleStatus();return true;
+        }
         if(capture>=0 && !controller && (message.message==WM_KEYDOWN || message.wParam==VK_MENU)) {
             if(!(message.lParam&(1LL<<30)))InputKey(unsigned(message.wParam));
             return true;
         }
         if(capture<0 && !controller && message.message==WM_KEYDOWN) {
-            for(unsigned row=0;row<RowCount();++row)if(std::ranges::find(keys[row].keys,message.wParam)!=keys[row].keys.end())
+            for(unsigned row=0;row<GameRowCount();++row)if(std::ranges::find(keys[row].keys,message.wParam)!=keys[row].keys.end())
                 Status(FromUtf8(KeyName(static_cast<std::uint16_t>(message.wParam))).native()+L"  →  "+Label(row));
         }
         return false;
@@ -409,7 +459,7 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     dialog.list=add(WC_LISTVIEWW,L"",WS_TABSTOP|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS,20,82,556,height-212,Bindings,WS_EX_CLIENTEDGE);
     ListView_SetExtendedListViewStyle(dialog.list,LVS_EX_FULLROWSELECT|LVS_EX_DOUBLEBUFFER);
     ListView_SetBkColor(dialog.list,RGB(255,255,255));ListView_SetTextColor(dialog.list,RGB(35,49,45));
-    const std::array titles{t(L"游戏按钮",L"Game button",L"ゲームボタン"),t(L"绑定",L"Binding",L"割り当て"),t(L"来源",L"Source",L"適用範囲")};
+    const std::array titles{t(L"操作",L"Action",L"操作"),t(L"绑定",L"Binding",L"割り当て"),t(L"来源",L"Source",L"適用範囲")};
     constexpr std::array column_widths{210,220,100};
     for(int n=0;n<3;++n){LVCOLUMNW column{};column.mask=LVCF_TEXT|LVCF_WIDTH;column.pszText=const_cast<wchar_t*>(titles[n]);column.cx=scale(column_widths[n]);SendMessageW(dialog.list,LVM_INSERTCOLUMNW,n,reinterpret_cast<LPARAM>(&column));}
     dialog.bind=add(L"BUTTON",t(L"改键",L"Bind",L"変更"),WS_TABSTOP,20,height-120,78,28,Bind);

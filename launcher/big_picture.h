@@ -3,6 +3,7 @@
 #include <d2d1.h>
 #include <chrono>
 #include <optional>
+#include <utility>
 
 namespace cave::launcher {
 enum class MenuKey { None, Up, Down, Left, Right, Confirm, Back };
@@ -83,22 +84,15 @@ public:
         }
     }
     void ResetGameExit() {
-        for(auto& pad:pads_)pad.exit_hold.Reset();
+        for(auto& pad:pads_)pad.exit_armed=false;
     }
-    bool PollGameExit(const GameExitShortcuts& shortcuts,HoldToExit::Clock::time_point now) {
-        if(shortcuts.buttons.empty())return false;
-        UpdatePads(now);
+    bool PollGameExit(const GameExitShortcuts& shortcuts) {
+        UpdatePads(Clock::now());
         bool requested=false;
         for(auto& pad:pads_) {
-            const auto mapping=shortcuts.controller_mappings.find(pad.guid);
-            const auto& map=mapping==shortcuts.controller_mappings.end()?pad.map:mapping->second;
-            const auto input=devices_.Read(pad.joystick.get());
-            const bool pressed=std::ranges::all_of(shortcuts.buttons,[&](std::string_view name) {
-                const auto source=map.find(std::string(name));
-                return source!=map.end() && controls::PadSourceActive(source->second,input,
-                    name=="lefttrigger" || name=="righttrigger");
-            });
-            if(pad.exit_hold.Poll(pressed,now))requested=true;
+            const bool pressed=ExitPressed(pad,shortcuts);
+            if(!pressed)pad.exit_armed=true;
+            else if(std::exchange(pad.exit_armed,false))requested=true;
         }
         return requested;
     }
@@ -121,11 +115,26 @@ private:
         controls::InputDevices::Joystick joystick;
         controls::PadMap map;
         std::string guid;
-        HoldToExit exit_hold;
+        bool exit_armed{};
         Clock::time_point next_repeat{};
         MenuKey previous{MenuKey::None};
         bool wait_for_release{true};
     };
+
+    bool ExitPressed(const Pad& pad,const GameExitShortcuts& shortcuts) {
+        const auto input=devices_.Read(pad.joystick.get());
+        if(const auto chord=shortcuts.controller_chords.find(pad.guid); chord!=shortcuts.controller_chords.end())
+            return std::ranges::all_of(chord->second,[&](const auto& source) {
+                return controls::PadSourceActive(source,input,false);
+            });
+        const auto mapping=shortcuts.controller_mappings.find(pad.guid);
+        const auto& map=mapping==shortcuts.controller_mappings.end()?pad.map:mapping->second;
+        return !shortcuts.buttons.empty() && std::ranges::all_of(shortcuts.buttons,[&](std::string_view name) {
+            const auto source=map.find(std::string(name));
+            return source!=map.end() && controls::PadSourceActive(source->second,input,
+                name=="lefttrigger" || name=="righttrigger");
+        });
+    }
 
     void UpdatePads(Clock::time_point now) {
         devices_.Update();
@@ -163,7 +172,7 @@ private:
         for (const auto& device : available) {
             if (std::ranges::find(pads_, device.id, &Pad::id) != pads_.end()) continue;
             if (auto joystick = devices_.Open(device.id))
-                pads_.push_back({device.id,std::move(joystick),devices_.Defaults(device.id),device.guid,{}});
+                pads_.push_back({device.id,std::move(joystick),devices_.Defaults(device.id),device.guid});
         }
     }
 
