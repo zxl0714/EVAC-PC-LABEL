@@ -28,7 +28,7 @@ API = '/ketsui/api/v1'
 TITLE = 'CUSA09062'
 VERSION = '1.02'
 PROTOCOL = 1
-LEGACY_CLIENT = 'CavePs4Community/1'
+LEGACY_CLIENTS = ('CavePs4Community/1', 'KetsuiCommunity/1')
 REPLAY_FORMAT = 'ketsui-npscore-1.02'
 MAX_REPLAY = 8 * 1024 * 1024
 MAX_BODY = ((MAX_REPLAY + 2) // 3) * 4 + 4096
@@ -414,8 +414,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.command == 'GET' and route == '/health':
                 require(not query)
                 health = dict(status='ok')
-                # Released PS4 clients use this agent and require these fields during startup.
-                if self.headers.get('User-Agent') == LEGACY_CLIENT:
+                # Released PS4 clients with these agents require these fields during startup.
+                if self.headers.get('User-Agent') in LEGACY_CLIENTS:
                     health.update(protocol=PROTOCOL, title_id=profile.title, game_version=profile.version,
                                   features=list(profile.features), max_replay_bytes=MAX_REPLAY)
                 self.reply(200, health)

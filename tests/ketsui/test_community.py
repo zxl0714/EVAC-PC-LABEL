@@ -328,11 +328,13 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(headers['X-Replay-Format'], live.REPLAY_FORMAT)
 
     def test_released_ps4_client_can_still_read_health(self):
-        status, health, _ = self.request('GET', '/health', headers={'User-Agent': 'CavePs4Community/1'})
-        self.assertEqual(status, 200)
-        self.assertEqual(health, {'status': 'ok', 'protocol': 1, 'title_id': 'CUSA09062',
-                                  'game_version': '1.02', 'features': ['scores', 'leaderboards', 'replays'],
-                                  'max_replay_bytes': live.MAX_REPLAY})
+        for agent in ('CavePs4Community/1', 'KetsuiCommunity/1'):
+            with self.subTest(agent=agent):
+                status, health, _ = self.request('GET', '/health', headers={'User-Agent': agent})
+                self.assertEqual(status, 200)
+                self.assertEqual(health, {'status': 'ok', 'protocol': 1, 'title_id': 'CUSA09062',
+                                          'game_version': '1.02', 'features': ['scores', 'leaderboards', 'replays'],
+                                          'max_replay_bytes': live.MAX_REPLAY})
 
     def test_identity_normalizes_without_registering_or_creating_player_rows(self):
         status, identity, _ = self.request('POST', '/identity', {'nickname': '  Ａlice  '})
