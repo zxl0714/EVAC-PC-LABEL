@@ -7,28 +7,36 @@
 
 namespace cave::launcher {
 enum class MenuKey { None, Up, Down, Left, Right, Confirm, Back };
+enum class BigPictureMode { Auto, Horizontal, Vertical };
+
+inline BigPictureMode ReadBigPictureMode(const Ini& ini) {
+    const auto* value=ini.Get("collection","big_picture_layout");
+    if(value && value->text=="vertical")return BigPictureMode::Vertical;
+    if(value && value->text=="horizontal")return BigPictureMode::Horizontal;
+    return BigPictureMode::Auto;
+}
 
 struct BigPictureLayout {
     static constexpr float kCoverSlotAspect = 0.82f;
     float width{}, height{};
     size_t count{}, selected{};
+    BigPictureMode mode{};
 
-    bool Portrait() const { return height > width; }
+    bool Portrait() const { return mode==BigPictureMode::Vertical || (mode==BigPictureMode::Auto && height>width); }
     float Scale() const { return std::clamp(std::min(width, height) / 620.f, 0.73f, 2.f); }
     float Margin() const { return 30 * Scale(); }
     float Gap() const { return 22 * Scale(); }
     float CoverPadding() const { return 4 * Scale(); }
     size_t Columns() const {
-        return Portrait() ? 2 : width / std::max(1.f, height) < 1.48f ? 3 : 4;
+        return Portrait() ? 1 : width / std::max(1.f, height) < 1.48f ? 3 : 4;
     }
-    size_t RowCount() const { return Portrait() ? 2 : 1; }
-    size_t PageSize() const { return Columns() * RowCount(); }
+    size_t PageSize() const { return Columns(); }
     size_t Page() const { return selected / PageSize(); }
     size_t PageCount() const { return (count + PageSize() - 1) / PageSize(); }
     size_t First() const { return Page() * PageSize(); }
     size_t Last() const { return std::min(count, First() + PageSize()); }
     float CardHeight() const {
-        const auto available = (height - 220 * Scale() - Gap() * (RowCount() - 1)) / RowCount();
+        const auto available = height - 220 * Scale();
         const auto column = (width - 2 * Margin() - Gap() * (Columns() - 1)) / Columns();
         return std::max(1.f, std::min(available, column / kCoverSlotAspect));
     }
@@ -36,11 +44,9 @@ struct BigPictureLayout {
         const auto height = CardHeight();
         const auto width = height * kCoverSlotAspect;
         const auto step = position - First();
-        const auto left = (this->width - (width + Gap()) * Columns() + Gap()) / 2 +
-                          (width + Gap()) * (step % Columns());
-        const auto grid_height = RowCount() * height + (RowCount() - 1) * Gap();
-        const auto spare = std::max(0.f, this->height - 220 * Scale() - grid_height);
-        const auto top = 88 * Scale() + spare / 2 + (height + Gap()) * (step / Columns());
+        const auto left = (this->width - (width + Gap()) * Columns() + Gap()) / 2 + (width + Gap()) * step;
+        const auto spare = std::max(0.f, this->height - 220 * Scale() - height);
+        const auto top = 88 * Scale() + spare / 2;
         return {left, top, left + width, top + height};
     }
     D2D1_RECT_F Cover(size_t position, float aspect) const {
@@ -64,6 +70,11 @@ struct BigPictureLayout {
     }
     size_t Move(MenuKey key) const {
         if (!count) return 0;
+        if (Portrait()) {
+            if (key==MenuKey::Up && selected) return selected-1;
+            if (key==MenuKey::Down) return std::min(selected+1,count-1);
+            return selected;
+        }
         if (key == MenuKey::Left && selected) return selected - 1;
         if (key == MenuKey::Right) return std::min(selected + 1, count - 1);
         if (key == MenuKey::Up && selected >= Columns()) return selected - Columns();

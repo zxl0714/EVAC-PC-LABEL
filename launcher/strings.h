@@ -44,6 +44,7 @@ inline constexpr std::array kTranslations{
   Translation{L"退出启动器",L"ランチャーを終了",L"Exit launcher"},
   Translation{L"没有可显示的游戏",L"表示できるゲームがありません",L"No visible games"},
   Translation{L"方向键　选择",L"方向キー　選択",L"Arrows · Select"},
+  Translation{L"↑ / ↓　选择",L"↑ / ↓　選択",L"↑ / ↓ · Select"},
   Translation{L"A / Enter　启动",L"A / Enter　起動",L"A / Enter · Play"},
   Translation{L"B / Esc　返回",L"B / Esc　戻る",L"B / Esc · Back"},
   Translation{L"上传日志",L"ログを送信",L"Upload logs"},

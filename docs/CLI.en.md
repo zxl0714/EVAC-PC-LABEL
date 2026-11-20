@@ -24,6 +24,8 @@ Select **Big Picture** at the bottom of the launcher or press `F11` in the game 
 
 In either mode, use the left stick, D-pad, or arcade stick to select a game and press Confirm to launch it. In Big Picture, press Back to open the exit menu.
 
+Big Picture shows one cover at a time on portrait monitors. Press Up or Down, or scroll, to switch games. Under `[collection]` in `user-data/config.ini`, set `big_picture_layout` to `vertical` or `horizontal` to choose a layout, or `auto` to follow the monitor.
+
 While playing, press `Esc` or `Start + D-pad Up` to close the game and return to the launcher. When you launch from Big Picture, you return to the same game card.
 
 To change the shortcut, open **Controls → All games** and double-click **Exit game**. Tap one input for a single bind, or hold one and press another for a combo. This works with keyboards, controllers, and arcade sticks. Use **Clear** to disable the shortcut.

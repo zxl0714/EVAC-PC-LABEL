@@ -754,7 +754,7 @@ class Renderer {
       const auto left=margin+item*control_width;
       label(value,{left,control_top,left+control_width,view.height},15,secondary,DWRITE_TEXT_ALIGNMENT_CENTER);
     };
-    controls(0,T(L"方向键　选择"));
+    controls(0,T(view.Portrait()?L"↑ / ↓　选择":L"方向键　选择"));
     if(play && !busy)
       controls(1,T(L"A / Enter　启动"));
     else if(setup && !busy)
@@ -937,6 +937,7 @@ class App {
     if(library.Hidden(selected) && !library.show_hidden && !library.visible.empty())selected=library.visible.front();
     layout.game_count=library.visible.size();
     options.big_picture=options.big_picture||cave::launcher::ReadBigPicture(ini);
+    big_picture_mode=cave::launcher::ReadBigPictureMode(ini);
     saved_window_size=cave::launcher::ReadWindowSize(ini);
     language=options.language.value_or(cave::launcher::ReadLanguage(ini));
     message=T(L"正在检测游戏数据…");
@@ -1191,6 +1192,7 @@ class App {
       preferences_text=Ini::ReadText(EnsureConfig(options.root));
       const auto ini=Ini::Parse(preferences_text);const auto settings=ResolveSharedSettings(ini);
       sdoj_external=cave::launcher::ReadSdojRecomp(ini);
+      big_picture_mode=cave::launcher::ReadBigPictureMode(ini);
       language=options.language.value_or(cave::launcher::ReadLanguage(ini));
       PopulateDisplay(settings);SetWindowTextW(save_control,T(L"保存"));
       SetWindowTextW(nickname_control,Wide(settings.nickname).c_str());
@@ -1339,7 +1341,7 @@ class App {
   }
   bool BigPicture() const { return desktop_window.has_value(); }
   BigPictureLayout BigView() const {
-    return {layout.width,layout.height,library.visible.size(),VisiblePosition().value_or(0)};
+    return {layout.width,layout.height,library.visible.size(),VisiblePosition().value_or(0),big_picture_mode};
   }
   void FitBigPicture() {
     MONITORINFO monitor{};
@@ -2099,7 +2101,12 @@ class App {
           if(app->hover!=-1){app->hover=-1;app->InvalidateGameList();}
           return 0;
         case WM_MOUSEWHEEL:
-          if(app->BigPicture()){app->BigPictureAction(GET_WHEEL_DELTA_WPARAM(first)<0?MenuKey::Right:MenuKey::Left);return 0;}
+          if(app->BigPicture()){
+            const bool down=GET_WHEEL_DELTA_WPARAM(first)<0;
+            const bool vertical=app->menu_open || app->BigView().Portrait();
+            app->BigPictureAction(vertical?(down?MenuKey::Down:MenuKey::Up):(down?MenuKey::Right:MenuKey::Left));
+            return 0;
+          }
           app->Scroll(-float(GET_WHEEL_DELTA_WPARAM(first))/WHEEL_DELTA*90);return 0;
         case kUpdateScrollBar:app->UpdateScrollBar();return 0;
         case WM_VSCROLL:{SCROLLINFO info{};info.cbSize=sizeof(info);info.fMask=SIF_ALL;GetScrollInfo(window,SB_VERT,&info);float value=app->layout.scroll;
@@ -2190,6 +2197,7 @@ class App {
   Options options;
   HWND hwnd{};
   std::optional<WINDOWPLACEMENT> desktop_window;
+  cave::launcher::BigPictureMode big_picture_mode{};
   LONG_PTR desktop_style{};
   bool game_focus_pending{};
   std::unique_ptr<cave::launcher::MenuController> menu_controller;
@@ -2268,7 +2276,7 @@ void Preview(const Options& options) {
   const auto position=std::size_t(std::ranges::find(library.visible,selected)-library.visible.begin());
   layout.scroll=std::clamp(layout.card(position).bottom-layout.footer(),0.f,layout.max_scroll());
   target->BeginDraw();
-  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),position},
+  if(options.big_picture)renderer.DrawBigPicture(target.Get(),{1080,900,library.visible.size(),position,cave::launcher::ReadBigPictureMode(ini)},
       rows,library,{},false,false,0,sdoj_external);
   else renderer.Draw(target.Get(),layout,rows,selected,-1,false,caption,{},true,0,{},&library,
       false,nullptr,-1,sdoj_external);

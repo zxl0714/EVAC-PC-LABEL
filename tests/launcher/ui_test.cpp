@@ -1061,7 +1061,7 @@ void MainChecks() {
   WindowSizeChecks();
   {
     Fixture fixture;
-    for(const auto extent : {std::pair{1280.f,720.f},std::pair{640.f,480.f},std::pair{480.f,640.f}}) {
+    for(const auto extent : {std::pair{1280.f,720.f},std::pair{640.f,480.f},std::pair{480.f,640.f},std::pair{1440.f,2560.f}}) {
       const BigPictureLayout view{extent.first,extent.second,12,6};
       for(size_t i=view.First();i<view.Last();++i) {
         const auto card=view.Card(i);
@@ -1072,10 +1072,15 @@ void MainChecks() {
             narrow.left>wide.left && narrow.right<wide.right,
             "Big Picture covers with different proportions must share top and bottom edges");
       }
-      Require(view.Move(MenuKey::Left)==5 && view.Move(MenuKey::Right)==7 &&
-          view.Move(MenuKey::Up)==6-view.Columns() && view.Move(MenuKey::Down)==6+view.Columns(),
-          "Big Picture D-pad layout does not move to the adjacent cover");
+      if(view.Portrait())
+        Require(view.PageSize()==1 && view.Move(MenuKey::Up)==5 && view.Move(MenuKey::Down)==7 && view.Move(MenuKey::Right)==6,
+                "A vertical display must show one cover and browse it with Up/Down");
+      else
+        Require(view.Move(MenuKey::Left)==5 && view.Move(MenuKey::Right)==7 &&
+                view.Move(MenuKey::Up)==6-view.Columns() && view.Move(MenuKey::Down)==6+view.Columns(),
+                "Horizontal Big Picture did not keep its existing navigation");
     }
+    Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\nbig_picture_layout=horizontal\n");
     Frame frame(fixture.root,"futari");
     RECT client{};GetClientRect(frame.app.hwnd,&client);
     App::Window(frame.app.hwnd,WM_SIZE,SIZE_RESTORED,MAKELPARAM(client.right,client.bottom));
@@ -1085,6 +1090,12 @@ void MainChecks() {
     const auto before=frame.app.VisiblePosition().value();
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RIGHT,0);
     Require(frame.app.VisiblePosition()==before+1,"Big Picture input did not move game focus");
+    frame.app.big_picture_mode=cave::launcher::ReadBigPictureMode(Ini::Parse("[collection]\nbig_picture_layout=vertical\n"));
+    App::Window(frame.app.hwnd,WM_KEYDOWN,VK_DOWN,0);
+    Require(frame.app.BigView().PageSize()==1 && frame.app.VisiblePosition()==before+2,
+            "Vertical Big Picture did not select the next cover with Down");
+    App::Window(frame.app.hwnd,WM_MOUSEWHEEL,MAKEWPARAM(0,WHEEL_DELTA),0);
+    Require(frame.app.VisiblePosition()==before+1,"Vertical Big Picture did not follow the mouse wheel");
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_RETURN,0);
     Require(!frame.app.work && !frame.app.child,"Big Picture began launching missing game data");
     App::Window(frame.app.hwnd,WM_KEYDOWN,VK_ESCAPE,0);
