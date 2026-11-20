@@ -119,7 +119,7 @@ class PackageReceiptTests(unittest.TestCase):
         self.write(name, before)
         self.save()
         inputs = PackageInputs(self.root)
-        expected = hashlib.sha256((self.root/name).read_bytes()).hexdigest()
+        expected = hashlib.sha256(self.git('show', f'{inputs.commit}:{name}')).hexdigest()
         after = before.replace('return 1', 'return 2').replace('{}', '{"cover.png": "hash"}')
         self.write(name, after)
         self.assertTrue(inputs.project_helpers_equivalent(inputs.commit, expected))
