@@ -64,18 +64,25 @@ void DemuxMovie(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
     }
 }
 
-void RotateMovieWorker(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
+void RotateReadyQueue(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
     constexpr uint32_t retryFullMovieQueue = 0x00159338u;
-    if (getRegU32(context, 31) == retryFullMovieQueue) {
-        // The display interrupt releases the picture buffer on a video field.
+    constexpr uint32_t waitForDecoderFlush = 0x00157290u;
+    constexpr uint32_t waitForLastPicture = 0x001572b4u;
+    const auto caller = getRegU32(context, 31);
+    if (caller == retryFullMovieQueue || caller == waitForDecoderFlush || caller == waitForLastPicture) {
+        // The display interrupt releases a picture buffer on each field.
+        // Spinning here while the last pictures drain stalls host audio.
         auto& scheduler = runtime->eeScheduler();
         scheduler.waitVSync(scheduler.currentVSyncTick(), 0);
     }
-    // Other callers keep the original movie helper's thread priority.
+    ps2_syscalls::RotateThreadReadyQueue(memory, context, runtime);
+}
+
+void RotateMovieWorker(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
     constexpr uint32_t movieSettings = 0x002c7150u;
     const auto config = runtime->memory().read32(movieSettings);
     SET_GPR_U32(context, 4, runtime->memory().read16(config));
-    ps2_syscalls::RotateThreadReadyQueue(memory, context, runtime);
+    RotateReadyQueue(memory, context, runtime);
 }
 
 void RegisterMovieStream(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
@@ -119,7 +126,8 @@ void BindSdkServices(PS2Runtime& runtime) {
 #ifdef EVAC_PS2_RTYPE_FINAL_MOVIES
     if (!runtime.replaceFunction(0x00115c08u, &cave::ps2::SdkEntry<&DemuxMovie>) ||
         !runtime.replaceFunction(0x00115f20u, &cave::ps2::SdkEntry<&RegisterMovieStream>) ||
-        !runtime.replaceFunction(0x00156ec0u, &cave::ps2::SdkEntry<&RotateMovieWorker>)) {
+        !runtime.replaceFunction(0x00156ec0u, &cave::ps2::SdkEntry<&RotateMovieWorker>) ||
+        !runtime.replaceFunction(0x00118710u, &cave::ps2::SdkEntry<&RotateReadyQueue>)) {
         throw std::runtime_error("Cannot bind R-Type Final movie stream services");
     }
 #endif
