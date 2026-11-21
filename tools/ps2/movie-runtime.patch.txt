@@ -1,6 +1,22 @@
 --- a/MPEG.cpp
 +++ b/MPEG.cpp
-@@ -1583,7 +1583,8 @@
+@@ -493,6 +493,7 @@
+             uint32_t imageBufferAddr = 0u;
+             bool sawInput = false;
+             bool sawSequenceEnd = false;
++            bool sawProgramEnd = false;
+             bool streamEnded = false;
+             bool decoderFailed = false;
+             uint64_t cdStreamGeneration = 0u;
+@@ -1216,6 +1217,7 @@
+
+                 if (streamId == kMpegProgramEnd)
+                 {
++                    playback.sawProgramEnd = true;
+                     playback.streamEnded = true;
+                     playback.cdStreamGeneration = g_mpeg_stub_state.cdStreamGeneration;
+                     flushDecoderIfEnded(playback);
+@@ -1583,7 +1585,8 @@
                                           R5900Context *callerCtx,
                                           PS2Runtime *runtime,
                                           const MpegStreamCallbackEvent &event,
@@ -10,7 +26,7 @@
          {
              if (!rdram || !callerCtx || !runtime || callback.func == 0u || !runtime->hasFunction(callback.func))
              {
-@@ -1617,7 +1618,7 @@
+@@ -1617,7 +1620,7 @@
              {
                  runtime->guestFree(cbDataAddr);
              };
@@ -19,7 +35,7 @@
          }
 
          void dispatchStreamCallbacks(uint8_t *rdram,
-@@ -1630,13 +1631,18 @@
+@@ -1630,13 +1633,18 @@
                  return;
              }
 
@@ -41,7 +57,7 @@
          }
 
          void dispatchStreamCallbacksUnlocked(uint8_t *rdram,
-@@ -2141,8 +2147,8 @@
+@@ -2141,8 +2149,8 @@
              });
          }
 
@@ -51,7 +67,7 @@
      }
 
      void sceMpegDemuxPssRing(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
-@@ -2235,8 +2241,8 @@
+@@ -2235,8 +2243,8 @@
              });
          }
 
@@ -61,3 +77,25 @@
      }
 
      void sceMpegDispCenterOffX(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+@@ -2455,14 +2463,13 @@
+         std::lock_guard<std::mutex> lock(g_mpeg_stub_mutex);
+         g_mpeg_stub_state.initialized = true;
+         MpegPlaybackState &playback = getPlaybackState(mpegAddr);
+-        // Only the producer/demux EOF is authoritative. A sequence_end_code can
+-        // be observed while more PSS data is still buffered, and a decoder
+-        // failure before producer EOF may still recover on a later sequence.
+-        const bool producerEnded =
+-            g_mpeg_stub_state.currentCdStreamEofSeen &&
+-            playback.cdStreamGeneration == g_mpeg_stub_state.cdStreamGeneration;
+-        const bool ended = producerEnded &&
+-                           (playback.streamEnded || (playback.decoderFailed && playback.sawInput));
++        // A PSS program-end code terminates this program even when the disc
++        // reader includes more sector padding in its produced-byte count.
++        // A video sequence-end code alone does not terminate a program.
++        const bool sameStream = playback.cdStreamGeneration == g_mpeg_stub_state.cdStreamGeneration;
++        const bool producerEnded = g_mpeg_stub_state.currentCdStreamEofSeen && sameStream;
++        const bool ended = (sameStream && playback.sawProgramEnd) ||
++                           (producerEnded && (playback.streamEnded || (playback.decoderFailed && playback.sawInput)));
+         const uint64_t presentationEnd = playback.presentationEndTickQ32;
+         const uint64_t currentTickQ32 = runtime != nullptr
+                                             ? (runtime->eeScheduler().currentVSyncTick() << 32u)
