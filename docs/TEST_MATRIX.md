@@ -6,6 +6,9 @@
 
 ## v0.10.4 PS2 验收
 
+- 《R-Type Final》美版（SLUS-20780）用独立存档实测 Score Attack 4.0、Human 难度、R-9A Arrow-Head。先后复现间接调用 `0x487a60 → 0x4871c0` 和 `0x32f2a4 → 0x32f420` 时退出。补齐这两处和同类表项中的四个函数入口后，移植版两次打到四面 Boss 并进入成绩结算。32 项 PS2 回归测试全部通过。
+- 四面的处理落单独验收。移植版开场 15 秒平均呈现 58.3 FPS，密集场景连续 15 秒降到 30.4 FPS，游戏逻辑也随之变慢。以同一张美版光盘、同一飞行员存档在 PCSX2 2.8.2 默认 EE 时序下对照，双方仅在测试中打开玩家无敌。对齐 Dobkeratops 第二形态连续三枚棕色碎块离开本体的画面，移植版两次投掷平均相隔约 1.6 秒，PCSX2 约 1.3 秒。这一小段每秒逻辑更新分别约 50 次和 60 次。与物理 PS2 的速度差异及其他难度仍待验证。逐次取帧和时钟记录在 `.local/v0104/r-type-final/stage4-comparison/boss-throw-timing.json`。
+
 - 《ESPGaluda》在 RTX 4080、144 Hz 屏幕开启 VSync，使用 Vulkan MAILBOX 从练习菜单进入一面。连续移动、射击的 9.43 秒内呈现 567 帧，平均 60.00 FPS，帧间隔中位数 16.70 ms，P95 为 17.23 ms，最长 17.85 ms。关内的音频统计窗口没有缺失采样。参见 `.local/v0104/espgaluda-mailbox-stage-verified/stage-result.json`。
 - 《R-Type Final》实测从原始美版 ISO 解码片头、创建飞行员、选择机体和写入记忆卡。关闭进程后冷启动，同一份存档读回飞行员 A。补齐关内对象回调后，首关实际移动、开火并获得 200 分，窗口正常退出。记录见 `.local/v0104/r-type-final/boot-banks-r23-stage1/`。首关速度和音频仍在优化。
 - 《R-Type Final》美版原始归档与 ISO 已入库。启动器完整校验了两个哈希。从独立测试安装分别用桌面和命令行启动，桌面设定的数据目录指向 `E:/Game-Share/roms/game-data/rtype-final/ps2-usa/`。命令行等到游戏退出后返回 0，桌面启动按 Esc 后回到原卡片。SIMD 构建实测首关 9.07 秒内呈现 127 帧，约 14.0 FPS，音频仍有缺失采样。实战计时和线程采样见 `.local/v0104/r-type-final/boot-banks-r26-stage1/`。

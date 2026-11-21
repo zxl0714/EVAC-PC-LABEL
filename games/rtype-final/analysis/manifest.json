@@ -236,12 +236,24 @@
       "entry": 3235200,
       "elfSha256": "7c14650e999d3f69bb87ae54b451584f799af65d8bf7f0cda0ef53f0612b7011",
       "map": "bank-01.csv.gz",
-      "mapSha256": "41fa9212ea4757f9e8a53f0223f8f4eb01730c5607ab76b08955433e40c0b89f",
-      "rows": 35553,
+      "mapSha256": "78ffa1d80c3b09bea32557ebdb4313f6bec80632168f4e875c4279b97d8811f7",
+      "rows": 35556,
       "callbackTables": [
         [
           5196032,
           5196668
+        ],
+        [
+          5200012,
+          5200016
+        ],
+        [
+          5402112,
+          5402192
+        ],
+        [
+          5421936,
+          5422020
         ]
       ]
     },
@@ -257,8 +269,14 @@
       "entry": 6044032,
       "elfSha256": "0c087bddbe6af2eec772c3998a2c91af44eaecb116c3a8544b116239673dcccf",
       "map": "bank-04.csv.gz",
-      "mapSha256": "3c8323b40b9be561caf28bf4bd3b5d21763ad1f480e3dc0b28ce587f2e2d57d9",
-      "rows": 1633
+      "mapSha256": "f8bd2e179e215b21021810c56580ccf39fbd8f1bae8982d2e3b1e85b1b4df6d9",
+      "rows": 1635,
+      "callbackTables": [
+        [
+          6180000,
+          6180040
+        ]
+      ]
     },
     {
       "name": "bank-05",
@@ -377,8 +395,14 @@
       "entry": 6044032,
       "elfSha256": "ccfc117cc4e22fa465e521d1c4ace9720a27d4d42349c1a5ee894302c92baa7f",
       "map": "bank-12.csv.gz",
-      "mapSha256": "7108c8094614f820702baaa84e4ea066b1d0ef3d22e9c54ead02f6a023e206df",
-      "rows": 882
+      "mapSha256": "45b32bd768734d43c3f1df12b57d393e1622c9da3522756ed6608ae44aa68891",
+      "rows": 883,
+      "callbackTables": [
+        [
+          6108592,
+          6108604
+        ]
+      ]
     },
     {
       "name": "bank-13",
