@@ -255,14 +255,19 @@ std::optional<unsigned long> ChildProcess::ExitCode() const {
   if (WaitForSingleObject(handle_,0)==WAIT_TIMEOUT) return {};
   DWORD code{};if (!GetExitCodeProcess(handle_,&code)) WinError("Read game exit code");return code;
 }
+uint64_t ChildProcess::CreationTime() const noexcept {
+  FILETIME created{},exited{},kernel{},user{};
+  return handle_ && GetProcessTimes(handle_,&created,&exited,&kernel,&user)
+      ? (uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime : 0;
+}
 bool ChildProcess::RequestedWindowClose(const fs::path& root,std::string_view game,unsigned long code) const {
   // 27 is not generally a successful exit. Only accept this backend's explicit
   // presentation-cleanup receipt, bound to this process's PID AND birth time.
   if (!handle_ || (game!="ketsui" && game!="daioujou" && game!="esprade" && game!="feveron" && game!="garegga") || code!=27) return false;
   try {
-    FILETIME created{},exited{},kernel{},user{};
-    if (!GetProcessTimes(handle_,&created,&exited,&kernel,&user)) return false;
-    const auto birth=std::to_string((std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime);
+    const auto created=CreationTime();
+    if (!created) return false;
+    const auto birth=std::to_string(created);
     const auto logs=DataChild(root,"logs/"+std::string(game));
     if (!fs::is_directory(logs)) return false;
     for (const auto& item:fs::directory_iterator(logs)) {

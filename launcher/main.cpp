@@ -1648,6 +1648,7 @@ class App {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
       const bool external=bool(external_session);
+      if(!external)cave::launcher::reports::RecordProcessExit(options.root,active_game,child->pid(),child->CreationTime(),*code);
       const bool requested_close=!external && child->RequestedWindowClose(options.root,active_game,*code);
       const bool failed=*code && !requested_close;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
@@ -2332,7 +2333,9 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
         cave::launcher::SetDonPachiFullscreen(spec,ResolveSharedSettings(ini).fullscreen);
       }
       auto child=StartGame(spec,arcade?spec.executable.parent_path():fs::path{});
-      child.Wait();return int(child.ExitCode().value_or(1));
+      child.Wait();const auto code=child.ExitCode().value_or(1);
+      if(!arcade)cave::launcher::reports::RecordProcessExit(options.root,spec.game,child.pid(),child.CreationTime(),code);
+      return int(code);
     }
     cave::launcher::LauncherInstance instance_guard(options.root);
     if(!instance_guard.ActivateOrAcquire(options.big_picture))return 0;

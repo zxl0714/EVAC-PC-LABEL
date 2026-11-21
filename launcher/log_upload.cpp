@@ -1,4 +1,5 @@
 #include "log_upload.h"
+#include "windows_fault_event.h"
 #include "launcher/donpachi_recomp.h"
 #include "common/launch.h"
 #include "common/settings.h"
@@ -13,6 +14,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <cwctype>
 #include <fstream>
@@ -51,6 +53,22 @@ std::string Read(const fs::path& path,size_t limit) {
   std::string bytes(size,'\0');std::ifstream stream(path,std::ios::binary);
   if(!stream.read(bytes.data(),std::streamsize(size)))throw std::runtime_error("Cannot read report file");
   return bytes;
+}
+struct RunProcess {
+  uint64_t pid{},created{};
+};
+RunProcess ReadRunProcess(const fs::path& directory) {
+  const auto iniPath=directory/L"run.ini",jsonPath=directory/L"run.json";
+  RunProcess result;
+  if(fs::is_regular_file(iniPath) && Plain(iniPath)) {
+    const auto ini=Ini::Load(iniPath);
+    if(const auto value=ini.Get("run","pid"))result.pid=std::stoull(value->text);
+    if(const auto value=ini.Get("run","process_created"))result.created=std::stoull(value->text);
+  } else if(fs::is_regular_file(jsonPath) && Plain(jsonPath)) {
+    const auto metadata=Json::parse(Read(jsonPath,1024*1024));
+    result.pid=metadata.value("pid",uint64_t{});result.created=metadata.value("processCreated",uint64_t{});
+  }
+  return result;
 }
 void Write(const fs::path& path,std::string_view text) {
   std::ofstream stream(path,std::ios::binary);stream.write(text.data(),std::streamsize(text.size()));
@@ -169,34 +187,60 @@ std::vector<Session> Recent(const fs::path& root) {
   return result;
 }
 
+void RecordProcessExit(const fs::path& root,std::string_view game,DWORD pid,uint64_t created,DWORD code) noexcept {
+  if(!pid || !created)return;
+  try {
+    const auto base=DataChild(root,"logs/"+std::string(game));
+    const auto suffix=L"Z-"+std::to_wstring(pid);
+    for(const auto& entry:fs::directory_iterator(base)) {
+      const auto name=entry.path().filename().wstring();
+      if(!name.starts_with(L"run-") || !name.ends_with(suffix) || !Plain(entry.path()) || !entry.is_directory())continue;
+      // PID reuse can leave multiple run folders with this suffix.
+      RunProcess identity;
+      try {identity=ReadRunProcess(entry.path());} catch(const std::exception&){continue;}
+      if(identity.pid!=pid || identity.created!=created)continue;
+      char text[192]{};
+      const auto size=std::snprintf(text,sizeof(text),"source=launcher_process_handle\npid=%lu\nprocess_created=%llu\nexit_code=%lu\nexit_code_hex=0x%08lx\n",
+                                    pid,static_cast<unsigned long long>(created),code,code);
+      if(size<=0 || static_cast<size_t>(size)>=sizeof(text))return;
+      const auto receipt=entry.path()/L"launcher-exit.txt";
+      const auto temporary=entry.path()/(L"launcher-exit-"+std::to_wstring(GetCurrentProcessId())+L"-"+
+                                         std::to_wstring(GetCurrentThreadId())+L".tmp");
+      const auto file=CreateFileW(temporary.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+      if(file==INVALID_HANDLE_VALUE)return;
+      DWORD written{};
+      const bool complete=WriteFile(file,text,DWORD(size),&written,nullptr) && written==DWORD(size);
+      CloseHandle(file);
+      if(!complete || !MoveFileExW(temporary.c_str(),receipt.c_str(),MOVEFILE_WRITE_THROUGH))DeleteFileW(temporary.c_str());
+      return;
+    }
+  } catch(const std::exception&) { /* Optional diagnostics must not interrupt returning to the launcher. */ }
+}
+
 std::string ProcessAtUpload(const Session& session) {
   try {
-    uint64_t pid{},expected{};
-    const auto iniPath=session.directory/L"run.ini",jsonPath=session.directory/L"run.json";
-    if(fs::is_regular_file(iniPath) && Plain(iniPath)) {
-      const auto ini=Ini::Load(iniPath);
-      if(const auto value=ini.Get("run","pid"))pid=std::stoull(value->text);
-      if(const auto value=ini.Get("run","process_created"))expected=std::stoull(value->text);
-    } else if(fs::is_regular_file(jsonPath) && Plain(jsonPath)) {
-      const auto metadata=Json::parse(Read(jsonPath,1024*1024));
-      pid=metadata.value("pid",uint64_t{});expected=metadata.value("processCreated",uint64_t{});
-    }
+    const auto [pid,expected]=ReadRunProcess(session.directory);
     auto text="pid="+std::to_string(pid)+"\nprocess_created="+std::to_string(expected)+"\n";
     if(!pid || pid>MAXDWORD || !expected)return text+"process_state=identity_unavailable\n";
+    const auto finished=[&](std::string state) {
+      try {state+=WindowsApplicationFault(DWORD(pid),expected);}
+      catch(const std::exception&) {state+="windows_fault=query_unavailable\n";}
+      return text+state;
+    };
     const auto process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,DWORD(pid));
     if(!process) {
       const auto error=GetLastError();
-      return text+"process_state="+(error==ERROR_INVALID_PARAMETER?"not_found":"query_failed")+
-          "\nwindows_error="+std::to_string(error)+"\n";
+      return finished(std::string("process_state=")+(error==ERROR_INVALID_PARAMETER?"not_found":"query_failed")+
+          "\nwindows_error="+std::to_string(error)+"\n");
     }
     FILETIME created{},exited{},kernel{},user{};DWORD code{};
     const bool readable=GetProcessTimes(process,&created,&exited,&kernel,&user) && GetExitCodeProcess(process,&code);
     const auto wait=WaitForSingleObject(process,0);CloseHandle(process);
-    if(!readable)return text+"process_state=query_failed\n";
+    if(!readable)return finished("process_state=query_failed\n");
     const auto actual=(uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime;
-    if(actual!=expected)return text+"process_state=pid_reused\n";
+    if(actual!=expected)return finished("process_state=pid_reused\n");
     if(wait==WAIT_TIMEOUT)return text+"process_state=running\n";
-    if(wait==WAIT_OBJECT_0)return text+"process_state=exited\nexit_code="+std::to_string(code)+"\n";
+    if(wait==WAIT_OBJECT_0)return finished("process_state=exited\nexit_code="+std::to_string(code)+"\n");
     return text+"process_state=query_failed\n";
   }catch(const std::exception&){return "process_state=metadata_unreadable\n";}
 }

@@ -79,6 +79,17 @@ def main():
             parser.exit(1, "The report needs one logs/stderr.txt.\n")
         with archive.open(names[0]) as source, io.TextIOWrapper(source, encoding="utf-8", errors="replace") as lines:
             output = list(summarize(lines))
+        for filename, keys in (
+            ("launcher-exit.txt", {"exit_code", "exit_code_hex"}),
+            ("process-at-upload.txt", {"process_state", "exit_code", "windows_fault", "windows_event_error",
+                                       "windows_exception_code_hex", "windows_fault_module",
+                                       "windows_fault_module_version", "windows_fault_offset_hex"}),
+        ):
+            matches = [member for member in archive.infolist() if member.filename.removeprefix("./") == "logs/" + filename]
+            if len(matches) == 1 and matches[0].file_size <= 8192:
+                for line in archive.read(matches[0]).decode("utf-8", errors="replace").splitlines():
+                    if line.partition("=")[0] in keys:
+                        output.append(f"{filename}: {line}")
     print("\n".join(output) if output else "No Death Label present or fault records in this report.")
 
 

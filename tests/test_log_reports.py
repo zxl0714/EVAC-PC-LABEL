@@ -16,6 +16,33 @@ from server import reports
 
 
 class LogReportTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('EVAC_REPORT_TEST_EXE') and os.environ.get('EVAC_TEST_WINDOWS_FAULT') == '1',
+                         'requires the opt-in Windows Error Reporting crash fixture')
+    def test_fast_fail_includes_windows_fault_after_process_disappears(self):
+        fixture = Path(os.environ['EVAC_REPORT_TEST_EXE'])
+        result = subprocess.run([fixture, '--fixture-fault'], capture_output=True, check=True,
+                                timeout=45, creationflags=subprocess.CREATE_NO_WINDOW)
+        body = Path(result.stdout.decode('utf-8').strip()).read_bytes()
+        with zipfile.ZipFile(io.BytesIO(body)) as archive:
+            receipt = archive.read('./logs/launcher-exit.txt').decode()
+            evidence = dict(line.split('=', 1) for line in archive.read('./logs/process-at-upload.txt').decode().splitlines())
+        self.assertIn('exit_code_hex=0xc0000409', receipt)
+        self.assertEqual(evidence['windows_fault'], 'application_error_1000')
+        self.assertEqual(evidence['windows_fault_module'].lower(), fixture.name.lower())
+        self.assertEqual(int(evidence['windows_exception_code_hex'], 16), 0xc0000409)
+        self.assertGreater(int(evidence['windows_fault_offset_hex'], 16), 0)
+        self.assertEqual(reports.inspect(body)['game'], 'daioujou')
+
+    @unittest.skipUnless(os.environ.get('EVAC_REPORT_TEST_EXE'), 'requires compiled report fixture')
+    def test_abrupt_exit_survives_closed_process_handle(self):
+        result = subprocess.run([os.environ['EVAC_REPORT_TEST_EXE'], '--fixture-exit'],
+            capture_output=True, check=True, timeout=45, creationflags=subprocess.CREATE_NO_WINDOW)
+        path = Path(result.stdout.decode('utf-8').strip())
+        with zipfile.ZipFile(path) as archive:
+            self.assertIn('exit_code_hex=0x00004123', archive.read('./logs/launcher-exit.txt').decode())
+            self.assertIn('vkCreateSwapchainKHR enter', archive.read('./logs/stderr.txt').decode())
+        self.assertEqual(reports.inspect(path.read_bytes())['game'], 'daioujou')
+
     @unittest.skipUnless(os.environ.get('EVAC_REPORT_TEST_EXE'), 'requires compiled report fixture')
     def test_launcher_automatically_summarizes_old_dumps(self):
         result = subprocess.run([os.environ['EVAC_REPORT_TEST_EXE'], '--fixture'],
