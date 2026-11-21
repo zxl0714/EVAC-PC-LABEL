@@ -37,7 +37,22 @@ void DemuxMovie(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
         // All ten PSS streams use two-sector audio packets. A packet started
         // in a previous call may become deliverable with just one new byte.
         constexpr uint32_t maxPacketBytes = 2u * 2048u;
-        const uint32_t budget = free > maxPacketBytes ? free - maxPacketBytes : 0u;
+        uint32_t budget = free > maxPacketBytes ? free - maxPacketBytes : 0u;
+        // Once fewer than five file bytes remain, the disc's playback loop
+        // leaves the audio pump and waits only for video. Keep the last byte
+        // of sector padding and the four-byte end code until the pump has
+        // transferred every complete stereo block to the IOP.
+        constexpr uint32_t playbackLoopReturn = 0x00157190u;
+        constexpr uint32_t endBytes = 5u;
+        constexpr uint32_t stereoBlock = 1024u;
+        if (getRegU32(context, 31) == playbackLoopReturn && runtime->memory().read32(ring) == 2u) {
+            const uint32_t remaining = getRegU32(context, 23);
+            if (remaining > endBytes) {
+                budget = std::min(budget, remaining - endBytes);
+            } else if (remaining == endBytes && used >= stereoBlock) {
+                budget = 0u;
+            }
+        }
         if (capacity) SET_GPR_U32(context, 6, std::min(available, budget));
     }
     ps2_stubs::sceMpegDemuxPssRing(memory, context, runtime);
