@@ -175,14 +175,15 @@
     {
       "game": "rtype-final",
       "path": "launcher/assets/covers/rtype-final.png",
-      "sha256": "16cc7f235e4135c2a33b37b427b1158e5ee8810566aa0d897f1a788c04c80751",
+      "sha256": "d59081f9be553fd888acd32c3d50dbeccabda373a823a5248b9a1d279ecabc43",
       "resource": 314,
       "focusY": 0.5,
       "fit": "contain",
       "kicker": "PS2 · USA",
-      "original": true,
-      "copyright": "Original artwork prepared for EVAC PC LABEL",
-      "usage": "ImageGen spacecraft illustration with a platform strip matched to the other PlayStation 2 covers.",
+      "sourcePage": "https://psxdatacenter.com/psx2/images2/hires/SLUS-20780/SLUS-20780-F-ALL.html",
+      "sourceUrl": "https://psxdatacenter.com/psx2/images2/hires/SLUS-20780/SLUS-20780-F-ALL.jpg",
+      "copyright": "©2004 IREM SOFTWARE ENGINEERING INC.",
+      "usage": "Front panel of the North American PlayStation 2 retail inlay (SLUS-20780), cropped from the PSX DataCenter scan at its original resolution.",
       "platformMark": true
     },
     {
