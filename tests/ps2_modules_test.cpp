@@ -122,6 +122,14 @@ int main(int argc,char** argv) {
     Require(ranges.lookup(320)==A,"Upper bank was hidden by new bounds");
     ranges.clear();ranges.add(memory,a);
     Require(!ranges.lookup(320) && ranges.lookup(128)==A,"Clear retained another module range");
+    StaticModules overlapping;
+    const StaticModule wide{21,32,96,0,0,128,first};
+    overlapping.add(memory,wide);
+    overlapping.add(memory,a);
+    Require(overlapping.lookup(128)==A && overlapping.selected(128)->id==16,"Inactive first bank selected");
+    const std::array<uint32_t,6> wideHeader{0x336f574d,21,32,96,0,0};
+    std::memcpy(memory.data()+32,wideHeader.data(),sizeof(wideHeader));
+    Require(overlapping.selected(128)->id==21,"Cached bank hid earlier overlapping module");
     std::cout<<"PS2 modules: same-address banks, sparse lookup, headers and bounds passed\n";
     return 0;
   }catch(const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}

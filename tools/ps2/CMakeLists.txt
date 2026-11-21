@@ -273,6 +273,11 @@ if(PS2_BUILD_RUNTIME)
   target_link_libraries(ps2_kernel_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_kernel_contract COMMAND ps2_kernel_contract)
 
+  add_executable(ps2_vu_add_contract "${COLLECTION_ROOT}/tests/ps2_vu_add_test.cpp")
+  target_compile_options(ps2_vu_add_contract PRIVATE /clang:-msse4.1)
+  target_link_libraries(ps2_vu_add_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_vu_add_contract COMMAND ps2_vu_add_contract)
+
   set(sdkFixture "${CMAKE_BINARY_DIR}/sdk-direct-fixture")
   set(sdkFixtureSources "${sdkFixture}/generated/FUN_00100000_0x100000.cpp"
     "${sdkFixture}/generated/FUN_00100100_0x100100.cpp")
@@ -312,6 +317,12 @@ if(PS2_BUILD_RUNTIME)
   target_include_directories(ps2_memory_instruction_contract PRIVATE "${CMAKE_BINARY_DIR}/include")
   target_link_libraries(ps2_memory_instruction_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_memory_instruction_contract COMMAND ps2_memory_instruction_contract)
+  add_executable(ps2_inline_memory_instruction_contract "${COLLECTION_ROOT}/tests/ps2_memory_instruction_test.cpp"
+    "${CMAKE_BINARY_DIR}/include/ps2_memory_fixture.h")
+  target_include_directories(ps2_inline_memory_instruction_contract PRIVATE "${CMAKE_BINARY_DIR}/include")
+  target_compile_definitions(ps2_inline_memory_instruction_contract PRIVATE EVAC_PS2_INLINE_RAM_ACCESSES=1)
+  target_link_libraries(ps2_inline_memory_instruction_contract PRIVATE ps2_runtime)
+  add_test(NAME ps2_inline_memory_instruction_contract COMMAND ps2_inline_memory_instruction_contract)
 
   set(PS2_GAME_GENERATED "" CACHE PATH "Private generated ESPGaluda directory for initial bring-up")
   option(PS2_GAME_SYMBOLS "Link full PDBs for generated game hosts" ON)

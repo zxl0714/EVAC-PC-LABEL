@@ -21,6 +21,12 @@ public:
     virtual void Initialize(std::span<const uint8_t> vram)=0;
     virtual void Reset()=0;
     virtual void Gif(GifPathId path,std::span<const uint8_t> bytes)=0;
+    virtual void GifBurst(std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes) {
+        for (const auto& range : ranges) {
+            Gif(range.path, bytes.first(range.size));
+            bytes = bytes.subspan(range.size);
+        }
+    }
     virtual void Register(uint8_t address,uint64_t value)=0;
     virtual void Image(const std::array<uint64_t,4>& setup,std::span<const uint8_t> bytes)=0;
     virtual size_t ReadFifo(std::span<uint8_t> bytes)=0;

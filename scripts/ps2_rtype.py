@@ -195,8 +195,9 @@ def verify_object_tables(spec, image, tables):
 
 
 def vu_sources(output, create=False):
-    image = output / 'boot/program.elf'
-    source = dict(format=1, elfSha256=digest(image), compilerSha256=digest(VU_TOOL))
+    images = [output / item['name'] / 'program.elf' for item in metadata()['programs']]
+    source = dict(format=2, images={image.parent.name: digest(image) for image in images},
+                  compilerSha256=digest(VU_TOOL))
     key = hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()[:24]
     destination = output / ('vu1-' + key)
     reject_link(destination)
@@ -206,8 +207,21 @@ def vu_sources(output, create=False):
         with TemporaryDirectory(dir=output, prefix='.vu1-') as work:
             staged = Path(work) / 'compiled'
             compiled = staged / 'generated'
-            subprocess.run([str(VU_TOOL), str(image), str(compiled)], check=True, env=environment,
-                           stdout=subprocess.PIPE)
+            compiled.mkdir(parents=True)
+            for image in images:
+                # The generator cleans its output. Scan each bank separately,
+                # then collect the content-addressed fragments in one registry.
+                bank = Path(work) / image.parent.name
+                subprocess.run([str(VU_TOOL), str(image), str(bank)], check=True, env=environment,
+                               stdout=subprocess.PIPE)
+                for fragment in bank.glob('*.cpp'):
+                    target = compiled / fragment.name
+                    if target.exists():
+                        # The leading comment records the ELF offset of the upload.
+                        if target.read_bytes().partition(b'\n')[2] != fragment.read_bytes().partition(b'\n')[2]:
+                            raise ValueError('Conflicting VU fragment: ' + fragment.name)
+                    else:
+                        fragment.rename(target)
             identity = tree_identity(compiled)
             del identity['path']
             write_json_new(staged / 'receipt.json', dict(source=source, compiled=identity))

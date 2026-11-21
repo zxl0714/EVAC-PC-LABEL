@@ -435,6 +435,8 @@ public:
     std::vector<PendingTransfer> m_pendingGifTransfers;
     std::vector<PendingTransfer> m_pendingVif0Transfers;
     std::vector<PendingTransfer> m_pendingVif1Transfers;
+    std::vector<uint8_t> m_dmaChainScratch;
+    void processVIF1Commands(const uint8_t *data, uint32_t sizeBytes);
     std::mutex m_completedDmacMutex;
     std::vector<uint32_t> m_completedDmacCauses;
 

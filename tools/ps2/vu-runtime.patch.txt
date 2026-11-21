@@ -1,16 +1,51 @@
+diff --git a/ps2xRuntime/include/runtime/ps2_vu1.h b/ps2xRuntime/include/runtime/ps2_vu1.h
+--- a/ps2xRuntime/include/runtime/ps2_vu1.h
++++ b/ps2xRuntime/include/runtime/ps2_vu1.h
+@@ -265,9 +265,8 @@
+     template <bool kDeadFlags, uint8_t kUpperHints = 0, BlockPosition kPosition = NotInBlock>
+     StepResult stepPairBodyEntry(const DecodedInstructionPair &decoded, const RunContext &context);
+ 
+-    static constexpr uint64_t codeHash(const uint8_t *code, uint32_t size)
+-    {
+-        uint64_t hash = 0xCBF29CE484222325ull; // FNV-1a
++    static constexpr uint64_t codeHash(const uint8_t *code, uint32_t size, uint64_t hash = 0xCBF29CE484222325ull)
++    {
+         for (uint32_t index = 0; index < size; ++index)
+             hash = (hash ^ code[index]) * 0x100000001B3ull;
+         return hash;
+@@ -434,7 +433,7 @@
+         uint64_t registryGeneration = 0;
+         uint64_t lastUse = 0;
+     };
+-    static constexpr uint32_t kCompiledImages = 4u;
++    static constexpr uint32_t kCompiledImages = 24u;
+     std::array<CompiledImage, kCompiledImages> m_compiledImages{};
+     const CompiledImage *m_compiledImage = nullptr;
+     uint64_t m_compiledImageUses = 0;
 diff --git a/ps2xRuntime/include/runtime/ps2_vu1_inline.h b/ps2xRuntime/include/runtime/ps2_vu1_inline.h
-index 0798ba6..45975f9 100644
 --- a/ps2xRuntime/include/runtime/ps2_vu1_inline.h
 +++ b/ps2xRuntime/include/runtime/ps2_vu1_inline.h
-@@ -168,26 +168,15 @@ namespace ps2_vu1_detail
+@@ -27,7 +27,12 @@
+ #define PS2X_VU_LAMBDA_INLINE __attribute__((always_inline))
+ // Rare paths kept out of the compiled microcode: inlined into every instruction they made the blocks several times
+ // their size, and the hot loops no longer fit the instruction caches.
++#if defined(__clang__) && defined(_WIN64)
++// Keep the four-lane parameters in registers on the rare FMAC fallback.
++#define PS2X_VU_COLD __vectorcall __attribute__((noinline, cold))
++#else
+ #define PS2X_VU_COLD __attribute__((noinline, cold))
++#endif
+ #endif
+ 
+ namespace ps2_vu1_detail
+@@ -168,26 +173,14 @@
          return vuAdd(a, -b);
      }
  
 -    // vuAdd on four lanes: with AVX2 the same operand alignment, then one SSE add under the
 -    // interpreter's round-toward-zero mode; without it, lane by lane.
-+    // Align the smaller operands on four lanes and round the sum toward zero.
-     PS2X_VU_INLINE __m128 vuAdd4(__m128 a, __m128 b)
-     {
+-    PS2X_VU_INLINE __m128 vuAdd4(__m128 a, __m128 b)
+-    {
 -#if !defined(__AVX2__)
 -        alignas(16) float la[4];
 -        alignas(16) float lb[4];
@@ -20,6 +55,8 @@ index 0798ba6..45975f9 100644
 -            la[c] = vuAdd(la[c], lb[c]);
 -        return _mm_load_ps(la);
 -#else
++    PS2X_VU_COLD inline __m128 vuAdd4ByBits(__m128 a, __m128 b)
++    {
          // Per operand, the mask that keeps its bits: ~0 << (other exponent - own), all ones when it is the larger
          // or equal one, only the sign 24 or more steps below, all ones when either exponent is 0 (no alignment).
          // Built so the chain from the operands to the add is short: compiled loops chain FMACs through it.
@@ -30,7 +67,7 @@ index 0798ba6..45975f9 100644
          const __m128i ea = _mm_srli_epi32(_mm_slli_epi32(ia, 1), 24);
          const __m128i eb = _mm_srli_epi32(_mm_slli_epi32(ib, 1), 24);
          const __m128i aBelow = _mm_sub_epi32(eb, ea); // > 0: a is the smaller one, by that many steps
-@@ -195,16 +184,24 @@ namespace ps2_vu1_detail
+@@ -195,16 +188,59 @@
          const __m128i kept = _mm_or_si128(_mm_cmpeq_epi32(_mm_min_epi32(ea, eb), zero),
                                            _mm_set1_epi32(static_cast<int>(0x80000000u)));
          const __m128i farLimit = _mm_set1_epi32(23);
@@ -59,11 +96,59 @@ index 0798ba6..45975f9 100644
          const __m128i newB = _mm_and_si128(ib, maskB);
          return _mm_add_ps(_mm_castsi128_ps(newA), _mm_castsi128_ps(newB));
 -#endif
++    }
++
++    // The VU rounds toward zero. Adding a positive magnitude smaller than one
++    // power of two to that power drops bits below the larger operand's ULP.
++    // Subtracting the power gives the aligned magnitude exactly.
++    template<bool finiteOperands = false>
++    PS2X_VU_INLINE __m128 vuAdd4(__m128 a, __m128 b)
++    {
++        // Same-sign operands cannot cancel. Truncation before or after their
++        // sum gives the same result, including when it crosses a power of two.
++        if constexpr (finiteOperands)
++            if (!_mm_movemask_ps(_mm_xor_ps(a, b)))
++                return _mm_add_ps(a, b);
++        const __m128i exponentMask = _mm_set1_epi32(0x7f800000);
++        const __m128i ea = _mm_and_si128(_mm_castps_si128(a), exponentMask);
++        const __m128i eb = _mm_and_si128(_mm_castps_si128(b), exponentMask);
++        const __m128i higher = _mm_max_epi32(ea, eb);
++        const __m128 bIsSmaller = _mm_castsi128_ps(_mm_cmpgt_epi32(ea, eb));
++        const __m128 small = _mm_blendv_ps(a, b, bIsSmaller);
++        const __m128 large = _mm_blendv_ps(b, a, bIsSmaller);
++
++        // Equal exponents and exponent zero bypass alignment.
++        const __m128i bypass = _mm_or_si128(_mm_cmpeq_epi32(ea, eb),
++                                             _mm_cmpeq_epi32(_mm_min_epi32(ea, eb), _mm_setzero_si128()));
++        const __m128 anchor = _mm_castsi128_ps(_mm_andnot_si128(bypass, higher));
++        const __m128 signBit = _mm_castsi128_ps(_mm_set1_epi32(static_cast<int>(0x80000000u)));
++        if constexpr (!finiteOperands)
++            if (_mm_movemask_ps(_mm_castsi128_ps(_mm_cmpeq_epi32(higher, exponentMask)))) [[unlikely]]
++                return vuAdd4ByBits(a, b); // Keep NaN payloads and operand order.
++        // A signed power aligns a negative operand just as a positive power
++        // aligns a positive operand. Reuse the original bits in bypass lanes,
++        // including signed zeros and denormals with FTZ enabled but DAZ off.
++        const __m128 signedAnchor = _mm_or_ps(anchor, _mm_and_ps(signBit, small));
++        const __m128 aligned = _mm_sub_ps(_mm_add_ps(signedAnchor, small), signedAnchor);
++        return _mm_add_ps(large, _mm_blendv_ps(aligned, small, _mm_castsi128_ps(bypass)));
      }
  
      PS2X_VU_INLINE __m128 negate4(__m128 value)
+@@ -3246,8 +3282,13 @@
+     const auto readyBy = [&]<BlockLiveIn kLiveIn>(uint64_t limit) PS2X_VU_LAMBDA_INLINE
+     {
+         if constexpr (kLiveIn.kind == BlockLiveIn::Vf || kLiveIn.kind == BlockLiveIn::Vi || kLiveIn.kind == BlockLiveIn::Acc)
++        {
++            // Incoming register writes were issued before the first cycle of this block.
++            if constexpr (kLiveIn.issue >= kMaxRegisterLatency - 1u)
++                return true;
+             if (m_lastWritebackCycle <= limit)
+                 return true;
++        }
+         if constexpr (kLiveIn.kind == BlockLiveIn::Vf)
+             if (m_vfReadyMax[kLiveIn.reg] <= limit)
+                 return true;
 diff --git a/ps2xRuntime/include/runtime/ps2_vu1_jit.h b/ps2xRuntime/include/runtime/ps2_vu1_jit.h
-index 4bcf1a5..71ea079 100644
 --- a/ps2xRuntime/include/runtime/ps2_vu1_jit.h
 +++ b/ps2xRuntime/include/runtime/ps2_vu1_jit.h
 @@ -11,7 +11,7 @@
@@ -75,11 +160,289 @@ index 4bcf1a5..71ea079 100644
  #define PS2X_VU1_JIT 1
  #else
  #define PS2X_VU1_JIT 0
+@@ -403,36 +403,27 @@
+                                      kOperation.kind == FmacKind::CrossMsub;
+         a = kProductSum ? normalized<(kHints & Vu::kKnownNormalAcc) != 0u>(acc) : _mm_setzero_ps();
+ 
++        // Both inputs are VU-normalized here. A finite product rounded
++        // toward zero can underflow or saturate, but stays finite.
+         if constexpr (kOperation.kind == FmacKind::Add)
+-            return ps2_vu1_detail::vuAdd4(left, right);
++            return ps2_vu1_detail::vuAdd4<true>(left, right);
+         else if constexpr (kOperation.kind == FmacKind::Sub)
+-            return ps2_vu1_detail::vuAdd4(left, ps2_vu1_detail::negate4(right));
++            return ps2_vu1_detail::vuAdd4<true>(left, ps2_vu1_detail::negate4(right));
+         else if constexpr (kOperation.kind == FmacKind::Mul)
+             return _mm_mul_ps(left, right);
+         else if constexpr (kOperation.kind == FmacKind::Madd)
+-            return ps2_vu1_detail::vuAdd4(a, _mm_mul_ps(left, right));
++            return ps2_vu1_detail::vuAdd4<true>(a, _mm_mul_ps(left, right));
+         else if constexpr (kOperation.kind == FmacKind::Msub)
+-            return ps2_vu1_detail::vuAdd4(a, ps2_vu1_detail::negate4(_mm_mul_ps(left, right)));
++            return ps2_vu1_detail::vuAdd4<true>(a, ps2_vu1_detail::negate4(_mm_mul_ps(left, right)));
+         else
+         {
+-            alignas(16) float l[4], r[4], c[4], result[4];
+-            _mm_store_ps(l, left);
+-            _mm_store_ps(r, right);
+-            _mm_store_ps(c, a);
+-            if constexpr (kOperation.kind == FmacKind::CrossMul)
+-            {
+-                result[0] = l[1] * r[2];
+-                result[1] = l[2] * r[0];
+-                result[2] = l[0] * r[1];
+-            }
+-            else
+-            {
+-                result[0] = ps2_vu1_detail::vuSub(c[0], l[1] * r[2]);
+-                result[1] = ps2_vu1_detail::vuSub(c[1], l[2] * r[0]);
+-                result[2] = ps2_vu1_detail::vuSub(c[2], l[0] * r[1]);
+-            }
+-            result[3] = 0.0f;
+-            return _mm_load_ps(result);
++            // The cross product uses YZX and ZXY lanes. W is discarded.
++            const __m128 lhs = _mm_shuffle_ps(left, left, _MM_SHUFFLE(3, 0, 2, 1));
++            const __m128 rhs = _mm_shuffle_ps(right, right, _MM_SHUFFLE(3, 1, 0, 2));
++            __m128 result = _mm_mul_ps(lhs, rhs);
++            if constexpr (kOperation.kind == FmacKind::CrossMsub)
++                result = ps2_vu1_detail::vuAdd4<true>(a, ps2_vu1_detail::negate4(result));
++            return _mm_blend_ps(result, _mm_setzero_ps(), 0x8);
+         }
+     }
+ 
+@@ -700,9 +691,21 @@
+         static constexpr uint8_t kDestLanes[16] = {0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE,
+                                                    0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF};
+         const __m128i bits = _mm_castps_si128(value);
+-        const __m128i exponent = _mm_and_si128(_mm_srli_epi32(bits, 23), _mm_set1_epi32(0xFF));
+-        const __m128i inRange = _mm_and_si128(_mm_cmpgt_epi32(exponent, _mm_set1_epi32(1)),
+-                                              _mm_cmpgt_epi32(_mm_set1_epi32(254), exponent));
++        const __m128i magnitudeMask = _mm_set1_epi32(0x7fffffff);
++        const __m128i magnitude = _mm_and_si128(bits, magnitudeMask);
++        if constexpr (kOperation.kind == FmacKind::Mul || kOperation.kind == FmacKind::CrossMul)
++        {
++            // The normalized inputs are finite. Toward-zero multiplication
++            // already saturates overflow and preserves the product sign.
++            // Only subnormal magnitudes still need flushing to signed zero.
++            const __m128i tiny = _mm_cmpgt_epi32(_mm_set1_epi32(0x00800000), magnitude);
++            value = _mm_castsi128_ps(_mm_andnot_si128(_mm_and_si128(tiny, magnitudeMask), bits));
++            return;
++        }
++        // Rotate [0x01000000,0x7f000000) to the bottom of the signed
++        // integer range. One signed comparison selects exponents 2..253.
++        const __m128i inRange = _mm_cmpgt_epi32(_mm_set1_epi32(-0x02000000),
++            _mm_add_epi32(magnitude, _mm_set1_epi32(0x7f000000)));
+         uint32_t pending = kDestLanes[dest & 0xFu] & ~static_cast<uint32_t>(_mm_movemask_ps(_mm_castsi128_ps(inRange)));
+         if (pending == 0u)
+             return;
+@@ -751,8 +754,7 @@
+         const auto key = [](__m128 value)
+         {
+             const __m128i bits = _mm_castps_si128(value);
+-            const __m128i sign = _mm_srai_epi32(bits, 31);
+-            return _mm_sub_epi32(_mm_xor_si128(_mm_and_si128(bits, _mm_set1_epi32(0x7FFFFFFF)), sign), sign);
++            return _mm_sign_epi32(_mm_and_si128(bits, _mm_set1_epi32(0x7fffffff)), bits);
+         };
+         const __m128i ks = key(vs), kt = key(t);
+         const __m128 pickS = _mm_castsi128_ps(kMax ? _mm_cmpgt_epi32(ks, kt) : _mm_cmpgt_epi32(kt, ks));
+@@ -765,12 +767,8 @@
+         constexpr uint32_t kSpecial = (kUpper & 3u) | ((kUpper >> 4) & 0x7Cu);
+         constexpr uint8_t kDest = (kUpper >> 21) & 0xFu;
+         constexpr float kScale = kSpecial == 0x10u ? 1.0f : kSpecial == 0x11u ? 16.0f : kSpecial == 0x12u ? 4096.0f : 32768.0f;
+-        alignas(16) int32_t s[4];
+-        alignas(16) float result[4];
+-        _mm_store_si128(reinterpret_cast<__m128i *>(s), _mm_castps_si128(vs));
+-        for (int c = 0; c < 4; ++c)
+-            result[c] = kSpecial == 0x10u ? static_cast<float>(s[c]) : static_cast<float>(s[c]) / kScale;
+-        target = blend<kDest>(target, _mm_load_ps(result));
++        const __m128 converted = _mm_cvtepi32_ps(_mm_castps_si128(vs));
++        target = blend<kDest>(target, _mm_mul_ps(converted, _mm_set1_ps(1.0f / kScale)));
+     }
+ 
+     template <uint32_t kUpper, uint8_t kHints>
+@@ -779,12 +777,14 @@
+         constexpr uint32_t kSpecial = (kUpper & 3u) | ((kUpper >> 4) & 0x7Cu);
+         constexpr uint8_t kDest = (kUpper >> 21) & 0xFu;
+         constexpr float kScale = kSpecial == 0x14u ? 1.0f : kSpecial == 0x15u ? 16.0f : kSpecial == 0x16u ? 4096.0f : 32768.0f;
+-        alignas(16) float s[4];
+-        alignas(16) int32_t result[4];
+-        _mm_store_ps(s, normalized<(kHints & Vu::kKnownNormalFs) != 0u>(vs));
+-        for (int c = 0; c < 4; ++c)
+-            result[c] = ps2_vu1_detail::vuFloatToInt(s[c], kScale);
+-        target = blend<kDest>(target, _mm_castsi128_ps(_mm_load_si128(reinterpret_cast<const __m128i *>(result))));
++        // All four scales are powers of two, so scaling a float is exact
++        // throughout the signed integer range. CVTT returns INT_MIN on
++        // either overflow; invert just the positive overflow lanes.
++        const __m128 input = normalized<(kHints & Vu::kKnownNormalFs) != 0u>(vs);
++        const __m128 scaled = _mm_mul_ps(input, _mm_set1_ps(kScale));
++        const __m128i saturated = _mm_xor_si128(_mm_cvttps_epi32(scaled),
++            _mm_castps_si128(_mm_cmpge_ps(scaled, _mm_set1_ps(0x1p31f))));
++        target = blend<kDest>(target, _mm_castsi128_ps(saturated));
+     }
+ 
+     template <uint32_t kUpper>
+@@ -827,16 +827,17 @@
+     {
+         return static_cast<int16_t>(static_cast<int16_t>(lower & 0x7FFu) | static_cast<int16_t>((lower >> 10) & 0x7800u));
+     }
+-    static PS2X_VU_INLINE bool inData(const Vu::RunContext &context, uint32_t &address)
+-    {
+-        address &= context.dataSize - 1u;
+-        return address + 16u <= context.dataSize;
++    // run() admits compiled code only on complete data quads. These VU
++    // addresses are multiples of 16, including after masking and wrapping.
++    static PS2X_VU_INLINE uint32_t dataQuad(const Vu::RunContext &context, uint32_t address)
++    {
++        return address & (context.dataSize - 1u);
+     }
+     template <uint8_t kDest>
+     static PS2X_VU_INLINE void loadQuad(const Vu::RunContext &context, __m128 &target, uint32_t address)
+     {
+-        if (inData(context, address))
+-            target = blend<kDest>(target, _mm_loadu_ps(reinterpret_cast<const float *>(context.vuData + address)));
++        address = dataQuad(context, address);
++        target = blend<kDest>(target, _mm_loadu_ps(reinterpret_cast<const float *>(context.vuData + address)));
+     }
+     // queueStore(): written now; the program's writeback completes the cycle after (m_lastWritebackCycle). A PATH1
+     // transfer in flight reads VU memory as the clock moves: it gets to the store's cycle first.
+@@ -849,18 +850,14 @@
+             vu.advanceTo(cycle);
+             vu.catchUpXgkick();
+         }
+-        if (!inData(context, address) || !vu.m_activeVuData || address + 16u > vu.m_activeVuDataSize)
+-            return;
+-        if (cycle + 1u > vu.m_lastWritebackCycle)
+-            vu.m_lastWritebackCycle = cycle + 1u;
+-        float *target = reinterpret_cast<float *>(vu.m_activeVuData + address);
++        // The store is visible at issue. Its one-cycle retirement has already
++        // elapsed at the next pair, including when this block exits.
++        float *target = reinterpret_cast<float *>(context.vuData + dataQuad(context, address));
+         _mm_storeu_ps(target, blend<kDest>(_mm_loadu_ps(target), _mm_castsi128_ps(words)));
+     }
+-    static PS2X_VU_INLINE int32_t integerWord(const Vu::RunContext &context, uint32_t address, uint8_t dest, bool &loaded)
+-    {
+-        loaded = inData(context, address);
+-        if (!loaded)
+-            return 0;
++    static PS2X_VU_INLINE int32_t integerWord(const Vu::RunContext &context, uint32_t address, uint8_t dest)
++    {
++        address = dataQuad(context, address);
+         const int component = (dest & 0x8u) ? 0 : (dest & 0x4u) ? 1 : (dest & 0x2u) ? 2 : 3;
+         uint32_t value = 0u;
+         std::memcpy(&value, context.vuData + address + component * 4, 4);
+@@ -882,11 +879,8 @@
+     template <uint32_t kLower>
+     static PS2X_VU_INLINE void ilw(const Vu::RunContext &context, int32_t &target, int32_t base)
+     {
+-        bool loaded = false;
+-        const int32_t value = integerWord(context, static_cast<uint32_t>(static_cast<int32_t>(base + imm11(kLower))) * 16u,
+-                                          (kLower >> 21) & 0xFu, loaded);
+-        if (loaded)
+-            target = value;
++        target = integerWord(context, static_cast<uint32_t>(static_cast<int32_t>(base + imm11(kLower))) * 16u,
++                                          (kLower >> 21) & 0xFu);
+     }
+     template <uint32_t kLower>
+     static PS2X_VU_INLINE void isw(Vu &vu, const Vu::RunContext &context, uint64_t cycle, int32_t source, int32_t base)
+@@ -899,11 +893,7 @@
+     template <uint32_t kLower>
+     static PS2X_VU_INLINE void ilwr(const Vu::RunContext &context, int32_t &target, int32_t base)
+     {
+-        bool loaded = false;
+-        const int32_t value =
+-            integerWord(context, static_cast<uint32_t>(static_cast<uint16_t>(base)) * 16u, (kLower >> 21) & 0xFu, loaded);
+-        if (loaded)
+-            target = value;
++        target = integerWord(context, static_cast<uint32_t>(static_cast<uint16_t>(base)) * 16u, (kLower >> 21) & 0xFu);
+     }
+     template <uint32_t kLower>
+     static PS2X_VU_INLINE void iswr(Vu &vu, const Vu::RunContext &context, uint64_t cycle, int32_t source, int32_t base)
 diff --git a/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp b/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp
-index 39385c0..71b38be 100644
 --- a/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp
 +++ b/ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp
-@@ -1179,6 +1179,9 @@ void VU1Interpreter::run(uint8_t *vuCode, uint32_t codeSize,
+@@ -21,7 +21,7 @@
+     class VuRoundingScope
+     {
+     public:
+-#if defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
++#if (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(__i386__) || defined(_M_X64))
+         VuRoundingScope()
+         {
+             m_csr = _mm_getcsr();
+@@ -85,7 +85,7 @@
+     m_accReady = {};
+     m_efuResourceReady = 0;
+     m_lastWritebackCycle = 0;
+-    m_nextScalarCommit = 0;
++    m_nextScalarCommit = UINT64_MAX; // Both scalar pipelines were just cleared.
+     m_workingClip = m_state.clip;
+     m_viBranchBackupValue = 0;
+     m_viBranchBackupReg = 0;
+@@ -751,6 +751,12 @@
+     if (!m_xgkick.active || !m_activeVuData || m_activeVuDataSize == 0u)
+         return;
+ 
++    // Native VU1 has a 16 KiB circular aperture. Keep the general modulus
++    // for smaller standalone buffers and their wraparound tests.
++    const auto sourceOffset = [&] {
++        const uint32_t address = m_xgkick.sourceAddress + m_xgkick.copiedBytes;
++        return m_activeVuDataSize == 16384u ? address & 16383u : address % m_activeVuDataSize;
++    };
+     m_xgkick.cycleCredit += static_cast<uint32_t>(std::min<uint64_t>(cycles, 0x40000000u));
+     while (m_xgkick.active && m_xgkick.cycleCredit >= 2u)
+     {
+@@ -758,13 +764,17 @@
+         // (the tag's size was checked against the buffer when it was read).
+         if (m_xgkick.currentTagEnd != 0u && m_xgkick.copiedBytes < m_xgkick.currentTagEnd)
+         {
+-            const uint32_t source = (m_xgkick.sourceAddress + m_xgkick.copiedBytes) % m_activeVuDataSize;
++            const uint32_t source = sourceOffset();
+             const uint32_t qwords = std::min({m_xgkick.cycleCredit / 2u,
+                                               (m_xgkick.currentTagEnd - m_xgkick.copiedBytes) / 16u,
+                                               (m_activeVuDataSize - source) / 16u});
+-            if (qwords > 1u)
++            if (qwords != 0u)
+             {
+-                std::memcpy(m_xgkick.packet.data() + m_xgkick.copiedBytes, m_activeVuData + source, qwords * 16u);
++                auto* dest = m_xgkick.packet.data() + m_xgkick.copiedBytes;
++                if (qwords == 1u)
++                    std::memcpy(dest, m_activeVuData + source, 16u);
++                else
++                    std::memcpy(dest, m_activeVuData + source, qwords * 16u);
+                 m_xgkick.copiedBytes += qwords * 16u;
+                 m_xgkick.cycleCredit -= qwords * 2u;
+                 if (m_xgkick.copiedBytes >= m_xgkick.currentTagEnd)
+@@ -789,7 +799,7 @@
+         }
+ 
+         const uint32_t qwordOffset = m_xgkick.copiedBytes;
+-        const uint32_t source = (m_xgkick.sourceAddress + m_xgkick.copiedBytes) % m_activeVuDataSize;
++        const uint32_t source = sourceOffset();
+         if (source + 16u <= m_activeVuDataSize)
+         {
+             std::memcpy(m_xgkick.packet.data() + qwordOffset, m_activeVuData + source, 16u);
+@@ -1150,9 +1160,17 @@
+         auto range = std::find_if(rangeHashes.begin(), rangeHashes.end(), [&](const RangeHash &entry)
+                                   { return entry.firstPair == fragment.firstPair && entry.pairCount == fragment.pairCount; });
+         if (range == rangeHashes.end())
+-            range = rangeHashes.insert(rangeHashes.end(),
+-                                       {fragment.firstPair, fragment.pairCount,
+-                                        codeHash(vuCode + fragment.firstPair * 8u, fragment.pairCount * 8u)});
++        {
++            // Fragments are registered by increasing length. Extend the most recent
++            // hash at this start address instead of rereading the same prefix.
++            auto previous = std::find_if(rangeHashes.rbegin(), rangeHashes.rend(), [&](const RangeHash &entry)
++                                         { return entry.firstPair == fragment.firstPair; });
++            const uint32_t prefix = previous == rangeHashes.rend() ? 0u : previous->pairCount;
++            const uint64_t seed = previous == rangeHashes.rend() ? codeHash(nullptr, 0) : previous->hash;
++            const uint64_t hash = codeHash(vuCode + (fragment.firstPair + prefix) * 8u,
++                                           (fragment.pairCount - prefix) * 8u, seed);
++            range = rangeHashes.insert(rangeHashes.end(), {fragment.firstPair, fragment.pairCount, hash});
++        }
+         if (range->hash != fragment.codeHash)
+             continue;
+         if (byPair.empty())
+@@ -1179,6 +1197,9 @@
                           uint8_t *vuData, uint32_t dataSize,
                           GS &gs, PS2Memory *memory, uint32_t maxCycles, bool runToCompletion)
  {
@@ -89,3 +452,13 @@ index 39385c0..71b38be 100644
      m_activeVuData = vuData;
      m_activeVuDataSize = dataSize;
      m_activeGs = &gs;
+@@ -1212,7 +1233,8 @@
+     const CompiledEntry *compiled = nullptr;
+     const bool vu1 = m_unit == Unit::VU1;
+     const bool trackedVuCode = memory == nullptr || vuCode == (vu1 ? memory->getVU1Code() : memory->getVU0Code());
+-    if (trackedVuCode && !m_compiledCodeDisabled && compiledFragmentsEnabled() && !compiledFragmentRegistry().empty())
++    const bool completeDataQuads = vuData != nullptr && dataSize >= 16u && (dataSize & 15u) == 0u;
++    if (completeDataQuads && trackedVuCode && !m_compiledCodeDisabled && compiledFragmentsEnabled() && !compiledFragmentRegistry().empty())
+     {
+         const uint64_t stamp = memory == nullptr ? m_externalCodeGeneration + 1u
+                                                  : (vu1 ? memory->getVU1CodeGeneration() : memory->getVU0CodeGeneration()) + 1u;

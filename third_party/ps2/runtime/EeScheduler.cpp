@@ -274,7 +274,8 @@ void EeScheduler::run()
             continue;
         }
 
-        if (!m_runtime.hasFunction(context.pc))
+        const auto function = m_runtime.tryLookupFunction(context.pc);
+        if (!function)
         {
             if (!running->invocations.empty())
             {
@@ -293,7 +294,6 @@ void EeScheduler::run()
             }
             continue;
         }
-        PS2Runtime::RecompiledFunction function = m_runtime.lookupFunction(context.pc);
 
         if (checkpointDue(kGuestDispatchCycles))
         {
@@ -322,16 +322,10 @@ void EeScheduler::run()
             throw;
         }
 
-        processPendingEvents();
-        if (m_rescheduleRequested && m_currentThreadId != 0)
-        {
-            GuestThread *preempted = currentThread();
-            assert(preempted != nullptr);
-            enqueueReady(*preempted, !m_timeSliceExpired);
-            m_currentThreadId = 0;
-            m_rescheduleRequested = false;
-            m_timeSliceExpired = false;
-        }
+        // The next iteration drains events and applies preemption before
+        // selecting a guest thread. Preserve the final drain on shutdown.
+        if (m_stopRequested.load(std::memory_order_acquire))
+            processPendingEvents();
     }
 
     m_guestExecuting.store(false, std::memory_order_release);
@@ -1795,7 +1789,9 @@ void EeScheduler::processPendingEvents()
 {
     assertExecutor();
     if (m_pendingScanoutTick) scanoutFlippedBuffer();
-    if(m_runtime.gs().pollCompletedEvents())dispatchIrq(false,0u);
+    if ((!m_gsStatusNotifications || m_checkpointPending.load(std::memory_order_acquire)) &&
+        m_runtime.gs().pollCompletedEvents())
+        dispatchIrq(false, 0u);
     processDueDeadlines();
     const uint32_t timerInterrupts = m_pendingEeTimerInterrupts;
     m_pendingEeTimerInterrupts = 0u;
@@ -1806,18 +1802,19 @@ void EeScheduler::processPendingEvents()
             dispatchIrq(false, 9u + timer);
         }
     }
-    std::deque<EeEvent> pending;
+    const uint64_t nextCycle = m_nextDeadlineCycle.load(std::memory_order_acquire);
+    if (m_checkpointPending.load(std::memory_order_acquire) || (nextCycle != 0u && m_eeCycle >= nextCycle))
     {
-        std::lock_guard lock(m_eventMutex);
-        pending.swap(m_events);
-    }
-    for (const EeEvent &event : pending)
-    {
-        processEvent(event);
-    }
-
-    {
-        std::lock_guard lock(m_eventMutex);
+        std::unique_lock lock(m_eventMutex);
+        if (!m_events.empty())
+        {
+            std::deque<EeEvent> pending;
+            pending.swap(m_events);
+            lock.unlock();
+            for (const EeEvent &event : pending)
+                processEvent(event);
+            lock.lock();
+        }
         const uint64_t nextEventCycle = m_nextDeadlineCycle.load(std::memory_order_acquire);
         const bool cycleEventDue = nextEventCycle != 0u && m_eeCycle >= nextEventCycle;
         const bool pendingWork = !m_events.empty() || cycleEventDue || m_stopRequested.load(std::memory_order_acquire);
@@ -1883,11 +1880,15 @@ void EeScheduler::processDueDeadlines()
     if(m_deferredVBlank && dispatchVBlank(*m_deferredVBlank))m_deferredVBlank.reset();
     for (;;)
     {
+        // scheduleEvent publishes the earliest guest deadline while holding
+        // the queue lock. Most dispatches have not reached it yet.
+        const uint64_t nextCycle = m_nextDeadlineCycle.load(std::memory_order_acquire);
+        if (nextCycle > m_eeCycle)
+            return;
         std::vector<ScheduledEvent> due;
         std::chrono::steady_clock::time_point pacingDeadline{};
         {
             std::unique_lock lock(m_eventMutex);
-            const auto now = std::chrono::steady_clock::now();
             for (const ScheduledEvent &item : m_deadlines)
             {
                 if (item.deadlineCycle <= m_eeCycle &&
@@ -1904,7 +1905,7 @@ void EeScheduler::processDueDeadlines()
                 return;
             }
 
-            if (now < pacingDeadline)
+            if (std::chrono::steady_clock::now() < pacingDeadline)
             {
                 const auto waitStarted=std::chrono::steady_clock::now();
                 m_deadlineWait->Until(lock, pacingDeadline, [this]()

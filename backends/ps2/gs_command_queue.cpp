@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
-#include <deque>
 #include <future>
 #include <mutex>
 #include <stdexcept>
@@ -13,7 +12,7 @@
 namespace cave::ps2 {
 namespace {
 constexpr size_t VramBytes=4u*1024u*1024u;
-enum class Kind { Initialize,Reset,Gif,Register,Image,Fifo,Snapshot,WriteVram,Frame,ConsumerTask };
+enum class Kind { Initialize,Reset,Gif,Register,Image,Fifo,Snapshot,WriteVram,Frame,ConsumerTask,GifBurst };
 struct Reply {
     std::atomic<bool> settled=false;
     std::promise<std::vector<uint8_t>> result;
@@ -29,12 +28,14 @@ struct Command {
     GifPathId path{};
     uint8_t address{};
     uint64_t value{};
-    size_t offset=0,cost=0;
+    size_t offset=0,cost=0,submissions=1;
+    uint64_t serial=0;
     uint64_t generation=1;
     uint64_t field=0;
     std::array<uint64_t,4> setup{};
     GsFrame frame{};
     std::vector<uint8_t> bytes;
+    std::vector<GifTransferRange> ranges;
     std::shared_ptr<Reply> reply;
     std::function<void()> task;
 };
@@ -44,10 +45,15 @@ public:
     const size_t capacityBytes,capacityCommands;
     mutable std::mutex mutex;
     std::condition_variable readable,writable;
-    std::deque<Command> commands;
+    std::vector<Command> slots;
+    size_t readSlot = 0, writeSlot = 0, unread = 0;
     Stats stats;
     std::exception_ptr failure;
-    std::shared_ptr<Reply> activeReply;
+    struct Active {
+        const Command& command;
+        Active* parent = nullptr;
+    };
+    Active* active = nullptr;
     std::thread::id consumerThread;
     std::shared_ptr<GsCompletionMailbox> completions;
     std::function<void()> frameNotifier;
@@ -56,9 +62,48 @@ public:
     Impl(size_t bytes,size_t count,std::shared_ptr<GsCompletionMailbox> mailbox)
         :capacityBytes(bytes),capacityCommands(count),completions(mailbox?std::move(mailbox):std::make_shared<GsCompletionMailbox>()) {
         if(!bytes || !count)throw std::invalid_argument("GS queue capacity must be positive");
+        slots.resize(count);
     }
     void CheckOpen() const {if(stats.closed)std::rethrow_exception(failure);}
-    void Push(Command command,std::span<const uint8_t> payload={}) {
+    // Moving a command leaves its serial in the slot for safe buffer recycling.
+    void Enqueue(Command&& command, std::span<const uint8_t> payload = {},
+                 std::span<const GifTransferRange> ranges = {}) {
+        auto& slot = slots[writeSlot];
+        command.bytes.swap(slot.bytes);
+        command.ranges.swap(slot.ranges);
+        command.bytes.assign(payload.begin(), payload.end());
+        command.ranges.assign(ranges.begin(), ranges.end());
+        command.serial = stats.submitted + 1;
+        slot = std::move(command);
+        if (++writeSlot == capacityCommands) writeSlot = 0;
+        ++unread;
+    }
+    // Adjacent asynchronous GIF writes may share transport storage. Keep
+    // every range for the consumer, including consecutive uses of one path.
+    bool AppendGif(const Command& next, std::span<const uint8_t> payload) {
+        if (!unread || next.kind != Kind::Gif || payload.empty() || input_trace::Recording(next.field))
+            return false;
+        auto& tail = slots[writeSlot ? writeSlot - 1 : capacityCommands - 1];
+        if ((tail.kind != Kind::Gif && tail.kind != Kind::GifBurst) || tail.generation != next.generation ||
+            tail.field != next.field || tail.bytes.empty() || tail.bytes.size() + payload.size() > 16 * 1024)
+            return false;
+        const bool first = tail.kind == Kind::Gif;
+        const size_t extra = payload.size() + (first ? 2 : 1) * sizeof(GifTransferRange);
+        if (extra > capacityBytes - stats.pendingBytes) return false;
+        const size_t count = tail.ranges.size() + (first ? 2 : 1);
+        if (count > tail.ranges.capacity())
+            tail.ranges.reserve(std::max(count, 2 * tail.ranges.capacity()));
+        const auto oldSize = tail.bytes.size();
+        tail.bytes.insert(tail.bytes.end(), payload.begin(), payload.end());
+        if (first) tail.ranges.push_back({tail.path, static_cast<uint32_t>(oldSize)});
+        tail.ranges.push_back({next.path, static_cast<uint32_t>(payload.size())});
+        tail.kind = Kind::GifBurst;
+        tail.cost += extra;
+        ++tail.submissions;
+        stats.pendingBytes += extra;
+        return true;
+    }
+    void Push(Command command,std::span<const uint8_t> payload={},std::span<const GifTransferRange> ranges={}) {
         command.cost=std::max(command.cost,payload.size());
         if(command.cost>capacityBytes)throw std::length_error("GS command exceeds queue byte capacity");
         const bool frame=command.kind==Kind::Frame;
@@ -76,10 +121,12 @@ public:
         command.field=input_trace::CurrentField();
         // Allocate only after capacity is reserved; blocked writers do not keep
         // an extra unbounded copy of their guest DMA buffers.
-        command.bytes.assign(payload.begin(),payload.end());
-        const bool wakeReader=commands.empty();
-        commands.push_back(std::move(command));
-        stats.pendingBytes+=commands.back().cost;
+        const bool wakeReader = unread == 0;
+        const auto cost = command.cost;
+        if (!AppendGif(command, payload)) {
+            Enqueue(std::move(command), payload, ranges);
+            stats.pendingBytes += cost;
+        }
         ++stats.commands;++stats.submitted;
         stats.highWaterBytes=std::max(stats.highWaterBytes,stats.pendingBytes);
         stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
@@ -102,9 +149,11 @@ void GsCommandQueue::Close(std::exception_ptr error) {
     if(impl->stats.closed)return;
     impl->failure=error;impl->stats.closed=true;
     impl->completions->Close();
-    for(auto& command:impl->commands)if(command.reply)command.reply->Fail(error);
-    if(impl->activeReply)impl->activeReply->Fail(error);
-    impl->commands.clear();
+    for(auto& command:impl->slots)if(command.reply)command.reply->Fail(error);
+    for (auto* active = impl->active; active; active = active->parent)
+        if (active->command.reply) active->command.reply->Fail(error);
+    impl->slots.clear();
+    impl->unread = 0;
     impl->stats.commands=0;impl->stats.pendingBytes=0;impl->stats.frameOutstanding=false;
     impl->readable.notify_all();impl->writable.notify_all();
 }
@@ -122,15 +171,22 @@ void GsCommandQueue::RunOnConsumer(std::function<void()> task) {
 }
 bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::milliseconds timeout) {
     Command command;
+    size_t slotIndex;
+    Impl::Active active{command};
     {
         std::unique_lock lock(impl->mutex);
         auto& owner=impl->consumerThread;
         if(owner==std::thread::id{})owner=std::this_thread::get_id();
         else if(owner!=std::this_thread::get_id())throw std::logic_error("GS queue requires one consumer thread");
-        if(!impl->readable.wait_for(lock,timeout,[&]{return impl->stats.closed || !impl->commands.empty();}))return false;
-        if(impl->stats.closed)return false;
-        command=std::move(impl->commands.front());impl->commands.pop_front();
-        impl->activeReply=command.reply;
+        if (!impl->unread && !impl->readable.wait_for(lock, timeout, [&] { return impl->stats.closed || impl->unread; }))
+            return false;
+        if (impl->stats.closed) return false;
+        slotIndex = impl->readSlot;
+        command = std::move(impl->slots[slotIndex]);
+        if (++impl->readSlot == impl->capacityCommands) impl->readSlot = 0;
+        --impl->unread;
+        active.parent = impl->active;
+        impl->active = &active;
     }
     std::vector<uint8_t> answer;
     const auto tracedStart=input_trace::Recording(command.field)?input_trace::Stamp():0;
@@ -140,6 +196,7 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         case Kind::Initialize:consumer.Initialize(command.bytes);break;
         case Kind::Reset:consumer.Reset();break;
         case Kind::Gif:consumer.Gif(command.path,command.bytes);break;
+        case Kind::GifBurst:consumer.GifBurst(command.ranges,command.bytes);break;
         case Kind::Register:consumer.Register(command.address,command.value);break;
         case Kind::Image:consumer.Image(command.setup,command.bytes);break;
         case Kind::Fifo: {
@@ -158,7 +215,10 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
         }
     }catch(...) {
         auto error=std::current_exception();
-        Close(error);if(command.reply)command.reply->Fail(error);throw;
+        Close(error);
+        std::lock_guard lock(impl->mutex);
+        impl->active = active.parent;
+        throw;
     }
     if(tracedStart)input_trace::Record(input_trace::Kind::GsCommand,
         command.kind==Kind::Frame?command.frame.vsyncTick:command.field,
@@ -168,14 +228,23 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
     {
         std::lock_guard lock(impl->mutex);
         if(!impl->stats.closed) {
-            impl->stats.pendingBytes-=command.cost;--impl->stats.commands;++impl->stats.completed;
+            // Retain small transfer buffers for this slot. A bulk texture or
+            // VRAM upload cannot permanently raise the queue's memory budget.
+            const auto retained = command.bytes.capacity() + command.ranges.capacity() * sizeof(GifTransferRange);
+            if (retained <= impl->capacityBytes / impl->capacityCommands &&
+                impl->slots[slotIndex].serial == command.serial) {
+                impl->slots[slotIndex].bytes.swap(command.bytes);
+                impl->slots[slotIndex].ranges.swap(command.ranges);
+            }
+            impl->stats.pendingBytes-=command.cost;impl->stats.commands-=command.submissions;
+            impl->stats.completed+=command.submissions;
             if(command.kind==Kind::Frame)impl->stats.frameOutstanding=false;
             if(command.kind==Kind::Frame || (impl->frameWaiter && !impl->stats.frameOutstanding &&
                                              impl->stats.commands<impl->capacityCommands)) {
                 impl->frameWaiter=false;frameNotifier=impl->frameNotifier;
             }
         }
-        impl->activeReply.reset();
+        impl->active = active.parent;
         wakeWriters=impl->waitingWriters!=0;
     }
     if(command.reply)command.reply->Complete(std::move(answer));
@@ -199,6 +268,25 @@ void GsCommandQueue::AcknowledgeStatus(uint32_t mask){impl->completions->Acknowl
 void GsCommandQueue::Gif(GifPathId path,std::span<const uint8_t> bytes) {
     if(unsigned(path)<1 || unsigned(path)>3 || bytes.size()%16)throw std::invalid_argument("Invalid queued GIF transfer");
     Command command;command.kind=Kind::Gif;command.path=path;impl->Push(std::move(command),bytes);
+}
+void GsCommandQueue::GifBurst(std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes) {
+    size_t remaining = bytes.size();
+    for (const auto& range : ranges) {
+        if (unsigned(range.path) < 1 || unsigned(range.path) > 3 || !range.size ||
+            range.size % 16 || range.size > remaining)
+            throw std::invalid_argument("Invalid queued GIF burst");
+        remaining -= range.size;
+    }
+    if (remaining) throw std::invalid_argument("Incomplete GIF burst");
+    if (ranges.empty()) return;
+    if (bytes.size() > impl->capacityBytes || ranges.size_bytes() > impl->capacityBytes - bytes.size()) {
+        GsCommandBackend::GifBurst(ranges, bytes);
+        return;
+    }
+    Command command;
+    command.kind = Kind::GifBurst;
+    command.cost = bytes.size() + ranges.size_bytes();
+    impl->Push(std::move(command), bytes, ranges);
 }
 void GsCommandQueue::Register(uint8_t address,uint64_t value) {
     if(address>=128)throw std::out_of_range("Invalid queued GS register");
@@ -227,8 +315,8 @@ bool GsCommandQueue::TryFrame(const GsFrame& request) {
     impl->CheckOpen();
     if(impl->stats.frameOutstanding || impl->stats.commands==impl->capacityCommands){impl->frameWaiter=true;return false;}
     Command command;command.kind=Kind::Frame;command.frame=request;command.generation=impl->completions->Generation();
-    const bool wakeReader=impl->commands.empty();
-    impl->commands.push_back(std::move(command));
+    const bool wakeReader = impl->unread == 0;
+    impl->Enqueue(std::move(command));
     auto& stats=impl->stats;++stats.commands;++stats.submitted;stats.frameOutstanding=true;
     stats.highWaterCommands=std::max(stats.highWaterCommands,stats.commands);
     if(auto* row=frame_trace::Get(request.vsyncTick)) {

@@ -5,6 +5,86 @@
 #include <vector>
 
 namespace {
+void VifDmaBurst() {
+    PS2Memory memory;
+    Require(memory.initialize(), "Could not initialize VIF DMA fixture");
+    std::vector<std::vector<uint8_t>> packets;
+    GifArbiter arbiter([&](GifPathId path, const uint8_t* data, uint32_t size) {
+        Require(path == GifPathId::Path1, "Unexpected GIF path in VU DMA burst");
+        packets.emplace_back(data, data + size);
+    });
+    memory.setGifArbiter(&arbiter);
+    memory.setRawGifTransfers(true);
+    uint8_t sequence = 0;
+    const auto kick = [&] {
+        std::array<uint8_t, 16> data{};
+        data.fill(++sequence);
+        arbiter.submitImmediate(GifPathId::Path1, data.data(), uint32_t(data.size()));
+    };
+    memory.setVu1MscalCallback([&](uint32_t, uint32_t, uint32_t) { kick(); });
+    memory.setVu1MscntCallback([&](uint32_t, uint32_t) { kick(); });
+    const std::array<uint32_t, 5> commands{
+        0x14000000, 0x17000000, 0x11000000, 0x17000000, 0x15000000};
+    memory.processVIF1Data(reinterpret_cast<const uint8_t*>(commands.data()), sizeof(commands));
+    Require(packets.size() == 3 && packets[0].size() == 32 && packets[0][0] == 1 &&
+            packets[0][16] == 2 && packets[1] == std::vector<uint8_t>(16, 3) &&
+            packets[2] == std::vector<uint8_t>(16, 4), "XGKICK batch lost a VIF ordering boundary");
+    unsigned submissions = 0;
+    packets.clear();
+    arbiter.setProcessBurstFn([&](auto ranges, auto bytes) {
+        ++submissions;
+        for (const auto& range : ranges) {
+            Require(range.path == GifPathId::Path1, "Wrong VIF transport path");
+            packets.emplace_back(bytes.begin(), bytes.begin() + range.size);
+            bytes = bytes.subspan(range.size);
+        }
+    });
+    memory.processVIF1Data(reinterpret_cast<const uint8_t*>(commands.data()), sizeof(commands));
+    Require(submissions == 1 && packets.size() == 3 && packets[0].size() == 32 &&
+            packets[0][0] == 5 && packets[0][16] == 6 && packets[1] == std::vector<uint8_t>(16, 7) &&
+            packets[2] == std::vector<uint8_t>(16, 8), "Buffered VIF fences lost range or ordering");
+}
+
+void VifMixedBurst() {
+    std::vector<unsigned> stream;
+    unsigned batches = 0;
+    const auto receive = [&](GifPathId path, const uint8_t* bytes, uint32_t size) {
+        for (uint32_t pos = 0; pos < size; pos += 16)
+            stream.push_back(256u * static_cast<unsigned>(path) + bytes[pos]);
+    };
+    GifArbiter arbiter(receive);
+    arbiter.setProcessBurstFn([&](auto ranges, auto bytes) {
+        ++batches;
+        for (const auto& range : ranges) {
+            receive(range.path, bytes.data(), range.size);
+            bytes = bytes.subspan(range.size);
+        }
+        Require(bytes.empty(), "Mixed GIF burst lost a path range");
+    });
+    std::array<uint8_t, 16> packet{};
+    auto send = [&](GifPathId path, uint8_t tag) {
+        packet.fill(tag);
+        arbiter.submitImmediate(path, packet.data(), uint32_t(packet.size()));
+    };
+    arbiter.runVifBurst([&] {
+        send(GifPathId::Path2, 1);
+        send(GifPathId::Path1, 2);
+        Require(stream.empty(), "Mixed GIF burst unexpectedly drained");
+        arbiter.flushVifBurst();
+        Require(batches == 1 && stream == std::vector<unsigned>{513, 258}, "Mixed GIF fence reordered paths");
+        for (unsigned i = 0; i < 1025; ++i)
+            send((i & 1u) ? GifPathId::Path2 : GifPathId::Path1, uint8_t(i));
+        Require(batches == 2 && stream.size() == 1026, "Mixed GIF size limit lost a transfer");
+    });
+    for (unsigned i = 0; i < 1025; ++i)
+        Require(stream.at(i + 2) == ((i & 1u) ? 512u : 256u) + uint8_t(i), "Mixed GIF payload mismatch");
+    try {
+        arbiter.runVifBurst([&] { send(GifPathId::Path2, 3); throw 3; });
+    } catch (int) {}
+    arbiter.runVifBurst([&] { send(GifPathId::Path1, 4); });
+    Require(stream.size() == 1028 && stream.back() == 260, "Abandoned GIF burst leaked into next submission");
+}
+
 void VifPath1Burst() {
     std::vector<std::pair<GifPathId, std::vector<uint8_t>>> transfers;
     GifArbiter arbiter([&](GifPathId path, const uint8_t* p, uint32_t size) {
@@ -15,7 +95,7 @@ void VifPath1Burst() {
         data.fill(value);
         arbiter.submitImmediate(path, data.data(), uint32_t(data.size()));
     };
-    arbiter.runPath1Burst([&] {
+    arbiter.runVifBurst([&] {
         send(GifPathId::Path1, 1);
         send(GifPathId::Path1, 2);
         send(GifPathId::Path2, 3);

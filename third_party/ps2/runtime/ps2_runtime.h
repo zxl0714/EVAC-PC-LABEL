@@ -354,6 +354,7 @@ public:
     // TODO remove this later need to update all tests
     bool registerFunction(uint32_t address, RecompiledFunction func);
     RecompiledFunction lookupFunction(uint32_t address);
+    RecompiledFunction tryLookupFunction(uint32_t address);
     bool hasFunction(uint32_t address) const;
     bool dispatchGuestBranch(uint8_t *rdram,
                              R5900Context *ctx,
@@ -445,6 +446,9 @@ public:
 
     static inline bool isSpecialAddress(uint32_t addr)
     {
+        // Native guest loads overwhelmingly address the low EE RAM window.
+        if (addr < PS2_RAM_SIZE) [[likely]]
+            return false;
         return Ps2IsSpecialAddress(addr);
     }
 
@@ -505,6 +509,7 @@ private:
     friend class EeScheduler;
 
 private:
+    RecompiledFunction findFunction(uint32_t address) const;
     bool generatedFunctionTableSlot(uint32_t address, uint32_t &slot) const;
     bool tryLoadExecPS2(uint8_t* rdram, R5900Context* ctx);
     PS2Runtime(RecompiledProgram program, cave::ps2::NativeHost* host, DiscExecutable resolveExecutable);

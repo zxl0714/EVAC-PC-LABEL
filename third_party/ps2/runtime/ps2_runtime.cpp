@@ -723,6 +723,9 @@ bool PS2Runtime::syncCoreSubsystems()
     });
     m_gifArbiter.setProcessPacketFn([this](GifPathId path, const uint8_t *data, uint32_t size)
                                     { m_gs.processGIFPacket(path, data, size); });
+    m_gifArbiter.setProcessBurstFn([this](std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes) {
+        m_gs.processGIFBurst(ranges, bytes);
+    });
     m_memory.setGifArbiter(&m_gifArbiter);
     m_memory.setVu1MscalCallback([this](uint32_t startPC, uint32_t top, uint32_t itop)
                                  {
@@ -1163,14 +1166,24 @@ void PS2Runtime::registerStaticModule(const cave::ps2::StaticModule &module)
     m_staticModules.add({memory, PS2_RAM_SIZE}, module);
 }
 
+PS2Runtime::RecompiledFunction PS2Runtime::findFunction(uint32_t address) const
+{
+    if (const auto module = m_staticModules.lookup(address))
+        return module;
+    uint32_t slot = 0;
+    return generatedFunctionTableSlot(address, slot) ? m_program.functions[slot] : nullptr;
+}
+
 bool PS2Runtime::hasFunction(uint32_t address) const
 {
-    if (m_staticModules.lookup(address) != nullptr)
-    {
-        return true;
-    }
-    uint32_t slot = 0u;
-    return generatedFunctionTableSlot(address, slot) && m_program.functions[slot] != nullptr;
+    return findFunction(address) != nullptr;
+}
+
+PS2Runtime::RecompiledFunction PS2Runtime::tryLookupFunction(uint32_t address)
+{
+    const auto fn = findFunction(address);
+    if (fn) pushDispatchPc(address);
+    return fn;
 }
 
 const char *describeGuestBranchKind(PS2Runtime::GuestBranchKind kind)
@@ -1194,23 +1207,9 @@ const char *describeGuestBranchKind(PS2Runtime::GuestBranchKind kind)
 
 PS2Runtime::RecompiledFunction PS2Runtime::lookupFunction(uint32_t address)
 {
+    if (const auto fn = tryLookupFunction(address))
+        return fn;
     pushDispatchPc(address);
-
-    if (const auto moduleFunction = m_staticModules.lookup(address))
-    {
-        return moduleFunction;
-    }
-
-    uint32_t slot = 0u;
-    if (generatedFunctionTableSlot(address, slot))
-    {
-        RecompiledFunction fn = m_program.functions[slot];
-        if (fn != nullptr)
-        {
-            return fn;
-        }
-    }
-
     std::cerr << "Error: No exact recompiled function for guest PC 0x" << std::hex << address
               << " tableBase=0x" << m_program.base
               << " tableEnd=0x" << m_program.base + 4 * m_program.functions.size()
@@ -1448,13 +1447,7 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
 
     // Resolve once at this safe point. hasFunction()+lookupFunction() repeated
     // the same live-overlay header and sparse-table checks for every call.
-    RecompiledFunction targetFn = m_staticModules.lookup(targetPc);
-    if (targetFn == nullptr)
-    {
-        uint32_t slot = 0u;
-        if (generatedFunctionTableSlot(targetPc, slot))
-            targetFn = m_program.functions[slot];
-    }
+    RecompiledFunction targetFn = findFunction(targetPc);
     if (targetFn == nullptr)
     {
         reportMissingFunction(rdram, ctx, targetPc, sourcePc, kind, debugName);

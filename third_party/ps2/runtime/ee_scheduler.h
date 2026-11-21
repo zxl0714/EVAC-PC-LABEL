@@ -342,6 +342,9 @@ public:
     std::chrono::steady_clock::time_point nextVBlankDeadline() const;
     int64_t microsecondsBeforeVBlank() const;
     void deferBeforeVBlank(uint32_t reserveUs, std::function<void(R5900Context &)> completion);
+    // Set before the EE starts, clear after it joins. Hosts without a GS
+    // notification source retain polling at each guest boundary.
+    void setGsStatusNotifications(bool enabled) noexcept { m_gsStatusNotifications = enabled; }
     void setScanoutAfterDisplayFlip(bool enabled) noexcept { m_scanoutAfterDisplayFlip = enabled; }
     uint32_t setGsVSyncCallback(uint32_t callback, uint32_t gp, uint32_t sp);
 
@@ -454,6 +457,7 @@ private:
     std::vector<ScheduledEvent> m_deadlines;
     std::optional<ScheduledEvent> m_deferredVBlank;
     bool m_scanoutAfterDisplayFlip = false;
+    bool m_gsStatusNotifications = false;
     uint64_t m_pendingScanoutTick = 0;
     uint64_t m_previousDispfb2 = 0;
     std::deque<GuestInvocation> m_pendingInvocations;

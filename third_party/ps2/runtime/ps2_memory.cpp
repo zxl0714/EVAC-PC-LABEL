@@ -1376,7 +1376,8 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                     uint32_t asp = (chcr >> 4) & 0x3u;
                     const bool tieEnabled = (chcr & (1u << 7)) != 0u;
                     DmaChainGuard chainGuard;
-                    std::vector<uint8_t> chainBuf;
+                    auto &chainBuf = m_dmaChainScratch;
+                    chainBuf.clear();
 
                     auto appendData = [&](uint32_t srcAddr, uint32_t qwCount)
                     {
@@ -1694,6 +1695,15 @@ void PS2Memory::completeDmacChannel(uint32_t channelBase, uint32_t cause)
 
 void PS2Memory::processPendingTransfers()
 {
+    // Rendering repeatedly submits similarly sized chains. Keep one buffer
+    // after its last consumer, without retaining an exceptional bulk upload.
+    const auto recycleChain = [this](std::vector<uint8_t> &chain) {
+        if (chain.capacity() > m_dmaChainScratch.capacity() && chain.capacity() <= PS2_RAM_SIZE)
+        {
+            chain.clear();
+            m_dmaChainScratch.swap(chain);
+        }
+    };
     const bool hadGif = !m_pendingGifTransfers.empty();
     uint32_t observedGifQwc = 0u;
     for (const auto &transfer : m_pendingGifTransfers)
@@ -1720,6 +1730,7 @@ void PS2Memory::processPendingTransfers()
             m_seenGifCopy = true;
             m_gifCopyCount.fetch_add(1, std::memory_order_relaxed);
             submitGifPacket(GifPathId::Path3, p.chainData.data(), static_cast<uint32_t>(p.chainData.size()), false);
+            recycleChain(p.chainData);
         }
         else if (p.qwc > 0)
         {
@@ -1782,6 +1793,7 @@ void PS2Memory::processPendingTransfers()
         if (!p.chainData.empty())
         {
             processVIF0Data(p.chainData.data(), static_cast<uint32_t>(p.chainData.size()));
+            recycleChain(p.chainData);
         }
         else if (p.qwc > 0)
         {
@@ -1840,6 +1852,7 @@ void PS2Memory::processPendingTransfers()
         if (!p.chainData.empty())
         {
             processVIF1Data(p.chainData.data(), static_cast<uint32_t>(p.chainData.size()));
+            recycleChain(p.chainData);
         }
         else if (p.qwc > 0)
         {

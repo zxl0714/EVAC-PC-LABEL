@@ -656,6 +656,19 @@ void GS::processGIFPacket(const uint8_t *data, uint32_t sizeBytes)
     processGIFPacket(GifPathId::Path3, data, sizeBytes);
 }
 
+void GS::processGIFBurst(std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
+    if (m_commandBackend) {
+        m_commandBackend->GifBurst(ranges, bytes);
+    } else {
+        for (const auto& range : ranges) {
+            processGIFPacket(range.path, bytes.data(), range.size);
+            bytes = bytes.subspan(range.size);
+        }
+    }
+}
+
 void GS::processGIFPacket(GifPathId path, const uint8_t *data, uint32_t sizeBytes)
 {
     std::lock_guard<std::recursive_mutex> lock(m_stateMutex);

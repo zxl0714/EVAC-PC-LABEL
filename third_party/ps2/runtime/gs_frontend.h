@@ -6,10 +6,12 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <vector>
 
 #include "runtime/gs/gs_backend.h"
 enum class GifPathId : uint8_t;
+struct GifTransferRange;
 namespace cave::ps2 { class GsCommandBackend; }
 
 struct GSDebugSnapshot
@@ -116,6 +118,7 @@ public:
     uint32_t afterPrivWrite(uint32_t offset,uint64_t value,uint64_t previous);
 
     void processGIFPacket(const uint8_t *data, uint32_t sizeBytes);
+    void processGIFBurst(std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes);
     void processGIFPacket(GifPathId path, const uint8_t *data, uint32_t sizeBytes);
     bool processNativePackedGIFPacket(const uint8_t *data, uint32_t sizeBytes);
     void uploadImageNative(uint64_t bitbltbuf,

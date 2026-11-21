@@ -125,6 +125,35 @@ void CloseActiveRead() {
     release.set_value();Require(consumer.get(),"Active consumer did not unwind after close");
     Require(queue.GetStats().closed && !queue.GetStats().commands,"Closed in-flight accounting underflowed");
 }
+void OwnedGifBurst() {
+    GsCommandQueue queue;
+    Consumer sink;
+    std::array<uint8_t, 48> bytes{};
+    bytes[9] = bytes[25] = bytes[41] = 0x42;
+    std::array<GifTransferRange, 3> ranges{{{GifPathId::Path1,16}, {GifPathId::Path2,16}, {GifPathId::Path1,16}}};
+    queue.GifBurst(ranges, bytes);
+    bytes.fill(0); ranges.fill({GifPathId::Path3,16});
+    Require(queue.GetStats().commands == 1 && queue.ConsumeOne(sink, 0ms), "GIF burst split at submission");
+    Require(sink.order == std::vector<unsigned>{11,12,11}, "GIF burst changed path order or retained metadata");
+}
+void AdjacentGifAndWraparound() {
+    GsCommandQueue queue(1024,5);
+    Consumer sink;
+    std::array<uint8_t,16> bytes{};
+    for (unsigned round=0;round<8;++round) {
+        bytes[9]=0x42;
+        queue.Gif(GifPathId::Path1,bytes);queue.Gif(GifPathId::Path1,bytes);
+        queue.Register(7,42);
+        queue.Gif(GifPathId::Path2,bytes);queue.Gif(GifPathId::Path3,bytes);
+        bytes[9]=0;
+        Require(queue.GetStats().commands==5,"GIF coalescing lost capacity accounting");
+        while(queue.ConsumeOne(sink,0ms)) {}
+        Require(sink.order==std::vector<unsigned>{11,11,2,12,13},"GIF coalescing crossed a barrier");
+        sink.order.clear();
+    }
+    const auto stats=queue.GetStats();
+    Require(stats.submitted==40 && stats.completed==40 && !stats.pendingBytes,"GIF completion accounting changed");
+}
 void NonblockingField() {
     GsCommandQueue queue(32,1);Consumer sink;unsigned wakes=0;
     queue.SetFrameNotifier([&]{++wakes;});
@@ -141,7 +170,7 @@ void NonblockingField() {
 }
 }
 int main() {
-    try{OwnedPayloadAndReplies();BackpressureAndClose();FrameAndFailure();ClosePendingReadAndOwner();CloseActiveRead();NonblockingField();
+    try{AdjacentGifAndWraparound();OwnedGifBurst();OwnedPayloadAndReplies();BackpressureAndClose();FrameAndFailure();ClosePendingReadAndOwner();CloseActiveRead();NonblockingField();
         std::cout<<"GS queue owned payloads, order, bounds, frame barrier, failure and shutdown: PASS\n";return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

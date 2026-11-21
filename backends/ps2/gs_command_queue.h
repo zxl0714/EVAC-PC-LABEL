@@ -42,6 +42,7 @@ public:
     void Initialize(std::span<const uint8_t> vram) override;
     void Reset() override;
     void Gif(GifPathId path,std::span<const uint8_t> bytes) override;
+    void GifBurst(std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes) override;
     void Register(uint8_t address,uint64_t value) override;
     void Image(const std::array<uint64_t,4>& setup,std::span<const uint8_t> bytes) override;
     size_t ReadFifo(std::span<uint8_t> bytes) override;

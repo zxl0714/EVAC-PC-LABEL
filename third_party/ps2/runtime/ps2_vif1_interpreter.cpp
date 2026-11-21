@@ -300,6 +300,14 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
     if (sizeBytes == 0u)
         return;
 
+    if (m_rawGifTransfers && m_gifArbiter)
+        m_gifArbiter->runVifBurst([&] { processVIF1Commands(data, sizeBytes); });
+    else
+        processVIF1Commands(data, sizeBytes);
+}
+
+void PS2Memory::processVIF1Commands(const uint8_t *data, uint32_t sizeBytes)
+{
     std::vector<uint8_t> buffered;
     if(!m_vif1PendingCommandData.empty()) {
         buffered=std::move(m_vif1PendingCommandData);
@@ -309,12 +317,6 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
     }
     const auto deferCommand = [&](uint32_t start) {
         m_vif1PendingCommandData.assign(data+start,data+sizeBytes);
-    };
-    const auto runMicroprogram = [&](auto run) {
-        if (m_rawGifTransfers && m_gifArbiter)
-            m_gifArbiter->runPath1Burst(run);
-        else
-            run();
     };
     // DIRECT counts the complete GIF stream, independently of GIF IMAGE
     // NLOOP. A later DIRECT command may continue an IMAGE packet; its VIF
@@ -420,10 +422,14 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
         }
         else if (opcode == VIF_FLUSHE || opcode == VIF_FLUSH || opcode == VIF_FLUSHA)
         {
+            if (m_gifArbiter)
+                m_gifArbiter->vifFence();
             continue;
         }
         else if (opcode == VIF_MSCAL || opcode == VIF_MSCALF)
         {
+            if (opcode == VIF_MSCALF && m_gifArbiter)
+                m_gifArbiter->vifFence();
             uint32_t startPC = (uint32_t)imm * 8u;
 
             const uint32_t runTop = vif1_regs.tops & 0x3FFu;
@@ -439,7 +445,7 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
             vif1_regs.stat ^= (1u << 7); // toggle DBF
 
             if (m_vu1MscalCallback)
-                runMicroprogram([&] { m_vu1MscalCallback(startPC, runTop, runItop); });
+                m_vu1MscalCallback(startPC, runTop, runItop);
             continue;
         }
         else if (opcode == VIF_MSCNT)
@@ -457,7 +463,7 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
             vif1_regs.stat ^= (1u << 7); // toggle DBF
 
             if (m_vu1MscntCallback)
-                runMicroprogram([&] { m_vu1MscntCallback(runTop, runItop); });
+                m_vu1MscntCallback(runTop, runItop);
             continue;
         }
         else if (opcode == VIF_STMASK)
@@ -589,28 +595,19 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
             {
                 const uint8_t *srcBase = data + pos;
                 uint32_t srcIndex = 0u;
+                uint32_t nextCycle = 0u, nextVector = vuAddr;
+                const bool plain = !maskEnable && (vif1_regs.mode == 0u || vif1_regs.mode == 3u);
                 for (uint32_t writeIndex = 0; writeIndex < writeVectorCount; ++writeIndex)
                 {
-                    const uint32_t cyclePos = writeIndex % wl;
+                    const uint32_t cyclePos = nextCycle;
+                    const uint32_t destOff = (nextVector & 0x3ffu) * 16u;
+                    ++nextVector;
+                    if (++nextCycle == wl)
+                    {
+                        nextCycle = 0;
+                        if (cl > wl) nextVector += cl - wl;
+                    }
                     const bool sourceAvailable = (cl >= wl) || (cyclePos < cl);
-
-                    uint32_t destVec = 0;
-                    if (cl >= wl)
-                    {
-                        destVec = (vuAddr + (writeIndex / wl) * cl + cyclePos) & 0x3FFu;
-                    }
-                    else
-                    {
-                        destVec = (vuAddr + writeIndex) & 0x3FFu;
-                    }
-
-                    uint32_t destOff = destVec * 16u;
-                    if (destOff + 16u > PS2_VU1_DATA_SIZE)
-                    {
-                        if (sourceAvailable && srcIndex < sourceVectorCount)
-                            ++srcIndex;
-                        continue;
-                    }
 
                     uint32_t lanes[4] = {0u, 0u, 0u, 0u};
                     std::memcpy(lanes, m_vu1Data + destOff, sizeof(lanes));
@@ -728,6 +725,15 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
                     {
                         uint32_t copyBytes = (bytesPerVector < 16u) ? bytesPerVector : 16u;
                         std::memcpy(m_vu1Data + destOff, srcVec, copyBytes);
+                        continue;
+                    }
+
+                    // Skip the per-lane selection when no mask or additive
+                    // mode is active. Fill slots take ROW and short formats
+                    // retain untouched destination components in decompressed.
+                    if (plain)
+                    {
+                        std::memcpy(m_vu1Data + destOff, decoded ? decompressed : vif1_regs.row, sizeof(lanes));
                         continue;
                     }
 

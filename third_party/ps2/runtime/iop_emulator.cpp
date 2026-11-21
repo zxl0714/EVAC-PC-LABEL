@@ -904,8 +904,17 @@ namespace ps2x::iop::detail
         const uint64_t total = m_impl->eeCycleCarry + eeCycles;
         const uint64_t iopCycles = total / 8u;
         m_impl->eeCycleCarry = total % 8u;
-        if (iopCycles)
-            m_impl->runCycles(iopCycles);
+        if (!iopCycles) return;
+        const uint64_t target = m_impl->requestedCycles + iopCycles;
+        // A sleeping IOP cannot observe a partial advance before its next
+        // event. Preserve time already spent inside synchronous callbacks.
+        if (target <= m_impl->idleUntil || target <= m_impl->totalCycles)
+        {
+            m_impl->requestedCycles = target;
+            m_impl->totalCycles = std::max(m_impl->totalCycles, target);
+            return;
+        }
+        m_impl->runCycles(iopCycles);
     }
 
     void IopEmulator::setAudioVolumes(unsigned stream, unsigned voices) noexcept

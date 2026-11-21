@@ -37,6 +37,9 @@ public:
     void Initialize(std::span<const uint8_t> data) override{queue->Initialize(data);}
     void Reset() override{queue->Reset();}
     void Gif(GifPathId path,std::span<const uint8_t> data) override{queue->Gif(path,data);}
+    void GifBurst(std::span<const GifTransferRange> ranges, std::span<const uint8_t> bytes) override {
+        queue->GifBurst(ranges, bytes);
+    }
     void Register(uint8_t reg,uint64_t value) override{queue->Register(reg,value);}
     void Image(const std::array<uint64_t,4>& setup,std::span<const uint8_t> data) override{queue->Image(setup,data);}
     size_t ReadFifo(std::span<uint8_t> data) override{return queue->ReadFifo(data);}
@@ -229,6 +232,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     }
     auto mailbox=display.Device().Completions();
     mailbox->SetNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
+    runtime.eeScheduler().setGsStatusNotifications(true);
     impl->queue->SetFrameNotifier([&]{runtime.postEeEvent({EeEventType::GsStatus,0,0});});
     std::optional<GsFrame> prepared;
     std::optional<GsFrame> repeat;
@@ -341,6 +345,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         // be blocked on a full queue, initial upload, frame or SIGNAL.
     }catch(...){ownerFailure=std::current_exception();}
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
+    runtime.eeScheduler().setGsStatusNotifications(false);
     impl->parkAtMenu={};
     std::cerr<<"[ps2-ready-frame] confirmed="<<confirmed<<" held="<<held<<" repeated="<<repeated<<" corrected="<<corrected<<'\n';
     impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});

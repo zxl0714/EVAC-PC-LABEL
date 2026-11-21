@@ -130,28 +130,67 @@ __declspec(noinline) inline void Write128(uint8_t* rdram, R5900Context* ctx, PS2
 // These are the original instruction operations, including zero-register and
 // upper-half preservation rules. PC and delay-slot state remain at the caller.
 namespace cave::ps2 {
+#ifdef EVAC_PS2_INLINE_RAM_ACCESSES
+// Geometry-heavy titles benefit from resolving constant guest operands at the
+// call site. Keep aliasing, wraparound and MMIO in the shared accessors.
+template<class T, auto SlowRead>
+static __forceinline T ReadGuestRam(uint8_t* rdram, R5900Context* ctx, PS2Runtime* runtime, uint32_t address) {
+    if (address > PS2_RAM_SIZE - sizeof(T)) [[unlikely]]
+        return SlowRead(rdram, ctx, runtime, address);
+    T value;
+    std::memcpy(&value, rdram + address, sizeof(value));
+    return value;
+}
+template<class T, auto SlowWrite>
+static __forceinline void WriteGuestRam(uint8_t* rdram, R5900Context* ctx, PS2Runtime* runtime,
+                                        uint32_t address, T value, const char* operation) {
+    if (address > PS2_RAM_SIZE - sizeof(T)) [[unlikely]] {
+        SlowWrite(rdram, ctx, runtime, address, value);
+        return;
+    }
+    uint64_t low, high = 0;
+    if constexpr (sizeof(T) == 16) {
+        low = uint64_t(PS2_EXTRACT_EPI64_0(value));
+        high = uint64_t(PS2_EXTRACT_EPI64_1(value));
+    } else {
+        low = uint64_t(value);
+    }
+    ps2TraceGuestWrite(rdram, address, sizeof(T), low, high, operation, ctx);
+    std::memcpy(rdram + address, &value, sizeof(T));
+}
+#define CAVE_PS2_INSTRUCTION_ATTR static __forceinline
+#define CAVE_PS2_LOAD(bits, type) ReadGuestRam<type, Read##bits>(rdram, ctx, runtime, address)
+#define CAVE_PS2_STORE(bits, type, value) WriteGuestRam<type, Write##bits>(rdram, ctx, runtime, address, type(value), "WRITE" #bits)
+#else
+#define CAVE_PS2_INSTRUCTION_ATTR __declspec(noinline) inline
+#define CAVE_PS2_LOAD(bits, type) detail::Read##bits(rdram, ctx, runtime, address)
+#define CAVE_PS2_STORE(bits, type, value) detail::Write##bits(rdram, ctx, runtime, address, type(value))
+#endif
 #define CAVE_PS2_MEMORY_INSTRUCTION(name, operation) \
-    __declspec(noinline) inline void name(uint8_t* rdram, R5900Context* ctx, \
+    CAVE_PS2_INSTRUCTION_ATTR void name(uint8_t* rdram, R5900Context* ctx, \
                                           PS2Runtime* runtime, uint32_t operand) { \
         const unsigned rs = (operand >> 21u) & 31u, rt = (operand >> 16u) & 31u; \
         const uint32_t offset = uint32_t(int32_t(int16_t(operand))); \
         const uint32_t address = ADD32(GPR_U32(ctx, rs), offset); \
         operation; \
     }
-CAVE_PS2_MEMORY_INSTRUCTION(LoadS8, SET_GPR_S32(ctx, rt, (int8_t)detail::Read8(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(LoadS16, SET_GPR_S32(ctx, rt, (int16_t)detail::Read16(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(LoadS32, SET_GPR_S32(ctx, rt, (int32_t)detail::Read32(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(LoadU8, SET_GPR_ZE32(ctx, rt, (uint8_t)detail::Read8(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(LoadU16, SET_GPR_ZE32(ctx, rt, (uint16_t)detail::Read16(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(LoadU32, SET_GPR_ZE32(ctx, rt, detail::Read32(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(Load64, SET_GPR_U64(ctx, rt, detail::Read64(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(Load128, SET_GPR_VEC(ctx, rt, detail::Read128(rdram, ctx, runtime, address)))
-CAVE_PS2_MEMORY_INSTRUCTION(Store8, detail::Write8(rdram, ctx, runtime, address, (uint8_t)GPR_U32(ctx, rt)))
-CAVE_PS2_MEMORY_INSTRUCTION(Store16, detail::Write16(rdram, ctx, runtime, address, (uint16_t)GPR_U32(ctx, rt)))
-CAVE_PS2_MEMORY_INSTRUCTION(Store32, detail::Write32(rdram, ctx, runtime, address, GPR_U32(ctx, rt)))
-CAVE_PS2_MEMORY_INSTRUCTION(Store64, detail::Write64(rdram, ctx, runtime, address, GPR_U64(ctx, rt)))
-CAVE_PS2_MEMORY_INSTRUCTION(Store128, detail::Write128(rdram, ctx, runtime, address, GPR_VEC(ctx, rt)))
+CAVE_PS2_MEMORY_INSTRUCTION(LoadS8, SET_GPR_S32(ctx, rt, (int8_t)CAVE_PS2_LOAD(8, uint8_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(LoadS16, SET_GPR_S32(ctx, rt, (int16_t)CAVE_PS2_LOAD(16, uint16_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(LoadS32, SET_GPR_S32(ctx, rt, (int32_t)CAVE_PS2_LOAD(32, uint32_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(LoadU8, SET_GPR_ZE32(ctx, rt, (uint8_t)CAVE_PS2_LOAD(8, uint8_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(LoadU16, SET_GPR_ZE32(ctx, rt, (uint16_t)CAVE_PS2_LOAD(16, uint16_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(LoadU32, SET_GPR_ZE32(ctx, rt, CAVE_PS2_LOAD(32, uint32_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(Load64, SET_GPR_U64(ctx, rt, CAVE_PS2_LOAD(64, uint64_t)))
+CAVE_PS2_MEMORY_INSTRUCTION(Load128, SET_GPR_VEC(ctx, rt, CAVE_PS2_LOAD(128, __m128i)))
+CAVE_PS2_MEMORY_INSTRUCTION(Store8, CAVE_PS2_STORE(8, uint8_t, (uint8_t)GPR_U32(ctx, rt)))
+CAVE_PS2_MEMORY_INSTRUCTION(Store16, CAVE_PS2_STORE(16, uint16_t, (uint16_t)GPR_U32(ctx, rt)))
+CAVE_PS2_MEMORY_INSTRUCTION(Store32, CAVE_PS2_STORE(32, uint32_t, GPR_U32(ctx, rt)))
+CAVE_PS2_MEMORY_INSTRUCTION(Store64, CAVE_PS2_STORE(64, uint64_t, GPR_U64(ctx, rt)))
+CAVE_PS2_MEMORY_INSTRUCTION(Store128, CAVE_PS2_STORE(128, __m128i, GPR_VEC(ctx, rt)))
 #undef CAVE_PS2_MEMORY_INSTRUCTION
+#undef CAVE_PS2_LOAD
+#undef CAVE_PS2_STORE
+#undef CAVE_PS2_INSTRUCTION_ATTR
 }
 
 #endif

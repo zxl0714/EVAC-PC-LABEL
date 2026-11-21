@@ -40,6 +40,7 @@ public:
     void WriteVram(size_t offset,std::span<const uint8_t> bytes);
     void ReadTransferFifo(std::span<uint8_t> bytes);
     void EnableFieldBlitTracking();
+    bool TracksFieldBlits() const;
     bool IsReadyPage(uint64_t displayBuffer) const;
     uint64_t ScanoutRevision(uint64_t displayBuffer) const;
     void Flush();

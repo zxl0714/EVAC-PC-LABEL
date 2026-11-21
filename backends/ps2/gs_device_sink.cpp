@@ -26,6 +26,23 @@ void GsDeviceSink::Reset(){BeforeCommand();device.Reset();}
 void GsDeviceSink::Gif(GifPathId path,std::span<const uint8_t> bytes) {
     BeforeCommand();device.GifTransfer(static_cast<GsGifPath>(path),bytes);
 }
+void GsDeviceSink::GifBurst(std::span<const GifTransferRange> ranges,std::span<const uint8_t> bytes) {
+    BeforeCommand();
+    const bool observeDirect = device.TracksFieldBlits();
+    while (!ranges.empty()) {
+        const auto path = ranges.front().path;
+        size_t size = ranges.front().size;
+        ranges = ranges.subspan(1);
+        // PATH2 also feeds the display-field blit observer, which uses the
+        // original transfers. The other native GS paths are byte streams.
+        while ((!observeDirect || path != GifPathId::Path2) && !ranges.empty() && ranges.front().path == path) {
+            size += ranges.front().size;
+            ranges = ranges.subspan(1);
+        }
+        device.GifTransfer(static_cast<GsGifPath>(path), bytes.first(size));
+        bytes = bytes.subspan(size);
+    }
+}
 void GsDeviceSink::Register(uint8_t address,uint64_t value){BeforeCommand();device.WriteRegister(address,value);}
 void GsDeviceSink::Image(const std::array<uint64_t,4>& setup,std::span<const uint8_t> bytes){BeforeCommand();device.UploadImage(setup,bytes);}
 size_t GsDeviceSink::ReadFifo(std::span<uint8_t> bytes){BeforeCommand();device.ReadTransferFifo(bytes);return bytes.size();}

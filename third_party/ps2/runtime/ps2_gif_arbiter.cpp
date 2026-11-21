@@ -23,7 +23,7 @@ void GifArbiter::submit(GifPathId pathId, const uint8_t *data, uint32_t sizeByte
 {
     if (!data || sizeBytes < 16 || !m_processFn)
         return;
-    flushPath1();
+    flushVifBurst();
 
     GifArbiterPacket pkt;
     pkt.pathId = pathId;
@@ -34,11 +34,26 @@ void GifArbiter::submit(GifPathId pathId, const uint8_t *data, uint32_t sizeByte
     m_queue.push_back(std::move(pkt));
 }
 
-void GifArbiter::flushPath1()
+void GifArbiter::flushVifBurst()
 {
-    if (m_path1.empty()) return;
-    m_processFn(GifPathId::Path1, m_path1.data(), static_cast<uint32_t>(m_path1.size()));
-    m_path1.clear();
+    if (m_ranges.empty()) return;
+    if (m_ranges.size() == 1)
+        m_processFn(m_ranges.front().path, m_burstBytes.data(), m_ranges.front().size);
+    else
+        m_processBurst(m_ranges, m_burstBytes);
+    m_ranges.clear();
+    m_burstBytes.clear();
+}
+
+void GifArbiter::vifFence()
+{
+    // VU execution has already returned. There is no EE observer inside
+    // this synchronous VIF transfer. Keep the boundary in the ordered
+    // transport, which is delivered before the DMA returns to the EE.
+    if (m_inVifBurst && m_processBurst)
+        m_newRange = true;
+    else
+        flushVifBurst();
 }
 
 void GifArbiter::submitImmediate(GifPathId path, const uint8_t *data, uint32_t bytes, bool directHl)
@@ -50,12 +65,19 @@ void GifArbiter::submitImmediate(GifPathId path, const uint8_t *data, uint32_t b
         return;
     }
     constexpr uint32_t burstBytes = 16 * 1024;
-    if (m_inPath1Burst && path == GifPathId::Path1 && bytes < burstBytes) {
-        if (m_path1.size() + bytes > burstBytes) flushPath1();
-        m_path1.insert(m_path1.end(), data, data + bytes);
+    const bool canBatch = path == GifPathId::Path1 || (m_processBurst && path == GifPathId::Path2);
+    if (m_inVifBurst && canBatch && bytes < burstBytes) {
+        if (m_burstBytes.size() + bytes > burstBytes) flushVifBurst();
+        m_burstBytes.insert(m_burstBytes.end(), data, data + bytes);
+        // Individual DIRECT ranges are also used by the field-blit observer.
+        if (path == GifPathId::Path1 && !m_newRange && !m_ranges.empty() && m_ranges.back().path == path)
+            m_ranges.back().size += bytes;
+        else
+            m_ranges.push_back({path, bytes});
+        m_newRange = false;
         return;
     }
-    flushPath1();
+    flushVifBurst();
     m_processFn(path, data, bytes);
 }
 
@@ -63,7 +85,7 @@ void GifArbiter::drain()
 {
     if (!m_processFn)
         return;
-    flushPath1();
+    flushVifBurst();
 
     // A strict rank preserves the intended DIRECTHL exception. The old pairwise
     // comparator made plain PATH2 and DIRECTHL equivalent but ordered them

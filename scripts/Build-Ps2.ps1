@@ -110,7 +110,7 @@ try {
     $targets=@('--build',$build,'--parallel',"$Jobs",'--target','ps2_recomp','ps2_analyzer','ps2_vu_contract','ps2_module_contract','ps2_function_table_contract','ps2_iso_contract','ps2_pad_contract')
     if($ToolsOnly -or $RTypePrograms.Count) { $targets+='ps2_vu_aot' }
     if (-not $ToolsOnly) { $targets+=@('ps2_runtime','ps2_sdk_contract','ps2_kernel_contract','ps2_sdk_codegen_contract','ps2_iop_memory_contract','ps2_spu_contract','ps2_gs_gpu_contract','ps2_gs_transport_contract','ps2_gs_queue_contract','ps2_gs_completion_contract','ps2_gs_trace_contract','ps2_gs_trace_gpu_contract','ps2_native_host_probe') }
-    if (-not $ToolsOnly) { $targets+=@('ps2_compact_contract','ps2_memory_access_contract','ps2_memory_instruction_contract','ps2_sdl_audio_contract','ps2_descriptor_fallback_contract','ps2_reflex_contract') }
+    if (-not $ToolsOnly) { $targets+=@('ps2_compact_contract','ps2_memory_access_contract','ps2_memory_instruction_contract','ps2_inline_memory_instruction_contract','ps2_vu_add_contract','ps2_sdl_audio_contract','ps2_descriptor_fallback_contract','ps2_reflex_contract') }
     if ($ProbeGenerated) { $targets+='ps2_espgaluda_probe' }
     if ($IbaraGenerated) { $targets+='ps2_ibara_probe' }
     if ($DaioujouPrograms.Count) { $targets+='ps2_daioujou_probe' }

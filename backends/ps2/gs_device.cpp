@@ -87,6 +87,7 @@ void GsDevice::SetCommandGeneration(uint64_t generation){impl->CheckOwner();impl
 void GsDevice::SetWaitPump(std::function<void()> pump){impl->CheckOwner();impl->waitPump=std::move(pump);}
 Vulkan::Program* CreateGsFieldProgram(Vulkan::Device& device);
 void GsDevice::EnableFieldBlitTracking(){impl->CheckOwner();impl->trackFieldBlits=true;}
+bool GsDevice::TracksFieldBlits() const { return impl->trackFieldBlits; }
 bool GsDevice::IsReadyPage(uint64_t displayBuffer) const {
     return !impl->trackFieldBlits || (impl->completedBlitPage==(displayBuffer&511u) &&
         impl->blitFields[impl->completedBlitPage].generation==impl->scanoutGeneration);

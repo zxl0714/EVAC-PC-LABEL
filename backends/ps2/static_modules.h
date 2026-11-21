@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <atomic>
 #include <span>
 #include <vector>
 
@@ -25,6 +26,10 @@ public:
 private:
   std::span<const uint8_t> memory_;
   std::vector<StaticModule> modules_;
+  // Distinct, non-overlapping banks allow a validated last-hit shortcut.
+  // The loader can replace a bank at any instruction, so always check its header.
+  mutable std::atomic<uint32_t> lastMatch_{UINT32_MAX};
+  bool disjointBases_=true;
   uint32_t firstAddress_=UINT32_MAX,lastAddress_=0;
 };
 }
