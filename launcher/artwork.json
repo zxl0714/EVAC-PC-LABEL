@@ -174,8 +174,8 @@
     },
     {
       "game": "rtype-final",
-      "path": "launcher/assets/covers/rtype-final.png",
-      "sha256": "d59081f9be553fd888acd32c3d50dbeccabda373a823a5248b9a1d279ecabc43",
+      "path": "launcher/assets/covers/rtype-final.jpg",
+      "sha256": "b51a214c97aa139911fa573bfa295a74370dfac89f2b71a3147449120739e243",
       "resource": 314,
       "focusY": 0.5,
       "fit": "contain",
@@ -183,7 +183,7 @@
       "sourcePage": "https://psxdatacenter.com/psx2/images2/hires/SLUS-20780/SLUS-20780-F-ALL.html",
       "sourceUrl": "https://psxdatacenter.com/psx2/images2/hires/SLUS-20780/SLUS-20780-F-ALL.jpg",
       "copyright": "©2004 IREM SOFTWARE ENGINEERING INC.",
-      "usage": "Front panel of the North American PlayStation 2 retail inlay (SLUS-20780), cropped from the PSX DataCenter scan at its original resolution.",
+      "usage": "North American PlayStation 2 retail cover (SLUS-20780), restored from the PSX DataCenter scan. The ship illustration was enhanced with AI. The title, platform strip, rating and publisher marks come from the scan.",
       "platformMark": true
     },
     {
