@@ -310,6 +310,12 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
     const auto deferCommand = [&](uint32_t start) {
         m_vif1PendingCommandData.assign(data+start,data+sizeBytes);
     };
+    const auto runMicroprogram = [&](auto run) {
+        if (m_rawGifTransfers && m_gifArbiter)
+            m_gifArbiter->runPath1Burst(run);
+        else
+            run();
+    };
     // DIRECT counts the complete GIF stream, independently of GIF IMAGE
     // NLOOP. A later DIRECT command may continue an IMAGE packet; its VIF
     // header must still be decoded rather than forwarded as texture bytes.
@@ -433,7 +439,7 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
             vif1_regs.stat ^= (1u << 7); // toggle DBF
 
             if (m_vu1MscalCallback)
-                m_vu1MscalCallback(startPC, runTop, runItop);
+                runMicroprogram([&] { m_vu1MscalCallback(startPC, runTop, runItop); });
             continue;
         }
         else if (opcode == VIF_MSCNT)
@@ -451,7 +457,7 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
             vif1_regs.stat ^= (1u << 7); // toggle DBF
 
             if (m_vu1MscntCallback)
-                m_vu1MscntCallback(runTop, runItop);
+                runMicroprogram([&] { m_vu1MscntCallback(runTop, runItop); });
             continue;
         }
         else if (opcode == VIF_STMASK)
@@ -488,7 +494,7 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
                 uint32_t copyBytes = mpgBytes;
                 if (destAddr + copyBytes > PS2_VU1_CODE_SIZE)
                     copyBytes = PS2_VU1_CODE_SIZE - destAddr;
-                if (pos + copyBytes <= sizeBytes)
+                if (std::memcmp(m_vu1Code + destAddr, data + pos, copyBytes) != 0)
                 {
                     std::memcpy(m_vu1Code + destAddr, data + pos, copyBytes);
                     markVU1CodeModified();
@@ -568,6 +574,17 @@ void PS2Memory::processVIF1Data(const uint8_t *data, uint32_t sizeBytes)
             const bool zeroExtend = (imm & 0x4000u) != 0u;
 
             if(totalBytes>sizeBytes-pos) { deferCommand(pos-4u); break; }
+            if (m_vu1Data && vn == 3 && vl == 0 && !maskEnable && cl == wl &&
+                (vif1_regs.mode == 0 || vif1_regs.mode == 3))
+            {
+                const uint32_t offset = vuAddr * 16u;
+                const uint32_t first = std::min(totalBytes, uint32_t(PS2_VU1_DATA_SIZE) - offset);
+                std::memcpy(m_vu1Data + offset, data + pos, first);
+                if (first < totalBytes)
+                    std::memcpy(m_vu1Data, data + pos + first, totalBytes - first);
+                pos += totalBytes;
+                continue;
+            }
             if (m_vu1Data && totalBytes > 0 && pos + totalBytes <= sizeBytes)
             {
                 const uint8_t *srcBase = data + pos;

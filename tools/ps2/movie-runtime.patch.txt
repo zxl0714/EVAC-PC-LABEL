@@ -1,0 +1,63 @@
+--- a/MPEG.cpp
++++ b/MPEG.cpp
+@@ -1583,7 +1583,8 @@
+                                          R5900Context *callerCtx,
+                                          PS2Runtime *runtime,
+                                          const MpegStreamCallbackEvent &event,
+-                                         const MpegRegisteredCallback &callback)
++                                         const MpegRegisteredCallback &callback,
++                                         std::vector<GuestInvocation> &calls)
+         {
+             if (!rdram || !callerCtx || !runtime || callback.func == 0u || !runtime->hasFunction(callback.func))
+             {
+@@ -1617,7 +1618,7 @@
+             {
+                 runtime->guestFree(cbDataAddr);
+             };
+-            runtime->eeScheduler().queueInvocation(std::move(invocation));
++            calls.push_back(std::move(invocation));
+         }
+
+         void dispatchStreamCallbacks(uint8_t *rdram,
+@@ -1630,13 +1631,18 @@
+                 return;
+             }
+
++            std::vector<GuestInvocation> calls;
+             for (const MpegStreamCallbackEvent &event : events)
+             {
+                 for (const MpegRegisteredCallback &callback : event.callbacks)
+                 {
+-                    dispatchGuestStreamCallback(rdram, ctx, runtime, event, callback);
+-                }
+-            }
++                    dispatchGuestStreamCallback(rdram, ctx, runtime, event, callback, calls);
++                }
++            }
++            // The original demuxer completes callbacks on its own EE thread, in packet order.
++            // Concurrent callbacks can reserve the same region of the guest audio ring.
++            if (!calls.empty())
++                runtime->eeScheduler().invokeCurrentSequence(std::move(calls));
+         }
+
+         void dispatchStreamCallbacksUnlocked(uint8_t *rdram,
+@@ -2141,8 +2147,8 @@
+             });
+         }
+
++        setReturnS32(ctx, static_cast<int32_t>(consumed));
+         dispatchStreamCallbacksUnlocked(rdram, ctx, runtime, callbackEvents);
+-        setReturnS32(ctx, static_cast<int32_t>(consumed));
+     }
+
+     void sceMpegDemuxPssRing(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+@@ -2235,8 +2241,8 @@
+             });
+         }
+
++        setReturnS32(ctx, static_cast<int32_t>(consumed));
+         dispatchStreamCallbacksUnlocked(rdram, ctx, runtime, callbackEvents);
+-        setReturnS32(ctx, static_cast<int32_t>(consumed));
+     }
+
+     void sceMpegDispCenterOffX(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)

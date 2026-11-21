@@ -112,7 +112,20 @@ if(PS2_RTYPE_FINAL_GENERATED)
   # The original MPEG SDK calls delegate decoding to the host. Only R-Type
   # Final links FFmpeg. Its MPEG implementation resolves the runtime's
   # references before the disabled implementation in the static archive.
-  add_library(ps2_rtype_final_movie OBJECT "${RUNTIME}/src/lib/Kernel/Stubs/MPEG.cpp")
+  set(movie_stubs "${RUNTIME}/src/lib/Kernel/Stubs")
+  set(movie_overlay "${CMAKE_CURRENT_BINARY_DIR}/movie-overlay")
+  set(movie_patch "${CMAKE_CURRENT_LIST_DIR}/movie-runtime.patch.txt")
+  file(MAKE_DIRECTORY "${movie_overlay}")
+  file(READ "${movie_stubs}/MPEG.cpp" movie_source)
+  file(WRITE "${movie_overlay}/MPEG.cpp" "${movie_source}")
+  find_package(Git REQUIRED)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${CMAKE_BINARY_DIR}"
+    "${GIT_EXECUTABLE}" apply --no-index --whitespace=error "${movie_patch}"
+    WORKING_DIRECTORY "${movie_overlay}" COMMAND_ERROR_IS_FATAL ANY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${movie_patch}" "${movie_stubs}/MPEG.cpp")
+  file(COPY_FILE "${movie_overlay}/MPEG.cpp" "${CMAKE_CURRENT_BINARY_DIR}/rtype_movie.cpp" ONLY_IF_DIFFERENT)
+  add_library(ps2_rtype_final_movie OBJECT "${CMAKE_CURRENT_BINARY_DIR}/rtype_movie.cpp")
+  target_include_directories(ps2_rtype_final_movie PRIVATE "${movie_stubs}")
   target_link_libraries(ps2_rtype_final_movie PRIVATE ps2_runtime)
   target_include_directories(ps2_rtype_final_movie PRIVATE
     "${RUNTIME}/src/lib" "${PS2_RTYPE_FINAL_FFMPEG}/include")

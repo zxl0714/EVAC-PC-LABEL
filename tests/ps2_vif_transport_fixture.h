@@ -5,6 +5,34 @@
 #include <vector>
 
 namespace {
+void VifPath1Burst() {
+    std::vector<std::pair<GifPathId, std::vector<uint8_t>>> transfers;
+    GifArbiter arbiter([&](GifPathId path, const uint8_t* p, uint32_t size) {
+        transfers.emplace_back(path, std::vector<uint8_t>(p, p + size));
+    });
+    std::array<uint8_t, 16> data{};
+    auto send = [&](GifPathId path, uint8_t value) {
+        data.fill(value);
+        arbiter.submitImmediate(path, data.data(), uint32_t(data.size()));
+    };
+    arbiter.runPath1Burst([&] {
+        send(GifPathId::Path1, 1);
+        send(GifPathId::Path1, 2);
+        send(GifPathId::Path2, 3);
+        send(GifPathId::Path1, 4);
+    });
+    Require(transfers.size() == 3 && transfers[0].first == GifPathId::Path1 &&
+            transfers[0].second.size() == 32 && transfers[0].second[0] == 1 && transfers[0].second[16] == 2 &&
+            transfers[1].first == GifPathId::Path2 && transfers[1].second[0] == 3 &&
+            transfers[2].first == GifPathId::Path1 && transfers[2].second[0] == 4,
+            "VU burst lost XGKICK ownership, order or its final packet");
+    transfers.clear();
+    arbiter.submit(GifPathId::Path3, data.data(), uint32_t(data.size()));
+    send(GifPathId::Path1, 5);
+    Require(transfers.size() == 2 && transfers[0].first == GifPathId::Path1 &&
+            transfers[1].first == GifPathId::Path3, "Immediate path bypassed GIF arbitration");
+}
+
 void VifImageContinuation(PS2Memory& memory) {
     std::vector<std::vector<uint8_t>> received;
     GifArbiter arbiter([&](GifPathId path,const uint8_t* data,uint32_t bytes){
@@ -61,12 +89,29 @@ void VifImageContinuation(PS2Memory& memory) {
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(micro.data()),8);
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(micro.data()+1),8);
     Require(!std::memcmp(memory.getVU1Code()+24,micro.data(),16),"Split VIF MPG upload was discarded");
+    const auto generation = memory.getVU1CodeGeneration();
+    auto upload = [&](const auto& code) {
+        memory.processVIF1Data(reinterpret_cast<const uint8_t*>(&mpg), 4);
+        memory.processVIF1Data(reinterpret_cast<const uint8_t*>(code.data()), 16);
+    };
+    upload(micro);
+    Require(memory.getVU1CodeGeneration() == generation, "An identical MPG invalidated compiled VU code");
+    auto changed = micro;
+    changed.back() ^= 1;
+    upload(changed);
+    Require(memory.getVU1CodeGeneration() != generation && !std::memcmp(memory.getVU1Code()+24,changed.data(),16),
+            "Modified MPG left a stale compiled entry");
     const uint32_t unpack=0x6c020010;
     const std::array<uint32_t,8> vectors{1,2,3,4,5,6,7,8};
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(&unpack),4);
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(vectors.data()),16);
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(vectors.data()+4),16);
     Require(!std::memcmp(memory.getVU1Data()+256,vectors.data(),32),"Split VIF UNPACK upload was discarded");
+    const uint32_t wrappingUnpack = 0x6c0203ff;
+    memory.processVIF1Data(reinterpret_cast<const uint8_t*>(&wrappingUnpack), 4);
+    memory.processVIF1Data(reinterpret_cast<const uint8_t*>(vectors.data()), 32);
+    Require(!std::memcmp(memory.getVU1Data()+0x3ff0, vectors.data(), 16) &&
+            !std::memcmp(memory.getVU1Data(), vectors.data()+4, 16), "V4-32 upload lost wrapped vectors");
 
     // Ibara reads an offscreen surface through VIF1, then samples the copy.
     // Check both DMA direction and an EE-visible completion before reuse.

@@ -472,6 +472,7 @@ int main(int argc,char** argv) {
             "Native caller continued after its guest code bank was replaced");
     DiscExecutableSwitch();
     MemoryCardHandles(runtime);
+    VifPath1Burst();
     VifImageContinuation(runtime.memory());
     GsMmioCompletions(runtime.memory());
     GsSdkDisplay(runtime);

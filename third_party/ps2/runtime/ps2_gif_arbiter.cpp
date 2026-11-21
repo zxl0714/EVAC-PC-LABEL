@@ -23,6 +23,7 @@ void GifArbiter::submit(GifPathId pathId, const uint8_t *data, uint32_t sizeByte
 {
     if (!data || sizeBytes < 16 || !m_processFn)
         return;
+    flushPath1();
 
     GifArbiterPacket pkt;
     pkt.pathId = pathId;
@@ -33,10 +34,36 @@ void GifArbiter::submit(GifPathId pathId, const uint8_t *data, uint32_t sizeByte
     m_queue.push_back(std::move(pkt));
 }
 
+void GifArbiter::flushPath1()
+{
+    if (m_path1.empty()) return;
+    m_processFn(GifPathId::Path1, m_path1.data(), static_cast<uint32_t>(m_path1.size()));
+    m_path1.clear();
+}
+
+void GifArbiter::submitImmediate(GifPathId path, const uint8_t *data, uint32_t bytes, bool directHl)
+{
+    if (!data || bytes < 16 || !m_processFn) return;
+    if (!m_queue.empty()) {
+        submit(path, data, bytes, directHl);
+        drain();
+        return;
+    }
+    constexpr uint32_t burstBytes = 16 * 1024;
+    if (m_inPath1Burst && path == GifPathId::Path1 && bytes < burstBytes) {
+        if (m_path1.size() + bytes > burstBytes) flushPath1();
+        m_path1.insert(m_path1.end(), data, data + bytes);
+        return;
+    }
+    flushPath1();
+    m_processFn(path, data, bytes);
+}
+
 void GifArbiter::drain()
 {
     if (!m_processFn)
         return;
+    flushPath1();
 
     // A strict rank preserves the intended DIRECTHL exception. The old pairwise
     // comparator made plain PATH2 and DIRECTHL equivalent but ordered them

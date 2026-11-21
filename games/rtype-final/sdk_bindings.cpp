@@ -2,6 +2,7 @@
 #include "backends/ps2/sdk_binding.h"
 #include "ps2_runtime_macros.h"
 #include "runtime/ee_scheduler.h"
+#include <algorithm>
 #include <stdexcept>
 
 namespace {
@@ -23,9 +24,26 @@ void WaitGraphicsField(uint8_t*, R5900Context*, PS2Runtime* runtime) {
 #ifdef EVAC_PS2_RTYPE_FINAL_MOVIES
 void DemuxMovie(uint8_t* memory, R5900Context* context, PS2Runtime* runtime) {
     const auto available = getRegU32(context, 6);
+    // The disc callback at 0x157720 declines a whole packet when its ring
+    // cannot accept it. Leave input with the caller until the game drains it.
+    constexpr uint32_t movieWorkspacePointer = 0x002c7180u;
+    constexpr uint32_t audioRingOffset = 0x00138170u;
+    const uint32_t workspace = runtime->memory().read32(movieWorkspacePointer);
+    if (available && workspace) {
+        const uint32_t ring = workspace + audioRingOffset;
+        const uint32_t capacity = runtime->memory().read32(ring + 0x3cu);
+        const uint32_t used = runtime->memory().read32(ring + 0x38u);
+        const uint32_t free = capacity - std::min(capacity, used);
+        // All ten PSS streams use two-sector audio packets. A packet started
+        // in a previous call may become deliverable with just one new byte.
+        constexpr uint32_t maxPacketBytes = 2u * 2048u;
+        const uint32_t budget = free > maxPacketBytes ? free - maxPacketBytes : 0u;
+        if (capacity) SET_GPR_U32(context, 6, std::min(available, budget));
+    }
     ps2_stubs::sceMpegDemuxPssRing(memory, context, runtime);
+    SET_GPR_U32(context, 6, available);
     if (available != 0u && getRegU32(context, 2) == 0u) {
-        // A full decoded-frame queue can progress after the next video field.
+        // Give the audio and video consumers a field to free their buffers.
         auto& scheduler = runtime->eeScheduler();
         scheduler.waitVSync(scheduler.currentVSyncTick(), 0);
     }

@@ -777,9 +777,9 @@ int main(int argc,char** argv) {
 #else
     PS2Runtime::setIoPaths(configured);
     PS2Runtime runtime;
-    // Ibara switches DISPFB in response to the start-of-blank interrupt.
-    // Latch the buffer it selected for the upcoming visible field.
-    runtime.eeScheduler().setScanoutAfterDisplayFlip(IsIbara);
+    // Ibara and R-Type Final switch DISPFB in response to the start-of-blank interrupt.
+    // Latch the selected buffer for the upcoming visible field.
+    runtime.eeScheduler().setScanoutAfterDisplayFlip(IsIbara || CollectionDefinition.id=="rtype-final");
     hostOptions.trackFieldBlits=IsIbara;
     runtime.nativeHost().Configure(std::move(hostOptions));
     configureRuntime(runtime);
