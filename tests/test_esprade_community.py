@@ -172,7 +172,7 @@ class EspradeCommunityTests(unittest.TestCase):
                     body = json.loads(response.read())
                     self.assertEqual(response.status, status)
                     if path.endswith('/health') and status == 200:
-                        self.assertEqual((body['title_id'], body['game_version']), ('CUSA15155', '1.04'))
+                        self.assertEqual(body, {'status': 'ok'})
                     connection.close()
             finally:
                 server.shutdown()

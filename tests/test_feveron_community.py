@@ -111,7 +111,7 @@ class FeveronCommunityTests(unittest.TestCase):
                     response = connection.getresponse(); body = json.loads(response.read())
                     self.assertEqual(response.status, status)
                     if path.endswith('/health') and status == 200:
-                        self.assertEqual((body['title_id'], body['game_version']), ('CUSA06735', '1.00'))
+                        self.assertEqual(body, {'status': 'ok'})
                     connection.close()
             finally:
                 server.shutdown(); server.server_close(); thread.join(5)

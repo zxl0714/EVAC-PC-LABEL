@@ -154,3 +154,12 @@ Arcade 和 Death Label 均用原版日版 ISO 逐帧核对了读键后的首张�
 | 低延迟取样与提前呈现 | ✓ |
 
 [低延迟](ANALYSIS.md#v095--ps2-输入与呈现)
+
+### R-Type Final `rtype-final`
+
+| 功能 | SLUS-20780 1.01 · 美版 ISO |
+| --- | :---: |
+| 启动器全屏启动、游戏内 `Esc` 返回 | ✓ |
+| NVIDIA Reflex 低延迟呈现 | ✓ |
+
+[游玩与候选包验收](TEST_MATRIX.md#v0104-ps2-验收)

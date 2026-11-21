@@ -15,6 +15,8 @@
 - 《R-Type Final》的 VU1 预编译从原始启动 ELF 识别出 29 段微程序，并实测匹配到关内实际上传的内容。SSE4.1 试验版在首关的 9.06 秒内呈现 540 帧，约 59.54 FPS，P95 为 18.39 ms。继续游玩时发现活动代码库 4 缺少 `0x5d4ff0`。核对 198 条对象描述记录，补齐 100 个回调与关联入口。25 个程序的静态跳转检查通过，生成器会逐个验证各代码库的对象回调。刻意移除活动代码库中的该入口时，校验能发现缺失。见 `.local/v0104/r-type-final/boot-banks-aot-r4-sse4/` 和 `.local/v0104/r-type-final/descriptor-verification.txt`。[预编译实现](https://github.com/TheBozos/PS2Recomp/tree/03113132ca7409423d1f86695f1a7930fa46b2a2)
 - 正式构建的《R-Type Final》到达首关 Boss，续关后回到同一关内检查点。7 分 21 秒共呈现 26,000 帧，正常到达测试上限并退出。首关移动射击采样 59.76 FPS、P95 17.52 ms，重场景采样 57.85 FPS、P95 20.76 ms。较重和加载时段仍可见音频欠载。实测 Reflex 发出 26,000 次等待，零次超时。证据见 `.local/v0104/r-type-final/boot-banks-production-stage/`。
 - 正式 PS2 构建通过 32 项 CTest。《ESPGaluda》VSync 首关采样 59.997 FPS，P95 17.34 ms。《铸蔷薇》和 PS2 版《大往生》实测演示背景正常，退出码均为 0。用正式宿主 DLL 复查 Death Label 的 3591×2020 窗口，FIFO 和 Immediate 均得到 8 位 SDR 交换链，呈现加载帧和游戏帧后正常关闭。证据见 `.local/v0104/production-ps2-ctest.log`、`.local/v0104/espgaluda-stage-production/` 和 `.local/v0104/dl-smoke-final/`。
+- Windows 候选包冻结于 `fde8bb7`，位于 `releases/v0104-fde8bb7/`，206,346,349 字节，SHA-256 为 `fbeac5decf1d53b8792a14aa6255be8495a4e54efa17038b3984fbe2f7f303bc`。实际解压核验 222 个清单文件，无 ROM 或 PDB。从包内启动器用库里的美版 ISO 全屏启动《R-Type Final》，呈现片头后按 `Esc` 退出，启动器仍可用。再次从包内执行 `--game rtype-final`，关窗后返回 0。证据见 `.local/v0104/packaged-acceptance-final/`。
+- 58 项启动器及 Xbox 360 原生 CTest 通过，启动器界面另通过 4,924 项检查。打包、封面、目录和社区服务定向源码测试通过 126 项，跳过一项依赖旧内部包的测试。全量源码测试还发现三个既有问题，分别是像素测试缺少 NumPy、shadPS4 延迟测试使用了过时的代码匹配、虫姬二回调库存测试的数量仍为 31。证据见 `.local/v0104/production-xbox-native-final.log`、`.local/v0104/production-launcher-ui-r2.log` 和 `.local/v0104/package-compatibility-tests.log`。
 
 ## v0.10.4 社区服务
 

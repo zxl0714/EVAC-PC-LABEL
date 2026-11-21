@@ -235,9 +235,9 @@ void CoverLayoutChecks() {
       Require(app.VisiblePosition()==1,"Cover Up did not preserve its column");
     }
     app.Select(Catalogue().size()-1);frame.Settle();
-    Require(Catalogue()[app.selected].id=="daioujou-ps2" &&
+    Require(Catalogue()[app.selected].id=="rtype-final" &&
             app.rows[app.selected].inspection.state=="missing_data" &&
-            !CanPlay(app.rows[app.selected].inspection), "PS2 DaiOuJou should ask for a disc when its folder is empty");
+            !CanPlay(app.rows[app.selected].inspection), "R-Type Final should ask for a disc when its folder is empty");
   }
   const auto saved=Ini::Load(ConfigPath(fixture.root));
   Require(saved.Get("collection","selected_game")->text==Catalogue().back().id,
