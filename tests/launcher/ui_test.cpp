@@ -174,7 +174,8 @@ void UpdateChecks() {
     std::string(64,'a'),123};
   app.download_program=[](const fs::path&,const update::Release&){throw std::runtime_error("offline fixture");};
   app.UpdateTick();
-  Require(app.program_download.has_value() && !app.ProgramReady(),"Unverified download activated the red dot");
+  Require(app.program_download.has_value() && !app.ProgramReady() && app.UpdateVisible(),
+          "A pending download hid the update indicator or counted as installable");
   const auto settle_download=[&] {
     for(unsigned n=0;n<200 && app.program_download;++n) {
       Sleep(5);
@@ -188,12 +189,16 @@ void UpdateChecks() {
           "Failed download did not offer the release page once");
   app.UpdateTick();
   Require(!app.program_download,"Failed download immediately retried");
+  update_responses.push_back(IDYES);frame.Click(app.layout.update_badge());
+  Require(update_notices.size()==before+5 && !opened_paths.empty() &&
+          opened_paths.back()==FromUtf8(std::string(update::kReleasePrefix)+"v9.2") && !app.close_requested,
+          "Update indicator did not offer the release page before the download finished");
   app.program_retry={};
   app.download_program=[](const fs::path&,const update::Release&){};
   app.UpdateTick();settle_download();
-  Require(app.ProgramReady() && update_notices.size()==before+4,"Verified update required a modal announcement");
+  Require(app.ProgramReady() && update_notices.size()==before+5,"Verified update required a modal announcement");
   app.child.emplace();frame.Click(app.layout.update_badge());app.child.reset();
-  Require(update_notices.size()==before+4,"Update opened during play");
+  Require(update_notices.size()==before+5,"Update opened during play");
   update_responses.push_back(IDCANCEL);frame.Click(app.layout.update_badge());
   Require(app.ProgramReady() && update_notices.back().ends_with(L"v9.2"),"Update badge did not open the matching release");
   static std::wstring requested_update;

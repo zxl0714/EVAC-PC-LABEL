@@ -180,7 +180,20 @@ bool ArchiveMatches(const fs::path& path,const ProgramAsset& asset) {
 bool DownloadHost(std::wstring_view host) {
   return host==L"github.com" || host==L"release-assets.githubusercontent.com" || host==L"objects.githubusercontent.com";
 }
+void Restart(HANDLE file) {
+  const LARGE_INTEGER start{};
+  Require(SetFilePointerEx(file,start,nullptr,FILE_BEGIN) && SetEndOfFile(file),"Cannot restart the program download");
+}
+// Downloads into 'file', continuing a partial download left by an earlier
+// launcher session. The caller verifies the complete archive's SHA-256.
 void FetchArchive(const ProgramAsset& asset,const fs::path& file) {
+  Handle output{CreateFileW(file.c_str(),GENERIC_WRITE,0,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr)};
+  Require(output.value!=INVALID_HANDLE_VALUE,"Cannot open partial update download");
+  LARGE_INTEGER existing{};
+  Require(GetFileSizeEx(output.value,&existing),"Cannot read partial update download");
+  uint64_t received=uint64_t(existing.QuadPart);
+  if(received>asset.bytes){Restart(output.value);received=0;}
+  if(received==asset.bytes)return;
   HttpHandle session(WinHttpOpen(L"EVAC-PC-LABEL-program/1",WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                  WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,0));
   Require(WinHttpSetTimeouts(session.value,5000,5000,15000,15000),"Cannot set download timeouts");
@@ -202,8 +215,10 @@ void FetchArchive(const ProgramAsset& asset,const fs::path& file) {
     HttpHandle request(WinHttpOpenRequest(connection.value,L"GET",target.c_str(),nullptr,
                         WINHTTP_NO_REFERER,WINHTTP_DEFAULT_ACCEPT_TYPES,WINHTTP_FLAG_SECURE));
     DWORD disabled=WINHTTP_DISABLE_COOKIES|WINHTTP_DISABLE_AUTHENTICATION|WINHTTP_DISABLE_REDIRECTS;
+    const auto range=received?L"Range: bytes="+std::to_wstring(received)+L"-\r\n":std::wstring{};
     Require(WinHttpSetOption(request.value,WINHTTP_OPTION_DISABLE_FEATURE,&disabled,sizeof(disabled)) &&
-            WinHttpSendRequest(request.value,WINHTTP_NO_ADDITIONAL_HEADERS,0,WINHTTP_NO_REQUEST_DATA,0,0,0) &&
+            WinHttpSendRequest(request.value,range.empty()?WINHTTP_NO_ADDITIONAL_HEADERS:range.c_str(),
+                               range.empty()?0:DWORD(-1),WINHTTP_NO_REQUEST_DATA,0,0,0) &&
             WinHttpReceiveResponse(request.value,nullptr),"GitHub download connection failed");
     DWORD status{},size=sizeof(status);
     Require(WinHttpQueryHeaders(request.value,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,
@@ -216,11 +231,23 @@ void FetchArchive(const ProgramAsset& asset,const fs::path& file) {
       while(!url.empty() && url.back()==0)url.pop_back();
       continue;
     }
-    if(status!=200)throw std::runtime_error("GitHub download HTTP "+std::to_string(status));
-    Handle output{CreateFileW(file.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr)};
-    Require(output.value!=INVALID_HANDLE_VALUE,"Cannot create partial update download");
+    if(status==206) {
+      std::array<wchar_t,128> content_range{};size=DWORD(sizeof(content_range));
+      Require(WinHttpQueryHeaders(request.value,WINHTTP_QUERY_CONTENT_RANGE,WINHTTP_HEADER_NAME_BY_INDEX,
+              content_range.data(),&size,WINHTTP_NO_HEADER_INDEX) &&
+              ResumedRange(std::wstring_view(content_range.data(),size/sizeof(wchar_t)),received,asset.bytes),
+              "GitHub resumed the program download at another position");
+    }
+    else if(status==200){Restart(output.value);received=0;}
+    else {
+      // The partial file cannot be continued (416) or the server failed:
+      // start over next time rather than retrying the same range.
+      if(status==416)Restart(output.value);
+      throw std::runtime_error("GitHub download HTTP "+std::to_string(status));
+    }
+    const LARGE_INTEGER end{};
+    Require(SetFilePointerEx(output.value,end,nullptr,FILE_END),"Cannot continue the program download");
     std::array<unsigned char,128*1024> buffer{};
-    uint64_t received{};
     for(;;) {
       DWORD read{},written{};
       Require(std::chrono::steady_clock::now()<deadline &&
@@ -284,6 +311,31 @@ void CheckGameFiles(const fs::path& root,const fs::path& target,std::string_view
 }
 }
 
+bool ResumedRange(std::wstring_view header,uint64_t start,uint64_t total) {
+  // RFC 9110: "bytes <first>-<last>/<complete length>".
+  constexpr std::wstring_view prefix=L"bytes ";
+  while(!header.empty() && (header.back()==L'\0' || header.back()==L' '))header.remove_suffix(1);
+  if(!header.starts_with(prefix))return false;
+  header.remove_prefix(prefix.size());
+  const auto number=[&](std::wstring_view::size_type stop)->std::optional<uint64_t> {
+    if(stop==0 || stop==header.npos || stop>20)return {};
+    uint64_t value{};
+    for(const auto c:header.substr(0,stop)) {
+      if(c<L'0' || c>L'9' || value>(UINT64_MAX-9)/10)return {};
+      value=value*10+uint64_t(c-L'0');
+    }
+    header.remove_prefix(std::min(stop+1,header.size()));
+    return value;
+  };
+  const auto first=number(header.find(L'-'));
+  const auto last=first?number(header.find(L'/')):std::nullopt;
+  const auto length=last?number(header.size()):std::nullopt;
+  return length && header.empty() && *first==start && *length==total && *last+1==total;
+}
+fs::path PartialDownload(const fs::path& root,const Release& release) {
+  const auto archive=ArchivePath(root,release);
+  return LocalPath(archive.parent_path(),Utf8(archive.filename())+".part");
+}
 bool PackagedInstallation(const fs::path& root,std::string_view version) noexcept {
   try {
     return fs::is_regular_file(LocalPath(root,kLauncher)) &&
@@ -295,14 +347,25 @@ bool RecoveryPending(const fs::path& root) {
   return fs::exists(LocalPath(UpdateStorage(root),kJournal));
 }
 void DownloadProgram(const fs::path& root,const Release& release) {
-  const auto destination=ArchivePath(root,release);
-  fs::create_directories(destination.parent_path());
-  if(ArchiveMatches(destination,*release.program))return;
-  const auto partial=LocalPath(destination.parent_path(),"download-"+std::to_string(GetCurrentProcessId())+"-"+
-                               std::to_string(GetTickCount64())+".part");
-  struct Cleanup {fs::path path;~Cleanup(){DeleteFileW(path.c_str());}} cleanup{partial};
+  const auto destination=ArchivePath(root,release),partial=PartialDownload(root,release);
+  const auto storage=destination.parent_path();
+  fs::create_directories(storage);
+  // Only the selected release's archive and partial download are kept. Earlier
+  // launchers named partial files per process and left them when closed.
+  for(const auto& entry:fs::directory_iterator(storage)) {
+    const auto& path=entry.path();
+    const auto extension=path.extension().native();
+    if(path==destination || path==partial || entry.is_symlink() || !entry.is_regular_file() ||
+       (_wcsicmp(extension.c_str(),L".part") && _wcsicmp(extension.c_str(),L".zip")))continue;
+    DeleteFileW(path.c_str());
+  }
+  if(ArchiveMatches(destination,*release.program)){DeleteFileW(partial.c_str());return;}
+  // A network failure keeps the partial file so the next attempt continues it.
   FetchArchive(*release.program,partial);
-  Require(ArchiveMatches(partial,*release.program),"Program ZIP failed SHA-256 verification");
+  if(!ArchiveMatches(partial,*release.program)) {
+    DeleteFileW(partial.c_str());
+    throw std::runtime_error("Program ZIP failed SHA-256 verification");
+  }
   Move(partial,destination);
 }
 void RecoverProgram(const fs::path& root) {

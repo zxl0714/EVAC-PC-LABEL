@@ -63,6 +63,7 @@ constexpr UINT kUpdateScrollBar=WM_APP+3;
 constexpr UINT kShowFirstDisplayChoice=WM_APP+4;
 constexpr UINT_PTR kChildTimer=1;
 constexpr UINT_PTR kUpdateTimer=2;
+constexpr auto kUpdateRefreshInterval=std::chrono::minutes(15);
 constexpr UINT_PTR kMenuControllerTimer=3;
 constexpr UINT kMenuPollInterval=16;
 constexpr int kFullscreenControl=101,kNicknameControl=102,kSaveControl=103;
@@ -958,9 +959,13 @@ class App {
   void StartUpdates() {
     packaged_update=update::PackagedInstallation(options.root,cave::launcher::kProductVersion);
     update_state=update::Load(options.root);RefreshUpdates();
+    next_update_refresh=std::chrono::steady_clock::now()+kUpdateRefreshInterval;
     SetTimer(hwnd,kUpdateTimer,500,nullptr);
   }
   bool HasUpdate() const {return update_state.latest && update::Newer(cave::launcher::kProductVersion,*update_state.latest);}
+  // The red dot marks any newer release, not only a finished download, so a
+  // slow or interrupted download never hides that an update exists.
+  bool UpdateVisible() const {return update_auto && HasUpdate();}
   bool ProgramReady() const {
     return update_auto && HasUpdate() && ready_program && ready_program->tag==update_state.latest->tag &&
            ready_program->program==update_state.latest->program;
@@ -1008,6 +1013,11 @@ class App {
   }
   void UpdateTick() {
     if(update_dialog)return;
+    // A launcher left open keeps checking; update::Due still limits requests.
+    if(!update_request && std::chrono::steady_clock::now()>=next_update_refresh) {
+      next_update_refresh=std::chrono::steady_clock::now()+kUpdateRefreshInterval;
+      RefreshUpdates();
+    }
     if(update_request) {
       if(auto result=update_request->Poll()) {
         update_request.reset();update::Apply(update_state,*result,update::Now());SaveUpdateState();
@@ -1546,7 +1556,7 @@ class App {
           if(slot==13 && DonPachiSelected())continue;
           if(slot==9 && (busy||child))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
-          if(slot==15 && !ProgramReady())continue;
+          if(slot==15 && !UpdateVisible())continue;
           if(slot==kProjectLinkFocus && SelectedProjectUrl().empty())continue;
           focus=slot;SetFocus(control);InvalidateRect(hwnd,nullptr,FALSE);break;
         }
@@ -1924,7 +1934,7 @@ class App {
       surface->BeginDraw();
       if(BigPicture())renderer.DrawBigPicture(surface.Get(),BigView(),rows,library,message,busy,menu_open,menu_selection,sdoj_external);
       else renderer.Draw(surface.Get(),layout,rows,selected,hover,busy,message,active_game,false,focus,
-          override_hint,&library,ProgramReady(),drag?&*drag:nullptr,button_hover,sdoj_external,external_hover);
+          override_hint,&library,UpdateVisible(),drag?&*drag:nullptr,button_hover,sdoj_external,external_hover);
       const auto status=surface->EndDraw();if(status==D2DERR_RECREATE_TARGET)surface.Reset();else Check(status,"Draw launcher");
       if (!paint_recorded) {
         Log(options.root,"first-paint width="+std::to_string(rectangle.right)+" height="+std::to_string(rectangle.bottom)+
@@ -1949,7 +1959,7 @@ class App {
       }
       return;
     }
-    if(ProgramReady() && Inside(layout.update_badge(),x,y)){ShowUpdate();return;}
+    if(UpdateVisible() && Inside(layout.update_badge(),x,y)){ShowUpdate();return;}
     if(Inside(layout.hidden_games(),x,y)){ToggleHiddenGames();return;}
     if(Inside(layout.logs(),x,y)) {if(!busy&&!child&&!GameIsRunning(options.root))show_reports(hwnd,options.root,language,{});return;}
     for(size_t index=0;index<3;++index)
@@ -2253,7 +2263,7 @@ class App {
   std::optional<update::Request> update_request,program_download;
   std::string download_failed_tag;
   std::optional<update::Release> ready_program;
-  std::chrono::steady_clock::time_point program_retry{};
+  std::chrono::steady_clock::time_point program_retry{},next_update_refresh{};
   decltype(&update::DownloadProgram) download_program=update::DownloadProgram;
   decltype(&update::StartProgramWorker) start_update_worker=update::StartProgramWorker;
   bool update_auto{},update_dialog{},packaged_update{};
