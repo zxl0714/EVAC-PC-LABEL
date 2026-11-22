@@ -10,10 +10,12 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-The v0.10.4 local program package built from `285c893` is in
-`releases/v0104-285c893/`. All 34 PS2 CTest cases and eight PS2 data tests
-passed. ZIP extraction and verification covered all 222 manifest files.
-The package hash and verification logs are in `.local/v0104/ps2-285c893-*`.
+The v0.10.4 local program package built from `be178d6` is in
+`releases/v0104-be178d6/`. All 34 PS2 CTest cases passed, including the
+callback stack regression. The extracted ZIP passed verification against all
+222 manifest entries. The previous candidate also passed eight PS2 data tests.
+The build, test and package records are in `.local/v0104/gallery-be178d6-*`.
+R-Type Final gallery and gameplay evidence is in `.local/v0104/r-type-final/`.
 
 v0.10.3 is the latest [GitHub release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.3).
 Its tag points to `93b5293`, and the verified program package is in
