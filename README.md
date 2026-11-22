@@ -25,7 +25,7 @@ Test PC: i7-13700KF and RTX 4080. Latency is an estimated average in millisecond
 
 **Xbox 360**
 
-Select 0V in Futari’s in-game menu. ESPGaluda II, SaiDaiOuJou and Guwange default to 0V (`frame_delay = 0`). Xenia uses the original timing. [Futari’s 0V menu path](docs/SETTINGS.en.md#futari-guwange-and-nvidia-reflex)
+Select 0V in Futari’s in-game menu. ESPGaluda II, SaiDaiOuJou and Guwange default to 0V (`frame_delay = 0`). [Xenia](https://github.com/xenia-project/xenia) uses the original timing. [Futari’s 0V menu path](docs/SETTINGS.en.md#futari-guwange-and-nvidia-reflex)
 
 | Game | Port latency | Xenia latency | Port CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -36,7 +36,7 @@ Select 0V in Futari’s in-game menu. ESPGaluda II, SaiDaiOuJou and Guwange defa
 
 **PS4** · All five games use the default NEO mode (`neo = true`).
 
-| Game | Port latency | shadPS4 latency | Port CPU | shadPS4 CPU |
+| Game | Port latency | [shadPS4](https://github.com/shadps4-emu/shadPS4) latency | Port CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | Ketsui | 16 | 55 | 0.32 | 0.62 |
 | DaiOuJou | 15 | 55 | 0.30 | 0.34 |
@@ -46,7 +46,7 @@ Select 0V in Futari’s in-game menu. ESPGaluda II, SaiDaiOuJou and Guwange defa
 
 **PS2**
 
-| Game | Port latency | PCSX2 latency | Port CPU | PCSX2 CPU |
+| Game | Port latency | [PCSX2](https://github.com/PCSX2/pcsx2) latency | Port CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 18 | 43 | 0.28 | 0.25 |
 | Ibara | 18 | 43 | 0.38 | 0.27 |
@@ -58,10 +58,10 @@ Latency runs from input reaching the PC to the Windows display event. Device rep
 
 | Platform | Games |
 | --- | --- |
-| Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) · [Guwange](docs/GAME_DATA.en.md#guwange) |
+| Xbox 360 | [Mushihimesama Futari](docs/GAME_DATA.en.md#futari) · [ESPGaluda II](docs/GAME_DATA.en.md#espgaluda2) · [DoDonPachi SaiDaiOuJou](docs/GAME_DATA.en.md#sdoj) (also available as [SDOJ-Recomp by eandis](https://github.com/eandis/SDOJ-Recomp)) · [Guwange](docs/GAME_DATA.en.md#guwange) |
 | PS4 | [Ketsui Deathtiny](docs/GAME_DATA.en.md#ketsui) · [DaiOuJou Re:Incarnation](docs/GAME_DATA.en.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.en.md#esprade) · [Dangun Feveron](docs/GAME_DATA.en.md#feveron) · [Battle Garegga Rev.2016](docs/GAME_DATA.en.md#garegga) |
 | PS2 | [ESPGaluda](docs/GAME_DATA.en.md#espgaluda) · [Ibara](docs/GAME_DATA.en.md#ibara) · [DaiOuJou (PS2)](docs/GAME_DATA.en.md#daioujou-ps2) · [R-Type Final](docs/GAME_DATA.en.md#rtype-final) |
-| Arcade | [DonPachi](docs/GAME_DATA.en.md#donpachi) |
+| Arcade | [DonPachi](docs/GAME_DATA.en.md#donpachi) ([DonPachi Recomp by CapsLock4284](https://github.com/CapsLock4284/DonPachi-Recomp)) |
 
 Select a title for supported versions, extraction steps and folder examples. Prepare data only for the games you want to play.
 
@@ -109,6 +109,6 @@ To share a file for troubleshooting, select the game and click **Upload file**. 
 
 Building a recomp? [Connect it to EVAC-PC-LABEL through the community HTTP API](docs/COMMUNITY_INTEGRATION.md).
 
-Built on ReXGlue/Xenia-related components, graphics components derived from shadPS4, PS2Recomp/paraLLEl-GS, SDL and other open-source work. [Source origins](docs/SOURCE_ORIGINS.json) · [ReXGlue license](third_party/rexglue/LICENSE) · [PS4 notices](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 notices](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [Artwork sources](launcher/artwork.json)
+Built on [ReXGlue](https://github.com/rexglue/rexglue-sdk) and [Xenia](https://github.com/xenia-project/xenia) components, graphics code derived from [shadPS4](https://github.com/shadps4-emu/shadPS4), [PS2Recomp](https://github.com/ran-j/PS2Recomp), [paraLLEl-GS](https://github.com/Arntzen-software/parallel-gs), [SDL](https://github.com/libsdl-org/SDL) and other open-source work. [Source origins](docs/SOURCE_ORIGINS.json) · [ReXGlue license](third_party/rexglue/LICENSE) · [PS4 notices](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 notices](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [Artwork sources](launcher/artwork.json)
 
 Components retain their respective licenses. Release packages include `licenses/` and `SOURCE.txt` with corresponding source and build information.

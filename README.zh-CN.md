@@ -25,7 +25,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 
 **Xbox 360**
 
-虫姬二在游戏内选 0V，ESPGaluda II、最大往生和狱门山默认使用 0V（`frame_delay = 0`）。Xenia 使用原作档位。[虫姬二的 0V 菜单路径](docs/SETTINGS.md#虫姬二狱门山与-nvidia-reflex)
+虫姬二在游戏内选 0V，ESPGaluda II、最大往生和狱门山默认使用 0V（`frame_delay = 0`）。[Xenia](https://github.com/xenia-project/xenia) 使用原作档位。[虫姬二的 0V 菜单路径](docs/SETTINGS.md#虫姬二狱门山与-nvidia-reflex)
 
 | 游戏 | 移植版延迟 | Xenia 延迟 | 移植版 CPU | Xenia CPU |
 | --- | ---: | ---: | ---: | ---: |
@@ -36,7 +36,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 
 **PS4** · 五款游戏均使用默认 NEO 模式（`neo = true`）。
 
-| 游戏 | 移植版延迟 | shadPS4 延迟 | 移植版 CPU | shadPS4 CPU |
+| 游戏 | 移植版延迟 | [shadPS4](https://github.com/shadps4-emu/shadPS4) 延迟 | 移植版 CPU | shadPS4 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | 绊地狱 | 16 | 55 | 0.32 | 0.62 |
 | 大往生 | 15 | 55 | 0.30 | 0.34 |
@@ -46,7 +46,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 
 **PS2**
 
-| 游戏 | 移植版延迟 | PCSX2 延迟 | 移植版 CPU | PCSX2 CPU |
+| 游戏 | 移植版延迟 | [PCSX2](https://github.com/PCSX2/pcsx2) 延迟 | 移植版 CPU | PCSX2 CPU |
 | --- | ---: | ---: | ---: | ---: |
 | ESPGaluda | 18 | 43 | 0.28 | 0.25 |
 | 铸蔷薇 | 18 | 43 | 0.38 | 0.27 |
@@ -58,10 +58,10 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 
 | 平台 | 游戏 |
 | --- | --- |
-| Xbox 360 | [虫姬二](docs/GAME_DATA.md#futari) · [ESPGaluda II](docs/GAME_DATA.md#espgaluda2) · [最大往生](docs/GAME_DATA.md#sdoj) · [狱门山](docs/GAME_DATA.md#guwange) |
+| Xbox 360 | [虫姬二](docs/GAME_DATA.md#futari) · [ESPGaluda II](docs/GAME_DATA.md#espgaluda2) · [最大往生](docs/GAME_DATA.md#sdoj)（可选用 eandis 的 [SDOJ-Recomp](https://github.com/eandis/SDOJ-Recomp)） · [狱门山](docs/GAME_DATA.md#guwange) |
 | PS4 | [绊地狱](docs/GAME_DATA.md#ketsui) · [大往生](docs/GAME_DATA.md#daioujou) · [ESP Ra.De. Ψ](docs/GAME_DATA.md#esprade) · [弹铳](docs/GAME_DATA.md#feveron) · [空战之路](docs/GAME_DATA.md#garegga) |
 | PS2 | [ESPGaluda](docs/GAME_DATA.md#espgaluda) · [铸蔷薇](docs/GAME_DATA.md#ibara) · [大往生 (PS2)](docs/GAME_DATA.md#daioujou-ps2) · [R-Type Final](docs/GAME_DATA.md#rtype-final) |
-| 街机 | [首领蜂](docs/GAME_DATA.md#donpachi) |
+| 街机 | [首领蜂](docs/GAME_DATA.md#donpachi)（CapsLock4284 的 [DonPachi Recomp](https://github.com/CapsLock4284/DonPachi-Recomp)） |
 
 点击游戏名查看支持的版本、解包方法和目录示例。只需准备想玩的游戏数据。
 
@@ -109,6 +109,6 @@ Xbox 360 ISO 可用随包的 `tools/Extract-Xbox360.exe` 提取，PS4 PKG 使用
 
 在做游戏重编译移植？[接入 EVAC-PC-LABEL 社区 HTTP API（英文）](docs/COMMUNITY_INTEGRATION.md)。
 
-项目基于 ReXGlue／Xenia 相关组件、shadPS4 派生图形组件、PS2Recomp／paraLLEl-GS、SDL 等开源工作。[源码来源](docs/SOURCE_ORIGINS.json) · [ReXGlue 许可](third_party/rexglue/LICENSE) · [PS4 组件声明](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 组件声明](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [素材来源](launcher/artwork.json)
+项目基于 [ReXGlue](https://github.com/rexglue/rexglue-sdk) 和 [Xenia](https://github.com/xenia-project/xenia) 的相关组件、源自 [shadPS4](https://github.com/shadps4-emu/shadPS4) 的图形组件，以及 [PS2Recomp](https://github.com/ran-j/PS2Recomp)、[paraLLEl-GS](https://github.com/Arntzen-software/parallel-gs)、[SDL](https://github.com/libsdl-org/SDL) 等开源项目。[源码来源](docs/SOURCE_ORIGINS.json) · [ReXGlue 许可](third_party/rexglue/LICENSE) · [PS4 组件声明](third_party/ps4/THIRD_PARTY_NOTICES.txt) · [PS2 组件声明](third_party/ps2/THIRD_PARTY_NOTICES.txt) · [素材来源](launcher/artwork.json)
 
 各组件保留各自许可证。发行包的 `licenses/` 包含许可证，`SOURCE.txt` 提供对应源码与构建说明。
