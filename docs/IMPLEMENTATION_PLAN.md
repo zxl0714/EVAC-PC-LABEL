@@ -19,11 +19,14 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
    - 《大往生》有一份明确留言 Death Label 崩溃的报告。RTX 3060 Laptop 成功创建交换链并呈现加载画面，在首张游戏画面的 `vkQueuePresentKHR` 内发生读取 `0x148` 的访问异常。栈经过 RTSS 和 NVIDIA 驱动。属于此前记录的首帧呈现崩溃，v0.10.4 在该设备上的效果仍待反馈。
    - 《虫姬二》两份上传相隔 8 秒，运行编号相同，各归档成员内容逐一比较完全一致。未附留言；日志中有一次计数器等待超时并回退，随后仍有约 60 FPS 的出帧记录。未找到明确崩溃证据。
 
-5. [ ] **逐款验证 SteamOS 上的启动兼容性，在本机 WSL 做验证。** 用 Linux 侧的 Steam／Proton 启动 Windows 版合集，从启动器进入全部 15 款游戏。《最大往生》内置版和 eandis 版各测一次，两个外部街机项目也纳入。记录 WSL 发行版、Proton 版本、图形后端，以及每项的启动画面和退出结果；保留 SteamOS 实机与 WSL 的环境区别。
+5. [x] **逐款验证 SteamOS 上的启动兼容性，在本机 WSL 做验证。** 用 Linux 侧的 Steam／Proton 启动 Windows 版合集，从启动器进入全部 15 款游戏。《最大往生》内置版和 eandis 版各测一次，两个外部街机项目也纳入。记录 WSL 发行版、Proton 版本、图形后端，以及每项的启动画面和退出结果；保留 SteamOS 实机与 WSL 的环境区别。
    - 优先验证《虫姬二》Black Label 和 Ver.1.01，覆盖原始 DLC 容器首次自动解包、两个已解包 DLC 共存、重启后仍可选，并分别从游戏菜单实际进关。其他附加内容按可用样本验证《最大往生》TU 1.01、《绊地狱》IKD 2007 SPECIAL／VIRT ARRANGE，以及《绊地狱》和《大往生》的 X Arrange、《大往生》Death Label 的进入和返回。
-   - PS2 四款发布版均用 WSL 的 llvmpipe 和映射本机 RTX 4080 的 Dozen 测过。前者受硬件设备检查限制，后者在创建 Vulkan 实例时退出，且驱动缺少渲染器必需的 8 位缓冲区访问能力。《大往生》PS4 版的 X Arrange 一面音乐通过回录验证。Death Label 卡片出现，但在 WSL 中进入游戏和返回仍待验。
+   - 15 款游戏已逐款用 WSL／Proton 启动。PS2 四款均用 llvmpipe 从菜单进关并正常退出。PS4《大往生》的 X Arrange 一面音乐通过回录验证，Death Label 完成选机、Boss 战和返回主菜单。外部 eandis 版可启动，但上游 Windows 程序在这台软件显卡上的 D3D12 输出仍有绿黑色块。Steam Deck 实机待测。
    - 《绊地狱》01.03 已从菜单进入 IKD 2007 SPECIAL 第一关。实际播放 X Arrange 和 VIRT ARRANGE，一面回录均与各自曲包原曲匹配。
    - 《虫姬二》两项 DLC 已完成 WSL 验收。修正原始包识别后，首次自动解包、重复启动、两包共存及分别进关均通过。在本机的软件显卡上还修正了默认启动黑屏。[环境与逐项结果](TEST_MATRIX.md#v0105-wsl-与-proton)
+
+6. [x] **PS2 的 Vulkan 后端支持 CPU 软件渲染。** 优先选用满足渲染要求的硬件 GPU；只有 CPU Vulkan 设备可用时，按驱动实际提供的能力选择设备。首个验收目标是 WSL／Proton 下的 Mesa llvmpipe。
+   - CPU 设备采用标准描述符集、按需编译着色器，并分小批回收描述符。WSL 实测《ESPGaluda》《铸蔷薇》《大往生》《R-Type Final》可操作的一面，四款退出码均为 0。Death Label 打完一局后回到 PS4 直达菜单。原生 Windows 用同一版《铸蔷薇》在 RTX 4080 进入一面玩家局。[验收记录](TEST_MATRIX.md#v0105-wsl-与-proton)
 
 ## v0.10.4
 

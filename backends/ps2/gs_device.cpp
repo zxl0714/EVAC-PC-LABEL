@@ -23,8 +23,6 @@ GsDevice::Impl::Impl(Vulkan::Device* borrowed) : device(borrowed ? borrowed : &o
             throw std::runtime_error("Cannot initialize headless Vulkan device");
         ownedDevice.set_context(context);ownedDevice.init_frame_contexts(AllocationContexts);
     }
-    if(device->get_gpu_properties().deviceType==VK_PHYSICAL_DEVICE_TYPE_CPU)
-        throw std::runtime_error("PS2 graphics requires a hardware Vulkan device");
     ParallelGS::GSOptions options{};
     const auto& features = device->get_device_features();
     std::fprintf(stderr, "[ps2-gs-descriptors] buffer_feature=%u buffer_selected=%u combined_single_array=%u heap=%u\n",

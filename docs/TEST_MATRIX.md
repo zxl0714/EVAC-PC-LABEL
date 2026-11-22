@@ -21,7 +21,7 @@ v0.10.4 在这台 WSL 主机上将两个原始包均标为 `incomplete_data`。�
 
 《绊地狱》01.03 的首次绘制原本因请求 4 GiB 稀疏缓冲区而失败，llvmpipe 仅提供 2 GiB 稀疏地址空间。按设备上限分配后从加载画面进入标题。相同改动在原生 Windows 上通过全部 10 项 PS4 GPU 测试，覆盖绘制、呈现、Reflex 和缓存。另修正了 Proton 在日期转换时调用未实现 API 的退出问题。重新冷启动后进入 DIRECT MENU，选择 IKD 2007 SPECIAL，投币、选机并打到一面。选用 X Arrange 后，游戏音频回录连续四段与自备曲包的 `kkj_arr_stg1.xma` 在递增偏移处匹配。在 Arcade 玩家局选用 VIRT ARRANGE 后，一面仪表盘显示 INTERCEPTION。20 秒游戏录音与原曲 `virt_arr_0x01` 对照，多个相隔两秒的片段以相同偏移匹配，最高归一化相关系数为 0.961。截图与回录见本机 `.local/v0105/ketsui-*`。
 
-《大往生》01.04 在原始 PS4 菜单中识别到了 PS2 数据，DEATH LABEL 卡片出现，X Arrange (Xbox 360) 可以选择并保存，冷启动后进入 Arcade 玩家局，音乐栏显示 X Arrange／Stage 1。35 秒回录中，从第 3 秒到第 18 秒连续六段的频谱对应原曲 `ddo_arr_stg1.wav` 上递增的位置，其中一段波形相关系数为 0.969。以同一曲包的二面音乐作对照，未出现相同进程。此项验证播放的曲目身份。进入 Death Label 后，原版 PS2 图形后端明确要求硬件 Vulkan 设备。本机单独放宽该检查的对照构建通过了 4,096 像素的 GS 回读测试，游戏也执行到了选机逻辑，但屏幕仍黑，随后 Proton 进程收到 SIGSEGV。此项未通过；发布配置保留硬件 Vulkan 检查。
+《大往生》01.04 在原始 PS4 菜单中识别到了 PS2 数据，DEATH LABEL 卡片出现，X Arrange (Xbox 360) 可以选择并保存，冷启动后进入 Arcade 玩家局，音乐栏显示 X Arrange／Stage 1。35 秒回录中，从第 3 秒到第 18 秒连续六段的频谱对应原曲 `ddo_arr_stg1.wav` 上递增的位置，其中一段波形相关系数为 0.969。以同一曲包的二面音乐作对照，未出现相同进程。Death Label 从同一 PS4 菜单进入 PS2 选机，选定机体后显示一面 Boss 和两侧实时仪表盘，一局结束后回到原菜单，仍选中 Death Label。运行记录给出 `daioujou_death_label_return` 的结果 1（Completed）。随后关闭 PS4 窗口，记录到 `WM_CLOSE` 和宿主退出码 27。
 
 | 启动器条目 | WSL 中实际看到的画面 |
 | --- | --- |
@@ -29,9 +29,15 @@ v0.10.4 在这台 WSL 主机上将两个原始包均标为 `incomplete_data`。�
 | ESP Ra.De. Ψ、《弹铳》、《空战之路》 | 《ESP Ra.De. Ψ》进入模式选择，选择 Arcade 后出现原作地区提示。《弹铳》和《空战之路》均进入街机标题和演示画面。三款关闭窗口后都记录了 `window_close_requested`。 |
 | 《首领蜂》 | 实际进入美版 DonPachi Recomp 菜单，显示 USA。 |
 | 《最大往生》eandis 版 | 桌面卡片成功启动上游 EXE，TU 1.01 补丁应用成功。D3D12 输出出现绿黑色块，SteamOS 实机待验。 |
-| PS2《ESPGaluda》《铸蔷薇》《大往生》《R-Type Final》 | 四款发布版均已逐款尝试。llvmpipe 被硬件设备检查拦下。另用 Mesa Dozen 26.3.1 映射本机 RTX 4080，四款均在创建 Vulkan 实例时退出。 |
+| 《怒首领蜂》 | 从桌面和大屏启动外部程序，验证国际版和日版，退出后回到对应卡片。 |
+| PS2《ESPGaluda》 | 从 Arcade 选 Tateha，进入一面并移动、射击。共呈现 2,070 场。 |
+| PS2《铸蔷薇》 | 从 Arcade → Game Start → Normal 进入一面，实测机体随方向键移动。共呈现 6,449 场。 |
+| PS2《大往生》 | 从 Arcade 开局、选机及人偶，进入一面移动、射击，分数增加。共呈现 2,030 场。 |
+| PS2《R-Type Final》 | 新建飞行员，选择 R-9A、Human 难度，进入一面操纵机体。共呈现 7,140 场。 |
 
-在 Dozen 下，Linux 的 `vulkaninfo` 能枚举出独立显卡和可呈现的 X11 surface。用发布版《ESPGaluda》复查 Wine 跟踪时，Proton 请求了驱动未提供的 `VK_KHR_external_semaphore_capabilities`，`vkCreateInstance` 返回 `VK_ERROR_EXTENSION_NOT_PRESENT`（−7）。驱动还报告 `storageBuffer8BitAccess = false`，而 PS2 渲染器 parallel-gs 的初始化要求这项能力。llvmpipe 的单独对照构建临时放宽了设备类型检查：《ESPGaluda》显示 ARIKA 片头、呈现 1,248 帧并可正常关闭，另三款进入 GS 初始化后异常退出。四款发布版及嵌入式 Death Label 均保留为 SteamOS 待验。
+四款 PS2 游戏从合集启动器运行，日志均记录选择 Mesa 25.2.8 llvmpipe，关闭窗口后启动器记录的游戏进程退出码均为 0。初次实验仅放开设备类型检查时，多款游戏在驱动内崩溃。改用标准描述符集后，《铸蔷薇》能进标题，但原先的 4,096 集批次导致驱动以每集约 1 MiB 分配内存。软件设备改为每批 32 集后完成上表测试。Windows 用同一构建在 RTX 4080 上仍选择硬件路径，实测《铸蔷薇》一面玩家局，运行 4,700 场后正常退出。截图与进程记录见本机 `.local/v0105/ps2-cpu-Go12AX/` 和 `.local/v0105/cpu-native-ibara-r4/`。
+
+另测将本机 RTX 4080 映射到 WSL 的 Mesa Dozen 26.3.1。Proton 请求的 `VK_KHR_external_semaphore_capabilities` 和渲染器需要的 `storageBuffer8BitAccess` 在该驱动上不可用，因此这组测试使用 llvmpipe 完成。
 
 另用同一份 TU 1.01 数据直接启动 eandis 的 Windows 程序。在两个全新的 Proton 环境中，分别把上游的 `render_target_path_d3d12` 设为 `rtv` 和 `rov`。两次日志均记录到 llvmpipe 和成功应用的补丁版本 `4.0.1.0`，两组截图均出现与合集启动器启动时相同的绿黑色块。可独立于合集启动器复现。目前尚未定位到具体绘制调用。记录在本机 `.local/v0105/eandis-d3d-comparison/`。
 

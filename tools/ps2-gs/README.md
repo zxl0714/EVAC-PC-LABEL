@@ -7,8 +7,9 @@ Build the standalone GS device with the collection toolchain:
 ./tools/apps/cmake/bin/ctest.exe --test-dir out/ps2-gs --output-on-failure
 ```
 
-The target requires a hardware Vulkan device supporting the pinned paraLLEl-GS
-feature set. It uses authored commands and pixels; no ROM, BIOS or game window
+The target requires a Vulkan device supporting the pinned paraLLEl-GS
+feature set. CPU Vulkan devices use standard descriptor sets. The test uses
+authored commands and pixels; no ROM, BIOS or game window
 is needed. Sources restore from `tools/ps2-source.lock.json` into `.deps/ps2`.
 An independently verified build view is created under `out/ps2-gs`.
 
