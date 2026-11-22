@@ -2,9 +2,11 @@
 # preserves standalone buffer replacement and enables SSE4.1 native blocks.
 set(vu_overlay "${CMAKE_BINARY_DIR}/vu-overlay")
 set(vu_patch "${CMAKE_CURRENT_LIST_DIR}/vu-runtime.patch.txt")
+set(vu_aot_patch "${CMAKE_CURRENT_LIST_DIR}/vu-aot-waitq.patch.txt")
 set(vu_headers ps2_vu1.h ps2_vu1_inline.h ps2_vu1_jit.h ps2_vu1_lifted.h ps2_vu_clip.h)
 set(vu_core_path "ps2xRuntime/src/lib/vu/ps2_vu1_core.cpp")
-set(vu_inputs "${vu_core_path}")
+set(vu_aot_path "ps2xRecomp/src/vu_aot/ps2_vu_aot.cpp")
+set(vu_inputs "${vu_core_path}" "${vu_aot_path}")
 foreach(header IN LISTS vu_headers)
   list(APPEND vu_inputs "ps2xRuntime/include/runtime/${header}")
 endforeach()
@@ -18,12 +20,14 @@ endforeach()
 find_package(Git REQUIRED)
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${CMAKE_BINARY_DIR}"
-    "${GIT_EXECUTABLE}" apply --no-index --whitespace=error "${vu_patch}"
+    "${GIT_EXECUTABLE}" apply --no-index --whitespace=error "${vu_patch}" "${vu_aot_patch}"
   WORKING_DIRECTORY "${vu_overlay}" COMMAND_ERROR_IS_FATAL ANY)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${vu_patch}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${vu_patch}" "${vu_aot_patch}")
 foreach(header IN LISTS vu_headers)
   file(COPY_FILE "${vu_overlay}/ps2xRuntime/include/runtime/${header}"
     "${PS2_RUNTIME_INCLUDE}/runtime/${header}" ONLY_IF_DIFFERENT)
 endforeach()
 set(PS2_VU_CORE "${CMAKE_BINARY_DIR}/ps2_vu1_core.cpp")
 file(COPY_FILE "${vu_overlay}/${vu_core_path}" "${PS2_VU_CORE}" ONLY_IF_DIFFERENT)
+set(PS2_VU_AOT "${CMAKE_BINARY_DIR}/ps2_vu_aot.cpp")
+file(COPY_FILE "${vu_overlay}/${vu_aot_path}" "${PS2_VU_AOT}" ONLY_IF_DIFFERENT)

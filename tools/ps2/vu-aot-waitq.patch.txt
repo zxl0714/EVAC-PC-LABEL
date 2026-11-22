@@ -1,0 +1,116 @@
+--- a/ps2xRecomp/src/vu_aot/ps2_vu_aot.cpp
++++ b/ps2xRecomp/src/vu_aot/ps2_vu_aot.cpp
+@@ -224,7 +224,7 @@
+     bool writeJitBlock(std::ostream &out, const std::vector<VU1Interpreter::DecodedInstructionPair> &decoded,
+                        uint32_t first, uint32_t end, uint32_t firstPair, const std::vector<bool> &unobserved,
+                        const std::vector<bool> &stickyOnly, const VU1Interpreter::BlockPlan &plan, uint32_t pcMask,
+-                       bool fast = false)
++                       bool fast = false, bool preserveBranchTarget = false)
+     {
+         using Vu = VU1Interpreter;
+         using J = Vu1Jit;
+@@ -434,7 +434,13 @@
+                 else if (pi.stickyFlags)
+                     up << "J::fmacSticky<" << hex32(upper) << ", " << static_cast<unsigned>(hints) << "u>(vu, ";
+                 else
+-                    up << "J::fmac<" << hex32(upper) << ", " << static_cast<unsigned>(hints) << "u>(vu, ";
++                {
++                    const auto op = ps2_vu1_detail::decodeFmacOperation(upper);
++                    const bool constantBroadcast = ps2_vu1_detail::FT(upper) == 0 &&
++                                                   op.right == ps2_vu1_detail::FmacOperation::Right::Broadcast;
++                    up << (constantBroadcast ? "J::fmacWithVf0<" : "J::fmac<") << hex32(upper) << ", "
++                       << static_cast<unsigned>(hints) << "u>(vu, ";
++                }
+                 up
+                    << (pi.upper.kind == J::Upper::FmacAcc ? std::string("acc") : upperTarget(pi.upper.target)) << ", " << fs
+                    << ", " << ft << ", acc" << (pi.stickyFlags ? ", stickySign, stickyZero" : "") << ");";
+@@ -629,6 +635,8 @@
+         storeAll("        ");
+         out << body.str();
+         const uint32_t lastPc = (firstPair + end - 1u) * 8u;
++        if (branchEnd && preserveBranchTarget)
++            out << "        if (taken) s.branchTarget = target;\n";
+         if (branchEnd)
+             out << "        s.pc = taken ? target : J::wrapPc(context, " << (lastPc + 8u) << "u);\n";
+         else
+@@ -752,6 +760,7 @@
+         // Recompiled blocks first: their pairs only run alone when a block cannot start (or a jump lands inside
+         // one), through the interpreter; compiling them pair by pair takes most of the build.
+         std::vector<std::string> jitText(fragment.pairCount);
++        auto emittedBlocks = blocks;
+         if (jitEnabled)
+             for (const auto &[first, end] : blocks)
+             {
+@@ -761,6 +770,48 @@
+                     continue;
+                 jitText[first] = jit.str();
+                 jitStart[first] = true;
++                if (vu0 || fast)
++                    continue;
++                // A register produced by the preceding block can become ready a few cycles
++                // after entry. If this prevents a long block from starting, retry at the
++                // first dependent pair, where blockReady can stall for that register.
++                auto addSuffix = [&](uint32_t entry) {
++                    if (jitStart[entry] || entry + 1 >= end)
++                        return;
++                    const auto suffix = Vu::planBlock(decoded.data() + entry, end - entry);
++                    std::ostringstream recovery;
++                    if (suffix.valid && writeJitBlock(recovery, decoded, entry, end, fragment.firstPair,
++                                                     unobserved, stickyOnly, suffix, pcMask, false, true))
++                    {
++                        emittedBlocks.emplace_back(entry, end);
++                        jitStart[entry] = true;
++                        jitText[entry] = recovery.str();
++                    }
++                };
++                uint32_t firstRegisterHazard = end;
++                for (uint32_t input = 0; input < plan.liveInCount; ++input)
++                {
++                    const auto& live = plan.liveIns[input];
++                    if (live.issue == 0)
++                        continue;
++                    const bool divide = live.kind == Vu::BlockLiveIn::Fdiv;
++                    const bool reg = live.kind == Vu::BlockLiveIn::Vf || live.kind == Vu::BlockLiveIn::Vi ||
++                                     live.kind == Vu::BlockLiveIn::Acc;
++                    if (!divide && !(reg && end - first >= 32u && live.issue < Vu::kMaxRegisterLatency - 1u))
++                        continue;
++                    for (uint32_t entry = first + 1; entry + 1 < end; ++entry)
++                    {
++                        if (plan.issue[entry - first] != live.issue)
++                            continue;
++                        if (divide && decoded[entry].lowerUsage.waitQ)
++                            addSuffix(entry);
++                        if (reg)
++                            firstRegisterHazard = std::min(firstRegisterHazard, entry);
++                        break;
++                    }
++                }
++                if (firstRegisterHazard < end)
++                    addSuffix(firstRegisterHazard);
+             }
+         std::vector<std::string> pairText(fragment.pairCount), blockText(fragment.pairCount);
+         for (uint32_t pair = 0; pair < fragment.pairCount; ++pair)
+@@ -782,7 +833,7 @@
+             pairText[pair] = out.str();
+         }
+         std::vector<bool> insideBlock(fragment.pairCount, false); // a pair after a block's first one
+-        for (const auto &[first, end] : blocks)
++        for (const auto &[first, end] : emittedBlocks)
+         {
+             for (uint32_t pair = first + 1u; pair < end; ++pair)
+                 insideBlock[pair] = true;
+@@ -797,6 +848,14 @@
+                 << "u);\n";
+             if (jitStart[first])
+                 out << "#if PS2X_VU1_JIT\n" << jitText[first] << "#endif\n";
++            if (!blockStart[first])
++            {
++                // The portable entry at this PC was a single interpreted pair.
++                out << "#if !PS2X_VU1_JIT\n    Vu::StepResult block" << id
++                    << "(Vu &vu, const Vu::RunContext &context) { return pair" << id << "(vu, context); }\n#endif\n";
++                blockText[first] = out.str();
++                continue;
++            }
+             // Without the JIT the block runs its pairs inlined in turn. Under the JIT a block it does not take runs
+             // its pairs alone (inlining them took minutes of the build for a few short blocks).
+             if (jitEnabled)

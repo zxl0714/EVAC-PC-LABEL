@@ -2,6 +2,20 @@
 #define EVAC_PS2_RUNTIME_MACROS_H
 
 #include "ps2_upstream_runtime_macros.h"
+#include <bit>
+
+namespace cave::ps2 {
+// The EE truncates CVT.W.S regardless of the host rounding mode.
+inline int32_t ConvertSingleToWord(float value) {
+    const auto bits = std::bit_cast<uint32_t>(value);
+    if ((bits & 0x7fffffffu) >= 0x4f000000u)
+        return (bits >> 31) ? INT32_MIN : INT32_MAX;
+    return static_cast<int32_t>(value);
+}
+}
+
+#undef FPU_CVT_W_S
+#define FPU_CVT_W_S(value) ::cave::ps2::ConvertSingleToWord(value)
 
 // Share the address checks and wrapping accesses across generated instructions.
 // Keep these helpers out of line: expanding them at every guest load/store
@@ -135,12 +149,24 @@ namespace cave::ps2 {
 // call site. Keep aliasing, wraparound and MMIO in the shared accessors.
 template<class T, auto SlowRead>
 static __forceinline T ReadGuestRam(uint8_t* rdram, R5900Context* ctx, PS2Runtime* runtime, uint32_t address) {
-    if (address > PS2_RAM_SIZE - sizeof(T)) [[unlikely]]
+    if (address > PS2_RAM_SIZE - sizeof(T)) [[unlikely]] {
+        if constexpr (sizeof(T) == 16) {
+            // Both scratchpad aliases support a full aligned quadword, including the last one.
+            const uint32_t offset = (address & 0x7fffffffu) - PS2_SCRATCHPAD_BASE;
+            if (offset < PS2_SCRATCHPAD_SIZE && (offset & 15u) == 0) {
+                T value;
+                std::memcpy(&value, runtime->memory().getScratchpad() + offset, sizeof(value));
+                return value;
+            }
+        }
         return SlowRead(rdram, ctx, runtime, address);
+    }
     T value;
     std::memcpy(&value, rdram + address, sizeof(value));
     return value;
 }
+#undef READ128
+#define READ128(addr) ::cave::ps2::ReadGuestRam<__m128i, ::cave::ps2::Read128>(rdram, ctx, runtime, uint32_t(addr))
 template<class T, auto SlowWrite>
 static __forceinline void WriteGuestRam(uint8_t* rdram, R5900Context* ctx, PS2Runtime* runtime,
                                         uint32_t address, T value, const char* operation) {

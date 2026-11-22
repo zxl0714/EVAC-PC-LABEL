@@ -71,6 +71,19 @@ void VoicesAndReset() {
             active+=std::any_of(pcm.begin(),pcm.end(),[](int16_t value){return value!=0;});
         }
         Require(active>=15,"A core/voice failed sustained loop playback");
+        if(voice == 0) {
+            // The other core shares sound RAM. Its DMA replaces the already
+            // decoded positive loop without stopping or re-keying this voice.
+            auto replacement = sample;
+            std::fill(replacement.begin() + 2, replacement.end(), 0x99);
+            Write(spu, 1-core, 0x19a, 0x8020);
+            SetAddress(spu, 1-core, 0x1a8, 0x5000);
+            TransferAll(spu, 1-core, replacement, true);
+            spu.Render(pcm);
+            spu.Render(pcm);
+            Require(std::all_of(pcm.begin(), pcm.end(), [](int16_t value) { return value < 0; }),
+                    "Playing voice kept a stale ADPCM block after cross-core DMA");
+        }
         Write(spu,core,0x1a4+(voice/16)*2,uint16_t(1u<<(voice%16)));
         for(unsigned block=0;block<16;++block)spu.Render(pcm);
         Require(std::all_of(pcm.begin(),pcm.end(),[](int16_t value){return value==0;}),
@@ -120,6 +133,28 @@ void AutoDmaBackpressure() {
         Require(spu.Transfer(core,data,true)==1024,"AutoDMA failed to resume after consumption");
     }
     std::cout<<"AutoDMA input backpressure and resume, both cores: PASS\n";
+}
+void VoiceVolumeSweeps() {
+    for (unsigned voices : {1u, 24u}) {
+        SpuDevice spu;
+        Write(spu, 0, 0x19a, 0x8000);
+        for (unsigned voice = 0; voice < voices; ++voice) {
+            Write(spu, 0, voice * 16, 0x0013);
+            Write(spu, 0, voice * 16, 0x8028); // Linear increase from the previous volume.
+            Write(spu, 0, voice * 16 + 2, 0x4001); // Fixed, phase-inverted volume.
+        }
+        std::array<int16_t, 34> pcm{};
+        const unsigned lastVoice = (voices - 1) * 16;
+        spu.Render(std::span(pcm).first(0));
+        Require(spu.Read16(Address(0, lastVoice + 12)) == 0x26, "Empty render advanced a volume sweep");
+        spu.Render(pcm);
+        const auto left = (0x13u * 0x20000 + 17u * 0x000e0504) >> 16;
+        Require(spu.Read16(Address(0, lastVoice + 12)) == left, "Volume sweep did not advance once per sample");
+        Require(spu.Read16(Address(0, lastVoice + 14)) == 0x7ffc, "Fixed phase-inverted volume differed");
+        Write(spu, 0, lastVoice, 0x0009);
+        spu.Render(pcm);
+        Require(spu.Read16(Address(0, lastVoice + 12)) == 18, "Fixed volume retained the previous sweep");
+    }
 }
 void IndependentAudioVolumes() {
     const auto render = [](unsigned streamVolume,unsigned voiceVolume) {
@@ -250,7 +285,7 @@ void PcmQueueContract() {
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench")Benchmark();
-        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();IndependentAudioVolumes();PcmQueueContract();PcmPlayoutContract();}
+        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();VoiceVolumeSweeps();IndependentAudioVolumes();PcmQueueContract();PcmPlayoutContract();}
         else throw std::invalid_argument("Expected no argument, or --bench");
         return 0;
     }

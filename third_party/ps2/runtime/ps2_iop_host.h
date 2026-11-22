@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 namespace ps2x::iop { class IopSubsystem; }
+namespace cave::ps2 { class IsoReadAhead; }
 class PS2Runtime;
 struct R5900Context;
 
@@ -116,6 +117,7 @@ private:
         uint64_t size = 0u;
         uint64_t base = 0u;
         uint64_t position = 0u;
+        std::unique_ptr<cave::ps2::IsoReadAhead> readAhead;
     };
     mutable std::mutex m_hostFileMutex;
     std::unordered_map<uint64_t, HostFile> m_hostFiles;

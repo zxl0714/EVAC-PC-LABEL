@@ -17,8 +17,8 @@
       "discSha256": "9a058df5aeb11ee54d0e726731f7096cbf823538671c1afaa765111ee1106a1a",
       "elfSha256": "9a058df5aeb11ee54d0e726731f7096cbf823538671c1afaa765111ee1106a1a",
       "map": "boot.csv.gz",
-      "mapSha256": "641bbd9865cd4b7c49d27924e80462699978dd68de2e2a20fbcdeb29e75a5685",
-      "rows": 19484,
+      "mapSha256": "86a9c3f2b08e385b5d1b4269dd02f98be47699c56185a380dbfe6daaedbaaaad",
+      "rows": 19488,
       "general": {
         "stubs": [
           "AddDmacHandler@0x00118570",
@@ -236,8 +236,8 @@
       "entry": 3235200,
       "elfSha256": "7c14650e999d3f69bb87ae54b451584f799af65d8bf7f0cda0ef53f0612b7011",
       "map": "bank-01.csv.gz",
-      "mapSha256": "78ffa1d80c3b09bea32557ebdb4313f6bec80632168f4e875c4279b97d8811f7",
-      "rows": 35556,
+      "mapSha256": "adea5a5d62eb656b7e83d9c384960e5968f0beba9a6ac0be84cfc2c17a2279c6",
+      "rows": 35558,
       "callbackTables": [
         [
           5196032,
@@ -269,13 +269,21 @@
       "entry": 6044032,
       "elfSha256": "0c087bddbe6af2eec772c3998a2c91af44eaecb116c3a8544b116239673dcccf",
       "map": "bank-04.csv.gz",
-      "mapSha256": "f8bd2e179e215b21021810c56580ccf39fbd8f1bae8982d2e3b1e85b1b4df6d9",
-      "rows": 1635,
+      "mapSha256": "5ae173412a5b14c946f549d0aadb77a5e3ff99421361b02d970242355cb8a799",
+      "rows": 1637,
       "callbackTables": [
+        [
+          6179968,
+          6179988
+        ],
         [
           6180000,
           6180040
         ]
+      ],
+      "objectCallbacks": [
+        6126016,
+        6126864
       ]
     },
     {
@@ -365,8 +373,11 @@
       "entry": 6044032,
       "elfSha256": "c666df35b0c0c7c8ca9133395f7ae297a3047253d1fa067f934e9f84f7fc315e",
       "map": "bank-10.csv.gz",
-      "mapSha256": "311cdd62b6936d2c9ae1dc1fd5dc8091cb99c242a685b504a00539bffdba1d38",
-      "rows": 2311
+      "mapSha256": "7cfbf6a9570fe9d4f2359a445c0edf3d5a8e3a3647a9c815d4c464ff7d00aada",
+      "rows": 2312,
+      "objectCallbacks": [
+        6108784
+      ]
     },
     {
       "name": "bank-11",
@@ -416,8 +427,8 @@
       "entry": 6044032,
       "elfSha256": "e44d7dbfa545c3a756287c1df865786def32bc8c2f5044b2441cc5375c8f86af",
       "map": "bank-13.csv.gz",
-      "mapSha256": "9845cda9afb9b71c5a3e6374a43699eb8995a951a94b3093e17b9fde06e6c688",
-      "rows": 775
+      "mapSha256": "58518b169d82093a671f2742caddf5c84aed922adbe61076e274372558924895",
+      "rows": 776
     },
     {
       "name": "bank-14",
@@ -446,8 +457,18 @@
       "entry": 6044032,
       "elfSha256": "1cf9de770519ab4a3be22f63316119aef0eb7b2bafeb00561df422f489063b9e",
       "map": "bank-15.csv.gz",
-      "mapSha256": "f8859426f3e61086a8b5fc47e8dcd91ae0333d0c861a62d1359a063b239eb38e",
-      "rows": 1089
+      "mapSha256": "993d35437893785c327c8afdb04f69cc163d1584cdc87efc4c7f61afd8ad1b87",
+      "rows": 1092,
+      "objectCallbacks": [
+        6098656,
+        6099664
+      ],
+      "callbackTables": [
+        [
+          6249736,
+          6249748
+        ]
+      ]
     },
     {
       "name": "bank-17",
@@ -461,8 +482,12 @@
       "entry": 6044032,
       "elfSha256": "5795e9b82ac5acdf6d7eaf64ea52407037dc5326798ec186bc7476d9b0b11053",
       "map": "bank-17.csv.gz",
-      "mapSha256": "a9f49a671be8d11831086a920d0b12c049e7d0790230618988d96be55d781f60",
-      "rows": 812
+      "mapSha256": "49e5992f320d606136ae652eebace03d11f2cc1ea22c9addc767107720ffdd31",
+      "rows": 814,
+      "objectCallbacks": [
+        6072000,
+        6086080
+      ]
     },
     {
       "name": "bank-18",
@@ -476,8 +501,11 @@
       "entry": 6044032,
       "elfSha256": "0ea7a702a30a599cf38a0cf5f4f1ca1a3ff49d568cf52798bd8f54b46fcf6f91",
       "map": "bank-18.csv.gz",
-      "mapSha256": "1f9a194d7289ef5ecaf16adb383fb8b72ccf6b2deb3a135f5b8fae27226e2321",
-      "rows": 1785
+      "mapSha256": "6f73f3f8ba588a96f8ada4c4950e9e057a2059fef3adb52eece4e6fe36707142",
+      "rows": 1789,
+      "objectCallbacks": [
+        6123024
+      ]
     },
     {
       "name": "bank-19",
@@ -491,8 +519,8 @@
       "entry": 6044032,
       "elfSha256": "4444c69e789c26dbd74c616c258ad86dc453e8d2e90e211ca64ba6a7bc7b2059",
       "map": "bank-19.csv.gz",
-      "mapSha256": "bfe7f5e8245722e9865fab80ae8c0aa1c85f0a3b31377978130b9ad8f610d89a",
-      "rows": 1466
+      "mapSha256": "a786b23992832eb66edd42597a1447a7c731e7c45332a13c1e649255b6a16d33",
+      "rows": 1470
     },
     {
       "name": "bank-20",
@@ -506,8 +534,8 @@
       "entry": 6044032,
       "elfSha256": "4931a359b2fdcb7a8fcb16cc8bdfc93c112bb665943d2e4f4c9806a5640e6a46",
       "map": "bank-20.csv.gz",
-      "mapSha256": "d9b24c603909fa90156a1b6fd185c2639c8a818b7ae8bb8b53d3ca5b98ad18eb",
-      "rows": 436
+      "mapSha256": "d27807c55fde7c260d5399540381455ebfa31534e6522e1100fe6171038d2ea4",
+      "rows": 437
     },
     {
       "name": "bank-21",

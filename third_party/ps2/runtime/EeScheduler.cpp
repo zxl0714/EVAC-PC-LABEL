@@ -160,52 +160,63 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
     publishSnapshot();
 }
 
+GuestThread *EeScheduler::threadForDispatch(GuestThread *previous)
+{
+    // Consecutive translated blocks often belong to the same guest thread.
+    // A notified GS posts its completions to the event queue. A polling GS
+    // and a pending display flip still need service at each dispatch.
+    if (previous && m_gsStatusNotifications && !m_pendingScanoutTick && !m_deferredVBlank &&
+        !m_pendingEeTimerInterrupts && !m_rescheduleRequested && !m_checkpointPending.load(std::memory_order_acquire))
+    {
+        const uint64_t deadline = m_nextDeadlineCycle.load(std::memory_order_acquire);
+        if (deadline == 0 || m_eeCycle < deadline)
+            return previous;
+    }
+
+    processPendingEvents();
+    if (m_stopRequested.load(std::memory_order_acquire))
+        return nullptr;
+    if (m_currentThreadId == 0)
+    {
+        if (GuestThread *next = selectReady())
+        {
+            makeRunning(*next);
+            return next;
+        }
+        if (m_pendingInvocations.empty())
+        {
+            copyMainContextToRuntime();
+            publishIdleDebugContext();
+            publishSnapshot();
+            waitForEvent();
+            return nullptr;
+        }
+        GuestThread &owner = acquireInvocationThread();
+        GuestInvocation invocation = std::move(m_pendingInvocations.front());
+        m_pendingInvocations.pop_front();
+        owner.status = EeThreadStatus::Running;
+        m_currentThreadId = owner.id;
+        renewTimeSlice();
+        if (getRegU32(&invocation.context, 29) == 0u)
+            SET_GPR_U32(&invocation.context, 29, invocationStackTop());
+        owner.invocations.push_back(std::move(invocation));
+        return &owner;
+    }
+    return currentThread();
+}
+
 void EeScheduler::run()
 {
     assertExecutor();
     m_running.store(true, std::memory_order_release);
-
+    GuestThread *previous = nullptr;
     while (!m_stopRequested.load(std::memory_order_acquire))
     {
-        processPendingEvents();
-        if (m_stopRequested.load(std::memory_order_acquire))
-        {
-            break;
-        }
-
-        if (m_currentThreadId == 0)
-        {
-            GuestThread *next = selectReady();
-            if (!next && m_pendingInvocations.empty())
-            {
-                copyMainContextToRuntime();
-                publishIdleDebugContext();
-                publishSnapshot();
-                waitForEvent();
-                continue;
-            }
-            if (next)
-            {
-                makeRunning(*next);
-            }
-            else
-            {
-                GuestThread *owner = &acquireInvocationThread();
-                GuestInvocation invocation = std::move(m_pendingInvocations.front());
-                m_pendingInvocations.pop_front();
-                owner->status = EeThreadStatus::Running;
-                m_currentThreadId = owner->id;
-                renewTimeSlice();
-                if (getRegU32(&invocation.context, 29) == 0u)
-                {
-                    SET_GPR_U32(&invocation.context, 29, invocationStackTop());
-                }
-                owner->invocations.push_back(std::move(invocation));
-            }
-        }
-
-        GuestThread *running = currentThread();
-        assert(running != nullptr);
+        GuestThread *running = threadForDispatch(previous);
+        previous = nullptr;
+        if (!running)
+            continue;
+        const int ownerId = running->id;
         if (running->resumeCompletion)
         {
             auto completion = std::move(running->resumeCompletion);
@@ -322,10 +333,10 @@ void EeScheduler::run()
             throw;
         }
 
-        // The next iteration drains events and applies preemption before
-        // selecting a guest thread. Preserve the final drain on shutdown.
         if (m_stopRequested.load(std::memory_order_acquire))
             processPendingEvents();
+        else if (m_currentThreadId == ownerId)
+            previous = running;
     }
 
     m_guestExecuting.store(false, std::memory_order_release);

@@ -309,7 +309,17 @@ public:
 
     // EE timers advance from the scheduler's emulated EE-cycle clock. The
     // returned mask uses bits 0..3 for newly raised TIM0..TIM3 interrupts.
-    uint32_t advanceEeTimers(uint64_t eeCycles) noexcept;
+    uint32_t advanceEeTimers(uint64_t eeCycles) noexcept
+    {
+        // Most EE checkpoints fall before the next timer interrupt. Comparing
+        // the remaining cycles also avoids overflowing the accumulated count.
+        if (!m_gifFqcPending && eeCycles < m_eeTimerInterruptDeadline - m_eeTimerPendingCycles)
+        {
+            m_eeTimerPendingCycles += eeCycles;
+            return 0u;
+        }
+        return advanceEeTimersAtBoundary(eeCycles);
+    }
     [[nodiscard]] uint64_t cyclesUntilNextEeTimerInterrupt() const noexcept;
     void resetEeTimers() noexcept;
 
@@ -470,6 +480,7 @@ public:
     uint64_t m_eeTimerPendingCycles = 0u;
     uint64_t m_eeTimerInterruptDeadline = UINT64_MAX;
     uint32_t advanceEeTimersNow(uint64_t eeCycles) noexcept;
+    uint32_t advanceEeTimersAtBoundary(uint64_t eeCycles) noexcept;
     uint32_t synchronizeEeTimers() noexcept;
     [[nodiscard]] uint64_t computeEeTimerInterruptDeadline() const noexcept;
     bool tryProcessScratchpadDma(uint32_t channelBase, uint32_t chcr);

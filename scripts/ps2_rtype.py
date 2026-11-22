@@ -148,6 +148,11 @@ def prepare(iso, output):
 
 
 def verify_callbacks(item, image, table):
+    # Object constructors also install some callbacks directly into writable
+    # object fields. These addresses never appear in a static pointer table.
+    for target in item.get('objectCallbacks', []):
+        if target not in table:
+            raise ValueError(f'{item["name"]} object callback {target:#x} has no native entry')
     intervals = item.get('callbackTables', [])
     if not intervals:
         return

@@ -134,11 +134,10 @@ namespace ps2x::iop::detail
             nextModuleId = 1;
             moduleCursor = kModuleLoadBase;
             totalCycles = 0;
-            requestedCycles = 0;
+            requestedEeCycles = 0;
             idleUntil = 0;
             totalInstructions = 0;
             profile.Reset();
-            eeCycleCarry = 0;
             activeCpu = nullptr;
             lastError.clear();
             missingImportCounts.clear();
@@ -651,15 +650,13 @@ namespace ps2x::iop::detail
             servicingGuestCallbacks = false;
         }
 
-        void runCycles(uint64_t cycles) noexcept
+        void runToCycle(uint64_t target) noexcept
         {
             // EE slices, synchronous RPCs, module entries and interrupt
-            // callbacks all share one IOP clock. A call outside runCycles can
+            // callbacks all share one IOP clock. A call outside runToCycle can
             // already have advanced it: repay that work before running more.
             // A relative slice/debt only sees callbacks inside this method
             // and silently adds every external RPC's cost to the audio rate.
-            requestedCycles += cycles;
-            const uint64_t target = requestedCycles;
             if(totalCycles>=target)return;
             try
             {
@@ -847,12 +844,11 @@ namespace ps2x::iop::detail
         uint32_t nextModuleId = 1;
         uint32_t moduleCursor = kModuleLoadBase;
         uint64_t totalCycles = 0;
-        uint64_t requestedCycles = 0;
+        uint64_t requestedEeCycles = 0;
         uint64_t idleUntil = 0;
         uint64_t nextTimerCycle = UINT64_MAX;
         uint64_t totalInstructions = 0;
         cave::ps2::IopProfile profile;
-        uint64_t eeCycleCarry = 0;
         CpuState *activeCpu = nullptr;
         std::string lastError;
         std::map<std::string, uint64_t> missingImportCounts;
@@ -901,20 +897,20 @@ namespace ps2x::iop::detail
 
     void IopEmulator::runEeCycles(uint64_t eeCycles) noexcept
     {
-        const uint64_t total = m_impl->eeCycleCarry + eeCycles;
-        const uint64_t iopCycles = total / 8u;
-        m_impl->eeCycleCarry = total % 8u;
-        if (!iopCycles) return;
-        const uint64_t target = m_impl->requestedCycles + iopCycles;
+        // One IOP cycle spans eight EE cycles. Keeping the absolute EE timestamp
+        // preserves fractional advances, even when an RPC has run the IOP ahead.
+        const uint64_t previous = m_impl->requestedEeCycles;
+        m_impl->requestedEeCycles += eeCycles;
+        const uint64_t target = m_impl->requestedEeCycles / 8u;
+        if (target == previous / 8u) return;
         // A sleeping IOP cannot observe a partial advance before its next
         // event. Preserve time already spent inside synchronous callbacks.
         if (target <= m_impl->idleUntil || target <= m_impl->totalCycles)
         {
-            m_impl->requestedCycles = target;
             m_impl->totalCycles = std::max(m_impl->totalCycles, target);
             return;
         }
-        m_impl->runCycles(iopCycles);
+        m_impl->runToCycle(target);
     }
 
     void IopEmulator::setAudioVolumes(unsigned stream, unsigned voices) noexcept

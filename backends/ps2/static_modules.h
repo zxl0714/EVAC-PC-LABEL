@@ -20,6 +20,10 @@ struct StaticModule {
 class StaticModules {
 public:
   void add(std::span<const uint8_t> memory,const StaticModule& module);
+  // The enclosing range can contain gaps. A hit still requires a live module header.
+  bool mayContain(uint32_t address) const noexcept {
+    return address>=firstAddress_ && address<lastAddress_;
+  }
   const StaticModule* selected(uint32_t address) const;
   Function lookup(uint32_t address) const;
   void clear();

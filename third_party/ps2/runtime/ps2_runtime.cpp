@@ -1168,8 +1168,11 @@ void PS2Runtime::registerStaticModule(const cave::ps2::StaticModule &module)
 
 PS2Runtime::RecompiledFunction PS2Runtime::findFunction(uint32_t address) const
 {
-    if (const auto module = m_staticModules.lookup(address))
-        return module;
+    if (m_staticModules.mayContain(address))
+    {
+        if (const auto module = m_staticModules.lookup(address))
+            return module;
+    }
     uint32_t slot = 0;
     return generatedFunctionTableSlot(address, slot) ? m_program.functions[slot] : nullptr;
 }
@@ -1471,7 +1474,7 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
     }
 
     pushDispatchPc(targetPc);
-    const auto* callerModule = m_staticModules.selected(sourcePc);
+    const auto* callerModule = m_staticModules.mayContain(sourcePc) ? m_staticModules.selected(sourcePc) : nullptr;
     targetFn(rdram, ctx, this);
 
     if (isStopRequested() || ctx->pc == 0u)

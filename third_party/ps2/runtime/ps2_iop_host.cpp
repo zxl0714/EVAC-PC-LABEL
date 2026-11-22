@@ -21,6 +21,7 @@
 #include <utility>
 #include <fstream>
 #include "../../../backends/ps2/iso_disc.h"
+#include "../../../backends/ps2/iso_read_ahead.h"
 #include "../../../backends/ps2/frame_trace.h"
 
 #if !defined(_WIN32)
@@ -412,7 +413,10 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
     {
         handle = m_nextHostFileHandle++;
     }
-    m_hostFiles.emplace(handle, HostFile{stream, size, base});
+    HostFile file{stream, size, base, 0u, {}};
+    if (hostPath == paths.cdImage)
+        file.readAhead = cave::ps2::IsoReadAhead::Open(stream, size);
+    m_hostFiles.emplace(handle, std::move(file));
     return handle;
 }
 
@@ -451,6 +455,11 @@ bool PS2IopHostAdapter::readHostFile(uint64_t handle,
 
     size = size_t(std::min<uint64_t>(size, it->second.size - std::min(offset, it->second.size)));
     offset += it->second.base;
+    if (it->second.readAhead && it->second.readAhead->TryRead(offset, destination, size))
+    {
+        bytesRead = size;
+        return true;
+    }
     if (it->second.position != offset)
     {
 #if defined(_WIN32)

@@ -10,6 +10,7 @@
 #include "gs_device_sink.h"
 #include "gs_trace.h"
 #include "ready_scanout.h"
+#include "vif1_dma_worker.h"
 #include "../ps4/input/keyboard_config.h"
 #include "../ps4/input/sdl_gamepad.h"
 #include "ps2_runtime.h"
@@ -315,7 +316,14 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         };
     }
     std::thread producer([&]{
-        try{execute();}catch(...){executionFailure=std::current_exception();}
+        try {
+            std::optional<Vif1DmaWorker> vif1;
+            if (impl->options.gameId == "rtype-final") {
+                try { vif1.emplace(runtime.memory()); }
+                catch (const std::system_error&) { /* Run synchronously on the EE. */ }
+            }
+            execute();
+        } catch (...) { executionFailure=std::current_exception(); }
         finished.store(true,std::memory_order_release);
     });
     try {

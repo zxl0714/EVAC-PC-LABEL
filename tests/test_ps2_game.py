@@ -12,9 +12,18 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import ps2_game
+import ps2_rtype
 
 
 class Ps2GameTests(unittest.TestCase):
+    def test_rtype_stage_one_object_callbacks_are_in_their_own_bank(self):
+        stage = next(item for item in ps2_rtype.metadata()['programs'] if item.get('bank') == 4)
+        callbacks = {0x5d79c0, 0x5d7d10}
+        rows = csv.DictReader(io.StringIO(ps2_game.read_map(ps2_rtype.METADATA.parent, stage).decode()))
+        entries = {int(row['Start'], 0) for row in rows}
+        self.assertTrue(callbacks <= entries)
+        self.assertTrue(callbacks <= set(stage['objectCallbacks']))
+
     def test_boot_transform_callback_table_is_linked(self):
         spec=ps2_game.load_metadata()['modules'][0]
         required={int(pc,0) for pc in spec['extra']['requiredEntries']}

@@ -154,6 +154,26 @@ void AdjacentGifAndWraparound() {
     const auto stats=queue.GetStats();
     Require(stats.submitted==40 && stats.completed==40 && !stats.pendingBytes,"GIF completion accounting changed");
 }
+void ReusedBurstRanges() {
+    GsCommandQueue queue;
+    Consumer sink;
+    constexpr unsigned count = 384;
+    std::vector<uint8_t> bytes(count * 16);
+    std::vector<GifTransferRange> ranges(count);
+    std::vector<unsigned> expected;
+    for (unsigned round = 0; round < 3; ++round) {
+        for (unsigned group = 0; group < 4; ++group) {
+            const auto path = ((round + group) % 2) ? GifPathId::Path1 : GifPathId::Path2;
+            std::fill(ranges.begin(), ranges.end(), GifTransferRange{path, 16});
+            for (unsigned i = 0; i < count; ++i) bytes[16 * i + 9] = 0x42;
+            queue.GifBurst(ranges, bytes);
+            expected.insert(expected.end(), count, 10u + unsigned(path));
+            std::fill(bytes.begin(), bytes.end(), 0);
+        }
+        while (queue.ConsumeOne(sink, 0ms)) {}
+    }
+    Require(sink.order == expected, "Reused GIF storage corrupted an outstanding burst");
+}
 void NonblockingField() {
     GsCommandQueue queue(32,1);Consumer sink;unsigned wakes=0;
     queue.SetFrameNotifier([&]{++wakes;});
@@ -170,7 +190,7 @@ void NonblockingField() {
 }
 }
 int main() {
-    try{AdjacentGifAndWraparound();OwnedGifBurst();OwnedPayloadAndReplies();BackpressureAndClose();FrameAndFailure();ClosePendingReadAndOwner();CloseActiveRead();NonblockingField();
+    try{AdjacentGifAndWraparound();ReusedBurstRanges();OwnedGifBurst();OwnedPayloadAndReplies();BackpressureAndClose();FrameAndFailure();ClosePendingReadAndOwner();CloseActiveRead();NonblockingField();
         std::cout<<"GS queue owned payloads, order, bounds, frame barrier, failure and shutdown: PASS\n";return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

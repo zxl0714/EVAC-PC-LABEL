@@ -32,7 +32,7 @@ void StaticModules::add(std::span<const uint8_t> memory,const StaticModule& modu
 }
 
 const StaticModule* StaticModules::selected(uint32_t address) const {
-  if((address&3) || address<firstAddress_ || address>=lastAddress_)return nullptr;
+  if((address&3) || !mayContain(address))return nullptr;
   const auto matches=[&](const StaticModule& module) {
     const uint32_t begin=module.address+64;
     if(address-begin>=module.textSize)return false;

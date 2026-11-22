@@ -36,6 +36,22 @@ int main(int argc,char** argv) {
             }
             return 0;
         }
+        // Compare the generated quadword access with the runtime, including both alias endpoints and alignment faults.
+        for (const uint32_t base : {PS2_SCRATCHPAD_BASE, PS2_SCRATCHPAD_ALIAS_BASE}) {
+            for (const uint32_t offset : {0u, 16u, PS2_SCRATCHPAD_SIZE-16u, PS2_SCRATCHPAD_SIZE-1u}) {
+                auto* runtime = &state;
+                const auto address = base + offset;
+                for (unsigned i = 0; i < 16; ++i)
+                    state.memory().getScratchpad()[(offset + i) % PS2_SCRATCHPAD_SIZE] = uint8_t(i + 1);
+                R5900Context expected{}, actual{};
+                expected.pc = actual.pc = 0x123454u;
+                auto* ctx = &actual;
+                const auto direct = state.Load128(rdram, &expected, address);
+                const auto generated = READ128(address);
+                if (std::memcmp(&direct, &generated, sizeof(direct)) || std::memcmp(&expected, &actual, sizeof(actual)))
+                    throw std::runtime_error("Scratchpad quadword load or exception differs");
+            }
+        }
         unsigned comparisons{};
         for(const auto& fixture:kMemoryFixtures)
             for(uint32_t address : {0x100u,0x80000100u,0xa0000100u,0x1fffffdu,0x1ffffffu,0x70000110u}) {

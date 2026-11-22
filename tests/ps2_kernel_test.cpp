@@ -6,6 +6,7 @@
 #include "runtime/ee_scheduler.h"
 #include "ps2_iso_fixture.h"
 #include <array>
+#include <bit>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -75,6 +76,17 @@ void Require(bool value,const char* message) {
 }
 int32_t Result(const R5900Context& context) {
   return static_cast<int32_t>(getRegU32(&context,2));
+}
+void FloatToWord() {
+  Require(FPU_CVT_W_S(100.0f / (100.1f / 5.0f)) == 4,
+          "R-Type Final full charge crossed the last wave-cannon threshold");
+  Require(FPU_CVT_W_S(-4.99f) == -4 && FPU_CVT_W_S(0.99f) == 0,
+          "EE float conversion must truncate toward zero");
+  for (const uint32_t magnitude : {0x4f000000u, 0x7f800000u, 0x7fc00001u}) {
+    Require(FPU_CVT_W_S(std::bit_cast<float>(magnitude)) == INT32_MAX &&
+            FPU_CVT_W_S(std::bit_cast<float>(magnitude | 0x80000000u)) == INT32_MIN,
+            "EE float conversion lost signed saturation");
+  }
 }
 void VuMicrocodeUpdates(PS2Runtime& runtime) {
   constexpr uint32_t lowerNop=0x8000033c, upperNop=0x000002ff, end=0x40000000;
@@ -246,6 +258,9 @@ void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBla
   auto& scheduler=runtime->eeScheduler();
   scheduler.setScanoutAfterDisplayFlip(waitForFlip);
   scheduler.reset(runtime->memory().getRDRAM(),{});
+  scheduler.setGsStatusNotifications(true);
+  auto* running=scheduler.threadForDispatch(nullptr);
+  Require(running && scheduler.threadForDispatch(running)==running,"Lost running thread between dispatches");
   scheduler.m_hostClockOrigin-=std::chrono::seconds(1);
   // No guest executes here. Advance the two edges separately and flip DISPFB
   // between them, just as a game responding to the start interrupt would.
@@ -258,7 +273,7 @@ void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBla
   runtime->memory().gs().pmode=2;
   runtime->memory().gs().dispfb2=0x1400;
   scheduler.m_eeCycle=start;
-  scheduler.processDueDeadlines();
+  running=scheduler.threadForDispatch(running);
   const auto shift=scheduler.m_hostClockOrigin-oldOrigin;
   auto wake=std::find_if(scheduler.m_deadlines.begin(),scheduler.m_deadlines.end(),
       [](const auto& entry){return entry.event.type==EeEventType::ExternalWake;});
@@ -267,16 +282,16 @@ void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBla
           "A host stall must rebase all future deadlines without skipping guest time");
   Require(scheduler.currentVSyncTick()==1 && sink->frames.size()==(waitForFlip?0u:1u),"Wrong start-of-blank latch");
   if(flipDuringBlank)runtime->memory().gs().dispfb2=0x1446;
-  scheduler.processPendingEvents();
+  running=scheduler.threadForDispatch(running);
   Require(sink->frames.size()==(!waitForFlip || flipDuringBlank?1u:0u),"Did not use the completed display flip");
   sink->busy=true;
   const auto end=std::min_element(scheduler.m_deadlines.begin(),scheduler.m_deadlines.end(),
       [](const auto& a,const auto& b){return a.deadlineCycle<b.deadlineCycle;});
   scheduler.m_eeCycle=end->deadlineCycle;
-  scheduler.processDueDeadlines();
+  running=scheduler.threadForDispatch(running);
   Require(scheduler.m_deferredVBlank.has_value()==(waitForFlip && !flipDuringBlank),"Busy field was lost or deferred twice");
   sink->busy=false;
-  scheduler.processDueDeadlines();
+  Require(scheduler.threadForDispatch(running)!=nullptr,"Lost running thread on scanout retry");
   Require(!scheduler.m_deferredVBlank && sink->frames.size()==1 && sink->frames[0].vsyncTick==1 &&
           sink->frames[0].field==1 && sink->frames[0].dispfb2==(waitForFlip && flipDuringBlank?0x1446u:0x1400u),
           "Wrong framebuffer, field parity or duplicate after scanout retry");
@@ -289,7 +304,10 @@ int main(int argc,char** argv) {
     if(argc==5 && std::string_view(argv[1])=="--replay-dma") {
       ReplayPrivateDma(argv[2],argv[3],argv[4]);return 0;
     }
-    if (argc == 1) VifDmaBurst();
+    if (argc == 1) {
+      FloatToWord();
+      VifDmaBurst();
+    }
     PS2Runtime runtime;
     if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
@@ -298,6 +316,8 @@ int main(int argc,char** argv) {
     EeSchedulerClockTest::CheckDisplayFlip(true,true);
     EeSchedulerClockTest::CheckDisplayFlip(true,false);
     DmaLongChain();
+    VifTagPayloads();
+    VifDmaWorkerOrdering();
     EeTimerArithmetic(runtime.memory());
     EeTimerDeferredEquivalence();
     ExplicitIoRoots(runtime);

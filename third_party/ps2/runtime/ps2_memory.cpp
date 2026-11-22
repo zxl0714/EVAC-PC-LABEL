@@ -4,6 +4,7 @@
 #include "runtime/gs/gs_frontend.h"
 #include "ps2_log.h"
 #include "../../../backends/ps2/input_trace.h"
+#include "../../../backends/ps2/vif1_dma_worker.h"
 #include <atomic>
 #include <cstring>
 #include <limits>
@@ -411,7 +412,7 @@ void PS2Memory::resetEeTimers() noexcept
     m_eeTimerInterruptDeadline = std::numeric_limits<uint64_t>::max();
 }
 
-uint32_t PS2Memory::advanceEeTimers(uint64_t eeCycles) noexcept
+uint32_t PS2Memory::advanceEeTimersAtBoundary(uint64_t eeCycles) noexcept
 {
     if (eeCycles == 0u)
     {
@@ -1138,6 +1139,14 @@ void PS2Memory::write128(uint32_t address, __m128i value)
 
 bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
 {
+    // Other DMA channels reuse the same scratch buffer between VIF1 starts.
+    // Route by channel and transfer mode, independent of their payload sizes.
+    if (address == 0x10009000u && (value & 0x10du) == 0x105u && m_rawGifTransfers &&
+        m_pendingGifTransfers.empty() && m_pendingVif0Transfers.empty() && m_pendingVif1Transfers.empty())
+    {
+        if (auto* worker = cave::ps2::Vif1DmaWorker::For(*this))
+            return worker->Submit(value);
+    }
     size_t timerIndex = 0u;
     uint32_t timerOffset = 0u;
     if (decodeEeTimerRegister(address, timerIndex, timerOffset))
@@ -1377,16 +1386,33 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                     const bool tieEnabled = (chcr & (1u << 7)) != 0u;
                     DmaChainGuard chainGuard;
                     auto &chainBuf = m_dmaChainScratch;
-                    chainBuf.clear();
+                    size_t written = 0;
+                    // The last completed chain left live bytes in the scratch
+                    // vector. Overwrite them before growing the vector.
+                    auto appendBytes = [&](const uint8_t *source, size_t count)
+                    {
+                        const size_t available = chainBuf.size() - written;
+                        if (count <= available)
+                        {
+                            std::memcpy(chainBuf.data() + written, source, count);
+                        }
+                        else
+                        {
+                            if (available)
+                                std::memcpy(chainBuf.data() + written, source, available);
+                            chainBuf.insert(chainBuf.end(), source + available, source + count);
+                        }
+                        written += count;
+                    };
 
                     auto appendData = [&](uint32_t srcAddr, uint32_t qwCount)
                     {
                         const uint64_t bytes64 = static_cast<uint64_t>(qwCount) * 16ull;
                         chainGuard.Append(static_cast<size_t>(bytes64));
                         uint32_t bytes = (bytes64 > 0xFFFFFFFFull) ? 0xFFFFFFFFu : static_cast<uint32_t>(bytes64);
-                        const bool scratch = isScratchpad(srcAddr);
-                        uint32_t src = 0;
-                        src = translateAddress(srcAddr);
+                        const bool linear = srcAddr < PS2_RAM_SIZE || Ps2IsUncachedRamMirrorAddress(srcAddr);
+                        const bool scratch = !linear && isScratchpad(srcAddr);
+                        uint32_t src = linear ? (srcAddr & PS2_RAM_MASK) : translateAddress(srcAddr);
                         const uint8_t *base2;
                         uint32_t maxSz2;
                         if (scratch)
@@ -1409,27 +1435,10 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                                 chunk = maxSz2 - src;
                             if (chunk == 0)
                                 break;
-                            chainBuf.insert(chainBuf.end(), base2 + src, base2 + src + chunk);
+                            appendBytes(base2 + src, chunk);
                             bytes -= chunk;
                             src += chunk;
                         }
-                    };
-
-                    auto appendVifTagData = [&](uint32_t localTagAddr)
-                    {
-                        uint32_t tagPhys = 0u;
-                        const bool tagScratch = isScratchpad(localTagAddr);
-                        tagPhys = translateAddress(localTagAddr);
-
-                        const uint8_t *localBase = tagScratch ? m_scratchpad : m_rdram;
-                        const uint32_t localMax = tagScratch ? PS2_SCRATCHPAD_SIZE : PS2_RAM_SIZE;
-                        if (tagPhys + 16u > localMax)
-                            return;
-
-                        // CHCR.TTE sends the DMAtag's upper 64 bits to the channel before
-                        // the tag payload. VIF chains use those bytes for two VIFcodes.
-                        chainGuard.Append(8);
-                        chainBuf.insert(chainBuf.end(), localBase + tagPhys + 8u, localBase + tagPhys + 16u);
                     };
 
                     const bool isVifChannel =
@@ -1442,11 +1451,12 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                     {
                         chainGuard.Visit(tagAddr,asp,asr0,asr1);
                         const uint32_t currentTagAddr = tagAddr;
-                        const bool tagInSPR = isScratchpad(tagAddr);
+                        const bool linearRam = tagAddr < PS2_RAM_SIZE || Ps2IsUncachedRamMirrorAddress(tagAddr);
+                        const bool tagInSPR = !linearRam && isScratchpad(tagAddr);
                         uint32_t physTag = 0;
                         try
                         {
-                            physTag = translateAddress(tagAddr);
+                            physTag = linearRam ? (tagAddr & PS2_RAM_MASK) : translateAddress(tagAddr);
                         }
                         catch (...)
                         {
@@ -1464,7 +1474,7 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                             tagBase = m_rdram;
                             tagMax = PS2_RAM_SIZE;
                         }
-                        if (physTag + 16 > tagMax)
+                        if (physTag > tagMax - 16u)
                             break;
 
                         const uint8_t *tp = tagBase + physTag;
@@ -1543,11 +1553,25 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                             break;
                         }
 
-                        if (transferTagData)
-                            appendVifTagData(currentTagAddr);
-
-                        if (hasPayload)
-                            appendData(dataAddr, tagQwc);
+                        const uint32_t payloadBytes = uint32_t(tagQwc) * 16u;
+                        if (transferTagData && hasPayload && dataAddr == currentTagAddr + 16u &&
+                            linearRam && payloadBytes <= PS2_RAM_SIZE - (physTag + 16u))
+                        {
+                            // With TTE, the two VIF commands in the upper half
+                            // of the tag and an inline payload form one span.
+                            chainGuard.Append(8u + payloadBytes);
+                            appendBytes(tp + 8u, 8u + payloadBytes);
+                        }
+                        else
+                        {
+                            if (transferTagData)
+                            {
+                                chainGuard.Append(8u);
+                                appendBytes(tp + 8u, 8u);
+                            }
+                            if (hasPayload)
+                                appendData(dataAddr, tagQwc);
+                        }
                         if (irq && tieEnabled)
                             endChain = true;
                         if (endChain)
@@ -1561,6 +1585,7 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
                     chcr = (chcr & 0x0000FFFFu) | (lastTagUpper << 16);
                     m_ioRegisters[channelBase + 0x00] = chcr;
 
+                    chainBuf.resize(written);
                     if (!chainBuf.empty())
                     {
                         PendingTransfer pt;
@@ -1700,7 +1725,6 @@ void PS2Memory::processPendingTransfers()
     const auto recycleChain = [this](std::vector<uint8_t> &chain) {
         if (chain.capacity() > m_dmaChainScratch.capacity() && chain.capacity() <= PS2_RAM_SIZE)
         {
-            chain.clear();
             m_dmaChainScratch.swap(chain);
         }
     };

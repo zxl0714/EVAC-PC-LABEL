@@ -47,6 +47,15 @@ public:
     std::condition_variable readable,writable;
     std::vector<Command> slots;
     size_t readSlot = 0, writeSlot = 0, unread = 0;
+    // A burst often exceeds the per-slot allowance. Reuse a few across slots
+    // so the producer need not wait for the ring to wrap to reuse storage.
+    struct BurstStorage {
+        std::vector<uint8_t> bytes;
+        std::vector<GifTransferRange> ranges;
+    };
+    std::array<BurstStorage, 8> freeBursts;
+    size_t freeBurstCount = 0;
+    size_t burstStorageLimit() const { return std::min<size_t>(32 * 1024, capacityBytes / 16); }
     Stats stats;
     std::exception_ptr failure;
     struct Active {
@@ -71,6 +80,12 @@ public:
         auto& slot = slots[writeSlot];
         command.bytes.swap(slot.bytes);
         command.ranges.swap(slot.ranges);
+        if (command.kind == Kind::GifBurst && freeBurstCount &&
+            payload.size() > command.bytes.capacity() && payload.size() <= burstStorageLimit()) {
+            auto& storage = freeBursts[--freeBurstCount];
+            command.bytes.swap(storage.bytes);
+            command.ranges.swap(storage.ranges);
+        }
         command.bytes.assign(payload.begin(), payload.end());
         command.ranges.assign(ranges.begin(), ranges.end());
         command.serial = stats.submitted + 1;
@@ -235,6 +250,11 @@ bool GsCommandQueue::ConsumeOne(GsCommandBackend& consumer,std::chrono::millisec
                 impl->slots[slotIndex].serial == command.serial) {
                 impl->slots[slotIndex].bytes.swap(command.bytes);
                 impl->slots[slotIndex].ranges.swap(command.ranges);
+            } else if (command.kind == Kind::GifBurst && retained <= impl->burstStorageLimit() &&
+                       impl->freeBurstCount < impl->freeBursts.size()) {
+                auto& storage = impl->freeBursts[impl->freeBurstCount++];
+                storage.bytes.swap(command.bytes);
+                storage.ranges.swap(command.ranges);
             }
             impl->stats.pendingBytes-=command.cost;impl->stats.commands-=command.submissions;
             impl->stats.completed+=command.submissions;

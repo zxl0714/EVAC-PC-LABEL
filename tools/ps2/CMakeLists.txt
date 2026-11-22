@@ -75,7 +75,7 @@ list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/fpu_transl
 list(REMOVE_ITEM RECOMP_SOURCES "${UPSTREAM}/ps2xRecomp/src/lib/instruction_translator.cpp")
 list(APPEND RECOMP_SOURCES "${COLLECTION_ROOT}/third_party/ps2/recomp/instruction_translator.cpp")
 add_library(ps2_recomp_lib STATIC ${RECOMP_SOURCES})
-add_executable(ps2_vu_aot "${VU_SOURCE}/ps2xRecomp/src/vu_aot/ps2_vu_aot.cpp")
+add_executable(ps2_vu_aot "${PS2_VU_AOT}")
 target_include_directories(ps2_vu_aot PRIVATE "${VU_SOURCE}/ps2xRuntime/include")
 target_compile_definitions(ps2_recomp_lib PUBLIC LIBDWARF_STATIC)
 target_include_directories(ps2_recomp_lib PUBLIC
@@ -118,7 +118,8 @@ add_executable(ps2_function_table_contract "${COLLECTION_ROOT}/tests/ps2_functio
 target_include_directories(ps2_function_table_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
 add_test(NAME ps2_function_table_contract COMMAND ps2_function_table_contract)
 add_executable(ps2_iso_contract "${COLLECTION_ROOT}/tests/ps2_iso_test.cpp"
-  "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp")
+  "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp"
+  "${COLLECTION_ROOT}/backends/ps2/iso_read_ahead.cpp")
 target_include_directories(ps2_iso_contract PRIVATE "${COLLECTION_ROOT}/backends/ps2")
 add_test(NAME ps2_iso_contract COMMAND ps2_iso_contract)
 add_executable(ps2_pad_contract "${COLLECTION_ROOT}/tests/ps2_pad_test.cpp"
@@ -233,6 +234,7 @@ if(PS2_BUILD_RUNTIME)
     "${COLLECTION_ROOT}/third_party/ps2/runtime/gs_frontend.cpp"
     "${RUNTIME}/src/lib/gs/gs_cpu_backend.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_iop_host.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/iso_read_ahead.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"

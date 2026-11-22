@@ -346,6 +346,16 @@ void IopDispatchBench() {
 void IopIdleContract(bool bench=false) {
     auto host=DelayedThreadImage();
     ps2x::iop::detail::IopEmulator emulator(host);
+    uint64_t elapsedEeCycles = 0;
+    for (const auto slice : {0u, 1u, 6u, 2u, 13u, 1u, 8u}) {
+        emulator.runEeCycles(slice);
+        elapsedEeCycles += slice;
+        Require(emulator.cycles() == elapsedEeCycles / 8u, "Fractional EE slices changed the IOP clock");
+    }
+    emulator.reset();
+    emulator.runEeCycles(1);
+    Require(emulator.cycles() == 0, "Reset retained a fractional IOP cycle");
+    emulator.reset();
     // Populate an empty idle interval, then load code creating ready threads.
     emulator.runEeCycles(800);
     Require(emulator.loadModuleBuffer(0,nullptr,0).startResult==0,"Authored delayed-thread IRX failed");

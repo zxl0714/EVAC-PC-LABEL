@@ -388,6 +388,7 @@ private:
     void enqueueReady(GuestThread &thread, bool front = false);
     void removeReady(GuestThread &thread);
     [[nodiscard]] GuestThread *selectReady();
+    [[nodiscard]] GuestThread *threadForDispatch(GuestThread *previous);
     void makeRunning(GuestThread &thread);
     void makeDormant(GuestThread &thread);
     void removeFromWaitObject(GuestThread &thread);
