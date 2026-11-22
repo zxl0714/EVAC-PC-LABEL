@@ -401,7 +401,7 @@ public:
     uint32_t guestHeapBase() const;
     uint32_t guestHeapEnd() const;
     uint32_t guestHeapLimit() const;
-    uint32_t reserveAsyncCallbackStack(uint32_t size, uint32_t alignment = 16u);
+    uint32_t asyncCallbackStackTop(unsigned slot) const;
 
     void drainCompletedDmacHandlers(uint8_t *rdram);
 

@@ -2084,42 +2084,14 @@ uint32_t PS2Runtime::guestHeapLimit() const
     return m_guestHeapConfigured ? m_guestHeapLimit : m_guestHeapSuggestedBase;
 }
 
-uint32_t PS2Runtime::reserveAsyncCallbackStack(uint32_t size, uint32_t alignment)
+uint32_t PS2Runtime::asyncCallbackStackTop(unsigned slot) const
 {
-    if (size == 0u)
-    {
-        return 0u;
-    }
-
-    const uint32_t normalizedAlignment = normalizeGuestHeapAlignment(alignment);
-    const uint32_t allocSize = alignGuestHeapValue(size, kGuestHeapDefaultAlignment);
-    if (allocSize == 0u)
-    {
-        return 0u;
-    }
-
+    constexpr uint32_t stackSize = 0x4000u;
     std::lock_guard<std::mutex> lock(m_asyncCallbackStackMutex);
-    uint32_t top = m_asyncCallbackStackTop;
-    if (top > PS2_RAM_SIZE)
-    {
-        top = PS2_RAM_SIZE;
-    }
-    top &= ~(kGuestHeapDefaultAlignment - 1u);
-
-    if (top <= allocSize)
-    {
+    const uint32_t ceiling = m_asyncCallbackStackTop & ~15u;
+    if (ceiling <= m_asyncCallbackStackFloor || slot >= (ceiling - m_asyncCallbackStackFloor) / stackSize)
         return 0u;
-    }
-
-    uint32_t base = top - allocSize;
-    base &= ~(normalizedAlignment - 1u);
-    if (base < m_asyncCallbackStackFloor || base >= top)
-    {
-        return 0u;
-    }
-
-    m_asyncCallbackStackTop = base;
-    return top - 0x10u;
+    return ceiling - slot * stackSize - 0x10u;
 }
 
 uint8_t PS2Runtime::Load8(uint8_t *rdram, R5900Context *ctx, uint32_t vaddr)

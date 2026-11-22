@@ -94,6 +94,7 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
     m_rdram = rdram;
     m_readyQueues = {};
     m_threads.clear();
+    m_invocationStackSlots.clear();
     m_semaphores.clear();
     m_eventFlags.clear();
     m_alarms.clear();
@@ -197,8 +198,7 @@ GuestThread *EeScheduler::threadForDispatch(GuestThread *previous)
         owner.status = EeThreadStatus::Running;
         m_currentThreadId = owner.id;
         renewTimeSlice();
-        if (getRegU32(&invocation.context, 29) == 0u)
-            SET_GPR_U32(&invocation.context, 29, invocationStackTop());
+        prepareInvocationStack(invocation);
         owner.invocations.push_back(std::move(invocation));
         return &owner;
     }
@@ -253,6 +253,9 @@ void EeScheduler::run()
             {
                 GuestInvocation completed = std::move(running->invocations.back());
                 running->invocations.pop_back();
+                releaseInvocationStack(completed);
+                if (!running->invocations.empty())
+                    prepareInvocationStack(running->invocations.back());
                 if (completed.onComplete)
                 {
                     try
@@ -277,10 +280,7 @@ void EeScheduler::run()
         {
             GuestInvocation invocation = std::move(m_pendingInvocations.front());
             m_pendingInvocations.pop_front();
-            if (getRegU32(&invocation.context, 29) == 0u)
-            {
-                SET_GPR_U32(&invocation.context, 29, invocationStackTop());
-            }
+            prepareInvocationStack(invocation);
             running->invocations.push_back(std::move(invocation));
             continue;
         }
@@ -1131,10 +1131,7 @@ void EeScheduler::queueInvocation(GuestInvocation invocation)
     assertExecutor();
     GuestThread *owner = currentThread();
     assert(owner != nullptr);
-    if (getRegU32(&invocation.context, 29) == 0u)
-    {
-        SET_GPR_U32(&invocation.context, 29, invocationStackTop());
-    }
+    prepareInvocationStack(invocation);
     invocation.sequence = ++m_invocationSequence;
     owner->invocations.push_back(std::move(invocation));
     publishSnapshot();
@@ -1149,13 +1146,11 @@ void EeScheduler::queueInvocation(GuestInvocation invocation)
     assert(!invocations.empty());
     for (auto it = invocations.rbegin(); it != invocations.rend(); ++it)
     {
-        if (getRegU32(&it->context, 29) == 0u)
-        {
-            SET_GPR_U32(&it->context, 29, invocationStackTop());
-        }
         it->sequence = ++m_invocationSequence;
         owner->invocations.push_back(std::move(*it));
     }
+    // The remaining exit handlers run sequentially, after this one returns.
+    prepareInvocationStack(owner->invocations.back());
     publishSnapshot();
     throw EeDispatcherTransfer{};
 }
@@ -1174,30 +1169,35 @@ bool EeScheduler::hasInvocation(GuestInvocationKind kind, uint64_t tag) const
                        });
 }
 
-uint32_t EeScheduler::invocationStackTop()
+void EeScheduler::prepareInvocationStack(GuestInvocation &invocation)
 {
     assertExecutor();
-    const GuestThread *owner = currentThread();
-    if (!owner)
+    if (invocation.stackSlot != GuestInvocation::PendingStack)
+        return;
+    if (getRegU32(&invocation.context, 29) != 0u)
     {
-        throw std::logic_error("EE invocation stack requested without a current guest context");
+        invocation.stackSlot = GuestInvocation::GuestStack;
+        return;
     }
-    const size_t depth = owner ? owner->invocations.size() : 0u;
-    const uint64_t key = (static_cast<uint64_t>(static_cast<uint32_t>(owner->id)) << 32u) |
-                         static_cast<uint32_t>(depth);
-    const auto existing = m_invocationStackTops.find(key);
-    if (existing != m_invocationStackTops.end())
-    {
-        return existing->second;
-    }
-    constexpr uint32_t kInvocationStackSize = 0x4000u;
-    const uint32_t top = m_runtime.reserveAsyncCallbackStack(kInvocationStackSize, 16u);
+    const auto available = std::find(m_invocationStackSlots.begin(), m_invocationStackSlots.end(), false);
+    const auto slot = static_cast<unsigned>(available - m_invocationStackSlots.begin());
+    const uint32_t top = m_runtime.asyncCallbackStackTop(slot);
     if (top == 0u)
     {
         throw std::runtime_error("EE invocation stack space exhausted");
     }
-    m_invocationStackTops.emplace(key, top);
-    return top;
+    if (available == m_invocationStackSlots.end())
+        m_invocationStackSlots.push_back(true);
+    else
+        *available = true;
+    invocation.stackSlot = static_cast<int>(slot);
+    SET_GPR_U32(&invocation.context, 29, top);
+}
+
+void EeScheduler::releaseInvocationStack(const GuestInvocation &invocation)
+{
+    if (invocation.stackSlot >= 0)
+        m_invocationStackSlots[invocation.stackSlot] = false;
 }
 
 int EeScheduler::addIrqHandler(bool dmac,
@@ -1703,6 +1703,8 @@ void EeScheduler::makeDormant(GuestThread &item)
     item.resumeCompletion = {};
     item.suspendCount = 0;
     item.wakeupCount = 0;
+    for (const auto &invocation : item.invocations)
+        releaseInvocationStack(invocation);
     item.invocations.clear();
 }
 

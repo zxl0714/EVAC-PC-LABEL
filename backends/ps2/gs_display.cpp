@@ -17,6 +17,7 @@
 #include "../../common/deadline_wait.h"
 #include "../../common/windows_fullscreen_cursor.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
@@ -186,6 +187,25 @@ public:
     std::mutex presentMutex;
     std::condition_variable presentWake;
     uint64_t frames=0;
+    struct SlowFrame {
+        uint64_t field{};
+        int64_t elapsed{}, gap{}, beforeRender{}, render{}, present{};
+    };
+    std::array<SlowFrame,8> slowest{};
+    int64_t firstPresent{}, lastPresent{};
+    uint64_t slowFrames{};
+    void RecordPresent(uint64_t field, int64_t start, int64_t submit, int64_t end) {
+        if (!firstPresent) firstPresent = end;
+        const auto gap = end - lastPresent;
+        if (lastPresent && gap >= 50000) {
+            ++slowFrames;
+            auto shortest = std::min_element(slowest.begin(), slowest.end(),
+                [](const SlowFrame& a, const SlowFrame& b) { return a.gap < b.gap; });
+            if (gap > shortest->gap)
+                *shortest = {field, end - firstPresent, gap, start - lastPresent, submit - start, end - submit};
+        }
+        lastPresent = end;
+    }
     int64_t tracedGpuWait=0;
     Vulkan::Program* presentProgram=nullptr;
     Vulkan::Program* overlayProgram=nullptr;
@@ -270,6 +290,15 @@ public:
         lastReadyImage.image.reset();
         gs.reset(); // GS must die before WSI's device and the native surface.
         std::cerr<<"[ps2-gs-present] frames="<<frames<<" readbacks="<<readbacks<<'\n';
+        if (slowFrames) {
+            std::cerr << "[ps2-slow-frames] intervals_over_or_equal_50ms=" << slowFrames << '\n';
+            for (const auto& frame : slowest) {
+                if (frame.gap)
+                    std::cerr << "[ps2-slow-frame] field=" << frame.field << " elapsed_us=" << frame.elapsed
+                              << " interval_us=" << frame.gap << " before_render_us=" << frame.beforeRender
+                              << " render_and_pace_us=" << frame.render << " present_us=" << frame.present << '\n';
+            }
+        }
     }
 };
 GsDisplay::GsDisplay(unsigned width,unsigned height,const std::wstring& title,bool vsync,bool reflex,bool amd,
@@ -298,6 +327,7 @@ bool GsDisplay::Focused() const{return GetForegroundWindow()==impl->window.handl
 void GsDisplay::SetKeyHandler(std::function<void(unsigned,bool)> handler){impl->window.keyHandler=std::move(handler);}
 void GsDisplay::ToggleFullscreen(){impl->window.ToggleFullscreen();}
 void GsDisplay::ResetForProgram() {
+    impl->lastPresent=0;
     WaitPreviousFrame();
     impl->window.reflex.ResetForProgram();
     impl->window.amdField=0;
@@ -314,6 +344,7 @@ void GsDisplay::ReleaseBorrowedSurface() {
     impl->lastFeedback=0;
 }
 void GsDisplay::RestoreBorrowedSurface() {
+    impl->lastPresent=0;
     if(!Alive())throw GsWindowClosed();
     HostedSwapchainTrace trace(impl->window.borrowed,"resume");
     if(!impl->wsi.init_surface_swapchain())
@@ -376,12 +407,13 @@ void GsDisplay::PresentLoadingFrame() {
     if(EndWindowFrame(true))StartupTrace("loading-frame-presented");
 }
 bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
+    const auto renderStart=frame_trace::Stamp();
     impl->window.reflex.BeginOutput();
     auto& state=*impl->gs->impl;
     state.CheckOwner();
     input_trace::Record(input_trace::Kind::PresentStart,request.vsyncTick,request.dispfb1,request.dispfb2);
     auto* trace=frame_trace::Get(request.vsyncTick);
-    if(trace){trace->presentStart=frame_trace::Stamp();trace->presentedReady=request.Prepared();trace->repeated=repeatCompletedImage;}
+    if(trace){trace->presentStart=renderStart;trace->presentedReady=request.Prepared();trace->repeated=repeatCompletedImage;}
     WaitPreviousFrame();
     if(trace){trace->gpuWait=impl->tracedGpuWait;impl->tracedGpuWait=0;}
     // Texture uploads can retain Granite command buffers between GS packets.
@@ -497,12 +529,15 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
         }
     }
     impl->Mark(Stage::Present);
+    const auto presentStart=frame_trace::Stamp();
     if(!EndWindowFrame(false))return false;
+    const auto presentEnd=frame_trace::Stamp();
+    impl->RecordPresent(request.vsyncTick,renderStart,presentStart,presentEnd);
     impl->Mark(Stage::Presented);
     if(impl->frames==0)StartupTrace("first-present-returned");
     if(input_trace::Enabled())input_trace::Record(input_trace::Kind::PresentEnd,request.vsyncTick,
                                                  impl->wsi.get_last_submitted_present_id());
-    if(trace)trace->presented=frame_trace::Stamp();
+    if(trace)trace->presented=presentEnd;
     if(impl->window.amdUpdate)impl->window.amdField.store(request.vsyncTick+1);
     impl->window.reflex.AfterPresent(impl->wsi.get_last_submitted_present_id(),request.vsyncTick);
     ++impl->frames;

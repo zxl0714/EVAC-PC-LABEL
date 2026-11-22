@@ -19,6 +19,7 @@
 // Inspect the actual event queue without a ROM or wall-clock sleep. A stalled
 // guest must retain the same ordering in cycle and host time.
 struct EeSchedulerClockTest {
+  static void CheckCallbackStacks();
   static void CheckDisplayFlip(bool waitForFlip, bool flipDuringBlank);
   static void Run(PS2Runtime& runtime) {
     auto require=[](bool value,const char* message){if(!value)throw std::runtime_error(message);};
@@ -240,6 +241,52 @@ void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
 #include "ps2_dma_chain_fixture.h"
 #include "ps2_memcard_fixture.h"
 
+void EeSchedulerClockTest::CheckCallbackStacks() {
+  auto runtime = std::make_unique<PS2Runtime>();
+  auto& scheduler = runtime->eeScheduler();
+  scheduler.reset(nullptr, {});
+  scheduler.makeDormant(*scheduler.thread(1));
+  const uint32_t first = runtime->asyncCallbackStackTop(0);
+  Require(first && runtime->asyncCallbackStackTop(27) && !runtime->asyncCallbackStackTop(28),
+          "Unexpected bounds for the low-memory callback stack arena");
+  for (int n = 0; n < 64; ++n) {
+    const int id = scheduler.createThread({});
+    Require(id > 1 && scheduler.startThread(id, 0, {}, false) == 0, "Cannot start callback owner");
+    auto* owner = scheduler.selectReady();
+    Require(owner && owner->id == id, "Wrong callback owner");
+    scheduler.makeRunning(*owner);
+    try { scheduler.invokeCurrent({}); } catch (const EeDispatcherTransfer&) {}
+    Require(getRegU32(&owner->activeContext(), 29) == first, "Finished thread retained its callback stack");
+    try { scheduler.invokeCurrent({}); } catch (const EeDispatcherTransfer&) {}
+    Require(getRegU32(&owner->activeContext(), 29) == runtime->asyncCallbackStackTop(1),
+            "Nested callbacks must have separate live stacks");
+    try { scheduler.exitCurrent(true); } catch (const EeDispatcherTransfer&) {}
+  }
+
+  constexpr uint32_t callback = 0x700000;
+  Require(runtime->registerFunction(callback, +[](uint8_t*, R5900Context* ctx, PS2Runtime*) {
+    ctx->pc = 0;
+  }), "Cannot register callback");
+  scheduler.reset(nullptr, {});
+  scheduler.makeRunning(*scheduler.selectReady());
+  std::vector<GuestInvocation> sequence(64);
+  unsigned completed = 0;
+  constexpr uint32_t supplied = 0x203000;
+  for (unsigned n = 0; n < sequence.size(); ++n) {
+    auto& call = sequence[n];
+    call.context.pc = callback;
+    if (n & 1) SET_GPR_U32(&call.context, 29, supplied);
+    call.onComplete = [&, n](const R5900Context& finished, R5900Context&) {
+      Require(completed++ == n && getRegU32(&finished, 29) == ((n & 1) ? supplied : first),
+              "Sequential handlers changed order, lost the guest SP or failed to recycle a stack");
+      if (completed == 64) scheduler.requestStop();
+    };
+  }
+  try { scheduler.invokeCurrentSequence(std::move(sequence)); } catch (const EeDispatcherTransfer&) {}
+  scheduler.run();
+  Require(completed == 64, "Callback sequence incomplete");
+}
+
 void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBlank) {
   auto runtime=std::make_unique<PS2Runtime>();
   Require(runtime->memory().initialize() && runtime->syncCoreSubsystems(),"Cannot initialize scanout fixture");
@@ -312,6 +359,7 @@ int main(int argc,char** argv) {
     if(argc==2 && std::string_view(argv[1])=="--timer-bench")return EeTimerBench(runtime.memory());
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
     EeSchedulerClockTest::Run(runtime);
+    EeSchedulerClockTest::CheckCallbackStacks();
     EeSchedulerClockTest::CheckDisplayFlip(false,true);
     EeSchedulerClockTest::CheckDisplayFlip(true,true);
     EeSchedulerClockTest::CheckDisplayFlip(true,false);
@@ -415,7 +463,7 @@ int main(int argc,char** argv) {
     ps2_syscalls::ReferThreadStatus(memory.data(),&context,&runtime);
     uint32_t stackBase{};std::memcpy(&stackBase,memory.data()+0x2008,4);
     Require(stackBase==mainTop-0x106000,"Live SP changed reported stack allocation");
-    const auto callbackTop=runtime.reserveAsyncCallbackStack(0x4000,16);
+    const auto callbackTop=runtime.asyncCallbackStackTop(0);
     Require(callbackTop>=0x90000+0x4000-16 && callbackTop<0x100000,
             "Callback stack aliases the game heap or main stack");
     Require(runtime.memory().initialize(),"Headless memory initialization failed");

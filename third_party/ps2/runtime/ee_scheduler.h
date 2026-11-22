@@ -98,6 +98,9 @@ enum class GuestInvocationKind : uint8_t
 struct GuestInvocation
 {
     GuestInvocationKind kind = GuestInvocationKind::Interrupt;
+    static constexpr int PendingStack = -2;
+    static constexpr int GuestStack = -1;
+    int stackSlot = PendingStack;
     uint64_t sequence = 0;
     uint64_t tag = 0;
     R5900Context context{};
@@ -323,7 +326,6 @@ public:
     [[noreturn]] void invokeCurrent(GuestInvocation invocation);
     [[noreturn]] void invokeCurrentSequence(std::vector<GuestInvocation> invocations);
     [[nodiscard]] bool hasInvocation(GuestInvocationKind kind, uint64_t tag) const;
-    [[nodiscard]] uint32_t invocationStackTop();
 
     int addIrqHandler(bool dmac,
                       uint32_t cause,
@@ -385,6 +387,8 @@ private:
     void assertExecutor() const;
     [[nodiscard]] int allocateThreadId();
     GuestThread &acquireInvocationThread();
+    void prepareInvocationStack(GuestInvocation &invocation);
+    void releaseInvocationStack(const GuestInvocation &invocation);
     void enqueueReady(GuestThread &thread, bool front = false);
     void removeReady(GuestThread &thread);
     [[nodiscard]] GuestThread *selectReady();
@@ -470,7 +474,7 @@ private:
     uint32_t m_gsVSyncCallback = 0;
     uint32_t m_gsVSyncCallbackGp = 0;
     uint32_t m_gsVSyncCallbackSp = 0;
-    std::unordered_map<uint64_t, uint32_t> m_invocationStackTops;
+    std::vector<bool> m_invocationStackSlots;
     std::atomic<uint64_t> m_nextDeadlineCycle{0};
 
     mutable std::mutex m_snapshotMutex;
