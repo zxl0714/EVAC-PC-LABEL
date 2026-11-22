@@ -420,7 +420,7 @@ namespace ps2x::iop::detail
             } else if (m_audio->audible && m_audio->frames - m_audio->windowStart >= 480000) {
                 m_audio->finishWindow("active");
             }
-            m_audio->queueTrace.Record(0,AudioState::QuantumFrames,written);
+            m_audio->queueTrace.Record(0,AudioState::QuantumFrames,written,0,m_audio->samples);
             serviceSpuDma(0);
             serviceSpuDma(1);
             if (cave::ps2::audio_trace::enabled && m_audio->frames % 96000u == 0u)
@@ -451,7 +451,7 @@ namespace ps2x::iop::detail
         auto output = std::span<int16_t>(static_cast<int16_t *>(stereo), frames * 2u);
         size_t late=0;
         const auto read = m_audio->queue.Read(output,&late);
-        m_audio->queueTrace.Record(1,frames,read,late);
+        m_audio->queueTrace.Record(1,frames,read,late,output);
         if(late)m_audio->lateFrames.fetch_add(late,std::memory_order_relaxed);
         std::fill(output.begin() + read * 2u, output.end(), int16_t{});
         m_audio->playout.Apply(output,read,late!=0);

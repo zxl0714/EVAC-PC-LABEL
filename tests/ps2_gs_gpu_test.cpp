@@ -37,6 +37,17 @@ int main() {
         if(cave::ps2::FieldBlitPhase(blitBytes.subspan(16),0,0,224) ||
            cave::ps2::FieldBlitPhase(blitBytes,0,0,200))
             throw std::runtime_error("Partial blit classified as a display field");
+        // SLPM-66301, stage 1, GS XYOFFSET (0x6c00, 0x7900).
+        quad={0,0xffff79007570,0x14000000,0xffff86f87570,
+              0x14000f00,0xffff86f88a70,0xf00,0xffff79008a70};
+        if(cave::ps2::FieldBlitPhase(blitBytes,0x6c00,0x7900,224)!=1)
+            throw std::runtime_error("Truncated field blit lost its source phase");
+        for(unsigned i=1;i<quad.size();i+=2)quad[i]+=8ull<<16;
+        if(cave::ps2::FieldBlitPhase(blitBytes,0x6c00,0x7900,224)!=0)
+            throw std::runtime_error("Shifted truncated field blit lost its source phase");
+        for(unsigned i:{3u,5u})quad[i]-=8ull<<16;
+        if(cave::ps2::FieldBlitPhase(blitBytes,0x6c00,0x7900,224))
+            throw std::runtime_error("A missing field row was accepted as complete");
         GsDevice gs;
         std::vector<uint8_t> vram(GsDevice::VramBytes);
         GS frontend;

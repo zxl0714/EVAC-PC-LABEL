@@ -25,5 +25,7 @@
 !/external/SDOJ-Recomp/EVAC-Setup.txt
 /external/DonPachi-Recomp/*
 !/external/DonPachi-Recomp/EVAC-Setup.txt
+/external/DoDonPachi-Recomp/*
+!/external/DoDonPachi-Recomp/EVAC-Setup.txt
 __pycache__/
 *.pyc

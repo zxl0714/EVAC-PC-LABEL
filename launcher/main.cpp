@@ -51,6 +51,7 @@ using Microsoft::WRL::ComPtr;
 using namespace cave;
 using cave::launcher::LauncherCatalogue;
 using cave::launcher::FindLauncherGame;
+using cave::launcher::FindArcadeRecomp;
 using cave::launcher::BigPictureLayout;
 using cave::launcher::GameExitShortcuts;
 using cave::launcher::ExitKeys;
@@ -93,7 +94,7 @@ void Check(HRESULT status,const char* operation) {
 }
 std::wstring Wide(std::string_view text) {return FromUtf8(text).native();}
 std::wstring_view RecompProject(const Game& game,bool sdoj_external) {
-  if(game.id==cave::launcher::kDonPachi.id)return cave::launcher::kDonPachiProject;
+  if(const auto* arcade=FindArcadeRecomp(game.id))return arcade->project;
   if(game.id=="sdoj" && sdoj_external)return cave::launcher::kSdojRecompProject;
   return {};
 }
@@ -303,8 +304,9 @@ std::vector<Row> InspectRows(const fs::path& root,size_t selected,bool prepare_t
       try {
         if (game.integrated) (void)ResolveSettings(ini,game.id);
         const auto data=ini.DataDirectory(game);
-        rows[index].inspection=game.id==cave::launcher::kDonPachi.id
-            ? cave::launcher::InspectDonPachi(root,data)
+        const auto* arcade=FindArcadeRecomp(game.id);
+        rows[index].inspection=arcade
+            ? cave::launcher::InspectArcadeRecomp(*arcade,root,data)
             : (prepare_title_updates ? InspectLaunchData(game,root,data,CheckLevel::Quick,cache)
                                      : Inspect(game,root,data,CheckLevel::Quick,&cache));
         if(!rows[index].inspection.missing_runtime.empty()) {
@@ -337,8 +339,8 @@ std::wstring Status(const Inspection& inspection) {
   if (state=="unsupported_version") return T(L"数据版本不支持");
   if (state=="title_update_failed") return T(L"无法解包游戏更新 · 点击详情");
   if (state=="missing_runtime") return T(L"运行组件不可用");
-  if (state=="donpachi_program_missing") return T(L"请安装 DonPachi Recomp");
-  if (state=="donpachi_rom_missing") return T(L"请放置 donpachi.zip（美版）");
+  if (state=="arcade_program_missing") return T(FindArcadeRecomp(inspection.game)->setup_title);
+  if (state=="arcade_rom_missing") return T(FindArcadeRecomp(inspection.game)->rom_hint);
   if (state=="invalid_config") return T(L"配置有误 · 请检查 config.ini");
   if (state=="invalid_path") return T(L"数据路径不可用");
   if (state=="not_integrated") return T(L"正在接入");
@@ -346,8 +348,8 @@ std::wstring Status(const Inspection& inspection) {
   return T(L"正在检测…");
 }
 bool CanPlay(const Inspection& inspection) {return inspection.state=="ready" || inspection.state=="needs_verification";}
-bool DonPachiNeedsSetup(const Inspection& inspection) {
-  return inspection.state=="donpachi_program_missing" || inspection.state=="donpachi_rom_missing";
+bool ArcadeNeedsSetup(const Inspection& inspection) {
+  return inspection.state=="arcade_program_missing" || inspection.state=="arcade_rom_missing";
 }
 std::string Details(const Inspection& inspection) {
   auto result=inspection.reason.empty()?inspection.state:inspection.reason;
@@ -410,9 +412,9 @@ struct Layout {
     return {right-24,16,right,44};
   }
   D2D1_RECT_F project_link(std::wstring_view url) const {
-    const bool donpachi=url==cave::launcher::kDonPachiProject;
-    const float status_width=donpachi?168.f:124.f;
-    const float link_width=donpachi?260.f:202.f;
+    const bool arcade=!url.empty() && url!=cave::launcher::kSdojRecompProject;
+    const float status_width=arcade?168.f:124.f;
+    const float link_width=arcade?275.f:202.f;
     const auto right=play().left-18;
     const auto left=margin()+(right-margin()>=status_width+link_width?status_width:0);
     return {left,height-80,std::min(left+link_width,right),height-64};
@@ -636,8 +638,8 @@ class Renderer {
     const auto project_icon=LayoutProjectIcon(rectangle);
     const bool show_project=!project.empty();
     const bool project_hover=external_hover==ExternalHit{ExternalControl::ProjectIcon,project};
-    const auto subtitle=game.id==cave::launcher::kDonPachi.id?
-        std::wstring(cave::launcher::kDonPachiProjectName):Wide(game.name);
+    const auto* arcade=FindArcadeRecomp(game.id);
+    const auto subtitle=arcade?std::wstring(arcade->project_name):Wide(game.name);
     const bool missing=cave::launcher::MissingGameData(rows[index].inspection);
     const bool muted=soon||missing||hidden;
     const auto color=muted?0xf6f7f4:0xffffff;
@@ -738,10 +740,10 @@ class Renderer {
       const auto& game=LauncherCatalogue()[index];
       const bool sdoj=game.id=="sdoj",external=sdoj&&sdoj_external;
       play=external||CanPlay(inspection);
-      setup=DonPachiNeedsSetup(inspection);
+      setup=ArcadeNeedsSetup(inspection);
       auto title=Wide(game.DisplayName());
       if(sdoj && external)title+=L"   ·   SDOJ-Recomp (eandis)";
-      if(game.id==cave::launcher::kDonPachi.id){title+=L"   ·   ";title+=cave::launcher::kDonPachiProjectName;}
+      if(const auto* arcade=FindArcadeRecomp(game.id)){title+=L"   ·   ";title+=arcade->project_name;}
       label(title,{margin,footer+8*scale,view.width-margin,footer+48*scale},24,text);
       const auto caption=message.empty() ? (external?L"SDOJ-Recomp":std::wstring(Status(inspection))) : std::wstring(message);
       label(caption,{margin,footer+46*scale,view.width-margin,footer+78*scale},15,secondary);
@@ -863,7 +865,7 @@ class Renderer {
     const bool has_games=layout.game_count!=0;
     const auto& inspection=rows[selected].inspection;
     const bool external=has_games && LauncherCatalogue()[selected].id=="sdoj" && sdoj_external;
-    const bool setup=has_games && DonPachiNeedsSetup(inspection);
+    const bool setup=has_games && ArcadeNeedsSetup(inspection);
     const auto project=has_games && !busy && !running?
         RecompProject(LauncherCatalogue()[selected],sdoj_external):std::wstring_view{};
     const bool show_project=!project.empty();
@@ -880,13 +882,13 @@ class Renderer {
     if(show_project && project_link.right>project_link.left)
       Text(target,project,project_link,11,external_hover.control==ExternalControl::ProjectLink?0x254b35:0x37644c,
           DWRITE_TEXT_ALIGNMENT_LEADING,false,true);
-    Button(target,layout.play(),running?T(L"游戏运行中"):setup?T(L"安装首領蜂"):T(L"启动游戏"),true,
+    Button(target,layout.play(),running?T(L"游戏运行中"):setup?T(FindArcadeRecomp(inspection.game)->setup_title):T(L"启动游戏"),true,
         busy||running||!has_games||(!external&&!setup&&!CanPlay(inspection)),button_hover==8);
     Button(target,layout.data(),T(L"游戏数据…"),false,
         busy||running||!has_games||LauncherCatalogue()[selected].coming_soon,button_hover==6);
     Button(target,layout.file_upload(),T(L"上传文件"),false,busy||running||!has_games,button_hover==7);
     Button(target,layout.controls(),T(L"输入设置"),false,
-        busy||running||!has_games||LauncherCatalogue()[selected].id==cave::launcher::kDonPachi.id,button_hover==13);
+        busy||running||!has_games||FindArcadeRecomp(LauncherCatalogue()[selected].id),button_hover==13);
     Button(target,layout.config(),T(L"配置文件"),false,false,button_hover==4);
     Button(target,layout.logs(),T(L"上传日志"),false,busy||running,button_hover==5);
     Button(target,layout.big_picture_button(),T(L"大屏模式"),false,busy||running,button_hover==9);
@@ -916,7 +918,7 @@ struct Work {
   std::atomic<uint64_t> copied{},total{};
   std::vector<Row> rows;
   std::optional<LaunchSpec> launch;
-  std::optional<bool> donpachi_fullscreen;
+  std::optional<bool> arcade_fullscreen;
   std::optional<GameExitShortcuts> game_exit_shortcuts;
   std::optional<CopyResult> copy_result;
   std::string error;
@@ -1053,7 +1055,7 @@ class App {
     if(busy || child || game.coming_soon)return;
     const auto& row=rows[index];
     std::wstring body=Wide(game.DisplayName())+L"\n"+Status(row.inspection)+L"\n"+row.inspection.data_dir.native();
-    if(game.id==cave::launcher::kDonPachi.id)body+=L"\n"+std::wstring(T(L"街机美版 · 1995"))+L"\nDonPachi Recomp · CapsLock4284";
+    if(const auto* arcade=FindArcadeRecomp(game.id))body+=L"\n"+std::wstring(T(arcade->edition))+L"\n"+std::wstring(arcade->project_name)+L" · CapsLock4284";
     if(!CanPlay(row.inspection))body+=L"\n"+Wide(Details(row.inspection));
     if(!row.inspection.missing_runtime.empty()) {
       body+=L"\n\n"+std::wstring(T(L"无法读取以下运行组件："));
@@ -1142,7 +1144,7 @@ class App {
   }
   void EnablePreferences() {
     const bool enabled=preferences_available&&!busy&&!child;
-    if(preferences_available && (display_choices.size()==2)!=DonPachiSelected())
+    if(preferences_available && (display_choices.size()==2)!=(SelectedArcade()!=nullptr))
       PopulateDisplay(ResolveSharedSettings(Ini::Parse(preferences_text)));
     EnableWindow(fullscreen_control,enabled);EnableWindow(nickname_control,enabled);
     EnableWindow(save_control,enabled&&preferences_dirty);
@@ -1150,7 +1152,7 @@ class App {
   void PopulateDisplay(const Settings& settings) {
     display_choices={{true,settings.window_width,settings.window_height}};
     const DisplaySelection current{false,settings.window_width,settings.window_height};
-    const bool arcade=DonPachiSelected();
+    const auto* arcade=SelectedArcade();
     if(!arcade)display_choices.insert(display_choices.end(),kWindowSelections.begin(),kWindowSelections.end());
     auto found=std::find(display_choices.begin()+1,display_choices.end(),current);
     if(found==display_choices.end()){display_choices.push_back(current);found=display_choices.end()-1;}
@@ -1206,8 +1208,8 @@ class App {
   void UpdateOverrideHint(const Ini& ini) {
     override_hint.clear();
     if(library.visible.empty())return;
-    if(DonPachiSelected()) {
-      override_hint=T(L"按键在首領蜂内设置");
+    if(SelectedArcade()) {
+      override_hint=T(L"请在游戏内设置按键");
       return;
     }
     const auto section="game."+std::string(LauncherCatalogue()[selected].id);
@@ -1266,41 +1268,42 @@ class App {
   void LaunchSelected() {
     if(close_requested)return;
     if(busy||child||library.visible.empty())return;
-    if(DonPachiSelected()) {
+    if(const auto* arcade=SelectedArcade()) {
       const auto ini=Ini::Load(ConfigPath(options.root));
-      const auto data=options.data.empty()?ini.DataDirectory(cave::launcher::kDonPachi):options.data;
-      rows[selected].inspection=cave::launcher::InspectDonPachi(options.root,data);
-      if(DonPachiNeedsSetup(rows[selected].inspection)){ShowDonPachiSetup();return;}
+      const auto data=options.data.empty()?ini.DataDirectory(arcade->game):options.data;
+      rows[selected].inspection=cave::launcher::InspectArcadeRecomp(*arcade,options.root,data);
+      if(ArcadeNeedsSetup(rows[selected].inspection)){ShowArcadeSetup();return;}
     } else if(ExternalSelected()) {
       if(!fs::is_regular_file(cave::launcher::SdojRecompExecutable(options.root))) {ShowSdojSetup();return;}
     } else if(!CanPlay(rows[selected].inspection))return;
     if(SavePreferences())Refresh(true);
   }
-  bool DonPachiSelected() const {return LauncherCatalogue()[selected].id==cave::launcher::kDonPachi.id;}
+  const cave::launcher::ArcadeRecomp* SelectedArcade() const {return FindArcadeRecomp(LauncherCatalogue()[selected].id);}
   bool ExternalSelected() const {return sdoj_external && LauncherCatalogue()[selected].id=="sdoj";}
   std::wstring_view SelectedProjectUrl() const {
     if(BigPicture() || busy || child || library.visible.empty())return {};
     return RecompProject(LauncherCatalogue()[selected],sdoj_external);
   }
-  void ShowDonPachiSetup() {
+  void ShowArcadeSetup() {
+    const auto& arcade=*SelectedArcade();
     const auto& data=rows[selected].inspection;
-    const bool install=data.state=="donpachi_program_missing";
+    const bool install=data.state=="arcade_program_missing";
     std::wstring content;
     if(install) {
       content=T(L"从官方发布页下载 Windows ZIP，完整解压到");
-      content+=L"\n"+DataChild(options.root,"external/DonPachi-Recomp").make_preferred().native()+L"\n\n";
+      content+=L"\n"+DataChild(options.root,arcade.game.executable).parent_path().make_preferred().native()+L"\n\n";
     }
-    content+=T(L"将美版 donpachi.zip 放到下面的目录，或直接选择 ZIP。");
+    content+=T(arcade.rom_hint);
     content+=L"\n"+fs::path(data.data_dir).make_preferred().native();
-    const TASKDIALOG_BUTTON buttons[]{{IDOK,T(L"选择 donpachi.zip…")},{IDYES,T(L"打开官方发布页")}};
+    const TASKDIALOG_BUTTON buttons[]{{IDOK,T(L"选择 ROM…")},{IDYES,T(L"打开官方发布页")}};
     TASKDIALOGCONFIG dialog{};dialog.cbSize=sizeof(dialog);dialog.hwndParent=hwnd;
     dialog.dwFlags=TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
-    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=T(L"安装首領蜂");
+    dialog.pszWindowTitle=kWindowTitle;dialog.pszMainInstruction=T(arcade.setup_title);
     dialog.pszContent=content.c_str();dialog.dwCommonButtons=TDCBF_CLOSE_BUTTON;
     dialog.cButtons=install?2:1;dialog.pButtons=buttons;dialog.nDefaultButton=IDCLOSE;
     int choice{};
     Check(TaskDialogIndirect(&dialog,&choice,nullptr,nullptr),"Show DonPachi Recomp setup");
-    if(choice==IDYES)OpenPath(hwnd,cave::launcher::kDonPachiRelease);
+    if(choice==IDYES)OpenPath(hwnd,std::wstring(arcade.project)+L"/releases/latest");
     if(choice==IDOK)Choose();
     InvalidateRect(hwnd,nullptr,FALSE);
   }
@@ -1542,8 +1545,8 @@ class App {
           if((slot==6 || slot==8 || slot==13) && library.visible.empty())continue;
           if(slot==6 && (busy||child||LauncherCatalogue()[selected].coming_soon))continue;
           if(slot==7 && (busy||child))continue;
-          if(slot==8 && (busy||child||(!CanPlay(rows[selected].inspection)&&!DonPachiNeedsSetup(rows[selected].inspection))))continue;
-          if(slot==13 && DonPachiSelected())continue;
+          if(slot==8 && (busy||child||(!CanPlay(rows[selected].inspection)&&!ArcadeNeedsSetup(rows[selected].inspection))))continue;
+          if(slot==13 && SelectedArcade())continue;
           if(slot==9 && (busy||child))continue;
           if(slot>=10 && (busy||child||!preferences_available))continue;
           if(slot==15 && !ProgramReady())continue;
@@ -1569,7 +1572,7 @@ class App {
     if (worker.joinable()) worker.join();
     busy=true;EnablePreferences();work=std::make_shared<Work>();work->starting=launch;
     work->copying=!copy_source.empty();
-    work->external=launch&&(ExternalSelected()||DonPachiSelected());
+    work->external=launch&&(ExternalSelected()||SelectedArcade());
     work->selected=selected;
     const auto task=work;const auto root=options.root;const auto id=std::string(LauncherCatalogue()[selected].id);const auto profile=options.profile;
     const auto window=hwnd;const auto data=options.data;
@@ -1583,9 +1586,9 @@ class App {
         task->rows=InspectRows(root,task->selected,true);
         if (task->starting) {
           const auto ini=Ini::Load(ConfigPath(root));
-          if(id==cave::launcher::kDonPachi.id) {
-            task->launch=cave::launcher::PrepareDonPachi(root,ini,profile,data);
-            task->donpachi_fullscreen=ResolveSharedSettings(ini).fullscreen;
+          if(const auto* arcade=FindArcadeRecomp(id)) {
+            task->launch=cave::launcher::PrepareArcadeRecomp(*arcade,root,ini,profile,data);
+            task->arcade_fullscreen=ResolveSharedSettings(ini).fullscreen;
           }
           else if(task->external)task->launch=cave::launcher::PrepareSdojRecomp(root,ini,data,GetDpiForSystem());
           else task->launch=PrepareLaunch(FindGame(id),root,ini,profile,data);
@@ -1613,7 +1616,7 @@ class App {
       if(!work->error.empty())throw std::runtime_error(work->error);
       if(work->launch) {
         if(work->external)external_session.emplace(options.root);
-        if(work->donpachi_fullscreen)cave::launcher::SetDonPachiFullscreen(*work->launch,*work->donpachi_fullscreen);
+        if(work->arcade_fullscreen)cave::launcher::SetArcadeFullscreen(*work->launch,*work->arcade_fullscreen);
         child.emplace(StartGame(*work->launch,work->external?work->launch->executable.parent_path():fs::path{}));
         game_exit_shortcuts=std::move(work->game_exit_shortcuts);
         if(game_exit_shortcuts) {
@@ -1626,7 +1629,7 @@ class App {
         if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
         message=T(L"正在运行：")+Wide(FindLauncherGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
-        const char* engine=!work->external?"":(active_game==cave::launcher::kDonPachi.id?" engine=donpachi":" engine=eandis");
+        const std::string engine=!work->external?"":" engine="+(FindArcadeRecomp(active_game)?active_game:"eandis");
         Log(options.root,"launch game="+work->launch->game+engine+" pid="+std::to_string(child->pid()));
       } else if(work->copy_result) {
         message=T(L"数据已复制并逐文件校验，配置已更新");
@@ -1653,7 +1656,7 @@ class App {
       const bool failed=*code && !requested_close;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
-      if(failed && active_game==cave::launcher::kDonPachi.id)message=T(L"DonPachi Recomp 已退出，请查看其安装目录内的日志");
+      if(failed && FindArcadeRecomp(active_game))message=T(L"游戏异常退出，请查看外部程序安装目录内的日志");
       else message=failed?(external?T(L"SDOJ-Recomp 已退出，请查看其目录内的日志"):T(L"游戏异常退出，请查看该游戏的日志")):L"";
       const auto exited_game=active_game;
       if(game_exit_shortcuts) {
@@ -1676,14 +1679,15 @@ class App {
   }
   void Choose(bool copy=false) {
     if(busy||child||LauncherCatalogue()[selected].coming_soon)return;
-    const bool arcade=DonPachiSelected();
+    const auto* arcade=SelectedArcade();
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
     Check(dialog->SetOptions(flags|(arcade?FOS_FILEMUSTEXIST:FOS_PICKFOLDERS)|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure game data picker");
     if(arcade) {
-      const COMDLG_FILTERSPEC filter[]{{L"donpachi.zip",L"donpachi.zip"}};
-      Check(dialog->SetFileTypes(1,filter),"Set DonPachi data filter");
-      dialog->SetTitle(T(L"选择 donpachi.zip…"));
+      const auto pattern=arcade->game.id=="dodonpachi"?std::wstring(L"*.zip;*.7z"):Wide(arcade->rom);
+      const COMDLG_FILTERSPEC filter[]{{pattern.c_str(),pattern.c_str()}};
+      Check(dialog->SetFileTypes(1,filter),"Set arcade ROM filter");
+      dialog->SetTitle(T(L"选择 ROM…"));
     } else {
       dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏数据目录"));
     }
@@ -1692,11 +1696,13 @@ class App {
     PWSTR value{};Check(item->GetDisplayName(SIGDN_FILESYSPATH,&value),"Read selected directory path");
     fs::path path(value);CoTaskMemFree(value);
     if(arcade) {
-      if(_wcsicmp(path.filename().c_str(),L"donpachi.zip")) {
-        MessageBoxW(hwnd,T(L"请放置 donpachi.zip（美版）"),kWindowTitle,MB_OK|MB_ICONWARNING);
+      const bool dodonpachi=arcade->game.id=="dodonpachi";
+      if(dodonpachi?cave::launcher::FindDoDonPachiSource(path).empty():
+                    _wcsicmp(path.filename().c_str(),Wide(arcade->rom).c_str())!=0) {
+        MessageBoxW(hwnd,T(arcade->rom_hint),kWindowTitle,MB_OK|MB_ICONWARNING);
         return;
       }
-      path=path.parent_path();
+      if(!dodonpachi)path=path.parent_path();
     }
     if(copy) {
       const auto& game=LauncherCatalogue()[selected];
@@ -1713,8 +1719,8 @@ class App {
   }
   void DataMenu() {
     if(busy||child||library.visible.empty()||LauncherCatalogue()[selected].coming_soon)return;
-    if(DonPachiSelected()) {
-      if(DonPachiNeedsSetup(rows[selected].inspection))ShowDonPachiSetup();
+    if(SelectedArcade()) {
+      if(ArcadeNeedsSetup(rows[selected].inspection))ShowArcadeSetup();
       else Choose();
       return;
     }
@@ -1943,7 +1949,7 @@ class App {
     }
     if(Inside(layout.config(),x,y)) {OpenPath(hwnd,EnsureConfig(options.root));return;}
     if(Inside(layout.controls(),x,y)) {
-      if(!busy && !child && !library.visible.empty() && !DonPachiSelected() && show_controls(hwnd,options.root,LauncherCatalogue()[selected],language)) {
+      if(!busy && !child && !library.visible.empty() && !SelectedArcade() && show_controls(hwnd,options.root,LauncherCatalogue()[selected],language)) {
         preferences_text=Ini::ReadText(ConfigPath(options.root));
         Log(options.root,"input-settings-updated");
       }
@@ -2324,13 +2330,13 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
       if(recovery)throw std::runtime_error("Open the launcher to finish update recovery.");
       EnsureConfig(options.root);
       const auto ini=Ini::Load(ConfigPath(options.root));
-      const bool arcade=options.game==cave::launcher::kDonPachi.id;
-      const auto spec=arcade?cave::launcher::PrepareDonPachi(options.root,ini,options.profile,options.data):
+      const auto* arcade=FindArcadeRecomp(options.game);
+      const auto spec=arcade?cave::launcher::PrepareArcadeRecomp(*arcade,options.root,ini,options.profile,options.data):
                              PrepareLaunch(FindGame(options.game),options.root,ini,options.profile,options.data);
       std::optional<GameSession> session;
       if(arcade) {
         session.emplace(options.root);
-        cave::launcher::SetDonPachiFullscreen(spec,ResolveSharedSettings(ini).fullscreen);
+        cave::launcher::SetArcadeFullscreen(spec,ResolveSharedSettings(ini).fullscreen);
       }
       auto child=StartGame(spec,arcade?spec.executable.parent_path():fs::path{});
       child.Wait();const auto code=child.ExitCode().value_or(1);

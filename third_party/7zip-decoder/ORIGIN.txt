@@ -1,0 +1,3 @@
+7-Zip C decoder, Igor Pavlov, public domain. See 7zC.txt.
+https://github.com/ip7z/7zip/tree/d3296e39e1f1f92c7b41c0c3848e65640428d42d/C
+Only the portable decoder and its required headers are included.

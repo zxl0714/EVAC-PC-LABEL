@@ -1004,8 +1004,8 @@
     },
     {
       "path": "src/video_core/buffer_cache/buffer_cache.cpp",
-      "sha256": "05ba6282e9e35507079f2812e46aae3e2091a2318b70838a76eda06e9f59af4a",
-      "description": "Delegate backing memory, protected access and synchronous GPU-thread dispatch to the configured host memory backend, without the emulator application or kernel. Retain sparse device allocations with RAII until all bound arena buffers are destroyed."
+      "sha256": "0ed433a7c6b03c7b36d93f4af6d8dd766f2d6ef7d88017c5199c2784b303b277",
+      "description": "Delegate backing memory, protected access and synchronous GPU-thread dispatch to the configured host memory backend, without the emulator application or kernel. Retain sparse device allocations with RAII until all bound arena buffers are destroyed. Size sparse arenas against the device limits and cover the entire requested guest address interval."
     },
     {
       "path": "src/video_core/page_manager.cpp",
@@ -1019,8 +1019,8 @@
     },
     {
       "path": "src/video_core/buffer_cache/buffer_cache.h",
-      "sha256": "ee7e55b1ee016763854928e5d195526674c384e51d06c9ed8d63f6c341fcacf2",
-      "description": "Own sparse allocations through arena-buffer destruction; explicitly destroy the Vulkan device before the validation messenger so cleanup errors remain observable."
+      "sha256": "df4add047cf0b13ce1ddfcc00bbca3c232efc69a95f5b7ef5515b7066f0c9e59",
+      "description": "Own sparse allocations through arena-buffer destruction; explicitly destroy the Vulkan device before the validation messenger so cleanup errors remain observable. Size the guest address map using the negotiated arena page size."
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.cpp",
@@ -1029,8 +1029,8 @@
     },
     {
       "path": "src/video_core/renderer_vulkan/vk_instance.h",
-      "sha256": "7095a5d7f04b4450d6607f836c8e04f21372c8e6c0ced95cd27234de19a7793a",
-      "description": "Expose whether tracked presentation fences were enabled on this device. Support paired EXT/KHR maintenance1 negotiation (issue #1). Expose the negotiated NVIDIA Reflex capability to the presenter. Negotiate optional AMD Anti-Lag separately from Reflex."
+      "sha256": "1ccb64e85c22c0494a40c06b3d9b5b9d3ad702f4e652739bbbc4db55455019b1",
+      "description": "Expose whether tracked presentation fences were enabled on this device. Support paired EXT/KHR maintenance1 negotiation (issue #1). Expose the negotiated NVIDIA Reflex capability to the presenter. Negotiate optional AMD Anti-Lag separately from Reflex. Expose the maximum arena page size allowed by the device buffer and sparse address space limits."
     },
     {
       "path": "src/shader_recompiler/ir/passes/srt.h",

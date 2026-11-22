@@ -1,4 +1,5 @@
 #include "content_view.h"
+#include "common/windows_drive.h"
 #include <windows.h>
 #include <algorithm>
 #include <cstring>
@@ -25,7 +26,7 @@ bool CheckPath(const fs::path& path) {
             if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) { return false; }
             Invalid("Cannot inspect content path");
         }
-        if (attributes & FILE_ATTRIBUTE_REPARSE_POINT) { Invalid("Reparse points are not supported in content paths"); }
+        if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) && !cave::IsWineDriveRoot(ancestors[i])) { Invalid("Reparse points are not supported in content paths"); }
         if (i + 1 < ancestors.size() && !(attributes & FILE_ATTRIBUTE_DIRECTORY)) { throw NotDirectory("Content path parent is not a directory"); }
     }
     return true;

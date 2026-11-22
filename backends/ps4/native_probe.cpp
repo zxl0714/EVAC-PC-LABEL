@@ -25,6 +25,7 @@
 #include "native_offline_bench.h"
 #include "native_resident_gpu.h"
 #include "common/windows_fault_text.h"
+#include "common/windows_drive.h"
 #include "native_trophy.h"
 #include "memory/write_tracker.h"
 #include "memory/tracked_texture.h"
@@ -1153,7 +1154,8 @@ bool ModulePath(const char* text, std::string& name) {
 void CheckModulePath(const std::filesystem::path& path) {
     for (auto cursor = path; !cursor.empty();) {
         const auto attributes = GetFileAttributesW(cursor.c_str());
-        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+        if (attributes == INVALID_FILE_ATTRIBUTES ||
+            ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) && !cave::IsWineDriveRoot(cursor))) {
             throw std::runtime_error("Missing or reparse-point module path");
         }
         const auto parent = cursor.parent_path();

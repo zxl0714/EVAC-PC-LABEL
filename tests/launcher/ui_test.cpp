@@ -473,10 +473,10 @@ void GameLibraryChecks() {
   using cave::launcher::GameLibrary;
   const GameLibrary defaults(Ini::Parse(""));
   Require(GameLibrary::Encode(defaults.visible)==
-          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,rtype-final,donpachi",
+          "futari,espgaluda2,sdoj,guwange,ketsui,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,rtype-final,donpachi,dodonpachi",
           "The default launcher order must start with Futari and group games by platform");
   Require(GameLibrary::Encode(GameLibrary(Ini::Parse("[collection]\ngame_order=ketsui,espgaluda2\n")).order)==
-          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,rtype-final,donpachi",
+          "ketsui,espgaluda2,futari,sdoj,guwange,daioujou,esprade,feveron,garegga,espgaluda,ibara,daioujou-ps2,rtype-final,donpachi,dodonpachi",
           "An existing custom prefix must take precedence over the default order");
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\ngame_order=futari,espgaluda2,ketsui\n");
@@ -618,9 +618,9 @@ void ExternalLauncherControlsChecks() {
 
     const auto donpachi=std::ranges::find_if(app.library.visible,[](size_t index){return LauncherCatalogue()[index].id=="donpachi";});
     Require(donpachi!=app.library.visible.end(),"The DonPachi card is missing");
-    const std::wstring_view donpachi_project=cave::launcher::kDonPachiProject;
+    const std::wstring_view donpachi_project=FindArcadeRecomp("donpachi")->project;
     app.Select(*donpachi,false);
-    Require(DonPachiNeedsSetup(app.rows[*donpachi].inspection) && app.SelectedProjectUrl()==donpachi_project,
+    Require(ArcadeNeedsSetup(app.rows[*donpachi].inspection) && app.SelectedProjectUrl()==donpachi_project,
             "The DonPachi project link must be available before installation");
     Require(IsWindowEnabled(app.fullscreen_control) && app.display_choices.size()==2 && app.display_choices[0].fullscreen,
             "DonPachi must be selectable in both its display modes");
@@ -628,20 +628,32 @@ void ExternalLauncherControlsChecks() {
     click_link(app.layout.project_link(donpachi_project),{ExternalControl::ProjectLink,donpachi_project});
     keyboard_link(donpachi_project);
 
-    Write(DataChild(fixture.root,cave::launcher::kDonPachi.executable),"fixture engine");
+    Write(DataChild(fixture.root,FindArcadeRecomp("donpachi")->game.executable),"fixture engine");
     Write(fixture.root/"game-data/donpachi/donpachi.zip","fixture ROM");
     SendMessageW(app.fullscreen_control,CB_SETCURSEL,0,0);app.DisplayChanged();
     const auto arcade_ini=Ini::Load(ConfigPath(fixture.root));
-    const auto arcade=cave::launcher::PrepareDonPachi(fixture.root,arcade_ini,"fullscreen-check");
+    const auto arcade=cave::launcher::PrepareArcadeRecomp(*FindArcadeRecomp("donpachi"),fixture.root,arcade_ini,"fullscreen-check");
     const auto arcade_display=ResolveSharedSettings(arcade_ini);
     Require(arcade_display.fullscreen,"DonPachi fullscreen preference did not save");
-    cave::launcher::SetDonPachiFullscreen(arcade,arcade_display.fullscreen);
+    cave::launcher::SetArcadeFullscreen(arcade,arcade_display.fullscreen);
     Require(Ini::Load(arcade.configuration).Get("window","fullscreen")->text=="true","First launch did not create fullscreen settings");
     Write(arcade.configuration,"[window]\r\nscale = 3\r\nfullscreen = true\r\nfullscreen_type = exclusive\r\n[video]\r\nrenderer = direct3d12\r\n");
     SendMessageW(app.fullscreen_control,CB_SETCURSEL,1,0);app.DisplayChanged();
-    cave::launcher::SetDonPachiFullscreen(arcade,ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).fullscreen);
+    cave::launcher::SetArcadeFullscreen(arcade,ResolveSharedSettings(Ini::Load(ConfigPath(fixture.root))).fullscreen);
     Require(Ini::ReadText(arcade.configuration)=="[window]\r\nscale = 3\r\nfullscreen = false\r\nfullscreen_type = exclusive\r\n[video]\r\nrenderer = direct3d12\r\n",
             "Changing DonPachi display mode altered upstream settings");
+    const auto& ddp = *FindArcadeRecomp("dodonpachi");
+    const auto ddp_engine = DataChild(fixture.root, ddp.game.executable);
+    Write(ddp_engine, "fixture engine");
+    Write(ddp_engine.parent_path() / "ddonpach_jpn.dat", "prepared Japan");
+    const auto ddp_launch = PrepareArcadeRecomp(ddp, fixture.root, arcade_ini, "japan-only");
+    Require(Ini::Load(ddp_launch.configuration).Get("game", "version")->text == "japan",
+            "An installation containing only the Japanese DAT must select Japan");
+    const auto archives = fixture.root / "ROM sets";
+    Write(archives / "ddonpach.zip", "World");
+    Write(archives / "ddonpachj.7z", "Japan");
+    Require(cave::launcher::FindDoDonPachiSource(archives / "ddonpachj.7z") == archives / "ddonpachj.7z",
+            "Selecting the Japanese archive must not pick a sibling World archive");
     app.Select(*game,false);
     Require(app.display_choices.size()>2,"Returning to an integrated game lost its window presets");
   }

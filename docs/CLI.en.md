@@ -54,6 +54,7 @@ On a cabinet, use the following command to open Big Picture directly.
 | PS2 | DaiOuJou (PS2) | `daioujou-ps2` |
 | PS2 | R-Type Final | `rtype-final` |
 | Arcade | DonPachi | `donpachi` |
+| Arcade | DoDonPachi | `dodonpachi` |
 
 ## Optional arguments
 

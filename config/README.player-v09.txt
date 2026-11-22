@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.10.4
+EVAC PC LABEL v0.10.5
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击 Launch game。右上角的 CN 可切换为简体中文。
@@ -32,6 +32,7 @@ PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
 最大往生可选 eandis 版。按 external/SDOJ-Recomp/EVAC-Setup.txt 安装，然后开启封面上的 eandis 开关。
 首领蜂通过 DonPachi Recomp 启动。按 external/DonPachi-Recomp/EVAC-Setup.txt 安装程序，
 再把美版 donpachi.zip 放入 game-data/donpachi/，或在启动器中选择 ZIP。
+怒首领蜂支持国际版、日版和合并包（ZIP／7z）。程序安装说明见 external/DoDonPachi-Recomp/EVAC-Setup.txt。
 
 解包
 ZIP／RAR 用常规工具解压。PS2 的 ISO 解压出来后直接放入对应目录。
@@ -133,6 +134,8 @@ The filename is your choice. First launch prepares the runtime cache automatical
 
 With both editions of DaiOuJou installed, select DEATH LABEL in the PS4 edition's
 DIRECT MENU to play the PS2 mode. The Korean Battle Garegga release uses English menus.
+For arcade DoDonPachi, install the program as described in external/DoDonPachi-Recomp/EVAC-Setup.txt.
+Select the World, Japan or merged ROM archive (ZIP or 7z) in the launcher.
 
 Extraction
 Unpack ZIP/RAR normally. PS2 ISO images are ready to use.

@@ -14,6 +14,7 @@
 #include <rex/system/xam/user_profile.h>
 #include <rex/ui/keybinds.h>
 #include <rex/ui/d3d12/adapter_info.h>
+#include "common/windows_drive.h"
 #include <cstdio>
 #include <stdexcept>
 
@@ -140,6 +141,10 @@ void CollectionApp::OnPreSetup(rex::RuntimeConfig& config) {
             if (adapter->vendor==0x1002 && adapter->device==0x1638 && adapter->luid) {
                 selected="vulkan";
                 Flag("vulkan_adapter_luid",std::to_string(adapter->luid));
+            } else if (adapter->vendor==0x0005 && adapter->device==0 && cave::RunningUnderWine()) {
+                // DXVK reports Mesa llvmpipe as 0005:0000. VKD3D accepts presents
+                // with a black image on this adapter; native Vulkan renders it.
+                selected="vulkan";
             }
         }
     }
