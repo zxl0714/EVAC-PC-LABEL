@@ -10,15 +10,18 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-The v0.10.4 local program package built from `be178d6` is in
+v0.10.4 is the latest [GitHub release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.4).
+Its tag points to `be178d6`. The published program package is in
 `releases/v0104-be178d6/`. All 34 PS2 CTest cases passed, including the
 callback stack regression. The extracted ZIP passed verification against all
 222 manifest entries. The previous candidate also passed eight PS2 data tests.
 The build, test and package records are in `.local/v0104/gallery-be178d6-*`.
+The published notes, Latest status and SHA-256 hashes of both public downloads
+were verified. The release record is in `.local/v0104/github-release.json`.
 R-Type Final gallery and gameplay evidence is in `.local/v0104/r-type-final/`.
 
-v0.10.3 is the latest [GitHub release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.3).
-Its tag points to `93b5293`, and the verified program package is in
+The [v0.10.3 release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.3)
+is tagged at `93b5293`, and its verified program package is in
 `releases/v0103-93b5293/`. The launcher defaults to English and preserves the
 language selected in existing configs. Release verification is recorded in
 `.local/v0103/github-release.json` and `docs/TEST_MATRIX.md`.
