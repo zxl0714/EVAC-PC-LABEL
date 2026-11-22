@@ -842,6 +842,12 @@ void GameExitChecks() {
   auto& app=frame.app;
   const auto defaults=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
   Require(defaults.keyboard==ExitKeys{VK_ESCAPE} && defaults.buttons==ExitButtons{"start","dpup"},"Game exit defaults");
+  const auto donpachi=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"donpachi");
+  Require(donpachi.keyboard==ExitKeys{} && donpachi.buttons==ExitButtons{"start","dpup"},
+          "Escape must reach DonPachi Recomp's own menu by default");
+  Write(config,"[collection]\ngame_exit_key=F12\n");
+  Require(ReadGameExitShortcuts(Ini::Load(config),fixture.root,"donpachi").keyboard==ExitKeys{VK_F12},
+          "A recorded exit key must also apply to DonPachi Recomp");
   Write(config,"[collection]\nbig_picture_exit_key= F12\nbig_picture_exit_buttons= START + Select\n");
   Require(ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari").keyboard==ExitKeys{VK_F12},"Legacy single exit key");
   Write(config,"[collection]\ngame_exit_key=Control + F12\nbig_picture_exit_key=Escape\nbig_picture_exit_buttons=START + Select\n");

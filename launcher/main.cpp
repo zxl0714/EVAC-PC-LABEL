@@ -206,6 +206,9 @@ void Log(const fs::path& root,std::string_view message) {
 }
 GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std::string_view game) {
   GameExitShortcuts shortcuts;
+  // DonPachi Recomp opens its own pause menu, including its update prompt, on
+  // Escape. Only a key the player recorded closes it from the launcher.
+  if(game==cave::launcher::kDonPachi.id)shortcuts.keyboard={};
   if(const auto entry=cave::launcher::ExitKeySetting(ini)) {
     const auto keys=cave::launcher::ParseExitKeys(entry->text);
     shortcuts.keyboard=keys.value_or(ExitKeys{});
