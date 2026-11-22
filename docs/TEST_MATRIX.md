@@ -37,6 +37,8 @@ v0.10.4 在这台 WSL 主机上将两个原始包均标为 `incomplete_data`。�
 
 四款 PS2 游戏从合集启动器运行，日志均记录选择 Mesa 25.2.8 llvmpipe，关闭窗口后启动器记录的游戏进程退出码均为 0。初次实验仅放开设备类型检查时，多款游戏在驱动内崩溃。改用标准描述符集后，《铸蔷薇》能进标题，但原先的 4,096 集批次导致驱动以每集约 1 MiB 分配内存。软件设备改为每批 32 集后完成上表测试。Windows 用同一构建在 RTX 4080 上仍选择硬件路径，实测《铸蔷薇》一面玩家局，运行 4,700 场后正常退出。截图与进程记录见本机 `.local/v0105/ps2-cpu-Go12AX/` 和 `.local/v0105/cpu-native-ibara-r4/`。
 
+本地候选包冻结于 `c8d5478`，ZIP 的 SHA-256 为 `a44698a711dd205e75b2c2fa9a02e3991427f24024c859800e5299522c9e0ae9`。实际解压并验证 226 个清单条目，重新从解压的启动器在 llvmpipe 启动四款 PS2 游戏，均显示游戏画面并以 0 退出。最终程序与上述完整进关测试使用的程序逐字节比较，仅 PE 时间戳和 CodeView 调试标识不同。冻结版《铸蔷薇》另在 RTX 4080 重测一面玩家局。34 项 PS2 CTest 及源码测试通过。复查记录在本机 `.local/v0105/ps2-zip-xwcSVp/`、`cpu-release-c8d5478.json` 和 `cpu-native-ibara-ship/`。
+
 另测将本机 RTX 4080 映射到 WSL 的 Mesa Dozen 26.3.1。Proton 请求的 `VK_KHR_external_semaphore_capabilities` 和渲染器需要的 `storageBuffer8BitAccess` 在该驱动上不可用，因此这组测试使用 llvmpipe 完成。
 
 另用同一份 TU 1.01 数据直接启动 eandis 的 Windows 程序。在两个全新的 Proton 环境中，分别把上游的 `render_target_path_d3d12` 设为 `rtv` 和 `rov`。两次日志均记录到 llvmpipe 和成功应用的补丁版本 `4.0.1.0`，两组截图均出现与合集启动器启动时相同的绿黑色块。可独立于合集启动器复现。目前尚未定位到具体绘制调用。记录在本机 `.local/v0105/eandis-d3d-comparison/`。

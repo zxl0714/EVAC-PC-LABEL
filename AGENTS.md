@@ -10,6 +10,12 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
+The local v0.10.5 program candidate is frozen at `c8d5478` under
+`releases/v0105-c8d5478/`. WSL/Proton coverage, including Futari DLC, all four
+PS2 titles on llvmpipe, and the hosted Death Label round trip, is recorded in
+[the test matrix](docs/TEST_MATRIX.md#v0105-wsl-与-proton). The optional eandis
+Windows build still shows green/black output on this software adapter.
+
 v0.10.4 is the latest [GitHub release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.4).
 Its tag points to `be178d6`. The published program package is in
 `releases/v0104-be178d6/`. All 34 PS2 CTest cases passed, including the
