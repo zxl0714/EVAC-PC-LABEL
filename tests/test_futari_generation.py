@@ -71,7 +71,8 @@ class FutariGenerationTests(unittest.TestCase):
 
     def test_resident_callback_inventory_is_retained(self):
         functions = tomllib.loads((self.source / 'default-functions.toml').read_text(encoding='utf-8'))['functions']
-        self.assertEqual(len(functions), 31)
+        self.assertEqual(functions['0x82199E18'], {'end': 0x82199E1C})
+        self.assertEqual(len(functions), 32)
         self.assertTrue({'0x820F3C20', '0x821CB190', '0x8210E770', '0x8210E778', '0x8210E780'} <= functions.keys())
 
 

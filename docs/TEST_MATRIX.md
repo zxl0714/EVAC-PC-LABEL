@@ -26,7 +26,7 @@ v0.10.4 在这台 WSL 主机上将两个原始包均标为 `incomplete_data`。�
 | 启动器条目 | WSL 中实际看到的画面 |
 | --- | --- |
 | ESPGaluda II、狱门山 | 两款游戏的标题画面。 |
-| ESP Ra.De. Ψ、《弹铳》、《空战之路》 | 依次到达游戏加载界面、离线提示、首次存档说明。三款均在测试关闭窗口后退出，运行时记录 `window_close_requested`。 |
+| ESP Ra.De. Ψ、《弹铳》、《空战之路》 | 《ESP Ra.De. Ψ》进入模式选择，选择 Arcade 后出现原作地区提示。《弹铳》和《空战之路》均进入街机标题和演示画面。三款关闭窗口后都记录了 `window_close_requested`。 |
 | 《首领蜂》 | 实际进入美版 DonPachi Recomp 菜单，显示 USA。 |
 | 《最大往生》eandis 版 | 桌面卡片成功启动上游 EXE，读取 TU 1.01。其 D3D12 输出在此虚拟显卡上出现绿黑块，尚未验收。 |
 | PS2《ESPGaluda》《铸蔷薇》《大往生》《R-Type Final》 | 四款发布版均已逐款尝试。llvmpipe 被硬件设备检查拦下。另用 Mesa Dozen 26.3.1 映射本机 RTX 4080，四款均在创建 Vulkan 实例时退出。 |

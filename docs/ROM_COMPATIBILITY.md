@@ -71,7 +71,9 @@ ELF 本体和明文 SELF 本体对应清单的 `base` 和 `base-self`。两者�
 
 X Arrange 使用玩家自备曲包，01.00 和 01.02 均已实播。两版均实测第 99 槽写入及重启读回，01.00 带 VIRT ARRANGE，01.02 带 X Arrange。两版均实测两个机体的 CUSTOM 玩家局结算、三榜成绩及录像收发。[曲集](IMPLEMENTATION_PLAN.md#v0910-ps4-数据兼容与绊地狱曲集) · [CUSTOM 实测](TEST_MATRIX.md#v0100-rom-功能兼容性) · [01.02 第 99 槽](IMPLEMENTATION_PLAN.md#v0911-兼容性练习存档与文件上传) · [01.02 低延迟](ANALYSIS.md#v095--ps4-输入与呈现)
 
-两份玩家上传的 01.03 合并补丁的 26 个校验输入逐项一致。两份均通过启动器进入 IKD 2007 SPECIAL，ZIP 转储写入的第 99 槽在 RAR 转储冷启动后读回。01.03 在 WSL／Proton 下同样可从 IKD 2007 SPECIAL 进入第一关，X Arrange 和 VIRT ARRANGE 的关内录音分别与对应原曲匹配。[WSL 验收](TEST_MATRIX.md#v0105-wsl-与-proton)01.03 的社区功能在本机服务实测了 CUSTOM 三榜的成绩、读榜和录像收发。[01.03 验收](TEST_MATRIX.md#v0101-玩家转储与-death-label)
+两份玩家上传的 01.03 合并补丁的 26 个校验输入逐项一致。两份均通过启动器进入 IKD 2007 SPECIAL，ZIP 转储写入的第 99 槽在 RAR 转储冷启动后读回。01.03 在 WSL／Proton 下同样可从 IKD 2007 SPECIAL 进入第一关，X Arrange 和 VIRT ARRANGE 的关内录音分别与对应原曲匹配。[WSL 验收](TEST_MATRIX.md#v0105-wsl-与-proton)
+
+01.03 的社区功能在本机服务实测了 CUSTOM 三榜的成绩、读榜和录像收发。[01.03 验收](TEST_MATRIX.md#v0101-玩家转储与-death-label)
 
 01.00 明文 SELF、PKG 提取、主机导出及 01.03 独立 PKG 提取样本待补。
 
