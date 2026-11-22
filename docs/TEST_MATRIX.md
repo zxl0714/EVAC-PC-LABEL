@@ -28,10 +28,12 @@ v0.10.4 在这台 WSL 主机上将两个原始包均标为 `incomplete_data`。�
 | ESPGaluda II、狱门山 | 两款游戏的标题画面。 |
 | ESP Ra.De. Ψ、《弹铳》、《空战之路》 | 《ESP Ra.De. Ψ》进入模式选择，选择 Arcade 后出现原作地区提示。《弹铳》和《空战之路》均进入街机标题和演示画面。三款关闭窗口后都记录了 `window_close_requested`。 |
 | 《首领蜂》 | 实际进入美版 DonPachi Recomp 菜单，显示 USA。 |
-| 《最大往生》eandis 版 | 桌面卡片成功启动上游 EXE，读取 TU 1.01。其 D3D12 输出在此虚拟显卡上出现绿黑块，尚未验收。 |
+| 《最大往生》eandis 版 | 桌面卡片成功启动上游 EXE，TU 1.01 补丁应用成功。D3D12 输出出现绿黑色块，SteamOS 实机待验。 |
 | PS2《ESPGaluda》《铸蔷薇》《大往生》《R-Type Final》 | 四款发布版均已逐款尝试。llvmpipe 被硬件设备检查拦下。另用 Mesa Dozen 26.3.1 映射本机 RTX 4080，四款均在创建 Vulkan 实例时退出。 |
 
 在 Dozen 下，Linux 的 `vulkaninfo` 能枚举出独立显卡和可呈现的 X11 surface。用发布版《ESPGaluda》复查 Wine 跟踪时，Proton 请求了驱动未提供的 `VK_KHR_external_semaphore_capabilities`，`vkCreateInstance` 返回 `VK_ERROR_EXTENSION_NOT_PRESENT`（−7）。驱动还报告 `storageBuffer8BitAccess = false`，而 PS2 渲染器 parallel-gs 的初始化要求这项能力。llvmpipe 的单独对照构建临时放宽了设备类型检查：《ESPGaluda》显示 ARIKA 片头、呈现 1,248 帧并可正常关闭，另三款进入 GS 初始化后异常退出。四款发布版及嵌入式 Death Label 均保留为 SteamOS 待验。
+
+另用同一份 TU 1.01 数据直接启动 eandis 的 Windows 程序。在两个全新的 Proton 环境中，分别把上游的 `render_target_path_d3d12` 设为 `rtv` 和 `rov`。两次日志均记录到 llvmpipe 和成功应用的补丁版本 `4.0.1.0`，两组截图均出现与合集启动器启动时相同的绿黑色块。可独立于合集启动器复现。目前尚未定位到具体绘制调用。记录在本机 `.local/v0105/eandis-d3d-comparison/`。
 
 ### 《铸蔷薇》关内画面延迟（Windows）
 
