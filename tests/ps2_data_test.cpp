@@ -1,6 +1,7 @@
 #include "common/catalogue.h"
 #include "common/data_import.h"
 #include "common/paths.h"
+#include "common/verification_cache.h"
 #include "common/ps2_prepare.h"
 #include <Windows.h>
 #include <array>
@@ -40,6 +41,19 @@ std::string Iso() {
   cursor=Record(bytes,cursor,std::string(1,1),20,2048,true);
   Record(bytes,cursor,"SLPS_253.52;1",22,3,false);
   bytes.replace(22*2048,3,"abc");return bytes;
+}
+// A v5 uncompressed DVD with an explicit hunk map, built entirely from the authored ISO.
+std::string DvdChd(const std::string& iso) {
+  constexpr size_t hunk=4096;
+  std::string bytes(hunk,0);
+  bytes.replace(0,8,"MComprHD");
+  auto number=[&](size_t offset,uint64_t value,size_t width) {
+    while(width) {bytes.at(offset+--width)=char(value);value>>=8;}
+  };
+  number(8,124,4); number(12,5,4); number(32,iso.size(),8); number(40,124,8);
+  number(56,hunk,4); number(60,2048,4);
+  for(size_t i=0;i<iso.size()/hunk;++i)number(124+4*i,i+1,4);
+  return bytes+iso;
 }
 struct Fixture {
   fs::path directory,root,data;
@@ -100,9 +114,27 @@ int main() {
     Require(Sha256(original)==hash && fs::file_size(fixture.data/"private.txt")==23,"Import modified original data");
     changed=bytes;Pair(changed,16*2048+156+2,24,4);Write(original,changed);
     Require(inspect().data_state==DataState::Unsupported,"Out-of-bounds ISO extent was accepted");
+    Fixture compressed;
+    const auto chd=compressed.data/FromUtf8("圧縮.chd");
+    Write(chd,DvdChd(bytes));
+    VerificationCache verification(compressed.root);
+    auto check_chd=[&]{return Inspect(game,compressed.root,chd,CheckLevel::Full,&verification);};
+    Require(check_chd().data_state==DataState::Verified && check_chd().layout=="chd","CHD did not match the ISO identity");
+    const auto physical_hash=Sha256(chd);
+    Require(physical_hash!=hash,"CHD fixture unexpectedly equals the ISO");
+    Require(verification.DigestRange(chd,0,bytes.size())!=hash,"Logical disc digest leaked into physical file cache");
+    const auto copied_chd=CopyDataToCollection(compressed.root,game,chd);
+    Require(copied_chd.files==1 && copied_chd.bytes==fs::file_size(chd) &&
+            Sha256(copied_chd.directory/chd.filename())==physical_hash,"Direct CHD import did not preserve the container");
+    const auto boot=PreparePs2Disc(Paths(compressed.root,game.id,chd),chd,hash,prepared);
+    Require(Sha256(boot/"boot.elf")==files[0].sha256,"CHD boot preparation used compressed offsets");
+    auto corrupt=bytes;corrupt.back()=1;Write(chd,DvdChd(corrupt));
+    Require(check_chd().data_state==DataState::Incomplete,"CHD with altered logical sectors passed full verification");
+    Write(chd,"broken image");
+    Require(check_chd().data_state==DataState::Unsupported,"Malformed CHD accepted");
     bool rejected=false;try {Sha256Range(original,bytes.size()-1,2);}catch(const std::exception&){rejected=true;}
     Require(rejected,"Out-of-bounds checksum range was accepted");
-    std::cout<<"PS2 original ISO recognition, boot/disc validation, ambiguity and isolated import passed\n";
+    std::cout<<"PS2 ISO/CHD recognition, boot/disc validation, ambiguity and isolated import passed\n";
     return 0;
   } catch(const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}
 }

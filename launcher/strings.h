@@ -159,6 +159,7 @@ inline constexpr std::array kTranslations{
   Translation{L"\n\n导入会保留目标中的放置说明和 X Arrange 曲包。\n继续吗？",L"\n\nコピー先の配置説明と X Arrange の曲データは保持されます。\n続行しますか？",L"\n\nThe import keeps the placement guide and any X Arrange tracks in the destination.\nContinue?"},
   Translation{L"复制到合集",L"コレクションにコピー",L"Copy to collection"},
   Translation{L"正在校验源数据…",L"元のデータを検証中…",L"Verifying source data…"},
+  Translation{L"选择光盘镜像…",L"ディスクイメージを選択…",L"Choose disc image…"},
   Translation{L"选择数据目录…",L"データフォルダーを選択…",L"Choose data folder…"},
   Translation{L"复制到合集…",L"コレクションにコピー…",L"Copy into collection…"},
   Translation{L"正在复制并校验数据… ",L"データをコピー・検証中… ",L"Copying and verifying data… "},

@@ -1193,6 +1193,8 @@ class App {
     try {
       preferences_text=Ini::ReadText(EnsureConfig(options.root));
       const auto ini=Ini::Parse(preferences_text);const auto settings=ResolveSharedSettings(ini);
+      menu_keys=settings.keyboard;
+      if(menu_controller)menu_controller->SetMappings(ControllerMappings(ini));
       sdoj_external=cave::launcher::ReadSdojRecomp(ini);
       big_picture_mode=cave::launcher::ReadBigPictureMode(ini);
       language=options.language.value_or(cave::launcher::ReadLanguage(ini));
@@ -1422,6 +1424,7 @@ class App {
     }
     try {
       menu_controller=std::make_unique<cave::launcher::MenuController>(options.root);
+      menu_controller->SetMappings(ControllerMappings(Ini::Parse(preferences_text)));
     } catch(const std::exception& error) {
       Log(options.root,"launcher-controller: "+std::string(error.what()));
     }
@@ -1495,12 +1498,21 @@ class App {
   }
   void BigPictureKeyboard(WPARAM key, bool repeated) {
     if(key && std::ranges::find(exit_keys_awaiting_release,key)!=exit_keys_awaiting_release.end())return;
+    constexpr std::pair<size_t,MenuKey> actions[]={
+      {0,MenuKey::Up},{1,MenuKey::Down},{2,MenuKey::Left},{3,MenuKey::Right},
+      {4,MenuKey::Confirm},{5,MenuKey::Back},{8,MenuKey::Confirm},{9,MenuKey::Back}};
+    for(const auto& [slot,action]:actions) {
+      const auto& keys=menu_keys[slot].keys;
+      if(std::ranges::find(keys,key)==keys.end())continue;
+      if(!repeated || (action!=MenuKey::Confirm && action!=MenuKey::Back))BigPictureAction(action);
+      return;
+    }
     switch(key) {
-      case VK_UP:case VK_NUMPAD8:BigPictureAction(MenuKey::Up);break;
-      case VK_DOWN:case VK_NUMPAD2:BigPictureAction(MenuKey::Down);break;
-      case VK_LEFT:case VK_NUMPAD4:BigPictureAction(MenuKey::Left);break;
-      case VK_RIGHT:case VK_NUMPAD6:BigPictureAction(MenuKey::Right);break;
-      case VK_RETURN:case VK_SPACE:if(!repeated)BigPictureAction(MenuKey::Confirm);break;
+      case VK_NUMPAD8:BigPictureAction(MenuKey::Up);break;
+      case VK_NUMPAD2:BigPictureAction(MenuKey::Down);break;
+      case VK_NUMPAD4:BigPictureAction(MenuKey::Left);break;
+      case VK_NUMPAD6:BigPictureAction(MenuKey::Right);break;
+      case VK_SPACE:if(!repeated)BigPictureAction(MenuKey::Confirm);break;
       case VK_ESCAPE:if(!repeated)BigPictureAction(MenuKey::Back);break;
       case VK_HOME:ChooseBigPictureGame(0);break;
       case VK_END:if(!library.visible.empty())ChooseBigPictureGame(library.visible.size()-1);break;
@@ -1677,17 +1689,21 @@ class App {
         game_focus_pending=GetForegroundWindow()==hwnd && !SetForegroundWindow(game);
     }
   }
-  void Choose(bool copy=false) {
+  void Choose(bool copy=false,bool disc_file=false) {
     if(busy||child||LauncherCatalogue()[selected].coming_soon)return;
     const auto* arcade=SelectedArcade();
     ComPtr<IFileOpenDialog> dialog;Check(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog)),"Create data directory picker");
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
-    Check(dialog->SetOptions(flags|(arcade?FOS_FILEMUSTEXIST:FOS_PICKFOLDERS)|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure game data picker");
+    Check(dialog->SetOptions(flags|((arcade || disc_file)?FOS_FILEMUSTEXIST:FOS_PICKFOLDERS)|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure game data picker");
     if(arcade) {
       const auto pattern=arcade->game.id=="dodonpachi"?std::wstring(L"*.zip"):Wide(arcade->rom);
       const COMDLG_FILTERSPEC filter[]{{pattern.c_str(),pattern.c_str()}};
       Check(dialog->SetFileTypes(1,filter),"Set arcade ROM filter");
       dialog->SetTitle(T(L"选择 ROM…"));
+    } else if(disc_file) {
+      const COMDLG_FILTERSPEC filter[]{ {L"ISO / CHD", L"*.iso;*.chd"} };
+      Check(dialog->SetFileTypes(1,filter),"Set PS2 disc image filter");
+      dialog->SetTitle(T(L"选择光盘镜像…"));
     } else {
       dialog->SetTitle(copy?T(L"选择要复制到合集的游戏原始数据目录"):T(L"选择游戏数据目录"));
     }
@@ -1725,13 +1741,14 @@ class App {
       return;
     }
     const auto menu=CreatePopupMenu();if(!menu)throw std::runtime_error("Cannot create data menu");
+    if(LauncherCatalogue()[selected].backend=="ps2")AppendMenuW(menu,MF_STRING,3,T(L"选择光盘镜像…"));
     AppendMenuW(menu,MF_STRING,1,T(L"选择数据目录…"));
     AppendMenuW(menu,LauncherCatalogue()[selected].integrated?MF_STRING:MF_GRAYED,2,T(L"复制到合集…"));
     const auto rectangle=layout.data();const auto scale=float(GetDpiForWindow(hwnd))/96;
     POINT anchor{LONG(rectangle.left*scale),LONG(rectangle.top*scale)};ClientToScreen(hwnd,&anchor);
     const auto selection=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_LEFTALIGN|TPM_BOTTOMALIGN,anchor.x,anchor.y,0,hwnd,nullptr);
     DestroyMenu(menu);
-    if(selection)Choose(selection==2);
+    if(selection)Choose(selection==2,selection==3);
   }
   std::optional<size_t> VisiblePosition() const {
     const auto found=std::ranges::find(library.visible,selected);
@@ -1951,6 +1968,9 @@ class App {
     if(Inside(layout.controls(),x,y)) {
       if(!busy && !child && !library.visible.empty() && !SelectedArcade() && show_controls(hwnd,options.root,LauncherCatalogue()[selected],language)) {
         preferences_text=Ini::ReadText(ConfigPath(options.root));
+        const auto ini=Ini::Parse(preferences_text);
+        menu_keys=ResolveSharedSettings(ini).keyboard;
+        if(menu_controller)menu_controller->SetMappings(ControllerMappings(ini));
         Log(options.root,"input-settings-updated");
       }
       return;
@@ -2211,6 +2231,7 @@ class App {
   LONG_PTR desktop_style{};
   bool game_focus_pending{};
   std::unique_ptr<cave::launcher::MenuController> menu_controller;
+  std::array<Binding,16> menu_keys=ResolveSharedSettings(Ini{}).keyboard;
   std::optional<GameExitShortcuts> game_exit_shortcuts;
   HWND game_exit_window{};
   bool game_exit_keyboard{};

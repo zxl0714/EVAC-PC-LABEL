@@ -1,6 +1,7 @@
 #include "common/ps2_prepare.h"
 #include "common/verification_cache.h"
 #include "backends/ps2/iso_disc.h"
+#include "backends/ps2/disc_image.h"
 #include <Windows.h>
 #include <algorithm>
 #include <array>
@@ -46,11 +47,11 @@ fs::path PreparePs2Disc(const GamePaths& paths,const fs::path& image,std::string
   fs::create_directories(paths.prepared);
   const auto stage=DataChild(paths.prepared,"prepare-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
   if(!fs::create_directory(stage))throw std::runtime_error("Prepared disc transaction collision");
-  std::ifstream source(image,std::ios::binary);
+  ps2::DiscImage source(image);
   const auto bytes=fs::file_size(image);
   const auto modified=fs::last_write_time(image);
   for(const auto& file:files) {
-    const auto extent=ps2::FindIsoFile(source,bytes,file.disc_path);
+    const auto extent=ps2::FindIsoFile(source,source.Size(),file.disc_path);
     if(!extent || extent->size!=file.bytes)throw std::runtime_error("Disc is missing a required boot/IOP file: "+std::string(file.disc_path));
     source.clear();source.seekg(static_cast<std::streamoff>(uint64_t(extent->lba)*2048));
     const auto output=DataChild(stage,file.path);

@@ -121,7 +121,7 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
         const auto spec = PrepareLaunch(game, root, ini, profile);
         VerificationCache verification(root);
         const auto disc = Inspect(game, root, spec.paths.data, CheckLevel::Programs, &verification);
-        if (disc.disc_image.empty()) throw std::runtime_error("PS2 DaiOuJou ISO disappeared during startup");
+        if (disc.disc_image.empty()) throw std::runtime_error("PS2 DaiOuJou disc image disappeared during startup");
         disc_ = disc.disc_image;
         prepared_ = PreparePs2Disc(spec.paths, disc_, daioujou_ps2::DiscSha256, daioujou_ps2::DiscFiles);
         profile_ = spec.paths.profile;

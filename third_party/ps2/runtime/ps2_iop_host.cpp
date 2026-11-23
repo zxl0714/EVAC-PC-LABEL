@@ -1,4 +1,5 @@
 #include "ps2_iop_host.h"
+#include "disc_image.h"
 
 #include "ps2_runtime.h"
 #include "native_host.h"
@@ -371,51 +372,47 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
 
     const std::filesystem::path hostPath{std::string(path)};
     const auto &paths = PS2Runtime::getIoPaths();
-#if defined(_WIN32)
-    std::FILE *stream = ::_wfopen(hostPath.c_str(), hostPath == paths.cdImage ? L"rbS" : L"rb");
-#else
-    std::FILE *stream = std::fopen(hostPath.string().c_str(), "rb");
-#endif
+    HostFile file{};
     std::error_code error;
-    uint64_t size = stream ? std::filesystem::file_size(hostPath, error) : 0u;
-    uint64_t base = 0u;
-    if (!stream)
+    if (hostPath != paths.cdImage && std::filesystem::is_regular_file(hostPath, error))
+    {
+        file.size = std::filesystem::file_size(hostPath, error);
+        if (error || _wfopen_s(&file.stream, hostPath.c_str(), L"rb")) return 0u;
+    }
+    else
     {
         const auto relative = hostPath.lexically_normal().lexically_relative(paths.cdRoot.lexically_normal());
-        if (paths.cdImage.empty() || relative.empty() || relative.is_absolute() ||
-            std::find(relative.begin(), relative.end(), "..") != relative.end()) return 0u;
-        const auto imageSize = std::filesystem::file_size(paths.cdImage, error);
-        if (error) return 0u;
-        if (relative == ".") size = imageSize;
-        else
+        if (paths.cdImage.empty() || (hostPath != paths.cdImage &&
+            (relative.empty() || relative.is_absolute() || std::find(relative.begin(), relative.end(), "..") != relative.end())))
+            return 0u;
+        try
         {
-            std::ifstream image(paths.cdImage, std::ios::binary);
-            const auto file = cave::ps2::FindIsoFile(image, imageSize, relative.generic_string());
-            if (!file) return 0u;
-            base = uint64_t(file->lba) * 2048u; size = file->size;
+            auto disc = std::make_unique<cave::ps2::DiscImage>(paths.cdImage);
+            file.size = disc->Size();
+            if (hostPath != paths.cdImage && relative != ".")
+            {
+                const auto entry = cave::ps2::FindIsoFile(*disc, file.size, relative.generic_string());
+                if (!entry) return 0u;
+                file.base = uint64_t(entry->lba) * 2048u;
+                file.size = entry->size;
+            }
+            if (cave::ps2::DiscImage::IsChd(paths.cdImage))
+                file.image = std::move(disc);
+            else
+            {
+                if (_wfopen_s(&file.stream, paths.cdImage.c_str(), L"rbS")) return 0u;
+                if (hostPath == paths.cdImage)
+                    file.readAhead = cave::ps2::IsoReadAhead::Open(file.stream, file.size);
+            }
         }
-#if defined(_WIN32)
-        stream = ::_wfopen(paths.cdImage.c_str(), L"rbS");
-#else
-        stream = std::fopen(paths.cdImage.string().c_str(), "rb");
-#endif
-        if (!stream) return 0u;
+        catch (const std::exception &) { return 0u; }
     }
-    if (error)
-    {
-        std::fclose(stream);
-        return 0u;
-    }
-
     std::lock_guard<std::mutex> lock(m_hostFileMutex);
     uint64_t handle = m_nextHostFileHandle++;
     if (handle == 0u)
     {
         handle = m_nextHostFileHandle++;
     }
-    HostFile file{stream, size, base, 0u, {}};
-    if (hostPath == paths.cdImage)
-        file.readAhead = cave::ps2::IsoReadAhead::Open(stream, size);
     m_hostFiles.emplace(handle, std::move(file));
     return handle;
 }
@@ -425,7 +422,7 @@ bool PS2IopHostAdapter::hostFileSize(uint64_t handle, uint64_t &size) const
     size = 0u;
     std::lock_guard<std::mutex> lock(m_hostFileMutex);
     const auto it = m_hostFiles.find(handle);
-    if (it == m_hostFiles.end() || !it->second.stream)
+    if (it == m_hostFiles.end())
     {
         return false;
     }
@@ -448,13 +445,22 @@ bool PS2IopHostAdapter::readHostFile(uint64_t handle,
 
     std::lock_guard<std::mutex> lock(m_hostFileMutex);
     const auto it = m_hostFiles.find(handle);
-    if (it == m_hostFiles.end() || !it->second.stream)
+    if (it == m_hostFiles.end())
     {
         return false;
     }
 
     size = size_t(std::min<uint64_t>(size, it->second.size - std::min(offset, it->second.size)));
     offset += it->second.base;
+    if (it->second.image)
+    {
+        auto &disc = *it->second.image;
+        disc.clear();
+        disc.seekg(static_cast<std::streamoff>(offset));
+        disc.read(static_cast<char *>(destination), static_cast<std::streamsize>(size));
+        bytesRead = static_cast<size_t>(disc.gcount());
+        return bytesRead == size;
+    }
     if (it->second.readAhead && it->second.readAhead->TryRead(offset, destination, size))
     {
         bytesRead = size;
@@ -622,13 +628,12 @@ bool PS2IopHostAdapter::sendSifCommand(uint32_t commandId,
 bool PS2IopHostAdapter::FindDiscFile(std::string_view path,uint32_t& lba,uint32_t& size) const
 {
     const auto& imagePath=PS2Runtime::getIoPaths().cdImage;
-    std::error_code error;
-    const auto imageSize=std::filesystem::file_size(imagePath,error);
-    if(error)return false;
-    std::ifstream image(imagePath,std::ios::binary);
-    const auto file=cave::ps2::FindIsoFile(image,imageSize,path);
-    if(!file)return false;
-    lba=file->lba;size=file->size;return true;
+    try {
+        cave::ps2::DiscImage image(imagePath);
+        const auto file=cave::ps2::FindIsoFile(image,image.Size(),path);
+        if(!file)return false;
+        lba=file->lba;size=file->size;return true;
+    } catch(const std::exception&) { return false; }
 }
 
 uint32_t PS2IopHostAdapter::FindEeRpc(uint32_t sid) const

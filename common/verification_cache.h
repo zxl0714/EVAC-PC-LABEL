@@ -13,7 +13,7 @@ class VerificationCache {
   VerificationCache(const VerificationCache&) = delete;
   VerificationCache& operator=(const VerificationCache&) = delete;
   std::string Digest(const fs::path& file);
-  std::string DigestRange(const fs::path& file,uint64_t offset,uint64_t bytes);
+  std::string DigestRange(const fs::path& file,uint64_t offset,uint64_t bytes,bool logical_disc=false);
   void Flush() noexcept;
   uint64_t hits{}, reads{}, bytes_read{};
  private:

@@ -59,12 +59,18 @@ void VerifyRuntime(const Game& game,const fs::path& root,VerificationCache& cach
     throw std::runtime_error("Missing or incompatible runtime manifest; rebuild the selected game");
   size_t expected_count=0,actual_count=0;
   for (const auto& [address,value]:ini.Values()) if (address.first=="files") ++actual_count;
+  constexpr std::string_view repair="Close the launcher and all games, then extract the complete program ZIP again and replace existing files.";
   for (const auto name:game.runtime_files) {
     if (name==certificate) continue;
     ++expected_count;
     const auto entry=ini.Get("files",name);
-    if (!entry || entry->text.size()!=64 || cache.Digest(DataChild(root,name))!=entry->text)
-      throw std::runtime_error("Runtime component differs from its verified build: "+std::string(name));
+    if (!entry || entry->text.size()!=64)
+      throw std::runtime_error("Runtime manifest is incomplete: "+certificate+" ("+std::string(name)+"). "+std::string(repair));
+    const auto path=DataChild(root,name);
+    const auto actual=cache.Digest(path);
+    if (actual!=entry->text)
+      throw std::runtime_error("Runtime component differs from its verified build: "+Utf8(path)+"\n"+
+                               std::string(repair)+"\nExpected SHA-256: "+entry->text+"\nInstalled SHA-256: "+actual);
   }
   if (actual_count!=expected_count) throw std::runtime_error("Runtime manifest has unexpected components");
 }
@@ -214,7 +220,9 @@ void SetDataDirectory(const fs::path& root,const Game& game,const fs::path& requ
   const auto data=fs::canonical(requested);
   const bool arcade_archive=game.id=="dodonpachi" && fs::is_regular_file(data) &&
       (!_wcsicmp(data.extension().c_str(),L".zip") || !_wcsicmp(data.extension().c_str(),L".7z"));
-  if (!fs::is_directory(data) && !arcade_archive) throw std::runtime_error("Select a game-data directory or a supported arcade ROM archive");
+  const bool ps2_disc=game.backend=="ps2" && fs::is_regular_file(data) &&
+      (!_wcsicmp(data.extension().c_str(),L".iso") || !_wcsicmp(data.extension().c_str(),L".chd"));
+  if (!fs::is_directory(data) && !arcade_archive && !ps2_disc) throw std::runtime_error("Select a game-data directory or a supported game image");
   ValidateOutputs(Paths(root,game.id,data));
   const auto config=EnsureConfig(root);
   const auto before=Ini::ReadText(config);

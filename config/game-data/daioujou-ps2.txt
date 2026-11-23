@@ -6,9 +6,6 @@ game-data/
     README.txt
     DoDonPachi Dai-Ou-Jou (Japan).iso
 
-将日版 ISO 放入此目录，保留现有文件名即可。若镜像在 ZIP 或 7z 里，先解压出 ISO。
-在启动器选择 PS2 版大往生。ISO 放在其他位置时，可用“游戏数据…”选择它所在的目录。
+将上述版本的 ISO 或 CHD 放入此目录，文件名不限。也可在启动器的“游戏数据…”→“选择光盘镜像…”直接选取镜像。ZIP 或 7z 需先解压。
 
-Place the Japanese ISO in this folder and keep its filename. Extract the ISO from
-any ZIP or 7z archive first. Select the PS2 edition of DaiOuJou in the launcher.
-Use Game data... to choose the folder if you keep the ISO elsewhere.
+Place the Japanese disc here as an ISO or CHD, or select the image under Game data… → Choose disc image… in the launcher. Keep the original filename. Extract ZIP or 7z archives first.

@@ -95,6 +95,13 @@ class MenuController {
 public:
     explicit MenuController(const fs::path& root) : devices_(root) {}
 
+    void SetMappings(const std::map<std::string,std::string>& mappings) {
+        shared_maps_.clear();
+        for(const auto& [guid,source]:mappings)
+            shared_maps_.emplace(guid,controls::ParsePadMap(source));
+        Reset();
+    }
+
     void Reset() {
         for (auto& pad : pads_) {
             pad.previous = MenuKey::None;
@@ -119,7 +126,9 @@ public:
         UpdatePads(now);
         auto action = MenuKey::None;
         for (auto& pad : pads_) {
-            const auto key = ReadKey(pad.map, devices_.Read(pad.joystick.get()));
+            const auto mapping = shared_maps_.find(pad.guid);
+            const bool custom = mapping != shared_maps_.end();
+            const auto key = ReadKey(custom ? mapping->second : pad.map, devices_.Read(pad.joystick.get()), !custom);
             const auto pressed = PollKey(pad, key, now);
             if (action == MenuKey::None) action = pressed;
         }
@@ -195,21 +204,22 @@ private:
         }
     }
 
-    static MenuKey ReadKey(const controls::PadMap& map, const controls::PadSnapshot& input) {
+    static MenuKey ReadKey(const controls::PadMap& map, const controls::PadSnapshot& input, bool defaults) {
         const auto active = [&](const char* name, std::string_view fallback = {}) {
             const auto binding = map.find(name);
-            return controls::PadSourceActive(binding == map.end() ? fallback : std::string_view(binding->second), input, false);
+            if(binding == map.end())return defaults && controls::PadSourceActive(fallback,input,false);
+            return controls::PadSourceActive(binding->second,input,false);
         };
         // Generic USB arcade encoders frequently expose a hat or two axes and
         // the first two buttons without an SDL gamepad mapping.
         const auto axis = [&](const char* name, char sign, std::string_view fallback) {
             const auto binding = map.find(name);
-            if (binding == map.end()) return map.empty() && controls::PadSourceActive(fallback, input, false);
+            if (binding == map.end()) return defaults && map.empty() && controls::PadSourceActive(fallback, input, false);
             if (binding->second.empty() || binding->second.front() != 'a') return false;
             return controls::PadSourceActive(sign + binding->second, input, false);
         };
-        if (active("a", "b0")) return MenuKey::Confirm;
-        if (active("b", "b1")) return MenuKey::Back;
+        if (active("a", "b0") || active("start")) return MenuKey::Confirm;
+        if (active("b", "b1") || active("back")) return MenuKey::Back;
         if (active("dpup", "h0.1") || axis("lefty", '-', "-a1")) return MenuKey::Up;
         if (active("dpdown", "h0.4") || axis("lefty", '+', "+a1")) return MenuKey::Down;
         if (active("dpleft", "h0.8") || axis("leftx", '-', "-a0")) return MenuKey::Left;
@@ -218,6 +228,7 @@ private:
     }
 
     controls::InputDevices devices_;
+    std::map<std::string,controls::PadMap> shared_maps_;
     std::vector<Pad> pads_;
     Clock::time_point next_scan_{};
 };

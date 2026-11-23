@@ -12,7 +12,7 @@ EVAC PC LABEL is an open-source project that ports classic shooters to PC with a
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>Download for Windows</strong></a> ·
   <a href="docs/GAME_DATA.en.md">Game data</a> ·
   <a href="docs/SETTINGS.en.md">Settings & controls</a> ·
-  <a href="docs/RELEASE_NOTES_v0.10.5.md#english">v0.10.5 release notes</a>
+  <a href="docs/RELEASE_NOTES_v0.10.6.md#english">v0.10.6 release notes</a>
 </p>
 
 <p align="center">
@@ -70,7 +70,7 @@ Select a title for supported versions, extraction steps and folder examples. Pre
 Windows x64. Xbox 360 games automatically select Direct3D 12 or Vulkan. PS4 and PS2 games require Vulkan 1.3.
 
 1. **Download and extract** the [latest program package](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest). SHA-256 checksums are provided on the release page. Supply your own game data.
-2. **Open `EVAC PC LABEL.exe`**, select a game, and choose **Game data… → Choose data folder…**. Select extracted game files for Xbox 360 / PS4, or the folder containing the original ISO for PS2.
+2. **Open `EVAC PC LABEL.exe`**, select a game, and open **Game data…**. Choose the extracted game folder for Xbox 360 or PS4. For PS2, choose **Choose disc image…** and select an ISO or CHD.
 3. **Click Launch game.** The launcher verifies the data and prepares runtime files on first launch. Later launches and updates reuse verification results for unchanged files.
 
 Extract Xbox 360 ISOs with `tools/Extract-Xbox360.exe` and PS4 PKGs with `tools/Extract-PS4.exe`. For folder examples, XBLA packages and DLC, see the [game data guide](docs/GAME_DATA.en.md). `Launch.bat` is an alternative launch entry.

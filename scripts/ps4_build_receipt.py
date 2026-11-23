@@ -82,9 +82,11 @@ def snapshot():
                      'server/ps4_replay.py', 'tests/test_esprade_community.py', 'tests/test_ps4_community_profiles.py',
                      'tests/ketsui/test_community_replay.py'})
     explicit.update({'tests/ps4_vector_test.cpp', 'scripts/sdk_sources.py'})
+    explicit.update({'backends/ps2/iso_disc.cpp', 'backends/ps2/iso_disc.h',
+                     'backends/ps2/disc_image.cpp', 'backends/ps2/disc_image.h'})
     files = {}
     for name in sorted({value.decode('utf-8') for value in raw.split(b'\0') if value}):
-        if name in explicit or name.startswith(('backends/ps4/', 'third_party/ps4/', 'common/')) or (name.startswith('games/') and name.endswith('/data.json')):
+        if name in explicit or name.startswith(('backends/ps4/', 'third_party/ps4/', 'third_party/ps2/libchdr/', 'common/')) or (name.startswith('games/') and name.endswith('/data.json')):
             path = ROOT / name
             reject_link(path)
             files[name] = digest(path)

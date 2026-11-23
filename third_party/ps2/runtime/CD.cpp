@@ -1,4 +1,36 @@
-#include "Kernel/Stubs/Common.h"
+#include "disc_image.h"
+
+namespace {
+cave::ps2::DiscImage &MountedChd(const std::filesystem::path &path)
+{
+    static thread_local std::filesystem::path mountedPath;
+    static thread_local std::unique_ptr<cave::ps2::DiscImage> mounted;
+    if (!mounted || mountedPath != path) {
+        mounted = std::make_unique<cave::ps2::DiscImage>(path);
+        mountedPath = path;
+    }
+    return *mounted;
+}
+
+uint64_t DiscByteSize(const std::filesystem::path &path, std::error_code &error)
+{
+    if (!cave::ps2::DiscImage::IsChd(path))
+        return std::filesystem::file_size(path, error);
+    try { return MountedChd(path).Size(); }
+    catch (const std::exception &) { error = std::make_error_code(std::errc::io_error); return 0; }
+}
+
+bool ReadChdBytes(const std::filesystem::path &path, uint64_t offset, uint8_t *dst, size_t bytes)
+{
+    try {
+        auto &disc = MountedChd(path);
+        disc.clear();
+        disc.seekg(static_cast<std::streamoff>(offset));
+        return bool(disc.read(reinterpret_cast<char *>(dst), static_cast<std::streamsize>(bytes)));
+    } catch (const std::exception &) { return false; }
+}
+}
+#include "disc-kernel/Common.h"
 #include "iso_disc.h"
 #include <fstream>
 #include <map>
@@ -636,10 +668,10 @@ namespace ps2_stubs
         {
             try
             {
-                std::ifstream image(imagePath, std::ios::binary);
+                cave::ps2::DiscImage image(imagePath);
                 if (image)
                 {
-                    const auto file = cave::ps2::FindIsoFile(image, std::filesystem::file_size(imagePath), path);
+                    const auto file = cave::ps2::FindIsoFile(image, image.Size(), path);
                     if (file)
                     {
                         entry.baseLbn = file->lba;

@@ -61,6 +61,7 @@ try {
         }
     }
     $configure=@('-S',$CollectionRoot,'-B',$build,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release',
+        ('-DCMAKE_C_COMPILER=' + (Get-CollectionTool 'clang')),
         ('-DCMAKE_CXX_COMPILER=' + (Get-CollectionTool 'clang++')),
         ('-DCMAKE_MAKE_PROGRAM=' + (Get-CollectionTool 'ninja')),
         ('-DCAVE_GAMES=' + ($selected -join ';')),
@@ -69,7 +70,6 @@ try {
         '-DCMAKE_SHARED_LINKER_FLAGS=-Xlinker /DEBUG:FULL -Xlinker /OPT:REF -Xlinker /OPT:ICF')
     if ($selected.Count) {
         $configure+=@(('-DCMAKE_PREFIX_PATH=' + (Join-Path $CollectionRoot '.deps/sdk-install')),
-            ('-DCMAKE_C_COMPILER=' + (Get-CollectionTool 'clang')),
             ('-DCAVE_BUILD_GAME=' + $(if ($NativeOnly) { 'OFF' } else { 'ON' })))
     }
     $launcherState = Join-Path $CollectionRoot ('.local/build-inputs/launcher-' + [guid]::NewGuid().ToString('N') + '.json')

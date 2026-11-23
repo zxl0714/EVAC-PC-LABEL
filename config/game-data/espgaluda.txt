@@ -6,13 +6,6 @@ game-data/
     README.txt
     Espgaluda (Japan).iso
 
-将日版 ISO 放到这里，文件名不限。上面以 Espgaluda (Japan).iso 为例，保留你已有的文件名即可。
-如果下载的是 ZIP，先解压得到 ISO，再放入此目录。
-在启动器点击“刷新”，选择游戏并启动。
-也可以通过“游戏数据…”选择 ISO 所在的外部目录。
+将上述版本的 ISO 或 CHD 放入此目录，文件名不限。也可在启动器的“游戏数据…”→“选择光盘镜像…”直接选取镜像。ZIP 或 7z 需先解压。
 
-Place the Japanese ISO here. Any filename is accepted; Espgaluda (Japan).iso
-is an example. Keep the filename of your ISO.
-If you have a ZIP, extract the ISO first and place it in this folder.
-Click Refresh in the launcher, select the game, then start it.
-Game Data... can also select an external directory containing the ISO.
+Place the Japanese disc here as an ISO or CHD, or select the image under Game data… → Choose disc image… in the launcher. Keep the original filename. Extract ZIP or 7z archives first.

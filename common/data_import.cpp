@@ -87,7 +87,10 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
   const auto root=fs::canonical(requested_root),source=fs::canonical(requested_source);
   if (!game.integrated || game.coming_soon || game.files.empty())
     throw std::runtime_error("This game does not have a supported data layout yet");
-  if (!fs::is_directory(source)) throw std::runtime_error("Select the original game-data directory");
+  const bool disc_only=game.backend=="ps2";
+  const bool single_disc=disc_only && fs::is_regular_file(source);
+  const auto source_root=single_disc?source.parent_path():source;
+  if (!single_disc && !fs::is_directory(source)) throw std::runtime_error("Select the original game-data directory");
   NoLinks(root/FromUtf8(game.data_dir),root);
   const auto target=DataChild(root,game.data_dir),container=root/"game-data";
   if (!SamePath(target.parent_path(),container)) throw std::runtime_error("Copy target must be game-data/<game>");
@@ -109,17 +112,16 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
   std::vector<Entry> entries;
   std::vector<fs::path> directories;
   uint64_t total{};
-  const bool disc_only=game.backend=="ps2";
   fs::file_time_type disc_source_time{},disc_copy_time{};
   if(disc_only) {
     const auto& image=inspection.disc_image;
-    if(image.empty() || !SamePath(image.parent_path(),source))throw std::runtime_error("Missing verified game ISO");
-    NoLinks(image,source);
+    if(image.empty() || !SamePath(single_disc?image:image.parent_path(),source))throw std::runtime_error("Missing verified game disc image");
+    NoLinks(image,source_root);
     total=fs::file_size(image);
     disc_source_time=fs::last_write_time(image);
     const auto identity=std::find_if(game.files.begin(),game.files.end(),[](const auto& file){return file.path=="disc.iso" && !file.program;});
     if(identity==game.files.end())throw std::runtime_error("Missing verified disc identity");
-    entries.push_back({image.filename(),total,std::string(identity->sha256)});
+    entries.push_back({image.filename(),total,inspection.layout=="chd"?Sha256(image):std::string(identity->sha256)});
   } else {
   for (const auto& item:fs::recursive_directory_iterator(source)) {
     check();NoLinks(item.path(),source);
@@ -153,8 +155,8 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
   if(progress)progress(0,total);
   for (const auto& entry:entries) {
     check();NoLinks(stage.directory,root);
-    const auto input=DataChild(source,Utf8(entry.relative)),output=DataChild(stage.directory,Utf8(entry.relative));
-    NoLinks(input,source);NoLinks(output,root);
+    const auto input=single_disc?source:DataChild(source,Utf8(entry.relative)),output=DataChild(stage.directory,Utf8(entry.relative));
+    NoLinks(input,source_root);NoLinks(output,root);
     fs::create_directories(output.parent_path());
     if (!fs::copy_file(input,output,fs::copy_options::none))throw std::runtime_error("Cannot copy a game-data file");
     // Only the fresh copy is made writable, so a cancelled transaction can be
@@ -180,7 +182,7 @@ CopyResult CopyDataToCollection(const fs::path& requested_root,const Game& game,
       const auto current=Inspect(game,root,source,CheckLevel::Programs);
       if(current.disc_image!=inspection.disc_image || current.data_state!=DataState::Unverified ||
          fs::last_write_time(current.disc_image)!=disc_source_time)
-        throw std::runtime_error("The source ISO changed during copy verification");
+        throw std::runtime_error("The source disc image changed during copy verification");
       continue;
     }
     size_t current_files{};std::set<fs::path> current_directories;

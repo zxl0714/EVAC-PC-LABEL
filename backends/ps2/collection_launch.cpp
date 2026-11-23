@@ -133,7 +133,7 @@ std::unique_ptr<CollectionLaunch> CollectionLaunch::Parse(int argc,char** argv,c
     StartupTrace("disc-prepare-begin");
     VerificationCache verification(root);
     const auto inspection=Inspect(FindGame(game.id),root,paths.data,CheckLevel::Programs,&verification);
-    Require(inspection.data_state==DataState::Unverified && !inspection.disc_image.empty(),"Supported PS2 ISO is missing");
+    Require(inspection.data_state==DataState::Unverified && !inspection.disc_image.empty(),"Supported PS2 disc image is missing");
     value->disc=inspection.disc_image;
     value->data=PreparePs2Disc(paths,value->disc,game.disc_sha256,game.files);
     StartupTrace("disc-prepare-complete");

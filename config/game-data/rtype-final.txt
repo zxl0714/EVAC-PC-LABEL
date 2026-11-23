@@ -6,8 +6,6 @@ game-data/
     README.txt
     R-Type Final (USA).iso
 
-将美版 ISO 放入此目录。若镜像在 ZIP 或 7z 内，先解压出 ISO。
-如果镜像存放在其他位置，可在启动器用“游戏数据…”选择它所在的目录。
+将上述版本的 ISO 或 CHD 放入此目录，文件名不限。也可在启动器的“游戏数据…”→“选择光盘镜像…”直接选取镜像。ZIP 或 7z 需先解压。
 
-Place the US ISO in this folder. If you have a ZIP or 7z archive, extract the ISO first.
-Use Game data... in the launcher to choose the folder if you keep the ISO elsewhere.
+Place the US disc here as an ISO or CHD, or select the image under Game data… → Choose disc image… in the launcher. Keep the original filename. Extract ZIP or 7z archives first.

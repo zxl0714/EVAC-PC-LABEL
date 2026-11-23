@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.10.5
+EVAC PC LABEL v0.10.6
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击 Launch game。右上角的 CN 可切换为简体中文。
@@ -18,13 +18,13 @@ Windows x64。Xbox 360 自动选择 Direct3D 12 或 Vulkan，PS4／PS2 使用 Vu
   game-data/guwange/     XBLA，58410A78，本体 0.0.0.4
   game-data/feveron/     美版 CUSA06735，01.00 本体
   game-data/garegga/     韩版 CUSA10207，01.00 本体，菜单为英文
-  game-data/espgaluda/   PS2 日版 SLPS-25352，原始 ISO
-  game-data/ibara/       铸蔷薇，PS2 日版 SLPM-66301，原始 ISO
-  game-data/daioujou-ps2/ 大往生，PS2 日版 SLPS-25233，原始 ISO
-  game-data/rtype-final/ R-Type Final，PS2 美版 SLUS-20780，原始 ISO
+  game-data/espgaluda/   PS2 日版 SLPS-25352，ISO 或 CHD
+  game-data/ibara/       铸蔷薇，PS2 日版 SLPM-66301，ISO 或 CHD
+  game-data/daioujou-ps2/ 大往生，PS2 日版 SLPS-25233，ISO 或 CHD
+  game-data/rtype-final/ R-Type Final，PS2 美版 SLUS-20780，ISO 或 CHD
 
 360 目录直接包含 default.xex，PS4 目录直接包含 eboot.bin，保留全部资源与层级。
-PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
+PS2 直接放 ISO 或 CHD，文件名不限；首次启动自动准备缓存。例如：
   game-data/espgaluda/Espgaluda (Japan).iso
   game-data/daioujou-ps2/DoDonPachi Dai-Ou-Jou (Japan).iso
 
@@ -35,7 +35,7 @@ PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
 怒首领蜂支持国际版、日版和合并 ZIP。程序安装说明见 external/DoDonPachi-Recomp/EVAC-Setup.txt。
 
 解包
-ZIP／RAR 用常规工具解压。PS2 的 ISO 解压出来后直接放入对应目录。
+ZIP／RAR 用常规工具解压。PS2 的 ISO 或 CHD 可直接放入对应目录。
 PS4：打开 tools/Extract-PS4.exe，选择 PKG 与新的输出目录，点击 Extract。
 完成后点击 Open game files，将里面的内容复制到对应 game-data 目录。
 更新 PKG 单独解包，再把全部内容覆盖到本体目录，替换同名文件。

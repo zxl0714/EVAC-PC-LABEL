@@ -23,6 +23,11 @@ const Game& FindGame(std::string_view id) {
 }
 std::string Sha256(const fs::path& file) { return Sha256Range(file,0,fs::file_size(file)); }
 std::string Sha256Range(const fs::path& file,uint64_t offset,uint64_t bytes) {
+  std::ifstream input(file,std::ios::binary);
+  if(!input)throw std::runtime_error("Cannot open file for SHA-256");
+  return Sha256Range(input,fs::file_size(file),offset,bytes);
+}
+std::string Sha256Range(std::istream& stream,uint64_t size,uint64_t offset,uint64_t bytes) {
   struct Handles {
     BCRYPT_ALG_HANDLE algorithm{};
     BCRYPT_HASH_HANDLE hash{};
@@ -34,9 +39,7 @@ std::string Sha256Range(const fs::path& file,uint64_t offset,uint64_t bytes) {
   if (BCryptOpenAlgorithmProvider(&handles.algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0 ||
       BCryptCreateHash(handles.algorithm, &handles.hash, nullptr, 0, nullptr, 0, 0) < 0)
     throw std::runtime_error("Cannot initialize SHA-256");
-  std::ifstream stream(file, std::ios::binary);
-  if (!stream) throw std::runtime_error("Cannot open file for SHA-256");
-  const auto size=fs::file_size(file);
+  stream.clear();
   if(offset>size || bytes>size-offset)throw std::runtime_error("SHA-256 range exceeds file");
   stream.seekg(static_cast<std::streamoff>(offset));
   std::array<char, 65536> block;

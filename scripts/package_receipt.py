@@ -32,6 +32,11 @@ ISOLATED_PS4 = ('backends/ps4/', 'third_party/ps4/', 'scripts/ps4/', 'scripts/ps
 def relevant(backend, name, files):
     if name.endswith('.md') or name.startswith(('docs/', 'tests/', 'server/')) or name in PACKAGING:
         return False
+    if name.startswith('third_party/ps2/libchdr/') or name in {
+            'backends/ps2/disc_image.cpp', 'backends/ps2/disc_image.h',
+            'backends/ps2/iso_disc.cpp', 'backends/ps2/iso_disc.h'}:
+        # All four products link the common library that exposes disc verification.
+        return True
     if name in {'common/death_label_host.h', 'common/death_label_gadgets.h'}:
         return backend in ('ps2', 'ps4')
     if name in {'common/data_import.cpp', 'common/data_import.h'}:

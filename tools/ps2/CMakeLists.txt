@@ -231,6 +231,23 @@ if(PS2_BUILD_RUNTIME)
   list(APPEND KERNEL_SOURCES "${rpcView}")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/GS.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/GS.cpp")
+  # The CD stubs resolve loose files normally; only mounted CHDs use logical sectors.
+  set(cdStubs "${RUNTIME}/src/lib/Kernel/Stubs")
+  set(cdSupport "${cdStubs}/Helpers/Support.h")
+  set(cdView "${CMAKE_CURRENT_BINARY_DIR}/disc-kernel")
+  configure_file("${cdStubs}/Common.h" "${cdView}/Common.h" COPYONLY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${cdSupport}")
+  file(READ "${cdSupport}" cdCode)
+  string(REPLACE "std::filesystem::file_size(imagePath, ec)" "DiscByteSize(imagePath, ec)" cdCode "${cdCode}")
+  string(REPLACE "std::ifstream file(path, std::ios::binary);"
+    "if (cave::ps2::DiscImage::IsChd(path)) { const bool ok = ReadChdBytes(path, offsetBytes, dst, byteCount); g_lastCdError = ok ? 0 : -1; return ok; }\n        std::ifstream file(path, std::ios::binary);"
+    cdCode "${cdCode}")
+  if(NOT cdCode MATCHES "DiscByteSize" OR NOT cdCode MATCHES "ReadChdBytes")
+    message(FATAL_ERROR "Upstream CD sector access changed")
+  endif()
+  file(CONFIGURE OUTPUT "${cdView}/Helpers/Support.h" CONTENT "${cdCode}" @ONLY)
+  set_source_files_properties("${COLLECTION_ROOT}/third_party/ps2/runtime/CD.cpp" PROPERTIES
+    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR};${cdStubs}")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/CD.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/CD.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/MemoryCard.cpp")

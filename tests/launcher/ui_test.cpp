@@ -961,6 +961,36 @@ void GameExitChecks() {
   Require(app.menu_open,"A new Esc press was ignored after returning");
   update_foreground=nullptr;
 }
+void BigPictureBindingChecks() {
+  Fixture fixture;
+  const auto config=ConfigPath(fixture.root);
+  const std::string remap="[keyboard]\nstart=1\n[game.futari.keyboard]\nstart=2\n";
+  const auto check=[&](Frame& frame,WPARAM confirm,WPARAM ignored) {
+    auto& app=frame.app;
+    app.SetBigPicture(true);
+    app.rows[app.selected].inspection.state="needs_verification";
+    App::Window(app.hwnd,WM_KEYDOWN,ignored,0);
+    Require(!app.work,"Big Picture used the previous or per-game Start binding");
+    App::Window(app.hwnd,WM_KEYDOWN,confirm,1L<<30);
+    Require(!app.work,"Holding Start requested another launch");
+    App::Window(app.hwnd,WM_KEYDOWN,confirm,0);
+    Require(app.work && app.work->starting,"Configured Start did not launch the selected game");
+    frame.Settle();
+  };
+  {
+    Frame frame(fixture.root,"futari");
+    Write(config,remap);
+    frame.app.ReloadPreferences();
+    check(frame,'1',VK_RETURN);
+  }
+  {
+    Frame frame(fixture.root,"futari");
+    check(frame,'1','2');
+    Write(config,"[collection]\ncheck_for_updates=false\n");
+    frame.app.ReloadPreferences();
+    check(frame,VK_RETURN,'1');
+  }
+}
 void MainChecks() {
   ArtworkStateChecks();
   const auto module=GetModuleHandleW(nullptr);
@@ -1152,6 +1182,7 @@ void MainChecks() {
   PreferenceRepaintChecks();
   FooterHoverChecks();
   InputBindingChecks();
+  BigPictureBindingChecks();
   DisplayDropdownChecks();
   GameLibraryChecks();
   GameExitChecks();
@@ -1280,6 +1311,20 @@ void MenuControllerChecks(const fs::path& sdl) {
   Require(arcade!=devices.end(),"Read virtual arcade stick GUID");
   Write(ConfigPath(fixture.root),"[controller]\n"+arcade->guid+"=start:b0,dpup:h0.1,\n"
       "[game.futari.controller]\n"+arcade->guid+"=start:b1,dpup:h0.1,\n");
+  app.ReloadPreferences();
+  app.SetBigPicture(true);
+  Require(button(reconnected,0,false),"Release arcade button before remapping");
+  tick();
+  App::Window(app.hwnd,WM_KEYDOWN,VK_ESCAPE,0);
+  Require(app.menu_open,"Open Big Picture menu for the shared Start binding");
+  Require(button(reconnected,1,true),"Press per-game Start");
+  tick();
+  Require(app.menu_open && app.BigPicture(),"Big Picture used the in-game override");
+  Require(button(reconnected,1,false),"Release per-game Start");
+  tick();
+  Require(button(reconnected,0,true),"Press shared Start");
+  tick();
+  Require(!app.BigPicture(),"Big Picture ignored the shared controller Start binding");
   const auto shortcuts=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
   Require(button(reconnected,0,false),"Release arcade stick Confirm");
   const auto poll=[&]{return app.menu_controller->PollGameExit(shortcuts);};

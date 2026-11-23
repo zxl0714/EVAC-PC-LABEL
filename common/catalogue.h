@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
+#include <iosfwd>
 #include <span>
 #include <string>
 #include <string_view>
@@ -66,6 +67,7 @@ const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_
 const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr,VerificationCache* cache=nullptr);
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant);
 std::string Sha256(const fs::path& file);
+std::string Sha256Range(std::istream& stream,uint64_t size,uint64_t offset,uint64_t bytes);
 std::string Sha256Range(const fs::path& file,uint64_t offset,uint64_t bytes);
 std::string Utf8(const fs::path& path);
 fs::path FromUtf8(std::string_view text);

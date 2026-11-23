@@ -123,7 +123,12 @@ void LaunchChecks(Fixture& fixture,const fs::path& executable) {
   Write(certificate,manifest+"runtime/unexpected.dll=abc\n");
   Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Extra runtime manifest file accepted");
   Write(certificate,manifest);Write(fixture.root/runtime[0],"modified");
-  Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Altered runtime accepted");
+  std::string mismatch;
+  try { PrepareLaunch(game,fixture.root,ini); } catch (const std::exception& error) { mismatch=error.what(); }
+  Require(mismatch.find(Utf8((fixture.root/runtime[0]).make_preferred()))!=std::string::npos &&
+          mismatch.find("Expected SHA-256: "+Ini::Load(certificate).Get("files",runtime[0])->text)!=std::string::npos &&
+          mismatch.find("Installed SHA-256: "+Sha256(fixture.root/runtime[0]))!=std::string::npos &&
+          mismatch.find("complete program ZIP")!=std::string::npos,"Altered runtime did not give the component, hash pair and recovery steps");
   Write(fixture.root/runtime[0],"synthetic; never executed");
   game.coming_soon=true;Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Coming Soon launched");game.coming_soon=false;
   game.integrated=false;Reject([&]{PrepareLaunch(game,fixture.root,ini);},"Unintegrated game launched");game.integrated=true;

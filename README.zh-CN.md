@@ -12,7 +12,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
   <a href="docs/GAME_DATA.md">游戏数据</a> ·
   <a href="docs/SETTINGS.md">设置与操作</a> ·
-  <a href="docs/RELEASE_NOTES_v0.10.5.md#简体中文">v0.10.5 更新说明</a>
+  <a href="docs/RELEASE_NOTES_v0.10.6.md#简体中文">v0.10.6 更新说明</a>
 </p>
 
 <p align="center">
@@ -70,7 +70,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
 Windows x64。Xbox 360 游戏自动选择 Direct3D 12 或 Vulkan。PS4 和 PS2 游戏需要 Vulkan 1.3。
 
 1. **下载并解压**[最新程序包](https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest)，发布页提供 SHA-256 校验文件。游戏数据自行准备。
-2. **打开 `EVAC PC LABEL.exe`**，选中游戏，点击“游戏数据…”→“选择数据目录…”。Xbox 360、PS4 选择已解包的游戏目录；PS2 选择原始 ISO 所在目录。
+2. **打开 `EVAC PC LABEL.exe`**，选中游戏，点击“游戏数据…”。Xbox 360 和 PS4 选择已解包的游戏目录。PS2 可点“选择光盘镜像…”直接选择 ISO 或 CHD。
 3. **点击“启动游戏”**。首次启动会校验数据并自动准备运行文件；后续启动和更新会复用未变化文件的校验结果。
 
 Xbox 360 ISO 可用随包的 `tools/Extract-Xbox360.exe` 提取，PS4 PKG 使用 `tools/Extract-PS4.exe`。各平台的目录示例与 DLC 处理方法见[游戏数据指南](docs/GAME_DATA.md)。备用启动入口为 `Launch.bat`。

@@ -3,6 +3,7 @@
 #include "runtime/ps2_memory.h"
 #include "runtime/ps2_rom_device.h"
 #include "iso_disc.h"
+#include "disc_image.h"
 
 #include <algorithm>
 #include <chrono>
@@ -111,7 +112,7 @@ namespace
     class DiscOpenFile final : public IPS2OpenFile
     {
     public:
-        DiscOpenFile(std::ifstream stream, cave::ps2::IsoFile extent)
+        DiscOpenFile(std::unique_ptr<cave::ps2::DiscImage> stream, cave::ps2::IsoFile extent)
             : m_stream(std::move(stream)), m_base(uint64_t(extent.lba) * 2048u), m_size(extent.size) {}
 
         int64_t read(void *destination, size_t size) override
@@ -121,9 +122,9 @@ namespace
             const auto count = static_cast<std::streamsize>(std::min<uint64_t>(size, m_size - m_position));
             if (count == 0)
                 return 0;
-            m_stream.clear();
-            m_stream.seekg(static_cast<std::streamoff>(m_base + m_position));
-            if (!m_stream.read(static_cast<char *>(destination), count))
+            m_stream->clear();
+            m_stream->seekg(static_cast<std::streamoff>(m_base + m_position));
+            if (!m_stream->read(static_cast<char *>(destination), count))
                 return -1;
             m_position += static_cast<uint64_t>(count);
             return count;
@@ -150,24 +151,21 @@ namespace
         }
 
     private:
-        std::ifstream m_stream;
+        std::unique_ptr<cave::ps2::DiscImage> m_stream;
         uint64_t m_base;
         uint32_t m_size;
         uint64_t m_position = 0u;
     };
 
     std::optional<cave::ps2::IsoFile> findDiscExtent(const std::filesystem::path &image,
-                                                   std::string_view path, std::ifstream &stream)
+                                                   std::string_view path, std::unique_ptr<cave::ps2::DiscImage> &stream)
     {
         if (image.empty())
             return std::nullopt;
-        stream.open(image, std::ios::binary | std::ios::ate);
-        const auto size = stream.tellg();
-        if (size < 0)
-            return std::nullopt;
         try
         {
-            return cave::ps2::FindIsoFile(stream, static_cast<uint64_t>(size), path);
+            stream = std::make_unique<cave::ps2::DiscImage>(image);
+            return cave::ps2::FindIsoFile(*stream, stream->Size(), path);
         }
         catch (const std::runtime_error &)
         {
@@ -267,7 +265,7 @@ int32_t PS2Vfs::open(std::string_view path, uint32_t flags, const PS2VfsMounts &
             constexpr uint32_t writeFlags = PS2_FIO_O_CREAT | PS2_FIO_O_TRUNC | PS2_FIO_O_APPEND;
             if (access != PS2_FIO_O_RDONLY || (flags & writeFlags) != 0u)
                 return -1;
-            std::ifstream image;
+            std::unique_ptr<cave::ps2::DiscImage> image;
             const auto extent = findDiscExtent(m_discImage, parsed.path, image);
             if (!extent)
                 return -1;
@@ -347,7 +345,7 @@ bool PS2Vfs::stat(std::string_view path, const PS2VfsMounts &mounts, const PS2Ro
             (error && error != std::errc::no_such_file_or_directory))
             return false;
         std::lock_guard<std::mutex> lock(m_mutex);
-        std::ifstream image;
+        std::unique_ptr<cave::ps2::DiscImage> image;
         const auto extent = findDiscExtent(m_discImage, parsed.path, image);
         if (!extent)
             return false;

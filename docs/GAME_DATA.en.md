@@ -14,7 +14,7 @@ In the examples below, select the folder shown at the top of each tree. The exam
 
 ## Set up the game folder
 
-1. **Prepare the data.** Use the original ISO for PS2. Extract Xbox 360 ISOs and PS4 PKGs into game files. Unpack ZIP/RAR archives first.
+1. **Prepare the data.** Use an ISO or CHD for PS2. Extract Xbox 360 ISOs and PS4 PKGs into game files. Unpack ZIP/RAR archives first.
 2. **Find the game root.** For Xbox 360 games, this is the folder directly containing `default.xex`. For PS4 games, it directly contains `eboot.bin`.
 3. **Copy all contents** into `game-data/<game ID>/`, preserving filenames and internal folders. Apply updates as specified for each game below.
 4. **Click Refresh**, select the game, and launch it. If using an external location, select it through **Game data… → Choose data folder…** first.
@@ -325,11 +325,13 @@ Extract your PKG with `tools/Extract-PS4.exe` or use your unpacked console expor
 
 ## PS2 games
 
+Under **Game data… → Choose disc image…**, select an ISO or a CHD made from the supported disc. All four games read CHD directly. You can also keep one matching image in the game's data folder. Extract ZIP or 7z archives first. If you keep both formats together, use the file picker to choose one.
+
 <a id="espgaluda"></a>
 
 ### エスプガルーダ — ESPGaluda (espgaluda)
 
-Supported: **PS2 Japanese SLPS-25352, original ISO**.
+Supported: **PS2 Japanese SLPS-25352, ISO or CHD**.
 
 ```text
 game-data/espgaluda/
@@ -337,15 +339,13 @@ game-data/espgaluda/
   Espgaluda (Japan).iso
 ```
 
-Any ISO filename is accepted. `Espgaluda (Japan).iso` is an example; keep the filename of your ISO. If you have a ZIP, extract the ISO first and place it in the folder above.
-
-Click **Refresh**, select the game, then launch it. **Game data…** can also select an external folder containing the ISO. The launcher prepares the runtime cache automatically; saves and settings are stored in `user-data/espgaluda/`.
+Keep your existing filename. Saves and settings are stored in `user-data/espgaluda/`.
 
 <a id="ibara"></a>
 
 ### 鋳薔薇 — Ibara (ibara)
 
-Place the Japanese PS2 ISO (SLPM-66301) in `game-data/ibara/`. Keep its original filename. Click **Refresh**, select **Ibara**, then launch.
+Place the Japanese PS2 ISO or CHD (SLPM-66301) in `game-data/ibara/`. Keep its original filename. Select **Ibara** in the launcher to play.
 
 ```text
 game-data/ibara/
@@ -357,7 +357,7 @@ game-data/ibara/
 
 ### DoDonPachi DaiOuJou (PS2) (daioujou-ps2)
 
-Place the Japanese PS2 ISO (SLPS-25233) in the folder below and select **DoDonPachi DaiOuJou (PS2)** in the launcher.
+Place the Japanese PS2 ISO or CHD (SLPS-25233) in the folder below and select **DoDonPachi DaiOuJou (PS2)** in the launcher.
 
 ```text
 game-data/daioujou-ps2/
@@ -368,7 +368,7 @@ game-data/daioujou-ps2/
 
 ### R-Type Final (rtype-final)
 
-Place the original US PS2 ISO (SLUS-20780, 1.01) in the folder below, or use **Game data…** to select its current folder. If the ISO is inside a ZIP or 7z archive, extract the ISO first.
+Use the US disc (SLUS-20780, 1.01) as an ISO or CHD.
 
 ```text
 game-data/rtype-final/
@@ -379,7 +379,7 @@ game-data/rtype-final/
 
 ### I only have an ISO, PKG, or ZIP
 
-Place the original PS2 ISO in the game's folder. Extract Xbox 360 ISOs and PS4 PKGs using the steps above. Unpack ZIP/RAR archives first, then follow the layout for your game.
+Place the PS2 ISO or CHD in the game's folder. Extract Xbox 360 ISOs and PS4 PKGs using the steps above. Unpack ZIP/RAR archives first, then follow the layout for your game.
 
 ### Does the folder name matter?
 

@@ -25,7 +25,9 @@ def snapshot():
                 'scripts/Build.ps1', 'scripts/Build-Common.ps1', 'scripts/generate_catalogue.py',
                 'scripts/generate_artwork.py', 'scripts/product.py', 'scripts/launcher_receipt.py', 'scripts/toolchain.py',
                 'tools/ps4-extract.lock.json', 'scripts/ps4_extract_tools.py'}
-    prefixes = ('common/', 'launcher/', 'tools/ps4-extract/', 'tools/xbla-extract/', 'tools/xbox360-extract/')
+    explicit.update({'backends/ps2/iso_disc.cpp', 'backends/ps2/iso_disc.h',
+                     'backends/ps2/disc_image.cpp', 'backends/ps2/disc_image.h'})
+    prefixes = ('third_party/ps2/libchdr/', 'common/', 'launcher/', 'tools/ps4-extract/', 'tools/xbla-extract/', 'tools/xbox360-extract/')
     # Cached names include files deleted locally before their removal is staged.
     files = {name: digest(ROOT / name) for name in sorted(names)
              if (name in explicit or name.startswith(prefixes) or (name.startswith('games/') and name.endswith('/data.json')))

@@ -1,4 +1,5 @@
 #include "common/verification_cache.h"
+#include "backends/ps2/disc_image.h"
 #include "common/paths.h"
 #include "common/ini.h"
 #include "common/settings.h"
@@ -81,7 +82,7 @@ std::map<std::string,std::string> Load(const fs::path& file) {
   }
   return result;
 }
-std::string Identity(HANDLE file,uint64_t offset,uint64_t bytes) {
+std::string Identity(HANDLE file,uint64_t offset,uint64_t bytes,bool logical_disc) {
   FILE_ID_INFO id{};
   FILE_BASIC_INFO basic{};
   FILE_STANDARD_INFO standard{};
@@ -97,6 +98,7 @@ std::string Identity(HANDLE file,uint64_t offset,uint64_t bytes) {
   append(id.VolumeSerialNumber);append(id.FileId.Identifier);
   append(basic.CreationTime.QuadPart);append(basic.LastWriteTime.QuadPart);append(basic.ChangeTime.QuadPart);
   append(standard.EndOfFile.QuadPart);append(offset);append(bytes);
+  if(logical_disc)stamp+="chd-user-sectors-v1";
   return DigestText(stamp);
 }
 }
@@ -114,18 +116,22 @@ VerificationCache::VerificationCache(const fs::path& root) {
 }
 VerificationCache::~VerificationCache(){Flush();}
 std::string VerificationCache::Digest(const fs::path& file){return DigestRange(file,0,fs::file_size(file));}
-std::string VerificationCache::DigestRange(const fs::path& file,uint64_t offset,uint64_t bytes) {
+std::string VerificationCache::DigestRange(const fs::path& file,uint64_t offset,uint64_t bytes,bool logical_disc) {
   // Keep the same file alive and deny writes/replacement while checking and hashing.
   Handle handle{CreateFileW(file.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr)};
   if(handle.value==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot open file for verification (Windows "+std::to_string(GetLastError())+")");
-  const auto identity=Identity(handle.value,offset,bytes);
+  const auto identity=Identity(handle.value,offset,bytes,logical_disc);
   if(!identity.empty()) {
     const auto found=entries_.find(identity);
     if(found!=entries_.end()){++hits;return found->second;}
   }
-  const auto digest=HashRange(handle.value,offset,bytes);
+  std::string digest;
+  if(logical_disc) {
+    ps2::DiscImage disc(file);
+    digest=Sha256Range(disc,disc.Size(),offset,bytes);
+  } else digest=HashRange(handle.value,offset,bytes);
   ++reads;bytes_read+=bytes;
-  if(!identity.empty() && identity==Identity(handle.value,offset,bytes)) {
+  if(!identity.empty() && identity==Identity(handle.value,offset,bytes,logical_disc)) {
     entries_[identity]=digest;
     pending_[identity]=digest;
   }
