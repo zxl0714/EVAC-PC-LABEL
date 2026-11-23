@@ -4,6 +4,30 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
+## v0.10.6 候选包
+
+候选程序来自 `5a68b89`。重新解压 ZIP 后核对了全部 229 项文件。ZIP 共 210,883,325 字节，SHA-256 为 `2d5b85e54f7339d446a609f4c6b116b03aeb34e86634e9bc603f70af15438ed0`。
+
+### PS2 光盘镜像
+
+用 `chdman 0.264 createdvd` 从库中四款已支持的原盘 ISO 生成 CHD。每款在 `cave_inspect --full` 中均识别为 `chd`，逻辑光盘数据通过原有哈希校验。游戏用 CHD 直接启动。《铸蔷薇》额外用 chdman 默认压缩选项生成了一份 139,491,349 字节的 CHD v5，同样通过两项哈希校验。
+
+| 游戏 | 实测结果 |
+| --- | --- |
+| 《ESPGaluda》 | 从合集启动器进到一面，游戏中可以用 Start 暂停。 |
+| 《铸蔷薇》 | 在原生 Windows 使用候选 ZIP 中的程序进入一面玩家局，左右移动后正常退出。 |
+| PS2《大往生》 | 从 Arcade 选机进入一面，看到玩家得分、连击以及续关倒计时。 |
+| 《R-Type Final》 | 从机库确认出击，一面显示机体、残机和速度 HUD，失机后可重新出击。 |
+| PS4《大往生》Death Label | 仅提供 PS2 CHD，从 DIRECT MENU 选择 Death Label，经过选机进入一面 Boss。两侧仪表盘显示分数与 Boss 血量。一局结束后返回原菜单，仍选中 Death Label，运行日志记录 `daioujou_death_label_return` 的 `result=1`。 |
+
+除《铸蔷薇》外，表中画面在 WSL 2 的 GE-Proton 和 Mesa llvmpipe 上验收。截图、识别结果及 ZIP 核对记录保存在本机 `.local/v0106/`。
+
+### 大屏输入与运行文件校验
+
+在 Windows 启动器将「所有游戏」的 Start 绑定到键盘 `1`，验证了进入大屏、重启后启动游戏和重置绑定。虚拟控制器回归覆盖手柄、摇杆及断开重连。共用代码、PS2 和 PS4 原生模块的 CTest 分别通过 12、34 和 4 项。
+
+使用 v0.10.5 公开 ZIP 全新解压，以及用 v0.10.4 自带的更新器升级，两套安装的 SDL3 均与清单相符，《R-Type Final》美版 ISO 均可进入一面。Windows 在旧 SDL3 仍加载时返回共享冲突错误 32，旧 DLL 保留。用 v0.10.4 的真实 DLL 搭配 v0.10.5 的清单启动，候选启动器显示文件的完整路径、清单与实装 SHA-256，以及关闭程序后重新完整解压的提示。该实验复现了一种混装原因，玩家机器的原始 DLL 哈希仍待反馈。
+
 ## v0.10.5 正式发布
 
 [GitHub 正式版](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.5) 对应提交 `91f8422`。从公开链接重新下载了程序包和校验文件。ZIP 大小为 208,827,689 字节，SHA-256 为 `e715b4e930c50cf83490f6a44d328bfd4fc02b7c227caf2e98aab5cbbb543abd`，与本地正式包一致。

@@ -8,10 +8,10 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
 
 ## v0.10.6
 
-1. [ ] **排查《R-Type Final》启动时的 SDL3 校验失败。** 玩家使用美版 ISO（CRC32 `9D0D9400`），启动器报 `runtime/ps2/SDL3.dll` 与构建记录不符。对照 v0.10.5 全新解压和从上一版更新后的 DLL、校验清单与实际安装路径，定位差异来源。验收时用对应安装方式进入第一关，并确认替换过的 DLL 仍会得到准确提示。[#39](https://github.com/zxl0714/EVAC-PC-LABEL/issues/39)
+1. [x] **排查《R-Type Final》启动时的 SDL3 校验失败。** v0.10.5 全新解压和从 v0.10.4 自动更新都能进入第一关。Windows 上复现了旧 DLL 被占用时无法手动覆盖的情况。候选启动器在混装目录中准确指出旧 DLL 的路径、两个哈希和恢复方法。玩家实际残留的文件版本仍待确认。[#39](https://github.com/zxl0714/EVAC-PC-LABEL/issues/39)
 2. [x] **让大屏模式使用「输入设置」里保存的按键。** 按玩家的步骤把「所有游戏」的 Start 设为键盘 `1`，保存后应能在大屏按 `1` 启动选中的游戏。覆盖切入大屏、重启启动器和恢复默认绑定，回归手柄与摇杆导航。[#35](https://github.com/zxl0714/EVAC-PC-LABEL/issues/35)
    - 在原生启动器中验证保存、重新进入大屏、重启和重置；虚拟手柄、摇杆导航和重连回归通过。
-3. [ ] **支持 PS2 游戏直接读取 CHD 光盘镜像。** 玩家可在启动器选择 CHD，运行时按需读取光盘数据，免去解压和保存整份 ISO。用同一张盘的 ISO 和 CHD 对照，验收现有四款 PS2 游戏的识别、进关与关内读取，并验证从 PS4《大往生》进入 Death Label 也能使用 PS2 的 CHD。[#36](https://github.com/zxl0714/EVAC-PC-LABEL/issues/36)
+3. [x] **支持 PS2 游戏直接读取 CHD 光盘镜像。** 四款 PS2 游戏的 CHD 均通过完整校验并实际进入第一关。PS4《大往生》从菜单识别 PS2 CHD，进入 Death Label 一面并在一局结束后返回同一菜单。[#36](https://github.com/zxl0714/EVAC-PC-LABEL/issues/36) · [验收记录](TEST_MATRIX.md#v0106-候选包)
 
 ## v0.10.5
 
