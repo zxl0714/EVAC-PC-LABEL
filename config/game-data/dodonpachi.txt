@@ -1,10 +1,8 @@
 DoDonPachi / 怒首領蜂
 
-Place ddonpach.zip or ddonpach.7z (World or merged), or ddonpachj.zip or
-ddonpachj.7z (Japan), here. A split Japanese set also needs the parent set in
+Place ddonpach.zip (World or merged) or ddonpachj.zip (Japan) here. A split Japanese set also needs the parent set in
 the same folder. You can also select the archive directly in the launcher.
 Install the game program as described in external/DoDonPachi-Recomp/EVAC-Setup.txt.
 
-将国际版或合并包 ddonpach.zip／ddonpach.7z，或日版 ddonpachj.zip／ddonpachj.7z
-放在这里，也可直接在启动器中选择压缩包。日版拆分包需要同目录下的国际版母包。
+将国际版或合并包 ddonpach.zip，或日版 ddonpachj.zip 放在这里，也可直接在启动器中选择压缩包。日版拆分包需要同目录下的国际版母包。
 程序安装说明见 external/DoDonPachi-Recomp/EVAC-Setup.txt。

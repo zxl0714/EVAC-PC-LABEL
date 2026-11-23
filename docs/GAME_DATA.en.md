@@ -320,7 +320,7 @@ Extract your PKG with `tools/Extract-PS4.exe` or use your unpacked console expor
 ### DoDonPachi (dodonpachi)
 
 1. Extract CapsLock4284’s Windows release to `external/DoDonPachi-Recomp/`. Place `ddonpach.exe` and `SDL2.dll` next to `EVAC-Setup.txt`. [DoDonPachi Recomp releases](https://github.com/CapsLock4284/DoDonPachi-Recomp/releases/latest)
-2. In **Game data**, select your World, Japan or merged ZIP or 7z. You can also place the archive in `game-data/dodonpachi/`. If your Japanese set contains just the two Japanese program chips, place the parent `ddonpach.zip` or `ddonpach.7z` beside it.
+2. In **Game data**, select your World, Japan or merged ZIP. You can also place the archive in `game-data/dodonpachi/`. If your Japanese set contains just the two Japanese program chips, place the parent `ddonpach.zip` beside it.
 3. With a merged set, choose **VERSION** in the game menu to switch between World and Japan. Settings and EEPROM use `user-data/dodonpachi/default/`. The launcher also recognizes data already imported by the upstream game beside its executable.
 
 ## PS2 games

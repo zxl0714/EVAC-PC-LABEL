@@ -29,7 +29,7 @@ inline constexpr std::array kArcadeRecomps{
      .files={}, .runtime_files={}, .community_supported=false, .name_japanese="怒首領蜂"},
     L"https://github.com/CapsLock4284/DoDonPachi-Recomp", L"DoDonPachi Recomp",
     "ddonpach.zip","ddonpach.ini","ddonpach.eeprom",
-    L"安装怒首領蜂",L"请选择国际版或日版 ROM（ZIP 或 7z）",L"街机国际版／日版 · 1997"}
+    L"安装怒首領蜂",L"请选择国际版或日版 ROM（ZIP）",L"街机国际版／日版 · 1997"}
 };
 
 inline const ArcadeRecomp* FindArcadeRecomp(std::string_view id) {
@@ -60,9 +60,10 @@ inline Inspection InspectArcadeRecomp(const ArcadeRecomp& arcade,const fs::path&
   const auto program=DataChild(root,arcade.game.executable);
   bool ready;
   if (arcade.game.id=="dodonpachi") {
-    ready=!FindDoDonPachiSource(result.data_dir).empty() ||
-          fs::is_regular_file(program.parent_path()/"ddonpach.dat") ||
-          fs::is_regular_file(program.parent_path()/"ddonpach_jpn.dat");
+    ready=!FindDoDonPachiZip(result.data_dir).empty() ||
+          (!fs::is_regular_file(result.data_dir) &&
+           (fs::is_regular_file(program.parent_path()/"ddonpach.dat") ||
+            fs::is_regular_file(program.parent_path()/"ddonpach_jpn.dat")));
   } else {
     ready=fs::is_regular_file(DataChild(result.data_dir,arcade.rom));
   }
@@ -91,8 +92,7 @@ inline LaunchSpec PrepareArcadeRecomp(const ArcadeRecomp& arcade,const fs::path&
   launch.executable=program;
   launch.configuration=DataChild(launch.paths.profile,arcade.settings);
   if (arcade.game.id=="dodonpachi") {
-    ConfigureDoDonPachi(FindDoDonPachiSource(launch.paths.data),launch.paths.prepared,
-                        program.parent_path(),launch.configuration);
+    ConfigureDoDonPachi(launch);
   } else {
     const auto rom=DataChild(launch.paths.data,arcade.rom);
     launch.arguments={L"--usa",L"--rom",rom.native()};

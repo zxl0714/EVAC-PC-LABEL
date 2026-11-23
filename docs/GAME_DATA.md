@@ -318,7 +318,7 @@ game-data/garegga/
 ### 怒首领蜂（dodonpachi）
 
 1. 下载 CapsLock4284 的 Windows 版，解压到 `external/DoDonPachi-Recomp/`，确认 `ddonpach.exe`、`SDL2.dll` 与 `EVAC-Setup.txt` 在同一层。[DoDonPachi Recomp 官方发布页](https://github.com/CapsLock4284/DoDonPachi-Recomp/releases/latest)
-2. 在「游戏数据」中选择国际版、日版或合并包，支持 ZIP 和 7z。也可以将压缩包放入 `game-data/dodonpachi/`。如果日版拆分包里只有两颗程序 ROM，请把国际版母包 `ddonpach.zip` 或 `ddonpach.7z` 放在旁边。
+2. 在「游戏数据」中选择国际版、日版或合并版的 ZIP。也可以将压缩包放入 `game-data/dodonpachi/`。如果日版拆分包里只有两颗程序 ROM，请把国际版母包 `ddonpach.zip` 放在旁边。
 3. 使用合并包时，在游戏菜单的 **VERSION** 中切换国际版与日版。设置与 EEPROM 保存在 `user-data/dodonpachi/default/`。如果已经用上游程序导入过数据，启动器也能识别其程序目录中的数据文件。
 
 ## PS2 游戏

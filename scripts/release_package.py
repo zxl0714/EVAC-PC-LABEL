@@ -754,9 +754,6 @@ def build(flavor, version, output=None, data=None, futari_dlc=None, *,
     text_new(directory / batch_name(version), bat.replace(LAUNCHER, launcher(version)), 'documentation', entries)
     for file in license_files(selection):
         copy_checked(file, directory / 'licenses' / file.relative_to(ROOT), 'license', entries)
-    if tuple(map(int, version.split('-', 1)[0].split('.'))) >= (0, 10, 5):
-        for name in ('third_party/cave68k-inflate/LICENSE', 'third_party/7zip-decoder/7zC.txt'):
-            copy_checked(ROOT / name, directory / 'licenses' / name, 'license', entries)
     if 'rtype-final' in selection:
         ffmpeg_source = ps2_movie.source_archive()
         ffmpeg_license_dir = directory / 'licenses/ffmpeg'

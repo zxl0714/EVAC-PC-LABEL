@@ -30,7 +30,7 @@ inline constexpr std::array kTranslations{
   Translation{L"从 eandis 的官方发布页下载 Windows x64 ZIP，然后完整解压到：",L"eandis の公式リリースから Windows x64 ZIP をダウンロードし、すべてのファイルを次のフォルダーに展開してください。",L"Download the Windows x64 ZIP from eandis's official releases and extract all its files to this folder:"},
   Translation{L"SDOJ-Recomp 已退出，请查看其目录内的日志",L"SDOJ-Recomp が終了しました。インストール先のログを確認してください。",L"SDOJ-Recomp exited. Check the log in its installation folder."},
   Translation{L"安装怒首領蜂",L"怒首領蜂をセットアップ",L"Set up DoDonPachi"},
-  Translation{L"请选择国际版或日版 ROM（ZIP 或 7z）",L"国際版または日本版の ROM（ZIP／7z）を選択してください",L"Select a World or Japan ROM set (ZIP or 7z)"},
+  Translation{L"请选择国际版或日版 ROM（ZIP）",L"国際版または日本版の ROM（ZIP）を選択してください",L"Select a World or Japan ROM set (ZIP)"},
   Translation{L"街机国际版／日版 · 1997",L"アーケード国際版／日本版 · 1997",L"Arcade World / Japan · 1997"},
   Translation{L"请在游戏内设置按键",L"キー設定はゲーム内で変更できます",L"Set controls in game"},
   Translation{L"游戏异常退出，请查看外部程序安装目录内的日志",L"ゲームが異常終了しました。インストール先のログを確認してください。",L"Game exited unexpectedly. Check the log in its installation folder."},

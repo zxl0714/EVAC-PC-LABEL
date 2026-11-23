@@ -1684,7 +1684,7 @@ class App {
     DWORD flags{};Check(dialog->GetOptions(&flags),"Read directory picker options");
     Check(dialog->SetOptions(flags|(arcade?FOS_FILEMUSTEXIST:FOS_PICKFOLDERS)|FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"Configure game data picker");
     if(arcade) {
-      const auto pattern=arcade->game.id=="dodonpachi"?std::wstring(L"*.zip;*.7z"):Wide(arcade->rom);
+      const auto pattern=arcade->game.id=="dodonpachi"?std::wstring(L"*.zip"):Wide(arcade->rom);
       const COMDLG_FILTERSPEC filter[]{{pattern.c_str(),pattern.c_str()}};
       Check(dialog->SetFileTypes(1,filter),"Set arcade ROM filter");
       dialog->SetTitle(T(L"选择 ROM…"));
@@ -1697,7 +1697,7 @@ class App {
     fs::path path(value);CoTaskMemFree(value);
     if(arcade) {
       const bool dodonpachi=arcade->game.id=="dodonpachi";
-      if(dodonpachi?cave::launcher::FindDoDonPachiSource(path).empty():
+      if(dodonpachi?cave::launcher::FindDoDonPachiZip(path).empty():
                     _wcsicmp(path.filename().c_str(),Wide(arcade->rom).c_str())!=0) {
         MessageBoxW(hwnd,T(arcade->rom_hint),kWindowTitle,MB_OK|MB_ICONWARNING);
         return;

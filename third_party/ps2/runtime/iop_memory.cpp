@@ -6,6 +6,7 @@
 #include "../../../backends/ps2/pcm_playout.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <atomic>
 #include <iostream>
@@ -43,17 +44,27 @@ namespace ps2x::iop::detail
         uint64_t frames = 0, nonzero = 0, dropped = 0;
         std::atomic<uint64_t> readFrames{}, underruns{}, silentFrames{}, lateFrames{};
         std::array<int16_t, QuantumFrames * 2> samples{};
-        uint64_t windowStart = 0, previousDrops = 0, previousMissing = 0;
+        uint64_t windowStart = 0, previousDrops = 0, previousMissing = 0, previousLate = 0;
+        std::chrono::steady_clock::time_point windowBegan;
         bool audible = false;
 
         void finishWindow(const char *phase)
         {
             const uint64_t missing = silentFrames.load(std::memory_order_relaxed);
+            const uint64_t late = lateFrames.load(std::memory_order_relaxed);
+            const auto now = std::chrono::steady_clock::now();
+            using std::chrono::duration_cast;
+            using std::chrono::microseconds;
             std::osyncstream(std::cerr) << "[ps2-audio-window] phase=" << phase
                 << " first_source_frame=" << windowStart << " end_source_frame=" << frames
+                << " end_qpc_us=" << duration_cast<microseconds>(now.time_since_epoch()).count()
+                << " elapsed_us=" << duration_cast<microseconds>(now - windowBegan).count()
+                << " late_frames=" << late - previousLate
                 << " dropped_frames=" << dropped - previousDrops
                 << " missing_frames=" << missing - previousMissing << '\n';
             windowStart = frames;
+            windowBegan = now;
+            previousLate = late;
             previousDrops = dropped;
             previousMissing = missing;
         }
@@ -96,7 +107,8 @@ namespace ps2x::iop::detail
         m_audio->dma = {};
         m_audio->nextCycle = AudioState::CyclesPerFrame * AudioState::QuantumFrames;
         m_audio->frames = m_audio->nonzero = m_audio->dropped = 0;
-        m_audio->windowStart = m_audio->previousDrops = m_audio->previousMissing = 0;
+        m_audio->windowStart = m_audio->previousDrops = m_audio->previousMissing = m_audio->previousLate = 0;
+        m_audio->windowBegan = std::chrono::steady_clock::now();
         m_audio->audible = false;
         m_audio->readFrames.store(0, std::memory_order_relaxed);
         m_audio->underruns.store(0, std::memory_order_relaxed);

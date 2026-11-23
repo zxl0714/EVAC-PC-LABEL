@@ -20,12 +20,21 @@ foreach(option ZYDIS_BUILD_SHARED_LIB ZYDIS_BUILD_EXAMPLES ZYDIS_BUILD_TOOLS ZYD
     set(${option} OFF CACHE BOOL "" FORCE)
 endforeach()
 add_subdirectory("${CAVE_PS4_DEPS}/Zydis" "cpu/zydis" EXCLUDE_FROM_ALL)
-add_library(Ps4CpuCompatibility STATIC cpu/compatibility.cpp cpu/function_ranges.cpp)
+add_library(Ps4CpuCompatibility STATIC cpu/compatibility.cpp cpu/function_ranges.cpp
+    cpu/vector_fallback.cpp cpu/vector_operations.cpp cpu/vector_bridge.s)
+set_source_files_properties(cpu/vector_bridge.s PROPERTIES COMPILE_OPTIONS "-Qunused-arguments")
+set_source_files_properties(cpu/vector_operations.cpp PROPERTIES
+    COMPILE_OPTIONS "/clang:-march=x86-64;/clang:-mno-avx;/clang:-mno-ssse3;/clang:-mno-sse4.1;/clang:-ffp-model=strict")
+set(PS4_SIMDE_HEADERS "${CAVE_PS4_ROOT}/third_party/rexglue/thirdparty/simde")
+if(NOT EXISTS "${PS4_SIMDE_HEADERS}/simde/x86/sse4.2.h")
+    message(FATAL_ERROR "Run scripts/sdk_sources.py restore to prepare the pinned SIMDe headers")
+endif()
+target_include_directories(Ps4CpuCompatibility SYSTEM PRIVATE "${PS4_SIMDE_HEADERS}")
 target_compile_features(Ps4CpuCompatibility PUBLIC cxx_std_20)
 target_compile_definitions(Ps4CpuCompatibility PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 # Guarded direct stores must retain SEH around memory accesses so the normal
 # write-fault tracker can run before invalid pointers return to the caller.
-target_compile_options(Ps4CpuCompatibility PRIVATE /W4 /WX /EHa)
+target_compile_options(Ps4CpuCompatibility PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/W4;/WX;/EHa>)
 target_link_libraries(Ps4CpuCompatibility PUBLIC Zydis)
 target_include_directories(Ps4CpuCompatibility PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -250,7 +259,8 @@ target_link_libraries(KetsuiNativeProbe PRIVATE xmllite shlwapi synchronization)
 target_link_libraries(KetsuiNativeProbe PRIVATE SDL3::SDL3-static)
 target_link_libraries(KetsuiNativeProbe PRIVATE KetsuiCommunity cave_common KetsuiResourcePreparation KetsuiPreparedInputs KetsuiDiagnostics)
 target_link_libraries(KetsuiNativeProbe PRIVATE Ps4CpuCompatibility)
-add_executable(Ps4CpuCompatibilityTests "${CAVE_PS4_ROOT}/tests/ps4_cpu_test.cpp")
+add_executable(Ps4CpuCompatibilityTests "${CAVE_PS4_ROOT}/tests/ps4_cpu_test.cpp"
+    "${CAVE_PS4_ROOT}/tests/ps4_vector_test.cpp")
 target_link_libraries(Ps4CpuCompatibilityTests PRIVATE Ps4CpuCompatibility)
 target_compile_options(Ps4CpuCompatibilityTests PRIVATE /W4 /WX /EHsc)
 target_link_options(Ps4CpuCompatibilityTests PRIVATE /DEBUG:FULL)

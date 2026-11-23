@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -27,6 +28,35 @@ namespace cave::ps2 {
 using gs_crash::Stage;
 Vulkan::Program* CreateGsPresentProgram(Vulkan::Device& device,bool rotate);
 namespace {
+// RTSS recorded an overlay barrier on the first game present after the
+// PS4-to-PS2 handoff. Exclude its implicit layer for creation of this
+// instance. The dispatch chain of the existing PS4 instance is independent.
+class HostedRtssScope {
+    static constexpr auto variable = L"DISABLE_RTSS_LAYER";
+    bool installed = false;
+    bool wasEmpty = false;
+public:
+    explicit HostedRtssScope(bool borrowed) {
+        if (!borrowed) return;
+        wchar_t value{};
+        SetLastError(ERROR_SUCCESS);
+        if (GetEnvironmentVariableW(variable, &value, 1)) return; // Already disabled.
+        const auto error = GetLastError();
+        if (error != ERROR_SUCCESS && error != ERROR_ENVVAR_NOT_FOUND) return;
+        wasEmpty = error == ERROR_SUCCESS;
+        installed = SetEnvironmentVariableW(variable, L"1") != FALSE;
+        if (installed)
+            std::fputs("[ps2-dl-wsi] requested RTSS Vulkan layer exclusion for hosted instance\n", stderr);
+        else
+            std::fprintf(stderr, "[ps2-dl-wsi] RTSS layer exclusion unavailable (win32=%lu)\n", GetLastError());
+    }
+    ~HostedRtssScope() {
+        if (installed && !SetEnvironmentVariableW(variable, wasEmpty ? L"" : nullptr))
+            std::fprintf(stderr, "[ps2-dl-wsi] RTSS environment restoration failed (win32=%lu)\n", GetLastError());
+    }
+    HostedRtssScope(const HostedRtssScope&) = delete;
+    HostedRtssScope& operator=(const HostedRtssScope&) = delete;
+};
 class NativeWindow final : public Vulkan::WSIPlatform {
 public:
     HWND handle{};
@@ -109,6 +139,14 @@ public:
     uint32_t get_surface_width() override{RECT size{};GetClientRect(handle,&size);return uint32_t(size.right);}
     uint32_t get_surface_height() override{RECT size{};GetClientRect(handle,&size);return uint32_t(size.bottom);}
     bool alive(Vulkan::WSI&) override{return !closed;}
+    void block_until_wsi_forward_progress(Vulkan::WSI& wsi) override {
+        const auto start = frame_trace::Stamp();
+        Vulkan::WSIPlatform::block_until_wsi_forward_progress(wsi);
+        const auto end = frame_trace::Stamp();
+        if (end - start >= 50000)
+            std::fprintf(stderr, "[ps2-wsi-wait] reason=no_surface begin_qpc_us=%lld end_qpc_us=%lld\n",
+                         static_cast<long long>(start), static_cast<long long>(end));
+    }
     void poll_input() override {
         // Command bursts can request thousands of polls between two fields.
         // Bound native message polling to 500 us; SDL retains its own cadence.
@@ -260,8 +298,13 @@ public:
             std::fputs("[ps2-wsi] hosted VSync uses FIFO and descriptor sets\n",stderr);
         }
         {
+            HostedRtssScope rtss(window.borrowed);
+            if(!wsi.init_context_from_platform(1,{},extra,disable))
+                throw std::runtime_error("Cannot initialize Vulkan context");
+        }
+        {
             HostedSwapchainTrace trace(window.borrowed,"start");
-            if(!wsi.init_context_from_platform(1,{},extra,disable) || !wsi.init_device() || !wsi.init_surface_swapchain())
+            if(!wsi.init_device() || !wsi.init_surface_swapchain())
                 throw std::runtime_error("Cannot initialize Vulkan WSI");
         }
         // PGS can flush several times in one game field. Allocation contexts

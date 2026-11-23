@@ -1,0 +1,48 @@
+--- a/src/microsoft/vulkan/dzn_device.c
++++ b/src/microsoft/vulkan/dzn_device.c
+@@ -72,3 +72,6 @@
+ static const struct vk_instance_extension_table instance_extensions = {
++   /* Wine also requests the KHR names for these Vulkan 1.1 queries. */
++   .KHR_external_memory_capabilities         = true,
++   .KHR_external_semaphore_capabilities      = true,
+    .KHR_get_physical_device_properties2      = true,
+    .KHR_device_group_creation                = true,
+@@ -450,2 +453,5 @@
+    ID3D12Device1_CheckFeatureSupport(pdev->dev, D3D12_FEATURE_D3D12_OPTIONS12, &pdev->options12, sizeof(pdev->options12));
++   /* Private WSL build: Dozen's enhanced split barriers can overlap a copy
++    * on the same texture in the PS2 GS workload. Use its classic barriers. */
++   pdev->options12.EnhancedBarriersSupported = false;
+    ID3D12Device1_CheckFeatureSupport(pdev->dev, D3D12_FEATURE_D3D12_OPTIONS13, &pdev->options13, sizeof(pdev->options13));
+--- a/src/microsoft/vulkan/dzn_cmd_buffer.c
++++ b/src/microsoft/vulkan/dzn_cmd_buffer.c
+@@ -5024,18 +5024,27 @@
+       const VkRenderingAttachmentInfo *att = &pRenderingInfo->pColorAttachments[a];
+       VK_FROM_HANDLE(dzn_image_view, iview, att->imageView);
+ 
+-      if (iview != NULL && att->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR &&
++      /* A placed D3D12 render target needs initialization even when the GS
++       * will draw every pixel. DONT_CARE permits clearing the render area. */
++      const VkClearValue zero = {0};
++      const VkClearValue *clear = NULL;
++      if (att->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR)
++         clear = &att->clearValue;
++      else if (att->loadOp == VK_ATTACHMENT_LOAD_OP_DONT_CARE)
++         clear = &zero;
++
++      if (iview != NULL && clear != NULL &&
+           !(pRenderingInfo->flags & VK_RENDERING_RESUMING_BIT)) {
+          if (pRenderingInfo->viewMask != 0) {
+             u_foreach_bit(layer, pRenderingInfo->viewMask) {
+                dzn_cmd_buffer_clear_attachment(cmdbuf, iview, att->imageLayout,
+-                                               &att->clearValue,
++                                               clear,
+                                                VK_IMAGE_ASPECT_COLOR_BIT, layer,
+                                                1, 1, &cmdbuf->state.render.area);
+             }
+          } else {
+             dzn_cmd_buffer_clear_attachment(cmdbuf, iview, att->imageLayout,
+-                                            &att->clearValue,
++                                            clear,
+                                             VK_IMAGE_ASPECT_COLOR_BIT, 0,
+                                             pRenderingInfo->layerCount, 1,
+                                             &cmdbuf->state.render.area);

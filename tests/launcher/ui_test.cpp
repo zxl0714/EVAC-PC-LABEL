@@ -650,10 +650,24 @@ void ExternalLauncherControlsChecks() {
     Require(Ini::Load(ddp_launch.configuration).Get("game", "version")->text == "japan",
             "An installation containing only the Japanese DAT must select Japan");
     const auto archives = fixture.root / "ROM sets";
-    Write(archives / "ddonpach.zip", "World");
-    Write(archives / "ddonpachj.7z", "Japan");
-    Require(cave::launcher::FindDoDonPachiSource(archives / "ddonpachj.7z") == archives / "ddonpachj.7z",
-            "Selecting the Japanese archive must not pick a sibling World archive");
+    const auto world = archives / "ddonpach.zip";
+    const auto japan = archives / "ddonpachj.zip";
+    const auto seven_zip = archives / "ddonpachj.7z";
+    Write(world, "World"); Write(japan, "Japan"); Write(seven_zip, "Unsupported");
+    Require(cave::launcher::FindDoDonPachiZip(archives) == world, "Prefer the parent ZIP when given a directory");
+    Require(InspectArcadeRecomp(ddp, fixture.root, seven_zip).state == "arcade_rom_missing",
+            "A selected 7z cannot be imported even with a cached DAT");
+    const auto imported = PrepareArcadeRecomp(ddp, fixture.root, arcade_ini, "zip", japan);
+    Require(imported.arguments.at(0) == L"--rom" && imported.arguments.at(1) == japan.native() &&
+            Ini::Load(imported.configuration).Get("game", "version")->text == "japan",
+            "Pass the selected Japanese ZIP directly to upstream");
+    const auto merged = PrepareArcadeRecomp(ddp, fixture.root, arcade_ini, "zip", world);
+    Require(merged.arguments.at(1) == world.native(), "Changing ZIP requests a fresh upstream import");
+    Write(merged.configuration, "[files]\nrom = " + Utf8(world) + "\n[game]\nversion = japan\n");
+    const auto repeat = PrepareArcadeRecomp(ddp, fixture.root, arcade_ini, "zip", world);
+    Require(repeat.arguments.front() == L"--settings" &&
+            Ini::Load(repeat.configuration).Get("game", "version")->text == "japan",
+            "Keep the game's selected region and reuse its DAT on the next launch");
     app.Select(*game,false);
     Require(app.display_choices.size()>2,"Returning to an integrated game lost its window presets");
   }
