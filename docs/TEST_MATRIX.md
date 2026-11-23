@@ -4,6 +4,12 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
+## v0.10.5 正式发布
+
+[GitHub 正式版](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.5) 对应提交 `91f8422`。从公开链接重新下载了程序包和校验文件。ZIP 大小为 208,827,689 字节，SHA-256 为 `e715b4e930c50cf83490f6a44d328bfd4fc02b7c227caf2e98aab5cbbb543abd`，与本地正式包一致。
+
+正式包解压后通过全部 224 项文件校验。从包内加载《大往生》Death Label 运行时，在模拟 RTSS 层存在的条件下，分别用 Immediate 和 FIFO 模式进入游戏画面，并通过宿主正常退出。四组平台与启动器回归共通过 54 项检查。发布记录保存在 `.local/v0105/github-release.json`。
+
 ## v0.10.5 PS4 游戏与旧 CPU
 
 《大往生》01.00 的两份报告停在 `eboot.bin+0x1e5155` 的 `vxorps`。使用相同的日版 01.00 程序，在 Windows 上按报告屏蔽 AVX、SSSE3、SSE4.1、BMI1/2、F16C 和 MOVBE，保留 LZCNT。游戏自动转换主程序和两个模块中的 43,132 处 AVX 指令。实际投币、选人并进入一面，分数达到 5,960。
