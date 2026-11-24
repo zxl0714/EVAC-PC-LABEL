@@ -119,7 +119,9 @@ bool Enabled(const Ini& ini) {
 int64_t Now(){return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();}
 bool Due(const State& state,int64_t now) {
   const auto recent=[&](int64_t at,int64_t ttl){return at>0 && at<=now+300 && now-at<ttl;};
-  return !recent(state.checked,24*60*60) && !recent(state.attempted,60*60);
+  // Releases often follow each other within a day; a launcher left open
+  // rechecks periodically, so a six-hour cache finds them the same day.
+  return !recent(state.checked,6*60*60) && !recent(state.attempted,60*60);
 }
 bool ShouldNotify(const State& state,std::string_view local) {
   return state.latest && Newer(local,*state.latest) && !state.notified.contains(state.latest->tag);

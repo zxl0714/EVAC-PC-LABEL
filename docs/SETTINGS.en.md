@@ -124,9 +124,9 @@ Set `enabled` to `false` to play offline.
 
 ## Checking for updates
 
-The launcher checks GitHub for stable releases and downloads the program update in the background. A red dot appears in the upper-right corner when the download is verified. Close any running game, click the dot, then choose **Restart and update**.
+When the launcher finds a new release on GitHub, a red dot appears in the upper-right corner. Click it to open the release page while the program downloads. Once the download is verified, close any running game and choose **Restart and update**. If you close the launcher during the download, it resumes next time.
 
-Successful checks are cached for 24 hours. To disable automatic checks, set this in `user-data/config.ini`:
+The launcher continues checking while open and caches successful checks for six hours. To disable automatic checks, set this in `user-data/config.ini`:
 
 ```ini
 [collection]
