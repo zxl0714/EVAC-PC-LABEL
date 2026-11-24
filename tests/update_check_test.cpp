@@ -91,13 +91,15 @@ void ProgramInstall(const fs::path& parent) {
   Require(update::PackagedInstallation(installed,"0.10.2") && !update::PackagedInstallation(installed,"0.10.3"),"Installed program identity");
   const auto partial=update::PartialDownload(installed,release);
   Require(partial==cache/(release.tag+"-"+release.program->sha256+".zip.part"),"Partial download name is not stable");
-  const std::array stale{cache/"download-123-456.part",cache/("v0.10.1-"+std::string(64,'b')+".zip"),partial};
+  const auto old="v0.10.1-"+std::string(64,'b')+".zip";
+  const std::array stale{cache/"download-123-456.part",cache/old,cache/(old+".part"),partial};
   for(const auto& file:stale)Write(file,"leftover");
-  Write(cache/"apply.exe","worker");
+  const std::array keep{cache/"apply.exe",cache/"backup.zip",cache/"other.part",cache/"download-a-456.part",cache/"v0.10.1-not-a-digest.zip"};
+  for(const auto& file:keep)Write(file,"keep");
   update::DownloadProgram(installed,release);
   Require(Sha256(cached)==release.program->sha256,"Verified cache was replaced");
-  Require(std::ranges::none_of(stale,[](const fs::path& file){return fs::exists(file);}) && fs::exists(cache/"apply.exe"),
-          "Leftover downloads were kept or an unrelated update file was removed");
+  Require(std::ranges::none_of(stale,[](const fs::path& file){return fs::exists(file);}),"Stale update download was kept");
+  for(const auto& file:keep)Require(Ini::ReadText(file)=="keep","An unrelated file was modified during cleanup");
   {
     std::fstream tamper(cached,std::ios::in|std::ios::out|std::ios::binary);
     tamper.put('X');
@@ -169,6 +171,8 @@ int main(int argc,char** argv) {
     Require(update::Newer("0.7.9",Release("v0.7.10")),"Version compared lexicographically");
     Require(update::ResumedRange(L"bytes 100-999/1000",100,1000) && update::ResumedRange(std::wstring(L"bytes 0-9/10")+L'\0',0,10),
             "Matching resumed range rejected");
+    Require(!update::ResumedRange(L"bytes 100-99/100",100,100) &&
+            !update::ResumedRange(L"bytes 0-18446744073709551615/0",0,0),"Empty or reversed range accepted");
     for(const auto* range:{L"bytes 0-999/1000",L"bytes 100-998/1000",L"bytes 100-999/*",L"bytes 100-999/1001",
                            L"bytes */1000",L"items 100-999/1000",L"bytes 100-999/1000x",L"bytes -999/1000",L""})
       Require(!update::ResumedRange(range,100,1000),"Download resumed from a mismatched range");

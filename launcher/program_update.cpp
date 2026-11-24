@@ -180,6 +180,23 @@ bool ArchiveMatches(const fs::path& path,const ProgramAsset& asset) {
 bool DownloadHost(std::wstring_view host) {
   return host==L"github.com" || host==L"release-assets.githubusercontent.com" || host==L"objects.githubusercontent.com";
 }
+bool IsDownloadCacheFile(std::string_view name) {
+  if(name.ends_with(".part")) {
+    name.remove_suffix(5);
+    if(name.starts_with("download-")) {
+      name.remove_prefix(9);
+      const auto dash=name.find('-');
+      const auto decimal=[](std::string_view value) {
+        return !value.empty() && value.find_first_not_of("0123456789")==value.npos;
+      };
+      return dash!=name.npos && decimal(name.substr(0,dash)) && decimal(name.substr(dash+1));
+    }
+  }
+  if(!name.ends_with(".zip"))return false;
+  name.remove_suffix(4);
+  const auto dash=name.find('-');
+  return dash!=name.npos && ParseVersion(name.substr(0,dash)) && ValidSha256(name.substr(dash+1));
+}
 void Restart(HANDLE file) {
   const LARGE_INTEGER start{};
   Require(SetFilePointerEx(file,start,nullptr,FILE_BEGIN) && SetEndOfFile(file),"Cannot restart the program download");
@@ -231,20 +248,19 @@ void FetchArchive(const ProgramAsset& asset,const fs::path& file) {
       while(!url.empty() && url.back()==0)url.pop_back();
       continue;
     }
-    if(status==206) {
+    if(status==206 || (status==416 && received)) {
       std::array<wchar_t,128> content_range{};size=DWORD(sizeof(content_range));
-      Require(WinHttpQueryHeaders(request.value,WINHTTP_QUERY_CONTENT_RANGE,WINHTTP_HEADER_NAME_BY_INDEX,
+      const bool valid=status==206 && WinHttpQueryHeaders(request.value,WINHTTP_QUERY_CONTENT_RANGE,WINHTTP_HEADER_NAME_BY_INDEX,
               content_range.data(),&size,WINHTTP_NO_HEADER_INDEX) &&
-              ResumedRange(std::wstring_view(content_range.data(),size/sizeof(wchar_t)),received,asset.bytes),
-              "GitHub resumed the program download at another position");
+              ResumedRange(std::wstring_view(content_range.data(),size/sizeof(wchar_t)),received,asset.bytes);
+      if(!valid) {
+        Require(received!=0,"Invalid Content-Range on a full program download");
+        Restart(output.value);received=0;
+        continue; // Retry this URL once without a Range header.
+      }
     }
     else if(status==200){Restart(output.value);received=0;}
-    else {
-      // The partial file cannot be continued (416) or the server failed:
-      // start over next time rather than retrying the same range.
-      if(status==416)Restart(output.value);
-      throw std::runtime_error("GitHub download HTTP "+std::to_string(status));
-    }
+    else throw std::runtime_error("GitHub download HTTP "+std::to_string(status));
     const LARGE_INTEGER end{};
     Require(SetFilePointerEx(output.value,end,nullptr,FILE_END),"Cannot continue the program download");
     std::array<unsigned char,128*1024> buffer{};
@@ -321,7 +337,7 @@ bool ResumedRange(std::wstring_view header,uint64_t start,uint64_t total) {
     if(stop==0 || stop==header.npos || stop>20)return {};
     uint64_t value{};
     for(const auto c:header.substr(0,stop)) {
-      if(c<L'0' || c>L'9' || value>(UINT64_MAX-9)/10)return {};
+      if(c<L'0' || c>L'9' || value>(UINT64_MAX-uint64_t(c-L'0'))/10)return {};
       value=value*10+uint64_t(c-L'0');
     }
     header.remove_prefix(std::min(stop+1,header.size()));
@@ -330,7 +346,7 @@ bool ResumedRange(std::wstring_view header,uint64_t start,uint64_t total) {
   const auto first=number(header.find(L'-'));
   const auto last=first?number(header.find(L'/')):std::nullopt;
   const auto length=last?number(header.size()):std::nullopt;
-  return length && header.empty() && *first==start && *length==total && *last+1==total;
+  return length && header.empty() && start<total && *first==start && *length==total && *last==total-1;
 }
 fs::path PartialDownload(const fs::path& root,const Release& release) {
   const auto archive=ArchivePath(root,release);
@@ -354,10 +370,10 @@ void DownloadProgram(const fs::path& root,const Release& release) {
   // launchers named partial files per process and left them when closed.
   for(const auto& entry:fs::directory_iterator(storage)) {
     const auto& path=entry.path();
-    const auto extension=path.extension().native();
-    if(path==destination || path==partial || entry.is_symlink() || !entry.is_regular_file() ||
-       (_wcsicmp(extension.c_str(),L".part") && _wcsicmp(extension.c_str(),L".zip")))continue;
-    DeleteFileW(path.c_str());
+    if(path==destination || path==partial || !IsDownloadCacheFile(Utf8(path.filename())))continue;
+    const DWORD flags=GetFileAttributesW(path.c_str());
+    if(flags!=INVALID_FILE_ATTRIBUTES && !(flags&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))
+      DeleteFileW(path.c_str());
   }
   if(ArchiveMatches(destination,*release.program)){DeleteFileW(partial.c_str());return;}
   // A network failure keeps the partial file so the next attempt continues it.
