@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.10.4
+EVAC PC LABEL v0.10.5
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击 Launch game。右上角的 CN 可切换为简体中文。
@@ -32,6 +32,7 @@ PS2 直接放 ISO，文件名不限；首次启动自动准备缓存。例如：
 最大往生可选 eandis 版。按 external/SDOJ-Recomp/EVAC-Setup.txt 安装，然后开启封面上的 eandis 开关。
 首领蜂通过 DonPachi Recomp 启动。按 external/DonPachi-Recomp/EVAC-Setup.txt 安装程序，
 再把美版 donpachi.zip 放入 game-data/donpachi/，或在启动器中选择 ZIP。
+怒首领蜂支持国际版、日版和合并 ZIP。程序安装说明见 external/DoDonPachi-Recomp/EVAC-Setup.txt。
 
 解包
 ZIP／RAR 用常规工具解压。PS2 的 ISO 解压出来后直接放入对应目录。
@@ -58,6 +59,7 @@ CN／EN／JP 切换界面语言，页头可修改排行榜昵称。
 启动按钮上方选择全屏或窗口分辨率。底部“配置文件”打开 user-data/config.ini。
 底部“输入设置”可修改键盘、手柄和摇杆绑定。选择所有游戏或当前游戏，双击一项后按键，保存后下次启动生效。
 在游戏里按 Esc 或 Start + 十字键上，即可退出并返回启动器。
+《首领蜂》和《怒首领蜂》默认用 Esc 打开游戏内的暂停菜单。
 在「输入设置 → 所有游戏 → 退出游戏」可改键。按一下录入单键，按住一个再按另一个录入组合键。
 备份、换目录时保留整个 user-data/，包含配置、存档和录像。
 
@@ -133,6 +135,8 @@ The filename is your choice. First launch prepares the runtime cache automatical
 
 With both editions of DaiOuJou installed, select DEATH LABEL in the PS4 edition's
 DIRECT MENU to play the PS2 mode. The Korean Battle Garegga release uses English menus.
+For arcade DoDonPachi, install the program as described in external/DoDonPachi-Recomp/EVAC-Setup.txt.
+Select the World, Japan or merged ZIP in the launcher.
 
 Extraction
 Unpack ZIP/RAR normally. PS2 ISO images are ready to use.
@@ -150,6 +154,7 @@ The launcher remembers its window size when closed.
 Choose fullscreen or a window size above Launch game. Config opens user-data/config.ini.
 Open Controls to remap your keyboard, gamepad or arcade stick. Choose a scope, double-click a binding and press an input. Changes apply the next time you start a game.
 In a game, press Esc or Start + D-pad Up to exit and return to the launcher.
+In DonPachi Recomp and DoDonPachi Recomp, Esc opens the game's pause menu by default.
 Remap it under Controls, All games, Exit game. Tap one input for a single bind, or hold one and press another for a combo.
 Keep the whole user-data/ folder when updating or moving your installation.
 

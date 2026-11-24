@@ -1,4 +1,5 @@
 #include "save_store.h"
+#include "common/windows_drive.h"
 #include <windows.h>
 #include <bcrypt.h>
 #include <algorithm>
@@ -49,7 +50,10 @@ Handle DirectoryGuard(const fs::path& directory) {
     // a reparse point or depending on a filesystem's tag-information support.
     BY_HANDLE_FILE_INFORMATION info{};
     if (!GetFileInformationByHandle(handle.value, &info)) { WinFail("Cannot inspect save directory"); }
-    if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) { Fail(Error::Invalid, "Save directory is not a plain directory"); }
+    if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+        ((info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && !cave::IsWineDriveRoot(directory))) {
+        Fail(Error::Invalid, "Save directory is not a plain directory");
+    }
     return handle;
 }
 std::vector<Handle> GuardParents(const fs::path& path) {

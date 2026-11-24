@@ -9,12 +9,12 @@ if(NOT IS_DIRECTORY "${PS2_GS_SOURCE}/gs" OR NOT EXISTS "${PS2_GS_SOURCE}/collec
   message(FATAL_ERROR "Prepare pinned sources using scripts/ps2_gs_sources.py")
 endif()
 file(READ "${PS2_GS_SOURCE}/collection-source.json" gs_source_receipt)
-file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch.txt" wsi_patch_sha)
-string(JSON applied_wsi_patch_sha ERROR_VARIABLE receipt_error GET "${gs_source_receipt}" patchSha256)
-if(receipt_error OR NOT applied_wsi_patch_sha STREQUAL wsi_patch_sha)
+file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/renderer.patch.txt" renderer_patch_sha)
+string(JSON applied_renderer_patch_sha ERROR_VARIABLE receipt_error GET "${gs_source_receipt}" patchSha256)
+if(receipt_error OR NOT applied_renderer_patch_sha STREQUAL renderer_patch_sha)
   message(FATAL_ERROR "Refresh the pinned GS source view using scripts/ps2_gs_sources.py")
 endif()
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/granite-wsi.patch.txt")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/renderer.patch.txt")
 # Standalone GPU renderer only. No emulator CPUs, frontend, audio, runtime GLSL
 # compiler, downloaded SDK, or another project's game-specific patches.
 set(PARALLEL_GS_STANDALONE ON CACHE BOOL "" FORCE)

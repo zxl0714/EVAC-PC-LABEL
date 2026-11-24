@@ -157,6 +157,10 @@ def placement_sources(version, name=PLACEMENT_NAME):
         guide = 'external/DonPachi-Recomp/EVAC-Setup.txt'
         result[guide] = ROOT / guide
         result['game-data/donpachi/' + name] = ROOT / 'config/game-data/donpachi.txt'
+    if parts >= (0, 10, 5):
+        guide = 'external/DoDonPachi-Recomp/EVAC-Setup.txt'
+        result[guide] = ROOT / guide
+        result['game-data/dodonpachi/' + name] = ROOT / 'config/game-data/dodonpachi.txt'
     return result
 
 

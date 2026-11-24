@@ -1,4 +1,5 @@
 #include "native_rtc.h"
+#include "common/windows_drive.h"
 #include "native_memory.h"
 #include "native_diagnostics.h"
 
@@ -126,6 +127,16 @@ int KT_SYSV SetWin32FileTime(DateTime* output, std::uint64_t file_time) {
     std::memcpy(output, &result, sizeof(result));
     return 0;
 }
+bool ZoneRule(const DYNAMIC_TIME_ZONE_INFORMATION& zone, unsigned year, TIME_ZONE_INFORMATION& rule) {
+    if (zone.TimeZoneKeyName[0] && !zone.DynamicDaylightTimeDisabled) {
+        auto copy = zone;
+        return GetTimeZoneInformationForYear(static_cast<USHORT>(year), &copy, &rule) != 0;
+    }
+    rule = {};
+    rule.Bias = zone.Bias; rule.StandardBias = zone.StandardBias; rule.DaylightBias = zone.DaylightBias;
+    rule.StandardDate = zone.StandardDate; rule.DaylightDate = zone.DaylightDate;
+    return true;
+}
 int LocalInZone(std::uint64_t tick, const DYNAMIC_TIME_ZONE_INFORMATION& zone, std::uint64_t& output) {
     if (tick > kMaxTick) { return kValue; }
     const auto date = CalendarDate(tick);
@@ -133,14 +144,13 @@ int LocalInZone(std::uint64_t tick, const DYNAMIC_TIME_ZONE_INFORMATION& zone, s
                          static_cast<WORD>(date.microsecond / 1000)};
     SYSTEMTIME local{};
     BOOL converted{};
-    if (zone.TimeZoneKeyName[0]) {
+    if (zone.TimeZoneKeyName[0] && !cave::RunningUnderWine()) {
         converted = SystemTimeToTzSpecificLocalTimeEx(&zone, &utc, &local);
     } else {
-        // Fixed/custom rules have no registry key. The Ex API requires that
-        // key on this Windows build; use the explicit-rule API instead.
+        // Proton exports the Ex entry point as an unimplemented stub. Resolve
+        // the rule for the guest year before calling the explicit-rule API.
         TIME_ZONE_INFORMATION rule{};
-        rule.Bias = zone.Bias; rule.StandardBias = zone.StandardBias; rule.DaylightBias = zone.DaylightBias;
-        rule.StandardDate = zone.StandardDate; rule.DaylightDate = zone.DaylightDate;
+        if (!ZoneRule(zone, date.year, rule)) { return kValue; }
         converted = SystemTimeToTzSpecificLocalTime(&rule, &utc, &local);
     }
     if (!converted) { return kValue; }
@@ -166,16 +176,6 @@ bool SecondsTick(std::int64_t seconds, std::uint64_t& tick) {
     const auto shifted = static_cast<__int128_t>(seconds) + kUnixEpochSeconds;
     if (shifted < 0 || shifted > static_cast<__int128_t>(kMaxTick / 1000000)) { return false; }
     tick = static_cast<std::uint64_t>(shifted) * 1000000;
-    return true;
-}
-bool ZoneRule(const DYNAMIC_TIME_ZONE_INFORMATION& zone, unsigned year, TIME_ZONE_INFORMATION& rule) {
-    if (zone.TimeZoneKeyName[0] && !zone.DynamicDaylightTimeDisabled) {
-        auto copy = zone;
-        return GetTimeZoneInformationForYear(static_cast<USHORT>(year), &copy, &rule) != 0;
-    }
-    rule = {};
-    rule.Bias = zone.Bias; rule.StandardBias = zone.StandardBias; rule.DaylightBias = zone.DaylightBias;
-    rule.StandardDate = zone.StandardDate; rule.DaylightDate = zone.DaylightDate;
     return true;
 }
 bool LocalSecondsInZone(std::int64_t utc, const DYNAMIC_TIME_ZONE_INFORMATION& zone,

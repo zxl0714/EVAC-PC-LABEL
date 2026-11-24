@@ -1,5 +1,5 @@
 #include "launcher/program_update.h"
-#include "launcher/donpachi_recomp.h"
+#include "launcher/arcade_recomp.h"
 #include "launcher/single_instance.h"
 #include "common/catalogue.h"
 #include "common/config_update.h"

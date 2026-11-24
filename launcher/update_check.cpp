@@ -1,5 +1,5 @@
 #include "update_check.h"
-#include "launcher/donpachi_recomp.h"
+#include "launcher/arcade_recomp.h"
 #include "common/paths.h"
 #include "common/config_update.h"
 #include "common/settings.h"

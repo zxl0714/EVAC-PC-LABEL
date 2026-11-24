@@ -1,5 +1,6 @@
 #include "common/stfs.h"
 #include "common/paths.h"
+#include "common/windows_drive.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <algorithm>
@@ -35,7 +36,7 @@ struct Digest {
 void NoLinks(fs::path path) {
   for(;!path.empty();) {
     const auto attr=GetFileAttributesW(path.c_str());
-    Need(attr==INVALID_FILE_ATTRIBUTES || !(attr&FILE_ATTRIBUTE_REPARSE_POINT),"Linked package/cache path");
+    Need(attr==INVALID_FILE_ATTRIBUTES || !(attr&FILE_ATTRIBUTE_REPARSE_POINT) || IsWineDriveRoot(path),"Linked package/cache path");
     const auto parent=path.parent_path();if(parent==path)break;path=parent;
   }
 }

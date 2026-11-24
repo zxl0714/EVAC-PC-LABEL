@@ -25,6 +25,7 @@
 #include "native_offline_bench.h"
 #include "native_resident_gpu.h"
 #include "common/windows_fault_text.h"
+#include "common/windows_drive.h"
 #include "native_trophy.h"
 #include "memory/write_tracker.h"
 #include "memory/tracked_texture.h"
@@ -672,6 +673,19 @@ LONG CALLBACK ProbeFault(EXCEPTION_POINTERS* exception) {
         auto* owner=ImageAt(reinterpret_cast<std::uintptr_t>(exception->ExceptionRecord->ExceptionAddress));
         if(owner && owner->cpu && owner->cpu->HandleException(exception))return EXCEPTION_CONTINUE_EXECUTION;
     }
+    if(code==EXCEPTION_ILLEGAL_INSTRUCTION) {
+        const auto pc=static_cast<std::uintptr_t>(exception->ContextRecord->Rip);
+        if(auto* owner=ImageAt(pc);owner && owner->cpu) {
+            const auto offset=pc-reinterpret_cast<std::uintptr_t>(owner->image);
+            for(const auto& segment:owner->segments) {
+                if(!(segment.flags&1) || offset<segment.address || offset-segment.address>=segment.file_size)continue;
+                const auto available=(std::min<std::uint64_t>)(15,segment.file_size-(offset-segment.address));
+                if(owner->cpu->HandleUnlistedVector(*exception->ContextRecord,{owner->image+offset,static_cast<std::size_t>(available)}))
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                break;
+            }
+        }
+    }
     if (code == EXCEPTION_ACCESS_VIOLATION && exception->ExceptionRecord->NumberParameters >= 2 &&
         exception->ExceptionRecord->ExceptionInformation[0] == 1 && kt::memory::WriteTracker::HandleWriteFault(
             reinterpret_cast<void*>(exception->ExceptionRecord->ExceptionInformation[1]))) { return EXCEPTION_CONTINUE_EXECUTION; }
@@ -1101,9 +1115,9 @@ void Load(Runtime& runtime, Reader& reader, bool module = false) {
         cpu_function_ranges=ranges.size();
     }
     const auto& cpu_stats=runtime.cpu->Stats();
-    std::printf("{\"event\":\"native_cpu_image_compatibility\",\"image\":%s,\"function_ranges\":%zu,\"trampolines\":%zu,\"short_traps\":%zu,\"bextr\":%zu,\"andn\":%zu,\"blsi\":%zu,\"blsmsk\":%zu,\"blsr\":%zu,\"lzcnt\":%zu,\"tzcnt\":%zu,\"movbe\":%zu}\n",
+    std::printf("{\"event\":\"native_cpu_image_compatibility\",\"image\":%s,\"function_ranges\":%zu,\"trampolines\":%zu,\"short_traps\":%zu,\"bextr\":%zu,\"andn\":%zu,\"blsi\":%zu,\"blsmsk\":%zu,\"blsr\":%zu,\"lzcnt\":%zu,\"tzcnt\":%zu,\"movbe\":%zu,\"avx\":%zu}\n",
         Quoted(runtime.image_name).c_str(),cpu_function_ranges,cpu_stats.trampolines,cpu_stats.short_traps,
-        cpu_stats.converted[0],cpu_stats.converted[1],cpu_stats.converted[2],cpu_stats.converted[3],cpu_stats.converted[4],cpu_stats.converted[5],cpu_stats.converted[6],cpu_stats.converted[7]);
+        cpu_stats.converted[0],cpu_stats.converted[1],cpu_stats.converted[2],cpu_stats.converted[3],cpu_stats.converted[4],cpu_stats.converted[5],cpu_stats.converted[6],cpu_stats.converted[7],cpu_stats.avx);
     if (!runtime.is_module) {
         InstallNativeCommunityRoundAudit(runtime.image, static_cast<std::size_t>(header.image_size), runtime.contract_sha256);
         InstallNativeCommunityRounds(runtime.image, static_cast<std::size_t>(header.image_size), runtime.contract_sha256);
@@ -1153,7 +1167,8 @@ bool ModulePath(const char* text, std::string& name) {
 void CheckModulePath(const std::filesystem::path& path) {
     for (auto cursor = path; !cursor.empty();) {
         const auto attributes = GetFileAttributesW(cursor.c_str());
-        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+        if (attributes == INVALID_FILE_ATTRIBUTES ||
+            ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) && !cave::IsWineDriveRoot(cursor))) {
             throw std::runtime_error("Missing or reparse-point module path");
         }
         const auto parent = cursor.parent_path();
@@ -2061,12 +2076,13 @@ int NativeCommand(int argc, wchar_t** argv, const cave::ps4::CollectionConfigura
         }
         ConfigureNativeUnpacedPresentation(diagnostic_unpaced != nullptr);
         if(cpu_compatibility_test) {
-            if(std::wstring_view(cpu_compatibility_test)!=L"on" || !collection || collection->shared.community_enabled ||
+            if((std::wstring_view(cpu_compatibility_test)!=L"on" && std::wstring_view(cpu_compatibility_test)!=L"pre-avx") || !collection || collection->shared.community_enabled ||
                !user_directory || !std::filesystem::path(user_directory).is_absolute() ||
                !std::filesystem::path(user_directory).filename().wstring().starts_with(L"benchmark-"))
                 throw std::runtime_error("CPU compatibility test requires offline collection config and an absolute benchmark-* profile");
         }
-        cave::ps4::cpu::ConfigureForTests(cpu_compatibility_test!=nullptr);
+        const bool pre_avx=cpu_compatibility_test && std::wstring_view(cpu_compatibility_test)==L"pre-avx";
+        cave::ps4::cpu::ConfigureForTests(cpu_compatibility_test && !pre_avx,pre_avx);
         const auto cpu_features=cave::ps4::cpu::DetectFeatures();
         std::printf("{\"event\":\"native_cpu_features\",\"bmi1\":%s,\"bmi2\":%s,\"lzcnt\":%s,\"avx\":%s,\"f16c\":%s,\"sse41\":%s,\"ssse3\":%s,\"movbe\":%s,\"compatibility_test\":%s}\n",
             cpu_features.bmi1?"true":"false",cpu_features.bmi2?"true":"false",cpu_features.lzcnt?"true":"false",

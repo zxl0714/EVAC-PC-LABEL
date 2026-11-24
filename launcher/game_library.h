@@ -1,5 +1,5 @@
 #pragma once
-#include "launcher/donpachi_recomp.h"
+#include "launcher/arcade_recomp.h"
 #include "common/ini.h"
 #include <algorithm>
 #include <array>

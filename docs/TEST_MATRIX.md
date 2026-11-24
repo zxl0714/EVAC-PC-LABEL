@@ -4,6 +4,127 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
+## v0.10.5 正式发布
+
+[GitHub 正式版](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.5) 对应提交 `91f8422`。从公开链接重新下载了程序包和校验文件。ZIP 大小为 208,827,689 字节，SHA-256 为 `e715b4e930c50cf83490f6a44d328bfd4fc02b7c227caf2e98aab5cbbb543abd`，与本地正式包一致。
+
+正式包解压后通过全部 224 项文件校验。从包内加载《大往生》Death Label 运行时，在模拟 RTSS 层存在的条件下，分别用 Immediate 和 FIFO 模式进入游戏画面，并通过宿主正常退出。四组平台与启动器回归共通过 54 项检查。发布记录保存在 `.local/v0105/github-release.json`。
+
+## v0.10.5 PS4 游戏与旧 CPU
+
+《大往生》01.00 的两份报告停在 `eboot.bin+0x1e5155` 的 `vxorps`。使用相同的日版 01.00 程序，在 Windows 上按报告屏蔽 AVX、SSSE3、SSE4.1、BMI1/2、F16C 和 MOVBE，保留 LZCNT。游戏自动转换主程序和两个模块中的 43,132 处 AVX 指令。实际投币、选人并进入一面，分数达到 5,960。
+
+同一组 CPU 特性下也验证了《绊地狱》01.03、《ESP Ra.De.》01.04、《弹铳》美版 01.00 和《空战之路》日版 01.07。四款游戏都加载了主程序和游戏模块，并各自完成超过 1,500 次画面提交。旧 CPU 实机帧率待测。
+
+指令回归覆盖 1,192 组编码与立即数，每组在四种输入和浮点环境下与原生 AVX 对照。另测了无函数元数据的指令、跨页掩码访存，以及多个线程各自保存 YMM 寄存器高位。
+
+## v0.10.5 WSL 与 Proton
+
+本机 Ubuntu 24.04（WSL 2），GE-Proton11-12。全库用 Mesa llvmpipe 做启动对照，以下另列 PS2 的 RTX 4080 硬件验证。游戏和测试存档位于 Linux 文件系统。SteamOS／Steam Deck 实机待测。
+
+| 《虫姬二》附加内容 | 实测结果 |
+| --- | --- |
+| 不放 DLC、只放 Black Label、只放 Ver.1.01 | 分别识别为零项、仅 Black Label、仅 Ver.1.01。 |
+| 两个原始 Xbox 360 DLC 一起放置 | 首次启动自动解包，五个内容文件逐一校验，游戏内容接口枚举出两个 DLC。再次准备复用同一缓存，两个源文件的 SHA-256 均未改变。已解包版生成相同内容。 |
+| Black Label Arcade | 用 Vulkan 从游戏菜单进入 Normal Play，在一面实际移动并射击。 |
+| Ver.1.01 Arcade | 关闭游戏后从合集启动器重新启动，两个 DLC 仍在菜单。选择 Ver.1.01、1P、Original、Reco、Normal，实际进入一面并射击。 |
+
+v0.10.4 在这台 WSL 主机上将两个原始包均标为 `incomplete_data`。同一文件在 Windows 原生校验通过。修正了把 Proton 的盘符映射当作包目录内链接的问题。另在此虚拟显卡上对照了 D3D12 黑屏与 Vulkan 正常显示，修正后从启动器按默认设置进入了游戏。第一关截图留在本机 `.local/v0105/dlc-black-stage1.jpg` 和 `.local/v0105/dlc-101-stage1.jpg`。
+
+《最大往生》使用光盘本体和原始 TU 1.01 测试。启动器自动生成 299,008 字节的 `default.xexp` 并启动内置 `sdoj_tu101.exe`，标题画面实际显示 `Ver 1.0.1`。截图见本机 `.local/v0105/sdoj-tu-title.jpg`。
+
+《绊地狱》01.03 的首次绘制原本因请求 4 GiB 稀疏缓冲区而失败，llvmpipe 仅提供 2 GiB 稀疏地址空间。按设备上限分配后从加载画面进入标题。相同改动在原生 Windows 上通过全部 10 项 PS4 GPU 测试，覆盖绘制、呈现、Reflex 和缓存。另修正了 Proton 在日期转换时调用未实现 API 的退出问题。重新冷启动后进入 DIRECT MENU，选择 IKD 2007 SPECIAL，投币、选机并打到一面。选用 X Arrange 后，游戏音频回录连续四段与自备曲包的 `kkj_arr_stg1.xma` 在递增偏移处匹配。在 Arcade 玩家局选用 VIRT ARRANGE 后，一面仪表盘显示 INTERCEPTION。20 秒游戏录音与原曲 `virt_arr_0x01` 对照，多个相隔两秒的片段以相同偏移匹配，最高归一化相关系数为 0.961。截图与回录见本机 `.local/v0105/ketsui-*`。
+
+《大往生》01.04 在原始 PS4 菜单中识别到了 PS2 数据，DEATH LABEL 卡片出现，X Arrange (Xbox 360) 可以选择并保存，冷启动后进入 Arcade 玩家局，音乐栏显示 X Arrange／Stage 1。35 秒回录中，从第 3 秒到第 18 秒连续六段的频谱对应原曲 `ddo_arr_stg1.wav` 上递增的位置，其中一段波形相关系数为 0.969。以同一曲包的二面音乐作对照，未出现相同进程。Death Label 从同一 PS4 菜单进入 PS2 选机，选定机体后显示一面 Boss 和两侧实时仪表盘，一局结束后回到原菜单，仍选中 Death Label。运行记录给出 `daioujou_death_label_return` 的结果 1（Completed）。随后关闭 PS4 窗口，记录到 `WM_CLOSE` 和宿主退出码 27。
+
+| 启动器条目 | WSL 中实际看到的画面 |
+| --- | --- |
+| ESPGaluda II、狱门山 | 两款游戏的标题画面。 |
+| ESP Ra.De. Ψ、《弹铳》、《空战之路》 | 《ESP Ra.De. Ψ》进入模式选择，选择 Arcade 后出现原作地区提示。《弹铳》和《空战之路》均进入街机标题和演示画面。三款关闭窗口后都记录了 `window_close_requested`。 |
+| 《首领蜂》 | 实际进入美版 DonPachi Recomp 菜单，显示 USA。 |
+| 《最大往生》eandis 版 | 桌面卡片成功启动上游 EXE，TU 1.01 补丁应用成功。D3D12 输出出现绿黑色块，SteamOS 实机待验。 |
+| 《怒首领蜂》 | 从桌面和大屏启动外部程序，验证国际版和日版，退出后回到对应卡片。 |
+| PS2《ESPGaluda》 | 从 Arcade 选 Tateha，进入一面并移动、射击。共呈现 2,070 场。 |
+| PS2《铸蔷薇》 | 从 Arcade → Game Start → Normal 进入一面，实测机体随方向键移动。共呈现 6,449 场。 |
+| PS2《大往生》 | 从 Arcade 开局、选机及人偶，进入一面移动、射击，分数增加。共呈现 2,030 场。 |
+| PS2《R-Type Final》 | 新建飞行员，选择 R-9A、Human 难度，进入一面操纵机体。共呈现 7,140 场。 |
+
+四款 PS2 游戏从合集启动器运行，日志均记录选择 Mesa 25.2.8 llvmpipe，关闭窗口后启动器记录的游戏进程退出码均为 0。初次实验仅放开设备类型检查时，多款游戏在驱动内崩溃。改用标准描述符集后，《铸蔷薇》能进标题，但原先的 4,096 集批次导致驱动以每集约 1 MiB 分配内存。软件设备改为每批 32 集后完成上表测试。Windows 用同一构建在 RTX 4080 上仍选择硬件路径，实测《铸蔷薇》一面玩家局，运行 4,700 场后正常退出。截图与进程记录见本机 `.local/v0105/ps2-cpu-Go12AX/` 和 `.local/v0105/cpu-native-ibara-r4/`。
+
+本地候选包冻结于 `c8d5478`，ZIP 的 SHA-256 为 `a44698a711dd205e75b2c2fa9a02e3991427f24024c859800e5299522c9e0ae9`。实际解压并验证 226 个清单条目，重新从解压的启动器在 llvmpipe 启动四款 PS2 游戏，均显示游戏画面并以 0 退出。最终程序与上述完整进关测试使用的程序逐字节比较，仅 PE 时间戳和 CodeView 调试标识不同。冻结版《铸蔷薇》另在 RTX 4080 重测一面玩家局。34 项 PS2 CTest 及源码测试通过。复查记录在本机 `.local/v0105/ps2-zip-xwcSVp/`、`cpu-release-c8d5478.json` 和 `cpu-native-ibara-ship/`。
+
+同一候选包在 Windows 11（26200，i7-13700KF）和 WSL 2 的 Vulkan 设备对照如下。
+
+| 环境和驱动 | 实测结果 |
+| --- | --- |
+| Windows，单独指定 Mesa 26.3.0 软件驱动 | 从启动器分别打开《ESPGaluda》《铸蔷薇》、PS2《大往生》和《R-Type Final》，窗口均显示游戏画面。运行时记录的设备均为 llvmpipe，关闭窗口后四个退出码均为 0。软件驱动仅对测试进程启用。 |
+| Windows，RTX 4080 和 llvmpipe 同时可见 | 《ESPGaluda》列出两台设备，自动选用 RTX 4080，以硬件描述符堆呈现 480 场后按测试上限正常退出。 |
+| WSL，单独指定原版 Mesa Dozen 26.3.1 | Linux 的 Vulkan 示例可在映射的 RTX 4080 上运行。四款 PS2 游戏均在 GE-Proton11-12 创建 Vulkan 实例时以 1 退出。加载器报告 Dozen 缺少 `VK_KHR_external_semaphore_capabilities`。 |
+| WSL，原版 Dozen 默认配置和 llvmpipe 同时可见 | 《ESPGaluda》成功创建实例，随后选中 RTX 4080。Dozen 报告 `storageBuffer8BitAccess=false`，渲染器初始化失败，呈现 0 场，退出码 1。此组合不会自动重选 CPU。单独指定系统的 `lvp_icd.json` 可复现上表的进关结果。 |
+
+使用[可选 WSL 驱动包](../tools/ps2-gs/wsl/README.md)单独选择 Dozen，启动相同的 Windows 候选程序。四款均记录 `Using Vulkan GPU: NVIDIA GeForce RTX 4080`，驱动包未加载 llvmpipe。游戏窗口在 Xvfb 中运行，通过键盘操作并截取玩家局。
+
+| PS2 游戏 | RTX 4080 关内画面 | 关闭窗口后的退出码 |
+| --- | --- | --- |
+| ESPGaluda | 一面城墙、地面、敌机、弹幕和玩家角色 | 0 |
+| 铸蔷薇 | 一面 PORTTOWN，玩家机、地面和水面均可见 | 0 |
+| 大往生 | 一面玩家机、坦克、炮塔和子弹 | 0 |
+| R-Type Final | 选择飞行员和 R-9A 出击，一面海面、残骸、敌机和 BEAM 计量表 | 0 |
+
+原版驱动单独提供时缺少 Proton 查询用的扩展名，8 位存储也默认关闭。私有 Dozen 构建公开已有能力查询的 KHR 名称，启动脚本开启驱动已有的 8 位存储实现。D3D12 校验层另记录了在纹理拆分屏障尚未结束时提交复制操作；私有驱动使用常规资源屏障。另一次《铸蔷薇》回溯落在创建计算管线时的 `libnvidia-gpucomp.so`。保留硬件渲染并按需编译后，四款均通过上述测试。此轮覆盖进关和退出，未测全程帧率或音频。
+
+另在 WSLg 默认桌面（显示号 0）通过同一脚本启动《R-Type Final》，驾驶 R-9A 进入一面并正常退出。原生 SteamOS 会话仍待实测。
+
+《R-Type Final》片头曾在 WSL 4080 上出现黑块。将 Windows 和 WSL 各自记录的 1,550 场 GS 指令分别重放到两个驱动，每份记录得到的 4 MiB 显存都逐字节相同。窗口缩放前的图像已出现黑块。Dozen 使用常规 D3D12 屏障时，对不需要保留旧内容的颜色附件显式清除渲染区域，保留原有去隔行算法。复测片头第 1,480 至 1,527 场，对 640 × 448 图像的上方 180 行统计近黑像素（RGB 每通道均小于 8）：修复前单场最多 23,148 个，修复后的 48 场均为 0，与 Windows 原生 RTX 4080 对照一致。[D3D12 渲染目标初始化规则](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createplacedresource)
+
+可选包 SHA-256 为 `c119a0ea13934e976e55b7bbe200559a0fc8f6531ed50f1d0d9b9df1b3f045f8`。实际使用的 GPU、关内截图和退出记录位于本机 `.local/v0105/wsl-rtx/verified-*/`，同场对照在 `native-pixels/`、`live-pixels2/` 和 `verified-pixels/`。
+
+在 Windows 用相同运行时和软件驱动另测玩家局。《ESPGaluda》和 PS2《大往生》进入一面，《铸蔷薇》在一面玩家状态下接收左右方向输入，《R-Type Final》新建飞行员后驾驶 R-9A 进入一面。此轮验收覆盖启动、进关和退出，未进行帧率基准测试。截图和日志在本机 `.local/v0105/verify-win-lvp/`，另见 `.local/v0105/win-lvp-ibara-stage/`。
+
+《大往生》01.04 从 PS4 的 DIRECT MENU 进入嵌入式 Death Label（候选包 `c8d5478`）：
+
+| 环境 | PS4 本篇 → PS2 Death Label | 实测结果 |
+| --- | --- | --- |
+| WSL 2 / GE-Proton，同时提供私有 Dozen 和系统 llvmpipe | llvmpipe → RTX 4080 | 从菜单进入选机，一面 Boss、弹幕和两侧仪表盘可见，结束后回到原菜单并选中 Death Label。返回事件结果为 1。截图在本机 `.local/v0105/wsl-rtx/dl-hosted-mixed/view-165.jpg`。 |
+| WSL 2 / GE-Proton，仅提供私有 Dozen | RTX 4080 | PS4 本篇在标题前退出，设备报告 Vulkan 1.2.363，后端要求 1.3。该驱动也未提供稀疏缓冲区驻留、`VK_KHR_push_descriptor` 和 `VK_EXT_robustness2`。 |
+| Windows，同时提供原生 NVIDIA 和 Mesa 26.3.0 llvmpipe，测试时指定 PS2 选 CPU | RTX 4080 → llvmpipe | 从原菜单进入选机和一面，窗口捕获可见两侧仪表盘，一局结束记录返回结果 1。截图在本机 `.local/v0105/verify-win-lvp/hosted-win-mixed-captures/`。 |
+| Windows，仅提供 Mesa 26.3.0 llvmpipe | llvmpipe | PS4 本篇在标题前获取缓冲区设备地址失败，退出码 `0xc0000409`。设备报告 Vulkan 1.4.363，`sparseBinding` 和 `sparseResidencyBuffer` 均为 false。 |
+
+WSL 的设备能力、Proton 调用和退出记录见 `.local/v0105/verify-dzn-candidate/` 与 `.local/v0105/ps2-zip-xwcSVp/dzn-current-*/`。WSL 使用 Windows 映射的 GPU，原生 SteamOS 下的 RTX 4080 仍待实机验证。
+
+另用同一份 TU 1.01 数据直接启动 eandis 的 Windows 程序。在两个全新的 Proton 环境中，分别把上游的 `render_target_path_d3d12` 设为 `rtv` 和 `rov`。两次日志均记录到 llvmpipe 和成功应用的补丁版本 `4.0.1.0`，两组截图均出现与合集启动器启动时相同的绿黑色块。可独立于合集启动器复现。目前尚未定位到具体绘制调用。记录在本机 `.local/v0105/eandis-d3d-comparison/`。
+
+### Death Label 首帧呈现与 RTSS（Windows）
+
+v0.10.4 报告 `20261123-f6728af53d69416e` 在 RTX 3060 Laptop 上成功创建 2560×1440 的 8 位 SDR 交换链并显示加载画面。第一次提交游戏画面时，栈从呈现函数经过 RTSS，进入该机 Vulkan 加载器的 `vkCmdPipelineBarrier`，最后在 NVIDIA 驱动中读取 `0x148`。前后两次使用同一代交换链。此前 RTX 3060 Ti 在创建交换链时中断的报告仍单独跟踪。
+
+在 RTX 4080 上使用 Windows Vulkan 加载器 1.4.357、不可见的宿主窗口和真实 Death Label 运行时。用一个具有相同禁用条件的测试层检查加载器的实际调用链。原程序在实例和设备两处都加载该层。修订版的 Immediate 和 FIFO 均跳过该层，两种模式均成功呈现加载画面和第一张游戏画面；NVIDIA 的其他层仍在调用链中。退出后，同一进程新建普通 Vulkan 实例会再次加载测试层。本机没有玩家使用的 RTSS，原机效果待确认。运行记录在 `.local/v0105/rtss-qa/`。[Vulkan 隐式层的禁用条件](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderLayerInterface.md) · [RTSS 使用的环境变量](https://github.com/baldurk/renderdoc/blob/v1.x/renderdoc/driver/vulkan/vk_layer.cpp)
+
+### 《铸蔷薇》关内画面延迟（Windows）
+
+在同一台 RTX 4080 电脑上，用同一份记忆卡副本和相同的街机模式开局操作对照三个版本。读取游戏状态和实际输出图像确认进入了一面玩家局。v0.10.3 记录到 1,785 次提前呈现，修复前的候选版为 0。游戏每帧都提交了完成通知，但最后一次贴图的高度为 223.5 行，原来的判断只接受正好 224 行，错过了两种交替的场。
+
+修正后同一段测试记录到 2,013 次提前呈现，1,998 次 Reflex 输入采样。取开局后八秒，同一字段的第一次 Present 返回相对常规翻页入队的中位时间由晚 0.50 ms 变为早 11.55 ms。这是软件呈现时间，不含显示器扫描。GPU 回归测试同时覆盖两种场的位置、实测的半行边界，以及少了一整行时必须拒绝的反例。原始记录见本机 `.local/v0105/ibara-0103-reference/`、`ibara-visual-r1/`、`ibara-fixed-check/`。
+
+菜单音效另用八次方向操作对照。每次同时记录游戏菜单像素、Present 返回时间和 48 kHz WASAPI 系统回录。可见选项首次变化在输入后的 35–49 ms，音效起点在 52–65 ms。逐次相减，音效比首次画面提交晚 15.5–17.0 ms。测量区间内音频队列没有缺帧或丢帧。本机未复现玩家所述的严重延迟；此处测量不含显示器和耳机的物理响应。记录见本机 `.local/v0105/ibara-menu-av-r1/`。
+
+对上述八次操作逐次核对。从游戏读到方向到生成菜单音效用了 16.3–16.6 ms，生成后到 SDL 取走含该音效的采样用了 5.6–12.6 ms。最后一段从 SDL 取走到系统回录约 21–28 ms，包含回录时钟的对齐误差。上传的 v0.10.3 报告 `20261121-dad25e18fa0b44bd` 未附留言。383 个音频统计窗口中有 378 个既无缺帧也无写入丢帧。前两个窗口之后共缺 1,824 个采样帧，分布在三个窗口。
+
+另在 RTX 4080 的独立 Windows 桌面上，以 1600×900 窗口和静音测试设备实际进入一面玩家局。关闭垂直同步的 1,043 个间隔中位数为 16.63 ms，P99 为 18.79 ms，最长 41.85 ms。最小化三秒期间仍有连续呈现，未重现玩家日志里的无可用表面等待。开启垂直同步的 502 个间隔中位数为 16.65 ms，最长 17.97 ms。后续上传会给已有的音频统计窗口补上实际经过时间、结束时间戳及跳过的过期采样数，同一时钟也记录因窗口无可用绘图表面而阻塞超过 50 ms 的起止时间。运行记录在 `.local/v0105/ibara-window-check1/` 和 `.local/v0105/ibara-window-vsync1/`。
+
+### 《怒首领蜂》街机数据与启动器
+
+使用移除压缩包解码后的启动器和上游 DoDonPachi Recomp v0.3.0。为每种 ZIP 新建数据目录和配置，从合集启动后核对窗口标题与上游生成的 DAT。
+
+| 数据 | 实测结果 |
+| --- | --- |
+| 国际版 `ddonpach.zip` | 进入国际版。 |
+| 完整日版 `ddonpachj.zip` | 直接进入日版。 |
+| 合并包 `ddonpach.zip` | 生成国际版和日版两份 DAT。首次进入国际版，按上游配置选日版后重启进入日版，日版 DAT 的修改时间保持不变。 |
+| 日版拆分 ZIP 和国际版母包 | 选中只含两颗日版程序芯片的 ZIP，上游从相邻母包读取共享数据，实际进入日版。 |
+
+同一地区从不同 ZIP 生成的 DAT 逐字节一致。另有启动器回归覆盖手选 7z 被拒绝、切换 ZIP、保留地区设置和复用 DAT。此前桌面和大屏均已从《怒首领蜂》卡片启动。开启全屏时，两次均从窗口管理器读到游戏窗口的全屏标志，游戏退出后回到原卡片。原始包、生成的数据和截图保留在本机。
+
 ## v0.10.4 PS2 验收
 
 - 《R-Type Final》美版摇杆试玩约 50 分钟后进入画廊闪退。使用同一存档的副本，旧版反复进出画廊约 18 次后复现，相同调用位置为 `0x10a8e8`，返回地址为 `0x130da4`。PS2 运行时为已经结束的回调保留了临时栈，直到 28 个位置全部用尽。修正后，回调返回或所在线程终止时释放对应位置。内核测试覆盖 64 个线程、嵌套回调、线程中止和连续退出回调。原始记录见本机 `joystick-20261122-232733/`、`gallery-check/route/`。

@@ -11,7 +11,7 @@ struct Features {
     bool bmi1{}, bmi2{}, lzcnt{}, avx{}, f16c{}, ssse3{}, sse41{}, movbe{};
 };
 Features DetectFeatures();
-void ConfigureForTests(bool force);
+void ConfigureForTests(bool force,bool pre_avx=false);
 bool ForcedForTests();
 
 enum class Operation { Bextr, Andn, Blsi, Blsmsk, Blsr, Lzcnt, Tzcnt, Movbe, Count };
@@ -36,7 +36,7 @@ std::uint64_t Evaluate(Operation operation,unsigned bits,std::uint64_t source,
                        std::uint64_t control,std::uint64_t& flags);
 struct Statistics {
     std::array<std::size_t,static_cast<std::size_t>(Operation::Count)> converted{};
-    std::size_t trampolines{}, short_traps{}, decoded{};
+    std::size_t trampolines{}, short_traps{}, decoded{}, avx{};
 };
 
 class Image {
@@ -50,6 +50,7 @@ public:
     // segments can also contain ROM/resource data and are not safe boundaries.
     void Prepare(std::span<std::uint8_t> code);
     bool HandleException(EXCEPTION_POINTERS* exception) const;
+    bool HandleUnlistedVector(CONTEXT& context,std::span<const std::uint8_t> code) const;
     const Statistics& Stats() const;
     bool Needed() const;
 private:

@@ -1,5 +1,5 @@
 #pragma once
-#include "launcher/donpachi_recomp.h"
+#include "launcher/arcade_recomp.h"
 #include "common/config_update.h"
 #include "common/settings.h"
 #include "launcher/window_size.h"
