@@ -207,6 +207,8 @@ void Log(const fs::path& root,std::string_view message) {
 }
 GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std::string_view game) {
   GameExitShortcuts shortcuts;
+  // Both arcade recomps use Escape for their own pause menu.
+  if(FindArcadeRecomp(game))shortcuts.keyboard={};
   if(const auto entry=cave::launcher::ExitKeySetting(ini)) {
     const auto keys=cave::launcher::ParseExitKeys(entry->text);
     shortcuts.keyboard=keys.value_or(ExitKeys{});
