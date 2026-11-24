@@ -140,9 +140,17 @@ std::optional<kt::content::Sfo> ReadAppMetadata(const fs::path& path) {
 bool MatchesAppMetadata(const DataVariant& variant,const kt::content::Sfo& metadata) {
   const auto category=metadata.Text("CATEGORY");
   const auto content_id=metadata.Text("CONTENT_ID");
-  return metadata.Text("TITLE_ID")==variant.title_id && metadata.Text("APP_VER")==variant.version &&
-      (category=="gd" || (variant.layout=="merged-patch" && category=="gp")) && metadata.Integer("APP_TYPE")==1 &&
-      content_id && kt::content::ValidContentIdentity(variant.title_id,*content_id);
+  const auto version=metadata.Text("APP_VER");
+  if(metadata.Text("TITLE_ID")!=variant.title_id || metadata.Integer("APP_TYPE")!=1 ||
+     !content_id || !kt::content::ValidContentIdentity(variant.title_id,*content_id) || !version)return false;
+  if(category=="gp") {
+    // A firmware-only overlay has its own package revision. The identified
+    // root, companion programs and game archives establish the game version.
+    const auto digits=[](std::string_view part) {return part.find_first_not_of("0123456789")==part.npos;};
+    const std::string_view revision=*version;
+    return revision.size()==5 && revision[2]=='.' && digits(revision.substr(0,2)) && digits(revision.substr(3));
+  }
+  return category=="gd" && *version==variant.version;
 }
 const DataVariant* MatchPs4Export(const Game& game,const fs::path& data,std::string_view fingerprint,
                                  uint32_t* hashes,VerificationCache* cache) {
@@ -224,6 +232,16 @@ std::span<const DataFile> DataFiles(const Game& game,std::string_view variant) {
     return game.files;
   for(const auto& item:game.variants)if(item.id==variant)return item.files;
   throw std::runtime_error("Unknown game-data variant");
+}
+std::string_view Ps4OverlayVersion(const fs::path& data,const kt::content::Sfo& metadata,bool merged) {
+  if(metadata.Text("CATEGORY")!="gp")return {};
+  const auto title=metadata.Text("TITLE_ID");
+  for(const auto& game:Catalogue()) {
+    if(game.backend!="ps4" || !std::ranges::any_of(game.variants,[&](const auto& v){return title==v.title_id;}))continue;
+    const auto* variant=IdentifyDataVariant(game,data);
+    if(variant && variant->layout==(merged?"merged-patch":"base") && MatchesAppMetadata(*variant,metadata))return variant->version;
+  }
+  return {};
 }
 std::vector<RuntimeIssue> InspectRuntime(const Game& game, const fs::path& root) {
   std::vector<RuntimeIssue> result;

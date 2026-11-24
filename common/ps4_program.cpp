@@ -111,6 +111,49 @@ struct ProgramHash {
         return result;
     }
 };
+
+// Firmware backports change the SDK word in the process/module parameters
+// and the version at the end of each length-prefixed SCE library note.
+// Parameter bytes are also covered by PT_LOAD, so use file offsets for both.
+std::vector<std::size_t> SdkWords(std::span<const std::uint8_t> source,
+                                  std::span<const std::uint8_t> programs) {
+    std::vector<std::size_t> words;
+    std::vector<std::pair<std::uint64_t,std::uint64_t>> executable;
+    for (std::size_t at=0;at<programs.size();at+=56) {
+        const auto kind=LittleEndian(programs,at,4),begin=LittleEndian(programs,at+8,8);
+        const auto size=LittleEndian(programs,at+32,8);
+        if (begin>source.size() || size>source.size()-begin) continue;
+        const auto segment=source.subspan(begin,size);
+        if (kind==1 && (LittleEndian(programs,at+4,4)&1) && size) {
+            executable.emplace_back(begin,begin+size);
+        } else if (kind==0x61000001 || kind==0x61000002) {
+            const auto magic=kind==0x61000001 ? 0x4942524fu : 0x3c13f4bfu;
+            if (size<24) continue;
+            // libc can place more data after the parameter structure in the same segment.
+            const auto parameter_size=LittleEndian(segment,0,8);
+            if (parameter_size>=24 && parameter_size<=size && LittleEndian(segment,8,4)==magic)
+                words.push_back(begin+16);
+        } else if (kind==0x6fffff01 && size<=65536) {
+            const auto previous=words.size();
+            for (std::size_t pos=0;pos<size;) {
+                const auto length=segment[pos++];
+                if (length<6 || length>size-pos || segment[pos+length-5]!=':') {
+                    words.resize(previous);
+                    break;
+                }
+                pos+=length;
+                words.push_back(begin+pos-4);
+            }
+        }
+    }
+    std::erase_if(words,[&](std::size_t word) {
+        return std::ranges::any_of(executable,[word](const auto& range) {
+            return word<range.second && range.first<word+4;
+        });
+    });
+    std::ranges::sort(words);
+    return words;
+}
 }
 std::string ProgramFingerprint(std::span<const std::uint8_t> source) {
     constexpr std::array<std::uint8_t,4> self_magic{0x4f,0x15,0x3d,0x1d};
@@ -131,7 +174,8 @@ std::string ProgramFingerprint(std::span<const std::uint8_t> source) {
     std::array<std::uint8_t,64> header{};
     std::ranges::copy(source.first(64),header.begin());
     // Section headers are not used to load the executable. Authenticate the
-    // rest of the ELF header, every program header and its file-backed bytes.
+    // rest of the ELF header, every program header and its file-backed bytes
+    // apart from recognized, non-executable SDK version fields.
     std::fill(header.begin()+40,header.begin()+48,0);
     std::fill(header.begin()+58,header.end(),0);
     constexpr std::uint8_t domain[]="EVAC PS4 program v1";
@@ -140,10 +184,22 @@ std::string ProgramFingerprint(std::span<const std::uint8_t> source) {
     hash.Add(header);
     const auto programs=source.subspan(static_cast<std::size_t>(table),static_cast<std::size_t>(56*count));
     hash.Add(programs);
+    const auto sdk=SdkWords(source,programs);
+    constexpr std::array<std::uint8_t,4> zero{};
     for (std::size_t index=0;index<count;++index) {
         const auto at=index*56,offset=LittleEndian(programs,at+8,8),bytes=LittleEndian(programs,at+32,8);
         if (offset>source.size() || bytes>source.size()-offset)return {};
-        hash.Add(source.subspan(static_cast<std::size_t>(offset),static_cast<std::size_t>(bytes)));
+        auto cursor=offset;
+        const auto end=offset+bytes;
+        for (const auto word:sdk) {
+            if (word>=end) break;
+            if (word+4<=cursor) continue;
+            const auto first=(std::max)(cursor,static_cast<std::uint64_t>(word));
+            hash.Add(source.subspan(cursor,first-cursor));
+            cursor=(std::min)(end,static_cast<std::uint64_t>(word+4));
+            hash.Add(std::span(zero).first(cursor-first));
+        }
+        hash.Add(source.subspan(cursor,end-cursor));
     }
     return hash.Finish();
 }

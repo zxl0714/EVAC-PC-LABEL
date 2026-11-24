@@ -72,6 +72,32 @@ size_t RunSegment(SDL_AudioStream* stream, Source& source, cave::ps2::SdlPcmFeed
     return sourceFrame + elapsed * 48000 / rate;
 }
 void Run() {
+    // Hold back four 10 ms producer periods, then deliver the missing samples
+    // together. A subsequent gap needs the audio that arrived in that burst.
+    {
+        cave::ps2::PcmQueue queue;
+        constexpr size_t period=480;
+        std::vector<int16_t> burst(5*period*2,123),output(period*2);
+        size_t missing=0,discarded=0;
+        for(size_t tick=0;tick<6*64;++tick) {
+            const auto phase=tick%64;
+            const auto produced=phase<4 ? 0u : phase==4 ? 5*period : period;
+            Require(queue.Write(std::span(burst).first(produced*2))==produced,"Fixture exceeded the audio ring");
+            size_t late=0;
+            missing+=period-queue.Read(output,&late);
+            discarded+=late;
+        }
+        Require(missing==4*period && discarded==0,"Recovered audio was discarded before the next scheduling gap");
+        // Once delivery is stable, discard the persistent surplus. Normal
+        // device requests must still be filled on the pull that trims it.
+        for(size_t tick=0;tick<200;++tick) {
+            queue.Write(std::span(burst).first(period*2));
+            size_t late=0;
+            Require(queue.Read(output,&late)==period,"Trimming starved a stable device");
+            discarded+=late;
+        }
+        Require(discarded==4*period-800,"Stable playback retained the recovery backlog");
+    }
     // After a stalled guest catches up, the next pull should play recent
     // samples without shortening the device request, including large periods.
     for(const size_t period:{480u,1440u,4459u}) {

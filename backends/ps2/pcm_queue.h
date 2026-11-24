@@ -30,16 +30,18 @@ public:
     }
     size_t Read(std::span<int16_t> samples,size_t* lateFrames=nullptr) noexcept {
         if(samples.size()%2)return 0;
-        auto read=std::max(read_.load(std::memory_order_relaxed),
-                                 discardBefore_.load(std::memory_order_acquire));
+        auto read=read_.load(std::memory_order_relaxed);
+        const auto discarded=discardBefore_.load(std::memory_order_acquire);
+        if(discarded>read) {
+            read=discarded;
+            surplusFrames_=0;
+        }
         const auto write=write_.load(std::memory_order_acquire);
         if(lateFrames) {
-            // A paused guest can generate several old video fields in one burst.
-            // Leave the whole device request plus a field of jitter allowance.
-            constexpr size_t field=48000/60;
-            const size_t available=size_t(write-read),requested=samples.size()/2;
-            *lateFrames=available>requested+2*field ? available-requested-field : 0;
+            *lateFrames=LateFrames(size_t(write-read),samples.size()/2);
             read+=*lateFrames;
+        } else {
+            surplusFrames_=0;
         }
         const auto frames=std::min<size_t>(samples.size()/2,size_t(write-read));
         const auto position=size_t(read%CapacityFrames);
@@ -55,8 +57,30 @@ public:
         discardBefore_.store(write_.load(std::memory_order_relaxed),std::memory_order_release);
     }
 private:
+    size_t LateFrames(size_t available,size_t requested) noexcept {
+        constexpr size_t sampleRate=48000,field=sampleRate/60;
+        const size_t surplus=available>requested ? available-requested : 0;
+        // Catch up immediately after a long pause. A shorter burst may be
+        // needed intact when the guest next misses a device deadline.
+        if(surplus>=4*field) {
+            surplusFrames_=0;
+            return surplus-field;
+        }
+        if(surplus<=field) {
+            surplusFrames_=0;
+            return 0;
+        }
+        minimumSurplus_=surplusFrames_ ? std::min(minimumSurplus_,surplus) : surplus;
+        surplusFrames_+=requested;
+        if(surplusFrames_<sampleRate) return 0;
+        surplusFrames_=0;
+        // Trim only the surplus that went unused for a full second.
+        return surplus>2*field ? minimumSurplus_-field : 0;
+    }
     std::array<int16_t,CapacityFrames*2> buffer_{};
     alignas(64) std::atomic<uint64_t> read_{};
+    // Consumer-owned observations, measured in source sample frames.
+    size_t surplusFrames_{},minimumSurplus_{};
     alignas(64) std::atomic<uint64_t> write_{};
     alignas(64) std::atomic<uint64_t> discardBefore_{};
 };

@@ -9,6 +9,7 @@
  * @modified    Tom Clay, 2026 - Adapted for ReXGlue runtime
  */
 
+#include <algorithm>
 #include <string>
 
 #include <io.h>
@@ -122,23 +123,36 @@ class Win32FileHandle : public FileHandle {
   bool Read(size_t file_offset, void* buffer, size_t buffer_length,
             size_t* out_bytes_read) override {
     *out_bytes_read = 0;
-    OVERLAPPED overlapped;
-    overlapped.Pointer = (PVOID)file_offset;
-    overlapped.hEvent = NULL;
-    DWORD bytes_read = 0;
-    BOOL read = ReadFile(handle_, buffer, (DWORD)buffer_length, &bytes_read, &overlapped);
-    if (read) {
-      *out_bytes_read = bytes_read;
-      return true;
-    } else {
-      if (GetLastError() == ERROR_NOACCESS) {
-        REXLOG_WARN(
-            "Win32FileHandle::Read(..., {}, 0x{:X}, ...) returned "
-            "ERROR_NOACCESS. Read-only memory?",
-            buffer, buffer_length);
+    // Redirected filesystems may return a successful short read before EOF.
+    size_t total = 0;
+    while (total < buffer_length) {
+      const uint64_t offset = static_cast<uint64_t>(file_offset) + total;
+      OVERLAPPED position{};
+      position.Offset = static_cast<DWORD>(offset);
+      position.OffsetHigh = static_cast<DWORD>(offset >> 32);
+      const DWORD request =
+          static_cast<DWORD>((std::min<size_t>)(buffer_length - total, MAXDWORD));
+      DWORD count = 0;
+      if (!ReadFile(handle_, static_cast<uint8_t*>(buffer) + total, request, &count, &position)) {
+        const DWORD error = GetLastError();
+        if (error == ERROR_HANDLE_EOF && total) {
+          break;
+        }
+        if (error == ERROR_NOACCESS) {
+          REXLOG_WARN(
+              "Win32FileHandle::Read(..., {}, 0x{:X}, ...) returned "
+              "ERROR_NOACCESS. Read-only memory?",
+              buffer, buffer_length);
+        }
+        return false;
       }
-      return false;
+      if (!count) {
+        break;
+      }
+      total += count;
     }
+    *out_bytes_read = total;
+    return true;
   }
   bool Write(size_t file_offset, const void* buffer, size_t buffer_length,
              size_t* out_bytes_written) override {

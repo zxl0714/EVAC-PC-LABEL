@@ -236,6 +236,46 @@ void Ps4ProgramChecks(Fixture& fixture) {
   Require(ps4::ProgramFingerprint(sectioned)==fingerprint,"ELF section metadata affected program identity");
   auto changed=elf;changed[256]^=1;
   Require(ps4::ProgramFingerprint(changed)!=fingerprint,"Changed machine code retained a known identity");
+  auto backport=elf;
+  backport.resize(512);
+  set(backport,56,4,2);
+  const auto segment=[&](size_t index,uint32_t kind,uint32_t flags,size_t start,size_t length) {
+    const auto at=64+56*index;
+    set(backport,at,kind,4);set(backport,at+4,flags,4);set(backport,at+8,start,8);
+    set(backport,at+32,length,8);set(backport,at+40,length,8);
+  };
+  segment(0,1,5,384,8);
+  segment(1,1,6,416,48);
+  segment(2,0x61000001,4,416,32);
+  segment(3,0x6fffff01,4,496,10);
+  set(backport,416,32,8);set(backport,424,0x4942524f,4);
+  const std::array<uint8_t,10> note{9,'c','r','t','1',':',1,2,3,4};
+  std::ranges::copy(note,backport.begin()+496);
+  const auto original=ps4::ProgramFingerprint(backport);
+  set(backport,432,0x4500101,4);set(backport,502,0x4500101,4);
+  Require(!original.empty() && ps4::ProgramFingerprint(backport)==original,
+          "Process and library SDK versions changed the game identity");
+  for(const auto at:{384,437,456,497}) {
+    auto modified=backport;modified[at]^=1;
+    Require(ps4::ProgramFingerprint(modified)!=original,"A non-SDK change in the backport was ignored");
+  }
+  const auto sdk_protected=[&](size_t at) {
+    auto modified=backport;modified[at]^=1;
+    return ps4::ProgramFingerprint(modified)!=ps4::ProgramFingerprint(backport);
+  };
+  segment(2,0x61000002,4,416,48);
+  set(backport,424,0x3c13f4bf,4);
+  Require(!sdk_protected(432) && sdk_protected(456),
+          "Module SDK marker and trailing libc data were not distinguished");
+  for(const auto invalid_size:{16,49}) {
+    set(backport,416,invalid_size,8);
+    Require(sdk_protected(432),"An invalid module parameter length excluded bytes from the game identity");
+  }
+  set(backport,416,32,8);
+  backport[501]='-';
+  Require(sdk_protected(502),"Malformed library note omitted data from the fingerprint");
+  segment(1,1,5,416,48);
+  Require(sdk_protected(432),"Executable bytes described by a parameter segment were ignored");
   auto malformed=self;set(malformed,32,0x802,8);
   Require(ps4::ProgramFingerprint(malformed).empty(),"Encrypted SELF obtained a program identity");
   malformed=elf;set(malformed,72,0x7fffffff,8);
@@ -299,6 +339,16 @@ void Ps4ProgramChecks(Fixture& fixture) {
             "Known version without an exact export signature did not verify");
     fs::remove(source/"sce_sys/playgo-chunk.sha");
     Require(inspect().data_state==DataState::Verified,"Missing PlayGo export metadata blocked a known version");
+    metadata.SetText("CATEGORY","gp");
+    metadata.SetText("APP_VER","01.01");
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    const auto overlay=inspect();
+    Require(overlay.data_state==DataState::Verified && overlay.version=="01.00",
+            "Firmware overlay package revision replaced the known game version");
+    metadata.SetText("APP_VER","XX.01");
+    write_program("sce_sys/param.sfo",metadata.Serialize());
+    Require(inspect().data_state==DataState::Unsupported,"Malformed overlay package revision accepted");
+    metadata.SetText("CATEGORY","gd");
     metadata.SetText("APP_VER","01.05");
     write_program("sce_sys/param.sfo",metadata.Serialize());
     Require(inspect().data_state==DataState::Unsupported,"Wrong PS4 application version verified");

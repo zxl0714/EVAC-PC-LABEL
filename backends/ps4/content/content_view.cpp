@@ -1,4 +1,5 @@
 #include "content_view.h"
+#include "common/catalogue.h"
 #include "common/windows_drive.h"
 #include <windows.h>
 #include <algorithm>
@@ -166,7 +167,14 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
     : app_(Root(app)), metadata_(ReadSfo(app_)) {
     title_ = Required(metadata_, "TITLE_ID"); content_ = Required(metadata_, "CONTENT_ID");
     if (!ValidContentIdentity(title_, content_)) { Invalid("Invalid application identity"); }
-    const auto category = Required(metadata_, "CATEGORY");
+    auto category = Required(metadata_, "CATEGORY");
+    if (category=="gp" && patch.empty()) {
+        const auto version=cave::Ps4OverlayVersion(app_,metadata_,merged_patch);
+        if (!version.empty()) {
+            metadata_.SetText("APP_VER",version);
+            if (!merged_patch) {category="gd";metadata_.SetText("CATEGORY",category);}
+        }
+    }
     if (merged_patch) {
         // Repacked complete applications can use the base SFO category. The
         // launcher verifies both archives before requesting a merged launch.

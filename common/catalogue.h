@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+namespace kt::content { class Sfo; }
 namespace cave {
 namespace fs = std::filesystem;
 class VerificationCache;
@@ -65,6 +66,7 @@ const Game& FindGame(std::string_view id);
 const DataVariant* MatchRootProgram(const Game& game,uint64_t bytes,std::string_view sha256,
                                    std::string_view program_fingerprint={});
 const DataVariant* IdentifyDataVariant(const Game& game,const fs::path& data,uint32_t* hashes=nullptr,VerificationCache* cache=nullptr);
+std::string_view Ps4OverlayVersion(const fs::path& data,const kt::content::Sfo& metadata,bool merged);
 std::span<const DataFile> DataFiles(const Game& game,std::string_view variant);
 std::string Sha256(const fs::path& file);
 std::string Sha256Range(std::istream& stream,uint64_t size,uint64_t offset,uint64_t bytes);

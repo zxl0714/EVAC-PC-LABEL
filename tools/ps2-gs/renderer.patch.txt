@@ -328,14 +328,218 @@
  	swapchain_height = swapchain_size.height;
 --- a/gs/gs_renderer.cpp
 +++ b/gs/gs_renderer.cpp
-@@ -457,4 +457,6 @@
+@@ -454,8 +454,20 @@
+ 	return buffers.gpu->get_create_info().size > vram_size * 2;
+ }
+ 
++// Keep the precompiled pipeline key identical to the one used by dispatch_shading.
++static void set_shading_subgroup(Vulkan::Device &device, Vulkan::CommandBuffer &cmd, uint32_t log2_samples)
++{
++	cmd.enable_subgroup_size_control(true);
++	if (device.supports_subgroup_size_log2(true, 6, 6))
++		cmd.set_subgroup_size_log2(true, 6, 6);
++	else if (device.supports_subgroup_size_log2(true, log2_samples, 6))
++		cmd.set_subgroup_size_log2(true, log2_samples, 6);
++}
++
  void GSRenderer::kick_compilation_tasks()
  {
 +	if (device->get_gpu_properties().deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
 +		return; // Compile the pipelines actually used instead of warming every permutation on the CPU.
  	const char *env = getenv("PGS_SKIP_COMPILATION_TASKS");
  	if (env && strcmp(env, "1") == 0)
-@@ -1641,3 +1643,6 @@
+ 	{
+@@ -495,6 +507,7 @@
+ 
+ 		// Prime all common combinations.
+ 		static const struct { uint32_t color_psm, depth_psm; } formats[] = {
++			{ PSMCT32, PSMZ32 },
+ 			{ PSMCT24, PSMZ24 },
+ 			{ PSMCT32, PSMZ24 },
+ 			{ PSMCT16S, PSMZ24 },
+@@ -504,6 +517,7 @@
+ 			{ PSMCT24, UINT32_MAX },
+ 			{ PSMCT32, UINT32_MAX },
+ 			{ PSMCT16S, UINT32_MAX },
++			{ PSMCT16, UINT32_MAX },
+ 			{ PSMZ24, UINT32_MAX },
+ 			{ PSMZ32, UINT32_MAX },
+ 			{ PSMZ16S, UINT32_MAX },
+@@ -523,78 +537,60 @@
+ 		};
+ 
+ 		cmd->set_specialization_constant_mask(0xff);
+-		cmd->enable_subgroup_size_control(true);
+-
+-		static const struct
+-		{
+-			uint32_t lo, hi;
+-		} subgroup_configs[] = {
+-			{ 6, 6 },
+-			{ 4, 6 },
+-			{ 3, 6 },
+-			{ 2, 6 },
+-		};
+-
+-		for (auto &subgroup_config : subgroup_configs)
+-		{
+-			if (device->supports_subgroup_size_log2(true, subgroup_config.lo, subgroup_config.hi))
+-				cmd->set_subgroup_size_log2(true, subgroup_config.lo, subgroup_config.hi);
+-			else
++		for (auto &rates : sampling_rates)
++		{
++			if (rates.sample_y && !can_potentially_super_sample())
+ 				continue;
++			set_shading_subgroup(*device, *cmd, rates.sample_x + rates.sample_y);
+ 
+ 			for (auto &format : formats)
+ 			{
+ 				for (auto &flags : variant_flags)
+ 				{
+-					for (auto &rates : sampling_rates)
++					for (auto &feedback : feedbacks)
+ 					{
+-						for (auto &feedback : feedbacks)
++						if ((flags & VARIANT_FLAG_FEEDBACK_BIT) != 0)
+ 						{
+-							if ((flags & VARIANT_FLAG_FEEDBACK_BIT) != 0)
+-							{
+-								if (swizzle_compat_key(feedback.feedback_psm) != swizzle_compat_key(format.color_psm))
+-									continue;
+-							}
+-							else if (feedback.feedback_psm != 0 || feedback.feedback_cpsm != 0)
++							// A feedback pass may retain the default texture format even with a 16-bit target.
++							if (feedback.feedback_psm &&
++							    swizzle_compat_key(feedback.feedback_psm) != swizzle_compat_key(format.color_psm))
+ 								continue;
+-
+-							cmd->set_specialization_constant(0, rates.sample_x);
+-							cmd->set_specialization_constant(1, rates.sample_y);
+-							cmd->set_specialization_constant(2, format.color_psm);
+-							cmd->set_specialization_constant(3, format.depth_psm);
+-							cmd->set_specialization_constant(4, vram_size - 1);
+-							cmd->set_specialization_constant(6, feedback.feedback_psm);
+-							cmd->set_specialization_constant(7, feedback.feedback_cpsm);
+-
+-							uint32_t active_flags =
+-									flags | (rates.sample_y ? VARIANT_FLAG_HAS_SUPER_SAMPLE_REFERENCE_BIT : 0);
++						}
++						else if (feedback.feedback_psm != 0 || feedback.feedback_cpsm != 0)
++							continue;
++
++						cmd->set_specialization_constant(0, rates.sample_x);
++						cmd->set_specialization_constant(1, rates.sample_y);
++						cmd->set_specialization_constant(2, format.color_psm);
++						cmd->set_specialization_constant(3, format.depth_psm);
++						cmd->set_specialization_constant(4, vram_size - 1);
++						cmd->set_specialization_constant(6, feedback.feedback_psm);
++						cmd->set_specialization_constant(7, feedback.feedback_cpsm);
++
++						uint32_t active_flags =
++								flags | (rates.sample_y ? VARIANT_FLAG_HAS_SUPER_SAMPLE_REFERENCE_BIT : 0);
++						cmd->set_specialization_constant(5, active_flags);
++						cmd->extract_pipeline_state(deferred);
++						tasks.push_back(deferred);
++
++						if (rates.sample_y != 0)
++						{
++							active_flags |= VARIANT_FLAG_HAS_TEXTURE_ARRAY_BIT;
+ 							cmd->set_specialization_constant(5, active_flags);
+ 							cmd->extract_pipeline_state(deferred);
+ 							tasks.push_back(deferred);
+-
+-							if (rates.sample_y != 0)
+-							{
+-								active_flags |= VARIANT_FLAG_HAS_TEXTURE_ARRAY_BIT;
+-								cmd->set_specialization_constant(5, active_flags);
+-								cmd->extract_pipeline_state(deferred);
+-								tasks.push_back(deferred);
+-							}
+-
+-							if (rates.sample_x == 0 && rates.sample_y == 0 && can_potentially_super_sample())
+-							{
+-								cmd->set_specialization_constant(
+-									5, flags | VARIANT_FLAG_HAS_SUPER_SAMPLE_REFERENCE_BIT);
+-								cmd->extract_pipeline_state(deferred);
+-								tasks.push_back(deferred);
+-							}
++						}
++
++						if (rates.sample_x == 0 && rates.sample_y == 0 && can_potentially_super_sample())
++						{
++							cmd->set_specialization_constant(
++								5, flags | VARIANT_FLAG_HAS_SUPER_SAMPLE_REFERENCE_BIT);
++							cmd->extract_pipeline_state(deferred);
++							tasks.push_back(deferred);
+ 						}
+ 					}
+ 				}
+ 			}
+-
+-			// If device has wave64, we always use it.
+-			if (device->supports_subgroup_size_log2(true, 6, 6))
+-				break;
+ 		}
+ 
+ 		device->submit_discard(cmd);
+@@ -630,7 +626,7 @@
+ 		for (auto &format : formats)
+ 		{
+ 			cmd->set_specialization_constant(0, format.wg_size);
+-			cmd->set_specialization_constant(1, format.psm);
++			cmd->set_specialization_constant(1, 0); // HOST_TO_LOCAL reads a linear host payload.
+ 			cmd->set_specialization_constant(2, format.psm);
+ 
+ 			for (unsigned prepare_only = 0; prepare_only < 2; prepare_only++)
+@@ -647,7 +643,7 @@
+ 	{
+ 		Vulkan::DeferredPipelineCompile deferred = {};
+ 		auto cmd = device->request_command_buffer();
+-		cmd->set_specialization_constant_mask(0x7);
++		cmd->set_specialization_constant_mask(0xf);
+ 
+ 		static const struct { uint32_t psm; uint32_t cpsm; } formats[] = {
+ 			{ PSMCT32, 0 },
+@@ -680,9 +676,15 @@
+ 				cmd->set_specialization_constant(1, mask);
+ 				for (auto *prog : shaders.upload)
+ 				{
++					if (prog == shaders.upload[1] && !can_potentially_super_sample())
++						continue;
+ 					cmd->set_program(prog);
+-					cmd->extract_pipeline_state(deferred);
+-					tasks.push_back(deferred);
++					for (uint32_t indirect = 0; indirect < 2; indirect++)
++					{
++						cmd->set_specialization_constant(3, indirect);
++						cmd->extract_pipeline_state(deferred);
++						tasks.push_back(deferred);
++					}
+ 				}
+ 			}
+ 		}
+@@ -725,14 +727,13 @@
+ 	}
+ 
+ 	size_t num_tasks = tasks.size();
+-	size_t target_threads = (std::thread::hardware_concurrency() + 1) / 2;
+-	size_t tasks_per_thread = num_tasks / target_threads;
++	size_t target_threads = std::min(num_tasks, std::max<size_t>(1, (std::thread::hardware_concurrency() + 1) / 2));
+ 
+ 	for (size_t thread_index = 0; thread_index < target_threads; thread_index++)
+ 	{
+ 		std::vector<Vulkan::DeferredPipelineCompile> deferred(
+-			tasks.data() + thread_index * tasks_per_thread,
+-			tasks.data() + std::min<size_t>((thread_index + 1) * tasks_per_thread, tasks.size())
++			tasks.data() + num_tasks * thread_index / target_threads,
++			tasks.data() + num_tasks * (thread_index + 1) / target_threads
+ 		);
+ 
+ 		auto async_task = std::async(std::launch::async, [this, moved_tasks = std::move(deferred)]()
+@@ -1638,7 +1639,10 @@
+ 	}
+ 	else
+ 	{
 -		return device->create_bindless_descriptor_pool(Vulkan::BindlessResourceType::Image, 4096, 64 * 1024);
 +		// Lavapipe can back each variable-length set at its full layout size (1 MiB).
 +		// Retire smaller pools on the same GPU timeline to bound peak software-rendering memory.
@@ -343,3 +547,31 @@
 +		return device->create_bindless_descriptor_pool(Vulkan::BindlessResourceType::Image, sets, 64 * 1024);
  	}
  }
+ 
+@@ -2552,15 +2556,7 @@
+ 
+ 	cmd.set_specialization_constant_mask(0xff);
+ 
+-	cmd.enable_subgroup_size_control(true);
+-
+-	uint32_t minimum_subgroup_size_log2 = inst.sampling_rate_x_log2 + inst.sampling_rate_y_log2;
+-
+-	// Prefer Wave64 if we can get away with it.
+-	if (device->supports_subgroup_size_log2(true, 6, 6))
+-		cmd.set_subgroup_size_log2(true, 6, 6);
+-	else if (device->supports_subgroup_size_log2(true, minimum_subgroup_size_log2, 6))
+-		cmd.set_subgroup_size_log2(true, minimum_subgroup_size_log2, 6);
++	set_shading_subgroup(*device, cmd, inst.sampling_rate_x_log2 + inst.sampling_rate_y_log2);
+ 
+ 	uint32_t color_psm = inst.fb.frame.desc.PSM;
+ 	uint32_t depth_psm = inst.fb.z.desc.PSM | ZBUFBits::PSM_MSB;
+@@ -2783,7 +2779,8 @@
+ 
+ 	cmd.set_specialization_constant_mask(0x7f);
+ 	cmd.set_specialization_constant(0, workgroup_size);
+-	cmd.set_specialization_constant(1, base_desc.bitbltbuf.desc.SPSM);
++	// The source format is only interpreted for local copies. Host payloads use the destination format.
++	cmd.set_specialization_constant(1, base_desc.trxdir.desc.XDIR == HOST_TO_LOCAL ? 0u : uint32_t(base_desc.bitbltbuf.desc.SPSM));
+ 	cmd.set_specialization_constant(2, base_desc.bitbltbuf.desc.DPSM);
+ 	cmd.set_specialization_constant(3, vram_size - 1);
+ 	cmd.set_specialization_constant(4, base_desc.trxdir.desc.XDIR);

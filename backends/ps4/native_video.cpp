@@ -46,6 +46,7 @@ constexpr int kMemory = static_cast<int>(0x8029100cu);
 constexpr int kFatal = static_cast<int>(0x802900ffu);
 constexpr wchar_t kClass[] = L"KetsuiNativeVideo";
 constexpr UINT kFinish = WM_APP + 210;
+constexpr UINT kDeathLabelView = WM_APP + 211;
 constexpr LONG kStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 
 bool IsTimelineMarkerKey(UINT message, WPARAM key, LPARAM flags) noexcept {
@@ -114,6 +115,7 @@ struct WindowJob {
     std::shared_ptr<NativeDisplayClock> clock;
     HANDLE ready{}, quit{}, thread{};
     std::atomic<HWND> window{};
+    HWND death_label_view{}; // UI thread; the parent owns its lifetime.
     std::atomic<unsigned> width{}, height{};
     std::atomic<bool> fullscreen{}, quit_requested{}, renderer_active{};
     std::atomic<bool> zero_extent_waiting{};
@@ -188,6 +190,28 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
         NativePadAttachWindow(window);
     }
     if (!job) { return DefWindowProcW(window, message, wparam, lparam); }
+    if (message == kDeathLabelView) {
+        if (!wparam) {
+            if (job->death_label_view) ShowWindow(job->death_label_view, SW_HIDE);
+            return 0;
+        }
+        if (job->quit_requested.load()) return 0;
+        if (!job->death_label_view) {
+            RECT client{};
+            if (!GetClientRect(window, &client)) return 0;
+            // Keep each device bound to its own native presentation target.
+            // The disabled child leaves focus and input with the host.
+            job->death_label_view = CreateWindowExW(WS_EX_NOACTIVATE, L"STATIC", nullptr,
+                WS_CHILD | WS_DISABLED | WS_CLIPSIBLINGS | SS_BLACKRECT,
+                0, 0, client.right, client.bottom, window, nullptr, GetModuleHandleW(nullptr), nullptr);
+            if (!job->death_label_view) {
+                std::fprintf(stderr, "Cannot create Death Label view (win32=%lu)\n", GetLastError());
+                return 0;
+            }
+        }
+        ShowWindow(job->death_label_view, SW_SHOWNA);
+        return reinterpret_cast<LRESULT>(job->death_label_view);
+    }
     if (job->cursor.Handle(window, message, wparam, lparam, job->fullscreen.load()))
         return message == WM_SETCURSOR ? TRUE : 0;
     if (message == WM_SETFOCUS || message == WM_KILLFOCUS) {
@@ -209,6 +233,10 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
     }
     if (message == WM_SIZE) {
         job->width.store(LOWORD(lparam)); job->height.store(HIWORD(lparam));
+        if (job->death_label_view) {
+            SetWindowPos(job->death_label_view, nullptr, 0, 0, LOWORD(lparam), HIWORD(lparam),
+                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
+        }
         std::printf("{\"event\":\"native_video_window_size\",\"width\":%u,\"height\":%u,\"minimized\":%s}\n",
             job->width.load(), job->height.load(), wparam == SIZE_MINIMIZED ? "true" : "false");
         return 0;
@@ -683,7 +711,6 @@ cave::DeathLabelResult RunNativeVideoDeathLabel(cave::DeathLabelHost request, ca
             return DeathLabelResult::Failed;
         job = state.active;
         if (job->quit_requested.load()) return DeathLabelResult::Closed;
-        request.window = job->window.load();
         request.closeEvent = job->quit;
         request.vsync = job->display.vsync;
         request.reflex = job->display.reflex;
@@ -694,7 +721,10 @@ cave::DeathLabelResult RunNativeVideoDeathLabel(cave::DeathLabelHost request, ca
         state.window_borrowed = true;
         SilenceNativeAudio(true);
     }
-    auto result = run(&request);
+    const HWND parent = job->window.load();
+    request.window = reinterpret_cast<HWND>(SendMessageW(parent, kDeathLabelView, TRUE, 0));
+    auto result = request.window ? run(&request) : DeathLabelResult::Failed;
+    if (request.window) SendMessageW(parent, kDeathLabelView, FALSE, 0);
     {
         std::lock_guard lock(state.mutex);
         SilenceNativeAudio(false);
@@ -921,6 +951,15 @@ bool VideoSelfTest() {
     check("one_port_and_resolution_layout", Open(0xff, 0, 0, nullptr, false, nullptr) == kBusy && ResolutionStatus(handle, &resolution) == 0 &&
         resolution.full_width == 1280 && resolution.full_height == 720 && resolution.pane_width == 1280 && resolution.refresh == 0 && resolution.reserved1[2] == 0);
     const auto old_window = State().active->window.load();
+    const auto child = reinterpret_cast<HWND>(SendMessageW(old_window, kDeathLabelView, TRUE, 0));
+    RECT parent_rect{}, child_rect{};
+    check("death_label_view_fills_host_and_leaves_input_with_parent",
+        child && GetParent(child) == old_window && !IsWindowEnabled(child) &&
+        GetClientRect(old_window, &parent_rect) && GetClientRect(child, &child_rect) &&
+        EqualRect(&parent_rect, &child_rect) && (GetWindowLongPtrW(child, GWL_STYLE) & WS_VISIBLE));
+    SendMessageW(old_window, kDeathLabelView, FALSE, 0);
+    check("death_label_view_reused_on_next_entry", child && !(GetWindowLongPtrW(child, GWL_STYLE) & WS_VISIBLE) &&
+        reinterpret_cast<HWND>(SendMessageW(old_window, kDeathLabelView, TRUE, 0)) == child);
     SendMessageW(old_window,WM_CLOSE,0,0);
     bool executed=false;
     check("window_close_keeps_resources_alive_and_rejects_new_execution",State().active->quit_requested.load() &&
@@ -938,6 +977,7 @@ bool VideoSelfTest() {
         State().active->buffer_labels[0].load() == 7);
     check("gnm_cancel_releases_submission_scopes_without_completing_frame", GnmCloseSelfTest(handle));
     check("close_joins_and_destroys_window", Close(handle, nullptr) == 0 && !IsWindow(old_window) && !State().active && Close(handle, nullptr) == kHandle);
+    check("closing_host_destroys_death_label_view", child && !IsWindow(child));
     const auto reopened = Open(0xff, 0, 0, nullptr, false, nullptr);
     check("reopen_has_new_handle", reopened > handle && ResolutionStatus(handle, &resolution) == kHandle && ResolutionStatus(reopened, &resolution) == 0 && Close(reopened, nullptr) == 0);
     const auto closing = Open(0xff, 0, 0, nullptr, false, nullptr);

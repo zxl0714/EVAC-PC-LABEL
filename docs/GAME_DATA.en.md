@@ -34,6 +34,8 @@ If you already have `default.xex` or `eboot.bin` alongside the complete game res
 
 For supported PS4 regions and versions, use a complete game folder exported by your tool of choice. The launcher identifies the game from its program, version, and runtime assets, and accepts both ELF and plaintext SELF.
 
+If you have already applied a backport that only changes firmware or SDK version markers, select the merged game folder directly. For example, Ketsui Deathtiny 01.00 with the firmware backport labeled 01.01 still runs as game version 01.00.
+
 ### Xbox 360: Extract Xbox 360
 
 1. Open `tools/Extract-Xbox360.exe` from the program package.
