@@ -536,6 +536,10 @@
  		);
  
  		auto async_task = std::async(std::launch::async, [this, moved_tasks = std::move(deferred)]()
+@@ -1616,2 +1617,2 @@ void GSRenderer::flush_readback(const uint32_t *page_indices, uint32_t num_indices)
+-	            VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
++	            VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT);
+
 @@ -1638,7 +1639,10 @@
  	}
  	else
