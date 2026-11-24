@@ -10,7 +10,18 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-v0.10.4 is the latest [GitHub release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.4).
+The latest [v0.10.5 release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.5)
+is tagged at `91f8422`. The public ZIP is in `releases/v0105-91f8422/`.
+Both public downloads and the bilingual notes were verified. The release record is
+in `.local/v0105/github-release.json`. Final package checks and Death Label logs
+are in `.local/v0105/ship-33e97c3/`. Matching Death Label symbols are in
+`.local/v0103/shipcheck/symbols/33e97c3/`.
+WSL coverage includes Futari DLC, four PS2 titles on llvmpipe and the hosted
+Death Label round trip. The optional eandis build still showed green/black output
+on the WSL software adapter. Steam Deck hardware remains untested.
+See [the test matrix](docs/TEST_MATRIX.md#v0105-wsl-与-proton).
+
+The preceding release was [v0.10.4](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.4).
 Its tag points to `be178d6`. The published program package is in
 `releases/v0104-be178d6/`. All 34 PS2 CTest cases passed, including the
 callback stack regression. The extracted ZIP passed verification against all
@@ -26,7 +37,7 @@ is tagged at `93b5293`, and its verified program package is in
 language selected in existing configs. Release verification is recorded in
 `.local/v0103/github-release.json` and `docs/TEST_MATRIX.md`.
 For new Death Label reports, match the report's runtime to the private symbols
-under `.local/v0103/shipcheck/symbols/`. The current DLL and PDB are in the
+under `.local/v0103/shipcheck/symbols/`. The v0.10.3 DLL and PDB are in the
 `93b5293/` subdirectory. Analyze the upload ZIP with
 `py -3.12 scripts/ps2_death_label_report.py <report.zip>`. Current component
 and report acceptance is in the first section of docs/TEST_MATRIX.md.

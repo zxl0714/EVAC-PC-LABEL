@@ -212,7 +212,9 @@ LaunchSpec PrepareLaunch(const Game& game,const fs::path& root,const Ini& ini,st
 }
 void SetDataDirectory(const fs::path& root,const Game& game,const fs::path& requested) {
   const auto data=fs::canonical(requested);
-  if (!fs::is_directory(data)) throw std::runtime_error("Select a game-data directory");
+  const bool arcade_archive=game.id=="dodonpachi" && fs::is_regular_file(data) &&
+      (!_wcsicmp(data.extension().c_str(),L".zip") || !_wcsicmp(data.extension().c_str(),L".7z"));
+  if (!fs::is_directory(data) && !arcade_archive) throw std::runtime_error("Select a game-data directory or a supported arcade ROM archive");
   ValidateOutputs(Paths(root,game.id,data));
   const auto config=EnsureConfig(root);
   const auto before=Ini::ReadText(config);

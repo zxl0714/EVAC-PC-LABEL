@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "externalGames": ["donpachi"],
+  "externalGames": ["donpachi", "dodonpachi"],
   "covers": [
     {
       "game": "futari",
@@ -198,6 +198,20 @@
       "sourceUrl": "https://cdn.wikimg.net/en/strategywiki/images/thumb/1/19/DonPachi_arcade_flyer.jpg/800px-DonPachi_arcade_flyer.jpg",
       "copyright": "©1995 ATLUS / CAVE",
       "usage": "Original 1995 arcade flyer front, composed with the EVAC arcade platform strip.",
+      "platformMark": true
+    },
+    {
+      "game": "dodonpachi",
+      "path": "launcher/assets/covers/dodonpachi.jpg",
+      "sha256": "88c43d99b06c2d913100829674d5f1fba32dd5a74cbd43aced8349491c3b59fe",
+      "resource": 315,
+      "focusY": 0.5,
+      "fit": "contain",
+      "kicker": "ARCADE · 1997",
+      "sourcePage": "https://flyers.arcade-museum.com/videogames/show/1405",
+      "sourceUrl": "https://images.launchbox-app.com/d7d28f43-d83a-44d5-9e87-0a16820e78fb.jpg",
+      "copyright": "©1997 ATLUS / CAVE",
+      "usage": "Japanese arcade sales flyer front with the collection's arcade header.",
       "platformMark": true
     }
   ]

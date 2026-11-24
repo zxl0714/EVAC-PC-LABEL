@@ -19,7 +19,8 @@ from project import digest, reject_link
 PACKAGING = {'scripts/Release.ps1', 'scripts/release_package.py', 'scripts/package_receipt.py',
              'config/README.player-v09.txt', 'external/SDOJ-Recomp/README.txt',
              'external/DonPachi-Recomp/README.txt', 'external/SDOJ-Recomp/EVAC-Setup.txt',
-             'external/DonPachi-Recomp/EVAC-Setup.txt', 'config/game-data/donpachi.txt', 'config/game-data/rtype-final.txt'}
+             'external/DonPachi-Recomp/EVAC-Setup.txt', 'config/game-data/donpachi.txt', 'config/game-data/rtype-final.txt',
+             'external/DoDonPachi-Recomp/EVAC-Setup.txt', 'config/game-data/dodonpachi.txt'}
 ISOLATED_PS2 = ('backends/ps2/', 'third_party/ps2/', 'tools/ps2/', 'tools/ps2-gs/',
                 'scripts/ps2_', 'scripts/Build-Ps2', 'scripts/Build-Espgaluda', 'scripts/Build-Ibara', 'scripts/Build-DaioujouPs2',
                 'scripts/Build-RTypeFinal', 'games/espgaluda/', 'games/ibara/', 'games/daioujou-ps2/', 'games/rtype-final/')

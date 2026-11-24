@@ -34,13 +34,13 @@ class ArtworkTests(unittest.TestCase):
         entries = generate_artwork.artwork(self.root)
         self.assertEqual([entry['game'] for entry in entries],
                          ['futari', 'espgaluda2', 'ketsui', 'sdoj', 'daioujou', 'esprade', 'guwange', 'feveron', 'garegga',
-                          'espgaluda', 'ibara', 'daioujou-ps2', 'rtype-final', 'donpachi'])
+                          'espgaluda', 'ibara', 'daioujou-ps2', 'rtype-final', 'donpachi', 'dodonpachi'])
         destination = self.root / 'out'
         generate_artwork.generate(self.root, destination)
         before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()}
         generate_artwork.generate(self.root, destination)
         self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in destination.iterdir()})
-        self.assertIn('std::array<Artwork,14>', (destination / 'artwork.h').read_text())
+        self.assertIn('std::array<Artwork,15>', (destination / 'artwork.h').read_text())
 
     def test_only_cover_resources_are_embedded(self):
         covers=generate_artwork.artwork(self.root)

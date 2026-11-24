@@ -2,6 +2,7 @@
 #include "native_memory.h"
 #include "native_diagnostics.h"
 #include "native_user.h"
+#include "common/windows_drive.h"
 
 #include <windows.h>
 
@@ -172,7 +173,8 @@ std::filesystem::path CheckedRoot(const std::filesystem::path& directory) {
     auto cursor = directory.lexically_normal();
     while (!cursor.empty()) {
         const auto attributes = GetFileAttributesW(cursor.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES && attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
+            !cave::IsWineDriveRoot(cursor)) {
             throw std::runtime_error("Reparse points are not supported in the native user directory");
         }
         const auto parent = cursor.parent_path();

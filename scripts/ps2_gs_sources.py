@@ -14,7 +14,7 @@ NAMES = ('ParallelGS', 'GraniteGS', 'VolkGS', 'VulkanHeadersGS')
 PLACEMENTS = {'ParallelGS': '', 'GraniteGS': 'Granite',
               'VolkGS': 'Granite/third_party/volk',
               'VulkanHeadersGS': 'Granite/third_party/khronos/vulkan-headers'}
-GRANITE_PATCH = Path('tools/ps2-gs/granite-wsi.patch.txt')
+RENDERER_PATCH = Path('tools/ps2-gs/renderer.patch.txt')
 
 
 def digests(view):
@@ -42,7 +42,7 @@ def prepare(output, root=ROOT):
     ):
         if git(inputs[parent], 'rev-parse', 'HEAD:' + path) != lock[child]['revision']:
             raise ValueError(f'Inconsistent GS dependency pin: {parent}/{path}')
-    patch = root / GRANITE_PATCH
+    patch = root / RENDERER_PATCH
     reject_link(patch)
     changes = patch.read_bytes()
     receipt = {'format': 3, 'revisions': {name: lock[name]['revision'] for name in NAMES},
@@ -65,7 +65,7 @@ def prepare(output, root=ROOT):
         shutil.copytree(inputs[name], destination, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('.git'))
     subprocess.run(['git', 'apply', '--no-index', '--whitespace=error'], input=changes,
-                   cwd=view / 'Granite/vulkan', check=True,
+                   cwd=view, check=True,
                    env={**os.environ, 'GIT_CEILING_DIRECTORIES': str(view.parent)})
     receipt['files'] = digests(view)
     stamp.write_text(json.dumps(receipt, indent=2), encoding='utf-8')

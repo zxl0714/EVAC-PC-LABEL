@@ -21,9 +21,10 @@ def pixel_header(text):
     text=replace_one(text,'    if (!buffer) {','    device = instance.GetDevice();\n    if (!buffer) {')
     text=replace_one(text,'  void Ready(unsigned token, std::uint64_t ready) {',
         '  void Ready(unsigned token, std::uint64_t ready, vk::Semaphore semaphore, std::uint64_t tick) {')
-    text=replace_one(text,'    if (token > count || closed || !frames[token - 1].completed || !ready) { failed = true; return; }',
-        '    if (token > count || closed || !ready || !tick || (last_semaphore && last_semaphore != semaphore) || tick < last_tick) { failed = true; return; }\n'
-        '    last_semaphore = semaphore; last_tick = tick;')
+    text=replace_one(text,'    frames[token - 1].ready = ready;',
+        '    if (!semaphore || !tick || (last_semaphore && last_semaphore != semaphore) || tick < last_tick) { failed = true; return; }\n'
+        '    last_semaphore = semaphore; last_tick = tick;\n'
+        '    frames[token - 1].ready = ready;')
     text=replace_one(text,'    unsigned valid{};\n    for (; valid < count && frames[valid].completed; ++valid) {}',
         '''    // Only teardown waits. Freeze new reservations, then wait on the
     // original draw timeline after its last recorded copy submission. A token

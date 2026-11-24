@@ -110,6 +110,8 @@ def audit_source(root=ROOT):
     from ps2_rtype import analysis_sources as rtype_analysis_sources
     analysis={**analysis_sources(root), **ibara_analysis_sources(root),
               **daioujou_analysis_sources(root), **rtype_analysis_sources(root)}
+    wsl_driver_sources = {'tools/ps2-gs/wsl/build.sh', 'tools/ps2-gs/wsl/run-ps2.sh',
+                          'tools/ps2-gs/wsl/dozen.patch'}
     count, total = 0, 0
     for name in names:
         if not name.isascii():
@@ -145,7 +147,7 @@ def audit_source(root=ROOT):
             total+=path.stat().st_size
             continue
         if (not path.is_file() or path.stat().st_size > 5 * 1024 * 1024 or
-                (path.suffix.lower() not in TEXT and path.name not in
+                (path.suffix.lower() not in TEXT and name not in wsl_driver_sources and path.name not in
                  {'.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
                   '.clang-format', '.clang-tidy', 'LICENSE', 'COPYING', 'NOTICE', 'AUTHORS', 'makefile'})):
             raise ValueError(f'Unexpected source file: {name}')

@@ -1,5 +1,5 @@
---- a/context.hpp
-+++ b/context.hpp
+--- a/Granite/vulkan/context.hpp
++++ b/Granite/vulkan/context.hpp
 @@ -196,5 +196,6 @@ enum ContextCreationFlagBits
  	CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT = 1 << 10,
  	CONTEXT_CREATION_ENABLE_POST_MORTEM_BIT = 1 << 11,
@@ -7,9 +7,14 @@
 +	CONTEXT_CREATION_DISABLE_FULL_SCREEN_EXCLUSIVE_BIT = 1 << 13,
  };
  using ContextCreationFlags = uint32_t;
---- a/context.cpp
-+++ b/context.cpp
-@@ -1288,6 +1288,7 @@
+--- a/Granite/vulkan/context.cpp
++++ b/Granite/vulkan/context.cpp
+@@ -1288,6 +1288,12 @@
++	// Use standard descriptor sets on software devices. Lavapipe can advertise
++	// descriptor buffers but fail during GS draws with that path enabled.
++	if (gpu_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
++		flags &= ~(CONTEXT_CREATION_ENABLE_DESCRIPTOR_BUFFER_BIT |
++		           CONTEXT_CREATION_ENABLE_DESCRIPTOR_HEAP_BIT);
  #ifdef _WIN32
 -	if (ext.supports_surface_capabilities2 && has_extension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME))
 +	if ((flags & CONTEXT_CREATION_DISABLE_FULL_SCREEN_EXCLUSIVE_BIT) == 0 &&
@@ -18,8 +23,8 @@
  		ext.supports_full_screen_exclusive = true;
  		enabled_extensions.push_back(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME);
  	}
---- a/wsi.cpp
-+++ b/wsi.cpp
+--- a/Granite/vulkan/wsi.cpp
++++ b/Granite/vulkan/wsi.cpp
 @@ -24,2 +24,3 @@
  #include "wsi.hpp"
 +#include "hosted_present_trace.h"
@@ -321,3 +326,20 @@
  
  	swapchain_width = swapchain_size.width;
  	swapchain_height = swapchain_size.height;
+--- a/gs/gs_renderer.cpp
++++ b/gs/gs_renderer.cpp
+@@ -457,4 +457,6 @@
+ void GSRenderer::kick_compilation_tasks()
+ {
++	if (device->get_gpu_properties().deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
++		return; // Compile the pipelines actually used instead of warming every permutation on the CPU.
+ 	const char *env = getenv("PGS_SKIP_COMPILATION_TASKS");
+ 	if (env && strcmp(env, "1") == 0)
+@@ -1641,3 +1643,6 @@
+-		return device->create_bindless_descriptor_pool(Vulkan::BindlessResourceType::Image, 4096, 64 * 1024);
++		// Lavapipe can back each variable-length set at its full layout size (1 MiB).
++		// Retire smaller pools on the same GPU timeline to bound peak software-rendering memory.
++		unsigned sets = device->get_gpu_properties().deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU ? 32 : 4096;
++		return device->create_bindless_descriptor_pool(Vulkan::BindlessResourceType::Image, sets, 64 * 1024);
+ 	}
+ }

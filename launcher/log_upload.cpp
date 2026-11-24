@@ -1,6 +1,6 @@
 #include "log_upload.h"
 #include "windows_fault_event.h"
-#include "launcher/donpachi_recomp.h"
+#include "launcher/arcade_recomp.h"
 #include "common/launch.h"
 #include "common/settings.h"
 #include "common/crash_details.h"

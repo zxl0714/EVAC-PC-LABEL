@@ -17,7 +17,7 @@ set_source_files_properties("${CMAKE_BINARY_DIR}/include/artwork.rc" PROPERTIES 
 add_executable(cave_launcher_checks ui_test.cpp "${CAVE_ROOT}/launcher/input_settings.cpp" "${CMAKE_BINARY_DIR}/include/artwork.h" "${CMAKE_BINARY_DIR}/include/artwork.rc")
 target_include_directories(cave_launcher_checks PRIVATE "${CMAKE_BINARY_DIR}/include" "${CAVE_ROOT}/third_party/rexglue/thirdparty/sdl3/include")
 target_compile_definitions(cave_launcher_checks PRIVATE CAVE_TEST_SOURCE_ROOT="${CAVE_ROOT}")
-target_link_libraries(cave_launcher_checks PRIVATE cave_update d2d1 dwrite windowscodecs ole32 shell32 comctl32)
+target_link_libraries(cave_launcher_checks PRIVATE cave_update cave_arcade_data d2d1 dwrite windowscodecs ole32 shell32 comctl32)
 enable_testing()
 add_test(NAME launcher_ui COMMAND cave_launcher_checks)
 set_tests_properties(launcher_ui PROPERTIES TIMEOUT 90)

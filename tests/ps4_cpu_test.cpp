@@ -16,6 +16,7 @@
 #include <map>
 
 using namespace cave::ps4::cpu;
+void VectorTests(const Image*& trap);
 namespace {
 unsigned checks{};
 void Check(bool value,const char* text){++checks;if(!value)throw std::runtime_error(text);}
@@ -371,6 +372,7 @@ int main(int argc,char** argv) {
         if(argc==3 && std::string_view(argv[1])=="--audit"){Audit(argv[2]);RemoveVectoredExceptionHandler(handler);return 0;}
         if(argc==5 && std::string_view(argv[1])=="--audit-functions"){Audit(argv[2],true,std::stoull(argv[3],nullptr,0),std::stoull(argv[4],nullptr,0));RemoveVectoredExceptionHandler(handler);return 0;}
         Semantics();NativePassThrough();FeatureSelection();FailedReadPreservesContext();ExecutedAdapters();WordCounts();ByteSwaps();VectorPreservation();FunctionMetadata();ReportedBextrContract();TrackedStore();
+        VectorTests(trap_owner);
         RemoveVectoredExceptionHandler(handler);std::printf("PS4 CPU compatibility: %u checks passed\n",checks);return 0;
     }catch(const std::exception& error){if(handler)RemoveVectoredExceptionHandler(handler);std::fprintf(stderr,"CPU compatibility: %s (check %u)\n",error.what(),checks);return 1;}
 }

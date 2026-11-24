@@ -12,6 +12,7 @@ from build_receipt import signature
 from generate_catalogue import relative
 from project import ROOT, digest, reject_link, write_json_new
 from ps4_sources import locked_dependencies, verify_checkout
+from sdk_sources import git, locked_modules
 from toolchain import tool_path, tool_snapshot
 
 OUTPUTS = {
@@ -54,6 +55,11 @@ def snapshot():
     dependencies = locked_dependencies()
     for item in dependencies:
         verify_checkout(ROOT / '.deps/ps4' / item['name'], item)
+    simde = next(item for item in locked_modules(ROOT) if item['name'] == 'rex-simde')
+    checkout = ROOT / simde['path']
+    if (git(checkout, 'rev-parse', 'HEAD').decode().strip() != simde['commit'] or
+            git(checkout, 'status', '--porcelain', '--untracked-files=normal').strip()):
+        raise ValueError('SIMDe checkout differs from the pinned SDK dependency')
     raw = subprocess.check_output(['git', '--no-optional-locks', '-C', str(ROOT),
                                    'ls-files', '-z', '--cached', '--others', '--exclude-standard'])
     explicit = {'scripts/Build-Ps4.ps1', 'scripts/Build.ps1', 'scripts/Test.ps1', 'scripts/stage_ps4.py',
@@ -75,6 +81,7 @@ def snapshot():
                      'tests/test_feveron_community.py', 'server/games/garegga.py', 'tests/test_garegga_community.py',
                      'server/ps4_replay.py', 'tests/test_esprade_community.py', 'tests/test_ps4_community_profiles.py',
                      'tests/ketsui/test_community_replay.py'})
+    explicit.update({'tests/ps4_vector_test.cpp', 'scripts/sdk_sources.py'})
     files = {}
     for name in sorted({value.decode('utf-8') for value in raw.split(b'\0') if value}):
         if name in explicit or name.startswith(('backends/ps4/', 'third_party/ps4/', 'common/')) or (name.startswith('games/') and name.endswith('/data.json')):
@@ -87,7 +94,7 @@ def snapshot():
         path = ROOT / '.deps/sdk-install/lib' / name
         reject_link(path)
         audio_codec[name] = digest(path)
-    state = dict(files=files, dependencies=dependencies, tools=tools, sharedXmaCodec=audio_codec,
+    state = dict(files=files, dependencies=dependencies, simde=simde, tools=tools, sharedXmaCodec=audio_codec,
                  buildType='RelWithDebInfo', gameDataRequired=False)
     state['sha256'] = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
     return state

@@ -1,0 +1,13 @@
+DoDonPachi Recomp · CapsLock4284
+https://github.com/CapsLock4284/DoDonPachi-Recomp/releases/latest
+
+Extract the Windows release into this folder. ddonpach.exe and SDL2.dll should be
+next to this guide. Select your World or Japan ROM in the launcher's Game data
+dialog. Select a ZIP set, including a merged World/Japan ZIP.
+
+将 Windows 版完整解压到此目录，确认 ddonpach.exe、SDL2.dll 与本说明在同一层。
+在启动器《怒首领蜂》的「游戏数据」中选择国际版或日版 ROM，支持 ZIP 格式，也可以选择包含两个地区的合并 ZIP。
+
+Windows 版をこのフォルダーに展開し、ddonpach.exe と SDL2.dll をこの説明書と同じ場所に
+置いてください。「怒首領蜂」の「ゲームデータ」から国際版または日本版の ROM を選択します。
+両地域を含むマージセットも ZIP 形式で選択できます。

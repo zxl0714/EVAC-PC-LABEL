@@ -1,5 +1,7 @@
 #include "compatibility.h"
+#include "vector_fallback.h"
 #include "assembler.h"
+#include "near_memory.h"
 #include <Zydis/Zydis.h>
 #include <intrin.h>
 #include <algorithm>
@@ -14,6 +16,7 @@
 namespace cave::ps4::cpu {
 namespace {
 std::atomic<bool> force_tests{};
+std::atomic<bool> pre_avx_tests{};
 constexpr std::uint64_t flag_mask=0x8d5; // CF,PF,AF,ZF,SF,OF; preserve controls.
 constexpr std::uint64_t carry=1,zero=0x40,sign=0x80;
 constexpr std::size_t page_size=4096,arena_size=65536;
@@ -127,9 +130,13 @@ Features DetectFeatures() {
     if(static_cast<unsigned>(registers[0])>=0x80000001u) {
         __cpuid(registers,static_cast<int>(0x80000001u));result.lzcnt=(registers[2]&32)!=0;
     }
+    if(pre_avx_tests.load()) {
+        result.avx=result.f16c=result.sse41=result.ssse3=false;
+        result.bmi1=result.bmi2=result.movbe=false;
+    }
     return result;
 }
-void ConfigureForTests(bool force){force_tests.store(force);}
+void ConfigureForTests(bool force,bool pre_avx){force_tests.store(force);pre_avx_tests.store(pre_avx);}
 bool ForcedForTests(){return force_tests.load();}
 
 std::uint64_t Evaluate(Operation operation,unsigned bits,std::uint64_t source,
@@ -177,6 +184,7 @@ std::uint64_t Evaluate(Operation operation,unsigned bits,std::uint64_t source,
 struct Image::Implementation {
     struct Arena {std::uint8_t* memory{};std::size_t used{};};
     Features features;bool force;Statistics statistics;
+    std::unique_ptr<VectorFallback> vectors;
     std::vector<Arena> arenas;
     std::vector<std::unique_ptr<Instruction>> instructions;
     std::unordered_map<std::uintptr_t,const Instruction*> traps;
@@ -190,24 +198,8 @@ struct Image::Implementation {
             if(!VirtualAlloc(result,page_size,MEM_COMMIT,PAGE_READWRITE))throw std::runtime_error("Cannot commit CPU adapter");
             arena.used+=page_size;return result;
         }
-        SYSTEM_INFO system{};GetSystemInfo(&system);
-        const auto low=(std::max)(reinterpret_cast<std::uintptr_t>(system.lpMinimumApplicationAddress),source>0x70000000?source-0x70000000:0);
-        const auto high=(std::min)(reinterpret_cast<std::uintptr_t>(system.lpMaximumApplicationAddress),source+0x70000000);
-        auto cursor=(source+arena_size-1)&~static_cast<std::uintptr_t>(arena_size-1);
-        for(unsigned direction=0;direction<2;++direction) {
-            if(direction)cursor=(low+arena_size-1)&~static_cast<std::uintptr_t>(arena_size-1);
-            while(cursor<high && arena_size<=high-cursor) {
-                MEMORY_BASIC_INFORMATION region{};
-                if(!VirtualQuery(reinterpret_cast<void*>(cursor),&region,sizeof(region)))break;
-                if(region.State==MEM_FREE && arena_size<=region.RegionSize) {
-                    auto* allocation=static_cast<std::uint8_t*>(VirtualAlloc(reinterpret_cast<void*>(cursor),arena_size,MEM_RESERVE,PAGE_NOACCESS));
-                    if(allocation){arenas.push_back({allocation,0});return Page(source);}
-                }
-                const auto end=reinterpret_cast<std::uintptr_t>(region.BaseAddress)+region.RegionSize;
-                if(end<=cursor)break;cursor=(end+arena_size-1)&~static_cast<std::uintptr_t>(arena_size-1);
-            }
-        }
-        throw std::runtime_error("Cannot reserve a nearby CPU adapter arena");
+        arenas.push_back({AllocateNear(source,arena_size,MEM_RESERVE,PAGE_NOACCESS),0});
+        return Page(source);
     }
     std::uint8_t* Adapter(const Instruction* instruction) {
         auto* memory=Page(instruction->next);
@@ -248,10 +240,14 @@ struct Image::Implementation {
 Image::Image(Features features,bool force):implementation_(std::make_unique<Implementation>(features,force)){}
 Image::~Image()=default;
 const Statistics& Image::Stats()const{return implementation_->statistics;}
-bool Image::Needed()const{return implementation_->force || !implementation_->features.bmi1 || !implementation_->features.lzcnt || !implementation_->features.movbe;}
+bool Image::Needed()const{return implementation_->force || !implementation_->features.avx || !implementation_->features.bmi1 || !implementation_->features.lzcnt || !implementation_->features.movbe;}
 void Image::Prepare(std::span<std::uint8_t> code) {
     auto& state=*implementation_;
     if(!Needed())return;
+    if(!state.features.avx) {
+        if(!state.vectors)state.vectors=std::make_unique<VectorFallback>();
+        state.statistics.avx+=state.vectors->Prepare(code);
+    }
     ZydisDecoder decoder{};
     if(!ZYAN_SUCCESS(ZydisDecoderInit(&decoder,ZYDIS_MACHINE_MODE_LONG_64,ZYDIS_STACK_WIDTH_64)))throw std::runtime_error("Cannot initialize CPU decoder");
     for(std::size_t offset=0;offset<code.size();) {
@@ -282,6 +278,7 @@ void Image::Prepare(std::span<std::uint8_t> code) {
 }
 bool Image::HandleException(EXCEPTION_POINTERS* exception)const {
     if(exception->ExceptionRecord->ExceptionCode!=EXCEPTION_BREAKPOINT)return false;
+    if(implementation_->vectors && implementation_->vectors->Redirect(exception))return true;
     const auto found=implementation_->traps.find(reinterpret_cast<std::uintptr_t>(exception->ExceptionRecord->ExceptionAddress));
     if(found==implementation_->traps.end())return false;
     auto& context=*exception->ContextRecord;const auto& instruction=*found->second;
@@ -302,5 +299,8 @@ bool Image::HandleException(EXCEPTION_POINTERS* exception)const {
     destination=instruction.bits==16?(destination&~0xffffull)|result:result;
     context.EFlags=static_cast<DWORD>(frame.flags);context.Rip=instruction.next;
     return true;
+}
+bool Image::HandleUnlistedVector(CONTEXT& context,std::span<const std::uint8_t> code)const {
+    return !implementation_->features.avx && ExecuteUnlistedVector(context,code);
 }
 }
