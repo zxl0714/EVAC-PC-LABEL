@@ -3,6 +3,7 @@
 ## English
 
 - All four PS2 games can now play directly from CHD. Choose **Game data… → Choose disc image…** and select your CHD. The PS4 edition of DoDonPachi DaiOuJou can also use the PS2 CHD for Death Label. [#36](https://github.com/zxl0714/EVAC-PC-LABEL/issues/36)
+- Fixed a graphics synchronization error before Death Label displays its first game frame in DoDonPachi DaiOuJou.
 - Fixed a stall when Ibara first loads a stage. PS2 audio now keeps samples that can still be played after a brief interruption. [#34](https://github.com/zxl0714/EVAC-PC-LABEL/issues/34)
 - All five PS4 games now recognize supported dumps with a patch that only changes the required firmware version.
 - Fixed a crash in Mushihimesama Futari when Proton reads game data from a Windows-mounted drive.
@@ -14,6 +15,7 @@
 ## 简体中文
 
 - 四款 PS2 游戏现可直接读取 CHD。在“游戏数据…”→“选择光盘镜像…”里选中 CHD 即可。从 PS4 版《大往生》进入 Death Label 也能使用 PS2 的 CHD。[#36](https://github.com/zxl0714/EVAC-PC-LABEL/issues/36)
+- 修复《大往生》Death Label 显示首张游戏画面前的一处图形同步错误。
 - 修复《铸蔷薇》首次进关时的卡顿。PS2 游戏遇到短暂卡顿后会保留仍可播放的音频，减少断音。[#34](https://github.com/zxl0714/EVAC-PC-LABEL/issues/34)
 - 五款 PS4 游戏均可识别只修改了固件版本要求的已支持游戏数据。
 - 修复在 Proton 下从 Windows 挂载盘读取游戏数据时《虫姬二》可能闪退的问题。
