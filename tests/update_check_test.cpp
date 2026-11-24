@@ -4,6 +4,8 @@
 #include "common/config_update.h"
 #include "common/settings.h"
 #include <Windows.h>
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <fstream>
 #include <future>
@@ -87,8 +89,17 @@ void ProgramInstall(const fs::path& parent) {
   const auto cached=cache/(release.tag+"-"+release.program->sha256+".zip");
   fs::copy_file(zip,cached);
   Require(update::PackagedInstallation(installed,"0.10.2") && !update::PackagedInstallation(installed,"0.10.3"),"Installed program identity");
+  const auto partial=update::PartialDownload(installed,release);
+  Require(partial==cache/(release.tag+"-"+release.program->sha256+".zip.part"),"Partial download name is not stable");
+  const auto old="v0.10.1-"+std::string(64,'b')+".zip";
+  const std::array stale{cache/"download-123-456.part",cache/old,cache/(old+".part"),partial};
+  for(const auto& file:stale)Write(file,"leftover");
+  const std::array keep{cache/"apply.exe",cache/"backup.zip",cache/"other.part",cache/"download-a-456.part",cache/"v0.10.1-not-a-digest.zip"};
+  for(const auto& file:keep)Write(file,"keep");
   update::DownloadProgram(installed,release);
   Require(Sha256(cached)==release.program->sha256,"Verified cache was replaced");
+  Require(std::ranges::none_of(stale,[](const fs::path& file){return fs::exists(file);}),"Stale update download was kept");
+  for(const auto& file:keep)Require(Ini::ReadText(file)=="keep","An unrelated file was modified during cleanup");
   {
     std::fstream tamper(cached,std::ios::in|std::ios::out|std::ios::binary);
     tamper.put('X');
@@ -158,6 +169,13 @@ int main(int argc,char** argv) {
     for(const auto* value:{"v0.7","0.7.0","v0.7.0.0"})Require(update::ParseVersion(value)==update::Version{0,7,0,0},"Numeric version normalization");
     for(const auto* value:{"","v","dev","v1.2-rc1","v1","1.2.","1.2.3.4.5","1.4294967296","1.-2","1. 2","1.2/x"})Require(!update::ParseVersion(value),"Malformed/development version accepted");
     Require(update::Newer("0.7.9",Release("v0.7.10")),"Version compared lexicographically");
+    Require(update::ResumedRange(L"bytes 100-999/1000",100,1000) && update::ResumedRange(std::wstring(L"bytes 0-9/10")+L'\0',0,10),
+            "Matching resumed range rejected");
+    Require(!update::ResumedRange(L"bytes 100-99/100",100,100) &&
+            !update::ResumedRange(L"bytes 0-18446744073709551615/0",0,0),"Empty or reversed range accepted");
+    for(const auto* range:{L"bytes 0-999/1000",L"bytes 100-998/1000",L"bytes 100-999/*",L"bytes 100-999/1001",
+                           L"bytes */1000",L"items 100-999/1000",L"bytes 100-999/1000x",L"bytes -999/1000",L""})
+      Require(!update::ResumedRange(range,100,1000),"Download resumed from a mismatched range");
     Require(!update::Newer("dev",Release("v9.0")) && !update::Newer("0.7.2",Release("v0.7.2")) && !update::Newer("0.8",Release("v0.7.9")),"Same/old/unknown version announced");
     for(const auto* url:{"http://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v1.0","https://github.com.evil.test/x","https://github.com/other/repo/releases/tag/v1.0","https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v1.0?redirect=1"}) {
       auto release=Release("v1.0");release.url=url;Require(!update::Trusted(release),"Untrusted URL accepted");
@@ -188,7 +206,7 @@ int main(int argc,char** argv) {
     update::State state;constexpr int64_t now=1800000000;
     Require(update::Due(state,now),"Initial check missing");
     update::Apply(state,{true,Release("v0.8"),{}},now);
-    Require(!update::Due(state,now+86399) && update::Due(state,now+86400),"Successful cache TTL");
+    Require(!update::Due(state,now+21599) && update::Due(state,now+21600),"Successful cache TTL");
     Require(update::ShouldNotify(state,"0.7.3"),"Fresh version not announced");
     Require(update::ShouldNotify(state,"0.7.3"),"Polling marked an unseen reminder");
     state.notified.insert("v0.8");Require(!update::ShouldNotify(state,"0.7.3"),"Shown version repeated");
