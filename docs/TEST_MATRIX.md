@@ -24,6 +24,8 @@
 
 在 RTX 4080 上提供 RTSS 7.3.7 官方 Vulkan 层，分别按玩家的 2560×1440、垂直同步关和 3591×2020、垂直同步开测试。两种配置都自动选中 DXGI，显示加载画面并进入一面 Boss 战，完成全屏往返、最小化恢复、Game Over 返回 PS4 菜单及第二次进关。Death Label 的日志显示各代交换链通过 DXGI 呈现。移除该层后，用相同运行时测试垂直同步开、关，两组均自动使用 Vulkan 并通过首帧。以上测试没有启用实际的 RTSS 屏显。
 
+在 Windows 上用同一候选包和官方 RTSS 引导层验证 DXGI 不可用时的回退。PS2 使用 Lavapipe 软件渲染，在 3591×2020、垂直同步开和关两种设置下，加载帧与首张游戏画面的呈现均返回成功。从启动器进入 PS4《大往生》01.04，主菜单使用 RTX 4080，Death Label 使用 Lavapipe，在 960×540 窗口完成选机并进入一面 Boss 战（初始 HP 93184）。全屏往返、最小化恢复、Game Over 返回主菜单和再次进关均通过。日志确认经 Vulkan 呈现，三次测试均未报告 Vulkan 校验错误或警告。
+
 另在 PS4 主菜单捕获到一次 `vkSetLatencyMarkerNV` 与 `vkQueuePresentKHR` 同时访问同一交换链。已同步取图、呈现和 Reflex 的驱动调用；输入侧遇到正在取图或呈现时跳过这次可选标记或节奏控制。修订后上述两组实机流程均未产生 Vulkan 校验错误或警告。原始复测记录和指定游戏窗口的截图位于本机 `.local/v0106/dl-dxgi/`。[Vulkan 对交换链的主机访问要求](https://docs.vulkan.org/refpages/latest/refpages/source/VkPresentInfoKHR.html)
 
 在 RTX 4080 开启 Khronos Vulkan 同步校验。用加载器 1.4.357 将画面呈现和校验输出写入同一个日志。旧候选 `04282ab` 显示加载画面后、提交首张游戏画面前，`flush-readback` 的两个 GPU 复制命令写入了 `vram-cpu` 的重叠区域。第一次报告的范围是偏移 8192 起的 32768 字节。原屏障允许 CPU 读取，缺少后续复制所需的 `TRANSFER_WRITE` 访问标记。补上该标记后，在相同窗口和游戏数据下复测，首帧同步校验通过。RTX 3060 Laptop 的 v0.10.4 和 v0.10.5 日志均记录了独显回读路径，但玩家当时没有启用同步校验。RTX 3060 Ti 的日志更早就停在创建交换链。
