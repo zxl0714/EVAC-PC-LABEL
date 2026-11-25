@@ -15,6 +15,7 @@ class Reflex {
   vk::Device device;
   std::shared_mutex mutex;
   std::mutex pacing_mutex;
+  std::mutex swapchain_calls;
   vk::SwapchainKHR chain;
   vk::UniqueSemaphore semaphore;
   std::atomic<std::uint64_t> epoch{1};
@@ -29,6 +30,13 @@ class Reflex {
   }
 public:
   explicit Reflex(vk::Device device_) : device{device_} {}
+  // Acquire and present need exclusive host access to the swapchain, even
+  // against read-only latency markers. Keep GPU/timeline waits outside this lock.
+  template <typename Call>
+  auto WithSwapchain(Call call) {
+    std::lock_guard lock(swapchain_calls);
+    return call();
+  }
   void NextFrame() { epoch.fetch_add(1, std::memory_order_release); }
   std::uint64_t CurrentFrame() const { return epoch.load(std::memory_order_acquire); }
   void BeginRendering() {
@@ -36,11 +44,17 @@ public:
     if (rendered == frame) return;
     rendered = frame;
     std::shared_lock lock(mutex);
+    if (!active) return;
+    std::unique_lock call_lock(swapchain_calls,std::try_to_lock);
+    if (!call_lock) return;
     MarkUnlocked(frame, vk::LatencyMarkerNV::eSimulationEnd);
     MarkUnlocked(frame, vk::LatencyMarkerNV::eRendersubmitStart);
   }
   void Mark(std::uint64_t frame, vk::LatencyMarkerNV marker) {
     std::shared_lock lock(mutex);
+    if (!active) return;
+    std::unique_lock call_lock(swapchain_calls,std::try_to_lock);
+    if (!call_lock) return;
     MarkUnlocked(frame, marker);
   }
   void Connect(vk::SwapchainKHR swapchain, bool supported) {
@@ -80,10 +94,14 @@ public:
     std::shared_lock lock(mutex);
     const auto frame = epoch.load(std::memory_order_acquire);
     if (!active || sampled == frame) return;
+    // Keep input responsive if the display worker is waiting for an image.
+    std::unique_lock call_lock(swapchain_calls,std::try_to_lock);
+    if (!call_lock) return;
     sampled = frame;
     const auto handle = *semaphore;
     const vk::LatencySleepInfoNV sleep{.signalSemaphore = handle, .value = ++signal};
     auto result = device.latencySleepNV(chain, sleep);
+    call_lock.unlock();
     if (result == vk::Result::eSuccess) {
       pending = signal;
       const vk::SemaphoreWaitInfo wait{.semaphoreCount = 1, .pSemaphores = &handle, .pValues = &pending};
@@ -91,13 +109,16 @@ public:
       if (result == vk::Result::eSuccess) pending = 0;
     }
     if (result != vk::Result::eSuccess) {
+      call_lock.lock();
       const vk::LatencySleepModeInfoNV disabled{};
       (void)device.setLatencySleepModeNV(chain, &disabled);
       active = false;
       std::fprintf(stderr, "REFLEX backend=ps4-vulkan active=false reason=sleep result=%d\n", int(result));
+      return;
     } else if (signal == 120) {
       std::fprintf(stderr, "REFLEX backend=ps4-vulkan sampled_frames=120 timeline_completed=true\n");
     }
+    if (!call_lock.try_lock()) return;
     MarkUnlocked(frame, vk::LatencyMarkerNV::eSimulationStart);
     MarkUnlocked(frame, vk::LatencyMarkerNV::eInputSample);
   }

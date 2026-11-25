@@ -715,9 +715,11 @@ struct Presenter::Impl {
             "Reset window fences");
       const auto retired_at = kt::diagnostics::MonotonicMicroseconds();
       u32 index{};
-      const auto acquire = device.acquireNextImageKHR(
-          *chain, 1'000'000'000ull, instance.HasPresentFences() ? *frame.acquired_semaphore : vk::Semaphore{},
-          instance.HasPresentFences() ? vk::Fence{} : *frame.acquired, &index);
+      const auto acquire = reflex.WithSwapchain([&] {
+        return device.acquireNextImageKHR(
+            *chain, 1'000'000'000ull, instance.HasPresentFences() ? *frame.acquired_semaphore : vk::Semaphore{},
+            instance.HasPresentFences() ? vk::Fence{} : *frame.acquired, &index);
+      });
       if (acquire == vk::Result::eErrorOutOfDateKHR) {
         RetireChain();
         continue;
@@ -852,13 +854,15 @@ struct Presenter::Impl {
         if (!stats.independent_queue)
           lock.lock();
         reflex.Mark(snapshot.reflex_frame, vk::LatencyMarkerNV::ePresentStart);
-        status = output_queue.presentKHR({.pNext = chain_reflex ? static_cast<const void*>(&reflex_id) :
-                                              (instance.HasPresentFences() ? &completion : nullptr),
-                                          .waitSemaphoreCount = 1,
-                                          .pWaitSemaphores = &semaphore,
-                                          .swapchainCount = 1,
-                                          .pSwapchains = &handle,
-                                          .pImageIndices = &index});
+        status = reflex.WithSwapchain([&] {
+          return output_queue.presentKHR({.pNext = chain_reflex ? static_cast<const void*>(&reflex_id) :
+                                                (instance.HasPresentFences() ? &completion : nullptr),
+                                            .waitSemaphoreCount = 1,
+                                            .pWaitSemaphores = &semaphore,
+                                            .swapchainCount = 1,
+                                            .pSwapchains = &handle,
+                                            .pImageIndices = &index});
+        });
         reflex.Mark(snapshot.reflex_frame, vk::LatencyMarkerNV::ePresentEnd);
       }
       if (status == vk::Result::eSuccess ||
