@@ -20,6 +20,8 @@
 
 ### Death Label 交换链与 RTSS
 
+用 `py -3.12 scripts/ps2_death_label_report.py <报告.zip>` 查看 RTSS 检测结果和实际呈现记录。仅出现 `requesting DXGI` 表示请求了 DXGI，后续的 `DXGI present` 或 `vkQueuePresentKHR` 可判断最终走了哪条路径。已用两份 v0.10.5 原始崩溃报告、两次 DXGI 实测和一次 Vulkan 回退实测核对输出。候选包的 PS4 主程序、PS4 图形库和 Death Label 运行库均已按 ZIP 中的二进制核对调试符号，维护者本机存放于 `.local/v0103/shipcheck/symbols/530513b/`。
+
 `530513b` 在创建 Death Label 的显示设备前检查 RTSS 屏显模块和 Vulkan 层。两个玩家报告均列出了 `VK_LAYER_RTSS`。检测到后优先用同一块显卡在 Vulkan 和 Direct3D 12 之间共享画面，通过 DXGI 呈现。设备无法建立共享时回退到 Vulkan；DXGI 路径没有可供 Vulkan Reflex 使用的交换链。
 
 在 RTX 4080 上提供 RTSS 7.3.7 官方 Vulkan 层，分别按玩家的 2560×1440、垂直同步关和 3591×2020、垂直同步开测试。两种配置都自动选中 DXGI，显示加载画面并进入一面 Boss 战，完成全屏往返、最小化恢复、Game Over 返回 PS4 菜单及第二次进关。Death Label 的日志显示各代交换链通过 DXGI 呈现。移除该层后，用相同运行时测试垂直同步开、关，两组均自动使用 Vulkan 并通过首帧。以上测试没有启用实际的 RTSS 屏显。
