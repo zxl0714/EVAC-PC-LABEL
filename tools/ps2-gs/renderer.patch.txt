@@ -25,11 +25,101 @@
  	}
 --- a/Granite/vulkan/wsi.cpp
 +++ b/Granite/vulkan/wsi.cpp
-@@ -24,2 +24,3 @@
+@@ -22,6 +22,7 @@
+ 
+ #define NOMINMAX
  #include "wsi.hpp"
 +#include "hosted_present_trace.h"
  #include "environment.hpp"
-@@ -505,7 +506,9 @@
+ #include <algorithm>
+ #include "timeline_trace_file.hpp"
+@@ -183,13 +184,6 @@
+ 	device->set_context(*context);
+ 	platform->event_device_created(device.get());
+ 
+-#ifdef HAVE_WSI_DXGI_INTEROP
+-	dxgi.reset(new DXGIInteropSwapchain);
+-	if (!dxgi->init_interop_device(*device))
+-		dxgi.reset();
+-	else
+-		platform->get_frame_timer().reset();
+-#endif
+ 	return true;
+ }
+ 
+@@ -199,13 +193,6 @@
+ 	device = std::move(device_handle);
+ 	platform->event_device_created(device.get());
+ 
+-#ifdef HAVE_WSI_DXGI_INTEROP
+-	dxgi.reset(new DXGIInteropSwapchain);
+-	if (!dxgi->init_interop_device(*device))
+-		dxgi.reset();
+-	else
+-		platform->get_frame_timer().reset();
+-#endif
+ 	return true;
+ }
+ 
+@@ -214,6 +201,17 @@
+ {
+ 	if (!dxgi)
+ 		return false;
++
++	// Minimized child windows can temporarily have no drawable area.
++	while (!width || !height)
++	{
++		platform->notify_current_swapchain_dimensions(0, 0);
++		platform->block_until_wsi_forward_progress(*this);
++		if (!platform->alive(*this))
++			return false;
++		width = platform->get_surface_width();
++		height = platform->get_surface_height();
++	}
+ 
+ 	// Anything fancy like compute present cannot use DXGI.
+ 	if (current_extra_usage)
+@@ -226,6 +224,10 @@
+ 	VkSurfaceFormatKHR format = {};
+ 	switch (current_backbuffer_format)
+ 	{
++	case BackbufferFormat::Custom:
++		format = current_custom_backbuffer_format;
++		break;
++
+ 	case BackbufferFormat::UNORM:
+ 		format = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+ 		break;
+@@ -267,7 +269,7 @@
+ 	device->init_swapchain(swapchain_images, swapchain_width, swapchain_height,
+ 	                       swapchain_surface_format.format,
+ 	                       swapchain_current_prerotate,
+-	                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
++	                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_LAYOUT_GENERAL);
+ 
+ 	platform->event_swapchain_destroyed();
+ 	platform->event_swapchain_created(device.get(), swapchain, swapchain_width, swapchain_height,
+@@ -290,10 +292,16 @@
+ 	unsigned height = platform->get_surface_height();
+ 
+ #ifdef HAVE_WSI_DXGI_INTEROP
+-	if (init_surface_swapchain_dxgi(width, height))
+-		return true;
+-	else
++	if (platform->prefer_dxgi_swapchain())
++	{
++		dxgi.reset(new DXGIInteropSwapchain);
++		if (dxgi->init_interop_device(*device) && init_surface_swapchain_dxgi(width, height))
++		{
++			platform->get_frame_timer().reset();
++			return true;
++		}
+ 		dxgi.reset();
++	}
+ #endif
+ 
+ 	surface = platform->create_surface(context->get_instance(), context->get_gpu());
+@@ -505,7 +513,9 @@
  	device->set_acquire_semaphore(0, Semaphore{});
  	device->consume_release_semaphore();
  
@@ -40,7 +130,7 @@
  	{
  		// If we're just resizing, there's no need to block, defer deletions for later.
  		if (in_tear_down)
-@@ -530,7 +533,8 @@
+@@ -530,7 +540,8 @@
  	}
  	else if (swapchain != VK_NULL_HANDLE)
  	{
@@ -50,7 +140,7 @@
  
  		device->external_queue_lock();
  		table->vkDeviceWaitIdle(device->get_device());
-@@ -643,7 +647,7 @@
+@@ -643,7 +654,7 @@
  		// Avoid conflicting wait cycles when doing reflex style latency limiting.
  		effective_latency = std::max<uint32_t>(effective_latency, 2);
  	}
@@ -59,7 +149,18 @@
  	{
  		auto wait_ts = device->write_calibrated_timestamp();
  
-@@ -1503,6 +1507,11 @@
+@@ -791,8 +802,8 @@
+ 
+ 		// Polling input may trigger a resize event. Trying to present in that situation without ResizeBuffers
+ 		// cause wonky issues on DXGI.
+-		if (platform->should_resize())
+-			update_framebuffer(platform->get_surface_width(), platform->get_surface_height());
++		if (platform->should_resize() && !update_framebuffer(platform->get_surface_width(), platform->get_surface_height()))
++			return false;
+ 
+ 		// If update_framebuffer caused a resize, we won't have an acquire index anymore, reacquire.
+ 		if (!has_acquired_swapchain_index)
+@@ -1503,6 +1514,11 @@
  	return frr_pacer;
  }
  
@@ -71,7 +172,18 @@
  bool WSI::begin_frame()
  {
  	if (frame_is_external)
-@@ -1570,7 +1579,7 @@
+@@ -1523,8 +1539,8 @@
+ #ifdef HAVE_WSI_DXGI_INTEROP
+ 	if (dxgi)
+ 	{
+-		if (platform->should_resize())
+-			update_framebuffer(platform->get_surface_width(), platform->get_surface_height());
++		if (platform->should_resize() && !update_framebuffer(platform->get_surface_width(), platform->get_surface_height()))
++			return false;
+ 
+ 		if (has_acquired_swapchain_index)
+ 			return true;
+@@ -1570,7 +1586,7 @@
  		                                      fence ? fence->get_fence() : VK_NULL_HANDLE, &swapchain_index);
  		device->register_time_interval("WSI", std::move(acquire_ts), device->write_calibrated_timestamp(), "acquire");
  
@@ -80,7 +192,7 @@
  			fence->wait();
  
  #if defined(ANDROID)
-@@ -1643,7 +1652,7 @@
+@@ -1643,7 +1659,7 @@
  				device->set_present_id(swapchain, next_present_id);
  			}
  		}
@@ -89,7 +201,7 @@
  		{
  			LOGW("Swapchain out of date.\n");
  			VK_ASSERT(swapchain_width != 0);
-@@ -1773,10 +1782,13 @@
+@@ -1773,10 +1789,13 @@
  				info.pNext = &present_fence;
  			}
  
@@ -107,7 +219,9 @@
  		}
  
  		if (supports_present_timing.feedback && present_feedback_enable)
-@@ -1810,3 +1822,7 @@
+@@ -1808,7 +1827,11 @@
+ #if defined(ANDROID) && defined(HAVE_SWAPPY)
+ 		VkResult overall = SwappyVk_queuePresent(device->get_current_present_queue(), &info);
  #else
 -		VkResult overall = table->vkQueuePresentKHR(device->get_current_present_queue(), &info);
 +		const auto queue = device->get_current_present_queue();
@@ -116,7 +230,9 @@
 +		                                         active_present_mode, next_present_id) :
 +		                           table->vkQueuePresentKHR(queue, &info);
  #endif
-@@ -1841,7 +1857,7 @@
+ 		emit_marker_post_present();
+ 		device->external_queue_unlock();
+@@ -1841,7 +1864,7 @@
  		// The presentID only seems to get updated if QueuePresent returns success.
  		// This makes sense I guess. Record the latest present ID which was successfully presented
  		// so we don't risk deadlock.
@@ -125,7 +241,7 @@
  		    (device->get_device_features().present_id_features.presentId || supports_present_wait2) &&
  		    !dupes_frame)
  		{
-@@ -1881,10 +1897,16 @@
+@@ -1881,10 +1904,16 @@
  
  		if (overall < 0 || result < 0)
  		{
@@ -144,7 +260,33 @@
  		}
  		else
  		{
-@@ -2355,6 +2377,10 @@
+@@ -1930,7 +1959,7 @@
+ 	return has_format_delta;
+ }
+ 
+-void WSI::update_framebuffer(unsigned width, unsigned height)
++bool WSI::update_framebuffer(unsigned width, unsigned height)
+ {
+ 	if (context && device)
+ 	{
+@@ -1938,7 +1967,7 @@
+ 		if (dxgi)
+ 		{
+ 			if (!init_surface_swapchain_dxgi(width, height))
+-				LOGE("Failed to resize DXGI swapchain.\n");
++				return false;
+ 		}
+ 		else
+ #endif
+@@ -1955,6 +1984,7 @@
+ 
+ 	if (platform)
+ 		platform->notify_current_swapchain_dimensions(swapchain_width, swapchain_height);
++	return true;
+ }
+ 
+ bool WSI::update_active_presentation_mode(PresentMode mode)
+@@ -2355,6 +2385,10 @@
  			return false;
  	}
  
@@ -155,7 +297,7 @@
  	auto swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
  	bool use_vsync = present_mode == PresentMode::SyncToVBlank;
  	if (!use_vsync)
-@@ -2419,6 +2445,9 @@
+@@ -2419,6 +2453,9 @@
  			return false;
  	}
  
@@ -165,7 +307,7 @@
  	// Make sure we query surface caps tied to the present mode for correct results.
  	if (ext.swapchain_maintenance1_features.swapchainMaintenance1 &&
  	    ext.supports_surface_capabilities2)
-@@ -2426,23 +2455,20 @@
+@@ -2426,23 +2463,20 @@
  		VkSurfaceCapabilities2KHR surface_capabilities2 = { VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR };
  		VkSurfacePresentModeCompatibilityKHR present_mode_caps =
  		    { VK_STRUCTURE_TYPE_SURFACE_PRESENT_MODE_COMPATIBILITY_KHR };
@@ -193,7 +335,7 @@
  		present_mode_compat_group.resize(present_mode_caps.presentModeCount);
  		info.present_mode_compat_group.reserve(present_mode_caps.presentModeCount);
  		info.present_mode_compat_group.push_back(swapchain_present_mode);
-@@ -2461,22 +2487,32 @@
+@@ -2461,22 +2495,32 @@
  				continue;
  			}
  
@@ -237,7 +379,7 @@
  		}
  	}
  
-@@ -2505,6 +2541,7 @@
+@@ -2505,6 +2549,7 @@
  		if (vkGetPhysicalDeviceSurfaceFormats2KHR(gpu, &info.surface_info, &format_count, formats2.data()) != VK_SUCCESS)
  			return false;
  
@@ -245,7 +387,7 @@
  		info.formats.reserve(format_count);
  		for (auto &f : formats2)
  			info.formats.push_back(f.surfaceFormat);
-@@ -2516,6 +2553,7 @@
+@@ -2516,6 +2561,7 @@
  		info.formats.resize(format_count);
  		if (vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &format_count, info.formats.data()) != VK_SUCCESS)
  			return false;
@@ -253,7 +395,7 @@
  	}
  
  	// Ensure that 10-bit formats come before other formats.
-@@ -2535,7 +2573,7 @@
+@@ -2535,7 +2581,7 @@
  	});
  
  	// Allow for seamless toggle between presentation modes.
@@ -262,7 +404,7 @@
  	{
  		info.present_modes_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR };
  		info.present_modes_info.pNext = const_cast<void *>(info.swapchain_pnext);
-@@ -2543,8 +2581,6 @@
+@@ -2543,8 +2589,6 @@
  		info.present_modes_info.pPresentModes = info.present_mode_compat_group.data();
  		info.swapchain_pnext = &info.present_modes_info;
  	}
@@ -271,7 +413,7 @@
  
  	if (ext.image_compression_control_swapchain_features.imageCompressionControlSwapchain &&
  	    compression.type != VK_IMAGE_COMPRESSION_DEFAULT_EXT)
-@@ -2739,7 +2775,6 @@
+@@ -2739,7 +2783,6 @@
  		desired_swapchain_images = current_frame_dupe_target_images;
  
  	desired_swapchain_images = Util::get_environment_uint("GRANITE_VULKAN_SWAPCHAIN_IMAGES", desired_swapchain_images);
@@ -279,15 +421,15 @@
  
  	if (desired_swapchain_images < caps.minImageCount)
  		desired_swapchain_images = caps.minImageCount;
-@@ -2818,9 +2853,13 @@
+@@ -2818,9 +2861,13 @@
  		     supports_present_timing.relative);
  	}
  
-+	LOGI("Creating swapchain: %ux%u, mode %u, images %u.\n", info.imageExtent.width, info.imageExtent.height,
-+	     unsigned(info.presentMode), info.minImageCount);
 -	auto res = table->vkCreateSwapchainKHR(context->get_device(), &info, nullptr, &swapchain);
 -	if (res < 0)
 -		swapchain = VK_NULL_HANDLE;
++	LOGI("Creating swapchain: %ux%u, mode %u, images %u.\n", info.imageExtent.width, info.imageExtent.height,
++	     unsigned(info.presentMode), info.minImageCount);
 +	const auto *trace = cave::ps2::HostedSwapchainTrace::Active();
 +	const auto res = trace ? cave::ps2::HostedSwapchainTrace::Create(trace, table->vkCreateSwapchainKHR,
 +	                                                                context->get_device(), info, swapchain) :
@@ -296,7 +438,7 @@
  
  	if (res == VK_SUCCESS && supports_present_timing.feedback)
  	{
-@@ -2838,7 +2877,14 @@
+@@ -2838,7 +2885,14 @@
  	present_last_id = 0;
  	device->set_present_id(VK_NULL_HANDLE, 0);
  
@@ -312,7 +454,7 @@
  	{
  		VkLatencySleepModeInfoNV sleep_mode_info = { VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV };
  		sleep_mode_info.lowLatencyBoost = low_latency_mode_enable_gpu_submit;
-@@ -2860,13 +2903,6 @@
+@@ -2860,13 +2914,6 @@
  			LOGI("Failed to acquire exclusive full-screen. Using borderless windowed.\n");
  	}
  #endif
@@ -579,3 +721,62 @@
  	cmd.set_specialization_constant(2, base_desc.bitbltbuf.desc.DPSM);
  	cmd.set_specialization_constant(3, vram_size - 1);
  	cmd.set_specialization_constant(4, base_desc.trxdir.desc.XDIR);
+--- a/Granite/vulkan/wsi.hpp
++++ b/Granite/vulkan/wsi.hpp
+@@ -128,6 +128,7 @@
+ 
+ 	virtual uintptr_t get_fullscreen_monitor();
+ 	virtual uintptr_t get_native_window();
++	virtual bool prefer_dxgi_swapchain() const { return true; }
+ 
+ 	virtual const VkApplicationInfo *get_application_info();
+ 
+@@ -382,7 +383,7 @@
+ 	void set_fixed_rate_low_latency_pacer(bool enable);
+ 
+ private:
+-	void update_framebuffer(unsigned width, unsigned height);
++	bool update_framebuffer(unsigned width, unsigned height);
+ 
+ 	ContextHandle context;
+ 	VkSurfaceKHR surface = VK_NULL_HANDLE;
+--- a/Granite/vulkan/wsi_dxgi.cpp
++++ b/Granite/vulkan/wsi_dxgi.cpp
+@@ -154,7 +154,7 @@
+ 	if (!vk_fence)
+ 	{
+ 		LOGE("Failed to create timeline.\n");
+-		return EXIT_FAILURE;
++		return false;
+ 	}
+ 
+ 	ExternalHandle fence_handle;
+@@ -163,7 +163,7 @@
+ 	                                      GENERIC_ALL, nullptr, &fence_handle.handle)))
+ 	{
+ 		LOGE("Failed to create shared fence handle.\n");
+-		return EXIT_FAILURE;
++		return false;
+ 	}
+ 
+ 	if (!vk_fence->import_from_handle(fence_handle))
+@@ -409,7 +409,7 @@
+ 		LOGE("Failed to create shared Vulkan image, hr #%x.\n", unsigned(hr));
+ 		return false;
+ 	}
+-	vulkan_backbuffer->set_swapchain_layout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
++	vulkan_backbuffer->set_swapchain_layout(VK_IMAGE_LAYOUT_GENERAL);
+ 
+ 	return true;
+ }
+@@ -458,8 +458,8 @@
+ 
+ 	auto cmd = vk_device->request_command_buffer();
+ 	cmd->release_image_barrier(*vulkan_backbuffer,
+-	                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_GENERAL,
+-	                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0);
++	                           VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
++	                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+ 
+ 	vk_device->submit(cmd);
+ 	auto timeline_signal = vk_device->request_timeline_semaphore_as_binary(*vk_fence, ++fence_value);

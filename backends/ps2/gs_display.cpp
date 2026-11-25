@@ -21,8 +21,10 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 namespace cave::ps2 {
 using gs_crash::Stage;
@@ -57,6 +59,19 @@ public:
     HostedRtssScope(const HostedRtssScope&) = delete;
     HostedRtssScope& operator=(const HostedRtssScope&) = delete;
 };
+bool HasRtssVulkanLayer() {
+    // Check before excluding the layer on the PS2 instance. The PS4 host may
+    // have already loaded it, or RTSS may attach after the PS2 device is created.
+    if (GetModuleHandleW(L"RTSSHooks64.dll")) return true;
+    uint32_t count{};
+    if (vkEnumerateInstanceLayerProperties(&count,nullptr)!=VK_SUCCESS || !count) return false;
+    std::vector<VkLayerProperties> layers(count);
+    const auto result=vkEnumerateInstanceLayerProperties(&count,layers.data());
+    if (result!=VK_SUCCESS && result!=VK_INCOMPLETE) return false;
+    return std::any_of(layers.begin(),layers.begin()+count,[](const VkLayerProperties& layer) {
+        return std::strcmp(layer.layerName,"VK_LAYER_RTSS")==0;
+    });
+}
 class NativeWindow final : public Vulkan::WSIPlatform {
 public:
     HWND handle{};
@@ -67,6 +82,8 @@ public:
     bool fullscreen=false;
     cave::FullscreenCursor cursor;
     bool swapchainReady=false;
+    bool dxgiPresent=false;
+    bool preferDxgi=false;
     unsigned swapchainGeneration{};
     WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
     std::function<void(unsigned,bool)> keyHandler;
@@ -117,12 +134,14 @@ public:
     }
     void event_swapchain_created(Vulkan::Device* gpu,VkSwapchainKHR swapchain,unsigned,unsigned,float,size_t,
                                  VkFormat,VkColorSpaceKHR,VkSurfaceTransformFlagBitsKHR) override {
-        swapchainReady=swapchain!=VK_NULL_HANDLE;
+        // Granite's DXGI swapchain has no VkSwapchainKHR.
+        dxgiPresent=borrowed && !swapchain;
+        swapchainReady=swapchain!=VK_NULL_HANDLE || dxgiPresent;
         if (swapchainReady) ++swapchainGeneration;
         if(gpu)reflex.Connect(gpu->get_device(),gpu->get_device_table(),swapchain,
             gpu->get_gpu_properties().vendorID==0x10de && gpu->get_device_features().supports_low_latency2_nv);
     }
-    void event_swapchain_destroyed() override {swapchainReady=false;amdField=0;reflex.Disconnect();}
+    void event_swapchain_destroyed() override {swapchainReady=false;dxgiPresent=false;amdField=0;reflex.Disconnect();}
     void event_device_destroyed() override {amdUpdate=nullptr;amdDevice=VK_NULL_HANDLE;reflex.ReleaseDevice();}
     VkSurfaceKHR create_surface(VkInstance instance,VkPhysicalDevice) override {
         VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
@@ -171,6 +190,7 @@ public:
     }
     void poll_input_async(Granite::InputTrackerHandler*) override{}
     uintptr_t get_native_window() override{return reinterpret_cast<uintptr_t>(handle);}
+    bool prefer_dxgi_swapchain() const override {return preferDxgi;}
     static LRESULT CALLBACK Procedure(HWND handle,UINT message,WPARAM wparam,LPARAM lparam) {
         auto* self=reinterpret_cast<NativeWindow*>(GetWindowLongPtrW(handle,GWLP_USERDATA));
         if(message==WM_NCCREATE) {
@@ -262,7 +282,11 @@ public:
         gs_crash::Start();
         Mark(Stage::Init);
         if(!Vulkan::Context::init_loader(nullptr))throw std::runtime_error("Vulkan loader unavailable");
-        if(window.borrowed)LogHostedGraphicsImages();
+        if(window.borrowed) {
+            LogHostedGraphicsImages();
+            window.preferDxgi=HasRtssVulkanLayer();
+            if(window.preferDxgi)std::fputs("[ps2-dl-wsi] detected RTSS; requesting DXGI presentation\n",stderr);
+        }
         Util::register_thread_index(0);
         wsi.set_platform(&window);
         wsi.set_backbuffer_format(Vulkan::BackbufferFormat::UNORM);
@@ -425,9 +449,13 @@ bool GsDisplay::EndWindowFrame(bool loading) {
     if (impl->window.borrowed && (loading || generation != impl->tracedGameGeneration)) {
         char rtss[48]{};
         ReadRtssVersion(rtss);
-        HostedPresentTrace sample(loading ? "loading" : "game", generation, rtss);
+        const char* phase=loading ? "loading" : "game";
+        HostedPresentTrace sample(phase, generation, rtss);
         presented = impl->wsi.end_frame();
-        if (!loading && sample.called) impl->tracedGameGeneration = generation;
+        if (impl->window.dxgiPresent)
+            std::fprintf(stderr,"[ps2-dl-wsi] DXGI present phase=%s generation=%u success=%d rtss=%s\n",
+                         phase,generation,int(presented),rtss);
+        if (!loading && (sample.called || impl->window.dxgiPresent)) impl->tracedGameGeneration = generation;
     } else {
         presented = impl->wsi.end_frame();
     }
