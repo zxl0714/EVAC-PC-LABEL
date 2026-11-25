@@ -14,15 +14,21 @@
 
 ## v0.10.6 候选包
 
-候选程序来自 `b7535da`。从 ZIP 重新解压后校验了全部 229 项文件。ZIP 共 210,939,510 字节，SHA-256 为 `6438527e416b09588f858416157921b58a1861e14de6cd659baf6c4477c1c783`。
+候选程序来自 `530513b`。从 ZIP 重新解压后校验了全部 229 项文件。ZIP 共 210,976,367 字节，SHA-256 为 `7bff2df8762b1d01e9e7967a5eb5deb28235eb31bbf56a7194fcbdea3a52491e`。
 
 34 项 PS2、4 项 PS4 原生和 10 项 PS4 GPU 测试全部通过。Windows 全量回归中，《绊地狱》社区服务的两个本机 HTTP 错误响应测试遇到 `WinError 10053`。两项在 Windows 单独重测通过，该服务的 25 项测试在 Ubuntu 24.04 上全部通过。服务和这两个测试与 v0.10.5 相同。
 
 ### Death Label 交换链与 RTSS
 
+`530513b` 在创建 Death Label 的显示设备前检查 RTSS 屏显模块和 Vulkan 层。两个玩家报告均列出了 `VK_LAYER_RTSS`。检测到后优先用同一块显卡在 Vulkan 和 Direct3D 12 之间共享画面，通过 DXGI 呈现。设备无法建立共享时回退到 Vulkan；DXGI 路径没有可供 Vulkan Reflex 使用的交换链。
+
+在 RTX 4080 上提供 RTSS 7.3.7 官方 Vulkan 层，分别按玩家的 2560×1440、垂直同步关和 3591×2020、垂直同步开测试。两种配置都自动选中 DXGI，显示加载画面并进入一面 Boss 战，完成全屏往返、最小化恢复、Game Over 返回 PS4 菜单及第二次进关。Death Label 的日志显示各代交换链通过 DXGI 呈现。移除该层后，用相同运行时测试垂直同步开、关，两组均自动使用 Vulkan 并通过首帧。以上测试没有启用实际的 RTSS 屏显。
+
+另在 PS4 主菜单捕获到一次 `vkSetLatencyMarkerNV` 与 `vkQueuePresentKHR` 同时访问同一交换链。已同步取图、呈现和 Reflex 的驱动调用；输入侧遇到正在取图或呈现时跳过这次可选标记或节奏控制。修订后上述两组实机流程均未产生 Vulkan 校验错误或警告。原始复测记录和指定游戏窗口的截图位于本机 `.local/v0106/dl-dxgi/`。[Vulkan 对交换链的主机访问要求](https://docs.vulkan.org/refpages/latest/refpages/source/VkPresentInfoKHR.html)
+
 在 RTX 4080 开启 Khronos Vulkan 同步校验。用加载器 1.4.357 将画面呈现和校验输出写入同一个日志。旧候选 `04282ab` 显示加载画面后、提交首张游戏画面前，`flush-readback` 的两个 GPU 复制命令写入了 `vram-cpu` 的重叠区域。第一次报告的范围是偏移 8192 起的 32768 字节。原屏障允许 CPU 读取，缺少后续复制所需的 `TRANSFER_WRITE` 访问标记。补上该标记后，在相同窗口和游戏数据下复测，首帧同步校验通过。RTX 3060 Laptop 的 v0.10.4 和 v0.10.5 日志均记录了独显回读路径，但玩家当时没有启用同步校验。RTX 3060 Ti 的日志更早就停在创建交换链。
 
-从这份 ZIP 的启动器进入 PS4《大往生》01.04，再进入 Death Label。系统 Vulkan 加载器记录了 PS4 实例启用 RTSS 7.3.7 官方引导层，PS2 实例排除了该层。2560×1440 窗口下成功选机，一面 Boss 的初始 HP 为 93184。全屏往返、Game Over 返回 PS4 菜单、再次进入和退出清理均通过。游戏首帧记录为 `rtss=not-loaded`，玩家故障栈里的实际屏显模块仍待验证。
+从 `b7535da` 的启动器进入 PS4《大往生》01.04，再进入 Death Label。系统 Vulkan 加载器记录了 PS4 实例启用 RTSS 7.3.7 官方引导层，PS2 实例排除了该层。2560×1440 窗口下成功选机，一面 Boss 的初始 HP 为 93184。全屏往返、Game Over 返回 PS4 菜单、再次进入和退出清理均通过。游戏首帧记录为 `rtss=not-loaded`，玩家故障栈里的实际屏显模块仍待验证。
 
 两个候选 ZIP 都用上述路线启用了同步校验。旧包记录了 `SYNC-HAZARD-WRITE-AFTER-WRITE`（同一消息最多报告两次），新包全程零校验错误和警告。原始日志与对照记录在本机 `.local/v0106/dl-validation/`。
 
