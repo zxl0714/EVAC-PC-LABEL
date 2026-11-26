@@ -46,6 +46,7 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
   - 分别在《大往生》《ESPGaluda》《铸蔷薇》和《R-Type Final》用快捷键验证战斗、演出和读盘切场时的存读档，覆盖第 01、99 槽。确认重启后仍能读档，倒数结束后能直接操作或接续加载。
   - 联动 Death Label 已从启动器进入 PS4 01.04 本篇验证。一面 Boss 战写入 01 槽，自然撞机后在 GAME OVER 画面按 F5 读回，倒数结束后分数从 0 升至 100。另已验证自动返回 PS4 主菜单后，再进 Death Label 从选机画面可直接读取原槽位。
 - [ ] **排查 Windows Defender 隔离 v0.10.6 启动器的问题。** 玩家报告 `EVAC PC LABEL.exe` 被隔离。本机静态扫描未报警，已备好 Win11 镜像、正式包和日志采集工具。待从同一干净系统检查点分别验证首次下载、解压并启动 v0.10.6，以及从 v0.10.5 自动更新到 v0.10.6。记录每轮结果和 Defender 安全情报版本；若复现，保留触发步骤、受影响文件及对应的检测事件，以便定位原因。[#41](https://github.com/zxl0714/EVAC-PC-LABEL/issues/41)
+  - 11 月 26 日，最初遇到报警的两位玩家都反馈已恢复。回帖没有记录复测时的启动器哈希、Defender 安全情报版本或检测事件，具体原因仍待核实。[首报玩家的回帖](https://github.com/zxl0714/EVAC-PC-LABEL/issues/41#issuecomment-7179669554) · [第二位玩家的回帖](https://github.com/zxl0714/EVAC-PC-LABEL/issues/41#issuecomment-7186911100)
 
 ## 后续版本待办
 
