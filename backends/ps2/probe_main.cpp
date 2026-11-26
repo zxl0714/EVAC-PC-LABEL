@@ -700,6 +700,8 @@ int main(int argc,char** argv) {
     const auto iso=collection?collection->Disc():std::filesystem::canonical(argv[2]);
     const auto data=collection?collection->Data():std::filesystem::canonical(argv[3]);
     const auto profile=collection?collection->Profile():std::filesystem::absolute(argv[4]);
+    hostOptions.stateDirectory=profile/"states";
+    hostOptions.stateIdentity=std::string(CollectionDefinition.id)+"/"+std::string(CollectionDefinition.disc_sha256);
     if(!std::filesystem::is_regular_file(iso) || !std::filesystem::is_directory(data))
       throw std::runtime_error("Expected an ISO and an independent extracted-disc directory");
     std::filesystem::create_directories(profile/"mc0");
@@ -755,15 +757,24 @@ int main(int argc,char** argv) {
     if(deathLabelSession) {
       configured.elfPath=data/"death.elf";
       configured.elfDirectory=data;
+    } else {
+      static constexpr std::string_view discPrograms[]{"boot.elf","death.elf","gallery.elf"};
+      hostOptions.statePrograms=discPrograms;
     }
     cave::ps2::NativeHost host;
     host.Configure(std::move(hostOptions));
     host.Initialize(WindowTitle);
-    std::string_view next;
+    std::string next;
     do {
-      const auto result=cave::daioujou_ps2::RunDiscProgram(configured,host,deathLabelSession,
-          !_wgetenv(L"EVAC_PS2_TEST_ORIGINAL_PAD_TIMING"),configureRuntime);
-      next=result.next;
+      cave::daioujou_ps2::DiscProgramResult result{};
+      try {
+        result=cave::daioujou_ps2::RunDiscProgram(configured,host,deathLabelSession,
+            !_wgetenv(L"EVAC_PS2_TEST_ORIGINAL_PAD_TIMING"),configureRuntime);
+      } catch (const std::exception& error) {
+        if (!host.RecoverPreviousProgram(error.what())) throw;
+      }
+      next=host.PendingStateProgram();
+      if (next.empty()) next=result.next;
       if(deathLabelSession) {
         const char* outcome=result.completed?"completed":next=="boot.elf"?"exit":"interrupted";
         std::cerr<<"[ps2-death-label] outcome="<<outcome<<" fields="<<progress.frames<<'\n';

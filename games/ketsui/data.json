@@ -1713,6 +1713,251 @@
         "sce_sys/changeinfo/changeinfo.xml",
         "sce_sys/target-deltainfo.dat"
       ]
+    },
+    {
+      "id": "base-us",
+      "version": "01.00",
+      "layout": "base",
+      "entry": "eboot.bin",
+      "titleId": "CUSA17078",
+      "contentId": "UP2789-CUSA17078_00-KETSUIDEATHTINY0",
+      "files": [
+        {
+          "path": "5000/movie/title_opening.mp4",
+          "bytes": 46038905,
+          "sha256": "b2e8608c36d74ca9ac52385703eb330b228389deb2b96e0bfe5d58aa82e47545",
+          "program": false
+        },
+        {
+          "path": "eboot.bin",
+          "bytes": 3398116,
+          "sha256": "f4499dec819ea5c98882c5fbbc76fb86909737184f980955ae3d6eac788bc85c",
+          "program": true,
+          "programFingerprint": "93c7d573a0094b710bf220867b324c32317214144531cfcf66f5db0030f9ef8e"
+        },
+        {
+          "path": "emu_integration_01400.prx",
+          "bytes": 898329,
+          "sha256": "60bcadb99b1b1f3f50e31d474511dc652b73e74bebc9beaacd29111f66a37f4e",
+          "program": true,
+          "programFingerprint": "624778af55259d9f900100b17ccf79d2b7f1600e91a8bad5fe69025aebe8d81f"
+        },
+        {
+          "path": "ketsui_01000.prx",
+          "bytes": 67148291,
+          "sha256": "726baf4a9d9975fb94545fae7e401b75fa84e1d020b2eeb572b07ea706d61f4a",
+          "program": true,
+          "programFingerprint": "450194ee46004f2e362d73f645c0ce86075599263dde2205c3d434d24ae63805"
+        },
+        {
+          "path": "ps4data_body.bin",
+          "bytes": 1143484662,
+          "sha256": "c623aae415b11a7f4fccc720e3185ec0008f4e60908fe9f21a875cc2e8a8cf4d",
+          "program": false
+        },
+        {
+          "path": "ps4data_info.psb.m",
+          "bytes": 32929,
+          "sha256": "5059c650a1e618ec52ca8bc1b77c7c0e35a738de42097d715bbd5c3171c885ad",
+          "program": false
+        },
+        {
+          "path": "sce_discmap.plt",
+          "bytes": 3288792,
+          "sha256": "8669a09b3aee9c90db602dbad98e5963f8daccd2b7c03b92e3a248044a2f61b3",
+          "program": false
+        },
+        {
+          "path": "sce_module/libSceAudioLatencyEstimation.prx",
+          "bytes": 67458,
+          "sha256": "46bebbcbf71ee941411b7863e40ca0f4a696b769bb4bfbeff7a899121337ee3f",
+          "program": true,
+          "programFingerprint": "b2d0a5812f89b095e7f95670938032e0315c08c38e0ae1db523e3b22189f08ce"
+        },
+        {
+          "path": "sce_module/libSceFace.prx",
+          "bytes": 342000,
+          "sha256": "a7a85846227352bb4ba47b192f448402188b2b9744d30c05a92148e1e2c1ce77",
+          "program": true,
+          "programFingerprint": "2e98f14b9382bd40410a08d5a84623186ab774d36c21279fc9318973a2817de6"
+        },
+        {
+          "path": "sce_module/libSceFaceTracker.prx",
+          "bytes": 2644119,
+          "sha256": "d0bc570740064a4bd7aea076199ae2ebea100bc1a1631d5ca5e37a676bf8c798",
+          "program": true,
+          "programFingerprint": "5ade71fa854542b5dde3ff6ec21c457fe2dd6208b7c58c921e378757e9cb42dd"
+        },
+        {
+          "path": "sce_module/libSceFios2.prx",
+          "bytes": 500705,
+          "sha256": "707fbc550057e551e146fa9f6ef0724cfa09d2701bbfe93745fa0e2dd71fda47",
+          "program": true,
+          "programFingerprint": "0b2f4595f2fe3363067acc400fa188a5749a980cbdae89643bfdd4a74a6bfd0f"
+        },
+        {
+          "path": "sce_module/libSceHand.prx",
+          "bytes": 67312,
+          "sha256": "19f4084f33a30b1a8e11796777391fd297eeef8b339e717213f70d8937637c02",
+          "program": true,
+          "programFingerprint": "005b77330b4df837030cca87f14673c3b501c8c52f19404ffb44e60d8042d1b7"
+        },
+        {
+          "path": "sce_module/libSceHandTracker.prx",
+          "bytes": 84439,
+          "sha256": "46dee63e2e230dcbf6a07f60af432367814507ee72824d2edbcfd3175a2379d7",
+          "program": true,
+          "programFingerprint": "30272309ec788b0d5bc7e0a1587b7fb6d2a69b68a3f8a0701cbb039c78dbee09"
+        },
+        {
+          "path": "sce_module/libSceHeadTracker.prx",
+          "bytes": 1386359,
+          "sha256": "e85845d1b3958cc86446f8c5bf9da74231b177f793de9a78af244cedd7a72e7d",
+          "program": true,
+          "programFingerprint": "8daafa97f9ff1c31bbf996211dacb1825c4f436932c9c5f10d0280958a90f7c9"
+        },
+        {
+          "path": "sce_module/libSceJobManager.prx",
+          "bytes": 109830,
+          "sha256": "c8861d7b8c7e7c6791e4f2534e7e3551650b7ef775d6c5c806eac7b266a315c0",
+          "program": true,
+          "programFingerprint": "12c937ee186feae8e60bb29de1085977b14b22ea1455214eeb97e272c30fd242"
+        },
+        {
+          "path": "sce_module/libSceNpToolkit2.prx",
+          "bytes": 914214,
+          "sha256": "1c58cba5b22550584d1498bd4c8f40d7dd49ae130db96c49c0aada5fbadcdaa2",
+          "program": true,
+          "programFingerprint": "675c1181cfdf8e6d4ecdfba8249adb145613f870e7e8ad29fc20e30968dab3e8"
+        },
+        {
+          "path": "sce_module/libSceS3DConversion.prx",
+          "bytes": 408121,
+          "sha256": "7557706fe4297655afaf41c9650a07ac6ea22802b0665bffce28578ae395ea4a",
+          "program": true,
+          "programFingerprint": "43092bc23fb712be288348163c6a6f2ced3c5008b0f29929a87c1ae1520d1fc6"
+        },
+        {
+          "path": "sce_module/libSceSmart.prx",
+          "bytes": 1485729,
+          "sha256": "6ac5aaa075ece4bd108a63a3a20d62df50353a17c2f8f9a457e668ba4bb667a1",
+          "program": true,
+          "programFingerprint": "7cfb05071ed9babd69a42f567b6e0092de043e7e4da91541a627830620eedfb3"
+        },
+        {
+          "path": "sce_module/libc.prx",
+          "bytes": 1671962,
+          "sha256": "7f812be26228b68b2c835a1824a26839ec45aaa7decbccef43333daa32f3d0fd",
+          "program": true,
+          "programFingerprint": "03c59dae298a089128a5e6669309607022c83c37e528e57ca234ae36a18796f0"
+        },
+        {
+          "path": "sce_sys/about/right.sprx",
+          "bytes": 34164,
+          "sha256": "01f00f17922ff382c2c9295d0bd25ea03426353fed02eaf87000a551ca4f9981",
+          "program": false
+        },
+        {
+          "path": "sce_sys/keystone",
+          "bytes": 96,
+          "sha256": "127614676fb07170612c83f8d0f0a043a11021c76b50e5f2c6dbd512ad528de7",
+          "program": false
+        },
+        {
+          "path": "sce_sys/license.dat",
+          "bytes": 1024,
+          "sha256": "ee32c686da8da7d550c67bb96fa9f132f90bb910ebf636f6ee22485afe7e00e6",
+          "program": false
+        },
+        {
+          "path": "sce_sys/license.info",
+          "bytes": 512,
+          "sha256": "0bfeb3f4d3b0b1ae2ee0d408646da68345a0fdacdf1b19c127d31faea2ab269d",
+          "program": false
+        },
+        {
+          "path": "sce_sys/npbind.dat",
+          "bytes": 532,
+          "sha256": "c51336e80be16e761436d4a05104622ea9e86c2f48b9374182a93d4f38188434",
+          "program": false
+        },
+        {
+          "path": "sce_sys/nptitle.dat",
+          "bytes": 160,
+          "sha256": "9e966de02d60199b33fa005c4bee995d106306c6567f16f5ad8f5665b925b95a",
+          "program": false
+        },
+        {
+          "path": "sce_sys/param.sfo",
+          "bytes": 1868,
+          "sha256": "48d96455e9eab9793b6af37f1fe9473f4c4dfe0bb9d825a02d1a7f17ec5e08e2",
+          "program": false
+        },
+        {
+          "path": "sce_sys/playgo-chunk.dat",
+          "bytes": 416,
+          "sha256": "3afb43e7574a3c0e7dbfb31c6a6cf346fa33f34a39c6ff493131ecd993cb72f2",
+          "program": false
+        },
+        {
+          "path": "sce_sys/playgo-chunk.sha",
+          "bytes": 78392,
+          "sha256": "97cfcce57d05a6711d4e7db707b5cad4f9f67705a76814475de6bf5ca2f6f34d",
+          "program": false
+        },
+        {
+          "path": "sce_sys/playgo-manifest.xml",
+          "bytes": 368,
+          "sha256": "b4d0036b544a66edc732cbd2e034cf5f5b1f46b5817209d333b33e5efc016b11",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pronunciation.sig",
+          "bytes": 20,
+          "sha256": "dce16844b049a82e4a8be59e1139aef338562a3ee976a4b08de1cb3c3a041a81",
+          "program": false
+        },
+        {
+          "path": "sce_sys/pronunciation.xml",
+          "bytes": 430,
+          "sha256": "ca8d5e5e018bf949f6040b78c676bafdc30b44da127c6f1d709d5cc320ac4faf",
+          "program": false
+        },
+        {
+          "path": "sce_sys/psreserved.dat",
+          "bytes": 8192,
+          "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+          "program": false
+        },
+        {
+          "path": "sce_sys/shareparam.json",
+          "bytes": 145,
+          "sha256": "f70a8591fdc42d0afa5acfd1d6222a9536bef115328a8d2723bdaa40b0482653",
+          "program": false
+        },
+        {
+          "path": "sce_sys/snd0.at9",
+          "bytes": 145636,
+          "sha256": "824c3e53afc48c8d3484e2b4e72586cd23e1c94a2322d3549bfeacfb7f783cea",
+          "program": false
+        },
+        {
+          "path": "sce_sys/trophy/trophy00.trp",
+          "bytes": 2231328,
+          "sha256": "10ffcc4d71bc0cc6a965df3fb21e1c14e7ec68b73c5e8b9a2d6dd4b2f23cfd6b",
+          "program": false
+        }
+      ],
+      "forbiddenFiles": [
+        "CUSA17078-app",
+        "CUSA17078-patch",
+        "ps4data_patch_body.bin",
+        "ps4data_patch_info.psb.m",
+        "sce_discmap_patch.plt",
+        "sce_sys/app/playgo-chunk.dat",
+        "sce_sys/changeinfo/changeinfo.xml",
+        "sce_sys/target-deltainfo.dat"
+      ]
     }
   ]
 }

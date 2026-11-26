@@ -2,6 +2,8 @@
 #include "gs_completions.h"
 #include <functional>
 #include <memory>
+#include <span>
+#include <vector>
 
 namespace cave::ps2 {
 // Fixed-size producer/consumer mailbox. Only completed GS events are published;
@@ -22,6 +24,8 @@ public:
     GsCompletions Take();
     void AcknowledgeSignal();
     void AcknowledgeStatus(uint32_t mask);
+    std::vector<uint8_t> SaveState() const;
+    void LoadState(std::span<const uint8_t> state);
     uint64_t Reset();
     void Close();
 private:

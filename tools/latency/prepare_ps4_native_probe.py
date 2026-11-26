@@ -52,10 +52,11 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
 
     relative = 'backends/ps4/native_pad.cpp'
     text = '#include "ps4_probe.h"\n#include "ps4_test_latch.h"\n' + (ROOT / relative).read_text(encoding='utf-8')
-    text = replace_one(text, '    bool synthetic_input{};', '''    bool synthetic_input{};
+    text = replace_one(text, 'struct PadPort {', '''struct PadPort {
+    bool probe_enabled{};
     evac_latency::Ps4TestLatch probe_latch;
     void RefreshProbe() {
-        if (!evac_latency::test_pad) return;
+        if (!probe_enabled || !evac_latency::test_pad) return;
         const auto sample = evac_latency::ReadTestPad();
         probe_latch.Update(sample.event, evac_latency::Ps4Buttons(sample.buttons));
     }
@@ -69,43 +70,45 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
         }
         return 0;
     }''')
-    text = replace_one(text, '        const auto& previous = history.latest;', '''        if (evac_latency::test_pad) {
+    text = replace_one(text, '        ports[0].keyboard_enabled=true;',
+        '        ports[0].probe_enabled=true;\n        ports[0].keyboard_enabled=true;')
+    text = replace_one(text, '        const auto& previous = history.latest;', '''        if (probe_enabled && evac_latency::test_pad) {
             RefreshProbe();
             output.buttons = probe_latch.Buttons();
         }
         const auto& previous = history.latest;''')
-    text = replace_one(text, '        history.Push(output);', '''        if (evac_latency::test_pad) {
+    text = replace_one(text, '        history.Push(output);', '''        if (probe_enabled && evac_latency::test_pad) {
             probe_sources[probe_next] = {output.timestamp, probe_latch.Source(), output.buttons};
             probe_next = (probe_next + 1) % probe_sources.size();
         }
         history.Push(output);''')
     text = replace_one(text,
-        '    const bool edge = state.keyboard.pending != 0 || state.gamepad.HasPending();',
-        '''    state.RefreshProbe();
-    const bool edge = state.keyboard.pending != 0 || state.gamepad.HasPending() || state.probe_latch.pending;''')
-    text = replace_one(text, '        state.gamepad.Acknowledge(state.physical);',
-        '        state.gamepad.Acknowledge(state.physical);\n        state.probe_latch.Acknowledge();')
+        '    const bool edge = port.keyboard.pending != 0 || state.gamepad.HasPending(index);',
+        '''    port.RefreshProbe();
+    const bool edge = port.keyboard.pending != 0 || state.gamepad.HasPending(index) || port.probe_latch.pending;''')
+    text = replace_one(text, '        state.gamepad.Acknowledge(state.physical[index]);',
+        '        state.gamepad.Acknowledge(state.physical[index]);\n        port.probe_latch.Acknowledge();')
     text = replace_one(text, 'int Read(int handle, PadData* output, int count, bool latest) {',
         'int Read(int handle, PadData* output, int count, bool latest, const void* caller = nullptr) {')
     text = replace_one(text, 'return Read(handle, output, count, false);',
         'return Read(handle, output, count, false, __builtin_return_address(0));')
     text = replace_one(text, 'return Read(handle, output, 1, true);',
         'return Read(handle, output, 1, true, __builtin_return_address(0));')
-    text = replace_one(text, '    return ReadReports(state, output, count, latest);', '''
+    text = replace_one(text, '    return ReadReports(state, output, count, latest,port==&state.ports[0]?0:1);', '''
     const auto probe_begin = evac_latency::Record(evac_latency::Kind::Ps4PadBegin,
         static_cast<unsigned>(handle), count, reinterpret_cast<std::uintptr_t>(output),
         reinterpret_cast<std::uintptr_t>(caller), latest);
-    const auto result = ReadReports(state, output, count, latest);
+    const auto result = ReadReports(state, output, count, latest,port==&state.ports[0]?0:1);
     const int reports = latest && result == 0 ? 1 : result;
     for (int i=0; i<reports; ++i)
         evac_latency::Record(evac_latency::Kind::Ps4PadReport, probe_begin, i,
             output[i].buttons, output[i].timestamp, output[i].connected,
-            evac_latency::test_pad ? state.ProbeSourceFor(output[i]) : 0);
+            port->probe_enabled && evac_latency::test_pad ? port->ProbeSourceFor(output[i]) : 0);
     evac_latency::Record(evac_latency::Kind::Ps4PadEnd, probe_begin,
         static_cast<unsigned>(result), reports);
     return result;''')
-    text = replace_one(text, 'void NativePadWindowKey(void* window, unsigned key, bool down) {',
-        '''void NativePadWindowKey(void* window, unsigned key, bool down) {
+    text = replace_one(text, 'std::uint32_t NativePadWindowKey(void* window, unsigned key, bool down) {',
+        '''std::uint32_t NativePadWindowKey(void* window, unsigned key, bool down) {
     evac_latency::Record(evac_latency::Kind::WindowKey, key, down,
         reinterpret_cast<std::uintptr_t>(window));''')
     save(relative, text)
@@ -139,13 +142,13 @@ extern "C" __declspec(dllexport) std::uint64_t EvacLatencyRecord(std::uint32_t k
       frame.latency_ready = Ps4ProbeHostRecord(21, frame.latency_prepare,
           reinterpret_cast<std::uintptr_t>(&frame), frame.latency_address,
           reinterpret_cast<std::uintptr_t>(static_cast<VkImage>(frame.snapshot->image)), frame.copy_tick, 1);''')
-    text = replace_one(text, '        status = output_queue.presentKHR(', '''        const auto probe_begin = Ps4ProbeHostRecord(22, snapshot.latency_ready,
+    text = replace_one(text, '        status = reflex.WithSwapchain([&] {', '''        const auto probe_begin = Ps4ProbeHostRecord(22, snapshot.latency_ready,
             reinterpret_cast<std::uintptr_t>(static_cast<VkSwapchainKHR>(handle)), index,
             static_cast<unsigned>(latency_present_mode), 1, 0);
-        status = output_queue.presentKHR(''')
-    text = replace_one(text, '                                          .pImageIndices = &index});',
-        '''                                          .pImageIndices = &index});
-        Ps4ProbeHostRecord(23, probe_begin, snapshot.latency_ready, static_cast<unsigned>(status));''')
+        status = reflex.WithSwapchain([&] {''')
+    text = replace_one(text, '        reflex.Mark(snapshot.reflex_frame, vk::LatencyMarkerNV::ePresentEnd);',
+        '''        Ps4ProbeHostRecord(23, probe_begin, snapshot.latency_ready, static_cast<unsigned>(status));
+        reflex.Mark(snapshot.reflex_frame, vk::LatencyMarkerNV::ePresentEnd);''')
     save(relative, text)
     write_json_new(DEST / 'preparation.json', dict(files=copied, private_only=True,
         generator_sha256=digest(Path(__file__))))

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <functional>
 #include <optional>
 #include <stdexcept>
 #include <utility>
@@ -34,13 +35,67 @@ struct DeathLabelGadgetState {
     bool playing{},hyperActive{},bossActive{},bossDefeated{};
 };
 
-class DeathLabelGadgetFeed {
+// Values accumulated by the PC dashboard between guest frames. Keep these
+// apart from the live function bindings, which belong to the current runtime.
+struct DeathLabelGadgetHistory {
+    using State = DeathLabelGadgetState;
+    State state_{};
+    State::Music music_{};
+    std::optional<unsigned> bossStart_;
+    std::uint64_t stageStartScore_{};
+    std::array<unsigned,2> misses_{};
+    std::array<unsigned,4> hits_{};
+    std::array<State::Damage,2> damage_{};
+    std::array<std::array<State::Damage,2>,10> history_{};
+    unsigned historyIndex_{};
+
+    template<class Archive> void ArchiveFields(Archive& ar) {
+        auto& s=state_;
+        const auto damage=[&](State::Damage& d) { ar.Fields(d.total,d.hits,d.multiHit); };
+        ar.Fields(s.score,s.stageScore,s.round,s.stage,s.doll,s.ship,s.stock,s.bombs,s.bombCapacity);
+        for (auto& value:s.clearedStages) ar.Field(value);
+        ar.Fields(s.shotLevel,s.laserLevel,s.invincibleFrames,s.misses,s.bombsFired,
+                  s.hypers,s.hyperCharge,s.hyperGain,s.hyperTime,s.hyperDuration,
+                  s.bulletSpeed,s.bulletInterval,s.hyperRank,s.combo,s.comboTime,s.comboCapacity,
+                  s.bossFrames,s.bossHp,s.bossMaxHp);
+        for (auto& value:s.hitDetail) ar.Field(value);
+        damage(s.laser);
+        damage(s.aura);
+        unsigned music=unsigned(s.music), form=unsigned(s.form), currentMusic=unsigned(music_);
+        ar.Fields(music,form,currentMusic,s.playing,s.hyperActive,s.bossActive,s.bossDefeated);
+        if (s.round>1 || s.stage>4 || s.doll>2 || s.shotLevel>5 || s.laserLevel>5 ||
+            music>unsigned(State::Music::GameOver) || currentMusic>unsigned(State::Music::GameOver) ||
+            form>unsigned(State::BossForm::TwinHibachi))
+            throw std::invalid_argument("Invalid Death Label dashboard state");
+        s.music=State::Music(music);
+        s.form=State::BossForm(form);
+        music_=State::Music(currentMusic);
+        bool started=bossStart_.has_value();
+        unsigned first=bossStart_.value_or(0);
+        ar.Fields(started,first,stageStartScore_);
+        bossStart_=started?std::optional(first):std::nullopt;
+        for (auto& value:misses_) ar.Field(value);
+        for (auto& value:hits_) ar.Field(value);
+        for (auto& strike:damage_) damage(strike);
+        for (auto& field:history_) for (auto& strike:field) damage(strike);
+        ar.Field(historyIndex_);
+        if (historyIndex_>=history_.size()) throw std::invalid_argument("Invalid Death Label damage history");
+    }
+};
+
+class DeathLabelGadgetFeed : private DeathLabelGadgetHistory {
 public:
     using State = DeathLabelGadgetState;
 
-    DeathLabelGadgetFeed() = default;
+    explicit DeathLabelGadgetFeed(std::function<void(const State&)> restored = {})
+        : restored_(std::move(restored)) {}
     DeathLabelGadgetFeed(const DeathLabelGadgetFeed&) = delete;
     DeathLabelGadgetFeed& operator=(const DeathLabelGadgetFeed&) = delete;
+    DeathLabelGadgetHistory History() const { return *this; }
+    void RestoreHistory(const DeathLabelGadgetHistory& value) noexcept {
+        static_cast<DeathLabelGadgetHistory&>(*this)=value;
+        if (restored_) restored_(state_);
+    }
     void ResetRun() {
         state_ = {};
         music_ = {};
@@ -302,17 +357,9 @@ private:
     // The hosted session owns the sole feed and joins the EE thread before
     // the feed goes out of scope.
     static inline DeathLabelGadgetFeed* active_{};
+    std::function<void(const State&)> restored_;
     PS2Runtime::RecompiledFunction musicDispatch_{};
     PS2Runtime::RecompiledFunction missDispatch_{};
-    State state_{};
-    State::Music music_{};
-    std::optional<unsigned> bossStart_;
-    std::uint64_t stageStartScore_{};
-    std::array<unsigned,2> misses_{};
-    std::array<unsigned,4> hits_{};
-    std::array<State::Damage,2> damage_{};
-    std::array<std::array<State::Damage,2>,10> history_{};
-    std::size_t historyIndex_{};
 };
 
 }

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <span>
 #include <vector>
 #include <string>
 
@@ -54,6 +55,8 @@ namespace ps2x::iop::detail
         explicit IopKernel(IopMemory &memory) noexcept;
 
         void reset();
+        std::vector<uint8_t> saveState() const;
+        void loadState(std::span<const uint8_t>);
 
         [[nodiscard]] bool dispatchThreadImport(uint16_t ordinal, IopCpuState &cpu, uint64_t currentCycle);
         [[nodiscard]] bool dispatchSemaphoreImport(uint16_t ordinal, IopCpuState &cpu);
@@ -77,6 +80,8 @@ namespace ps2x::iop::detail
         [[nodiscard]] std::string debugState() const;
 
     private:
+        template<class Archive, class Kernel>
+        static void transferState(Archive&, Kernel&);
         struct Semaphore
         {
             int id = 0;

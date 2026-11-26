@@ -1,6 +1,15 @@
 diff --git a/ps2xRuntime/include/runtime/ps2_vu1.h b/ps2xRuntime/include/runtime/ps2_vu1.h
 --- a/ps2xRuntime/include/runtime/ps2_vu1.h
 +++ b/ps2xRuntime/include/runtime/ps2_vu1.h
+@@ -46,6 +46,8 @@
+ struct Vu1Jit;
++namespace cave::ps2 { struct VuStateArchive; }
+ 
+ class VU1Interpreter
+ {
++    friend struct cave::ps2::VuStateArchive;
+     friend struct Vu1Jit; // the recompiled blocks (ps2_vu1_jit.h) work on the interpreter's state directly
+     friend struct Vu1Lifted; // native code for loops of known microprograms (ps2_vu1_lifted.h)
 @@ -265,9 +265,8 @@
      template <bool kDeadFlags, uint8_t kUpperHints = 0, BlockPosition kPosition = NotInBlock>
      StepResult stepPairBodyEntry(const DecodedInstructionPair &decoded, const RunContext &context);

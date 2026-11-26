@@ -27,8 +27,9 @@ uint64_t InputTraceClock() {
 
 class KeyboardDriver final : public InputDriver, public ui::WindowInputListener, public ui::WindowListener {
 public:
-    explicit KeyboardDriver(const Settings& settings) : InputDriver(nullptr,127), state_(settings), trace_(REXCVAR_GET(input_diagnostics)) {
-        for (const auto& binding:settings.keyboard_right_stick) right_stick_enabled_|=!binding.keys.empty();
+    KeyboardDriver(const Settings& settings,uint32_t slot) : InputDriver(nullptr,127), slot_(slot),
+        state_(settings,slot==1), trace_(REXCVAR_GET(input_diagnostics)) {
+        for (const auto& binding:settings.KeyboardRightStick(slot==1)) right_stick_enabled_|=!binding.keys.empty();
     }
     ~KeyboardDriver() override { Detach(); }
     X_STATUS Setup() override { return X_STATUS_SUCCESS; }
@@ -47,7 +48,7 @@ public:
         }
     }
     X_RESULT GetCapabilities(uint32_t user, uint32_t, X_INPUT_CAPABILITIES* caps) override {
-        if (user) return X_ERROR_DEVICE_NOT_CONNECTED;
+        if (user!=slot_) return X_ERROR_DEVICE_NOT_CONNECTED;
         if (!caps) return X_ERROR_BAD_ARGUMENTS;
         *caps={}; caps->type=1; caps->sub_type=1;
         caps->gamepad.buttons=0xF3FF;
@@ -56,7 +57,7 @@ public:
         return X_ERROR_SUCCESS;
     }
     X_RESULT GetState(uint32_t user, X_INPUT_STATE* output) override {
-        if (user) return X_ERROR_DEVICE_NOT_CONNECTED;
+        if (user!=slot_) return X_ERROR_DEVICE_NOT_CONNECTED;
         if (!output) return X_ERROR_BAD_ARGUMENTS;
         const auto active=is_active();
         std::lock_guard lock(mutex_);
@@ -78,10 +79,10 @@ public:
         return X_ERROR_SUCCESS;
     }
     X_RESULT SetState(uint32_t user,X_INPUT_VIBRATION*) override {
-        return user ? X_ERROR_DEVICE_NOT_CONNECTED : X_ERROR_SUCCESS;
+        return user==slot_ ? X_ERROR_SUCCESS : X_ERROR_DEVICE_NOT_CONNECTED;
     }
     X_RESULT GetKeystroke(uint32_t user,uint32_t,X_INPUT_KEYSTROKE* output) override {
-        if (user && user!=0xFF) return X_ERROR_DEVICE_NOT_CONNECTED;
+        if (user!=slot_ && user!=0xFF) return X_ERROR_DEVICE_NOT_CONNECTED;
         if (!output) return X_ERROR_BAD_ARGUMENTS;
         const auto active=is_active();
         std::lock_guard lock(mutex_);
@@ -133,6 +134,7 @@ private:
             {0x10000,ui::VirtualKey::kXInputPadLTrigger},{0x20000,ui::VirtualKey::kXInputPadRTrigger}}};
         for (const auto& [bit,padKey] : keys) if (((oldBits^newBits)|repeats)&bit) {
             X_INPUT_KEYSTROKE stroke{};
+            stroke.user_index=static_cast<uint8_t>(slot_);
             stroke.virtual_key=static_cast<uint16_t>(padKey);
             stroke.flags=(newBits&bit)?X_INPUT_KEYSTROKE_KEYDOWN:X_INPUT_KEYSTROKE_KEYUP;
             if (!((oldBits^newBits)&bit) && (repeats&bit)) stroke.flags=X_INPUT_KEYSTROKE_KEYDOWN|X_INPUT_KEYSTROKE_REPEAT;
@@ -142,6 +144,7 @@ private:
     }
     ui::Window* target_{};
     std::mutex mutex_;
+    const uint32_t slot_;
     KeyboardState state_;
     KeyboardSnapshot last_{};
     uint32_t packet_{};
@@ -189,10 +192,14 @@ std::unique_ptr<rex::system::IInputSystem> CreateConfiguredInput(const Settings&
         auto pad=std::make_unique<GamepadDriver>(settings.deadzone);
         if (pad->Setup()!=X_STATUS_SUCCESS) throw std::runtime_error("SDL gamepad setup failed");
         input->AddDriver(std::move(pad));
+        if(settings.swap_players)input->SelectPrimaryController(1);
     }
-    auto keyboard=std::make_unique<KeyboardDriver>(settings);
-    keyboard->Setup(); input->AddDriver(std::move(keyboard));
-    REXLOG_INFO("Input: keyboard on slot 0; SDL gamepad={} deadzone={} mouse_capture=false",settings.gamepad_enabled,settings.deadzone);
+    const unsigned players=settings.HasSecondKeyboardPlayer()?2:1;
+    for(unsigned slot=0;slot<players;++slot) {
+        auto keyboard=std::make_unique<KeyboardDriver>(settings,slot);
+        keyboard->Setup(); input->AddDriver(std::move(keyboard));
+    }
+    REXLOG_INFO("Input: keyboard players={} SDL gamepad={} deadzone={}",players,settings.gamepad_enabled,settings.deadzone);
     return input;
 }
 }

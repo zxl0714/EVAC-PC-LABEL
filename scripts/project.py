@@ -124,6 +124,13 @@ def audit_source(root=ROOT):
             raise ValueError(f'Local data in source selection: {name}')
         path = root / name
         reject_link(path)
+        if name == 'tests/fixtures/ps2-mpeg-open-gop.m2v':
+            # Generated from FFmpeg testsrc2 for the PS2 movie save/load regression.
+            if digest(path) != '053d989f50649045c0deab488576ee425c306f601372b067f975cf90ed739924':
+                raise ValueError('PS2 decoder test fixture differs from its synthetic source')
+            count += 1
+            total += path.stat().st_size
+            continue
         if name in RUNTIME_ARTWORK:
             if digest(path) != RUNTIME_ARTWORK[name]:
                 raise ValueError(f'Runtime artwork differs from the reviewed image: {name}')

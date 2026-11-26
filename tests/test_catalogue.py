@@ -106,7 +106,7 @@ class CatalogueTests(unittest.TestCase):
                           ('base-self', '01.00', 'base', 34), ('update-103', '01.03', 'merged-patch', 37),
                           ('base-pkg-extracted', '01.00', 'base', 34),
                           ('update-103-pkg-extracted', '01.03', 'merged-patch', 37),
-                          ('base-store-dump', '01.00', 'base', 33)])
+                          ('base-store-dump', '01.00', 'base', 33), ('base-us', '01.00', 'base', 35)])
         self.assertEqual(game['files'], game['variants'][0]['files'])
         for variant in game['variants']:
             files = {item['path']: item for item in variant['files']}
@@ -117,12 +117,14 @@ class CatalogueTests(unittest.TestCase):
                                  {file['path'] for file in catalogue.ps4_required_files(variant['files'])})
                 self.assertNotIn('sce_sys/keystone', files)
                 self.assertIn('ps4data_patch_body.bin', files)
-            self.assertFalse(any(name.startswith('CUSA09062-') for name in files))
-            self.assertTrue({'CUSA09062-app', 'CUSA09062-patch'}.issubset(variant['forbiddenFiles']))
+            title = 'CUSA17078' if variant['id'] == 'base-us' else 'CUSA09062'
+            self.assertEqual(variant['titleId'], title)
+            self.assertFalse(any(name.startswith(title + '-') for name in files))
+            self.assertTrue({title + '-app', title + '-patch'}.issubset(variant['forbiddenFiles']))
         base = game['variants'][1]
         self.assertIn('ps4data_patch_body.bin', base['forbiddenFiles'])
         self.assertIn('ps4data_patch_info.psb.m', base['forbiddenFiles'])
-        self.assertIn('std::array<DataVariant,7>', catalogue.generate(catalogue.load(self.path)))
+        self.assertIn('std::array<DataVariant,8>', catalogue.generate(catalogue.load(self.path)))
 
     def test_issue_1_plain_self_manifests_keep_exact_versions_and_reject_mixed_updates(self):
         games = {game['id']: game for game in catalogue.load(self.path)}

@@ -18,6 +18,88 @@
 #include <thread>
 #include <vector>
 
+namespace {
+using cave::ps2::GsDevice;
+using cave::ps2::GsGifPath;
+
+template<class T> std::span<const uint8_t> asBytes(const T& value) {
+    return {reinterpret_cast<const uint8_t*>(&value), sizeof(value)};
+}
+
+void checkDrawingState(GsDevice& source) {
+    source.Reset();
+    constexpr uint32_t palettePixel = 0x80945b31u;
+    constexpr uint32_t overwrittenPixel = 0x8025a0f2u;
+    constexpr uint32_t paletteBlock = 384, textureBlock = 320;
+    source.WriteVram(paletteBlock * 256, asBytes(palettePixel));
+    source.WriteVram(textureBlock * 256, asBytes(uint32_t{}));
+    source.WriteRegister(GS_REG_PRMODECONT, 1);
+    source.WriteRegister(GS_REG_FRAME_1, 1u << 16);
+    source.WriteRegister(GS_REG_ZBUF_1, 1ull << 32);
+    source.WriteRegister(GS_REG_SCISSOR_1, (63ull << 16) | (63ull << 48));
+    source.WriteRegister(GS_REG_TEST_1, 0x30000);
+    source.WriteRegister(GS_REG_XYOFFSET_1, 32 | (48ull << 32));
+    source.WriteRegister(GS_REG_COLCLAMP, 1);
+    source.WriteRegister(GS_REG_PRIM, 6 | (1 << 4) | (1 << 8));
+    // One PSMT8H texel with index 0, DECAL, and a palette loaded once.
+    const uint64_t tex0 = textureBlock | (1ull << 14) | (27ull << 20) |
+        (1ull << 34) | (1ull << 35) | (uint64_t(paletteBlock) << 37) | (1ull << 61);
+    source.WriteRegister(GS_REG_TEX0_1, tex0);
+    source.Flush();
+    source.WriteVram(paletteBlock * 256, asBytes(overwrittenPixel));
+    source.WriteRegister(GS_REG_UV, 0);
+    source.WriteRegister(GS_REG_XYZ2, 32 | (48ull << 16));
+
+    // The FIFO already owns an independent copy, even if the source changes.
+    constexpr std::array<uint32_t, 8> pixels{11, 12, 13, 14, 21, 22, 23, 24};
+    constexpr uint64_t rect = 8 | (1ull << 32);
+    source.UploadImage({(128ull << 32) | (1ull << 48), 0, rect, 0}, asBytes(pixels));
+    source.WriteRegister(GS_REG_BITBLTBUF, 128 | (1ull << 16));
+    source.WriteRegister(GS_REG_TRXREG, rect);
+    source.WriteRegister(GS_REG_TRXDIR, 1);
+    std::array<uint8_t, 16> first{};
+    source.ReadTransferFifo(first);
+    source.WriteRegister(GS_REG_BITBLTBUF, (256ull << 32) | (1ull << 48));
+    source.WriteRegister(GS_REG_TRXDIR, 0);
+    source.WriteRegister(GS_REG_HWREG, 0x1212121211111111ull);
+
+    alignas(16) const std::array<uint64_t, 2> adTag{1 | (1ull << 15) | (1ull << 60), 0xe};
+    for (auto path : {GsGifPath::Path1, GsGifPath::Path3}) source.GifTransfer(path, asBytes(adTag));
+    auto saved = source.SaveDrawingState();
+    auto finish = [&](GsDevice& gs) {
+        std::array<uint8_t, 16> remaining{};
+        gs.ReadTransferFifo(remaining);
+        if (std::memcmp(remaining.data(), pixels.data() + 4, 16))
+            throw std::runtime_error("Saved GS read FIFO did not resume at its cursor");
+        for (uint64_t word : {0x1414141413131313ull, 0x1616161615151515ull, 0x1818181817171717ull})
+            gs.WriteRegister(GS_REG_HWREG, word);
+        alignas(16) const std::array<uint64_t, 2> uv{0, GS_REG_UV};
+        alignas(16) const std::array<uint64_t, 2> xyz{(32 + 16*16) | (uint64_t(48 + 16*16) << 16), GS_REG_XYZ2};
+        gs.GifTransfer(GsGifPath::Path1, asBytes(uv));
+        gs.GifTransfer(GsGifPath::Path3, asBytes(xyz));
+        gs.Flush();
+        std::vector<uint8_t> vram(GsDevice::VramBytes);
+        gs.ReadbackVram(0, vram);
+        uint32_t drawn{}, lastUpload{};
+        std::memcpy(&drawn, vram.data() + GSPSMCT32::addrPSMCT32(0,1,12,12), sizeof(drawn));
+        std::memcpy(&lastUpload, vram.data() + GSPSMCT32::addrPSMCT32(256,1,7,0), sizeof(lastUpload));
+        if (drawn != palettePixel) throw std::runtime_error("Mid-sprite snapshot lost the latched GS palette or geometry");
+        if (lastUpload != 0x18181818u) throw std::runtime_error("Partial GS image upload did not finish");
+        return vram;
+    };
+    const auto expected = finish(source);
+    GsDevice restored;
+    for (int pass = 0; pass < 2; ++pass) {
+        restored.LoadDrawingState(saved);
+        try {
+            restored.LoadDrawingState(std::span(saved).first(saved.size() - 1));
+            throw std::runtime_error("Truncated GS drawing state was accepted");
+        } catch (const std::invalid_argument&) {}
+        if (finish(restored) != expected) throw std::runtime_error("Restored GS VRAM differs from uninterrupted drawing");
+    }
+}
+}
+
 int main() {
     try {
         using cave::ps2::GsDevice;
@@ -134,6 +216,7 @@ int main() {
         try{gs.GifTransfer(GsGifPath::Path1,partial);}catch(const std::invalid_argument&){++rejected;}
         try{gs.ReadbackVram(GsDevice::VramBytes,partial);}catch(const std::out_of_range&){++rejected;}
         if(rejected!=3)throw std::runtime_error("Invalid GS commands were accepted");
+        checkDrawingState(gs);
         {
             // Reset must also release a real GPU owner blocked by an unacked
             // second SIGNAL, while that reset command is queued behind it.
@@ -158,7 +241,7 @@ int main() {
             if(!notified || mailbox->Generation()==old || mailbox->Take() || queue.GetStats().commands)
                 throw std::runtime_error("Queued RESET leaked stale SIGNAL completion");
         }
-        std::cout<<"GPU="<<gs.GpuName()<<"; runtime GIF routing, 4096 pixels, native image/FIFO, owner/range checks: PASS\n";
+        std::cout<<"GPU="<<gs.GpuName()<<"; runtime GIF routing, native image/FIFO, cold drawing-state restore: PASS\n";
         return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

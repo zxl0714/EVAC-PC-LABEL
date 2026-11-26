@@ -1,6 +1,7 @@
 #include "emulator/core/iop_memory.h"
 #include "../../../backends/ps2/audio_trace.h"
 #include "../../../backends/ps2/spu_device.h"
+#include "../../../backends/ps2/state_archive.h"
 #include "../../../backends/ps2/pcm_queue.h"
 #include "../../../backends/ps2/pcm_queue_trace.h"
 #include "../../../backends/ps2/pcm_playout.h"
@@ -455,6 +456,102 @@ namespace ps2x::iop::detail
         // Called with the playback device stopped and the guest parked.
         m_audio->queue.DiscardFromProducer();
         m_audio->playout = {};
+    }
+
+    std::vector<uint8_t> IopMemory::saveState() const
+    {
+        std::vector<uint8_t> bytes;
+        bytes.reserve(3 * RamSize + 256 * 1024u);
+        cave::ps2::StateWriter writer(bytes);
+        writer.Fields(uint32_t{1}, m_heapCursor, m_interruptStatus, m_interruptMask, m_interruptControl);
+        writer.Bytes(m_ram);
+        writer.Bytes(m_owned);
+        writer.Bytes(m_scratch);
+        writer.Field(static_cast<uint32_t>(m_allocations.size()));
+        for (const auto& block : m_allocations) writer.Fields(block.address, block.size);
+        std::vector<std::pair<uint32_t,uint32_t>> registers(m_hardware.begin(), m_hardware.end());
+        std::sort(registers.begin(), registers.end());
+        writer.Field(static_cast<uint32_t>(registers.size()));
+        for (const auto& [address,value] : registers) writer.Fields(address,value);
+        writer.Field(static_cast<uint32_t>(m_dmaStarts.size()));
+        for (const auto& event : m_dmaStarts) writer.Fields(event.irq, event.delayCycles);
+        writer.Field(m_audio->nextCycle);
+        writer.Bytes({reinterpret_cast<const uint8_t*>(m_audio->writtenRegisters.data()), sizeof(m_audio->writtenRegisters)});
+        for (const auto& dma : m_audio->dma) writer.Fields(dma.bytes, dma.address, dma.toSpu, dma.decrement);
+        const auto pcm = m_audio->queue.Pending();
+        writer.Field(static_cast<uint32_t>(pcm.size()/2));
+        writer.Bytes({reinterpret_cast<const uint8_t*>(pcm.data()), pcm.size()*sizeof(int16_t)});
+        const auto sound = m_audio->spu.SaveState();
+        writer.Field(static_cast<uint32_t>(sound.size()));
+        writer.Bytes(sound);
+        return bytes;
+    }
+
+    void IopMemory::loadState(std::span<const uint8_t> state)
+    {
+        cave::ps2::StateReader reader(state);
+        uint32_t version{},heap{},irqStatus{},irqMask{},irqControl{};
+        reader.Fields(version,heap,irqStatus,irqMask,irqControl);
+        if (version != 1 || heap < HeapBase || heap > HeapLimit || irqControl > 1)
+            throw std::invalid_argument("Invalid IOP memory state");
+        const auto ram = reader.Take(RamSize);
+        const auto owned = reader.Take(RamSize);
+        const auto scratch = reader.Take(ScratchSize);
+        std::vector<Allocation> allocations(reader.Count((HeapLimit-HeapBase)/16, 8));
+        for (auto& block : allocations) {
+            reader.Fields(block.address, block.size);
+            if (block.address < HeapBase || block.address >= HeapLimit || !block.size ||
+                block.size > HeapLimit-block.address)
+                throw std::invalid_argument("Invalid IOP heap allocation");
+        }
+        std::sort(allocations.begin(), allocations.end(), [](const auto& a,const auto& b){return a.address<b.address;});
+        for (size_t i=1; i<allocations.size(); ++i)
+            if (allocations[i].address < allocations[i-1].address + allocations[i-1].size)
+                throw std::invalid_argument("Overlapping IOP heap allocations");
+
+        decltype(m_hardware) hardware;
+        const auto registerCount = reader.Count((Spu2End-HardwareBase+SifEnd-SifBase)/4, 8);
+        for (uint32_t i=0; i<registerCount; ++i) {
+            uint32_t address{},value{};
+            reader.Fields(address,value);
+            if ((address & 3) || !isHardwareAddress(address) || !hardware.emplace(address,value).second)
+                throw std::invalid_argument("Invalid IOP register address");
+        }
+        decltype(m_dmaStarts) events;
+        const auto eventCount = reader.Count(UINT32_MAX, 12);
+        for (uint32_t i=0; i<eventCount; ++i) {
+            DmaStart event;
+            reader.Fields(event.irq,event.delayCycles);
+            if (event.irq!=kDmaSpu0Irq && event.irq!=kDmaSpu1Irq)
+                throw std::invalid_argument("Invalid IOP DMA interrupt");
+            events.push_back(event);
+        }
+        uint64_t nextCycle{};
+        reader.Field(nextCycle);
+        const auto written = reader.Take(sizeof(m_audio->writtenRegisters));
+        decltype(m_audio->dma) transfers{};
+        for (auto& dma : transfers) {
+            reader.Fields(dma.bytes, dma.address, dma.toSpu, dma.decrement);
+            if ((dma.address & 3) || dma.address >= RamSize || (dma.bytes & 3) || dma.bytes > (uint64_t{1}<<34))
+                throw std::invalid_argument("Invalid pending IOP sound DMA");
+        }
+        const auto frames = reader.Count(cave::ps2::PcmQueue::CapacityFrames, 4);
+        std::vector<int16_t> pcm(frames*2);
+        reader.Bytes({reinterpret_cast<uint8_t*>(pcm.data()), pcm.size()*sizeof(int16_t)});
+        const auto size = reader.Count(UINT32_MAX, 1);
+        const auto sound = reader.Take(size);
+        reader.Finish();
+        m_audio->spu.LoadState(sound);
+        // Commit after the nested SPU and all variable-size inputs have validated.
+        std::copy(ram.begin(),ram.end(),m_ram.begin());
+        std::copy(owned.begin(),owned.end(),m_owned.begin());
+        std::copy(scratch.begin(),scratch.end(),m_scratch.begin());
+        m_heapCursor=heap; m_interruptStatus=irqStatus; m_interruptMask=irqMask; m_interruptControl=irqControl;
+        m_allocations.swap(allocations); m_hardware.swap(hardware); m_dmaStarts.swap(events);
+        std::memcpy(m_audio->writtenRegisters.data(),written.data(),written.size());
+        m_audio->dma=transfers; m_audio->nextCycle=nextCycle;
+        m_audio->queue.RestorePending(pcm);
+        m_audio->playout={};
     }
 
     size_t IopMemory::readPcm(void *stereo, size_t frames) noexcept

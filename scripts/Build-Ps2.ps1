@@ -114,7 +114,8 @@ try {
     if ($ProbeGenerated) { $targets+='ps2_espgaluda_probe' }
     if ($IbaraGenerated) { $targets+='ps2_ibara_probe' }
     if ($DaioujouPrograms.Count) { $targets+='ps2_daioujou_probe' }
-    if ($RTypePrograms.Count) { $targets+='ps2_rtype_final_probe' }
+    if (-not $ToolsOnly) { $targets+=@('ps2_state_slots_contract','ps2_machine_state_contract') }
+    if ($RTypePrograms.Count) { $targets+=@('ps2_rtype_final_probe','ps2_movie_state_contract') }
     Invoke-Checked $cmake $targets
     if($taskReceiptState) {
         Invoke-Checked 'py' @('-3.12',(Join-Path $PSScriptRoot 'ps2_build_receipt.py'),'finish','--state',$taskReceiptState,'--stage')

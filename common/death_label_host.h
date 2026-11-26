@@ -2,7 +2,13 @@
 #include <cstdint>
 
 namespace cave {
-inline constexpr unsigned DeathLabelHostVersion = 6;
+inline constexpr unsigned DeathLabelHostVersion = 9;
+
+struct DeathLabelKeyEvent {
+    unsigned code{}; // Zero clears held keys after focus or session changes.
+    bool down{};
+    std::uint16_t buttons{}; // Mapped face and direction buttons from the PS4 host.
+};
 
 enum class DeathLabelResult : int { Failed, Completed, Exit, Closed };
 
@@ -53,6 +59,9 @@ struct DeathLabelHost {
     // Optional caller-owned slot for one parked session. Release it before
     // unloading the runtime, while no window handoff is in progress.
     void** session{};
+    const wchar_t* controlsConfig{};
+    void* keyContext{};
+    unsigned (*readKeys)(void*,DeathLabelKeyEvent*,unsigned) noexcept{};
 };
 
 using RunDeathLabel = DeathLabelResult (*)(const DeathLabelHost*) noexcept;

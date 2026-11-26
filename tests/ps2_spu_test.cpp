@@ -5,6 +5,7 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
@@ -133,6 +134,56 @@ void AutoDmaBackpressure() {
         Require(spu.Transfer(core,data,true)==1024,"AutoDMA failed to resume after consumption");
     }
     std::cout<<"AutoDMA input backpressure and resume, both cores: PASS\n";
+}
+void MidPlaybackRestore() {
+    SpuDevice live;
+    std::vector<uint8_t> voice(16, 0x27);
+    voice[0]=3; voice[1]=3;
+    Write(live,0,0x19a,0x8020);
+    SetAddress(live,0,0x1a8,0x6000);
+    TransferAll(live,0,voice,true);
+    Write(live,0,0,0x3fff); Write(live,0,2,0x3fff);
+    Write(live,0,4,0x0d73); Write(live,0,6,0x000f); Write(live,0,8,0x1fc0);
+    SetAddress(live,0,0x1c0,0x6000); SetAddress(live,0,0x1c4,0x6000);
+    SetAddress(live,1,0x19c,0x6000);
+    Write(live,1,0x19a,0x8040); Write(live,0,0x1a0,1);
+    Write(live,1,0x1b0,2);
+    std::vector<uint8_t> music(1024);
+    for(size_t i=0;i<music.size();++i) music[i]=uint8_t((i*71u+5u)>>1);
+    TransferAll(live,1,music,true);
+    std::array<int16_t,134> partial{};
+    live.Render(partial);
+    Require(live.IrqPending(),"Fixture did not reach cross-core IRQ");
+    TransferAll(live,1,std::span(music).first(316),true);
+    const auto saved=live.SaveState();
+    SpuDevice resumed;
+    resumed.LoadState(saved);
+    Require(resumed.IrqPending(),"Restored SPU2 lost cross-core IRQ");
+    Require(resumed.SaveState()==saved,"Restored audio state failed round trip");
+    auto finish=[&](SpuDevice& spu) {
+        auto tail=std::span(music).subspan(316);
+        Require(spu.Transfer(1,tail,true)==tail.size(),"Partial stream DMA lost its cursor");
+        Require(spu.Transfer(1,music,true)==0,"Restored AutoDMA queue lost backpressure");
+        std::array<int16_t,2048> result{};
+        for(size_t i=0;i<result.size();i+=256)spu.Render(std::span(result).subspan(i,256));
+        return result;
+    };
+    const auto expected=finish(live);
+    Require(std::adjacent_find(expected.begin(),expected.end(),std::not_equal_to<>())!=expected.end(),
+            "Fixture produced no changing audio");
+    Require(finish(resumed)==expected,"Mid-voice and mid-stream restore changed decoded PCM");
+    auto advanced=resumed.SaveState();
+    try {
+        resumed.LoadState(std::span(saved).first(saved.size()-1));
+        throw std::runtime_error("Accepted a truncated audio state");
+    } catch(const std::invalid_argument&) {}
+    Require(resumed.SaveState()==advanced,"Invalid state modified the playing SPU2");
+    resumed.SetVolumes(0,0);
+    resumed.LoadState(saved);
+    const auto muted=finish(resumed);
+    Require(std::all_of(muted.begin(),muted.end(),[](int16_t v){return v==0;}),
+            "Loading an audio state changed host mixer settings");
+    std::cout<<"SPU2 state: both cores, exact PCM, stream DMA, IRQ and transactional restore: PASS\n";
 }
 void VoiceVolumeSweeps() {
     for (unsigned voices : {1u, 24u}) {
@@ -285,7 +336,7 @@ void PcmQueueContract() {
 int main(int argc,char** argv) {
     try {
         if(argc==2 && std::string_view(argv[1])=="--bench")Benchmark();
-        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();VoiceVolumeSweeps();IndependentAudioVolumes();PcmQueueContract();PcmPlayoutContract();}
+        else if(argc==1){DmaRoundTrip();VoicesAndReset();CrossCoreIrq();AutoDmaBackpressure();MidPlaybackRestore();VoiceVolumeSweeps();IndependentAudioVolumes();PcmQueueContract();PcmPlayoutContract();}
         else throw std::invalid_argument("Expected no argument, or --bench");
         return 0;
     }

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <vector>
 
 namespace cave::ps2 {
 // Guest-facing SPU2 registers and sample RAM. Called by the IOP owner thread;
@@ -24,6 +25,9 @@ public:
     size_t Transfer(unsigned core,std::span<uint8_t> bytes,bool toSpu);
     void Render(std::span<int16_t> stereo);
     bool IrqPending() const;
+    // Call on the IOP owner thread at a quiescent boundary.
+    std::vector<uint8_t> SaveState() const;
+    void LoadState(std::span<const uint8_t> state);
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

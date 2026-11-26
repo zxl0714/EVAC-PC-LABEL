@@ -498,7 +498,7 @@ struct Transaction {
     TransactionRecord record;
     std::uint64_t copied_bytes{}, began_clock_us{}, stage_us{};
 };
-std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_view name, bool exists, std::uint64_t blocks) {
+std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_view title_id, std::string_view name, bool exists, std::uint64_t blocks) {
     const auto began = ClockUs();
     auto transaction = std::make_unique<Transaction>(); transaction->root = root; transaction->began_clock_us = began;
     const auto base = root / ".kt-transactions"; PlainDirectory(base); transaction->base_guard = DirectoryGuard(base);
@@ -513,7 +513,7 @@ std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_
         else {
             if (!CreateDirectoryW((transaction->work / "sce_sys").c_str(), nullptr)) { WinFail("Cannot create save work metadata directory"); }
             kt::content::Sfo metadata; metadata.SetText("MAINTITLE", "Ketsui Deathtiny"); metadata.SetText("SUBTITLE", ""); metadata.SetText("DETAIL", "");
-            metadata.SetText("TITLE_ID", "CUSA09062"); metadata.SetText("SAVEDATA_DIRECTORY", name); metadata.SetInteger("SAVEDATA_LIST_PARAM", 0);
+            metadata.SetText("TITLE_ID", title_id); metadata.SetText("SAVEDATA_DIRECTORY", name); metadata.SetInteger("SAVEDATA_LIST_PARAM", 0);
             SetBlocks(metadata, blocks); AtomicWrite(transaction->work / "sce_sys" / "param.sfo", metadata.Serialize());
         }
         record.next = Generation(transaction->work, true, true);
@@ -533,6 +533,7 @@ std::unique_ptr<Transaction> BeginTransaction(const fs::path& root, std::string_
 } // namespace
 
 struct Store::Impl {
+    std::string title_id;
     fs::path root; std::vector<Handle> guards; mutable std::mutex gate;
     std::map<std::string, std::weak_ptr<Mount>, std::less<>> mounts;
     std::function<void(std::string_view)> checkpoint;
@@ -611,8 +612,11 @@ void File::Flush() {
     }
     impl_->dirty = false;
 }
-Store::Store(const fs::path& root, std::function<void(std::string_view)> checkpoint) : impl_(std::make_shared<Impl>()) {
+Store::Store(const fs::path& root, std::function<void(std::string_view)> checkpoint)
+    : Store(root, "CUSA09062", std::move(checkpoint)) {}
+Store::Store(const fs::path& root, std::string_view title_id, std::function<void(std::string_view)> checkpoint) : impl_(std::make_shared<Impl>()) {
     if (!root.is_absolute()) { Fail(Error::Invalid, "Save store root must be absolute"); }
+    impl_->title_id = title_id;
     impl_->guards = GuardParents(root.lexically_normal()); impl_->root = fs::canonical(root);
     wchar_t volume[MAX_PATH]{}, filesystem[MAX_PATH]{}; DWORD flags{};
     if (GetVolumePathNameW(root.c_str(), volume, MAX_PATH) && GetVolumeInformationW(volume, nullptr, 0, nullptr, nullptr, &flags, filesystem, MAX_PATH)) {
@@ -661,7 +665,7 @@ std::shared_ptr<Mount> Store::MountSlot(std::string_view name, bool writable, bo
     } else { state->blocks = blocks; }
     state->persisted_blocks = state->blocks;
     if (writable) {
-        state->transaction = BeginTransaction(impl_->root, name, exists, state->blocks);
+        state->transaction = BeginTransaction(impl_->root, impl_->title_id, name, exists, state->blocks);
         state->path = state->transaction->work;
     }
     state->guard = DirectoryGuard(state->path);

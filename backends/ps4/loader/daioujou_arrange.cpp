@@ -196,8 +196,14 @@ void AddDeathLabelMenu(std::string& direct) {
     local turns = rotation == RotateMode.ROT_L ? 3 : (rotation == RotateMode.ROT_R ? 1 : 0);
     local gadgets = ::g_systemdata.get_value(SystemDataValueIndex.SETTING_GADGET).get_trigger();
     local sound = ::g_systemdata.get_value(SystemDataValueIndex.SETTING_GAME);
-    ::evac_run_death_label(shot, bomb, rapid, (width + 0.5).tointeger(),
-      (height + 0.5).tointeger(), screen.get_pos_x(), screen.get_pos_y(), turns, gadgets ? 1 : 0,
+    // The host lays out the borrowed PS4 frame in 1920 x 1080 units. Use the
+    // title's full canvas here; its safe area is already reflected in emu.scale.
+    local canvas = System.getScreenBounds();
+    local unitX = 1920.0 / (canvas.right - canvas.left);
+    local unitY = 1080.0 / (canvas.bottom - canvas.top);
+    local pixels = function(value) { return (value < 0 ? value - 0.5 : value + 0.5).tointeger(); };
+    ::evac_run_death_label(shot, bomb, rapid, pixels(width * unitX), pixels(height * unitY),
+      pixels(screen.get_pos_x() * unitX), pixels(screen.get_pos_y() * unitY), turns, gadgets ? 1 : 0,
       sound.get_index("VolumeBGM"), sound.get_index("VolumeSE"));
   }
 

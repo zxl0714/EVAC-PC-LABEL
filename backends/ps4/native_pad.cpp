@@ -123,36 +123,20 @@ struct History {
         return static_cast<int>(number);
     }
 };
-struct PadState {
-    const DWORD host_main_thread=GetCurrentThreadId();
-    kt::input::KeyboardBindings keyboard_bindings = kt::input::DefaultKeyboardBindings();
-    std::mutex mutex;
-    std::condition_variable condition;
+struct PadPort {
+    kt::input::KeyboardBindings keyboard_bindings{};
     Keyboard keyboard;
+    bool keyboard_enabled{};
     History history;
-    kt::input::SdlGamepad gamepad;
-    kt::input::GamepadSnapshot physical;
-    bool synthetic_input{};
-    std::thread sampler;
-    bool initialized{}, stopping{};
-    int handle{}, next = 1;
+    int handle{};
     int source = -2;
     std::uint32_t source_device{};
     std::uint8_t connections{};
-    unsigned logged_window_edges{}, logged_read_changes{};
+    unsigned logged_read_changes{};
     std::uint32_t last_read_buttons{};
-    std::uint32_t mouse_left_binding{};
-    unsigned diagnostic_tap_ms{};
-    unsigned diagnostic_circle_hold_ms{};
-    std::uint32_t diagnostic_hold_button{0x2000};
-    ~PadState() {
-        { std::lock_guard lock(mutex); stopping = true; condition.notify_all(); }
-        if (sampler.joinable()) { sampler.join(); }
-    }
-    void Sample(bool changes_only = false) { // mutex held; never calls the window or its state mutex
+    void Sample(const kt::input::GamepadSnapshot& physical,bool changes_only) {
         PadData output{};
-        int selected = keyboard.owner ? -1 : -2;
-        if (!synthetic_input) physical=gamepad.Poll();
+        int selected = keyboard_enabled && keyboard.owner ? -1 : -2;
         if (physical.device) selected=-3;
         output.connected = selected != -2;
         if (selected != source || physical.device!=source_device) {
@@ -185,15 +169,58 @@ struct PadState {
         history.Push(output);
     }
 };
+struct PadState {
+    const DWORD host_main_thread=GetCurrentThreadId();
+    std::array<PadPort,2> ports;
+    std::mutex mutex;
+    std::condition_variable condition;
+    kt::input::SdlGamepad gamepad;
+    std::array<kt::input::GamepadSnapshot,2> physical{};
+    bool synthetic_input{},second_enabled{};
+    std::thread sampler;
+    bool initialized{}, stopping{};
+    int next = 1;
+    unsigned logged_window_edges{};
+    std::uint32_t mouse_left_binding{};
+    unsigned diagnostic_tap_ms{};
+    unsigned diagnostic_circle_hold_ms{};
+    std::uint32_t diagnostic_hold_button{0x2000};
+    PadState() {
+        ports[0].keyboard_enabled=true;
+        ports[0].keyboard_bindings=kt::input::DefaultKeyboardBindings();
+    }
+    void Sample(bool changes_only=false,unsigned port=0) {
+        if(!synthetic_input)physical[port]=gamepad.Poll(port);
+        ports[port].Sample(physical[port],changes_only);
+    }
+    void SampleAll() {
+        if (!synthetic_input)physical=gamepad.PollAll();
+        if (!second_enabled && physical[1].device) {
+            // Keep the local user logged in when their controller disconnects.
+            ConfigureNativeSecondUser(true);
+            second_enabled=true;
+        }
+        ports[0].Sample(physical[0],false);
+        if(second_enabled)ports[1].Sample(physical[1],false);
+    }
+    PadPort* Find(int handle) {
+        if(handle)for(auto& port:ports)if(port.handle==handle)return &port;
+        return nullptr;
+    }
+    ~PadState() {
+        { std::lock_guard lock(mutex); stopping = true; condition.notify_all(); }
+        if (sampler.joinable()) { sampler.join(); }
+    }
+};
 // Constructed before main: function-local video/window state is destroyed first.
 // The sampler is joined while this object's lock, clock and DLL are still alive.
 PadState pad_state;
 PadState& State() { return pad_state; }
 void SetKeyboardBindings(const kt::input::KeyboardBindings& bindings) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (state.initialized || state.keyboard.owner) { throw std::runtime_error("Input config must be loaded before the pad/window starts"); }
+    if (state.initialized || state.ports[0].keyboard.owner) { throw std::runtime_error("Input config must be loaded before the pad/window starts"); }
     if (state.diagnostic_circle_hold_ms && bindings['H']) { throw std::runtime_error("Input config key H conflicts with diagnostic Circle hold"); }
-    state.keyboard_bindings = bindings;
+    state.ports[0].keyboard_bindings = bindings;
 }
 int Initialize(const void* caller) {
     auto& state = State();
@@ -202,14 +229,14 @@ int Initialize(const void* caller) {
     if (GetCurrentThreadId()!=state.host_main_thread) { return kFatal; }
     try {
         if (!state.synthetic_input) state.gamepad.Initialize();
-        state.Sample();
+        state.SampleAll();
         state.sampler = std::thread([&state] {
             std::unique_lock gate(state.mutex);
             auto next = std::chrono::steady_clock::now();
             while (!state.stopping) {
                 next += std::chrono::nanoseconds(16666667);
                 if (state.condition.wait_until(gate, next, [&] { return state.stopping; })) { break; }
-                state.Sample();
+                state.SampleAll();
                 if (next < std::chrono::steady_clock::now()) { next = std::chrono::steady_clock::now(); }
             }
         });
@@ -226,35 +253,47 @@ int Open(int user, int type, int index, const void* parameter, const void* calle
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (!state.initialized) { return kNotInitialized; }
     if (user == -1 || user == 0xff) { return static_cast<int>(0x809b0001u); }
-    if (user != 0x1000 || !NativeUserInitialized()) { return static_cast<int>(0x809b0081u); }
+    const bool second=user==kNativeSecondUser && state.second_enabled;
+    if ((user!=kNativePrimaryUser && !second) || !NativeUserInitialized()) { return static_cast<int>(0x809b0081u); }
+    auto& port=state.ports[second?1:0];
     if (type != 0 || index != 0) { return kPort; }
     if (parameter) { UnsupportedApi("scePadOpen_parameter", reinterpret_cast<std::uintptr_t>(parameter), caller); }
-    if (state.handle) { return kOpened; }
+    if (port.handle) { return kOpened; }
     if (state.next == (std::numeric_limits<int>::max)()) { return kFatal; }
-    state.keyboard.Acknowledge(); state.gamepad.ClearPending(); state.history = {}; state.Sample(); state.handle = state.next++;
-    TraceNativeApi("scePadOpen", static_cast<unsigned>(state.handle), caller);
-    return state.handle;
+    port.keyboard.Acknowledge();
+    state.gamepad.ClearPending(second?1:0);
+    port.history = {};
+    state.Sample(false,second?1:0);
+    port.handle = state.next++;
+    TraceNativeApi("scePadOpen", static_cast<unsigned>(port.handle), caller);
+    return port.handle;
 }
 int Close(int handle) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (!state.initialized) { return kNotInitialized; }
-    if (!handle || handle != state.handle) { return kHandle; }
-    state.keyboard.Acknowledge(); state.gamepad.ClearPending(); state.handle = 0; state.history = {}; return 0;
+    auto* port=state.Find(handle);
+    if (!port) { return kHandle; }
+    port->keyboard.Acknowledge();
+    state.gamepad.ClearPending(port==&state.ports[0]?0:1);
+    port->handle = 0;
+    port->history = {};
+    return 0;
 }
-int ReadReports(PadState& state, PadData* output, int count, bool latest) { // mutex held
-    const bool edge = state.keyboard.pending != 0 || state.gamepad.HasPending();
-    state.Sample(!edge && count > 1);
-    const auto reports = state.history.Read(output, latest ? 1 : count);
+int ReadReports(PadState& state, PadData* output, int count, bool latest,unsigned index=0) { // mutex held
+    auto& port=state.ports[index];
+    const bool edge = port.keyboard.pending != 0 || state.gamepad.HasPending(index);
+    state.Sample(!edge && count > 1,index);
+    const auto reports = port.history.Read(output, latest ? 1 : count);
     if (edge) {
-        state.keyboard.Acknowledge();
-        state.gamepad.Acknowledge(state.physical);
+        port.keyboard.Acknowledge();
+        state.gamepad.Acknowledge(state.physical[index]);
     }
-    if (reports && output[reports - 1].buttons != state.last_read_buttons) {
-        state.last_read_buttons = output[reports - 1].buttons;
-        if (state.logged_read_changes < 64) {
-            ++state.logged_read_changes;
-            std::printf("{\"event\":\"native_pad_read_buttons\",\"buttons\":%u,\"reports\":%d,\"timestamp_us\":%llu}\n",
-                output[reports - 1].buttons, reports, output[reports - 1].timestamp);
+    if (reports && output[reports - 1].buttons != port.last_read_buttons) {
+        port.last_read_buttons = output[reports - 1].buttons;
+        if (port.logged_read_changes < 64) {
+            ++port.logged_read_changes;
+            std::printf("{\"event\":\"native_pad_read_buttons\",\"player\":%u,\"buttons\":%u,\"reports\":%d,\"timestamp_us\":%llu}\n",
+                index+1, output[reports - 1].buttons, reports, output[reports - 1].timestamp);
         }
     }
     return latest ? 0 : reports;
@@ -265,18 +304,20 @@ int Read(int handle, PadData* output, int count, bool latest) {
     if (auto* gpu = CurrentNativeResidentGpu()) gpu->PaceInput();
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (!state.initialized) { return kNotInitialized; }
-    if (!handle || handle != state.handle) { return kHandle; }
+    auto* port=state.Find(handle);
+    if (!port) { return kHandle; }
     if (!output || count < 1 || count > 64) { return kArgument; }
-    return ReadReports(state, output, count, latest);
+    return ReadReports(state, output, count, latest,port==&state.ports[0]?0:1);
 }
 int Information(int handle, ControllerInformation* output) {
     auto& state = State(); std::lock_guard lock(state.mutex);
     if (!state.initialized) { return kNotInitialized; }
-    if (!handle || handle != state.handle) { return kHandle; }
+    auto* port=state.Find(handle);
+    if (!port) { return kHandle; }
     if (!output) { return kArgument; }
     ControllerInformation value{};
-    value.connected = state.history.latest.connected;
-    value.connected_count = state.history.latest.connected_count;
+    value.connected = port->history.latest.connected;
+    value.connected_count = port->history.latest.connected_count;
     *output = value; return 0;
 }
 int KT_SYSV PadInit() { return Initialize(__builtin_return_address(0)); }
@@ -288,12 +329,13 @@ int KT_SYSV PadInformation(int handle, ControllerInformation* output) { return I
 }
 
 void ReadNativePadForPs2(void*, unsigned port, std::uint32_t* buttons, std::uint8_t* axes) noexcept {
-    if (port) return;
+    if (port>1) return;
     try {
         auto& state = State();
         std::lock_guard lock(state.mutex);
+        if (port==1 && !state.second_enabled)return;
         PadData input;
-        ReadReports(state,&input,1,true);
+        ReadReports(state,&input,1,true,port);
         *buttons=input.buttons;
         axes[0]=input.right_x; axes[1]=input.right_y;
         axes[2]=input.left_x; axes[3]=input.left_y;
@@ -304,44 +346,48 @@ void ReadNativePadForPs2(void*, unsigned port, std::uint32_t* buttons, std::uint
 
 void NativePadAttachWindow(void* window) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (!window || state.keyboard.owner) { UnsupportedApi("native_pad_window_owner", reinterpret_cast<std::uintptr_t>(window), nullptr); }
-    state.keyboard = {}; state.keyboard.owner = window;
+    if (!window || state.ports[0].keyboard.owner) { UnsupportedApi("native_pad_window_owner", reinterpret_cast<std::uintptr_t>(window), nullptr); }
+    for(auto& port:state.ports) {
+        port.keyboard={}; port.keyboard.owner=window;
+        port.keyboard.bindings=port.keyboard_bindings;
+    }
     state.gamepad.Focus(false);
-    state.keyboard.bindings = state.keyboard_bindings;
-    state.keyboard.mouse_left_binding = state.mouse_left_binding;
-    state.keyboard.diagnostic_tap_ms = state.diagnostic_tap_ms;
-    state.keyboard.diagnostic_circle_hold_ms = state.diagnostic_circle_hold_ms;
-    state.keyboard.diagnostic_hold_button = state.diagnostic_hold_button;
+    state.ports[0].keyboard.mouse_left_binding = state.mouse_left_binding;
+    state.ports[0].keyboard.diagnostic_tap_ms = state.diagnostic_tap_ms;
+    state.ports[0].keyboard.diagnostic_circle_hold_ms = state.diagnostic_circle_hold_ms;
+    state.ports[0].keyboard.diagnostic_hold_button = state.diagnostic_hold_button;
 }
 void NativePadDetachWindow(void* window) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (state.keyboard.owner == window) {
-        state.keyboard = {}; state.history = {};
+    if (state.ports[0].keyboard.owner == window) {
+        for(auto& port:state.ports) {port.keyboard={};port.history={};}
         state.gamepad.Focus(false);
-        if (state.initialized) { state.Sample(); }
+        if (state.initialized) { state.SampleAll(); }
     }
 }
 void NativePadWindowFocus(void* window, bool focused) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (state.keyboard.owner != window) { return; }
-    state.keyboard.Focus(window, focused);
+    if (state.ports[0].keyboard.owner != window) { return; }
+    for(auto& port:state.ports)port.keyboard.Focus(window, focused);
     state.gamepad.Focus(focused);
     if (!focused) {
-        state.history = {};
-        if (state.initialized) { state.Sample(); }
+        for(auto& port:state.ports)port.history={};
+        if (state.initialized) { state.SampleAll(); }
     }
 }
-void NativePadWindowKey(void* window, unsigned key, bool down) {
+std::uint32_t NativePadWindowKey(void* window, unsigned key, bool down) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    const auto binding = state.keyboard.Binding(key);
-    const bool changed = window == state.keyboard.owner && state.keyboard.focused && key < state.keyboard.keys.size() &&
-        state.keyboard.keys[key] != down;
-    state.keyboard.Key(window, key, down);
+    const auto binding = state.ports[0].keyboard.Binding(key);
+    const bool changed = window == state.ports[0].keyboard.owner && state.ports[0].keyboard.focused && key < state.ports[0].keyboard.keys.size() &&
+        state.ports[0].keyboard.keys[key] != down;
+    state.ports[0].keyboard.Key(window, key, down);
+    if(state.second_enabled)state.ports[1].keyboard.Key(window,key,down);
     if (binding && changed && state.logged_window_edges < 64) {
         ++state.logged_window_edges;
         std::printf("{\"event\":\"native_pad_window_edge\",\"source\":\"%s\",\"binding\":%u,\"down\":%s,\"timestamp_us\":%llu}\n",
             key == VK_LBUTTON ? "mouse_left" : "keyboard", binding, down ? "true" : "false", NativeProcessMicroseconds());
     }
+    return changed ? binding | (state.second_enabled?state.ports[1].keyboard.Binding(key):0u) : 0u;
 }
 bool ConfigureNativePadMouseLeft(std::wstring_view button) {
     constexpr std::pair<std::wstring_view, std::uint32_t> bindings[] = {
@@ -350,7 +396,7 @@ bool ConfigureNativePadMouseLeft(std::wstring_view button) {
     for (const auto& [name, mask] : bindings) {
         if (button != name) { continue; }
         auto& state = State(); std::lock_guard lock(state.mutex);
-        if (state.initialized || state.keyboard.owner) { return false; }
+        if (state.initialized || state.ports[0].keyboard.owner) { return false; }
         state.mouse_left_binding = mask;
         std::printf("{\"event\":\"native_pad_input_binding\",\"source\":\"mouse_left\",\"binding\":%u,\"physical_edges_only\":true}\n", mask);
         return true;
@@ -369,24 +415,29 @@ void ConfigureNativePadKeyboard(const std::filesystem::path& path) {
         if (bindings[key]) { std::printf("{\"event\":\"native_pad_keyboard_binding\",\"virtual_key\":%u,\"button\":%u}\n", key, bindings[key]); }
     }
 }
-void ConfigureNativePadSettings(const kt::input::KeyboardBindings& bindings, bool gamepad, double deadzone) {
+void ConfigureNativePadSettings(const kt::input::KeyboardBindings& bindings, bool gamepad, double deadzone,
+                                const kt::input::KeyboardBindings& second,bool swap_players) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (state.initialized || state.keyboard.owner) { throw std::runtime_error("Input config must precede pad/window initialization"); }
+    if (state.initialized || state.ports[0].keyboard.owner) { throw std::runtime_error("Input config must precede pad/window initialization"); }
     if (state.diagnostic_circle_hold_ms && bindings['H']) { throw std::runtime_error("Input config key H conflicts with diagnostic Circle hold"); }
-    state.gamepad.Configure(gamepad, deadzone);
-    state.keyboard_bindings = bindings;
+    state.gamepad.Configure(gamepad, deadzone,swap_players);
+    state.second_enabled=std::ranges::any_of(second,[](auto mask){return mask!=0;});
+    state.ports[1].keyboard_enabled=state.second_enabled;
+    ConfigureNativeSecondUser(state.second_enabled);
+    state.ports[1].keyboard_bindings=second;
+    state.ports[0].keyboard_bindings = bindings;
     std::printf("{\"event\":\"native_pad_collection_settings\",\"gamepad\":%s,\"deadzone\":%.6f}\n", gamepad ? "true" : "false", deadzone);
 }
 bool ConfigureNativeDiagnosticTaps(unsigned milliseconds) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (milliseconds > 500 || state.initialized || state.keyboard.owner) { return false; }
+    if (milliseconds > 500 || state.initialized || state.ports[0].keyboard.owner) { return false; }
     state.diagnostic_tap_ms = milliseconds;
     std::printf("{\"event\":\"native_pad_diagnostic_taps\",\"milliseconds\":%u,\"changes_game_coin_counter\":false}\n", milliseconds);
     return true;
 }
 static bool ConfigureNativeDiagnosticHold(unsigned milliseconds, bool cross) {
     auto& state = State(); std::lock_guard lock(state.mutex);
-    if (milliseconds > 2000 || state.initialized || state.keyboard.owner || (milliseconds && state.keyboard_bindings['H'])) { return false; }
+    if (milliseconds > 2000 || state.initialized || state.ports[0].keyboard.owner || (milliseconds && state.ports[0].keyboard_bindings['H'])) { return false; }
     state.diagnostic_circle_hold_ms = milliseconds;
     state.diagnostic_hold_button = cross ? 0x4000 : 0x2000;
     std::printf("{\"event\":\"native_pad_diagnostic_%s_hold\",\"trigger\":\"H\",\"milliseconds\":%u,\"shift_hold_ms\":%u,\"changes_game_state_directly\":false}\n", cross ? "cross" : "circle", milliseconds, milliseconds ? 30000u : 0u);
@@ -519,14 +570,16 @@ bool PadSelfTest() {
     check(old_key_removed && alias_held && !configured.Buttons(), "configured_aliases_release_independently");
     configured.Key(&owner, 'B', true); configured.Focus(&owner, false); configured.Focus(&owner, true);
     check(!configured.Buttons() && !configured.pending, "configured_keys_clear_on_focus_loss");
-    SetKeyboardBindings(custom);
+    kt::input::KeyboardBindings cabinet{};
+    cabinet['2']=8;cabinet[VK_NUMPAD6]=0x20;cabinet[VK_NUMPAD0]=0x4000;
+    ConfigureNativePadSettings(custom,false,.2,cabinet);
     check(Initialize(nullptr) == 0 && Initialize(nullptr) == 0 && Read(0, nullptr, 0, false) == kHandle,
           "keyboard_backend_and_idempotence");
     auto& state = State();
     std::uint64_t before{};
-    { std::lock_guard lock(state.mutex); before = state.history.latest.timestamp; }
+    { std::lock_guard lock(state.mutex); before = state.ports[0].history.latest.timestamp; }
     std::this_thread::sleep_for(std::chrono::milliseconds(40));
-    { std::lock_guard lock(state.mutex); check(state.history.latest.timestamp > before, "real_background_sampling"); }
+    { std::lock_guard lock(state.mutex); check(state.ports[0].history.latest.timestamp > before, "real_background_sampling"); }
     using UserInitialize = int (KT_SYSV *)(const void*);
     const auto user_init = reinterpret_cast<UserInitialize>(ResolveUserImport("j3YMu1MVNNo", "libSceUserService", "libSceUserService"));
     const int user_ready = user_init(nullptr);
@@ -539,27 +592,37 @@ bool PadSelfTest() {
           "open_read_information_and_handle_lifetime");
     const auto edge_handle = Open(0x1000, 0, 0, nullptr, nullptr);
     NativePadAttachWindow(&owner); NativePadWindowFocus(&owner, true);
+    const auto second_handle=Open(kNativeSecondUser,0,0,nullptr,nullptr);
+    const std::array<unsigned,5> simultaneous{VK_LEFT,'Z',VK_NUMPAD6,VK_NUMPAD0,'2'};
+    for(const auto key:simultaneous)NativePadWindowKey(&owner,key,true);
+    PadData first{},second{};
+    check(second_handle>0 && second_handle!=edge_handle && Read(edge_handle,&first,1,true)==0 &&
+          Read(second_handle,&second,1,true)==0 && first.buttons==0x4080 && second.buttons==0x4028,
+          "two_keyboard_players_move_and_shoot_independently");
+    NativePadWindowFocus(&owner,false);NativePadWindowFocus(&owner,true);
+    check(Read(second_handle,&second,1,true)==0 && !second.buttons && Close(second_handle)==0 &&
+          Read(edge_handle,&first,1,true)==0 && !first.buttons,"second_player_focus_loss_and_independent_close");
     check(!ConfigureNativePadMouseLeft(L"none") && NativePadMouseLeftMapped(), "late_mouse_reconfiguration_rejected");
     NativePadWindowKey(&owner, VK_RETURN, true); NativePadWindowKey(&owner, VK_RETURN, false);
     const auto invalid_read = Read(edge_handle, nullptr, 1, true);
-    { std::lock_guard lock(state.mutex); check(invalid_read == kArgument && state.keyboard.pending == 8,
+    { std::lock_guard lock(state.mutex); check(invalid_read == kArgument && state.ports[0].keyboard.pending == 8,
         "invalid_report_does_not_consume_keyboard_edge"); }
     const auto edge_read = Read(edge_handle, output.data(), 1, true);
-    { std::lock_guard lock(state.mutex); check(edge_read == 0 && !(output[0].buttons & 8) && !state.keyboard.pending && !state.keyboard.Buttons(),
+    { std::lock_guard lock(state.mutex); check(edge_read == 0 && !(output[0].buttons & 8) && !state.ports[0].keyboard.pending && !state.ports[0].keyboard.Buttons(),
         "single_report_returns_current_state_and_clears_dirty_notification"); }
     NativePadWindowKey(&owner, 'X', true); NativePadWindowKey(&owner, 'X', false);
     const auto multi_read = Read(edge_handle, output.data(), 64, false);
-    { std::lock_guard lock(state.mutex); check(multi_read > 0 && !(output[multi_read - 1].buttons & 0x2000) && !state.keyboard.pending,
+    { std::lock_guard lock(state.mutex); check(multi_read > 0 && !(output[multi_read - 1].buttons & 0x2000) && !state.ports[0].keyboard.pending,
         "multi_report_does_not_invent_a_sample_for_released_press"); }
     for (const int capacity : {2, 63}) {
         std::lock_guard lock(state.mutex);
-        state.keyboard.Focus(&owner, false); state.keyboard.Focus(&owner, true);
-        state.history = {};
+        state.ports[0].keyboard.Focus(&owner, false); state.ports[0].keyboard.Focus(&owner, true);
+        state.ports[0].history = {};
         PadData neutral{}; neutral.connected = 1;
-        for (int i = 0; i < 64; ++i) { state.history.Push(neutral); }
-        state.keyboard.Key(&owner, 'V', true); state.keyboard.Key(&owner, 'V', false);
+        for (int i = 0; i < 64; ++i) { state.ports[0].history.Push(neutral); }
+        state.ports[0].keyboard.Key(&owner, 'V', true); state.ports[0].keyboard.Key(&owner, 'V', false);
         const auto first_read = ReadReports(state, output.data(), capacity, false);
-        bool all_neutral = first_read == capacity && !state.keyboard.pending;
+        bool all_neutral = first_read == capacity && !state.ports[0].keyboard.pending;
         for (int attempt=0;attempt<64;++attempt) {
             const auto number=ReadReports(state,output.data(),capacity,false);
             for(int i=0;i<number;++i) all_neutral &= !(output[i].buttons & 0x1000);
@@ -568,13 +631,13 @@ bool PadSelfTest() {
     }
     {
         std::lock_guard lock(state.mutex);
-        state.physical.device = 1;
-        state.physical.buttons = 0x4000;
-        state.physical.left_x = 32;
+        state.physical[0].device = 1;
+        state.physical[0].buttons = 0x4000;
+        state.physical[0].left_x = 32;
         state.Sample();
         ReadReports(state, output.data(), 1, true);
-        state.physical.buttons = 0;
-        state.physical.left_x = 128;
+        state.physical[0].buttons = 0;
+        state.physical[0].left_x = 128;
         const auto changed = ReadReports(state, output.data(), 63, false);
         check(changed == 1 && output[0].buttons == 0 && output[0].left_x == 128,
               "history_sees_release_and_stick_return_before_next_periodic_sample");
@@ -627,7 +690,7 @@ int PadDemo() {
         const auto status = Read(handle, &data, 1, true);
         if (status != 0) { UnsupportedApi("native_pad_demo_read", static_cast<unsigned>(status), nullptr); }
         bool focused{};
-        { auto& state = State(); std::lock_guard lock(state.mutex); focused = state.keyboard.focused; }
+        { auto& state = State(); std::lock_guard lock(state.mutex); focused = state.ports[0].keyboard.focused; }
         if (data.buttons != previous || focused != previous_focus) {
             std::printf("{\"event\":\"native_pad_demo_input\",\"buttons\":%u,\"focused\":%s,\"timestamp_us\":%llu}\n",
                 data.buttons, focused ? "true" : "false", data.timestamp);

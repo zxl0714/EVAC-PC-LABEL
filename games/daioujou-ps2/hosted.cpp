@@ -102,13 +102,19 @@ DeathLabelResult RunHosted(const DeathLabelHost* request, const std::function<bo
         paths.hostRoot=prepared;
         paths.mcRoot=profile/"mc0";
         cave::daioujou_ps2::DeathLabelGadgets gadgets(request->screen);
-        cave::daioujou_ps2::DeathLabelSession::ObserveFrame observe;
-        cave::daioujou_ps2::DeathLabelGadgetFeed* feed{};
+        cave::daioujou_ps2::DeathLabelSession::ObserveFrame observe=
+            [&gadgets](const auto* memory,bool playing,bool menu) { gadgets.Observe(memory,playing,menu); };
         std::atomic_uint64_t firstVisibleField{};
         auto* firstField=request->actions ? &firstVisibleField : nullptr;
         cave::ps2::NativeHost host;
         cave::ps2::NativeHostOptions options;
         options.existingWindow=request->window;
+        if (request->readKeys) options.readWindowKeys=[request](std::span<cave::DeathLabelKeyEvent> keys) {
+            return request->readKeys(request->keyContext,keys.data(),static_cast<unsigned>(keys.size()));
+        };
+        options.stateDirectory=profile/"states"/"ps4-death-label";
+        options.stateIdentity="daioujou-ps2/SLPS-25233/ps4-death-label";
+        if (request->controlsConfig) options.keyboardConfig=request->controlsConfig;
         options.closeEvent=request->closeEvent;
         options.existingPad=std::make_shared<HostedPad>(*request,firstField);
         options.firstVisibleField=firstField;
@@ -126,11 +132,10 @@ DeathLabelResult RunHosted(const DeathLabelHost* request, const std::function<bo
         options.streamVolume=request->audio.music;
         options.voiceVolume=request->audio.effects;
         options.presentation=PresentationFor(request->screen);
-        if (request->gadgetSprites && request->screen.gadgets) {
+        // The two side columns are designed for the unrotated PS4 layout.
+        if (request->gadgetSprites && request->screen.gadgets && !(request->screen.quarterTurns & 1u)) {
             try {
                 options.overlay=gadgets.Load(request->gadgetSprites);
-                feed=&gadgets.Feed();
-                observe=[&gadgets](const auto* memory,bool playing,bool menu) { gadgets.Observe(memory,playing,menu); };
             } catch (const std::exception& error) {
                 std::cerr<<"[ps2-death-label-gadgets] "<<error.what()<<'\n';
             }
@@ -138,7 +143,7 @@ DeathLabelResult RunHosted(const DeathLabelHost* request, const std::function<bo
         host.Configure(std::move(options));
         host.Initialize("DoDonPachi DaiOuJou | Death Label");
         const auto result = cave::daioujou_ps2::RunDiscProgram(paths,host,true,true,{},request->actions,
-            std::move(observe),feed,firstField);
+            std::move(observe),&gadgets.Feed(),firstField);
         if (result.completed) return DeathLabelResult::Completed;
         if (result.next=="boot.elf") return DeathLabelResult::Exit;
         return host.Alive()?DeathLabelResult::Failed:DeathLabelResult::Closed;
@@ -161,6 +166,8 @@ public:
         request_.prepared=prepared_.c_str();
         request_.disc=disc_.c_str();
         request_.profile=profile_.c_str();
+        if (request.controlsConfig) controlsConfig_=request.controlsConfig;
+        request_.controlsConfig=controlsConfig_.empty()?nullptr:controlsConfig_.c_str();
         request_.gadgetSprites=sprites_.empty() ? nullptr : sprites_.c_str();
         request_.actions=&actions_;
         request_.session=nullptr;
@@ -177,6 +184,8 @@ public:
     bool Matches(const DeathLabelHost& request) const {
         return request.window == request_.window && request.closeEvent == request_.closeEvent &&
             request.readPad == request_.readPad && request.padContext == request_.padContext &&
+            request.readKeys == request_.readKeys && request.keyContext == request_.keyContext &&
+            controlsConfig_ == (request.controlsConfig ? request.controlsConfig : L"") &&
             request.volume == request_.volume && request.audio == request_.audio &&
             request.screen == request_.screen && *request.actions == actions_ &&
             request.vsync == request_.vsync && request.reflex == request_.reflex &&
@@ -217,6 +226,7 @@ private:
     }
 
     const fs::path prepared_,disc_,profile_,sprites_;
+    fs::path controlsConfig_;
     const cave::DeathLabelActions actions_;
     DeathLabelHost request_;
     std::mutex mutex_;

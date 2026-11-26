@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <vector>
 #include "gs_scanout.h"
 
 namespace Vulkan { class Device; }
@@ -45,6 +46,9 @@ public:
     uint64_t ScanoutRevision(uint64_t displayBuffer) const;
     void Flush();
     void Reset();
+    // Called on the GS owner at a command boundary with the EE paused.
+    std::vector<uint8_t> SaveDrawingState();
+    void LoadDrawingState(std::span<const uint8_t> state);
     // Headless rendering uses the same GS scanout as the window path. WaitField
     // gates the next command batch; it does not wait idle for the whole device.
     bool RenderField(const GsFrame& frame);

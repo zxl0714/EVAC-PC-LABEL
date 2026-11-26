@@ -73,6 +73,7 @@ void ProgramInstall(const fs::path& parent) {
   const auto installed=parent/"installed",incoming=parent/"incoming";
   Package(installed,"0.10.2","old");Package(incoming,"0.10.3","new");
   const auto config=EnsureConfig(installed);
+  Write(config,"[keyboard]\nsouth=F\n[keyboard_p2]\nsouth=Numpad0\n[game.ketsui.keyboard_p2]\nstart=2\n");
   const auto config_before=Sha256(config);
   Write(installed/"game-data/futari/game.bin","game data");
   Write(installed/"game-data/ketsui/x-arrange/music.xma","player music");

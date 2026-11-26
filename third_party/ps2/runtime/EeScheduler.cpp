@@ -3,6 +3,7 @@
 
 #include "ps2_log.h"
 #include "ps2_runtime_macros.h"
+#include "Kernel/Stubs/MPEG.h"
 #include "../../../backends/ps2/frame_trace.h"
 
 #include <algorithm>
@@ -10,6 +11,14 @@
 #include <cstring>
 #include <limits>
 #include <stdexcept>
+
+namespace ps2_stubs {
+    void resumeCdStreamRead(uint8_t*, R5900Context*, PS2Runtime*, EeCdStreamRead);
+    void resumeIpuInit(uint8_t*, R5900Context*, PS2Runtime*);
+}
+namespace ps2_syscalls {
+    void resumeEeRpc(uint8_t*, PS2Runtime*, cave::ps2::EeRpcReturn, const R5900Context*, R5900Context&);
+}
 
 namespace
 {
@@ -127,6 +136,9 @@ void EeScheduler::reset(uint8_t *rdram, const R5900Context &mainContext)
     {
         std::lock_guard lock(m_eventMutex);
         m_events.clear();
+        m_pauseRequested.store(false, std::memory_order_release);
+        m_pauseJob = {};
+        m_parkedAt.reset();
         m_deadlines.clear();
         m_deferredVBlank.reset();
         m_pendingScanoutTick = 0;
@@ -212,18 +224,24 @@ void EeScheduler::run()
     GuestThread *previous = nullptr;
     while (!m_stopRequested.load(std::memory_order_acquire))
     {
+        if (m_pauseRequested.load(std::memory_order_acquire))
+        {
+            previous = nullptr;  // a load can replace every guest thread
+            waitWhilePaused();
+            continue;
+        }
         GuestThread *running = threadForDispatch(previous);
         previous = nullptr;
         if (!running)
             continue;
         const int ownerId = running->id;
-        if (running->resumeCompletion)
+        if (!std::holds_alternative<std::monostate>(running->resumeCompletion))
         {
             auto completion = std::move(running->resumeCompletion);
             running->resumeCompletion = {};
             try
             {
-                completion(running->activeContext());
+                resumeWait(completion, running->activeContext());
             }
             catch (const EeDispatcherTransfer &)
             {
@@ -256,16 +274,22 @@ void EeScheduler::run()
                 releaseInvocationStack(completed);
                 if (!running->invocations.empty())
                     prepareInvocationStack(running->invocations.back());
-                if (completed.onComplete)
+                try
                 {
-                    try
-                    {
-                        completed.onComplete(completed.context, running->activeContext());
-                    }
-                    catch (const EeDispatcherTransfer &)
-                    {
-                    }
+                    if (const auto* exit = std::get_if<EeExitThread>(&completed.returnAction))
+                        exitCurrent(exit->erase);
+                    else if (std::holds_alternative<EeReturnV0>(completed.returnAction))
+                        running->activeContext().r[2] = completed.context.r[2];
+                    else if (const auto* release = std::get_if<EeFreeGuest>(&completed.returnAction))
+                        m_runtime.guestFree(release->address);
+                    else if (std::holds_alternative<EeFinishIpuInit>(completed.returnAction))
+                        ps2_stubs::resumeIpuInit(m_rdram, &running->activeContext(), &m_runtime);
+                    else if (const auto* rpc = std::get_if<cave::ps2::EeIopRpcReturn>(&completed.returnAction))
+                        m_runtime.completeIopClientRpc(*rpc, completed.context);
+                    else if (const auto* rpc = std::get_if<cave::ps2::EeRpcReturn>(&completed.returnAction))
+                        ps2_syscalls::resumeEeRpc(m_rdram, &m_runtime, *rpc, &completed.context, running->activeContext());
                 }
+                catch (const EeDispatcherTransfer &) {}
                 continue;
             }
             makeDormant(*running);
@@ -347,10 +371,63 @@ void EeScheduler::run()
 
 void EeScheduler::requestStop()
 {
-    m_stopRequested.store(true, std::memory_order_release);
-    m_checkpointPending.store(true, std::memory_order_release);
+    {
+        std::lock_guard lock(m_eventMutex);
+        m_stopRequested.store(true, std::memory_order_release);
+        m_checkpointPending.store(true, std::memory_order_release);
+        m_pauseJob = {};
+    }
     m_deadlineWait->Notify();
     m_eventCv.notify_all();
+}
+
+void EeScheduler::setPaused(bool pause)
+{
+    {
+        std::lock_guard lock(m_eventMutex);
+        m_pauseRequested.store(pause, std::memory_order_release);
+        m_checkpointPending.store(true, std::memory_order_release);
+        if (!pause) m_pauseJob = {};
+    }
+    m_deadlineWait->Notify();
+    m_eventCv.notify_all();
+}
+
+std::future<void> EeScheduler::whilePaused(std::function<void()> job)
+{
+    std::packaged_task<void()> task(std::move(job));
+    auto done = task.get_future();
+    {
+        std::lock_guard lock(m_eventMutex);
+        if (!m_pauseRequested.load() || m_stopRequested.load() || m_pauseJob.valid())
+            throw std::logic_error("EE pause is inactive or already has a pending operation");
+        m_pauseJob = std::move(task);
+    }
+    m_eventCv.notify_all();
+    return done;
+}
+
+void EeScheduler::waitWhilePaused()
+{
+    std::unique_lock lock(m_eventMutex);
+    m_parkedAt = std::chrono::steady_clock::now();
+    while (m_pauseRequested.load() && !m_stopRequested.load())
+    {
+        m_eventCv.wait(lock, [&] {
+            return m_pauseJob.valid() || !m_pauseRequested.load() || m_stopRequested.load();
+        });
+        if (m_pauseJob.valid())
+        {
+            auto job = std::move(m_pauseJob);
+            lock.unlock();
+            job();
+            lock.lock();
+        }
+    }
+    const auto pause = std::chrono::steady_clock::now() - *m_parkedAt;
+    m_parkedAt.reset();
+    lock.unlock();
+    RebaseAfterPause(pause);
 }
 
 void EeScheduler::postEvent(EeEvent event)
@@ -1351,18 +1428,35 @@ int64_t EeScheduler::microsecondsBeforeVBlank() const
     return std::chrono::duration_cast<std::chrono::microseconds>(nextVBlankDeadline() - now).count();
 }
 
-void EeScheduler::deferBeforeVBlank(uint32_t reserveUs, std::function<void(R5900Context &)> completion)
+void EeScheduler::resumeWait(const EeWaitCompletion &action, R5900Context &context)
+{
+    if (const auto *resume = std::get_if<EeResumeAtPc>(&action))
+        context.pc = resume->pc;
+    else if (std::holds_alternative<EeInvertFieldParity>(action))
+        SET_GPR_U32(&context, 2, getRegU32(&context, 2) ^ 1u);
+    else if (std::holds_alternative<EeDeferredPadRead>(action)) {
+        if (!m_deferredPadRead) throw std::logic_error("Missing PS2 pad handler");
+        m_deferredPadRead(m_rdram, &context, &m_runtime);
+    } else if (static_cast<int32_t>(getRegU32(&context, 2)) >= 0) {
+        if (const auto *read = std::get_if<EeCdStreamRead>(&action))
+            ps2_stubs::resumeCdStreamRead(m_rdram, &context, &m_runtime, *read);
+        else if (std::holds_alternative<EeMpegPicture>(action))
+            ps2_stubs::sceMpegGetPicture(m_rdram, &context, &m_runtime);
+    }
+}
+
+void EeScheduler::deferBeforeVBlank(uint32_t reserveUs)
 {
     // Advance the guest clocks and service IRQs, audio and other threads while
     // the caller waits. A late caller runs inline and never waits an extra field.
     if (microsecondsBeforeVBlank() <= reserveUs + 250ll) {
-        completion(*currentContext());
+        resumeWait(EeDeferredPadRead{}, *currentContext());
         return;
     }
     constexpr uint32_t inputWake = 2; // distinct from MPEG's external wait
     const auto deadline = (m_vsyncTick + 1) * kVBlankPeriodCycles - microsecondsToEeCycles(reserveUs);
     scheduleEvent(deadline, EeEvent{EeEventType::ExternalWake, inputWake, deadline});
-    waitExternal(EeWaitReason::External, inputWake, deadline, std::move(completion));
+    waitExternal(EeWaitReason::External, inputWake, deadline, EeDeferredPadRead{});
 }
 
 uint32_t EeScheduler::setGsVSyncCallback(uint32_t callback, uint32_t gp, uint32_t sp)
@@ -1376,7 +1470,7 @@ uint32_t EeScheduler::setGsVSyncCallback(uint32_t callback, uint32_t gp, uint32_
     return previous;
 }
 
-[[noreturn]] void EeScheduler::waitVSync(uint64_t afterTick, int fixedResult, std::function<void(R5900Context &)> completion)
+[[noreturn]] void EeScheduler::waitVSync(uint64_t afterTick, int fixedResult, EeWaitCompletion completion)
 {
     blockCurrent(EeWaitState{
         EeWaitReason::VSync,
@@ -1442,7 +1536,7 @@ void EeScheduler::completeExternalWait(uint32_t type, uint64_t token, int result
 [[noreturn]] void EeScheduler::waitExternal(EeWaitReason reason,
                                             uint32_t type,
                                             uint64_t token,
-                                            std::function<void(R5900Context &)> completion)
+                                            EeWaitCompletion completion)
 {
     EeWaitState wait{reason, EeExternalWait{type, token}, std::move(completion)};
     blockCurrent(std::move(wait));
@@ -1830,7 +1924,8 @@ void EeScheduler::processPendingEvents()
         }
         const uint64_t nextEventCycle = m_nextDeadlineCycle.load(std::memory_order_acquire);
         const bool cycleEventDue = nextEventCycle != 0u && m_eeCycle >= nextEventCycle;
-        const bool pendingWork = !m_events.empty() || cycleEventDue || m_stopRequested.load(std::memory_order_acquire);
+        const bool pendingWork = !m_events.empty() || cycleEventDue ||
+            m_pauseRequested.load(std::memory_order_acquire) || m_stopRequested.load(std::memory_order_acquire);
         m_checkpointPending.store(pendingWork, std::memory_order_release);
     }
     applyPendingPreemption();
@@ -1921,11 +2016,10 @@ void EeScheduler::processDueDeadlines()
             if (std::chrono::steady_clock::now() < pacingDeadline)
             {
                 const auto waitStarted=std::chrono::steady_clock::now();
-                m_deadlineWait->Until(lock, pacingDeadline, [this]()
-                                     { return !m_events.empty() ||
-                                              m_stopRequested.load(std::memory_order_acquire); },m_eventCv);
+                const bool interrupted = m_deadlineWait->Until(lock, pacingDeadline,
+                    [this] { return eventWaitInterrupted(); }, m_eventCv);
                 cave::ps2::frame_trace::WaitReturned(waitStarted,pacingDeadline);
-                if (!m_events.empty() || m_stopRequested.load(std::memory_order_acquire))
+                if (interrupted)
                 {
                     updateNextDeadline();
                     return;
@@ -2115,10 +2209,18 @@ void EeScheduler::writeGuestU32(uint32_t address, uint32_t value)
     std::memcpy(m_rdram + physical, &value, sizeof(value));
 }
 
+// The caller holds m_eventMutex in both idle and frame-pacing waits.
+bool EeScheduler::eventWaitInterrupted() const
+{
+    return !m_events.empty() || m_pauseRequested.load(std::memory_order_acquire) ||
+           m_stopRequested.load(std::memory_order_acquire);
+}
+
 void EeScheduler::waitForEvent()
 {
     std::unique_lock lock(m_eventMutex);
-    if (!m_events.empty() || m_stopRequested.load(std::memory_order_acquire))
+    const auto interrupted = [this] { return eventWaitInterrupted(); };
+    if (interrupted())
     {
         return;
     }
@@ -2126,8 +2228,7 @@ void EeScheduler::waitForEvent()
     const bool hasTimerDeadline = timerCycles != std::numeric_limits<uint64_t>::max();
     if (m_deadlines.empty() && !hasTimerDeadline)
     {
-        m_eventCv.wait(lock, [this]()
-                       { return !m_events.empty() || m_stopRequested.load(std::memory_order_acquire); });
+        m_eventCv.wait(lock, interrupted);
         return;
     }
 
@@ -2158,9 +2259,7 @@ void EeScheduler::waitForEvent()
     }
 
     const auto waitStarted=std::chrono::steady_clock::now();
-    const bool signaled = m_deadlineWait->Until(lock, hostDeadline, [this]()
-                                               { return !m_events.empty() ||
-                                                        m_stopRequested.load(std::memory_order_acquire); },m_eventCv);
+    const bool signaled = m_deadlineWait->Until(lock, hostDeadline, interrupted, m_eventCv);
     cave::ps2::frame_trace::WaitReturned(waitStarted,hostDeadline);
     if (!signaled)
     {

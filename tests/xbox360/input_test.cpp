@@ -277,6 +277,22 @@ int main() {
                 "Guwange keyboard right-stick capabilities missing");
         Require(concrete->GetState(0,&state)==0 && !static_cast<uint16_t>(state.gamepad.buttons),"Unfocused controller state");
         Require(concrete->GetState(1,&state)!=0,"Phantom second controller");
+        const auto cabinet=cave::ParseSettings("[gamepad]\nenabled=false\n[keyboard_p2]\nstart=2\nright=Numpad6\nsouth=B\n"
+                                              "[game.futari.keyboard_p2]\nsouth=Numpad0\n","futari");
+        auto cabinet_input=CreateConfiguredInput(cabinet,false);
+        auto* cabinet_system=static_cast<rex::input::InputSystem*>(cabinet_input.get());
+        Require(cabinet_system->GetState(1,&state)==0 && cabinet_system->GetCapabilities(1,0,&caps)==0 &&
+                cabinet_system->GetState(2,&state)!=0,"Configured P2 keyboard did not occupy exactly the second slot");
+        KeyboardState p1(cabinet),p2(cabinet,true);
+        for(auto* player:{&p1,&p2}) {
+            player->SetFocus(true);
+            for(const auto key:{"Left","Z","2","Numpad6","Numpad0"})player->SetKey(KeyCode(key),true);
+        }
+        Require(p1.PollFrame(1).buttons==0x1004 && p2.PollFrame(1).buttons==0x1018,
+                "Simultaneous cabinet start, opposite directions and shots were not independent");
+        p2.SetKey(KeyCode("Numpad0"),false);p2.SetKey(KeyCode("B"),true);
+        Require(p2.PollFrame(2).buttons==0x18 && p1.PollFrame(2).buttons==0x1004,
+                "Game override, P2 shot release or P1 held state was lost");
         bool rejected{};
         try {CreateConfiguredInput(settings,true);} catch (const std::runtime_error&) {rejected=true;}
         Require(rejected,"Tool mode allowed player input initialization");

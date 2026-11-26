@@ -13,6 +13,7 @@
 #include "thread_id.hpp"
 #include "timer.hpp"
 #include "gs_pixel_trace.h"
+#include "state_archive.h"
 #include "reflex.h"
 #include "../../common/deadline_wait.h"
 #include "../../common/windows_fullscreen_cursor.h"
@@ -241,6 +242,9 @@ public:
     std::unique_ptr<GsDevice> gs;
     Vulkan::Fence pending;
     ParallelGS::ScanoutResult lastReadyImage{};
+    Vulkan::ImageHandle displayedImage, pausedPicture, menuPanel;
+    unsigned displayedWidth{}, displayedHeight{};
+    bool displayedSmooth{};
     cave::DeadlineWait presentTimer;
     std::mutex presentMutex;
     std::condition_variable presentWake;
@@ -349,6 +353,61 @@ public:
             overlayQuads.reserve(96);
         }
     }
+    void DrawScene(Vulkan::CommandBuffer& command, const Vulkan::ImageHandle& image, bool smooth,
+                   unsigned width, unsigned height, bool updateGadgets) {
+        auto& device=wsi.get_device();
+        if(image) {
+            Mark(Stage::BindProgram);
+            const auto& layout=presentation;
+            if(!presentProgram)presentProgram=CreateGsPresentProgram(device,layout.quarterTurns!=0);
+            command.set_program(presentProgram);
+            command.set_texture(0,0,image->get_view(),
+                                 smooth?Vulkan::StockSampler::LinearClamp:Vulkan::StockSampler::NearestClamp);
+            unsigned targetWidth=width,targetHeight=width*3u/4u;
+            if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
+            VkViewport viewport{float((width-targetWidth)/2u),float((height-targetHeight)/2u),
+                               float(targetWidth),float(targetHeight),0,1};
+            float canvasX=0,canvasY=0,canvasWidth=float(width),canvasHeight=float(height);
+            if(layout.canvasAspect>0) {
+                canvasWidth=std::min(float(width),float(height)*layout.canvasAspect);
+                canvasHeight=canvasWidth/layout.canvasAspect;
+                canvasX=(float(width)-canvasWidth)*0.5f;
+                canvasY=(float(height)-canvasHeight)*0.5f;
+                viewport={canvasX+layout.x*canvasWidth,canvasY+layout.y*canvasHeight,
+                          layout.width*canvasWidth,layout.height*canvasHeight,0,1};
+                command.set_scissor({{int32_t(canvasX),int32_t(canvasY)},{uint32_t(canvasWidth),uint32_t(canvasHeight)}});
+            }
+            command.set_viewport(viewport);
+            Mark(Stage::Draw);
+            command.draw(3,1,layout.quarterTurns*3);
+            if(overlay && width>=height) {
+                Mark(Stage::BeginOverlay);
+                auto& quads=overlayQuads;
+                if (updateGadgets) {
+                    quads.clear();
+                    overlay->quads(quads);
+                }
+                if(layout.quarterTurns && !quads.empty()) {
+                    if(!overlayProgram)overlayProgram=CreateGsPresentProgram(device,false);
+                    command.set_program(overlayProgram);
+                }
+                command.set_transparent_sprite_state();
+                for(const auto& quad:quads) {
+                    const float x=canvasX+quad.x*canvasWidth,y=canvasY+quad.y*canvasHeight;
+                    const float w=quad.width*canvasWidth,h=quad.height*canvasHeight;
+                    const auto left = std::clamp(int32_t(x),0,int32_t(width));
+                    const auto top = std::clamp(int32_t(y+h*(1-quad.verticalFill)),0,int32_t(height));
+                    const auto right = std::clamp(int32_t(x+w*quad.fill+0.5f),left,int32_t(width));
+                    const auto bottom = std::clamp(int32_t(y+h+0.5f),top,int32_t(height));
+                    if (right == left || bottom == top) continue;
+                    command.set_scissor({{left,top},{uint32_t(right-left),uint32_t(bottom-top)}});
+                    command.set_viewport({x,y,w,h,0,1});
+                    command.set_texture(0,0,overlayImages[quad.image]->get_view(),Vulkan::StockSampler::LinearClamp);
+                    command.draw(3);
+                }
+            }
+        }
+    }
     ~Impl() {
         if(pending)pending->wait();
         try{pixels.Save(wsi.get_device());}
@@ -390,12 +449,18 @@ bool GsDisplay::Alive(){
     if(impl->window.inputFailure)std::rethrow_exception(impl->window.inputFailure);
     return !impl->window.closed;
 }
-bool GsDisplay::Focused() const{return GetForegroundWindow()==impl->window.handle;}
+bool GsDisplay::Focused() const {
+    // Hosted Death Label draws into a disabled child. Its PS4 parent owns input.
+    return GetForegroundWindow()==GetAncestor(impl->window.handle,GA_ROOT);
+}
 void GsDisplay::SetKeyHandler(std::function<void(unsigned,bool)> handler){impl->window.keyHandler=std::move(handler);}
 void GsDisplay::ToggleFullscreen(){impl->window.ToggleFullscreen();}
 void GsDisplay::ResetForProgram() {
     impl->lastPresent=0;
     WaitPreviousFrame();
+    impl->displayedImage.reset();
+    impl->pausedPicture.reset();
+    impl->menuPanel.reset();
     impl->window.reflex.ResetForProgram();
     impl->window.amdField=0;
     impl->lastReadyImage.image.reset();
@@ -477,6 +542,144 @@ void GsDisplay::PresentLoadingFrame() {
     device.submit(command);
     if(EndWindowFrame(true))StartupTrace("loading-frame-presented");
 }
+void GsDisplay::CapturePausedPicture() {
+    WaitPreviousFrame();
+    impl->gs->Flush();
+    auto& device = impl->wsi.get_device();
+    // The persistent preview also works on a different resolution or monitor.
+    const unsigned w = std::max(1u, impl->displayedWidth), h = std::max(1u, impl->displayedHeight);
+    const auto longest = std::max({w,h,1280u});
+    const unsigned width = std::max(1u, w * 1280 / longest), height = std::max(1u, h * 1280 / longest);
+    auto info = Vulkan::ImageCreateInfo::render_target(width, height, VK_FORMAT_R8G8B8A8_UNORM);
+    info.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    auto picture = device.create_image(info);
+    if (!picture) throw std::runtime_error("Cannot create paused game picture");
+    auto command = device.request_command_buffer();
+    Vulkan::RenderPassInfo pass{};
+    pass.num_color_attachments = pass.clear_attachments = pass.store_attachments = 1;
+    pass.color_attachments[0] = &picture->get_view();
+    pass.clear_color[0].float32[3] = 1;
+    command->begin_render_pass(pass);
+    command->set_opaque_sprite_state();
+    impl->DrawScene(*command, impl->displayedImage, impl->displayedSmooth, width, height, false);
+    command->end_render_pass();
+    command->image_barrier(*picture, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    device.submit(command);
+    impl->pausedPicture = std::move(picture);
+}
+
+std::vector<uint8_t> GsDisplay::SavePausedPicture() {
+    if (!impl->pausedPicture) throw std::logic_error("No paused picture");
+    auto& image = *impl->pausedPicture;
+    const auto width = image.get_width(), height = image.get_height();
+    auto& device = impl->wsi.get_device();
+    Vulkan::BufferCreateInfo info{};
+    info.domain = Vulkan::BufferDomain::CachedHost;
+    info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    info.size = size_t(width) * height * 4;
+    auto buffer = device.create_buffer(info);
+    if (!buffer) throw std::runtime_error("Cannot allocate paused picture staging buffer");
+    std::vector<uint8_t> bytes;
+    bytes.reserve(8 + info.size);
+    StateWriter out(bytes);
+    out.Fields(width,height);
+    auto command = device.request_command_buffer();
+    command->image_barrier(image, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+        VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
+    VkBufferImageCopy copy{};
+    copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};
+    copy.imageExtent = {width,height,1};
+    command->copy_image_to_buffer(*buffer,image,1,&copy);
+    command->image_barrier(image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    command->buffer_barrier(*buffer, VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+        VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
+    Vulkan::Fence fence;
+    device.submit(command,&fence);
+    fence->wait();
+    auto* pixels = static_cast<const uint8_t*>(device.map_host_buffer(*buffer,Vulkan::MEMORY_ACCESS_READ_BIT));
+    if (!pixels) throw std::runtime_error("Cannot read paused picture");
+    out.Bytes({pixels,static_cast<size_t>(info.size)});
+    device.unmap_host_buffer(*buffer,Vulkan::MEMORY_ACCESS_READ_BIT);
+    return bytes;
+}
+
+std::function<void()> GsDisplay::PreparePausedPicture(std::span<const uint8_t> bytes) {
+    StateReader reader(bytes);
+    unsigned width{}, height{};
+    reader.Fields(width,height);
+    if (!width || !height || width > 1280 || height > 1280)
+        throw std::invalid_argument("Invalid saved game picture dimensions");
+    const auto pixels = reader.Take(size_t(width)*height*4);
+    reader.Finish();
+    auto info = Vulkan::ImageCreateInfo::immutable_2d_image(width,height,VK_FORMAT_R8G8B8A8_UNORM);
+    info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    Vulkan::ImageInitialData initial{};
+    initial.data = pixels.data();
+    auto picture = impl->wsi.get_device().create_image(info,&initial);
+    if (!picture) throw std::runtime_error("Cannot upload saved game picture");
+    return [this,picture=std::move(picture)] { impl->pausedPicture = picture; };
+}
+
+void GsDisplay::SetMenuPanel(unsigned width,unsigned height,std::span<const uint8_t> bgra) {
+    if (!width || !height || width>2048 || height>2048 || size_t(width)*height*4 != bgra.size())
+        throw std::invalid_argument("Invalid pause menu panel");
+    const auto info = Vulkan::ImageCreateInfo::immutable_2d_image(width,height,VK_FORMAT_B8G8R8A8_UNORM);
+    Vulkan::ImageInitialData initial{};
+    initial.data = bgra.data();
+    auto panel = impl->wsi.get_device().create_image(info,&initial);
+    if (!panel) throw std::runtime_error("Cannot upload pause menu panel");
+    impl->menuPanel = std::move(panel);
+}
+
+void GsDisplay::PresentMenu() {
+    if (IsIconic(impl->window.handle)) return;
+    WaitPreviousFrame();
+    impl->gs->Flush();
+    BeginWindowFrame();
+    auto& device = impl->wsi.get_device();
+    const auto& surface = device.get_swapchain_view().get_image();
+    const float w = float(surface.get_width()), h = float(surface.get_height());
+    auto pass = device.get_swapchain_render_pass(Vulkan::SwapchainRenderPass::ColorOnly);
+    pass.clear_color[0].float32[3] = 1;
+    auto command = device.request_command_buffer();
+    command->begin_render_pass(pass);
+    command->set_opaque_sprite_state();
+    const auto draw = [&](const Vulkan::ImageHandle& texture,float fitWidth,float fitHeight,unsigned turns) {
+        if (!texture) return;
+        auto& program = turns ? impl->presentProgram : impl->overlayProgram;
+        if (!program) program=CreateGsPresentProgram(device,turns!=0);
+        command->set_program(program);
+        const float width = float((turns&1u) ? texture->get_height() : texture->get_width());
+        const float height = float((turns&1u) ? texture->get_width() : texture->get_height());
+        const float scale = std::min(fitWidth/width, fitHeight/height);
+        const float tw = width*scale, th = height*scale;
+        command->set_viewport({(w-tw)/2,(h-th)/2,tw,th,0,1});
+        command->set_texture(0,0,texture->get_view(), Vulkan::StockSampler::LinearClamp);
+        command->draw(3,1,turns*3);
+    };
+    // CapturePausedPicture already includes the game's rotation.
+    draw(impl->pausedPicture,w,h,0);
+    command->set_transparent_sprite_state();
+    const auto& layout=impl->presentation;
+    const float canvasWidth=layout.canvasAspect>0 ? std::min(w,h*layout.canvasAspect) : w;
+    const float canvasHeight=layout.canvasAspect>0 ? canvasWidth/layout.canvasAspect : h;
+    draw(impl->menuPanel,canvasWidth*0.83f,canvasHeight*0.83f,layout.quarterTurns);
+    command->end_render_pass();
+    device.submit(command,&impl->pending);
+    EndWindowFrame(false);
+}
+
+void GsDisplay::CloseMenu() {
+    impl->pausedPicture.reset();
+    impl->menuPanel.reset();
+    impl->lastPresent=0;
+}
+
 bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     const auto renderStart=frame_trace::Stamp();
     impl->window.reflex.BeginOutput();
@@ -531,56 +734,7 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     pass.clear_attachments=1;pass.store_attachments=1;
     impl->Mark(Stage::BeginPass);
     command->begin_render_pass(pass);command->set_opaque_sprite_state();
-    if(source.image) {
-        impl->Mark(Stage::BindProgram);
-        const auto& layout=impl->presentation;
-        if(!impl->presentProgram)impl->presentProgram=CreateGsPresentProgram(device,layout.quarterTurns!=0);
-        command->set_program(impl->presentProgram);
-        command->set_texture(0,0,source.image->get_view(),
-                             smooth?Vulkan::StockSampler::LinearClamp:Vulkan::StockSampler::NearestClamp);
-        const auto width=destination.get_width(),height=destination.get_height();
-        unsigned targetWidth=width,targetHeight=width*3u/4u;
-        if(targetHeight>height){targetHeight=height;targetWidth=height*4u/3u;}
-        VkViewport viewport{float((width-targetWidth)/2u),float((height-targetHeight)/2u),
-                           float(targetWidth),float(targetHeight),0,1};
-        float canvasX=0,canvasY=0,canvasWidth=float(width),canvasHeight=float(height);
-        if(layout.canvasAspect>0) {
-            canvasWidth=std::min(float(width),float(height)*layout.canvasAspect);
-            canvasHeight=canvasWidth/layout.canvasAspect;
-            canvasX=(float(width)-canvasWidth)*0.5f;
-            canvasY=(float(height)-canvasHeight)*0.5f;
-            viewport={canvasX+layout.x*canvasWidth,canvasY+layout.y*canvasHeight,
-                      layout.width*canvasWidth,layout.height*canvasHeight,0,1};
-            command->set_scissor({{int32_t(canvasX),int32_t(canvasY)},{uint32_t(canvasWidth),uint32_t(canvasHeight)}});
-        }
-        command->set_viewport(viewport);
-        impl->Mark(Stage::Draw);
-        command->draw(3,1,layout.quarterTurns*3);
-        if(impl->overlay) {
-            impl->Mark(Stage::BeginOverlay);
-            auto& quads=impl->overlayQuads;
-            quads.clear();
-            impl->overlay->quads(quads);
-            if(layout.quarterTurns && !quads.empty()) {
-                if(!impl->overlayProgram)impl->overlayProgram=CreateGsPresentProgram(device,false);
-                command->set_program(impl->overlayProgram);
-            }
-            command->set_transparent_sprite_state();
-            for(const auto& quad:quads) {
-                const float x=canvasX+quad.x*canvasWidth,y=canvasY+quad.y*canvasHeight;
-                const float w=quad.width*canvasWidth,h=quad.height*canvasHeight;
-                const auto left = std::clamp(int32_t(x),0,int32_t(width));
-                const auto top = std::clamp(int32_t(y+h*(1-quad.verticalFill)),0,int32_t(height));
-                const auto right = std::clamp(int32_t(x+w*quad.fill+0.5f),left,int32_t(width));
-                const auto bottom = std::clamp(int32_t(y+h+0.5f),top,int32_t(height));
-                if (right == left || bottom == top) continue;
-                command->set_scissor({{left,top},{uint32_t(right-left),uint32_t(bottom-top)}});
-                command->set_viewport({x,y,w,h,0,1});
-                command->set_texture(0,0,impl->overlayImages[quad.image]->get_view(),Vulkan::StockSampler::LinearClamp);
-                command->draw(3);
-            }
-        }
-    }
+    impl->DrawScene(*command,source.image,smooth,destination.get_width(),destination.get_height(),true);
     impl->Mark(Stage::EndPass);
     command->end_render_pass();
     impl->Mark(Stage::Submit);
@@ -602,6 +756,10 @@ bool GsDisplay::Present(const GsFrame& request,bool repeatCompletedImage) {
     impl->Mark(Stage::Present);
     const auto presentStart=frame_trace::Stamp();
     if(!EndWindowFrame(false))return false;
+    impl->displayedImage = source.image;
+    impl->displayedSmooth = smooth;
+    impl->displayedWidth = destination.get_width();
+    impl->displayedHeight = destination.get_height();
     const auto presentEnd=frame_trace::Stamp();
     impl->RecordPresent(request.vsyncTick,renderStart,presentStart,presentEnd);
     impl->Mark(Stage::Presented);

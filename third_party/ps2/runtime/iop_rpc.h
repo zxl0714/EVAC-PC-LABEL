@@ -5,7 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
-#include <memory>
+#include <span>
+#include <vector>
+
+namespace cave::ps2 { struct IopRpcReply; }
 
 namespace ps2x::iop
 {
@@ -47,6 +50,10 @@ namespace ps2x::iop::detail
         IopRpcBridge(IopHost &host, IopMemory &memory, IopKernel &kernel) noexcept;
 
         void reset();
+        void completeEeRpc(const cave::ps2::IopRpcReply& reply, std::span<const uint8_t> bytes,
+                           IopGuestExecutor& executor);
+        std::vector<uint8_t> saveState() const;
+        void loadState(std::span<const uint8_t> bytes);
         [[nodiscard]] bool dispatchSifManImport(uint16_t ordinal, IopCpuState &cpu);
         [[nodiscard]] bool dispatchSifCmdImport(uint16_t ordinal, IopCpuState &cpu, IopGuestExecutor &executor);
         [[nodiscard]] RpcResult handleRpc(const RpcRequest &request, IopGuestExecutor &executor);
@@ -74,7 +81,7 @@ namespace ps2x::iop::detail
         IopKernel &m_kernel;
         std::unordered_map<uint32_t, RpcServer> m_servers;
         std::unordered_map<uint32_t, uint32_t> m_localClients;
-        std::shared_ptr<int> m_epoch = std::make_shared<int>(0);
+        uint64_t m_epoch = 0;
         uint32_t m_nextDmaId = 1u;
         bool m_sifInitialized = false;
     };

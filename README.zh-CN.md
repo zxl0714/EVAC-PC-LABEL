@@ -12,7 +12,7 @@ EVAC PC LABEL 是将经典射击游戏移植到 PC 的开源项目，提供统�
   <a href="https://github.com/zxl0714/EVAC-PC-LABEL/releases/latest"><strong>下载 Windows 版</strong></a> ·
   <a href="docs/GAME_DATA.md">游戏数据</a> ·
   <a href="docs/SETTINGS.md">设置与操作</a> ·
-  <a href="docs/RELEASE_NOTES_v0.10.6.md#简体中文">v0.10.6 更新说明</a>
+  <a href="docs/RELEASE_NOTES_v0.10.7.md#简体中文">v0.10.7 更新说明</a>
 </p>
 
 <p align="center">

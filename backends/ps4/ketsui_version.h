@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-// Independently verified CUSA09062 executable contracts. These are metadata,
+// Independently verified Japanese and US executable contracts. These are metadata,
 // not an offset heuristic: never apply one version's sites to another image.
 // The loaded prepared image retains the original executable SHA-256 identity.
 struct KetsuiVersion {
@@ -19,7 +19,7 @@ struct KetsuiVersion {
     std::uint32_t replay_data_version;
     std::array<std::size_t,3> JobSlots() const { return {score_table+0x40,score_table,score_table+8}; }
 };
-inline constexpr std::array<KetsuiVersion,4> kKetsuiVersions{{
+inline constexpr std::array<KetsuiVersion,5> kKetsuiVersions{{
     {"01.00","22927d470a261d52c31510b8e5f173f4f6256307828e302f6eab19f4357c0e8f",
      0xd2,0x1e4a20,0x2d8e88,0x2d8f68,{0x1e7330,0x1e8d30,0x1e8d40},
      {0x2d8e68,0x2d8e70},{0x1e40a0,0x1e4410},
@@ -39,7 +39,12 @@ inline constexpr std::array<KetsuiVersion,4> kKetsuiVersions{{
     {"01.03","7ab773375a6c71853b0777f25edb5c4cf40c4b93cdbfb872392206d41c3b96df",
      0xd3,0x1e5220,0x2d8ed8,0x2d8fb8,{0x1e7b30,0x1e9530,0x1e9540},
      {0x2d8eb8,0x2d8ec0},{0x1e48a0,0x1e4c10},
-     0x1b1650,0x1b3770,0x1b4940,0x1b1880,0x1fe2e0,0x791ac8,0x791acc,0x2e0f38,0x10001}
+     0x1b1650,0x1b3770,0x1b4940,0x1b1880,0x1fe2e0,0x791ac8,0x791acc,0x2e0f38,0x10001},
+    // CUSA17078 ships the revised replay format in the base US application.
+    {"01.00","f4499dec819ea5c98882c5fbbc76fb86909737184f980955ae3d6eac788bc85c",
+     0xd2,0x1e5070,0x2d8ea8,0x2d8f88,{0x1e7980,0x1e9380,0x1e9390},
+     {0x2d8e88,0x2d8e90},{0x1e46f0,0x1e4a60},
+     0x1b14a0,0x1b35c0,0x1b4790,0x1b16d0,0x1fe130,0x791ac8,0x791acc,0x2e0f38,0x10001}
 }};
 inline const KetsuiVersion* FindKetsuiVersion(std::string_view source) {
     for(const auto& version:kKetsuiVersions)if(version.source==source)return &version;

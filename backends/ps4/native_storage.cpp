@@ -211,7 +211,7 @@ __declspec(noinline) int InitializeHost(void* reserved, const void* caller) {
         // Recheck after creation, including any newly materialized components.
         (void)CheckedRoot(saves);
         CheckWritable(saves);
-        auto candidate = std::make_unique<kt::save::Store>(saves);
+        auto candidate = std::make_unique<kt::save::Store>(saves, storage_title);
         save_store = std::move(candidate);
         initialized = true;
         std::printf("{\"event\":\"native_storage_initialized\",\"profile\":\"1000\",\"title\":\"%s\",\"mounts\":0}\n",storage_title.c_str());
@@ -251,7 +251,7 @@ __declspec(noinline) int MountHost(const MountRequest* request, MountResult* res
         const auto free = std::find(mounts.begin(), mounts.end(), nullptr); if (free == mounts.end()) { return static_cast<int>(0x809f000cu); }
         // Existing M2 saves reuse the original directory and allocation when
         // the game expands the packed quick-save array.
-        const bool expanded_slots = storage_title == "CUSA09062" || storage_title == "CUSA15155" ||
+        const bool expanded_slots = storage_title == "CUSA09062" || storage_title == "CUSA17078" || storage_title == "CUSA15155" ||
             storage_title == "CUSA06735" || storage_title == "CUSA10207" || storage_title == "CUSA05429";
         const auto quota = expanded_slots ? kt::save::QuotaPolicy::GrowSaveData : kt::save::QuotaPolicy::Fixed;
         bool created{};

@@ -125,6 +125,7 @@ bool DaioujouDeathLabel::Prepare(const fs::path& root, const Ini& ini, std::stri
         disc_ = disc.disc_image;
         prepared_ = PreparePs2Disc(spec.paths, disc_, daioujou_ps2::DiscSha256, daioujou_ps2::DiscFiles);
         profile_ = spec.paths.profile;
+        controls_config_ = root / "user-data" / "config.ini";
         volume_ = static_cast<float>(ResolveSettings(ini, "daioujou").volume);
 
         const auto dll = DataChild(root, "runtime/ps2/daioujou-ps2-runtime.dll");
@@ -149,6 +150,7 @@ DeathLabelResult DaioujouDeathLabel::Run(const DeathLabelActions& actions, const
     host.prepared = prepared_.c_str();
     host.disc = disc_.c_str();
     host.profile = profile_.c_str();
+    host.controlsConfig = controls_config_.c_str();
     host.gadgetSprites = gadget_sprites_.empty() ? nullptr : gadget_sprites_.c_str();
     host.volume = volume_;
     host.actions = &actions;

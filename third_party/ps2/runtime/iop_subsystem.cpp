@@ -5,7 +5,9 @@
 #include "emulator/iop_emulator.h"
 #include "module_factories.h"
 #include "ps2x/iop/ps2_path.h"
+#include "../../../backends/ps2/state_archive.h"
 
+#include <map>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -13,6 +15,60 @@
 
 namespace ps2x::iop
 {
+    namespace detail
+    {
+        struct IopModuleState
+        {
+            static void write(cave::ps2::StateWriter& ar, const IopModuleManager& manager)
+            {
+                ar.Field(manager.m_nextHleId);
+                std::map<int32_t, IopModuleManager::Record> records(manager.m_records.begin(), manager.m_records.end());
+                ar.Items(records, UINT32_MAX, 13, [&](const auto& item) {
+                    ar.Field(item.first);
+                    ar.String(item.second.key);
+                    ar.Fields(item.second.references, item.second.physical);
+                });
+                std::map<std::string, uint32_t> refs(manager.m_loadedKeyReferences.begin(), manager.m_loadedKeyReferences.end());
+                ar.Items(refs, UINT32_MAX, 8, [&](const auto& item) {
+                    ar.String(item.first);
+                    ar.Field(item.second);
+                });
+            }
+
+            static void read(cave::ps2::StateReader& ar, IopModuleManager& manager)
+            {
+                manager.reset();
+                ar.Field(manager.m_nextHleId);
+                if (manager.m_nextHleId < 0x40000000) throw std::invalid_argument("Invalid next IOP service ID");
+                const auto records = ar.Count(UINT32_MAX, 13);
+                for (uint32_t i = 0; i < records; ++i)
+                {
+                    int32_t id{};
+                    ar.Field(id);
+                    IopModuleManager::Record record;
+                    record.key = ar.String(UINT32_MAX);
+                    ar.Fields(record.references, record.physical);
+                    if (id <= 0 || record.key.empty() || !record.references)
+                        throw std::invalid_argument("Invalid IOP service record");
+                    if (!record.physical && (id < 0x40000000 || id >= manager.m_nextHleId ||
+                        !manager.m_hleIdsByKey.emplace(record.key, id).second))
+                        throw std::invalid_argument("Invalid IOP service ID");
+                    if (!manager.m_records.emplace(id, std::move(record)).second)
+                        throw std::invalid_argument("Duplicate IOP module ID");
+                }
+                const auto keys = ar.Count(UINT32_MAX, 8);
+                for (uint32_t i = 0; i < keys; ++i)
+                {
+                    auto key = ar.String(UINT32_MAX);
+                    uint32_t refs{};
+                    ar.Field(refs);
+                    if (!refs || key.empty() || !manager.m_loadedKeyReferences.emplace(std::move(key), refs).second)
+                        throw std::invalid_argument("Invalid IOP service reference count");
+                }
+            }
+        };
+    }
+
     class IopSubsystem::Impl
     {
     public:
@@ -43,26 +99,32 @@ namespace ps2x::iop
             moduleManager.setServiceModuleKeys(std::move(keys));
         }
 
-        void rebuildRoutes()
+        using Routes = std::unordered_map<uint32_t, detail::IopService *>;
+        Routes routesFor(const detail::IopModuleManager& manager, std::string& error) const
         {
-            routes.clear();
-            lastError.clear();
+            Routes result;
+            error.clear();
             for (const auto &service : coreServices)
             {
-                if (!serviceActive(*service))
+                if (!manager.isLoaded(service->moduleAliases()))
                     continue;
                 for (const uint32_t sid : service->sids())
                 {
-                    if (!routes.emplace(sid, service.get()).second)
+                    if (!result.emplace(sid, service.get()).second)
                     {
                         std::ostringstream out;
                         out << "duplicate IOP SID 0x" << std::hex << sid << " in core services";
-                        lastError = out.str();
-                        routes.clear();
-                        return;
+                        error = out.str();
+                        return {};
                     }
                 }
             }
+            return result;
+        }
+
+        void rebuildRoutes()
+        {
+            routes = routesFor(moduleManager, lastError);
         }
 
         void recordLoadOutcome(std::string_view path, bool hle)
@@ -80,7 +142,7 @@ namespace ps2x::iop
 
         IopHost &host;
         detail::ServiceList coreServices;
-        std::unordered_map<uint32_t, detail::IopService *> routes;
+        Routes routes;
         std::vector<std::string> loadOutcomes;
         std::unordered_set<std::string> loggedLoadPaths;
         std::string lastError;
@@ -96,6 +158,34 @@ namespace ps2x::iop
     IopSubsystem::~IopSubsystem() = default;
     IopSubsystem::IopSubsystem(IopSubsystem &&) noexcept = default;
     IopSubsystem &IopSubsystem::operator=(IopSubsystem &&) noexcept = default;
+
+    std::vector<uint8_t> IopSubsystem::saveState() const
+    {
+        std::vector<uint8_t> bytes;
+        cave::ps2::StateWriter writer(bytes);
+        writer.Field(uint32_t{1});
+        detail::IopModuleState::write(writer, m_impl->moduleManager);
+        writer.Blob(m_impl->emulator.saveState());
+        return bytes;
+    }
+
+    void IopSubsystem::loadState(std::span<const uint8_t> bytes)
+    {
+        cave::ps2::StateReader reader(bytes);
+        uint32_t version{};
+        reader.Field(version);
+        if (version != 1) throw std::invalid_argument("Unknown IOP subsystem state version");
+        auto manager = m_impl->moduleManager;
+        detail::IopModuleState::read(reader, manager);
+        const auto emulatorState = reader.Blob();
+        reader.Finish();
+        std::string error;
+        auto routes = m_impl->routesFor(manager, error);
+        m_impl->emulator.loadState(emulatorState);
+        m_impl->moduleManager = std::move(manager);
+        m_impl->routes = std::move(routes);
+        m_impl->lastError = std::move(error);
+    }
 
     void IopSubsystem::reset()
     {
@@ -225,6 +315,11 @@ namespace ps2x::iop
             return emulated;
         }
         return hle->handleRpc(request);
+    }
+
+    void IopSubsystem::completeEeRpc(const cave::ps2::IopRpcReply& reply, std::span<const uint8_t> bytes)
+    {
+        m_impl->emulator.completeEeRpc(reply, bytes);
     }
 
     void IopSubsystem::onSifTransfer(const SifTransfer &transfer)

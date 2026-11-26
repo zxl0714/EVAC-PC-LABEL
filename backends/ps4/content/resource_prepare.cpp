@@ -601,8 +601,9 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
     };
     const auto base=index("ps4data_info.psb.m","ps4data_info.psb.m");
     const auto patch=updated?index("ps4data_patch_info.psb.m","ps4data_patch_info.psb.m"):Json{};
-    kt::content::ReadPatchSet patches{"CUSA09062",std::string(version->version),{}};
-    Json report{{"format",1},{"fix","direct-menu-music-autosave"},{"title_id","CUSA09062"},{"app_version",version->version},
+    const bool us_base=variant->title_id=="CUSA17078";
+    kt::content::ReadPatchSet patches{std::string(variant->title_id),std::string(version->version),{}};
+    Json report{{"format",1},{"fix","direct-menu-music-autosave"},{"title_id",variant->title_id},{"app_version",version->version},
         {"executable_sha256",raw_hash},{"original_files_modified",false}};
     auto fix=[&](const Json& file_index,std::string_view resource,std::string_view archive,std::string_view path,
                  std::string_view expected,ResourceFix transform) {
@@ -621,24 +622,27 @@ PreparedReadFixes PrepareReadFixes(const fs::path& data,bool community_replay,bo
         patches.entries.push_back(std::move(patch));
         return Json{{"resource",resource},{"offset",offset},{"bytes",size},{"original_script_sha256",expected},{"fixed_script_sha256",Hash(fixed)}};
     };
+    // The US disc includes the revised Japanese update scripts in its base archive.
+    constexpr auto revised_menu="054ead29b630f1547da37789fd84bdef964f73dfb9aab53ab7f71ced6497cf76";
+    constexpr auto revised_ranking="c80518d21c0185c34bd06e8fd2ecae5735c2d11a11cbf2aeaa31b3575eec98f1";
     const auto music=fix(base,"5000/script/title_mode_direct_menu.nut.m","ps4data_body.bin","ps4data_body.bin",
-        "83ba95c0ff110a17f9e641addc59e61b89c05431e57a91235eb15c872045f672",ResourceFix::MusicAutosave);
+        us_base?revised_menu:"83ba95c0ff110a17f9e641addc59e61b89c05431e57a91235eb15c872045f672",ResourceFix::MusicAutosave);
     report.update(music); report["original_file_bytes"]=patches.entries.front().file_size;
     report["original_packed_sha256"]=Hex(patches.entries.front().original_sha256);
     if (community_replay) report["community_replay_batch"]=fix(base,"system/script/ranking_manager.nut.m",
-        "ps4data_body.bin","ps4data_body.bin","8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43",ResourceFix::ReplayBatch);
+        "ps4data_body.bin","ps4data_body.bin",us_base?revised_ranking:"8826a4a6545d302df876f9096a15147a036098d724d2fbd6c7f6a2349f972e43",ResourceFix::ReplayBatch);
     if (update103) {
         report["patch_music_autosave"]=fix(patch,"5000/script/title_mode_direct_menu.nut.m",
             "ps4data_patch_body.bin","ps4data_patch_body.bin",
-            "054ead29b630f1547da37789fd84bdef964f73dfb9aab53ab7f71ced6497cf76",ResourceFix::MusicAutosave);
+            revised_menu,ResourceFix::MusicAutosave);
         if(community_replay) report["patch_community_replay_batch"]=fix(patch,"system/script/ranking_manager.nut.m",
             "ps4data_patch_body.bin","ps4data_patch_body.bin",
-            "c80518d21c0185c34bd06e8fd2ecae5735c2d11a11cbf2aeaa31b3575eec98f1",ResourceFix::ReplayBatch);
+            revised_ranking,ResourceFix::ReplayBatch);
     }
     if (community_offline) {
         const auto archive=updated?"ps4data_patch_body.bin":"ps4data_body.bin";
         auto offline=fix(updated?patch:base,"5000/script/title_standalone.nut.m",archive,archive,
-            update103?"395c82f79f1d5557c42531c7647b3bf55f067e17fb530dab24f94ad83b536269":
+            (update103 || us_base)?"395c82f79f1d5557c42531c7647b3bf55f067e17fb530dab24f94ad83b536269":
             updated?"889ac1152f99d774125e199179264887aa8a21986f670e5c48fc79d0c099db9d":
                     "63b6a45d85e49936665e82e24f188e64fca4e60bc9bc850e71979ca2b9ef6bc8",ResourceFix::LocalRoundGate);
         offline.update(Json{{"layer",updated?"patch":"base"},{"scope","eligible-post-game-submission"},{"requires_native_rounds",true}});

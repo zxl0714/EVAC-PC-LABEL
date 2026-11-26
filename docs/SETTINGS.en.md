@@ -12,7 +12,11 @@ Drag game cards to reorder the library, or right-click to hide a game. Use the e
 
 Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Choose **All games** or **Current game** for the scope. Assigning an input that is already in use moves it to the new binding. **Reset to defaults** restores all shared keyboard and controller bindings. **Use shared bindings** removes all overrides for the selected game. Changes apply the next time you start a game.
 
-**Config file** opens `user-data/config.ini` for audio, deadzone and online settings. Click **Refresh** after editing the file. See the [default configuration template](../config/default.ini) for available options.
+For two players on one keyboard or arcade keyboard encoder in Xbox 360, PS4 and PS2 games, choose **Player 1** or **Player 2** on the Keyboard tab to bind directions, action buttons and Start. Player 2 starts unassigned. In games with local co-op, press the second player's Start to join. Direct launches with `--game` read the same bindings. In the eandis version of SaiDaiOuJou, Player 2 uses `2` to start.
+
+With two controllers or arcade sticks connected, **Controller / stick** shows which device controls 1P and 2P. To reverse the seats, select **Swap 1P / 2P** and **Save**. The choice applies the next time you start a built-in game. A dual-gamepad arcade encoder works the same way.
+
+**Config file** opens `user-data/config.ini` for audio, deadzone and online settings. See the [default configuration template](../config/default.ini) for available options.
 
 In `[display]`, `vsync = false` enables low-latency presentation while preserving the original game timing; tearing is possible. Set it to `true` for vertical synchronization. Updates preserve your configuration, so an existing `true` value can be changed here.
 
@@ -45,6 +49,14 @@ Face-button reference:
 | North | Y | △ | V |
 
 Keep the whole `user-data/` folder when backing up or moving the collection. It contains configuration, saves, and replays. Wait for saving to finish before closing after changing in-game settings.
+
+## PS2 save states
+
+Press **F5** or both shoulder buttons (**L1 + R1**) to pause and open the save state menu. Change the shortcut under **Controls → PS2 save state menu**. You can bind one key or button, or hold one and press a second for a combination.
+
+Use the current game's direction, confirm and back controls. Up and down choose **QUICK SAVE** or **QUICK LOAD**, and left and right select a slot. The selected slot shows its save date and time, or **NO DATA** if empty. To overwrite a save, select **Replace** and confirm. Saving keeps the menu open. Press the game's back button to resume. Loading shows the saved frame and counts down **3, 2, 1** before play resumes.
+
+Each game profile remembers the last slot used. Its 99 slots take up disk space as you fill them. Death Label launched from the PS4 version of DaiOuJou has a separate set of slots.
 
 ## DaiOuJou X Arrange music
 

@@ -31,15 +31,17 @@ template<class Game> struct FrameInputTiming {
         }
         auto& clock = runtime->eeScheduler();
         if (sampled || clock.currentVSyncTick() != sampleTick + 1) reserveUs = fullFieldUs;
-        clock.deferBeforeVBlank(reserveUs, [memory,runtime](R5900Context& resumed) {
-            auto& clock = runtime->eeScheduler();
-            sampleTick = clock.currentVSyncTick();
-            const auto budget=std::clamp<int64_t>(clock.microsecondsBeforeVBlank()-(reserveUs-Game::marginUs+1000),0,500);
-            runtime->nativeHost().BeforeInput(sampleTick+Game::responseFields,static_cast<unsigned>(budget));
-            remainingAtRead = static_cast<int>(clock.microsecondsBeforeVBlank());
-            sampled = true;
-            readPad(memory, &resumed, runtime);
-        });
+        clock.deferBeforeVBlank(reserveUs);
+    }
+
+    static void Sample(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
+        auto& clock = runtime->eeScheduler();
+        sampleTick = clock.currentVSyncTick();
+        const auto budget=std::clamp<int64_t>(clock.microsecondsBeforeVBlank()-(reserveUs-Game::marginUs+1000),0,500);
+        runtime->nativeHost().BeforeInput(sampleTick+Game::responseFields,static_cast<unsigned>(budget));
+        remainingAtRead = static_cast<int>(clock.microsecondsBeforeVBlank());
+        sampled = true;
+        readPad(memory, ctx, runtime);
     }
 
     static void Wait(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
@@ -65,6 +67,7 @@ template<class Game> struct FrameInputTiming {
     }
 
     static void Bind(PS2Runtime& runtime) {
+        runtime.eeScheduler().setDeferredPadRead(&Sample);
         sampleTick = 0;
         sampled = false;
         reserveUs = fullFieldUs;

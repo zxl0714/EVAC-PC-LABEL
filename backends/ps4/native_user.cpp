@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <stdexcept>
 
 #define KT_SYSV __attribute__((sysv_abi))
 
@@ -13,19 +14,20 @@ constexpr int kNotInitialized = Error(2), kAlreadyInitialized = Error(3), kInval
 constexpr int kNoEvent = Error(7), kNotLoggedIn = Error(9), kShortBuffer = Error(10);
 // A development-local player slot, not a Windows identity or an online account.
 // Save/profile mapping must keep this ID stable when the display name changes.
-constexpr int kLocalUser = 0x1000;
+constexpr int kLocalUser = kNativePrimaryUser;
 constexpr char kLocalName[] = "Player 1";
 struct Event { int type, user; };
 struct InitializeParam { int priority; };
 std::mutex gate;
-bool initialized{}, pending_login{};
+bool initialized{}, second_user{};
+unsigned next_login{};
 
 int KT_SYSV Initialize(const InitializeParam* param) {
     std::lock_guard lock(gate);
     if (initialized) { return kAlreadyInitialized; }
     if (param && (param->priority < 0x100 || param->priority > 0x2ff)) { return kInvalid; }
     initialized = true;
-    pending_login = true;
+    next_login = 0;
     std::printf("{\"event\":\"native_local_user\",\"operation\":\"initialize\",\"user_id\":%d,\"online\":false}\n", kLocalUser);
     return 0;
 }
@@ -33,7 +35,6 @@ int KT_SYSV Terminate() {
     std::lock_guard lock(gate);
     if (!initialized) { return kNotInitialized; }
     initialized = false;
-    pending_login = false;
     return 0;
 }
 int KT_SYSV InitialUser(int* user) {
@@ -47,30 +48,34 @@ int KT_SYSV LoginUsers(std::array<int, 4>* users) {
     std::lock_guard lock(gate);
     if (!initialized) { return kNotInitialized; }
     if (!users) { return kInvalid; }
-    *users = {kLocalUser, -1, -1, -1};
+    *users = {kLocalUser, second_user?kNativeSecondUser:-1, -1, -1};
     return 0;
 }
 int KT_SYSV GetEvent(Event* event) {
     std::lock_guard lock(gate);
     if (!initialized) { return kNotInitialized; }
     if (!event) { return kInvalid; }
-    if (!pending_login) { return kNoEvent; }
-    *event = {0, kLocalUser};
-    pending_login = false;
+    if (next_login >= (second_user?2u:1u)) { return kNoEvent; }
+    *event = {0, next_login++ ? kNativeSecondUser : kLocalUser};
     return 0;
 }
 int KT_SYSV UserName(int user, char* output, std::size_t size) {
     std::lock_guard lock(gate);
     if (!initialized) { return kNotInitialized; }
     if (!output || user == -1) { return kInvalid; }
-    if (user != kLocalUser) { return kNotLoggedIn; }
+    if (user != kLocalUser && !(second_user && user==kNativeSecondUser)) { return kNotLoggedIn; }
     if (size < sizeof(kLocalName)) { return kShortBuffer; }
-    std::memcpy(output, kLocalName, sizeof(kLocalName));
+    std::memcpy(output, user==kLocalUser?kLocalName:"Player 2", sizeof(kLocalName));
     return 0;
 }
 } // namespace
 
 bool NativeUserInitialized() { std::lock_guard lock(gate); return initialized; }
+void ConfigureNativeSecondUser(bool enabled) {
+    std::lock_guard lock(gate);
+    if(initialized && !enabled && second_user)throw std::logic_error("Cannot remove a logged-in local user");
+    second_user=enabled;
+}
 
 std::uint64_t ResolveUserImport(std::string_view identifier, std::string_view library, std::string_view module) {
     if (library != "libSceUserService" || module != library) { return 0; }
@@ -113,6 +118,14 @@ bool UserSelfTest() {
           UserName(user, name, sizeof(name)) == 0 && std::strcmp(name, kLocalName) == 0);
     check("terminate_and_reinitialize", Terminate() == 0 && InitialUser(&user) == kNotInitialized &&
           Initialize(nullptr) == 0 && InitialUser(&user) == 0 && user == kLocalUser && GetEvent(&event) == 0 && Terminate() == 0);
+    ConfigureNativeSecondUser(true);
+    check("two_local_players", Initialize(nullptr)==0 && LoginUsers(&users)==0 &&
+          users==std::array<int,4>{kLocalUser,kNativeSecondUser,-1,-1} &&
+          InitialUser(&user)==0 && user==kLocalUser && GetEvent(&event)==0 && event.user==kLocalUser &&
+          GetEvent(&event)==0 && event.user==kNativeSecondUser && GetEvent(&event)==kNoEvent &&
+          UserName(kNativeSecondUser,name,sizeof(name))==0 && std::strcmp(name,"Player 2")==0);
+    Terminate();
+    ConfigureNativeSecondUser(false);
     std::printf("{\"event\":\"user_self_test\",\"passed\":%s}\n", passed ? "true" : "false");
     return passed;
 }

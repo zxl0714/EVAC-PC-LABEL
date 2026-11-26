@@ -2,6 +2,9 @@
 // libmc file handles start at zero and reuse the lowest available slot.
 #include "Stubs/Common.h"
 #include "Stubs/MemoryCard.h"
+#include "sdk_state.h"
+#include "state_archive.h"
+#include "state_file.h"
 
 namespace ps2_stubs
 {
@@ -76,6 +79,7 @@ namespace ps2_stubs
             FILE *file = nullptr;
             int32_t port = 0;
             std::filesystem::path hostPath;
+            std::string mode;
         };
 
         struct McPortState
@@ -403,7 +407,7 @@ namespace ps2_stubs
             }
         }
 
-        int32_t allocateMcFdLocked(FILE *file, int32_t port, const std::filesystem::path &hostPath)
+        int32_t allocateMcFdLocked(FILE *file, int32_t port, const std::filesystem::path &hostPath, const char* mode)
         {
             if (!file)
             {
@@ -418,7 +422,7 @@ namespace ps2_stubs
             {
                 if (g_mcFiles.find(fd) != g_mcFiles.end())
                     continue;
-                g_mcFiles.emplace(fd, McOpenFile{file, port, hostPath});
+                g_mcFiles.emplace(fd, McOpenFile{file, port, hostPath, mode});
                 g_mcNextFd = fd + 1;
                 return fd;
             }
@@ -426,7 +430,7 @@ namespace ps2_stubs
             return kMcResultUpLimitHandle;
         }
 
-        FILE *openMcHostFile(const std::filesystem::path &hostPath, uint32_t flags)
+        const char* mcHostMode(bool exists, uint32_t flags)
         {
             const uint32_t access = flags & PS2_FIO_O_RDWR;
             const bool read = (access == PS2_FIO_O_RDONLY) || (access == PS2_FIO_O_RDWR);
@@ -434,9 +438,6 @@ namespace ps2_stubs
             const bool append = (flags & PS2_FIO_O_APPEND) != 0u;
             const bool create = (flags & PS2_FIO_O_CREAT) != 0u;
             const bool truncate = (flags & PS2_FIO_O_TRUNC) != 0u;
-
-            std::error_code ec;
-            const bool exists = std::filesystem::exists(hostPath, ec) && !ec;
 
             const char *mode = "rb";
             if (read && write)
@@ -470,8 +471,107 @@ namespace ps2_stubs
                 }
             }
 
-            return std::fopen(hostPath.string().c_str(), mode);
+            return mode;
         }
+    }
+
+    namespace {
+        template<class Archive>
+        void transferDirEntry(Archive& archive, SceMcTblGetDir& entry) {
+            for (auto* date : {&entry._Create, &entry._Modify})
+                archive.Fields(date->Resv2, date->Sec, date->Min, date->Hour, date->Day, date->Month, date->Year);
+            archive.Fields(entry.FileSizeByte, entry.AttrFile, entry.Reserve1, entry.Reserve2, entry.PdaAplNo);
+            archive.Bytes({reinterpret_cast<uint8_t*>(entry.EntryName), sizeof(entry.EntryName)});
+        }
+
+        bool withinCard(const std::filesystem::path& relative) {
+            return !relative.empty() && !relative.has_root_path() &&
+                std::find(relative.begin(), relative.end(), std::filesystem::path("..")) == relative.end();
+        }
+    }
+
+    std::vector<uint8_t> saveMemoryCardState() {
+        std::lock_guard lock(g_mcStateMutex);
+        std::vector<uint8_t> bytes;
+        cave::ps2::StateWriter out(bytes);
+        out.Fields(uint32_t{1}, g_mcNextFd, g_mcLastCmd, g_mcCommandPending, g_mcLastResult, g_cvMcFileCursor);
+        for (auto& port : g_mcPorts) {
+            out.String(port.currentDir);
+            out.Fields(port.formatted, uint64_t(port.directoryCursor));
+            out.Items(port.directoryEntries, UINT32_MAX, 64, [&](auto& entry) { transferDirEntry(out, entry); });
+        }
+        out.Field(uint32_t(g_mcFiles.size()));
+        for (int fd = 0; fd < int(kMcMaxOpenFiles); ++fd) {
+            const auto it = g_mcFiles.find(fd);
+            if (it == g_mcFiles.end()) continue;
+            const auto& file = it->second;
+            const auto relative = file.hostPath.lexically_relative(getMcRootPath(file.port));
+            const auto position = std::ftell(file.file);
+            if (position < 0 || !withinCard(relative))
+                throw std::runtime_error("Could not capture memory card file");
+            const auto utf8 = relative.generic_u8string();
+            out.Fields(fd, file.port, int64_t(position));
+            out.String({reinterpret_cast<const char*>(utf8.data()), utf8.size()});
+            out.String(file.mode);
+        }
+        return bytes;
+    }
+
+    void loadMemoryCardState(std::span<const uint8_t> bytes) {
+        std::lock_guard lock(g_mcStateMutex);
+        cave::ps2::StateReader in(bytes);
+        uint32_t version{};
+        int32_t next{}, cmd{}, result{}, cursor{};
+        bool pending{};
+        in.Fields(version, next, cmd, pending, result, cursor);
+        if (version != 1 || next < 0 || next > int(kMcMaxOpenFiles) || cursor < -1 || cursor > 15)
+            throw std::invalid_argument("Invalid memory card service state");
+        decltype(g_mcPorts) ports;
+        for (auto& port : ports) {
+            port.currentDir = in.String(kMcMaxPathLen * 32);
+            if (port.currentDir.empty() || port.currentDir.front() != '/' ||
+                (port.currentDir != "/" && !withinCard(std::filesystem::path(port.currentDir.substr(1)))))
+                throw std::invalid_argument("Invalid memory card working directory");
+            uint64_t dirCursor{};
+            in.Fields(port.formatted, dirCursor);
+            in.Items(port.directoryEntries, UINT32_MAX, 64, [&](auto& entry){ transferDirEntry(in, entry); });
+            if (dirCursor > port.directoryEntries.size()) throw std::invalid_argument("Invalid memory card directory cursor");
+            port.directoryCursor = size_t(dirCursor);
+        }
+        struct Handles {
+            decltype(g_mcFiles) map;
+            ~Handles() { for (auto& [fd, file] : map) if (file.file) std::fclose(file.file); }
+        } files;
+        const auto count = in.Count(kMcMaxOpenFiles, 24);
+        for (uint32_t i = 0; i < count; ++i) {
+            int32_t fd{}, port{};
+            int64_t offset{};
+            in.Fields(fd, port, offset);
+            auto name = in.String(131072);
+            auto mode = in.String(3);
+            const std::filesystem::path relative(std::u8string(reinterpret_cast<const char8_t*>(name.data()), name.size()));
+            constexpr std::array<std::string_view, 6> modes{"rb", "wb", "ab", "r+b", "w+b", "a+b"};
+            if (fd < 0 || fd >= int(kMcMaxOpenFiles) || files.map.contains(fd) || !isValidMcPortSlot(port, 0) ||
+                offset < 0 || offset > LONG_MAX || !withinCard(relative) || std::find(modes.begin(), modes.end(), mode) == modes.end())
+                throw std::invalid_argument("Invalid open memory card file");
+            const auto root = std::filesystem::weakly_canonical(getMcRootPath(port));
+            auto path = root / relative;
+            if (!withinCard(std::filesystem::weakly_canonical(path).lexically_relative(root)))
+                throw std::invalid_argument("Memory card file outside mounted card");
+            auto& file = files.map[fd];
+            file = {nullptr, port, std::move(path), std::move(mode)};
+            file.file = cave::ps2::ReopenStateFile(file.hostPath, file.mode.c_str());
+            if (!file.file || std::fseek(file.file, long(offset), SEEK_SET))
+                throw std::runtime_error("Could not reopen saved memory card file");
+        }
+        in.Finish();
+        g_mcFiles.swap(files.map);
+        g_mcPorts = std::move(ports);
+        g_mcNextFd = next;
+        g_mcLastCmd = cmd;
+        g_mcCommandPending = pending;
+        g_mcLastResult = result;
+        g_cvMcFileCursor = cursor;
     }
 
     MemoryCardDebugSnapshot getMemoryCardDebugSnapshot()
@@ -1041,14 +1141,15 @@ namespace ps2_stubs
                     }
                     else
                     {
-                        FILE *file = openMcHostFile(hostPath, flags);
+                        const char* mode = mcHostMode(exists, flags);
+                        FILE *file = std::fopen(hostPath.string().c_str(), mode);
                         if (!file)
                         {
                             result = exists ? kMcResultDeniedPermit : kMcResultNoEntry;
                         }
                         else
                         {
-                            result = allocateMcFdLocked(file, port, hostPath);
+                            result = allocateMcFdLocked(file, port, hostPath, mode);
                             if (result < 0)
                             {
                                 std::fclose(file);

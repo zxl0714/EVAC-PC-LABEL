@@ -107,7 +107,7 @@ public:
             EVAC_LOAD_SDL(CloseJoystick);EVAC_LOAD_SDL(JoystickConnected);EVAC_LOAD_SDL(UpdateJoysticks);
             EVAC_LOAD_SDL(FlushEvents);EVAC_LOAD_SDL(GetNumJoystickAxes);EVAC_LOAD_SDL(GetNumJoystickButtons);
             EVAC_LOAD_SDL(GetNumJoystickHats);EVAC_LOAD_SDL(GetJoystickAxis);EVAC_LOAD_SDL(GetJoystickButton);
-            EVAC_LOAD_SDL(GetJoystickHat);EVAC_LOAD_SDL(GetGamepadMappingForID);EVAC_LOAD_SDL(free);
+            EVAC_LOAD_SDL(GetJoystickHat);EVAC_LOAD_SDL(GetGamepadMappingForID);EVAC_LOAD_SDL(GetGamepadPlayerIndexForID);EVAC_LOAD_SDL(IsGamepad);EVAC_LOAD_SDL(free);
 #undef EVAC_LOAD_SDL
             SetMainReady();
             SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"1");
@@ -121,7 +121,7 @@ public:
     }
     InputDevices(const InputDevices&)=delete;
     InputDevices& operator=(const InputDevices&)=delete;
-    struct Device {SDL_JoystickID id{};std::string name,guid;bool operator==(const Device&)const=default;};
+    struct Device {SDL_JoystickID id{};std::string name,guid;int player_index=-1;bool gamepad{};bool operator==(const Device&)const=default;};
     void Update() {UpdateJoysticks();FlushEvents(SDL_EVENT_FIRST,SDL_EVENT_LAST);}
     std::vector<Device> List() {
         int count{};
@@ -130,8 +130,8 @@ public:
         for(int i=0;ids && i<count;++i) {
             const auto id=ids.get()[i];
             char guid[33]{};GUIDToString(GetJoystickGUIDForID(id),guid,sizeof(guid));
-            if(const auto* name=GetJoystickNameForID(id))result.push_back({id,name,guid});
-            else result.push_back({id,"Controller",guid});
+            const char* name=GetJoystickNameForID(id);
+            result.push_back({id,name?name:"Controller",guid,GetGamepadPlayerIndexForID(id),IsGamepad(id)});
         }
         return result;
     }
@@ -176,7 +176,7 @@ private:
     EVAC_SDL_MEMBER(CloseJoystick);EVAC_SDL_MEMBER(JoystickConnected);EVAC_SDL_MEMBER(UpdateJoysticks);
     EVAC_SDL_MEMBER(FlushEvents);EVAC_SDL_MEMBER(GetNumJoystickAxes);EVAC_SDL_MEMBER(GetNumJoystickButtons);
     EVAC_SDL_MEMBER(GetNumJoystickHats);EVAC_SDL_MEMBER(GetJoystickAxis);EVAC_SDL_MEMBER(GetJoystickButton);
-    EVAC_SDL_MEMBER(GetJoystickHat);EVAC_SDL_MEMBER(GetGamepadMappingForID);EVAC_SDL_MEMBER(free);
+    EVAC_SDL_MEMBER(GetJoystickHat);EVAC_SDL_MEMBER(GetGamepadMappingForID);EVAC_SDL_MEMBER(GetGamepadPlayerIndexForID);EVAC_SDL_MEMBER(IsGamepad);EVAC_SDL_MEMBER(free);
 #undef EVAC_SDL_MEMBER
 };
 }

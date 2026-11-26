@@ -1,5 +1,6 @@
 #include "sdl_gamepad.h"
 #include "common/stick_deadzone.h"
+#include "common/controller_ports.h"
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -78,64 +79,79 @@ void LoadMappings() {
 struct SdlGamepad::Impl {
     bool initialized{}, focused{};
     bool enabled = true;
-    bool apply_deadzone{};
+    bool apply_deadzone{}, swap_players{};
     double deadzone{}; // Legacy diagnostic mode preserves unfiltered axes.
-    SDL_Gamepad* gamepad{};
-    SDL_JoystickID device{}, preferred{};
+    struct Port {
+        SDL_Gamepad* gamepad{};
+        SDL_JoystickID device{};
+        std::uint32_t pending{}, trigger_held{};
+        std::array<std::uint64_t,32> edges{};
+        void Press(std::uint32_t mask) {
+            pending |= mask;
+            for (unsigned bit=0;bit<edges.size();++bit) if (mask&(1u<<bit)) ++edges[bit];
+        }
+    };
+    std::array<Port,2> ports{};
+    std::array<SDL_JoystickID,2> test_devices{}; // Isolate authored virtual devices from attached hardware.
     Uint64 next_scan{};
     std::mutex mutex;
-    std::uint32_t pending{};
-    std::array<std::uint64_t,32> edges{};
-    std::uint32_t trigger_held{};
-    void Press(std::uint32_t mask) { // event mutex held, no calls into SDL
-        if (!focused) return;
-        pending|=mask;
-        for (unsigned bit=0;bit<32;++bit) if (mask&(1u<<bit)) ++edges[bit];
-    }
     static bool SDLCALL Watch(void* context, SDL_Event* event) {
         auto& self=*static_cast<Impl*>(context);
-        if (event->type==SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-            std::lock_guard lock(self.mutex);
-            if (event->gbutton.which==self.device) self.Press(Mask(event->gbutton.button));
-        } else if (event->type==SDL_EVENT_GAMEPAD_AXIS_MOTION &&
-                   (event->gaxis.axis==SDL_GAMEPAD_AXIS_LEFT_TRIGGER || event->gaxis.axis==SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)) {
-            std::lock_guard lock(self.mutex);
-            if (event->gaxis.which==self.device) {
+        const bool button=event->type==SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+        const bool trigger=event->type==SDL_EVENT_GAMEPAD_AXIS_MOTION &&
+            (event->gaxis.axis==SDL_GAMEPAD_AXIS_LEFT_TRIGGER || event->gaxis.axis==SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+        if (!button && !trigger) return true;
+        const auto id=button?event->gbutton.which:event->gaxis.which;
+        std::lock_guard lock(self.mutex);
+        for (auto& port:self.ports) {
+            if (port.device!=id) continue;
+            if (button) {
+                if (self.focused) port.Press(Mask(event->gbutton.button));
+            } else {
                 const std::uint32_t bit=event->gaxis.axis==SDL_GAMEPAD_AXIS_LEFT_TRIGGER?0x100:0x200;
                 if (Trigger(event->gaxis.value)>30) {
-                    if (!(self.trigger_held&bit)) self.Press(bit);
-                    self.trigger_held|=bit;
-                } else self.trigger_held&=~bit;
+                    if (self.focused && !(port.trigger_held&bit)) port.Press(bit);
+                    port.trigger_held|=bit;
+                } else port.trigger_held&=~bit;
             }
         }
         return true;
     }
-    void Select(SDL_Gamepad* selected, SDL_JoystickID id) {
-        { std::lock_guard lock(mutex); device=id; pending=trigger_held=0; edges.fill(0); }
-        if (gamepad) SDL_CloseGamepad(gamepad);
-        gamepad=selected;
-        if (gamepad) {
+    void Select(unsigned index, SDL_Gamepad* selected, SDL_JoystickID id) {
+        auto& port=ports[index];
+        {
+            std::lock_guard lock(mutex);
+            port.device=id;
+            port.pending=port.trigger_held=0;
+            port.edges.fill(0);
+        }
+        if (port.gamepad) SDL_CloseGamepad(port.gamepad);
+        port.gamepad=selected;
+        if (selected) {
             char guid[33]{}; SDL_GUIDToString(SDL_GetGamepadGUIDForID(id),guid,sizeof(guid));
-            std::printf("{\"event\":\"native_sdl_gamepad_connected\",\"device\":%u,\"name\":%s,\"guid\":\"%s\",\"vendor_id\":%u,\"product_id\":%u,\"type\":%u}\n",
-                id,Quoted(SDL_GetGamepadName(gamepad)).c_str(),guid,SDL_GetGamepadVendor(gamepad),SDL_GetGamepadProduct(gamepad),unsigned(SDL_GetGamepadType(gamepad)));
-            char* mapping=SDL_GetGamepadMapping(gamepad);
+            std::printf("{\"event\":\"native_sdl_gamepad_connected\",\"player\":%u,\"device\":%u,\"name\":%s,\"guid\":\"%s\",\"vendor_id\":%u,\"product_id\":%u,\"type\":%u}\n",
+                cave::ControllerPort(index,swap_players)+1,id,Quoted(SDL_GetGamepadName(selected)).c_str(),guid,SDL_GetGamepadVendor(selected),SDL_GetGamepadProduct(selected),unsigned(SDL_GetGamepadType(selected)));
+            char* mapping=SDL_GetGamepadMapping(selected);
             std::printf("{\"event\":\"native_sdl_gamepad_mapping\",\"mapping\":%s}\n",Quoted(mapping).c_str());
             SDL_free(mapping);
-        } else std::puts("{\"event\":\"native_sdl_gamepad_disconnected\"}");
+        } else std::printf("{\"event\":\"native_sdl_gamepad_disconnected\",\"player\":%u}\n",cave::ControllerPort(index,swap_players)+1);
     }
+    void Update();
+    GamepadSnapshot Read(unsigned index);
     ~Impl() {
         if (!initialized) return;
         SDL_RemoveEventWatch(Watch,this);
-        if (gamepad) SDL_CloseGamepad(gamepad);
+        for (auto& port:ports) if (port.gamepad) SDL_CloseGamepad(port.gamepad);
         SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
     }
 };
 SdlGamepad::SdlGamepad() : impl_(std::make_unique<Impl>()) {}
 SdlGamepad::~SdlGamepad() = default;
-void SdlGamepad::Configure(bool enabled, double deadzone) {
+void SdlGamepad::Configure(bool enabled, double deadzone, bool swap_players) {
     if (!std::isfinite(deadzone) || deadzone < 0 || deadzone >= 1) throw std::runtime_error("Invalid gamepad deadzone");
     if (impl_->initialized) throw std::runtime_error("Gamepad configuration requires a restart");
     impl_->enabled = enabled;
+    impl_->swap_players = swap_players;
     impl_->deadzone = deadzone;
     impl_->apply_deadzone = true;
 }
@@ -154,57 +170,87 @@ void SdlGamepad::Initialize() {
 }
 void SdlGamepad::Focus(bool focused) {
     std::lock_guard lock(impl_->mutex);
-    if (focused!=impl_->focused) impl_->pending=0;
+    if (focused!=impl_->focused) for (auto& port:impl_->ports) port.pending=0;
     impl_->focused=focused;
 }
-void SdlGamepad::ClearPending() { std::lock_guard lock(impl_->mutex); impl_->pending=0; }
-bool SdlGamepad::HasPending() { std::lock_guard lock(impl_->mutex); return impl_->pending!=0; }
-GamepadSnapshot SdlGamepad::Poll() {
-    GamepadSnapshot out;
-    auto& self=*impl_;
-    if (!self.initialized) return out;
-    SDL_UpdateGamepads(); // explicitly documented as safe on any thread
-    if (self.gamepad && !SDL_GamepadConnected(self.gamepad)) { self.Select(nullptr,0); self.next_scan=0; }
-    if (!self.gamepad && SDL_GetTicks()>=self.next_scan) {
-        self.next_scan=SDL_GetTicks()+250;
+void SdlGamepad::ClearPending(unsigned player) {
+    std::lock_guard lock(impl_->mutex);
+    impl_->ports.at(cave::ControllerPort(player,impl_->swap_players)).pending=0;
+}
+bool SdlGamepad::HasPending(unsigned player) {
+    std::lock_guard lock(impl_->mutex);
+    return impl_->ports.at(cave::ControllerPort(player,impl_->swap_players)).pending!=0;
+}
+void SdlGamepad::Impl::Update() {
+    if (!initialized) return;
+    SDL_UpdateGamepads();
+    bool vacancy=false;
+    for (unsigned i=0;i<ports.size();++i) {
+        if (ports[i].gamepad && !SDL_GamepadConnected(ports[i].gamepad)) {
+            Select(i,nullptr,0);
+            next_scan=0;
+        }
+        vacancy |= !ports[i].gamepad;
+    }
+    if (vacancy && SDL_GetTicks()>=next_scan) {
+        next_scan=SDL_GetTicks()+250;
         int count=0;
         auto* ids=SDL_GetGamepads(&count);
         for (int i=0;ids && i<count;++i) {
-            if (self.preferred && ids[i]!=self.preferred) continue;
-            if (auto* selected=SDL_OpenGamepad(ids[i])) { self.Select(selected,ids[i]); break; }
+            const auto id=ids[i];
+            if (test_devices[0] && std::ranges::find(test_devices,id)==test_devices.end()) continue;
+            if (std::ranges::any_of(ports,[&](const Port& p){return p.device==id;})) continue;
+            const int slot=cave::AvailableControllerPort({ports[0].device,ports[1].device},SDL_GetGamepadPlayerIndexForID(id));
+            if(slot<0)break;
+            if(auto* selected=SDL_OpenGamepad(id))Select(unsigned(slot),selected,id);
         }
         SDL_free(ids);
     }
-    // No SDL window/event-loop consumer exists in this input-only integration.
-    // Watches have already latched real edges; do not retain an unbounded queue.
+    // The input-only integration consumes events through its watch.
     SDL_FlushEvents(SDL_EVENT_FIRST,SDL_EVENT_LAST);
-    if (!self.gamepad) return out;
+}
+GamepadSnapshot SdlGamepad::Poll(unsigned player) {
+    impl_->Update();
+    return impl_->Read(player);
+}
+std::array<GamepadSnapshot,2> SdlGamepad::PollAll() {
+    impl_->Update();
+    return {impl_->Read(0),impl_->Read(1)};
+}
+GamepadSnapshot SdlGamepad::Impl::Read(unsigned index) {
+    GamepadSnapshot out;
+    const auto& port=ports.at(cave::ControllerPort(index,swap_players));
+    if (!port.gamepad) return out;
     JoystickLock joystick_lock;
-    std::lock_guard lock(self.mutex);
-    out.device=self.device;
-    if (!self.focused) return out;
-    out.pending=self.pending; out.edges=self.edges;
-    for (unsigned button=0;button<SDL_GAMEPAD_BUTTON_COUNT;++button)
-        if (SDL_GetGamepadButton(self.gamepad,static_cast<SDL_GamepadButton>(button))) out.buttons|=Mask(button);
+    std::lock_guard lock(mutex);
+    out.device=port.device;
+    if (!focused) return out;
+    out.pending=port.pending; out.edges=port.edges;
+    for (unsigned button=0;button<SDL_GAMEPAD_BUTTON_COUNT;++button) {
+        if (SDL_GetGamepadButton(port.gamepad,static_cast<SDL_GamepadButton>(button))) out.buttons|=Mask(button);
+    }
     const auto stick = [&](SDL_GamepadAxis x, SDL_GamepadAxis y) {
-        const auto raw = std::pair{SDL_GetGamepadAxis(self.gamepad,x), SDL_GetGamepadAxis(self.gamepad,y)};
-        return self.apply_deadzone ? cave::ApplyStickDeadzone(raw.first, raw.second, self.deadzone) : raw;
+        const auto raw = std::pair{SDL_GetGamepadAxis(port.gamepad,x), SDL_GetGamepadAxis(port.gamepad,y)};
+        return apply_deadzone ? cave::ApplyStickDeadzone(raw.first, raw.second, deadzone) : raw;
     };
     const auto left = stick(SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY);
     const auto right = stick(SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY);
     out.left_x=Axis(left.first); out.left_y=Axis(left.second);
     out.right_x=Axis(right.first); out.right_y=Axis(right.second);
-    out.l2=Trigger(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_LEFT_TRIGGER));
-    out.r2=Trigger(SDL_GetGamepadAxis(self.gamepad,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER));
+    out.l2=Trigger(SDL_GetGamepadAxis(port.gamepad,SDL_GAMEPAD_AXIS_LEFT_TRIGGER));
+    out.r2=Trigger(SDL_GetGamepadAxis(port.gamepad,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER));
     if (out.l2>30) out.buttons|=0x100;
     if (out.r2>30) out.buttons|=0x200;
     return out;
 }
 void SdlGamepad::Acknowledge(const GamepadSnapshot& delivered) {
     std::lock_guard lock(impl_->mutex);
-    if (delivered.device!=impl_->device) return;
-    for (unsigned bit=0;bit<32;++bit)
-        if ((delivered.pending&(1u<<bit)) && delivered.edges[bit]==impl_->edges[bit]) impl_->pending&=~(1u<<bit);
+    if (!delivered.device) return;
+    for (auto& port:impl_->ports) {
+        if (delivered.device!=port.device) continue;
+        for (unsigned bit=0;bit<port.edges.size();++bit)
+            if ((delivered.pending&(1u<<bit)) && delivered.edges[bit]==port.edges[bit]) port.pending&=~(1u<<bit);
+    }
 }
 int SdlGamepadMonitor(unsigned seconds) {
     SdlGamepad backend; backend.Initialize(); backend.Focus(true);
@@ -215,8 +261,8 @@ int SdlGamepadMonitor(unsigned seconds) {
     do {
         const auto state=backend.Poll();
         unsigned raw_hat=0;
-        if (backend.impl_->gamepad) {
-            auto* joystick=SDL_GetGamepadJoystick(backend.impl_->gamepad);
+        if (backend.impl_->ports[0].gamepad) {
+            auto* joystick=SDL_GetGamepadJoystick(backend.impl_->ports[0].gamepad);
             if (SDL_GetNumJoystickHats(joystick)>0) raw_hat=SDL_GetJoystickHat(joystick,0);
         }
         if (state.device!=previous.device || state.buttons!=previous.buttons || state.left_x!=previous.left_x ||
@@ -252,7 +298,7 @@ bool SdlGamepadSelfTest() {
     if (!id) return false;
     auto* joystick=SDL_OpenJoystick(id);
     if (!joystick) { SDL_DetachVirtualJoystick(id); return false; }
-    backend.impl_->preferred=id;
+    backend.impl_->test_devices[0]=id;
     backend.Focus(true);
     int passed=0; bool okay=true;
     const auto check=[&](bool result,const char* name) {
@@ -294,9 +340,56 @@ bool SdlGamepadSelfTest() {
     SDL_SetJoystickVirtualButton(joystick,SDL_GAMEPAD_BUTTON_NORTH,false); backend.Poll();
     backend.Focus(true);
     check(!backend.Poll().buttons,"background_short_press_not_replayed_on_refocus");
+    const auto twin_id=SDL_AttachVirtualJoystick(&descriptor);
+    auto* twin=SDL_OpenJoystick(twin_id);
+    backend.impl_->test_devices[1]=twin_id;
+    backend.impl_->next_scan=0;
+    check(twin && twin_id!=id &&
+          std::ranges::equal(SDL_GetGamepadGUIDForID(id).data,SDL_GetGamepadGUIDForID(twin_id).data),
+          "cabinet_halves_have_same_guid_and_distinct_instances");
+    if (twin) {
+        SDL_SetJoystickVirtualButton(joystick,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);
+        SDL_SetJoystickVirtualButton(joystick,SDL_GAMEPAD_BUTTON_SOUTH,true);
+        SDL_SetJoystickVirtualButton(twin,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);
+        SDL_SetJoystickVirtualButton(twin,SDL_GAMEPAD_BUTTON_SOUTH,true);
+        SDL_SetJoystickVirtualButton(twin,SDL_GAMEPAD_BUTTON_START,true);
+        auto inputs=backend.PollAll();
+        check(inputs[0].device==id && inputs[1].device==twin_id &&
+              (inputs[0].buttons&0x40a8)==0x4080 && (inputs[1].buttons&0x40a8)==0x4028,
+              "same_model_opposite_directions_both_shoot_only_second_starts");
+        {
+            SdlGamepad reversed;
+            reversed.Configure(true,0.2,true);
+            reversed.Initialize();
+            reversed.Focus(true);
+            reversed.impl_->test_devices={id,twin_id};
+            const auto swapped=reversed.PollAll();
+            check(swapped[0].device==twin_id && swapped[1].device==id &&
+                  (swapped[0].buttons&0x40a8)==0x4028 && (swapped[1].buttons&0x40a8)==0x4080,
+                  "saved_swap_routes_both_controllers_to_opposite_players");
+        }
+        SDL_SetJoystickVirtualButton(twin,SDL_GAMEPAD_BUTTON_SOUTH,false);
+        backend.Poll(1);
+        SDL_SetJoystickVirtualButton(twin,SDL_GAMEPAD_BUTTON_SOUTH,true);
+        backend.Poll(1);
+        backend.ClearPending(0);
+        check(backend.HasPending(1),"first_player_acknowledgement_keeps_second_edges");
+    }
     SDL_CloseJoystick(joystick);
     SDL_DetachVirtualJoystick(id);
-    check(!backend.Poll().device && !backend.HasPending(),"disconnect_neutralizes_and_drops_pending");
+    const auto unplugged=backend.PollAll();
+    check(!unplugged[0].device && !backend.HasPending() && unplugged[1].device==twin_id,
+          "removing_first_device_keeps_second_player_in_place");
+    const auto reconnected=SDL_AttachVirtualJoystick(&descriptor);
+    backend.impl_->test_devices[0]=reconnected;
+    backend.impl_->next_scan=0;
+    const auto restored=backend.PollAll();
+    check(reconnected && restored[0].device==reconnected && restored[1].device==twin_id,
+          "reconnected_first_device_fills_only_vacant_seat");
+    if(twin)SDL_CloseJoystick(twin);
+    if(twin_id)SDL_DetachVirtualJoystick(twin_id);
+    if(reconnected)SDL_DetachVirtualJoystick(reconnected);
+    backend.PollAll();
     // Most real fightsticks use a POV hat, not four separate joystick buttons.
     descriptor.nhats=1;
     const auto hat_id=SDL_AttachVirtualJoystick(&descriptor);
@@ -304,7 +397,7 @@ bool SdlGamepadSelfTest() {
     char hat_guid[33]{}; SDL_GUIDToString(SDL_GetGamepadGUIDForID(hat_id),hat_guid,sizeof(hat_guid));
     const std::string hat_mapping=std::string(hat_guid)+",Ketsui POV fixture,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,";
     check(hat_id && hat_joystick && SDL_SetGamepadMapping(hat_id,hat_mapping.c_str()),"pov_hat_fixture_mapping");
-    backend.impl_->preferred=hat_id; backend.impl_->next_scan=0;
+    backend.impl_->test_devices[0]=hat_id; backend.impl_->next_scan=0;
     backend.Poll();
     if (hat_joystick) {
         for (const auto [hat,mask]:{std::pair<unsigned,std::uint32_t>{1,0x10},{4,0x40},{8,0x80},{2,0x20},{3,0x30},{12,0xc0}}) {
@@ -329,7 +422,7 @@ bool SdlGamepadSelfTest() {
         descriptor.name="CAVE configured axis fixture"; // Not the earlier POV-only mapping's GUID.
         const auto configured_id=SDL_AttachVirtualJoystick(&descriptor);
         auto* configured_joystick=SDL_OpenJoystick(configured_id);
-        configured.impl_->preferred=configured_id;
+        configured.impl_->test_devices[0]=configured_id;
         check(configured_id && configured_joystick,"configured_virtual_device_created");
         if (configured_joystick) {
             SDL_SetJoystickVirtualAxis(configured_joystick,SDL_GAMEPAD_AXIS_LEFTX,4000);

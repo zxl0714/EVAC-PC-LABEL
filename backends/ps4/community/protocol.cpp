@@ -74,7 +74,8 @@ const TitleProtocol& ProtocolFor(std::string_view game) {
     throw std::runtime_error("Unknown PS4 community game");
 }
 bool SupportsContentTitle(std::string_view game, std::string_view title_id) {
-    return title_id == ProtocolFor(game).title_id || (game == "garegga" && title_id == "CUSA05429");
+    return title_id == ProtocolFor(game).title_id || (game == "garegga" && title_id == "CUSA05429") ||
+        (game == "ketsui" && title_id == "CUSA17078");
 }
 Endpoint ParseEndpoint(std::string_view url,std::string_view game) {
     (void)ProtocolFor(game);

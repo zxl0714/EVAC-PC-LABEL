@@ -1,4 +1,5 @@
 #pragma once
+#include "ps2x/iop/iop_subsystem.h"
 
 // Authored IRX: start a periodic timer after an empty idle interval. Its callback
 // records delivery and stops when a host-visible flag is set. No game code/data.
@@ -50,6 +51,52 @@ AudioFixtureHost ScheduledTimerImage(bool busy=false) {
     }
     return host;
 }
+void IopSubsystemStateContract() {
+    using ps2x::iop::IopSubsystem;
+    auto host = ScheduledTimerImage(true);
+    IopSubsystem live(host);
+    Require(live.loadModuleBuffer(0, nullptr, 0).startResult == 0, "Snapshot timer IRX load failed");
+    const auto service = live.loadModule("rom0:MCSERV", nullptr, 0).moduleId;
+    Require(service > 0 && live.loadModule("rom0:MCSERV", nullptr, 0).moduleId == service,
+            "Repeated HLE module load failed");
+    constexpr uint32_t sid = 0x80000400;
+    Require(live.canBindRpc(sid), "Loaded memory-card service unavailable before snapshot");
+    live.runEeCycles(8195);
+    auto count = [](IopSubsystem& machine) {
+        uint32_t n{};
+        Require(machine.readMemory(0x10400, &n, sizeof(n)), "Could not read timer callback count");
+        return n;
+    };
+    const auto first = count(live);
+    const auto saved = live.saveState();
+    live.runEeCycles(9311);
+    const auto expected = count(live);
+    const auto expectedClock = live.debugSnapshot();
+    Require(expected > first, "Control timer did not advance");
+
+    auto coldHost = ScheduledTimerImage(true);
+    IopSubsystem cold(coldHost);
+    Require(!cold.canBindRpc(sid), "Inactive memory-card service was routable");
+    cold.loadState(saved);
+    Require(cold.canBindRpc(sid) && count(cold) == first, "IOP cold load lost memory or service table");
+    auto broken = saved;
+    broken.back() ^= 0x80;  // corrupt the file-handle block at the end of the emulator payload
+    bool rejected = false;
+    try { cold.loadState(broken); } catch (const std::invalid_argument&) { rejected = true; }
+    Require(rejected && cold.saveState() == saved, "Malformed IOP state partly replaced the running guest");
+    cold.runEeCycles(9311);
+    const auto result = cold.debugSnapshot();
+    Require(count(cold) == expected && result.emulatorCycles == expectedClock.emulatorCycles &&
+            result.emulatorInstructions == expectedClock.emulatorInstructions &&
+            result.emulatorThreads == expectedClock.emulatorThreads,
+            "Timer or busy guest changed timing after cold load");
+    int32_t stop{};
+    Require(cold.stopModule(service, &stop) && cold.canBindRpc(sid) &&
+            cold.stopModule(service, &stop) && !cold.canBindRpc(sid),
+            "Restored service references did not survive both stops");
+    std::cout << "IOP cold restore: periodic IRQ, running thread, clock and service routing: PASS\n";
+}
+
 void IopClockBudgetContract(bool benchmark=false) {
     std::cout<<"ee_quantum,requested_iop_cycles,actual_iop_cycles,callbacks\n";
     bool bounded=true;

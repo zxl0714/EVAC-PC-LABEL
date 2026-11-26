@@ -780,3 +780,23 @@
  
  	vk_device->submit(cmd);
  	auto timeline_signal = vk_device->request_timeline_semaphore_as_binary(*vk_fence, ++fence_value);
+--- a/gs/gs_interface.hpp
++++ b/gs/gs_interface.hpp
+@@ -250,6 +250,7 @@
+ 
+ class GSInterface final
+ {
++	friend struct SnapshotAccess;
+ public:
+ 	GSInterface();
+ 	bool init(Vulkan::Device *device, const GSOptions &options);
+--- a/gs/gs_renderer.hpp
++++ b/gs/gs_renderer.hpp
+@@ -243,6 +243,7 @@
+ 
+ class GSRenderer
+ {
++	friend struct SnapshotAccess;
+ public:
+ 	explicit GSRenderer(PageTracker &tracker);
+ 	bool init(Vulkan::Device *device, const GSOptions &options);

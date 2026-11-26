@@ -846,6 +846,8 @@ bool ScoreProfileSelfTest() {
     check(feveron.DeleteRequest(fever_request)==0 && feveron.DeleteContext(fever_context)==0,
         "feveron_native_contexts_released");
     Bridge garegga;AuthoredTransport garegga_transport;
+    check(SupportsContentTitle("ketsui","CUSA17078") && !SupportsContentTitle("garegga","CUSA17078"),
+          "ketsui_us_uses_ketsui_community_boards");
     check(SupportsContentTitle("garegga","CUSA10207") && SupportsContentTitle("garegga","CUSA05429") &&
           !SupportsContentTitle("garegga","CUSA09062") && !SupportsContentTitle("ketsui","CUSA05429"),
           "garegga_accepts_both_verified_regions");

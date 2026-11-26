@@ -8,6 +8,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <span>
+
+namespace cave::ps2 { struct IopRpcReply; }
 
 namespace ps2x::iop::detail
 {
@@ -16,6 +19,8 @@ namespace ps2x::iop::detail
     public:
         explicit IopEmulator(IopHost &host);
         ~IopEmulator();
+        std::vector<uint8_t> saveState() const;
+        void loadState(std::span<const uint8_t> bytes);
 
         IopEmulator(const IopEmulator &) = delete;
         IopEmulator &operator=(const IopEmulator &) = delete;
@@ -30,6 +35,7 @@ namespace ps2x::iop::detail
         void discardAudio() noexcept;
         size_t readPcm(void *stereo, size_t frames) noexcept;
         [[nodiscard]] RpcResult handleRpc(const RpcRequest &request);
+        void completeEeRpc(const cave::ps2::IopRpcReply& reply, std::span<const uint8_t> bytes);
         [[nodiscard]] bool hasRpcServer(uint32_t sid) const noexcept;
         void onSifTransfer(const SifTransfer &transfer);
 
@@ -48,6 +54,8 @@ namespace ps2x::iop::detail
 
     private:
         class Impl;
+        template<class Archive> static void transferState(Archive& ar, Impl& state);
         std::unique_ptr<Impl> m_impl;
+        unsigned m_streamVolume = 100, m_voiceVolume = 100;
     };
 }

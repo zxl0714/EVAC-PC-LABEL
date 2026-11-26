@@ -5,6 +5,7 @@
 #include "iop_disc_host.h"
 
 #include <cstdint>
+#include <functional>
 #include <cstdio>
 #include <mutex>
 #include <memory>
@@ -47,6 +48,8 @@ public:
     ~PS2IopHostAdapter() override;
     void startAudio(ps2x::iop::IopSubsystem &iop, float gain);
     void stopAudio();
+    void withAudioLocked(const std::function<void()>& action);
+    void setMenuAudioPaused(bool paused, bool clearQueued = false);
 
     [[nodiscard]] CallScope enterCall(R5900Context *context,
                                       uint8_t *rdram = nullptr);
@@ -93,7 +96,7 @@ public:
     bool FindDiscFile(std::string_view path,uint32_t& lba,uint32_t& size) const override;
     uint32_t FindEeRpc(uint32_t sid) const override;
     bool QueueEeRpc(uint32_t server, uint32_t function, std::span<const uint8_t> request,
-                    uint32_t receiveSize, std::function<void(std::span<const uint8_t>)> complete) override;
+                    uint32_t receiveSize, cave::ps2::IopRpcReply reply) override;
 
     void log(ps2x::iop::LogLevel level, std::string_view message) override;
 

@@ -4,6 +4,8 @@
 #include "runtime/ps2_rom_device.h"
 #include "iso_disc.h"
 #include "disc_image.h"
+#include "state_archive.h"
+#include "state_file.h"
 
 #include <algorithm>
 #include <chrono>
@@ -14,6 +16,12 @@
 #include <limits>
 #include <stdexcept>
 #include <utility>
+#include <fcntl.h>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace
 {
@@ -213,6 +221,20 @@ namespace
         return true;
     }
 
+    std::string mountedPath(const std::string& path, const PS2VfsMounts& mounts)
+    {
+        if (ps2x::iop::parsePs2Path(path).device != ps2x::iop::Ps2PathDevice::NativeHost) return path;
+        const auto file = std::filesystem::weakly_canonical(path);
+        for (const auto& [device, root] : {
+                 std::pair{"mc0:", &mounts.memoryCard0Root}, {"cdrom0:", &mounts.cdRoot}, {"host:", &mounts.hostRoot}})
+        {
+            if (root->empty()) continue;
+            auto suffix = file.lexically_relative(std::filesystem::weakly_canonical(*root));
+            if (!suffix.empty() && *suffix.begin() != "..") return device + suffix.generic_string();
+        }
+        throw std::runtime_error("Open PS2 file is outside the mounted game and profile directories");
+    }
+
     std::time_t toTimeT(std::filesystem::file_time_type value)
     {
         const auto systemValue = std::chrono::time_point_cast<std::chrono::system_clock::duration>(value - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
@@ -230,11 +252,18 @@ void PS2Vfs::mountDiscImage(const std::filesystem::path &image)
 
 int32_t PS2Vfs::open(std::string_view path, uint32_t flags, const PS2VfsMounts &mounts, const PS2RomDevice &rom)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return openImpl(path, flags, mounts, rom, false);
+}
+
+int32_t PS2Vfs::openImpl(std::string_view path, uint32_t flags, const PS2VfsMounts &mounts,
+                         const PS2RomDevice &rom, bool restoring)
+{
     const ps2x::iop::ParsedPs2Path parsed = ps2x::iop::parsePs2Path(path);
-    if (!parsed)
+    if (!parsed || (restoring && parsed.device == ps2x::iop::Ps2PathDevice::NativeHost) ||
+        m_nextDescriptor == INT32_MAX)
         return -1;
 
-    std::lock_guard<std::mutex> lock(m_mutex);
     std::unique_ptr<IPS2OpenFile> file;
     if (parsed.device == ps2x::iop::Ps2PathDevice::Rom0)
     {
@@ -254,7 +283,7 @@ int32_t PS2Vfs::open(std::string_view path, uint32_t flags, const PS2VfsMounts &
 
         std::error_code existsError;
         const bool exists = std::filesystem::exists(hostPath, existsError);
-        if (existsError || (exists && (flags & (PS2_FIO_O_CREAT | PS2_FIO_O_EXCL)) == (PS2_FIO_O_CREAT | PS2_FIO_O_EXCL)))
+        if (existsError || (!restoring && exists && (flags & (PS2_FIO_O_CREAT | PS2_FIO_O_EXCL)) == (PS2_FIO_O_CREAT | PS2_FIO_O_EXCL)))
         {
             return -1;
         }
@@ -273,8 +302,9 @@ int32_t PS2Vfs::open(std::string_view path, uint32_t flags, const PS2VfsMounts &
         }
         else
         {
-            FILE *stream = std::fopen(hostPath.string().c_str(), hostMode(flags));
-            if (!stream && !exists && (flags & PS2_FIO_O_CREAT) != 0u &&
+            FILE *stream = restoring ? cave::ps2::ReopenStateFile(hostPath, hostMode(flags))
+                                     : std::fopen(hostPath.string().c_str(), hostMode(flags));
+            if (!restoring && !stream && !exists && (flags & PS2_FIO_O_CREAT) != 0u &&
                 access == PS2_FIO_O_RDWR &&
                 (flags & (PS2_FIO_O_TRUNC | PS2_FIO_O_APPEND)) == 0u)
             {
@@ -289,7 +319,7 @@ int32_t PS2Vfs::open(std::string_view path, uint32_t flags, const PS2VfsMounts &
     if (m_nextDescriptor < 3)
         m_nextDescriptor = 3;
     const int32_t descriptor = m_nextDescriptor++;
-    m_descriptors.emplace(descriptor, OpenDescriptor{std::move(file), parsed.deviceName, std::string(path)});
+    m_descriptors.emplace(descriptor, OpenDescriptor{std::move(file), parsed.deviceName, std::string(path), flags});
     return descriptor;
 }
 
@@ -409,4 +439,53 @@ std::vector<PS2VfsDescriptorInfo> PS2Vfs::descriptors() const
     for (const auto &[descriptor, entry] : m_descriptors)
         result.push_back({descriptor, entry.device, entry.path});
     return result;
+}
+
+std::vector<uint8_t> PS2Vfs::saveState(const PS2VfsMounts &mounts) const
+{
+    std::lock_guard lock(m_mutex);
+    std::vector<uint8_t> bytes;
+    cave::ps2::StateWriter writer(bytes);
+    writer.Fields(uint32_t{1}, m_nextDescriptor);
+    std::vector<int32_t> ids;
+    for (const auto& [id, entry] : m_descriptors) ids.push_back(id);
+    std::sort(ids.begin(), ids.end());
+    writer.Items(ids, UINT32_MAX, 20, [&](int32_t id) {
+        const auto& entry = m_descriptors.at(id);
+        const auto offset = entry.file->seek(0, SEEK_CUR);
+        if (offset < 0) throw std::runtime_error("Cannot capture PS2 open file position");
+        writer.Fields(id, entry.flags, offset);
+        writer.String(mountedPath(entry.path, mounts));
+    });
+    return bytes;
+}
+
+void PS2Vfs::loadState(std::span<const uint8_t> bytes, const PS2VfsMounts &mounts, const PS2RomDevice &rom)
+{
+    std::lock_guard lock(m_mutex);
+    cave::ps2::StateReader reader(bytes);
+    uint32_t version{};
+    int32_t nextId{};
+    reader.Fields(version, nextId);
+    if (version != 1 || nextId < 3) throw std::invalid_argument("Invalid EE file descriptor state");
+    PS2Vfs next;
+    next.m_discImage = m_discImage;
+    const auto count = reader.Count(static_cast<uint32_t>(nextId - 3), 20);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        int32_t id{};
+        uint32_t flags{};
+        int64_t offset{};
+        reader.Fields(id, flags, offset);
+        auto path = reader.String(UINT32_MAX);
+        if (id < 3 || id >= nextId || next.m_descriptors.contains(id) || offset < 0)
+            throw std::invalid_argument("Invalid saved EE file descriptor");
+        next.m_nextDescriptor = id;
+        if (next.openImpl(path, flags, mounts, rom, true) != id ||
+            next.m_descriptors.at(id).file->seek(offset, SEEK_SET) != offset)
+            throw std::runtime_error("Cannot reopen PS2 file from state: " + path);
+    }
+    reader.Finish();
+    m_descriptors.swap(next.m_descriptors);
+    m_nextDescriptor = nextId;
 }

@@ -49,13 +49,23 @@ void IopMailboxContract() {
     running->cpu.gpr[4] = output; running->cpu.gpr[5] = priorityBox;
     Require(kernel.dispatchMailboxImport(8, running->cpu) && running->cpu.yielded &&
         running->state == IopThreadState::Mailbox, "ReceiveMbx did not block empty receiver");
+    running->cpu.pendingLoad=true; running->cpu.pendingLoadReg=17; running->cpu.pendingLoadValue=0xcafefeed;
+    running->cpu.branchPending=true; running->cpu.branchTarget=0x51234;
     kernel.endTimeslice(*running, 0x1fffff00);
+    const auto savedKernel=kernel.saveState(), savedMemory=memory.saveState();
+    Require(mbx(7,priorityBox,packet)==0,"Could not advance past mailbox checkpoint");
+    memory.loadState(savedMemory);
+    kernel.loadState(savedKernel);
+    Require(kernel.saveState()==savedKernel,"IOP mailbox/thread save did not round trip");
     running = kernel.beginNextReady(1);
     Require(running && running->id == low, "Blocked mailbox thread remained schedulable");
     kernel.endTimeslice(*running, 0x1fffff00);
     Require(mbx(7, priorityBox, packet) == 0 && memory.read32(output) == packet,
             "Interrupt send failed direct delivery");
     running = kernel.beginNextReady(2);
+    Require(running && running->cpu.pendingLoad && running->cpu.pendingLoadReg==17 &&
+            running->cpu.pendingLoadValue==0xcafefeed && running->cpu.branchPending && running->cpu.branchTarget==0x51234,
+            "Restoring mailbox waiter lost MIPS delayed load or branch");
     Require(running && running->id == high && running->cpu.gpr[2] == 0,
             "Mailbox wake did not invalidate ready election");
     running->cpu.gpr[4] = output; running->cpu.gpr[5] = priorityBox;
@@ -109,6 +119,11 @@ void IopFixedPoolContract() {
             "Exhausted blocking allocation did not wait");
     kernel.endTimeslice(*running, 0x1fffff00);
     Require(kernel.beginNextReady(1) == nullptr, "Blocked allocator remained runnable");
+    const auto savedPool=kernel.saveState(), savedRam=memory.saveState();
+    Require(pool(5,id)==0,"Could not delete saved pool");
+    memory.loadState(savedRam);
+    kernel.loadState(savedPool);
+    Require(kernel.beginNextReady(1)==nullptr,"Restored pool waiter resumed before a block was released");
     Require(pool(9, id, b) == 0, "Free did not wake allocator");
     running = kernel.beginNextReady(2);
     Require(running && int32_t(running->cpu.gpr[2]) == b, "Waiting allocator did not receive released block");

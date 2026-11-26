@@ -11,6 +11,7 @@ struct CollectionConfiguration {
     bool garegga_english_translation{true};
     Settings shared;
     kt::input::KeyboardBindings keyboard{};
+    kt::input::KeyboardBindings keyboard_p2{};
     kt::community::Config community;
     NativeDisplaySettings display;
 };

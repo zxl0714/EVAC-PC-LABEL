@@ -7,6 +7,9 @@ translation units and seven utility headers are compiled. The collection's
 `scripts/ps2_spu_sources.py` verifies every input digest and creates a build-local
 source view. It removes six emulator-state serialization methods and their ZIP
 dependencies, retaining the voice, ADPCM, ADSR, reverb and IRQ implementation.
+The collection state codec saves the two cores, sample RAM, ADPCM decoder
+history, reverb and the partially consumed AutoDMA stream. It binds restored
+voices to the new device's RAM and rebuilds decoded sample caches on demand.
 The release logging implementation is retained without the frontend logger.
 Game memory-card saves use a separate service.
 

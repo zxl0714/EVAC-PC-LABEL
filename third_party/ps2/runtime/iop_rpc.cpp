@@ -1,5 +1,7 @@
 #include "emulator/services/iop_rpc.h"
 #include "iop_ee_rpc.h"
+#include "../../../backends/ps2/state_archive.h"
+#include <map>
 
 #include "emulator/core/iop_cpu.h"
 #include "emulator/core/iop_kernel.h"
@@ -23,9 +25,67 @@ namespace ps2x::iop::detail
     {
         m_servers.clear();
         m_localClients.clear();
-        m_epoch = std::make_shared<int>(0);
+        ++m_epoch;
         m_nextDmaId = 1u;
         m_sifInitialized = false;
+    }
+
+    void IopRpcBridge::completeEeRpc(const cave::ps2::IopRpcReply& reply, std::span<const uint8_t> bytes,
+                                     IopGuestExecutor& executor)
+    {
+        if (reply.epoch != m_epoch) return;
+        if (!bytes.empty()) (void)m_memory.writeRam(reply.receive, bytes.data(), bytes.size());
+        m_memory.write32(reply.client, 0u);
+        if (reply.endFunction)
+            (void)executor.executeGuestFunction(reply.endFunction, reply.endArgument, 0, 0, 0, reply.gp);
+        if (reply.blocking && reply.thread) {
+            IopCpuState wake{};
+            wake.gpr[4] = reply.thread;
+            (void)m_kernel.dispatchThreadImport(25, wake, 0);
+        }
+    }
+
+    std::vector<uint8_t> IopRpcBridge::saveState() const
+    {
+        std::vector<uint8_t> data;
+        cave::ps2::StateWriter w(data);
+        w.Fields(uint32_t{1}, m_epoch, m_nextDmaId, m_sifInitialized);
+        const std::map<uint32_t, RpcServer> servers(m_servers.begin(), m_servers.end());
+        w.Items(servers, UINT32_MAX, 32, [&](const auto& item) {
+            const auto& s = item.second;
+            w.Fields(s.sid, s.serverData, s.function, s.gp, s.buffer, s.callback, s.callbackBuffer, s.queue);
+        });
+        const std::map<uint32_t, uint32_t> clients(m_localClients.begin(), m_localClients.end());
+        w.Items(clients, UINT32_MAX, 8, [&](const auto& item) { w.Fields(item.first, item.second); });
+        return data;
+    }
+
+    void IopRpcBridge::loadState(std::span<const uint8_t> bytes)
+    {
+        cave::ps2::StateReader r(bytes);
+        uint32_t version{}, nextDma{};
+        uint64_t epoch{};
+        bool initialized{};
+        r.Fields(version, epoch, nextDma, initialized);
+        if (version != 1 || !nextDma || nextDma > INT32_MAX) throw std::invalid_argument("Invalid IOP RPC state");
+        decltype(m_servers) servers;
+        for (auto n = r.Count(UINT32_MAX, 32); n; --n) {
+            RpcServer s{};
+            r.Fields(s.sid, s.serverData, s.function, s.gp, s.buffer, s.callback, s.callbackBuffer, s.queue);
+            if (!servers.emplace(s.sid, s).second) throw std::invalid_argument("Duplicate IOP RPC server");
+        }
+        decltype(m_localClients) clients;
+        for (auto n = r.Count(UINT32_MAX, 8); n; --n) {
+            uint32_t address{}, sid{};
+            r.Fields(address, sid);
+            if (!clients.emplace(address, sid).second) throw std::invalid_argument("Duplicate IOP RPC client");
+        }
+        r.Finish();
+        m_servers.swap(servers);
+        m_localClients.swap(clients);
+        m_epoch = epoch;
+        m_nextDmaId = nextDma;
+        m_sifInitialized = initialized;
     }
 
     bool IopRpcBridge::dispatchSifManImport(uint16_t ordinal, IopCpuState &cpu)
@@ -174,7 +234,8 @@ namespace ps2x::iop::detail
             const uint32_t receiveSize = m_memory.read32(sp + 24u);
             const uint32_t endFunction = m_memory.read32(sp + 28u), endArgument = m_memory.read32(sp + 32u);
             const auto local = m_localClients.find(client);
-            if ((!host && local == m_localClients.end()) || sendSize > 0x100000u || receiveSize > 0x100000u ||
+            if ((!host && local == m_localClients.end()) || sendSize > cave::ps2::maxIopRpcBytes ||
+                receiveSize > cave::ps2::maxIopRpcBytes ||
                 !m_memory.ownsRamRange(cpu.gpr[7], sendSize) ||
                 (receiveSize && !m_memory.ownsRamRange(receive, receiveSize)))
             { setV0(uint32_t(-1)); return true; }
@@ -202,21 +263,10 @@ namespace ps2x::iop::detail
                 setV0(0);
                 return true;
             }
-            const std::weak_ptr<int> epoch = m_epoch;
-            auto completed = [this, epoch, client, receive, thread, blocking, endFunction, endArgument, gp, &executor]
-                (std::span<const uint8_t> reply) {
-                if (epoch.expired()) return;
-                if (!reply.empty()) (void)m_memory.writeRam(receive, reply.data(), reply.size());
-                m_memory.write32(client, 0u);
-                if (endFunction) (void)executor.executeGuestFunction(endFunction, endArgument, 0, 0, 0, gp);
-                if (blocking && thread) {
-                    IopCpuState wake{}; wake.gpr[4] = thread;
-                    (void)m_kernel.dispatchThreadImport(25, wake, 0);
-                }
-            };
+            const cave::ps2::IopRpcReply completed{m_epoch, client, receive, thread, endFunction, endArgument, gp, blocking};
             m_memory.write32(client, 1u);
             const bool queued = host->QueueEeRpc(m_memory.read32(client + 0x24u), cpu.gpr[5], payload,
-                                                  receiveSize, std::move(completed));
+                                                  receiveSize, completed);
             if (!queued) { m_memory.write32(client, 0u); setV0(uint32_t(-1)); return true; }
             if (blocking) m_kernel.sleepCurrent(cpu);
             setV0(0);

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
+#include <vector>
 
 namespace cave::ps2 {
 // One IOP producer, one audio-device consumer. Indices are stereo frames;
@@ -55,6 +56,26 @@ public:
     // consumer discard the old epoch; the producer never writes its index.
     void DiscardFromProducer() noexcept {
         discardBefore_.store(write_.load(std::memory_order_relaxed),std::memory_order_release);
+    }
+    // Both endpoints must be paused. Keep samples already produced by the
+    // guest and not yet delivered to the host, in playback order.
+    std::vector<int16_t> Pending() const {
+        const auto read=std::max(read_.load(),discardBefore_.load());
+        const auto write=write_.load();
+        std::vector<int16_t> result((write-read)*2);
+        for(uint64_t i=read;i<write;++i) {
+            const auto pos=(i%CapacityFrames)*2;
+            result[(i-read)*2]=buffer_[pos];
+            result[(i-read)*2+1]=buffer_[pos+1];
+        }
+        return result;
+    }
+    void RestorePending(std::span<const int16_t> samples) noexcept {
+        write_.store(0);
+        read_.store(0);
+        discardBefore_.store(0);
+        surplusFrames_=minimumSurplus_=0;
+        Write(samples);
     }
 private:
     size_t LateFrames(size_t available,size_t requested) noexcept {

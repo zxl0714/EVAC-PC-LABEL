@@ -106,8 +106,10 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
     Settings result;
     constexpr std::array<std::string_view,16> defaults{
         "Up","Down","Left","Right","Z","X","C","V","Enter","Backspace","A","S","Q","W","none","none"};
-    for (std::size_t n=0; n<defaults.size(); ++n)
+    for (std::size_t n=0; n<defaults.size(); ++n) {
         ParseBinding(result.keyboard[n],defaults[n],0,kButtons[n],"keyboard");
+        ParseBinding(result.keyboard_p2[n],"none",0,kButtons[n],"keyboard_p2");
+    }
     constexpr std::array<std::string_view,4> right_stick_defaults{"I","K","J","L"};
     for (std::size_t n=0; n<right_stick_defaults.size(); ++n)
         ParseBinding(result.keyboard_right_stick[n],game_id=="guwange"?right_stick_defaults[n]:"none",
@@ -128,15 +130,16 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
                 Error(line,section,key,exclusiveOne ? "expected a finite number in [0, 1)" : "expected a finite number in [0, 1]");
             return output;
         };
-        if (category=="keyboard") {
+        if (category=="keyboard" || category=="keyboard_p2") {
+            const bool second=category=="keyboard_p2";
             const auto button=std::find(kButtons.begin(),kButtons.end(),key);
             if (button!=kButtons.end())
-                ParseBinding(result.keyboard[button-kButtons.begin()],value,line,key,section);
+                ParseBinding((second?result.keyboard_p2:result.keyboard)[button-kButtons.begin()],value,line,key,section);
             else {
                 const auto direction=std::find(kRightStickButtons.begin(),kRightStickButtons.end(),key);
-                if (game_id!="guwange" || section!="game.guwange.keyboard" || direction==kRightStickButtons.end())
+                if (game_id!="guwange" || !section.starts_with("game.guwange.") || direction==kRightStickButtons.end())
                     Error(line,section,key,"unknown controller button");
-                ParseBinding(result.keyboard_right_stick[direction-kRightStickButtons.begin()],value,line,key,section);
+                ParseBinding((second?result.keyboard_p2_right_stick:result.keyboard_right_stick)[direction-kRightStickButtons.begin()],value,line,key,section);
             }
         } else if (category=="display" && key=="fullscreen") result.fullscreen=boolean();
         else if (category=="display" && key=="vsync") result.vsync=boolean();
@@ -156,6 +159,7 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
             (key=="window_width"?result.window_width:result.window_height)=dimension;
         }
         else if (category=="gamepad" && key=="enabled") result.gamepad_enabled=boolean();
+        else if (category=="gamepad" && key=="swap_players") result.swap_players=boolean();
         else if (category=="gamepad" && key=="deadzone") result.deadzone=number(true);
         else if (category=="audio" && key=="volume") result.volume=number(false);
         else if (category=="logging" && key=="level") {
@@ -175,7 +179,7 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
                 Error(line,section,key,"use 1..64 UTF-8 bytes without control characters");
         } else Error(line,section,key,"unknown key");
     };
-    constexpr std::array<std::string_view,6> categories{"display","audio","gamepad","keyboard","community","logging"};
+    constexpr std::array<std::string_view,7> categories{"display","audio","gamepad","keyboard","keyboard_p2","community","logging"};
     // Validate public values first; an override does not hide malformed public
     // configuration. Other games' values are not interpreted by this launch.
     for (bool override : {false,true}) for (auto category : categories) {
@@ -226,7 +230,14 @@ static Settings ResolveSettingsImpl(const Ini& ini, std::string_view game_id) {
     for (std::size_t n=0; n<kButtons.size(); ++n) check_binding(result.keyboard[n],kButtons[n]);
     for (std::size_t n=0; n<kRightStickButtons.size(); ++n)
         check_binding(result.keyboard_right_stick[n],kRightStickButtons[n]);
+    for (std::size_t n=0; n<kButtons.size(); ++n) check_binding(result.keyboard_p2[n],kButtons[n]);
+    for (std::size_t n=0; n<kRightStickButtons.size(); ++n)
+        check_binding(result.keyboard_p2_right_stick[n],kRightStickButtons[n]);
     return result;
+}
+bool Settings::HasSecondKeyboardPlayer() const {
+    const auto assigned=[](const Binding& binding){return !binding.keys.empty();};
+    return std::ranges::any_of(keyboard_p2,assigned) || std::ranges::any_of(keyboard_p2_right_stick,assigned);
 }
 Settings ResolveSettings(const Ini& ini, std::string_view game_id) {
     (void)FindGame(game_id);

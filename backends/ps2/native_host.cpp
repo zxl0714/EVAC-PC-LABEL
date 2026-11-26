@@ -2,6 +2,11 @@
 #define NOMINMAX
 #endif
 #include "native_host.h"
+#include "common/death_label_host.h"
+#include "machine_state.h"
+#include "state_archive.h"
+#include "state_menu.h"
+#include "state_slots.h"
 #include "startup_trace.h"
 #include "host_input.h"
 #include "gs_display.h"
@@ -54,10 +59,10 @@ public:
 };
 class Input final : public HostPadSource {
     kt::input::SdlGamepad gamepad;
-    kt::input::KeyboardBindings bindings{};
+    std::array<kt::input::KeyboardBindings,2> bindings{};
     std::array<bool,256> keys{};
-    std::array<std::chrono::steady_clock::time_point,16> until{};
-    uint16_t held=0;
+    std::array<std::array<std::chrono::steady_clock::time_point,16>,2> until{};
+    std::array<uint16_t,2> held{};
     std::mutex mutex;
     bool focused=false;
 public:
@@ -65,44 +70,54 @@ public:
         // The established process-local test pad is opt-in and requires both
         // fresh diagnostic traces. It never sends Windows/controller input.
         if(input_trace::Enabled() && evac_latency::Initialize())evac_latency::InitializeTestPad();
+        bool swap_players=false;
         if(options.gameId.empty())
-            bindings=options.keyboardConfig.empty()?kt::input::DefaultKeyboardBindings():kt::input::LoadKeyboardConfig(options.keyboardConfig);
+            bindings[0]=options.keyboardConfig.empty()?kt::input::DefaultKeyboardBindings():kt::input::LoadKeyboardConfig(options.keyboardConfig);
         else {
             const auto settings=LoadSettings(options.keyboardConfig,options.gameId);
+            swap_players=settings.swap_players;
             constexpr std::array<uint32_t,16> masks{0x10,0x40,0x80,0x20,0x4000,0x2000,0x8000,0x1000,8,0x100000,0x400,0x800,0x100,0x200,2,4};
-            for(size_t i=0;i<masks.size();++i)for(const auto key:settings.keyboard[i].keys)bindings.at(key)|=masks[i];
-        }
-        gamepad.Configure(options.gamepadEnabled,options.deadzone);gamepad.Initialize();
-    }
-    void Key(unsigned key,bool down) {
-        if(key>=keys.size())return;
-        std::lock_guard lock(mutex);
-        if(keys[key]==down)return;
-        keys[key]=down;
-        const auto mask=Ps2Buttons(bindings[key]);
-        input_trace::Record(input_trace::Kind::HostKey,0,key,mask,down);
-        if(down) {
-            const auto duration=DiagnosticTapMilliseconds();
-            if(duration && mask) {
-                const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(duration);
-                for(unsigned i=0;i<16;++i)if(mask&(1u<<i))until[i]=deadline;
-                std::cerr<<"[ps2-pad-event] key="<<key<<" active=0x"<<std::hex<<mask<<std::dec<<" pulse_ms="<<duration<<'\n';
+            for(size_t port=0;port<bindings.size();++port) {
+                const auto& buttons=settings.Keyboard(port==1);
+                for(size_t i=0;i<masks.size();++i)
+                    for(const auto key:buttons[i].keys)bindings[port].at(key)|=masks[i];
             }
         }
-        held=0;
-        for(unsigned i=0;i<keys.size();++i)if(keys[i])held|=Ps2Buttons(bindings[i]);
+        gamepad.Configure(options.gamepadEnabled,options.deadzone,swap_players);gamepad.Initialize();
+    }
+    uint16_t Key(unsigned key,bool down) {
+        if(key>=keys.size())return 0;
+        std::lock_guard lock(mutex);
+        if(keys[key]==down)return 0;
+        keys[key]=down;
+        const auto buttons=Ps2Buttons(bindings[0][key]|bindings[1][key]);
+        input_trace::Record(input_trace::Kind::HostKey,0,key,buttons,down);
+        const auto duration=down?DiagnosticTapMilliseconds():0;
+        for(size_t port=0;port<bindings.size();++port) {
+            const auto mask=Ps2Buttons(bindings[port][key]);
+            if(!mask)continue;
+            if(duration) {
+                const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(duration);
+                for(unsigned i=0;i<16;++i)if(mask&(1u<<i))until[port][i]=deadline;
+                std::cerr<<"[ps2-pad-event] port="<<port<<" key="<<key<<" active=0x"<<std::hex<<mask<<std::dec<<" pulse_ms="<<duration<<'\n';
+            }
+        }
+        held={};
+        for(unsigned i=0;i<keys.size();++i)if(keys[i])
+            for(size_t port=0;port<held.size();++port)held[port]|=Ps2Buttons(bindings[port][i]);
+        return buttons;
     }
     void Focus(bool focus) {
         std::lock_guard lock(mutex);
         if(focused==focus)return;
-        if(!focus){keys.fill(false);held=0;until.fill({});}
+        if(!focus){keys.fill(false);held={};until={};}
         focused=focus;
         gamepad.Focus(focus);
     }
     HostPadState Read(unsigned port) override {
-        if(port)return {};
+        if(port>=held.size())return {};
         HostPadState state;
-        if(evac_latency::test_pad) {
+        if(!port && evac_latency::test_pad) {
             const auto sample=evac_latency::ReadTestPad();
             constexpr std::array<uint16_t,16> masks{
                 0x10,0x40,0x80,0x20,8,1,2,4,0x400,0x800,0,0,0x4000,0x2000,0x8000,0x1000};
@@ -111,13 +126,14 @@ public:
         }
         std::lock_guard lock(mutex);
         if(!focused)return {};
-        const auto current=gamepad.Poll();
-        state.buttons=held|Ps2Buttons(current.buttons);
-        state.axes={current.right_x,current.right_y,current.left_x,current.left_y};
+        state.buttons=held[port];
         if(DiagnosticTapMilliseconds()){
             const auto now=std::chrono::steady_clock::now();
-            for(unsigned i=0;i<16;++i)if(now<until[i])state.buttons|=uint16_t(1u<<i);
+            for(unsigned i=0;i<16;++i)if(now<until[port][i])state.buttons|=uint16_t(1u<<i);
         }
+        const auto current=gamepad.Poll(port);
+        state.buttons|=Ps2Buttons(current.buttons);
+        state.axes={current.right_x,current.right_y,current.left_x,current.left_y};
         if(current.pending)gamepad.Acknowledge(current);
         return state;
     }
@@ -136,7 +152,26 @@ public:
     std::unique_ptr<GsDisplay> display;
     std::shared_ptr<GsCommandQueue> queue;
     std::shared_ptr<Input> input;
+    StateMenu* activeMenu{};
+    GameStateExtension* gameState{};
+    struct ProgramRestore {
+        StateSlots::SavedProgram state;
+        unsigned slot{};
+        std::string error;
+    };
+    std::optional<ProgramRestore> pendingProgram, previousProgram;
+    bool pauseNewProgram{};
+    std::atomic<bool> dispatcherReady{};
     std::function<bool()> parkAtMenu;
+    std::function<void()> afterStateRestore;
+    void WithGraphics(const std::function<void(GsDevice&)>& visit) {
+        std::exception_ptr error;
+        queue->RunOnConsumer([&] {
+            try { visit(display->Device()); }
+            catch (...) { error = std::current_exception(); }
+        });
+        if (error) std::rethrow_exception(error);
+    }
     std::chrono::steady_clock::time_point nextInput{};
     uint64_t frames=0;
     uint64_t lastOffered=0;
@@ -187,9 +222,12 @@ void NativeHost::Initialize(const char* title) {
     if(impl->options.firstVisibleField)display->PresentLoadingFrame();
     if(impl->options.trackFieldBlits)display->Device().EnableFieldBlitTracking();
     auto queue=std::make_shared<GsCommandQueue>(8u*1024u*1024u,2048,display->Device().Completions());
-    display->SetKeyHandler([weak=std::weak_ptr<Input>(input)](unsigned key,bool down){
+    display->SetKeyHandler([this,weak=std::weak_ptr<Input>(input)](unsigned key,bool down){
         if(key==VK_F8 && down)std::cerr<<"[ps2-marker] qpc_us="<<frame_trace::Stamp()<<'\n';
-        if(auto owner=weak.lock())owner->Key(key,down);
+        if(auto owner=weak.lock()) {
+            const auto buttons=owner->Key(key,down);
+            if (impl->activeMenu) impl->activeMenu->Key(key,down,buttons);
+        }
     });
     if(impl->options.fullscreen && !impl->options.existingWindow)display->ToggleFullscreen();
     impl->display=std::move(display);impl->queue=std::move(queue);impl->input=std::move(input);
@@ -199,6 +237,81 @@ void NativeHost::Initialize(const char* title) {
 }
 bool NativeHost::Alive() {return impl->display && impl->display->Alive();}
 bool NativeHost::ParkAtMenu() {return impl->parkAtMenu && impl->parkAtMenu();}
+void NativeHost::SetGameStateExtension(GameStateExtension* extension) { impl->gameState=extension; }
+void NativeHost::LoadSlot(PS2Runtime& runtime,const StateSlots& slots,unsigned slot) {
+    auto saved=slots.ReadProgram(slot,impl->options.statePrograms);
+    const auto& io=PS2Runtime::getIoPaths();
+    const auto current=io.elfPath.filename().string();
+    if (current==saved.name) {
+        LoadPausedState(runtime,saved.bytes);
+        return;
+    }
+    if (!std::filesystem::is_regular_file(io.cdRoot/saved.name))
+        throw std::runtime_error("The game data is missing the saved disc program");
+    // Keep the paused scene until the new executable has accepted the slot.
+    // This also covers failures opening files in a moved or incomplete profile.
+    impl->previousProgram=Impl::ProgramRestore{{current,SavePausedState(runtime)},slot,{}};
+    impl->pendingProgram=Impl::ProgramRestore{std::move(saved),slot,{}};
+    runtime.requestStop();
+}
+std::string NativeHost::PendingStateProgram() const {
+    return impl->pendingProgram?impl->pendingProgram->state.name:std::string{};
+}
+bool NativeHost::RecoverPreviousProgram(std::string error) {
+    if (!impl->previousProgram) return false;
+    impl->pendingProgram=std::exchange(impl->previousProgram,std::nullopt);
+    impl->pendingProgram->error=std::move(error);
+    return true;
+}
+void NativeHost::OnSchedulerReset(PS2Runtime& runtime) {
+    if (impl->pauseNewProgram) {
+        runtime.eeScheduler().setPaused(true);
+        impl->dispatcherReady.store(true,std::memory_order_release);
+    }
+}
+void NativeHost::CapturePausedPicture() {
+    impl->WithGraphics([&](GsDevice&) { impl->display->CapturePausedPicture(); });
+}
+std::vector<uint8_t> NativeHost::SavePausedState(PS2Runtime& runtime) {
+    std::vector<uint8_t> state;
+    impl->WithGraphics([&](GsDevice&) { state=impl->display->SavePausedPicture(); });
+    const auto pictureSize=static_cast<uint32_t>(state.size());
+    if (impl->gameState) StateWriter(state).Blob(impl->gameState->Save());
+    auto machine=MachineState::Save(runtime, [&](const auto& visit) { impl->WithGraphics(visit); });
+    state.reserve(state.size()+machine.size()+4);
+    StateWriter(state).Bytes(machine);
+    StateWriter(state).Field(pictureSize);
+    return state;
+}
+void NativeHost::LoadPausedState(PS2Runtime& runtime, std::span<const uint8_t> state) {
+    if (state.size()<4) throw std::invalid_argument("Incomplete PS2 save state");
+    uint32_t pictureSize{};
+    StateReader(state.last(4)).Field(pictureSize);
+    StateReader parts(state.first(state.size()-4));
+    const auto picture=parts.Take(pictureSize);
+    auto machine=state.subspan(pictureSize,state.size()-4-pictureSize);
+    std::function<void()> installGame;
+    if (impl->gameState) {
+        const auto extension=parts.Blob();
+        installGame=impl->gameState->PrepareLoad(extension);
+        machine=machine.subspan(sizeof(uint32_t)+extension.size());
+    }
+    std::function<void()> install;
+    impl->WithGraphics([&](GsDevice&) { install=impl->display->PreparePausedPicture(picture); });
+    try {
+        MachineState::Load(runtime, [&](const auto& visit) { impl->WithGraphics(visit); },
+                           machine);
+    } catch (...) {
+        impl->WithGraphics([&](GsDevice&) { install={}; });
+        throw;
+    }
+    if (installGame) installGame();
+    impl->lastOffered = 0;
+    impl->WithGraphics([&](GsDevice&) {
+        install(); install={};
+        if (impl->afterStateRestore) impl->afterStateRestore();
+    });
+}
 std::unique_ptr<GsCommandBackend> NativeHost::CreateBackend() {
     if(!impl->queue)throw std::logic_error("Initialize PS2 host before creating the producer");
     std::unique_ptr<GsCommandBackend> backend=std::make_unique<SharedQueue>(impl->queue);
@@ -242,6 +355,13 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     uint64_t preparedSerial=0,confirmed=0,held=0,corrected=0,repeated=0;
     const auto* firstVisibleField=impl->options.firstVisibleField;
     bool hasPresented=false, resuming=false;
+    impl->afterStateRestore = [&] {
+        hasPresented=false;
+        prepared.reset();
+        repeat.reset();
+        previousPage.reset();
+        presentedRepeat = false;
+    };
     GsDeviceSink sink(display.Device(),[&](const GsFrame& frame){
         if(firstVisibleField && !hasPresented) {
             const auto first=firstVisibleField->load(std::memory_order_acquire);
@@ -315,6 +435,19 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
             return resume;
         };
     }
+    std::optional<StateMenu> menu;
+    if (!impl->options.stateDirectory.empty()) {
+        const auto program=PS2Runtime::getIoPaths().elfPath.filename().string();
+        menu.emplace(*this,display,runtime,impl->options.stateDirectory,
+            impl->options.stateIdentity+"/"+program,impl->options.keyboardConfig,impl->options.gamepadEnabled,
+            !impl->options.existingWindow || bool(impl->options.readWindowKeys),
+            *(impl->options.existingPad?impl->options.existingPad:impl->input),impl->options.gameId!="rtype-final");
+        impl->activeMenu=&*menu;
+    }
+    struct ClearMenu { Impl& impl; ~ClearMenu(){impl.activeMenu=nullptr;} } clearMenu{*impl};
+    auto startupState=std::exchange(impl->pendingProgram,std::nullopt);
+    impl->pauseNewProgram=startupState.has_value();
+    impl->dispatcherReady=false;
     std::thread producer([&]{
         try {
             std::optional<Vif1DmaWorker> vif1;
@@ -330,6 +463,28 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
         while(!runtime.isStopRequested() && !finished.load(std::memory_order_acquire)) {
             if(!display.Alive())break;
             impl->Poll();
+            if(menu) {
+                if (startupState && impl->dispatcherReady.exchange(false,std::memory_order_acquire)) {
+                    auto& saved=*startupState;
+                    menu->RestoreOnEntry(saved.slot,std::move(saved.error),
+                        [this,&runtime,bytes=std::move(saved.state.bytes)] {
+                            try {
+                                LoadPausedState(runtime,bytes);
+                                impl->previousProgram.reset();
+                            } catch (const std::exception& e) {
+                                if (!RecoverPreviousProgram(e.what())) throw;
+                                runtime.requestStop();
+                            }
+                        });
+                    startupState.reset();
+                }
+                if (impl->options.readWindowKeys) {
+                    std::array<DeathLabelKeyEvent,128> keys;
+                    const auto count=impl->options.readWindowKeys(keys);
+                    for (const auto& key:std::span(keys).first(count)) menu->Key(key.code,key.down,key.buttons);
+                }
+                if (!startupState) menu->Update();
+            }
             auto timeout=2ms;
             if(repeat) {
                 const auto remaining=repeat->presentAfter-std::chrono::steady_clock::now();
@@ -355,6 +510,7 @@ void NativeHost::Run(PS2Runtime& runtime,const std::function<void()>& execute,co
     runtime.requestStop();impl->queue->Close(ownerFailure);producer.join();
     runtime.eeScheduler().setGsStatusNotifications(false);
     impl->parkAtMenu={};
+    impl->afterStateRestore={};
     std::cerr<<"[ps2-ready-frame] confirmed="<<confirmed<<" held="<<held<<" repeated="<<repeated<<" corrected="<<corrected<<'\n';
     impl->queue->SetFrameNotifier({});mailbox->SetNotifier({});display.Device().SetWaitPump({});SetHostPadSource({});
     const auto stats=impl->queue->GetStats();

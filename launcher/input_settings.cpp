@@ -2,6 +2,7 @@
 #include "launcher/game_exit.h"
 #include "common/config_update.h"
 #include "common/controller_bindings.h"
+#include "common/controller_ports.h"
 #include "common/settings.h"
 #include <commctrl.h>
 #include <utility>
@@ -10,7 +11,7 @@ namespace cave::launcher::controls {
 namespace {
 constexpr wchar_t kClass[]=L"EvacInputSettings";
 constexpr int kPreferredHeight=736;
-enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset};
+enum Control {Keyboard=101,Controller,Scope,Devices,Bindings,Bind,Clear,Reset,Player,SwapPlayers};
 
 struct Draft {
     std::string before;
@@ -36,24 +37,25 @@ struct Draft {
 };
 
 struct Dialog {
-    HWND window{},list{},device_control{},status{},save{},bind{},clear{},reset{};
+    HWND window{},list{},device_control{},player_control{},status{},save{},bind{},clear{},reset{};
     fs::path root;
     const Game& game;
     Language language;
     Draft draft;
-    bool game_only{},controller{},saved{};
+    bool game_only{},controller{},saved{},player_two{};
     int capture=-1;
-    std::array<Binding,20> keys;
+    Settings keyboard_settings;
     PadMap defaults,pad;
     std::unique_ptr<InputDevices> input;
     std::vector<InputDevices::Device> devices;
     SDL_JoystickID selected_device{};
+    std::array<std::uint32_t,2> seats{};
     std::string guid,last_guid,device_error;
     PadSnapshot previous,baseline;
     std::uint16_t first_exit_key{};
     std::string first_exit_pad;
     ULONGLONG scan_at{};
-    int dpi=96,height{};
+    int dpi=96;
 
     Dialog(const fs::path& path,const Game& title,Language lang):root(path),game(title),language(lang),draft(root){}
     const wchar_t* T(const wchar_t* zh,const wchar_t* en,const wchar_t* ja) const {
@@ -63,16 +65,27 @@ struct Dialog {
         return game_only?"game."+std::string(game.id)+"."+std::string(category):std::string(category);
     }
     bool ExtraKeys() const {return game_only && game.id=="guwange";}
+    static std::string_view KeyboardCategory(bool second) {return second?"keyboard_p2":"keyboard";}
+    const Binding& KeyboardBinding(unsigned row) const {
+        return row<16?keyboard_settings.Keyboard(player_two)[row]:keyboard_settings.KeyboardRightStick(player_two)[row-16];
+    }
     unsigned GameRowCount() const {
         if(controller)return !game_only || game.backend=="ps4"?21:20;
         return ExtraKeys()?20:16;
     }
-    unsigned RowCount() const {return GameRowCount()+!game_only;}
-    bool ExitRow(unsigned row) const {return !game_only && row==GameRowCount();}
+    bool ShowExit() const {return !game_only && (controller || !player_two);}
+    unsigned RowCount() const {return GameRowCount()+(ShowExit()?2:0);}
+    bool StateRow(unsigned row) const {return ShowExit() && row==GameRowCount()+1;}
+    bool ShortcutRow(unsigned row) const {return ExitRow(row) || StateRow(row);}
+    bool ExitRow(unsigned row) const {return ShowExit() && row==GameRowCount();}
     static bool Analog(unsigned row){return row>=16 && row<20;}
     std::string_view Key(unsigned row) const {return row<16?kButtons[row]:kRightStickButtons[row-16];}
     std::wstring Label(unsigned row) const {
+        if(StateRow(row))return T(L"PS2 即时存档菜单",L"PS2 save state menu",L"PS2 クイックセーブメニュー");
         if(ExitRow(row))return T(L"退出游戏",L"Exit game",L"ゲーム終了");
+        return GameLabel(row);
+    }
+    std::wstring GameLabel(unsigned row) const {
         switch(row) {
         case 0:return T(L"方向上",L"Up",L"上");
         case 1:return T(L"方向下",L"Down",L"下");
@@ -111,21 +124,22 @@ struct Dialog {
         if(value.front()=='h')return std::wstring(T(L"方向帽 ",L"Hat ",L"ハット "))+FromUtf8(value.substr(1)).native();
         return FromUtf8(value).native();
     }
-    std::wstring ExitBindingLabel(const Ini& ini) const {
+    std::wstring ShortcutLabel(const Ini& ini,bool state) const {
         if(!controller) {
-            const auto* entry=ExitKeySetting(ini);
-            const auto keys=entry?ParseExitKeys(entry->text).value_or(ExitKeys{}):ExitKeys{VK_ESCAPE};
+            const auto* entry=state?ini.Get("collection",kStateMenuKey):ExitKeySetting(ini);
+            const auto keys=entry?ParseExitKeys(entry->text).value_or(ExitKeys{}):ExitKeys{state?kStateMenuDefaultKey:std::uint16_t(VK_ESCAPE)};
             return keys[0]?FromUtf8(ExitKeyText(keys)).native():L"—";
         }
         if(guid.empty())return L"—";
-        if(const auto* entry=ini.Get(kExitControllerSection,guid)) {
+        if(const auto* entry=ini.Get(state?kStateMenuController:kExitControllerSection,guid)) {
             const auto binding=ParseExitPadBinding(entry->text);
             if(!binding || binding->front().empty())return L"—";
             const auto label=PadLabel((*binding)[0]);
             return (*binding)[1].empty()?label:label+L" + "+PadLabel((*binding)[1]);
         }
         const auto* entry=ini.Get("collection",kExitButtonsSetting);
-        const auto buttons=entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):GameExitShortcuts{}.buttons;
+        const auto buttons=state?ExitButtons{"leftshoulder","rightshoulder"}:
+            entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):GameExitShortcuts{}.buttons;
         std::wstring label;
         for(const auto button:buttons) {
             if(!pad.contains(std::string(button)))return L"—";
@@ -153,9 +167,7 @@ struct Dialog {
             const auto found=mappings.find(guid);
             pad=found==mappings.end()?defaults:ParsePadMap(found->second);
         } else {
-            const auto settings=game_only?ResolveSettings(ini,game.id):ResolveSharedSettings(ini);
-            std::copy(settings.keyboard.begin(),settings.keyboard.end(),keys.begin());
-            std::copy(settings.keyboard_right_stick.begin(),settings.keyboard_right_stick.end(),keys.begin()+16);
+            keyboard_settings=game_only?ResolveSettings(ini,game.id):ResolveSharedSettings(ini);
         }
         SendMessageW(list,WM_SETREDRAW,FALSE,0);
         ListView_SetColumnWidth(list,1,MulDiv(game_only?220:320,dpi,96));
@@ -166,15 +178,15 @@ struct Dialog {
             LVITEMW item{};item.mask=LVIF_TEXT;item.iItem=int(row);item.pszText=title.data();
             SendMessageW(list,LVM_INSERTITEMW,0,reinterpret_cast<LPARAM>(&item));
             std::wstring value;
-            if(ExitRow(row))value=ExitBindingLabel(ini);
+            if(ShortcutRow(row))value=ShortcutLabel(ini,StateRow(row));
             else if(controller) {
                 const auto found=pad.find(std::string(kPadKeys[row]));
                 value=PadLabel(found==pad.end()?std::string_view{}:found->second);
-            } else value=keys[row].keys.empty()?L"—":FromUtf8(keys[row].text).native();
+            } else value=KeyboardBinding(row).keys.empty()?L"—":FromUtf8(KeyboardBinding(row).text).native();
             item.iSubItem=1;item.pszText=value.data();SendMessageW(list,LVM_SETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
             std::wstring source;
             if(game_only) {
-                const auto* override_value=controller?ini.Get(Section("controller"),guid):ini.Get(Section("keyboard"),Key(row));
+                const auto* override_value=controller?ini.Get(Section("controller"),guid):ini.Get(Section(KeyboardCategory(player_two)),Key(row));
                 source=override_value?T(L"本游戏",L"This game",L"このゲーム"):T(L"继承",L"Inherited",L"共通設定");
             }
             item.iSubItem=2;item.pszText=source.data();SendMessageW(list,LVM_SETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
@@ -197,15 +209,36 @@ struct Dialog {
         }
         Refresh(SelectedRow());
     }
-    void Scan() {
-        const auto connected=input->List();
-        if(connected==devices)return;
-        devices=connected;
+    bool Swapped(const Ini& ini) const {
+        return (game_only?ResolveSettings(ini,game.id):ResolveSharedSettings(ini)).swap_players;
+    }
+    void Scan(bool refresh=false) {
+        if(!input)return;
+        auto connected=input->List();
+        if(!refresh && connected==devices)return;
+        devices=std::move(connected);
+        const auto ini=draft.Preview();
+        const bool swapped=Swapped(ini);
+        const auto mappings=ControllerMappings(ini,game_only?game.id:std::string_view{});
+        const auto eligible=[&](const auto& device){return device.gamepad || mappings.contains(device.guid);};
+        for(auto& id:seats) {
+            const auto found=std::ranges::find(devices,id,&InputDevices::Device::id);
+            if(found==devices.end() || !eligible(*found))id=0;
+        }
+        for(const auto& device:devices) {
+            if(!eligible(device) || std::ranges::find(seats,device.id)!=seats.end())continue;
+            const auto slot=AvailableControllerPort(seats,device.player_index);
+            if(slot<0)break;
+            seats[slot]=device.id;
+        }
+        EnableWindow(GetDlgItem(window,SwapPlayers),swapped || (seats[0] && seats[1]));
         int choice=-1;
         SendMessageW(device_control,CB_RESETCONTENT,0,0);
         for(std::size_t index=0;index<devices.size();++index) {
             const auto& device=devices[index];
-            const auto name=FromUtf8(device.name).native();
+            auto name=FromUtf8(device.name).native();
+            for(unsigned seat=0;seat<seats.size();++seat)if(seats[seat]==device.id)
+                name=std::to_wstring(ControllerPort(seat,swapped)+1)+L"P · "+name;
             SendMessageW(device_control,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(name.c_str()));
             if(device.id==selected_device || (choice<0 && device.guid==last_guid))choice=int(index);
         }
@@ -219,13 +252,13 @@ struct Dialog {
         capture=-1;controller=pad_mode;
         CheckRadioButton(window,Keyboard,Controller,controller?Controller:Keyboard);
         ShowWindow(device_control,controller?SW_SHOW:SW_HIDE);
-        const int top=controller?82:49;
-        SetWindowPos(list,nullptr,MulDiv(20,dpi,96),MulDiv(top,dpi,96),MulDiv(556,dpi,96),
-                     MulDiv(height-130-top,dpi,96),SWP_NOZORDER|SWP_NOACTIVATE);
+        ShowWindow(GetDlgItem(window,SwapPlayers),controller?SW_SHOW:SW_HIDE);
+        ShowWindow(player_control,controller?SW_HIDE:SW_SHOW);
         if(controller && !input && device_error.empty()) {
-            try {input=std::make_unique<InputDevices>(root);input->Update();Scan();}
+            try {input=std::make_unique<InputDevices>(root);input->Update();}
             catch(const std::exception& error){device_error=error.what();}
         }
+        if(controller && input)Scan(true);
         if(controller && devices.empty()) {
             SendMessageW(device_control,CB_RESETCONTENT,0,0);
             SendMessageW(device_control,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(T(L"未连接设备",L"No device connected",L"未接続")));
@@ -253,14 +286,14 @@ struct Dialog {
         catch(...) {draft.changes=std::move(old);Refresh(row);throw;}
     }
     void ResetBindings(int row) {
-        const auto keyboard=Section("keyboard"), controllers=Section("controller");
+        const auto keyboard=Section("keyboard"), second=Section("keyboard_p2"), controllers=Section("controller");
         const auto preview=draft.Preview();
         std::vector<IniEdit> edits;
         for(const auto& [address,value]:preview.Values()) {
             const auto& [section,key]=address;
-            const bool exit_binding=section==kExitControllerSection || (section=="collection" &&
-                (key==kExitKeySetting || key==kPreviousExitKeySetting || key==kExitButtonsSetting));
-            if(section==keyboard || section==controllers || (!game_only && exit_binding))
+            const bool exit_binding=section==kExitControllerSection || section==kStateMenuController || (section=="collection" &&
+                (key==kStateMenuKey || key==kExitKeySetting || key==kPreviousExitKeySetting || key==kExitButtonsSetting));
+            if(section==keyboard || section==second || section==controllers || (section==Section("gamepad") && key=="swap_players") || (!game_only && exit_binding))
                 edits.push_back({address.first,address.second,{},true});
         }
         ApplyBindings(row,edits);
@@ -291,7 +324,7 @@ struct Dialog {
     void Begin() {
         capture=SelectedRow();if(capture<0 || (controller && guid.empty())){capture=-1;return;}
         if(controller){input->Update();baseline=previous=input->Read();}
-        if(ExitRow(capture)) {
+        if(ShortcutRow(capture)) {
             first_exit_key=0;
             first_exit_pad.clear();
             Status(T(L"按一下录入单键，按住一个再按另一个录入组合键",
@@ -301,9 +334,9 @@ struct Dialog {
         Status(controller && Analog(capture)?Label(capture)+T(L"，请按箭头拨动",L" · Move in the shown direction",L" · 矢印の方向に操作"):
             std::wstring(T(L"按下要绑定的键 · Esc 取消",L"Press an input · Esc cancels",L"入力してください · Esc で取消")));
     }
-    void SetExitBinding(int row,std::string value) {
-        if(controller)draft.Put(std::string(kExitControllerSection),guid,std::move(value));
-        else draft.Put("collection",kExitKeySetting,std::move(value));
+    void SetShortcutBinding(int row,std::string value) {
+        if(controller)draft.Put(std::string(StateRow(row)?kStateMenuController:kExitControllerSection),guid,std::move(value));
+        else draft.Put("collection",StateRow(row)?kStateMenuKey:kExitKeySetting,std::move(value));
         Refresh(row);
     }
     void InputExitKey(std::uint16_t key,bool released) {
@@ -316,26 +349,40 @@ struct Dialog {
         const ExitKeys held{first_exit_key?first_exit_key:key,key};
         const auto pressed=released?std::span<const std::uint16_t>{}:std::span<const std::uint16_t>{held};
         if(const auto binding=RecordExitBinding(first_exit_key,pressed))
-            SetExitBinding(std::exchange(capture,-1),ExitKeyText(*binding));
+            SetShortcutBinding(std::exchange(capture,-1),ExitKeyText(*binding));
     }
     void InputKey(unsigned code) {
         const auto name=KeyName(static_cast<std::uint16_t>(code));
         if(name.empty()){Status(T(L"此键不可绑定",L"This key cannot be bound",L"このキーは割り当てできません"));return;}
         const auto row=unsigned(std::exchange(capture,-1));
         try {
-            const auto section=Section("keyboard");
+            const auto section=Section(KeyboardCategory(player_two));
             std::vector<IniEdit> edits{{section,std::string(Key(row)),name}};
             std::wstring released;
-            for(unsigned i=0;i<keys.size();++i) {
-                if(i==row || std::ranges::find(keys[i].keys,code)==keys[i].keys.end())continue;
-                std::string remaining;
-                for(const auto key:keys[i].keys)if(key!=code) {
-                    if(!remaining.empty())remaining+=", ";
-                    remaining+=KeyName(key);
+            const auto move=[&](const Settings& settings,std::string_view game_id,bool overrides_only) {
+                const std::string prefix=game_id.empty()?"":"game."+std::string(game_id)+".";
+                for(bool second:{false,true}) for(unsigned i=0;i<(game_id=="guwange"?20u:16u);++i) {
+                    if(second==player_two && i==row)continue;
+                    const auto& binding=i<16?settings.Keyboard(second)[i]:settings.KeyboardRightStick(second)[i-16];
+                    if(overrides_only && !binding.section.starts_with(prefix))continue;
+                    if(std::ranges::find(binding.keys,code)==binding.keys.end())continue;
+                    std::string remaining;
+                    for(const auto key:binding.keys)if(key!=code) {
+                        if(!remaining.empty())remaining+=", ";
+                        remaining+=KeyName(key);
+                    }
+                    edits.push_back({prefix+std::string(KeyboardCategory(second)),std::string(Key(i)),
+                                     remaining.empty()?"none":std::move(remaining)});
+                    released=(second?L"2P ":L"1P ")+GameLabel(i);
                 }
-                edits.push_back({section,std::string(Key(i)),remaining.empty()?"none":std::move(remaining)});
-                released=Label(i);
-                break;
+            };
+            move(keyboard_settings,game_only?game.id:std::string_view{},false);
+            if(!game_only) {
+                const auto ini=draft.Preview();
+                for(const auto& title:Catalogue()) {
+                    const auto scope="game."+std::string(title.id)+"."+section;
+                    if(!ini.Get(scope,Key(row)))move(ResolveSettings(ini,title.id),title.id,true);
+                }
             }
             ApplyBindings(int(row),edits);
             if(!released.empty())MoveStatus(FromUtf8(name).native(),row,released);
@@ -351,10 +398,10 @@ struct Dialog {
         auto state=input->Read();
         if(GetForegroundWindow()==window) {
             if(capture>=0) {
-                if(ExitRow(capture)) {
+                if(ShortcutRow(capture)) {
                     const auto pressed=PressedExitPadInputs(baseline,state);
                     if(const auto binding=RecordExitBinding<std::string>(first_exit_pad,pressed))
-                        SetExitBinding(std::exchange(capture,-1),(*binding)[1].empty()?(*binding)[0]:(*binding)[0]+','+(*binding)[1]);
+                        SetShortcutBinding(std::exchange(capture,-1),(*binding)[1].empty()?(*binding)[0]:(*binding)[0]+','+(*binding)[1]);
                 } else {
                     const auto source=CapturePad(previous,state,baseline,Analog(capture),capture==12 || capture==13);
                     if(!source.empty())SetPad(unsigned(std::exchange(capture,-1)),source);
@@ -378,20 +425,29 @@ struct Dialog {
         const auto row=SelectedRow();
         switch(id) {
         case Keyboard:case Controller:ChangeMode(id==Controller);break;
-        case Scope:if(action==CBN_SELCHANGE){capture=-1;game_only=SendDlgItemMessageW(window,Scope,CB_GETCURSEL,0,0)==1;Refresh();}break;
+        case Scope:if(action==CBN_SELCHANGE){capture=-1;game_only=SendDlgItemMessageW(window,Scope,CB_GETCURSEL,0,0)==1;if(controller)Scan(true);Refresh();}break;
+        case Player:if(action==CBN_SELCHANGE){capture=-1;player_two=SendMessageW(player_control,CB_GETCURSEL,0,0)==1;Refresh();}break;
         case Devices:if(action==CBN_SELCHANGE){const auto i=SendMessageW(device_control,CB_GETCURSEL,0,0);if(i>=0 && std::size_t(i)<devices.size())SelectDevice(devices[i].id);}break;
+        case SwapPlayers:{
+            capture=-1;
+            const auto ini=draft.Preview();
+            const bool swap=!Swapped(ini);
+            const bool inherited=game_only && ResolveSharedSettings(ini).swap_players;
+            draft.Put(Section("gamepad"),"swap_players",swap?"true":"false",swap==inherited);
+            Scan(true);Refresh(row);break;
+        }
         case Bind:Begin();break;
         case Clear:
             if(row<0)break;
             capture=-1;
-            if(ExitRow(row))SetExitBinding(row,"none");
+            if(ShortcutRow(row))SetShortcutBinding(row,"none");
             else if(controller)SetPad(row,{});
             else {
-                const std::array edits{IniEdit{Section("keyboard"),std::string(Key(row)),"none"}};
+                const std::array edits{IniEdit{Section(KeyboardCategory(player_two)),std::string(Key(row)),"none"}};
                 ApplyBindings(row,edits);
             }
             break;
-        case Reset:capture=-1;ResetBindings(row);break;
+        case Reset:capture=-1;ResetBindings(row);if(controller)Scan(true);break;
         case IDOK:if(!draft.changes.empty()){draft.Save(root);saved=true;DestroyWindow(window);}break;
         case IDCANCEL:DestroyWindow(window);break;
         }
@@ -400,7 +456,7 @@ struct Dialog {
         if(message.hwnd!=window && !IsChild(window,message.hwnd))return false;
         const bool pressed=message.message==WM_KEYDOWN || message.message==WM_SYSKEYDOWN;
         const bool released=message.message==WM_KEYUP || message.message==WM_SYSKEYUP;
-        if(capture>=0 && !controller && ExitRow(capture) && (pressed || released)) {
+        if(capture>=0 && !controller && ShortcutRow(capture) && (pressed || released)) {
             if(released || !(message.lParam&(1LL<<30)))InputExitKey(std::uint16_t(message.wParam),released);
             return true;
         }
@@ -413,7 +469,7 @@ struct Dialog {
             return true;
         }
         if(capture<0 && !controller && message.message==WM_KEYDOWN) {
-            for(unsigned row=0;row<GameRowCount();++row)if(std::ranges::find(keys[row].keys,message.wParam)!=keys[row].keys.end())
+            for(unsigned row=0;row<GameRowCount();++row)if(std::ranges::find(KeyboardBinding(row).keys,message.wParam)!=KeyboardBinding(row).keys.end())
                 Status(FromUtf8(KeyName(static_cast<std::uint16_t>(message.wParam))).native()+L"  →  "+Label(row));
         }
         return false;
@@ -453,7 +509,6 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     RECT parent{};GetWindowRect(owner,&parent);
     const auto t=[&](auto zh,auto en,auto ja){return dialog.T(zh,en,ja);};
     const int height=std::clamp(MulDiv(work.bottom-work.top,96,int(dpi))-52,272,kPreferredHeight);
-    dialog.height=height;
     constexpr DWORD style=WS_CAPTION|WS_SYSMENU,extended=WS_EX_DLGMODALFRAME|WS_EX_CONTROLPARENT;
     RECT outer{0,0,scale(596),scale(height)};AdjustWindowRectExForDpi(&outer,style,FALSE,extended,dpi);
     const auto width=outer.right-outer.left,physical_height=outer.bottom-outer.top;
@@ -479,8 +534,14 @@ bool Show(HWND owner,const fs::path& root,const Game& game,Language language) {
     SendMessageW(scope,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(t(L"所有游戏",L"All games",L"すべてのゲーム")));
     SendMessageW(scope,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(t(L"当前游戏",L"Current game",L"現在のゲーム")));
     SendMessageW(scope,CB_SETCURSEL,0,0);
-    dialog.device_control=add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,20,47,556,180,Devices);
+    dialog.device_control=add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL,20,47,398,180,Devices);
+    const auto swap=add(L"BUTTON",t(L"交换 1P / 2P",L"Swap 1P / 2P",L"1P / 2P 入替"),WS_TABSTOP,430,46,146,27,SwapPlayers);
+    EnableWindow(swap,FALSE);ShowWindow(swap,SW_HIDE);
     ShowWindow(dialog.device_control,SW_HIDE);
+    dialog.player_control=add(L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST,20,47,210,120,Player);
+    SendMessageW(dialog.player_control,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(t(L"玩家 1（1P）",L"Player 1",L"プレイヤー 1")));
+    SendMessageW(dialog.player_control,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(t(L"玩家 2（2P）",L"Player 2",L"プレイヤー 2")));
+    SendMessageW(dialog.player_control,CB_SETCURSEL,0,0);
     dialog.list=add(WC_LISTVIEWW,L"",WS_TABSTOP|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS,20,82,556,height-212,Bindings,WS_EX_CLIENTEDGE);
     ListView_SetExtendedListViewStyle(dialog.list,LVS_EX_FULLROWSELECT|LVS_EX_DOUBLEBUFFER);
     ListView_SetBkColor(dialog.list,RGB(255,255,255));ListView_SetTextColor(dialog.list,RGB(35,49,45));

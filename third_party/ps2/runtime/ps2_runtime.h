@@ -42,6 +42,7 @@ namespace ps2x::iop
 }
 
 class PS2IopHostAdapter;
+namespace cave::ps2 { struct EeIopRpcReturn; }
 class PS2IopTransport;
 class EeScheduler;
 struct EeEvent;
@@ -270,10 +271,11 @@ inline void ps2TraceGuestRangeWrite(uint8_t *rdram,
     // TODO we dont need this anymore so on next release it will be deleted
 }
 
-namespace cave::ps2 { class NativeHost; }
+namespace cave::ps2 { class NativeHost; struct MachineState; }
 
 class PS2Runtime
 {
+    friend struct cave::ps2::MachineState;
 public:
     using RecompiledFunction = cave::ps2::Function;
     struct RecompiledProgram
@@ -425,6 +427,8 @@ public:
     bool findEeSyscallOverride(uint32_t syscallNumber, uint32_t &handler) const;
     void setEeSyscallOverride(uint8_t *rdram, uint32_t syscallNumber, uint32_t handler);
     void initializeEeKernelState(uint8_t *rdram);
+    std::vector<uint8_t> saveEeServices() const;
+    void loadEeServices(std::span<const uint8_t> bytes);
 
     uint8_t Load8(uint8_t *rdram, R5900Context *ctx, uint32_t vaddr);
     uint16_t Load16(uint8_t *rdram, R5900Context *ctx, uint32_t vaddr);
@@ -507,6 +511,7 @@ private:
 
     friend class PS2IopTransport;
     friend class EeScheduler;
+    void completeIopClientRpc(const cave::ps2::EeIopRpcReturn& action, const R5900Context& returned);
 
 private:
     RecompiledFunction findFunction(uint32_t address) const;

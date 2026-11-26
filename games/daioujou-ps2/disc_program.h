@@ -31,7 +31,7 @@ inline DiscProgramResult RunDiscProgram(const PS2Runtime::IoPaths& paths, cave::
     std::optional<DeathLabelGadgetFeed::Binding> gadgetBinding;
     if (feed) gadgetBinding.emplace(*feed, runtime);
     std::optional<DeathLabelSession> session;
-    if (hosted) session.emplace(runtime,actions,std::move(observe),firstVisibleField);
+    if (hosted) session.emplace(runtime,actions,std::move(observe),firstVisibleField,feed);
     std::cerr<<"[ps2-disc-program] active="<<name<<'\n';
     runtime.run();
     return {runtime.requestedExecutable(),session && session->Completed()};

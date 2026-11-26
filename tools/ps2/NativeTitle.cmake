@@ -128,7 +128,7 @@ if(PS2_RTYPE_FINAL_GENERATED)
   set(movie_overlay "${CMAKE_CURRENT_BINARY_DIR}/movie-overlay")
   set(movie_patch "${CMAKE_CURRENT_LIST_DIR}/movie-runtime.patch.txt")
   file(MAKE_DIRECTORY "${movie_overlay}")
-  file(READ "${movie_stubs}/MPEG.cpp" movie_source)
+  file(READ "${mpegWaitSource}" movie_source)
   file(WRITE "${movie_overlay}/MPEG.cpp" "${movie_source}")
   find_package(Git REQUIRED)
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${CMAKE_BINARY_DIR}"
@@ -160,6 +160,17 @@ if(PS2_RTYPE_FINAL_GENERATED)
     DEPENDS ${decoder_sources} VERBATIM)
   add_custom_target(ps2_rtype_final_movie_runtime DEPENDS ${decoder_outputs})
   add_dependencies(ps2_rtype_final_probe ps2_rtype_final_movie_runtime)
+  add_executable(ps2_movie_state_contract EXCLUDE_FROM_ALL "${COLLECTION_ROOT}/tests/ps2_movie_state_test.cpp"
+    "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
+  target_compile_definitions(ps2_movie_state_contract PRIVATE PS2X_HAS_FFMPEG=1)
+  target_include_directories(ps2_movie_state_contract PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${movie_stubs}"
+    "${RUNTIME}/src/lib" "${PS2_RTYPE_FINAL_FFMPEG}/include")
+  target_link_libraries(ps2_movie_state_contract PRIVATE ps2_runtime
+    "${PS2_RTYPE_FINAL_FFMPEG}/bin/avcodec.lib" "${PS2_RTYPE_FINAL_FFMPEG}/bin/avutil.lib"
+    "${PS2_RTYPE_FINAL_FFMPEG}/bin/swscale.lib")
+  add_dependencies(ps2_movie_state_contract ps2_rtype_final_movie_runtime)
+  add_test(NAME ps2_movie_state_contract COMMAND ps2_movie_state_contract
+    "${COLLECTION_ROOT}/tests/fixtures/ps2-mpeg-open-gop.m2v")
 endif()
 
 if(PS2_DAIOUJOU_GENERATED)

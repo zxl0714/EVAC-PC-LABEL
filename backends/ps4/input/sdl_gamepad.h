@@ -20,11 +20,12 @@ public:
     SdlGamepad(const SdlGamepad&) = delete;
     SdlGamepad& operator=(const SdlGamepad&) = delete;
     void Initialize();
-    void Configure(bool enabled, double deadzone);
+    void Configure(bool enabled, double deadzone, bool swap_players=false);
     void Focus(bool focused);
-    void ClearPending();
-    bool HasPending();
-    GamepadSnapshot Poll();
+    void ClearPending(unsigned player=0);
+    bool HasPending(unsigned player=0);
+    GamepadSnapshot Poll(unsigned player=0);
+    std::array<GamepadSnapshot,2> PollAll();
     void Acknowledge(const GamepadSnapshot& delivered);
 private:
     struct Impl;

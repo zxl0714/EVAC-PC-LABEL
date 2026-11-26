@@ -1,5 +1,6 @@
 #include "emulator/imports/iop_cdvd.h"
 #include "iop_disc_host.h"
+#include "../../../backends/ps2/state_archive.h"
 
 #include "emulator/core/iop_cpu.h"
 #include "emulator/core/iop_kernel.h"
@@ -156,6 +157,7 @@ namespace ps2x::iop::detail
 
     class IopCdvd::Impl
     {
+        friend class IopCdvd;
     public:
         struct Callback
         {
@@ -184,6 +186,14 @@ namespace ps2x::iop::detail
         ~Impl()
         {
             closeFiles();
+        }
+
+        template<class Archive>
+        void transferRegisters(Archive &ar)
+        {
+            ar.Fields(callback.address, callback.gp, initialized, mediaMode, currentLsn,
+                      lastError, streamFlag, stream.capacity, stream.lsn, stream.end,
+                      stream.active, stream.paused, lastReadTimeout, interruptEventFlagId);
         }
 
         void reset()
@@ -849,6 +859,46 @@ namespace ps2x::iop::detail
     }
 
     IopCdvd::~IopCdvd() = default;
+
+    std::vector<uint8_t> IopCdvd::saveState() const
+    {
+        std::vector<uint8_t> state;
+        cave::ps2::StateWriter writer(state);
+        writer.Field(uint32_t{1});
+        m_impl->transferRegisters(writer);
+        writer.Field(m_impl->completionCallback.has_value());
+        if (const auto &pending = m_impl->completionCallback)
+            writer.Fields(pending->address, pending->gp, pending->reason);
+        return state;
+    }
+
+    void IopCdvd::loadState(std::span<const uint8_t> state)
+    {
+        cave::ps2::StateReader reader(state);
+        uint32_t version{};
+        reader.Field(version);
+        if (version != 1) throw std::invalid_argument("Unknown IOP CD state version");
+        auto next = std::make_unique<Impl>(m_impl->host, m_impl->memory, m_impl->kernel);
+        next->transferRegisters(reader);
+        const auto &stream = next->stream;
+        if (stream.capacity > IopMemory::RamSize / kSectorSize ||
+            (stream.active && (!stream.capacity || stream.lsn > stream.end)) ||
+            (stream.paused && !stream.active))
+            throw std::invalid_argument("Invalid IOP CD stream state");
+        bool pending{};
+        reader.Field(pending);
+        if (pending)
+        {
+            auto &entry = next->completionCallback.emplace();
+            reader.Fields(entry.address, entry.gp, entry.reason);
+            if (!entry.address || (entry.reason != kCdvdCallbackRead && entry.reason != kCdvdCallbackSeek))
+                throw std::invalid_argument("Invalid IOP CD completion state");
+        }
+        reader.Finish();
+        if (stream.active && stream.end != next->discSectors())
+            throw std::invalid_argument("IOP stream requires a different disc");
+        m_impl.swap(next);
+    }
 
     void IopCdvd::reset() noexcept
     {

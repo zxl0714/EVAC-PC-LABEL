@@ -52,6 +52,22 @@ public:
                       << " period_frames=" << period << '\n';
         return SDL_ResumeAudioStreamDevice(stream);
     }
+    void WithLock(const std::function<void()>& action) {
+        if (!SDL_LockAudioStream(stream)) throw std::runtime_error(SDL_GetError());
+        struct Unlock {
+            SDL_AudioStream* stream;
+            ~Unlock() { SDL_UnlockAudioStream(stream); }
+        } unlock{stream};
+        action();
+    }
+    void Pause(bool paused, bool clearQueued) {
+        if (paused && !SDL_PauseAudioStreamDevice(stream)) throw std::runtime_error(SDL_GetError());
+        WithLock([&] {
+            if (clearQueued && (!SDL_ClearAudioStream(stream) || !feed.Prime(stream)))
+                throw std::runtime_error(SDL_GetError());
+        });
+        if (!paused && !SDL_ResumeAudioStreamDevice(stream)) throw std::runtime_error(SDL_GetError());
+    }
     ~AudioOutput()
     {
         // Destroying the default-device stream unbinds and closes the logical
@@ -75,6 +91,15 @@ void PS2IopHostAdapter::startAudio(ps2x::iop::IopSubsystem &iop, float gain)
     else std::cerr << "[ps2-audio-device] unavailable: " << SDL_GetError() << '\n';
 }
 void PS2IopHostAdapter::stopAudio() { m_audioOutput.reset(); }
+
+void PS2IopHostAdapter::withAudioLocked(const std::function<void()>& action) {
+    if (m_audioOutput) m_audioOutput->WithLock(action);
+    else action();
+}
+
+void PS2IopHostAdapter::setMenuAudioPaused(bool paused, bool clearQueued) {
+    if (m_audioOutput) m_audioOutput->Pause(paused, clearQueued);
+}
 
 PS2IopHostAdapter::CallScope::CallScope(PS2IopHostAdapter &owner, R5900Context *context, uint8_t *rdram)
     : m_lock(owner.m_callMutex),
@@ -644,7 +669,7 @@ uint32_t PS2IopHostAdapter::FindEeRpc(uint32_t sid) const
 }
 
 bool PS2IopHostAdapter::QueueEeRpc(uint32_t server, uint32_t function, std::span<const uint8_t> request,
-                                  uint32_t receiveSize, std::function<void(std::span<const uint8_t>)> complete)
+                                  uint32_t receiveSize, cave::ps2::IopRpcReply reply)
 {
     t_SifRpcServerData descriptor{};
     if (!server || !readGuest(server, &descriptor, sizeof(descriptor)) || !hasGuestFunction(descriptor.func))
@@ -663,15 +688,7 @@ bool PS2IopHostAdapter::QueueEeRpc(uint32_t server, uint32_t function, std::span
     SET_GPR_U32(&invocation.context, 7, 0u);
     SET_GPR_U32(&invocation.context, 29, 0u);
     SET_GPR_U32(&invocation.context, 31, 0u);
-    invocation.onComplete = [this, packet, receiveSize, complete = std::move(complete)]
-        (const R5900Context &returned, R5900Context &) {
-        std::vector<uint8_t> reply(receiveSize);
-        const uint32_t address = uint32_t(_mm_cvtsi128_si32(returned.r[2]));
-        if (receiveSize && !readGuest(address, reply.data(), reply.size()))
-            throw std::runtime_error("EE RPC returned an invalid response buffer");
-        freeGuest(packet);
-        complete(reply);
-    };
+    invocation.returnAction = cave::ps2::EeIopRpcReturn{packet, receiveSize, reply};
     scheduler.queueInvocation(std::move(invocation));
     return true;
 }

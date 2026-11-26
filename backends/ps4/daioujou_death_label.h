@@ -22,7 +22,7 @@ public:
     static void InstallBinding(std::span<std::uint8_t> image, std::span<const std::uint8_t,32> identity);
 
 private:
-    fs::path prepared_, disc_, profile_, gadget_sprites_;
+    fs::path prepared_, disc_, profile_, gadget_sprites_, controls_config_;
     void* library_{};
     void* thunk_{};
     void* session_{};

@@ -35,6 +35,13 @@ public:
     void BeforeInput(uint64_t responseField,unsigned budgetUs);
     void SimulationReady(uint64_t responseField);
     void PresentLoadingFrame();
+    // The pause menu redraws a retained picture without advancing the GS.
+    void CapturePausedPicture();
+    std::vector<uint8_t> SavePausedPicture();
+    std::function<void()> PreparePausedPicture(std::span<const uint8_t> bytes);
+    void SetMenuPanel(unsigned width, unsigned height, std::span<const uint8_t> bgra);
+    void PresentMenu();
+    void CloseMenu();
     // False means a resize discarded this frame. Closing the window raises GsWindowClosed.
     bool Present(const GsFrame& request,bool repeatCompletedImage=false);
 private:

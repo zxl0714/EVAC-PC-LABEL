@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -68,6 +69,8 @@ public:
     [[nodiscard]] bool stat(std::string_view path, const PS2VfsMounts &mounts, const PS2RomDevice &rom, PS2VfsStat &result) const;
     [[nodiscard]] bool resolveHostPath(std::string_view path, const PS2VfsMounts &mounts, std::filesystem::path &result) const;
     [[nodiscard]] std::vector<PS2VfsDescriptorInfo> descriptors() const;
+    std::vector<uint8_t> saveState(const PS2VfsMounts &mounts) const;
+    void loadState(std::span<const uint8_t> bytes, const PS2VfsMounts &mounts, const PS2RomDevice &rom);
 
 private:
     struct OpenDescriptor
@@ -75,8 +78,11 @@ private:
         std::unique_ptr<IPS2OpenFile> file;
         std::string device;
         std::string path;
+        uint32_t flags = 0;
     };
 
+    int32_t openImpl(std::string_view path, uint32_t flags, const PS2VfsMounts &mounts,
+                     const PS2RomDevice &rom, bool restoring);
     mutable std::mutex m_mutex;
     std::filesystem::path m_discImage;
     std::unordered_map<int32_t, OpenDescriptor> m_descriptors;

@@ -242,7 +242,7 @@ static inline uint32_t gs_vram_offset(uint32_t basePage, uint32_t x, uint32_t y,
 }
 
 PS2Memory::PS2Memory()
-    : m_rdram(nullptr), m_scratchpad(nullptr), iop_ram(nullptr), m_seenGifCopy(false), m_gsVRAM(nullptr)
+    : m_rdram(nullptr), m_scratchpad(nullptr), iop_ram(nullptr), m_gsVRAM(nullptr)
 {
     ps2SetScratchpadHostPtr(nullptr);
 }
@@ -300,6 +300,7 @@ bool PS2Memory::initialize(size_t ramSize)
 {
     auto cleanup = [this]()
     {
+        m_ramSize = 0;
         delete[] m_rdram;
         delete[] m_scratchpad;
         delete[] iop_ram;
@@ -320,23 +321,14 @@ bool PS2Memory::initialize(size_t ramSize)
     };
 
     cleanup();
-    m_seenGifCopy = false;
-    m_gifFqcPending = false;
     m_dmaStartCount.store(0, std::memory_order_relaxed);
     m_gifCopyCount.store(0, std::memory_order_relaxed);
     m_gsWriteCount.store(0, std::memory_order_relaxed);
     m_vifWriteCount.store(0, std::memory_order_relaxed);
     {
         std::lock_guard<std::mutex> lock(m_completedDmacMutex);
-        m_completedDmacCauses.clear();
+        static_cast<PS2MemoryControl&>(*this) = {};
     }
-    m_codeRegions.clear();
-    m_path3Masked = false;
-    m_path3MaskedFifo.clear();
-    m_vif1PendingCommandData.clear();
-    m_vif1PendingDirectQwc = 0u;
-    m_vif1PendingPath2ImageQwc = 0u;
-    m_vif1PendingPath2DirectHl = false;
     resetEeTimers();
 
     try
@@ -395,6 +387,7 @@ bool PS2Memory::initialize(size_t ramSize)
         // Initialize DMA registers
         memset(dma_regs, 0, sizeof(dma_regs));
 
+        m_ramSize = ramSize;
         return true;
     }
     catch (const std::exception &e)

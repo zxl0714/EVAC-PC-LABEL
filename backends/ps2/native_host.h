@@ -5,13 +5,26 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class PS2Runtime;
+namespace cave { struct DeathLabelKeyEvent; }
 namespace cave::ps2 {
 class GsCommandBackend;
 class HostPadSource;
+class StateSlots;
+// Extra state maintained by a hosted game mode, alongside guest machine state.
+class GameStateExtension {
+public:
+    virtual ~GameStateExtension() = default;
+    virtual std::vector<uint8_t> Save() const = 0;
+    // Decode and validate before changing the machine. The returned action
+    // installs the decoded values after the machine restore succeeds.
+    virtual std::function<void()> PrepareLoad(std::span<const uint8_t>) = 0;
+};
 struct GsPresentation {
     // Normalized destination of the full GS scanout in an aspect-fitted canvas.
     float canvasAspect{};
@@ -42,6 +55,7 @@ struct NativeHostOptions {
     void* existingWindow{};
     void* closeEvent{};
     std::shared_ptr<HostPadSource> existingPad;
+    std::function<unsigned(std::span<DeathLabelKeyEvent>)> readWindowKeys;
     // Zero waits for the guest to finish the first screen for this window.
     const std::atomic_uint64_t* firstVisibleField{};
     // Runs on the window owner with the borrowed surface detached. True
@@ -49,6 +63,9 @@ struct NativeHostOptions {
     std::function<bool()> waitForBorrowedWindow;
     GsPresentation presentation;
     std::shared_ptr<GsOverlay> overlay;
+    std::filesystem::path stateDirectory;
+    std::string stateIdentity;
+    std::span<const std::string_view> statePrograms;
 };
 // Private implementation owns the native window, Vulkan consumer and SDL
 // physical devices. Runtime/generated-code headers only forward-declare it.
@@ -63,6 +80,14 @@ public:
     void Initialize(const char* title);
     bool Alive();
     bool ParkAtMenu();
+    void SetGameStateExtension(GameStateExtension* extension);
+    void CapturePausedPicture();
+    std::vector<uint8_t> SavePausedState(PS2Runtime& runtime);
+    void LoadPausedState(PS2Runtime& runtime, std::span<const uint8_t> state);
+    void LoadSlot(PS2Runtime& runtime,const StateSlots& slots,unsigned slot);
+    std::string PendingStateProgram() const;
+    bool RecoverPreviousProgram(std::string error);
+    void OnSchedulerReset(PS2Runtime& runtime);
     void OfferReadyFrame(PS2Runtime& runtime,uint64_t display2Buffer,unsigned leadUs);
     void BeforeInput(uint64_t responseField,unsigned budgetUs);
     void SimulationReady(uint64_t responseField);

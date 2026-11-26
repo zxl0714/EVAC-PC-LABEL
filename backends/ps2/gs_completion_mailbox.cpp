@@ -1,4 +1,5 @@
 #include "gs_completion_mailbox.h"
+#include "state_archive.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -87,6 +88,45 @@ uint64_t GsCompletionMailbox::Reset() {
     const auto generation=impl->generation.fetch_add(1,std::memory_order_acq_rel)+1;
     impl->changed.notify_all();return generation;
 }
+
+std::vector<uint8_t> GsCompletionMailbox::SaveState() const {
+    std::lock_guard lock(impl->mutex);
+    if (impl->closed) throw std::runtime_error("GS completion mailbox closed");
+    std::vector<uint8_t> data;
+    StateWriter out(data);
+    const auto& p = impl->pending;
+    out.Fields(uint32_t{1}, impl->outstandingSignal, p.signal, p.finish, p.label,
+               p.signalPayload, p.labelPayload);
+    return data;
+}
+
+void GsCompletionMailbox::LoadState(std::span<const uint8_t> state) {
+    StateReader in(state);
+    uint32_t version{};
+    bool outstanding{};
+    GsCompletions pending;
+    in.Fields(version, outstanding, pending.signal, pending.finish, pending.label,
+              pending.signalPayload, pending.labelPayload);
+    in.Finish();
+    if (version != 1 || (pending.signal && !outstanding))
+        throw std::invalid_argument("Invalid GS completion state");
+
+    std::function<void()> wake;
+    {
+        std::lock_guard lock(impl->mutex);
+        if (impl->closed) throw std::runtime_error("GS completion mailbox closed");
+        // Queued work is drained before restore. A producer waiting on an old
+        // acknowledgement must never deliver its signal into the restored run.
+        pending.generation = impl->generation.fetch_add(1, std::memory_order_acq_rel) + 1;
+        impl->pending = pending;
+        impl->outstandingSignal = outstanding;
+        impl->ready.store(bool(pending), std::memory_order_release);
+        if (pending) wake = impl->notify;
+    }
+    impl->changed.notify_all();
+    if (wake) wake();
+}
+
 void GsCompletionMailbox::Close() {
     std::lock_guard lock(impl->mutex);impl->closed=true;impl->outstandingSignal=false;
     impl->pending={};impl->ready.store(false,std::memory_order_release);impl->changed.notify_all();

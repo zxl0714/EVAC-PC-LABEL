@@ -53,6 +53,8 @@ public:
     // guest data or ordinary game options. The production provider omits it.
     explicit Store(const std::filesystem::path& root,
                    std::function<void(std::string_view)> checkpoint = {});
+    Store(const std::filesystem::path& root, std::string_view title_id,
+          std::function<void(std::string_view)> checkpoint = {});
     static void CreateRoot(const std::filesystem::path& root);
     bool HasMounts() const;
     std::shared_ptr<Mount> MountSlot(std::string_view name, bool writable, bool create, bool exclusive,

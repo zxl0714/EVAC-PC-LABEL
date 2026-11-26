@@ -79,18 +79,35 @@ void AudioBridge() {
 
     for(unsigned core=0;core<2;++core) {
         memory.reset();
-        std::vector<uint8_t> stream(2048,0x24);
+        std::vector<uint8_t> stream(3072,0x24);
+        for(size_t i=0;i<stream.size();++i)stream[i]=uint8_t(17u*i+5u);
         Require(memory.writeRam(0x10000,stream.data(),stream.size()),"Authored stream upload failed");
         memory.write16(spuAddress(core,0x19a),0x8000);
         memory.write16(spuAddress(core,0x1b0),uint16_t(core+1));
-        memory.write32(chcr(core)-8,0x10000);memory.write32(chcr(core)-4,0x10200);
+        memory.write32(chcr(core)-8,0x10000);memory.write32(chcr(core)-4,0x10300);
         memory.write32(chcr(core),0x1000201);
         Require((memory.read32(chcr(core))&0x1000000) && !memory.takeDmaStart(),"AutoDMA completed before its input was consumed");
-        memory.advanceAudioTo(256u*768u);
-        Require(!(memory.read32(chcr(core))&0x1000000) && memory.takeDmaStart(),"AutoDMA did not resume on the sound clock");
-        std::array<int16_t,512> pcm{};
-        Require(memory.readPcm(pcm.data(),256)==256 && std::any_of(pcm.begin(),pcm.end(),[](auto v){return v!=0;}),
+        memory.advanceAudioTo(64u*768u);
+        Require((memory.read32(chcr(core))&0x1000000) && !memory.takeDmaStart(),
+                "Fixture needs an unfinished sound DMA at the checkpoint");
+        const auto state=memory.saveState();
+        IopMemory restored;
+        restored.loadState(state);
+        Require(restored.nextAudioCycle()==memory.nextAudioCycle(),"Restored IOP sound clock differs");
+        memory.advanceAudioTo(512u*768u);
+        restored.advanceAudioTo(512u*768u);
+        const auto done=memory.takeDmaStart();
+        const auto restoredDone=restored.takeDmaStart();
+        Require(!(memory.read32(chcr(core))&0x1000000) && !(restored.read32(chcr(core))&0x1000000) &&
+                bool(done)==bool(restoredDone),"Reloading a partial AutoDMA changed its completion");
+        std::array<int16_t,1024> pcm{};
+        Require(memory.readPcm(pcm.data(),512)==512 && std::any_of(pcm.begin(),pcm.end(),[](auto v){return v!=0;}),
                 "Real sound DMA did not reach queued PCM");
+        std::array<int16_t,1024> restoredPcm{};
+        Require(restored.readPcm(restoredPcm.data(),512)==512 && restoredPcm==pcm,
+                "Loading lost samples already queued or advanced IOP audio differently");
+        Require(done && restoredDone && done->irq==restoredDone->irq && done->delayCycles==restoredDone->delayCycles,
+                "Sound DMA completion interrupt did not survive restore");
     }
     memory.reset();
     std::array<int16_t,128> pcm{};
@@ -211,11 +228,13 @@ int main(int argc,char** argv) {
         IopImportLoadDelay();
         IopSifDmaCompletion();
         IopIsoSearchContract();
+        IopFileStateContract();
         AudioDmaCriticalSection();
         AudioDmaEventWait();
         IopModuleArguments();
         IopIdleContract();
         IopScheduledTimerContract();
+        IopSubsystemStateContract();
         IopClockBudgetContract();
         IopMemory memory;
         const auto capacity=IopMemory::HeapLimit-IopMemory::HeapBase;

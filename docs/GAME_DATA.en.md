@@ -187,7 +187,7 @@ Keep all 29 files and their internal folders. These four DLLs are original Xbox 
 
 ### ケツイ Deathtiny ～絆地獄たち～ — Ketsui Deathtiny (ketsui)
 
-Use **CUSA09062, base version 01.00**, with optional update **01.02 or 01.03**. Keep everything in one game folder:
+Use the Japanese release **CUSA09062** (base 01.00 or update 01.02 or 01.03) or the US release **CUSA17078** (base 01.00). Select the folder containing that release’s `eboot.bin` in the launcher.
 
 ```text
 game-data/ketsui/

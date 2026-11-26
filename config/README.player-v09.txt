@@ -1,4 +1,4 @@
-EVAC PC LABEL v0.10.6
+EVAC PC LABEL v0.10.7
 
 开始游玩
 运行 EVAC PC LABEL.exe，选择游戏，点击 Launch game。右上角的 CN 可切换为简体中文。

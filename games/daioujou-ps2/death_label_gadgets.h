@@ -17,7 +17,8 @@ public:
     using Overlay = ps2::GsOverlay;
     using Sprite = death_label::Sprite;
 
-    explicit DeathLabelGadgets(const DeathLabelScreen& screen) : screen_(screen) {}
+    explicit DeathLabelGadgets(const DeathLabelScreen& screen)
+        : screen_(screen),feed_([this](const auto& state) { Publish(state); }) {}
 
     std::shared_ptr<Overlay> Load(const std::filesystem::path& path) {
         using namespace death_label;
@@ -57,18 +58,20 @@ public:
     DeathLabelGadgetFeed& Feed() { return feed_; }
 
     void Observe(const std::uint8_t* memory, bool playing, bool menu) {
-        auto state = feed_.Observe(memory,playing,menu);
-        std::lock_guard lock(mutex_);
-        state_ = state;
+        Publish(feed_.Observe(memory,playing,menu));
     }
 
     void ResetRun() {
         feed_.ResetRun();
-        std::lock_guard lock(mutex_);
-        state_ = {};
+        Publish({});
     }
 
 private:
+    void Publish(const DeathLabelGadgetState& state) {
+        std::lock_guard lock(mutex_);
+        state_ = state;
+    }
+
     void Draw(std::vector<Overlay::Quad>& quads) {
         using namespace death_label;
         DeathLabelGadgetState state;

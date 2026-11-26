@@ -6,11 +6,11 @@ void IopRpcClientContract() {
     using namespace ps2x::iop::detail;
     class Host : public AudioFixtureHost, public cave::ps2::EeRpcHost {
     public:
-        std::function<void(std::span<const uint8_t>)> completion;
+        cave::ps2::IopRpcReply completion;
         std::vector<uint8_t> sent;
         uint32_t FindEeRpc(uint32_t sid) const override { return sid == 0x1234 ? 0x200000 : 0; }
         bool QueueEeRpc(uint32_t server, uint32_t function, std::span<const uint8_t> request,
-                        uint32_t size, std::function<void(std::span<const uint8_t>)> complete) override {
+                        uint32_t size, cave::ps2::IopRpcReply complete) override {
             Require(server == 0x200000 && function == 42 && size == 4, "Reverse RPC target or reply size corrupted");
             sent.assign(request.begin(), request.end()); completion = std::move(complete); return true;
         }
@@ -51,11 +51,18 @@ void IopRpcClientContract() {
     invoke(16);
     Require(memory.read32(client) == 1 && host.sent.size() == 4, "Async RPC lost busy state or payload");
     const std::array<uint8_t, 4> response{0xef, 0xbe, 0xad, 0xde};
-    host.completion(response);
+    rpc.completeEeRpc(host.completion, response, executor);
     Require(memory.read32(client) == 0 && memory.read32(reply) == 0xdeadbeef, "Async EE reply did not complete");
     memory.write32(packet, 0x12345678); invoke(16);
-    rpc.reset(); memory.write32(reply, 0x1234); host.completion(response);
+    const auto pending = rpc.saveState();
+    rpc.reset(); memory.write32(reply, 0x1234);
+    rpc.completeEeRpc(host.completion, response, executor);
     Require(memory.read32(reply) == 0x1234, "Old RPC completion crossed an IOP reset");
+    rpc.loadState(pending);
+    Require(rpc.hasServer(0x5555), "IOP RPC restore lost the registered server");
+    rpc.completeEeRpc(host.completion, response, executor);
+    Require(memory.read32(reply) == 0xdeadbeef && memory.read32(client) == 0,
+            "Restored IOP client did not consume its outstanding reply");
     std::cout << "IOP RPC clients: local dispatch, EE binding, payload/reply, async state, reset: PASS\n";
 }
 

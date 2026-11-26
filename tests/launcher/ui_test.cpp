@@ -563,11 +563,15 @@ void GameLibraryChecks() {
 }
 void ExternalLauncherControlsChecks() {
   Fixture fixture;
-  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
+  Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n[keyboard_p2]\nsouth=B\nright=none\n");
   Write(cave::launcher::SdojRecompExecutable(fixture.root),"");
   const auto launch=cave::launcher::PrepareSdojRecomp(fixture.root,Ini::Load(ConfigPath(fixture.root)),{},96);
   Require(std::ranges::find(launch.arguments,L"--input_backend=sdl")!=launch.arguments.end(),
           "The eandis launch must enable SDL support for HID controllers");
+  Require(std::ranges::find(launch.arguments,L"--keyboard_p2_shot=B")!=launch.arguments.end() &&
+          std::ranges::find(launch.arguments,L"--keyboard_p2_right=")!=launch.arguments.end() &&
+          std::ranges::none_of(launch.arguments,[](const auto& arg){return arg.starts_with(L"--keyboard_p2_left=");}),
+          "External P2 overrides must preserve unconfigured upstream bindings");
   {
     Frame frame(fixture.root,"futari");auto& app=frame.app;
     app.layout.width=880;app.layout.height=900;app.layout.scroll=0;
@@ -983,6 +987,46 @@ void GameExitChecks() {
   Require(app.menu_open,"A new Esc press was ignored after returning");
   update_foreground=nullptr;
 }
+// Model a third-party game that destroys its last window but stalls during shutdown.
+void LingeringGameHost() {
+  const auto title=L"EVAC lingering game fixture "+std::to_wstring(GetCurrentProcessId());
+  const auto window=CreateWindowExW(WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,L"STATIC",title.c_str(),WS_POPUP|WS_VISIBLE,
+                                    -30000,-30000,1,1,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+  Require(window!=nullptr,"Create lingering game window");
+  const auto deadline=GetTickCount64()+15000;
+  while(GetTickCount64()<deadline) {
+    MSG message{};
+    while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE))DispatchMessageW(&message);
+    Sleep(10);
+  }
+}
+void ExternalExitCleanupChecks() {
+  Fixture fixture;
+  Frame frame(fixture.root,"sdoj");
+  auto& app=frame.app;
+  wchar_t executable[32768]{};
+  Require(GetModuleFileNameW(nullptr,executable,std::size(executable))!=0,"Locate lingering game fixture");
+  LaunchSpec spec{};
+  spec.paths.root=fixture.root;spec.executable=executable;spec.arguments={L"--lingering-game"};
+  app.child.emplace(StartGame(spec));app.active_game="sdoj";
+  app.external_session.emplace(fixture.root);
+  const auto title=L"EVAC lingering game fixture "+std::to_wstring(app.child->pid());
+  HWND window{};
+  for(unsigned i=0;i<400 && !window;++i){window=FindWindowW(L"STATIC",title.c_str());if(!window)Sleep(10);}
+  Require(window && !AllProcessWindowsClosed(app.child->pid()),"Even an owned or tool window must protect a running game");
+  app.RequestGameExit(window,"keyboard");
+  for(unsigned i=0;i<400 && IsWindow(window);++i)Sleep(10);
+  Require(!IsWindow(window) && !app.child->ExitCode(),"Fixture did not survive closing its last window");
+  app.FinishEandisExit(1000);
+  app.FinishEandisExit(10999);
+  Require(!app.child->ExitCode() && !app.eandis_exit_finished,"Graceful shutdown was interrupted");
+  app.FinishEandisExit(11000);
+  Require(app.eandis_exit_finished,"Stalled windowless eandis process was not cleaned up");
+  app.child->Wait();
+  Require(app.child->ExitCode()==ERROR_CANCELLED,"Unexpected external cleanup exit code");
+  app.ChildTick();
+  Require(!app.child && !app.external_session && app.message.empty(),"Could not return to library after requested cleanup");
+}
 void BigPictureBindingChecks() {
   Fixture fixture;
   const auto config=ConfigPath(fixture.root);
@@ -1205,6 +1249,7 @@ void MainChecks() {
   FooterHoverChecks();
   InputBindingChecks();
   BigPictureBindingChecks();
+  ExternalExitCleanupChecks();
   DisplayDropdownChecks();
   GameLibraryChecks();
   GameExitChecks();
@@ -1214,6 +1259,57 @@ void MainChecks() {
   UpdateChecks();
 }
 }
+// Exercise the actual modal settings page, including its draft and Save path.
+void CheckControllerSwapDialog(HWND owner,const fs::path& root) {
+  static thread_local HWND owner_window;
+  static thread_local std::wstring before,after;
+  owner_window=owner;
+  before.clear();after.clear();
+  const auto callback=[](HWND,UINT,UINT_PTR timer,DWORD) {
+    KillTimer(nullptr,timer);
+    auto dialog=GetWindow(owner_window,GW_ENABLEDPOPUP);
+    if(!dialog || dialog==owner_window) {
+      dialog=FindWindowW(L"EvacInputSettings",L"Input settings");
+      if(!dialog || GetWindow(dialog,GW_OWNER)!=owner_window) {
+        PostQuitMessage(1);
+        return;
+      }
+    }
+    const auto tab=FindWindowExW(dialog,nullptr,L"Button",L"Controller / stick");
+    SendMessageW(tab,BM_CLICK,0,0);
+    const auto switcher=FindWindowExW(dialog,nullptr,L"Button",L"Swap 1P / 2P");
+    HWND combo=nullptr;
+    for(HWND item=nullptr;(item=FindWindowExW(dialog,item,L"ComboBox",nullptr));) {
+      if(!IsWindowVisible(item))continue;
+      const auto n=SendMessageW(item,CB_GETCOUNT,0,0);
+      for(LRESULT i=0;i<n;++i) {
+        const auto length=SendMessageW(item,CB_GETLBTEXTLEN,i,0);
+        if(length<=0)continue;
+        std::wstring name(size_t(length)+1,L'\0');
+        SendMessageW(item,CB_GETLBTEXT,i,reinterpret_cast<LPARAM>(name.data()));
+        if(!name.starts_with(L"1P · "))continue;
+        before=name;
+        combo=item;
+        SendMessageW(switcher,BM_CLICK,0,0);
+        const auto updated=SendMessageW(combo,CB_GETLBTEXTLEN,i,0);
+        if(updated>0) {
+          after.resize(size_t(updated)+1);
+          SendMessageW(combo,CB_GETLBTEXT,i,reinterpret_cast<LPARAM>(after.data()));
+        }
+        break;
+      }
+      if(combo)break;
+    }
+    if(combo)SendMessageW(dialog,WM_COMMAND,IDOK,0);
+    if(IsWindow(dialog))SendMessageW(dialog,WM_COMMAND,IDCANCEL,0);
+  };
+  Require(SetTimer(nullptr,0,80,callback)!=0,"Arm controller dialog acceptance");
+  const bool saved=cave::launcher::controls::Show(owner,root,FindGame("futari"),Language::English);
+  Require(saved && before.starts_with(L"1P · ") && after.starts_with(L"2P · ") &&
+          before.substr(2)==after.substr(2),"Swap kept the selected device but did not update its player label");
+  Require(LoadSettings(ConfigPath(root),"futari").swap_players,"Reopening saved settings lost the controller order");
+}
+
 void MenuControllerChecks(const fs::path& sdl) {
   Fixture fixture;
   Write(ConfigPath(fixture.root),"[collection]\ncheck_for_updates=false\n");
@@ -1377,6 +1473,10 @@ void MenuControllerChecks(const fs::path& sdl) {
 
   close(reconnected);
   Require(detach(second),"Detach reconnected controller");
+  const auto [twin_id,twin]=select(gamepad_descriptor);
+  CheckControllerSwapDialog(app.hwnd,fixture.root);
+  close(twin);
+  Require(detach(twin_id),"Detach second gamepad after saving player order");
   close(gamepad);
   Require(detach(gamepad_id),"Detach virtual gamepad");
   quit(SDL_INIT_GAMEPAD);
@@ -1398,6 +1498,7 @@ int wmain(int count,wchar_t** arguments) {
     else if(count==3 && std::wstring_view(arguments[1])==L"--cover-sizing-previews")VisualChecks(arguments[2],true);
     else if(count==2 && std::wstring_view(arguments[1])==L"--window-size-checks")WindowSizeChecks();
     else if(count==3 && std::wstring_view(arguments[1])==L"--big-picture-sdl-checks")MenuControllerChecks(arguments[2]);
+    else if(count==2 && std::wstring_view(arguments[1])==L"--lingering-game")LingeringGameHost();
     else if(count==1)MainChecks();
     else throw std::runtime_error("Unexpected launcher test arguments");
     std::cout<<checks<<" launcher integration checks passed.\n";

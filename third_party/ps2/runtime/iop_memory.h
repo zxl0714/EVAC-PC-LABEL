@@ -93,6 +93,9 @@ namespace ps2x::iop::detail
         void discardAudio() noexcept;
         size_t readPcm(void *stereo, size_t frames) noexcept;
         [[nodiscard]] std::span<const uint8_t> ram() const noexcept { return m_ram; }
+        // The guest and the audio callback must both be paused.
+        [[nodiscard]] std::vector<uint8_t> saveState() const;
+        void loadState(std::span<const uint8_t> state);
 
         [[nodiscard]] static uint32_t physicalAddress(uint32_t address) noexcept;
 

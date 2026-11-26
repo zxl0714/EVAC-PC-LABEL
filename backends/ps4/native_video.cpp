@@ -20,6 +20,7 @@
 #include "diagnostics/monotonic_clock.h"
 
 #include <windows.h>
+#include <algorithm>
 #include <atomic>
 #include <array>
 #include <cstddef>
@@ -116,6 +117,27 @@ struct WindowJob {
     HANDLE ready{}, quit{}, thread{};
     std::atomic<HWND> window{};
     HWND death_label_view{}; // UI thread; the parent owns its lifetime.
+    bool death_label_keys_active{}; // UI thread
+    std::mutex key_mutex;
+    std::array<cave::DeathLabelKeyEvent,128> key_events{};
+    unsigned key_count{};
+    void QueueKey(unsigned code,bool down,uint16_t buttons=0) {
+        std::lock_guard lock(key_mutex);
+        if (!code || key_count==key_events.size()) {
+            key_events[0]={};
+            key_count=1;
+        }
+        if (code) key_events[key_count++]={code,down,buttons};
+    }
+    static unsigned ReadKeys(void* context,cave::DeathLabelKeyEvent* result,unsigned capacity) noexcept {
+        auto& job=*static_cast<WindowJob*>(context);
+        std::lock_guard lock(job.key_mutex);
+        const auto count=std::min(capacity,job.key_count);
+        std::copy_n(job.key_events.begin(),count,result);
+        std::move(job.key_events.begin()+count,job.key_events.begin()+job.key_count,job.key_events.begin());
+        job.key_count-=count;
+        return count;
+    }
     std::atomic<unsigned> width{}, height{};
     std::atomic<bool> fullscreen{}, quit_requested{}, renderer_active{};
     std::atomic<bool> zero_extent_waiting{};
@@ -191,6 +213,8 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
     }
     if (!job) { return DefWindowProcW(window, message, wparam, lparam); }
     if (message == kDeathLabelView) {
+        job->death_label_keys_active=false;
+        job->QueueKey(0,false);
         if (!wparam) {
             if (job->death_label_view) ShowWindow(job->death_label_view, SW_HIDE);
             return 0;
@@ -209,6 +233,7 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
                 return 0;
             }
         }
+        job->death_label_keys_active=true;
         ShowWindow(job->death_label_view, SW_SHOWNA);
         return reinterpret_cast<LRESULT>(job->death_label_view);
     }
@@ -216,6 +241,7 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
         return message == WM_SETCURSOR ? TRUE : 0;
     if (message == WM_SETFOCUS || message == WM_KILLFOCUS) {
         NativePadWindowFocus(window, message == WM_SETFOCUS);
+        if (job->death_label_keys_active && message==WM_KILLFOCUS) job->QueueKey(0,false);
         if (message == WM_KILLFOCUS && GetCapture() == window) { ReleaseCapture(); }
     }
     if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONUP) && NativePadMouseLeftMapped()) {
@@ -223,12 +249,15 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
             SetCapture(window);
             if (GetCapture() != window) { return 0; }
         }
-        NativePadWindowKey(window, VK_LBUTTON, message == WM_LBUTTONDOWN);
+        const bool down=message==WM_LBUTTONDOWN;
+        const auto buttons=NativePadWindowKey(window,VK_LBUTTON,down);
+        if (job->death_label_keys_active) job->QueueKey(VK_LBUTTON,down,static_cast<uint16_t>(buttons));
         if (message == WM_LBUTTONUP && GetCapture() == window) { ReleaseCapture(); }
         return 0;
     }
     if (message == WM_CAPTURECHANGED || message == WM_CANCELMODE) {
         NativePadWindowKey(window, VK_LBUTTON, false);
+        if (job->death_label_keys_active) job->QueueKey(VK_LBUTTON,false);
         if (message == WM_CANCELMODE && GetCapture() == window) { ReleaseCapture(); }
     }
     if (message == WM_SIZE) {
@@ -289,9 +318,12 @@ LRESULT CALLBACK WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARA
         SetWindowLongPtrW(window, GWLP_USERDATA, 0);
     }
     if (message == WM_KEYDOWN || message == WM_KEYUP) {
+        const bool down=message==WM_KEYDOWN;
+        const auto buttons=NativePadWindowKey(window,static_cast<unsigned>(wparam),down);
+        if (job->death_label_keys_active && wparam<256 && (message==WM_KEYUP || !(lparam & (1ll<<30))))
+            job->QueueKey(static_cast<unsigned>(wparam),down,static_cast<uint16_t>(buttons));
         // Observe only: a configured F8 game binding still receives the key.
         if (IsTimelineMarkerKey(message, wparam, lparam)) { RecordTimelineMarker(); }
-        NativePadWindowKey(window, static_cast<unsigned>(wparam), message == WM_KEYDOWN);
     }
     return DefWindowProcW(window, message, wparam, lparam);
 }
@@ -712,6 +744,8 @@ cave::DeathLabelResult RunNativeVideoDeathLabel(cave::DeathLabelHost request, ca
         job = state.active;
         if (job->quit_requested.load()) return DeathLabelResult::Closed;
         request.closeEvent = job->quit;
+        request.keyContext = job.get();
+        request.readKeys = WindowJob::ReadKeys;
         request.vsync = job->display.vsync;
         request.reflex = job->display.reflex;
         request.amdAntiLag = job->display.amd_anti_lag;
@@ -957,6 +991,20 @@ bool VideoSelfTest() {
         child && GetParent(child) == old_window && !IsWindowEnabled(child) &&
         GetClientRect(old_window, &parent_rect) && GetClientRect(child, &child_rect) &&
         EqualRect(&parent_rect, &child_rect) && (GetWindowLongPtrW(child, GWL_STYLE) & WS_VISIBLE));
+    // Both transitions can reach the PS4 window between two PS2 input polls.
+    SendMessageW(old_window,WM_KEYDOWN,VK_F5,0);
+    SendMessageW(old_window,WM_KEYUP,VK_F5,0);
+    std::array<cave::DeathLabelKeyEvent,4> keys{};
+    const auto received=WindowJob::ReadKeys(State().active.get(),keys.data(),keys.size());
+    check("death_label_receives_short_key_press_in_order",
+        received==3 && !keys[0].code && keys[1].code==VK_F5 && keys[1].down &&
+        keys[2].code==VK_F5 && !keys[2].down);
+    SendMessageW(old_window,WM_SETFOCUS,0,0);
+    SendMessageW(old_window,WM_KEYDOWN,'X',0);
+    SendMessageW(old_window,WM_KEYUP,'X',0);
+    check("death_label_receives_mapped_circle_on_short_tap",
+        WindowJob::ReadKeys(State().active.get(),keys.data(),keys.size())==2 &&
+        keys[0].down && keys[0].buttons==0x2000 && !keys[1].down && keys[1].buttons==0x2000);
     SendMessageW(old_window, kDeathLabelView, FALSE, 0);
     check("death_label_view_reused_on_next_entry", child && !(GetWindowLongPtrW(child, GWL_STYLE) & WS_VISIBLE) &&
         reinterpret_cast<HWND>(SendMessageW(old_window, kDeathLabelView, TRUE, 0)) == child);

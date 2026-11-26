@@ -270,6 +270,14 @@ uint64_t ChildProcess::CreationTime() const noexcept {
   return handle_ && GetProcessTimes(handle_,&created,&exited,&kernel,&user)
       ? (uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime : 0;
 }
+std::optional<uint64_t> ChildProcess::WriteOperations() const noexcept {
+  IO_COUNTERS counters{};
+  if(!handle_ || !GetProcessIoCounters(handle_,&counters))return {};
+  return counters.WriteOperationCount;
+}
+bool ChildProcess::Terminate(unsigned long code) const noexcept {
+  return handle_ && WaitForSingleObject(handle_,0)==WAIT_TIMEOUT && TerminateProcess(handle_,code);
+}
 bool ChildProcess::RequestedWindowClose(const fs::path& root,std::string_view game,unsigned long code) const {
   // 27 is not generally a successful exit. Only accept this backend's explicit
   // presentation-cleanup receipt, bound to this process's PID AND birth time.

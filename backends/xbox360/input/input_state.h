@@ -1,5 +1,6 @@
 #pragma once
 #include "common/settings.h"
+#include <algorithm>
 #include <array>
 #include <utility>
 
@@ -12,10 +13,11 @@ struct KeyboardSnapshot {
 };
 class KeyboardState {
 public:
-    explicit KeyboardState(const Settings& settings) {
-        for (std::size_t n=0;n<settings.keyboard.size();++n) bindings_[n]=settings.keyboard[n];
-        for (std::size_t n=0;n<settings.keyboard_right_stick.size();++n)
-            bindings_[settings.keyboard.size()+n]=settings.keyboard_right_stick[n];
+    explicit KeyboardState(const Settings& settings,bool player_two=false) {
+        const auto& buttons=settings.Keyboard(player_two);
+        const auto& stick=settings.KeyboardRightStick(player_two);
+        std::copy(buttons.begin(),buttons.end(),bindings_.begin());
+        std::copy(stick.begin(),stick.end(),bindings_.begin()+buttons.size());
     }
     void SetFocus(bool focused) { focused_=focused; if (!focused) ClearKeys(); }
     void ClearKeys() { held_.fill(false); sampled_.fill(false); pending_.fill(false); latched_.fill(false); }

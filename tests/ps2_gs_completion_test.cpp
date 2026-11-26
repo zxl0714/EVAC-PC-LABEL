@@ -50,7 +50,34 @@ void ResetAndCloseReleaseWaiter() {
     Require(closing.wait_for(20ms)==std::future_status::timeout,"Expected signal blocked before close");
     mailbox.Close();Require(closing.wait_for(1s)==std::future_status::ready && closing.get(),"Close stranded a signal waiter");
 }
+
+void SaveUnreadAndAcknowledgedEvents() {
+    cave::ps2::GsCompletionMailbox mailbox;
+    const auto original = mailbox.Generation();
+    mailbox.Signal(original, 7);
+    mailbox.Label(original, 0xffff000012340000ull);
+    const auto unread = mailbox.SaveState();
+    Require(mailbox.Take().signal, "Saving consumed an unread GS signal");
+    const auto waitingForAck = mailbox.SaveState();
+    auto stale = std::async(std::launch::async, [&]{return mailbox.Signal(original, 8);});
+    mailbox.LoadState(unread);
+    Require(stale.wait_for(1s) == std::future_status::ready && !stale.get(), "Old GS signal escaped restore");
+    const auto restored = mailbox.Take();
+    Require(restored.signal && restored.label && restored.signalPayload == 7 &&
+            restored.labelPayload == 0xffff000012340000ull && restored.generation == mailbox.Generation(),
+            "GS completion payloads were not restored");
+    mailbox.AcknowledgeSignal();
+    mailbox.LoadState(waitingForAck);
+    Require(!mailbox.Take(), "Delivered GS signal was delivered twice after restore");
+    const auto current = mailbox.Generation();
+    auto next = std::async(std::launch::async, [&]{return mailbox.Signal(current, 9);});
+    const bool held = next.wait_for(25ms) == std::future_status::timeout;
+    mailbox.AcknowledgeSignal();
+    Require(held && next.get() && mailbox.Take().signalPayload == 9,
+            "GS acknowledgement was lost while restoring a delivered signal");
+}
 }
 int main(){try{MaskAndReset();SignalAcknowledgement();ResetAndCloseReleaseWaiter();
+    SaveUnreadAndAcknowledgedEvents();
     std::cout<<"GS completion mask composition, signal acknowledgement, reset epochs and shutdown: PASS\n";return 0;
 }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}}

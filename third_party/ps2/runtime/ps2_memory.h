@@ -10,6 +10,7 @@
 #include <atomic>
 #include <iostream>
 #include <mutex>
+#include <span>
 
 #include "gs/ps2_gif_arbiter.h"
 #if defined(_MSC_VER)
@@ -258,7 +259,75 @@ struct JumpTable
     std::vector<uint32_t> targets; // Jump targets
 };
 
-class PS2Memory
+// Guest-visible control state can be decoded and validated before it replaces the running state.
+struct PS2MemoryControl
+{
+    bool m_seenGifCopy = false;
+    bool m_gifFqcPending = false;
+
+    // I/O registers
+    std::unordered_map<uint32_t, uint32_t> m_ioRegisters;
+
+    VIFRegisters vif0_regs{};
+    VIFRegisters vif1_regs{};
+    DMARegisters dma_regs[10]{}; // 10 DMA channels
+
+    // TLB entries
+    struct TLBEntry
+    {
+        uint32_t vpn;
+        uint32_t pfn;
+        uint32_t mask;
+        bool valid;
+    };
+
+    std::vector<TLBEntry> m_tlbEntries;
+
+    bool m_path3Masked = false;
+    std::vector<uint8_t> m_vif1PendingCommandData;
+    uint32_t m_vif1PendingDirectQwc = 0u;
+    uint32_t m_vif1PendingPath2ImageQwc = 0u;
+    bool m_vif1PendingPath2DirectHl = false;
+    std::vector<std::vector<uint8_t>> m_path3MaskedFifo;
+
+    struct PendingTransfer
+    {
+        bool fromScratchpad = false;
+        uint32_t srcAddr = 0;
+        uint32_t qwc = 0;
+        std::vector<uint8_t> chainData;
+    };
+    std::vector<PendingTransfer> m_pendingGifTransfers;
+    std::vector<PendingTransfer> m_pendingVif0Transfers;
+    std::vector<PendingTransfer> m_pendingVif1Transfers;
+
+    std::vector<uint32_t> m_completedDmacCauses;
+
+    struct CodeRegion
+    {
+        uint32_t start;
+        uint32_t end;
+        std::vector<bool> modified; // Bitmap of modified 4-byte blocks
+    };
+    std::vector<CodeRegion> m_codeRegions;
+
+    struct EeTimer
+    {
+        uint32_t count = 0;
+        uint32_t mode = 0;
+        uint32_t compare = 0;
+        uint32_t hold = 0;
+        uint64_t clockRemainder = 0;
+    };
+
+    std::array<EeTimer, 4> m_eeTimers{};
+    // Counts may stay deferred between observable MMIO accesses and IRQs.
+    // Both values use EE cycles, independent of the host clock.
+    uint64_t m_eeTimerPendingCycles = 0u;
+    uint64_t m_eeTimerInterruptDeadline = UINT64_MAX;
+};
+
+class PS2Memory : public PS2MemoryControl
 {
 public:
     PS2Memory();
@@ -271,6 +340,8 @@ public:
 
     // Initialize memory
     bool initialize(size_t ramSize = PS2_RAM_SIZE);
+    std::vector<uint8_t> saveState();
+    void loadState(std::span<const uint8_t> state);
 
     // Memory access methods
     uint8_t *getRDRAM() { return m_rdram; }
@@ -378,6 +449,7 @@ public:
     bool hasSeenGifCopy() const { return m_seenGifCopy; }
     // Main RAM (32MB)
     uint8_t *m_rdram;
+    size_t m_ramSize = 0;
 
     // Scratchpad memory (16KB)
     uint8_t *m_scratchpad;
@@ -385,35 +457,17 @@ public:
     // IOP RAM (2MB)
     uint8_t *iop_ram;
 
-    bool m_seenGifCopy;
-    bool m_gifFqcPending = false;
     std::atomic<uint64_t> m_dmaStartCount{0};
     std::atomic<uint64_t> m_gifCopyCount{0};
     std::atomic<uint64_t> m_gsWriteCount{0};
     std::atomic<uint64_t> m_vifWriteCount{0};
     std::atomic<uint64_t> m_vu0CodeGeneration{0};
     std::atomic<uint64_t> m_vu1CodeGeneration{0};
-    // I/O registers
-    std::unordered_map<uint32_t, uint32_t> m_ioRegisters;
 
     // Registers
     GSRegisters gs_regs;
     uint8_t *m_gsVRAM;
     bool m_rawGifTransfers = false;
-    VIFRegisters vif0_regs;
-    VIFRegisters vif1_regs;
-    DMARegisters dma_regs[10]; // 10 DMA channels
-
-    // TLB entries
-    struct TLBEntry
-    {
-        uint32_t vpn;
-        uint32_t pfn;
-        uint32_t mask;
-        bool valid;
-    };
-
-    std::vector<TLBEntry> m_tlbEntries;
 
     GsAccessCallback m_gsAccessCallback;
     GsFifoReader m_gsFifoReader;
@@ -428,35 +482,10 @@ public:
     uint8_t *m_vu0Data = nullptr;
     uint8_t *m_vu1Code = nullptr;
     uint8_t *m_vu1Data = nullptr;
-    bool m_path3Masked = false;
-    std::vector<uint8_t> m_vif1PendingCommandData;
-    uint32_t m_vif1PendingDirectQwc = 0u;
-    uint32_t m_vif1PendingPath2ImageQwc = 0u;
-    bool m_vif1PendingPath2DirectHl = false;
-    std::vector<std::vector<uint8_t>> m_path3MaskedFifo;
 
-    struct PendingTransfer
-    {
-        bool fromScratchpad = false;
-        uint32_t srcAddr = 0;
-        uint32_t qwc = 0;
-        std::vector<uint8_t> chainData;
-    };
-    std::vector<PendingTransfer> m_pendingGifTransfers;
-    std::vector<PendingTransfer> m_pendingVif0Transfers;
-    std::vector<PendingTransfer> m_pendingVif1Transfers;
     std::vector<uint8_t> m_dmaChainScratch;
     void processVIF1Commands(const uint8_t *data, uint32_t sizeBytes);
     std::mutex m_completedDmacMutex;
-    std::vector<uint32_t> m_completedDmacCauses;
-
-    struct CodeRegion
-    {
-        uint32_t start;
-        uint32_t end;
-        std::vector<bool> modified; // Bitmap of modified 4-byte blocks
-    };
-    std::vector<CodeRegion> m_codeRegions;
 
     bool isAddressInRegion(uint32_t address, const CodeRegion &region);
     void markModified(uint32_t address, uint32_t size);
@@ -465,20 +494,7 @@ public:
     bool isScratchpad(uint32_t address) const;
     uint8_t *mapVuMemory(uint32_t physAddr, uint32_t size, uint32_t &offset, uint32_t &limit);
     const uint8_t *mapVuMemory(uint32_t physAddr, uint32_t size, uint32_t &offset, uint32_t &limit) const;
-    struct EeTimer
-    {
-        uint32_t count = 0;
-        uint32_t mode = 0;
-        uint32_t compare = 0;
-        uint32_t hold = 0;
-        uint64_t clockRemainder = 0;
-    };
 
-    std::array<EeTimer, 4> m_eeTimers{};
-    // Counts may stay deferred between observable MMIO accesses and IRQs.
-    // Both values use EE cycles, independent of the host clock.
-    uint64_t m_eeTimerPendingCycles = 0u;
-    uint64_t m_eeTimerInterruptDeadline = UINT64_MAX;
     uint32_t advanceEeTimersNow(uint64_t eeCycles) noexcept;
     uint32_t advanceEeTimersAtBoundary(uint64_t eeCycles) noexcept;
     uint32_t synchronizeEeTimers() noexcept;

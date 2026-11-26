@@ -124,6 +124,7 @@ endforeach()
 configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.h"
   "${PS2_GS_HEADERS}/runtime/ps2_memory.h" COPYONLY)
 target_sources(ps2_gs_device PRIVATE "${COLLECTION_ROOT}/backends/ps2/gs_device_sink.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/gs_device_state.cpp"
   "${COLLECTION_ROOT}/backends/ps2/hosted_graphics_info.cpp"
   "${COLLECTION_ROOT}/backends/ps2/gs_display.cpp" "${COLLECTION_ROOT}/backends/ps2/gs_present_program.cpp")
 target_include_directories(ps2_gs_device PUBLIC "${PS2_GS_HEADERS}" "${PS2_RUNTIME}/include")

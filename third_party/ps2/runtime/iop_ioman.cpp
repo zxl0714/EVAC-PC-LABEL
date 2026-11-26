@@ -4,12 +4,23 @@
 #include "emulator/core/iop_memory.h"
 #include "emulator/services/iop_rpc.h"
 #include "ps2x/iop/iop_host.h"
+#include "ps2x/iop/ps2_path.h"
 #include "../../../backends/ps2/audio_trace.h"
+#include "../../../backends/ps2/state_archive.h"
 
 #include <algorithm>
 
 namespace ps2x::iop::detail
 {
+    namespace {
+        constexpr uint32_t kMaxDevices = 16;
+        bool isMountedFile(std::string_view path)
+        {
+            const auto device = parsePs2Path(path).device;
+            return device == Ps2PathDevice::Cdrom || device == Ps2PathDevice::Host ||
+                   device == Ps2PathDevice::MemoryCard0;
+        }
+    }
     IopIoman::IopIoman(IopMemory &memory, IopHost &host) noexcept
         : m_memory(memory), m_host(host)
     {
@@ -20,14 +31,79 @@ namespace ps2x::iop::detail
     void IopIoman::reset()
     {
         m_devices.clear();
-        for (auto &[id, file] : m_files) m_host.closeHostFile(file.handle);
+        for (auto &[id, file] : m_files)
+            if (file.handle) m_host.closeHostFile(file.handle);
         m_files.clear();
         m_nextFile = 3;
     }
 
+    std::vector<uint8_t> IopIoman::saveState() const
+    {
+        std::vector<uint8_t> state;
+        cave::ps2::StateWriter writer(state);
+        writer.Fields(uint32_t{1}, m_nextFile, static_cast<uint32_t>(m_devices.size()));
+        for (const auto &device : m_devices)
+        {
+            writer.Fields(device.address, device.gp);
+            writer.String(device.name);
+        }
+        writer.Field(static_cast<uint32_t>(m_files.size()));
+        for (const auto &[id, file] : m_files)
+        {
+            if (!isMountedFile(file.guestPath))
+                throw std::runtime_error("An open IOP file has no guest mount");
+            writer.Fields(id, file.size, file.offset);
+            writer.String(file.guestPath);
+        }
+        return state;
+    }
+
+    void IopIoman::loadState(std::span<const uint8_t> state)
+    {
+        IopIoman next(m_memory, m_host);
+        cave::ps2::StateReader reader(state);
+        uint32_t version{};
+        reader.Fields(version, next.m_nextFile);
+        if (version != 1 || next.m_nextFile < 3)
+            throw std::invalid_argument("Invalid IOP file descriptor state");
+        const auto drivers = reader.Count(kMaxDevices, 13);
+        for (uint32_t i = 0; i < drivers; ++i)
+        {
+            auto &driver = next.m_devices.emplace_back();
+            reader.Fields(driver.address, driver.gp);
+            driver.name = reader.String(64);
+            if (!driver.address || driver.name.empty())
+                throw std::invalid_argument("Invalid IOP driver state");
+        }
+        const auto openFiles = reader.Count(static_cast<uint32_t>(next.m_nextFile - 3), 25);
+        for (uint32_t i = 0; i < openFiles; ++i)
+        {
+            int id{};
+            reader.Field(id);
+            if (id < 3 || id >= next.m_nextFile || next.m_files.contains(id))
+                throw std::invalid_argument("Invalid IOP file descriptor");
+            auto &file = next.m_files[id];
+            reader.Fields(file.size, file.offset);
+            file.guestPath = reader.String(1024);
+            if (!isMountedFile(file.guestPath) || file.offset > std::max<uint64_t>(file.size, INT32_MAX))
+                throw std::invalid_argument("Invalid IOP open file state");
+        }
+        reader.Finish();
+        for (auto &[id, file] : next.m_files)
+        {
+            const auto translated = m_host.translateGuestPath(file.guestPath);
+            file.handle = translated.empty() ? 0 : m_host.openHostFile(translated);
+            uint64_t size{};
+            if (!file.handle || !m_host.hostFileSize(file.handle, size) || file.size != size)
+                throw std::runtime_error("Cannot reopen IOP file from state");
+        }
+        m_files.swap(next.m_files);
+        m_devices.swap(next.m_devices);
+        m_nextFile = next.m_nextFile;
+    }
+
     bool IopIoman::dispatchImport(uint16_t ordinal, IopCpuState &cpu, IopGuestExecutor &executor)
     {
-        constexpr size_t kMaxDevices = 16u;
         const uint32_t a0 = cpu.gpr[4];
         const auto setV0 = [&](uint32_t value)
         {
@@ -44,6 +120,7 @@ namespace ps2x::iop::detail
                 if (++logged <= 32u) std::osyncstream(std::cerr) << "[ps2-iop-open] " << path << '\n';
             }
             if ((cpu.gpr[5] & 3u) != 1u) { setV0(uint32_t(-30)); return true; }
+            if (m_nextFile == INT32_MAX) { setV0(uint32_t(-24)); return true; }
             const auto translated = m_host.translateGuestPath(path);
             const auto handle = m_host.openHostFile(translated);
             uint64_t size{};
@@ -52,7 +129,7 @@ namespace ps2x::iop::detail
                 setV0(uint32_t(-2)); return true;
             }
             const int id = m_nextFile++;
-            m_files.emplace(id, File{handle, size, 0});
+            m_files.emplace(id, File{handle, size, 0, path});
             setV0(uint32_t(id)); return true;
         }
         case 5: // close

@@ -13,10 +13,8 @@ void WaitGraphicsField(uint8_t*, R5900Context*, PS2Runtime* runtime) {
     const bool interlaced = runtime->memory().read16(gsParameters) == 1u;
     auto& scheduler = runtime->eeScheduler();
     if (interlaced) {
-        scheduler.waitVSync(scheduler.currentVSyncTick(), -1, [](R5900Context& resumed) {
-            // The scheduler's parity result denotes the field that just ended.
-            SET_GPR_U32(&resumed, 2, getRegU32(&resumed, 2) ^ 1u);
-        });
+        // The scheduler's parity result denotes the field that just ended.
+        scheduler.waitVSync(scheduler.currentVSyncTick(), -1, EeInvertFieldParity{});
     }
     scheduler.waitVSync(scheduler.currentVSyncTick(), 1);
 }

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <sstream>
 #include "../../../backends/ps2/audio_trace.h"
+#include "../../../backends/ps2/state_archive.h"
 
 namespace ps2x::iop::detail
 {
@@ -23,6 +24,123 @@ namespace ps2x::iop::detail
     IopKernel::IopKernel(IopMemory &memory) noexcept
         : m_memory(memory)
     {
+    }
+
+    namespace
+    {
+        template<class Archive, class Map, class Record>
+        void kernelObjects(Archive& archive, Map& objects, uint32_t nextId, Record record)
+        {
+            if constexpr (std::is_same_v<Archive,cave::ps2::StateReader>) {
+                if (nextId==0) throw std::invalid_argument("Invalid IOP kernel ID sequence");
+                const auto count=archive.Count(nextId-1,sizeof(uint32_t));
+                for (uint32_t i=0; i<count; ++i) {
+                    int id{};
+                    archive.Field(id);
+                    if (id<=0 || uint32_t(id)>=nextId)
+                        throw std::invalid_argument("Invalid IOP kernel object ID");
+                    auto [it,inserted]=objects.try_emplace(id);
+                    if (!inserted) throw std::invalid_argument("Duplicate IOP kernel object");
+                    record(it->second,id);
+                }
+            } else {
+                archive.Field(static_cast<uint32_t>(objects.size()));
+                for (const auto& [id,object] : objects) {
+                    archive.Field(id);
+                    record(object,id);
+                }
+            }
+        }
+    }
+
+    template<class Archive, class Kernel>
+    void IopKernel::transferState(Archive& archive, Kernel& kernel)
+    {
+        constexpr bool reading=std::is_same_v<Archive,cave::ps2::StateReader>;
+        uint32_t version=1;
+        archive.Field(version);
+        if (version!=1) throw std::invalid_argument("Unknown IOP kernel state version");
+        archive.Fields(kernel.m_nextThreadId,kernel.m_nextSemaphoreId,kernel.m_nextEventFlagId,
+                       kernel.m_nextMailboxId,kernel.m_nextFixedPoolId,kernel.m_nextWaitOrder);
+        kernelObjects(archive,kernel.m_threads,kernel.m_nextThreadId,[&](auto& thread,int id) {
+            auto status=static_cast<uint8_t>(thread.state);
+            archive.Field(status);
+            if constexpr (reading) {
+                if (status>static_cast<uint8_t>(IopThreadState::Dead) || status==static_cast<uint8_t>(IopThreadState::Running))
+                    throw std::invalid_argument("Invalid suspended IOP thread state");
+                thread.state=static_cast<IopThreadState>(status);
+                thread.id=id;
+            }
+            auto& cpu=thread.cpu;
+            for (auto& reg : cpu.gpr) archive.Field(reg);
+            archive.Fields(cpu.hi,cpu.lo,cpu.pc);
+            for (auto& reg : cpu.cop0) archive.Field(reg);
+            archive.Fields(cpu.pendingLoadReg,cpu.pendingLoadValue,cpu.pendingLoad,cpu.branchPending,cpu.branchTarget,
+                           cpu.stopped,cpu.yielded,cpu.exception);
+            archive.Fields(thread.entry,thread.stackBase,thread.stackSize,thread.priority,thread.initialPriority,
+                           thread.option,thread.attr,thread.wakeCycle,thread.waitId,thread.waitBits,thread.waitMode,
+                           thread.waitResultAddress,thread.waitOrder,thread.wakeupCount);
+            if constexpr (reading)
+                if (cpu.pendingLoadReg>=cpu.gpr.size())
+                    throw std::invalid_argument("Invalid IOP delayed load register");
+        });
+        kernelObjects(archive,kernel.m_semaphores,kernel.m_nextSemaphoreId,[&](auto& sem,int id) {
+            if constexpr (reading) sem.id=id;
+            archive.Fields(sem.attr,sem.option,sem.current,sem.maximum);
+        });
+        kernelObjects(archive,kernel.m_eventFlags,kernel.m_nextEventFlagId,[&](auto& event,int id) {
+            if constexpr (reading) event.id=id;
+            archive.Fields(event.attr,event.option,event.bits);
+        });
+        kernelObjects(archive,kernel.m_mailboxes,kernel.m_nextMailboxId,[&](auto& box,int) {
+            archive.Fields(box.attr,box.option);
+            if constexpr (reading) box.messages.resize(archive.Count(UINT32_MAX,sizeof(uint32_t)));
+            else archive.Field(static_cast<uint32_t>(box.messages.size()));
+            for (auto& message : box.messages) archive.Field(message);
+        });
+        kernelObjects(archive,kernel.m_fixedPools,kernel.m_nextFixedPoolId,[&](auto& pool,int) {
+            archive.Fields(pool.attr,pool.option,pool.blockSize,pool.stride,pool.base);
+            if constexpr (reading) {
+                if (pool.blockSize==0 || pool.blockSize>IopMemory::HeapLimit ||
+                    pool.stride!=alignUp(pool.blockSize,4) || pool.base<IopMemory::HeapBase || pool.base>=IopMemory::HeapLimit)
+                    throw std::invalid_argument("Invalid saved IOP fixed pool");
+                const auto count=archive.Count((IopMemory::HeapLimit-pool.base)/pool.stride,1);
+                pool.allocated.resize(count);
+                for (unsigned i=0; i<count; ++i) {
+                    bool used{};
+                    archive.Field(used);
+                    pool.allocated[i]=used;
+                }
+            } else {
+                archive.Field(static_cast<uint32_t>(pool.allocated.size()));
+                for (bool used : pool.allocated) archive.Field(used);
+            }
+        });
+    }
+
+    std::vector<uint8_t> IopKernel::saveState() const
+    {
+        if (m_currentThread) throw std::logic_error("Save IOP state between timeslices");
+        std::vector<uint8_t> state;
+        cave::ps2::StateWriter writer(state);
+        transferState(writer,*this);
+        return state;
+    }
+
+    void IopKernel::loadState(std::span<const uint8_t> state)
+    {
+        if (m_currentThread) throw std::logic_error("Restore IOP state between timeslices");
+        IopKernel restored(m_memory);
+        cave::ps2::StateReader reader(state);
+        transferState(reader,restored);
+        reader.Finish();
+        m_threads.swap(restored.m_threads); m_semaphores.swap(restored.m_semaphores);
+        m_eventFlags.swap(restored.m_eventFlags); m_mailboxes.swap(restored.m_mailboxes);
+        m_fixedPools.swap(restored.m_fixedPools);
+        m_nextThreadId=restored.m_nextThreadId; m_nextSemaphoreId=restored.m_nextSemaphoreId;
+        m_nextEventFlagId=restored.m_nextEventFlagId; m_nextMailboxId=restored.m_nextMailboxId;
+        m_nextFixedPoolId=restored.m_nextFixedPoolId; m_nextWaitOrder=restored.m_nextWaitOrder;
+        m_cachedReady=nullptr; m_nextDelayedWake=UINT64_MAX; m_readyCacheValid=false;
     }
 
     void IopKernel::reset()

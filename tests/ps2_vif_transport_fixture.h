@@ -108,9 +108,14 @@ void VifPath1Burst() {
             "VU burst lost XGKICK ownership, order or its final packet");
     transfers.clear();
     arbiter.submit(GifPathId::Path3, data.data(), uint32_t(data.size()));
+    const auto queued = arbiter.saveState();
+    arbiter.drain();
+    transfers.clear();
+    arbiter.loadState(queued);
     send(GifPathId::Path1, 5);
     Require(transfers.size() == 2 && transfers[0].first == GifPathId::Path1 &&
-            transfers[1].first == GifPathId::Path3, "Immediate path bypassed GIF arbitration");
+            transfers[1].first == GifPathId::Path3 && transfers[1].second == std::vector<uint8_t>(16, 4),
+            "Restored GIF arbitration lost queued data or changed path priority");
 }
 
 void VifImageContinuation(PS2Memory& memory) {
@@ -129,7 +134,15 @@ void VifImageContinuation(PS2Memory& memory) {
     };
     const std::array<uint8_t,32> image{0x42,0x24,0x66,0x99};
     memory.setRawGifTransfers(true);
-    begin();memory.processVIF1Data(image.data(),uint32_t(image.size()));
+    begin();
+    {
+        const auto halfway = memory.saveState();
+        std::array<uint8_t, 32> abandoned{};
+        memory.processVIF1Data(abandoned.data(), uint32_t(abandoned.size()));
+        received.resize(1);
+        memory.loadState(halfway);
+    }
+    memory.processVIF1Data(image.data(),uint32_t(image.size()));
     Require(received.size()==2 && received[0].size()==16 && received[1]==std::vector<uint8_t>(image.begin(),image.end()),
             "Raw VIF IMAGE continuation gained a synthetic GIF tag");
     received.clear();memory.setRawGifTransfers(false);
@@ -167,6 +180,28 @@ void VifImageContinuation(PS2Memory& memory) {
     const std::array<uint64_t,2> micro{0x123456789abcdef0ull,0xfedcba9876543210ull};
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(&mpg),4);
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(micro.data()),8);
+    // Stop between the two halves of an incoming VU microprogram. Complete a
+    // different future, then rewind into the same live RDRAM/SPAD allocations.
+    constexpr uint32_t address = 0x13000;
+    memory.write32(address, 0x73424561);
+    auto* const savedRam = memory.getRDRAM();
+    auto* const savedScratch = memory.getScratchpad();
+    const auto checkpoint = memory.saveState();
+    uint64_t other = 0x87;
+    memory.processVIF1Data(reinterpret_cast<const uint8_t*>(&other), 8);
+    memory.write32(address, 0x99998888);
+    savedScratch[17] ^= 0xff;
+    const auto changedScratch = savedScratch[17];
+    bool rejected = false;
+    try { memory.loadState(std::span(checkpoint).first(checkpoint.size() - 1)); }
+    catch (const std::invalid_argument&) { rejected = true; }
+    Require(rejected && memory.read32(address) == 0x99998888 && savedScratch[17] == changedScratch,
+            "Truncated EE memory state changed live memory");
+    const auto changedGeneration = memory.getVU1CodeGeneration();
+    memory.loadState(checkpoint);
+    Require(memory.getRDRAM() == savedRam && memory.getScratchpad() == savedScratch &&
+            memory.read32(address) == 0x73424561 && savedScratch[17] == uint8_t(changedScratch ^ 0xff) &&
+            memory.getVU1CodeGeneration() != changedGeneration, "EE restore lost RAM or retained stale VU code");
     memory.processVIF1Data(reinterpret_cast<const uint8_t*>(micro.data()+1),8);
     Require(!std::memcmp(memory.getVU1Code()+24,micro.data(),16),"Split VIF MPG upload was discarded");
     const auto generation = memory.getVU1CodeGeneration();

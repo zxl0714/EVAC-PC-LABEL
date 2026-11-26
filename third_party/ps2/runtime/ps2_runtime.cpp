@@ -639,6 +639,16 @@ ps2x::iop::RpcResult PS2Runtime::handleIopRpc(uint8_t *rdram, R5900Context *ctx,
     return m_iopSubsystem->handleRpc(request);
 }
 
+void PS2Runtime::completeIopClientRpc(const cave::ps2::EeIopRpcReturn& action, const R5900Context& returned)
+{
+    std::vector<uint8_t> reply(action.receiveSize);
+    const auto address = uint32_t(_mm_cvtsi128_si32(returned.r[2]));
+    const bool read = reply.empty() || m_iopHost->readGuest(address, reply.data(), reply.size());
+    m_iopHost->freeGuest(action.packet);
+    if (!read) throw std::runtime_error("EE RPC returned an invalid response buffer");
+    m_iopSubsystem->completeEeRpc(action.reply, reply);
+}
+
 void PS2Runtime::notifyIopSifTransfer(uint8_t *rdram, const ps2x::iop::SifTransfer &transfer)
 {
     auto scope = m_iopHost->enterCall(nullptr, rdram);
@@ -2301,10 +2311,7 @@ bool PS2Runtime::eeCheckpointDue(uint32_t cycles) noexcept
     const uint64_t waitTicks = std::max<uint64_t>(1u, ticks);
     m_eeScheduler->waitVSync(currentTick + waitTicks - 1u,
                              0,
-                             [resumePc](R5900Context &context)
-                             {
-                                 context.pc = resumePc;
-                             });
+                             EeResumeAtPc{resumePc});
 }
 
 void PS2Runtime::addEeExitHandler(int threadId, uint32_t function, uint32_t argument)
@@ -2451,6 +2458,7 @@ void PS2Runtime::run()
             m_memory.setRawGifTransfers(bool(backend));
             m_gs.setCommandBackend(std::move(backend));
             m_eeScheduler->reset(m_memory.getRDRAM(), m_cpuContext);
+            host.OnSchedulerReset(*this);
             m_eeScheduler->run();
             std::cerr<<"[ps2-exit-ee] trace="<<formatDispatchHistory()<<std::endl;
             uint32_t pc = m_debugPc.load(std::memory_order_relaxed);

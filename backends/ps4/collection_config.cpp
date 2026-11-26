@@ -23,10 +23,13 @@ CollectionConfiguration ResolveCollectionConfiguration(const Ini& ini,std::strin
     constexpr std::array<std::uint32_t,16> masks{
         0x10,0x40,0x80,0x20,0x4000,0x2000,0x8000,0x1000,8,0x100000,0x400,0x800,0x100,0x200,2,4};
     static_assert(masks.size() == kButtons.size());
-    for (std::size_t button=0; button<masks.size(); ++button) {
-        for (auto key : result.shared.keyboard[button].keys) {
-            if (key >= result.keyboard.size() || result.keyboard[key]) throw std::runtime_error("Invalid PS4 keyboard mapping");
-            result.keyboard[key] = masks[button];
+    for(bool second:{false,true}) {
+        auto& bindings=second?result.keyboard_p2:result.keyboard;
+        for (std::size_t button=0; button<masks.size(); ++button) {
+            for (auto key : result.shared.Keyboard(second)[button].keys) {
+                if (key >= bindings.size() || bindings[key]) throw std::runtime_error("Invalid PS4 keyboard mapping");
+                bindings[key] = masks[button];
+            }
         }
     }
     auto endpoint = result.shared.endpoint;
@@ -50,7 +53,7 @@ void ApplyCollectionConfiguration(const CollectionConfiguration& config) {
     if (config.game == "garegga")
         language = config.garegga_english_translation ? NativeLanguage::English : NativeLanguage::Korean;
     ConfigureNativeProfile(config.shared.neo, language);
-    ConfigureNativePadSettings(config.keyboard, config.shared.gamepad_enabled, config.shared.deadzone);
+    ConfigureNativePadSettings(config.keyboard, config.shared.gamepad_enabled, config.shared.deadzone,config.keyboard_p2,config.shared.swap_players);
     ConfigureNativeAudioVolume(config.shared.volume);
     ConfigureNativeDisplay(config.display);
     ReportCollectionConfiguration(config);

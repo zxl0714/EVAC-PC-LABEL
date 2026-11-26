@@ -18,6 +18,7 @@
 #include "emulator/iop_emulator_const.h"
 #include "../../../backends/ps2/iop_profile.h"
 #include "../../../backends/ps2/audio_trace.h"
+#include "../../../backends/ps2/state_archive.h"
 
 #include <algorithm>
 #include <cctype>
@@ -869,6 +870,109 @@ namespace ps2x::iop::detail
 
     IopEmulator::~IopEmulator() = default;
 
+    namespace
+    {
+        template<class Archive, class Map, class Visit>
+        void transferTable(Archive& ar, Map& table, size_t minimumBytes, Visit visit)
+        {
+            if constexpr (std::is_same_v<Archive, cave::ps2::StateReader>)
+            {
+                const auto count = ar.Count(UINT32_MAX, minimumBytes);
+                for (uint32_t i = 0; i < count; ++i)
+                {
+                    typename Map::key_type key{};
+                    typename Map::mapped_type value{};
+                    ar.Field(key);
+                    visit(key, value);
+                    const auto inserted = table.emplace(key, std::move(value));
+                    if constexpr (requires { inserted.second; })
+                        if (!inserted.second) throw std::invalid_argument("Duplicate IOP table entry");
+                }
+            }
+            else ar.Items(table, UINT32_MAX, minimumBytes, [&](auto& item) {
+                ar.Field(item.first);
+                visit(item.first, item.second);
+            });
+        }
+
+        void transferString(cave::ps2::StateWriter& ar, const std::string& text, uint32_t) { ar.String(text); }
+        void transferString(cave::ps2::StateReader& ar, std::string& text, uint32_t limit) { text = ar.String(limit); }
+    }
+
+    template<class Archive>
+    void IopEmulator::transferState(Archive& ar, Impl& s)
+    {
+        constexpr bool reading = std::is_same_v<Archive, cave::ps2::StateReader>;
+        uint32_t version = 1;
+        ar.Field(version);
+        if (version != 1) throw std::invalid_argument("Unknown IOP state version");
+        ar.Fields(s.nextModuleId, s.moduleCursor, s.totalCycles, s.requestedEeCycles,
+                  s.idleUntil, s.nextTimerCycle, s.totalInstructions, s.audioIrqDelivered);
+        for (auto* callback : {&s.secrMcCommandHandler, &s.secrMcDevIdHandler, &s.checkKelfPathCallback})
+            ar.Fields(callback->function, callback->gp);
+
+        transferTable(ar, s.modules, 29, [&](int id, auto& module) {
+            if constexpr (reading) module.id = id;
+            transferString(ar, module.path, UINT32_MAX);
+            transferString(ar, module.name, UINT32_MAX);
+            ar.Fields(module.base, module.size, module.entry, module.gp, module.resident);
+            if (module.base > kRamSize || module.size > kRamSize - module.base)
+                throw std::invalid_argument("Invalid IOP module image bounds");
+        });
+        transferTable(ar, s.pendingDmaInterrupts, 12, [&](int, auto& cycle) { ar.Field(cycle); });
+        transferTable(ar, s.pendingGuestCallbacks, 21, [&](uint64_t, auto& cb) {
+            ar.Fields(cb.function, cb.gp, cb.argument, cb.interrupt);
+        });
+        transferTable(ar, s.intrman.m_handlers, 16, [&](int, auto& cb) { ar.Fields(cb.function, cb.argument, cb.gp); });
+        transferTable(ar, s.intrman.m_enabled, 5, [&](int, auto& enabled) { ar.Field(enabled); });
+        ar.Field(s.timrman.m_holdMode);
+        for (auto& t : s.timrman.m_timers)
+        {
+            ar.Fields(t.users, t.source, t.prescale, t.setupMode, t.liveMode, t.counterBase, t.compare,
+                      t.counterBaseCycle, t.compareCycle, t.overflowCycle, t.configured, t.running);
+            for (auto* cb : {&t.compareCallback, &t.overflowCallback})
+                ar.Fields(cb->function, cb->common, cb->gp);
+        }
+        transferTable(ar, s.imports.m_libraries, 14, [&](uint32_t address, auto& library) {
+            if (address > kRamSize - 20) throw std::invalid_argument("Invalid IOP export table address");
+            if constexpr (reading) library.tableAddress = address;
+            ar.Field(library.version);
+            transferString(ar, library.name, 8);
+            ar.Items(library.functions, 1024, 4, [&](auto& function) { ar.Field(function); });
+        });
+        auto component = [&](auto& part) {
+            if constexpr (reading) part.loadState(ar.Blob());
+            else ar.Blob(part.saveState());
+        };
+        component(s.memory);
+        component(s.kernel);
+        component(s.cdvd);
+        component(s.rpc);
+        component(s.ioman);
+    }
+
+    std::vector<uint8_t> IopEmulator::saveState() const
+    {
+        auto& s = *m_impl;
+        if (s.activeCpu || s.callDepth || s.servicingAudioInterrupt || s.servicingDmaInterrupts ||
+            s.servicingGuestCallbacks || s.timrman.m_servicing)
+            throw std::logic_error("IOP snapshot requested during guest execution");
+        std::vector<uint8_t> bytes;
+        cave::ps2::StateWriter writer(bytes);
+        transferState(writer, s);
+        return bytes;
+    }
+
+    void IopEmulator::loadState(std::span<const uint8_t> bytes)
+    {
+        auto next = std::make_unique<Impl>(m_impl->host);
+        cave::ps2::StateReader reader(bytes);
+        transferState(reader, *next);
+        reader.Finish();
+        next->memory.setAudioVolumes(m_streamVolume, m_voiceVolume);
+        m_impl.swap(next);
+    }
+
     void IopEmulator::reset()
     {
         m_impl->reset();
@@ -915,6 +1019,8 @@ namespace ps2x::iop::detail
 
     void IopEmulator::setAudioVolumes(unsigned stream, unsigned voices) noexcept
     {
+        m_streamVolume = stream;
+        m_voiceVolume = voices;
         m_impl->memory.setAudioVolumes(stream, voices);
     }
 
@@ -991,6 +1097,12 @@ namespace ps2x::iop::detail
     bool IopEmulator::hasRpcServer(uint32_t sid) const noexcept
     {
         return m_impl->rpc.hasServer(sid);
+    }
+
+    void IopEmulator::completeEeRpc(const cave::ps2::IopRpcReply& reply, std::span<const uint8_t> bytes)
+    {
+        m_impl->idleUntil = 0;
+        m_impl->rpc.completeEeRpc(reply, bytes, *m_impl);
     }
 
     void IopEmulator::onSifTransfer(const SifTransfer &transfer)

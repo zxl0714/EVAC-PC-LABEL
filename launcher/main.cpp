@@ -186,6 +186,15 @@ HWND VisibleGameWindow(DWORD pid) {
   },reinterpret_cast<LPARAM>(&search));
   return search.result;
 }
+// Minimized windows and owned dialogs also count: the external game can still
+// be interactive even when its original render window has gone away.
+bool AllProcessWindowsClosed(DWORD pid) {
+  return EnumWindows([](HWND window,LPARAM process)->BOOL {
+    DWORD owner{};
+    GetWindowThreadProcessId(window,&owner);
+    return owner!=static_cast<DWORD>(process) || !IsWindowVisible(window);
+  },pid)!=FALSE;
+}
 fs::path LogDirectory(const fs::path& root) {
   const auto directory=DataChild(root,"logs");
   const auto ini=Ini::Load(ConfigPath(root));
@@ -1451,8 +1460,10 @@ class App {
     return IsGameWindow(foreground,child->pid())?foreground:nullptr;
   }
   void RequestGameExit(HWND game,std::string_view source) {
-    if(PostMessageW(game,WM_CLOSE,0,0))
+    if(PostMessageW(game,WM_CLOSE,0,0)) {
+      if(external_session && active_game=="sdoj")eandis_exit_requested=true;
       Log(options.root,"game-shortcut-close game="+active_game+" input="+std::string(source)+" pid="+std::to_string(child->pid()));
+    }
     else Log(options.root,"Cannot close game window (Windows error "+std::to_string(GetLastError())+")");
     ResetGameExit();
   }
@@ -1677,7 +1688,8 @@ class App {
       const bool external=bool(external_session);
       if(!external)cave::launcher::reports::RecordProcessExit(options.root,active_game,child->pid(),child->CreationTime(),*code);
       const bool requested_close=!external && child->RequestedWindowClose(options.root,active_game,*code);
-      const bool failed=*code && !requested_close;
+      const bool cleaned_up=eandis_exit_finished && *code==ERROR_CANCELLED;
+      const bool failed=*code && !requested_close && !cleaned_up;
       const auto detail=T(L"游戏异常退出（退出码 ")+std::to_wstring(*code)+T(L"）。\n\n日志目录：logs/")+Wide(active_game)+T(L"/\n启动器可以继续使用。");
       Log(options.root,"child-exit code="+std::to_string(*code));
       if(failed && FindArcadeRecomp(active_game))message=T(L"游戏异常退出，请查看外部程序安装目录内的日志");
@@ -1691,14 +1703,35 @@ class App {
         ResetGameExit();
       }
       child.reset();external_session.reset();active_game.clear();game_focus_pending=false;KillTimer(hwnd,kChildTimer);
+      eandis_exit_requested=eandis_exit_finished=false;
+      eandis_quiet_since=0;
       if(menu_controller)menu_controller->Reset();
       ShowWindow(hwnd,SW_SHOWNORMAL);SetForegroundWindow(hwnd);EnablePreferences();InvalidateRect(hwnd,nullptr,FALSE);
       if(!external && !BigPicture() && failed && MessageBoxW(hwnd,(detail+L"\n\n"+T(L"现在上传日志？")).c_str(),kWindowTitle,MB_YESNO|MB_ICONWARNING)==IDYES)
         show_reports(hwnd,options.root,language,exited_game);
+    } else if(eandis_exit_requested && !eandis_exit_finished) {
+      FinishEandisExit(GetTickCount64());
     } else if(game_focus_pending) {
       // Leave the launcher behind the game so Windows can return focus when the game closes.
       if(const auto game=VisibleGameWindow(child->pid());game)
         game_focus_pending=GetForegroundWindow()==hwnd && !SetForegroundWindow(game);
+    }
+  }
+  void FinishEandisExit(ULONGLONG now) {
+    if(!eandis_exit_requested || eandis_exit_finished || !child || !external_session || active_game!="sdoj")return;
+    const auto writes=child->WriteOperations();
+    if(!writes || !AllProcessWindowsClosed(child->pid())) {
+      eandis_quiet_since=0;
+      return;
+    }
+    if(!eandis_quiet_since || eandis_writes!=*writes) {
+      eandis_quiet_since=now;
+      eandis_writes=*writes;
+      return;
+    }
+    if(now-eandis_quiet_since>=10000 && child->Terminate(ERROR_CANCELLED)) {
+      eandis_exit_finished=true;
+      Log(options.root,"eandis-exit-cleanup pid="+std::to_string(child->pid())+" windows=0 quiet_ms="+std::to_string(now-eandis_quiet_since));
     }
   }
   void Choose(bool copy=false,bool disc_file=false) {
@@ -2246,6 +2279,8 @@ class App {
   std::array<Binding,16> menu_keys=ResolveSharedSettings(Ini{}).keyboard;
   std::optional<GameExitShortcuts> game_exit_shortcuts;
   HWND game_exit_window{};
+  bool eandis_exit_requested{},eandis_exit_finished{};
+  ULONGLONG eandis_quiet_since{},eandis_writes{};
   bool game_exit_keyboard{};
   std::array<bool,2> exit_keys_down{};
   ExitKeys exit_keys_awaiting_release{};
@@ -2364,16 +2399,17 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int show) {
       EnsureConfig(options.root);
       const auto ini=Ini::Load(ConfigPath(options.root));
       const auto* arcade=FindArcadeRecomp(options.game);
-      const auto spec=arcade?cave::launcher::PrepareArcadeRecomp(*arcade,options.root,ini,options.profile,options.data):
-                             PrepareLaunch(FindGame(options.game),options.root,ini,options.profile,options.data);
+      const bool eandis=options.game=="sdoj" && cave::launcher::ReadSdojRecomp(ini);
+      LaunchSpec spec;
+      if(arcade)spec=cave::launcher::PrepareArcadeRecomp(*arcade,options.root,ini,options.profile,options.data);
+      else if(eandis)spec=cave::launcher::PrepareSdojRecomp(options.root,ini,options.data,GetDpiForSystem());
+      else spec=PrepareLaunch(FindGame(options.game),options.root,ini,options.profile,options.data);
       std::optional<GameSession> session;
-      if(arcade) {
-        session.emplace(options.root);
-        cave::launcher::SetArcadeFullscreen(spec,ResolveSharedSettings(ini).fullscreen);
-      }
-      auto child=StartGame(spec,arcade?spec.executable.parent_path():fs::path{});
+      if(arcade || eandis)session.emplace(options.root);
+      if(arcade)cave::launcher::SetArcadeFullscreen(spec,ResolveSharedSettings(ini).fullscreen);
+      auto child=StartGame(spec,session?spec.executable.parent_path():fs::path{});
       child.Wait();const auto code=child.ExitCode().value_or(1);
-      if(!arcade)cave::launcher::reports::RecordProcessExit(options.root,spec.game,child.pid(),child.CreationTime(),code);
+      if(!session)cave::launcher::reports::RecordProcessExit(options.root,spec.game,child.pid(),child.CreationTime(),code);
       return int(code);
     }
     cave::launcher::LauncherInstance instance_guard(options.root);

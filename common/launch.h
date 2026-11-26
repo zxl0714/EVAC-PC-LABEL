@@ -43,6 +43,8 @@ class ChildProcess final {
   ChildProcess& operator=(const ChildProcess&)=delete;
   std::optional<unsigned long> ExitCode() const;
   uint64_t CreationTime() const noexcept;
+  std::optional<uint64_t> WriteOperations() const noexcept;
+  bool Terminate(unsigned long code) const noexcept;
   bool RequestedWindowClose(const fs::path& root,std::string_view game,unsigned long code) const;
   unsigned long pid() const {return pid_;}
   void Wait() const;

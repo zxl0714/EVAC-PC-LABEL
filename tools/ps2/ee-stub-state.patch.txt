@@ -1,0 +1,369 @@
+--- a/MPEG.cpp
++++ b/MPEG.cpp
+@@ -1,5 +1,6 @@
+ #include "Common.h"
+ #include "MPEG.h"
++#include "mpeg_replay_history.h"
+ #include "runtime/ee_scheduler.h"
+ 
+ #if !defined(PS2X_HAS_FFMPEG)
+@@ -1613,10 +1614,7 @@
+             GuestInvocation invocation{};
+             invocation.kind = GuestInvocationKind::RpcCallback;
+             invocation.context = callbackCtx;
+-            invocation.onComplete = [runtime, cbDataAddr](const R5900Context &, R5900Context &)
+-            {
+-                runtime->guestFree(cbDataAddr);
+-            };
++            invocation.returnAction = EeFreeGuest{cbDataAddr};
+             runtime->eeScheduler().queueInvocation(std::move(invocation));
+         }
+ 
+@@ -2312,14 +2310,7 @@
+                     EeWaitReason::Mpeg,
+                     kMpegPictureWaitType,
+                     mpegAddr,
+-                    [rdram, runtime](R5900Context &resumeContext)
+-                    {
+-                        if (static_cast<int32_t>(getRegU32(&resumeContext, 2)) < 0)
+-                        {
+-                            return;
+-                        }
+-                        sceMpegGetPicture(rdram, &resumeContext, runtime);
+-                    });
++                    EeMpegPicture{});
+             }
+ 
+             if (!playback.decodedFrames.empty())
+@@ -2348,14 +2339,7 @@
+                     runtime->eeScheduler().waitVSync(
+                         eligibleTick - 1u,
+                         -1,
+-                        [rdram, runtime](R5900Context &resumeContext)
+-                        {
+-                            if (static_cast<int32_t>(getRegU32(&resumeContext, 2)) < 0)
+-                            {
+-                                return;
+-                            }
+-                            sceMpegGetPicture(rdram, &resumeContext, runtime);
+-                        });
++                        EeMpegPicture{});
+                 }
+ 
+                 frame = std::move(playback.decodedFrames.front());
+@@ -2571,3 +2555,5 @@
+         setReturnS32(ctx, 0);
+     }
+ }
++
++#include "mpeg_state_io.inc"
+--- a/SIF.cpp
++++ b/SIF.cpp
+@@ -275,10 +275,7 @@
+             SET_GPR_U32(&invocation.context, 7, 0u);
+             SET_GPR_U32(&invocation.context, 29, 0u);
+             SET_GPR_U32(&invocation.context, 31, 0u);
+-            invocation.onComplete = [runtime, packetAddress](const R5900Context &, R5900Context &)
+-            {
+-                runtime->guestFree(packetAddress);
+-            };
++            invocation.returnAction = EeFreeGuest{packetAddress};
+             runtime->eeScheduler().queueInvocation(std::move(invocation));
+             return true;
+         }
+--- a/IPU.cpp
++++ b/IPU.cpp
+@@ -50,6 +50,11 @@
+ 
+ namespace ps2_stubs
+ {
++    void resumeIpuInit(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
++    {
++        completeIpuInit(rdram, ctx, runtime);
++    }
++
+     void sceIpuInit(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+     {
+         if (!runtime)
+@@ -81,10 +86,7 @@
+             SET_GPR_U32(&invocation.context, 4, 1u);
+             SET_GPR_U32(&invocation.context, 29, 0u);
+             SET_GPR_U32(&invocation.context, 31, 0u);
+-            invocation.onComplete = [rdram, runtime](const R5900Context &, R5900Context &parent)
+-            {
+-                completeIpuInit(rdram, &parent, runtime);
+-            };
++            invocation.returnAction = EeFinishIpuInit{};
+             scheduler.invokeCurrent(std::move(invocation));
+         }
+ 
+--- a/RPC.cpp
++++ b/RPC.cpp
+@@ -337,6 +337,116 @@
+         event.result = 0;
+         pushSifRpcDebugEvent(event);
+         setReturnS32(ctx, 0);
++    }
++
++    void resumeEeRpc(uint8_t *rdram, PS2Runtime *runtime, cave::ps2::EeRpcReturn call,
++                     const R5900Context *guestResult, R5900Context &parent)
++    {
++        const auto completeClient = [&](R5900Context &base, bool callbackCompleted)
++        {
++            {
++                std::lock_guard<std::mutex> lock(g_rpc_mutex);
++                g_rpc_clients[call.clientPtr].busy = false;
++            }
++            SifRpcDebugEvent event = makeRpcDebugEvent("CallRpc", &base, runtime);
++            event.clientPtr = call.clientPtr;
++            event.serverPtr = call.serverPtr;
++            event.sid = call.sid;
++            event.rpcNum = call.rpcNum;
++            event.mode = call.mode;
++            event.sendBuf = call.sendBuf;
++            event.sendSize = call.sendSize;
++            event.recvBuf = call.receiveBuffer;
++            event.recvSize = call.receiveSize;
++            event.resultPtr = call.resultPointer;
++            event.endFunc = call.endFunction;
++            event.endParam = call.endParameter;
++            event.semaId = call.completionSemaphore;
++            event.flags =
++                ((call.mode & kSifRpcModeNowait) ? kSifRpcDebugFlagNowait : 0u) |
++                (call.handledByIop ? kSifRpcDebugFlagHandledByHle : 0u) |
++                (callbackCompleted ? kSifRpcDebugFlagCallback : 0u) |
++                (call.serverDispatched ? kSifRpcDebugFlagServerDispatch : 0u) |
++                (!call.handled ? kSifRpcDebugFlagUnhandled : 0u) |
++                (call.copiedFallback ? kSifRpcDebugFlagFallbackCopy : 0u) |
++                (call.zeroedFallback ? kSifRpcDebugFlagFallbackZero : 0u);
++            fillRpcDebugPreview(rdram, call.sendBuf, call.sendSize, event.sendPreview, event.sendPreviewSize);
++            fillRpcDebugPreview(rdram, call.receiveBuffer, call.receiveSize, event.recvPreview, event.recvPreviewSize);
++            event.result = 0;
++#if PS2X_ENABLE_IOP_RPC_TRACE
++            if ((event.flags & kSifRpcDebugFlagUnhandled) != 0u)
++            {
++                logUnhandledRpcTrace(event);
++            }
++#endif
++            pushSifRpcDebugEvent(event);
++        };
++
++        if (call.callback)
++        {
++            completeClient(parent, true);
++            return;
++        }
++
++        call.handled = call.handledByIop;
++        if (guestResult)
++        {
++            call.handled = true;
++            call.resultPointer = getRegU32(guestResult, 2);
++            if (call.resultPointer == 0u)
++            {
++                call.resultPointer = call.guestDefaultResult;
++            }
++        }
++
++        if (call.receiveBuffer != 0u && call.receiveSize != 0u)
++        {
++            if (call.handled && call.resultPointer != 0u && call.resultPointer != call.receiveBuffer)
++            {
++                rpcCopyToRdram(rdram, call.receiveBuffer, call.resultPointer, call.receiveSize);
++            }
++            else if (!call.handled && call.sendBuf != 0u && call.sendSize != 0u && call.sendBuf != call.receiveBuffer)
++            {
++                rpcCopyToRdram(rdram, call.receiveBuffer, call.sendBuf, std::min(call.sendSize, call.receiveSize));
++                call.copiedFallback = true;
++            }
++            else if (!call.handled)
++            {
++                rpcZeroRdram(rdram, call.receiveBuffer, call.receiveSize);
++                call.zeroedFallback = true;
++            }
++        }
++
++        setReturnS32(&parent, 0);
++        if (call.endFunction == 0u || call.suppressCallback)
++        {
++            completeClient(parent, call.endFunction != 0u);
++            return;
++        }
++
++        uint32_t callbackFunction = call.endFunction;
++        if (!runtime->hasFunction(callbackFunction) && callbackFunction >= 0x10000u &&
++            runtime->hasFunction(callbackFunction - 0x10000u))
++        {
++            callbackFunction -= 0x10000u;
++        }
++        if (!runtime->hasFunction(callbackFunction))
++        {
++            (void)signalRpcCompletionSema(runtime, call.completionSemaphore);
++            completeClient(parent, false);
++            return;
++        }
++
++        GuestInvocation callback{};
++        callback.kind = GuestInvocationKind::RpcCallback;
++        callback.context = parent;
++        callback.context.pc = callbackFunction;
++        SET_GPR_U32(&callback.context, 4, call.endParameter);
++        SET_GPR_U32(&callback.context, 29, 0u);
++        SET_GPR_U32(&callback.context, 31, 0u);
++        call.callback = true;
++        callback.returnAction = call;
++        runtime->eeScheduler().invokeCurrent(std::move(callback));
+     }
+ 
+     void SifCallRpc(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+@@ -573,113 +683,24 @@
+         }
+         const bool serverDispatched = guestFunction != 0u && runtime->hasFunction(guestFunction);
+ 
+-        auto finishCall = [=](const R5900Context *guestResult, R5900Context &parent)
+-        {
+-            bool handled = iopResult.handled;
+-            uint32_t resultPointer = iopResult.resultAddress;
+-            bool copiedFallback = false;
+-            bool zeroedFallback = false;
+-            if (guestResult)
+-            {
+-                handled = true;
+-                resultPointer = getRegU32(guestResult, 2);
+-                if (resultPointer == 0u)
+-                {
+-                    resultPointer = guestDefaultResult;
+-                }
+-            }
+-
+-            if (receiveBuffer != 0u && receiveSize != 0u)
+-            {
+-                if (handled && resultPointer != 0u && resultPointer != receiveBuffer)
+-                {
+-                    rpcCopyToRdram(rdram, receiveBuffer, resultPointer, receiveSize);
+-                }
+-                else if (!handled && sendBuf != 0u && sendSize != 0u && sendBuf != receiveBuffer)
+-                {
+-                    rpcCopyToRdram(rdram, receiveBuffer, sendBuf, std::min(sendSize, receiveSize));
+-                    copiedFallback = true;
+-                }
+-                else if (!handled)
+-                {
+-                    rpcZeroRdram(rdram, receiveBuffer, receiveSize);
+-                    zeroedFallback = true;
+-                }
+-            }
+-
+-            auto completeClient = [=](R5900Context &base, bool callbackCompleted)
+-            {
+-                {
+-                    std::lock_guard<std::mutex> lock(g_rpc_mutex);
+-                    g_rpc_clients[clientPtr].busy = false;
+-                }
+-                SifRpcDebugEvent event = makeRpcDebugEvent("CallRpc", &base, runtime);
+-                event.clientPtr = clientPtr;
+-                event.serverPtr = serverPtr;
+-                event.sid = sid;
+-                event.rpcNum = rpcNum;
+-                event.mode = mode;
+-                event.sendBuf = sendBuf;
+-                event.sendSize = sendSize;
+-                event.recvBuf = receiveBuffer;
+-                event.recvSize = receiveSize;
+-                event.resultPtr = resultPointer;
+-                event.endFunc = endFunction;
+-                event.endParam = endParameter;
+-                event.semaId = completionSemaphore;
+-                event.flags =
+-                    ((mode & kSifRpcModeNowait) ? kSifRpcDebugFlagNowait : 0u) |
+-                    (iopResult.handled ? kSifRpcDebugFlagHandledByHle : 0u) |
+-                    (callbackCompleted ? kSifRpcDebugFlagCallback : 0u) |
+-                    (serverDispatched ? kSifRpcDebugFlagServerDispatch : 0u) |
+-                    (!handled ? kSifRpcDebugFlagUnhandled : 0u) |
+-                    (copiedFallback ? kSifRpcDebugFlagFallbackCopy : 0u) |
+-                    (zeroedFallback ? kSifRpcDebugFlagFallbackZero : 0u);
+-                fillRpcDebugPreview(rdram, sendBuf, sendSize, event.sendPreview, event.sendPreviewSize);
+-                fillRpcDebugPreview(rdram, receiveBuffer, receiveSize, event.recvPreview, event.recvPreviewSize);
+-                event.result = 0;
+-#if PS2X_ENABLE_IOP_RPC_TRACE
+-                if ((event.flags & kSifRpcDebugFlagUnhandled) != 0u)
+-                {
+-                    logUnhandledRpcTrace(event);
+-                }
+-#endif
+-                pushSifRpcDebugEvent(event);
+-            };
+-
+-            setReturnS32(&parent, 0);
+-            if (endFunction == 0u || iopResult.callbackPolicy == ps2x::iop::CallbackPolicy::Suppress)
+-            {
+-                completeClient(parent, endFunction != 0u);
+-                return;
+-            }
+-
+-            uint32_t callbackFunction = endFunction;
+-            if (!runtime->hasFunction(callbackFunction) && callbackFunction >= 0x10000u &&
+-                runtime->hasFunction(callbackFunction - 0x10000u))
+-            {
+-                callbackFunction -= 0x10000u;
+-            }
+-            if (!runtime->hasFunction(callbackFunction))
+-            {
+-                (void)signalRpcCompletionSema(runtime, completionSemaphore);
+-                completeClient(parent, false);
+-                return;
+-            }
+-
+-            GuestInvocation callback{};
+-            callback.kind = GuestInvocationKind::RpcCallback;
+-            callback.context = parent;
+-            callback.context.pc = callbackFunction;
+-            SET_GPR_U32(&callback.context, 4, endParameter);
+-            SET_GPR_U32(&callback.context, 29, runtime->eeScheduler().invocationStackTop());
+-            SET_GPR_U32(&callback.context, 31, 0u);
+-            callback.onComplete = [completeClient](const R5900Context &, R5900Context &base)
+-            {
+-                completeClient(base, true);
+-            };
+-            runtime->eeScheduler().invokeCurrent(std::move(callback));
+-        };
++        cave::ps2::EeRpcReturn call{};
++        call.clientPtr = clientPtr;
++        call.serverPtr = serverPtr;
++        call.sid = sid;
++        call.rpcNum = rpcNum;
++        call.mode = mode;
++        call.sendBuf = sendBuf;
++        call.sendSize = sendSize;
++        call.receiveBuffer = receiveBuffer;
++        call.receiveSize = receiveSize;
++        call.endFunction = endFunction;
++        call.endParameter = endParameter;
++        call.completionSemaphore = completionSemaphore;
++        call.guestDefaultResult = guestDefaultResult;
++        call.resultPointer = iopResult.resultAddress;
++        call.serverDispatched = serverDispatched;
++        call.handledByIop = iopResult.handled;
++        call.suppressCallback = iopResult.callbackPolicy == ps2x::iop::CallbackPolicy::Suppress;
+ 
+         if (serverDispatched)
+         {
+@@ -691,15 +712,12 @@
+             SET_GPR_U32(&invocation.context, 5, guestA1);
+             SET_GPR_U32(&invocation.context, 6, guestA2);
+             SET_GPR_U32(&invocation.context, 7, guestA3);
+-            SET_GPR_U32(&invocation.context, 29, runtime->eeScheduler().invocationStackTop());
++            SET_GPR_U32(&invocation.context, 29, 0u);
+             SET_GPR_U32(&invocation.context, 31, 0u);
+-            invocation.onComplete = [finishCall](const R5900Context &completed, R5900Context &parent)
+-            {
+-                finishCall(&completed, parent);
+-            };
++            invocation.returnAction = call;
+             runtime->eeScheduler().invokeCurrent(std::move(invocation));
+         }
+-        finishCall(nullptr, *ctx);
++        resumeEeRpc(rdram, runtime, call, nullptr, *ctx);
+     }
+ 
+     void SifRegisterRpc(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)

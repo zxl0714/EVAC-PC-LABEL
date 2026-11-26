@@ -1,10 +1,51 @@
 #include "runtime/gs/ps2_gif_arbiter.h"
+#include "../../../backends/ps2/state_archive.h"
 #include <algorithm>
 #include <cstring>
 
 GifArbiter::GifArbiter(ProcessPacketFn processFn)
     : m_processFn(std::move(processFn))
 {
+}
+
+std::vector<uint8_t> GifArbiter::saveState() const
+{
+    if (m_inVifBurst || !m_ranges.empty() || !m_burstBytes.empty())
+        throw std::logic_error("GIF checkpoint requested inside a VIF burst");
+    std::vector<uint8_t> state;
+    cave::ps2::StateWriter writer(state);
+    writer.Fields(uint32_t{1}, m_newRange);
+    writer.Items(m_queue, UINT32_MAX, 22, [&](const GifArbiterPacket& packet) {
+        writer.Fields(static_cast<uint8_t>(packet.pathId), packet.path2DirectHl);
+        writer.Blob(packet.data);
+    });
+    return state;
+}
+
+void GifArbiter::loadState(std::span<const uint8_t> state)
+{
+    if (m_inVifBurst) throw std::logic_error("Cannot restore GIF queue inside a VIF burst");
+    cave::ps2::StateReader reader(state);
+    uint32_t version{};
+    bool newRange{};
+    reader.Fields(version, newRange);
+    if (version != 1) throw std::invalid_argument("Unknown GIF queue state");
+    std::vector<GifArbiterPacket> queue;
+    reader.Items(queue, UINT32_MAX, 22, [&](GifArbiterPacket& packet) {
+        uint8_t path{};
+        reader.Fields(path, packet.path2DirectHl);
+        if (path < 1 || path > 3 || (packet.path2DirectHl && path != 2))
+            throw std::invalid_argument("Invalid GIF queue path");
+        packet.pathId = static_cast<GifPathId>(path);
+        reader.Blob(packet.data);
+        if (packet.data.size() < 16) throw std::invalid_argument("Incomplete GIF packet");
+        packet.path3Image = path == 3 && isImagePacket(packet.data.data(), static_cast<uint32_t>(packet.data.size()));
+    });
+    reader.Finish();
+    m_queue.swap(queue);
+    m_newRange = newRange;
+    m_burstBytes.clear();
+    m_ranges.clear();
 }
 
 bool GifArbiter::isImagePacket(const uint8_t *data, uint32_t sizeBytes)

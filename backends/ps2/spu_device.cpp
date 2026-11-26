@@ -2,6 +2,7 @@
 #include "audio_trace.h"
 #include "audio_capture.h"
 #include "Iop_Spu2.h"
+#include "spu_state.h"
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -121,5 +122,29 @@ void SpuDevice::Render(std::span<int16_t> stereo) {
 }
 bool SpuDevice::IrqPending() const {
     return impl->core0.GetIrqPending() || impl->core1.GetIrqPending();
+}
+std::vector<uint8_t> SpuDevice::SaveState() const {
+    std::vector<uint8_t> bytes;
+    bytes.reserve(impl->ram.size() + 16384);
+    StateWriter writer(bytes);
+    writer.Field(uint32_t{1});
+    writer.Bytes(impl->ram);
+    Iop::SpuStateAccess::Transfer(writer, impl->registers, impl->irq);
+    return bytes;
+}
+void SpuDevice::LoadState(std::span<const uint8_t> state) {
+    StateReader reader(state);
+    uint32_t version{};
+    reader.Field(version);
+    if (version != 1) throw std::invalid_argument("Unknown SPU2 state version");
+    // The replacement owns an empty ADPCM cache bound to its own sample RAM.
+    // Decode fully before touching the playing device or its current user gains.
+    SpuDevice restored;
+    reader.Bytes(restored.impl->ram);
+    Iop::SpuStateAccess::Transfer(reader, restored.impl->registers, restored.impl->irq);
+    reader.Finish();
+    restored.impl->streamGain = impl->streamGain;
+    restored.impl->voiceGain = impl->voiceGain;
+    impl.swap(restored.impl);
 }
 }

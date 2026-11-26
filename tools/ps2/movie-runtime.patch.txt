@@ -1,6 +1,60 @@
 --- a/MPEG.cpp
 +++ b/MPEG.cpp
-@@ -493,6 +493,7 @@
+@@ -155,6 +155,7 @@
+                     });
+                 }
+ 
++                history_.Feed({data, size}, pts90k, dts90k);
+                 return true;
+             }
+ 
+@@ -228,8 +229,35 @@
+                 m_swsFormat = AV_PIX_FMT_NONE;
+                 m_initialized = false;
+                 m_drained = false;
+-            }
+-
++                history_ = {};
++            }
++
++            void writeState(cave::ps2::StateWriter& out) const
++            {
++                history_.Write(out);
++                out.Field(m_drained);
++            }
++
++            void readState(cave::ps2::StateReader& input)
++            {
++                const auto chunks = input.Count(1000000, 20);
++                for (uint32_t i = 0; i < chunks; ++i)
++                {
++                    int64_t pts{}, dts{};
++                    input.Fields(pts, dts);
++                    const auto bytes = input.Blob(64u << 20);
++                    std::vector<uint8_t> padded(bytes.size() + AV_INPUT_BUFFER_PADDING_SIZE);
++                    std::copy(bytes.begin(), bytes.end(), padded.begin());
++                    std::deque<MpegDecodedFrame> discard;
++                    if (!feed(padded.data(), bytes.size(), discard, pts, dts))
++                        throw std::invalid_argument("Could not restore MPEG prediction frames");
++                }
++                bool drained{};
++                input.Field(drained);
++                std::deque<MpegDecodedFrame> discard;
++                if (drained && !flush(discard))
++                    throw std::invalid_argument("Could not restore MPEG end of stream");
++            }
+         private:
+             bool ensureInitialized()
+             {
+@@ -443,6 +471,7 @@
+             AVPixelFormat m_swsFormat = AV_PIX_FMT_NONE;
+             bool m_initialized = false;
+             bool m_drained = false;
++            cave::ps2::MpegReplayHistory history_;
+         };
+ #else
+         // TODO
+@@ -494,6 +523,7 @@
              uint32_t imageBufferAddr = 0u;
              bool sawInput = false;
              bool sawSequenceEnd = false;
@@ -8,15 +62,15 @@
              bool streamEnded = false;
              bool decoderFailed = false;
              uint64_t cdStreamGeneration = 0u;
-@@ -1216,6 +1217,7 @@
-
+@@ -1217,6 +1247,7 @@
+ 
                  if (streamId == kMpegProgramEnd)
                  {
 +                    playback.sawProgramEnd = true;
                      playback.streamEnded = true;
                      playback.cdStreamGeneration = g_mpeg_stub_state.cdStreamGeneration;
                      flushDecoderIfEnded(playback);
-@@ -1583,7 +1585,8 @@
+@@ -1584,7 +1615,8 @@
                                           R5900Context *callerCtx,
                                           PS2Runtime *runtime,
                                           const MpegStreamCallbackEvent &event,
@@ -26,19 +80,19 @@
          {
              if (!rdram || !callerCtx || !runtime || callback.func == 0u || !runtime->hasFunction(callback.func))
              {
-@@ -1617,7 +1620,7 @@
-             {
-                 runtime->guestFree(cbDataAddr);
-             };
+@@ -1615,7 +1647,7 @@
+             invocation.kind = GuestInvocationKind::RpcCallback;
+             invocation.context = callbackCtx;
+             invocation.returnAction = EeFreeGuest{cbDataAddr};
 -            runtime->eeScheduler().queueInvocation(std::move(invocation));
 +            calls.push_back(std::move(invocation));
          }
-
+ 
          void dispatchStreamCallbacks(uint8_t *rdram,
-@@ -1630,13 +1633,18 @@
+@@ -1628,13 +1660,18 @@
                  return;
              }
-
+ 
 +            std::vector<GuestInvocation> calls;
              for (const MpegStreamCallbackEvent &event : events)
              {
@@ -55,29 +109,29 @@
 +            if (!calls.empty())
 +                runtime->eeScheduler().invokeCurrentSequence(std::move(calls));
          }
-
+ 
          void dispatchStreamCallbacksUnlocked(uint8_t *rdram,
-@@ -2141,8 +2149,8 @@
+@@ -2139,8 +2176,8 @@
              });
          }
-
+ 
 +        setReturnS32(ctx, static_cast<int32_t>(consumed));
          dispatchStreamCallbacksUnlocked(rdram, ctx, runtime, callbackEvents);
 -        setReturnS32(ctx, static_cast<int32_t>(consumed));
      }
-
+ 
      void sceMpegDemuxPssRing(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
-@@ -2235,8 +2243,8 @@
+@@ -2233,8 +2270,8 @@
              });
          }
-
+ 
 +        setReturnS32(ctx, static_cast<int32_t>(consumed));
          dispatchStreamCallbacksUnlocked(rdram, ctx, runtime, callbackEvents);
 -        setReturnS32(ctx, static_cast<int32_t>(consumed));
      }
-
+ 
      void sceMpegDispCenterOffX(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
-@@ -2455,14 +2463,13 @@
+@@ -2439,14 +2476,13 @@
          std::lock_guard<std::mutex> lock(g_mpeg_stub_mutex);
          g_mpeg_stub_state.initialized = true;
          MpegPlaybackState &playback = getPlaybackState(mpegAddr);

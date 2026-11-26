@@ -5,6 +5,9 @@
 #include "ps2_runtime_macros.h"
 #include "runtime/ee_scheduler.h"
 #include "ps2_iso_fixture.h"
+#include "cd_state.h"
+#include "vu_state.h"
+#include "Stubs/CD.h"
 #include <array>
 #include <bit>
 #include <cstring>
@@ -12,6 +15,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <algorithm>
@@ -19,7 +23,9 @@
 // Inspect the actual event queue without a ROM or wall-clock sleep. A stalled
 // guest must retain the same ordering in cycle and host time.
 struct EeSchedulerClockTest {
+  static void CheckDiscWait(PS2Runtime& runtime);
   static void CheckCallbackStacks();
+  static void CheckExternalPause(bool sleeping);
   static void CheckDisplayFlip(bool waitForFlip, bool flipDuringBlank);
   static void Run(PS2Runtime& runtime) {
     auto require=[](bool value,const char* message){if(!value)throw std::runtime_error(message);};
@@ -45,13 +51,14 @@ struct EeSchedulerClockTest {
 
     scheduler.makeRunning(*scheduler.selectReady());
     scheduler.m_hostClockOrigin += std::chrono::seconds(1);
-    unsigned reads = 0;
-    auto read = [&](R5900Context& resumed) {
-      require(resumed.pc == callback, "Timed pad read lost its guest continuation");
+    static unsigned reads;
+    reads = 0;
+    scheduler.setDeferredPadRead(+[](uint8_t*, R5900Context* resumed, PS2Runtime*) {
+      if (resumed->pc != callback) throw std::runtime_error("Timed pad read lost its guest continuation");
       ++reads;
-    };
+    });
     try {
-      scheduler.deferBeforeVBlank(3000, read);
+      scheduler.deferBeforeVBlank(3000);
     } catch (const EeDispatcherTransfer&) {}
     require(reads == 0 && !scheduler.currentThread() && scheduler.m_deadlines.size() == 2,
             "Early read must yield the EE thread until its sampling deadline");
@@ -62,10 +69,11 @@ struct EeSchedulerClockTest {
     scheduler.m_eeCycle = wake.deadlineCycle;
     scheduler.processEvent(wake.event);
     auto* ready = scheduler.selectReady();
-    require(ready && ready->resumeCompletion, "Timed input did not wake its caller");
+    require(ready && std::holds_alternative<EeDeferredPadRead>(ready->resumeCompletion), "Timed input did not wake its caller");
     scheduler.makeRunning(*ready);
-    std::move(ready->resumeCompletion)(ready->activeContext());
-    scheduler.deferBeforeVBlank(3000, read);
+    scheduler.resumeWait(ready->resumeCompletion, ready->activeContext());
+    ready->resumeCompletion = {};
+    scheduler.deferBeforeVBlank(3000);
     require(reads == 2 && scheduler.m_deadlines.size() == 2,
             "A missed sampling deadline must read immediately");
   }
@@ -89,6 +97,38 @@ void FloatToWord() {
             "EE float conversion lost signed saturation");
   }
 }
+void VuPacketRestore(PS2Runtime& runtime) {
+  std::array<uint32_t, 64> code{};
+  for (size_t i = 0; i < code.size(); i += 2) {
+    code[i] = 0x8000033cu;  // lower NOP
+    code[i + 1] = 0x000002ffu;  // upper NOP
+  }
+  code[0] = 0x800006fcu;  // XGKICK vi0
+  std::array<uint8_t, 256> data{};
+  const uint64_t tag = (2ull << 58) | (1u << 15) | 7u;
+  std::memcpy(data.data(), &tag, sizeof(tag));
+  for (size_t i = 16; i < 128; ++i) data[i] = static_cast<uint8_t>(i);
+  std::vector<std::vector<uint8_t>> packets;
+  const auto observe = [&](const uint8_t* p, uint32_t n) { packets.emplace_back(p, p + n); };
+  auto vu = std::make_unique<VU1Interpreter>();
+  vu->setPacketObserver(observe);
+  auto* bytes = reinterpret_cast<uint8_t*>(code.data());
+  vu->execute(bytes, sizeof(code), data.data(), data.size(), runtime.gs(), nullptr, 0, 0, 0, 6);
+  Require(packets.empty(), "XGKICK completed before its payload was transferred");
+  const auto midPacket = cave::ps2::VuStateArchive::Save(*vu);
+  // VU code can overwrite the start of the packet after XGKICK has read it.
+  // A restore that restarts the transfer from RAM would now read a different tag.
+  std::fill_n(data.begin(), 16, uint8_t{0});
+  data[127] = 0xfe;
+  vu->resume(bytes, sizeof(code), data.data(), data.size(), runtime.gs(), nullptr, 0, 0, 20);
+  Require(packets.size() == 1 && packets[0].size() == 128 && packets[0][0] == 7 &&
+          packets[0].back() == 0xfe, "XGKICK failed to retain a consumed tag or skipped a live source write");
+  auto cold = std::make_unique<VU1Interpreter>();
+  cold->setPacketObserver(observe);
+  cave::ps2::VuStateArchive::Load(*cold, midPacket);
+  cold->resume(bytes, sizeof(code), data.data(), data.size(), runtime.gs(), nullptr, 0, 0, 20);
+  Require(packets.size() == 2 && packets[1] == packets[0], "Cold VU restore emitted a different GIF packet");
+}
 void VuMicrocodeUpdates(PS2Runtime& runtime) {
   constexpr uint32_t lowerNop=0x8000033c, upperNop=0x000002ff, end=0x40000000;
   constexpr uint32_t operands=(8u<<21)|(2u<<16)|(1u<<11)|(3u<<6);
@@ -101,8 +141,23 @@ void VuMicrocodeUpdates(PS2Runtime& runtime) {
   vu->state().vf[2][0]=1.0f;
   vu->execute(bytes,size,data.data(),data.size(),runtime.gs(),nullptr,0,0,0,1);
   Require(vu->state().vf[3][0]==0.0f,"VU register became visible before writeback");
+  const auto duringAdd = cave::ps2::VuStateArchive::Save(*vu);
   vu->resume(bytes,size,data.data(),data.size(),runtime.gs());
   Require(vu->state().vf[3][0]==4.0f,"VU resume lost a pending write");
+  const auto afterAdd = cave::ps2::VuStateArchive::Save(*vu);
+  auto truncated = duringAdd;
+  truncated.pop_back();
+  bool rejected = false;
+  try { cave::ps2::VuStateArchive::Load(*vu, truncated); }
+  catch (const std::invalid_argument&) { rejected = true; }
+  Require(rejected && cave::ps2::VuStateArchive::Save(*vu) == afterAdd,
+          "Incomplete VU restore changed the running program");
+  auto cold = std::make_unique<VU1Interpreter>();
+  cave::ps2::VuStateArchive::Load(*cold, duringAdd);
+  Require(cold->state().vf[3][0] == 0.0f, "VU restore committed the pending result early");
+  cold->resume(bytes,size,data.data(),data.size(),runtime.gs());
+  Require(cave::ps2::VuStateArchive::Save(*cold) == afterAdd,
+          "Cold VU restore diverged after register writeback");
   code[1]=operands|0x2cu;
   vu->execute(bytes,size,data.data(),data.size(),runtime.gs());
   Require(vu->state().vf[3][0]==2.0f && vu->state().vf[3][1]==0.0f,
@@ -181,6 +236,37 @@ void IopHeapLifecycle(PS2Runtime& runtime) {
     Require(Result(context)==0,"Sound-bank staging buffer did not return to the common IOP heap");
   }
 }
+void EeServiceState() {
+  auto liveMachine = std::make_unique<PS2Runtime>();
+  auto& live = *liveMachine;
+  live.configureGuestHeap(0x100000, 0x200000);
+  const auto first = live.guestMalloc(2500);
+  const auto aligned = live.guestMalloc(133, 2048);
+  Require(first && aligned > first && !(aligned & 2047), "Heap fixture could not reserve aligned memory");
+  live.guestFree(first);
+  live.addEeExitHandler(7, 0x111000, 15);
+  live.addEeExitHandler(7, 0x111004, 16);
+  live.setEeSyscallOverride(nullptr, 43, 0x123450);
+  const auto bytes = live.saveEeServices();
+  auto coldMachine = std::make_unique<PS2Runtime>();
+  auto& cold = *coldMachine;
+  cold.loadEeServices(bytes);
+  auto truncated = bytes;
+  truncated.pop_back();
+  bool rejected = false;
+  try { cold.loadEeServices(truncated); } catch (const std::invalid_argument&) { rejected = true; }
+  Require(rejected && cold.saveEeServices() == bytes, "Invalid EE services partially replaced the guest heap");
+  const auto handlers = cold.takeEeExitHandlers(7);
+  uint32_t target{};
+  Require(handlers.size() == 2 && handlers[0].function == 0x111000 && handlers[1].argument == 16 &&
+          cold.findEeSyscallOverride(43, target) && target == 0x123450, "Restored EE handlers changed");
+  Require(live.guestMalloc(2400) == first && cold.guestMalloc(2400) == first,
+          "Restored EE allocator lost its first free range");
+  cold.guestFree(aligned);
+  live.guestFree(aligned);
+  Require(cold.guestMalloc(0x8000, 256) == live.guestMalloc(0x8000, 256),
+          "Restored EE allocator failed to coalesce and reuse live space");
+}
 void ExplicitIoRoots(PS2Runtime& runtime) {
   const auto before=PS2Runtime::getIoPaths();
   auto requested=before;
@@ -225,6 +311,38 @@ void DiscFileIo(const PS2Runtime& runtime) {
   Require(files.seek(fd,1,SEEK_CUR)==-1 && files.write(fd,buffer.data(),1)==-1 &&
           files.close(fd)==0 && files.open(path,PS2_FIO_O_RDWR,mounts,rom)==-1,
           "Disc descriptor did not enforce extent boundaries and read-only access");
+
+  auto roots = mounts;
+  roots.memoryCard0Root = temporary.parent_path();
+  const std::string name = temporary.filename().string() + ".card";
+  RemoveImage removeCard{roots.memoryCard0Root / name};
+  const std::string cardPath = "mc0:" + name;
+  const auto disc = files.open(path, PS2_FIO_O_RDONLY, roots, rom);
+  const auto card = files.open(cardPath, PS2_FIO_O_RDWR | PS2_FIO_O_CREAT | PS2_FIO_O_EXCL | PS2_FIO_O_TRUNC, roots, rom);
+  Require(disc > fd && card > disc && files.seek(disc, 5, SEEK_SET) == 5 &&
+          files.write(card, "ABCDE", 5) == 5 && files.seek(card, 2, SEEK_SET) == 2,
+          "Could not prepare EE descriptor snapshot");
+  const auto state = files.saveState(roots);
+  Require(files.close(disc) == 0 && files.close(card) == 0, "Could not close EE fixture descriptors");
+  PS2Vfs cold;
+  cold.mountDiscImage(temporary);
+  cold.loadState(state, roots, rom);
+  Require(cold.read(disc, buffer.data(), 8) == 3 && std::string_view(buffer.data(), 3) == "re!" &&
+          cold.read(card, buffer.data(), 3) == 3 && std::string_view(buffer.data(), 3) == "CDE",
+          "Cold EE file restore lost offset or reapplied create/truncate");
+  PS2VfsMounts missing = roots;
+  missing.memoryCard0Root = unpacked;
+  bool rejected = false;
+  try { cold.loadState(state, missing, rom); } catch (const std::runtime_error&) { rejected = true; }
+  Require(rejected && cold.seek(card, 0, SEEK_CUR) == 5 && !std::filesystem::exists(unpacked / name),
+          "Missing card file was recreated or damaged the running descriptor");
+  const auto append = cold.open(cardPath, PS2_FIO_O_WRONLY | PS2_FIO_O_APPEND, roots, rom);
+  Require(append == card + 1 && cold.seek(append, 1, SEEK_SET) == 1, "EE descriptor sequence changed");
+  const auto appendState = cold.saveState(roots);
+  cold.loadState(appendState, roots, rom);
+  Require(cold.write(append, "F", 1) == 1 && cold.close(append) == 0 &&
+          cold.seek(card, 0, SEEK_SET) == 0 && cold.read(card, buffer.data(), 8) == 6 &&
+          std::string_view(buffer.data(), 6) == "ABCDEF", "EE descriptor lost append semantics after restore");
 }
 void LoadOtherModule(uint8_t* memory,R5900Context* context,PS2Runtime*) {
   const uint32_t other=17;
@@ -264,27 +382,105 @@ void EeSchedulerClockTest::CheckCallbackStacks() {
   }
 
   constexpr uint32_t callback = 0x700000;
-  Require(runtime->registerFunction(callback, +[](uint8_t*, R5900Context* ctx, PS2Runtime*) {
+  constexpr uint32_t done = callback + 4, supplied = 0x203000;
+  Require(runtime->registerFunction(callback, +[](uint8_t* ram, R5900Context* ctx, PS2Runtime* rt) {
+    const auto n = getRegU32(ctx, 4);
+    Require(ram[0] == n && getRegU32(ctx, 2) == n &&
+            getRegU32(ctx, 29) == ((n & 1) ? supplied : rt->asyncCallbackStackTop(0)),
+            "Sequential handlers lost their order, previous result or assigned stack");
+    ++ram[0];
+    SET_GPR_U32(ctx, 2, n + 1);
     ctx->pc = 0;
   }), "Cannot register callback");
-  scheduler.reset(nullptr, {});
+  Require(runtime->registerFunction(done, +[](uint8_t*, R5900Context* ctx, PS2Runtime* rt) {
+    Require(getRegU32(ctx, 2) == 64, "Final handler result did not reach its parent");
+    rt->eeScheduler().requestStop();
+  }), "Cannot register final callback");
+  std::vector<uint8_t> ram(PS2_RAM_SIZE);
+  R5900Context main{};
+  main.pc = done;
+  scheduler.reset(ram.data(), main);
   scheduler.makeRunning(*scheduler.selectReady());
   std::vector<GuestInvocation> sequence(64);
-  unsigned completed = 0;
-  constexpr uint32_t supplied = 0x203000;
   for (unsigned n = 0; n < sequence.size(); ++n) {
     auto& call = sequence[n];
     call.context.pc = callback;
+    call.returnAction = EeReturnV0{};
+    SET_GPR_U32(&call.context, 4, n);
     if (n & 1) SET_GPR_U32(&call.context, 29, supplied);
-    call.onComplete = [&, n](const R5900Context& finished, R5900Context&) {
-      Require(completed++ == n && getRegU32(&finished, 29) == ((n & 1) ? supplied : first),
-              "Sequential handlers changed order, lost the guest SP or failed to recycle a stack");
-      if (completed == 64) scheduler.requestStop();
-    };
   }
   try { scheduler.invokeCurrentSequence(std::move(sequence)); } catch (const EeDispatcherTransfer&) {}
+  const auto pending = scheduler.saveState();
+  scheduler.reset(ram.data(), {});
+  scheduler.loadState(pending);
   scheduler.run();
-  Require(completed == 64, "Callback sequence incomplete");
+  Require(ram[0] == 64, "Restored callback sequence incomplete");
+}
+
+void EeSchedulerClockTest::CheckExternalPause(bool sleeping) {
+  using namespace std::chrono_literals;
+  constexpr uint32_t spin = 0x700000, complete = spin + 4;
+  auto runtime = std::make_unique<PS2Runtime>();
+  Require(runtime->memory().initialize() && runtime->syncCoreSubsystems(), "Cannot start pause fixture");
+  auto& scheduler = runtime->eeScheduler();
+  static std::atomic<bool> executed{}, completed{};
+  executed = false;
+  completed = false;
+  Require(runtime->registerFunction(spin, +[](uint8_t*, R5900Context* ctx, PS2Runtime*) {
+    SET_GPR_U32(ctx, 2, getRegU32(ctx, 2) + 1);
+    executed = true;
+  }), "Cannot register pause fixture");
+  Require(runtime->registerFunction(complete, +[](uint8_t*, R5900Context*, PS2Runtime* rt) {
+    completed = true;
+    rt->eeScheduler().requestStop();
+  }), "Cannot register pause completion");
+  std::promise<void> ready;
+  std::thread ee([&] {
+    R5900Context context{};
+    context.pc = spin;
+    scheduler.reset(runtime->memory().getRDRAM(), context);
+    if (sleeping) {
+      scheduler.makeRunning(*scheduler.selectReady());
+      try { scheduler.sleepCurrent(); } catch (const EeDispatcherTransfer&) {}
+      scheduler.m_deadlines.clear();
+      scheduler.updateNextDeadline();
+    }
+    ready.set_value();
+    scheduler.run();
+  });
+  struct StopAndJoin {
+    EeScheduler& scheduler;
+    std::thread& ee;
+    ~StopAndJoin() { scheduler.requestStop(); ee.join(); }
+  } cleanup{scheduler, ee};
+  ready.get_future().get();
+  if (!sleeping) {
+    const auto until = std::chrono::steady_clock::now() + 2s;
+    while (!executed && std::chrono::steady_clock::now() < until) std::this_thread::yield();
+    Require(executed, "Pause fixture did not execute the main thread");
+  }
+  scheduler.setPaused(true);
+  auto run = [&](std::function<void()> job) {
+    auto done = scheduler.whilePaused(std::move(job));
+    Require(done.wait_for(2s) == std::future_status::ready, "EE dispatcher did not acknowledge the pause");
+    done.get();
+  };
+  std::vector<uint8_t> saved;
+  run([&] { saved = scheduler.saveState(); });
+  // Different wall-clock instants while the menu is open must describe
+  // exactly the same guest clocks and wait deadlines.
+  std::this_thread::sleep_for(3ms);
+  run([&] {
+    Require(scheduler.saveState() == saved, "Paused guest or its deadlines advanced in the menu");
+    scheduler.loadState(saved);
+    Require(scheduler.saveState() == saved, "Restored menu snapshot changed its time origin");
+    scheduler.thread(1)->activeContext().pc = complete;
+    if (sleeping) scheduler.wakeupThread(1, false);
+  });
+  scheduler.setPaused(false);
+  const auto until = std::chrono::steady_clock::now() + 2s;
+  while (!completed && std::chrono::steady_clock::now() < until) std::this_thread::yield();
+  Require(completed, "Resume failed to dispatch the restored thread");
 }
 
 void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBlank) {
@@ -346,6 +542,87 @@ void EeSchedulerClockTest::CheckDisplayFlip(bool waitForFlip, bool flipDuringBla
               [start](const auto& event){return event.event.type==EeEventType::VBlankStart && event.deadlineCycle==2*start;}),
           "Changing scanout shifted the next VBlank");
 }
+void EeSchedulerClockTest::CheckDiscWait(PS2Runtime& runtime) {
+  const auto imagePath = std::filesystem::temp_directory_path() /
+      ("evac-ee-stream-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".iso");
+  struct Cleanup {
+    PS2Runtime::IoPaths paths;
+    std::filesystem::path image;
+    ~Cleanup() {
+      PS2Runtime::setIoPaths(paths);
+      std::error_code ignored;
+      std::filesystem::remove(image, ignored);
+    }
+  } cleanup{PS2Runtime::getIoPaths(), imagePath};
+  auto image = ps2_iso_fixture::Image();
+  image.replace(23 * 2048, 8, "part-two");
+  std::ofstream out(imagePath, std::ios::binary);
+  Require(bool(out.write(image.data(), image.size())), "Cannot write EE disc fixture");
+  out.close();
+  auto paths = cleanup.paths;
+  paths.cdImage = imagePath;
+  PS2Runtime::setIoPaths(paths);
+
+  auto& scheduler = runtime.eeScheduler();
+  std::vector<uint8_t> memory(PS2_RAM_SIZE);
+  auto* ram = memory.data();
+  R5900Context context{};
+  context.pc = 0x100000;
+  scheduler.reset(ram, context);
+  scheduler.makeRunning(*scheduler.selectReady());
+  auto& regs = *scheduler.currentContext();
+  constexpr uint32_t data = 0x40000, error = 0x20000;
+  SET_GPR_U32(&regs, 4, 1);
+  SET_GPR_U32(&regs, 5, 1);
+  SET_GPR_U32(&regs, 6, data);
+  ps2_stubs::sceCdStInit(ram, &regs, &runtime);
+  SET_GPR_U32(&regs, 4, 22);
+  SET_GPR_U32(&regs, 5, 0);
+  ps2_stubs::sceCdStStart(ram, &regs, &runtime);
+  ++scheduler.m_vsyncTick;
+  SET_GPR_U32(&regs, 4, 2);
+  SET_GPR_U32(&regs, 5, data);
+  SET_GPR_U32(&regs, 6, 1);
+  SET_GPR_U32(&regs, 7, error);
+  try { ps2_stubs::sceCdStRead(ram, &regs, &runtime); } catch (const EeDispatcherTransfer&) {}
+  const auto* waiter = scheduler.thread(EeScheduler::kMainThreadId);
+  Require(waiter && waiter->status == EeThreadStatus::Waiting &&
+          std::get<EeCdStreamRead>(waiter->wait.completion).sectorsRead == 1 &&
+          std::memcmp(ram + data, "fixture!", 8) == 0, "EE thread did not yield halfway through a disc read");
+  const auto cd = ps2_stubs::saveCdState();
+  const auto encoded = scheduler.saveState();
+  context = waiter->context;
+  const auto tick = scheduler.m_vsyncTick;
+  ps2_stubs::sceCdStStop(ram, &context, &runtime);
+  scheduler.reset(ram, R5900Context{});
+  auto truncated = encoded;
+  truncated.pop_back();
+  bool rejected = false;
+  try { scheduler.loadState(truncated); } catch (const std::invalid_argument&) { rejected = true; }
+  Require(rejected && scheduler.thread(EeScheduler::kMainThreadId)->status == EeThreadStatus::Ready,
+          "Incomplete EE state changed the live scheduler");
+  scheduler.loadState(encoded);
+  waiter = scheduler.thread(EeScheduler::kMainThreadId);
+  Require(waiter && waiter->status == EeThreadStatus::Waiting && scheduler.m_vsyncTick == tick &&
+          getRegU32(&waiter->context, 5) == data, "EE restore lost a waiting thread or its registers");
+  const auto wake = std::get<EeVSyncWait>(waiter->wait.payload).afterTick + 1;
+  ps2_stubs::loadCdState(cd);
+  scheduler.m_vsyncTick = wake;
+  scheduler.completeVSync(wake);
+  auto* ready = scheduler.selectReady();
+  Require(ready && ready->id == EeScheduler::kMainThreadId, "Restored EE disc wait did not wake");
+  scheduler.makeRunning(*ready);
+  const auto resume = std::exchange(ready->resumeCompletion, {});
+  scheduler.resumeWait(resume, ready->activeContext());
+  uint32_t readError{};
+  std::memcpy(&readError, ram + error, sizeof(readError));
+  Require(getRegU32(&ready->activeContext(), 2) == 2 && readError == 0 &&
+          std::memcmp(ram + data, "fixture!", 8) == 0 && std::memcmp(ram + data + 2048, "part-two", 8) == 0,
+          "Restored EE read did not finish the original request");
+  scheduler.reset(nullptr, {});
+  std::cout << "EE disc state: half-read request restored and guest thread resumed PASS\n";
+}
+
 int main(int argc,char** argv) {
   try {
     if(argc==5 && std::string_view(argv[1])=="--replay-dma") {
@@ -360,6 +637,8 @@ int main(int argc,char** argv) {
     if(argc!=1)throw std::runtime_error("Unknown kernel test option");
     EeSchedulerClockTest::Run(runtime);
     EeSchedulerClockTest::CheckCallbackStacks();
+    EeSchedulerClockTest::CheckExternalPause(false);
+    EeSchedulerClockTest::CheckExternalPause(true);
     EeSchedulerClockTest::CheckDisplayFlip(false,true);
     EeSchedulerClockTest::CheckDisplayFlip(true,true);
     EeSchedulerClockTest::CheckDisplayFlip(true,false);
@@ -369,7 +648,9 @@ int main(int argc,char** argv) {
     EeTimerArithmetic(runtime.memory());
     EeTimerDeferredEquivalence();
     ExplicitIoRoots(runtime);
+    EeServiceState();
     DiscFileIo(runtime);
+    EeSchedulerClockTest::CheckDiscWait(runtime);
     std::vector<uint8_t> memory(PS2_RAM_SIZE);
     R5900Context context{};
     context.pc=0x100000;
@@ -468,6 +749,7 @@ int main(int argc,char** argv) {
             "Callback stack aliases the game heap or main stack");
     Require(runtime.memory().initialize(),"Headless memory initialization failed");
     VuMicrocodeUpdates(runtime);
+    VuPacketRestore(runtime);
     IopHeapLifecycle(runtime);
     runtime.configureGuestHeap(0x400000,0x410000);
     const auto arena=runtime.guestMalloc(0xf000);

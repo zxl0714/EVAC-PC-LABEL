@@ -1,5 +1,7 @@
 #pragma once
 #include "backends/ps2/native_host.h"
+#include "backends/ps2/state_archive.h"
+#include "death_label_gadget_state.h"
 #include "common/death_label_host.h"
 #include "ps2_runtime.h"
 #include "runtime/ee_scheduler.h"
@@ -14,16 +16,18 @@ namespace cave::daioujou_ps2 {
 
 // Return the window once the original Death Label results reach the root
 // menu. Explicit EXIT still uses the original LoadExecPS2 request.
-class DeathLabelSession {
+class DeathLabelSession final : public ps2::GameStateExtension {
 public:
     using ObserveFrame = std::function<void(const uint8_t*,bool,bool)>;
 
     explicit DeathLabelSession(PS2Runtime& runtime, const DeathLabelActions* actions = nullptr,
-                               ObserveFrame observe = {}, std::atomic_uint64_t* firstVisibleField = nullptr)
+                               ObserveFrame observe = {}, std::atomic_uint64_t* firstVisibleField = nullptr,
+                               DeathLabelGadgetFeed* feed = nullptr)
         : runtime_(runtime), original_(runtime.lookupFunction(FrameEntry)),
           initOptions_(runtime.lookupFunction(InitOptionsEntry)), actions_(actions), observe_(std::move(observe)),
-          firstVisibleField_(firstVisibleField), awaitingSelect_(firstVisibleField != nullptr) {
-        if (active_ || !original_ || !initOptions_ || !runtime_.replaceFunction(FrameEntry, &Frame))
+          firstVisibleField_(firstVisibleField), feed_(feed), awaitingSelect_(firstVisibleField != nullptr) {
+        applyMonitor_ = runtime.lookupFunction(ApplyMonitorEntry);
+        if (active_ || !original_ || !initOptions_ || !applyMonitor_ || !runtime_.replaceFunction(FrameEntry, &Frame))
             throw std::runtime_error("Cannot start hosted Death Label");
         if (!runtime_.replaceFunction(InitOptionsEntry, &InitOptions)) {
             runtime_.replaceFunction(FrameEntry, original_);
@@ -44,14 +48,24 @@ public:
                 throw std::runtime_error("Cannot bind hosted Death Label entry");
             }
         }
+        if (!runtime_.replaceFunction(ApplyMonitorEntry, &ApplyHostedMonitor)) {
+            if (rootMenu_) runtime_.replaceFunction(RootMenuEntry, rootMenu_);
+            if (consumeInput_) runtime_.replaceFunction(ConsumeInputEntry, consumeInput_);
+            runtime_.replaceFunction(InitOptionsEntry, initOptions_);
+            runtime_.replaceFunction(FrameEntry, original_);
+            throw std::runtime_error("Cannot bind hosted Death Label display");
+        }
         if (firstVisibleField_) {
             const auto sound = runtime_.lookupFunction(MenuConfirmSoundEntry);
             if (sound && runtime_.replaceFunction(MenuConfirmSoundEntry, &PlayConfirmSound))
                 confirmSound_ = sound;
         }
         active_ = this;
+        runtime_.nativeHost().SetGameStateExtension(this);
     }
     ~DeathLabelSession() {
+        runtime_.nativeHost().SetGameStateExtension(nullptr);
+        runtime_.replaceFunction(ApplyMonitorEntry, applyMonitor_);
         if (confirmSound_) runtime_.replaceFunction(MenuConfirmSoundEntry, confirmSound_);
         if (rootMenu_) runtime_.replaceFunction(RootMenuEntry, rootMenu_);
         if (consumeInput_) runtime_.replaceFunction(ConsumeInputEntry, consumeInput_);
@@ -63,6 +77,37 @@ public:
     DeathLabelSession& operator=(const DeathLabelSession&) = delete;
 
     bool Completed() const { return completed_; }
+
+    std::vector<uint8_t> Save() const override {
+        std::vector<uint8_t> bytes;
+        ps2::StateWriter out(bytes);
+        out.Fields(uint32_t{1},played_,directStart_,completed_,awaitingSelect_,entryTick_,
+                   firstVisibleField_?firstVisibleField_->load(std::memory_order_acquire):uint64_t{0});
+        auto history=feed_?feed_->History():DeathLabelGadgetHistory{};
+        history.ArchiveFields(out);
+        return bytes;
+    }
+    std::function<void()> PrepareLoad(std::span<const uint8_t> bytes) override {
+        ps2::StateReader in(bytes);
+        uint32_t version{};
+        bool played{},direct{},completed{},awaiting{};
+        uint64_t entry{},visible{};
+        in.Fields(version,played,direct,completed,awaiting,entry,visible);
+        if (version!=1 || (awaiting && (!firstVisibleField_ || visible)))
+            throw std::invalid_argument("Incompatible Death Label session state");
+        DeathLabelGadgetHistory history;
+        history.ArchiveFields(in);
+        in.Finish();
+        return [this,played,direct,completed,awaiting,entry,visible,history] {
+            played_=played;
+            directStart_=direct;
+            completed_=completed;
+            awaitingSelect_=awaiting;
+            entryTick_=entry;
+            if (firstVisibleField_) firstVisibleField_->store(visible,std::memory_order_release);
+            if (feed_) feed_->RestoreHistory(history);
+        };
+    }
 
 private:
     // SLPS-25233 DEATH.ELF. The regular frame loop calls this entry after
@@ -78,6 +123,8 @@ private:
     static constexpr uint32_t Menu = GuestGp - 0x59b0;
     static constexpr uint32_t MenuPage = GuestGp - 0x5920;
     static constexpr uint32_t InitOptionsEntry = 0x238160, MapDisplay = GuestGp - 0x5d88;
+    static constexpr uint32_t ApplyMonitorEntry = 0x1b5c50, EffectiveMonitorMode = GuestGp - 0x6530;
+    static constexpr uint32_t MonitorFlip = GuestGp - 0x5d20, YokoModeTable = GuestGp - 0x655c;
     static constexpr uint32_t ConsumeInputEntry = 0x16b450, ConsumeInputReturn = 0x1afd98;
     static constexpr uint32_t PlayerOnePad = 0x61ad3c, ArcadeInput = 0x290818;
     static constexpr uint32_t RootMenuEntry = 0x1b57d0, RootMenuReturn = 0x1b570c;
@@ -122,6 +169,16 @@ private:
         // The original option remains editable in the pause menu and saved
         // settings are still applied by the memory-card loader.
         memory[MapDisplay] = 0;
+    }
+
+    static void ApplyHostedMonitor(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
+        active_->applyMonitor_(memory,ctx,runtime);
+        // PS4 positions and rotates an upright PS2 scanout. Override only the
+        // derived display state, after the guest has applied the card options.
+        // Its saved monitor and lever selections remain available to standalone PS2.
+        const int32_t yoko = static_cast<int8_t>(memory[YokoModeTable]);
+        std::memcpy(memory + EffectiveMonitorMode, &yoko, sizeof yoko);
+        memory[MonitorFlip] = 0;
     }
 
     static void ConsumeInput(uint8_t* memory, R5900Context* ctx, PS2Runtime* runtime) {
@@ -260,12 +317,14 @@ private:
     PS2Runtime& runtime_;
     PS2Runtime::RecompiledFunction original_;
     PS2Runtime::RecompiledFunction initOptions_;
+    PS2Runtime::RecompiledFunction applyMonitor_{};
     const DeathLabelActions* actions_{};
     PS2Runtime::RecompiledFunction consumeInput_{};
     PS2Runtime::RecompiledFunction rootMenu_{};
     PS2Runtime::RecompiledFunction confirmSound_{};
     ObserveFrame observe_;
     std::atomic_uint64_t* firstVisibleField_{};
+    DeathLabelGadgetFeed* feed_{};
     bool played_{}, directStart_{}, completed_{};
     bool awaitingSelect_{};
     uint64_t entryTick_{};

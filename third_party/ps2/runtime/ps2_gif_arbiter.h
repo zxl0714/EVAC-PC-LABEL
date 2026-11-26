@@ -65,6 +65,8 @@ public:
     void flushVifBurst();
     void vifFence();
     void drain();
+    [[nodiscard]] std::vector<uint8_t> saveState() const;
+    void loadState(std::span<const uint8_t> state);
     bool empty() const { return m_queue.empty(); }
 
 private:

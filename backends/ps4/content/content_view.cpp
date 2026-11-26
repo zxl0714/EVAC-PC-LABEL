@@ -211,7 +211,7 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
     // This title stores both optional modes in /app0. Its NoExtraData path
     // interprets the 16-byte field as a NUL-terminated local capability name.
     // These runtime labels are not PSN content IDs or network credentials.
-    if (title_ == "CUSA09062") {
+    if (title_ == "CUSA09062" || title_ == "CUSA17078") {
         constexpr std::array labels{"KETSUIBUILTIN001", "KETSUIBUILTIN002"};
         constexpr std::array capabilities{"KETSUI_PS4_DLC1", "KETSUI_PS4_DLC2"};
         static_assert(sizeof("KETSUIBUILTIN001") == 17 && sizeof("KETSUI_PS4_DLC1") == 16);
@@ -228,6 +228,7 @@ ContentView::ContentView(const fs::path& app, const fs::path& patch, const fs::p
         const auto version = Required(metadata_, "APP_VER");
         const bool supported = (title_ == "CUSA32997" && version == (merged_patch ? "01.04" : "01.00")) ||
             (title_ == "CUSA09062" && (merged_patch ? (version == "01.02" || version == "01.03") : version == "01.00")) ||
+            (title_ == "CUSA17078" && !merged_patch && version == "01.00") ||
             (title_ == "CUSA10207" && !merged_patch && version == "01.00");
         if (!supported || !patch_.empty()) Invalid("Prepared archive does not match the selected game version");
         arrange_archive_ = Root(arrange_archive);

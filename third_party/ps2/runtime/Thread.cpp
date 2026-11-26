@@ -95,10 +95,7 @@ namespace ps2_syscalls
             {
                 ee.exitCurrent(deleteThread);
             }
-            invocations.back().onComplete = [runtime, deleteThread](const R5900Context &, R5900Context &)
-            {
-                runtime->eeScheduler().exitCurrent(deleteThread);
-            };
+            invocations.back().returnAction = EeExitThread{deleteThread};
             ee.invokeCurrentSequence(std::move(invocations));
         }
 

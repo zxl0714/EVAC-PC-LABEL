@@ -1,4 +1,6 @@
 #include "disc_image.h"
+#include "cd_state.h"
+#include "state_archive.h"
 
 namespace {
 cave::ps2::DiscImage &MountedChd(const std::filesystem::path &path)
@@ -61,6 +63,12 @@ namespace ps2_stubs
             uint64_t consumedSectors = 0u;
             uint64_t productionRemainder = 0u;
             uint64_t lastVSyncTick = 0u;
+
+            template<class Archive> void transfer(Archive &ar)
+            {
+                ar.Fields(initialized, active, paused, capacitySectors, bankCount, sectorsPerBank,
+                          sectorsPerSecond, producedSectors, consumedSectors, productionRemainder, lastVSyncTick);
+            }
         };
 
         uint32_t g_cdStReadTraceCount = 0u;
@@ -221,6 +229,96 @@ namespace ps2_stubs
             }
             resetCdStreamProduction(runtime);
         }
+    }
+
+    std::vector<uint8_t> saveCdState()
+    {
+        std::vector<uint8_t> bytes;
+        cave::ps2::StateWriter writer(bytes);
+        writer.Fields(uint32_t{1}, g_cdInitialized, g_lastCdError, g_cdMode, g_cdStreamingLbn,
+                      g_cdStreamingEndLbn, g_nextPseudoLbn);
+        g_cdStreamTiming.transfer(writer);
+        selectIsoExtents(getCdImagePath());
+        writer.Field(static_cast<uint32_t>(g_isoFileEndByLbn.size()));
+        for (const auto &[start, end] : g_isoFileEndByLbn) writer.Fields(start, end);
+        writer.Field(static_cast<uint32_t>(g_cdFilesByKey.size()));
+        const auto root = getCdRootPath();
+        for (const auto &[key, entry] : g_cdFilesByKey)
+        {
+            writer.String(key);
+            const auto relative = entry.hostPath.lexically_relative(root);
+            if (relative.empty() || *relative.begin() == "..")
+                throw std::runtime_error("Open PS2 disc file has no relative path");
+            const auto utf8 = relative.generic_u8string();
+            writer.String({reinterpret_cast<const char*>(utf8.data()), utf8.size()});
+            writer.Fields(entry.sizeBytes, entry.baseLbn, entry.sectors);
+        }
+        return bytes;
+    }
+
+    void loadCdState(std::span<const uint8_t> bytes)
+    {
+        cave::ps2::StateReader reader(bytes);
+        uint32_t version{}, mode{}, lbn{}, end{}, nextPseudo{};
+        int32_t error{};
+        bool initialized{};
+        reader.Fields(version, initialized, error, mode, lbn, end, nextPseudo);
+        if (version != 1 || nextPseudo < kCdPseudoLbnStart)
+            throw std::invalid_argument("Invalid EE CD state");
+        CdStreamTimingState timing;
+        timing.transfer(reader);
+        if (!timing.bankCount || !timing.sectorsPerSecond ||
+            timing.sectorsPerBank != timing.capacitySectors / timing.bankCount ||
+            !timing.sectorsPerBank || timing.producedSectors < timing.consumedSectors ||
+            timing.producedSectors - timing.consumedSectors > timing.capacitySectors ||
+            timing.productionRemainder >= kNtScFieldsPerSecondNumerator)
+            throw std::invalid_argument("Invalid EE CD timing state");
+        decltype(g_isoFileEndByLbn) extents;
+        for (auto n = reader.Count(UINT32_MAX, 8); n; --n)
+        {
+            uint32_t base{}, limit{};
+            reader.Fields(base, limit);
+            if (limit <= base || !extents.emplace(base, limit).second)
+                throw std::invalid_argument("Invalid EE disc extent");
+        }
+        decltype(g_cdFilesByKey) files;
+        const auto root = getCdRootPath();
+        for (auto n = reader.Count(UINT32_MAX, 22); n; --n)
+        {
+            const auto key = reader.String(32768);
+            const auto name = reader.String(131072);
+            const std::filesystem::path relative =
+                std::u8string(reinterpret_cast<const char8_t*>(name.data()), name.size());
+            if (relative.empty() || relative.has_root_path() ||
+                std::find(relative.begin(), relative.end(), std::filesystem::path("..")) != relative.end())
+                throw std::invalid_argument("Invalid EE disc file path");
+            CdFileEntry entry{};
+            reader.Fields(entry.sizeBytes, entry.baseLbn, entry.sectors);
+            entry.hostPath = root / relative;
+            std::error_code ec;
+            const auto size = std::filesystem::file_size(entry.hostPath, ec);
+            if (ec || entry.sizeBytes != std::min<uint64_t>(size, UINT32_MAX) ||
+                entry.sectors != sectorsForBytes(size) || entry.baseLbn < kCdPseudoLbnStart ||
+                uint64_t(entry.baseLbn) + entry.sectors >= nextPseudo || key.empty() ||
+                !files.emplace(key, std::move(entry)).second)
+                throw std::invalid_argument("Mismatched EE disc file");
+        }
+        reader.Finish();
+        auto image = getCdImagePath();
+        g_searchedIso.swap(image);
+        g_isoFileEndByLbn.swap(extents);
+        g_cdFilesByKey.swap(files);
+        g_cdLeafIndex.clear();
+        g_cdLoosePathIndex.clear();
+        g_cdLeafIndexBuilt = false;
+        g_cdImageSizeValid = false;
+        g_cdStreamTiming = timing;
+        g_cdInitialized = initialized;
+        g_lastCdError = error;
+        g_cdMode = mode;
+        g_cdStreamingLbn = lbn;
+        g_cdStreamingEndLbn = end;
+        g_nextPseudoLbn = nextPseudo;
     }
 
     CdDebugSnapshot getCdDebugSnapshot()
@@ -798,15 +896,7 @@ namespace ps2_stubs
 
     namespace
     {
-        struct CdStReadContinuation
-        {
-            uint32_t requestedSectors = 0u;
-            uint32_t buffer = 0u;
-            uint32_t errorAddress = 0u;
-            uint32_t sectorsRead = 0u;
-        };
-
-        void finishCdStRead(uint8_t *rdram, R5900Context *ctx, const CdStReadContinuation &state, int32_t error)
+        void finishCdStRead(uint8_t *rdram, R5900Context *ctx, const EeCdStreamRead &state, int32_t error)
         {
             if (int32_t *errorOut = reinterpret_cast<int32_t *>(getMemPtr(rdram, state.errorAddress)); errorOut)
             {
@@ -818,7 +908,7 @@ namespace ps2_stubs
         void continueCdStRead(uint8_t *rdram,
                               R5900Context *ctx,
                               PS2Runtime *runtime,
-                              CdStReadContinuation state)
+                              EeCdStreamRead state)
         {
             if (!g_cdStreamTiming.active || state.requestedSectors == 0u)
             {
@@ -877,17 +967,7 @@ namespace ps2_stubs
                     const uint32_t buffered = bufferedCdStreamSectors(runtime);
                     const uint32_t needed = wakeSectors > buffered ? wakeSectors - buffered : 1u;
                     const uint64_t wakeTick = cdStreamWakeTickForSectors(runtime, needed);
-                    runtime->eeScheduler().waitVSync(
-                        wakeTick - 1u,
-                        -1,
-                        [rdram, runtime, state](R5900Context &resumeContext)
-                        {
-                            if (static_cast<int32_t>(getRegU32(&resumeContext, 2)) < 0)
-                            {
-                                return;
-                            }
-                            continueCdStRead(rdram, &resumeContext, runtime, state);
-                        });
+                    runtime->eeScheduler().waitVSync(wakeTick - 1u, -1, state);
                 }
 
                 uint32_t sectors = std::min(remaining, available);
@@ -948,6 +1028,11 @@ namespace ps2_stubs
         }
     }
 
+    void resumeCdStreamRead(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, EeCdStreamRead read)
+    {
+        continueCdStRead(rdram, ctx, runtime, read);
+    }
+
     void sceCdStRead(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
     {
         const uint32_t requestedSectors = getRegU32(ctx, 4);
@@ -955,7 +1040,7 @@ namespace ps2_stubs
         const uint32_t mode = getRegU32(ctx, 6);
         const uint32_t errorAddress = getRegU32(ctx, 7);
 
-        CdStReadContinuation state{};
+        EeCdStreamRead state{};
         state.requestedSectors = requestedSectors;
         state.buffer = buffer;
         state.errorAddress = errorAddress;

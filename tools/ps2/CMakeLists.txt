@@ -165,12 +165,32 @@ if(PS2_BUILD_RUNTIME)
   # headers. Keep the pinned dependency tree immutable.
   set(IOP_SOURCE_VIEW "${CMAKE_BINARY_DIR}/iop-source")
   file(COPY "${UPSTREAM}/ps2xIOP/src/" DESTINATION "${IOP_SOURCE_VIEW}"
+    PATTERN "iop_cdvd.h" EXCLUDE PATTERN "iop_ioman.h" EXCLUDE
     PATTERN "iop_memory.h" EXCLUDE PATTERN "iop_memory.cpp" EXCLUDE
     PATTERN "iop_module_loader.h" EXCLUDE PATTERN "iop_module_loader.cpp" EXCLUDE
     PATTERN "iop_emulator.cpp" EXCLUDE
     PATTERN "iop_emulator.h" EXCLUDE PATTERN "iop_subsystem.cpp" EXCLUDE
     PATTERN "iop_sysclib.cpp" EXCLUDE PATTERN "iop_cpu.h" EXCLUDE
+    PATTERN "iop_imports.h" EXCLUDE PATTERN "iop_intrman.h" EXCLUDE
+    PATTERN "iop_timrman.h" EXCLUDE PATTERN "iop_module_manager.h" EXCLUDE
     PATTERN "iop_cpu.cpp" EXCLUDE PATTERN "iop_kernel.cpp" EXCLUDE PATTERN "iop_kernel.h" EXCLUDE)
+  set(iopStateHeaders emulator/imports/iop_imports.h emulator/imports/iop_intrman.h
+    emulator/imports/iop_timrman.h iop_module_manager.h)
+  set(iopStateOverlay "${CMAKE_BINARY_DIR}/iop-state-overlay")
+  set(iopStatePatch "${CMAKE_CURRENT_LIST_DIR}/iop-state-access.patch.txt")
+  foreach(header IN LISTS iopStateHeaders)
+    set(source "${UPSTREAM}/ps2xIOP/src/${header}")
+    file(READ "${source}" originalHeader)
+    file(WRITE "${iopStateOverlay}/${header}" "${originalHeader}")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
+  endforeach()
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${CMAKE_BINARY_DIR}"
+    "${GIT_EXECUTABLE}" apply --no-index --whitespace=error "${iopStatePatch}"
+    WORKING_DIRECTORY "${iopStateOverlay}" COMMAND_ERROR_IS_FATAL ANY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${iopStatePatch}")
+  foreach(header IN LISTS iopStateHeaders)
+    file(COPY_FILE "${iopStateOverlay}/${header}" "${IOP_SOURCE_VIEW}/${header}" ONLY_IF_DIFFERENT)
+  endforeach()
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_memory.h"
     "${IOP_SOURCE_VIEW}/emulator/core/iop_memory.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_cpu.h"
@@ -183,6 +203,8 @@ if(PS2_BUILD_RUNTIME)
     "${IOP_SOURCE_VIEW}/emulator/iop_emulator.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_rpc.h"
     "${IOP_SOURCE_VIEW}/emulator/services/iop_rpc.h" COPYONLY)
+  configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_cdvd.h"
+    "${IOP_SOURCE_VIEW}/emulator/imports/iop_cdvd.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_ioman.h"
     "${IOP_SOURCE_VIEW}/emulator/imports/iop_ioman.h" COPYONLY)
   configure_file("${COLLECTION_ROOT}/third_party/ps2/runtime/iop_subsystem.h"
@@ -213,22 +235,38 @@ if(PS2_BUILD_RUNTIME)
   add_test(NAME ps2_iop_memory_contract COMMAND ps2_iop_memory_contract)
   set(RUNTIME "${UPSTREAM}/ps2xRuntime")
   file(GLOB_RECURSE KERNEL_SOURCES CONFIGURE_DEPENDS "${RUNTIME}/src/lib/Kernel/*.cpp")
+  set(stubSources "${RUNTIME}/src/lib/Kernel")
+  set(stateStubs Stubs/MPEG.cpp Stubs/SIF.cpp Stubs/IPU.cpp Syscalls/RPC.cpp)
+  set(stubOverlay "${CMAKE_CURRENT_BINARY_DIR}/ee-stub-overlay")
+  set(stubPatch "${CMAKE_CURRENT_LIST_DIR}/ee-stub-state.patch.txt")
+  set(mpegWaitSource "${CMAKE_CURRENT_BINARY_DIR}/kernel/MPEG.cpp")
+  file(MAKE_DIRECTORY "${stubOverlay}" "${CMAKE_CURRENT_BINARY_DIR}/kernel")
+  foreach(source IN LISTS stateStubs)
+    get_filename_component(stub "${source}" NAME_WE)
+    file(READ "${stubSources}/${source}" originalStub)
+    file(WRITE "${stubOverlay}/${stub}.cpp" "${originalStub}")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${stubSources}/${source}")
+  endforeach()
+  find_package(Git REQUIRED)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${CMAKE_BINARY_DIR}"
+    "${GIT_EXECUTABLE}" apply --no-index --whitespace=error "${stubPatch}"
+    WORKING_DIRECTORY "${stubOverlay}" COMMAND_ERROR_IS_FATAL ANY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${stubPatch}")
+  foreach(source IN LISTS stateStubs)
+    get_filename_component(stub "${source}" NAME_WE)
+    set(view "${CMAKE_CURRENT_BINARY_DIR}/kernel/${stub}.cpp")
+    file(COPY_FILE "${stubOverlay}/${stub}.cpp" "${view}" ONLY_IF_DIFFERENT)
+    get_filename_component(parent "${stubSources}/${source}" DIRECTORY)
+    set_source_files_properties("${view}" PROPERTIES INCLUDE_DIRECTORIES "${parent}")
+    list(REMOVE_ITEM KERNEL_SOURCES "${stubSources}/${source}")
+    list(APPEND KERNEL_SOURCES "${view}")
+  endforeach()
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/EeScheduler.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/EeScheduler.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Syscalls/Thread.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/Thread.cpp")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Syscalls/System.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/System.cpp")
-  # Dispatch assigns the fallback stack when the RPC callback becomes active.
-  set(rpcSource "${RUNTIME}/src/lib/Kernel/Syscalls/RPC.cpp")
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${rpcSource}")
-  file(READ "${rpcSource}" rpcCode)
-  string(REPLACE "runtime->eeScheduler().invocationStackTop()" "0u" rpcCode "${rpcCode}")
-  set(rpcView "${CMAKE_CURRENT_BINARY_DIR}/kernel/RPC.cpp")
-  file(CONFIGURE OUTPUT "${rpcView}" CONTENT "${rpcCode}" @ONLY)
-  set_source_files_properties("${rpcView}" PROPERTIES INCLUDE_DIRECTORIES "${RUNTIME}/src/lib/Kernel/Syscalls")
-  list(REMOVE_ITEM KERNEL_SOURCES "${rpcSource}")
-  list(APPEND KERNEL_SOURCES "${rpcView}")
   list(REMOVE_ITEM KERNEL_SOURCES "${RUNTIME}/src/lib/Kernel/Stubs/GS.cpp")
   list(APPEND KERNEL_SOURCES "${COLLECTION_ROOT}/third_party/ps2/runtime/GS.cpp")
   # The CD stubs resolve loose files normally; only mounted CHDs use logical sectors.
@@ -263,13 +301,19 @@ if(PS2_BUILD_RUNTIME)
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_iop_host.cpp"
     "${COLLECTION_ROOT}/backends/ps2/iso_read_ahead.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_memory.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ee_memory_state.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ee_scheduler_state.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/vu_state.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_pad.cpp"
     "${RUNTIME}/src/lib/ps2_rom_device.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vfs.cpp"
+    "${COLLECTION_ROOT}/third_party/ps2/runtime/ee_service_state.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/machine_state.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_runtime.cpp"
     "${COLLECTION_ROOT}/backends/ps2/static_modules.cpp"
     "${COLLECTION_ROOT}/backends/ps2/function_table.cpp"
     "${COLLECTION_ROOT}/backends/ps2/native_host.cpp"
+    "${COLLECTION_ROOT}/backends/ps2/state_menu.cpp"
     "${COLLECTION_ROOT}/backends/ps2/iso_disc.cpp"
     "${COLLECTION_ROOT}/third_party/ps2/runtime/ps2_vif1_interpreter.cpp"
     "${PS2_VU_CORE}"
@@ -281,8 +325,15 @@ if(PS2_BUILD_RUNTIME)
     "${RUNTIME}/src/lib/Kernel/Syscalls")
   target_compile_definitions(ps2_runtime PRIVATE PS2X_HAS_FFMPEG=0 PS2X_ENABLE_IOP_RPC_TRACE=0)
   add_subdirectory("${COLLECTION_ROOT}/common" "collection-common" EXCLUDE_FROM_ALL)
+  add_library(ps2_state_slots STATIC "${COLLECTION_ROOT}/backends/ps2/state_slots.cpp")
+  target_include_directories(ps2_state_slots PUBLIC "${COLLECTION_ROOT}/backends/ps2"
+    PRIVATE "${COLLECTION_ROOT}/third_party/ps2/libchdr/deps/miniz-3.1.1")
+  target_link_libraries(ps2_state_slots PRIVATE cave_chdr)
+  add_executable(ps2_state_slots_contract "${COLLECTION_ROOT}/tests/ps2_state_slots_test.cpp")
+  target_link_libraries(ps2_state_slots_contract PRIVATE ps2_state_slots)
+  add_test(NAME ps2_state_slots_contract COMMAND ps2_state_slots_contract)
   target_include_directories(ps2_runtime PRIVATE "${COLLECTION_ROOT}")
-  target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop ps2_gs_device ps2_shared_input PRIVATE cave_common)
+  target_link_libraries(ps2_runtime PUBLIC raylib ps2_iop ps2_gs_device ps2_shared_input PRIVATE cave_common ps2_state_slots)
   add_library(ps2_collection STATIC "${COLLECTION_ROOT}/backends/ps2/collection_launch.cpp")
   target_include_directories(ps2_collection PUBLIC "${COLLECTION_ROOT}")
   target_link_libraries(ps2_collection PRIVATE cave_common dbghelp)
@@ -301,6 +352,13 @@ if(PS2_BUILD_RUNTIME)
     "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
   target_link_libraries(ps2_kernel_contract PRIVATE ps2_runtime)
   add_test(NAME ps2_kernel_contract COMMAND ps2_kernel_contract)
+
+  add_executable(ps2_machine_state_contract "${COLLECTION_ROOT}/tests/ps2_machine_state_test.cpp"
+    "${UPSTREAM}/ps2xTest/src/test_function_table.cpp")
+  target_link_libraries(ps2_machine_state_contract PRIVATE ps2_runtime ps2_state_slots ps2_gs_device)
+  add_test(NAME ps2_machine_state_contract COMMAND "${CMAKE_COMMAND}"
+    "-DPROGRAM=$<TARGET_FILE:ps2_machine_state_contract>"
+    -P "${COLLECTION_ROOT}/tests/ps2_machine_state_roundtrip.cmake")
 
   add_executable(ps2_vu_add_contract "${COLLECTION_ROOT}/tests/ps2_vu_add_test.cpp")
   target_compile_options(ps2_vu_add_contract PRIVATE /clang:-msse4.1)

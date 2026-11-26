@@ -7,6 +7,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <span>
+
+namespace cave::ps2 { struct IopRpcReply; }
 
 namespace ps2x::iop
 {
@@ -15,6 +18,8 @@ namespace ps2x::iop
     public:
         explicit IopSubsystem(IopHost &host);
         ~IopSubsystem();
+        std::vector<uint8_t> saveState() const;
+        void loadState(std::span<const uint8_t> bytes);
 
         IopSubsystem(const IopSubsystem &) = delete;
         IopSubsystem &operator=(const IopSubsystem &) = delete;
@@ -35,6 +40,7 @@ namespace ps2x::iop
         [[nodiscard]] RpcAbi selectRpcAbi(const RpcAbiRequest &request) const;
         [[nodiscard]] bool canBindRpc(uint32_t sid) const noexcept;
         [[nodiscard]] RpcResult handleRpc(const RpcRequest &request);
+        void completeEeRpc(const cave::ps2::IopRpcReply& reply, std::span<const uint8_t> bytes);
         void onSifTransfer(const SifTransfer &transfer);
 
         // Physical IOP RAM access shared by the emulator, SIF DMA, and HLE services. Addresses are IOP addresses.

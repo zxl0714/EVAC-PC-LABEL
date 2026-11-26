@@ -27,6 +27,7 @@ inline constexpr std::array<DisplaySelection,5> kWindowSelections{{
     {false,2560,1440},{false,3840,2160}}};
 struct Settings {
     bool fullscreen{}, vsync{}, gamepad_enabled{true}, community_enabled{true};
+    bool swap_players{};
     bool xbox360_reflex{true}, amd_anti_lag{};
     unsigned window_width{1280}, window_height{720};
     double deadzone{0.20}, volume{1.0};
@@ -38,6 +39,13 @@ struct Settings {
     std::array<Binding,16> keyboard;
     // Opt-in per-title axes: Guwange Xbox 360 mode independently moves Shikigami.
     std::array<Binding,4> keyboard_right_stick;
+    std::array<Binding,16> keyboard_p2;
+    std::array<Binding,4> keyboard_p2_right_stick;
+    const auto& Keyboard(bool player_two) const { return player_two ? keyboard_p2 : keyboard; }
+    const auto& KeyboardRightStick(bool player_two) const {
+        return player_two ? keyboard_p2_right_stick : keyboard_right_stick;
+    }
+    bool HasSecondKeyboardPlayer() const;
 };
 std::string WithPackageDisplayDefaults(const fs::path& root, std::string snapshot);
 Settings ResolveSettings(const Ini& ini, std::string_view game_id);

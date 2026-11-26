@@ -67,7 +67,12 @@ inline LaunchSpec PrepareSdojRecomp(const fs::path& root,const Ini& ini,const fs
   for(size_t index=0;index<keys.size();++index) {
     const auto key=RecompKey(settings.keyboard[index]);
     launch.arguments.push_back(std::wstring(L"--keyboard_p1_")+keys[index]+L"="+FromUtf8(key).native());
+    const auto& second=settings.keyboard_p2[index];
+    if(second.line)
+      launch.arguments.push_back(std::wstring(L"--keyboard_p2_")+keys[index]+L"="+FromUtf8(RecompKey(second)).native());
   }
+  if(settings.keyboard_p2[9].line)
+    launch.arguments.push_back(L"--keyboard_p2_back="+FromUtf8(RecompKey(settings.keyboard_p2[9])).native());
   if(SupportsSdojCommunity(launch.executable)) {
     launch.arguments.push_back(L"--player_name="+FromUtf8(settings.nickname).native());
     const auto endpoint=settings.community_enabled?settings.endpoint:std::string{};

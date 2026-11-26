@@ -527,6 +527,10 @@ void SettingsChecks(Fixture& fixture) {
     Require(multiple.keyboard[4].keys.size()==2 && multiple.keyboard[14].keys.empty(),"Multiple keys/disabled binding");
     Require(parse("[community]\nnickname=大佐\n").nickname=="大佐","UTF-8 nickname");
     Require(parse("[audio]\nvolume=0\n[gamepad]\ndeadzone=0\nenabled=false\n").volume==0,"Numeric zero");
+    Require(!defaults.swap_players &&
+            parse("[gamepad]\nswap_players=true\n").swap_players &&
+            !parse("[gamepad]\nswap_players=true\n[game.espgaluda2.gamepad]\nswap_players=false\n").swap_players,
+            "Controller player order inherits and supports a per-game override");
     auto overrides=parse("[display]\nfullscreen=true\nvsync=false\n[audio]\nvolume=.5\n"
                          "[game.espgaluda2.display]\nfullscreen=false\n"
                          "[game.espgaluda2.keyboard]\nsouth=Numpad0\n"

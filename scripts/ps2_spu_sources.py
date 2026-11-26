@@ -59,6 +59,22 @@ def cache_recent_samples(name, text):
 
 
 def adapt(name, text):
+    # Grant the collection's state codec access to DSP state without exposing
+    # host pointers, callbacks or sample-cache internals in the file format.
+    state_classes = {
+        'Iop_SpuBase.h': ('CSpuIrqWatcher', 'CSpuBase', 'CSampleReader', 'CBlockSampleReader'),
+        'Iop_Spu2.h': ('CSpu2',),
+        'Iop_Spu2_Core.h': ('CCore',),
+    }
+    if name in state_classes:
+        text = 'namespace Iop { struct SpuStateAccess; }\n' + text
+        for cls in state_classes[name]:
+            pattern = rf'(class {cls}\n(\s*)\{{\n)'
+            text, count = re.subn(pattern, r'\1\2\tfriend struct ::Iop::SpuStateAccess;\n', text)
+            if count != 1:
+                raise ValueError(f'Pinned DSP class declaration differs: {cls}')
+    if name == 'Iop_SpuBase.h':
+        text = text.replace('m_blockBuffer[SOUND_INPUT_DATA_SIZE];', 'm_blockBuffer[SOUND_INPUT_DATA_SIZE]{};')
     if name in ('Iop_SpuBase.h', 'Iop_SpuBase.cpp'):
         text = cache_recent_samples(name, text)
     if name == 'Iop_SpuBase.cpp':
