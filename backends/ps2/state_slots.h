@@ -22,8 +22,14 @@ public:
         std::vector<uint8_t> bytes;
     };
     SavedProgram ReadProgram(unsigned slot,std::span<const std::string_view> discPrograms) const;
-    unsigned LastUsed() const;
-    void Remember(unsigned slot) const;
+    struct Selection {
+        unsigned saveSlot=1, loadSlot=1;
+        bool load=false;
+        unsigned& CurrentSlot() { return load ? loadSlot : saveSlot; }
+        bool operator==(const Selection&) const = default;
+    };
+    Selection LastUsed() const;
+    void Remember(Selection selection) const;
 private:
     std::filesystem::path directory_;
     std::string identity_;

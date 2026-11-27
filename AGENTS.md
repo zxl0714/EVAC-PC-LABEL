@@ -15,7 +15,7 @@ is tagged at `cad0b62`. The public ZIP is in `releases/v0106-cad0b62/`.
 Both public downloads and the bilingual notes were verified. The release record
 is in `.local/v0106/github-release.json`, with matching private Death Label
 symbols in `.local/v0103/shipcheck/symbols/cad0b62/`. Testing with an active
-RTSS overlay is tracked under 后续版本待办 in the implementation plan.
+RTSS overlay is tracked under v0.10.7 in the implementation plan.
 
 The [v0.10.5 release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.5)
 is tagged at `91f8422`. The public ZIP is in `releases/v0105-91f8422/`.

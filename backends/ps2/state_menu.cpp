@@ -86,8 +86,9 @@ struct StateMenu::Impl {
     StateMenuInput input;
     decltype(slots.List()) entries{};
     Page page=Page::Closed;
-    bool dirty{}, loadRow{}, replace{}, loaded{}, circleConfirm;
-    unsigned slot=1, digit{}, dismissButtons{};
+    bool dirty{}, replace{}, loaded{}, circleConfirm;
+    StateSlots::Selection selection, remembered;
+    unsigned digit{}, dismissButtons{};
     Clock::time_point nextDraw{}, resumeAt{};
     std::future<void> job;
     std::string error;
@@ -96,12 +97,19 @@ struct StateMenu::Impl {
          std::string identity,const std::filesystem::path& config,bool usePad,bool keyEvents,
          HostPadSource& pad,bool confirmWithCircle)
         :host(host),display(display),runtime(runtime),slots(std::move(directory),std::move(identity)),
-         input(config,usePad,keyEvents,pad,confirmWithCircle),circleConfirm(confirmWithCircle) {}
+         input(config,usePad,keyEvents,pad,confirmWithCircle),circleConfirm(confirmWithCircle),
+         selection(slots.LastUsed()),remembered(selection) {}
+
+    void RememberSelection() {
+        if (selection==remembered) return;
+        try { slots.Remember(selection); remembered=selection; }
+        catch (const std::exception& e) { std::cerr<<"[ps2-state] menu selection: "<<e.what()<<'\n'; }
+    }
 
     bool CanNavigate() const { return page==Page::Menu || page==Page::Overwrite || page==Page::Error; }
     void Show(Page value) { page=value; dirty=true; }
     void Open() {
-        loaded=false; loadRow=false;
+        loaded=false;
         runtime.eeScheduler().setPaused(true);
         // Audio and picture are frozen at the very same EE dispatch boundary.
         // The owner continues consuming graphics commands while this job runs.
@@ -112,6 +120,7 @@ struct StateMenu::Impl {
         Show(Page::Opening);
     }
     void Resume() {
+        RememberSelection();
         MachineState::PauseAudio(runtime,false,loaded);
         runtime.eeScheduler().setPaused(false);
         display.CloseMenu();
@@ -125,7 +134,8 @@ struct StateMenu::Impl {
         else Resume();
     }
     void Start(bool save) {
-        const auto selected=slot;
+        const auto selected=selection.CurrentSlot();
+        RememberSelection();
         job=runtime.eeScheduler().whilePaused([this,selected,save] {
             if (save) slots.Save(selected,host.SavePausedState(runtime));
             else host.LoadSlot(runtime,slots,selected);
@@ -136,7 +146,7 @@ struct StateMenu::Impl {
         if (!job.valid() || job.wait_for(0ms)!=std::future_status::ready) return;
         job.get();
         if (page==Page::Opening) {
-            entries=slots.List(); slot=slots.LastUsed();
+            entries=slots.List();
             Show(Page::Menu); return;
         }
         loaded=page==Page::Loading;
@@ -145,13 +155,8 @@ struct StateMenu::Impl {
             Show(Page::Error);
             return;
         }
-        try { slots.Remember(slot); }
-        catch (const std::exception& e) { std::cerr<<"[ps2-state] last slot: "<<e.what()<<'\n'; }
         if (loaded) { resumeAt=Clock::now()+3s; digit=3; Show(Page::Countdown); }
-        else {
-            entries=slots.List();
-            Show(Page::Menu);
-        }
+        else Resume();
     }
     void Handle(unsigned key) {
         if (dismissButtons) { Dismiss(dismissButtons); return; }
@@ -172,14 +177,15 @@ struct StateMenu::Impl {
             }
             return;
         }
+        auto& slot=selection.CurrentSlot();
         if (key&(Up|Down)) {
-            loadRow=!loadRow;
+            selection.load=!selection.load;
         } else if (key&Left) {
             slot=slot==1?StateSlots::Count:slot-1;
         } else if (key&Right) {
             slot=slot==StateSlots::Count?1:slot+1;
         } else if (key&Accept) {
-            if (loadRow) {
+            if (selection.load) {
                 if (entries[slot-1]) Start(false);
             } else if (entries[slot-1]) {
                 replace=false;
@@ -190,7 +196,8 @@ struct StateMenu::Impl {
         dirty=true;
     }
     void DrawRow(Panel& p,bool isLoad,int y) const {
-        const bool selected=isLoad==loadRow;
+        const bool selected=isLoad==selection.load;
+        const unsigned slot=isLoad ? selection.loadSlot : selection.saveSlot;
         constexpr auto white=RGB(246,246,239), muted=RGB(174,190,185), gold=RGB(246,189,98);
         if (selected) {
             p.Box(24,y,576,76,RGB(53,77,72));
@@ -212,10 +219,11 @@ struct StateMenu::Impl {
         const std::wstring_view buttons=circleConfirm?L"○  Confirm     ×  Back":L"×  Confirm     ○  Back";
         if (page==Page::Menu) {
             DrawRow(p,false,172);
-            DrawRow(p,true,loadRow?230:256);
+            DrawRow(p,true,selection.load?230:256);
             p.Text(L"↑ ↓  Action      ← →  Slot",32,365,19,muted);
             p.Text(buttons,352,365,19,muted);
         } else if (page==Page::Overwrite) {
+            const auto slot=selection.saveSlot;
             p.Text(L"Replace the save in slot "+Digits(slot)+L"?",32,172,27,white);
             p.Text(SlotDetails(entries[slot-1]),32,215,20,muted);
             p.Box(replace?312:32,273,264,49,RGB(53,77,72));
@@ -258,9 +266,10 @@ StateMenu::StateMenu(NativeHost& host,GsDisplay& display,PS2Runtime& runtime,std
                      std::string identity,const std::filesystem::path& config,bool gamepad,bool keyEvents,
                      HostPadSource& pad,bool circleConfirm)
     :impl(std::make_unique<Impl>(host,display,runtime,std::move(directory),std::move(identity),config,gamepad,keyEvents,pad,circleConfirm)) {}
-StateMenu::~StateMenu()=default;
+StateMenu::~StateMenu() { impl->RememberSelection(); }
 void StateMenu::RestoreOnEntry(unsigned slot,std::string previousError,std::function<void()> restore) {
-    impl->slot=slot;
+    impl->selection.loadSlot=slot;
+    impl->selection.load=true;
     impl->previousError=std::move(previousError);
     impl->job=impl->runtime.eeScheduler().whilePaused([this,restore=std::move(restore)] {
         MachineState::PauseAudio(impl->runtime,true);

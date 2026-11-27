@@ -94,11 +94,11 @@ void run(bool save, const std::filesystem::path& path, const MachineState::Graph
         });
         const auto archive = MachineState::Save(r, graphics);
         slots.Save(99, archive);
-        slots.Remember(99);
+        slots.Remember({99,1,false});
         std::cout << "Saved " << archive.size() << " bytes before compression\n";
         return;
     }
-    require(slots.LastUsed() == 99 && slots.List()[98], "Cold process lost the selected slot");
+    require(slots.LastUsed().saveSlot == 99 && slots.List()[98], "Cold process lost the selected slot");
     auto bytes = slots.Read(99);
     // Reject a damaged final component after earlier components have already
     // been installed. The live RAM, IOP and graphics must all be rolled back.

@@ -54,9 +54,9 @@ Keep the whole `user-data/` folder when backing up or moving the collection. It 
 
 Press **F5** to pause and open the save state menu. The controller and arcade stick shortcut is unbound by default. To set a keyboard, controller, or arcade stick shortcut, open **Controls → All games → PS2 save state menu**. Press one input or hold two together.
 
-Use the current game's direction, confirm and back controls. Up and down choose **QUICK SAVE** or **QUICK LOAD**, and left and right select a slot. The selected slot shows its save date and time, or **NO DATA** if empty. To overwrite a save, select **Replace** and confirm. Saving keeps the menu open. Press the game's back button to resume. Loading shows the saved frame and counts down **3, 2, 1** before play resumes.
+Use the current game's direction, confirm and back controls. Up and down choose **QUICK SAVE** or **QUICK LOAD**, and left and right select a slot. The selected slot shows its save date and time, or **NO DATA** if empty. To overwrite a save, select **Replace** and confirm. Saving returns you to the game. Loading shows the saved frame and counts down **3, 2, 1** before play resumes.
 
-Each game profile remembers the last slot used. Its 99 slots take up disk space as you fill them. Death Label launched from the PS4 version of DaiOuJou has a separate set of slots.
+Each game profile remembers the last menu action and the Save and Load slot numbers separately. Its 99 slots take up disk space as you fill them. Death Label launched from the PS4 version of DaiOuJou has a separate set of slots.
 
 ## DaiOuJou X Arrange music
 

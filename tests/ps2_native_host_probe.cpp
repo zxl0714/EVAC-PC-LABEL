@@ -112,21 +112,25 @@ void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool c
     if (guestFrame!=frozen || std::filesystem::exists(directory))
         throw std::runtime_error("Loading an empty slot changed the game or created a save");
     press({SDL_GAMEPAD_BUTTON_DPAD_UP});
-    press({confirm});
-    wait([&]{return std::filesystem::exists(directory/"last-slot");},5s,"QUICK SAVE did not finish");
+    SDL_SetJoystickVirtualButton(pad,confirm,true);
+    wait([&]{return std::filesystem::exists(file) && guestFrame>frozen+15;},8s,"QUICK SAVE did not resume play");
+    SDL_SetJoystickVirtualButton(pad,confirm,false);
+    std::this_thread::sleep_for(100ms);
     const auto firstWrite=std::filesystem::last_write_time(file);
-    press({SDL_GAMEPAD_BUTTON_DPAD_RIGHT}); // 99 wraps forward to 01.
+    open();
+    const auto reopened=guestFrame.load();
     press({SDL_GAMEPAD_BUTTON_DPAD_DOWN});
-    press({confirm});
-    if (guestFrame!=frozen || std::filesystem::exists(directory/"slot-01.state"))
-        throw std::runtime_error("Menu did not stay paused after saving or did not wrap to 01");
+    press({confirm}); // Load is still 01 even though Save is 99.
+    if (guestFrame!=reopened || std::filesystem::exists(directory/"slot-01.state"))
+        throw std::runtime_error("QUICK LOAD followed the save slot");
     SDL_SetJoystickVirtualButton(pad,back,true);
     std::this_thread::sleep_for(200ms);
-    if (guestFrame!=frozen) throw std::runtime_error("Menu Back leaked into the running game");
+    if (guestFrame!=reopened) throw std::runtime_error("Menu Back leaked into the running game");
     SDL_SetJoystickVirtualButton(pad,back,false);
-    wait([&]{return guestFrame>frozen+15;},5s,"Back did not resume play");
-    open(); // Last successful slot was 99.
+    wait([&]{return guestFrame>reopened+15;},5s,"Back did not resume play");
+    open(); // Reopens on Load 01; switch to Save 99.
     const auto saved=guestFrame.load();
+    press({SDL_GAMEPAD_BUTTON_DPAD_UP});
     press({confirm});
     press({confirm}); // Cancel is initially selected.
     if (std::filesystem::last_write_time(file)!=firstWrite)
@@ -135,12 +139,11 @@ void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool c
     press({SDL_GAMEPAD_BUTTON_DPAD_RIGHT});
     press({confirm});
     wait([&]{return std::filesystem::last_write_time(file)!=firstWrite;},5s,"Replace did not overwrite slot 99");
-    std::this_thread::sleep_for(200ms);
-    press({back});
-    wait([&]{return guestFrame>saved+15;},5s,"Back did not resume play after replacing a save");
+    wait([&]{return guestFrame>saved+15;},5s,"Overwriting a save did not resume play");
     open();
     const auto beforeLoad=advances.load();
     press({SDL_GAMEPAD_BUTTON_DPAD_DOWN});
+    press({SDL_GAMEPAD_BUTTON_DPAD_LEFT}); // Independently move Load from 01 to 99.
     press({confirm});
     std::this_thread::sleep_for(2000ms);
     if (advances!=beforeLoad) throw std::runtime_error("Game advanced during countdown");

@@ -150,17 +150,25 @@ StateSlots::SavedProgram StateSlots::ReadProgram(unsigned slot,std::span<const s
     return {program,std::move(result)};
 }
 
-unsigned StateSlots::LastUsed() const {
+StateSlots::Selection StateSlots::LastUsed() const {
     std::ifstream input(directory_ / "last-slot", std::ios::binary);
-    std::array<char, 2> digits{};
-    if (!input.read(digits.data(), digits.size()) || input.peek() != EOF ||
-        digits[0] < '0' || digits[0] > '9' || digits[1] < '0' || digits[1] > '9') return 1;
-    const unsigned slot = (digits[0] - '0') * 10 + digits[1] - '0';
-    return slot ? slot : 1;
+    std::array<char,6> bytes{};
+    input.read(bytes.data(),bytes.size());
+    const auto size=input.gcount();
+    const auto slotAt=[&](unsigned i) -> unsigned {
+        if (bytes[i]<'0' || bytes[i]>'9' || bytes[i+1]<'0' || bytes[i+1]>'9') return 0;
+        return (bytes[i]-'0')*10 + bytes[i+1]-'0';
+    };
+    const unsigned save=slotAt(0);
+    if (size==2 && save) return {save,save,false}; // Earlier builds remembered one shared slot.
+    const unsigned load=slotAt(2);
+    if (size==5 && save && load && (bytes[4]=='S' || bytes[4]=='L'))
+        return {save,load,bytes[4]=='L'};
+    return {};
 }
 
-void StateSlots::Remember(unsigned slot) const {
-    const auto digits = TwoDigits(slot);
+void StateSlots::Remember(Selection selection) const {
+    const auto digits = TwoDigits(selection.saveSlot) + TwoDigits(selection.loadSlot) + (selection.load?'L':'S');
     AtomicWrite(directory_ / "last-slot", [&](FILE* file) {
         WriteBytes(file, {reinterpret_cast<const uint8_t*>(digits.data()), digits.size()});
     });
