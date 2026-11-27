@@ -10,7 +10,12 @@ another historical narrative or one-off input script.
 
 ## Current objective
 
-The latest [v0.10.6 release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.6)
+The latest [v0.10.7 release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.7)
+is tagged at `b3f5e21`. The verified Windows ZIP is in `releases/v0107-4db6264/`.
+The tag includes the final bilingual notes. The public Latest response and both
+downloaded assets were verified. See `.local/v0107/github-release.json`.
+
+The [v0.10.6 release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.6)
 is tagged at `cad0b62`. The public ZIP is in `releases/v0106-cad0b62/`.
 Both public downloads and the bilingual notes were verified. The release record
 is in `.local/v0106/github-release.json`, with matching private Death Label

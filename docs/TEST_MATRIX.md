@@ -4,9 +4,11 @@
 
 项目新增游戏功能的分版本实测结果见 [ROM 功能兼容性矩阵](ROM_COMPATIBILITY.md)。
 
-## v0.10.7 候选包
+## v0.10.7 正式发布
 
-当前候选包来自 `4db6264`，共 211,918,675 字节，ZIP 的 SHA-256 为 `a48524b82ac8faaf65584c614e5d975bd17f1ad01e5e3fca451a258fe9fd6ce4`。重新解压后，清单中的 229 个文件全部通过校验。
+正式标签指向 `b3f5e21`。GitHub 的 Latest 接口已返回 v0.10.7，中英文更新说明与定稿一致。从公开下载地址取回的 ZIP 和校验文件均与本地发布文件一致。核验记录见本机 `.local/v0107/github-release.json`。[GitHub Release](https://github.com/zxl0714/EVAC-PC-LABEL/releases/tag/v0.10.7)
+
+程序包来自 `4db6264`，共 211,918,675 字节，ZIP 的 SHA-256 为 `a48524b82ac8faaf65584c614e5d975bd17f1ad01e5e3fca451a258fe9fd6ce4`。重新解压后，清单中的 229 个文件全部通过校验。
 
 从该 ZIP 新解压的启动器进入《铸蔷薇》，用旧版记住的 97 槽读取游戏，再打开菜单时光标停在 QUICK LOAD。改选 QUICK SAVE 并存入 98 槽后，菜单自动关闭。再次打开时 QUICK SAVE 为 98、QUICK LOAD 为 97，读取 97 槽后倒数并继续游戏，正常退出。截图见本机 `.local/v0107/archive-play-1795797168/`。
 
