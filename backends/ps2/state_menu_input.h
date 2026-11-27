@@ -11,9 +11,8 @@ enum MenuKey : unsigned { Toggle=1, Up=2, Down=4, Left=8, Right=16, Accept=32, B
 class StateMenuInput {
     using Clock = std::chrono::steady_clock;
     struct Device {
-        SDL_Gamepad* pad{};
         SDL_Joystick* stick{};
-        std::optional<launcher::ExitPadBinding> binding;
+        launcher::ExitPadBinding binding;
     };
     std::map<SDL_JoystickID,Device> devices;
     std::map<std::string,launcher::ExitPadBinding> bindings;
@@ -41,14 +40,10 @@ class StateMenuInput {
         if (buttons&0x4000) actions|=circleConfirm?Back:Accept;
         return actions;
     }
-    static void Close(Device& d) {
-        if (d.pad) SDL_CloseGamepad(d.pad);
-        else if (d.stick) SDL_CloseJoystick(d.stick);
-    }
     void Refresh() {
         for (auto it=devices.begin(); it!=devices.end();) {
             if (SDL_JoystickConnected(it->second.stick)) { ++it; continue; }
-            Close(it->second);
+            SDL_CloseJoystick(it->second.stick);
             it=devices.erase(it);
         }
         int count{};
@@ -56,14 +51,11 @@ class StateMenuInput {
         for (int i=0; i<count; ++i) {
             const auto id=ids[i];
             if (devices.contains(id)) continue;
-            Device d;
-            if (SDL_IsGamepad(id)) d.pad=SDL_OpenGamepad(id);
-            d.stick=d.pad?SDL_GetGamepadJoystick(d.pad):SDL_OpenJoystick(id);
-            if (!d.stick) continue;
             char guid[33]{};
             SDL_GUIDToString(SDL_GetJoystickGUIDForID(id),guid,sizeof(guid));
-            if (auto it=bindings.find(guid); it!=bindings.end()) d.binding=it->second;
-            devices.emplace(id,std::move(d));
+            const auto it=bindings.find(guid);
+            if (it==bindings.end()) continue;
+            if (auto* stick=SDL_OpenJoystick(id)) devices.emplace(id,Device{stick,it->second});
         }
         SDL_free(ids);
     }
@@ -89,14 +81,14 @@ public:
             if (auto* v=ini.Get("collection",launcher::kStateMenuKey))
                 keys=launcher::ParseExitKeys(v->text).value_or(keys);
             for (auto& [address,v]:ini.Values()) if (address.first==launcher::kStateMenuController) {
-                if (auto b=launcher::ParseExitPadBinding(v.text)) bindings.emplace(address.second,*b);
+                if (auto b=launcher::ParseExitPadBinding(v.text); b && !b->front().empty()) bindings.emplace(address.second,*b);
             }
         }
-        controllers=usePad && SDL_InitSubSystem(SDL_INIT_GAMEPAD);
+        controllers=usePad && !bindings.empty() && SDL_InitSubSystem(SDL_INIT_JOYSTICK);
     }
     ~StateMenuInput() {
-        for (auto& [id,d]:devices) Close(d);
-        if (controllers) SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+        for (auto& [id,d]:devices) SDL_CloseJoystick(d.stick);
+        if (controllers) SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
     }
     bool Held(unsigned actions) const { return (previous&actions)!=0; }
     void Key(unsigned code,bool down,uint16_t buttons,bool navigate) {
@@ -123,11 +115,7 @@ public:
             if (now>=nextScan) { Refresh(); nextScan=now+std::chrono::seconds(1); }
             if (!devices.empty()) SDL_UpdateJoysticks();
             for (const auto& [id,d]:devices) {
-                const auto button=[&](SDL_GamepadButton b){return d.pad && SDL_GetGamepadButton(d.pad,b);};
-                const bool shortcut=d.binding ? Source(d.stick,(*d.binding)[0]) &&
-                    ((*d.binding)[1].empty() || Source(d.stick,(*d.binding)[1])) :
-                    button(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) && button(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
-                if (shortcut) held|=Toggle;
+                if (Source(d.stick,d.binding[0]) && (d.binding[1].empty() || Source(d.stick,d.binding[1]))) held|=Toggle;
             }
         }
         // Only read the game's mapped ports after the EE has parked. Sampling a

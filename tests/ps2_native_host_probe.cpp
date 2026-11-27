@@ -7,7 +7,9 @@
 #include <Windows.h>
 #include <atomic>
 #include <chrono>
+#include <fstream>
 #include <iostream>
+#include <optional>
 #include <thread>
 
 namespace {
@@ -42,7 +44,29 @@ void Draw(uint8_t*,R5900Context* ctx,PS2Runtime* runtime) {
     if(hold)std::this_thread::sleep_for(std::chrono::milliseconds(16));
     ctx->pc=ctx->pc==0x100000?0x100004:0x100000;
 }
-void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool crossConfirm) {
+struct MenuPad {
+    SDL_JoystickID id{};
+    SDL_Joystick* pad{};
+    MenuPad() {
+        if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD)) throw std::runtime_error("Cannot initialize virtual controller");
+        SDL_VirtualJoystickDesc desc; SDL_INIT_INTERFACE(&desc);
+        desc.type=SDL_JOYSTICK_TYPE_GAMEPAD; desc.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;
+        desc.button_mask=(1u<<SDL_GAMEPAD_BUTTON_COUNT)-1;
+        desc.name="PS2 state menu contract";
+        id=SDL_AttachVirtualJoystick(&desc);
+        pad=id?SDL_OpenJoystick(id):nullptr;
+        if (!pad || !SDL_IsGamepad(id)) throw std::runtime_error("Cannot create virtual menu controller");
+    }
+    ~MenuPad() { SDL_CloseJoystick(pad); SDL_DetachVirtualJoystick(id); SDL_QuitSubSystem(SDL_INIT_GAMEPAD); }
+    void WriteShortcut(const std::filesystem::path& config) const {
+        char guid[33]{};
+        SDL_GUIDToString(SDL_GetJoystickGUIDForID(id),guid,sizeof(guid));
+        std::ofstream out(config);
+        out.exceptions(std::ios::failbit|std::ios::badbit);
+        out<<"[ps2_state_menu_controller]\n"<<guid<<"=b"<<int(SDL_GAMEPAD_BUTTON_BACK)<<",b"<<int(SDL_GAMEPAD_BUTTON_START)<<"\n";
+    }
+};
+void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool crossConfirm,SDL_Joystick* pad) {
     using namespace std::chrono_literals;
     const auto wait=[](auto predicate,auto limit,const char* message) {
         const auto end=std::chrono::steady_clock::now()+limit;
@@ -51,17 +75,6 @@ void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool c
             std::this_thread::sleep_for(15ms);
         }
     };
-    SDL_VirtualJoystickDesc desc; SDL_INIT_INTERFACE(&desc);
-    desc.type=SDL_JOYSTICK_TYPE_GAMEPAD; desc.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;
-    desc.button_mask=(1u<<SDL_GAMEPAD_BUTTON_COUNT)-1;
-    desc.name="PS2 state menu contract";
-    const auto id=SDL_AttachVirtualJoystick(&desc);
-    auto* pad=id?SDL_OpenJoystick(id):nullptr;
-    if (!pad) throw std::runtime_error("Cannot create virtual menu controller");
-    struct Cleanup {
-        SDL_Joystick* pad; SDL_JoystickID id;
-        ~Cleanup(){SDL_CloseJoystick(pad); SDL_DetachVirtualJoystick(id);}
-    } cleanup{pad,id};
     const auto press=[&](std::initializer_list<SDL_GamepadButton> buttons) {
         for (auto button:buttons) SDL_SetJoystickVirtualButton(pad,button,true);
         std::this_thread::sleep_for(100ms);
@@ -69,7 +82,13 @@ void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool c
         std::this_thread::sleep_for(100ms);
     };
     const auto open=[&] {
-        press({SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER});
+        if (crossConfirm) press({SDL_GAMEPAD_BUTTON_BACK,SDL_GAMEPAD_BUTTON_START});
+        else {
+            const auto game=GetForegroundWindow();
+            DWORD pid{}; GetWindowThreadProcessId(game,&pid);
+            if (pid!=GetCurrentProcessId() || !PostMessageW(game,WM_KEYDOWN,VK_F5,0) || !PostMessageW(game,WM_KEYUP,VK_F5,0))
+                throw std::runtime_error("Cannot deliver F5 to test window");
+        }
         std::this_thread::sleep_for(400ms);
         const auto old=advances.load();
         std::this_thread::sleep_for(200ms);
@@ -81,7 +100,9 @@ void CheckMenu(PS2Runtime& runtime,const std::filesystem::path& directory,bool c
     wait([] { DWORD pid{}; GetWindowThreadProcessId(GetForegroundWindow(),&pid);
         return pid==GetCurrentProcessId(); },30s,"PS2 test window did not have input focus");
     std::this_thread::sleep_for(300ms);
-    if (!SDL_IsGamepad(id)) throw std::runtime_error("Virtual controller has no SDL gamepad mapping");
+    press({SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER});
+    const auto afterShoulders=advances.load();
+    wait([&]{return advances>afterShoulders+15;},3s,"Unbound shoulder buttons paused the guest");
     open();
     const auto file=directory/"slot-99.state";
     const auto frozen=guestFrame.load();
@@ -136,6 +157,7 @@ int main(int argc,char** argv) {
         auto runtime=std::make_unique<PS2Runtime>();
         cave::ps2::NativeHostOptions options{640,480};
         std::filesystem::path slots;
+        std::optional<MenuPad> pad;
         const bool crossConfirm=argc==3 && std::string_view(argv[1])=="--state-menu-us";
         if (argc==3 && (crossConfirm || std::string_view(argv[1])=="--state-menu")) {
             hold=checkMenu=true;
@@ -144,6 +166,12 @@ int main(int argc,char** argv) {
             options.stateIdentity="authored-test"; options.stateDirectory=slots;
             options.gameId=crossConfirm?"rtype-final":"espgaluda";
             SDL_SetHint(SDL_HINT_AUDIO_DRIVER,"dummy");
+            pad.emplace();
+            if (crossConfirm) {
+                options.keyboardConfig=slots;
+                options.keyboardConfig+=".ini";
+                pad->WriteShortcut(options.keyboardConfig);
+            }
         }
         runtime->nativeHost().Configure(std::move(options));
         unsigned presented=0;
@@ -158,7 +186,7 @@ int main(int argc,char** argv) {
         std::exception_ptr menuError;
         std::jthread controller;
         if (checkMenu) controller=std::jthread([&] {
-            try {CheckMenu(*runtime,slots,crossConfirm);}
+            try {CheckMenu(*runtime,slots,crossConfirm,pad->pad);}
             catch (...) {menuError=std::current_exception(); runtime->requestStop();}
         });
         try {runtime->run();}

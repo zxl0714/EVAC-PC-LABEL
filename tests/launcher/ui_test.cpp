@@ -1264,14 +1264,14 @@ void MainChecks() {
 }
 }
 // Exercise the actual modal settings page, including its draft and Save path.
-std::wstring DialogExitBinding(HWND dialog) {
+std::wstring DialogBinding(HWND dialog,std::wstring_view action) {
   const auto list=FindWindowExW(dialog,nullptr,WC_LISTVIEWW,nullptr);
   for(int row=0;row<ListView_GetItemCount(list);++row) {
     wchar_t value[128]{};
     LVITEMW item{};
     item.pszText=value;item.cchTextMax=static_cast<int>(std::size(value));
     SendMessageW(list,LVM_GETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
-    if(std::wstring_view(value)!=L"Exit game")continue;
+    if(std::wstring_view(value)!=action)continue;
     item.iSubItem=1;
     SendMessageW(list,LVM_GETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
     return value;
@@ -1281,6 +1281,7 @@ std::wstring DialogExitBinding(HWND dialog) {
 void CheckResetAndSwapDialog(HWND owner,const fs::path& root) {
   static thread_local HWND owner_window;
   static thread_local std::wstring before,after,keyboard_before,keyboard_after,controller_after;
+  static thread_local std::wstring state_keyboard_after,state_controller_after;
   owner_window=owner;
   before.clear();after.clear();
   const auto callback=[](HWND,UINT,UINT_PTR timer,DWORD) {
@@ -1293,13 +1294,15 @@ void CheckResetAndSwapDialog(HWND owner,const fs::path& root) {
         return;
       }
     }
-    keyboard_before=DialogExitBinding(dialog);
+    keyboard_before=DialogBinding(dialog,L"Exit game");
     const auto reset=FindWindowExW(dialog,nullptr,L"Button",L"Reset to defaults");
     SendMessageW(reset,BM_CLICK,0,0);
-    keyboard_after=DialogExitBinding(dialog);
+    keyboard_after=DialogBinding(dialog,L"Exit game");
+    state_keyboard_after=DialogBinding(dialog,L"PS2 save state menu");
     const auto tab=FindWindowExW(dialog,nullptr,L"Button",L"Controller / stick");
     SendMessageW(tab,BM_CLICK,0,0);
-    controller_after=DialogExitBinding(dialog);
+    controller_after=DialogBinding(dialog,L"Exit game");
+    state_controller_after=DialogBinding(dialog,L"PS2 save state menu");
     const auto switcher=FindWindowExW(dialog,nullptr,L"Button",L"Swap 1P / 2P");
     HWND combo=nullptr;
     for(HWND item=nullptr;(item=FindWindowExW(dialog,item,L"ComboBox",nullptr));) {
@@ -1333,6 +1336,7 @@ void CheckResetAndSwapDialog(HWND owner,const fs::path& root) {
   Require(LoadSettings(ConfigPath(root),"futari").swap_players,"Reopening saved settings lost the controller order");
   Require(keyboard_before==L"F12" && keyboard_after==L"—" && controller_after==L"—",
           "Reset to defaults did not show empty exit bindings on both Controls tabs");
+  Require(state_keyboard_after==L"F5" && state_controller_after==L"—","PS2 save state defaults must be F5 and unbound");
   const auto cleared=ReadGameExitShortcuts(Ini::Load(ConfigPath(root)),root,"futari");
   Require(cleared.keyboard==ExitKeys{} && cleared.buttons.empty() && cleared.controller_bindings.empty(),
           "Saving reset bindings revived a custom or legacy exit shortcut");

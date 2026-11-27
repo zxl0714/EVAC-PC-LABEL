@@ -137,9 +137,9 @@ struct Dialog {
             const auto label=PadLabel((*binding)[0]);
             return (*binding)[1].empty()?label:label+L" + "+PadLabel((*binding)[1]);
         }
+        if(state)return L"—";
         const auto* entry=ini.Get("collection",kExitButtonsSetting);
-        const auto buttons=state?ExitButtons{"leftshoulder","rightshoulder"}:
-            entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):ExitButtons{};
+        const auto buttons=entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):ExitButtons{};
         std::wstring label;
         for(const auto button:buttons) {
             if(!pad.contains(std::string(button)))return L"—";

@@ -52,7 +52,7 @@ Keep the whole `user-data/` folder when backing up or moving the collection. It 
 
 ## PS2 save states
 
-Press **F5** or both shoulder buttons (**L1 + R1**) to pause and open the save state menu. Change the shortcut under **Controls → PS2 save state menu**. You can bind one key or button, or hold one and press a second for a combination.
+Press **F5** to pause and open the save state menu. The controller and arcade stick shortcut is unbound by default. To set a keyboard, controller, or arcade stick shortcut, open **Controls → All games → PS2 save state menu**. Press one input or hold two together.
 
 Use the current game's direction, confirm and back controls. Up and down choose **QUICK SAVE** or **QUICK LOAD**, and left and right select a slot. The selected slot shows its save date and time, or **NO DATA** if empty. To overwrite a save, select **Replace** and confirm. Saving keeps the menu open. Press the game's back button to resume. Loading shows the saved frame and counts down **3, 2, 1** before play resumes.
 
