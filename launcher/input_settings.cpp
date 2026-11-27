@@ -127,7 +127,7 @@ struct Dialog {
     std::wstring ShortcutLabel(const Ini& ini,bool state) const {
         if(!controller) {
             const auto* entry=state?ini.Get("collection",kStateMenuKey):ExitKeySetting(ini);
-            const auto keys=entry?ParseExitKeys(entry->text).value_or(ExitKeys{}):ExitKeys{state?kStateMenuDefaultKey:std::uint16_t(VK_ESCAPE)};
+            const auto keys=entry?ParseExitKeys(entry->text).value_or(ExitKeys{}):(state?ExitKeys{kStateMenuDefaultKey}:ExitKeys{});
             return keys[0]?FromUtf8(ExitKeyText(keys)).native():L"—";
         }
         if(guid.empty())return L"—";
@@ -139,7 +139,7 @@ struct Dialog {
         }
         const auto* entry=ini.Get("collection",kExitButtonsSetting);
         const auto buttons=state?ExitButtons{"leftshoulder","rightshoulder"}:
-            entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):GameExitShortcuts{}.buttons;
+            entry?ParseExitButtons(entry->text).value_or(ExitButtons{}):ExitButtons{};
         std::wstring label;
         for(const auto button:buttons) {
             if(!pad.contains(std::string(button)))return L"—";

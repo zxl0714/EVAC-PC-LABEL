@@ -884,13 +884,13 @@ void GameExitChecks() {
   Frame frame(fixture.root,"futari");
   auto& app=frame.app;
   const auto defaults=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
-  Require(defaults.keyboard==ExitKeys{VK_ESCAPE} && defaults.buttons==ExitButtons{"start","dpup"},"Game exit defaults");
-  for(const auto game:{"donpachi","dodonpachi"}) {
-    const auto shortcuts=ReadGameExitShortcuts(Ini::Load(config),fixture.root,game);
-    Require(shortcuts.keyboard==ExitKeys{} && shortcuts.buttons==ExitButtons{"start","dpup"},
-            "Escape must reach the arcade game's own menu by default");
+  for(const auto& game:Catalogue()) {
+    const auto shortcuts=ReadGameExitShortcuts(Ini::Load(config),fixture.root,game.id);
+    Require(shortcuts.keyboard==ExitKeys{} && shortcuts.buttons.empty() && shortcuts.controller_bindings.empty(),
+            "Unconfigured game must have no exit shortcut");
   }
   Write(config,"[collection]\ngame_exit_key=F12\n");
+  const auto single_key=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
   for(const auto game:{"donpachi","dodonpachi"})
     Require(ReadGameExitShortcuts(Ini::Load(config),fixture.root,game).keyboard==ExitKeys{VK_F12},
             "A recorded exit key must also apply to the arcade games");
@@ -898,8 +898,7 @@ void GameExitChecks() {
   Require(ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari").keyboard==ExitKeys{VK_F12},"Legacy single exit key");
   Write(config,"[collection]\ngame_exit_key=Control + F12\nbig_picture_exit_key=Escape\nbig_picture_exit_buttons=START + Select\n");
   const auto custom=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
-  Require(custom.keyboard==ExitKeys{VK_CONTROL,VK_F12} && custom.buttons==ExitButtons{"start","back"} &&
-          !custom.default_start_modifier,"Custom game exit bindings");
+  Require(custom.keyboard==ExitKeys{VK_CONTROL,VK_F12} && custom.buttons==ExitButtons{"start","back"},"Custom game exit bindings");
   Write(config,"[collection]\ngame_exit_key=none\nbig_picture_exit_key=F12\nbig_picture_exit_buttons=none\n");
   const auto disabled=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
   Require(disabled.keyboard==ExitKeys{} && disabled.buttons.empty(),"Game exit shortcuts could not be disabled");
@@ -948,8 +947,12 @@ void GameExitChecks() {
   app.child.emplace(nullptr,pid);
   app.active_game="futari";
   app.GameExitKey(VK_ESCAPE,false);
-  check_close(true,"Desktop-launched game did not close from a single key press");
+  check_close(false,"Default Escape closed a desktop-launched game");
   app.GameExitKey(VK_ESCAPE,true);
+  app.game_exit_shortcuts=single_key;
+  app.GameExitKey(VK_F12,false);
+  check_close(true,"A configured single key did not close a desktop-launched game");
+  app.GameExitKey(VK_F12,true);
   app.ChildTick();
   Require(!app.child && !app.BigPicture(),"Desktop game exit changed the launcher mode");
 
@@ -1261,9 +1264,23 @@ void MainChecks() {
 }
 }
 // Exercise the actual modal settings page, including its draft and Save path.
-void CheckControllerSwapDialog(HWND owner,const fs::path& root) {
+std::wstring DialogExitBinding(HWND dialog) {
+  const auto list=FindWindowExW(dialog,nullptr,WC_LISTVIEWW,nullptr);
+  for(int row=0;row<ListView_GetItemCount(list);++row) {
+    wchar_t value[128]{};
+    LVITEMW item{};
+    item.pszText=value;item.cchTextMax=static_cast<int>(std::size(value));
+    SendMessageW(list,LVM_GETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
+    if(std::wstring_view(value)!=L"Exit game")continue;
+    item.iSubItem=1;
+    SendMessageW(list,LVM_GETITEMTEXTW,row,reinterpret_cast<LPARAM>(&item));
+    return value;
+  }
+  return {};
+}
+void CheckResetAndSwapDialog(HWND owner,const fs::path& root) {
   static thread_local HWND owner_window;
-  static thread_local std::wstring before,after;
+  static thread_local std::wstring before,after,keyboard_before,keyboard_after,controller_after;
   owner_window=owner;
   before.clear();after.clear();
   const auto callback=[](HWND,UINT,UINT_PTR timer,DWORD) {
@@ -1276,8 +1293,13 @@ void CheckControllerSwapDialog(HWND owner,const fs::path& root) {
         return;
       }
     }
+    keyboard_before=DialogExitBinding(dialog);
+    const auto reset=FindWindowExW(dialog,nullptr,L"Button",L"Reset to defaults");
+    SendMessageW(reset,BM_CLICK,0,0);
+    keyboard_after=DialogExitBinding(dialog);
     const auto tab=FindWindowExW(dialog,nullptr,L"Button",L"Controller / stick");
     SendMessageW(tab,BM_CLICK,0,0);
+    controller_after=DialogExitBinding(dialog);
     const auto switcher=FindWindowExW(dialog,nullptr,L"Button",L"Swap 1P / 2P");
     HWND combo=nullptr;
     for(HWND item=nullptr;(item=FindWindowExW(dialog,item,L"ComboBox",nullptr));) {
@@ -1309,6 +1331,11 @@ void CheckControllerSwapDialog(HWND owner,const fs::path& root) {
   Require(saved && before.starts_with(L"1P · ") && after.starts_with(L"2P · ") &&
           before.substr(2)==after.substr(2),"Swap kept the selected device but did not update its player label");
   Require(LoadSettings(ConfigPath(root),"futari").swap_players,"Reopening saved settings lost the controller order");
+  Require(keyboard_before==L"F12" && keyboard_after==L"—" && controller_after==L"—",
+          "Reset to defaults did not show empty exit bindings on both Controls tabs");
+  const auto cleared=ReadGameExitShortcuts(Ini::Load(ConfigPath(root)),root,"futari");
+  Require(cleared.keyboard==ExitKeys{} && cleared.buttons.empty() && cleared.controller_bindings.empty(),
+          "Saving reset bindings revived a custom or legacy exit shortcut");
 }
 
 void MenuControllerChecks(const fs::path& sdl) {
@@ -1444,14 +1471,20 @@ void MenuControllerChecks(const fs::path& sdl) {
   Require(button(reconnected,0,true),"Press shared Start");
   tick();
   Require(!app.BigPicture(),"Big Picture ignored the shared controller Start binding");
-  const auto shortcuts=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
+  auto shortcuts=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
   Require(button(reconnected,0,false),"Release arcade stick Confirm");
   const auto poll=[&]{return app.menu_controller->PollGameExit(shortcuts);};
   Require(!poll(),"Idle controllers requested an exit");
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_START,true) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,true) &&
-          !poll(),"An ambiguous first sample closed the game");
+          !poll(),"Unconfigured gamepad buttons closed the game");
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_START,false) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,false) &&
-          !poll(),"Releasing both default shortcut buttons closed the game");
+          !poll(),"Releasing unbound buttons closed the game");
+  Require(hat(reconnected,0,SDL_HAT_UP) && !poll() && button(reconnected,6,true) && !poll(),
+          "Up and Start closed the game on an unconfigured arcade stick");
+  Require(button(reconnected,6,false) && hat(reconnected,0,SDL_HAT_CENTERED) && !poll(),"Release unbound stick inputs");
+  auto explicit_chord=Ini::ReadText(ConfigPath(fixture.root))+"\n[collection]\nbig_picture_exit_buttons=Start + Up\n";
+  Write(ConfigPath(fixture.root),explicit_chord);
+  shortcuts=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
   Require(hat(reconnected,0,SDL_HAT_UP) && button(gamepad,SDL_GAMEPAD_BUTTON_START,true),"Hold one half of the exit shortcut on each controller");
   Require(!poll(),"Two controllers combined into one exit shortcut");
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,true),"Complete the exit shortcut on the gamepad");
@@ -1460,9 +1493,9 @@ void MenuControllerChecks(const fs::path& sdl) {
   Require(button(reconnected,0,true),"Hold the globally mapped arcade Start button");
   Require(!poll(),"Arcade shortcut ignored the per-game mapping");
   Require(button(reconnected,0,false) && button(reconnected,6,true),"Hold the game's arcade Start button");
-  Require(!poll(),"Pressing Start while already flying up closed the game");
-  Require(hat(reconnected,0,SDL_HAT_CENTERED) && !poll(),"Start alone closed the game");
-  Require(hat(reconnected,0,SDL_HAT_UP) && poll() && !poll(),"Start then Up on the remapped arcade stick did not exit exactly once");
+  Require(poll() && !poll(),"Explicit Up then Start did not exit exactly once");
+  Require(hat(reconnected,0,SDL_HAT_CENTERED) && !poll(),"Start alone triggered a configured chord");
+  Require(hat(reconnected,0,SDL_HAT_UP) && poll() && !poll(),"Explicit Start then Up did not exit exactly once");
 
   Write(ConfigPath(fixture.root),"[game_exit_controller]\n"+arcade->guid+"=b0,b1\n");
   const auto recorded=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
@@ -1484,7 +1517,9 @@ void MenuControllerChecks(const fs::path& sdl) {
   close(reconnected);
   Require(detach(second),"Detach reconnected controller");
   const auto [twin_id,twin]=select(gamepad_descriptor);
-  CheckControllerSwapDialog(app.hwnd,fixture.root);
+  Write(ConfigPath(fixture.root),"[collection]\ngame_exit_key=F12\nbig_picture_exit_key=Esc\nbig_picture_exit_buttons=Start + Up\n"
+        "[game_exit_controller]\n"+arcade->guid+"=b1\n");
+  CheckResetAndSwapDialog(app.hwnd,fixture.root);
   close(twin);
   Require(detach(twin_id),"Detach second gamepad after saving player order");
   close(gamepad);

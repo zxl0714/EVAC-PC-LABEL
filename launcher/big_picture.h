@@ -115,7 +115,9 @@ public:
         UpdatePads(Clock::now());
         bool requested=false;
         for(auto& pad:pads_) {
-            if(PollExitShortcut(pad,shortcuts))requested=true;
+            const bool pressed=ExitPressed(pad,shortcuts);
+            if(!pressed)pad.exit_armed=true;
+            else if(std::exchange(pad.exit_armed,false))requested=true;
         }
         return requested;
     }
@@ -146,33 +148,20 @@ private:
         bool wait_for_release{true};
     };
 
-    bool PollExitShortcut(Pad& pad,const GameExitShortcuts& shortcuts) {
-        const auto rising_edge=[&](bool down) {
-            const bool armed=std::exchange(pad.exit_armed,!down);
-            return down && armed;
-        };
+    bool ExitPressed(const Pad& pad,const GameExitShortcuts& shortcuts) {
         const auto input=devices_.Read(pad.joystick.get());
         if(const auto binding=shortcuts.controller_bindings.find(pad.guid); binding!=shortcuts.controller_bindings.end()) {
             const auto& sources=binding->second;
-            return rising_edge(controls::PadSourceActive(sources[0],input,false) &&
-                   (sources[1].empty() || controls::PadSourceActive(sources[1],input,false)));
+            return controls::PadSourceActive(sources[0],input,false) &&
+                   (sources[1].empty() || controls::PadSourceActive(sources[1],input,false));
         }
         const auto mapping=shortcuts.controller_mappings.find(pad.guid);
         const auto& map=mapping==shortcuts.controller_mappings.end()?pad.map:mapping->second;
-        const auto held=[&](std::string_view name) {
+        return !shortcuts.buttons.empty() && std::ranges::all_of(shortcuts.buttons,[&](std::string_view name) {
             const auto source=map.find(std::string(name));
             return source!=map.end() && controls::PadSourceActive(source->second,input,
                 name=="lefttrigger" || name=="righttrigger");
-        };
-        if(shortcuts.default_start_modifier) {
-            // Arm only after observing Start on its own. If both arrive in one
-            // poll we cannot tell which was pressed first.
-            const bool start=held("start"),up=held("dpup");
-            const bool requested=pad.exit_armed && start && up;
-            pad.exit_armed=start && !up;
-            return requested;
-        }
-        return rising_edge(!shortcuts.buttons.empty() && std::ranges::all_of(shortcuts.buttons,held));
+        });
     }
 
     void UpdatePads(Clock::time_point now) {

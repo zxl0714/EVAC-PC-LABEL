@@ -15,9 +15,8 @@ using ExitButtons=std::vector<std::string_view>;
 using ExitKeys=std::array<std::uint16_t,2>;
 using ExitPadBinding=std::array<std::string,2>;
 struct GameExitShortcuts {
-    ExitKeys keyboard{VK_ESCAPE};
-    ExitButtons buttons{"start","dpup"};
-    bool default_start_modifier{true};
+    ExitKeys keyboard{};
+    ExitButtons buttons;
     std::map<std::string,controls::PadMap> controller_mappings;
     std::map<std::string,ExitPadBinding> controller_bindings;
 };

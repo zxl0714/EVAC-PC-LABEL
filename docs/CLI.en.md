@@ -26,9 +26,7 @@ In either mode, use the left stick, D-pad, or arcade stick to select a game and 
 
 Big Picture uses a 2×2 cover grid on portrait monitors. Move left or right to select a game, or continue past either edge to turn the page. Use Up, Down, or the mouse wheel to move between rows. Under `[collection]` in `user-data/config.ini`, set `big_picture_layout` to `vertical` or `horizontal` to choose a layout, or `auto` to follow the monitor.
 
-When playing from the launcher, press `Esc`, or hold `Start` and press D-pad Up, to return to the selected game card. In DonPachi Recomp and DoDonPachi Recomp, `Esc` opens the game's pause menu by default. Use the controller shortcut or set your own exit key in **Controls**.
-
-To change the shortcut, open **Controls → All games** and double-click **Exit game**. Tap one input for a single bind, or hold one and press another for a combo. This works with keyboards, controllers, and arcade sticks. Use **Clear** to disable the shortcut.
+The shortcut for returning to the selected game card is unbound by default. To set it, open **Controls → All games** and double-click **Exit game**. Press a single key or button, or hold two together in either order, then select **Save**. This works with keyboards, controllers, and arcade sticks. Select **Clear** and save to remove the binding.
 
 On a cabinet, use the following command to open Big Picture directly.
 

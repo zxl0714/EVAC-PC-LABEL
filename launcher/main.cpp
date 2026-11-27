@@ -217,21 +217,15 @@ void Log(const fs::path& root,std::string_view message) {
 }
 GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std::string_view game) {
   GameExitShortcuts shortcuts;
-  // Both arcade recomps use Escape for their own pause menu.
-  if(FindArcadeRecomp(game))shortcuts.keyboard={};
   if(const auto entry=cave::launcher::ExitKeySetting(ini)) {
     const auto keys=cave::launcher::ParseExitKeys(entry->text);
     shortcuts.keyboard=keys.value_or(ExitKeys{});
     if(!keys)Log(root,"Invalid [collection].game_exit_key; keyboard exit disabled");
   }
   if(const auto entry=ini.Get("collection",cave::launcher::kExitButtonsSetting)) {
-    shortcuts.default_start_modifier=false;
     auto buttons=cave::launcher::ParseExitButtons(entry->text);
     if(buttons)shortcuts.buttons=std::move(*buttons);
-    else {
-      shortcuts.buttons.clear();
-      Log(root,"Invalid [collection].big_picture_exit_buttons; default controller exit disabled");
-    }
+    else Log(root,"Invalid [collection].big_picture_exit_buttons; shared controller exit disabled");
   }
   if(!shortcuts.buttons.empty()) {
     try {
