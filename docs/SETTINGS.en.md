@@ -8,6 +8,8 @@ Choose fullscreen or a 1280×720, 1600×900, 1920×1080, 2560×1440 or 3840×216
 
 The launcher remembers its window size when closed and fits it within the available screen area when the display resolution or scaling changes.
 
+To play PS4 DoDonPachi DaiOuJou in TATE mode, turn your monitor on its side and keep Windows display orientation set to **Landscape**. Launch the game fullscreen, open **SCREEN → 画面回転方向**, and choose the 90° direction that makes the text upright. You can also adjust the playfield size on this screen.
+
 Drag game cards to reorder the library, or right-click to hide a game. Use the eye icon to show hidden games and restore them. Cover and banner layouts share the same order and hidden games.
 
 Open **Controls** and choose Keyboard or Controller / stick. Double-click a binding, press a key or move the stick, then select **Save**. Choose **All games** or **Current game** for the scope. Assigning an input that is already in use moves it to the new binding. **Reset to defaults** restores all shared keyboard and controller bindings. **Use shared bindings** removes all overrides for the selected game. Changes apply the next time you start a game.
