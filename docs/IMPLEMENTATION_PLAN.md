@@ -53,10 +53,13 @@ Game Data 兼容性是当前最高优先级。五款 PS4 游戏的已适配地�
   - [x] 每款游戏分别记住 QUICK SAVE 和 QUICK LOAD 选中的槽号，首次均为 01，重启后保留。例如存档选 03、读档选 08，来回切换时两行仍各自显示 03 和 08。
   - [x] 再次打开菜单时，光标回到上次选中的操作。上次选了 QUICK LOAD，下次就落在 QUICK LOAD。
   - [x] 存档成功后立即关闭菜单并继续游戏。读档后沿用「3、2、1」倒数。
+- [x] **在实际开启 RTSS 屏显的 Windows 机器上验证《大往生》Death Label。** RTX 4080 上同时开启 RTSS 和 Bandicam，已从 PS4 菜单完成选机、一面 Boss 战和返回菜单，确认首张游戏画面通过 DXGI 呈现。RTX 3060 Laptop 报告 `20261123-cb7cd93ec81f471e` 中的故障未在本机复现。[实机验收](TEST_MATRIX.md#rtss-屏显开启时进入-death-label)
+
+## 后续版本（待排期）
+
 - [ ] **排查 Windows Defender 隔离 v0.10.6 启动器的问题。** 玩家报告 `EVAC PC LABEL.exe` 被隔离。本机静态扫描未报警，已备好 Win11 镜像、正式包和日志采集工具。待从同一干净系统检查点分别验证首次下载、解压并启动 v0.10.6，以及从 v0.10.5 自动更新到 v0.10.6。记录每轮结果和 Defender 安全情报版本；若复现，保留触发步骤、受影响文件及对应的检测事件，以便定位原因。[#41](https://github.com/zxl0714/EVAC-PC-LABEL/issues/41)
   - 11 月 26 日，最初遇到报警的两位玩家都反馈已恢复。回帖没有记录复测时的启动器哈希、Defender 安全情报版本或检测事件，具体原因仍待核实。[首报玩家的回帖](https://github.com/zxl0714/EVAC-PC-LABEL/issues/41#issuecomment-7179669554) · [第二位玩家的回帖](https://github.com/zxl0714/EVAC-PC-LABEL/issues/41#issuecomment-7186911100)
-
-- [x] **在实际开启 RTSS 屏显的 Windows 机器上验证《大往生》Death Label。** RTX 4080 上同时开启 RTSS 和 Bandicam，已从 PS4 菜单完成选机、一面 Boss 战和返回菜单，确认首张游戏画面通过 DXGI 呈现。RTX 3060 Laptop 报告 `20261123-cb7cd93ec81f471e` 中的故障未在本机复现。[实机验收](TEST_MATRIX.md#rtss-屏显开启时进入-death-label)
+  - 11 月 28 日已在 Windows 11 安装阶段保存并关停虚拟机。首次启动和自动更新两组对照留待后续版本。
 
 ## v0.10.6
 
