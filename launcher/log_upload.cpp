@@ -187,7 +187,15 @@ std::vector<Session> Recent(const fs::path& root) {
   return result;
 }
 
-void RecordProcessExit(const fs::path& root,std::string_view game,DWORD pid,uint64_t created,DWORD code) noexcept {
+const char* ShortcutName(CloseShortcut shortcut) noexcept {
+  switch(shortcut) {
+  case CloseShortcut::Keyboard:return "keyboard";
+  case CloseShortcut::Controller:return "controller";
+  default:return "none";
+  }
+}
+
+void RecordProcessExit(const fs::path& root,std::string_view game,DWORD pid,uint64_t created,DWORD code,CloseShortcut shortcut) noexcept {
   if(!pid || !created)return;
   try {
     const auto base=DataChild(root,"logs/"+std::string(game));
@@ -200,8 +208,8 @@ void RecordProcessExit(const fs::path& root,std::string_view game,DWORD pid,uint
       try {identity=ReadRunProcess(entry.path());} catch(const std::exception&){continue;}
       if(identity.pid!=pid || identity.created!=created)continue;
       char text[192]{};
-      const auto size=std::snprintf(text,sizeof(text),"source=launcher_process_handle\npid=%lu\nprocess_created=%llu\nexit_code=%lu\nexit_code_hex=0x%08lx\n",
-                                    pid,static_cast<unsigned long long>(created),code,code);
+      const auto size=std::snprintf(text,sizeof(text),"source=launcher_process_handle\npid=%lu\nprocess_created=%llu\nexit_code=%lu\nexit_code_hex=0x%08lx\nlauncher_close_shortcut=%s\n",
+                                    pid,static_cast<unsigned long long>(created),code,code,ShortcutName(shortcut));
       if(size<=0 || static_cast<size_t>(size)>=sizeof(text))return;
       const auto receipt=entry.path()/L"launcher-exit.txt";
       const auto temporary=entry.path()/(L"launcher-exit-"+std::to_wstring(GetCurrentProcessId())+L"-"+

@@ -32,7 +32,8 @@ static fs::path ExitReportFixture(const fs::path& root,const fs::path& executabl
     metadata(other,birth-1);
     metadata(run,birth);
     std::ofstream(run/L"stderr.txt")<<"[ps2-dl-wsi] vkCreateSwapchainKHR enter phase=start\n";
-    launcher::reports::RecordProcessExit(root,"daioujou",child.pid(),birth,*code);
+    const auto shortcut=fast_fail?launcher::reports::CloseShortcut::None:launcher::reports::CloseShortcut::Controller;
+    launcher::reports::RecordProcessExit(root,"daioujou",child.pid(),birth,*code,shortcut);
     const auto receipt=Ini::ReadText(run/L"launcher-exit.txt");
     if(receipt.find("exit_code="+std::to_string(*code)+"\n")==receipt.npos || fs::exists(other/L"launcher-exit.txt"))
       throw std::runtime_error("Exit code missing or linked to a reused PID");

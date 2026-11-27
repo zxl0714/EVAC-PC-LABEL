@@ -898,7 +898,8 @@ void GameExitChecks() {
   Require(ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari").keyboard==ExitKeys{VK_F12},"Legacy single exit key");
   Write(config,"[collection]\ngame_exit_key=Control + F12\nbig_picture_exit_key=Escape\nbig_picture_exit_buttons=START + Select\n");
   const auto custom=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
-  Require(custom.keyboard==ExitKeys{VK_CONTROL,VK_F12} && custom.buttons==ExitButtons{"start","back"},"Custom game exit bindings");
+  Require(custom.keyboard==ExitKeys{VK_CONTROL,VK_F12} && custom.buttons==ExitButtons{"start","back"} &&
+          !custom.default_start_modifier,"Custom game exit bindings");
   Write(config,"[collection]\ngame_exit_key=none\nbig_picture_exit_key=F12\nbig_picture_exit_buttons=none\n");
   const auto disabled=ReadGameExitShortcuts(Ini::Load(config),fixture.root,"futari");
   Require(disabled.keyboard==ExitKeys{} && disabled.buttons.empty(),"Game exit shortcuts could not be disabled");
@@ -1014,7 +1015,7 @@ void ExternalExitCleanupChecks() {
   HWND window{};
   for(unsigned i=0;i<400 && !window;++i){window=FindWindowW(L"STATIC",title.c_str());if(!window)Sleep(10);}
   Require(window && !AllProcessWindowsClosed(app.child->pid()),"Even an owned or tool window must protect a running game");
-  app.RequestGameExit(window,"keyboard");
+  app.RequestGameExit(window,cave::launcher::reports::CloseShortcut::Keyboard);
   for(unsigned i=0;i<400 && IsWindow(window);++i)Sleep(10);
   Require(!IsWindow(window) && !app.child->ExitCode(),"Fixture did not survive closing its last window");
   app.FinishEandisExit(1000);
@@ -1335,7 +1336,7 @@ void MenuControllerChecks(const fs::path& sdl) {
   SDL_VirtualJoystickDesc descriptor{};
   descriptor.version=sizeof(descriptor);
   descriptor.type=SDL_JOYSTICK_TYPE_ARCADE_STICK;
-  descriptor.nbuttons=2;
+  descriptor.nbuttons=7;
   descriptor.nhats=1;
   descriptor.name="EVAC Test Arcade Stick";
   update_foreground=app.hwnd;
@@ -1428,17 +1429,17 @@ void MenuControllerChecks(const fs::path& sdl) {
   const auto arcade=std::ranges::find(devices,second,&cave::launcher::controls::InputDevices::Device::id);
   Require(arcade!=devices.end(),"Read virtual arcade stick GUID");
   Write(ConfigPath(fixture.root),"[controller]\n"+arcade->guid+"=start:b0,dpup:h0.1,\n"
-      "[game.futari.controller]\n"+arcade->guid+"=start:b1,dpup:h0.1,\n");
+      "[game.futari.controller]\n"+arcade->guid+"=start:b6,dpup:h0.1,\n");
   app.ReloadPreferences();
   app.SetBigPicture(true);
   Require(button(reconnected,0,false),"Release arcade button before remapping");
   tick();
   App::Window(app.hwnd,WM_KEYDOWN,VK_ESCAPE,0);
   Require(app.menu_open,"Open Big Picture menu for the shared Start binding");
-  Require(button(reconnected,1,true),"Press per-game Start");
+  Require(button(reconnected,6,true),"Press per-game Start");
   tick();
   Require(app.menu_open && app.BigPicture(),"Big Picture used the in-game override");
-  Require(button(reconnected,1,false),"Release per-game Start");
+  Require(button(reconnected,6,false),"Release per-game Start");
   tick();
   Require(button(reconnected,0,true),"Press shared Start");
   tick();
@@ -1447,6 +1448,10 @@ void MenuControllerChecks(const fs::path& sdl) {
   Require(button(reconnected,0,false),"Release arcade stick Confirm");
   const auto poll=[&]{return app.menu_controller->PollGameExit(shortcuts);};
   Require(!poll(),"Idle controllers requested an exit");
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_START,true) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,true) &&
+          !poll(),"An ambiguous first sample closed the game");
+  Require(button(gamepad,SDL_GAMEPAD_BUTTON_START,false) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,false) &&
+          !poll(),"Releasing both default shortcut buttons closed the game");
   Require(hat(reconnected,0,SDL_HAT_UP) && button(gamepad,SDL_GAMEPAD_BUTTON_START,true),"Hold one half of the exit shortcut on each controller");
   Require(!poll(),"Two controllers combined into one exit shortcut");
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,true),"Complete the exit shortcut on the gamepad");
@@ -1454,14 +1459,19 @@ void MenuControllerChecks(const fs::path& sdl) {
   Require(button(gamepad,SDL_GAMEPAD_BUTTON_START,false) && button(gamepad,SDL_GAMEPAD_BUTTON_DPAD_UP,false),"Release gamepad exit buttons");
   Require(button(reconnected,0,true),"Hold the globally mapped arcade Start button");
   Require(!poll(),"Arcade shortcut ignored the per-game mapping");
-  Require(button(reconnected,0,false) && button(reconnected,1,true),"Hold the game's arcade Start button");
-  Require(poll(),"Remapped arcade stick could not request an exit");
+  Require(button(reconnected,0,false) && button(reconnected,6,true),"Hold the game's arcade Start button");
+  Require(!poll(),"Pressing Start while already flying up closed the game");
+  Require(hat(reconnected,0,SDL_HAT_CENTERED) && !poll(),"Start alone closed the game");
+  Require(hat(reconnected,0,SDL_HAT_UP) && poll() && !poll(),"Start then Up on the remapped arcade stick did not exit exactly once");
 
   Write(ConfigPath(fixture.root),"[game_exit_controller]\n"+arcade->guid+"=b0,b1\n");
   const auto recorded=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");
   app.menu_controller->ResetGameExit();
+  Require(button(reconnected,6,false) && button(reconnected,1,true),"Hold the second button in the custom chord");
   Require(!app.menu_controller->PollGameExit(recorded),"Physical binding inherited an unrelated held direction");
   Require(button(reconnected,0,true) && app.menu_controller->PollGameExit(recorded),"The recorded controller chord did not take effect");
+  Require(button(reconnected,1,false) && !app.menu_controller->PollGameExit(recorded),"Releasing a custom chord requested another exit");
+  Require(button(reconnected,1,true) && app.menu_controller->PollGameExit(recorded),"The other order of a custom chord did not exit");
 
   Write(ConfigPath(fixture.root),"[game_exit_controller]\n"+arcade->guid+"=b1\n");
   const auto single=ReadGameExitShortcuts(Ini::Load(ConfigPath(fixture.root)),fixture.root,"futari");

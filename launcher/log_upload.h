@@ -8,7 +8,10 @@ namespace cave::launcher::reports {
 struct Session { std::string game; fs::path directory; fs::file_time_type modified; };
 std::vector<Session> Recent(const fs::path& root);
 void RecordRuntimeFailure(const fs::path& root, std::string_view game);
-void RecordProcessExit(const fs::path& root, std::string_view game, DWORD pid, uint64_t created, DWORD code) noexcept;
+enum class CloseShortcut { None, Keyboard, Controller };
+const char* ShortcutName(CloseShortcut shortcut) noexcept;
+void RecordProcessExit(const fs::path& root, std::string_view game, DWORD pid, uint64_t created, DWORD code,
+                       CloseShortcut shortcut=CloseShortcut::None) noexcept;
 std::string ProcessAtUpload(const Session& session);
 fs::path Package(const fs::path& root,const Session& session,std::string_view message);
 std::string Upload(std::string endpoint,const fs::path& archive);

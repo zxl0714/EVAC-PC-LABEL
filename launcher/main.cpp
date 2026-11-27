@@ -225,6 +225,7 @@ GameExitShortcuts ReadGameExitShortcuts(const Ini& ini,const fs::path& root,std:
     if(!keys)Log(root,"Invalid [collection].game_exit_key; keyboard exit disabled");
   }
   if(const auto entry=ini.Get("collection",cave::launcher::kExitButtonsSetting)) {
+    shortcuts.default_start_modifier=false;
     auto buttons=cave::launcher::ParseExitButtons(entry->text);
     if(buttons)shortcuts.buttons=std::move(*buttons);
     else {
@@ -1459,10 +1460,11 @@ class App {
     const auto foreground=GetForegroundWindow();
     return IsGameWindow(foreground,child->pid())?foreground:nullptr;
   }
-  void RequestGameExit(HWND game,std::string_view source) {
+  void RequestGameExit(HWND game,cave::launcher::reports::CloseShortcut source) {
     if(PostMessageW(game,WM_CLOSE,0,0)) {
+      if(close_shortcut==cave::launcher::reports::CloseShortcut::None)close_shortcut=source;
       if(external_session && active_game=="sdoj")eandis_exit_requested=true;
-      Log(options.root,"game-shortcut-close game="+active_game+" input="+std::string(source)+" pid="+std::to_string(child->pid()));
+      Log(options.root,"game-shortcut-close game="+active_game+" input="+cave::launcher::reports::ShortcutName(source)+" pid="+std::to_string(child->pid()));
     }
     else Log(options.root,"Cannot close game window (Windows error "+std::to_string(GetLastError())+")");
     ResetGameExit();
@@ -1483,7 +1485,7 @@ class App {
     const bool was_down=pressed();
     exit_keys_down[bound-keys.begin()]=!released;
     if(!was_down && pressed()) {
-      if(const auto game=FocusedGameExitWindow())RequestGameExit(game,"keyboard");
+      if(const auto game=FocusedGameExitWindow())RequestGameExit(game,cave::launcher::reports::CloseShortcut::Keyboard);
     }
   }
   void RawGameExitInput(HRAWINPUT handle) {
@@ -1501,7 +1503,7 @@ class App {
       ResetGameExit();
       game_exit_window=game;
     }
-    if(game && menu_controller->PollGameExit(*game_exit_shortcuts))RequestGameExit(game,"controller");
+    if(game && menu_controller->PollGameExit(*game_exit_shortcuts))RequestGameExit(game,cave::launcher::reports::CloseShortcut::Controller);
   }
   void MenuControllerTick() {
     if(child) {GameExitTick();return;}
@@ -1663,6 +1665,7 @@ class App {
         game_focus_pending=BigPicture();
         if(game_focus_pending && GetForegroundWindow()==hwnd)AllowSetForegroundWindow(child->pid());
         active_game=work->launch->game;
+        close_shortcut=cave::launcher::reports::CloseShortcut::None;
         message=T(L"正在运行：")+Wide(FindLauncherGame(work->launch->game).DisplayName());SetTimer(hwnd,kChildTimer,250,nullptr);
         const std::string engine=!work->external?"":" engine="+(FindArcadeRecomp(active_game)?active_game:"eandis");
         Log(options.root,"launch game="+work->launch->game+engine+" pid="+std::to_string(child->pid()));
@@ -1686,7 +1689,7 @@ class App {
     if(!child)return;
     if(const auto code=child->ExitCode()) {
       const bool external=bool(external_session);
-      if(!external)cave::launcher::reports::RecordProcessExit(options.root,active_game,child->pid(),child->CreationTime(),*code);
+      if(!external)cave::launcher::reports::RecordProcessExit(options.root,active_game,child->pid(),child->CreationTime(),*code,close_shortcut);
       const bool requested_close=!external && child->RequestedWindowClose(options.root,active_game,*code);
       const bool cleaned_up=eandis_exit_finished && *code==ERROR_CANCELLED;
       const bool failed=*code && !requested_close && !cleaned_up;
@@ -2279,6 +2282,7 @@ class App {
   std::array<Binding,16> menu_keys=ResolveSharedSettings(Ini{}).keyboard;
   std::optional<GameExitShortcuts> game_exit_shortcuts;
   HWND game_exit_window{};
+  cave::launcher::reports::CloseShortcut close_shortcut{};
   bool eandis_exit_requested{},eandis_exit_finished{};
   ULONGLONG eandis_quiet_since{},eandis_writes{};
   bool game_exit_keyboard{};

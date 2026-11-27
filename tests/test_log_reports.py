@@ -27,6 +27,7 @@ class LogReportTests(unittest.TestCase):
             receipt = archive.read('./logs/launcher-exit.txt').decode()
             evidence = dict(line.split('=', 1) for line in archive.read('./logs/process-at-upload.txt').decode().splitlines())
         self.assertIn('exit_code_hex=0xc0000409', receipt)
+        self.assertIn('launcher_close_shortcut=none', receipt)
         self.assertEqual(evidence['windows_fault'], 'application_error_1000')
         self.assertEqual(evidence['windows_fault_module'].lower(), fixture.name.lower())
         self.assertEqual(int(evidence['windows_exception_code_hex'], 16), 0xc0000409)
@@ -39,7 +40,9 @@ class LogReportTests(unittest.TestCase):
             capture_output=True, check=True, timeout=45, creationflags=subprocess.CREATE_NO_WINDOW)
         path = Path(result.stdout.decode('utf-8').strip())
         with zipfile.ZipFile(path) as archive:
-            self.assertIn('exit_code_hex=0x00004123', archive.read('./logs/launcher-exit.txt').decode())
+            receipt = archive.read('./logs/launcher-exit.txt').decode()
+            self.assertIn('exit_code_hex=0x00004123', receipt)
+            self.assertIn('launcher_close_shortcut=controller', receipt)
             self.assertIn('vkCreateSwapchainKHR enter', archive.read('./logs/stderr.txt').decode())
         self.assertEqual(reports.inspect(path.read_bytes())['game'], 'daioujou')
 
