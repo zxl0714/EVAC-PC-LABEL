@@ -6,7 +6,9 @@
 
 ## v0.10.7 候选包
 
-当前候选包来自 `1fb493f`，共 211,914,799 字节，ZIP 的 SHA-256 为 `28515782327254eccdb4122e50202f656bd9da9f144838c218473c6d28adcf39`。重新解压后，清单中的 229 个文件全部通过校验。
+当前候选包来自 `4db6264`，共 211,918,675 字节，ZIP 的 SHA-256 为 `a48524b82ac8faaf65584c614e5d975bd17f1ad01e5e3fca451a258fe9fd6ce4`。重新解压后，清单中的 229 个文件全部通过校验。
+
+从该 ZIP 新解压的启动器进入《铸蔷薇》，用旧版记住的 97 槽读取游戏，再打开菜单时光标停在 QUICK LOAD。改选 QUICK SAVE 并存入 98 槽后，菜单自动关闭。再次打开时 QUICK SAVE 为 98、QUICK LOAD 为 97，读取 97 槽后倒数并继续游戏，正常退出。截图见本机 `.local/v0107/archive-play-1795797168/`。
 
 即时存档菜单的手柄和摇杆快捷键默认留空，键盘默认 F5。启动器测试覆盖 Controls 恢复默认后的两页显示，4,983 项启动器检查和 84 项 SDL 检查通过。PS2 实际宿主的日版与美版确认键测试均验证默认双肩键不会暂停游戏。日版测试用 F5 打开菜单，美版测试用显式绑定的手柄组合打开，均通过 99 槽存读、覆盖和读档倒数验证。
 
@@ -22,6 +24,19 @@
 - 本机运行 Bandicam 8.3.1.2537 后，使用相同程序包、ISO 和显示设置复测。Vulkan 加载日志确认六次启动均启用了真实的 Bandicam 录制层（`bdcamvk64.dll` 1.1.1.113）。v0.10.5 的《铸蔷薇》和《ESPGaluda》都在首帧前因访问违规退出，两份崩溃记录均指向 `bdcamvk64.dll+0x13958`。v0.10.7 候选包 `1fb493f` 的《铸蔷薇》《ESPGaluda》、PS2《大往生》和《R-Type Final》分别呈现 409、401、381 和 407 帧，测试关窗后四款均正常退出。本轮验证的是启动与出画面。对照日志见本机 `.local/v0107/inbox-review/bandicam-installed-ab.log`。
 - PS4《大往生》v0.10.6 的 Death Label 从首帧到返回本篇为 58.83 秒。同版无输入对照为 58.86 秒，二面单按 Start 后能继续游玩。玩家的关窗消息出现在返回本篇约 268 秒后，Windows 没有对应的故障事件。旧报告没有记录关窗消息的来源。
 - 全游戏默认退出绑定均为空。桌面游戏窗口的 Esc、虚拟手柄的 Start 与方向上同次按下、虚拟摇杆向上时按 Start 均未触发启动器退出。显式配置单键或组合后可退出，摇杆的 Start + 上两种顺序均只触发一次，两台设备分别按半组不会触发。设置界面恢复默认并保存后，键盘和手柄退出项均显示「—」，旧配置字段也已清除。启动器集成检查 4,983 项和 SDL 检查 83 项通过。上传包中的 `launcher-exit.txt` 记录启动器是否发送了快捷键关窗请求及其输入来源。对照记录见本机 `.local/v0107/inbox-review/`。
+
+### Xbox 360 原作画面旋转
+
+在 Windows 纵向全屏下，四款游戏以原作默认方向启动时，标题或片头均处于屏幕中央的 16:9 区域。另用 960×540 横向窗口逐一从原作菜单设置旋转，并实际开始一局。以下观察采用各游戏自己的缩放设置。
+
+| 游戏与实测模式 | 游戏内设置 | 菜单与关内表现 |
+| --- | --- | --- |
+| 《虫姬二》Ver.1.5 Arcade | OPTION → Screen Setting → Simple。Rotation (Game) 与 Rotation (TV) 均设为 RightRotate | 前者转动游戏，后者可单独转动菜单。一面画面居中，壁纸保留原方向，Zoom 可单独调整。 |
+| 《ESPGaluda II》Black Label | OPTION → General Screen → Rotate → Right Roll | 设置菜单保持横向，Black Label 的 1P START 和一面画面随游戏旋转。Link Rotation 控制操作方向。 |
+| 《最大往生》Xbox 360 模式 | OPTION → GENERAL SCREEN → ROTATE → RIGHT ROLL | 主菜单及 1P START 窗口保持横向，选机与关内转动。在初始缩放下，640×360 的客户区截图中，战斗画面约为 320×240，位于中央。 |
+| 《狱门山》Arcade | Help & Options → Settings → Screen Settings → Arcade → Extra Display，选 Preset 5。菜单可在 System Settings → Menu Orientation 单独设为 90°。 | 在一面验证预设 5 使游戏顺时针转动。640×360 的客户区截图中，战斗区域为 480×360，两侧各有约 80 像素壁纸。菜单设置为 90° 后与游戏同向。 |
+
+各游戏标题、旋转设置与一面实战原图保存在本机 `.local/v0107/xbox-portrait-20261127-232115/`。
 
 ### RTSS 屏显开启时进入 Death Label
 
@@ -73,6 +88,10 @@ Windows 上采集 Arcade 一面 Type-A 的连续 170 张画面，交替注入十
 等价封装回归使用同一份数据的 15 个程序。检查器接受了重新封装的样本，首次准备所得程序内容及资源修正与原始样本一致。原始文件的 SHA-256 在测试前后一致。证据在本机 `.local/v0107/cusa17078/`。
 
 ## PS4《大往生》联动 Death Label 的竖屏显示
+
+11 月 28 日将 Windows 主屏设为 3840×2160 横向，从 `4db6264` 候选包的启动器以全屏运行 PS4 01.04，两次均使用同一份原作左转 90° 的设置副本。Arcade 从 Direct Menu 进入，投币、选机，在一面左右移动并射击。另从 Direct Menu 进入 Death Label，完成选机、一面 Boss 战，并核对了 Game Over 后返回本篇的截图和宿主事件。菜单和两次实战均随原作左转。
+
+3840×2160 全屏截图中的 Death Label 战斗区域约为 2688×2016，符合宿主 1920×1080 画布中 1344×1008 的设定。按显示器竖放后的方向看，战斗区域约为 2016×2688，两侧各留约 72 像素，上下各留约 576 像素。本篇和 Death Label 的战斗区域对齐，本篇显示原作仪表盘，Death Label 在竖屏玩法中收起仪表盘。截图在本机 `.local/v0911/live-acceptance/daioujou/` 下的 `arcade-fullscreen-tate-1795797803499267400/` 和 `landscape-fullscreen-tate-1795797704107637900/`。
 
 **原作 TATE 的横向输出。** 在 Windows 保持纵向期间，另开 960×540 的横向测试窗口，将 PS4 01.04 设为左转 90°。Direct Menu 和 Arcade 标题画面均按原作设置左转，随后从 Direct Menu 进入 Death Label 完成选机并打到一面 Boss。宿主记录的战斗区域为 1344×1008（1920×1080 画布），居中且同样左转。显示器向相反方向物理转动后，这些画面即可正向观看。原图保存在本机 `.local/v0911/live-acceptance/daioujou/landscape-tate-1795795346630461300/` 和 `landscape-tate-1795795593835740300/`。本轮使用横向窗口验证方向，未切换 Windows 桌面设置。
 
